@@ -91,6 +91,6 @@ pip install colorama
 
 **construct** uses the following terms to mean specific aspects of a build. Understanding these will remove ambiguity in understanding the facilities that **construct** provides.
 
-|Term            | Meaning|
-----------------+|--------|
-|Build Methods   | **construct** provides a number of build methods that can be called inside your `sconscript` files. Methods such as `Build()`, `BuildTest()`, `BuildWith()` and so on. These are in addition to the methods already provided by Scons.|
+| Term             | Meaning   |
+| ---------------- | --------- |
+| Build Methods    | **construct** provides a number of build methods that can be called inside your `sconscript` files. Methods such as `Build()`, `BuildTest()`, `BuildWith()` and so on. These are in addition to the methods already provided by Scons. |
