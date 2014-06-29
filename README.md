@@ -147,7 +147,38 @@ pip install colorama
 env.**Build** *( target, source, final_dir=None, append_variant=False )*
 
 
+env.**Test** *( source, final_dir=None, data=None, append_variant=None, test_runner=None, expected='success' )*
+
+
 env.**BuildTest** *( target, source, final_dir=None, data=None, append_variant=None, test_runner=None, expected='success' )*
+
+
+env.**BuildWith** *( dependencies )*
+
+
+env.**BuildProfile** *( profiles )*
+
+
+env.**Use** *( dependency )*
+
+
+env.**CreateVersion** *( target, source, namespaces, version, location )
+
+
+### Variants
+
+
+### Toolchains
+
+
+### Platforms
+
+
+## Dependencies
+
+
+## Tutorial
+
 
 
 
