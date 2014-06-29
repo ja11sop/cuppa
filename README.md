@@ -12,6 +12,19 @@ and have Scons "do the right thing"; building targets for any `sconscript` files
 
 > Note: `-D` tells `scons` to look for an `sconstruct` file in the current or in parent directories and if it finds one execute the `sconscript` files as if called from that directory. This ensures everything works as expected. For more details refer to the [Scons documentation](http://www.scons.org/documentation.php)
 
+## Table of Contents
+
+  * [Quick Intro](#quick-intro)
+  * [Installation and Dependencies](#installation-and-dependencies)
+  * [Design Principles](#design-principles)
+  * [Reference](#reference)
+    * [Methods](#methods)
+      * [env.Build](#env.build)
+      * [env.Test](#env.test)
+      * [env.BuildTest](#env.buildtest)
+      * [env.BuildWith](#env.buildwith)
+  * [Supported Dependencies](#supported-dependencies)
+  * [Tutorial](#tutorial)
 
 ## Quick Intro
 
@@ -125,7 +138,7 @@ pip install colorama
   * provide a clear structure for extending the facilities offered by **construct**
   * provide a clear vocabulary for building projects
   * codify Scons best practices into **construct** itself so that users just need to call appropriate methods knowing that **construct** will do the right thing with their intent
-  * provide a framework that allows experts to focus on providing facilities for others to use. Write once, use everywhere. For example one person who know how best to make [boost](http://www.boost.org/) available as a dependency can manage that dependency and allow others to use it seamlessly.
+  * provide a framework that allows experts to focus on providing facilities for others to use. Write once, use everywhere. For example one person who knows how best to make [boost](http://www.boost.org/) available as a dependency can manage that dependency and allow others to use it seamlessly.
 
 
 ## Reference
@@ -142,18 +155,47 @@ pip install colorama
 | Variants and Actions | Variants and Actions allow the specification of a specific builds, such as debug and release builds. Actions allow additional actions to be taken for a build, such as executing tests and analysing code coverage. |
 | Toolchains           | Toolchains allow custom build settings for different toolchains making it easy to build for any available toolchain on a specific platform, or even different versions of the same underlying toolchain |
 
-### construct Methods
+### Construct
 
-env.**Build** *( target, source, final_dir=None, append_variant=False )*
+Creation of the `Construct` instance in your sconstruct file is used to start the build process. `Construct` is defined as follows:
+
+*class* construct.**Construct** *( base_path=os.path.abspath( '.' ), branch_root=os.path.abspath( '.' ), default_options=None, default_projects=None, default_variants=None, default_dependencies=None, default_profiles=None, default_test_runner=None, configure_callback=None )*
+
+*Overview*: 
+
+### Methods
+
+<a name="env.build"></a>env.**Build** *( target, source, final_dir=None, append_variant=False )*
+
+*Overview*: `env.Build()` performs the same task as `env.Program()` but with the additional beenfit of reporting progress and the ability to specify where the target is placed and named. 
+
+*Effects*: Builds the target from the sources specified writing the output as `target_name` where `target_name` is:
+
+```python
+target_name = os.path.join( final_dir, target, ( ( append_variant and env['variant'] != 'rel' ) and '_' + env['variant'] or '' ) )
+```
+
+In addition to adding dynamic libraries to the environment using:
+
+```python
+env.AppendUnique( DYNAMICLIBS = env['LIBS'] )
+```
+
+`Build()` essentially performs as:
+
+```python
+env.Program( target_name, source, LIBS = env['DYNAMICLIBS'] + env['STATICLIBS'], CPPPATH = env['SYSINCPATH'] + env['INCPATH'] )
+```
+
+It can do this because the build variants and toolchains have taken care to ensure that env is configured with the correct values in the variables referenced.
+
+<a name="env.test"></a>env.**Test** *( source, final_dir=None, data=None, append_variant=None, test_runner=None, expected='success' )*
 
 
-env.**Test** *( source, final_dir=None, data=None, append_variant=None, test_runner=None, expected='success' )*
+<a name="env.buildtest"></a>env.**BuildTest** *( target, source, final_dir=None, data=None, append_variant=None, test_runner=None, expected='success' )*
 
 
-env.**BuildTest** *( target, source, final_dir=None, data=None, append_variant=None, test_runner=None, expected='success' )*
-
-
-env.**BuildWith** *( dependencies )*
+<a name="env.buildwith"></a>env.**BuildWith** *( dependencies )*
 
 
 env.**BuildProfile** *( profiles )*
@@ -174,7 +216,7 @@ env.**CreateVersion** *( target, source, namespaces, version, location )*
 ### Platforms
 
 
-## Dependencies
+## Supported Dependencies
 
 
 ## Tutorial
