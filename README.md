@@ -162,7 +162,7 @@ env.**BuildProfile** *( profiles )*
 env.**Use** *( dependency )*
 
 
-env.**CreateVersion** *( target, source, namespaces, version, location )
+env.**CreateVersion** *( target, source, namespaces, version, location )*
 
 
 ### Variants
