@@ -1,6 +1,6 @@
 # construct
 
-A simple, extensible build system based as a *site_scons* site directory for [Scons](http://www.scons.org/). **construct** is designed to leverage the capabilities of Scons while allowing developers to focus on the task of describing what needs to be built. In general **construct** supports `make` like usage on the command-line. That is developers can simply write:
+A simple, extensible build system packaged as a *site_scons* site directory for [Scons](http://www.scons.org/). **construct** is designed to leverage the capabilities of Scons while allowing developers to focus on the task of describing what needs to be built. In general **construct** supports `make` like usage on the command-line. That is developers can simply write:
 
 ```sh
 scons -D
@@ -10,7 +10,7 @@ and have Scons "do the right thing"; building targets for any `sconscript` files
 
 **construct** is distributed as a `site_scons` directory allowing it to be effortlessly integrated into any Scons setup.
 
-> Note: `-D` tells `scons` to look for an `sconstuct` file in the current or in parent directories and if it finds one execute the `sconcsript` files as if called from that directory. This ensures everything works as expected. For more details refer to the [Scons documentation](http://www.scons.org/documentation.php)
+> Note: `-D` tells `scons` to look for an `sconstruct` file in the current or in parent directories and if it finds one execute the `sconscript` files as if called from that directory. This ensures everything works as expected. For more details refer to the [Scons documentation](http://www.scons.org/documentation.php)
 
 
 ## Quick Intro
@@ -55,7 +55,7 @@ To run this on the command-line we would write:
 scons -D --test
 ```
 
-If we only want to build and test *debug''* executables we can instead write this:
+If we only want to build and test *debug* executables we can instead write this:
 
 ```sh
 scons -D --dbg --test
@@ -121,7 +121,7 @@ pip install colorama
 **construct** has been written primarily to provide a clean and structured way to leverage the power of Scons without the usual problems of hugely complex `scontruct` files that diverge between projects. Key goals of **construct** are:
 
   * minimise the need for adding logic into `sconscript` files, keeping them as declarative as possible. 
-  * allow declarative `sconscripts` that are both much clearer and significantly simpler than the equivalent `make` file, without the need to learn a whole new scripting language like `make` or `cmake`.
+  * allow declarative `sconscript`s that are both much clearer and significantly simpler than the equivalent `make` file, without the need to learn a whole new scripting language like `make` or `cmake`.
   * provide a clear structure for extending the facilities offered by **construct**
   * provide a clear vocabulary for building projects
   * codify Scons best practices into **construct** itself so that users just need to call appropriate methods knowing that **construct** will do the right thing with their intent
@@ -141,3 +141,14 @@ pip install colorama
 | Profiles             | Profiles are a collection of build modifications that are commonly made to builds and might bring in one or more dependencies. Profiles provide an easy way to say, "I always do *this* with my builds" and make that available to others if you want to. |
 | Variants and Actions | Variants and Actions allow the specification of a specific builds, such as debug and release builds. Actions allow additional actions to be taken for a build, such as executing tests and analysing code coverage. |
 | Toolchains           | Toolchains allow custom build settings for different toolchains making it easy to build for any available toolchain on a specific platform, or even different versions of the same underlying toolchain |
+
+### construct Methods
+
+#### env.**Build**` *( target, source, final_dir=None, append_variant=False )*
+
+
+#### env.**BuildTest**` *( target, source, final_dir=None, data=None, append_variant=None, test_runner=None, expected='success' )*
+
+
+
+
