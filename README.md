@@ -144,10 +144,10 @@ pip install colorama
 
 ### construct Methods
 
-#### env.**Build**` *( target, source, final_dir=None, append_variant=False )*
+env.**Build** *( target, source, final_dir=None, append_variant=False )*
 
 
-#### env.**BuildTest**` *( target, source, final_dir=None, data=None, append_variant=None, test_runner=None, expected='success' )*
+env.**BuildTest** *( target, source, final_dir=None, data=None, append_variant=None, test_runner=None, expected='success' )*
 
 
 
