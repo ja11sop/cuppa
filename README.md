@@ -208,8 +208,18 @@ Construct(
 
 *Overview*: Constructs a `Construct` instance and starts the build process.
 
-*Effects*: Executes the build. 
+*Effects*: Executes the build using the defaults supplied. That is each `sconscript` file will be executed using the defaults specified in the `sconstruct` file. Passing options on the command-line will override any defaults specified here. If no `--scripts` or `--projects` are specified on the command-line `Construct` attempts to find and run `sconscript`s present in the lauch directory from where Scons was executed.
 
+| Argument | Usage |
+| ---------| ------|
+| `base_path` | You may override this to force a different base path other than the path where the `sconstruct` is located. You might want to do this to compensate for situations were your `sconstruct` file resides beside your project files in the filesystem. |
+| `branch_root` | In some project structures, for example those using subversion style folder branches, you may want to specify where your branch root is. The purpose of this would be to allow specification of full branch names when referencing other source code in your `sconstruct` files. For example, if you had project code that relied on a specific branch of shared code (using folder based branches as in subversion) you could refer to the branch explicitly in your `sconstrcut` file as an offset to the `branch_root`. |
+| `default_options` | `default_options` expects a dictionary of options. The allowable options are the same as the command-line options with the leading `--`. For example changing the default `build_root` from `.build` to `/tmp/builds` could be achieved by writing `default_options = { 'build-root': '/tmp/builds' }` |
+| `default_variants` | `default_variants` takes a list of variants, for example `[ 'dbg', 'rel', 'cov' ]`. By default the `dbg` and `rel` variants are built. If you only wanted to build release variants you might set `default_variants = ['rel']` for example. |
+| `default_dependencies` | `default_dependencies` takes a list of dependencies you want to always apply to the build environment and ensures that they are already applied for each build. You may pass the name of a supported dependency, such as `'boost'` or a *callable* object taking `( env, toolchain, variant )` as parameters. |
+| `default_profiles` | `default_profiles` takes a list of profiles you want to always apply to the build environment and ensures that they are already applied for each build. You may pass the name of a supported profile or a *callable* object taking `( env, toolchain, variant )` as parameters. |
+| `default_test_runner` | By default the `test_runner` used is `'process'` however you my specify your own test runner or use one of the other runners provided, such as `'boost'`. |
+| `configure_callback` | This allows you to specify a callback to be executed during part of a `configure` process. This callback should be any *callable* object that takes the following parameter `( configure_context )`. Refer to the [Scons Multi-Platform Configuration documentation](http://www.scons.org/doc/production/HTML/scons-user.html#chap-sconf) for details on how to make use of the `configure_context`. |
 
 
 ### Methods
