@@ -28,17 +28,23 @@ and have Scons "do the right thing"; building targets for any `sconscript` files
 
 ## Quick Intro
 
+### Sample `sconstruct` file
+
 A minimal `sconstruct` file using **construct** would look like this:
 
 ```python
-# Pull in all the Contruct goodies..
+# Pull in all the Construct goodies..
 from construct import Construct
 
 # Call sconscripts to do the work
 Construct()
 ```
 
-Creating the `Construct` instance starts the build process calling `sconscript` files. with an `sconscript` file possibly looking like this for a directory of programs to be built from associated source files:
+Creating the `Construct` instance starts the build process calling `sconscript` files.
+
+### Sample `sconscript` file
+
+Here is an example `sconscript` file that builds all *.cpp files in the directory where it resides:
 
 ```python
 Import( 'env' )
@@ -48,19 +54,19 @@ for Source in env.GlobFiles('*.cpp'):
     env.Build( Source[:-4], Source )
 ```
 
-The `Build()` method is provided by **construct** and doess essentially what `Program()` does but in addition is both toolchain and variant aware and further can provide notifications on progress.
+The `env.Build()` method is provided by **construct** and does essentially what `env.Program()` does but in addition is both toolchain and variant aware, and further can provide notifications on progress.
 
 If our `sconscript` file was for a directory containing *.cpp files that are actually tests then we could instead write the `sconscript` file as:
 
 ```python
 Import( 'env' )
 
-# Build all *.cpp source files as executables
+# Build all *.cpp source files as executables to be run as tests
 for Source in env.GlobFiles('*.cpp'):
     env.BuildTest( Source[:-4], Source )
 ```
 
-The `BuildTest()` method is provided by **construct** and builds the sources specified as `Build()` does. However, in addition passing `--test` on the command-line will also result in the executable produced being run by a `test_runner`. The default test runner simply treats each executable as a test case and each directory or executables as a test suite. If the process executes cleanly the test passed, if not it failed.
+The `env.BuildTest()` method is provided by **construct** and builds the sources specified as `env.Build()` does. However, in addition, passing `--test` on the command-line will also result in the executable produced being run by a **test_runner**. The default test runner simply treats each executable as a test case and each directory or executables as a test suite. If the process executes cleanly the test passed, if not it failed.
 
 To run this on the command-line we would write:
 
@@ -91,7 +97,7 @@ Construct(
 )
 ```
 
-This will automatically ensure that necessary includes are other compile options are set for the boost version that is found at `boost-home`. If you need to link against specific boost libraries this can also be done in the sconscript file as follows:
+This will automatically ensure that necessary includes and other compile options are set for the boost version that is found at `boost-home`. If you need to link against specific boost libraries this can also be done in the sconscript file as follows:
 
 ```python
 Import('env')
@@ -125,7 +131,7 @@ No installation is required to use **construct**: simple download or pull a bran
 
 There are no dependencies for **construct** other than Scons itself, however if you want to make use of the colourisation you should install the python package [colorama](https://pypi.python.org/pypi/colorama). For example you might do:
 
-```sh
+```
 pip install colorama
 ```
 
@@ -155,25 +161,81 @@ pip install colorama
 | Variants and Actions | Variants and Actions allow the specification of a specific builds, such as debug and release builds. Actions allow additional actions to be taken for a build, such as executing tests and analysing code coverage. |
 | Toolchains           | Toolchains allow custom build settings for different toolchains making it easy to build for any available toolchain on a specific platform, or even different versions of the same underlying toolchain |
 
+### Construct Command-line Options
+
+```
+  --raw-output                Disable output processing like colourisation of
+                                output
+  --standard-output           Perform standard output processing but not
+                                colourisation of output
+  --minimal-output            Show only errors and warnings in the output
+  --ignore-duplicates         Do not show repeated errors or warnings
+  --projects=PROJECTS         Projects to build (alias for scripts)
+  --scripts=SCRIPTS           Sconscripts to run
+  --configure                 Store the current passed custom options as
+                                defaults in a configuration file
+  --thirdparty=DIR            Thirdparty directory
+  --build-root=BUILD_ROOT     The root directory for build output. If not
+                                specified then .build is used
+  --test-runner=TEST_RUNNER   The test runner to use for executing tests. The
+                                default is the process test runner
+
+  --cov                       Build an instrumented binary
+  --dbg                       Build a debug binary
+  --rel                       Build a release (optimised) binary
+  --test                      Run the binary as a test
+  --toolchain=TOOLCHAIN       The Toolchain we are using
+  --scm=SCM                   The Source Control Management System we are
+                                using
+```
+
 ### Construct
 
 Creation of the `Construct` instance in your sconstruct file is used to start the build process. `Construct` is defined as follows:
 
-*class* construct.**Construct** *( base_path=os.path.abspath( '.' ), branch_root=os.path.abspath( '.' ), default_options=None, default_projects=None, default_variants=None, default_dependencies=None, default_profiles=None, default_test_runner=None, configure_callback=None )*
+```python
+Construct(
+        base_path            = os.path.abspath( '.' ), 
+        branch_root          = os.path.abspath( '.' ), 
+        default_options      = None, 
+        default_projects     = None, 
+        default_variants     = None, 
+        default_dependencies = None, 
+        default_profiles     = None, 
+        default_test_runner  = None,
+        configure_callback   = None )
+```
 
-*Overview*: 
+*Overview*: Constructs a `Construct` instance and starts the build process.
+
+*Effects*: Executes the build. 
+
+
 
 ### Methods
 
-<a name="env.build"></a>env.**Build** *( target, source, final_dir=None, append_variant=False )*
+#### env.`Build`
+
+```python
+env.Build( 
+        target, 
+        source, 
+        final_dir = None, 
+        append_variant = False )
+```
 
 *Overview*: `env.Build()` performs the same task as `env.Program()` but with the additional beenfit of reporting progress and the ability to specify where the target is placed and named. 
 
 *Effects*: Builds the target from the sources specified writing the output as `target_name` where `target_name` is:
 
 ```python
-target_name = os.path.join( final_dir, target, ( ( append_variant and env['variant'] != 'rel' ) and '_' + env['variant'] or '' ) )
+target_name = os.path.join( 
+         final_dir, 
+         target, 
+         ( ( append_variant and env['variant'] != 'rel' ) and '_' + env['variant'] or '' ) 
+)
 ```
+If `final_dir` is not specified then it is `../final`, relative to the working directory
 
 In addition to adding dynamic libraries to the environment using:
 
@@ -181,33 +243,103 @@ In addition to adding dynamic libraries to the environment using:
 env.AppendUnique( DYNAMICLIBS = env['LIBS'] )
 ```
 
-`Build()` essentially performs as:
+`env.Build()` essentially performs as:
 
 ```python
-env.Program( target_name, source, LIBS = env['DYNAMICLIBS'] + env['STATICLIBS'], CPPPATH = env['SYSINCPATH'] + env['INCPATH'] )
+env.Program( 
+        target_name, 
+        source, 
+        LIBS = env['DYNAMICLIBS'] + env['STATICLIBS'], 
+        CPPPATH = env['SYSINCPATH'] + env['INCPATH'] 
+)
 ```
 
 It can do this because the build variants and toolchains have taken care to ensure that env is configured with the correct values in the variables referenced.
 
-<a name="env.test"></a>env.**Test** *( source, final_dir=None, data=None, append_variant=None, test_runner=None, expected='success' )*
+
+#### env.`Test`
+
+```python
+env.Test( 
+        source, 
+        final_dir = None, 
+        data = None, 
+        test_runner = None, 
+        expected = 'success' )
+```
+
+*Overview*: Uses the specified `test_runner` to execute `source` as a test using any `data` provided. The `test_runner` can report on the progress of the test with respect to the `expected` outcome.
+
+*Example*:
+
+```python
+Import('env')
+test_program = env.Build( 'my_program', [ 'main.cpp', 'utility.cpp' ] )
+env.Test( test_program )
+```
+
+*Effects*: The `test_runner` will be used to execute the `source` program with any supplied `data` treated as a source dependency for the target test outcome from running the test. Any output from the test will be placed in `final_dir`.
 
 
-<a name="env.buildtest"></a>env.**BuildTest** *( target, source, final_dir=None, data=None, append_variant=None, test_runner=None, expected='success' )*
+#### env.`BuildTest`
+```python
+env.BuildTest( 
+       target, 
+       source, 
+       final_dir = None, 
+       data = None, 
+       append_variant = None, 
+       test_runner = None, 
+       expected = 'success' )
+```
+
+*Overview*: Builds the target from the specified sources and allows it to be executed as a test.
+
+*Effects*: As if:
+```python
+program = env.Build( target, sources )
+env.Test( program )
+```
 
 
-<a name="env.buildwith"></a>env.**BuildWith** *( dependencies )*
+#### env.`BuildWith`
+```python
+env.BuildWith( dependencies )
+```
+
+*Overview*: Updates the current `env` with any modifications required to allow the build to work with the given `dependencies`.
+
+*Effects*: `env` will be updated with all variable and method updates provided by each `dependency` in `dependencies`.
+
+#### env.`BuildProfile`
+```python
+env.BuildProfile( profiles )
+```
+*Overview*: Updates the current `env` with any modifications specified in the `profiles` listed.
+
+*Effects*: `env` will be updated as dictated by each `profile` in `profiles`.
 
 
-env.**BuildProfile** *( profiles )*
+#### env.`Use`
+```python
+env.Use( dependency )
+```
 
 
-env.**Use** *( dependency )*
-
-
-env.**CreateVersion** *( target, source, namespaces, version, location )*
+#### env.`CreateVersion`
+```python
+env.CreateVersion( target, source, namespaces, version, location )
+```
 
 
 ### Variants
+
+#### `dbg` - Debug
+
+#### `rel` - Release
+
+#### `cov` - Coverage
+
 
 
 ### Toolchains
