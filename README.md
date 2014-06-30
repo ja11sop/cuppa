@@ -31,7 +31,7 @@ and have Scons "do the right thing"; building targets for any `sconscript` files
       * [env.CreateVersion](#envcreateversion)
     * [Variants](#variants)
       * [dbg - Debug](#dbg---debug)
-      * [rel - Rlease](#rel---release)
+      * [rel - Release](#rel---release)
       * [cov - Coverage](#cov---coverage)
     * [Toolchains](#toolchains)
     * [Platforms](#platforms)
