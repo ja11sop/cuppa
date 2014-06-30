@@ -25,6 +25,7 @@ and have Scons "do the right thing"; building targets for any `sconscript` files
       * [env.Build](#envbuild)
       * [env.Test](#envtest)
       * [env.BuildTest](#envbuildtest)
+      * [env.Compile](#envcompile)
       * [env.BuildWith](#envbuildwith)
       * [env.BuildProfile](#envbuildprofile)
       * [env.Use](#envuse)
@@ -325,6 +326,20 @@ env.Test( program )
 ```
 
 
+#### env.`Compile`
+```python
+env.Compile( sources )
+```
+
+*Overview*: Compile the specified `sources` into object files.
+
+*Effects*: Returns `objects` nodes that represent the outcome of compiling the specified `sources`. As if:
+```python
+objects = env.Object( sources, CPPPATH = env['SYSINCPATH'] + env['INCPATH'] )
+```
+Typically `env.Compile()` is not needed and instead you should directly use `env.Build()` to directly produce the required program or library being built. However in some cases, such as when using `env.CreateVersion()` you need to break dependency cycles and then `env.Compile()` is needed.
+
+
 #### env.`BuildWith`
 ```python
 env.BuildWith( dependencies )
@@ -347,13 +362,105 @@ env.BuildProfile( profiles )
 ```python
 env.Use( dependency )
 ```
+*Overview*: Updates the current `env` with specified `dependency`.
+
+*Effects*: `env` will be updated as per the `dependency`. 
 
 
 #### env.`CreateVersion`
 ```python
-env.CreateVersion( target, source, namespaces, version, location )
+env.CreateVersion( version_file, sources, namespaces, version, location )
 ```
 
+*Overview*: Creates a version cpp and hpp file that can be included in other files in your project while ensuring dependencies between files are correctly handled and that the cpp file is built correctly.
+
+*Effects*: Creates a `version_file` and a header file for the target file that depends on `sources`. The version file will have a class `identity` nested inside `namespaces` with an interface as follows:
+
+```
+#ifndef INCLUDED__FIRST__SECOND__N_BUILD_GENERATED_VERSION_HPP
+#define INCLUDED__FIRST__SECOND__N_BUILD_GENERATED_VERSION_HPP
+
+namespace _first {
+namespace _second {
+namespace _n {
+
+class identity
+{
+public:
+
+    typedef std::string                             string_t;
+    typedef std::vector< string_t >                 revisions_t;
+
+private:
+
+    struct dependency
+    {
+        string_t       name;
+        string_t       version;
+        revisions_t    revisions;
+    };
+
+public:
+
+    typedef dependency                              dependency_t;
+    typedef std::map< string_t, dependency >        dependencies_t;
+
+public:
+
+    static const char* const        product_version();
+    static const char* const        product_revision();
+    static const char* const        build_variant();
+    static const char* const        build_time();
+    static const char* const        build_user();
+    static const char* const        build_host();
+    static const dependencies_t&    dependencies();
+    static const char* const        report();
+};
+
+} // end namespace _n
+} // end namespace _second
+} // end namespace _first
+
+#endif
+```
+
+The `version` provided is used to populate the result of `product_version()` method and the `location` is used to specify what directories should be read to determine revision information based on the source control method used. For example if the source under `location` is from a subversion repository the `revision()` method will return the revision number of the source code. In addition to details about the build system are also included as well as the time of the build and the build variant, such as debug or release. The `report()` method provide a single string containing all the information.
+
+Typically `env.CreateVersion()` is used with the `env.Compile()` method to allow dependencie between intermediate objects to be established as shown in the example that follows.
+
+*Example*:
+```python
+Import('env')
+
+Version = "Product 00.01.00"
+
+Sources = [
+    'main.cpp',
+]
+
+# We add this intermediary step to get the nodes representing the objects after compilation so that
+# we can make the version file depend on this. Otherwise we could pass the source files directly to
+# the Build() method
+ProductObjects = env.Compile( Sources )
+
+# If anything in the application changes we want a new version file with new build times and so on.
+# We therefore make the version fiel depend on the result of compiling all our sources apart from the
+# version file itself. This ensures that changes that cause the source to recompile will also cause
+# the version file to be recompiled.
+VersionFile = env.CreateVersion(
+    'version.cpp',              # The name of the version file. This will be in the current directory
+    ProductObjects,             # What the version file depends on
+    ['company', 'product'],     # The namespaces that should be used to nest the version info in
+    Version,                    # The product version string
+    env['base_path']            # The location below which all revision information should be gathered
+                                # in this case basically all source from sconsctuct and below
+)
+
+# The program itself will depend on all objects and the version file
+Objects = ProductObjects + VersionFile
+
+env.Build( 'product_name', Objects )
+```
 
 ### Variants
 
