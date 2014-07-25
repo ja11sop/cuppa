@@ -11,7 +11,7 @@
 import sconscript_progress
 from SCons.Script import Flatten
 
-class TestMethod:
+class TestMethod(object):
 
     def __init__( self, toolchain, default_test_runner=None ):
         self._toolchain = toolchain
@@ -25,16 +25,17 @@ class TestMethod:
             test_runner = self._default_test_runner
         test_builder, test_emitter = self._toolchain.test_runner( test_runner, final_dir, expected )
 
-        env.AppendUnique( BUILDERS = {
-            'Test' : env.Builder( action=test_builder, emitter=test_emitter )
-        } )
+        env['BUILDERS']['TestBuilder'] = env.Builder( action=test_builder, emitter=test_emitter )
 
         sources = source
         if data:
             sources = Flatten( [ source, data ] )
 
-        test = env.Test( [], sources )
+        test = env.TestBuilder( [], sources )
         sconscript_progress.SconscriptProgress.add( env, test )
+
+        return test
+
 
 
     @classmethod

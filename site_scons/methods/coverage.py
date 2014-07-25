@@ -8,21 +8,34 @@
 #   CoverageMethod
 #-------------------------------------------------------------------------------
 
-class CoverageMethod:
+from SCons.Script   import File, Flatten
+
+import sconscript_progress
+
+
+class CoverageMethod(object):
 
     def __init__( self, toolchain ):
         self.__toolchain = toolchain
 
 
-    def __call__( self, env, source, final_dir ):
-        coverage_builder = self.__toolchain.coverage_builder()
-        coverage_emitter = self.__toolchain.coverage_emitter( final_dir )
+    def __call__( self, env, program, sources, final_dir=None ):
+        if final_dir == None:
+            final_dir = env['final_dir']
 
-        env.AppendUnique( BUILDERS = {
-            'Coverage' : env.Builder( action=coverage_builder, emitter=coverage_emitter )
-        } )
+        emitter, builder = self.__toolchain.coverage_runner( program, final_dir )
 
-        env.Coverage( [], source )
+        env['BUILDERS']['CoverageBuilder'] = env.Builder( action=builder, emitter=emitter )
+
+#        for s in Flatten( [ sources ] ):
+#            coverage = env.CoverageBuilder( [], [s] )
+#            sconscript_progress.SconscriptProgress.add( env, coverage )
+
+#        for s in Flatten( [ sources ] ):
+        coverage = env.CoverageBuilder( [], Flatten( [ sources ] ) )
+        sconscript_progress.SconscriptProgress.add( env, coverage )
+        return coverage
+
 
     @classmethod
     def add_to_env( cls, args ):

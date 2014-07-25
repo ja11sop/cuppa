@@ -15,6 +15,18 @@ import re
 import time
 import imp
 import threading
+import shlex
+
+
+
+def command_available( command ):
+    try:
+        with open(os.devnull) as devnull:
+            subprocess.Popen( shlex.split( command ), stdout=devnull, stderr=devnull ).communicate()
+    except OSError as e:
+        if e.errno == os.errno.ENOENT:
+            return False
+    return True
 
 
 

@@ -22,10 +22,11 @@ class BuildMethod:
         if append_variant and env['variant'] != 'rel':
             exe += '_' + env['variant']
         env.AppendUnique( DYNAMICLIBS = env['LIBS'] )
+
         program = env.Program( exe,
                                source,
-                               LIBS = env['DYNAMICLIBS'] + env['STATICLIBS'],
-                               CPPPATH = env['SYSINCPATH'] + env['INCPATH'] )
+                               CPPPATH = env['SYSINCPATH'] + env['INCPATH'],
+                               LIBS = env['DYNAMICLIBS'] + env['STATICLIBS'] )
 
         sconscript_progress.SconscriptProgress.add( env, program )
 
@@ -33,7 +34,7 @@ class BuildMethod:
 
 
     def __call__( self, env, target, source, final_dir = None, append_variant = False ):
-        return self.build( env, target, source, final_dir, append_variant )
+        return self.build( env, target, source, final_dir=final_dir, append_variant=append_variant )
 
 
     @classmethod

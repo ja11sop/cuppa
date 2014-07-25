@@ -178,12 +178,8 @@ class Gcc:
         return [ 'process', 'boost' ]
 
 
-    def coverage_builder( self ):
-        return RunGcovCoverage()
-
-
-    def coverage_emitter( self, final_dir ):
-        return RunGcovCoverageEmitter( final_dir )
+    def coverage_runner( self, program, final_dir ):
+        return RunGcovCoverageEmitter( program, final_dir ), RunGcovCoverage( program, final_dir )
 
 
     def __get_gcc34_toolchain( self, toolchain ):

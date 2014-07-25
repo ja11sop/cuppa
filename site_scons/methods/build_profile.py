@@ -24,7 +24,7 @@ class BuildProfileMethod:
                     profile = env['profiles'][name]
             else:
                 name = str( profile )
-#            print "Call BuildProfile [" + name + "]"
+
             env.AppendUnique( BUILD_PROFILE = name )
             profile( env, env['toolchain'], env['variant'].name() )
 

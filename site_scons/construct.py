@@ -347,7 +347,7 @@ class Construct(object):
         for key, action in specified_actions.items():
             if key not in available_variants:
                 active_actions[ key ] = action
-            elif key == variant:
+            elif key == variant.name():
                 active_actions[ key ] = action
 
         return active_actions
@@ -456,9 +456,9 @@ class Construct(object):
 
             cloned_env['sconscript_file'] = sconscript_file
             cloned_env['sconscript_dir']  = os.path.join( env['base_path'], sconstruct_offset_path )
-            cloned_env['build_dir']       = build_root + '/' + path_without_ext + '/' + variant + '/working/'
+            cloned_env['build_dir']       = os.path.normpath( os.path.join( build_root, path_without_ext, variant, 'working', '' ) )
             cloned_env['offset_dir']      = sconstruct_offset_path
-            cloned_env['final_dir']       = '../final/'
+            cloned_env['final_dir']       = '..' + os.path.sep + 'final' + os.path.sep
 
             cloned_env.AppendUnique( INCPATH = [ cloned_env['build_dir'] ] )
 

@@ -18,12 +18,14 @@ class BuildTestMethod:
 
     def __call__( self, env, target, source, final_dir=None, data=None, append_variant=None, test_runner=None, expected='success' ):
         program = env.Build( target, source, final_dir=final_dir, append_variant=append_variant )
-        if env['variant_actions'].has_key('test'):
+        if env['variant_actions'].has_key('test') or env['variant_actions'].has_key('cov'):
             if not test_runner:
                 test_runner = self._default_test_runner
+
             env.Test( program, final_dir=final_dir, data=data, test_runner=test_runner, expected=expected )
-            if env['variant_actions'].has_key('coverage'):
-                env.Coverage( program, final_dir=final_dir )
+            if 'cov' in env['variant_actions']:
+                env.Coverage( program, source, final_dir=final_dir )
+
         return program
 
 

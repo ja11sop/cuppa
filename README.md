@@ -30,10 +30,11 @@ and have Scons "do the right thing"; building targets for any `sconscript` files
       * [env.BuildProfile](#envbuildprofile)
       * [env.Use](#envuse)
       * [env.CreateVersion](#envcreateversion)
-    * [Variants](#variants)
+    * [Variants and Actions](#variants-and-actions)
       * [dbg - Debug](#dbg---debug)
       * [rel - Release](#rel---release)
       * [cov - Coverage](#cov---coverage)
+      * [test - Test](#test---test)
     * [Toolchains](#toolchains)
     * [Platforms](#platforms)
   * [Supported Dependencies](#supported-dependencies)
@@ -438,22 +439,26 @@ Sources = [
     'main.cpp',
 ]
 
-# We add this intermediary step to get the nodes representing the objects after compilation so that
-# we can make the version file depend on this. Otherwise we could pass the source files directly to
-# the Build() method
+# We add this intermediary step to get the nodes representing the objects 
+# after compilation so that we can make the version file depend on this. 
+# Otherwise we could pass the source files directly to the Build() method
 ProductObjects = env.Compile( Sources )
 
-# If anything in the application changes we want a new version file with new build times and so on.
-# We therefore make the version fiel depend on the result of compiling all our sources apart from the
-# version file itself. This ensures that changes that cause the source to recompile will also cause
-# the version file to be recompiled.
+# If anything in the application changes we want a new version file with 
+# new build times and so on. We therefore make the version file depend 
+# on the result of compiling all our sources apart from the version file 
+# itself. This ensures that changes that cause the source to recompile will
+# also cause the version file to be recompiled.
 VersionFile = env.CreateVersion(
-    'version.cpp',              # The name of the version file. This will be in the current directory
-    ProductObjects,             # What the version file depends on
-    ['company', 'product'],     # The namespaces that should be used to nest the version info in
-    Version,                    # The product version string
-    env['base_path']            # The location below which all revision information should be gathered
-                                # in this case basically all source from sconsctuct and below
+    'version.cpp',              # The name of the version file. This will be 
+                                # in the current directory.
+    ProductObjects,             # What the version file depends on.
+    ['company', 'product'],     # The namespaces that should be used to nest 
+                                # the version info in.
+    Version,                    # The product version string.
+    env['base_path']            # The location below which all revision information 
+                                # should be gathered in this case basically all source 
+                                # from sconsctuct and below
 )
 
 # The program itself will depend on all objects and the version file
@@ -462,14 +467,23 @@ Objects = ProductObjects + VersionFile
 env.Build( 'product_name', Objects )
 ```
 
-### Variants
+### Variants and Actions
 
 #### `dbg` - Debug
 
+Specifies the creation of a debug variant of the build. Usually including debug symbols, no optimisations and so on. What exactly is done depends on the toolchain and normal settings for it.
+
 #### `rel` - Release
+
+Specifies the creation of a release variant of the build. Usually with full optimisations turned on. What exactly is done depends on the toolchain and normal settings for it.
 
 #### `cov` - Coverage
 
+Specifies the creation of an instrumented variant of the build which would allows coverage metrics to be gathered when the program is run. Usually including debug symbols this typically produces a fully instrumented build so that metrics can be obtained.
+
+#### `test` - Test
+
+The `test` variant does not actually produce an output directly. Instead it 
 
 
 ### Toolchains
