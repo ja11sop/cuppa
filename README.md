@@ -106,8 +106,8 @@ Construct(
     default_options = {
          'boost-home': '<Location of Boost>'
     },
-    default_dependencies = [ 
-        'boost' 
+    default_dependencies = [
+        'boost'
     ]
 )
 ```
@@ -154,7 +154,7 @@ pip install colorama
 
 **construct** has been written primarily to provide a clean and structured way to leverage the power of Scons without the usual problems of hugely complex `scontruct` files that diverge between projects. Key goals of **construct** are:
 
-  * minimise the need for adding logic into `sconscript` files, keeping them as declarative as possible. 
+  * minimise the need for adding logic into `sconscript` files, keeping them as declarative as possible.
   * allow declarative `sconscript`s that are both much clearer and significantly simpler than the equivalent `make` file, without the need to learn a whole new scripting language like `make` or `cmake`.
   * provide a clear structure for extending the facilities offered by **construct**
   * provide a clear vocabulary for building projects
@@ -210,13 +210,13 @@ Creation of the `Construct` instance in your sconstruct file is used to start th
 
 ```python
 Construct(
-        base_path            = os.path.abspath( '.' ), 
-        branch_root          = os.path.abspath( '.' ), 
-        default_options      = None, 
-        default_projects     = None, 
-        default_variants     = None, 
-        default_dependencies = None, 
-        default_profiles     = None, 
+        base_path            = os.path.abspath( '.' ),
+        branch_root          = os.path.abspath( '.' ),
+        default_options      = None,
+        default_projects     = None,
+        default_variants     = None,
+        default_dependencies = None,
+        default_profiles     = None,
         default_test_runner  = None,
         configure_callback   = None )
 ```
@@ -242,22 +242,22 @@ Construct(
 #### env.`Build`
 
 ```python
-env.Build( 
-        target, 
-        source, 
-        final_dir = None, 
+env.Build(
+        target,
+        source,
+        final_dir = None,
         append_variant = False )
 ```
 
-*Overview*: `env.Build()` performs the same task as `env.Program()` but with the additional beenfit of reporting progress and the ability to specify where the target is placed and named. 
+*Overview*: `env.Build()` performs the same task as `env.Program()` but with the additional beenfit of reporting progress and the ability to specify where the target is placed and named.
 
 *Effects*: Builds the target from the sources specified writing the output as `target_name` where `target_name` is:
 
 ```python
-target_name = os.path.join( 
-         final_dir, 
-         target, 
-         ( ( append_variant and env['variant'] != 'rel' ) and '_' + env['variant'] or '' ) 
+target_name = os.path.join(
+         final_dir,
+         target,
+         ( ( append_variant and env['variant'] != 'rel' ) and '_' + env['variant'] or '' )
 )
 ```
 If `final_dir` is not specified then it is `../final`, relative to the working directory
@@ -271,11 +271,11 @@ env.AppendUnique( DYNAMICLIBS = env['LIBS'] )
 `env.Build()` essentially performs as:
 
 ```python
-env.Program( 
-        target_name, 
-        source, 
-        LIBS = env['DYNAMICLIBS'] + env['STATICLIBS'], 
-        CPPPATH = env['SYSINCPATH'] + env['INCPATH'] 
+env.Program(
+        target_name,
+        source,
+        LIBS = env['DYNAMICLIBS'] + env['STATICLIBS'],
+        CPPPATH = env['SYSINCPATH'] + env['INCPATH']
 )
 ```
 
@@ -285,11 +285,11 @@ It can do this because the build variants and toolchains have taken care to ensu
 #### env.`Test`
 
 ```python
-env.Test( 
-        source, 
-        final_dir = None, 
-        data = None, 
-        test_runner = None, 
+env.Test(
+        source,
+        final_dir = None,
+        data = None,
+        test_runner = None,
         expected = 'success' )
 ```
 
@@ -308,13 +308,13 @@ env.Test( test_program )
 
 #### env.`BuildTest`
 ```python
-env.BuildTest( 
-       target, 
-       source, 
-       final_dir = None, 
-       data = None, 
-       append_variant = None, 
-       test_runner = None, 
+env.BuildTest(
+       target,
+       source,
+       final_dir = None,
+       data = None,
+       append_variant = None,
+       test_runner = None,
        expected = 'success' )
 ```
 
@@ -365,7 +365,7 @@ env.Use( dependency )
 ```
 *Overview*: Updates the current `env` with specified `dependency`.
 
-*Effects*: `env` will be updated as per the `dependency`. 
+*Effects*: `env` will be updated as per the `dependency`.
 
 
 #### env.`CreateVersion`
@@ -439,25 +439,25 @@ Sources = [
     'main.cpp',
 ]
 
-# We add this intermediary step to get the nodes representing the objects 
-# after compilation so that we can make the version file depend on this. 
+# We add this intermediary step to get the nodes representing the objects
+# after compilation so that we can make the version file depend on this.
 # Otherwise we could pass the source files directly to the Build() method
 ProductObjects = env.Compile( Sources )
 
-# If anything in the application changes we want a new version file with 
-# new build times and so on. We therefore make the version file depend 
-# on the result of compiling all our sources apart from the version file 
+# If anything in the application changes we want a new version file with
+# new build times and so on. We therefore make the version file depend
+# on the result of compiling all our sources apart from the version file
 # itself. This ensures that changes that cause the source to recompile will
 # also cause the version file to be recompiled.
 VersionFile = env.CreateVersion(
-    'version.cpp',              # The name of the version file. This will be 
+    'version.cpp',              # The name of the version file. This will be
                                 # in the current directory.
     ProductObjects,             # What the version file depends on.
-    ['company', 'product'],     # The namespaces that should be used to nest 
+    ['company', 'product'],     # The namespaces that should be used to nest
                                 # the version info in.
     Version,                    # The product version string.
-    env['base_path']            # The location below which all revision information 
-                                # should be gathered in this case basically all source 
+    env['base_path']            # The location below which all revision information
+                                # should be gathered in this case basically all source
                                 # from sconsctuct and below
 )
 
@@ -479,23 +479,97 @@ Specifies the creation of a release variant of the build. Usually with full opti
 
 #### `cov` - Coverage
 
-Specifies the creation of an instrumented variant of the build which would allows coverage metrics to be gathered when the program is run. Usually including debug symbols this typically produces a fully instrumented build so that metrics can be obtained.
+Specifies the creation of an instrumented variant of the build which allows coverage metrics to be gathered when the program is run. Usually including debug symbols this typically produces a fully instrumented build so that metrics can be obtained. Depending on the toolchain and coverage summariser used HTML or XML coverage output can be produced.
+
+In order for the coverage to be determined for a given build target the program must be executed and therefore specifying `--cov` implies `--test`. To indicated that a build target is executable it should be built with the `BuildTest()` method. If only `Build()` is used then intermediate instrumented files will be produced, but the target will not be executed and no coverage data will be generated.
 
 #### `test` - Test
 
-The `test` variant does not actually produce an output directly. Instead it 
-
+The `test` variant does not actually produce an output directly. Instead it executes any target build using the `BuildTest()` method. The `test_runner` specified in the call to `BuildTest()` (or the default if none is specified) is used to execute the target and interpret success or failure.
 
 ### Toolchains
+
+The following toolchains are currently supported:
+
+| Toolchain | Description |
+| ----------| ------------|
+| `gcc34` | g++ 3.4 |
+| `gcc40` | g++ 4.0 |
+| `gcc41` | g++ 4.1 |
+| `gcc42` | g++ 4.2 |
+| `gcc43` | g++ 4.3 |
+| `gcc44` | g++ 4.4 |
+| `gcc45` | g++ 4.5 |
+| `gcc46` | g++ 4.6 |
+| `gcc47` | g++ 4.7 |
+| `gcc48` | g++ 4.8 |
+| `gcc49` | g++ 4.9 |
 
 
 ### Platforms
 
+The following platforms are supported:
+
+  * Linux
 
 ## Supported Dependencies
 
+In order to make use of a dependency in your code it must both exist and be added to the current environment. Typically a dependency is created by indicating a version or location of the dependency. It is up to each dependency how they interpret this information. To then use the dependency you can either make it a default dependency by passing it as a list member to the `default_dependencies` argument to `Construct` or by using the `BuildWith()` or `Use()` methods.
 
-## Tutorial
+### `boost`
+
+The `boost` dependency simplifies the use of the [Boost C++ Libraries](http://www.boost.org).
+
+#### Options
+
+The dependency provides the following options to specify which Boost source tree you wish to build against.
+
+| Option | Description |
+| -------| ------------|
+| `--boost-home` | Use this option to specify the location of your Boost source tree which contains the Boost `boost` and `lib` folders. For example if you downloaded Boost 1.55 and extracted it to `~/boost/boost_1_55` so that `boost` and `lib` are in that folder then you can make boost available to your builds by specifying `--boost-home=~/boost/boost_1_55` on the command-line |
+| `--boost-version` | If you specified a `--thirdparty` option then you can use `--boost-version` to indicate that you want to build with a particular version of boost under the `thirdparty` folder. The version should be in the format `major_minor` for example to specify using boost version 1.55 you would write `--boost-version=1_55`. The boost dependency then tries to find a matching version of Boost under the `thirdparty` folder. |
+
+#### Build Methods
+
+This dependency provides the following additional build methods to make using Boost easier.
+
+| Method | Description |
+| ------ | ----------- |
+| `BoostStaticLibrary` | Specifies a Boost library to lazily build for statically linking against. The library is specified using the library name. For example, to create a static version of the Boost.thread library for statically linking against you would write, `BoostStaticLibrary( 'thread' )`. For more details see [BoostStaticLibrary](#booststaticlibrary). |
+| `BoostSharedLibrary` | Specifies a Boost library to lazily build for dynamically linking against. The library is specified using the library name. For example, to create a shared (dynamic) version of the Boost.thread library for dynamically linking against you would write, `BoostSharedLibrary( 'thread' )`. For more details see [BoostSharedLibrary](#boostsharedlibrary). |
+
+It is important to note that these methods return a node representing the built library. To link against the library you need to append the library to the environment's `STATICLIBS` or `DYNAMICLIBS` as appropriate.
+
+Calling either `BoostStaticLibrary` or `BoostSharedLibrary` will automatically imply `BuildWith( ['boost'] )` if `boost` has not already been added as a dependency.
+
+##### `BoostStaticLibrary`
+
+Use this method to specify a Boost library that you want to link statically with your application. For example, if you want to use Boost.System and Boost.Thread you would add this to your `sconscript` file:
+
+```python
+env.AppendUnique( STATICLIBS = [
+    env.BoostStaticLibrary( 'system' ),
+    env.BoostStaticLibrary( 'thread' )
+] )
+```
+
+This is all that is required to ensure that the libraries are built correctly and linked with your target.
+
+##### `BoostSharedLibrary`
+
+Use this method to specify a Boost library that you want to link statically with your application. For example, if you want to use Boost.Coroutine and Boost.Chrono you would add this to your `sconscript` file:
+
+```python
+env.AppendUnique( DYNAMICLIBS = [
+    env.BoostSharedLibrary( 'system' ),
+    env.BoostSharedLibrary( 'chrono' ),
+    env.BoostSharedLibrary( 'coroutine' ),
+    env.BoostSharedLibrary( 'context' )
+] )
+```
+
+This is all that is required to ensure that the libraries are built correctly and linked with your target. It is important to note this will also "Do The Right Thing" in the presence of existing Boost installations. In other words this will pick up the correct shared library.
+
 
 
 
