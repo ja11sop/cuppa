@@ -540,7 +540,7 @@ This dependency provides the following additional build methods to make using Bo
 
 It is important to note that these methods return a node representing the built library. To link against the library you need to append the library to the environment's `STATICLIBS` or `DYNAMICLIBS` as appropriate.
 
-Calling either `BoostStaticLibrary` or `BoostSharedLibrary` will automatically imply `BuildWith( ['boost'] )` if `boost` has not already been added as a dependency.
+> Note: Calling either `BoostStaticLibrary` or `BoostSharedLibrary` will automatically imply `BuildWith( ['boost'] )` if `boost` has not already been added as a dependency.
 
 ##### `BoostStaticLibrary`
 
