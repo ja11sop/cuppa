@@ -255,7 +255,8 @@ class BoostLibraryAction:
 
 
     def __build_command( self, toolchain, library, variant, linktype, stage_dir ):
-        command_line = './bjam --with-' + library + ' variant=' + variant + ' ' + toolchain.build_flags_for('boost') + ' link=' + linktype + ' stage --stagedir=./' + stage_dir
+        toolset = toolchain.family() + '-' + toolchain.version()
+        command_line = './bjam --with-' + library + ' toolset=' + toolset + ' variant=' + variant + ' ' + toolchain.build_flags_for('boost') + ' link=' + linktype + ' stage --stagedir=./' + stage_dir
         return shlex.split( command_line )
 
 

@@ -176,9 +176,6 @@ class RunGcovCoverage(object):
 
     def __call__( self, target, source, env ):
 
-#        gcov_path         = os.path.splitext( os.path.splitext( target[0].path )[0] )[0]
-#        gcov_summary_path = target[1].path
-
         for s, t in itertools.izip( source, iter_grouped( target ) ):
             gcov_path         = os.path.splitext( os.path.splitext( t[0].path )[0] )[0]
             gcov_summary_path = t[1].path

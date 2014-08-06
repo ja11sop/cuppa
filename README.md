@@ -20,6 +20,8 @@ and have Scons "do the right thing"; building targets for any `sconscript` files
   * [Reference](#reference)
     * [Basic Structure](#basic-structure)
     * [Construct Command-line Reference](#construct-command-line-options)
+    * [Where does Construct put my builds?](#where-does-construct-put-my-builds)
+    * [Using `--configure` to save command-line choices](#using---configure-to-save-command-line-choices)
     * [Construct](#construct)
     * [Methods](#methods)
       * [env.Build](#envbuild)
@@ -39,7 +41,7 @@ and have Scons "do the right thing"; building targets for any `sconscript` files
     * [Platforms](#platforms)
   * [Supported Dependencies](#supported-dependencies)
     * [boost](#boost)
-  * [Tutorial](#tutorial)
+  * [Acknowledgements](#acknowledgements)
 
 ## Quick Intro
 
@@ -199,10 +201,24 @@ pip install colorama
   --dbg                       Build a debug binary
   --rel                       Build a release (optimised) binary
   --test                      Run the binary as a test
-  --toolchain=TOOLCHAIN       The Toolchain we are using
+  --toolchains=TOOLCHAINS     The Toolchains you want to build with
   --scm=SCM                   The Source Control Management System we are
                                 using
 ```
+
+### Where does Construct put my builds?
+
+`Construct` places all builds outside of the source tree under the `BUILD_ROOT` which by default is the folder `.build` beside the `sconstruct` file used when Scons is executed. You can change this by specifying the `--build-root` option, or by setting the.
+
+Build variants and the output from each `sconscript` is kept separate using the following convention:
+
+`<build_root>/<sconscript_path>/<sconscript_name>/<toolchain>/<build_variant>/final`
+
+If `<sconscript_name>` is "sconscript" then it is omitted from the path. The assumption is that a single `sconscript` file is being used for the given folder and therefore the folder name is sufficient to differentiate from other `sconscript`s.
+
+### Using `--configure` to save command-line choices
+
+Passing `--configure` on the command-line saves any options passed at the same time, meaning that next time you simply execute `scons` your previous options will be applied automatically. For example, passing `--configure` alongside `--boost-home=~/boost/boost_1_55` would result in `--boost-home` being applied on subsequent builds.
 
 ### Construct
 
@@ -504,7 +520,17 @@ The following toolchains are currently supported:
 | `gcc47` | g++ 4.7 |
 | `gcc48` | g++ 4.8 |
 | `gcc49` | g++ 4.9 |
+| `clang32` | clang 3.2 |
+| `clang33` | clang 3.3 |
+| `clang34` | clang 3.4 |
 
+It is not necessary to specify a toolchain when building. If none is specified the default toolchain for the current platform will be used. However if more toolchains are available and you want to use one or more then pass the `--toolchains` option with a comma-separated list of toolchains from the list. For example to build with both GCC 4.9 and CLANG 3.4 you would add:
+
+```
+--toolchains=gcc49,clang34
+```
+
+to the command-line.
 
 ### Platforms
 
@@ -571,7 +597,9 @@ env.AppendUnique( DYNAMICLIBS = [
 This is all that is required to ensure that the libraries are built correctly and linked with your target. It is important to note this will also "Do The Right Thing" in the presence of existing Boost installations. In other words this will pick up the correct shared library.
 
 
+## Acknowledgements
 
+This work is based on the build system used in [clearpool.io](http://www.clearpool.io) during development of its next generation exchange platform.
 
 
 

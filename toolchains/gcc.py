@@ -31,7 +31,7 @@ class GccException(Exception):
         return repr(self.parameter)
 
 
-class Gcc:
+class Gcc(object):
 
     @classmethod
     def add_options( cls ):
@@ -60,6 +60,8 @@ class Gcc:
 
     def __init__( self, toolchain ):
         self.values = {}
+
+        self._version = re.search( r'(\d)(\d)', toolchain ).expand(r'\1.\2')
 
         self.values['name'] = toolchain
 
@@ -136,6 +138,14 @@ class Gcc:
         return self.values['name']
 
 
+    def family( self ):
+        return "gcc"
+
+
+    def version( self ):
+        return self._version
+
+
     def initialise_env( self, env ):
         env['CXX']          = self.values['CXX']
         env['CC']           = self.values['CC']
@@ -148,7 +158,6 @@ class Gcc:
         env['LIBS']         = []
         env['STATICLIBS']   = []
         env['DYNAMICLIBS']  = self.values['dynamic_libraries']
-        env.AppendUnique( LINKFLAGS = self.values['link_cxx_flags'] )
 
 
     def variants( self ):
@@ -249,14 +258,16 @@ class Gcc:
         self.values['debug_cxx_flags']    = CommonCxxFlags + []
         self.values['release_cxx_flags']  = CommonCxxFlags + [ '-O3', '-DNDEBUG' ]
         self.values['coverage_cxx_flags'] = CommonCxxFlags + [ '-fprofile-arcs', '-ftest-coverage' ]
-        self.values['coverage_libs']      = [ 'gcov' ]
+        self.values['coverage_libs']      = []
 
         self.values['debug_c_flags']      = CommonCFlags + []
         self.values['release_c_flags']    = CommonCFlags + [ '-O3', '-DNDEBUG' ]
         self.values['coverage_c_flags']   = CommonCFlags + [ '-fprofile-arcs', '-ftest-coverage' ]
 
-        LinkCxxFlags = ['-rdynamic', '-Wl,-rpath=.' ]
-        self.values['link_cxx_flags'] = LinkCxxFlags
+        CommonLinkCxxFlags = ['-rdynamic', '-Wl,-rpath=.' ]
+        self.values['debug_link_cxx_flags'] = CommonLinkCxxFlags
+        self.values['release_link_cxx_flags'] = CommonLinkCxxFlags
+        self.values['coverage_link_cxx_flags'] = CommonLinkCxxFlags + [ '--coverage' ]
 
         DynamicLibraries = [ 'pthread', 'rt' ]
         self.values['dynamic_libraries'] = DynamicLibraries

@@ -11,8 +11,7 @@
 
 class BuildTestMethod:
 
-    def __init__( self, toolchain, default_test_runner=None ):
-        self._toolchain = toolchain
+    def __init__( self, default_test_runner=None ):
         self._default_test_runner = default_test_runner
 
 
@@ -31,6 +30,12 @@ class BuildTestMethod:
 
     @classmethod
     def add_to_env( cls, args ):
-        args['env'].AddMethod( cls( args['env']['toolchain'], args['env']['default_test_runner'] ), "BuildTest" )
-        for test_runner in args['env']['toolchain'].test_runners():
-            args['env'].AddMethod( cls( args['env']['toolchain'], test_runner ), "Build{}Test".format( test_runner.title() ) )
+        args['env'].AddMethod( cls( args['env']['default_test_runner'] ), "BuildTest" )
+
+        test_runners = set()
+        for toolchain in args['env']['active_toolchains']:
+            for test_runner in toolchain.test_runners():
+                test_runners.add( test_runner )
+
+        for test_runner in test_runners:
+            args['env'].AddMethod( cls( test_runner ), "Build{}Test".format( test_runner.title() ) )

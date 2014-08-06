@@ -15,15 +15,15 @@ import sconscript_progress
 
 class CoverageMethod(object):
 
-    def __init__( self, toolchain ):
-        self.__toolchain = toolchain
+    def __init__( self ):
+        pass
 
 
     def __call__( self, env, program, sources, final_dir=None ):
         if final_dir == None:
             final_dir = env['final_dir']
 
-        emitter, builder = self.__toolchain.coverage_runner( program, final_dir )
+        emitter, builder = env['toolchain'].coverage_runner( program, final_dir )
 
         env['BUILDERS']['CoverageBuilder'] = env.Builder( action=builder, emitter=emitter )
 
@@ -39,4 +39,4 @@ class CoverageMethod(object):
 
     @classmethod
     def add_to_env( cls, args ):
-        args['env'].AddMethod( cls( args['env']['toolchain'] ), "Coverage" )
+        args['env'].AddMethod( cls(), "Coverage" )

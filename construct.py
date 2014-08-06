@@ -96,6 +96,27 @@ class ConstructException(Exception):
         return repr(self.parameter)
 
 
+
+class ParseToolchainsOption(object):
+
+    def __init__( self, supported_toolchains ):
+        self._supported = supported_toolchains
+
+
+    def __call__(self, option, opt, value, parser):
+        toolchains = []
+        for toolchain in value.split(','):
+            if toolchain not in self._supported:
+                print "construct: toolchain [{}] is not supported, skipping".format( toolchain )
+            else:
+                toolchains.append( toolchain )
+        if not toolchains:
+            print "construct: None of the requested toolchains are not supported"
+
+        parser.values.toolchains = toolchains
+
+
+
 class Construct(object):
 
     platforms_key    = 'platforms'
@@ -172,18 +193,19 @@ class Construct(object):
         modules.registration.add_options( variants )
 
 
+
     def add_toolchains( self, env ):
         toolchains = self.toolchains_key
         env[toolchains] = {}
         modules.registration.add_to_env( toolchains, { 'env': env } )
 
         SCons.Script.AddOption(
-            '--toolchain',
-            dest    = 'toolchain',
-            nargs   = 1,
-            action  = 'store',
-            choices = env[toolchains].keys(),
-            help    = 'The Toolchain we are using' )
+            '--toolchains',
+            type     = 'string',
+            nargs    = 1,
+            action   = 'callback',
+            callback = ParseToolchainsOption(env[toolchains].keys()),
+            help     = 'The Toolchains you wish to build against' )
 
 
     def initialise_options( self, env, default_options ):
@@ -296,19 +318,19 @@ class Construct(object):
 
         self.add_project_generators( default_env )
 
-        toolchain  = default_env.get_option( 'toolchain' )
-
         default_env['platform'] = build_platform.Platform.current()
 
         self.add_scm_systems( default_env )
-
-        default_env['toolchain'] = ( toolchain  and default_env[self.toolchains_key][ toolchain ]
-                                                or  default_env['platform'].default_toolchain() )
 
         scm_system = default_env.get_option( 'scm' )
 
         default_env['scm'] = ( scm_system and default_env[self.scm_systems_key][ scm_system ]
                                           or  None )
+
+        toolchains = default_env.get_option( 'toolchains' )
+
+        default_env['active_toolchains'] = ( toolchains and [ default_env[self.toolchains_key][t] for t in toolchains ]
+                                             or [ default_env['platform'].default_toolchain() ] )
 
         modules.registration.add_to_env( "dependencies",       { 'env': default_env } )
         modules.registration.add_to_env( "profiles",           { 'env': default_env } )
@@ -317,7 +339,8 @@ class Construct(object):
 
         # TODO - default_profile
 
-        default_env['toolchain'].initialise_env( default_env )
+        for toolchain in default_env['active_toolchains']:
+            toolchain.initialise_env( default_env )
 
         if not help:
             self._configure.save()
@@ -353,13 +376,9 @@ class Construct(object):
         return active_actions
 
 
-    def create_build_variants( self, default_env ):
+    def create_build_variants( self, toolchain, default_env ):
 
         variants  = default_env[ self.variants_key ]
-        toolchain = default_env['toolchain']
-
-        if not default_env['raw_output']:
-            output_processor.Processor.install( default_env )
 
         active_variants = {}
 
@@ -378,6 +397,11 @@ class Construct(object):
 
         for key, variant in active_variants.items():
             variant_envs[ key ] = variant.create( default_env.Clone(), toolchain )
+
+            if not default_env['raw_output']:
+                output_processor.Processor.install( variant_envs[ key ] )
+
+            variant_envs[ key ]['toolchain'] = toolchain
             variant_envs[ key ]['variant'] = variant
             variant_envs[ key ]['variant_actions'] = self.get_active_actions_for_variant( default_env, active_variants, variant )
 
@@ -397,7 +421,7 @@ class Construct(object):
 
         projects   = default_env.get_option( 'projects' )
         colouriser = default_env['colouriser']
-        variants   = self.create_build_variants( default_env )
+        toolchains = default_env['active_toolchains']
 
         if projects == None:
             projects = default_env['default_projects']
@@ -424,9 +448,11 @@ class Construct(object):
                 else:
                     sconscripts.append( project )
 
-            for variant, env in variants.items():
-                for sconscript in sconscripts:
-                    self.call_project_sconscript_files( variant, env, sconscript )
+            for toolchain in toolchains:
+                variants = self.create_build_variants( toolchain, default_env )
+                for variant, env in variants.items():
+                    for sconscript in sconscripts:
+                        self.call_project_sconscript_files( toolchain.name(), variant, env, sconscript )
 
             for project_generator in env[ self.project_generators_key ].itervalues():
                 for sconscript in sconscripts:
@@ -436,7 +462,7 @@ class Construct(object):
             print "construct: No projects to build. Nothing to be done"
 
 
-    def call_project_sconscript_files( self, variant, env, project ):
+    def call_project_sconscript_files( self, toolchain, variant, env, project ):
 
         sconscript_file = project
         if not os.path.exists( project ) or os.path.isdir( project ):
@@ -447,16 +473,20 @@ class Construct(object):
             print "construct: project exists and added to build [{}]".format( env['colouriser'].colour( 'notice', sconscript_file ) )
 
             path_without_ext = os.path.splitext( sconscript_file )[0]
-            sconstruct_offset_path = os.path.split( sconscript_file )[0]
 
-            name = os.path.split( path_without_ext )[1]
+            sconstruct_offset_path, sconscript_name = os.path.split( sconscript_file )
+
+            name = os.path.splitext( sconscript_name )[0]
+            if name.lower() == "sconscript":
+                path_without_ext = sconstruct_offset_path
+                name = path_without_ext
 
             build_root = env['build_root']
             cloned_env = env.Clone()
 
             cloned_env['sconscript_file'] = sconscript_file
             cloned_env['sconscript_dir']  = os.path.join( env['base_path'], sconstruct_offset_path )
-            cloned_env['build_dir']       = os.path.normpath( os.path.join( build_root, path_without_ext, variant, 'working', '' ) )
+            cloned_env['build_dir']       = os.path.normpath( os.path.join( build_root, path_without_ext, toolchain, variant, 'working', '' ) )
             cloned_env['offset_dir']      = sconstruct_offset_path
             cloned_env['final_dir']       = '..' + os.path.sep + 'final' + os.path.sep
 

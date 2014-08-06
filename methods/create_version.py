@@ -10,13 +10,13 @@
 
 class CreateVersionMethod:
 
-    def __init__( self, toolchain ):
-        self.__toolchain = toolchain
+    def __init__( self ):
+        pass
 
 
     def __call__( self, env, target, source, namespaces, version, location ):
-        create_version_file_builder = self.__toolchain.version_file_builder( env, namespaces, version, location )
-        create_version_file_emitter = self.__toolchain.version_file_emitter( env, namespaces, version, location )
+        create_version_file_builder = env['toolchain'].version_file_builder( env, namespaces, version, location )
+        create_version_file_emitter = env['toolchain'].version_file_emitter( env, namespaces, version, location )
 
         env.AppendUnique( BUILDERS = {
             'CreateVersionFile' : env.Builder( action=create_version_file_builder, emitter=create_version_file_emitter )
@@ -26,4 +26,4 @@ class CreateVersionMethod:
 
     @classmethod
     def add_to_env( cls, args ):
-        args['env'].AddMethod( cls( args['env']['toolchain'] ), "CreateVersion" )
+        args['env'].AddMethod( cls(), "CreateVersion" )

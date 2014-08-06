@@ -32,6 +32,7 @@ class Rel:
 
     @classmethod
     def create( cls, env, toolchain ):
-        env.AppendUnique( CXXFLAGS  = toolchain['release_cxx_flags'] )
-        env.AppendUnique( CFLAGS    = toolchain['release_c_flags'] )
+        env.Append( CXXFLAGS  = toolchain['release_cxx_flags'] )
+        env.Append( CFLAGS    = toolchain['release_c_flags'] )
+        env.AppendUnique( LINKFLAGS = toolchain['release_link_cxx_flags'] )
         return env

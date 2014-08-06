@@ -32,7 +32,8 @@ class Dbg:
 
     @classmethod
     def create( cls, env, toolchain ):
-        env.AppendUnique( CXXFLAGS  = toolchain['debug_cxx_flags'] )
-        env.AppendUnique( CFLAGS    = toolchain['debug_c_flags'] )
+        env.Append( CXXFLAGS  = toolchain['debug_cxx_flags'] )
+        env.Append( CFLAGS    = toolchain['debug_c_flags'] )
+        env.AppendUnique( LINKFLAGS = toolchain['debug_link_cxx_flags'] )
         return env
 

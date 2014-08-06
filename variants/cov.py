@@ -33,7 +33,8 @@ class Cov:
 
     @classmethod
     def create( cls, env, toolchain ):
-        env.AppendUnique( CXXFLAGS    = toolchain['coverage_cxx_flags'] )
-        env.AppendUnique( CFLAGS      = toolchain['coverage_c_flags'] )
+        env.Append( CXXFLAGS    = toolchain['coverage_cxx_flags'] )
+        env.Append( CFLAGS      = toolchain['coverage_c_flags'] )
+        env.AppendUnique( LINKFLAGS   = toolchain['coverage_link_cxx_flags'] )
         env.AppendUnique( DYNAMICLIBS = toolchain['coverage_libs'] )
         return env
