@@ -57,3 +57,12 @@ class Platform(object):
         if not hasattr(cls, '_platform'):
             cls._create()
         return cls._platform
+
+
+def name():
+    return Platform.current().name()
+
+
+def constants():
+    return Platform.current().constants()
+

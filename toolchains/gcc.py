@@ -34,23 +34,31 @@ class GccException(Exception):
 class Gcc(object):
 
     @classmethod
+    def supported_versions( cls ):
+        return [
+            "gcc49",
+            "gcc48",
+            "gcc47",
+            "gcc46",
+            "gcc45",
+            "gcc44",
+            "gcc43",
+            "gcc42",
+            "gcc41",
+            "gcc40",
+            "gcc34"
+        ]
+
+
+    @classmethod
     def add_options( cls ):
         pass
 
 
     @classmethod
     def add_to_env( cls, args ):
-        args['env']['toolchains']['gcc34'] = cls( 'gcc34' )
-        args['env']['toolchains']['gcc40'] = cls( 'gcc40' )
-        args['env']['toolchains']['gcc41'] = cls( 'gcc41' )
-        args['env']['toolchains']['gcc42'] = cls( 'gcc42' )
-        args['env']['toolchains']['gcc43'] = cls( 'gcc43' )
-        args['env']['toolchains']['gcc44'] = cls( 'gcc44' )
-        args['env']['toolchains']['gcc45'] = cls( 'gcc45' )
-        args['env']['toolchains']['gcc46'] = cls( 'gcc46' )
-        args['env']['toolchains']['gcc47'] = cls( 'gcc47' )
-        args['env']['toolchains']['gcc48'] = cls( 'gcc48' )
-        args['env']['toolchains']['gcc49'] = cls( 'gcc49' )
+        for version in cls.supported_versions():
+            args['env']['toolchains'][version] = cls( version )
 
 
     @classmethod
@@ -60,44 +68,11 @@ class Gcc(object):
 
     def __init__( self, toolchain ):
         self.values = {}
-
         self._version = re.search( r'(\d)(\d)', toolchain ).expand(r'\1.\2')
-
         self.values['name'] = toolchain
 
-        if toolchain == 'gcc34':
-            self.__get_gcc34_toolchain( toolchain )
-
-        elif toolchain == 'gcc40':
-            self.__get_gcc40_toolchain( toolchain )
-
-        elif toolchain == 'gcc41':
-            self.__get_gcc41_toolchain( toolchain )
-
-        elif toolchain == 'gcc42':
-            self.__get_gcc42_toolchain( toolchain )
-
-        elif toolchain == 'gcc43':
-            self.__get_gcc43_toolchain( toolchain )
-
-        elif toolchain == 'gcc44':
-            self.__get_gcc44_toolchain( toolchain )
-
-        elif toolchain == 'gcc45':
-            self.__get_gcc45_toolchain( toolchain )
-
-        elif toolchain == 'gcc46':
-            self.__get_gcc46_toolchain( toolchain )
-
-        elif toolchain == 'gcc47':
-            self.__get_gcc47_toolchain( toolchain )
-
-        elif toolchain == 'gcc48':
-            self.__get_gcc48_toolchain( toolchain )
-
-        elif toolchain == 'gcc49':
-            self.__get_gcc49_toolchain( toolchain )
-
+        if toolchain in self.supported_versions():
+            self._initialise_toolchain( toolchain )
         else:
             raise GccException("GCC toolchain [" + toolchain + "] not supported." )
 
@@ -191,51 +166,7 @@ class Gcc(object):
         return RunGcovCoverageEmitter( program, final_dir ), RunGcovCoverage( program, final_dir )
 
 
-    def __get_gcc34_toolchain( self, toolchain ):
-        self.__get_gcc_toolchain( toolchain )
-
-
-    def __get_gcc40_toolchain( self, toolchain ):
-        self.__get_gcc_toolchain( toolchain )
-
-
-    def __get_gcc41_toolchain( self, toolchain ):
-        self.__get_gcc_toolchain( toolchain )
-
-
-    def __get_gcc42_toolchain( self, toolchain ):
-        self.__get_gcc_toolchain( toolchain )
-
-
-    def __get_gcc43_toolchain( self, toolchain ):
-        self.__get_gcc_toolchain( toolchain )
-
-
-    def __get_gcc44_toolchain( self, toolchain ):
-        self.__get_gcc_toolchain( toolchain )
-
-
-    def __get_gcc45_toolchain( self, toolchain ):
-        self.__get_gcc_toolchain( toolchain )
-
-
-    def __get_gcc46_toolchain( self, toolchain ):
-        self.__get_gcc_toolchain( toolchain )
-
-
-    def __get_gcc47_toolchain( self, toolchain ):
-        self.__get_gcc_toolchain( toolchain )
-
-
-    def __get_gcc48_toolchain( self, toolchain ):
-        self.__get_gcc_toolchain( toolchain )
-
-
-    def __get_gcc49_toolchain( self, toolchain ):
-        self.__get_gcc_toolchain( toolchain )
-
-
-    def __get_gcc_toolchain( self, toolchain ):
+    def _initialise_toolchain( self, toolchain ):
         if toolchain == 'gcc34':
             self.values['sys_inc_prefix']  = '-I'
         else:
@@ -257,16 +188,16 @@ class Gcc(object):
 
         self.values['debug_cxx_flags']    = CommonCxxFlags + []
         self.values['release_cxx_flags']  = CommonCxxFlags + [ '-O3', '-DNDEBUG' ]
-        self.values['coverage_cxx_flags'] = CommonCxxFlags + [ '-fprofile-arcs', '-ftest-coverage' ]
+        self.values['coverage_cxx_flags'] = CommonCxxFlags + [ '--coverage' ]
         self.values['coverage_libs']      = []
 
         self.values['debug_c_flags']      = CommonCFlags + []
         self.values['release_c_flags']    = CommonCFlags + [ '-O3', '-DNDEBUG' ]
-        self.values['coverage_c_flags']   = CommonCFlags + [ '-fprofile-arcs', '-ftest-coverage' ]
+        self.values['coverage_c_flags']   = CommonCFlags + [ '--coverage' ]
 
         CommonLinkCxxFlags = ['-rdynamic', '-Wl,-rpath=.' ]
-        self.values['debug_link_cxx_flags'] = CommonLinkCxxFlags
-        self.values['release_link_cxx_flags'] = CommonLinkCxxFlags
+        self.values['debug_link_cxx_flags']    = CommonLinkCxxFlags
+        self.values['release_link_cxx_flags']  = CommonLinkCxxFlags
         self.values['coverage_link_cxx_flags'] = CommonLinkCxxFlags + [ '--coverage' ]
 
         DynamicLibraries = [ 'pthread', 'rt' ]

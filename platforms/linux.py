@@ -127,6 +127,11 @@ class Linux:
         return cls.Constants
 
 
+    @classmethod
+    def name( cls ):
+        return cls.__name__
+
+
     def print_values( self ):
 
         print 'os             = ' + self.values['os']

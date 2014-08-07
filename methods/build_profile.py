@@ -7,7 +7,7 @@
 #-------------------------------------------------------------------------------
 #   BuildProfileMethod
 #-------------------------------------------------------------------------------
-import six
+import utility
 
 class BuildProfileMethod:
 
@@ -18,7 +18,7 @@ class BuildProfileMethod:
     def __call__( self, env, build_profile ):
         for profile in build_profile:
 
-            if isinstance( profile, six.string_types ):
+            if utility.is_string( profile ):
                 name = profile
                 if name in env['profiles']:
                     profile = env['profiles'][name]

@@ -10,11 +10,12 @@
 import fnmatch
 import re
 import os
-import six
+
+import utility
 
 
 def glob( start, pattern ):
-    if isinstance( pattern, six.string_types ):
+    if utility.is_string( pattern ):
         pattern = re.compile( fnmatch.translate( pattern ) )
     matches = []
     for root, dirnames, filenames in os.walk( start ):

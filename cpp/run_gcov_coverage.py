@@ -14,6 +14,7 @@ import shlex
 import subprocess
 import re
 import itertools
+import glob
 
 # scons imports
 from SCons.Script   import Glob, Flatten
@@ -98,16 +99,16 @@ class CoverageSuite(object):
 
     def exit_suite( self ):
         env = self._scons_env
-        self._run_gcovr( env['build_dir'], self._final_dir, env['working_dir'], env['sconscript_file'] )
+        self._run_gcovr( env['build_dir'], self._final_dir, env['working_dir'], env['sconscript_toolchain_build_dir'] )
 
 
-    def _run_gcovr( self, build_dir, output_dir, working_dir, sconscript_file ):
+    def _run_gcovr( self, build_dir, output_dir, working_dir, sconscript_id ):
         command = 'gcovr -h'
         if not command_available( command ):
             print "coverage: skipping gcovr output as not available"
             return
 
-        base_name = coverage_base_name( sconscript_file )
+        base_name = coverage_base_name( sconscript_id )
 
         index_file = base_name + ".html"
 
@@ -155,7 +156,8 @@ class RunGcovCoverageEmitter(object):
             env.Clean( source_file, gcov_files )
 
             env.Clean( source_file, os.path.join( self._final_dir, "coverage.html" ) )
-            base_name = coverage_base_name( env['sconscript_file'] )
+            base_name = coverage_base_name( env['sconscript_toolchain_build_dir'] )
+
             coverage_files = Glob( os.path.join( self._final_dir, base_name + '*.html' ) )
             env.Clean( source_file, coverage_files )
 
@@ -199,12 +201,17 @@ class RunGcovCoverage(object):
         return_code, output = run_command( command, working_dir )
 
         if return_code == 0:
-
             gcov_source_path = source_path.replace( os.path.sep, '#' )
-            gcov_files = Glob( gcov_source_path + '*' )
+
+#            gcov_files = Glob( gcov_source_path + '*' )
+            gcov_files = glob.glob( gcov_source_path + '*' )
+
             for gcov_file in gcov_files:
-                new_gcov_file = os.path.join( build_dir, str( gcov_file ) )
-                os.rename( str( gcov_file ), new_gcov_file )
+                new_gcov_file = os.path.join( build_dir, str(gcov_file) )
+                try:
+                    os.rename( str(gcov_file), new_gcov_file )
+                except OSError:
+                    print "coverage: failed moving gcov file [{}] to [{}]".format( str(gcov_file), new_gcov_file )
 
             with open( gcov_summary_path, 'w' ) as summary_file:
                 summary_file.write( output )

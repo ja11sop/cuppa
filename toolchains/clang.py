@@ -17,6 +17,7 @@ import os.path
 from exceptions import Exception
 
 import modules.registration
+import build_platform
 
 from cpp.create_version_file_cpp import CreateVersionHeaderCpp, CreateVersionFileCpp
 from cpp.run_boost_test import RunBoostTestEmitter, RunBoostTest
@@ -35,16 +36,24 @@ class ClangException(Exception):
 class Clang(object):
 
     @classmethod
+    def supported_versions( cls ):
+        return [
+            "clang35",
+            "clang34",
+            "clang33",
+            "clang32"
+        ]
+
+
+    @classmethod
     def add_options( cls ):
         pass
 
 
     @classmethod
     def add_to_env( cls, args ):
-        args['env']['toolchains']['clang32'] = cls( 'clang32' )
-        args['env']['toolchains']['clang33'] = cls( 'clang33' )
-        args['env']['toolchains']['clang34'] = cls( 'clang34' )
-        args['env']['toolchains']['clang35'] = cls( 'clang35' )
+        for version in cls.supported_versions():
+            args['env']['toolchains'][version] = cls( version )
 
 
     @classmethod
@@ -61,15 +70,8 @@ class Clang(object):
 
         self._gcov_format = self._gcov_format_version()
 
-        if toolchain == 'clang32':
-            self.__get_clang32_toolchain( toolchain )
-        elif toolchain == 'clang33':
-            self.__get_clang33_toolchain( toolchain )
-        elif toolchain == 'clang34':
-            self.__get_clang34_toolchain( toolchain )
-        elif toolchain == 'clang35':
-            self.__get_clang35_toolchain( toolchain )
-
+        if toolchain in self.supported_versions():
+            self._initialise_toolchain( toolchain )
         else:
             raise ClangException("CLANG toolchain [" + toolchain + "] not supported." )
 
@@ -161,26 +163,13 @@ class Clang(object):
         return RunGcovCoverageEmitter( program, final_dir ), RunGcovCoverage( program, final_dir )
 
 
-    def __get_clang32_toolchain( self, toolchain ):
-        self.__get_clang_toolchain( toolchain )
-
-    def __get_clang33_toolchain( self, toolchain ):
-        self.__get_clang_toolchain( toolchain )
-
-    def __get_clang34_toolchain( self, toolchain ):
-        self.__get_clang_toolchain( toolchain )
-
-    def __get_clang35_toolchain( self, toolchain ):
-        self.__get_clang_toolchain( toolchain )
-
-
     def _gcov_format_version( self ):
         gcov_version = Popen(["gcov", "--version"], stdout=PIPE).communicate()[0]
         gcov_version = re.search( r'(\d)\.(\d)\.(\d)', gcov_version ).expand(r'\g<1>0\g<2>')
         return gcov_version + '*'
 
 
-    def __get_clang_toolchain( self, toolchain ):
+    def _initialise_toolchain( self, toolchain ):
 
         self.values['sys_inc_prefix']  = '-isystem'
 
@@ -199,11 +188,10 @@ class Clang(object):
         self.values['debug_cxx_flags']     = CommonCxxFlags + []
         self.values['release_cxx_flags']   = CommonCxxFlags + [ '-O3', '-DNDEBUG' ]
 
-        coverage_options = "-fprofile-arcs -ftest-coverage -Xclang -coverage-cfg-checksum -Xclang -coverage-no-function-names-in-data -Xclang -coverage-version={}".format( self._gcov_format )
+        coverage_options = "--coverage -Xclang -coverage-cfg-checksum -Xclang -coverage-no-function-names-in-data -Xclang -coverage-version={}".format( self._gcov_format )
 
         self.values['coverage_cxx_flags']  = CommonCxxFlags + coverage_options.split()
         self.values['coverage_libs']       = []
-#        self.values['coverage_libs']      = []
 
         self.values['debug_c_flags']      = CommonCFlags + []
         self.values['release_c_flags']    = CommonCFlags + [ '-O3', '-DNDEBUG' ]
@@ -214,8 +202,10 @@ class Clang(object):
         self.values['release_link_cxx_flags'] = CommonLinkCxxFlags
         self.values['coverage_link_cxx_flags'] = CommonLinkCxxFlags + [ '--coverage' ]
 
-        DynamicLibraries = [ 'pthread', 'rt' ]
-        self.values['dynamic_libraries'] = DynamicLibraries
+        if build_platform.name() == "Darwin":
+            self.values['dynamic_libraries'] = []
+        else:
+            self.values['dynamic_libraries'] = [ 'pthread', 'rt' ]
 
 
     def __get_clang_coverage( self, object_dir, source ):

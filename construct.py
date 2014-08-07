@@ -487,6 +487,8 @@ class Construct(object):
             cloned_env = env.Clone()
 
             cloned_env['sconscript_file'] = sconscript_file
+            cloned_env['sconscript_build_dir'] = path_without_ext
+            cloned_env['sconscript_toolchain_build_dir'] = os.path.join( path_without_ext, toolchain )
             cloned_env['sconscript_dir']  = os.path.join( env['base_path'], sconstruct_offset_path )
             cloned_env['build_dir']       = os.path.normpath( os.path.join( build_root, path_without_ext, toolchain, variant, 'working', '' ) )
             cloned_env['offset_dir']      = sconstruct_offset_path

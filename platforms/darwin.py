@@ -89,6 +89,9 @@ class Darwin:
     def constants( cls ):
         return cls.Constants
 
+    @classmethod
+    def name( cls ):
+        return cls.__name__
 
     def print_values( self ):
 

@@ -52,10 +52,19 @@ class struct_timespec( ctypes.Structure ):
 
 from ctypes.util import find_library
 
-_times = ctypes.CDLL( find_library('rt'), use_errno=True ).times
+_library = None
+
+_os = build_platform.name()
+
+if _os == "Linux":
+    _library = 'rt'
+elif os == "Darwin":
+    _library = 'System.B'
+
+_times = ctypes.CDLL( find_library(_library), use_errno=True ).times
 _times.argtypes = [ ctypes.POINTER( struct_tms ) ]
 
-_clock_gettime = ctypes.CDLL( find_library('rt'), use_errno=True ).clock_gettime
+_clock_gettime = ctypes.CDLL( find_library(_library), use_errno=True ).clock_gettime
 _clock_gettime.argtypes = [ clockid_t, ctypes.POINTER( struct_timespec ) ]
 
 
@@ -98,12 +107,12 @@ def _call_clock_gettime( clk_id ):
 
 perf_counter = functools.partial(
         _call_clock_gettime,
-        build_platform.Platform.current().constants().CLOCK_MONOTONIC_RAW )
+        build_platform.constants().CLOCK_MONOTONIC_RAW )
 
 
 process_time = functools.partial(
         _call_clock_gettime,
-        build_platform.Platform.current().constants().CLOCK_PROCESS_CPUTIME_ID )
+        build_platform.constants().CLOCK_PROCESS_CPUTIME_ID )
 
 
 class CpuTimes:
