@@ -339,8 +339,8 @@ class Construct(object):
 
         # TODO - default_profile
 
-        for toolchain in default_env['active_toolchains']:
-            toolchain.initialise_env( default_env )
+#        for toolchain in default_env['active_toolchains']:
+#            toolchain.initialise_env( default_env )
 
         if not help:
             self._configure.save()
@@ -449,7 +449,9 @@ class Construct(object):
                     sconscripts.append( project )
 
             for toolchain in toolchains:
-                variants = self.create_build_variants( toolchain, default_env )
+                toolchain_env = default_env.Clone()
+                toolchain.initialise_env( toolchain_env )
+                variants = self.create_build_variants( toolchain, toolchain_env )
                 for variant, env in variants.items():
                     for sconscript in sconscripts:
                         self.call_project_sconscript_files( toolchain.name(), variant, env, sconscript )
