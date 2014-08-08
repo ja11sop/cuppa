@@ -9,110 +9,22 @@
 #-------------------------------------------------------------------------------
 
 # Python Standard Library Imports
-import ctypes
 import os
-import exceptions
-import functools
-
-# Custom Imports
-import build_platform
+import timeit
+import time
 
 
-
-class TimerException( exceptions.Exception ):
-    def __init__(self, value):
-        self.parameter = value
-    def __str__(self):
-        return repr(self.parameter)
+nanosecs_multiple = 1000000000
 
 
-
-clock_t   = ctypes.c_long
-clockid_t = ctypes.c_int
-time_t    = ctypes.c_long
+def wall_time_nanosecs():
+    return int( timeit.default_timer()*nanosecs_multiple )
 
 
-class struct_tms( ctypes.Structure ):
-
-    _fields_ = [
-        ( 'tms_utime',  clock_t ),
-        ( 'tms_stime',  clock_t ),
-        ( 'tms_cutime', clock_t ),
-        ( 'tms_cstime', clock_t ),
-    ]
-
-
-class struct_timespec( ctypes.Structure ):
-
-    _fields_ = [
-        ( 'tv_sec', time_t ),
-        ( 'tv_nsec', ctypes.c_long )
-    ]
-
-
-from ctypes.util import find_library
-
-_library = None
-
-_os = build_platform.name()
-
-if _os == "Linux":
-    _library = 'rt'
-elif os == "Darwin":
-    _library = 'System.B'
-
-_times = ctypes.CDLL( find_library(_library), use_errno=True ).times
-_times.argtypes = [ ctypes.POINTER( struct_tms ) ]
-
-_clock_gettime = ctypes.CDLL( find_library(_library), use_errno=True ).clock_gettime
-_clock_gettime.argtypes = [ clockid_t, ctypes.POINTER( struct_timespec ) ]
-
-
-def _clock_ticks():
-    tick_factor = os.sysconf( os.sysconf_names['SC_CLK_TCK'] )
-    if tick_factor != -1:
-        tick_factor = 1000000000/tick_factor
-    else:
-        raise TimerException( "os.sysconf_names['SC_CLK_TCK'] returned with error" )
-    return tick_factor
-
-_tick_factor = _clock_ticks()
-
-
-def _process_times():
-    times = struct_tms()
-    result = _times( ctypes.byref( times ) )
-
-    if result != -1:
-        system_time = ( times.tms_stime + times.tms_cstime ) * _tick_factor;
-        user_time   = ( times.tms_utime + times.tms_cutime ) * _tick_factor;
-    else:
-        raise TimerException( "times() returned with error" )
-
-    return system_time, user_time
-
-
-def _call_clock_gettime( clk_id ):
-    timespec = struct_timespec()
-
-    if _clock_gettime( clk_id, ctypes.byref(timespec) ) < 0:
-        error   = ctypes.get_errno()
-        message = "clock_gettime failed with with error [{}] - {}".format( error, errno.errorcode[ error ] )
-        if error == errno.EINVAL:
-            message += " The clock specified [{}] is not supported on this system".format( clk_id )
-        raise TimerException( message )
-
-    return timespec.tv_sec * 1000000000 + timespec.tv_nsec
-
-
-perf_counter = functools.partial(
-        _call_clock_gettime,
-        build_platform.constants().CLOCK_MONOTONIC_RAW )
-
-
-process_time = functools.partial(
-        _call_clock_gettime,
-        build_platform.constants().CLOCK_PROCESS_CPUTIME_ID )
+def process_times_nanosecs():
+    process = time.clock()
+    user, system, children_user, children_system, real = os.times()
+    return int( process*nanosecs_multiple), int( user*nanosecs_multiple ), int( system*nanosecs_multiple )
 
 
 class CpuTimes:
@@ -152,9 +64,8 @@ class Timer:
 
     @classmethod
     def _current_time( cls ):
-        wall = perf_counter()
-        process = process_time()
-        system, user = _process_times()
+        wall = wall_time_nanosecs()
+        process, user, system = process_times_nanosecs()
         return CpuTimes( wall, process, system, user )
 
 
