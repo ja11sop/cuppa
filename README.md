@@ -146,10 +146,22 @@ The point is the complexities of using [boost](http://www.boost.org/) as a depen
 
 No installation is required to use **construct**: simple download or pull a branch of the `site_scons` folder and place it appropriately so Scons will find it. For global use add it to your home directory or for use with a specific project place it beside (or sym-link `site_scons` beside) the top-level `sconstruct` file. For more details on using `site_scons` refer to the [Scons man page](http://www.scons.org/doc/production/HTML/scons-man.html).
 
-There are no dependencies for **construct** other than Scons itself, however if you want to make use of the colourisation you should install the python package [colorama](https://pypi.python.org/pypi/colorama). For example you might do:
+There are no dependencies for **construct** other than Scons itself, however for some very useful features there are a couple of dependencies, all installable via `pip`.
+
+### If you want coloured output
+
+To make use of the colourisation you should install the python package [colorama](https://pypi.python.org/pypi/colorama). For example you might do:
 
 ```
 pip install colorama
+```
+
+### If you want HTML coverage summaries
+
+**construct** uses the [gcovr](https://github.com/gcovr/gcovr) python library to help post-process the coverage files that `gcov` produces (used by both the GCC and CLANG toolchains). In order to get a nice `coverage.html` file in your final build folder that links to HTML files for all files for which coverage information was produced you should `pip install` this. For now it is best to install from the fork shown until the new release of gcovr comes out as there is a patch required.
+
+```
+pip install https://github.com/ja11sop/gcovr/archive/master.zip
 ```
 
 ## Design Principles
