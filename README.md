@@ -202,8 +202,6 @@ pip install colorama
   --rel                       Build a release (optimised) binary
   --test                      Run the binary as a test
   --toolchains=TOOLCHAINS     The Toolchains you want to build with
-  --scm=SCM                   The Source Control Management System we are
-                                using
 ```
 
 ### Where does Construct put my builds?
@@ -530,13 +528,23 @@ It is not necessary to specify a toolchain when building. If none is specified t
 --toolchains=gcc49,clang34
 ```
 
-to the command-line.
+to the command-line. It is not necessary to specify the versions of the toolchains if you just want the default version. For example you could write:
+
+```
+--toochains=gcc,clang
+```
+You can also use `*` as a wildcard so all available GCC toolchains would be:
+
+```
+--toolchains=gcc*
+```
 
 ### Platforms
 
 The following platforms are supported:
 
   * Linux
+  * Darwin (Mac)
 
 ## Supported Dependencies
 

@@ -35,78 +35,54 @@ class Linux:
 
 
     def default_toolchain( self ):
-        return self.__default_toolchain
-
-
-    def system_include_paths( self ):
-        return self.values['system_include_paths']
-
-
-    def system_lib_paths( self ):
-        return self.values['system_lib_paths']
-
-
-    def jar_home( self ):
-        return self.values['jar_home']
+        return "gcc"
 
 
     def __getitem__( self, key ):
         return self.values.get( key )
 
 
-    def initialise( self, toolchains ):
+    def _bit_depth( self, machine ):
+        if machine == "i386":
+            return '32'
+        elif machine == "i686":
+            return '32'
+        elif machine == "x86_64":
+            return '64'
+        else:
+            return 'unknown'
 
-        ( system, node, release, version, machine, processor ) = platform.uname()
 
-        self.values['os'] = system
-
-        gcc_version  = Popen(["gcc", "--version"], stdout=PIPE).communicate()[0]
-
-        multiarch_lib_path = '-'.join( [ machine, system.lower(), 'gnu' ] )
+    def _libc_version( self, machine, system ):
 
         libc_file = "libc.so.6"
         libc_path = "/lib/" + libc_file
 
         if not path.exists( libc_path ):
+            multiarch_lib_path = '-'.join( [ machine, system.lower(), 'gnu' ] )
             libc_path = "/lib/" + multiarch_lib_path + "/" + libc_file
 
         libc_version = Popen([libc_path], stdout=PIPE).communicate()[0]
 
-        self.values['architecture']    = machine
+        return 'libc' + search( r'^GNU C Library [()a-zA-Z ]*([0-9][.0-9]+)', libc_version, MULTILINE ).expand(r'\1').replace('.','')
 
-        if machine == "i386":
-            self.values['bit_width']   = '32'
-        elif machine == "i686":
-            self.values['bit_width']   = '32'
-        elif machine == "x86_64":
-            self.values['bit_width']   = '64'
-        else:
-            self.values['bit_width']   = 'unknown'
 
-        self.values['os_version']           = match( r'(\d+\.\d+)', release ).group(0)
-        self.values['toolchain_name']       = 'gcc' + search( r'(\d)\.(\d)\.(\d)', gcc_version ).expand(r'\1\2\3')
-        self.values['libc_version']         = 'libc' + search( r'^GNU C Library [()a-zA-Z ]*([0-9][.0-9]+)', libc_version, MULTILINE ).expand(r'\1').replace('.','')
-        self.values['toolchain_tag']        = 'gcc' + search( r'(\d)\.(\d)\.(\d)', gcc_version ).expand(r'\1\2')
-        self.values['platform_path']        = self.values['architecture'] \
-                                                + '_' + self.values['os'] \
-                                                + '_' + self.values['os_version'] \
-                                                + '_' + self.values['toolchain_tag']
-        self.values['long_platform_path']   = self.values['os'] \
-                                                + '/' + self.values['architecture'] \
-                                                + '/' + self.values['os_version'] \
-                                                + '/' + self.values['toolchain_name'] \
-                                                + '_' + self.values['libc_version']
+    def initialise( self ):
 
-        self.values['system_include_paths'] = [ '/usr/include' ]
-        self.values['system_lib_paths']     = [ '/usr/lib' ]
-        self.values['jar_home']             = '/usr/share/java'
+        ( system, node, release, version, machine, processor ) = platform.uname()
 
-        toolchain_name = self.values['toolchain_tag']
-
-        if toolchain_name not in toolchains:
-            raise LinuxException( 'Toolchain [' + toolchain_name + '] not supported. Supported toolchains are ' + str(toolchains.keys()) )
-
-        self.__default_toolchain = toolchains[ toolchain_name ]
+        self.values['system']        = system
+        self.values['node']          = node
+        self.values['release']       = release
+        self.values['version']       = version
+        self.values['machine']       = machine
+        self.values['processor']     = processor
+        self.values['os']            = system
+        self.values['architecture']  = machine
+        self.values['os_version']    = match( r'(\d+\.\d+)', release ).group(0)
+        self.values['bit_width']     = self._bit_depth( machine )
+        self.values['libc_version']  = self._libc_version( machine, system )
+        self.values['platform_path'] = self.values['architecture'] + '_' + self.values['os'] + '_' + self.values['os_version']
 
 
 
@@ -132,14 +108,4 @@ class Linux:
         return cls.__name__
 
 
-    def print_values( self ):
-
-        print 'os             = ' + self.values['os']
-        print 'architecture   = ' + self.values['architecture']
-        print 'bit_width      = ' + self.values['bit_width']
-        print 'os_version     = ' + self.values['os_version']
-        print 'toolchain_name = ' + self.values['toolchain_name']
-        print 'toolchain_tag  = ' + self.values['toolchain_tag']
-        print 'libc_version   = ' + self.values['libc_version']
-        print 'platform_path  = ' + self.values['platform_path']
 

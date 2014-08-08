@@ -32,45 +32,39 @@ class Darwin:
 
 
     def default_toolchain( self ):
-        return self.__default_toolchain
+        return "clang"
 
 
     def __getitem__( self, key ):
         return self.values.get( key )
 
 
+    def _bit_depth( self, machine ):
+        if machine == "i386":
+            return '32'
+        elif machine == "i686":
+            return '32'
+        elif machine == "x86_64":
+            return '64'
+        else:
+            return 'unknown'
+
+
     def initialise( self, toolchains ):
 
         ( system, node, release, version, machine, processor ) = platform.uname()
 
-        self.values['os']              = system
-        self.values['architecture']    = machine
-
-        if machine == "i386":
-            self.values['bit_width']   = '32'
-        elif machine == "i686":
-            self.values['bit_width']   = '32'
-        elif machine == "x86_64":
-            self.values['bit_width']   = '64'
-        else:
-            self.values['bit_width']   = 'unknown'
-
-        self.values['os_version']      = release
-
-        self.values['platform_path']   = self.values['architecture'] + '_' + self.values['os'] + '_' + self.values['os_version']
-
-        toolchain_version = Popen(["clang", "--version"], stdout=PIPE).communicate()[0]
-
-        self.values['toolchain_name'] = 'clang' + re.search( r'(\d)\.(\d)\.(\d)', toolchain_version ).expand(r'\1\2\3')
-        self.values['toolchain_tag']  = 'clang' + re.search( r'(\d)\.(\d)\.(\d)', toolchain_version ).expand(r'\1\2')
-
-        default_toolchain = self.values['toolchain_tag']
-
-        if default_toolchain not in toolchains:
-            raise DarwinException( 'Toolchain [' + default_toolchain + '] not supported. Supported toolchains are ' + str(toolchains.keys()) )
-
-        self.__default_toolchain = toolchains[ default_toolchain ]
-
+        self.values['system']        = system
+        self.values['node']          = node
+        self.values['release']       = release
+        self.values['version']       = version
+        self.values['machine']       = machine
+        self.values['processor']     = processor
+        self.values['os']            = system
+        self.values['architecture']  = machine
+        self.values['os_version']    = match( r'(\d+\.\d+)', release ).group(0)
+        self.values['bit_width']     = self._bit_depth( machine )
+        self.values['platform_path'] = self.values['architecture'] + '_' + self.values['os'] + '_' + self.values['os_version']
 
 
     class Constants(object):
@@ -89,17 +83,10 @@ class Darwin:
     def constants( cls ):
         return cls.Constants
 
+
     @classmethod
     def name( cls ):
         return cls.__name__
 
-    def print_values( self ):
 
-        print 'os             = ' + self.values['os']
-        print 'architecture   = ' + self.values['architecture']
-        print 'bit_width      = ' + self.values['bit_width']
-        print 'os_version     = ' + self.values['os_version']
-        print 'platform_path  = ' + self.values['platform_path']
-        print 'toolchain_name = ' + self.values['toolchain_name']
-        print 'toolchain_tag  = ' + self.values['toolchain_tag']
 

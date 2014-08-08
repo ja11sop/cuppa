@@ -14,6 +14,7 @@ from subprocess import Popen, PIPE
 from string import strip, replace
 import re
 import os.path
+import shlex
 from exceptions import Exception
 
 import modules.registration
@@ -23,6 +24,7 @@ from cpp.create_version_file_cpp import CreateVersionHeaderCpp, CreateVersionFil
 from cpp.run_boost_test import RunBoostTestEmitter, RunBoostTest
 from cpp.run_process_test import RunProcessTestEmitter, RunProcessTest
 from cpp.run_gcov_coverage import RunGcovCoverageEmitter, RunGcovCoverage
+from output_processor import command_available
 
 
 
@@ -35,14 +37,48 @@ class ClangException(Exception):
 
 class Clang(object):
 
+
+    @classmethod
+    def default_version( cls ):
+        if not hasattr( cls, '_default_version' ):
+            command = "clang++ --version"
+            if command_available( command ):
+                version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
+                cls._default_version = 'clang' + re.search( r'(\d)\.(\d)', version ).expand(r'\1\2')
+            else:
+                cls._default_version = None
+        return cls._default_version
+
+
     @classmethod
     def supported_versions( cls ):
         return [
+            "clang",
             "clang35",
             "clang34",
             "clang33",
             "clang32"
         ]
+
+
+    @classmethod
+    def available_versions( cls ):
+        if not hasattr( cls, '_available_versions' ):
+            cls._available_versions = []
+            for version in cls.supported_versions():
+                if version == "clang":
+                    continue
+                command = "clang++-{} --version".format( re.search( r'(\d)(\d)', version ).expand(r'\1.\2') )
+                if command_available( command ):
+                    reported_version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
+                    reported_version = 'clang' + re.search( r'(\d)\.(\d)', reported_version ).expand(r'\1\2')
+                    if version == reported_version:
+                        cls._available_versions.append( version )
+                    else:
+                        raise ClangException("CLANG toolchain [{}] reporting version as [{}].".format( version, reported_version ) )
+            if cls._available_versions:
+                cls._available_versions.append( "clang" )
+        return cls._available_versions
 
 
     @classmethod
@@ -53,6 +89,9 @@ class Clang(object):
     @classmethod
     def add_to_env( cls, args ):
         for version in cls.supported_versions():
+            args['env']['supported_toolchains'].append( version )
+
+        for version in cls.available_versions():
             args['env']['toolchains'][version] = cls( version )
 
 
@@ -61,33 +100,20 @@ class Clang(object):
         return [ 'dbg', 'rel' ]
 
 
-    def __init__( self, toolchain ):
+    def __init__( self, version ):
+
+        if version == "clang":
+            version = self.default_version()
+
         self.values = {}
-
-        self.values['name'] = toolchain
-
-        self._version = re.search( r'(\d)(\d)', toolchain ).expand(r'\1.\2')
-
+        self._version = re.search( r'(\d)(\d)', version ).expand(r'\1.\2')
+        self.values['name'] = version
         self._gcov_format = self._gcov_format_version()
 
-        if toolchain in self.supported_versions():
-            self._initialise_toolchain( toolchain )
-        else:
-            raise ClangException("CLANG toolchain [" + toolchain + "] not supported." )
+        self._initialise_toolchain( version )
 
-        clang_version = Popen(["clang", "--version"], stdout=PIPE).communicate()[0]
-        clang_version = re.search( r'clang version (\d)\.(\d)', clang_version ).expand(r'\1.\2')
-
-        default_clang = 'clang' + clang_version.replace(".","")
-
-        self.values['CXX'] = 'clang++'
-        self.values['CC']  = 'clang'
-
-        if toolchain != default_clang:
-            major, minor = clang_version.split(".")
-
-            self.values['CXX'] = 'clang++-' + major + '.' + minor
-            self.values['CC']  = 'clang-' + major + '.' + minor
+        self.values['CXX'] = "clang++-{}".format( self._version )
+        self.values['CC']  = "clang-{}".format( self._version )
 
         env = SCons.Script.DefaultEnvironment()
 

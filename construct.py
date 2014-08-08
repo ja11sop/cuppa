@@ -12,6 +12,7 @@ import os.path
 import inspect
 import os
 import re
+import fnmatch
 
 # Scons
 import SCons.Script
@@ -99,22 +100,30 @@ class ConstructException(Exception):
 
 class ParseToolchainsOption(object):
 
-    def __init__( self, supported_toolchains ):
+    def __init__( self, supported_toolchains, available_toolchains ):
         self._supported = supported_toolchains
-
+        self._available = available_toolchains
 
     def __call__(self, option, opt, value, parser):
-        toolchains = []
-        for toolchain in value.split(','):
-            if toolchain not in self._supported:
-                print "construct: toolchain [{}] is not supported, skipping".format( toolchain )
+        toolchains = set()
+        requested = value.split(',')
+        for toolchain in requested:
+            supported = fnmatch.filter( self._supported, toolchain )
+
+            if not supported:
+                print "construct: requested toolchain(s) [{}] does not match any supported, skipping".format( toolchain )
             else:
-                toolchains.append( toolchain )
+                available = fnmatch.filter( self._available, toolchain )
+
+                if not available:
+                    print "construct: requested toolchain(s) [{}] supported does not match any available, skipping".format( toolchain )
+                else:
+                    toolchains.update( available )
+
         if not toolchains:
-            print "construct: None of the requested toolchains are not supported"
+            print "construct: None of the requested toolchains are available"
 
-        parser.values.toolchains = toolchains
-
+        parser.values.toolchains = list(toolchains)
 
 
 class Construct(object):
@@ -158,8 +167,6 @@ class Construct(object):
     def add_platforms( self, env ):
         platforms = self.platforms_key
         env[platforms] = build_platform.Platform.supported()
-        for platform in env[platforms].itervalues():
-            platform.initialise( env[self.toolchains_key] )
 
 
     def add_project_generators( self, env ):
@@ -197,6 +204,7 @@ class Construct(object):
     def add_toolchains( self, env ):
         toolchains = self.toolchains_key
         env[toolchains] = {}
+        env['supported_toolchains'] = []
         modules.registration.add_to_env( toolchains, { 'env': env } )
 
         SCons.Script.AddOption(
@@ -204,7 +212,7 @@ class Construct(object):
             type     = 'string',
             nargs    = 1,
             action   = 'callback',
-            callback = ParseToolchainsOption(env[toolchains].keys()),
+            callback = ParseToolchainsOption( env['supported_toolchains'], env[toolchains].keys() ),
             help     = 'The Toolchains you wish to build against' )
 
 
@@ -329,8 +337,14 @@ class Construct(object):
 
         toolchains = default_env.get_option( 'toolchains' )
 
-        default_env['active_toolchains'] = ( toolchains and [ default_env[self.toolchains_key][t] for t in toolchains ]
-                                             or [ default_env['platform'].default_toolchain() ] )
+        default_toolchain = default_env['platform'].default_toolchain()
+
+        if not toolchains:
+            toolchains = [ default_env[self.toolchains_key][default_toolchain] ]
+        else:
+            toolchains = [ default_env[self.toolchains_key][t] for t in toolchains ]
+
+        default_env['active_toolchains'] = toolchains
 
         modules.registration.add_to_env( "dependencies",       { 'env': default_env } )
         modules.registration.add_to_env( "profiles",           { 'env': default_env } )
@@ -338,9 +352,6 @@ class Construct(object):
         modules.registration.add_to_env( "project_generators", { 'env': default_env } )
 
         # TODO - default_profile
-
-#        for toolchain in default_env['active_toolchains']:
-#            toolchain.initialise_env( default_env )
 
         if not help:
             self._configure.save()

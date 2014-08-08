@@ -14,6 +14,7 @@ from subprocess import Popen, PIPE
 from string import strip, replace
 import re
 import os.path
+import shlex
 from exceptions import Exception
 
 import modules.registration
@@ -22,6 +23,7 @@ from cpp.create_version_file_cpp import CreateVersionHeaderCpp, CreateVersionFil
 from cpp.run_boost_test import RunBoostTestEmitter, RunBoostTest
 from cpp.run_process_test import RunProcessTestEmitter, RunProcessTest
 from cpp.run_gcov_coverage import RunGcovCoverageEmitter, RunGcovCoverage
+from output_processor import command_available
 
 
 class GccException(Exception):
@@ -33,9 +35,23 @@ class GccException(Exception):
 
 class Gcc(object):
 
+
+    @classmethod
+    def default_version( cls ):
+        if not hasattr( cls, '_default_version' ):
+            command = "g++ --version"
+            if command_available( command ):
+                version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
+                cls._default_version = 'gcc' + re.search( r'(\d)\.(\d)', version ).expand(r'\1\2')
+            else:
+                cls._default_version = None
+        return cls._default_version
+
+
     @classmethod
     def supported_versions( cls ):
         return [
+            "gcc",
             "gcc49",
             "gcc48",
             "gcc47",
@@ -51,6 +67,26 @@ class Gcc(object):
 
 
     @classmethod
+    def available_versions( cls ):
+        if not hasattr( cls, '_available_versions' ):
+            cls._available_versions = []
+            for version in cls.supported_versions():
+                if version == "gcc":
+                    continue
+                command = "g++-{} --version".format( re.search( r'(\d)(\d)', version ).expand(r'\1.\2') )
+                if command_available( command ):
+                    reported_version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
+                    reported_version = 'gcc' + re.search( r'(\d)\.(\d)', reported_version ).expand(r'\1\2')
+                    if version == reported_version:
+                        cls._available_versions.append( version )
+                    else:
+                        raise GccException("GCC toolchain [{}] reporting version as [{}].".format( version, reported_version ) )
+            if cls._available_versions:
+                cls._available_versions.append( "gcc" )
+        return cls._available_versions
+
+
+    @classmethod
     def add_options( cls ):
         pass
 
@@ -58,6 +94,9 @@ class Gcc(object):
     @classmethod
     def add_to_env( cls, args ):
         for version in cls.supported_versions():
+            args['env']['supported_toolchains'].append( version )
+
+        for version in cls.available_versions():
             args['env']['toolchains'][version] = cls( version )
 
 
@@ -66,32 +105,20 @@ class Gcc(object):
         return [ 'dbg', 'rel' ]
 
 
-    def __init__( self, toolchain ):
+    def __init__( self, version ):
+
+        if version == "gcc":
+            version = self.default_version()
+
         self.values = {}
-        self._version = re.search( r'(\d)(\d)', toolchain ).expand(r'\1.\2')
-        self.values['name'] = toolchain
 
-        if toolchain in self.supported_versions():
-            self._initialise_toolchain( toolchain )
-        else:
-            raise GccException("GCC toolchain [" + toolchain + "] not supported." )
+        self._version = re.search( r'(\d)(\d)', version ).expand(r'\1.\2')
+        self.values['name'] = version
 
-        gcc_version = Popen(["gcc", "--version"], stdout=PIPE).communicate()[0]
-        default_gcc = 'gcc' + re.search( r'(\d)\.(\d)', gcc_version ).expand(r'\1\2')
+        self._initialise_toolchain( version )
 
-        self.values['CXX'] = 'g++'
-        self.values['CC']  = 'gcc'
-
-        if toolchain != default_gcc:
-            major = toolchain[3:4]
-            minor = toolchain[4:]
-
-            self.values['CXX'] = 'g++-' + major + '.' + minor
-            self.values['CC']  = 'gcc-' + major + '.' + minor
-
-#            if not os.path.exists( self.values['CXX'] ):
-#                self.values['CXX'] = 'g++' + major + minor
-#                self.values['CC']  = 'gcc' + major + minor
+        self.values['CXX'] = "g++-{}".format( self._version )
+        self.values['CC']  = "gcc-{}".format( self._version )
 
         env = SCons.Script.DefaultEnvironment()
 

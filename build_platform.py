@@ -43,6 +43,7 @@ class Platform(object):
         if system not in cls._supported['platforms']:
             raise PlatformException( 'Platform [' + system + '] not supported. Supported platforms are ' + str(cls._supported['platforms']) )
         cls._platform = cls._supported['platforms'][ system ]
+        cls._platform.initialise()
 
 
     @classmethod
