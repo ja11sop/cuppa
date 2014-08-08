@@ -50,7 +50,7 @@ class Darwin:
             return 'unknown'
 
 
-    def initialise( self, toolchains ):
+    def initialise( self ):
 
         ( system, node, release, version, machine, processor ) = platform.uname()
 
