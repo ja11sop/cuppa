@@ -311,11 +311,18 @@ class BoostLibraryEmitter:
         self.__full_version = boost.full_version()
 
 
+    def _shared_library_name( self, env, library ):
+        if build_platform.name() == "Darwin":
+            return env.subst('$SHLIBPREFIX') + 'boost_' + library + env.subst('$SHLIBSUFFIX')
+        else:
+            return env.subst('$SHLIBPREFIX') + 'boost_' + library + env.subst('$SHLIBSUFFIX') + '.' + self.__full_version
+
+
     def __call__( self, target, source, env ):
         if self.__linktype == 'static':
             node = File( env.subst('$LIBPREFIX') + 'boost_' + self.__library + env.subst('$LIBSUFFIX') )
         else:
-            shared_library_name = env.subst('$SHLIBPREFIX') + 'boost_' + self.__library + env.subst('$SHLIBSUFFIX') + '.' + self.__full_version
+            shared_library_name = self._shared_library_name( env, self.__library )
             node = File( os.path.join( env['final_dir'], shared_library_name ) )
         target.append( node )
         return target, source
