@@ -100,6 +100,15 @@ class Clang(object):
         return [ 'dbg', 'rel' ]
 
 
+    def _linux_lib_flags( self, env ):
+        self.values['static_link']     = '-Xlinker -Bstatic'
+        self.values['dynamic_link']    = '-Xlinker -Bdynamic'
+
+        STATICLIBFLAGS  = self.values['static_link']   + ' ' + re.search( r'(.*)(,\s*LIBS\s*,)(.*)', env['_LIBFLAGS'] ).expand( r'\1, STATICLIBS,\3' )
+        DYNAMICLIBFLAGS = self.values['dynamic_link']  + ' ' + re.search( r'(.*)(,\s*LIBS\s*,)(.*)', env['_LIBFLAGS'] ).expand( r'\1, DYNAMICLIBS,\3' )
+        return STATICLIBFLAGS + ' ' + DYNAMICLIBFLAGS
+
+
     def __init__( self, version ):
 
         if version == "clang":
@@ -118,13 +127,13 @@ class Clang(object):
         env = SCons.Script.DefaultEnvironment()
 
         SYSINCPATHS = '${_concat(\"' + self.values['sys_inc_prefix'] + '\", SYSINCPATH, \"'+ self.values['sys_inc_suffix'] + '\", __env__, RDirs, TARGET, SOURCE)}'
-#
-        self.values['_CPPINCFLAGS'] = '$( ' + SYSINCPATHS + ' ${_concat(INCPREFIX, INCPATH, INCSUFFIX, __env__, RDirs, TARGET, SOURCE)} $)'
-#
-        STATICLIBFLAGS  = self.values['static_link']   + ' ' + re.search( r'(.*)(,\s*LIBS\s*,)(.*)', env['_LIBFLAGS'] ).expand( r'\1, STATICLIBS,\3' )
-        DYNAMICLIBFLAGS = self.values['dynamic_link']  + ' ' + re.search( r'(.*)(,\s*LIBS\s*,)(.*)', env['_LIBFLAGS'] ).expand( r'\1, DYNAMICLIBS,\3' )
 
-        self.values['_LIBFLAGS'] = STATICLIBFLAGS + ' ' + DYNAMICLIBFLAGS
+        self.values['_CPPINCFLAGS'] = '$( ' + SYSINCPATHS + ' ${_concat(INCPREFIX, INCPATH, INCSUFFIX, __env__, RDirs, TARGET, SOURCE)} $)'
+
+        if build_platform.name() == "Linux":
+            self.values['_LIBFLAGS'] = self._linux_lib_flags( env )
+        else:
+            self.values['_LIBFLAGS'] = env['_LIBFLAGS']
 
 
     def __getitem__( self, key ):
@@ -223,15 +232,18 @@ class Clang(object):
         self.values['release_c_flags']    = CommonCFlags + [ '-O3', '-DNDEBUG' ]
         self.values['coverage_c_flags']   = CommonCFlags + coverage_options.split()
 
-        CommonLinkCxxFlags = ['-rdynamic', '-Wl,-rpath=.' ]
+        CommonLinkCxxFlags = []
+        if build_platform.name() == "Linux":
+            CommonLinkCxxFlags = ['-rdynamic', '-Wl,-rpath=.' ]
+
         self.values['debug_link_cxx_flags'] = CommonLinkCxxFlags
         self.values['release_link_cxx_flags'] = CommonLinkCxxFlags
         self.values['coverage_link_cxx_flags'] = CommonLinkCxxFlags + [ '--coverage' ]
 
-        if build_platform.name() == "Darwin":
-            self.values['dynamic_libraries'] = []
-        else:
-            self.values['dynamic_libraries'] = [ 'pthread', 'rt' ]
+        DynamicLibraries = []
+        if build_platform.name() == "Linux":
+            DynamicLibraries = [ 'pthread', 'rt' ]
+        self.values['dynamic_libraries'] = DynamicLibraries
 
 
     def __get_clang_coverage( self, object_dir, source ):

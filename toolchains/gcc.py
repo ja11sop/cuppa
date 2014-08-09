@@ -24,6 +24,7 @@ from cpp.run_boost_test import RunBoostTestEmitter, RunBoostTest
 from cpp.run_process_test import RunProcessTestEmitter, RunProcessTest
 from cpp.run_gcov_coverage import RunGcovCoverageEmitter, RunGcovCoverage
 from output_processor import command_available
+import build_platform
 
 
 class GccException(Exception):
@@ -105,6 +106,15 @@ class Gcc(object):
         return [ 'dbg', 'rel' ]
 
 
+    def _linux_lib_flags( self, env ):
+        self.values['static_link']     = '-Xlinker -Bstatic'
+        self.values['dynamic_link']    = '-Xlinker -Bdynamic'
+
+        STATICLIBFLAGS  = self.values['static_link']   + ' ' + re.search( r'(.*)(,\s*LIBS\s*,)(.*)', env['_LIBFLAGS'] ).expand( r'\1, STATICLIBS,\3' )
+        DYNAMICLIBFLAGS = self.values['dynamic_link']  + ' ' + re.search( r'(.*)(,\s*LIBS\s*,)(.*)', env['_LIBFLAGS'] ).expand( r'\1, DYNAMICLIBS,\3' )
+        return STATICLIBFLAGS + ' ' + DYNAMICLIBFLAGS
+
+
     def __init__( self, version ):
 
         if version == "gcc":
@@ -126,10 +136,10 @@ class Gcc(object):
 
         self.values['_CPPINCFLAGS'] = '$( ' + SYSINCPATHS + ' ${_concat(INCPREFIX, INCPATH, INCSUFFIX, __env__, RDirs, TARGET, SOURCE)} $)'
 
-        STATICLIBFLAGS  = self.values['static_link']   + ' ' + re.search( r'(.*)(,\s*LIBS\s*,)(.*)', env['_LIBFLAGS'] ).expand( r'\1, STATICLIBS,\3' )
-        DYNAMICLIBFLAGS = self.values['dynamic_link']  + ' ' + re.search( r'(.*)(,\s*LIBS\s*,)(.*)', env['_LIBFLAGS'] ).expand( r'\1, DYNAMICLIBS,\3' )
-
-        self.values['_LIBFLAGS'] = STATICLIBFLAGS + ' ' + DYNAMICLIBFLAGS
+        if build_platform.name() == "Linux":
+            self.values['_LIBFLAGS'] = self._linux_lib_flags( env )
+        else:
+            self.values['_LIBFLAGS'] = env['_LIBFLAGS']
 
 
     def __getitem__( self, key ):
@@ -200,8 +210,6 @@ class Gcc(object):
             self.values['sys_inc_prefix']  = '-isystem'
 
         self.values['sys_inc_suffix']  = ''
-        self.values['static_link']     = '-Xlinker -Bstatic'
-        self.values['dynamic_link']    = '-Xlinker -Bdynamic'
 
         CommonCxxFlags = [ '-Wall', '-fexceptions', '-g' ]
         CommonCFlags   = [ '-Wall', '-g' ]
@@ -222,12 +230,17 @@ class Gcc(object):
         self.values['release_c_flags']    = CommonCFlags + [ '-O3', '-DNDEBUG' ]
         self.values['coverage_c_flags']   = CommonCFlags + [ '--coverage' ]
 
-        CommonLinkCxxFlags = ['-rdynamic', '-Wl,-rpath=.' ]
+        CommonLinkCxxFlags = []
+        if build_platform.name() == "Linux":
+            CommonLinkCxxFlags = ['-rdynamic', '-Wl,-rpath=.' ]
+
         self.values['debug_link_cxx_flags']    = CommonLinkCxxFlags
         self.values['release_link_cxx_flags']  = CommonLinkCxxFlags
         self.values['coverage_link_cxx_flags'] = CommonLinkCxxFlags + [ '--coverage' ]
 
-        DynamicLibraries = [ 'pthread', 'rt' ]
+        DynamicLibraries = []
+        if build_platform.name() == "Linux":
+            DynamicLibraries = [ 'pthread', 'rt' ]
         self.values['dynamic_libraries'] = DynamicLibraries
 
 
