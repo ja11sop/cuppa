@@ -62,7 +62,7 @@ class Darwin:
         self.values['processor']     = processor
         self.values['os']            = system
         self.values['architecture']  = machine
-        self.values['os_version']    = match( r'(\d+\.\d+)', release ).group(0)
+        self.values['os_version']    = release # re.match( r'(\d+\.\d+)', release ).group(0)
         self.values['bit_width']     = self._bit_depth( machine )
         self.values['platform_path'] = self.values['architecture'] + '_' + self.values['os'] + '_' + self.values['os_version']
 
