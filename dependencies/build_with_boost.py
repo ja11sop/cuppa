@@ -18,6 +18,7 @@ from re           import search
 from string       import strip, replace
 from SCons.Script import AddOption, Environment, File, AlwaysBuild
 from output_processor import IncrementalSubProcess
+import build_platform
 
 
 class BoostException(Exception):
@@ -254,8 +255,19 @@ class BoostLibraryAction:
             return 1
 
 
+    def _toolset_from_toolchain( self, toolchain ):
+        toolset_name = toolchain.family()
+        toolset_version = toolchain.version()
+        if build_platform.name() == "Darwin":
+            if toolset_name == "gcc":
+                toolset_name = "darwin"
+            elif toolset_name == "clang":
+                toolset_name = "clang-darwin"
+        return toolset_name + '-' + toolset_version
+
+
     def __build_command( self, toolchain, library, variant, linktype, stage_dir ):
-        toolset = toolchain.family() + '-' + toolchain.version()
+        toolset = self._toolset_from_toolchain( toolchain )
         command_line = './bjam --with-' + library + ' toolset=' + toolset + ' variant=' + variant + ' ' + toolchain.build_flags_for('boost') + ' link=' + linktype + ' stage --stagedir=./' + stage_dir
         return shlex.split( command_line )
 
