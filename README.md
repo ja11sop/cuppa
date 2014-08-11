@@ -574,6 +574,7 @@ The dependency provides the following options to specify which Boost source tree
 | -------| ------------|
 | `--boost-home` | Use this option to specify the location of your Boost source tree which contains the Boost `boost` and `lib` folders. For example if you downloaded Boost 1.55 and extracted it to `~/boost/boost_1_55` so that `boost` and `lib` are in that folder then you can make boost available to your builds by specifying `--boost-home=~/boost/boost_1_55` on the command-line |
 | `--boost-version` | If you specified a `--thirdparty` option then you can use `--boost-version` to indicate that you want to build with a particular version of boost under the `thirdparty` folder. The version should be in the format `major_minor` for example to specify using boost version 1.55 you would write `--boost-version=1_55`. The boost dependency then tries to find a matching version of Boost under the `thirdparty` folder. |
+| `--boost-build-once` | By default `bjam` is executed each time a library is specified so that if any of the boost library's dependencies have changed it can be rebuilt by `bjam` producing the correct output. This invocation of `bjam` repeatedly can be wasteful of time if your boost dependency is used soley as a static release that is not changed in-house. In that case you really only want to build the libraries once and assume they will not change. If that is the case passing `--boost-build-once` will prevent these extra calls and may marginally speed up the build process. |
 
 #### Build Methods
 
