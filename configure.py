@@ -10,6 +10,7 @@
 
 # standard library Imports
 import os
+import ast
 
 # Scons Imports
 import SCons.Script
@@ -70,11 +71,15 @@ class Configure(object):
                 print "configure: configure file [{}] exists. Load stored settings...".format(
                         self._colouriser.colour( 'warning', self._conf_path ) )
                 for line in config_file.readlines():
-                    setting = tuple( l.strip() for l in line.split('=', 1) )
+                    name, value = tuple( l.strip() for l in line.split('=', 1) )
+                    try:
+                        value = ast.literal_eval( str(value) )
+                    except:
+                        pass
                     print "configure: loading [{}] = [{}]".format(
-                            self._colouriser.colour( 'warning', setting[0] ),
-                            self._colouriser.colour( 'warning', str(setting[1]) ) )
-                    settings[setting[0]] = setting[1]
+                            self._colouriser.colour( 'warning', name ),
+                            self._colouriser.colour( 'warning', str(value) ) )
+                    settings[name] = value
         if settings:
             print "configure: load complete"
         else:

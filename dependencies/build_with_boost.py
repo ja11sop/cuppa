@@ -38,10 +38,14 @@ class Boost:
         AddOption( '--boost-home', dest='boost-home', type='string', nargs=1, action='store',
                help='The location of the boost source code' )
 
+        AddOption( '--boost-build-once', dest='boost-build-once', action='store_true',
+               help="Pass this if you know the source won't change and you only need the libraries built the first time" )
+
 
     @classmethod
     def add_to_env( cls, args ):
         env = args['env']
+        build_once = env.get_option( 'boost-build-once' )
         try:
             if env.get_option( 'boost-home' ):
                 obj = cls( env[ 'platform' ],
@@ -58,8 +62,8 @@ class Boost:
             print "Could not create boost dependency: {}".format(e)
             env['dependencies']['boost'] = None
 
-        env.AddMethod( BoostStaticLibraryMethod(), "BoostStaticLibrary" )
-        env.AddMethod( BoostSharedLibraryMethod(), "BoostSharedLibrary" )
+        env.AddMethod( BoostStaticLibraryMethod( build_once=build_once ), "BoostStaticLibrary" )
+        env.AddMethod( BoostSharedLibraryMethod( build_once=build_once ), "BoostSharedLibrary" )
 
 
 
@@ -163,26 +167,34 @@ class Boost:
 
 class BoostStaticLibraryMethod:
 
-    def __init__( self ):
-        pass
+    def __init__( self, build_once=False ):
+        self._build_once = build_once
 
     def __call__( self, env, library ):
         if not 'boost' in env['BUILD_WITH']:
             env.BuildWith( 'boost' )
         Boost = env['dependencies']['boost']
-        return AlwaysBuild( BoostLibraryBuilder( Boost )( env, None, None, library, 'static' ) )
+        library = BoostLibraryBuilder( Boost )( env, None, None, library, 'static' )
+        if self._build_once:
+            return library
+        else:
+            return AlwaysBuild( library )
 
 
 class BoostSharedLibraryMethod:
 
-    def __init__( self ):
-        pass
+    def __init__( self, build_once=False ):
+        self._build_once = build_once
 
     def __call__( self, env, library ):
         if not 'boost' in env['BUILD_WITH']:
             env.BuildWith( 'boost' )
         Boost = env['dependencies']['boost']
-        return AlwaysBuild( BoostLibraryBuilder( Boost )( env, None, None, library, 'shared' ) )
+        library = BoostLibraryBuilder( Boost )( env, None, None, library, 'shared' )
+        if self._build_once:
+            return library
+        else:
+            return AlwaysBuild( library )
 
 
 class ProcessBjamBuild:
