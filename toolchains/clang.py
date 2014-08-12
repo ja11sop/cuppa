@@ -44,7 +44,7 @@ class Clang(object):
             command = "clang++ --version"
             if command_available( command ):
                 version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
-                cls._default_version = 'clang' + re.search( r'(\d)\.(\d)', version ).expand(r'\1\2')
+                cls._default_version = 'clang' + re.search( r'based on LLVM (\d)\.(\d)', version ).expand(r'\1\2')
             else:
                 cls._default_version = None
         return cls._default_version
@@ -71,7 +71,7 @@ class Clang(object):
                 command = "clang++-{} --version".format( re.search( r'(\d)(\d)', version ).expand(r'\1.\2') )
                 if command_available( command ):
                     reported_version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
-                    reported_version = 'clang' + re.search( r'(\d)\.(\d)', reported_version ).expand(r'\1\2')
+                    reported_version = 'clang' + re.search( r'based on LLVM (\d)\.(\d)', reported_version ).expand(r'\1\2')
                     if version == reported_version:
                         cls._available_versions.append( version )
                     else:
@@ -121,8 +121,12 @@ class Clang(object):
 
         self._initialise_toolchain( version )
 
-        self.values['CXX'] = "clang++-{}".format( self._version )
-        self.values['CC']  = "clang-{}".format( self._version )
+        if version == self.default_version():
+            self.values['CXX'] = "clang++"
+            self.values['CC']  = "clang"
+        else:
+            self.values['CXX'] = "clang++-{}".format( self._version )
+            self.values['CC']  = "clang-{}".format( self._version )
 
         env = SCons.Script.DefaultEnvironment()
 
