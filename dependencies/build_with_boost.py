@@ -275,6 +275,7 @@ class BoostLibraryAction:
                 toolset_name = "darwin"
             elif toolset_name == "clang":
                 toolset_name = "clang-darwin"
+                return toolset_name
         return toolset_name + '-' + toolset_version
 
 
