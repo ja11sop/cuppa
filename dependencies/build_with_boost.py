@@ -274,7 +274,7 @@ class BoostLibraryAction:
             if toolset_name == "gcc":
                 toolset_name = "darwin"
             elif toolset_name == "clang":
-                toolset_name = "clang-darwin"
+                toolset_name = "darwin-clang"
         return toolset_name + '-' + toolset_version
 
 
