@@ -274,13 +274,14 @@ class BoostLibraryAction:
             if toolset_name == "gcc":
                 toolset_name = "darwin"
             elif toolset_name == "clang":
-                toolset_name = "darwin-clang"
+                toolset_name = "clang-darwin"
         return toolset_name + '-' + toolset_version
 
 
     def __build_command( self, toolchain, library, variant, linktype, stage_dir ):
         toolset = self._toolset_from_toolchain( toolchain )
         command_line = './bjam --with-' + library + ' toolset=' + toolset + ' variant=' + variant + ' ' + toolchain.build_flags_for('boost') + ' link=' + linktype + ' stage --stagedir=./' + stage_dir
+        print command_line
         return shlex.split( command_line )
 
 
