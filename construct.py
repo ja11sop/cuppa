@@ -207,6 +207,10 @@ class Construct(object):
         env['supported_toolchains'] = []
         modules.registration.add_to_env( toolchains, { 'env': env } )
 
+        colouriser = env['colouriser']
+        print "construct: supported toolchains are {}".format( colouriser.colour( 'notice', str( env["supported_toolchains"] ) ) )
+        print "construct: available toolchains are {}".format( colouriser.colour( 'warning', str( env[toolchains].keys() ) ) )
+
         SCons.Script.AddOption(
             '--toolchains',
             type     = 'string',

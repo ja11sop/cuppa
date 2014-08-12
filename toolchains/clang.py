@@ -76,7 +76,7 @@ class Clang(object):
                         cls._available_versions.append( version )
                     else:
                         raise ClangException("CLANG toolchain [{}] reporting version as [{}].".format( version, reported_version ) )
-            if cls._available_versions:
+            if cls._available_versions or cls.default_version():
                 cls._available_versions.append( "clang" )
         return cls._available_versions
 
