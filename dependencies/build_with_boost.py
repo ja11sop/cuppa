@@ -233,10 +233,16 @@ class BoostLibraryAction:
 
 
     def __build_bjam( self ):
-        build_script_path = self.__location + '/tools/build/v2/engine'
+        build_script_path = self.__location + '/tools/build'
 
         if self.__version < 1.47:
-            build_script_path += '/src'
+            build_script_path += '/src/v2/engine'
+
+        elif self.__version > 1.55:
+            build_script_path += '/src/engine'
+
+        else:
+            build_script_path += '/v2/engine'
 
         ## TODO: change build script depending on platform
         bjam_build_script = './build.sh'
