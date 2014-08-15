@@ -74,8 +74,8 @@ def add_base_options():
                             dest='build_root',
                             help='The root directory for build output. If not specified then .build is used' )
 
-    SCons.Script.AddOption( '--test-runner', type='string', nargs=1, action='store',
-                            dest='test_runner',
+    SCons.Script.AddOption( '--runner', type='string', nargs=1, action='store',
+                            dest='runner',
                             help='The test runner to use for executing tests. The default is the process test runner' )
 
 #    SCons.Script.AddOption( '--decider', dest='decider', type='string', nargs=1, action='store',
@@ -321,7 +321,7 @@ class Construct(object):
         default_env['BUILD_PROFILE']        = default_env['default_profiles']
         default_env['profiles']             = {}
 
-        test_runner = default_env.get_option( 'test_runner', default=default_test_runner and default_test_runner or 'process' )
+        test_runner = default_env.get_option( 'runner', default=default_test_runner and default_test_runner or 'process' )
         default_env['default_test_runner']  = test_runner
 
         self.add_variants   ( default_env )
