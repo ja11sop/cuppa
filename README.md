@@ -21,7 +21,7 @@ and have Scons "do the right thing"; building targets for any `sconscript` files
     * [Basic Structure](#basic-structure)
     * [Construct Command-line Reference](#construct-command-line-options)
     * [Where does Construct put my builds?](#where-does-construct-put-my-builds)
-    * [Using `--xxxx-conf` to save command-line choices](#using---xxxx--conf-to-save-command-line-choices)
+    * [Using `--xxxx-conf` to save command-line choices](#using---xxxx-conf-to-save-command-line-choices)
     * [Construct](#construct)
     * [Methods](#methods)
       * [env.Build](#envbuild)
@@ -214,7 +214,7 @@ pip install https://github.com/ja11sop/gcovr/archive/master.zip
   --thirdparty=DIR            Thirdparty directory
   --build-root=BUILD_ROOT     The root directory for build output. If not
                                 specified then .build is used
-  --test-runner=TEST_RUNNER   The test runner to use for executing tests. The
+  --runner=RUNNER             The test runner to use for executing tests. The
                                 default is the process test runner
 
   --cov                       Build an instrumented binary
@@ -242,7 +242,7 @@ In addition to `--save-conf` there are a few other options that allow, updating,
 
 | Option | Description |
 | ---------| ------|
-| `--save-conf` | Saves all the  |
+| `--save-conf` | Saves all the current command-line settings to the conf file - overwriting any that existed previously. |
 | `--update-conf` | Passing `--update-conf` which will save any new settings passed and overwrite the values of existing settings. Other existing settings will remain unchanged. |
 | `--clear-conf` | Removes the conf file - clearing all settings. |
 | `--remove-settings` | `--remove-settings` takes a comma-separate list of settings to be removed from the currrent conf file. Non-existant settings are ignored. |
