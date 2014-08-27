@@ -5,14 +5,14 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   Utility
+#   Options
 #-------------------------------------------------------------------------------
 
-# Check if an object is a string
-try:
-    basestring
-    def is_string( x ):
-        return isinstance( x, basestring )
-except NameError:
-    def is_string( x ):
-        return isinstance( x, str )
+
+class list_parser(object):
+
+    def __init__( self, attribute ):
+        self._attribute = attribute
+
+    def __call__( self, option, opt, value, parser):
+        setattr( parser.values, self._attribute, value.split(',') )

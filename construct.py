@@ -24,6 +24,7 @@ import output_processor
 import colourise
 import recursive_glob
 import configure
+import options
 
 from scms                   import *
 from toolchains             import *
@@ -37,10 +38,9 @@ from project_generators     import *
 SCons.Script.Decider( 'MD5-timestamp' )
 
 
-def add_base_options():
 
-    def parse_projects_option(option, opt, value, parser):
-        parser.values.projects = value.split(',')
+
+def add_base_options():
 
     SCons.Script.AddOption( '--raw-output', dest='raw_output', action='store_true',
                             help='Disable output processing like colourisation of output' )
@@ -55,15 +55,12 @@ def add_base_options():
                             help='Do not show repeated errors or warnings' )
 
     SCons.Script.AddOption( '--projects', type='string', nargs=1,
-                            action='callback', callback=parse_projects_option,
+                            action='callback', callback=options.list_parser( 'projects' ),
                             help='Projects to build (alias for scripts)' )
 
     SCons.Script.AddOption( '--scripts', type='string', nargs=1,
-                            action='callback', callback=parse_projects_option,
+                            action='callback', callback=options.list_parser( 'projects' ),
                             help='Sconscripts to run' )
-
-    SCons.Script.AddOption( '--configure', dest='configure', action='store_true',
-                            help='Store the current passed custom options as defaults in a configuration file' )
 
     SCons.Script.AddOption( '--thirdparty', type='string', nargs=1, action='store',
                             dest='thirdparty',
@@ -274,7 +271,8 @@ class Construct(object):
 
         set_base_options()
 
-        default_env = SCons.Script.DefaultEnvironment()
+        self._default_env = SCons.Script.DefaultEnvironment()
+        default_env = self._default_env
 
         self.initialise_options( default_env, default_options )
 
@@ -357,11 +355,50 @@ class Construct(object):
 
         # TODO - default_profile
 
-        if not help:
+        if not help and self._configure.handle_conf_only():
             self._configure.save()
 
-        if not help:
+        if not help and not self._configure.handle_conf_only():
             self.build( default_env )
+
+        if self._configure.handle_conf_only():
+            print "construct: Handling onfiguration only, so no builds will be attempted."
+            print "construct: With the current configuration executing 'scons -D' would be equivalent to:"
+            print ""
+            print "scons -D {}".format( self._command_line_from_settings( default_env['configured_options'] ) )
+            print ""
+            print "construct: Nothing to be done. Exiting."
+            SCons.Script.Exit()
+
+
+    def _as_emphasised( self, text ):
+        return self._default_env['colouriser'].emphasise( text )
+
+
+    def _as_error( self, text ):
+        return self._default_env['colouriser'].colour( 'error', text )
+
+
+    def _as_warning( self, text ):
+        return self._default_env['colouriser'].colour( 'warning', text )
+
+
+    def _as_notice( self, text ):
+        return self._default_env['colouriser'].colour( 'notice', text )
+
+
+    def _command_line_from_settings( self, settings ):
+        commands = []
+        for key, value in settings.iteritems():
+            command = self._as_emphasised( "--" + key )
+            if value != True and value != False:
+                if not isinstance( value, list ):
+                    command += "=" + self._as_warning( str(value) )
+                else:
+                    command += "=" + self._as_warning( ",".join( value ) )
+            commands.append( command )
+        commands.sort()
+        return " ".join( commands )
 
 
     def get_active_actions_for_variant( self, default_env, active_variants, variant ):
@@ -428,8 +465,8 @@ class Construct(object):
         return recursive_glob.glob(path, regex )
 
 
-    def colour_items( self, colouriser, items ):
-        return "'{}'".format( "', '".join( colouriser.colour( 'notice', item ) for item in items ) )
+    def colour_items( self, items ):
+        return "'{}'".format( "', '".join( self._as_notice( item ) for item in items ) )
 
 
     def build( self, default_env ):
@@ -445,9 +482,9 @@ class Construct(object):
                 sub_sconscripts = self.get_sub_sconscripts( default_env['launch_dir'] )
                 if sub_sconscripts:
                     projects = sub_sconscripts
-                    print "construct: Using sub-sconscripts [{}]".format( self.colour_items( colouriser, projects ) )
+                    print "construct: Using sub-sconscripts [{}]".format( self.colour_items( projects ) )
             elif projects != None:
-                print "construct: Using default_projects [{}]".format( self.colour_items( colouriser, projects ) )
+                print "construct: Using default_projects [{}]".format( self.colour_items( projects ) )
 
         if projects:
 
@@ -487,7 +524,7 @@ class Construct(object):
 
         if os.path.exists( sconscript_file ) and os.path.isfile( sconscript_file ):
 
-            print "construct: project exists and added to build [{}]".format( env['colouriser'].colour( 'notice', sconscript_file ) )
+            print "construct: project exists and added to build [{}]".format( self._as_notice( sconscript_file ) )
 
             path_without_ext = os.path.splitext( sconscript_file )[0]
 
@@ -537,7 +574,7 @@ class Construct(object):
                 project_generator.update( variant, env, project, build_root, cloned_env['build_dir'], '../final/' )
 
         else:
-            print "construct: Skipping non-existent project [{}]".format( env['colouriser'].colour( 'error', sconscript_file ) )
+            print "construct: Skipping non-existent project [{}]".format( self._as_error( sconscript_file ) )
 
 
 

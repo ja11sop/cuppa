@@ -21,7 +21,7 @@ and have Scons "do the right thing"; building targets for any `sconscript` files
     * [Basic Structure](#basic-structure)
     * [Construct Command-line Reference](#construct-command-line-options)
     * [Where does Construct put my builds?](#where-does-construct-put-my-builds)
-    * [Using `--configure` to save command-line choices](#using---configure-to-save-command-line-choices)
+    * [Using `--xxxx-conf` to save command-line choices](#using---xxxx--conf-to-save-command-line-choices)
     * [Construct](#construct)
     * [Methods](#methods)
       * [env.Build](#envbuild)
@@ -193,6 +193,16 @@ pip install https://github.com/ja11sop/gcovr/archive/master.zip
 ### Construct Command-line Options
 
 ```
+  --show-conf                 Show the current values in the configuration
+                                file if one exists
+  --save-conf                 Save the current command-line a configuration
+                                file
+  --update-conf               Update the configuration file with the current
+                                command-line
+  --remove-settings=REMOVE_SETTINGS
+                              Remove the listed settings from the
+                                configuration file
+  --clear-conf                Clear the configuration file
   --raw-output                Disable output processing like colourisation of
                                 output
   --standard-output           Perform standard output processing but not
@@ -201,8 +211,6 @@ pip install https://github.com/ja11sop/gcovr/archive/master.zip
   --ignore-duplicates         Do not show repeated errors or warnings
   --projects=PROJECTS         Projects to build (alias for scripts)
   --scripts=SCRIPTS           Sconscripts to run
-  --configure                 Store the current passed custom options as
-                                defaults in a configuration file
   --thirdparty=DIR            Thirdparty directory
   --build-root=BUILD_ROOT     The root directory for build output. If not
                                 specified then .build is used
@@ -226,9 +234,20 @@ Build variants and the output from each `sconscript` is kept separate using the 
 
 If `<sconscript_name>` is "sconscript" then it is omitted from the path. The assumption is that a single `sconscript` file is being used for the given folder and therefore the folder name is sufficient to differentiate from other `sconscript`s.
 
-### Using `--configure` to save command-line choices
+### Using `--xxxx-conf` to show, save and udpate command-line choices
 
-Passing `--configure` on the command-line saves any options passed at the same time, meaning that next time you simply execute `scons` your previous options will be applied automatically. For example, passing `--configure` alongside `--boost-home=~/boost/boost_1_55` would result in `--boost-home` being applied on subsequent builds.
+**construct** allows you to save commonly used or local settings to a conf file so that they can be re-applied when you execute `scons` from anywhere in your Sconscript tree. The basic approach is to pass `--save-conf` along with the options you wish to save. No builds will be performed at this time and your effective command-line will be dispalyed for you to review. Next time you simply execute `scons` (or more typically `scons -D`) your previous options will be applied automatically. For example, passing `--save-conf` alongside `--boost-home=~/boost/boost_1_55` would result in `--boost-home` being applied on subsequent builds.
+
+In addition to `--save-conf` there are a few other options that allow, updating, removing, clearing and reviewing of options. All the options are summarised below:
+
+| Option | Description |
+| ---------| ------|
+| `--save-conf` | Saves all the  |
+| `--update-conf` | Passing `--update-conf` which will save any new settings passed and overwrite the values of existing settings. Other existing settings will remain unchanged. |
+| `--clear-conf` | Removes the conf file - clearing all settings. |
+| `--remove-settings` | `--remove-settings` takes a comma-separate list of settings to be removed from the currrent conf file. Non-existant settings are ignored. |
+| `--show-conf` | Echoes the equivalent command-line that would result from the application of the existing conf file. |
+
 
 ### Construct
 
