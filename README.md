@@ -45,9 +45,19 @@ and have Scons "do the right thing"; building targets for any `sconscript` files
 
 ## Quick Intro
 
+### Make **construct** your `site_scons` folder
+
+The easiest way to do this is to `git clone` the repository into a folder called `site_scons`:
+
+```
+git clone https://github.com/ja11sop/construct.git site_scons
+```
+
+Now when you invoke `scons` from the command-line in the parent folder you'll have access to all the facilities that **construct** provides.
+
 ### Sample `sconstruct` file
 
-A minimal `sconstruct` file using **construct** would look like this:
+Let's look at a minimal `sconstruct` that makes use of **construct**. It could look like this:
 
 ```python
 # Pull in all the Construct goodies..
@@ -236,12 +246,14 @@ If `<sconscript_name>` is "sconscript" then it is omitted from the path. The ass
 
 ### Using `--xxxx-conf` to show, save and udpate command-line choices
 
-**construct** allows you to save commonly used or local settings to a conf file so that they can be re-applied when you execute `scons` from anywhere in your Sconscript tree. The basic approach is to pass `--save-conf` along with the options you wish to save. No builds will be performed at this time and your effective command-line will be dispalyed for you to review. Next time you simply execute `scons` (or more typically `scons -D`) your previous options will be applied automatically. For example, passing `--save-conf` alongside `--boost-home=~/boost/boost_1_55` would result in `--boost-home` being applied on subsequent builds.
+**construct** allows you to save commonly used or local settings to a conf file so that they can be re-applied when you execute `scons` from anywhere in your Sconscript tree. The basic approach is to pass `--save-conf` along with the options you wish to save.
+
+No builds will be performed at this time and your effective command-line will be dispalyed for you to review. Next time you simply execute `scons` (or more typically `scons -D`) your previous options will be applied automatically. For example, passing `--save-conf` alongside `--boost-home=~/boost/boost_1_55` would result in `--boost-home` being applied on subsequent builds.
 
 In addition to `--save-conf` there are a few other options that allow, updating, removing, clearing and reviewing of options. All the options are summarised below:
 
 | Option | Description |
-| ---------| ------|
+| ------ | ----------- |
 | `--save-conf` | Saves all the current command-line settings to the conf file - overwriting any that existed previously. |
 | `--update-conf` | Passing `--update-conf` which will save any new settings passed and overwrite the values of existing settings. Other existing settings will remain unchanged. |
 | `--clear-conf` | Removes the conf file - clearing all settings. |
@@ -271,7 +283,7 @@ Construct(
 *Effects*: Executes the build using the defaults supplied. That is each `sconscript` file will be executed using the defaults specified in the `sconstruct` file. Passing options on the command-line will override any defaults specified here. If no `--scripts` or `--projects` are specified on the command-line `Construct` attempts to find and run `sconscript`s present in the lauch directory from where Scons was executed.
 
 | Argument | Usage |
-| ---------| ------|
+| -------- | ----- |
 | `base_path` | You may override this to force a different base path other than the path where the `sconstruct` is located. You might want to do this to compensate for situations were your `sconstruct` file resides beside your project files in the filesystem. |
 | `branch_root` | In some project structures, for example those using subversion style folder branches, you may want to specify where your branch root is. The purpose of this would be to allow specification of full branch names when referencing other source code in your `sconstruct` files. For example, if you had project code that relied on a specific branch of shared code (using folder based branches as in subversion) you could refer to the branch explicitly in your `sconstrcut` file as an offset to the `branch_root`. |
 | `default_options` | `default_options` expects a dictionary of options. The allowable options are the same as the command-line options with the leading `--`. For example changing the default `build_root` from `.build` to `/tmp/builds` could be achieved by writing `default_options = { 'build-root': '/tmp/builds' }` |
@@ -537,7 +549,7 @@ The `test` variant does not actually produce an output directly. Instead it exec
 The following toolchains are currently supported:
 
 | Toolchain | Description |
-| ----------| ------------|
+| --------- | ----------- |
 | `gcc34` | g++ 3.4 |
 | `gcc40` | g++ 4.0 |
 | `gcc41` | g++ 4.1 |
@@ -552,6 +564,7 @@ The following toolchains are currently supported:
 | `clang32` | clang 3.2 |
 | `clang33` | clang 3.3 |
 | `clang34` | clang 3.4 |
+| `clang35` | clang 3.5 |
 
 It is not necessary to specify a toolchain when building. If none is specified the default toolchain for the current platform will be used. However if more toolchains are available and you want to use one or more then pass the `--toolchains` option with a comma-separated list of toolchains from the list. For example to build with both GCC 4.9 and CLANG 3.4 you would add:
 
