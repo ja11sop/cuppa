@@ -1,6 +1,6 @@
-# construct
+# cppscons
 
-A simple, extensible build system packaged as a *site_scons* site directory for [Scons](http://www.scons.org/). **construct** is designed to leverage the capabilities of Scons while allowing developers to focus on the task of describing what needs to be built. In general **construct** supports `make` like usage on the command-line. That is developers can simply write:
+A simple, extensible build system for use with [Scons](http://www.scons.org/). **cppscons** is designed to leverage the capabilities of Scons while allowing developers to focus on the task of describing what needs to be built. In general **cppscons** supports `make` like usage on the command-line. That is developers can simply write:
 
 ```sh
 scons -D
@@ -8,7 +8,7 @@ scons -D
 
 and have Scons "do the right thing"; building targets for any `sconscript` files found in the current directory.
 
-**construct** is distributed as a `site_scons` directory allowing it to be effortlessly integrated into any Scons setup.
+**cppscons** is can be installed as python package or into a `site_scons` directory allowing it to be effortlessly integrated into any Scons setup.
 
 > Note: `-D` tells `scons` to look for an `sconstruct` file in the current or in parent directories and if it finds one execute the `sconscript` files as if called from that directory. This ensures everything works as expected. For more details refer to the [Scons documentation](http://www.scons.org/documentation.php)
 
@@ -19,10 +19,10 @@ and have Scons "do the right thing"; building targets for any `sconscript` files
   * [Design Principles](#design-principles)
   * [Reference](#reference)
     * [Basic Structure](#basic-structure)
-    * [Construct Command-line Reference](#construct-command-line-options)
-    * [Where does Construct put my builds?](#where-does-construct-put-my-builds)
+    * [Cppscons Command-line Reference](#construct-command-line-options)
+    * [Where does Cppscons put my builds?](#where-does-construct-put-my-builds)
     * [Using `--xxxx-conf` to save command-line choices](#using---xxxx-conf-to-save-command-line-choices)
-    * [Construct](#construct)
+    * [Cppscons](#cppscons)
     * [Methods](#methods)
       * [env.Build](#envbuild)
       * [env.Test](#envtest)
@@ -45,29 +45,33 @@ and have Scons "do the right thing"; building targets for any `sconscript` files
 
 ## Quick Intro
 
-### Make **construct** your `site_scons` folder
+### Get **cppscons**
 
-The easiest way to do this is to `git clone` the repository into a folder called `site_scons`:
+#### Method 1: Install it as a python package ####
+
+Use `pip install` to get the latest:
 
 ```
-git clone https://github.com/ja11sop/construct.git site_scons
+pip install cppscons
 ```
 
-Now when you invoke `scons` from the command-line in the parent folder you'll have access to all the facilities that **construct** provides.
+#### Method 2: Install it locally into your `site_scons` folder ####
+
+Now when you invoke `scons` from the command-line in the parent folder you'll have access to all the facilities that **cppscons** provides.
 
 ### Sample `sconstruct` file
 
-Let's look at a minimal `sconstruct` that makes use of **construct**. It could look like this:
+Let's look at a minimal `sconstruct` that makes use of **cppscons**. It could look like this:
 
 ```python
-# Pull in all the Construct goodies..
-from construct import Construct
+# Pull in all the Cppscons goodies..
+import cppscons
 
 # Call sconscripts to do the work
-Construct()
+cppscons.run()
 ```
 
-Creating the `Construct` instance starts the build process calling `sconscript` files.
+Calling the `run` method in the `cppscons` module starts the build process calling `sconscript` files.
 
 ### Sample `sconscript` file
 
@@ -81,7 +85,7 @@ for Source in env.GlobFiles('*.cpp'):
     env.Build( Source[:-4], Source )
 ```
 
-The `env.Build()` method is provided by **construct** and does essentially what `env.Program()` does but in addition is both toolchain and variant aware, and further can provide notifications on progress.
+The `env.Build()` method is provided by **cppscons** and does essentially what `env.Program()` does but in addition is both toolchain and variant aware, and further can provide notifications on progress.
 
 If our `sconscript` file was for a directory containing *.cpp files that are actually tests then we could instead write the `sconscript` file as:
 
@@ -93,7 +97,7 @@ for Source in env.GlobFiles('*.cpp'):
     env.BuildTest( Source[:-4], Source )
 ```
 
-The `env.BuildTest()` method is provided by **construct** and builds the sources specified as `env.Build()` does. However, in addition, passing `--test` on the command-line will also result in the executable produced being run by a **test_runner**. The default test runner simply treats each executable as a test case and each directory or executables as a test suite. If the process executes cleanly the test passed, if not it failed.
+The `env.BuildTest()` method is provided by **cppscons** and builds the sources specified as `env.Build()` does. However, in addition, passing `--test` on the command-line will also result in the executable produced being run by a **test_runner**. The default test runner simply treats each executable as a test case and each directory or executables as a test suite. If the process executes cleanly the test passed, if not it failed.
 
 To run this on the command-line we would write:
 
@@ -109,12 +113,12 @@ scons -D --dbg --test
 
 Or for release only pass `--rel`.
 
-**construct** also makes it easy to work with dependencies. For example, if [boost](http://www.boost.org/) was a default dependency for all your sconscipt files you could write your sconstruct file as follows:
+**cppscons** also makes it easy to work with dependencies. For example, if [boost](http://www.boost.org/) was a default dependency for all your sconscipt files you could write your sconstruct file as follows:
 
 ```python
-from construct import Construct
+import cppscons
 
-Construct(
+cppscons.run(
     default_options = {
          'boost-home': '<Location of Boost>'
     },
@@ -154,9 +158,9 @@ The point is the complexities of using [boost](http://www.boost.org/) as a depen
 
 ## Installation and Dependencies
 
-No installation is required to use **construct**: simple download or pull a branch of the `site_scons` folder and place it appropriately so Scons will find it. For global use add it to your home directory or for use with a specific project place it beside (or sym-link `site_scons` beside) the top-level `sconstruct` file. For more details on using `site_scons` refer to the [Scons man page](http://www.scons.org/doc/production/HTML/scons-man.html).
+No installation is required to use **cppscons**: simple download or pull a branch of the `site_scons` folder and place it appropriately so Scons will find it. For global use add it to your home directory or for use with a specific project place it beside (or sym-link `site_scons` beside) the top-level `sconstruct` file. For more details on using `site_scons` refer to the [Scons man page](http://www.scons.org/doc/production/HTML/scons-man.html).
 
-There are no dependencies for **construct** other than Scons itself, however for some very useful features there are a couple of dependencies, all installable via `pip`.
+There are no dependencies for **cppscons** other than Scons itself, however for some very useful features there are a couple of dependencies, all installable via `pip`.
 
 ### If you want coloured output
 
@@ -168,7 +172,7 @@ pip install colorama
 
 ### If you want HTML coverage summaries
 
-**construct** uses the [gcovr](https://github.com/gcovr/gcovr) python library to help post-process the coverage files that `gcov` produces (used by both the GCC and CLANG toolchains). In order to get a nice `coverage.html` file in your final build folder that links to HTML files for all files for which coverage information was produced you should `pip install` this. For now it is best to install from the fork shown until the new release of gcovr comes out as there is a patch required.
+**cppscons** uses the [gcovr](https://github.com/gcovr/gcovr) python library to help post-process the coverage files that `gcov` produces (used by both the GCC and CLANG toolchains). In order to get a nice `coverage.html` file in your final build folder that links to HTML files for all files for which coverage information was produced you should `pip install` this. For now it is best to install from the fork shown until the new release of gcovr comes out as there is a patch required.
 
 ```
 pip install https://github.com/ja11sop/gcovr/archive/master.zip
@@ -176,13 +180,13 @@ pip install https://github.com/ja11sop/gcovr/archive/master.zip
 
 ## Design Principles
 
-**construct** has been written primarily to provide a clean and structured way to leverage the power of Scons without the usual problems of hugely complex `scontruct` files that diverge between projects. Key goals of **construct** are:
+**cppscons** has been written primarily to provide a clean and structured way to leverage the power of Scons without the usual problems of hugely complex `scontruct` files that diverge between projects. Key goals of **cppscons** are:
 
   * minimise the need for adding logic into `sconscript` files, keeping them as declarative as possible.
   * allow declarative `sconscript`s that are both much clearer and significantly simpler than the equivalent `make` file, without the need to learn a whole new scripting language like `make` or `cmake`.
-  * provide a clear structure for extending the facilities offered by **construct**
+  * provide a clear structure for extending the facilities offered by **cppscons**
   * provide a clear vocabulary for building projects
-  * codify Scons best practices into **construct** itself so that users just need to call appropriate methods knowing that **construct** will do the right thing with their intent
+  * codify Scons best practices into **cppscons** itself so that users just need to call appropriate methods knowing that **cppscons** will do the right thing with their intent
   * provide a framework that allows experts to focus on providing facilities for others to use. Write once, use everywhere. For example one person who knows how best to make [boost](http://www.boost.org/) available as a dependency can manage that dependency and allow others to use it seamlessly.
 
 
@@ -190,17 +194,17 @@ pip install https://github.com/ja11sop/gcovr/archive/master.zip
 
 ### Basic Structure
 
-**construct** uses the following terms to mean specific aspects of a build. Understanding these will remove ambiguity in understanding the facilities that **construct** provides.
+**cppscons** uses the following terms to mean specific aspects of a build. Understanding these will remove ambiguity in understanding the facilities that **cppscons** provides.
 
 | Term                 | Meaning   |
 | -------------------- | --------- |
-| Methods              | **construct** provides a number of build methods that can be called inside your `sconscript` files. Methods such as `Build()`, `BuildTest()`, `BuildWith()` and so on. These are in addition to the methods already provided by Scons. |
+| Methods              | **cppscons** provides a number of build methods that can be called inside your `sconscript` files. Methods such as `Build()`, `BuildTest()`, `BuildWith()` and so on. These are in addition to the methods already provided by Scons. |
 | Dependencies         | Projects can have an arbitrary number of dependencies, for example [boost](http://www.boost.org/). Typically a dependency requires compiler and linker flags to be updated, or in some cases pulled from a remote repository and built. Wrapping that complexity up into a dependency makes it easy for developers to re-use that effort cleanly across projects. |
 | Profiles             | Profiles are a collection of build modifications that are commonly made to builds and might bring in one or more dependencies. Profiles provide an easy way to say, "I always do *this* with my builds" and make that available to others if you want to. |
 | Variants and Actions | Variants and Actions allow the specification of a specific builds, such as debug and release builds. Actions allow additional actions to be taken for a build, such as executing tests and analysing code coverage. |
 | Toolchains           | Toolchains allow custom build settings for different toolchains making it easy to build for any available toolchain on a specific platform, or even different versions of the same underlying toolchain |
 
-### Construct Command-line Options
+### Cppscons Command-line Options
 
 ```
   --show-conf                 Show the current values in the configuration
@@ -234,9 +238,9 @@ pip install https://github.com/ja11sop/gcovr/archive/master.zip
   --toolchains=TOOLCHAINS     The Toolchains you want to build with
 ```
 
-### Where does Construct put my builds?
+### Where does Cppscons put my builds?
 
-`Construct` places all builds outside of the source tree under the `BUILD_ROOT` which by default is the folder `.build` beside the `sconstruct` file used when Scons is executed. You can change this by specifying the `--build-root` option, or by setting the.
+**cppscons** places all builds outside of the source tree under the `BUILD_ROOT` which by default is the folder `.build` beside the `sconstruct` file used when Scons is executed. You can change this by specifying the `--build-root` option, or by setting the.
 
 Build variants and the output from each `sconscript` is kept separate using the following convention:
 
@@ -246,7 +250,7 @@ If `<sconscript_name>` is "sconscript" then it is omitted from the path. The ass
 
 ### Using `--xxxx-conf` to show, save and udpate command-line choices
 
-**construct** allows you to save commonly used or local settings to a conf file so that they can be re-applied when you execute `scons` from anywhere in your Sconscript tree. The basic approach is to pass `--save-conf` along with the options you wish to save.
+**cppscons** allows you to save commonly used or local settings to a conf file so that they can be re-applied when you execute `scons` from anywhere in your Sconscript tree. The basic approach is to pass `--save-conf` along with the options you wish to save.
 
 No builds will be performed at this time and your effective command-line will be dispalyed for you to review. Next time you simply execute `scons` (or more typically `scons -D`) your previous options will be applied automatically. For example, passing `--save-conf` alongside `--boost-home=~/boost/boost_1_55` would result in `--boost-home` being applied on subsequent builds.
 
@@ -261,13 +265,12 @@ In addition to `--save-conf` there are a few other options that allow, updating,
 | `--show-conf` | Echoes the equivalent command-line that would result from the application of the existing conf file. |
 
 
-### Construct
+### Cppscons
 
-Creation of the `Construct` instance in your sconstruct file is used to start the build process. `Construct` is defined as follows:
+Calling the `run()` method of the `cppscons` module in your sconstruct file is used to start the build process. `run()` is defined as follows:
 
 ```python
-Construct(
-        base_path            = os.path.abspath( '.' ),
+run(    base_path            = os.path.abspath( '.' ),
         branch_root          = os.path.abspath( '.' ),
         default_options      = None,
         default_projects     = None,
@@ -278,9 +281,9 @@ Construct(
         configure_callback   = None )
 ```
 
-*Overview*: Constructs a `Construct` instance and starts the build process.
+*Overview*: Starts the build process.
 
-*Effects*: Executes the build using the defaults supplied. That is each `sconscript` file will be executed using the defaults specified in the `sconstruct` file. Passing options on the command-line will override any defaults specified here. If no `--scripts` or `--projects` are specified on the command-line `Construct` attempts to find and run `sconscript`s present in the lauch directory from where Scons was executed.
+*Effects*: Executes the build using the defaults supplied. That is each `sconscript` file will be executed using the defaults specified in the `sconstruct` file. Passing options on the command-line will override any defaults specified here. If no `--scripts` or `--projects` are specified on the command-line **cppscons** attempts to find and run `sconscript`s present in the lauch directory from where Scons was executed.
 
 | Argument | Usage |
 | -------- | ----- |
@@ -592,7 +595,7 @@ The following platforms are supported:
 
 ## Supported Dependencies
 
-In order to make use of a dependency in your code it must both exist and be added to the current environment. Typically a dependency is created by indicating a version or location of the dependency. It is up to each dependency how they interpret this information. To then use the dependency you can either make it a default dependency by passing it as a list member to the `default_dependencies` argument to `Construct` or by using the `BuildWith()` or `Use()` methods.
+In order to make use of a dependency in your code it must both exist and be added to the current environment. Typically a dependency is created by indicating a version or location of the dependency. It is up to each dependency how they interpret this information. To then use the dependency you can either make it a default dependency by passing it as a list member to the `default_dependencies` argument to `cppscons.run` or by using the `BuildWith()` or `Use()` methods.
 
 ### `boost`
 

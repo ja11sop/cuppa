@@ -18,25 +18,25 @@ except ImportError:
 
 
 setup(
-    name             = 'construct',
-    version          = '1.0dev',
-    description      = 'construct, an extension package to simplify and extend Scons',
+    name             = 'cppscons',
+    version          = '0.1',
+    description      = 'cppscons, an extension package to simplify and extend Scons',
     author           = 'ja11sop',
-    url              = 'https://github.com/ja11sop/construct',
+    url              = 'https://github.com/ja11sop/cppscons',
     license          = 'LICENSE_1_0.txt',
     long_description = read_markdown('README.md'),
     packages         = [
-        'construct',
-        'construct.cpp',
-        'construct.dependencies',
-        'construct.methods',
-        'construct.modules',
-        'construct.platforms',
-        'construct.profiles',
-        'construct.project_generators',
-        'construct.scms',
-        'construct.toolchains',
-        'construct.variants'
+        'cppscons',
+        'cppscons.cpp',
+        'cppscons.dependencies',
+        'cppscons.methods',
+        'cppscons.modules',
+        'cppscons.platforms',
+        'cppscons.profiles',
+        'cppscons.project_generators',
+        'cppscons.scms',
+        'cppscons.toolchains',
+        'cppscons.variants'
     ],
-    install_requires = [ 'colorama' ]
+    install_requires = [ 'colorama', 'gcovr' ]
 )
