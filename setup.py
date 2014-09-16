@@ -18,25 +18,25 @@ except ImportError:
 
 
 setup(
-    name             = 'cppscons',
+    name             = 'cuppa',
     version          = '0.1',
-    description      = 'cppscons, an extension package to simplify and extend Scons',
+    description      = 'Cuppa, an extension package to simplify and extend Scons',
     author           = 'ja11sop',
-    url              = 'https://github.com/ja11sop/cppscons',
+    url              = 'https://github.com/ja11sop/cuppa',
     license          = 'LICENSE_1_0.txt',
     long_description = read_markdown('README.md'),
     packages         = [
-        'cppscons',
-        'cppscons.cpp',
-        'cppscons.dependencies',
-        'cppscons.methods',
-        'cppscons.modules',
-        'cppscons.platforms',
-        'cppscons.profiles',
-        'cppscons.project_generators',
-        'cppscons.scms',
-        'cppscons.toolchains',
-        'cppscons.variants'
+        'cuppa',
+        'cuppa.cpp',
+        'cuppa.dependencies',
+        'cuppa.methods',
+        'cuppa.modules',
+        'cuppa.platforms',
+        'cuppa.profiles',
+        'cuppa.project_generators',
+        'cuppa.scms',
+        'cuppa.toolchains',
+        'cuppa.variants'
     ],
-    install_requires = [ 'colorama', 'gcovr' ]
+    install_requires = [ 'scons', 'colorama', 'gcovr' ]
 )
