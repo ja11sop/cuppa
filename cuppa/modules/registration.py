@@ -23,15 +23,15 @@ def get_module_list( path, base=None ):
 
 
 def add_to_env( module_name, args ):
-    __call_classmethod_for_classes_in_module( 'construct', module_name, __package('construct'), "add_to_env", args )
+    __call_classmethod_for_classes_in_module( 'cuppa', module_name, __package('cuppa'), "add_to_env", args )
 
 
 def add_options( module_name ):
-    __call_classmethod_for_classes_in_module( 'construct', module_name, __package('construct'), "add_options", None )
+    __call_classmethod_for_classes_in_module( 'cuppa', module_name, __package('cuppa'), "add_options", None )
 
 
 def init_env_for_variant( module_name, args ):
-    __call_classmethod_for_classes_in_module( 'construct', module_name, __package('construct'), "init_env_for_variant", args )
+    __call_classmethod_for_classes_in_module( 'cuppa', module_name, __package('cuppa'), "init_env_for_variant", args )
 
 
 #-------------------------------------------------------------------------------
@@ -55,9 +55,9 @@ def __package( name ):
                 filehandle.close()
     except ImportError, (e):
         pass
-                             
+
     return package
-  
+
 
 def __call_classmethod_for_classes_in_module( package, name, path, method, args ):
     try:

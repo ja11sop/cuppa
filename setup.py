@@ -38,5 +38,5 @@ setup(
         'cuppa.toolchains',
         'cuppa.variants'
     ],
-    install_requires = [ 'scons', 'colorama', 'gcovr' ]
+    install_requires = [ 'colorama', 'gcovr' ]
 )
