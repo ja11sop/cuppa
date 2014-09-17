@@ -15,8 +15,8 @@ and have Scons "do the right thing"; building targets for any `sconscript` files
 ## Table of Contents
 
   * [Quick Intro](#quick-intro)
-  * [Installation and Dependencies](#installation-and-dependencies)
   * [Design Principles](#design-principles)
+  * [Installation and Dependencies](#installation-and-dependencies)
   * [Reference](#reference)
     * [Basic Structure](#basic-structure)
     * [Cuppa Command-line Reference](#construct-command-line-options)
@@ -47,17 +47,13 @@ and have Scons "do the right thing"; building targets for any `sconscript` files
 
 ### Get **cuppa**
 
-#### Method 1: Install it as a python package ####
-
-Use `pip install` to get the latest:
+The simpest way to get **cuppa** is to `pip install` it using:
 
 ```
 pip install cuppa
 ```
 
-#### Method 2: Install it locally into your `site_scons` folder ####
-
-Now when you invoke `scons` from the command-line in the parent folder you'll have access to all the facilities that **cuppa** provides.
+however there are a few approaches that can be used as described in the [Installation and Dependencies](#installation-and-dependencies) section.
 
 ### Sample `sconstruct` file
 
@@ -87,6 +83,8 @@ for Source in env.GlobFiles('*.cpp'):
 
 The `env.Build()` method is provided by **cuppa** and does essentially what `env.Program()` does but in addition is both toolchain and variant aware, and further can provide notifications on progress.
 
+> Note: Source[:-4] simply strips off the file extension `.cpp`, that is, the last 4 characters of the file name.
+
 If our `sconscript` file was for a directory containing *.cpp files that are actually tests then we could instead write the `sconscript` file as:
 
 ```python
@@ -99,9 +97,7 @@ for Source in env.GlobFiles('*.cpp'):
 
 The `env.BuildTest()` method is provided by **cuppa** and builds the sources specified as `env.Build()` does.
 
-> Note: Source[:-4] simply strips off the file extension `.cpp`, that is, the last 4 characters of the file name.
-
-However, in addition, passing `--test` on the command-line will also result in the executable produced being run by a **test_runner**. The default test runner simply treats each executable as a test case and each directory or executables as a test suite. If the process executes cleanly the test passed, if not it failed.
+However, in addition, passing `--test` on the command-line will also result in the executable produced being run by a **runner**. The default test runner simply treats each executable as a test case and each directory or executables as a test suite. If the process executes cleanly the test passed, if not it failed.
 
 To run this on the command-line we would write:
 
@@ -159,29 +155,6 @@ The `BoostStaticLibrary()` method ensures that the library is built in the corre
 
 The point is the complexities of using [boost](http://www.boost.org/) as a dependency are encapsulated and managed separately from the scontruct and sconscript files allowing developers to focus on intent not method.
 
-
-## Installation and Dependencies
-
-No installation is required to use **cuppa**: simple download or pull a branch of the `site_scons` folder and place it appropriately so Scons will find it. For global use add it to your home directory or for use with a specific project place it beside (or sym-link `site_scons` beside) the top-level `sconstruct` file. For more details on using `site_scons` refer to the [Scons man page](http://www.scons.org/doc/production/HTML/scons-man.html).
-
-There are no dependencies for **cuppa** other than Scons itself, however for some very useful features there are a couple of dependencies, all installable via `pip`.
-
-### If you want coloured output
-
-To make use of the colourisation you should install the python package [colorama](https://pypi.python.org/pypi/colorama). For example you might do:
-
-```
-pip install colorama
-```
-
-### If you want HTML coverage summaries
-
-**cuppa** uses the [gcovr](https://github.com/gcovr/gcovr) python library to help post-process the coverage files that `gcov` produces (used by both the GCC and CLANG toolchains). In order to get a nice `coverage.html` file in your final build folder that links to HTML files for all files for which coverage information was produced you should `pip install` this. For now it is best to install from the fork shown until the new release of gcovr comes out as there is a patch required.
-
-```
-pip install https://github.com/ja11sop/gcovr/archive/master.zip
-```
-
 ## Design Principles
 
 **cuppa** has been written primarily to provide a clean and structured way to leverage the power of Scons without the usual problems of hugely complex `scontruct` files that diverge between projects. Key goals of **cuppa** are:
@@ -192,6 +165,55 @@ pip install https://github.com/ja11sop/gcovr/archive/master.zip
   * provide a clear vocabulary for building projects
   * codify Scons best practices into **cuppa** itself so that users just need to call appropriate methods knowing that **cuppa** will do the right thing with their intent
   * provide a framework that allows experts to focus on providing facilities for others to use. Write once, use everywhere. For example one person who knows how best to make [boost](http://www.boost.org/) available as a dependency can manage that dependency and allow others to use it seamlessly.
+
+
+## Installation and Dependencies
+
+### Installation
+
+**cuppa** can be made available as a normal python package or it can be added directly to a `site_scons` folder, placed it appropriately so Scons will find it. For global use add it to your home directory or for use with a specific project place it beside (or sym-link `site_scons` beside) the top-level `sconstruct` file. For more details on using a `site_scons` folder refer to the [Scons man page](http://www.scons.org/doc/production/HTML/scons-man.html).
+
+The following sections summarise some of the ways you can get **cuppa**.
+
+#### Method 1: Install it as a python package ####
+
+Use `pip install` to get the latest:
+
+```
+pip install cuppa
+```
+
+#### Method 2: Install it locally in your project folder ####
+
+Install locally in the same folder as your `sconstruct` file using:
+
+```
+pip install cuppa -t .
+```
+
+### Method 3: Bootstrap installation from your `sconstruct` file directly
+
+Adding this to your `sconstruct` file would `pip install` **cuppa** if it was not found:
+
+```python
+try:
+    import cuppa
+except ImportError:
+    print "Cuppa not found, installing..."
+    import subprocess, shlex
+    subprocess.call( shlex.split( 'pip install cuppa' ) )
+    import cuppa
+```
+
+### Dependencies
+
+##### Coloured output
+
+To make use of the colourisation **cuppa** uses the [colorama](https://pypi.python.org/pypi/colorama) package.
+
+#### HTML coverage summaries
+
+**cuppa** uses the [gcovr](https://github.com/gcovr/gcovr) python library to help post-process the coverage files that `gcov` produces (used by both the GCC and CLANG toolchains). This produces a nice `coverage.html` file in your final build folder that links to HTML files for all files for which coverage information was produced.
 
 
 ## Reference
@@ -281,7 +303,7 @@ run(    base_path            = os.path.abspath( '.' ),
         default_variants     = None,
         default_dependencies = None,
         default_profiles     = None,
-        default_test_runner  = None,
+        default_runner       = None,
         configure_callback   = None )
 ```
 
@@ -297,7 +319,7 @@ run(    base_path            = os.path.abspath( '.' ),
 | `default_variants` | `default_variants` takes a list of variants, for example `[ 'dbg', 'rel', 'cov' ]`. By default the `dbg` and `rel` variants are built. If you only wanted to build release variants you might set `default_variants = ['rel']` for example. |
 | `default_dependencies` | `default_dependencies` takes a list of dependencies you want to always apply to the build environment and ensures that they are already applied for each build. You may pass the name of a supported dependency, such as `'boost'` or a *callable* object taking `( env, toolchain, variant )` as parameters. |
 | `default_profiles` | `default_profiles` takes a list of profiles you want to always apply to the build environment and ensures that they are already applied for each build. You may pass the name of a supported profile or a *callable* object taking `( env, toolchain, variant )` as parameters. |
-| `default_test_runner` | By default the `test_runner` used is `'process'` however you my specify your own test runner or use one of the other runners provided, such as `'boost'`. |
+| `default_runner` | By default the `runner` used is `'process'` however you my specify your own test runner or use one of the other runners provided, such as `'boost'`. |
 | `configure_callback` | This allows you to specify a callback to be executed during part of a `configure` process. This callback should be any *callable* object that takes the following parameter `( configure_context )`. Refer to the [Scons Multi-Platform Configuration documentation](http://www.scons.org/doc/production/HTML/scons-user.html#chap-sconf) for details on how to make use of the `configure_context`. |
 
 
@@ -353,11 +375,11 @@ env.Test(
         source,
         final_dir = None,
         data = None,
-        test_runner = None,
+        runner = None,
         expected = 'success' )
 ```
 
-*Overview*: Uses the specified `test_runner` to execute `source` as a test using any `data` provided. The `test_runner` can report on the progress of the test with respect to the `expected` outcome.
+*Overview*: Uses the specified `runner` to execute `source` as a test using any `data` provided. The `runner` can report on the progress of the test with respect to the `expected` outcome.
 
 *Example*:
 
@@ -367,7 +389,7 @@ test_program = env.Build( 'my_program', [ 'main.cpp', 'utility.cpp' ] )
 env.Test( test_program )
 ```
 
-*Effects*: The `test_runner` will be used to execute the `source` program with any supplied `data` treated as a source dependency for the target test outcome from running the test. Any output from the test will be placed in `final_dir`.
+*Effects*: The `runner` will be used to execute the `source` program with any supplied `data` treated as a source dependency for the target test outcome from running the test. Any output from the test will be placed in `final_dir`.
 
 
 #### env.`BuildTest`
@@ -378,7 +400,7 @@ env.BuildTest(
        final_dir = None,
        data = None,
        append_variant = None,
-       test_runner = None,
+       runner = None,
        expected = 'success' )
 ```
 
@@ -549,7 +571,7 @@ In order for the coverage to be determined for a given build target the program 
 
 #### `test` - Test
 
-The `test` variant does not actually produce an output directly. Instead it executes any target build using the `BuildTest()` method. The `test_runner` specified in the call to `BuildTest()` (or the default if none is specified) is used to execute the target and interpret success or failure.
+The `test` variant does not actually produce an output directly. Instead it executes any target build using the `BuildTest()` method. The `runner` specified in the call to `BuildTest()` (or the default if none is specified) is used to execute the target and interpret success or failure.
 
 ### Toolchains
 

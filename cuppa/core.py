@@ -266,7 +266,7 @@ class Construct(object):
                   default_variants     = None,
                   default_dependencies = None,
                   default_profiles     = None,
-                  default_test_runner  = None,
+                  default_runner       = None,
                   configure_callback   = None ):
 
         set_base_options()
@@ -319,8 +319,8 @@ class Construct(object):
         default_env['BUILD_PROFILE']        = default_env['default_profiles']
         default_env['profiles']             = {}
 
-        test_runner = default_env.get_option( 'runner', default=default_test_runner and default_test_runner or 'process' )
-        default_env['default_test_runner']  = test_runner
+        test_runner = default_env.get_option( 'runner', default=default_runner and default_runner or 'process' )
+        default_env['default_runner']  = test_runner
 
         self.add_variants   ( default_env )
         self.add_toolchains ( default_env )
