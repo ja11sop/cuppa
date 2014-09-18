@@ -14,14 +14,14 @@ from SCons.Script import Flatten
 class TestMethod(object):
 
     def __init__( self, default_test_runner=None ):
-        self._default_test_runner = default_test_runner
+        self._default_runner = default_test_runner
 
 
     def __call__( self, env, source, final_dir=None, data=None, test_runner=None, expected='success' ):
         if final_dir == None:
             final_dir = env['final_dir']
         if not test_runner:
-            test_runner = self._default_test_runner
+            test_runner = self._default_runner
         test_builder, test_emitter = env['toolchain'].test_runner( test_runner, final_dir, expected )
 
         env['BUILDERS']['TestBuilder'] = env.Builder( action=test_builder, emitter=test_emitter )
@@ -39,7 +39,7 @@ class TestMethod(object):
 
     @classmethod
     def add_to_env( cls, args ):
-        args['env'].AddMethod( cls( args['env']['default_test_runner'] ), "Test" )
+        args['env'].AddMethod( cls( args['env']['default_runner'] ), "Test" )
 
         test_runners = set()
         for toolchain in args['env']['active_toolchains']:

@@ -25,6 +25,7 @@ import cuppa.colourise
 import cuppa.recursive_glob
 import cuppa.configure
 import cuppa.options
+import cuppa.version
 
 from cuppa.scms                   import *
 from cuppa.toolchains             import *
@@ -268,6 +269,8 @@ class Construct(object):
                   default_profiles     = None,
                   default_runner       = None,
                   configure_callback   = None ):
+
+        print "cuppa: Version {}".format( cuppa.version.get() )
 
         set_base_options()
 

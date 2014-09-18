@@ -8,6 +8,7 @@
 #-------------------------------------------------------------------------------
 
 from setuptools import setup
+import cuppa.version
 
 try:
     import pypandoc
@@ -19,13 +20,13 @@ except ImportError:
 
 setup(
     name             = 'cuppa',
-    version          = '0.1',
+    version          = cuppa.version.get(),
     description      = 'Cuppa, an extension package to simplify and extend Scons',
     author           = 'ja11sop',
     url              = 'https://github.com/ja11sop/cuppa',
     license          = 'LICENSE_1_0.txt',
     long_description = read_markdown('README.md'),
-    packages         = [
+    packages = [
         'cuppa',
         'cuppa.cpp',
         'cuppa.dependencies',
@@ -36,7 +37,13 @@ setup(
         'cuppa.project_generators',
         'cuppa.scms',
         'cuppa.toolchains',
-        'cuppa.variants'
+        'cuppa.variants',
     ],
-    install_requires = [ 'colorama', 'gcovr' ]
+    package_data = {
+        '': ['VERSION', 'README.md' ]
+    },
+    install_requires = [
+        'colorama',
+        'gcovr'
+    ]
 )

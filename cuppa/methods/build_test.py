@@ -12,14 +12,14 @@
 class BuildTestMethod:
 
     def __init__( self, default_test_runner=None ):
-        self._default_test_runner = default_test_runner
+        self._default_runner = default_test_runner
 
 
     def __call__( self, env, target, source, final_dir=None, data=None, append_variant=None, test_runner=None, expected='success' ):
         program = env.Build( target, source, final_dir=final_dir, append_variant=append_variant )
         if env['variant_actions'].has_key('test') or env['variant_actions'].has_key('cov'):
             if not test_runner:
-                test_runner = self._default_test_runner
+                test_runner = self._default_runner
 
             env.Test( program, final_dir=final_dir, data=data, test_runner=test_runner, expected=expected )
             if 'cov' in env['variant_actions']:
@@ -30,7 +30,7 @@ class BuildTestMethod:
 
     @classmethod
     def add_to_env( cls, args ):
-        args['env'].AddMethod( cls( args['env']['default_test_runner'] ), "BuildTest" )
+        args['env'].AddMethod( cls( args['env']['default_runner'] ), "BuildTest" )
 
         test_runners = set()
         for toolchain in args['env']['active_toolchains']:
