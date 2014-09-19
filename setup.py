@@ -17,7 +17,7 @@ setup(
     description      = 'Cuppa, an extension package to simplify and extend Scons',
     author           = 'ja11sop',
     url              = 'https://github.com/ja11sop/cuppa',
-    license          = 'LICENSE_1_0.txt',
+    license          = 'Boost Software License 1.0 - http://www.boost.org/LICENSE_1_0.txt',
     long_description = open( 'README.rst' ).read(),
     packages = [
         'cuppa',
@@ -43,6 +43,7 @@ setup(
         "Topic :: Software Development :: Build Tools",
         "Intended Audience :: Developers",
         "Development Status :: 4 - Beta",
+        "License :: OSI Approved",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 2",
     ],
