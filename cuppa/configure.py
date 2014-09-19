@@ -74,17 +74,17 @@ class Configure(object):
 
         if self._unconfigure:
             self._configure = False
-            print "configure: {}".format( self._colouriser.colour( 'notice', "Clear configuration requested..." ) )
+            print "cuppa: configure - {}".format( self._colouriser.colour( 'notice', "Clear configuration requested..." ) )
             if os.path.exists( self._conf_path ):
-                print "configure: removing configure file [{}]".format(
+                print "cuppa: configure - removing configure file [{}]".format(
                         self._colouriser.colour( 'warning', self._conf_path ) )
                 os.remove( self._conf_path )
             else:
-                print "configure: configure file [{}] does not exist. Unconfigure not needed".format(
+                print "cuppa: configure - configure file [{}] does not exist. Unconfigure not needed".format(
                         self._colouriser.colour( 'warning', self._conf_path ) )
             return
         elif self._configure:
-            print "configure: {}".format( self._colouriser.colour( 'notice', "Update configuration requested..." ) )
+            print "cuppa: configure - {}".format( self._colouriser.colour( 'notice', "Update configuration requested..." ) )
 
         if not self._save:
             self._loaded_options = self._load_conf()
@@ -133,7 +133,7 @@ class Configure(object):
         settings = {}
         if os.path.exists(self._conf_path):
             with open(self._conf_path) as config_file:
-                print "configure: configure file [{}] exists. Load stored settings...".format(
+                print "cuppa: configure - configure file [{}] exists. Load stored settings...".format(
                         self._colouriser.colour( 'warning', self._conf_path ) )
                 for line in config_file.readlines():
                     name, value = tuple( l.strip() for l in line.split('=', 1) )
@@ -144,9 +144,9 @@ class Configure(object):
                     self._print_setting( 'loading', name, value )
                     settings[name] = value
         if settings:
-            print "configure: load complete"
+            print "cuppa: configure - load complete"
         else:
-            print "configure: no settings to load, skipping configure"
+            print "cuppa: configure - no settings to load, skipping configure"
         return settings
 
 
@@ -170,7 +170,7 @@ class Configure(object):
 
 
     def _print_setting( self, action, key, value ):
-        print "configure: {} [{}] = [{}]".format(
+        print "cuppa: configure - {} [{}] = [{}]".format(
             action,
             self._colouriser.colour( 'notice', key ),
             self._colouriser.colour( 'notice', str(value) ) )
@@ -194,25 +194,25 @@ class Configure(object):
 
     def _remove_settings( self ):
         initial_option_count = len(self._loaded_options)
-        print "configure: Remove settings requested for the following options {}".format( self._remove )
+        print "cuppa: configure - Remove settings requested for the following options {}".format( self._remove )
         for setting in self._remove:
             if setting in self._loaded_options:
                 del self._loaded_options[setting]
-                print "configure: removing option [{}] as requested".format( self._colouriser.colour( 'notice', "--" + setting ) )
+                print "cuppa: configure - removing option [{}] as requested".format( self._colouriser.colour( 'notice', "--" + setting ) )
         if initial_option_count != len(self._loaded_options):
             self._update_conf()
 
 
     def _save_conf( self ):
-        print "configure: {}".format( self._colouriser.colour( 'notice', "save current settings..." ) )
+        print "cuppa: configure - {}".format( self._colouriser.colour( 'notice', "save current settings..." ) )
         self._save_settings()
-        print "configure: {}".format( self._colouriser.colour( 'notice', "save complete" ) )
+        print "cuppa: configure - {}".format( self._colouriser.colour( 'notice', "save complete" ) )
 
 
     def _update_conf( self ):
-        print "configure: {}".format( self._colouriser.colour( 'notice', "updating current settings..." ) )
+        print "cuppa: configure - {}".format( self._colouriser.colour( 'notice', "updating current settings..." ) )
         self._save_settings()
-        print "configure: {}".format( self._colouriser.colour( 'notice', "update complete" ) )
+        print "cuppa: configure - {}".format( self._colouriser.colour( 'notice', "update complete" ) )
 
 
 

@@ -15,7 +15,7 @@ import os
 def get():
     module = sys.modules[__name__]
     if not hasattr( module, '_version' ):
-        version_path = os.path.join( os.path.split( __file__ )[0], '..', 'VERSION' )
+        version_path = os.path.join( os.path.split( __file__ )[0], 'VERSION' )
         with open( version_path ) as version_file:
             module._version = version_file.read().strip()
     return module._version

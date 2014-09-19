@@ -39,11 +39,23 @@ setup(
         'cuppa.toolchains',
         'cuppa.variants',
     ],
-#    package_data = {
-#        '': ['VERSION', 'README.md', 'LICENSE_1_0.txt' ]
-#    },
+    package_data = {
+        'cuppa': [ 'VERSION' ]
+    },
     install_requires = [
         'colorama',
         'gcovr'
+    ],
+    classifiers = [
+        "Topic :: Software Development :: Build Tools",
+        "Framework :: Scons",
+        "Intended Audience :: Developers",
+        "Development Status :: 4 - Beta",
+        "License :: OSI Approved :: Boost Software License 1.0",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python :: 2",
+    ],
+    keywords = [
+        'scons',
     ]
 )

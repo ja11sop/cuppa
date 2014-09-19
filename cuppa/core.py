@@ -270,7 +270,7 @@ class Construct(object):
                   default_runner       = None,
                   configure_callback   = None ):
 
-        print "cuppa: Version {}".format( cuppa.version.get() )
+        print "cuppa: version {}".format( cuppa.version.get() )
 
         set_base_options()
 
