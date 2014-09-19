@@ -39,9 +39,9 @@ setup(
         'cuppa.toolchains',
         'cuppa.variants',
     ],
-    package_data = {
-        '': ['VERSION', 'README.md' ]
-    },
+#    package_data = {
+#        '': ['VERSION', 'README.md', 'LICENSE_1_0.txt' ]
+#    },
     install_requires = [
         'colorama',
         'gcovr'
