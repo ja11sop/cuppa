@@ -87,7 +87,7 @@ class CoverageSuite(object):
         self._name = name
         self._scons_env = scons_env
         self._final_dir = final_dir
-        sconscript_progress.SconscriptProgress.register_callback( scons_env, self.on_progress )
+        cuppa.sconscript_progress.SconscriptProgress.register_callback( scons_env, self.on_progress )
         self._suite = {}
 
 
