@@ -191,7 +191,7 @@ Install locally in the same folder as your `sconstruct` file using:
 pip install cuppa -t .
 ```
 
-### Method 3: Bootstrap installation from your `sconstruct` file directly
+### Method 3: Bootstrap a local installation from your `sconstruct` file directly
 
 Adding this to your `sconstruct` file would `pip install` **cuppa** if it was not found:
 
@@ -201,7 +201,7 @@ try:
 except ImportError:
     print "Cuppa not found, installing..."
     import subprocess, shlex
-    subprocess.call( shlex.split( 'pip install cuppa' ) )
+    subprocess.call( shlex.split( 'pip install cuppa -t .' ) )
     import cuppa
 ```
 
