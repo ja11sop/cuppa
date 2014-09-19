@@ -173,12 +173,13 @@ class BoostStaticLibraryMethod:
 
     def __init__( self, build_once=False, verbose=False ):
         self._build_once = build_once
+        self._verbose = verbose
 
     def __call__( self, env, library ):
         if not 'boost' in env['BUILD_WITH']:
             env.BuildWith( 'boost' )
         Boost = env['dependencies']['boost']
-        library = BoostLibraryBuilder( Boost, verbose=verbose )( env, None, None, library, 'static' )
+        library = BoostLibraryBuilder( Boost, verbose=self._verbose )( env, None, None, library, 'static' )
         if self._build_once:
             return library
         else:
