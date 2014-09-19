@@ -10,13 +10,6 @@
 from setuptools import setup
 import cuppa.version
 
-try:
-    import pypandoc
-    read_markdown = lambda f: pypandoc.convert(f, 'rst')
-except ImportError:
-    print( "warning: pypandoc module not found, could not convert Markdown to RST" )
-    read_markdown = lambda f: open(f, 'r').read()
-
 
 setup(
     name             = 'cuppa',
@@ -25,7 +18,7 @@ setup(
     author           = 'ja11sop',
     url              = 'https://github.com/ja11sop/cuppa',
     license          = 'LICENSE_1_0.txt',
-    long_description = read_markdown('README.md'),
+    long_description = open( 'README.rst' ).read(),
     packages = [
         'cuppa',
         'cuppa.cpp',
@@ -48,10 +41,8 @@ setup(
     ],
     classifiers = [
         "Topic :: Software Development :: Build Tools",
-        "Framework :: Scons",
         "Intended Audience :: Developers",
         "Development Status :: 4 - Beta",
-        "License :: OSI Approved :: Boost Software License 1.0",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 2",
     ],

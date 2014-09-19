@@ -1,1 +1,1 @@
-include README.md MANIFEST.in LICENSE_1_0.txt
+include README.md README.rst MANIFEST.in LICENSE_1_0.txt
