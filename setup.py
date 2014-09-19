@@ -57,5 +57,6 @@ setup(
     ],
     keywords = [
         'scons',
+        'build',
     ]
 )
