@@ -291,10 +291,10 @@ class BoostLibraryAction:
 
 
     def _toolset_from_toolchain( self, toolchain ):
-        if cuppa.build_platform.name() == "Darwin":
-            if toolset_name == "clang":
-                return self._toolset_name_from_toolchain( toolchain )
-        return self._toolset_name_from_toolchain( toolchain ) + '-' + toolchain.version()
+        toolset_name = self._toolset_name_from_toolchain( toolchain )
+        if toolset_name == "clang-darwin":
+            return toolset_name
+        return toolset_name + '-' + toolchain.version()
 
 
     def _update_project_config_jam( self, toolchain, location ):
