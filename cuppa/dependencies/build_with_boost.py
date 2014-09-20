@@ -290,8 +290,10 @@ class BoostLibraryAction:
         return toolset_name
 
 
-
     def _toolset_from_toolchain( self, toolchain ):
+        if cuppa.build_platform.name() == "Darwin":
+            if toolset_name == "clang":
+                return self._toolset_name_from_toolchain( toolchain )
         return self._toolset_name_from_toolchain( toolchain ) + '-' + toolchain.version()
 
 
@@ -345,7 +347,8 @@ class BoostLibraryAction:
         stage_dir = os.path.join( 'build', toolchain.name(), self._variant )
         args      = self._build_command( toolchain, library, self._variant, self._linktype, stage_dir )
 
-        self._update_project_config_jam( toolchain, self._location )
+        if cuppa.build_platform.name() == "Linux":
+            self._update_project_config_jam( toolchain, self._location )
 
         try:
             IncrementalSubProcess.Popen(
