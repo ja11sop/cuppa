@@ -235,7 +235,7 @@ class BoostLibraryAction:
 
     @classmethod
     def process_bjam_output( cls, line ):
-        if line[0] != ' ' and line[0] != '.' and line[0] != 'C' and line[0] != 'P' and line[0] != 'w':
+        if line[0] != ' ' and line[0] != '.' and line[0] != 'C' and line[0] != 'P' and line[0] != 'w' and line[0] != 'I':
             return line
 
 
