@@ -10,6 +10,8 @@
 from setuptools import setup
 import cuppa.version
 
+with open( 'README.rst' ) as readme_file:
+    long_description = readme_file.read()
 
 setup(
     name             = 'cuppa',
@@ -18,7 +20,7 @@ setup(
     author           = 'ja11sop',
     url              = 'https://github.com/ja11sop/cuppa',
     license          = 'Boost Software License 1.0 - http://www.boost.org/LICENSE_1_0.txt',
-    long_description = open( 'README.rst' ).read(),
+    long_description = long_description,
     packages = [
         'cuppa',
         'cuppa.cpp',
