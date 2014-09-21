@@ -440,7 +440,7 @@ class ProcessStdout:
             if self.leaving_test_case( line ):
                 self.state = State.test_suite
 
-    def __exit__( self ):
+    def __exit__( self, type, value, traceback ):
         if self.log:
             self.log.close()
 
@@ -530,7 +530,7 @@ class ProcessStderr:
         self.log.write( line + '\n' )
 
 
-    def __exit__( self ):
+    def __exit__( self, type, value, traceback ):
         if self.log:
             self.log.close()
 
@@ -576,7 +576,7 @@ class RunBoostTest:
             return return_code
 
         except OSError, e:
-            print >> stderr, "Execution of [", test_command, "] failed with error: ", e
+            print >> sys.stderr, "Execution of [", test_command, "] failed with error: ", e
             return 1
 
 

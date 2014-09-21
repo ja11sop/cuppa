@@ -22,7 +22,7 @@ class GlobFromSconscriptMethod:
         else:
             start = env['sconscript_dir']
 
-        return recursive_glob.glob( start, pattern )
+        return cuppa.recursive_glob.glob( start, pattern )
 
 
     @classmethod
@@ -40,7 +40,7 @@ class GlobFromBaseMethod:
         else:
             start = env['base_path']
 
-        return recursive_glob.glob( start, pattern )
+        return cuppa.recursive_glob.glob( start, pattern )
 
 
     @classmethod
@@ -52,7 +52,7 @@ class GlobFromBaseMethod:
 class RecursiveGlobMethod:
 
     def __call__( self, env, start, pattern ):
-        return recursive_glob.glob( start, pattern )
+        return cuppa.recursive_glob.glob( start, pattern )
 
 
     @classmethod

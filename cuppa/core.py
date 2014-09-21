@@ -418,7 +418,7 @@ class Construct(object):
             if default_variants:
                 for variant in default_variants:
                     if available_actions.has_key( variant ):
-                        specified_actions[ variant ] = variants[ variant ]
+                        specified_actions[ variant ] = available_actions[ variant ]
 
         active_actions = {}
 
@@ -498,7 +498,7 @@ class Construct(object):
                     sub_sconscripts = self.get_sub_sconscripts( project )
                     if sub_sconscripts:
                         print "cuppa: Reading project folder [{}] and using sub-sconscripts [{}]".format(
-                                project, self.colour_items( colouriser, sub_sconscripts ) )
+                                project, self.colour_items( sub_sconscripts ) )
                         sconscripts.extend( sub_sconscripts )
                 else:
                     sconscripts.append( project )

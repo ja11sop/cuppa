@@ -315,7 +315,7 @@ class ProcessStdout:
         self.log.write( line + '\n' )
 
 
-    def __exit__( self ):
+    def __exit__( self, type, value, traceback ):
         if self.log:
             self.log.close()
 
@@ -330,7 +330,7 @@ class ProcessStderr:
         self.log.write( line + '\n' )
 
 
-    def __exit__( self ):
+    def __exit__( self, type, value, traceback ):
         if self.log:
             self.log.close()
 
@@ -373,7 +373,7 @@ class RunProcessTest:
             return return_code
 
         except OSError, e:
-            print >> stderr, "Execution of [", test_command, "] failed with error: ", e
+            print >> sys.stderr, "Execution of [", test_command, "] failed with error: ", e
             return 1
 
 

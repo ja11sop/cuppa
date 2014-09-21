@@ -13,11 +13,14 @@ import os
 import shutil
 import re
 import sys
+
 from exceptions   import Exception
 from re           import search
 from string       import strip, replace
-from SCons.Script import AddOption, Environment, File, AlwaysBuild
+
+from SCons.Script import AddOption, Environment, File, AlwaysBuild, GetLaunchDir
 from cuppa.output_processor import IncrementalSubProcess
+
 import cuppa.build_platform
 
 
@@ -102,7 +105,7 @@ class Boost:
             raise BoostException("Cannot construct Boost Object. Invalid parameters")
 
         if not base:
-            base = SCons.Script.GetLaunchDir()
+            base = GetLaunchDir()
         if not os.path.isabs( base ):
             base = os.path.abspath( base )
 
@@ -239,8 +242,8 @@ class BoostLibraryAction:
             return line
 
 
-    def __build_bjam( self ):
-        build_script_path = self.__location + '/tools/build'
+    def _build_bjam( self ):
+        build_script_path = self._location + '/tools/build'
 
         if self._version < 1.47:
             build_script_path += '/src/v2/engine'
@@ -273,7 +276,7 @@ class BoostLibraryAction:
 
             bjam_binary_path = build_script_path + '/' + bjam_exe_path
 
-            shutil.copy( bjam_binary_path, self.__location + '/bjam' )
+            shutil.copy( bjam_binary_path, self._location + '/bjam' )
 
         except OSError as error:
             print 'Error building bjam [' + str( error.args ) + ']'

@@ -11,25 +11,19 @@
 import imp
 import re
 
+try:
+    import colorama
+    colorama_available = True
+except ImportError:
+    print 'Output Colourisation disabled. To enabled, install colorama'
+    colorama_available = False
+
 
 class Colouriser(object):
 
     @classmethod
-    def colorama_available( cls ):
-        try:
-            filehandle, pathname, description = imp.find_module( 'colorama' )
-            imp.load_module( 'colorama', filehandle, pathname, description )
-            global colorama
-            import colorama
-        except ImportError:
-            print 'Output Colourisation disabled. To enabled, install colorama'
-            return False
-        return True
-
-
-    @classmethod
     def create( cls ):
-        if cls.colorama_available():
+        if colorama_available:
             colorama.init()
         return cls()
 

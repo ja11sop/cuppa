@@ -15,13 +15,13 @@ class BuildTestMethod:
         self._default_runner = default_test_runner
 
 
-    def __call__( self, env, target, source, final_dir=None, data=None, append_variant=None, test_runner=None, expected='success' ):
+    def __call__( self, env, target, source, final_dir=None, data=None, append_variant=None, runner=None, expected='success' ):
         program = env.Build( target, source, final_dir=final_dir, append_variant=append_variant )
         if env['variant_actions'].has_key('test') or env['variant_actions'].has_key('cov'):
-            if not test_runner:
-                test_runner = self._default_runner
+            if not runner:
+                runner = self._default_runner
 
-            env.Test( program, final_dir=final_dir, data=data, test_runner=test_runner, expected=expected )
+            env.Test( program, final_dir=final_dir, data=data, runner=runner, expected=expected )
             if 'cov' in env['variant_actions']:
                 env.Coverage( program, source, final_dir=final_dir )
 

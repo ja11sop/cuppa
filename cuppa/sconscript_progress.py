@@ -39,7 +39,7 @@ class SconscriptProgress:
     @classmethod
     def Started( cls, target, source, env ):
         for callback in cls._callbacks( env ):
-            callback( 'started', env, cls._sconscript(), target, source )
+            callback( 'started', env, cls._sconscript(env), target, source )
 
         del cls.started[cls._sconscript(env)]
 
