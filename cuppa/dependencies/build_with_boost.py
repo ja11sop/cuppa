@@ -19,7 +19,8 @@ from re           import search
 from string       import strip, replace
 
 from SCons.Script import AddOption, Environment, File, AlwaysBuild, GetLaunchDir
-from cuppa.output_processor import IncrementalSubProcess
+
+from cuppa.output_processor import IncrementalSubProcess, ToolchainProcessor
 
 import cuppa.build_platform
 
@@ -41,18 +42,22 @@ class Boost:
         AddOption( '--boost-home', dest='boost-home', type='string', nargs=1, action='store',
                help='The location of the boost source code' )
 
-        AddOption( '--boost-build-once', dest='boost-build-once', action='store_true',
-               help="Pass this if you know the source won't change and you only need the libraries built the first time" )
+        AddOption( '--boost-build-always', dest='boost-build-always', action='store_true',
+               help="Pass this if your boost source may change (for example you are patching it) and you want boost build to be executed each time the library is asked for" )
 
-        AddOption( '--boost-verbose', dest='boost-verbose', action='store_true',
+        AddOption( '--boost-verbose-build', dest='boost-verbose-build', action='store_true',
                help="Pass this option if you wish to see the command-line output of boost build" )
+
+        AddOption( '--boost-verbose-config', dest='boost-verbose-config', action='store_true',
+               help="Pass this option if you wish to see the configuration output of boost build" )
 
 
     @classmethod
     def add_to_env( cls, args ):
         env = args['env']
-        build_once = env.get_option( 'boost-build-once' )
-        verbose = env.get_option( 'boost-verbose' )
+        build_always = env.get_option( 'boost-build-always' )
+        verbose_build = env.get_option( 'boost-verbose-build' )
+        verbose_config = env.get_option( 'boost-verbose-config' )
         try:
             if env.get_option( 'boost-home' ):
                 obj = cls( env[ 'platform' ],
@@ -69,9 +74,18 @@ class Boost:
             print "Could not create boost dependency: {}".format(e)
             env['dependencies']['boost'] = None
 
-        env.AddMethod( BoostStaticLibraryMethod( build_once=build_once, verbose=verbose ), "BoostStaticLibrary" )
-        env.AddMethod( BoostSharedLibraryMethod( build_once=build_once, verbose=verbose ), "BoostSharedLibrary" )
-
+        env.AddMethod(
+                BoostStaticLibraryMethod(
+                        build_always=build_always,
+                        verbose_build=verbose_build,
+                        verbose_config=verbose_config ),
+                "BoostStaticLibrary" )
+        env.AddMethod(
+                BoostSharedLibraryMethod(
+                        build_always=build_always,
+                        verbose_build=verbose_build,
+                        verbose_config=verbose_config ),
+                "BoostSharedLibrary" )
 
 
     def get_boost_version( self, location ):
@@ -174,36 +188,44 @@ class Boost:
 
 class BoostStaticLibraryMethod:
 
-    def __init__( self, build_once=False, verbose=False ):
-        self._build_once = build_once
-        self._verbose = verbose
+    def __init__( self, build_always=False, verbose_build=False, verbose_config=False ):
+        self._build_always = build_always
+        self._verbose_build = verbose_build
+        self._verbose_config = verbose_config
 
     def __call__( self, env, library ):
         if not 'boost' in env['BUILD_WITH']:
             env.BuildWith( 'boost' )
         Boost = env['dependencies']['boost']
-        library = BoostLibraryBuilder( Boost, verbose=self._verbose )( env, None, None, library, 'static' )
-        if self._build_once:
-            return library
-        else:
+        library = BoostLibraryBuilder(
+                Boost,
+                verbose_build=self._verbose_build,
+                verbose_config=self._verbose_config )( env, None, None, library, 'static' )
+        if self._build_always:
             return AlwaysBuild( library )
+        else:
+            return library
 
 
 class BoostSharedLibraryMethod:
 
-    def __init__( self, build_once=False, verbose=False ):
-        self._build_once = build_once
-        self._verbose = verbose
+    def __init__( self, build_always=False, verbose_build=False, verbose_config=False ):
+        self._build_always = build_always
+        self._verbose_build = verbose_build
+        self._verbose_config = verbose_config
 
     def __call__( self, env, library ):
         if not 'boost' in env['BUILD_WITH']:
             env.BuildWith( 'boost' )
         Boost = env['dependencies']['boost']
-        library = BoostLibraryBuilder( Boost, verbose=self._verbose )( env, None, None, library, 'shared' )
-        if self._build_once:
-            return library
-        else:
+        library = BoostLibraryBuilder(
+                Boost,
+                verbose_build=self._verbose_build,
+                verbose_config=self._verbose_config )( env, None, None, library, 'shared' )
+        if self._build_always:
             return AlwaysBuild( library )
+        else:
+            return library
 
 
 class ProcessBjamBuild:
@@ -220,26 +242,21 @@ class ProcessBjamBuild:
 
 class BoostLibraryAction:
 
-    def __init__( self, env, boost, verbose, library, linktype ):
+    def __init__( self, env, boost, verbose_build, verbose_config, library, linktype ):
         self._env = env
-        self._location     = boost.location()
-        self._version      = boost.numeric_version()
-        self._full_version = boost.full_version()
-        self._verbose      = verbose
-        self._library      = library
-        self._linktype     = linktype
-        self._variant      = self._env['variant'].name()
+        self._location       = boost.location()
+        self._version        = boost.numeric_version()
+        self._full_version   = boost.full_version()
+        self._verbose_build  = verbose_build
+        self._verbose_config = verbose_config
+        self._library        = library
+        self._linktype       = linktype
+        self._variant        = self._env['variant'].name()
 
         if self._variant == 'dbg':
             self._variant = 'debug'
         else:
             self._variant = 'release'
-
-
-    @classmethod
-    def process_bjam_output( cls, line ):
-        if line[0] != ' ' and line[0] != '.' and line[0] != 'C' and line[0] != 'P' and line[0] != 'w' and line[0] != 'I':
-            return line
 
 
     def _build_bjam( self ):
@@ -327,8 +344,14 @@ class BoostLibraryAction:
 
     def _build_command( self, toolchain, library, variant, linktype, stage_dir ):
 
-        command_line = "./bjam {verbose} --with-{library} toolset={toolset} variant={variant} {build_flags} link={linktype} stage --stagedir=./{stage_dir}".format(
-                verbose     = self._verbose and "-d+2 --debug-configuration" or "",
+        verbose = ""
+        if self._verbose_build:
+            verbose += " -d+2"
+        if self._verbose_config:
+            verbose += " --debug-configuration"
+
+        command_line = "./bjam{verbose} --with-{library} toolset={toolset} variant={variant} {build_flags} link={linktype} stage --stagedir=./{stage_dir}".format(
+                verbose     = verbose,
                 library     = library,
                 toolset     = self._toolset_from_toolchain( toolchain ),
                 variant     = variant,
@@ -353,23 +376,61 @@ class BoostLibraryAction:
         if cuppa.build_platform.name() == "Linux":
             self._update_project_config_jam( toolchain, self._location )
 
-        try:
-            IncrementalSubProcess.Popen(
-                self.process_bjam_output,
-                args,
-                cwd=self._location
-            )
+        processor = BjamOutputProcessor( env, self._verbose_build, self._verbose_config, self._toolset_name_from_toolchain( toolchain ) )
 
-            target_path        = str( target[0] )
-            filename           = os.path.split( target_path )[1]
-            built_library_path = os.path.join( self._location, stage_dir, 'lib', filename )
+        returncode = IncrementalSubProcess.Popen(
+            processor,
+            args,
+            cwd=self._location
+        )
 
-            shutil.copy( built_library_path, target_path )
-            return None
+        summary = processor.summary( returncode )
 
-        except OSError as error:
-            print 'Error building ' + self._library + '[' + str( error.args ) + ']'
-            return 1
+        if summary:
+            print summary
+
+        if returncode:
+            return returncode
+
+        target_path        = str( target[0] )
+        filename           = os.path.split( target_path )[1]
+        built_library_path = os.path.join( self._location, stage_dir, 'lib', filename )
+
+        shutil.copy( built_library_path, target_path )
+        return None
+
+
+
+class BjamOutputProcessor(object):
+
+    def __init__( self, env, verbose_build, verbose_config, toolset_name ):
+        self._verbose_build = verbose_build
+        self._verbose_config = verbose_config
+        self._toolset_filter = toolset_name + '.'
+
+        self._colouriser = env['colouriser']
+        self._minimal_output = not self._verbose_build
+        ignore_duplicates = not self._verbose_build
+        self._toolchain_processor = ToolchainProcessor( self._colouriser, env['toolchain'], self._minimal_output, ignore_duplicates )
+
+
+    def __call__( self, line ):
+        if line.startswith( self._toolset_filter ):
+            return line
+        elif not self._verbose_config:
+            if(     line.startswith( "Performing configuration" )
+                or  line.startswith( "Component configuration" )
+                or  line.startswith( "    - " ) ):
+                return None
+        return self._toolchain_processor( line )
+
+
+    def summary( self, returncode ):
+        summary = self._toolchain_processor.summary( returncode )
+        if returncode and not self._verbose_build:
+            summary += "\nTry running with {} for more details".format( self._colouriser.emphasise( '--boost-verbose-build' ) )
+        return summary
+
 
 
 class BoostLibraryEmitter:
@@ -401,13 +462,14 @@ class BoostLibraryEmitter:
 
 class BoostLibraryBuilder:
 
-    def __init__( self, boost, verbose ):
+    def __init__( self, boost, verbose_build, verbose_config ):
         self._boost = boost
-        self._verbose = verbose
+        self._verbose_build = verbose_build
+        self._verbose_config = verbose_config
 
 
     def __call__( self, env, target, source, library, linktype ):
-        library_action  = BoostLibraryAction ( env, self._boost, self._verbose, library, linktype )
+        library_action  = BoostLibraryAction ( env, self._boost, self._verbose_build, self._verbose_config, library, linktype )
         library_emitter = BoostLibraryEmitter( env, library, linktype, self._boost )
 
         env.AppendUnique( BUILDERS = {

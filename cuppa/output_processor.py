@@ -113,7 +113,7 @@ class Processor:
         processor = SpawnedProcessor( self.scons_env )
 
         returncode = IncrementalSubProcess.Popen(
-            processor.process,
+            processor,
             [ arg.strip('"') for arg in args ],
             env=env
         )
@@ -126,13 +126,31 @@ class Processor:
         return returncode
 
 
-class SpawnedProcessor:
+
+class SpawnedProcessor(object):
 
     def __init__( self, scons_env ):
-        self.toolchain              = scons_env['toolchain']
-        self.colouriser             = scons_env['colouriser']
-        self.minimal_output         = scons_env['minimal_output']
-        self.ignore_duplicates      = scons_env['ignore_duplicates']
+        self._processor = ToolchainProcessor(
+                scons_env['colouriser'],
+                scons_env['toolchain'],
+                scons_env['minimal_output'],
+                scons_env['ignore_duplicates'] )
+
+    def __call__( self, line ):
+        return self._processor( line )
+
+    def summary( self, returncode ):
+        return self._processor.summary( returncode )
+
+
+
+class ToolchainProcessor:
+
+    def __init__( self, colouriser, toolchain, minimal_output, ignore_duplicates ):
+        self.toolchain              = toolchain
+        self.colouriser             = colouriser
+        self.minimal_output         = minimal_output
+        self.ignore_duplicates      = ignore_duplicates
         self.errors                 = 0
         self.warnings               = 0
         self.start_time             = time.time()
@@ -165,7 +183,7 @@ class SpawnedProcessor:
             return line
 
 
-    def process( self, line ):
+    def __call__( self, line ):
 
         ( matches, interpretor, error_id, warning_id ) = self.interpret( line )
 
