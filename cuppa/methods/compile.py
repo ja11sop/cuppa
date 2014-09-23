@@ -16,5 +16,5 @@ class CompileMethod:
         return objects
 
     @classmethod
-    def add_to_env( cls, args ):
-        args['env'].AddMethod( cls(), "Compile" )
+    def add_to_env( cls, env ):
+        env.AddMethod( cls(), "Compile" )

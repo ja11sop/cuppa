@@ -18,5 +18,5 @@ class ToolchainMethod:
             return self.__toolchains[ toolchain ]
 
     @classmethod
-    def add_to_env( cls, args ):
-        args['env'].AddMethod( cls( args['env']['toolchains'] ), "Toolchain" )
+    def add_to_env( cls, env ):
+        env.AddMethod( cls( env['toolchains'] ), "Toolchain" )

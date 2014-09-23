@@ -26,9 +26,10 @@ class Subversion:
 
 
     @classmethod
-    def add_to_env( cls, args ):
-        args['env']['scms']['subversion'] = cls( args['env']['platform'] )
-        args['env']['scms']['svn']        = args['env']['scms']['subversion']
+    def add_to_env( cls, env, add_scm ):
+        scm = cls( env['platform'] )
+        add_scm( 'subversion', scm )
+        add_scm( 'svn',        scm )
 
 
     def __init__( self, platform ):

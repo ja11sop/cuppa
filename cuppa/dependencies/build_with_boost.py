@@ -18,7 +18,7 @@ from exceptions   import Exception
 from re           import search
 from string       import strip, replace
 
-from SCons.Script import AddOption, Environment, File, AlwaysBuild, GetLaunchDir
+from SCons.Script import File, AlwaysBuild, GetLaunchDir
 
 from cuppa.output_processor import IncrementalSubProcess, ToolchainProcessor
 
@@ -35,44 +35,43 @@ class BoostException(Exception):
 class Boost:
 
     @classmethod
-    def add_options( cls ):
-        AddOption( '--boost-version', dest='boost-version', type='string', nargs=1, action='store',
-               help='Boost Version to build against' )
+    def add_options( cls, add_option ):
+        add_option( '--boost-version', dest='boost-version', type='string', nargs=1, action='store',
+                    help='Boost Version to build against' )
 
-        AddOption( '--boost-home', dest='boost-home', type='string', nargs=1, action='store',
-               help='The location of the boost source code' )
+        add_option( '--boost-home', dest='boost-home', type='string', nargs=1, action='store',
+                    help='The location of the boost source code' )
 
-        AddOption( '--boost-build-always', dest='boost-build-always', action='store_true',
-               help="Pass this if your boost source may change (for example you are patching it) and you want boost build to be executed each time the library is asked for" )
+        add_option( '--boost-build-always', dest='boost-build-always', action='store_true',
+                    help="Pass this if your boost source may change (for example you are patching it) and you want boost build to be executed each time the library is asked for" )
 
-        AddOption( '--boost-verbose-build', dest='boost-verbose-build', action='store_true',
-               help="Pass this option if you wish to see the command-line output of boost build" )
+        add_option( '--boost-verbose-build', dest='boost-verbose-build', action='store_true',
+                    help="Pass this option if you wish to see the command-line output of boost build" )
 
-        AddOption( '--boost-verbose-config', dest='boost-verbose-config', action='store_true',
-               help="Pass this option if you wish to see the configuration output of boost build" )
+        add_option( '--boost-verbose-config', dest='boost-verbose-config', action='store_true',
+                    help="Pass this option if you wish to see the configuration output of boost build" )
 
 
     @classmethod
-    def add_to_env( cls, args ):
-        env = args['env']
+    def add_to_env( cls, env, add_dependency ):
         build_always = env.get_option( 'boost-build-always' )
         verbose_build = env.get_option( 'boost-verbose-build' )
         verbose_config = env.get_option( 'boost-verbose-config' )
+        boost = None
         try:
             if env.get_option( 'boost-home' ):
-                obj = cls( env[ 'platform' ],
+                boost = cls( env[ 'platform' ],
                            env[ 'scm' ],
                            env.get_option( 'boost-home' ) )
             else:
-                obj = cls( env[ 'platform' ],
+                boost = cls( env[ 'platform' ],
                            env[ 'scm' ],
                            env[ 'thirdparty' ],
                            version = env.get_option( 'boost-version' ) )
-
-            env['dependencies']['boost'] = obj
         except BoostException, (e):
             print "Could not create boost dependency: {}".format(e)
-            env['dependencies']['boost'] = None
+
+        add_dependency( 'boost', boost )
 
         env.AddMethod(
                 BoostStaticLibraryMethod(

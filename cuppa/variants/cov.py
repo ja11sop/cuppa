@@ -19,16 +19,16 @@ class Cov:
 
 
     @classmethod
-    def add_options( cls ):
-        SCons.Script.AddOption(
+    def add_options( cls, add_option ):
+        add_option(
                 '--cov', dest=cls.name(), action='store_true',
                 help='Build an instrumented binary' )
 
 
     @classmethod
-    def add_to_env( cls, args ):
-        args['env']['variants'][cls.name()] = cls()
-        args['env']['actions'][cls.name()]  = cls()
+    def add_to_env( cls, env, add_variant, add_action ):
+        add_variant( cls.name(), cls() )
+        add_action( cls.name(), cls() )
 
 
     @classmethod

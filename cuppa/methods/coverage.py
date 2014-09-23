@@ -38,5 +38,5 @@ class CoverageMethod(object):
 
 
     @classmethod
-    def add_to_env( cls, args ):
-        args['env'].AddMethod( cls(), "Coverage" )
+    def add_to_env( cls, env ):
+        env.AddMethod( cls(), "Coverage" )

@@ -19,15 +19,15 @@ class Dbg:
 
 
     @classmethod
-    def add_options( cls ):
-        SCons.Script.AddOption(
+    def add_options( cls, add_option ):
+        add_option(
                 '--dbg', dest=cls.name(), action='store_true',
                 help='Build a debug binary' )
 
 
     @classmethod
-    def add_to_env( cls, args ):
-        args['env']['variants'][cls.name()] = cls()
+    def add_to_env( cls, env, add_variant, add_action ):
+        add_variant( cls.name(), cls() )
 
 
     @classmethod

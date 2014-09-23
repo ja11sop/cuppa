@@ -11,7 +11,6 @@ import shlex
 import os
 import sys
 from exceptions   import Exception
-from SCons.Script import AddOption
 from cuppa.output_processor import IncrementalSubProcess
 
 
@@ -25,30 +24,29 @@ class CodeblocksException(Exception):
 class Codeblocks:
 
     @classmethod
-    def add_options( cls ):
+    def add_options( cls, add_option ):
 
         def parse_paths_option(option, opt, value, parser):
             parser.values.excluded_paths_starting = value.split(',')
 
 
-        AddOption( '--generate-cbs', dest='generate-cbs',
-                   action='store_true',
-                   help='Tell scons to generate a Codeblocks project',
-                   default=False )
+        add_option( '--generate-cbs', dest='generate-cbs',
+                    action='store_true',
+                    help='Tell scons to generate a Codeblocks project',
+                    default=False )
 
-        AddOption( '--generate-cbs-ignore-variant', dest='generate-cbs-ignore-variant',
-                   action='store_true',
-                   help='Ignore build variants when creating the file list for the project',
-                   default=False )
+        add_option( '--generate-cbs-ignore-variant', dest='generate-cbs-ignore-variant',
+                    action='store_true',
+                    help='Ignore build variants when creating the file list for the project',
+                    default=False )
 
-        AddOption( '--generate-cbs-exclude-paths-starting', type='string', nargs=1,
-                   action='callback', callback=parse_paths_option,
-                   help='Exclude dependencies starting with the specified paths from the file list for the project' )
+        add_option( '--generate-cbs-exclude-paths-starting', type='string', nargs=1,
+                    action='callback', callback=parse_paths_option,
+                    help='Exclude dependencies starting with the specified paths from the file list for the project' )
 
 
     @classmethod
-    def add_to_env( cls, args ):
-        env = args['env']
+    def add_to_env( cls, env ):
         try:
             generate = env.get_option( 'generate-cbs' )
 

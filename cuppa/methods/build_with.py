@@ -38,12 +38,13 @@ class BuildWithMethod:
 
 
     @classmethod
-    def add_to_env( cls, args ):
-        args['env'].AddMethod( cls( args['env'] ), "BuildWith" )
+    def add_to_env( cls, env ):
+        env.AddMethod( cls( env ), "BuildWith" )
 
 
     @classmethod
-    def init_env_for_variant( cls, args ):
-        if args['env']['default_dependencies']:
-            args['env'].BuildWith( args['env']['default_dependencies'] )
+    def init_env_for_variant( cls, sconscript_exports ):
+        env = sconscript_exports['env']
+        if env['default_dependencies']:
+            env.BuildWith( env['default_dependencies'] )
 

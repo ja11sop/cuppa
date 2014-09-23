@@ -18,5 +18,5 @@ class UseMethod:
             return self.__dependencies[ dependency ]
 
     @classmethod
-    def add_to_env( cls, args ):
-        args['env'].AddMethod( cls( args['env']['dependencies'] ), "Use" )
+    def add_to_env( cls, env ):
+        env.AddMethod( cls( env['dependencies'] ), "Use" )

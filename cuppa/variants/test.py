@@ -19,14 +19,14 @@ class Test:
 
 
     @classmethod
-    def add_options( cls ):
-        SCons.Script.AddOption(
+    def add_options( cls, add_option ):
+        add_option(
                 '--test', dest=cls.name(), action='store_true',
                 help='Run the binary as a test' )
 
 
     @classmethod
-    def add_to_env( cls, args ):
-        args['env']['actions'][cls.name()] = cls()
+    def add_to_env( cls, env, add_variant, add_action ):
+        add_action( cls.name(), cls() )
 
 

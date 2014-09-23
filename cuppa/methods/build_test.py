@@ -29,13 +29,13 @@ class BuildTestMethod:
 
 
     @classmethod
-    def add_to_env( cls, args ):
-        args['env'].AddMethod( cls( args['env']['default_runner'] ), "BuildTest" )
+    def add_to_env( cls, env ):
+        env.AddMethod( cls( env['default_runner'] ), "BuildTest" )
 
         test_runners = set()
-        for toolchain in args['env']['active_toolchains']:
+        for toolchain in env['active_toolchains']:
             for test_runner in toolchain.test_runners():
                 test_runners.add( test_runner )
 
         for test_runner in test_runners:
-            args['env'].AddMethod( cls( test_runner ), "Build{}Test".format( test_runner.title() ) )
+            env.AddMethod( cls( test_runner ), "Build{}Test".format( test_runner.title() ) )

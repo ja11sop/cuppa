@@ -81,17 +81,17 @@ class Clang(object):
 
 
     @classmethod
-    def add_options( cls ):
+    def add_options( cls, add_option ):
         pass
 
 
     @classmethod
-    def add_to_env( cls, args ):
+    def add_to_env( cls, env, add_toolchain, add_to_supported ):
         for version in cls.supported_versions():
-            args['env']['supported_toolchains'].append( version )
+            add_to_supported( version )
 
         for version in cls.available_versions():
-            args['env']['toolchains'][version] = cls( version )
+            add_toolchain( version, cls( version ) )
 
 
     @classmethod

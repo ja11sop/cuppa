@@ -8,3 +8,8 @@
 def run( *args, **kwargs ):
     import cuppa.core
     cuppa.core.run( *args, **kwargs )
+
+
+import cuppa.build_with_header_library
+
+from cuppa.build_with_header_library import header_library_dependency

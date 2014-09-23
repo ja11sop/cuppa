@@ -170,13 +170,17 @@ class Construct(object):
     def add_project_generators( self, env ):
         project_generators = self.project_generators_key
         env[project_generators] = {}
-        cuppa.modules.registration.add_to_env( project_generators, { 'env': env } )
+        cuppa.modules.registration.add_to_env( project_generators, env )
 
 
     def add_scm_systems( self, env ):
         scms = self.scm_systems_key
         env[scms] = {}
-        cuppa.modules.registration.add_to_env( scms, { 'env': env } )
+
+        def add_scm( name, scm ):
+            env[scms][name] = scm
+
+        cuppa.modules.registration.add_to_env( scms, env, add_scm )
 
         SCons.Script.AddOption(
             '--scm',
@@ -194,7 +198,14 @@ class Construct(object):
         actions  = self.actions_key
         env[variants] = {}
         env[actions]  = {}
-        cuppa.modules.registration.add_to_env( variants, { 'env': env } )
+
+        def add_variant( name, variant ):
+            env[variants][name] = variant
+
+        def add_action( name, action ):
+            env[actions][name] = action
+
+        cuppa.modules.registration.add_to_env( variants, env, add_variant, add_action )
         cuppa.modules.registration.add_options( variants )
 
 
@@ -203,7 +214,14 @@ class Construct(object):
         toolchains = self.toolchains_key
         env[toolchains] = {}
         env['supported_toolchains'] = []
-        cuppa.modules.registration.add_to_env( toolchains, { 'env': env } )
+
+        def add_to_supported( name ):
+            env['supported_toolchains'].append( name )
+
+        def add_toolchain( name, toolchain ):
+            env['toolchains'][name] = toolchain
+
+        cuppa.modules.registration.add_to_env( toolchains, env, add_toolchain, add_to_supported )
 
         colouriser = env['colouriser']
         print "cuppa: supported toolchains are {}".format( colouriser.colour( 'notice', str( env["supported_toolchains"] ) ) )
@@ -218,7 +236,7 @@ class Construct(object):
             help     = 'The Toolchains you wish to build against' )
 
 
-    def initialise_options( self, env, default_options ):
+    def initialise_options( self, env, default_options, dependencies ):
         env['default_options'] = default_options or {}
 
         env.AddMethod( self.get_option, "get_option" )
@@ -229,6 +247,9 @@ class Construct(object):
         cuppa.modules.registration.add_options( self.dependencies_key )
         cuppa.modules.registration.add_options( self.profiles_key )
         cuppa.modules.registration.add_options( self.project_generators_key )
+
+        for dependency in dependencies.itervalues():
+            dependency.add_options( SCons.Script.AddOption )
 
 
     def print_construct_variables( self, env ):
@@ -261,14 +282,15 @@ class Construct(object):
 
     def __init__( self,
                   base_path            = os.path.abspath( '.' ),
-                  branch_root          = os.path.abspath( '.' ),
+                  branch_root          = None,
                   default_options      = None,
                   default_projects     = None,
                   default_variants     = None,
                   default_dependencies = None,
                   default_profiles     = None,
                   default_runner       = None,
-                  configure_callback   = None ):
+                  configure_callback   = None,
+                  dependencies         = None ):
 
         print "cuppa: version {}".format( cuppa.version.get() )
 
@@ -277,7 +299,7 @@ class Construct(object):
         self._default_env = SCons.Script.DefaultEnvironment()
         default_env = self._default_env
 
-        self.initialise_options( default_env, default_options )
+        self.initialise_options( default_env, default_options, dependencies )
 
         default_env['configured_options'] = {}
 
@@ -310,7 +332,7 @@ class Construct(object):
 
         default_env['base_path']            = base_path
         default_env['branch_root']          = branch_root
-        default_env['branch_dir']           = os.path.relpath( base_path, branch_root )
+        default_env['branch_dir']           = branch_root and os.path.relpath( base_path, branch_root ) or None
         default_env['thirdparty']           = default_env.get_option( 'thirdparty' )
         default_env['build_root']           = default_env.get_option( 'build_root', default='.build' )
         default_env['default_projects']     = default_projects
@@ -351,10 +373,18 @@ class Construct(object):
 
         default_env['active_toolchains'] = toolchains
 
-        cuppa.modules.registration.add_to_env( "dependencies",       { 'env': default_env } )
-        cuppa.modules.registration.add_to_env( "profiles",           { 'env': default_env } )
-        cuppa.modules.registration.add_to_env( "methods",            { 'env': default_env } )
-        cuppa.modules.registration.add_to_env( "project_generators", { 'env': default_env } )
+        def add_dependency( name, dependency ):
+            default_env['dependencies'][name] = dependency
+
+        cuppa.modules.registration.add_to_env( "dependencies",       default_env, add_dependency )
+        cuppa.modules.registration.add_to_env( "profiles",           default_env )
+        cuppa.modules.registration.add_to_env( "methods",            default_env )
+        cuppa.modules.registration.add_to_env( "project_generators", default_env )
+
+
+        for name, dependency in dependencies.iteritems():
+            dependency.add_to_env( default_env, add_dependency )
+
 
         # TODO - default_profile
 

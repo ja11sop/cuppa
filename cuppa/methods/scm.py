@@ -18,5 +18,5 @@ class ScmMethod:
             return self.__scm_systems[ scm ]
 
     @classmethod
-    def add_to_env( cls, args ):
-        args['env'].AddMethod( cls( args['env']['scms'] ), "Scm" )
+    def add_to_env( cls, env ):
+        env.AddMethod( cls( env['scms'] ), "Scm" )

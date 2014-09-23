@@ -25,5 +25,5 @@ class CreateVersionMethod:
         return env.CreateVersionFile( target, source )
 
     @classmethod
-    def add_to_env( cls, args ):
-        args['env'].AddMethod( cls(), "CreateVersion" )
+    def add_to_env( cls, env ):
+        env.AddMethod( cls(), "CreateVersion" )

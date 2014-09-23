@@ -26,8 +26,8 @@ class GlobFromSconscriptMethod:
 
 
     @classmethod
-    def add_to_env( cls, args ):
-        args['env'].AddMethod( cls(), "GlobFromSconscript" )
+    def add_to_env( cls, env ):
+        env.AddMethod( cls(), "GlobFromSconscript" )
 
 
 
@@ -44,8 +44,8 @@ class GlobFromBaseMethod:
 
 
     @classmethod
-    def add_to_env( cls, args ):
-        args['env'].AddMethod( cls(), "GlobFromBase" )
+    def add_to_env( cls, env ):
+        env.AddMethod( cls(), "GlobFromBase" )
 
 
 
@@ -56,8 +56,8 @@ class RecursiveGlobMethod:
 
 
     @classmethod
-    def add_to_env( cls, args ):
-        args['env'].AddMethod( cls(), "RecursiveGlob" )
+    def add_to_env( cls, env ):
+        env.AddMethod( cls(), "RecursiveGlob" )
 
 
 
@@ -72,8 +72,8 @@ class GlobFilesMethod:
 
 
     @classmethod
-    def add_to_env( cls, args ):
-        args['env'].AddMethod( cls(), "GlobFiles" )
+    def add_to_env( cls, env ):
+        env.AddMethod( cls(), "GlobFiles" )
 
 
 

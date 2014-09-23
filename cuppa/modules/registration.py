@@ -22,16 +22,17 @@ def get_module_list( path, base=None ):
     return unique( [ base and '.'.join( [ base, f.replace('.py','') ] ) or f.replace('.py','') for f in paths for f in paths if match( '[^_.~].*\.py$', f ) ] )
 
 
-def add_to_env( module_name, args ):
-    __call_classmethod_for_classes_in_module( 'cuppa', module_name, __package('cuppa'), "add_to_env", args )
+def add_to_env( module_name, env, *args ):
+    __call_classmethod_for_classes_in_module( 'cuppa', module_name, __package('cuppa'), "add_to_env", env, *args )
 
 
 def add_options( module_name ):
-    __call_classmethod_for_classes_in_module( 'cuppa', module_name, __package('cuppa'), "add_options", None )
+    import SCons.Script
+    __call_classmethod_for_classes_in_module( 'cuppa', module_name, __package('cuppa'), "add_options", SCons.Script.AddOption )
 
 
-def init_env_for_variant( module_name, args ):
-    __call_classmethod_for_classes_in_module( 'cuppa', module_name, __package('cuppa'), "init_env_for_variant", args )
+def init_env_for_variant( module_name, sconscript_exports ):
+    __call_classmethod_for_classes_in_module( 'cuppa', module_name, __package('cuppa'), "init_env_for_variant", sconscript_exports )
 
 
 #-------------------------------------------------------------------------------
@@ -59,7 +60,7 @@ def __package( name ):
     return package
 
 
-def __call_classmethod_for_classes_in_module( package, name, path, method, args ):
+def __call_classmethod_for_classes_in_module( package, name, path, method, *args, **kwargs ):
     try:
         filehandle, pathname, description = imp.find_module( name, path and [ path ] or None )
         try:
@@ -79,16 +80,13 @@ def __call_classmethod_for_classes_in_module( package, name, path, method, args 
                         parent_package = package + "." + name
                     else:
                         parent_package = name
-                    __call_classmethod_for_classes_in_module( parent_package, member_name, pathname, method, args )
+                    __call_classmethod_for_classes_in_module( parent_package, member_name, pathname, method, *args, **kwargs )
 
                 elif inspect.isclass( member ):
                     try:
                         function = getattr( member, method )
                         if callable( function ):
-                            if( args ):
-                                function( args )
-                            else:
-                                function()
+                            function( *args, **kwargs )
                     except AttributeError, (e):
                         pass
         finally:

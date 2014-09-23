@@ -38,7 +38,7 @@ class BuildMethod:
 
 
     @classmethod
-    def add_to_env( cls, args ):
-        args['env'].AddMethod( cls(), "Build" )
+    def add_to_env( cls, env ):
+        env.AddMethod( cls(), "Build" )
 
 
