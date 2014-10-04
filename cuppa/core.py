@@ -248,8 +248,9 @@ class Construct(object):
         cuppa.modules.registration.add_options( self.profiles_key )
         cuppa.modules.registration.add_options( self.project_generators_key )
 
-        for dependency in dependencies.itervalues():
-            dependency.add_options( SCons.Script.AddOption )
+        if dependencies:
+            for dependency in dependencies.itervalues():
+                dependency.add_options( SCons.Script.AddOption )
 
 
     def print_construct_variables( self, env ):
@@ -382,8 +383,9 @@ class Construct(object):
         cuppa.modules.registration.add_to_env( "project_generators", default_env )
 
 
-        for name, dependency in dependencies.iteritems():
-            dependency.add_to_env( default_env, add_dependency )
+        if dependencies:
+            for name, dependency in dependencies.iteritems():
+                dependency.add_to_env( default_env, add_dependency )
 
 
         # TODO - default_profile

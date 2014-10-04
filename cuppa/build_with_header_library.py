@@ -40,7 +40,7 @@ class base(object):
         if not location:
             location = env['thirdparty']
         if not location:
-            raise HeaderLibraryException( "You must specify a location for your header library" )
+            print "No location specified for dependency [{}]. Dependency not available.".format( cls._name.title() )
         branch = env.get_option( cls._name + "-branch" )
 
         add_dependency( cls._name, cls( location, branch ) )
