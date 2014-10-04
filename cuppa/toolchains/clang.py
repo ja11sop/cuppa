@@ -209,6 +209,15 @@ class Clang(object):
         return RunGcovCoverageEmitter( program, final_dir ), RunGcovCoverage( program, final_dir )
 
 
+    def update_variant( self, env, variant ):
+        if variant == 'dbg':
+            env.MergeFlags( self.values['debug_cxx_flags'] + self.values['debug_c_flags'] + self.values['debug_link_cxx_flags'] )
+        elif variant == 'rel':
+            env.MergeFlags( self.values['release_cxx_flags'] + self.values['release_c_flags'] + self.values['release_link_cxx_flags'] )
+        elif variant == 'cov':
+            env.MergeFlags( self.values['coverage_cxx_flags'] + self.values['coverage_c_flags'] + self.values['coverage_link_cxx_flags'] )
+
+
     def _gcov_format_version( self ):
         gcov_version = Popen(["gcov", "--version"], stdout=PIPE).communicate()[0]
         gcov_version = re.search( r'(\d)\.(\d)\.(\d)', gcov_version ).expand(r'\g<1>0\g<2>')

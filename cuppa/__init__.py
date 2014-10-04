@@ -10,6 +10,11 @@ def run( *args, **kwargs ):
     cuppa.core.run( *args, **kwargs )
 
 
+def add_option( *args, **kwargs ):
+    import cuppa.core
+    cuppa.core.add_option( *args, **kwargs )
+
+
 import cuppa.build_with_header_library
 
 from cuppa.build_with_header_library import header_library_dependency

@@ -15,26 +15,32 @@ import os.path
 class BuildMethod:
 
     @classmethod
-    def build( cls, env, target, source, final_dir = None, append_variant = False ):
+    def build( cls, env, target, source, final_dir = None, append_variant = False, LIBS=[], DYNAMICLIBS=[], STATICLIBS=[], **kwargs ):
         if final_dir == None:
-            final_dir = env['final_dir']
+            final_dir = os.path.isabs( env['final_dir'] ) and env['final_dir'] or os.path.join( env['build_dir'], env['final_dir'] )
         exe = os.path.join( final_dir, target )
         if append_variant and env['variant'] != 'rel':
             exe += '_' + env['variant']
+
         env.AppendUnique( DYNAMICLIBS = env['LIBS'] )
+
+        all_libs = env['DYNAMICLIBS'] + env['STATICLIBS'] + LIBS + DYNAMICLIBS + STATICLIBS
 
         program = env.Program( exe,
                                source,
                                CPPPATH = env['SYSINCPATH'] + env['INCPATH'],
-                               LIBS = env['DYNAMICLIBS'] + env['STATICLIBS'] )
+                               LIBS = all_libs,
+                               DYNAMICLIBS = env['DYNAMICLIBS'] + LIBS + DYNAMICLIBS,
+                               STATICLIBS = env['STATICLIBS'] + STATICLIBS,
+                               **kwargs )
 
         cuppa.sconscript_progress.SconscriptProgress.add( env, program )
 
         return program
 
 
-    def __call__( self, env, target, source, final_dir = None, append_variant = False ):
-        return self.build( env, target, source, final_dir=final_dir, append_variant=append_variant )
+    def __call__( self, env, target, source, final_dir = None, append_variant = False, **kwargs ):
+        return self.build( env, target, source, final_dir=final_dir, append_variant=append_variant, **kwargs )
 
 
     @classmethod

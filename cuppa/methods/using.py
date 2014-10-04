@@ -16,7 +16,8 @@ class UseMethod:
     def __call__( self, env, dependency ):
         if dependency in self.__dependencies:
             return self.__dependencies[ dependency ]
+        return None
 
     @classmethod
     def add_to_env( cls, env ):
-        env.AddMethod( cls( env['dependencies'] ), "Use" )
+        env.AddMethod( cls( env['dependencies'] ), "Using" )

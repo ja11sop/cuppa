@@ -40,39 +40,42 @@ SCons.Script.Decider( 'MD5-timestamp' )
 
 
 
+def add_option( *args, **kwargs ):
+    SCons.Script.AddOption( *args, **kwargs )
+
 
 def add_base_options():
 
-    SCons.Script.AddOption( '--raw-output', dest='raw_output', action='store_true',
+    add_option( '--raw-output', dest='raw_output', action='store_true',
                             help='Disable output processing like colourisation of output' )
 
-    SCons.Script.AddOption( '--standard-output', dest='standard_output', action='store_true',
+    add_option( '--standard-output', dest='standard_output', action='store_true',
                             help='Perform standard output processing but not colourisation of output' )
 
-    SCons.Script.AddOption( '--minimal-output', dest='minimal_output', action='store_true',
+    add_option( '--minimal-output', dest='minimal_output', action='store_true',
                             help='Show only errors and warnings in the output' )
 
-    SCons.Script.AddOption( '--ignore-duplicates', dest='ignore_duplicates', action='store_true',
+    add_option( '--ignore-duplicates', dest='ignore_duplicates', action='store_true',
                             help='Do not show repeated errors or warnings' )
 
-    SCons.Script.AddOption( '--projects', type='string', nargs=1,
+    add_option( '--projects', type='string', nargs=1,
                             action='callback', callback=cuppa.options.list_parser( 'projects' ),
                             help='Projects to build (alias for scripts)' )
 
-    SCons.Script.AddOption( '--scripts', type='string', nargs=1,
+    add_option( '--scripts', type='string', nargs=1,
                             action='callback', callback=cuppa.options.list_parser( 'projects' ),
                             help='Sconscripts to run' )
 
-    SCons.Script.AddOption( '--thirdparty', type='string', nargs=1, action='store',
+    add_option( '--thirdparty', type='string', nargs=1, action='store',
                             dest='thirdparty',
                             metavar='DIR',
                             help='Thirdparty directory' )
 
-    SCons.Script.AddOption( '--build-root', type='string', nargs=1, action='store',
+    add_option( '--build-root', type='string', nargs=1, action='store',
                             dest='build_root',
                             help='The root directory for build output. If not specified then .build is used' )
 
-    SCons.Script.AddOption( '--runner', type='string', nargs=1, action='store',
+    add_option( '--runner', type='string', nargs=1, action='store',
                             dest='runner',
                             help='The test runner to use for executing tests. The default is the process test runner' )
 
@@ -594,9 +597,9 @@ class Construct(object):
                 'project'                 : name,
             }
 
-            cuppa.modules.registration.init_env_for_variant( "methods", sconscript_exports )
-
             self._configure.configure( sconscript_exports['env'] )
+
+            cuppa.modules.registration.init_env_for_variant( "methods", sconscript_exports )
 
             SCons.Script.SConscript(
                 [ sconscript_file ],

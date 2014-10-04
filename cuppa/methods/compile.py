@@ -8,11 +8,22 @@
 #   CompileMethod
 #-------------------------------------------------------------------------------
 
+import os
+
+from SCons.Script import Flatten
+
 class CompileMethod:
 
-    def __call__( self, env, source ):
-        objects = env.Object( source,
-                              CPPPATH = env['SYSINCPATH'] + env['INCPATH'] )
+    def __call__( self, env, source, **kwargs ):
+        sources = Flatten( [ source ] )
+        objects = []
+        for source in sources:
+            objects.append(
+                env.Object(
+                    os.path.join( env['build_dir'], os.path.splitext( source )[0] ),
+                    source,
+                    CPPPATH = env['SYSINCPATH'] + env['INCPATH'],
+                    **kwargs ) )
         return objects
 
     @classmethod

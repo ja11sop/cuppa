@@ -209,6 +209,15 @@ class Gcc(object):
         return RunGcovCoverageEmitter( program, final_dir ), RunGcovCoverage( program, final_dir )
 
 
+    def update_variant( self, env, variant ):
+        if variant == 'dbg':
+            env.MergeFlags( self.values['debug_cxx_flags'] + self.values['debug_c_flags'] + self.values['debug_link_cxx_flags'] )
+        elif variant == 'rel':
+            env.MergeFlags( self.values['release_cxx_flags'] + self.values['release_c_flags'] + self.values['release_link_cxx_flags'] )
+        elif variant == 'cov':
+            env.MergeFlags( self.values['coverage_cxx_flags'] + self.values['coverage_c_flags'] + self.values['coverage_link_cxx_flags'] )
+
+
     def _initialise_toolchain( self, toolchain ):
         if toolchain == 'gcc34':
             self.values['sys_inc_prefix']  = '-I'
@@ -230,7 +239,6 @@ class Gcc(object):
         self.values['debug_cxx_flags']    = CommonCxxFlags + []
         self.values['release_cxx_flags']  = CommonCxxFlags + [ '-O3', '-DNDEBUG' ]
         self.values['coverage_cxx_flags'] = CommonCxxFlags + [ '--coverage' ]
-        self.values['coverage_libs']      = []
 
         self.values['debug_c_flags']      = CommonCFlags + []
         self.values['release_c_flags']    = CommonCFlags + [ '-O3', '-DNDEBUG' ]
