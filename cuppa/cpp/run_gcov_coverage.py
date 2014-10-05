@@ -135,22 +135,26 @@ class RunGcovCoverageEmitter(object):
     def __init__( self, program, final_dir ):
         self._program = program
         self._final_dir = final_dir
+        self._program_id = '##' + os.path.split(str(program[0]))[1]
 
 
     def __call__( self, target, source, env ):
+
         for s in source:
             source_file = os.path.relpath(  s.path, env['build_dir'] )
-            offset_source = offset_path( s.path, env )
-            gcno_file = os.path.splitext( source_file )[0] + '.gcno'
-            gcda_file = os.path.splitext( source_file )[0] + '.gcda'
-            gcov_file = source_file + '.gcov'
-            gcov_summary = source_file + '.gcov.summary'
 
-            env.Clean( source_file, [gcno_file, gcda_file] )
-            target.append( gcov_file )
-            target.append( gcov_summary )
+            offset_source = offset_path( s.path, env )
 
             gcov_source_path = offset_source.replace( os.path.sep, '#' )
+
+            gcno_file = os.path.splitext( source_file )[0] + '.gcno'
+            gcda_file = os.path.splitext( source_file )[0] + '.gcda'
+
+            gcov_log = source_file + self._program_id + '_gcov.log'
+
+            env.Clean( source_file, [gcno_file, gcda_file] )
+
+            target.append( gcov_log )
 
             gcov_files = Glob( gcov_source_path + '*' )
             env.Clean( source_file, gcov_files )
@@ -174,19 +178,21 @@ class RunGcovCoverage(object):
     def __init__( self, program, final_dir ):
         self._program = program
         self._final_dir = final_dir
+        self._program_id = '##' + os.path.split(str(program[0]))[1]
 
 
     def __call__( self, target, source, env ):
 
-        for s, t in itertools.izip( source, iter_grouped( target ) ):
-            gcov_path         = os.path.splitext( os.path.splitext( t[0].path )[0] )[0]
-            gcov_summary_path = t[1].path
-            self._run_gcov( env, s.path, gcov_path, gcov_summary_path )
+        for s, t in itertools.izip( source, target ):
+
+            gcov_path = os.path.splitext( os.path.splitext( t.path )[0] )[0]
+            gcov_log = t.path
+            self._run_gcov( env, s.path, gcov_path, gcov_log )
 
         return None
 
 
-    def _run_gcov( self, env, source_path, gcov_path, gcov_summary_path ):
+    def _run_gcov( self, env, source_path, gcov_path, gcov_log_path ):
         working_dir       = env['working_dir']
         build_dir         = env['build_dir']
         final_dir         = self._final_dir
@@ -203,19 +209,22 @@ class RunGcovCoverage(object):
         if return_code == 0:
             gcov_source_path = source_path.replace( os.path.sep, '#' )
 
-#            gcov_files = Glob( gcov_source_path + '*' )
             gcov_files = glob.glob( gcov_source_path + '*' )
 
             for gcov_file in gcov_files:
-                new_gcov_file = os.path.join( build_dir, str(gcov_file) )
+
+                filename, ext = os.path.splitext( str(gcov_file) )
+                filename = filename + self._program_id + ext
+
+                new_gcov_file = os.path.join( build_dir, filename )
                 try:
                     os.rename( str(gcov_file), new_gcov_file )
                 except OSError:
                     print "coverage: failed moving gcov file [{}] to [{}]".format( str(gcov_file), new_gcov_file )
 
-            with open( gcov_summary_path, 'w' ) as summary_file:
+            with open( gcov_log_path, 'w' ) as summary_file:
                 summary_file.write( output )
-
         else:
             print output
+            os.remove( gcov_log_path )
 

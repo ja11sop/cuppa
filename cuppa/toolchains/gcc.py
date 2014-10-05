@@ -215,7 +215,9 @@ class Gcc(object):
         elif variant == 'rel':
             env.MergeFlags( self.values['release_cxx_flags'] + self.values['release_c_flags'] + self.values['release_link_cxx_flags'] )
         elif variant == 'cov':
-            env.MergeFlags( self.values['coverage_cxx_flags'] + self.values['coverage_c_flags'] + self.values['coverage_link_cxx_flags'] )
+            env.MergeFlags( self.values['coverage_cxx_flags'] + self.values['coverage_c_flags'] )
+            env.Append( CXXFLAGS = self.values['coverage_cxx_flags'] )
+            env.AppendUnique( LINKFLAGS = self.values['coverage_link_cxx_flags'] )
 
 
     def _initialise_toolchain( self, toolchain ):

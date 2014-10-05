@@ -211,11 +211,15 @@ class Clang(object):
 
     def update_variant( self, env, variant ):
         if variant == 'dbg':
-            env.MergeFlags( self.values['debug_cxx_flags'] + self.values['debug_c_flags'] + self.values['debug_link_cxx_flags'] )
+            env.MergeFlags( self.values['debug_cxx_flags'] + self.values['debug_c_flags'] )
+            env.AppendUnique( LINKFLAGS = self.values['debug_link_cxx_flags'] )
         elif variant == 'rel':
-            env.MergeFlags( self.values['release_cxx_flags'] + self.values['release_c_flags'] + self.values['release_link_cxx_flags'] )
+            env.MergeFlags( self.values['release_cxx_flags'] + self.values['release_c_flags'] )
+            env.AppendUnique( LINKFLAGS = self.values['release_link_cxx_flags'] )
         elif variant == 'cov':
-            env.MergeFlags( self.values['coverage_cxx_flags'] + self.values['coverage_c_flags'] + self.values['coverage_link_cxx_flags'] )
+            env.MergeFlags( self.values['coverage_flags'] )
+            env.Append( CXXFLAGS = self.values['coverage_cxx_flags'] )
+            env.AppendUnique( LINKFLAGS = self.values['coverage_link_flags'] )
 
 
     def _gcov_format_version( self ):
@@ -245,20 +249,19 @@ class Clang(object):
 
         coverage_options = "--coverage -Xclang -coverage-cfg-checksum -Xclang -coverage-no-function-names-in-data -Xclang -coverage-version={}".format( self._gcov_format )
 
-        self.values['coverage_cxx_flags']  = CommonCxxFlags + coverage_options.split()
-        self.values['coverage_libs']       = []
+        self.values['coverage_flags']      = CommonCxxFlags
+        self.values['coverage_cxx_flags']  = coverage_options.split()
 
         self.values['debug_c_flags']      = CommonCFlags + []
         self.values['release_c_flags']    = CommonCFlags + [ '-O3', '-DNDEBUG' ]
-        self.values['coverage_c_flags']   = CommonCFlags + coverage_options.split()
 
         CommonLinkCxxFlags = []
         if cuppa.build_platform.name() == "Linux":
             CommonLinkCxxFlags = ['-rdynamic', '-Wl,-rpath=.' ]
 
-        self.values['debug_link_cxx_flags'] = CommonLinkCxxFlags
+        self.values['debug_link_cxx_flags']   = CommonLinkCxxFlags
         self.values['release_link_cxx_flags'] = CommonLinkCxxFlags
-        self.values['coverage_link_cxx_flags'] = CommonLinkCxxFlags + [ '--coverage' ]
+        self.values['coverage_link_flags']    = CommonLinkCxxFlags + [ '--coverage' ]
 
         DynamicLibraries = []
         if cuppa.build_platform.name() == "Linux":

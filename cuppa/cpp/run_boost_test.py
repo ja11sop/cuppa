@@ -239,7 +239,7 @@ class RunBoostTestEmitter:
 
 #        print "RunBoostTestEmitter source[0] = " + str(source)
 
-        program_file = self.__final_dir + os.path.split( source[0].path )[1]
+        program_file = os.path.join( self.__final_dir, os.path.split( source[0].path )[1] )
 
 #        print "RunBoostTestEmitter program_file = " + program_file
 

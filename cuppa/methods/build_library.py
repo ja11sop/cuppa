@@ -8,14 +8,14 @@
 #   BuildLibMethods
 #-------------------------------------------------------------------------------
 
-import os
+import os.path
 
 
 class BuildStaticLibMethod:
 
     def __call__( self, env, target, source, final_dir=None, **kwargs ):
         if final_dir == None:
-            final_dir = os.path.isabs( env['final_dir'] ) and env['final_dir'] or os.path.join( env['build_dir'], env['final_dir'] )
+            final_dir = env['abs_final_dir']
         lib = os.path.join( final_dir, target )
         return env.StaticLibrary( lib, source, **kwargs )
 
@@ -28,8 +28,8 @@ class BuildSharedLibMethod:
 
     def __call__( self, env, target, source, final_dir=None, **kwargs ):
         if final_dir == None:
-            final_dir = env['final_dir']
-        lib = os.path.isabs( final_dir ) and os.path.join( final_dir, target ) or os.path.join( env['build_dir'], final_dir, target )
+            final_dir = env['abs_final_dir']
+        lib = os.path.join( final_dir, target )
 
         return env.SharedLibrary( lib, source, **kwargs )
 

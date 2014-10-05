@@ -8,6 +8,7 @@
 #   CoverageMethod
 #-------------------------------------------------------------------------------
 
+
 from SCons.Script   import File, Flatten
 
 import cuppa.sconscript_progress
@@ -21,7 +22,7 @@ class CoverageMethod(object):
 
     def __call__( self, env, program, sources, final_dir=None ):
         if final_dir == None:
-            final_dir = env['final_dir']
+            final_dir = env['abs_final_dir']
 
         emitter, builder = env['toolchain'].coverage_runner( program, final_dir )
 

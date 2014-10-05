@@ -581,8 +581,14 @@ class Construct(object):
             cloned_env['sconscript_toolchain_build_dir'] = os.path.join( path_without_ext, toolchain )
             cloned_env['sconscript_dir']  = os.path.join( env['base_path'], sconstruct_offset_path )
             cloned_env['build_dir']       = os.path.normpath( os.path.join( build_root, path_without_ext, toolchain, variant, 'working', '' ) )
+            cloned_env['abs_build_dir']   = os.path.abspath( cloned_env['build_dir'] )
             cloned_env['offset_dir']      = sconstruct_offset_path
             cloned_env['final_dir']       = '..' + os.path.sep + 'final' + os.path.sep
+
+            def abs_final_dir( abs_build_dir, final_dir ):
+                return os.path.isabs( final_dir ) and final_dir or os.path.normpath( os.path.join( abs_build_dir, final_dir ) )
+
+            cloned_env['abs_final_dir']   = abs_final_dir( cloned_env['abs_build_dir'], cloned_env['final_dir'] )
 
             cloned_env.AppendUnique( INCPATH = [ cloned_env['build_dir'] ] )
 
@@ -591,8 +597,10 @@ class Construct(object):
                 'variant_env'             : env,
                 'build_root'              : build_root,
                 'build_dir'               : cloned_env['build_dir'],
+                'abs_build_dir'           : cloned_env['abs_build_dir'],
                 'final_dir'               : cloned_env['final_dir'],
-                'common_variant_final_dir': '../../common/final/',
+                'abs_final_dir'           : cloned_env['abs_final_dir'],
+                'common_variant_final_dir': '../../../common/final/',
                 'common_project_final_dir': build_root + '/common/final/',
                 'project'                 : name,
             }

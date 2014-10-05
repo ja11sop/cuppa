@@ -22,7 +22,7 @@ class TestMethod(object):
 
     def __call__( self, env, source, final_dir=None, data=None, runner=None, expected='success' ):
         if final_dir == None:
-            final_dir = os.path.isabs( env['final_dir'] ) and env['final_dir'] or os.path.join( env['build_dir'], env['final_dir'] )
+            final_dir = env['abs_final_dir']
         if not runner:
             runner = self._default_runner
         test_builder, test_emitter = env['toolchain'].test_runner( runner, final_dir, expected )

@@ -454,7 +454,7 @@ class BoostLibraryEmitter:
             node = File( env.subst('$LIBPREFIX') + 'boost_' + self._library + env.subst('$LIBSUFFIX') )
         else:
             shared_library_name = self._shared_library_name( env, self._library )
-            node = File( os.path.join( env['final_dir'], shared_library_name ) )
+            node = File( os.path.join( env['abs_final_dir'], shared_library_name ) )
         target.append( node )
         return target, source
 

@@ -298,7 +298,7 @@ class RunProcessTestEmitter:
 
 
     def __call__( self, target, source, env ):
-        program_file = self._final_dir + os.path.split( source[0].path )[1]
+        program_file = os.path.join( self._final_dir, os.path.split( source[0].path )[1] )
         target = []
         target.append( stdout_from_program( program_file ) )
         target.append( stderr_from_program( program_file ) )
