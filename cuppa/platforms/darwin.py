@@ -9,6 +9,7 @@
 #-------------------------------------------------------------------------------
 
 import platform
+import SCons.Script
 
 
 class DarwinException(Exception):
@@ -26,13 +27,14 @@ class Darwin:
 
 
     def __init__( self ):
+        self._toolchain = "clang"
         self.values = {}
 
 
     def default_toolchain( self ):
-        if not hasattr(self, '_toolchain'):
+        if not self._toolchain:
             env = SCons.Script.Environment()
-            setattr( self, '_toolchain', env['CC'] )
+            self._toolchain = env['CC']
             return self._toolchain
         return self._toolchain
 

@@ -28,13 +28,14 @@ class Windows:
 
 
     def __init__( self ):
+        self._toolchain = None
         self.values = {}
 
 
     def default_toolchain( self ):
-        if not hasattr(self, '_toolchain'):
+        if not self._toolchain:
             env = SCons.Script.Environment()
-            setattr( self, '_toolchain', env['CC'] )
+            self._toolchain = env['CC']
             return self._toolchain
         return self._toolchain
 
