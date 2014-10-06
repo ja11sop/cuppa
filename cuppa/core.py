@@ -79,6 +79,9 @@ def add_base_options():
                             dest='runner',
                             help='The test runner to use for executing tests. The default is the process test runner' )
 
+    add_option( '--dump',   dest='dump', action='store_true',
+                            help='Dump the default environment and exit' )
+
 #    SCons.Script.AddOption( '--decider', dest='decider', type='string', nargs=1, action='store',
 #                            help='The decider to use for determining if a dependency has changed',
 #                            default = 'MD5-timestamp' )
@@ -390,8 +393,11 @@ class Construct(object):
             for name, dependency in dependencies.iteritems():
                 dependency.add_to_env( default_env, add_dependency )
 
-
         # TODO - default_profile
+
+        if default_env.get_option( 'dump' ):
+            print default_env.Dump()
+            SCons.Script.Exit()
 
         if not help and self._configure.handle_conf_only():
             self._configure.save()

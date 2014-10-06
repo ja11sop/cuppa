@@ -14,6 +14,7 @@ from string import strip, replace
 from os import path
 
 import platform
+import SCons.Script
 
 
 class LinuxException(Exception):
@@ -35,7 +36,11 @@ class Linux:
 
 
     def default_toolchain( self ):
-        return "gcc"
+        if not hasattr(self, '_toolchain'):
+            env = SCons.Script.Environment()
+            setattr( self, '_toolchain', env['CC'] )
+            return self._toolchain
+        return self._toolchain
 
 
     def __getitem__( self, key ):

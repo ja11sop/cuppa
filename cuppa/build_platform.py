@@ -8,10 +8,6 @@
 #   Build Platform
 #-------------------------------------------------------------------------------
 
-from subprocess import Popen, PIPE
-from re import sub, match, search, MULTILINE
-from string import strip, replace
-from os import path
 import platform
 
 # Custom

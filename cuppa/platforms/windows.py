@@ -1,28 +1,30 @@
 
+
 #          Copyright Jamie Allsop 2014-2014
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   Darwin Platform
+#   Windows Platform
 #-------------------------------------------------------------------------------
 
 import platform
+import SCons.Script
 
 
-class DarwinException(Exception):
+class WindowsException(Exception):
     def __init__(self, value):
         self.parameter = value
     def __str__(self):
         return repr(self.parameter)
 
 
-class Darwin:
+class Windows:
 
     @classmethod
     def add_to_env( cls, args ):
-        args['env']['platforms']['Darwin'] = cls()
+        args['env']['platforms']['Windows'] = cls()
 
 
     def __init__( self ):
@@ -64,21 +66,13 @@ class Darwin:
         self.values['processor']     = processor
         self.values['os']            = system
         self.values['architecture']  = machine
-        self.values['os_version']    = release # re.match( r'(\d+\.\d+)', release ).group(0)
+        self.values['os_version']    = release
         self.values['bit_width']     = self._bit_depth( machine )
         self.values['platform_path'] = self.values['architecture'] + '_' + self.values['os'] + '_' + self.values['os_version']
 
 
     class Constants(object):
-
-        CLOCK_REALTIME              = 0 # System-wide realtime clock.
-        CLOCK_MONOTONIC             = 1 # Monotonic system-wide clock.
-        CLOCK_PROCESS_CPUTIME_ID    = 2 # High-resolution timer from the CPU.
-        CLOCK_THREAD_CPUTIME_ID     = 3 # Thread-specific CPU-time clock.
-        CLOCK_MONOTONIC_RAW         = 4 # Monotonic system-wide clock, not adjusted for frequency scaling.
-        CLOCK_REALTIME_COARSE       = 5 # System-wide realtime clock, updated only on ticks.
-        CLOCK_MONOTONIC_COARSE      = 6 # Monotonic system-wide clock, updated only on ticks.
-        CLOCK_BOOTTIME              = 7 # Monotonic system-wide clock that includes time spent in suspension.
+        pass
 
 
     @classmethod
@@ -89,6 +83,4 @@ class Darwin:
     @classmethod
     def name( cls ):
         return cls.__name__
-
-
 
