@@ -155,7 +155,6 @@ class Clang(object):
 
 
     def version( self ):
-        print self._version
         return self._version
 
 
