@@ -71,8 +71,8 @@ class IncrementalSubProcess:
         kwargs['stdout'] = subprocess.PIPE
         kwargs['stderr'] = subprocess.PIPE
 
-        sys.stdout = AutoFlushFile( sys.__stdout__ )
-        sys.stderr = AutoFlushFile( sys.__stderr__ )
+        sys.stdout = AutoFlushFile( sys.stdout )
+        sys.stderr = AutoFlushFile( sys.stderr )
 
         process = subprocess.Popen(
             args_list,

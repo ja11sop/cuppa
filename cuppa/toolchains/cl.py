@@ -170,7 +170,7 @@ class Cl(object):
 
     def _initialise_toolchain( self ):
 
-        CommonCxxFlags = [ '/Wall /EHsc' ]
+        CommonCxxFlags = [ '/W4', '/EHsc' ]
 
         self.values['dbg_cxx_flags'] = CommonCxxFlags + [ '/Zi' ]
         self.values['rel_cxx_flags'] = CommonCxxFlags + [ '/Ox' ]
@@ -190,7 +190,7 @@ class Cl(object):
         return [
         {
             'title'     : "Compiler Error",
-            'regex'     : r"([][{}() \t#%$~\w&_:+\\/\.-]+)([(]([0-9]+)[)])([ \t]*:[ \t]+.*)",
+            'regex'     : r"([][{}() \t#%$~\w&_:+\\/\.-]+)([(]([0-9]+)[)])([ ]:[ ]error [A-Z0-9]+:.*)",
             'meaning'   : 'error',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -200,10 +200,10 @@ class Cl(object):
         },
         {
             'title'     : "Compiler Warning",
-            'regex'     : r"([][{}() \t#%$~\w&_:+\\/\.-]+)(:([0-9]+):([0-9]+))(:[ \t]+.*)",
+            'regex'     : r"([][{}() \t#%$~\w&_:+\\/\.-]+)([(]([0-9]+)[)])([ ]:[ ]warning [A-Z0-9]+:.*)",
             'meaning'   : 'warning',
             'highlight' : set( [ 1, 2 ] ),
-            'display'   : [ 1, 2, 5 ],
+            'display'   : [ 1, 2, 4 ],
             'file'      : 1,
             'line'      : None,
             'column'    : None,
