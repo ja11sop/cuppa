@@ -55,7 +55,7 @@ class Cl(object):
             for version in cls.supported_versions():
                 command = "cl"
                 if command_available( command ):
-                    cls._available_versions = []
+                    cls._available_versions = [ "cl" ]
         return cls._available_versions
 
 
@@ -93,6 +93,7 @@ class Cl(object):
 
         self.values['_CPPINCFLAGS'] = '$( ' + SYSINCPATHS + ' ${_concat(INCPREFIX, INCPATH, INCSUFFIX, __env__, RDirs, TARGET, SOURCE)} $)'
 
+	self._initialise_toolchain()
 
 
     def __getitem__( self, key ):
@@ -117,7 +118,12 @@ class Cl(object):
 
     def initialise_env( self, env ):
         env['_CPPINCFLAGS'] = self.values['_CPPINCFLAGS']
+        env['SYSINCPATH']   = []
         env['INCPATH']      = [ '#.', '.' ]
+        env['LIBPATH']      = []
+        env['CPPDEFINES']   = []
+        env['LIBS']         = []
+        env['STATICLIBS']   = []
 
 
     def variants( self ):
@@ -162,7 +168,7 @@ class Cl(object):
             pass
 
 
-    def _initialise_toolchain( self, toolchain ):
+    def _initialise_toolchain( self ):
 
         CommonCxxFlags = []
 
