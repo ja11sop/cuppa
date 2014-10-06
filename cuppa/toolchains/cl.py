@@ -170,10 +170,10 @@ class Cl(object):
 
     def _initialise_toolchain( self ):
 
-        CommonCxxFlags = []
+        CommonCxxFlags = [ '/Wall /EHsc' ]
 
-        self.values['dbg_cxx_flags'] = CommonCxxFlags + []
-        self.values['rel_cxx_flags'] = CommonCxxFlags + []
+        self.values['dbg_cxx_flags'] = CommonCxxFlags + [ '/Zi' ]
+        self.values['rel_cxx_flags'] = CommonCxxFlags + [ '/Ox' ]
 
         CommonLinkFlags = []
 
