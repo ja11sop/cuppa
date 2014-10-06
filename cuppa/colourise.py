@@ -8,8 +8,9 @@
 #-------------------------------------------------------------------------------
 #   Colouriser
 #-------------------------------------------------------------------------------
-import imp
+
 import re
+
 
 try:
     import colorama
@@ -75,7 +76,6 @@ class Colouriser(object):
         else:
             time_found = False
             emphasised = self.start_colour('time')
-            empty = re.compile( r'\d' )
             for char in time_text:
                 if not time_found and char.isdigit() and int(char) > 0:
                     time_found = True

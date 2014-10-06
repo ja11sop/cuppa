@@ -11,13 +11,11 @@
 # python standard library imports
 import os
 import shlex
-import subprocess
 import re
 import itertools
 import glob
 
-# scons imports
-from SCons.Script   import Glob, Flatten
+from SCons.Script import Glob
 
 # construct imports
 import cuppa.sconscript_progress

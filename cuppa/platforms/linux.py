@@ -9,8 +9,7 @@
 #-------------------------------------------------------------------------------
 
 from subprocess import Popen, PIPE
-from re import sub, match, search, MULTILINE
-from string import strip, replace
+from re import match, search, MULTILINE
 from os import path
 
 import platform

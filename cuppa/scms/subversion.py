@@ -9,10 +9,7 @@
 #-------------------------------------------------------------------------------
 
 from subprocess import Popen, PIPE
-from string import strip, replace
 from exceptions import Exception
-from SCons.Script import AddOption
-
 
 
 class SubversionException(Exception):

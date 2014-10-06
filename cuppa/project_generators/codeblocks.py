@@ -9,7 +9,6 @@
 #-------------------------------------------------------------------------------
 import shlex
 import os
-import sys
 from exceptions   import Exception
 from cuppa.output_processor import IncrementalSubProcess
 
@@ -56,7 +55,7 @@ class Codeblocks:
 #                           env.get_option( 'excluded_paths_starting' ) )
                 env['project_generators']['codeblocks'] = obj
 
-        except CodeblocksException, (e):
+        except CodeblocksException:
             pass
 
 

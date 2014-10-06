@@ -11,10 +11,6 @@
 import os
 import sys
 import shlex
-import time
-import re
-import cgi
-import datetime
 
 import cuppa.timer
 import cuppa.sconscript_progress

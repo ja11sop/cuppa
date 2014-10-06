@@ -8,16 +8,9 @@
 #   CL Toolchain
 #-------------------------------------------------------------------------------
 
-import SCons.Script
-
-from subprocess import Popen, PIPE
-from string import strip, replace
-import re
-import os.path
-import shlex
 from exceptions import Exception
 
-import cuppa.build_platform
+import SCons.Script
 
 from cuppa.cpp.create_version_file_cpp import CreateVersionHeaderCpp, CreateVersionFileCpp
 from cuppa.cpp.run_boost_test import RunBoostTestEmitter, RunBoostTest

@@ -11,9 +11,7 @@
 import SCons.Script
 
 from subprocess import Popen, PIPE
-from string import strip, replace
 import re
-import os.path
 import shlex
 from exceptions import Exception
 

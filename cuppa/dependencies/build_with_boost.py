@@ -8,15 +8,12 @@
 #   Boost
 #-------------------------------------------------------------------------------
 import shlex
-import subprocess
 import os
 import shutil
 import re
-import sys
 
 from exceptions   import Exception
 from re           import search
-from string       import strip, replace
 
 from SCons.Script import File, AlwaysBuild, GetLaunchDir
 

@@ -9,7 +9,7 @@
 #-------------------------------------------------------------------------------
 
 
-from SCons.Script   import File, Flatten
+from SCons.Script import Flatten
 
 import cuppa.sconscript_progress
 
@@ -28,11 +28,6 @@ class CoverageMethod(object):
 
         env['BUILDERS']['CoverageBuilder'] = env.Builder( action=builder, emitter=emitter )
 
-#        for s in Flatten( [ sources ] ):
-#            coverage = env.CoverageBuilder( [], [s] )
-#            sconscript_progress.SconscriptProgress.add( env, coverage )
-
-#        for s in Flatten( [ sources ] ):
         coverage = env.CoverageBuilder( [], Flatten( [ sources ] ) )
         cuppa.sconscript_progress.SconscriptProgress.add( env, coverage )
         return coverage

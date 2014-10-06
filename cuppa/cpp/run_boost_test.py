@@ -13,10 +13,8 @@ from cuppa.output_processor import IncrementalSubProcess
 import os
 import sys
 import shlex
-import time
 import re
 import cgi
-import datetime
 
 
 class Notify:

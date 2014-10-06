@@ -8,8 +8,6 @@
 #   Rel
 #-------------------------------------------------------------------------------
 
-# Scons
-import SCons.Script
 
 class Rel:
 
@@ -33,7 +31,4 @@ class Rel:
     @classmethod
     def create( cls, env, toolchain ):
         toolchain.update_variant( env, cls.name() )
-#        env.Append( CXXFLAGS  = toolchain['release_cxx_flags'] )
-#        env.Append( CFLAGS    = toolchain['release_c_flags'] )
-#        env.AppendUnique( LINKFLAGS = toolchain['release_link_cxx_flags'] )
         return env

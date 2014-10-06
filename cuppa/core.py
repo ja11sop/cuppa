@@ -9,7 +9,6 @@
 
 # Python Standard
 import os.path
-import inspect
 import os
 import re
 import fnmatch
@@ -141,9 +140,14 @@ class Construct(object):
     profiles_key     = 'profiles'
     project_generators_key = 'project_generators'
 
+    cached_options = {}
 
     @classmethod
     def get_option( cls, env, option, default=None ):
+
+        if option in cls.cached_options:
+            return cls.cached_options[ option ]
+
         value = SCons.Script.GetOption( option )
         source = None
         colouriser = env['colouriser']
@@ -165,6 +169,9 @@ class Construct(object):
                         colouriser.colour( 'warning', option ),
                         source,
                         colouriser.colour( 'warning', str(value) ) )
+
+        cls.cached_options[option] = value
+
         return value
 
 
@@ -516,7 +523,6 @@ class Construct(object):
     def build( self, default_env ):
 
         projects   = default_env.get_option( 'projects' )
-        colouriser = default_env['colouriser']
         toolchains = default_env['active_toolchains']
 
         if projects == None:

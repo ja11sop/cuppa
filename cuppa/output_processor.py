@@ -13,9 +13,9 @@ import sys
 import os
 import re
 import time
-import imp
 import threading
 import shlex
+import colorama
 
 
 
@@ -71,8 +71,8 @@ class IncrementalSubProcess:
         kwargs['stdout'] = subprocess.PIPE
         kwargs['stderr'] = subprocess.PIPE
 
-        sys.stdout = AutoFlushFile( sys.stdout )
-        sys.stderr = AutoFlushFile( sys.stderr )
+        sys.stdout = AutoFlushFile( colorama.initialise.wrap_stream( sys.__stdout__, False, None, None, True ) )
+        sys.stderr = AutoFlushFile( colorama.initialise.wrap_stream( sys.__stderr__, False, None, None, True ) )
 
         process = subprocess.Popen(
             args_list,
