@@ -344,6 +344,9 @@ class RunProcessTest:
         program_path = source[0].path
         suite = env['build_dir']
 
+        if cuppa.build_platform.name() == "Windows":
+            executable = '"' + executable + '"'
+
         test_command = executable
 
         test_suite = TestSuite.create( suite, env )
