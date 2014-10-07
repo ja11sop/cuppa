@@ -71,8 +71,8 @@ class IncrementalSubProcess:
         kwargs['stdout'] = subprocess.PIPE
         kwargs['stderr'] = subprocess.PIPE
 
-        sys.stdout = AutoFlushFile( colorama.initialise.wrap_stream( sys.__stdout__, False, None, None, True ) )
-        sys.stderr = AutoFlushFile( colorama.initialise.wrap_stream( sys.__stderr__, False, None, None, True ) )
+        sys.stdout = AutoFlushFile( colorama.initialise.wrapped_stdout )
+        sys.stderr = AutoFlushFile( colorama.initialise.wrapped_stderr )
 
         process = subprocess.Popen(
             args_list,

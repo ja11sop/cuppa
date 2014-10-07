@@ -163,12 +163,12 @@ class Cl(object):
 
     def _initialise_toolchain( self ):
 
-        CommonCxxFlags = [ '/W4', '/EHsc' ]
+        CommonCxxFlags = [ '-W4', '-EHac', '-nologo', '-GR' ]
 
-        self.values['dbg_cxx_flags'] = CommonCxxFlags + [ '/Zi' ]
-        self.values['rel_cxx_flags'] = CommonCxxFlags + [ '/Ox' ]
+        self.values['dbg_cxx_flags'] = CommonCxxFlags + [ '-Zi', '-MDd' ]
+        self.values['rel_cxx_flags'] = CommonCxxFlags + [ '-Ox', '-MD' ]
 
-        CommonLinkFlags = []
+        CommonLinkFlags = [ '-OPT:REF']
 
         self.values['dbg_link_flags'] = CommonLinkFlags + []
         self.values['rel_link_flags'] = CommonLinkFlags + []
