@@ -394,7 +394,7 @@ class BoostLibraryAction:
         if cuppa.build_platform.name() == "Linux":
             project_config_path = os.path.join( self._location, "project-config.jam" )
             project_config_jam = env.Command( project_config_path, [], functools.partial( self._update_project_config_jam, toolchain, project_config_path ) )
-            env.Depends( target, env.AlwaysBuild( project_config_path ) )
+            env.Depends( target, env.AlwaysBuild( project_config_jam ) )
 
         processor = BjamOutputProcessor( env, self._verbose_build, self._verbose_config, self._toolset_name_from_toolchain( toolchain ) )
 
