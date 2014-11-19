@@ -15,7 +15,7 @@ import re
 from exceptions   import Exception
 from re           import search
 
-from SCons.Script import File, AlwaysBuild, GetLaunchDir
+from SCons.Script import File, AlwaysBuild
 
 from cuppa.output_processor import IncrementalSubProcess, ToolchainProcessor
 

@@ -7,10 +7,7 @@
 #   build_with_header_library
 #-------------------------------------------------------------------------------
 
-import urlparse
 import os
-import pip.vcs
-import pip.download
 
 import cuppa.location
 

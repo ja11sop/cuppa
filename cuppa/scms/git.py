@@ -10,7 +10,6 @@
 
 import subprocess
 import shlex
-import re
 from exceptions import Exception
 
 
