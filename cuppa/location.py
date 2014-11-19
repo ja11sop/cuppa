@@ -73,7 +73,7 @@ class Location(object):
             except tarfile.ReadError:
                 command = "tar -xf {filename}".format( filename=filename )
                 if subprocess.call( shlex.split( command ), cwd=target_dir ) != 0:
-                    raise LocationException( "Could not untar downloaded file from [{}]".format( location ) )
+                    raise LocationException( "Could not untar downloaded file from [{}]".format( filename ) )
 
             self.remove_common_top_directory_under( target_dir )
 
