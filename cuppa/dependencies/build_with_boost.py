@@ -11,6 +11,7 @@ import shlex
 import os
 import shutil
 import re
+import functools
 
 from exceptions   import Exception
 from re           import search
@@ -331,13 +332,12 @@ class BoostLibraryAction:
         return toolset_name + '-' + toolchain.version()
 
 
-    def _update_project_config_jam( self, toolchain, location ):
+    def _update_project_config_jam( self, toolchain, project_config_path ):
 
         current_toolset = "using {} : {} :".format( self._toolset_name_from_toolchain( toolchain ), toolchain.version() )
         toolset_config_line = "{} {} ;\n".format( current_toolset, toolchain.binary() )
         config_added = False
 
-        project_config_path = os.path.join( location, "project-config.jam" )
         temp_path = os.path.splitext( project_config_path )[0] + ".new_jam"
         if not os.path.exists( project_config_path ):
             with open( project_config_path, 'w' ) as project_config_jam:
@@ -382,8 +382,9 @@ class BoostLibraryAction:
 
     def __call__( self, target, source, env ):
 
-        if not os.path.exists( self._location + '/bjam' ):
-            self._build_bjam()
+        bjam_target = self._location + '/bjam'
+        bjam = env.Command( bjam_target, [], self._build_bjam )
+        env.Depends( target, bjam )
 
         library   = self._library == 'log_setup' and 'log' or self._library
         toolchain = self._env['toolchain']
@@ -391,7 +392,9 @@ class BoostLibraryAction:
         args      = self._build_command( toolchain, library, self._variant, self._linktype, stage_dir )
 
         if cuppa.build_platform.name() == "Linux":
-            self._update_project_config_jam( toolchain, self._location )
+            project_config_path = os.path.join( self._location, "project-config.jam" )
+            project_config_jam = env.Command( project_config_path, [], functools.partial( self._update_project_config_jam, toolchain, project_config_path ) )
+            env.Depends( target, env.AlwaysBuild( project_config_path ) )
 
         processor = BjamOutputProcessor( env, self._verbose_build, self._verbose_config, self._toolset_name_from_toolchain( toolchain ) )
 

@@ -26,7 +26,6 @@ import cuppa.configure
 import cuppa.options
 import cuppa.version
 
-#from cuppa.scms                   import *
 from cuppa.toolchains             import *
 from cuppa.methods                import *
 from cuppa.dependencies           import *
@@ -135,7 +134,6 @@ class Construct(object):
     variants_key     = 'variants'
     actions_key      = 'actions'
     toolchains_key   = 'toolchains'
-#    scm_systems_key  = 'scms'
     dependencies_key = 'dependencies'
     profiles_key     = 'profiles'
     project_generators_key = 'project_generators'
@@ -184,26 +182,6 @@ class Construct(object):
         project_generators = self.project_generators_key
         env[project_generators] = {}
         cuppa.modules.registration.add_to_env( project_generators, env )
-
-
-#    def add_scm_systems( self, env ):
-#        scms = self.scm_systems_key
-#        env[scms] = {}
-#
-#        def add_scm( name, scm ):
-#            env[scms][name] = scm
-#
-#        cuppa.modules.registration.add_to_env( scms, env, add_scm )
-#
-#        SCons.Script.AddOption(
-#            '--scm',
-#            dest    = 'scm',
-#            nargs   = 1,
-#            action  = 'store',
-#            choices = env[scms].keys(),
-#            help    = 'The Source Control Management System we are using' )
-#
-#        cuppa.modules.registration.add_options( scms )
 
 
     def add_variants( self, env ):
@@ -256,7 +234,6 @@ class Construct(object):
 
         add_base_options()
         cuppa.modules.registration.add_options( self.toolchains_key )
-#        cuppa.modules.registration.add_options( self.scm_systems_key )
         cuppa.modules.registration.add_options( self.dependencies_key )
         cuppa.modules.registration.add_options( self.profiles_key )
         cuppa.modules.registration.add_options( self.project_generators_key )
@@ -368,13 +345,6 @@ class Construct(object):
         self.add_project_generators( default_env )
 
         default_env['platform'] = cuppa.build_platform.Platform.current()
-
-#        self.add_scm_systems( default_env )
-#
-#        scm_system = default_env.get_option( 'scm' )
-
-#        default_env['scm'] = ( scm_system and default_env[self.scm_systems_key][ scm_system ]
-#                                          or  None )
 
         toolchains = default_env.get_option( 'toolchains' )
 
