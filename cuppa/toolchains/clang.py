@@ -233,8 +233,8 @@ class Clang(object):
         self.values['static_link']     = '-Xlinker -Bstatic'
         self.values['dynamic_link']    = '-Xlinker -Bdynamic'
 
-        CommonCxxFlags = [ '-Wall', '-Wextra', '-fexceptions', '-g' ]
-        CommonCFlags   = [ '-Wall', '-Wextra', '-g' ]
+        CommonCxxFlags = [ '-Wall', '-fexceptions', '-g' ]
+        CommonCFlags   = [ '-Wall', '-g' ]
 
         if re.match( 'clang3[2-3]', toolchain ):
             CommonCxxFlags += [ '-std=c++11' ]
@@ -308,7 +308,7 @@ class Clang(object):
         {
             'title'     : "Compiler Note",
             'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):([0-9]+))(:[ \t](note:[ \t].*))",
-            'meaning'   : 'warning',
+            'meaning'   : 'info',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 5 ],
             'file'      : 1,

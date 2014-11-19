@@ -20,6 +20,7 @@ from SCons.Script import File, AlwaysBuild, GetLaunchDir
 from cuppa.output_processor import IncrementalSubProcess, ToolchainProcessor
 
 import cuppa.build_platform
+import cuppa.location
 
 
 class BoostException(Exception):
@@ -57,12 +58,10 @@ class Boost:
         boost = None
         try:
             if env.get_option( 'boost-home' ):
-                boost = cls( env[ 'platform' ],
-                           env[ 'scm' ],
+                boost = cls( env, env[ 'platform' ],
                            env.get_option( 'boost-home' ) )
             else:
-                boost = cls( env[ 'platform' ],
-                           env[ 'scm' ],
+                boost = cls( env, env[ 'platform' ],
                            env[ 'thirdparty' ],
                            version = env.get_option( 'boost-version' ) )
         except BoostException, (e):
@@ -110,32 +109,44 @@ class Boost:
         return False
 
 
-    def __init__( self, platform, scm_system, base, version=None ):
+    def __init__( self, env, platform, base, version=None ):
         if not base and not version:
             raise BoostException("Cannot construct Boost Object. Invalid parameters")
 
         if not base:
-            base = GetLaunchDir()
+            base = env['working_dir']
         if not os.path.isabs( base ):
             base = os.path.abspath( base )
 
-        self.__scm_system = scm_system
         self.values = {}
         self.values['name'] = 'boost'
 
         if not version:
             self.values['home'] = base
         elif version:
-            if(     not self.set_home_if_exists( os.path.join( base, 'boost', version, 'source' ) )
-                and not self.set_home_if_exists( os.path.join( base, 'boost', 'boost_' + version ) )
-                and not self.set_home_if_exists( os.path.join( base, 'boost', version ) )
-                and not self.set_home_if_exists( os.path.join( base, 'boost_' + version ) ) ):
+            search_list = [
+                os.path.join( base, 'boost', version, 'source' ),
+                os.path.join( base, 'boost', 'boost_' + version ),
+                os.path.join( base, 'boost', version ),
+                os.path.join( base, 'boost_' + version ),
+            ]
 
-                raise BoostException("Cannot construct Boost Object. Home for Version [{}] cannot be found".format(version))
+            def exists_in( locations ):
+                for location in locations:
+                    if self.set_home_if_exists( location ):
+                        return True
+                return False
+
+            if not exists_in( search_list ):
+                raise BoostException("Cannot construct Boost Object. Home for Version [{}] cannot be found. Seached in [{}]".format(version, str([l for l in search_list])))
         else:
             raise BoostException("Cannot construct Boost Object. No Home or Version specified")
 
         self.values['full_version'], self.values['version'], self.values['numeric_version'] = self.get_boost_version( self.values['home'] )
+
+        self._location = cuppa.location.Location( env, self.values['home'] )
+
+        self.values['revisions'] = self._location.revisions()
 
         self.values['include']  = [ self.values['home'] ]
         self.values['lib_base'] = os.path.join( self.values['home'], 'build' )
@@ -154,15 +165,22 @@ class Boost:
     def name( self ):
         return self.values['name']
 
-    def location( self ):
-        return self.values['location']
-
     def version( self ):
         return self.values['version']
 
-    def revisions( self, scm = None ):
-        scm_system = scm and scm or self.__scm_system
-        return [ scm_system.revision( self.values['home'] ) ]
+    def repository( self ):
+        return self._location.repository()
+
+    def branch( self ):
+        return self._location.branch()
+
+    def revisions( self ):
+        return self._location.revisions()
+
+    def local( self ):
+        return self._location.local()
+
+
 
     def __call__( self, env, toolchain, variant ):
         env.AppendUnique( SYSINCPATH = self.values['include'] )
@@ -240,7 +258,7 @@ class BoostLibraryAction:
 
     def __init__( self, env, boost, verbose_build, verbose_config, library, linktype ):
         self._env = env
-        self._location       = boost.location()
+        self._location       = boost.local()
         self._version        = boost.numeric_version()
         self._full_version   = boost.full_version()
         self._verbose_build  = verbose_build
@@ -346,12 +364,15 @@ class BoostLibraryAction:
         if self._verbose_config:
             verbose += " --debug-configuration"
 
+        build_flags = toolchain.build_flags_for('boost')
+        build_flags += ' define="BOOST_DATE_TIME_POSIX_TIME_STD_CONFIG"'
+
         command_line = "./bjam{verbose} --with-{library} toolset={toolset} variant={variant} {build_flags} link={linktype} stage --stagedir=./{stage_dir}".format(
                 verbose     = verbose,
                 library     = library,
                 toolset     = self._toolset_from_toolchain( toolchain ),
                 variant     = variant,
-                build_flags = toolchain.build_flags_for('boost'),
+                build_flags = build_flags,
                 linktype    = linktype,
                 stage_dir   = stage_dir )
 

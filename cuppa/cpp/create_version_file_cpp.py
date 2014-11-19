@@ -12,6 +12,8 @@ from os.path import splitext, relpath,  sep
 from SCons.Script import File
 
 
+import cuppa.location
+
 
 def offset_path( path, env ):
 
@@ -37,11 +39,6 @@ class CreateVersionHeaderCpp:
         self.__namespaces = namespaces
         self.__version = version
         self.__location = location
-        self.__revision = "revision not unknown"
-
-        if self.__env.has_key('scm'):
-            scm_system = self.__env['scm']
-            self.__revision = scm_system.revision( self.__location )
 
         self.__variant = self.__env['variant'].name()
 
@@ -123,15 +120,21 @@ def get_build_identity_header( namespace_guard, namespaces ):
                '\n'
                '        dependency( const string_t& Name,\n'
                '                    const string_t& Version,\n'
+               '                    const string_t& Repository,\n'
+               '                    const string_t& Branch,\n'
                '                    const revisions_t& Revisions )\n'
-               '        : name     ( Name )\n'
-               '        , version  ( Version )\n'
-               '        , revisions( Revisions )\n'
+               '        : name       ( Name )\n'
+               '        , version    ( Version )\n'
+               '        , repository ( Repository )\n'
+               '        , branch     ( Branch )\n'
+               '        , revisions  ( Revisions )\n'
                '        {\n'
                '        }\n'
                '\n'
                '        string_t       name;\n'
                '        string_t       version;\n'
+               '        string_t       repository;\n'
+               '        string_t       branch;\n'
                '        revisions_t    revisions;\n'
                '    };\n'
                '\n'
@@ -142,6 +145,8 @@ def get_build_identity_header( namespace_guard, namespaces ):
                '\n'
                'public:\n' ]
     lines += [ function_declaration_from_variable( 'product_version' ) ]
+    lines += [ function_declaration_from_variable( 'product_repository' ) ]
+    lines += [ function_declaration_from_variable( 'product_branch' ) ]
     lines += [ function_declaration_from_variable( 'product_revision' ) ]
     lines += [ function_declaration_from_variable( 'build_variant' ) ]
     lines += [ function_declaration_from_variable( 'build_time' ) ]
@@ -171,7 +176,7 @@ def get_build_identity_header( namespace_guard, namespaces ):
 
 def function_declaration_from_variable( name ):
     lines = []
-    lines += [ '    static const char* const        ' + name + '();' ]
+    lines += [ '    static const char*              ' + name + '();' ]
     return "\n".join( lines )
 
 
@@ -183,7 +188,7 @@ def function_declaration_dependencies():
 
 def function_declaration_report():
     lines = []
-    lines += [ '    static const char* const        report();' ]
+    lines += [ '    static const char*              report();' ]
     return "\n".join( lines )
 
 
@@ -195,11 +200,12 @@ class CreateVersionFileCpp:
         self.__namespaces = namespaces
         self.__version = version
         self.__location = location
-        self.__revision = "revision not unknown"
 
-        if self.__env.has_key('scm'):
-            scm_system = self.__env['scm']
-            self.__revision = scm_system.revision( self.__location )
+        location = cuppa.location.Location( env, location )
+
+        self.__repository = location.repository()
+        self.__branch     = location.branch()
+        self.__revision   = location.revisions()[0]
 
         self.__variant = self.__env['variant'].name()
 
@@ -218,7 +224,7 @@ class CreateVersionFileCpp:
 
     def function_definition_from_variable( self, name, variable ):
         lines = []
-        lines += [ '\nconst char* const identity::' + name + '()' ]
+        lines += [ '\nconst char*       identity::' + name + '()' ]
         lines += [ '{' ]
         lines += [ '    return "' + str( variable ) + '";' ]
         lines += [ '}\n' ]
@@ -245,14 +251,16 @@ class CreateVersionFileCpp:
         for name in dependencies:
             if name in self.__env['dependencies']:
                 dependency = self.__env['dependencies'][name]
+                lines += [ '    Dependencies[ "' +  name + '" ] = dependency_t( "'
+                               + dependency.name() + '", "'
+                               + dependency.version() + '", "'
+                               + dependency.repository() + '", "'
+                               + dependency.branch()
+                               + '", revisions_t() );' ]
                 try:
                     if callable( getattr( dependency, 'revisions' ) ):
                         revisions = dependency.revisions()
                         if revisions:
-                            lines += [ '    Dependencies[ "' +  name + '" ] = dependency_t( "'
-                                       + dependency.name() + '", "'
-                                       + dependency.version()
-                                       + '", revisions_t() );' ]
                             for revision in revisions:
                                 lines += [ '    Dependencies[ "' +  name + '" ].revisions.push_back( "' + revision + '" );' ]
                 except AttributeError, (e):
@@ -266,7 +274,7 @@ class CreateVersionFileCpp:
 
     def function_definition_report( self ):
         lines = []
-        lines += [ '\nconst char* const identity::report()' ]
+        lines += [ '\nconst char*       identity::report()' ]
         lines += [ '{' ]
         lines += [ '    return Report_.c_str();' ]
         lines += [ '}\n' ]
@@ -281,13 +289,15 @@ class CreateVersionFileCpp:
                    '\n'
                    '    Report\n'
                    '        << "Product:\\n"\n'
-                   '           "  |- Version  = " << identity::product_version()  << "\\n"\n'
-                   '           "  +- Revision = " << identity::product_revision() << "\\n"\n'
+                   '           "  |- Version    = " << identity::product_version()    << "\\n"\n'
+                   '           "  |- Repository = " << identity::product_repository() << "\\n"\n'
+                   '           "  |- Branch     = " << identity::product_branch()     << "\\n"\n'
+                   '           "  +- Revision   = " << identity::product_revision()   << "\\n"\n'
                    '           "Build:\\n"\n'
-                   '           "  |- Variant  = " << identity::build_variant()    << "\\n"\n'
-                   '           "  |- Time     = " << identity::build_time()       << "\\n"\n'
-                   '           "  |- User     = " << identity::build_user()       << "\\n"\n'
-                   '           "  +- Host     = " << identity::build_host()       << "\\n";\n'
+                   '           "  |- Variant    = " << identity::build_variant()      << "\\n"\n'
+                   '           "  |- Time       = " << identity::build_time()         << "\\n"\n'
+                   '           "  |- User       = " << identity::build_user()         << "\\n"\n'
+                   '           "  +- Host       = " << identity::build_host()         << "\\n";\n'
                    '\n'
                    '    if( !identity::dependencies().empty() )\n'
                    '    {\n'
@@ -301,7 +311,9 @@ class CreateVersionFileCpp:
                    '    {\n'
                    '        Report\n'
                    '            << " " << Dependency->second.name << "\\n"\n'
-                   '            << "  |- Version  = " << Dependency->second.version << "\\n";\n'
+                   '            << "  |- Version    = " << Dependency->second.version << "\\n"\n'
+                   '            << "  |- Repository = " << Dependency->second.repository << "\\n"\n'
+                   '            << "  |- Branch     = " << Dependency->second.branch << "\\n";\n'
                    '\n'
                    '        identity::revisions_t::const_iterator Revision = Dependency->second.revisions.begin();\n'
                    '        identity::revisions_t::const_iterator End      = Dependency->second.revisions.end();\n'
@@ -317,7 +329,7 @@ class CreateVersionFileCpp:
                    '            {\n'
                    '                Report << "  +";\n'
                    '            }\n'
-                   '            Report << "- Revision = " << Value << "\\n";\n'
+                   '            Report << "- Revision   = " << Value << "\\n";\n'
                    '        }\n'
                    '    }\n'
                    '\n'
@@ -354,8 +366,10 @@ class CreateVersionFileCpp:
         lines += [ 'namespace build {\n'
                    '// n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n\n' ]
 
-        lines += [ self.function_definition_from_variable( 'product_version', self.__version ) ]
-        lines += [ self.function_definition_from_variable( 'product_revision', self.__revision ) ]
+        lines += [ self.function_definition_from_variable( 'product_version',    self.__version ) ]
+        lines += [ self.function_definition_from_variable( 'product_repository', self.__repository ) ]
+        lines += [ self.function_definition_from_variable( 'product_branch',     self.__branch ) ]
+        lines += [ self.function_definition_from_variable( 'product_revision',   self.__revision ) ]
 
         lines += [ self.function_definition_from_variable( 'build_variant', self.__variant ) ]
         lines += [ self.function_definition_from_variable( 'build_time', build_time ) ]

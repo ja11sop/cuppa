@@ -8,7 +8,9 @@
 #   Subversion Source Control Management System
 #-------------------------------------------------------------------------------
 
-from subprocess import Popen, PIPE
+import subprocess
+import shlex
+import re
 from exceptions import Exception
 
 
@@ -19,25 +21,30 @@ class SubversionException(Exception):
         return repr(self.parameter)
 
 
-class Subversion:
+def info( path ):
+    if not path:
+        raise SubversionException("No working copy path specified for calling svnversion with.")
 
+    url        = None
+    repository = None
+    branch     = None
+    revision   = None
 
-    @classmethod
-    def add_to_env( cls, env, add_scm ):
-        scm = cls( env['platform'] )
-        add_scm( 'subversion', scm )
-        add_scm( 'svn',        scm )
+    try:
+        command = "svn info {}".format( path )
+        svn_info = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT )
+        url        = re.search( r'URL: ([^\s]+)', svn_info ).expand(r'\1')
+        repository = re.search( r'Repository Root: ([^\s]+)', svn_info ).expand(r'\1')
+        branch     = re.search( r'Relative URL: \^/([^\s]+)', svn_info ).expand(r'\1')
+        revision   = re.search( r'Revision: (\d+)', svn_info ).expand(r'\1')
+    except subprocess.CalledProcessError:
+        raise SubversionException("Not a Subversion working copy")
 
+    try:
+        command = "svnversion -n {}".format( path )
+        revision = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT )
+    except subprocess.CalledProcessError:
+        pass
 
-    def __init__( self, platform ):
-        ## TODO: Check for svnversion
-        self.__platform = platform
-
-
-    def revision( self, location ):
-        if location == '' or location == None:
-            raise SubversionException("No working copy path specified for calling svnversion with.")
-
-        revision = Popen(["svnversion", location], stdout=PIPE).communicate()[0].strip()
-        return revision
+    return url, repository, branch, revision
 
