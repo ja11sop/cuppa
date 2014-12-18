@@ -526,7 +526,7 @@ class Construct(object):
                 variants = self.create_build_variants( toolchain, toolchain_env )
                 for variant, env in variants.items():
                     for sconscript in sconscripts:
-                        self.call_project_sconscript_files( toolchain.name(), variant, env, sconscript )
+                        self.call_project_sconscript_files( toolchain, variant, env, sconscript )
 
             for project_generator in env[ self.project_generators_key ].itervalues():
                 for sconscript in sconscripts:
@@ -560,12 +560,13 @@ class Construct(object):
 
             cloned_env['sconscript_file'] = sconscript_file
             cloned_env['sconscript_build_dir'] = path_without_ext
-            cloned_env['sconscript_toolchain_build_dir'] = os.path.join( path_without_ext, toolchain )
+            cloned_env['sconscript_toolchain_build_dir'] = os.path.join( path_without_ext, toolchain.name() )
             cloned_env['sconscript_dir']  = os.path.join( env['base_path'], sconstruct_offset_path )
-            cloned_env['build_dir']       = os.path.normpath( os.path.join( build_root, path_without_ext, toolchain, variant, 'working', '' ) )
+            cloned_env['build_dir']       = os.path.normpath( os.path.join( build_root, path_without_ext, toolchain.name(), variant, 'working', '' ) )
             cloned_env['abs_build_dir']   = os.path.abspath( cloned_env['build_dir'] )
             cloned_env['offset_dir']      = sconstruct_offset_path
             cloned_env['final_dir']       = '..' + os.path.sep + 'final' + os.path.sep
+            cloned_env['active_toolchain']= toolchain
 
             def abs_final_dir( abs_build_dir, final_dir ):
                 return os.path.isabs( final_dir ) and final_dir or os.path.normpath( os.path.join( abs_build_dir, final_dir ) )

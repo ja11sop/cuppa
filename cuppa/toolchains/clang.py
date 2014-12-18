@@ -34,6 +34,14 @@ class ClangException(Exception):
 
 class Clang(object):
 
+    @classmethod
+    def add_options( cls, add_option ):
+
+        std_lib_choices = ("libstdc++", "libc++")
+
+        add_option( '--clang-stdlib', dest='clang-stdlib', choices=std_lib_choices, nargs=1, action='store',
+                    help="!Experimental! Specify the standard library Version to build against. Value may be one of {}".format( str(std_lib_choices) ) )
+
 
     @classmethod
     def default_version( cls ):
@@ -51,6 +59,7 @@ class Clang(object):
     def supported_versions( cls ):
         return [
             "clang",
+            "clang36",
             "clang35",
             "clang34",
             "clang33",
@@ -78,18 +87,20 @@ class Clang(object):
         return cls._available_versions
 
 
-    @classmethod
-    def add_options( cls, add_option ):
-        pass
-
 
     @classmethod
     def add_to_env( cls, env, add_toolchain, add_to_supported ):
+        stdlib = None
+        try:
+            stdlib = env.get_option( 'clang-stdlib' )
+        except:
+            pass
+
         for version in cls.supported_versions():
             add_to_supported( version )
 
         for version in cls.available_versions():
-            add_toolchain( version, cls( version ) )
+            add_toolchain( version, cls( version, stdlib ) )
 
 
     @classmethod
@@ -106,7 +117,7 @@ class Clang(object):
         return STATICLIBFLAGS + ' ' + DYNAMICLIBFLAGS
 
 
-    def __init__( self, version ):
+    def __init__( self, version, stdlib ):
 
         if version == "clang":
             if self.default_version():
@@ -119,7 +130,7 @@ class Clang(object):
         self.values['name'] = version
         self._gcov_format = self._gcov_format_version()
 
-        self._initialise_toolchain( version )
+        self._initialise_toolchain( version, stdlib )
 
         if version == self.default_version():
             self.values['CXX'] = "clang++"
@@ -225,7 +236,7 @@ class Clang(object):
         return gcov_version + '*'
 
 
-    def _initialise_toolchain( self, toolchain ):
+    def _initialise_toolchain( self, toolchain, stdlib ):
 
         self.values['sys_inc_prefix']  = '-isystem'
 
@@ -236,9 +247,12 @@ class Clang(object):
         CommonCxxFlags = [ '-Wall', '-fexceptions', '-g' ]
         CommonCFlags   = [ '-Wall', '-g' ]
 
+        if stdlib:
+            CommonCxxFlags += [ "-stdlib={}".format(stdlib) ]
+
         if re.match( 'clang3[2-3]', toolchain ):
             CommonCxxFlags += [ '-std=c++11' ]
-        elif re.match( 'clang3[4-5]', toolchain ):
+        elif re.match( 'clang3[4-6]', toolchain ):
             CommonCxxFlags += [ '-std=c++1y' ]
 
         self.values['debug_cxx_flags']     = CommonCxxFlags + []
@@ -263,6 +277,8 @@ class Clang(object):
         DynamicLibraries = []
         if cuppa.build_platform.name() == "Linux":
             DynamicLibraries = [ 'pthread', 'rt' ]
+            if stdlib == "libc++":
+                DynamicLibraries += [ 'c++abi', 'c++', 'c++abi', 'm', 'c', 'gcc_s', 'gcc' ]
         self.values['dynamic_libraries'] = DynamicLibraries
 
 
@@ -279,7 +295,7 @@ class Clang(object):
         if library == 'boost':
             if re.match( 'clang3[2-3]', self.values['name'] ):
                 return 'cxxflags="-std=c++11"'
-            elif re.match( 'clang3[4-5]', self.values['name'] ):
+            elif re.match( 'clang3[4-6]', self.values['name'] ):
                 return 'cxxflags="-std=c++1y"'
 
     @classmethod
@@ -381,6 +397,16 @@ class Clang(object):
             'meaning'   : 'error',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 3 ],
+            'file'      : None,
+            'line'      : None,
+            'column'    : None,
+        },
+        {
+            'title'     : "Undefined Reference",
+            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:[ \t](undefined reference.*))",
+            'meaning'   : 'error',
+            'highlight' : set( [ 1 ] ),
+            'display'   : [ 1, 2 ],
             'file'      : None,
             'line'      : None,
             'column'    : None,
