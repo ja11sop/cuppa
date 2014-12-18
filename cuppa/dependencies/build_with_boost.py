@@ -233,6 +233,18 @@ class BoostSharedLibraryMethod:
         if not 'boost' in env['BUILD_WITH']:
             env.BuildWith( 'boost' )
         Boost = env['dependencies']['boost']
+
+        if library.startswith('log'):
+            env.AppendUnique( CPPDEFINES = 'BOOST_LOG_DYN_LINK' )
+        elif library == 'chrono':
+            env.AppendUnique( CPPDEFINES = 'BOOST_CHRONO_DYN_LINK' )
+        elif library == 'filesystem':
+            env.AppendUnique( CPPDEFINES = 'BOOST_FILESYSTEM_DYN_LINK' )
+        elif library == 'date_time':
+            env.AppendUnique( CPPDEFINES = 'BOOST_DATE_TIME_DYN_LINK' )
+        elif library == 'system':
+            env.AppendUnique( CPPDEFINES = 'BOOST_SYSTEM_DYN_LINK' )
+
         library = BoostLibraryBuilder(
                 Boost,
                 verbose_build=self._verbose_build,
@@ -336,7 +348,9 @@ class BoostLibraryAction:
 
         current_toolset = "using {} : {} :".format( self._toolset_name_from_toolchain( toolchain ), toolchain.version() )
         toolset_config_line = "{} {} ;\n".format( current_toolset, toolchain.binary() )
+        print "boost: adding toolset config [{}]".format( toolset_config_line )
         config_added = False
+        changed = False
 
         temp_path = os.path.splitext( project_config_path )[0] + ".new_jam"
         if not os.path.exists( project_config_path ):
@@ -346,14 +360,18 @@ class BoostLibraryAction:
             with open( temp_path, 'w' ) as temp_file:
                 for line in project_config_jam.readlines():
                     if line.startswith( current_toolset ):
-                        temp_file.write( toolset_config_line )
+                        if line != toolset_config_line:
+                            temp_file.write( toolset_config_line )
+                            changed = True
                         config_added = True
                     else:
                         temp_file.write( line )
                 if not config_added:
                     temp_file.write( toolset_config_line )
-        os.remove( project_config_path )
-        shutil.move( temp_path, project_config_path )
+                    changed = True
+        if changed:
+            os.remove( project_config_path )
+            shutil.move( temp_path, project_config_path )
 
 
     def _build_command( self, toolchain, library, variant, linktype, stage_dir ):
@@ -366,6 +384,9 @@ class BoostLibraryAction:
 
         build_flags = toolchain.build_flags_for('boost')
         build_flags += ' define="BOOST_DATE_TIME_POSIX_TIME_STD_CONFIG"'
+
+        if linktype == 'shared':
+            build_flags += ' define="BOOST_ALL_DYN_LINK"'
 
         command_line = "./bjam{verbose} --with-{library} toolset={toolset} variant={variant} {build_flags} link={linktype} stage --stagedir=./{stage_dir}".format(
                 verbose     = verbose,
@@ -384,7 +405,7 @@ class BoostLibraryAction:
 
         bjam_target = self._location + '/bjam'
         bjam = env.Command( bjam_target, [], self._build_bjam )
-        env.Depends( target, bjam )
+        env.Requires( target, bjam )
 
         library   = self._library == 'log_setup' and 'log' or self._library
         toolchain = self._env['toolchain']
@@ -394,7 +415,7 @@ class BoostLibraryAction:
         if cuppa.build_platform.name() == "Linux":
             project_config_path = os.path.join( self._location, "project-config.jam" )
             project_config_jam = env.Command( project_config_path, [], functools.partial( self._update_project_config_jam, toolchain, project_config_path ) )
-            env.Depends( target, env.AlwaysBuild( project_config_jam ) )
+            env.Requires( target, project_config_jam )
 
         processor = BjamOutputProcessor( env, self._verbose_build, self._verbose_config, self._toolset_name_from_toolchain( toolchain ) )
 
