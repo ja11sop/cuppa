@@ -140,8 +140,12 @@ class Location(object):
                 if backend:
                     vcs_backend = backend( location )
                     if os.path.exists( local_directory ):
-                        print "cuppa: updating [{}] in [{}]".format( self._as_warning( location ), self._as_warning( local_directory ) )
-                        vcs_backend.update( local_directory, [] )
+                        rev_options = self.get_rev_options( vc_type, vcs_backend )
+                        print "cuppa: updating [{}] in [{}]{}".format(
+                                self._as_warning( location ),
+                                self._as_warning( local_directory ),
+                                ( rev_options and  " at {}".format( self._as_warning( str(rev_options) ) ) or "" ) )
+                        vcs_backend.update( local_directory, rev_options )
                     else:
                         action = "cloning"
                         if vc_type == "svn":
@@ -150,6 +154,20 @@ class Location(object):
                         vcs_backend.obtain( local_directory )
 
             return local_directory
+
+
+    def get_rev_options( self, vc_type, vcs_backend ):
+        url, rev = vcs_backend.get_url_rev()
+        if vc_type == 'git':
+            if rev:
+                return [rev]
+            else:
+                return ['origin/master']
+        elif vc_type == 'hg' and rev:
+            return vcs_backendget_rev_options( url, rev )
+        elif vc_type == 'bzr' and rev:
+            return ['-r', rev]
+        return []
 
 
     def get_info( self, location, local_directory, full_url ):
