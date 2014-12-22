@@ -41,6 +41,11 @@ and have Scons "do the right thing"; building targets for any `sconscript` files
     * [Platforms](#platforms)
   * [Supported Dependencies](#supported-dependencies)
     * [boost](#boost)
+    * [Header-only Libraries](#header-only-libraries)
+  * [Writing your own Dependencies](#writing-your-own-dependencies)
+    * [Custom Header-only Dependencies](#custom-header-only-dependencies)
+  * [Creating your own Dependencies](#creating-your-own-dependencies)
+    * [Building dependencies on top of `cuppa.header_library_dependency()`](#building-dependencies-on-top-of-cuppa.header_library_dependency)
   * [Acknowledgements](#acknowledgements)
 
 ## Quick Intro
@@ -680,6 +685,179 @@ env.AppendUnique( DYNAMICLIBS = [
 
 This is all that is required to ensure that the libraries are built correctly and linked with your target. It is important to note this will also "Do The Right Thing" in the presence of existing Boost installations. In other words this will pick up the correct shared library.
 
+### Header only Libraries
+
+**Cuppa** makes building with header only libraries easy if all you need to do add the libraries to your include path. To support this scenario **cuppa** provides the `cuppa.header_library_dependency()` factory. The remainder of this section describes how to use this class factory to define your own simple header library dependencies. For more sophisticated uses refer to the [Custom Header-only Dependencies](#custom-header-only-dependencies) section.
+
+#### Using the `cuppa.header_library_dependency()` class factory
+
+The `cuppa.header_library_dependency()` class factory takes one parameter, the name of the dependency and returns a class that can be given to **cuppa** for later use.
+
+For example, let's consider adding the non-boost version of the [asio library](http://think-async.com/Asio) as a project dependency. We can download a release and put is somewhere convenient. Then we could write our `sconstruct` file as follows:
+
+```python
+# Specify where to find 'asio'
+options['asio-location'] = "<location-of-asio>"
+# Specify the include folder needed to allow compilation
+options['asio-include']  = "asio/include"
+
+cuppa.run(
+    # Add 'asio' as a dependency
+    dependencies = {
+        'asio': cuppa.header_library_dependency( 'asio' )
+    },
+    # Ensure the options we've added for 'asio' are added to the defaults
+    default_options = options,
+    # Make this a default dependency in all sconscripts
+    default_dependencies = [ 'asio' ]
+)
+```
+
+Now we can compile against [asio](http://think-async.com/Asio) as expected by adding:
+
+```cpp
+#include <asio.hpp>
+```
+
+#### Version-controlled and remote locations supported
+
+We are not limited to specifying location dependencies on local disk. It is also possible to specify remote locations. For example, again considering [asio](http://think-async.com/Asio), if we want to build against a specfic release tag of the source code directly from the source repository we could write `[asio-location]` as follows:
+
+```python
+[asio-location] = "git+https://github.com/chriskohlhoff/asio.git@asio-1-10-4"
+```
+
+Of course being an ordinary option we could override this on the command-line if we wanted to, for example, to try building against `master`. In that case we might write this while invoking `scons`:
+
+```sh
+scons -D --asio-location="git+https://github.com/chriskohlhoff/asio.git"
+```
+
+As you might expect building against a branch rather than a specific tag or archived release automatically updates as the branch is updated.
+
+#### `cuppa.header_library_dependency()` in more detail
+
+As shown perviously the `cuppa.header_library_dependency()` factory function takes a name (referred to as `<dependency-name>` below) for the dependency and returns a class that can be passed as a dependency to **cuppa**.
+
+Classes created the factory function provide the following Scons options.
+
+| Option | Description |
+| -------| ------------|
+| `--<dependency-name>-location` | Specify the location of the dependency. The location can be any local directory, or any URL to a remote directory or archive, as well any [version controlled location supported by pip](https://pip.pypa.io/en/latest/reference/pip_install.html#vcs-support). |
+| `--<dependency-name>-include`  | This allows you to specify a subfolder which should be added to the `INCPATH` Scons variable. |
+| `--<dependency-name>-branch`   | You may use the `--<dependency-name>-branch` option with local directories to specify that a subfolder (as a branch) is added to the location given. This follows the approach used with [Subversion](https://subversion.apache.org/) to allow branches to be specfied as folders. If you are using a remote location branch information is typically provided as part of the URL and so this option is not needed. The option also finds use for informational purpores if the given location is not under version control and branch or revision information is not available. |
+
+Typically only `--name-location` and `--name-include` are needed when used with remote URLs.
+
+##### What happens when a remote URL is specified?
+
+When a remote URL is specified, and the files have not previously been obtained, then **cuppa** attemtps to either download, `checkout` or `pull` them. Once retrieved compressed archives are expanded into a suitable location.
+
+##### Where does **cuppa** store retrieved files?
+
+**Cuppa** stores any retrieved files under a sub-folder under `.cuppa`. The sub-folder name is derived from the URL so that it is unique for a given URL. That means different branches of the same repository will be checked out in to different folders.
+
+##### What happens if the files are already present?
+
+If the files are already present and they were not retrieved from version control then nothing is done. However, if the files were retrieved from version control then **cuppa** will attempt to update the files to the latest revision as allowed by the original URL specified.
+
+## Creating your own Dependencies
+
+It is possibly to create your own dependencies, like the `boost` dependency. As far as **cuppa** is concerned a dependency is any class that provides the following:
+
+```python
+class <dependency>:
+
+    _name = <dependency>
+
+    @classmethod
+    def add_options( cls, add_option ):
+        # Specify any options here
+        location_name = cls._name + "-location"
+        add_option( '--' + location_name, dest=location_name, type='string', nargs=1, action='store',
+                    help = cls._name + ' location to build against' )
+
+    @classmethod
+    def add_to_env( cls, env, add_dependency  ):
+        location = env.get_option( cls._name + "-location" )
+        if not location:
+            location = env['thirdparty']
+        if not location:
+            print "No location specified for dependency [{}]. Dependency not available.".format( cls._name.title() )
+        add_dependency( cls._name, cls( env, location ) )
+
+    def __init__( self, env, location ):
+        self._location = cuppa.location.Location( env, location )
+
+    def __call__( self, env, toolchain, variant ):
+        # Update the environment
+        pass
+
+    def name( self ):
+        return sel._name
+
+    def version( self ):
+        return str(self._location.version())
+
+    def repository( self ):
+        return self._location.repository()
+
+    def branch( self ):
+        return self._location.branch()
+
+    def revisions( self ):
+        return self._location.revisions()
+```
+
+Only `add_to_env()`, `__call__` are `name()` are strictly required but it makes sense to provide the others as using `cuppa.location.Location` makes this trivial.
+
+Once the basic dependency is written abitrarily complex relationships can be built by making use of Scons builders or other dependency related tools. It is worth looking at the `boost` dependency as an example of a complex dependency.
+
+### Building dependencies on top of `cuppa.header_library_dependency()`
+
+Most dependencies will be much more trivial than the `boost` dependency and many can be built directly on top of the `cuppa.header_library_dependency()` factory. For example, let's look again at using [asio](http://think-async.com/Asio) as a dependency. We've already seen how we can create a basic dependency by writing:
+
+```python
+asio_dependency = cuppa.header_library_dependency( 'asio' )
+
+```
+
+We can take this a step further and create our dependency by inheriting from the class returned by the factory and overriding the `__call__` method:
+
+```python
+
+# Specify where to find 'asio'
+options['asio-location'] = "<location-of-asio>"
+
+
+class asio( cuppa.header_library_dependency( 'asio' ) ):
+
+    def __call__( self, env, toolchain, variant ):
+        super(asio,self).__call__( env, toolchain, variant )
+        # Update the environment as we need to, for example...
+
+        # Save the user from having to specify this
+        env.AppendUnique( INCPATH = [
+            'asio/include'
+        ]
+        # Perhaps we want to force buffer debugging
+        env.AppendUnique( CPPDEFINES = [
+            'ASIO_ENABLE_BUFFER_DEBUGGING',
+            ] )
+
+
+cuppa.run(
+    # Add 'asio' as a dependency
+    dependencies = {
+        'asio': asio
+    },
+    # Ensure the options we've added for 'asio' are added to the defaults
+    default_options = options,
+    # Make this a default dependency in all sconscripts
+    default_dependencies = [ 'asio' ]
+)
+
+```
 
 ## Acknowledgements
 
