@@ -102,7 +102,7 @@ for Source in env.GlobFiles('*.cpp'):
 
 The `env.BuildTest()` method is provided by **cuppa** and builds the sources specified as `env.Build()` does.
 
-However, in addition, passing `--test` on the command-line will also result in the executable produced being run by a **runner**. The default test runner simply treats each executable as a test case and each directory or executables as a test suite. If the process executes cleanly the test passed, if not it failed.
+However, in addition, passing `--test` on the command-line will also result in the executable produced being run by a **runner**. The default test runner simply treats each executable as a test case and each directory of executables as a test suite. If the process executes cleanly the test passed, if not it failed.
 
 To run this on the command-line we would write:
 
