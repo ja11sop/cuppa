@@ -140,18 +140,29 @@ class Location(object):
                 if backend:
                     vcs_backend = backend( location )
                     if os.path.exists( local_directory ):
-                        rev_options = self.get_rev_options( vc_type, vcs_backend )
-                        print "cuppa: updating [{}] in [{}]{}".format(
-                                self._as_warning( location ),
-                                self._as_warning( local_directory ),
-                                ( rev_options and  " at {}".format( self._as_warning( str(rev_options) ) ) or "" ) )
-                        vcs_backend.update( local_directory, rev_options )
+                        try:
+                            rev_options = self.get_rev_options( vc_type, vcs_backend )
+                            print "cuppa: updating [{}] in [{}]{}".format(
+                                    self._as_warning( location ),
+                                    self._as_warning( local_directory ),
+                                    ( rev_options and  " at {}".format( self._as_warning( str(rev_options) ) ) or "" ) )
+                            vcs_backend.update( local_directory, rev_options )
+                        except InstallationError:
+                            print self._as_warning(
+                                            "cuppa: could not update [{}] in [{}]{}".format(
+                                                    location ,
+                                                    local_directory,
+                                                    ( rev_options and  " at {}".format(str(rev_options) ) or "" )
+                                            )
+                                    )
                     else:
                         action = "cloning"
                         if vc_type == "svn":
                             action = "checking out"
                         print "cuppa: {} [{}] into [{}]".format( action, self._as_warning( location ), self._as_warning( local_directory ) )
                         vcs_backend.obtain( local_directory )
+
+
 
             return local_directory
 
