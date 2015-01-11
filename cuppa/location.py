@@ -53,7 +53,7 @@ class Location(object):
         dirs = os.listdir( path )
         top_dir = os.path.join( path, dirs[0] )
         if len(dirs) == 1 and os.path.isdir( top_dir ):
-            print "cuppa: removing redundant top directory [{}] from [{}]".format( self._as_warning( dirs[0] ), self._as_warning( path ) )
+            print "cuppa: location: removing redundant top directory [{}] from [{}]".format( self._as_info( dirs[0] ), self._as_info( path ) )
             # we have a single top-level directory
             branch = dirs[0]
             move_dirs = os.listdir( top_dir )
@@ -67,7 +67,7 @@ class Location(object):
         os.makedirs( target_dir )
 
         if tarfile.is_tarfile( filename ):
-            print "cuppa: extracting [{}] into [{}]".format( self._as_warning( filename ), self._as_warning( target_dir ) )
+            print "cuppa: location: extracting [{}] into [{}]".format( self._as_info( filename ), self._as_info( target_dir ) )
             try:
                 with tarfile.TarFile( filename ) as tf:
                     tf.extractall( target_dir )
@@ -79,7 +79,7 @@ class Location(object):
             self.remove_common_top_directory_under( target_dir )
 
         if zipfile.is_zipfile( filename ):
-            print "cuppa: extracting [{}] into [{}]".format( self._as_warning( filename ), self._as_warning( target_dir ) )
+            print "cuppa: location: extracting [{}] into [{}]".format( self._as_info( filename ), self._as_info( target_dir ) )
             with zipfile.ZipFile( filename ) as zf:
                 zf.extractall( target_dir )
 
@@ -130,9 +130,9 @@ class Location(object):
                     except:
                         return local_directory
 
-                print "cuppa: downloading [{}]...".format( self._as_warning( location ) )
+                print "cuppa: location: downloading [{}]...".format( self._as_info( location ) )
                 filename, headers = urllib.urlretrieve( location )
-                print "cuppa: [{}] successfully downloaded to [{}]".format( self._as_warning( location ), self._as_warning( filename ) )
+                print "cuppa: location: [{}] successfully downloaded to [{}]".format( self._as_info( location ), self._as_info( filename ) )
                 self.extract( filename, local_directory )
 
             elif '+' in full_url.scheme:
@@ -140,39 +140,37 @@ class Location(object):
                 backend = pip.vcs.vcs.get_backend( vc_type )
                 if backend:
                     vcs_backend = backend( location )
+                    rev_options = self.get_rev_options( vc_type, vcs_backend )
                     if os.path.exists( local_directory ):
-                        rev_options = self.get_rev_options( vc_type, vcs_backend )
-                        print "cuppa: updating [{}] in [{}]{}".format(
-                                self._as_warning( location ),
-                                self._as_warning( local_directory ),
-                                ( rev_options and  " at {}".format( self._as_warning( str(rev_options) ) ) or "" ) )
+                        print "cuppa: location: updating [{}] in [{}]{}".format(
+                                self._as_info( location ),
+                                self._as_info( local_directory ),
+                                ( rev_options and  " at {}".format( self._as_info( str(rev_options) ) ) or "" ) )
                         try:
                             vcs_backend.update( local_directory, rev_options )
                         except pip.exceptions.InstallationError as error:
-                            print self._as_warning(
-                                            "cuppa: could not update [{}] in [{}]{} due to error [{}]".format(
-                                                    location ,
-                                                    local_directory,
-                                                    ( rev_options and  " at {}".format(str(rev_options) ) or "" ),
-                                                    error
-                                            )
-                                    )
+                            print "cuppa: {}: location: could not update [{}] in [{}]{} due to error [{}]".format(
+                                    self._as_warning_label( " warning " ),
+                                    self._as_warning_text( location ),
+                                    self._as_warning_text( local_directory ),
+                                    ( rev_options and  " at {}".format( self._as_warning_text( str(rev_options) ) ) or "" ),
+                                    self._as_warning_text( str(error) )
+                            )
                     else:
                         action = "cloning"
                         if vc_type == "svn":
                             action = "checking out"
-                        print "cuppa: {} [{}] into [{}]".format( action, self._as_warning( location ), self._as_warning( local_directory ) )
+                        print "cuppa: location: {} [{}] into [{}]".format( action, self._as_info( location ), self._as_info( local_directory ) )
                         try:
                             vcs_backend.obtain( local_directory )
                         except pip.exceptions.InstallationError as error:
-                            print self._as_error(
-                                        "cuppa: could not retrieve [{}] into [{}]{} due to error [{}]".format(
-                                                    location ,
-                                                    local_directory,
-                                                    ( rev_options and  " at {}".format(str(rev_options) ) or "" ),
-                                                    error
-                                            )
-                                    )
+                            print "cuppa: {}: location: could not retrieve [{}] into [{}]{} due to error [{}]".format(
+                                    self._as_error_label( " error " ),
+                                    self._as_error_text( location ),
+                                    self._as_error_text( local_directory ),
+                                    ( rev_options and  " to {}".format( self._as_error_text(  str(rev_options) ) ) or ""),
+                                    self._as_error_text( str( error ) )
+                            )
                             raise LocationException( "Error obtaining [{}]: {}".format( location, error ) )
 
             return local_directory
@@ -216,11 +214,23 @@ class Location(object):
         return info
 
 
-    def _as_error( self, text ):
+    def _as_error_label( self, text ):
+        return self._colouriser.highlight( 'error', text )
+
+
+    def _as_error_text( self, text ):
         return self._colouriser.colour( 'error', text )
 
 
-    def _as_warning( self, text ):
+    def _as_warning_label( self, text ):
+        return self._colouriser.highlight( 'warning', text )
+
+
+    def _as_warning_text( self, text ):
+        return self._colouriser.colour( 'warning', text )
+
+
+    def _as_info( self, text ):
         return self._colouriser.colour( 'warning', text )
 
 
