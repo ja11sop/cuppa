@@ -11,7 +11,6 @@ import shlex
 import os
 import shutil
 import re
-import functools
 
 from exceptions   import Exception
 from re           import search
