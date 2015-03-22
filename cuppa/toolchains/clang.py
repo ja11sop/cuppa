@@ -421,4 +421,14 @@ class Clang(object):
             'line'      : None,
             'column'    : None,
         },
+        {
+            'title'     : "Compiler Error",
+            'regex'     : r"(error:)([ \t].*)",
+            'meaning'   : 'error',
+            'highlight' : set( [ 1 ] ),
+            'display'   : [ 1, 2 ],
+            'file'      : None,
+            'line'      : None,
+            'column'    : None,
+        },
     ]
