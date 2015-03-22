@@ -322,7 +322,7 @@ class ProcessStdout:
     def entered_test_case( self, line ):
         matches = re.match(
             r'(?:(?P<file>[a-zA-Z0-9._/\s\-]+)[(](?P<line>[0-9]+)[)]: )?'
-             'Entering test case "(?P<test>[a-zA-Z0-9(){}:&_<>\-, ]+)"',
+             'Entering test case "(?P<test>[a-zA-Z0-9(){}\[\]:;&_<>\-, =]+)"',
             line.strip() )
 
         if matches:
@@ -350,7 +350,7 @@ class ProcessStdout:
         test = self.test_cases[self.test]
 
         matches = re.match(
-            r'Leaving test case "(?:[a-zA-Z0-9(){}:&_<>\-, ]+)"'
+            r'Leaving test case "(?:[a-zA-Z0-9(){}\[\]:;&_<>\-, =]+)"'
              '(?:; testing time: (?P<testing_time>[a-zA-Z0-9.s ,+=()%/]+))?'
              '\. Test case (?P<status>passed|failed|skipped|aborted)\.'
              '(?: (?P<results>.*))?',

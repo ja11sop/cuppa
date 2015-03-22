@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2014
+#          Copyright Jamie Allsop 2011-2015
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -31,7 +31,7 @@ class BoostException(Exception):
         return repr(self.parameter)
 
 
-class Boost:
+class Boost(object):
 
     @classmethod
     def add_options( cls, add_option ):
@@ -182,7 +182,6 @@ class Boost:
         return self._location.local()
 
 
-
     def __call__( self, env, toolchain, variant ):
         env.AppendUnique( SYSINCPATH = self.values['include'] )
         env.AppendUnique( CPPDEFINES = self.values['defines'] )
@@ -201,7 +200,7 @@ class Boost:
 
 
 
-class BoostStaticLibraryMethod:
+class BoostStaticLibraryMethod(object):
 
     def __init__( self, build_always=False, verbose_build=False, verbose_config=False ):
         self._build_always = build_always
@@ -222,7 +221,8 @@ class BoostStaticLibraryMethod:
             return library
 
 
-class BoostSharedLibraryMethod:
+
+class BoostSharedLibraryMethod(object):
 
     def __init__( self, build_always=False, verbose_build=False, verbose_config=False ):
         self._build_always = build_always
@@ -255,7 +255,8 @@ class BoostSharedLibraryMethod:
             return library
 
 
-class ProcessBjamBuild:
+
+class ProcessBjamBuild(object):
 
     def __call__( self, line ):
         match = re.search( r'\[COMPILE\] ([\S]+)', line )
@@ -267,26 +268,16 @@ class ProcessBjamBuild:
         return self.bjam_exe_path
 
 
-class BoostLibraryAction:
 
-    def __init__( self, env, boost, verbose_build, verbose_config, library, linktype ):
-        self._env = env
-        self._location       = boost.local()
-        self._version        = boost.numeric_version()
-        self._full_version   = boost.full_version()
-        self._verbose_build  = verbose_build
-        self._verbose_config = verbose_config
-        self._library        = library
-        self._linktype       = linktype
-        self._variant        = self._env['variant'].name()
+class BuildBjam(object):
 
-        if self._variant == 'dbg':
-            self._variant = 'debug'
-        else:
-            self._variant = 'release'
+    def __init__( self, boost ):
+        self._location = boost.local()
+        self._version  = boost.numeric_version()
 
+    def __call__( self, target, source, env ):
+        print "_build_bjam"
 
-    def _build_bjam( self ):
         build_script_path = self._location + '/tools/build'
 
         if self._version < 1.47:
@@ -320,37 +311,52 @@ class BoostLibraryAction:
 
             bjam_binary_path = build_script_path + '/' + bjam_exe_path
 
-            shutil.copy( bjam_binary_path, self._location + '/bjam' )
+            shutil.copy( bjam_binary_path, target[0].path )
 
         except OSError as error:
             print 'Error building bjam [' + str( error.args ) + ']'
             return 1
 
+        return None
 
-    def _toolset_name_from_toolchain( self, toolchain ):
-        toolset_name = toolchain.family()
-        if cuppa.build_platform.name() == "Darwin":
-            if toolset_name == "gcc":
-                toolset_name = "darwin"
-            elif toolset_name == "clang":
-                toolset_name = "clang-darwin"
+
+
+def toolset_name_from_toolchain( toolchain ):
+    toolset_name = toolchain.family()
+    if cuppa.build_platform.name() == "Darwin":
+        if toolset_name == "gcc":
+            toolset_name = "darwin"
+        elif toolset_name == "clang":
+            toolset_name = "clang-darwin"
+    return toolset_name
+
+
+
+def toolset_from_toolchain( toolchain ):
+    toolset_name = toolset_name_from_toolchain( toolchain )
+    if toolset_name == "clang-darwin":
         return toolset_name
+    return toolset_name + '-' + toolchain.version()
 
 
-    def _toolset_from_toolchain( self, toolchain ):
-        toolset_name = self._toolset_name_from_toolchain( toolchain )
-        if toolset_name == "clang-darwin":
-            return toolset_name
-        return toolset_name + '-' + toolchain.version()
+
+class UpdateProjectConfigJam(object):
+
+    def __init__( self, project_config_path ):
+        self._project_config_path = project_config_path
 
 
-    def _update_project_config_jam( self, toolchain, project_config_path ):
+    def __call__( self, target, source, env ):
 
-        current_toolset = "using {} : {} :".format( self._toolset_name_from_toolchain( toolchain ), toolchain.version() )
+        toolchain = env['toolchain']
+
+        current_toolset = "using {} : {} :".format( toolset_name_from_toolchain( toolchain ), toolchain.version() )
         toolset_config_line = "{} {} ;\n".format( current_toolset, toolchain.binary() )
         print "boost: adding toolset config [{}]".format( toolset_config_line )
         config_added = False
         changed = False
+
+        project_config_path = self._project_config_path
 
         temp_path = os.path.splitext( project_config_path )[0] + ".new_jam"
         if not os.path.exists( project_config_path ):
@@ -374,6 +380,43 @@ class BoostLibraryAction:
             shutil.move( temp_path, project_config_path )
 
 
+
+class BoostLibraryAction(object):
+
+    def __init__( self, env, boost, verbose_build, verbose_config, library, linktype ):
+        self._env = env
+        self._location       = boost.local()
+        self._version        = boost.numeric_version()
+        self._full_version   = boost.full_version()
+        self._verbose_build  = verbose_build
+        self._verbose_config = verbose_config
+        self._library        = library
+        self._linktype       = linktype
+        self._variant        = self._env['variant'].name()
+
+        if self._variant == 'dbg':
+            self._variant = 'debug'
+        else:
+            self._variant = 'release'
+
+
+    def _toolset_name_from_toolchain( self, toolchain ):
+        toolset_name = toolchain.family()
+        if cuppa.build_platform.name() == "Darwin":
+            if toolset_name == "gcc":
+                toolset_name = "darwin"
+            elif toolset_name == "clang":
+                toolset_name = "clang-darwin"
+        return toolset_name
+
+
+    def _toolset_from_toolchain( self, toolchain ):
+        toolset_name = toolset_name_from_toolchain( toolchain )
+        if toolset_name == "clang-darwin":
+            return toolset_name
+        return toolset_name + '-' + toolchain.version()
+
+
     def _build_command( self, toolchain, library, variant, linktype, stage_dir ):
 
         verbose = ""
@@ -391,7 +434,7 @@ class BoostLibraryAction:
         command_line = "./bjam{verbose} --with-{library} toolset={toolset} variant={variant} {build_flags} link={linktype} stage --stagedir=./{stage_dir}".format(
                 verbose     = verbose,
                 library     = library,
-                toolset     = self._toolset_from_toolchain( toolchain ),
+                toolset     = toolset_from_toolchain( toolchain ),
                 variant     = variant,
                 build_flags = build_flags,
                 linktype    = linktype,
@@ -403,19 +446,10 @@ class BoostLibraryAction:
 
     def __call__( self, target, source, env ):
 
-        bjam_target = self._location + '/bjam'
-        bjam = env.Command( bjam_target, [], self._build_bjam )
-        env.Requires( target, bjam )
-
         library   = self._library == 'log_setup' and 'log' or self._library
         toolchain = self._env['toolchain']
         stage_dir = os.path.join( 'build', toolchain.name(), self._variant )
         args      = self._build_command( toolchain, library, self._variant, self._linktype, stage_dir )
-
-        if cuppa.build_platform.name() == "Linux":
-            project_config_path = os.path.join( self._location, "project-config.jam" )
-            project_config_jam = env.Command( project_config_path, [], functools.partial( self._update_project_config_jam, toolchain, project_config_path ) )
-            env.Requires( target, project_config_jam )
 
         processor = BjamOutputProcessor( env, self._verbose_build, self._verbose_config, self._toolset_name_from_toolchain( toolchain ) )
 
@@ -474,7 +508,7 @@ class BjamOutputProcessor(object):
 
 
 
-class BoostLibraryEmitter:
+class BoostLibraryEmitter(object):
 
     def __init__( self, env, library, linktype, boost ):
         self._env = env
@@ -501,7 +535,8 @@ class BoostLibraryEmitter:
         return target, source
 
 
-class BoostLibraryBuilder:
+
+class BoostLibraryBuilder(object):
 
     def __init__( self, boost, verbose_build, verbose_config ):
         self._boost = boost
@@ -517,6 +552,16 @@ class BoostLibraryBuilder:
             'BoostLibraryBuilder' : env.Builder( action=library_action, emitter=library_emitter )
         } )
 
-        return env.BoostLibraryBuilder( target, source )
+        bjam_target = os.path.join( self._boost.local(), 'bjam' )
+        bjam    = env.Command( bjam_target, [], BuildBjam( self._boost ) )
+        library = env.BoostLibraryBuilder( target, source )
+        env.Requires( library, bjam )
+
+        if cuppa.build_platform.name() == "Linux":
+            project_config_target = os.path.join( self._boost.local(), "project-config.jam" )
+            project_config_jam = env.Command( project_config_target, [], UpdateProjectConfigJam( project_config_target ) )
+            env.Requires( library, project_config_jam )
+
+        return library
 
 
