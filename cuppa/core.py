@@ -12,6 +12,7 @@ import os.path
 import os
 import re
 import fnmatch
+import multiprocessing
 
 # Scons
 import SCons.Script
@@ -79,6 +80,9 @@ def add_base_options():
 
     add_option( '--dump',   dest='dump', action='store_true',
                             help='Dump the default environment and exit' )
+
+    add_option( '--parallel', dest='parallel', action='store_true',
+                            help='Enable parallel builds utilising the available concurrency. Translates to -j N with N chosen based on the current hardware' )
 
 #    SCons.Script.AddOption( '--decider', dest='decider', type='string', nargs=1, action='store',
 #                            help='The decider to use for determining if a dependency has changed',
@@ -375,6 +379,22 @@ class Construct(object):
         if default_env.get_option( 'dump' ):
             print default_env.Dump()
             SCons.Script.Exit()
+
+        job_count = default_env.get_option( 'num_jobs' )
+        parallel  = default_env.get_option( 'parallel' )
+        parallel_mode = "manually"
+
+        if job_count==1 and parallel:
+            job_count = multiprocessing.cpu_count()
+            if job_count > 1:
+                SCons.Script.SetOption( 'num_jobs', job_count )
+                parallel_mode = "automatically"
+        if job_count>1:
+            print "cuppa: Running in {} with option [{}] set {} as [{}]".format(
+                    self._as_emphasised("parallel mode"),
+                    self._as_warning( "jobs" ),
+                    self._as_emphasised(parallel_mode),
+                    self._as_warning( str( SCons.Script.GetOption( 'num_jobs') ) ) )
 
         if not help and self._configure.handle_conf_only():
             self._configure.save()
