@@ -379,27 +379,36 @@ class UpdateProjectConfigJam(object):
             shutil.move( temp_path, project_config_path )
 
 
+def build_with_library_name( library ):
+    return library == 'log_setup' and 'log' or library
+
+
+def variant_name( variant ):
+    if variant == 'dbg':
+        return 'debug'
+    else:
+        return 'release'
+
+
+def stage_directory( toolchain, variant ):
+    return os.path.join( 'build', toolchain.name(), variant )
+
 
 class BoostLibraryAction(object):
 
-    def __init__( self, env, boost, verbose_build, verbose_config, library, linktype ):
+    def __init__( self, env, library, linktype, boost, verbose_build, verbose_config ):
         self._env = env
         self._location       = boost.local()
         self._version        = boost.numeric_version()
         self._full_version   = boost.full_version()
         self._verbose_build  = verbose_build
         self._verbose_config = verbose_config
-        self._library        = library
+        self._library        = build_with_library_name( library )
         self._linktype       = linktype
-        self._variant        = self._env['variant'].name()
+        self._variant        = variant_name( self._env['variant'].name() )
+        self._toolchain      = env['toolchain']
         self._job_count      = env['job_count']
         self._parallel       = env['parallel']
-
-
-        if self._variant == 'dbg':
-            self._variant = 'debug'
-        else:
-            self._variant = 'release'
 
 
     def _toolset_name_from_toolchain( self, toolchain ):
@@ -453,12 +462,10 @@ class BoostLibraryAction(object):
 
     def __call__( self, target, source, env ):
 
-        library   = self._library == 'log_setup' and 'log' or self._library
-        toolchain = self._env['toolchain']
-        stage_dir = os.path.join( 'build', toolchain.name(), self._variant )
-        args      = self._build_command( toolchain, library, self._variant, self._linktype, stage_dir )
+        stage_dir = stage_directory( self._toolchain, self._variant )
+        args      = self._build_command( self._toolchain, self._library, self._variant, self._linktype, stage_dir )
 
-        processor = BjamOutputProcessor( env, self._verbose_build, self._verbose_config, self._toolset_name_from_toolchain( toolchain ) )
+        processor = BjamOutputProcessor( env, self._verbose_build, self._verbose_config, self._toolset_name_from_toolchain( self._toolchain ) )
 
         returncode = IncrementalSubProcess.Popen(
             processor,
@@ -474,11 +481,6 @@ class BoostLibraryAction(object):
         if returncode:
             return returncode
 
-        target_path        = str( target[0] )
-        filename           = os.path.split( target_path )[1]
-        built_library_path = os.path.join( self._location, stage_dir, 'lib', filename )
-
-        shutil.copy( built_library_path, target_path )
         return None
 
 
@@ -514,30 +516,41 @@ class BjamOutputProcessor(object):
         return summary
 
 
+def static_library_name( env, library ):
+    return env.subst('$LIBPREFIX') + 'boost_' + library + env.subst('$LIBSUFFIX')
+
+
+def shared_library_name( env, library, full_version ):
+    if cuppa.build_platform.name() == "Darwin":
+        return env.subst('$SHLIBPREFIX') + 'boost_' + library + env.subst('$SHLIBSUFFIX')
+    else:
+        return env.subst('$SHLIBPREFIX') + 'boost_' + library + env.subst('$SHLIBSUFFIX') + '.' + full_version
+
 
 class BoostLibraryEmitter(object):
 
     def __init__( self, env, library, linktype, boost ):
         self._env = env
         self._library      = library
+        self._location     = boost.local()
         self._linktype     = linktype
         self._version      = boost.numeric_version()
         self._full_version = boost.full_version()
-
-
-    def _shared_library_name( self, env, library ):
-        if cuppa.build_platform.name() == "Darwin":
-            return env.subst('$SHLIBPREFIX') + 'boost_' + library + env.subst('$SHLIBSUFFIX')
-        else:
-            return env.subst('$SHLIBPREFIX') + 'boost_' + library + env.subst('$SHLIBSUFFIX') + '.' + self._full_version
+        self._variant      = variant_name( self._env['variant'].name() )
+        self._toolchain    = env['toolchain']
 
 
     def __call__( self, target, source, env ):
+        stage_dir = stage_directory( self._toolchain, self._variant )
+
+        filename = None
         if self._linktype == 'static':
-            node = File( env.subst('$LIBPREFIX') + 'boost_' + self._library + env.subst('$LIBSUFFIX') )
+            filename = static_library_name( env, self._library )
         else:
-            shared_library_name = self._shared_library_name( env, self._library )
-            node = File( os.path.join( env['abs_final_dir'], shared_library_name ) )
+            filename = shared_library_name( env, self._library, self._full_version )
+
+        built_library_path = os.path.join( self._location, stage_dir, 'lib', filename )
+        node = File( built_library_path )
         target.append( node )
         return target, source
 
@@ -552,7 +565,7 @@ class BoostLibraryBuilder(object):
 
 
     def __call__( self, env, target, source, library, linktype ):
-        library_action  = BoostLibraryAction ( env, self._boost, self._verbose_build, self._verbose_config, library, linktype )
+        library_action  = BoostLibraryAction ( env, library, linktype, self._boost, self._verbose_build, self._verbose_config )
         library_emitter = BoostLibraryEmitter( env, library, linktype, self._boost )
 
         env.AppendUnique( BUILDERS = {
@@ -562,6 +575,7 @@ class BoostLibraryBuilder(object):
         bjam_target = os.path.join( self._boost.local(), 'bjam' )
         bjam    = env.Command( bjam_target, [], BuildBjam( self._boost ) )
         library = env.BoostLibraryBuilder( target, source )
+
         env.Requires( library, bjam )
 
         if cuppa.build_platform.name() == "Linux":
@@ -569,6 +583,13 @@ class BoostLibraryBuilder(object):
             project_config_jam = env.Command( project_config_target, [], UpdateProjectConfigJam( project_config_target ) )
             env.Requires( library, project_config_jam )
 
-        return library
+        install_dir = ''
+        library_name = os.path.split( library[0].path )[1]
+        if linktype == 'shared':
+            install_dir = os.path.split( os.path.join( env['abs_final_dir'], library_name ) )[0]
+
+        installed_library = env.Install( install_dir, library )
+
+        return installed_library
 
 
