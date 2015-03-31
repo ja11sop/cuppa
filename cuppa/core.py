@@ -84,6 +84,13 @@ def add_base_options():
     add_option( '--parallel', dest='parallel', action='store_true',
                             help='Enable parallel builds utilising the available concurrency. Translates to -j N with N chosen based on the current hardware' )
 
+#    add_option( '--b2',     dest='b2', action='store_true',
+#                            help='Execute boost.build by calling b2 or bjam' )
+
+#    add_option( '--b2-path', type='string', nargs=1, action='store',
+#                            dest='b2_path',
+#                            help='Specify a path to bjam or b2' )
+
 #    SCons.Script.AddOption( '--decider', dest='decider', type='string', nargs=1, action='store',
 #                            help='The decider to use for determining if a dependency has changed',
 #                            default = 'MD5-timestamp' )
@@ -389,6 +396,8 @@ class Construct(object):
             if job_count > 1:
                 SCons.Script.SetOption( 'num_jobs', job_count )
                 parallel_mode = "automatically"
+        default_env['job_count'] = job_count
+        default_env['parallel']  = parallel
         if job_count>1:
             print "cuppa: Running in {} with option [{}] set {} as [{}]".format(
                     self._as_emphasised("parallel mode"),

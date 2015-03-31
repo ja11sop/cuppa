@@ -392,6 +392,9 @@ class BoostLibraryAction(object):
         self._library        = library
         self._linktype       = linktype
         self._variant        = self._env['variant'].name()
+        self._job_count      = env['job_count']
+        self._parallel       = env['parallel']
+
 
         if self._variant == 'dbg':
             self._variant = 'debug'
@@ -424,14 +427,19 @@ class BoostLibraryAction(object):
         if self._verbose_config:
             verbose += " --debug-configuration"
 
+        jobs = "1"
+        if self._job_count > 1 and self._parallel:
+            jobs = str( self._job_count/4 + 1 )
+
         build_flags = toolchain.build_flags_for('boost')
         build_flags += ' define="BOOST_DATE_TIME_POSIX_TIME_STD_CONFIG"'
 
         if linktype == 'shared':
             build_flags += ' define="BOOST_ALL_DYN_LINK"'
 
-        command_line = "./bjam{verbose} --with-{library} toolset={toolset} variant={variant} {build_flags} link={linktype} stage --stagedir=./{stage_dir}".format(
+        command_line = "./bjam{verbose} -j {jobs} --with-{library} toolset={toolset} variant={variant} {build_flags} link={linktype} stage --stagedir=./{stage_dir}".format(
                 verbose     = verbose,
+                jobs        = jobs,
                 library     = library,
                 toolset     = toolset_from_toolchain( toolchain ),
                 variant     = variant,
