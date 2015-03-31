@@ -15,7 +15,7 @@ import re
 from exceptions   import Exception
 from re           import search
 
-from SCons.Script import File, AlwaysBuild
+from SCons.Script import File, AlwaysBuild, Flatten
 
 from cuppa.output_processor import IncrementalSubProcess, ToolchainProcessor
 
@@ -396,14 +396,14 @@ def stage_directory( toolchain, variant ):
 
 class BoostLibraryAction(object):
 
-    def __init__( self, env, library, linktype, boost, verbose_build, verbose_config ):
+    def __init__( self, env, libraries, linktype, boost, verbose_build, verbose_config ):
         self._env = env
         self._location       = boost.local()
         self._version        = boost.numeric_version()
         self._full_version   = boost.full_version()
         self._verbose_build  = verbose_build
         self._verbose_config = verbose_config
-        self._library        = build_with_library_name( library )
+        self._libraries      = list( set( build_with_library_name(l) for l in Flatten( [ libraries ] ) ) )
         self._linktype       = linktype
         self._variant        = variant_name( self._env['variant'].name() )
         self._toolchain      = env['toolchain']
@@ -428,7 +428,7 @@ class BoostLibraryAction(object):
         return toolset_name + '-' + toolchain.version()
 
 
-    def _build_command( self, toolchain, library, variant, linktype, stage_dir ):
+    def _build_command( self, toolchain, libraries, variant, linktype, stage_dir ):
 
         verbose = ""
         if self._verbose_build:
@@ -437,8 +437,15 @@ class BoostLibraryAction(object):
             verbose += " --debug-configuration"
 
         jobs = "1"
-        if self._job_count > 1 and self._parallel:
-            jobs = str( self._job_count/4 + 1 )
+        if self._job_count >= 2 and self._parallel:
+            if len(libraries)>4:
+                jobs = str( self._job_count - 1 )
+            else:
+                jobs = str( self._job_count/4 + 1 )
+
+        with_libraries = ""
+        for library in libraries:
+            with_libraries += " --with-" + library
 
         build_flags = toolchain.build_flags_for('boost')
         build_flags += ' define="BOOST_DATE_TIME_POSIX_TIME_STD_CONFIG"'
@@ -446,15 +453,15 @@ class BoostLibraryAction(object):
         if linktype == 'shared':
             build_flags += ' define="BOOST_ALL_DYN_LINK"'
 
-        command_line = "./bjam{verbose} -j {jobs} --with-{library} toolset={toolset} variant={variant} {build_flags} link={linktype} stage --stagedir=./{stage_dir}".format(
-                verbose     = verbose,
-                jobs        = jobs,
-                library     = library,
-                toolset     = toolset_from_toolchain( toolchain ),
-                variant     = variant,
-                build_flags = build_flags,
-                linktype    = linktype,
-                stage_dir   = stage_dir )
+        command_line = "./bjam{verbose} -j {jobs}{with_libraries} toolset={toolset} variant={variant} {build_flags} link={linktype} stage --stagedir=./{stage_dir}".format(
+                verbose         = verbose,
+                jobs            = jobs,
+                with_libraries  = with_libraries,
+                toolset         = toolset_from_toolchain( toolchain ),
+                variant         = variant,
+                build_flags     = build_flags,
+                linktype        = linktype,
+                stage_dir       = stage_dir )
 
         print command_line
         return shlex.split( command_line )
@@ -463,7 +470,7 @@ class BoostLibraryAction(object):
     def __call__( self, target, source, env ):
 
         stage_dir = stage_directory( self._toolchain, self._variant )
-        args      = self._build_command( self._toolchain, self._library, self._variant, self._linktype, stage_dir )
+        args      = self._build_command( self._toolchain, self._libraries, self._variant, self._linktype, stage_dir )
 
         processor = BjamOutputProcessor( env, self._verbose_build, self._verbose_config, self._toolset_name_from_toolchain( self._toolchain ) )
 
@@ -529,9 +536,9 @@ def shared_library_name( env, library, full_version ):
 
 class BoostLibraryEmitter(object):
 
-    def __init__( self, env, library, linktype, boost ):
+    def __init__( self, env, libraries, linktype, boost ):
         self._env = env
-        self._library      = library
+        self._libraries    = Flatten( [ libraries ] )
         self._location     = boost.local()
         self._linktype     = linktype
         self._version      = boost.numeric_version()
@@ -543,15 +550,16 @@ class BoostLibraryEmitter(object):
     def __call__( self, target, source, env ):
         stage_dir = stage_directory( self._toolchain, self._variant )
 
-        filename = None
-        if self._linktype == 'static':
-            filename = static_library_name( env, self._library )
-        else:
-            filename = shared_library_name( env, self._library, self._full_version )
+        for library in self._libraries:
+            filename = None
+            if self._linktype == 'static':
+                filename = static_library_name( env, library )
+            else:
+                filename = shared_library_name( env, library, self._full_version )
 
-        built_library_path = os.path.join( self._location, stage_dir, 'lib', filename )
-        node = File( built_library_path )
-        target.append( node )
+            built_library_path = os.path.join( self._location, stage_dir, 'lib', filename )
+            node = File( built_library_path )
+            target.append( node )
         return target, source
 
 
