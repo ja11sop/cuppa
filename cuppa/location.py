@@ -86,6 +86,14 @@ class Location(object):
         self.remove_common_top_directory_under( target_dir )
 
 
+    def url_is_download_archive_url( self, path ):
+        base, download = os.path.split( path )
+        if download == "download":
+            return pip.download.is_archive_file( base )
+        else:
+            return pip.download.is_archive_file( path )
+
+
     def get_local_directory( self, env, location, branch, full_url ):
 
         local_directory = None
@@ -122,8 +130,8 @@ class Location(object):
             local_directory = re.sub( r'[\\/+:() ]', r'#', local_directory )
             local_directory = os.path.join( base, local_directory )
 
-            if full_url.scheme.startswith( 'http' ) and pip.download.is_archive_file( full_url.path ):
-
+            if full_url.scheme.startswith( 'http' ) and self.url_is_download_archive_url( full_url.path ):
+                print "cuppa: location: [{}] is an archive download".format( self._as_info( location ) )
                 if os.path.exists( local_directory ):
                     try:
                         os.rmdir( local_directory )

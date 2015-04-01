@@ -14,6 +14,7 @@ import re
 
 from exceptions   import Exception
 from re           import search
+from string       import maketrans
 
 from SCons.Script import File, AlwaysBuild, Flatten
 
@@ -40,6 +41,9 @@ class Boost(object):
         add_option( '--boost-home', dest='boost-home', type='string', nargs=1, action='store',
                     help='The location of the boost source code' )
 
+        add_option( '--boost-location', dest='boost-location', type='string', nargs=1, action='store',
+                    help='The location of the boost source code' )
+
         add_option( '--boost-build-always', dest='boost-build-always', action='store_true',
                     help="Pass this if your boost source may change (for example you are patching it) and you want boost build to be executed each time the library is asked for" )
 
@@ -57,7 +61,10 @@ class Boost(object):
         verbose_config = env.get_option( 'boost-verbose-config' )
         boost = None
         try:
-            if env.get_option( 'boost-home' ):
+            if env.get_option( 'boost-location' ):
+                boost = cls( env, env[ 'platform' ],
+                           env.get_option( 'boost-location' ) )
+            elif env.get_option( 'boost-home' ):
                 boost = cls( env, env[ 'platform' ],
                            env.get_option( 'boost-home' ) )
             else:
@@ -109,42 +116,60 @@ class Boost(object):
         return False
 
 
-    def __init__( self, env, platform, base, version=None ):
-        if not base and not version:
-            raise BoostException("Cannot construct Boost Object. Invalid parameters")
+    def location_from_boost_version( self, location ):
+        match = re.match( r'(boost_)?(?P<version>\d[._]\d\d(?P<minor>[._]\d)?)', location )
+        if match:
+            version = match.group('version')
+            if not match.group('minor'):
+                version += "_0"
+            print "cuppa: boost version specified as a location, attempt to download it"
+            return "http://sourceforge.net/projects/boost/files/boost/{numeric_version}/boost_{string_version}.tar.gz/download".format(
+                        numeric_version = version.translate( maketrans( '._', '..' ) ),
+                        string_version = version.translate( maketrans( '._', '__' ) )
+                    )
+        return location
 
-        if not base:
-            base = env['working_dir']
-        if not os.path.isabs( base ):
-            base = os.path.abspath( base )
+
+    def __init__( self, env, platform, location, version=None ):
+        if not location and not version:
+            raise BoostException("Cannot construct Boost Object. Invalid parameters")
 
         self.values = {}
         self.values['name'] = 'boost'
 
-        if not version:
-            self.values['home'] = base
-        elif version:
-            search_list = [
-                os.path.join( base, 'boost', version, 'source' ),
-                os.path.join( base, 'boost', 'boost_' + version ),
-                os.path.join( base, 'boost', version ),
-                os.path.join( base, 'boost_' + version ),
-            ]
+        if location:
+            location = self.location_from_boost_version( location )
+            self._location = cuppa.location.Location( env, location )
+            self.values['home'] = self._location.local()
 
-            def exists_in( locations ):
-                for location in locations:
-                    if self.set_home_if_exists( location ):
-                        return True
-                return False
+        else: # Find boost locally
+            if not location:
+                location = env['working_dir']
+            if not os.path.isabs( location ):
+                location = os.path.abspath( location )
 
-            if not exists_in( search_list ):
-                raise BoostException("Cannot construct Boost Object. Home for Version [{}] cannot be found. Seached in [{}]".format(version, str([l for l in search_list])))
-        else:
-            raise BoostException("Cannot construct Boost Object. No Home or Version specified")
+            if not version:
+                self.values['home'] = location
+            elif version:
+                search_list = [
+                    os.path.join( location, 'boost', version, 'source' ),
+                    os.path.join( location, 'boost', 'boost_' + version ),
+                    os.path.join( location, 'boost', version ),
+                    os.path.join( location, 'boost_' + version ),
+                ]
+
+                def exists_in( locations ):
+                    for location in locations:
+                        if self.set_home_if_exists( location ):
+                            return True
+                    return False
+
+                if not exists_in( search_list ):
+                    raise BoostException("Cannot construct Boost Object. Home for Version [{}] cannot be found. Seached in [{}]".format(version, str([l for l in search_list])))
+            else:
+                raise BoostException("Cannot construct Boost Object. No Home or Version specified")
 
         self.values['full_version'], self.values['version'], self.values['numeric_version'] = self.get_boost_version( self.values['home'] )
-
-        self._location = cuppa.location.Location( env, self.values['home'] )
 
         self.values['revisions'] = self._location.revisions()
 
@@ -206,14 +231,15 @@ class BoostStaticLibraryMethod(object):
         self._verbose_build = verbose_build
         self._verbose_config = verbose_config
 
-    def __call__( self, env, library ):
+    def __call__( self, env, libraries ):
+        libraries = Flatten( [ libraries ] )
         if not 'boost' in env['BUILD_WITH']:
             env.BuildWith( 'boost' )
         Boost = env['dependencies']['boost']
         library = BoostLibraryBuilder(
                 Boost,
                 verbose_build=self._verbose_build,
-                verbose_config=self._verbose_config )( env, None, None, library, 'static' )
+                verbose_config=self._verbose_config )( env, None, None, libraries, 'static' )
         if self._build_always:
             return AlwaysBuild( library )
         else:
@@ -228,26 +254,29 @@ class BoostSharedLibraryMethod(object):
         self._verbose_build = verbose_build
         self._verbose_config = verbose_config
 
-    def __call__( self, env, library ):
+    def __call__( self, env, libraries ):
+        libraries = Flatten( [ libraries ] )
+
         if not 'boost' in env['BUILD_WITH']:
             env.BuildWith( 'boost' )
         Boost = env['dependencies']['boost']
 
-        if library.startswith('log'):
-            env.AppendUnique( CPPDEFINES = 'BOOST_LOG_DYN_LINK' )
-        elif library == 'chrono':
-            env.AppendUnique( CPPDEFINES = 'BOOST_CHRONO_DYN_LINK' )
-        elif library == 'filesystem':
-            env.AppendUnique( CPPDEFINES = 'BOOST_FILESYSTEM_DYN_LINK' )
-        elif library == 'date_time':
-            env.AppendUnique( CPPDEFINES = 'BOOST_DATE_TIME_DYN_LINK' )
-        elif library == 'system':
-            env.AppendUnique( CPPDEFINES = 'BOOST_SYSTEM_DYN_LINK' )
+        for library in libraries:
+            if library.startswith('log'):
+                env.AppendUnique( CPPDEFINES = 'BOOST_LOG_DYN_LINK' )
+            elif library == 'chrono':
+                env.AppendUnique( CPPDEFINES = 'BOOST_CHRONO_DYN_LINK' )
+            elif library == 'filesystem':
+                env.AppendUnique( CPPDEFINES = 'BOOST_FILESYSTEM_DYN_LINK' )
+            elif library == 'date_time':
+                env.AppendUnique( CPPDEFINES = 'BOOST_DATE_TIME_DYN_LINK' )
+            elif library == 'system':
+                env.AppendUnique( CPPDEFINES = 'BOOST_SYSTEM_DYN_LINK' )
 
         library = BoostLibraryBuilder(
                 Boost,
                 verbose_build=self._verbose_build,
-                verbose_config=self._verbose_config )( env, None, None, library, 'shared' )
+                verbose_config=self._verbose_config )( env, None, None, libraries, 'shared' )
         if self._build_always:
             return AlwaysBuild( library )
         else:
@@ -394,6 +423,65 @@ def stage_directory( toolchain, variant ):
     return os.path.join( 'build', toolchain.name(), variant )
 
 
+def add_dependent_libraries( version, libraries ):
+    required_libraries = list( libraries )
+    for library in libraries:
+        if library == 'chrono':
+            required_libraries.extend( ['system'] )
+        elif library == 'context':
+            pass
+        elif library == 'coroutine':
+            required_libraries.extend( ['context', 'system'] )
+            if version > 1.55:
+                required_libraries.extend( ['thread'] )
+        elif library == 'date_time':
+            pass
+        elif library == 'exception':
+            pass
+        elif library == 'filesystem':
+            required_libraries.extend( ['system'] )
+        elif library == 'graph':
+            required_libraries.extend( ['regex'] )
+        elif library == 'graph_parallel':
+            pass
+        elif library == 'iostreams':
+            pass
+        elif library == 'locale':
+            pass
+        elif library == 'log':
+            required_libraries.extend( ['date_time', 'filesystem', 'system', 'thread'] )
+        elif library == 'log_setup':
+            required_libraries.extend( ['log', 'date_time', 'filesystem', 'system', 'thread'] )
+        elif library == 'math':
+            pass
+        elif library == 'mpi':
+            pass
+        elif library == 'program_options':
+            pass
+        elif library == 'python':
+            pass
+        elif library == 'random':
+            pass
+        elif library == 'regex':
+            pass
+        elif library == 'serialization':
+            pass
+        elif library == 'signals':
+            pass
+        elif library == 'system':
+            pass
+        elif library == 'test':
+            pass
+        elif library == 'thread':
+            pass
+        elif library == 'timer':
+            pass
+        elif library == 'wave':
+            pass
+
+        return list( required_libraries )
+
+
 class BoostLibraryAction(object):
 
     def __init__( self, env, libraries, linktype, boost, verbose_build, verbose_config ):
@@ -403,7 +491,7 @@ class BoostLibraryAction(object):
         self._full_version   = boost.full_version()
         self._verbose_build  = verbose_build
         self._verbose_config = verbose_config
-        self._libraries      = list( set( build_with_library_name(l) for l in Flatten( [ libraries ] ) ) )
+        self._libraries      = list( build_with_library_name(l) for l in add_dependent_libraries( boost.numeric_version(), libraries ) )
         self._linktype       = linktype
         self._variant        = variant_name( self._env['variant'].name() )
         self._toolchain      = env['toolchain']
@@ -538,7 +626,7 @@ class BoostLibraryEmitter(object):
 
     def __init__( self, env, libraries, linktype, boost ):
         self._env = env
-        self._libraries    = Flatten( [ libraries ] )
+        self._libraries    = add_dependent_libraries( boost.numeric_version(), libraries )
         self._location     = boost.local()
         self._linktype     = linktype
         self._version      = boost.numeric_version()
@@ -572,9 +660,9 @@ class BoostLibraryBuilder(object):
         self._verbose_config = verbose_config
 
 
-    def __call__( self, env, target, source, library, linktype ):
-        library_action  = BoostLibraryAction ( env, library, linktype, self._boost, self._verbose_build, self._verbose_config )
-        library_emitter = BoostLibraryEmitter( env, library, linktype, self._boost )
+    def __call__( self, env, target, source, libraries, linktype ):
+        library_action  = BoostLibraryAction ( env, libraries, linktype, self._boost, self._verbose_build, self._verbose_config )
+        library_emitter = BoostLibraryEmitter( env, libraries, linktype, self._boost )
 
         env.AppendUnique( BUILDERS = {
             'BoostLibraryBuilder' : env.Builder( action=library_action, emitter=library_emitter )
