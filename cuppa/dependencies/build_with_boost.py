@@ -11,19 +11,19 @@ import shlex
 import os
 import shutil
 import re
-import urllib2
+import string
+import lxml.html
 
-from exceptions    import Exception
-from BeautifulSoup import BeautifulSoup
-
+from exceptions import Exception
 
 from SCons.Script import File, AlwaysBuild, Flatten
 
-from cuppa.output_processor import IncrementalSubProcess, ToolchainProcessor
-
 import cuppa.build_platform
 import cuppa.location
-from cuppa.colourise import as_error, as_warning
+
+from cuppa.output_processor import IncrementalSubProcess, ToolchainProcessor
+from cuppa.colourise        import as_error, as_warning
+
 
 
 class BoostException(Exception):
@@ -34,10 +34,18 @@ class BoostException(Exception):
 
 
 def determine_latest_boost_verion( env ):
-    soup = BeautifulSoup( urllib2.urlopen('http://www.boost.org/users/download/').read() )
-    current_release = soup.find(id="live").parent.h3.text
-    current_release = str( re.search( r'(\d[.]\d+([.]\d+)?)', current_release ).group(1) )
-    print "cuppa: boost: latest boost release detected as [{}]".format( as_warning( env, current_release ) )
+    current_release = None
+    try:
+        html = lxml.html.parse('http://www.boost.org/users/download/')
+
+        current_release = html.xpath("/html/body/div[2]/div/div[1]/div/div/div[2]/h3[1]/span")[0].text
+        current_release = str( re.search( r'(\d[.]\d+([.]\d+)?)', current_release ).group(1) )
+
+        print "cuppa: boost: latest boost release detected as [{}]".format( as_warning( env, current_release ) )
+
+    except Exception as e:
+        print as_error( env, "cuppa: boost: error: cannot determine latest version of boost - [{}]. Please specify a version manually.".format( str(e) ) )
+
     return current_release
 
 
@@ -83,7 +91,8 @@ class Boost(object):
         try:
             if boost_location:
                 boost = cls( env, env[ 'platform' ],
-                           location = boost_location )
+                           location = boost_location,
+                           version  = boost_version )
             elif boost_home:
                 boost = cls( env, env[ 'platform' ],
                            base = boost_home )
@@ -98,8 +107,8 @@ class Boost(object):
                 boost = cls( env, env[ 'platform' ],
                            version = 'latest' )
 
-        except BoostException, (e):
-            print "Could not create boost dependency: {}".format(e)
+        except BoostException as e:
+            print as_warning( env, "cuppa: boost: warning: Could not create boost dependency - {}".format(e) )
 
         add_dependency( 'boost', boost )
 
@@ -144,18 +153,19 @@ class Boost(object):
 
 
     def location_from_boost_version( self, location ):
-        if location == "latest":
+        if location == "latest" or location == "current":
             location = determine_latest_boost_verion( self._env )
-        match = re.match( r'(boost_)?(?P<version>\d[._]\d\d(?P<minor>[._]\d)?)', location )
-        if match:
-            version = match.group('version')
-            if not match.group('minor'):
-                version += "_0"
-            print "cuppa: boost version specified as a location, attempt to download it"
-            return "http://sourceforge.net/projects/boost/files/boost/{numeric_version}/boost_{string_version}.tar.gz/download".format(
-                        numeric_version = version.translate( string.maketrans( '._', '..' ) ),
-                        string_version = version.translate( string.maketrans( '._', '__' ) )
-                    )
+        if location:
+            match = re.match( r'(boost_)?(?P<version>\d[._]\d\d(?P<minor>[._]\d)?)', location )
+            if match:
+                version = match.group('version')
+                if not match.group('minor'):
+                    version += "_0"
+                print "cuppa: boost version specified as a location, attempt to download it"
+                return "http://sourceforge.net/projects/boost/files/boost/{numeric_version}/boost_{string_version}.tar.gz/download".format(
+                            numeric_version = version.translate( string.maketrans( '._', '..' ) ),
+                            string_version = version.translate( string.maketrans( '._', '__' ) )
+                        )
         return location
 
 
@@ -175,6 +185,8 @@ class Boost(object):
 
         if location:
             location = self.location_from_boost_version( location )
+            if not location: # use version as a fallback in case both at specified
+                location = self.location_from_boost_version( version )
             self._location = cuppa.location.Location( env, location )
 
         elif base: # Find boost locally
