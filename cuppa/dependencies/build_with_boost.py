@@ -22,6 +22,7 @@ from cuppa.output_processor import IncrementalSubProcess, ToolchainProcessor
 
 import cuppa.build_platform
 import cuppa.location
+from cuppa.colourise import as_error, as_warning
 
 
 class BoostException(Exception):
@@ -136,9 +137,9 @@ class Boost(object):
 
     def __init__( self, env, platform, base=None, location=None, version=None ):
         print "cuppa: boost: identify boost using base = [{}], location = [{}] and version = [{}]".format(
-                str(base),
-                str(location),
-                str(version)
+                as_warning( env, str(base) ),
+                as_warning( env, str(location) ),
+                as_warning( env, str(version) )
             )
 
         if not base and not version and not location:

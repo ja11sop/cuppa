@@ -155,3 +155,23 @@ class Colouriser(object):
             return colorama.Style.BRIGHT + colorama.Back.BLUE + colorama.Fore.WHITE
         elif meaning == 'info':
             return ''
+
+
+def as_emphasised( env, text ):
+    return env['colouriser'].emphasise( text )
+
+
+def as_error( env, text ):
+    return env['colouriser'].colour( 'error', text )
+
+
+def as_warning( env, text ):
+    return env['colouriser'].colour( 'warning', text )
+
+
+def as_info( env, text ):
+    return env['colouriser'].colour( 'info', text )
+
+
+def as_notice( env, text ):
+    return env['colouriser'].colour( 'notice', text )
