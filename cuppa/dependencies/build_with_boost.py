@@ -63,14 +63,18 @@ class Boost(object):
         try:
             if env.get_option( 'boost-location' ):
                 boost = cls( env, env[ 'platform' ],
-                           env.get_option( 'boost-location' ) )
+                           location = env.get_option( 'boost-location' ) )
             elif env.get_option( 'boost-home' ):
                 boost = cls( env, env[ 'platform' ],
-                           env.get_option( 'boost-home' ) )
+                           base = env.get_option( 'boost-home' ) )
+            elif 'thirdparty' in env:
+                boost = cls( env, env[ 'platform' ],
+                           base = env[ 'thirdparty' ],
+                           version = env.get_option( 'boost-version' ) )
             else:
                 boost = cls( env, env[ 'platform' ],
-                           env[ 'thirdparty' ],
                            version = env.get_option( 'boost-version' ) )
+
         except BoostException, (e):
             print "Could not create boost dependency: {}".format(e)
 
@@ -130,8 +134,14 @@ class Boost(object):
         return location
 
 
-    def __init__( self, env, platform, location, version=None ):
-        if not location and not version:
+    def __init__( self, env, platform, base=None, location=None, version=None ):
+        print "cuppa: boost: identify boost using base = [{}], location = [{}] and version = [{}]".format(
+                str(base),
+                str(location),
+                str(version)
+            )
+
+        if not base and not version and not location:
             raise BoostException("Cannot construct Boost Object. Invalid parameters")
 
         self.values = {}
@@ -140,22 +150,19 @@ class Boost(object):
         if location:
             location = self.location_from_boost_version( location )
             self._location = cuppa.location.Location( env, location )
-            self.values['home'] = self._location.local()
 
-        else: # Find boost locally
-            if not location:
-                location = env['working_dir']
-            if not os.path.isabs( location ):
-                location = os.path.abspath( location )
+        elif base: # Find boost locally
+            if not os.path.isabs( base ):
+                base = os.path.abspath( base )
 
             if not version:
-                self.values['home'] = location
+                self.values['home'] = base
             elif version:
                 search_list = [
-                    os.path.join( location, 'boost', version, 'source' ),
-                    os.path.join( location, 'boost', 'boost_' + version ),
-                    os.path.join( location, 'boost', version ),
-                    os.path.join( location, 'boost_' + version ),
+                    os.path.join( base, 'boost', version, 'source' ),
+                    os.path.join( base, 'boost', 'boost_' + version ),
+                    os.path.join( base, 'boost', version ),
+                    os.path.join( base, 'boost_' + version ),
                 ]
 
                 def exists_in( locations ):
@@ -168,6 +175,13 @@ class Boost(object):
                     raise BoostException("Cannot construct Boost Object. Home for Version [{}] cannot be found. Seached in [{}]".format(version, str([l for l in search_list])))
             else:
                 raise BoostException("Cannot construct Boost Object. No Home or Version specified")
+
+            self._location = cuppa.location.Location( env, self.values['home'] )
+        else:
+            location = self.location_from_boost_version( version )
+            self._location = cuppa.location.Location( env, location )
+
+        self.values['home'] = self._location.local()
 
         self.values['full_version'], self.values['version'], self.values['numeric_version'] = self.get_boost_version( self.values['home'] )
 
