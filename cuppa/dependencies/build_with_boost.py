@@ -11,10 +11,11 @@ import shlex
 import os
 import shutil
 import re
+import urllib2
 
-from exceptions   import Exception
-from re           import search
-from string       import maketrans
+from exceptions    import Exception
+from BeautifulSoup import BeautifulSoup
+
 
 from SCons.Script import File, AlwaysBuild, Flatten
 
@@ -32,10 +33,21 @@ class BoostException(Exception):
         return repr(self.parameter)
 
 
+def determine_latest_boost_verion( env ):
+    soup = BeautifulSoup( urllib2.urlopen('http://www.boost.org/users/download/').read() )
+    current_release = soup.find(id="live").parent.h3.text
+    current_release = str( re.search( r'(\d[.]\d+([.]\d+)?)', current_release ).group(1) )
+    print "cuppa: boost: latest boost release detected as [{}]".format( as_warning( env, current_release ) )
+    return current_release
+
+
 class Boost(object):
 
     @classmethod
     def add_options( cls, add_option ):
+        add_option( '--boost-latest', dest='boost-latest', action='store_true',
+                    help='Specify that you want to use boost. The latest version will be downloaded and used.' )
+
         add_option( '--boost-version', dest='boost-version', type='string', nargs=1, action='store',
                     help='Boost Version to build against' )
 
@@ -57,24 +69,34 @@ class Boost(object):
 
     @classmethod
     def add_to_env( cls, env, add_dependency ):
-        build_always = env.get_option( 'boost-build-always' )
-        verbose_build = env.get_option( 'boost-verbose-build' )
+        build_always   = env.get_option( 'boost-build-always' )
+        verbose_build  = env.get_option( 'boost-verbose-build' )
         verbose_config = env.get_option( 'boost-verbose-config' )
+
+        boost_location = env.get_option( 'boost-location' )
+        boost_home     = env.get_option( 'boost-home' )
+        boost_version  = env.get_option( 'boost-version' )
+        boost_latest   = env.get_option( 'boost-latest' )
+        thirdparty     = env[ 'thirdparty' ]
+
         boost = None
         try:
-            if env.get_option( 'boost-location' ):
+            if boost_location:
                 boost = cls( env, env[ 'platform' ],
-                           location = env.get_option( 'boost-location' ) )
-            elif env.get_option( 'boost-home' ):
+                           location = boost_location )
+            elif boost_home:
                 boost = cls( env, env[ 'platform' ],
-                           base = env.get_option( 'boost-home' ) )
-            elif 'thirdparty' in env:
+                           base = boost_home )
+            elif thirdparty and boost_version:
                 boost = cls( env, env[ 'platform' ],
-                           base = env[ 'thirdparty' ],
-                           version = env.get_option( 'boost-version' ) )
-            else:
+                           base = thirdparty,
+                           version = boost_version )
+            elif boost_version:
                 boost = cls( env, env[ 'platform' ],
-                           version = env.get_option( 'boost-version' ) )
+                           version = boost_version )
+            elif boost_latest:
+                boost = cls( env, env[ 'platform' ],
+                           version = 'latest' )
 
         except BoostException, (e):
             print "Could not create boost dependency: {}".format(e)
@@ -101,7 +123,7 @@ class Boost(object):
             raise BoostException("Boost version.hpp file not found")
         with open( version_hpp_path ) as version_hpp:
             for line in version_hpp:
-                match = search( r'BOOST_VERSION\s+(?P<version>\d+)', line )
+                match = re.search( r'BOOST_VERSION\s+(?P<version>\d+)', line )
                 if match:
                     int_version = int(match.group('version'))
                     major = int_version/100000
@@ -122,6 +144,8 @@ class Boost(object):
 
 
     def location_from_boost_version( self, location ):
+        if location == "latest":
+            location = determine_latest_boost_verion( self._env )
         match = re.match( r'(boost_)?(?P<version>\d[._]\d\d(?P<minor>[._]\d)?)', location )
         if match:
             version = match.group('version')
@@ -129,8 +153,8 @@ class Boost(object):
                 version += "_0"
             print "cuppa: boost version specified as a location, attempt to download it"
             return "http://sourceforge.net/projects/boost/files/boost/{numeric_version}/boost_{string_version}.tar.gz/download".format(
-                        numeric_version = version.translate( maketrans( '._', '..' ) ),
-                        string_version = version.translate( maketrans( '._', '__' ) )
+                        numeric_version = version.translate( string.maketrans( '._', '..' ) ),
+                        string_version = version.translate( string.maketrans( '._', '__' ) )
                     )
         return location
 
@@ -145,6 +169,7 @@ class Boost(object):
         if not base and not version and not location:
             raise BoostException("Cannot construct Boost Object. Invalid parameters")
 
+        self._env = env
         self.values = {}
         self.values['name'] = 'boost'
 
@@ -447,61 +472,52 @@ def boost_dependency_set():
     return set( boost_dependency_order() )
 
 
-def add_dependent_libraries( version, libraries ):
+def boost_libraries_with_no_dependencies():
+    return set( [
+        'context',
+        'date_time',
+        'exception',
+        'graph_parallel',
+        'iostreams',
+        'locale',
+        'math',
+        'mpi',
+        'program_options',
+        'python',
+        'random',
+        'regex',
+        'serialization',
+        'signals',
+        'system',
+        'test',
+        'thread',
+        'wave'
+    ] )
+
+
+def add_dependent_libraries( version, linktype, libraries ):
     required_libraries = set( libraries )
     for library in libraries:
-        if library == 'chrono':
-            required_libraries.update( ['system'] )
-        elif library == 'context':
+        if library in boost_libraries_with_no_dependencies():
             continue
+        elif library == 'chrono':
+            required_libraries.update( ['system'] )
         elif library == 'coroutine':
             required_libraries.update( ['context', 'system'] )
             if version > 1.55:
                 required_libraries.update( ['thread'] )
-        elif library == 'date_time':
-            continue
-        elif library == 'exception':
-            continue
+            if linktype == 'shared':
+                required_libraries.update( ['chrono'] )
         elif library == 'filesystem':
             required_libraries.update( ['system'] )
         elif library == 'graph':
             required_libraries.update( ['regex'] )
-        elif library == 'graph_parallel':
-            continue
-        elif library == 'iostreams':
-            continue
-        elif library == 'locale':
-            continue
         elif library == 'log':
             required_libraries.update( ['date_time', 'filesystem', 'system', 'thread'] )
         elif library == 'log_setup':
             required_libraries.update( ['log', 'date_time', 'filesystem', 'system', 'thread'] )
-        elif library == 'math':
-            continue
-        elif library == 'mpi':
-            continue
-        elif library == 'program_options':
-            continue
-        elif library == 'python':
-            continue
-        elif library == 'random':
-            continue
-        elif library == 'regex':
-            continue
-        elif library == 'serialization':
-            continue
-        elif library == 'signals':
-            continue
-        elif library == 'system':
-            continue
-        elif library == 'test':
-            continue
-        elif library == 'thread':
-            continue
         elif library == 'timer':
             required_libraries.update( ['chrono'] )
-        elif library == 'wave':
-            continue
 
     libraries = []
 
@@ -525,7 +541,7 @@ class BoostLibraryAction(object):
         self._full_version   = boost.full_version()
         self._verbose_build  = verbose_build
         self._verbose_config = verbose_config
-        self._libraries      = list( build_with_library_name(l) for l in add_dependent_libraries( boost.numeric_version(), libraries ) )
+        self._libraries      = list( build_with_library_name(l) for l in add_dependent_libraries( boost.numeric_version(), linktype, libraries ) )
         self._linktype       = linktype
         self._variant        = variant_name( self._env['variant'].name() )
         self._toolchain      = env['toolchain']
@@ -660,7 +676,7 @@ class BoostLibraryEmitter(object):
 
     def __init__( self, env, libraries, linktype, boost ):
         self._env = env
-        self._libraries    = add_dependent_libraries( boost.numeric_version(), libraries )
+        self._libraries    = add_dependent_libraries( boost.numeric_version(), linktype, libraries )
         self._location     = boost.local()
         self._linktype     = linktype
         self._version      = boost.numeric_version()
@@ -704,6 +720,7 @@ class BoostLibraryBuilder(object):
 
         bjam_target = os.path.join( self._boost.local(), 'bjam' )
         bjam    = env.Command( bjam_target, [], BuildBjam( self._boost ) )
+        env.NoClean( bjam )
         library = env.BoostLibraryBuilder( target, source )
 
         env.Requires( library, bjam )

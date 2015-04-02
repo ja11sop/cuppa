@@ -39,7 +39,8 @@ setup(
     },
     install_requires = [
         'colorama',
-        'gcovr'
+        'gcovr',
+        'BeautifulSoup'
     ],
     classifiers = [
         "Topic :: Software Development :: Build Tools",
