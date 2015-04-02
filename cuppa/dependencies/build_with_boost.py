@@ -439,63 +439,81 @@ def stage_directory( toolchain, variant ):
     return os.path.join( 'build', toolchain.name(), variant )
 
 
+def boost_dependency_order():
+    return [ 'graph', 'regex', 'coroutine', 'context', 'log_setup', 'log', 'date_time', 'filesystem', 'timer', 'chrono', 'system', 'thread' ]
+
+
+def boost_dependency_set():
+    return set( boost_dependency_order() )
+
+
 def add_dependent_libraries( version, libraries ):
-    required_libraries = list( libraries )
+    required_libraries = set( libraries )
     for library in libraries:
         if library == 'chrono':
-            required_libraries.extend( ['system'] )
+            required_libraries.update( ['system'] )
         elif library == 'context':
-            pass
+            continue
         elif library == 'coroutine':
-            required_libraries.extend( ['context', 'system'] )
+            required_libraries.update( ['context', 'system'] )
             if version > 1.55:
-                required_libraries.extend( ['thread'] )
+                required_libraries.update( ['thread'] )
         elif library == 'date_time':
-            pass
+            continue
         elif library == 'exception':
-            pass
+            continue
         elif library == 'filesystem':
-            required_libraries.extend( ['system'] )
+            required_libraries.update( ['system'] )
         elif library == 'graph':
-            required_libraries.extend( ['regex'] )
+            required_libraries.update( ['regex'] )
         elif library == 'graph_parallel':
-            pass
+            continue
         elif library == 'iostreams':
-            pass
+            continue
         elif library == 'locale':
-            pass
+            continue
         elif library == 'log':
-            required_libraries.extend( ['date_time', 'filesystem', 'system', 'thread'] )
+            required_libraries.update( ['date_time', 'filesystem', 'system', 'thread'] )
         elif library == 'log_setup':
-            required_libraries.extend( ['log', 'date_time', 'filesystem', 'system', 'thread'] )
+            required_libraries.update( ['log', 'date_time', 'filesystem', 'system', 'thread'] )
         elif library == 'math':
-            pass
+            continue
         elif library == 'mpi':
-            pass
+            continue
         elif library == 'program_options':
-            pass
+            continue
         elif library == 'python':
-            pass
+            continue
         elif library == 'random':
-            pass
+            continue
         elif library == 'regex':
-            pass
+            continue
         elif library == 'serialization':
-            pass
+            continue
         elif library == 'signals':
-            pass
+            continue
         elif library == 'system':
-            pass
+            continue
         elif library == 'test':
-            pass
+            continue
         elif library == 'thread':
-            pass
+            continue
         elif library == 'timer':
-            pass
+            required_libraries.update( ['chrono'] )
         elif library == 'wave':
-            pass
+            continue
 
-        return list( required_libraries )
+    libraries = []
+
+    for library in boost_dependency_order():
+        if library in required_libraries:
+            libraries.append( library )
+
+    for library in required_libraries:
+        if library not in boost_dependency_set():
+            libraries.append( library )
+
+    return libraries
 
 
 class BoostLibraryAction(object):
