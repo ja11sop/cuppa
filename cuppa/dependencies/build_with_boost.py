@@ -177,6 +177,7 @@ class Boost(object):
             else:
                 raise BoostException("Cannot construct Boost Object. No Home or Version specified")
 
+            print "cuppa: boost: using boost found at [{}]".format( as_warning( env, self.values['home'] ) )
             self._location = cuppa.location.Location( env, self.values['home'] )
         else:
             location = self.location_from_boost_version( version )
