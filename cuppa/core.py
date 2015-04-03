@@ -1,4 +1,4 @@
-#          Copyright Jamie Allsop 2011-2014
+#          Copyright Jamie Allsop 2011-2015
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -26,6 +26,7 @@ import cuppa.recursive_glob
 import cuppa.configure
 import cuppa.options
 import cuppa.version
+#import cuppa.cpp.stdcpp
 
 from cuppa.toolchains             import *
 from cuppa.methods                import *
@@ -147,6 +148,7 @@ class Construct(object):
     toolchains_key   = 'toolchains'
     dependencies_key = 'dependencies'
     profiles_key     = 'profiles'
+    methods_key      = 'methods'
     project_generators_key = 'project_generators'
 
     cached_options = {}
@@ -248,10 +250,13 @@ class Construct(object):
         cuppa.modules.registration.add_options( self.dependencies_key )
         cuppa.modules.registration.add_options( self.profiles_key )
         cuppa.modules.registration.add_options( self.project_generators_key )
+        cuppa.modules.registration.add_options( self.methods_key )
 
         if dependencies:
             for dependency in dependencies.itervalues():
                 dependency.add_options( SCons.Script.AddOption )
+
+#        cuppa.cpp.stdcpp.add_options( SCons.Script.AddOption )
 
 
     def print_construct_variables( self, env ):
@@ -371,39 +376,41 @@ class Construct(object):
         def add_dependency( name, dependency ):
             default_env['dependencies'][name] = dependency
 
-        cuppa.modules.registration.add_to_env( "dependencies",       default_env, add_dependency )
-        cuppa.modules.registration.add_to_env( "profiles",           default_env )
-        cuppa.modules.registration.add_to_env( "methods",            default_env )
-        cuppa.modules.registration.add_to_env( "project_generators", default_env )
+        cuppa.modules.registration.get_options( "methods", default_env )
 
+        if not help or self._configure.handle_conf_only():
+            cuppa.modules.registration.add_to_env( "dependencies",       default_env, add_dependency )
+            cuppa.modules.registration.add_to_env( "profiles",           default_env )
+            cuppa.modules.registration.add_to_env( "methods",            default_env )
+            cuppa.modules.registration.add_to_env( "project_generators", default_env )
 
-        if dependencies:
-            for name, dependency in dependencies.iteritems():
-                dependency.add_to_env( default_env, add_dependency )
+            if dependencies:
+                for name, dependency in dependencies.iteritems():
+                    dependency.add_to_env( default_env, add_dependency )
 
-        # TODO - default_profile
+            # TODO - default_profile
 
-        if default_env.get_option( 'dump' ):
-            print default_env.Dump()
-            SCons.Script.Exit()
+            if default_env.get_option( 'dump' ):
+                print default_env.Dump()
+                SCons.Script.Exit()
 
-        job_count = default_env.get_option( 'num_jobs' )
-        parallel  = default_env.get_option( 'parallel' )
-        parallel_mode = "manually"
+            job_count = default_env.get_option( 'num_jobs' )
+            parallel  = default_env.get_option( 'parallel' )
+            parallel_mode = "manually"
 
-        if job_count==1 and parallel:
-            job_count = multiprocessing.cpu_count()
-            if job_count > 1:
-                SCons.Script.SetOption( 'num_jobs', job_count )
-                parallel_mode = "automatically"
-        default_env['job_count'] = job_count
-        default_env['parallel']  = parallel
-        if job_count>1:
-            print "cuppa: Running in {} with option [{}] set {} as [{}]".format(
-                    self._as_emphasised("parallel mode"),
-                    self._as_warning( "jobs" ),
-                    self._as_emphasised(parallel_mode),
-                    self._as_warning( str( SCons.Script.GetOption( 'num_jobs') ) ) )
+            if job_count==1 and parallel:
+                job_count = multiprocessing.cpu_count()
+                if job_count > 1:
+                    SCons.Script.SetOption( 'num_jobs', job_count )
+                    parallel_mode = "automatically"
+            default_env['job_count'] = job_count
+            default_env['parallel']  = parallel
+            if job_count>1:
+                print "cuppa: Running in {} with option [{}] set {} as [{}]".format(
+                        self._as_emphasised("parallel mode"),
+                        self._as_warning( "jobs" ),
+                        self._as_emphasised(parallel_mode),
+                        self._as_warning( str( SCons.Script.GetOption( 'num_jobs') ) ) )
 
         if not help and self._configure.handle_conf_only():
             self._configure.save()

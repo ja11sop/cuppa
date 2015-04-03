@@ -31,6 +31,10 @@ def add_options( module_name ):
     __call_classmethod_for_classes_in_module( 'cuppa', module_name, __package('cuppa'), "add_options", SCons.Script.AddOption )
 
 
+def get_options( module_name, env ):
+    __call_classmethod_for_classes_in_module( 'cuppa', module_name, __package('cuppa'), "get_options", env )
+
+
 def init_env_for_variant( module_name, sconscript_exports ):
     __call_classmethod_for_classes_in_module( 'cuppa', module_name, __package('cuppa'), "init_env_for_variant", sconscript_exports )
 

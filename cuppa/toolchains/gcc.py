@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2014
+#          Copyright Jamie Allsop 2011-2015
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -216,7 +216,8 @@ class Gcc(object):
             env.MergeFlags( self.values['coverage_cxx_flags'] + self.values['coverage_c_flags'] )
             env.Append( CXXFLAGS = self.values['coverage_cxx_flags'] )
             env.AppendUnique( LINKFLAGS = self.values['coverage_link_cxx_flags'] )
-
+        if env['stdcpp']:
+            env.ReplaceFlags( "-std={}".format(env['stdcpp']) )
 
     def _initialise_toolchain( self, toolchain ):
         if toolchain == 'gcc34':
@@ -267,14 +268,19 @@ class Gcc(object):
                + source + ' > ' + source + '_summary.gcov'
 
 
-    def build_flags_for( self, library ):
-        if library == 'boost':
-            if re.match( 'gcc4[3-6]', self.values['name'] ):
-                return 'cxxflags="-std=c++0x"'
-            elif re.match( 'gcc47', self.values['name'] ):
-                return 'cxxflags="-std=c++11"'
-            elif re.match( 'gcc4[8-9]', self.values['name'] ):
-                return 'cxxflags="-std=c++1y"'
+    def abi_flags( self, env ):
+        if env['stdcpp']:
+            return [ '-std={}'.format(env['stdcpp']) ]
+        elif re.match( 'gcc4[3-6]', self.values['name'] ):
+            return [ '-std=c++0x' ]
+        elif re.match( 'gcc47', self.values['name'] ):
+            return [ '-std=c++11' ]
+        elif re.match( 'gcc4[8-9]', self.values['name'] ):
+            return [ '-std=c++1y' ]
+
+
+    def stdcpp_flags_for( self, standard ):
+        return [ "-std={}".format( standard ) ]
 
 
     @classmethod

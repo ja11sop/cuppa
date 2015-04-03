@@ -578,7 +578,7 @@ class BoostLibraryAction(object):
         return toolset_name + '-' + toolchain.version()
 
 
-    def _build_command( self, toolchain, libraries, variant, linktype, stage_dir ):
+    def _build_command( self, env, toolchain, libraries, variant, linktype, stage_dir ):
 
         verbose = ""
         if self._verbose_build:
@@ -597,7 +597,10 @@ class BoostLibraryAction(object):
         for library in libraries:
             with_libraries += " --with-" + library
 
-        build_flags = toolchain.build_flags_for('boost')
+        build_flags = ""
+        abi_flags = toolchain.abi_flags(env)
+        if abi_flags:
+            build_flags = 'cxxflags="' + " ".join( abi_flags ) + '"'
         build_flags += ' define="BOOST_DATE_TIME_POSIX_TIME_STD_CONFIG"'
 
         if linktype == 'shared':
@@ -620,7 +623,7 @@ class BoostLibraryAction(object):
     def __call__( self, target, source, env ):
 
         stage_dir = stage_directory( self._toolchain, self._variant )
-        args      = self._build_command( self._toolchain, self._libraries, self._variant, self._linktype, stage_dir )
+        args      = self._build_command( env, self._toolchain, self._libraries, self._variant, self._linktype, stage_dir )
 
         processor = BjamOutputProcessor( env, self._verbose_build, self._verbose_config, self._toolset_name_from_toolchain( self._toolchain ) )
 

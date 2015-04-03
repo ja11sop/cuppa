@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2014-2014
+#          Copyright Jamie Allsop 2014-2015
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -228,6 +228,8 @@ class Clang(object):
             env.MergeFlags( self.values['coverage_flags'] )
             env.Append( CXXFLAGS = self.values['coverage_cxx_flags'] )
             env.AppendUnique( LINKFLAGS = self.values['coverage_link_flags'] )
+        if env['stdcpp']:
+            env.ReplaceFlags( "-std={}".format(env['stdcpp']) )
 
 
     def _gcov_format_version( self ):
@@ -291,12 +293,18 @@ class Clang(object):
                + source + ' > ' + source + '_summary.gcov'
 
 
-    def build_flags_for( self, library ):
-        if library == 'boost':
-            if re.match( 'clang3[2-3]', self.values['name'] ):
-                return 'cxxflags="-std=c++11"'
-            elif re.match( 'clang3[4-6]', self.values['name'] ):
-                return 'cxxflags="-std=c++1y"'
+    def abi_flags( self, env ):
+        if env['stdcpp']:
+            return [ '-std={}'.format(env['stdcpp']) ]
+        elif re.match( 'clang3[2-3]', self.values['name'] ):
+            return [ '-std=c++11' ]
+        elif re.match( 'clang3[4-6]', self.values['name'] ):
+            return [ '-std=c++1y' ]
+
+
+    def stdcpp_flags_for( self, standard ):
+        return [ "-std={}".format( standard ) ]
+
 
     @classmethod
     def output_interpretors( cls ):
