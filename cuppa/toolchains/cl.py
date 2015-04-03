@@ -174,12 +174,12 @@ class Cl(object):
         self.values['rel_link_flags'] = CommonLinkFlags + []
 
 
-    def abi_flags( self, library ):
-        return []
+    def abi_flag( self, library ):
+        return ""
 
 
-    def stdcpp_flags_for( self, standard ):
-        return []
+    def stdcpp_flag_for( self, standard ):
+        return ""
 
 
     @classmethod

@@ -378,7 +378,7 @@ class Construct(object):
 
         cuppa.modules.registration.get_options( "methods", default_env )
 
-        if not help or self._configure.handle_conf_only():
+        if not help and not self._configure.handle_conf_only():
             cuppa.modules.registration.add_to_env( "dependencies",       default_env, add_dependency )
             cuppa.modules.registration.add_to_env( "profiles",           default_env )
             cuppa.modules.registration.add_to_env( "methods",            default_env )

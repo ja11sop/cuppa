@@ -36,8 +36,8 @@ class StdCppMethod:
             return None
         env[ 'stdcpp' ] = standard
         toolchain = env['toolchain']
-        flags = toolchain.stdcpp_flags_for( standard )
-        env.ReplaceFlags( flags )
+        flag = toolchain.stdcpp_flag_for( standard )
+        env.ReplaceFlags( [ flag ] )
         return None
 
 

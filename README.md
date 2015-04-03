@@ -662,11 +662,24 @@ It is important to note that these methods return a node representing the built 
 Use this method to specify a Boost library that you want to link statically with your application. For example, if you want to use Boost.System and Boost.Thread you would add this to your `sconscript` file:
 
 ```python
-env.AppendUnique( STATICLIBS = [
+env.AppendUnique( STATICLIBS =
     env.BoostStaticLibrary( 'system' ),
     env.BoostStaticLibrary( 'thread' )
-] )
+)
 ```
+
+You may also provide a list of boost libraries for example:
+
+```python
+env.AppendUnique( STATICLIBS =
+    env.BoostStaticLibrary( [
+        'system',
+        'thread'
+    ] )
+)
+```
+
+This is the preferred approach if you are allowing boost to be built in parallel (the `--parallel` option is specified) as it allows boost.build to build the libraries within a single invocation preventing race conditions.
 
 This is all that is required to ensure that the libraries are built correctly and linked with your target.
 
@@ -675,12 +688,13 @@ This is all that is required to ensure that the libraries are built correctly an
 Use this method to specify a Boost library that you want to link statically with your application. For example, if you want to use Boost.Coroutine and Boost.Chrono you would add this to your `sconscript` file:
 
 ```python
-env.AppendUnique( DYNAMICLIBS = [
-    env.BoostSharedLibrary( 'system' ),
-    env.BoostSharedLibrary( 'chrono' ),
-    env.BoostSharedLibrary( 'coroutine' ),
-    env.BoostSharedLibrary( 'context' )
-] )
+env.AppendUnique( DYNAMICLIBS =
+    env.BoostSharedLibrary( [
+        'system',
+        'chrono',
+        'coroutine'
+    ] )
+)
 ```
 
 This is all that is required to ensure that the libraries are built correctly and linked with your target. It is important to note this will also "Do The Right Thing" in the presence of existing Boost installations. In other words this will pick up the correct shared library.

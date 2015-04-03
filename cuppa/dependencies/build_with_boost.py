@@ -472,8 +472,15 @@ def variant_name( variant ):
         return 'release'
 
 
-def stage_directory( toolchain, variant ):
-    return os.path.join( 'build', toolchain.name(), variant )
+def directory_from_abi_flag( abi_flag ):
+    flag, value = abi_flag.split('=')
+    if value:
+        return value
+    return abi_flag
+
+
+def stage_directory( toolchain, variant, abi_flag ):
+    return os.path.join( 'build', toolchain.name(), variant, directory_from_abi_flag( abi_flag ) )
 
 
 def boost_dependency_order():
@@ -598,15 +605,17 @@ class BoostLibraryAction(object):
             with_libraries += " --with-" + library
 
         build_flags = ""
-        abi_flags = toolchain.abi_flags(env)
-        if abi_flags:
-            build_flags = 'cxxflags="' + " ".join( abi_flags ) + '"'
+        abi_flag = toolchain.abi_flag(env)
+        if abi_flag:
+            build_flags = 'cxxflags="' + abi_flag + '"'
         build_flags += ' define="BOOST_DATE_TIME_POSIX_TIME_STD_CONFIG"'
 
         if linktype == 'shared':
             build_flags += ' define="BOOST_ALL_DYN_LINK"'
 
-        command_line = "./bjam{verbose} -j {jobs}{with_libraries} toolset={toolset} variant={variant} {build_flags} link={linktype} stage --stagedir=./{stage_dir}".format(
+        build_dir = "bin." + directory_from_abi_flag( abi_flag )
+
+        command_line = "./bjam{verbose} -j {jobs}{with_libraries} toolset={toolset} variant={variant} {build_flags} link={linktype} --build-dir=./{build_dir} stage --stagedir=./{stage_dir}".format(
                 verbose         = verbose,
                 jobs            = jobs,
                 with_libraries  = with_libraries,
@@ -614,6 +623,7 @@ class BoostLibraryAction(object):
                 variant         = variant,
                 build_flags     = build_flags,
                 linktype        = linktype,
+                build_dir       = build_dir,
                 stage_dir       = stage_dir )
 
         print command_line
@@ -622,7 +632,7 @@ class BoostLibraryAction(object):
 
     def __call__( self, target, source, env ):
 
-        stage_dir = stage_directory( self._toolchain, self._variant )
+        stage_dir = stage_directory( self._toolchain, self._variant, self._toolchain.abi_flag(env) )
         args      = self._build_command( env, self._toolchain, self._libraries, self._variant, self._linktype, stage_dir )
 
         processor = BjamOutputProcessor( env, self._verbose_build, self._verbose_config, self._toolset_name_from_toolchain( self._toolchain ) )
@@ -701,7 +711,7 @@ class BoostLibraryEmitter(object):
 
 
     def __call__( self, target, source, env ):
-        stage_dir = stage_directory( self._toolchain, self._variant )
+        stage_dir = stage_directory( self._toolchain, self._variant, self._toolchain.abi_flag(env) )
 
         for library in self._libraries:
             filename = None

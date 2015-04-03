@@ -268,19 +268,19 @@ class Gcc(object):
                + source + ' > ' + source + '_summary.gcov'
 
 
-    def abi_flags( self, env ):
+    def abi_flag( self, env ):
         if env['stdcpp']:
-            return [ '-std={}'.format(env['stdcpp']) ]
+            return '-std={}'.format(env['stdcpp'])
         elif re.match( 'gcc4[3-6]', self.values['name'] ):
-            return [ '-std=c++0x' ]
+            return '-std=c++0x'
         elif re.match( 'gcc47', self.values['name'] ):
-            return [ '-std=c++11' ]
+            return '-std=c++11'
         elif re.match( 'gcc4[8-9]', self.values['name'] ):
-            return [ '-std=c++1y' ]
+            return '-std=c++1y'
 
 
-    def stdcpp_flags_for( self, standard ):
-        return [ "-std={}".format( standard ) ]
+    def stdcpp_flag_for( self, standard ):
+        return "-std={}".format( standard )
 
 
     @classmethod
