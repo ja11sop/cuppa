@@ -114,16 +114,32 @@ class Boost(object):
 
         env.AddMethod(
                 BoostStaticLibraryMethod(
+                        add_dependents=False,
                         build_always=build_always,
                         verbose_build=verbose_build,
                         verbose_config=verbose_config ),
                 "BoostStaticLibrary" )
         env.AddMethod(
                 BoostSharedLibraryMethod(
+                        add_dependents=False,
                         build_always=build_always,
                         verbose_build=verbose_build,
                         verbose_config=verbose_config ),
                 "BoostSharedLibrary" )
+        env.AddMethod(
+                BoostStaticLibraryMethod(
+                        add_dependents=True,
+                        build_always=build_always,
+                        verbose_build=verbose_build,
+                        verbose_config=verbose_config ),
+                "BoostStaticLibs" )
+        env.AddMethod(
+                BoostSharedLibraryMethod(
+                        add_dependents=True,
+                        build_always=build_always,
+                        verbose_build=verbose_build,
+                        verbose_config=verbose_config ),
+                "BoostSharedLibs" )
 
 
     def get_boost_version( self, location ):
@@ -279,20 +295,24 @@ class Boost(object):
 
 class BoostStaticLibraryMethod(object):
 
-    def __init__( self, build_always=False, verbose_build=False, verbose_config=False ):
-        self._build_always = build_always
-        self._verbose_build = verbose_build
+    def __init__( self, add_dependents=False, build_always=False, verbose_build=False, verbose_config=False ):
+        self._add_dependents = add_dependents
+        self._build_always   = build_always
+        self._verbose_build  = verbose_build
         self._verbose_config = verbose_config
 
     def __call__( self, env, libraries ):
+        if not self._add_dependents:
+            print as_warning( env, "cuppa: boost: warning: BoostStaticLibrary() is deprecated, use BoostStaticLibs() instead" )
         libraries = Flatten( [ libraries ] )
         if not 'boost' in env['BUILD_WITH']:
             env.BuildWith( 'boost' )
         Boost = env['dependencies']['boost']
         library = BoostLibraryBuilder(
                 Boost,
-                verbose_build=self._verbose_build,
-                verbose_config=self._verbose_config )( env, None, None, libraries, 'static' )
+                add_dependents = self._add_dependents,
+                verbose_build  = self._verbose_build,
+                verbose_config = self._verbose_config )( env, None, None, libraries, 'static' )
         if self._build_always:
             return AlwaysBuild( library )
         else:
@@ -302,12 +322,15 @@ class BoostStaticLibraryMethod(object):
 
 class BoostSharedLibraryMethod(object):
 
-    def __init__( self, build_always=False, verbose_build=False, verbose_config=False ):
-        self._build_always = build_always
-        self._verbose_build = verbose_build
+    def __init__( self, add_dependents=False, build_always=False, verbose_build=False, verbose_config=False ):
+        self._add_dependents = add_dependents
+        self._build_always   = build_always
+        self._verbose_build  = verbose_build
         self._verbose_config = verbose_config
 
     def __call__( self, env, libraries ):
+        if not self._add_dependents:
+            print as_warning( env, "cuppa: boost: warning: BoostSharedLibrary() is deprecated, use BoostSharedLibs() instead" )
         libraries = Flatten( [ libraries ] )
 
         if not 'boost' in env['BUILD_WITH']:
@@ -328,8 +351,9 @@ class BoostSharedLibraryMethod(object):
 
         library = BoostLibraryBuilder(
                 Boost,
-                verbose_build=self._verbose_build,
-                verbose_config=self._verbose_config )( env, None, None, libraries, 'shared' )
+                add_dependents = self._add_dependents,
+                verbose_build  = self._verbose_build,
+                verbose_config = self._verbose_config )( env, None, None, libraries, 'shared' )
         if self._build_always:
             return AlwaysBuild( library )
         else:
@@ -480,7 +504,11 @@ def directory_from_abi_flag( abi_flag ):
 
 
 def stage_directory( toolchain, variant, abi_flag ):
-    return os.path.join( 'build', toolchain.name(), variant, directory_from_abi_flag( abi_flag ) )
+    build_base = "build"
+    abi_dir = directory_from_abi_flag( abi_flag )
+    if abi_dir:
+        build_base += "." + abi_dir
+    return os.path.join( build_base, toolchain.name(), variant )
 
 
 def boost_dependency_order():
@@ -553,14 +581,19 @@ def add_dependent_libraries( version, linktype, libraries ):
 
 class BoostLibraryAction(object):
 
-    def __init__( self, env, libraries, linktype, boost, verbose_build, verbose_config ):
+    def __init__( self, env, libraries, add_dependents, linktype, boost, verbose_build, verbose_config ):
         self._env = env
+
+        if add_dependents:
+            self._libraries = set( build_with_library_name(l) for l in add_dependent_libraries( boost.numeric_version(), linktype, libraries ) )
+        else:
+            self._libraries = libraries
+
         self._location       = boost.local()
         self._version        = boost.numeric_version()
         self._full_version   = boost.full_version()
         self._verbose_build  = verbose_build
         self._verbose_config = verbose_config
-        self._libraries      = list( build_with_library_name(l) for l in add_dependent_libraries( boost.numeric_version(), linktype, libraries ) )
         self._linktype       = linktype
         self._variant        = variant_name( self._env['variant'].name() )
         self._toolchain      = env['toolchain']
@@ -699,9 +732,14 @@ def shared_library_name( env, library, full_version ):
 
 class BoostLibraryEmitter(object):
 
-    def __init__( self, env, libraries, linktype, boost ):
+    def __init__( self, env, libraries, add_dependents, linktype, boost ):
         self._env = env
-        self._libraries    = add_dependent_libraries( boost.numeric_version(), linktype, libraries )
+
+        if add_dependents:
+            self._libraries = add_dependent_libraries( boost.numeric_version(), linktype, libraries )
+        else:
+            self._libraries = libraries
+
         self._location     = boost.local()
         self._linktype     = linktype
         self._version      = boost.numeric_version()
@@ -729,15 +767,16 @@ class BoostLibraryEmitter(object):
 
 class BoostLibraryBuilder(object):
 
-    def __init__( self, boost, verbose_build, verbose_config ):
+    def __init__( self, boost, add_dependents, verbose_build, verbose_config ):
         self._boost = boost
-        self._verbose_build = verbose_build
+        self._add_dependents = add_dependents
+        self._verbose_build  = verbose_build
         self._verbose_config = verbose_config
 
 
     def __call__( self, env, target, source, libraries, linktype ):
-        library_action  = BoostLibraryAction ( env, libraries, linktype, self._boost, self._verbose_build, self._verbose_config )
-        library_emitter = BoostLibraryEmitter( env, libraries, linktype, self._boost )
+        library_action  = BoostLibraryAction ( env, libraries, self._add_dependents, linktype, self._boost, self._verbose_build, self._verbose_config )
+        library_emitter = BoostLibraryEmitter( env, libraries, self._add_dependents, linktype, self._boost )
 
         env.AppendUnique( BUILDERS = {
             'BoostLibraryBuilder' : env.Builder( action=library_action, emitter=library_emitter )

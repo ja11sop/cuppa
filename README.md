@@ -125,7 +125,7 @@ import cuppa
 
 cuppa.run(
     default_options = {
-         'boost-home': '<Location of Boost>'
+         'boost-location': '<Location of Boost>'
     },
     default_dependencies = [
         'boost'
@@ -133,7 +133,7 @@ cuppa.run(
 )
 ```
 
-This will automatically ensure that necessary includes and other compile options are set for the boost version that is found at `boost-home`. If you need to link against specific boost libraries this can also be done in the sconscript file as follows:
+This will automatically ensure that necessary includes and other compile options are set for the boost version that is found at `boost-location`. If you need to link against specific boost libraries this can also be done in the sconscript file as follows:
 
 ```python
 Import('env')
@@ -144,19 +144,21 @@ Sources = [
     Test + '.cpp'
 ]
 
-env.AppendUnique( STATICLIBS = [
-    env.BoostStaticLibrary( 'system' ),
-    env.BoostStaticLibrary( 'log' ),
-    env.BoostStaticLibrary( 'thread' ),
-    env.BoostStaticLibrary( 'timer' ),
-    env.BoostStaticLibrary( 'chrono' ),
-    env.BoostStaticLibrary( 'filesystem' ),
-] )
+env.AppendUnique( STATICLIBS =
+    env.BoostStaticLibs( [
+        'system',
+        'log',
+        'thread',
+        'timer',
+        'chrono',
+        'filesystem'
+    ] )
+)
 
 env.BuildTest( Test, Sources )
 ```
 
-The `BoostStaticLibrary()` method ensures that the library is built in the correct build variant as required. If you preferred to use dynamic linking then that can also be achieved using `BoostSharedLibrary()`.
+The `BoostStaticLibs()` method ensures that the library is built in the correct build variant as required. If you preferred to use dynamic linking then that can also be achieved using `BoostSharedLibs()`.
 
 The point is the complexities of using [boost](http://www.boost.org/) as a dependency are encapsulated and managed separately from the scontruct and sconscript files allowing developers to focus on intent not method.
 
@@ -599,11 +601,12 @@ The following toolchains are currently supported:
 | `clang33` | clang 3.3 |
 | `clang34` | clang 3.4 |
 | `clang35` | clang 3.5 |
+| `clang36` | clang 3.6 |
 
 It is not necessary to specify a toolchain when building. If none is specified the default toolchain for the current platform will be used. However if more toolchains are available and you want to use one or more then pass the `--toolchains` option with a comma-separated list of toolchains from the list. For example to build with both GCC 4.9 and CLANG 3.4 you would add:
 
 ```
---toolchains=gcc49,clang34
+--toolchains=gcc49,clang35
 ```
 
 to the command-line. It is not necessary to specify the versions of the toolchains if you just want the default version. For example you could write:
@@ -650,46 +653,37 @@ This dependency provides the following additional build methods to make using Bo
 
 | Method | Description |
 | ------ | ----------- |
-| `BoostStaticLibrary` | Specifies a Boost library to lazily build for statically linking against. The library is specified using the library name. For example, to create a static version of the Boost.thread library for statically linking against you would write, `BoostStaticLibrary( 'thread' )`. For more details see [BoostStaticLibrary](#booststaticlibrary). |
-| `BoostSharedLibrary` | Specifies a Boost library to lazily build for dynamically linking against. The library is specified using the library name. For example, to create a shared (dynamic) version of the Boost.thread library for dynamically linking against you would write, `BoostSharedLibrary( 'thread' )`. For more details see [BoostSharedLibrary](#boostsharedlibrary). |
+| `BoostStaticLibs` | Specifies Boost libraries to lazily build for statically linking against. The libraries are specified using the libraries' names in a list. For example, to create a static version of the Boost.thread library for statically linking against you would write, `BoostStaticLibs( [ 'thread' ] )`. For more details see [BoostStaticLibs](#booststaticlibs). |
+| `BoostSharedLibs` | Specifies Boost libraries to lazily build for dynamically linking against. The libraries are specified using the libraries' names in a list. For example, to create a shared (dynamic) version of the Boost.thread library for dynamically linking against you would write, `BoostSharedLibs( [ 'thread' ] )`. For more details see [BoostSharedLibs](#boostsharedlibs). |
 
-It is important to note that these methods return a node representing the built library. To link against the library you need to append the library to the environment's `STATICLIBS` or `DYNAMICLIBS` as appropriate.
+It is important to note that these methods return a node representing the built libraries. To link against the libraries you need to append the library to the environment's `STATICLIBS` or `DYNAMICLIBS` as appropriate.
 
-> Note: Calling either `BoostStaticLibrary` or `BoostSharedLibrary` will automatically imply `BuildWith( ['boost'] )` if `boost` has not already been added as a dependency.
+> Note: These methods will automatically add any required dependent libraries to the list of libraries built. For example if you want to link against Boost.Coroutine then these methods will also build Boost.Context and other libraries that Boost.Coroutine requires.
 
-##### `BoostStaticLibrary`
+> Note: Calling either `BoostStaticLibs` or `BoostSharedLibs` will automatically imply `BuildWith( ['boost'] )` if `boost` has not already been added as a dependency.
+
+##### `BoostStaticLibs`
 
 Use this method to specify a Boost library that you want to link statically with your application. For example, if you want to use Boost.System and Boost.Thread you would add this to your `sconscript` file:
 
 ```python
 env.AppendUnique( STATICLIBS =
-    env.BoostStaticLibrary( 'system' ),
-    env.BoostStaticLibrary( 'thread' )
-)
-```
-
-You may also provide a list of boost libraries for example:
-
-```python
-env.AppendUnique( STATICLIBS =
-    env.BoostStaticLibrary( [
+    env.BoostStaticLibs( [
         'system',
         'thread'
     ] )
 )
 ```
 
-This is the preferred approach if you are allowing boost to be built in parallel (the `--parallel` option is specified) as it allows boost.build to build the libraries within a single invocation preventing race conditions.
-
 This is all that is required to ensure that the libraries are built correctly and linked with your target.
 
-##### `BoostSharedLibrary`
+##### `BoostSharedLibs`
 
 Use this method to specify a Boost library that you want to link statically with your application. For example, if you want to use Boost.Coroutine and Boost.Chrono you would add this to your `sconscript` file:
 
 ```python
 env.AppendUnique( DYNAMICLIBS =
-    env.BoostSharedLibrary( [
+    env.BoostSharedLibs( [
         'system',
         'chrono',
         'coroutine'
