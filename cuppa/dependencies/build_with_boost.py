@@ -128,6 +128,20 @@ class Boost(object):
                 "BoostSharedLibrary" )
         env.AddMethod(
                 BoostStaticLibraryMethod(
+                        add_dependents=False,
+                        build_always=build_always,
+                        verbose_build=verbose_build,
+                        verbose_config=verbose_config ),
+                "BoostStaticLib" )
+        env.AddMethod(
+                BoostSharedLibraryMethod(
+                        add_dependents=False,
+                        build_always=build_always,
+                        verbose_build=verbose_build,
+                        verbose_config=verbose_config ),
+                "BoostSharedLib" )
+        env.AddMethod(
+                BoostStaticLibraryMethod(
                         add_dependents=True,
                         build_always=build_always,
                         verbose_build=verbose_build,
@@ -303,7 +317,7 @@ class BoostStaticLibraryMethod(object):
 
     def __call__( self, env, libraries ):
         if not self._add_dependents:
-            print as_warning( env, "cuppa: boost: warning: BoostStaticLibrary() is deprecated, use BoostStaticLibs() instead" )
+            print as_warning( env, "cuppa: boost: warning: BoostStaticLibrary() is deprecated, use BoostStaticLibs() or BoostStaticLib() instead" )
         libraries = Flatten( [ libraries ] )
         if not 'boost' in env['BUILD_WITH']:
             env.BuildWith( 'boost' )
@@ -330,7 +344,7 @@ class BoostSharedLibraryMethod(object):
 
     def __call__( self, env, libraries ):
         if not self._add_dependents:
-            print as_warning( env, "cuppa: boost: warning: BoostSharedLibrary() is deprecated, use BoostSharedLibs() instead" )
+            print as_warning( env, "cuppa: boost: warning: BoostSharedLibrary() is deprecated, use BoostSharedLibs() or BoostSharedLib() instead" )
         libraries = Flatten( [ libraries ] )
 
         if not 'boost' in env['BUILD_WITH']:
