@@ -263,12 +263,26 @@ To make use of the colourisation **cuppa** uses the [colorama](https://pypi.pyth
                                 specified then .build is used
   --runner=RUNNER             The test runner to use for executing tests. The
                                 default is the process test runner
-
+  --dump                      Dump the default environment and exit
+  --parallel                  Enable parallel builds utilising the available
+                                concurrency. Translates to -j N with N chosen
+                                based on the current hardware
+  --show-test-output          When executing tests display all outout to
+                                stdout and stderr as appropriate
+  --decider=DECIDER           The decider to use for determining if a
+                                dependency has changed. Refer to the Scons
+                                manual for more details. By default
+                                "MD5-timestamp" is used
+  --stdcpp=STDCPP             Use this option to override the default language
+                                compliance of your cpp compiler which by
+                                dafault is the highest compliance available.
+                                Value may be one of ('c++98', 'c++03',
+                                'c++0x', 'c++11', 'c++1y', 'c++14')
   --cov                       Build an instrumented binary
   --dbg                       Build a debug binary
   --rel                       Build a release (optimised) binary
   --test                      Run the binary as a test
-  --toolchains=TOOLCHAINS     The Toolchains you want to build with
+  --toolchains=TOOLCHAINS     The Toolchains you wish to build against
 ```
 
 ### Where does Cuppa put my builds?
