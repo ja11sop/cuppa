@@ -92,9 +92,10 @@ def add_base_options():
 #                            dest='b2_path',
 #                            help='Specify a path to bjam or b2' )
 
-#    SCons.Script.AddOption( '--decider', dest='decider', type='string', nargs=1, action='store',
-#                            help='The decider to use for determining if a dependency has changed',
-#                            default = 'MD5-timestamp' )
+    decider_choices = ( 'timestamp-newer', 'timestamp-match', 'MD5', 'MD5-timestamp' )
+
+    add_option( '--decider', dest='decider', choices=decider_choices, nargs=1, action='store',
+                            help='The decider to use for determining if a dependency has changed. Refer to the Scons manual for more details. By default "MD5-timestamp" is used' )
 
 
 
@@ -323,6 +324,10 @@ class Construct(object):
         help = default_env.get_option( 'help' ) and True or False
 
         self._configure.load()
+
+        decider = default_env.get_option( 'decider' )
+        if decider:
+            default_env.Decider( decider )
 
         default_env['minimal_output']       = default_env.get_option( 'minimal_output' )
         default_env['ignore_duplicates']    = default_env.get_option( 'ignore_duplicates' )
