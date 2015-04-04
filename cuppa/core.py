@@ -85,6 +85,9 @@ def add_base_options():
     add_option( '--parallel', dest='parallel', action='store_true',
                             help='Enable parallel builds utilising the available concurrency. Translates to -j N with N chosen based on the current hardware' )
 
+    add_option( '--show-test-output',   dest='show-test-output', action='store_true',
+                            help='When executing tests display all outout to stdout and stderr as appropriate' )
+
 #    add_option( '--b2',     dest='b2', action='store_true',
 #                            help='Execute boost.build by calling b2 or bjam' )
 
@@ -282,6 +285,9 @@ class Construct(object):
                 'sconscript_file',
                 'build_dir',
                 'offset_dir',
+                'parallell',
+                'show_test_output',
+                'decider'
         }
 
         for key in keys:
@@ -358,6 +364,8 @@ class Construct(object):
 
         test_runner = default_env.get_option( 'runner', default=default_runner and default_runner or 'process' )
         default_env['default_runner']  = test_runner
+
+        default_env['show_test_output'] = default_env.get_option( 'show-test-output' ) and True or False
 
         self.add_variants   ( default_env )
         self.add_toolchains ( default_env )

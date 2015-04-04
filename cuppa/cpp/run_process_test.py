@@ -17,7 +17,7 @@ import cuppa.sconscript_progress
 from cuppa.output_processor import IncrementalSubProcess
 
 
-class TestSuite:
+class TestSuite(object):
 
     suites = {}
 
@@ -287,7 +287,7 @@ def store_durations( results ):
         results['sys_duration']  = duration_from_elapsed(results['sys_time'])
 
 
-class RunProcessTestEmitter:
+class RunProcessTestEmitter(object):
 
     def __init__( self, final_dir ):
         self._final_dir = final_dir
@@ -301,14 +301,17 @@ class RunProcessTestEmitter:
         return target, source
 
 
-class ProcessStdout:
+class ProcessStdout(object):
 
-    def __init__( self, log ):
+    def __init__( self, show_test_output, log ):
+        self._show_test_output = show_test_output
         self.log = open( log, "w" )
 
 
     def __call__( self, line ):
         self.log.write( line + '\n' )
+        if self._show_test_output:
+            sys.stdout.write( line + '\n' )
 
 
     def __exit__( self, type, value, traceback ):
@@ -316,14 +319,17 @@ class ProcessStdout:
             self.log.close()
 
 
-class ProcessStderr:
+class ProcessStderr(object):
 
-    def __init__( self, log ):
+    def __init__( self, show_test_output, log ):
+        self._show_test_output = show_test_output
         self.log = open( log, "w" )
 
 
     def __call__( self, line ):
         self.log.write( line + '\n' )
+        if self._show_test_output:
+            sys.stderr.write( line + '\n' )
 
 
     def __exit__( self, type, value, traceback ):
@@ -331,7 +337,7 @@ class ProcessStderr:
             self.log.close()
 
 
-class RunProcessTest:
+class RunProcessTest(object):
 
     def __init__( self, expected ):
         self._expected = expected
@@ -353,8 +359,11 @@ class RunProcessTest:
 
         test_suite.enter_test( test, expected=self._expected )
 
+        show_test_output = env['show_test_output']
+
         try:
-            return_code = self.__run_test( program_path,
+            return_code = self.__run_test( show_test_output,
+                                           program_path,
                                            test_command,
                                            working_dir )
 
@@ -376,9 +385,9 @@ class RunProcessTest:
             return 1
 
 
-    def __run_test( self, program_path, test_command, working_dir ):
-        process_stdout = ProcessStdout( stdout_from_program( program_path ) )
-        process_stderr = ProcessStderr( stderr_from_program( program_path ) )
+    def __run_test( self, show_test_output, program_path, test_command, working_dir ):
+        process_stdout = ProcessStdout( show_test_output, stdout_from_program( program_path ) )
+        process_stderr = ProcessStderr( show_test_output, stderr_from_program( program_path ) )
 
         return_code = IncrementalSubProcess.Popen2( process_stdout,
                                                     process_stderr,
