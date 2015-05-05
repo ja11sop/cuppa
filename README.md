@@ -356,7 +356,7 @@ env.Build(
         append_variant = False )
 ```
 
-*Overview*: `env.Build()` performs the same task as `env.Program()` but with the additional beenfit of reporting progress and the ability to specify where the target is placed and named.
+*Overview*: `env.Build()` performs the same task as `env.Program()` but with the additional benefit of reporting progress and the ability to specify where the target is placed and named.
 
 *Effects*: Builds the target from the sources specified writing the output as `target_name` where `target_name` is:
 
