@@ -55,7 +55,6 @@ class Location(object):
         if len(dirs) == 1 and os.path.isdir( top_dir ):
             print "cuppa: location: removing redundant top directory [{}] from [{}]".format( self._as_info( dirs[0] ), self._as_info( path ) )
             # we have a single top-level directory
-            branch = dirs[0]
             move_dirs = os.listdir( top_dir )
             for d in move_dirs:
                 shutil.move( os.path.join( top_dir, d ), os.path.join( path, d ) )
