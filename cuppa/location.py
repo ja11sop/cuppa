@@ -159,7 +159,7 @@ class Location(object):
                         )
                         try:
                             vcs_backend.update( local_directory, rev_options )
-                            print "cuppa: info: location: successfully updated [{}]".format( self._as_info( location ) )
+                            print "cuppa: location: successfully updated [{}]".format( self._as_info( location ) )
                         except pip.exceptions.InstallationError as error:
                             print "cuppa: {}: location: could not update [{}] in [{}]{} due to error [{}]".format(
                                     self._as_warning_label( " warning " ),
@@ -175,7 +175,7 @@ class Location(object):
                         print "cuppa: location: {} [{}] into [{}]".format( action, self._as_info( location ), self._as_info( local_directory ) )
                         try:
                             vcs_backend.obtain( local_directory )
-                            print "cuppa: info: location: successfully retrieved [{}]".format( self._as_info( location ) )
+                            print "cuppa: location: successfully retrieved [{}]".format( self._as_info( location ) )
                         except pip.exceptions.InstallationError as error:
                             print "cuppa: {}: location: could not retrieve [{}] into [{}]{} due to error [{}]".format(
                                     self._as_error_label( " error " ),
@@ -282,7 +282,7 @@ class Location(object):
         self._url, self._repository, self._branch, self._revision = self.get_info( self._location, self._local_directory, self._full_url )
         self._version, self._revision = self.ver_rev_summary( self._branch, self._revision, self._full_url.path )
 
-        print "cuppa: info: location: using [{}]{} at [{}] stored in [{}]".format(
+        print "cuppa: location: using [{}]{} at [{}] stored in [{}]".format(
                 self._as_info( location ),
                 ( branch and  ":[{}]".format( self._as_info(  str(branch) ) ) or "" ),
                 self._as_info( self._version ),
