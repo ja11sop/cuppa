@@ -150,12 +150,17 @@ class Location(object):
                     vcs_backend = backend( location )
                     rev_options = self.get_rev_options( vc_type, vcs_backend )
                     if os.path.exists( local_directory ):
-                        print "cuppa: location: updating [{}] in [{}]{}".format(
+                        url, repository, branch, revision = self.get_info( location, local_directory, full_url )
+                        version = self.ver_rev_summary( branch, revision, self._full_url.path )[0]
+                        print "cuppa: location: updating [{}] in [{}]{} at [{}]".format(
                                 self._as_info( location ),
-                                self._as_info( local_directory ),
-                                ( rev_options and  " at {}".format( self._as_info( str(rev_options) ) ) or "" ) )
+                                self._as_notice( local_directory ),
+                                ( rev_options and  " on {}".format( self._as_notice( str(rev_options) ) ) or "" ),
+                                self._as_info( version )
+                        )
                         try:
                             vcs_backend.update( local_directory, rev_options )
+                            print "cuppa: info: location: successfully updated [{}]".format( self._as_info( location ) )
                         except pip.exceptions.InstallationError as error:
                             print "cuppa: {}: location: could not update [{}] in [{}]{} due to error [{}]".format(
                                     self._as_warning_label( " warning " ),
@@ -171,6 +176,7 @@ class Location(object):
                         print "cuppa: location: {} [{}] into [{}]".format( action, self._as_info( location ), self._as_info( local_directory ) )
                         try:
                             vcs_backend.obtain( local_directory )
+                            print "cuppa: info: location: successfully retrieved [{}]".format( self._as_info( location ) )
                         except pip.exceptions.InstallationError as error:
                             print "cuppa: {}: location: could not retrieve [{}] into [{}]{} due to error [{}]".format(
                                     self._as_error_label( " error " ),
@@ -222,6 +228,21 @@ class Location(object):
         return info
 
 
+    def ver_rev_summary( self, branch, revision, full_url_path ):
+        if branch and revision:
+            version = ' rev. '.join( [ str(branch), str(revision) ] )
+        elif branch and revision:
+            version = ' rev. '.join( [ str(branch), str(revision) ] )
+        else:
+            version = os.path.splitext( path_leaf( urllib.unquote( full_url_path ) ) )[0]
+            name, ext = os.path.splitext( version )
+            if ext == ".tar":
+                version = name
+            version = version
+            revision = "not under version control"
+        return version, revision
+
+
     def _as_error_label( self, text ):
         return self._colouriser.highlight( 'error', text )
 
@@ -260,18 +281,14 @@ class Location(object):
         ## Now that we have a locally accessible version of the dependency we can try to collate some information
         ## about it to allow us to specify what we are building with.
         self._url, self._repository, self._branch, self._revision = self.get_info( self._location, self._local_directory, self._full_url )
+        self._version, self._revision = self.ver_rev_summary( self._branch, self._revision, self._full_url.path )
 
-        if self._branch and self._revision:
-            self._version = ' rev. '.join( [ str(self._branch), str(self._revision) ] )
-        elif branch and self._revision:
-            self._version = ' rev. '.join( [ str(branch), str(self._revision) ] )
-        else:
-            version = os.path.splitext( path_leaf( urllib.unquote( self._full_url.path ) ) )[0]
-            name, ext = os.path.splitext( version )
-            if ext == ".tar":
-                version = name
-            self._version = version
-            self._revision = "not under version control"
+        print "cuppa: info: location: using [{}]{} at [{}] stored in [{}]".format(
+                self._as_info( location ),
+                ( branch and  ":[{}]".format( self._as_info(  str(branch) ) ) or "" ),
+                self._as_info( self._version ),
+                self._as_notice( self._local_directory )
+        )
 
 
     def local( self ):
