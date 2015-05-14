@@ -7,20 +7,16 @@
 #-------------------------------------------------------------------------------
 #   Codeblocks
 #-------------------------------------------------------------------------------
-import shlex
+
 import os
-from exceptions             import Exception
+from exceptions import Exception
 
 import cuppa.path
 import cuppa.progress
 import cuppa.tree
 import cuppa.options
 
-from cuppa.output_processor import IncrementalSubProcess
-from cuppa.colourise        import as_error, as_warning, as_notice
-
-from SCons.Script import Dir
-from SCons.Util import print_tree
+from cuppa.colourise import as_notice
 
 
 class CodeblocksException(Exception):
