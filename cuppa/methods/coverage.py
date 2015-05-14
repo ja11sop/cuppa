@@ -11,7 +11,7 @@
 
 from SCons.Script import Flatten
 
-import cuppa.sconscript_progress
+import cuppa.progress
 
 
 class CoverageMethod(object):
@@ -29,7 +29,9 @@ class CoverageMethod(object):
         env['BUILDERS']['CoverageBuilder'] = env.Builder( action=builder, emitter=emitter )
 
         coverage = env.CoverageBuilder( [], Flatten( [ sources ] ) )
-        cuppa.sconscript_progress.SconscriptProgress.add( env, coverage )
+
+        cuppa.progress.NotifyProgress.add( env, coverage )
+
         return coverage
 
 

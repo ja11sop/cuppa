@@ -8,6 +8,7 @@
 #   BuildLibMethods
 #-------------------------------------------------------------------------------
 
+import cuppa.progress
 import os.path
 
 
@@ -16,8 +17,11 @@ class BuildStaticLibMethod:
     def __call__( self, env, target, source, final_dir=None, **kwargs ):
         if final_dir == None:
             final_dir = env['abs_final_dir']
-        lib = os.path.join( final_dir, target )
-        return env.StaticLibrary( lib, source, **kwargs )
+        lib = env.StaticLibrary( os.path.join( final_dir, target ), source, **kwargs )
+
+        cuppa.progress.NotifyProgress.add( env, lib )
+
+        return lib
 
     @classmethod
     def add_to_env( cls, env ):
@@ -29,9 +33,11 @@ class BuildSharedLibMethod:
     def __call__( self, env, target, source, final_dir=None, **kwargs ):
         if final_dir == None:
             final_dir = env['abs_final_dir']
-        lib = os.path.join( final_dir, target )
+        lib = env.SharedLibrary( os.path.join( final_dir, target ), source, **kwargs )
 
-        return env.SharedLibrary( lib, source, **kwargs )
+        cuppa.progress.NotifyProgress.add( env, lib )
+
+        return lib
 
     @classmethod
     def add_to_env( cls, env ):

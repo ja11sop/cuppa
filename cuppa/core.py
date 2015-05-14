@@ -75,6 +75,10 @@ def add_base_options():
                             dest='build_root',
                             help='The root directory for build output. If not specified then .build is used' )
 
+    add_option( '--download-root', type='string', nargs=1, action='store',
+                            dest='download_root',
+                            help='The root directory for downloading external libraries to. If not specified then .cuppa is used' )
+
     add_option( '--runner', type='string', nargs=1, action='store',
                             dest='runner',
                             help='The test runner to use for executing tests. The default is the process test runner' )
@@ -349,10 +353,12 @@ class Construct(object):
             default_env['launch_offset_dir'] = os.path.sep.join( ['..' for i in range(levels)] )
 
         default_env['base_path']            = base_path
-        default_env['branch_root']          = branch_root
+        default_env['branch_root']          = branch_root and branch_root or base_path
         default_env['branch_dir']           = branch_root and os.path.relpath( base_path, branch_root ) or None
         default_env['thirdparty']           = default_env.get_option( 'thirdparty' )
         default_env['build_root']           = default_env.get_option( 'build_root', default='.build' )
+        default_env['download_root']        = default_env.get_option( 'download_root', default='.cuppa' )
+        default_env['download_dir']         = os.path.normpath( default_env['download_root'] )
         default_env['default_projects']     = default_projects
         default_env['default_variants']     = default_variants and set( default_variants ) or set()
         default_env['default_dependencies'] = default_dependencies and default_dependencies or []
@@ -370,8 +376,6 @@ class Construct(object):
         self.add_variants   ( default_env )
         self.add_toolchains ( default_env )
         self.add_platforms  ( default_env )
-
-        self.add_project_generators( default_env )
 
         default_env['platform'] = cuppa.build_platform.Platform.current()
 
@@ -392,6 +396,7 @@ class Construct(object):
         cuppa.modules.registration.get_options( "methods", default_env )
 
         if not help and not self._configure.handle_conf_only():
+            default_env[self.project_generators_key] = {}
             cuppa.modules.registration.add_to_env( "dependencies",       default_env, add_dependency )
             cuppa.modules.registration.add_to_env( "profiles",           default_env )
             cuppa.modules.registration.add_to_env( "methods",            default_env )
@@ -571,21 +576,18 @@ class Construct(object):
 
             for toolchain in toolchains:
                 toolchain_env = default_env.Clone()
+                toolchain_env['default_env'] = default_env
                 toolchain.initialise_env( toolchain_env )
                 variants = self.create_build_variants( toolchain, toolchain_env )
                 for variant, env in variants.items():
                     for sconscript in sconscripts:
                         self.call_project_sconscript_files( toolchain, variant, env, sconscript )
 
-            for project_generator in env[ self.project_generators_key ].itervalues():
-                for sconscript in sconscripts:
-                    project_generator.write( sconscript )
-
         else:
             print "cuppa: No projects to build. Nothing to be done"
 
 
-    def call_project_sconscript_files( self, toolchain, variant, env, project ):
+    def call_project_sconscript_files( self, toolchain, variant, sconscript_env, project ):
 
         sconscript_file = project
         if not os.path.exists( project ) or os.path.isdir( project ):
@@ -593,7 +595,11 @@ class Construct(object):
 
         if os.path.exists( sconscript_file ) and os.path.isfile( sconscript_file ):
 
-            print "cuppa: project exists and added to build [{}]".format( self._as_notice( sconscript_file ) )
+            print "cuppa: project exists and added to build [{}] using [{},{}]".format(
+                    self._as_notice( sconscript_file ),
+                    self._as_notice( toolchain.name() ),
+                    self._as_notice( variant )
+            )
 
             path_without_ext = os.path.splitext( sconscript_file )[0]
 
@@ -604,13 +610,15 @@ class Construct(object):
                 path_without_ext = sconstruct_offset_path
                 name = path_without_ext
 
-            build_root = env['build_root']
-            cloned_env = env.Clone()
+            sconscript_env['sconscript_file'] = sconscript_file
 
-            cloned_env['sconscript_file'] = sconscript_file
+            build_root = sconscript_env['build_root']
+            cloned_env = sconscript_env.Clone()
+            cloned_env['sconscript_env'] = sconscript_env
+
             cloned_env['sconscript_build_dir'] = path_without_ext
             cloned_env['sconscript_toolchain_build_dir'] = os.path.join( path_without_ext, toolchain.name() )
-            cloned_env['sconscript_dir']  = os.path.join( env['base_path'], sconstruct_offset_path )
+            cloned_env['sconscript_dir']  = os.path.join( sconscript_env['base_path'], sconstruct_offset_path )
             cloned_env['build_dir']       = os.path.normpath( os.path.join( build_root, path_without_ext, toolchain.name(), variant, 'working', '' ) )
             cloned_env['abs_build_dir']   = os.path.abspath( cloned_env['build_dir'] )
             cloned_env['offset_dir']      = sconstruct_offset_path
@@ -626,7 +634,7 @@ class Construct(object):
 
             sconscript_exports = {
                 'env'                     : cloned_env,
-                'variant_env'             : env,
+                'sconscript_env'          : sconscript_env,
                 'build_root'              : build_root,
                 'build_dir'               : cloned_env['build_dir'],
                 'abs_build_dir'           : cloned_env['abs_build_dir'],
@@ -647,9 +655,6 @@ class Construct(object):
                 duplicate   = 0,
                 exports     = sconscript_exports
             )
-
-            for project_generator in env[ self.project_generators_key ].itervalues():
-                project_generator.update( variant, env, project, build_root, cloned_env['build_dir'], '../final/' )
 
         else:
             print "cuppa: Skipping non-existent project [{}]".format( self._as_error( sconscript_file ) )

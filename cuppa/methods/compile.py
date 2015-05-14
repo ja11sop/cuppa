@@ -8,6 +8,7 @@
 #   CompileMethod
 #-------------------------------------------------------------------------------
 
+import cuppa.progress
 import os
 
 from SCons.Script import Flatten
@@ -24,6 +25,9 @@ class CompileMethod:
                     source,
                     CPPPATH = env['SYSINCPATH'] + env['INCPATH'],
                     **kwargs ) )
+
+        cuppa.progress.NotifyProgress.add( env, objects )
+
         return objects
 
     @classmethod

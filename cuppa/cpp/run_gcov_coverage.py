@@ -18,7 +18,7 @@ import glob
 from SCons.Script import Glob
 
 # construct imports
-import cuppa.sconscript_progress
+import cuppa.progress
 from cuppa.output_processor import IncrementalSubProcess, command_available
 
 
@@ -85,11 +85,11 @@ class CoverageSuite(object):
         self._name = name
         self._scons_env = scons_env
         self._final_dir = final_dir
-        cuppa.sconscript_progress.SconscriptProgress.register_callback( scons_env, self.on_progress )
+        cuppa.progress.NotifyProgress.register_callback( scons_env, self.on_progress )
         self._suite = {}
 
 
-    def on_progress( self, progress, env, sconscript, target, source ):
+    def on_progress( self, progress, sconscript, variant, env, target, source ):
         if progress == 'finished':
             self.exit_suite()
             del self.suites[self._name]

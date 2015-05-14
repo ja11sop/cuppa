@@ -8,7 +8,7 @@
 #   TestMethod
 #-------------------------------------------------------------------------------
 
-import cuppa.sconscript_progress
+import cuppa.progress
 
 from SCons.Script import Flatten
 
@@ -33,7 +33,8 @@ class TestMethod(object):
             sources = Flatten( [ source, data ] )
 
         test = env.TestBuilder( [], sources )
-        cuppa.sconscript_progress.SconscriptProgress.add( env, test )
+
+        cuppa.progress.NotifyProgress.add( env, test )
 
         return test
 

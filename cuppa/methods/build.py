@@ -8,7 +8,7 @@
 #   BuildMethod
 #-------------------------------------------------------------------------------
 
-import cuppa.sconscript_progress
+import cuppa.progress
 import os.path
 
 
@@ -34,7 +34,7 @@ class BuildMethod:
                                STATICLIBS = env['STATICLIBS'] + STATICLIBS,
                                **kwargs )
 
-        cuppa.sconscript_progress.SconscriptProgress.add( env, program )
+        cuppa.progress.NotifyProgress.add( env, program )
 
         return program
 
