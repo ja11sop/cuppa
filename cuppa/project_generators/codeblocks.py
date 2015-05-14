@@ -78,7 +78,7 @@ class Codeblocks:
 
         self._projects = {}
 
-        base_include = self._exclude_branches and base_path or env['branch_root']
+        base_include = self._exclude_branches and env['base_path'] or env['branch_root']
 
         base = os.path.realpath( base_include )
         download = os.path.realpath( env['download_dir'] )
