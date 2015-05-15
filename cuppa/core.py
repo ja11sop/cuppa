@@ -325,6 +325,15 @@ class Construct(object):
 
         self._configure = cuppa.configure.Configure( default_env, callback=configure_callback )
 
+        default_env['sconstruct_file'] = default_env.get_option( 'file' )
+
+        if not default_env['sconstruct_file']:
+            for path in [ 'SConstruct', 'Sconstruct', 'sconstruct' ]:
+                if os.path.exists( path ):
+                    default_env['sconstruct_file'] = path
+
+        print "cuppa: using sconstruct file [{}]".format( default_env['sconstruct_file'] )
+
         default_env['raw_output']      = default_env.get_option( 'raw_output' ) and True or False
         default_env['standard_output'] = default_env.get_option( 'standard_output' ) and True or False
 

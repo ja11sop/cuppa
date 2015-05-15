@@ -17,7 +17,6 @@ import cuppa.tree
 import cuppa.options
 
 from cuppa.colourise import as_error, as_notice
-from SCons.Script import Dir
 
 
 class CodeblocksException(Exception):
@@ -102,7 +101,8 @@ class Codeblocks(object):
             common, tail1, tail2 = cuppa.path.split_common( base, thirdparty )
             thirdparty_under_base = common and not tail1
 
-        self._exclude_paths = [ env['build_root'] ] + self._excluded_paths_starting
+        self._exclude_paths = self._excluded_paths_starting
+        self._build_root = [ env['build_root'] ]
 
         if not self._include_thirdparty:
             if download_under_base:
@@ -134,7 +134,7 @@ class Codeblocks(object):
         elif progress == 'started':
             self.on_variant_started( env, sconscript )
         elif progress == 'finished':
-            self.on_variant_finished( env, sconscript )
+            self.on_variant_finished( env, sconscript, target[0], source )
         elif progress == 'end':
             self.on_sconscript_end( env, sconscript )
 
@@ -154,7 +154,7 @@ class Codeblocks(object):
         self.update( env, project, toolchain, variant, build_root, working_dir, final_dir_offset )
 
 
-    def on_variant_finished( self, env, sconscript ):
+    def on_variant_finished( self, env, sconscript, root_node, source ):
         project = sconscript
 
         tree_processor = ProcessNodes(
@@ -162,13 +162,11 @@ class Codeblocks(object):
                 self._projects[project]['path'],
                 self._projects[project]['files'],
                 self._include_paths,
-                self._exclude_paths,
+                self._exclude_paths + self._build_root,
                 self._ignored_types
         )
 
-        root_node = Dir('.')
-
-        cuppa.tree.process_tree( root_node, tree_processor )
+        cuppa.tree.process_tree( root_node, tree_processor, self._exclude_paths )
 
         self._projects[project]['files'] = tree_processor.file_paths()
 
@@ -353,10 +351,7 @@ class ProcessNodes(object):
         self._ignored_types = ignored_types
 
     def __call__( self, node ):
-        file_path = node.path
-
-        if not os.path.exists( file_path ) or not os.path.isfile( file_path ):
-            return
+        file_path = str(node)
 
         for excluded in self._excluded_paths:
             if file_path.startswith( excluded ):

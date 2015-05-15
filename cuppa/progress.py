@@ -77,7 +77,10 @@ class NotifyProgress(object):
         if variant not in cls._finished:
             cls._finished[variant] = progress( 'Finished', 'finished', sconscript, env['build_dir'], env )
 
-        finished = env.Depends( cls._finished[variant], target )
+        finished = env.Depends(
+                cls._finished[variant],
+                [ target, '#' + env['sconscript_file'], '#' + env['sconstruct_file'] ]
+        )
 
         if not sconscript in cls._end:
             cls._end[sconscript] = progress( 'End', 'end', sconscript, None, sconscript_env )
