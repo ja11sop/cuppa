@@ -27,3 +27,19 @@ def process_tree( root, process_callback, visited=set() ):
         for child in children[:-1]:
             process_tree( child, process_callback, visited )
         process_tree( children[-1], process_callback, visited )
+
+
+def print_tree( root, process_callback, visited=set() ):
+    path = str( root )
+    children = get_all_children( root )
+
+    if path in visited and children:
+        return
+
+    visited.add( path )
+    print root.path
+
+    if children:
+        for child in children[:-1]:
+            print_tree( child, process_callback, visited )
+        print_tree( children[-1], process_callback, visited )

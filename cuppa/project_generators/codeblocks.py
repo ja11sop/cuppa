@@ -16,7 +16,8 @@ import cuppa.progress
 import cuppa.tree
 import cuppa.options
 
-from cuppa.colourise import as_notice
+from cuppa.colourise import as_error, as_notice
+from SCons.Script import Dir
 
 
 class CodeblocksException(Exception):
@@ -26,7 +27,18 @@ class CodeblocksException(Exception):
         return repr(self.parameter)
 
 
-class Codeblocks:
+def ignored_types( env ):
+    return [
+            env['PROGSUFFIX'],
+            env['LIBSUFFIX'],
+            env['SHLIBSUFFIX'],
+            env['OBJSUFFIX'],
+            env['SHOBJSUFFIX'],
+            '.log'
+    ]
+
+
+class Codeblocks(object):
 
     @classmethod
     def add_options( cls, add_option ):
@@ -36,18 +48,18 @@ class Codeblocks:
                     help='Tell scons to generate a Codeblocks project',
                     default=False )
 
-        add_option( '--generate-cbs-include-thirdparty', dest='generate-cbs-include-thirdparty',
+        add_option( '--generate-cbs-include-thirdparty', dest='generate_cbs_include_thirdparty',
                     action='store_true',
                     help='Include dependencies under the thirdparty directory or in downloaded libraries.',
                     default=False )
 
-        add_option( '--generate-cbs-exclude-relative-branches', dest='generate-cbs-exclude-relative-branches',
+        add_option( '--generate-cbs-exclude-relative-branches', dest='generate_cbs_exclude_relative_branches',
                     action='store_true',
                     help='Exclude branches outside of the working directory',
                     default=False )
 
         add_option( '--generate-cbs-exclude-paths-starting', type='string', nargs=1,
-                    action='callback', callback=cuppa.options.list_parser( 'generate-cbs-exclude-paths-starting' ),
+                    action='callback', callback=cuppa.options.list_parser( 'generate_cbs_exclude_paths_starting' ),
                     help='Exclude dependencies starting with the specified paths from the file list for the project' )
 
 
@@ -57,17 +69,18 @@ class Codeblocks:
             generate = env.get_option( 'generate-cbs' )
             if generate:
                 obj = cls( env,
-                           env.get_option( 'generate-cbs-include-thirdparty' ),
-                           env.get_option( 'generate-cbs-exclude-relative-branches' ),
-                           env.get_option( 'generate-cbs-exclude-paths-starting' ) )
+                           env.get_option( 'generate_cbs_include_thirdparty' ),
+                           env.get_option( 'generate_cbs_exclude_relative_branches' ),
+                           env.get_option( 'generate_cbs_exclude_paths_starting' ) )
 
                 env['project_generators']['codeblocks'] = obj
 
-        except CodeblocksException:
-            pass
+        except CodeblocksException as error:
+            print as_error( env, "cuppa: error: failed to create CodeBlocks project generator with error [{}]".format( error ) )
 
 
     def __init__( self, env, include_thirdparty, exclude_branches, excluded_paths_starting ):
+
         self._include_thirdparty = include_thirdparty
         self._exclude_branches = exclude_branches
         self._excluded_paths_starting = excluded_paths_starting and excluded_paths_starting or []
@@ -107,6 +120,8 @@ class Codeblocks:
             if thirdparty and not thirdparty_under_base:
                 self._include_paths.append( env['thirdparty'] )
 
+        self._ignored_types = ignored_types( env )
+
         cuppa.progress.NotifyProgress.register_callback( None, self.on_progress )
 
         print "cuppa: project-generator (CodeBlocks): Including Paths Under    = {}".format( as_notice( env, str( self._include_paths ) ) )
@@ -119,7 +134,7 @@ class Codeblocks:
         elif progress == 'started':
             self.on_variant_started( env, sconscript )
         elif progress == 'finished':
-            self.on_variant_finished( env, sconscript, target[0] )
+            self.on_variant_finished( env, sconscript )
         elif progress == 'end':
             self.on_sconscript_end( env, sconscript )
 
@@ -139,7 +154,7 @@ class Codeblocks:
         self.update( env, project, toolchain, variant, build_root, working_dir, final_dir_offset )
 
 
-    def on_variant_finished( self, env, sconscript, root_node ):
+    def on_variant_finished( self, env, sconscript ):
         project = sconscript
 
         tree_processor = ProcessNodes(
@@ -147,8 +162,12 @@ class Codeblocks:
                 self._projects[project]['path'],
                 self._projects[project]['files'],
                 self._include_paths,
-                self._exclude_paths
+                self._exclude_paths,
+                self._ignored_types
         )
+
+        root_node = Dir('.')
+
         cuppa.tree.process_tree( root_node, tree_processor )
 
         self._projects[project]['files'] = tree_processor.file_paths()
@@ -323,14 +342,15 @@ class Codeblocks:
         return lines
 
 
-class ProcessNodes:
+class ProcessNodes(object):
 
-    def __init__( self, env, base_path, files, allowed_paths, excluded_paths ):
+    def __init__( self, env, base_path, files, allowed_paths, excluded_paths, ignored_types ):
         self._env = env
         self._base_path = base_path
         self._files = files
         self._allowed_paths = allowed_paths
         self._excluded_paths = excluded_paths
+        self._ignored_types = ignored_types
 
     def __call__( self, node ):
         file_path = node.path
@@ -341,6 +361,11 @@ class ProcessNodes:
         for excluded in self._excluded_paths:
             if file_path.startswith( excluded ):
                 return
+
+        path, ext = os.path.splitext( file_path )
+
+        if ext and ext in self._ignored_types:
+            return
 
         for allowed in self._allowed_paths:
             prefix = os.path.commonprefix( [ os.path.abspath( file_path ), allowed ] )
