@@ -57,6 +57,11 @@ class Codeblocks(object):
                     help='Exclude branches outside of the working directory',
                     default=False )
 
+        add_option( '--generate-cbs-place-with-sconscript', dest='generate_cbs_place_with_sconscript',
+                    action='store_true',
+                    help='Exclude branches outside of the working directory',
+                    default=False )
+
         add_option( '--generate-cbs-exclude-paths-starting', type='string', nargs=1,
                     action='callback', callback=cuppa.options.list_parser( 'generate_cbs_exclude_paths_starting' ),
                     help='Exclude dependencies starting with the specified paths from the file list for the project' )
@@ -70,7 +75,8 @@ class Codeblocks(object):
                 obj = cls( env,
                            env.get_option( 'generate_cbs_include_thirdparty' ),
                            env.get_option( 'generate_cbs_exclude_relative_branches' ),
-                           env.get_option( 'generate_cbs_exclude_paths_starting' ) )
+                           env.get_option( 'generate_cbs_exclude_paths_starting' ),
+                           env.get_option( 'generate_cbs_place_with_sconscript' ) )
 
                 env['project_generators']['codeblocks'] = obj
 
@@ -78,11 +84,12 @@ class Codeblocks(object):
             print as_error( env, "cuppa: error: failed to create CodeBlocks project generator with error [{}]".format( error ) )
 
 
-    def __init__( self, env, include_thirdparty, exclude_branches, excluded_paths_starting ):
+    def __init__( self, env, include_thirdparty, exclude_branches, excluded_paths_starting, place_cbs_by_sconscript ):
 
         self._include_thirdparty = include_thirdparty
         self._exclude_branches = exclude_branches
         self._excluded_paths_starting = excluded_paths_starting and excluded_paths_starting or []
+        self._place_cbs_by_sconscript = place_cbs_by_sconscript
 
         self._projects = {}
 
@@ -137,6 +144,8 @@ class Codeblocks(object):
             self.on_variant_finished( env, sconscript, target[0], source )
         elif progress == 'end':
             self.on_sconscript_end( env, sconscript )
+        elif progress =='sconstruct_end':
+            self.on_sconstruct_end( env )
 
 
     def on_sconscript_begin( self, env, sconscript ):
@@ -175,6 +184,21 @@ class Codeblocks(object):
         self.write( env, sconscript )
 
 
+    def on_sconstruct_end( self, env ):
+        workspace_dir = os.path.join( env['working_dir'], "cbs" )
+        workspace_path = os.path.join( workspace_dir, "all.workspace" )
+
+        if workspace_dir and not os.path.exists( workspace_dir ):
+            os.makedirs( workspace_dir )
+
+        print "cuppa: project-generator (CodeBlocks): write workspace [{}]".format(
+            as_notice( env, workspace_path )
+        )
+
+        with open( workspace_path, "w" ) as workspace_file:
+            workspace_file.write( "\n".join( self.create_workspace( self._projects ) ) )
+
+
     def update( self, env, project, toolchain, variant, build_root, working_dir, final_dir_offset ):
 
         print "cuppa: project-generator (CodeBlocks): update project [{}] for [{}, {}]".format( as_notice( env, project ), as_notice( env, toolchain) , as_notice( env, variant ) )
@@ -183,6 +207,8 @@ class Codeblocks(object):
 
             title = os.path.splitext( project )[0]
             directory, filename = os.path.split( title )
+            if not self._place_cbs_by_sconscript:
+                directory = env['working_dir']
             directory = os.path.join( directory, "cbs")
             project_file = directory + os.path.sep + filename + ".cbp"
 
@@ -337,6 +363,22 @@ class Codeblocks(object):
 '\t\t\t\t</MakeCommands>\n'
 '\t\t\t</Target>' ]
 
+        return lines
+
+
+    def create_workspace( self, projects ):
+        lines = [
+'<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>\n'
+'<CodeBlocks_workspace_file>\n'
+'\t<Workspace title="Workspace">' ]
+
+        for project in projects.itervalues():
+            lines += [
+'\t\t<Project filename="' + project['project_file'] + '" />' ]
+
+        lines += [
+'\t</Workspace>\n'
+'</CodeBlocks_workspace_file>' ]
         return lines
 
 
