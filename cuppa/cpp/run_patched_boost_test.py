@@ -1,11 +1,12 @@
 
-#          Copyright Jamie Allsop 2015-2015
+#          Copyright Jamie Allsop 2011-2015
+#          Copyright Declan Traynor 2012
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   RunBoostTest
+#   RunPatchedBoostTest
 #-------------------------------------------------------------------------------
 from cuppa.output_processor import IncrementalSubProcess
 
@@ -15,84 +16,66 @@ import shlex
 import re
 import cgi
 
-import cuppa.timer
-
 
 class Notify:
 
 
     def __init__( self, scons_env ):
-        self._colouriser = scons_env['colouriser']
+        self.colouriser = scons_env['colouriser']
         self.master_suite = {}
         self.master_suite['status'] = 'success'
 
 
     def enter_suite(self, suite):
         sys.stdout.write(
-            self._colouriser.emphasise( "\nStarting Test Suite [%s]\n" % suite )
+            self.colouriser.emphasise( "\nStarting Test Suite [%s]\n" % suite )
         )
 
 
     def exit_suite(self, suite):
         sys.stdout.write(
-            self._colouriser.emphasise( "\nTest Suite Finished [%s] " % suite['name'] )
+            self.colouriser.emphasise( "\nTest Suite Finished [%s]\n" % suite['name'] )
         )
 
         label   = suite['status'].upper()
         meaning = suite['status']
 
-        sys.stdout.write(
-            self._colouriser.highlight( meaning, " = {} = ".format( suite['status'].upper() ) )
-        )
-
-        sys.stdout.write('\n')
+        store_durations( suite )
 
         sys.stdout.write(
-            self._colouriser.emphasise( "\nSummary\n" )
+            self.colouriser.highlight( meaning, " = %s = " % label )
         )
 
-        for test in suite['tests']:
-            sys.stdout.write(
-                self._colouriser.emphasise( "\nTest case [{}]".format( test['name'] ) ) + '\n'
-            )
-            self._write_test_case( test )
+        self.__write_time( suite )
 
-        sys.stdout.write('\n')
-
-        sys.stdout.write(
-            self._colouriser.highlight( meaning, " = %s = " % label )
-        )
-
-        cuppa.timer.write_time( suite['total_cpu_times'], self._colouriser )
-
-        total_tests       = suite['total_tests']
-        passed_tests      = suite['passed_tests']
-        failed_tests      = suite['failed_tests']
-        expected_failures = suite['expected_failures']
-        skipped_tests     = suite['skipped_tests']
-        aborted_tests     = suite['aborted_tests']
-        total_assertions  = suite['total_assertions']
-        passed_assertions = suite['passed_assertions']
-        failed_assertions = suite['failed_assertions']
+        total_tests       = int(suite['total_tests'])
+        passed_tests      = int(suite['passed_tests'])
+        failed_tests      = int(suite['failed_tests'])
+        expected_failures = int(suite['expected_failures'])
+        skipped_tests     = int(suite['skipped_tests'])
+        aborted_tests     = int(suite['aborted_tests'])
+        total_assertions  = int(suite['total_assertions'])
+        passed_assertions = int(suite['passed_assertions'])
+        failed_assertions = int(suite['failed_assertions'])
 
         if total_assertions > 0:
             if suite['status'] == 'passed':
                 sys.stdout.write(
-                    self._colouriser.highlight(
+                    self.colouriser.highlight(
                         meaning,
                         " ( %s of %s Assertions Passed )" % (passed_assertions, total_assertions)
                     )
                 )
             else:
                 sys.stdout.write(
-                    self._colouriser.highlight(
+                    self.colouriser.highlight(
                         meaning,
                         " ( %s of %s Assertions Failed )" % (failed_assertions, total_assertions)
                     )
                 )
         else:
             sys.stdout.write(
-                self._colouriser.colour(
+                self.colouriser.colour(
                     'notice',
                     " ( No Assertions Checked )"
                 )
@@ -100,7 +83,7 @@ class Notify:
 
         if suite['status'] == 'passed' and passed_tests > 0:
             sys.stdout.write(
-                self._colouriser.highlight(
+                self.colouriser.highlight(
                     meaning,
                     " ( %s %s Passed ) "
                     % (passed_tests, passed_tests > 1 and 'Test Cases' or 'Test Case')
@@ -111,7 +94,7 @@ class Notify:
 
         if failed_tests > 0:
             sys.stdout.write(
-                self._colouriser.highlight(
+                self.colouriser.highlight(
                     meaning,
                     " ( %s %s Failed ) "
                     % (failed_tests, failed_tests > 1 and 'Test Cases' or 'Test Case')
@@ -120,7 +103,7 @@ class Notify:
 
         if expected_failures > 0:
             sys.stdout.write(
-                self._colouriser.highlight(
+                self.colouriser.highlight(
                     meaning,
                     " ( %s %s Expected ) "
                     % (expected_failures, expected_failures > 1 and 'Failures' or 'Failure')
@@ -129,7 +112,7 @@ class Notify:
 
         if skipped_tests > 0:
             sys.stdout.write(
-                self._colouriser.highlight(
+                self.colouriser.highlight(
                     meaning,
                     " ( %s %s Skipped ) "
                     % (skipped_tests, skipped_tests > 1 and 'Test Cases' or 'Test Case')
@@ -138,7 +121,7 @@ class Notify:
 
         if aborted_tests > 0:
             sys.stdout.write(
-                self._colouriser.highlight(
+                self.colouriser.highlight(
                     meaning,
                     " ( %s %s Aborted ) "
                     % (aborted_tests, aborted_tests > 1 and 'Test Cases Were' or 'Test Case Was')
@@ -148,23 +131,30 @@ class Notify:
         sys.stdout.write('\n\n')
 
 
-    def _write_test_case( self, test_case ):
-        label   = test_case['status']
-        meaning = test_case['status']
-
+    def enter_test(self, test):
+        pass
         sys.stdout.write(
-            self._colouriser.highlight( meaning, " = %s = " % label )
+            self.colouriser.emphasise( "\nRunning Test Case [%s] ...\n" % test )
         )
 
-        cuppa.timer.write_time( test_case['cpu_times'], self._colouriser )
 
-        assertions = test_case['total']
-        passed     = test_case['passed']
-        failed     = test_case['failed']
+    def exit_test( self, test ):
+        label         = test['status']
+        meaning       = test['status']
 
-        if test_case['status'] == 'passed' and passed > 0:
+        sys.stdout.write(
+            self.colouriser.highlight( meaning, " = %s = " % label )
+        )
+
+        self.__write_time( test )
+
+        assertions = int(test['total'])
+        passed     = int(test['passed'])
+        failed     = int(test['failed'])
+
+        if test['status'] == 'passed' and passed > 0:
             sys.stdout.write(
-                self._colouriser.colour(
+                self.colouriser.colour(
                     meaning,
                     " ( %s of %s Assertions Passed )" % ( passed, assertions )
                 )
@@ -172,41 +162,94 @@ class Notify:
 
         if failed > 0:
             sys.stdout.write(
-                self._colouriser.colour(
+                self.colouriser.colour(
                     meaning,
                     " ( %s of %s Assertions Failed )" % ( failed, assertions )
                 )
             )
 
-        if test_case['total'] == 0:
+        if test['total'] == 0:
             sys.stdout.write(
-                self._colouriser.colour( 'notice'," ( No Assertions )" )
+                self.colouriser.colour( 'notice'," ( No Assertions )" )
             )
 
         sys.stdout.write('\n')
 
 
-    def enter_test_case(self, test):
+    def __write_time( self, results ):
+        sys.stdout.write( " Time:" )
+
+        if 'wall_duration' in results:
+            sys.stdout.write(
+                " Wall [ %s ]" % self.colouriser.emphasise_time_by_digit( results['wall_duration'] )
+            )
+
         sys.stdout.write(
-            self._colouriser.emphasise( "\nRunning Test Case [%s] ...\n" % test['key'] )
-        )
-        test['timer'] = cuppa.timer.Timer()
-
-
-    def exit_test_case( self, test ):
-        self._write_test_case( test )
-
-
-    def failed_assertion(self, line ):
-        sys.stdout.write(
-            self._colouriser.colour( "error", line ) + "\n"
+            " CPU [ %s ]" % self.colouriser.emphasise_time_by_digit( results['cpu_duration'] )
         )
 
+        if 'wall_cpu_percent' in results:
+            wall_cpu_percent = results['wall_cpu_percent'].upper()
+            format = "%6s%%"
+            if wall_cpu_percent == "N/A":
+                format = "%5s  "
+            wall_cpu_percent = format % wall_cpu_percent
+            sys.stdout.write(
+                " CPU/Wall [ %s ]" % self.colouriser.colour( 'time', wall_cpu_percent )
+            )
 
     def message(self, line):
         sys.stdout.write(
             line + "\n"
         )
+
+
+def stdout_from_program( program_file ):
+    return program_file + '.stdout.log'
+
+
+def stderr_from_program( program_file ):
+    return program_file + '.stderr.log'
+
+
+def report_from_program( program_file ):
+    return program_file + '.report.xml'
+
+
+def store_durations( results ):
+    if 'cpu_time' in results:
+        results['cpu_duration']  = duration_from_elapsed(results['cpu_time'])
+    if 'wall_time' in results:
+        results['wall_duration'] = duration_from_elapsed(results['wall_time'])
+    if 'user_time' in results:
+        results['user_duration'] = duration_from_elapsed(results['user_time'])
+    if 'sys_time' in results:
+        results['sys_duration']  = duration_from_elapsed(results['sys_time'])
+
+
+class RunPatchedBoostTestEmitter:
+
+    def __init__( self, final_dir ):
+        self.__final_dir = final_dir
+
+
+    def __call__( self, target, source, env ):
+
+#        print "RunBoostTestEmitter source[0] = " + str(source)
+
+        program_file = os.path.join( self.__final_dir, os.path.split( source[0].path )[1] )
+
+#        print "RunBoostTestEmitter program_file = " + program_file
+
+        target = []
+        target.append( stdout_from_program( program_file ) )
+        target.append( stderr_from_program( program_file ) )
+        target.append( report_from_program( program_file ) )
+
+#        import SCons
+#        print "Targets = " + str([isinstance(t, SCons.Node.FS.File) and t.path or t for t in target])
+#        print "Source = " + str(source[0].path)
+        return target, source
 
 
 class State:
@@ -225,7 +268,6 @@ class ProcessStdout:
         self.test_suites = {}
         self.master_test_suite = 'Master Test Suite'
 
-
     def entered_test_suite( self, line ):
         matches = re.match(
             r'(?:(?P<file>[a-zA-Z0-9._/\s\-]+)?[(](?P<line>[0-9]+)[)]: )?'
@@ -238,6 +280,10 @@ class ProcessStdout:
 
             self.test_suites[self.suite]['name'] = self.suite
 
+            self.test_suites[self.suite]['cpu_time']          = 0
+            self.test_suites[self.suite]['wall_time']         = 0
+            self.test_suites[self.suite]['user_time']         = 0
+            self.test_suites[self.suite]['sys_time']          = 0
             self.test_suites[self.suite]['total_tests']       = 0
             self.test_suites[self.suite]['expected_failures'] = 0
             self.test_suites[self.suite]['passed_tests']      = 0
@@ -248,20 +294,15 @@ class ProcessStdout:
             self.test_suites[self.suite]['passed_assertions'] = 0
             self.test_suites[self.suite]['failed_assertions'] = 0
 
-            self.test_suites[self.suite]['total_cpu_times']   = cuppa.timer.CpuTimes( 0, 0, 0, 0 )
-
-            self.test_suites[self.suite]['tests'] = []
-
             self.notify.enter_suite(self.suite)
             return True
         return False
 
-
     def leaving_test_suite( self, line ):
         matches = re.match(
             r'Leaving test suite "(?P<suite>[a-zA-Z0-9(){}:&_<>/\-, ]+)"'
-             '(\. Test suite (?P<status>passed|failed)\.'
-             '(?: (?P<results>.*))?)?',
+             '\. Test suite (?P<status>passed|failed)\.'
+             '(?: (?P<results>.*))?',
             line.strip() )
 
         if matches and matches.group('suite') != self.master_test_suite:
@@ -272,114 +313,112 @@ class ProcessStdout:
 
             if matches.group('results'):
                 self.store_suite_results(suite, matches.group('results'))
-            else:
-                self.collate_suite_results(suite)
 
             self.notify.exit_suite(suite)
             return True
         else:
             return False
 
-
-    def skipped_test_case( self, line ):
-        matches = re.match(
-            r'Test "(?P<test>[a-zA-Z0-9(){}\[\]:;&_<>\-, =]+)" is skipped',
-            line.strip() )
-
-        if matches:
-            name = matches.group('test')
-            self.test_suites[self.suite]['skipped_tests'] = self.test_suites[self.suite]['skipped_tests'] + 1
-            return True
-
-        return False
-
     def entered_test_case( self, line ):
         matches = re.match(
-            r'Entering test case "(?P<test>[a-zA-Z0-9(){}\[\]:;&_<>\-, =]+)"',
+            r'(?:(?P<file>[a-zA-Z0-9._/\s\-]+)[(](?P<line>[0-9]+)[)]: )?'
+             'Entering test case "(?P<test>[a-zA-Z0-9(){}\[\]:;&_<>\-, =]+)"',
             line.strip() )
 
         if matches:
             name = matches.group('test')
-
-            self.test_suites[self.suite]['tests'].append( {} )
-            test_case = self.test_suites[self.suite]['tests'][-1]
-
-            test_case['suite']      = self.suite
-            test_case['fixture']    = self.suite
-            test_case['key']        =  '[' + self.suite + '] ' + name
-            test_case['name']       = name
-            test_case['stdout']     = []
-            test_case['total']      = 0
-            test_case['assertions'] = 0
-            test_case['passed']     = 0
-            test_case['failed']     = 0
-            test_case['skipped']    = False
-            test_case['aborted']    = 0
-            self.notify.enter_test_case( test_case )
+            self.test = '[' + self.suite + '] ' + name
+            self.test_cases[ self.test ] = {}
+            self.test_cases[ self.test ]['suite']      = self.suite
+            self.test_cases[ self.test ]['fixture']    = self.suite
+            self.test_cases[ self.test ]['key']        = self.test
+            self.test_cases[ self.test ]['name']       = name
+            self.test_cases[ self.test ]['stdout']     = []
+            self.test_cases[ self.test ]['file']       = matches.group('file')
+            self.test_cases[ self.test ]['line']       = matches.group('line')
+            self.test_cases[ self.test ]['cpu_time']   = 0
+            self.test_cases[ self.test ]['branch_dir'] = os.path.relpath( matches.group('file'), self.branch_root )
+            self.test_cases[ self.test ]['total']      = 0
+            self.test_cases[ self.test ]['assertions'] = 0
+            self.test_cases[ self.test ]['passed']     = 0
+            self.test_cases[ self.test ]['failed']     = 0
+            self.notify.enter_test(self.test)
             return True
         return False
 
     def leaving_test_case( self, line ):
-        test_case = self.test_suites[self.suite]['tests'][-1]
+        test = self.test_cases[self.test]
 
         matches = re.match(
             r'Leaving test case "(?:[a-zA-Z0-9(){}\[\]:;&_<>\-, =]+)"'
              '(?:; testing time: (?P<testing_time>[a-zA-Z0-9.s ,+=()%/]+))?'
-             '(\. Test case (?P<status>passed|failed|skipped|aborted)\.'
-             '(?: (?P<results>.*))?)?',
+             '\. Test case (?P<status>passed|failed|skipped|aborted)\.'
+             '(?: (?P<results>.*))?',
             line.strip() )
 
         if matches:
 
-            test_case['timer'].stop()
-            test_case['cpu_times'] = test_case['timer'].elapsed()
+            self.__capture_times( matches.group('testing_time'), test )
 
             if matches.group('status'):
-                test_case['status'] = matches.group('status')
-            else:
-                test_case['status'] = 'passed'
+                test['status'] = matches.group('status')
 
             if matches.group('results'):
-                self.store_test_results(test_case, matches.group('results'))
-            else:
-                self.collate_test_case_results( test_case )
+                self.store_test_results(test, matches.group('results'))
 
-            self.test_case_names.append( test_case['key'] )
-            self.notify.exit_test_case(test_case)
+            self.test_case_names.append( test['key'] )
+            self.notify.exit_test(test)
             return True
         else:
-            test_case['stdout'].append( line )
+            test['stdout'].append( line )
             self.notify.message(line)
             return False
 
 
-    def handle_assertion( self, line ):
-        test_case = self.test_suites[self.suite]['tests'][-1]
+    def __capture_times( self, time, results ):
+        if time:
+            time = time.strip()
 
-        is_assertion = False
-        write_line = True
+            test_time = re.match( '(?:(P<test_time>[0-9]+)(?P<units>ms|mks))', time )
 
-        matches = re.match(
-                r'.*\s(?P<status>passed|failed)$',
-                line.strip() )
+            if test_time:
+                multiplier = test_time.group('units') == 'ms' and 1000000 or 1000
+                subseconds = int(test_time.group('test_time'))
+                total_nanosecs = subseconds * multiplier
+                results['cpu_time'] = total_nanosecs
 
-        if matches:
-            is_assertion = True
-            write_line = False
-            status = matches.group('status')
-            test_case['assertions'] = test_case['assertions'] + 1
-            test_case[status] = test_case[status] + 1
-            if status == 'failed':
-                write_line = True
-                self.notify.failed_assertion(line)
+            cpu_times = re.match(
+                r'(?P<wall_time>[0-9.]+)s wall, '
+                 '(?P<user_time>[0-9.]+)s user [+] '
+                 '(?P<sys_time>[0-9.]+)s system [=] '
+                 '(?P<cpu_time>[0-9.]+)s CPU [(](?P<wall_cpu_percent>[nN/aA0-9.]+)%?[)]',
+                time )
 
-        return is_assertion, write_line
+            if cpu_times:
+                results['wall_time'] = nanosecs_from_time( cpu_times.group('wall_time') )
+                results['user_time'] = nanosecs_from_time( cpu_times.group('user_time') )
+                results['sys_time']  = nanosecs_from_time( cpu_times.group('sys_time') )
+                results['cpu_time']  = nanosecs_from_time( cpu_times.group('cpu_time') )
+
+                self.test_suites[results['suite']]['wall_time'] += results['wall_time']
+                self.test_suites[results['suite']]['user_time'] += results['user_time']
+                self.test_suites[results['suite']]['sys_time']  += results['sys_time']
+
+                results['wall_cpu_percent'] = cpu_times.group('wall_cpu_percent')
+
+            self.test_suites[results['suite']]['cpu_time'] += results['cpu_time']
+
+            store_durations( results )
+        else:
+            results['cpu_duration']  = duration_from_elapsed(0)
+
+        ## For backward compatibility - remove later
+        results['elapsed'] = results['cpu_time']
 
 
     def __call__( self, line ):
 
-        if not self.state == State.test_case:
-            self.log.write( line + '\n' )
+        self.log.write( line + '\n' )
 
         if self.state == State.waiting:
             if self.entered_test_suite( line ):
@@ -390,61 +429,22 @@ class ProcessStdout:
         elif self.state == State.test_suite:
             if self.entered_test_case( line ):
                 self.state = State.test_case
-            elif self.skipped_test_case( line ):
-                self.state = State.test_suite
             elif self.entered_test_suite( line ):
                 self.state = State.test_suite
             elif self.leaving_test_suite( line ):
                 self.state = State.waiting
 
         elif self.state == State.test_case:
-            is_assertion, write_line = self.handle_assertion( line )
-            if write_line:
-                self.log.write( line + '\n' )
-            if not is_assertion:
-                if self.leaving_test_case( line ):
-                    self.state = State.test_suite
-
+            if self.leaving_test_case( line ):
+                self.state = State.test_suite
 
     def __exit__( self, type, value, traceback ):
         if self.log:
             self.log.close()
 
-
     def tests( self ):
-        for suite in self.test_suites.itervalues():
-            for test_case in suite['tests']:
-                yield test_case['name'], test_case
-
-
-    def collate_test_case_results( self, test ):
-        test['status'] = ( test['failed'] or test['aborted'] ) and 'failed' or 'passed'
-        test['total'] = test['assertions']
-
-        test['cpu_time']  = test['cpu_times'].process
-        test['wall_time'] = test['cpu_times'].wall
-        test['user_time'] = test['cpu_times'].user
-        test['sys_time']  = test['cpu_times'].system
-
-        test['cpu_duration']  = cuppa.timer.as_duration_string( test['cpu_time'] )
-        test['wall_duration'] = cuppa.timer.as_duration_string( test['wall_time'] )
-        test['user_duration'] = cuppa.timer.as_duration_string( test['user_time'] )
-        test['sys_duration']  = cuppa.timer.as_duration_string( test['sys_time'] )
-
-        test['wall_cpu_percent'] = cuppa.timer.as_wall_cpu_percent_string( test['cpu_times'] )
-
-        test_suite = self.test_suites[test['suite']]
-
-        test_suite['passed_tests']  = test_suite['passed_tests'] + ( test['passed'] and 1 or 0 )
-        test_suite['failed_tests']  = test_suite['failed_tests'] + ( test['failed'] and 1 or 0 )
-        test_suite['skipped_tests'] = test_suite['skipped_tests'] + ( test['skipped'] and 1 or 0 )
-        test_suite['aborted_tests'] = test_suite['aborted_tests'] + ( test['aborted'] and 1 or 0 )
-
-        test_suite['total_assertions']  = test_suite['total_assertions'] + test['total']
-        test_suite['passed_assertions'] = test_suite['passed_assertions'] + test['passed'] + test['skipped']
-        test_suite['failed_assertions'] = test_suite['failed_assertions'] + test['failed'] + test['aborted']
-
-        test_suite['total_cpu_times'] += test['cpu_times']
+        for name in self.test_case_names:
+            yield name, self.test_cases[ name ]
 
 
     def store_test_results(self, test, results):
@@ -472,22 +472,6 @@ class ProcessStdout:
 
         ## For backward compatibility - remove later
         test['assertions'] = test['total']
-
-
-    def collate_suite_results( self, suite ):
-        suite['status'] = suite['failed_assertions'] and 'failed' or 'passed'
-
-        suite['cpu_time']  = suite['total_cpu_times'].process
-        suite['wall_time'] = suite['total_cpu_times'].wall
-        suite['user_time'] = suite['total_cpu_times'].user
-        suite['sys_time']  = suite['total_cpu_times'].system
-
-        suite['cpu_duration']  = cuppa.timer.as_duration_string( suite['cpu_time'] )
-        suite['wall_duration'] = cuppa.timer.as_duration_string( suite['wall_time'] )
-        suite['user_duration'] = cuppa.timer.as_duration_string( suite['user_time'] )
-        suite['sys_duration']  = cuppa.timer.as_duration_string( suite['sys_time'] )
-
-        suite['wall_cpu_percent'] = cuppa.timer.as_wall_cpu_percent_string( suite['total_cpu_times'] )
 
 
     def store_suite_results(self, suite, results):
@@ -549,44 +533,7 @@ class ProcessStderr:
             self.log.close()
 
 
-def stdout_file_name_from( program_file ):
-    return program_file + '.stdout.log'
-
-
-def stderr_file_name_from( program_file ):
-    return program_file + '.stderr.log'
-
-
-def report_file_name_from( program_file ):
-    return program_file + '.report.xml'
-
-
-def success_file_name_from( program_file ):
-    return program_file + '.success'
-
-
-class RunBoostTestEmitter:
-
-    def __init__( self, final_dir ):
-        self._final_dir = final_dir
-
-
-    def __call__( self, target, source, env ):
-
-        program_file = os.path.join( self._final_dir, os.path.split( str( source[0] ) )[1] )
-
-        target = []
-        target.append( stdout_file_name_from( program_file ) )
-        target.append( stderr_file_name_from( program_file ) )
-        target.append( report_file_name_from( program_file ) )
-        target.append( success_file_name_from( program_file ) )
-
-
-
-        return target, source
-
-
-class RunBoostTest:
+class RunPatchedBoostTest:
 
     def __init__( self, expected ):
         self._expected = expected
@@ -599,12 +546,9 @@ class RunBoostTest:
         program_path = source[0].path
         notifier     = Notify(env)
 
-        if cuppa.build_platform.name() == "Windows":
-            executable = '"' + executable + '"'
+        test_command = executable + " --boost.test.log_format=hrf --boost.test.log_level=test_suite --boost.test.report_level=no"
 
-        test_command = executable + " --log_format=hrf --log_level=all --report_level=no"
-
-        print "cuppa: RunBoostTest: [" + test_command + "]"
+        print "RunBoostTest: [" + test_command + "]"
 
         try:
             return_code, tests = self.__run_test( program_path,
@@ -613,23 +557,21 @@ class RunBoostTest:
                                                   env['branch_root'],
                                                   notifier )
 
-            self.generate_bitten_test_report( report_file_name_from( program_path ), tests )
+            self.generate_bitten_test_report( report_from_program( program_path ), tests )
 
             if return_code < 0:
-                self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
-                print >> sys.stderr, "cuppa: RunBoostTest: Test was terminated by signal: ", -return_code
+                self.__write_file_to_stderr( stderr_from_program( program_path ) )
+                print >> sys.stderr, "Test was terminated by signal: ", -return_code
             elif return_code > 0:
-                self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
-                print >> sys.stderr, "cuppa: RunBoostTest: Test returned with error code: ", return_code
+                self.__write_file_to_stderr( stderr_from_program( program_path ) )
+                print >> sys.stderr, "Test returned with error code: ", return_code
             elif notifier.master_suite['status'] != 'success':
-                print >> sys.stderr, "cuppa: RunBoostTest: Not all test suites passed. "
-
-            if return_code:
-                self._remove_success_file( success_file_name_from( program_path ) )
+                print >> sys.stderr, "Not all test suites passed. "
+                return_code = 1
             else:
-                self._write_success_file( success_file_name_from( program_path ) )
+                return None
 
-            return None
+            return return_code
 
         except OSError, e:
             print >> sys.stderr, "Execution of [", test_command, "] failed with error: ", e
@@ -637,8 +579,8 @@ class RunBoostTest:
 
 
     def __run_test( self, program_path, test_command, working_dir,branch_root, notifier ):
-        process_stdout = ProcessStdout( stdout_file_name_from( program_path ), branch_root, notifier )
-        process_stderr = ProcessStderr( stderr_file_name_from( program_path ), notifier )
+        process_stdout = ProcessStdout( stdout_from_program( program_path ), branch_root, notifier )
+        process_stderr = ProcessStderr( stderr_from_program( program_path ), notifier )
 
         return_code = IncrementalSubProcess.Popen2( process_stdout,
                                                     process_stderr,
@@ -653,18 +595,6 @@ class RunBoostTest:
         for line in error_file:
             print >> sys.stderr, line
         error_file.close()
-
-
-    def _write_success_file( self, file_name ):
-        with open( file_name, "w" ) as success_file:
-            success_file.write( "success" )
-
-
-    def _remove_success_file( self, file_name ):
-        try:
-            os.remove( file_name )
-        except:
-            pass
 
 
     def generate_bitten_test_report( self, report_path, test_cases ):
@@ -691,3 +621,21 @@ class RunBoostTest:
         report.close()
 
 
+def nanosecs_from_time( time_in_seconds ):
+    seconds, subseconds = time_in_seconds.split('.')
+    nanoseconds = subseconds
+    decimal_places = len(subseconds)
+    if decimal_places < 9:
+        nanoseconds = int(subseconds) * 10**(9-decimal_places)
+    return int(seconds) * 1000000000 + int(nanoseconds)
+
+
+def duration_from_elapsed( total_nanosecs ):
+    secs, remainder      = divmod( total_nanosecs, 1000000000 )
+    millisecs, remainder = divmod( remainder, 1000000 )
+    microsecs, nanosecs  = divmod( remainder, 1000 )
+    hours, remainder     = divmod( secs, 3600 )
+    minutes, secs        = divmod( remainder, 60 )
+
+    duration = "%02d:%02d:%02d.%03d,%03d,%03d" % ( hours, minutes, secs, millisecs, microsecs, nanosecs )
+    return duration

@@ -5,7 +5,7 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   RunBoostTest
+#   RunProcessTest
 #-------------------------------------------------------------------------------
 
 import os
@@ -106,7 +106,7 @@ class TestSuite(object):
 
         cpu_times = test_case['timer'].elapsed()
         sys.stdout.write( self._colouriser.highlight( meaning, " = %s = " % label ) )
-        self._write_time( cpu_times )
+        cuppa.timer.write_time( cpu_times, self._colouriser )
 
 
     def exit_suite( self ):
@@ -137,6 +137,10 @@ class TestSuite(object):
         )
 
         sys.stdout.write('\n')
+
+        sys.stdout.write(
+            self._colouriser.emphasise( "\nSummary\n" )
+        )
 
         for test in self._tests:
             sys.stdout.write(
@@ -219,44 +223,12 @@ class TestSuite(object):
 
 
         sys.stdout.write('\n')
-        self._write_time( self._suite['total_cpu_times'], True )
+        cuppa.timer.write_time( self._suite['total_cpu_times'], self._colouriser, True )
 
         self._tests = []
         self._suite = {}
 
         sys.stdout.write('\n\n')
-
-
-    def _write( self, text, emphasise=False ):
-        if not emphasise:
-            sys.stdout.write( text )
-        else:
-            sys.stdout.write( self._colouriser.emphasise( text ) )
-
-
-    def _write_time( self, cpu_times, emphasise=False ):
-
-        self._write( " Time:", emphasise )
-
-        self._write(
-            " Wall [ {}".format( self._colouriser.emphasise_time_by_digit( duration_from_elapsed( cpu_times.wall ) ) ),
-            emphasise
-        )
-
-        self._write(
-            " ] CPU [ {}".format( self._colouriser.emphasise_time_by_digit( duration_from_elapsed( cpu_times.process ) ) ),
-            emphasise
-        )
-
-        percent = "{:.2f}".format( float(cpu_times.process) * 100 / cpu_times.wall )
-
-        wall_cpu_percent = "%6s%%" % percent.upper()
-        self._write(
-            " ] CPU/Wall [ {}".format( self._colouriser.colour( 'time', wall_cpu_percent ) ),
-            emphasise
-        )
-
-        self._write( " ]", emphasise )
 
 
     def message(self, line):
@@ -265,27 +237,16 @@ class TestSuite(object):
         )
 
 
-def stdout_from_program( program_file ):
+def stdout_file_name_from( program_file ):
     return program_file + '.stdout.log'
 
 
-def stderr_from_program( program_file ):
+def stderr_file_name_from( program_file ):
     return program_file + '.stderr.log'
 
 
-def report_from_program( program_file ):
-    return program_file + '.report.xml'
-
-
-def store_durations( results ):
-    if 'cpu_time' in results:
-        results['cpu_duration']  = duration_from_elapsed(results['cpu_time'])
-    if 'wall_time' in results:
-        results['wall_duration'] = duration_from_elapsed(results['wall_time'])
-    if 'user_time' in results:
-        results['user_duration'] = duration_from_elapsed(results['user_time'])
-    if 'sys_time' in results:
-        results['sys_duration']  = duration_from_elapsed(results['sys_time'])
+def success_file_name_from( program_file ):
+    return program_file + '.success'
 
 
 class RunProcessTestEmitter(object):
@@ -297,8 +258,9 @@ class RunProcessTestEmitter(object):
     def __call__( self, target, source, env ):
         program_file = os.path.join( self._final_dir, os.path.split( source[0].path )[1] )
         target = []
-        target.append( stdout_from_program( program_file ) )
-        target.append( stderr_from_program( program_file ) )
+        target.append( stdout_file_name_from( program_file ) )
+        target.append( stderr_file_name_from( program_file ) )
+        target.append( success_file_name_from( program_file ) )
         return target, source
 
 
@@ -369,26 +331,43 @@ class RunProcessTest(object):
                                            working_dir )
 
             if return_code < 0:
-                self.__write_file_to_stderr( stderr_from_program( program_path ) )
-                print >> sys.stderr, "Test was terminated by signal: ", -return_code
+                self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
+                print >> sys.stderr, "cuppa: ProcessTest: Test was terminated by signal: ", -return_code
                 test_suite.exit_test( test, 'aborted' )
             elif return_code > 0:
-                self.__write_file_to_stderr( stderr_from_program( program_path ) )
-                print >> sys.stderr, "Test returned with error code: ", return_code
+                self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
+                print >> sys.stderr, "cuppa: ProcessTest: Test returned with error code: ", return_code
                 test_suite.exit_test( test, 'failed' )
             else:
                 test_suite.exit_test( test, 'success' )
 
-            return return_code
+            if return_code:
+                self._remove_success_file( success_file_name_from( program_path ) )
+            else:
+                self._write_success_file( success_file_name_from( program_path ) )
+
+            return None
 
         except OSError, e:
             print >> sys.stderr, "Execution of [", test_command, "] failed with error: ", e
             return 1
 
 
+    def _write_success_file( self, file_name ):
+        with open( file_name, "w" ) as success_file:
+            success_file.write( "success" )
+
+
+    def _remove_success_file( self, file_name ):
+        try:
+            os.remove( file_name )
+        except:
+            pass
+
+
     def __run_test( self, show_test_output, program_path, test_command, working_dir ):
-        process_stdout = ProcessStdout( show_test_output, stdout_from_program( program_path ) )
-        process_stderr = ProcessStderr( show_test_output, stderr_from_program( program_path ) )
+        process_stdout = ProcessStdout( show_test_output, stdout_file_name_from( program_path ) )
+        process_stderr = ProcessStderr( show_test_output, stderr_file_name_from( program_path ) )
 
         return_code = IncrementalSubProcess.Popen2( process_stdout,
                                                     process_stderr,
@@ -403,23 +382,3 @@ class RunProcessTest(object):
             print >> sys.stderr, line
         error_file.close()
 
-
-
-#def nanosecs_from_time( time_in_seconds ):
-#    seconds, subseconds = time_in_seconds.split('.')
-#    nanoseconds = subseconds
-#    decimal_places = len(subseconds)
-#    if decimal_places < 9:
-#        nanoseconds = int(subseconds) * 10**(9-decimal_places)
-#    return int(seconds) * 1000000000 + int(nanoseconds)
-
-
-def duration_from_elapsed( total_nanosecs ):
-    secs, remainder      = divmod( total_nanosecs, 1000000000 )
-    millisecs, remainder = divmod( remainder, 1000000 )
-    microsecs, nanosecs  = divmod( remainder, 1000 )
-    hours, remainder     = divmod( secs, 3600 )
-    minutes, secs        = divmod( remainder, 60 )
-
-    duration = "%02d:%02d:%02d.%03d,%03d,%03d" % ( hours, minutes, secs, millisecs, microsecs, nanosecs )
-    return duration

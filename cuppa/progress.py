@@ -51,7 +51,6 @@ class NotifyProgress(object):
 
     @classmethod
     def add( cls, env, target ):
-
         default_env     = env['default_env']
         sconscript_env  = env['sconscript_env']
 

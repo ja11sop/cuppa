@@ -19,6 +19,7 @@ import cuppa.build_platform
 
 from cuppa.cpp.create_version_file_cpp import CreateVersionHeaderCpp, CreateVersionFileCpp
 from cuppa.cpp.run_boost_test import RunBoostTestEmitter, RunBoostTest
+from cuppa.cpp.run_patched_boost_test import RunPatchedBoostTestEmitter, RunPatchedBoostTest
 from cuppa.cpp.run_process_test import RunProcessTestEmitter, RunProcessTest
 from cuppa.cpp.run_gcov_coverage import RunGcovCoverageEmitter, RunGcovCoverage
 from cuppa.output_processor import command_available
@@ -207,10 +208,12 @@ class Clang(object):
             return RunProcessTest( expected ), RunProcessTestEmitter( final_dir )
         elif tester=='boost':
             return RunBoostTest( expected ), RunBoostTestEmitter( final_dir )
+        elif tester=='patched_boost':
+            return RunPatchedBoostTest( expected ), RunPatchedBoostTestEmitter( final_dir )
 
 
     def test_runners( self ):
-        return [ 'process', 'boost' ]
+        return [ 'process', 'boost', 'patched_boost' ]
 
 
     def coverage_runner( self, program, final_dir ):
