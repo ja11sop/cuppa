@@ -65,7 +65,6 @@ class Notify:
 
         cuppa.timer.write_time( suite['total_cpu_times'], self._colouriser )
 
-        total_tests       = suite['total_tests']
         passed_tests      = suite['passed_tests']
         failed_tests      = suite['failed_tests']
         expected_failures = suite['expected_failures']
@@ -127,12 +126,13 @@ class Notify:
                 )
             )
 
-        if skipped_tests > 0:
+        if len( skipped_tests ):
+            number = len( skipped_tests )
             sys.stdout.write(
                 self._colouriser.highlight(
                     meaning,
                     " ( %s %s Skipped ) "
-                    % (skipped_tests, skipped_tests > 1 and 'Test Cases' or 'Test Case')
+                    % (number, number > 1 and 'Test Cases' or 'Test Case')
                 )
             )
 
@@ -242,7 +242,7 @@ class ProcessStdout:
             self.test_suites[self.suite]['expected_failures'] = 0
             self.test_suites[self.suite]['passed_tests']      = 0
             self.test_suites[self.suite]['failed_tests']      = 0
-            self.test_suites[self.suite]['skipped_tests']     = 0
+            self.test_suites[self.suite]['skipped_tests']     = []
             self.test_suites[self.suite]['aborted_tests']     = 0
             self.test_suites[self.suite]['total_assertions']  = 0
             self.test_suites[self.suite]['passed_assertions'] = 0
@@ -288,7 +288,7 @@ class ProcessStdout:
 
         if matches:
             name = matches.group('test')
-            self.test_suites[self.suite]['skipped_tests'] = self.test_suites[self.suite]['skipped_tests'] + 1
+            self.test_suites[self.suite]['skipped_tests'].append( name )
             return True
 
         return False
@@ -437,7 +437,6 @@ class ProcessStdout:
 
         test_suite['passed_tests']  = test_suite['passed_tests'] + ( test['passed'] and 1 or 0 )
         test_suite['failed_tests']  = test_suite['failed_tests'] + ( test['failed'] and 1 or 0 )
-        test_suite['skipped_tests'] = test_suite['skipped_tests'] + ( test['skipped'] and 1 or 0 )
         test_suite['aborted_tests'] = test_suite['aborted_tests'] + ( test['aborted'] and 1 or 0 )
 
         test_suite['total_assertions']  = test_suite['total_assertions'] + test['total']
