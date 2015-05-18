@@ -309,6 +309,10 @@ class Clang(object):
         return "-std={}".format( standard )
 
 
+    def error_format( self ):
+        return "{}:{}: {}"
+
+
     @classmethod
     def output_interpretors( cls ):
         return [

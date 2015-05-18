@@ -185,6 +185,10 @@ class Cl(object):
         return ""
 
 
+    def error_format( self ):
+        return "{}({}): error: {}"
+
+
     @classmethod
     def output_interpretors( cls ):
         return [

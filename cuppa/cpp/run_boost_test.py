@@ -22,6 +22,7 @@ class Notify:
 
 
     def __init__( self, scons_env ):
+        self._toolchain = scons_env['toolchain']
         self._colouriser = scons_env['colouriser']
         self.master_suite = {}
         self.master_suite['status'] = 'success'
@@ -198,9 +199,40 @@ class Notify:
 
 
     def failed_assertion(self, line ):
-        sys.stdout.write(
-            self._colouriser.colour( "error", line ) + "\n"
-        )
+
+        def as_error( text ):
+            return self._colouriser.as_error( text )
+
+        def emphasise( text ):
+            return self._colouriser.emphasise( text )
+
+        def start_error():
+            return self._colouriser.start_colour( "error" )
+
+        def reset():
+            return self._colouriser.reset()
+
+        matches = re.match(
+            r'(?P<file>[a-zA-Z0-9._/\s\-]+)[(](?P<line>[0-9]+)[)]: '
+             '(?P<message>[a-zA-Z0-9(){}:&_<>/\-=," ]+)',
+            line )
+
+        if matches:
+            path = matches.group( 'file' )
+            line = matches.group( 'line' )
+            message = matches.group( 'message')
+
+            error = self._toolchain.error_format()
+            sys.stdout.write( error.format(
+                    start_error() + emphasise( path ) + start_error(),
+                    emphasise( line ) + start_error(),
+                    message + reset()
+                ) + "\n"
+            )
+        else:
+            sys.stdout.write(
+                self._colouriser.colour( "error", line ) + "\n"
+            )
 
 
     def message(self, line):

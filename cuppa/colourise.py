@@ -94,6 +94,10 @@ class Colouriser(object):
             return self.start_highlight( meaning ) + text + colorama.Style.RESET_ALL
 
 
+    def reset( self ):
+        return colorama.Style.RESET_ALL
+
+
     ## Make these functions into simple dictionary lookups
 
     def start_colour( self, meaning ):
@@ -155,6 +159,23 @@ class Colouriser(object):
             return colorama.Style.BRIGHT + colorama.Back.BLUE + colorama.Fore.WHITE
         elif meaning == 'info':
             return ''
+
+
+    def as_error( self, text ):
+        return self.colour( "error", text )
+
+
+    def as_warning( self, text ):
+        return self.colour( "warning", text )
+
+
+    def as_info( self, text ):
+        return self.colour( "info", text )
+
+
+    def as_notice( self, text ):
+        return self.colour( "notice", text )
+
 
 
 def as_emphasised( env, text ):

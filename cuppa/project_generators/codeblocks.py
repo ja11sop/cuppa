@@ -252,15 +252,24 @@ class Codeblocks(object):
         self._projects[project]['variants'].add( variant )
         self._projects[project]['toolchains'].add( toolchain )
 
+
         target = "{}-{}".format( toolchain, variant )
 
-        if target not in self._projects[project]['targets']:
-            self._projects[project]['targets'][target] = self.create_target( target,
-                                                                             project,
-                                                                             toolchain,
-                                                                             variant,
-                                                                             self._projects[project]['working_dir'],
-                                                                             self._projects[project]['final_dir'] )
+        test_actions = [ "", "--test" ]
+
+        for action in test_actions:
+
+            target_name = target + action
+
+            if target_name not in self._projects[project]['targets']:
+                self._projects[project]['targets'][target_name] = self.create_target(
+                        target_name,
+                        project,
+                        toolchain,
+                        variant,
+                        action,
+                        self._projects[project]['working_dir'],
+                        self._projects[project]['final_dir'] )
 
 
     def write( self, env, project ):
@@ -314,9 +323,9 @@ class Codeblocks(object):
 
         lines += [
 '\t\t<MakeCommands>\n'
-'\t\t\t<Build command="scons --standard-output --scripts=$SCRIPTS --$VARIANT --toolchains=$TOOLCHAINS" />\n'
+'\t\t\t<Build command="scons --standard-output --scripts=$SCRIPTS --$VARIANT --toolchains=$TOOLCHAINS $TEST" />\n'
 '\t\t\t<CompileFile command="" />\n'
-'\t\t\t<Clean command="scons --standard-output --scripts=$SCRIPTS --$VARIANT --toolchains=$TOOLCHAINS -c" />\n'
+'\t\t\t<Clean command="scons --standard-output --scripts=$SCRIPTS --$VARIANT --toolchains=$TOOLCHAINS $TEST -c" />\n'
 '\t\t\t<DistClean command="" />\n'
 '\t\t\t<AskRebuildNeeded command="" />\n'
 '\t\t\t<SilentBuild command="" />\n'
@@ -331,12 +340,12 @@ class Codeblocks(object):
     def create_footer( self ):
         lines = [
 '\t</Project>\n'
-'</CodeBlocks_project_file>' ]
+'</CodeBlocks_project_file>\n' ]
 
         return lines
 
 
-    def create_target( self, target, project, toolchain, variant, working_dir, final_dir ):
+    def create_target( self, target, project, toolchain, variant, test, working_dir, final_dir ):
         lines = [
 '\t\t\t<Target title="' + target + '">\n'
 '\t\t\t\t<Option working_dir="' + final_dir + '" />\n'
@@ -349,7 +358,8 @@ class Codeblocks(object):
         lines += [
 '\t\t\t\t\t<Variable name="SCRIPTS" value="' + project + '" />\n'
 '\t\t\t\t\t<Variable name="TOOLCHAINS" value="' + toolchain + '" />\n'
-'\t\t\t\t\t<Variable name="VARIANT" value="' + variant + '" />' ]
+'\t\t\t\t\t<Variable name="VARIANT" value="' + variant + '" />'
+'\t\t\t\t\t<Variable name="TEST" value="' + test + '" />' ]
 
         lines += [
 '\t\t\t\t</Environment>\n'
@@ -378,7 +388,7 @@ class Codeblocks(object):
 
         lines += [
 '\t</Workspace>\n'
-'</CodeBlocks_workspace_file>' ]
+'</CodeBlocks_workspace_file>\n' ]
         return lines
 
 
