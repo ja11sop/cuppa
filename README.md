@@ -1,5 +1,7 @@
 # Cuppa
 
+[![Downloads](https://pypip.in/download/cuppa/badge.svg)](https://pypi.python.org/pypi/cuppa/) [![Latest Version](https://pypip.in/version/cuppa/badge.svg)](https://pypi.python.org/pypi/cuppa/)
+
 A simple, extensible build system for use with [Scons](http://www.scons.org/). **Cuppa** is designed to leverage the capabilities of Scons, while allowing developers to focus on the task of describing what needs to be built. In general **cuppa** supports `make` like usage on the command-line. That is developers can simply write:
 
 ```sh
