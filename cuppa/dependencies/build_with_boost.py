@@ -34,7 +34,7 @@ class BoostException(Exception):
 
 
 def determine_latest_boost_verion( env ):
-    current_release = None
+    current_release = "1.58.0"
     try:
         html = lxml.html.parse('http://www.boost.org/users/download/')
 
@@ -44,7 +44,7 @@ def determine_latest_boost_verion( env ):
         print "cuppa: boost: latest boost release detected as [{}]".format( as_warning( env, current_release ) )
 
     except Exception as e:
-        print as_error( env, "cuppa: boost: error: cannot determine latest version of boost - [{}]. Please specify a version manually.".format( str(e) ) )
+        print as_warning( env, "cuppa: boost: warning: cannot determine latest version of boost - [{}]. Assuming [{}].".format( str(e), current_release ) )
 
     return current_release
 
