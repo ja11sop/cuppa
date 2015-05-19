@@ -40,7 +40,8 @@ setup(
     install_requires = [
         'colorama',
         'gcovr',
-        'lxml'
+        'lxml',
+        'grip'
     ],
     classifiers = [
         "Topic :: Software Development :: Build Tools",
@@ -53,5 +54,6 @@ setup(
     keywords = [
         'scons',
         'build',
+        'c++'
     ]
 )

@@ -48,7 +48,6 @@ def get_common_top_directory_under( path ):
 
 class Location(object):
 
-
     def remove_common_top_directory_under( self, path ):
         dirs = os.listdir( path )
         top_dir = os.path.join( path, dirs[0] )
