@@ -207,10 +207,14 @@ class Codeblocks(object):
 
             title = os.path.splitext( project )[0]
             directory, filename = os.path.split( title )
+            cbs_file_name = filename
+            if cbs_file_name in [ 'sconscript', 'SConscript', 'Sconscript' ]:
+                cbs_file_name = os.path.split( directory )[1]
+
             if not self._place_cbs_by_sconscript:
                 directory = env['working_dir']
             directory = os.path.join( directory, "cbs")
-            project_file = directory + os.path.sep + filename + ".cbp"
+            project_file = directory + os.path.sep + cbs_file_name + ".cbp"
 
             execution_dir = ''
             if directory:
@@ -383,8 +387,13 @@ class Codeblocks(object):
 '\t<Workspace title="Workspace">' ]
 
         for project in projects.itervalues():
+
+            project_file = project['project_file']
+            base_path    = project['path']
+            project_file = os.path.relpath( os.path.abspath( project_file ), base_path )
+
             lines += [
-'\t\t<Project filename="' + project['project_file'] + '" />' ]
+'\t\t<Project filename="' + project_file + '" />' ]
 
         lines += [
 '\t</Workspace>\n'

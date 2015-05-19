@@ -11,7 +11,7 @@
 import os.path
 import itertools
 import grip
-#import cuppa.progress
+import cuppa.progress
 
 
 class GripRunner(object):
@@ -55,7 +55,7 @@ class MarkdownToHtmlMethod(object):
         } )
 
         html = env.Grip( [], source )
-#        cuppa.progress.NotifyProgress.add( env, html )
+        cuppa.progress.NotifyProgress.add( env, html )
         return html
 
 
