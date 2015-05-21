@@ -455,7 +455,7 @@ def toolset_from_toolchain( toolchain ):
     toolset_name = toolset_name_from_toolchain( toolchain )
     if toolset_name == "clang-darwin":
         return toolset_name
-    return toolset_name + '-' + toolchain.version()
+    return toolset_name + '-' + toolchain.cxx_version()
 
 
 
@@ -469,7 +469,7 @@ class UpdateProjectConfigJam(object):
 
         toolchain = env['toolchain']
 
-        current_toolset = "using {} : {} :".format( toolset_name_from_toolchain( toolchain ), toolchain.version() )
+        current_toolset = "using {} : {} :".format( toolset_name_from_toolchain( toolchain ), toolchain.cxx_version() )
         toolset_config_line = "{} {} ;\n".format( current_toolset, toolchain.binary() )
         print "boost: adding toolset config [{}]".format( toolset_config_line )
         config_added = False

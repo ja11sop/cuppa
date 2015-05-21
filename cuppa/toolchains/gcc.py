@@ -13,6 +13,7 @@ import SCons.Script
 from subprocess import Popen, PIPE
 import re
 import shlex
+import collections
 from exceptions import Exception
 
 
@@ -36,21 +37,12 @@ class Gcc(object):
 
 
     @classmethod
-    def default_version( cls ):
-        if not hasattr( cls, '_default_version' ):
-            command = "g++ --version"
-            if command_available( command ):
-                version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
-                cls._default_version = 'gcc' + re.search( r'(\d)\.(\d)', version ).expand(r'\1\2')
-            else:
-                cls._default_version = None
-        return cls._default_version
-
-
-    @classmethod
     def supported_versions( cls ):
         return [
             "gcc",
+            "gcc5",
+            "gcc51",
+            "gcc4",
             "gcc49",
             "gcc48",
             "gcc47",
@@ -66,22 +58,72 @@ class Gcc(object):
 
 
     @classmethod
+    def version_from_command( cls, cxx ):
+        command = "{} --version".format( cxx )
+        if command_available( command ):
+            reported_version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
+            reported_version = 'gcc' + re.search( r'(\d)\.(\d)', reported_version ).expand(r'\1\2')
+            return reported_version
+        return None
+
+
+    @classmethod
+    def default_version( cls ):
+        if not hasattr( cls, '_default_version' ):
+            cxx = "g++"
+            command = "{} --version".format( cxx )
+            reported_version = cls.version_from_command( command )
+            cxx_version = ""
+            if reported_version:
+                major = str(reported_version[3])
+                minor = str(reported_version[4])
+                version = "{}.{}".format( major, minor )
+                exists = cls.version_from_command( "g++-{} --version".format( version ) )
+                if exists:
+                    cxx_version = version
+                else:
+                    version = "{}".format( major )
+                    exists = cls.version_from_command( "g++-{} --version".format( version ) )
+                    if exists:
+                        cxx_version = version
+            cls._default_version = ( reported_version, cxx_version )
+        return cls._default_version
+
+
+    @classmethod
     def available_versions( cls ):
         if not hasattr( cls, '_available_versions' ):
-            cls._available_versions = []
+            cls._available_versions = collections.OrderedDict()
             for version in cls.supported_versions():
-                if version == "gcc":
-                    continue
-                command = "g++-{} --version".format( re.search( r'(\d)(\d)', version ).expand(r'\1.\2') )
-                if command_available( command ):
-                    reported_version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
-                    reported_version = 'gcc' + re.search( r'(\d)\.(\d)', reported_version ).expand(r'\1\2')
-                    if version == reported_version:
-                        cls._available_versions.append( version )
-                    else:
-                        raise GccException("GCC toolchain [{}] reporting version as [{}].".format( version, reported_version ) )
-            if cls._available_versions:
-                cls._available_versions.append( "gcc" )
+
+                matches = re.match( r'gcc(?P<major>(\d))?(?P<minor>(\d))?', version )
+
+                if not matches:
+                    raise GccException("GCC toolchain [{}] is not recognised as supported!.".format( version ) )
+
+                major = matches.group('major')
+                minor = matches.group('minor')
+
+                if not major and not minor:
+                    default_ver, default_cxx = cls.default_version()
+                    if default_ver:
+                        cls._available_versions[version] = {'cxx_version': default_cxx, 'version': default_ver }
+                elif not minor:
+                    cxx_version = "-{}".format( major )
+                    cxx = "g++{}".format( cxx_version )
+                    reported_version = cls.version_from_command( cxx )
+                    if reported_version:
+                        cls._available_versions[version] = {'cxx_version': cxx_version, 'version': reported_version }
+                        cls._available_versions[reported_version] = {'cxx_version': cxx_version, 'version': reported_version }
+                else:
+                    cxx_version = "-{}.{}".format( major, minor )
+                    cxx = "g++{}".format( cxx_version )
+                    reported_version = cls.version_from_command( cxx )
+                    if reported_version:
+                        if version == reported_version:
+                            cls._available_versions[version] = {'cxx_version': cxx_version, 'version': reported_version }
+                        else:
+                            raise GccException("GCC toolchain [{}] reporting version as [{}].".format( version, reported_version ) )
         return cls._available_versions
 
 
@@ -95,8 +137,9 @@ class Gcc(object):
         for version in cls.supported_versions():
             add_to_supported( version )
 
-        for version in cls.available_versions():
-            add_toolchain( version, cls( version ) )
+        for version, gcc in cls.available_versions().iteritems():
+#            print "Adding toolchain [{}] reported as [{}] with cxx_version [g++{}]".format( version, gcc['version'], gcc['cxx_version'] )
+            add_toolchain( version, cls( version, gcc['cxx_version'], gcc['version'] ) )
 
 
     @classmethod
@@ -113,23 +156,20 @@ class Gcc(object):
         return STATICLIBFLAGS + ' ' + DYNAMICLIBFLAGS
 
 
-    def __init__( self, version ):
-
-        if version == "gcc":
-            if self.default_version():
-                version = self.default_version()
-            else:
-                version = self.available_versions()[0]
+    def __init__( self, available_version, cxx_version, reported_version ):
 
         self.values = {}
 
-        self._version = re.search( r'(\d)(\d)', version ).expand(r'\1.\2')
-        self.values['name'] = version
+        self._version          = re.search( r'(\d)(\d)', reported_version ).expand(r'\1.\2')
+        self._cxx_version      = cxx_version.lstrip('-')
 
-        self._initialise_toolchain( version )
+        self._name             = reported_version
+        self._reported_version = reported_version
 
-        self.values['CXX'] = "g++-{}".format( self._version )
-        self.values['CC']  = "gcc-{}".format( self._version )
+        self._initialise_toolchain( self._reported_version )
+
+        self.values['CXX'] = "g++-{}".format( self._cxx_version )
+        self.values['CC']  = "gcc-{}".format( self._cxx_version )
 
         env = SCons.Script.DefaultEnvironment()
 
@@ -148,7 +188,7 @@ class Gcc(object):
 
 
     def name( self ):
-        return self.values['name']
+        return self._name
 
 
     def family( self ):
@@ -157,6 +197,10 @@ class Gcc(object):
 
     def version( self ):
         return self._version
+
+
+    def cxx_version( self ):
+        return self._cxx_version
 
 
     def binary( self ):
@@ -239,6 +283,8 @@ class Gcc(object):
             CommonCxxFlags += [ '-std=c++11' ]
         elif re.match( 'gcc4[8-9]', toolchain ):
             CommonCxxFlags += [ '-std=c++1y' ]
+        elif re.match( 'gcc5[0-1]', toolchain ):
+            CommonCxxFlags += [ '-std=c++1y' ]
 
         self.values['debug_cxx_flags']    = CommonCxxFlags + []
         self.values['release_cxx_flags']  = CommonCxxFlags + [ '-O3', '-DNDEBUG' ]
@@ -274,11 +320,13 @@ class Gcc(object):
     def abi_flag( self, env ):
         if env['stdcpp']:
             return '-std={}'.format(env['stdcpp'])
-        elif re.match( 'gcc4[3-6]', self.values['name'] ):
+        elif re.match( 'gcc4[3-6]', self._reported_version ):
             return '-std=c++0x'
-        elif re.match( 'gcc47', self.values['name'] ):
+        elif re.match( 'gcc47', self._reported_version ):
             return '-std=c++11'
-        elif re.match( 'gcc4[8-9]', self.values['name'] ):
+        elif re.match( 'gcc4[8-9]', self._reported_version ):
+            return '-std=c++1y'
+        elif re.match( 'gcc5[0-1]', self._reported_version ):
             return '-std=c++1y'
 
 

@@ -44,6 +44,10 @@ class Clang(object):
                     help="!Experimental! Specify the standard library Version to build against. Value may be one of {}".format( str(std_lib_choices) ) )
 
 
+        add_option( '--clang-disable-debug-for-auto', dest='clang-disable-debug-for-auto', action='store_true',
+                    help="For clang versions before 3.6 this disables the -g flag so auto can compile" )
+
+
     @classmethod
     def default_version( cls ):
         if not hasattr( cls, '_default_version' ):
@@ -94,6 +98,7 @@ class Clang(object):
         stdlib = None
         try:
             stdlib = env.get_option( 'clang-stdlib' )
+            suppress_debug_for_auto = env.get_option( 'clang-disable-debug-for-auto' )
         except:
             pass
 
@@ -101,7 +106,7 @@ class Clang(object):
             add_to_supported( version )
 
         for version in cls.available_versions():
-            add_toolchain( version, cls( version, stdlib ) )
+            add_toolchain( version, cls( version, stdlib, suppress_debug_for_auto ) )
 
 
     @classmethod
@@ -118,13 +123,15 @@ class Clang(object):
         return STATICLIBFLAGS + ' ' + DYNAMICLIBFLAGS
 
 
-    def __init__( self, version, stdlib ):
+    def __init__( self, version, stdlib, suppress_debug_for_auto ):
 
         if version == "clang":
             if self.default_version():
                 version = self.default_version()
             else:
                 version = self.available_versions()[0]
+
+        self._suppress_debug_for_auto = suppress_debug_for_auto
 
         self.values = {}
         self._version = re.search( r'(\d)(\d)', version ).expand(r'\1.\2')
@@ -165,6 +172,10 @@ class Clang(object):
 
 
     def version( self ):
+        return self._version
+
+
+    def cxx_version( self ):
         return self._version
 
 
@@ -249,8 +260,12 @@ class Clang(object):
         self.values['static_link']     = '-Xlinker -Bstatic'
         self.values['dynamic_link']    = '-Xlinker -Bdynamic'
 
-        CommonCxxFlags = [ '-Wall', '-fexceptions', '-g' ]
-        CommonCFlags   = [ '-Wall', '-g' ]
+        CommonCxxFlags = [ '-Wall', '-fexceptions' ]
+        CommonCFlags   = [ '-Wall' ]
+
+        if not re.match( 'clang3[2-5]', toolchain ) or not self._suppress_debug_for_auto:
+            CommonCxxFlags += [ "-g" ]
+            CommonCFlags += [ "-g" ]
 
         if stdlib:
             CommonCxxFlags += [ "-stdlib={}".format(stdlib) ]

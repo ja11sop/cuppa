@@ -106,6 +106,10 @@ class Cl(object):
         return self._version
 
 
+    def cxx_version( self ):
+        return self._version
+
+
     def binary( self ):
         return self.values['CXX']
 
