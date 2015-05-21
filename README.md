@@ -613,6 +613,8 @@ The following toolchains are currently supported:
 | `gcc47` | g++ 4.7 |
 | `gcc48` | g++ 4.8 |
 | `gcc49` | g++ 4.9 |
+| `gcc50` | g++ 5.0 |
+| `gcc51` | g++ 5.1 |
 | `clang32` | clang 3.2 |
 | `clang33` | clang 3.3 |
 | `clang34` | clang 3.4 |
