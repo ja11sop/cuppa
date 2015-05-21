@@ -237,7 +237,7 @@ class Construct(object):
 
         colouriser = env['colouriser']
         print "cuppa: supported toolchains are {}".format( colouriser.colour( 'notice', str( env["supported_toolchains"] ) ) )
-        print "cuppa: available toolchains are {}".format( colouriser.colour( 'warning', str( env[toolchains].keys() ) ) )
+        print "cuppa: available toolchains are {}".format( colouriser.colour( 'warning', str( sorted( env[toolchains].keys(), reverse=True ) ) ) )
 
         SCons.Script.AddOption(
             '--toolchains',
