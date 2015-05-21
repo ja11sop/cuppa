@@ -18,10 +18,11 @@ import cgi
 import cuppa.timer
 
 
-class Notify:
+class Notify(object):
 
 
-    def __init__( self, scons_env ):
+    def __init__( self, scons_env, show_test_output ):
+        self._show_test_output = show_test_output
         self._toolchain = scons_env['toolchain']
         self._colouriser = scons_env['colouriser']
         self.master_suite = {}
@@ -236,9 +237,10 @@ class Notify:
 
 
     def message(self, line):
-        sys.stdout.write(
-            line + "\n"
-        )
+        if self._show_test_output:
+            sys.stdout.write(
+                line + "\n"
+            )
 
 
 class State:
@@ -612,8 +614,6 @@ class RunBoostTestEmitter:
         target.append( report_file_name_from( program_file ) )
         target.append( success_file_name_from( program_file ) )
 
-
-
         return target, source
 
 
@@ -628,7 +628,7 @@ class RunBoostTest:
         executable   = str( source[0].abspath )
         working_dir  = os.path.split( executable )[0]
         program_path = source[0].path
-        notifier     = Notify(env)
+        notifier     = Notify(env, env['show_test_output'])
 
         if cuppa.build_platform.name() == "Windows":
             executable = '"' + executable + '"'
