@@ -246,7 +246,7 @@ class Location(object):
 
 
     def _as_error_text( self, text ):
-        return self._colouriser.colour( 'error', text )
+        return self._colouriser.as_error( text )
 
 
     def _as_warning_label( self, text ):
@@ -254,15 +254,15 @@ class Location(object):
 
 
     def _as_warning_text( self, text ):
-        return self._colouriser.colour( 'warning', text )
+        return self._colouriser.as_warning( text )
 
 
     def _as_info( self, text ):
-        return self._colouriser.colour( 'warning', text )
+        return self._colouriser.as_info( text )
 
 
     def _as_notice( self, text ):
-        return self._colouriser.colour( 'notice', text )
+        return self._colouriser.as_notice( text )
 
 
     def __init__( self, env, location, branch=None ):

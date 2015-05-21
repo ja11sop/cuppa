@@ -185,9 +185,9 @@ class Construct(object):
 
         if value:
             print "cuppa: option [{}] set {} as [{}]".format(
-                        colouriser.colour( 'warning', option ),
+                        colouriser.colour( 'info', option ),
                         source,
-                        colouriser.colour( 'warning', str(value) ) )
+                        colouriser.colour( 'info', str(value) ) )
 
         cls.cached_options[option] = value
 
@@ -237,7 +237,7 @@ class Construct(object):
 
         colouriser = env['colouriser']
         print "cuppa: supported toolchains are {}".format( colouriser.colour( 'notice', str( env["supported_toolchains"] ) ) )
-        print "cuppa: available toolchains are {}".format( colouriser.colour( 'warning', str( sorted( env[toolchains].keys(), reverse=True ) ) ) )
+        print "cuppa: available toolchains are {}".format( colouriser.colour( 'info', str( sorted( env[toolchains].keys(), reverse=True ) ) ) )
 
         SCons.Script.AddOption(
             '--toolchains',
@@ -435,9 +435,9 @@ class Construct(object):
             if job_count>1:
                 print "cuppa: Running in {} with option [{}] set {} as [{}]".format(
                         self._as_emphasised("parallel mode"),
-                        self._as_warning( "jobs" ),
+                        self._as_info( "jobs" ),
                         self._as_emphasised(parallel_mode),
-                        self._as_warning( str( SCons.Script.GetOption( 'num_jobs') ) ) )
+                        self._as_info( str( SCons.Script.GetOption( 'num_jobs') ) ) )
 
         if not help and self._configure.handle_conf_only():
             self._configure.save()
@@ -467,6 +467,10 @@ class Construct(object):
         return self._default_env['colouriser'].colour( 'warning', text )
 
 
+    def _as_info( self, text ):
+        return self._default_env['colouriser'].colour( 'info', text )
+
+
     def _as_notice( self, text ):
         return self._default_env['colouriser'].colour( 'notice', text )
 
@@ -477,9 +481,9 @@ class Construct(object):
             command = self._as_emphasised( "--" + key )
             if value != True and value != False:
                 if not isinstance( value, list ):
-                    command += "=" + self._as_warning( str(value) )
+                    command += "=" + self._as_info( str(value) )
                 else:
-                    command += "=" + self._as_warning( ",".join( value ) )
+                    command += "=" + self._as_info( ",".join( value ) )
             commands.append( command )
         commands.sort()
         return " ".join( commands )

@@ -22,7 +22,7 @@ import cuppa.build_platform
 import cuppa.location
 
 from cuppa.output_processor import IncrementalSubProcess, ToolchainProcessor
-from cuppa.colourise        import as_error, as_warning
+from cuppa.colourise        import as_warning, as_info
 
 
 
@@ -41,7 +41,7 @@ def determine_latest_boost_verion( env ):
         current_release = html.xpath("/html/body/div[2]/div/div[1]/div/div/div[2]/h3[1]/span")[0].text
         current_release = str( re.search( r'(\d[.]\d+([.]\d+)?)', current_release ).group(1) )
 
-        print "cuppa: boost: latest boost release detected as [{}]".format( as_warning( env, current_release ) )
+        print "cuppa: boost: latest boost release detected as [{}]".format( as_info( env, current_release ) )
 
     except Exception as e:
         print as_warning( env, "cuppa: boost: warning: cannot determine latest version of boost - [{}]. Assuming [{}].".format( str(e), current_release ) )
@@ -201,9 +201,9 @@ class Boost(object):
 
     def __init__( self, env, platform, base=None, location=None, version=None ):
         print "cuppa: boost: identify boost using base = [{}], location = [{}] and version = [{}]".format(
-                as_warning( env, str(base) ),
-                as_warning( env, str(location) ),
-                as_warning( env, str(version) )
+                as_info( env, str(base) ),
+                as_info( env, str(location) ),
+                as_info( env, str(version) )
             )
 
         if not base and not version and not location:
@@ -244,7 +244,7 @@ class Boost(object):
             else:
                 raise BoostException("Cannot construct Boost Object. No Home or Version specified")
 
-            print "cuppa: boost: using boost found at [{}]".format( as_warning( env, self.values['home'] ) )
+            print "cuppa: boost: using boost found at [{}]".format( as_info( env, self.values['home'] ) )
             self._location = cuppa.location.Location( env, self.values['home'] )
         else:
             location = self.location_from_boost_version( version )

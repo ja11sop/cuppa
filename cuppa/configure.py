@@ -74,17 +74,17 @@ class Configure(object):
 
         if self._unconfigure:
             self._configure = False
-            print "cuppa: configure - {}".format( self._colouriser.colour( 'notice', "Clear configuration requested..." ) )
+            print "cuppa: configure - {}".format( self._colouriser.as_notice( "Clear configuration requested..." ) )
             if os.path.exists( self._conf_path ):
                 print "cuppa: configure - removing configure file [{}]".format(
-                        self._colouriser.colour( 'warning', self._conf_path ) )
+                        self._colouriser.as_info( self._conf_path ) )
                 os.remove( self._conf_path )
             else:
                 print "cuppa: configure - configure file [{}] does not exist. Unconfigure not needed".format(
-                        self._colouriser.colour( 'warning', self._conf_path ) )
+                        self._colouriser.as_info( self._conf_path ) )
             return
         elif self._configure:
-            print "cuppa: configure - {}".format( self._colouriser.colour( 'notice', "Update configuration requested..." ) )
+            print "cuppa: configure - {}".format( self._colouriser.as_notice( "Update configuration requested..." ) )
 
         if not self._save:
             self._loaded_options = self._load_conf()
@@ -134,7 +134,7 @@ class Configure(object):
         if os.path.exists(self._conf_path):
             with open(self._conf_path) as config_file:
                 print "cuppa: configure - configure file [{}] exists. Load stored settings...".format(
-                        self._colouriser.colour( 'warning', self._conf_path ) )
+                        self._colouriser.as_info( self._conf_path ) )
                 for line in config_file.readlines():
                     name, value = tuple( l.strip() for l in line.split('=', 1) )
                     try:

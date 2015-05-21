@@ -122,7 +122,7 @@ class Colouriser(object):
         if meaning == 'error':
             return colorama.Fore.RED
         elif meaning == 'warning':
-            return colorama.Fore.BLUE
+            return colorama.Fore.MAGENTA
         elif meaning == 'summary':
             return colorama.Fore.BLACK
         elif meaning == 'passed':
@@ -146,13 +146,15 @@ class Colouriser(object):
         elif meaning == 'time':
             return colorama.Fore.BLUE
         elif meaning == 'info':
+            return colorama.Fore.BLUE
+        elif meaning == 'message':
             return ''
 
     def _start_highlight( self, meaning ):
         if meaning == 'error':
             return colorama.Style.BRIGHT + colorama.Back.RED + colorama.Fore.WHITE
         elif meaning == 'warning':
-            return colorama.Style.BRIGHT + colorama.Back.BLUE + colorama.Fore.WHITE
+            return colorama.Style.BRIGHT + colorama.Back.MAGENTA + colorama.Fore.WHITE
         elif meaning == 'summary':
             return colorama.Style.BRIGHT + colorama.Back.BLACK + colorama.Fore.WHITE
         elif meaning == 'success':
@@ -176,6 +178,8 @@ class Colouriser(object):
         elif meaning == 'time':
             return colorama.Style.BRIGHT + colorama.Back.BLUE + colorama.Fore.WHITE
         elif meaning == 'info':
+            return colorama.Style.BRIGHT + colorama.Back.BLUE + colorama.Fore.WHITE
+        elif meaning == 'message':
             return ''
 
 
