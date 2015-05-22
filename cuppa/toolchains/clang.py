@@ -354,7 +354,7 @@ class Clang(object):
         {
             'title'     : "Compiler Note",
             'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):([0-9]+))(:[ \t](note:[ \t].*))",
-            'meaning'   : 'info',
+            'meaning'   : 'message',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 5 ],
             'file'      : 1,

@@ -354,7 +354,7 @@ class Gcc(object):
         {
             'title'     : "In File Included From",
             'regex'     : r"(In file included\s+|\s+)(from\s+)([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+)(:[0-9]+)?)([,:])",
-            'meaning'   : 'info',
+            'meaning'   : 'message',
             'highlight' : set( [ 1, 3, 4 ] ),
             'display'   : [ 1, 2, 3, 4, 7 ],
             'file'      : 3,
@@ -364,7 +364,7 @@ class Gcc(object):
         {
             'title'     : "In Function Info",
             'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:[ \t]+([iI]n ([cC]lass|[cC]onstructor|[dD]estructor|[fF]unction|[mM]ember [fF]unction|[sS]tatic [fF]unction|[sS]tatic [mM]ember [fF]unction).*))",
-            'meaning'   : 'info',
+            'meaning'   : 'message',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 2 ],
             'file'      : 1,
@@ -374,7 +374,7 @@ class Gcc(object):
         {
             'title'     : "Skipping Instantiation Contexts 2",
             'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t]+(\[[ \t]+[Ss]kipping [0-9]+ instantiation contexts[, \t]+.*\]))",
-            'meaning'   : 'info',
+            'meaning'   : 'message',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
             'file'      : 1,
@@ -384,7 +384,7 @@ class Gcc(object):
         {
             'title'     : "Skipping Instantiation Contexts",
             'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t]+(\[[ \t]+[Ss]kipping [0-9]+ instantiation contexts[ \t]+\]))",
-            'meaning'   : 'info',
+            'meaning'   : 'message',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
             'file'      : 2,
@@ -394,7 +394,7 @@ class Gcc(object):
         {
             'title'     : "Instantiated From",
             'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t]+([iI]nstantiated from .*))",
-            'meaning'   : 'info',
+            'meaning'   : 'message',
             'highlight' : set( [ 1, 2] ),
             'display'   : [ 1, 2, 4 ],
             'file'      : 1,
@@ -404,7 +404,7 @@ class Gcc(object):
         {
             'title'     : "Instantiation of",
             'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:[ \t]+(In instantiation of .*))",
-            'meaning'   : 'info',
+            'meaning'   : 'message',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 2 ],
             'file'      : 1,
@@ -414,7 +414,7 @@ class Gcc(object):
         {
             'title'     : "Required From",
             'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t]+required from .*)",
-            'meaning'   : 'info',
+            'meaning'   : 'message',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
             'file'      : 1,
@@ -434,7 +434,7 @@ class Gcc(object):
         {
             'title'     : "Compiler Note 2",
             'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t]([Nn]ote:[ \t].*))",
-            'meaning'   : 'info',
+            'meaning'   : 'message',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
             'file'      : 1,
@@ -444,7 +444,7 @@ class Gcc(object):
         {
             'title'     : "Compiler Note",
             'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t]([Nn]ote:[ \t].*))",
-            'meaning'   : 'info',
+            'meaning'   : 'message',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
             'file'      : 1,
@@ -454,7 +454,7 @@ class Gcc(object):
         {
             'title'     : "General Note",
             'regex'     : r"([Nn]ote:[ \t].*)",
-            'meaning'   : 'info',
+            'meaning'   : 'message',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1 ],
             'file'      : None,
@@ -604,7 +604,7 @@ class Gcc(object):
         {
             'title'     : "Auto-Import Info",
             'regex'     : r"(([Ii]nfo:[ \t].*)\(auto-import\))",
-            'meaning'   : 'info',
+            'meaning'   : 'message',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1 ],
             'file'      : None,

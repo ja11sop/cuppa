@@ -195,6 +195,10 @@ class Colouriser(object):
         return self.colour( "info", text )
 
 
+    def as_message( self, text ):
+        return self.colour( "message", text )
+
+
     def as_notice( self, text ):
         return self.colour( "notice", text )
 
@@ -214,6 +218,10 @@ def as_warning( env, text ):
 
 def as_info( env, text ):
     return env['colouriser'].colour( 'info', text )
+
+
+def as_message( env, text ):
+    return env['colouriser'].colour( 'message', text )
 
 
 def as_notice( env, text ):
