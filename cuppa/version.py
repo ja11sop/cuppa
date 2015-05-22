@@ -32,7 +32,8 @@ def check_current_version():
         pypi = xmlrpclib.ServerProxy('http://pypi.python.org/pypi')
         latest_available = pypi.package_releases('cuppa')[0]
         if parse_version( installed_version ) < parse_version( latest_available ):
-            sys.stdout.write( " - Newer version [{}] available\n".format( latest_available ) )
+            sys.stdout.write( " - " )
+            sys.stdout.write( "Newer version [{}] available\n".format( latest_available ) )
         else:
             sys.stdout.write( "\n" )
     except:
