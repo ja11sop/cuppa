@@ -310,7 +310,7 @@ class Construct(object):
                   configure_callback   = None,
                   dependencies         = None ):
 
-        print "cuppa: version {}".format( cuppa.version.get() )
+        cuppa.version.check_current_version()
 
         set_base_options()
 
