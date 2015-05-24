@@ -263,6 +263,10 @@ To make use of the colourisation **cuppa** uses the [colorama](https://pypi.pyth
   --thirdparty=DIR            Thirdparty directory
   --build-root=BUILD_ROOT     The root directory for build output. If not
                                 specified then .build is used
+  --download-root=DOWNLOAD_ROOT
+                              The root directory for downloading external
+                                libraries to. If not specified then .cuppa is
+                                used
   --runner=RUNNER             The test runner to use for executing tests. The
                                 default is the process test runner
   --dump                      Dump the default environment and exit
