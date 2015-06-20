@@ -10,6 +10,7 @@
 
 import subprocess
 import shlex
+import os
 from exceptions import Exception
 
 
@@ -22,15 +23,18 @@ class GitException(Exception):
 
 def info( path ):
     if not path:
-        raise GitException("No working copy path specified for calling svnversion with.")
+        raise GitException("No working copy path specified for calling git commands with.")
 
     url        = None
     repository = None
     branch     = None
     revision   = None
 
+    if not os.path.exists( os.path.join( path, ".git" ) ):
+        raise GitException("Not a Git working copy")
+
     try:
-        command = "git describe --long"
+        command = "git describe --always"
         revision = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT, cwd=path ).strip()
 
         command = "git symbolic-ref HEAD"
