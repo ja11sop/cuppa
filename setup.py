@@ -8,6 +8,7 @@
 #-------------------------------------------------------------------------------
 
 from setuptools import setup
+import os
 import cuppa.version
 
 with open( 'README.rst' ) as readme_file:
@@ -36,8 +37,10 @@ setup(
         'cuppa.variants',
     ],
     package_data = {
-        'cuppa': [ 'VERSION' ]
-        'cuppa.dependencies.boost': [ 'boost_test_patch.diff' ]
+        'cuppa': [
+            'VERSION',
+            os.path.join( 'dependencies','boost','boost_test_patch.diff' )
+        ]
     },
     install_requires = [
         'colorama',
