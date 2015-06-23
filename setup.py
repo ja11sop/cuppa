@@ -25,6 +25,7 @@ setup(
         'cuppa',
         'cuppa.cpp',
         'cuppa.dependencies',
+        'cuppa.dependencies.boost',
         'cuppa.methods',
         'cuppa.modules',
         'cuppa.platforms',
@@ -36,6 +37,7 @@ setup(
     ],
     package_data = {
         'cuppa': [ 'VERSION' ]
+        'cuppa.dependencies.boost': [ 'boost_test_patch.diff' ]
     },
     install_requires = [
         'colorama',

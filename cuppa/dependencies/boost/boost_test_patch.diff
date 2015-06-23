@@ -1,0 +1,918 @@
+diff -urN a/boost/test/impl/compiler_log_formatter.ipp b/boost/test/impl/compiler_log_formatter.ipp
+--- a/boost/test/impl/compiler_log_formatter.ipp	2012-12-13 21:32:58.000000000 +0000
++++ b/boost/test/impl/compiler_log_formatter.ipp	2015-06-21 20:57:34.113753873 +0100
+@@ -19,8 +19,10 @@
+ #include <boost/test/output/compiler_log_formatter.hpp>
+ #include <boost/test/unit_test_suite_impl.hpp>
+ #include <boost/test/framework.hpp>
++#include <boost/test/results_collector.hpp>
+ #include <boost/test/utils/basic_cstring/io.hpp>
+ #include <boost/test/utils/lazy_ostream.hpp>
++#include <boost/test/utils/timer.hpp>
+ 
+ // Boost
+ #include <boost/version.hpp>
+@@ -52,6 +54,22 @@
+             : BOOST_TEST_L( "Test setup" );
+ }
+ 
++//____________________________________________________________________________//
++
++void
++print_result( std::ostream& ostr, counter_t v, counter_t total,
++              const_string name, const_string res )
++{
++    if( v > 0 ) {
++        ostr << v << ' ' << name << ( v != 1 ? "s" : "" );
++        if( total > 0 )
++            ostr << " out of " << total;
++
++        ostr << ' ' << res << ". ";
++    }
++}
++
++
+ } // local namespace
+ 
+ //____________________________________________________________________________//
+@@ -90,25 +108,57 @@
+ void
+ compiler_log_formatter::test_unit_start( std::ostream& output, test_unit const& tu )
+ {
++    print_prefix( output, tu.p_file_name, tu.p_line_num );
+     output << "Entering test " << tu.p_type_name << " \"" << tu.p_name << "\"" << std::endl;
+ }
+ 
+ //____________________________________________________________________________//
+ 
+ void
+-compiler_log_formatter::test_unit_finish( std::ostream& output, test_unit const& tu, unsigned long elapsed )
++compiler_log_formatter::test_unit_finish( std::ostream& output, test_unit const& tu, elapsed_t elapsed )
+ {
+     output << "Leaving test " << tu.p_type_name << " \"" << tu.p_name << "\"";
+ 
+-    if( elapsed > 0 ) {
++    if( has_time( elapsed ) ) {
+         output << "; testing time: ";
+-        if( elapsed % 1000 == 0 )
+-            output << elapsed/1000 << "ms";
+-        else
+-            output << elapsed << "mks";
++        output << to_string( elapsed );
++    }
++
++    output << ". ";
++
++    test_results const& tr = results_collector.results( tu.p_id );
++
++    const_string status;
++
++    if( tr.passed() )
++        status = "passed";
++    else if( tr.p_skipped )
++        status = "skipped";
++    else if( tr.p_aborted )
++        status = "aborted";
++    else
++        status = "failed";
++
++    output << "Test " << ( tu.p_type == tut_case ? "case" : "suite" ) << ' ' << status << ". ";
++
++    if( tr.p_skipped ) {
++        output << "due to " << ( tu.check_dependencies() ? "test aborting\n" : "failed dependency\n" );
++        return;
+     }
+ 
+-    output << std::endl;
++    counter_t total_assertions  = tr.p_assertions_passed + tr.p_assertions_failed;
++    counter_t total_tc          = tr.p_test_cases_passed + tr.p_test_cases_failed + tr.p_test_cases_skipped;
++
++    if( total_assertions > 0 || total_tc > 0 ) {
++        print_result( output, tr.p_assertions_passed,  total_assertions, "assertion", "passed" );
++        print_result( output, tr.p_assertions_failed,  total_assertions, "assertion", "failed" );
++        print_result( output, tr.p_expected_failures,  0               , "failure"  , "expected" );
++        print_result( output, tr.p_test_cases_passed,  total_tc        , "test case", "passed" );
++        print_result( output, tr.p_test_cases_failed,  total_tc        , "test case", "failed" );
++        print_result( output, tr.p_test_cases_skipped, total_tc        , "test case", "skipped" );
++        print_result( output, tr.p_test_cases_aborted, total_tc        , "test case", "aborted" );
++    }
++    output << "\n";
+ }
+ 
+ //____________________________________________________________________________//
+diff -urN a/boost/test/impl/framework.ipp b/boost/test/impl/framework.ipp
+--- a/boost/test/impl/framework.ipp	2012-12-13 21:32:58.000000000 +0000
++++ b/boost/test/impl/framework.ipp	2015-06-21 20:58:16.588222869 +0100
+@@ -32,9 +32,10 @@
+ #include <boost/test/detail/global_typedef.hpp>
+ 
+ #include <boost/test/utils/foreach.hpp>
++#include <boost/test/utils/timer.hpp>
+ 
+ // Boost
+-#include <boost/timer.hpp>
++// none
+ 
+ // STL
+ #include <map>
+@@ -135,6 +136,16 @@
+         }
+     }
+ 
++    void            reset()
++    {
++        clear();
++        m_master_test_suite = 0;
++        m_curr_test_case = INV_TEST_UNIT_ID;
++        m_next_test_case_id = MIN_TEST_CASE_ID;
++        m_next_test_suite_id = MIN_TEST_SUITE_ID;
++        m_test_in_progress = false;
++    }
++
+     void            set_tu_id( test_unit& tu, test_unit_id id ) { tu.p_id.value = id; }
+ 
+     // test_tree_visitor interface implementation
+@@ -150,12 +161,13 @@
+         BOOST_TEST_FOREACH( test_observer*, to, m_observers )
+             to->test_unit_start( tc );
+ 
+-        boost::timer tc_timer;
++        timer_t tc_timer;
+         test_unit_id bkup = m_curr_test_case;
+         m_curr_test_case = tc.p_id;
+         unit_test_monitor_t::error_level run_result = unit_test_monitor.execute_and_translate( tc );
+ 
+-        unsigned long elapsed = static_cast<unsigned long>( tc_timer.elapsed() * 1e6 );
++        tc_timer.stop();
++        elapsed_t elapsed = tc_timer.elapsed();
+ 
+         if( unit_test_monitor.is_critical_error( run_result ) ) {
+             BOOST_TEST_FOREACH( test_observer*, to, m_observers )
+@@ -189,7 +201,7 @@
+     void            test_suite_finish( test_suite const& ts )
+     {
+         BOOST_TEST_FOREACH( test_observer*, to, m_observers )
+-            to->test_unit_finish( ts, 0 );
++            to->test_unit_finish( ts, elapsed_t() );
+     }
+ 
+     //////////////////////////////////////////////////////////////////
+@@ -233,8 +245,20 @@
+ namespace framework {
+ 
+ void
++reset()
++{
++    reset_observers();
++    s_frk_impl().reset();
++}
++
++void
+ init( init_unit_test_func init_func, int argc, char* argv[] )
+ {
++    if( s_frk_impl().m_is_initialized )
++    {
++        reset();
++    }
++
+     runtime_config::init( argc, argv );
+ 
+     // set the log level and format
+diff -urN a/boost/test/impl/progress_monitor.ipp b/boost/test/impl/progress_monitor.ipp
+--- a/boost/test/impl/progress_monitor.ipp	2012-12-13 21:32:58.000000000 +0000
++++ b/boost/test/impl/progress_monitor.ipp	2015-06-21 20:58:35.818982452 +0100
+@@ -20,9 +20,10 @@
+ #include <boost/test/unit_test_suite_impl.hpp>
+ 
+ #include <boost/test/detail/unit_test_parameters.hpp>
++#include <boost/test/utils/timer.hpp>
++#include <boost/test/utils/progress.hpp>
+ 
+ // Boost
+-#include <boost/progress.hpp>
+ #include <boost/scoped_ptr.hpp>
+ 
+ #include <boost/test/detail/suppress_warnings.hpp>
+@@ -72,7 +73,7 @@
+ //____________________________________________________________________________//
+ 
+ void
+-progress_monitor_t::test_unit_finish( test_unit const& tu, unsigned long )
++progress_monitor_t::test_unit_finish( test_unit const& tu, elapsed_t )
+ {
+     if( tu.p_type == tut_case )
+         ++(*s_pm_impl().m_progress_display);
+diff -urN a/boost/test/impl/results_collector.ipp b/boost/test/impl/results_collector.ipp
+--- a/boost/test/impl/results_collector.ipp	2012-12-13 21:32:58.000000000 +0000
++++ b/boost/test/impl/results_collector.ipp	2015-06-21 20:58:49.850807030 +0100
+@@ -20,6 +20,7 @@
+ #include <boost/test/unit_test_log.hpp>
+ #include <boost/test/results_collector.hpp>
+ #include <boost/test/framework.hpp>
++#include <boost/test/utils/timer.hpp>
+ 
+ // Boost
+ #include <boost/cstdlib.hpp>
+@@ -201,7 +202,7 @@
+ //____________________________________________________________________________//
+ 
+ void
+-results_collector_t::test_unit_finish( test_unit const& tu, unsigned long )
++results_collector_t::test_unit_finish( test_unit const& tu, elapsed_t )
+ {
+     if( tu.p_type == tut_suite ) {
+         results_collect_helper ch( s_rc_impl().m_results_store[tu.p_id], tu );
+diff -urN a/boost/test/impl/unit_test_log.ipp b/boost/test/impl/unit_test_log.ipp
+--- a/boost/test/impl/unit_test_log.ipp	2012-12-13 21:32:58.000000000 +0000
++++ b/boost/test/impl/unit_test_log.ipp	2015-06-21 21:06:43.252888689 +0100
+@@ -28,6 +28,8 @@
+ #include <boost/test/output/compiler_log_formatter.hpp>
+ #include <boost/test/output/xml_log_formatter.hpp>
+ 
++#include <boost/test/utils/timer.hpp>
++
+ // Boost
+ #include <boost/scoped_ptr.hpp>
+ #include <boost/io/ios_state.hpp>
+@@ -178,7 +180,7 @@
+ //____________________________________________________________________________//
+ 
+ void
+-unit_test_log_t::test_unit_finish( test_unit const& tu, unsigned long elapsed )
++unit_test_log_t::test_unit_finish( test_unit const& tu, elapsed_t elapsed )
+ {
+     if( s_log_impl().m_threshold_level > log_test_units )
+         return;
+diff -urN a/boost/test/impl/unit_test_parameters.ipp b/boost/test/impl/unit_test_parameters.ipp
+--- a/boost/test/impl/unit_test_parameters.ipp	2012-12-13 21:32:58.000000000 +0000
++++ b/boost/test/impl/unit_test_parameters.ipp	2015-06-21 21:10:23.607133882 +0100
+@@ -154,6 +154,27 @@
+ namespace {
+ 
+ // framework parameters and corresponding command-line arguments
++#ifdef BOOST_TEST_USE_QUALIFIED_COMMANDLINE_ARGUMENTS
++std::string AUTO_START_DBG    = "boost.test.auto_start_dbg";
++std::string BREAK_EXEC_PATH   = "boost.test.break_exec_path";
++std::string BUILD_INFO        = "boost.test.build_info";
++std::string CATCH_SYS_ERRORS  = "boost.test.catch_system_errors";
++std::string DETECT_FP_EXCEPT  = "boost.test.detect_fp_exceptions";
++std::string DETECT_MEM_LEAKS  = "boost.test.detect_memory_leaks";
++std::string LOG_FORMAT        = "boost.test.log_format";
++std::string LOG_LEVEL         = "boost.test.log_level";
++std::string LOG_SINK          = "boost.test.log_sink";
++std::string OUTPUT_FORMAT     = "boost.test.output_format";
++std::string RANDOM_SEED       = "boost.test.random";
++std::string REPORT_FORMAT     = "boost.test.report_format";
++std::string REPORT_LEVEL      = "boost.test.report_level";
++std::string REPORT_SINK       = "boost.test.report_sink";
++std::string RESULT_CODE       = "boost.test.result_code";
++std::string TESTS_TO_RUN      = "boost.test.run_test";
++std::string SAVE_TEST_PATTERN = "boost.test.save_pattern";
++std::string SHOW_PROGRESS     = "boost.test.show_progress";
++std::string USE_ALT_STACK     = "boost.test.use_alt_stack";
++#else
+ std::string AUTO_START_DBG    = "auto_start_dbg";
+ std::string BREAK_EXEC_PATH   = "break_exec_path";
+ std::string BUILD_INFO        = "build_info";
+@@ -173,6 +194,7 @@
+ std::string SAVE_TEST_PATTERN = "save_pattern";
+ std::string SHOW_PROGRESS     = "show_progress";
+ std::string USE_ALT_STACK     = "use_alt_stack";
++#endif
+ 
+ fixed_mapping<const_string,const_string> parameter_2_env_var(
+     AUTO_START_DBG    , "BOOST_TEST_AUTO_START_DBG",
+@@ -247,6 +269,8 @@
+ {
+     using namespace cla;
+ 
++    s_cla_parser.reset();
++
+     try {
+         s_cla_parser - cla::ignore_mismatch
+           << cla::dual_name_parameter<bool>( AUTO_START_DBG + "|d" )
+diff -urN a/boost/test/impl/unit_test_suite.ipp b/boost/test/impl/unit_test_suite.ipp
+--- a/boost/test/impl/unit_test_suite.ipp	2012-12-13 21:32:58.000000000 +0000
++++ b/boost/test/impl/unit_test_suite.ipp	2015-06-21 22:15:42.079146241 +0100
+@@ -23,9 +23,10 @@
+ #include <boost/test/utils/foreach.hpp>
+ #include <boost/test/results_collector.hpp>
+ #include <boost/test/detail/unit_test_parameters.hpp>
++#include <boost/test/utils/timer.hpp>
+ 
+ // Boost
+-#include <boost/timer.hpp>
++// none
+ 
+ // STL
+ #include <algorithm>
+@@ -49,9 +50,11 @@
+ // **************                   test_unit                  ************** //
+ // ************************************************************************** //
+ 
+-test_unit::test_unit( const_string name, test_unit_type t )
++test_unit::test_unit( const_string name, test_unit_type t, const_string fn, std::size_t ln )
+ : p_type( t )
+ , p_type_name( t == tut_case ? "case" : "suite" )
++, p_file_name( fn )
++, p_line_num( ln )
+ , p_id( INV_TEST_UNIT_ID )
+ , p_name( std::string( name.begin(), name.size() ) )
+ , p_enabled( true )
+@@ -103,8 +106,8 @@
+ // **************                   test_case                  ************** //
+ // ************************************************************************** //
+ 
+-test_case::test_case( const_string name, callback0<> const& test_func )
+-: test_unit( name, static_cast<test_unit_type>(type) )
++test_case::test_case( const_string name, callback0<> const& test_func, const_string fn, std::size_t ln )
++: test_unit( name, static_cast<test_unit_type>(type), fn, ln )
+ , m_test_func( test_func )
+ {
+      // !! weirdest MSVC BUG; try to remove this statement; looks like it eats first token of next statement   
+@@ -122,8 +125,8 @@
+ 
+ //____________________________________________________________________________//
+ 
+-test_suite::test_suite( const_string name )
+-: test_unit( name, static_cast<test_unit_type>(type) )
++test_suite::test_suite( const_string name, const_string fn, std::size_t ln )
++: test_unit( name, static_cast<test_unit_type>(type), fn, ln )
+ {
+     framework::register_test_unit( this );
+ }
+@@ -276,7 +279,7 @@
+ 
+ //____________________________________________________________________________//
+ 
+-auto_test_unit_registrar::auto_test_unit_registrar( const_string ts_name )
++auto_test_unit_registrar::auto_test_unit_registrar( const_string ts_name, const_string fn, std::size_t ln )
+ {
+     test_unit_id id = curr_ts_store().back()->get( ts_name );
+ 
+@@ -287,7 +290,7 @@
+         BOOST_ASSERT( ts->p_parent_id == curr_ts_store().back()->p_id );
+     }
+     else {
+-        ts = new test_suite( ts_name );
++        ts = new test_suite( ts_name, fn, ln );
+         curr_ts_store().back()->add( ts );
+     }
+ 
+diff -urN a/boost/test/impl/xml_log_formatter.ipp b/boost/test/impl/xml_log_formatter.ipp
+--- a/boost/test/impl/xml_log_formatter.ipp	2012-12-13 21:32:58.000000000 +0000
++++ b/boost/test/impl/xml_log_formatter.ipp	2015-06-21 21:07:13.416511592 +0100
+@@ -23,6 +23,8 @@
+ 
+ #include <boost/test/utils/xml_printer.hpp>
+ 
++#include <boost/test/utils/timer.hpp>
++
+ // Boost
+ #include <boost/version.hpp>
+ 
+@@ -82,17 +84,24 @@
+ void
+ xml_log_formatter::test_unit_start( std::ostream& ostr, test_unit const& tu )
+ {
+-    ostr << "<" << tu_type_name( tu ) << " name" << attr_value() << tu.p_name.get() << ">";
++    ostr << "<" << tu_type_name( tu ) << " name" << attr_value() << tu.p_name.get();
++
++    if( !tu.p_file_name.get().empty() )
++    {
++        ostr << BOOST_TEST_L( " file" ) << attr_value() << tu.p_file_name
++             << BOOST_TEST_L( " line" ) << attr_value() << tu.p_line_num;
++    }
++    ostr << ">";
+ }
+ 
+ //____________________________________________________________________________//
+ 
+ void
+-xml_log_formatter::test_unit_finish( std::ostream& ostr, test_unit const& tu, unsigned long elapsed )
++xml_log_formatter::test_unit_finish( std::ostream& ostr, test_unit const& tu, elapsed_t elapsed )
+ {
+     if( tu.p_type == tut_case )
+-        ostr << "<TestingTime>" << elapsed << "</TestingTime>";
+-        
++        ostr << to_xml( elapsed );
++
+     ostr << "</" << tu_type_name( tu ) << ">";
+ }
+ 
+diff -urN a/boost/test/output/compiler_log_formatter.hpp b/boost/test/output/compiler_log_formatter.hpp
+--- a/boost/test/output/compiler_log_formatter.hpp	2012-12-13 21:32:58.000000000 +0000
++++ b/boost/test/output/compiler_log_formatter.hpp	2015-06-21 21:04:44.776369850 +0100
+@@ -21,6 +21,8 @@
+ 
+ #include <boost/test/detail/suppress_warnings.hpp>
+ 
++#include <boost/test/utils/timer.hpp>
++
+ //____________________________________________________________________________//
+ 
+ namespace boost {
+@@ -41,7 +43,7 @@
+     void    log_build_info( std::ostream& );
+ 
+     void    test_unit_start( std::ostream&, test_unit const& tu );
+-    void    test_unit_finish( std::ostream&, test_unit const& tu, unsigned long elapsed );
++    void    test_unit_finish( std::ostream&, test_unit const& tu, elapsed_t elapsed );
+     void    test_unit_skipped( std::ostream&, test_unit const& tu );
+ 
+     void    log_exception( std::ostream&, log_checkpoint_data const&, execution_exception const& ex );
+diff -urN a/boost/test/output/xml_log_formatter.hpp b/boost/test/output/xml_log_formatter.hpp
+--- a/boost/test/output/xml_log_formatter.hpp	2012-12-13 21:32:58.000000000 +0000
++++ b/boost/test/output/xml_log_formatter.hpp	2015-06-21 21:04:54.543247747 +0100
+@@ -19,6 +19,8 @@
+ #include <boost/test/detail/global_typedef.hpp>
+ #include <boost/test/unit_test_log_formatter.hpp>
+ 
++#include <boost/test/utils/timer.hpp>
++
+ // STL
+ #include <cstddef> // std::size_t
+ 
+@@ -44,7 +46,7 @@
+     void    log_build_info( std::ostream& );
+ 
+     void    test_unit_start( std::ostream&, test_unit const& tu );
+-    void    test_unit_finish( std::ostream&, test_unit const& tu, unsigned long elapsed );
++    void    test_unit_finish( std::ostream&, test_unit const& tu, elapsed_t elapsed );
+     void    test_unit_skipped( std::ostream&, test_unit const& tu );
+ 
+     void    log_exception( std::ostream&, log_checkpoint_data const&, execution_exception const& ex );
+diff -urN a/boost/test/progress_monitor.hpp b/boost/test/progress_monitor.hpp
+--- a/boost/test/progress_monitor.hpp	2012-12-13 21:32:58.000000000 +0000
++++ b/boost/test/progress_monitor.hpp	2015-06-21 21:02:33.650009155 +0100
+@@ -18,6 +18,7 @@
+ // Boost.Test
+ #include <boost/test/test_observer.hpp>
+ #include <boost/test/utils/trivial_singleton.hpp>
++#include <boost/test/utils/timer.hpp>
+ 
+ // STL
+ #include <iosfwd>   // for std::ostream&
+@@ -42,7 +43,7 @@
+     void    test_aborted();
+ 
+     void    test_unit_start( test_unit const& ) {}
+-    void    test_unit_finish( test_unit const&, unsigned long );
++    void    test_unit_finish( test_unit const&, elapsed_t );
+     void    test_unit_skipped( test_unit const& );
+     void    test_unit_aborted( test_unit const& ) {}
+ 
+diff -urN a/boost/test/results_collector.hpp b/boost/test/results_collector.hpp
+--- a/boost/test/results_collector.hpp	2012-12-13 21:32:58.000000000 +0000
++++ b/boost/test/results_collector.hpp	2015-06-21 21:02:52.590772362 +0100
+@@ -25,6 +25,8 @@
+ #include <boost/test/utils/trivial_singleton.hpp>
+ #include <boost/test/utils/class_properties.hpp>
+ 
++#include <boost/test/utils/timer.hpp>
++
+ #include <boost/test/detail/suppress_warnings.hpp>
+ 
+ //____________________________________________________________________________//
+@@ -84,7 +86,7 @@
+     void                test_aborted();
+ 
+     void                test_unit_start( test_unit const& );
+-    void                test_unit_finish( test_unit const&, unsigned long elapsed );
++    void                test_unit_finish( test_unit const&, elapsed_t elapsed );
+     void                test_unit_skipped( test_unit const& );
+     void                test_unit_aborted( test_unit const& );
+ 
+diff -urN a/boost/test/test_observer.hpp b/boost/test/test_observer.hpp
+--- a/boost/test/test_observer.hpp	2012-12-13 21:32:58.000000000 +0000
++++ b/boost/test/test_observer.hpp	2015-06-21 20:59:39.020192328 +0100
+@@ -22,6 +22,8 @@
+ 
+ #include <boost/test/detail/suppress_warnings.hpp>
+ 
++#include <boost/test/utils/timer.hpp>
++
+ //____________________________________________________________________________//
+ 
+ namespace boost {
+@@ -40,7 +42,7 @@
+     virtual void    test_aborted() {}
+ 
+     virtual void    test_unit_start( test_unit const& ) {}
+-    virtual void    test_unit_finish( test_unit const&, unsigned long /* elapsed */ ) {}
++    virtual void    test_unit_finish( test_unit const&, elapsed_t /* elapsed */ ) {}
+     virtual void    test_unit_skipped( test_unit const& ) {}
+     virtual void    test_unit_aborted( test_unit const& ) {}
+ 
+diff -urN a/boost/test/unit_test_log_formatter.hpp b/boost/test/unit_test_log_formatter.hpp
+--- a/boost/test/unit_test_log_formatter.hpp	2012-12-13 21:32:58.000000000 +0000
++++ b/boost/test/unit_test_log_formatter.hpp	2015-06-21 21:01:49.045566787 +0100
+@@ -22,6 +22,8 @@
+ 
+ #include <boost/test/execution_monitor.hpp>
+ 
++#include <boost/test/utils/timer.hpp>
++
+ // STL
+ #include <iosfwd>
+ #include <string> // for std::string
+@@ -95,7 +97,7 @@
+     virtual void        log_build_info( std::ostream& ) = 0;
+ 
+     virtual void        test_unit_start( std::ostream&, test_unit const& tu ) = 0;
+-    virtual void        test_unit_finish( std::ostream&, test_unit const& tu, unsigned long elapsed ) = 0;
++    virtual void        test_unit_finish( std::ostream&, test_unit const& tu, elapsed_t elapsed ) = 0;
+     virtual void        test_unit_skipped( std::ostream&, test_unit const& ) = 0;
+ 
+     virtual void        log_exception( std::ostream& os, log_checkpoint_data const& cd, execution_exception const& ex )
+diff -urN a/boost/test/unit_test_log.hpp b/boost/test/unit_test_log.hpp
+--- a/boost/test/unit_test_log.hpp	2012-12-13 21:32:58.000000000 +0000
++++ b/boost/test/unit_test_log.hpp	2015-06-21 21:01:36.740720619 +0100
+@@ -28,6 +28,8 @@
+ #include <boost/test/utils/trivial_singleton.hpp>
+ #include <boost/test/utils/lazy_ostream.hpp>
+ 
++#include <boost/test/utils/timer.hpp>
++
+ // Boost
+ #include <boost/utility.hpp>
+ 
+@@ -98,7 +100,7 @@
+     void                test_aborted();
+ 
+     void                test_unit_start( test_unit const& );
+-    void                test_unit_finish( test_unit const&, unsigned long elapsed );
++    void                test_unit_finish( test_unit const&, elapsed_t elapsed );
+     void                test_unit_skipped( test_unit const& );
+     void                test_unit_aborted( test_unit const& );
+ 
+diff -urN a/boost/test/unit_test_suite.hpp b/boost/test/unit_test_suite.hpp
+--- a/boost/test/unit_test_suite.hpp	2012-12-13 21:32:58.000000000 +0000
++++ b/boost/test/unit_test_suite.hpp	2015-06-21 22:16:12.496765968 +0100
+@@ -26,7 +26,7 @@
+ // ************************************************************************** //
+ 
+ #define BOOST_TEST_CASE( test_function ) \
+-boost::unit_test::make_test_case( boost::unit_test::callback0<>(test_function), BOOST_TEST_STRINGIZE( test_function ) )
++boost::unit_test::make_test_case( boost::unit_test::callback0<>(test_function), BOOST_TEST_STRINGIZE( test_function ), __FILE__, __LINE__ )
+ #define BOOST_CLASS_TEST_CASE( test_function, tc_instance ) \
+ boost::unit_test::make_test_case((test_function), BOOST_TEST_STRINGIZE( test_function ), tc_instance )
+ 
+@@ -35,7 +35,7 @@
+ // ************************************************************************** //
+ 
+ #define BOOST_TEST_SUITE( testsuite_name ) \
+-( new boost::unit_test::test_suite( testsuite_name ) )
++( new boost::unit_test::test_suite( testsuite_name, __FILE__, __LINE__ ) )
+ 
+ // ************************************************************************** //
+ // **************             BOOST_AUTO_TEST_SUITE            ************** //
+@@ -100,7 +100,7 @@
+                                                                         \
+ BOOST_AUTO_TU_REGISTRAR( test_name )(                                   \
+     boost::unit_test::make_test_case(                                   \
+-        &BOOST_AUTO_TC_INVOKER( test_name ), #test_name ),              \
++        &BOOST_AUTO_TC_INVOKER( test_name ), #test_name, __FILE__, __LINE__ ), \
+     boost::unit_test::ut_detail::auto_tc_exp_fail<                      \
+         BOOST_AUTO_TC_UNIQUE_ID( test_name )>::instance()->value() );   \
+                                                                         \
+diff -urN a/boost/test/unit_test_suite_impl.hpp b/boost/test/unit_test_suite_impl.hpp
+--- a/boost/test/unit_test_suite_impl.hpp	2012-12-13 21:32:58.000000000 +0000
++++ b/boost/test/unit_test_suite_impl.hpp	2015-06-21 22:16:03.388879832 +0100
+@@ -54,7 +54,7 @@
+     enum { type = tut_any };
+ 
+     // Constructor
+-    test_unit( const_string tu_name, test_unit_type t );
++    test_unit( const_string tu_name, test_unit_type t, const_string fn, std::size_t ln );
+ 
+     // dependencies management
+     void    depends_on( test_unit* tu );
+@@ -65,6 +65,8 @@
+     typedef BOOST_READONLY_PROPERTY(test_unit_id,(test_suite))      parent_id_t;
+     readonly_property<test_unit_type>   p_type;                 // type for this test unit
+     readonly_property<const_string>     p_type_name;            // "case"/"suite"
++    readonly_property<const_string>     p_file_name;
++    readonly_property<std::size_t>      p_line_num;
+     id_t                                p_id;                   // unique id for this test unit
+     parent_id_t                         p_parent_id;            // parent test suite id
+ 
+@@ -105,7 +107,7 @@
+     enum { type = tut_case };
+ 
+     // Constructor
+-    test_case( const_string tc_name, callback0<> const& test_func );
++    test_case( const_string tc_name, callback0<> const& test_func, const_string fn, std::size_t ln );
+ 
+     // Access methods
+     callback0<> const&  test_func() const { return m_test_func; }
+@@ -128,7 +130,7 @@
+     enum { type = tut_suite };
+ 
+     // Constructor
+-    explicit        test_suite( const_string ts_name );
++    explicit        test_suite( const_string ts_name, const_string fn, std::size_t ln );
+ 
+     // test unit list management
+     void            add( test_unit* tu, counter_t expected_failures = 0, unsigned timeout = 0 );
+@@ -155,7 +157,7 @@
+ 
+ class BOOST_TEST_DECL master_test_suite_t : public test_suite {
+ public:
+-    master_test_suite_t() : test_suite( "Master Test Suite" )
++    master_test_suite_t() : test_suite( "Master Test Suite", "", 0 )
+     , argc( 0 )
+     , argv( 0 )
+     {}
+@@ -250,9 +252,9 @@
+ //____________________________________________________________________________//
+ 
+ inline test_case*
+-make_test_case( callback0<> const& test_func, const_string tc_name )
++make_test_case( callback0<> const& test_func, const_string tc_name, const_string fn, std::size_t ln )
+ {
+-    return new test_case( ut_detail::normalize_test_case_name( tc_name ), test_func );
++    return new test_case( ut_detail::normalize_test_case_name( tc_name ), test_func, fn, ln );
+ }
+ 
+ //____________________________________________________________________________//
+@@ -279,7 +281,7 @@
+ {
+     // Constructors
+                 auto_test_unit_registrar( test_case* tc, counter_t exp_fail );
+-    explicit    auto_test_unit_registrar( const_string ts_name );
++    explicit    auto_test_unit_registrar( const_string ts_name, const_string fn, std::size_t ln );
+     explicit    auto_test_unit_registrar( test_unit_generator const& tc_gen );
+     explicit    auto_test_unit_registrar( int );
+ 
+diff -urN a/boost/test/utils/progress.hpp b/boost/test/utils/progress.hpp
+--- a/boost/test/utils/progress.hpp	1970-01-01 01:00:00.000000000 +0100
++++ b/boost/test/utils/progress.hpp	2014-10-17 17:40:31.000000000 +0100
+@@ -0,0 +1,107 @@
++//  boost progress.hpp header file  ------------------------------------------//
++
++//  Copyright Beman Dawes 1994-99.  Distributed under the Boost
++//  Software License, Version 1.0. (See accompanying file
++//  LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
++
++//  See http://www.boost.org/libs/timer for documentation.
++
++//  Revision History
++//   1 Dec 01  Add leading progress display strings (suggested by Toon Knapen)
++//  20 May 01  Introduce several static_casts<> to eliminate warning messages
++//             (Fixed by Beman, reported by Herve Bronnimann)
++//  12 Jan 01  Change to inline implementation to allow use without library
++//             builds. See docs for more rationale. (Beman Dawes)
++//  22 Jul 99  Name changed to .hpp
++//  16 Jul 99  Second beta
++//   6 Jul 99  Initial boost version
++
++#ifndef BOOST_TEST_UTILS_PROGRESS_DISPLAY_HPP
++#define BOOST_TEST_UTILS_PROGRESS_DISPLAY_HPP
++
++#include <boost/noncopyable.hpp>
++#include <iostream>           // for ostream, cout, etc
++#include <string>             // for string
++
++namespace boost {
++
++namespace unit_test {
++
++//  progress_display  --------------------------------------------------------//
++
++//  progress_display displays an appropriate indication of
++//  progress at an appropriate place in an appropriate form.
++
++// NOTE: (Jan 12, 2001) Tried to change unsigned long to boost::uintmax_t, but
++// found some compilers couldn't handle the required conversion to double.
++// Reverted to unsigned long until the compilers catch up.
++
++class progress_display : private noncopyable
++{
++ public:
++  explicit progress_display( unsigned long expected_count,
++                             std::ostream & os = std::cout,
++                             const std::string & s1 = "\n", //leading strings
++                             const std::string & s2 = "",
++                             const std::string & s3 = "" )
++   // os is hint; implementation may ignore, particularly in embedded systems
++   : m_os(os), m_s1(s1), m_s2(s2), m_s3(s3) { restart(expected_count); }
++
++  void           restart( unsigned long expected_count )
++  //  Effects: display appropriate scale
++  //  Postconditions: count()==0, expected_count()==expected_count
++  {
++    _count = _next_tic_count = _tic = 0;
++    _expected_count = expected_count;
++
++    m_os << m_s1 << "0%   10   20   30   40   50   60   70   80   90   100%\n"
++         << m_s2 << "|----|----|----|----|----|----|----|----|----|----|"
++         << std::endl  // endl implies flush, which ensures display
++         << m_s3;
++    if ( !_expected_count ) _expected_count = 1;  // prevent divide by zero
++  } // restart
++
++  unsigned long  operator+=( unsigned long increment )
++  //  Effects: Display appropriate progress tic if needed.
++  //  Postconditions: count()== original count() + increment
++  //  Returns: count().
++  {
++    if ( (_count += increment) >= _next_tic_count ) { display_tic(); }
++    return _count;
++  }
++
++  unsigned long  operator++()           { return operator+=( 1 ); }
++  unsigned long  count() const          { return _count; }
++  unsigned long  expected_count() const { return _expected_count; }
++
++  private:
++  std::ostream &     m_os;  // may not be present in all imps
++  const std::string  m_s1;  // string is more general, safer than
++  const std::string  m_s2;  //  const char *, and efficiency or size are
++  const std::string  m_s3;  //  not issues
++
++  unsigned long _count, _expected_count, _next_tic_count;
++  unsigned int  _tic;
++  void display_tic()
++  {
++    // use of floating point ensures that both large and small counts
++    // work correctly.  static_cast<>() is also used several places
++    // to suppress spurious compiler warnings.
++    unsigned int tics_needed =
++      static_cast<unsigned int>(
++        (static_cast<double>(_count)/_expected_count)*50.0 );
++    do { m_os << '*' << std::flush; } while ( ++_tic < tics_needed );
++    _next_tic_count =
++      static_cast<unsigned long>((_tic/50.0)*_expected_count);
++    if ( _count == _expected_count ) {
++      if ( _tic < 51 ) m_os << '*';
++      m_os << std::endl;
++      }
++  } // display_tic
++};
++
++} // namespace unit_test
++
++} // namespace boost
++
++#endif  // BOOST_TEST_UTILS_PROGRESS_DISPLAY_HPP
+diff -urN a/boost/test/utils/runtime/cla/parser.hpp b/boost/test/utils/runtime/cla/parser.hpp
+--- a/boost/test/utils/runtime/cla/parser.hpp	2012-12-13 21:32:58.000000000 +0000
++++ b/boost/test/utils/runtime/cla/parser.hpp	2015-06-21 21:11:49.038065848 +0100
+@@ -126,6 +126,8 @@
+     void                usage( out_stream& ostr );
+     void                help(  out_stream& ostr );
+ 
++    void                reset( cstring program_name = cstring() );
++
+ private:
+     argument const&     valid_argument( cstring string_id ) const;
+ 
+diff -urN a/boost/test/utils/runtime/cla/parser.ipp b/boost/test/utils/runtime/cla/parser.ipp
+--- a/boost/test/utils/runtime/cla/parser.ipp	2012-12-13 21:32:58.000000000 +0000
++++ b/boost/test/utils/runtime/cla/parser.ipp	2015-06-21 21:12:24.184626456 +0100
+@@ -249,6 +249,15 @@
+ 
+ //____________________________________________________________________________//
+ 
++BOOST_RT_PARAM_INLINE void
++parser::reset( cstring program_name )
++{
++    assign_op( m_program_name, program_name, 0 );
++    m_parameters.clear();
++}
++
++//____________________________________________________________________________//
++
+ } // namespace cla
+ 
+ } // namespace BOOST_RT_PARAM_NAMESPACE
+diff -urN a/boost/test/utils/timer.hpp b/boost/test/utils/timer.hpp
+--- a/boost/test/utils/timer.hpp	1970-01-01 01:00:00.000000000 +0100
++++ b/boost/test/utils/timer.hpp	2015-06-21 17:27:52.000000000 +0100
+@@ -0,0 +1,94 @@
++//  (C) Copyright Jamie Allsop 2015.
++//  Distributed under the Boost Software License, Version 1.0.
++//  (See accompanying file LICENSE_1_0.txt or copy at
++//  http://www.boost.org/LICENSE_1_0.txt)
++
++//  See http://www.boost.org/libs/test for the library home page.
++//
++//  Description : timer and elapsed types
++// ***************************************************************************
++
++#ifndef BOOST_TEST_UTILS_TIMER_HPP
++#define BOOST_TEST_UTILS_TIMER_HPP
++
++#ifdef BOOST_TEST_USE_DEPRECATED_TIMER
++#include <boost/timer.hpp>
++#else
++#include <boost/timer/timer.hpp>
++#endif
++#include <sstream>
++
++namespace boost {
++
++namespace unit_test {
++
++// ************************************************************************** //
++// **************          opaque timer and elapsed types      ************** //
++// ************************************************************************** //
++
++#ifdef BOOST_TEST_USE_DEPRECATED_TIMER
++
++typedef boost::timer timer_t;
++typedef unsigned long elapsed_t;
++
++inline std::string to_string( elapsed_t elapsed )
++{
++    std::ostringstream output;
++    if( elapsed % 1000 == 0 )
++    {
++        output << elapsed/1000 << "ms";
++    }
++    else
++    {
++        output << elapsed << "mks";
++    }
++    return output.str();
++}
++
++inline std::string to_xml( elapsed_t elapsed )
++{
++    std::ostringstream output;
++    output << "<TestingTime>" << elapsed << "</TestingTime>";
++    return output.str();
++}
++
++inline bool has_time( const elapsed_t& elapsed )
++{
++    return elapsed;
++}
++
++#else
++
++typedef boost::timer::cpu_timer timer_t;
++typedef boost::timer::cpu_times elapsed_t;
++
++inline std::string to_string( elapsed_t elapsed )
++{
++    return boost::timer::format( elapsed, 9, "%ws wall, %us user + %ss system = %ts CPU (%p%)" );
++}
++
++inline std::string to_xml( elapsed_t elapsed )
++{
++    std::ostringstream output;
++    output << "<TestingTime>" << ( elapsed.user + elapsed.system ) << "</TestingTime>"
++           << "<WallTime>"    << elapsed.wall   << "</WallTime>"
++           << "<UserTime>"    << elapsed.user   << "</UserTime>"
++           << "<SystemTime>"  << elapsed.system << "</SystemTime>";
++    return output.str();
++}
++
++inline bool has_time( const elapsed_t& elapsed )
++{
++    return elapsed.wall != 0 || elapsed.user != 0 || elapsed.system != 0;
++}
++
++#endif
++
++//____________________________________________________________________________//
++
++} // namespace unit_test
++
++} // namespace boost
++
++#endif // BOOST_TEST_UTILS_TIMER_HPP
++
+diff -urN a/cuppa_test_patch_applied.txt b/cuppa_test_patch_applied.txt
+--- a/cuppa_test_patch_applied.txt	1970-01-01 01:00:00.000000000 +0100
++++ b/cuppa_test_patch_applied.txt	2015-06-23 09:55:02.225423584 +0100
+@@ -0,0 +1 @@
++ 
+diff -urN a/libs/test/build/Jamfile.v2 b/libs/test/build/Jamfile.v2
+--- a/libs/test/build/Jamfile.v2	2012-12-13 21:32:58.000000000 +0000
++++ b/libs/test/build/Jamfile.v2	2015-06-21 21:36:46.092350094 +0100
+@@ -14,11 +14,22 @@
+                    <link>shared,<toolset>msvc:<cxxflags>-wd4275
+                    <toolset>msvc:<cxxflags>-wd4671
+                    <toolset>msvc:<cxxflags>-wd4673
++                   #<toolset>gcc:<cxxflags>-std=gnu++0x
++                   <toolset>clang:<cxxflags>-Wno-c99-extensions
++                   <toolset>clang:<cxxflags>-Wno-variadic-macros
+                    <warnings>all
++                   
++                   # adding a dependency on boost/timer as the header are needed, and the junction needs
++                   # to be there in order to build the library.
++                   <library>/boost/timer//boost_timer
+     : usage-requirements
+                    <define>BOOST_TEST_NO_AUTO_LINK=1
+                    # Disable Warning about boost::noncopyable not being exported
+                    <link>shared,<toolset>msvc:<cxxflags>-wd4275
++                   
++                   # Adding a dependency on boost/timer as the headers need to be there in case of the 
++                   # header-only usage variant
++                   <use>/boost/timer//boost_timer
+     ;
+ 
+ PRG_EXEC_MON_SOURCES =

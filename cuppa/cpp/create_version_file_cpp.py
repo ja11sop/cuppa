@@ -263,7 +263,7 @@ class CreateVersionFileCpp:
                         if revisions:
                             for revision in revisions:
                                 lines += [ '    Dependencies[ "' +  name + '" ].revisions.push_back( "' + revision + '" );' ]
-                except AttributeError, (e):
+                except AttributeError:
                     pass
         lines += [ '    return Dependencies;\n'
                    '}\n'

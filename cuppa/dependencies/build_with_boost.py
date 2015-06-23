@@ -8,6 +8,7 @@
 #   Boost
 #-------------------------------------------------------------------------------
 import shlex
+import subprocess
 import os
 import shutil
 import re
@@ -22,7 +23,7 @@ import cuppa.build_platform
 import cuppa.location
 
 from cuppa.output_processor import IncrementalSubProcess, ToolchainProcessor
-from cuppa.colourise        import as_warning, as_info
+from cuppa.colourise        import as_warning, as_info, as_error
 
 
 
@@ -74,12 +75,16 @@ class Boost(object):
         add_option( '--boost-verbose-config', dest='boost-verbose-config', action='store_true',
                     help="Pass this option if you wish to see the configuration output of boost build" )
 
+        add_option( '--boost-patch-boost-test', dest='boost-patch-boost-test', action='store_true',
+                    help="Use this option to patch boost test so it uses the new Boost.Timer and provides more usable output" )
+
 
     @classmethod
     def add_to_env( cls, env, add_dependency ):
-        build_always   = env.get_option( 'boost-build-always' )
-        verbose_build  = env.get_option( 'boost-verbose-build' )
-        verbose_config = env.get_option( 'boost-verbose-config' )
+        build_always     = env.get_option( 'boost-build-always' )
+        verbose_build    = env.get_option( 'boost-verbose-build' )
+        verbose_config   = env.get_option( 'boost-verbose-config' )
+        patch_boost_test = env.get_option( 'boost-patch-boost-test' )
 
         boost_location = env.get_option( 'boost-location' )
         boost_home     = env.get_option( 'boost-home' )
@@ -92,20 +97,25 @@ class Boost(object):
             if boost_location:
                 boost = cls( env, env[ 'platform' ],
                            location = boost_location,
-                           version  = boost_version )
+                           version  = boost_version,
+                           patch_test = patch_boost_test )
             elif boost_home:
                 boost = cls( env, env[ 'platform' ],
-                           base = boost_home )
+                           base = boost_home,
+                           patch_test = patch_boost_test )
             elif thirdparty and boost_version:
                 boost = cls( env, env[ 'platform' ],
                            base = thirdparty,
-                           version = boost_version )
+                           version = boost_version,
+                           patch_test = patch_boost_test )
             elif boost_version:
                 boost = cls( env, env[ 'platform' ],
-                           version = boost_version )
+                           version = boost_version,
+                           patch_test = patch_boost_test )
             elif boost_latest:
                 boost = cls( env, env[ 'platform' ],
-                           version = 'latest' )
+                           version = 'latest',
+                           patch_test = patch_boost_test )
 
         except BoostException as e:
             print as_warning( env, "cuppa: boost: warning: Could not create boost dependency - {}".format(e) )
@@ -199,7 +209,33 @@ class Boost(object):
         return location
 
 
-    def __init__( self, env, platform, base=None, location=None, version=None ):
+    def apply_patch_if_needed( self, env, home ):
+
+        patch_applied_path = os.path.join( home, "cuppa_test_patch_applied.txt" )
+        diff_file = "boost_test_patch.diff"
+
+        if os.path.exists( patch_applied_path ):
+            print "cuppa: boost: [{}] already applied".format( as_info( env, diff_file ) )
+            return
+
+        diff_path = os.path.join( os.path.split( __file__ )[0], "boost", diff_file )
+
+        command = "patch --batch -p1 --input={}".format( diff_path )
+
+        print "cuppa: boost: info: Applying [{}] using [{}] in [{}]".format(
+                as_info( env, diff_file ),
+                as_info( env, command ),
+                as_info( env, home )
+        )
+
+        if subprocess.call( shlex.split( command ), cwd=home ) != 0:
+            print as_error( env, "cuppa: boost: error: Could not apply [{}]".format( diff_file ) )
+
+        with open( patch_applied_path, "w" ) as patch_applied_file:
+            pass
+
+
+    def __init__( self, env, platform, base=None, location=None, version=None, patch_test=False ):
         print "cuppa: boost: identify boost using base = [{}], location = [{}] and version = [{}]".format(
                 as_info( env, str(base) ),
                 as_info( env, str(location) ),
@@ -251,6 +287,9 @@ class Boost(object):
             self._location = cuppa.location.Location( env, location )
 
         self.values['home'] = self._location.local()
+
+        if patch_test:
+            self.apply_patch_if_needed( env, self.values['home'] )
 
         self.values['full_version'], self.values['version'], self.values['numeric_version'] = self.get_boost_version( self.values['home'] )
 
