@@ -44,8 +44,6 @@ and have Scons "do the right thing"; building targets for any `sconscript` files
   * [Supported Dependencies](#supported-dependencies)
     * [boost](#boost)
     * [Header-only Libraries](#header-only-libraries)
-  * [Writing your own Dependencies](#writing-your-own-dependencies)
-    * [Custom Header-only Dependencies](#custom-header-only-dependencies)
   * [Creating your own Dependencies](#creating-your-own-dependencies)
     * [Building dependencies on top of `cuppa.header_library_dependency()`](#building-dependencies-on-top-of-cuppaheader_library_dependency)
   * [Acknowledgements](#acknowledgements)
