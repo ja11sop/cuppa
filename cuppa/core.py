@@ -643,7 +643,9 @@ class Construct(object):
 
             cloned_env['abs_final_dir']   = abs_final_dir( cloned_env['abs_build_dir'], cloned_env['final_dir'] )
 
-            cloned_env.AppendUnique( INCPATH = [ cloned_env['build_dir'] ] )
+            cloned_env.AppendUnique( INCPATH = [
+                    cloned_env['offset_dir']
+            ] )
 
             sconscript_exports = {
                 'env'                     : cloned_env,
