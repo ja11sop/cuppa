@@ -209,6 +209,11 @@ class Boost(object):
         return location
 
 
+    def patched_boost_test( self, home ):
+        patch_applied_path = os.path.join( home, "cuppa_test_patch_applied.txt" )
+        return os.path.exists( patch_applied_path )
+
+
     def apply_patch_if_needed( self, env, home ):
 
         patch_applied_path = os.path.join( home, "cuppa_test_patch_applied.txt" )
@@ -290,6 +295,8 @@ class Boost(object):
 
         if patch_test:
             self.apply_patch_if_needed( env, self.values['home'] )
+
+        self._patched_test = self.patched_boost_test( self.values['home'] )
 
         self.values['full_version'], self.values['version'], self.values['numeric_version'] = self.get_boost_version( self.values['home'] )
 
@@ -567,7 +574,7 @@ def stage_directory( toolchain, variant, abi_flag ):
 
 
 def boost_dependency_order():
-    return [ 'graph', 'regex', 'coroutine', 'context', 'log_setup', 'log', 'date_time', 'filesystem', 'timer', 'chrono', 'system', 'thread' ]
+    return [ 'graph', 'regex', 'coroutine', 'context', 'log_setup', 'log', 'date_time', 'filesystem', 'test', 'timer', 'chrono', 'system', 'thread' ]
 
 
 def boost_dependency_set():
@@ -591,13 +598,14 @@ def boost_libraries_with_no_dependencies():
         'serialization',
         'signals',
         'system',
-        'test',
         'thread',
         'wave'
     ] )
 
 
-def add_dependent_libraries( version, linktype, libraries ):
+def add_dependent_libraries( boost, linktype, libraries ):
+    version = boost.numeric_version()
+    patched_test = boost._patched_test
     required_libraries = set( libraries )
     for library in libraries:
         if library in boost_libraries_with_no_dependencies():
@@ -618,6 +626,8 @@ def add_dependent_libraries( version, linktype, libraries ):
             required_libraries.update( ['date_time', 'filesystem', 'system', 'thread'] )
         elif library == 'log_setup':
             required_libraries.update( ['log', 'date_time', 'filesystem', 'system', 'thread'] )
+        elif library == 'test' and patched_test:
+            required_libraries.update( ['timer, chrono'] )
         elif library == 'timer':
             required_libraries.update( ['chrono'] )
 
@@ -635,17 +645,21 @@ def add_dependent_libraries( version, linktype, libraries ):
 
 
 
-def lazy_update_library_list( env, libraries, built_libraries, add_dependents, linktype, boost ):
+def lazy_update_library_list( env, emitting, libraries, built_libraries, add_dependents, linktype, boost ):
 
     if add_dependents:
-        libraries = set( build_with_library_name(l) for l in add_dependent_libraries( boost.numeric_version(), linktype, libraries ) )
+        if not emitting:
+            libraries = set( build_with_library_name(l) for l in add_dependent_libraries( boost, linktype, libraries ) )
+        else:
+            libraries = add_dependent_libraries( boost, linktype, libraries )
 
-    sconscript_instance = env['sconscript_file']
+    # Use the sconscript_file + build_dir to identify this instance of the environment
+    variant_instance = env['sconscript_file'] + env['build_dir']
 
-    if not sconscript_instance in built_libraries:
-        built_libraries[ sconscript_instance ] = set( libraries )
+    if not variant_instance in built_libraries:
+        built_libraries[ variant_instance ] = set( libraries )
     else:
-        libraries = [ l for l in libraries if l not in built_libraries[ sconscript_instance ] ]
+        libraries = [ l for l in libraries if l not in built_libraries[ variant_instance ] ]
 
     return libraries
 
@@ -659,7 +673,7 @@ class BoostLibraryAction(object):
 
         self._env = env
 
-        self._libraries = lazy_update_library_list( env, libraries, self._built_libraries, add_dependents, linktype, boost )
+        self._libraries = lazy_update_library_list( env, False, libraries, self._built_libraries, add_dependents, linktype, boost )
 
         self._location       = boost.local()
         self._version        = boost.numeric_version()
@@ -812,7 +826,7 @@ class BoostLibraryEmitter(object):
     def __init__( self, env, libraries, add_dependents, linktype, boost ):
         self._env = env
 
-        self._libraries = lazy_update_library_list( env, libraries, self._built_libraries, add_dependents, linktype, boost )
+        self._libraries = lazy_update_library_list( env, True, libraries, self._built_libraries, add_dependents, linktype, boost )
 
         self._location     = boost.local()
         self._linktype     = linktype
