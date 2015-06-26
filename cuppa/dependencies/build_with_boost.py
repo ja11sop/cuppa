@@ -354,10 +354,13 @@ class BoostStaticLibraryMethod(object):
         self._verbose_build  = verbose_build
         self._verbose_config = verbose_config
 
+
     def __call__( self, env, libraries ):
+
         if not self._add_dependents:
             print as_warning( env, "cuppa: boost: warning: BoostStaticLibrary() is deprecated, use BoostStaticLibs() or BoostStaticLib() instead" )
         libraries = Flatten( [ libraries ] )
+
         if not 'boost' in env['BUILD_WITH']:
             env.BuildWith( 'boost' )
         Boost = env['dependencies']['boost']
@@ -434,7 +437,6 @@ class BuildBjam(object):
         self._version  = boost.numeric_version()
 
     def __call__( self, target, source, env ):
-        print "_build_bjam"
 
         build_script_path = self._location + '/tools/build'
 
@@ -632,15 +634,32 @@ def add_dependent_libraries( version, linktype, libraries ):
     return libraries
 
 
+
+def lazy_update_library_list( env, libraries, built_libraries, add_dependents, linktype, boost ):
+
+    if add_dependents:
+        libraries = set( build_with_library_name(l) for l in add_dependent_libraries( boost.numeric_version(), linktype, libraries ) )
+
+    sconscript_instance = env['sconscript_file']
+
+    if not sconscript_instance in built_libraries:
+        built_libraries[ sconscript_instance ] = set( libraries )
+    else:
+        libraries = [ l for l in libraries if l not in built_libraries[ sconscript_instance ] ]
+
+    return libraries
+
+
+
 class BoostLibraryAction(object):
 
+    _built_libraries = {}
+
     def __init__( self, env, libraries, add_dependents, linktype, boost, verbose_build, verbose_config ):
+
         self._env = env
 
-        if add_dependents:
-            self._libraries = set( build_with_library_name(l) for l in add_dependent_libraries( boost.numeric_version(), linktype, libraries ) )
-        else:
-            self._libraries = libraries
+        self._libraries = lazy_update_library_list( env, libraries, self._built_libraries, add_dependents, linktype, boost )
 
         self._location       = boost.local()
         self._version        = boost.numeric_version()
@@ -718,6 +737,9 @@ class BoostLibraryAction(object):
 
     def __call__( self, target, source, env ):
 
+        if not self._libraries:
+            return None
+
         stage_dir = stage_directory( self._toolchain, self._variant, self._toolchain.abi_flag(env) )
         args      = self._build_command( env, self._toolchain, self._libraries, self._variant, self._linktype, stage_dir )
 
@@ -785,13 +807,12 @@ def shared_library_name( env, library, full_version ):
 
 class BoostLibraryEmitter(object):
 
+    _built_libraries = {}
+
     def __init__( self, env, libraries, add_dependents, linktype, boost ):
         self._env = env
 
-        if add_dependents:
-            self._libraries = add_dependent_libraries( boost.numeric_version(), linktype, libraries )
-        else:
-            self._libraries = libraries
+        self._libraries = lazy_update_library_list( env, libraries, self._built_libraries, add_dependents, linktype, boost )
 
         self._location     = boost.local()
         self._linktype     = linktype
@@ -812,7 +833,9 @@ class BoostLibraryEmitter(object):
                 filename = shared_library_name( env, library, self._full_version )
 
             built_library_path = os.path.join( self._location, stage_dir, 'lib', filename )
+
             node = File( built_library_path )
+
             target.append( node )
         return target, source
 
@@ -838,22 +861,29 @@ class BoostLibraryBuilder(object):
         bjam_target = os.path.join( self._boost.local(), 'bjam' )
         bjam    = env.Command( bjam_target, [], BuildBjam( self._boost ) )
         env.NoClean( bjam )
-        library = env.BoostLibraryBuilder( target, source )
+        built_libraries = env.BoostLibraryBuilder( target, source )
 
-        env.Requires( library, bjam )
+        installed_libraries = []
+
+        if not built_libraries:
+            return installed_libraries
+
+        env.Requires( built_libraries, bjam )
 
         if cuppa.build_platform.name() == "Linux":
             project_config_target = os.path.join( self._boost.local(), "project-config.jam" )
             project_config_jam = env.Command( project_config_target, [], UpdateProjectConfigJam( project_config_target ) )
-            env.Requires( library, project_config_jam )
+            env.Requires( built_libraries, project_config_jam )
 
-        install_dir = ''
-        library_name = os.path.split( library[0].path )[1]
+        install_dir = env['abs_build_dir']
+
+        library_path = os.path.split( str(built_libraries[0]) )[1]
         if linktype == 'shared':
-            install_dir = os.path.split( os.path.join( env['abs_final_dir'], library_name ) )[0]
+            install_dir = os.path.split( os.path.join( env['abs_final_dir'], library_path ) )[0]
 
-        installed_library = env.Install( install_dir, library )
+        for library in built_libraries:
+            installed_libraries.append( env.Install( install_dir, library ) )
 
-        return installed_library
+        return installed_libraries
 
 
