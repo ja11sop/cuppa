@@ -93,7 +93,7 @@ class Location(object):
             return pip.download.is_archive_file( path )
 
 
-    def get_local_directory( self, env, location, branch, full_url ):
+    def get_local_directory( self, env, location, sub_dir, branch, full_url ):
 
         local_directory = None
 
@@ -133,14 +133,16 @@ class Location(object):
                 print "cuppa: location: [{}] is an archive download".format( self._as_info( location ) )
                 if os.path.exists( local_directory ):
                     try:
+                        # If not empty this will fail
                         os.rmdir( local_directory )
                     except:
+                        # Not empty so we'll return this as the local_directory
                         return local_directory
 
                 print "cuppa: location: downloading [{}]...".format( self._as_info( location ) )
                 filename, headers = urllib.urlretrieve( location )
                 print "cuppa: location: [{}] successfully downloaded to [{}]".format( self._as_info( location ), self._as_info( filename ) )
-                self.extract( filename, local_directory )
+                self.extract( filename, os.path.join( local_directory, sub_dir ) )
 
             elif '+' in full_url.scheme:
                 vc_type = location.split('+', 1)[0]
@@ -148,23 +150,27 @@ class Location(object):
                 if backend:
                     vcs_backend = backend( location )
                     rev_options = self.get_rev_options( vc_type, vcs_backend )
+
+                    versioned_path = os.path.join( local_directory, sub_dir )
+
                     if os.path.exists( local_directory ):
-                        url, repository, branch, revision = self.get_info( location, local_directory, full_url )
+
+                        url, repository, branch, revision = self.get_info( location, versioned_path, full_url )
                         version = self.ver_rev_summary( branch, revision, self._full_url.path )[0]
                         print "cuppa: location: updating [{}] in [{}]{} at [{}]".format(
                                 self._as_info( location ),
-                                self._as_notice( local_directory ),
+                                self._as_notice( versioned_path ),
                                 ( rev_options and  " on {}".format( self._as_notice( str(rev_options) ) ) or "" ),
                                 self._as_info( version )
                         )
                         try:
-                            vcs_backend.update( local_directory, rev_options )
+                            vcs_backend.update( versioned_path, rev_options )
                             print "cuppa: location: successfully updated [{}]".format( self._as_info( location ) )
                         except pip.exceptions.InstallationError as error:
                             print "cuppa: {}: location: could not update [{}] in [{}]{} due to error [{}]".format(
                                     self._as_warning_label( " warning " ),
                                     self._as_warning_text( location ),
-                                    self._as_warning_text( local_directory ),
+                                    self._as_warning_text( versioned_path ),
                                     ( rev_options and  " at {}".format( self._as_warning_text( str(rev_options) ) ) or "" ),
                                     self._as_warning_text( str(error) )
                             )
@@ -172,15 +178,15 @@ class Location(object):
                         action = "cloning"
                         if vc_type == "svn":
                             action = "checking out"
-                        print "cuppa: location: {} [{}] into [{}]".format( action, self._as_info( location ), self._as_info( local_directory ) )
+                        print "cuppa: location: {} [{}] into [{}]".format( action, self._as_info( location ), self._as_info( versioned_path ) )
                         try:
-                            vcs_backend.obtain( local_directory )
+                            vcs_backend.obtain( versioned_path )
                             print "cuppa: location: successfully retrieved [{}]".format( self._as_info( location ) )
                         except pip.exceptions.InstallationError as error:
                             print "cuppa: {}: location: could not retrieve [{}] into [{}]{} due to error [{}]".format(
                                     self._as_error_label( " error " ),
                                     self._as_error_text( location ),
-                                    self._as_error_text( local_directory ),
+                                    self._as_error_text( versioned_path ),
                                     ( rev_options and  " to {}".format( self._as_error_text(  str(rev_options) ) ) or ""),
                                     self._as_error_text( str( error ) )
                             )
@@ -271,16 +277,26 @@ class Location(object):
         return self._colouriser.as_notice( text )
 
 
-    def __init__( self, env, location, branch=None ):
+    def __init__( self, env, location, branch=None, extra_sub_path=None ):
 
         self._colouriser = env['colouriser']
-        self._location = location
-        self._full_url = urlparse.urlparse( location )
+        self._location   = location
+        self._full_url   = urlparse.urlparse( location )
+        self._sub_dir    = ""
+
+        if extra_sub_path:
+            if os.path.isabs( extra_sub_path ):
+                raise LocationException()
+            else:
+                self._sub_dir = os.path.normpath( extra_sub_path )
 
         ## Get the location for the source dependency. If the location is a URL or an Archive we'll need to
         ## retrieve the URL and extract the archive. get_local_directory() returns the location of the source
         ## once this is done
-        self._local_directory = self.get_local_directory( env, location, branch, self._full_url )
+        local_directory = self.get_local_directory( env, location, self._sub_dir, branch, self._full_url )
+
+        self._base_local_directory = local_directory
+        self._local_directory = os.path.join( local_directory, self._sub_dir )
 
         ## Now that we have a locally accessible version of the dependency we can try to collate some information
         ## about it to allow us to specify what we are building with.
@@ -297,6 +313,14 @@ class Location(object):
 
     def local( self ):
         return self._local_directory
+
+
+    def base_local( self ):
+        return self._base_local_directory
+
+
+    def sub_dir( self ):
+        return self._sub_dir
 
 
     def location( self ):

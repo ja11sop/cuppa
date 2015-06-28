@@ -18,6 +18,7 @@ class CompileMethod:
     def __call__( self, env, source, **kwargs ):
         sources = Flatten( [ source ] )
         objects = []
+        env.AppendUnique( INCPATH = env['CPPPATH'] )
         for source in sources:
             objects.append(
                 env.Object(
