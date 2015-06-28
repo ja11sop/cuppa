@@ -600,7 +600,7 @@ class Construct(object):
                 if os.path.exists( project ) and os.path.isdir( project ):
                     sub_sconscripts = self.get_sub_sconscripts(
                             project,
-                            [ default_env['build_root'], default_env['download_root']
+                            [ default_env['build_root'], default_env['download_root'] ]
                     )
                     if sub_sconscripts:
                         print "cuppa: Reading project folder [{}] and using sub-sconscripts [{}]".format(
