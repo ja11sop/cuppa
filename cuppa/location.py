@@ -24,6 +24,7 @@ import pip.exceptions
 
 import scms.subversion
 import scms.git
+import scms.mercurial
 
 
 class LocationException(Exception):
@@ -221,6 +222,11 @@ class Location(object):
             info = scms.subversion.info( vcs_directory )
             return info
         except scms.subversion.SubversionException:
+            pass
+        try:
+            info = scms.mercurial.info( vcs_directory )
+            return info
+        except scms.mercurial.MercurialException:
             pass
 
         return info
