@@ -308,7 +308,7 @@ class Construct(object):
                   default_profiles     = None,
                   default_runner       = None,
                   configure_callback   = None,
-                  dependencies         = [],
+                  dependencies         = None,
                   tools                = [] ):
 
         cuppa.version.check_current_version()
@@ -598,7 +598,10 @@ class Construct(object):
 
             for project in projects:
                 if os.path.exists( project ) and os.path.isdir( project ):
-                    sub_sconscripts = self.get_sub_sconscripts( project )
+                    sub_sconscripts = self.get_sub_sconscripts(
+                            project,
+                            [ default_env['build_root'], default_env['download_root']
+                    )
                     if sub_sconscripts:
                         print "cuppa: Reading project folder [{}] and using sub-sconscripts [{}]".format(
                                 project, self.colour_items( sub_sconscripts ) )

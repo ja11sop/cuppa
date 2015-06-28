@@ -8,8 +8,6 @@
 #   Qt5
 #-------------------------------------------------------------------------------
 
-import glob
-import os.path
 import subprocess
 import shlex
 
