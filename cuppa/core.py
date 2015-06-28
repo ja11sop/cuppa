@@ -308,13 +308,14 @@ class Construct(object):
                   default_profiles     = None,
                   default_runner       = None,
                   configure_callback   = None,
-                  dependencies         = None ):
+                  dependencies         = [],
+                  tools                = [] ):
 
         cuppa.version.check_current_version()
 
         set_base_options()
 
-        self._default_env = SCons.Script.DefaultEnvironment()
+        self._default_env = SCons.Script.Environment( tools=['default'] + tools )
         default_env = self._default_env
 
         self.initialise_options( default_env, default_options, dependencies )
@@ -548,9 +549,24 @@ class Construct(object):
         return variant_envs
 
 
-    def get_sub_sconscripts( self, path ):
-        regex = re.compile( r'([^.]+[.])?sconscript$', re.IGNORECASE )
-        return cuppa.recursive_glob.glob(path, regex )
+    def get_sub_sconscripts( self, path, exclude_dirs ):
+        file_regex = re.compile( r'([^.]+[.])?sconscript$', re.IGNORECASE )
+        discard_if_subdir_contains_regex = re.compile( r'(SC|Sc|sc)onstruct' )
+
+        def up_dir( path ):
+            element = next( e for e in path.split(os.path.sep) if e )
+            return element == ".."
+
+        exclude_dirs = [ re.escape(d) for d in exclude_dirs if not os.path.isabs(d) and not up_dir(d) ]
+        exclude_dirs = "|".join( exclude_dirs )
+        exclude_dirs_regex = re.compile( exclude_dirs, re.IGNORECASE )
+
+        return cuppa.recursive_glob.glob(
+                path,
+                file_regex,
+                exclude_dirs_pattern= exclude_dirs_regex,
+                discard_pattern=discard_if_subdir_contains_regex
+        )
 
 
     def colour_items( self, items ):
@@ -566,7 +582,10 @@ class Construct(object):
             projects = default_env['default_projects']
 
             if projects == None or not default_env['run_from_launch_dir']:
-                sub_sconscripts = self.get_sub_sconscripts( default_env['launch_dir'] )
+                sub_sconscripts = self.get_sub_sconscripts(
+                        default_env['launch_dir'],
+                        [ default_env['build_root'], default_env['download_root'] ]
+                )
                 if sub_sconscripts:
                     projects = sub_sconscripts
                     print "cuppa: Using sub-sconscripts [{}]".format( self.colour_items( projects ) )
@@ -626,6 +645,7 @@ class Construct(object):
             sconscript_env['sconscript_file'] = sconscript_file
 
             build_root = sconscript_env['build_root']
+
             cloned_env = sconscript_env.Clone()
             cloned_env['sconscript_env'] = sconscript_env
 
