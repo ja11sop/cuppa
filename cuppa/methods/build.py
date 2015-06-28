@@ -23,7 +23,8 @@ class BuildMethod:
             exe += '_' + env['variant']
 
         env.AppendUnique( DYNAMICLIBS = env['LIBS'] )
-        env.AppendUnique( INCPATH = env['CPPPATH'] )
+        if 'CPPPATH' in env:
+            env.AppendUnique( INCPATH = env['CPPPATH'] )
 
         all_libs = env['DYNAMICLIBS'] + env['STATICLIBS'] + LIBS + DYNAMICLIBS + STATICLIBS
 
