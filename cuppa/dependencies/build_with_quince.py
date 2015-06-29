@@ -41,7 +41,8 @@ class QuinceLibraryMethod(object):
         if linktype == "static":
             return env.BuildStaticLib( "quince", objects, final_dir = final_dir )
         else:
-            return env.BuildSharedLib( "quince", objects, final_dir = final_dir )
+            shared_lib = env.BuildSharedLib( "quince", objects, final_dir = final_dir )
+            return env.Install( env['abs_final_dir'], shared_lib )
 
 
 
@@ -128,7 +129,8 @@ class QuincePostgresqlLibraryMethod(object):
         if linktype == "static":
             return env.BuildStaticLib( "quince-postgresql", objects, final_dir = final_dir )
         else:
-            return env.BuildSharedLib( "quince-postgresql", objects, final_dir = final_dir )
+            shared_lib = env.BuildSharedLib( "quince-postgresql", objects, final_dir = final_dir )
+            return env.Install( env['abs_final_dir'], shared_lib )
 
 
 
