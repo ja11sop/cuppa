@@ -15,10 +15,16 @@ import shlex
 import cuppa.location
 import cuppa.output_processor
 import cuppa.build_platform
-from cuppa.colourise import as_info
+from cuppa.colourise import as_info, as_warning
 
 import SCons.Script
 
+
+class Qt5Exception(Exception):
+    def __init__(self, value):
+        self.parameter = value
+    def __str__(self):
+        return repr(self.parameter)
 
 
 class build_with_qt5(object):
@@ -31,23 +37,27 @@ class build_with_qt5(object):
 
     @classmethod
     def add_to_env( cls, env, add_dependency  ):
-        add_dependency( cls._name, cls( env ) )
+        try:
+            add_dependency( cls._name, cls( env ) )
+        except Qt5Exception:
+            print as_warning( env, "cuppa: warning: Could not create dependency [{}]. Dependency not available.".format( cls._name ) )
 
 
     def __init__( self, env ):
 
-        self._location = cuppa.location.Location(
-                env,
-                "hg+https://bitbucket.org/dirkbaechle/scons_qt5",
-                extra_sub_path = "qt5"
-        )
+        url = "hg+https://bitbucket.org/dirkbaechle/scons_qt5"
 
-        if not cuppa.output_processor.command_available( "pkg-config" ):
-            return
+        try:
+            self._location = cuppa.location.Location( env, url, extra_sub_path = "qt5" )
+        except cuppa.location.LocationException:
+            print as_warning( env, "cuppa: qt5: warning: Could not retrieve url [{}]".format( url ) )
+            raise Qt5Exception( "Could not retrieve scons_qt5 from [{}]".format( url ) )
 
         self._version = "5"
 
         if cuppa.build_platform.name() in ["Darwin", "Linux"]:
+            if not cuppa.output_processor.command_available( "pkg-config" ):
+                return
             if 'QT5DIR' not in env:
                 self._set_qt5_dir( env )
             self._version = self._get_qt5_version()
