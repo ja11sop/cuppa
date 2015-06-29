@@ -8,7 +8,6 @@
 #   Quince
 #-------------------------------------------------------------------------------
 
-import glob
 import os.path
 import subprocess
 import shlex
@@ -16,6 +15,33 @@ import shlex
 # Cuppa Imports
 import cuppa.location
 import cuppa.output_processor
+
+
+
+class QuinceLibraryMethod(object):
+
+    def __init__( self, location, src_path ):
+        self._location = location
+        self._src_path = src_path
+
+
+    def __call__( self, env, linktype ):
+
+        build_dir = os.path.join( self._location, env['build_dir'] )
+        final_dir = os.path.normpath( os.path.join( build_dir, env['final_dir'] ) )
+
+        env.BuildWith( 'boost' )
+
+        objects = []
+        for source in env.RecursiveGlob( self._src_path, "*.cpp" ):
+            rel_path = os.path.relpath( str(source), self._location )
+            obj_path = os.path.join( build_dir, os.path.splitext( rel_path )[0] ) +env['OBJSUFFIX']
+            objects.append( env.Object( obj_path, source ) )
+
+        if linktype == "static":
+            return env.BuildStaticLib( "quince", objects, final_dir = final_dir )
+        else:
+            return env.BuildSharedLib( "quince", objects, final_dir = final_dir )
 
 
 
@@ -42,29 +68,24 @@ class build_with_quince(object):
 
 
     def __init__( self, env, location ):
-
         self._location = cuppa.location.Location( env, location )
-
         self._includes = [ os.path.join( self._location.local(), "include" ) ]
-        src_glob = os.path.join( self._location.local(), "src", "*.cpp" )
-        self._sources = glob.glob( src_glob )
+        self._src_path = os.path.join( self._location.local(), "src" )
+
+        env.AddMethod( QuinceLibraryMethod( self._location.local(), self._src_path ), "QuinceLibrary" )
 
 
     def __call__( self, env, toolchain, variant ):
 
         env.AppendUnique( INCPATH = self._includes )
 
-        static_quince = env.BuildStaticLib( "quince", self._sources )
-
-        env.BuildWith( 'boost' )
-
         env.AppendUnique( STATICLIBS = [
-                static_quince,
+                env.QuinceLibrary( 'static' ),
                 env.BoostStaticLibs( [
                         'filesystem',
                         'system',
                         'thread',
-                ] )
+                ] ),
         ] )
 
 
@@ -82,6 +103,32 @@ class build_with_quince(object):
 
     def revisions( self ):
         return self._location.revisions()
+
+
+
+class QuincePostgresqlLibraryMethod(object):
+
+    def __init__( self, location, src_path ):
+        self._location = location
+        self._src_path = src_path
+
+
+    def __call__( self, env, linktype ):
+        build_dir = os.path.join( self._location, env['build_dir'] )
+        final_dir = os.path.normpath( os.path.join( build_dir, env['final_dir'] ) )
+
+        env.BuildWith( 'boost' )
+
+        objects = []
+        for source in env.RecursiveGlob( self._src_path, "*.cpp" ):
+            rel_path = os.path.relpath( str(source), self._location )
+            obj_path = os.path.join( build_dir, os.path.splitext( rel_path )[0] ) +env['OBJSUFFIX']
+            objects.append( env.Object( obj_path, source ) )
+
+        if linktype == "static":
+            return env.BuildStaticLib( "quince-postgresql", objects, final_dir = final_dir )
+        else:
+            return env.BuildSharedLib( "quince-postgresql", objects, final_dir = final_dir )
 
 
 
@@ -125,18 +172,23 @@ class quince_postgresql(object):
 
         self._flags['DYNAMICLIBS'] = [ 'pq' ]
 
-        src_glob = os.path.join( self._location.local(), "src", "*.cpp" )
-        self._sources = glob.glob( src_glob )
+        self._src_path = os.path.join( self._location.local(), "src" )
+
+        env.AddMethod( QuincePostgresqlLibraryMethod( self._location.local(), self._src_path ), "QuincePostgresqlLibrary" )
 
 
     def __call__( self, env, toolchain, variant ):
         env.AppendUnique( INCPATH     = self._flags['INCPATH'] )
         env.AppendUnique( LIBPATH     = self._flags['LIBPATH'] )
         env.AppendUnique( DYNAMICLIBS = self._flags['DYNAMICLIBS'] )
-        static_quince_postgresql = env.BuildStaticLib( "quince-postgresql", self._sources )
-        env.AppendUnique( STATICLIBS  = [
-                static_quince_postgresql,
-                env.BoostStaticLibs( [ 'date_time' ] )
+
+        quince_postgresql_lib = env.QuincePostgresqlLibrary('static')
+        quince_lib = env.QuinceLibrary('static')
+
+        env.Append( STATICLIBS  = [
+                quince_postgresql_lib,
+                quince_lib,
+                env.BoostStaticLibs( [ 'date_time' ] ),
         ] )
 
 
