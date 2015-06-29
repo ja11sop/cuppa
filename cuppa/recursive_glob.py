@@ -39,7 +39,7 @@ def glob( start, file_pattern, exclude_dirs_pattern=None, discard_pattern=None )
         matches_in_this_dir = []
 
         for filename in filenames:
-            if subdir and discard_pattern.match( filename ):
+            if subdir and discard_pattern and discard_pattern.match( filename ):
                 # if we are in a subdir and it contains a file that matches the discard_pattern
                 # set exclude_this_dir to True so later we can discard any local matches we'd
                 # already encountered while walking the directory
