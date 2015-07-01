@@ -33,7 +33,7 @@ class QuinceLibraryMethod(object):
         env.BuildWith( 'boost' )
 
         objects = []
-        for source in env.RecursiveGlob( self._src_path, "*.cpp" ):
+        for source in env.RecursiveGlob( "*.cpp", start=self._src_path, exclude_dirs=[ env['build_dir'] ] ):
             rel_path = os.path.relpath( str(source), self._location )
             obj_path = os.path.join( build_dir, os.path.splitext( rel_path )[0] ) +env['OBJSUFFIX']
             objects.append( env.Object( obj_path, source ) )
@@ -60,8 +60,6 @@ class build_with_quince(object):
     @classmethod
     def add_to_env( cls, env, add_dependency  ):
         location = env.get_option( cls._name + "-location" )
-        if not location:
-            location = env['thirdparty']
         if not location:
             print "No location specified for dependency [{}]. Dependency not available.".format( cls._name.title() )
 
@@ -121,7 +119,7 @@ class QuincePostgresqlLibraryMethod(object):
         env.BuildWith( 'boost' )
 
         objects = []
-        for source in env.RecursiveGlob( self._src_path, "*.cpp" ):
+        for source in env.RecursiveGlob( "*.cpp", start=self._src_path, exclude_dirs=[ env['build_dir'] ] ):
             rel_path = os.path.relpath( str(source), self._location )
             obj_path = os.path.join( build_dir, os.path.splitext( rel_path )[0] ) +env['OBJSUFFIX']
             objects.append( env.Object( obj_path, source ) )
@@ -148,8 +146,6 @@ class quince_postgresql(object):
     @classmethod
     def add_to_env( cls, env, add_dependency  ):
         location = env.get_option( cls._name + "-location" )
-        if not location:
-            location = env['thirdparty']
         if not location:
             print "No location specified for dependency [{}]. Dependency not available.".format( cls._name.title() )
 

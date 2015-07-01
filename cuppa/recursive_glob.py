@@ -15,6 +15,7 @@ import cuppa.utility
 
 
 def glob( start, file_pattern, exclude_dirs_pattern=None, discard_pattern=None ):
+
     if cuppa.utility.is_string( file_pattern ):
         file_pattern = re.compile( fnmatch.translate( file_pattern ) )
 

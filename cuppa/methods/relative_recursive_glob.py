@@ -9,51 +9,37 @@
 #-------------------------------------------------------------------------------
 import os
 import fnmatch
+import re
 
 import cuppa.recursive_glob
-
-
-class GlobFromSconscriptMethod:
-
-    def __call__( self, env, start, pattern ):
-
-        if start and start != '.':
-            start = os.path.join( env['sconscript_dir'], start )
-        else:
-            start = env['sconscript_dir']
-
-        return cuppa.recursive_glob.glob( start, pattern )
-
-
-    @classmethod
-    def add_to_env( cls, env ):
-        env.AddMethod( cls(), "GlobFromSconscript" )
-
-
-
-class GlobFromBaseMethod:
-
-    def __call__( self, env, start, pattern ):
-
-        if start and start != '.':
-            start = os.path.join( env['base_path'], start )
-        else:
-            start = env['base_path']
-
-        return cuppa.recursive_glob.glob( start, pattern )
-
-
-    @classmethod
-    def add_to_env( cls, env ):
-        env.AddMethod( cls(), "GlobFromBase" )
 
 
 
 class RecursiveGlobMethod:
 
-    def __call__( self, env, start, pattern ):
-        return cuppa.recursive_glob.glob( start, pattern )
+    default = ()
 
+    def __call__( self, env, pattern, start=default, exclude_dirs=default ):
+
+        exclude_dirs_regex = None
+
+        if start == self.default:
+            start = env['sconscript_dir']
+
+        if exclude_dirs == self.default:
+            exclude_dirs = [ env['download_dir'], env['build_root' ] ]
+
+        if exclude_dirs:
+            def up_dir( path ):
+                element = next( e for e in path.split(os.path.sep) if e )
+                return element == ".."
+            exclude_dirs = [ re.escape(d) for d in exclude_dirs if not os.path.isabs(d) and not up_dir(d) ]
+            exclude_dirs = "|".join( exclude_dirs )
+            exclude_dirs_regex = re.compile( exclude_dirs )
+
+        matches = cuppa.recursive_glob.glob( start, pattern, exclude_dirs_pattern=exclude_dirs_regex )
+        nodes   = [ env.File( os.path.relpath( match, env['base_path'] ) ) for match in matches ]
+        return nodes
 
     @classmethod
     def add_to_env( cls, env ):
