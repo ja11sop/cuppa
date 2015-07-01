@@ -41,13 +41,15 @@ class base(object):
     @classmethod
     def add_to_env( cls, env, add_dependency  ):
         location = env.get_option( cls._name + "-location" )
-        if not location:
+        branch   = env.get_option( cls._name + "-branch" )
+
+        if not location and branch:
             location = env['branch_root']
-        if not location:
+        if not location and branch:
             location = env['thirdparty']
         if not location:
             print "cuppa: No location specified for dependency [{}]. Dependency not available.".format( cls._name.title() )
-        branch  = env.get_option( cls._name + "-branch" )
+
         include = env.get_option( cls._name + "-include" )
 
         add_dependency( cls._name, cls( env, location, branch=branch, includes=[include] ) )
