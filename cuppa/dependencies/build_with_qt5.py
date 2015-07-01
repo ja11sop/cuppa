@@ -91,7 +91,7 @@ class build_with_qt5(object):
 
     def __call__( self, env, toolchain, variant ):
 
-        SCons.Script.Tool( 'qt5',toolpath=[self._location.base_local()] )( env )
+        SCons.Script.Tool( 'qt5', toolpath=[ self._location.base_local() ] )( env )
 
         if cuppa.build_platform.name() in ["Darwin", "Linux"]:
             env.MergeFlags("-fPIC")
