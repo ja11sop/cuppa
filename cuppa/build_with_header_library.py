@@ -25,9 +25,11 @@ class base(object):
 
     @classmethod
     def add_options( cls, add_option ):
-        location_name = cls._name + "-location"
-        branch_name   = cls._name + "-branch"
-        include_name  = cls._name + "-include"
+        location_name    = cls._name + "-location"
+        branch_name      = cls._name + "-branch"
+        include_name     = cls._name + "-include"
+        sys_include_name = cls._name + "-sys-include"
+
         add_option( '--' + location_name, dest=location_name, type='string', nargs=1, action='store',
                     help = cls._name + ' location to build against' )
 
@@ -36,6 +38,9 @@ class base(object):
 
         add_option( '--' + include_name, dest=include_name, type='string', nargs=1, action='store',
                     help = cls._name + ' include sub-directory to be added to the include path. Optional' )
+
+        add_option( '--' + sys_include_name, dest=sys_include_name, type='string', nargs=1, action='store',
+                    help = cls._name + ' include sub-directory to be added to the system include path. Optional' )
 
 
     @classmethod
@@ -51,21 +56,35 @@ class base(object):
             print "cuppa: No location specified for dependency [{}]. Dependency not available.".format( cls._name.title() )
 
         include = env.get_option( cls._name + "-include" )
+        includes = include and [include] or []
 
-        add_dependency( cls._name, cls( env, location, branch=branch, includes=[include] ) )
+        sys_include = env.get_option( cls._name + "-sys-include" )
+        sys_includes = sys_include and [sys_include] or []
+
+        add_dependency( cls._name, cls( env, location, branch=branch, includes=includes, sys_includes=sys_includes) )
 
 
-    def __init__( self, env, location, branch=None, includes=[] ):
+    def __init__( self, env, location, branch=None, includes=[], sys_includes=[] ):
 
         self._location = cuppa.location.Location( env, location, branch )
 
+        if not includes and not sys_includes:
+            includes = [self._location.local()]
+
         self._includes = []
         for include in includes:
-            self._includes.append( include and os.path.join( self._location.local(), include ) or self._location.local(), )
+            if include:
+                self._includes.append( os.path.isabs(include) and include or os.path.join( self._location.local(), include ) )
+
+        self._sys_includes = []
+        for include in sys_includes:
+            if include:
+                self._sys_includes.append( os.path.isabs(include) and include or os.path.join( self._location.local(), include ) )
 
 
     def __call__( self, env, toolchain, variant ):
         env.AppendUnique( INCPATH = self._includes )
+        env.AppendUnique( SYSINCPATH = self._sys_includes )
 
 
     def name( self ):

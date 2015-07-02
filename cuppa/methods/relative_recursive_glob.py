@@ -21,13 +21,13 @@ class RecursiveGlobMethod:
 
     def __call__( self, env, pattern, start=default, exclude_dirs=default ):
 
-        exclude_dirs_regex = None
-
         if start == self.default:
             start = env['sconscript_dir']
 
         if exclude_dirs == self.default:
             exclude_dirs = [ env['download_dir'], env['build_root' ] ]
+
+        exclude_dirs_regex = None
 
         if exclude_dirs:
             def up_dir( path ):
