@@ -210,6 +210,10 @@ class Codeblocks(object):
             cbs_file_name = filename
             if cbs_file_name in [ 'sconscript', 'SConscript', 'Sconscript' ]:
                 cbs_file_name = os.path.split( directory )[1]
+                if cbs_file_name == ".":
+                    cbs_file_name = os.path.split( os.path.abspath( env['sconscript_dir'] ) )[1]
+                    if not cbs_file_name:
+                        cbs_file_name = "sconscript"
 
             if not self._place_cbs_by_sconscript:
                 directory = env['working_dir']
