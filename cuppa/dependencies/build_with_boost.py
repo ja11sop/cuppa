@@ -851,11 +851,14 @@ class BoostLibraryEmitter(object):
             node = File( built_library_path )
 
             target.append( node )
+
         return target, source
 
 
 
 class BoostLibraryBuilder(object):
+
+    _library_targets = {}
 
     def __init__( self, boost, add_dependents, verbose_build, verbose_config ):
         self._boost = boost
@@ -865,6 +868,7 @@ class BoostLibraryBuilder(object):
 
 
     def __call__( self, env, target, source, libraries, linktype ):
+
         library_action  = BoostLibraryAction ( env, libraries, self._add_dependents, linktype, self._boost, self._verbose_build, self._verbose_config )
         library_emitter = BoostLibraryEmitter( env, libraries, self._add_dependents, linktype, self._boost )
 
@@ -876,6 +880,28 @@ class BoostLibraryBuilder(object):
         bjam    = env.Command( bjam_target, [], BuildBjam( self._boost ) )
         env.NoClean( bjam )
         built_libraries = env.BoostLibraryBuilder( target, source )
+
+        prefix = env.subst('$LIBPREFIX')
+        if linktype == 'shared':
+            prefix = env.subst('$SHLIBPREFIX')
+
+        built_library_map = {}
+        for library in built_libraries:
+            name = os.path.splitext( os.path.split( str(library) )[1] )[0].replace( prefix + "boost_", "" )
+            built_library_map[name] = library
+
+        variant_instance = env['sconscript_file'] + env['build_dir']
+
+        if not variant_instance in self._library_targets:
+             self._library_targets[ variant_instance ] = {}
+
+        required_libraries = add_dependent_libraries( self._boost, linktype, libraries )
+        for library in required_libraries:
+            if library in self._library_targets[ variant_instance ]:
+                if library not in built_library_map:
+                    env.Depends( built_libraries, self._library_targets[ variant_instance ][library] )
+            else:
+                self._library_targets[ variant_instance ][library] = built_library_map[library]
 
         installed_libraries = []
 
@@ -895,8 +921,8 @@ class BoostLibraryBuilder(object):
         if linktype == 'shared':
             install_dir = os.path.split( os.path.join( env['abs_final_dir'], library_path ) )[0]
 
-        for library in built_libraries:
-            installed_libraries.append( env.Install( install_dir, library ) )
+        for library in required_libraries:
+            installed_libraries.append( env.Install( install_dir, self._library_targets[ variant_instance ][library] ) )
 
         return installed_libraries
 
