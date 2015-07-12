@@ -20,11 +20,11 @@ class CompileMethod:
         objects = []
         if 'CPPPATH' in env:
             env.AppendUnique( INCPATH = env['CPPPATH'] )
+
         for source in sources:
             objects.append(
                 env.Object(
-                    os.path.join( env['offset_dir'], os.path.splitext( source )[0] ),
-                    source,
+                    source = source,
                     CPPPATH = env['SYSINCPATH'] + env['INCPATH'],
                     **kwargs ) )
 
