@@ -66,14 +66,15 @@ class build_with_qt5(object):
     def _set_qt5_dir( self, env ):
         command = "pkg-config --cflags Qt5Core"
         try:
-            includes = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT ).strip().split()
-            if includes:
-                shortest_path = includes[0]
-                for include in includes:
-                    if len(include) < len(shortest_path):
-                        shortest_path = include
-                qt5dir = env.ParseFlags( shortest_path )['CPPPATH'][0]
-                env['QT5DIR'] = qt5dir
+            cflags = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT ).strip()
+            if cflags:
+                flags = env.ParseFlags( cflags )
+                if 'CPPPATH' in flags:
+                    shortest_path = flags['CPPPATH'][0]
+                    for include in flags['CPPPATH']:
+                        if len(include) < len(shortest_path):
+                            shortest_path = include
+                    env['QT5DIR'] = shortest_path
                 print "cuppa: qt5: Q5DIR detected as [{}]".format( as_info( env, env['QT5DIR'] ) )
         except:
             #TODO: Warning?
