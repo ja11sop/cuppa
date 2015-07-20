@@ -201,7 +201,7 @@ class Boost(object):
                 version = match.group('version')
                 if not match.group('minor'):
                     version += "_0"
-                print "cuppa: boost version specified as a location, attempt to download it"
+                print "cuppa: boost version specified as a location, attempt to download it from SourceForge"
                 return "http://sourceforge.net/projects/boost/files/boost/{numeric_version}/boost_{string_version}.tar.gz/download".format(
                             numeric_version = version.translate( string.maketrans( '._', '..' ) ),
                             string_version = version.translate( string.maketrans( '._', '__' ) )

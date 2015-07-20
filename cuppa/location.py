@@ -17,6 +17,7 @@ import re
 import shlex
 import subprocess
 import ntpath
+import fnmatch
 
 import pip.vcs
 import pip.download
@@ -49,24 +50,36 @@ def get_common_top_directory_under( path ):
 
 class Location(object):
 
+
+    def get_cached_archive( self, cache_root, path ):
+        print "cuppa: location: Checking for cached archive [{}]...".format( self._as_info( path ) )
+        for archive in os.listdir(cache_root):
+            if fnmatch.fnmatch( archive, path ):
+                print "cuppa: location: Found cached archive [{}] skipping download".format( self._as_info( archive ) )
+                return os.path.join( cache_root, archive )
+        return None
+
+
     def remove_common_top_directory_under( self, path ):
         dirs = os.listdir( path )
+        if not dirs:
+            raise LocationException( "Uncompressed archive [{}] is empty [{}]".format( path ) )
         top_dir = os.path.join( path, dirs[0] )
         if len(dirs) == 1 and os.path.isdir( top_dir ):
-            print "cuppa: location: removing redundant top directory [{}] from [{}]".format( self._as_info( dirs[0] ), self._as_info( path ) )
+            print "cuppa: location: Removing redundant top directory [{}] from [{}]".format( self._as_info( dirs[0] ), self._as_info( path ) )
             # we have a single top-level directory
             move_dirs = os.listdir( top_dir )
             for d in move_dirs:
                 shutil.move( os.path.join( top_dir, d ), os.path.join( path, d ) )
             shutil.rmtree( top_dir )
+            return True
+        return False
 
 
     def extract( self, filename, target_dir ):
-
         os.makedirs( target_dir )
-
         if tarfile.is_tarfile( filename ):
-            print "cuppa: location: extracting [{}] into [{}]".format( self._as_info( filename ), self._as_info( target_dir ) )
+            print "cuppa: location: Extracting [{}] into [{}]".format( self._as_info( filename ), self._as_info( target_dir ) )
             try:
                 with tarfile.TarFile( filename ) as tf:
                     tf.extractall( target_dir )
@@ -75,14 +88,13 @@ class Location(object):
                 if subprocess.call( shlex.split( command ), cwd=target_dir ) != 0:
                     raise LocationException( "Could not untar downloaded file from [{}]".format( filename ) )
 
-            self.remove_common_top_directory_under( target_dir )
-
         if zipfile.is_zipfile( filename ):
             print "cuppa: location: extracting [{}] into [{}]".format( self._as_info( filename ), self._as_info( target_dir ) )
             with zipfile.ZipFile( filename ) as zf:
                 zf.extractall( target_dir )
 
-        self.remove_common_top_directory_under( target_dir )
+        while self.remove_common_top_directory_under( target_dir ):
+            pass
 
 
     def url_is_download_archive_url( self, path ):
@@ -97,7 +109,9 @@ class Location(object):
 
         local_directory = None
 
-        base = os.path.join( env['working_dir'], '.cuppa' )
+        base = env['download_root']
+        if not os.path.isabs( base ):
+            base = os.path.join( env['working_dir'], base )
 
         if location.startswith( 'file:' ):
             location = pip.download.url_to_path( location )
@@ -125,12 +139,14 @@ class Location(object):
                 return local_directory
         else:
 
-            local_directory = '#'.join( [ full_url.scheme, full_url.netloc, urllib.unquote( full_url.path ) ] )
-            local_directory = re.sub( r'[\\/+:() ]', r'#', local_directory )
-            local_directory = os.path.join( base, local_directory )
+            local_name = '#'.join( [ full_url.scheme, full_url.netloc, urllib.unquote( full_url.path ) ] )
+            local_name = re.sub( r'[\\/+:() ]', r'#', local_name )
+            local_directory = os.path.join( base, local_name )
 
             if full_url.scheme.startswith( 'http' ) and self.url_is_download_archive_url( full_url.path ):
                 print "cuppa: location: [{}] is an archive download".format( self._as_info( location ) )
+
+                # First we check to see if we already downloaded and extracted this archive before
                 if os.path.exists( local_directory ):
                     try:
                         # If not empty this will fail
@@ -139,10 +155,21 @@ class Location(object):
                         # Not empty so we'll return this as the local_directory
                         return local_directory
 
-                print "cuppa: location: downloading [{}]...".format( self._as_info( location ) )
-                filename, headers = urllib.urlretrieve( location )
-                print "cuppa: location: [{}] successfully downloaded to [{}]".format( self._as_info( location ), self._as_info( filename ) )
-                self.extract( filename, os.path.join( local_directory, sub_dir ) )
+                # If not we then check to see if we cached the download
+                cached_archive = self.get_cached_archive( env['cache_root'], local_name )
+                if cached_archive:
+                    print "cuppa: location: Cached archive [{}] found for [{}]".format( self._as_info( cached_archive ), self._as_info( location ) )
+                    self.extract( cached_archive, os.path.join( local_directory, sub_dir ) )
+                else:
+                    print "cuppa: location: downloading [{}]...".format( self._as_info( location ) )
+                    filename, headers = urllib.urlretrieve( location )
+                    name, extension = os.path.splitext( filename )
+                    print "cuppa: location: [{}] successfully downloaded to [{}]".format( self._as_info( location ), self._as_info( filename ) )
+                    self.extract( filename, os.path.join( local_directory, sub_dir ) )
+                    if env['cache_root']:
+                        cached_archive = os.path.join( env['cache_root'], local_name )
+                        print "cuppa: location: caching downloaded file as [{}]".format( self._as_info( cached_archive ) )
+                        shutil.copyfile( filename, cached_archive )
 
             elif '+' in full_url.scheme:
                 vc_type = location.split('+', 1)[0]

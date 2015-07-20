@@ -73,11 +73,15 @@ def add_base_options():
 
     add_option( '--build-root', type='string', nargs=1, action='store',
                             dest='build_root',
-                            help='The root directory for build output. If not specified then .build is used' )
+                            help='The root directory for build output. If not specified then _build_ is used' )
 
     add_option( '--download-root', type='string', nargs=1, action='store',
                             dest='download_root',
-                            help='The root directory for downloading external libraries to. If not specified then .cuppa is used' )
+                            help='The root directory for downloading external libraries to. If not specified then _cuppa_ is used' )
+
+    add_option( '--cache-root', type='string', nargs=1, action='store',
+                            dest='cache_root',
+                            help='The root directory for caching downloaded external archived libraries. If not specified then ~/_cuppa_/cache is used' )
 
     add_option( '--runner', type='string', nargs=1, action='store',
                             dest='runner',
@@ -280,6 +284,8 @@ class Construct(object):
                 'base_path',
                 'branch_root',
                 'branch_dir',
+                'download_root',
+                'cache_root',
                 'thirdparty',
                 'build_root',
                 'default_dependencies',
@@ -295,7 +301,8 @@ class Construct(object):
         }
 
         for key in keys:
-            print "cuppa: Env[%s] = %s" % ( key, env[key] )
+            if key in env:
+                print "cuppa: Env[%s] = %s" % ( key, env[key] )
 
 
     def __init__( self,
@@ -362,13 +369,27 @@ class Construct(object):
             levels = len( default_env['launch_dir'].split( os.path.sep ) )
             default_env['launch_offset_dir'] = os.path.sep.join( ['..' for i in range(levels)] )
 
-        default_env['base_path']            = base_path
-        default_env['branch_root']          = branch_root and branch_root or base_path
-        default_env['branch_dir']           = branch_root and os.path.relpath( base_path, branch_root ) or None
-        default_env['thirdparty']           = default_env.get_option( 'thirdparty' )
-        default_env['build_root']           = default_env.get_option( 'build_root', default='.build' )
-        default_env['download_root']        = default_env.get_option( 'download_root', default='.cuppa' )
-        default_env['download_dir']         = os.path.normpath( default_env['download_root'] )
+        default_env['base_path']   = os.path.normpath( os.path.expanduser( base_path ) )
+        default_env['branch_root'] = branch_root and os.path.normpath( os.path.expanduser( branch_root ) ) or base_path
+        default_env['branch_dir']  = default_env['branch_root'] and os.path.relpath( default_env['base_path'], default_env['branch_root'] ) or None
+
+        thirdparty = default_env.get_option( 'thirdparty' )
+        if thirdparty:
+            thirdparty = os.path.normpath( os.path.expanduser( thirdparty ) )
+
+        default_env['thirdparty'] = thirdparty
+
+        build_root = default_env.get_option( 'build_root', default='_build' )
+        default_env['build_root'] = os.path.normpath( os.path.expanduser( build_root ) )
+
+        download_root = default_env.get_option( 'download_root', default='_cuppa' )
+        default_env['download_root'] = os.path.normpath( os.path.expanduser( download_root ) )
+
+        cache_root = default_env.get_option( 'cache_root', default='~/_cuppa/_cache' )
+        default_env['cache_root'] = os.path.normpath( os.path.expanduser( cache_root ) )
+        if not os.path.exists( default_env['cache_root'] ):
+            os.makedirs( default_env['cache_root'] )
+
         default_env['default_projects']     = default_projects
         default_env['default_variants']     = default_variants and set( default_variants ) or set()
         default_env['default_dependencies'] = default_dependencies and default_dependencies or []

@@ -25,7 +25,7 @@ class RecursiveGlobMethod:
             start = env['sconscript_dir']
 
         if exclude_dirs == self.default:
-            exclude_dirs = [ env['download_dir'], env['build_root' ] ]
+            exclude_dirs = [ env['download_root'], env['build_root' ] ]
 
         exclude_dirs_regex = None
 
