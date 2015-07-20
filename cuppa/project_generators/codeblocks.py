@@ -96,7 +96,7 @@ class Codeblocks(object):
         base_include = self._exclude_branches and env['base_path'] or env['branch_root']
 
         base = os.path.realpath( base_include )
-        download = os.path.realpath( env['download_dir'] )
+        download = os.path.realpath( env['download_root'] )
 
         thirdparty = env['thirdparty'] and os.path.realpath( env['thirdparty'] ) or None
 
@@ -113,7 +113,7 @@ class Codeblocks(object):
 
         if not self._include_thirdparty:
             if download_under_base:
-                self._exclude_paths.append( env['download_dir'] )
+                self._exclude_paths.append( env['download_root'] )
 
             if thirdparty and thirdparty_under_base:
                 self._exclude_paths.append( env['thirdparty'] )
@@ -122,7 +122,7 @@ class Codeblocks(object):
 
         if self._include_thirdparty:
             if not download_under_base:
-                self._include_paths.append( env['download_dir'] )
+                self._include_paths.append( env['download_root'] )
 
             if thirdparty and not thirdparty_under_base:
                 self._include_paths.append( env['thirdparty'] )
@@ -429,13 +429,21 @@ class ProcessNodes(object):
 
         for allowed in self._allowed_paths:
             prefix = os.path.commonprefix( [ os.path.abspath( file_path ), allowed ] )
-#            print "cuppa: project-generator (CodeBlocks): file_path=[{}], allowed=[{}], prefix=[{}]".format(
-#                    as_notice( self._env, str(file_path) ),
+#            print "cuppa: project-generator (CodeBlocks): str(file)=[{}], file.path=[{}], allowed=[{}], prefix=[{}]".format(
+#                    as_notice( self._env, str(node) ),
+#                    as_notice( self._env, node.path ),
 #                    as_notice( self._env, str(allowed) ),
 #                    as_notice( self._env, str(prefix) )
 #            )
             if prefix != allowed:
                 return
+
+#        print "cuppa: project-generator (CodeBlocks): str(file)=[{}], file.path=[{}], allowed=[{}], prefix=[{}]".format(
+#                as_notice( self._env, str(node) ),
+#                as_notice( self._env, node.path ),
+#                as_notice( self._env, str(allowed) ),
+#                as_notice( self._env, str(prefix) )
+#        )
 
         file_path = os.path.relpath( os.path.abspath( file_path ), self._base_path )
         self._files.add( file_path )
