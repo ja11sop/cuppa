@@ -63,7 +63,7 @@ class Location(object):
     def remove_common_top_directory_under( self, path ):
         dirs = os.listdir( path )
         if not dirs:
-            raise LocationException( "Uncompressed archive [{}] is empty [{}]".format( path ) )
+            raise LocationException( "Uncompressed archive [{}] is empty".format( path ) )
         top_dir = os.path.join( path, dirs[0] )
         if len(dirs) == 1 and os.path.isdir( top_dir ):
             print "cuppa: location: Removing redundant top directory [{}] from [{}]".format( self._as_info( dirs[0] ), self._as_info( path ) )
