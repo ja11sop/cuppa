@@ -506,47 +506,6 @@ def toolset_from_toolchain( toolchain ):
     return toolset_name + '-' + toolchain.cxx_version()
 
 
-
-class UpdateProjectConfigJam(object):
-
-    def __init__( self, project_config_path ):
-        self._project_config_path = project_config_path
-
-
-    def __call__( self, target, source, env ):
-
-        toolchain = env['toolchain']
-
-        current_toolset = "using {} : {} :".format( toolset_name_from_toolchain( toolchain ), toolchain.cxx_version() )
-        toolset_config_line = "{} {} ;\n".format( current_toolset, toolchain.binary() )
-        print "boost: adding toolset config [{}]".format( toolset_config_line )
-        config_added = False
-        changed = False
-
-        project_config_path = self._project_config_path
-
-        temp_path = os.path.splitext( project_config_path )[0] + ".new_jam"
-        if not os.path.exists( project_config_path ):
-            with open( project_config_path, 'w' ) as project_config_jam:
-                project_config_jam.write( "# File created by cuppa:boost\n" )
-        with open( project_config_path ) as project_config_jam:
-            with open( temp_path, 'w' ) as temp_file:
-                for line in project_config_jam.readlines():
-                    if line.startswith( current_toolset ):
-                        if line != toolset_config_line:
-                            temp_file.write( toolset_config_line )
-                            changed = True
-                        config_added = True
-                    else:
-                        temp_file.write( line )
-                if not config_added:
-                    temp_file.write( toolset_config_line )
-                    changed = True
-        if changed:
-            os.remove( project_config_path )
-            shutil.move( temp_path, project_config_path )
-
-
 def build_with_library_name( library ):
     return library == 'log_setup' and 'log' or library
 
@@ -855,6 +814,58 @@ class BoostLibraryEmitter(object):
         return target, source
 
 
+class WriteToolsetConfigJam(object):
+
+    def _update_project_config_jam( self, project_config_path, current_toolset, toolset_config_line ):
+
+        config_added = False
+        changed      = False
+
+        temp_path = os.path.splitext( project_config_path )[0] + ".new_jam"
+
+        if not os.path.exists( project_config_path ):
+            with open( project_config_path, 'w' ) as project_config_jam:
+                project_config_jam.write( "# File created by cuppa:boost\n" )
+
+        with open( project_config_path ) as project_config_jam:
+            with open( temp_path, 'w' ) as temp_file:
+                for line in project_config_jam.readlines():
+                    if line.startswith( current_toolset ):
+                        if line != toolset_config_line:
+                            temp_file.write( toolset_config_line )
+                            changed = True
+                        config_added = True
+                    else:
+                        temp_file.write( line )
+                if not config_added:
+                    temp_file.write( toolset_config_line )
+                    changed = True
+        if changed:
+            os.remove( project_config_path )
+            shutil.move( temp_path, project_config_path )
+        else:
+            os.remove( temp_path )
+
+
+    def __call__( self, target, source, env ):
+        path = str(target[0])
+        if not os.path.exists( path ):
+            toolchain = env['toolchain']
+            current_toolset = "using {} : {} :".format( toolset_name_from_toolchain( toolchain ), toolchain.cxx_version() )
+            toolset_config_line = "{} {} ;\n".format( current_toolset, toolchain.binary() )
+
+            with open( path, 'w' ) as toolchain_config:
+                print "cuppa: boost: adding toolset config [{}] to dummy toolset config".format( str(toolset_config_line.strip()) )
+                toolchain_config.write( toolset_config_line )
+
+            self._update_project_config_jam(
+                os.path.join( os.path.split( path )[0], "project-config.jam" ),
+                current_toolset,
+                toolset_config_line
+            )
+
+        return None
+
 
 class BoostLibraryBuilder(object):
 
@@ -911,9 +922,16 @@ class BoostLibraryBuilder(object):
         env.Requires( built_libraries, bjam )
 
         if cuppa.build_platform.name() == "Linux":
+
+            toolset_target = os.path.join( self._boost.local(), env['toolchain'].name() + "._jam" )
+            toolset_config_jam = env.Command( toolset_target, [], WriteToolsetConfigJam() )
+
             project_config_target = os.path.join( self._boost.local(), "project-config.jam" )
-            project_config_jam = env.Command( project_config_target, [], UpdateProjectConfigJam( project_config_target ) )
-            env.Requires( built_libraries, project_config_jam )
+            if not os.path.exists( project_config_target ):
+                project_config_jam = env.Requires( project_config_target, env.AlwaysBuild( toolset_config_jam ) )
+                env.Requires( built_libraries, project_config_jam )
+
+            env.Requires( built_libraries, toolset_config_jam )
 
         install_dir = env['abs_build_dir']
 
