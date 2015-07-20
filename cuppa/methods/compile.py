@@ -9,7 +9,6 @@
 #-------------------------------------------------------------------------------
 
 import cuppa.progress
-import os
 
 from SCons.Script import Flatten
 
