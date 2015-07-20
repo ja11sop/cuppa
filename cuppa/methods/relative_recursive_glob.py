@@ -24,6 +24,11 @@ class RecursiveGlobMethod:
         if start == self.default:
             start = env['sconscript_dir']
 
+        start = os.path.expanduser( start )
+
+        if not os.path.isabs( start ):
+            start = os.path.join( env['sconscript_dir'], start )
+
         if exclude_dirs == self.default:
             exclude_dirs = [ env['download_root'], env['build_root' ] ]
 
@@ -38,7 +43,7 @@ class RecursiveGlobMethod:
             exclude_dirs_regex = re.compile( exclude_dirs )
 
         matches = cuppa.recursive_glob.glob( start, pattern, exclude_dirs_pattern=exclude_dirs_regex )
-        nodes   = [ env.File( os.path.relpath( match, env['base_path'] ) ) for match in matches ]
+        nodes   = [ env.File( os.path.relpath( match, env['sconscript_dir'] ) ) for match in matches ]
         return nodes
 
     @classmethod
