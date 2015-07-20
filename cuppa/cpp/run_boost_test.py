@@ -7,8 +7,6 @@
 #-------------------------------------------------------------------------------
 #   RunBoostTest
 #-------------------------------------------------------------------------------
-from cuppa.output_processor import IncrementalSubProcess
-
 import os
 import sys
 import shlex
@@ -16,6 +14,8 @@ import re
 import cgi
 
 import cuppa.timer
+import cuppa.build_platform
+from cuppa.output_processor import IncrementalSubProcess
 
 
 class Notify(object):
@@ -188,11 +188,11 @@ class Notify(object):
         sys.stdout.write('\n')
 
 
-    def enter_test_case(self, test):
+    def enter_test_case(self, test_case):
         sys.stdout.write(
-            self._colouriser.emphasise( "\nRunning Test Case [%s] ...\n" % test['key'] )
+            self._colouriser.emphasise( "\nRunning Test Case [%s] ...\n" % test_case['key'] )
         )
-        test['timer'] = cuppa.timer.Timer()
+        test_case['timer'] = cuppa.timer.Timer()
 
 
     def exit_test_case( self, test ):
@@ -394,7 +394,7 @@ class ProcessStdout:
         write_line = True
 
         matches = re.match(
-                r'.*\s(?P<status>passed|failed)$',
+                r'.*\s(?P<status>passed|failed)[.]?$',
                 line.strip() )
 
         if matches:
@@ -598,6 +598,7 @@ def success_file_name_from( program_file ):
     return program_file + '.success'
 
 
+
 class RunBoostTestEmitter:
 
     def __init__( self, final_dir ):
@@ -615,6 +616,7 @@ class RunBoostTestEmitter:
         target.append( success_file_name_from( program_file ) )
 
         return target, source
+
 
 
 class RunBoostTest:

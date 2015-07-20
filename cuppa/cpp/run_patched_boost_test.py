@@ -8,33 +8,36 @@
 #-------------------------------------------------------------------------------
 #   RunPatchedBoostTest
 #-------------------------------------------------------------------------------
-from cuppa.output_processor import IncrementalSubProcess
-
 import os
 import sys
 import shlex
 import re
 import cgi
 
+import cuppa.build_platform
+from cuppa.output_processor import IncrementalSubProcess
 
-class Notify:
+
+class Notify(object):
 
 
-    def __init__( self, scons_env ):
-        self.colouriser = scons_env['colouriser']
+    def __init__( self, scons_env, show_test_output ):
+        self._show_test_output = show_test_output
+        self._toolchain = scons_env['toolchain']
+        self._colouriser = scons_env['colouriser']
         self.master_suite = {}
         self.master_suite['status'] = 'success'
 
 
     def enter_suite(self, suite):
         sys.stdout.write(
-            self.colouriser.emphasise( "\nStarting Test Suite [%s]\n" % suite )
+            self._colouriser.emphasise( "\nStarting Test Suite [%s]\n" % suite )
         )
 
 
     def exit_suite(self, suite):
         sys.stdout.write(
-            self.colouriser.emphasise( "\nTest Suite Finished [%s]\n" % suite['name'] )
+            self._colouriser.emphasise( "\nTest Suite Finished [%s] " % suite['name'] )
         )
 
         label   = suite['status'].upper()
@@ -43,7 +46,7 @@ class Notify:
         store_durations( suite )
 
         sys.stdout.write(
-            self.colouriser.highlight( meaning, " = %s = " % label )
+            self._colouriser.highlight( meaning, " = %s = " % label )
         )
 
         self.__write_time( suite )
@@ -61,21 +64,21 @@ class Notify:
         if total_assertions > 0:
             if suite['status'] == 'passed':
                 sys.stdout.write(
-                    self.colouriser.highlight(
+                    self._colouriser.highlight(
                         meaning,
                         " ( %s of %s Assertions Passed )" % (passed_assertions, total_assertions)
                     )
                 )
             else:
                 sys.stdout.write(
-                    self.colouriser.highlight(
+                    self._colouriser.highlight(
                         meaning,
                         " ( %s of %s Assertions Failed )" % (failed_assertions, total_assertions)
                     )
                 )
         else:
             sys.stdout.write(
-                self.colouriser.colour(
+                self._colouriser.colour(
                     'notice',
                     " ( No Assertions Checked )"
                 )
@@ -83,7 +86,7 @@ class Notify:
 
         if suite['status'] == 'passed' and passed_tests > 0:
             sys.stdout.write(
-                self.colouriser.highlight(
+                self._colouriser.highlight(
                     meaning,
                     " ( %s %s Passed ) "
                     % (passed_tests, passed_tests > 1 and 'Test Cases' or 'Test Case')
@@ -94,7 +97,7 @@ class Notify:
 
         if failed_tests > 0:
             sys.stdout.write(
-                self.colouriser.highlight(
+                self._colouriser.highlight(
                     meaning,
                     " ( %s %s Failed ) "
                     % (failed_tests, failed_tests > 1 and 'Test Cases' or 'Test Case')
@@ -103,7 +106,7 @@ class Notify:
 
         if expected_failures > 0:
             sys.stdout.write(
-                self.colouriser.highlight(
+                self._colouriser.highlight(
                     meaning,
                     " ( %s %s Expected ) "
                     % (expected_failures, expected_failures > 1 and 'Failures' or 'Failure')
@@ -112,7 +115,7 @@ class Notify:
 
         if skipped_tests > 0:
             sys.stdout.write(
-                self.colouriser.highlight(
+                self._colouriser.highlight(
                     meaning,
                     " ( %s %s Skipped ) "
                     % (skipped_tests, skipped_tests > 1 and 'Test Cases' or 'Test Case')
@@ -121,7 +124,7 @@ class Notify:
 
         if aborted_tests > 0:
             sys.stdout.write(
-                self.colouriser.highlight(
+                self._colouriser.highlight(
                     meaning,
                     " ( %s %s Aborted ) "
                     % (aborted_tests, aborted_tests > 1 and 'Test Cases Were' or 'Test Case Was')
@@ -131,30 +134,30 @@ class Notify:
         sys.stdout.write('\n\n')
 
 
-    def enter_test(self, test):
+    def enter_test(self, test_case):
         pass
         sys.stdout.write(
-            self.colouriser.emphasise( "\nRunning Test Case [%s] ...\n" % test )
+            self._colouriser.emphasise( "\nRunning Test Case [%s] ...\n" % test_case )
         )
 
 
-    def exit_test( self, test ):
-        label         = test['status']
-        meaning       = test['status']
+    def exit_test( self, test_case ):
+        label   = test_case['status']
+        meaning = test_case['status']
 
         sys.stdout.write(
-            self.colouriser.highlight( meaning, " = %s = " % label )
+            self._colouriser.highlight( meaning, " = %s = " % label )
         )
 
-        self.__write_time( test )
+        self.__write_time( test_case )
 
-        assertions = int(test['total'])
-        passed     = int(test['passed'])
-        failed     = int(test['failed'])
+        assertions = int(test_case['total'])
+        passed     = int(test_case['passed'])
+        failed     = int(test_case['failed'])
 
-        if test['status'] == 'passed' and passed > 0:
+        if test_case['status'] == 'passed' and passed > 0:
             sys.stdout.write(
-                self.colouriser.colour(
+                self._colouriser.colour(
                     meaning,
                     " ( %s of %s Assertions Passed )" % ( passed, assertions )
                 )
@@ -162,15 +165,15 @@ class Notify:
 
         if failed > 0:
             sys.stdout.write(
-                self.colouriser.colour(
+                self._colouriser.colour(
                     meaning,
                     " ( %s of %s Assertions Failed )" % ( failed, assertions )
                 )
             )
 
-        if test['total'] == 0:
+        if test_case['total'] == 0:
             sys.stdout.write(
-                self.colouriser.colour( 'notice'," ( No Assertions )" )
+                self._colouriser.colour( 'notice'," ( No Assertions )" )
             )
 
         sys.stdout.write('\n')
@@ -181,11 +184,11 @@ class Notify:
 
         if 'wall_duration' in results:
             sys.stdout.write(
-                " Wall [ %s ]" % self.colouriser.emphasise_time_by_digit( results['wall_duration'] )
+                " Wall [ %s ]" % self._colouriser.emphasise_time_by_digit( results['wall_duration'] )
             )
 
         sys.stdout.write(
-            " CPU [ %s ]" % self.colouriser.emphasise_time_by_digit( results['cpu_duration'] )
+            " CPU [ %s ]" % self._colouriser.emphasise_time_by_digit( results['cpu_duration'] )
         )
 
         if 'wall_cpu_percent' in results:
@@ -195,7 +198,7 @@ class Notify:
                 format = "%5s  "
             wall_cpu_percent = format % wall_cpu_percent
             sys.stdout.write(
-                " CPU/Wall [ %s ]" % self.colouriser.colour( 'time', wall_cpu_percent )
+                " CPU/Wall [ %s ]" % self._colouriser.colour( 'time', wall_cpu_percent )
             )
 
     def message(self, line):
@@ -225,31 +228,6 @@ def store_durations( results ):
         results['user_duration'] = duration_from_elapsed(results['user_time'])
     if 'sys_time' in results:
         results['sys_duration']  = duration_from_elapsed(results['sys_time'])
-
-
-class RunPatchedBoostTestEmitter:
-
-    def __init__( self, final_dir ):
-        self.__final_dir = final_dir
-
-
-    def __call__( self, target, source, env ):
-
-#        print "RunBoostTestEmitter source[0] = " + str(source)
-
-        program_file = os.path.join( self.__final_dir, os.path.split( source[0].path )[1] )
-
-#        print "RunBoostTestEmitter program_file = " + program_file
-
-        target = []
-        target.append( stdout_from_program( program_file ) )
-        target.append( stderr_from_program( program_file ) )
-        target.append( report_from_program( program_file ) )
-
-#        import SCons
-#        print "Targets = " + str([isinstance(t, SCons.Node.FS.File) and t.path or t for t in target])
-#        print "Source = " + str(source[0].path)
-        return target, source
 
 
 class State:
@@ -533,6 +511,43 @@ class ProcessStderr:
             self.log.close()
 
 
+def stdout_file_name_from( program_file ):
+    return program_file + '.stdout.log'
+
+
+def stderr_file_name_from( program_file ):
+    return program_file + '.stderr.log'
+
+
+def report_file_name_from( program_file ):
+    return program_file + '.report.xml'
+
+
+def success_file_name_from( program_file ):
+    return program_file + '.success'
+
+
+
+class RunPatchedBoostTestEmitter:
+
+    def __init__( self, final_dir ):
+        self._final_dir = final_dir
+
+
+    def __call__( self, target, source, env ):
+
+        program_file = os.path.join( self._final_dir, os.path.split( str( source[0] ) )[1] )
+
+        target = []
+        target.append( stdout_file_name_from( program_file ) )
+        target.append( stderr_file_name_from( program_file ) )
+        target.append( report_file_name_from( program_file ) )
+        target.append( success_file_name_from( program_file ) )
+
+        return target, source
+
+
+
 class RunPatchedBoostTest:
 
     def __init__( self, expected ):
@@ -544,11 +559,14 @@ class RunPatchedBoostTest:
         executable   = str( source[0].abspath )
         working_dir  = os.path.split( executable )[0]
         program_path = source[0].path
-        notifier     = Notify(env)
+        notifier     = Notify(env, env['show_test_output'])
+
+        if cuppa.build_platform.name() == "Windows":
+            executable = '"' + executable + '"'
 
         test_command = executable + " --boost.test.log_format=hrf --boost.test.log_level=test_suite --boost.test.report_level=no"
 
-        print "RunBoostTest: [" + test_command + "]"
+        print "cuppa: RunBoostTest: [" + test_command + "]"
 
         try:
             return_code, tests = self.__run_test( program_path,
@@ -557,21 +575,23 @@ class RunPatchedBoostTest:
                                                   env['branch_root'],
                                                   notifier )
 
-            self.generate_bitten_test_report( report_from_program( program_path ), tests )
+            self.generate_bitten_test_report( report_file_name_from( program_path ), tests )
 
             if return_code < 0:
-                self.__write_file_to_stderr( stderr_from_program( program_path ) )
-                print >> sys.stderr, "Test was terminated by signal: ", -return_code
+                self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
+                print >> sys.stderr, "cuppa: RunBoostTest: Test was terminated by signal: ", -return_code
             elif return_code > 0:
-                self.__write_file_to_stderr( stderr_from_program( program_path ) )
-                print >> sys.stderr, "Test returned with error code: ", return_code
+                self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
+                print >> sys.stderr, "cuppa: RunBoostTest: Test returned with error code: ", return_code
             elif notifier.master_suite['status'] != 'success':
-                print >> sys.stderr, "Not all test suites passed. "
-                return_code = 1
-            else:
-                return None
+                print >> sys.stderr, "cuppa: RunBoostTest: Not all test suites passed. "
 
-            return return_code
+            if return_code:
+                self._remove_success_file( success_file_name_from( program_path ) )
+            else:
+                self._write_success_file( success_file_name_from( program_path ) )
+
+            return None
 
         except OSError, e:
             print >> sys.stderr, "Execution of [", test_command, "] failed with error: ", e
@@ -579,8 +599,8 @@ class RunPatchedBoostTest:
 
 
     def __run_test( self, program_path, test_command, working_dir,branch_root, notifier ):
-        process_stdout = ProcessStdout( stdout_from_program( program_path ), branch_root, notifier )
-        process_stderr = ProcessStderr( stderr_from_program( program_path ), notifier )
+        process_stdout = ProcessStdout( stdout_file_name_from( program_path ), branch_root, notifier )
+        process_stderr = ProcessStderr( stderr_file_name_from( program_path ), notifier )
 
         return_code = IncrementalSubProcess.Popen2( process_stdout,
                                                     process_stderr,
@@ -595,6 +615,18 @@ class RunPatchedBoostTest:
         for line in error_file:
             print >> sys.stderr, line
         error_file.close()
+
+
+    def _write_success_file( self, file_name ):
+        with open( file_name, "w" ) as success_file:
+            success_file.write( "success" )
+
+
+    def _remove_success_file( self, file_name ):
+        try:
+            os.remove( file_name )
+        except:
+            pass
 
 
     def generate_bitten_test_report( self, report_path, test_cases ):
