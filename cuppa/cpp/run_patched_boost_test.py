@@ -566,7 +566,7 @@ class RunPatchedBoostTest:
 
         test_command = executable + " --boost.test.log_format=hrf --boost.test.log_level=test_suite --boost.test.report_level=no"
 
-        print "cuppa: RunBoostTest: [" + test_command + "]"
+        print "cuppa: RunPatchedBoostTest: [" + test_command + "]"
 
         try:
             return_code, tests = self.__run_test( program_path,
@@ -579,12 +579,12 @@ class RunPatchedBoostTest:
 
             if return_code < 0:
                 self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
-                print >> sys.stderr, "cuppa: RunBoostTest: Test was terminated by signal: ", -return_code
+                print >> sys.stderr, "cuppa: RunPatchedBoostTest: Test was terminated by signal: ", -return_code
             elif return_code > 0:
                 self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
-                print >> sys.stderr, "cuppa: RunBoostTest: Test returned with error code: ", return_code
+                print >> sys.stderr, "cuppa: RunPatchedBoostTest: Test returned with error code: ", return_code
             elif notifier.master_suite['status'] != 'success':
-                print >> sys.stderr, "cuppa: RunBoostTest: Not all test suites passed. "
+                print >> sys.stderr, "cuppa: RunPatchedBoostTest: Not all test suites passed. "
 
             if return_code:
                 self._remove_success_file( success_file_name_from( program_path ) )
