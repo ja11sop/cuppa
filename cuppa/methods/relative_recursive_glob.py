@@ -59,7 +59,8 @@ class GlobFilesMethod:
         for filename in os.listdir(env['sconscript_dir']):
             if fnmatch.fnmatch( filename, pattern):
                 filenames.append( filename )
-        return filenames
+        nodes = [ env.File(f) for f in filenames ]
+        return nodes
 
 
     @classmethod

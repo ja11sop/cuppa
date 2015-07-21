@@ -83,7 +83,7 @@ Import( 'env' )
 
 # Build all *.cpp source files as executables
 for Source in env.GlobFiles('*.cpp'):
-    env.Build( Source[:-4], Source )
+    env.Build( str(Source)[:-4], Source )
 ```
 
 The `env.Build()` method is provided by **cuppa** and does essentially what `env.Program()` does but in addition is both toolchain and variant aware, and further can provide notifications on progress.
@@ -97,7 +97,7 @@ Import( 'env' )
 
 # Build all *.cpp source files as executables to be run as tests
 for Source in env.GlobFiles('*.cpp'):
-    env.BuildTest( Source[:-4], Source )
+    env.BuildTest( str(Source)[:-4], Source )
 ```
 
 The `env.BuildTest()` method is provided by **cuppa** and builds the sources specified as `env.Build()` does.
