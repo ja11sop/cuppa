@@ -146,11 +146,13 @@ class Location(object):
             if full_url.scheme.startswith( 'http' ) and self.url_is_download_archive_url( full_url.path ):
                 print "cuppa: location: [{}] is an archive download".format( self._as_info( location ) )
 
+                local_dir_with_sub_dir = os.path.join( local_directory, sub_dir )
+
                 # First we check to see if we already downloaded and extracted this archive before
-                if os.path.exists( local_directory ):
+                if os.path.exists( local_dir_with_sub_dir ):
                     try:
                         # If not empty this will fail
-                        os.rmdir( local_directory )
+                        os.rmdir( local_dir_with_sub_dir )
                     except:
                         # Not empty so we'll return this as the local_directory
                         return local_directory
@@ -159,13 +161,13 @@ class Location(object):
                 cached_archive = self.get_cached_archive( env['cache_root'], local_name )
                 if cached_archive:
                     print "cuppa: location: Cached archive [{}] found for [{}]".format( self._as_info( cached_archive ), self._as_info( location ) )
-                    self.extract( cached_archive, os.path.join( local_directory, sub_dir ) )
+                    self.extract( cached_archive, local_dir_with_sub_dir )
                 else:
                     print "cuppa: location: downloading [{}]...".format( self._as_info( location ) )
                     filename, headers = urllib.urlretrieve( location )
                     name, extension = os.path.splitext( filename )
                     print "cuppa: location: [{}] successfully downloaded to [{}]".format( self._as_info( location ), self._as_info( filename ) )
-                    self.extract( filename, os.path.join( local_directory, sub_dir ) )
+                    self.extract( filename, local_dir_with_sub_dir )
                     if env['cache_root']:
                         cached_archive = os.path.join( env['cache_root'], local_name )
                         print "cuppa: location: caching downloaded file as [{}]".format( self._as_info( cached_archive ) )
@@ -178,26 +180,26 @@ class Location(object):
                     vcs_backend = backend( location )
                     rev_options = self.get_rev_options( vc_type, vcs_backend )
 
-                    versioned_path = os.path.join( local_directory, sub_dir )
+                    local_dir_with_sub_dir = os.path.join( local_directory, sub_dir )
 
                     if os.path.exists( local_directory ):
 
-                        url, repository, branch, revision = self.get_info( location, versioned_path, full_url )
+                        url, repository, branch, revision = self.get_info( location, local_dir_with_sub_dir, full_url )
                         version = self.ver_rev_summary( branch, revision, self._full_url.path )[0]
                         print "cuppa: location: updating [{}] in [{}]{} at [{}]".format(
                                 self._as_info( location ),
-                                self._as_notice( versioned_path ),
+                                self._as_notice( local_dir_with_sub_dir ),
                                 ( rev_options and  " on {}".format( self._as_notice( str(rev_options) ) ) or "" ),
                                 self._as_info( version )
                         )
                         try:
-                            vcs_backend.update( versioned_path, rev_options )
+                            vcs_backend.update( local_dir_with_sub_dir, rev_options )
                             print "cuppa: location: successfully updated [{}]".format( self._as_info( location ) )
                         except pip.exceptions.InstallationError as error:
                             print "cuppa: {}: location: could not update [{}] in [{}]{} due to error [{}]".format(
                                     self._as_warning_label( " warning " ),
                                     self._as_warning_text( location ),
-                                    self._as_warning_text( versioned_path ),
+                                    self._as_warning_text( local_dir_with_sub_dir ),
                                     ( rev_options and  " at {}".format( self._as_warning_text( str(rev_options) ) ) or "" ),
                                     self._as_warning_text( str(error) )
                             )
@@ -205,15 +207,15 @@ class Location(object):
                         action = "cloning"
                         if vc_type == "svn":
                             action = "checking out"
-                        print "cuppa: location: {} [{}] into [{}]".format( action, self._as_info( location ), self._as_info( versioned_path ) )
+                        print "cuppa: location: {} [{}] into [{}]".format( action, self._as_info( location ), self._as_info( local_dir_with_sub_dir ) )
                         try:
-                            vcs_backend.obtain( versioned_path )
+                            vcs_backend.obtain( local_dir_with_sub_dir )
                             print "cuppa: location: successfully retrieved [{}]".format( self._as_info( location ) )
                         except pip.exceptions.InstallationError as error:
                             print "cuppa: {}: location: could not retrieve [{}] into [{}]{} due to error [{}]".format(
                                     self._as_error_label( " error " ),
                                     self._as_error_text( location ),
-                                    self._as_error_text( versioned_path ),
+                                    self._as_error_text( local_dir_with_sub_dir ),
                                     ( rev_options and  " to {}".format( self._as_error_text(  str(rev_options) ) ) or ""),
                                     self._as_error_text( str( error ) )
                             )
