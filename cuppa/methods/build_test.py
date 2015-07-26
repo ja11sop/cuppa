@@ -8,6 +8,8 @@
 #   BuildTestMethod
 #-------------------------------------------------------------------------------
 
+from SCons.Script import Flatten
+
 
 class BuildTestMethod:
 
@@ -17,16 +19,21 @@ class BuildTestMethod:
 
     def __call__( self, env, target, source, final_dir=None, data=None, append_variant=None, runner=None, expected='success', **kwargs ):
 
+        nodes = []
         program = env.Build( target, source, final_dir=final_dir, append_variant=append_variant, **kwargs )
+        nodes.append( program )
         if env['variant_actions'].has_key('test') or env['variant_actions'].has_key('cov'):
             if not runner:
                 runner = self._default_runner
 
-            env.Test( program, final_dir=final_dir, data=data, runner=runner, expected=expected )
-            if 'cov' in env['variant_actions']:
-                env.Coverage( program, source, final_dir=final_dir )
+            test = env.Test( program, final_dir=final_dir, data=data, runner=runner, expected=expected )
 
-        return program
+            nodes.append( test )
+            if 'cov' in env['variant_actions']:
+                coverage = env.Coverage( program, source, final_dir=final_dir )
+                nodes.append( coverage )
+
+        return Flatten( nodes )
 
 
     @classmethod
