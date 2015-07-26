@@ -254,11 +254,15 @@ class Boost(object):
         self.values = {}
         self.values['name'] = 'boost'
 
+        extra_sub_path = 'clean'
+        if patch_test:
+            extra_sub_path = 'patched'
+
         if location:
             location = self.location_from_boost_version( location )
             if not location: # use version as a fallback in case both at specified
                 location = self.location_from_boost_version( version )
-            self._location = cuppa.location.Location( env, location )
+            self._location = cuppa.location.Location( env, location, extra_sub_path=extra_sub_path )
 
         elif base: # Find boost locally
             if not os.path.isabs( base ):
@@ -286,10 +290,10 @@ class Boost(object):
                 raise BoostException("Cannot construct Boost Object. No Home or Version specified")
 
             print "cuppa: boost: using boost found at [{}]".format( as_info( env, self.values['home'] ) )
-            self._location = cuppa.location.Location( env, self.values['home'] )
+            self._location = cuppa.location.Location( env, self.values['home'], extra_sub_path=extra_sub_path )
         else:
             location = self.location_from_boost_version( version )
-            self._location = cuppa.location.Location( env, location )
+            self._location = cuppa.location.Location( env, location, extra_sub_path=extra_sub_path )
 
         self.values['home'] = self._location.local()
 
