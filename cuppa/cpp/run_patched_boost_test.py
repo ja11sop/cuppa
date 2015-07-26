@@ -12,8 +12,8 @@ import os
 import sys
 import shlex
 import re
-import cgi
 
+import cuppa.test_report.cuppa_json
 import cuppa.build_platform
 from cuppa.output_processor import IncrementalSubProcess
 
@@ -92,7 +92,7 @@ class Notify(object):
                     % (passed_tests, passed_tests > 1 and 'Test Cases' or 'Test Case')
                 )
             )
-        else:
+        elif suite['status'] != 'passed':
             self.master_suite['status'] = 'failed'
 
         if failed_tests > 0:
@@ -207,18 +207,6 @@ class Notify(object):
         )
 
 
-def stdout_from_program( program_file ):
-    return program_file + '.stdout.log'
-
-
-def stderr_from_program( program_file ):
-    return program_file + '.stderr.log'
-
-
-def report_from_program( program_file ):
-    return program_file + '.report.xml'
-
-
 def store_durations( results ):
     if 'cpu_time' in results:
         results['cpu_duration']  = duration_from_elapsed(results['cpu_time'])
@@ -237,14 +225,15 @@ class State:
 class ProcessStdout:
 
     def __init__( self, log, branch_root, notify ):
-        self.log = open( log, "w" )
-        self.branch_root = branch_root
-        self.notify = notify
-        self.state = State.waiting
-        self.test_case_names = []
-        self.test_cases = {}
-        self.test_suites = {}
-        self.master_test_suite = 'Master Test Suite'
+        self._log = open( log, "w" )
+        self._branch_root = branch_root
+        self._notify = notify
+        self._state = State.waiting
+        self._test_case_names = []
+        self._test_cases = {}
+        self._test_suites = {}
+        self._master_test_suite = 'Master Test Suite'
+        self._test = None
 
     def entered_test_suite( self, line ):
         matches = re.match(
@@ -252,27 +241,27 @@ class ProcessStdout:
              'Entering test suite "(?P<suite>[a-zA-Z0-9(){}:&_<>/\-, ]+)"',
             line.strip() )
 
-        if matches and matches.group('suite') != self.master_test_suite:
+        if matches and matches.group('suite') != self._master_test_suite:
             self.suite = matches.group('suite')
-            self.test_suites[self.suite] = {}
+            self._test_suites[self.suite] = {}
 
-            self.test_suites[self.suite]['name'] = self.suite
+            self._test_suites[self.suite]['name'] = self.suite
 
-            self.test_suites[self.suite]['cpu_time']          = 0
-            self.test_suites[self.suite]['wall_time']         = 0
-            self.test_suites[self.suite]['user_time']         = 0
-            self.test_suites[self.suite]['sys_time']          = 0
-            self.test_suites[self.suite]['total_tests']       = 0
-            self.test_suites[self.suite]['expected_failures'] = 0
-            self.test_suites[self.suite]['passed_tests']      = 0
-            self.test_suites[self.suite]['failed_tests']      = 0
-            self.test_suites[self.suite]['skipped_tests']     = 0
-            self.test_suites[self.suite]['aborted_tests']     = 0
-            self.test_suites[self.suite]['total_assertions']  = 0
-            self.test_suites[self.suite]['passed_assertions'] = 0
-            self.test_suites[self.suite]['failed_assertions'] = 0
+            self._test_suites[self.suite]['cpu_time']          = 0
+            self._test_suites[self.suite]['wall_time']         = 0
+            self._test_suites[self.suite]['user_time']         = 0
+            self._test_suites[self.suite]['sys_time']          = 0
+            self._test_suites[self.suite]['total_tests']       = 0
+            self._test_suites[self.suite]['expected_failures'] = 0
+            self._test_suites[self.suite]['passed_tests']      = 0
+            self._test_suites[self.suite]['failed_tests']      = 0
+            self._test_suites[self.suite]['skipped_tests']     = 0
+            self._test_suites[self.suite]['aborted_tests']     = 0
+            self._test_suites[self.suite]['total_assertions']  = 0
+            self._test_suites[self.suite]['passed_assertions'] = 0
+            self._test_suites[self.suite]['failed_assertions'] = 0
 
-            self.notify.enter_suite(self.suite)
+            self._notify.enter_suite(self.suite)
             return True
         return False
 
@@ -283,8 +272,8 @@ class ProcessStdout:
              '(?: (?P<results>.*))?',
             line.strip() )
 
-        if matches and matches.group('suite') != self.master_test_suite:
-            suite = self.test_suites[matches.group('suite')]
+        if matches and matches.group('suite') != self._master_test_suite:
+            suite = self._test_suites[matches.group('suite')]
 
             if matches.group('status'):
                 suite['status'] = matches.group('status')
@@ -292,7 +281,7 @@ class ProcessStdout:
             if matches.group('results'):
                 self.store_suite_results(suite, matches.group('results'))
 
-            self.notify.exit_suite(suite)
+            self._notify.exit_suite(suite)
             return True
         else:
             return False
@@ -305,27 +294,27 @@ class ProcessStdout:
 
         if matches:
             name = matches.group('test')
-            self.test = '[' + self.suite + '] ' + name
-            self.test_cases[ self.test ] = {}
-            self.test_cases[ self.test ]['suite']      = self.suite
-            self.test_cases[ self.test ]['fixture']    = self.suite
-            self.test_cases[ self.test ]['key']        = self.test
-            self.test_cases[ self.test ]['name']       = name
-            self.test_cases[ self.test ]['stdout']     = []
-            self.test_cases[ self.test ]['file']       = matches.group('file')
-            self.test_cases[ self.test ]['line']       = matches.group('line')
-            self.test_cases[ self.test ]['cpu_time']   = 0
-            self.test_cases[ self.test ]['branch_dir'] = os.path.relpath( matches.group('file'), self.branch_root )
-            self.test_cases[ self.test ]['total']      = 0
-            self.test_cases[ self.test ]['assertions'] = 0
-            self.test_cases[ self.test ]['passed']     = 0
-            self.test_cases[ self.test ]['failed']     = 0
-            self.notify.enter_test(self.test)
+            self._test = '[' + self.suite + '] ' + name
+            self._test_cases[ self._test ] = {}
+            self._test_cases[ self._test ]['suite']      = self.suite
+            self._test_cases[ self._test ]['fixture']    = self.suite
+            self._test_cases[ self._test ]['key']        = self._test
+            self._test_cases[ self._test ]['name']       = name
+            self._test_cases[ self._test ]['stdout']     = []
+            self._test_cases[ self._test ]['file']       = matches.group('file')
+            self._test_cases[ self._test ]['line']       = matches.group('line')
+            self._test_cases[ self._test ]['cpu_time']   = 0
+            self._test_cases[ self._test ]['branch_dir'] = os.path.relpath( matches.group('file'), self._branch_root )
+            self._test_cases[ self._test ]['total']      = 0
+            self._test_cases[ self._test ]['assertions'] = 0
+            self._test_cases[ self._test ]['passed']     = 0
+            self._test_cases[ self._test ]['failed']     = 0
+            self._notify.enter_test(self._test)
             return True
         return False
 
     def leaving_test_case( self, line ):
-        test = self.test_cases[self.test]
+        test = self._test_cases[self._test]
 
         matches = re.match(
             r'Leaving test case "(?:[a-zA-Z0-9(){}\[\]:;&_<>\-, =]+)"'
@@ -344,12 +333,12 @@ class ProcessStdout:
             if matches.group('results'):
                 self.store_test_results(test, matches.group('results'))
 
-            self.test_case_names.append( test['key'] )
-            self.notify.exit_test(test)
+            self._test_case_names.append( test['key'] )
+            self._notify.exit_test(test)
             return True
         else:
             test['stdout'].append( line )
-            self.notify.message(line)
+            self._notify.message(line)
             return False
 
 
@@ -378,13 +367,13 @@ class ProcessStdout:
                 results['sys_time']  = nanosecs_from_time( cpu_times.group('sys_time') )
                 results['cpu_time']  = nanosecs_from_time( cpu_times.group('cpu_time') )
 
-                self.test_suites[results['suite']]['wall_time'] += results['wall_time']
-                self.test_suites[results['suite']]['user_time'] += results['user_time']
-                self.test_suites[results['suite']]['sys_time']  += results['sys_time']
+                self._test_suites[results['suite']]['wall_time'] += results['wall_time']
+                self._test_suites[results['suite']]['user_time'] += results['user_time']
+                self._test_suites[results['suite']]['sys_time']  += results['sys_time']
 
                 results['wall_cpu_percent'] = cpu_times.group('wall_cpu_percent')
 
-            self.test_suites[results['suite']]['cpu_time'] += results['cpu_time']
+            self._test_suites[results['suite']]['cpu_time'] += results['cpu_time']
 
             store_durations( results )
         else:
@@ -396,33 +385,32 @@ class ProcessStdout:
 
     def __call__( self, line ):
 
-        self.log.write( line + '\n' )
+        self._log.write( line + '\n' )
 
-        if self.state == State.waiting:
+        if self._state == State.waiting:
             if self.entered_test_suite( line ):
-                self.state = State.test_suite
+                self._state = State.test_suite
             elif self.leaving_test_suite( line ):
-                self.state = State.waiting
+                self._state = State.waiting
 
-        elif self.state == State.test_suite:
+        elif self._state == State.test_suite:
             if self.entered_test_case( line ):
-                self.state = State.test_case
+                self._state = State.test_case
             elif self.entered_test_suite( line ):
-                self.state = State.test_suite
+                self._state = State.test_suite
             elif self.leaving_test_suite( line ):
-                self.state = State.waiting
+                self._state = State.waiting
 
-        elif self.state == State.test_case:
+        elif self._state == State.test_case:
             if self.leaving_test_case( line ):
-                self.state = State.test_suite
+                self._state = State.test_suite
 
     def __exit__( self, type, value, traceback ):
-        if self.log:
-            self.log.close()
+        if self._log:
+            self._log.close()
 
     def tests( self ):
-        for name in self.test_case_names:
-            yield name, self.test_cases[ name ]
+        return [ self._test_cases[ name ] for name in self._test_case_names ]
 
 
     def store_test_results(self, test, results):
@@ -499,16 +487,16 @@ class ProcessStdout:
 class ProcessStderr:
 
     def __init__( self, log, notify ):
-        self.log = open( log, "w" )
+        self._log = open( log, "w" )
 
 
     def __call__( self, line ):
-        self.log.write( line + '\n' )
+        self._log.write( line + '\n' )
 
 
     def __exit__( self, type, value, traceback ):
-        if self.log:
-            self.log.close()
+        if self._log:
+            self._log.close()
 
 
 def stdout_file_name_from( program_file ):
@@ -520,7 +508,7 @@ def stderr_file_name_from( program_file ):
 
 
 def report_file_name_from( program_file ):
-    return program_file + '.report.xml'
+    return program_file + '.report.json'
 
 
 def success_file_name_from( program_file ):
@@ -565,23 +553,24 @@ class RunPatchedBoostTest:
             executable = '"' + executable + '"'
 
         test_command = executable + " --boost.test.log_format=hrf --boost.test.log_level=test_suite --boost.test.report_level=no"
-
         print "cuppa: RunPatchedBoostTest: [" + test_command + "]"
 
         try:
-            return_code, tests = self.__run_test( program_path,
-                                                  test_command,
-                                                  working_dir,
-                                                  env['branch_root'],
-                                                  notifier )
+            return_code, tests = self._run_test(
+                    program_path,
+                    test_command,
+                    working_dir,
+                    env['branch_root'],
+                    notifier
+            )
 
-            self.generate_bitten_test_report( report_file_name_from( program_path ), tests )
+            cuppa.test_report.cuppa_json.write_report( report_file_name_from( program_path ), tests )
 
             if return_code < 0:
-                self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
+                self._write_file_to_stderr( stderr_file_name_from( program_path ) )
                 print >> sys.stderr, "cuppa: RunPatchedBoostTest: Test was terminated by signal: ", -return_code
             elif return_code > 0:
-                self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
+                self._write_file_to_stderr( stderr_file_name_from( program_path ) )
                 print >> sys.stderr, "cuppa: RunPatchedBoostTest: Test returned with error code: ", return_code
             elif notifier.master_suite['status'] != 'success':
                 print >> sys.stderr, "cuppa: RunPatchedBoostTest: Not all test suites passed. "
@@ -598,7 +587,7 @@ class RunPatchedBoostTest:
             return 1
 
 
-    def __run_test( self, program_path, test_command, working_dir,branch_root, notifier ):
+    def _run_test( self, program_path, test_command, working_dir,branch_root, notifier ):
         process_stdout = ProcessStdout( stdout_file_name_from( program_path ), branch_root, notifier )
         process_stderr = ProcessStderr( stderr_file_name_from( program_path ), notifier )
 
@@ -610,7 +599,7 @@ class RunPatchedBoostTest:
         return return_code, process_stdout.tests()
 
 
-    def __write_file_to_stderr( self, file_name ):
+    def _write_file_to_stderr( self, file_name ):
         error_file = open( file_name, "r" )
         for line in error_file:
             print >> sys.stderr, line
@@ -628,29 +617,6 @@ class RunPatchedBoostTest:
         except:
             pass
 
-
-    def generate_bitten_test_report( self, report_path, test_cases ):
-        report = open( report_path, "w" )
-        report.write( '<report category="test">\n' )
-
-        for name, test in test_cases:
-
-            report.write( '    <test>\n' )
-
-            for key, value in test.iteritems():
-                report.write( '        <%s>' % key )
-                if key == 'stdout':
-                    value = ( '<span class="line">' + cgi.escape(line) + '<br /></span>' for line in value )
-                    value = '<![CDATA[' + "\n".join( value ) + ']]>'
-                else:
-                    value = cgi.escape( str( value ) )
-                report.write( value )
-                report.write( '</%s>\n' % key )
-
-            report.write( '    </test>\n' )
-
-        report.write( '</report>\n' )
-        report.close()
 
 
 def nanosecs_from_time( time_in_seconds ):

@@ -14,6 +14,7 @@ import shlex
 
 import cuppa.timer
 import cuppa.progress
+import cuppa.test_report.cuppa_json
 from cuppa.output_processor import IncrementalSubProcess
 
 
@@ -67,6 +68,7 @@ class TestSuite(object):
         test_case = self._tests[-1]
         test_case['name']     = test
         test_case['expected'] = expected
+        test_case['suite']    = self._name
         test_case['timer']    = cuppa.timer.Timer()
 
 
@@ -74,6 +76,24 @@ class TestSuite(object):
         test_case = self._tests[-1]
         test_case['timer'].stop()
         test_case['status'] = status
+
+        cpu_times = test_case['timer'].elapsed()
+        del test_case['timer']
+
+        test_case['cpu_times'] = cpu_times
+
+        test_case['cpu_time']  = cpu_times.process
+        test_case['wall_time'] = cpu_times.wall
+        test_case['user_time'] = cpu_times.user
+        test_case['sys_time']  = cpu_times.system
+
+        test_case['cpu_duration']  = cuppa.timer.as_duration_string( test_case['cpu_time'] )
+        test_case['wall_duration'] = cuppa.timer.as_duration_string( test_case['wall_time'] )
+        test_case['user_duration'] = cuppa.timer.as_duration_string( test_case['user_time'] )
+        test_case['sys_duration']  = cuppa.timer.as_duration_string( test_case['sys_time'] )
+
+        test_case['wall_cpu_percent'] = cuppa.timer.as_wall_cpu_percent_string( cpu_times )
+
 
         self._write_test_case( test_case )
 
@@ -89,7 +109,7 @@ class TestSuite(object):
         elif status == 'skipped':
             self._suite['skipped_tests'] += 1
 
-        self._suite['total_cpu_times'] += test_case['timer'].elapsed()
+        self._suite['total_cpu_times'] += test_case['cpu_times']
 
         sys.stdout.write('\n\n')
 
@@ -104,7 +124,7 @@ class TestSuite(object):
 
         label = " ".join( meaning.upper().split('_') )
 
-        cpu_times = test_case['timer'].elapsed()
+        cpu_times = test_case['cpu_times']
         sys.stdout.write( self._colouriser.highlight( meaning, " = %s = " % label ) )
         cuppa.timer.write_time( cpu_times, self._colouriser )
 
@@ -231,10 +251,14 @@ class TestSuite(object):
         sys.stdout.write('\n\n')
 
 
-    def message(self, line):
+    def message( self, line ):
         sys.stdout.write(
             line + "\n"
         )
+
+
+    def tests( self ):
+        return self._tests
 
 
 def stdout_file_name_from( program_file ):
@@ -243,6 +267,10 @@ def stdout_file_name_from( program_file ):
 
 def stderr_file_name_from( program_file ):
     return program_file + '.stderr.log'
+
+
+def report_file_name_from( program_file ):
+    return program_file + '.report.json'
 
 
 def success_file_name_from( program_file ):
@@ -260,6 +288,7 @@ class RunProcessTestEmitter(object):
         target = []
         target.append( stdout_file_name_from( program_file ) )
         target.append( stderr_file_name_from( program_file ) )
+        target.append( report_file_name_from( program_file ) )
         target.append( success_file_name_from( program_file ) )
         return target, source
 
@@ -325,10 +354,12 @@ class RunProcessTest(object):
         show_test_output = env['show_test_output']
 
         try:
-            return_code = self.__run_test( show_test_output,
-                                           program_path,
-                                           test_command,
-                                           working_dir )
+            return_code = self._run_test(
+                    show_test_output,
+                    program_path,
+                    test_command,
+                    working_dir
+            )
 
             if return_code < 0:
                 self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
@@ -340,6 +371,8 @@ class RunProcessTest(object):
                 test_suite.exit_test( test, 'failed' )
             else:
                 test_suite.exit_test( test, 'success' )
+
+            cuppa.test_report.cuppa_json.write_report( report_file_name_from( program_path ), test_suite.tests() )
 
             if return_code:
                 self._remove_success_file( success_file_name_from( program_path ) )
@@ -365,7 +398,7 @@ class RunProcessTest(object):
             pass
 
 
-    def __run_test( self, show_test_output, program_path, test_command, working_dir ):
+    def _run_test( self, show_test_output, program_path, test_command, working_dir ):
         process_stdout = ProcessStdout( show_test_output, stdout_file_name_from( program_path ) )
         process_stderr = ProcessStderr( show_test_output, stderr_file_name_from( program_path ) )
 
@@ -381,4 +414,5 @@ class RunProcessTest(object):
         for line in error_file:
             print >> sys.stderr, line
         error_file.close()
+
 

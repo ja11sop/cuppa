@@ -11,9 +11,9 @@ import os
 import sys
 import shlex
 import re
-import cgi
 
 import cuppa.timer
+import cuppa.test_report.cuppa_json
 import cuppa.build_platform
 from cuppa.output_processor import IncrementalSubProcess
 
@@ -107,7 +107,7 @@ class Notify(object):
                     % (passed_tests, passed_tests > 1 and 'Test Cases' or 'Test Case')
                 )
             )
-        else:
+        elif suite['status'] != 'passed':
             self.master_suite['status'] = 'failed'
 
         if failed_tests > 0:
@@ -394,7 +394,7 @@ class ProcessStdout:
         write_line = True
 
         matches = re.match(
-                r'.*\s(?P<status>passed|failed)[.]?$',
+                r'.*\s(?P<status>passed|failed)$',
                 line.strip() )
 
         if matches:
@@ -446,9 +446,11 @@ class ProcessStdout:
 
 
     def tests( self ):
+        tests = []
         for suite in self.test_suites.itervalues():
             for test_case in suite['tests']:
-                yield test_case['name'], test_case
+                tests.append( test_case )
+        return tests
 
 
     def collate_test_case_results( self, test ):
@@ -591,7 +593,7 @@ def stderr_file_name_from( program_file ):
 
 
 def report_file_name_from( program_file ):
-    return program_file + '.report.xml'
+    return program_file + '.report.json'
 
 
 def success_file_name_from( program_file ):
@@ -636,7 +638,6 @@ class RunBoostTest:
             executable = '"' + executable + '"'
 
         test_command = executable + " --log_format=hrf --log_level=all --report_level=no"
-
         print "cuppa: RunBoostTest: [" + test_command + "]"
 
         try:
@@ -646,7 +647,7 @@ class RunBoostTest:
                                                   env['branch_root'],
                                                   notifier )
 
-            self.generate_bitten_test_report( report_file_name_from( program_path ), tests )
+            cuppa.test_report.cuppa_json.write_report( report_file_name_from( program_path ), tests )
 
             if return_code < 0:
                 self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
@@ -669,7 +670,7 @@ class RunBoostTest:
             return 1
 
 
-    def __run_test( self, program_path, test_command, working_dir,branch_root, notifier ):
+    def __run_test( self, program_path, test_command, working_dir, branch_root, notifier ):
         process_stdout = ProcessStdout( stdout_file_name_from( program_path ), branch_root, notifier )
         process_stderr = ProcessStderr( stderr_file_name_from( program_path ), notifier )
 
@@ -698,29 +699,4 @@ class RunBoostTest:
             os.remove( file_name )
         except:
             pass
-
-
-    def generate_bitten_test_report( self, report_path, test_cases ):
-        report = open( report_path, "w" )
-        report.write( '<report category="test">\n' )
-
-        for name, test in test_cases:
-
-            report.write( '    <test>\n' )
-
-            for key, value in test.iteritems():
-                report.write( '        <%s>' % key )
-                if key == 'stdout':
-                    value = ( '<span class="line">' + cgi.escape(line) + '<br /></span>' for line in value )
-                    value = '<![CDATA[' + "\n".join( value ) + ']]>'
-                else:
-                    value = cgi.escape( str( value ) )
-                report.write( value )
-                report.write( '</%s>\n' % key )
-
-            report.write( '    </test>\n' )
-
-        report.write( '</report>\n' )
-        report.close()
-
 
