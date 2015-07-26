@@ -13,6 +13,7 @@ import os
 import re
 import fnmatch
 import multiprocessing
+import pkg_resources
 
 # Scons
 import SCons.Script
@@ -432,6 +433,9 @@ class Construct(object):
             cuppa.modules.registration.add_to_env( "profiles",           default_env )
             cuppa.modules.registration.add_to_env( "methods",            default_env )
             cuppa.modules.registration.add_to_env( "project_generators", default_env )
+
+            for method_plugin in pkg_resources.iter_entry_points( group='cuppa.method.plugins', name=None ):
+                method_plugin.load().add_to_env( default_env )
 
             if dependencies:
                 for name, dependency in dependencies.iteritems():

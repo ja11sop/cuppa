@@ -33,6 +33,7 @@ setup(
         'cuppa.profiles',
         'cuppa.project_generators',
         'cuppa.scms',
+        'cuppa.test_report',
         'cuppa.toolchains',
         'cuppa.variants',
     ],
@@ -48,6 +49,11 @@ setup(
         'lxml',
         'grip'
     ],
+    entry_points = {
+        'cuppa.method.plugins' : [
+            'cuppa.test_report.generate_bitten_report = cuppa.test_report.generate_bitten_report:GenerateBittenReportMethod',
+        ]
+    },
     classifiers = [
         "Topic :: Software Development :: Build Tools",
         "Intended Audience :: Developers",
