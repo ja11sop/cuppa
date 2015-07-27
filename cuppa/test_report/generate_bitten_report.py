@@ -15,6 +15,7 @@ import cgi
 
 import cuppa.progress
 
+
 class GenerateReportBuilder(object):
 
     def __init__( self, final_dir ):
@@ -53,6 +54,14 @@ class GenerateReportBuilder(object):
             report.write( '<report category="test">\n' )
             for test in test_cases:
                 report.write( '    <test>\n' )
+
+                if not 'file' in test:
+                    test['file'] = ""
+                if not 'line' in test:
+                    test['line'] = ""
+                if not 'branch_dir' in test:
+                    test['branch_dir'] = ""
+
                 for key, value in test.iteritems():
                     if key == "cpu_times" or key == "timer":
                         continue
