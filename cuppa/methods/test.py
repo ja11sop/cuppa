@@ -19,7 +19,7 @@ class TestMethod(object):
         self._default_runner = default_test_runner
 
 
-    def __call__( self, env, source, final_dir=None, data=None, runner=None, expected='success' ):
+    def __call__( self, env, source, final_dir=None, data=None, runner=None, expected='passed' ):
         if final_dir == None:
             final_dir = env['abs_final_dir']
         if not runner:

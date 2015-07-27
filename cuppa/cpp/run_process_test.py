@@ -60,7 +60,7 @@ class TestSuite(object):
             del self.suites[suite]
 
 
-    def enter_test( self, test, expected='success' ) :
+    def enter_test( self, test, expected='passed' ) :
         sys.stdout.write(
             self._colouriser.emphasise( "\nTest [%s]..." % test ) + '\n'
         )
@@ -72,7 +72,7 @@ class TestSuite(object):
         test_case['timer']    = cuppa.timer.Timer()
 
 
-    def exit_test( self, test, status='success' ):
+    def exit_test( self, test, status='passed' ):
         test_case = self._tests[-1]
         test_case['timer'].stop()
         test_case['status'] = status
@@ -98,7 +98,7 @@ class TestSuite(object):
         self._write_test_case( test_case )
 
         self._suite['total_tests'] += 1
-        if status == 'success':
+        if status == 'passed':
             self._suite['passed_tests'] += 1
         elif status == 'failed':
             self._suite['failed_tests'] += 1
@@ -116,7 +116,7 @@ class TestSuite(object):
 
     def _write_test_case( self, test_case ):
         expected = test_case['expected'] == test_case['status']
-        passed   = test_case['status'] == "success"
+        passed   = test_case['status'] == 'passed'
         meaning  = test_case['status']
 
         if not expected and passed:
@@ -142,7 +142,7 @@ class TestSuite(object):
         aborted_tests     = suite['aborted_tests']
 
         suite['status'] = 'passed'
-        meaning = 'success'
+        meaning = 'passed'
 
         if total_tests != passed_tests:
             suite['status'] = 'failed'
@@ -370,7 +370,7 @@ class RunProcessTest(object):
                 print >> sys.stderr, "cuppa: ProcessTest: Test returned with error code: ", return_code
                 test_suite.exit_test( test, 'failed' )
             else:
-                test_suite.exit_test( test, 'success' )
+                test_suite.exit_test( test, 'passed' )
 
             cuppa.test_report.cuppa_json.write_report( report_file_name_from( program_path ), test_suite.tests() )
 

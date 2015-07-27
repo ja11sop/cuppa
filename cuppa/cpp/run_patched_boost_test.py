@@ -26,7 +26,7 @@ class Notify(object):
         self._toolchain = scons_env['toolchain']
         self._colouriser = scons_env['colouriser']
         self.master_suite = {}
-        self.master_suite['status'] = 'success'
+        self.master_suite['status'] = 'passed'
 
 
     def enter_suite(self, suite):
@@ -572,7 +572,7 @@ class RunPatchedBoostTest:
             elif return_code > 0:
                 self._write_file_to_stderr( stderr_file_name_from( program_path ) )
                 print >> sys.stderr, "cuppa: RunPatchedBoostTest: Test returned with error code: ", return_code
-            elif notifier.master_suite['status'] != 'success':
+            elif notifier.master_suite['status'] != 'passed':
                 print >> sys.stderr, "cuppa: RunPatchedBoostTest: Not all test suites passed. "
 
             if return_code:

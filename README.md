@@ -401,7 +401,7 @@ env.Test(
         final_dir = None,
         data = None,
         runner = None,
-        expected = 'success' )
+        expected = 'passed' )
 ```
 
 *Overview*: Uses the specified `runner` to execute `source` as a test using any `data` provided. The `runner` can report on the progress of the test with respect to the `expected` outcome.
@@ -426,7 +426,7 @@ env.BuildTest(
        data = None,
        append_variant = None,
        runner = None,
-       expected = 'success' )
+       expected = 'passed' )
 ```
 
 *Overview*: Builds the target from the specified sources and allows it to be executed as a test.
