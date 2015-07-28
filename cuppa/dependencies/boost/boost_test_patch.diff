@@ -756,6 +756,18 @@ diff -urN a/boost/test/utils/progress.hpp b/boost/test/utils/progress.hpp
 +} // namespace boost
 +
 +#endif  // BOOST_TEST_UTILS_PROGRESS_DISPLAY_HPP
+diff -urN a/boost/test/utils/runtime/cla/argv_traverser.ipp source/boost/test/utils/runtime/cla/argv_traverser.ipp
+--- a/boost/test/utils/runtime/cla/argv_traverser.ipp	2012-12-13 21:32:58.000000000 +0000
++++ b/boost/test/utils/runtime/cla/argv_traverser.ipp	2015-06-21 21:11:49.038065848 +0100
+@@ -49,6 +49,8 @@
+ BOOST_RT_PARAM_INLINE void
+ argv_traverser::init( int argc, char_type** argv )
+ {
++    m_buffer.clear();
++
+     for( int index = 1; index < argc; ++index ) {
+         m_buffer += argv[index];
+         if( index != argc-1 )
 diff -urN a/boost/test/utils/runtime/cla/parser.hpp b/boost/test/utils/runtime/cla/parser.hpp
 --- a/boost/test/utils/runtime/cla/parser.hpp	2012-12-13 21:32:58.000000000 +0000
 +++ b/boost/test/utils/runtime/cla/parser.hpp	2015-06-21 21:11:49.038065848 +0100
