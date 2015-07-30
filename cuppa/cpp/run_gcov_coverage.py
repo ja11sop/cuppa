@@ -61,7 +61,7 @@ class WriteToString(object):
 
 
 def run_command( command, working_dir ):
-    print "coverage: {}".format( command )
+    print "cuppa: gcov: executing [{}]".format( command )
     process_output = WriteToString()
     return_code = IncrementalSubProcess.Popen( process_output,
                                                shlex.split( command ),
@@ -103,7 +103,7 @@ class CoverageSuite(object):
     def _run_gcovr( self, build_dir, output_dir, working_dir, sconscript_id ):
         command = 'gcovr -h'
         if not command_available( command ):
-            print "coverage: skipping gcovr output as not available"
+            print "cuppa: gcov: Skipping gcovr output as not available"
             return
 
         base_name = coverage_base_name( sconscript_id )
@@ -117,15 +117,28 @@ class CoverageSuite(object):
 
         return_code, output = run_command( command, working_dir )
 
-        if return_code == 0:
-            os.rename( index_file, os.path.join( output_dir, "coverage.html" ) )
-            coverage_files = Glob( base_name + '*.html' )
-            for coverage_file in coverage_files:
-                new_coverage_file = os.path.join( output_dir, str( coverage_file ) )
+        new_index_file = os.path.join( output_dir, "coverage.html" )
+        try:
+            os.rename( index_file, new_index_file )
+        except OSError as e:
+            print "cuppa: gcov: Failed moving coverage file from [{}] to [{}] with error: {}".format(
+                        index_file,
+                        new_index_file,
+                        str(e)
+                )
+
+        coverage_files = Glob( base_name + '*.html' )
+        for coverage_file in coverage_files:
+            new_coverage_file = os.path.join( output_dir, str( coverage_file ) )
+            try:
                 os.rename( str( coverage_file ), new_coverage_file )
-            print output
-        else:
-            print output
+            except OSError as e:
+                print "cuppa: gcov: Failed moving coverage file from [{}] to [{}] with error: {}".format(
+                        str( coverage_file ),
+                        new_coverage_file,
+                        str(e)
+                )
+        print output
 
 
 class RunGcovCoverageEmitter(object):
@@ -206,8 +219,7 @@ class RunGcovCoverage(object):
 
         if return_code == 0:
             gcov_source_path = source_path.replace( os.path.sep, '#' )
-
-            gcov_files = glob.glob( gcov_source_path + '*' )
+            gcov_files = glob.glob( gcov_source_path + '*gcov' )
 
             for gcov_file in gcov_files:
 
@@ -217,8 +229,12 @@ class RunGcovCoverage(object):
                 new_gcov_file = os.path.join( build_dir, filename )
                 try:
                     os.rename( str(gcov_file), new_gcov_file )
-                except OSError:
-                    print "coverage: failed moving gcov file [{}] to [{}]".format( str(gcov_file), new_gcov_file )
+                except OSError as e:
+                    print "cuppa: gcov: Failed moving gcov file [{}] to [{}] with error: {}".format(
+                            str(gcov_file),
+                            new_gcov_file,
+                            str(e)
+                    )
 
             with open( gcov_log_path, 'w' ) as summary_file:
                 summary_file.write( output )
