@@ -215,7 +215,7 @@ class Notify(object):
 
         matches = re.match(
             r'(?P<file>[a-zA-Z0-9._/\s\-]+)[(](?P<line>[0-9]+)[)]: '
-             '(?P<message>[a-zA-Z0-9(){}:&_<>/\-=," ]+)',
+             '(?P<message>[a-zA-Z0-9(){}:&_<>/\-=!," \[\]]+)',
             line )
 
         if matches:
@@ -394,7 +394,7 @@ class ProcessStdout:
         write_line = True
 
         matches = re.match(
-                r'.*\s(?P<status>passed|failed)$',
+                r'.*\s(?P<status>passed|failed)(\s[\[][^\[\]]+[\]])?$',
                 line.strip() )
 
         if matches:
@@ -406,6 +406,8 @@ class ProcessStdout:
             if status == 'failed':
                 write_line = True
                 self.notify.failed_assertion(line)
+
+
 
         return is_assertion, write_line
 
@@ -665,8 +667,8 @@ class RunBoostTest:
 
             return None
 
-        except OSError, e:
-            print >> sys.stderr, "Execution of [", test_command, "] failed with error: ", e
+        except OSError as e:
+            print >> sys.stderr, "Execution of [", test_command, "] failed with error: ", str(e)
             return 1
 
 
@@ -683,10 +685,9 @@ class RunBoostTest:
 
 
     def __write_file_to_stderr( self, file_name ):
-        error_file = open( file_name, "r" )
-        for line in error_file:
-            print >> sys.stderr, line
-        error_file.close()
+        with open( file_name, "r" ) as error_file:
+            for line in error_file:
+                print >> sys.stderr, line
 
 
     def _write_success_file( self, file_name ):
