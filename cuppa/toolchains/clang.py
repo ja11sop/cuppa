@@ -64,6 +64,7 @@ class Clang(object):
     def supported_versions( cls ):
         return [
             "clang",
+            "clang37",
             "clang36",
             "clang35",
             "clang34",
@@ -272,7 +273,7 @@ class Clang(object):
 
         if re.match( 'clang3[2-3]', toolchain ):
             CommonCxxFlags += [ '-std=c++11' ]
-        elif re.match( 'clang3[4-6]', toolchain ):
+        elif re.match( 'clang3[4-7]', toolchain ):
             CommonCxxFlags += [ '-std=c++1y' ]
 
         self.values['debug_cxx_flags']     = CommonCxxFlags + []
@@ -316,7 +317,7 @@ class Clang(object):
             return '-std={}'.format(env['stdcpp'])
         elif re.match( 'clang3[2-3]', self.values['name'] ):
             return '-std=c++11'
-        elif re.match( 'clang3[4-6]', self.values['name'] ):
+        elif re.match( 'clang3[4-7]', self.values['name'] ):
             return '-std=c++1y'
 
 
