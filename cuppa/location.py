@@ -131,12 +131,12 @@ class Location(object):
                     try:
                         os.rmdir( local_directory )
                     except:
-                        return local_directory
+                        return local_directory, False
 
                 self.extract( location, local_directory )
             else:
                 local_directory = branch and os.path.join( location, branch ) or location
-                return local_directory
+                return local_directory, False
         else:
 
             local_name = '#'.join( [ full_url.scheme, full_url.netloc, urllib.unquote( full_url.path ) ] )
@@ -155,7 +155,7 @@ class Location(object):
                         os.rmdir( local_dir_with_sub_dir )
                     except:
                         # Not empty so we'll return this as the local_directory
-                        return local_directory
+                        return local_directory, True
 
                 # If not we then check to see if we cached the download
                 cached_archive = self.get_cached_archive( env['cache_root'], local_name )
@@ -221,7 +221,7 @@ class Location(object):
                             )
                             raise LocationException( "Error obtaining [{}]: {}".format( location, error ) )
 
-            return local_directory
+            return local_directory, True
 
 
     def get_rev_options( self, vc_type, vcs_backend ):
@@ -322,10 +322,10 @@ class Location(object):
         ## Get the location for the source dependency. If the location is a URL or an Archive we'll need to
         ## retrieve the URL and extract the archive. get_local_directory() returns the location of the source
         ## once this is done
-        local_directory = self.get_local_directory( env, location, self._sub_dir, branch, self._full_url )
+        local_directory, use_sub_dir = self.get_local_directory( env, location, self._sub_dir, branch, self._full_url )
 
         self._base_local_directory = local_directory
-        self._local_directory = os.path.join( local_directory, self._sub_dir )
+        self._local_directory = use_sub_dir and os.path.join( local_directory, self._sub_dir ) or local_directory
 
         ## Now that we have a locally accessible version of the dependency we can try to collate some information
         ## about it to allow us to specify what we are building with.
