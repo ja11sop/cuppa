@@ -266,7 +266,7 @@ class Boost(object):
             location = self.location_from_boost_version( location )
             if not location: # use version as a fallback in case both at specified
                 location = self.location_from_boost_version( version )
-            self._location = cuppa.location.Location( env, location, extra_sub_path=extra_sub_path )
+            self._location = cuppa.location.Location( env, location, extra_sub_path=extra_sub_path, name_hint="boost" )
 
         elif base: # Find boost locally
             if not os.path.isabs( base ):
