@@ -18,6 +18,8 @@ import shlex
 import subprocess
 import ntpath
 import fnmatch
+import hashlib
+import platform
 
 import pip.vcs
 import pip.download
@@ -105,6 +107,39 @@ class Location(object):
             return pip.download.is_archive_file( path )
 
 
+    def folder_name_from_path( self, path ):
+
+        def is_url( path ):
+            return isinstance( path, urlparse.ParseResult )
+
+        def name_from_url( url ):
+            return '#'.join( [ url.scheme, url.netloc, urllib.unquote( url.path ) ] )
+
+        def short_name_from_url( url ):
+            return re.sub( r'[\\/+:() ]', r'#', urllib.unquote( url.path ) )
+
+        def name_from_path( path ):
+            folder_name = os.path.splitext( path_leaf( path ) )[0]
+            name, ext = os.path.splitext( folder_name )
+            if ext == ".tar":
+                folder_name = name
+            return folder_name
+
+        local_folder = is_url( path ) and name_from_url( path ) or name_from_path( path )
+        local_folder = re.sub( r'[\\/+:() ]', r'#', local_folder )
+
+        if platform.system() == "Windows":
+            # Windows suffers from MAX_PATH limitations so we'll use a hash to shorten the name
+            hasher = hashlib.md5()
+            hasher.update( local_folder )
+            digest = hasher.hexdigest()
+            short_digest = digest[-8:]
+            local_folder = is_url( path ) and short_name_from_url( path ) or local_folder
+            local_folder = local_folder[8:] + short_digest
+
+        return local_folder
+
+
     def get_local_directory( self, env, location, sub_dir, branch, full_url ):
 
         local_directory = None
@@ -120,12 +155,8 @@ class Location(object):
 
             if pip.download.is_archive_file( location ):
 
-                local_directory = os.path.splitext( path_leaf( location ) )[0]
-                name, ext = os.path.splitext( local_directory )
-                if ext == ".tar":
-                    local_directory = name
-                local_directory = re.sub( r'[\\/+:() ]', r'#', local_directory )
-                local_directory = os.path.join( base, local_directory )
+                local_folder = self.folder_name_from_path( location )
+                local_directory = os.path.join( base, local_folder )
 
                 if os.path.exists( local_directory ):
                     try:
@@ -139,9 +170,8 @@ class Location(object):
                 return local_directory, False
         else:
 
-            local_name = '#'.join( [ full_url.scheme, full_url.netloc, urllib.unquote( full_url.path ) ] )
-            local_name = re.sub( r'[\\/+:() ]', r'#', local_name )
-            local_directory = os.path.join( base, local_name )
+            local_folder = self.folder_name_from_path( full_url )
+            local_directory = os.path.join( base, local_folder )
 
             if full_url.scheme.startswith( 'http' ) and self.url_is_download_archive_url( full_url.path ):
                 print "cuppa: location: [{}] is an archive download".format( self._as_info( location ) )
