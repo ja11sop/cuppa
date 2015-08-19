@@ -134,8 +134,11 @@ class Location(object):
             hasher.update( local_folder )
             digest = hasher.hexdigest()
             short_digest = digest[-8:]
-            local_folder = is_url( path ) and short_name_from_url( path ) or local_folder
-            local_folder = local_folder[8:] + short_digest
+            name_hint = self._name_hint
+            if not name_hint:
+                name_hint = is_url( path ) and short_name_from_url( path ) or local_folder
+                name_hint = name_hint[:8]
+            local_folder = name_hint + short_digest
 
         return local_folder
 
@@ -336,12 +339,13 @@ class Location(object):
         return self._colouriser.as_notice( text )
 
 
-    def __init__( self, env, location, branch=None, extra_sub_path=None ):
+    def __init__( self, env, location, branch=None, extra_sub_path=None, name_hint=None ):
 
         self._colouriser = env['colouriser']
         self._location   = location
         self._full_url   = urlparse.urlparse( location )
         self._sub_dir    = ""
+        self._name_hint  = name_hint
 
         if extra_sub_path:
             if os.path.isabs( extra_sub_path ):
