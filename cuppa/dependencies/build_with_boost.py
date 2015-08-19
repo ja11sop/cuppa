@@ -526,9 +526,10 @@ def variant_name( variant ):
 
 
 def directory_from_abi_flag( abi_flag ):
-    flag, value = abi_flag.split('=')
-    if value:
-        return value
+    if abi_flag:
+        flag, value = abi_flag.split('=')
+        if value:
+            return value
     return abi_flag
 
 
