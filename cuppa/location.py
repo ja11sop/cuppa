@@ -188,7 +188,7 @@ class Location(object):
                         return local_directory, True
 
                 # If not we then check to see if we cached the download
-                cached_archive = self.get_cached_archive( env['cache_root'], local_name )
+                cached_archive = self.get_cached_archive( env['cache_root'], local_folder )
                 if cached_archive:
                     print "cuppa: location: Cached archive [{}] found for [{}]".format( self._as_info( cached_archive ), self._as_info( location ) )
                     self.extract( cached_archive, local_dir_with_sub_dir )
@@ -199,7 +199,7 @@ class Location(object):
                     print "cuppa: location: [{}] successfully downloaded to [{}]".format( self._as_info( location ), self._as_info( filename ) )
                     self.extract( filename, local_dir_with_sub_dir )
                     if env['cache_root']:
-                        cached_archive = os.path.join( env['cache_root'], local_name )
+                        cached_archive = os.path.join( env['cache_root'], local_folder )
                         print "cuppa: location: caching downloaded file as [{}]".format( self._as_info( cached_archive ) )
                         shutil.copyfile( filename, cached_archive )
 
