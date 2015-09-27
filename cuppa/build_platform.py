@@ -9,6 +9,9 @@
 #-------------------------------------------------------------------------------
 
 import platform
+import subprocess
+import shlex
+import os.path
 
 # Custom
 import cuppa.modules.registration
@@ -54,6 +57,19 @@ class Platform(object):
         if not hasattr(cls, '_platform'):
             cls._create()
         return cls._platform
+
+
+def which( program ):
+    exe = 'which'
+    if platform.system() == "Windows":
+        exe = 'where.exe'
+    command = "{} {}".format( exe, program )
+    try:
+        path = subprocess.check_output( shlex.split( command ) )
+        return os.path.dirname( path )
+    except subprocess.CalledProcessError as error:
+        print "ERROR calling command \"{}\"; Failed with error: {}".format( command, str(error) )
+    return None
 
 
 def name():
