@@ -13,6 +13,7 @@ import os
 import shutil
 import re
 import string
+import platform
 import lxml.html
 
 from exceptions import Exception
@@ -316,6 +317,7 @@ class Boost(object):
         if self.values['numeric_version'] > 1.39:
             self.values['library_mt_tag'] = ''
         else:
+            # TODO - nonsense code - need to fix
             self.values['library_mt_tag'] = '-' + platform['toolchain_tag'] + '-mt'
 
         self.values['defines'] = [
@@ -453,21 +455,22 @@ class BuildBjam(object):
 
     def __call__( self, target, source, env ):
 
-        build_script_path = self._location + '/tools/build'
+        build_script_path = os.path.join( self._location, 'tools', 'build' )
 
         if self._version < 1.47:
-            build_script_path += '/src/v2/engine'
+            build_script_path = os.path.join( build_script_path, 'src', 'v2', 'engine' )
 
         elif self._version > 1.55:
-            build_script_path += '/src/engine'
+            build_script_path = os.path.join( build_script_path, 'src', 'engine' )
 
         else:
-            build_script_path += '/v2/engine'
+            build_script_path = os.path.join( build_script_path, 'v2', 'engine' )
 
-        ## TODO: change build script depending on platform
         bjam_build_script = './build.sh'
+        if platform.system() == "Windows":
+            bjam_build_script = os.path.join( build_script_path, 'build.bat' )
 
-        print 'Execute ' + bjam_build_script + ' from ' + build_script_path
+        #print 'Execute ' + bjam_build_script + ' from ' + str(build_script_path)
 
         process_bjam_build = ProcessBjamBuild()
 
@@ -484,7 +487,7 @@ class BuildBjam(object):
                 print "Could not determine bjam exe path"
                 return 1
 
-            bjam_binary_path = build_script_path + '/' + bjam_exe_path
+            bjam_binary_path = os.path.join( build_script_path, bjam_exe_path )
 
             shutil.copy( bjam_binary_path, target[0].path )
 
@@ -511,7 +514,7 @@ def toolset_from_toolchain( toolchain ):
     toolset_name = toolset_name_from_toolchain( toolchain )
     if toolset_name == "clang-darwin":
         return toolset_name
-    return toolset_name + '-' + toolchain.cxx_version()
+    return toolchain.cxx_version() and toolset_name + '-' + toolchain.cxx_version() or toolset_name
 
 
 def build_with_library_name( library ):
@@ -665,13 +668,6 @@ class BoostLibraryAction(object):
         return toolset_name
 
 
-    def _toolset_from_toolchain( self, toolchain ):
-        toolset_name = toolset_name_from_toolchain( toolchain )
-        if toolset_name == "clang-darwin":
-            return toolset_name
-        return toolset_name + '-' + toolchain.version()
-
-
     def _build_command( self, env, toolchain, libraries, variant, linktype, stage_dir ):
 
         verbose = ""
@@ -702,7 +698,13 @@ class BoostLibraryAction(object):
 
         build_dir = "bin." + directory_from_abi_flag( abi_flag )
 
-        command_line = "./bjam{verbose} -j {jobs}{with_libraries} toolset={toolset} variant={variant} {build_flags} link={linktype} --build-dir=./{build_dir} stage --stagedir=./{stage_dir}".format(
+        bjam = './bjam'
+        if platform.system() == "Windows":
+            # Use full path on Windows
+            bjam = os.path.join( self._location, 'bjam.exe' )
+
+        command_line = "{bjam}{verbose} -j {jobs}{with_libraries} toolset={toolset} variant={variant} {build_flags} link={linktype} --build-dir=./{build_dir} stage --stagedir=./{stage_dir}".format(
+                bjam            = bjam,
                 verbose         = verbose,
                 jobs            = jobs,
                 with_libraries  = with_libraries,
@@ -714,6 +716,11 @@ class BoostLibraryAction(object):
                 stage_dir       = stage_dir )
 
         print command_line
+
+        if platform.system() == "Windows":
+            command_line = command_line.replace( "\\", "\\\\" )
+            command_line = command_line.replace( '"', '\\"' )
+
         return shlex.split( command_line )
 
 
@@ -776,15 +783,57 @@ class BjamOutputProcessor(object):
         return summary
 
 
-def static_library_name( env, library ):
-    return env.subst('$LIBPREFIX') + 'boost_' + library + env.subst('$LIBSUFFIX')
+def library_tag( toolchain, boost_version, variant, threading ):
+    tag = "-{toolset_name}{toolset_version}{threading}{abi_flag}-{boost_version}"
+
+    toolset_name = toolchain.family()
+
+    if cuppa.build_platform.name() == "Windows":
+        if toolset_name == "gcc":
+            toolset_name = "mgw"
+
+    return tag.format(
+            toolset_name    = toolset_name,
+            toolset_version = toolchain.short_version(),
+            threading       = threading and "-mt" or "",
+            abi_flag        = variant == "debug" and "-d" or "",
+            boost_version   = boost_version
+    )
 
 
-def shared_library_name( env, library, full_version ):
-    if cuppa.build_platform.name() == "Darwin":
-        return env.subst('$SHLIBPREFIX') + 'boost_' + library + env.subst('$SHLIBSUFFIX')
-    else:
-        return env.subst('$SHLIBPREFIX') + 'boost_' + library + env.subst('$SHLIBSUFFIX') + '.' + full_version
+def static_library_name( env, library, toolchain, boost_version, variant, threading ):
+    name    = "{prefix}boost_{library}{tag}{suffix}"
+    tag     = ""
+
+    if cuppa.build_platform.name() == "Windows":
+        tag = library_tag( toolchain, boost_version, variant, threading )
+
+    return name.format(
+            prefix  = env.subst('$LIBPREFIX'),
+            library = library,
+            tag     = tag,
+            suffix  = env.subst('$LIBSUFFIX')
+    )
+
+
+def shared_library_name( env, library, toolchain, boost_version, variant, threading ):
+    name    = "{prefix}boost_{library}{tag}{suffix}{version}"
+    tag     = ""
+    version = ""
+
+    if cuppa.build_platform.name() == "Windows":
+        tag = library_tag( toolchain, boost_version, variant, threading )
+    elif cuppa.build_platform.name() == "Linux":
+        version = "." + boost_version
+
+    return name.format(
+            prefix  = env.subst('$SHLIBPREFIX'),
+            library = library,
+            tag     = tag,
+            suffix  = env.subst('$SHLIBSUFFIX'),
+            version = version
+     )
+
 
 
 class BoostLibraryEmitter(object):
@@ -797,22 +846,25 @@ class BoostLibraryEmitter(object):
         self._libraries = lazy_update_library_list( env, True, libraries, self._built_libraries, add_dependents, linktype, boost )
 
         self._location     = boost.local()
+        self._boost        = boost
         self._linktype     = linktype
         self._version      = boost.numeric_version()
         self._full_version = boost.full_version()
         self._variant      = variant_name( self._env['variant'].name() )
         self._toolchain    = env['toolchain']
+        self._threading    = True
 
 
     def __call__( self, target, source, env ):
         stage_dir = stage_directory( self._toolchain, self._variant, self._toolchain.abi_flag(env) )
 
+
         for library in self._libraries:
             filename = None
             if self._linktype == 'static':
-                filename = static_library_name( env, library )
+                filename = static_library_name( env, library, self._toolchain, self._boost.version(), self._variant, self._threading )
             else:
-                filename = shared_library_name( env, library, self._full_version )
+                filename = shared_library_name( env, library, self._toolchain, self._boost.version(), self._variant, self._threading )
 
             built_library_path = os.path.join( self._location, stage_dir, 'lib', filename )
 
@@ -896,18 +948,29 @@ class BoostLibraryBuilder(object):
             'BoostLibraryBuilder' : env.Builder( action=library_action, emitter=library_emitter )
         } )
 
-        bjam_target = os.path.join( self._boost.local(), 'bjam' )
-        bjam    = env.Command( bjam_target, [], BuildBjam( self._boost ) )
+        bjam_exe = 'bjam'
+        if platform.system() == "Windows":
+            bjam_exe += ".exe"
+        bjam_target = os.path.join( self._boost.local(), bjam_exe )
+        bjam = env.Command( bjam_target, [], BuildBjam( self._boost ) )
         env.NoClean( bjam )
         built_libraries = env.BoostLibraryBuilder( target, source )
 
         prefix = env.subst('$LIBPREFIX')
+        suffix = env.subst('$LIBSUFFIX')
         if linktype == 'shared':
             prefix = env.subst('$SHLIBPREFIX')
+            suffix = env.subst('$SHLIBSUFFIX')
 
         built_library_map = {}
         for library in built_libraries:
-            name = os.path.splitext( os.path.split( str(library) )[1] )[0].replace( prefix + "boost_", "" )
+            # Extract the library name from the library filename.
+            # Possibly use regex instead?
+            name = os.path.split( str(library) )[1]
+            name = name.split( "." )[0]
+            name = name.split( "-" )[0]
+            name = name.split( "_" )[1]
+
             built_library_map[name] = library
 
         variant_instance = env['sconscript_file'] + env['build_dir']
