@@ -14,6 +14,8 @@ from subprocess import Popen, PIPE
 import re
 import shlex
 import collections
+import platform
+import os
 from exceptions import Exception
 
 
@@ -108,21 +110,27 @@ class Gcc(object):
                 if not major and not minor:
                     default_ver, default_cxx = cls.default_version()
                     if default_ver:
-                        cls._available_versions[version] = {'cxx_version': default_cxx, 'version': default_ver }
+                        cls._available_versions[version] = {
+                                'cxx_version': default_cxx,
+                                'version': default_ver,
+                                'path': cuppa.build_platform.which( "g++" )
+                        }
                 elif not minor:
                     cxx_version = "-{}".format( major )
                     cxx = "g++{}".format( cxx_version )
                     reported_version = cls.version_from_command( cxx )
                     if reported_version:
-                        cls._available_versions[version] = {'cxx_version': cxx_version, 'version': reported_version }
-                        cls._available_versions[reported_version] = {'cxx_version': cxx_version, 'version': reported_version }
+                        cxx_path = cuppa.build_platform.which( cxx )
+                        cls._available_versions[version] = {'cxx_version': cxx_version, 'version': reported_version, 'path': cxx_path }
+                        cls._available_versions[reported_version] = {'cxx_version': cxx_version, 'version': reported_version, 'path': cxx_path }
                 else:
                     cxx_version = "-{}.{}".format( major, minor )
                     cxx = "g++{}".format( cxx_version )
                     reported_version = cls.version_from_command( cxx )
                     if reported_version:
                         if version == reported_version:
-                            cls._available_versions[version] = {'cxx_version': cxx_version, 'version': reported_version }
+                            cxx_path = cuppa.build_platform.which( cxx )
+                            cls._available_versions[version] = {'cxx_version': cxx_version, 'version': reported_version, 'path': cxx_path }
                         else:
                             raise GccException("GCC toolchain [{}] reporting version as [{}].".format( version, reported_version ) )
         return cls._available_versions
@@ -139,8 +147,8 @@ class Gcc(object):
             add_to_supported( version )
 
         for version, gcc in cls.available_versions().iteritems():
-#            print "Adding toolchain [{}] reported as [{}] with cxx_version [g++{}]".format( version, gcc['version'], gcc['cxx_version'] )
-            add_toolchain( version, cls( version, gcc['cxx_version'], gcc['version'] ) )
+            #print "Adding toolchain [{}] reported as [{}] with cxx_version [g++{}] at [{}]".format( version, gcc['version'], gcc['cxx_version'], gcc['path'] )
+            add_toolchain( version, cls( version, gcc['cxx_version'], gcc['version'], gcc['path'] ) )
 
 
     @classmethod
@@ -157,20 +165,26 @@ class Gcc(object):
         return STATICLIBFLAGS + ' ' + DYNAMICLIBFLAGS
 
 
-    def __init__( self, available_version, cxx_version, reported_version ):
+    def __init__( self, available_version, cxx_version, reported_version, cxx_path ):
 
         self.values = {}
 
         self._version          = re.search( r'(\d)(\d)', reported_version ).expand(r'\1.\2')
+        self._short_version    = self._version.replace( ".", "" )
         self._cxx_version      = cxx_version.lstrip('-')
+        self._cxx_path         = cxx_path
+        if self._cxx_version == cxx_version:
+            self._cxx_version = ""
+        else:
+            Self._cxx_version = "-" + self._cxx_version
 
         self._name             = reported_version
         self._reported_version = reported_version
 
         self._initialise_toolchain( self._reported_version )
 
-        self.values['CXX'] = "g++-{}".format( self._cxx_version )
-        self.values['CC']  = "gcc-{}".format( self._cxx_version )
+        self.values['CXX'] = "g++{}".format( self._cxx_version )
+        self.values['CC']  = "gcc{}".format( self._cxx_version )
 
         env = SCons.Script.DefaultEnvironment()
 
@@ -196,6 +210,10 @@ class Gcc(object):
         return "gcc"
 
 
+    def short_version( self ):
+        return self._short_version
+
+
     def version( self ):
         return self._version
 
@@ -209,10 +227,18 @@ class Gcc(object):
 
 
     def initialise_env( self, env ):
+        if platform.system() == "Windows":
+            SCons.Script.Tool( 'mingw' )( env )
+            env['ENV']['PATH'] = ";".join( [ env['ENV']['PATH'], self._cxx_path ] )
+            #print "PATH = {}".format( str( env['ENV']['PATH'] ) )
+
+        else:
+            SCons.Script.Tool( 'g++' )( env )
         env['CXX']          = self.values['CXX']
         env['CC']           = self.values['CC']
         env['_CPPINCFLAGS'] = self.values['_CPPINCFLAGS']
         env['_LIBFLAGS']    = self.values['_LIBFLAGS']
+        env['CCFLAGS']      = []
         env['SYSINCPATH']   = []
         env['INCPATH']      = [ '#.', '.' ]
         env['LIBPATH']      = []
