@@ -67,9 +67,12 @@ class Linux:
             multiarch_lib_path = '-'.join( [ machine, system.lower(), 'gnu' ] )
             libc_path = "/lib/" + multiarch_lib_path + "/" + libc_file
 
-        libc_version = Popen([libc_path], stdout=PIPE).communicate()[0]
-
-        return 'libc' + search( r'^GNU C Library [()a-zA-Z ]*([0-9][.0-9]+)', libc_version, MULTILINE ).expand(r'\1').replace('.','')
+        try:
+            libc_version = Popen([libc_path], stdout=PIPE).communicate()[0]
+            return 'libc' + search( r'^GNU C Library [()a-zA-Z ]*([0-9][.0-9]+)', libc_version, MULTILINE ).expand(r'\1').replace('.','')
+        except:
+            print "Could not detect the version of libc installed. You might be missing some development libraries!"
+            return None
 
 
     def initialise( self ):
