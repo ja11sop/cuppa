@@ -11,6 +11,8 @@
 import os.path
 import subprocess
 import shlex
+import platform
+import glob
 
 # Cuppa Imports
 import cuppa.location
@@ -159,14 +161,31 @@ class quince_postgresql(object):
         self._flags = {}
         self._flags['INCPATH'] = [ os.path.join( self._location.local(), "include" ) ]
 
-        if cuppa.output_processor.command_available( "pg_config"):
-            command = "pg_config --includedir"
+        pg_config = "pg_config"
+        if platform.system() == "Windows":
+            pg_config = pg_config + ".exe"
+            if not cuppa.output_processor.command_available( pg_config ):
+                # try to find the Postgresql install
+                program_files = os.environ.get( "ProgramW6432" )
+                postgresql_base = os.path.join( program_files, "PostgreSQL" )
+                if os.path.exists( postgresql_base ):
+                    paths = glob.glob( postgresql_base + '\\*' )
+                    if len(paths):
+                        paths.sort()
+                        latest = paths[-1]
+                        pg_config = '\"' + os.path.join( latest, "bin", pg_config ) + '\"'
+
+        if cuppa.output_processor.command_available( pg_config ):
+            command = "{pg_config} --includedir".format( pg_config = pg_config )
             libpq_include = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT ).strip()
             self._flags['INCPATH'].append( libpq_include )
 
-            command = "pg_config --libdir"
+            command = "{pg_config} --libdir".format( pg_config = pg_config )
             libpq_libpath = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT ).strip()
             self._flags['LIBPATH'] = [ libpq_libpath ]
+        else:
+            print "Warning: pg_config not available so cannot determine LIBPATH for postgres libraries"
+            self._flags['LIBPATH'] = []
 
         self._flags['DYNAMICLIBS'] = [ 'pq' ]
 
