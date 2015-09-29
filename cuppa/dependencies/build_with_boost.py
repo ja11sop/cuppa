@@ -961,12 +961,6 @@ class BoostLibraryBuilder(object):
         env.NoClean( bjam )
         built_libraries = env.BoostLibraryBuilder( target, source )
 
-        prefix = env.subst('$LIBPREFIX')
-        suffix = env.subst('$LIBSUFFIX')
-        if linktype == 'shared':
-            prefix = env.subst('$SHLIBPREFIX')
-            suffix = env.subst('$SHLIBSUFFIX')
-
         built_library_map = {}
         for library in built_libraries:
             # Extract the library name from the library filename.

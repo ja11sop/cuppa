@@ -15,7 +15,6 @@ import re
 import shlex
 import collections
 import platform
-import os
 from exceptions import Exception
 
 
