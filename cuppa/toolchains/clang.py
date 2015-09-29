@@ -136,6 +136,7 @@ class Clang(object):
 
         self.values = {}
         self._version = re.search( r'(\d)(\d)', version ).expand(r'\1.\2')
+        self._short_version = self._version.replace( ".", "" )
         self.values['name'] = version
         self._gcov_format = self._gcov_format_version()
 
@@ -174,6 +175,10 @@ class Clang(object):
 
     def version( self ):
         return self._version
+
+
+    def short_version( self ):
+        return self._short_version
 
 
     def cxx_version( self ):
