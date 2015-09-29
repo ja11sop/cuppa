@@ -176,15 +176,15 @@ class Gcc(object):
         if self._cxx_version == cxx_version:
             self._cxx_version = ""
         else:
-            Self._cxx_version = "-" + self._cxx_version
+            self._cxx_version = self._cxx_version
 
         self._name             = reported_version
         self._reported_version = reported_version
 
         self._initialise_toolchain( self._reported_version )
 
-        self.values['CXX'] = "g++{}".format( self._cxx_version )
-        self.values['CC']  = "gcc{}".format( self._cxx_version )
+        self.values['CXX'] = "g++{}".format( self._cxx_version and "-" +  self._cxx_version or "" )
+        self.values['CC']  = "gcc{}".format( self._cxx_version and "-" +  self._cxx_version or "" )
 
         env = SCons.Script.DefaultEnvironment()
 

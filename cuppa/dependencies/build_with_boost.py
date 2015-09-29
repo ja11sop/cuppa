@@ -514,7 +514,9 @@ def toolset_from_toolchain( toolchain ):
     toolset_name = toolset_name_from_toolchain( toolchain )
     if toolset_name == "clang-darwin":
         return toolset_name
-    return toolchain.cxx_version() and toolset_name + '-' + toolchain.cxx_version() or toolset_name
+
+    toolset = toolchain.cxx_version() and toolset_name + "-" + toolchain.cxx_version() or toolset_name
+    return toolset
 
 
 def build_with_library_name( library ):
@@ -703,23 +705,27 @@ class BoostLibraryAction(object):
             # Use full path on Windows
             bjam = os.path.join( self._location, 'bjam.exe' )
 
-        command_line = "{bjam}{verbose} -j {jobs}{with_libraries} toolset={toolset} variant={variant} {build_flags} link={linktype} --build-dir=./{build_dir} stage --stagedir=./{stage_dir}".format(
+        toolset = toolset_from_toolchain( toolchain )
+
+        command_line = "{bjam}{verbose} -j {jobs}{with_libraries} toolset={toolset} variant={variant} {build_flags} link={linktype} --build-dir=.{path_sep}{build_dir} stage --stagedir=.{path_sep}{stage_dir}".format(
                 bjam            = bjam,
                 verbose         = verbose,
                 jobs            = jobs,
                 with_libraries  = with_libraries,
-                toolset         = toolset_from_toolchain( toolchain ),
+                toolset         = toolset,
                 variant         = variant,
                 build_flags     = build_flags,
                 linktype        = linktype,
                 build_dir       = build_dir,
-                stage_dir       = stage_dir )
+                stage_dir       = stage_dir,
+                path_sep        = os.path.sep
+        )
 
         print command_line
 
         if platform.system() == "Windows":
             command_line = command_line.replace( "\\", "\\\\" )
-            command_line = command_line.replace( '"', '\\"' )
+        command_line = command_line.replace( '"', '\\"' )
 
         return shlex.split( command_line )
 
@@ -731,7 +737,6 @@ class BoostLibraryAction(object):
 
         stage_dir = stage_directory( self._toolchain, self._variant, self._toolchain.abi_flag(env) )
         args      = self._build_command( env, self._toolchain, self._libraries, self._variant, self._linktype, stage_dir )
-
         processor = BjamOutputProcessor( env, self._verbose_build, self._verbose_config, self._toolset_name_from_toolchain( self._toolchain ) )
 
         returncode = IncrementalSubProcess.Popen(
@@ -916,7 +921,7 @@ class WriteToolsetConfigJam(object):
             toolset_config_line = "{} {} ;\n".format( current_toolset, toolchain.binary() )
 
             with open( path, 'w' ) as toolchain_config:
-                print "cuppa: boost: adding toolset config [{}] to dummy toolset config".format( str(toolset_config_line.strip()) )
+                print "cuppa: boost: adding toolset config [{}] to dummy toolset config [{}]".format( str(toolset_config_line.strip()), path )
                 toolchain_config.write( toolset_config_line )
 
             self._update_project_config_jam(
