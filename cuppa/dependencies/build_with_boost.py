@@ -974,7 +974,7 @@ class BoostLibraryBuilder(object):
             name = os.path.split( str(library) )[1]
             name = name.split( "." )[0]
             name = name.split( "-" )[0]
-            name = name.split( "_" )[1]
+            name = "_".join( name.split( "_" )[1:] )
 
             built_library_map[name] = library
 
