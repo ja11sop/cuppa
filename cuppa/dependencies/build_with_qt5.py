@@ -10,6 +10,7 @@
 
 import subprocess
 import shlex
+import glob
 
 # Cuppa Imports
 import cuppa.location
@@ -39,6 +40,7 @@ class build_with_qt5(object):
     def add_to_env( cls, env, add_dependency  ):
         try:
             add_dependency( cls._name, cls( env ) )
+            print "QT5 added"
         except Qt5Exception:
             print as_warning( env, "cuppa: warning: Could not create dependency [{}]. Dependency not available.".format( cls._name ) )
 
@@ -61,6 +63,17 @@ class build_with_qt5(object):
             if 'QT5DIR' not in env:
                 self._set_qt5_dir( env )
             self._version = self._get_qt5_version()
+        elif cuppa.build_platform.name() == "Windows":
+            if 'QT5DIR' not in env:
+                paths = glob.glob( 'C:\\Qt\\5.*\\*' )
+                if len(paths):
+                    paths.sort()
+                    env['QT5DIR'] = paths[-1]
+
+        if 'QT5DIR' not in env:
+            print as_error( env, "cuppa: qt5: error: could not detect QT5 installation" )
+        else:
+            print "cuppa: qt5: Q5DIR detected as [{}]".format( as_info( env, env['QT5DIR'] ) )
 
 
     def _set_qt5_dir( self, env ):
@@ -75,7 +88,6 @@ class build_with_qt5(object):
                         if len(include) < len(shortest_path):
                             shortest_path = include
                     env['QT5DIR'] = shortest_path
-                print "cuppa: qt5: Q5DIR detected as [{}]".format( as_info( env, env['QT5DIR'] ) )
         except:
             #TODO: Warning?
             pass
@@ -91,6 +103,10 @@ class build_with_qt5(object):
 
 
     def __call__( self, env, toolchain, variant ):
+
+        toolpath = self._location.base_local()
+
+        print "TOOLPATH = " + str(toolpath)
 
         SCons.Script.Tool( 'qt5', toolpath=[ self._location.base_local() ] )( env )
 
