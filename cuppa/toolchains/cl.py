@@ -76,9 +76,11 @@ class Cl(object):
 
         self.values = {}
         self._version = "cl"
+        self._short_version = self._version.replace( ".", "" )
         self.values['name'] = version
 
         env = SCons.Script.DefaultEnvironment()
+        SCons.Script.Tool( 'msvc' )( env )
 
         self.values['sys_inc_prefix'] = env['INCPREFIX']
         self.values['sys_inc_suffix'] = env['INCSUFFIX']
@@ -87,7 +89,7 @@ class Cl(object):
 
         self.values['_CPPINCFLAGS'] = '$( ' + SYSINCPATHS + ' ${_concat(INCPREFIX, INCPATH, INCSUFFIX, __env__, RDirs, TARGET, SOURCE)} $)'
 
-	self._initialise_toolchain()
+        self._initialise_toolchain()
 
 
     def __getitem__( self, key ):
@@ -106,6 +108,10 @@ class Cl(object):
         return self._version
 
 
+    def short_version( self ):
+        return self._short_version
+
+
     def cxx_version( self ):
         return self._version
 
@@ -115,6 +121,7 @@ class Cl(object):
 
 
     def initialise_env( self, env ):
+        SCons.Script.Tool( 'msvc' )( env )
         env['_CPPINCFLAGS'] = self.values['_CPPINCFLAGS']
         env['SYSINCPATH']   = []
         env['INCPATH']      = [ '#.', '.' ]
