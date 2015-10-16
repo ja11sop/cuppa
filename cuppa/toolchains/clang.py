@@ -301,6 +301,9 @@ class Clang(object):
     def make_env( self, cuppa_env, variant, target_arch ):
         env = None
 
+        if not target_arch:
+            target_arch = self._host_arch
+
         if platform.system() == "Windows":
             env = cuppa_env.create_env( tools = ['mingw'] )
             env['ENV']['PATH'] = ";".join( [ env['ENV']['PATH'], self._cxx_path ] )
@@ -321,7 +324,7 @@ class Clang(object):
 
         self.update_variant( env, variant.name() )
 
-        return env
+        return env, target_arch
 
 
     def variants( self ):
@@ -443,9 +446,9 @@ class Clang(object):
     def abi_flag( self, env ):
         if env['stdcpp']:
             return '-std={}'.format(env['stdcpp'])
-        elif re.match( 'clang3[2-3]', self.values['name'] ):
+        elif re.match( 'clang3[2-3]', self._name ):
             return '-std=c++11'
-        elif re.match( 'clang3[4-7]', self.values['name'] ):
+        elif re.match( 'clang3[4-7]', self._name ):
             return '-std=c++1y'
 
 
