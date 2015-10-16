@@ -27,9 +27,3 @@ class Cov:
     def add_to_env( cls, env, add_variant, add_action ):
         add_variant( cls.name(), cls() )
         add_action( cls.name(), cls() )
-
-
-    @classmethod
-    def create( cls, env, toolchain ):
-        toolchain.update_variant( env, cls.name() )
-        return env

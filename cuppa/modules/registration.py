@@ -8,6 +8,10 @@
 #   Registraion
 #-------------------------------------------------------------------------------
 
+
+from cuppa.log import logger
+
+
 def get_module_list( path, base=None ):
     from os import listdir
     from re import match
@@ -90,7 +94,10 @@ def __call_classmethod_for_classes_in_module( package, name, path, method, *args
                     try:
                         function = getattr( member, method )
                         if callable( function ):
-                            function( *args, **kwargs )
+                            try:
+                                function( *args, **kwargs )
+                            except Exception as error:
+                                logger.error( "{} in {} failed with error [{}]".format( method, member, str(error) ) )
                     except AttributeError, (e):
                         pass
         finally:

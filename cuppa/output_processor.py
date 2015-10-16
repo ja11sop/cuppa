@@ -17,6 +17,7 @@ import threading
 import shlex
 import colorama
 import Queue
+import platform
 
 
 from cuppa.colourise import as_colour, as_emphasised, as_highlighted
@@ -128,6 +129,7 @@ class PSpawn(object):
 
     def returncode( self ):
         if self._exception:
+            logger.error("pspawn terminated with exception [{}]".format( str(self._exception) ) )
             raise self._exception
         return self._returncode
 
@@ -189,14 +191,37 @@ class Processor:
     def __init__( self, scons_env ):
         self.scons_env = scons_env
 
+
     @classmethod
     def install( cls, env ):
         global _pspawn
         _pspawn = env['PSPAWN']
         output_processor = cls( env )
-        env['SPAWN'] = output_processor.spawn
+        if platform.system() == "Windows":
+            env['SPAWN'] = output_processor.windows_spawn
+        else:
+            env['SPAWN'] = output_processor.posix_spawn
 
-    def spawn( self, sh, escape, cmd, args, env ):
+
+    def posix_spawn( self, sh, escape, cmd, args, env ):
+
+        processor = SpawnedProcessor( self.scons_env )
+
+        returncode = IncrementalSubProcess.Popen(
+            processor,
+            [ arg.strip('"') for arg in args ],
+            env=env
+        )
+
+        summary = processor.summary( returncode )
+
+        if summary:
+            print summary
+
+        return returncode
+
+
+    def windows_spawn( self, sh, escape, cmd, args, env ):
 
         processor = SpawnedProcessor( self.scons_env )
 

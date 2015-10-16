@@ -296,6 +296,8 @@ class Gcc(object):
         env['STATICLIBS']   = []
         env['DYNAMICLIBS']  = self.values['dynamic_libraries']
 
+        self.update_variant( env, variant.name() )
+
         return env, target_arch
 
 

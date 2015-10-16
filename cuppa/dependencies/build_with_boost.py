@@ -24,7 +24,7 @@ import cuppa.build_platform
 import cuppa.location
 
 from cuppa.output_processor import IncrementalSubProcess, ToolchainProcessor
-from cuppa.colourise        import as_warning, as_info, as_error, as_emphasised
+from cuppa.colourise        import as_warning, as_info, as_error, as_emphasised, as_notice
 from cuppa.log import logger
 
 
@@ -71,7 +71,8 @@ class Boost(object):
                     help='The location of the boost source code' )
 
         add_option( '--boost-build-always', dest='boost-build-always', action='store_true',
-                    help="Pass this if your boost source may change (for example you are patching it) and you want boost build to be executed each time the library is asked for" )
+                    help="Pass this if your boost source may change (for example you are patching it)"
+                         " and you want boost build to be executed each time the library is asked for" )
 
         add_option( '--boost-verbose-build', dest='boost-verbose-build', action='store_true',
                     help="Pass this option if you wish to see the command-line output of boost build" )
@@ -117,9 +118,9 @@ class Boost(object):
     @classmethod
     def _get_boost_location( cls, env, location, version, base, patched ):
         logger.debug( "Identify boost using location = [{}], version = [{}], base = [{}], patched = [{}]".format(
-                as_info( str(base) ),
                 as_info( str(location) ),
                 as_info( str(version) ),
+                as_info( str(base) ),
                 as_info( str(patched) )
         ) )
 
@@ -171,7 +172,7 @@ class Boost(object):
             boost_location = cuppa.location.Location( env, location, extra_sub_path=extra_sub_path )
 
         if patched:
-            cls.apply_patch_if_needed( cls._location.local() )
+            cls.apply_patch_if_needed( boost_location.local() )
 
         return boost_location
 
@@ -180,6 +181,8 @@ class Boost(object):
     def create( cls, env ):
 
         boost_id = cls._boost_location_id( env )
+
+        logger.debug( "Adding boost [{}] to env".format( as_notice( str(boost_id) ) ) )
 
         if not boost_id in cls._cached_boost_locations:
             cls._cached_boost_locations[ boost_id ] = cls._get_boost_location( env, boost_id[0], boost_id[1], boost_id[2], boost_id[3] )

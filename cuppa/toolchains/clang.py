@@ -14,6 +14,7 @@ from subprocess import Popen, PIPE
 import re
 import shlex
 import collections
+import platform
 from exceptions import Exception
 
 import cuppa.build_platform
@@ -24,6 +25,7 @@ from cuppa.cpp.run_patched_boost_test import RunPatchedBoostTestEmitter, RunPatc
 from cuppa.cpp.run_process_test import RunProcessTestEmitter, RunProcessTest
 from cuppa.cpp.run_gcov_coverage import RunGcovCoverageEmitter, RunGcovCoverage
 from cuppa.output_processor import command_available
+from cuppa.colourise import as_info, as_notice
 from cuppa.log import logger
 
 
@@ -80,8 +82,8 @@ class Clang(object):
             reported_version = cls.version_from_command( command )
             cxx_version = ""
             if reported_version:
-                major = str(reported_version[7])
-                minor = str(reported_version[8])
+                major = str(reported_version[5])
+                minor = str(reported_version[6])
                 version = "{}.{}".format( major, minor )
                 exists = cls.version_from_command( "clang++-{} --version".format( version ) )
                 if exists:
@@ -113,10 +115,11 @@ class Clang(object):
         if not hasattr( cls, '_available_versions' ):
             cls._available_versions = collections.OrderedDict()
             for version in cls.supported_versions():
+
                 matches = re.match( r'clang(?P<major>(\d))?(?P<minor>(\d))?', version )
 
                 if not matches:
-                    raise ClangException("Clang toolchain [{}] is not recognised as supported!.".format( version ) )
+                    raise ClangException("Clang toolchain [{}] is not recognised as supported!".format( version ) )
 
                 major = matches.group('major')
                 minor = matches.group('minor')
@@ -164,7 +167,7 @@ class Clang(object):
                                     'path': cxx_path
                             }
                         else:
-                            raise GccException("Clang toolchain [{}] reporting version as [{}].".format( version, reported_version ) )
+                            raise ClangException("Clang toolchain [{}] reporting version as [{}].".format( version, reported_version ) )
         return cls._available_versions
 
 
@@ -232,10 +235,12 @@ class Clang(object):
         self._reported_version = reported_version
 
         self._suppress_debug_for_auto = suppress_debug_for_auto
+
+        self.values = {}
+
         self._gcov_format = self._gcov_format_version()
         self._initialise_toolchain( self._reported_version, stdlib )
 
-        self.values = {}
         self.values['CXX'] = "clang++{}".format( self._cxx_version and "-" +  self._cxx_version or "" )
         self.values['CC']  = "clang{}".format( self._cxx_version and "-" +  self._cxx_version or "" )
 
@@ -294,7 +299,6 @@ class Clang(object):
 
 
     def make_env( self, cuppa_env, variant, target_arch ):
-
         env = None
 
         if platform.system() == "Windows":
@@ -314,6 +318,8 @@ class Clang(object):
         env['LIBS']         = []
         env['STATICLIBS']   = []
         env['DYNAMICLIBS']  = self.values['dynamic_libraries']
+
+        self.update_variant( env, variant.name() )
 
         return env
 
@@ -367,12 +373,15 @@ class Clang(object):
 
 
     def _gcov_format_version( self ):
-        gcov_version = Popen(["gcov", "--version"], stdout=PIPE).communicate()[0]
-        gcov_version = re.search( r'(\d)\.(\d)\.(\d)', gcov_version ).expand(r'\g<1>0\g<2>')
-        return gcov_version + '*'
+        try:
+            gcov_version = Popen(["gcov", "--version"], stdout=PIPE).communicate()[0]
+            gcov_version = re.search( r'(\d)\.(\d)\.(\d)', gcov_version ).expand(r'\g<1>0\g<2>')
+            return gcov_version + '*'
+        except:
+            return None
 
 
-    def _initialise_toolchain( self, toolchain, stdlib ):
+    def _initialise_toolchain( self, version, stdlib ):
 
         self.values['sys_inc_prefix']  = '-isystem'
 
@@ -383,16 +392,16 @@ class Clang(object):
         CommonCxxFlags = [ '-Wall', '-fexceptions' ]
         CommonCFlags   = [ '-Wall' ]
 
-        if not re.match( 'clang3[2-5]', toolchain ) or not self._suppress_debug_for_auto:
+        if not re.match( 'clang3[2-5]', version ) or not self._suppress_debug_for_auto:
             CommonCxxFlags += [ "-g" ]
             CommonCFlags += [ "-g" ]
 
         if stdlib:
             CommonCxxFlags += [ "-stdlib={}".format(stdlib) ]
 
-        if re.match( 'clang3[2-3]', toolchain ):
+        if re.match( 'clang3[2-3]', version ):
             CommonCxxFlags += [ '-std=c++11' ]
-        elif re.match( 'clang3[4-7]', toolchain ):
+        elif re.match( 'clang3[4-7]', version ):
             CommonCxxFlags += [ '-std=c++1y' ]
 
         self.values['debug_cxx_flags']     = CommonCxxFlags + []

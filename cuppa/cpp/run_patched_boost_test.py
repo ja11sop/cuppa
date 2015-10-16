@@ -16,7 +16,7 @@ import re
 import cuppa.test_report.cuppa_json
 import cuppa.build_platform
 from cuppa.output_processor import IncrementalSubProcess
-from cuppa.colourise import as_emphasised, as_highlighted, as_colour
+from cuppa.colourise import as_emphasised, as_highlighted, as_colour, emphasise_time_by_digit
 
 
 class Notify(object):
@@ -184,11 +184,11 @@ class Notify(object):
 
         if 'wall_duration' in results:
             sys.stdout.write(
-                " Wall [ %s ]" % as_emphasised_time_by_digit( results['wall_duration'] )
+                " Wall [ %s ]" % emphasise_time_by_digit( results['wall_duration'] )
             )
 
         sys.stdout.write(
-            " CPU [ %s ]" % as_emphasised_time_by_digit( results['cpu_duration'] )
+            " CPU [ %s ]" % emphasise_time_by_digit( results['cpu_duration'] )
         )
 
         if 'wall_cpu_percent' in results:

@@ -845,7 +845,7 @@ class Construct(object):
             def abs_final_dir( abs_build_dir, final_dir ):
                 return os.path.isabs( final_dir ) and final_dir or os.path.normpath( os.path.join( abs_build_dir, final_dir ) )
 
-            sconscript_env['abs_final_dir']   = abs_final_dir( sconscript_env['abs_build_dir'], sconscript_env['final_dir'] )
+            sconscript_env['abs_final_dir'] = abs_final_dir( sconscript_env['abs_build_dir'], sconscript_env['final_dir'] )
 
             sconscript_env.AppendUnique( INCPATH = [
                     sconscript_env['offset_dir']
