@@ -14,6 +14,7 @@ import timeit
 import time
 import sys
 
+from cuppa.colourise import as_emphasised, as_colour, emphasise_time_by_digit
 
 nanosecs_multiple = 1000000000
 
@@ -99,18 +100,6 @@ class Timer(object):
         self.start()
 
 
-class no_colourising(object):
-
-    def emphasise( self, text ):
-        return text
-
-    def emphasise_time_by_digit( self, text ):
-        return text
-
-    def colour( self, text ):
-        return text
-
-
 def as_duration_string( total_nanosecs ):
     secs, remainder      = divmod( total_nanosecs, 1000000000 )
     millisecs, remainder = divmod( remainder, 1000000 )
@@ -132,16 +121,16 @@ def as_wall_cpu_percent_string( cpu_times ):
     return wall_cpu_percent
 
 
-def write_time( cpu_times, colouriser=no_colourising(), emphasise=False ):
+def write_time( cpu_times, emphasise=False ):
 
     def write( text ):
         if not emphasise:
             sys.stdout.write( text )
         else:
-            sys.stdout.write( colouriser.emphasise( text ) )
+            sys.stdout.write( as_emphasised( text ) )
 
     write( " Time:" )
-    write( " Wall [ {}".format( colouriser.emphasise_time_by_digit( as_duration_string( cpu_times.wall ) ) ) )
-    write( " ] CPU [ {}".format( colouriser.emphasise_time_by_digit( as_duration_string( cpu_times.process ) ) ) )
-    write( " ] CPU/Wall [ {}".format( colouriser.colour( 'time', as_wall_cpu_percent_string( cpu_times ) ) ) )
+    write( " Wall [ {}".format( emphasise_time_by_digit( as_duration_string( cpu_times.wall ) ) ) )
+    write( " ] CPU [ {}".format( emphasise_time_by_digit( as_duration_string( cpu_times.process ) ) ) )
+    write( " ] CPU/Wall [ {}".format( as_colour( 'time', as_wall_cpu_percent_string( cpu_times ) ) ) )
     write( " ]" )

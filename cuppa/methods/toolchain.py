@@ -18,5 +18,5 @@ class ToolchainMethod:
             return self.__toolchains[ toolchain ]
 
     @classmethod
-    def add_to_env( cls, env ):
-        env.AddMethod( cls( env['toolchains'] ), "Toolchain" )
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "Toolchain", cls( cuppa_env['toolchains'] ) )

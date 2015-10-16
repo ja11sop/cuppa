@@ -33,9 +33,7 @@ class Windows:
 
     def default_toolchain( self ):
         if not self._toolchain:
-            env = SCons.Script.Environment()
-            self._toolchain = env['CC']
-            return self._toolchain
+            self._toolchain = 'vc'
         return self._toolchain
 
 
@@ -44,11 +42,10 @@ class Windows:
 
 
     def _bit_depth( self, machine ):
-        if machine == "i386":
+        machine = machine.lower()
+        if machine == "x86":
             return '32'
-        elif machine == "i686":
-            return '32'
-        elif machine == "x86_64":
+        elif machine == "amd64":
             return '64'
         else:
             return 'unknown'

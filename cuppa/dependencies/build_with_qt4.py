@@ -16,6 +16,7 @@ import cuppa.location
 import cuppa.output_processor
 import cuppa.build_platform
 from cuppa.colourise import as_info, as_warning
+from cuppa.log import logger
 
 import SCons.Script
 
@@ -30,6 +31,7 @@ class Qt4Exception(Exception):
 class build_with_qt4(object):
 
     _name = "qt4"
+    _qt4_tool = None
 
     @classmethod
     def add_options( cls, add_option ):
@@ -37,30 +39,53 @@ class build_with_qt4(object):
 
     @classmethod
     def add_to_env( cls, env, add_dependency  ):
+        add_dependency( cls._name, cls.create )
+
+
+    @classmethod
+    def create( cls, env ):
         try:
-            add_dependency( cls._name, cls( env ) )
+            if not cls._qt4_tool:
+                cls._qt4_tool = cls.retrieve_tool( env )
+            return build_with_qt4( env )
         except Qt4Exception:
-            print as_warning( env, "cuppa: warning: Could not create dependency [{}]. Dependency not available.".format( cls._name ) )
+            logger.error( "Could not create dependency [{}]. Dependency not available.".format( cls._name ) )
+        return None
+
+
+    @classmethod
+    def retrieve_tool( cls, env ):
+        url = "hg+https://bitbucket.org/dirkbaechle/scons_qt4"
+        try:
+            return cuppa.location.Location( env, url, extra_sub_path = "qt4" )
+        except cuppa.location.LocationException:
+            logger.warn( "Could not retrieve scons_qt4 from [{}]".format( url ) )
+        return None
 
 
     def __init__( self, env ):
 
-        url = "hg+https://bitbucket.org/dirkbaechle/scons_qt4"
-
-        try:
-            self._location = cuppa.location.Location( env, url, extra_sub_path = "qt4" )
-        except cuppa.location.LocationException:
-            print as_warning( env, "cuppa: qt4: warning: Could not retrieve url [{}]".format( url ) )
-            raise Qt4Exception( "Could not retrieve scons_qt4 from [{}]".format( url ) )
-
         self._version = "4"
 
         if cuppa.build_platform.name() in ["Darwin", "Linux"]:
-            if not cuppa.output_processor.command_available( "pkg-config" ):
-                return
+            if cuppa.output_processor.command_available( "pkg-config" ):
+                if 'QT4DIR' not in env:
+                    self._set_qt4_dir( env )
+                self._version = self._get_qt4_version()
+
+        elif cuppa.build_platform.name() == "Windows":
             if 'QT4DIR' not in env:
-                self._set_qt4_dir( env )
-            self._version = self._get_qt4_version()
+                paths = glob.glob( 'C:\\Qt\\4.*\\*' )
+                if len(paths):
+                    paths.sort()
+                    env['QT4DIR'] = paths[-1]
+
+        if 'QT4DIR' not in env:
+            logger.error( "could not detect QT4 installation" )
+            raise Qt4Exception( "could not detect QT4 installation." )
+
+        logger.debug( "Q4DIR detected as [{}]".format( as_info( env['QT4DIR'] ) ) )
+
 
 
     def _set_qt4_dir( self, env ):
@@ -75,10 +100,10 @@ class build_with_qt4(object):
                         if len(include) < len(shortest_path):
                             shortest_path = include
                     env['QT4DIR'] = shortest_path
-                print "cuppa: qt4: Q4DIR detected as [{}]".format( as_info( env, env['QT4DIR'] ) )
+                logger.debug( "Q4DIR detected as [{}]".format( as_info( env, env['QT4DIR'] ) ) )
         except:
-            #TODO: Warning?
-            pass
+            logger.debug( "In _set_qt4_dir() failed to execute [{}]".format( command ) )
+
 
 
     def _get_qt4_version( self ):
@@ -86,8 +111,8 @@ class build_with_qt4(object):
         try:
             return subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT ).strip()
         except:
-            #TODO: Warning?
-            return None
+            logger.debug( "In _get_qt4_version() failed to execute [{}]".format( command ) )
+        return None
 
 
     def __call__( self, env, toolchain, variant ):

@@ -16,6 +16,7 @@ import re
 import cuppa.test_report.cuppa_json
 import cuppa.build_platform
 from cuppa.output_processor import IncrementalSubProcess
+from cuppa.colourise import as_emphasised, as_highlighted, as_colour
 
 
 class Notify(object):
@@ -24,20 +25,19 @@ class Notify(object):
     def __init__( self, scons_env, show_test_output ):
         self._show_test_output = show_test_output
         self._toolchain = scons_env['toolchain']
-        self._colouriser = scons_env['colouriser']
         self.master_suite = {}
         self.master_suite['status'] = 'passed'
 
 
     def enter_suite(self, suite):
         sys.stdout.write(
-            self._colouriser.emphasise( "\nStarting Test Suite [%s]\n" % suite )
+            as_emphasised( "\nStarting Test Suite [%s]\n" % suite )
         )
 
 
     def exit_suite(self, suite):
         sys.stdout.write(
-            self._colouriser.emphasise( "\nTest Suite Finished [%s] " % suite['name'] )
+            as_emphasised( "\nTest Suite Finished [%s] " % suite['name'] )
         )
 
         label   = suite['status'].upper()
@@ -46,7 +46,7 @@ class Notify(object):
         store_durations( suite )
 
         sys.stdout.write(
-            self._colouriser.highlight( meaning, " = %s = " % label )
+            as_highlighted( meaning, " = %s = " % label )
         )
 
         self.__write_time( suite )
@@ -64,21 +64,21 @@ class Notify(object):
         if total_assertions > 0:
             if suite['status'] == 'passed':
                 sys.stdout.write(
-                    self._colouriser.highlight(
+                    as_highlighted(
                         meaning,
                         " ( %s of %s Assertions Passed )" % (passed_assertions, total_assertions)
                     )
                 )
             else:
                 sys.stdout.write(
-                    self._colouriser.highlight(
+                    as_highlighted(
                         meaning,
                         " ( %s of %s Assertions Failed )" % (failed_assertions, total_assertions)
                     )
                 )
         else:
             sys.stdout.write(
-                self._colouriser.colour(
+                as_colour(
                     'notice',
                     " ( No Assertions Checked )"
                 )
@@ -86,7 +86,7 @@ class Notify(object):
 
         if suite['status'] == 'passed' and passed_tests > 0:
             sys.stdout.write(
-                self._colouriser.highlight(
+                as_highlighted(
                     meaning,
                     " ( %s %s Passed ) "
                     % (passed_tests, passed_tests > 1 and 'Test Cases' or 'Test Case')
@@ -97,7 +97,7 @@ class Notify(object):
 
         if failed_tests > 0:
             sys.stdout.write(
-                self._colouriser.highlight(
+                as_highlighted(
                     meaning,
                     " ( %s %s Failed ) "
                     % (failed_tests, failed_tests > 1 and 'Test Cases' or 'Test Case')
@@ -106,7 +106,7 @@ class Notify(object):
 
         if expected_failures > 0:
             sys.stdout.write(
-                self._colouriser.highlight(
+                as_highlighted(
                     meaning,
                     " ( %s %s Expected ) "
                     % (expected_failures, expected_failures > 1 and 'Failures' or 'Failure')
@@ -115,7 +115,7 @@ class Notify(object):
 
         if skipped_tests > 0:
             sys.stdout.write(
-                self._colouriser.highlight(
+                as_highlighted(
                     meaning,
                     " ( %s %s Skipped ) "
                     % (skipped_tests, skipped_tests > 1 and 'Test Cases' or 'Test Case')
@@ -124,7 +124,7 @@ class Notify(object):
 
         if aborted_tests > 0:
             sys.stdout.write(
-                self._colouriser.highlight(
+                as_highlighted(
                     meaning,
                     " ( %s %s Aborted ) "
                     % (aborted_tests, aborted_tests > 1 and 'Test Cases Were' or 'Test Case Was')
@@ -137,7 +137,7 @@ class Notify(object):
     def enter_test(self, test_case):
         pass
         sys.stdout.write(
-            self._colouriser.emphasise( "\nRunning Test Case [%s] ...\n" % test_case )
+            as_emphasised( "\nRunning Test Case [%s] ...\n" % test_case )
         )
 
 
@@ -146,7 +146,7 @@ class Notify(object):
         meaning = test_case['status']
 
         sys.stdout.write(
-            self._colouriser.highlight( meaning, " = %s = " % label )
+            as_highlighted( meaning, " = %s = " % label )
         )
 
         self.__write_time( test_case )
@@ -157,7 +157,7 @@ class Notify(object):
 
         if test_case['status'] == 'passed' and passed > 0:
             sys.stdout.write(
-                self._colouriser.colour(
+                as_colour(
                     meaning,
                     " ( %s of %s Assertions Passed )" % ( passed, assertions )
                 )
@@ -165,7 +165,7 @@ class Notify(object):
 
         if failed > 0:
             sys.stdout.write(
-                self._colouriser.colour(
+                as_colour(
                     meaning,
                     " ( %s of %s Assertions Failed )" % ( failed, assertions )
                 )
@@ -173,7 +173,7 @@ class Notify(object):
 
         if test_case['total'] == 0:
             sys.stdout.write(
-                self._colouriser.colour( 'notice'," ( No Assertions )" )
+                as_colour( 'notice'," ( No Assertions )" )
             )
 
         sys.stdout.write('\n')
@@ -184,11 +184,11 @@ class Notify(object):
 
         if 'wall_duration' in results:
             sys.stdout.write(
-                " Wall [ %s ]" % self._colouriser.emphasise_time_by_digit( results['wall_duration'] )
+                " Wall [ %s ]" % as_emphasised_time_by_digit( results['wall_duration'] )
             )
 
         sys.stdout.write(
-            " CPU [ %s ]" % self._colouriser.emphasise_time_by_digit( results['cpu_duration'] )
+            " CPU [ %s ]" % as_emphasised_time_by_digit( results['cpu_duration'] )
         )
 
         if 'wall_cpu_percent' in results:
@@ -198,7 +198,7 @@ class Notify(object):
                 format = "%5s  "
             wall_cpu_percent = format % wall_cpu_percent
             sys.stdout.write(
-                " CPU/Wall [ %s ]" % self._colouriser.colour( 'time', wall_cpu_percent )
+                " CPU/Wall [ %s ]" % as_colour( 'time', wall_cpu_percent )
             )
 
     def message(self, line):
@@ -288,7 +288,7 @@ class ProcessStdout:
 
     def entered_test_case( self, line ):
         matches = re.match(
-            r'(?:(?P<file>[a-zA-Z0-9._/\s\-]+)[(](?P<line>[0-9]+)[)]: )?'
+            r'(?:(?P<file>[a-zA-Z0-9._/\\\s\-]+)[(](?P<line>[0-9]+)[)]: )?'
              'Entering test case "(?P<test>[a-zA-Z0-9(){}\[\]:;&_<>\-, =]+)"',
             line.strip() )
 

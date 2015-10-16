@@ -55,11 +55,11 @@ class GenerateReportBuilder(object):
             for test in test_cases:
                 report.write( '    <test>\n' )
 
-                if not 'file' in test:
+                if not 'file' in test or test['file'] == None:
                     test['file'] = ""
-                if not 'line' in test:
+                if not 'line' in test or test['line'] == None:
                     test['line'] = ""
-                if not 'branch_dir' in test:
+                if not 'branch_dir' in test or test['branch_dir'] == None:
                     test['branch_dir'] = ""
 
                 for key, value in test.iteritems():
@@ -89,6 +89,6 @@ class GenerateBittenReportMethod(object):
 
 
     @classmethod
-    def add_to_env( cls, env ):
-        env.AddMethod( cls(), "GenerateBittenReport" )
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "GenerateBittenReport", cls() )
 

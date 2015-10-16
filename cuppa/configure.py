@@ -17,6 +17,8 @@ import SCons.Script
 
 
 import cuppa.options
+from cuppa.colourise import as_info, as_notice
+from cuppa.log import logger
 
 
 
@@ -55,7 +57,6 @@ class Configure(object):
         self._conf_path = conf_path
         self._callback = callback
         env['configured_options'] = {}
-        self._colouriser = env['colouriser']
         self._configured_options = {}
 
 
@@ -74,17 +75,17 @@ class Configure(object):
 
         if self._unconfigure:
             self._configure = False
-            print "cuppa: configure - {}".format( self._colouriser.as_notice( "Clear configuration requested..." ) )
+            logger.info( "{}".format( as_notice( "Clear configuration requested..." ) ) )
             if os.path.exists( self._conf_path ):
-                print "cuppa: configure - removing configure file [{}]".format(
-                        self._colouriser.as_info( self._conf_path ) )
+                logger.info( "Removing configure file [{}]".format(
+                        as_info( self._conf_path ) ) )
                 os.remove( self._conf_path )
             else:
-                print "cuppa: configure - configure file [{}] does not exist. Unconfigure not needed".format(
-                        self._colouriser.as_info( self._conf_path ) )
+                logger.info( "Configure file [{}] does not exist. Unconfigure not needed".format(
+                        as_info( self._conf_path ) ) )
             return
         elif self._configure:
-            print "cuppa: configure - {}".format( self._colouriser.as_notice( "Update configuration requested..." ) )
+            print logger.info( "{}".format( as_notice( "Update configuration requested..." ) ) )
 
         if not self._save:
             self._loaded_options = self._load_conf()
@@ -133,8 +134,8 @@ class Configure(object):
         settings = {}
         if os.path.exists(self._conf_path):
             with open(self._conf_path) as config_file:
-                print "cuppa: configure - configure file [{}] exists. Load stored settings...".format(
-                        self._colouriser.as_info( self._conf_path ) )
+                logger.info( "Configure file [{}] exists. Load stored settings...".format(
+                        as_info( self._conf_path ) ) )
                 for line in config_file.readlines():
                     name, value = tuple( l.strip() for l in line.split('=', 1) )
                     try:
@@ -144,9 +145,9 @@ class Configure(object):
                     self._print_setting( 'loading', name, value )
                     settings[name] = value
         if settings:
-            print "cuppa: configure - load complete"
+            logger.info( "Load complete" )
         else:
-            print "cuppa: configure - no settings to load, skipping configure"
+            logger.info( "No settings to load, skipping configure" )
         return settings
 
 
@@ -170,10 +171,11 @@ class Configure(object):
 
 
     def _print_setting( self, action, key, value ):
-        print "cuppa: configure - {} [{}] = [{}]".format(
-            action,
-            self._colouriser.colour( 'notice', key ),
-            self._colouriser.colour( 'notice', str(value) ) )
+        logger.info( "{} [{}] = [{}]".format(
+                action,
+                as_notice( key ),
+                as_notice( str(value) )
+        ) )
 
 
     def _save_settings( self ):
@@ -194,25 +196,25 @@ class Configure(object):
 
     def _remove_settings( self ):
         initial_option_count = len(self._loaded_options)
-        print "cuppa: configure - Remove settings requested for the following options {}".format( self._remove )
+        logger.info( "Remove settings requested for the following options {}".format( self._remove ) )
         for setting in self._remove:
             if setting in self._loaded_options:
                 del self._loaded_options[setting]
-                print "cuppa: configure - removing option [{}] as requested".format( self._colouriser.colour( 'notice', "--" + setting ) )
+                logger.info( "Removing option [{}] as requested".format( as_notice( "--" + setting ) ) )
         if initial_option_count != len(self._loaded_options):
             self._update_conf()
 
 
     def _save_conf( self ):
-        print "cuppa: configure - {}".format( self._colouriser.colour( 'notice', "save current settings..." ) )
+        logger.info( "{}".format( as_notice( "Save current settings..." ) ) )
         self._save_settings()
-        print "cuppa: configure - {}".format( self._colouriser.colour( 'notice', "save complete" ) )
+        logger.info( "{}".format( as_notice( "Save complete" ) ) )
 
 
     def _update_conf( self ):
-        print "cuppa: configure - {}".format( self._colouriser.colour( 'notice', "updating current settings..." ) )
+        logger.info( "{}".format( as_notice( "Updating current settings..." ) ) )
         self._save_settings()
-        print "cuppa: configure - {}".format( self._colouriser.colour( 'notice', "update complete" ) )
+        logger.info( "{}".format( as_notice( "Update complete" ) ) )
 
 
 

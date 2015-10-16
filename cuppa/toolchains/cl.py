@@ -8,9 +8,16 @@
 #   CL Toolchain
 #-------------------------------------------------------------------------------
 
+import os
+import shlex
+import re
+import subprocess
+import collections
+
 from exceptions import Exception
 
 import SCons.Script
+from SCons.Tool.MSCommon.vc import cached_get_installed_vcs, _VCVER, get_default_version, msvc_setup_env
 
 from cuppa.cpp.create_version_file_cpp import CreateVersionHeaderCpp, CreateVersionFileCpp
 from cuppa.cpp.run_boost_test import RunBoostTestEmitter, RunBoostTest
@@ -29,27 +36,75 @@ class ClException(Exception):
 
 class Cl(object):
 
+    _supported_architectures = {
+        "amd64"     : "amd64",
+        "emt64"     : "amd64",
+        "i386"      : "x86",
+        "i486"      : "x86",
+        "i586"      : "x86",
+        "i686"      : "x86",
+        "ia64"      : "ia64",
+        "itanium"   : "ia64",
+        "x86"       : "x86",
+        "x86_64"    : "amd64",
+        "x86_amd64" : "x86_amd64",
+        "arm"       : "arm"
+    }
+
+    _target_architectures = {
+        ("x86", "x86")         : "x86",
+        ("x86", "amd64")       : "x86_amd64",
+        ("x86", "x86_amd64")   : "x86_amd64",
+        ("amd64", "x86_amd64") : "x86_amd64",
+        ("amd64", "amd64")     : "amd64",
+        ("amd64", "x86")       : "x86",
+        ("x86", "ia64")        : "x86_ia64",
+        ("x86", "arm")         : "x86_arm",
+        ("amd64", "arm")       : "amd64_arm",
+        ("arm", "arm")         : "arm",
+    }
 
     @classmethod
-    def default_version( cls ):
-        return 'cl'
+    def default_version( cls, env ):
+        if not hasattr( cls, '_default_version' ):
+            cls._default_version = get_default_version( env )
+        return cls._default_version
+
+
+    @classmethod
+    def vc_version( cls, long_version ):
+        version = long_version.replace( ".", "" )
+        version = version.replace( "Exp", "e" )
+        return 'vc' + version
 
 
     @classmethod
     def supported_versions( cls ):
-        return [
-            "cl"
-        ]
+        supported = [ "vc" ]
+        for version in reversed(_VCVER):
+            supported.append( cls.vc_version( version ) )
+        return supported
 
 
     @classmethod
-    def available_versions( cls ):
+    def available_versions( cls, env ):
         if not hasattr( cls, '_available_versions' ):
-            cls._available_versions = []
-            for version in cls.supported_versions():
-                command = "cl"
-                if command_available( command ):
-                    cls._available_versions = [ "cl" ]
+            cls._available_versions = collections.OrderedDict()
+            installed_versions = cached_get_installed_vcs()
+            if installed_versions:
+                default = cls.default_version( env )
+                cls._available_versions['vc'] = {
+                        'vc_version': cls.vc_version( default ),
+                        'version': default,
+                }
+
+            for version in installed_versions:
+                vc_version = cls.vc_version( version )
+                cls._available_versions[vc_version] = {
+                        'vc_version': vc_version,
+                        'version': version,
+                }
+
         return cls._available_versions
 
 
@@ -63,8 +118,8 @@ class Cl(object):
         for version in cls.supported_versions():
             add_to_supported( version )
 
-        for version in cls.available_versions():
-            add_toolchain( version, cls( version ) )
+        for name, vc in cls.available_versions( env ).iteritems():
+            add_toolchain( name, cls( name, vc['vc_version'], vc['version'] ) )
 
 
     @classmethod
@@ -72,15 +127,35 @@ class Cl(object):
         return [ 'dbg', 'rel' ]
 
 
-    def __init__( self, version ):
+    @classmethod
+    def host_architecture( cls, env ):
+        arch = env.get('HOST_ARCH')
+        if not arch:
+            arch = platform.machine()
+            if not arch:
+                arch = os.environ.get( 'PROCESSOR_ARCHITECTURE', '' )
+        try:
+            arch = cls._supported_architectures[ arch.lower() ]
+        except KeyError:
+            pass
+        return arch
+
+
+
+    def __init__( self, name, vc_version, version ):
 
         self.values = {}
-        self._version = "cl"
-        self._short_version = self._version.replace( ".", "" )
-        self.values['name'] = version
-
         env = SCons.Script.DefaultEnvironment()
         SCons.Script.Tool( 'msvc' )( env )
+
+        self._host_arch = self.host_architecture( env )
+
+        self._name    = vc_version
+        self._version = vc_version
+        self._long_version = version
+        self._short_version = vc_version[2:].replace( "e", "" )
+
+        self._target_store = "desktop"
 
         self.values['sys_inc_prefix'] = env['INCPREFIX']
         self.values['sys_inc_suffix'] = env['INCSUFFIX']
@@ -97,11 +172,19 @@ class Cl(object):
 
 
     def name( self ):
-        return self.values['name']
+        return self._name
 
 
     def family( self ):
         return "cl"
+
+
+    def toolset_name( self ):
+        return "msvc"
+
+
+    def toolset_tag( self ):
+        return "vc"
 
 
     def version( self ):
@@ -120,15 +203,38 @@ class Cl(object):
         return self.values['CXX']
 
 
-    def initialise_env( self, env ):
-        SCons.Script.Tool( 'msvc' )( env )
+    def target_store( self ):
+        return self._target_store
+
+
+    def make_env( self, cuppa_env, variant, target_arch ):
+
+        if not target_arch:
+            target_arch = self._host_arch
+        else:
+            target_arch = target_arch.lower()
+            if target_arch not in self._supported_architectures:
+                return None, target_arch
+            else:
+                target_arch = self._supported_architectures[ target_arch ]
+
+        target_arch = self._target_architectures[ ( self._host_arch, target_arch ) ]
+
+        env = cuppa_env.create_env(
+                tools = ['msvc'],
+                MSVC_VERSION = self._long_version,
+                TARGET_ARCH = target_arch,
+        )
+
         env['_CPPINCFLAGS'] = self.values['_CPPINCFLAGS']
-        env['SYSINCPATH']   = []
         env['INCPATH']      = [ '#.', '.' ]
-        env['LIBPATH']      = []
         env['CPPDEFINES']   = []
         env['LIBS']         = []
         env['STATICLIBS']   = []
+
+        self.update_variant( env, variant.name() )
+
+        return env, target_arch
 
 
     def variants( self ):
@@ -205,7 +311,7 @@ class Cl(object):
         return [
         {
             'title'     : "Compiler Error",
-            'regex'     : r"([][{}() \t#%$~\w&_:+\\/\.-]+)([(]([0-9]+)[)])([ ]:[ ]error [A-Z0-9]+:.*)",
+            'regex'     : r"([][{}() \t#%$~\w&_:+\\/\.-]+)([(]([0-9]+)[)])([ ]?:[ ]error [A-Z0-9]+:.*)",
             'meaning'   : 'error',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -215,10 +321,50 @@ class Cl(object):
         },
         {
             'title'     : "Compiler Warning",
-            'regex'     : r"([][{}() \t#%$~\w&_:+\\/\.-]+)([(]([0-9]+)[)])([ ]:[ ]warning [A-Z0-9]+:.*)",
+            'regex'     : r"([][{}() \t#%$~\w&_:+\\/\.-]+)([(]([0-9]+)[)])([ ]?:[ ]warning [A-Z0-9]+:.*)",
             'meaning'   : 'warning',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
+            'file'      : 1,
+            'line'      : None,
+            'column'    : None,
+        },
+        {
+            'title'     : "Compiler Note",
+            'regex'     : r"([][{}() \t#%$~\w&_:+\\/\.-]+)([(]([0-9]+)[)])([ ]?:[ ]note:.*)",
+            'meaning'   : 'message',
+            'highlight' : set( [ 1, 2 ] ),
+            'display'   : [ 1, 2, 4 ],
+            'file'      : 1,
+            'line'      : None,
+            'column'    : None,
+        },
+        {
+            'title'     : "Linker Fatal Error",
+            'regex'     : r"([][{}() \t#%$~\w&_:+\\/\.-]+)([ ]?:[ ]fatal error LNK[0-9]+:)(.*)",
+            'meaning'   : 'error',
+            'highlight' : set( [ 1, 2 ] ),
+            'display'   : [ 1, 2, 3 ],
+            'file'      : 1,
+            'line'      : None,
+            'column'    : None,
+        },
+        {
+            'title'     : "Linker Error",
+            'regex'     : r"([][{}() \t#%$~\w&_:+\\/\.-]+)([ ]?:[ ]error LNK[0-9]+:)(.*)",
+            'meaning'   : 'error',
+            'highlight' : set( [ 1, 2 ] ),
+            'display'   : [ 1, 2, 3 ],
+            'file'      : 1,
+            'line'      : None,
+            'column'    : None,
+        },
+        {
+            'title'     : "Linker Warning",
+            'regex'     : r"([][{}() \t#%$~\w&_:+\\/\.-]+)([ ]?:[ ]warning LNK[0-9]+:)(.*)",
+            'meaning'   : 'warning',
+            'highlight' : set( [ 1, 2 ] ),
+            'display'   : [ 1, 2, 3 ],
             'file'      : 1,
             'line'      : None,
             'column'    : None,

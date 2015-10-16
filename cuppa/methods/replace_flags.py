@@ -21,5 +21,5 @@ class ReplaceFlagsMethod:
 
 
     @classmethod
-    def add_to_env( cls, env ):
-        env.AddMethod( cls(), "ReplaceFlags" )
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "ReplaceFlags", cls() )

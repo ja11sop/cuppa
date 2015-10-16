@@ -16,6 +16,8 @@ import cuppa.timer
 import cuppa.progress
 import cuppa.test_report.cuppa_json
 from cuppa.output_processor import IncrementalSubProcess
+from cuppa.log import logger
+from cuppa.colourise import as_emphasised, as_highlighted, as_colour
 
 
 class TestSuite(object):
@@ -31,11 +33,10 @@ class TestSuite(object):
     def __init__( self, name, scons_env ):
         self._name = name
         self._scons_env = scons_env
-        self._colouriser = scons_env['colouriser']
 
         sys.stdout.write('\n')
         sys.stdout.write(
-            self._colouriser.emphasise( "Starting Test Suite [{}]".format( name ) )
+            as_emphasised( "Starting Test Suite [{}]".format( name ) )
         )
         sys.stdout.write('\n')
 
@@ -62,7 +63,7 @@ class TestSuite(object):
 
     def enter_test( self, test, expected='passed' ) :
         sys.stdout.write(
-            self._colouriser.emphasise( "\nTest [%s]..." % test ) + '\n'
+            as_emphasised( "\nTest [%s]..." % test ) + '\n'
         )
         self._tests.append( {} )
         test_case = self._tests[-1]
@@ -125,8 +126,8 @@ class TestSuite(object):
         label = " ".join( meaning.upper().split('_') )
 
         cpu_times = test_case['cpu_times']
-        sys.stdout.write( self._colouriser.highlight( meaning, " = %s = " % label ) )
-        cuppa.timer.write_time( cpu_times, self._colouriser )
+        sys.stdout.write( as_highlighted( meaning, " = %s = " % label ) )
+        cuppa.timer.write_time( cpu_times )
 
 
     def exit_suite( self ):
@@ -149,22 +150,22 @@ class TestSuite(object):
             meaning = 'failed'
 
         sys.stdout.write(
-            self._colouriser.emphasise( "\nTest Suite [{}] ".format( self._name ) )
+            as_emphasised( "\nTest Suite [{}] ".format( self._name ) )
         )
 
         sys.stdout.write(
-            self._colouriser.highlight( meaning, " = {} = ".format( suite['status'].upper() ) )
+            as_highlighted( meaning, " = {} = ".format( suite['status'].upper() ) )
         )
 
         sys.stdout.write('\n')
 
         sys.stdout.write(
-            self._colouriser.emphasise( "\nSummary\n" )
+            as_emphasised( "\nSummary\n" )
         )
 
         for test in self._tests:
             sys.stdout.write(
-                self._colouriser.emphasise( "\nTest case [{}]".format( test['name'] ) ) + '\n'
+                as_emphasised( "\nTest case [{}]".format( test['name'] ) ) + '\n'
             )
             self._write_test_case( test )
 
@@ -173,21 +174,21 @@ class TestSuite(object):
         if total_tests > 0:
             if suite['status'] == 'passed':
                 sys.stdout.write(
-                    self._colouriser.highlight(
+                    as_highlighted(
                         meaning,
                         " ( %s of %s Test Cases Passed )" % ( passed_tests, total_tests )
                     )
                 )
             else:
                 sys.stdout.write(
-                    self._colouriser.highlight(
+                    as_highlighted(
                         meaning,
                         " ( %s of %s Test Cases Failed )" % (failed_tests, total_tests)
                     )
                 )
         else:
             sys.stdout.write(
-                self._colouriser.colour(
+                as_colour(
                     'notice',
                     " ( No Test Cases Checked )"
                 )
@@ -195,7 +196,7 @@ class TestSuite(object):
 
         if passed_tests > 0:
             sys.stdout.write(
-                self._colouriser.highlight(
+                as_highlighted(
                     meaning,
                     " ( %s %s Passed ) "
                     % (passed_tests, passed_tests > 1 and 'Test Cases' or 'Test Case')
@@ -204,7 +205,7 @@ class TestSuite(object):
 
         if failed_tests > 0:
             sys.stdout.write(
-                self._colouriser.highlight(
+                as_highlighted(
                     meaning,
                     " ( %s %s Failed ) "
                     % (failed_tests, failed_tests > 1 and 'Test Cases' or 'Test Case')
@@ -214,7 +215,7 @@ class TestSuite(object):
         if expected_failures > 0:
             meaning = 'expected_failure'
             sys.stdout.write(
-                self._colouriser.highlight(
+                as_highlighted(
                     meaning,
                     " ( %s %s Expected ) "
                     % (expected_failures, expected_failures > 1 and 'Failures' or 'Failure')
@@ -224,7 +225,7 @@ class TestSuite(object):
         if skipped_tests > 0:
             meaning = 'skipped'
             sys.stdout.write(
-                self._colouriser.highlight(
+                as_highlighted(
                     meaning,
                     " ( %s %s Skipped ) "
                     % (skipped_tests, skipped_tests > 1 and 'Test Cases' or 'Test Case')
@@ -234,7 +235,7 @@ class TestSuite(object):
         if aborted_tests > 0:
             meaning = 'aborted'
             sys.stdout.write(
-                self._colouriser.highlight(
+                as_highlighted(
                     meaning,
                     " ( %s %s Aborted ) "
                     % (aborted_tests, aborted_tests > 1 and 'Test Cases Were' or 'Test Case Was')
@@ -243,7 +244,7 @@ class TestSuite(object):
 
 
         sys.stdout.write('\n')
-        cuppa.timer.write_time( self._suite['total_cpu_times'], self._colouriser, True )
+        cuppa.timer.write_time( self._suite['total_cpu_times'], True )
 
         self._tests = []
         self._suite = {}

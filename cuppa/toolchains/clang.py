@@ -13,6 +13,7 @@ import SCons.Script
 from subprocess import Popen, PIPE
 import re
 import shlex
+import collections
 from exceptions import Exception
 
 import cuppa.build_platform
@@ -23,6 +24,7 @@ from cuppa.cpp.run_patched_boost_test import RunPatchedBoostTestEmitter, RunPatc
 from cuppa.cpp.run_process_test import RunProcessTestEmitter, RunProcessTest
 from cuppa.cpp.run_gcov_coverage import RunGcovCoverageEmitter, RunGcovCoverage
 from cuppa.output_processor import command_available
+from cuppa.log import logger
 
 
 
@@ -61,6 +63,39 @@ class Clang(object):
 
 
     @classmethod
+    def version_from_command( cls, cxx ):
+        command = "{} --version".format( cxx )
+        if command_available( command ):
+            reported_version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
+            reported_version = 'clang' + re.search( r'based on LLVM (\d)\.(\d)', reported_version ).expand(r'\1\2')
+            return reported_version
+        return None
+
+
+    @classmethod
+    def default_version( cls ):
+        if not hasattr( cls, '_default_version' ):
+            cxx = "clang++"
+            command = "{} --version".format( cxx )
+            reported_version = cls.version_from_command( command )
+            cxx_version = ""
+            if reported_version:
+                major = str(reported_version[7])
+                minor = str(reported_version[8])
+                version = "{}.{}".format( major, minor )
+                exists = cls.version_from_command( "clang++-{} --version".format( version ) )
+                if exists:
+                    cxx_version = version
+                else:
+                    version = "{}".format( major )
+                    exists = cls.version_from_command( "g++-{} --version".format( version ) )
+                    if exists:
+                        cxx_version = version
+            cls._default_version = ( reported_version, cxx_version )
+        return cls._default_version
+
+
+    @classmethod
     def supported_versions( cls ):
         return [
             "clang",
@@ -76,20 +111,60 @@ class Clang(object):
     @classmethod
     def available_versions( cls ):
         if not hasattr( cls, '_available_versions' ):
-            cls._available_versions = []
+            cls._available_versions = collections.OrderedDict()
             for version in cls.supported_versions():
-                if version == "clang":
-                    continue
-                command = "clang++-{} --version".format( re.search( r'(\d)(\d)', version ).expand(r'\1.\2') )
-                if command_available( command ):
-                    reported_version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
-                    reported_version = 'clang' + re.search( r'based on LLVM (\d)\.(\d)', reported_version ).expand(r'\1\2')
-                    if version == reported_version:
-                        cls._available_versions.append( version )
-                    else:
-                        raise ClangException("CLANG toolchain [{}] reporting version as [{}].".format( version, reported_version ) )
-            if cls._available_versions or cls.default_version():
-                cls._available_versions.append( "clang" )
+                matches = re.match( r'clang(?P<major>(\d))?(?P<minor>(\d))?', version )
+
+                if not matches:
+                    raise ClangException("Clang toolchain [{}] is not recognised as supported!.".format( version ) )
+
+                major = matches.group('major')
+                minor = matches.group('minor')
+
+                if not major and not minor:
+                    default_ver, default_cxx = cls.default_version()
+                    if default_ver:
+                        path = cuppa.build_platform.which( "clang++" )
+                        cls._available_versions[version] = {
+                                'cxx_version': default_cxx,
+                                'version': default_ver,
+                                'path': path
+                        }
+                        cls._available_versions[default_ver] = {
+                                'cxx_version': default_cxx,
+                                'version': default_ver,
+                                'path': path
+                        }
+                elif not minor:
+                    cxx_version = "-{}".format( major )
+                    cxx = "clang++{}".format( cxx_version )
+                    reported_version = cls.version_from_command( cxx )
+                    if reported_version:
+                        cxx_path = cuppa.build_platform.which( cxx )
+                        cls._available_versions[version] = {
+                                'cxx_version': cxx_version,
+                                'version': reported_version,
+                                'path': cxx_path
+                        }
+                        cls._available_versions[reported_version] = {
+                                'cxx_version': cxx_version,
+                                'version': reported_version,
+                                'path': cxx_path
+                        }
+                else:
+                    cxx_version = "-{}.{}".format( major, minor )
+                    cxx = "clang++{}".format( cxx_version )
+                    reported_version = cls.version_from_command( cxx )
+                    if reported_version:
+                        if version == reported_version:
+                            cxx_path = cuppa.build_platform.which( cxx )
+                            cls._available_versions[version] = {
+                                    'cxx_version': cxx_version,
+                                    'version': reported_version,
+                                    'path': cxx_path
+                            }
+                        else:
+                            raise GccException("Clang toolchain [{}] reporting version as [{}].".format( version, reported_version ) )
         return cls._available_versions
 
 
@@ -106,13 +181,31 @@ class Clang(object):
         for version in cls.supported_versions():
             add_to_supported( version )
 
-        for version in cls.available_versions():
-            add_toolchain( version, cls( version, stdlib, suppress_debug_for_auto ) )
+        for version, clang in cls.available_versions().iteritems():
+            logger.debug(
+                    "Adding toolchain [{}] reported as [{}] with cxx_version [clang++{}] at [{}]".format(
+                    as_info(version),
+                    as_info(clang['version']),
+                    as_info(clang['cxx_version']),
+                    as_notice(clang['path'])
+            ) )
+            add_toolchain(
+                    version,
+                    cls( version, clang['cxx_version'], clang['version'], clang['path'], stdlib, suppress_debug_for_auto )
+            )
 
 
     @classmethod
     def default_variants( cls ):
         return [ 'dbg', 'rel' ]
+
+
+    @classmethod
+    def host_architecture( cls, env ):
+        arch = env.get('HOST_ARCH')
+        if not arch:
+            arch = platform.machine()
+        return arch
 
 
     def _linux_lib_flags( self, env ):
@@ -124,32 +217,35 @@ class Clang(object):
         return STATICLIBFLAGS + ' ' + DYNAMICLIBFLAGS
 
 
-    def __init__( self, version, stdlib, suppress_debug_for_auto ):
+    def __init__( self, version, cxx_version, reported_version, cxx_path, stdlib, suppress_debug_for_auto ):
 
-        if version == "clang":
-            if self.default_version():
-                version = self.default_version()
-            else:
-                version = self.available_versions()[0]
+        self._version          = re.search( r'(\d)(\d)', reported_version ).expand(r'\1.\2')
+        self._short_version    = self._version.replace( ".", "" )
+        self._cxx_version      = cxx_version.lstrip('-')
+        self._cxx_path         = cxx_path
+        if self._cxx_version == cxx_version:
+            self._cxx_version = ""
+        else:
+            self._cxx_version = self._cxx_version
+
+        self._name             = reported_version
+        self._reported_version = reported_version
 
         self._suppress_debug_for_auto = suppress_debug_for_auto
+        self._gcov_format = self._gcov_format_version()
+        self._initialise_toolchain( self._reported_version, stdlib )
 
         self.values = {}
-        self._version = re.search( r'(\d)(\d)', version ).expand(r'\1.\2')
-        self._short_version = self._version.replace( ".", "" )
-        self.values['name'] = version
-        self._gcov_format = self._gcov_format_version()
-
-        self._initialise_toolchain( version, stdlib )
-
-        if version == self.default_version():
-            self.values['CXX'] = "clang++"
-            self.values['CC']  = "clang"
-        else:
-            self.values['CXX'] = "clang++-{}".format( self._version )
-            self.values['CC']  = "clang-{}".format( self._version )
+        self.values['CXX'] = "clang++{}".format( self._cxx_version and "-" +  self._cxx_version or "" )
+        self.values['CC']  = "clang{}".format( self._cxx_version and "-" +  self._cxx_version or "" )
 
         env = SCons.Script.DefaultEnvironment()
+        if platform.system() == "Windows":
+            SCons.Script.Tool( 'mingw' )( env )
+        else:
+            SCons.Script.Tool( 'g++' )( env )
+
+        self._host_arch = self.host_architecture( env )
 
         SYSINCPATHS = '${_concat(\"' + self.values['sys_inc_prefix'] + '\", SYSINCPATH, \"'+ self.values['sys_inc_suffix'] + '\", __env__, RDirs, TARGET, SOURCE)}'
 
@@ -166,10 +262,18 @@ class Clang(object):
 
 
     def name( self ):
-        return self.values['name']
+        return self._name
 
 
     def family( self ):
+        return "clang"
+
+
+    def toolset_name( self ):
+        return "clang"
+
+
+    def toolset_tag( self ):
         return "clang"
 
 
@@ -182,14 +286,22 @@ class Clang(object):
 
 
     def cxx_version( self ):
-        return self._version
+        return self._cxx_version
 
 
     def binary( self ):
         return self.values['CXX']
 
 
-    def initialise_env( self, env ):
+    def make_env( self, cuppa_env, variant, target_arch ):
+
+        env = None
+
+        if platform.system() == "Windows":
+            env = cuppa_env.create_env( tools = ['mingw'] )
+            env['ENV']['PATH'] = ";".join( [ env['ENV']['PATH'], self._cxx_path ] )
+        else:
+            env = cuppa_env.create_env( tools = ['g++'] )
 
         env['CXX']          = self.values['CXX']
         env['CC']           = self.values['CC']
@@ -202,6 +314,8 @@ class Clang(object):
         env['LIBS']         = []
         env['STATICLIBS']   = []
         env['DYNAMICLIBS']  = self.values['dynamic_libraries']
+
+        return env
 
 
     def variants( self ):

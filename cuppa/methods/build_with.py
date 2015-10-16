@@ -18,28 +18,31 @@ class BuildWithException(Exception):
 
 class BuildWithMethod:
 
-    def __init__( self, env ):
-        self.__build_with = env['BUILD_WITH']
-
-
     def __call__( self, env, build_with ):
         if isinstance( build_with, basestring ):
             build_with = [ build_with ]
         for name in build_with:
             if name in env['dependencies']:
-                dependency = env['dependencies'][name]
-                if not dependency:
+                dependency_factory = env['dependencies'][name]
+                if not dependency_factory:
                     raise BuildWithException(
-                        "The sconscript [{}] requires the dependency [{}] but it has not been initialised."
+                        "The sconscript [{}] requires the dependency [{}] but it is not available."
                             .format( env['sconscript_file'], name )
                     )
                 env.AppendUnique( BUILD_WITH = name )
-                dependency( env, env['toolchain'], env['variant'].name() )
+                dependency = dependency_factory( env )
+                if dependency:
+                    dependency( env, env['toolchain'], env['variant'].name() )
+                else:
+                    raise BuildWithException(
+                        "The sconscript [{}] requires the dependency [{}] but it cannot be created."
+                            .format( env['sconscript_file'], name )
+                    )
 
 
     @classmethod
-    def add_to_env( cls, env ):
-        env.AddMethod( cls( env ), "BuildWith" )
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "BuildWith", cls() )
 
 
     @classmethod

@@ -32,5 +32,5 @@ class CompileMethod:
         return objects
 
     @classmethod
-    def add_to_env( cls, env ):
-        env.AddMethod( cls(), "Compile" )
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "Compile", cls() )

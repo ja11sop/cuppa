@@ -14,6 +14,8 @@ import re
 import fnmatch
 import multiprocessing
 import pkg_resources
+import collections
+import platform
 
 # Scons
 import SCons.Script
@@ -22,12 +24,14 @@ import SCons.Script
 import cuppa.modules.registration
 import cuppa.build_platform
 import cuppa.output_processor
-import cuppa.colourise
 import cuppa.recursive_glob
 import cuppa.configure
 import cuppa.options
 import cuppa.version
 #import cuppa.cpp.stdcpp
+
+from cuppa.colourise import colouriser, as_emphasised, as_info, as_error, as_warning, as_notice
+from cuppa.log import initialise_logging, set_logging_level, reset_logging_format, logger
 
 from cuppa.toolchains             import *
 from cuppa.methods                import *
@@ -97,6 +101,11 @@ def add_base_options():
     add_option( '--show-test-output',   dest='show-test-output', action='store_true',
                             help='When executing tests display all outout to stdout and stderr as appropriate' )
 
+    verbosity_choices = ( 'trace', 'debug', 'info', 'warn', 'error' )
+
+    add_option( '--verbosity', dest='verbosity', choices=verbosity_choices, nargs=1, action='store',
+                            help='The The verbosity level that you wish to run cuppa at. Default level is info' )
+
 #    add_option( '--b2',     dest='b2', action='store_true',
 #                            help='Execute boost.build by calling b2 or bjam' )
 
@@ -138,19 +147,208 @@ class ParseToolchainsOption(object):
             supported = fnmatch.filter( self._supported, toolchain )
 
             if not supported:
-                print "cuppa: requested toolchain(s) [{}] does not match any supported, skipping".format( toolchain )
+                logger.warn( "Requested toolchain [{}] does not match any supported, skipping".format( as_info(toolchain) ) )
             else:
                 available = fnmatch.filter( self._available, toolchain )
 
                 if not available:
-                    print "cuppa: requested toolchain(s) [{}] supported does not match any available, skipping".format( toolchain )
+                    logger.warn( "Requested toolchain [{}] does not match any available, skipping".format( as_info(toolchain) ) )
                 else:
                     toolchains.update( available )
 
         if not toolchains:
-            print "cuppa: None of the requested toolchains are available"
+            logger.error( "None of the requested toolchains are available" )
 
         parser.values.toolchains = list(toolchains)
+
+ # class ParseTargetArchsOption(object):
+
+    # def __init__( self, available_toolchains ):
+        # self._available = available_toolchains
+
+    # def __call__(self, option, opt, value, parser):
+        # target_archs = set()
+        # requested = value.split(',')
+        # for target_arch in requested:
+            # supported = fnmatch.filter( self._supported, toolchain )
+
+            # if not supported:
+                # print "cuppa: requested toolchain(s) [{}] does not match any supported, skipping".format( toolchain )
+            # else:
+                # available = fnmatch.filter( self._available, toolchain )
+
+                # if not available:
+                    # print "cuppa: requested toolchain(s) [{}] supported does not match any available, skipping".format( toolchain )
+                # else:
+                    # toolchains.update( available )
+
+        # if not toolchains:
+            # print "cuppa: None of the requested toolchains are available"
+
+        # parser.values.toolchains = list(toolchains)
+
+
+class CuppaEnvironment(collections.MutableMapping):
+
+    _tools = []
+    _options = {}
+    _cached_options = {}
+    _methods = {}
+
+    # Option Interface
+    @classmethod
+    def get_option( cls, option, default=None ):
+        if option in cls._cached_options:
+            return cls._cached_options[ option ]
+
+        value = SCons.Script.GetOption( option )
+        source = None
+        if value == None or value == '':
+            if cls._options['default_options'] and option in cls._options['default_options']:
+                value = cls._options['default_options'][ option ]
+                source = "in the sconstruct file"
+            elif default:
+                value = default
+                source = "using default"
+        else:
+            source = "on command-line"
+
+        if option in cls._options['configured_options']:
+            source = "using configure"
+
+        if value:
+            logger.debug( "option [{}] set {} as [{}]".format(
+                        as_info( option ),
+                        source,
+                        as_info( str(value) ) )
+            )
+        cls._cached_options[option] = value
+        return value
+
+
+    @classmethod
+    def _get_option_method( cls, env, option, default=None ):
+        return cls.get_option( option, default )
+
+
+    # Environment Interface
+    @classmethod
+    def default_env( cls ):
+        if not hasattr( cls, '_default_env' ):
+            cls._default_env = SCons.Script.Environment( tools=['default'] + cls._tools )
+        return cls._default_env
+
+
+    @classmethod
+    def create_env( cls, **kwargs ):
+
+        tools = ['default'] + cls._tools
+        if 'tools' in kwargs:
+            tools = tools + kwargs['tools']
+            del kwargs['tools']
+
+        tools = SCons.Script.Flatten( tools )
+
+        env = SCons.Script.Environment(
+                tools = tools,
+                **kwargs
+        )
+
+        env['default_env'] = CuppaEnvironment.default_env()
+
+        for key, option in cls._options.iteritems():
+            env[key] = option
+        for name, method in cls._methods.iteritems():
+            env.AddMethod( method, name )
+        env.AddMethod( cls._get_option_method, "get_option" )
+
+        return env
+
+
+    @classmethod
+    def dump( cls ):
+        print str( cls._options )
+        print str( cls._methods )
+
+
+    @classmethod
+    def colouriser( cls ):
+        return cuppa.colourise.colouriser
+
+    @classmethod
+    def add_tools( cls, tools ):
+        cls._tools.append( tools )
+
+
+    @classmethod
+    def tools( cls ):
+        return cls._tools
+
+    @classmethod
+    def add_method( cls, name, method ):
+        cls._methods[name] = method
+
+    @classmethod
+    def add_variant( cls, name, variant ):
+        if not 'variants' in  cls._options:
+            cls._options['variants'] = {}
+        cls._options['variants'][name] = variant
+
+    @classmethod
+    def add_action( cls, name, action ):
+        if not 'actions' in  cls._options:
+            cls._options['actions'] = {}
+        cls._options['actions'][name] = action
+
+    @classmethod
+    def add_supported_toolchain( cls, name ):
+        if not 'supported_toolchains' in  cls._options:
+            cls._options['supported_toolchains'] = []
+        cls._options['supported_toolchains'].append( name )
+
+    @classmethod
+    def add_available_toolchain( cls, name, toolchain ):
+        if not 'toolchains' in  cls._options:
+            cls._options['toolchains'] = {}
+        cls._options['toolchains'][name] = toolchain
+
+    @classmethod
+    def add_project_generator( cls, name, project_generator ):
+        if not 'project_generators' in  cls._options:
+            cls._options['project_generators'] = {}
+        cls._options['project_generators'][name] = project_generator
+
+    @classmethod
+    def add_profile( cls, name, profile ):
+        if not 'profiles' in  cls._options:
+            cls._options['profiles'] = {}
+        cls._options['profiles'][name] = profile
+
+    @classmethod
+    def add_dependency( cls, name, dependency ):
+        if not 'dependencies' in  cls._options:
+            cls._options['dependencies'] = {}
+        cls._options['dependencies'][name] = dependency
+
+    # Dict Interface
+    def __getitem__( self, key ):
+        return self._options[key]
+
+    def __setitem__( self, key, value ):
+        self._options[key] = value
+
+    def __delitem__( self, key ):
+        del self._options[key]
+        del self._cached_options[key]
+
+    def __iter__( self ):
+        return iter( self._options )
+
+    def __len__( self ):
+        return len( self._options )
+
+    def __contains__( self, key ):
+        return key in self._options
 
 
 class Construct(object):
@@ -164,40 +362,6 @@ class Construct(object):
     methods_key      = 'methods'
     project_generators_key = 'project_generators'
 
-    cached_options = {}
-
-    @classmethod
-    def get_option( cls, env, option, default=None ):
-
-        if option in cls.cached_options:
-            return cls.cached_options[ option ]
-
-        value = SCons.Script.GetOption( option )
-        source = None
-        colouriser = env['colouriser']
-        if value == None or value == '':
-            if env['default_options'] and option in env['default_options']:
-                value = env['default_options'][ option ]
-                source = "in the sconstruct file"
-            elif default:
-                value = default
-                source = "using default"
-        else:
-            source = "on command-line"
-
-        if option in env['configured_options']:
-            source = "using configure"
-
-        if value:
-            print "cuppa: option [{}] set {} as [{}]".format(
-                        colouriser.colour( 'info', option ),
-                        source,
-                        colouriser.colour( 'info', str(value) ) )
-
-        cls.cached_options[option] = value
-
-        return value
-
 
     def add_platforms( self, env ):
         platforms = self.platforms_key
@@ -205,44 +369,29 @@ class Construct(object):
 
 
     def add_project_generators( self, env ):
-        project_generators = self.project_generators_key
-        env[project_generators] = {}
         cuppa.modules.registration.add_to_env( project_generators, env )
 
 
     def add_variants( self, env ):
         variants = self.variants_key
-        actions  = self.actions_key
-        env[variants] = {}
-        env[actions]  = {}
-
-        def add_variant( name, variant ):
-            env[variants][name] = variant
-
-        def add_action( name, action ):
-            env[actions][name] = action
-
-        cuppa.modules.registration.add_to_env( variants, env, add_variant, add_action )
+        cuppa.modules.registration.add_to_env( variants, env, env.add_variant, env.add_action )
         cuppa.modules.registration.add_options( variants )
 
+
+    def colour_items( self, items, colour_func=as_notice ):
+        return "'{}'".format( "', '".join( colour_func( item ) for item in items ) )
 
 
     def add_toolchains( self, env ):
         toolchains = self.toolchains_key
-        env[toolchains] = {}
-        env['supported_toolchains'] = []
+        cuppa.modules.registration.add_to_env( toolchains, env, env.add_available_toolchain, env.add_supported_toolchain )
 
-        def add_to_supported( name ):
-            env['supported_toolchains'].append( name )
-
-        def add_toolchain( name, toolchain ):
-            env['toolchains'][name] = toolchain
-
-        cuppa.modules.registration.add_to_env( toolchains, env, add_toolchain, add_to_supported )
-
-        colouriser = env['colouriser']
-        print "cuppa: supported toolchains are {}".format( colouriser.colour( 'notice', str( env["supported_toolchains"] ) ) )
-        print "cuppa: available toolchains are {}".format( colouriser.colour( 'info', str( sorted( env[toolchains].keys(), reverse=True ) ) ) )
+        logger.trace( "supported toolchains are [{}]".format(
+                self.colour_items( env["supported_toolchains"] )
+        ) )
+        logger.info( "available toolchains are [{}]".format(
+                self.colour_items( sorted( env[toolchains].keys(), reverse=True ), as_info )
+        ) )
 
         SCons.Script.AddOption(
             '--toolchains',
@@ -250,14 +399,29 @@ class Construct(object):
             nargs    = 1,
             action   = 'callback',
             callback = ParseToolchainsOption( env['supported_toolchains'], env[toolchains].keys() ),
-            help     = 'The Toolchains you wish to build against' )
+            help     = 'The Toolchains you wish to build against. A comma separate list with wildcards'
+                       ' may be provided. For example --toolchains=gcc*,clang37,clang36'
+        )
+
+        # TODO
+        # SCons.Script.AddOption(
+            # '--target-arch',
+            # type     = 'string',
+            # nargs    = 1,
+            # action   = 'callback',
+            # callback = ParseTargetArchsOption( env[toolchains] ),
+            # help = 'The Target Archictectures you wish to generate executables for. You may'
+                   # ' specify a number a comma separated list of architectures. You may also'
+                   # ' restrict an acrhitecture to a specific toolchain by prepending it with a'
+                   # ' toolchain name followed by a ":". Only valid architectures for each toolchain'
+                   # ' will be built. Example --target-arch=64,vc100:amd64,x86 is valid.'
+        # )
 
 
-    def initialise_options( self, env, default_options, dependencies ):
-        env['default_options'] = default_options or {}
 
-        env.AddMethod( self.get_option, "get_option" )
-
+    def initialise_options( self, options, default_options, dependencies ):
+        options['default_options'] = default_options or {}
+        # env.AddMethod( self.get_option, "get_option" )
         add_base_options()
         cuppa.modules.registration.add_options( self.toolchains_key )
         cuppa.modules.registration.add_options( self.dependencies_key )
@@ -296,7 +460,7 @@ class Construct(object):
                 'sconscript_file',
                 'build_dir',
                 'offset_dir',
-                'parallell',
+                'parallel',
                 'show_test_output',
                 'decider'
         }
@@ -320,135 +484,133 @@ class Construct(object):
                   tools                = [] ):
 
         cuppa.version.check_current_version()
-
         set_base_options()
+        initialise_logging()
 
-        self._default_env = SCons.Script.Environment( tools=['default'] + tools )
-        default_env = self._default_env
+        cuppa_env = CuppaEnvironment()
+        cuppa_env.add_tools( tools )
 
-        self.initialise_options( default_env, default_options, dependencies )
+        self.initialise_options( cuppa_env, default_options, dependencies )
+        cuppa_env['configured_options'] = {}
+        self._configure = cuppa.configure.Configure( cuppa_env, callback=configure_callback )
 
-        default_env['configured_options'] = {}
+        verbosity = cuppa_env.get_option( 'verbosity' )
+        if verbosity:
+            set_logging_level( verbosity )
 
-        default_env['colouriser'] = cuppa.colourise.Colouriser.create()
+        cuppa_env['sconstruct_file'] = cuppa_env.get_option( 'file' )
 
-        self._configure = cuppa.configure.Configure( default_env, callback=configure_callback )
-
-        default_env['sconstruct_file'] = default_env.get_option( 'file' )
-
-        if not default_env['sconstruct_file']:
+        if not cuppa_env['sconstruct_file']:
             for path in [ 'SConstruct', 'Sconstruct', 'sconstruct' ]:
                 if os.path.exists( path ):
-                    default_env['sconstruct_file'] = path
+                    cuppa_env['sconstruct_file'] = path
+        cuppa_env['raw_output']      = cuppa_env.get_option( 'raw_output' ) and True or False
+        cuppa_env['standard_output'] = cuppa_env.get_option( 'standard_output' ) and True or False
 
-        print "cuppa: using sconstruct file [{}]".format( default_env['sconstruct_file'] )
+        if not cuppa_env['raw_output'] and not cuppa_env['standard_output']:
+            cuppa_env.colouriser().enable()
+            reset_logging_format()
 
-        default_env['raw_output']      = default_env.get_option( 'raw_output' ) and True or False
-        default_env['standard_output'] = default_env.get_option( 'standard_output' ) and True or False
+        logger.info( "using sconstruct file [{}]".format( as_notice( cuppa_env['sconstruct_file'] ) ) )
 
-        if not default_env['raw_output'] and not default_env['standard_output']:
-            default_env['colouriser'].enable()
-
-        help = default_env.get_option( 'help' ) and True or False
+        help = cuppa_env.get_option( 'help' ) and True or False
 
         self._configure.load()
 
-        decider = default_env.get_option( 'decider' )
-        if decider:
-            default_env.Decider( decider )
+        cuppa_env['minimal_output']       = cuppa_env.get_option( 'minimal_output' )
+        cuppa_env['ignore_duplicates']    = cuppa_env.get_option( 'ignore_duplicates' )
 
-        default_env['minimal_output']       = default_env.get_option( 'minimal_output' )
-        default_env['ignore_duplicates']    = default_env.get_option( 'ignore_duplicates' )
+        cuppa_env['working_dir']          = os.getcwd()
+        cuppa_env['launch_dir']           = os.path.relpath( SCons.Script.GetLaunchDir(), cuppa_env['working_dir'] )
+        cuppa_env['run_from_launch_dir']  = cuppa_env['launch_dir'] == "."
 
-        default_env['working_dir']          = os.getcwd()
-        default_env['launch_dir']           = os.path.relpath( SCons.Script.GetLaunchDir(), default_env['working_dir'] )
-        default_env['run_from_launch_dir']  = default_env['launch_dir'] == "."
+        cuppa_env['launch_offset_dir']    = "."
 
-        default_env['launch_offset_dir']    = "."
+        if not cuppa_env['run_from_launch_dir']:
+            levels = len( cuppa_env['launch_dir'].split( os.path.sep ) )
+            cuppa_env['launch_offset_dir'] = os.path.sep.join( ['..' for i in range(levels)] )
 
-        if not default_env['run_from_launch_dir']:
-            levels = len( default_env['launch_dir'].split( os.path.sep ) )
-            default_env['launch_offset_dir'] = os.path.sep.join( ['..' for i in range(levels)] )
+        cuppa_env['base_path']   = os.path.normpath( os.path.expanduser( base_path ) )
+        cuppa_env['branch_root'] = branch_root and os.path.normpath( os.path.expanduser( branch_root ) ) or base_path
+        cuppa_env['branch_dir']  = cuppa_env['branch_root'] and os.path.relpath( cuppa_env['base_path'], cuppa_env['branch_root'] ) or None
 
-        default_env['base_path']   = os.path.normpath( os.path.expanduser( base_path ) )
-        default_env['branch_root'] = branch_root and os.path.normpath( os.path.expanduser( branch_root ) ) or base_path
-        default_env['branch_dir']  = default_env['branch_root'] and os.path.relpath( default_env['base_path'], default_env['branch_root'] ) or None
-
-        thirdparty = default_env.get_option( 'thirdparty' )
+        thirdparty = cuppa_env.get_option( 'thirdparty' )
         if thirdparty:
             thirdparty = os.path.normpath( os.path.expanduser( thirdparty ) )
 
-        default_env['thirdparty'] = thirdparty
+        cuppa_env['thirdparty'] = thirdparty
 
-        build_root = default_env.get_option( 'build_root', default='_build' )
-        default_env['build_root'] = os.path.normpath( os.path.expanduser( build_root ) )
+        build_root = cuppa_env.get_option( 'build_root', default='_build' )
+        cuppa_env['build_root'] = os.path.normpath( os.path.expanduser( build_root ) )
 
-        download_root = default_env.get_option( 'download_root', default='_cuppa' )
-        default_env['download_root'] = os.path.normpath( os.path.expanduser( download_root ) )
+        download_root = cuppa_env.get_option( 'download_root', default='_cuppa' )
+        cuppa_env['download_root'] = os.path.normpath( os.path.expanduser( download_root ) )
 
-        cache_root = default_env.get_option( 'cache_root', default='~/_cuppa/_cache' )
-        default_env['cache_root'] = os.path.normpath( os.path.expanduser( cache_root ) )
-        if not os.path.exists( default_env['cache_root'] ):
-            os.makedirs( default_env['cache_root'] )
+        cache_root = cuppa_env.get_option( 'cache_root', default='~/_cuppa/_cache' )
+        cuppa_env['cache_root'] = os.path.normpath( os.path.expanduser( cache_root ) )
+        if not os.path.exists( cuppa_env['cache_root'] ):
+            os.makedirs( cuppa_env['cache_root'] )
 
-        default_env['default_projects']     = default_projects
-        default_env['default_variants']     = default_variants and set( default_variants ) or set()
-        default_env['default_dependencies'] = default_dependencies and default_dependencies or []
-        default_env['BUILD_WITH']           = default_env['default_dependencies']
-        default_env['dependencies']         = {}
-        default_env['default_profiles']     = default_profiles and default_profiles or []
-        default_env['BUILD_PROFILE']        = default_env['default_profiles']
-        default_env['profiles']             = {}
+        cuppa_env['default_projects']     = default_projects
+        cuppa_env['default_variants']     = default_variants and set( default_variants ) or set()
+        cuppa_env['default_dependencies'] = default_dependencies and default_dependencies or []
+        cuppa_env['BUILD_WITH']           = cuppa_env['default_dependencies']
+        cuppa_env['dependencies']         = {}
+        cuppa_env['default_profiles']     = default_profiles and default_profiles or []
+        cuppa_env['BUILD_PROFILE']        = cuppa_env['default_profiles']
+        cuppa_env['profiles']             = {}
 
-        test_runner = default_env.get_option( 'runner', default=default_runner and default_runner or 'process' )
-        default_env['default_runner']  = test_runner
+        test_runner = cuppa_env.get_option( 'runner', default=default_runner and default_runner or 'process' )
+        cuppa_env['default_runner']  = test_runner
 
-        default_env['show_test_output'] = default_env.get_option( 'show-test-output' ) and True or False
+        cuppa_env['show_test_output'] = cuppa_env.get_option( 'show-test-output' ) and True or False
 
-        self.add_variants   ( default_env )
-        self.add_toolchains ( default_env )
-        self.add_platforms  ( default_env )
+        self.add_variants   ( cuppa_env )
+        self.add_toolchains ( cuppa_env )
+        self.add_platforms  ( cuppa_env )
 
-        default_env['platform'] = cuppa.build_platform.Platform.current()
+        cuppa_env['platform'] = cuppa.build_platform.Platform.current()
 
-        toolchains = default_env.get_option( 'toolchains' )
-
-        default_toolchain = default_env['platform'].default_toolchain()
-
-        if not toolchains:
-            toolchains = [ default_env[self.toolchains_key][default_toolchain] ]
-        else:
-            toolchains = [ default_env[self.toolchains_key][t] for t in toolchains ]
-
-        default_env['active_toolchains'] = toolchains
-
-        def add_dependency( name, dependency ):
-            default_env['dependencies'][name] = dependency
-
-        cuppa.modules.registration.get_options( "methods", default_env )
+        toolchains = cuppa_env.get_option( 'toolchains' )
+        cuppa_env[ 'target_architectures' ] = None
 
         if not help and not self._configure.handle_conf_only():
-            default_env[self.project_generators_key] = {}
-            cuppa.modules.registration.add_to_env( "dependencies",       default_env, add_dependency )
-            cuppa.modules.registration.add_to_env( "profiles",           default_env )
-            cuppa.modules.registration.add_to_env( "methods",            default_env )
-            cuppa.modules.registration.add_to_env( "project_generators", default_env )
+            default_toolchain = cuppa_env['platform'].default_toolchain()
 
-            for method_plugin in pkg_resources.iter_entry_points( group='cuppa.method.plugins', name=None ):
-                method_plugin.load().add_to_env( default_env )
+            if not toolchains:
+                toolchains = [ cuppa_env[self.toolchains_key][default_toolchain] ]
+            else:
+                toolchains = [ cuppa_env[self.toolchains_key][t] for t in toolchains ]
 
-            if dependencies:
-                for name, dependency in dependencies.iteritems():
-                    dependency.add_to_env( default_env, add_dependency )
+            cuppa_env['active_toolchains'] = toolchains
+
+            def add_dependency( name, dependency ):
+                cuppa_env['dependencies'][name] = dependency
+
+            cuppa.modules.registration.get_options( "methods", cuppa_env )
+
+            if not help and not self._configure.handle_conf_only():
+                cuppa_env[self.project_generators_key] = {}
+                cuppa.modules.registration.add_to_env( "dependencies",       cuppa_env, add_dependency )
+                cuppa.modules.registration.add_to_env( "profiles",           cuppa_env )
+                cuppa.modules.registration.add_to_env( "methods",            cuppa_env )
+                cuppa.modules.registration.add_to_env( "project_generators", cuppa_env )
+
+                for method_plugin in pkg_resources.iter_entry_points( group='cuppa.method.plugins', name=None ):
+                    method_plugin.load().add_to_env( cuppa_env )
+
+                if dependencies:
+                    for name, dependency in dependencies.iteritems():
+                        dependency.add_to_env( cuppa_env, add_dependency )
 
             # TODO - default_profile
 
-            if default_env.get_option( 'dump' ):
-                print default_env.Dump()
+            if cuppa_env.get_option( 'dump' ):
+                cuppa_env.dump()
                 SCons.Script.Exit()
 
-            job_count = default_env.get_option( 'num_jobs' )
-            parallel  = default_env.get_option( 'parallel' )
+            job_count = cuppa_env.get_option( 'num_jobs' )
+            parallel  = cuppa_env.get_option( 'parallel' )
             parallel_mode = "manually"
 
             if job_count==1 and parallel:
@@ -456,72 +618,53 @@ class Construct(object):
                 if job_count > 1:
                     SCons.Script.SetOption( 'num_jobs', job_count )
                     parallel_mode = "automatically"
-            default_env['job_count'] = job_count
-            default_env['parallel']  = parallel
+            cuppa_env['job_count'] = job_count
+            cuppa_env['parallel']  = parallel
             if job_count>1:
-                print "cuppa: Running in {} with option [{}] set {} as [{}]".format(
-                        self._as_emphasised("parallel mode"),
-                        self._as_info( "jobs" ),
-                        self._as_emphasised(parallel_mode),
-                        self._as_info( str( SCons.Script.GetOption( 'num_jobs') ) ) )
+                logger.debug( "Running in {} with option [{}] set {} as [{}]".format(
+                        as_emphasised("parallel mode"),
+                        as_info( "jobs" ),
+                        as_emphasised(parallel_mode),
+                        as_info( str( SCons.Script.GetOption( 'num_jobs') ) )
+                ) )
 
         if not help and self._configure.handle_conf_only():
             self._configure.save()
 
         if not help and not self._configure.handle_conf_only():
-            self.build( default_env )
+            self.build( cuppa_env )
 
         if self._configure.handle_conf_only():
             print "cuppa: Handling onfiguration only, so no builds will be attempted."
             print "cuppa: With the current configuration executing 'scons -D' would be equivalent to:"
             print ""
-            print "scons -D {}".format( self._command_line_from_settings( default_env['configured_options'] ) )
+            print "scons -D {}".format( self._command_line_from_settings( cuppa_env['configured_options'] ) )
             print ""
             print "cuppa: Nothing to be done. Exiting."
             SCons.Script.Exit()
 
 
-    def _as_emphasised( self, text ):
-        return self._default_env['colouriser'].emphasise( text )
-
-
-    def _as_error( self, text ):
-        return self._default_env['colouriser'].colour( 'error', text )
-
-
-    def _as_warning( self, text ):
-        return self._default_env['colouriser'].colour( 'warning', text )
-
-
-    def _as_info( self, text ):
-        return self._default_env['colouriser'].colour( 'info', text )
-
-
-    def _as_notice( self, text ):
-        return self._default_env['colouriser'].colour( 'notice', text )
-
-
     def _command_line_from_settings( self, settings ):
         commands = []
         for key, value in settings.iteritems():
-            command = self._as_emphasised( "--" + key )
+            command = as_emphasised( "--" + key )
             if value != True and value != False:
                 if not isinstance( value, list ):
-                    command += "=" + self._as_info( str(value) )
+                    command += "=" + as_info( str(value) )
                 else:
-                    command += "=" + self._as_info( ",".join( value ) )
+                    command += "=" + as_info( ",".join( value ) )
             commands.append( command )
         commands.sort()
         return " ".join( commands )
 
 
-    def get_active_actions_for_variant( self, default_env, active_variants, variant ):
-        available_variants = default_env[ self.variants_key ]
-        available_actions  = default_env[ self.actions_key ]
+    def get_active_actions_for_variant( self, cuppa_env, active_variants, variant ):
+        available_variants = cuppa_env[ self.variants_key ]
+        available_actions  = cuppa_env[ self.actions_key ]
         specified_actions  = {}
 
         for key, action in available_actions.items():
-            if default_env.get_option( action.name() ):
+            if cuppa_env.get_option( action.name() ):
                 specified_actions[ action.name() ] = action
 
         if not specified_actions:
@@ -542,36 +685,50 @@ class Construct(object):
         return active_actions
 
 
-    def create_build_variants( self, toolchain, default_env ):
+    def create_build_envs( self, toolchain, cuppa_env ):
 
-        variants  = default_env[ self.variants_key ]
+        variants = cuppa_env[ self.variants_key ]
+        target_architectures = cuppa_env[ 'target_architectures' ]
+
+        if not target_architectures:
+            target_architectures = [ None ]
 
         active_variants = {}
 
         for key, variant in variants.items():
-            if default_env.get_option( variant.name() ):
+            if cuppa_env.get_option( variant.name() ):
                 active_variants[ variant.name() ] = variant
 
         if not active_variants:
-            default_variants = default_env['default_variants'] or toolchain.default_variants()
+            default_variants = cuppa_env['default_variants'] or toolchain.default_variants()
             if default_variants:
                 for variant in default_variants:
                     if variants.has_key( variant ):
                         active_variants[ variant ] = variants[ variant ]
 
-        variant_envs = {}
+        build_envs = []
 
         for key, variant in active_variants.items():
-            variant_envs[ key ] = variant.create( default_env.Clone(), toolchain )
 
-            if not default_env['raw_output']:
-                cuppa.output_processor.Processor.install( variant_envs[ key ] )
+            for target_arch in target_architectures:
 
-            variant_envs[ key ]['toolchain'] = toolchain
-            variant_envs[ key ]['variant'] = variant
-            variant_envs[ key ]['variant_actions'] = self.get_active_actions_for_variant( default_env, active_variants, variant )
+                env, target_arch = toolchain.make_env( cuppa_env, variant, target_arch )
 
-        return variant_envs
+                if env:
+                    build_envs.append( {
+                        'variant': key,
+                        'target_arch': target_arch,
+                        'env': env } )
+
+                    if not cuppa_env['raw_output']:
+                        cuppa.output_processor.Processor.install( env )
+
+                    env['toolchain']       = toolchain
+                    env['variant']         = variant
+                    env['target_arch']     = target_arch
+                    env['variant_actions'] = self.get_active_actions_for_variant( cuppa_env, active_variants, variant )
+
+        return build_envs
 
 
     def get_sub_sconscripts( self, path, exclude_dirs ):
@@ -594,28 +751,24 @@ class Construct(object):
         )
 
 
-    def colour_items( self, items ):
-        return "'{}'".format( "', '".join( self._as_notice( item ) for item in items ) )
+    def build( self, cuppa_env ):
 
-
-    def build( self, default_env ):
-
-        projects   = default_env.get_option( 'projects' )
-        toolchains = default_env['active_toolchains']
+        projects   = cuppa_env.get_option( 'projects' )
+        toolchains = cuppa_env['active_toolchains']
 
         if projects == None:
-            projects = default_env['default_projects']
+            projects = cuppa_env['default_projects']
 
-            if projects == None or not default_env['run_from_launch_dir']:
+            if projects == None or not cuppa_env['run_from_launch_dir']:
                 sub_sconscripts = self.get_sub_sconscripts(
-                        default_env['launch_dir'],
-                        [ default_env['build_root'], default_env['download_root'] ]
+                        cuppa_env['launch_dir'],
+                        [ cuppa_env['build_root'], cuppa_env['download_root'] ]
                 )
                 if sub_sconscripts:
                     projects = sub_sconscripts
-                    print "cuppa: Using sub-sconscripts [{}]".format( self.colour_items( projects ) )
+                    logger.info( "Using sub-sconscripts [{}]".format( self.colour_items( projects ) ) )
             elif projects != None:
-                print "cuppa: Using default_projects [{}]".format( self.colour_items( projects ) )
+                logger.info( "Using default_projects [{}]".format( self.colour_items( projects ) ) )
 
         if projects:
 
@@ -625,29 +778,30 @@ class Construct(object):
                 if os.path.exists( project ) and os.path.isdir( project ):
                     sub_sconscripts = self.get_sub_sconscripts(
                             project,
-                            [ default_env['build_root'], default_env['download_root'] ]
+                            [ cuppa_env['build_root'], cuppa_env['download_root'] ]
                     )
                     if sub_sconscripts:
-                        print "cuppa: Reading project folder [{}] and using sub-sconscripts [{}]".format(
-                                project, self.colour_items( sub_sconscripts ) )
+                        logger.info( "Reading project folder [{}] and using sub-sconscripts [{}]".format(
+                                project, self.colour_items( sub_sconscripts )
+                        ) )
                         sconscripts.extend( sub_sconscripts )
                 else:
                     sconscripts.append( project )
 
             for toolchain in toolchains:
-                toolchain_env = default_env.Clone()
-                toolchain_env['default_env'] = default_env
-                toolchain.initialise_env( toolchain_env )
-                variants = self.create_build_variants( toolchain, toolchain_env )
-                for variant, env in variants.items():
+                build_envs = self.create_build_envs( toolchain, cuppa_env )
+                for build_env in build_envs:
                     for sconscript in sconscripts:
-                        self.call_project_sconscript_files( toolchain, variant, env, sconscript )
+                        decider = cuppa_env.get_option( 'decider' )
+                        if decider:
+                            build_env['env'].Decider( decider )
+                        self.call_project_sconscript_files( toolchain, build_env['variant'], build_env['target_arch'], build_env['env'], sconscript )
 
         else:
-            print "cuppa: No projects to build. Nothing to be done"
+            logger.warn( "No projects to build. Nothing to be done" )
 
 
-    def call_project_sconscript_files( self, toolchain, variant, sconscript_env, project ):
+    def call_project_sconscript_files( self, toolchain, variant, target_arch, sconscript_env, project ):
 
         sconscript_file = project
         if not os.path.exists( project ) or os.path.isdir( project ):
@@ -655,11 +809,12 @@ class Construct(object):
 
         if os.path.exists( sconscript_file ) and os.path.isfile( sconscript_file ):
 
-            print "cuppa: project exists and added to build [{}] using [{},{}]".format(
-                    self._as_notice( sconscript_file ),
-                    self._as_notice( toolchain.name() ),
-                    self._as_notice( variant )
-            )
+            logger.debug( "project exists and added to build [{}] using [{},{},{}]".format(
+                    as_notice( sconscript_file ),
+                    as_notice( toolchain.name() ),
+                    as_notice( variant ),
+                    as_notice( target_arch )
+            ) )
 
             path_without_ext = os.path.splitext( sconscript_file )[0]
 
@@ -674,35 +829,36 @@ class Construct(object):
 
             build_root = sconscript_env['build_root']
 
-            cloned_env = sconscript_env.Clone()
-            cloned_env['sconscript_env'] = sconscript_env
+            # cloned_env = sconscript_env
+            # cloned_env = sconscript_env.Clone()
+            sconscript_env['sconscript_env'] = sconscript_env
 
-            cloned_env['sconscript_build_dir'] = path_without_ext
-            cloned_env['sconscript_toolchain_build_dir'] = os.path.join( path_without_ext, toolchain.name() )
-            cloned_env['sconscript_dir']  = os.path.join( sconscript_env['base_path'], sconstruct_offset_path )
-            cloned_env['build_dir']       = os.path.normpath( os.path.join( build_root, path_without_ext, toolchain.name(), variant, 'working', '' ) )
-            cloned_env['abs_build_dir']   = os.path.abspath( cloned_env['build_dir'] )
-            cloned_env['offset_dir']      = sconstruct_offset_path
-            cloned_env['final_dir']       = '..' + os.path.sep + 'final' + os.path.sep
-            cloned_env['active_toolchain']= toolchain
+            sconscript_env['sconscript_build_dir'] = path_without_ext
+            sconscript_env['sconscript_toolchain_build_dir'] = os.path.join( path_without_ext, toolchain.name() )
+            sconscript_env['sconscript_dir']   = os.path.join( sconscript_env['base_path'], sconstruct_offset_path )
+            sconscript_env['build_dir']        = os.path.normpath( os.path.join( build_root, path_without_ext, toolchain.name(), variant, target_arch, 'working', '' ) )
+            sconscript_env['abs_build_dir']    = os.path.abspath( sconscript_env['build_dir'] )
+            sconscript_env['offset_dir']       = sconstruct_offset_path
+            sconscript_env['final_dir']        = '..' + os.path.sep + 'final' + os.path.sep
+            sconscript_env['active_toolchain'] = toolchain
 
             def abs_final_dir( abs_build_dir, final_dir ):
                 return os.path.isabs( final_dir ) and final_dir or os.path.normpath( os.path.join( abs_build_dir, final_dir ) )
 
-            cloned_env['abs_final_dir']   = abs_final_dir( cloned_env['abs_build_dir'], cloned_env['final_dir'] )
+            sconscript_env['abs_final_dir']   = abs_final_dir( sconscript_env['abs_build_dir'], sconscript_env['final_dir'] )
 
-            cloned_env.AppendUnique( INCPATH = [
-                    cloned_env['offset_dir']
+            sconscript_env.AppendUnique( INCPATH = [
+                    sconscript_env['offset_dir']
             ] )
 
             sconscript_exports = {
-                'env'                     : cloned_env,
+                'env'                     : sconscript_env,
                 'sconscript_env'          : sconscript_env,
                 'build_root'              : build_root,
-                'build_dir'               : cloned_env['build_dir'],
-                'abs_build_dir'           : cloned_env['abs_build_dir'],
-                'final_dir'               : cloned_env['final_dir'],
-                'abs_final_dir'           : cloned_env['abs_final_dir'],
+                'build_dir'               : sconscript_env['build_dir'],
+                'abs_build_dir'           : sconscript_env['abs_build_dir'],
+                'final_dir'               : sconscript_env['final_dir'],
+                'abs_final_dir'           : sconscript_env['abs_final_dir'],
                 'common_variant_final_dir': '../../../common/final/',
                 'common_project_final_dir': build_root + '/common/final/',
                 'project'                 : name,
@@ -720,7 +876,7 @@ class Construct(object):
             )
 
         else:
-            print "cuppa: Skipping non-existent project [{}]".format( self._as_error( sconscript_file ) )
+            logger.error( "Skipping non-existent project [{}]".format( self._as_error( sconscript_file ) ) )
 
 
 

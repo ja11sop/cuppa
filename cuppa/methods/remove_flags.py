@@ -28,5 +28,5 @@ class RemoveFlagsMethod:
 
 
     @classmethod
-    def add_to_env( cls, env ):
-        env.AddMethod( cls(), "RemoveFlags" )
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "RemoveFlags", cls() )

@@ -17,5 +17,5 @@ class TargetFromMethod:
         return target
 
     @classmethod
-    def add_to_env( cls, env ):
-        env.AddMethod( cls(), "TargetFrom" )
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "TargetFrom", cls() )

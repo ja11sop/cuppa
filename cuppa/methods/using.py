@@ -19,5 +19,5 @@ class UseMethod:
         return None
 
     @classmethod
-    def add_to_env( cls, env ):
-        env.AddMethod( cls( env['dependencies'] ), "Using" )
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "Using", cls( cuppa_env['dependencies'] ) )

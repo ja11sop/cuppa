@@ -42,6 +42,6 @@ class StdCppMethod:
 
 
     @classmethod
-    def add_to_env( cls, env ):
-        env.AddMethod( cls(), "StdCpp" )
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "StdCpp", cls() )
 

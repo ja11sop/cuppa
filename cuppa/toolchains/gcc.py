@@ -24,6 +24,8 @@ from cuppa.cpp.run_patched_boost_test import RunPatchedBoostTestEmitter, RunPatc
 from cuppa.cpp.run_process_test import RunProcessTestEmitter, RunProcessTest
 from cuppa.cpp.run_gcov_coverage import RunGcovCoverageEmitter, RunGcovCoverage
 from cuppa.output_processor import command_available
+from cuppa.log import logger
+from cuppa.colourise import as_notice, as_info
 import cuppa.build_platform
 
 
@@ -109,10 +111,16 @@ class Gcc(object):
                 if not major and not minor:
                     default_ver, default_cxx = cls.default_version()
                     if default_ver:
+                        path = cuppa.build_platform.which( "g++" )
                         cls._available_versions[version] = {
                                 'cxx_version': default_cxx,
                                 'version': default_ver,
-                                'path': cuppa.build_platform.which( "g++" )
+                                'path': path
+                        }
+                        cls._available_versions[default_ver] = {
+                                'cxx_version': default_cxx,
+                                'version': default_ver,
+                                'path': path
                         }
                 elif not minor:
                     cxx_version = "-{}".format( major )
@@ -120,8 +128,16 @@ class Gcc(object):
                     reported_version = cls.version_from_command( cxx )
                     if reported_version:
                         cxx_path = cuppa.build_platform.which( cxx )
-                        cls._available_versions[version] = {'cxx_version': cxx_version, 'version': reported_version, 'path': cxx_path }
-                        cls._available_versions[reported_version] = {'cxx_version': cxx_version, 'version': reported_version, 'path': cxx_path }
+                        cls._available_versions[version] = {
+                                'cxx_version': cxx_version,
+                                'version': reported_version,
+                                'path': cxx_path
+                        }
+                        cls._available_versions[reported_version] = {
+                                'cxx_version': cxx_version,
+                                'version': reported_version,
+                                'path': cxx_path
+                        }
                 else:
                     cxx_version = "-{}.{}".format( major, minor )
                     cxx = "g++{}".format( cxx_version )
@@ -129,7 +145,11 @@ class Gcc(object):
                     if reported_version:
                         if version == reported_version:
                             cxx_path = cuppa.build_platform.which( cxx )
-                            cls._available_versions[version] = {'cxx_version': cxx_version, 'version': reported_version, 'path': cxx_path }
+                            cls._available_versions[version] = {
+                                    'cxx_version': cxx_version,
+                                    'version': reported_version,
+                                    'path': cxx_path
+                            }
                         else:
                             raise GccException("GCC toolchain [{}] reporting version as [{}].".format( version, reported_version ) )
         return cls._available_versions
@@ -146,13 +166,24 @@ class Gcc(object):
             add_to_supported( version )
 
         for version, gcc in cls.available_versions().iteritems():
-            #print "Adding toolchain [{}] reported as [{}] with cxx_version [g++{}] at [{}]".format( version, gcc['version'], gcc['cxx_version'], gcc['path'] )
+            logger.debug(
+                "Adding toolchain [{}] reported as [{}] with cxx_version [g++{}] at [{}]"
+                .format( as_info(version), as_info(gcc['version']), as_info(gcc['cxx_version']), as_notice(gcc['path']) )
+            )
             add_toolchain( version, cls( version, gcc['cxx_version'], gcc['version'], gcc['path'] ) )
 
 
     @classmethod
     def default_variants( cls ):
         return [ 'dbg', 'rel' ]
+
+
+    @classmethod
+    def host_architecture( cls, env ):
+        arch = env.get('HOST_ARCH')
+        if not arch:
+            arch = platform.machine()
+        return arch
 
 
     def _linux_lib_flags( self, env ):
@@ -186,6 +217,12 @@ class Gcc(object):
         self.values['CC']  = "gcc{}".format( self._cxx_version and "-" +  self._cxx_version or "" )
 
         env = SCons.Script.DefaultEnvironment()
+        if platform.system() == "Windows":
+            SCons.Script.Tool( 'mingw' )( env )
+        else:
+            SCons.Script.Tool( 'g++' )( env )
+
+        self._host_arch = self.host_architecture( env )
 
         SYSINCPATHS = '${_concat(\"' + self.values['sys_inc_prefix'] + '\", SYSINCPATH, \"'+ self.values['sys_inc_suffix'] + '\", __env__, RDirs, TARGET, SOURCE)}'
 
@@ -209,6 +246,14 @@ class Gcc(object):
         return "gcc"
 
 
+    def toolset_name( self ):
+        return "gcc"
+
+
+    def toolset_tag( self ):
+        return "gcc"
+
+
     def short_version( self ):
         return self._short_version
 
@@ -225,14 +270,19 @@ class Gcc(object):
         return self.values['CXX']
 
 
-    def initialise_env( self, env ):
-        if platform.system() == "Windows":
-            SCons.Script.Tool( 'mingw' )( env )
-            env['ENV']['PATH'] = ";".join( [ env['ENV']['PATH'], self._cxx_path ] )
-            #print "PATH = {}".format( str( env['ENV']['PATH'] ) )
+    def make_env( self, cuppa_env, variant, target_arch ):
 
+        env = None
+
+        if not target_arch:
+            target_arch = self._host_arch
+
+        if platform.system() == "Windows":
+            env = cuppa_env.create_env( tools = ['mingw'] )
+            env['ENV']['PATH'] = ";".join( [ env['ENV']['PATH'], self._cxx_path ] )
         else:
-            SCons.Script.Tool( 'g++' )( env )
+            env = cuppa_env.create_env( tools = ['g++'] )
+
         env['CXX']          = self.values['CXX']
         env['CC']           = self.values['CC']
         env['_CPPINCFLAGS'] = self.values['_CPPINCFLAGS']
@@ -245,6 +295,8 @@ class Gcc(object):
         env['LIBS']         = []
         env['STATICLIBS']   = []
         env['DYNAMICLIBS']  = self.values['dynamic_libraries']
+
+        return env, target_arch
 
 
     def variants( self ):

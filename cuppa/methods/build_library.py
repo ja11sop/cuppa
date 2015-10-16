@@ -24,8 +24,8 @@ class BuildStaticLibMethod:
         return lib
 
     @classmethod
-    def add_to_env( cls, env ):
-        env.AddMethod( cls(), "BuildStaticLib" )
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "BuildStaticLib", cls() )
 
 
 class BuildSharedLibMethod:
@@ -40,5 +40,5 @@ class BuildSharedLibMethod:
         return lib
 
     @classmethod
-    def add_to_env( cls, env ):
-        env.AddMethod( cls(), "BuildSharedLib" )
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "BuildSharedLib", cls() )

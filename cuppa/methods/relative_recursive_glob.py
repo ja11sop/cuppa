@@ -47,8 +47,8 @@ class RecursiveGlobMethod:
         return nodes
 
     @classmethod
-    def add_to_env( cls, env ):
-        env.AddMethod( cls(), "RecursiveGlob" )
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "RecursiveGlob", cls() )
 
 
 
@@ -64,8 +64,8 @@ class GlobFilesMethod:
 
 
     @classmethod
-    def add_to_env( cls, env ):
-        env.AddMethod( cls(), "GlobFiles" )
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "GlobFiles", cls() )
 
 
 

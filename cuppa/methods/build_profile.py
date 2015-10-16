@@ -11,13 +11,8 @@ import cuppa.utility
 
 class BuildProfileMethod:
 
-    def __init__( self, env ):
-        self.__build_profile = env['BUILD_PROFILE']
-
-
     def __call__( self, env, build_profile ):
         for profile in build_profile:
-
             if cuppa.utility.is_string( profile ):
                 name = profile
                 if name in env['profiles']:
@@ -30,8 +25,8 @@ class BuildProfileMethod:
 
 
     @classmethod
-    def add_to_env( cls, env ):
-        env.AddMethod( cls( env ), "BuildProfile" )
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "BuildProfile", cls() )
 
 
     @classmethod

@@ -24,7 +24,8 @@ import cuppa.build_platform
 import cuppa.location
 
 from cuppa.output_processor import IncrementalSubProcess, ToolchainProcessor
-from cuppa.colourise        import as_warning, as_info, as_error
+from cuppa.colourise        import as_warning, as_info, as_error, as_emphasised
+from cuppa.log import logger
 
 
 
@@ -35,23 +36,25 @@ class BoostException(Exception):
         return repr(self.parameter)
 
 
-def determine_latest_boost_verion( env ):
-    current_release = "1.58.0"
+def determine_latest_boost_verion():
+    current_release = "1.59.0"
     try:
         html = lxml.html.parse('http://www.boost.org/users/download/')
 
         current_release = html.xpath("/html/body/div[2]/div/div[1]/div/div/div[2]/h3[1]/span")[0].text
         current_release = str( re.search( r'(\d[.]\d+([.]\d+)?)', current_release ).group(1) )
 
-        print "cuppa: boost: latest boost release detected as [{}]".format( as_info( env, current_release ) )
+        logger.debug( "latest boost release detected as [{}]".format( as_info( current_release ) ) )
 
     except Exception as e:
-        print as_warning( env, "cuppa: boost: warning: cannot determine latest version of boost - [{}]. Assuming [{}].".format( str(e), current_release ) )
+        logger.warn( "cannot determine latest version of boost - [{}]. Assuming [{}].".format( str(e), current_release ) )
 
     return current_release
 
 
 class Boost(object):
+
+    _cached_boost_locations = {}
 
     @classmethod
     def add_options( cls, add_option ):
@@ -81,90 +84,172 @@ class Boost(object):
 
 
     @classmethod
-    def add_to_env( cls, env, add_dependency ):
-        build_always     = env.get_option( 'boost-build-always' )
-        verbose_build    = env.get_option( 'boost-verbose-build' )
-        verbose_config   = env.get_option( 'boost-verbose-config' )
-        patch_boost_test = env.get_option( 'boost-patch-boost-test' )
+    def add_to_env( cls, cuppa_env, add_dependency ):
+        add_dependency( 'boost', cls.create )
 
-        boost_location = env.get_option( 'boost-location' )
-        boost_home     = env.get_option( 'boost-home' )
-        boost_version  = env.get_option( 'boost-version' )
-        boost_latest   = env.get_option( 'boost-latest' )
-        thirdparty     = env[ 'thirdparty' ]
+
+    @classmethod
+    def _boost_location_id( cls, env ):
+        location   = env.get_option( 'boost-location' )
+        home       = env.get_option( 'boost-home' )
+        version    = env.get_option( 'boost-version' )
+        latest     = env.get_option( 'boost-latest' )
+        thirdparty = env[ 'thirdparty' ]
+        patch_test = env.get_option( 'boost-patch-boost-test' )
+
+        base = None
+
+        if location:
+            base = None
+
+        elif home:
+            base = home
+
+        elif thirdparty and version:
+            base = thirdparty
+
+        elif version:
+            base = None
+
+        return ( location, version, base, patch_test )
+
+
+    @classmethod
+    def _get_boost_location( cls, env, location, version, base, patched ):
+        logger.debug( "Identify boost using location = [{}], version = [{}], base = [{}], patched = [{}]".format(
+                as_info( str(base) ),
+                as_info( str(location) ),
+                as_info( str(version) ),
+                as_info( str(patched) )
+        ) )
+
+        if not base and not version and not location:
+            raise BoostException("Cannot construct Boost Object. Invalid parameters")
+
+        boost_home = None
+        boost_location = None
+
+        extra_sub_path = 'clean'
+        if patched:
+            extra_sub_path = 'patched'
+
+        if location:
+            location = cls.location_from_boost_version( location )
+            if not location: # use version as a fallback in case both at specified
+                location = cls.location_from_boost_version( version )
+            boost_location = cuppa.location.Location( env, location, extra_sub_path=extra_sub_path, name_hint="boost" )
+
+        elif base: # Find boost locally
+            if not os.path.isabs( base ):
+                base = os.path.abspath( base )
+
+            if not version:
+                boost_home = base
+            elif version:
+                search_list = [
+                    os.path.join( base, 'boost', version, 'source' ),
+                    os.path.join( base, 'boost', 'boost_' + version ),
+                    os.path.join( base, 'boost', version ),
+                    os.path.join( base, 'boost_' + version ),
+                ]
+
+                def exists_in( locations ):
+                    for location in locations:
+                        if cls.set_home_if_exists( location ):
+                            return True
+                    return False
+
+                if not exists_in( search_list ):
+                    raise BoostException("Cannot construct Boost Object. Home for Version [{}] cannot be found. Seached in [{}]".format(version, str([l for l in search_list])))
+            else:
+                raise BoostException("Cannot construct Boost Object. No Home or Version specified")
+
+            logger.debug( "Using boost found at [{}]".format( as_info( boost_home ) ) )
+            boost_location = cuppa.location.Location( env, self.values['home'], extra_sub_path=extra_sub_path )
+        else:
+            location = cls.location_from_boost_version( version )
+            boost_location = cuppa.location.Location( env, location, extra_sub_path=extra_sub_path )
+
+        if patched:
+            cls.apply_patch_if_needed( cls._location.local() )
+
+        return boost_location
+
+
+    @classmethod
+    def create( cls, env ):
+
+        boost_id = cls._boost_location_id( env )
+
+        if not boost_id in cls._cached_boost_locations:
+            cls._cached_boost_locations[ boost_id ] = cls._get_boost_location( env, boost_id[0], boost_id[1], boost_id[2], boost_id[3] )
+
+        location = cls._cached_boost_locations[ boost_id ]
 
         boost = None
         try:
-            if boost_location:
-                boost = cls( env, env[ 'platform' ],
-                           location = boost_location,
-                           version  = boost_version,
-                           patch_test = patch_boost_test )
-            elif boost_home:
-                boost = cls( env, env[ 'platform' ],
-                           base = boost_home,
-                           patch_test = patch_boost_test )
-            elif thirdparty and boost_version:
-                boost = cls( env, env[ 'platform' ],
-                           base = thirdparty,
-                           version = boost_version,
-                           patch_test = patch_boost_test )
-            elif boost_version:
-                boost = cls( env, env[ 'platform' ],
-                           version = boost_version,
-                           patch_test = patch_boost_test )
-            elif boost_latest:
-                boost = cls( env, env[ 'platform' ],
-                           version = 'latest',
-                           patch_test = patch_boost_test )
-
+            boost = cls( env, env[ 'platform' ], location )
         except BoostException as e:
-            print as_warning( env, "cuppa: boost: warning: Could not create boost dependency - {}".format(e) )
+            logger.error( "Could not create boost dependency - {}".format(e) )
+            return None
 
-        add_dependency( 'boost', boost )
+        if not boost:
+            logger.error( "Could not create boost dependency" )
+            return None
+
+        build_always   = env.get_option( 'boost-build-always' )
+        verbose_build  = env.get_option( 'boost-verbose-build' )
+        verbose_config = env.get_option( 'boost-verbose-config' )
 
         env.AddMethod(
                 BoostStaticLibraryMethod(
                         add_dependents=False,
                         build_always=build_always,
                         verbose_build=verbose_build,
-                        verbose_config=verbose_config ),
-                "BoostStaticLibrary" )
+                        verbose_config=verbose_config),
+                "BoostStaticLibrary"
+        )
         env.AddMethod(
                 BoostSharedLibraryMethod(
                         add_dependents=False,
                         build_always=build_always,
                         verbose_build=verbose_build,
-                        verbose_config=verbose_config ),
-                "BoostSharedLibrary" )
+                        verbose_config=verbose_config),
+                "BoostSharedLibrary"
+        )
         env.AddMethod(
                 BoostStaticLibraryMethod(
                         add_dependents=False,
                         build_always=build_always,
                         verbose_build=verbose_build,
-                        verbose_config=verbose_config ),
-                "BoostStaticLib" )
+                        verbose_config=verbose_config),
+                "BoostStaticLib"
+        )
         env.AddMethod(
                 BoostSharedLibraryMethod(
                         add_dependents=False,
                         build_always=build_always,
                         verbose_build=verbose_build,
-                        verbose_config=verbose_config ),
-                "BoostSharedLib" )
+                        verbose_config=verbose_config),
+                "BoostSharedLib"
+        )
         env.AddMethod(
-                BoostStaticLibraryMethod(
+                 BoostStaticLibraryMethod(
                         add_dependents=True,
                         build_always=build_always,
                         verbose_build=verbose_build,
-                        verbose_config=verbose_config ),
-                "BoostStaticLibs" )
+                        verbose_config=verbose_config),
+                "BoostStaticLibs"
+        )
         env.AddMethod(
                 BoostSharedLibraryMethod(
                         add_dependents=True,
                         build_always=build_always,
                         verbose_build=verbose_build,
-                        verbose_config=verbose_config ),
-                "BoostSharedLibs" )
+                        verbose_config=verbose_config),
+                "BoostSharedLibs"
+        )
+        return boost
 
 
     def get_boost_version( self, location ):
@@ -193,16 +278,17 @@ class Boost(object):
         return False
 
 
-    def location_from_boost_version( self, location ):
+    @classmethod
+    def location_from_boost_version( cls, location ):
         if location == "latest" or location == "current":
-            location = determine_latest_boost_verion( self._env )
+            location = determine_latest_boost_verion()
         if location:
             match = re.match( r'(boost_)?(?P<version>\d[._]\d\d(?P<minor>[._]\d)?)', location )
             if match:
                 version = match.group('version')
                 if not match.group('minor'):
                     version += "_0"
-                print "cuppa: boost version specified as a location, attempt to download it from SourceForge"
+                logger.debug( "Only boost version specified, retrieve from SourceForge if not already cached" )
                 extension = ".tar.gz"
                 if cuppa.build_platform.name() == "Windows":
                     extension = ".zip"
@@ -214,96 +300,45 @@ class Boost(object):
         return location
 
 
-    def patched_boost_test( self, home ):
+    @classmethod
+    def patched_boost_test( cls, home ):
         patch_applied_path = os.path.join( home, "cuppa_test_patch_applied.txt" )
         return os.path.exists( patch_applied_path )
 
 
-    def apply_patch_if_needed( self, env, home ):
+    @classmethod
+    def apply_patch_if_needed( cls, home ):
 
         patch_applied_path = os.path.join( home, "cuppa_test_patch_applied.txt" )
         diff_file = "boost_test_patch.diff"
 
         if os.path.exists( patch_applied_path ):
-            print "cuppa: boost: [{}] already applied".format( as_info( env, diff_file ) )
+            logger.debug( "[{}] already applied".format( as_info( diff_file ) ) )
             return
 
         diff_path = os.path.join( os.path.split( __file__ )[0], "boost", diff_file )
 
         command = "patch --batch -p1 --input={}".format( diff_path )
 
-        print "cuppa: boost: info: Applying [{}] using [{}] in [{}]".format(
-                as_info( env, diff_file ),
-                as_info( env, command ),
-                as_info( env, home )
-        )
+        logger.info( "Applying [{}] using [{}] in [{}]".format(
+                as_info( diff_file ),
+                as_info( command ),
+                as_info( home )
+        ) )
 
         if subprocess.call( shlex.split( command ), cwd=home ) != 0:
-            print as_error( env, "cuppa: boost: error: Could not apply [{}]".format( diff_file ) )
+            logger.error( "Could not apply [{}]".format( diff_file ) )
 
         with open( patch_applied_path, "w" ) as patch_applied_file:
             pass
 
 
-    def __init__( self, env, platform, base=None, location=None, version=None, patch_test=False ):
-        print "cuppa: boost: identify boost using base = [{}], location = [{}] and version = [{}]".format(
-                as_info( env, str(base) ),
-                as_info( env, str(location) ),
-                as_info( env, str(version) )
-            )
+    def __init__( self, cuppa_env, platform, location ):
 
-        if not base and not version and not location:
-            raise BoostException("Cannot construct Boost Object. Invalid parameters")
-
-        self._env = env
+        self._location = location
         self.values = {}
         self.values['name'] = 'boost'
-
-        extra_sub_path = 'clean'
-        if patch_test:
-            extra_sub_path = 'patched'
-
-        if location:
-            location = self.location_from_boost_version( location )
-            if not location: # use version as a fallback in case both at specified
-                location = self.location_from_boost_version( version )
-            self._location = cuppa.location.Location( env, location, extra_sub_path=extra_sub_path, name_hint="boost" )
-
-        elif base: # Find boost locally
-            if not os.path.isabs( base ):
-                base = os.path.abspath( base )
-
-            if not version:
-                self.values['home'] = base
-            elif version:
-                search_list = [
-                    os.path.join( base, 'boost', version, 'source' ),
-                    os.path.join( base, 'boost', 'boost_' + version ),
-                    os.path.join( base, 'boost', version ),
-                    os.path.join( base, 'boost_' + version ),
-                ]
-
-                def exists_in( locations ):
-                    for location in locations:
-                        if self.set_home_if_exists( location ):
-                            return True
-                    return False
-
-                if not exists_in( search_list ):
-                    raise BoostException("Cannot construct Boost Object. Home for Version [{}] cannot be found. Seached in [{}]".format(version, str([l for l in search_list])))
-            else:
-                raise BoostException("Cannot construct Boost Object. No Home or Version specified")
-
-            print "cuppa: boost: using boost found at [{}]".format( as_info( env, self.values['home'] ) )
-            self._location = cuppa.location.Location( env, self.values['home'], extra_sub_path=extra_sub_path )
-        else:
-            location = self.location_from_boost_version( version )
-            self._location = cuppa.location.Location( env, location, extra_sub_path=extra_sub_path )
-
         self.values['home'] = self._location.local()
-
-        if patch_test:
-            self.apply_patch_if_needed( env, self.values['home'] )
 
         self._patched_test = self.patched_boost_test( self.values['home'] )
 
@@ -375,12 +410,12 @@ class BoostStaticLibraryMethod(object):
     def __call__( self, env, libraries ):
 
         if not self._add_dependents:
-            print as_warning( env, "cuppa: boost: warning: BoostStaticLibrary() is deprecated, use BoostStaticLibs() or BoostStaticLib() instead" )
+            logger.warn( "BoostStaticLibrary() is deprecated, use BoostStaticLibs() or BoostStaticLib() instead" )
         libraries = Flatten( [ libraries ] )
 
         if not 'boost' in env['BUILD_WITH']:
             env.BuildWith( 'boost' )
-        Boost = env['dependencies']['boost']
+        Boost = env['dependencies']['boost']( env )
         library = BoostLibraryBuilder(
                 Boost,
                 add_dependents = self._add_dependents,
@@ -403,12 +438,12 @@ class BoostSharedLibraryMethod(object):
 
     def __call__( self, env, libraries ):
         if not self._add_dependents:
-            print as_warning( env, "cuppa: boost: warning: BoostSharedLibrary() is deprecated, use BoostSharedLibs() or BoostSharedLib() instead" )
+            logger.warn( "BoostSharedLibrary() is deprecated, use BoostSharedLibs() or BoostSharedLib() instead" )
         libraries = Flatten( [ libraries ] )
 
         if not 'boost' in env['BUILD_WITH']:
             env.BuildWith( 'boost' )
-        Boost = env['dependencies']['boost']
+        Boost = env['dependencies']['boost']( env )
 
         for library in libraries:
             if library.startswith('log'):
@@ -470,7 +505,10 @@ class BuildBjam(object):
         if platform.system() == "Windows":
             bjam_build_script = os.path.join( build_script_path, 'build.bat' )
 
-        #print 'Execute ' + bjam_build_script + ' from ' + str(build_script_path)
+        logger.debug( "Execute [{}] from [{}]".format(
+                bjam_build_script,
+                str(build_script_path)
+        ) )
 
         process_bjam_build = ProcessBjamBuild()
 
@@ -484,7 +522,7 @@ class BuildBjam(object):
             bjam_exe_path = process_bjam_build.exe_path()
 
             if not bjam_exe_path:
-                print "Could not determine bjam exe path"
+                print_critical( "Could not determine bjam exe path" )
                 return 1
 
             bjam_binary_path = os.path.join( build_script_path, bjam_exe_path )
@@ -492,7 +530,7 @@ class BuildBjam(object):
             shutil.copy( bjam_binary_path, target[0].path )
 
         except OSError as error:
-            print 'Error building bjam [' + str( error.args ) + ']'
+            print_critical( 'Error building bjam [' + str( error.args ) + ']' )
             return 1
 
         return None
@@ -500,7 +538,7 @@ class BuildBjam(object):
 
 
 def toolset_name_from_toolchain( toolchain ):
-    toolset_name = toolchain.family()
+    toolset_name = toolchain.toolset_name()
     if cuppa.build_platform.name() == "Darwin":
         if toolset_name == "gcc":
             toolset_name = "darwin"
@@ -513,6 +551,8 @@ def toolset_name_from_toolchain( toolchain ):
 def toolset_from_toolchain( toolchain ):
     toolset_name = toolset_name_from_toolchain( toolchain )
     if toolset_name == "clang-darwin":
+        return toolset_name
+    elif toolset_name == "msvc":
         return toolset_name
 
     toolset = toolchain.cxx_version() and toolset_name + "-" + toolchain.cxx_version() or toolset_name
@@ -538,12 +578,12 @@ def directory_from_abi_flag( abi_flag ):
     return abi_flag
 
 
-def stage_directory( toolchain, variant, abi_flag ):
+def stage_directory( toolchain, variant, target_arch, abi_flag ):
     build_base = "build"
     abi_dir = directory_from_abi_flag( abi_flag )
     if abi_dir:
         build_base += "." + abi_dir
-    return os.path.join( build_base, toolchain.name(), variant )
+    return os.path.join( build_base, toolchain.name(), variant, target_arch )
 
 
 def boost_dependency_order():
@@ -655,13 +695,14 @@ class BoostLibraryAction(object):
         self._verbose_config = verbose_config
         self._linktype       = linktype
         self._variant        = variant_name( self._env['variant'].name() )
+        self._target_arch    = env['target_arch']
         self._toolchain      = env['toolchain']
         self._job_count      = env['job_count']
         self._parallel       = env['parallel']
 
 
     def _toolset_name_from_toolchain( self, toolchain ):
-        toolset_name = toolchain.family()
+        toolset_name = toolchain.toolset_name()
         if cuppa.build_platform.name() == "Darwin":
             if toolset_name == "gcc":
                 toolset_name = "darwin"
@@ -670,7 +711,7 @@ class BoostLibraryAction(object):
         return toolset_name
 
 
-    def _build_command( self, env, toolchain, libraries, variant, linktype, stage_dir ):
+    def _build_command( self, env, toolchain, libraries, variant, target_arch, linktype, stage_dir ):
 
         verbose = ""
         if self._verbose_build:
@@ -693,6 +734,18 @@ class BoostLibraryAction(object):
         abi_flag = toolchain.abi_flag(env)
         if abi_flag:
             build_flags = 'cxxflags="' + abi_flag + '"'
+
+        address_model = ""
+        architecture = ""
+        windows_api = ""
+        if toolchain.family() == "cl":
+            if target_arch == "amd64":
+                address_model = "address-model=64"
+            elif target_arch == "arm":
+                address_model = "architecture=arm"
+            if toolchain.target_store() != "desktop":
+                windows_api = "windows-api=" + toolchain.target_store()
+
         build_flags += ' define="BOOST_DATE_TIME_POSIX_TIME_STD_CONFIG"'
 
         if linktype == 'shared':
@@ -707,13 +760,16 @@ class BoostLibraryAction(object):
 
         toolset = toolset_from_toolchain( toolchain )
 
-        command_line = "{bjam}{verbose} -j {jobs}{with_libraries} toolset={toolset} variant={variant} {build_flags} link={linktype} --build-dir=.{path_sep}{build_dir} stage --stagedir=.{path_sep}{stage_dir}".format(
+        command_line = "{bjam}{verbose} -j {jobs}{with_libraries} toolset={toolset} variant={variant} {address_model} {architecture} {windows_api} {build_flags} link={linktype} --build-dir=.{path_sep}{build_dir} stage --stagedir=.{path_sep}{stage_dir}".format(
                 bjam            = bjam,
                 verbose         = verbose,
                 jobs            = jobs,
                 with_libraries  = with_libraries,
                 toolset         = toolset,
                 variant         = variant,
+                address_model   = address_model,
+                architecture    = architecture,
+                windows_api     = windows_api,
                 build_flags     = build_flags,
                 linktype        = linktype,
                 build_dir       = build_dir,
@@ -735,8 +791,8 @@ class BoostLibraryAction(object):
         if not self._libraries:
             return None
 
-        stage_dir = stage_directory( self._toolchain, self._variant, self._toolchain.abi_flag(env) )
-        args      = self._build_command( env, self._toolchain, self._libraries, self._variant, self._linktype, stage_dir )
+        stage_dir = stage_directory( self._toolchain, self._variant, self._target_arch, self._toolchain.abi_flag(env) )
+        args      = self._build_command( env, self._toolchain, self._libraries, self._variant, self._target_arch, self._linktype, stage_dir )
         processor = BjamOutputProcessor( env, self._verbose_build, self._verbose_config, self._toolset_name_from_toolchain( self._toolchain ) )
 
         returncode = IncrementalSubProcess.Popen(
@@ -764,10 +820,9 @@ class BjamOutputProcessor(object):
         self._verbose_config = verbose_config
         self._toolset_filter = toolset_name + '.'
 
-        self._colouriser = env['colouriser']
         self._minimal_output = not self._verbose_build
         ignore_duplicates = not self._verbose_build
-        self._toolchain_processor = ToolchainProcessor( self._colouriser, env['toolchain'], self._minimal_output, ignore_duplicates )
+        self._toolchain_processor = ToolchainProcessor( env['toolchain'], self._minimal_output, ignore_duplicates )
 
 
     def __call__( self, line ):
@@ -784,24 +839,27 @@ class BjamOutputProcessor(object):
     def summary( self, returncode ):
         summary = self._toolchain_processor.summary( returncode )
         if returncode and not self._verbose_build:
-            summary += "\nTry running with {} for more details".format( self._colouriser.emphasise( '--boost-verbose-build' ) )
+            summary += "\nTry running with {} for more details".format( as_emphasised( '--boost-verbose-build' ) )
         return summary
 
 
 def library_tag( toolchain, boost_version, variant, threading ):
-    tag = "-{toolset_name}{toolset_version}{threading}{abi_flag}-{boost_version}"
+    tag = "-{toolset_tag}{toolset_version}{threading}{abi_flag}-{boost_version}"
 
-    toolset_name = toolchain.family()
+    toolset_tag = toolchain.toolset_tag()
+    abi_flag = variant == "debug" and "-d" or ""
 
     if cuppa.build_platform.name() == "Windows":
-        if toolset_name == "gcc":
-            toolset_name = "mgw"
+        if toolset_tag == "gcc":
+            toolset_tag = "mgw"
+        elif toolset_tag == "vc":
+            abi_flag = variant == "debug" and "-gd" or ""
 
     return tag.format(
-            toolset_name    = toolset_name,
+            toolset_tag     = toolset_tag,
             toolset_version = toolchain.short_version(),
             threading       = threading and "-mt" or "",
-            abi_flag        = variant == "debug" and "-d" or "",
+            abi_flag        = abi_flag,
             boost_version   = boost_version
     )
 
@@ -809,12 +867,14 @@ def library_tag( toolchain, boost_version, variant, threading ):
 def static_library_name( env, library, toolchain, boost_version, variant, threading ):
     name    = "{prefix}boost_{library}{tag}{suffix}"
     tag     = ""
+    prefix  = env.subst('$LIBPREFIX')
 
     if cuppa.build_platform.name() == "Windows":
         tag = library_tag( toolchain, boost_version, variant, threading )
+        prefix = "lib"
 
     return name.format(
-            prefix  = env.subst('$LIBPREFIX'),
+            prefix  = prefix,
             library = library,
             tag     = tag,
             suffix  = env.subst('$LIBSUFFIX')
@@ -856,12 +916,13 @@ class BoostLibraryEmitter(object):
         self._version      = boost.numeric_version()
         self._full_version = boost.full_version()
         self._variant      = variant_name( self._env['variant'].name() )
+        self._target_arch  = env['target_arch']
         self._toolchain    = env['toolchain']
         self._threading    = True
 
 
     def __call__( self, target, source, env ):
-        stage_dir = stage_directory( self._toolchain, self._variant, self._toolchain.abi_flag(env) )
+        stage_dir = stage_directory( self._toolchain, self._variant, self._target_arch, self._toolchain.abi_flag(env) )
 
 
         for library in self._libraries:
@@ -921,7 +982,7 @@ class WriteToolsetConfigJam(object):
             toolset_config_line = "{} {} ;\n".format( current_toolset, toolchain.binary() )
 
             with open( path, 'w' ) as toolchain_config:
-                print "cuppa: boost: adding toolset config [{}] to dummy toolset config [{}]".format( str(toolset_config_line.strip()), path )
+                print "cuppa: adding toolset config [{}] to dummy toolset config [{}]".format( str(toolset_config_line.strip()), path )
                 toolchain_config.write( toolset_config_line )
 
             self._update_project_config_jam(
@@ -1014,5 +1075,3 @@ class BoostLibraryBuilder(object):
             installed_libraries.append( env.Install( install_dir, self._library_targets[ variant_instance ][library] ) )
 
         return installed_libraries
-
-

@@ -10,6 +10,7 @@
 import os
 
 import cuppa.location
+from cuppa.log import logger
 
 
 class HeaderLibraryException(Exception):
@@ -45,6 +46,11 @@ class base(object):
 
     @classmethod
     def add_to_env( cls, env, add_dependency  ):
+        add_dependency( cls._name, cls.create )
+
+
+    @classmethod
+    def create( cls, env ):
         location = env.get_option( cls._name + "-location" )
         branch   = env.get_option( cls._name + "-branch" )
 
@@ -53,7 +59,8 @@ class base(object):
         if not location and branch:
             location = env['thirdparty']
         if not location:
-            print "cuppa: No location specified for dependency [{}]. Dependency not available.".format( cls._name.title() )
+            logger.debug( "No location specified for dependency [{}]. Dependency not available.".format( cls._name.title() ) )
+            return None
 
         include = env.get_option( cls._name + "-include" )
         includes = include and [include] or []
@@ -61,7 +68,7 @@ class base(object):
         sys_include = env.get_option( cls._name + "-sys-include" )
         sys_includes = sys_include and [sys_include] or []
 
-        add_dependency( cls._name, cls( env, location, branch=branch, includes=includes, sys_includes=sys_includes) )
+        return cls( env, location, branch=branch, includes=includes, sys_includes=sys_includes)
 
 
     def __init__( self, env, location, branch=None, includes=[], sys_includes=[] ):

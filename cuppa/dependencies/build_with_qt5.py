@@ -17,6 +17,7 @@ import cuppa.location
 import cuppa.output_processor
 import cuppa.build_platform
 from cuppa.colourise import as_info, as_warning, as_error
+from cuppa.log import logger
 
 import SCons.Script
 
@@ -31,38 +32,48 @@ class Qt5Exception(Exception):
 class build_with_qt5(object):
 
     _name = "qt5"
+    _qt5_tool = None
 
     @classmethod
     def add_options( cls, add_option ):
         pass
 
     @classmethod
-    def add_to_env( cls, env, add_dependency  ):
+    def add_to_env( cls, cuppa_env, add_dependency  ):
+        add_dependency( cls._name, cls.create )
+
+
+    @classmethod
+    def create( cls, env ):
         try:
-            add_dependency( cls._name, cls( env ) )
-            print "QT5 added"
+            if not cls._qt5_tool:
+                cls._qt5_tool = cls.retrieve_tool( env )
+            return build_with_qt5( env )
         except Qt5Exception:
-            print as_warning( env, "cuppa: warning: Could not create dependency [{}]. Dependency not available.".format( cls._name ) )
+            logger.error( "Could not create dependency [{}]. Dependency not available.".format( cls._name ) )
+        return None
+
+
+    @classmethod
+    def retrieve_tool( cls, env ):
+        url = "hg+https://bitbucket.org/dirkbaechle/scons_qt5"
+        try:
+            return cuppa.location.Location( env, url, extra_sub_path = "qt5" )
+        except cuppa.location.LocationException:
+            logger.warn( "Could not retrieve scons_qt5 from [{}]".format( url ) )
+        return None
 
 
     def __init__( self, env ):
 
-        url = "hg+https://bitbucket.org/dirkbaechle/scons_qt5"
-
-        try:
-            self._location = cuppa.location.Location( env, url, extra_sub_path = "qt5" )
-        except cuppa.location.LocationException:
-            print as_warning( env, "cuppa: qt5: warning: Could not retrieve url [{}]".format( url ) )
-            raise Qt5Exception( "Could not retrieve scons_qt5 from [{}]".format( url ) )
-
         self._version = "5"
 
         if cuppa.build_platform.name() in ["Darwin", "Linux"]:
-            if not cuppa.output_processor.command_available( "pkg-config" ):
-                return
-            if 'QT5DIR' not in env:
-                self._set_qt5_dir( env )
-            self._version = self._get_qt5_version()
+            if cuppa.output_processor.command_available( "pkg-config" ):
+                if 'QT5DIR' not in env:
+                    self._set_qt5_dir( env )
+                self._version = self._get_qt5_version()
+
         elif cuppa.build_platform.name() == "Windows":
             if 'QT5DIR' not in env:
                 paths = glob.glob( 'C:\\Qt\\5.*\\*' )
@@ -71,9 +82,10 @@ class build_with_qt5(object):
                     env['QT5DIR'] = paths[-1]
 
         if 'QT5DIR' not in env:
-            print as_error( env, "cuppa: qt5: error: could not detect QT5 installation" )
-        else:
-            print "cuppa: qt5: Q5DIR detected as [{}]".format( as_info( env, env['QT5DIR'] ) )
+            logger.error( "Could not detect QT5 installation" )
+            raise Qt5Exception( "Could not detect QT5 installation." )
+
+        logger.debug( "Q5DIR detected as [{}]".format( as_info( env['QT5DIR'] ) ) )
 
 
     def _set_qt5_dir( self, env ):
@@ -89,8 +101,7 @@ class build_with_qt5(object):
                             shortest_path = include
                     env['QT5DIR'] = shortest_path
         except:
-            #TODO: Warning?
-            pass
+            logger.debug( "In _set_qt5_dir() failed to execute [{}]".format( command ) )
 
 
     def _get_qt5_version( self ):
@@ -98,17 +109,13 @@ class build_with_qt5(object):
         try:
             return subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT ).strip()
         except:
-            #TODO: Warning?
+            logger.debug( "In _get_qt5_version() failed to execute [{}]".format( command ) )
             return None
 
 
     def __call__( self, env, toolchain, variant ):
 
-        toolpath = self._location.base_local()
-
-        print "TOOLPATH = " + str(toolpath)
-
-        SCons.Script.Tool( 'qt5', toolpath=[ self._location.base_local() ] )( env )
+        SCons.Script.Tool( 'qt5', toolpath=[ self._qt5_tool.base_local() ] )( env )
 
         if cuppa.build_platform.name() in ["Darwin", "Linux"]:
             env.MergeFlags("-fPIC")

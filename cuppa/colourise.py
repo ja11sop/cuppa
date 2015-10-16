@@ -183,46 +183,50 @@ class Colouriser(object):
             return ''
 
 
-    def as_error( self, text ):
-        return self.colour( "error", text )
+colouriser = Colouriser.create()
 
 
-    def as_warning( self, text ):
-        return self.colour( "warning", text )
+def as_colour( meaning, text ):
+    return colouriser.colour( meaning, text )
 
+def as_highlighted( meaning, text ):
+    return colouriser.highlight( meaning, text )
 
-    def as_info( self, text ):
-        return self.colour( "info", text )
+def as_emphasised( text ):
+    return colouriser.emphasise( text )
 
+def as_error( text ):
+    return colouriser.colour( 'error', text )
 
-    def as_message( self, text ):
-        return self.colour( "message", text )
+def as_error_label( text ):
+    return colouriser.highlight( 'error', text )
 
+def as_warning( text ):
+    return colouriser.colour( 'warning', text )
 
-    def as_notice( self, text ):
-        return self.colour( "notice", text )
+def as_warning_label( text ):
+    return colouriser.highlight( 'warning', text )
 
+def as_info( text ):
+    return colouriser.colour( 'info', text )
 
+def as_message( text ):
+    return colouriser.colour( 'message', text )
 
-def as_emphasised( env, text ):
-    return env['colouriser'].emphasise( text )
+def as_notice( text ):
+    return colouriser.colour( 'notice', text )
 
+def start_colour( meaning ):
+    return colouriser.start_colour( meaning )
 
-def as_error( env, text ):
-    return env['colouriser'].colour( 'error', text )
+def start_highlight( meaning ):
+    return colouriser.start_highlight( meaning )
 
+def colour_reset():
+    return colouriser.reset()
 
-def as_warning( env, text ):
-    return env['colouriser'].colour( 'warning', text )
+def emphasise_time_by_group( time_text ):
+    return colouriser.emphasise_time_by_group( time_text )
 
-
-def as_info( env, text ):
-    return env['colouriser'].colour( 'info', text )
-
-
-def as_message( env, text ):
-    return env['colouriser'].colour( 'message', text )
-
-
-def as_notice( env, text ):
-    return env['colouriser'].colour( 'notice', text )
+def emphasise_time_by_digit( time_text ):
+    return colouriser.emphasise_time_by_digit( time_text )

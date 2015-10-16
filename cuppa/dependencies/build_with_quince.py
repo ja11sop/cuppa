@@ -17,6 +17,7 @@ import glob
 # Cuppa Imports
 import cuppa.location
 import cuppa.output_processor
+from cuppa.log import logger
 
 
 
@@ -51,25 +52,39 @@ class QuinceLibraryMethod(object):
 class build_with_quince(object):
 
     _name = "quince"
+    _location = None
 
     @classmethod
     def add_options( cls, add_option ):
-
         location_name = cls._name + "-location"
         add_option( '--' + location_name, dest=location_name, type='string', nargs=1, action='store',
                     help = cls._name + ' location to build against' )
 
+
     @classmethod
     def add_to_env( cls, env, add_dependency  ):
-        location = env.get_option( cls._name + "-location" )
-        if not location:
-            print "No location specified for dependency [{}]. Dependency not available.".format( cls._name.title() )
-
-        add_dependency( cls._name, cls( env, location ) )
+        add_dependency( cls._name, cls.create )
 
 
-    def __init__( self, env, location ):
-        self._location = cuppa.location.Location( env, location )
+    @classmethod
+    def create( cls, env ):
+        if not cls._location:
+            location = env.get_option( cls._name + "-location" )
+            if not location:
+                logger.error( "Dependency not available - no location specified" )
+                return None
+            try:
+                cls._location = cuppa.location.Location( env, location )
+            except cuppa.location.LocationException as error:
+                logger.error(
+                    "Dependency not available - retrieving location failed with error [{}]."
+                    .format( str(error) )
+                )
+                return None
+        return build_with_quince( env )
+
+
+    def __init__( self, env ):
         self._includes = [ os.path.join( self._location.local(), "include" ) ]
         self._src_path = os.path.join( self._location.local(), "src" )
 
@@ -137,6 +152,7 @@ class QuincePostgresqlLibraryMethod(object):
 class quince_postgresql(object):
 
     _name = "quince-postgresql"
+    _location = None
 
     @classmethod
     def add_options( cls, add_option ):
@@ -147,17 +163,27 @@ class quince_postgresql(object):
 
     @classmethod
     def add_to_env( cls, env, add_dependency  ):
-        location = env.get_option( cls._name + "-location" )
-        if not location:
-            print "No location specified for dependency [{}]. Dependency not available.".format( cls._name.title() )
+        add_dependency( cls._name, cls.create )
 
-        add_dependency( cls._name, cls( env, location ) )
+    @classmethod
+    def create( cls, env ):
+        if not cls._location:
+            location = env.get_option( cls._name + "-location" )
+            if not location:
+                logger.error( "postgresql: Dependency not available - no location specified" )
+                return None
+            try:
+                cls._location = cuppa.location.Location( env, location )
+            except cuppa.location.LocationException as error:
+                logger.error(
+                    "postgresql: Dependency not available - retrieving location failed with error [{}]."
+                    .format( str(error) )
+                )
+                return None
+        return quince_postgresql( env )
 
 
-    def __init__( self, env, location ):
-
-        self._location = cuppa.location.Location( env, location )
-
+    def __init__( self, env ):
         self._flags = {}
         self._flags['INCPATH'] = [ os.path.join( self._location.local(), "include" ) ]
 
@@ -184,7 +210,7 @@ class quince_postgresql(object):
             libpq_libpath = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT ).strip()
             self._flags['LIBPATH'] = [ libpq_libpath ]
         else:
-            print "Warning: pg_config not available so cannot determine LIBPATH for postgres libraries"
+            logger.warn( "postgresql: pg_config not available so cannot determine LIBPATH for postgres libraries" )
             self._flags['LIBPATH'] = []
 
         self._flags['DYNAMICLIBS'] = [ 'pq' ]
@@ -254,6 +280,7 @@ class QuinceSqliteLibraryMethod(object):
 class quince_sqlite(object):
 
     _name = "quince-sqlite"
+    _location = None
 
     @classmethod
     def add_options( cls, add_option ):
@@ -264,17 +291,28 @@ class quince_sqlite(object):
 
     @classmethod
     def add_to_env( cls, env, add_dependency  ):
-        location = env.get_option( cls._name + "-location" )
-        if not location:
-            print "No location specified for dependency [{}]. Dependency not available.".format( cls._name.title() )
+        add_dependency( cls._name, cls.create )
 
-        add_dependency( cls._name, cls( env, location ) )
+
+    @classmethod
+    def create( cls, env ):
+        if not cls._location:
+            location = env.get_option( cls._name + "-location" )
+            if not location:
+                logger.error( "sqlite: Dependency not available - no location specified" )
+                return None
+            try:
+                cls._location = cuppa.location.Location( env, location )
+            except cuppa.location.LocationException as error:
+                logger.error(
+                    "sqlite: Dependency not available - retrieving location failed with error [{}]."
+                    .format( str(error) )
+                )
+                return None
+        return quince_sqlite( env )
 
 
     def __init__( self, env, location ):
-
-        self._location = cuppa.location.Location( env, location )
-
         self._flags = {}
         if cuppa.output_processor.command_available( "pkg-config"):
             command = "pkg-config --cflags --libs sqlite3"

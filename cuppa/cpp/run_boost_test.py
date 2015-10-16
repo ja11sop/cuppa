@@ -16,6 +16,7 @@ import cuppa.timer
 import cuppa.test_report.cuppa_json
 import cuppa.build_platform
 from cuppa.output_processor import IncrementalSubProcess
+from cuppa.colourise import as_emphasised, as_highlighted, as_colour, start_colour, colour_reset
 
 
 class Notify(object):
@@ -24,48 +25,47 @@ class Notify(object):
     def __init__( self, scons_env, show_test_output ):
         self._show_test_output = show_test_output
         self._toolchain = scons_env['toolchain']
-        self._colouriser = scons_env['colouriser']
         self.master_suite = {}
         self.master_suite['status'] = 'passed'
 
 
     def enter_suite(self, suite):
         sys.stdout.write(
-            self._colouriser.emphasise( "\nStarting Test Suite [%s]\n" % suite )
+            as_emphasised( "\nStarting Test Suite [%s]\n" % suite )
         )
 
 
     def exit_suite(self, suite):
         sys.stdout.write(
-            self._colouriser.emphasise( "\nTest Suite Finished [%s] " % suite['name'] )
+            as_emphasised( "\nTest Suite Finished [%s] " % suite['name'] )
         )
 
         label   = suite['status'].upper()
         meaning = suite['status']
 
         sys.stdout.write(
-            self._colouriser.highlight( meaning, " = {} = ".format( suite['status'].upper() ) )
+            as_highlighted( meaning, " = {} = ".format( suite['status'].upper() ) )
         )
 
         sys.stdout.write('\n')
 
         sys.stdout.write(
-            self._colouriser.emphasise( "\nSummary\n" )
+            as_emphasised( "\nSummary\n" )
         )
 
         for test in suite['tests']:
             sys.stdout.write(
-                self._colouriser.emphasise( "\nTest case [{}]".format( test['name'] ) ) + '\n'
+                as_emphasised( "\nTest case [{}]".format( test['name'] ) ) + '\n'
             )
             self._write_test_case( test )
 
         sys.stdout.write('\n')
 
         sys.stdout.write(
-            self._colouriser.highlight( meaning, " = %s = " % label )
+            as_highlighted( meaning, " = %s = " % label )
         )
 
-        cuppa.timer.write_time( suite['total_cpu_times'], self._colouriser )
+        cuppa.timer.write_time( suite['total_cpu_times'] )
 
         passed_tests      = suite['passed_tests']
         failed_tests      = suite['failed_tests']
@@ -79,21 +79,21 @@ class Notify(object):
         if total_assertions > 0:
             if suite['status'] == 'passed':
                 sys.stdout.write(
-                    self._colouriser.highlight(
+                    as_highlighted(
                         meaning,
                         " ( %s of %s Assertions Passed )" % (passed_assertions, total_assertions)
                     )
                 )
             else:
                 sys.stdout.write(
-                    self._colouriser.highlight(
+                    as_highlighted(
                         meaning,
                         " ( %s of %s Assertions Failed )" % (failed_assertions, total_assertions)
                     )
                 )
         else:
             sys.stdout.write(
-                self._colouriser.colour(
+                as_colour(
                     'notice',
                     " ( No Assertions Checked )"
                 )
@@ -101,7 +101,7 @@ class Notify(object):
 
         if suite['status'] == 'passed' and passed_tests > 0:
             sys.stdout.write(
-                self._colouriser.highlight(
+                as_highlighted(
                     meaning,
                     " ( %s %s Passed ) "
                     % (passed_tests, passed_tests > 1 and 'Test Cases' or 'Test Case')
@@ -112,7 +112,7 @@ class Notify(object):
 
         if failed_tests > 0:
             sys.stdout.write(
-                self._colouriser.highlight(
+                as_highlighted(
                     meaning,
                     " ( %s %s Failed ) "
                     % (failed_tests, failed_tests > 1 and 'Test Cases' or 'Test Case')
@@ -121,7 +121,7 @@ class Notify(object):
 
         if expected_failures > 0:
             sys.stdout.write(
-                self._colouriser.highlight(
+                as_highlighted(
                     meaning,
                     " ( %s %s Expected ) "
                     % (expected_failures, expected_failures > 1 and 'Failures' or 'Failure')
@@ -131,7 +131,7 @@ class Notify(object):
         if len( skipped_tests ):
             number = len( skipped_tests )
             sys.stdout.write(
-                self._colouriser.highlight(
+               as_highlighted(
                     meaning,
                     " ( %s %s Skipped ) "
                     % (number, number > 1 and 'Test Cases' or 'Test Case')
@@ -140,7 +140,7 @@ class Notify(object):
 
         if aborted_tests > 0:
             sys.stdout.write(
-                self._colouriser.highlight(
+                as_highlighted(
                     meaning,
                     " ( %s %s Aborted ) "
                     % (aborted_tests, aborted_tests > 1 and 'Test Cases Were' or 'Test Case Was')
@@ -155,10 +155,10 @@ class Notify(object):
         meaning = test_case['status']
 
         sys.stdout.write(
-            self._colouriser.highlight( meaning, " = %s = " % label )
+            as_highlighted( meaning, " = %s = " % label )
         )
 
-        cuppa.timer.write_time( test_case['cpu_times'], self._colouriser )
+        cuppa.timer.write_time( test_case['cpu_times'] )
 
         assertions = test_case['total']
         passed     = test_case['passed']
@@ -166,7 +166,7 @@ class Notify(object):
 
         if test_case['status'] == 'passed' and passed > 0:
             sys.stdout.write(
-                self._colouriser.colour(
+                as_colour(
                     meaning,
                     " ( %s of %s Assertions Passed )" % ( passed, assertions )
                 )
@@ -174,7 +174,7 @@ class Notify(object):
 
         if failed > 0:
             sys.stdout.write(
-                self._colouriser.colour(
+                as_colour(
                     meaning,
                     " ( %s of %s Assertions Failed )" % ( failed, assertions )
                 )
@@ -182,7 +182,7 @@ class Notify(object):
 
         if test_case['total'] == 0:
             sys.stdout.write(
-                self._colouriser.colour( 'notice'," ( No Assertions )" )
+                as_colour( 'notice'," ( No Assertions )" )
             )
 
         sys.stdout.write('\n')
@@ -190,7 +190,7 @@ class Notify(object):
 
     def enter_test_case(self, test_case):
         sys.stdout.write(
-            self._colouriser.emphasise( "\nRunning Test Case [%s] ...\n" % test_case['key'] )
+            as_emphasised( "\nRunning Test Case [%s] ...\n" % test_case['key'] )
         )
         test_case['timer'] = cuppa.timer.Timer()
 
@@ -201,17 +201,8 @@ class Notify(object):
 
     def failed_assertion(self, line ):
 
-        def as_error( text ):
-            return self._colouriser.as_error( text )
-
-        def emphasise( text ):
-            return self._colouriser.emphasise( text )
-
         def start_error():
-            return self._colouriser.start_colour( "error" )
-
-        def reset():
-            return self._colouriser.reset()
+            return start_colour( "error" )
 
         matches = re.match(
             r'(?P<file>[a-zA-Z0-9._/\s\-]+)[(](?P<line>[0-9]+)[)]: '
@@ -225,14 +216,14 @@ class Notify(object):
 
             error = self._toolchain.error_format()
             sys.stdout.write( error.format(
-                    start_error() + emphasise( path ) + start_error(),
-                    emphasise( line ) + start_error(),
-                    message + reset()
+                    start_error() + as_emphasised( path ) + start_error(),
+                    as_emphasised( line ) + start_error(),
+                    message + colour_reset()
                 ) + "\n"
             )
         else:
             sys.stdout.write(
-                self._colouriser.colour( "error", line ) + "\n"
+                as_colour( "error", line ) + "\n"
             )
 
 
@@ -263,7 +254,7 @@ class ProcessStdout:
     def entered_test_suite( self, line ):
         matches = re.match(
             r'(?:(?P<file>[a-zA-Z0-9._/\s\-]+)?[(](?P<line>[0-9]+)[)]: )?'
-             'Entering test suite "(?P<suite>[a-zA-Z0-9(){}:&_<>/\-, ]+)"',
+             'Entering test (suite|module) "(?P<suite>[a-zA-Z0-9(){}:&_<>/\-, ]+)"',
             line.strip() )
 
         if matches and matches.group('suite') != self.master_test_suite:
@@ -293,7 +284,7 @@ class ProcessStdout:
 
     def leaving_test_suite( self, line ):
         matches = re.match(
-            r'Leaving test suite "(?P<suite>[a-zA-Z0-9(){}:&_<>/\-, ]+)"'
+            r'Leaving test (suite|module) "(?P<suite>[a-zA-Z0-9(){}:&_<>/\-, ]+)"'
              '(\. Test suite (?P<status>passed|failed)\.'
              '(?: (?P<results>.*))?)?',
             line.strip() )
@@ -329,7 +320,8 @@ class ProcessStdout:
 
     def entered_test_case( self, line ):
         matches = re.match(
-            r'Entering test case "(?P<test>[a-zA-Z0-9(){}\[\]:;&_<>\-, =]+)"',
+            r'(?:(?P<file>[a-zA-Z0-9._/\\\s\-]+)[(](?P<line>[0-9]+)[)]: )?'
+             'Entering test case "(?P<test>[a-zA-Z0-9(){}\[\]:;&_<>\-, =]+)"',
             line.strip() )
 
         if matches:
@@ -349,6 +341,8 @@ class ProcessStdout:
             test_case['failed']     = 0
             test_case['skipped']    = False
             test_case['aborted']    = 0
+            test_case['line']       = matches.group('line')
+            test_case['file']       = matches.group('file')
             self.notify.enter_test_case( test_case )
             return True
         return False
@@ -357,7 +351,8 @@ class ProcessStdout:
         test_case = self.test_suites[self.suite]['tests'][-1]
 
         matches = re.match(
-            r'Leaving test case "(?:[a-zA-Z0-9(){}\[\]:;&_<>\-, =]+)"'
+            r'(?:(?P<file>[a-zA-Z0-9._/\\\s\-]+)[(](?P<line>[0-9]+)[)]: )?'
+             'Leaving test case "(?:[a-zA-Z0-9(){}\[\]:;&_<>\-, =]+)"'
              '(?:; testing time: (?P<testing_time>[a-zA-Z0-9.s ,+=()%/]+))?'
              '(\. Test case (?P<status>passed|failed|skipped|aborted)\.'
              '(?: (?P<results>.*))?)?',

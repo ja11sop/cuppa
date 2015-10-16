@@ -36,5 +36,5 @@ class CoverageMethod(object):
 
 
     @classmethod
-    def add_to_env( cls, env ):
-        env.AddMethod( cls(), "Coverage" )
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "Coverage", cls() )

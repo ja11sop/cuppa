@@ -16,7 +16,11 @@ import time
 import threading
 import shlex
 import colorama
+import Queue
 
+
+from cuppa.colourise import as_colour, as_emphasised, as_highlighted
+from cuppa.log import logger
 
 
 def command_available( command ):
@@ -48,7 +52,7 @@ class LineConsumer:
 
     def __init__( self, call_readline, processor=None ):
         self.call_readline = call_readline
-        self.processor     = processor
+        self.processor = processor
 
 
     def __call__( self ):
@@ -63,6 +67,7 @@ class LineConsumer:
                     print line
 
 
+
 class IncrementalSubProcess:
 
     @classmethod
@@ -74,21 +79,26 @@ class IncrementalSubProcess:
         sys.stdout = AutoFlushFile( colorama.initialise.wrapped_stdout )
         sys.stderr = AutoFlushFile( colorama.initialise.wrapped_stderr )
 
-        process = subprocess.Popen(
-            args_list,
-            **kwargs
-        )
+        try:
+            process = subprocess.Popen(
+                args_list,
+                **kwargs
+            )
 
-        stderr_consumer = LineConsumer( process.stderr.readline, stderr_processor )
-        stdout_consumer = LineConsumer( process.stdout.readline, stdout_processor )
+            stderr_consumer = LineConsumer( process.stderr.readline, stderr_processor )
+            stdout_consumer = LineConsumer( process.stdout.readline, stdout_processor )
 
-        stderr_thread = threading.Thread( target=stderr_consumer )
-        stderr_thread.start()
-        stdout_consumer();
-        stderr_thread.join()
+            stderr_thread = threading.Thread( target=stderr_consumer )
+            stderr_thread.start()
+            stdout_consumer();
+            stderr_thread.join()
 
-        process.wait()
-        return process.returncode
+            process.wait()
+
+            return process.returncode
+
+        except Exception as e:
+            logger.error( "output_processor: IncrementalSubProcess.Popen2() failed with error [{}]".format( str(e) ) )
 
 
     @classmethod
@@ -96,27 +106,131 @@ class IncrementalSubProcess:
         return cls.Popen2( processor, processor, args_list, **kwargs )
 
 
+
+class PSpawn(object):
+
+    def __init__( self, pspawn, sh, escape, cmd, args, env, stdout, stderr ):
+        self._pspawn = pspawn
+        self._sh = sh
+        self._escape = escape
+        self._cmd = cmd
+        self._args = args
+        self._env = env
+        self._stdout = stdout
+        self._stderr = stderr
+        self._exception = None
+
+    def __call__( self ):
+        try:
+            self._returncode = self._pspawn( self._sh, self._escape, self._cmd, self._args, self._env, self._stdout, self._stderr )
+        except BaseException:
+            self._exception = sys.exc_info()
+
+    def returncode( self ):
+        if self._exception:
+            raise self._exception
+        return self._returncode
+
+
+
+class Stream(object):
+
+    def __init__( self, processor, name ):
+        self._queue = Queue.Queue()
+        self._processor = processor
+        self._name = name
+
+    def flush( self ):
+        pass
+
+    def write( self, text ):
+        logger.trace( "output_processor: Stream _queue.put [{}]".format( self._name ) )
+        self._queue.put( text )
+
+    def read( self, block ):
+        try:
+            logger.trace( "output_processor: Stream _queue.get [{}]".format( self._name ) )
+            text = self._queue.get( block )
+            if text:
+                for line in text.splitlines():
+                    if self._processor:
+                        line = self._processor( line )
+                        if line:
+                            print line
+                    else:
+                        print line
+            self._queue.task_done()
+        except Queue.Empty:
+            logger.trace( "output_processor: Stream Queue.Empty raised [{}]".format( self._name ) )
+
+    def join( self ):
+        if self._queue.empty():
+            logger.trace( "output_processor: Stream _queue.empty() - flush with None [{}]".format( self._name ) )
+            self._queue.put( None )
+        self._queue.join()
+
+
+
+class Reader(object):
+
+    def __init__( self, stream, finished ):
+        self._stream = stream
+        self._finished = finished
+
+    def __call__( self ):
+        while not self._finished.is_set():
+            self._stream.read(True)
+        self._stream.read(False)
+
+
+
 class Processor:
 
     def __init__( self, scons_env ):
         self.scons_env = scons_env
 
-
     @classmethod
     def install( cls, env ):
+        global _pspawn
+        _pspawn = env['PSPAWN']
         output_processor = cls( env )
         env['SPAWN'] = output_processor.spawn
-
 
     def spawn( self, sh, escape, cmd, args, env ):
 
         processor = SpawnedProcessor( self.scons_env )
 
-        returncode = IncrementalSubProcess.Popen(
-            processor,
-            [ arg.strip('"') for arg in args ],
-            env=env
-        )
+        stdout = Stream( processor, "stdout" )
+        stderr = Stream( processor, "stderr" )
+
+        pspawn = PSpawn( _pspawn, sh, escape, cmd, args, env, stdout, stderr )
+
+        pspawn_thread = threading.Thread( target=pspawn )
+
+        finished = threading.Event()
+        pspawn_thread.start()
+
+        stdout_thread = threading.Thread( target = Reader( stdout, finished ) )
+        stdout_thread.start()
+
+        stderr_thread = threading.Thread( target = Reader( stderr, finished ) )
+        stderr_thread.start()
+
+        pspawn_thread.join()
+        logger.trace( "output_processor: Processor - PSPAWN joined" )
+        finished.set()
+
+        stdout.join()
+        logger.trace( "output_processor: Processor - STDOUT stream joined" )
+        stdout_thread.join()
+        logger.trace( "output_processor: Processor - STDOUT thread joined" )
+
+        stderr.join()
+        logger.trace( "output_processor: Processor - STDERR stream joined" )
+        stderr_thread.join()
+        logger.trace( "output_processor: Processor - STDERR thread joined" )
+
+        returncode = pspawn.returncode()
 
         summary = processor.summary( returncode )
 
@@ -131,7 +245,6 @@ class SpawnedProcessor(object):
 
     def __init__( self, scons_env ):
         self._processor = ToolchainProcessor(
-                scons_env['colouriser'],
                 scons_env['toolchain'],
                 scons_env['minimal_output'],
                 scons_env['ignore_duplicates'] )
@@ -146,9 +259,8 @@ class SpawnedProcessor(object):
 
 class ToolchainProcessor:
 
-    def __init__( self, colouriser, toolchain, minimal_output, ignore_duplicates ):
+    def __init__( self, toolchain, minimal_output, ignore_duplicates ):
         self.toolchain              = toolchain
-        self.colouriser             = colouriser
         self.minimal_output         = minimal_output
         self.ignore_duplicates      = ignore_duplicates
         self.errors                 = 0
@@ -201,10 +313,10 @@ class ToolchainProcessor:
                 if match == file and ( meaning == 'error' or meaning == 'warning' ):
                     element = self.normalise_path( element )
 
-                element = self.colouriser.colour( meaning, element )
+                element = as_colour( meaning, element )
 
                 if match in highlights:
-                    element = self.colouriser.emphasise( element )
+                    element = as_emphasised( element )
 
                 message += element
 
@@ -212,13 +324,13 @@ class ToolchainProcessor:
 
             if meaning == 'error':
                 if message:
-                    message = self.colouriser.highlight( meaning, " = Error " + str(error_id) + " = ") +  "\n" + message
+                    message = as_highlighted( meaning, " = Error " + str(error_id) + " = ") +  "\n" + message
                 else:
                     self.errors -= 1
 
             elif meaning == 'warning':
                 if message:
-                    message = self.colouriser.highlight( meaning, " = Warning " + str(warning_id) + " = ") + "\n" + message
+                    message = as_highlighted( meaning, " = Warning " + str(warning_id) + " = ") + "\n" + message
                 else:
                     self.warnings -= 1
 
@@ -266,9 +378,9 @@ class ToolchainProcessor:
         elapsed_time = time.time() - self.start_time
         Summary = ''
         if returncode:
-            Summary += self.colouriser.highlight( 'summary', " === Process Terminated with status " + str(returncode)  + " (Elapsed " + str(elapsed_time) + "s)" + " === ") + "\n"
+            Summary += as_highlighted( 'summary', " === Process Terminated with status " + str(returncode)  + " (Elapsed " + str(elapsed_time) + "s)" + " === ") + "\n"
         if self.errors:
-            Summary += self.colouriser.highlight( 'error',   " === Errors "   + str(self.errors)   + " === ")
+            Summary += as_highlighted( 'error',   " === Errors "   + str(self.errors)   + " === ")
         if self.warnings:
-            Summary += self.colouriser.highlight( 'warning', " === Warnings " + str(self.warnings) + " === ")
+            Summary += as_highlighted( 'warning', " === Warnings " + str(self.warnings) + " === ")
         return Summary

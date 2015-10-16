@@ -60,7 +60,6 @@ class MarkdownToHtmlMethod(object):
 
 
     @classmethod
-    def add_to_env( cls, env ):
-        env.AddMethod( cls(), "MarkdownToHtml" )
-
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "MarkdownToHtml", cls() )
 

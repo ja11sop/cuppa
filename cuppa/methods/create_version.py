@@ -25,5 +25,5 @@ class CreateVersionMethod:
         return env.CreateVersionFile( target, source )
 
     @classmethod
-    def add_to_env( cls, env ):
-        env.AddMethod( cls(), "CreateVersion" )
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "CreateVersion", cls() )
