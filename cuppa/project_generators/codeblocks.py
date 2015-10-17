@@ -17,6 +17,7 @@ import cuppa.tree
 import cuppa.options
 
 from cuppa.colourise import as_error, as_notice
+from cuppa.log import logger
 
 
 class CodeblocksException(Exception):
@@ -81,7 +82,7 @@ class Codeblocks(object):
                 env['project_generators']['codeblocks'] = obj
 
         except CodeblocksException as error:
-            print as_error( env, "cuppa: error: failed to create CodeBlocks project generator with error [{}]".format( error ) )
+            logger.error( "Failed to create CodeBlocks project generator with error [{}]".format( as_error(error) ) )
 
 
     def __init__( self, env, include_thirdparty, exclude_branches, excluded_paths_starting, place_cbs_by_sconscript ):
@@ -131,8 +132,8 @@ class Codeblocks(object):
 
         cuppa.progress.NotifyProgress.register_callback( None, self.on_progress )
 
-        print "cuppa: project-generator (CodeBlocks): Including Paths Under    = {}".format( as_notice( env, str( self._include_paths ) ) )
-        print "cuppa: project-generator (CodeBlocks): Excluding Paths Starting = {}".format( as_notice( env, str( self._exclude_paths ) ) )
+        logger.debug( "Including Paths Under    = {}".format( as_notice( str( self._include_paths ) ) ) )
+        logger.debug( "Excluding Paths Starting = {}".format( as_notice( str( self._exclude_paths ) ) ) )
 
 
     def on_progress( self, progress, sconscript, variant, env, target, source ):
@@ -191,9 +192,7 @@ class Codeblocks(object):
         if workspace_dir and not os.path.exists( workspace_dir ):
             os.makedirs( workspace_dir )
 
-        print "cuppa: project-generator (CodeBlocks): write workspace [{}]".format(
-            as_notice( env, workspace_path )
-        )
+        logger.debug( "Write workspace [{}]".format( as_notice( workspace_path ) ) )
 
         with open( workspace_path, "w" ) as workspace_file:
             workspace_file.write( "\n".join( self.create_workspace( self._projects ) ) )
@@ -201,7 +200,7 @@ class Codeblocks(object):
 
     def update( self, env, project, toolchain, variant, build_root, working_dir, final_dir_offset ):
 
-        print "cuppa: project-generator (CodeBlocks): update project [{}] for [{}, {}]".format( as_notice( env, project ), as_notice( env, toolchain) , as_notice( env, variant ) )
+        logger.debug( "Update project [{}] for [{}, {}]".format( as_notice( project ), as_notice( toolchain) , as_notice( variant ) ) )
 
         if project not in self._projects:
 
@@ -285,10 +284,10 @@ class Codeblocks(object):
         project_file = self._projects[project]['project_file']
         directory    = self._projects[project]['directory']
 
-        print "cuppa: project-generator (CodeBlocks): write [{}] for [{}]".format(
-            as_notice( env, self._projects[project]['project_file'] ),
-            as_notice( env, project )
-        )
+        logger.debug( "Write [{}] for [{}]".format(
+                as_notice( env, self._projects[project]['project_file'] ),
+                as_notice( env, project )
+        ) )
 
         if directory and not os.path.exists( directory ):
             os.makedirs( directory )
@@ -429,21 +428,21 @@ class ProcessNodes(object):
 
         for allowed in self._allowed_paths:
             prefix = os.path.commonprefix( [ os.path.abspath( file_path ), allowed ] )
-#            print "cuppa: project-generator (CodeBlocks): str(file)=[{}], file.path=[{}], allowed=[{}], prefix=[{}]".format(
+#            logger.trace( "str(file)=[{}], file.path=[{}], allowed=[{}], prefix=[{}]".format(
 #                    as_notice( self._env, str(node) ),
 #                    as_notice( self._env, node.path ),
 #                    as_notice( self._env, str(allowed) ),
 #                    as_notice( self._env, str(prefix) )
-#            )
+#            ) )
             if prefix != allowed:
                 return
 
-#        print "cuppa: project-generator (CodeBlocks): str(file)=[{}], file.path=[{}], allowed=[{}], prefix=[{}]".format(
+#        logger.trace( "str(file)=[{}], file.path=[{}], allowed=[{}], prefix=[{}]".format(
 #                as_notice( self._env, str(node) ),
 #                as_notice( self._env, node.path ),
 #                as_notice( self._env, str(allowed) ),
 #                as_notice( self._env, str(prefix) )
-#        )
+#        ) )
 
         file_path = os.path.relpath( os.path.abspath( file_path ), self._base_path )
         self._files.add( file_path )
