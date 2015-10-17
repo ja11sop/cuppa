@@ -312,7 +312,7 @@ class quince_sqlite(object):
         return quince_sqlite( env )
 
 
-    def __init__( self, env, location ):
+    def __init__( self, env ):
         self._flags = {}
         if cuppa.output_processor.command_available( "pkg-config"):
             command = "pkg-config --cflags --libs sqlite3"
