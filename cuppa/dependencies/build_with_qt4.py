@@ -10,6 +10,7 @@
 
 import subprocess
 import shlex
+import glob
 
 # Cuppa Imports
 import cuppa.location
@@ -100,7 +101,7 @@ class build_with_qt4(object):
                         if len(include) < len(shortest_path):
                             shortest_path = include
                     env['QT4DIR'] = shortest_path
-                logger.debug( "Q4DIR detected as [{}]".format( as_info( env, env['QT4DIR'] ) ) )
+                logger.debug( "Q4DIR detected as [{}]".format( as_info( env['QT4DIR'] ) ) )
         except:
             logger.debug( "In _set_qt4_dir() failed to execute [{}]".format( command ) )
 
@@ -117,7 +118,7 @@ class build_with_qt4(object):
 
     def __call__( self, env, toolchain, variant ):
 
-        SCons.Script.Tool( 'qt4', toolpath=[ self._location.base_local() ] )( env )
+        SCons.Script.Tool( 'qt4', toolpath=[ self._qt4_tool.base_local() ] )( env )
 
         if cuppa.build_platform.name() in ["Darwin", "Linux"]:
             env.MergeFlags("-fPIC")
