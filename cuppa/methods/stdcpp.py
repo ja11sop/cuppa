@@ -9,6 +9,7 @@
 #-------------------------------------------------------------------------------
 
 from cuppa.colourise import as_error
+from cuppa.log import logger
 
 
 class StdCppMethod:
@@ -32,7 +33,7 @@ class StdCppMethod:
 
     def __call__( self, env, standard ):
         if standard not in self.stdcpp_choices:
-            print as_error( env, "cuppa: stdcpp: error: [{}] not in allowed list {}".format( standard, self.stdcpp_choices ) )
+            logger.error( "[{}] not in allowed list {}".format( standard, self.stdcpp_choices ) )
             return None
         env[ 'stdcpp' ] = standard
         toolchain = env['toolchain']
