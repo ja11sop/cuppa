@@ -142,9 +142,9 @@ class Codeblocks(object):
         elif progress == 'started':
             self.on_variant_started( env, sconscript )
         elif progress == 'finished':
-            self.on_variant_finished( env, sconscript, target[0], source )
+            self.on_variant_finished( sconscript, target[0], source )
         elif progress == 'end':
-            self.on_sconscript_end( env, sconscript )
+            self.on_sconscript_end( sconscript )
         elif progress =='sconstruct_end':
             self.on_sconstruct_end( env )
 
@@ -164,11 +164,10 @@ class Codeblocks(object):
         self.update( env, project, toolchain, variant, build_root, working_dir, final_dir_offset )
 
 
-    def on_variant_finished( self, env, sconscript, root_node, source ):
+    def on_variant_finished( self, sconscript, root_node, source ):
         project = sconscript
 
         tree_processor = ProcessNodes(
-                env,
                 self._projects[project]['path'],
                 self._projects[project]['files'],
                 self._include_paths,
@@ -181,8 +180,8 @@ class Codeblocks(object):
         self._projects[project]['files'] = tree_processor.file_paths()
 
 
-    def on_sconscript_end( self, env, sconscript ):
-        self.write( env, sconscript )
+    def on_sconscript_end( self, sconscript ):
+        self.write( sconscript )
 
 
     def on_sconstruct_end( self, env ):
@@ -279,14 +278,14 @@ class Codeblocks(object):
                         self._projects[project]['final_dir'] )
 
 
-    def write( self, env, project ):
+    def write( self, project ):
 
         project_file = self._projects[project]['project_file']
         directory    = self._projects[project]['directory']
 
         logger.debug( "Write [{}] for [{}]".format(
-                as_notice( env, self._projects[project]['project_file'] ),
-                as_notice( env, project )
+                as_notice( self._projects[project]['project_file'] ),
+                as_notice( project )
         ) )
 
         if directory and not os.path.exists( directory ):
@@ -406,8 +405,7 @@ class Codeblocks(object):
 
 class ProcessNodes(object):
 
-    def __init__( self, env, base_path, files, allowed_paths, excluded_paths, ignored_types ):
-        self._env = env
+    def __init__( self, base_path, files, allowed_paths, excluded_paths, ignored_types ):
         self._base_path = base_path
         self._files = files
         self._allowed_paths = allowed_paths
@@ -429,19 +427,19 @@ class ProcessNodes(object):
         for allowed in self._allowed_paths:
             prefix = os.path.commonprefix( [ os.path.abspath( file_path ), allowed ] )
 #            logger.trace( "str(file)=[{}], file.path=[{}], allowed=[{}], prefix=[{}]".format(
-#                    as_notice( self._env, str(node) ),
-#                    as_notice( self._env, node.path ),
-#                    as_notice( self._env, str(allowed) ),
-#                    as_notice( self._env, str(prefix) )
+#                    as_notice( str(node) ),
+#                    as_notice( node.path ),
+#                    as_notice( str(allowed) ),
+#                    as_notice( str(prefix) )
 #            ) )
             if prefix != allowed:
                 return
 
 #        logger.trace( "str(file)=[{}], file.path=[{}], allowed=[{}], prefix=[{}]".format(
-#                as_notice( self._env, str(node) ),
-#                as_notice( self._env, node.path ),
-#                as_notice( self._env, str(allowed) ),
-#                as_notice( self._env, str(prefix) )
+#                as_notice( str(node) ),
+#                as_notice( node.path ),
+#                as_notice( str(allowed) ),
+#                as_notice( str(prefix) )
 #        ) )
 
         file_path = os.path.relpath( os.path.abspath( file_path ), self._base_path )
