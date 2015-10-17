@@ -13,6 +13,7 @@ import shlex
 import re
 import subprocess
 import collections
+import platform
 
 from exceptions import Exception
 
