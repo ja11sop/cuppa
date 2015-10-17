@@ -369,7 +369,7 @@ class Construct(object):
 
 
     def add_project_generators( self, env ):
-        cuppa.modules.registration.add_to_env( project_generators, env )
+        cuppa.modules.registration.add_to_env( project_generators_key, env )
 
 
     def add_variants( self, env ):
@@ -876,7 +876,7 @@ class Construct(object):
             )
 
         else:
-            logger.error( "Skipping non-existent project [{}]".format( self._as_error( sconscript_file ) ) )
+            logger.error( "Skipping non-existent project [{}]".format( as_error( sconscript_file ) ) )
 
 
 
