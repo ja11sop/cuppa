@@ -53,18 +53,6 @@ class Clang(object):
 
 
     @classmethod
-    def default_version( cls ):
-        if not hasattr( cls, '_default_version' ):
-            command = "clang++ --version"
-            if command_available( command ):
-                version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
-                cls._default_version = 'clang' + re.search( r'based on LLVM (\d)\.(\d)', version ).expand(r'\1\2')
-            else:
-                cls._default_version = None
-        return cls._default_version
-
-
-    @classmethod
     def version_from_command( cls, cxx ):
         command = "{} --version".format( cxx )
         if command_available( command ):
