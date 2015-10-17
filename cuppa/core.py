@@ -369,7 +369,7 @@ class Construct(object):
 
 
     def add_project_generators( self, env ):
-        cuppa.modules.registration.add_to_env( project_generators_key, env )
+        cuppa.modules.registration.add_to_env( self.project_generators_key, env )
 
 
     def add_variants( self, env ):
