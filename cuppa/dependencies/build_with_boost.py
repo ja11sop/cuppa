@@ -156,17 +156,19 @@ class Boost(object):
 
                 def exists_in( locations ):
                     for location in locations:
-                        if cls.set_home_if_exists( location ):
-                            return True
-                    return False
+                        home = cls._home_from_path( location )
+                        if home:
+                            return home
+                    return None
 
-                if not exists_in( search_list ):
+                boost_home = exists_in( search_list )
+                if not boost_home:
                     raise BoostException("Cannot construct Boost Object. Home for Version [{}] cannot be found. Seached in [{}]".format(version, str([l for l in search_list])))
             else:
                 raise BoostException("Cannot construct Boost Object. No Home or Version specified")
 
             logger.debug( "Using boost found at [{}]".format( as_info( boost_home ) ) )
-            boost_location = cuppa.location.Location( env, self.values['home'], extra_sub_path=extra_sub_path )
+            boost_location = cuppa.location.Location( env, boost_home, extra_sub_path=extra_sub_path )
         else:
             location = cls.location_from_boost_version( version )
             boost_location = cuppa.location.Location( env, location, extra_sub_path=extra_sub_path )
@@ -274,11 +276,11 @@ class Boost(object):
         raise BoostException("Could not determine BoostVersion")
 
 
-    def set_home_if_exists( self, path ):
+    @classmethod
+    def _home_from_path( cls, path ):
         if os.path.exists( path ) and os.path.isdir( path ):
-            self.values['home'] = path
-            return True
-        return False
+            return path
+        return None
 
 
     @classmethod
@@ -525,7 +527,7 @@ class BuildBjam(object):
             bjam_exe_path = process_bjam_build.exe_path()
 
             if not bjam_exe_path:
-                print_critical( "Could not determine bjam exe path" )
+                logger.critical( "Could not determine bjam exe path" )
                 return 1
 
             bjam_binary_path = os.path.join( build_script_path, bjam_exe_path )
@@ -533,7 +535,7 @@ class BuildBjam(object):
             shutil.copy( bjam_binary_path, target[0].path )
 
         except OSError as error:
-            print_critical( 'Error building bjam [' + str( error.args ) + ']' )
+            logger.critical( "Error building bjam [{}]".format( str( error.args ) ) )
             return 1
 
         return None
