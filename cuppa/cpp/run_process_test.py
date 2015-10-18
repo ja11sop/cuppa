@@ -16,7 +16,6 @@ import cuppa.timer
 import cuppa.progress
 import cuppa.test_report.cuppa_json
 from cuppa.output_processor import IncrementalSubProcess
-from cuppa.log import logger
 from cuppa.colourise import as_emphasised, as_highlighted, as_colour
 
 

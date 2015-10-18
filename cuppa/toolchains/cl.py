@@ -9,22 +9,18 @@
 #-------------------------------------------------------------------------------
 
 import os
-import shlex
-import re
-import subprocess
 import collections
 import platform
 
 from exceptions import Exception
 
 import SCons.Script
-from SCons.Tool.MSCommon.vc import cached_get_installed_vcs, _VCVER, get_default_version, msvc_setup_env
+from SCons.Tool.MSCommon.vc import cached_get_installed_vcs, _VCVER, get_default_version
 
 from cuppa.cpp.create_version_file_cpp import CreateVersionHeaderCpp, CreateVersionFileCpp
 from cuppa.cpp.run_boost_test import RunBoostTestEmitter, RunBoostTest
 from cuppa.cpp.run_patched_boost_test import RunPatchedBoostTestEmitter, RunPatchedBoostTest
 from cuppa.cpp.run_process_test import RunProcessTestEmitter, RunProcessTest
-from cuppa.output_processor import command_available
 
 
 

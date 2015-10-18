@@ -16,7 +16,7 @@ import glob
 import cuppa.location
 import cuppa.output_processor
 import cuppa.build_platform
-from cuppa.colourise import as_info, as_warning, as_error
+from cuppa.colourise import as_info
 from cuppa.log import logger
 
 import SCons.Script
