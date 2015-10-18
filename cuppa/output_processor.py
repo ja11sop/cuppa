@@ -128,7 +128,7 @@ class PSpawn(object):
             self._exception = sys.exc_info()
 
     def returncode( self ):
-        if self._exception:
+        if self._exception != None:
             logger.error("pspawn terminated with exception [{}]".format( str(self._exception) ) )
             raise self._exception
         return self._returncode
