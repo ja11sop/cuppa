@@ -24,7 +24,7 @@ import cuppa.build_platform
 import cuppa.location
 
 from cuppa.output_processor import IncrementalSubProcess, ToolchainProcessor
-from cuppa.colourise        import as_warning, as_info, as_error, as_emphasised, as_notice
+from cuppa.colourise        import as_info, as_emphasised, as_notice
 from cuppa.log import logger
 
 
@@ -111,6 +111,9 @@ class Boost(object):
 
         elif version:
             base = None
+
+        elif latest:
+            version = "latest"
 
         return ( location, version, base, patch_test )
 
