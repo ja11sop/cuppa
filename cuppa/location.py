@@ -29,7 +29,7 @@ import scms.subversion
 import scms.git
 import scms.mercurial
 
-from cuppa.colourise import as_notice, as_info, as_warning, as_warning_label, as_error, as_error_label
+from cuppa.colourise import as_notice, as_info, as_warning, as_error
 from cuppa.log import logger
 
 

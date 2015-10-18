@@ -15,7 +15,6 @@ import fnmatch
 import multiprocessing
 import pkg_resources
 import collections
-import platform
 
 # Scons
 import SCons.Script
@@ -30,7 +29,7 @@ import cuppa.options
 import cuppa.version
 #import cuppa.cpp.stdcpp
 
-from cuppa.colourise import colouriser, as_emphasised, as_info, as_error, as_warning, as_notice
+from cuppa.colourise import colouriser, as_emphasised, as_info, as_error, as_notice
 from cuppa.log import initialise_logging, set_logging_level, reset_logging_format, logger
 
 from cuppa.toolchains             import *
@@ -273,7 +272,7 @@ class CuppaEnvironment(collections.MutableMapping):
 
     @classmethod
     def colouriser( cls ):
-        return cuppa.colourise.colouriser
+        return colouriser
 
     @classmethod
     def add_tools( cls, tools ):

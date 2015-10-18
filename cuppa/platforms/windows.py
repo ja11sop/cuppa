@@ -9,7 +9,6 @@
 #-------------------------------------------------------------------------------
 
 import platform
-import SCons.Script
 
 
 class WindowsException(Exception):
