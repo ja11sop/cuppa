@@ -11,6 +11,7 @@ import os
 
 import cuppa.location
 from cuppa.log import logger
+from cuppa.colourise import as_notice, as_error
 
 
 class HeaderLibraryException(Exception):
@@ -23,6 +24,9 @@ class HeaderLibraryException(Exception):
 class base(object):
 
     _name = None
+    _cached_locations = {}
+    _includes = None
+    _sys_includes = None
 
     @classmethod
     def add_options( cls, add_option ):
@@ -50,7 +54,7 @@ class base(object):
 
 
     @classmethod
-    def create( cls, env ):
+    def location_id( cls, env ):
         location = env.get_option( cls._name + "-location" )
         branch   = env.get_option( cls._name + "-branch" )
 
@@ -62,18 +66,50 @@ class base(object):
             logger.debug( "No location specified for dependency [{}]. Dependency not available.".format( cls._name.title() ) )
             return None
 
-        include = env.get_option( cls._name + "-include" )
-        includes = include and [include] or []
-
-        sys_include = env.get_option( cls._name + "-sys-include" )
-        sys_includes = sys_include and [sys_include] or []
-
-        return cls( env, location, branch=branch, includes=includes, sys_includes=sys_includes)
+        return (location, branch)
 
 
-    def __init__( self, env, location, branch=None, includes=[], sys_includes=[] ):
+    @classmethod
+    def _get_location( cls, env ):
+        location_id = cls.location_id( env )
+        if not location_id:
+            return None
+        if location_id not in cls._cached_locations:
+            location = location_id[0]
+            branch = location_id[1]
+            try:
+                cls._cached_locations[location_id] = cuppa.location.Location( env, location, branch )
+            except cuppa.location.LocationException as error:
+                logger.error(
+                        "Could not get location for [{}] at [{}] with branch [{}]. Failed with error [{}]"
+                        .format( as_notice( cls._name.title() ), as_notice( str(location) ), as_notice( str(branch) ), as_error( error ) )
+                )
+                return None
 
-        self._location = cuppa.location.Location( env, location, branch )
+        return cls._cached_locations[location_id]
+
+
+    @classmethod
+    def create( cls, env ):
+
+        location = cls._get_location( env )
+        if not location:
+            return None
+
+        if not cls._includes:
+            include = env.get_option( cls._name + "-include" )
+            cls._includes = include and [include] or []
+
+        if not cls._sys_includes:
+            sys_include = env.get_option( cls._name + "-sys-include" )
+            cls._sys_includes = sys_include and [sys_include] or []
+
+        return cls( env, location, includes=cls._includes, sys_includes=cls._sys_includes)
+
+
+    def __init__( self, env, location, includes=[], sys_includes=[] ):
+
+        self._location = location
 
         if not includes and not sys_includes:
             includes = [self._location.local()]
