@@ -871,11 +871,10 @@ class <dependency>:
                 cls._cached_locations[location_id] = cuppa.location.Location( env, location )
             except cuppa.location.LocationException as error:
                 logger.error(
-                        "Could not get location for [{}] at [{}] with"
-                        " branch [{}]. Failed with error [{}]"
+                        "Could not get location for [{}] at [{}]."
+                        " Failed with error [{}]"
                         .format( as_notice( cls._name.title() ),
                                  as_notice( str(location) ),
-                                 as_notice( str(branch) ),
                                  as_error( error ) )
                 )
                 return None
