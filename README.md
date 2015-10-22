@@ -12,7 +12,7 @@ and have Scons "do the right thing"; building targets for any `sconscript` files
 
 **Cuppa** can be installed as a normal python package or installed locally into a `site_scons` directory allowing it to be effortlessly integrated into any Scons setup.
 
-> Note: `-D` tells `scons` to look for an `sconstruct` file in the current or in parent directories and if it finds one execute the `sconscript` files as if called from that directory. This ensures everything works as expected. For more details refer to the [Scons documentation](http://www.scons.org/documentation.php)
+> Note: `-D` tells `scons` to look for an `sconstruct` file in the current or parent directories and if it finds one execute the `sconscript` files as if called from the starting directory. This ensures everything works as expected. For more details refer to the [Scons documentation](http://www.scons.org/documentation.php)
 
 ## Table of Contents
 
@@ -118,7 +118,7 @@ scons -D --dbg --test
 
 Or for release only pass `--rel`.
 
-**cuppa** also makes it easy to work with dependencies. For example, if [boost](http://www.boost.org/) was a default dependency for all your `sconscript` files you could write your sconstruct file as follows:
+**cuppa** also makes it easy to work with [dependencies](#supported-dependencies). For example, if [boost](http://www.boost.org/) was a default dependency for all your `sconscript` files you could write your sconstruct file as follows:
 
 ```python
 import cuppa
@@ -133,7 +133,11 @@ cuppa.run(
 )
 ```
 
-This will automatically ensure that necessary includes and other compile options are set for the boost version that is found at `boost-location`. If you need to link against specific boost libraries this can also be done in the sconscript file as follows:
+This will automatically ensure that necessary includes and other compile options are set for the boost version that is found at `boost-location`.
+
+> Note: **cuppa** will even attempt to retrieve the dependency if a version or URL is supplied. Including from source control assuming you have the necessary source control system installed on your machine.
+
+If you need to link against specific boost libraries this can also be done in the sconscript file as follows:
 
 ```python
 Import('env')
@@ -160,7 +164,7 @@ env.BuildTest( Test, Sources )
 
 The `BoostStaticLibs()` method ensures that the library is built in the correct build variant as required. If you preferred to use dynamic linking then that can also be achieved using `BoostSharedLibs()`.
 
-The point is the complexities of using [boost](http://www.boost.org/) as a dependency are encapsulated and managed separately from the scontruct and sconscript files allowing developers to focus on intent not method.
+The point is the complexities of using [boost](http://www.boost.org/) as a *dependency* are encapsulated and managed separately from the scontruct and sconscript files allowing developers to focus on intent, not method.
 
 ## Design Principles
 
@@ -169,16 +173,16 @@ The point is the complexities of using [boost](http://www.boost.org/) as a depen
   * minimise the need for adding logic into `sconscript` files, keeping them as declarative as possible.
   * allow declarative `sconscript`s that are both much clearer and significantly simpler than the equivalent `make` file, without the need to learn a whole new scripting language like `make` or `cmake`.
   * provide a clear structure for extending the facilities offered by **cuppa**
-  * provide a clear vocabulary for building projects
+  * provide a clear vocabulary for building projects ([dependencies, methods, profiles, runners, variants etc.](#basic-structure))
   * codify Scons best practices into **cuppa** itself so that users just need to call appropriate methods knowing that **cuppa** will do the right thing with their intent
-  * provide a framework that allows experts to focus on providing facilities for others to use. Write once, use everywhere. For example one person who knows how best to make [boost](http://www.boost.org/) available as a dependency can manage that dependency and allow others to use it seamlessly.
+  * provide a framework that allows experts to focus on providing facilities for others to use. Write once, use everywhere. For example one person who knows how best to make [boost](http://www.boost.org/) available as a dependency can manage and maintain that dependency and allow others to use it seamlessly.
 
 
 ## Installation and Dependencies
 
 ### Installation
 
-**cuppa** can be made available as a normal python package or it can be added directly to a `site_scons` folder, placed it appropriately so Scons will find it. For global use add it to your home directory or for use with a specific project place it beside (or sym-link `site_scons` beside) the top-level `sconstruct` file. For more details on using a `site_scons` folder refer to the [Scons man page](http://www.scons.org/doc/production/HTML/scons-man.html).
+**cuppa** can be made available as a normal python package and this is the preferred method of installation. It can be added directly to a `site_scons` folder, placed appropriately so Scons will find it. For global use add it to your home directory or for use with a specific project place it beside (or sym-link `site_scons` beside) the top-level `sconstruct` file. For more details on using a `site_scons` folder refer to the [Scons man page](http://www.scons.org/doc/production/HTML/scons-man.html).
 
 The following sections summarise some of the ways you can get **cuppa**.
 
@@ -231,11 +235,12 @@ To make use of the colourisation **cuppa** uses the [colorama](https://pypi.pyth
 
 | Term                 | Meaning   |
 | -------------------- | --------- |
-| Methods              | **cuppa** provides a number of build methods that can be called inside your `sconscript` files. Methods such as `Build()`, `BuildTest()`, `BuildWith()` and so on. These are in addition to the methods already provided by Scons. |
-| Dependencies         | Projects can have an arbitrary number of dependencies, for example [boost](http://www.boost.org/). Typically a dependency requires compiler and linker flags to be updated, or in some cases pulled from a remote repository and built. Wrapping that complexity up into a dependency makes it easy for developers to re-use that effort cleanly across projects. |
-| Profiles             | Profiles are a collection of build modifications that are commonly made to builds and might bring in one or more dependencies. Profiles provide an easy way to say, "I always do *this* with my builds" and make that available to others if you want to. |
-| Variants and Actions | Variants and Actions allow the specification of a specific builds, such as debug and release builds. Actions allow additional actions to be taken for a build, such as executing tests and analysing code coverage. |
-| Toolchains           | Toolchains allow custom build settings for different toolchains making it easy to build for any available toolchain on a specific platform, or even different versions of the same underlying toolchain |
+| Methods              | **cuppa** provides a number of build methods that can be called inside your `sconscript` files. Methods such as `Build()`, `BuildTest()`, `BuildWith()`, `Compile()` and so on. These are in addition to the methods already provided by Scons. A key difference between these methods and the basic Scons methods such as `Program()` and `Object()` is that these methods are aware of build variants, toolchains, progress notifications and so on. |
+| Dependencies         | Projects can have an arbitrary number of *dependencies*, for example [boost](http://www.boost.org/) or [Qt](http://www.qt.io/). Typically a dependency requires compiler and linker flags to be updated, or in some cases pulled from a remote repository and built. Wrapping that complexity up into a dependency makes it easy for developers to re-use that effort cleanly across projects. |
+| Profiles             | *Profiles* are a collection of build modifications that are commonly made to builds and might bring in one or more dependencies. Profiles provide an easy way to say, "I always do *this* with my builds" and make that available to others if you want to. |
+| Variants and Actions | *Variants* and *Actions* allow the specification of a specific builds, such as debug and release builds. Actions allow additional actions to be taken for a build, such as executing tests and analysing code coverage. |
+| Target Architecture  | The *Target Architecture* is the platform target of any build output. If none is specified a default for the current platform and toolchain is used. By tracking this information it allows multiple builds to be completed for different target architectures, such as `x86` and `amd64` on Windows. |
+| Toolchains           | Toolchains allow custom build settings for different toolchains making it easy to build for any available toolchain on a specific platform, or even different versions of the same underlying toolchain. For example you might want to build and test against several versions of GCC and Clang at the same time. This allows you to do so. |
 
 ### Cuppa Command-line Options
 
@@ -273,10 +278,16 @@ To make use of the colourisation **cuppa** uses the [colorama](https://pypi.pyth
                                 based on the current hardware
   --show-test-output          When executing tests display all outout to
                                 stdout and stderr as appropriate
+  --verbosity=VERBOSITY       The The verbosity level that you wish to run
+                                cuppa at. The default level is "info".
+                                VERBOSITY may be one of ('trace', 'debug',
+                                'info', 'warn', 'error')
   --decider=DECIDER           The decider to use for determining if a
                                 dependency has changed. Refer to the Scons
                                 manual for more details. By default
-                                "MD5-timestamp" is used
+                                "MD5-timestamp" is used. DECIDER may be one of
+                                ('timestamp-newer', 'timestamp-match', 'MD5',
+                                'MD5-timestamp')
   --stdcpp=STDCPP             Use this option to override the default language
                                 compliance of your cpp compiler which by
                                 dafault is the highest compliance available.
@@ -291,11 +302,11 @@ To make use of the colourisation **cuppa** uses the [colorama](https://pypi.pyth
 
 ### Where does Cuppa put my builds?
 
-**cuppa** places all builds outside of the source tree under the `BUILD_ROOT` which by default is the folder `.build` beside the `sconstruct` file used when Scons is executed. You can change this by specifying the `--build-root` option, or by setting the.
+**cuppa** places all builds outside of the source tree under the `BUILD_ROOT` which by default is the folder `_build` beside the `sconstruct` file used when Scons is executed. You can change this by specifying the `--build-root` option.
 
 Build variants and the output from each `sconscript` is kept separate using the following convention:
 
-`<build_root>/<sconscript_path>/<sconscript_name>/<toolchain>/<build_variant>/final`
+`<build_root>/<sconscript_path>/<sconscript_name>/<toolchain>/<build_variant>/<target_arch>/final`
 
 If `<sconscript_name>` is "sconscript" then it is omitted from the path. The assumption is that a single `sconscript` file is being used for the given folder and therefore the folder name is sufficient to differentiate from other `sconscript`s.
 
@@ -322,14 +333,16 @@ Calling the `run()` method of the `cuppa` module in your sconstruct file is used
 
 ```python
 run(    base_path            = os.path.abspath( '.' ),
-        branch_root          = os.path.abspath( '.' ),
-        default_options      = None,
-        default_projects     = None,
-        default_variants     = None,
-        default_dependencies = None,
-        default_profiles     = None,
+        branch_root          = None,
+        default_options      = {},
+        default_projects     = [],
+        default_variants     = [],
+        default_dependencies = [],
+        default_profiles     = [],
         default_runner       = None,
-        configure_callback   = None )
+        configure_callback   = None,
+        dependencies         = {},
+        tools                = [] )
 ```
 
 *Overview*: Starts the build process.
@@ -346,6 +359,8 @@ run(    base_path            = os.path.abspath( '.' ),
 | `default_profiles` | `default_profiles` takes a list of profiles you want to always apply to the build environment and ensures that they are already applied for each build. You may pass the name of a supported profile or a *callable* object taking `( env, toolchain, variant )` as parameters. |
 | `default_runner` | By default the `runner` used is `'process'` however you my specify your own test runner or use one of the other runners provided, such as `'boost'`. |
 | `configure_callback` | This allows you to specify a callback to be executed during part of a `configure` process. This callback should be any *callable* object that takes the following parameter `( configure_context )`. Refer to the [Scons Multi-Platform Configuration documentation](http://www.scons.org/doc/production/HTML/scons-user.html#chap-sconf) for details on how to make use of the `configure_context`. |
+| `dependencies` | `dependencies` takes a dictionary of dependency classes as `"name":class_name` pairs. For example you might  |
+| `tool` | `tools` takes a list of Scons Tools that should be added by default to all environments |
 
 
 ### Methods
@@ -604,24 +619,40 @@ The following toolchains are currently supported:
 
 | Toolchain | Description |
 | --------- | ----------- |
-| `gcc34` | g++ 3.4 |
-| `gcc40` | g++ 4.0 |
-| `gcc41` | g++ 4.1 |
-| `gcc42` | g++ 4.2 |
-| `gcc43` | g++ 4.3 |
-| `gcc44` | g++ 4.4 |
-| `gcc45` | g++ 4.5 |
-| `gcc46` | g++ 4.6 |
-| `gcc47` | g++ 4.7 |
-| `gcc48` | g++ 4.8 |
-| `gcc49` | g++ 4.9 |
-| `gcc50` | g++ 5.0 |
-| `gcc51` | g++ 5.1 |
+| `gcc34`   | g++ 3.4 |
+| `gcc40`   | g++ 4.0 |
+| `gcc41`   | g++ 4.1 |
+| `gcc42`   | g++ 4.2 |
+| `gcc43`   | g++ 4.3 |
+| `gcc44`   | g++ 4.4 |
+| `gcc45`   | g++ 4.5 |
+| `gcc46`   | g++ 4.6 |
+| `gcc47`   | g++ 4.7 |
+| `gcc48`   | g++ 4.8 |
+| `gcc49`   | g++ 4.9 |
+| `gcc50`   | g++ 5.0 |
+| `gcc51`   | g++ 5.1 |
 | `clang32` | clang 3.2 |
 | `clang33` | clang 3.3 |
 | `clang34` | clang 3.4 |
 | `clang35` | clang 3.5 |
 | `clang36` | clang 3.6 |
+| `clang37` | clang 3.7 |
+| `vc60`    | Visual C++ 6.0                                |
+| `vc70`    | Visual C++ 7.0 (Visual C++ .NET 2002)         |
+| `vc71`    | Visual C++ 7.1 (Visual C++ .NET 2003)         |
+| `vc80e`   | Visual C++ 8.0 Express (Visual C++ 2005 Exp)  |
+| `vc80`    | Visual C++ 8.0 (Visual C++ 2005)              |
+| `vc90e`   | Visual C++ 9.0 Express (Visual C++ 2008 Exp)  |
+| `vc90`    | Visual C++ 9.0 (Visual C++ 2008)              |
+| `vc100e`  | Visual C++ 10.0 Express (Visual C++ 2010 Exp) |
+| `vc100`   | Visual C++ 10.0 (Visual C++ 2010)             |
+| `vc110e`  | Visual C++ 11.0 (Visual C++ 2012 Exp)         |
+| `vc110`   | Visual C++ 11.0 (Visual C++ 2012)             |
+| `vc120e`  | Visual C++ 12.0 (Visual C++ 2013 Exp)         |
+| `vc120`   | Visual C++ 12.0 (Visual C++ 2013)             |
+| `vc140e`  | Visual C++ 14.0 (Visual C++ 2015 Exp)         |
+| `vc140`   | Visual C++ 14.0 (Visual C++ 2015)             |
 
 It is not necessary to specify a toolchain when building. If none is specified the default toolchain for the current platform will be used. However if more toolchains are available and you want to use one or more then pass the `--toolchains` option with a comma-separated list of toolchains from the list. For example to build with both GCC 4.9 and CLANG 3.4 you would add:
 
@@ -794,9 +825,15 @@ If the files are already present and they were not retrieved from version contro
 It is possibly to create your own dependencies, like the `boost` dependency. As far as **cuppa** is concerned a dependency is any class that provides the following:
 
 ```python
+import os
+from cuppa.log import logger
+from cuppa.colourise import as_notice, as_error
+
+
 class <dependency>:
 
     _name = <dependency>
+    _cached_locations = {}
 
     @classmethod
     def add_options( cls, add_option ):
@@ -807,15 +844,43 @@ class <dependency>:
 
     @classmethod
     def add_to_env( cls, env, add_dependency  ):
+        add_dependency( cls._name, cls.create )
+
+    @classmethod
+    def _location_id( cls, env ):
         location = env.get_option( cls._name + "-location" )
+        if not location and env['thirdparty']:
+            location = os.path.join( env['thirdparty'], cls._name )
         if not location:
-            location = env['thirdparty']
+            logger.debug( "No location specified for dependency [{}]. Dependency not available.".format( cls._name.title() ) )
+            return None
+        return location
+
+    @classmethod
+    def _get_location( cls, env ):
+        location_id = cls._location_id( env )
+        if not location_id:
+            return None
+        if location_id not in cls._cached_locations:
+            try:
+                cls._cached_locations[location_id] = cuppa.location.Location( env, location )
+            except cuppa.location.LocationException as error:
+                logger.error(
+                        "Could not get location for [{}] at [{}] with branch [{}]. Failed with error [{}]"
+                        .format( as_notice( cls._name.title() ), as_notice( str(location) ), as_notice( str(branch) ), as_error( error ) )
+                )
+                return None
+        return cls._cached_locations[location_id]
+
+    @classmethod
+    def create( cls, env ):
+        location = cls._get_location( env )
         if not location:
-            print "No location specified for dependency [{}]. Dependency not available.".format( cls._name.title() )
-        add_dependency( cls._name, cls( env, location ) )
+            return None
+        return cls( env, location )
 
     def __init__( self, env, location ):
-        self._location = cuppa.location.Location( env, location )
+        self._location = location
 
     def __call__( self, env, toolchain, variant ):
         # Update the environment
@@ -837,7 +902,7 @@ class <dependency>:
         return self._location.revisions()
 ```
 
-Only `add_to_env()`, `__call__` are `name()` are strictly required but it makes sense to provide the others as using `cuppa.location.Location` makes this trivial.
+Only `add_to_env()`, `create()`, `__call__` and `name()` are strictly required but it makes sense to provide the others as using `cuppa.location.Location` makes this trivial.
 
 Once the basic dependency is written abitrarily complex relationships can be built by making use of Scons builders or other dependency related tools. It is worth looking at the `boost` dependency as an example of a complex dependency.
 
