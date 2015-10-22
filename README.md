@@ -360,7 +360,7 @@ run(    base_path            = os.path.abspath( '.' ),
 | `default_runner` | By default the `runner` used is `'process'` however you my specify your own test runner or use one of the other runners provided, such as `'boost'`. |
 | `configure_callback` | This allows you to specify a callback to be executed during part of a `configure` process. This callback should be any *callable* object that takes the following parameter `( configure_context )`. Refer to the [Scons Multi-Platform Configuration documentation](http://www.scons.org/doc/production/HTML/scons-user.html#chap-sconf) for details on how to make use of the `configure_context`. |
 | `dependencies` | `dependencies` takes a dictionary of dependency classes as `"name":class_name` pairs. For example you might  |
-| `tool` | `tools` takes a list of Scons Tools that should be added by default to all environments |
+| `tools` | `tools` takes a list of Scons Tools that should be added by default to all environments |
 
 
 ### Methods
@@ -839,7 +839,10 @@ class <dependency>:
     def add_options( cls, add_option ):
         # Specify any options here
         location_name = cls._name + "-location"
-        add_option( '--' + location_name, dest=location_name, type='string', nargs=1, action='store',
+        add_option( '--' + location_name,
+                    dest=location_name,
+                    type='string', nargs=1,
+                    action='store',
                     help = cls._name + ' location to build against' )
 
     @classmethod
@@ -852,7 +855,9 @@ class <dependency>:
         if not location and env['thirdparty']:
             location = os.path.join( env['thirdparty'], cls._name )
         if not location:
-            logger.debug( "No location specified for dependency [{}]. Dependency not available.".format( cls._name.title() ) )
+            logger.debug( "No location specified for dependency [{}]."
+                          " Dependency not available."
+                          .format( cls._name.title() ) )
             return None
         return location
 
@@ -866,8 +871,12 @@ class <dependency>:
                 cls._cached_locations[location_id] = cuppa.location.Location( env, location )
             except cuppa.location.LocationException as error:
                 logger.error(
-                        "Could not get location for [{}] at [{}] with branch [{}]. Failed with error [{}]"
-                        .format( as_notice( cls._name.title() ), as_notice( str(location) ), as_notice( str(branch) ), as_error( error ) )
+                        "Could not get location for [{}] at [{}] with"
+                        " branch [{}]. Failed with error [{}]"
+                        .format( as_notice( cls._name.title() ),
+                                 as_notice( str(location) ),
+                                 as_notice( str(branch) ),
+                                 as_error( error ) )
                 )
                 return None
         return cls._cached_locations[location_id]
