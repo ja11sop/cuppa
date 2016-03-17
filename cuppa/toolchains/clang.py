@@ -57,7 +57,10 @@ class Clang(object):
         command = "{} --version".format( cxx )
         if command_available( command ):
             reported_version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
-            reported_version = 'clang' + re.search( r'based on LLVM (\d)\.(\d)', reported_version ).expand(r'\1\2')
+            version = re.search( r'based on LLVM (\d)\.(\d)', reported_version )
+            if not version:
+                version = re.search( r'clang version (\d)\.(\d+)', reported_version )
+            reported_version = 'clang' + version.expand(r'\1\2')
             return reported_version
         return None
 
@@ -89,6 +92,7 @@ class Clang(object):
     def supported_versions( cls ):
         return [
             "clang",
+            "clang38",
             "clang37",
             "clang36",
             "clang35",
@@ -392,7 +396,7 @@ class Clang(object):
 
         if re.match( 'clang3[2-3]', version ):
             CommonCxxFlags += [ '-std=c++11' ]
-        elif re.match( 'clang3[4-7]', version ):
+        elif re.match( 'clang3[4-8]', version ):
             CommonCxxFlags += [ '-std=c++1y' ]
 
         self.values['debug_cxx_flags']     = CommonCxxFlags + []
@@ -436,7 +440,7 @@ class Clang(object):
             return '-std={}'.format(env['stdcpp'])
         elif re.match( 'clang3[2-3]', self._name ):
             return '-std=c++11'
-        elif re.match( 'clang3[4-7]', self._name ):
+        elif re.match( 'clang3[4-8]', self._name ):
             return '-std=c++1y'
 
 
