@@ -81,21 +81,25 @@ def add_base_options():
 
     add_option( '--download-root', type='string', nargs=1, action='store',
                             dest='download_root',
-                            help='The root directory for downloading external libraries to. If not specified then _cuppa_ is used' )
+                            help='The root directory for downloading external libraries to.'
+                                 ' If not specified then _cuppa_ is used' )
 
     add_option( '--cache-root', type='string', nargs=1, action='store',
                             dest='cache_root',
-                            help='The root directory for caching downloaded external archived libraries. If not specified then ~/_cuppa_/cache is used' )
+                            help='The root directory for caching downloaded external archived libraries.'
+                                 ' If not specified then ~/_cuppa_/cache is used' )
 
     add_option( '--runner', type='string', nargs=1, action='store',
                             dest='runner',
-                            help='The test runner to use for executing tests. The default is the process test runner' )
+                            help='The test runner to use for executing tests. The default is the'
+                                 ' process test runner' )
 
     add_option( '--dump',   dest='dump', action='store_true',
                             help='Dump the default environment and exit' )
 
     add_option( '--parallel', dest='parallel', action='store_true',
-                            help='Enable parallel builds utilising the available concurrency. Translates to -j N with N chosen based on the current hardware' )
+                            help='Enable parallel builds utilising the available concurrency.'
+                                 ' Translates to -j N with N chosen based on the current hardware' )
 
     add_option( '--show-test-output',   dest='show-test-output', action='store_true',
                             help='When executing tests display all outout to stdout and stderr as appropriate' )
@@ -103,7 +107,8 @@ def add_base_options():
     verbosity_choices = ( 'trace', 'debug', 'info', 'warn', 'error' )
 
     add_option( '--verbosity', dest='verbosity', choices=verbosity_choices, nargs=1, action='store',
-                            help='The The verbosity level that you wish to run cuppa at. Default level is info' )
+                            help='The The verbosity level that you wish to run cuppa at. The default level'
+                                 ' is "info". VERBOSITY may be one of {}'.format( str(verbosity_choices) ) )
 
 #    add_option( '--b2',     dest='b2', action='store_true',
 #                            help='Execute boost.build by calling b2 or bjam' )
@@ -115,7 +120,9 @@ def add_base_options():
     decider_choices = ( 'timestamp-newer', 'timestamp-match', 'MD5', 'MD5-timestamp' )
 
     add_option( '--decider', dest='decider', choices=decider_choices, nargs=1, action='store',
-                            help='The decider to use for determining if a dependency has changed. Refer to the Scons manual for more details. By default "MD5-timestamp" is used' )
+                            help='The decider to use for determining if a dependency has changed.'
+                                 ' Refer to the Scons manual for more details. By default "MD5-timestamp"'
+                                 ' is used. DECIDER may be one of {}'.format( str(decider_choices) ) )
 
 
 
@@ -472,14 +479,14 @@ class Construct(object):
     def __init__( self,
                   base_path            = os.path.abspath( '.' ),
                   branch_root          = None,
-                  default_options      = None,
-                  default_projects     = None,
-                  default_variants     = None,
-                  default_dependencies = None,
-                  default_profiles     = None,
+                  default_options      = {},
+                  default_projects     = [],
+                  default_variants     = [],
+                  default_dependencies = [],
+                  default_profiles     = [],
                   default_runner       = None,
                   configure_callback   = None,
-                  dependencies         = None,
+                  dependencies         = {},
                   tools                = [] ):
 
         cuppa.version.check_current_version()
@@ -755,10 +762,10 @@ class Construct(object):
         projects   = cuppa_env.get_option( 'projects' )
         toolchains = cuppa_env['active_toolchains']
 
-        if projects == None:
+        if not projects:
             projects = cuppa_env['default_projects']
 
-            if projects == None or not cuppa_env['run_from_launch_dir']:
+            if not projects or not cuppa_env['run_from_launch_dir']:
                 sub_sconscripts = self.get_sub_sconscripts(
                         cuppa_env['launch_dir'],
                         [ cuppa_env['build_root'], cuppa_env['download_root'] ]
@@ -766,7 +773,7 @@ class Construct(object):
                 if sub_sconscripts:
                     projects = sub_sconscripts
                     logger.info( "Using sub-sconscripts [{}]".format( self.colour_items( projects ) ) )
-            elif projects != None:
+            elif projects:
                 logger.info( "Using default_projects [{}]".format( self.colour_items( projects ) ) )
 
         if projects:
