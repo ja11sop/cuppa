@@ -938,12 +938,12 @@ class asio( cuppa.header_library_dependency( 'asio' ) ):
         # Update the environment as we need to, for example...
 
         # Save the user from having to specify this
-        env.AppendUnique( INCPATH = [
+        env.AppendUnique( SYSINCPATH = [
             'asio/include'
         ]
-        # Perhaps we want to force buffer debugging
+        # Perhaps we remove deprecated features
         env.AppendUnique( CPPDEFINES = [
-            'ASIO_ENABLE_BUFFER_DEBUGGING',
+            'ASIO_NO_DEPRECATED',
             ] )
 
 
