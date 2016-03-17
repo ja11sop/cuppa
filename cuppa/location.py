@@ -337,7 +337,7 @@ class Location(object):
 
         if extra_sub_path:
             if os.path.isabs( extra_sub_path ):
-                raise LocationException()
+                raise LocationException( "Error extra sub path [{}] is not relative".format(extra_sub_path) )
             else:
                 self._sub_dir = os.path.normpath( extra_sub_path )
 
