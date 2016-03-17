@@ -47,7 +47,7 @@ class CpuTimes(object):
                 self.user    + other.user
             )
         else:
-            raise TypeError("Unsupported operand type(s) for +: '{}' and '{}'").format(self.__class__, type(other))
+            raise TypeError("Unsupported operand type(s) for +: '{}' and '{}'".format(self.__class__, type(other)))
 
 
     def __sub__( self, other ):
@@ -59,7 +59,7 @@ class CpuTimes(object):
                 self.user    - other.user
             )
         else:
-            raise TypeError("Unsupported operand type(s) for -: '{}' and '{}'").format(self.__class__, type(other))
+            raise TypeError("Unsupported operand type(s) for -: '{}' and '{}'".format(self.__class__, type(other)))
 
 
 class Timer(object):
