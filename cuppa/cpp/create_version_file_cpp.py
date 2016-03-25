@@ -250,7 +250,9 @@ class CreateVersionFileCpp:
                    '    dependencies_t Dependencies;' ]
         for name in dependencies:
             if name in self.__env['dependencies']:
-                dependency = self.__env['dependencies'][name]
+                dependency_factory = self.__env['dependencies'][name]
+                dependency = dependency_factory( self.__env )
+
                 lines += [ '    Dependencies[ "' +  name + '" ] = dependency_t( "'
                                + dependency.name() + '", "'
                                + dependency.version() + '", "'
