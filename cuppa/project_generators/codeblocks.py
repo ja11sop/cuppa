@@ -28,14 +28,14 @@ class CodeblocksException(Exception):
 
 
 def ignored_types( env ):
-    return [
-            env['PROGSUFFIX'],
-            env['LIBSUFFIX'],
-            env['SHLIBSUFFIX'],
-            env['OBJSUFFIX'],
-            env['SHOBJSUFFIX'],
-            '.log'
-    ]
+
+    extensions = [ 'PROGSUFFIX', 'LIBSUFFIX', 'SHLIBSUFFIX', 'OBJSUFFIX', 'SHOBJSUFFIX' ]
+    types = []
+    for suffix in extensions:
+        if suffix in env:
+            types.append( env[suffix] )
+    types.append( '.log' )
+    return types
 
 
 class Codeblocks(object):
