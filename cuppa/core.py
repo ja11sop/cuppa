@@ -759,6 +759,7 @@ class Construct(object):
 
     def build( self, cuppa_env ):
 
+        cuppa_env['empty_env'] = cuppa_env.create_env()
         projects   = cuppa_env.get_option( 'projects' )
         toolchains = cuppa_env['active_toolchains']
 

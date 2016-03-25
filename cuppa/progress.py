@@ -51,14 +51,14 @@ class NotifyProgress(object):
 
     @classmethod
     def add( cls, env, target ):
-        default_env     = env['default_env']
+        empty_env       = env['empty_env']
         sconscript_env  = env['sconscript_env']
 
         sconscript = cls._sconscript( sconscript_env )
         variant    = cls._variant( env )
 
         if not cls._sconstruct_begin:
-            cls._sconstruct_begin = progress( '#SconstructBegin', 'sconstruct_begin', None, None, default_env )
+            cls._sconstruct_begin = progress( '#SconstructBegin', 'sconstruct_begin', None, None, empty_env )
 
         if not sconscript in cls._begin:
             cls._begin[sconscript] = progress( 'Begin', 'begin', sconscript, None, sconscript_env )
@@ -87,7 +87,7 @@ class NotifyProgress(object):
         end = env.Requires( cls._end[sconscript], finished )
 
         if not cls._sconstruct_end:
-            cls._sconstruct_end = progress( '#SconstructEnd', 'sconstruct_end', None, None, default_env )
+            cls._sconstruct_end = progress( '#SconstructEnd', 'sconstruct_end', None, None, empty_env )
 
         env.Requires( cls._sconstruct_end, end )
 
