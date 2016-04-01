@@ -252,7 +252,7 @@ class Cl(object):
 
     def test_runner( self, tester, final_dir, expected ):
         if not tester or tester =='process':
-            return RunProcessTest( expected ), RunProcessTestEmitter( final_dir )
+            return RunProcessTest( expected, final_dir ), RunProcessTestEmitter( final_dir )
         elif tester=='boost':
             return RunBoostTest( expected ), RunBoostTestEmitter( final_dir )
         elif tester=='patched_boost':

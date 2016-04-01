@@ -39,8 +39,6 @@ class TestSuite(object):
         )
         sys.stdout.write('\n')
 
-        cuppa.progress.NotifyProgress.register_callback( scons_env, self.on_progress )
-
         self._suite = {}
         self._suite['total_tests']       = 0
         self._suite['passed_tests']      = 0
@@ -52,11 +50,13 @@ class TestSuite(object):
 
         self._tests = []
 
+        cuppa.progress.NotifyProgress.register_callback( scons_env, self.on_progress )
+
 
     def on_progress( self, progress, sconscript, variant, env, target, source ):
         if progress == 'finished':
             self.exit_suite()
-            suite = env['build_dir']
+            suite = self._name
             del self.suites[suite]
 
 
@@ -331,8 +331,9 @@ class ProcessStderr(object):
 
 class RunProcessTest(object):
 
-    def __init__( self, expected ):
+    def __init__( self, expected, final_dir ):
         self._expected = expected
+        self._final_dir = final_dir
 
 
     def __call__( self, target, source, env ):

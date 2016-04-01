@@ -836,8 +836,7 @@ class Construct(object):
 
             build_root = sconscript_env['build_root']
 
-            # cloned_env = sconscript_env
-            # cloned_env = sconscript_env.Clone()
+            sconscript_env = sconscript_env.Clone()
             sconscript_env['sconscript_env'] = sconscript_env
 
             sconscript_env['sconscript_build_dir'] = path_without_ext
