@@ -27,9 +27,11 @@ import cuppa.recursive_glob
 import cuppa.configure
 import cuppa.options
 import cuppa.version
+import cuppa.progress
+import cuppa.tree
 #import cuppa.cpp.stdcpp
 
-from cuppa.colourise import colouriser, as_emphasised, as_info, as_error, as_notice
+from cuppa.colourise import colouriser, as_emphasised, as_info, as_error, as_notice, colour_items
 from cuppa.log import initialise_logging, set_logging_level, reset_logging_format, logger
 
 from cuppa.toolchains             import *
@@ -384,19 +386,15 @@ class Construct(object):
         cuppa.modules.registration.add_options( variants )
 
 
-    def colour_items( self, items, colour_func=as_notice ):
-        return "'{}'".format( "', '".join( colour_func( item ) for item in items ) )
-
-
     def add_toolchains( self, env ):
         toolchains = self.toolchains_key
         cuppa.modules.registration.add_to_env( toolchains, env, env.add_available_toolchain, env.add_supported_toolchain )
 
         logger.trace( "supported toolchains are [{}]".format(
-                self.colour_items( env["supported_toolchains"] )
+                colour_items( env["supported_toolchains"] )
         ) )
         logger.info( "available toolchains are [{}]".format(
-                self.colour_items( sorted( env[toolchains].keys(), reverse=True ), as_info )
+                colour_items( sorted( env[toolchains].keys(), reverse=True ), as_info )
         ) )
 
         SCons.Script.AddOption(
@@ -773,23 +771,44 @@ class Construct(object):
                 )
                 if sub_sconscripts:
                     projects = sub_sconscripts
-                    logger.info( "Using sub-sconscripts [{}]".format( self.colour_items( projects ) ) )
+                    logger.info( "Using sub-sconscripts [{}]".format( colour_items( projects ) ) )
             elif projects:
-                logger.info( "Using default_projects [{}]".format( self.colour_items( projects ) ) )
+                logger.info( "Using default_projects [{}]".format( colour_items( projects ) ) )
 
         if projects:
 
             sconscripts = []
 
             for project in projects:
-                if os.path.exists( project ) and os.path.isdir( project ):
+
+                if(     not os.path.exists( project )
+                    and not cuppa_env['run_from_launch_dir']
+                    and not os.path.isabs( project ) ):
+
+                    path = os.path.join( cuppa_env['launch_dir'], project )
+
+                    if os.path.exists( path ):
+                        if os.path.isdir( path ):
+                            sub_sconscripts = self.get_sub_sconscripts(
+                                project,
+                                [ cuppa_env['build_root'], cuppa_env['download_root'] ]
+                            )
+                            if sub_sconscripts:
+                                logger.info( "Reading project folder [{}] and using sub-sconscripts [{}]".format(
+                                        project, colour_items( sub_sconscripts )
+                                ) )
+                                sconscripts.extend( sub_sconscripts )
+                        else:
+                            sconscripts.append( path )
+
+                elif os.path.exists( project ) and os.path.isdir( project ):
                     sub_sconscripts = self.get_sub_sconscripts(
                             project,
                             [ cuppa_env['build_root'], cuppa_env['download_root'] ]
                     )
                     if sub_sconscripts:
                         logger.info( "Reading project folder [{}] and using sub-sconscripts [{}]".format(
-                                project, self.colour_items( sub_sconscripts )
+                                project, colour_items( sub_sconscripts )
                         ) )
                         sconscripts.extend( sub_sconscripts )
                 else:
@@ -811,8 +830,6 @@ class Construct(object):
     def call_project_sconscript_files( self, toolchain, variant, target_arch, sconscript_env, project ):
 
         sconscript_file = project
-        if not os.path.exists( project ) or os.path.isdir( project ):
-            sconscript_file = sconscript_file + '.sconscript'
 
         if os.path.exists( sconscript_file ) and os.path.isfile( sconscript_file ):
 
@@ -882,8 +899,12 @@ class Construct(object):
             )
 
         else:
-            logger.error( "Skipping non-existent project [{}]".format( as_error( sconscript_file ) ) )
-
+            logger.error( "Skipping non-existent project [{}] using [{},{},{}]".format(
+                    as_error( sconscript_file ),
+                    as_error( toolchain.name() ),
+                    as_error( variant ),
+                    as_error( target_arch )
+            ) )
 
 
 def run( *args, **kwargs ):
