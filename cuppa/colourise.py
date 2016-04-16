@@ -230,3 +230,7 @@ def emphasise_time_by_group( time_text ):
 
 def emphasise_time_by_digit( time_text ):
     return colouriser.emphasise_time_by_digit( time_text )
+
+def colour_items( items, colour_func=as_notice ):
+    return "'{}'".format( "', '".join( colour_func( item ) for item in items ) )
+
