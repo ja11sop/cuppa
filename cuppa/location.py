@@ -20,6 +20,8 @@ import ntpath
 import fnmatch
 import hashlib
 import platform
+import sys
+import logging
 
 import pip.vcs
 import pip.download
@@ -51,6 +53,31 @@ def get_common_top_directory_under( path ):
     if len(dirs) == 1 and os.path.isdir( top_dir ):
         return dirs[0]
     return None
+
+
+class ReportDownloadProgress(object):
+
+    def __init__( self ):
+        self._step = 2.5
+        self._percent_step = 10
+        self._report_percent = self._percent_step
+        self._expected = self._step
+        sys.stdout.write( "cuppa: location: [info] Download progress {}".format( as_info("|") ) )
+        sys.stdout.flush()
+
+    def __call__( self, blocks_transferred, block_size, total_size ):
+        percent = 100.0 * float(blocks_transferred) * float(block_size) / float(total_size)
+        if percent >= self._expected:
+            if percent >= 100.0:
+                sys.stdout.write( "={} Complete\n".format( as_info("|") ) )
+                sys.stdout.flush()
+            else:
+                sys.stdout.write( "=" )
+                if percent >= float(self._report_percent):
+                    sys.stdout.write( as_info( str(self._report_percent) + "%" ) )
+                    self._report_percent += self._percent_step
+                sys.stdout.flush()
+                self._expected += self._step
 
 
 class Location(object):
@@ -206,17 +233,27 @@ class Location(object):
                     self.extract( cached_archive, local_dir_with_sub_dir )
                 else:
                     logger.info( "Downloading [{}]...".format( as_info( location ) ) )
-                    filename, headers = urllib.urlretrieve( location )
-                    name, extension = os.path.splitext( filename )
-                    logger.info( "[{}] successfully downloaded to [{}]".format(
-                            as_info( location ),
-                            as_info( filename )
-                    ) )
-                    self.extract( filename, local_dir_with_sub_dir )
-                    if cuppa_env['cache_root']:
-                        cached_archive = os.path.join( cuppa_env['cache_root'], local_folder )
-                        logger.debug( "Caching downloaded file as [{}]".format( as_info( cached_archive ) ) )
-                        shutil.copyfile( filename, cached_archive )
+                    try:
+                        report_hook = None
+                        if logger.isEnabledFor( logging.INFO ):
+                            report_hook = ReportDownloadProgress()
+                        filename, headers = urllib.urlretrieve( location, reporthook=report_hook )
+                        name, extension = os.path.splitext( filename )
+                        logger.info( "[{}] successfully downloaded to [{}]".format(
+                                as_info( location ),
+                                as_info( filename )
+                        ) )
+                        self.extract( filename, local_dir_with_sub_dir )
+                        if cuppa_env['cache_root']:
+                            cached_archive = os.path.join( cuppa_env['cache_root'], local_folder )
+                            logger.debug( "Caching downloaded file as [{}]".format( as_info( cached_archive ) ) )
+                            shutil.copyfile( filename, cached_archive )
+                    except urllib.ContentTooShortError as error:
+                        logger.error( "Download of [{}] failed with error [{}]".format(
+                                as_error( location ),
+                                as_error( str(error) )
+                        ) )
+                        raise LocationException( "Error obtaining [{}]: {}".format( location, error ) )
 
             elif '+' in full_url.scheme:
                 vc_type = location.split('+', 1)[0]
