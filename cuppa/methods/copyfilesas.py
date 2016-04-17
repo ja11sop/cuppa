@@ -10,8 +10,6 @@
 
 import cuppa.progress
 
-from SCons.Script import Flatten
-
 
 class CopyFilesAsMethod:
 
