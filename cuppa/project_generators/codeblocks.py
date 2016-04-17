@@ -352,8 +352,13 @@ class Codeblocks(object):
 
 
     def create_target( self, target, project, toolchain, variant, test, working_dir, final_dir ):
+        # NOTE: we can only guess at an executable as there may be more than one but we might get it
+        # right and save someone the extra effort of setting this up
+        executable = os.path.splitext(os.path.basename(project))[0]
+
         lines = [
 '\t\t\t<Target title="' + target + '">\n'
+'\t\t\t\t<Option output="' + final_dir + '/' + executable + '" prefix_auto="0" extension_auto="0" />\n'
 '\t\t\t\t<Option working_dir="' + final_dir + '" />\n'
 '\t\t\t\t<Option object_output="' + working_dir + '" />\n'
 '\t\t\t\t<Option type="1" />\n'
@@ -364,7 +369,7 @@ class Codeblocks(object):
         lines += [
 '\t\t\t\t\t<Variable name="SCRIPTS" value="' + project + '" />\n'
 '\t\t\t\t\t<Variable name="TOOLCHAINS" value="' + toolchain + '" />\n'
-'\t\t\t\t\t<Variable name="VARIANT" value="' + variant + '" />'
+'\t\t\t\t\t<Variable name="VARIANT" value="' + variant + '" />\n'
 '\t\t\t\t\t<Variable name="TEST" value="' + test + '" />' ]
 
         lines += [
@@ -426,21 +431,21 @@ class ProcessNodes(object):
 
         for allowed in self._allowed_paths:
             prefix = os.path.commonprefix( [ os.path.abspath( file_path ), allowed ] )
-#            logger.trace( "str(file)=[{}], file.path=[{}], allowed=[{}], prefix=[{}]".format(
-#                    as_notice( str(node) ),
-#                    as_notice( node.path ),
-#                    as_notice( str(allowed) ),
-#                    as_notice( str(prefix) )
-#            ) )
+            logger.trace( "str(file)=[{}], file.path=[{}], allowed=[{}], prefix=[{}]".format(
+                    as_notice( str(node) ),
+                    as_notice( node.path ),
+                    as_notice( str(allowed) ),
+                    as_notice( str(prefix) )
+            ) )
             if prefix != allowed:
                 return
 
-#        logger.trace( "str(file)=[{}], file.path=[{}], allowed=[{}], prefix=[{}]".format(
-#                as_notice( str(node) ),
-#                as_notice( node.path ),
-#                as_notice( str(allowed) ),
-#                as_notice( str(prefix) )
-#        ) )
+        logger.trace( "str(file)=[{}], file.path=[{}], allowed=[{}], prefix=[{}]".format(
+                as_notice( str(node) ),
+                as_notice( node.path ),
+                as_notice( str(allowed) ),
+                as_notice( str(prefix) )
+        ) )
 
         file_path = os.path.relpath( os.path.abspath( file_path ), self._base_path )
         self._files.add( file_path )
