@@ -27,8 +27,8 @@ import cuppa.recursive_glob
 import cuppa.configure
 import cuppa.options
 import cuppa.version
-import cuppa.progress
-import cuppa.tree
+#import cuppa.progress
+#import cuppa.tree
 #import cuppa.cpp.stdcpp
 
 from cuppa.colourise import colouriser, as_emphasised, as_info, as_error, as_notice, colour_items
@@ -169,31 +169,31 @@ class ParseToolchainsOption(object):
 
         parser.values.toolchains = list(toolchains)
 
- # class ParseTargetArchsOption(object):
-
-    # def __init__( self, available_toolchains ):
-        # self._available = available_toolchains
-
-    # def __call__(self, option, opt, value, parser):
-        # target_archs = set()
-        # requested = value.split(',')
-        # for target_arch in requested:
-            # supported = fnmatch.filter( self._supported, toolchain )
-
-            # if not supported:
-                # print "cuppa: requested toolchain(s) [{}] does not match any supported, skipping".format( toolchain )
-            # else:
-                # available = fnmatch.filter( self._available, toolchain )
-
-                # if not available:
-                    # print "cuppa: requested toolchain(s) [{}] supported does not match any available, skipping".format( toolchain )
-                # else:
-                    # toolchains.update( available )
-
-        # if not toolchains:
-            # print "cuppa: None of the requested toolchains are available"
-
-        # parser.values.toolchains = list(toolchains)
+#  class ParseTargetArchsOption(object):
+#
+#     def __init__( self, available_toolchains ):
+#         self._available = available_toolchains
+#
+#     def __call__(self, option, opt, value, parser):
+#         target_archs = set()
+#         requested = value.split(',')
+#         for target_arch in requested:
+#             supported = fnmatch.filter( self._supported, toolchain )
+#
+#             if not supported:
+#                 print "cuppa: requested toolchain(s) [{}] does not match any supported, skipping".format( toolchain )
+#             else:
+#                 available = fnmatch.filter( self._available, toolchain )
+#
+#                 if not available:
+#                     print "cuppa: requested toolchain(s) [{}] supported does not match any available, skipping".format( toolchain )
+#                 else:
+#                     toolchains.update( available )
+#
+#         if not toolchains:
+#             print "cuppa: None of the requested toolchains are available"
+#
+#         parser.values.toolchains = list(toolchains)
 
 
 class CuppaEnvironment(collections.MutableMapping):
@@ -755,7 +755,38 @@ class Construct(object):
         )
 
 
+#    def on_progress( self, progress, sconscript, variant, env, target, source ):
+#        if progress == 'begin':
+#            self.on_sconscript_begin( env, sconscript )
+#        elif progress == 'started':
+#            self.on_variant_started( env, sconscript, target, source )
+#        elif progress == 'finished':
+#            self.on_variant_finished( sconscript, target, source )
+#        elif progress == 'end':
+#            self.on_sconscript_end( sconscript )
+#        elif progress =='sconstruct_end':
+#            self.on_sconstruct_end( env )
+#
+#    def on_sconscript_begin( self, env, sconscript ):
+#        pass
+#
+#    def on_variant_started( self, env, sconscript, target, source ):
+#        pass
+#
+#    def on_variant_finished( self, sconscript, root_node, source ):
+#        pass
+#        #cuppa.tree.print_tree( root_node )
+#
+#    def on_sconscript_end( self, sconscript ):
+#        pass
+#
+#    def on_sconstruct_end( self, env ):
+#        pass
+
+
     def build( self, cuppa_env ):
+
+#        cuppa.progress.NotifyProgress.register_callback( None, self.on_progress )
 
         cuppa_env['empty_env'] = cuppa_env.create_env()
         projects   = cuppa_env.get_option( 'projects' )
