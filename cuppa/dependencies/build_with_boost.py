@@ -24,7 +24,7 @@ import cuppa.build_platform
 import cuppa.location
 
 from cuppa.output_processor import IncrementalSubProcess, ToolchainProcessor
-from cuppa.colourise        import as_info, as_emphasised, as_notice
+from cuppa.colourise        import as_info, as_emphasised, as_notice, colour_items
 from cuppa.log import logger
 
 
@@ -37,7 +37,7 @@ class BoostException(Exception):
 
 
 def determine_latest_boost_verion():
-    current_release = "1.59.0"
+    current_release = "1.60.0"
     try:
         html = lxml.html.parse('http://www.boost.org/users/download/')
 
@@ -423,6 +423,9 @@ class BoostStaticLibraryMethod(object):
         if not 'boost' in env['BUILD_WITH']:
             env.BuildWith( 'boost' )
         Boost = env['dependencies']['boost']( env )
+
+        logger.trace( "Build static libraries [{}]".format( colour_items( libraries ) ) )
+
         library = BoostLibraryBuilder(
                 Boost,
                 add_dependents = self._add_dependents,
@@ -461,6 +464,8 @@ class BoostSharedLibraryMethod(object):
                 env.AppendUnique( CPPDEFINES = 'BOOST_FILESYSTEM_DYN_LINK' )
             elif library == 'date_time':
                 env.AppendUnique( CPPDEFINES = 'BOOST_DATE_TIME_DYN_LINK' )
+            elif library == 'regex':
+                env.AppendUnique( CPPDEFINES = 'BOOST_REGEX_DYN_LINK' )
             elif library == 'system':
                 env.AppendUnique( CPPDEFINES = 'BOOST_SYSTEM_DYN_LINK' )
 
@@ -594,7 +599,21 @@ def stage_directory( toolchain, variant, target_arch, abi_flag ):
 
 
 def boost_dependency_order():
-    return [ 'graph', 'regex', 'coroutine', 'context', 'log_setup', 'log', 'date_time', 'filesystem', 'test', 'timer', 'chrono', 'system', 'thread' ]
+    return [
+        'graph',
+        'regex',
+        'coroutine',
+        'context',
+        'log_setup',
+        'log',
+        'date_time',
+        'filesystem',
+        'test',
+        'timer',
+        'chrono',
+        'system',
+        'thread'
+    ]
 
 
 def boost_dependency_set():
@@ -665,7 +684,7 @@ def add_dependent_libraries( boost, linktype, libraries ):
 
 
 
-def lazy_update_library_list( env, emitting, libraries, built_libraries, add_dependents, linktype, boost ):
+def lazy_update_library_list( env, emitting, libraries, built_libraries, add_dependents, linktype, boost, stage_dir ):
 
     if add_dependents:
         if not emitting:
@@ -673,13 +692,12 @@ def lazy_update_library_list( env, emitting, libraries, built_libraries, add_dep
         else:
             libraries = add_dependent_libraries( boost, linktype, libraries )
 
-    # Use the sconscript_file + build_dir to identify this instance of the environment
-    variant_instance = env['sconscript_file'] + env['build_dir']
-
-    if not variant_instance in built_libraries:
-        built_libraries[ variant_instance ] = set( libraries )
+    if not stage_dir in built_libraries:
+        logger.debug( "Lazy update libraries list for [{}] to [{}]".format( as_info(stage_dir), colour_items(str(l) for l in libraries) ) )
+        built_libraries[ stage_dir ] = set( libraries )
     else:
-        libraries = [ l for l in libraries if l not in built_libraries[ variant_instance ] ]
+        logger.debug( "Lazy read libraries list for [{}]: libraries are [{}]".format( as_info(stage_dir), colour_items(str(l) for l in libraries) ) )
+        libraries = [ l for l in libraries if l not in built_libraries[ stage_dir ] ]
 
     return libraries
 
@@ -689,21 +707,27 @@ class BoostLibraryAction(object):
 
     _built_libraries = {}
 
-    def __init__( self, env, libraries, add_dependents, linktype, boost, verbose_build, verbose_config ):
+    def __init__( self, env, stage_dir, libraries, add_dependents, linktype, boost, verbose_build, verbose_config ):
 
         self._env = env
 
-        self._libraries = lazy_update_library_list( env, False, libraries, self._built_libraries, add_dependents, linktype, boost )
+        logger.trace( "Requested libraries [{}]".format( colour_items( libraries ) ) )
+
+        self._linktype       = linktype
+        self._variant        = variant_name( self._env['variant'].name() )
+        self._target_arch    = env['target_arch']
+        self._toolchain      = env['toolchain']
+        self._stage_dir      = stage_dir
+
+        self._libraries = lazy_update_library_list( env, False, libraries, self._built_libraries, add_dependents, linktype, boost, self._stage_dir )
+
+        logger.trace( "Required libraries [{}]".format( colour_items( self._libraries ) ) )
 
         self._location       = boost.local()
         self._version        = boost.numeric_version()
         self._full_version   = boost.full_version()
         self._verbose_build  = verbose_build
         self._verbose_config = verbose_config
-        self._linktype       = linktype
-        self._variant        = variant_name( self._env['variant'].name() )
-        self._target_arch    = env['target_arch']
-        self._toolchain      = env['toolchain']
         self._job_count      = env['job_count']
         self._parallel       = env['parallel']
 
@@ -912,34 +936,37 @@ class BoostLibraryEmitter(object):
 
     _built_libraries = {}
 
-    def __init__( self, env, libraries, add_dependents, linktype, boost ):
+    def __init__( self, env, stage_dir, libraries, add_dependents, linktype, boost ):
         self._env = env
+        self._stage_dir    = stage_dir
 
-        self._libraries = lazy_update_library_list( env, True, libraries, self._built_libraries, add_dependents, linktype, boost )
+        self._libraries    = lazy_update_library_list( env, True, libraries, self._built_libraries, add_dependents, linktype, boost, self._stage_dir )
 
         self._location     = boost.local()
         self._boost        = boost
-        self._linktype     = linktype
         self._version      = boost.numeric_version()
         self._full_version = boost.full_version()
+        self._threading    = True
+
+        self._linktype     = linktype
         self._variant      = variant_name( self._env['variant'].name() )
         self._target_arch  = env['target_arch']
         self._toolchain    = env['toolchain']
-        self._threading    = True
+
 
 
     def __call__( self, target, source, env ):
-        stage_dir = stage_directory( self._toolchain, self._variant, self._target_arch, self._toolchain.abi_flag(env) )
-
 
         for library in self._libraries:
             filename = None
             if self._linktype == 'static':
                 filename = static_library_name( env, library, self._toolchain, self._boost.version(), self._variant, self._threading )
             else:
-                filename = shared_library_name( env, library, self._toolchain, self._boost.version(), self._variant, self._threading )
+                filename = shared_library_name( env, library, self._toolchain, self._boost.full_version(), self._variant, self._threading )
 
-            built_library_path = os.path.join( self._location, stage_dir, 'lib', filename )
+            built_library_path = os.path.join( self._location, self._stage_dir, 'lib', filename )
+
+            logger.trace( "Emit Boost library [{}] to [{}]".format( as_notice(library), as_notice(built_library_path) ) )
 
             node = File( built_library_path )
 
@@ -1003,7 +1030,7 @@ class WriteToolsetConfigJam(object):
 
 class BoostLibraryBuilder(object):
 
-    _library_targets = {}
+    _library_sources = {}
 
     def __init__( self, boost, add_dependents, verbose_build, verbose_config ):
         self._boost = boost
@@ -1014,8 +1041,15 @@ class BoostLibraryBuilder(object):
 
     def __call__( self, env, target, source, libraries, linktype ):
 
-        library_action  = BoostLibraryAction ( env, libraries, self._add_dependents, linktype, self._boost, self._verbose_build, self._verbose_config )
-        library_emitter = BoostLibraryEmitter( env, libraries, self._add_dependents, linktype, self._boost )
+        variant      = variant_name( env['variant'].name() )
+        target_arch  = env['target_arch']
+        toolchain    = env['toolchain']
+        stage_dir    = stage_directory( toolchain, variant, target_arch, toolchain.abi_flag(env) )
+
+        library_action  = BoostLibraryAction ( env, stage_dir, libraries, self._add_dependents, linktype, self._boost, self._verbose_build, self._verbose_config )
+        library_emitter = BoostLibraryEmitter( env, stage_dir, libraries, self._add_dependents, linktype, self._boost )
+
+        logger.debug( "env = [{}]".format( as_info( env['build_dir'] ) ) )
 
         env.AppendUnique( BUILDERS = {
             'BoostLibraryBuilder' : env.Builder( action=library_action, emitter=library_emitter )
@@ -1027,6 +1061,7 @@ class BoostLibraryBuilder(object):
         bjam_target = os.path.join( self._boost.local(), bjam_exe )
         bjam = env.Command( bjam_target, [], BuildBjam( self._boost ) )
         env.NoClean( bjam )
+
         built_libraries = env.BoostLibraryBuilder( target, source )
 
         built_library_map = {}
@@ -1040,45 +1075,77 @@ class BoostLibraryBuilder(object):
 
             built_library_map[name] = library
 
-        variant_instance = env['sconscript_file'] + env['build_dir']
+        logger.trace( "Built Library Map = [{}]".format( colour_items( built_library_map.keys() ) ) )
 
-        if not variant_instance in self._library_targets:
-             self._library_targets[ variant_instance ] = {}
+        variant_key = stage_dir
+
+        logger.debug( "Source Libraries Variant Key = [{}]".format( as_notice( variant_key ) ) )
+
+        if not variant_key in self._library_sources:
+             self._library_sources[ variant_key ] = {}
+
+        logger.debug( "Variant sources = [{}]".format( colour_items( self._library_sources[ variant_key ].keys() ) ) )
 
         required_libraries = add_dependent_libraries( self._boost, linktype, libraries )
+
+        logger.debug( "Required libraries = [{}]".format( colour_items( required_libraries ) ) )
+
         for library in required_libraries:
-            if library in self._library_targets[ variant_instance ]:
+            if library in self._library_sources[ variant_key ]:
+
+                logger.debug( "Library [{}] already present in variant [{}]".format( as_notice(library), as_info(variant_key) ) )
+
                 if library not in built_library_map:
-                    env.Depends( built_libraries, self._library_targets[ variant_instance ][library] )
+                    logger.debug( "Add Depends for [{}]".format( as_notice( self._library_sources[ variant_key ][library].path ) ) )
+                    env.Depends( built_libraries, self._library_sources[ variant_key ][library] )
             else:
-                self._library_targets[ variant_instance ][library] = built_library_map[library]
+                self._library_sources[ variant_key ][library] = built_library_map[library]
 
-        installed_libraries = []
+        logger.debug( "Library sources for variant [{}] = [{}]".format(
+                as_info(variant_key),
+                colour_items( k+":"+as_info(v.path) for k,v in self._library_sources[ variant_key ].iteritems() )
+        ) )
 
-        if not built_libraries:
-            return installed_libraries
+        if built_libraries:
 
-        env.Requires( built_libraries, bjam )
+            env.Requires( built_libraries, bjam )
 
-        if cuppa.build_platform.name() == "Linux":
+            if cuppa.build_platform.name() == "Linux":
 
-            toolset_target = os.path.join( self._boost.local(), env['toolchain'].name() + "._jam" )
-            toolset_config_jam = env.Command( toolset_target, [], WriteToolsetConfigJam() )
+                toolset_target = os.path.join( self._boost.local(), env['toolchain'].name() + "._jam" )
+                toolset_config_jam = env.Command( toolset_target, [], WriteToolsetConfigJam() )
 
-            project_config_target = os.path.join( self._boost.local(), "project-config.jam" )
-            if not os.path.exists( project_config_target ):
-                project_config_jam = env.Requires( project_config_target, env.AlwaysBuild( toolset_config_jam ) )
-                env.Requires( built_libraries, project_config_jam )
+                project_config_target = os.path.join( self._boost.local(), "project-config.jam" )
+                if not os.path.exists( project_config_target ):
+                    project_config_jam = env.Requires( project_config_target, env.AlwaysBuild( toolset_config_jam ) )
+                    env.Requires( built_libraries, project_config_jam )
 
-            env.Requires( built_libraries, toolset_config_jam )
+                env.Requires( built_libraries, toolset_config_jam )
 
         install_dir = env['abs_build_dir']
 
-        library_path = os.path.split( str(built_libraries[0]) )[1]
         if linktype == 'shared':
-            install_dir = os.path.split( os.path.join( env['abs_final_dir'], library_path ) )[0]
+            install_dir = env['abs_final_dir']
+
+        installed_libraries = []
 
         for library in required_libraries:
-            installed_libraries.append( env.Install( install_dir, self._library_targets[ variant_instance ][library] ) )
 
-        return installed_libraries
+            logger.debug( "Install Boost library [{}:{}] to [{}]".format( as_notice(library), as_info(str(self._library_sources[ variant_key ][library])), as_notice(install_dir) ) )
+
+            library_node = self._library_sources[ variant_key ][library]
+
+            logger.trace( "Library Node = \n[{}]\n[{}]\n[{}]\n[{}]".format(
+                    as_notice(library_node.path),
+                    as_notice(str(library_node)),
+                    as_notice(str(library_node.get_binfo().bact) ),
+                    as_notice(str(library_node.get_state()) )
+            ) )
+
+            installed_library = env.CopyFiles( install_dir, self._library_sources[ variant_key ][library] )
+
+            installed_libraries.append( installed_library )
+
+        logger.debug( "Boost 'Installed' Libraries = [{}]".format( colour_items( l.path for l in Flatten( installed_libraries ) ) ) )
+
+        return Flatten( installed_libraries )
