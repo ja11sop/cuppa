@@ -8,6 +8,13 @@
 #   Progress
 #-------------------------------------------------------------------------------
 
+import logging
+
+from cuppa.colourise import as_notice, as_info
+from cuppa.log import logger
+
+from SCons.Script import Action
+
 
 class NotifyProgress(object):
 
@@ -68,7 +75,7 @@ class NotifyProgress(object):
         env.Requires( begin, cls._sconstruct_begin )
 
         if variant not in cls._started:
-            cls._started[variant] = progress( 'Started', 'started', sconscript, env['build_dir'], env )
+            cls._started[variant] = progress( 'Starting', 'started', sconscript, env['build_dir'], env )
 
         env.Requires( target, cls._started[variant] )
         env.Requires( cls._started[variant], begin )
@@ -93,7 +100,7 @@ class NotifyProgress(object):
 
 
 def progress( label, event, sconscript, variant, env ):
-    return env.Command( label, [], Progress( event, sconscript, variant, env ) )
+    return env.Command( label, [], progress_action( label, event, sconscript, variant, env ) )
 
 
 class Progress(object):
@@ -107,4 +114,30 @@ class Progress(object):
     def __call__( self, target, source, env ):
         NotifyProgress.call_callbacks( self._event, self._file, self._variant, self._env, target, source )
         return None
+
+
+def progress_action( label, event, sconscript, variant, env ):
+
+    progress = Progress( event, sconscript, variant, env )
+
+    description = None
+
+    if logger.isEnabledFor( logging.INFO ):
+        stage = ""
+        name  = ""
+        if label.startswith("#"):
+            stage = as_notice( label[1:] )
+        elif not variant:
+            stage = as_notice(label) + " sconscript: ["
+            name = as_notice( sconscript ) + "]"
+        else:
+            stage = as_notice(label) + " variant: ["
+            name = as_info( variant ) + "]"
+
+        description = "Progress( {}{} )".format( stage, name )
+
+    return Action( progress, description )
+
+
+
 
