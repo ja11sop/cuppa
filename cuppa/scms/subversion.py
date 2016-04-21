@@ -43,7 +43,7 @@ def info( path ):
     try:
         command = "svnversion -n {}".format( path )
         revision = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT )
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, OSError):
         pass
 
     return url, repository, branch, revision
