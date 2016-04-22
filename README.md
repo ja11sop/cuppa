@@ -617,6 +617,8 @@ The `test` variant does not actually produce an output directly. Instead it exec
 
 The following toolchains are currently supported:
 
+#### The GCC family
+
 | Toolchain | Description |
 | --------- | ----------- |
 | `gcc34`   | g++ 3.4 |
@@ -632,12 +634,25 @@ The following toolchains are currently supported:
 | `gcc49`   | g++ 4.9 |
 | `gcc50`   | g++ 5.0 |
 | `gcc51`   | g++ 5.1 |
+| `gcc52`   | g++ 5.2 |
+| `gcc53`   | g++ 5.3 |
+
+#### The Clang family
+
+| Toolchain | Description |
+| --------- | ----------- |
 | `clang32` | clang 3.2 |
 | `clang33` | clang 3.3 |
 | `clang34` | clang 3.4 |
 | `clang35` | clang 3.5 |
 | `clang36` | clang 3.6 |
 | `clang37` | clang 3.7 |
+| `clang38` | clang 3.8 |
+
+#### The Visual C++ family
+
+| Toolchain | Description |
+| --------- | ----------- |
 | `vc60`    | Visual C++ 6.0                                |
 | `vc70`    | Visual C++ 7.0 (Visual C++ .NET 2002)         |
 | `vc71`    | Visual C++ 7.1 (Visual C++ .NET 2003)         |
@@ -653,6 +668,8 @@ The following toolchains are currently supported:
 | `vc120`   | Visual C++ 12.0 (Visual C++ 2013)             |
 | `vc140e`  | Visual C++ 14.0 (Visual C++ 2015 Exp)         |
 | `vc140`   | Visual C++ 14.0 (Visual C++ 2015)             |
+
+#### Note
 
 It is not necessary to specify a toolchain when building. If none is specified the default toolchain for the current platform will be used. However if more toolchains are available and you want to use one or more then pass the `--toolchains` option with a comma-separated list of toolchains from the list. For example to build with both GCC 4.9 and CLANG 3.4 you would add:
 
