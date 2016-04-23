@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2015
+#          Copyright Jamie Allsop 2011-2016
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -693,10 +693,10 @@ def lazy_update_library_list( env, emitting, libraries, built_libraries, add_dep
             libraries = add_dependent_libraries( boost, linktype, libraries )
 
     if not stage_dir in built_libraries:
-        logger.debug( "Lazy update libraries list for [{}] to [{}]".format( as_info(stage_dir), colour_items(str(l) for l in libraries) ) )
+        logger.trace( "Lazy update libraries list for [{}] to [{}]".format( as_info(stage_dir), colour_items(str(l) for l in libraries) ) )
         built_libraries[ stage_dir ] = set( libraries )
     else:
-        logger.debug( "Lazy read libraries list for [{}]: libraries are [{}]".format( as_info(stage_dir), colour_items(str(l) for l in libraries) ) )
+        logger.trace( "Lazy read libraries list for [{}]: libraries are [{}]".format( as_info(stage_dir), colour_items(str(l) for l in libraries) ) )
         libraries = [ l for l in libraries if l not in built_libraries[ stage_dir ] ]
 
     return libraries
@@ -1049,7 +1049,7 @@ class BoostLibraryBuilder(object):
         library_action  = BoostLibraryAction ( env, stage_dir, libraries, self._add_dependents, linktype, self._boost, self._verbose_build, self._verbose_config )
         library_emitter = BoostLibraryEmitter( env, stage_dir, libraries, self._add_dependents, linktype, self._boost )
 
-        logger.debug( "env = [{}]".format( as_info( env['build_dir'] ) ) )
+        logger.trace( "env = [{}]".format( as_info( env['build_dir'] ) ) )
 
         env.AppendUnique( BUILDERS = {
             'BoostLibraryBuilder' : env.Builder( action=library_action, emitter=library_emitter )
@@ -1079,29 +1079,29 @@ class BoostLibraryBuilder(object):
 
         variant_key = stage_dir
 
-        logger.debug( "Source Libraries Variant Key = [{}]".format( as_notice( variant_key ) ) )
+        logger.trace( "Source Libraries Variant Key = [{}]".format( as_notice( variant_key ) ) )
 
         if not variant_key in self._library_sources:
              self._library_sources[ variant_key ] = {}
 
-        logger.debug( "Variant sources = [{}]".format( colour_items( self._library_sources[ variant_key ].keys() ) ) )
+        logger.trace( "Variant sources = [{}]".format( colour_items( self._library_sources[ variant_key ].keys() ) ) )
 
         required_libraries = add_dependent_libraries( self._boost, linktype, libraries )
 
-        logger.debug( "Required libraries = [{}]".format( colour_items( required_libraries ) ) )
+        logger.trace( "Required libraries = [{}]".format( colour_items( required_libraries ) ) )
 
         for library in required_libraries:
             if library in self._library_sources[ variant_key ]:
 
-                logger.debug( "Library [{}] already present in variant [{}]".format( as_notice(library), as_info(variant_key) ) )
+                logger.trace( "Library [{}] already present in variant [{}]".format( as_notice(library), as_info(variant_key) ) )
 
                 if library not in built_library_map:
-                    logger.debug( "Add Depends for [{}]".format( as_notice( self._library_sources[ variant_key ][library].path ) ) )
+                    logger.trace( "Add Depends for [{}]".format( as_notice( self._library_sources[ variant_key ][library].path ) ) )
                     env.Depends( built_libraries, self._library_sources[ variant_key ][library] )
             else:
                 self._library_sources[ variant_key ][library] = built_library_map[library]
 
-        logger.debug( "Library sources for variant [{}] = [{}]".format(
+        logger.trace( "Library sources for variant [{}] = [{}]".format(
                 as_info(variant_key),
                 colour_items( k+":"+as_info(v.path) for k,v in self._library_sources[ variant_key ].iteritems() )
         ) )
