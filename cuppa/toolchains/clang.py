@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2014-2015
+#          Copyright Jamie Allsop 2014-2016
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -75,13 +75,13 @@ class Clang(object):
             if reported_version:
                 major = str(reported_version[5])
                 minor = str(reported_version[6])
-                version = "{}.{}".format( major, minor )
-                exists = cls.version_from_command( "clang++-{} --version".format( version ) )
+                version = "-{}.{}".format( major, minor )
+                exists = cls.version_from_command( "clang++{} --version".format( version ) )
                 if exists:
                     cxx_version = version
                 else:
-                    version = "{}".format( major )
-                    exists = cls.version_from_command( "g++-{} --version".format( version ) )
+                    version = "-{}".format( major )
+                    exists = cls.version_from_command( "clang++{} --version".format( version ) )
                     if exists:
                         cxx_version = version
             cls._default_version = ( reported_version, cxx_version )
@@ -442,7 +442,11 @@ class Clang(object):
             return '-std=c++11'
         elif re.match( 'clang3[4-8]', self._name ):
             return '-std=c++1y'
+        elif re.match( 'clang3[9]', self._name ):
+            return '-std=c++1z'
 
+    def abi( self, env ):
+        return self.abi_flag( env ).split('=')[1]
 
     def stdcpp_flag_for( self, standard ):
         return "-std={}".format( standard )

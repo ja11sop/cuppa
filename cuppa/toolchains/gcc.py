@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2015
+#          Copyright Jamie Allsop 2011-2016
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -37,7 +37,6 @@ class GccException(Exception):
 
 
 class Gcc(object):
-
 
     @classmethod
     def supported_versions( cls ):
@@ -82,13 +81,13 @@ class Gcc(object):
             if reported_version:
                 major = str(reported_version[3])
                 minor = str(reported_version[4])
-                version = "{}.{}".format( major, minor )
-                exists = cls.version_from_command( "g++-{} --version".format( version ) )
+                version = "-{}.{}".format( major, minor )
+                exists = cls.version_from_command( "g++{} --version".format( version ) )
                 if exists:
                     cxx_version = version
                 else:
-                    version = "{}".format( major )
-                    exists = cls.version_from_command( "g++-{} --version".format( version ) )
+                    version = "-{}".format( major )
+                    exists = cls.version_from_command( "g++{} --version".format( version ) )
                     if exists:
                         cxx_version = version
             cls._default_version = ( reported_version, cxx_version )
@@ -414,6 +413,10 @@ class Gcc(object):
             return '-std=c++1y'
         elif re.match( 'gcc5[2-3]', self._reported_version ):
             return '-std=c++1z'
+
+
+    def abi( self, env ):
+        return self.abi_flag( env ).split('=')[1]
 
 
     def stdcpp_flag_for( self, standard ):

@@ -1,4 +1,4 @@
-#          Copyright Jamie Allsop 2011-2015
+#          Copyright Jamie Allsop 2011-2016
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -168,6 +168,7 @@ class ParseToolchainsOption(object):
             logger.error( "None of the requested toolchains are available" )
 
         parser.values.toolchains = list(toolchains)
+
 
 #  class ParseTargetArchsOption(object):
 #
@@ -403,7 +404,7 @@ class Construct(object):
             nargs    = 1,
             action   = 'callback',
             callback = ParseToolchainsOption( env['supported_toolchains'], env[toolchains].keys() ),
-            help     = 'The Toolchains you wish to build against. A comma separate list with wildcards'
+            help     = 'The Toolchains you wish to build against. A comma separated list with wildcards'
                        ' may be provided. For example --toolchains=gcc*,clang37,clang36'
         )
 
@@ -722,6 +723,7 @@ class Construct(object):
                     build_envs.append( {
                         'variant': key,
                         'target_arch': target_arch,
+                        'abi': toolchain.abi( env ),
                         'env': env } )
 
                     if not cuppa_env['raw_output']:
@@ -730,6 +732,7 @@ class Construct(object):
                     env['toolchain']       = toolchain
                     env['variant']         = variant
                     env['target_arch']     = target_arch
+                    env['abi']             = toolchain.abi( env )
                     env['variant_actions'] = self.get_active_actions_for_variant( cuppa_env, active_variants, variant )
 
         return build_envs
@@ -852,13 +855,13 @@ class Construct(object):
                         decider = cuppa_env.get_option( 'decider' )
                         if decider:
                             build_env['env'].Decider( decider )
-                        self.call_project_sconscript_files( toolchain, build_env['variant'], build_env['target_arch'], build_env['env'], sconscript )
+                        self.call_project_sconscript_files( toolchain, build_env['variant'], build_env['target_arch'], build_env['abi'], build_env['env'], sconscript )
 
         else:
             logger.warn( "No projects to build. Nothing to be done" )
 
 
-    def call_project_sconscript_files( self, toolchain, variant, target_arch, sconscript_env, project ):
+    def call_project_sconscript_files( self, toolchain, variant, target_arch, abi, sconscript_env, project ):
 
         sconscript_file = project
 
@@ -890,7 +893,7 @@ class Construct(object):
             sconscript_env['sconscript_build_dir'] = path_without_ext
             sconscript_env['sconscript_toolchain_build_dir'] = os.path.join( path_without_ext, toolchain.name() )
             sconscript_env['sconscript_dir']   = os.path.join( sconscript_env['base_path'], sconstruct_offset_path )
-            sconscript_env['build_dir']        = os.path.normpath( os.path.join( build_root, path_without_ext, toolchain.name(), variant, target_arch, 'working', '' ) )
+            sconscript_env['build_dir']        = os.path.normpath( os.path.join( build_root, path_without_ext, toolchain.name(), variant, target_arch, abi, 'working', '' ) )
             sconscript_env['abs_build_dir']    = os.path.abspath( sconscript_env['build_dir'] )
             sconscript_env['offset_dir']       = sconstruct_offset_path
             sconscript_env['final_dir']        = '..' + os.path.sep + 'final' + os.path.sep

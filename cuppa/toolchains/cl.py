@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2014-2015
+#          Copyright Jamie Allsop 2014-2016
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -293,6 +293,12 @@ class Cl(object):
 
     def abi_flag( self, library ):
         return ""
+
+
+    def abi( self, env ):
+        if env['stdcpp']:
+            return env['stdcpp']
+        return "c++"
 
 
     def stdcpp_flag_for( self, standard ):
