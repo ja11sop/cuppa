@@ -666,9 +666,9 @@ def add_dependent_libraries( boost, linktype, libraries ):
         elif library == 'log_setup':
             required_libraries.update( ['log', 'date_time', 'filesystem', 'system', 'thread'] )
         elif library == 'test' and patched_test:
-            required_libraries.update( ['timer, chrono'] )
+            required_libraries.update( ['timer, chrono', 'system'] )
         elif library == 'timer':
-            required_libraries.update( ['chrono'] )
+            required_libraries.update( ['chrono', 'system'] )
 
     libraries = []
 
