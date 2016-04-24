@@ -14,7 +14,8 @@ class CreateVersionMethod:
         pass
 
 
-    def __call__( self, env, target, source, namespaces, version, location ):
+    def __call__( self, env, target, source, namespaces, version, location=None ):
+        location = location and location or env['base_path']
         create_version_file_builder = env['toolchain'].version_file_builder( env, namespaces, version, location )
         create_version_file_emitter = env['toolchain'].version_file_emitter( env, namespaces, version, location )
 
