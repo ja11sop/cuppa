@@ -42,6 +42,8 @@ class Gcc(object):
     def supported_versions( cls ):
         return [
             "gcc",
+            "gcc6",
+            "gcc61",
             "gcc5",
             "gcc53",
             "gcc52",
@@ -368,6 +370,8 @@ class Gcc(object):
             CommonCxxFlags += [ '-std=c++1y' ]
         elif re.match( 'gcc5[2-3]', toolchain ):
             CommonCxxFlags += [ '-std=c++1z' ]
+        elif re.match( 'gcc6[0-1]', toolchain ):
+            CommonCxxFlags += [ '-std=c++1z' ]
 
         self.values['debug_cxx_flags']    = CommonCxxFlags + []
         self.values['release_cxx_flags']  = CommonCxxFlags + [ '-O3', '-DNDEBUG' ]
@@ -412,6 +416,8 @@ class Gcc(object):
         elif re.match( 'gcc5[0-1]', self._reported_version ):
             return '-std=c++1y'
         elif re.match( 'gcc5[2-3]', self._reported_version ):
+            return '-std=c++1z'
+        elif re.match( 'gcc6[0-1]', self._reported_version ):
             return '-std=c++1z'
 
 
