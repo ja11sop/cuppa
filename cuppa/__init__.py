@@ -15,6 +15,6 @@ def add_option( *args, **kwargs ):
     cuppa.core.add_option( *args, **kwargs )
 
 
-import cuppa.build_with_header_library
+import cuppa.build_with_location
 
-from cuppa.build_with_header_library import header_library_dependency
+from cuppa.build_with_location import location_dependency
