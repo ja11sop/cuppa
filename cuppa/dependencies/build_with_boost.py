@@ -115,6 +115,9 @@ class Boost(object):
         elif latest:
             version = "latest"
 
+        if not base and not version and not location:
+            version = "latest"
+
         return ( location, version, base, patch_test )
 
 
@@ -126,9 +129,6 @@ class Boost(object):
                 as_info( str(base) ),
                 as_info( str(patched) )
         ) )
-
-        if not base and not version and not location:
-            raise BoostException("Cannot construct Boost Object. Invalid parameters")
 
         boost_home = None
         boost_location = None
