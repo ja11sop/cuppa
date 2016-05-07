@@ -4,7 +4,7 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   build_with_header_library
+#   build_with_location
 #-------------------------------------------------------------------------------
 
 import os
@@ -14,7 +14,7 @@ from cuppa.log import logger
 from cuppa.colourise import as_notice, as_error
 
 
-class HeaderLibraryException(Exception):
+class LocationDependencyException(Exception):
     def __init__(self, value):
         self.parameter = value
     def __str__(self):
@@ -25,6 +25,8 @@ class base(object):
 
     _name = None
     _cached_locations = {}
+    _default_include = None
+    _default_sys_include = None
     _includes = None
     _sys_includes = None
 
@@ -104,6 +106,12 @@ class base(object):
             sys_include = env.get_option( cls._name + "-sys-include" )
             cls._sys_includes = sys_include and [sys_include] or []
 
+        if cls._default_include:
+            cls._includes.append( cls._default_include )
+
+        if cls._default_sys_include:
+            cls._sys_includes.append( cls._default_sys_include )
+
         return cls( env, location, includes=cls._includes, sys_includes=cls._sys_includes)
 
 
@@ -129,6 +137,8 @@ class base(object):
         env.AppendUnique( INCPATH = self._includes )
         env.AppendUnique( SYSINCPATH = self._sys_includes )
 
+    def local_sub_path( self, *paths ):
+        return os.path.join( self._location.local(), *paths )
 
     def name( self ):
         return self._name
@@ -146,8 +156,8 @@ class base(object):
         return self._location.revisions()
 
 
-def header_library_dependency( name ):
-    return type( 'BuildWith' + name.title(), ( base, ), { '_name': name } )
+def location_dependency( name, include=None, sys_include=None ):
+    return type( 'BuildWith' + name.title(), ( base, ), { '_name': name, '_default_include': include, '_default_sys_include': sys_include } )
 
 
 
