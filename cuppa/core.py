@@ -475,6 +475,38 @@ class Construct(object):
                 print "cuppa: Env[%s] = %s" % ( key, env[key] )
 
 
+    @classmethod
+    def _set_verbosity_level( cls, cuppa_env ):
+        verbosity = None
+
+        ## Check if -Q was passed on the command-line
+        scons_no_progress = cuppa_env.get_option( 'no_progress' )
+        if scons_no_progress:
+            verbosity = 'warn'
+
+        ## Check if -q, --quiet or --silent was passed on the command-line
+        scons_silent = cuppa_env.get_option( 'silent' )
+        if scons_silent:
+            verbosity = 'error'
+
+        cuppa_verbosity = cuppa_env.get_option( 'verbosity' )
+        if cuppa_verbosity:
+            verbosity = cuppa_verbosity
+
+        if verbosity:
+            set_logging_level( verbosity )
+
+
+    @classmethod
+    def _set_output_format( cls, cuppa_env ):
+        cuppa_env['raw_output']      = cuppa_env.get_option( 'raw_output' ) and True or False
+        cuppa_env['standard_output'] = cuppa_env.get_option( 'standard_output' ) and True or False
+
+        if not cuppa_env['raw_output'] and not cuppa_env['standard_output']:
+            cuppa_env.colouriser().enable()
+            reset_logging_format()
+
+
     def __init__( self,
                   base_path            = os.path.abspath( '.' ),
                   branch_root          = None,
@@ -488,7 +520,6 @@ class Construct(object):
                   dependencies         = {},
                   tools                = [] ):
 
-        cuppa.version.check_current_version()
         set_base_options()
         initialise_logging()
 
@@ -499,9 +530,7 @@ class Construct(object):
         cuppa_env['configured_options'] = {}
         self._configure = cuppa.configure.Configure( cuppa_env, callback=configure_callback )
 
-        verbosity = cuppa_env.get_option( 'verbosity' )
-        if verbosity:
-            set_logging_level( verbosity )
+        self._set_verbosity_level( cuppa_env )
 
         cuppa_env['sconstruct_file'] = cuppa_env.get_option( 'file' )
 
@@ -509,12 +538,10 @@ class Construct(object):
             for path in [ 'SConstruct', 'Sconstruct', 'sconstruct' ]:
                 if os.path.exists( path ):
                     cuppa_env['sconstruct_file'] = path
-        cuppa_env['raw_output']      = cuppa_env.get_option( 'raw_output' ) and True or False
-        cuppa_env['standard_output'] = cuppa_env.get_option( 'standard_output' ) and True or False
 
-        if not cuppa_env['raw_output'] and not cuppa_env['standard_output']:
-            cuppa_env.colouriser().enable()
-            reset_logging_format()
+        self._set_output_format( cuppa_env )
+
+        cuppa.version.check_current_version()
 
         logger.info( "using sconstruct file [{}]".format( as_notice( cuppa_env['sconstruct_file'] ) ) )
 
