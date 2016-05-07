@@ -14,6 +14,9 @@ import xmlrpclib
 import pip
 from pkg_resources import parse_version
 
+from cuppa.colourise import as_info, as_warning
+from cuppa.log import logger
+
 
 def get_version():
     module = sys.modules[__name__]
@@ -27,14 +30,11 @@ def get_version():
 def check_current_version():
 
     installed_version = get_version()
-    sys.stdout.write( "cuppa: version {}".format( installed_version ) )
+    logger.info( "cuppa: version {}".format( as_info( installed_version ) ) )
     try:
         pypi = xmlrpclib.ServerProxy('http://pypi.python.org/pypi')
         latest_available = pypi.package_releases('cuppa')[0]
         if parse_version( installed_version ) < parse_version( latest_available ):
-            sys.stdout.write( " - " )
-            sys.stdout.write( "Newer version [{}] available\n".format( latest_available ) )
-        else:
-            sys.stdout.write( "\n" )
+            logger.warn( "Newer version [{}] available\n".format( as_warning( latest_available ) ) )
     except:
         pass
