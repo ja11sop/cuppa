@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2015
+#          Copyright Jamie Allsop 2011-2016
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -10,6 +10,7 @@
 
 import cuppa.progress
 import os.path
+from SCons.Script import Flatten
 
 
 class BuildMethod:
@@ -27,14 +28,10 @@ class BuildMethod:
         if 'SHAREDLIBS' in env:
             env.AppendUnique( DYNAMICLIBS = env['SHAREDLIBS'] )
 
-        if 'CPPPATH' in env:
-            env.AppendUnique( INCPATH = env['CPPPATH'] )
-
         all_libs = env['DYNAMICLIBS'] + env['STATICLIBS'] + LIBS + DYNAMICLIBS + SHAREDLIBS + STATICLIBS
 
         program = env.Program( exe,
-                               source,
-                               CPPPATH = env['SYSINCPATH'] + env['INCPATH'],
+                               env.Compile( source ),
                                LIBS = all_libs,
                                DYNAMICLIBS = env['DYNAMICLIBS'] + LIBS + DYNAMICLIBS + SHAREDLIBS,
                                STATICLIBS = env['STATICLIBS'] + STATICLIBS,
