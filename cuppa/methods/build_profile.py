@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2015
+#          Copyright Jamie Allsop 2011-2016
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -33,5 +33,7 @@ class BuildProfileMethod:
     def init_env_for_variant( cls, sconscript_exports ):
         env = sconscript_exports['env']
         if env['default_profiles']:
+            env['_pre_sconscript_phase_'] = True
             env.BuildProfile( env['default_profiles'] )
+            env['_pre_sconscript_phase_'] = False
 

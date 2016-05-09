@@ -49,5 +49,7 @@ class BuildWithMethod:
     def init_env_for_variant( cls, sconscript_exports ):
         env = sconscript_exports['env']
         if env['default_dependencies']:
+            env['_pre_sconscript_phase_'] = True
             env.BuildWith( env['default_dependencies'] )
+            env['_pre_sconscript_phase_'] = False
 
