@@ -9,6 +9,7 @@
 #-------------------------------------------------------------------------------
 
 import logging
+import os.path
 
 from cuppa.colourise import as_notice, as_info
 from cuppa.log import logger
@@ -48,7 +49,7 @@ class NotifyProgress(object):
 
     @classmethod
     def _variant( cls, env ):
-        return env['build_dir']
+        return os.path.split(env['build_dir'])[0]
 
 
     @classmethod
@@ -58,11 +59,15 @@ class NotifyProgress(object):
 
     @classmethod
     def add( cls, env, target ):
+
+        if '_pre_sconscript_phase_' in env and env['_pre_sconscript_phase_']:
+            return
+
         empty_env       = env['empty_env']
         sconscript_env  = env['sconscript_env']
 
-        sconscript = cls._sconscript( sconscript_env )
-        variant    = cls._variant( env )
+        sconscript    = cls._sconscript( sconscript_env )
+        variant       = cls._variant( env )
 
         if not cls._sconstruct_begin:
             cls._sconstruct_begin = progress( '#SconstructBegin', 'sconstruct_begin', None, None, empty_env )
@@ -75,13 +80,13 @@ class NotifyProgress(object):
         env.Requires( begin, cls._sconstruct_begin )
 
         if variant not in cls._started:
-            cls._started[variant] = progress( 'Starting', 'started', sconscript, env['build_dir'], env )
+            cls._started[variant] = progress( 'Starting', 'started', sconscript, variant, env )
 
         env.Requires( target, cls._started[variant] )
         env.Requires( cls._started[variant], begin )
 
         if variant not in cls._finished:
-            cls._finished[variant] = progress( 'Finished', 'finished', sconscript, env['build_dir'], env )
+            cls._finished[variant] = progress( 'Finished', 'finished', sconscript, variant, env )
 
         finished = env.Depends(
                 cls._finished[variant],
