@@ -8,6 +8,8 @@
 #   CopyFilesAsMethod
 #-------------------------------------------------------------------------------
 
+import os.path
+
 from SCons.Script import Flatten
 
 import cuppa.progress
