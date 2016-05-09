@@ -10,7 +10,6 @@
 
 import cuppa.progress
 import os.path
-from SCons.Script import Flatten
 
 
 class BuildMethod:
