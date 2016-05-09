@@ -11,7 +11,6 @@
 import sys
 import os
 import xmlrpclib
-import pip
 from pkg_resources import parse_version
 
 from cuppa.colourise import as_info, as_warning, as_emphasised
