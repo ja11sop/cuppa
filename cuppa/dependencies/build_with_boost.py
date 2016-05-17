@@ -37,7 +37,7 @@ class BoostException(Exception):
 
 
 def determine_latest_boost_verion():
-    current_release = "1.60.0"
+    current_release = "1.61.0"
     try:
         html = lxml.html.parse('http://www.boost.org/users/download/')
 
