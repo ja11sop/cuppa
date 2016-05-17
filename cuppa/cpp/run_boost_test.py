@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2015-2015
+#          Copyright Jamie Allsop 2015-2016
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -40,8 +40,21 @@ class Notify(object):
             as_emphasised( "\nTest Suite Finished [%s] " % suite['name'] )
         )
 
+        passed_tests      = suite['passed_tests']
+        failed_tests      = suite['failed_tests']
+        expected_failures = suite['expected_failures']
+        skipped_tests     = suite['skipped_tests']
+        aborted_tests     = suite['aborted_tests']
+        total_assertions  = suite['total_assertions']
+        passed_assertions = suite['passed_assertions']
+        warned_assertions = suite['warned_assertions']
+        failed_assertions = suite['failed_assertions']
+
         label   = suite['status'].upper()
         meaning = suite['status']
+
+        if meaning == 'passed' and warned_assertions:
+            meaning = 'warning'
 
         sys.stdout.write(
             as_highlighted( meaning, " = {} = ".format( suite['status'].upper() ) )
@@ -67,23 +80,22 @@ class Notify(object):
 
         cuppa.timer.write_time( suite['total_cpu_times'] )
 
-        passed_tests      = suite['passed_tests']
-        failed_tests      = suite['failed_tests']
-        expected_failures = suite['expected_failures']
-        skipped_tests     = suite['skipped_tests']
-        aborted_tests     = suite['aborted_tests']
-        total_assertions  = suite['total_assertions']
-        passed_assertions = suite['passed_assertions']
-        failed_assertions = suite['failed_assertions']
-
         if total_assertions > 0:
             if suite['status'] == 'passed':
-                sys.stdout.write(
-                    as_highlighted(
-                        meaning,
-                        " ( %s of %s Assertions Passed )" % (passed_assertions, total_assertions)
+                if not warned_assertions:
+                    sys.stdout.write(
+                        as_highlighted(
+                            meaning,
+                            " ( %s of %s Assertions Passed )" % (passed_assertions, total_assertions)
+                        )
                     )
-                )
+                else:
+                    sys.stdout.write(
+                        as_highlighted(
+                            meaning,
+                            " ( %s Passed + %s Warned out of %s Assertions Passed )" % (passed_assertions, warned_assertions, total_assertions)
+                        )
+                    )
             else:
                 sys.stdout.write(
                     as_highlighted(
@@ -147,12 +159,19 @@ class Notify(object):
                 )
             )
 
-        sys.stdout.write('\n\n')
+        sys.stdout.write( '\n\n')
 
 
     def _write_test_case( self, test_case ):
         label   = test_case['status']
         meaning = test_case['status']
+
+        assertions = test_case['total']
+        passed     = test_case['passed']
+        warned     = test_case['warned']
+        failed     = test_case['failed']
+
+        meaning = ( meaning == 'passed' and warned ) and 'warning' or 'passed'
 
         sys.stdout.write(
             as_highlighted( meaning, " = %s = " % label )
@@ -160,15 +179,18 @@ class Notify(object):
 
         cuppa.timer.write_time( test_case['cpu_times'] )
 
-        assertions = test_case['total']
-        passed     = test_case['passed']
-        failed     = test_case['failed']
-
-        if test_case['status'] == 'passed' and passed > 0:
+        if test_case['status'] == 'passed' and passed and not warned:
             sys.stdout.write(
                 as_colour(
                     meaning,
                     " ( %s of %s Assertions Passed )" % ( passed, assertions )
+                )
+            )
+        elif test_case['status'] == 'passed' and warned:
+            sys.stdout.write(
+                as_colour(
+                    meaning,
+                    " ( %s Passed + %s Warned out of %s Assertions )" % ( passed, warned, assertions )
                 )
             )
 
@@ -199,31 +221,30 @@ class Notify(object):
         self._write_test_case( test )
 
 
-    def failed_assertion(self, line ):
+    def display_assertion(self, line, level ):
 
-        def start_error():
-            return start_colour( "error" )
+        def start( level ):
+            return start_colour( level )
 
         matches = re.match(
             r'(?P<file>[a-zA-Z0-9._/\s\-]+)[(](?P<line>[0-9]+)[)]: '
-             '(?P<message>[a-zA-Z0-9(){}:&_<>/\-=!," \[\]]+)',
+             '(?P<message>[a-zA-Z0-9(){}:%.*&_<>/\-+=!," \[\]]+)',
             line )
 
         if matches:
             path = matches.group( 'file' )
             line = matches.group( 'line' )
             message = matches.group( 'message')
-
-            error = self._toolchain.error_format()
-            sys.stdout.write( error.format(
-                    start_error() + as_emphasised( path ) + start_error(),
-                    as_emphasised( line ) + start_error(),
+            display = self._toolchain.error_format()
+            sys.stdout.write( display.format(
+                    start(level) + as_emphasised( path ) + start(level),
+                    as_emphasised( line ) + start(level),
                     message + colour_reset()
                 ) + "\n"
             )
         else:
             sys.stdout.write(
-                as_colour( "error", line ) + "\n"
+                as_colour( level, line ) + "\n"
             )
 
 
@@ -271,6 +292,7 @@ class ProcessStdout:
             self.test_suites[self.suite]['aborted_tests']     = 0
             self.test_suites[self.suite]['total_assertions']  = 0
             self.test_suites[self.suite]['passed_assertions'] = 0
+            self.test_suites[self.suite]['warned_assertions'] = 0
             self.test_suites[self.suite]['failed_assertions'] = 0
 
             self.test_suites[self.suite]['total_cpu_times']   = cuppa.timer.CpuTimes( 0, 0, 0, 0 )
@@ -338,6 +360,7 @@ class ProcessStdout:
             test_case['total']      = 0
             test_case['assertions'] = 0
             test_case['passed']     = 0
+            test_case['warned']     = 0
             test_case['failed']     = 0
             test_case['skipped']    = False
             test_case['aborted']    = 0
@@ -388,21 +411,30 @@ class ProcessStdout:
         is_assertion = False
         write_line = True
 
-        matches = re.match(
-                r'.*\s(?P<status>passed|failed)(\s[\[][^\[\]]+[\]])?$',
-                line.strip() )
+        # [a-zA-Z0-9(){}:%.*&_<>/\-+=\'!," \[\]]
+        matches = re.match( r'[^:]*[:]\s(?P<level>info|warning|error|fatal)[ :].*', line.strip() )
 
         if matches:
             is_assertion = True
             write_line = False
-            status = matches.group('status')
+            status = 'failed'
+            level = matches.group('level')
+            if level == "error" or level == "fatal":
+                status = 'failed'
+            elif level == "warning":
+                status = 'warned'
+            elif level == "info":
+                status = 'passed'
+
             test_case['assertions'] = test_case['assertions'] + 1
             test_case[status] = test_case[status] + 1
+
+            if level == 'warning':
+                write_line = True
+                self.notify.display_assertion( line, "warning" )
             if status == 'failed':
                 write_line = True
-                self.notify.failed_assertion(line)
-
-
+                self.notify.display_assertion( line, "error" )
 
         return is_assertion, write_line
 
@@ -430,8 +462,8 @@ class ProcessStdout:
 
         elif self.state == State.test_case:
             is_assertion, write_line = self.handle_assertion( line )
-            if write_line:
-                self.log.write( line + '\n' )
+            #if write_line:
+            self.log.write( line + '\n' )
             if not is_assertion:
                 if self.leaving_test_case( line ):
                     self.state = State.test_suite
@@ -474,6 +506,7 @@ class ProcessStdout:
 
         test_suite['total_assertions']  = test_suite['total_assertions'] + test['total']
         test_suite['passed_assertions'] = test_suite['passed_assertions'] + test['passed'] + test['skipped']
+        test_suite['warned_assertions'] = test_suite['warned_assertions'] + test['warned']
         test_suite['failed_assertions'] = test_suite['failed_assertions'] + test['failed'] + test['aborted']
 
         test_suite['total_cpu_times'] += test['cpu_times']

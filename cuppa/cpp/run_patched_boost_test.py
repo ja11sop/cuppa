@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2015
+#          Copyright Jamie Allsop 2011-2016
 #          Copyright Declan Traynor 2012
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
@@ -40,8 +40,22 @@ class Notify(object):
             as_emphasised( "\nTest Suite Finished [%s] " % suite['name'] )
         )
 
+        total_tests       = int(suite['total_tests'])
+        passed_tests      = int(suite['passed_tests'])
+        failed_tests      = int(suite['failed_tests'])
+        expected_failures = int(suite['expected_failures'])
+        skipped_tests     = int(suite['skipped_tests'])
+        aborted_tests     = int(suite['aborted_tests'])
+        total_assertions  = int(suite['total_assertions'])
+        passed_assertions = int(suite['passed_assertions'])
+        warned_assertions = int(suite['warned_assertions'])
+        failed_assertions = int(suite['failed_assertions'])
+
         label   = suite['status'].upper()
         meaning = suite['status']
+
+        if meaning == 'passed' and warned_assertions:
+            meaning = 'warning'
 
         store_durations( suite )
 
@@ -51,24 +65,22 @@ class Notify(object):
 
         self.__write_time( suite )
 
-        total_tests       = int(suite['total_tests'])
-        passed_tests      = int(suite['passed_tests'])
-        failed_tests      = int(suite['failed_tests'])
-        expected_failures = int(suite['expected_failures'])
-        skipped_tests     = int(suite['skipped_tests'])
-        aborted_tests     = int(suite['aborted_tests'])
-        total_assertions  = int(suite['total_assertions'])
-        passed_assertions = int(suite['passed_assertions'])
-        failed_assertions = int(suite['failed_assertions'])
-
         if total_assertions > 0:
             if suite['status'] == 'passed':
-                sys.stdout.write(
-                    as_highlighted(
-                        meaning,
-                        " ( %s of %s Assertions Passed )" % (passed_assertions, total_assertions)
+                if not warned_assertions:
+                    sys.stdout.write(
+                        as_highlighted(
+                            meaning,
+                            " ( %s of %s Assertions Passed )" % (passed_assertions, total_assertions)
+                        )
                     )
-                )
+                else:
+                    sys.stdout.write(
+                        as_highlighted(
+                            meaning,
+                            " ( %s Passed + %s Warned out of %s Assertions Passed )" % (passed_assertions, warned_assertions, total_assertions)
+                        )
+                    )
             else:
                 sys.stdout.write(
                     as_highlighted(
@@ -145,21 +157,31 @@ class Notify(object):
         label   = test_case['status']
         meaning = test_case['status']
 
+        assertions = int(test_case['total'])
+        passed     = int(test_case['passed'])
+        warned     = int(test_case['warned'])
+        failed     = int(test_case['failed'])
+
+        meaning = ( meaning == 'passed' and warned ) and 'warning' or 'passed'
+
         sys.stdout.write(
             as_highlighted( meaning, " = %s = " % label )
         )
 
         self.__write_time( test_case )
 
-        assertions = int(test_case['total'])
-        passed     = int(test_case['passed'])
-        failed     = int(test_case['failed'])
-
-        if test_case['status'] == 'passed' and passed > 0:
+        if test_case['status'] == 'passed' and passed and not warned:
             sys.stdout.write(
                 as_colour(
                     meaning,
                     " ( %s of %s Assertions Passed )" % ( passed, assertions )
+                )
+            )
+        elif test_case['status'] == 'passed' and warned:
+            sys.stdout.write(
+                as_colour(
+                    meaning,
+                    " ( %s Passed + %s Warned out of %s Assertions )" % ( passed, warned, assertions )
                 )
             )
 
@@ -259,6 +281,7 @@ class ProcessStdout:
             self._test_suites[self.suite]['aborted_tests']     = 0
             self._test_suites[self.suite]['total_assertions']  = 0
             self._test_suites[self.suite]['passed_assertions'] = 0
+            self._test_suites[self.suite]['warned_assertions'] = 0
             self._test_suites[self.suite]['failed_assertions'] = 0
 
             self._notify.enter_suite(self.suite)
@@ -308,6 +331,7 @@ class ProcessStdout:
             self._test_cases[ self._test ]['total']      = 0
             self._test_cases[ self._test ]['assertions'] = 0
             self._test_cases[ self._test ]['passed']     = 0
+            self._test_cases[ self._test ]['warned']     = 0
             self._test_cases[ self._test ]['failed']     = 0
             self._notify.enter_test(self._test)
             return True
