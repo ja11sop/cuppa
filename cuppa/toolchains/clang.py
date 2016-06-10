@@ -92,6 +92,7 @@ class Clang(object):
     def supported_versions( cls ):
         return [
             "clang",
+            "clang39",
             "clang38",
             "clang37",
             "clang36",
@@ -398,6 +399,8 @@ class Clang(object):
             CommonCxxFlags += [ '-std=c++11' ]
         elif re.match( 'clang3[4-8]', version ):
             CommonCxxFlags += [ '-std=c++1y' ]
+        elif re.match( 'clang3[9]', version ):
+            CommonCxxFlags += [ '-std=c++1z' ]
 
         self.values['debug_cxx_flags']     = CommonCxxFlags + []
         self.values['release_cxx_flags']   = CommonCxxFlags + [ '-O3', '-DNDEBUG' ]
