@@ -607,6 +607,7 @@ def boost_dependency_order():
         'log_setup',
         'log',
         'date_time',
+        'locale',
         'filesystem',
         'test',
         'timer',
@@ -627,7 +628,6 @@ def boost_libraries_with_no_dependencies():
         'exception',
         'graph_parallel',
         'iostreams',
-        'locale',
         'math',
         'mpi',
         'program_options',
@@ -661,6 +661,8 @@ def add_dependent_libraries( boost, linktype, libraries ):
             required_libraries.update( ['system'] )
         elif library == 'graph':
             required_libraries.update( ['regex'] )
+        elif library == 'locale':
+            required_libraries.update( ['filesystem', 'system'] )
         elif library == 'log':
             required_libraries.update( ['date_time', 'filesystem', 'system', 'thread'] )
         elif library == 'log_setup':
