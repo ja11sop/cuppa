@@ -793,7 +793,7 @@ class BoostLibraryAction(object):
 
         toolset = toolset_from_toolchain( toolchain )
 
-        command_line = "{bjam}{verbose} -j {jobs}{with_libraries} toolset={toolset} variant={variant} {address_model} {architecture} {windows_api} {build_flags} link={linktype} --build-dir=.{path_sep}{build_dir} stage --stagedir=.{path_sep}{stage_dir}".format(
+        command_line = "{bjam}{verbose} -j {jobs}{with_libraries} toolset={toolset} variant={variant} {address_model} {architecture} {windows_api} {build_flags} link={linktype} --build-dir=.{path_sep}{build_dir} stage --stagedir=.{path_sep}{stage_dir} --ignore-site-config".format(
                 bjam            = bjam,
                 verbose         = verbose,
                 jobs            = jobs,
