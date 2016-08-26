@@ -82,6 +82,7 @@ class ReportDownloadProgress(object):
 
 class Location(object):
 
+    url_replacement_char = r'_'
 
     def get_cached_archive( self, cache_root, path ):
         logger.debug( "Checking for cached archive [{}]...".format( as_info( path ) ) )
@@ -146,10 +147,10 @@ class Location(object):
             return isinstance( path, urlparse.ParseResult )
 
         def name_from_url( url ):
-            return '#'.join( [ url.scheme, url.netloc, urllib.unquote( url.path ) ] )
+            return self.url_replacement_char.join( [ url.scheme, url.netloc, urllib.unquote( url.path ) ] )
 
         def short_name_from_url( url ):
-            return re.sub( r'[\\/+:() ]', r'#', urllib.unquote( url.path ) )
+            return re.sub( r'[\\/+:() ]', self.url_replacement_char, urllib.unquote( url.path ) )
 
         def name_from_path( path ):
             folder_name = os.path.splitext( path_leaf( path ) )[0]
@@ -159,7 +160,7 @@ class Location(object):
             return folder_name
 
         local_folder = is_url( path ) and name_from_url( path ) or name_from_path( path )
-        local_folder = re.sub( r'[\\/+:() ]', r'#', local_folder )
+        local_folder = re.sub( r'[\\/+:() ]', self.url_replacement_char, local_folder )
 
         if platform.system() == "Windows":
             # Windows suffers from MAX_PATH limitations so we'll use a hash to shorten the name
