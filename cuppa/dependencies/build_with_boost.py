@@ -662,7 +662,7 @@ def add_dependent_libraries( boost, linktype, libraries ):
         elif library == 'graph':
             required_libraries.update( ['regex'] )
         elif library == 'locale':
-            required_libraries.update( ['filesystem', 'system'] )
+            required_libraries.update( ['filesystem', 'system', 'thread'] )
         elif library == 'log':
             required_libraries.update( ['date_time', 'filesystem', 'system', 'thread'] )
         elif library == 'log_setup':
