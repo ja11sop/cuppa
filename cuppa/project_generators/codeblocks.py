@@ -200,6 +200,7 @@ class Codeblocks(object):
     def update( self, env, project, toolchain, variant, build_root, working_dir, final_dir_offset ):
 
         logger.debug( "Update project [{}] for [{}, {}]".format( as_notice( project ), as_notice( toolchain) , as_notice( variant ) ) )
+        logger.trace( "Update project [{}] working_dir [{}], final_dir [{}]".format( as_notice( project ), as_notice( working_dir) , as_notice( final_dir_offset ) ) )
 
         if project not in self._projects:
 
@@ -232,15 +233,6 @@ class Codeblocks(object):
             self._projects[project]['path']          = os.path.join( os.getcwd(), directory )
             self._projects[project]['execution_dir'] = execution_dir
             self._projects[project]['project_file']  = project_file
-            self._projects[project]['working_dir']   = os.path.join( execution_dir, working_dir )
-
-            self._projects[project]['final_dir']     = os.path.normpath(
-                                                            os.path.join(
-                                                                self._projects[project]['working_dir'],
-                                                                final_dir_offset
-                                                            )
-                                                       )
-
             self._projects[project]['variants']      = set()
             self._projects[project]['toolchains']    = set()
             self._projects[project]['files']         = set()
@@ -250,7 +242,7 @@ class Codeblocks(object):
 
         if not self._projects[project]['lines_header']:
             self._projects[project]['lines_header'] = self.create_header( self._projects[project]['title'],
-                                                                          execution_dir )
+                                                                          self._projects[project]['execution_dir'] )
 
         if not self._projects[project]['lines_footer']:
             self._projects[project]['lines_footer'] = self.create_footer()
@@ -258,6 +250,9 @@ class Codeblocks(object):
         self._projects[project]['variants'].add( variant )
         self._projects[project]['toolchains'].add( toolchain )
 
+        working_dir_path = os.path.join( self._projects[project]['execution_dir'], working_dir )
+
+        final_dir_path = os.path.normpath( os.path.join( working_dir_path, final_dir_offset ) )
 
         target = "{}-{}".format( toolchain, variant )
 
@@ -274,8 +269,8 @@ class Codeblocks(object):
                         toolchain,
                         variant,
                         action,
-                        self._projects[project]['working_dir'],
-                        self._projects[project]['final_dir'] )
+                        working_dir_path,
+                        final_dir_path )
 
 
     def write( self, project ):
