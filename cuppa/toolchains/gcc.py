@@ -43,6 +43,7 @@ class Gcc(object):
         return [
             "gcc",
             "gcc6",
+            "gcc63",
             "gcc62",
             "gcc61",
             "gcc5",
@@ -372,7 +373,7 @@ class Gcc(object):
             CommonCxxFlags += [ '-std=c++1y' ]
         elif re.match( 'gcc5[2-4]', toolchain ):
             CommonCxxFlags += [ '-std=c++1z' ]
-        elif re.match( 'gcc6[0-2]', toolchain ):
+        elif re.match( 'gcc6[0-3]', toolchain ):
             CommonCxxFlags += [ '-std=c++1z' ]
 
         self.values['debug_cxx_flags']    = CommonCxxFlags + []
@@ -419,7 +420,7 @@ class Gcc(object):
             return '-std=c++1y'
         elif re.match( 'gcc5[2-4]', self._reported_version ):
             return '-std=c++1z'
-        elif re.match( 'gcc6[0-2]', self._reported_version ):
+        elif re.match( 'gcc6[0-3]', self._reported_version ):
             return '-std=c++1z'
 
 
