@@ -438,6 +438,9 @@ class Construct(object):
             for dependency in dependencies.itervalues():
                 dependency.add_options( SCons.Script.AddOption )
 
+        for dependency_plugin in pkg_resources.iter_entry_points( group='cuppa.dependency.plugins', name=None ):
+                dependency_plugin.load().add_options( SCons.Script.AddOption )
+
 #        cuppa.cpp.stdcpp.add_options( SCons.Script.AddOption )
 
 
@@ -630,6 +633,9 @@ class Construct(object):
 
                 for method_plugin in pkg_resources.iter_entry_points( group='cuppa.method.plugins', name=None ):
                     method_plugin.load().add_to_env( cuppa_env )
+
+                for dependency_plugin in pkg_resources.iter_entry_points( group='cuppa.dependency.plugins', name=None ):
+                    dependency_plugin.load().add_to_env( cuppa_env, add_dependency )
 
                 if dependencies:
                     for name, dependency in dependencies.iteritems():
