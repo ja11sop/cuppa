@@ -81,9 +81,10 @@ class IncrementalSubProcess:
         sys.stderr = AutoFlushFile( colorama.initialise.wrapped_stderr )
 
         try:
+            close_fds = platform.system() == "Windows" and False or True
             process = subprocess.Popen(
                 args_list,
-                **kwargs
+                **dict( kwargs, close_fds=clse_fds )
             )
 
             stderr_consumer = LineConsumer( process.stderr.readline, stderr_processor )
