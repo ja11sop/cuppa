@@ -21,7 +21,7 @@ class CopyFilesAsMethod:
 
         destinations = []
         for destination in Flatten([target]):
-            if not os.path.isabs( destination ):
+            if destination[0] != '#' and not os.path.isabs( destination ):
                 destination = os.path.join( env['abs_final_dir'], destination )
             destinations.append( destination )
 
