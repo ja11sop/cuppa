@@ -927,7 +927,16 @@ class Construct(object):
             sconscript_env['sconscript_toolchain_build_dir'] = os.path.join( path_without_ext, toolchain.name() )
             sconscript_env['sconscript_dir']   = os.path.join( sconscript_env['base_path'], sconstruct_offset_path )
             sconscript_env['tool_variant_dir'] = os.path.join( toolchain.name(), variant, target_arch, abi )
-            sconscript_env['build_dir']        = os.path.normpath( os.path.join( build_root, path_without_ext, sconscript_env['tool_variant_dir'], 'working', '' ) )
+
+            build_base_path = os.path.join( path_without_ext, sconscript_env['tool_variant_dir'] )
+
+            def flatten_dir( directory, join_char='_' ):
+                return "_".join( directory.split( os.path.sep ) )
+
+            sconscript_env['build_base_path']  = build_base_path
+            sconscript_env['flat_build_base']  = flatten_dir( build_base_path )
+
+            sconscript_env['build_dir']        = os.path.normpath( os.path.join( build_root, build_base_path, 'working', '' ) )
             sconscript_env['abs_build_dir']    = os.path.abspath( sconscript_env['build_dir'] )
             sconscript_env['offset_dir']       = sconstruct_offset_path
             sconscript_env['final_dir']        = '..' + os.path.sep + 'final' + os.path.sep
@@ -936,7 +945,7 @@ class Construct(object):
             def abs_final_dir( abs_build_dir, final_dir ):
                 return os.path.isabs( final_dir ) and final_dir or os.path.normpath( os.path.join( abs_build_dir, final_dir ) )
 
-            sconscript_env['abs_final_dir'] = abs_final_dir( sconscript_env['abs_build_dir'], sconscript_env['final_dir'] )
+            sconscript_env['abs_final_dir']  = abs_final_dir( sconscript_env['abs_build_dir'], sconscript_env['final_dir'] )
 
             sconscript_env.AppendUnique( INCPATH = [
                     sconscript_env['offset_dir']
