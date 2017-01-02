@@ -16,7 +16,7 @@ with open( 'README.rst' ) as readme_file:
 
 setup(
     name             = 'cuppa',
-    version          = cuppa.version.get_version(),
+    version          = cuppa.utility.get_version(),
     description      = 'Cuppa, an extension package to simplify and extend Scons',
     author           = 'ja11sop',
     url              = 'https://github.com/ja11sop/cuppa',

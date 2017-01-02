@@ -7,23 +7,12 @@
 #   version.py
 #-------------------------------------------------------------------------------
 
-
-import sys
-import os
 import xmlrpclib
 from pkg_resources import parse_version
 
 from cuppa.colourise import as_info, as_warning, as_emphasised
 from cuppa.log import logger
-
-
-def get_version():
-    module = sys.modules[__name__]
-    if not hasattr( module, '_version' ):
-        version_path = os.path.join( os.path.split( __file__ )[0], 'VERSION' )
-        with open( version_path ) as version_file:
-            module._version = version_file.read().strip()
-    return module._version
+from cuppa.utility.version import get_version
 
 
 def check_current_version():
