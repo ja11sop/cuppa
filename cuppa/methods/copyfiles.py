@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2016
+#          Copyright Jamie Allsop 2016-2017
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -9,16 +9,22 @@
 #-------------------------------------------------------------------------------
 
 import os.path
+
+from cuppa.utility.filter import filter_nodes
+
 import cuppa.progress
 
 
 class CopyFilesMethod:
 
-    def __call__( self, env, target, source ):
+    def __call__( self, env, target, source, match=None, exclude=None ):
         destination = target
         if destination[0] != '#' and not os.path.isabs( destination ):
             destination = os.path.join( env['abs_final_dir'], destination )
-        installed_files = env.Install( destination, source )
+
+        filtered_nodes = filter_nodes( source, match, exclude )
+
+        installed_files = env.Install( destination, filtered_nodes )
         cuppa.progress.NotifyProgress.add( env, installed_files )
         return installed_files
 

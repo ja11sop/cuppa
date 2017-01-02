@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2016
+#          Copyright Jamie Allsop 2016-2017
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -12,12 +12,14 @@ import os.path
 
 from SCons.Script import Flatten
 
+from cuppa.utility.filter import filter_nodes
+
 import cuppa.progress
 
 
 class CopyFilesAsMethod:
 
-    def __call__( self, env, target, source ):
+    def __call__( self, env, target, source, match=None, exclude=None ):
 
         destinations = []
         for destination in Flatten([target]):
@@ -25,7 +27,9 @@ class CopyFilesAsMethod:
                 destination = os.path.join( env['abs_final_dir'], destination )
             destinations.append( destination )
 
-        installed_files = env.InstallAs( destinations, source )
+        filtered_nodes = filter_nodes( source, match, exclude )
+
+        installed_files = env.InstallAs( destinations, filtered_nodes )
         cuppa.progress.NotifyProgress.add( env, installed_files )
         return installed_files
 
