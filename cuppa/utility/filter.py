@@ -9,10 +9,8 @@
 
 import fnmatch
 import re
-import os
 
 from cuppa.utility.types import is_string
-import cuppa.progress
 
 from SCons.Script import Flatten
 

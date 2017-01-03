@@ -8,10 +8,6 @@
 #   FilterMethod
 #-------------------------------------------------------------------------------
 
-import fnmatch
-import re
-import os
-
 import cuppa.utility
 import cuppa.progress
 from cuppa.utility.filter import filter_nodes
