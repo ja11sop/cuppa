@@ -11,20 +11,21 @@ import fnmatch
 import re
 import os
 
-import cuppa.utility
+from cuppa.utility.types import is_string
+
 
 
 def glob( start, file_pattern, exclude_dirs_pattern=None, discard_pattern=None ):
 
-    if cuppa.utility.is_string( file_pattern ):
+    if is_string( file_pattern ):
         file_pattern = re.compile( fnmatch.translate( file_pattern ) )
 
     if exclude_dirs_pattern:
-        if cuppa.utility.is_string( exclude_dirs_pattern ):
+        if is_string( exclude_dirs_pattern ):
             exclude_dirs_pattern = re.compile( fnmatch.translate( exclude_dirs_pattern ) )
 
     if discard_pattern:
-        if cuppa.utility.is_string( discard_pattern ):
+        if is_string( discard_pattern ):
             discard_pattern = re.compile( fnmatch.translate( discard_pattern ) )
 
     matches = []
