@@ -7,13 +7,15 @@
 #-------------------------------------------------------------------------------
 #   BuildProfileMethod
 #-------------------------------------------------------------------------------
-import cuppa.utility
+
+from cuppa.utility.types import is_string
+
 
 class BuildProfileMethod:
 
     def __call__( self, env, build_profile ):
         for profile in build_profile:
-            if cuppa.utility.is_string( profile ):
+            if is_string( profile ):
                 name = profile
                 if name in env['profiles']:
                     profile = env['profiles'][name]
