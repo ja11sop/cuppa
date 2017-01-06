@@ -434,14 +434,28 @@ class Construct(object):
         cuppa.modules.registration.add_options( self.project_generators_key )
         cuppa.modules.registration.add_options( self.methods_key )
 
+        for method_plugin in pkg_resources.iter_entry_points( group='cuppa.method.plugins', name=None ):
+            try:
+                method_plugin.load().add_options( SCons.Script.AddOption )
+            except AttributeError:
+                pass
+
+        for profile_plugin in pkg_resources.iter_entry_points( group='cuppa.profile.plugins', name=None ):
+            try:
+                profile_plugin.load().add_options( SCons.Script.AddOption )
+            except AttributeError:
+                pass
+
         if dependencies:
             for dependency in dependencies.itervalues():
                 dependency.add_options( SCons.Script.AddOption )
 
         for dependency_plugin in pkg_resources.iter_entry_points( group='cuppa.dependency.plugins', name=None ):
+            try:
                 dependency_plugin.load().add_options( SCons.Script.AddOption )
+            except AttributeError:
+                pass
 
-#        cuppa.cpp.stdcpp.add_options( SCons.Script.AddOption )
 
 
     def print_construct_variables( self, env ):
@@ -633,6 +647,9 @@ class Construct(object):
 
                 for method_plugin in pkg_resources.iter_entry_points( group='cuppa.method.plugins', name=None ):
                     method_plugin.load().add_to_env( cuppa_env )
+
+                for profile_plugin in pkg_resources.iter_entry_points( group='cuppa.profile.plugins', name=None ):
+                    profile_plugin.load().add_to_env( cuppa_env )
 
                 for dependency_plugin in pkg_resources.iter_entry_points( group='cuppa.dependency.plugins', name=None ):
                     dependency_plugin.load().add_to_env( cuppa_env, add_dependency )
