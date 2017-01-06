@@ -171,7 +171,8 @@ class Notify(object):
         warned     = test_case['warned']
         failed     = test_case['failed']
 
-        meaning = ( meaning == 'passed' and warned ) and 'warning' or 'passed'
+        if meaning == 'passed' and warned:
+            meaning = warned
 
         sys.stdout.write(
             as_highlighted( meaning, " = %s = " % label )
