@@ -36,6 +36,7 @@ setup(
         'cuppa.test_report',
         'cuppa.toolchains',
         'cuppa.variants',
+        'cuppa.utility',
     ],
     package_data = {
         'cuppa': [
