@@ -29,13 +29,15 @@ class base(object):
     _default_sys_include = None
     _includes = None
     _sys_includes = None
+    _extra_sub_path = None
 
     @classmethod
     def add_options( cls, add_option ):
-        location_name    = cls._name + "-location"
-        branch_name      = cls._name + "-branch"
-        include_name     = cls._name + "-include"
-        sys_include_name = cls._name + "-sys-include"
+        location_name       = cls._name + "-location"
+        branch_name         = cls._name + "-branch"
+        include_name        = cls._name + "-include"
+        sys_include_name    = cls._name + "-sys-include"
+        extra_sub_path_name = cls._name + "-extra-sub-path"
 
         add_option( '--' + location_name, dest=location_name, type='string', nargs=1, action='store',
                     help = cls._name + ' location to build against' )
@@ -48,6 +50,9 @@ class base(object):
 
         add_option( '--' + sys_include_name, dest=sys_include_name, type='string', nargs=1, action='store',
                     help = cls._name + ' include sub-directory to be added to the system include path. Optional' )
+
+        add_option( '--' + extra_sub_path_name, dest=extra_sub_path_name, type='string', nargs=1, action='store',
+                    help = cls._name + ' extra (relative) sub path to locate the dependency. Optional' )
 
 
     @classmethod
@@ -80,11 +85,11 @@ class base(object):
             location = location_id[0]
             branch = location_id[1]
             try:
-                cls._cached_locations[location_id] = cuppa.location.Location( env, location, branch )
+                cls._cached_locations[location_id] = cuppa.location.Location( env, location, branch=branch, extra_sub_path=cls._extra_sub_path )
             except cuppa.location.LocationException as error:
                 logger.error(
-                        "Could not get location for [{}] at [{}] with branch [{}]. Failed with error [{}]"
-                        .format( as_notice( cls._name.title() ), as_notice( str(location) ), as_notice( str(branch) ), as_error( error ) )
+                        "Could not get location for [{}] at [{}] with branch [{}] and extra sub path [{}]. Failed with error [{}]"
+                        .format( as_notice( cls._name.title() ), as_notice( str(location) ), as_notice( str(branch) ), as_notice( str(cls._extra_sub_path) ), as_error( error ) )
                 )
                 return None
 
@@ -156,8 +161,8 @@ class base(object):
         return self._location.revisions()
 
 
-def location_dependency( name, include=None, sys_include=None ):
-    return type( 'BuildWith' + name.title(), ( base, ), { '_name': name, '_default_include': include, '_default_sys_include': sys_include } )
+def location_dependency( name, include=None, sys_include=None, extra_sub_path=None ):
+    return type( 'BuildWith' + name.title(), ( base, ), { '_name': name, '_default_include': include, '_default_sys_include': sys_include, '_extra_sub_path': extra_sub_path } )
 
 
 
