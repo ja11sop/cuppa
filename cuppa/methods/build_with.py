@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2015
+#          Copyright Jamie Allsop 2011-2017
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -22,22 +22,22 @@ class BuildWithMethod:
         if isinstance( build_with, basestring ):
             build_with = [ build_with ]
         for name in build_with:
-            if name in env['dependencies']:
-                dependency_factory = env['dependencies'][name]
-                if not dependency_factory:
-                    raise BuildWithException(
-                        "The sconscript [{}] requires the dependency [{}] but it is not available."
-                            .format( env['sconscript_file'], name )
-                    )
-                env.AppendUnique( BUILD_WITH = name )
-                dependency = dependency_factory( env )
-                if dependency:
-                    dependency( env, env['toolchain'], env['variant'].name() )
-                else:
-                    raise BuildWithException(
-                        "The sconscript [{}] requires the dependency [{}] but it cannot be created."
-                            .format( env['sconscript_file'], name )
-                    )
+            if not name in env['dependencies']:
+                raise BuildWithException(
+                    "The sconscript [{}] requires the dependency [{}] but it is not available."
+                        .format( env['sconscript_file'], name )
+                )
+
+            dependency_factory = env['dependencies'][name]
+            env.AppendUnique( BUILD_WITH = name )
+            dependency = dependency_factory( env )
+            if dependency:
+                dependency( env, env['toolchain'], env['variant'].name() )
+            else:
+                raise BuildWithException(
+                    "The sconscript [{}] requires the dependency [{}] but it cannot be created."
+                        .format( env['sconscript_file'], name )
+                )
 
 
     @classmethod
