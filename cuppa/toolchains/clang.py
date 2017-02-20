@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2014-2016
+#          Copyright Jamie Allsop 2014-2017
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -59,7 +59,9 @@ class Clang(object):
             reported_version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
             version = re.search( r'based on LLVM (\d)\.(\d)', reported_version )
             if not version:
-                version = re.search( r'clang version (\d)\.(\d+)', reported_version )
+                version = re.search( r'Apple LLVM version (\d)\.(\d)', reported_version )
+                if not version:
+                    version = re.search( r'clang version (\d)\.(\d+)', reported_version )
             reported_version = 'clang' + version.expand(r'\1\2')
             return reported_version
         return None
@@ -92,6 +94,8 @@ class Clang(object):
     def supported_versions( cls ):
         return [
             "clang",
+            "clang50",
+            "clang40",
             "clang39",
             "clang38",
             "clang37",
@@ -395,12 +399,7 @@ class Clang(object):
         if stdlib:
             CommonCxxFlags += [ "-stdlib={}".format(stdlib) ]
 
-        if re.match( 'clang3[2-3]', version ):
-            CommonCxxFlags += [ '-std=c++11' ]
-        elif re.match( 'clang3[4-8]', version ):
-            CommonCxxFlags += [ '-std=c++1y' ]
-        elif re.match( 'clang3[9]', version ):
-            CommonCxxFlags += [ '-std=c++1z' ]
+        CommonCxxFlags += [ self.__default_abi_flag( version ) ]
 
         self.values['debug_cxx_flags']     = CommonCxxFlags + []
         self.values['release_cxx_flags']   = CommonCxxFlags + [ '-O3', '-DNDEBUG' ]
@@ -438,18 +437,29 @@ class Clang(object):
                + source + ' > ' + source + '_summary.gcov'
 
 
+    def __default_abi_flag( self, name ):
+        if re.match( 'clang3[2-3]', name ):
+            return '-std=c++11'
+        elif re.match( 'clang3[4-8]', name ):
+            return '-std=c++1y'
+        elif re.match( 'clang3[9]', name ):
+            return '-std=c++1z'
+        elif re.match( 'clang4[0-9]', name ):
+            return '-std=c++1z'
+        elif re.match( 'clang5[0]', name ):
+            return '-std=c++1z'
+
+
     def abi_flag( self, env ):
         if env['stdcpp']:
             return '-std={}'.format(env['stdcpp'])
-        elif re.match( 'clang3[2-3]', self._name ):
-            return '-std=c++11'
-        elif re.match( 'clang3[4-8]', self._name ):
-            return '-std=c++1y'
-        elif re.match( 'clang3[9]', self._name ):
-            return '-std=c++1z'
+        else:
+            return self.__default_abi_flag( self._name )
+
 
     def abi( self, env ):
         return self.abi_flag( env ).split('=')[1]
+
 
     def stdcpp_flag_for( self, standard ):
         return "-std={}".format( standard )
