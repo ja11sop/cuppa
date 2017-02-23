@@ -199,12 +199,12 @@ class Location(object):
                     try:
                         os.rmdir( local_directory )
                     except:
-                        return local_directory, False
+                        return local_directory
 
                 self.extract( location, local_directory )
             else:
                 local_directory = branch and os.path.join( location, branch ) or location
-                return local_directory, False
+                return local_directory
         else:
 
             local_folder = self.folder_name_from_path( full_url )
@@ -213,7 +213,7 @@ class Location(object):
             if full_url.scheme.startswith( 'http' ) and self.url_is_download_archive_url( full_url.path ):
                 logger.debug( "[{}] is an archive download".format( as_info( location ) ) )
 
-                local_dir_with_sub_dir = os.path.join( local_directory, sub_dir )
+                local_dir_with_sub_dir = os.path.join( local_directory, sub_dir and sub_dir or "" )
 
                 # First we check to see if we already downloaded and extracted this archive before
                 if os.path.exists( local_dir_with_sub_dir ):
@@ -222,7 +222,7 @@ class Location(object):
                         os.rmdir( local_dir_with_sub_dir )
                     except:
                         # Not empty so we'll return this as the local_directory
-                        return local_directory, True
+                        return local_directory
 
                 # If not we then check to see if we cached the download
                 cached_archive = self.get_cached_archive( cuppa_env['cache_root'], local_folder )
@@ -263,7 +263,7 @@ class Location(object):
                     vcs_backend = backend( location )
                     rev_options = self.get_rev_options( vc_type, vcs_backend )
 
-                    local_dir_with_sub_dir = os.path.join( local_directory, sub_dir )
+                    local_dir_with_sub_dir = os.path.join( local_directory, sub_dir and sub_dir or "" )
 
                     if os.path.exists( local_directory ):
 
@@ -305,7 +305,7 @@ class Location(object):
                             ) )
                             raise LocationException( "Error obtaining [{}]: {}".format( location, error ) )
 
-            return local_directory, True
+            return local_directory
 
 
     def get_rev_options( self, vc_type, vcs_backend ):
@@ -370,7 +370,7 @@ class Location(object):
 
         self._location   = location
         self._full_url   = urlparse.urlparse( location )
-        self._sub_dir    = ""
+        self._sub_dir    = None
         self._name_hint  = name_hint
 
         if extra_sub_path:
@@ -382,10 +382,10 @@ class Location(object):
         ## Get the location for the source dependency. If the location is a URL or an Archive we'll need to
         ## retrieve the URL and extract the archive. get_local_directory() returns the location of the source
         ## once this is done
-        local_directory, use_sub_dir = self.get_local_directory( cuppa_env, location, self._sub_dir, branch, self._full_url )
+        local_directory = self.get_local_directory( cuppa_env, location, self._sub_dir, branch, self._full_url )
 
         self._base_local_directory = local_directory
-        self._local_directory = use_sub_dir and os.path.join( local_directory, self._sub_dir ) or local_directory
+        self._local_directory = self._sub_dir and os.path.join( local_directory, self._sub_dir ) or local_directory
 
         ## Now that we have a locally accessible version of the dependency we can try to collate some information
         ## about it to allow us to specify what we are building with.
