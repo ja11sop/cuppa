@@ -310,6 +310,19 @@ Build variants and the output from each `sconscript` is kept separate using the 
 
 If `<sconscript_name>` is "sconscript" then it is omitted from the path. The assumption is that a single `sconscript` file is being used for the given folder and therefore the folder name is sufficient to differentiate from other `sconscript`s.
 
+### New environment variables for paths
+
+**cuppa** provides several new variables in the default environment for defining search paths. These should be used in place of `CPPPATH` and `LIBPATH`.
+
+| Variable      | Usage |
+| ------------- | ----- |
+| `SYSINCPATH`  | List of system include paths. Depending on the toolchain, the compiler may intentially produce fewer diagnostic messages for includes found on this path. |
+| `INCPATH`     | List of regular include paths. |
+| `DYNAMICLIBS` | List of dynamic libraries to link against. |
+| `STATICLIBS`  | List of static libraries to link against. |
+
+> Note, don't append to `CPPPATH` or `LIBPATH` directly, instead use one of the 4 new variables.
+
 ### Using `--xxxx-conf` to show, save and udpate command-line choices
 
 **cuppa** allows you to save commonly used or local settings to a conf file so that they can be re-applied when you execute `scons` from anywhere in your Sconscript tree. The basic approach is to pass `--save-conf` along with the options you wish to save.

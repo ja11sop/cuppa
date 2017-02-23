@@ -18,8 +18,6 @@ class CompileMethod:
     def __call__( self, env, source, **kwargs ):
         sources = Flatten( [ source ] )
         objects = []
-        if 'CPPPATH' in env:
-            env.AppendUnique( INCPATH = env['CPPPATH'] )
 
         obj_suffix = env.subst('$OBJSUFFIX')
         for source in sources:
@@ -35,7 +33,6 @@ class CompileMethod:
                     env.Object(
                         source = source,
                         target = target,
-                        CPPPATH = env['SYSINCPATH'] + env['INCPATH'],
                         **kwargs ) )
 
         cuppa.progress.NotifyProgress.add( env, objects )

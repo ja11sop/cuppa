@@ -226,6 +226,7 @@ class Cl(object):
         env['_CPPINCFLAGS'] = self.values['_CPPINCFLAGS']
         env['INCPATH']      = [ '#.', '.' ]
         env['CPPDEFINES']   = []
+        env['CPPPATH']      = '${SYSINCPATH + INCPATH}'
         env['LIBS']         = []
         env['STATICLIBS']   = []
 
