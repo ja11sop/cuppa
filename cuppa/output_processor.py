@@ -83,8 +83,8 @@ class IncrementalSubProcess:
         try:
             close_fds = platform.system() == "Windows" and False or True
             process = subprocess.Popen(
-                args_list,
-                **dict( kwargs, close_fds=close_fds )
+                " ".join(args_list),
+                **dict( kwargs, close_fds=close_fds, shell=True )
             )
 
             stderr_consumer = LineConsumer( process.stderr.readline, stderr_processor )
