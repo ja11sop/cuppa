@@ -43,7 +43,7 @@ class RecursiveGlobMethod:
             exclude_dirs_regex = re.compile( exclude_dirs )
 
         matches = cuppa.recursive_glob.glob( start, pattern, exclude_dirs_pattern=exclude_dirs_regex )
-        nodes   = [ env.File( os.path.relpath( match, env['sconscript_dir'] ) ) for match in matches ]
+        nodes   = [ env.File( match ) for match in matches ]
         return nodes
 
     @classmethod
