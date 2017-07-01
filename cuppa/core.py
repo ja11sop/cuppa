@@ -526,6 +526,7 @@ class Construct(object):
 
 
     def __init__( self,
+                  sconstruct_path,
                   base_path            = os.path.abspath( '.' ),
                   branch_root          = None,
                   default_options      = {},
@@ -551,12 +552,8 @@ class Construct(object):
 
         self._set_verbosity_level( cuppa_env )
 
-        cuppa_env['sconstruct_file'] = cuppa_env.get_option( 'file' )
-
-        if not cuppa_env['sconstruct_file']:
-            for path in [ 'SConstruct', 'Sconstruct', 'sconstruct' ]:
-                if os.path.exists( path ):
-                    cuppa_env['sconstruct_file'] = path
+        cuppa_env['sconstruct_path'] = sconstruct_path
+        cuppa_env['sconstruct_file'] = os.path.split(sconstruct_path)[1]
 
         self._set_output_format( cuppa_env )
 
