@@ -116,7 +116,7 @@ class Gcc(object):
                 if not major and not minor:
                     default_ver, default_cxx = cls.default_version()
                     if default_ver:
-                        path = cuppa.build_platform.which( "g++" )
+                        path = cuppa.build_platform.where_is( "g++" )
                         cls._available_versions[version] = {
                                 'cxx_version': default_cxx,
                                 'version': default_ver,
@@ -132,7 +132,7 @@ class Gcc(object):
                     cxx = "g++{}".format( cxx_version )
                     reported_version = cls.version_from_command( cxx )
                     if reported_version:
-                        cxx_path = cuppa.build_platform.which( cxx )
+                        cxx_path = cuppa.build_platform.where_is( cxx )
                         cls._available_versions[version] = {
                                 'cxx_version': cxx_version,
                                 'version': reported_version,
@@ -149,7 +149,7 @@ class Gcc(object):
                     reported_version = cls.version_from_command( cxx )
                     if reported_version:
                         if version == reported_version:
-                            cxx_path = cuppa.build_platform.which( cxx )
+                            cxx_path = cuppa.build_platform.where_is( cxx )
                             cls._available_versions[version] = {
                                     'cxx_version': cxx_version,
                                     'version': reported_version,

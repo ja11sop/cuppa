@@ -16,6 +16,9 @@ import os.path
 # Custom
 import cuppa.modules.registration
 
+#SCons
+from SCons.Util import WhereIs
+
 from cuppa.platforms import *
 
 
@@ -59,17 +62,11 @@ class Platform(object):
         return cls._platform
 
 
-def which( program ):
-    exe = 'which'
-    if platform.system() == "Windows":
-        exe = 'where.exe'
-    command = "{} {}".format( exe, program )
-    try:
-        path = subprocess.check_output( shlex.split( command ) )
-        return os.path.dirname( path )
-    except subprocess.CalledProcessError as error:
-        print "ERROR calling command \"{}\"; Failed with error: {}".format( command, str(error) )
-    return None
+def where_is( program ):
+    path = WhereIs( program )
+    if path:
+        path = os.path.dirname( path )
+    return path
 
 
 def name():
