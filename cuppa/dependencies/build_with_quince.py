@@ -105,8 +105,9 @@ class build_with_quince(object):
         ] )
 
 
-    def name( self ):
-        return self._name
+    @classmethod
+    def name( cls ):
+        return cls._name
 
     def version( self ):
         return str(self._location.version())
@@ -235,8 +236,9 @@ class quince_postgresql(object):
         ] )
 
 
-    def name( self ):
-        return self._name
+    @classmethod
+    def name( cls ):
+        return cls._name
 
     def version( self ):
         return str(self._location.version())
@@ -354,8 +356,9 @@ class quince_sqlite(object):
         ] )
 
 
-    def name( self ):
-        return self._name
+    @classmethod
+    def name( cls ):
+        return cls._name
 
     def version( self ):
         return str(self._location.version())

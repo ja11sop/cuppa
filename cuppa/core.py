@@ -33,6 +33,7 @@ import cuppa.version
 
 from cuppa.colourise import colouriser, as_emphasised, as_info, as_error, as_notice, colour_items
 from cuppa.log import initialise_logging, set_logging_level, reset_logging_format, logger
+from cuppa.utility.types import is_string
 
 from cuppa.toolchains             import *
 from cuppa.methods                import *
@@ -425,7 +426,7 @@ class Construct(object):
 
 
 
-    def initialise_options( self, options, default_options, dependencies ):
+    def initialise_options( self, options, default_options, profiles, dependencies ):
         options['default_options'] = default_options or {}
         # env.AddMethod( self.get_option, "get_option" )
         add_base_options()
@@ -441,6 +442,10 @@ class Construct(object):
             except AttributeError:
                 pass
 
+        if profiles:
+            for profile in profiles:
+                profile.add_options( SCons.Script.AddOption )
+
         for profile_plugin in pkg_resources.iter_entry_points( group='cuppa.profile.plugins', name=None ):
             try:
                 profile_plugin.load().add_options( SCons.Script.AddOption )
@@ -448,7 +453,7 @@ class Construct(object):
                 pass
 
         if dependencies:
-            for dependency in dependencies.itervalues():
+            for dependency in dependencies:
                 dependency.add_options( SCons.Script.AddOption )
 
         for dependency_plugin in pkg_resources.iter_entry_points( group='cuppa.dependency.plugins', name=None ):
@@ -525,6 +530,32 @@ class Construct(object):
             reset_logging_format()
 
 
+    @classmethod
+    def _normalise_with_defaults( cls, values, default_values ):
+
+        default_value_objects = []
+        default_value_names = []
+
+        for value in default_values:
+            if not is_string( value ):
+                default_value_objects.append( value )
+                try:
+                    name = getattr( value, 'name' )
+                    if callable( name ):
+                        default_value_names.append( name() )
+                    else:
+                        default_value_names.append( value.__name__ )
+                except:
+                    default_value_names.append( value.__name__ )
+            else:
+                default_value_names.append( value )
+
+        default_values = default_value_names
+        values = values + default_value_objects
+
+        return values, default_values
+
+
     def __init__( self,
                   sconstruct_path,
                   base_path            = os.path.abspath( '.' ),
@@ -534,10 +565,10 @@ class Construct(object):
                   default_variants     = [],
                   default_dependencies = [],
                   default_profiles     = [],
+                  dependencies         = [],
+                  profiles             = [],
                   default_runner       = None,
                   configure_callback   = None,
-                  dependencies         = {},
-                  profiles             = {},
                   tools                = [] ):
 
         set_base_options()
@@ -546,7 +577,10 @@ class Construct(object):
         cuppa_env = CuppaEnvironment()
         cuppa_env.add_tools( tools )
 
-        self.initialise_options( cuppa_env, default_options, dependencies )
+        dependencies, default_dependencies = self._normalise_with_defaults( dependencies, default_dependencies )
+        profiles, default_profiles = self._normalise_with_defaults( profiles, default_profiles )
+
+        self.initialise_options( cuppa_env, default_options, profiles, dependencies )
         cuppa_env['configured_options'] = {}
         self._configure = cuppa.configure.Configure( cuppa_env, callback=configure_callback )
 
@@ -606,7 +640,7 @@ class Construct(object):
         cuppa_env['dependencies']         = {}
         cuppa_env['default_profiles']     = default_profiles and default_profiles or []
         cuppa_env['BUILD_PROFILE']        = cuppa_env['default_profiles']
-        cuppa_env['profiles']             = profiles
+        cuppa_env['profiles']             = {}
 
         test_runner = cuppa_env.get_option( 'runner', default=default_runner and default_runner or 'process' )
         cuppa_env['default_runner']  = test_runner
@@ -632,6 +666,9 @@ class Construct(object):
 
             cuppa_env['active_toolchains'] = toolchains
 
+            def add_profile( name, profile ):
+                cuppa_env['profiles'][name] = profile
+
             def add_dependency( name, dependency ):
                 cuppa_env['dependencies'][name] = dependency
 
@@ -640,7 +677,7 @@ class Construct(object):
             if not help and not self._configure.handle_conf_only():
                 cuppa_env[self.project_generators_key] = {}
                 cuppa.modules.registration.add_to_env( "dependencies",       cuppa_env, add_dependency )
-                cuppa.modules.registration.add_to_env( "profiles",           cuppa_env )
+                cuppa.modules.registration.add_to_env( "profiles",           cuppa_env, add_profile )
                 cuppa.modules.registration.add_to_env( "methods",            cuppa_env )
                 cuppa.modules.registration.add_to_env( "project_generators", cuppa_env )
 
@@ -650,12 +687,34 @@ class Construct(object):
                 for profile_plugin in pkg_resources.iter_entry_points( group='cuppa.profile.plugins', name=None ):
                     profile_plugin.load().add_to_env( cuppa_env )
 
+                if profiles:
+                    for profile in profiles:
+                        profile.add_to_env( cuppa_env, add_profile )
+
+                logger.trace( "available profiles are [{}]".format(
+                        colour_items( sorted( cuppa_env["profiles"].keys() ) )
+                ) )
+
+                logger.info( "default profiles are [{}]".format(
+                        colour_items( sorted( cuppa_env["default_profiles"] ), as_info )
+                ) )
+
                 for dependency_plugin in pkg_resources.iter_entry_points( group='cuppa.dependency.plugins', name=None ):
                     dependency_plugin.load().add_to_env( cuppa_env, add_dependency )
 
                 if dependencies:
-                    for name, dependency in dependencies.iteritems():
+                    for dependency in dependencies:
                         dependency.add_to_env( cuppa_env, add_dependency )
+
+
+                logger.trace( "available dependencies are [{}]".format(
+                        colour_items( sorted( cuppa_env["dependencies"].keys() ) )
+                ) )
+
+                logger.info( "default dependencies are [{}]".format(
+                        colour_items( sorted( cuppa_env["default_dependencies"] ), as_info )
+                ) )
+
 
             # TODO - default_profile
 

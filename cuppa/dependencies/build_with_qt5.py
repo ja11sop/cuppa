@@ -121,8 +121,9 @@ class build_with_qt5(object):
             env.MergeFlags("-fPIC")
 
 
-    def name( self ):
-        return self._name
+    @classmethod
+    def name( cls ):
+        return cls._name
 
     def version( self ):
         return self._version

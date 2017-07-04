@@ -54,6 +54,7 @@ def determine_latest_boost_verion():
 
 class Boost(object):
 
+    _name = 'boost'
     _cached_boost_locations = {}
 
     @classmethod
@@ -86,7 +87,7 @@ class Boost(object):
 
     @classmethod
     def add_to_env( cls, cuppa_env, add_dependency ):
-        add_dependency( 'boost', cls.create )
+        add_dependency( cls._name, cls.create )
 
 
     @classmethod
@@ -344,7 +345,6 @@ class Boost(object):
 
         self._location = location
         self.values = {}
-        self.values['name'] = 'boost'
         self.values['home'] = self._location.local()
 
         self._patched_test = self.patched_boost_test( self.values['home'] )
@@ -368,8 +368,9 @@ class Boost(object):
         ]
 
 
-    def name( self ):
-        return self.values['name']
+    @classmethod
+    def name( cls ):
+        return cls._name
 
     def version( self ):
         return self.values['version']

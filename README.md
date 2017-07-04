@@ -43,9 +43,12 @@ and have Scons "do the right thing"; building targets for any `sconscript` files
     * [Platforms](#platforms)
   * [Supported Dependencies](#supported-dependencies)
     * [boost](#boost)
-    * [Header-only Libraries](#header-only-libraries)
+    * [qt4 and qt5](#qt4-and-qt5)
+    * [quince](quince)
+    * [Location only (Header) Libraries](#location-only-header-libraries)
   * [Creating your own Dependencies](#creating-your-own-dependencies)
     * [Building dependencies on top of `cuppa.header_library_dependency()`](#building-dependencies-on-top-of-cuppaheader_library_dependency)
+  * [Profiles](#profiles)
   * [Acknowledgements](#acknowledgements)
 
 ## Quick Intro
@@ -694,10 +697,22 @@ The following platforms are supported:
 
   * Linux
   * Darwin (Mac)
+  * Windows
 
 ## Supported Dependencies
 
-In order to make use of a dependency in your code it must both exist and be added to the current environment. Typically a dependency is created by indicating a version or location of the dependency. It is up to each dependency how they interpret this information. To then use the dependency you can either make it a default dependency by passing it as a list member to the `default_dependencies` argument to `cuppa.run` or by using the `BuildWith()` or `Use()` methods.
+In order to make use of a dependency in your code it must both exist and be added to the current environment.
+
+Typically a dependency is created by indicating a version or location of the dependency. It is up to each dependency how they interpret this information however there are usually sensible defaults and any dependency that is based on the supplied  To then use the dependency you can either make it a default dependency by passing it as a list member to the `default_dependencies` argument to `cuppa.run` or by using the `BuildWith()` or `Use()` methods.
+
+Out of the box **cuppa** supports the following dependencies.
+
+| Dependency | Description                                 |
+| -----------| --------------------------------------------|
+| `boost`    | The [Boost Libraries](http://www.boost.org) |
+| `qt4`      | The [QT Libraries](http://doc.qt.io/qt-4.8/) (version 4.8) for building applications with user interfaces |
+| `qt5`      | The [QT Libraries](http://doc.qt.io/qt-5/) (version 5) for building applications with user interfaces |
+| `quince`   | The [Quince (QUeries IN C++) Library](http://quince-lib.com/) a high quality library for accessing databases |
 
 ### `boost`
 
@@ -761,15 +776,135 @@ env.AppendUnique( DYNAMICLIBS =
 
 This is all that is required to ensure that the libraries are built correctly and linked with your target. It is important to note this will also "Do The Right Thing" in the presence of existing Boost installations. In other words this will pick up the correct shared library.
 
-### Header only Libraries
+### `qt4` and `qt5`
 
-**Cuppa** makes building with header only libraries easy if all you need to do add the libraries to your include path. To support this scenario **cuppa** provides the `cuppa.header_library_dependency()` factory. The remainder of this section describes how to use this class factory to define your own simple header library dependencies. For more sophisticated uses refer to the [Custom Header-only Dependencies](#custom-header-only-dependencies) section.
+The `qt4` and `qt5` dependencies make use of the [`SCons_qt4` tool](https://bitbucket.org/dirkbaechle/scons_qt4) and [`SCons_qt5` tool](https://bitbucket.org/dirkbaechle/scons_qt5) respectively.
 
-#### Using the `cuppa.header_library_dependency()` class factory
+Both tools require a significant amount of setup however using **cuppa** reduces that down to a bare minimum.
 
-The `cuppa.header_library_dependency()` class factory takes one parameter, the name of the dependency and returns a class that can be given to **cuppa** for later use.
+In essence you simply require the necessary Qt development files and libraries installed on your system, `pkg-config` if on Linux, enable the required version of Qt as a dependency and then "enable" the required components of Qt that you wish to use.
 
-For example, let's consider adding the non-boost version of the [asio library](http://think-async.com/Asio) as a project dependency. We can download a release and put is somewhere convenient. Then we could write our `sconstruct` file as follows:
+For example, on a Debian-based system you might install the required Qt development packages as follows if you required the Qt base components and QT Multimedia components:
+
+```
+sudo apt-get install pkg-config qtbase5-dev qtmultimedia5-dev qt5-default
+```
+Your `sconstruct` file might look like this:
+
+```python
+import cuppa
+
+cuppa.run(
+    default_dependencies = [
+        'boost'  # Oh look, we're using boost too
+        'qt5',
+    ],
+)
+```
+
+and then in your `sconscript` file you might write something like this:
+
+```python
+Import('env')
+
+Product = "My System"
+Major = "00"
+Minor = "01"
+
+Version = "{product_name} {major_ver}.{minor_ver}".format(
+        product_name = Product,
+        major_ver = Major,
+        minor_ver = Minor
+)
+
+env.EnableQt5Modules( [
+        'QtCore',
+        'QtWidgets',
+        'QtGui',
+        'QtMultimedia'
+] )
+
+# Let's separate out our source files from our test files
+import re
+sources = env.RecursiveGlob( re.compile( r'.*(?<!_test)[.]cpp$' ) )
+
+env.AppendUnique( STATICLIBS =
+        env.BoostStaticLibs( [
+            'program_options',
+            'filesystem'
+        ] )
+)
+
+# If we have UI files let's deal with those
+uifiles = env.RecursiveGlob( "*.ui" )
+
+env.Uic5( uifiles )
+
+# Now identify the object files
+objects = env.Compile( sources )
+
+# Create a version file versioned against both objects and UI files
+import os
+version_file = env.CreateVersion(
+        'version.cpp',
+        [ objects, uifiles ],
+        [ 'my_namespace' ],
+        Version,
+        os.path.join( env['base_path'], ".." )
+)
+
+# Build the system
+env.Build( 'my_system', [ objects, version_file ] )
+
+# Now build the tests
+tests = env.RecursiveGlob( "*_test.cpp" )
+
+for test in tests:
+    env.BuildTest( env.TargetFrom( test ), test )
+```
+
+The sample `sconscript` file shown illustrates what a project might look like using **cuppa** and something like Qt5. The documentation for the [Qt4](https://bitbucket.org/dirkbaechle/scons_qt4) and [Qt5](https://bitbucket.org/dirkbaechle/scons_qt5) tools are a good starting point to learn more about the facilities offered by these dependencies.
+
+### `quince`
+
+The [Quince library](http://quince-lib.com/) (on Github [https://github.com/mshepanski/quince](https://github.com/mshepanski/quince)) is a sophisticated, but very easy to use ORM library for C++. From the website:
+
+> Quince is a library that allows C++ programs to create SQL commands, and to have them executed on a relational DBMS. When data accompanies an outgoing command, quince first converts the data from C++ types (including user-defined classes and structs) to the DBMS's formats; and when data comes back in reply, quince makes the reverse conversion. So quince is an Object Relational Mapper (ORM).
+
+> The difference between quince and existing ORMs is this: Quince offers more support for sophisticated queries. A user who knows the power of a relational database will want to harness it, by issuing commands that employ server-side calculations, WHERE clauses, SELECT clauses, JOINs, DISTINCT, GROUP BY, INTERSECT, and so on, all combined and interconnected according to the user's own design. Quince treats such a user as the normal case, not an outlier. Of course it is also sometimes necessary to store or retrieve a single record, and quince makes that very easy to do; but it is only one point on a wide spectrum of possible uses. This reflects an underlying belief that an RDBMS is an engine of data processing as much as it is an engine of data storage.
+
+To use `quince` in your program you need to specify not only that you want to use `quince` but also which backend you want to use. Out of the box Quince supports [PostrgreSQL](https://www.postgresql.org/) (on Github [https://github.com/mshepanski/quince_postgresql](https://github.com/mshepanski/quince_postgresql) and [SQLite](https://www.sqlite.org/) (on Github [https://github.com/mshepanski/quince_sqlite](https://github.com/mshepanski/quince_sqlite)).
+
+A typical `sconstruct` might be:
+
+```python
+import cuppa
+
+cuppa.run(
+    default_options = {
+        'quince-location'           : "git+https://github.com/mshepanski/quince.git@dev",
+        'quince-postgresql-location': "git+https://github.com/mshepanski/quince_postgresql.git@dev",
+    },
+    default_dependencies = [
+        'quince',
+        'quince-postgresql',
+    ],
+)
+```
+
+As it happens Quince requires some libraries from the `boost` dependency and this are automatically built as required. In addition if Quince is listed as a dependency all the Quince libraries themselves are built and all required libaries are statically linked to the final executable.
+
+Each of the backends requires the appropriate development files and tools such as `pg_config` to be available.
+
+### Location only (Header) Libraries
+
+**Cuppa** makes building with header only libraries easy if all you need to do is add the libraries to your include path. To support this scenario **cuppa** provides the `cuppa.location_dependency()` factory which can be used directly in this scenario or can be used as the foundation for more sophisticated dependencies. The remainder of this section describes how to use this class factory to define your own simple header library dependencies. For more sophisticated uses refer to the [Custom Location Dependencies](#custom-location-dependencies) section.
+
+#### Using the `cuppa.location_dependency()` class factory
+
+The `cuppa.location_dependency()` class factory takes one required argument, the name of the dependency, and returns a class that can be given to **cuppa** for later use.
+
+For example, let's consider adding the non-boost version of the [asio library](http://think-async.com/Asio) as a project dependency. We can download a release and put it somewhere convenient (or directly point to the repository where the code is stored). Then we could write our `sconstruct` file as follows:
 
 ```python
 # Specify where to find 'asio'
@@ -779,13 +914,25 @@ options['asio-include']  = "asio/include"
 
 cuppa.run(
     # Add 'asio' as a dependency
-    dependencies = {
-        'asio': cuppa.header_library_dependency( 'asio' )
-    },
+    dependencies = [
+        cuppa.location_dependency( 'asio' )
+    ],
     # Ensure the options we've added for 'asio' are added to the defaults
     default_options = options,
     # Make this a default dependency in all sconscripts
     default_dependencies = [ 'asio' ]
+)
+```
+
+We can simplify the above as follows:
+
+```python
+
+cuppa.run(
+    # Make this a default dependency in all sconscripts
+    default_dependencies = [ 
+        cuppa.location_dependency( 'asio', location="<location-of-asio>", include="asio/include" )
+    ]
 )
 ```
 
@@ -797,7 +944,7 @@ Now we can compile against [asio](http://think-async.com/Asio) as expected by ad
 
 #### Version-controlled and remote locations supported
 
-We are not limited to specifying location dependencies on local disk. It is also possible to specify remote locations. For example, again considering [asio](http://think-async.com/Asio), if we want to build against a specfic release tag of the source code directly from the source repository we could write `[asio-location]` as follows:
+As  remarked above we are not limited to specifying location dependencies on local disk. It is also possible to specify remote locations. For example, again considering [asio](http://think-async.com/Asio), if we want to build against a specfic release tag of the source code directly from the source repository we could write `[asio-location]` as follows:
 
 ```python
 [asio-location] = "git+https://github.com/chriskohlhoff/asio.git@asio-1-10-4"
@@ -811,19 +958,20 @@ scons -D --asio-location="git+https://github.com/chriskohlhoff/asio.git"
 
 As you might expect building against a branch rather than a specific tag or archived release automatically updates as the branch is updated.
 
-#### `cuppa.header_library_dependency()` in more detail
+#### `cuppa.location_dependency()` in more detail
 
-As shown perviously the `cuppa.header_library_dependency()` factory function takes a name (referred to as `<dependency-name>` below) for the dependency and returns a class that can be passed as a dependency to **cuppa**.
+As shown previously the `cuppa.location_dependency()` factory function takes a name (referred to as `<dependency-name>` below) for the dependency and returns a class that can be passed as a dependency to **cuppa**.
 
 Classes created the factory function provide the following Scons options.
 
 | Option | Description |
 | -------| ------------|
-| `--<dependency-name>-location` | Specify the location of the dependency. The location can be any local directory, or any URL to a remote directory or archive, as well any [version controlled location supported by pip](https://pip.pypa.io/en/latest/reference/pip_install.html#vcs-support). |
-| `--<dependency-name>-include`  | This allows you to specify a subfolder which should be added to the `INCPATH` Scons variable. |
-| `--<dependency-name>-branch`   | You may use the `--<dependency-name>-branch` option with local directories to specify that a subfolder (as a branch) is added to the location given. This follows the approach used with [Subversion](https://subversion.apache.org/) to allow branches to be specfied as folders. If you are using a remote location branch information is typically provided as part of the URL and so this option is not needed. The option also finds use for informational purpores if the given location is not under version control and branch or revision information is not available. |
+| `--<dependency-name>-location`    | Specify the location of the dependency. The location can be any local directory, or any URL to a remote directory or archive, as well any [version controlled location supported by pip](https://pip.pypa.io/en/latest/reference/pip_install.html#vcs-support). |
+| `--<dependency-name>-include`     | This allows you to specify a subfolder which should be added to the `INCPATH` Scons variable. |
+| `--<dependency-name>-sys-include` | This allows you to specify a subfolder which should be added to the `SYSINCPATH` Scons variable. |
+| `--<dependency-name>-branch`      | You may use the `--<dependency-name>-branch` option with local directories to specify that a subfolder (as a branch) is added to the location given. This follows the approach used with [Subversion](https://subversion.apache.org/) to allow branches to be specfied as folders. If you are using a remote location branch information is typically provided as part of the URL and so this option is not needed. The option also finds use for informational purpores if the given location is not under version control and branch or revision information is not available. |
 
-Typically only `--name-location` and `--name-include` are needed when used with remote URLs.
+Typically only `--<dependency-name>-location` and `--<dependency-name>-include` are needed when used with remote URLs.
 
 ##### What happens when a remote URL is specified?
 
@@ -831,7 +979,7 @@ When a remote URL is specified, and the files have not previously been obtained,
 
 ##### Where does **cuppa** store retrieved files?
 
-**Cuppa** stores any retrieved files under a sub-folder under `.cuppa`. The sub-folder name is derived from the URL so that it is unique for a given URL. That means different branches of the same repository will be checked out in to different folders.
+**Cuppa** stores any retrieved files under a sub-folder under `_cuppa`. The sub-folder name is derived from the URL so that it is unique for a given URL. That means different branches of the same repository will be checked out in to different folders.
 
 ##### What happens if the files are already present?
 
@@ -867,6 +1015,11 @@ class <dependency>:
         add_dependency( cls._name, cls.create )
 
     @classmethod
+    def name( cls ):
+        return cls._name
+
+    # Helper function not required as part of interface
+    @classmethod
     def _location_id( cls, env ):
         location = env.get_option( cls._name + "-location" )
         if not location and env['thirdparty']:
@@ -878,6 +1031,7 @@ class <dependency>:
             return None
         return location
 
+    # Helper function not required as part of interface
     @classmethod
     def _get_location( cls, env ):
         location_id = cls._location_id( env )
@@ -904,15 +1058,13 @@ class <dependency>:
             return None
         return cls( env, location )
 
+    # The following methods are not strictly required
     def __init__( self, env, location ):
         self._location = location
 
     def __call__( self, env, toolchain, variant ):
         # Update the environment
         pass
-
-    def name( self ):
-        return sel._name
 
     def version( self ):
         return str(self._location.version())
@@ -931,50 +1083,53 @@ Only `add_to_env()`, `create()`, `__call__` and `name()` are strictly required b
 
 Once the basic dependency is written abitrarily complex relationships can be built by making use of Scons builders or other dependency related tools. It is worth looking at the `boost` dependency as an example of a complex dependency.
 
-### Building dependencies on top of `cuppa.header_library_dependency()`
+### Building dependencies on top of `cuppa.location_dependency()`
 
-Most dependencies will be much more trivial than the `boost` dependency and many can be built directly on top of the `cuppa.header_library_dependency()` factory. For example, let's look again at using [asio](http://think-async.com/Asio) as a dependency. We've already seen how we can create a basic dependency by writing:
+Most dependencies will be much more trivial than the `boost` dependency and many can be built directly on top of the `cuppa.location_dependency()` factory. For example, let's look again at using [asio](http://think-async.com/Asio) as a dependency. We've already seen how we can create a basic dependency by writing:
 
 ```python
-asio_dependency = cuppa.header_library_dependency( 'asio' )
+asio_dependency = cuppa.location_dependency( 'asio' )
 
 ```
 
 We can take this a step further and create our dependency by inheriting from the class returned by the factory and overriding the `__call__` method:
 
 ```python
+import cuppa
 
-# Specify where to find 'asio'
-options['asio-location'] = "<location-of-asio>"
-
-
-class asio( cuppa.header_library_dependency( 'asio' ) ):
-
+class asio( cuppa.location_dependency( 'asio', location="<location-of-asio>", sys_include="asio/include" ) ):
     def __call__( self, env, toolchain, variant ):
         super(asio,self).__call__( env, toolchain, variant )
         # Update the environment as we need to, for example...
-
-        # Save the user from having to specify this
-        env.AppendUnique( SYSINCPATH = [
-            'asio/include'
-        ]
         # Perhaps we remove deprecated features
         env.AppendUnique( CPPDEFINES = [
             'ASIO_NO_DEPRECATED',
             ] )
 
+cuppa.run(
+    # Add 'asio' as a dependency and make this a default dependency in all sconscripts
+    default_dependencies = [ asio ]
+)
+```
+
+## Profiles
+
+Profiles provide a simpler approach to modifying a build environment in a repeatable controlled fashion than a full-blown dependency. The only real difference between a profile and a dependency is that a profile typically has not related code or any "state". The easiest way to write a profile is to use the **cuppa** `profile` class factory. For example to write a `profile` that adds some flags to the build you could write:
+
+```python
+import cuppa
+
+class my_profile( cuppa.profile( 'my_profile' ) ):
+    def __call__( self, env, toolchain, variant ):
+        # Update the environment as we need to, for example...
+        env.AppendUnique( CPPDEFINES = [
+            'MY_IMPORTANT_DEFINE',
+            ] )
 
 cuppa.run(
-    # Add 'asio' as a dependency
-    dependencies = {
-        'asio': asio
-    },
-    # Ensure the options we've added for 'asio' are added to the defaults
-    default_options = options,
-    # Make this a default dependency in all sconscripts
-    default_dependencies = [ 'asio' ]
+    # Add 'my_profile' as a profile and make this a default profile in all sconscripts
+    default_profiles = [ my_profile ]
 )
-
 ```
 
 ## Acknowledgements

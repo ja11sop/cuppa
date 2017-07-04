@@ -25,6 +25,7 @@ class base(object):
 
     _name = None
     _cached_locations = {}
+    _default_location = None
     _default_include = None
     _default_sys_include = None
     _includes = None
@@ -65,6 +66,8 @@ class base(object):
         location = env.get_option( cls._name + "-location" )
         branch   = env.get_option( cls._name + "-branch" )
 
+        if not location and cls._default_location:
+            location = cls._default_location
         if not location and branch:
             location = env['branch_root']
         if not location and branch:
@@ -145,8 +148,9 @@ class base(object):
     def local_sub_path( self, *paths ):
         return os.path.join( self._location.local(), *paths )
 
-    def name( self ):
-        return self._name
+    @classmethod
+    def name( cls ):
+        return cls._name
 
     def version( self ):
         return str(self._location.version())
@@ -161,8 +165,8 @@ class base(object):
         return self._location.revisions()
 
 
-def location_dependency( name, include=None, sys_include=None, extra_sub_path=None ):
-    return type( 'BuildWith' + name.title(), ( base, ), { '_name': name, '_default_include': include, '_default_sys_include': sys_include, '_extra_sub_path': extra_sub_path } )
+def location_dependency( name, location=None, include=None, sys_include=None, extra_sub_path=None ):
+    return type( 'BuildWith' + name.title(), ( base, ), { '_name': name, '_default_location': location, '_default_include': include, '_default_sys_include': sys_include, '_extra_sub_path': extra_sub_path } )
 
 
 

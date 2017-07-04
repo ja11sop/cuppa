@@ -8,6 +8,9 @@
 #   BuildWithMethod
 #-------------------------------------------------------------------------------
 
+from SCons.Script import Flatten
+from cuppa.utility.types import is_string
+
 class BuildWithException(Exception):
 
     def __init__(self, value):
@@ -18,10 +21,21 @@ class BuildWithException(Exception):
 
 class BuildWithMethod:
 
-    def __call__( self, env, build_with ):
-        if isinstance( build_with, basestring ):
-            build_with = [ build_with ]
-        for name in build_with:
+    def __call__( self, env, dependencies ):
+
+        # Ensure we have a list of dependencies
+        dependencies = Flatten( dependencies )
+
+        # We might have string names of dependencies or actual factories
+        # so refer to this as an id
+        for named_dependency in dependencies:
+
+            name = None
+            if is_string( named_dependency ):
+                name = named_dependency
+            else:
+                name = named_dependency.name()
+
             if not name in env['dependencies']:
                 raise BuildWithException(
                     "The sconscript [{}] requires the dependency [{}] but it is not available."
