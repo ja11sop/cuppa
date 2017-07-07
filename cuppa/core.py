@@ -587,7 +587,7 @@ class Construct(object):
         self._set_verbosity_level( cuppa_env )
 
         cuppa_env['sconstruct_path'] = sconstruct_path
-        cuppa_env['sconstruct_file'] = os.path.split(sconstruct_path)[1]
+        cuppa_env['sconstruct_dir'], cuppa_env['sconstruct_file'] = os.path.split(sconstruct_path)
 
         self._set_output_format( cuppa_env )
 

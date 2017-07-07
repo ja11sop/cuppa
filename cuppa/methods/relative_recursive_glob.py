@@ -12,6 +12,8 @@ import fnmatch
 import re
 
 import cuppa.recursive_glob
+from cuppa.log import logger
+from cuppa.colourise import as_notice, colour_items
 
 
 
@@ -21,13 +23,22 @@ class RecursiveGlobMethod:
 
     def __call__( self, env, pattern, start=default, exclude_dirs=default ):
 
+        base_path = env['sconscript_dir']
+
         if start == self.default:
-            start = env['sconscript_dir']
+            start = base_path
 
         start = os.path.expanduser( start )
 
+        rel_start = os.path.relpath( base_path, start )
+
+        logger.trace(
+            "paths: start = [{}], base_path = [{}], rel_start = [{}]"
+            .format( as_notice( start ), as_notice( base_path ), as_notice( rel_start ) )
+        )
+
         if not os.path.isabs( start ):
-            start = os.path.join( env['sconscript_dir'], start )
+            start = rel_start
 
         if exclude_dirs == self.default:
             exclude_dirs = [ env['download_root'], env['build_root' ] ]
@@ -43,7 +54,18 @@ class RecursiveGlobMethod:
             exclude_dirs_regex = re.compile( exclude_dirs )
 
         matches = cuppa.recursive_glob.glob( start, pattern, exclude_dirs_pattern=exclude_dirs_regex )
-        nodes   = [ env.File( os.path.relpath( match, env['sconscript_dir'] ) ) for match in matches ]
+
+        rel_base = base_path
+        if rel_start.startswith( os.pardir ):
+            rel_base = env['sconstruct_dir']
+
+        nodes = [ env.File( os.path.relpath( match, rel_base ) ) for match in matches ]
+
+        logger.trace(
+            "nodes = [{}]."
+            .format( colour_items( [ str(node) for node in nodes ] ) )
+        )
+
         return nodes
 
     @classmethod
