@@ -38,7 +38,7 @@ class QuinceLibraryMethod(object):
         objects = []
         for source in env.RecursiveGlob( "*.cpp", start=self._src_path, exclude_dirs=[ env['build_dir'] ] ):
             rel_path = os.path.relpath( str(source), self._location )
-            obj_path = os.path.join( build_dir, os.path.splitext( rel_path )[0] ) +env['OBJSUFFIX']
+            obj_path = os.path.join( build_dir, os.path.splitext( rel_path )[0] ) + env['OBJSUFFIX']
             objects.append( env.Object( obj_path, source ) )
 
         if linktype == "static":
