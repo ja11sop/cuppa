@@ -113,6 +113,9 @@ def add_base_options():
                             help='The The verbosity level that you wish to run cuppa at. The default level'
                                  ' is "info". VERBOSITY may be one of {}'.format( str(verbosity_choices) ) )
 
+    add_option( '--propagate-env',   dest='propagate-env', action='store_true',
+                            help='Propagate the current environment to all sub-processes when building' )
+
 #    add_option( '--b2',     dest='b2', action='store_true',
 #                            help='Execute boost.build by calling b2 or bjam' )
 
@@ -490,6 +493,7 @@ class Construct(object):
                 'offset_dir',
                 'parallel',
                 'show_test_output',
+                'propagate_env',
                 'decider'
         }
 
@@ -649,6 +653,7 @@ class Construct(object):
         test_runner = cuppa_env.get_option( 'runner', default=default_runner and default_runner or 'process' )
         cuppa_env['default_runner']  = test_runner
 
+        cuppa_env['propagate_env'] = cuppa_env.get_option( 'propagate-env' ) and True or False
         cuppa_env['show_test_output'] = cuppa_env.get_option( 'show-test-output' ) and True or False
 
         self.add_variants   ( cuppa_env )
@@ -804,6 +809,8 @@ class Construct(object):
 
     def create_build_envs( self, toolchain, cuppa_env ):
 
+        propagate_environment = cuppa_env['propagate_env']
+
         variants = cuppa_env[ self.variants_key ]
         target_architectures = cuppa_env[ 'target_architectures' ]
 
@@ -832,6 +839,19 @@ class Construct(object):
                 env, target_arch = toolchain.make_env( cuppa_env, variant, target_arch )
 
                 if env:
+                    if propagate_environment:
+                        default_paths = 'PATH' in env['ENV'] and env['ENV']['PATH'].split(':') or []
+                        env['ENV'] = os.environ.copy()
+                        env_paths = env['ENV']['PATH'].split(':')
+                        path_set = set( default_paths + env_paths )
+
+                        def record_path( path ):
+                            path_set.discard(path)
+                            return path
+
+                        paths = [ record_path(p) for p in default_paths + env_paths if p in path_set ]
+                        env['ENV']['PATH'] = ':'.join( paths )
+
                     build_envs.append( {
                         'variant': key,
                         'target_arch': target_arch,
