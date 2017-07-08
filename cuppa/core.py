@@ -1013,6 +1013,7 @@ class Construct(object):
 
             sconscript_env['build_dir']        = os.path.normpath( os.path.join( build_root, build_base_path, 'working', '' ) )
             sconscript_env['abs_build_dir']    = os.path.abspath( sconscript_env['build_dir'] )
+            sconscript_env['build_tool_variant_dir'] = os.path.normpath( os.path.join( build_root, sconscript_env['tool_variant_dir'], 'working', '' ) )
             sconscript_env['offset_dir']       = sconstruct_offset_path
             sconscript_env['final_dir']        = '..' + os.path.sep + 'final' + os.path.sep
             sconscript_env['active_toolchain'] = toolchain
