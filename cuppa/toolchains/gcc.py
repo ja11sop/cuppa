@@ -43,6 +43,7 @@ class Gcc(object):
         return [
             "gcc",
             "gcc6",
+            "gcc64",
             "gcc63",
             "gcc62",
             "gcc61",
@@ -360,21 +361,8 @@ class Gcc(object):
 
         self.values['sys_inc_suffix']  = ''
 
-        CommonCxxFlags = [ '-Wall', '-fexceptions', '-g' ]
+        CommonCxxFlags = [ '-Wall', '-fexceptions', '-g', self.__default_abi_flag() ]
         CommonCFlags   = [ '-Wall', '-g' ]
-
-        if re.match( 'gcc4[3-6]', toolchain ):
-            CommonCxxFlags += [ '-std=c++0x' ]
-        elif re.match( 'gcc47', toolchain ):
-            CommonCxxFlags += [ '-std=c++11' ]
-        elif re.match( 'gcc4[8-9]', toolchain ):
-            CommonCxxFlags += [ '-std=c++1y' ]
-        elif re.match( 'gcc5[0-1]', toolchain ):
-            CommonCxxFlags += [ '-std=c++1y' ]
-        elif re.match( 'gcc5[2-4]', toolchain ):
-            CommonCxxFlags += [ '-std=c++1z' ]
-        elif re.match( 'gcc6[0-3]', toolchain ):
-            CommonCxxFlags += [ '-std=c++1z' ]
 
         self.values['debug_cxx_flags']    = CommonCxxFlags + []
         self.values['release_cxx_flags']  = CommonCxxFlags + [ '-O3', '-DNDEBUG' ]
@@ -407,10 +395,8 @@ class Gcc(object):
                + source + ' > ' + source + '_summary.gcov'
 
 
-    def abi_flag( self, env ):
-        if env['stdcpp']:
-            return '-std={}'.format(env['stdcpp'])
-        elif re.match( 'gcc4[3-6]', self._reported_version ):
+    def __default_abi_flag( self ):
+        if re.match( 'gcc4[3-6]', self._reported_version ):
             return '-std=c++0x'
         elif re.match( 'gcc47', self._reported_version ):
             return '-std=c++11'
@@ -420,8 +406,15 @@ class Gcc(object):
             return '-std=c++1y'
         elif re.match( 'gcc5[2-4]', self._reported_version ):
             return '-std=c++1z'
-        elif re.match( 'gcc6[0-3]', self._reported_version ):
+        elif re.match( 'gcc6[0-5]', self._reported_version ):
             return '-std=c++1z'
+
+
+    def abi_flag( self, env ):
+        if env['stdcpp']:
+            return '-std={}'.format(env['stdcpp'])
+        else:
+            return self.__default_abi_flag()
 
 
     def abi( self, env ):
