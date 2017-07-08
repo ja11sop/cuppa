@@ -23,7 +23,7 @@ class RecursiveGlobMethod:
 
     def __call__( self, env, pattern, start=default, exclude_dirs=default ):
 
-        base_path = env['sconscript_dir']
+        base_path = os.path.realpath( env['sconscript_dir'] )
 
         if start == self.default:
             start = base_path
@@ -55,11 +55,18 @@ class RecursiveGlobMethod:
 
         matches = cuppa.recursive_glob.glob( start, pattern, exclude_dirs_pattern=exclude_dirs_regex )
 
-        rel_base = base_path
-        if rel_start.startswith( os.pardir ):
-            rel_base = env['sconstruct_dir']
+        logger.trace(
+            "matches = [{}]."
+            .format( colour_items( [ str(match) for match in matches ] ) )
+        )
 
-        nodes = [ env.File( os.path.relpath( match, rel_base ) ) for match in matches ]
+        make_relative = True
+        if rel_start.startswith( os.pardir ):
+            make_relative = False
+
+        logger.trace( "make_relative = [{}].".format( as_notice( str(make_relative) ) ) )
+
+        nodes = [ env.File( make_relative and os.path.relpath( match, base_path ) or match ) for match in matches ]
 
         logger.trace(
             "nodes = [{}]."
