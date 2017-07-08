@@ -140,6 +140,9 @@ class Boost(object):
 
         if location:
             location = cls.location_from_boost_version( location )
+
+            logger.trace( "Location after version detection = [{}]".format( as_notice( str(location) ) ) )
+
             if not location: # use version as a fallback in case both at specified
                 location = cls.location_from_boost_version( version )
             boost_location = cuppa.location.Location( env, location, extra_sub_path=extra_sub_path, name_hint="boost" )

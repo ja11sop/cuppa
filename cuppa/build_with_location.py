@@ -76,6 +76,9 @@ class base(object):
             logger.debug( "No location specified for dependency [{}]. Dependency not available.".format( cls._name.title() ) )
             return None
 
+        if location:
+            location = os.path.expanduser( location )
+
         return (location, branch)
 
 

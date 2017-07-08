@@ -195,16 +195,20 @@ class Location(object):
                 local_folder = self.folder_name_from_path( location )
                 local_directory = os.path.join( base, local_folder )
 
-                if os.path.exists( local_directory ):
+                local_dir_with_sub_dir = os.path.join( local_directory, sub_dir and sub_dir or "" )
+
+                if os.path.exists( local_dir_with_sub_dir ):
                     try:
-                        os.rmdir( local_directory )
+                        os.rmdir( local_dir_with_sub_dir )
                     except:
                         return local_directory
 
-                self.extract( location, local_directory )
+                self.extract( location, local_dir_with_sub_dir )
+
             else:
                 local_directory = branch and os.path.join( location, branch ) or location
-                return local_directory
+
+            return local_directory
         else:
 
             local_folder = self.folder_name_from_path( full_url )
@@ -368,8 +372,8 @@ class Location(object):
 
     def __init__( self, cuppa_env, location, branch=None, extra_sub_path=None, name_hint=None ):
 
-        self._location   = location
-        self._full_url   = urlparse.urlparse( location )
+        self._location   = os.path.expanduser( location )
+        self._full_url   = urlparse.urlparse( self._location )
         self._sub_dir    = None
         self._name_hint  = name_hint
 
@@ -382,7 +386,11 @@ class Location(object):
         ## Get the location for the source dependency. If the location is a URL or an Archive we'll need to
         ## retrieve the URL and extract the archive. get_local_directory() returns the location of the source
         ## once this is done
-        local_directory = self.get_local_directory( cuppa_env, location, self._sub_dir, branch, self._full_url )
+        local_directory = self.get_local_directory( cuppa_env, self._location, self._sub_dir, branch, self._full_url )
+
+        logger.trace( "Local Directory returned as [{}]".format(
+                as_notice( local_directory )
+        ) )
 
         self._base_local_directory = local_directory
         self._local_directory = self._sub_dir and os.path.join( local_directory, self._sub_dir ) or local_directory
