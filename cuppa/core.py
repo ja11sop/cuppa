@@ -1,4 +1,4 @@
-#          Copyright Jamie Allsop 2011-2016
+#          Copyright Jamie Allsop 2011-2017
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -531,7 +531,11 @@ class Construct(object):
 
 
     @classmethod
-    def _normalise_with_defaults( cls, values, default_values ):
+    def _normalise_with_defaults( cls, values, default_values, name ):
+
+        if isinstance( values, dict ):
+            logger.warn( "Dictionary passed for {}, this approach has been deprecated, please use a list instead".format( name ) )
+            values = [ v for v in values.itervalues() ]
 
         default_value_objects = []
         default_value_names = []
@@ -577,8 +581,8 @@ class Construct(object):
         cuppa_env = CuppaEnvironment()
         cuppa_env.add_tools( tools )
 
-        dependencies, default_dependencies = self._normalise_with_defaults( dependencies, default_dependencies )
-        profiles, default_profiles = self._normalise_with_defaults( profiles, default_profiles )
+        dependencies, default_dependencies = self._normalise_with_defaults( dependencies, default_dependencies, "dependencies" )
+        profiles, default_profiles = self._normalise_with_defaults( profiles, default_profiles, "profiles" )
 
         self.initialise_options( cuppa_env, default_options, profiles, dependencies )
         cuppa_env['configured_options'] = {}
