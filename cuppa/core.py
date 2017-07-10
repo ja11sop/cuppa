@@ -113,8 +113,11 @@ def add_base_options():
                             help='The The verbosity level that you wish to run cuppa at. The default level'
                                  ' is "info". VERBOSITY may be one of {}'.format( str(verbosity_choices) ) )
 
-    add_option( '--propagate-env',   dest='propagate-env', action='store_true',
-                            help='Propagate the current environment to all sub-processes when building' )
+    add_option( '--propagate-env', dest='propagate-env', action='store_true',
+                            help='Propagate the current environment including PATH to all sub-processes when building' )
+
+    add_option( '--propagate-path', dest='propagate-path', action='store_true',
+                            help='Propagate the current environment PATH (only) to all sub-processes when building' )
 
 #    add_option( '--b2',     dest='b2', action='store_true',
 #                            help='Execute boost.build by calling b2 or bjam' )
@@ -654,6 +657,7 @@ class Construct(object):
         cuppa_env['default_runner']  = test_runner
 
         cuppa_env['propagate_env'] = cuppa_env.get_option( 'propagate-env' ) and True or False
+        cuppa_env['propagate_path'] = cuppa_env.get_option( 'propagate-path' ) and True or False
         cuppa_env['show_test_output'] = cuppa_env.get_option( 'show-test-output' ) and True or False
 
         self.add_variants   ( cuppa_env )
@@ -810,6 +814,7 @@ class Construct(object):
     def create_build_envs( self, toolchain, cuppa_env ):
 
         propagate_environment = cuppa_env['propagate_env']
+        propagate_path        = cuppa_env['propagate_path']
 
         variants = cuppa_env[ self.variants_key ]
         target_architectures = cuppa_env[ 'target_architectures' ]
@@ -839,18 +844,36 @@ class Construct(object):
                 env, target_arch = toolchain.make_env( cuppa_env, variant, target_arch )
 
                 if env:
-                    if propagate_environment:
-                        default_paths = 'PATH' in env['ENV'] and env['ENV']['PATH'].split(':') or []
-                        env['ENV'] = os.environ.copy()
-                        env_paths = env['ENV']['PATH'].split(':')
-                        path_set = set( default_paths + env_paths )
 
-                        def record_path( path ):
-                            path_set.discard(path)
-                            return path
+                    # TODO: Refactor this code out
+                    if propagate_environment or propagate_path:
 
-                        paths = [ record_path(p) for p in default_paths + env_paths if p in path_set ]
-                        env['ENV']['PATH'] = ':'.join( paths )
+                        def merge_paths( default_paths, env_paths ):
+                            path_set = set( default_paths + env_paths )
+                            def record_path( path ):
+                                path_set.discard(path)
+                                return path
+                            return [ record_path(p) for p in default_paths + env_paths if p in path_set ]
+
+                        def get_paths_from( environment ):
+                            return 'PATH' in environment and environment['PATH'].split(os.pathsep) or []
+
+                        default_paths = get_paths_from( env['ENV'] )
+                        env_paths = get_paths_from( os.environ )
+                        if propagate_environment:
+                            env['ENV'] = os.environ.copy()
+                            logger.debug( "propagating environment for [{}:{}] to all subprocesses: [{}]".format(
+                                    variant.name(),
+                                    target_arch,
+                                    as_notice( str(env['ENV']) ) )
+                            )
+                        merged_paths = merge_paths( default_paths, env_paths )
+                        env['ENV']['PATH'] = os.pathsep.join( merged_paths )
+                        logger.debug( "propagating PATH for [{}:{}] to all subprocesses: [{}]".format(
+                                variant.name(),
+                                target_arch,
+                                colour_items( merged_paths ) )
+                        )
 
                     build_envs.append( {
                         'variant': key,
