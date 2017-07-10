@@ -9,8 +9,6 @@
 #-------------------------------------------------------------------------------
 
 import platform
-import subprocess
-import shlex
 import os.path
 
 # Custom
@@ -19,6 +17,7 @@ import cuppa.modules.registration
 #SCons
 from SCons.Util import WhereIs
 
+# Import all the available platforms
 from cuppa.platforms import *
 
 
