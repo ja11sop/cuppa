@@ -210,6 +210,9 @@ def as_warning_label( text ):
 def as_info( text ):
     return colouriser.colour( 'info', text )
 
+def as_info_label( text ):
+    return colouriser.highlight( 'info', text )
+
 def as_message( text ):
     return colouriser.colour( 'message', text )
 
