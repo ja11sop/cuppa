@@ -15,17 +15,18 @@ from cuppa.log import logger
 from cuppa.utility.version import get_version
 
 
-def check_current_version():
+def check_current_version( offline ):
 
     installed_version = get_version()
     logger.info( "cuppa: version {}".format( as_info( installed_version ) ) )
-    try:
-        pypi = xmlrpclib.ServerProxy('http://pypi.python.org/pypi')
-        latest_available = pypi.package_releases('cuppa')[0]
-        if parse_version( installed_version ) < parse_version( latest_available ):
-            logger.warn( "Newer version [{}] available. Upgrade using \"{}\"\n".format(
-                    as_warning( latest_available ),
-                    as_emphasised( "pip install -U cuppa" )
-            ) )
-    except:
-        pass
+    if not offline:
+        try:
+            pypi = xmlrpclib.ServerProxy('http://pypi.python.org/pypi')
+            latest_available = pypi.package_releases('cuppa')[0]
+            if parse_version( installed_version ) < parse_version( latest_available ):
+                logger.warn( "Newer version [{}] available. Upgrade using \"{}\"\n".format(
+                        as_warning( latest_available ),
+                        as_emphasised( "pip install -U cuppa" )
+                ) )
+        except:
+            pass

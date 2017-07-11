@@ -31,7 +31,7 @@ import cuppa.version
 #import cuppa.tree
 #import cuppa.cpp.stdcpp
 
-from cuppa.colourise import colouriser, as_emphasised, as_info, as_error, as_notice, colour_items
+from cuppa.colourise import colouriser, as_emphasised, as_info, as_error, as_notice, colour_items, as_info_label
 from cuppa.log import initialise_logging, set_logging_level, reset_logging_format, logger
 from cuppa.utility.types import is_string
 
@@ -54,70 +54,76 @@ def add_option( *args, **kwargs ):
 def add_base_options():
 
     add_option( '--raw-output', dest='raw_output', action='store_true',
-                            help='Disable output processing like colourisation of output' )
+                            help="Disable output processing like colourisation of output" )
 
     add_option( '--standard-output', dest='standard_output', action='store_true',
-                            help='Perform standard output processing but not colourisation of output' )
+                            help="Perform standard output processing but not colourisation of output" )
 
     add_option( '--minimal-output', dest='minimal_output', action='store_true',
-                            help='Show only errors and warnings in the output' )
+                            help="Show only errors and warnings in the output" )
 
     add_option( '--ignore-duplicates', dest='ignore_duplicates', action='store_true',
-                            help='Do not show repeated errors or warnings' )
+                            help="Do not show repeated errors or warnings" )
+
+    add_option( '--offline', dest='offline', action='store_true',
+                            help="Run in offline mode so don't attempt to check the cuppa version or update"
+                                 " remote repositories. Useful for running builds on firewalled machines" )
 
     add_option( '--projects', type='string', nargs=1,
                             action='callback', callback=cuppa.options.list_parser( 'projects' ),
-                            help='Projects to build (alias for scripts)' )
+                            help="Projects to build (alias for scripts)" )
 
     add_option( '--scripts', type='string', nargs=1,
                             action='callback', callback=cuppa.options.list_parser( 'projects' ),
-                            help='Sconscripts to run' )
+                            help="Sconscripts to run" )
 
     add_option( '--thirdparty', type='string', nargs=1, action='store',
                             dest='thirdparty',
                             metavar='DIR',
-                            help='Thirdparty directory' )
+                            help="Thirdparty directory" )
 
     add_option( '--build-root', type='string', nargs=1, action='store',
                             dest='build_root',
-                            help='The root directory for build output. If not specified then _build_ is used' )
+                            help="The root directory for build output. If not specified then _build is used" )
 
     add_option( '--download-root', type='string', nargs=1, action='store',
                             dest='download_root',
-                            help='The root directory for downloading external libraries to.'
-                                 ' If not specified then _cuppa_ is used' )
+                            help="The root directory for downloading external libraries to."
+                                 " If not specified then _cuppa is used" )
 
     add_option( '--cache-root', type='string', nargs=1, action='store',
                             dest='cache_root',
-                            help='The root directory for caching downloaded external archived libraries.'
-                                 ' If not specified then ~/_cuppa_/cache is used' )
+                            help="The root directory for caching downloaded external archived libraries."
+                                 " If not specified then ~/_cuppa/cache is used" )
 
     add_option( '--runner', type='string', nargs=1, action='store',
                             dest='runner',
-                            help='The test runner to use for executing tests. The default is the'
-                                 ' process test runner' )
+                            help="The test runner to use for executing tests. The default is the"
+                                 " process test runner" )
 
     add_option( '--dump',   dest='dump', action='store_true',
-                            help='Dump the default environment and exit' )
+                            help="Dump the default environment and exit" )
 
     add_option( '--parallel', dest='parallel', action='store_true',
-                            help='Enable parallel builds utilising the available concurrency.'
-                                 ' Translates to -j N with N chosen based on the current hardware' )
+                            help="Enable parallel builds utilising the available concurrency."
+                                 " Translates to -j N with N chosen based on the current hardware" )
 
     add_option( '--show-test-output',   dest='show-test-output', action='store_true',
-                            help='When executing tests display all outout to stdout and stderr as appropriate' )
+                            help="When executing tests display all outout to stdout and stderr as appropriate" )
 
     verbosity_choices = ( 'trace', 'debug', 'info', 'warn', 'error' )
 
     add_option( '--verbosity', dest='verbosity', choices=verbosity_choices, nargs=1, action='store',
-                            help='The The verbosity level that you wish to run cuppa at. The default level'
-                                 ' is "info". VERBOSITY may be one of {}'.format( str(verbosity_choices) ) )
+                            help="The The verbosity level that you wish to run cuppa at. The default level"
+                                 " is \"info\". VERBOSITY may be one of {}".format( str(verbosity_choices) ) )
 
     add_option( '--propagate-env', dest='propagate-env', action='store_true',
-                            help='Propagate the current environment including PATH to all sub-processes when building' )
+                            help="Propagate the current environment including PATH to all sub-processes when"
+                                 " building" )
 
     add_option( '--propagate-path', dest='propagate-path', action='store_true',
-                            help='Propagate the current environment PATH (only) to all sub-processes when building' )
+                            help="Propagate the current environment PATH (only) to all sub-processes when"
+                                 " building" )
 
 #    add_option( '--b2',     dest='b2', action='store_true',
 #                            help='Execute boost.build by calling b2 or bjam' )
@@ -129,9 +135,9 @@ def add_base_options():
     decider_choices = ( 'timestamp-newer', 'timestamp-match', 'MD5', 'MD5-timestamp' )
 
     add_option( '--decider', dest='decider', choices=decider_choices, nargs=1, action='store',
-                            help='The decider to use for determining if a dependency has changed.'
-                                 ' Refer to the Scons manual for more details. By default "MD5-timestamp"'
-                                 ' is used. DECIDER may be one of {}'.format( str(decider_choices) ) )
+                            help="The decider to use for determining if a dependency has changed."
+                                 " Refer to the Scons manual for more details. By default \"MD5-timestamp\""
+                                 " is used. DECIDER may be one of {}".format( str(decider_choices) ) )
 
 
 
@@ -475,6 +481,7 @@ class Construct(object):
                 'raw_output',
                 'standard_output',
                 'minimal_output',
+                'offline',
                 'ignore_duplicates',
                 'working_dir',
                 'launch_dir',
@@ -497,6 +504,7 @@ class Construct(object):
                 'parallel',
                 'show_test_output',
                 'propagate_env',
+                'propagate_path',
                 'decider'
         }
 
@@ -514,7 +522,7 @@ class Construct(object):
         if scons_no_progress:
             verbosity = 'warn'
 
-        ## Check if -q, --quiet or --silent was passed on the command-line
+        ## Check if -s, --quiet or --silent was passed on the command-line
         scons_silent = cuppa_env.get_option( 'silent' )
         if scons_silent:
             verbosity = 'error'
@@ -540,8 +548,9 @@ class Construct(object):
     @classmethod
     def _normalise_with_defaults( cls, values, default_values, name ):
 
+        warning = None
         if isinstance( values, dict ):
-            logger.warn( "Dictionary passed for {}, this approach has been deprecated, please use a list instead".format( name ) )
+            warning = "Dictionary passed for {}, this approach has been deprecated, please use a list instead".format( name )
             values = [ v for v in values.itervalues() ]
 
         default_value_objects = []
@@ -564,7 +573,7 @@ class Construct(object):
         default_values = default_value_names
         values = values + default_value_objects
 
-        return values, default_values
+        return values, default_values, warning
 
 
     def __init__( self,
@@ -588,8 +597,8 @@ class Construct(object):
         cuppa_env = CuppaEnvironment()
         cuppa_env.add_tools( tools )
 
-        dependencies, default_dependencies = self._normalise_with_defaults( dependencies, default_dependencies, "dependencies" )
-        profiles, default_profiles = self._normalise_with_defaults( profiles, default_profiles, "profiles" )
+        dependencies, default_dependencies, dependencies_warning = self._normalise_with_defaults( dependencies, default_dependencies, "dependencies" )
+        profiles, default_profiles, profiles_warning = self._normalise_with_defaults( profiles, default_profiles, "profiles" )
 
         self.initialise_options( cuppa_env, default_options, profiles, dependencies )
         cuppa_env['configured_options'] = {}
@@ -602,9 +611,20 @@ class Construct(object):
 
         self._set_output_format( cuppa_env )
 
-        cuppa.version.check_current_version()
+        cuppa_env['offline'] = cuppa_env.get_option( 'offline' )
+
+        cuppa.version.check_current_version( cuppa_env['offline'] )
+
+        if cuppa_env['offline']:
+            logger.info( as_info_label( "Running in OFFLINE mode" ) )
 
         logger.info( "using sconstruct file [{}]".format( as_notice( cuppa_env['sconstruct_file'] ) ) )
+
+        if dependencies_warning:
+            logger.warn( dependencies_warning )
+
+        if profiles_warning:
+            logger.warn( profiles_warning )
 
         help = cuppa_env.get_option( 'help' ) and True or False
 

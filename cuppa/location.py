@@ -179,6 +179,7 @@ class Location(object):
 
     def get_local_directory( self, cuppa_env, location, sub_dir, branch, full_url ):
 
+        offline = cuppa_env['offline']
         local_directory = None
 
         base = cuppa_env['download_root']
@@ -270,25 +271,27 @@ class Location(object):
                     local_dir_with_sub_dir = os.path.join( local_directory, sub_dir and sub_dir or "" )
 
                     if os.path.exists( local_directory ):
-
                         url, repository, branch, revision = self.get_info( location, local_dir_with_sub_dir, full_url )
                         version = self.ver_rev_summary( branch, revision, self._full_url.path )[0]
-                        logger.debug( "Updating [{}] in [{}]{} at [{}]".format(
-                                as_info( location ),
-                                as_notice( local_dir_with_sub_dir ),
-                                ( rev_options and  " on {}".format( as_notice( str(rev_options) ) ) or "" ),
-                                as_info( version )
-                        ) )
-                        try:
-                            vcs_backend.update( local_dir_with_sub_dir, rev_options )
-                            logger.debug( "Successfully updated [{}]".format( as_info( location ) ) )
-                        except pip.exceptions.InstallationError as error:
-                            logger.warn( "Could not update [{}] in [{}]{} due to error [{}]".format(
-                                    as_warning( location ),
-                                    as_warning( local_dir_with_sub_dir ),
-                                    ( rev_options and  " at {}".format( as_warning( str(rev_options) ) ) or "" ),
-                                    as_warning( str(error) )
+                        if not offline:
+                            logger.debug( "Updating [{}] in [{}]{} at [{}]".format(
+                                    as_info( location ),
+                                    as_notice( local_dir_with_sub_dir ),
+                                    ( rev_options and  " on {}".format( as_notice( str(rev_options) ) ) or "" ),
+                                    as_info( version )
                             ) )
+                            try:
+                                vcs_backend.update( local_dir_with_sub_dir, rev_options )
+                                logger.debug( "Successfully updated [{}]".format( as_info( location ) ) )
+                            except pip.exceptions.InstallationError as error:
+                                logger.warn( "Could not update [{}] in [{}]{} due to error [{}]".format(
+                                        as_warning( location ),
+                                        as_warning( local_dir_with_sub_dir ),
+                                        ( rev_options and  " at {}".format( as_warning( str(rev_options) ) ) or "" ),
+                                        as_warning( str(error) )
+                                ) )
+                        else:
+                            logger.debug( "Skipping update for [{}] as running in offline mode".format( as_info( location ) ) )
                     else:
                         action = "Cloning"
                         if vc_type == "svn":
