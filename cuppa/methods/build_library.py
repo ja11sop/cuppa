@@ -33,7 +33,7 @@ class BuildSharedLibMethod:
     def __call__( self, env, target, source, final_dir=None, **kwargs ):
         if final_dir == None:
             final_dir = env['abs_final_dir']
-        lib = env.SharedLibrary( os.path.join( final_dir, target ), env.Compile(source), **kwargs )
+        lib = env.SharedLibrary( os.path.join( final_dir, target ), env.Compile(source, shared=True), **kwargs )
 
         cuppa.progress.NotifyProgress.add( env, lib )
 

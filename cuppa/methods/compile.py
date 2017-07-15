@@ -15,13 +15,21 @@ from SCons.Script import Flatten
 
 class CompileMethod:
 
-    def __call__( self, env, source, **kwargs ):
+    def __call__( self, env, source, shared=False, **kwargs ):
         sources = Flatten( [ source ] )
         objects = []
         if 'CPPPATH' in env:
             env.AppendUnique( INCPATH = env['CPPPATH'] )
 
-        obj_suffix = env.subst('$OBJSUFFIX')
+        if shared:
+            obj_prefix = env.subst('$SHOBJPREFIX')
+            obj_suffix = env.subst('$SHOBJSUFFIX')
+            obj_builder = env.SharedObject
+        else:
+            obj_prefix = env.subst('$OBJPREFIX')
+            obj_suffix = env.subst('$OBJSUFFIX')
+            obj_builder = env.Object
+
         for source in sources:
             if os.path.splitext(str(source))[1] == obj_suffix:
                 objects.append( source )
@@ -29,10 +37,10 @@ class CompileMethod:
                 target = None
                 if not str(source).startswith( env['build_root'] ):
                     target = os.path.splitext( os.path.split( str(source) )[1] )[0]
-                    target = os.path.join( env['build_dir'], env.subst('$OBJPREFIX') + target + env.subst('$OBJSUFFIX') )
+                    target = os.path.join( env['build_dir'], obj_prefix + target + obj_suffix )
 
                 objects.append(
-                    env.Object(
+                    obj_builder(
                         source = source,
                         target = target,
                         CPPPATH = env['SYSINCPATH'] + env['INCPATH'],

@@ -1,0 +1,8 @@
+Import('env')
+
+library = env.BuildSharedLib('foo', ['f1.cpp', 'f2.cpp'])
+env.Build('bar', ['bar.cpp'], LIBS=library)
+
+#After this the executable can be run as follows:
+#./_build/gcc54/dbg/x86_64/c++1z/final/bar
+
