@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2015
+#          Copyright Jamie Allsop 2011-2017
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -240,6 +240,15 @@ class CreateVersionFileCpp:
         return "\n".join( lines )
 
 
+    @classmethod
+    def try_attr( cls, dependency, attribute ):
+        try:
+            if callable( getattr( dependency, attribute ) ):
+                return str(getattr( dependency, attribute )())
+        except AttributeError:
+            return "N/A"
+
+
     def initialise_dependencies_definition( self, dependencies ):
         lines = []
         lines += [ '\nidentity::dependencies_t initialise_dependencies()\n'
@@ -254,10 +263,10 @@ class CreateVersionFileCpp:
                 dependency = dependency_factory( self.__env )
 
                 lines += [ '    Dependencies[ "' +  name + '" ] = dependency_t( "'
-                               + dependency.name() + '", "'
-                               + dependency.version() + '", "'
-                               + dependency.repository() + '", "'
-                               + dependency.branch()
+                               + self.try_attr( dependency, "name" ) + '", "'
+                               + self.try_attr( dependency, "version" ) + '", "'
+                               + self.try_attr( dependency, "repository" ) + '", "'
+                               + self.try_attr( dependency, "branch" )
                                + '", revisions_t() );' ]
                 try:
                     if callable( getattr( dependency, 'revisions' ) ):
