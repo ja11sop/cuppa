@@ -111,7 +111,7 @@ def add_base_options():
     add_option( '--show-test-output',   dest='show-test-output', action='store_true',
                             help="When executing tests display all outout to stdout and stderr as appropriate" )
 
-    verbosity_choices = ( 'trace', 'debug', 'info', 'warn', 'error' )
+    verbosity_choices = ( 'trace', 'debug', 'exception', 'info', 'warn', 'error' )
 
     add_option( '--verbosity', dest='verbosity', choices=verbosity_choices, nargs=1, action='store',
                             help="The The verbosity level that you wish to run cuppa at. The default level"
