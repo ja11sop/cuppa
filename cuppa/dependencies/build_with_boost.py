@@ -650,6 +650,9 @@ def add_dependent_libraries( boost, linktype, libraries ):
     version = boost.numeric_version()
     patched_test = boost._patched_test
     required_libraries = set( libraries )
+
+    logger.trace( "Required Library Set = [{}]".format( colour_items( [l for l in required_libraries] ) ) )
+
     for library in libraries:
         if library in boost_libraries_with_no_dependencies():
             continue
@@ -1046,6 +1049,8 @@ class BoostLibraryBuilder(object):
 
 
     def __call__( self, env, target, source, libraries, linktype ):
+
+        logger.trace( "Requested libraries = [{}]".format( colour_items( libraries ) ) )
 
         variant      = variant_name( env['variant'].name() )
         target_arch  = env['target_arch']
