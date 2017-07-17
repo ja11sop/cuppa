@@ -21,6 +21,13 @@ from cuppa.log import logger
 
 
 
+class QuinceException(Exception):
+    def __init__(self, value):
+        self.parameter = value
+    def __str__(self):
+        return repr(self.parameter)
+
+
 class QuinceLibraryMethod(object):
 
     def __init__( self, location, src_path ):
@@ -211,8 +218,8 @@ class quince_postgresql(object):
             libpq_libpath = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT ).strip()
             self._flags['LIBPATH'] = [ libpq_libpath ]
         else:
-            logger.warn( "postgresql: pg_config not available so cannot determine LIBPATH for postgres libraries" )
-            self._flags['LIBPATH'] = []
+            logger.error( "postgresql: pg_config not available so cannot determine LIBPATH for postgres libraries" )
+            raise QuinceException( "pg_config not available" )
 
         self._flags['DYNAMICLIBS'] = [ 'pq' ]
 
