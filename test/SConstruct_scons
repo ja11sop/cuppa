@@ -1,6 +1,0 @@
-env = Environment()
-library = env.SharedLibrary('foo', ['f1.cpp', 'f2.cpp'])
-env.Program('bar', ['bar.cpp'], LIBS = library)
-
-# After this the executable can be run as follows:
-# LD_LIBRARY_PATH=. ./bar
