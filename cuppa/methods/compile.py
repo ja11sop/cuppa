@@ -53,3 +53,25 @@ class CompileMethod:
     @classmethod
     def add_to_env( cls, cuppa_env ):
         cuppa_env.add_method( "Compile", cls() )
+
+
+class CompileStaticMethod:
+
+    def __call__( self, env, source, **kwargs ):
+        kwargs['shared'] = False
+        return env.Compile( source, **kwargs)
+
+    @classmethod
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "CompileStatic", cls() )
+
+
+class CompileSharedMethod:
+
+    def __call__( self, env, source, **kwargs ):
+        kwargs['shared'] = True
+        return env.Compile( source, **kwargs)
+
+    @classmethod
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "CompileShared", cls() )
