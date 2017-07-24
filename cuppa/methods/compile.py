@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2013-2016
+#          Copyright Jamie Allsop 2013-2017
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -15,13 +15,17 @@ from SCons.Script import Flatten
 
 class CompileMethod:
 
-    def __call__( self, env, source, shared=False, **kwargs ):
+    def __init__( self, shared=False ):
+        self._shared = shared
+
+
+    def __call__( self, env, source, **kwargs ):
         sources = Flatten( [ source ] )
         objects = []
         if 'CPPPATH' in env:
             env.AppendUnique( INCPATH = env['CPPPATH'] )
 
-        if shared:
+        if self._shared:
             obj_prefix = env.subst('$SHOBJPREFIX')
             obj_suffix = env.subst('$SHOBJSUFFIX')
             obj_builder = env.SharedObject
@@ -50,28 +54,10 @@ class CompileMethod:
 
         return objects
 
-    @classmethod
-    def add_to_env( cls, cuppa_env ):
-        cuppa_env.add_method( "Compile", cls() )
-
-
-class CompileStaticMethod:
-
-    def __call__( self, env, source, **kwargs ):
-        kwargs['shared'] = False
-        return env.Compile( source, **kwargs)
 
     @classmethod
     def add_to_env( cls, cuppa_env ):
-        cuppa_env.add_method( "CompileStatic", cls() )
+        cuppa_env.add_method( "Compile", cls( False ) )
+        cuppa_env.add_method( "CompileStatic", cls( False ) )
+        cuppa_env.add_method( "CompileShared", cls( True ) )
 
-
-class CompileSharedMethod:
-
-    def __call__( self, env, source, **kwargs ):
-        kwargs['shared'] = True
-        return env.Compile( source, **kwargs)
-
-    @classmethod
-    def add_to_env( cls, cuppa_env ):
-        cuppa_env.add_method( "CompileShared", cls() )
