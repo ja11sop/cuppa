@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2015-2015
+#          Copyright Jamie Allsop 2015-2017
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -19,6 +19,13 @@ import cuppa.location
 import cuppa.output_processor
 from cuppa.log import logger
 
+
+
+class QuinceException(Exception):
+    def __init__(self, value):
+        self.parameter = value
+    def __str__(self):
+        return repr(self.parameter)
 
 
 class QuinceLibraryMethod(object):
@@ -211,8 +218,8 @@ class quince_postgresql(object):
             libpq_libpath = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT ).strip()
             self._flags['LIBPATH'] = [ libpq_libpath ]
         else:
-            logger.warn( "postgresql: pg_config not available so cannot determine LIBPATH for postgres libraries" )
-            self._flags['LIBPATH'] = []
+            logger.error( "postgresql: pg_config not available so cannot determine LIBPATH for postgres libraries" )
+            raise QuinceException( "pg_config not available" )
 
         self._flags['DYNAMICLIBS'] = [ 'pq' ]
 

@@ -9,8 +9,21 @@ def run( *args, **kwargs ):
     from inspect import getframeinfo, stack
     caller = getframeinfo(stack()[1][0])
     sconsctruct_path = caller.filename
-    import cuppa.core
-    cuppa.core.run( sconsctruct_path, *args, **kwargs )
+    import traceback
+    from cuppa.log import logger
+    from cuppa.colourise import as_info
+    import logging
+    try:
+        import cuppa.core
+        cuppa.core.run( sconsctruct_path, *args, **kwargs )
+    except Exception as error:
+        logger.error( "Cuppa terminated by exception [{}: {}]".format(
+                as_info( error.__class__.__name__ ),
+                as_info( str(error) )
+        ) )
+        if not logger.isEnabledFor( logging.EXCEPTION ):
+            logger.error( "Use {} (or above) to see the stack".format( as_info( "--verbosity=exception" ) ) )
+        logger.exception( traceback.format_exc() )
 
 
 def add_option( *args, **kwargs ):

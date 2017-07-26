@@ -111,7 +111,7 @@ def add_base_options():
     add_option( '--show-test-output',   dest='show-test-output', action='store_true',
                             help="When executing tests display all outout to stdout and stderr as appropriate" )
 
-    verbosity_choices = ( 'trace', 'debug', 'info', 'warn', 'error' )
+    verbosity_choices = ( 'trace', 'debug', 'exception', 'info', 'warn', 'error' )
 
     add_option( '--verbosity', dest='verbosity', choices=verbosity_choices, nargs=1, action='store',
                             help="The The verbosity level that you wish to run cuppa at. The default level"
@@ -814,11 +814,10 @@ class Construct(object):
                 specified_actions[ action.name() ] = action
 
         if not specified_actions:
-            default_variants = active_variants
-            if default_variants:
-                for variant in default_variants:
-                    if available_actions.has_key( variant ):
-                        specified_actions[ variant ] = available_actions[ variant ]
+            if active_variants:
+                for variant_name in active_variants:
+                    if available_actions.has_key( variant_name ):
+                        specified_actions[ variant_name ] = available_actions[ variant_name ]
 
         active_actions = {}
 
@@ -851,6 +850,7 @@ class Construct(object):
         if not active_variants:
             default_variants = cuppa_env['default_variants'] or toolchain.default_variants()
             if default_variants:
+                logger.info( "Default variants of [{}] being used.".format( colour_items( default_variants, as_info ) ) )
                 for variant in default_variants:
                     if variants.has_key( variant ):
                         active_variants[ variant ] = variants[ variant ]

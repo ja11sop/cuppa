@@ -30,6 +30,7 @@ import pip.exceptions
 import scms.subversion
 import scms.git
 import scms.mercurial
+import scms.bazaar
 
 from cuppa.colourise import as_notice, as_info, as_warning, as_error
 from cuppa.log import logger
@@ -93,7 +94,8 @@ class Location(object):
         return None
 
 
-    def remove_common_top_directory_under( self, path ):
+    @classmethod
+    def remove_common_top_directory_under( cls, path ):
         dirs = os.listdir( path )
         if not dirs:
             raise LocationException( "Uncompressed archive [{}] is empty".format( path ) )
@@ -112,7 +114,8 @@ class Location(object):
         return False
 
 
-    def extract( self, filename, target_dir ):
+    @classmethod
+    def extract( cls, filename, target_dir ):
         os.makedirs( target_dir )
         if tarfile.is_tarfile( filename ):
             logger.debug( "Extracting [{}] into [{}]".format( as_info( filename ), as_info( target_dir ) ) )
@@ -129,11 +132,12 @@ class Location(object):
             with zipfile.ZipFile( filename ) as zf:
                 zf.extractall( target_dir )
 
-        while self.remove_common_top_directory_under( target_dir ):
+        while cls.remove_common_top_directory_under( target_dir ):
             pass
 
 
-    def url_is_download_archive_url( self, path ):
+    @classmethod
+    def url_is_download_archive_url( cls, path ):
         base, download = os.path.split( path )
         if download == "download":
             return pip.download.is_archive_file( base )
@@ -271,7 +275,7 @@ class Location(object):
                     local_dir_with_sub_dir = os.path.join( local_directory, sub_dir and sub_dir or "" )
 
                     if os.path.exists( local_directory ):
-                        url, repository, branch, revision = self.get_info( location, local_dir_with_sub_dir, full_url )
+                        url, repository, branch, revision = self.get_info( location, local_dir_with_sub_dir, full_url, vc_type )
                         version = self.ver_rev_summary( branch, revision, self._full_url.path )[0]
                         if not offline:
                             logger.debug( "Updating [{}] in [{}]{} at [{}]".format(
@@ -329,7 +333,24 @@ class Location(object):
         return []
 
 
-    def get_info( self, location, local_directory, full_url ):
+    @classmethod
+    def retrieve_repo_info( cls, vcs_system, vcs_directory, expected_vc_type ):
+        if not expected_vc_type or expected_vc_type == vcs_system.vc_type():
+            try:
+                info = vcs_system.info( vcs_directory )
+                return info
+            except vcs_system.Error as ex:
+                if expected_vc_type:
+                    logger.error( "Failed to retreive info for [{}] because [{}]".format(
+                            as_error( vcs_directory ),
+                            as_error( str(ex) )
+                    ) )
+                    raise
+                return None
+
+
+    @classmethod
+    def get_info( cls, location, local_directory, full_url, expected_vc_type = None ):
 
         url        = location
         repository = urlparse.urlunparse( ( full_url.scheme, full_url.netloc, '',  '',  '',  '' ) )
@@ -338,22 +359,17 @@ class Location(object):
 
         info = ( url, repository, branch, revision )
 
-        vcs_directory = local_directory
-        try:
-            info = scms.git.info( vcs_directory )
-            return info
-        except scms.git.GitException:
-            pass
-        try:
-            info = scms.subversion.info( vcs_directory )
-            return info
-        except scms.subversion.SubversionException:
-            pass
-        try:
-            info = scms.mercurial.info( vcs_directory )
-            return info
-        except scms.mercurial.MercurialException:
-            pass
+        vcs_systems = [
+                scms.git.Git,
+                scms.subversion.Subversion,
+                scms.mercurial.Mercurial,
+                scms.bazaar.Bazaar
+        ]
+
+        for vcs_system in vcs_systems:
+            vcs_info = cls.retrieve_repo_info( vcs_system, local_directory, expected_vc_type )
+            if vcs_info:
+                return vcs_info
 
         return info
 

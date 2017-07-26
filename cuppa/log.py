@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2015-2015
+#          Copyright Jamie Allsop 2015-2017
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -19,6 +19,14 @@ def trace( self, message, *args, **kwargs ):
         self._log( logging.TRACE, message, args, **kwargs )
 
 logging.Logger.trace = trace
+
+logging.EXCEPTION = 15
+
+def exception( self, message, *args, **kwargs ):
+    if self.isEnabledFor( logging.EXCEPTION ):
+        self._log( logging.EXCEPTION, message, args, **kwargs )
+
+logging.Logger.exception = exception
 
 logger = logging.getLogger('cuppa')
 logger.setLevel( logging.INFO )
@@ -63,6 +71,7 @@ def initialise_logging():
 
     logging.addLevelName( logging.TRACE,    'trace' )
     logging.addLevelName( logging.DEBUG,    'debug' )
+    logging.addLevelName( logging.EXCEPTION,'exception' )
     logging.addLevelName( logging.INFO,     'info' )
     logging.addLevelName( logging.WARN,     'warn' )
     logging.addLevelName( logging.ERROR,    'error' )
@@ -82,6 +91,8 @@ def set_logging_level( level ):
         logger.setLevel( logging.TRACE )
     elif level == "debug":
         logger.setLevel( logging.DEBUG )
+    elif level == "exception":
+        logger.setLevel( logging.EXCEPTION )
     elif level == "warn":
         logger.setLevel( logging.WARN )
     elif level == "error":
