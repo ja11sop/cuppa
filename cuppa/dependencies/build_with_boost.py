@@ -1106,9 +1106,9 @@ class BoostLibraryBuilder(object):
 
                 logger.trace( "Library [{}] already present in variant [{}]".format( as_notice(library), as_info(variant_key) ) )
 
-                if library not in built_library_map:
-                    logger.trace( "Add Depends for [{}]".format( as_notice( self._library_sources[ variant_key ][library].path ) ) )
-                    env.Depends( built_libraries, self._library_sources[ variant_key ][library] )
+                #if library not in built_library_map: # The Depends is required regardless so SCons knows about the relationship
+                logger.trace( "Add Depends for [{}]".format( as_notice( self._library_sources[ variant_key ][library].path ) ) )
+                env.Depends( built_libraries, self._library_sources[ variant_key ][library] )
             else:
                 self._library_sources[ variant_key ][library] = built_library_map[library]
 
@@ -1146,11 +1146,12 @@ class BoostLibraryBuilder(object):
 
             library_node = self._library_sources[ variant_key ][library]
 
-            logger.trace( "Library Node = \n[{}]\n[{}]\n[{}]\n[{}]".format(
+            logger.trace( "Library Node = \n[{}]\n[{}]\n[{}]\n[{}]\n[{}]".format(
                     as_notice(library_node.path),
                     as_notice(str(library_node)),
                     as_notice(str(library_node.get_binfo().bact) ),
-                    as_notice(str(library_node.get_state()) )
+                    as_notice(str(library_node.get_state()) ),
+                    as_notice(str(library_node.srcnode())   )
             ) )
 
             installed_library = env.CopyFiles( install_dir, self._library_sources[ variant_key ][library] )
