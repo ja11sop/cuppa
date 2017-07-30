@@ -13,6 +13,18 @@ import os.path
 import cuppa.build_platform
 
 
+
+def extract_library_name_from_path( path ):
+    # Extract the library name from the library path.
+    # Possibly use regex instead?
+    name = os.path.split( str(path) )[1]
+    name = name.split( "." )[0]
+    name = name.split( "-" )[0]
+    name = "_".join( name.split( "_" )[1:] )
+    return name
+
+
+
 def toolset_name_from_toolchain( toolchain ):
     toolset_name = toolchain.toolset_name()
     if cuppa.build_platform.name() == "Darwin":
