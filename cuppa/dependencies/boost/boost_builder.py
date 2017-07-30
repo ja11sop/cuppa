@@ -7,9 +7,7 @@
 #-------------------------------------------------------------------------------
 #   Boost Builder
 #-------------------------------------------------------------------------------
-import shlex
 import os
-import platform
 
 # SCons Imports
 from SCons.Script import File, Flatten
