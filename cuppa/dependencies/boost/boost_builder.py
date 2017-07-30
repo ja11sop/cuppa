@@ -9,17 +9,16 @@
 #-------------------------------------------------------------------------------
 import shlex
 import os
-import re
 import platform
 
 # SCons Imports
-from SCons.Script import File, AlwaysBuild, Flatten
+from SCons.Script import File, Flatten
 
 # Cuppa Imports
 import cuppa.build_platform
 
 from cuppa.output_processor import IncrementalSubProcess
-from cuppa.colourise        import as_info, as_emphasised, as_notice, colour_items
+from cuppa.colourise        import as_info, as_notice, colour_items
 from cuppa.log              import logger
 
 # Boost Imports

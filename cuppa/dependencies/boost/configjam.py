@@ -9,10 +9,8 @@
 #-------------------------------------------------------------------------------
 import os
 import shutil
-import re
 
-import cuppa.build_platform
-
+# Boost Imports
 from cuppa.dependencies.boost.library_naming import toolset_name_from_toolchain
 
 

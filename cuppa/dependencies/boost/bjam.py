@@ -13,7 +13,7 @@ import re
 import platform
 
 from cuppa.output_processor import IncrementalSubProcess, ToolchainProcessor
-from cuppa.colourise        import as_info, as_emphasised
+from cuppa.colourise        import as_emphasised
 from cuppa.log              import logger
 
 

@@ -10,14 +10,13 @@
 import os
 import re
 import string
-import platform
 import lxml.html
 
 # Cuppa Imports
 import cuppa.build_platform
 import cuppa.location
 
-from cuppa.colourise        import as_info, as_emphasised, as_notice, colour_items
+from cuppa.colourise        import as_info, as_notice
 from cuppa.log              import logger
 
 # Boost Imports
@@ -80,7 +79,7 @@ def get_boost_location( env, location, version, base, patched ):
         extra_sub_path = 'patched'
 
     if location:
-        location = location_from_boost_version( location )
+        location = _location_from_boost_version( location )
 
         logger.trace( "Location after version detection = [{}]".format( as_notice( str(location) ) ) )
 
