@@ -46,7 +46,7 @@ def _lazy_update_library_list( env, emitting, libraries, prebuilt_libraries, add
     else:
         logger.trace( "Lazy read libraries list for [{}]: libraries are [{}]".format( as_info(stage_dir), colour_items(str(l) for l in libraries) ) )
         libraries = [ l for l in libraries if l not in prebuilt_libraries[ stage_dir ] ]
-        #prebuilt_libraries[ stage_dir ].update( libraries )
+        prebuilt_libraries[ stage_dir ].update( libraries )
 
     return libraries
 
