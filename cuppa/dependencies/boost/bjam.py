@@ -11,10 +11,101 @@ import os
 import shutil
 import re
 import platform
+import shlex
+
+# Cuppa Imports
+import cuppa.build_platform
 
 from cuppa.output_processor import IncrementalSubProcess, ToolchainProcessor
 from cuppa.colourise        import as_emphasised
 from cuppa.log              import logger
+
+# Boost Imports
+from cuppa.dependencies.boost.library_naming import directory_from_abi_flag, toolset_from_toolchain
+
+
+
+def bjam_command( env, location, toolchain, libraries, variant, target_arch, linktype, stage_dir, verbose_build, verbose_config, job_count, parallel ):
+
+    verbose = ""
+    if verbose_build:
+        verbose += " -d+2"
+    if verbose_config:
+        verbose += " --debug-configuration"
+
+    jobs = "1"
+    if job_count >= 2 and parallel:
+        if len(libraries)>4:
+            jobs = str( job_count - 1 )
+        else:
+            jobs = str( job_count/4 + 1 )
+
+    with_libraries = ""
+    for library in libraries:
+        with_libraries += " --with-" + library
+
+    build_flags = ""
+    abi_flag = toolchain.abi_flag(env)
+    if abi_flag:
+        build_flags = 'cxxflags="' + abi_flag + '"'
+
+    address_model = ""
+    architecture = ""
+    windows_api = ""
+    if toolchain.family() == "cl":
+        if target_arch == "amd64":
+            address_model = "address-model=64"
+        elif target_arch == "arm":
+            address_model = "architecture=arm"
+        if toolchain.target_store() != "desktop":
+            windows_api = "windows-api=" + toolchain.target_store()
+
+    build_flags += ' define="BOOST_DATE_TIME_POSIX_TIME_STD_CONFIG"'
+
+    if linktype == 'shared':
+        build_flags += ' define="BOOST_ALL_DYN_LINK"'
+
+    build_dir = "bin." + directory_from_abi_flag( abi_flag )
+
+    bjam = './bjam'
+    if platform.system() == "Windows":
+        # Use full path on Windows
+        bjam = os.path.join( location, 'bjam.exe' )
+
+    toolset = toolset_from_toolchain( toolchain )
+
+    command_line = "{bjam}{verbose} -j {jobs}{with_libraries} toolset={toolset} variant={variant} {address_model} {architecture} {windows_api} {build_flags} link={linktype} --build-dir=.{path_sep}{build_dir} stage --stagedir=.{path_sep}{stage_dir} --ignore-site-config".format(
+            bjam            = bjam,
+            verbose         = verbose,
+            jobs            = jobs,
+            with_libraries  = with_libraries,
+            toolset         = toolset,
+            variant         = variant,
+            address_model   = address_model,
+            architecture    = architecture,
+            windows_api     = windows_api,
+            build_flags     = build_flags,
+            linktype        = linktype,
+            build_dir       = build_dir,
+            stage_dir       = stage_dir,
+            path_sep        = os.path.sep
+    )
+
+    print command_line
+
+    if platform.system() == "Windows":
+        command_line = command_line.replace( "\\", "\\\\" )
+    command_line = command_line.replace( '"', '\\"' )
+
+    return shlex.split( command_line )
+
+
+
+def bjam_exe( boost ):
+    exe_name = 'bjam'
+    if platform.system() == "Windows":
+        exe_name += ".exe"
+    return os.path.join( boost.local(), exe_name )
 
 
 
@@ -88,10 +179,24 @@ class BuildBjam(object):
 
 class BjamOutputProcessor(object):
 
-    def __init__( self, env, verbose_build, verbose_config, toolset_name ):
+    @classmethod
+    def _toolset_name_from_toolchain( cls, toolchain ):
+        toolset_name = toolchain.toolset_name()
+        if cuppa.build_platform.name() == "Darwin":
+            if toolset_name == "gcc":
+                toolset_name = "darwin"
+            elif toolset_name == "clang":
+                toolset_name = "clang-darwin"
+        return toolset_name
+
+
+    def __init__( self, env, verbose_build, verbose_config, toolchain ):
+
+        toolset_name = self._toolset_name_from_toolchain( toolchain )
+        self._toolset_filter = toolset_name + '.'
+
         self._verbose_build = verbose_build
         self._verbose_config = verbose_config
-        self._toolset_filter = toolset_name + '.'
 
         self._minimal_output = not self._verbose_build
         ignore_duplicates = not self._verbose_build
