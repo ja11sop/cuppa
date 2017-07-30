@@ -10,7 +10,7 @@
 
 import logging
 
-from cuppa.colourise import as_error_label, as_warning_label, as_emphasised
+from cuppa.colourise import as_error_label, as_warning_label, as_notice, as_emphasised
 
 logging.TRACE = 5
 
@@ -34,23 +34,41 @@ logger.setLevel( logging.INFO )
 
 class _formatter(logging.Formatter):
 
-    @classmethod
-    def warn_fmt( cls ):
-        return "{} %(message)s".format( as_warning_label("%(name)s: %(module)s: [%(levelname)s]") )
+    _default_preamble = '%(name)s: %(module)s: [%(levelname)s]'
+    _debug_preamble   = '%(name)s: %(module)s: %(funcName)s:%(lineno)d [%(levelname)s]'
+    _trace_preamble   = '%(name)s: %(module)s: %(funcName)s: {path_and_line} [%(levelname)s]'.format( path_and_line='%(pathname)s:%(lineno)d' )
+
+    _warn_fmt = None
+    _error_fmt = None
+    _critical_fmt = None
 
     @classmethod
-    def error_fmt( cls ):
-        return "{} %(message)s".format( as_error_label("%(name)s: %(module)s: [%(levelname)s]") )
+    def fmt_with_preamble( cls, preamble ):
+        return "{} %(message)s".format( preamble )
+
 
     @classmethod
-    def critical_fmt( cls ):
-        return "{} %(message)s".format( as_error_label( as_emphasised( "%(name)s: %(module)s: [%(levelname)s]") ) )
+    def preamble_from_level( cls ):
+        if logger.isEnabledFor( logging.TRACE ):
+            return cls._trace_preamble
+        elif logger.isEnabledFor( logging.DEBUG ):
+            return cls._debug_preamble
+        else:
+            return cls._default_preamble
 
-    def __init__( self, fmt="%(name)s: %(module)s: [%(levelname)s] %(message)s" ):
+
+    def __init__( self, fmt=None ):
+
+        if not fmt:
+            preamble = self.preamble_from_level()
+            fmt      = self.fmt_with_preamble( preamble )
+
+            self._warn_fmt     = self.fmt_with_preamble( as_warning_label( preamble ) )
+            self._error_fmt    = self.fmt_with_preamble( as_error_label( preamble ) )
+            self._critical_fmt = self.fmt_with_preamble( as_error_label( as_emphasised( preamble ) ) )
+
         logging.Formatter.__init__( self, fmt )
-        self._warn_fmt = self.warn_fmt()
-        self._error_fmt = self.error_fmt()
-        self._critical_fmt = self.critical_fmt()
+
 
     def format( self, record ):
         orig_fmt = self._fmt
@@ -65,7 +83,9 @@ class _formatter(logging.Formatter):
         return result
 
 
+
 _log_handler = logging.StreamHandler()
+
 
 def initialise_logging():
 
@@ -78,11 +98,14 @@ def initialise_logging():
     logging.addLevelName( logging.CRITICAL, 'critical' )
 
     _log_handler.setFormatter( _formatter() )
+
     logger.addHandler( _log_handler )
 
 
 def reset_logging_format():
+
     _log_handler.setFormatter( _formatter() )
+
 
 
 def set_logging_level( level ):

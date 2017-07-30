@@ -32,7 +32,7 @@ import cuppa.version
 #import cuppa.cpp.stdcpp
 
 from cuppa.colourise import colouriser, as_emphasised, as_info, as_error, as_notice, colour_items, as_info_label
-from cuppa.log import initialise_logging, set_logging_level, reset_logging_format, logger
+from cuppa.log import set_logging_level, reset_logging_format, logger
 from cuppa.utility.types import is_string
 
 from cuppa.toolchains             import *
@@ -592,7 +592,6 @@ class Construct(object):
                   tools                = [] ):
 
         set_base_options()
-        initialise_logging()
 
         cuppa_env = CuppaEnvironment()
         cuppa_env.add_tools( tools )

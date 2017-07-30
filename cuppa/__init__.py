@@ -10,9 +10,10 @@ def run( *args, **kwargs ):
     caller = getframeinfo(stack()[1][0])
     sconsctruct_path = caller.filename
     import traceback
-    from cuppa.log import logger
+    from cuppa.log import logger, initialise_logging
     from cuppa.colourise import as_info
     import logging
+    initialise_logging()
     try:
         import cuppa.core
         cuppa.core.run( sconsctruct_path, *args, **kwargs )
