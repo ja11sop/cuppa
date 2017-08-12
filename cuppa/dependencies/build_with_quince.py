@@ -133,7 +133,7 @@ class quince_sqlite( location_dependency( 'quince-sqlite', sys_include="include"
     def __init__( self, env, location, includes=[], sys_includes=[], source_path=None, linktype=None ):
         super(quince_sqlite,self).__init__( env, location, includes, sys_includes, source_path, linktype )
 
-        self._flags = self.get_flags( location )
+        self._flags = self.get_flags( env, location )
 
         def update_env( env ):
             env.BuildWith('boost')
@@ -162,7 +162,7 @@ class quince_sqlite( location_dependency( 'quince-sqlite', sys_include="include"
 
 
     @classmethod
-    def get_flags( cls, location ):
+    def get_flags( cls, env, location ):
 
         flags = {}
         if cuppa.output_processor.command_available( "pkg-config"):
