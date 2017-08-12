@@ -204,12 +204,13 @@ class base(object):
         prebuilt_libraries = self.lazy_create_node( variant_key, self._prebuilt_libraries )
 
         local_dir = self._location.local()
+        local_folder = self._location.local_folder()
 
-        build_dir = os.path.join( local_dir, env['tool_variant_build_dir'] )
+        build_dir = os.path.join( env['build_root'], local_folder, env['tool_variant_working_dir'] )
         final_dir = os.path.normpath( os.path.join( build_dir, env['final_dir'] ) )
 
-        logger.trace( "build_dir for [{}] = [{}]".format( as_info(self._name), build_dir ) )
-        logger.trace( "final_dir for [{}] = [{}]".format( as_info(self._name), final_dir ) )
+        logger.debug( "build_dir for [{}] = [{}]".format( as_info(self._name), build_dir ) )
+        logger.debug( "final_dir for [{}] = [{}]".format( as_info(self._name), final_dir ) )
 
         obj_suffix = env['OBJSUFFIX']
         obj_builder = env.StaticObject

@@ -181,6 +181,10 @@ class Location(object):
         return local_folder
 
 
+    def local_folder( self ):
+        return self._local_folder
+
+
     def get_local_directory( self, cuppa_env, location, sub_dir, branch, full_url ):
 
         offline = cuppa_env['offline']
@@ -197,8 +201,8 @@ class Location(object):
 
             if pip.download.is_archive_file( location ):
 
-                local_folder = self.folder_name_from_path( location )
-                local_directory = os.path.join( base, local_folder )
+                self._local_folder = self.folder_name_from_path( location )
+                local_directory = os.path.join( base, self._local_folder )
 
                 local_dir_with_sub_dir = os.path.join( local_directory, sub_dir and sub_dir or "" )
 
@@ -216,8 +220,8 @@ class Location(object):
             return local_directory
         else:
 
-            local_folder = self.folder_name_from_path( full_url )
-            local_directory = os.path.join( base, local_folder )
+            self._local_folder = self.folder_name_from_path( full_url )
+            local_directory = os.path.join( base, self._local_folder )
 
             if full_url.scheme.startswith( 'http' ) and self.url_is_download_archive_url( full_url.path ):
                 logger.debug( "[{}] is an archive download".format( as_info( location ) ) )
@@ -234,7 +238,7 @@ class Location(object):
                         return local_directory
 
                 # If not we then check to see if we cached the download
-                cached_archive = self.get_cached_archive( cuppa_env['cache_root'], local_folder )
+                cached_archive = self.get_cached_archive( cuppa_env['cache_root'], self._local_folder )
                 if cached_archive:
                     logger.debug( "Cached archive [{}] found for [{}]".format(
                             as_info( cached_archive ),
@@ -255,7 +259,7 @@ class Location(object):
                         ) )
                         self.extract( filename, local_dir_with_sub_dir )
                         if cuppa_env['cache_root']:
-                            cached_archive = os.path.join( cuppa_env['cache_root'], local_folder )
+                            cached_archive = os.path.join( cuppa_env['cache_root'], self._local_folder )
                             logger.debug( "Caching downloaded file as [{}]".format( as_info( cached_archive ) ) )
                             shutil.copyfile( filename, cached_archive )
                     except urllib.ContentTooShortError as error:

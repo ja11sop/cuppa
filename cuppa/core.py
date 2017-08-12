@@ -654,6 +654,7 @@ class Construct(object):
 
         build_root = cuppa_env.get_option( 'build_root', default='_build' )
         cuppa_env['build_root'] = os.path.normpath( os.path.expanduser( build_root ) )
+        cuppa_env['abs_build_root'] = os.path.abspath( cuppa_env['build_root'] )
 
         download_root = cuppa_env.get_option( 'download_root', default='_cuppa' )
         cuppa_env['download_root'] = os.path.normpath( os.path.expanduser( download_root ) )
@@ -1060,6 +1061,7 @@ class Construct(object):
             sconscript_env['sconscript_file'] = sconscript_file
 
             build_root = sconscript_env['build_root']
+            working_folder = 'working'
 
             sconscript_env = sconscript_env.Clone()
             sconscript_env['sconscript_env'] = sconscript_env
@@ -1068,6 +1070,7 @@ class Construct(object):
             sconscript_env['sconscript_toolchain_build_dir'] = os.path.join( path_without_ext, toolchain.name() )
             sconscript_env['sconscript_dir']   = os.path.join( sconscript_env['base_path'], sconstruct_offset_path )
             sconscript_env['tool_variant_dir'] = os.path.join( toolchain.name(), variant, target_arch, abi )
+            sconscript_env['tool_variant_working_dir'] = os.path.join( sconscript_env['tool_variant_dir'], working_folder )
 
             build_base_path = os.path.join( path_without_ext, sconscript_env['tool_variant_dir'] )
 
@@ -1077,7 +1080,6 @@ class Construct(object):
             sconscript_env['build_base_path']  = build_base_path
             sconscript_env['flat_build_base']  = flatten_dir( build_base_path )
 
-            working_folder = 'working'
             sconscript_env['tool_variant_build_dir'] = os.path.join( build_root, sconscript_env['tool_variant_dir'], working_folder )
             sconscript_env['build_dir']        = os.path.normpath( os.path.join( build_root, build_base_path, working_folder, '' ) )
             sconscript_env['abs_build_dir']    = os.path.abspath( sconscript_env['build_dir'] )
