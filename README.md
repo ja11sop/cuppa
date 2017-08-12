@@ -22,7 +22,7 @@ and have Scons "do the right thing"; building targets for any `sconscript` files
   * [Reference](#reference)
     * [Basic Structure](#basic-structure)
     * [Cuppa Command-line Reference](#construct-command-line-options)
-    * [Where does Cuppa put my builds?](#where-does-construct-put-my-builds)
+    * [Where does Cuppa put my builds?](#where-does-cuppa-put-my-builds)
     * [Using `--xxxx-conf` to save command-line choices](#using---xxxx-conf-to-save-command-line-choices)
     * [Cuppa](#cuppa)
     * [Methods](#methods)
