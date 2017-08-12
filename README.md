@@ -335,17 +335,18 @@ In addition to `--save-conf` there are a few other options that allow, updating,
 Calling the `run()` method of the `cuppa` module in your sconstruct file is used to start the build process. `run()` is defined as follows:
 
 ```python
-run(    base_path            = os.path.abspath( '.' ),
-        branch_root          = None,
-        default_options      = {},
-        default_projects     = [],
-        default_variants     = [],
-        default_dependencies = [],
-        default_profiles     = [],
-        default_runner       = None,
-        configure_callback   = None,
-        dependencies         = {},
-        tools                = [] )
+run( base_path            = os.path.abspath( '.' ),
+     branch_root          = None,
+     default_options      = {},
+     default_projects     = [],
+     default_variants     = [],
+     default_dependencies = [],
+     default_profiles     = [],
+     dependencies         = [],
+     profiles             = [],
+     default_runner       = None,
+     configure_callback   = None,
+     tools                = [] )
 ```
 
 *Overview*: Starts the build process.
