@@ -168,18 +168,18 @@ class quince_sqlite( location_dependency( 'quince-sqlite', sys_include="include"
         if cuppa.output_processor.command_available( "pkg-config"):
             command = "pkg-config --cflags --libs sqlite3"
             cflags = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT ).strip()
-            self._flags = env.ParseFlags( cflags )
-            if 'CPPPATH' in self._flags:
-                self._flags['SYSINCPATH'] = self._flags['CPPPATH']
-                del self._flags['CPPPATH']
+            cls._flags = env.ParseFlags( cflags )
+            if 'CPPPATH' in cls._flags:
+                cls._flags['SYSINCPATH'] = cls._flags['CPPPATH']
+                del cls._flags['CPPPATH']
 
-            if 'LIBS' in self._flags:
-                self._flags['DYNAMICLIBS'] = self._flags['LIBS']
-                del self._flags['LIBS']
+            if 'LIBS' in cls._flags:
+                cls._flags['DYNAMICLIBS'] = cls._flags['LIBS']
+                del cls._flags['LIBS']
 
-        if not 'INCPATH' in self._flags:
-            self._flags['INCPATH'] = []
-        self._flags['INCPATH'].append( os.path.join( location.local(), "include" ) )
+        if not 'INCPATH' in cls._flags:
+            cls._flags['INCPATH'] = []
+        cls._flags['INCPATH'].append( os.path.join( location.local(), "include" ) )
 
         return flags
 
