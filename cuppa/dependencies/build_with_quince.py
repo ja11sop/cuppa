@@ -13,7 +13,6 @@ import subprocess
 import shlex
 import platform
 import glob
-import inspect
 
 from exceptions import Exception
 
@@ -71,7 +70,6 @@ class quince_postgresql( location_dependency( 'quince-postgresql', sys_include="
             env.BuildWith('boost')
 
         env.AddMethod( LibraryMethod( self, update_env ), "QuincePostgresqlLibrary" )
-        #env.AddMethod( QuinceLibraryMethod( self ), "QuincePostgresqlLibrary" )
 
 
     def __call__( self, env, toolchain, variant ):
@@ -141,7 +139,6 @@ class quince_sqlite( location_dependency( 'quince-sqlite', sys_include="include"
             env.BuildWith('boost')
 
         env.AddMethod( LibraryMethod( self, update_env ), "QuinceSqliteLibrary" )
-        #env.AddMethod( QuinceLibraryMethod( self ), "QuinceSqliteLibrary" )
 
 
     def __call__( self, env, toolchain, variant ):
