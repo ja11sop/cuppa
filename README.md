@@ -44,10 +44,10 @@ and have Scons "do the right thing"; building targets for any `sconscript` files
   * [Supported Dependencies](#supported-dependencies)
     * [boost](#boost)
     * [qt4 and qt5](#qt4-and-qt5)
-    * [quince](quince)
+    * [quince](#quince)
     * [Location only (Header) Libraries](#location-only-header-libraries)
   * [Creating your own Dependencies](#creating-your-own-dependencies)
-    * [Building dependencies on top of `cuppa.header_library_dependency()`](#building-dependencies-on-top-of-cuppaheader_library_dependency)
+    * [Building dependencies on top of `cuppa.location_dependency()`](#building-dependencies-on-top-of-cuppalocation_dependency)
   * [Profiles](#profiles)
   * [Acknowledgements](#acknowledgements)
 
@@ -624,53 +624,64 @@ The following toolchains are currently supported:
 
 | Toolchain | Description |
 | --------- | ----------- |
-| `gcc34`   | g++ 3.4 |
-| `gcc40`   | g++ 4.0 |
-| `gcc41`   | g++ 4.1 |
-| `gcc42`   | g++ 4.2 |
-| `gcc43`   | g++ 4.3 |
-| `gcc44`   | g++ 4.4 |
-| `gcc45`   | g++ 4.5 |
-| `gcc46`   | g++ 4.6 |
-| `gcc47`   | g++ 4.7 |
-| `gcc48`   | g++ 4.8 |
-| `gcc49`   | g++ 4.9 |
-| `gcc50`   | g++ 5.0 |
-| `gcc51`   | g++ 5.1 |
-| `gcc52`   | g++ 5.2 |
+| `gcc71`   | g++ 7.1 |
+| `gcc70`   | g++ 7.0 |
+| `gcc64`   | g++ 6.4 |
+| `gcc63`   | g++ 6.3 |
+| `gcc62`   | g++ 6.2 |
+| `gcc61`   | g++ 6.1 |
+| `gcc60`   | g++ 6.0 |
+| `gcc54`   | g++ 5.4 |
 | `gcc53`   | g++ 5.3 |
+| `gcc52`   | g++ 5.2 |
+| `gcc51`   | g++ 5.1 |
+| `gcc50`   | g++ 5.0 |
+| `gcc49`   | g++ 4.9 |
+| `gcc48`   | g++ 4.8 |
+| `gcc47`   | g++ 4.7 |
+| `gcc46`   | g++ 4.6 |
+| `gcc45`   | g++ 4.5 |
+| `gcc44`   | g++ 4.4 |
+| `gcc43`   | g++ 4.3 |
+| `gcc42`   | g++ 4.2 |
+| `gcc41`   | g++ 4.1 |
+| `gcc40`   | g++ 4.0 |
+| `gcc34`   | g++ 3.4 |
 
 #### The Clang family
 
 | Toolchain | Description |
 | --------- | ----------- |
-| `clang32` | clang 3.2 |
-| `clang33` | clang 3.3 |
-| `clang34` | clang 3.4 |
-| `clang35` | clang 3.5 |
-| `clang36` | clang 3.6 |
-| `clang37` | clang 3.7 |
+| `clang50` | clang 5.0 |
+| `clang40` | clang 4.0 |
+| `clang39` | clang 3.9 |
 | `clang38` | clang 3.8 |
+| `clang37` | clang 3.7 |
+| `clang36` | clang 3.6 |
+| `clang35` | clang 3.5 |
+| `clang34` | clang 3.4 |
+| `clang33` | clang 3.3 |
+| `clang32` | clang 3.2 |
 
 #### The Visual C++ family
 
 | Toolchain | Description |
 | --------- | ----------- |
-| `vc60`    | Visual C++ 6.0                                |
-| `vc70`    | Visual C++ 7.0 (Visual C++ .NET 2002)         |
-| `vc71`    | Visual C++ 7.1 (Visual C++ .NET 2003)         |
-| `vc80e`   | Visual C++ 8.0 Express (Visual C++ 2005 Exp)  |
-| `vc80`    | Visual C++ 8.0 (Visual C++ 2005)              |
-| `vc90e`   | Visual C++ 9.0 Express (Visual C++ 2008 Exp)  |
-| `vc90`    | Visual C++ 9.0 (Visual C++ 2008)              |
-| `vc100e`  | Visual C++ 10.0 Express (Visual C++ 2010 Exp) |
-| `vc100`   | Visual C++ 10.0 (Visual C++ 2010)             |
-| `vc110e`  | Visual C++ 11.0 (Visual C++ 2012 Exp)         |
-| `vc110`   | Visual C++ 11.0 (Visual C++ 2012)             |
-| `vc120e`  | Visual C++ 12.0 (Visual C++ 2013 Exp)         |
-| `vc120`   | Visual C++ 12.0 (Visual C++ 2013)             |
-| `vc140e`  | Visual C++ 14.0 (Visual C++ 2015 Exp)         |
 | `vc140`   | Visual C++ 14.0 (Visual C++ 2015)             |
+| `vc140e`  | Visual C++ 14.0 (Visual C++ 2015 Exp)         |
+| `vc120`   | Visual C++ 12.0 (Visual C++ 2013)             |
+| `vc120e`  | Visual C++ 12.0 (Visual C++ 2013 Exp)         |
+| `vc110`   | Visual C++ 11.0 (Visual C++ 2012)             |
+| `vc110e`  | Visual C++ 11.0 (Visual C++ 2012 Exp)         |
+| `vc100`   | Visual C++ 10.0 (Visual C++ 2010)             |
+| `vc100e`  | Visual C++ 10.0 Express (Visual C++ 2010 Exp) |
+| `vc90`    | Visual C++ 9.0 (Visual C++ 2008)              |
+| `vc90e`   | Visual C++ 9.0 Express (Visual C++ 2008 Exp)  |
+| `vc80`    | Visual C++ 8.0 (Visual C++ 2005)              |
+| `vc80e`   | Visual C++ 8.0 Express (Visual C++ 2005 Exp)  |
+| `vc71`    | Visual C++ 7.1 (Visual C++ .NET 2003)         |
+| `vc70`    | Visual C++ 7.0 (Visual C++ .NET 2002)         |
+| `vc60`    | Visual C++ 6.0                                |
 
 #### Note
 
@@ -930,7 +941,7 @@ We can simplify the above as follows:
 
 cuppa.run(
     # Make this a default dependency in all sconscripts
-    default_dependencies = [ 
+    default_dependencies = [
         cuppa.location_dependency( 'asio', location="<location-of-asio>", include="asio/include" )
     ]
 )
