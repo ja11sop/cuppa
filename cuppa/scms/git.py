@@ -67,7 +67,9 @@ class Git:
             branches = [ b.strip() for b in match.group("branches").split(',') ]
             logger.trace( "Branches (using show) for [{}] are [{}]".format( as_notice(path), colour_items(branches) ) )
             if len(branches) == 1:
-                branch = branches[0].split('/')[1]
+                # If this returns a tag: tag_name replace the ": " with "/" and then extract the tag_name
+                # otherwise this will simply extract the branch_name as expected
+                branch = branches[0].replace(': ','/').split('/')[1]
             else:
                 branch = branches[-2].split('/')[1]
             logger.trace( "Branch (using show) for [{}] is [{}]".format( as_notice(path), as_info(branch) ) )
