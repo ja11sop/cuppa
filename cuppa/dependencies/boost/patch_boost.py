@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2017
+#          Copyright Jamie Allsop 2011-2018
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -33,7 +33,7 @@ def apply_patch_if_needed( home ):
         logger.debug( "[{}] already applied".format( as_info( diff_file ) ) )
         return
 
-    diff_path = os.path.join( os.path.split( __file__ )[0], "boost", diff_file )
+    diff_path = os.path.join( os.path.split( __file__ )[0], diff_file )
 
     command = "patch --batch -p1 --input={}".format( diff_path )
 
@@ -45,6 +45,6 @@ def apply_patch_if_needed( home ):
 
     if subprocess.call( shlex.split( command ), cwd=home ) != 0:
         logger.error( "Could not apply [{}]".format( diff_file ) )
-
-    with open( patch_applied_path, "w" ) as patch_applied_file:
-        pass
+    else:
+        with open( patch_applied_path, "w" ) as patch_applied_file:
+            pass
