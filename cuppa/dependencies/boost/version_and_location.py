@@ -148,9 +148,9 @@ def get_boost_version( location ):
 
 
 def _determine_latest_boost_verion():
-    current_release = "1.64.0"
+    current_release = "1.67.0"
     try:
-        html = lxml.html.parse('http://www.boost.org/users/download/')
+        html = lxml.html.parse('https://www.boost.org/users/download/')
 
         current_release = html.xpath("/html/body/div[2]/div/div[1]/div/div/div[2]/h3[1]/span")[0].text
         current_release = str( re.search( r'(\d[.]\d+([.]\d+)?)', current_release ).group(1) )
