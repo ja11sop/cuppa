@@ -125,6 +125,10 @@ def add_base_options():
                             help="Propagate the current environment PATH (only) to all sub-processes when"
                                  " building" )
 
+    add_option( '--merge-path', dest='merge-path', action='store_true',
+                            help="Merge the current environment PATH (only) to all sub-processes when"
+                                 " building" )
+
 #    add_option( '--b2',     dest='b2', action='store_true',
 #                            help='Execute boost.build by calling b2 or bjam' )
 
@@ -676,8 +680,9 @@ class Construct(object):
         test_runner = cuppa_env.get_option( 'runner', default=default_runner and default_runner or 'process' )
         cuppa_env['default_runner']  = test_runner
 
-        cuppa_env['propagate_env'] = cuppa_env.get_option( 'propagate-env' ) and True or False
-        cuppa_env['propagate_path'] = cuppa_env.get_option( 'propagate-path' ) and True or False
+        cuppa_env['propagate_env']    = cuppa_env.get_option( 'propagate-env' )    and True or False
+        cuppa_env['propagate_path']   = cuppa_env.get_option( 'propagate-path' )   and True or False
+        cuppa_env['merge_path']       = cuppa_env.get_option( 'merge-path' )       and True or False
         cuppa_env['show_test_output'] = cuppa_env.get_option( 'show-test-output' ) and True or False
 
         self.add_variants   ( cuppa_env )
@@ -834,6 +839,7 @@ class Construct(object):
 
         propagate_environment = cuppa_env['propagate_env']
         propagate_path        = cuppa_env['propagate_path']
+        merge_path            = cuppa_env['merge_path']
 
         variants = cuppa_env[ self.variants_key ]
         target_architectures = cuppa_env[ 'target_architectures' ]
@@ -866,7 +872,7 @@ class Construct(object):
                 if env:
 
                     # TODO: Refactor this code out
-                    if propagate_environment or propagate_path:
+                    if propagate_environment or propagate_path or merge_path:
 
                         def merge_paths( default_paths, env_paths ):
                             path_set = set( default_paths + env_paths )
@@ -887,13 +893,21 @@ class Construct(object):
                                     target_arch,
                                     as_notice( str(env['ENV']) ) )
                             )
-                        merged_paths = merge_paths( default_paths, env_paths )
-                        env['ENV']['PATH'] = os.pathsep.join( merged_paths )
-                        logger.debug( "propagating PATH for [{}:{}] to all subprocesses: [{}]".format(
-                                variant.name(),
-                                target_arch,
-                                colour_items( merged_paths ) )
-                        )
+                        if propagate_path and not propagate_environment:
+                            env['ENV']['PATH'] = env_paths
+                            logger.debug( "propagating PATH for [{}:{}] to all subprocesses: [{}]".format(
+                                    variant.name(),
+                                    target_arch,
+                                    colour_items( env_paths ) )
+                            )
+                        elif merge_path:
+                            merged_paths = merge_paths( default_paths, env_paths )
+                            env['ENV']['PATH'] = os.pathsep.join( merged_paths )
+                            logger.debug( "merging PATH for [{}:{}] to all subprocesses: [{}]".format(
+                                    variant.name(),
+                                    target_arch,
+                                    colour_items( merged_paths ) )
+                            )
 
                     build_envs.append( {
                         'variant': key,
