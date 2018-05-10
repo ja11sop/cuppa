@@ -121,7 +121,7 @@ def get_boost_location( env, location, version, base, patched ):
         boost_location = cuppa.location.Location( env, location, extra_sub_path=extra_sub_path )
 
     if patched:
-        apply_patch_if_needed( boost_location.local() )
+        apply_patch_if_needed( boost_location.local(), get_boost_version ( boost_location.local() )[0] )
 
     return boost_location
 

@@ -11,6 +11,7 @@
 import shlex
 import subprocess
 import os
+import glob
 
 # Cuppa Imports
 from cuppa.colourise import as_info
@@ -24,18 +25,31 @@ def patched_boost_test( home ):
 
 
 
-def apply_patch_if_needed( home ):
+def apply_patch_if_needed( home, version_string ):
 
     patch_applied_path = os.path.join( home, "cuppa_test_patch_applied.txt" )
-    diff_file = "boost_test_patch.diff"
+
+    expected_diff_file = os.path.join(
+            os.path.split( __file__ )[0],
+            "boost_test_patch_{}.diff".format( version_string )
+    )
+
+    available_diff_files = sorted( glob.glob( os.path.join(
+            os.path.split( __file__ )[0],
+            "boost_test_patch_*.diff"
+    ) ), reverse=True )
+
+    for diff_file in available_diff_files:
+        if diff_file <= expected_diff_file:
+            break
+
+    logger.debug( "Using diff file [{}]".format( as_info( diff_file ) ) )
 
     if os.path.exists( patch_applied_path ):
         logger.debug( "[{}] already applied".format( as_info( diff_file ) ) )
         return
 
-    diff_path = os.path.join( os.path.split( __file__ )[0], diff_file )
-
-    command = "patch --batch -p1 --input={}".format( diff_path )
+    command = "patch --batch -p1 --input={}".format( diff_file )
 
     logger.info( "Applying [{}] using [{}] in [{}]".format(
             as_info( diff_file ),
