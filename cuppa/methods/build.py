@@ -19,7 +19,7 @@ class BuildMethod:
         if final_dir == None:
             final_dir = env['abs_final_dir']
         exe = os.path.join( final_dir, target )
-        if append_variant and env['variant'] != 'rel':
+        if append_variant and env['variant'].name() != 'rel':
             exe += '_' + env['variant']
 
         env.AppendUnique( DYNAMICLIBS = env['LIBS'] )
