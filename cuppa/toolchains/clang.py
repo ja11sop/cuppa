@@ -332,12 +332,12 @@ class Clang(object):
         return 'coverage_cxx_flags' in self.values
 
 
-    def version_file_builder( self, env, namespace, version, location ):
-        return CreateVersionFileCpp( env, namespace, version, location )
+    def version_file_builder( self, env, namespace, version, location, build_id=None ):
+        return CreateVersionFileCpp( env, namespace, version, location, build_id=build_id )
 
 
-    def version_file_emitter( self, env, namespace, version, location ):
-        return CreateVersionHeaderCpp( env, namespace, version, location )
+    def version_file_emitter( self, env, namespace, version, location, build_id=None ):
+        return CreateVersionHeaderCpp( env, namespace, version, location, build_id=build_id )
 
 
     def test_runner( self, tester, final_dir, expected ):

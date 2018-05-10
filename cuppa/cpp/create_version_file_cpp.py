@@ -33,12 +33,13 @@ def txt_from_cpp( cpp_file ):
 
 class CreateVersionHeaderCpp:
 
-    def __init__( self, env, namespaces, version, location ):
+    def __init__( self, env, namespaces, version, location, build_id=None ):
         self.__env = env
         self.__namespace_guard = "_".join( namespaces )
         self.__namespaces = namespaces
         self.__version = version
         self.__location = location
+        self.__build_id = build_id
 
         self.__variant = self.__env['variant'].name()
 
@@ -152,6 +153,7 @@ def get_build_identity_header( namespace_guard, namespaces ):
     lines += [ function_declaration_from_variable( 'build_time' ) ]
     lines += [ function_declaration_from_variable( 'build_user' ) ]
     lines += [ function_declaration_from_variable( 'build_host' ) ]
+    lines += [ function_declaration_from_variable( 'build_id' ) ]
     lines += [ function_declaration_dependencies() ]
     lines += [ function_declaration_report() ]
 
@@ -194,12 +196,13 @@ def function_declaration_report():
 
 class CreateVersionFileCpp:
 
-    def __init__( self, env, namespaces, version, location ):
+    def __init__( self, env, namespaces, version, location, build_id=None ):
         self.__env = env
         self.__namespace_guard = "_".join( namespaces )
         self.__namespaces = namespaces
         self.__version = version
         self.__location = location
+        self.__build_id = build_id
 
         location = cuppa.location.Location( env, location )
 
@@ -216,7 +219,7 @@ class CreateVersionFileCpp:
 
         #print "Create CPP Version File at [" + cpp_file + "]"
         version_cpp = open( cpp_file, "w" )
-        version_cpp.write( self.get_build_identity_source( env['BUILD_WITH'], hpp_file ) )
+        version_cpp.write( self.get_build_identity_source( env['BUILD_WITH'], hpp_file, self.__build_id ) )
         version_cpp.close()
 
         return None
@@ -308,7 +311,8 @@ class CreateVersionFileCpp:
                    '           "  |- Variant    = " << identity::build_variant()      << "\\n"\n'
                    '           "  |- Time       = " << identity::build_time()         << "\\n"\n'
                    '           "  |- User       = " << identity::build_user()         << "\\n"\n'
-                   '           "  +- Host       = " << identity::build_host()         << "\\n";\n'
+                   '           "  |- Host       = " << identity::build_host()         << "\\n"\n'
+                   '           "  +- ID         = " << identity::build_id()           << "\\n";\n'
                    '\n'
                    '    if( !identity::dependencies().empty() )\n'
                    '    {\n'
@@ -351,7 +355,7 @@ class CreateVersionFileCpp:
         return "\n".join( lines )
 
 
-    def get_build_identity_source( self, dependencies, header_file ):
+    def get_build_identity_source( self, dependencies, header_file, build_id ):
 
         from datetime import datetime
         from getpass import getuser
@@ -386,6 +390,7 @@ class CreateVersionFileCpp:
         lines += [ self.function_definition_from_variable( 'build_time', build_time ) ]
         lines += [ self.function_definition_from_variable( 'build_user', build_user ) ]
         lines += [ self.function_definition_from_variable( 'build_host', build_host ) ]
+        lines += [ self.function_definition_from_variable( 'build_id',   build_id ) ]
 
         lines += [ self.initialise_dependencies_definition( dependencies ) ]
         lines += [ self.function_definition_dependencies() ]
