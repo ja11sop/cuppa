@@ -616,6 +616,8 @@ class Construct(object):
 
         cuppa_env['offline'] = cuppa_env.get_option( 'offline' )
 
+        self._configure.load()
+
         cuppa.version.check_current_version( cuppa_env['offline'] )
 
         if cuppa_env['offline']:
@@ -630,8 +632,6 @@ class Construct(object):
             logger.warn( profiles_warning )
 
         help = cuppa_env.get_option( 'help' ) and True or False
-
-        self._configure.load()
 
         cuppa_env['minimal_output']       = cuppa_env.get_option( 'minimal_output' )
         cuppa_env['ignore_duplicates']    = cuppa_env.get_option( 'ignore_duplicates' )
