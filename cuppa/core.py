@@ -1,4 +1,4 @@
-#          Copyright Jamie Allsop 2011-2017
+#          Copyright Jamie Allsop 2011-2018
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -614,9 +614,9 @@ class Construct(object):
 
         self._set_output_format( cuppa_env )
 
-        cuppa_env['offline'] = cuppa_env.get_option( 'offline' )
-
         self._configure.load()
+
+        cuppa_env['offline'] = cuppa_env.get_option( 'offline' )
 
         cuppa.version.check_current_version( cuppa_env['offline'] )
 
@@ -786,7 +786,7 @@ class Construct(object):
             self.build( cuppa_env )
 
         if self._configure.handle_conf_only():
-            print "cuppa: Handling onfiguration only, so no builds will be attempted."
+            print "cuppa: Handling configuration only, so no builds will be attempted."
             print "cuppa: With the current configuration executing 'scons -D' would be equivalent to:"
             print ""
             print "scons -D {}".format( self._command_line_from_settings( cuppa_env['configured_options'] ) )
