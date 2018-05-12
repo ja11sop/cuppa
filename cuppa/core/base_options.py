@@ -106,4 +106,4 @@ def add_base_options():
                                  " Refer to the Scons manual for more details. By default \"MD5-timestamp\""
                                  " is used. DECIDER may be one of {}".format( str(decider_choices) ) )
 
-    cuppa.core.location_options.add_location_options()
+    cuppa.core.location_options.add_storage_options()
