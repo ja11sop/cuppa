@@ -38,6 +38,10 @@ SCons.Script.AddOption( '--remove-settings', type='string', nargs=1,
 SCons.Script.AddOption( '--clear-conf', dest='clear_conf', action='store_true',
                         help='Clear the configuration file' )
 
+SCons.Script.AddOption( '--use-conf', dest='use_conf', action='store',
+                        type='string', nargs=1,
+                        help='Clear the configuration file' )
+
 
 class never_save(object):
     pass
@@ -54,7 +58,9 @@ class Configure(object):
 
     def __init__( self, env, conf_path="configure.conf", callback=None ):
         self._env = env
-        self._conf_path = conf_path
+        self._conf_path = self._env.get_option( 'use_conf' )
+        if not self._conf_path:
+            self._conf_path = conf_path
         self._callback = callback
         env['configured_options'] = {}
         self._configured_options = {}
@@ -85,7 +91,7 @@ class Configure(object):
                         as_info( self._conf_path ) ) )
             return
         elif self._configure:
-            print logger.info( "{}".format( as_notice( "Update configuration requested..." ) ) )
+            logger.info( "{}".format( as_notice( "Update configuration requested..." ) ) )
 
         if not self._save:
             self._loaded_options = self._load_conf()
@@ -167,7 +173,8 @@ class Configure(object):
                 and not key =='update_conf'
                 and not key =='remove_settings'
                 and not key =='show_conf'
-                and not key =='clear_conf' )
+                and not key =='clear_conf'
+                and not key =='use_conf' )
 
 
     def _print_setting( self, action, key, value ):
