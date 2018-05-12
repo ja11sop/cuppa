@@ -533,13 +533,13 @@ class Construct(object):
         return " ".join( commands )
 
 
-    def get_active_actions_for_variant( self, cuppa_env, active_variants, variant ):
+    def get_active_actions( self, cuppa_env, current_variant, active_variants, active_actions ):
         available_variants = cuppa_env[ self.variants_key ]
         available_actions  = cuppa_env[ self.actions_key ]
         specified_actions  = {}
 
         for key, action in available_actions.items():
-            if cuppa_env.get_option( action.name() ):
+            if cuppa_env.get_option( action.name() ) or action.name() in active_actions:
                 specified_actions[ action.name() ] = action
 
         if not specified_actions:
@@ -553,8 +553,10 @@ class Construct(object):
         for key, action in specified_actions.items():
             if key not in available_variants:
                 active_actions[ key ] = action
-            elif key == variant.name():
+            elif key == current_variant.name():
                 active_actions[ key ] = action
+
+        logger.debug( "Specifying active_actions of [{}] for variant [{}]".format( colour_items( specified_actions, as_info ), current_variant.name() ) )
 
         return active_actions
 
@@ -566,24 +568,46 @@ class Construct(object):
         merge_path            = cuppa_env['merge_path']
 
         variants = cuppa_env[ self.variants_key ]
+        actions  = cuppa_env[ self.actions_key ]
+
         target_architectures = cuppa_env[ 'target_architectures' ]
 
         if not target_architectures:
             target_architectures = [ None ]
 
-        active_variants = {}
+        def get_active_from_options( tasks ):
+            active_tasks = {}
+            for key, task in tasks.items():
+                if cuppa_env.get_option( task.name() ):
+                    active_tasks[ task.name() ] = task
+            return active_tasks
 
-        for key, variant in variants.items():
-            if cuppa_env.get_option( variant.name() ):
-                active_variants[ variant.name() ] = variant
+        active_variants = get_active_from_options( variants )
+        active_actions  = get_active_from_options( actions )
 
-        if not active_variants:
+        def get_active_from_defaults( default_tasks, tasks ):
+            active_tasks = {}
+            for task in default_tasks:
+                if tasks.has_key( task ):
+                    active_tasks[ task ] = tasks[ task ]
+            return active_tasks
+
+        if not active_variants and not active_actions:
             default_variants = cuppa_env['default_variants'] or toolchain.default_variants()
             if default_variants:
-                logger.info( "Default variants of [{}] being used.".format( colour_items( default_variants, as_info ) ) )
-                for variant in default_variants:
-                    if variants.has_key( variant ):
-                        active_variants[ variant ] = variants[ variant ]
+                active_variants = get_active_from_defaults( default_variants, variants )
+                active_actions = get_active_from_defaults( default_variants, actions )
+                if active_variants:
+                    logger.info( "Default build variants of [{}] being used.".format( colour_items( active_variants, as_info ) ) )
+                if active_actions:
+                    logger.info( "Default build actions of [{}] being used.".format( colour_items( active_actions, as_info ) ) )
+
+        if not active_variants:
+            active_variants = get_active_from_defaults( toolchain.default_variants(), variants )
+            logger.info( "No active variants specified so toolchain defaults of [{}] being used.".format( colour_items( active_variants, as_info ) ) )
+
+        logger.debug( "Using active_variants = [{}]".format( colour_items( active_variants, as_info ) ) )
+        logger.debug( "Using active_actions = [{}]".format( colour_items( active_actions, as_info ) ) )
 
         build_envs = []
 
@@ -646,7 +670,7 @@ class Construct(object):
                     env['variant']         = variant
                     env['target_arch']     = target_arch
                     env['abi']             = toolchain.abi( env )
-                    env['variant_actions'] = self.get_active_actions_for_variant( cuppa_env, active_variants, variant )
+                    env['variant_actions'] = self.get_active_actions( cuppa_env, variant, active_variants, active_actions )
 
         return build_envs
 
