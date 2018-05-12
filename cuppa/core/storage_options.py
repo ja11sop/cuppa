@@ -11,7 +11,7 @@
 import os
 
 # Cuppa
-from cuppa.colourise import colouriser, as_emphasised, as_info, as_error, as_notice, colour_items, as_info_label
+from cuppa.colourise import as_error
 from cuppa.log import logger
 
 
@@ -45,14 +45,19 @@ def add_storage_options( add_option ):
 
 def process_storage_options( cuppa_env ):
 
-        build_root = cuppa_env.get_option( 'build_root', default=default.build_root )
-        cuppa_env['build_root'] = os.path.normpath( os.path.expanduser( build_root ) )
+        def get_normal_path( option, defaults_to ):
+            path = cuppa_env.get_option( option, default=defaults_to )
+            return os.path.normpath( os.path.expanduser( path ) )
+
+        cuppa_env['build_root']     = get_normal_path( 'build_root', default.build_root )
         cuppa_env['abs_build_root'] = os.path.abspath( cuppa_env['build_root'] )
+        cuppa_env['download_root']  = get_normal_path( 'download_root', default.download_root )
+        cuppa_env['cache_root']     = get_normal_path( 'cache_root', default.cache_root )
 
-        download_root = cuppa_env.get_option( 'download_root', default=default.download_root )
-        cuppa_env['download_root'] = os.path.normpath( os.path.expanduser( download_root ) )
-
-        cache_root = cuppa_env.get_option( 'cache_root', default=default.cache_root )
-        cuppa_env['cache_root'] = os.path.normpath( os.path.expanduser( cache_root ) )
         if not os.path.exists( cuppa_env['cache_root'] ):
-            os.makedirs( cuppa_env['cache_root'] )
+            try:
+                os.makedirs( cuppa_env['cache_root'] )
+            except os.error as e:
+                logger.error( "Creating cache_root directory [{}] failed with error: {}"
+                             .format( cuppa_env['cache_root'], as_error(str(e)) ) )
+                raise

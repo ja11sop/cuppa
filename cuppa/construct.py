@@ -22,6 +22,7 @@ import SCons.Script
 # Custom
 import cuppa.core.environment
 import cuppa.core.base_options
+import cuppa.core.storage_options
 import cuppa.core.options
 import cuppa.modules.registration
 import cuppa.build_platform
@@ -389,17 +390,7 @@ class Construct(object):
 
         cuppa_env['thirdparty'] = thirdparty
 
-        build_root = cuppa_env.get_option( 'build_root', default='_build' )
-        cuppa_env['build_root'] = os.path.normpath( os.path.expanduser( build_root ) )
-        cuppa_env['abs_build_root'] = os.path.abspath( cuppa_env['build_root'] )
-
-        download_root = cuppa_env.get_option( 'download_root', default='_cuppa' )
-        cuppa_env['download_root'] = os.path.normpath( os.path.expanduser( download_root ) )
-
-        cache_root = cuppa_env.get_option( 'cache_root', default='~/_cuppa/_cache' )
-        cuppa_env['cache_root'] = os.path.normpath( os.path.expanduser( cache_root ) )
-        if not os.path.exists( cuppa_env['cache_root'] ):
-            os.makedirs( cuppa_env['cache_root'] )
+        cuppa.core.storage_options.process_storage_options( cuppa_env )
 
         cuppa_env['default_projects']     = default_projects
         cuppa_env['default_variants']     = default_variants and set( default_variants ) or set()
