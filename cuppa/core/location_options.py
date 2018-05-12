@@ -19,6 +19,10 @@ def add_location_options():
 
     add_option = cuppa.core.options.add_option
 
+    add_option( '--build-root', type='string', nargs=1, action='store',
+                            dest='build_root',
+                            help="The root directory for build output. If not specified then _build is used" )
+
     add_option( '--download-root', type='string', nargs=1, action='store',
                             dest='download_root',
                             help="The root directory for downloading external libraries to."

@@ -31,7 +31,7 @@ cuppa.core.options.add_option( '--update-conf', dest='update_conf', action='stor
                                help='Update the configuration file with the current command-line' )
 
 cuppa.core.options.add_option( '--remove-settings', type='string', nargs=1,
-                               action='callback', callback=cuppa.options.list_parser( 'remove_settings' ),
+                               action='callback', callback=cuppa.core.options.list_parser( 'remove_settings' ),
                                help='Remove the listed settings from the configuration file' )
 
 cuppa.core.options.add_option( '--clear-conf', dest='clear_conf', action='store_true',

@@ -15,6 +15,7 @@ import SCons.Script
 
 # Custom
 import cuppa.core.options
+import cuppa.core.location_options
 
 
 
@@ -25,11 +26,9 @@ def set_base_options():
     SCons.Script.SetOption( 'warn', 'no-duplicate-environment' )
 
 
-def add_option( *args, **kwargs ):
-    cuppa.core.options.add_option( *args, **kwargs )
-
-
 def add_base_options():
+
+    add_option = cuppa.core.options.add_option
 
     add_option( '--raw-output', dest='raw_output', action='store_true',
                             help="Disable output processing like colourisation of output" )
@@ -59,20 +58,6 @@ def add_base_options():
                             dest='thirdparty',
                             metavar='DIR',
                             help="Thirdparty directory" )
-
-    #add_option( '--build-root', type='string', nargs=1, action='store',
-                            #dest='build_root',
-                            #help="The root directory for build output. If not specified then _build is used" )
-
-    #add_option( '--download-root', type='string', nargs=1, action='store',
-                            #dest='download_root',
-                            #help="The root directory for downloading external libraries to."
-                                 #" If not specified then _cuppa is used" )
-
-    add_option( '--cache-root', type='string', nargs=1, action='store',
-                            dest='cache_root',
-                            help="The root directory for caching downloaded external archived libraries."
-                                 " If not specified then ~/_cuppa/cache is used" )
 
     add_option( '--runner', type='string', nargs=1, action='store',
                             dest='runner',
@@ -121,4 +106,4 @@ def add_base_options():
                                  " Refer to the Scons manual for more details. By default \"MD5-timestamp\""
                                  " is used. DECIDER may be one of {}".format( str(decider_choices) ) )
 
-    cuppa.core.options.location_options.add_location_options()
+    cuppa.core.location_options.add_location_options()
