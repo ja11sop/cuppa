@@ -4,7 +4,7 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   Core
+#   Construct
 #-------------------------------------------------------------------------------
 
 # Python Standard
@@ -20,12 +20,14 @@ import collections
 import SCons.Script
 
 # Custom
+import cuppa.core.environment
+import cuppa.core.base_options
+import cuppa.core.options
 import cuppa.modules.registration
 import cuppa.build_platform
 import cuppa.output_processor
 import cuppa.recursive_glob
 import cuppa.configure
-import cuppa.options
 import cuppa.version
 #import cuppa.progress
 #import cuppa.tree
@@ -41,112 +43,6 @@ from cuppa.dependencies           import *
 from cuppa.profiles               import *
 from cuppa.variants               import *
 from cuppa.project_generators     import *
-
-
-SCons.Script.Decider( 'MD5-timestamp' )
-
-
-
-def add_option( *args, **kwargs ):
-    SCons.Script.AddOption( *args, **kwargs )
-
-
-def add_base_options():
-
-    add_option( '--raw-output', dest='raw_output', action='store_true',
-                            help="Disable output processing like colourisation of output" )
-
-    add_option( '--standard-output', dest='standard_output', action='store_true',
-                            help="Perform standard output processing but not colourisation of output" )
-
-    add_option( '--minimal-output', dest='minimal_output', action='store_true',
-                            help="Show only errors and warnings in the output" )
-
-    add_option( '--ignore-duplicates', dest='ignore_duplicates', action='store_true',
-                            help="Do not show repeated errors or warnings" )
-
-    add_option( '--offline', dest='offline', action='store_true',
-                            help="Run in offline mode so don't attempt to check the cuppa version or update"
-                                 " remote repositories. Useful for running builds on firewalled machines" )
-
-    add_option( '--projects', type='string', nargs=1,
-                            action='callback', callback=cuppa.options.list_parser( 'projects' ),
-                            help="Projects to build (alias for scripts)" )
-
-    add_option( '--scripts', type='string', nargs=1,
-                            action='callback', callback=cuppa.options.list_parser( 'projects' ),
-                            help="Sconscripts to run" )
-
-    add_option( '--thirdparty', type='string', nargs=1, action='store',
-                            dest='thirdparty',
-                            metavar='DIR',
-                            help="Thirdparty directory" )
-
-    add_option( '--build-root', type='string', nargs=1, action='store',
-                            dest='build_root',
-                            help="The root directory for build output. If not specified then _build is used" )
-
-    add_option( '--download-root', type='string', nargs=1, action='store',
-                            dest='download_root',
-                            help="The root directory for downloading external libraries to."
-                                 " If not specified then _cuppa is used" )
-
-    add_option( '--cache-root', type='string', nargs=1, action='store',
-                            dest='cache_root',
-                            help="The root directory for caching downloaded external archived libraries."
-                                 " If not specified then ~/_cuppa/cache is used" )
-
-    add_option( '--runner', type='string', nargs=1, action='store',
-                            dest='runner',
-                            help="The test runner to use for executing tests. The default is the"
-                                 " process test runner" )
-
-    add_option( '--dump',   dest='dump', action='store_true',
-                            help="Dump the default environment and exit" )
-
-    add_option( '--parallel', dest='parallel', action='store_true',
-                            help="Enable parallel builds utilising the available concurrency."
-                                 " Translates to -j N with N chosen based on the current hardware" )
-
-    add_option( '--show-test-output',   dest='show-test-output', action='store_true',
-                            help="When executing tests display all outout to stdout and stderr as appropriate" )
-
-    verbosity_choices = ( 'trace', 'debug', 'exception', 'info', 'warn', 'error' )
-
-    add_option( '--verbosity', dest='verbosity', choices=verbosity_choices, nargs=1, action='store',
-                            help="The The verbosity level that you wish to run cuppa at. The default level"
-                                 " is \"info\". VERBOSITY may be one of {}".format( str(verbosity_choices) ) )
-
-    add_option( '--propagate-env', dest='propagate-env', action='store_true',
-                            help="Propagate the current environment including PATH to all sub-processes when"
-                                 " building" )
-
-    add_option( '--propagate-path', dest='propagate-path', action='store_true',
-                            help="Propagate the current environment PATH (only) to all sub-processes when"
-                                 " building" )
-
-    add_option( '--merge-path', dest='merge-path', action='store_true',
-                            help="Merge the current environment PATH (only) to all sub-processes when"
-                                 " building" )
-
-#    add_option( '--b2',     dest='b2', action='store_true',
-#                            help='Execute boost.build by calling b2 or bjam' )
-
-#    add_option( '--b2-path', type='string', nargs=1, action='store',
-#                            dest='b2_path',
-#                            help='Specify a path to bjam or b2' )
-
-    decider_choices = ( 'timestamp-newer', 'timestamp-match', 'MD5', 'MD5-timestamp' )
-
-    add_option( '--decider', dest='decider', choices=decider_choices, nargs=1, action='store',
-                            help="The decider to use for determining if a dependency has changed."
-                                 " Refer to the Scons manual for more details. By default \"MD5-timestamp\""
-                                 " is used. DECIDER may be one of {}".format( str(decider_choices) ) )
-
-
-
-def set_base_options():
-    SCons.Script.SetOption( 'warn', 'no-duplicate-environment' )
 
 
 
@@ -213,169 +109,6 @@ class ParseToolchainsOption(object):
 #
 #         parser.values.toolchains = list(toolchains)
 
-
-class CuppaEnvironment(collections.MutableMapping):
-
-    _tools = []
-    _options = {}
-    _cached_options = {}
-    _methods = {}
-
-    # Option Interface
-    @classmethod
-    def get_option( cls, option, default=None ):
-        if option in cls._cached_options:
-            return cls._cached_options[ option ]
-
-        value = SCons.Script.GetOption( option )
-        source = None
-        if value == None or value == '':
-            if cls._options['default_options'] and option in cls._options['default_options']:
-                value = cls._options['default_options'][ option ]
-                source = "in the sconstruct file"
-            elif default:
-                value = default
-                source = "using default"
-        else:
-            source = "on command-line"
-
-        if option in cls._options['configured_options']:
-            source = "using configure"
-
-        if value:
-            logger.debug( "option [{}] set {} as [{}]".format(
-                        as_info( option ),
-                        source,
-                        as_info( str(value) ) )
-            )
-        cls._cached_options[option] = value
-        return value
-
-
-    @classmethod
-    def _get_option_method( cls, env, option, default=None ):
-        return cls.get_option( option, default )
-
-
-    # Environment Interface
-    @classmethod
-    def default_env( cls ):
-        if not hasattr( cls, '_default_env' ):
-            cls._default_env = SCons.Script.Environment( tools=['default'] + cls._tools )
-        return cls._default_env
-
-
-    @classmethod
-    def create_env( cls, **kwargs ):
-
-        tools = ['default'] + cls._tools
-        if 'tools' in kwargs:
-            tools = tools + kwargs['tools']
-            del kwargs['tools']
-
-        tools = SCons.Script.Flatten( tools )
-
-        env = SCons.Script.Environment(
-                tools = tools,
-                **kwargs
-        )
-
-        env['default_env'] = CuppaEnvironment.default_env()
-
-        for key, option in cls._options.iteritems():
-            env[key] = option
-        for name, method in cls._methods.iteritems():
-            env.AddMethod( method, name )
-        env.AddMethod( cls._get_option_method, "get_option" )
-
-        return env
-
-
-    @classmethod
-    def dump( cls ):
-        print str( cls._options )
-        print str( cls._methods )
-
-
-    @classmethod
-    def colouriser( cls ):
-        return colouriser
-
-    @classmethod
-    def add_tools( cls, tools ):
-        tools = SCons.Script.Flatten( tools )
-        cls._tools.extend( tools )
-
-
-    @classmethod
-    def tools( cls ):
-        return cls._tools
-
-    @classmethod
-    def add_method( cls, name, method ):
-        cls._methods[name] = method
-
-    @classmethod
-    def add_variant( cls, name, variant ):
-        if not 'variants' in  cls._options:
-            cls._options['variants'] = {}
-        cls._options['variants'][name] = variant
-
-    @classmethod
-    def add_action( cls, name, action ):
-        if not 'actions' in  cls._options:
-            cls._options['actions'] = {}
-        cls._options['actions'][name] = action
-
-    @classmethod
-    def add_supported_toolchain( cls, name ):
-        if not 'supported_toolchains' in  cls._options:
-            cls._options['supported_toolchains'] = []
-        cls._options['supported_toolchains'].append( name )
-
-    @classmethod
-    def add_available_toolchain( cls, name, toolchain ):
-        if not 'toolchains' in  cls._options:
-            cls._options['toolchains'] = {}
-        cls._options['toolchains'][name] = toolchain
-
-    @classmethod
-    def add_project_generator( cls, name, project_generator ):
-        if not 'project_generators' in  cls._options:
-            cls._options['project_generators'] = {}
-        cls._options['project_generators'][name] = project_generator
-
-    @classmethod
-    def add_profile( cls, name, profile ):
-        if not 'profiles' in  cls._options:
-            cls._options['profiles'] = {}
-        cls._options['profiles'][name] = profile
-
-    @classmethod
-    def add_dependency( cls, name, dependency ):
-        if not 'dependencies' in  cls._options:
-            cls._options['dependencies'] = {}
-        cls._options['dependencies'][name] = dependency
-
-    # Dict Interface
-    def __getitem__( self, key ):
-        return self._options[key]
-
-    def __setitem__( self, key, value ):
-        self._options[key] = value
-
-    def __delitem__( self, key ):
-        del self._options[key]
-        del self._cached_options[key]
-
-    def __iter__( self ):
-        return iter( self._options )
-
-    def __len__( self ):
-        return len( self._options )
-
-    def __contains__( self, key ):
-        return key in self._options
 
 
 class Construct(object):
@@ -445,7 +178,7 @@ class Construct(object):
     def initialise_options( self, options, default_options, profiles, dependencies ):
         options['default_options'] = default_options or {}
         # env.AddMethod( self.get_option, "get_option" )
-        add_base_options()
+        cuppa.core.base_options.add_base_options()
         cuppa.modules.registration.add_options( self.toolchains_key )
         cuppa.modules.registration.add_options( self.dependencies_key )
         cuppa.modules.registration.add_options( self.profiles_key )
@@ -595,9 +328,9 @@ class Construct(object):
                   configure_callback   = None,
                   tools                = [] ):
 
-        set_base_options()
+        cuppa.core.base_options.set_base_options()
 
-        cuppa_env = CuppaEnvironment()
+        cuppa_env = cuppa.core.environment.CuppaEnvironment()
         cuppa_env.add_tools( tools )
 
         dependencies, default_dependencies, dependencies_warning = self._normalise_with_defaults( dependencies, default_dependencies, "dependencies" )

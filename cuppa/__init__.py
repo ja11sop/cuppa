@@ -28,8 +28,8 @@ def run( *args, **kwargs ):
 
 
 def add_option( *args, **kwargs ):
-    import cuppa.construct
-    cuppa.construct.add_option( *args, **kwargs )
+    import cuppa.core.options
+    cuppa.core.options.add_option( *args, **kwargs )
 
 
 import cuppa.build_with_location

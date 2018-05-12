@@ -16,31 +16,30 @@ import ast
 import SCons.Script
 
 
-import cuppa.options
+import cuppa.core.options
 from cuppa.colourise import as_info, as_notice
 from cuppa.log import logger
 
 
+cuppa.core.options.add_option( '--show-conf', dest='show_conf', action='store_true',
+                               help='Show the current values in the configuration file if one exists' )
 
-SCons.Script.AddOption( '--show-conf', dest='show_conf', action='store_true',
-                        help='Show the current values in the configuration file if one exists' )
+cuppa.core.options.add_option( '--save-conf', dest='save_conf', action='store_true',
+                               help='Save the current command-line a configuration file' )
 
-SCons.Script.AddOption( '--save-conf', dest='save_conf', action='store_true',
-                        help='Save the current command-line a configuration file' )
+cuppa.core.options.add_option( '--update-conf', dest='update_conf', action='store_true',
+                               help='Update the configuration file with the current command-line' )
 
-SCons.Script.AddOption( '--update-conf', dest='update_conf', action='store_true',
-                        help='Update the configuration file with the current command-line' )
+cuppa.core.options.add_option( '--remove-settings', type='string', nargs=1,
+                               action='callback', callback=cuppa.options.list_parser( 'remove_settings' ),
+                               help='Remove the listed settings from the configuration file' )
 
-SCons.Script.AddOption( '--remove-settings', type='string', nargs=1,
-                        action='callback', callback=cuppa.options.list_parser( 'remove_settings' ),
-                        help='Remove the listed settings from the configuration file' )
+cuppa.core.options.add_option( '--clear-conf', dest='clear_conf', action='store_true',
+                               help='Clear the configuration file' )
 
-SCons.Script.AddOption( '--clear-conf', dest='clear_conf', action='store_true',
-                        help='Clear the configuration file' )
-
-SCons.Script.AddOption( '--use-conf', dest='use_conf', action='store',
-                        type='string', nargs=1,
-                        help='Clear the configuration file' )
+cuppa.core.options.add_option( '--use-conf', dest='use_conf', action='store',
+                               type='string', nargs=1,
+                               help='Clear the configuration file' )
 
 
 class never_save(object):
