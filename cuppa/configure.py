@@ -143,7 +143,10 @@ class Configure(object):
                 logger.info( "Configure file [{}] exists. Load stored settings...".format(
                         as_info( self._conf_path ) ) )
                 for line in config_file.readlines():
-                    name, value = tuple( l.strip() for l in line.split('=', 1) )
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+                    name, value = tuple( word.strip() for word in line.split('=', 1) )
                     try:
                         value = ast.literal_eval( str(value) )
                     except:
