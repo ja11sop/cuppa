@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2017
+#          Copyright Jamie Allsop 2011-2018
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -15,8 +15,8 @@ def run( *args, **kwargs ):
     import logging
     initialise_logging()
     try:
-        import cuppa.core
-        cuppa.core.run( sconsctruct_path, *args, **kwargs )
+        import cuppa.construct
+        cuppa.construct.run( sconsctruct_path, *args, **kwargs )
     except Exception as error:
         logger.error( "Cuppa terminated by exception [{}: {}]".format(
                 as_info( error.__class__.__name__ ),
@@ -28,8 +28,8 @@ def run( *args, **kwargs ):
 
 
 def add_option( *args, **kwargs ):
-    import cuppa.core
-    cuppa.core.add_option( *args, **kwargs )
+    import cuppa.construct
+    cuppa.construct.add_option( *args, **kwargs )
 
 
 import cuppa.build_with_location
