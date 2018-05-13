@@ -274,12 +274,11 @@ class Location(object):
                 backend = pip.vcs.vcs.get_backend( vc_type )
                 if backend:
                     vcs_backend = backend( location )
-                    rev_options = self.get_rev_options( vc_type, vcs_backend )
-
                     local_dir_with_sub_dir = os.path.join( local_directory, sub_dir and sub_dir or "" )
 
                     if os.path.exists( local_directory ):
-                        url, repository, branch, revision = self.get_info( location, local_dir_with_sub_dir, full_url, vc_type )
+                        url, repository, branch, remote, revision = self.get_info( location, local_dir_with_sub_dir, full_url, vc_type )
+                        rev_options = self.get_rev_options( vc_type, vcs_backend, local_remote=remote )
                         version = self.ver_rev_summary( branch, revision, self._full_url.path )[0]
                         if not offline:
                             logger.debug( "Updating [{}] in [{}]{} at [{}]".format(
@@ -301,6 +300,7 @@ class Location(object):
                         else:
                             logger.debug( "Skipping update for [{}] as running in offline mode".format( as_info( location ) ) )
                     else:
+                        rev_options = self.get_rev_options( vc_type, vcs_backend )
                         action = "Cloning"
                         if vc_type == "svn":
                             action = "Checking out"
@@ -323,13 +323,13 @@ class Location(object):
             return local_directory
 
 
-    def get_rev_options( self, vc_type, vcs_backend ):
+    def get_rev_options( self, vc_type, vcs_backend, local_remote=None ):
         url, rev = vcs_backend.get_url_rev()
         if vc_type == 'git':
             if rev:
                 return [rev]
-            else:
-                return ['origin/master']
+            elif local_remote:
+                return [local_remote]
         elif vc_type == 'hg' and rev:
             return vcs_backend.get_rev_options( url, rev )
         elif vc_type == 'bzr' and rev:
@@ -359,9 +359,10 @@ class Location(object):
         url        = location
         repository = urlparse.urlunparse( ( full_url.scheme, full_url.netloc, '',  '',  '',  '' ) )
         branch     = urllib.unquote( full_url.path )
+        remote     = None
         revision   = None
 
-        info = ( url, repository, branch, revision )
+        info = ( url, repository, branch, remote, revision )
 
         vcs_systems = [
                 scms.git.Git,
@@ -420,12 +421,13 @@ class Location(object):
 
         ## Now that we have a locally accessible version of the dependency we can try to collate some information
         ## about it to allow us to specify what we are building with.
-        self._url, self._repository, self._branch, self._revision = self.get_info( self._location, self._local_directory, self._full_url )
+        self._url, self._repository, self._branch, self._remote, self._revision = self.get_info( self._location, self._local_directory, self._full_url )
         self._version, self._revision = self.ver_rev_summary( self._branch, self._revision, self._full_url.path )
 
-        logger.debug( "Using [{}]{} at [{}] stored in [{}]".format(
+        logger.debug( "Using [{}]{}{} at [{}] stored in [{}]".format(
                 as_info( location ),
-                ( branch and  ":[{}]".format( as_info(  str(branch) ) ) or "" ),
+                ( self._branch and ":[{}]".format( as_info(  str(self._branch) ) ) or "" ),
+                ( self._remote and " from [{}]".format( as_info(  str(self._remote) ) ) or "" ),
                 as_info( self._version ),
                 as_notice( self._local_directory )
         ) )
@@ -453,6 +455,10 @@ class Location(object):
 
     def branch( self ):
         return self._branch
+
+
+    def remote( self ):
+        return self._remote
 
 
     def repository( self ):

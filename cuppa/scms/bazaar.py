@@ -43,6 +43,7 @@ class Bazaar:
         url        = None
         repository = None
         branch     = None
+        remote     = None
         revision   = None
 
         if not os.path.exists( os.path.join( path, ".bzr" ) ):
@@ -74,5 +75,5 @@ class Bazaar:
                     bzr=cls.binary()
             ) )
 
-        return url, repository, branch, revision
+        return url, repository, branch, remote, revision
 

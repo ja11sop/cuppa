@@ -52,15 +52,9 @@ class Git:
     @classmethod
     def get_branch( cls, path ):
         branch = None
-        try:
-            result = cls.execute_command( "{git} symbolic-ref HEAD".format( git=cls.binary() ), path )
-            branch = result.replace( "refs/heads/", "" ).strip()
-            logger.trace( "Branch (using symbolic-ref) for [{}] is [{}]".format( as_notice(path), as_info(branch) ) )
-            return branch
-        except cls.Error:
-            pass
+        remote = None
 
-        # In case we have a detached head we can fallback to this
+        # In case we have a detached head we use this
         result = cls.execute_command( "{git} show -s --pretty=\%d HEAD".format( git=cls.binary() ), path )
         match = re.search( r'[(]HEAD[^,]*[,] (?P<branches>[^)]+)[)]', result )
         if match:
@@ -69,14 +63,17 @@ class Git:
             if len(branches) == 1:
                 # If this returns a tag: tag_name replace the ": " with "/" and then extract the tag_name
                 # otherwise this will simply extract the branch_name as expected
+                if not branches[0].startswith('tag:'):
+                    remote = branches[0]
                 branch = branches[0].replace(': ','/').split('/')[1]
             else:
-                branch = branches[-2].split('/')[1]
+                remote = branches[-2]
+                branch = remote.split('/')[1]
             logger.trace( "Branch (using show) for [{}] is [{}]".format( as_notice(path), as_info(branch) ) )
         else:
             logger.warn( "No branch found from [{}]".format( result ) )
 
-        return branch
+        return branch, remote
 
 
 
@@ -88,6 +85,7 @@ class Git:
         url        = None
         repository = None
         branch     = None
+        remote     = None
         revision   = None
 
         if not os.path.exists( os.path.join( path, ".git" ) ):
@@ -98,7 +96,7 @@ class Git:
             command = "{git} describe --always".format( git=cls.binary() )
             revision = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT, cwd=path ).strip()
 
-            branch = cls.get_branch( path )
+            branch, remote = cls.get_branch( path )
 
             command = "{git} config --get remote.origin.url".format( git=cls.binary() )
             repository = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT, cwd=path ).strip()
@@ -114,5 +112,5 @@ class Git:
                     git=cls.binary()
             ) )
 
-        return url, repository, branch, revision
+        return url, repository, branch, remote, revision
 

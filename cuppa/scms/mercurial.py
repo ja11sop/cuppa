@@ -42,6 +42,7 @@ class Mercurial:
         url        = None
         repository = None
         branch     = None
+        remote     = None
         revision   = None
 
         if not os.path.exists( os.path.join( path, ".hg" ) ):
@@ -75,5 +76,5 @@ class Mercurial:
                     hg=cls.binary()
             ) )
 
-        return url, repository, branch, revision
+        return url, repository, branch, remote, revision
 
