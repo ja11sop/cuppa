@@ -396,6 +396,9 @@ class Location(object):
 
     def __init__( self, cuppa_env, location, branch=None, extra_sub_path=None, name_hint=None ):
 
+        if location.startswith( "#" ):
+            location = os.path.join( cuppa_env['sconstruct_path'], location[1:] )
+
         self._location   = os.path.expanduser( location )
         self._full_url   = urlparse.urlparse( self._location )
         self._sub_dir    = None
@@ -412,7 +415,8 @@ class Location(object):
         ## once this is done
         local_directory = self.get_local_directory( cuppa_env, self._location, self._sub_dir, branch, self._full_url )
 
-        logger.trace( "Local Directory returned as [{}]".format(
+        logger.trace( "Local Directory for [{}] returned as [{}]".format(
+                as_notice( self._location ),
                 as_notice( local_directory )
         ) )
 
