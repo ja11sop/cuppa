@@ -1,0 +1,291 @@
+diff -urN a/boost/test/impl/framework.ipp b/boost/test/impl/framework.ipp
+--- a/boost/test/impl/framework.ipp
++++ b/boost/test/impl/framework.ipp
+@@ -40,6 +40,7 @@
+ #endif
+ 
+ #include <boost/test/utils/foreach.hpp>
++#include <boost/test/utils/timer.hpp>
+ #include <boost/test/utils/basic_cstring/io.hpp>
+ #include <boost/test/utils/basic_cstring/compare.hpp>
+ 
+@@ -47,7 +48,6 @@
+ #include <boost/test/detail/throw_exception.hpp>
+ 
+ // Boost
+-#include <boost/timer.hpp>
+ #include <boost/bind.hpp>
+ 
+ // STL
+@@ -498,6 +498,7 @@ public:
+     , m_context_idx( 0 )
+     , m_log_sinks( )
+     , m_report_sink( std::cerr )
++    , m_is_initialized( false )
+     {
+     }
+ 
+@@ -517,6 +518,19 @@ public:
+         }
+     }
+ 
++    void            reset()
++    {
++        clear();
++        m_observers.clear();
++        m_master_test_suite = 0;
++        m_curr_test_unit = INV_TEST_UNIT_ID;
++        m_next_test_case_id = MIN_TEST_CASE_ID;
++        m_next_test_suite_id = MIN_TEST_SUITE_ID;
++        m_test_in_progress = false;
++        m_context_idx = 0;
++        m_is_initialized = false;
++    }
++
+     void            set_tu_id( test_unit& tu, test_unit_id id ) { tu.p_id.value = id; }
+ 
+     //////////////////////////////////////////////////////////////////
+@@ -717,7 +731,7 @@ public:
+ 
+         if( result == unit_test_monitor_t::test_ok ) {
+             // 40. We are going to time the execution
+-            boost::timer tu_timer;
++            utils::timer tu_timer;
+ 
+             // we pass the random generator
+             const random_generator_helper& rand_gen = p_random_generator ? *p_random_generator : random_generator_helper();
+@@ -874,6 +888,8 @@ public:
+ 
+     std::map<output_format, runtime_config::stream_holder> m_log_sinks;
+     runtime_config::stream_holder m_report_sink;
++
++    bool m_is_initialized;
+ };
+ 
+ //____________________________________________________________________________//
+@@ -1116,6 +1132,11 @@ init( init_unit_test_func init_func, int argc, char* argv[] )
+ {
+     using namespace impl;
+ 
++    if( s_frk_state().m_is_initialized )
++    {
++        s_frk_state().reset();
++    }
++
+     // 10. Set up runtime parameters
+     runtime_config::init( argc, argv );
+ 
+@@ -1164,6 +1185,8 @@ init( init_unit_test_func init_func, int argc, char* argv[] )
+     BOOST_TEST_I_CATCH( execution_exception, ex )  {
+         BOOST_TEST_SETUP_ASSERT( false, ex.what() );
+     }
++
++    s_frk_state().m_is_initialized = true;
+ }
+ 
+ //____________________________________________________________________________//
+diff -urN a/boost/test/impl/test_tree.ipp b/boost/test/impl/test_tree.ipp
+--- a/boost/test/impl/test_tree.ipp
++++ b/boost/test/impl/test_tree.ipp
+@@ -27,11 +27,12 @@
+
+ #include <boost/test/utils/foreach.hpp>
+ #include <boost/test/utils/basic_cstring/io.hpp>
++#include <boost/test/utils/timer.hpp>
+
+ #include <boost/test/unit_test_parameters.hpp>
+
+ // Boost
+-#include <boost/timer.hpp>
++// none
+
+ // STL
+ #include <algorithm>
+diff -urN a/boost/test/impl/unit_test_parameters.ipp b/boost/test/impl/unit_test_parameters.ipp
+--- a/boost/test/impl/unit_test_parameters.ipp
++++ b/boost/test/impl/unit_test_parameters.ipp
+@@ -69,36 +69,44 @@ namespace rt = boost::runtime;
+ 
+ namespace runtime_config {
+ 
++# ifdef BOOST_TEST_USE_QUALIFIED_COMMANDLINE_ARGUMENTS
++#  define BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "boost.test."
++# else
++#  define BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX
++# endif
++
+ // UTF parameters
+-std::string btrt_auto_start_dbg    = "auto_start_dbg";
+-std::string btrt_break_exec_path   = "break_exec_path";
+-std::string btrt_build_info        = "build_info";
+-std::string btrt_catch_sys_errors  = "catch_system_errors";
+-std::string btrt_color_output      = "color_output";
+-std::string btrt_detect_fp_except  = "detect_fp_exceptions";
+-std::string btrt_detect_mem_leaks  = "detect_memory_leaks";
+-std::string btrt_list_content      = "list_content";
+-std::string btrt_list_labels       = "list_labels";
+-std::string btrt_log_format        = "log_format";
+-std::string btrt_log_level         = "log_level";
+-std::string btrt_log_sink          = "log_sink";
+-std::string btrt_combined_logger   = "logger";
+-std::string btrt_output_format     = "output_format";
+-std::string btrt_random_seed       = "random";
+-std::string btrt_report_format     = "report_format";
+-std::string btrt_report_level      = "report_level";
+-std::string btrt_report_mem_leaks  = "report_memory_leaks_to";
+-std::string btrt_report_sink       = "report_sink";
+-std::string btrt_result_code       = "result_code";
+-std::string btrt_run_filters       = "run_test";
+-std::string btrt_save_test_pattern = "save_pattern";
+-std::string btrt_show_progress     = "show_progress";
+-std::string btrt_use_alt_stack     = "use_alt_stack";
+-std::string btrt_wait_for_debugger = "wait_for_debugger";
+-
+-std::string btrt_help              = "help";
+-std::string btrt_usage             = "usage";
+-std::string btrt_version           = "version";
++std::string btrt_auto_start_dbg    = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "auto_start_dbg";
++std::string btrt_break_exec_path   = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "break_exec_path";
++std::string btrt_build_info        = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "build_info";
++std::string btrt_catch_sys_errors  = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "catch_system_errors";
++std::string btrt_color_output      = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "color_output";
++std::string btrt_detect_fp_except  = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "detect_fp_exceptions";
++std::string btrt_detect_mem_leaks  = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "detect_memory_leaks";
++std::string btrt_list_content      = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "list_content";
++std::string btrt_list_labels       = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "list_labels";
++std::string btrt_log_format        = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "log_format";
++std::string btrt_log_level         = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "log_level";
++std::string btrt_log_sink          = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "log_sink";
++std::string btrt_combined_logger   = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "logger";
++std::string btrt_output_format     = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "output_format";
++std::string btrt_random_seed       = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "random";
++std::string btrt_report_format     = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "report_format";
++std::string btrt_report_level      = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "report_level";
++std::string btrt_report_mem_leaks  = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "report_memory_leaks_to";
++std::string btrt_report_sink       = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "report_sink";
++std::string btrt_result_code       = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "result_code";
++std::string btrt_run_filters       = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "run_test";
++std::string btrt_save_test_pattern = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "save_pattern";
++std::string btrt_show_progress     = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "show_progress";
++std::string btrt_use_alt_stack     = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "use_alt_stack";
++std::string btrt_wait_for_debugger = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "wait_for_debugger";
++
++std::string btrt_help              = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "help";
++std::string btrt_usage             = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "usage";
++std::string btrt_version           = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "version";
++
++# undef BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX
+ 
+ //____________________________________________________________________________//
+ 
+diff -urN a/boost/test/tools/detail/print_helper.hpp b/boost/test/tools/detail/print_helper.hpp
+--- a/boost/test/tools/detail/print_helper.hpp
++++ b/boost/test/tools/detail/print_helper.hpp
+@@ -176,6 +176,15 @@ struct print_log_value<std::nullptr_t> {
+ 
+ //____________________________________________________________________________//
+ 
++template<typename T, typename U>
++struct print_log_value<std::pair<T, U> > {
++    void    operator()( std::ostream& ostr, const std::pair<T, U>& t ) {
++        ostr << "<" << t.first << "," << t.second << ">";
++    }
++};
++
++//____________________________________________________________________________//
++
+ // ************************************************************************** //
+ // **************                 print_helper                 ************** //
+ // ************************************************************************** //
+diff -urN a/boost/test/utils/runtime/parameter.hpp b/boost/test/utils/runtime/parameter.hpp
+--- a/boost/test/utils/runtime/parameter.hpp
++++ b/boost/test/utils/runtime/parameter.hpp
+@@ -108,7 +108,7 @@ struct parameter_cla_id {
+     }
+     static bool             valid_name_char( char c )
+     {
+-        return std::isalnum( c ) || c == '+' || c == '_' || c == '?';
++        return std::isalnum( c ) || c == '+' || c == '_' || c == '?' || c == '.';
+     }
+ 
+     std::string             m_prefix;
+diff -urN a/boost/test/utils/timer.hpp b/boost/test/utils/timer.hpp
+--- /dev/null
++++ b/boost/test/utils/timer.hpp
+@@ -0,0 +1,76 @@
++//  boost timer.hpp header file  ---------------------------------------------//
++
++//  Copyright Beman Dawes 1994-99.  Distributed under the Boost
++//  Software License, Version 1.0. (See accompanying file
++//  LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
++
++//  See http://www.boost.org/libs/timer for documentation.
++
++//  Revision History
++//  01 Apr 01  Modified to use new <boost/limits.hpp> header. (JMaddock)
++//  12 Jan 01  Change to inline implementation to allow use without library
++//             builds. See docs for more rationale. (Beman Dawes) 
++//  25 Sep 99  elapsed_max() and elapsed_min() added (John Maddock)
++//  16 Jul 99  Second beta
++//   6 Jul 99  Initial boost version
++
++#ifndef BOOST_TEST_UTILS_TIMER_HPP
++#define BOOST_TEST_UTILS_TIMER_HPP
++
++#include <boost/config.hpp>
++#include <ctime>
++#include <boost/limits.hpp>
++
++# ifdef BOOST_NO_STDC_NAMESPACE
++    namespace std { using ::clock_t; using ::clock; }
++# endif
++
++
++namespace boost {
++namespace unit_test {
++namespace utils {
++
++//  timer  -------------------------------------------------------------------//
++
++//  A timer object measures elapsed time.
++
++//  It is recommended that implementations measure wall clock rather than CPU
++//  time since the intended use is performance measurement on systems where
++//  total elapsed time is more important than just process or CPU time.
++
++//  Warnings: The maximum measurable elapsed time may well be only 596.5+ hours
++//  due to implementation limitations.  The accuracy of timings depends on the
++//  accuracy of timing information provided by the underlying platform, and
++//  this varies a great deal from platform to platform.
++
++class timer
++{
++ public:
++         timer() { _start_time = std::clock(); } // postcondition: elapsed()==0
++//         timer( const timer& src );      // post: elapsed()==src.elapsed()
++//        ~timer(){}
++//  timer& operator=( const timer& src );  // post: elapsed()==src.elapsed()
++  void   restart() { _start_time = std::clock(); } // post: elapsed()==0
++  double elapsed() const                  // return elapsed time in seconds
++    { return  double(std::clock() - _start_time) / CLOCKS_PER_SEC; }
++
++  double elapsed_max() const   // return estimated maximum value for elapsed()
++  // Portability warning: elapsed_max() may return too high a value on systems
++  // where std::clock_t overflows or resets at surprising values.
++  {
++    return (double((std::numeric_limits<std::clock_t>::max)())
++       - double(_start_time)) / double(CLOCKS_PER_SEC); 
++  }
++
++  double elapsed_min() const            // return minimum value for elapsed()
++   { return double(1)/double(CLOCKS_PER_SEC); }
++
++ private:
++  std::clock_t _start_time;
++}; // timer
++
++} // namespace utils
++} // namespace unit_test
++} // namespace boost
++
++#endif  // BOOST_TEST_UTILS_TIMER_HPP
