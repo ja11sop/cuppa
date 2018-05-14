@@ -576,7 +576,15 @@ class RunPatchedBoostTest:
         if cuppa.build_platform.name() == "Windows":
             executable = '"' + executable + '"'
 
+        boost_version = None
+        if 'boost' in env['dependencies']:
+            boost_version = env['dependencies']['boost']( env ).numeric_version()
+
         test_command = executable + " --boost.test.log_format=hrf --boost.test.log_level=test_suite --boost.test.report_level=no"
+
+        if boost_version and boost_version > 1.59:
+            test_command = executable + " --boost.test.log_format=HRF --boost.test.log_level=test_suite --boost.test.report_level=no"
+
         print "cuppa: RunPatchedBoostTest: [" + test_command + "]"
 
         try:
