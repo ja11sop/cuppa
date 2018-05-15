@@ -247,10 +247,11 @@ class State:
 
 class ProcessStdout:
 
-    def __init__( self, log, branch_root, notify ):
+    def __init__( self, log, branch_root, notify, preprocess ):
         self._log = open( log, "w" )
         self._branch_root = branch_root
         self._notify = notify
+        self._preprocess = preprocess
         self._state = State.waiting
         self._test_case_names = []
         self._test_cases = {}
@@ -409,7 +410,7 @@ class ProcessStdout:
 
 
     def __call__( self, line ):
-
+        line = self._preprocess( line )
         self._log.write( line + '\n' )
 
         if self._state == State.waiting:
@@ -511,11 +512,13 @@ class ProcessStdout:
 
 class ProcessStderr:
 
-    def __init__( self, log, notify ):
+    def __init__( self, log, notify, preprocess ):
+        self._preprocess = preprocess
         self._log = open( log, "w" )
 
 
     def __call__( self, line ):
+        line = self._preprocess( line )
         self._log.write( line + '\n' )
 
 
@@ -563,6 +566,11 @@ class RunPatchedBoostTestEmitter:
 
 class RunPatchedBoostTest:
 
+    @classmethod
+    def default_preprocess( cls, line ):
+        return line
+
+
     def __init__( self, expected ):
         self._expected = expected
 
@@ -590,10 +598,10 @@ class RunPatchedBoostTest:
 
         if boost_version:
             if boost_version > 1.67:
-                test_command = executable + " --{0}log_format=HRF --{0}log_level=test_suite --{0}report_level=no --{0}color_output=no".format( argument_prefix )
+                test_command = executable + " --{0}log_format=HRF --{0}log_level=all --{0}report_level=no --{0}color_output=no".format( argument_prefix )
             elif boost_version == 1.67:
                 preprocess = cuppa.utility.preprocess.AnsiEscape.strip
-                test_command = executable + " --{0}log_format=HRF --{0}log_level=test_suite --{0}report_level=no --{0}color_output=no".format( argument_prefix )
+                test_command = executable + " --{0}log_format=HRF --{0}log_level=all --{0}report_level=no --{0}color_output=no".format( argument_prefix )
             elif boost_version >= 1.60:
                 test_command = executable + " --{0}log_format=HRF --{0}log_level=test_suite --{0}report_level=no".format( argument_prefix )
 
@@ -605,7 +613,8 @@ class RunPatchedBoostTest:
                     test_command,
                     working_dir,
                     env['branch_root'],
-                    notifier
+                    notifier,
+                    preprocess
             )
 
             cuppa.test_report.cuppa_json.write_report( report_file_name_from( program_path ), tests )
@@ -631,9 +640,9 @@ class RunPatchedBoostTest:
             return 1
 
 
-    def _run_test( self, program_path, test_command, working_dir,branch_root, notifier ):
-        process_stdout = ProcessStdout( stdout_file_name_from( program_path ), branch_root, notifier )
-        process_stderr = ProcessStderr( stderr_file_name_from( program_path ), notifier )
+    def _run_test( self, program_path, test_command, working_dir, branch_root, notifier, preprocess ):
+        process_stdout = ProcessStdout( stdout_file_name_from( program_path ), branch_root, notifier, preprocess )
+        process_stderr = ProcessStderr( stderr_file_name_from( program_path ), notifier, preprocess )
 
         return_code = IncrementalSubProcess.Popen2( process_stdout,
                                                     process_stderr,
