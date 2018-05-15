@@ -608,6 +608,7 @@ class ProcessStdout:
 class ProcessStderr:
 
     def __init__( self, log, notify, preprocess ):
+        self.preprocess = preprocess
         self.log = open( log, "w" )
 
 
