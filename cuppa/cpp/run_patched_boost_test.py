@@ -15,6 +15,7 @@ import re
 
 import cuppa.test_report.cuppa_json
 import cuppa.build_platform
+import cuppa.utility.preprocess
 from cuppa.output_processor import IncrementalSubProcess
 from cuppa.colourise import as_emphasised, as_highlighted, as_colour, emphasise_time_by_digit
 
@@ -577,13 +578,24 @@ class RunPatchedBoostTest:
             executable = '"' + executable + '"'
 
         boost_version = None
+        prepocess = self.default_preprocess
+        argument_prefix = ""
+
         if 'boost' in env['dependencies']:
             boost_version = env['dependencies']['boost']( env ).numeric_version()
+            if env['dependencies']['boost']( env ).patched_test():
+                argument_prefix="boost.test."
 
-        test_command = executable + " --boost.test.log_format=hrf --boost.test.log_level=test_suite --boost.test.report_level=no"
+        test_command = executable + " --{0}log_format=hrf --{0}log_level=test_suite --{0}report_level=no".format( argument_prefix )
 
-        if boost_version and boost_version > 1.59:
-            test_command = executable + " --boost.test.log_format=HRF --boost.test.log_level=test_suite --boost.test.report_level=no"
+        if boost_version:
+            if boost_version > 1.67:
+                test_command = executable + " --{0}log_format=HRF --{0}log_level=test_suite --{0}report_level=no --{0}color_output=no".format( argument_prefix )
+            elif boost_version == 1.67:
+                preprocess = cuppa.utility.preprocess.AnsiEscape.strip
+                test_command = executable + " --{0}log_format=HRF --{0}log_level=test_suite --{0}report_level=no --{0}color_output=no".format( argument_prefix )
+            elif boost_version >= 1.60:
+                test_command = executable + " --{0}log_format=HRF --{0}log_level=test_suite --{0}report_level=no".format( argument_prefix )
 
         print "cuppa: RunPatchedBoostTest: [" + test_command + "]"
 

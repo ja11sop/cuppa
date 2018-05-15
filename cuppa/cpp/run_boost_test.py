@@ -15,6 +15,7 @@ import re
 import cuppa.timer
 import cuppa.test_report.cuppa_json
 import cuppa.build_platform
+import cuppa.utility.preprocess
 from cuppa.output_processor import IncrementalSubProcess
 from cuppa.colourise import as_emphasised, as_highlighted, as_colour, start_colour, colour_reset
 
@@ -260,11 +261,12 @@ class State:
     waiting, test_suite, test_case = range(3)
 
 
+
 class ProcessStdout:
 
-    def __init__( self, log, branch_root, notify ):
+    def __init__( self, log, notify, preprocess ):
         self.log = open( log, "w" )
-        self.branch_root = branch_root
+        self.preprocess = preprocess
         self.notify = notify
         self.state = State.waiting
         self.test_case_names = []
@@ -442,6 +444,8 @@ class ProcessStdout:
 
     def __call__( self, line ):
 
+        line = self.preprocess( line )
+
         if not self.state == State.test_case:
             self.log.write( line + '\n' )
 
@@ -600,13 +604,15 @@ class ProcessStdout:
                 suite['aborted_tests'] = count
 
 
+
 class ProcessStderr:
 
-    def __init__( self, log, notify ):
+    def __init__( self, log, notify, preprocess ):
         self.log = open( log, "w" )
 
 
     def __call__( self, line ):
+        line = self.preprocess( line )
         self.log.write( line + '\n' )
 
 
@@ -654,6 +660,10 @@ class RunBoostTestEmitter:
 
 class RunBoostTest:
 
+    @classmethod
+    def default_preprocess( cls, line ):
+        return line
+
     def __init__( self, expected ):
         self._expected = expected
 
@@ -669,13 +679,24 @@ class RunBoostTest:
             executable = '"' + executable + '"'
 
         boost_version = None
+        prepocess = self.default_preprocess
+        argument_prefix = ""
+
         if 'boost' in env['dependencies']:
             boost_version = env['dependencies']['boost']( env ).numeric_version()
+            if env['dependencies']['boost']( env ).patched_test():
+                argument_prefix="boost.test."
 
-        test_command = executable + " --log_format=hrf --log_level=all --report_level=no"
+        test_command = executable + " --{0}log_format=hrf --{0}log_level=all --{0}report_level=no".format( argument_prefix )
 
-        if boost_version and boost_version > 1.59:
-            test_command = executable + " --log_format=HRF --log_level=all --report_level=no"
+        if boost_version:
+            if boost_version > 1.67:
+                test_command = executable + " --{0}log_format=HRF --{0}log_level=all --{0}report_level=no --{0}color_output=no".format( argument_prefix )
+            elif boost_version == 1.67:
+                preprocess = cuppa.utility.preprocess.AnsiEscape.strip
+                test_command = executable + " --{0}log_format=HRF --{0}log_level=all --{0}report_level=no --{0}color_output=no".format( argument_prefix )
+            elif boost_version >= 1.60:
+                test_command = executable + " --{0}log_format=HRF --{0}log_level=all --{0}report_level=no".format( argument_prefix )
 
         print "cuppa: RunBoostTest: [" + test_command + "]"
 
@@ -683,8 +704,8 @@ class RunBoostTest:
             return_code, tests = self.__run_test( program_path,
                                                   test_command,
                                                   working_dir,
-                                                  env['branch_root'],
-                                                  notifier )
+                                                  notifier,
+                                                  preprocess )
 
             cuppa.test_report.cuppa_json.write_report( report_file_name_from( program_path ), tests )
 
@@ -709,9 +730,9 @@ class RunBoostTest:
             return 1
 
 
-    def __run_test( self, program_path, test_command, working_dir, branch_root, notifier ):
-        process_stdout = ProcessStdout( stdout_file_name_from( program_path ), branch_root, notifier )
-        process_stderr = ProcessStderr( stderr_file_name_from( program_path ), notifier )
+    def __run_test( self, program_path, test_command, working_dir, notifier, preprocess ):
+        process_stdout = ProcessStdout( stdout_file_name_from( program_path ), notifier, preprocess )
+        process_stderr = ProcessStderr( stderr_file_name_from( program_path ), notifier, preprocess )
 
         return_code = IncrementalSubProcess.Popen2( process_stdout,
                                                     process_stderr,

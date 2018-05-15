@@ -200,3 +200,7 @@ class Boost(object):
 
     def lib( self, library ):
         return 'boost_' + library + self.values['library_mt_tag']
+
+
+    def patched_test( self ):
+        return self._patched_test
