@@ -30,6 +30,9 @@ class RecursiveGlobMethod:
 
         start = os.path.expanduser( start )
 
+        if not os.path.isabs( start ):
+            start = os.path.join( base_path, start )
+
         rel_start = os.path.relpath( base_path, start )
 
         logger.trace(
