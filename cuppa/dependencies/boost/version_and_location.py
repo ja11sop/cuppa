@@ -78,13 +78,15 @@ def get_boost_location( env, location, version, base, patched ):
     if patched:
         extra_sub_path = 'patched'
 
+    offline = env['offline']
+
     if location:
-        location = _location_from_boost_version( location )
+        location = _location_from_boost_version( location, offline )
 
         logger.trace( "Location after version detection = [{}]".format( as_notice( str(location) ) ) )
 
         if not location: # use version as a fallback in case both at specified
-            location = _location_from_boost_version( version )
+            location = _location_from_boost_version( version, offline )
         boost_location = cuppa.location.Location( env, location, extra_sub_path=extra_sub_path, name_hint="boost" )
 
     elif base: # Find boost locally
@@ -117,7 +119,7 @@ def get_boost_location( env, location, version, base, patched ):
         logger.debug( "Using boost found at [{}]".format( as_info( boost_home ) ) )
         boost_location = cuppa.location.Location( env, boost_home, extra_sub_path=extra_sub_path )
     else:
-        location = _location_from_boost_version( version )
+        location = _location_from_boost_version( version, offline )
         boost_location = cuppa.location.Location( env, location, extra_sub_path=extra_sub_path )
 
     if patched:
@@ -147,26 +149,29 @@ def get_boost_version( location ):
 
 
 
-def _determine_latest_boost_verion():
+def _determine_latest_boost_verion( offline ):
     current_release = "1.67.0"
-    try:
-        html = lxml.html.parse('https://www.boost.org/users/download/')
+    if not offline:
+        try:
+            html = lxml.html.parse('https://www.boost.org/users/download/')
 
-        current_release = html.xpath("/html/body/div[2]/div/div[1]/div/div/div[2]/h3[1]/span")[0].text
-        current_release = str( re.search( r'(\d[.]\d+([.]\d+)?)', current_release ).group(1) )
+            current_release = html.xpath("/html/body/div[2]/div/div[1]/div/div/div[2]/h3[1]/span")[0].text
+            current_release = str( re.search( r'(\d[.]\d+([.]\d+)?)', current_release ).group(1) )
 
-        logger.debug( "latest boost release detected as [{}]".format( as_info( current_release ) ) )
+            logger.debug( "latest boost release detected as [{}]".format( as_info( current_release ) ) )
 
-    except Exception as e:
-        logger.warn( "cannot determine latest version of boost - [{}]. Assuming [{}].".format( str(e), current_release ) )
+        except Exception as e:
+            logger.warn( "cannot determine latest version of boost - [{}]. Assuming [{}].".format( str(e), current_release ) )
+    else:
+        logger.info( "In offline mode. No version of boost specified so assuming [{}]".format( as_info( current_release ) ) )
 
     return current_release
 
 
 
-def _location_from_boost_version( location ):
+def _location_from_boost_version( location, offline ):
     if location == "latest" or location == "current":
-        location = _determine_latest_boost_verion()
+        location = _determine_latest_boost_verion( offline )
     if location:
         match = re.match( r'(boost_)?(?P<version>\d[._]\d\d(?P<minor>[._]\d)?)', location )
         if match:
