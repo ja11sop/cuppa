@@ -474,7 +474,7 @@ class Clang(object):
         return [
         {
             'title'     : "Compiler Error",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):([0-9]+))(:[ \t](error:[ \t].*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):([0-9]+))(:[ \t](error:[ \t].*))",
             'meaning'   : 'error',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 5 ],
@@ -484,7 +484,7 @@ class Clang(object):
         },
         {
             'title'     : "Compiler Warning",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):([0-9]+))(:[ \t](warning:[ \t].*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):([0-9]+))(:[ \t](warning:[ \t].*))",
             'meaning'   : 'warning',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 5 ],
@@ -494,7 +494,7 @@ class Clang(object):
         },
         {
             'title'     : "Compiler Note",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):([0-9]+))(:[ \t](note:[ \t].*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):([0-9]+))(:[ \t](note:[ \t].*))",
             'meaning'   : 'message',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 5 ],
@@ -504,7 +504,7 @@ class Clang(object):
         },
         {
             'title'     : "Linker Warning",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:\(\.text\+[0-9a-fA-FxX]+\))(:[ \t]([Ww]arning:[ \t].*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:\(\.text\+[0-9a-fA-FxX]+\))(:[ \t]([Ww]arning:[ \t].*))",
             'meaning'   : 'warning',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -514,7 +514,7 @@ class Clang(object):
         },
         {
             'title'     : "Linker Error",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t](.*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t](.*))",
             'meaning'   : 'error',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -524,7 +524,7 @@ class Clang(object):
         },
         {
             'title'     : "Linker Error 2",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+\(.text\+[0-9A-Za-z]+\):([ \tA-Za-z0-9_:+/\.-]+))(:[ \t](.*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+\(.text\+[0-9A-Za-z]+\):([ \tA-Za-z0-9_:+/\.-]+))(:[ \t](.*))",
             'meaning'   : 'error',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 4 ],
@@ -534,7 +534,7 @@ class Clang(object):
         },
         {
             'title'     : "Linker Error 3",
-            'regex'     : r"(([][{}() \t#%$~\w&_:+/\.-]+):\(\.text\+[0-9a-fA-FxX]+\))(:(.*))",
+            'regex'     : r"(([][{}() \t#%@$~\w&_:+/\.-]+):\(\.text\+[0-9a-fA-FxX]+\))(:(.*))",
             'meaning'   : 'error',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 4 ],
@@ -574,7 +574,7 @@ class Clang(object):
         },
         {
             'title'     : "Undefined Reference",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:[ \t](undefined reference.*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:[ \t](undefined reference.*))",
             'meaning'   : 'error',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 2 ],

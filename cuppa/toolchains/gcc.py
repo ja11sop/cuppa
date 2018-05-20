@@ -455,7 +455,7 @@ class Gcc(object):
         },
         {
             'title'     : "In File Included From",
-            'regex'     : r"(In file included\s+|\s+)(from\s+)([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+)(:[0-9]+)?)([,:])",
+            'regex'     : r"(In file included\s+|\s+)(from\s+)([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+)(:[0-9]+)?)([,:])",
             'meaning'   : 'message',
             'highlight' : set( [ 1, 3, 4 ] ),
             'display'   : [ 1, 2, 3, 4, 7 ],
@@ -465,7 +465,7 @@ class Gcc(object):
         },
         {
             'title'     : "In Function Info",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:[ \t]+([iI]n ([cC]lass|[cC]onstructor|[dD]estructor|[fF]unction|[mM]ember [fF]unction|[sS]tatic [fF]unction|[sS]tatic [mM]ember [fF]unction).*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:[ \t]+([iI]n ([cC]lass|[cC]onstructor|[dD]estructor|[fF]unction|[mM]ember [fF]unction|[sS]tatic [fF]unction|[sS]tatic [mM]ember [fF]unction).*))",
             'meaning'   : 'message',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 2 ],
@@ -475,7 +475,7 @@ class Gcc(object):
         },
         {
             'title'     : "Skipping Instantiation Contexts 2",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t]+(\[[ \t]+[Ss]kipping [0-9]+ instantiation contexts[, \t]+.*\]))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t]+(\[[ \t]+[Ss]kipping [0-9]+ instantiation contexts[, \t]+.*\]))",
             'meaning'   : 'message',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -485,7 +485,7 @@ class Gcc(object):
         },
         {
             'title'     : "Skipping Instantiation Contexts",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t]+(\[[ \t]+[Ss]kipping [0-9]+ instantiation contexts[ \t]+\]))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t]+(\[[ \t]+[Ss]kipping [0-9]+ instantiation contexts[ \t]+\]))",
             'meaning'   : 'message',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -495,7 +495,7 @@ class Gcc(object):
         },
         {
             'title'     : "Instantiated From",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t]+([iI]nstantiated from .*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t]+([iI]nstantiated from .*))",
             'meaning'   : 'message',
             'highlight' : set( [ 1, 2] ),
             'display'   : [ 1, 2, 4 ],
@@ -505,7 +505,7 @@ class Gcc(object):
         },
         {
             'title'     : "Instantiation of",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:[ \t]+(In instantiation of .*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:[ \t]+(In instantiation of .*))",
             'meaning'   : 'message',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 2 ],
@@ -515,7 +515,7 @@ class Gcc(object):
         },
         {
             'title'     : "Required",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t]+[Rr]equired (?:from|by) .*)",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t]+[Rr]equired (?:from|by) .*)",
             'meaning'   : 'message',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -525,7 +525,7 @@ class Gcc(object):
         },
         {
             'title'     : "Compiler Warning 2",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):([0-9]+))(:[ \t]([Ww]arning:[ \t].*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):([0-9]+))(:[ \t]([Ww]arning:[ \t].*))",
             'meaning'   : 'warning',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 5 ],
@@ -535,7 +535,7 @@ class Gcc(object):
         },
         {
             'title'     : "Compiler Note 2",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t]([Nn]ote:[ \t].*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t]([Nn]ote:[ \t].*))",
             'meaning'   : 'message',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -545,7 +545,7 @@ class Gcc(object):
         },
         {
             'title'     : "Compiler Note",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t]([Nn]ote:[ \t].*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t]([Nn]ote:[ \t].*))",
             'meaning'   : 'message',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -565,7 +565,7 @@ class Gcc(object):
         },
         {
             'title'     : "Compiler Error 2",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t](.*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t](.*))",
             'meaning'   : 'error',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -575,7 +575,7 @@ class Gcc(object):
         },
         {
             'title'     : "Compiler Warning",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t]([Ww]arning:[ \t].*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t]([Ww]arning:[ \t].*))",
             'meaning'   : 'warning',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -585,7 +585,7 @@ class Gcc(object):
         },
         {
             'title'     : "Undefined Reference 2",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+\.o:([][{}() \t#%$~\w&_:+/\.-]+):([0-9]+))(:[ \t](undefined reference.*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+\.o:([][{}() \t#%@$~\w&_:+/\.-]+):([0-9]+))(:[ \t](undefined reference.*))",
             'meaning'   : 'warning',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 4 ],
@@ -595,7 +595,7 @@ class Gcc(object):
         },
         {
             'title'     : "Compiler Error",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t](.*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t](.*))",
             'meaning'   : 'error',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -605,7 +605,7 @@ class Gcc(object):
         },
         {
             'title'     : "Linker Warning",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:\(\.text\+[0-9a-fA-FxX]+\))(:[ \t]([Ww]arning:[ \t].*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:\(\.text\+[0-9a-fA-FxX]+\))(:[ \t]([Ww]arning:[ \t].*))",
             'meaning'   : 'warning',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -615,7 +615,7 @@ class Gcc(object):
         },
         {
             'title'     : "Linker Error",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t](.*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t](.*))",
             'meaning'   : 'error',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -625,7 +625,7 @@ class Gcc(object):
         },
         {
             'title'     : "Linker Error 2",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+\(.text\+[0-9A-Za-z]+\):([ \tA-Za-z0-9_:+/\.-]+))(:[ \t](.*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+\(.text\+[0-9A-Za-z]+\):([ \tA-Za-z0-9_:+/\.-]+))(:[ \t](.*))",
             'meaning'   : 'error',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 4 ],
@@ -635,7 +635,7 @@ class Gcc(object):
         },
         {
             'title'     : "Linker Error 3",
-            'regex'     : r"(([][{}() \t#%$~\w&_:+/\.-]+):\(\.text\+[0-9a-fA-FxX]+\))(:(.*))",
+            'regex'     : r"(([][{}() \t#%@$~\w&_:+/\.-]+):\(\.text\+[0-9a-fA-FxX]+\))(:(.*))",
             'meaning'   : 'error',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 4 ],
@@ -685,7 +685,7 @@ class Gcc(object):
         },
         {
             'title'     : "Undefined Reference",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:[ \t](undefined reference.*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:[ \t](undefined reference.*))",
             'meaning'   : 'error',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 2 ],
