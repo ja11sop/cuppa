@@ -397,7 +397,7 @@ class Location(object):
     def __init__( self, cuppa_env, location, branch=None, extra_sub_path=None, name_hint=None ):
 
         if location.startswith( "#" ):
-            location = os.path.join( cuppa_env['sconstruct_path'], location[1:] )
+            location = os.path.join( cuppa_env['sconstruct_dir'], location[1:] )
 
         self._location   = os.path.expanduser( location )
         self._full_url   = urlparse.urlparse( self._location )
