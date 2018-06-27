@@ -586,7 +586,7 @@ class RunPatchedBoostTest:
             executable = '"' + executable + '"'
 
         boost_version = None
-        prepocess = self.default_preprocess
+        preprocess = self.default_preprocess
         argument_prefix = ""
 
         if 'boost' in env['dependencies']:
