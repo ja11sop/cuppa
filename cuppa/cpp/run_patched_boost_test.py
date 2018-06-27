@@ -261,7 +261,7 @@ class ProcessStdout:
 
     def entered_test_suite( self, line ):
         matches = re.match(
-            r'(?:(?P<file>[a-zA-Z0-9._/\s\-]+)?[(](?P<line>[0-9]+)[)]: )?'
+            r'(?:(?P<file>[a-zA-Z0-9.@_/\s\-]+)?[(](?P<line>[0-9]+)[)]: )?'
              'Entering test suite "(?P<suite>[a-zA-Z0-9(){}:&_<>/\-, ]+)"',
             line.strip() )
 
@@ -313,7 +313,7 @@ class ProcessStdout:
 
     def entered_test_case( self, line ):
         matches = re.match(
-            r'(?:(?P<file>[a-zA-Z0-9._/\\\s\-]+)[(](?P<line>[0-9]+)[)]: )?'
+            r'(?:(?P<file>[a-zA-Z0-9.@_/\\\s\-]+)[(](?P<line>[0-9]+)[)]: )?'
              'Entering test case "(?P<test>[a-zA-Z0-9(){}\[\]:;&_<>\-, =]+)"',
             line.strip() )
 

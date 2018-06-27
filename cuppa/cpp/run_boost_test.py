@@ -229,7 +229,7 @@ class Notify(object):
             return start_colour( level )
 
         matches = re.match(
-            r'(?P<file>[a-zA-Z0-9._/\s\-]+)[(](?P<line>[0-9]+)[)]: '
+            r'(?P<file>[a-zA-Z0-9.@_/\s\-]+)[(](?P<line>[0-9]+)[)]: '
              '(?P<message>[a-zA-Z0-9(){}:%.*&_<>/\-+=!," \[\]]+)',
             line )
 
@@ -277,7 +277,7 @@ class ProcessStdout:
 
     def entered_test_suite( self, line ):
         matches = re.match(
-            r'(?:(?P<file>[a-zA-Z0-9._/\s\-]+)?[(](?P<line>[0-9]+)[)]: )?'
+            r'(?:(?P<file>[a-zA-Z0-9.@_/\s\-]+)?[(](?P<line>[0-9]+)[)]: )?'
              'Entering test (suite|module) "(?P<suite>[a-zA-Z0-9(){}:&_<>/\-, ]+)"',
             line.strip() )
 
@@ -345,7 +345,7 @@ class ProcessStdout:
 
     def entered_test_case( self, line ):
         matches = re.match(
-            r'(?:(?P<file>[a-zA-Z0-9._/\\\s\-]+)[(](?P<line>[0-9]+)[)]: )?'
+            r'(?:(?P<file>[a-zA-Z0-9.@_/\\\s\-]+)[(](?P<line>[0-9]+)[)]: )?'
              'Entering test case "(?P<test>[a-zA-Z0-9(){}\[\]:;&_<>\-, =]+)"',
             line.strip() )
 
@@ -377,7 +377,7 @@ class ProcessStdout:
         test_case = self.test_suites[self.suite]['tests'][-1]
 
         matches = re.match(
-            r'(?:(?P<file>[a-zA-Z0-9._/\\\s\-]+)[(](?P<line>[0-9]+)[)]: )?'
+            r'(?:(?P<file>[a-zA-Z0-9.@_/\\\s\-]+)[(](?P<line>[0-9]+)[)]: )?'
              'Leaving test case "(?:[a-zA-Z0-9(){}\[\]:;&_<>\-, =]+)"'
              '(?:; testing time: (?P<testing_time>[a-zA-Z0-9.s ,+=()%/]+))?'
              '(\. Test case (?P<status>passed|failed|skipped|aborted)\.'
