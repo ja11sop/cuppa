@@ -417,8 +417,9 @@ class Location(object):
             develop = self.replace_sconstruct_anchor( develop, cuppa_env )
             logger.debug( "Develop location specified [{}]".format( as_info( develop ) ) )
 
-        if 'develop' in cuppa_env and develop:
+        if 'develop' in cuppa_env and cuppa_env['develop'] and develop:
             location = develop
+            logger.debug( "--develop specified so using location=develop=[{}]".format( as_info( develop ) ) )
 
         self._location   = os.path.expanduser( location )
         self._full_url   = urlparse.urlparse( self._location )

@@ -84,6 +84,8 @@ class base(object):
         develop  = env.get_option( cls._name + "-develop" )
         branch   = env.get_option( cls._name + "-branch" )
 
+        use_develop = env.get_option( "develop" )
+
         if not location and cls._default_location:
             location = cls._default_location
         if not location and branch:
@@ -103,7 +105,7 @@ class base(object):
         if develop:
             develop = os.path.expanduser( develop )
 
-        return (location, develop, branch)
+        return (location, develop, branch, use_develop)
 
 
     @classmethod
@@ -115,21 +117,32 @@ class base(object):
             location = location_id[0]
             develop = location_id[1]
             branch = location_id[2]
+            use_develop = location_id[3]
             try:
                 cls._cached_locations[location_id] = cuppa.location.Location( env, location, develop=develop, branch=branch, extra_sub_path=cls._extra_sub_path )
+                logger.debug( "Adding location [{}]({}) to cached locations".format(
+                        as_notice( cls._name.title() ),
+                        as_notice( str(location_id) )
+                ) )
             except cuppa.location.LocationException as error:
                 logger.error(
-                        "Could not get location for [{}] at [{}] (and develop [{}]) with branch [{}] and extra sub path [{}]. Failed with error [{}]"
+                        "Could not get location for [{}] at [{}] (and develop [{}], use=[{}]) with branch [{}] and extra sub path [{}]. Failed with error [{}]"
                         .format(
                                 as_notice( cls._name.title() ),
                                 as_notice( str(location) ),
                                 as_notice( str(develop) ),
+                                as_notice( str(use_develop and True or False) ),
                                 as_notice( str(branch) ),
                                 as_notice( str(cls._extra_sub_path) ),
                                 as_error( error )
                         )
                 )
                 return None
+        else:
+            logger.debug( "Loading location [{}]({}) from cached locations".format(
+                    as_notice( cls._name.title() ),
+                    as_notice( str(location_id) )
+            ) )
 
         return cls._cached_locations[location_id]
 
