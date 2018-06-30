@@ -177,6 +177,12 @@ class base(object):
         return cls( env, location, includes=cls._includes, sys_includes=cls._sys_includes, source_path=cls._source_path, linktype=cls._linktype )
 
 
+    @classmethod
+    def abs_path_from( cls, path, local_location, base_path ):
+        path = os.path.isabs(path) and path or os.path.join( local_location, path )
+        return os.path.isabs(path) and path or os.path.join( base_path, path )
+
+
     def __init__( self, env, location, includes=[], sys_includes=[], source_path=None, linktype=None ):
 
         self._location = location
@@ -187,15 +193,15 @@ class base(object):
         self._includes = []
         for include in includes:
             if include:
-                self._includes.append( os.path.isabs(include) and include or os.path.join( self._location.local(), include ) )
+                self._includes.append( self.abs_path_from( include, self._location.local(), env['sconstruct_dir'] ) )
 
         self._sys_includes = []
         for include in sys_includes:
             if include:
-                self._sys_includes.append( os.path.isabs(include) and include or os.path.join( self._location.local(), include ) )
+                self._sys_includes.append( self.abs_path_from( include, self._location.local(), env['sconstruct_dir'] ) )
 
         if source_path:
-            self._source_path = os.path.isabs(source_path) and source_path or os.path.join( self._location.local(), source_path )
+            self._source_path = self.abs_path_from( source_path, self._location.local(), env['sconstruct_dir'] )
 
         if not linktype:
             self._linktype = "static"
