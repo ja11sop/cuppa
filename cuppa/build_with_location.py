@@ -26,6 +26,7 @@ class base(object):
     _name = None
     _cached_locations = {}
     _default_location = None
+    _default_develop = None
     _default_include = None
     _default_sys_include = None
     _includes = None
@@ -39,6 +40,7 @@ class base(object):
     @classmethod
     def add_options( cls, add_option ):
         location_name       = cls._name + "-location"
+        develop_name        = cls._name + "-develop"
         branch_name         = cls._name + "-branch"
         include_name        = cls._name + "-include"
         sys_include_name    = cls._name + "-sys-include"
@@ -48,6 +50,9 @@ class base(object):
 
         add_option( '--' + location_name, dest=location_name, type='string', nargs=1, action='store',
                     help = cls._name + ' location to build against' )
+
+        add_option( '--' + develop_name, dest=develop_name, type='string', nargs=1, action='store',
+                    help = cls._name + ' location to build against when in develop mode' )
 
         add_option( '--' + branch_name, dest=branch_name, type='string', nargs=1, action='store',
                     help = cls._name + ' branch to build against. Providing a branch is optional' )
@@ -76,13 +81,14 @@ class base(object):
     @classmethod
     def location_id( cls, env ):
         location = env.get_option( cls._name + "-location" )
+        develop  = env.get_option( cls._name + "-develop" )
         branch   = env.get_option( cls._name + "-branch" )
 
         if not location and cls._default_location:
             location = cls._default_location
         if not location and branch:
             location = env['branch_root']
-        if not location and branch:
+        if not location and env['thirdparty']:
             location = env['thirdparty']
         if not location:
             logger.debug( "No location specified for dependency [{}]. Dependency not available.".format( cls._name.title() ) )
@@ -91,7 +97,13 @@ class base(object):
         if location:
             location = os.path.expanduser( location )
 
-        return (location, branch)
+        if not develop and cls._default_develop:
+            develop = cls._default_develop
+
+        if develop:
+            develop = os.path.expanduser( develop )
+
+        return (location, develop, branch)
 
 
     @classmethod
@@ -101,13 +113,21 @@ class base(object):
             return None
         if location_id not in cls._cached_locations:
             location = location_id[0]
-            branch = location_id[1]
+            develop = location_id[1]
+            branch = location_id[2]
             try:
-                cls._cached_locations[location_id] = cuppa.location.Location( env, location, branch=branch, extra_sub_path=cls._extra_sub_path )
+                cls._cached_locations[location_id] = cuppa.location.Location( env, location, develop=develop, branch=branch, extra_sub_path=cls._extra_sub_path )
             except cuppa.location.LocationException as error:
                 logger.error(
-                        "Could not get location for [{}] at [{}] with branch [{}] and extra sub path [{}]. Failed with error [{}]"
-                        .format( as_notice( cls._name.title() ), as_notice( str(location) ), as_notice( str(branch) ), as_notice( str(cls._extra_sub_path) ), as_error( error ) )
+                        "Could not get location for [{}] at [{}] (and develop [{}]) with branch [{}] and extra sub path [{}]. Failed with error [{}]"
+                        .format(
+                                as_notice( cls._name.title() ),
+                                as_notice( str(location) ),
+                                as_notice( str(develop) ),
+                                as_notice( str(branch) ),
+                                as_notice( str(cls._extra_sub_path) ),
+                                as_error( error )
+                        )
                 )
                 return None
 
@@ -282,12 +302,13 @@ class LibraryMethod(object):
 
 
 
-def location_dependency( name, location=None, include=None, sys_include=None, extra_sub_path=None, source_path=None, linktype=None ):
+def location_dependency( name, location=None, develop=None, include=None, sys_include=None, extra_sub_path=None, source_path=None, linktype=None ):
     return type(
             'BuildWith' + name.title(),
             ( base, ),
             {   '_name': name,
                 '_default_location': location,
+                '_default_develop': develop,
                 '_default_include': include,
                 '_default_sys_include': sys_include,
                 '_extra_sub_path': extra_sub_path,

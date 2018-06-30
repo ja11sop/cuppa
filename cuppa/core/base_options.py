@@ -16,6 +16,7 @@ import SCons.Script
 # Custom
 import cuppa.core.options
 import cuppa.core.storage_options
+import cuppa.core.location_options
 
 
 
@@ -107,3 +108,5 @@ def add_base_options():
                                  " is used. DECIDER may be one of {}".format( str(decider_choices) ) )
 
     cuppa.core.storage_options.add_storage_options( add_option )
+
+    cuppa.core.location_options.add_location_options( add_option )

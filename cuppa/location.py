@@ -394,10 +394,31 @@ class Location(object):
         return version, revision
 
 
-    def __init__( self, cuppa_env, location, branch=None, extra_sub_path=None, name_hint=None ):
+    @classmethod
+    def replace_sconstruct_anchor( cls, path, cuppa_env ):
+        if path.startswith( "#" ):
+            path = os.path.join( cuppa_env['sconstruct_dir'], path[1:] )
+        return path
 
-        if location.startswith( "#" ):
-            location = os.path.join( cuppa_env['sconstruct_dir'], location[1:] )
+
+    def __init__( self, cuppa_env, location, develop=None, branch=None, extra_sub_path=None, name_hint=None ):
+
+        logger.debug( "Create location using location=[{}], develop=[{}], branch=[{}], extra_sub_path=[{}], name_hint=[{}]".format(
+                as_info( location ),
+                as_info( str(develop) ),
+                as_info( str(branch) ),
+                as_info( str(extra_sub_path) ),
+                as_info( str(name_hint) )
+        ) )
+
+        location = self.replace_sconstruct_anchor( location, cuppa_env )
+
+        if develop:
+            develop = self.replace_sconstruct_anchor( develop, cuppa_env )
+            logger.debug( "Develop location specified [{}]".format( as_info( develop ) ) )
+
+        if 'develop' in cuppa_env and develop:
+            location = develop
 
         self._location   = os.path.expanduser( location )
         self._full_url   = urlparse.urlparse( self._location )

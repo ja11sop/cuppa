@@ -23,6 +23,7 @@ import SCons.Script
 import cuppa.core.environment
 import cuppa.core.base_options
 import cuppa.core.storage_options
+import cuppa.core.location_options
 import cuppa.core.options
 import cuppa.modules.registration
 import cuppa.build_platform
@@ -391,6 +392,7 @@ class Construct(object):
         cuppa_env['thirdparty'] = thirdparty
 
         cuppa.core.storage_options.process_storage_options( cuppa_env )
+        cuppa.core.location_options.process_location_options( cuppa_env )
 
         cuppa_env['default_projects']     = default_projects
         cuppa_env['default_variants']     = default_variants and set( default_variants ) or set()
