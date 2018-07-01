@@ -37,39 +37,65 @@ class base(object):
     _prebuilt_objects = {}
     _prebuilt_libraries = {}
 
+
+    @classmethod
+    def location_option( cls ):
+        return cls._name + "-location"
+
+    @classmethod
+    def develop_option( cls ):
+        return cls._name + "-develop"
+
+    @classmethod
+    def branch_option( cls ):
+        return cls._name + "-branch"
+
+    @classmethod
+    def include_option( cls ):
+        return cls._name + "-include"
+
+    @classmethod
+    def sys_include_option( cls ):
+        return cls._name + "-sys-include"
+
+    @classmethod
+    def extra_sub_path_option( cls ):
+        return cls._name + "-extra_sub_path"
+
+    @classmethod
+    def source_path_option( cls ):
+        return cls._name + "-source-path"
+
+    @classmethod
+    def linktype_option( cls ):
+        return cls._name + "-linktype"
+
+
     @classmethod
     def add_options( cls, add_option ):
-        location_name       = cls._name + "-location"
-        develop_name        = cls._name + "-develop"
-        branch_name         = cls._name + "-branch"
-        include_name        = cls._name + "-include"
-        sys_include_name    = cls._name + "-sys-include"
-        extra_sub_path_name = cls._name + "-extra-sub-path"
-        source_path_name    = cls._name + "-source-path"
-        linktype_name       = cls._name + "-linktype"
 
-        add_option( '--' + location_name, dest=location_name, type='string', nargs=1, action='store',
+        add_option( '--' + cls.location_option(), dest=cls.location_option(), type='string', nargs=1, action='store',
                     help = cls._name + ' location to build against' )
 
-        add_option( '--' + develop_name, dest=develop_name, type='string', nargs=1, action='store',
+        add_option( '--' + cls.develop_option(), dest=cls.develop_option(), type='string', nargs=1, action='store',
                     help = cls._name + ' location to build against when in develop mode' )
 
-        add_option( '--' + branch_name, dest=branch_name, type='string', nargs=1, action='store',
+        add_option( '--' + cls.branch_option(), dest=cls.branch_option(), type='string', nargs=1, action='store',
                     help = cls._name + ' branch to build against. Providing a branch is optional' )
 
-        add_option( '--' + include_name, dest=include_name, type='string', nargs=1, action='store',
+        add_option( '--' + cls.include_option(), dest=cls.include_option(), type='string', nargs=1, action='store',
                     help = cls._name + ' include sub-directory to be added to the include path. Optional' )
 
-        add_option( '--' + sys_include_name, dest=sys_include_name, type='string', nargs=1, action='store',
+        add_option( '--' + cls.sys_include_option(), dest=cls.sys_include_option(), type='string', nargs=1, action='store',
                     help = cls._name + ' include sub-directory to be added to the system include path. Optional' )
 
-        add_option( '--' + extra_sub_path_name, dest=extra_sub_path_name, type='string', nargs=1, action='store',
+        add_option( '--' + cls.extra_sub_path_option(), dest=cls.extra_sub_path_option(), type='string', nargs=1, action='store',
                     help = cls._name + ' extra (relative) sub path to locate the dependency. Optional' )
 
-        add_option( '--' + source_path_name, dest=source_path_name, type='string', nargs=1, action='store',
+        add_option( '--' + cls.source_path_option(), dest=cls.source_path_option(), type='string', nargs=1, action='store',
                     help = cls._name + ' path to source files. Optional' )
 
-        add_option( '--' + linktype_name, dest=linktype_name, type='string', nargs=1, action='store',
+        add_option( '--' + cls.linktype_option(), dest=cls.linktype_option(), type='string', nargs=1, action='store',
                     help = cls._name + ' linktype: static (default) or shared. Optional' )
 
 
@@ -80,9 +106,9 @@ class base(object):
 
     @classmethod
     def location_id( cls, env ):
-        location = env.get_option( cls._name + "-location" )
-        develop  = env.get_option( cls._name + "-develop" )
-        branch   = env.get_option( cls._name + "-branch" )
+        location = env.get_option( cls.location_option() )
+        develop  = env.get_option( cls.develop_option() )
+        branch   = env.get_option( cls.branch_option() )
 
         use_develop = env.get_option( "develop" )
 
@@ -155,11 +181,11 @@ class base(object):
             return None
 
         if not cls._includes:
-            include = env.get_option( cls._name + "-include" )
+            include = env.get_option( cls.include_option() )
             cls._includes = include and [include] or []
 
         if not cls._sys_includes:
-            sys_include = env.get_option( cls._name + "-sys-include" )
+            sys_include = env.get_option( cls.sys_include_option() )
             cls._sys_includes = sys_include and [sys_include] or []
 
         if cls._default_include:
@@ -169,10 +195,10 @@ class base(object):
             cls._sys_includes.append( cls._default_sys_include )
 
         if not cls._source_path:
-            cls._source_path = env.get_option( cls._name + "-source-path" )
+            cls._source_path = env.get_option( cls.source_path_option() )
 
         if not cls._linktype:
-            cls._linktype = env.get_option( cls._name + "-linktype" )
+            cls._linktype = env.get_option( cls.linktype_option() )
 
         return cls( env, location, includes=cls._includes, sys_includes=cls._sys_includes, source_path=cls._source_path, linktype=cls._linktype )
 
