@@ -315,6 +315,7 @@ class Clang(object):
         env['INCPATH']      = [ '#.', '.' ]
         env['LIBPATH']      = []
         env['CPPDEFINES']   = []
+        env['CPPPATH']      = '${SYSINCPATH + INCPATH}'
         env['LIBS']         = []
         env['STATICLIBS']   = []
         env['DYNAMICLIBS']  = self.values['dynamic_libraries']

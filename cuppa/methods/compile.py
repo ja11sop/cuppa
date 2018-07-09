@@ -22,8 +22,6 @@ class CompileMethod:
     def __call__( self, env, source, **kwargs ):
         sources = Flatten( [ source ] )
         objects = []
-        if 'CPPPATH' in env:
-            env.AppendUnique( INCPATH = env['CPPPATH'] )
 
         if self._shared:
             obj_prefix = env.subst('$SHOBJPREFIX')
@@ -47,7 +45,6 @@ class CompileMethod:
                     obj_builder(
                         source = source,
                         target = target,
-                        CPPPATH = env['SYSINCPATH'] + env['INCPATH'],
                         **kwargs ) )
 
         cuppa.progress.NotifyProgress.add( env, objects )

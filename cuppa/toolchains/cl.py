@@ -227,6 +227,7 @@ class Cl(object):
         env['SYSINCPATH']   = []
         env['INCPATH']      = [ '#.', '.' ]
         env['CPPDEFINES']   = []
+        env['CPPPATH']      = '${SYSINCPATH + INCPATH}'
         env['LIBS']         = []
         env['STATICLIBS']   = []
 
