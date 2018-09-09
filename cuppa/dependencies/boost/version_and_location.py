@@ -11,6 +11,7 @@ import os
 import re
 import string
 import lxml.html
+import urllib2
 
 # Cuppa Imports
 import cuppa.build_platform
@@ -153,7 +154,7 @@ def _determine_latest_boost_verion( offline ):
     current_release = "1.68.0"
     if not offline:
         try:
-            html = lxml.html.parse('https://www.boost.org/users/download/')
+            html = lxml.html.parse( urllib2.urlopen('https://www.boost.org/users/download/') )
 
             current_release = html.xpath("/html/body/div[2]/div/div[1]/div/div/div[2]/h3[1]/span")[0].text
             current_release = str( re.search( r'(\d[.]\d+([.]\d+)?)', current_release ).group(1) )
