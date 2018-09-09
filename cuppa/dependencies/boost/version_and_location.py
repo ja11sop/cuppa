@@ -150,7 +150,7 @@ def get_boost_version( location ):
 
 
 def _determine_latest_boost_verion( offline ):
-    current_release = "1.67.0"
+    current_release = "1.68.0"
     if not offline:
         try:
             html = lxml.html.parse('https://www.boost.org/users/download/')
