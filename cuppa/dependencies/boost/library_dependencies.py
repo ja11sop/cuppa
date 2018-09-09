@@ -85,8 +85,12 @@ def add_dependent_libraries( boost, linktype, libraries ):
             required_libraries.update( ['date_time', 'filesystem', 'system', 'thread'] )
         elif library == 'log_setup':
             required_libraries.update( ['log', 'date_time', 'filesystem', 'system', 'thread'] )
-        elif library == 'test' and patched_test:
-            required_libraries.update( ['timer, chrono', 'system'] )
+        elif library in { 'test', 'prg_exec_monitor', 'test_exec_monitor', 'unit_test_framework' }:
+            if library == 'test' and 'test' in required_libraries:
+                required_libraries.remove( 'test' )
+                required_libraries.update( ['unit_test_framework'] )
+            if patched_test:
+                required_libraries.update( ['timer, chrono', 'system'] )
         elif library == 'timer':
             required_libraries.update( ['chrono', 'system'] )
 

@@ -30,7 +30,12 @@ from cuppa.dependencies.boost.library_dependencies import add_dependent_librarie
 def _lazy_update_library_list( env, emitting, libraries, prebuilt_libraries, add_dependents, linktype, boost, stage_dir ):
 
     def build_with_library_name( library ):
-        return library == 'log_setup' and 'log' or library
+        if library == 'log_setup':
+            return 'log'
+        elif library in { 'prg_exec_monitor', 'test_exec_monitor', 'unit_test_framework' }:
+            return 'test'
+        else:
+            return library
 
     if add_dependents:
         if not emitting:
