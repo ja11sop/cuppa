@@ -94,6 +94,9 @@ class Clang(object):
     def supported_versions( cls ):
         return [
             "clang",
+            "clang8",
+            "clang7",
+            "clang60",
             "clang50",
             "clang40",
             "clang39",
@@ -448,6 +451,12 @@ class Clang(object):
             return '-std=c++1z'
         elif re.match( 'clang5[0]', name ):
             return '-std=c++1z'
+        elif re.match( 'clang6[0]', name ):
+            return '-std=c++2a'
+        elif re.match( 'clang7[0]', name ):
+            return '-std=c++2a'
+        elif re.match( 'clang8[0]', name ):
+            return '-std=c++2a'
 
 
     def abi_flag( self, env ):
