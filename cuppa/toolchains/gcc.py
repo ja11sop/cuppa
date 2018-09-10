@@ -419,7 +419,7 @@ class Gcc(object):
         elif re.match( 'gcc7[0-4]', self._reported_version ):
             return '-std=c++1z'
         elif re.match( 'gcc8[0-2]', self._reported_version ):
-            return '-std=c++1z'
+            return '-std=c++2a'
 
 
     def abi_flag( self, env ):
