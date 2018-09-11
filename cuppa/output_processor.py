@@ -18,9 +18,11 @@ import shlex
 import colorama
 import Queue
 import platform
+import logging
 
 
-from cuppa.colourise import as_colour, as_emphasised, as_highlighted
+import cuppa.timer
+from cuppa.colourise import as_colour, as_emphasised, as_highlighted, as_notice
 from cuppa.log import logger
 
 
@@ -80,7 +82,13 @@ class IncrementalSubProcess:
         sys.stdout = AutoFlushFile( colorama.initialise.wrapped_stdout )
         sys.stderr = AutoFlushFile( colorama.initialise.wrapped_stderr )
 
+        timing_enabled = logger.isEnabledFor( logging.DEBUG )
+
         try:
+            timer = timing_enabled and cuppa.timer.Timer() or None
+            if timer:
+                logger.debug( "Command [{}] - Running...".format( as_notice(str(timer.timer_id())) ) )
+
             close_fds = platform.system() == "Windows" and False or True
             process = subprocess.Popen(
                 args_list,
@@ -97,10 +105,18 @@ class IncrementalSubProcess:
 
             process.wait()
 
+            if timer:
+                timer.stop()
+                logger.debug( "Command [{}] - Elapsed {}".format( as_notice(str(timer.timer_id())), cuppa.timer.as_string( timer.elapsed() ) ) )
+
             return process.returncode
 
         except Exception as e:
-            logger.error( "output_processor: IncrementalSubProcess.Popen2() failed with error [{}]".format( str(e) ) )
+            if timer:
+                timer.stop()
+                logger.debug( "Command [{}] - Elapsed {}".format( as_notice(str(timer.timer_id())), cuppa.timer.as_string( timer.elapsed() ) ) )
+            logger.error( "IncrementalSubProcess.Popen2() failed with error [{}]".format( str(e) ) )
+            raise e
 
 
     @classmethod
@@ -147,12 +163,12 @@ class Stream(object):
         pass
 
     def write( self, text ):
-        logger.trace( "output_processor: Stream _queue.put [{}]".format( self._name ) )
+        logger.trace( "Stream _queue.put [{}]".format( self._name ) )
         self._queue.put( text )
 
     def read( self, block ):
         try:
-            logger.trace( "output_processor: Stream _queue.get [{}]".format( self._name ) )
+            logger.trace( "Stream _queue.get [{}]".format( self._name ) )
             text = self._queue.get( block )
             if text:
                 for line in text.splitlines():
@@ -164,11 +180,11 @@ class Stream(object):
                         print line
             self._queue.task_done()
         except Queue.Empty:
-            logger.trace( "output_processor: Stream Queue.Empty raised [{}]".format( self._name ) )
+            logger.trace( "Stream Queue.Empty raised [{}]".format( self._name ) )
 
     def join( self ):
         if self._queue.empty():
-            logger.trace( "output_processor: Stream _queue.empty() - flush with None [{}]".format( self._name ) )
+            logger.trace( "Stream _queue.empty() - flush with None [{}]".format( self._name ) )
             self._queue.put( None )
         self._queue.join()
 
@@ -243,18 +259,18 @@ class Processor:
         stderr_thread.start()
 
         pspawn_thread.join()
-        logger.trace( "output_processor: Processor - PSPAWN joined" )
+        logger.trace( "Processor - PSPAWN joined" )
         finished.set()
 
         stdout.join()
-        logger.trace( "output_processor: Processor - STDOUT stream joined" )
+        logger.trace( "Processor - STDOUT stream joined" )
         stdout_thread.join()
-        logger.trace( "output_processor: Processor - STDOUT thread joined" )
+        logger.trace( "Processor - STDOUT thread joined" )
 
         stderr.join()
-        logger.trace( "output_processor: Processor - STDERR stream joined" )
+        logger.trace( "Processor - STDERR stream joined" )
         stderr_thread.join()
-        logger.trace( "output_processor: Processor - STDERR thread joined" )
+        logger.trace( "Processor - STDERR thread joined" )
 
         returncode = pspawn.returncode()
 
