@@ -13,6 +13,7 @@ import os
 import timeit
 import time
 import sys
+import itertools
 
 from cuppa.colourise import as_emphasised, as_colour, emphasise_time_by_digit
 
@@ -64,6 +65,8 @@ class CpuTimes(object):
 
 class Timer(object):
 
+    _ids = itertools.count(0)
+
     @classmethod
     def _current_time( cls ):
         wall = wall_time_nanosecs()
@@ -77,7 +80,12 @@ class Timer(object):
 
 
     def __init__( self ):
+        self._id = next( self._ids )
         self.start()
+
+
+    def timer_id( self ):
+        return self._id
 
 
     def elapsed( self ):
@@ -119,6 +127,14 @@ def as_wall_cpu_percent_string( cpu_times ):
         wall_cpu_percent = "%6s%%" % percent.upper()
 
     return wall_cpu_percent
+
+
+def as_string( cpu_times ):
+    return "Time: Wall [ {} ] CPU [ {} ] CPU/Wall [ {} ]".format(
+            emphasise_time_by_digit( as_duration_string( cpu_times.wall ) ),
+            emphasise_time_by_digit( as_duration_string( cpu_times.process ) ),
+            as_colour( 'time', as_wall_cpu_percent_string( cpu_times ) )
+    )
 
 
 def write_time( cpu_times, emphasise=False ):
