@@ -365,7 +365,7 @@ class BoostLibraryBuilder(object):
                             as_info(str(index)),
                             as_info(variant_key),
                             colour_items( new_libraries ),
-                            as_info(previous_invocation['index']),
+                            as_info(str(previous_invocation['index'])),
                             as_info(previous_invocation['variant']),
                             colour_items( previous_invocation['libraries'] )
                 ) )
