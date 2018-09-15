@@ -54,6 +54,18 @@ def variant_name( variant ):
         return 'release'
 
 
+def link_type( linktype ):
+    if linktype == 'shared':
+        return 'link-shared'
+    return 'link-static'
+
+
+def thread_model( threading ):
+    if threading:
+        return 'threading-multi'
+    return 'threading-single'
+
+
 def directory_from_abi_flag( abi_flag ):
     if abi_flag:
         flag, value = abi_flag.split('=')
