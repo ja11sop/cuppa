@@ -187,6 +187,9 @@ class BjamOutputProcessor(object):
                 toolset_name = "darwin"
             elif toolset_name == "clang":
                 toolset_name = "clang-darwin"
+        elif cuppa.build_platform.name() == "Linux":
+            if toolset_name == "clang":
+                toolset_name = "clang-linux"
         return toolset_name
 
 
