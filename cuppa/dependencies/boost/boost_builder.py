@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2017
+#          Copyright Jamie Allsop 2011-2018
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -16,14 +16,98 @@ from SCons.Script import File, Flatten
 import cuppa.build_platform
 
 from cuppa.output_processor import IncrementalSubProcess
-from cuppa.colourise        import as_info, as_notice, colour_items
+from cuppa.colourise        import as_info, as_notice, colour_items, as_error
 from cuppa.log              import logger
 
 # Boost Imports
 from cuppa.dependencies.boost.bjam                 import BjamOutputProcessor, BuildBjam, bjam_exe, bjam_command
 from cuppa.dependencies.boost.configjam            import WriteToolsetConfigJam
-from cuppa.dependencies.boost.library_naming       import stage_directory, variant_name, static_library_name, shared_library_name, extract_library_name_from_path
+from cuppa.dependencies.boost.library_naming       import stage_directory, bin_directory, variant_name, static_library_name, shared_library_name, extract_library_name_from_path
 from cuppa.dependencies.boost.library_dependencies import add_dependent_libraries
+
+
+_prebuilt_boost_libraries = { 'action': {}, 'emitter': {}, 'builder': {} }
+_bjam_invocations = {}
+
+# NOTE: We want to take advantage of the ability to parallelise BJAM calls when building boost.
+#       However a number of aspects of how BJAM is executed are not "thread-safe" - that is
+#       concurrent calls to BJAM to build libraries that will touch the same folders or files
+#       on disk will result in spurious build failures. To address this issues we attempt to do
+#       two things:
+#
+#        1. We minimise the number of calls to BJAM by tracking the which libraries are being
+#           built and re-use targets when a BJAM call exists that will perform the build. This
+#           is the purpose of the `_prebuilt_boost_libraries` dictionary. We only really need
+#           to track the libraries in the `buildber` sub-dict but the libraries as known to the
+#           `action` and `emitter` are also tracked to help with logging and diagnostics.
+#
+#           By performing this tracking we can re-use library targets when building the dependency
+#           tree and minimise unneeded calls to BJAM. We do this across a whole sconstruct file
+#           as typically multiple sconscript files will make the same calls to build the same
+#           libraries and if we are executing Scons in parallel mode using `--parallel` on the
+#           cuppa commandline then those invocations of BJAM will potentially execute in parallel.
+#
+#        2. We serialise calls to BJAM because concurrent calls to BJAM that build targets
+#           touching the same areas of disk with spuriously fail. Since we will use sufficient
+#           cores to maximise the opportunity to execute builds in parallel when invoking BJAM we
+#           will, on average, not suffer any loss of processing opportuinty. In other words we
+#           can avoid hitting the build failures while still benefitting from executing a parallel
+#           build. This is the purpose of the `_bjam_invocations` dict. With this we track all
+#           invocations to BJAM and use a Requires() rule to force an ordering at the dependency
+#           tree level.
+#
+#       Here is an example of BJAM code in Boost that cannot reliably function concurrently. From
+#       'tools/build/src/util/path.jam':
+#
+#       ---------------------------------------------------------------------------------
+#            rule makedirs ( path )
+#            {
+#                local result = true ;
+#                local native = [ native $(path) ] ;
+#                if ! [ exists $(native) ]
+#                {
+#                    if [ makedirs [ parent $(path) ] ]
+#                    {
+#                        if ! [ MAKEDIR $(native) ]
+#                        {
+#                            import errors ;
+#                            errors.error "Could not create directory '$(path)'" ;
+#                            result = ;
+#                        }
+#                    }
+#                }
+#                return $(result) ;
+#            }
+#       ---------------------------------------------------------------------------------
+#
+#       This should be written as:
+#
+#       ---------------------------------------------------------------------------------
+#            rule makedirs ( path )
+#            {
+#                local result = true ;
+#                local native = [ native $(path) ] ;
+#                if ! [ exists $(native) ]
+#                {
+#                    if [ makedirs [ parent $(path) ] ]
+#                    {
+#                        if ! [ MAKEDIR $(native) ]
+#                        {
+#                            if ! [ exists $(native) ]
+#                            {
+#                                import errors ;
+#                                errors.error "Could not create directory '$(path)'" ;
+#                                result = ;
+#                            }
+#                        }
+#                    }
+#                }
+#                return $(result) ;
+#            }
+#       ---------------------------------------------------------------------------------
+#
+#       This change is needed as makedirs might fail because the directly already exists, perhaps
+#       because a concurrent invocation of BJAM created it between the call to exists and makedirs
 
 
 
@@ -57,13 +141,18 @@ def _lazy_update_library_list( env, emitting, libraries, prebuilt_libraries, add
 
 class BoostLibraryAction(object):
 
-    prebuilt_libraries = {}
-
     def __init__( self, env, stage_dir, libraries, add_dependents, linktype, boost, verbose_build, verbose_config ):
 
         self._env = env
 
-        logger.trace( "Requested libraries [{}]".format( colour_items( libraries ) ) )
+        sconstruct_id = env['sconstruct_path']
+        global _prebuilt_boost_libraries
+        if sconstruct_id not in _prebuilt_boost_libraries['action']:
+            _prebuilt_boost_libraries['action'][sconstruct_id] = {}
+
+        logger.trace( "Current Boost build [{}] has the following build variants [{}]".format( as_info(sconstruct_id), colour_items(_prebuilt_boost_libraries['action'][sconstruct_id].keys()) ) )
+
+        logger.debug( "Requested libraries [{}]".format( colour_items( libraries ) ) )
 
         self._linktype       = linktype
         self._variant        = variant_name( self._env['variant'].name() )
@@ -71,15 +160,16 @@ class BoostLibraryAction(object):
         self._toolchain      = env['toolchain']
         self._stage_dir      = stage_dir
 
-        self._libraries = _lazy_update_library_list( env, False, libraries, self.prebuilt_libraries, add_dependents, linktype, boost, self._stage_dir )
+        self._libraries = _lazy_update_library_list( env, False, libraries, _prebuilt_boost_libraries['action'][sconstruct_id], add_dependents, linktype, boost, self._stage_dir )
 
-        logger.trace( "Required libraries [{}]".format( colour_items( self._libraries ) ) )
+        logger.debug( "Required libraries [{}]".format( colour_items( self._libraries ) ) )
 
         self._location       = boost.local()
         self._verbose_build  = verbose_build
         self._verbose_config = verbose_config
         self._job_count      = env['job_count']
         self._parallel       = env['parallel']
+        self._threading      = True
 
 
     def __call__( self, target, source, env ):
@@ -124,13 +214,23 @@ class BoostLibraryAction(object):
 
 class BoostLibraryEmitter(object):
 
-    prebuilt_libraries = {}
-
     def __init__( self, env, stage_dir, libraries, add_dependents, linktype, boost ):
         self._env = env
+
+        sconstruct_id = env['sconstruct_path']
+        global _prebuilt_boost_libraries
+        if sconstruct_id not in _prebuilt_boost_libraries['emitter']:
+            _prebuilt_boost_libraries['emitter'][sconstruct_id] = {}
+
+        logger.trace( "Current Boost build [{}] has the following build variants [{}]".format( as_info(sconstruct_id), colour_items(_prebuilt_boost_libraries['emitter'][sconstruct_id].keys()) ) )
+
         self._stage_dir    = stage_dir
 
-        self._libraries    = _lazy_update_library_list( env, True, libraries, self.prebuilt_libraries, add_dependents, linktype, boost, self._stage_dir )
+        logger.debug( "Requested libraries [{}]".format( colour_items( libraries ) ) )
+
+        self._libraries    = _lazy_update_library_list( env, True, libraries, _prebuilt_boost_libraries['emitter'][sconstruct_id], add_dependents, linktype, boost, self._stage_dir )
+
+        logger.debug( "Required libraries [{}]".format( colour_items( self._libraries ) ) )
 
         self._location     = boost.local()
         self._boost        = boost
@@ -164,8 +264,6 @@ class BoostLibraryEmitter(object):
 
 class BoostLibraryBuilder(object):
 
-    _prebuilt_libraries = {}
-
     def __init__( self, boost, add_dependents, verbose_build, verbose_config ):
         self._boost = boost
         self._add_dependents = add_dependents
@@ -174,6 +272,16 @@ class BoostLibraryBuilder(object):
 
 
     def __call__( self, env, target, source, libraries, linktype ):
+
+        sconstruct_id = env['sconstruct_path']
+
+        global _prebuilt_boost_libraries
+        if sconstruct_id not in _prebuilt_boost_libraries['builder']:
+            _prebuilt_boost_libraries['builder'][sconstruct_id] = {}
+
+        global _bjam_invocations
+        if sconstruct_id not in _bjam_invocations:
+            _bjam_invocations[sconstruct_id] = []
 
         logger.trace( "Build Dir = [{}]".format( as_info( env['build_dir'] ) ) )
 
@@ -190,8 +298,15 @@ class BoostLibraryBuilder(object):
         library_action  = BoostLibraryAction ( env, stage_dir, libraries, self._add_dependents, linktype, self._boost, self._verbose_build, self._verbose_config )
         library_emitter = BoostLibraryEmitter( env, stage_dir, libraries, self._add_dependents, linktype, self._boost )
 
-        logger.trace( "Action  Prebuilt Libraries for [{}] = {}".format( as_info( variant_key ), colour_items( BoostLibraryAction.prebuilt_libraries[variant_key] ) ) )
-        logger.trace( "Emitter Prebuilt Libraries for [{}] = {}".format( as_info( variant_key ), colour_items( BoostLibraryEmitter.prebuilt_libraries[variant_key] ) ) )
+        logger.trace( "Action  Prebuilt Libraries for [{}] = {}".format(
+                as_info( variant_key ),
+                colour_items( _prebuilt_boost_libraries['action'][sconstruct_id][variant_key] )
+        ) )
+
+        logger.trace( "Emitter Prebuilt Libraries for [{}] = {}".format(
+                as_info( variant_key ),
+                colour_items( _prebuilt_boost_libraries['emitter'][sconstruct_id][variant_key] )
+        ) )
 
         env.AppendUnique( BUILDERS = {
             'BoostLibraryBuilder' : env.Builder( action=library_action, emitter=library_emitter )
@@ -203,30 +318,67 @@ class BoostLibraryBuilder(object):
 
         logger.trace( "Libraries to be built = [{}]".format( colour_items( built_libraries_map.keys() ) ) )
 
-        if not variant_key in self._prebuilt_libraries:
-             self._prebuilt_libraries[ variant_key ] = {}
+        if not variant_key in _prebuilt_boost_libraries['builder'][sconstruct_id]:
+             _prebuilt_boost_libraries['builder'][sconstruct_id][ variant_key ] = {}
 
-        logger.trace( "Variant sources = [{}]".format( colour_items( self._prebuilt_libraries[ variant_key ].keys() ) ) )
+        logger.trace( "Variant sources = [{}]".format( colour_items( _prebuilt_boost_libraries['builder'][sconstruct_id][ variant_key ].keys() ) ) )
 
         required_libraries = add_dependent_libraries( self._boost, linktype, libraries )
 
         logger.trace( "Required libraries = [{}]".format( colour_items( required_libraries ) ) )
 
+        unbuilt_libraries = False
+        new_libraries = []
+
         for library in required_libraries:
-            if library in self._prebuilt_libraries[ variant_key ]:
+            if library in _prebuilt_boost_libraries['builder'][sconstruct_id][ variant_key ]:
 
                 logger.trace( "Library [{}] already present in variant [{}]".format( as_notice(library), as_info(variant_key) ) )
 
-                #if library not in built_libraries_map: # The Depends is required regardless so SCons knows about the relationship
-                logger.trace( "Add Depends for [{}]".format( as_notice( self._prebuilt_libraries[ variant_key ][library].path ) ) )
-                env.Depends( built_libraries, self._prebuilt_libraries[ variant_key ][library] )
+                # Calling Depends() is required so SCons knows about the relationship, even
+                # if the library already exists in the _prebuilt_boost_libraries dict
+                logger.trace( "Add Depends for [{}]".format( as_notice( _prebuilt_boost_libraries['builder'][sconstruct_id][ variant_key ][library].path ) ) )
+                env.Depends( built_libraries, _prebuilt_boost_libraries['builder'][sconstruct_id][ variant_key ][library] )
             else:
-                self._prebuilt_libraries[ variant_key ][library] = built_libraries_map[library]
+                unbuilt_libraries = True
+                new_libraries.append( library )
+                _prebuilt_boost_libraries['builder'][sconstruct_id][ variant_key ][library] = built_libraries_map[library]
+
+            env.Depends( target, _prebuilt_boost_libraries['builder'][sconstruct_id][ variant_key ][library] )
 
         logger.trace( "Library sources for variant [{}] = [{}]".format(
                 as_info(variant_key),
-                colour_items( k+":"+as_info(v.path) for k,v in self._prebuilt_libraries[ variant_key ].iteritems() )
+                colour_items( k+":"+as_info(v.path) for k,v in _prebuilt_boost_libraries['builder'][sconstruct_id][ variant_key ].iteritems() )
         ) )
+
+
+        if unbuilt_libraries:
+            # if this is not the first BJAM invocation for this set of libraries make it Requires() the previous
+            # BJAM invocation otherwise we already have an invocation of BJAM that will create the required libraries
+            # and therefore we can ignore the invocation
+
+            index = len(_bjam_invocations[sconstruct_id])
+            previous_invocation = _bjam_invocations[sconstruct_id] and _bjam_invocations[sconstruct_id][-1] or None
+
+            if previous_invocation and previous_invocation['invocation'] != built_libraries:
+                logger.debug( "Add BJAM invocation Requires() such that ([{}][{}][{}]) requires ([{}][{}][{}])".format(
+                            as_info(str(index)),
+                            as_info(variant_key),
+                            colour_items( new_libraries ),
+                            as_info(previous_invocation['index']),
+                            as_info(previous_invocation['variant']),
+                            colour_items( previous_invocation['libraries'] )
+                ) )
+                env.Requires( built_libraries, previous_invocation['invocation'] )
+            # if this is the first invocation of BJAM then add it to the list of BJAM invocations, or if this is
+            # a different invocation (for different libraries) of BJAM add it to the list of invocations
+            if not previous_invocation or previous_invocation['invocation'] != built_libraries and built_libraries:
+                logger.debug( "Adding BJAM invocation [{}] for variant [{}] and new libraries [{}] to invocation list".format(
+                            as_info(str(index)),
+                            as_info(variant_key),
+                            colour_items( new_libraries )
+                ) )
+                _bjam_invocations[sconstruct_id].append( { 'invocation': built_libraries, 'index': index, 'variant': variant_key, 'libraries': new_libraries } )
 
 
         bjam = env.Command( bjam_exe( self._boost ), [], BuildBjam( self._boost ) )
@@ -254,9 +406,9 @@ class BoostLibraryBuilder(object):
 
         for library in required_libraries:
 
-            logger.debug( "Install Boost library [{}:{}] to [{}]".format( as_notice(library), as_info(str(self._prebuilt_libraries[ variant_key ][library])), as_notice(install_dir) ) )
+            logger.debug( "Install Boost library [{}:{}] to [{}]".format( as_notice(library), as_info(str(_prebuilt_boost_libraries['builder'][sconstruct_id][ variant_key ][library])), as_notice(install_dir) ) )
 
-            library_node = self._prebuilt_libraries[ variant_key ][library]
+            library_node = _prebuilt_boost_libraries['builder'][sconstruct_id][ variant_key ][library]
 
             logger.trace( "Library Node = \n[{}]\n[{}]\n[{}]\n[{}]\n[{}]".format(
                     as_notice(library_node.path),
@@ -266,7 +418,7 @@ class BoostLibraryBuilder(object):
                     as_notice(str(library_node.srcnode())   )
             ) )
 
-            installed_library = env.CopyFiles( install_dir, self._prebuilt_libraries[ variant_key ][library] )
+            installed_library = env.CopyFiles( install_dir, _prebuilt_boost_libraries['builder'][sconstruct_id][ variant_key ][library] )
 
             installed_libraries.append( installed_library )
 
