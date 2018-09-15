@@ -22,7 +22,7 @@ from cuppa.log              import logger
 # Boost Imports
 from cuppa.dependencies.boost.bjam                 import BjamOutputProcessor, BuildBjam, bjam_exe, bjam_command
 from cuppa.dependencies.boost.configjam            import WriteToolsetConfigJam
-from cuppa.dependencies.boost.library_naming       import stage_directory, bin_directory, variant_name, static_library_name, shared_library_name, extract_library_name_from_path
+from cuppa.dependencies.boost.library_naming       import stage_directory, variant_name, static_library_name, shared_library_name, extract_library_name_from_path
 from cuppa.dependencies.boost.library_dependencies import add_dependent_libraries
 
 
