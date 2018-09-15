@@ -353,9 +353,9 @@ class BoostLibraryBuilder(object):
 
 
         if unbuilt_libraries:
-            # if this is not the first BJAM invocation for this set of libraries make it Requires() the previous
-            # BJAM invocation otherwise we already have an invocation of BJAM that will create the required libraries
-            # and therefore we can ignore the invocation
+            # if this is not the first BJAM invocation for this set of libraries make it require (using Requires)
+            # the previous BJAM invocation otherwise we already have an invocation of BJAM that will create the
+            # required libraries and therefore we can ignore the invocation
 
             index = len(_bjam_invocations[sconstruct_id])
             previous_invocation = _bjam_invocations[sconstruct_id] and _bjam_invocations[sconstruct_id][-1] or None
@@ -378,7 +378,12 @@ class BoostLibraryBuilder(object):
                             as_info(variant_key),
                             colour_items( new_libraries )
                 ) )
-                _bjam_invocations[sconstruct_id].append( { 'invocation': built_libraries, 'index': index, 'variant': variant_key, 'libraries': new_libraries } )
+                _bjam_invocations[sconstruct_id].append( {
+                        'invocation': built_libraries,
+                        'index'     : index,
+                        'variant'   : variant_key,
+                        'libraries' : new_libraries
+                } )
 
 
         bjam = env.Command( bjam_exe( self._boost ), [], BuildBjam( self._boost ) )
