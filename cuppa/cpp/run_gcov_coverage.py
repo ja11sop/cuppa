@@ -74,6 +74,14 @@ def run_command( command, working_dir ):
     return return_code, process_output.string()
 
 
+def lazy_create_path( path ):
+    if not os.path.exists( path ):
+        try:
+            os.makedirs( path )
+        except os.error as e:
+            if not os.path.exists( path ):
+                logger.error( "Could not create path [{}]. Failed with error [{}]".format( as_notice(path), as_error(str(e)) ) )
+
 
 class CoverageSuite(object):
 
@@ -107,12 +115,15 @@ class CoverageSuite(object):
 
 
     def _run_gcovr( self, build_dir, output_dir, working_dir, sconscript_id ):
+
+        lazy_create_path( output_dir )
+
         command = 'gcovr -h'
         if not command_available( command ):
             logger.warning( "Skipping gcovr output as not available" )
             return
 
-        html_base_name = url_coverage_base_name( sconscript_id )
+        html_base_name = url_coverage_base_name( sconscript_id ) + "." + self._program_id[2:]
 
         index_file = html_base_name + ".html"
         regex_filter = re.escape( os.path.join( build_dir, "" ) ).replace( "\_", "_" ).replace( "\#", "#" )
@@ -132,7 +143,7 @@ class CoverageSuite(object):
                         as_error( str(e) )
             ) )
 
-        logger.trace( "gcovr HTML file filter = [{}]".format( as_notice(html_base_name) ) )
+        logger.info( "gcovr HTML file filter = [{}]".format( as_notice(html_base_name) ) )
         coverage_files = Glob( html_base_name + '*.html' )
 
         for coverage_file in coverage_files:
@@ -212,6 +223,7 @@ class RunGcovCoverage(object):
 
 
     def __call__( self, target, source, env ):
+        lazy_create_path( os.path.join( env['base_path'], env['build_dir'] ) )
 
         for s, t in itertools.izip( source, target ):
 
@@ -222,12 +234,21 @@ class RunGcovCoverage(object):
 
         return None
 
+    # Example gcov commands
+    # gcov-8 -o _build/include/xstd/property_tree/properties_parser/gcc82/cov/x86_64/c++2a/working/properties_parser_test -l -p -r -c -b include/xstd/property_tree/properties_parser_test.cpp
+    # gcov-8 -o _build/include/xstd/application/main_test/gcc82/cov/x86_64/c++2a/working/main_test -l -p -r -c -b _build/include/xstd/application/main_test/gcc82/cov/x86_64/c++2a/working/main_test.o
 
     def _run_gcov( self, env, source_path, gcov_path, gcov_log_path ):
         working_dir       = env['working_dir']
         build_dir         = env['build_dir']
         final_dir         = self._final_dir
-        qualified_base    = env['build_dir'].replace( os.path.sep, '#' )
+
+        qualified_base = source_path.startswith( env['build_dir'] ) and env['build_dir'] or env['offset_dir']
+        if qualified_base.startswith( "./" ):
+            qualified_base = qualified_base[2:]
+        qualified_base = qualified_base.replace( os.path.sep, '#' )
+
+        logger.trace( "Qualified base = [{}]".format( as_notice(str(qualified_base)) ) )
 
         if not os.path.isabs( self._final_dir ):
             final_dir = os.path.normpath( os.path.join( build_dir, self._final_dir ) )
@@ -251,7 +272,9 @@ class RunGcovCoverage(object):
 
                 filename, ext = os.path.splitext( str(gcov_file) )
                 filename = filename + self._program_id + ext
-                new_filename = filename[ len(qualified_base)+1:]
+                new_filename = filename[len(qualified_base)+1:]
+
+                logger.trace( "Move GCOV [{}] to [{}]...".format( as_notice(str(gcov_file)), as_notice(new_filename) ) )
 
                 new_gcov_file = os.path.join( build_dir, new_filename )
                 try:
