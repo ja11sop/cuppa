@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2014-2017
+#          Copyright Jamie Allsop 2014-2018
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -169,6 +169,33 @@ class Clang(object):
                         else:
                             raise ClangException("Clang toolchain [{}] reporting version as [{}].".format( version, reported_version ) )
         return cls._available_versions
+
+
+    @classmethod
+    def llvm_version_from( cls, llvm_tool ):
+        command = "{} --version".format( llvm_tool )
+        if command_available( command ):
+            reported_version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
+            version = re.search( r'LLVM version (\d)\.(\d)\.(\d)', reported_version )
+            reported_version = version.expand(r'\1')
+            return reported_version
+        return None
+
+
+    @classmethod
+    def coverage_tool( cls, cxx_version ):
+        llvm_cov = "llvm-cov"
+        versioned_llvm_cov = None
+        if cxx_version:
+            versioned_llvm_cov = "{llvm_cov}-{version}".format( llvm_cov=llvm_cov, version=cxx_version[0] )
+            if cuppa.build_platform.where_is( versioned_llvm_cov ):
+                return versioned_llvm_cov + " gcov"
+        if cuppa.build_platform.where_is( llvm_cov ):
+            version = cls.llvm_version_from( llvm-cov )
+            if version == cxx_version:
+                return llvm_cov + " gcov"
+        logger.warn( "Coverage requested for current toolchain but none is available" )
+        return None
 
 
 
@@ -357,7 +384,9 @@ class Clang(object):
 
 
     def coverage_runner( self, program, final_dir ):
-        return RunGcovCoverageEmitter( program, final_dir ), RunGcovCoverage( program, final_dir )
+        #coverage_tool = self.coverage_tool( self._cxx_version )
+        #return RunGcovCoverageEmitter( program, final_dir, coverage_tool ), RunGcovCoverage( program, final_dir, coverage_tool )
+        return None, None
 
 
     def update_variant( self, env, variant ):

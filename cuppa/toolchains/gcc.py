@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2016
+#          Copyright Jamie Allsop 2011-2018
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -76,11 +76,11 @@ class Gcc(object):
 
 
     @classmethod
-    def version_from_command( cls, cxx ):
+    def version_from_command( cls, cxx, prefix ):
         command = "{} --version".format( cxx )
         if command_available( command ):
             reported_version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
-            reported_version = 'gcc' + re.search( r'(\d)\.(\d)', reported_version ).expand(r'\1\2')
+            reported_version = prefix + re.search( r'(\d)\.(\d)', reported_version ).expand(r'\1\2')
             return reported_version
         return None
 
@@ -90,18 +90,18 @@ class Gcc(object):
         if not hasattr( cls, '_default_version' ):
             cxx = "g++"
             command = "{} --version".format( cxx )
-            reported_version = cls.version_from_command( command )
+            reported_version = cls.version_from_command( command, 'gcc' )
             cxx_version = ""
             if reported_version:
                 major = str(reported_version[3])
                 minor = str(reported_version[4])
                 version = "-{}.{}".format( major, minor )
-                exists = cls.version_from_command( "g++{} --version".format( version ) )
+                exists = cls.version_from_command( "g++{} --version".format( version ), 'gcc' )
                 if exists:
                     cxx_version = version
                 else:
                     version = "-{}".format( major )
-                    exists = cls.version_from_command( "g++{} --version".format( version ) )
+                    exists = cls.version_from_command( "g++{} --version".format( version ), 'gcc' )
                     if exists:
                         cxx_version = version
             cls._default_version = ( reported_version, cxx_version )
@@ -117,7 +117,7 @@ class Gcc(object):
                 matches = re.match( r'gcc(?P<major>(\d))?(?P<minor>(\d))?', version )
 
                 if not matches:
-                    raise GccException("GCC toolchain [{}] is not recognised as supported!.".format( version ) )
+                    raise GccException("GCC toolchain [{}] is not recognised as supported!".format( version ) )
 
                 major = matches.group('major')
                 minor = matches.group('minor')
@@ -139,7 +139,7 @@ class Gcc(object):
                 elif not minor:
                     cxx_version = "-{}".format( major )
                     cxx = "g++{}".format( cxx_version )
-                    reported_version = cls.version_from_command( cxx )
+                    reported_version = cls.version_from_command( cxx, 'gcc' )
                     if reported_version:
                         cxx_path = cuppa.build_platform.where_is( cxx )
                         cls._available_versions[version] = {
@@ -155,7 +155,7 @@ class Gcc(object):
                 else:
                     cxx_version = "-{}.{}".format( major, minor )
                     cxx = "g++{}".format( cxx_version )
-                    reported_version = cls.version_from_command( cxx )
+                    reported_version = cls.version_from_command( cxx, 'gcc' )
                     if reported_version:
                         if version == reported_version:
                             cxx_path = cuppa.build_platform.where_is( cxx )
@@ -167,6 +167,22 @@ class Gcc(object):
                         else:
                             raise GccException("GCC toolchain [{}] reporting version as [{}].".format( version, reported_version ) )
         return cls._available_versions
+
+
+    @classmethod
+    def coverage_tool( cls, cxx_version, reported_version ):
+        gcov = "gcov"
+        versioned_gcov = None
+        if cxx_version:
+            versioned_gcov = "{gcov}-{version}".format( gcov=gcov, version=cxx_version[0] )
+            if cuppa.build_platform.where_is( versioned_gcov ):
+                return versioned_gcov
+        if cuppa.build_platform.where_is( gcov ):
+            version = cls.version_from_command( gcov, "" )
+            if version == reported_version:
+                return gcov
+        logger.warn( "Coverage requested for current toolchain but none is available" )
+        return None
 
 
     @classmethod
@@ -346,7 +362,8 @@ class Gcc(object):
 
 
     def coverage_runner( self, program, final_dir ):
-        return RunGcovCoverageEmitter( program, final_dir ), RunGcovCoverage( program, final_dir )
+        coverage_tool = self.coverage_tool( self._cxx_version, self._reported_version )
+        return RunGcovCoverageEmitter( program, final_dir, coverage_tool ), RunGcovCoverage( program, final_dir, coverage_tool )
 
 
     def update_variant( self, env, variant ):

@@ -26,6 +26,9 @@ class CoverageMethod(object):
 
         emitter, builder = env['toolchain'].coverage_runner( program, final_dir )
 
+        if not emitter and not builder:
+            return None
+
         env['BUILDERS']['CoverageBuilder'] = env.Builder( action=builder, emitter=emitter )
 
         coverage = env.CoverageBuilder( [], Flatten( [ sources ] ) )
