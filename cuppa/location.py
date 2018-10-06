@@ -34,6 +34,7 @@ import scms.bazaar
 
 from cuppa.colourise import as_notice, as_info, as_warning, as_error
 from cuppa.log import logger
+from cuppa.path import split_common
 
 
 class LocationException(Exception):
@@ -145,7 +146,7 @@ class Location(object):
             return pip.download.is_archive_file( path )
 
 
-    def folder_name_from_path( self, path ):
+    def folder_name_from_path( self, path, cuppa_env ):
 
         def is_url( path ):
             return isinstance( path, urlparse.ParseResult )
@@ -156,14 +157,22 @@ class Location(object):
         def short_name_from_url( url ):
             return re.sub( r'[\\/+:() ]', self.url_replacement_char, urllib.unquote( url.path ) )
 
-        def name_from_path( path ):
+        def name_from_file( path ):
             folder_name = os.path.splitext( path_leaf( path ) )[0]
             name, ext = os.path.splitext( folder_name )
             if ext == ".tar":
                 folder_name = name
             return folder_name
 
-        local_folder = is_url( path ) and name_from_url( path ) or name_from_path( path )
+        def name_from_dir( path ):
+            if not os.path.isabs( path ):
+                path = os.path.normpath( os.path.join( cuppa_env['sconstruct_dir'], path ) )
+                logger.debug( "normalised path = [{}]".format( path ) )
+            common, tail1, tail2 = split_common( cuppa_env['abs_sconscript_dir'], os.path.abspath( path ) )
+            logger.debug( "common[{}], tail1[{}], tail2[{}]".format( as_notice( common ), as_notice( tail1 ), as_notice( tail2 ) ) )
+            return tail2 and tail2 or ""
+
+        local_folder = is_url( path ) and name_from_url( path ) or os.path.isfile( path ) and name_from_file( path ) or name_from_dir( path )
         local_folder = re.sub( r'[\\/+:() ]', self.url_replacement_char, local_folder )
 
         if platform.system() == "Windows":
@@ -201,7 +210,7 @@ class Location(object):
 
             if pip.download.is_archive_file( location ):
 
-                self._local_folder = self.folder_name_from_path( location )
+                self._local_folder = self.folder_name_from_path( location, cuppa_env )
                 local_directory = os.path.join( base, self._local_folder )
 
                 local_dir_with_sub_dir = os.path.join( local_directory, sub_dir and sub_dir or "" )
@@ -213,14 +222,20 @@ class Location(object):
                         return local_directory
 
                 self.extract( location, local_dir_with_sub_dir )
+                logger.debug( "(local archive) Location = [{}]".format( as_info( location ) ) )
+                logger.debug( "(local archive) Local folder = [{}]".format( as_info( self._local_folder ) ) )
 
             else:
                 local_directory = branch and os.path.join( location, branch ) or location
+                self._local_folder = self.folder_name_from_path( location, cuppa_env )
+
+                logger.debug( "(local file) Location = [{}]".format( as_info( location ) ) )
+                logger.debug( "(local file) Local folder = [{}]".format( as_info( self._local_folder ) ) )
 
             return local_directory
         else:
 
-            self._local_folder = self.folder_name_from_path( full_url )
+            self._local_folder = self.folder_name_from_path( full_url, cuppa_env )
             local_directory = os.path.join( base, self._local_folder )
 
             if full_url.scheme.startswith( 'http' ) and self.url_is_download_archive_url( full_url.path ):
@@ -235,6 +250,10 @@ class Location(object):
                         os.rmdir( local_dir_with_sub_dir )
                     except:
                         # Not empty so we'll return this as the local_directory
+
+                        logger.debug( "(already present) Location = [{}]".format( as_info( location ) ) )
+                        logger.debug( "(already present) Local folder = [{}]".format( as_info( str(self._local_folder) ) ) )
+
                         return local_directory
 
                 # If not we then check to see if we cached the download
@@ -319,6 +338,10 @@ class Location(object):
                                     as_error( str( error ) )
                             ) )
                             raise LocationException( "Error obtaining [{}]: {}".format( location, error ) )
+
+                logger.debug( "(url path) Location = [{}]".format( as_info( location ) ) )
+                logger.debug( "(url path) Local folder = [{}]".format( as_info( self._local_folder ) ) )
+
 
             return local_directory
 
@@ -452,8 +475,8 @@ class Location(object):
 
         logger.debug( "Using [{}]{}{} at [{}] stored in [{}]".format(
                 as_info( location ),
-                ( self._branch and ":[{}]".format( as_info(  str(self._branch) ) ) or "" ),
-                ( self._remote and " from [{}]".format( as_info(  str(self._remote) ) ) or "" ),
+                ( self._branch and ":[{}]".format( as_info( str(self._branch) ) ) or "" ),
+                ( self._remote and " from [{}]".format( as_info( str(self._remote) ) ) or "" ),
                 as_info( self._version ),
                 as_notice( self._local_directory )
         ) )

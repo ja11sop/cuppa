@@ -271,8 +271,8 @@ class base(object):
         local_dir = self._location.local()
         local_folder = self._location.local_folder()
 
-        build_dir = os.path.join( env['build_root'], local_folder, env['tool_variant_working_dir'] )
-        final_dir = os.path.normpath( os.path.join( build_dir, env['final_dir'] ) )
+        build_dir = os.path.abspath( os.path.join( env['abs_build_root'], local_folder, env['tool_variant_working_dir'] ) )
+        final_dir = os.path.abspath( os.path.normpath( os.path.join( build_dir, env['final_dir'] ) ) )
 
         logger.debug( "build_dir for [{}] = [{}]".format( as_info(self._name), build_dir ) )
         logger.debug( "final_dir for [{}] = [{}]".format( as_info(self._name), final_dir ) )
