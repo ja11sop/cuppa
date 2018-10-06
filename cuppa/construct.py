@@ -839,8 +839,8 @@ class Construct(object):
 
             build_base_path = os.path.join( path_without_ext, sconscript_env['tool_variant_dir'] )
 
-            def flatten_dir( directory, join_char='_' ):
-                return "_".join( directory.split( os.path.sep ) )
+            def flatten_dir( directory, join_char="_" ):
+                return join_char.join( os.path.normpath( directory ).split( os.path.sep ) )
 
             sconscript_env['build_base_path']  = build_base_path
             sconscript_env['flat_build_base']  = flatten_dir( build_base_path )
