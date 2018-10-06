@@ -4,27 +4,51 @@
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
+import logging
+import traceback
+from inspect import getframeinfo, stack
+
+import SCons.Errors
+
+from cuppa.log import logger, initialise_logging
+from cuppa.colourise import as_info
+
+
+def log_exception( error, suppress=None ):
+    if not suppress:
+        logger.error( "Cuppa terminated by exception [{}: {}]".format(
+                    as_info( error.__class__.__name__ ),
+                    as_info( str(error) )
+        ) )
+        if not logger.isEnabledFor( logging.EXCEPTION ):
+            logger.warn( "Use {} (or above) to see the stack".format( as_info( "--verbosity=exception" ) ) )
+    logger.exception( traceback.format_exc() )
+
 
 def run( *args, **kwargs ):
-    from inspect import getframeinfo, stack
+
+    class suppress_log_message(object):
+        def __repr__(self):
+            return 'suppress_log_message'
+
     caller = getframeinfo(stack()[1][0])
-    sconsctruct_path = caller.filename
-    import traceback
-    from cuppa.log import logger, initialise_logging
-    from cuppa.colourise import as_info
-    import logging
+    sconstruct_path = caller.filename
     initialise_logging()
     try:
         import cuppa.construct
-        cuppa.construct.run( sconsctruct_path, *args, **kwargs )
+        cuppa.construct.run( sconstruct_path, *args, **kwargs )
+    except SCons.Errors.BuildError as error:
+        log_exception( error, suppress_log_message )
+        raise error
+    except SCons.Errors.StopError as error:
+        log_exception( error, suppress_log_message )
+        raise error
+    except SCons.Errors.UserError as error:
+        log_exception( error, suppress_log_message )
+        raise error
     except Exception as error:
-        logger.error( "Cuppa terminated by exception [{}: {}]".format(
-                as_info( error.__class__.__name__ ),
-                as_info( str(error) )
-        ) )
-        if not logger.isEnabledFor( logging.EXCEPTION ):
-            logger.error( "Use {} (or above) to see the stack".format( as_info( "--verbosity=exception" ) ) )
-        logger.exception( traceback.format_exc() )
+        log_exception( error )
+        raise SCons.Errors.StopError( error )
 
 
 def add_option( *args, **kwargs ):
