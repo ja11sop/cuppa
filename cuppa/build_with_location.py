@@ -1,4 +1,4 @@
-#          Copyright Jamie Allsop 2014-2017
+#          Copyright Jamie Allsop 2014-2018
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -8,6 +8,8 @@
 #-------------------------------------------------------------------------------
 
 import os
+
+import SCons.Errors
 
 import cuppa.location
 from cuppa.log import logger
@@ -155,15 +157,15 @@ class base(object):
                         "Could not get location for [{}] at [{}] (and develop [{}], use=[{}]) with branch [{}] and extra sub path [{}]. Failed with error [{}]"
                         .format(
                                 as_notice( cls._name.title() ),
-                                as_notice( str(location) ),
-                                as_notice( str(develop) ),
+                                as_info( str(location) ),
+                                as_info( str(develop) ),
                                 as_notice( str(use_develop and True or False) ),
                                 as_notice( str(branch) ),
                                 as_notice( str(cls._extra_sub_path) ),
-                                as_error( error )
+                                as_error( str(error) )
                         )
                 )
-                return None
+                raise SCons.Errors.StopError( error )
         else:
             logger.debug( "Loading location [{}]({}) from cached locations".format(
                     as_notice( cls._name.title() ),

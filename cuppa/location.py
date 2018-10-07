@@ -1,4 +1,4 @@
-#          Copyright Jamie Allsop 2014-2017
+#          Copyright Jamie Allsop 2014-2018
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -286,7 +286,7 @@ class Location(object):
                                 as_error( location ),
                                 as_error( str(error) )
                         ) )
-                        raise LocationException( "Error obtaining [{}]: {}".format( location, error ) )
+                        raise LocationException( error )
 
             elif '+' in full_url.scheme:
                 vc_type = location.split('+', 1)[0]
@@ -332,12 +332,12 @@ class Location(object):
                             logger.debug( "Successfully retrieved [{}]".format( as_info( location ) ) )
                         except pip.exceptions.InstallationError as error:
                             logger.error( "Could not retrieve [{}] into [{}]{} due to error [{}]".format(
-                                    as_error( location ),
-                                    as_error( local_dir_with_sub_dir ),
-                                    ( rev_options and  " to {}".format( as_error(  str(rev_options) ) ) or ""),
+                                    as_info( location ),
+                                    as_notice( local_dir_with_sub_dir ),
+                                    ( rev_options and  " to {}".format( as_notice(  str(rev_options) ) ) or ""),
                                     as_error( str( error ) )
                             ) )
-                            raise LocationException( "Error obtaining [{}]: {}".format( location, error ) )
+                            raise LocationException( error )
 
                 logger.debug( "(url path) Location = [{}]".format( as_info( location ) ) )
                 logger.debug( "(url path) Local folder = [{}]".format( as_info( self._local_folder ) ) )

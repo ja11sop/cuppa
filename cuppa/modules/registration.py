@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2015
+#          Copyright Jamie Allsop 2011-2018
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -10,6 +10,7 @@
 
 
 from cuppa.log import logger
+from cuppa.colourise import as_notice, as_info
 
 
 def get_module_list( path, base=None ):
@@ -48,6 +49,7 @@ def init_env_for_variant( module_name, sconscript_exports ):
 import inspect
 import imp
 import sys
+import logging
 
 def __package( name ):
     package = None
@@ -97,8 +99,10 @@ def __call_classmethod_for_classes_in_module( package, name, path, method, *args
                             try:
                                 function( *args, **kwargs )
                             except Exception as error:
-                                logger.error( "{} in {} failed with error [{}]".format( method, member, str(error) ) )
-                    except AttributeError, (e):
+                                if logger.isEnabledFor( logging.EXCEPTION ):
+                                    logger.error( "[{}] in [{}] failed with error [{}]".format( as_info(str(method)), as_notice(str(member)), as_info(str(error)) ) )
+                                raise error
+                    except AttributeError as ignore:
                         pass
         finally:
             if filehandle:

@@ -16,7 +16,7 @@ from cuppa.colourise import as_info
 
 def log_exception( error, suppress=None ):
     if not suppress:
-        logger.error( "Cuppa terminated by exception [{}: {}]".format(
+        logger.fatal( "Cuppa terminated by exception [{}: {}]".format(
                     as_info( error.__class__.__name__ ),
                     as_info( str(error) )
         ) )
@@ -38,13 +38,13 @@ def run( *args, **kwargs ):
         import cuppa.construct
         cuppa.construct.run( sconstruct_path, *args, **kwargs )
     except SCons.Errors.BuildError as error:
-        log_exception( error, suppress_log_message )
+        log_exception( error )
         raise error
     except SCons.Errors.StopError as error:
-        log_exception( error, suppress_log_message )
+        log_exception( error )
         raise error
     except SCons.Errors.UserError as error:
-        log_exception( error, suppress_log_message )
+        log_exception( error )
         raise error
     except Exception as error:
         log_exception( error )
