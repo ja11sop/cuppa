@@ -9,8 +9,6 @@
 
 import os
 
-import SCons.Errors
-
 import cuppa.location
 from cuppa.log import logger
 from cuppa.colourise import as_notice, as_error, as_info
@@ -138,6 +136,9 @@ class base(object):
 
     @classmethod
     def _get_location( cls, env ):
+
+        import SCons.Errors
+
         location_id = cls.location_id( env )
         if not location_id:
             return None
