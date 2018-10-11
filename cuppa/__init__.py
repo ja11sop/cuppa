@@ -8,13 +8,12 @@ import logging
 import traceback
 from inspect import getframeinfo, stack
 
-import SCons.Errors
-
-from cuppa.log import logger, initialise_logging
-from cuppa.colourise import as_info
-
 
 def log_exception( error, suppress=None ):
+
+    from cuppa.log import logger
+    from cuppa.colourise import as_info
+
     if not suppress:
         logger.fatal( "Cuppa terminated by exception [{}: {}]".format(
                     as_info( error.__class__.__name__ ),
@@ -26,6 +25,9 @@ def log_exception( error, suppress=None ):
 
 
 def run( *args, **kwargs ):
+
+    from cuppa.log import initialise_logging
+    import SCons.Errors
 
     class suppress_log_message(object):
         def __repr__(self):
