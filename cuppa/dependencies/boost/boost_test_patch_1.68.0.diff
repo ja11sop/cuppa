@@ -72,7 +72,7 @@ diff -urN a/boost/test/impl/framework.ipp b/boost/test/impl/framework.ipp
  };
  
  //____________________________________________________________________________//
-@@ -1117,8 +1135,23 @@ setup_loggers()
+@@ -1117,10 +1135,25 @@ setup_loggers()
  void
  init( init_unit_test_func init_func, int argc, char* argv[] )
  {
@@ -94,8 +94,11 @@ diff -urN a/boost/test/impl/framework.ipp b/boost/test/impl/framework.ipp
 +    }
 +
      // 10. Set up runtime parameters
-     runtime_config::init( argc, argv );
+-    runtime_config::init( argc, argv );
++    runtime_config::init( argc, mutable_argv );
  
+     // 20. Set the desired log level, format and sink
+     impl::setup_loggers();
 @@ -1167,6 +1200,8 @@ init( init_unit_test_func init_func, int argc, char* argv[] )
      BOOST_TEST_I_CATCH( execution_exception, ex )  {
          BOOST_TEST_SETUP_ASSERT( false, ex.what() );
