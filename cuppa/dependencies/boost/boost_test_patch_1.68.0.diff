@@ -95,7 +95,7 @@ diff -urN a/boost/test/impl/framework.ipp b/boost/test/impl/framework.ipp
 +
      // 10. Set up runtime parameters
 -    runtime_config::init( argc, argv );
-+    runtime_config::init( argc, mutable_argv );
++    runtime_config::init( argc, &mutable_argv.front() );
  
      // 20. Set the desired log level, format and sink
      impl::setup_loggers();
