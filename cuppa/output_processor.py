@@ -116,6 +116,12 @@ class IncrementalSubProcess:
                 timer.stop()
                 logger.debug( "Command [{}] - Elapsed {}".format( as_notice(str(timer.timer_id())), cuppa.timer.as_string( timer.elapsed() ) ) )
             logger.error( "IncrementalSubProcess.Popen2() failed with error [{}]".format( str(e) ) )
+            if process:
+                logger.info( "Killing existing POpen object" )
+                process.kill()
+            if stderr_thread:
+                logger.info( "Joining any running threads" )
+                stderr_thread.join()
             raise e
 
 
