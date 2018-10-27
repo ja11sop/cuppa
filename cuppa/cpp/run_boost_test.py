@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2015-2016
+#          Copyright Jamie Allsop 2015-2018
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -12,12 +12,15 @@ import sys
 import shlex
 import re
 
+from SCons.Errors import BuildError
+
 import cuppa.timer
 import cuppa.test_report.cuppa_json
 import cuppa.build_platform
 import cuppa.utility.preprocess
 from cuppa.output_processor import IncrementalSubProcess
 from cuppa.colourise import as_emphasised, as_highlighted, as_colour, start_colour, colour_reset
+from cuppa.log import logger
 
 
 class Notify(object):
@@ -309,7 +312,9 @@ class ProcessStdout:
 
     def leaving_test_suite( self, line ):
         matches = re.match(
-            r'Leaving test (suite|module) "(?P<suite>[a-zA-Z0-9(){}:&_<>/\-, ]+)"'
+            r'(?:(?P<file>[a-zA-Z0-9.@_/\\\s\-]+)[(](?P<line>[0-9]+)[)]: )?'
+             'Leaving test (suite|module) "(?P<suite>[a-zA-Z0-9(){}:&_<>/\-, ]+)"'
+             '(?:; testing time: (?P<testing_time>[a-zA-Z0-9.s ,+=()%/]+))?'
              '(\. Test suite (?P<status>passed|failed)\.'
              '(?: (?P<results>.*))?)?',
             line.strip() )
@@ -468,7 +473,6 @@ class ProcessStdout:
         elif self.state == State.test_case:
             is_assertion, write_line = self.handle_assertion( line )
             #if write_line:
-            self.log.write( line + '\n' )
             if not is_assertion:
                 if self.leaving_test_case( line ):
                     self.state = State.test_suite
@@ -710,23 +714,28 @@ class RunBoostTest:
 
             if return_code < 0:
                 self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
-                print >> sys.stderr, "cuppa: RunBoostTest: Test was terminated by signal: ", -return_code
+                logger.error( "Test was terminated by signal: {}".format( as_error(str(return_code) ) ) )
             elif return_code > 0:
                 self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
-                print >> sys.stderr, "cuppa: RunBoostTest: Test returned with error code: ", return_code
+                logger.error( "Test returned with error code: {}".format( as_error(str(return_code) ) ) )
             elif notifier.master_suite['status'] != 'passed':
-                print >> sys.stderr, "cuppa: RunBoostTest: Not all test suites passed. "
+                logger.error( "Not all test suites passed" )
+                raise BuildError( node=source[0], errstr="Not all test suites passed" )
 
             if return_code:
                 self._remove_success_file( success_file_name_from( program_path ) )
+                if return_code < 0:
+                    raise BuildError( node=source[0], errstr="Test was terminated by signal: {}".format( str(-return_code) ) )
+                else:
+                    raise BuildError( node=source[0], errstr="Test returned with error code: {}".format( str(return_code) ) )
             else:
                 self._write_success_file( success_file_name_from( program_path ) )
 
             return None
 
         except OSError as e:
-            print >> sys.stderr, "Execution of [", test_command, "] failed with error: ", str(e)
-            return 1
+            logger.error( "Execution of [{}] failed with error: {}".format( as_notice(test_command), as_notice(str(e)) ) )
+            raise BuildError( e )
 
 
     def __run_test( self, program_path, test_command, working_dir, notifier, preprocess ):

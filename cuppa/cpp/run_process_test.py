@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2013-2015
+#          Copyright Jamie Allsop 2013-2018
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -12,11 +12,14 @@ import os
 import sys
 import shlex
 
+from SCons.Errors import BuildError
+
 import cuppa.timer
 import cuppa.progress
 import cuppa.test_report.cuppa_json
 from cuppa.output_processor import IncrementalSubProcess
 from cuppa.colourise import as_emphasised, as_highlighted, as_colour
+from cuppa.log import logger
 
 
 class TestSuite(object):
@@ -364,11 +367,11 @@ class RunProcessTest(object):
 
             if return_code < 0:
                 self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
-                print >> sys.stderr, "cuppa: ProcessTest: Test was terminated by signal: ", -return_code
+                logger.error( "Test was terminated by signal: {}".format( as_error(str(return_code) ) ) )
                 test_suite.exit_test( test, 'aborted' )
             elif return_code > 0:
                 self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
-                print >> sys.stderr, "cuppa: ProcessTest: Test returned with error code: ", return_code
+                logger.error( "Test returned with error code: {}".format( as_error(str(return_code) ) ) )
                 test_suite.exit_test( test, 'failed' )
             else:
                 test_suite.exit_test( test, 'passed' )
@@ -377,14 +380,18 @@ class RunProcessTest(object):
 
             if return_code:
                 self._remove_success_file( success_file_name_from( program_path ) )
+                if return_code < 0:
+                    raise BuildError( node=source[0], errstr="Test was terminated by signal: {}".format( str(-return_code) ) )
+                else:
+                    raise BuildError( node=source[0], errstr="Test returned with error code: {}".format( str(return_code) ) )
             else:
                 self._write_success_file( success_file_name_from( program_path ) )
 
             return None
 
         except OSError, e:
-            print >> sys.stderr, "Execution of [", test_command, "] failed with error: ", e
-            return 1
+            logger.error( "Execution of [{}] failed with error: {}".format( as_notice(test_command), as_notice(str(e)) ) )
+            raise BuildError( e )
 
 
     def _write_success_file( self, file_name ):
