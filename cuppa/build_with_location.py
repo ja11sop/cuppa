@@ -312,6 +312,10 @@ class base(object):
         return prebuilt_libraries[linktype]
 
 
+    def location( self ):
+        return self._location
+
+
     def local_sub_path( self, *paths ):
         return os.path.join( self._location.local(), *paths )
 
