@@ -442,6 +442,8 @@ class Location(object):
         location = self.replace_sconstruct_anchor( location, cuppa_env )
 
         if develop:
+            if not os.path.isabs( develop ):
+                develop = '#' + develop
             develop = self.replace_sconstruct_anchor( develop, cuppa_env )
             logger.debug( "Develop location specified [{}]".format( as_info( develop ) ) )
 
