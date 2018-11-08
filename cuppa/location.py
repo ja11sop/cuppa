@@ -194,6 +194,11 @@ class Location(object):
         return self._local_folder
 
 
+    @classmethod
+    def expand_secret( cls, vcs_location ):
+        return os.path.expandvars( vcs_location )
+
+
     def get_local_directory( self, cuppa_env, location, sub_dir, branch, full_url ):
 
         offline = cuppa_env['offline']
@@ -292,7 +297,7 @@ class Location(object):
                 vc_type = location.split('+', 1)[0]
                 backend = pip.vcs.vcs.get_backend( vc_type )
                 if backend:
-                    vcs_backend = backend( location )
+                    vcs_backend = backend( self.expand_secret( location ) )
                     local_dir_with_sub_dir = os.path.join( local_directory, sub_dir and sub_dir or "" )
 
                     if os.path.exists( local_directory ):
