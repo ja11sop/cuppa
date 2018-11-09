@@ -148,6 +148,8 @@ class Location(object):
 
     def folder_name_from_path( self, path, cuppa_env ):
 
+        replacement_regex = r'[$\\/+:() ]'
+
         def is_url( path ):
             return isinstance( path, urlparse.ParseResult )
 
@@ -155,7 +157,7 @@ class Location(object):
             return self.url_replacement_char.join( [ url.scheme, url.netloc, urllib.unquote( url.path ) ] )
 
         def short_name_from_url( url ):
-            return re.sub( r'[\\/+:() ]', self.url_replacement_char, urllib.unquote( url.path ) )
+            return re.sub( replacement_regex, self.url_replacement_char, urllib.unquote( url.path ) )
 
         def name_from_file( path ):
             folder_name = os.path.splitext( path_leaf( path ) )[0]
@@ -173,7 +175,7 @@ class Location(object):
             return tail2 and tail2 or ""
 
         local_folder = is_url( path ) and name_from_url( path ) or os.path.isfile( path ) and name_from_file( path ) or name_from_dir( path )
-        local_folder = re.sub( r'[\\/+:() ]', self.url_replacement_char, local_folder )
+        local_folder = re.sub( replacement_regex, self.url_replacement_char, local_folder )
 
         if platform.system() == "Windows":
             # Windows suffers from MAX_PATH limitations so we'll use a hash to shorten the name
