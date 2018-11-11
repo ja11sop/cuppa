@@ -347,10 +347,10 @@ class Gcc(object):
         return CreateVersionHeaderCpp( env, namespace, version, location, build_id=build_id )
 
 
-    def test_runner( self, tester, final_dir, expected ):
+    def test_runner( self, tester, final_dir, expected, command=None, expected_exit_code=None, target=None ):
 
         if not tester or tester =='process':
-            return RunProcessTest( expected, final_dir ), RunProcessTestEmitter( final_dir )
+            return RunProcessTest( expected, final_dir, command, expected_exit_code ), RunProcessTestEmitter( final_dir, target )
         elif tester=='boost':
             return RunBoostTest( expected ), RunBoostTestEmitter( final_dir )
         elif tester=='patched_boost':

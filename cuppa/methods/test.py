@@ -19,12 +19,12 @@ class TestMethod(object):
         self._default_runner = default_test_runner
 
 
-    def __call__( self, env, source, final_dir=None, data=None, runner=None, expected='passed' ):
+    def __call__( self, env, source, target=None, final_dir=None, data=None, runner=None, expected='passed', command=None, expected_exit_code=None ):
         if final_dir == None:
             final_dir = env['abs_final_dir']
         if not runner:
             runner = self._default_runner
-        test_builder, test_emitter = env['toolchain'].test_runner( runner, final_dir, expected )
+        test_builder, test_emitter = env['toolchain'].test_runner( runner, final_dir, expected, command, expected_exit_code, target )
 
         env['BUILDERS']['TestBuilder'] = env.Builder( action=test_builder, emitter=test_emitter )
 

@@ -84,15 +84,24 @@ class IncrementalSubProcess:
 
         timing_enabled = logger.isEnabledFor( logging.DEBUG )
 
+        use_shell = False
+        if 'scons_env' in kwargs:
+            use_shell = kwargs['scons_env'].get_option( 'use-shell' )
+            del kwargs['scons_env']
+
         try:
+            process = None
+            stderr_thread = None
+
             timer = timing_enabled and cuppa.timer.Timer() or None
             if timer:
                 logger.debug( "Command [{}] - Running...".format( as_notice(str(timer.timer_id())) ) )
 
             close_fds = platform.system() == "Windows" and False or True
+
             process = subprocess.Popen(
-                args_list,
-                **dict( kwargs, close_fds=close_fds )
+                use_shell and " ".join(args_list) or args_list,
+                **dict( kwargs, close_fds=close_fds, shell=use_shell )
             )
 
             stderr_consumer = LineConsumer( process.stderr.readline, stderr_processor )

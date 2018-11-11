@@ -93,6 +93,9 @@ def add_base_options():
                             help="Merge the current environment PATH (only) to all sub-processes when"
                                  " building" )
 
+    add_option( '--use-shell', dest='use-shell', action='store_true',
+                            help="Setting to true means all subprocess calls are called with Shell=True" )
+
 #    add_option( '--b2',     dest='b2', action='store_true',
 #                            help='Execute boost.build by calling b2 or bjam' )
 

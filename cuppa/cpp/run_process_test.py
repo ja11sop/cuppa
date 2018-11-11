@@ -13,12 +13,13 @@ import sys
 import shlex
 
 from SCons.Errors import BuildError
+from SCons.Script import Flatten
 
 import cuppa.timer
 import cuppa.progress
 import cuppa.test_report.cuppa_json
 from cuppa.output_processor import IncrementalSubProcess
-from cuppa.colourise import as_emphasised, as_highlighted, as_colour
+from cuppa.colourise import as_emphasised, as_highlighted, as_colour, as_error, as_notice
 from cuppa.log import logger
 
 
@@ -282,17 +283,23 @@ def success_file_name_from( program_file ):
 
 class RunProcessTestEmitter(object):
 
-    def __init__( self, final_dir ):
+    def __init__( self, final_dir, target=None ):
         self._final_dir = final_dir
+        self._targets = target and Flatten( target ) or None
 
 
     def __call__( self, target, source, env ):
-        program_file = os.path.join( self._final_dir, os.path.split( source[0].path )[1] )
+        program_file = str(source[0])
+        if not program_file.startswith( self._final_dir ):
+            program_file = os.path.split( program_file )[1]
         target = []
         target.append( stdout_file_name_from( program_file ) )
         target.append( stderr_file_name_from( program_file ) )
         target.append( report_file_name_from( program_file ) )
         target.append( success_file_name_from( program_file ) )
+        if self._targets:
+            for t in self._targets:
+                target.append( t )
         return target, source
 
 
@@ -334,9 +341,11 @@ class ProcessStderr(object):
 
 class RunProcessTest(object):
 
-    def __init__( self, expected, final_dir ):
+    def __init__( self, expected, final_dir, command=None, expected_exit_code=None ):
         self._expected = expected
         self._final_dir = final_dir
+        self._command = command
+        self._expected_exit_code = expected_exit_code
 
 
     def __call__( self, target, source, env ):
@@ -350,6 +359,10 @@ class RunProcessTest(object):
             executable = '"' + executable + '"'
 
         test_command = executable
+        if self._command:
+            test_command = self._command
+            working_dir = self._final_dir
+            test = os.path.relpath( executable, working_dir )
 
         test_suite = TestSuite.create( suite, env )
 
@@ -362,10 +375,13 @@ class RunProcessTest(object):
                     show_test_output,
                     program_path,
                     test_command,
-                    working_dir
+                    working_dir,
+                    env
             )
 
-            if return_code < 0:
+            if return_code == self._expected_exit_code:
+                test_suite.exit_test( test, 'passed' )
+            elif return_code < 0:
                 self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
                 logger.error( "Test was terminated by signal: {}".format( as_error(str(return_code) ) ) )
                 test_suite.exit_test( test, 'aborted' )
@@ -378,7 +394,9 @@ class RunProcessTest(object):
 
             cuppa.test_report.cuppa_json.write_report( report_file_name_from( program_path ), test_suite.tests() )
 
-            if return_code:
+            if return_code == self._expected_exit_code:
+                self._write_success_file( success_file_name_from( program_path ) )
+            elif return_code:
                 self._remove_success_file( success_file_name_from( program_path ) )
                 if return_code < 0:
                     raise BuildError( node=source[0], errstr="Test was terminated by signal: {}".format( str(-return_code) ) )
@@ -406,14 +424,15 @@ class RunProcessTest(object):
             pass
 
 
-    def _run_test( self, show_test_output, program_path, test_command, working_dir ):
+    def _run_test( self, show_test_output, program_path, test_command, working_dir, env ):
         process_stdout = ProcessStdout( show_test_output, stdout_file_name_from( program_path ) )
         process_stderr = ProcessStderr( show_test_output, stderr_file_name_from( program_path ) )
 
         return_code = IncrementalSubProcess.Popen2( process_stdout,
                                                     process_stderr,
                                                     shlex.split( test_command ),
-                                                    cwd=working_dir )
+                                                    cwd=working_dir,
+                                                    scons_env=env)
         return return_code
 
 

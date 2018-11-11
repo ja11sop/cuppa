@@ -65,12 +65,13 @@ class WriteToString(object):
 
 
 
-def run_command( command, working_dir ):
+def run_command( command, working_dir, env ):
     print command
     process_output = WriteToString()
     return_code = IncrementalSubProcess.Popen( process_output,
                                                shlex.split( command ),
-                                               cwd=working_dir )
+                                               cwd=working_dir,
+                                               scons_env=env )
     return return_code, process_output.string()
 
 
@@ -131,7 +132,7 @@ class CoverageSuite(object):
 
         command = 'gcovr -g --gcov-filter="{}" -k -r . --html --html-details -o {}'.format( regex_filter, index_file )
 
-        return_code, output = run_command( command, working_dir )
+        return_code, output = run_command( command, working_dir, self._scons_env )
 
         new_index_file = os.path.join( output_dir, "coverage" + self._program_id + ".html" )
         try:

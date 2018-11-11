@@ -780,7 +780,8 @@ class RunPatchedBoostTest:
                     working_dir,
                     env['branch_root'],
                     notifier,
-                    preprocess
+                    preprocess,
+                    env
             )
 
             cuppa.test_report.cuppa_json.write_report( report_file_name_from( program_path ), tests )
@@ -811,14 +812,15 @@ class RunPatchedBoostTest:
             raise BuildError( e )
 
 
-    def _run_test( self, program_path, test_command, working_dir, branch_root, notifier, preprocess ):
+    def _run_test( self, program_path, test_command, working_dir, branch_root, notifier, preprocess, env ):
         process_stdout = ProcessStdout( stdout_file_name_from( program_path ), branch_root, notifier, preprocess )
         process_stderr = ProcessStderr( stderr_file_name_from( program_path ), notifier, preprocess )
 
         return_code = IncrementalSubProcess.Popen2( process_stdout,
                                                     process_stderr,
                                                     shlex.split( test_command ),
-                                                    cwd=working_dir )
+                                                    cwd=working_dir,
+                                                    scons_env=env )
 
         return return_code, process_stdout.tests()
 
