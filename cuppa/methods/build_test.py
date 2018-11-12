@@ -17,7 +17,7 @@ class BuildTestMethod:
         self._default_runner = default_test_runner
 
 
-    def __call__( self, env, target, source, final_dir=None, data=None, append_variant=None, runner=None, expected='passed', **kwargs ):
+    def __call__( self, env, target, source, final_dir=None, data=None, append_variant=None, runner=None, expected='passed', command=None, expected_exit_code=None, **kwargs ):
 
         nodes = []
         program = env.Build( target, source, final_dir=final_dir, append_variant=append_variant, **kwargs )
@@ -29,7 +29,7 @@ class BuildTestMethod:
             if not runner:
                 runner = self._default_runner
 
-            test = env.Test( program, final_dir=final_dir, data=data, runner=runner, expected=expected )
+            test = env.Test( program, final_dir=final_dir, data=data, runner=runner, expected=expected, command=command, expected_exit_code=expected_exit_code )
 
             nodes.append( test )
             if 'cov' in actions:

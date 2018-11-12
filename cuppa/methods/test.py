@@ -20,25 +20,33 @@ class TestMethod(object):
 
 
     def __call__( self, env, source, target=None, final_dir=None, data=None, runner=None, expected='passed', command=None, expected_exit_code=None ):
-        if final_dir == None:
-            final_dir = env['abs_final_dir']
-        if not runner:
-            runner = self._default_runner
-        test_builder, test_emitter = env['toolchain'].test_runner( runner, final_dir, expected, command, expected_exit_code, target )
 
-        env['BUILDERS']['TestBuilder'] = env.Builder( action=test_builder, emitter=test_emitter )
+        actions = env['variant_actions']
 
-        sources = source
-        if data:
-            sources = Flatten( [ source, data ] )
+        if actions.has_key('test') or actions.has_key('cov') or actions.has_key('force_test'):
+            if not runner:
+                runner = self._default_runner
 
-        test = env.TestBuilder( [], sources )
-        if env['variant_actions'].has_key('force_test'):
-            test = env.AlwaysBuild( test )
+            if final_dir == None:
+                final_dir = env['abs_final_dir']
 
-        cuppa.progress.NotifyProgress.add( env, test )
+            test_builder, test_emitter = env['toolchain'].test_runner( runner, final_dir, expected, command, expected_exit_code, target )
 
-        return test
+            env['BUILDERS']['TestBuilder'] = env.Builder( action=test_builder, emitter=test_emitter )
+
+            sources = source
+            if data:
+                sources = Flatten( [ source, data ] )
+
+            test = env.TestBuilder( [], sources )
+            if env['variant_actions'].has_key('force_test'):
+                test = env.AlwaysBuild( test )
+
+            cuppa.progress.NotifyProgress.add( env, test )
+
+            return test
+
+        return []
 
 
 
