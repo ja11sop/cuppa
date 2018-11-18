@@ -9,6 +9,8 @@
 
 import os
 
+from SCons.Script import Flatten
+
 import cuppa.location
 from cuppa.log import logger
 from cuppa.colourise import as_notice, as_error, as_info
@@ -192,10 +194,10 @@ class base(object):
             cls._sys_includes = sys_include and [sys_include] or []
 
         if cls._default_include:
-            cls._includes.append( cls._default_include )
+            cls._includes.extend( cls._default_include )
 
         if cls._default_sys_include:
-            cls._sys_includes.append( cls._default_sys_include )
+            cls._sys_includes.extend( cls._default_sys_include )
 
         if not cls._source_path:
             cls._source_path = env.get_option( cls.source_path_option() )
@@ -217,17 +219,24 @@ class base(object):
         self._location = location
 
         if not includes and not sys_includes:
-            includes = [self._location.local()]
+            sys_includes = [self._location.local()]
 
         self._includes = []
         for include in includes:
             if include:
                 self._includes.append( self.abs_path_from( include, self._location.local(), env['sconstruct_dir'] ) )
+            else:
+                self._sys_includes.append( self._location.local() )
 
         self._sys_includes = []
         for include in sys_includes:
             if include:
                 self._sys_includes.append( self.abs_path_from( include, self._location.local(), env['sconstruct_dir'] ) )
+            else:
+                self._sys_includes.append( self._location.local() )
+
+        if not source_path:
+            source_path = self._location.local()
 
         if source_path:
             self._source_path = self.abs_path_from( source_path, self._location.local(), env['sconstruct_dir'] )
@@ -291,9 +300,11 @@ class base(object):
 
         if not sources:
             sources = env.RecursiveGlob( "*.cpp", start=self._source_path, exclude_dirs=[ env['build_dir'] ] )
+            sources.extend( env.RecursiveGlob( "*.cc", start=self._source_path, exclude_dirs=[ env['build_dir'] ] ) )
+            sources.extend( env.RecursiveGlob( "*.c", start=self._source_path, exclude_dirs=[ env['build_dir'] ] ) )
 
         objects = []
-        for source in sources:
+        for source in Flatten( [sources] ):
             rel_path = os.path.relpath( str(source), local_dir )
             rel_obj_path = os.path.splitext( rel_path )[0] + obj_suffix
             obj_path = os.path.join( build_dir, rel_obj_path )
@@ -361,8 +372,8 @@ def location_dependency( name, location=None, develop=None, include=None, sys_in
             {   '_name': name,
                 '_default_location': location,
                 '_default_develop': develop,
-                '_default_include': include,
-                '_default_sys_include': sys_include,
+                '_default_include': Flatten( [include] ),
+                '_default_sys_include': Flatten( [sys_include] ),
                 '_extra_sub_path': extra_sub_path,
                 '_source_path': source_path,
                 '_linktype': linktype
