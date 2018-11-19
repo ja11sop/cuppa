@@ -196,9 +196,11 @@ class Location(object):
         return self._local_folder
 
 
-    @classmethod
-    def expand_secret( cls, vcs_location ):
-        return os.path.expandvars( vcs_location )
+    def expand_secret( self, vcs_location ):
+        expanded = os.path.expandvars( vcs_location )
+        if expanded != vcs_location:
+            self._expanded_location = expanded
+        return expanded
 
 
     def get_local_directory( self, cuppa_env, location, sub_dir, branch, full_url ):
@@ -321,7 +323,7 @@ class Location(object):
                                         as_warning( location ),
                                         as_warning( local_dir_with_sub_dir ),
                                         ( rev_options and  " at {}".format( as_warning( str(rev_options) ) ) or "" ),
-                                        as_warning( str(error) )
+                                        as_warning( self._expanded_location and str(error).replace(self._expanded_location,location) or str(error) )
                                 ) )
                         else:
                             logger.debug( "Skipping update for [{}] as running in offline mode".format( as_info( location ) ) )
@@ -342,7 +344,7 @@ class Location(object):
                                     as_info( location ),
                                     as_notice( local_dir_with_sub_dir ),
                                     ( rev_options and  " to {}".format( as_notice(  str(rev_options) ) ) or ""),
-                                    as_error( str( error ) )
+                                    as_error( self._expanded_location and str(error).replace(self._expanded_location,location) or str(error) )
                             ) )
                             raise LocationException( error )
 
@@ -457,6 +459,8 @@ class Location(object):
         self._full_url   = urlparse.urlparse( self._location )
         self._sub_dir    = None
         self._name_hint  = name_hint
+
+        self._expanded_location = None
 
         if extra_sub_path:
             if os.path.isabs( extra_sub_path ):
