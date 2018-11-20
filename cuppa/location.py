@@ -199,7 +199,8 @@ class Location(object):
     def expand_secret( self, vcs_location ):
         expanded = os.path.expandvars( vcs_location )
         if expanded != vcs_location:
-            self._expanded_location = expanded
+            self._expanded_location = expanded.split('+')[1]
+            self._plain_location = vcs_location.split('+')[1]
         return expanded
 
 
@@ -319,11 +320,12 @@ class Location(object):
                                 vcs_backend.update( local_dir_with_sub_dir, rev_options )
                                 logger.debug( "Successfully updated [{}]".format( as_info( location ) ) )
                             except pip.exceptions.InstallationError as error:
+                                error = self._expanded_location and str(error).replace(self._expanded_location,self._plain_location) or str(error)
                                 logger.warn( "Could not update [{}] in [{}]{} due to error [{}]".format(
                                         as_warning( location ),
                                         as_warning( local_dir_with_sub_dir ),
                                         ( rev_options and  " at {}".format( as_warning( str(rev_options) ) ) or "" ),
-                                        as_warning( self._expanded_location and str(error).replace(self._expanded_location,location) or str(error) )
+                                        as_warning( error )
                                 ) )
                         else:
                             logger.debug( "Skipping update for [{}] as running in offline mode".format( as_info( location ) ) )
@@ -340,17 +342,17 @@ class Location(object):
                             vcs_backend.obtain( local_dir_with_sub_dir )
                             logger.debug( "Successfully retrieved [{}]".format( as_info( location ) ) )
                         except pip.exceptions.InstallationError as error:
+                            error = self._expanded_location and str(error).replace(self._expanded_location,self._plain_location) or str(error)
                             logger.error( "Could not retrieve [{}] into [{}]{} due to error [{}]".format(
                                     as_info( location ),
                                     as_notice( local_dir_with_sub_dir ),
                                     ( rev_options and  " to {}".format( as_notice(  str(rev_options) ) ) or ""),
-                                    as_error( self._expanded_location and str(error).replace(self._expanded_location,location) or str(error) )
+                                    as_error( error )
                             ) )
                             raise LocationException( error )
 
                 logger.debug( "(url path) Location = [{}]".format( as_info( location ) ) )
                 logger.debug( "(url path) Local folder = [{}]".format( as_info( self._local_folder ) ) )
-
 
             return local_directory
 
@@ -461,6 +463,7 @@ class Location(object):
         self._name_hint  = name_hint
 
         self._expanded_location = None
+        self._plain_location = ""
 
         if extra_sub_path:
             if os.path.isabs( extra_sub_path ):
