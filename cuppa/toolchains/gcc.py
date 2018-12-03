@@ -533,7 +533,7 @@ class Gcc(object):
         },
         {
             'title'     : "Required",
-            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t]+[Rr]equired (?:from|by) .*)",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t]+(?:[Rr]ecursively )?[Rr]equired (?:from|by) .*)",
             'meaning'   : 'message',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
