@@ -9,8 +9,6 @@
 
 import os
 
-from SCons.Script import Flatten
-
 import cuppa.location
 from cuppa.log import logger
 from cuppa.colourise import as_notice, as_error, as_info
@@ -265,6 +263,8 @@ class base(object):
 
     def build_library_from_source( self, env, sources=None, library_name=None, linktype=None ):
 
+        from SCons.Script import Flatten
+
         if not self._source_path and not sources:
             logger.warn( "Attempting to build library when source path is None" )
             return None
@@ -366,6 +366,9 @@ class LibraryMethod(object):
 
 
 def location_dependency( name, location=None, develop=None, include=None, sys_include=None, extra_sub_path=None, source_path=None, linktype=None ):
+
+    from SCons.Script import Flatten
+
     return type(
             'BuildWith' + name.title(),
             ( base, ),
