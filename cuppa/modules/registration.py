@@ -8,6 +8,7 @@
 #   Registraion
 #-------------------------------------------------------------------------------
 
+import traceback
 
 from cuppa.log import logger
 from cuppa.colourise import as_notice, as_info
@@ -101,6 +102,7 @@ def __call_classmethod_for_classes_in_module( package, name, path, method, *args
                             except Exception as error:
                                 if logger.isEnabledFor( logging.EXCEPTION ):
                                     logger.error( "[{}] in [{}] failed with error [{}]".format( as_info(str(method)), as_notice(str(member)), as_info(str(error)) ) )
+                                    traceback.print_exc()
                                 raise error
                     except AttributeError as ignore:
                         pass
