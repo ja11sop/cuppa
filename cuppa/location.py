@@ -23,10 +23,6 @@ import platform
 import sys
 import logging
 
-import pip.vcs
-import pip.download
-import pip.exceptions
-
 import scms.subversion
 import scms.git
 import scms.mercurial
@@ -35,6 +31,54 @@ import scms.bazaar
 from cuppa.colourise import as_notice, as_info, as_warning, as_error
 from cuppa.log import logger
 from cuppa.path import split_common
+
+try:
+    import pip.vcs as pip_vcs
+    import pip.download as pip_download
+    import pip.exceptions as pip_exceptions
+
+    def get_url_rev( vcs_backend ):
+        return vcs_backend.get_url_rev()
+
+    def update( vcs_backend, dest, rev_options ):
+        return vcs_backend.update( dest, rev_options )
+
+    def make_rev_options( vc_type, vcs_backend, url, rev, local_remote ):
+        if vc_type == 'git':
+            if rev:
+                return [rev]
+            elif local_remote:
+                return [local_remote]
+        elif vc_type == 'hg' and rev:
+            return vcs_backend.get_rev_options( url, rev )
+        elif vc_type == 'bzr' and rev:
+            return ['-r', rev]
+        return []
+
+except:
+    import pip._internal.vcs as pip_vcs
+    import pip._internal.download as pip_download
+    import pip._internal.exceptions as pip_exceptions
+
+    def get_url_rev( vcs_backend ):
+        url_rev_auth = vcs_backend.get_url_rev_and_auth( vcs_backend.url )
+        return url_rev_auth[0], url_rev_auth[1]
+
+    def update( vcs_backend, dest, rev_options ):
+        return vcs_backend.update( dest, vcs_backend.url, rev_options )
+
+    def make_rev_options( vc_type, vcs_backend, url, rev, local_remote ):
+        if vc_type == 'git':
+            if rev:
+                return vcs_backend.make_rev_options( rev=rev )
+            elif local_remote:
+                return vcs_backend.make_rev_options( rev=local_remote )
+        elif vc_type == 'hg' and rev:
+            return vcs_backend.make_rev_options( rev=rev )
+        elif vc_type == 'bzr' and rev:
+            return vcs_backend.make_rev_options( rev=rev )
+        return vcs_backend.make_rev_options()
+
 
 
 class LocationException(Exception):
@@ -141,9 +185,9 @@ class Location(object):
     def url_is_download_archive_url( cls, path ):
         base, download = os.path.split( path )
         if download == "download":
-            return pip.download.is_archive_file( base )
+            return pip_download.is_archive_file( base )
         else:
-            return pip.download.is_archive_file( path )
+            return pip_download.is_archive_file( path )
 
 
     def folder_name_from_path( self, path, cuppa_env ):
@@ -214,11 +258,11 @@ class Location(object):
             base = os.path.join( cuppa_env['working_dir'], base )
 
         if location.startswith( 'file:' ):
-            location = pip.download.url_to_path( location )
+            location = pip_download.url_to_path( location )
 
-        if not pip.download.is_url( location ):
+        if not pip_download.is_url( location ):
 
-            if pip.download.is_archive_file( location ):
+            if pip_download.is_archive_file( location ):
 
                 self._local_folder = self.folder_name_from_path( location, cuppa_env )
                 local_directory = os.path.join( base, self._local_folder )
@@ -300,7 +344,7 @@ class Location(object):
 
             elif '+' in full_url.scheme:
                 vc_type = location.split('+', 1)[0]
-                backend = pip.vcs.vcs.get_backend( vc_type )
+                backend = pip_vcs.vcs.get_backend( vc_type )
                 if backend:
                     vcs_backend = backend( self.expand_secret( location ) )
                     local_dir_with_sub_dir = os.path.join( local_directory, sub_dir and sub_dir or "" )
@@ -317,9 +361,9 @@ class Location(object):
                                     as_info( version )
                             ) )
                             try:
-                                vcs_backend.update( local_dir_with_sub_dir, rev_options )
+                                update( vcs_backend, local_dir_with_sub_dir, rev_options )
                                 logger.debug( "Successfully updated [{}]".format( as_info( location ) ) )
-                            except pip.exceptions.InstallationError as error:
+                            except pip_exceptions.InstallationError as error:
                                 error = self._expanded_location and str(error).replace(self._expanded_location,self._plain_location) or str(error)
                                 logger.warn( "Could not update [{}] in [{}]{} due to error [{}]".format(
                                         as_warning( location ),
@@ -341,7 +385,7 @@ class Location(object):
                         try:
                             vcs_backend.obtain( local_dir_with_sub_dir )
                             logger.debug( "Successfully retrieved [{}]".format( as_info( location ) ) )
-                        except pip.exceptions.InstallationError as error:
+                        except pip_exceptions.InstallationError as error:
                             error = self._expanded_location and str(error).replace(self._expanded_location,self._plain_location) or str(error)
                             logger.error( "Could not retrieve [{}] into [{}]{} due to error [{}]".format(
                                     as_info( location ),
@@ -358,17 +402,16 @@ class Location(object):
 
 
     def get_rev_options( self, vc_type, vcs_backend, local_remote=None ):
-        url, rev = vcs_backend.get_url_rev()
-        if vc_type == 'git':
-            if rev:
-                return [rev]
-            elif local_remote:
-                return [local_remote]
-        elif vc_type == 'hg' and rev:
-            return vcs_backend.get_rev_options( url, rev )
-        elif vc_type == 'bzr' and rev:
-            return ['-r', rev]
-        return []
+        url, rev = get_url_rev( vcs_backend )
+
+        logger.debug( "make_rev_options for [{}] at url [{}] with rev [{}]/[{}]".format(
+            as_info( vc_type ),
+            as_notice( url ),
+            as_notice( str(rev) ),
+            as_notice( str(local_remote) )
+        ) )
+
+        return make_rev_options( vc_type, vcs_backend, url, rev, local_remote )
 
 
     @classmethod
