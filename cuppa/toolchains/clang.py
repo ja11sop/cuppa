@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2014-2018
+#          Copyright Jamie Allsop 2014-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -191,12 +191,11 @@ class Clang(object):
             if cuppa.build_platform.where_is( versioned_llvm_cov ):
                 return versioned_llvm_cov + " gcov"
         if cuppa.build_platform.where_is( llvm_cov ):
-            version = cls.llvm_version_from( llvm-cov )
+            version = cls.llvm_version_from( llvm_cov )
             if version == cxx_version:
                 return llvm_cov + " gcov"
         logger.warn( "Coverage requested for current toolchain but none is available" )
         return None
-
 
 
     @classmethod
