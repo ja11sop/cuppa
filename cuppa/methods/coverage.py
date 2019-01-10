@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2015
+#          Copyright Jamie Allsop 2011-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -8,6 +8,8 @@
 #   CoverageMethod
 #-------------------------------------------------------------------------------
 
+import re
+import os.path
 
 from SCons.Script import Flatten
 
@@ -20,11 +22,27 @@ class CoverageMethod(object):
         pass
 
 
-    def __call__( self, env, program, sources, final_dir=None ):
+    def __call__( self, env, program, sources, final_dir=None, include_patterns=None, exclude_dependencies=False, exclude_patterns=None ):
         if final_dir == None:
             final_dir = env['abs_final_dir']
 
-        emitter, builder = env['toolchain'].coverage_runner( program, final_dir )
+        if include_patterns:
+            include_patterns = Flatten( [ include_patterns ] )
+
+        exclude_dependency_pattern = None
+        if exclude_dependencies:
+            exclude_dependency_pattern = re.escape( env['download_root'] ).replace( "\_", "_" ).replace( "\#", "#" )
+            if os.path.isabs( env['download_root'] ):
+                exclude_dependency_pattern = exclude_dependency_pattern + "#.*"
+            else:
+                exclude_dependency_pattern = ".*##" + exclude_dependency_pattern + "#.*"
+
+        if exclude_patterns and exclude_dependency_pattern:
+            exclude_patterns = Flatten( [ exclude_dependency_pattern, exclude_patterns ] )
+        elif exclude_dependency_pattern:
+            exclude_patterns = [ exclude_dependency_pattern ]
+
+        emitter, builder = env['toolchain'].coverage_runner( program, final_dir, include_patterns=include_patterns, exclude_patterns=exclude_patterns )
 
         if not emitter and not builder:
             return None

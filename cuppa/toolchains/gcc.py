@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2018
+#          Copyright Jamie Allsop 2011-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -361,9 +361,9 @@ class Gcc(object):
         return [ 'process', 'boost', 'patched_boost' ]
 
 
-    def coverage_runner( self, program, final_dir ):
+    def coverage_runner( self, program, final_dir, include_patterns=[], exclude_patterns=[] ):
         coverage_tool = self.coverage_tool( self._cxx_version, self._reported_version )
-        return RunGcovCoverageEmitter( program, final_dir, coverage_tool ), RunGcovCoverage( program, final_dir, coverage_tool )
+        return RunGcovCoverageEmitter( program, final_dir, coverage_tool ), RunGcovCoverage( program, final_dir, coverage_tool, include_patterns, exclude_patterns )
 
 
     def update_variant( self, env, variant ):

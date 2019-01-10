@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2018
+#          Copyright Jamie Allsop 2011-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -15,7 +15,7 @@ import re
 import itertools
 import glob
 
-from SCons.Script import Glob
+from SCons.Script import Glob, Flatten
 
 # construct imports
 import cuppa.progress
@@ -89,17 +89,33 @@ class CoverageSuite(object):
     suites = {}
 
     @classmethod
-    def create( cls, program_id, name, scons_env, final_dir ):
+    def create( cls, program_id, name, scons_env, final_dir, include_patterns=[], exclude_patterns=[] ):
         if not name in cls.suites:
-            cls.suites[name] = CoverageSuite( program_id, name, scons_env, final_dir )
+            cls.suites[name] = CoverageSuite( program_id, name, scons_env, final_dir, include_patterns=include_patterns, exclude_patterns=exclude_patterns )
         return cls.suites[name]
 
 
-    def __init__( self, program_id, name, scons_env, final_dir ):
+    @classmethod
+    def regexes_from_patterns( cls, patterns ):
+        regexes = []
+        patterns = Flatten( [ patterns ] )
+        for pattern in patterns:
+            if isinstance( pattern, re._pattern_type ):
+                regexes.append( pattern._pattern )
+            elif pattern:
+                regexes.append( pattern )
+        return regexes
+
+
+    def __init__( self, program_id, name, scons_env, final_dir, include_patterns=[], exclude_patterns=[] ):
         self._program_id = program_id
         self._name = name
         self._scons_env = scons_env
         self._final_dir = final_dir
+
+        self._include_regexes = self.regexes_from_patterns( include_patterns )
+        self._exclude_regexes = self.regexes_from_patterns( exclude_patterns )
+
         cuppa.progress.NotifyProgress.register_callback( scons_env, self.on_progress )
         self._suite = {}
 
@@ -112,10 +128,10 @@ class CoverageSuite(object):
 
     def exit_suite( self ):
         env = self._scons_env
-        self._run_gcovr( env['build_dir'], self._final_dir, env['working_dir'], env['sconscript_toolchain_build_dir'] )
+        self._run_gcovr( env['build_dir'], self._final_dir, env['working_dir'], env['sconscript_toolchain_build_dir'], self._include_regexes, self._exclude_regexes )
 
 
-    def _run_gcovr( self, build_dir, output_dir, working_dir, sconscript_id ):
+    def _run_gcovr( self, build_dir, output_dir, working_dir, sconscript_id, include_regexes, exclude_regexes ):
 
         lazy_create_path( output_dir )
 
@@ -130,7 +146,22 @@ class CoverageSuite(object):
         regex_filter = re.escape( os.path.join( build_dir, "" ) ).replace( "\_", "_" ).replace( "\#", "#" )
         regex_filter = ".*" + regex_filter + ".*" + self._program_id + "\.gcov"
 
-        command = 'gcovr -g --gcov-filter="{}" -k -r . --html --html-details -o {}'.format( regex_filter, index_file )
+        gcov_includes = ""
+        for include_regex in include_regexes:
+            gcov_includes += ' --gcov-filter="{}"'.format( include_regex )
+
+        if not gcov_includes:
+            gcov_includes = ' --gcov-filter="{}"'.format( regex_filter )
+
+        gcov_excludes = ""
+        for exclude_regex in exclude_regexes:
+            gcov_excludes += ' --gcov-exclude="{}"'.format( exclude_regex )
+
+        command = 'gcovr -g {gcov_includes} {gcov_excludes} -v -k -r . --html --html-details -o {index_file}'.format(
+            regex_filter=regex_filter,
+            gcov_includes = gcov_includes,
+            gcov_excludes = gcov_excludes,
+            index_file=index_file )
 
         return_code, output = run_command( command, working_dir, self._scons_env )
 
@@ -216,11 +247,13 @@ def iter_grouped( items, step=2, fillvalue=None ):
 
 class RunGcovCoverage(object):
 
-    def __init__( self, program, final_dir, coverage_tool ):
+    def __init__( self, program, final_dir, coverage_tool, include_patterns=[], exclude_patterns=[] ):
         self._program = program
         self._final_dir = final_dir
         self._coverage_tool = coverage_tool
         self._program_id = gcov_program_id( program )
+        self._include_patterns = include_patterns
+        self._exclude_patterns = exclude_patterns
 
 
     def __call__( self, target, source, env ):
@@ -255,7 +288,7 @@ class RunGcovCoverage(object):
             final_dir = os.path.normpath( os.path.join( build_dir, self._final_dir ) )
 
         suite_name = working_dir + self._program_id
-        coverage_suite = CoverageSuite.create( self._program_id, suite_name, env, final_dir )
+        coverage_suite = CoverageSuite.create( self._program_id, suite_name, env, final_dir, include_patterns=self._include_patterns, exclude_patterns=self._exclude_patterns )
 
         relative_only = "-r"
         if self._coverage_tool.startswith( "llvm-cov" ):
@@ -263,7 +296,7 @@ class RunGcovCoverage(object):
 
         command = '{gcov} -o {path} -l -p {relative} -c -b {source}'.format( gcov=self._coverage_tool, path=gcov_path, relative=relative_only, source=source_path )
 
-        return_code, output = run_command( command, working_dir )
+        return_code, output = run_command( command, working_dir, env )
 
         if return_code == 0:
             gcov_source_path = source_path.replace( os.path.sep, '#' )

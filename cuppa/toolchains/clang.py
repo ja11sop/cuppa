@@ -358,7 +358,8 @@ class Clang(object):
 
 
     def supports_coverage( self ):
-        return 'coverage_cxx_flags' in self.values
+        #return 'coverage_cxx_flags' in self.values
+        return False
 
 
     def version_file_builder( self, env, namespace, version, location, build_id=None ):
@@ -382,9 +383,9 @@ class Clang(object):
         return [ 'process', 'boost', 'patched_boost' ]
 
 
-    def coverage_runner( self, program, final_dir ):
+    def coverage_runner( self, program, final_dir, include_patterns=[], exclude_patterns=[] ):
         #coverage_tool = self.coverage_tool( self._cxx_version )
-        #return RunGcovCoverageEmitter( program, final_dir, coverage_tool ), RunGcovCoverage( program, final_dir, coverage_tool )
+        #return RunGcovCoverageEmitter( program, final_dir, coverage_tool ), RunGcovCoverage( program, final_dir, coverage_tool, include_patterns, exclude_patterns )
         return None, None
 
 
