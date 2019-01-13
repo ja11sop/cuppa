@@ -157,7 +157,7 @@ class CoverageSuite(object):
         for exclude_regex in exclude_regexes:
             gcov_excludes += ' --gcov-exclude="{}"'.format( exclude_regex )
 
-        command = 'gcovr -g {gcov_includes} {gcov_excludes} -v -k -r . --html --html-details -o {index_file}'.format(
+        command = 'gcovr -g {gcov_includes} {gcov_excludes} -k -r . --html --html-details -o {index_file}'.format(
             regex_filter=regex_filter,
             gcov_includes = gcov_includes,
             gcov_excludes = gcov_excludes,
