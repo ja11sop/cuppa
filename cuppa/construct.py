@@ -36,7 +36,7 @@ import cuppa.version
 #import cuppa.cpp.stdcpp
 
 from cuppa.colourise import colouriser, as_emphasised, as_info, as_error, as_notice, colour_items, as_info_label
-from cuppa.log import set_logging_level, reset_logging_format, logger
+from cuppa.log import set_logging_level, reset_logging_format, logger, enable_thirdparty_logging
 from cuppa.utility.types import is_string
 
 from cuppa.toolchains             import *
@@ -342,6 +342,7 @@ class Construct(object):
         cuppa_env['configured_options'] = {}
         self._configure = cuppa.configure.Configure( cuppa_env, callback=configure_callback )
 
+        enable_thirdparty_logging( cuppa_env.get_option( 'enable-thirdparty-logging' ) and True or False )
         self._set_verbosity_level( cuppa_env )
 
         cuppa_env['sconstruct_path'] = sconstruct_path

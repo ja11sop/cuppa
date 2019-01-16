@@ -1,4 +1,4 @@
-#          Copyright Jamie Allsop 2011-2018
+#          Copyright Jamie Allsop 2011-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -78,8 +78,11 @@ def add_base_options():
     verbosity_choices = ( 'trace', 'debug', 'exception', 'info', 'warn', 'error' )
 
     add_option( '--verbosity', dest='verbosity', choices=verbosity_choices, nargs=1, action='store',
-                            help="The The verbosity level that you wish to run cuppa at. The default level"
+                            help="The verbosity level that you wish to run cuppa at. The default level"
                                  " is \"info\". VERBOSITY may be one of {}".format( str(verbosity_choices) ) )
+
+    add_option( '--enable-thirdparty-logging', dest='enable-thirdparty-logging', action='store_true',
+                            help="Enables log messages from thirdparty modules that cuppa uses, for example from pip" )
 
     add_option( '--propagate-env', dest='propagate-env', action='store_true',
                             help="Propagate the current environment including PATH to all sub-processes when"

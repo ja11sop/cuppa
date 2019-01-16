@@ -29,7 +29,7 @@ import scms.mercurial
 import scms.bazaar
 
 from cuppa.colourise import as_notice, as_info, as_warning, as_error
-from cuppa.log import logger
+from cuppa.log import logger, register_secret
 from cuppa.path import split_common
 
 try:
@@ -68,11 +68,17 @@ except:
         return vcs_backend.update( dest, vcs_backend.url, rev_options )
 
     def make_rev_options( vc_type, vcs_backend, url, rev, local_remote ):
+        logger.debug( "vc_type={vc_type}, url={url}, rev={rev}, local_remote={local_remote}".format(
+            vc_type = as_info( str(vc_type) ),
+            url = as_notice( str(url) ),
+            rev = as_notice( str(rev) ),
+            local_remote = as_notice( str(local_remote) )
+        ) )
         if vc_type == 'git':
             if rev:
                 return vcs_backend.make_rev_options( rev=rev )
-            elif local_remote:
-                return vcs_backend.make_rev_options( rev=local_remote )
+            #elif local_remote:
+                #return vcs_backend.make_rev_options( rev=local_remote )
         elif vc_type == 'hg' and rev:
             return vcs_backend.make_rev_options( rev=rev )
         elif vc_type == 'bzr' and rev:
@@ -245,6 +251,7 @@ class Location(object):
         if expanded != vcs_location:
             self._expanded_location = expanded.split('+')[1]
             self._plain_location = vcs_location.split('+')[1]
+            register_secret( self._expanded_location, self._plain_location )
         return expanded
 
 
@@ -363,13 +370,12 @@ class Location(object):
                             try:
                                 update( vcs_backend, local_dir_with_sub_dir, rev_options )
                                 logger.debug( "Successfully updated [{}]".format( as_info( location ) ) )
-                            except pip_exceptions.InstallationError as error:
-                                error = self._expanded_location and str(error).replace(self._expanded_location,self._plain_location) or str(error)
+                            except pip_exceptions.PipError as error:
                                 logger.warn( "Could not update [{}] in [{}]{} due to error [{}]".format(
                                         as_warning( location ),
                                         as_warning( local_dir_with_sub_dir ),
                                         ( rev_options and  " at {}".format( as_warning( str(rev_options) ) ) or "" ),
-                                        as_warning( error )
+                                        as_warning( str(error) )
                                 ) )
                         else:
                             logger.debug( "Skipping update for [{}] as running in offline mode".format( as_info( location ) ) )
@@ -385,15 +391,14 @@ class Location(object):
                         try:
                             vcs_backend.obtain( local_dir_with_sub_dir )
                             logger.debug( "Successfully retrieved [{}]".format( as_info( location ) ) )
-                        except pip_exceptions.InstallationError as error:
-                            error = self._expanded_location and str(error).replace(self._expanded_location,self._plain_location) or str(error)
+                        except pip_exceptions.PipError as error:
                             logger.error( "Could not retrieve [{}] into [{}]{} due to error [{}]".format(
                                     as_info( location ),
                                     as_notice( local_dir_with_sub_dir ),
                                     ( rev_options and  " to {}".format( as_notice(  str(rev_options) ) ) or ""),
-                                    as_error( error )
+                                    as_error( str(error) )
                             ) )
-                            raise LocationException( error )
+                            raise LocationException( str(error) )
 
                 logger.debug( "(url path) Location = [{}]".format( as_info( location ) ) )
                 logger.debug( "(url path) Local folder = [{}]".format( as_info( self._local_folder ) ) )
@@ -406,7 +411,7 @@ class Location(object):
 
         logger.debug( "make_rev_options for [{}] at url [{}] with rev [{}]/[{}]".format(
             as_info( vc_type ),
-            as_notice( url ),
+            as_notice( str(url) ),
             as_notice( str(rev) ),
             as_notice( str(local_remote) )
         ) )

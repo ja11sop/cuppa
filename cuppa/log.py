@@ -28,8 +28,13 @@ def exception( self, message, *args, **kwargs ):
 
 logging.Logger.exception = exception
 
+root_logger = logging.getLogger()
+
 logger = logging.getLogger('cuppa')
-logger.setLevel( logging.INFO )
+root_logger.setLevel( logging.INFO )
+
+
+_secrets = {}
 
 
 class _formatter(logging.Formatter):
@@ -49,9 +54,9 @@ class _formatter(logging.Formatter):
 
     @classmethod
     def preamble_from_level( cls ):
-        if logger.isEnabledFor( logging.TRACE ):
+        if root_logger.isEnabledFor( logging.TRACE ):
             return cls._trace_preamble
-        elif logger.isEnabledFor( logging.DEBUG ):
+        elif root_logger.isEnabledFor( logging.DEBUG ):
             return cls._debug_preamble
         else:
             return cls._default_preamble
@@ -70,7 +75,15 @@ class _formatter(logging.Formatter):
         logging.Formatter.__init__( self, fmt )
 
 
+    @classmethod
+    def _mask_secrets( cls, message ):
+        for secret, mask in _secrets.iteritems():
+            message = message.replace( secret, mask )
+        return message
+
+
     def format( self, record ):
+
         orig_fmt = self._fmt
         if record.levelno == logging.WARN:
             self._fmt = self._warn_fmt
@@ -80,8 +93,19 @@ class _formatter(logging.Formatter):
             self._fmt = self._critical_fmt
         result = logging.Formatter.format( self, record )
         self._fmt = orig_fmt
-        return result
 
+        return self._mask_secrets( result )
+
+
+def register_secret( secret, replacement="xxxxxxxx" ):
+    _secrets[secret] = replacement
+
+
+def unregister_secret( secret ):
+    try:
+        del _secrets[secret]
+    except:
+        pass
 
 
 _log_handler = logging.StreamHandler()
@@ -100,10 +124,16 @@ def initialise_logging():
     _log_handler.setFormatter( _formatter() )
 
     logger.addHandler( _log_handler )
+    logger.propagate = False
+    root_logger.addHandler( logging.NullHandler() )
+
+
+def enable_thirdparty_logging( enable ):
+    if enable:
+        root_logger.addHandler( _log_handler )
 
 
 def reset_logging_format():
-
     _log_handler.setFormatter( _formatter() )
 
 
@@ -111,15 +141,15 @@ def reset_logging_format():
 def set_logging_level( level ):
 
     if level == "trace":
-        logger.setLevel( logging.TRACE )
+        root_logger.setLevel( logging.TRACE )
     elif level == "debug":
-        logger.setLevel( logging.DEBUG )
+        root_logger.setLevel( logging.DEBUG )
     elif level == "exception":
-        logger.setLevel( logging.EXCEPTION )
+        root_logger.setLevel( logging.EXCEPTION )
     elif level == "warn":
-        logger.setLevel( logging.WARN )
+        root_logger.setLevel( logging.WARN )
     elif level == "error":
-        logger.setLevel( logging.ERROR )
+        root_logger.setLevel( logging.ERROR )
     else:
-        logger.setLevel( logging.INFO )
+        root_logger.setLevel( logging.INFO )
 
