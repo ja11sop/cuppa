@@ -15,7 +15,7 @@ import SCons.Script
 
 # Custom
 from cuppa.colourise import colouriser, as_info
-from cuppa.log import set_logging_level, reset_logging_format, logger
+from cuppa.log import logger
 
 
 
