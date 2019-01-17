@@ -24,6 +24,9 @@ from cuppa.colourise import as_notice, as_info, as_warning, as_error
 from cuppa.log import logger
 
 
+url_block_sep = '--'
+
+
 def gcov_offset_path( file_path, env ):
     path, filename = os.path.split( file_path )
     offset_path = os.path.relpath( path, env['build_dir'] )
@@ -109,6 +112,7 @@ class CoverageSuite(object):
 
     def __init__( self, program_id, name, scons_env, final_dir, include_patterns=[], exclude_patterns=[] ):
         self._program_id = program_id
+        self._url_program_id = self._program_id.replace( '##', url_block_sep )
         self._name = name
         self._scons_env = scons_env
         self._final_dir = final_dir
@@ -118,7 +122,6 @@ class CoverageSuite(object):
 
         #cuppa.progress.NotifyProgress.register_callback( scons_env, self.on_progress )
         self._suite = {}
-        self._index_file = os.path.join( self._final_dir, "coverage" + self._program_id + ".html" )
 
 
     #def on_progress( self, progress, sconscript, variant, env, target, source ):
@@ -166,7 +169,7 @@ class CoverageSuite(object):
 
         return_code, output = run_command( command, working_dir, self._scons_env )
 
-        new_index_file = os.path.join( output_dir, "coverage" + self._program_id + ".html" )
+        new_index_file = os.path.join( output_dir, "coverage" + self._url_program_id + ".html" )
         try:
             os.rename( index_file, new_index_file )
         except OSError as e:
@@ -191,7 +194,7 @@ class CoverageSuite(object):
                         as_error( str(e) )
                 ) )
 
-        coverage_filter_path = os.path.join( output_dir, "coverage" + self._program_id + ".filter" )
+        coverage_filter_path = os.path.join( output_dir, "coverage" + self._url_program_id + ".filter" )
         with open( coverage_filter_path, 'w' ) as coverage_filter_file:
             coverage_filter_file.write( html_base_name + '*.html' )
 
@@ -209,6 +212,7 @@ class RunGcovCoverageEmitter(object):
         self._final_dir = final_dir
         self._coverage_tool = coverage_tool
         self._program_id = gcov_program_id( program )
+        self._url_program_id = self._program_id.replace( '##', url_block_sep )
 
 
     def __call__( self, target, source, env ):
@@ -235,11 +239,11 @@ class RunGcovCoverageEmitter(object):
             gcov_files = Glob( gcov_file_filter )
             env.Clean( source_file, gcov_files )
 
-            coverage_index_file = os.path.join( self._final_dir, "coverage" + self._program_id + ".html" )
+            coverage_index_file = os.path.join( self._final_dir, "coverage" + self._url_program_id + ".html" )
             logger.trace( "Adding target gcovr index file =[{}]".format( as_notice(coverage_index_file) ) )
             target.append( coverage_index_file )
 
-            coverage_filter_file = os.path.join( self._final_dir, "coverage" + self._program_id + ".filter" )
+            coverage_filter_file = os.path.join( self._final_dir, "coverage" + self._url_program_id + ".filter" )
             logger.trace( "Adding target gcovr filter file =[{}]".format( as_notice(coverage_filter_file) ) )
             target.append( coverage_filter_file )
 
@@ -254,7 +258,7 @@ class RunGcovCoverageEmitter(object):
 
 
     def html_filter( self, env, coverage_targets ):
-        source = os.path.splitext( os.path.split( str(coverage_targets[1]) )[1] )[0].replace( 'coverage##', '' )
+        source = os.path.splitext( os.path.split( str(coverage_targets[1]) )[1] )[0].replace( 'coverage' + url_block_sep, '' )
         return os.path.join( self._final_dir, url_coverage_base_name( env['sconscript_toolchain_build_dir'] ) + "." + source + '*.html' )
 
 
