@@ -268,6 +268,10 @@ class Cl(object):
         return None, None
 
 
+    def coverage_copy_files( self, destination ):
+        return None, None
+
+
     def update_variant( self, env, variant ):
         if variant == 'dbg':
             env.AppendUnique( CXXFLAGS = self.values['dbg_cxx_flags'] )

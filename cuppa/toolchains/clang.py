@@ -23,7 +23,7 @@ from cuppa.cpp.create_version_file_cpp import CreateVersionHeaderCpp, CreateVers
 from cuppa.cpp.run_boost_test import RunBoostTestEmitter, RunBoostTest
 from cuppa.cpp.run_patched_boost_test import RunPatchedBoostTestEmitter, RunPatchedBoostTest
 from cuppa.cpp.run_process_test import RunProcessTestEmitter, RunProcessTest
-from cuppa.cpp.run_gcov_coverage import RunGcovCoverageEmitter, RunGcovCoverage
+from cuppa.cpp.run_gcov_coverage import RunGcovCoverageEmitter, RunGcovCoverage, CopyCoverageFilesEmitter, CopyCoverageFilesAction
 from cuppa.output_processor import command_available
 from cuppa.colourise import as_info, as_notice
 from cuppa.log import logger
@@ -386,6 +386,10 @@ class Clang(object):
     def coverage_runner( self, program, final_dir, include_patterns=[], exclude_patterns=[] ):
         #coverage_tool = self.coverage_tool( self._cxx_version )
         #return RunGcovCoverageEmitter( program, final_dir, coverage_tool ), RunGcovCoverage( program, final_dir, coverage_tool, include_patterns, exclude_patterns )
+        return None, None
+
+    def coverage_copy_files( self, destination ):
+        #return CopyCoverageFilesEmitter( destination ), CopyCoverageFilesAction( destination )
         return None, None
 
 

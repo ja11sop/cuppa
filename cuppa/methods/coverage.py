@@ -52,10 +52,34 @@ class CoverageMethod(object):
         coverage = env.CoverageBuilder( [], Flatten( [ sources ] ) )
 
         cuppa.progress.NotifyProgress.add( env, coverage )
-
         return coverage
-
 
     @classmethod
     def add_to_env( cls, cuppa_env ):
         cuppa_env.add_method( "Coverage", cls() )
+
+
+class CopyCoverageFilesMethod(object):
+
+    def __init__( self ):
+        pass
+
+    def __call__( self, env, destination, sources ):
+
+        emitter, builder = env['toolchain'].coverage_copy_files( destination )
+
+        if not emitter and not builder:
+            return None
+
+        env['BUILDERS']['CopyCoverageFilesBuilder'] = env.Builder( action=builder, emitter=emitter )
+
+        summary_file = env.CopyCoverageFilesBuilder( [], Flatten( [ sources ] ) )
+
+        cuppa.progress.NotifyProgress.add( env, summary_file )
+        return summary_file
+
+
+    @classmethod
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "CopyCoverageFiles", cls() )
+

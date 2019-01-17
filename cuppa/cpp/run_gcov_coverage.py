@@ -116,22 +116,23 @@ class CoverageSuite(object):
         self._include_regexes = self.regexes_from_patterns( include_patterns )
         self._exclude_regexes = self.regexes_from_patterns( exclude_patterns )
 
-        cuppa.progress.NotifyProgress.register_callback( scons_env, self.on_progress )
+        #cuppa.progress.NotifyProgress.register_callback( scons_env, self.on_progress )
         self._suite = {}
+        self._index_file = os.path.join( self._final_dir, "coverage" + self._program_id + ".html" )
 
 
-    def on_progress( self, progress, sconscript, variant, env, target, source ):
-        if progress == 'finished':
-            self.exit_suite()
-            del self.suites[self._name]
+    #def on_progress( self, progress, sconscript, variant, env, target, source ):
+    #    if progress == 'finished':
+    #        self.exit_suite()
+    #        del self.suites[self._name]
 
 
-    def exit_suite( self ):
+    def exit_suite( self, target ):
         env = self._scons_env
-        self._run_gcovr( env['build_dir'], self._final_dir, env['working_dir'], env['sconscript_toolchain_build_dir'], self._include_regexes, self._exclude_regexes )
+        self._run_gcovr( target, env['build_dir'], self._final_dir, env['working_dir'], env['sconscript_toolchain_build_dir'], self._include_regexes, self._exclude_regexes )
 
 
-    def _run_gcovr( self, build_dir, output_dir, working_dir, sconscript_id, include_regexes, exclude_regexes ):
+    def _run_gcovr( self, target, build_dir, output_dir, working_dir, sconscript_id, include_regexes, exclude_regexes ):
 
         lazy_create_path( output_dir )
 
@@ -175,11 +176,12 @@ class CoverageSuite(object):
                         as_error( str(e) )
             ) )
 
-        logger.info( "gcovr HTML file filter = [{}]".format( as_notice(html_base_name) ) )
+        logger.trace( "gcovr HTML file filter = [{}]".format( as_notice(html_base_name) ) )
         coverage_files = Glob( html_base_name + '*.html' )
 
         for coverage_file in coverage_files:
             new_coverage_file = os.path.join( output_dir, str( coverage_file ) )
+            target.append( new_coverage_file )
             try:
                 os.rename( str( coverage_file ), new_coverage_file )
             except OSError as e:
@@ -188,6 +190,11 @@ class CoverageSuite(object):
                         as_notice( new_coverage_file ),
                         as_error( str(e) )
                 ) )
+
+        coverage_filter_path = os.path.join( output_dir, "coverage" + self._program_id + ".filter" )
+        with open( coverage_filter_path, 'w' ) as coverage_filter_file:
+            coverage_filter_file.write( html_base_name + '*.html' )
+
         print output
 
 
@@ -209,15 +216,15 @@ class RunGcovCoverageEmitter(object):
         for s in source:
             source_file = os.path.relpath( s.path, env['build_dir'] )
 
+            logger.trace( "Determine coverage files for source file [{}]".format( as_notice(source_file) ) )
+
             gcno_file = os.path.splitext( source_file )[0] + '.gcno'
             gcda_file = os.path.splitext( source_file )[0] + '.gcda'
-
             logger.trace( "gcov data paths = [{}] and [{}]".format( as_notice(gcno_file), as_notice(gcda_file) ) )
-
-            gcov_log = source_file + self._program_id + '_gcov.log'
-
             env.Clean( source_file, [gcno_file, gcda_file] )
 
+            gcov_log = source_file + self._program_id + '_gcov.log'
+            logger.trace( "Adding target gcov_log = [{}]".format( as_notice(gcov_log) ) )
             target.append( gcov_log )
 
             gcov_base_name = gcov_offset_path( s.path, env )
@@ -228,9 +235,15 @@ class RunGcovCoverageEmitter(object):
             gcov_files = Glob( gcov_file_filter )
             env.Clean( source_file, gcov_files )
 
-            env.Clean( source_file, os.path.join( self._final_dir, "coverage" + self._program_id + ".html" ) )
+            coverage_index_file = os.path.join( self._final_dir, "coverage" + self._program_id + ".html" )
+            logger.trace( "Adding target gcovr index file =[{}]".format( as_notice(coverage_index_file) ) )
+            target.append( coverage_index_file )
 
-            coverage_filter = os.path.join( self._final_dir, url_coverage_base_name( env['sconscript_toolchain_build_dir'] ) + '*.html' )
+            coverage_filter_file = os.path.join( self._final_dir, "coverage" + self._program_id + ".filter" )
+            logger.trace( "Adding target gcovr filter file =[{}]".format( as_notice(coverage_filter_file) ) )
+            target.append( coverage_filter_file )
+
+            coverage_filter = os.path.join( self._final_dir, url_coverage_base_name( env['sconscript_toolchain_build_dir'] ) + "." + self._program_id[2:] + '*.html' )
 
             logger.trace( "coverage filter = [{}]".format( as_notice(coverage_filter) ) )
 
@@ -238,6 +251,11 @@ class RunGcovCoverageEmitter(object):
             env.Clean( source_file, coverage_files )
 
         return target, source
+
+
+    def html_filter( self, env, coverage_targets ):
+        source = os.path.splitext( os.path.split( str(coverage_targets[1]) )[1] )[0].replace( 'coverage##', '' )
+        return os.path.join( self._final_dir, url_coverage_base_name( env['sconscript_toolchain_build_dir'] ) + "." + source + '*.html' )
 
 
 def iter_grouped( items, step=2, fillvalue=None ):
@@ -254,10 +272,13 @@ class RunGcovCoverage(object):
         self._program_id = gcov_program_id( program )
         self._include_patterns = include_patterns
         self._exclude_patterns = exclude_patterns
+        self._target = None
 
 
     def __call__( self, target, source, env ):
         lazy_create_path( os.path.join( env['base_path'], env['build_dir'] ) )
+
+        self._target = target
 
         for s, t in itertools.izip( source, target ):
 
@@ -265,6 +286,8 @@ class RunGcovCoverage(object):
             gcov_log = t.path
             logger.trace( "gcov_path = [{}]".format( as_notice( str(gcov_path) ) ) )
             self._run_gcov( env, s.path, gcov_path, gcov_log )
+
+        target = self._target
 
         return None
 
@@ -322,7 +345,73 @@ class RunGcovCoverage(object):
 
             with open( gcov_log_path, 'w' ) as summary_file:
                 summary_file.write( output )
+
+                coverage_suite.exit_suite( self._target )
         else:
             print output
             os.remove( gcov_log_path )
+
+
+
+class CopyCoverageFilesEmitter:
+
+    def __init__( self, destination ):
+        self._destination = destination
+
+
+    def __call__( self, target, source, env ):
+
+        filter_node = next( ( s for s in source if os.path.splitext(str(s))[1] == ".filter" ), None )
+
+        if filter_node:
+            output_summary = os.path.splitext(str(filter_node))[0] + ".txt"
+            target.append( output_summary )
+
+            logger.trace( "Filter node = [{}]".format( as_notice( str(filter_node) ) ) )
+
+            clean_pattern = None
+            if filter_node:
+                if os.path.exists( str(filter_node) ):
+                    with open( str(filter_node), 'r' ) as filter_file:
+                        clean_pattern = filter_file.readline().strip()
+                        clean_pattern = os.path.join( self._destination, clean_pattern )
+                        if clean_pattern.startswith('#'):
+                            clean_pattern = os.path.join( env['sconstruct_dir'], clean_pattern[1:] )
+                        logger.trace( "Clean pattern = [{}]".format( as_notice(clean_pattern) ) )
+
+            if clean_pattern:
+                env.Clean( source, Glob( clean_pattern ) )
+
+        return target, source
+
+
+class CopyCoverageFilesAction:
+
+    def __init__( self, destination ):
+        self._destination = destination
+
+
+    def __call__( self, target, source, env ):
+
+        filter_node = next( ( s for s in source if os.path.splitext(str(s))[1] == ".filter" ), None )
+
+        if filter_node:
+            final_dir = os.path.split( str(filter_node) )[0]
+            filter_pattern = None
+
+            if os.path.exists( str(filter_node) ):
+                with open( str(filter_node), 'r' ) as filter_file:
+                    filter_pattern = filter_file.readline().strip()
+
+            output_files = []
+
+            if filter_pattern:
+                output_files = env.Glob( os.path.join( final_dir, filter_pattern ) )
+                env.CopyFiles( self._destination, output_files )
+
+                with open( str(target[0]), 'w' ) as summary_file:
+                    for f in output_files:
+                        summary_file.write( str(f) )
+
+        return None
 
