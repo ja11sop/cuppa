@@ -188,7 +188,7 @@ class CoverageSuite(object):
                         as_error( str(e) )
                 ) )
 
-        coverage_filter_path = os.path.join( output_dir, "coverage" + self._url_program_id + ".filter" )
+        coverage_filter_path = os.path.join( output_dir, "coverage" + self._url_program_id + ".cov_filter" )
         with open( coverage_filter_path, 'w' ) as coverage_filter_file:
             coverage_filter_file.write( html_base_name + '*.html' )
 
@@ -241,7 +241,7 @@ class RunGcovCoverageEmitter(object):
             logger.trace( "Adding target gcovr summary file =[{}]".format( as_notice(coverage_summary_file) ) )
             target.append( coverage_summary_file )
 
-            coverage_filter_file = os.path.join( self._final_dir, "coverage" + self._url_program_id + ".filter" )
+            coverage_filter_file = os.path.join( self._final_dir, "coverage" + self._url_program_id + ".cov_filter" )
             logger.trace( "Adding target gcovr filter file =[{}]".format( as_notice(coverage_filter_file) ) )
             target.append( coverage_filter_file )
 
@@ -366,10 +366,10 @@ class CollateCoverageFilesEmitter(object):
         if not self._destination:
             self._destination = env['abs_final_dir']
 
-        filter_node = next( ( s for s in source if os.path.splitext(str(s))[1] == ".filter" ), None )
+        filter_node = next( ( s for s in source if os.path.splitext(str(s))[1] == ".cov_filter" ), None )
 
         if filter_node:
-            output_summary = os.path.splitext(str(filter_node))[0] + ".txt"
+            output_summary = os.path.splitext(str(filter_node))[0] + ".cov_files"
             target.append( output_summary )
 
             logger.trace( "Filter node = [{}]".format( as_notice( str(filter_node) ) ) )
@@ -401,7 +401,7 @@ class CollateCoverageFilesAction(object):
         if not self._destination:
             self._destination = env['abs_final_dir']
 
-        filter_node = next( ( s for s in source if os.path.splitext(str(s))[1] == ".filter" ), None )
+        filter_node = next( ( s for s in source if os.path.splitext(str(s))[1] == ".cov_filter" ), None )
 
         if filter_node:
             final_dir = os.path.split( str(filter_node) )[0]
@@ -433,9 +433,11 @@ class CollateCoverageIndexEmitter(object):
 
     def __call__( self, target, source, env ):
 
-        variant_index_file = os.path.join( env['abs_final_dir'], "coverage_index.html" )
-        target.append( variant_index_file )
-        env.Clean( source, os.path.join( self._destination, os.path.split( variant_index_file )[1] ) )
+        files_node = next( ( s for s in source if os.path.splitext(str(s))[1] == ".cov_files" ), None )
+        if files_node:
+            variant_index_file = os.path.join( env['abs_final_dir'], "coverage_index.html" )
+            target.append( variant_index_file )
+            env.Clean( source, os.path.join( self._destination, os.path.split( variant_index_file )[1] ) )
 
         return target, source
 
@@ -555,37 +557,39 @@ class CollateCoverageIndexAction(object):
 
     def __call__( self, target, source, env ):
 
-        if not self._destination:
-            self._destination = env['abs_final_dir']
+        files_node = next( ( s for s in source if os.path.splitext(str(s))[1] == ".cov_files" ), None )
+        if files_node:
+            if not self._destination:
+                self._destination = env['abs_final_dir']
 
-        variant_index_path = os.path.join( env['abs_final_dir'], "coverage_index.html" )
-        summary_files = env.Glob( os.path.join( env['abs_final_dir'], "coverage--*.log" ) )
+            variant_index_path = os.path.join( env['abs_final_dir'], "coverage_index.html" )
+            summary_files = env.Glob( os.path.join( env['abs_final_dir'], "coverage--*.log" ) )
 
-        with open( variant_index_path, 'w' ) as variant_index_file:
+            with open( variant_index_path, 'w' ) as variant_index_file:
 
-            template = self.get_template()
+                template = self.get_template()
 
-            coverage = coverage_entry( coverage_file=self.summary_name(env) )
+                coverage = coverage_entry( coverage_file=self.summary_name(env) )
 
-            for path in summary_files:
-                with open( str(path), 'r' ) as summary_file:
-                    index_file = summary_file.readline()
-                    lines_summary = summary_file.readline()
-                    branches_summary = summary_file.readline()
+                for path in summary_files:
+                    with open( str(path), 'r' ) as summary_file:
+                        index_file = summary_file.readline()
+                        lines_summary = summary_file.readline()
+                        branches_summary = summary_file.readline()
 
-                    coverage.append( self.get_entry( index_file, lines_summary, branches_summary ) )
+                        coverage.append( self.get_entry( index_file, lines_summary, branches_summary ) )
 
-            variant_index_file.write(
-                template.render(
-                    coverage_summary = coverage,
-                    coverage_entries = coverage.entries,
-                    hrf = shorthand_number_format,
+                variant_index_file.write(
+                    template.render(
+                        coverage_summary = coverage,
+                        coverage_entries = coverage.entries,
+                        hrf = shorthand_number_format,
+                    )
                 )
-            )
 
-            print "COVERAGE = {:.2f}% : {:d}/{:d}".format( coverage.lines_percent, coverage.lines_covered, coverage.lines_total )
+                print "COVERAGE = {:.2f}% : {:d}/{:d}".format( coverage.lines_percent, coverage.lines_covered, coverage.lines_total )
 
-        env.CopyFiles( self._destination, variant_index_path )
+            env.CopyFiles( self._destination, variant_index_path )
 
         return None
 
