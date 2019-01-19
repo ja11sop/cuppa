@@ -23,6 +23,10 @@ class CoverageMethod(object):
 
 
     def __call__( self, env, program, sources, final_dir=None, include_patterns=None, exclude_dependencies=False, exclude_patterns=None ):
+
+        if not env['variant_actions'].has_key('cov') and not env['variant_actions'].has_key('test'):
+            return []
+
         if final_dir == None:
             final_dir = env['abs_final_dir']
 
@@ -67,6 +71,9 @@ class CollateCoverageFilesMethod(object):
 
     def __call__( self, env, sources, destination=None ):
 
+        if not env['variant_actions'].has_key('cov') and not env['variant_actions'].has_key('test'):
+            return []
+
         emitter, builder = env['toolchain'].coverage_collate_files( destination )
 
         if not emitter and not builder:
@@ -92,6 +99,9 @@ class CollateCoverageIndexMethod(object):
         pass
 
     def __call__( self, env, sources, destination=None ):
+
+        if not env['variant_actions'].has_key('cov') and not env['variant_actions'].has_key('test'):
+            return []
 
         emitter, builder = env['toolchain'].coverage_collate_index( destination )
 

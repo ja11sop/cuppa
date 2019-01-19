@@ -39,7 +39,7 @@ class BuildTestMethod:
 
         actions = env['variant_actions']
 
-        if actions.has_key('test') or actions.has_key('cov') or actions.has_key('force_test'):
+        if actions.has_key('test') or actions.has_key('force_test'):
             if not runner:
                 runner = self._default_runner
 
