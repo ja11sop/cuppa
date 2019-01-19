@@ -427,13 +427,15 @@ class CollateCoverageFilesAction(object):
 class CollateCoverageIndexEmitter(object):
 
     def __init__( self, destination=None ):
-        pass
-
+        self._destination = destination
+        if not self._destination:
+            self._destination = env['abs_final_dir']
 
     def __call__( self, target, source, env ):
 
         variant_index_file = os.path.join( env['abs_final_dir'], "coverage_index.html" )
         target.append( variant_index_file )
+        env.Clean( source, os.path.join( self._destination, os.path.split( variant_index_file )[1] ) )
 
         return target, source
 
