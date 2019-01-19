@@ -113,7 +113,6 @@ class CoverageSuite(object):
         self._name = name
         self._scons_env = scons_env
         self._final_dir = final_dir
-        self._suites_key = NotifyProgress.key( scons_env )
         self._index_file = os.path.join( self._final_dir, self._url_program_id + "index.html" )
 
         self._include_regexes = self.regexes_from_patterns( include_patterns )
