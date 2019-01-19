@@ -43,8 +43,8 @@ setup(
     package_data = {
         'cuppa': [
             'VERSION',
-            os.path.join( 'dependencies','boost','boost_test_patch.diff' )
-            os.path.join( 'cpp','templates','coverage_index.html' )
+            os.path.join( 'dependencies','boost','boost_test_patch.diff' ),
+            os.path.join( 'cpp','templates','coverage_index.html' ),
         ]
     },
     install_requires = [
@@ -70,6 +70,6 @@ setup(
     keywords = [
         'scons',
         'build',
-        'c++'
+        'c++',
     ]
 )
