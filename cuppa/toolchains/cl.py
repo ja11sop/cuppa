@@ -268,7 +268,11 @@ class Cl(object):
         return None, None
 
 
-    def coverage_copy_files( self, destination ):
+    def coverage_collate_files( self, destination=None ):
+        return None, None
+
+
+    def coverage_collate_index( self, destination=None ):
         return None, None
 
 

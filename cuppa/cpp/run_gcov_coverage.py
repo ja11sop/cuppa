@@ -15,10 +15,11 @@ import re
 import itertools
 import glob
 
+from jinja2 import Environment, PackageLoader, select_autoescape
+
 from SCons.Script import Glob, Flatten
 
 # construct imports
-import cuppa.progress
 from cuppa.output_processor import IncrementalSubProcess, command_available
 from cuppa.colourise import as_notice, as_info, as_warning, as_error
 from cuppa.log import logger
@@ -89,13 +90,9 @@ def lazy_create_path( path ):
 
 class CoverageSuite(object):
 
-    suites = {}
-
     @classmethod
     def create( cls, program_id, name, scons_env, final_dir, include_patterns=[], exclude_patterns=[] ):
-        if not name in cls.suites:
-            cls.suites[name] = CoverageSuite( program_id, name, scons_env, final_dir, include_patterns=include_patterns, exclude_patterns=exclude_patterns )
-        return cls.suites[name]
+        return CoverageSuite( program_id, name, scons_env, final_dir, include_patterns=include_patterns, exclude_patterns=exclude_patterns )
 
 
     @classmethod
@@ -116,21 +113,14 @@ class CoverageSuite(object):
         self._name = name
         self._scons_env = scons_env
         self._final_dir = final_dir
+        self._suites_key = NotifyProgress.key( scons_env )
+        self._index_file = os.path.join( self._final_dir, self._url_program_id + "index.html" )
 
         self._include_regexes = self.regexes_from_patterns( include_patterns )
         self._exclude_regexes = self.regexes_from_patterns( exclude_patterns )
 
-        #cuppa.progress.NotifyProgress.register_callback( scons_env, self.on_progress )
-        self._suite = {}
 
-
-    #def on_progress( self, progress, sconscript, variant, env, target, source ):
-    #    if progress == 'finished':
-    #        self.exit_suite()
-    #        del self.suites[self._name]
-
-
-    def exit_suite( self, target ):
+    def run_suite( self, target ):
         env = self._scons_env
         self._run_gcovr( target, env['build_dir'], self._final_dir, env['working_dir'], env['sconscript_toolchain_build_dir'], self._include_regexes, self._exclude_regexes )
 
@@ -161,7 +151,7 @@ class CoverageSuite(object):
         for exclude_regex in exclude_regexes:
             gcov_excludes += ' --gcov-exclude="{}"'.format( exclude_regex )
 
-        command = 'gcovr -g {gcov_includes} {gcov_excludes} -k -r . --html --html-details -o {index_file}'.format(
+        command = 'gcovr -g {gcov_includes} {gcov_excludes} -s -k -r . --html --html-details -o {index_file}'.format(
             regex_filter=regex_filter,
             gcov_includes = gcov_includes,
             gcov_excludes = gcov_excludes,
@@ -169,7 +159,8 @@ class CoverageSuite(object):
 
         return_code, output = run_command( command, working_dir, self._scons_env )
 
-        new_index_file = os.path.join( output_dir, "coverage" + self._url_program_id + ".html" )
+        coverage_index_basename = "coverage" + self._url_program_id + ".html"
+        new_index_file = os.path.join( output_dir, coverage_index_basename )
         try:
             os.rename( index_file, new_index_file )
         except OSError as e:
@@ -178,6 +169,10 @@ class CoverageSuite(object):
                         as_notice( new_index_file ),
                         as_error( str(e) )
             ) )
+
+        coverage_summary_path = os.path.splitext( new_index_file )[0] + ".log"
+        with open( coverage_summary_path, 'w' ) as coverage_summary_file:
+            coverage_summary_file.write( coverage_index_basename + "\n" + output  )
 
         logger.trace( "gcovr HTML file filter = [{}]".format( as_notice(html_base_name) ) )
         coverage_files = Glob( html_base_name + '*.html' )
@@ -242,6 +237,10 @@ class RunGcovCoverageEmitter(object):
             coverage_index_file = os.path.join( self._final_dir, "coverage" + self._url_program_id + ".html" )
             logger.trace( "Adding target gcovr index file =[{}]".format( as_notice(coverage_index_file) ) )
             target.append( coverage_index_file )
+
+            coverage_summary_file = os.path.join( self._final_dir, "coverage" + self._url_program_id + ".log" )
+            logger.trace( "Adding target gcovr summary file =[{}]".format( as_notice(coverage_summary_file) ) )
+            target.append( coverage_summary_file )
 
             coverage_filter_file = os.path.join( self._final_dir, "coverage" + self._url_program_id + ".filter" )
             logger.trace( "Adding target gcovr filter file =[{}]".format( as_notice(coverage_filter_file) ) )
@@ -350,20 +349,23 @@ class RunGcovCoverage(object):
             with open( gcov_log_path, 'w' ) as summary_file:
                 summary_file.write( output )
 
-                coverage_suite.exit_suite( self._target )
+                coverage_suite.run_suite( self._target )
         else:
             print output
             os.remove( gcov_log_path )
 
 
 
-class CopyCoverageFilesEmitter:
+class CollateCoverageFilesEmitter(object):
 
-    def __init__( self, destination ):
+    def __init__( self, destination=None ):
         self._destination = destination
 
 
     def __call__( self, target, source, env ):
+
+        if not self._destination:
+            self._destination = env['abs_final_dir']
 
         filter_node = next( ( s for s in source if os.path.splitext(str(s))[1] == ".filter" ), None )
 
@@ -389,13 +391,16 @@ class CopyCoverageFilesEmitter:
         return target, source
 
 
-class CopyCoverageFilesAction:
+class CollateCoverageFilesAction(object):
 
-    def __init__( self, destination ):
+    def __init__( self, destination=None ):
         self._destination = destination
 
 
     def __call__( self, target, source, env ):
+
+        if not self._destination:
+            self._destination = env['abs_final_dir']
 
         filter_node = next( ( s for s in source if os.path.splitext(str(s))[1] == ".filter" ), None )
 
@@ -416,6 +421,183 @@ class CopyCoverageFilesAction:
                 with open( str(target[0]), 'w' ) as summary_file:
                     for f in output_files:
                         summary_file.write( str(f) )
+        return None
+
+
+
+class CollateCoverageIndexEmitter(object):
+
+    def __init__( self, destination=None ):
+        pass
+
+
+    def __call__( self, target, source, env ):
+
+        variant_index_file = os.path.join( env['abs_final_dir'], "coverage_index.html" )
+        target.append( variant_index_file )
+
+        return target, source
+
+
+jinja2_env = None
+
+def jinja2_templates():
+    global jinja2_env
+    if jinja2_env:
+        return jinja2_env
+    else:
+        jinja2_env = Environment(
+            loader=PackageLoader( 'cuppa', 'cpp/templates' ),
+            autoescape=select_autoescape(['html', 'xml'])
+        )
+        return jinja2_env
+
+
+class coverage_entry(object):
+
+    entry_regex = re.compile(
+        r"(?P<coverage_file>coverage[-#][-#][#%@$~\w&_:+/\.-]+)"
+         " lines: (?P<lines_percent>[\d.]+)% [(](?P<lines_covered>\d+)[\D]+(?P<lines_total>\d+)[)]"
+         " branches: (?P<branches_percent>[\d.]+)% [(](?P<branches_covered>\d+)[\D]+(?P<branches_total>\d+)[)]"
+    )
+
+    @classmethod
+    def get_progress_lines_status( cls, percent ):
+        if percent < 75.0:
+            return "bg-danger"
+        elif percent < 90.0:
+            return "bg-warning"
+        return "bg-success"
+
+    @classmethod
+    def get_lines_status( cls, percent ):
+        if percent < 75.0:
+            return "alert-danger"
+        elif percent < 90.0:
+            return "alert-warning"
+        return "alert-success"
+
+    @classmethod
+    def get_progress_branches_status( cls, percent ):
+        if percent < 40.0:
+            return "bg-danger"
+        elif percent < 50.0:
+            return "bg-warning"
+        return "bg-success"
+
+    @classmethod
+    def get_branches_status( cls, percent ):
+        if percent < 40.0:
+            return "alert-danger"
+        elif percent < 50.0:
+            return "alert-warning"
+        return "alert-success"
+
+
+    def __init__( self, coverage_file=None, entry_string=None ):
+
+        self.coverage_file = coverage_file and coverage_file or ""
+        self.lines_percent = 0.0
+        self.lines_covered = 0
+        self.lines_total   = 0
+        self.branches_percent = 0.0
+        self.branches_covered = 0
+        self.branches_total   = 0
+        self.progress_lines_status = ""
+        self.lines_status = ""
+        self.entries = []
+
+        if entry_string:
+            matches = re.match( self.entry_regex, entry_string )
+            if matches:
+                self.coverage_file = matches.group( 'coverage_file' )
+                self.lines_percent = float( matches.group( 'lines_percent' ) )
+                self.lines_covered = int( matches.group( 'lines_covered' ) )
+                self.lines_total = int( matches.group( 'lines_total' ) )
+                self.branches_percent = float( matches.group( 'branches_percent' ) )
+                self.branches_covered = int( matches.group( 'branches_covered' ) )
+                self.branches_total = int( matches.group( 'branches_total' ) )
+                self.progress_lines_status = self.get_progress_lines_status( self.lines_percent )
+                self.lines_status = self.get_lines_status( self.lines_percent )
+                self.progress_branches_status = self.get_progress_branches_status( self.branches_percent )
+                self.branches_status = self.get_branches_status( self.branches_percent )
+
+
+    def append( self, entry ):
+        self.entries.append( entry )
+        self.lines_covered += entry.lines_covered
+        self.lines_total += entry.lines_total
+        self.lines_percent = 100.0 * float(self.lines_covered) / float(self.lines_total)
+        self.branches_covered += entry.branches_covered
+        self.branches_total += entry.branches_total
+        self.branches_percent = 100.0 * float(self.branches_covered) / float(self.branches_total)
+        self.progress_lines_status = self.get_progress_lines_status( self.lines_percent )
+        self.lines_status = self.get_lines_status( self.lines_percent )
+        self.progress_branches_status = self.get_progress_branches_status( self.branches_percent )
+        self.branches_status = self.get_branches_status( self.branches_percent )
+
+
+def shorthand_number_format( number ):
+    number = float('{:.5g}'.format(number))
+    magnitude = 0
+    while abs(number) >= 1000:
+        magnitude += 1
+        number /= 1000.0
+    return '{}{}'.format( '{:f}'.format(number).rstrip('0').rstrip('.'), ['', 'K', 'M', 'B', 'T'][magnitude] )
+
+
+class CollateCoverageIndexAction(object):
+
+    def __init__( self, destination=None ):
+        self._destination = destination
+
+
+    def __call__( self, target, source, env ):
+
+        if not self._destination:
+            self._destination = env['abs_final_dir']
+
+        variant_index_path = os.path.join( env['abs_final_dir'], "coverage_index.html" )
+        summary_files = env.Glob( os.path.join( env['abs_final_dir'], "coverage--*.log" ) )
+
+        with open( variant_index_path, 'w' ) as variant_index_file:
+
+            template = self.get_template()
+
+            coverage = coverage_entry( coverage_file=self.summary_name(env) )
+
+            for path in summary_files:
+                with open( str(path), 'r' ) as summary_file:
+                    index_file = summary_file.readline()
+                    lines_summary = summary_file.readline()
+                    branches_summary = summary_file.readline()
+
+                    coverage.append( self.get_entry( index_file, lines_summary, branches_summary ) )
+
+            variant_index_file.write(
+                template.render(
+                    coverage_summary = coverage,
+                    coverage_entries = coverage.entries,
+                    hrf = shorthand_number_format,
+                )
+            )
+
+            print "COVERAGE = {:.2f}% : {:d}/{:d}".format( coverage.lines_percent, coverage.lines_covered, coverage.lines_total )
+
+        env.CopyFiles( self._destination, variant_index_path )
 
         return None
+
+
+    @classmethod
+    def summary_name( cls, env ):
+        return os.path.split( env['sconscript_toolchain_build_dir'] )[0] + "/*"
+
+
+    def get_template( self ):
+        return jinja2_templates().get_template('coverage_index.html')
+
+
+    def get_entry( self, index_file, lines_summary, branches_summary ):
+        return coverage_entry( entry_string="{} {} {}".format( index_file.strip(), lines_summary.strip(), branches_summary.strip() ) )
 

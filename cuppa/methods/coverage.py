@@ -59,27 +59,56 @@ class CoverageMethod(object):
         cuppa_env.add_method( "Coverage", cls() )
 
 
-class CopyCoverageFilesMethod(object):
+
+class CollateCoverageFilesMethod(object):
 
     def __init__( self ):
         pass
 
-    def __call__( self, env, destination, sources ):
+    def __call__( self, env, sources, destination=None ):
 
-        emitter, builder = env['toolchain'].coverage_copy_files( destination )
+        emitter, builder = env['toolchain'].coverage_collate_files( destination )
 
         if not emitter and not builder:
             return None
 
-        env['BUILDERS']['CopyCoverageFilesBuilder'] = env.Builder( action=builder, emitter=emitter )
+        env['BUILDERS']['CollateCoverageFilesBuilder'] = env.Builder( action=builder, emitter=emitter )
 
-        summary_file = env.CopyCoverageFilesBuilder( [], Flatten( [ sources ] ) )
+        summary_files = env.CollateCoverageFilesBuilder( [], Flatten( [ sources ] ) )
 
-        cuppa.progress.NotifyProgress.add( env, summary_file )
-        return summary_file
+        cuppa.progress.NotifyProgress.add( env, summary_files )
+        return summary_files
 
 
     @classmethod
     def add_to_env( cls, cuppa_env ):
-        cuppa_env.add_method( "CopyCoverageFiles", cls() )
+        cuppa_env.add_method( "CollateCoverageFiles", cls() )
+
+
+
+class CollateCoverageIndexMethod(object):
+
+    def __init__( self ):
+        pass
+
+    def __call__( self, env, sources, destination=None ):
+
+        emitter, builder = env['toolchain'].coverage_collate_index( destination )
+
+        if not emitter and not builder:
+            return None
+
+        env['BUILDERS']['CollateCoverageIndexBuilder'] = env.Builder( action=builder, emitter=emitter )
+
+        index_file = env.CollateCoverageIndexBuilder( [], Flatten( [ sources ] ) )
+
+        cuppa.progress.NotifyProgress.add( env, index_file )
+        return index_file
+
+
+    @classmethod
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "CollateCoverageIndex", cls() )
+
+
 

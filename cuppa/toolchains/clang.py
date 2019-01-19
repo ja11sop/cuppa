@@ -23,7 +23,7 @@ from cuppa.cpp.create_version_file_cpp import CreateVersionHeaderCpp, CreateVers
 from cuppa.cpp.run_boost_test import RunBoostTestEmitter, RunBoostTest
 from cuppa.cpp.run_patched_boost_test import RunPatchedBoostTestEmitter, RunPatchedBoostTest
 from cuppa.cpp.run_process_test import RunProcessTestEmitter, RunProcessTest
-from cuppa.cpp.run_gcov_coverage import RunGcovCoverageEmitter, RunGcovCoverage, CopyCoverageFilesEmitter, CopyCoverageFilesAction
+from cuppa.cpp.run_gcov_coverage import RunGcovCoverageEmitter, RunGcovCoverage, CollateCoverageFilesEmitter, CollateCoverageFilesAction, CollateCoverageIndexEmitter, CollateCoverageIndexAction
 from cuppa.output_processor import command_available
 from cuppa.colourise import as_info, as_notice
 from cuppa.log import logger
@@ -388,8 +388,13 @@ class Clang(object):
         #return RunGcovCoverageEmitter( program, final_dir, coverage_tool ), RunGcovCoverage( program, final_dir, coverage_tool, include_patterns, exclude_patterns )
         return None, None
 
-    def coverage_copy_files( self, destination ):
-        #return CopyCoverageFilesEmitter( destination ), CopyCoverageFilesAction( destination )
+    def coverage_collate_files( self, destination=None ):
+        #return CollateCoverageFilesEmitter( destination ), CollateCoverageFilesAction( destination )
+        return None, None
+
+
+    def coverage_collate_index( self, destination=None ):
+        #return CollateCoverageIndexEmitter( destination ), CollateCoverageIndexAction( destination )
         return None, None
 
 

@@ -1,4 +1,4 @@
-#          Copyright Jamie Allsop 2014-2018
+#          Copyright Jamie Allsop 2014-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -26,6 +26,7 @@ setup(
         'cuppa',
         'cuppa.core',
         'cuppa.cpp',
+        'cuppa.cpp.templates',
         'cuppa.dependencies',
         'cuppa.dependencies.boost',
         'cuppa.methods',
@@ -43,13 +44,15 @@ setup(
         'cuppa': [
             'VERSION',
             os.path.join( 'dependencies','boost','boost_test_patch.diff' )
+            os.path.join( 'cpp','templates','coverage_index.html' )
         ]
     },
     install_requires = [
         'colorama',
         'gcovr',
         'lxml',
-        'grip'
+        'grip',
+        'jinja2',
     ],
     entry_points = {
         'cuppa.method.plugins' : [
