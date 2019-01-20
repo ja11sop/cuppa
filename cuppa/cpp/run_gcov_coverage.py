@@ -23,6 +23,7 @@ from SCons.Script import Glob, Flatten
 from cuppa.output_processor import IncrementalSubProcess, command_available
 from cuppa.colourise import as_notice, as_info, as_warning, as_error
 from cuppa.log import logger
+from cuppa.progress import NotifyProgress
 
 
 url_block_sep = '--'
@@ -404,6 +405,7 @@ class CollateCoverageFilesAction(object):
         filter_node = next( ( s for s in source if os.path.splitext(str(s))[1] == ".cov_filter" ), None )
 
         if filter_node:
+
             final_dir = os.path.split( str(filter_node) )[0]
             filter_pattern = None
 
@@ -551,6 +553,16 @@ def shorthand_number_format( number ):
 
 class CollateCoverageIndexAction(object):
 
+    all_lines_covered = 0
+    all_lines_total   = 0
+
+
+    @classmethod
+    def update_coverage( cls, covered, total ):
+        cls.all_lines_covered += covered
+        cls.all_lines_total += total
+
+
     def __init__( self, destination=None ):
         self._destination = destination
 
@@ -559,6 +571,7 @@ class CollateCoverageIndexAction(object):
 
         files_node = next( ( s for s in source if os.path.splitext(str(s))[1] == ".cov_files" ), None )
         if files_node:
+
             if not self._destination:
                 self._destination = env['abs_final_dir']
 
@@ -587,11 +600,18 @@ class CollateCoverageIndexAction(object):
                     )
                 )
 
-                print "COVERAGE = {:.2f}% : {:d}/{:d}".format( coverage.lines_percent, coverage.lines_covered, coverage.lines_total )
+                self.update_coverage( coverage.lines_covered, coverage.lines_total )
 
             env.CopyFiles( self._destination, variant_index_path )
 
         return None
+
+
+    @classmethod
+    def on_progress( cls, progress, sconscript, variant, env, target, source ):
+        if progress == 'sconstruct_end' and cls.all_lines_total > 0:
+            lines_percent = 100.0 * float(cls.all_lines_covered) / float(cls.all_lines_total)
+            print "COVERAGE = {:.2f}% : {:d}/{:d}".format( lines_percent, cls.all_lines_covered, cls.all_lines_total )
 
 
     @classmethod
@@ -606,3 +626,5 @@ class CollateCoverageIndexAction(object):
     def get_entry( self, index_file, lines_summary, branches_summary ):
         return coverage_entry( entry_string="{} {} {}".format( index_file.strip(), lines_summary.strip(), branches_summary.strip() ) )
 
+
+NotifyProgress.register_callback( None, CollateCoverageIndexAction.on_progress )
