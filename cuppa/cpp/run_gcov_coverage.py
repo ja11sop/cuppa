@@ -17,16 +17,22 @@ import glob
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
-from SCons.Script import Glob, Flatten
+from SCons.Script import Glob, Flatten, Dir
 
 # construct imports
 from cuppa.output_processor import IncrementalSubProcess, command_available
 from cuppa.colourise import as_notice, as_info, as_warning, as_error
 from cuppa.log import logger
 from cuppa.progress import NotifyProgress
+import cuppa.recursive_glob
+import cuppa.path
 
 
 url_block_sep = '--'
+coverage_id = 'coverage'
+index_id = 'index'
+coverage_marker = coverage_id + url_block_sep
+coverage_index_marker = coverage_id + '-' + index_id + url_block_sep
 
 
 def gcov_offset_path( file_path, env ):
@@ -358,22 +364,31 @@ class RunGcovCoverage(object):
 
 class CollateCoverageFilesEmitter(object):
 
+    report_regex = re.compile(
+        coverage_marker + r"[#%@$~\w&_:+/\.-]+[.]html$"
+    )
+
     def __init__( self, destination=None ):
         self._destination = destination
-
 
     def __call__( self, target, source, env ):
 
         if not self._destination:
             self._destination = env['abs_final_dir']
+        else:
+            self._destination = self._destination + env['sconscript_build_dir']
 
+        report_node = next( ( s for s in source if re.match( self.report_regex, os.path.split(str(s))[1] ) ), None )
         filter_node = next( ( s for s in source if os.path.splitext(str(s))[1] == ".cov_filter" ), None )
 
-        if filter_node:
+        logger.trace( "Report node = [{}]".format( as_notice( str(report_node) ) ) )
+        logger.trace( "Filter node = [{}]".format( as_notice( str(filter_node) ) ) )
+
+        if report_node and filter_node:
             output_summary = os.path.splitext(str(filter_node))[0] + ".cov_files"
             target.append( output_summary )
 
-            logger.trace( "Filter node = [{}]".format( as_notice( str(filter_node) ) ) )
+            env.Clean( source, os.path.join( self._destination, os.path.split(str(report_node))[1] ) )
 
             clean_pattern = None
             if filter_node:
@@ -395,16 +410,22 @@ class CollateCoverageFilesAction(object):
 
     def __init__( self, destination=None ):
         self._destination = destination
+        self.report_regex = CollateCoverageFilesEmitter.report_regex
 
 
     def __call__( self, target, source, env ):
 
         if not self._destination:
             self._destination = env['abs_final_dir']
+        else:
+            self._destination = self._destination + env['sconscript_build_dir']
 
+        report_node = next( ( s for s in source if re.match( self.report_regex, os.path.split(str(s))[1] ) ), None )
         filter_node = next( ( s for s in source if os.path.splitext(str(s))[1] == ".cov_filter" ), None )
 
-        if filter_node:
+        if report_node and filter_node:
+
+            env.CopyFiles( self._destination, report_node )
 
             final_dir = os.path.split( str(filter_node) )[0]
             filter_pattern = None
@@ -425,21 +446,43 @@ class CollateCoverageFilesAction(object):
         return None
 
 
+def coverage_index_name_from( env ):
+    index_base_name = env['sconscript_build_dir']
+    if index_base_name.startswith("./"):
+        index_base_name = index_base_name[2:]
+    index_base_name = index_base_name.rstrip('/')
+    index_base_name = index_base_name.replace('/', '.')
+    sconscript_file, ext = os.path.splitext( os.path.split( env['sconscript_file'] )[1] )
+    if not ext and not sconscript_file.lower() == "sconscript":
+        return coverage_index_marker + index_base_name + sconscript_file + ".html"
+    else:
+        return coverage_index_marker + index_base_name + ".html"
+
 
 class CollateCoverageIndexEmitter(object):
 
     def __init__( self, destination=None ):
         self._destination = destination
-        if not self._destination:
-            self._destination = env['abs_final_dir']
 
     def __call__( self, target, source, env ):
+        destination = self._destination
+        if not destination:
+            destination = env['abs_final_dir']
+            env.Clean( source, os.path.join( self._destination, "coverage-index.html" ) )
+        else:
+            env.Clean( source, os.path.join( self._destination, "coverage-index.html" ) )
+            destination = self._destination + env['sconscript_build_dir']
 
         files_node = next( ( s for s in source if os.path.splitext(str(s))[1] == ".cov_files" ), None )
         if files_node:
-            variant_index_file = os.path.join( env['abs_final_dir'], "coverage_index.html" )
+            variant_index_file = os.path.join( env['abs_final_dir'], coverage_index_name_from( env ) )
             target.append( variant_index_file )
-            env.Clean( source, os.path.join( self._destination, os.path.split( variant_index_file )[1] ) )
+            env.Clean( source, os.path.join( destination, os.path.split( variant_index_file )[1] ) )
+
+            variant_summary_file = os.path.splitext( variant_index_file )[0] + ".log"
+            target.append( variant_summary_file )
+
+            CoverageIndexBuilder.register_coverage_folders( final_dir=env['abs_final_dir'], destination_dir=self._destination )
 
         return target, source
 
@@ -461,9 +504,10 @@ def jinja2_templates():
 class coverage_entry(object):
 
     entry_regex = re.compile(
-        r"(?P<coverage_file>coverage[-#][-#][#%@$~\w&_:+/\.-]+)"
+        r"(?P<coverage_file>coverage[-#][#%@$~\w&_:+/\.-]+)"
          " lines: (?P<lines_percent>[\d.]+)% [(](?P<lines_covered>\d+)[\D]+(?P<lines_total>\d+)[)]"
          " branches: (?P<branches_percent>[\d.]+)% [(](?P<branches_covered>\d+)[\D]+(?P<branches_total>\d+)[)]"
+         "( subdir: (?P<subdir>[#%@$~\w&_ :+/\.-]+))?"
     )
 
     @classmethod
@@ -499,9 +543,24 @@ class coverage_entry(object):
         return "alert-success"
 
 
-    def __init__( self, coverage_file=None, entry_string=None ):
+    @classmethod
+    def create_from_string( cls, string, destination=None ):
+        return cls( entry_string = string, destination=destination )
+
+
+    @classmethod
+    def name_from_file( cls, filename ):
+        name = os.path.splitext( filename )[0]
+        if name.startswith( coverage_marker ):
+            name = name.replace( coverage_marker, "" )
+        return name
+
+
+    def __init__( self, coverage_file=None, entry_string=None, destination=None ):
 
         self.coverage_file = coverage_file and coverage_file or ""
+        self.coverage_name = coverage_file and self.name_from_file( coverage_file ) or ""
+        self.subdir = ""
         self.lines_percent = 0.0
         self.lines_covered = 0
         self.lines_total   = 0
@@ -516,6 +575,8 @@ class coverage_entry(object):
             matches = re.match( self.entry_regex, entry_string )
             if matches:
                 self.coverage_file = matches.group( 'coverage_file' )
+                self.coverage_name = self.coverage_file and self.name_from_file( self.coverage_file ) or ""
+                self.subdir = matches.group( 'subdir' ) and matches.group( 'subdir' ) or ""
                 self.lines_percent = float( matches.group( 'lines_percent' ) )
                 self.lines_covered = int( matches.group( 'lines_covered' ) )
                 self.lines_total = int( matches.group( 'lines_total' ) )
@@ -527,41 +588,39 @@ class coverage_entry(object):
                 self.progress_branches_status = self.get_progress_branches_status( self.branches_percent )
                 self.branches_status = self.get_branches_status( self.branches_percent )
 
+        if self.subdir:
+            self.coverage_file = os.path.join( self.subdir, self.coverage_file )
+            self.coverage_name = os.path.join( self.subdir, self.coverage_name )
+
+        self.destination_file = destination and os.path.join( destination, os.path.split(self.coverage_file)[1] ) or ""
+
 
     def append( self, entry ):
         self.entries.append( entry )
         self.lines_covered += entry.lines_covered
         self.lines_total += entry.lines_total
-        self.lines_percent = 100.0 * float(self.lines_covered) / float(self.lines_total)
+        if self.lines_total:
+            self.lines_percent = 100.0 * float(self.lines_covered) / float(self.lines_total)
         self.branches_covered += entry.branches_covered
         self.branches_total += entry.branches_total
-        self.branches_percent = 100.0 * float(self.branches_covered) / float(self.branches_total)
+        if self.branches_total:
+            self.branches_percent = 100.0 * float(self.branches_covered) / float(self.branches_total)
         self.progress_lines_status = self.get_progress_lines_status( self.lines_percent )
         self.lines_status = self.get_lines_status( self.lines_percent )
         self.progress_branches_status = self.get_progress_branches_status( self.branches_percent )
         self.branches_status = self.get_branches_status( self.branches_percent )
 
 
-def shorthand_number_format( number ):
+def lines_of_code_format( number ):
     number = float('{:.5g}'.format(number))
-    magnitude = 0
+    base = 0
     while abs(number) >= 1000:
-        magnitude += 1
+        base += 1
         number /= 1000.0
-    return '{}{}'.format( '{:f}'.format(number).rstrip('0').rstrip('.'), ['', 'K', 'M', 'B', 'T'][magnitude] )
+    return '{}{}'.format( '{:f}'.format(number).rstrip('0').rstrip('.'), ['', 'k', 'M', 'B', 'T'][base] )
 
 
 class CollateCoverageIndexAction(object):
-
-    all_lines_covered = 0
-    all_lines_total   = 0
-
-
-    @classmethod
-    def update_coverage( cls, covered, total ):
-        cls.all_lines_covered += covered
-        cls.all_lines_total += total
-
 
     def __init__( self, destination=None ):
         self._destination = destination
@@ -574,13 +633,14 @@ class CollateCoverageIndexAction(object):
 
             if not self._destination:
                 self._destination = env['abs_final_dir']
+            else:
+                self._destination = self._destination + env['sconscript_build_dir']
 
-            variant_index_path = os.path.join( env['abs_final_dir'], "coverage_index.html" )
+            variant_index_path = os.path.join( env['abs_final_dir'], coverage_index_name_from( env ) )
+            variant_summary_path = os.path.splitext( variant_index_path )[0] + ".log"
             summary_files = env.Glob( os.path.join( env['abs_final_dir'], "coverage--*.log" ) )
 
             with open( variant_index_path, 'w' ) as variant_index_file:
-
-                template = self.get_template()
 
                 coverage = coverage_entry( coverage_file=self.summary_name(env) )
 
@@ -590,22 +650,105 @@ class CollateCoverageIndexAction(object):
                         lines_summary = summary_file.readline()
                         branches_summary = summary_file.readline()
 
-                        coverage.append( self.get_entry( index_file, lines_summary, branches_summary ) )
+                        coverage.append( CoverageIndexBuilder.get_entry( index_file, lines_summary, branches_summary, self._destination ) )
+
+                template = CoverageIndexBuilder.get_template()
 
                 variant_index_file.write(
                     template.render(
                         coverage_summary = coverage,
                         coverage_entries = coverage.entries,
-                        hrf = shorthand_number_format,
+                        LOC = lines_of_code_format,
                     )
                 )
 
-                self.update_coverage( coverage.lines_covered, coverage.lines_total )
+                #coverage--value.html
+                #lines: 100.0% (99 out of 99)
+                #branches: 50.0% (301 out of 602)
+
+                with open( variant_summary_path, 'w' ) as variant_summary_file:
+                    variant_summary_file.write(
+                        "{filename}\n"
+                        "lines: {lines_percent}% ({lines_covered} out of {lines_total})\n"
+                        "branches: {branches_percent}% ({branches_covered} out of {branches_total})\n"
+                        "subdir: {subdir}".format(
+                            filename = os.path.split( variant_index_path )[1],
+                            lines_percent = coverage.lines_percent,
+                            lines_covered = coverage.lines_covered,
+                            lines_total   = coverage.lines_total,
+                            branches_percent = coverage.branches_percent,
+                            branches_covered = coverage.branches_covered,
+                            branches_total   = coverage.branches_total,
+                            subdir           = env['sconscript_build_dir'],
+                    ) )
+
+                CoverageIndexBuilder.update_coverage( coverage )
 
             env.CopyFiles( self._destination, variant_index_path )
 
         return None
 
+    @classmethod
+    def summary_name( cls, env ):
+        return os.path.split( env['sconscript_toolchain_build_dir'] )[0] + "/*"
+
+
+class CoverageIndexBuilder(object):
+
+    all_lines_covered = 0
+    all_lines_total   = 0
+    all_coverage      = []
+    destination_dirs  = {}
+
+    @classmethod
+    def register_coverage_folders( cls, final_dir=None, destination_dir=None ):
+
+        destination_dir = str(Dir(destination_dir))
+        final_dir = str(Dir(final_dir))
+
+        if not destination_dir in cls.destination_dirs:
+            cls.destination_dirs[destination_dir] = set()
+            cls.destination_dirs[destination_dir].add( final_dir )
+        else:
+            new_common = None
+            new_folder = None
+            for path in cls.destination_dirs[destination_dir]:
+                common, tail1, tail2 = cuppa.path.split_common( path, final_dir )
+                if common and (not tail1 or not tail2):
+                    new_common = common
+                    new_folder = final_dir
+                    break
+                else:
+                    new_folder = final_dir
+            if new_common:
+                cls.destination_dirs[destination_dir].add(new_common)
+                cls.destination_dirs[destination_dir].remove(new_folder)
+            elif new_folder:
+                cls.destination_dirs[destination_dir].add(new_folder)
+
+
+    @classmethod
+    def get_template( cls ):
+        return jinja2_templates().get_template('coverage_index.html')
+
+
+    @classmethod
+    def get_entry( self, index_file, lines_summary, branches_summary, destination ):
+        entry_string = "{} {} {}".format( index_file.strip(), lines_summary.strip(), branches_summary.strip() )
+        return coverage_entry.create_from_string( entry_string, destination )
+
+
+    @classmethod
+    def get_entry_with_subdir( self, index_file, lines_summary, branches_summary, subdir, destination ):
+        entry_string = "{} {} {} {}".format( index_file.strip(), lines_summary.strip(), branches_summary.strip(), subdir.strip() )
+        return coverage_entry.create_from_string( entry_string, destination )
+
+
+    @classmethod
+    def update_coverage( cls, coverage ):
+        cls.all_lines_covered += coverage.lines_covered
+        cls.all_lines_total += coverage.lines_total
+        cls.all_coverage.append( coverage )
 
     @classmethod
     def on_progress( cls, progress, sconscript, variant, env, target, source ):
@@ -613,18 +756,43 @@ class CollateCoverageIndexAction(object):
             lines_percent = 100.0 * float(cls.all_lines_covered) / float(cls.all_lines_total)
             print "COVERAGE = {:.2f}% : {:d}/{:d}".format( lines_percent, cls.all_lines_covered, cls.all_lines_total )
 
+            pattern = coverage_index_marker + "*.html"
 
-    @classmethod
-    def summary_name( cls, env ):
-        return os.path.split( env['sconscript_toolchain_build_dir'] )[0] + "/*"
+            for destination_dir, final_dirs in cls.destination_dirs.iteritems():
+
+                coverage = coverage_entry( coverage_file=os.path.split( env['sconstruct_dir'] )[1] )
+
+                for folder in final_dirs:
+                    logger.debug( "Create coverage index file for [{}]".format( as_notice( folder ) ) )
+                    index_files = cuppa.recursive_glob.glob( folder, coverage_index_marker + "*.html" )
+
+                    for index_file in index_files:
+                        logger.debug( "Read coverage index file for [{}]".format( as_notice( str(index_file) ) ) )
+                        summary_path = os.path.splitext( str(index_file) )[0] + ".log"
+                        logger.debug( "Read coverage summary file for [{}]".format( as_notice( str(summary_path) ) ) )
+
+                        with open( str(summary_path), 'r' ) as summary_file:
+                            index_file = summary_file.readline()
+                            lines_summary = summary_file.readline()
+                            branches_summary = summary_file.readline()
+                            subdir = summary_file.readline()
+                            coverage.append( cls.get_entry_with_subdir( index_file, lines_summary, branches_summary, subdir, destination_dir ) )
+
+                master_index_path = os.path.join( destination_dir, "coverage-index.html" )
+
+                logger.debug( "Master coverage index path = [{}]".format( as_notice( master_index_path ) ) )
+
+                template = cls.get_template()
+
+                with open( master_index_path, 'w' ) as master_index_file:
+
+                    master_index_file.write(
+                        template.render(
+                            coverage_summary = coverage,
+                            coverage_entries = coverage.entries,
+                            LOC = lines_of_code_format,
+                        )
+                    )
 
 
-    def get_template( self ):
-        return jinja2_templates().get_template('coverage_index.html')
-
-
-    def get_entry( self, index_file, lines_summary, branches_summary ):
-        return coverage_entry( entry_string="{} {} {}".format( index_file.strip(), lines_summary.strip(), branches_summary.strip() ) )
-
-
-NotifyProgress.register_callback( None, CollateCoverageIndexAction.on_progress )
+NotifyProgress.register_callback( None, CoverageIndexBuilder.on_progress )
