@@ -561,10 +561,10 @@ class coverage_entry(object):
         self.coverage_file = coverage_file and coverage_file or ""
         self.coverage_name = coverage_file and self.name_from_file( coverage_file ) or ""
         self.subdir = ""
-        self.lines_percent = 0.0
+        self.lines_percent = "0.0"
         self.lines_covered = 0
         self.lines_total   = 0
-        self.branches_percent = 0.0
+        self.branches_percent = "0.0"
         self.branches_covered = 0
         self.branches_total   = 0
         self.progress_lines_status = ""
@@ -577,10 +577,10 @@ class coverage_entry(object):
                 self.coverage_file = matches.group( 'coverage_file' )
                 self.coverage_name = self.coverage_file and self.name_from_file( self.coverage_file ) or ""
                 self.subdir = matches.group( 'subdir' ) and matches.group( 'subdir' ) or ""
-                self.lines_percent = float( matches.group( 'lines_percent' ) )
+                self.lines_percent = "{:.1f}".format( float( matches.group( 'lines_percent' ) ) )
                 self.lines_covered = int( matches.group( 'lines_covered' ) )
                 self.lines_total = int( matches.group( 'lines_total' ) )
-                self.branches_percent = float( matches.group( 'branches_percent' ) )
+                self.branches_percent = "{:.1f}".format( float( matches.group( 'branches_percent' ) ) )
                 self.branches_covered = int( matches.group( 'branches_covered' ) )
                 self.branches_total = int( matches.group( 'branches_total' ) )
                 self.progress_lines_status = self.get_progress_lines_status( self.lines_percent )
@@ -600,11 +600,11 @@ class coverage_entry(object):
         self.lines_covered += entry.lines_covered
         self.lines_total += entry.lines_total
         if self.lines_total:
-            self.lines_percent = 100.0 * float(self.lines_covered) / float(self.lines_total)
+            self.lines_percent = "{:.1f}".format( 100.0 * float(self.lines_covered) / float(self.lines_total) )
         self.branches_covered += entry.branches_covered
         self.branches_total += entry.branches_total
         if self.branches_total:
-            self.branches_percent = 100.0 * float(self.branches_covered) / float(self.branches_total)
+            self.branches_percent = "{:.1f}".format( 100.0 * float(self.branches_covered) / float(self.branches_total) )
         self.progress_lines_status = self.get_progress_lines_status( self.lines_percent )
         self.lines_status = self.get_lines_status( self.lines_percent )
         self.progress_branches_status = self.get_progress_branches_status( self.branches_percent )
@@ -754,7 +754,7 @@ class CoverageIndexBuilder(object):
     def on_progress( cls, progress, sconscript, variant, env, target, source ):
         if progress == 'sconstruct_end' and cls.all_lines_total > 0:
             lines_percent = 100.0 * float(cls.all_lines_covered) / float(cls.all_lines_total)
-            print "COVERAGE = {:.2f}% : {:d}/{:d}".format( lines_percent, cls.all_lines_covered, cls.all_lines_total )
+            print "COVERAGE = {:.1f}% : {:d}/{:d}".format( lines_percent, cls.all_lines_covered, cls.all_lines_total )
 
             pattern = coverage_index_marker + "*.html"
 
