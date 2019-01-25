@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2013-2018
+#          Copyright Jamie Allsop 2013-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -283,7 +283,7 @@ def success_file_name_from( program_file ):
 
 class RunProcessTestEmitter(object):
 
-    def __init__( self, final_dir, target=None ):
+    def __init__( self, final_dir, target=None, **ignored_kwargs ):
         self._final_dir = final_dir
         self._targets = target and Flatten( target ) or None
 
@@ -341,17 +341,20 @@ class ProcessStderr(object):
 
 class RunProcessTest(object):
 
-    def __init__( self, expected, final_dir, command=None, expected_exit_code=None ):
+    def __init__( self, expected, final_dir, command=None, expected_exit_code=None, working_dir=None, **ignored_kwargs ):
         self._expected = expected
         self._final_dir = final_dir
         self._command = command
         self._expected_exit_code = expected_exit_code
+        self._working_dir = working_dir
 
 
     def __call__( self, target, source, env ):
 
         executable = str( source[0].abspath )
         working_dir, test = os.path.split( executable )
+        if self._working_dir:
+            working_dir = self._working_dir
         program_path = source[0].path
         suite = env['build_dir']
 
@@ -361,7 +364,7 @@ class RunProcessTest(object):
         test_command = executable
         if self._command:
             test_command = self._command
-            working_dir = self._final_dir
+            working_dir = self._working_dir and self._working_dir or self._final_dir
             test = os.path.relpath( executable, working_dir )
 
         test_suite = TestSuite.create( suite, env )

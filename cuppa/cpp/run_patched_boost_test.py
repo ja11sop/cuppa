@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2018
+#          Copyright Jamie Allsop 2011-2019
 #          Copyright Declan Traynor 2012
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
@@ -714,7 +714,7 @@ def success_file_name_from( program_file ):
 
 class RunPatchedBoostTestEmitter:
 
-    def __init__( self, final_dir ):
+    def __init__( self, final_dir, **ignored_kwargs ):
         self._final_dir = final_dir
 
 
@@ -739,14 +739,16 @@ class RunPatchedBoostTest:
         return line
 
 
-    def __init__( self, expected ):
+    def __init__( self, expected, final_dir, working_dir=None, **ignored_kwargs ):
         self._expected = expected
+        self._final_dir = final_dir
+        self._working_dir = working_dir
 
 
     def __call__( self, target, source, env ):
 
         executable   = str( source[0].abspath )
-        working_dir  = os.path.split( executable )[0]
+        working_dir  = self._working_dir and self._working_dir or os.path.split( executable )[0]
         program_path = source[0].path
         notifier     = Notify(env, env['show_test_output'])
 

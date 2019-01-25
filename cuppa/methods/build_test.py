@@ -30,6 +30,7 @@ class BuildTestMethod:
             cov_include_patterns=None,
             cov_exclude_dependencies=False,
             cov_exclude_patterns=None,
+            working_dir=None,
             **kwargs
     ):
 
@@ -43,7 +44,16 @@ class BuildTestMethod:
             if not runner:
                 runner = self._default_runner
 
-            test = env.Test( program, final_dir=final_dir, data=data, runner=runner, expected=expected, command=command, expected_exit_code=expected_exit_code )
+            test = env.Test(
+                program,
+                final_dir=final_dir,
+                data=data,
+                runner=runner,
+                expected=expected,
+                command=command,
+                expected_exit_code=expected_exit_code,
+                working_dir=working_dir
+            )
 
             nodes.append( test )
             if 'cov' in actions:

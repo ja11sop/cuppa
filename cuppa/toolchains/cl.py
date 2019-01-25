@@ -251,13 +251,13 @@ class Cl(object):
         return CreateVersionHeaderCpp( env, namespace, version, location, build_id=build_id )
 
 
-    def test_runner( self, tester, final_dir, expected, command=None, expected_exit_code=None, target=None ):
+    def test_runner( self, tester, final_dir, expected, **kwargs ):
         if not tester or tester =='process':
-            return RunProcessTest( expected, final_dir, command, expected_exit_code ), RunProcessTestEmitter( final_dir, target )
+            return RunProcessTest( expected, final_dir, **kwargs ), RunProcessTestEmitter( final_dir, **kwargs )
         elif tester=='boost':
-            return RunBoostTest( expected ), RunBoostTestEmitter( final_dir )
+            return RunBoostTest( expected, final_dir, **kwargs ), RunBoostTestEmitter( final_dir, **kwargs )
         elif tester=='patched_boost':
-            return RunPatchedBoostTest( expected ), RunPatchedBoostTestEmitter( final_dir )
+            return RunPatchedBoostTest( expected, final_dir, **kwargs ), RunPatchedBoostTestEmitter( final_dir, **kwargs )
 
 
     def test_runners( self ):

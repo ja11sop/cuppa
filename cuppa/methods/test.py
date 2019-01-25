@@ -19,7 +19,7 @@ class TestMethod(object):
         self._default_runner = default_test_runner
 
 
-    def __call__( self, env, source, target=None, final_dir=None, data=None, runner=None, expected='passed', command=None, expected_exit_code=None ):
+    def __call__( self, env, source, target=None, final_dir=None, data=None, runner=None, expected='passed', command=None, expected_exit_code=None, working_dir=None ):
 
         actions = env['variant_actions']
 
@@ -30,7 +30,15 @@ class TestMethod(object):
             if final_dir == None:
                 final_dir = env['abs_final_dir']
 
-            test_builder, test_emitter = env['toolchain'].test_runner( runner, final_dir, expected, command, expected_exit_code, target )
+            test_builder, test_emitter = env['toolchain'].test_runner(
+                runner,
+                final_dir,
+                expected,
+                command=command,
+                expected_exit_code=expected_exit_code,
+                target=target,
+                working_dir=working_dir
+            )
 
             env['BUILDERS']['TestBuilder'] = env.Builder( action=test_builder, emitter=test_emitter )
 
