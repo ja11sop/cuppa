@@ -19,10 +19,11 @@ class ExpandTemplateFileAction(object):
 
     def __call__( self, target, source, env ):
         from SCons.Script import Flatten
-        logger.info( "reading template file [{}]".format( as_notice( str(source[0]) ) ) )
+        logger.debug( "reading template file [{}]".format( as_notice( str(source[0]) ) ) )
         with open( str(Flatten(source)[0]), 'r' ) as template_file:
-            logger.info( "open target file [{}]".format( as_notice(str(target[0])) ) )
+            logger.debug( "open target file [{}]".format( as_notice(str(target[0])) ) )
             with open( str(target[0]), 'w' ) as expanded_file:
+                logger.debug( "expand variables matching [{}]".format( as_notice(str(kwargs)) ) )
                 expanded_file.write( template_file.read().format( **self._kwargs ) )
         return None
 
