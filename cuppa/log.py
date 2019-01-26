@@ -75,13 +75,6 @@ class _formatter(logging.Formatter):
         logging.Formatter.__init__( self, fmt )
 
 
-    @classmethod
-    def _mask_secrets( cls, message ):
-        for secret, mask in _secrets.iteritems():
-            message = message.replace( secret, mask )
-        return message
-
-
     def format( self, record ):
 
         orig_fmt = self._fmt
@@ -94,7 +87,13 @@ class _formatter(logging.Formatter):
         result = logging.Formatter.format( self, record )
         self._fmt = orig_fmt
 
-        return self._mask_secrets( result )
+        return mask_secrets( result )
+
+
+def mask_secrets( message ):
+    for secret, mask in _secrets.iteritems():
+        message = message.replace( secret, mask )
+    return message
 
 
 def register_secret( secret, replacement="xxxxxxxx" ):
