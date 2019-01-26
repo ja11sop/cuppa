@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2018
+#          Copyright Jamie Allsop 2011-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -28,10 +28,6 @@ def run( *args, **kwargs ):
 
     from cuppa.log import initialise_logging
     import SCons.Errors
-
-    class suppress_log_message(object):
-        def __repr__(self):
-            return 'suppress_log_message'
 
     caller = getframeinfo(stack()[1][0])
     sconstruct_path = caller.filename
