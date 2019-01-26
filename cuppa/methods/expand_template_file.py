@@ -23,7 +23,7 @@ class ExpandTemplateFileAction(object):
         with open( str(Flatten(source)[0]), 'r' ) as template_file:
             logger.debug( "open target file [{}]".format( as_notice(str(target[0])) ) )
             with open( str(target[0]), 'w' ) as expanded_file:
-                logger.debug( "expand variables matching [{}]".format( as_notice(str(kwargs)) ) )
+                logger.debug( "expand variables matching [{}]".format( as_notice(str(self._kwargs)) ) )
                 expanded_file.write( template_file.read().format( **self._kwargs ) )
         return None
 
