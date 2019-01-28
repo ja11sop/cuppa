@@ -67,7 +67,7 @@ def run_scons( args_list ):
     stderr_thread = None
 
     try:
-        args_list = ['scons'] + args_list
+        args_list = ['scons'] + args_list + ['--cuppa-mode']
 
         stdout_processor = masker.mask
         stderr_processor = masker.mask

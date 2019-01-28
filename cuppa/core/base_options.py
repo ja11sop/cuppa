@@ -31,6 +31,9 @@ def add_base_options():
 
     add_option = cuppa.core.options.add_option
 
+    add_option( '--cuppa-mode', dest='cuppa-mode', action='store_true',
+                            help="Runs scons as if called through cuppa. Implicitly set when ran from cuppa" )
+
     add_option( '--raw-output', dest='raw_output', action='store_true',
                             help="Disable output processing like colourisation of output" )
 
