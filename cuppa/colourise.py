@@ -25,7 +25,7 @@ class Colouriser(object):
     @classmethod
     def create( cls ):
         if colorama_available:
-            colorama.init()
+            colorama.init( strip=False )
         return cls()
 
 
