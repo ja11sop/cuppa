@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2015
+#          Copyright Jamie Allsop 2011-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -36,7 +36,6 @@ def command_available( command ):
     return True
 
 
-
 class AutoFlushFile:
 
     def __init__( self, f ):
@@ -48,7 +47,6 @@ class AutoFlushFile:
     def write( self, x ):
         self.f.write(x)
         self.f.flush()
-
 
 
 class LineConsumer:
@@ -79,9 +77,6 @@ class IncrementalSubProcess:
         kwargs['stdout'] = subprocess.PIPE
         kwargs['stderr'] = subprocess.PIPE
 
-        sys.stdout = AutoFlushFile( colorama.initialise.wrapped_stdout )
-        sys.stderr = AutoFlushFile( colorama.initialise.wrapped_stderr )
-
         timing_enabled = logger.isEnabledFor( logging.DEBUG )
 
         use_shell = False
@@ -89,7 +84,15 @@ class IncrementalSubProcess:
             use_shell = kwargs['scons_env'].get_option( 'use-shell' )
             del kwargs['scons_env']
 
+        orig_stdout = sys.stdout
+        orig_stderr = sys.stderr
+
         try:
+            # TODO: Review this as it might be needed for Windows otherwise replace
+            # the wrapped values with orig_stdout and orig_stderr respectively
+            sys.stdout = AutoFlushFile( colorama.initialise.wrapped_stdout )
+            sys.stderr = AutoFlushFile( colorama.initialise.wrapped_stderr )
+
             process = None
             stderr_thread = None
 
@@ -132,6 +135,10 @@ class IncrementalSubProcess:
                 logger.info( "Joining any running threads" )
                 stderr_thread.join()
             raise e
+
+        finally:
+            sys.stdout = orig_stdout
+            sys.stderr = orig_stderr
 
 
     @classmethod
