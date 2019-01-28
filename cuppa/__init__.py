@@ -27,6 +27,7 @@ def log_exception( error, suppress=None ):
 def run( *args, **kwargs ):
 
     from cuppa.log import initialise_logging
+    from cuppa.log import mask_secrets
     import SCons.Errors
 
     caller = getframeinfo(stack()[1][0])
@@ -37,15 +38,23 @@ def run( *args, **kwargs ):
         cuppa.construct.run( sconstruct_path, *args, **kwargs )
     except SCons.Errors.BuildError as error:
         log_exception( error )
-        raise error
+        if len(error.args) >= 1:
+            error.args = (mask_secrets(str(error.args[0])),) + error.args[1:]
+        raise
     except SCons.Errors.StopError as error:
         log_exception( error )
-        raise error
+        if len(error.args) >= 1:
+            error.args = (mask_secrets(str(error.args[0])),) + error.args[1:]
+        raise
     except SCons.Errors.UserError as error:
         log_exception( error )
-        raise error
+        if len(error.args) >= 1:
+            error.args = (mask_secrets(str(error.args[0])),) + error.args[1:]
+        raise
     except Exception as error:
         log_exception( error )
+        if len(error.args) >= 1:
+            error.args = (mask_secrets(str(error.args[0])),) + error.args[1:]
         raise SCons.Errors.StopError( error )
 
 
@@ -62,3 +71,4 @@ from cuppa.build_with_location import location_dependency as header_library_depe
 import cuppa.build_with_profile
 
 from cuppa.build_with_profile import profile
+
