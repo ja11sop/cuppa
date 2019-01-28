@@ -43,18 +43,6 @@ class LineConsumer(object):
                     print line
 
 
-class Output(io.IOBase):
-
-    def __init__( self, stream ):
-        self._stream = stream
-
-    def fileno( self ):
-        return self._stream.fileno()
-
-    def write( self, string ):
-        self._stream.write( string )
-
-
 class MaskSecrets(object):
 
     def __init__( self ):
