@@ -55,6 +55,9 @@ setup(
         'jinja2',
     ],
     entry_points = {
+        'console_scripts': [
+              'cuppa = cuppa.__main__:main'
+        ],
         'cuppa.method.plugins' : [
             'cuppa.test_report.generate_bitten_report = cuppa.test_report.generate_bitten_report:GenerateBittenReportMethod',
         ]
