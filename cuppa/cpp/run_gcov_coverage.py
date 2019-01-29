@@ -21,7 +21,7 @@ from SCons.Script import Glob, Flatten, Dir
 
 # construct imports
 from cuppa.output_processor import IncrementalSubProcess, command_available
-from cuppa.colourise import as_notice, as_info, as_warning, as_error
+from cuppa.colourise import as_notice, as_info, as_warning, as_error, colour_items
 from cuppa.log import logger
 from cuppa.progress import NotifyProgress
 import cuppa.recursive_glob
@@ -285,11 +285,17 @@ class RunGcovCoverage(object):
 
 
     def __call__( self, target, source, env ):
+
+        logger.trace( "target = {}".format( colour_items( [str(t) for t in target] ) ) )
+        logger.trace( "source = {}".format( colour_items( [str(s) for s in source] ) ) )
+
         lazy_create_path( os.path.join( env['base_path'], env['build_dir'] ) )
 
         self._target = target
 
-        for s, t in itertools.izip( source, target ):
+        # Each source will result in one or more targets so we need to slice the targets to pick up
+        # the gcov target (the first one) before we perform the zip iteration
+        for s, t in itertools.izip( source, itertools.islice( target, 0, None, len(target)/len(source) ) ):
 
             gcov_path = os.path.splitext( os.path.splitext( t.path )[0] )[0]
             gcov_log = t.path
