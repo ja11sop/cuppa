@@ -407,10 +407,11 @@ class Construct(object):
         test_runner = cuppa_env.get_option( 'runner', default=default_runner and default_runner or 'process' )
         cuppa_env['default_runner']  = test_runner
 
-        cuppa_env['propagate_env']    = cuppa_env.get_option( 'propagate-env' )    and True or False
-        cuppa_env['propagate_path']   = cuppa_env.get_option( 'propagate-path' )   and True or False
-        cuppa_env['merge_path']       = cuppa_env.get_option( 'merge-path' )       and True or False
-        cuppa_env['show_test_output'] = cuppa_env.get_option( 'show-test-output' ) and True or False
+        cuppa_env['propagate_env']       = cuppa_env.get_option( 'propagate-env' )       and True or False
+        cuppa_env['propagate_path']      = cuppa_env.get_option( 'propagate-path' )      and True or False
+        cuppa_env['merge_path']          = cuppa_env.get_option( 'merge-path' )          and True or False
+        cuppa_env['show_test_output']    = cuppa_env.get_option( 'show-test-output' )    and True or False
+        cuppa_env['show_process_output'] = cuppa_env.get_option( 'show-process-output' ) and True or False
 
         self.add_variants   ( cuppa_env )
         self.add_toolchains ( cuppa_env )

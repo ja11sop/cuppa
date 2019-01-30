@@ -75,8 +75,11 @@ def add_base_options():
                             help="Enable parallel builds utilising the available concurrency."
                                  " Translates to -j N with N chosen based on the current hardware" )
 
-    add_option( '--show-test-output',   dest='show-test-output', action='store_true',
+    add_option( '--show-test-output', dest='show-test-output', action='store_true',
                             help="When executing tests display all outout to stdout and stderr as appropriate" )
+
+    add_option( '--show-process-output', dest='show-process-output', action='store_true',
+                            help="When executing processes display all outout to stdout and stderr as appropriate" )
 
     verbosity_choices = ( 'trace', 'debug', 'exception', 'info', 'warn', 'error' )
 
