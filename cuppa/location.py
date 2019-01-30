@@ -384,21 +384,33 @@ class Location(object):
                         action = "Cloning"
                         if vc_type == "svn":
                             action = "Checking out"
-                        logger.info( "{} [{}] into [{}]".format(
-                                action, as_info( location ),
-                                as_info( local_dir_with_sub_dir )
-                        ) )
-                        try:
-                            vcs_backend.obtain( local_dir_with_sub_dir )
-                            logger.debug( "Successfully retrieved [{}]".format( as_info( location ) ) )
-                        except pip_exceptions.PipError as error:
-                            logger.error( "Could not retrieve [{}] into [{}]{} due to error [{}]".format(
+                        max_attempts = 2
+                        attempt = 1
+                        while attempt <= max_attempts:
+                            logger.info( "{} [{}] into [{}]{}".format(
+                                    action,
                                     as_info( location ),
-                                    as_notice( local_dir_with_sub_dir ),
-                                    ( rev_options and  " to {}".format( as_notice(  str(rev_options) ) ) or ""),
-                                    as_error( str(error) )
+                                    as_info( local_dir_with_sub_dir ),
+                                    attempt > 1 and "(attempt {})".format( str(attempt) ) or ""
                             ) )
-                            raise LocationException( str(error) )
+                            try:
+                                vcs_backend.obtain( local_dir_with_sub_dir )
+                                logger.debug( "Successfully retrieved [{}]".format( as_info( location ) ) )
+                                break
+                            except pip_exceptions.PipError as error:
+                                attempt = attempt + 1
+                                log_as = logger.warn
+                                if attempt > max_attempts:
+                                    log_as = logger.error
+
+                                log_as( "Could not retrieve [{}] into [{}]{} due to error [{}]".format(
+                                        as_info( location ),
+                                        as_notice( local_dir_with_sub_dir ),
+                                        ( rev_options and  " to {}".format( as_notice(  str(rev_options) ) ) or ""),
+                                        as_error( str(error) )
+                                ) )
+                                if attempt > max_attempts:
+                                    raise LocationException( str(error) )
 
                 logger.debug( "(url path) Location = [{}]".format( as_info( location ) ) )
                 logger.debug( "(url path) Local folder = [{}]".format( as_info( self._local_folder ) ) )
