@@ -79,6 +79,11 @@ class IncrementalSubProcess:
 
         timing_enabled = logger.isEnabledFor( logging.DEBUG )
 
+        suppress_output = False
+        if 'suppress_output' in kwargs:
+            suppress_output = kwargs['suppress_output']
+            del kwargs['suppress_output']
+
         use_shell = False
         if 'scons_env' in kwargs:
             use_shell = kwargs['scons_env'].get_option( 'use-shell' )
@@ -102,7 +107,8 @@ class IncrementalSubProcess:
 
             close_fds = platform.system() == "Windows" and False or True
 
-            sys.stdout.write( " ".join(args_list) + "\n" )
+            if not suppress_output:
+                sys.stdout.write( " ".join(args_list) + "\n" )
 
             process = subprocess.Popen(
                 use_shell and " ".join(args_list) or args_list,
@@ -251,7 +257,8 @@ class Processor:
         returncode = IncrementalSubProcess.Popen(
             processor,
             [ arg.strip('"') for arg in args ],
-            env=env
+            env=env,
+            suppress_output=True,
         )
 
         summary = processor.summary( returncode )
