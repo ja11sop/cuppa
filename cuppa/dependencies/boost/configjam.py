@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2017
+#          Copyright Jamie Allsop 2011-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -9,6 +9,9 @@
 #-------------------------------------------------------------------------------
 import os
 import shutil
+
+
+from cuppa.log import logger
 
 # Boost Imports
 from cuppa.dependencies.boost.library_naming import toolset_name_from_toolchain
@@ -56,7 +59,7 @@ class WriteToolsetConfigJam(object):
             toolset_config_line = "{} {} ;\n".format( current_toolset, toolchain.binary() )
 
             with open( path, 'w' ) as toolchain_config:
-                print "cuppa: adding toolset config [{}] to dummy toolset config [{}]".format( str(toolset_config_line.strip()), path )
+                logger.info( "adding toolset config [{}] to dummy toolset config [{}]".format( str(toolset_config_line.strip()), path ) )
                 toolchain_config.write( toolset_config_line )
 
             self._update_project_config_jam(

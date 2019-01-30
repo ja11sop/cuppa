@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2015
+#          Copyright Jamie Allsop 2011-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -14,6 +14,8 @@ from os import path
 
 import platform
 import SCons.Script
+
+from cuppa.log import logger
 
 
 class LinuxException(Exception):
@@ -71,7 +73,7 @@ class Linux:
             libc_version = Popen([libc_path], stdout=PIPE).communicate()[0]
             return 'libc' + search( r'^GNU C Library [()a-zA-Z ]*([0-9][.0-9]+)', libc_version, MULTILINE ).expand(r'\1').replace('.','')
         except:
-            print "Could not detect the version of libc installed. You might be missing some development libraries!"
+            logger.warn( "Could not detect the version of libc installed. You might be missing some development libraries!" )
             return None
 
 
