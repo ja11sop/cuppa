@@ -102,6 +102,8 @@ class IncrementalSubProcess:
 
             close_fds = platform.system() == "Windows" and False or True
 
+            sys.stdout.write( " ".join(args_list) + "\n" )
+
             process = subprocess.Popen(
                 use_shell and " ".join(args_list) or args_list,
                 **dict( kwargs, close_fds=close_fds, shell=use_shell )

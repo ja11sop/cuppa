@@ -91,8 +91,6 @@ def bjam_command( env, location, toolchain, libraries, variant, target_arch, lin
             path_sep        = os.path.sep
     )
 
-    print command_line
-
     if platform.system() == "Windows":
         command_line = command_line.replace( "\\", "\\\\" )
     command_line = command_line.replace( '"', '\\"' )

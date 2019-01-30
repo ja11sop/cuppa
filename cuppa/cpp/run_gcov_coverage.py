@@ -77,7 +77,6 @@ class WriteToString(object):
 
 
 def run_command( command, working_dir, env ):
-    print command
     process_output = WriteToString()
     return_code = IncrementalSubProcess.Popen( process_output,
                                                shlex.split( command ),
@@ -199,7 +198,7 @@ class CoverageSuite(object):
         with open( coverage_filter_path, 'w' ) as coverage_filter_file:
             coverage_filter_file.write( html_base_name + '*.html' )
 
-        print output
+        sys.stdout.write( output + "\n" )
 
 
 def gcov_program_id( program ):
@@ -363,7 +362,7 @@ class RunGcovCoverage(object):
 
                 coverage_suite.run_suite( self._target )
         else:
-            print output
+            sys.stdout.write( output + "\n" )
             os.remove( gcov_log_path )
 
 
@@ -763,7 +762,7 @@ class CoverageIndexBuilder(object):
     def on_progress( cls, progress, sconscript, variant, env, target, source ):
         if progress == 'sconstruct_end' and cls.all_lines_total > 0:
             lines_percent = 100.0 * float(cls.all_lines_covered) / float(cls.all_lines_total)
-            print "COVERAGE = {:.1f}% : {:d}/{:d}".format( lines_percent, cls.all_lines_covered, cls.all_lines_total )
+            sys.stdout.write( "COVERAGE = {:.1f}% : {:d}/{:d}\n".format( lines_percent, cls.all_lines_covered, cls.all_lines_total ) )
 
             pattern = coverage_index_marker + "*.html"
 

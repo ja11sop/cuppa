@@ -703,8 +703,6 @@ class RunBoostTest:
             elif boost_version >= 1.60:
                 test_command = executable + " --{0}log_format=HRF --{0}log_level=all --{0}report_level=no".format( argument_prefix )
 
-        print "cuppa: RunBoostTest: [" + test_command + "]"
-
         try:
             return_code, tests = self.__run_test( program_path,
                                                   test_command,
