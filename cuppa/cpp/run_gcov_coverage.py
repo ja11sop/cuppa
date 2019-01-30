@@ -545,6 +545,7 @@ class coverage_entry(object):
 
     @classmethod
     def get_branches_status( cls, percent ):
+        percent = float(percent)
         if percent < 40.0:
             return "alert-danger"
         elif percent < 50.0:
