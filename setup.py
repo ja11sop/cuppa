@@ -29,6 +29,7 @@ setup(
         'cuppa.cpp.templates',
         'cuppa.dependencies',
         'cuppa.dependencies.boost',
+        'cuppa.method_helpers',
         'cuppa.methods',
         'cuppa.modules',
         'cuppa.platforms',
