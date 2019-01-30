@@ -361,7 +361,7 @@ class Location(object):
                         rev_options = self.get_rev_options( vc_type, vcs_backend, local_remote=remote )
                         version = self.ver_rev_summary( branch, revision, self._full_url.path )[0]
                         if not offline:
-                            logger.debug( "Updating [{}] in [{}]{} at [{}]".format(
+                            logger.info( "Updating [{}] in [{}]{} at [{}]".format(
                                     as_info( location ),
                                     as_notice( local_dir_with_sub_dir ),
                                     ( rev_options and  " on {}".format( as_notice( str(rev_options) ) ) or "" ),
