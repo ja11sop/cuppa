@@ -33,14 +33,13 @@ class LineConsumer(object):
 
     def __call__( self ):
         for line in iter( self.call_readline, "" ):
-            line = line.rstrip()
             if line:
                 if self.processor:
                     line = self.processor( line )
                     if line:
-                        print line
+                        sys.stdout.write( line )
                 else:
-                    print line
+                    sys.stdout.write( line )
 
 
 class MaskSecrets(object):
