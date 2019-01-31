@@ -1,4 +1,4 @@
-#          Copyright Jamie Allsop 2011-2018
+#          Copyright Jamie Allsop 2011-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -412,6 +412,8 @@ class Construct(object):
         cuppa_env['merge_path']          = cuppa_env.get_option( 'merge-path' )          and True or False
         cuppa_env['show_test_output']    = cuppa_env.get_option( 'show-test-output' )    and True or False
         cuppa_env['show_process_output'] = cuppa_env.get_option( 'show-process-output' ) and True or False
+        cuppa_env['dump']                = cuppa_env.get_option( 'dump' )                and True or False
+        cuppa_env['clean']               = cuppa_env.get_option( 'clean' )               and True or False
 
         self.add_variants   ( cuppa_env )
         self.add_toolchains ( cuppa_env )
@@ -484,9 +486,9 @@ class Construct(object):
 
             # TODO - default_profile
 
-            if cuppa_env.get_option( 'dump' ):
+            if cuppa_env['dump']:
+                logger.info( as_info_label( "Running in DUMP mode, no building will be attempted" ) )
                 cuppa_env.dump()
-                SCons.Script.Exit()
 
             job_count = cuppa_env.get_option( 'num_jobs' )
             parallel  = cuppa_env.get_option( 'parallel' )
@@ -798,6 +800,11 @@ class Construct(object):
                             build_env['env'].Decider( decider )
                         self.call_project_sconscript_files( toolchain, build_env['variant'], build_env['target_arch'], build_env['abi'], build_env['env'], sconscript )
 
+            if cuppa_env['dump']:
+                print "cuppa: Performing dump only, so no builds will be attempted."
+                print "cuppa: Nothing to be done. Exiting."
+                SCons.Script.Exit()
+
         else:
             logger.warn( "No projects to build. Nothing to be done" )
 
@@ -847,13 +854,14 @@ class Construct(object):
             sconscript_env['build_base_path']  = build_base_path
             sconscript_env['flat_build_base']  = flatten_dir( build_base_path )
 
-            sconscript_env['tool_variant_build_dir'] = os.path.join( build_root, sconscript_env['tool_variant_dir'], working_folder )
-            sconscript_env['build_dir']        = os.path.normpath( os.path.join( build_root, build_base_path, working_folder, '' ) )
-            sconscript_env['abs_build_dir']    = os.path.abspath( sconscript_env['build_dir'] )
-            sconscript_env['build_tool_variant_dir'] = os.path.normpath( os.path.join( build_root, sconscript_env['tool_variant_dir'], working_folder, '' ) )
-            sconscript_env['offset_dir']       = sconstruct_offset_path
-            sconscript_env['final_dir']        = '..' + os.path.sep + 'final' + os.path.sep
-            sconscript_env['active_toolchain'] = toolchain
+            sconscript_env['tool_variant_build_dir']  = os.path.join( build_root, sconscript_env['tool_variant_dir'], working_folder )
+            sconscript_env['build_dir']               = os.path.normpath( os.path.join( build_root, build_base_path, working_folder, '' ) )
+            sconscript_env['abs_build_dir']           = os.path.abspath( sconscript_env['build_dir'] )
+            sconscript_env['build_tool_variant_dir']  = os.path.normpath( os.path.join( build_root, sconscript_env['tool_variant_dir'], working_folder, '' ) )
+            sconscript_env['offset_dir']              = sconstruct_offset_path
+            sconscript_env['offset_tool_variant_dir'] = os.path.join( sconscript_env['offset_dir'], sconscript_env['tool_variant_dir'] )
+            sconscript_env['final_dir']               = '..' + os.path.sep + 'final' + os.path.sep
+            sconscript_env['active_toolchain']        = toolchain
 
             def abs_final_dir( abs_build_dir, final_dir ):
                 return os.path.isabs( final_dir ) and final_dir or os.path.normpath( os.path.join( abs_build_dir, final_dir ) )
@@ -881,12 +889,17 @@ class Construct(object):
 
             cuppa.modules.registration.init_env_for_variant( "methods", sconscript_exports )
 
-            SCons.Script.SConscript(
-                [ sconscript_file ],
-                variant_dir = sconscript_exports['build_dir'],
-                duplicate   = 0,
-                exports     = sconscript_exports
-            )
+            if sconscript_env['dump']:
+                logger.info( "{} {}".format( as_info_label( "Dumping ENV for"), as_info( sconscript_exports['build_dir'] ) ) )
+                dump = sconscript_env.Dump()
+                logger.info( "\n" + dump + "\n" )
+            else:
+                SCons.Script.SConscript(
+                    [ sconscript_file ],
+                    variant_dir = sconscript_exports['build_dir'],
+                    duplicate   = 0,
+                    exports     = sconscript_exports
+                )
 
         else:
             logger.error( "Skipping non-existent project [{}] using [{},{},{}]".format(
