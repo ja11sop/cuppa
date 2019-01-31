@@ -368,7 +368,7 @@ class RunGcovCoverage(object):
 
 
 def destination_subdir( env ):
-    return env['offset_tool_variant_dir']
+    return env['flat_tool_variant_dir_offset']
 
 
 class CollateCoverageFilesEmitter(object):
