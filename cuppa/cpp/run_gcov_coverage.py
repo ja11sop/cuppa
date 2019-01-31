@@ -367,6 +367,9 @@ class RunGcovCoverage(object):
             os.remove( gcov_log_path )
 
 
+def destination_subdir( env ):
+    return env['offset_tool_variant_dir']
+
 
 class CollateCoverageFilesEmitter(object):
 
@@ -382,7 +385,7 @@ class CollateCoverageFilesEmitter(object):
         if not self._destination:
             self._destination = env['abs_final_dir']
         else:
-            self._destination = self._destination + env['sconscript_build_dir']
+            self._destination = self._destination + destination_subdir( env )
 
         report_node = next( ( s for s in source if re.match( self.report_regex, os.path.split(str(s))[1] ) ), None )
         filter_node = next( ( s for s in source if os.path.splitext(str(s))[1] == ".cov_filter" ), None )
@@ -424,7 +427,7 @@ class CollateCoverageFilesAction(object):
         if not self._destination:
             self._destination = env['abs_final_dir']
         else:
-            self._destination = self._destination + env['sconscript_build_dir']
+            self._destination = self._destination + destination_subdir( env )
 
         report_node = next( ( s for s in source if re.match( self.report_regex, os.path.split(str(s))[1] ) ), None )
         filter_node = next( ( s for s in source if os.path.splitext(str(s))[1] == ".cov_filter" ), None )
@@ -453,7 +456,7 @@ class CollateCoverageFilesAction(object):
 
 
 def coverage_index_name_from( env ):
-    index_base_name = env['sconscript_build_dir']
+    index_base_name = destination_subdir( env )
     if index_base_name.startswith("./"):
         index_base_name = index_base_name[2:]
     index_base_name = index_base_name.rstrip('/')
@@ -477,7 +480,7 @@ class CollateCoverageIndexEmitter(object):
             env.Clean( source, os.path.join( self._destination, "coverage-index.html" ) )
         else:
             env.Clean( source, os.path.join( self._destination, "coverage-index.html" ) )
-            destination = self._destination + env['sconscript_build_dir']
+            destination = self._destination + destination_subdir( env )
 
         files_node = next( ( s for s in source if os.path.splitext(str(s))[1] == ".cov_files" ), None )
         if files_node:
@@ -644,7 +647,7 @@ class CollateCoverageIndexAction(object):
             if not self._destination:
                 self._destination = env['abs_final_dir']
             else:
-                self._destination = self._destination + env['sconscript_build_dir']
+                self._destination = self._destination + destination_subdir( env )
 
             variant_index_path = os.path.join( env['abs_final_dir'], coverage_index_name_from( env ) )
             variant_summary_path = os.path.splitext( variant_index_path )[0] + ".log"
@@ -689,7 +692,7 @@ class CollateCoverageIndexAction(object):
                             branches_percent = coverage.branches_percent,
                             branches_covered = coverage.branches_covered,
                             branches_total   = coverage.branches_total,
-                            subdir           = env['sconscript_build_dir'],
+                            subdir           = destination_subdir( env ),
                     ) )
 
                 CoverageIndexBuilder.update_coverage( coverage )
