@@ -317,6 +317,9 @@ class Location(object):
 
                         return local_directory
 
+                if cuppa_env['dump'] or cuppa_env['clean']:
+                    return local_directory
+
                 # If not we then check to see if we cached the download
                 cached_archive = self.get_cached_archive( cuppa_env['cache_root'], self._local_folder )
                 if cached_archive:
@@ -355,6 +358,9 @@ class Location(object):
                 if backend:
                     vcs_backend = backend( self.expand_secret( location ) )
                     local_dir_with_sub_dir = os.path.join( local_directory, sub_dir and sub_dir or "" )
+
+                    if cuppa_env['dump'] or cuppa_env['clean']:
+                        return local_directory
 
                     if os.path.exists( local_directory ):
                         url, repository, branch, remote, revision = self.get_info( location, local_dir_with_sub_dir, full_url, vc_type )
