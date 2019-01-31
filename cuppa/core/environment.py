@@ -14,7 +14,7 @@ import collections
 import SCons.Script
 
 # Custom
-from cuppa.colourise import colouriser, as_info
+from cuppa.colourise import colouriser, as_info, as_info_label
 from cuppa.log import logger
 
 
@@ -98,8 +98,29 @@ class CuppaEnvironment(collections.MutableMapping):
 
     @classmethod
     def dump( cls ):
-        print str( cls._options )
-        print str( cls._methods )
+        import json
+
+        def expand_node( node ):
+            if isinstance( node, list ):
+                return [ expand_node(i) for i in node ]
+            elif isinstance( node, dict ):
+                return { str(k): expand_node(v) for k,v in node.iteritems() }
+            elif isinstance( node, set ):
+                return [ expand_node(s) for s in node ]
+            elif hasattr( node, "__dict__" ):
+                return { str(k): expand_node(v) for k,v in node.__dict__.iteritems() }
+            else:
+                return str( node )
+
+        logger.info( as_info_label( "Displaying Options" ) )
+        options = json.dumps( expand_node(cls._options), sort_keys=True, indent=4 )
+        logger.info( "\n" + options + "\n" )
+
+        logger.info( as_info_label("Displaying Methods" ) )
+        methods = json.dumps( expand_node(cls._methods), sort_keys=True, indent=4 )
+        logger.info( "\n" + methods + "\n" )
+
+
 
 
     @classmethod
