@@ -371,6 +371,14 @@ def destination_subdir( env ):
     return env['flat_tool_variant_dir_offset']
 
 
+def get_toolchain_variant_dir( env ):
+    return env['tool_variant_dir']
+
+
+def get_offset_dir( env ):
+    return os.path.normpath( env['offset_dir'] )
+
+
 class CollateCoverageFilesEmitter(object):
 
     report_regex = re.compile(
@@ -513,10 +521,13 @@ def jinja2_templates():
 class coverage_entry(object):
 
     entry_regex = re.compile(
-        r"(?P<coverage_file>coverage[-#][#%@$~\w&_:+/\.-]+)"
-         " lines: (?P<lines_percent>[\d.]+)% [(](?P<lines_covered>\d+)[\D]+(?P<lines_total>\d+)[)]"
-         " branches: (?P<branches_percent>[\d.]+)% [(](?P<branches_covered>\d+)[\D]+(?P<branches_total>\d+)[)]"
-         "( subdir: (?P<subdir>[#%@$~\w&_ :+/\.-]+))?"
+        r"(?P<coverage_file>coverage[-#][#%@$~\w&_ :+/\.-]+)"
+         "\nlines: (?P<lines_percent>[\d.]+)% [(](?P<lines_covered>\d+)[\D]+(?P<lines_total>\d+)[)]"
+         "\nbranches: (?P<branches_percent>[\d.]+)% [(](?P<branches_covered>\d+)[\D]+(?P<branches_total>\d+)[)]"
+         "(\ntoolchain_variant_dir: (?P<toolchain_variant_dir>[#%@$~\w&_ +/\.-]+))?"
+         "(\noffset_dir: (?P<offset_dir>[#%@$~\w&_ +/\.-]+))?"
+         "(\nsubdir: (?P<subdir>[#%@$~\w&_ +/\.-]+))?",
+         re.MULTILINE
     )
 
     @classmethod
@@ -569,11 +580,21 @@ class coverage_entry(object):
         return name
 
 
+    def summary_name( cls, filename, toolchain_variant_dir, offset_dir ):
+        name = os.path.splitext( filename )[0]
+        if name.startswith( coverage_index_marker ):
+            name = name.replace( coverage_index_marker, "" )
+        return "./{}/*".format( offset_dir )
+
+
     def __init__( self, coverage_file=None, entry_string=None, destination=None ):
 
         self.coverage_file = coverage_file and coverage_file or ""
         self.coverage_name = coverage_file and self.name_from_file( coverage_file ) or ""
+        self.coverage_context = ""
         self.subdir = ""
+        self.toolchain_variant_dir = ""
+        self.offset_dir = ""
         self.lines_percent = "0.0"
         self.lines_covered = 0
         self.lines_total   = 0
@@ -590,6 +611,8 @@ class coverage_entry(object):
                 self.coverage_file = matches.group( 'coverage_file' )
                 self.coverage_name = self.coverage_file and self.name_from_file( self.coverage_file ) or ""
                 self.subdir = matches.group( 'subdir' ) and matches.group( 'subdir' ) or ""
+                self.toolchain_variant_dir = matches.group( 'toolchain_variant_dir' ) and matches.group( 'toolchain_variant_dir' ) or ""
+                self.offset_dir = matches.group( 'offset_dir' ) and matches.group( 'offset_dir' ) or ""
                 self.lines_percent = "{:.1f}".format( float( matches.group( 'lines_percent' ) ) )
                 self.lines_covered = int( matches.group( 'lines_covered' ) )
                 self.lines_total = int( matches.group( 'lines_total' ) )
@@ -604,6 +627,10 @@ class coverage_entry(object):
         if self.subdir:
             self.coverage_file = os.path.join( self.subdir, self.coverage_file )
             self.coverage_name = os.path.join( self.subdir, self.coverage_name )
+
+        if self.toolchain_variant_dir and self.offset_dir:
+            self.coverage_name = self.summary_name( self.coverage_file, self.toolchain_variant_dir, self.offset_dir )
+            self.coverage_context = self.toolchain_variant_dir
 
         self.destination_file = destination and os.path.join( destination, os.path.split(self.coverage_file)[1] ) or ""
 
@@ -656,6 +683,7 @@ class CollateCoverageIndexAction(object):
             with open( variant_index_path, 'w' ) as variant_index_file:
 
                 coverage = coverage_entry( coverage_file=self.summary_name(env) )
+                coverage.coverage_context = get_toolchain_variant_dir( env )
 
                 for path in summary_files:
                     with open( str(path), 'r' ) as summary_file:
@@ -663,7 +691,15 @@ class CollateCoverageIndexAction(object):
                         lines_summary = summary_file.readline()
                         branches_summary = summary_file.readline()
 
-                        coverage.append( CoverageIndexBuilder.get_entry( index_file, lines_summary, branches_summary, self._destination ) )
+                        coverage.append(
+                            CoverageIndexBuilder.get_entry(
+                                index_file,
+                                lines_summary,
+                                branches_summary,
+                                get_toolchain_variant_dir( env ),
+                                get_offset_dir( env ),
+                                self._destination,
+                        ) )
 
                 template = CoverageIndexBuilder.get_template()
 
@@ -684,15 +720,20 @@ class CollateCoverageIndexAction(object):
                         "{filename}\n"
                         "lines: {lines_percent}% ({lines_covered} out of {lines_total})\n"
                         "branches: {branches_percent}% ({branches_covered} out of {branches_total})\n"
-                        "subdir: {subdir}".format(
+                        "toolchain_variant_dir: {toolchain_variant_dir}\n"
+                        "offset_dir: {offset_dir}\n"
+                        "subdir: {subdir}\n"
+                        .format(
                             filename = os.path.split( variant_index_path )[1],
-                            lines_percent = coverage.lines_percent,
-                            lines_covered = coverage.lines_covered,
-                            lines_total   = coverage.lines_total,
-                            branches_percent = coverage.branches_percent,
-                            branches_covered = coverage.branches_covered,
-                            branches_total   = coverage.branches_total,
-                            subdir           = destination_subdir( env ),
+                            lines_percent     = coverage.lines_percent,
+                            lines_covered     = coverage.lines_covered,
+                            lines_total       = coverage.lines_total,
+                            branches_percent  = coverage.branches_percent,
+                            branches_covered  = coverage.branches_covered,
+                            branches_total    = coverage.branches_total,
+                            toolchain_variant_dir = get_toolchain_variant_dir( env ),
+                            offset_dir            = get_offset_dir( env ),
+                            subdir                = destination_subdir( env ),
                     ) )
 
                 CoverageIndexBuilder.update_coverage( coverage )
@@ -746,14 +787,16 @@ class CoverageIndexBuilder(object):
 
 
     @classmethod
-    def get_entry( self, index_file, lines_summary, branches_summary, destination ):
-        entry_string = "{} {} {}".format( index_file.strip(), lines_summary.strip(), branches_summary.strip() )
-        return coverage_entry.create_from_string( entry_string, destination )
-
-
-    @classmethod
-    def get_entry_with_subdir( self, index_file, lines_summary, branches_summary, subdir, destination ):
-        entry_string = "{} {} {} {}".format( index_file.strip(), lines_summary.strip(), branches_summary.strip(), subdir.strip() )
+    def get_entry( self, index_file, lines_summary, branches_summary, tool_variant_dir, offset_dir, destination, subdir=None ):
+        entry_string = "{}\n{}\n{}\n{}\n{}{}".format(
+            index_file.strip(),
+            lines_summary.strip(),
+            branches_summary.strip(),
+            tool_variant_dir.strip(),
+            offset_dir.strip(),
+            subdir and "\n" + subdir.strip() or "",
+        )
+        logger.info( "coverage entry from\n{}\nin {}".format( as_info( entry_string ), as_notice( destination ) ) )
         return coverage_entry.create_from_string( entry_string, destination )
 
 
@@ -762,6 +805,7 @@ class CoverageIndexBuilder(object):
         cls.all_lines_covered += coverage.lines_covered
         cls.all_lines_total += coverage.lines_total
         cls.all_coverage.append( coverage )
+
 
     @classmethod
     def on_progress( cls, progress, sconscript, variant, env, target, source ):
@@ -788,8 +832,19 @@ class CoverageIndexBuilder(object):
                             index_file = summary_file.readline()
                             lines_summary = summary_file.readline()
                             branches_summary = summary_file.readline()
+                            tool_variant_dir = summary_file.readline()
+                            offset_dir = summary_file.readline()
                             subdir = summary_file.readline()
-                            coverage.append( cls.get_entry_with_subdir( index_file, lines_summary, branches_summary, subdir, destination_dir ) )
+                            coverage.append(
+                                cls.get_entry(
+                                    index_file,
+                                    lines_summary,
+                                    branches_summary,
+                                    tool_variant_dir,
+                                    offset_dir,
+                                    destination_dir,
+                                    subdir=subdir,
+                            ) )
 
                 master_index_path = os.path.join( destination_dir, "coverage-index.html" )
 

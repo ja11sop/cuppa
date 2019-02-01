@@ -19,7 +19,8 @@
       <div class="card mt-4">
       <ul class="list-group">
         <li class="list-group-item text-center pt-4">
-          <h3>Coverage Report for <span class="text-monospace font-weight-bolder">{{ coverage_summary.coverage_file }}</span></h3>
+          <h3>Coverage Reports for <span class="text-monospace font-weight-bolder">{{ coverage_summary.coverage_file }}</span></h3>
+          <h5 class="text-secondary font-weight-light">{{ coverage_summary.coverage_context }}</h5>
         </li>
         <li class="list-group-item">
           <div class="row align-items-center">
@@ -85,6 +86,9 @@
           <div class="row align-items-center">
             <div class="col-lg-4 col-sm-3">
               <a href="{{ coverage_entry.coverage_file }}" class="card-link">{{ coverage_entry.coverage_name }}</a>
+              {% if coverage_entry.coverage_context %}
+                <br><span class="small text-secondary">{{ coverage_entry.coverage_context }}</span>
+              {% endif %}
             </div>
             <div class="col-lg-4 col-sm-3">
               <div class="progress">
