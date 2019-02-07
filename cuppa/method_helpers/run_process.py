@@ -97,13 +97,14 @@ class RunProcessEmitter(object):
 
 
     def _base_name( self, source ):
-        if self._command and callable(self._command):
-            return self._command.__name__ + "_" + str(self.next_invocation_id())
+        if callable(self._command):
+            name = self._command.__name__ + "_" + str(self.next_invocation_id())
+            return os.path.join( self._final_dir, name )
         elif self._command:
             path = os.path.join( self._final_dir, self._name_from_command() )
             path, name = os.path.split( path )
             name = unique_short_filename( name )
-            logger.debug( "Command = [{}], Unique Name = [{}]".format( as_notice(self._command), as_notice(name) ) )
+            logger.trace( "Command = [{}], Unique Name = [{}]".format( as_notice(self._command), as_notice(name) ) )
             return os.path.join( path, name )
         else:
             program_file = str(source[0])
@@ -115,8 +116,9 @@ class RunProcessEmitter(object):
     def __call__( self, target, source, env ):
         base_name = self._base_name( source )
         target = []
-        target.append( stdout_file_name_from( base_name ) )
-        target.append( stderr_file_name_from( base_name ) )
+        if not callable(self._command):
+            target.append( stdout_file_name_from( base_name ) )
+            target.append( stderr_file_name_from( base_name ) )
         target.append( success_file_name_from( base_name ) )
         if self._targets:
             for t in self._targets:
