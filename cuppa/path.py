@@ -45,6 +45,6 @@ def unique_short_filename( filename, max_length=48 ):
     hasher = hashlib.md5()
     hasher.update( filename )
     digest = hasher.hexdigest()
-    short_digest = digest[-8:]
+    short_digest = "~" + digest[-8:]
     splice_length = min( len(filename), max_length-len(short_digest) )
-    return filename[:splice_length]+short_digest
+    return filename[:splice_length] + short_digest
