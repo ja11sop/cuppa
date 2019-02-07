@@ -78,8 +78,8 @@ def add_base_options():
     add_option( '--show-test-output', dest='show-test-output', action='store_true',
                             help="When executing tests display all outout to stdout and stderr as appropriate" )
 
-    add_option( '--show-process-output', dest='show-process-output', action='store_true',
-                            help="When executing processes display all outout to stdout and stderr as appropriate" )
+    add_option( '--suppress-process-output', dest='suppress-process-output', action='store_true',
+                            help="When executing processes suppress all output to stdout and stderr" )
 
     verbosity_choices = ( 'trace', 'debug', 'exception', 'info', 'warn', 'error' )
 

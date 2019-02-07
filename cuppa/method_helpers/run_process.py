@@ -11,6 +11,7 @@
 import os
 import sys
 import shlex
+import re
 
 from SCons.Errors import BuildError
 from SCons.Script import Flatten
@@ -37,11 +38,11 @@ class Monitor(object):
         self._cpu_times = cuppa.timer.CpuTimes( 0, 0, 0, 0 )
 
 
-    def run( self, process ):
+    def run( self ):
         self._timer = cuppa.timer.Timer()
 
 
-    def stop( self, test, status='success' ):
+    def stop( self, status='success' ):
         meaning = status
         if status == 'success':
             status = 'done'
@@ -73,19 +74,43 @@ def success_file_name_from( program_file ):
 
 class RunProcessEmitter(object):
 
-    def __init__( self, final_dir, target=None, **ignored_kwargs ):
+    invocation = 0
+
+    def __init__( self, final_dir, target=None, command=None, **ignored_kwargs ):
         self._final_dir = final_dir
         self._targets = target and Flatten( target ) or None
+        self._command = command
+
+
+    @classmethod
+    def next_invocation_id( cls ):
+        next_id = cls.invocation + 1
+        cls.invocation = next_id
+        return next_id
+
+
+    def _name_from_command( self ):
+        invocation_id = self.next_invocation_id()
+        name = re.sub(r'[^\w\s-]', '', self._command).strip().lower()
+        return re.sub(r'[-\s]+', '-', name) + "_" + str(invocation_id)
+
+
+    def _base_name( self, source ):
+        if not source and self._command:
+            return os.path.join( self._final_dir, self._name_from_command() )
+        else:
+            program_file = str(source[0])
+            if not program_file.startswith( self._final_dir ):
+                program_file = os.path.split( program_file )[1]
+            return program_file
 
 
     def __call__( self, target, source, env ):
-        program_file = str(source[0])
-        if not program_file.startswith( self._final_dir ):
-            program_file = os.path.split( program_file )[1]
+        base_name = self._base_name( source )
         target = []
-        target.append( stdout_file_name_from( program_file ) )
-        target.append( stderr_file_name_from( program_file ) )
-        target.append( success_file_name_from( program_file ) )
+        target.append( stdout_file_name_from( base_name ) )
+        target.append( stderr_file_name_from( base_name ) )
+        target.append( success_file_name_from( base_name ) )
         if self._targets:
             for t in self._targets:
                 target.append( t )
@@ -139,31 +164,40 @@ class RunProcessAction(object):
 
     def __call__( self, target, source, env ):
 
-        executable = str( source[0].abspath )
-        working_dir, test = os.path.split( executable )
-        if self._working_dir:
-            working_dir = self._working_dir
-        program_path = source[0].path
-        suite = env['build_dir']
+        command = None
+        working_dir = None
+        program_path = None
 
-        if cuppa.build_platform.name() == "Windows":
-            executable = '"' + executable + '"'
-
-        test_command = executable
-        if self._command:
+        if not source and self._command:
             command = self._command
             working_dir = self._working_dir and self._working_dir or self._final_dir
-            process = os.path.relpath( executable, working_dir )
+            program_path = os.path.splitext(os.path.splitext(str(target[0]))[0])[0]
+
+        else:
+            executable = str( source[0].abspath )
+            working_dir, test = os.path.split( executable )
+            if self._working_dir:
+                working_dir = self._working_dir
+            program_path = source[0].path
+            suite = env['build_dir']
+
+            if cuppa.build_platform.name() == "Windows":
+                executable = '"' + executable + '"'
+
+            test_command = executable
+            if self._command:
+                command = self._command
+                working_dir = self._working_dir and self._working_dir or self._final_dir
 
         monitor = Monitor( program_path, env )
 
-        monitor.run( process )
+        monitor.run()
 
-        show_output = env['show_process_output']
+        suppress_output = env['suppress_process_output']
 
         try:
             return_code = self._run(
-                    show_output,
+                    suppress_output,
                     program_path,
                     command,
                     working_dir,
@@ -171,17 +205,17 @@ class RunProcessAction(object):
             )
 
             if return_code == self._expected_exit_code:
-                monitor.stop( process, 'success' )
+                monitor.stop( 'success' )
             elif return_code < 0:
                 self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
                 logger.error( "Command was terminated by signal: {}".format( as_error(str(return_code) ) ) )
-                monitor.stop( process, 'aborted' )
+                monitor.stop( 'aborted' )
             elif return_code > 0:
                 self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
                 logger.error( "Command returned with error code: {}".format( as_error(str(return_code) ) ) )
-                monitor.stop( process, 'failed' )
+                monitor.stop( 'failed' )
             else:
-                monitor.stop( process, 'success' )
+                monitor.stop( 'success' )
 
             if return_code == self._expected_exit_code:
                 self._write_success_file( success_file_name_from( program_path ) )
@@ -213,9 +247,9 @@ class RunProcessAction(object):
             pass
 
 
-    def _run( self, show_output, program_path, command, working_dir, env ):
-        process_stdout = ProcessStdout( show_output, stdout_file_name_from( program_path ) )
-        process_stderr = ProcessStderr( show_output, stderr_file_name_from( program_path ) )
+    def _run( self, suppress_output, program_path, command, working_dir, env ):
+        process_stdout = ProcessStdout( not suppress_output, stdout_file_name_from( program_path ) )
+        process_stderr = ProcessStderr( not suppress_output, stderr_file_name_from( program_path ) )
 
         return_code = IncrementalSubProcess.Popen2( process_stdout,
                                                     process_stderr,

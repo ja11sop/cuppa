@@ -411,7 +411,7 @@ class Construct(object):
         cuppa_env['propagate_path']      = cuppa_env.get_option( 'propagate-path' )      and True or False
         cuppa_env['merge_path']          = cuppa_env.get_option( 'merge-path' )          and True or False
         cuppa_env['show_test_output']    = cuppa_env.get_option( 'show-test-output' )    and True or False
-        cuppa_env['show_process_output'] = cuppa_env.get_option( 'show-process-output' ) and True or False
+        cuppa_env['suppress_process_output'] = cuppa_env.get_option( 'suppress-process-output' ) and True or False
         cuppa_env['dump']                = cuppa_env.get_option( 'dump' )                and True or False
         cuppa_env['clean']               = cuppa_env.get_option( 'clean' )               and True or False
 
