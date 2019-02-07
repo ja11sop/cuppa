@@ -21,6 +21,7 @@ import cuppa.progress
 from cuppa.output_processor import IncrementalSubProcess
 from cuppa.colourise import as_emphasised, as_highlighted, as_colour, as_error, as_notice
 from cuppa.log import logger
+from cuppa.path import unique_short_filename
 
 
 class Monitor(object):
@@ -97,7 +98,10 @@ class RunProcessEmitter(object):
 
     def _base_name( self, source ):
         if not source and self._command:
-            return os.path.join( self._final_dir, self._name_from_command() )
+            path = os.path.join( self._final_dir, self._name_from_command() )
+            path, name = os.path.split( path )
+            name = unique_short_filename( name )
+            return os.path.join( path, name )
         else:
             program_file = str(source[0])
             if not program_file.startswith( self._final_dir ):
