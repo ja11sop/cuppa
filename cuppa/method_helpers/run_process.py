@@ -39,7 +39,7 @@ class Monitor(object):
         self._cpu_times = cuppa.timer.CpuTimes( 0, 0, 0, 0 )
 
 
-    def run( self ):
+    def start( self ):
         self._timer = cuppa.timer.Timer()
 
 
@@ -97,11 +97,13 @@ class RunProcessEmitter(object):
 
 
     def _base_name( self, source ):
-        if self._command:
+        if self._command and callable(self._command):
+            return self._command.__name__ + "_" + str(self.next_invocation_id())
+        elif self._command:
             path = os.path.join( self._final_dir, self._name_from_command() )
             path, name = os.path.split( path )
             name = unique_short_filename( name )
-            logger.info( "Command = [{}], Unique Name = [{}]".format( as_notice(self._command), as_notice(name) ) )
+            logger.debug( "Command = [{}], Unique Name = [{}]".format( as_notice(self._command), as_notice(name) ) )
             return os.path.join( path, name )
         else:
             program_file = str(source[0])
@@ -112,7 +114,6 @@ class RunProcessEmitter(object):
 
     def __call__( self, target, source, env ):
         base_name = self._base_name( source )
-        logger.info( "source = [{}], base_name=[{}], command = [{}]".format( as_notice(str(source)), as_notice(base_name), as_notice(self._command) ) )
         target = []
         target.append( stdout_file_name_from( base_name ) )
         target.append( stderr_file_name_from( base_name ) )
@@ -121,7 +122,7 @@ class RunProcessEmitter(object):
             for t in self._targets:
                 target.append( t )
 
-        logger.info( "Targets = {}".format( str([ str(t) for t in target ]) ) )
+        logger.trace( "targets = {}".format( str([ str(t) for t in target ]) ) )
         return target, source
 
 
@@ -177,75 +178,89 @@ class RunProcessAction(object):
         working_dir = None
         program_path = None
 
-        if self._command:
-            command = self._command
-            if self._format_args:
-                format_args = {}
-                for key, value in self._format_args.iteritems():
-                    format_args[key] = callable(value) and value() or value
-                command = command.format( **format_args )
-            working_dir = self._working_dir and self._working_dir or self._final_dir
+        if self._command and callable(self._command):
             program_path = os.path.splitext(os.path.splitext(str(target[0]))[0])[0]
+            monitor = Monitor( program_path, env )
+            monitor.start()
 
+            result = self._command( target, source, env )
+
+            if result or result == None:
+                self._write_success_file( success_file_name_from( program_path ) )
+                monitor.stop( 'success' )
+            else:
+                self._remove_success_file( success_file_name_from( program_path ) )
+                monitor.stop( 'failed' )
         else:
-            executable = str( source[0].abspath )
-            working_dir, test = os.path.split( executable )
-            if self._working_dir:
-                working_dir = self._working_dir
-            program_path = source[0].path
 
-            if cuppa.build_platform.name() == "Windows":
-                executable = '"' + executable + '"'
-
-            test_command = executable
             if self._command:
                 command = self._command
+                if self._format_args:
+                    format_args = {}
+                    for key, value in self._format_args.iteritems():
+                        format_args[key] = callable(value) and value() or value
+                    command = command.format( **format_args )
                 working_dir = self._working_dir and self._working_dir or self._final_dir
-
-        monitor = Monitor( program_path, env )
-
-        monitor.run()
-
-        suppress_output = env['suppress_process_output']
-
-        try:
-            return_code = self._run(
-                    suppress_output,
-                    program_path,
-                    command,
-                    working_dir,
-                    env
-            )
-
-            if return_code == self._expected_exit_code:
-                monitor.stop( 'success' )
-            elif return_code < 0:
-                self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
-                logger.error( "Command was terminated by signal: {}".format( as_error(str(return_code) ) ) )
-                monitor.stop( 'aborted' )
-            elif return_code > 0:
-                self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
-                logger.error( "Command returned with error code: {}".format( as_error(str(return_code) ) ) )
-                monitor.stop( 'failed' )
+                program_path = os.path.splitext(os.path.splitext(str(target[0]))[0])[0]
             else:
-                monitor.stop( 'success' )
+                executable = str( source[0].abspath )
+                working_dir, test = os.path.split( executable )
+                if self._working_dir:
+                    working_dir = self._working_dir
+                program_path = source[0].path
 
-            if return_code == self._expected_exit_code:
-                self._write_success_file( success_file_name_from( program_path ) )
-            elif return_code:
-                self._remove_success_file( success_file_name_from( program_path ) )
-                if return_code < 0:
-                    raise BuildError( node=source[0], errstr="Command was terminated by signal: {}".format( str(-return_code) ) )
+                if cuppa.build_platform.name() == "Windows":
+                    executable = '"' + executable + '"'
+
+                test_command = executable
+                if self._command:
+                    command = self._command
+                    working_dir = self._working_dir and self._working_dir or self._final_dir
+
+            monitor = Monitor( program_path, env )
+
+            monitor.start()
+
+            suppress_output = env['suppress_process_output']
+
+            try:
+                return_code = self._run(
+                        suppress_output,
+                        program_path,
+                        command,
+                        working_dir,
+                        env
+                )
+
+                if return_code == self._expected_exit_code:
+                    monitor.stop( 'success' )
+                elif return_code < 0:
+                    self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
+                    logger.error( "Command was terminated by signal: {}".format( as_error(str(return_code) ) ) )
+                    monitor.stop( 'aborted' )
+                elif return_code > 0:
+                    self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
+                    logger.error( "Command returned with error code: {}".format( as_error(str(return_code) ) ) )
+                    monitor.stop( 'failed' )
                 else:
-                    raise BuildError( node=source[0], errstr="Command returned with error code: {}".format( str(return_code) ) )
-            else:
-                self._write_success_file( success_file_name_from( program_path ) )
+                    monitor.stop( 'success' )
 
-            return None
+                if return_code == self._expected_exit_code:
+                    self._write_success_file( success_file_name_from( program_path ) )
+                elif return_code:
+                    self._remove_success_file( success_file_name_from( program_path ) )
+                    if return_code < 0:
+                        raise BuildError( node=source[0], errstr="Command was terminated by signal: {}".format( str(-return_code) ) )
+                    else:
+                        raise BuildError( node=source[0], errstr="Command returned with error code: {}".format( str(return_code) ) )
+                else:
+                    self._write_success_file( success_file_name_from( program_path ) )
 
-        except OSError, e:
-            logger.error( "Execution of [{}] failed with error: {}".format( as_notice(test_command), as_notice(str(e)) ) )
-            raise BuildError( e )
+                return None
+
+            except OSError, e:
+                logger.error( "Execution of [{}] failed with error: {}".format( as_notice(test_command), as_notice(str(e)) ) )
+                raise BuildError( e )
 
 
     def _write_success_file( self, file_name ):
