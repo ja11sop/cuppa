@@ -97,10 +97,11 @@ class RunProcessEmitter(object):
 
 
     def _base_name( self, source ):
-        if not source and self._command:
+        if self._command:
             path = os.path.join( self._final_dir, self._name_from_command() )
             path, name = os.path.split( path )
             name = unique_short_filename( name )
+            logger.info( "Command = [{}], Unique Name = [{}]".format( as_notice(self._command), as_notice(name) ) )
             return os.path.join( path, name )
         else:
             program_file = str(source[0])
@@ -111,6 +112,7 @@ class RunProcessEmitter(object):
 
     def __call__( self, target, source, env ):
         base_name = self._base_name( source )
+        logger.info( "source = [{}], base_name=[{}], command = [{}]".format( as_notice(str(source)), as_notice(base_name), as_notice(self._command) ) )
         target = []
         target.append( stdout_file_name_from( base_name ) )
         target.append( stderr_file_name_from( base_name ) )
@@ -118,6 +120,8 @@ class RunProcessEmitter(object):
         if self._targets:
             for t in self._targets:
                 target.append( t )
+
+        logger.info( "Targets = {}".format( str([ str(t) for t in target ]) ) )
         return target, source
 
 
@@ -159,9 +163,10 @@ class ProcessStderr(object):
 
 class RunProcessAction(object):
 
-    def __init__( self, final_dir, command=None, expected_exit_code=None, working_dir=None, **ignored_kwargs ):
+    def __init__( self, final_dir, command=None, format_args=None, expected_exit_code=None, working_dir=None, **ignored_kwargs ):
         self._final_dir = final_dir
         self._command = command
+        self._format_args = format_args
         self._expected_exit_code = expected_exit_code
         self._working_dir = working_dir
 
@@ -172,8 +177,13 @@ class RunProcessAction(object):
         working_dir = None
         program_path = None
 
-        if not source and self._command:
+        if self._command:
             command = self._command
+            if self._format_args:
+                format_args = {}
+                for key, value in self._format_args.iteritems():
+                    format_args[key] = callable(value) and value() or value
+                command = command.format( **format_args )
             working_dir = self._working_dir and self._working_dir or self._final_dir
             program_path = os.path.splitext(os.path.splitext(str(target[0]))[0])[0]
 
@@ -183,7 +193,6 @@ class RunProcessAction(object):
             if self._working_dir:
                 working_dir = self._working_dir
             program_path = source[0].path
-            suite = env['build_dir']
 
             if cuppa.build_platform.name() == "Windows":
                 executable = '"' + executable + '"'

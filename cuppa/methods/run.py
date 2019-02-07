@@ -20,7 +20,7 @@ class RunMethod(object):
         pass
 
 
-    def __call__( self, env, source=None, target=None, final_dir=None, data=None, depends_on=None, command=None, expected_exit_code=None, working_dir=None ):
+    def __call__( self, env, source=None, target=None, final_dir=None, data=None, depends_on=None, command=None, format_args=None, expected_exit_code=None, working_dir=None ):
 
         actions = env['variant_actions']
 
@@ -32,6 +32,7 @@ class RunMethod(object):
             action, emitter = runner(
                 final_dir,
                 command=command,
+                format_args=format_args,
                 expected_exit_code=expected_exit_code,
                 target=target,
                 working_dir=working_dir
@@ -43,9 +44,9 @@ class RunMethod(object):
 
             # data should be deprecated in favour of depends_on
             if data:
-                sources = Flatten( [ source, data ] )
+                sources = Flatten( source and [ source, data ] or [data] )
             if depends_on:
-                sources = Flatten( [ source, depends_on ] )
+                sources = Flatten( source and [ source, depends_on ] or [depends_on] )
 
             run_process = env.RunBuilder( [], sources )
             if env['variant_actions'].has_key('force_run') or env['variant_actions'].has_key('force_test'):
