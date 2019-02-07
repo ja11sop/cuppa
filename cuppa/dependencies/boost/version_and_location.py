@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2017
+#          Copyright Jamie Allsop 2011-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -151,7 +151,7 @@ def get_boost_version( location ):
 
 
 def _determine_latest_boost_verion( offline ):
-    current_release = "1.68.0"
+    current_release = "1.69.0"
     if not offline:
         try:
             html = lxml.html.parse( urllib2.urlopen('https://www.boost.org/users/download/') )
