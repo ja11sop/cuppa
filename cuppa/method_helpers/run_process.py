@@ -75,7 +75,7 @@ def success_file_name_from( program_file ):
 
 class RunProcessEmitter(object):
 
-    invocation = 0
+    invocation = {}
 
     def __init__( self, final_dir, target=None, command=None, **ignored_kwargs ):
         self._final_dir = final_dir
@@ -84,24 +84,27 @@ class RunProcessEmitter(object):
 
 
     @classmethod
-    def next_invocation_id( cls ):
-        next_id = cls.invocation + 1
-        cls.invocation = next_id
+    def next_invocation_id( cls, env ):
+        variant_key = env['tool_variant_dir_offset']
+        if not variant_key in cls.invocation:
+            cls.invocation[variant_key] = 0
+        next_id = cls.invocation[variant_key] + 1
+        cls.invocation[variant_key] = next_id
         return next_id
 
 
-    def _name_from_command( self ):
-        invocation_id = self.next_invocation_id()
+    def _name_from_command( self, env ):
+        invocation_id = self.next_invocation_id( env )
         name = re.sub(r'[^\w\s-]', '', self._command).strip().lower()
         return re.sub(r'[-\s]+', '-', name) + "_" + str(invocation_id)
 
 
-    def _base_name( self, source ):
+    def _base_name( self, source, env ):
         if callable(self._command):
-            name = self._command.__name__ + "_" + str(self.next_invocation_id())
+            name = self._command.__name__ + "_" + str(self.next_invocation_id( env ))
             return os.path.join( self._final_dir, name )
         elif self._command:
-            path = os.path.join( self._final_dir, self._name_from_command() )
+            path = os.path.join( self._final_dir, self._name_from_command( env ) )
             path, name = os.path.split( path )
             name = unique_short_filename( name )
             logger.trace( "Command = [{}], Unique Name = [{}]".format( as_notice(self._command), as_notice(name) ) )
@@ -114,7 +117,7 @@ class RunProcessEmitter(object):
 
 
     def __call__( self, target, source, env ):
-        base_name = self._base_name( source )
+        base_name = self._base_name( source, env )
         target = []
         if not callable(self._command):
             target.append( stdout_file_name_from( base_name ) )
