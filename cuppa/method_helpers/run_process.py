@@ -190,7 +190,7 @@ class RunProcessAction(object):
 
             result = self._command( target, source, env )
 
-            if result or result == None:
+            if result==0 or result==None:
                 self._write_success_file( success_file_name_from( program_path ) )
                 monitor.stop( 'success' )
             else:
