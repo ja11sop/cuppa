@@ -178,7 +178,7 @@ class RunProcessAction(object):
         self._retry_count = retry_count and retry_count or 0
 
 
-    def _run_command( self, suppress_output, program_path, command, working_dir, env, retry ):
+    def _run_command( self, source, suppress_output, program_path, command, working_dir, env, retry ):
 
         log_failure = retry and logger.warn or logger.error
         success = False
@@ -283,7 +283,7 @@ class RunProcessAction(object):
 
                 retry = retry_count > 0
 
-                success = self._run_command( suppress_output, program_path, command, working_dir, env, retry )
+                success = self._run_command( source, suppress_output, program_path, command, working_dir, env, retry )
 
                 if not success and retry:
                     logger.info( "Retrying [{}]...".format( as_notice(test_command) ) )
