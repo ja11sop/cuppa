@@ -216,9 +216,9 @@ class RunProcessAction(object):
                 self._remove_success_file( success_file_name_from( program_path ) )
                 if not retry:
                     if return_code < 0:
-                        raise BuildError( node=source[0], errstr="Command was terminated by signal: {}".format( str(-return_code) ) )
+                        raise BuildError( node=source and source[0] or None, errstr="Command was terminated by signal: {}".format( str(-return_code) ) )
                     else:
-                        raise BuildError( node=source[0], errstr="Command returned with error code: {}".format( str(return_code) ) )
+                        raise BuildError( node=source and source[0] or None, errstr="Command returned with error code: {}".format( str(return_code) ) )
             else:
                 self._write_success_file( success_file_name_from( program_path ) )
 
