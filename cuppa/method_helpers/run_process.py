@@ -19,7 +19,7 @@ from SCons.Script import Flatten
 import cuppa.timer
 import cuppa.progress
 from cuppa.output_processor import IncrementalSubProcess
-from cuppa.colourise import as_emphasised, as_highlighted, as_colour, as_error, as_notice
+from cuppa.colourise import as_emphasised, as_highlighted, as_colour, as_error, as_notice, is_error
 from cuppa.log import logger
 from cuppa.path import unique_short_filename
 
@@ -43,8 +43,10 @@ class Monitor(object):
         self._timer = cuppa.timer.Timer()
 
 
-    def stop( self, status='success' ):
+    def stop( self, status='success', treat_error_as_warning=False ):
         meaning = status
+        if treat_error_as_warning and is_error( status ):
+            meaning = 'warning'
         if status == 'success':
             status = 'done'
         sys.stdout.write( as_highlighted( meaning, " = {} = ".format( status ) ) )
@@ -196,18 +198,18 @@ class RunProcessAction(object):
             )
 
             if return_code == self._expected_exit_code:
-                monitor.stop( 'success' )
+                monitor.stop( status='success' )
                 success = True
             elif return_code < 0:
                 self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
                 log_failure( "Command was terminated by signal: {}".format( as_error(str(return_code) ) ) )
-                monitor.stop( 'aborted' )
+                monitor.stop( status='aborted', treat_error_as_warning=retry )
             elif return_code > 0:
                 self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
                 log_failure( "Command returned with error code: {}".format( as_error(str(return_code) ) ) )
-                monitor.stop( 'failed' )
+                monitor.stop( status='failed', treat_error_as_warning=retry )
             else:
-                monitor.stop( 'success' )
+                monitor.stop( status='success' )
                 success = True
 
             if return_code == self._expected_exit_code:
@@ -225,9 +227,9 @@ class RunProcessAction(object):
             return success
 
         except OSError, e:
-            monitor.stop( 'failed' )
-            log_failure( "Execution of [{}] failed with error: {}".format( as_notice(test_command), as_notice(str(e)) ) )
-            if retry:
+            log_failure( "Execution of [{}] failed with error: {}".format( as_notice(command), as_notice(str(e)) ) )
+            monitor.stop( status='failed', treat_error_as_warning=retry )
+            if not retry:
                 raise BuildError( e )
 
 
@@ -281,12 +283,12 @@ class RunProcessAction(object):
 
             while retry_count >= 0:
 
-                retry = retry_count > 0
+                retry = ( retry_count > 0 )
 
                 success = self._run_command( source, suppress_output, program_path, command, working_dir, env, retry )
 
                 if not success and retry:
-                    logger.info( "Retrying [{}]...".format( as_notice(test_command) ) )
+                    logger.info( "Retrying [{}]...".format( as_notice(command) ) )
                 else:
                     break
 
