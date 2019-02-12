@@ -169,12 +169,13 @@ class ProcessStderr(object):
 
 class RunProcessAction(object):
 
-    def __init__( self, final_dir, command=None, format_args=None, expected_exit_code=None, working_dir=None, **ignored_kwargs ):
+    def __init__( self, final_dir, command=None, format_args=None, expected_exit_code=None, working_dir=None, retry_count=None, **ignored_kwargs ):
         self._final_dir = final_dir
         self._command = command
         self._format_args = format_args
         self._expected_exit_code = expected_exit_code
         self._working_dir = working_dir
+        self._retry_count = retry_count and retry_count or 0
 
 
     def __call__( self, target, source, env ):
@@ -222,50 +223,61 @@ class RunProcessAction(object):
                     command = self._command
                     working_dir = self._working_dir and self._working_dir or self._final_dir
 
-            monitor = Monitor( program_path, env )
-
-            monitor.start()
-
             suppress_output = env['suppress_process_output']
+            retry_count = self._retry_count
 
-            try:
-                return_code = self._run(
-                        suppress_output,
-                        program_path,
-                        command,
-                        working_dir,
-                        env
-                )
+            while retry_count >= 0:
 
-                if return_code == self._expected_exit_code:
-                    monitor.stop( 'success' )
-                elif return_code < 0:
-                    self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
-                    logger.error( "Command was terminated by signal: {}".format( as_error(str(return_code) ) ) )
-                    monitor.stop( 'aborted' )
-                elif return_code > 0:
-                    self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
-                    logger.error( "Command returned with error code: {}".format( as_error(str(return_code) ) ) )
-                    monitor.stop( 'failed' )
-                else:
-                    monitor.stop( 'success' )
+                monitor = Monitor( program_path, env )
+                monitor.start()
 
-                if return_code == self._expected_exit_code:
-                    self._write_success_file( success_file_name_from( program_path ) )
-                elif return_code:
-                    self._remove_success_file( success_file_name_from( program_path ) )
-                    if return_code < 0:
-                        raise BuildError( node=source[0], errstr="Command was terminated by signal: {}".format( str(-return_code) ) )
+                try:
+                    return_code = self._run(
+                            suppress_output,
+                            program_path,
+                            command,
+                            working_dir,
+                            env
+                    )
+
+                    if return_code == self._expected_exit_code:
+                        monitor.stop( 'success' )
+                    elif return_code < 0:
+                        self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
+                        logger.error( "Command was terminated by signal: {}".format( as_error(str(return_code) ) ) )
+                        monitor.stop( 'aborted' )
+                    elif return_code > 0:
+                        self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
+                        logger.error( "Command returned with error code: {}".format( as_error(str(return_code) ) ) )
+                        monitor.stop( 'failed' )
                     else:
-                        raise BuildError( node=source[0], errstr="Command returned with error code: {}".format( str(return_code) ) )
-                else:
-                    self._write_success_file( success_file_name_from( program_path ) )
+                        monitor.stop( 'success' )
 
-                return None
+                    if return_code == self._expected_exit_code:
+                        self._write_success_file( success_file_name_from( program_path ) )
+                    elif return_code:
+                        self._remove_success_file( success_file_name_from( program_path ) )
+                        if not retry_count:
+                            if return_code < 0:
+                                raise BuildError( node=source[0], errstr="Command was terminated by signal: {}".format( str(-return_code) ) )
+                            else:
+                                raise BuildError( node=source[0], errstr="Command returned with error code: {}".format( str(return_code) ) )
+                    else:
+                        self._write_success_file( success_file_name_from( program_path ) )
 
-            except OSError, e:
-                logger.error( "Execution of [{}] failed with error: {}".format( as_notice(test_command), as_notice(str(e)) ) )
-                raise BuildError( e )
+                    return None
+
+                except OSError, e:
+                    logger.error( "Execution of [{}] failed with error: {}".format( as_notice(test_command), as_notice(str(e)) ) )
+                    if not retry_count:
+                        raise BuildError( e )
+
+                if retry_count:
+                    logger.warn( "Execution of [{}] failed but retry specified. Retrying...".format( as_notice(test_command) ) )
+
+                retry_count = retry_count-1
+
+
 
 
     def _write_success_file( self, file_name ):
