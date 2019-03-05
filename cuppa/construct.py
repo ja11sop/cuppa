@@ -827,7 +827,9 @@ class Construct(object):
             sconstruct_offset_path, sconscript_name = os.path.split( sconscript_file )
 
             name = os.path.splitext( sconscript_name )[0]
+            sconscript_env['sconscript_name_id'] = name
             if name.lower() == "sconscript":
+                sconscript_env['sconscript_name_id'] = ""
                 path_without_ext = sconstruct_offset_path
                 name = path_without_ext
 
