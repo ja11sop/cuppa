@@ -154,15 +154,17 @@ def _determine_latest_boost_verion( offline ):
     current_release = "1.69.0"
     if not offline:
         try:
-            html = lxml.html.parse( urllib2.urlopen('https://www.boost.org/users/download/') )
+            boost_version_url = 'https://www.boost.org/users/download/'
+            logger.info( "Checking current boost version from {}...".format( as_info( boost_version_url ) ) )
+            html = lxml.html.parse( urllib2.urlopen( boost_version_url ) )
 
             current_release = html.xpath("/html/body/div[2]/div/div[1]/div/div/div[2]/h3[1]/span")[0].text
             current_release = str( re.search( r'(\d[.]\d+([.]\d+)?)', current_release ).group(1) )
 
-            logger.debug( "latest boost release detected as [{}]".format( as_info( current_release ) ) )
+            logger.info( "Latest boost release detected as [{}]".format( as_info( current_release ) ) )
 
         except Exception as e:
-            logger.warn( "cannot determine latest version of boost - [{}]. Assuming [{}].".format( str(e), current_release ) )
+            logger.warn( "Cannot determine latest version of boost - [{}]. Assuming [{}].".format( str(e), current_release ) )
     else:
         logger.info( "In offline mode. No version of boost specified so assuming [{}]".format( as_info( current_release ) ) )
 
