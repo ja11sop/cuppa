@@ -464,19 +464,27 @@ class Location(object):
 
         info = ( url, repository, branch, remote, revision )
 
+        vcs_info = cls.detect_vcs_info( local_directory, expected_vc_type )
+        if vcs_info:
+            return vcs_info
+
+        return info
+
+
+    @classmethod
+    def detect_vcs_info( cls, local_directory, expected_vc_type = None ):
         vcs_systems = [
-                scms.git.Git,
-                scms.subversion.Subversion,
-                scms.mercurial.Mercurial,
-                scms.bazaar.Bazaar
+            scms.git.Git,
+            scms.subversion.Subversion,
+            scms.mercurial.Mercurial,
+            scms.bazaar.Bazaar
         ]
 
         for vcs_system in vcs_systems:
             vcs_info = cls.retrieve_repo_info( vcs_system, local_directory, expected_vc_type )
             if vcs_info:
                 return vcs_info
-
-        return info
+        return None
 
 
     def ver_rev_summary( self, branch, revision, full_url_path ):
