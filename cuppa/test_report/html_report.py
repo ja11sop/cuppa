@@ -308,9 +308,7 @@ class GenerateHtmlReportBuilder(object):
         logger.debug( "Write HTML report for {}".format( destination_path ) )
 
         tests_title = env['offset_dir'] + "/*"
-
         test_summary = self._initialise_test_summary( "Summary" )
-
         test_suite_list = sorted( test_suites.values(), key=lambda test_suite: test_suite["name"] )
 
         for test_suite in test_suite_list:
@@ -328,7 +326,6 @@ class GenerateHtmlReportBuilder(object):
 
             self._update_summary_stats( test_summary, test_suite, "test_suite" )
 
-
         self._add_render_fields( test_summary )
 
         template = self.get_template()
@@ -343,7 +340,6 @@ class GenerateHtmlReportBuilder(object):
             )
 
 
-
 class GenerateHtmlReportMethod(object):
 
     def __call__( self, env, source, final_dir=None, sort_test_cases=False, auto_link_tests=True, link_style="local" ):
@@ -356,5 +352,5 @@ class GenerateHtmlReportMethod(object):
 
     @classmethod
     def add_to_env( cls, cuppa_env ):
-        cuppa_env.add_method( "GenerateHtmlReport", cls() )
+        cuppa_env.add_method( "GenerateHtmlTestReport", cls() )
 
