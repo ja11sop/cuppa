@@ -15,10 +15,14 @@ import hashlib
 import cgi
 from jinja2 import Environment, PackageLoader, select_autoescape
 
+from SCons.Script import Flatten, Dir, Copy
+
 import cuppa.progress
 import cuppa.timer
+import cuppa.path
 from cuppa.colourise import as_notice, as_info, as_warning, as_error, colour_items, emphasise_time_by_digit
 from cuppa.log import logger
+from cuppa.progress import NotifyProgress
 
 
 jinja2_env = None
@@ -35,6 +39,35 @@ def jinja2_templates():
         return jinja2_env
 
 
+cached_vcs_info = {}
+
+def vcs_info_from_location( location ):
+    global cached_vcs_info
+    if location in cached_vcs_info:
+        return cached_vcs_info[location]
+
+    from cuppa.location import Location
+    vcs_info = Location.detect_vcs_info( location )
+    cached_vcs_info[location] = vcs_info
+    return vcs_info
+
+
+def initialise_test_linking( env, link_style=None ):
+    base_uri = ""
+    if link_style == "local":
+        # TODO: escape properly and make sure this works on Windows
+        base_uri = "file://" + env['sconstruct_dir']
+    else:
+        vcs_info = vcs_info_from_location( env['sconstruct_dir'] )
+        if link_style == "gitlab":
+            # NOTE: Might need to do VCS detection per test file
+            base_uri = os.path.join( os.path.splitext(vcs_info[0])[0], "blob", vcs_info[4] )
+        elif link_style == "raw":
+            base_uri = vcs_info
+        else:
+            base_uri = vcs_info[0]
+    return base_uri
+
 
 class GenerateHtmlReportBuilder(object):
 
@@ -45,15 +78,21 @@ class GenerateHtmlReportBuilder(object):
         self._link_style = link_style
 
 
+    @classmethod
+    def _summary_path( cls, base_node ):
+        return os.path.splitext( str(base_node) )[0] + "-summary.json"
+
+
     def emitter( self, target, source, env ):
         sources = []
         targets = []
         try:
             for s in source:
                 if os.path.splitext( str(s) )[1] == ".json":
-                    sources.append( str(s) )
+                    sources.append( s )
                     target_report = os.path.splitext( str(s) )[0] + ".html"
                     targets.append( target_report )
+                    targets.append( self._summary_path(target_report) )
         except StopIteration:
             pass
         return targets, sources
@@ -61,9 +100,14 @@ class GenerateHtmlReportBuilder(object):
 
     def GenerateHtmlTestReport( self, target, source, env ):
 
-        self._initialise_test_linking( env )
+        self._base_uri = ""
+        if self._auto_link_tests:
+            self._base_uri = initialise_test_linking( env, link_style=self._link_style )
 
-        for s, t in itertools.izip( source, target ):
+        # Each source will result in one or more targets so we need to slice the targets to pick up
+        # the gcov target (the first one) before we perform the zip iteration
+        for s, t in itertools.izip( source, itertools.islice( target, 0, None, len(target)/len(source) ) ):
+        #for s, t in itertools.izip( source, target ):
             test_suites = {}
 
             logger.trace( "source = [{}]".format( as_info(str(s)) ) )
@@ -84,10 +128,7 @@ class GenerateHtmlReportBuilder(object):
 
 
     @classmethod
-    def _initialise_test_summary( cls, name, report={} ):
-
-        report = cls._initialise_test_suite( name, report )
-
+    def _initialise_test_suites( cls, report ):
         report['test_suites_count'] = 0
         report['test_suites_passed'] = 0
         report['test_suites_failed'] = 0
@@ -95,16 +136,9 @@ class GenerateHtmlReportBuilder(object):
         report['test_suites_aborted'] = 0
         report['test_suites_skipped'] = 0
 
-        return report
-
 
     @classmethod
-    def _initialise_test_suite( cls, name, report={} ):
-
-        report['name'] = name
-
-        report['test_cases'] = []
-
+    def _initialise_test_cases( cls, report ):
         report['tests_count'] = 0
         report['tests_passed'] = 0
         report['tests_failed'] = 0
@@ -112,23 +146,55 @@ class GenerateHtmlReportBuilder(object):
         report['tests_aborted'] = 0
         report['tests_skipped'] = 0
 
-        report['status'] = "passed"
 
+    @classmethod
+    def _initialise_test_assertions( cls, report ):
         report['assertions_count'] = 0
         report['assertions_passed'] = 0
         report['assertions_failed'] = 0
         report['assertions_aborted'] = 0
 
+
+    @classmethod
+    def _initialise_test_times( cls, report ):
         report['cpu_times'] = {
             "process_time": 0,
             "system_time": 0,
             "user_time": 0,
             "wall_time": 0
         }
-
         report['wall_cpu_percent'] = 'n/a'
 
+
+    @classmethod
+    def _create_toolchain_variant_summary( cls, name ):
+        report = {}
+        report['name'] = name
+        report['status'] = "passed"
+        #report['test_summaries'] = []
+        cls._initialise_test_suites( report )
+        cls._initialise_test_cases( report )
+        cls._initialise_test_assertions( report )
+        cls._initialise_test_times( report )
         return report
+
+
+    @classmethod
+    def _create_test_summary( cls, name ):
+        report = {}
+        cls._initialise_test_suite( name, report )
+        cls._initialise_test_suites( report )
+        return report
+
+
+    @classmethod
+    def _initialise_test_suite( cls, name, report ):
+        report['name'] = name
+        report['status'] = "passed"
+        report['test_cases'] = []
+        cls._initialise_test_cases( report )
+        cls._initialise_test_assertions( report )
+        cls._initialise_test_times( report )
 
 
     @classmethod
@@ -136,7 +202,8 @@ class GenerateHtmlReportBuilder(object):
         logger.trace( "test_case = [{}]".format( as_notice( str(test_case) ) ) )
         suite = test_case['suite']
         if not suite in test_suites:
-            test_suites[suite] = cls._initialise_test_suite( suite )
+            test_suites[suite] = {}
+            cls._initialise_test_suite( suite, test_suites[suite] )
         test_suite = test_suites[suite]
         test_suite['test_cases'].append( test_case )
         cls._update_summary_stats( test_suite, test_case )
@@ -280,20 +347,6 @@ class GenerateHtmlReportBuilder(object):
         report['text_colour'] = cls._status_bootstrap_text_colour( report['status'] )
 
 
-    def _initialise_test_linking( self, env ):
-        self._base_uri = ""
-        if not self._auto_link_tests:
-            return
-        if self._link_style == "local":
-            # TODO: escape properly and make sure this works on Windows
-            self._base_uri = "file://" + env['sconstruct_dir']
-        elif self._link_style == "gitlab":
-            # NOTE: Might need to do VCS detection per test file
-            from cuppa.location import Location
-            vcs_info = Location.detect_vcs_info( env['sconstruct_dir'] )
-            self._base_uri = os.path.join( os.path.splitext(vcs_info[0])[0], "blob", vcs_info[4] )
-
-
     def _create_uri( self, filepath, lineno ):
         if not self._auto_link_tests:
             return None
@@ -303,12 +356,26 @@ class GenerateHtmlReportBuilder(object):
             return self._base_uri + "/" + filepath + "#L" + str(lineno)
 
 
+    @classmethod
+    def _summary_name( cls, env, destination_path ):
+        name = env['offset_dir']
+        if name.startswith("."+os.path.sep):
+            name = name[2:]
+        sconscript_name = os.path.splitext( os.path.split( env['sconscript_file'] )[1] )[0]
+        return name + "/" + os.path.splitext( os.path.splitext( os.path.split( destination_path )[1] )[0] )[0]
+
+
     def _write( self, destination_path, env, test_suites, sort_test_cases=False ):
 
         logger.debug( "Write HTML report for {}".format( destination_path ) )
 
-        tests_title = env['offset_dir'] + "/*"
-        test_summary = self._initialise_test_summary( "Summary" )
+        name = self._summary_name( env, destination_path )
+        tests_title = name
+
+        test_summary = self._create_test_summary( name )
+        test_summary['toolchain_variant_dir'] = env['tool_variant_dir']
+        test_summary['summary_rel_path'] = os.path.join( destination_subdir( env ), os.path.split( destination_path )[1] )
+
         test_suite_list = sorted( test_suites.values(), key=lambda test_suite: test_suite["name"] )
 
         for test_suite in test_suite_list:
@@ -328,6 +395,16 @@ class GenerateHtmlReportBuilder(object):
 
         self._add_render_fields( test_summary )
 
+        summary_path = self._summary_path( destination_path )
+        with open( summary_path, 'w' ) as summary_file:
+            json.dump(
+                test_summary,
+                summary_file,
+                sort_keys = True,
+                indent = 4,
+                separators = (',', ': ')
+            )
+
         template = self.get_template()
 
         with open( destination_path, 'w' ) as test_suite_index:
@@ -343,6 +420,8 @@ class GenerateHtmlReportBuilder(object):
 class GenerateHtmlReportMethod(object):
 
     def __call__( self, env, source, final_dir=None, sort_test_cases=False, auto_link_tests=True, link_style="local" ):
+        if not env['variant_actions'].has_key('test'):
+            return []
         builder = GenerateHtmlReportBuilder( final_dir, sort_test_cases=sort_test_cases, auto_link_tests=auto_link_tests, link_style=link_style )
         env['BUILDERS']['GenerateHtmlReport'] = env.Builder( action=builder.GenerateHtmlTestReport, emitter=builder.emitter )
         report = env.GenerateHtmlReport( [], source )
@@ -354,3 +433,282 @@ class GenerateHtmlReportMethod(object):
     def add_to_env( cls, cuppa_env ):
         cuppa_env.add_method( "GenerateHtmlTestReport", cls() )
 
+
+def destination_subdir( env ):
+    return env['flat_tool_variant_dir_offset']
+
+
+class CollateReportIndexEmitter(object):
+
+    def __init__( self, destination=None ):
+        self._destination = destination
+
+    def __call__( self, target, source, env ):
+        destination = self._destination
+        if not destination:
+            destination = env['abs_final_dir']
+        else:
+            destination = self._destination + destination_subdir( env )
+
+        master_index = env.File( os.path.join( self._destination, "test-report-index.json" ) )
+        master_report = env.File( os.path.join( self._destination, "test-report-index.json" ) )
+
+        env.Clean( source, master_index )
+        env.Clean( source, master_report )
+
+        ReportIndexBuilder.register_report_folders( final_dir=env['abs_final_dir'], destination_dir=self._destination )
+
+        for html_report, json_report in zip(*[iter(source)]*2):
+            target.append( os.path.join( destination, os.path.split( str(html_report) )[1] ) )
+            json_report_target = env.File( os.path.join( destination, os.path.split( str(json_report) )[1] ) )
+            target.append( json_report_target )
+            ReportIndexBuilder.update_index( json_report_target, os.path.split(json_report_target.abspath)[0] )
+
+        logger.trace( "sources = [{}]".format( colour_items( [str(s) for s in source] ) ) )
+        logger.trace( "targets = [{}]".format( colour_items( [str(t) for t in target] ) ) )
+
+        env.Depends( master_report, target )
+        env.Depends( master_index, target )
+
+        return target, source
+
+
+class CollateReportIndexAction(object):
+
+    def __init__( self, destination=None ):
+        self._destination = destination
+
+
+    @classmethod
+    def _read( cls, json_report_path, default={} ):
+        with open( json_report_path, "r" ) as report:
+            try:
+                report = json.load( report )
+                return report
+            except ValueError as error:
+                logger.error(
+                    "Test Report [{}] does not contain valid JSON. Error [{}] encountered while parsing".format(
+                    as_info( json_report_path ),
+                    as_error( str(error) )
+                ) )
+        return default
+
+
+    def __call__( self, target, source, env ):
+
+        logger.trace( "target = [{}]".format( colour_items( [ str(node) for node in target ] ) ) )
+        logger.trace( "source = [{}]".format( colour_items( [ str(node) for node in source ] ) ) )
+
+        for html_report_src_tgt, json_report_src_tgt in zip(*[iter(itertools.izip( source, target ))]*2):
+
+            html_report = html_report_src_tgt[0]
+            json_report = json_report_src_tgt[0]
+
+            html_target = html_report_src_tgt[1]
+            json_target = json_report_src_tgt[1]
+
+            logger.trace( "html_report = [{}]".format( as_notice( str(html_report) ) ) )
+            logger.trace( "json_report = [{}]".format( as_info( str(json_report) ) ) )
+            logger.trace( "html_target = [{}]".format( as_notice( str(html_target) ) ) )
+            logger.trace( "json_target = [{}]".format( as_info( str(json_target) ) ) )
+
+            destination = env['abs_final_dir']
+            if  self._destination:
+                destination = self._destination + destination_subdir( env )
+
+            logger.trace( "report_summary = {}".format( str( self._read( str(json_report) ) ) ) )
+
+            env.Execute( Copy( html_target, html_report ) )
+            env.Execute( Copy( json_target, json_report ) )
+
+        return None
+
+    @classmethod
+    def summary_name( cls, env ):
+        return os.path.split( env['sconscript_toolchain_build_dir'] )[0] + "/*"
+
+
+class ReportIndexBuilder(object):
+
+    all_reports = {}
+    destination_dirs  = {}
+
+    @classmethod
+    def register_report_folders( cls, final_dir=None, destination_dir=None ):
+
+        destination_dir = str(Dir(destination_dir))
+        final_dir = str(Dir(final_dir))
+
+        if not destination_dir in cls.destination_dirs:
+            cls.destination_dirs[destination_dir] = set()
+            cls.destination_dirs[destination_dir].add( final_dir )
+        else:
+            new_common = None
+            new_folder = None
+            for path in cls.destination_dirs[destination_dir]:
+                common, tail1, tail2 = cuppa.path.split_common( path, final_dir )
+                if common and (not tail1 or not tail2):
+                    new_common = common
+                    new_folder = final_dir
+                    break
+                else:
+                    new_folder = final_dir
+            if new_common:
+                cls.destination_dirs[destination_dir].add(new_common)
+                cls.destination_dirs[destination_dir].remove(new_folder)
+            elif new_folder:
+                cls.destination_dirs[destination_dir].add(new_folder)
+
+
+    @classmethod
+    def get_template( cls ):
+        return jinja2_templates().get_template('test_report_index.html')
+
+
+    @classmethod
+    def update_index( cls, json_report, destination ):
+        logger.trace( "add destination = [{}]".format( as_notice(destination) ) )
+        if not destination in cls.all_reports:
+            cls.all_reports[ destination ] = []
+        cls.all_reports[ destination ].append( json_report )
+
+
+    @classmethod
+    def _update_toolchain_variant_summary( cls, summaries, toolchain_variant, summary ):
+
+        if not toolchain_variant in summaries['toolchain_variants']:
+            summaries['toolchain_variants'][toolchain_variant] = GenerateHtmlReportBuilder._create_toolchain_variant_summary(
+                toolchain_variant
+            )
+
+        GenerateHtmlReportBuilder._update_summary_stats(
+            summaries['toolchain_variants'][toolchain_variant],
+            summary,
+            "test_suite"
+        )
+        GenerateHtmlReportBuilder._add_render_fields(
+            summaries['toolchain_variants'][toolchain_variant]
+        )
+
+
+    @classmethod
+    def _ranked_status( cls ):
+        return [ 'passed', 'skipped', 'expected_failure', 'failed', 'aborted' ]
+
+
+    @classmethod
+    def on_progress( cls, progress, sconscript, variant, env, target, source ):
+        if progress == 'sconstruct_end':
+
+            logger.trace( "Destination dirs = [{}]".format( colour_items( cls.destination_dirs.keys() ) ) )
+            logger.trace( "cls.all_reports dirs = [{}]".format( colour_items( cls.all_reports.keys() ) ) )
+
+            for destination_dir, final_dirs in cls.destination_dirs.iteritems():
+
+                master_index_path = os.path.join( destination_dir, "test-report-index.html" )
+                master_report_path = os.path.join( destination_dir, "test-report-index.json" )
+
+                logger.debug( "Master test report index path = [{}]".format( as_notice( master_index_path ) ) )
+
+                template = cls.get_template()
+
+                summaries = {}
+                summaries['vcs_info'] = initialise_test_linking( env, link_style="raw" )
+                summaries['name'] = str(env.Dir(destination_dir)) + "/*"
+                summaries['title'] = summaries['vcs_info'][0]
+                summaries['branch'] = summaries['vcs_info'][2]
+                summaries['commit'] = summaries['vcs_info'][4]
+                summaries['uri'] = summaries['vcs_info'][0]
+                summaries['toolchain_variants'] = {}
+                summaries['reports'] = {}
+
+                for report_dir, json_reports in cls.all_reports.iteritems():
+                    common, tail1, tail2 = cuppa.path.split_common( report_dir, destination_dir )
+                    logger.trace( "common, tail1, tail2 = {}, {}, {}".format( as_info(common), as_notice(tail1), as_notice(tail2) ) )
+                    if common and (not tail1 or not tail2):
+
+                        for json_report in json_reports:
+
+                            summary = CollateReportIndexAction._read( str(json_report) )
+
+                            toolchain_variant = summary['toolchain_variant_dir']
+
+                            cls._update_toolchain_variant_summary( summaries, toolchain_variant, summary )
+
+                            summary_name = summary['name']
+
+                            if not summary_name in summaries['reports']:
+                                summaries['reports'][summary_name] = {}
+                                summaries['reports'][summary_name]['variants'] = {}
+
+                            summaries['reports'][summary_name]['variants'][toolchain_variant] = summary
+
+                report_list = summaries['reports'].items()
+                report_list.sort()
+
+                for name, report in report_list:
+                    report['default_variant'] = None
+                    report['default_summary_rel_path'] = None
+                    variant_count = 0
+                    status_rank = 0
+                    for variant in report['variants'].itervalues():
+                        variant_count += 1
+                        index = cls._ranked_status().index(variant['status'])
+                        if index > status_rank:
+                            status_rank = index
+                        if not report['default_variant']:
+                            report['default_variant'] = variant['toolchain_variant_dir']
+                            report['default_summary_rel_path'] = variant['summary_rel_path']
+
+                    report['variant_count'] = variant_count
+                    report['status'] = cls._ranked_status()[status_rank]
+                    report['selector'] = GenerateHtmlReportBuilder._selector_from_name( name )
+                    report['style'] = GenerateHtmlReportBuilder._status_bootstrap_style( report['status'] )
+                    report['text_colour'] = GenerateHtmlReportBuilder._status_bootstrap_text_colour( report['status'] )
+
+                summaries_json_report = json.dumps(
+                    summaries,
+                    sort_keys = True,
+                    indent = 4,
+                    separators = (',', ': ')
+                )
+
+                logger.trace( "summaries = \n{}".format( summaries_json_report ) )
+
+                with open( master_report_path, 'w' ) as master_report_file:
+                    master_report_file.write( summaries_json_report )
+
+                with open( master_index_path, 'w' ) as master_index_file:
+                    master_index_file.write(
+                        template.render(
+                            summaries=summaries,
+                            report_list=report_list,
+                            next=next,
+                            len=len
+                        ).encode('utf-8')
+                    )
+
+
+NotifyProgress.register_callback( None, ReportIndexBuilder.on_progress )
+
+
+class CollateTestReportIndexMethod(object):
+
+    def __init__( self ):
+        pass
+
+    def __call__( self, env, sources, destination=None ):
+        if not env['variant_actions'].has_key('test'):
+            return []
+
+        env['BUILDERS']['CollateTestReportIndexBuilder'] = env.Builder( action=CollateReportIndexAction( destination ), emitter=CollateReportIndexEmitter( destination ) )
+
+        index_file = env.CollateTestReportIndexBuilder( [], Flatten( [ sources ] ) )
+
+        cuppa.progress.NotifyProgress.add( env, index_file )
+        return index_file
+
+
+    @classmethod
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "CollateTestReportIndex", cls() )

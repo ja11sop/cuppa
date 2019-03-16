@@ -63,7 +63,8 @@ setup(
         ],
         'cuppa.method.plugins' : [
             'cuppa.test_report.generate_bitten_report = cuppa.test_report.generate_bitten_report:GenerateBittenReportMethod',
-            'cuppa.test_report.html_report = cuppa.test_report.html_report:GenerateHtmlReportMethod',
+            'cuppa.test_report.html_report.generate_html_report = cuppa.test_report.html_report:GenerateHtmlReportMethod',
+            'cuppa.test_report.html_report.collate_test_report = cuppa.test_report.html_report:CollateTestReportIndexMethod',
         ]
     },
     classifiers = [
