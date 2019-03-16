@@ -86,15 +86,6 @@ def run_command( command, working_dir, env ):
     return return_code, process_output.string()
 
 
-def lazy_create_path( path ):
-    if not os.path.exists( path ):
-        try:
-            os.makedirs( path )
-        except os.error as e:
-            if not os.path.exists( path ):
-                logger.error( "Could not create path [{}]. Failed with error [{}]".format( as_notice(path), as_error(str(e)) ) )
-
-
 class CoverageSuite(object):
 
     @classmethod
@@ -133,7 +124,7 @@ class CoverageSuite(object):
 
     def _run_gcovr( self, target, build_dir, output_dir, working_dir, sconscript_id, include_regexes, exclude_regexes ):
 
-        lazy_create_path( output_dir )
+        cuppa.path.lazy_create_path( output_dir )
 
         command = 'gcovr -h'
         if not command_available( command ):
@@ -289,7 +280,7 @@ class RunGcovCoverage(object):
         logger.trace( "target = {}".format( colour_items( [str(t) for t in target] ) ) )
         logger.trace( "source = {}".format( colour_items( [str(s) for s in source] ) ) )
 
-        lazy_create_path( os.path.join( env['base_path'], env['build_dir'] ) )
+        cuppa.path.lazy_create_path( os.path.join( env['base_path'], env['build_dir'] ) )
 
         self._target = target
 
@@ -764,7 +755,7 @@ class CollateCoverageIndexAction(object):
 
                 CoverageIndexBuilder.update_coverage( coverage )
 
-            logger.info( "self._destination = [{}], variant_index_path = [{}]".format( as_info( str(self._destination) ), as_notice( str(variant_index_path) ) ) )
+            logger.trace( "self._destination = [{}], variant_index_path = [{}]".format( as_info( str(self._destination) ), as_notice( str(variant_index_path) ) ) )
 
             env.CopyFiles( self._destination, variant_index_path )
 
