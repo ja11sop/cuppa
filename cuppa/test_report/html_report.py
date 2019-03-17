@@ -13,6 +13,7 @@ import os
 import itertools
 import hashlib
 import cgi
+from urlparse import urlparse
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from SCons.Script import Flatten, Dir, Copy
@@ -48,6 +49,15 @@ def vcs_info_from_location( location ):
 
     from cuppa.location import Location
     vcs_info = Location.detect_vcs_info( location )
+
+    def clean_user_info( url_string ):
+        url = urlparse( url_string )
+        if url.scheme:
+            url_string = url.scheme + "://" + url.netloc.split("@")[-1] + url.path
+        return url_string
+
+    vcs_info = ( clean_user_info( vcs_info[0] ), clean_user_info( vcs_info[1] ), vcs_info[2], vcs_info[3], vcs_info[4] )
+
     cached_vcs_info[location] = vcs_info
     return vcs_info
 
