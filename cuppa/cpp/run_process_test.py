@@ -68,16 +68,18 @@ class TestSuite(object):
         sys.stdout.write(
             as_emphasised( "\nTest [%s]..." % test ) + '\n'
         )
-        self._tests.append( {} )
-        test_case = self._tests[-1]
+        test_case = {}
         test_case['name']     = test
         test_case['expected'] = expected
         test_case['suite']    = self._name
         test_case['timer']    = cuppa.timer.Timer()
+        test_case['stdout']   = []
+        test_case['stderr']   = []
+        self._tests.append( test_case )
+        return test_case
 
 
-    def exit_test( self, test, status='passed' ):
-        test_case = self._tests[-1]
+    def exit_test( self, test_case, status='passed' ):
         test_case['timer'].stop()
         test_case['status'] = status
 
@@ -305,13 +307,15 @@ class RunProcessTestEmitter(object):
 
 class ProcessStdout(object):
 
-    def __init__( self, show_test_output, log ):
+    def __init__( self, test_case, show_test_output, log ):
+        self._test_case = test_case
         self._show_test_output = show_test_output
         self.log = open( log, "w" )
 
 
     def __call__( self, line ):
         self.log.write( line + '\n' )
+        self._test_case['stdout'].append( line )
         if self._show_test_output:
             sys.stdout.write( line + '\n' )
 
@@ -323,13 +327,15 @@ class ProcessStdout(object):
 
 class ProcessStderr(object):
 
-    def __init__( self, show_test_output, log ):
+    def __init__( self, test_case, show_test_output, log ):
+        self._test_case = test_case
         self._show_test_output = show_test_output
         self.log = open( log, "w" )
 
 
     def __call__( self, line ):
         self.log.write( line + '\n' )
+        self._test_case['stderr'].append( line )
         if self._show_test_output:
             sys.stderr.write( line + '\n' )
 
@@ -369,12 +375,13 @@ class RunProcessTest(object):
 
         test_suite = TestSuite.create( suite, env )
 
-        test_suite.enter_test( test, expected=self._expected )
+        test_case = test_suite.enter_test( test, expected=self._expected )
 
         show_test_output = env['show_test_output']
 
         try:
             return_code = self._run_test(
+                    test_case,
                     show_test_output,
                     program_path,
                     test_command,
@@ -383,17 +390,17 @@ class RunProcessTest(object):
             )
 
             if return_code == self._expected_exit_code:
-                test_suite.exit_test( test, 'passed' )
+                test_suite.exit_test( test_case, 'passed' )
             elif return_code < 0:
                 self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
                 logger.error( "Test was terminated by signal: {}".format( as_error(str(return_code) ) ) )
-                test_suite.exit_test( test, 'aborted' )
+                test_suite.exit_test( test_case, 'aborted' )
             elif return_code > 0:
                 self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
                 logger.error( "Test returned with error code: {}".format( as_error(str(return_code) ) ) )
-                test_suite.exit_test( test, 'failed' )
+                test_suite.exit_test( test_case, 'failed' )
             else:
-                test_suite.exit_test( test, 'passed' )
+                test_suite.exit_test( test_case, 'passed' )
 
             cuppa.test_report.cuppa_json.write_report( report_file_name_from( program_path ), test_suite.tests() )
 
@@ -427,9 +434,9 @@ class RunProcessTest(object):
             pass
 
 
-    def _run_test( self, show_test_output, program_path, test_command, working_dir, env ):
-        process_stdout = ProcessStdout( show_test_output, stdout_file_name_from( program_path ) )
-        process_stderr = ProcessStderr( show_test_output, stderr_file_name_from( program_path ) )
+    def _run_test( self, test_case, show_test_output, program_path, test_command, working_dir, env ):
+        process_stdout = ProcessStdout( test_case, show_test_output, stdout_file_name_from( program_path ) )
+        process_stderr = ProcessStderr( test_case, show_test_output, stderr_file_name_from( program_path ) )
 
         return_code = IncrementalSubProcess.Popen2( process_stdout,
                                                     process_stderr,
