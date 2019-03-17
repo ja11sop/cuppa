@@ -127,10 +127,16 @@ class GenerateHtmlReportBuilder(object):
             for test_case in test_cases:
 
                 if not 'assertions_count' in test_case:
-                    test_case['assertions_count'] = test_case['assertions']
-                    test_case['assertions_passed'] = test_case['passed']
-                    test_case['assertions_failed'] = test_case['failed']
-                    test_case['assertions_aborted'] = test_case['aborted']
+                    if 'assertions' in test_case:
+                        test_case['assertions_count']   = test_case['assertions']
+                        test_case['assertions_passed']  = test_case['passed']
+                        test_case['assertions_failed']  = test_case['failed']
+                        test_case['assertions_aborted'] = test_case['aborted']
+                    else:
+                        test_case['assertions_count']   = 0
+                        test_case['assertions_passed']  = 0
+                        test_case['assertions_failed']  = 0
+                        test_case['assertions_aborted'] = 0
 
                 self._add_to_test_suites( test_suites, test_case )
             self._write( str(t), env, test_suites, sort_test_cases=self._sort_test_cases )
@@ -357,13 +363,24 @@ class GenerateHtmlReportBuilder(object):
         report['text_colour'] = cls._status_bootstrap_text_colour( report['status'] )
 
 
-    def _create_uri( self, filepath, lineno ):
+    def _create_uri( self, test_case ):
+        filepath = 'file' in test_case and test_case['file'] or None
+        lineno   = 'line' in test_case and test_case['line'] or None
+
         if not self._auto_link_tests:
             return None
         if self._link_style == "local":
-            return self._base_uri + "/" + filepath
+            link = self._base_uri
+            if filepath:
+                link += "/" + filepath
+            return link
         elif self._link_style == "gitlab":
-            return self._base_uri + "/" + filepath + "#L" + str(lineno)
+            link = self._base_uri
+            if filepath:
+                link += "/" + filepath
+                if lineno:
+                    link += "#L" + str(lineno)
+            return link
 
 
     @classmethod
@@ -399,7 +416,7 @@ class GenerateHtmlReportBuilder(object):
                 if test_case['stdout']:
                     escaped_stdout = ( cgi.escape(line).rstrip() for line in test_case['stdout'] )
                     test_case['stdout'] = escaped_stdout
-                test_case['uri'] = self._create_uri( test_case['file'], test_case['line'] )
+                test_case['uri'] = self._create_uri( test_case )
 
             self._update_summary_stats( test_summary, test_suite, "test_suite" )
 
