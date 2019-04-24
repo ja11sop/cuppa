@@ -65,10 +65,10 @@ class Git:
                 # otherwise this will simply extract the branch_name as expected
                 if not branches[0].startswith('tag:'):
                     remote = branches[0]
-                branch = branches[0].replace(': ','/').split('/')[1]
+                branch = branches[0].replace(': ','/').split('/')[-1]
             else:
                 remote = branches[-2]
-                branch = remote.split('/')[1]
+                branch = remote.split('/')[-1]
             logger.trace( "Branch (using show) for [{}] is [{}]".format( as_notice(path), as_info(branch) ) )
         else:
             logger.warn( "No branch found from [{}]".format( result ) )
