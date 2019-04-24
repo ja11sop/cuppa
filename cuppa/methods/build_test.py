@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2015
+#          Copyright Jamie Allsop 2011-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -17,20 +17,47 @@ class BuildTestMethod:
         self._default_runner = default_test_runner
 
 
-    def __call__( self, env, target, source, final_dir=None, data=None, append_variant=None, runner=None, expected='passed', **kwargs ):
+    def __call__(
+            self,
+            env, target, source,
+            final_dir=None,
+            data=None,
+            append_variant=None,
+            runner=None,
+            expected='passed',
+            command=None,
+            expected_exit_code=None,
+            cov_include_patterns=None,
+            cov_exclude_dependencies=False,
+            cov_exclude_patterns=None,
+            working_dir=None,
+            **kwargs
+    ):
 
         nodes = []
         program = env.Build( target, source, final_dir=final_dir, append_variant=append_variant, **kwargs )
         nodes.append( program )
-        if env['variant_actions'].has_key('test') or env['variant_actions'].has_key('cov'):
+
+        actions = env['variant_actions']
+
+        if actions.has_key('test') or actions.has_key('force_test'):
             if not runner:
                 runner = self._default_runner
 
-            test = env.Test( program, final_dir=final_dir, data=data, runner=runner, expected=expected )
+            test = env.Test(
+                program,
+                final_dir=final_dir,
+                data=data,
+                runner=runner,
+                expected=expected,
+                command=command,
+                expected_exit_code=expected_exit_code,
+                working_dir=working_dir
+            )
 
             nodes.append( test )
-            if 'cov' in env['variant_actions']:
-                coverage = env.Coverage( program, source, final_dir=final_dir )
+            if 'cov' in actions:
+                coverage = env.Coverage( program, source, final_dir=final_dir, exclude_dependencies=cov_exclude_dependencies, exclude_patterns=cov_exclude_patterns )
                 nodes.append( coverage )
 
         return Flatten( nodes )

@@ -48,13 +48,18 @@ class NotifyProgress(object):
 
 
     @classmethod
-    def _variant( cls, env ):
+    def variant( cls, env ):
         return os.path.split(env['build_dir'])[0]
 
 
     @classmethod
-    def _sconscript( cls, env ):
+    def sconscript( cls, env ):
         return env['sconscript_file']
+
+
+    @classmethod
+    def key( cls, env ):
+        return cls.sconscript( env ) + "/" + cls.variant( env )
 
 
     @classmethod
@@ -66,8 +71,8 @@ class NotifyProgress(object):
         empty_env       = env['empty_env']
         sconscript_env  = env['sconscript_env']
 
-        sconscript    = cls._sconscript( sconscript_env )
-        variant       = cls._variant( env )
+        sconscript    = cls.sconscript( sconscript_env )
+        variant       = cls.variant( env )
 
         if not cls._sconstruct_begin:
             cls._sconstruct_begin = progress( '#SconstructBegin', 'sconstruct_begin', None, None, empty_env )

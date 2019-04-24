@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2013-2017
+#          Copyright Jamie Allsop 2013-2018
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -11,6 +11,10 @@
 import os.path
 import cuppa.progress
 from SCons.Script import Flatten
+from SCons.Node import Node
+
+from cuppa.colourise import as_notice, as_info, as_warning, as_error
+from cuppa.log import logger
 
 
 class CompileMethod:
@@ -34,19 +38,34 @@ class CompileMethod:
             obj_suffix = env.subst('$OBJSUFFIX')
             obj_builder = env.Object
 
+        logger.trace( "Build Root = [{}]".format( as_notice( env['build_root'] ) ) )
+
         for source in sources:
+            if not isinstance( source, Node ):
+                source = env.File( source )
+
+            logger.trace( "Object source = [{}]/[{}]".format( as_notice(str(source)), as_notice(source.path) ) )
+
             if os.path.splitext(str(source))[1] == obj_suffix:
                 objects.append( source )
             else:
                 target = None
-                if not str(source).startswith( env['build_root'] ):
-                    target = os.path.splitext( os.path.split( str(source) )[1] )[0]
-                    target = os.path.join( env['build_dir'], obj_prefix + target + obj_suffix )
+                target = os.path.splitext( os.path.split( str(source) )[1] )[0]
+                if not source.path.startswith( env['build_root'] ):
+                    if os.path.isabs( str(source) ):
+                        target = env.File( os.path.join( obj_prefix + target + obj_suffix ) )
+                    else:
+                        target = env.File( os.path.join( env['build_dir'], obj_prefix + target + obj_suffix ) )
+                else:
+                    offset_dir = os.path.relpath( os.path.split( source.path )[0], env['build_dir'] )
+                    target = env.File( os.path.join( offset_dir, obj_prefix + target + obj_suffix ) )
+
+                logger.trace( "Object target = [{}]/[{}]".format( as_notice(str(target)), as_notice(target.path) ) )
 
                 objects.append(
                     obj_builder(
-                        source = source,
                         target = target,
+                        source = source,
                         CPPPATH = env['SYSINCPATH'] + env['INCPATH'],
                         **kwargs ) )
 

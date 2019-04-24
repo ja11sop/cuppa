@@ -1,4 +1,4 @@
-#          Copyright Jamie Allsop 2017-2017
+#          Copyright Jamie Allsop 2017-2018
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -11,11 +11,15 @@ import fnmatch
 import re
 
 from cuppa.utility.types import is_string
+from cuppa.colourise import as_notice
+from cuppa.log import logger
 
 from SCons.Script import Flatten
 
 
 def filter_nodes( nodes, match_patterns, exclude_patterns=[] ):
+
+    nodes = Flatten( nodes )
 
     if not match_patterns and not exclude_patterns:
         return nodes
@@ -36,6 +40,7 @@ def filter_nodes( nodes, match_patterns, exclude_patterns=[] ):
 
     for node in nodes:
         path = str( node )
+        logger.trace( "Node in nodes to filter = [{}][{}]".format( as_notice(path), as_notice(node.path) ) )
 
         if exclude_patterns:
             excluded = False

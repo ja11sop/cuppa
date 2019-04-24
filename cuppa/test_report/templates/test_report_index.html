@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+
+    <style>
+        [data-toggle="collapse"].test_report i:before
+        {
+            content: "\f07c";
+        }
+
+        [data-toggle="collapse"].collapsed.test_report i:before
+        {
+            content: "\f07b";
+        }
+
+        div.test_cases li:nth-of-type(even) { background: #f8f8f4; }
+        div.test_cases li:nth-of-type(odd) { background: #fdfdfb; }
+        div.test_cases li.output { background: #f0f0ea; }
+
+        li .name
+        {
+            word-break: break-all;
+        }
+
+        span.variant
+        {
+            font-size: 0.6em;
+        }
+
+    </style>
+
+    {% block bootstrap4_extra_head %}{% endblock %}
+  </head>
+  <body>
+    {% block bootstrap4_before_content %}{% endblock %}
+
+    {% block bootstrap4_content %}
+    <div class="container">
+      <div class="card mt-4">
+        <div class="row">
+        <div class="col-12">
+          <ul class="list-group">
+
+            <li class="list-group-item text-center pt-4">
+              <h4>Test Reports for<br />
+                <a href="{{ summaries.uri }}">
+                  <span class="small text-monospace font-weight-bold">{{ summaries.title }}</span>
+                </a>
+                {% if summaries.branch and summaries.commit %}
+                  <br />
+                  <span class="small">
+                    ( on <span class="text-monospace font-weight-bold">{{ summaries.branch }}</span> at <span class="text-monospace font-weight-bold">{{ summaries.commit }}</span> )&nbsp;
+                  </span>
+                {% endif %}
+                <span class="small text-secondary font-weight-light">stored under <span class="text-monospace font-weight-bold">{{ summaries.name }}</span></span>
+              </h4>
+
+            </li>
+
+            <li class="list-group-item d-none d-sm-block">
+              <div class="row align-items-center bg-dark text-light">
+
+                <div class="col-lg-1 col-sm-1 small font-weight-bold">
+                  Summary
+                </div>
+
+                <div class="col-lg-2 col-sm-2">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 small font-weight-bold">Test Suites</div>
+                  </div>
+                </div>
+
+                <div class="col-lg-2 col-sm-2">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 small font-weight-bold">Test Cases</div>
+                  </div>
+                </div>
+
+                <div class="col-lg-1 col-sm-2 px-1 text-center font-weight-bold">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 small font-weight-bold">Status</div>
+                  </div>
+                </div>
+
+                <div class="col-lg-2 col-sm-2">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 small font-weight-bold">Assertions</div>
+                  </div>
+                </div>
+
+                <div class="col-lg-4 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 small font-weight-bold">
+                        Test Duration
+                    </div>
+                    <div class="col-2 px-1 small">
+                        Time
+                    </div>
+                    <div class="col-7 px-1 small text-monospace">
+                        hh:mm:ss.mmm,μμμ,nnn
+                    </div>
+                    <div class="col-3 px-1 small">
+                        CPU/Wall
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </li>
+
+            {% for toolchain_variant in summaries.toolchain_variants.itervalues() %}
+            <li class="list-group-item text-center pt-2 pb-0">
+              <h5>Test summary for variant <span class="text-monospace text-left font-weight-bold">{{ toolchain_variant.name }}</span></h3>
+            </li>
+
+            <li class="list-group-item">
+              <div class="row align-items-center">
+                <div class="col-1 font-weight-bold">
+                  <i class="fas fa-tasks fa-2x"></i>
+                </div>
+                <div class="col-lg-2 col-sm-2">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center">
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        All
+                    </div>
+                    <div class="col-8 px-1 small text-center font-weight-bold">
+                        {{ toolchain_variant.test_suites_count }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Pass
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ toolchain_variant.test_suites_passed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Fail
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ toolchain_variant.test_suites_failed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Abrt
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ toolchain_variant.test_suites_aborted }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-lg-2 col-sm-2">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center">
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        All
+                    </div>
+                    <div class="col-8 px-1 small text-center font-weight-bold">
+                        {{ toolchain_variant.tests_count }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Pass
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ toolchain_variant.tests_passed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Fail
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ toolchain_variant.tests_failed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Abrt
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ toolchain_variant.tests_aborted }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-lg-1 col-sm-2 text-center">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 py-2 small font-weight-bold rounded text-{{ toolchain_variant.text_colour }} bg-{{ toolchain_variant.style }}">
+                      {{ toolchain_variant.status }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center">
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        All
+                    </div>
+                    <div class="col-8 px-1 small text-center font-weight-bold">
+                        {{ toolchain_variant.assertions_count }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Pass
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ toolchain_variant.assertions_passed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Fail
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ toolchain_variant.assertions_failed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Abrt
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ toolchain_variant.assertions_aborted }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-lg-4 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
+                    <div class="col-2 px-0 small text-right alert-secondary">
+                        <div class="col-12 px-1">CPU</div>
+                        <div class="col-12 px-1">Wall</div>
+                    </div>
+                    <div class="col-7 px-0 small text-monospace">
+                        <div class="col-12 px-1">{{ toolchain_variant.cpu_time_label|safe }}</div>
+                        <div class="col-12 px-1">{{ toolchain_variant.wall_time_label|safe }}</div>
+                    </div>
+                    <div class="col-3 px-1 small">
+                        {{ toolchain_variant.cpu_wall_percent_label }}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </li>
+
+            {% endfor %}
+
+            <li class="list-group-item d-none d-sm-block">
+              <div class="row align-items-center bg-dark text-light py-2">
+                <div class="col-12 small font-weight-bold">
+                  Test Reports in Order
+                </div>
+              </div>
+            </li>
+
+            {% for name, report in report_list %}
+
+            <li class="list-group-item pt-2 pb-0">
+              <h5>
+              <a href=".{{ report.selector }}" data-toggle="collapse" class="badge badge-pill badge-{{ report.style }} test_report collapsed">
+                <i class="fas fa-fw" aria-hidden="true"></i>
+                {{ report.variant_count }} variants
+              </a>
+              <a href="{{ report.default_summary_rel_path }}" class="ml-1 test_case_file">
+                <span class="text-monospace small font-weight-bold">{{ name }}</span>
+              </a>
+              <span class="variant text-monospace text-muted small float-right pt-1">{{ report.default_variant }}</span>
+              </h5>
+            </li>
+
+            <div class="collapse {{ report.selector }} test_cases">
+
+            <li class="list-group-item d-none d-sm-block">
+              <div class="row align-items-center alert-secondary">
+
+                <div class="col-lg-1 col-sm-1 small font-weight-bold">
+                  Summary
+                </div>
+
+                <div class="col-lg-2 col-sm-2">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 small font-weight-bold">Test Suites</div>
+                  </div>
+                </div>
+
+                <div class="col-lg-2 col-sm-2">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 small font-weight-bold">Test Cases</div>
+                  </div>
+                </div>
+
+                <div class="col-lg-1 col-sm-2 px-1 text-center font-weight-bold">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 small font-weight-bold">Status</div>
+                  </div>
+                </div>
+
+                <div class="col-lg-2 col-sm-2">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 small font-weight-bold">Assertions</div>
+                  </div>
+                </div>
+
+                <div class="col-lg-4 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 small font-weight-bold">
+                        Test Duration
+                    </div>
+                    <div class="col-2 px-1 small">
+                        Time
+                    </div>
+                    <div class="col-7 px-1 small text-monospace">
+                        hh:mm:ss.mmm,μμμ,nnn
+                    </div>
+                    <div class="col-3 px-1 small">
+                        CPU/Wall
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </li>
+
+            {% for summary in report.variants.itervalues() %}
+
+            <li class="list-group-item pt-1 pb-0">
+              <p class="mb-0 text-monospace">
+                <span class="small text-muted">{{ summary.toolchain_variant_dir }} </span>
+                <span class="font-weight-bold">
+                  <a href="{{ summary.summary_rel_path }}" class="test_case_file">
+                     {{ summary.name }}
+                  </a>
+                </span>
+              </p>
+            </li>
+
+            <li class="list-group-item">
+              <div class="row align-items-center">
+                <div class="col-1 font-weight-bold">
+                  <a href="{{ summary.summary_rel_path }}">
+                    <i class="fas fa-tasks fa-2x"></i>
+                  </a>
+                </div>
+                <div class="col-lg-2 col-sm-2">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center">
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        All
+                    </div>
+                    <div class="col-8 px-1 small text-center font-weight-bold">
+                        {{ summary.test_suites_count }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Pass
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ summary.test_suites_passed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Fail
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ summary.test_suites_failed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Abrt
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ summary.test_suites_aborted }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-lg-2 col-sm-2">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center">
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        All
+                    </div>
+                    <div class="col-8 px-1 small text-center font-weight-bold">
+                        {{ summary.tests_count }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Pass
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ summary.tests_passed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Fail
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ summary.tests_failed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Abrt
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ summary.tests_aborted }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-lg-1 col-sm-2 text-center">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 py-2 small font-weight-bold rounded text-{{ summary.text_colour }} bg-{{ summary.style }}">
+                      {{ summary.status }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center">
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        All
+                    </div>
+                    <div class="col-8 px-1 small text-center font-weight-bold">
+                        {{ summary.assertions_count }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Pass
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ summary.assertions_passed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Fail
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ summary.assertions_failed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Abrt
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ summary.assertions_aborted }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-lg-4 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
+                    <div class="col-2 px-0 small text-right alert-secondary">
+                        <div class="col-12 px-1">CPU</div>
+                        <div class="col-12 px-1">Wall</div>
+                    </div>
+                    <div class="col-7 px-0 small text-monospace">
+                        <div class="col-12 px-1">{{ summary.cpu_time_label|safe }}</div>
+                        <div class="col-12 px-1">{{ summary.wall_time_label|safe }}</div>
+                    </div>
+                    <div class="col-3 px-1 small">
+                        {{ summary.cpu_wall_percent_label }}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </li>
+
+            {% endfor %}
+
+            </div>
+
+            {% endfor %}
+
+          </ul>
+        </div>
+      </div>
+    </div>
+    {% endblock %}
+
+    {% block bootstrap4_after_content %}{% endblock %}
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.6/umd/popper.min.js" integrity="sha384-wHAiFfRlMFy6i5SRaxvfOCifBUQy1xHdJ/yoi7FRNXMRBu5WHdZYu1hA6ZOblgut" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.min.js" integrity="sha384-B0UglyR+jN6CkvvICOB2joaf5I4l3gm9GU6Hc1og6Ls7i6U/mkkaduKaBhlAXv9k" crossorigin="anonymous"></script>
+    {% block bootstrap4_extra_script %}{% endblock %}
+  </body>
+</html>

@@ -12,7 +12,8 @@ import re
 import os
 
 from cuppa.utility.types import is_string
-
+from cuppa.log import logger
+from cuppa.colourise import as_notice
 
 
 def glob( start, file_pattern, exclude_dirs_pattern=None, discard_pattern=None ):
@@ -30,6 +31,8 @@ def glob( start, file_pattern, exclude_dirs_pattern=None, discard_pattern=None )
 
     matches = []
     subdir = False
+
+    logger.trace( "file_pattern = [{}], start = [{}]".format( as_notice( file_pattern.pattern ), as_notice( start ) ) )
 
     for root, dirnames, filenames in os.walk( start ):
 

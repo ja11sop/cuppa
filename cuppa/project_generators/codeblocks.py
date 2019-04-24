@@ -14,7 +14,7 @@ from exceptions import Exception
 import cuppa.path
 import cuppa.progress
 import cuppa.tree
-import cuppa.options
+import cuppa.core.options
 
 from cuppa.colourise import as_error, as_notice
 from cuppa.log import logger
@@ -64,7 +64,7 @@ class Codeblocks(object):
                     default=False )
 
         add_option( '--generate-cbs-exclude-paths-starting', type='string', nargs=1,
-                    action='callback', callback=cuppa.options.list_parser( 'generate_cbs_exclude_paths_starting' ),
+                    action='callback', callback=cuppa.core.options.list_parser( 'generate_cbs_exclude_paths_starting' ),
                     help='Exclude dependencies starting with the specified paths from the file list for the project' )
 
 

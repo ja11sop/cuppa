@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+
+    <style>
+        [data-toggle="collapse"].test_suite i:before
+        {
+            content: "\f07c";
+        }
+
+        [data-toggle="collapse"].collapsed.test_suite i:before
+        {
+            content: "\f07b";
+        }
+
+        div.output {
+            counter-reset    : line_number;
+            color            : #ddd;
+            background-color : #222;
+            overflow-x       : auto;
+        }
+
+        div.output span.line
+        {
+            counter-increment : line_number;
+            white-space       : pre;
+            display           : block;
+            margin            : 0;
+            padding-left      : 5.7em;
+            text-indent       : -1.5em;
+        }
+
+        div.output span.line:before
+        {
+            content          : counter(line_number, decimal-leading-zero);
+            float            : left;
+            margin-left      : -5.5em;
+            padding-left     : 0.3em;
+            padding-right    : 0.3em;
+            width            : 3em;
+            text-align       : right;
+            background-color : #eceff1;
+            color            : #455a64;
+        }
+
+        div.test_cases li:nth-of-type(even) { background: #f8f8f4; }
+        div.test_cases li:nth-of-type(odd) { background: #fdfdfb; }
+        div.test_cases li.output { background: #f0f0ea; }
+
+        li .name
+        {
+            word-break: break-all;
+        }
+
+    </style>
+
+    {% block bootstrap4_extra_head %}{% endblock %}
+  </head>
+  <body>
+    {% block bootstrap4_before_content %}{% endblock %}
+
+    {% block bootstrap4_content %}
+    <div class="container">
+      <div class="card mt-4">
+        <div class="row">
+        <div class="col-12">
+          <ul class="list-group">
+
+            <li class="list-group-item text-center pt-4">
+              <h4>Test Report for<br />
+                <span class="small text-monospace font-weight-bold">{{ tests_title }}</span>
+              </h4>
+              <h5 class="text-secondary font-weight-light">{{ test_summary.toolchain_variant_dir }}</h5>
+            </li>
+
+            <li class="list-group-item d-none d-sm-block">
+              <div class="row align-items-center bg-dark text-light">
+
+                <div class="col-lg-1 col-sm-1 small font-weight-bold">
+                  Summary
+                </div>
+
+                <div class="col-lg-2 col-sm-2">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 small font-weight-bold">Test Suites</div>
+                  </div>
+                </div>
+
+                <div class="col-lg-2 col-sm-2">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 small font-weight-bold">Test Cases</div>
+                  </div>
+                </div>
+
+                <div class="col-lg-1 col-sm-2 px-1 text-center font-weight-bold">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 small font-weight-bold">Status</div>
+                  </div>
+                </div>
+
+                <div class="col-lg-2 col-sm-2">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 small font-weight-bold">Assertions</div>
+                  </div>
+                </div>
+
+                <div class="col-lg-4 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 small font-weight-bold">
+                        Test Duration
+                    </div>
+                    <div class="col-2 px-1 small">
+                        Time
+                    </div>
+                    <div class="col-7 px-1 small text-monospace">
+                        hh:mm:ss.mmm,μμμ,nnn
+                    </div>
+                    <div class="col-3 px-1 small">
+                        CPU/Wall
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </li>
+
+            <li class="list-group-item">
+              <div class="row align-items-center">
+                <div class="col-1 font-weight-bold">
+                  <i class="fas fa-tasks fa-2x"></i>
+                </div>
+                <div class="col-lg-2 col-sm-2">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center">
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        All
+                    </div>
+                    <div class="col-8 px-1 small text-center font-weight-bold">
+                        {{ test_summary.test_suites_count }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Pass
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ test_summary.test_suites_passed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Fail
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ test_summary.test_suites_failed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Abrt
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ test_summary.test_suites_aborted }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-lg-2 col-sm-2">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center">
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        All
+                    </div>
+                    <div class="col-8 px-1 small text-center font-weight-bold">
+                        {{ test_summary.tests_count }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Pass
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ test_summary.tests_passed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Fail
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ test_summary.tests_failed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Abrt
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ test_summary.tests_aborted }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-lg-1 col-sm-2 text-center">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 py-2 small font-weight-bold rounded text-{{ test_summary.text_colour }} bg-{{ test_summary.style }}">
+                      {{ test_summary.status }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center">
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        All
+                    </div>
+                    <div class="col-8 px-1 small text-center font-weight-bold">
+                        {{ test_summary.assertions_count }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Pass
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ test_summary.assertions_passed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Fail
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ test_summary.assertions_failed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Abrt
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ test_summary.assertions_aborted }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-lg-4 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
+                    <div class="col-2 px-0 small text-right alert-secondary">
+                        <div class="col-12 px-1">CPU</div>
+                        <div class="col-12 px-1">Wall</div>
+                    </div>
+                    <div class="col-7 px-0 small text-monospace">
+                        <div class="col-12 px-1">{{ test_summary.cpu_time_label|safe }}</div>
+                        <div class="col-12 px-1">{{ test_summary.wall_time_label|safe }}</div>
+                    </div>
+                    <div class="col-3 px-1 small">
+                        {{ test_summary.cpu_wall_percent_label }}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </li>
+
+            <li class="list-group-item d-none d-sm-block">
+              <div class="row align-items-center bg-secondary text-light">
+
+                <div class="col-lg-3 col-sm-3 small font-weight-bold">
+                  Test Suite
+                </div>
+
+                <div class="col-lg-2 col-sm-2">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 small font-weight-bold">Test Cases</div>
+                  </div>
+                </div>
+
+                <div class="col-lg-1 col-sm-2 px-1 text-center font-weight-bold">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 small font-weight-bold">Status</div>
+                  </div>
+                </div>
+
+                <div class="col-lg-2 col-sm-2">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 small font-weight-bold">Assertions</div>
+                  </div>
+                </div>
+
+                <div class="col-lg-4 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 small font-weight-bold">
+                        Test Duration
+                    </div>
+                    <div class="col-2 px-1 small">
+                        Time
+                    </div>
+                    <div class="col-7 px-1 small text-monospace">
+                        hh:mm:ss.mmm,μμμ,nnn
+                    </div>
+                    <div class="col-3 px-1 small">
+                        CPU/Wall
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </li>
+
+            {% for test_suite in test_suites %}
+            <li class="list-group-item">
+              <div class="row align-items-center">
+
+                <div class="col-lg-3 col-sm-3">
+                  <div class="">
+                    {{ test_suite.name }}
+                  </div>
+                  <div class="mt-1">
+                    <a href=".{{ test_suite.selector }}" data-toggle="collapse" class="badge badge-pill badge-secondary test_suite collapsed">
+                      <i class="fas fa-fw" aria-hidden="true"></i>
+                      {{ test_suite.tests_count }} test cases
+                    </a>
+                  </div>
+                </div>
+
+                <div class="col-lg-2 col-sm-2">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center">
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        All
+                    </div>
+                    <div class="col-8 px-1 small text-center font-weight-bold">
+                        {{ test_suite.tests_count }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Pass
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ test_suite.tests_passed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Fail
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ test_suite.tests_failed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Abrt
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ test_suite.tests_aborted }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-lg-1 col-sm-2 text-center">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 py-2 small font-weight-bold rounded text-{{ test_suite.text_colour }} bg-{{ test_suite.style }}">
+                      {{ test_suite.status }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center">
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        All
+                    </div>
+                    <div class="col-8 px-1 small text-center font-weight-bold">
+                        {{ test_suite.assertions_count }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Pass
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ test_suite.assertions_passed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Fail
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ test_suite.assertions_failed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Abrt
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ test_suite.assertions_aborted }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-lg-4 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
+                    <div class="col-2 px-0 small text-right alert-secondary">
+                        <div class="col-12 px-1">CPU</div>
+                        <div class="col-12 px-1">Wall</div>
+                    </div>
+                    <div class="col-7 px-0 small text-monospace">
+                        <div class="col-12 px-1">{{ test_suite.cpu_time_label|safe }}</div>
+                        <div class="col-12 px-1">{{ test_suite.wall_time_label|safe }}</div>
+                    </div>
+                    <div class="col-3 px-1 small">
+                        {{ test_suite.cpu_wall_percent_label }}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </li>
+
+            <div class="collapse {{ test_suite.selector }} test_cases">
+            <li class="list-group-item d-none d-sm-block">
+              <div class="row align-items-center alert-secondary">
+
+                <div class="col-lg-5 col-sm-5 small font-weight-bold">
+                  <div class="">
+                    Test Case
+                  </div>
+                </div>
+
+                <div class="col-lg-1 col-sm-2 px-1 text-center font-weight-bold">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 small font-weight-bold">Status</div>
+                  </div>
+                </div>
+
+                <div class="col-lg-2 col-sm-2">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 small font-weight-bold">Assertions</div>
+                  </div>
+                </div>
+
+                <div class="col-lg-4 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 small font-weight-bold">
+                        Test Duration
+                    </div>
+                    <div class="col-2 px-1 small">
+                        Time
+                    </div>
+                    <div class="col-7 px-1 small text-monospace">
+                        hh:mm:ss.mmm,μμμ,nnn
+                    </div>
+                    <div class="col-3 px-1 small">
+                        CPU/Wall
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </li>
+
+            {% for test_case in test_suite.test_cases %}
+            <li class="list-group-item">
+
+                <div class="row align-items-center">
+
+                <div class="col-lg-5 col-sm-3">
+                  <div class="ml-5">
+                    <div class="ml-n5 font-weight-bold float-left">
+                      {{ loop.index }}
+                    </div>
+                    <div class="name">
+                      {% if test_case.uri %}
+                      <a href="{{ test_case.uri }}" class="test_case_file">
+                        {{ test_case.name }}
+                      </a>
+                      {% else %}
+                        {{ test_case.name }}
+                      {% endif %}
+                    </div>
+                    <div class="">
+                      {% if test_case.stdout %}
+                      <a href=".{{ test_case.selector }}_view_log" data-toggle="collapse" class="test_case badge badge-pill badge-secondary mt-2 collapsed">
+                        <i class="fas fa-terminal fa-inverse"></i> view log
+                      </a>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-lg-1 col-sm-2 text-center">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col-12 px-1 py-2 small font-weight-bold rounded alert-{{ test_case.style }}">
+                      {{ test_case.status }}
+                    </div>
+                  </div>
+                </div>
+
+
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center">
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        All
+                    </div>
+                    <div class="col-8 px-1 small text-center font-weight-bold">
+                        {{ test_case.assertions }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Pass
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ test_case.passed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Fail
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ test_case.failed }}
+                    </div>
+                    <div class="col-4 px-1 small text-right alert-secondary">
+                        Abrt
+                    </div>
+                    <div class="col-8 px-1 small text-center">
+                        {{ test_case.aborted }}
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-4 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
+                    <div class="col-2 px-0 small text-right alert-secondary">
+                        <div class="col-12 px-1">CPU</div>
+                        <div class="col-12 px-1">Wall</div>
+                    </div>
+                    <div class="col-7 px-0 small text-monospace">
+                        <div class="col-12 px-1">{{ test_case.cpu_time_label|safe }}</div>
+                        <div class="col-12 px-1">{{ test_case.wall_time_label|safe }}</div>
+                    </div>
+                    <div class="col-3 px-1 small">
+                        {{ test_case.cpu_wall_percent_label }}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </li>
+
+            {% if test_case.stdout %}
+            <div class="collapse {{ test_case.selector }}_view_log">
+
+              <li class="list-group-item output">
+                <div class="row">
+                  <div class="col-12 small text-monospace">
+                    <div class="output ml-4 px-1 py-1">
+                      {% for line in test_case.stdout %}
+                        <span class="line">{{ line }}<br /></span>
+                      {% endfor %}
+                    </div>
+                  </div>
+                </div>
+              </li>
+
+            </div>
+            {% endif %}
+            {% endfor %}
+            </div>
+            {% endfor %}
+
+            <li class="list-group-item">
+            </li>
+
+          </ul>
+        </div>
+      </div>
+    </div>
+    {% endblock %}
+
+    {% block bootstrap4_after_content %}{% endblock %}
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.6/umd/popper.min.js" integrity="sha384-wHAiFfRlMFy6i5SRaxvfOCifBUQy1xHdJ/yoi7FRNXMRBu5WHdZYu1hA6ZOblgut" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.min.js" integrity="sha384-B0UglyR+jN6CkvvICOB2joaf5I4l3gm9GU6Hc1og6Ls7i6U/mkkaduKaBhlAXv9k" crossorigin="anonymous"></script>
+    {% block bootstrap4_extra_script %}{% endblock %}
+  </body>
+</html>

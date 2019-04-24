@@ -1,4 +1,4 @@
-#          Copyright Jamie Allsop 2014-2015
+#          Copyright Jamie Allsop 2014-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -24,9 +24,12 @@ setup(
     long_description = long_description,
     packages = [
         'cuppa',
+        'cuppa.core',
         'cuppa.cpp',
+        'cuppa.cpp.templates',
         'cuppa.dependencies',
         'cuppa.dependencies.boost',
+        'cuppa.method_helpers',
         'cuppa.methods',
         'cuppa.modules',
         'cuppa.platforms',
@@ -41,18 +44,27 @@ setup(
     package_data = {
         'cuppa': [
             'VERSION',
-            os.path.join( 'dependencies','boost','boost_test_patch.diff' )
+            os.path.join( 'dependencies','boost','boost_test_patch_1.58.0.diff' ),
+            os.path.join( 'dependencies','boost','boost_test_patch_1.67.0.diff' ),
+            os.path.join( 'dependencies','boost','boost_test_patch_1.68.0.diff' ),
+            os.path.join( 'cpp','templates','coverage_index.html' ),
         ]
     },
     install_requires = [
         'colorama',
         'gcovr',
         'lxml',
-        'grip'
+        'grip',
+        'jinja2',
     ],
     entry_points = {
+        'console_scripts': [
+              'cuppa = cuppa.__main__:main'
+        ],
         'cuppa.method.plugins' : [
             'cuppa.test_report.generate_bitten_report = cuppa.test_report.generate_bitten_report:GenerateBittenReportMethod',
+            'cuppa.test_report.html_report.generate_html_report = cuppa.test_report.html_report:GenerateHtmlReportMethod',
+            'cuppa.test_report.html_report.collate_test_report = cuppa.test_report.html_report:CollateTestReportIndexMethod',
         ]
     },
     classifiers = [
@@ -66,6 +78,6 @@ setup(
     keywords = [
         'scons',
         'build',
-        'c++'
+        'c++',
     ]
 )

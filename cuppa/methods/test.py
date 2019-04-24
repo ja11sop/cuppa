@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2015
+#          Copyright Jamie Allsop 2011-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -19,24 +19,42 @@ class TestMethod(object):
         self._default_runner = default_test_runner
 
 
-    def __call__( self, env, source, final_dir=None, data=None, runner=None, expected='passed' ):
-        if final_dir == None:
-            final_dir = env['abs_final_dir']
-        if not runner:
-            runner = self._default_runner
-        test_builder, test_emitter = env['toolchain'].test_runner( runner, final_dir, expected )
+    def __call__( self, env, source, target=None, final_dir=None, data=None, runner=None, expected='passed', command=None, expected_exit_code=None, working_dir=None ):
 
-        env['BUILDERS']['TestBuilder'] = env.Builder( action=test_builder, emitter=test_emitter )
+        actions = env['variant_actions']
 
-        sources = source
-        if data:
-            sources = Flatten( [ source, data ] )
+        if actions.has_key('test') or actions.has_key('force_test'):
+            if not runner:
+                runner = self._default_runner
 
-        test = env.TestBuilder( [], sources )
+            if final_dir == None:
+                final_dir = env['abs_final_dir']
 
-        cuppa.progress.NotifyProgress.add( env, test )
+            test_builder, test_emitter = env['toolchain'].test_runner(
+                runner,
+                final_dir,
+                expected,
+                command=command,
+                expected_exit_code=expected_exit_code,
+                target=target,
+                working_dir=working_dir
+            )
 
-        return test
+            env['BUILDERS']['TestBuilder'] = env.Builder( action=test_builder, emitter=test_emitter )
+
+            sources = source
+            if data:
+                sources = Flatten( [ source, data ] )
+
+            test = env.TestBuilder( [], sources )
+            if env['variant_actions'].has_key('force_test'):
+                test = env.AlwaysBuild( test )
+
+            cuppa.progress.NotifyProgress.add( env, test )
+
+            return test
+
+        return []
 
 
 

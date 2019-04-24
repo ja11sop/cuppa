@@ -45,6 +45,7 @@ class Subversion:
         url        = None
         repository = None
         branch     = None
+        remote     = None
         revision   = None
 
         try:
@@ -69,5 +70,5 @@ class Subversion:
         except OSError:
             logger.warn( "The {svnversion} binary is not available. Consider installing it.".format( svnversion=as_warning("svnversion") ) )
 
-        return url, repository, branch, revision
+        return url, repository, branch, remote, revision
 

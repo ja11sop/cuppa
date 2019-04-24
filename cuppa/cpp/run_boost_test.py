@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2015-2016
+#          Copyright Jamie Allsop 2015-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -12,11 +12,15 @@ import sys
 import shlex
 import re
 
+from SCons.Errors import BuildError
+
 import cuppa.timer
 import cuppa.test_report.cuppa_json
 import cuppa.build_platform
+import cuppa.utility.preprocess
 from cuppa.output_processor import IncrementalSubProcess
-from cuppa.colourise import as_emphasised, as_highlighted, as_colour, start_colour, colour_reset
+from cuppa.colourise import as_emphasised, as_highlighted, as_colour, start_colour, colour_reset, as_error, as_notice
+from cuppa.log import logger
 
 
 class Notify(object):
@@ -228,7 +232,7 @@ class Notify(object):
             return start_colour( level )
 
         matches = re.match(
-            r'(?P<file>[a-zA-Z0-9._/\s\-]+)[(](?P<line>[0-9]+)[)]: '
+            r'(?P<file>[a-zA-Z0-9.@_/\s\-]+)[(](?P<line>[0-9]+)[)]: '
              '(?P<message>[a-zA-Z0-9(){}:%.*&_<>/\-+=!," \[\]]+)',
             line )
 
@@ -260,11 +264,12 @@ class State:
     waiting, test_suite, test_case = range(3)
 
 
+
 class ProcessStdout:
 
-    def __init__( self, log, branch_root, notify ):
+    def __init__( self, log, notify, preprocess ):
         self.log = open( log, "w" )
-        self.branch_root = branch_root
+        self.preprocess = preprocess
         self.notify = notify
         self.state = State.waiting
         self.test_case_names = []
@@ -275,7 +280,7 @@ class ProcessStdout:
 
     def entered_test_suite( self, line ):
         matches = re.match(
-            r'(?:(?P<file>[a-zA-Z0-9._/\s\-]+)?[(](?P<line>[0-9]+)[)]: )?'
+            r'(?:(?P<file>[a-zA-Z0-9.@_/\s\-]+)?[(](?P<line>[0-9]+)[)]: )?'
              'Entering test (suite|module) "(?P<suite>[a-zA-Z0-9(){}:&_<>/\-, ]+)"',
             line.strip() )
 
@@ -307,7 +312,9 @@ class ProcessStdout:
 
     def leaving_test_suite( self, line ):
         matches = re.match(
-            r'Leaving test (suite|module) "(?P<suite>[a-zA-Z0-9(){}:&_<>/\-, ]+)"'
+            r'(?:(?P<file>[a-zA-Z0-9.@_/\\\s\-]+)[(](?P<line>[0-9]+)[)]: )?'
+             'Leaving test (suite|module) "(?P<suite>[a-zA-Z0-9(){}:&_<>/\-, ]+)"'
+             '(?:; testing time: (?P<testing_time>[a-zA-Z0-9.s ,+=()%/]+))?'
              '(\. Test suite (?P<status>passed|failed)\.'
              '(?: (?P<results>.*))?)?',
             line.strip() )
@@ -343,7 +350,7 @@ class ProcessStdout:
 
     def entered_test_case( self, line ):
         matches = re.match(
-            r'(?:(?P<file>[a-zA-Z0-9._/\\\s\-]+)[(](?P<line>[0-9]+)[)]: )?'
+            r'(?:(?P<file>[a-zA-Z0-9.@_/\\\s\-]+)[(](?P<line>[0-9]+)[)]: )?'
              'Entering test case "(?P<test>[a-zA-Z0-9(){}\[\]:;&_<>\-, =]+)"',
             line.strip() )
 
@@ -375,7 +382,7 @@ class ProcessStdout:
         test_case = self.test_suites[self.suite]['tests'][-1]
 
         matches = re.match(
-            r'(?:(?P<file>[a-zA-Z0-9._/\\\s\-]+)[(](?P<line>[0-9]+)[)]: )?'
+            r'(?:(?P<file>[a-zA-Z0-9.@_/\\\s\-]+)[(](?P<line>[0-9]+)[)]: )?'
              'Leaving test case "(?:[a-zA-Z0-9(){}\[\]:;&_<>\-, =]+)"'
              '(?:; testing time: (?P<testing_time>[a-zA-Z0-9.s ,+=()%/]+))?'
              '(\. Test case (?P<status>passed|failed|skipped|aborted)\.'
@@ -442,6 +449,8 @@ class ProcessStdout:
 
     def __call__( self, line ):
 
+        line = self.preprocess( line )
+
         if not self.state == State.test_case:
             self.log.write( line + '\n' )
 
@@ -464,7 +473,6 @@ class ProcessStdout:
         elif self.state == State.test_case:
             is_assertion, write_line = self.handle_assertion( line )
             #if write_line:
-            self.log.write( line + '\n' )
             if not is_assertion:
                 if self.leaving_test_case( line ):
                     self.state = State.test_suite
@@ -600,13 +608,16 @@ class ProcessStdout:
                 suite['aborted_tests'] = count
 
 
+
 class ProcessStderr:
 
-    def __init__( self, log, notify ):
+    def __init__( self, log, notify, preprocess ):
+        self.preprocess = preprocess
         self.log = open( log, "w" )
 
 
     def __call__( self, line ):
+        line = self.preprocess( line )
         self.log.write( line + '\n' )
 
 
@@ -634,7 +645,7 @@ def success_file_name_from( program_file ):
 
 class RunBoostTestEmitter:
 
-    def __init__( self, final_dir ):
+    def __init__( self, final_dir, **ignored_kwargs ):
         self._final_dir = final_dir
 
 
@@ -654,14 +665,20 @@ class RunBoostTestEmitter:
 
 class RunBoostTest:
 
-    def __init__( self, expected ):
+    @classmethod
+    def default_preprocess( cls, line ):
+        return line
+
+    def __init__( self, expected, final_dir,working_dir=None, **ignored_kwargs ):
         self._expected = expected
+        self._final_dir = final_dir
+        self._working_dir = working_dir
 
 
     def __call__( self, target, source, env ):
 
         executable   = str( source[0].abspath )
-        working_dir  = os.path.split( executable )[0]
+        working_dir  = self._working_dir and self._working_dir or os.path.split( executable )[0]
         program_path = source[0].path
         notifier     = Notify(env, env['show_test_output'])
 
@@ -669,54 +686,68 @@ class RunBoostTest:
             executable = '"' + executable + '"'
 
         boost_version = None
+        preprocess = self.default_preprocess
+        argument_prefix = ""
+
         if 'boost' in env['dependencies']:
             boost_version = env['dependencies']['boost']( env ).numeric_version()
+            if env['dependencies']['boost']( env ).patched_test():
+                argument_prefix="boost.test."
 
-        test_command = executable + " --log_format=hrf --log_level=all --report_level=no"
+        test_command = executable + " --{0}log_format=hrf --{0}log_level=all --{0}report_level=no".format( argument_prefix )
 
-        if boost_version and boost_version > 1.59:
-            test_command = executable + " --log_format=HRF --log_level=all --report_level=no"
-
-        print "cuppa: RunBoostTest: [" + test_command + "]"
+        if boost_version:
+            if boost_version >= 1.67:
+                preprocess = cuppa.utility.preprocess.AnsiEscape.strip
+                test_command = executable + " --{0}log_format=HRF --{0}log_level=all --{0}report_level=no --{0}color_output=no".format( argument_prefix )
+            elif boost_version >= 1.60:
+                test_command = executable + " --{0}log_format=HRF --{0}log_level=all --{0}report_level=no".format( argument_prefix )
 
         try:
             return_code, tests = self.__run_test( program_path,
                                                   test_command,
                                                   working_dir,
-                                                  env['branch_root'],
-                                                  notifier )
+                                                  notifier,
+                                                  preprocess,
+                                                  env )
 
             cuppa.test_report.cuppa_json.write_report( report_file_name_from( program_path ), tests )
 
             if return_code < 0:
                 self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
-                print >> sys.stderr, "cuppa: RunBoostTest: Test was terminated by signal: ", -return_code
+                logger.error( "Test was terminated by signal: {}".format( as_error(str(return_code) ) ) )
             elif return_code > 0:
                 self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
-                print >> sys.stderr, "cuppa: RunBoostTest: Test returned with error code: ", return_code
+                logger.error( "Test returned with error code: {}".format( as_error(str(return_code) ) ) )
             elif notifier.master_suite['status'] != 'passed':
-                print >> sys.stderr, "cuppa: RunBoostTest: Not all test suites passed. "
+                logger.error( "Not all test suites passed" )
+                raise BuildError( node=source[0], errstr="Not all test suites passed" )
 
             if return_code:
                 self._remove_success_file( success_file_name_from( program_path ) )
+                if return_code < 0:
+                    raise BuildError( node=source[0], errstr="Test was terminated by signal: {}".format( str(-return_code) ) )
+                else:
+                    raise BuildError( node=source[0], errstr="Test returned with error code: {}".format( str(return_code) ) )
             else:
                 self._write_success_file( success_file_name_from( program_path ) )
 
             return None
 
         except OSError as e:
-            print >> sys.stderr, "Execution of [", test_command, "] failed with error: ", str(e)
-            return 1
+            logger.error( "Execution of [{}] failed with error: {}".format( as_notice(test_command), as_notice(str(e)) ) )
+            raise BuildError( e )
 
 
-    def __run_test( self, program_path, test_command, working_dir, branch_root, notifier ):
-        process_stdout = ProcessStdout( stdout_file_name_from( program_path ), branch_root, notifier )
-        process_stderr = ProcessStderr( stderr_file_name_from( program_path ), notifier )
+    def __run_test( self, program_path, test_command, working_dir, notifier, preprocess, env ):
+        process_stdout = ProcessStdout( stdout_file_name_from( program_path ), notifier, preprocess )
+        process_stderr = ProcessStderr( stderr_file_name_from( program_path ), notifier, preprocess )
 
         return_code = IncrementalSubProcess.Popen2( process_stdout,
                                                     process_stderr,
                                                     shlex.split( test_command ),
-                                                    cwd=working_dir )
+                                                    cwd=working_dir,
+                                                    scons_env=env )
 
         return return_code, process_stdout.tests()
 

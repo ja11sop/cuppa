@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2014-2016
+#          Copyright Jamie Allsop 2014-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -243,29 +243,37 @@ class Cl(object):
         return False
 
 
-    def version_file_builder( self, env, namespace, version, location ):
-        return CreateVersionFileCpp( env, namespace, version, location )
+    def version_file_builder( self, env, namespace, version, location, build_id=None ):
+        return CreateVersionFileCpp( env, namespace, version, location, build_id=build_id )
 
 
-    def version_file_emitter( self, env, namespace, version, location ):
-        return CreateVersionHeaderCpp( env, namespace, version, location )
+    def version_file_emitter( self, env, namespace, version, location, build_id=None ):
+        return CreateVersionHeaderCpp( env, namespace, version, location, build_id=build_id )
 
 
-    def test_runner( self, tester, final_dir, expected ):
+    def test_runner( self, tester, final_dir, expected, **kwargs ):
         if not tester or tester =='process':
-            return RunProcessTest( expected, final_dir ), RunProcessTestEmitter( final_dir )
+            return RunProcessTest( expected, final_dir, **kwargs ), RunProcessTestEmitter( final_dir, **kwargs )
         elif tester=='boost':
-            return RunBoostTest( expected ), RunBoostTestEmitter( final_dir )
+            return RunBoostTest( expected, final_dir, **kwargs ), RunBoostTestEmitter( final_dir, **kwargs )
         elif tester=='patched_boost':
-            return RunPatchedBoostTest( expected ), RunPatchedBoostTestEmitter( final_dir )
+            return RunPatchedBoostTest( expected, final_dir, **kwargs ), RunPatchedBoostTestEmitter( final_dir, **kwargs )
 
 
     def test_runners( self ):
         return [ 'process', 'boost', 'patched_boost' ]
 
 
-    def coverage_runner( self, program, final_dir ):
-        return None
+    def coverage_runner( self, program, final_dir, include_patterns=[], exclude_patterns=[] ):
+        return None, None
+
+
+    def coverage_collate_files( self, destination=None ):
+        return None, None
+
+
+    def coverage_collate_index( self, destination=None ):
+        return None, None
 
 
     def update_variant( self, env, variant ):
@@ -315,7 +323,7 @@ class Cl(object):
         return [
         {
             'title'     : "Compiler Error",
-            'regex'     : r"([][{}() \t#%$~\w&_:+\\/\.-]+)([(]([0-9]+)[)])([ ]?:[ ]error [A-Z0-9]+:.*)",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+\\/\.-]+)([(]([0-9]+)[)])([ ]?:[ ]error [A-Z0-9]+:.*)",
             'meaning'   : 'error',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -325,7 +333,7 @@ class Cl(object):
         },
         {
             'title'     : "Compiler Warning",
-            'regex'     : r"([][{}() \t#%$~\w&_:+\\/\.-]+)([(]([0-9]+)[)])([ ]?:[ ]warning [A-Z0-9]+:.*)",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+\\/\.-]+)([(]([0-9]+)[)])([ ]?:[ ]warning [A-Z0-9]+:.*)",
             'meaning'   : 'warning',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -335,7 +343,7 @@ class Cl(object):
         },
         {
             'title'     : "Compiler Note",
-            'regex'     : r"([][{}() \t#%$~\w&_:+\\/\.-]+)([(]([0-9]+)[)])([ ]?:[ ]note:.*)",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+\\/\.-]+)([(]([0-9]+)[)])([ ]?:[ ]note:.*)",
             'meaning'   : 'message',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -345,7 +353,7 @@ class Cl(object):
         },
         {
             'title'     : "Linker Fatal Error",
-            'regex'     : r"([][{}() \t#%$~\w&_:+\\/\.-]+)([ ]?:[ ]fatal error LNK[0-9]+:)(.*)",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+\\/\.-]+)([ ]?:[ ]fatal error LNK[0-9]+:)(.*)",
             'meaning'   : 'error',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 3 ],
@@ -355,7 +363,7 @@ class Cl(object):
         },
         {
             'title'     : "Linker Error",
-            'regex'     : r"([][{}() \t#%$~\w&_:+\\/\.-]+)([ ]?:[ ]error LNK[0-9]+:)(.*)",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+\\/\.-]+)([ ]?:[ ]error LNK[0-9]+:)(.*)",
             'meaning'   : 'error',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 3 ],
@@ -365,7 +373,7 @@ class Cl(object):
         },
         {
             'title'     : "Linker Warning",
-            'regex'     : r"([][{}() \t#%$~\w&_:+\\/\.-]+)([ ]?:[ ]warning LNK[0-9]+:)(.*)",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+\\/\.-]+)([ ]?:[ ]warning LNK[0-9]+:)(.*)",
             'meaning'   : 'warning',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 3 ],

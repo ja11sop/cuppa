@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2016
+#          Copyright Jamie Allsop 2011-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -22,7 +22,7 @@ from cuppa.cpp.create_version_file_cpp import CreateVersionHeaderCpp, CreateVers
 from cuppa.cpp.run_boost_test import RunBoostTestEmitter, RunBoostTest
 from cuppa.cpp.run_patched_boost_test import RunPatchedBoostTestEmitter, RunPatchedBoostTest
 from cuppa.cpp.run_process_test import RunProcessTestEmitter, RunProcessTest
-from cuppa.cpp.run_gcov_coverage import RunGcovCoverageEmitter, RunGcovCoverage
+from cuppa.cpp.run_gcov_coverage import RunGcovCoverageEmitter, RunGcovCoverage, CollateCoverageFilesEmitter, CollateCoverageFilesAction, CollateCoverageIndexEmitter, CollateCoverageIndexAction
 from cuppa.output_processor import command_available
 from cuppa.log import logger
 from cuppa.colourise import as_notice, as_info
@@ -42,6 +42,15 @@ class Gcc(object):
     def supported_versions( cls ):
         return [
             "gcc",
+            "gcc8",
+            "gcc81",
+            "gcc82",
+            "gcc83",
+            "gcc7",
+            "gcc74",
+            "gcc73",
+            "gcc72",
+            "gcc71",
             "gcc6",
             "gcc64",
             "gcc63",
@@ -68,11 +77,11 @@ class Gcc(object):
 
 
     @classmethod
-    def version_from_command( cls, cxx ):
+    def version_from_command( cls, cxx, prefix ):
         command = "{} --version".format( cxx )
         if command_available( command ):
             reported_version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
-            reported_version = 'gcc' + re.search( r'(\d)\.(\d)', reported_version ).expand(r'\1\2')
+            reported_version = prefix + re.search( r'(\d)\.(\d)', reported_version ).expand(r'\1\2')
             return reported_version
         return None
 
@@ -82,18 +91,18 @@ class Gcc(object):
         if not hasattr( cls, '_default_version' ):
             cxx = "g++"
             command = "{} --version".format( cxx )
-            reported_version = cls.version_from_command( command )
+            reported_version = cls.version_from_command( command, 'gcc' )
             cxx_version = ""
             if reported_version:
                 major = str(reported_version[3])
                 minor = str(reported_version[4])
                 version = "-{}.{}".format( major, minor )
-                exists = cls.version_from_command( "g++{} --version".format( version ) )
+                exists = cls.version_from_command( "g++{} --version".format( version ), 'gcc' )
                 if exists:
                     cxx_version = version
                 else:
                     version = "-{}".format( major )
-                    exists = cls.version_from_command( "g++{} --version".format( version ) )
+                    exists = cls.version_from_command( "g++{} --version".format( version ), 'gcc' )
                     if exists:
                         cxx_version = version
             cls._default_version = ( reported_version, cxx_version )
@@ -109,7 +118,7 @@ class Gcc(object):
                 matches = re.match( r'gcc(?P<major>(\d))?(?P<minor>(\d))?', version )
 
                 if not matches:
-                    raise GccException("GCC toolchain [{}] is not recognised as supported!.".format( version ) )
+                    raise GccException("GCC toolchain [{}] is not recognised as supported!".format( version ) )
 
                 major = matches.group('major')
                 minor = matches.group('minor')
@@ -131,7 +140,7 @@ class Gcc(object):
                 elif not minor:
                     cxx_version = "-{}".format( major )
                     cxx = "g++{}".format( cxx_version )
-                    reported_version = cls.version_from_command( cxx )
+                    reported_version = cls.version_from_command( cxx, 'gcc' )
                     if reported_version:
                         cxx_path = cuppa.build_platform.where_is( cxx )
                         cls._available_versions[version] = {
@@ -147,7 +156,7 @@ class Gcc(object):
                 else:
                     cxx_version = "-{}.{}".format( major, minor )
                     cxx = "g++{}".format( cxx_version )
-                    reported_version = cls.version_from_command( cxx )
+                    reported_version = cls.version_from_command( cxx, 'gcc' )
                     if reported_version:
                         if version == reported_version:
                             cxx_path = cuppa.build_platform.where_is( cxx )
@@ -159,6 +168,22 @@ class Gcc(object):
                         else:
                             raise GccException("GCC toolchain [{}] reporting version as [{}].".format( version, reported_version ) )
         return cls._available_versions
+
+
+    @classmethod
+    def coverage_tool( cls, cxx_version, reported_version ):
+        gcov = "gcov"
+        versioned_gcov = None
+        if cxx_version:
+            versioned_gcov = "{gcov}-{version}".format( gcov=gcov, version=cxx_version[0] )
+            if cuppa.build_platform.where_is( versioned_gcov ):
+                return versioned_gcov
+        if cuppa.build_platform.where_is( gcov ):
+            version = cls.version_from_command( gcov, "" )
+            if version == reported_version:
+                return gcov
+        logger.warn( "Coverage requested for current toolchain but none is available" )
+        return None
 
 
     @classmethod
@@ -315,30 +340,39 @@ class Gcc(object):
         return 'coverage_cxx_flags' in self.values
 
 
-    def version_file_builder( self, env, namespace, version, location ):
-        return CreateVersionFileCpp( env, namespace, version, location )
+    def version_file_builder( self, env, namespace, version, location, build_id=None ):
+        return CreateVersionFileCpp( env, namespace, version, location, build_id=build_id )
 
 
-    def version_file_emitter( self, env, namespace, version, location ):
-        return CreateVersionHeaderCpp( env, namespace, version, location )
+    def version_file_emitter( self, env, namespace, version, location, build_id=None ):
+        return CreateVersionHeaderCpp( env, namespace, version, location, build_id=build_id )
 
 
-    def test_runner( self, tester, final_dir, expected ):
+    def test_runner( self, tester, final_dir, expected, **kwargs ):
 
         if not tester or tester =='process':
-            return RunProcessTest( expected, final_dir ), RunProcessTestEmitter( final_dir )
+            return RunProcessTest( expected, final_dir, **kwargs ), RunProcessTestEmitter( final_dir, **kwargs )
         elif tester=='boost':
-            return RunBoostTest( expected ), RunBoostTestEmitter( final_dir )
+            return RunBoostTest( expected, final_dir, **kwargs ), RunBoostTestEmitter( final_dir, **kwargs )
         elif tester=='patched_boost':
-            return RunPatchedBoostTest( expected ), RunPatchedBoostTestEmitter( final_dir )
+            return RunPatchedBoostTest( expected, final_dir, **kwargs ), RunPatchedBoostTestEmitter( final_dir, **kwargs )
 
 
     def test_runners( self ):
         return [ 'process', 'boost', 'patched_boost' ]
 
 
-    def coverage_runner( self, program, final_dir ):
-        return RunGcovCoverageEmitter( program, final_dir ), RunGcovCoverage( program, final_dir )
+    def coverage_runner( self, program, final_dir, include_patterns=[], exclude_patterns=[] ):
+        coverage_tool = self.coverage_tool( self._cxx_version, self._reported_version )
+        return RunGcovCoverageEmitter( program, final_dir, coverage_tool ), RunGcovCoverage( program, final_dir, coverage_tool, include_patterns, exclude_patterns )
+
+
+    def coverage_collate_files( self, destination=None ):
+        return CollateCoverageFilesEmitter( destination ), CollateCoverageFilesAction( destination )
+
+
+    def coverage_collate_index( self, destination=None ):
+        return CollateCoverageIndexEmitter( destination ), CollateCoverageIndexAction( destination )
 
 
     def update_variant( self, env, variant ):
@@ -352,6 +386,7 @@ class Gcc(object):
             env.AppendUnique( LINKFLAGS = self.values['coverage_link_cxx_flags'] )
         if env['stdcpp']:
             env.ReplaceFlags( "-std={}".format(env['stdcpp']) )
+
 
     def _initialise_toolchain( self, toolchain ):
         if toolchain == 'gcc34':
@@ -408,6 +443,10 @@ class Gcc(object):
             return '-std=c++1z'
         elif re.match( 'gcc6[0-5]', self._reported_version ):
             return '-std=c++1z'
+        elif re.match( 'gcc7[0-4]', self._reported_version ):
+            return '-std=c++1z'
+        elif re.match( 'gcc8[0-3]', self._reported_version ):
+            return '-std=c++2a'
 
 
     def abi_flag( self, env ):
@@ -444,7 +483,7 @@ class Gcc(object):
         },
         {
             'title'     : "In File Included From",
-            'regex'     : r"(In file included\s+|\s+)(from\s+)([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+)(:[0-9]+)?)([,:])",
+            'regex'     : r"(In file included\s+|\s+)(from\s+)([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+)(:[0-9]+)?)([,:])",
             'meaning'   : 'message',
             'highlight' : set( [ 1, 3, 4 ] ),
             'display'   : [ 1, 2, 3, 4, 7 ],
@@ -454,7 +493,7 @@ class Gcc(object):
         },
         {
             'title'     : "In Function Info",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:[ \t]+([iI]n ([cC]lass|[cC]onstructor|[dD]estructor|[fF]unction|[mM]ember [fF]unction|[sS]tatic [fF]unction|[sS]tatic [mM]ember [fF]unction).*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:[ \t]+([iI]n ([cC]lass|[cC]onstructor|[dD]estructor|[fF]unction|[mM]ember [fF]unction|[sS]tatic [fF]unction|[sS]tatic [mM]ember [fF]unction).*))",
             'meaning'   : 'message',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 2 ],
@@ -464,7 +503,7 @@ class Gcc(object):
         },
         {
             'title'     : "Skipping Instantiation Contexts 2",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t]+(\[[ \t]+[Ss]kipping [0-9]+ instantiation contexts[, \t]+.*\]))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t]+(\[[ \t]+[Ss]kipping [0-9]+ instantiation contexts[, \t]+.*\]))",
             'meaning'   : 'message',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -474,7 +513,7 @@ class Gcc(object):
         },
         {
             'title'     : "Skipping Instantiation Contexts",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t]+(\[[ \t]+[Ss]kipping [0-9]+ instantiation contexts[ \t]+\]))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t]+(\[[ \t]+[Ss]kipping [0-9]+ instantiation contexts[ \t]+\]))",
             'meaning'   : 'message',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -484,7 +523,7 @@ class Gcc(object):
         },
         {
             'title'     : "Instantiated From",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t]+([iI]nstantiated from .*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t]+([iI]nstantiated from .*))",
             'meaning'   : 'message',
             'highlight' : set( [ 1, 2] ),
             'display'   : [ 1, 2, 4 ],
@@ -494,7 +533,7 @@ class Gcc(object):
         },
         {
             'title'     : "Instantiation of",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:[ \t]+(In instantiation of .*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:[ \t]+(In instantiation of .*))",
             'meaning'   : 'message',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 2 ],
@@ -504,7 +543,7 @@ class Gcc(object):
         },
         {
             'title'     : "Required",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t]+[Rr]equired (?:from|by) .*)",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t]+(?:[Rr]ecursively )?[Rr]equired (?:from|by) .*)",
             'meaning'   : 'message',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -514,7 +553,7 @@ class Gcc(object):
         },
         {
             'title'     : "Compiler Warning 2",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):([0-9]+))(:[ \t]([Ww]arning:[ \t].*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):([0-9]+))(:[ \t]([Ww]arning:[ \t].*))",
             'meaning'   : 'warning',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 5 ],
@@ -524,7 +563,7 @@ class Gcc(object):
         },
         {
             'title'     : "Compiler Note 2",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t]([Nn]ote:[ \t].*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t]([Nn]ote:[ \t].*))",
             'meaning'   : 'message',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -534,7 +573,7 @@ class Gcc(object):
         },
         {
             'title'     : "Compiler Note",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t]([Nn]ote:[ \t].*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t]([Nn]ote:[ \t].*))",
             'meaning'   : 'message',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -554,7 +593,7 @@ class Gcc(object):
         },
         {
             'title'     : "Compiler Error 2",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t](.*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t](.*))",
             'meaning'   : 'error',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -564,7 +603,7 @@ class Gcc(object):
         },
         {
             'title'     : "Compiler Warning",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t]([Ww]arning:[ \t].*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t]([Ww]arning:[ \t].*))",
             'meaning'   : 'warning',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -574,7 +613,7 @@ class Gcc(object):
         },
         {
             'title'     : "Undefined Reference 2",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+\.o:([][{}() \t#%$~\w&_:+/\.-]+):([0-9]+))(:[ \t](undefined reference.*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+\.o:([][{}() \t#%@$~\w&_:+/\.-]+):([0-9]+))(:[ \t](undefined reference.*))",
             'meaning'   : 'warning',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 4 ],
@@ -584,7 +623,7 @@ class Gcc(object):
         },
         {
             'title'     : "Compiler Error",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t](.*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+))(:[ \t](.*))",
             'meaning'   : 'error',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -594,7 +633,7 @@ class Gcc(object):
         },
         {
             'title'     : "Linker Warning",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:\(\.text\+[0-9a-fA-FxX]+\))(:[ \t]([Ww]arning:[ \t].*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:\(\.text\+[0-9a-fA-FxX]+\))(:[ \t]([Ww]arning:[ \t].*))",
             'meaning'   : 'warning',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -604,7 +643,7 @@ class Gcc(object):
         },
         {
             'title'     : "Linker Error",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t](.*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t](.*))",
             'meaning'   : 'error',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -614,7 +653,7 @@ class Gcc(object):
         },
         {
             'title'     : "Linker Error 2",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+\(.text\+[0-9A-Za-z]+\):([ \tA-Za-z0-9_:+/\.-]+))(:[ \t](.*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+\(.text\+[0-9A-Za-z]+\):([ \tA-Za-z0-9_:+/\.-]+))(:[ \t](.*))",
             'meaning'   : 'error',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 4 ],
@@ -624,7 +663,7 @@ class Gcc(object):
         },
         {
             'title'     : "Linker Error 3",
-            'regex'     : r"(([][{}() \t#%$~\w&_:+/\.-]+):\(\.text\+[0-9a-fA-FxX]+\))(:(.*))",
+            'regex'     : r"(([][{}() \t#%@$~\w&_:+/\.-]+):\(\.text\+[0-9a-fA-FxX]+\))(:(.*))",
             'meaning'   : 'error',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 4 ],
@@ -674,7 +713,7 @@ class Gcc(object):
         },
         {
             'title'     : "Undefined Reference",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:[ \t](undefined reference.*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:[ \t](undefined reference.*))",
             'meaning'   : 'error',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 2 ],

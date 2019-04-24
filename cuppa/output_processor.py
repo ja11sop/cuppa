@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2015
+#          Copyright Jamie Allsop 2011-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -18,9 +18,11 @@ import shlex
 import colorama
 import Queue
 import platform
+import logging
 
 
-from cuppa.colourise import as_colour, as_emphasised, as_highlighted
+import cuppa.timer
+from cuppa.colourise import as_colour, as_emphasised, as_highlighted, as_notice
 from cuppa.log import logger
 
 
@@ -34,7 +36,6 @@ def command_available( command ):
     return True
 
 
-
 class AutoFlushFile:
 
     def __init__( self, f ):
@@ -46,7 +47,6 @@ class AutoFlushFile:
     def write( self, x ):
         self.f.write(x)
         self.f.flush()
-
 
 
 class LineConsumer:
@@ -77,14 +77,42 @@ class IncrementalSubProcess:
         kwargs['stdout'] = subprocess.PIPE
         kwargs['stderr'] = subprocess.PIPE
 
-        sys.stdout = AutoFlushFile( colorama.initialise.wrapped_stdout )
-        sys.stderr = AutoFlushFile( colorama.initialise.wrapped_stderr )
+        timing_enabled = logger.isEnabledFor( logging.DEBUG )
+
+        suppress_output = False
+        if 'suppress_output' in kwargs:
+            suppress_output = kwargs['suppress_output']
+            del kwargs['suppress_output']
+
+        use_shell = False
+        if 'scons_env' in kwargs:
+            use_shell = kwargs['scons_env'].get_option( 'use-shell' )
+            del kwargs['scons_env']
+
+        orig_stdout = sys.stdout
+        orig_stderr = sys.stderr
 
         try:
+            # TODO: Review this as it might be needed for Windows otherwise replace
+            # the wrapped values with orig_stdout and orig_stderr respectively
+            sys.stdout = AutoFlushFile( colorama.initialise.wrapped_stdout )
+            sys.stderr = AutoFlushFile( colorama.initialise.wrapped_stderr )
+
+            process = None
+            stderr_thread = None
+
+            timer = timing_enabled and cuppa.timer.Timer() or None
+            if timer:
+                logger.debug( "Command [{}] - Running...".format( as_notice(str(timer.timer_id())) ) )
+
             close_fds = platform.system() == "Windows" and False or True
+
+            if not suppress_output:
+                sys.stdout.write( " ".join(args_list) + "\n" )
+
             process = subprocess.Popen(
-                args_list,
-                **dict( kwargs, close_fds=close_fds )
+                use_shell and " ".join(args_list) or args_list,
+                **dict( kwargs, close_fds=close_fds, shell=use_shell )
             )
 
             stderr_consumer = LineConsumer( process.stderr.readline, stderr_processor )
@@ -97,10 +125,28 @@ class IncrementalSubProcess:
 
             process.wait()
 
+            if timer:
+                timer.stop()
+                logger.debug( "Command [{}] - Elapsed {}".format( as_notice(str(timer.timer_id())), cuppa.timer.as_string( timer.elapsed() ) ) )
+
             return process.returncode
 
         except Exception as e:
-            logger.error( "output_processor: IncrementalSubProcess.Popen2() failed with error [{}]".format( str(e) ) )
+            if timer:
+                timer.stop()
+                logger.debug( "Command [{}] - Elapsed {}".format( as_notice(str(timer.timer_id())), cuppa.timer.as_string( timer.elapsed() ) ) )
+            logger.error( "IncrementalSubProcess.Popen2() failed with error [{}]".format( str(e) ) )
+            if process:
+                logger.info( "Killing existing POpen object" )
+                process.kill()
+            if stderr_thread:
+                logger.info( "Joining any running threads" )
+                stderr_thread.join()
+            raise e
+
+        finally:
+            sys.stdout = orig_stdout
+            sys.stderr = orig_stderr
 
 
     @classmethod
@@ -147,12 +193,12 @@ class Stream(object):
         pass
 
     def write( self, text ):
-        logger.trace( "output_processor: Stream _queue.put [{}]".format( self._name ) )
+        logger.trace( "Stream _queue.put [{}]".format( self._name ) )
         self._queue.put( text )
 
     def read( self, block ):
         try:
-            logger.trace( "output_processor: Stream _queue.get [{}]".format( self._name ) )
+            logger.trace( "Stream _queue.get [{}]".format( self._name ) )
             text = self._queue.get( block )
             if text:
                 for line in text.splitlines():
@@ -164,11 +210,11 @@ class Stream(object):
                         print line
             self._queue.task_done()
         except Queue.Empty:
-            logger.trace( "output_processor: Stream Queue.Empty raised [{}]".format( self._name ) )
+            logger.trace( "Stream Queue.Empty raised [{}]".format( self._name ) )
 
     def join( self ):
         if self._queue.empty():
-            logger.trace( "output_processor: Stream _queue.empty() - flush with None [{}]".format( self._name ) )
+            logger.trace( "Stream _queue.empty() - flush with None [{}]".format( self._name ) )
             self._queue.put( None )
         self._queue.join()
 
@@ -211,7 +257,8 @@ class Processor:
         returncode = IncrementalSubProcess.Popen(
             processor,
             [ arg.strip('"') for arg in args ],
-            env=env
+            env=env,
+            suppress_output=True,
         )
 
         summary = processor.summary( returncode )
@@ -243,18 +290,18 @@ class Processor:
         stderr_thread.start()
 
         pspawn_thread.join()
-        logger.trace( "output_processor: Processor - PSPAWN joined" )
+        logger.trace( "Processor - PSPAWN joined" )
         finished.set()
 
         stdout.join()
-        logger.trace( "output_processor: Processor - STDOUT stream joined" )
+        logger.trace( "Processor - STDOUT stream joined" )
         stdout_thread.join()
-        logger.trace( "output_processor: Processor - STDOUT thread joined" )
+        logger.trace( "Processor - STDOUT thread joined" )
 
         stderr.join()
-        logger.trace( "output_processor: Processor - STDERR stream joined" )
+        logger.trace( "Processor - STDERR stream joined" )
         stderr_thread.join()
-        logger.trace( "output_processor: Processor - STDERR thread joined" )
+        logger.trace( "Processor - STDERR thread joined" )
 
         returncode = pspawn.returncode()
 

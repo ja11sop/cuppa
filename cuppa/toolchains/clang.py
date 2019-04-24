@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2014-2017
+#          Copyright Jamie Allsop 2014-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -23,7 +23,7 @@ from cuppa.cpp.create_version_file_cpp import CreateVersionHeaderCpp, CreateVers
 from cuppa.cpp.run_boost_test import RunBoostTestEmitter, RunBoostTest
 from cuppa.cpp.run_patched_boost_test import RunPatchedBoostTestEmitter, RunPatchedBoostTest
 from cuppa.cpp.run_process_test import RunProcessTestEmitter, RunProcessTest
-from cuppa.cpp.run_gcov_coverage import RunGcovCoverageEmitter, RunGcovCoverage
+from cuppa.cpp.run_gcov_coverage import RunGcovCoverageEmitter, RunGcovCoverage, CollateCoverageFilesEmitter, CollateCoverageFilesAction, CollateCoverageIndexEmitter, CollateCoverageIndexAction
 from cuppa.output_processor import command_available
 from cuppa.colourise import as_info, as_notice
 from cuppa.log import logger
@@ -94,6 +94,9 @@ class Clang(object):
     def supported_versions( cls ):
         return [
             "clang",
+            "clang8",
+            "clang7",
+            "clang60",
             "clang50",
             "clang40",
             "clang39",
@@ -167,6 +170,32 @@ class Clang(object):
                             raise ClangException("Clang toolchain [{}] reporting version as [{}].".format( version, reported_version ) )
         return cls._available_versions
 
+
+    @classmethod
+    def llvm_version_from( cls, llvm_tool ):
+        command = "{} --version".format( llvm_tool )
+        if command_available( command ):
+            reported_version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
+            version = re.search( r'LLVM version (\d)\.(\d)\.(\d)', reported_version )
+            reported_version = version.expand(r'\1')
+            return reported_version
+        return None
+
+
+    @classmethod
+    def coverage_tool( cls, cxx_version ):
+        llvm_cov = "llvm-cov"
+        versioned_llvm_cov = None
+        if cxx_version:
+            versioned_llvm_cov = "{llvm_cov}-{version}".format( llvm_cov=llvm_cov, version=cxx_version[0] )
+            if cuppa.build_platform.where_is( versioned_llvm_cov ):
+                return versioned_llvm_cov + " gcov"
+        if cuppa.build_platform.where_is( llvm_cov ):
+            version = cls.llvm_version_from( llvm_cov )
+            if version == cxx_version:
+                return llvm_cov + " gcov"
+        logger.warn( "Coverage requested for current toolchain but none is available" )
+        return None
 
 
     @classmethod
@@ -329,32 +358,44 @@ class Clang(object):
 
 
     def supports_coverage( self ):
-        return 'coverage_cxx_flags' in self.values
+        #return 'coverage_cxx_flags' in self.values
+        return False
 
 
-    def version_file_builder( self, env, namespace, version, location ):
-        return CreateVersionFileCpp( env, namespace, version, location )
+    def version_file_builder( self, env, namespace, version, location, build_id=None ):
+        return CreateVersionFileCpp( env, namespace, version, location, build_id=build_id )
 
 
-    def version_file_emitter( self, env, namespace, version, location ):
-        return CreateVersionHeaderCpp( env, namespace, version, location )
+    def version_file_emitter( self, env, namespace, version, location, build_id=None ):
+        return CreateVersionHeaderCpp( env, namespace, version, location, build_id=build_id )
 
 
-    def test_runner( self, tester, final_dir, expected ):
+    def test_runner( self, tester, final_dir, expected, **kwargs ):
         if not tester or tester =='process':
-            return RunProcessTest( expected, final_dir ), RunProcessTestEmitter( final_dir )
+            return RunProcessTest( expected, final_dir, **kwargs ), RunProcessTestEmitter( final_dir, **kwargs )
         elif tester=='boost':
-            return RunBoostTest( expected ), RunBoostTestEmitter( final_dir )
+            return RunBoostTest( expected, final_dir, **kwargs ), RunBoostTestEmitter( final_dir, **kwargs )
         elif tester=='patched_boost':
-            return RunPatchedBoostTest( expected ), RunPatchedBoostTestEmitter( final_dir )
+            return RunPatchedBoostTest( expected, final_dir, **kwargs ), RunPatchedBoostTestEmitter( final_dir, **kwargs )
 
 
     def test_runners( self ):
         return [ 'process', 'boost', 'patched_boost' ]
 
 
-    def coverage_runner( self, program, final_dir ):
-        return RunGcovCoverageEmitter( program, final_dir ), RunGcovCoverage( program, final_dir )
+    def coverage_runner( self, program, final_dir, include_patterns=[], exclude_patterns=[] ):
+        #coverage_tool = self.coverage_tool( self._cxx_version )
+        #return RunGcovCoverageEmitter( program, final_dir, coverage_tool ), RunGcovCoverage( program, final_dir, coverage_tool, include_patterns, exclude_patterns )
+        return None, None
+
+    def coverage_collate_files( self, destination=None ):
+        #return CollateCoverageFilesEmitter( destination ), CollateCoverageFilesAction( destination )
+        return None, None
+
+
+    def coverage_collate_index( self, destination=None ):
+        #return CollateCoverageIndexEmitter( destination ), CollateCoverageIndexAction( destination )
+        return None, None
 
 
     def update_variant( self, env, variant ):
@@ -448,6 +489,12 @@ class Clang(object):
             return '-std=c++1z'
         elif re.match( 'clang5[0]', name ):
             return '-std=c++1z'
+        elif re.match( 'clang6[0]', name ):
+            return '-std=c++2a'
+        elif re.match( 'clang7[0]', name ):
+            return '-std=c++2a'
+        elif re.match( 'clang8[0]', name ):
+            return '-std=c++2a'
 
 
     def abi_flag( self, env ):
@@ -474,7 +521,7 @@ class Clang(object):
         return [
         {
             'title'     : "Compiler Error",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):([0-9]+))(:[ \t](error:[ \t].*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):([0-9]+))(:[ \t](error:[ \t].*))",
             'meaning'   : 'error',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 5 ],
@@ -484,7 +531,7 @@ class Clang(object):
         },
         {
             'title'     : "Compiler Warning",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):([0-9]+))(:[ \t](warning:[ \t].*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):([0-9]+))(:[ \t](warning:[ \t].*))",
             'meaning'   : 'warning',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 5 ],
@@ -494,7 +541,7 @@ class Clang(object):
         },
         {
             'title'     : "Compiler Note",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):([0-9]+))(:[ \t](note:[ \t].*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):([0-9]+))(:[ \t](note:[ \t].*))",
             'meaning'   : 'message',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 5 ],
@@ -504,7 +551,7 @@ class Clang(object):
         },
         {
             'title'     : "Linker Warning",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:\(\.text\+[0-9a-fA-FxX]+\))(:[ \t]([Ww]arning:[ \t].*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:\(\.text\+[0-9a-fA-FxX]+\))(:[ \t]([Ww]arning:[ \t].*))",
             'meaning'   : 'warning',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -514,7 +561,7 @@ class Clang(object):
         },
         {
             'title'     : "Linker Error",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t](.*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t](.*))",
             'meaning'   : 'error',
             'highlight' : set( [ 1, 2 ] ),
             'display'   : [ 1, 2, 4 ],
@@ -524,7 +571,7 @@ class Clang(object):
         },
         {
             'title'     : "Linker Error 2",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+\(.text\+[0-9A-Za-z]+\):([ \tA-Za-z0-9_:+/\.-]+))(:[ \t](.*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+\(.text\+[0-9A-Za-z]+\):([ \tA-Za-z0-9_:+/\.-]+))(:[ \t](.*))",
             'meaning'   : 'error',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 4 ],
@@ -534,7 +581,7 @@ class Clang(object):
         },
         {
             'title'     : "Linker Error 3",
-            'regex'     : r"(([][{}() \t#%$~\w&_:+/\.-]+):\(\.text\+[0-9a-fA-FxX]+\))(:(.*))",
+            'regex'     : r"(([][{}() \t#%@$~\w&_:+/\.-]+):\(\.text\+[0-9a-fA-FxX]+\))(:(.*))",
             'meaning'   : 'error',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 4 ],
@@ -574,7 +621,7 @@ class Clang(object):
         },
         {
             'title'     : "Undefined Reference",
-            'regex'     : r"([][{}() \t#%$~\w&_:+/\.-]+)(:[ \t](undefined reference.*))",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:[ \t](undefined reference.*))",
             'meaning'   : 'error',
             'highlight' : set( [ 1 ] ),
             'display'   : [ 1, 2 ],

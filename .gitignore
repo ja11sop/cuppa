@@ -1,5 +1,61 @@
-build/
-*.egg-info/
-dist/
+# Python files
 *.py[cod]
+build/
+dist/
+*.egg-info/
 *.save
+
+# Ignore _build and _cuppa
+_build/
+_cuppa/
+config.log
+
+# Ignore Scons files
+.sconsign.dblite
+.sconf_temp/
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Codeblocks files
+*.depend
+*.layout
+*.cscope_file_list
+
+# Vim: temp files
+*~
+
+# Vim: swap files
+[._]*.s[a-w][a-z]
+[._]s[a-w][a-z]
+*.vim
+
+# Vim: ctags/cscope files
+tags
+cscope.*

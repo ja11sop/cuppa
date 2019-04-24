@@ -1,6 +1,6 @@
 
 #          Copyright Declan Traynor 2012
-#          Copyright Jamie Allsop 2012-2015
+#          Copyright Jamie Allsop 2012-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -25,7 +25,7 @@ class Colouriser(object):
     @classmethod
     def create( cls ):
         if colorama_available:
-            colorama.init()
+            colorama.init( strip=False )
         return cls()
 
 
@@ -70,19 +70,25 @@ class Colouriser(object):
             return emphasised
 
 
-    def emphasise_time_by_digit( self, time_text ):
+    def emphasise_time_by_digit( self, time_text, start_colour=None, start_highlight=None, end_highlight=None ):
         if not self.use_colour:
             return time_text
         else:
+            if not start_colour:
+                start_colour = self.start_colour('time')
+            if not start_highlight:
+                start_highlight = self.start_highlight('time')
+            if not end_highlight:
+                end_highlight = colorama.Style.RESET_ALL
             time_found = False
-            emphasised = self.start_colour('time')
+            emphasised = start_colour
             for char in time_text:
                 if not time_found and char.isdigit() and int(char) > 0:
                     time_found = True
-                    emphasised += self.start_highlight('time')
+                    emphasised += start_highlight
                 emphasised += char
 
-            emphasised += colorama.Style.RESET_ALL
+            emphasised += end_highlight
 
             return emphasised
 
@@ -231,9 +237,12 @@ def colour_reset():
 def emphasise_time_by_group( time_text ):
     return colouriser.emphasise_time_by_group( time_text )
 
-def emphasise_time_by_digit( time_text ):
-    return colouriser.emphasise_time_by_digit( time_text )
+def emphasise_time_by_digit( time_text, start_colour=None, start_highlight=None, end_highlight=None ):
+    return colouriser.emphasise_time_by_digit( time_text, start_colour, start_highlight, end_highlight )
 
 def colour_items( items, colour_func=as_notice ):
     return "'{}'".format( "', '".join( colour_func( item ) for item in items ) )
+
+def is_error( meaning ):
+    return meaning in ['error','failed','failure','aborted']
 

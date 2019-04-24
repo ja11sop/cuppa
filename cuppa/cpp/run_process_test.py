@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2013-2015
+#          Copyright Jamie Allsop 2013-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -12,11 +12,15 @@ import os
 import sys
 import shlex
 
+from SCons.Errors import BuildError
+from SCons.Script import Flatten
+
 import cuppa.timer
 import cuppa.progress
 import cuppa.test_report.cuppa_json
 from cuppa.output_processor import IncrementalSubProcess
-from cuppa.colourise import as_emphasised, as_highlighted, as_colour
+from cuppa.colourise import as_emphasised, as_highlighted, as_colour, as_error, as_notice
+from cuppa.log import logger
 
 
 class TestSuite(object):
@@ -64,16 +68,18 @@ class TestSuite(object):
         sys.stdout.write(
             as_emphasised( "\nTest [%s]..." % test ) + '\n'
         )
-        self._tests.append( {} )
-        test_case = self._tests[-1]
+        test_case = {}
         test_case['name']     = test
         test_case['expected'] = expected
         test_case['suite']    = self._name
         test_case['timer']    = cuppa.timer.Timer()
+        test_case['stdout']   = []
+        test_case['stderr']   = []
+        self._tests.append( test_case )
+        return test_case
 
 
-    def exit_test( self, test, status='passed' ):
-        test_case = self._tests[-1]
+    def exit_test( self, test_case, status='passed' ):
         test_case['timer'].stop()
         test_case['status'] = status
 
@@ -279,29 +285,37 @@ def success_file_name_from( program_file ):
 
 class RunProcessTestEmitter(object):
 
-    def __init__( self, final_dir ):
+    def __init__( self, final_dir, target=None, **ignored_kwargs ):
         self._final_dir = final_dir
+        self._targets = target and Flatten( target ) or None
 
 
     def __call__( self, target, source, env ):
-        program_file = os.path.join( self._final_dir, os.path.split( source[0].path )[1] )
+        program_file = str(source[0])
+        if not program_file.startswith( self._final_dir ):
+            program_file = os.path.split( program_file )[1]
         target = []
         target.append( stdout_file_name_from( program_file ) )
         target.append( stderr_file_name_from( program_file ) )
         target.append( report_file_name_from( program_file ) )
         target.append( success_file_name_from( program_file ) )
+        if self._targets:
+            for t in self._targets:
+                target.append( t )
         return target, source
 
 
 class ProcessStdout(object):
 
-    def __init__( self, show_test_output, log ):
+    def __init__( self, test_case, show_test_output, log ):
+        self._test_case = test_case
         self._show_test_output = show_test_output
         self.log = open( log, "w" )
 
 
     def __call__( self, line ):
         self.log.write( line + '\n' )
+        self._test_case['stdout'].append( line )
         if self._show_test_output:
             sys.stdout.write( line + '\n' )
 
@@ -313,13 +327,15 @@ class ProcessStdout(object):
 
 class ProcessStderr(object):
 
-    def __init__( self, show_test_output, log ):
+    def __init__( self, test_case, show_test_output, log ):
+        self._test_case = test_case
         self._show_test_output = show_test_output
         self.log = open( log, "w" )
 
 
     def __call__( self, line ):
         self.log.write( line + '\n' )
+        self._test_case['stderr'].append( line )
         if self._show_test_output:
             sys.stderr.write( line + '\n' )
 
@@ -331,15 +347,20 @@ class ProcessStderr(object):
 
 class RunProcessTest(object):
 
-    def __init__( self, expected, final_dir ):
+    def __init__( self, expected, final_dir, command=None, expected_exit_code=None, working_dir=None, **ignored_kwargs ):
         self._expected = expected
         self._final_dir = final_dir
+        self._command = command
+        self._expected_exit_code = expected_exit_code
+        self._working_dir = working_dir
 
 
     def __call__( self, target, source, env ):
 
         executable = str( source[0].abspath )
         working_dir, test = os.path.split( executable )
+        if self._working_dir:
+            working_dir = self._working_dir
         program_path = source[0].path
         suite = env['build_dir']
 
@@ -347,44 +368,58 @@ class RunProcessTest(object):
             executable = '"' + executable + '"'
 
         test_command = executable
+        if self._command:
+            test_command = self._command
+            working_dir = self._working_dir and self._working_dir or self._final_dir
+            test = os.path.relpath( executable, working_dir )
 
         test_suite = TestSuite.create( suite, env )
 
-        test_suite.enter_test( test, expected=self._expected )
+        test_case = test_suite.enter_test( test, expected=self._expected )
 
         show_test_output = env['show_test_output']
 
         try:
             return_code = self._run_test(
+                    test_case,
                     show_test_output,
                     program_path,
                     test_command,
-                    working_dir
+                    working_dir,
+                    env
             )
 
-            if return_code < 0:
+            if return_code == self._expected_exit_code:
+                test_suite.exit_test( test_case, 'passed' )
+            elif return_code < 0:
                 self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
-                print >> sys.stderr, "cuppa: ProcessTest: Test was terminated by signal: ", -return_code
-                test_suite.exit_test( test, 'aborted' )
+                logger.error( "Test was terminated by signal: {}".format( as_error(str(return_code) ) ) )
+                test_suite.exit_test( test_case, 'aborted' )
             elif return_code > 0:
                 self.__write_file_to_stderr( stderr_file_name_from( program_path ) )
-                print >> sys.stderr, "cuppa: ProcessTest: Test returned with error code: ", return_code
-                test_suite.exit_test( test, 'failed' )
+                logger.error( "Test returned with error code: {}".format( as_error(str(return_code) ) ) )
+                test_suite.exit_test( test_case, 'failed' )
             else:
-                test_suite.exit_test( test, 'passed' )
+                test_suite.exit_test( test_case, 'passed' )
 
             cuppa.test_report.cuppa_json.write_report( report_file_name_from( program_path ), test_suite.tests() )
 
-            if return_code:
+            if return_code == self._expected_exit_code:
+                self._write_success_file( success_file_name_from( program_path ) )
+            elif return_code:
                 self._remove_success_file( success_file_name_from( program_path ) )
+                if return_code < 0:
+                    raise BuildError( node=source[0], errstr="Test was terminated by signal: {}".format( str(-return_code) ) )
+                else:
+                    raise BuildError( node=source[0], errstr="Test returned with error code: {}".format( str(return_code) ) )
             else:
                 self._write_success_file( success_file_name_from( program_path ) )
 
             return None
 
         except OSError, e:
-            print >> sys.stderr, "Execution of [", test_command, "] failed with error: ", e
-            return 1
+            logger.error( "Execution of [{}] failed with error: {}".format( as_notice(test_command), as_notice(str(e)) ) )
+            raise BuildError( e )
 
 
     def _write_success_file( self, file_name ):
@@ -399,14 +434,15 @@ class RunProcessTest(object):
             pass
 
 
-    def _run_test( self, show_test_output, program_path, test_command, working_dir ):
-        process_stdout = ProcessStdout( show_test_output, stdout_file_name_from( program_path ) )
-        process_stderr = ProcessStderr( show_test_output, stderr_file_name_from( program_path ) )
+    def _run_test( self, test_case, show_test_output, program_path, test_command, working_dir, env ):
+        process_stdout = ProcessStdout( test_case, show_test_output, stdout_file_name_from( program_path ) )
+        process_stderr = ProcessStderr( test_case, show_test_output, stderr_file_name_from( program_path ) )
 
         return_code = IncrementalSubProcess.Popen2( process_stdout,
                                                     process_stderr,
                                                     shlex.split( test_command ),
-                                                    cwd=working_dir )
+                                                    cwd=working_dir,
+                                                    scons_env=env)
         return return_code
 
 
