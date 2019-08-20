@@ -42,10 +42,13 @@ class Gcc(object):
     def supported_versions( cls ):
         return [
             "gcc",
+            "gcc9",
+            "gcc92",
+            "gcc91",
             "gcc8",
-            "gcc81",
-            "gcc82",
             "gcc83",
+            "gcc82",
+            "gcc81",
             "gcc7",
             "gcc74",
             "gcc73",
@@ -446,6 +449,8 @@ class Gcc(object):
         elif re.match( 'gcc7[0-4]', self._reported_version ):
             return '-std=c++1z'
         elif re.match( 'gcc8[0-3]', self._reported_version ):
+            return '-std=c++2a'
+        elif re.match( 'gcc9[0-2]', self._reported_version ):
             return '-std=c++2a'
 
 
