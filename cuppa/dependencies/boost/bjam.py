@@ -109,10 +109,22 @@ def bjam_exe( boost ):
 
 class ProcessBjamBuild(object):
 
-    def __call__( self, line ):
+    def __init__( self, version ):
+        self.bjam_exe_path = 'bjam'
+        if platform.system() == "Windows":
+            self.bjam_exe_path += '.exe'
+
+        self.search_output_for_path = version < 1.71
+
+    def _search_for_path( self, line ):
         match = re.search( r'\[COMPILE\] ([\S]+)', line )
         if match:
             self.bjam_exe_path = match.expand( r'\1' )
+        return line
+
+    def __call__( self, line ):
+        if self.search_output_for_path:
+            self._search_for_path( line )
         return line
 
     def exe_path( self ):
@@ -148,7 +160,7 @@ class BuildBjam(object):
                 str(build_script_path)
         ) )
 
-        process_bjam_build = ProcessBjamBuild()
+        process_bjam_build = ProcessBjamBuild( self._version )
 
         try:
             IncrementalSubProcess.Popen(
