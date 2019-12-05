@@ -151,7 +151,7 @@ def get_boost_version( location ):
 
 
 def _determine_latest_boost_verion( offline ):
-    current_release = "1.69.0"
+    current_release = "1.71.0"
     if not offline:
         try:
             boost_version_url = 'https://www.boost.org/users/download/'
@@ -185,6 +185,14 @@ def _location_from_boost_version( location, offline ):
             extension = ".tar.gz"
             if cuppa.build_platform.name() == "Windows":
                 extension = ".zip"
+
+            # Boost 1.71.0 source files are missing from the sourceforge repository.
+            if "1.71" in version:
+                return "https://dl.bintray.com/boostorg/release/{numeric_version}/source/boost_{string_version}{extension}".format(
+                            numeric_version = version.translate( string.maketrans( '._', '..' ) ),
+                            string_version = version.translate( string.maketrans( '._', '__' ) ),
+                            extension = extension
+                        )
             return "http://sourceforge.net/projects/boost/files/boost/{numeric_version}/boost_{string_version}{extension}/download".format(
                         numeric_version = version.translate( string.maketrans( '._', '..' ) ),
                         string_version = version.translate( string.maketrans( '._', '__' ) ),
