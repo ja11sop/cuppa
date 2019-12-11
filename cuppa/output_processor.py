@@ -16,7 +16,16 @@ import time
 import threading
 import shlex
 import colorama
-import Queue
+try:
+    import Queue as Queue
+except ImportError:
+    import queue as Queue
+
+try:
+    import os.errno as errno
+except ImportError:
+    import errno as errno
+
 import platform
 import logging
 
@@ -31,7 +40,7 @@ def command_available( command ):
         with open(os.devnull) as devnull:
             subprocess.Popen( shlex.split( command ), stdout=devnull, stderr=devnull ).communicate()
     except OSError as e:
-        if e.errno == os.errno.ENOENT:
+        if e.errno == errno.ENOENT:
             return False
     return True
 
@@ -63,9 +72,9 @@ class LineConsumer:
                 if self.processor:
                     line = self.processor( line )
                     if line:
-                        print line
+                        print( line )
                 else:
-                    print line
+                    print( line )
 
 
 
@@ -205,9 +214,9 @@ class Stream(object):
                     if self._processor:
                         line = self._processor( line )
                         if line:
-                            print line
+                            print( line )
                     else:
-                        print line
+                        print( line )
             self._queue.task_done()
         except Queue.Empty:
             logger.trace( "Stream Queue.Empty raised [{}]".format( self._name ) )
@@ -264,7 +273,7 @@ class Processor:
         summary = processor.summary( returncode )
 
         if summary:
-            print summary
+            print( summary )
 
         return returncode
 
@@ -308,7 +317,7 @@ class Processor:
         summary = processor.summary( returncode )
 
         if summary:
-            print summary
+            print( summary )
 
         return returncode
 

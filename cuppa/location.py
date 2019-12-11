@@ -8,7 +8,17 @@
 #-------------------------------------------------------------------------------
 
 import os
-import urlparse
+try:
+    from urlparse import urlparse
+    from urlparse import urlunparse
+    from urlparse import ParseResult
+    from urllib import unquote
+except ImportError:
+    from urllib.parse import urlparse
+    from urllib.parse import urlunparse
+    from urllib.parse import ParseResult
+    from urllib.parse import unquote
+
 import urllib
 import zipfile
 import tarfile
@@ -23,10 +33,7 @@ import platform
 import sys
 import logging
 
-import scms.subversion
-import scms.git
-import scms.mercurial
-import scms.bazaar
+from .scms import subversion, git, mercurial, bazaar
 
 from cuppa.colourise import as_notice, as_info, as_warning, as_error
 from cuppa.log import logger, register_secret
@@ -201,13 +208,13 @@ class Location(object):
         replacement_regex = r'[$\\/+:() ]'
 
         def is_url( path ):
-            return isinstance( path, urlparse.ParseResult )
+            return isinstance( path, ParseResult )
 
         def name_from_url( url ):
-            return self.url_replacement_char.join( [ url.scheme, url.netloc, urllib.unquote( url.path ) ] )
+            return self.url_replacement_char.join( [ url.scheme, url.netloc, unquote( url.path ) ] )
 
         def short_name_from_url( url ):
-            return re.sub( replacement_regex, self.url_replacement_char, urllib.unquote( url.path ) )
+            return re.sub( replacement_regex, self.url_replacement_char, unquote( url.path ) )
 
         def name_from_file( path ):
             folder_name = os.path.splitext( path_leaf( path ) )[0]
@@ -457,8 +464,8 @@ class Location(object):
     def get_info( cls, location, local_directory, full_url, expected_vc_type = None ):
 
         url        = location
-        repository = urlparse.urlunparse( ( full_url.scheme, full_url.netloc, '',  '',  '',  '' ) )
-        branch     = urllib.unquote( full_url.path )
+        repository = urlunparse( ( full_url.scheme, full_url.netloc, '',  '',  '',  '' ) )
+        branch     = unquote( full_url.path )
         remote     = None
         revision   = None
 
@@ -474,10 +481,10 @@ class Location(object):
     @classmethod
     def detect_vcs_info( cls, local_directory, expected_vc_type = None ):
         vcs_systems = [
-            scms.git.Git,
-            scms.subversion.Subversion,
-            scms.mercurial.Mercurial,
-            scms.bazaar.Bazaar
+            git.Git,
+            subversion.Subversion,
+            mercurial.Mercurial,
+            bazaar.Bazaar
         ]
 
         for vcs_system in vcs_systems:
@@ -493,7 +500,7 @@ class Location(object):
         elif branch and revision:
             version = ' rev. '.join( [ str(branch), str(revision) ] )
         else:
-            version = os.path.splitext( path_leaf( urllib.unquote( full_url_path ) ) )[0]
+            version = os.path.splitext( path_leaf( unquote( full_url_path ) ) )[0]
             name, ext = os.path.splitext( version )
             if ext == ".tar":
                 version = name
@@ -532,7 +539,7 @@ class Location(object):
             logger.debug( "--develop specified so using location=develop=[{}]".format( as_info( develop ) ) )
 
         self._location   = os.path.expanduser( location )
-        self._full_url   = urlparse.urlparse( self._location )
+        self._full_url   = urlparse( self._location )
         self._sub_dir    = None
         self._name_hint  = name_hint
 

@@ -9,6 +9,7 @@
 
 # Python Standard
 import collections
+import six
 
 # Scons
 import SCons.Script
@@ -87,9 +88,9 @@ class CuppaEnvironment(collections.MutableMapping):
 
         env['default_env'] = CuppaEnvironment.default_env()
 
-        for key, option in cls._options.iteritems():
+        for key, option in six.iteritems(cls._options):
             env[key] = option
-        for name, method in cls._methods.iteritems():
+        for name, method in six.iteritems(cls._methods):
             env.AddMethod( method, name )
         env.AddMethod( cls._get_option_method, "get_option" )
 
@@ -104,11 +105,11 @@ class CuppaEnvironment(collections.MutableMapping):
             if isinstance( node, list ):
                 return [ expand_node(i) for i in node ]
             elif isinstance( node, dict ):
-                return { str(k): expand_node(v) for k,v in node.iteritems() }
+                return { str(k): expand_node(v) for k,v in six.iteritems(node) }
             elif isinstance( node, set ):
                 return [ expand_node(s) for s in node ]
             elif hasattr( node, "__dict__" ):
-                return { str(k): expand_node(v) for k,v in node.__dict__.iteritems() }
+                return { str(k): expand_node(v) for k,v in six.iteritems(node.__dict__) }
             else:
                 return str( node )
 

@@ -8,6 +8,7 @@
 #   Boost Builder
 #-------------------------------------------------------------------------------
 import os
+import six
 
 # SCons Imports
 from SCons.Script import File, Flatten
@@ -203,7 +204,7 @@ class BoostLibraryAction(object):
         summary = processor.summary( returncode )
 
         if summary:
-            print summary
+            print( summary )
 
         if returncode:
             return returncode
@@ -348,7 +349,7 @@ class BoostLibraryBuilder(object):
 
         logger.trace( "Library sources for variant [{}] = [{}]".format(
                 as_info(variant_key),
-                colour_items( k+":"+as_info(v.path) for k,v in _prebuilt_boost_libraries['builder'][sconstruct_id][ variant_key ].iteritems() )
+                colour_items( k+":"+as_info(v.path) for k,v in six.iteritems(_prebuilt_boost_libraries['builder'][sconstruct_id][ variant_key ]) )
         ) )
 
 

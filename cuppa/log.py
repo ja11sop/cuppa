@@ -9,6 +9,7 @@
 #-------------------------------------------------------------------------------
 
 import logging
+import six
 
 from cuppa.colourise import as_error_label, as_warning_label, as_notice, as_emphasised
 
@@ -91,7 +92,7 @@ class _formatter(logging.Formatter):
 
 
 def mask_secrets( message ):
-    for secret, mask in _secrets.iteritems():
+    for secret, mask in six.iteritems(_secrets):
         message = message.replace( secret, mask )
     return message
 

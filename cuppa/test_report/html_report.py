@@ -12,8 +12,12 @@ import json
 import os
 import itertools
 import hashlib
+import six
 import cgi
-from urlparse import urlparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from SCons.Script import Flatten, Dir, Copy
@@ -630,7 +634,7 @@ class ReportIndexBuilder(object):
             logger.trace( "Destination dirs = [{}]".format( colour_items( cls.destination_dirs.keys() ) ) )
             logger.trace( "cls.all_reports dirs = [{}]".format( colour_items( cls.all_reports.keys() ) ) )
 
-            for destination_dir, final_dirs in cls.destination_dirs.iteritems():
+            for destination_dir, final_dirs in six.iteritems(cls.destination_dirs):
 
                 master_index_path = os.path.join( destination_dir, "test-report-index.html" )
                 master_report_path = os.path.join( destination_dir, "test-report-index.json" )
@@ -649,7 +653,7 @@ class ReportIndexBuilder(object):
                 summaries['toolchain_variants'] = {}
                 summaries['reports'] = {}
 
-                for report_dir, json_reports in cls.all_reports.iteritems():
+                for report_dir, json_reports in six.iteritems(cls.all_reports):
                     common, tail1, tail2 = cuppa.path.split_common( report_dir, destination_dir )
                     logger.trace( "common, tail1, tail2 = {}, {}, {}".format( as_info(common), as_notice(tail1), as_notice(tail2) ) )
                     if common and (not tail1 or not tail2):

@@ -807,7 +807,7 @@ class RunPatchedBoostTest:
 
             return None
 
-        except OSError, e:
+        except OSError as e:
             logger.error( "Execution of [{}] failed with error: {}".format( as_notice(test_command), as_notice(str(e)) ) )
             raise BuildError( e )
 

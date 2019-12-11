@@ -11,7 +11,9 @@
 import subprocess
 import shlex
 import re
-from exceptions import Exception
+import sys
+if sys.version_info[0] <= 2:
+    from exceptions import Exception
 
 from cuppa.log import logger
 from cuppa.colourise import as_warning

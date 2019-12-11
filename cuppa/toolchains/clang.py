@@ -15,7 +15,10 @@ import re
 import shlex
 import collections
 import platform
-from exceptions import Exception
+import six
+import sys
+if sys.version_info[0] <= 2:
+    from exceptions import Exception
 
 import cuppa.build_platform
 
@@ -176,6 +179,8 @@ class Clang(object):
         command = "{} --version".format( llvm_tool )
         if command_available( command ):
             reported_version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
+            if isinstance(reported_version, str) == False:
+                reported_version = reported_version.decode('utf-8')
             version = re.search( r'LLVM version (\d)\.(\d)\.(\d)', reported_version )
             reported_version = version.expand(r'\1')
             return reported_version
@@ -210,7 +215,7 @@ class Clang(object):
         for version in cls.supported_versions():
             add_to_supported( version )
 
-        for version, clang in cls.available_versions().iteritems():
+        for version, clang in six.iteritems(cls.available_versions()):
             logger.debug(
                     "Adding toolchain [{}] reported as [{}] with cxx_version [clang++{}] at [{}]".format(
                     as_info(version),
