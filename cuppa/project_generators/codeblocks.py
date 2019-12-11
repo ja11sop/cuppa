@@ -9,7 +9,9 @@
 #-------------------------------------------------------------------------------
 
 import os
-from exceptions import Exception
+import sys
+if sys.version_info[0] <= 2:
+    from exceptions import Exception
 
 import cuppa.path
 import cuppa.progress

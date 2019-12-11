@@ -59,15 +59,14 @@ def __package( name ):
         try:
             try:
                 module = sys.modules[ name ]
-            except KeyError, (e):
+            except KeyError as error:
                 module = imp.load_module( name, filehandle, pathname, description )
             package = pathname
         finally:
             if filehandle:
                 filehandle.close()
-    except ImportError, (e):
+    except ImportError as error:
         pass
-
     return package
 
 
@@ -79,7 +78,7 @@ def __call_classmethod_for_classes_in_module( package, name, path, method, *args
                 qualified_name = package and package + "." + name or name
                 module = sys.modules[ qualified_name ]
 
-            except KeyError, (e):
+            except KeyError as error:
                 module = imp.load_module( name, filehandle, pathname, description )
 
             for member_name in dir( module ):
@@ -110,7 +109,7 @@ def __call_classmethod_for_classes_in_module( package, name, path, method, *args
             if filehandle:
                 filehandle.close()
 
-    except ImportError, (e):
+    except ImportError as error:
         pass
 
 #-------------------------------------------------------------------------------

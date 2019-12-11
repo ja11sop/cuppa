@@ -15,7 +15,10 @@ import re
 import shlex
 import collections
 import platform
-from exceptions import Exception
+import six
+import sys
+if sys.version_info[0] <= 2:
+    from exceptions import Exception
 
 
 from cuppa.cpp.create_version_file_cpp import CreateVersionHeaderCpp, CreateVersionFileCpp
@@ -84,6 +87,8 @@ class Gcc(object):
         command = "{} --version".format( cxx )
         if command_available( command ):
             reported_version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
+            if isinstance(reported_version, str) == False:
+                reported_version = reported_version.decode('utf-8')
             reported_version = prefix + re.search( r'(\d)\.(\d)', reported_version ).expand(r'\1\2')
             return reported_version
         return None
@@ -199,7 +204,7 @@ class Gcc(object):
         for version in cls.supported_versions():
             add_to_supported( version )
 
-        for version, gcc in cls.available_versions().iteritems():
+        for version, gcc in six.iteritems(cls.available_versions()):
             logger.debug(
                 "Adding toolchain [{}] reported as [{}] with cxx_version [g++{}] at [{}]"
                 .format( as_info(version), as_info(gcc['version']), as_info(gcc['cxx_version']), as_notice(gcc['path']) )

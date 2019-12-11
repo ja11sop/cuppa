@@ -12,7 +12,9 @@ import subprocess
 import shlex
 import os
 import re
-from exceptions import Exception
+import sys
+if sys.version_info[0] <= 2:
+    from exceptions import Exception
 
 from cuppa.log import logger
 from cuppa.colourise import as_notice, as_info, colour_items

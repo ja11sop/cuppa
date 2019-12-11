@@ -10,6 +10,7 @@ import platform
 import subprocess
 import re
 import os
+import six
 
 
 class AutoFlushFile(object):
@@ -47,12 +48,12 @@ class MaskSecrets(object):
     def __init__( self ):
         secret_regex = re.compile( r'.*TOKEN.*' )
         self.secrets = {}
-        for key, val in os.environ.iteritems():
+        for key, val in six.iteritems(os.environ):
             if re.match( secret_regex, key ):
                 self.secrets[val] = key
 
     def mask( self, message ):
-        for secret, mask in self.secrets.iteritems():
+        for secret, mask in six.iteritems(self.secrets):
             message = message.replace( secret, mask )
         return message
 

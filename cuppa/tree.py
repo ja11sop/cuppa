@@ -51,7 +51,7 @@ def print_tree( root, ignore_filter=[], margin=[0], visited=set() ):
     margins = list(map(get_margin, margin[:-1]))
 
     if path in visited and children:
-        print ''.join(margins + ['+-[', path, ']'])
+        print( ''.join(margins + ['+-[', path, ']']) )
         return
 
     visited.add( path )
@@ -59,7 +59,7 @@ def print_tree( root, ignore_filter=[], margin=[0], visited=set() ):
     if filter_out( path, ignore_filter ):
         return
 
-    print ''.join(margins + ['+-', path])
+    print( ''.join(margins + ['+-', path]) )
 
     if children:
         margin.append(1)

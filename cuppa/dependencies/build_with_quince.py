@@ -13,8 +13,11 @@ import subprocess
 import shlex
 import platform
 import glob
+import six
 
-from exceptions import Exception
+import sys
+if sys.version_info[0] <= 2:
+    from exceptions import Exception
 
 # Cuppa Imports
 import cuppa.location
@@ -144,7 +147,7 @@ class quince_sqlite( location_dependency( 'quince-sqlite', sys_include="include"
     def __call__( self, env, toolchain, variant ):
         super(quince_sqlite,self).__call__( env, toolchain, variant )
 
-        for name, flags in self._flags.iteritems():
+        for name, flags in six.iteritems(self._flags):
             if flags:
                 env.AppendUnique( **{ name: flags } )
 

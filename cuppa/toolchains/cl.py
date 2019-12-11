@@ -11,8 +11,10 @@
 import os
 import collections
 import platform
-
-from exceptions import Exception
+import six
+import sys
+if sys.version_info[0] <= 2:
+    from exceptions import Exception
 
 import SCons.Script
 from SCons.Tool.MSCommon.vc import cached_get_installed_vcs, _VCVER, get_default_version
@@ -115,7 +117,7 @@ class Cl(object):
         for version in cls.supported_versions():
             add_to_supported( version )
 
-        for name, vc in cls.available_versions( env ).iteritems():
+        for name, vc in six.iteritems( cls.available_versions( env ) ):
             add_toolchain( name, cls( name, vc['vc_version'], vc['version'] ) )
 
 

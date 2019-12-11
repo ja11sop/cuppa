@@ -11,7 +11,11 @@ import os
 import re
 import string
 import lxml.html
-import urllib2
+
+try:
+    from urllib2 import urlopen
+except ImportError:
+    from urllib.request import urlopen
 
 # Cuppa Imports
 import cuppa.build_platform
@@ -156,7 +160,7 @@ def _determine_latest_boost_verion( offline ):
         try:
             boost_version_url = 'https://www.boost.org/users/download/'
             logger.info( "Checking current boost version from {}...".format( as_info( boost_version_url ) ) )
-            html = lxml.html.parse( urllib2.urlopen( boost_version_url ) )
+            html = lxml.html.parse( urlopen( boost_version_url ) )
 
             current_release = html.xpath("/html/body/div[2]/div/div[1]/div/div/div[2]/h3[1]/span")[0].text
             current_release = str( re.search( r'(\d[.]\d+([.]\d+)?)', current_release ).group(1) )
