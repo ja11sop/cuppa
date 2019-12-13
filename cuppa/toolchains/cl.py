@@ -13,8 +13,6 @@ import collections
 import platform
 import six
 import sys
-if sys.version_info[0] <= 2:
-    from exceptions import Exception
 
 import SCons.Script
 from SCons.Tool.MSCommon.vc import cached_get_installed_vcs, _VCVER, get_default_version
@@ -23,7 +21,7 @@ from cuppa.cpp.create_version_file_cpp import CreateVersionHeaderCpp, CreateVers
 from cuppa.cpp.run_boost_test import RunBoostTestEmitter, RunBoostTest
 from cuppa.cpp.run_patched_boost_test import RunPatchedBoostTestEmitter, RunPatchedBoostTest
 from cuppa.cpp.run_process_test import RunProcessTestEmitter, RunProcessTest
-
+from cuppa.utility.python2to3 import Exception
 
 
 class ClException(Exception):

@@ -451,7 +451,7 @@ class GenerateHtmlReportBuilder(object):
 class GenerateHtmlReportMethod(object):
 
     def __call__( self, env, source, final_dir=None, sort_test_cases=False, auto_link_tests=True, link_style="local" ):
-        if not env['variant_actions'].has_key('test'):
+        if 'test' not in env['variant_actions'].keys():
             return []
         builder = GenerateHtmlReportBuilder( final_dir, sort_test_cases=sort_test_cases, auto_link_tests=auto_link_tests, link_style=link_style )
         env['BUILDERS']['GenerateHtmlReport'] = env.Builder( action=builder.GenerateHtmlTestReport, emitter=builder.emitter )
@@ -729,7 +729,7 @@ class CollateTestReportIndexMethod(object):
         pass
 
     def __call__( self, env, sources, destination=None ):
-        if not env['variant_actions'].has_key('test'):
+        if 'test' not in env['variant_actions'].keys():
             return []
 
         env['BUILDERS']['CollateTestReportIndexBuilder'] = env.Builder( action=CollateReportIndexAction( destination ), emitter=CollateReportIndexEmitter( destination ) )

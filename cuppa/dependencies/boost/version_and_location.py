@@ -9,13 +9,14 @@
 #-------------------------------------------------------------------------------
 import os
 import re
-import string
 import lxml.html
 
 try:
     from urllib2 import urlopen
+    from string import maketrans
 except ImportError:
     from urllib.request import urlopen
+    maketrans = str.maketrans
 
 # Cuppa Imports
 import cuppa.build_platform
@@ -193,13 +194,13 @@ def _location_from_boost_version( location, offline ):
             # Boost 1.71.0 source files are missing from the sourceforge repository.
             if "1.71" in version:
                 return "https://dl.bintray.com/boostorg/release/{numeric_version}/source/boost_{string_version}{extension}".format(
-                            numeric_version = version.translate( string.maketrans( '._', '..' ) ),
-                            string_version = version.translate( string.maketrans( '._', '__' ) ),
+                            numeric_version = version.translate( maketrans( '._', '..' ) ),
+                            string_version = version.translate( maketrans( '._', '__' ) ),
                             extension = extension
                         )
             return "http://sourceforge.net/projects/boost/files/boost/{numeric_version}/boost_{string_version}{extension}/download".format(
-                        numeric_version = version.translate( string.maketrans( '._', '..' ) ),
-                        string_version = version.translate( string.maketrans( '._', '__' ) ),
+                        numeric_version = version.translate( maketrans( '._', '..' ) ),
+                        string_version = version.translate( maketrans( '._', '__' ) ),
                         extension = extension
                     )
     return location

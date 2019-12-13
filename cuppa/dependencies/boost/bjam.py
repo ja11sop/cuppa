@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2018
+#          Copyright Jamie Allsop 2011-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -16,9 +16,9 @@ import shlex
 # Cuppa Imports
 import cuppa.build_platform
 
-from cuppa.output_processor import IncrementalSubProcess, ToolchainProcessor
-from cuppa.colourise        import as_emphasised
-from cuppa.log              import logger
+from cuppa.output_processor   import IncrementalSubProcess, ToolchainProcessor
+from cuppa.colourise          import as_emphasised
+from cuppa.log                import logger
 
 # Boost Imports
 from cuppa.dependencies.boost.library_naming import directory_from_abi_flag, toolset_from_toolchain
@@ -176,7 +176,6 @@ class BuildBjam(object):
                 return 1
 
             bjam_binary_path = os.path.join( build_script_path, bjam_exe_path )
-
             shutil.copy( bjam_binary_path, target[0].path )
 
         except OSError as error:

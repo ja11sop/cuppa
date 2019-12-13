@@ -24,7 +24,7 @@ class RunMethod(object):
 
         actions = env['variant_actions']
 
-        if actions.has_key('run') or actions.has_key('test') or actions.has_key('force_run') or actions.has_key('force_test'):
+        if 'run' in actions.keys() or 'test' in actions.keys() or 'force_run' in actions.keys() or 'force_test' in actions.keys():
 
             if final_dir == None:
                 final_dir = env['abs_final_dir']

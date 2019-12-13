@@ -16,23 +16,14 @@ import time
 import threading
 import shlex
 import colorama
-try:
-    import Queue as Queue
-except ImportError:
-    import queue as Queue
-
-try:
-    import os.errno as errno
-except ImportError:
-    import errno as errno
 
 import platform
 import logging
 
-
 import cuppa.timer
 from cuppa.colourise import as_colour, as_emphasised, as_highlighted, as_notice
 from cuppa.log import logger
+from cuppa.utility.python2to3 import as_str, errno, Queue
 
 
 def command_available( command ):
@@ -67,7 +58,7 @@ class LineConsumer:
 
     def __call__( self ):
         for line in iter( self.call_readline, "" ):
-            line = line.rstrip()
+            line = as_str( line.rstrip() )
             if line:
                 if self.processor:
                     line = self.processor( line )
@@ -121,7 +112,7 @@ class IncrementalSubProcess:
 
             process = subprocess.Popen(
                 use_shell and " ".join(args_list) or args_list,
-                **dict( kwargs, close_fds=close_fds, shell=use_shell )
+                **dict( kwargs, close_fds=close_fds, shell=use_shell, universal_newlines=True )
             )
 
             stderr_consumer = LineConsumer( process.stderr.readline, stderr_processor )
