@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2015-2015
+#          Copyright Jamie Allsop 2015-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -12,6 +12,7 @@ import json
 import os
 import itertools
 import cgi
+import six
 
 import cuppa.progress
 
@@ -62,7 +63,7 @@ class GenerateReportBuilder(object):
                 if not 'branch_dir' in test or test['branch_dir'] == None:
                     test['branch_dir'] = ""
 
-                for key, value in test.iteritems():
+                for key, value in six.iteritems(test):
                     if key == "cpu_times" or key == "timer":
                         continue
                     report.write( '        <%s>' % key )

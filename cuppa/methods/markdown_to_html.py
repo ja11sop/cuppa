@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2015-2015
+#          Copyright Jamie Allsop 2015-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -23,7 +23,7 @@ class GripRunner(object):
             try:
                 grip.export( path=in_file, render_wide=True, out_filename=out_file )
             except Exception as error:
-                print "cuppa: error: grip.export( path={}, render_wide=True, out_filename={}) failed with error [{}]".format( in_file, out_file, error )
+                print( "cuppa: error: grip.export( path={}, render_wide=True, out_filename={}) failed with error [{}]".format( in_file, out_file, error ))
 
         return None
 

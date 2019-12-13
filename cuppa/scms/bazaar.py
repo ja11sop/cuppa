@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2017-2017
+#          Copyright Jamie Allsop 2017-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -12,8 +12,8 @@ import subprocess
 import shlex
 import os
 import re
-from exceptions import Exception
-
+import sys
+from cuppa.utility.python2to3 import Exception
 
 
 class Bazaar:
@@ -57,8 +57,7 @@ class Bazaar:
             revision = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT, cwd=path ).strip()
 
             command = "{bzr} info".format( bzr=cls.binary() )
-            bzr_info = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT, cwd=path ).strip()
-
+            bzr_info = as_str( subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT, cwd=path ).strip() )
             repository_match = re.search( r'shared repository: (?P<repository>.*)\n', bzr_info )
             if repository_match:
                 repository = repository_match.group('repository')

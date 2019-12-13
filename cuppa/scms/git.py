@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2014-2017
+#          Copyright Jamie Allsop 2014-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -12,10 +12,11 @@ import subprocess
 import shlex
 import os
 import re
-from exceptions import Exception
+import sys
 
 from cuppa.log import logger
 from cuppa.colourise import as_notice, as_info, colour_items
+from cuppa.utility.python2to3 import as_str, Exception
 
 
 class Git:
@@ -55,7 +56,7 @@ class Git:
         remote = None
 
         # In case we have a detached head we use this
-        result = cls.execute_command( "{git} show -s --pretty=\%d HEAD".format( git=cls.binary() ), path )
+        result = as_str( cls.execute_command( "{git} show -s --pretty=\%d HEAD".format( git=cls.binary() ), path ) )
         match = re.search( r'[(]HEAD[^,]*[,] (?P<branches>[^)]+)[)]', result )
         if match:
             branches = [ b.strip() for b in match.group("branches").split(',') ]

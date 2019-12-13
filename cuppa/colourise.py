@@ -16,7 +16,7 @@ try:
     import colorama
     colorama_available = True
 except ImportError:
-    print 'Output Colourisation disabled. To enabled, install colorama'
+    print( 'Output Colourisation disabled. To enabled, install colorama')
     colorama_available = False
 
 

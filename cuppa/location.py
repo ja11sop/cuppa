@@ -1,4 +1,4 @@
-#          Copyright Jamie Allsop 2014-2018
+#          Copyright Jamie Allsop 2014-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -8,7 +8,21 @@
 #-------------------------------------------------------------------------------
 
 import os
-import urlparse
+try:
+    from urlparse import urlparse
+    from urlparse import urlunparse
+    from urlparse import ParseResult
+    from urllib import unquote
+    from urllib import urlretrieve
+    from urllib import ContentTooShortError
+except ImportError:
+    from urllib.parse import urlparse
+    from urllib.parse import urlunparse
+    from urllib.parse import ParseResult
+    from urllib.parse import unquote
+    from urllib.request import urlretrieve
+    from urllib.error import ContentTooShortError
+
 import urllib
 import zipfile
 import tarfile
@@ -23,10 +37,7 @@ import platform
 import sys
 import logging
 
-import scms.subversion
-import scms.git
-import scms.mercurial
-import scms.bazaar
+from .scms import subversion, git, mercurial, bazaar
 
 from cuppa.colourise import as_notice, as_info, as_warning, as_error
 from cuppa.log import logger, register_secret
@@ -36,6 +47,7 @@ try:
     import pip.vcs as pip_vcs
     import pip.download as pip_download
     import pip.exceptions as pip_exceptions
+    from pip.download import is_url as pip_is_url
 
     def get_url_rev( vcs_backend ):
         return vcs_backend.get_url_rev()
@@ -59,6 +71,13 @@ except:
     import pip._internal.vcs as pip_vcs
     import pip._internal.download as pip_download
     import pip._internal.exceptions as pip_exceptions
+    try:
+        from pip._internal.download import is_archive_file as pip_is_archive_file
+        from pip._internal.download import is_url as pip_is_url
+    except: # Pip version >= 19.3.1
+        from pip._internal.req.constructors import is_archive_file as pip_is_archive_file
+        from pip._internal.vcs import is_url as pip_is_url
+        from pip._internal.utils.misc import hide_url as pip_hide_url
 
     def get_url_rev( vcs_backend ):
         url_rev_auth = vcs_backend.get_url_rev_and_auth( vcs_backend.url )
@@ -84,7 +103,6 @@ except:
         elif vc_type == 'bzr' and rev:
             return vcs_backend.make_rev_options( rev=rev )
         return vcs_backend.make_rev_options()
-
 
 
 class LocationException(Exception):
@@ -191,9 +209,9 @@ class Location(object):
     def url_is_download_archive_url( cls, path ):
         base, download = os.path.split( path )
         if download == "download":
-            return pip_download.is_archive_file( base )
+            return pip_is_archive_file( base )
         else:
-            return pip_download.is_archive_file( path )
+            return pip_is_archive_file( path )
 
 
     def folder_name_from_path( self, path, cuppa_env ):
@@ -201,13 +219,13 @@ class Location(object):
         replacement_regex = r'[$\\/+:() ]'
 
         def is_url( path ):
-            return isinstance( path, urlparse.ParseResult )
+            return isinstance( path, ParseResult )
 
         def name_from_url( url ):
-            return self.url_replacement_char.join( [ url.scheme, url.netloc, urllib.unquote( url.path ) ] )
+            return self.url_replacement_char.join( [ url.scheme, url.netloc, unquote( url.path ) ] )
 
         def short_name_from_url( url ):
-            return re.sub( replacement_regex, self.url_replacement_char, urllib.unquote( url.path ) )
+            return re.sub( replacement_regex, self.url_replacement_char, unquote( url.path ) )
 
         def name_from_file( path ):
             folder_name = os.path.splitext( path_leaf( path ) )[0]
@@ -267,9 +285,9 @@ class Location(object):
         if location.startswith( 'file:' ):
             location = pip_download.url_to_path( location )
 
-        if not pip_download.is_url( location ):
+        if not pip_is_url( location ):
 
-            if pip_download.is_archive_file( location ):
+            if pip_is_archive_file( location ):
 
                 self._local_folder = self.folder_name_from_path( location, cuppa_env )
                 local_directory = os.path.join( base, self._local_folder )
@@ -334,7 +352,7 @@ class Location(object):
                         report_hook = None
                         if logger.isEnabledFor( logging.INFO ):
                             report_hook = ReportDownloadProgress()
-                        filename, headers = urllib.urlretrieve( location, reporthook=report_hook )
+                        filename, headers = urlretrieve( location, reporthook=report_hook )
                         name, extension = os.path.splitext( filename )
                         logger.info( "[{}] successfully downloaded to [{}]".format(
                                 as_info( location ),
@@ -345,7 +363,7 @@ class Location(object):
                             cached_archive = os.path.join( cuppa_env['cache_root'], self._local_folder )
                             logger.debug( "Caching downloaded file as [{}]".format( as_info( cached_archive ) ) )
                             shutil.copyfile( filename, cached_archive )
-                    except urllib.ContentTooShortError as error:
+                    except ContentTooShortError as error:
                         logger.error( "Download of [{}] failed with error [{}]".format(
                                 as_error( location ),
                                 as_error( str(error) )
@@ -356,7 +374,11 @@ class Location(object):
                 vc_type = location.split('+', 1)[0]
                 backend = pip_vcs.vcs.get_backend( vc_type )
                 if backend:
-                    vcs_backend = backend( self.expand_secret( location ) )
+                    try:
+                        vcs_backend = backend( self.expand_secret( location ) )
+                    except: # Pip version >= 19
+                        backend.url = self.expand_secret( location )
+                        vcs_backend = backend
                     local_dir_with_sub_dir = os.path.join( local_directory, sub_dir and sub_dir or "" )
 
                     if cuppa_env['dump'] or cuppa_env['clean']:
@@ -400,7 +422,10 @@ class Location(object):
                                     attempt > 1 and "(attempt {})".format( str(attempt) ) or ""
                             ) )
                             try:
-                                vcs_backend.obtain( local_dir_with_sub_dir )
+                                try:
+                                    vcs_backend.obtain( local_dir_with_sub_dir )
+                                except TypeError as e: # Pip version >= 19
+                                    vcs_backend.obtain( local_dir_with_sub_dir, pip_hide_url( vcs_backend.url ) )
                                 logger.debug( "Successfully retrieved [{}]".format( as_info( location ) ) )
                                 break
                             except pip_exceptions.PipError as error:
@@ -457,8 +482,8 @@ class Location(object):
     def get_info( cls, location, local_directory, full_url, expected_vc_type = None ):
 
         url        = location
-        repository = urlparse.urlunparse( ( full_url.scheme, full_url.netloc, '',  '',  '',  '' ) )
-        branch     = urllib.unquote( full_url.path )
+        repository = urlunparse( ( full_url.scheme, full_url.netloc, '',  '',  '',  '' ) )
+        branch     = unquote( full_url.path )
         remote     = None
         revision   = None
 
@@ -474,10 +499,10 @@ class Location(object):
     @classmethod
     def detect_vcs_info( cls, local_directory, expected_vc_type = None ):
         vcs_systems = [
-            scms.git.Git,
-            scms.subversion.Subversion,
-            scms.mercurial.Mercurial,
-            scms.bazaar.Bazaar
+            git.Git,
+            subversion.Subversion,
+            mercurial.Mercurial,
+            bazaar.Bazaar
         ]
 
         for vcs_system in vcs_systems:
@@ -493,7 +518,7 @@ class Location(object):
         elif branch and revision:
             version = ' rev. '.join( [ str(branch), str(revision) ] )
         else:
-            version = os.path.splitext( path_leaf( urllib.unquote( full_url_path ) ) )[0]
+            version = os.path.splitext( path_leaf( unquote( full_url_path ) ) )[0]
             name, ext = os.path.splitext( version )
             if ext == ".tar":
                 version = name
@@ -532,7 +557,7 @@ class Location(object):
             logger.debug( "--develop specified so using location=develop=[{}]".format( as_info( develop ) ) )
 
         self._location   = os.path.expanduser( location )
-        self._full_url   = urlparse.urlparse( self._location )
+        self._full_url   = urlparse( self._location )
         self._sub_dir    = None
         self._name_hint  = name_hint
 

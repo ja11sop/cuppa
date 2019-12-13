@@ -1,4 +1,4 @@
-#          Copyright Jamie Allsop 2014-2015
+#          Copyright Jamie Allsop 2014-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -7,7 +7,11 @@
 #   version.py
 #-------------------------------------------------------------------------------
 
-import xmlrpclib
+try:
+    import xmlrpclib
+except ImportError:
+    import xmlrpc.client as xmlrpclib
+
 from pkg_resources import parse_version
 
 from cuppa.colourise import as_info, as_warning, as_emphasised

@@ -12,6 +12,7 @@ import os
 import sys
 import shlex
 import re
+import six
 
 from SCons.Errors import BuildError
 from SCons.Script import Flatten
@@ -226,7 +227,7 @@ class RunProcessAction(object):
 
             return success
 
-        except OSError, e:
+        except OSError as e:
             log_failure( "Execution of [{}] failed with error: {}".format( as_notice(command), as_notice(str(e)) ) )
             monitor.stop( status='failed', treat_error_as_warning=retry )
             if not retry:
@@ -258,7 +259,7 @@ class RunProcessAction(object):
                 command = self._command
                 if self._format_args:
                     format_args = {}
-                    for key, value in self._format_args.iteritems():
+                    for key, value in six.iteritems(self._format_args):
                         format_args[key] = callable(value) and value() or value
                     command = command.format( **format_args )
                 working_dir = self._working_dir and self._working_dir or self._final_dir
