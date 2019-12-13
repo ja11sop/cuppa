@@ -30,6 +30,10 @@ try:
 except:  # Python version >= 3.8
     from time import process_time_ns
 
+try:
+    from string import maketrans
+except ImportError:
+    maketrans = str.maketrans
 
 from .types import is_string
 

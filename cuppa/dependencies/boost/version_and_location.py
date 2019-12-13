@@ -13,17 +13,16 @@ import lxml.html
 
 try:
     from urllib2 import urlopen
-    from string import maketrans
 except ImportError:
     from urllib.request import urlopen
-    maketrans = str.maketrans
 
 # Cuppa Imports
 import cuppa.build_platform
 import cuppa.location
 
-from cuppa.colourise        import as_info, as_notice
-from cuppa.log              import logger
+from cuppa.colourise          import as_info, as_notice
+from cuppa.log                import logger
+from cuppa.utility.python2to3 import maketrans
 
 # Boost Imports
 from cuppa.dependencies.boost.boost_exception import BoostException
