@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2015-2017
+#          Copyright Jamie Allsop 2015-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -16,8 +16,6 @@ import glob
 import six
 
 import sys
-if sys.version_info[0] <= 2:
-    from exceptions import Exception
 
 # Cuppa Imports
 import cuppa.location
@@ -26,6 +24,7 @@ from cuppa.log import logger
 
 # Quince Imports
 from cuppa.build_with_location import location_dependency, LibraryMethod
+from cuppa.utility.python2to3 import Exception
 
 
 

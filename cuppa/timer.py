@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2013-2015
+#          Copyright Jamie Allsop 2013-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -14,6 +14,7 @@ import timeit
 import time
 import sys
 import itertools
+from cuppa.utility.python2to3 import process_time_ns
 
 from cuppa.colourise import as_emphasised, as_colour, emphasise_time_by_digit
 
@@ -25,9 +26,9 @@ def wall_time_nanosecs():
 
 
 def process_times_nanosecs():
-    process = time.clock()
+    process_ns = process_time_ns()
     user, system, children_user, children_system, real = os.times()
-    return int( process*nanosecs_multiple), int( user*nanosecs_multiple ), int( system*nanosecs_multiple )
+    return process_ns, int( user*nanosecs_multiple ), int( system*nanosecs_multiple )
 
 
 class CpuTimes(object):

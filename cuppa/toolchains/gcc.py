@@ -17,9 +17,6 @@ import collections
 import platform
 import six
 import sys
-if sys.version_info[0] <= 2:
-    from exceptions import Exception
-
 
 from cuppa.cpp.create_version_file_cpp import CreateVersionHeaderCpp, CreateVersionFileCpp
 from cuppa.cpp.run_boost_test import RunBoostTestEmitter, RunBoostTest
@@ -30,6 +27,7 @@ from cuppa.output_processor import command_available
 from cuppa.log import logger
 from cuppa.colourise import as_notice, as_info
 import cuppa.build_platform
+from cuppa.utility.python2to3 import as_str, Exception
 
 
 class GccException(Exception):
@@ -86,9 +84,7 @@ class Gcc(object):
     def version_from_command( cls, cxx, prefix ):
         command = "{} --version".format( cxx )
         if command_available( command ):
-            reported_version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
-            if isinstance(reported_version, str) == False:
-                reported_version = reported_version.decode('utf-8')
+            reported_version = as_str( Popen( shlex.split( command ), stdout=PIPE).communicate()[0] )
             reported_version = prefix + re.search( r'(\d)\.(\d)', reported_version ).expand(r'\1\2')
             return reported_version
         return None

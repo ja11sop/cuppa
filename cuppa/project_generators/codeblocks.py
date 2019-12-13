@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2015
+#          Copyright Jamie Allsop 2011-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -10,8 +10,6 @@
 
 import os
 import sys
-if sys.version_info[0] <= 2:
-    from exceptions import Exception
 
 import cuppa.path
 import cuppa.progress
@@ -20,6 +18,7 @@ import cuppa.core.options
 
 from cuppa.colourise import as_error, as_notice
 from cuppa.log import logger
+from cuppa.utility.python2to3 import Exception
 
 
 class CodeblocksException(Exception):

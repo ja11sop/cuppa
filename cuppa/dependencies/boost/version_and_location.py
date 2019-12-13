@@ -9,7 +9,6 @@
 #-------------------------------------------------------------------------------
 import os
 import re
-import string
 import lxml.html
 
 try:
@@ -21,8 +20,9 @@ except ImportError:
 import cuppa.build_platform
 import cuppa.location
 
-from cuppa.colourise        import as_info, as_notice
-from cuppa.log              import logger
+from cuppa.colourise          import as_info, as_notice
+from cuppa.log                import logger
+from cuppa.utility.python2to3 import maketrans
 
 # Boost Imports
 from cuppa.dependencies.boost.boost_exception import BoostException
@@ -193,13 +193,13 @@ def _location_from_boost_version( location, offline ):
             # Boost 1.71.0 source files are missing from the sourceforge repository.
             if "1.71" in version:
                 return "https://dl.bintray.com/boostorg/release/{numeric_version}/source/boost_{string_version}{extension}".format(
-                            numeric_version = version.translate( string.maketrans( '._', '..' ) ),
-                            string_version = version.translate( string.maketrans( '._', '__' ) ),
+                            numeric_version = version.translate( maketrans( '._', '..' ) ),
+                            string_version = version.translate( maketrans( '._', '__' ) ),
                             extension = extension
                         )
             return "http://sourceforge.net/projects/boost/files/boost/{numeric_version}/boost_{string_version}{extension}/download".format(
-                        numeric_version = version.translate( string.maketrans( '._', '..' ) ),
-                        string_version = version.translate( string.maketrans( '._', '__' ) ),
+                        numeric_version = version.translate( maketrans( '._', '..' ) ),
+                        string_version = version.translate( maketrans( '._', '__' ) ),
                         extension = extension
                     )
     return location

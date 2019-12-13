@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2017
+#          Copyright Jamie Allsop 2011-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -12,11 +12,10 @@ import subprocess
 import shlex
 import re
 import sys
-if sys.version_info[0] <= 2:
-    from exceptions import Exception
 
 from cuppa.log import logger
 from cuppa.colourise import as_warning
+from cuppa.utility.python2to3 import Exception
 
 
 class Subversion:
