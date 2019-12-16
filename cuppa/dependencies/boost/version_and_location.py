@@ -22,7 +22,7 @@ import cuppa.location
 
 from cuppa.colourise          import as_info, as_notice
 from cuppa.log                import logger
-from cuppa.utility.python2to3 import maketrans
+from cuppa.utility.python2to3 import maketrans, as_str
 
 # Boost Imports
 from cuppa.dependencies.boost.boost_exception import BoostException
@@ -140,11 +140,11 @@ def get_boost_version( location ):
         raise BoostException("Boost version.hpp file not found")
     with open( version_hpp_path ) as version_hpp:
         for line in version_hpp:
-            match = re.search( r'BOOST_VERSION\s+(?P<version>\d+)', line )
+            match = re.search( r'BOOST_VERSION\s+(?P<version>\d+)', as_str( line ) )
             if match:
                 int_version = int(match.group('version'))
-                major = int_version/100000
-                minor = int_version/100%1000
+                major = int_version//100000
+                minor = int_version//100%1000
                 patch = int_version%100
                 full_version = "{}.{}.{}".format( major, minor, patch )
                 short_version = "{}_{}".format( major, minor )
@@ -180,7 +180,7 @@ def _location_from_boost_version( location, offline ):
     if location == "latest" or location == "current":
         location = _determine_latest_boost_verion( offline )
     if location:
-        match = re.match( r'(boost_)?(?P<version>\d[._]\d\d(?P<minor>[._]\d)?)', location )
+        match = re.match( r'(boost_)?(?P<version>\d[._]\d\d(?P<minor>[._]\d)?)', as_str( location ) )
         if match:
             version = match.group('version')
             if not match.group('minor'):

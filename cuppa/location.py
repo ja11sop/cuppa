@@ -42,12 +42,14 @@ from .scms import subversion, git, mercurial, bazaar
 from cuppa.colourise import as_notice, as_info, as_warning, as_error
 from cuppa.log import logger, register_secret
 from cuppa.path import split_common
+from cuppa.utility.python2to3 import as_str
 
 try:
     import pip.vcs as pip_vcs
     import pip.download as pip_download
     import pip.exceptions as pip_exceptions
     from pip.download import is_url as pip_is_url
+    from pip.download import is_archive_file as pip_is_archive_file
 
     def get_url_rev( vcs_backend ):
         return vcs_backend.get_url_rev()
@@ -587,6 +589,7 @@ class Location(object):
         ## about it to allow us to specify what we are building with.
         self._url, self._repository, self._branch, self._remote, self._revision = self.get_info( self._location, self._local_directory, self._full_url )
         self._version, self._revision = self.ver_rev_summary( self._branch, self._revision, self._full_url.path )
+        self._revision = as_str( self._revision )
 
         logger.debug( "Using [{}]{}{} at [{}] stored in [{}]".format(
                 as_info( location ),
