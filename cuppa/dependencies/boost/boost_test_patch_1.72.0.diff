@@ -1,0 +1,175 @@
+diff -urN a/boost/test/impl/unit_test_parameters.ipp b/boost/test/impl/unit_test_parameters.ipp
+--- a/boost/test/impl/unit_test_parameters.ipp
++++ b/boost/test/impl/unit_test_parameters.ipp
+@@ -69,36 +69,44 @@ namespace rt = boost::runtime;
+
+ namespace runtime_config {
+
++# ifdef BOOST_TEST_USE_QUALIFIED_COMMANDLINE_ARGUMENTS
++#  define BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "boost.test."
++# else
++#  define BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX
++# endif
++
+ // UTF parameters
+-std::string btrt_auto_start_dbg    = "auto_start_dbg";
+-std::string btrt_break_exec_path   = "break_exec_path";
+-std::string btrt_build_info        = "build_info";
+-std::string btrt_catch_sys_errors  = "catch_system_errors";
+-std::string btrt_color_output      = "color_output";
+-std::string btrt_detect_fp_except  = "detect_fp_exceptions";
+-std::string btrt_detect_mem_leaks  = "detect_memory_leaks";
+-std::string btrt_list_content      = "list_content";
+-std::string btrt_list_labels       = "list_labels";
+-std::string btrt_log_format        = "log_format";
+-std::string btrt_log_level         = "log_level";
+-std::string btrt_log_sink          = "log_sink";
+-std::string btrt_combined_logger   = "logger";
+-std::string btrt_output_format     = "output_format";
+-std::string btrt_random_seed       = "random";
+-std::string btrt_report_format     = "report_format";
+-std::string btrt_report_level      = "report_level";
+-std::string btrt_report_mem_leaks  = "report_memory_leaks_to";
+-std::string btrt_report_sink       = "report_sink";
+-std::string btrt_result_code       = "result_code";
+-std::string btrt_run_filters       = "run_test";
+-std::string btrt_save_test_pattern = "save_pattern";
+-std::string btrt_show_progress     = "show_progress";
+-std::string btrt_use_alt_stack     = "use_alt_stack";
+-std::string btrt_wait_for_debugger = "wait_for_debugger";
+-
+-std::string btrt_help              = "help";
+-std::string btrt_usage             = "usage";
+-std::string btrt_version           = "version";
++std::string btrt_auto_start_dbg    = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "auto_start_dbg";
++std::string btrt_break_exec_path   = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "break_exec_path";
++std::string btrt_build_info        = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "build_info";
++std::string btrt_catch_sys_errors  = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "catch_system_errors";
++std::string btrt_color_output      = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "color_output";
++std::string btrt_detect_fp_except  = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "detect_fp_exceptions";
++std::string btrt_detect_mem_leaks  = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "detect_memory_leaks";
++std::string btrt_list_content      = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "list_content";
++std::string btrt_list_labels       = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "list_labels";
++std::string btrt_log_format        = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "log_format";
++std::string btrt_log_level         = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "log_level";
++std::string btrt_log_sink          = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "log_sink";
++std::string btrt_combined_logger   = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "logger";
++std::string btrt_output_format     = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "output_format";
++std::string btrt_random_seed       = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "random";
++std::string btrt_report_format     = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "report_format";
++std::string btrt_report_level      = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "report_level";
++std::string btrt_report_mem_leaks  = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "report_memory_leaks_to";
++std::string btrt_report_sink       = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "report_sink";
++std::string btrt_result_code       = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "result_code";
++std::string btrt_run_filters       = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "run_test";
++std::string btrt_save_test_pattern = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "save_pattern";
++std::string btrt_show_progress     = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "show_progress";
++std::string btrt_use_alt_stack     = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "use_alt_stack";
++std::string btrt_wait_for_debugger = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "wait_for_debugger";
++
++std::string btrt_help              = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "help";
++std::string btrt_usage             = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "usage";
++std::string btrt_version           = BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX "version";
++
++# undef BOOST_TEST_COMMANDLINE_ARGUMENT_PREFIX
+
+ //____________________________________________________________________________//
+
+diff -urN a/boost/test/utils/runtime/parameter.hpp b/boost/test/utils/runtime/parameter.hpp
+--- a/boost/test/utils/runtime/parameter.hpp
++++ b/boost/test/utils/runtime/parameter.hpp
+@@ -108,7 +108,7 @@ struct parameter_cla_id {
+     }
+     static bool             valid_name_char( char c )
+     {
+-        return std::isalnum( c ) || c == '+' || c == '_' || c == '?';
++        return std::isalnum( c ) || c == '+' || c == '_' || c == '?' || c == '.';
+     }
+
+     std::string             m_prefix;
+diff -urN a/boost/test/impl/framework.ipp b/boost/test/impl/framework.ipp
+index 44c7c31..a69aabb 100644
+--- a/boost/test/impl/framework.ipp
++++ b/boost/test/impl/framework.ipp
+@@ -59,6 +59,8 @@
+ #include <ctime>
+ #include <numeric>
+ #include <cmath>
++#include <vector>
++#include <string>
+ #include <iterator>
+
+ #ifdef BOOST_NO_STDC_NAMESPACE
+@@ -493,6 +495,7 @@ public:
+     , m_context_idx( 0 )
+     , m_log_sinks( )
+     , m_report_sink( std::cerr )
++    , m_is_initialized( false )
+     {
+     }
+
+@@ -512,6 +515,19 @@ public:
+         }
+     }
+
++    void            reset()
++    {
++        clear();
++        m_observers.clear();
++        m_master_test_suite = 0;
++        m_curr_test_unit = INV_TEST_UNIT_ID;
++        m_next_test_case_id = MIN_TEST_CASE_ID;
++        m_next_test_suite_id = MIN_TEST_SUITE_ID;
++        m_test_in_progress = false;
++        m_context_idx = 0;
++        m_is_initialized = false;
++    }
++
+     void            set_tu_id( test_unit& tu, test_unit_id id ) { tu.p_id.value = id; }
+
+     //////////////////////////////////////////////////////////////////
+@@ -903,6 +919,8 @@ public:
+
+     std::map<output_format, runtime_config::stream_holder> m_log_sinks;
+     runtime_config::stream_holder m_report_sink;
++
++    bool m_is_initialized;
+ };
+
+ //____________________________________________________________________________//
+@@ -1160,10 +1178,25 @@ setup_loggers()
+ void
+ init( init_unit_test_func init_func, int argc, char* argv[] )
+ {
++    // 00. We will mutate argv so to allow multiple calls to init() we need to
++    //     save it off and provide mutable copy
++    static std::vector<std::string> stored_args( argv, argv+argc );
++
++    std::vector<char*> mutable_argv{};
++    for( const auto& arg : stored_args )
++    {
++        mutable_argv.push_back( const_cast<char*>( arg.c_str() ) );
++    }
++
+     using namespace impl;
+
++    if( s_frk_state().m_is_initialized )
++    {
++        s_frk_state().reset();
++    }
++
+     // 10. Set up runtime parameters
+-    runtime_config::init( argc, argv );
++    runtime_config::init( argc, &mutable_argv.front() );
+
+     // 20. Set the desired log level, format and sink
+     impl::setup_loggers();
+@@ -1210,6 +1243,8 @@ init( init_unit_test_func init_func, int argc, char* argv[] )
+     BOOST_TEST_I_CATCH( execution_exception, ex )  {
+         BOOST_TEST_SETUP_ASSERT( false, ex.what() );
+     }
++
++    s_frk_state().m_is_initialized = true;
+ }
+
+ //____________________________________________________________________________//
