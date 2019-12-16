@@ -16,14 +16,14 @@ import time
 import threading
 import shlex
 import colorama
-import Queue
+
 import platform
 import logging
-
 
 import cuppa.timer
 from cuppa.colourise import as_colour, as_emphasised, as_highlighted, as_notice
 from cuppa.log import logger
+from cuppa.utility.python2to3 import as_str, errno, Queue
 
 
 def command_available( command ):
@@ -31,7 +31,7 @@ def command_available( command ):
         with open(os.devnull) as devnull:
             subprocess.Popen( shlex.split( command ), stdout=devnull, stderr=devnull ).communicate()
     except OSError as e:
-        if e.errno == os.errno.ENOENT:
+        if e.errno == errno.ENOENT:
             return False
     return True
 
@@ -58,14 +58,14 @@ class LineConsumer:
 
     def __call__( self ):
         for line in iter( self.call_readline, "" ):
-            line = line.rstrip()
+            line = as_str( line.rstrip() )
             if line:
                 if self.processor:
                     line = self.processor( line )
                     if line:
-                        print line
+                        print( line )
                 else:
-                    print line
+                    print( line )
 
 
 
@@ -112,7 +112,7 @@ class IncrementalSubProcess:
 
             process = subprocess.Popen(
                 use_shell and " ".join(args_list) or args_list,
-                **dict( kwargs, close_fds=close_fds, shell=use_shell )
+                **dict( kwargs, close_fds=close_fds, shell=use_shell, universal_newlines=True )
             )
 
             stderr_consumer = LineConsumer( process.stderr.readline, stderr_processor )
@@ -205,9 +205,9 @@ class Stream(object):
                     if self._processor:
                         line = self._processor( line )
                         if line:
-                            print line
+                            print( line )
                     else:
-                        print line
+                        print( line )
             self._queue.task_done()
         except Queue.Empty:
             logger.trace( "Stream Queue.Empty raised [{}]".format( self._name ) )
@@ -264,7 +264,7 @@ class Processor:
         summary = processor.summary( returncode )
 
         if summary:
-            print summary
+            print( summary )
 
         return returncode
 
@@ -308,7 +308,7 @@ class Processor:
         summary = processor.summary( returncode )
 
         if summary:
-            print summary
+            print( summary )
 
         return returncode
 

@@ -15,6 +15,7 @@ import fnmatch
 import multiprocessing
 import pkg_resources
 import collections
+import six
 
 # Scons
 import SCons.Script
@@ -249,7 +250,7 @@ class Construct(object):
 
         for key in keys:
             if key in env:
-                print "cuppa: Env[%s] = %s" % ( key, env[key] )
+                print( "cuppa: Env[%s] = %s" % ( key, env[key] ) )
 
 
     @classmethod
@@ -516,18 +517,18 @@ class Construct(object):
             self.build( cuppa_env )
 
         if self._configure.handle_conf_only():
-            print "cuppa: Handling configuration only, so no builds will be attempted."
-            print "cuppa: With the current configuration executing 'scons -D' would be equivalent to:"
-            print ""
-            print "scons -D {}".format( self._command_line_from_settings( cuppa_env['configured_options'] ) )
-            print ""
-            print "cuppa: Nothing to be done. Exiting."
+            print( "cuppa: Handling configuration only, so no builds will be attempted." )
+            print( "cuppa: With the current configuration executing 'scons -D' would be equivalent to:" )
+            print( "" )
+            print( "scons -D {}".format( self._command_line_from_settings( cuppa_env['configured_options'] ) ) )
+            print( "" )
+            print( "cuppa: Nothing to be done. Exiting." )
             SCons.Script.Exit()
 
 
     def _command_line_from_settings( self, settings ):
         commands = []
-        for key, value in settings.iteritems():
+        for key, value in six.iteritems(settings):
             command = as_emphasised( "--" + key )
             if value != True and value != False:
                 if not isinstance( value, list ):
@@ -551,7 +552,7 @@ class Construct(object):
         if not specified_actions:
             if active_variants:
                 for variant_name in active_variants:
-                    if available_actions.has_key( variant_name ):
+                    if variant_name in available_actions.keys():
                         specified_actions[ variant_name ] = available_actions[ variant_name ]
 
         active_actions = {}
@@ -594,7 +595,7 @@ class Construct(object):
         def get_active_from_defaults( default_tasks, tasks ):
             active_tasks = {}
             for task in default_tasks:
-                if tasks.has_key( task ):
+                if task in tasks.keys():
                     active_tasks[ task ] = tasks[ task ]
             return active_tasks
 
@@ -801,8 +802,8 @@ class Construct(object):
                         self.call_project_sconscript_files( toolchain, build_env['variant'], build_env['target_arch'], build_env['abi'], build_env['env'], sconscript )
 
             if cuppa_env['dump']:
-                print "cuppa: Performing dump only, so no builds will be attempted."
-                print "cuppa: Nothing to be done. Exiting."
+                print( "cuppa: Performing dump only, so no builds will be attempted." )
+                print( "cuppa: Nothing to be done. Exiting." )
                 SCons.Script.Exit()
 
         else:

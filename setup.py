@@ -47,6 +47,7 @@ setup(
             os.path.join( 'dependencies','boost','boost_test_patch_1.58.0.diff' ),
             os.path.join( 'dependencies','boost','boost_test_patch_1.67.0.diff' ),
             os.path.join( 'dependencies','boost','boost_test_patch_1.68.0.diff' ),
+            os.path.join( 'dependencies','boost','boost_test_patch_1.71.0.diff' ),
             os.path.join( 'cpp','templates','coverage_index.html' ),
             os.path.join( 'test_report','templates','test_report_index.html' ),
             os.path.join( 'test_report','templates','test_suite_index.html' ),
@@ -58,6 +59,7 @@ setup(
         'lxml',
         'grip',
         'jinja2',
+        'six',
     ],
     entry_points = {
         'console_scripts': [
@@ -76,6 +78,7 @@ setup(
         "License :: OSI Approved",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 2",
+        "Programming Language :: Python :: 3",
     ],
     keywords = [
         'scons',

@@ -15,7 +15,8 @@ import re
 import shlex
 import collections
 import platform
-from exceptions import Exception
+import six
+import sys
 
 import cuppa.build_platform
 
@@ -27,6 +28,7 @@ from cuppa.cpp.run_gcov_coverage import RunGcovCoverageEmitter, RunGcovCoverage,
 from cuppa.output_processor import command_available
 from cuppa.colourise import as_info, as_notice
 from cuppa.log import logger
+from cuppa.utility.python2to3 import as_str, Exception
 
 
 
@@ -56,7 +58,7 @@ class Clang(object):
     def version_from_command( cls, cxx ):
         command = "{} --version".format( cxx )
         if command_available( command ):
-            reported_version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
+            reported_version = as_str( Popen( shlex.split( command ), stdout=PIPE).communicate()[0] )
             version = re.search( r'based on LLVM (\d)\.(\d)', reported_version )
             if not version:
                 version = re.search( r'Apple LLVM version (\d)\.(\d)', reported_version )
@@ -175,7 +177,7 @@ class Clang(object):
     def llvm_version_from( cls, llvm_tool ):
         command = "{} --version".format( llvm_tool )
         if command_available( command ):
-            reported_version = Popen( shlex.split( command ), stdout=PIPE).communicate()[0]
+            reported_version = as_str( Popen( shlex.split( command ), stdout=PIPE).communicate()[0] )
             version = re.search( r'LLVM version (\d)\.(\d)\.(\d)', reported_version )
             reported_version = version.expand(r'\1')
             return reported_version
@@ -210,7 +212,7 @@ class Clang(object):
         for version in cls.supported_versions():
             add_to_supported( version )
 
-        for version, clang in cls.available_versions().iteritems():
+        for version, clang in six.iteritems(cls.available_versions()):
             logger.debug(
                     "Adding toolchain [{}] reported as [{}] with cxx_version [clang++{}] at [{}]".format(
                     as_info(version),

@@ -15,6 +15,7 @@ import re
 import itertools
 import glob
 import sys
+import six
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
@@ -835,7 +836,7 @@ class CoverageIndexBuilder(object):
 
             pattern = coverage_index_marker + "*.html"
 
-            for destination_dir, final_dirs in cls.destination_dirs.iteritems():
+            for destination_dir, final_dirs in six.iteritems(cls.destination_dirs):
 
                 coverage = coverage_entry( coverage_file=os.path.split( env['sconstruct_dir'] )[1] )
 

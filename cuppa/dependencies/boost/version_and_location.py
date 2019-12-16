@@ -9,16 +9,20 @@
 #-------------------------------------------------------------------------------
 import os
 import re
-import string
 import lxml.html
-import urllib2
+
+try:
+    from urllib2 import urlopen
+except ImportError:
+    from urllib.request import urlopen
 
 # Cuppa Imports
 import cuppa.build_platform
 import cuppa.location
 
-from cuppa.colourise        import as_info, as_notice
-from cuppa.log              import logger
+from cuppa.colourise          import as_info, as_notice
+from cuppa.log                import logger
+from cuppa.utility.python2to3 import maketrans
 
 # Boost Imports
 from cuppa.dependencies.boost.boost_exception import BoostException
@@ -156,7 +160,7 @@ def _determine_latest_boost_verion( offline ):
         try:
             boost_version_url = 'https://www.boost.org/users/download/'
             logger.info( "Checking current boost version from {}...".format( as_info( boost_version_url ) ) )
-            html = lxml.html.parse( urllib2.urlopen( boost_version_url ) )
+            html = lxml.html.parse( urlopen( boost_version_url ) )
 
             current_release = html.xpath("/html/body/div[2]/div/div[1]/div/div/div[2]/h3[1]/span")[0].text
             current_release = str( re.search( r'(\d[.]\d+([.]\d+)?)', current_release ).group(1) )
@@ -189,13 +193,13 @@ def _location_from_boost_version( location, offline ):
             # Boost 1.71.0 source files are missing from the sourceforge repository.
             if "1.71" in version:
                 return "https://dl.bintray.com/boostorg/release/{numeric_version}/source/boost_{string_version}{extension}".format(
-                            numeric_version = version.translate( string.maketrans( '._', '..' ) ),
-                            string_version = version.translate( string.maketrans( '._', '__' ) ),
+                            numeric_version = version.translate( maketrans( '._', '..' ) ),
+                            string_version = version.translate( maketrans( '._', '__' ) ),
                             extension = extension
                         )
             return "http://sourceforge.net/projects/boost/files/boost/{numeric_version}/boost_{string_version}{extension}/download".format(
-                        numeric_version = version.translate( string.maketrans( '._', '..' ) ),
-                        string_version = version.translate( string.maketrans( '._', '__' ) ),
+                        numeric_version = version.translate( maketrans( '._', '..' ) ),
+                        string_version = version.translate( maketrans( '._', '__' ) ),
                         extension = extension
                     )
     return location

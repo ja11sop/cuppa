@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2015-2017
+#          Copyright Jamie Allsop 2015-2019
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -13,8 +13,9 @@ import subprocess
 import shlex
 import platform
 import glob
+import six
 
-from exceptions import Exception
+import sys
 
 # Cuppa Imports
 import cuppa.location
@@ -23,6 +24,7 @@ from cuppa.log import logger
 
 # Quince Imports
 from cuppa.build_with_location import location_dependency, LibraryMethod
+from cuppa.utility.python2to3 import Exception
 
 
 
@@ -144,7 +146,7 @@ class quince_sqlite( location_dependency( 'quince-sqlite', sys_include="include"
     def __call__( self, env, toolchain, variant ):
         super(quince_sqlite,self).__call__( env, toolchain, variant )
 
-        for name, flags in self._flags.iteritems():
+        for name, flags in six.iteritems(self._flags):
             if flags:
                 env.AppendUnique( **{ name: flags } )
 

@@ -7,7 +7,11 @@
 #   version.py
 #-------------------------------------------------------------------------------
 
-import xmlrpclib
+try:
+    import xmlrpclib
+except ImportError:
+    import xmlrpc.client as xmlrpclib
+
 from pkg_resources import parse_version
 
 from cuppa.colourise import as_info, as_warning, as_emphasised
