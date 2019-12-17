@@ -47,7 +47,7 @@ class TestMethod(object):
                 sources = Flatten( [ source, data ] )
 
             test = env.TestBuilder( [], sources )
-            if env['variant_actions'].has_key('force_test'):
+            if 'force_test' in env['variant_actions'].keys():
                 test = env.AlwaysBuild( test )
 
             cuppa.progress.NotifyProgress.add( env, test )

@@ -682,7 +682,7 @@ class ReportIndexBuilder(object):
                     report['default_summary_rel_path'] = None
                     variant_count = 0
                     status_rank = 0
-                    for variant in report['variants'].itervalues():
+                    for variant in six.itervalues(report['variants']):
                         variant_count += 1
                         index = cls._ranked_status().index(variant['status'])
                         if index > status_rank:
