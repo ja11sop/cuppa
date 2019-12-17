@@ -61,7 +61,7 @@ class MaskSecrets(object):
 def run_scons( args_list ):
 
     masker = MaskSecrets()
-    #print "The following tokens will be masked in output {}".format( str( sorted( masker.secrets.itervalues() ) ) )
+    #print "The following tokens will be masked in output {}".format( str( sorted( six.itervalues(masker.secrets) ) ) )
 
     process = None
     stderr_thread = None

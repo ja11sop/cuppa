@@ -10,6 +10,7 @@
 
 import os
 import sys
+import six
 
 import cuppa.path
 import cuppa.progress
@@ -290,7 +291,7 @@ class Codeblocks(object):
         lines = []
         lines += self._projects[project]['lines_header']
 
-        for target in sorted( self._projects[project]['targets'].itervalues() ):
+        for target in sorted( six.itervalues(self._projects[project]['targets']) ):
             lines += target
 
         lines += [ '\t\t</Build>' ]
@@ -389,7 +390,7 @@ class Codeblocks(object):
 '<CodeBlocks_workspace_file>\n'
 '\t<Workspace title="Workspace">' ]
 
-        for project in projects.itervalues():
+        for project in six.itervalues(projects):
 
             project_file = project['project_file']
             base_path    = project['path']

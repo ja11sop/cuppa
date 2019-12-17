@@ -291,7 +291,7 @@ class Construct(object):
         warning = None
         if isinstance( values, dict ):
             warning = "Dictionary passed for {}, this approach has been deprecated, please use a list instead".format( name )
-            values = [ v for v in values.itervalues() ]
+            values = [ v for v in six.itervalues(values) ]
 
         default_value_objects = []
         default_value_names = []

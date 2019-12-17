@@ -50,7 +50,7 @@ class RunMethod(object):
                 sources = Flatten( source and [ source, depends_on ] or [depends_on] )
 
             run_process = env.RunBuilder( [], sources )
-            if env['variant_actions'].has_key('force_run') or env['variant_actions'].has_key('force_test'):
+            if 'force_run' in env['variant_actions'].keys() or 'force_test' in  env['variant_actions'].keys():
                 run_process = env.AlwaysBuild( run_process )
 
             cuppa.progress.NotifyProgress.add( env, run_process )

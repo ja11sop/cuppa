@@ -11,6 +11,7 @@ import os
 import sys
 import shlex
 import re
+import six
 
 from SCons.Errors import BuildError
 
@@ -485,7 +486,7 @@ class ProcessStdout:
 
     def tests( self ):
         tests = []
-        for suite in self.test_suites.itervalues():
+        for suite in six.itervalues(self.test_suites):
             for test_case in suite['tests']:
                 tests.append( test_case )
         return tests
