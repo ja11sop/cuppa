@@ -38,6 +38,6 @@ except ImportError:
 from .types import is_string
 
 def as_str( bytes_or_string, encoding='utf-8' ):
-    if is_string( bytes_or_string ):
+    if None == bytes_or_string or is_string( bytes_or_string ):
         return bytes_or_string
     return bytes_or_string.decode(encoding)

@@ -42,12 +42,14 @@ from .scms import subversion, git, mercurial, bazaar
 from cuppa.colourise import as_notice, as_info, as_warning, as_error
 from cuppa.log import logger, register_secret
 from cuppa.path import split_common
+from cuppa.utility.python2to3 import as_str
 
 try:
     import pip.vcs as pip_vcs
     import pip.download as pip_download
     import pip.exceptions as pip_exceptions
     from pip.download import is_url as pip_is_url
+    from pip.download import is_archive_file as pip_is_archive_file
 
     def get_url_rev( vcs_backend ):
         return vcs_backend.get_url_rev()
@@ -491,7 +493,7 @@ class Location(object):
 
         vcs_info = cls.detect_vcs_info( local_directory, expected_vc_type )
         if vcs_info:
-            return vcs_info
+            return tuple( as_str(t) for t in vcs_info )
 
         return info
 
