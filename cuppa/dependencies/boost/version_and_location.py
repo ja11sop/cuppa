@@ -143,8 +143,8 @@ def get_boost_version( location ):
             match = re.search( r'BOOST_VERSION\s+(?P<version>\d+)', line )
             if match:
                 int_version = int(match.group('version'))
-                major = int_version/100000
-                minor = int_version/100%1000
+                major = int_version//100000
+                minor = int_version//100%1000
                 patch = int_version%100
                 full_version = "{}.{}.{}".format( major, minor, patch )
                 short_version = "{}_{}".format( major, minor )
