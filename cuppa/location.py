@@ -493,7 +493,7 @@ class Location(object):
 
         vcs_info = cls.detect_vcs_info( local_directory, expected_vc_type )
         if vcs_info:
-            return vcs_info
+            return tuple( as_str(t) for t in vcs_info )
 
         return info
 
@@ -589,7 +589,6 @@ class Location(object):
         ## about it to allow us to specify what we are building with.
         self._url, self._repository, self._branch, self._remote, self._revision = self.get_info( self._location, self._local_directory, self._full_url )
         self._version, self._revision = self.ver_rev_summary( self._branch, self._revision, self._full_url.path )
-        self._revision = as_str( self._revision )
 
         logger.debug( "Using [{}]{}{} at [{}] stored in [{}]".format(
                 as_info( location ),
