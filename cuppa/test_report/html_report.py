@@ -32,6 +32,9 @@ from cuppa.progress import NotifyProgress
 
 jinja2_env = None
 
+def jinja2_itervalues( s ):
+    return six.itervalues( s )
+
 def jinja2_templates():
     global jinja2_env
     if jinja2_env:
@@ -41,6 +44,7 @@ def jinja2_templates():
             loader=PackageLoader( 'cuppa', 'test_report/templates' ),
             autoescape=select_autoescape(['html', 'xml'])
         )
+        jinja2_env.globals['itervalues'] = jinja2_itervalues
         return jinja2_env
 
 
