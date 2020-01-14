@@ -116,7 +116,7 @@
               </div>
             </li>
 
-            {% for toolchain_variant in six.itervalues(summaries.toolchain_variants) %}
+            {% for toolchain_variant in itervalues(summaries.toolchain_variants) %}
             <li class="list-group-item text-center pt-2 pb-0">
               <h5>Test summary for variant <span class="text-monospace text-left font-weight-bold">{{ toolchain_variant.name }}</span></h3>
             </li>
@@ -318,7 +318,7 @@
               </div>
             </li>
 
-            {% for summary in six.itervalues(report.variants) %}
+            {% for summary in itervalues(report.variants) %}
 
             <li class="list-group-item pt-1 pb-0">
               <p class="mb-0 text-monospace">
