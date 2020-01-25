@@ -13,6 +13,7 @@ from SCons.Script import File
 
 
 import cuppa.location
+from cuppa.utility.attr_tools import try_attr_as_str
 
 
 def offset_path( path, env ):
@@ -243,15 +244,6 @@ class CreateVersionFileCpp:
         return "\n".join( lines )
 
 
-    @classmethod
-    def try_attr( cls, dependency, attribute ):
-        try:
-            if callable( getattr( dependency, attribute ) ):
-                return str(getattr( dependency, attribute )())
-        except AttributeError:
-            return "N/A"
-
-
     def initialise_dependencies_definition( self, dependencies ):
         lines = []
         lines += [ '\nidentity::dependencies_t initialise_dependencies()\n'
@@ -266,10 +258,10 @@ class CreateVersionFileCpp:
                 dependency = dependency_factory( self.__env )
 
                 lines += [ '    Dependencies[ "' +  name + '" ] = dependency_t( "'
-                               + self.try_attr( dependency, "name" ) + '", "'
-                               + self.try_attr( dependency, "version" ) + '", "'
-                               + self.try_attr( dependency, "repository" ) + '", "'
-                               + self.try_attr( dependency, "branch" )
+                               + try_attr_as_str( dependency, "name", "N/A" ) + '", "'
+                               + try_attr_as_str( dependency, "version", "N/A" ) + '", "'
+                               + try_attr_as_str( dependency, "repository", "N/A" ) + '", "'
+                               + try_attr_as_str( dependency, "branch", "N/A" )
                                + '", revisions_t() );' ]
                 try:
                     if callable( getattr( dependency, 'revisions' ) ):
