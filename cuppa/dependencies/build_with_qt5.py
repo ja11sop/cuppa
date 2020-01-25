@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2015-2015
+#          Copyright Jamie Allsop 2015-2020
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -85,6 +85,8 @@ class build_with_qt5(object):
             logger.error( "Could not detect QT5 installation" )
             raise Qt5Exception( "Could not detect QT5 installation." )
 
+        self._sys_include_paths = [ env['QT5DIR'] ]
+
         logger.debug( "Q5DIR detected as [{}]".format( as_info( env['QT5DIR'] ) ) )
 
 
@@ -137,4 +139,12 @@ class build_with_qt5(object):
     def revisions( self ):
         return []
 
+    def location( self ):
+        return self._qt5_tool
+
+    def includes( self ):
+        return []
+
+    def sys_includes( self ):
+        return self._sys_include_paths
 

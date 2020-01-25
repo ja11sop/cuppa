@@ -1,4 +1,4 @@
-#          Copyright Jamie Allsop 2014-2018
+#          Copyright Jamie Allsop 2014-2020
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -30,7 +30,9 @@ class base(object):
     _default_include = None
     _default_sys_include = None
     _includes = None
+    _includes_set = set()
     _sys_includes = None
+    _sys_includes_set = set()
     _extra_sub_path = None
     _source_path = None
     _linktype = None
@@ -223,15 +225,14 @@ class base(object):
         for include in includes:
             if include:
                 self._includes.append( self.abs_path_from( include, self._location.local(), env['sconstruct_dir'] ) )
-            else:
-                self._sys_includes.append( self._location.local() )
 
         self._sys_includes = []
         for include in sys_includes:
             if include:
                 self._sys_includes.append( self.abs_path_from( include, self._location.local(), env['sconstruct_dir'] ) )
-            else:
-                self._sys_includes.append( self._location.local() )
+
+        self._includes = [ i for i in set(self._includes) ]
+        self._sys_includes = [ i for i in set(self._sys_includes) ]
 
         if not source_path:
             source_path = self._location.local()
@@ -329,6 +330,14 @@ class base(object):
 
     def local_sub_path( self, *paths ):
         return os.path.join( self._location.local(), *paths )
+
+
+    def includes( self ):
+        return self._includes
+
+
+    def sys_includes( self ):
+        return self._sys_includes
 
 
     @classmethod

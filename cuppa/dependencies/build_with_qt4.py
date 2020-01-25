@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2015-2015
+#          Copyright Jamie Allsop 2015-2020
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -85,6 +85,8 @@ class build_with_qt4(object):
             logger.error( "could not detect QT4 installation" )
             raise Qt4Exception( "could not detect QT4 installation." )
 
+        self._sys_include_paths = [ env['QT4DIR'] ]
+
         logger.debug( "Q4DIR detected as [{}]".format( as_info( env['QT4DIR'] ) ) )
 
 
@@ -140,4 +142,11 @@ class build_with_qt4(object):
     def revisions( self ):
         return []
 
+    def location( self ):
+        return self._qt4_tool
 
+    def includes( self ):
+        return []
+
+    def sys_includes( self ):
+        return self._sys_include_paths

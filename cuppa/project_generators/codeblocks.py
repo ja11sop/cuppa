@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2019
+#          Copyright Jamie Allsop 2011-2020
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -66,8 +66,18 @@ class Codeblocks(object):
                     default=False )
 
         add_option( '--generate-cbs-exclude-paths-starting', type='string', nargs=1,
-                    action='callback', callback=cuppa.core.options.list_parser( 'generate_cbs_exclude_paths_starting' ),
+                    action='callback', callback=cuppa.core.options.list_parser( 'generate_cbs_exclude_cc_paths_starting' ),
                     help='Exclude dependencies starting with the specified paths from the file list for the project' )
+
+        add_option( '--generate-cbs-exclude-cc-search-paths', dest='generate_cbs_exclude_cc_search_paths',
+                    action='store_true',
+                    help='Exclude adding any code completion search paths derived from any dependency include or sys include paths.',
+                    default=False )
+
+        add_option( '--generate-cbs-exclude-cc-sys-search-paths', dest='generate_cbs_exclude_cc_sys_search_paths',
+                    action='store_true',
+                    help='Exclude adding any code completion search paths only if they are derived from dependency sys include paths.',
+                    default=False )
 
 
     @classmethod
@@ -79,7 +89,9 @@ class Codeblocks(object):
                            env.get_option( 'generate_cbs_include_thirdparty' ),
                            env.get_option( 'generate_cbs_exclude_relative_branches' ),
                            env.get_option( 'generate_cbs_exclude_paths_starting' ),
-                           env.get_option( 'generate_cbs_place_with_sconscript' ) )
+                           env.get_option( 'generate_cbs_place_with_sconscript' ),
+                           env.get_option( 'generate_cbs_exclude_cc_search_paths' ),
+                           env.get_option( 'generate_cbs_exclude_cc_sys_search_paths' ) )
 
                 env['project_generators']['codeblocks'] = obj
 
@@ -87,12 +99,23 @@ class Codeblocks(object):
             logger.error( "Failed to create CodeBlocks project generator with error [{}]".format( as_error(error) ) )
 
 
-    def __init__( self, env, include_thirdparty, exclude_branches, excluded_paths_starting, place_cbs_by_sconscript ):
+    def __init__(
+                self,
+                env,
+                include_thirdparty,
+                exclude_branches,
+                excluded_paths_starting,
+                place_cbs_by_sconscript,
+                exclude_cc_search_paths,
+                exclude_cc_sys_search_paths
+        ):
 
         self._include_thirdparty = include_thirdparty
         self._exclude_branches = exclude_branches
         self._excluded_paths_starting = excluded_paths_starting and excluded_paths_starting or []
         self._place_cbs_by_sconscript = place_cbs_by_sconscript
+        self._exclude_cc_search_paths = exclude_cc_search_paths
+        self._exclude_cc_sys_search_paths = exclude_cc_sys_search_paths
 
         self._projects = {}
 
@@ -252,6 +275,28 @@ class Codeblocks(object):
         self._projects[project]['variants'].add( variant )
         self._projects[project]['toolchains'].add( toolchain )
 
+        self._projects[project]['search_paths'] = set()
+        self._projects[project]['sys_search_paths'] = set()
+
+        for name in env['BUILD_WITH']:
+            logger.trace( "Reading search paths for dependency [{}]".format( name ) )
+            if name in env['dependencies']:
+                dependency_factory = env['dependencies'][name]
+                dependency = dependency_factory( env )
+                if hasattr( dependency, "includes"):
+                    for include in dependency.includes():
+                        self._projects[project]['search_paths'].add( include )
+                        logger.trace( "...adding search path [{}] for dependency [{}]".format( include, name ) )
+                if hasattr( dependency, "sys_includes"):
+                    for sys_include in dependency.sys_includes():
+                        self._projects[project]['sys_search_paths'].add( sys_include )
+                        logger.trace( "...adding search path [{}] for dependency [{}]".format( sys_include, name ) )
+
+        self._projects[project]['search_paths'] = sorted( [ path for path in self._projects[project]['search_paths'] ] )
+        self._projects[project]['sys_search_paths'] = sorted( [ path for path in self._projects[project]['sys_search_paths'] ] )
+
+        self._projects[project]['extensions_block'] = self.create_extensions_block( project )
+
         working_dir_path = os.path.join( self._projects[project]['execution_dir'], working_dir )
 
         final_dir_path = os.path.normpath( os.path.join( working_dir_path, final_dir_offset ) )
@@ -297,6 +342,8 @@ class Codeblocks(object):
         lines += [ '\t\t</Build>' ]
         for filepath in sorted( self._projects[project]['files'] ):
             lines += [ '\t\t<Unit filename="' + filepath + '" />' ]
+
+        lines += self._projects[project]['extensions_block']
 
         lines += self._projects[project]['lines_footer']
 
@@ -381,6 +428,32 @@ class Codeblocks(object):
 '\t\t\t\t</MakeCommands>\n'
 '\t\t\t</Target>' ]
 
+        return lines
+
+
+    def add_code_completion_search_paths( self, search_paths, base_path ):
+        lines = []
+        for search_path in search_paths:
+            search_path = os.path.relpath( os.path.abspath( search_path ), base_path )
+            lines += [ '\t\t\t\t<search_path add="' + search_path + '" />' ]
+        return lines
+
+
+    def create_extensions_block( self, project ):
+        lines = [
+'\t\t<Extensions>\n'
+'\t\t\t<code_completion>' ]
+
+        if not self._exclude_cc_search_paths:
+            lines += self.add_code_completion_search_paths( self._projects[project]['search_paths'], self._projects[project]['path'] )
+            if not self._exclude_cc_sys_search_paths:
+                lines += self.add_code_completion_search_paths( self._projects[project]['sys_search_paths'], self._projects[project]['path'] )
+
+        lines += [
+'\t\t\t</code_completion>\n'
+'\t\t\t<envvars />\n'
+'\t\t\t<debugger />\n'
+'\t\t</Extensions>' ]
         return lines
 
 
