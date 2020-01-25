@@ -30,9 +30,7 @@ class base(object):
     _default_include = None
     _default_sys_include = None
     _includes = None
-    _includes_set = set()
     _sys_includes = None
-    _sys_includes_set = set()
     _extra_sub_path = None
     _source_path = None
     _linktype = None
