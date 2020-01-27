@@ -7,10 +7,9 @@
 #   attr_tools.py
 #-------------------------------------------------------------------------------
 
-def try_attr_as_str( cls, instance, attribute, result_on_error=None ):
+def try_attr_as_str( instance, attribute, result_on_error=None ):
     try:
         if callable( getattr( instance, attribute ) ):
             return str(getattr( instance, attribute )())
     except AttributeError:
         return result_on_error
-
