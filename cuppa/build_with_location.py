@@ -376,19 +376,19 @@ def location_dependency( name, location=None, develop=None, include=None, sys_in
 
     from SCons.Script import Flatten
 
+    flattened_includes = [ i for i in Flatten( [include] ) if i is not None ]
+    flattened_sys_includes = [ i for i in Flatten( [sys_include] ) if i is not None ]
+
     return type(
             'BuildWith' + name.title(),
             ( base, ),
             {   '_name': name,
                 '_default_location': location,
                 '_default_develop': develop,
-                '_default_include': Flatten( [include] ),
-                '_default_sys_include': Flatten( [sys_include] ),
+                '_default_include': flattened_includes,
+                '_default_sys_include': flattened_sys_includes,
                 '_extra_sub_path': extra_sub_path,
                 '_source_path': source_path,
                 '_linktype': linktype
             }
     )
-
-
-
