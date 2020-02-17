@@ -16,7 +16,6 @@ import shlex
 import collections
 import platform
 import six
-import sys
 
 from cuppa.cpp.create_version_file_cpp import CreateVersionHeaderCpp, CreateVersionFileCpp
 from cuppa.cpp.run_boost_test import RunBoostTestEmitter, RunBoostTest

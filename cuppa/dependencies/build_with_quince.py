@@ -15,8 +15,6 @@ import platform
 import glob
 import six
 
-import sys
-
 # Cuppa Imports
 import cuppa.location
 import cuppa.output_processor

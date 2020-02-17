@@ -8,8 +8,7 @@
 #   Boost Exception
 #-------------------------------------------------------------------------------
 
-import sys
-from cuppa.utility.python2to3 import as_str, Exception
+from cuppa.utility.python2to3 import Exception
 
 
 class BoostException(Exception):

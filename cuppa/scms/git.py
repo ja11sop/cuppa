@@ -12,7 +12,6 @@ import subprocess
 import shlex
 import os
 import re
-import sys
 
 from cuppa.log import logger
 from cuppa.colourise import as_notice, as_info, colour_items

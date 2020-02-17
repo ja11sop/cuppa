@@ -9,7 +9,6 @@
 #-------------------------------------------------------------------------------
 
 import os
-import sys
 import six
 
 import cuppa.path

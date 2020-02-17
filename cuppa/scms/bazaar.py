@@ -12,8 +12,7 @@ import subprocess
 import shlex
 import os
 import re
-import sys
-from cuppa.utility.python2to3 import Exception
+from cuppa.utility.python2to3 import as_str, Exception
 
 
 class Bazaar:
