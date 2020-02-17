@@ -29,6 +29,7 @@ from cuppa.progress import NotifyProgress
 import cuppa.recursive_glob
 import cuppa.path
 
+from cuppa.utility.python2to3 import Pattern
 
 url_block_sep = '--'
 coverage_id = 'coverage'
@@ -99,7 +100,7 @@ class CoverageSuite(object):
         regexes = []
         patterns = Flatten( [ patterns ] )
         for pattern in patterns:
-            if isinstance( pattern, re._pattern_type ):
+            if isinstance( pattern, Pattern ):
                 regexes.append( pattern._pattern )
             elif pattern:
                 regexes.append( pattern )
@@ -287,7 +288,7 @@ class RunGcovCoverage(object):
 
         # Each source will result in one or more targets so we need to slice the targets to pick up
         # the gcov target (the first one) before we perform the zip iteration
-        for s, t in itertools.izip( source, itertools.islice( target, 0, None, len(target)/len(source) ) ):
+        for s, t in zip( source, itertools.islice( target, 0, None, len(target)//len(source) ) ):
 
             gcov_path = os.path.splitext( os.path.splitext( t.path )[0] )[0]
             gcov_log = t.path

@@ -13,7 +13,7 @@ import os
 import itertools
 import hashlib
 import six
-import cgi
+
 try:
     from urlparse import urlparse
 except ImportError:
@@ -29,6 +29,8 @@ from cuppa.colourise import as_notice, as_info, as_warning, as_error, colour_ite
 from cuppa.log import logger
 from cuppa.progress import NotifyProgress
 
+from cuppa.utility.python2to3 import escape
+from cuppa.utility.python2to3 import encode
 
 jinja2_env = None
 
@@ -124,8 +126,7 @@ class GenerateHtmlReportBuilder(object):
 
         # Each source will result in one or more targets so we need to slice the targets to pick up
         # the gcov target (the first one) before we perform the zip iteration
-        for s, t in itertools.izip( source, itertools.islice( target, 0, None, len(target)/len(source) ) ):
-        #for s, t in itertools.izip( source, target ):
+        for s, t in zip( source, itertools.islice( target, 0, None, len(target)//len(source) ) ):
             test_suites = {}
 
             logger.trace( "source = [{}]".format( as_info(str(s)) ) )
@@ -329,7 +330,11 @@ class GenerateHtmlReportBuilder(object):
     @classmethod
     def _selector_from_name( cls, name ):
         hasher = hashlib.md5()
-        hasher.update( name )
+        try:
+            hasher.update(name)
+        except:
+            hasher.update(name.encode('utf-8'))
+
         selector = "_" + hasher.hexdigest()[-8:]
         return selector
 
@@ -422,7 +427,7 @@ class GenerateHtmlReportBuilder(object):
             for test_case in test_suite['test_cases']:
                 self._add_render_fields( test_case )
                 if test_case['stdout']:
-                    escaped_stdout = ( cgi.escape(line).rstrip() for line in test_case['stdout'] )
+                    escaped_stdout = ( escape(line).rstrip() for line in test_case['stdout'] )
                     test_case['stdout'] = escaped_stdout
                 test_case['uri'] = self._create_uri( test_case )
 
@@ -442,14 +447,13 @@ class GenerateHtmlReportBuilder(object):
 
         template = self.get_template()
 
+        templateRendered = template.render (
+            tests_title = tests_title,
+            test_summary = test_summary,
+            test_suites = test_suite_list)
+
         with open( destination_path, 'w' ) as test_suite_index:
-            test_suite_index.write(
-                template.render(
-                    tests_title = tests_title,
-                    test_summary = test_summary,
-                    test_suites = test_suite_list,
-                ).encode('utf-8')
-            )
+                test_suite_index.write(encode(templateRendered))
 
 
 class GenerateHtmlReportMethod(object):
@@ -534,7 +538,7 @@ class CollateReportIndexAction(object):
         logger.trace( "target = [{}]".format( colour_items( [ str(node) for node in target ] ) ) )
         logger.trace( "source = [{}]".format( colour_items( [ str(node) for node in source ] ) ) )
 
-        for html_report_src_tgt, json_report_src_tgt in zip(*[iter(itertools.izip( source, target ))]*2):
+        for html_report_src_tgt, json_report_src_tgt in zip(*[iter(zip( source, target ))]*2):
 
             html_report = html_report_src_tgt[0]
             json_report = json_report_src_tgt[0]
@@ -679,7 +683,7 @@ class ReportIndexBuilder(object):
                             summaries['reports'][summary_name]['variants'][toolchain_variant] = summary
 
                 report_list = summaries['reports'].items()
-                report_list.sort()
+                report_list = sorted(report_list)
 
                 for name, report in report_list:
                     report['default_variant'] = None
@@ -713,15 +717,14 @@ class ReportIndexBuilder(object):
                 with open( master_report_path, 'w' ) as master_report_file:
                     master_report_file.write( summaries_json_report )
 
+                templateRendered = template.render(
+                    summaries=summaries,
+                    report_list=report_list,
+                    next=next,
+                    len=len)
+
                 with open( master_index_path, 'w' ) as master_index_file:
-                    master_index_file.write(
-                        template.render(
-                            summaries=summaries,
-                            report_list=report_list,
-                            next=next,
-                            len=len
-                        ).encode('utf-8')
-                    )
+                    master_index_file.write( encode( templateRendered ) )
 
 
 NotifyProgress.register_callback( None, ReportIndexBuilder.on_progress )

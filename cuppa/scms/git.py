@@ -95,12 +95,12 @@ class Git:
         command = None
         try:
             command = "{git} describe --always".format( git=cls.binary() )
-            revision = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT, cwd=path ).strip()
+            revision = as_str( subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT, cwd=path ).strip() )
 
             branch, remote = cls.get_branch( path )
 
             command = "{git} config --get remote.origin.url".format( git=cls.binary() )
-            repository = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT, cwd=path ).strip()
+            repository = as_str( subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT, cwd=path ).strip() )
             url = repository
 
         except subprocess.CalledProcessError:
