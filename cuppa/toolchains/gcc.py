@@ -183,7 +183,7 @@ class Gcc(object):
             if cuppa.build_platform.where_is( versioned_gcov ):
                 return versioned_gcov
         if cuppa.build_platform.where_is( gcov ):
-            version = cls.version_from_command( gcov, "" )
+            version = cls.version_from_command( gcov, "gcc" )
             if version == reported_version:
                 return gcov
         logger.warn( "Coverage requested for current toolchain but none is available" )

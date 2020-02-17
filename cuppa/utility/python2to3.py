@@ -41,3 +41,25 @@ def as_str( bytes_or_string, encoding='utf-8' ):
     if None == bytes_or_string or is_string( bytes_or_string ):
         return bytes_or_string
     return bytes_or_string.decode(encoding)
+
+try:
+    from html import escape
+except ImportError:
+    from cgi import escape
+
+try:
+    import itertools.izip as zip
+except:
+    # python3
+    pass
+
+try:
+    from re import _pattern_type as Pattern
+except ImportError:
+    from re import Pattern as Pattern
+
+def encode( payload, encoding='utf-8' ):
+    if sys.version_info[0] <= 2:
+        return payload.encode(encoding)
+    else:
+        return payload
