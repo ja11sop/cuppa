@@ -20,7 +20,7 @@ from SCons.Script import Flatten
 import cuppa.timer
 import cuppa.progress
 from cuppa.output_processor import IncrementalSubProcess
-from cuppa.colourise import as_emphasised, as_highlighted, as_colour, as_error, as_notice, is_error
+from cuppa.colourise import as_emphasised, as_highlighted, as_error, as_notice, is_error
 from cuppa.log import logger
 from cuppa.path import unique_short_filename
 
@@ -274,7 +274,7 @@ class RunProcessAction(object):
                 if cuppa.build_platform.name() == "Windows":
                     executable = '"' + executable + '"'
 
-                test_command = executable
+                command = executable
                 if self._command:
                     command = self._command
                     working_dir = self._working_dir and self._working_dir or self._final_dir
