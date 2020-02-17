@@ -21,7 +21,7 @@ import cuppa.test_report.cuppa_json
 import cuppa.build_platform
 import cuppa.utility.preprocess
 from cuppa.output_processor import IncrementalSubProcess
-from cuppa.colourise import as_emphasised, as_highlighted, as_colour, emphasise_time_by_digit, start_colour, colour_reset, as_error, as_notice
+from cuppa.colourise import as_emphasised, as_highlighted, as_colour, emphasise_time_by_digit, start_colour, colour_reset, as_notice
 from cuppa.log import logger
 
 

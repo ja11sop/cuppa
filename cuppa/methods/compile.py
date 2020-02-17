@@ -13,7 +13,7 @@ import cuppa.progress
 from SCons.Script import Flatten
 from SCons.Node import Node
 
-from cuppa.colourise import as_notice, as_info, as_warning, as_error
+from cuppa.colourise import as_notice
 from cuppa.log import logger
 
 

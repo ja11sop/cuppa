@@ -23,7 +23,7 @@ from SCons.Script import Glob, Flatten, Dir
 
 # construct imports
 from cuppa.output_processor import IncrementalSubProcess, command_available
-from cuppa.colourise import as_notice, as_info, as_warning, as_error, colour_items
+from cuppa.colourise import as_notice, as_info, as_error, colour_items
 from cuppa.log import logger
 from cuppa.progress import NotifyProgress
 import cuppa.recursive_glob

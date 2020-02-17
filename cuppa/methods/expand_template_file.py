@@ -10,7 +10,7 @@
 
 import cuppa.progress
 from cuppa.log import logger
-from cuppa.colourise import as_notice, as_error, as_info
+from cuppa.colourise import as_notice
 
 class ExpandTemplateFileAction(object):
 

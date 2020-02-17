@@ -17,7 +17,7 @@ from SCons.Script import File, Flatten
 import cuppa.build_platform
 
 from cuppa.output_processor import IncrementalSubProcess
-from cuppa.colourise        import as_info, as_notice, colour_items, as_error
+from cuppa.colourise        import as_info, as_notice, colour_items
 from cuppa.log              import logger
 
 # Boost Imports

@@ -11,7 +11,7 @@
 import logging
 import six
 
-from cuppa.colourise import as_error_label, as_warning_label, as_notice, as_emphasised
+from cuppa.colourise import as_error_label, as_warning_label, as_emphasised
 
 logging.TRACE = 5
 

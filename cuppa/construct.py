@@ -14,7 +14,6 @@ import re
 import fnmatch
 import multiprocessing
 import pkg_resources
-import collections
 import six
 
 # Scons
