@@ -1,4 +1,4 @@
-#          Copyright Jamie Allsop 2014-2019
+#          Copyright Jamie Allsop 2014-2020
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -43,73 +43,7 @@ from cuppa.log import logger, register_secret
 from cuppa.path import split_common
 from cuppa.utility.python2to3 import as_str
 
-
-try:
-    import pip.vcs as pip_vcs
-    import pip.download as pip_download
-    import pip.exceptions as pip_exceptions
-    from pip.download import is_url as pip_is_url
-    from pip.download import is_archive_file as pip_is_archive_file
-
-    def get_url_rev( vcs_backend ):
-        return vcs_backend.get_url_rev()
-
-    def update( vcs_backend, dest, rev_options ):
-        return vcs_backend.update( dest, rev_options )
-
-    def make_rev_options( vc_type, vcs_backend, url, rev, local_remote ):
-        if vc_type == 'git':
-            if rev:
-                return [rev]
-            elif local_remote:
-                return [local_remote]
-        elif vc_type == 'hg' and rev:
-            return vcs_backend.get_rev_options( url, rev )
-        elif vc_type == 'bzr' and rev:
-            return ['-r', rev]
-        return []
-
-except:
-    import pip._internal.vcs as pip_vcs
-    import pip._internal.exceptions as pip_exceptions
-
-    try:
-        import pip._internal.download as pip_download
-    except ImportError: # pip 20
-        import pip._internal.network.download as pip_download
-
-    try:
-        from pip._internal.download import is_archive_file as pip_is_archive_file
-        from pip._internal.download import is_url as pip_is_url
-    except: # Pip version >= 19.3.1
-        from pip._internal.req.constructors import is_archive_file as pip_is_archive_file
-        from pip._internal.vcs import is_url as pip_is_url
-        from pip._internal.utils.misc import hide_url as pip_hide_url
-
-    def get_url_rev( vcs_backend ):
-        url_rev_auth = vcs_backend.get_url_rev_and_auth( vcs_backend.url )
-        return url_rev_auth[0], url_rev_auth[1]
-
-    def update( vcs_backend, dest, rev_options ):
-        return vcs_backend.update( dest, vcs_backend.url, rev_options )
-
-    def make_rev_options( vc_type, vcs_backend, url, rev, local_remote ):
-        logger.debug( "vc_type={vc_type}, url={url}, rev={rev}, local_remote={local_remote}".format(
-            vc_type = as_info( str(vc_type) ),
-            url = as_notice( str(url) ),
-            rev = as_notice( str(rev) ),
-            local_remote = as_notice( str(local_remote) )
-        ) )
-        if vc_type == 'git':
-            if rev:
-                return vcs_backend.make_rev_options( rev=rev )
-            #elif local_remote:
-                #return vcs_backend.make_rev_options( rev=local_remote )
-        elif vc_type == 'hg' and rev:
-            return vcs_backend.make_rev_options( rev=rev )
-        elif vc_type == 'bzr' and rev:
-            return vcs_backend.make_rev_options( rev=rev )
-        return vcs_backend.make_rev_options()
+from cuppa.utility.pip_imports import pip_vcs, pip_download, pip_exceptions, pip_is_url, pip_is_archive_file, get_url_rev, obtain, update, make_rev_options
 
 
 class LocationException(Exception):
@@ -429,10 +363,7 @@ class Location(object):
                                     attempt > 1 and "(attempt {})".format( str(attempt) ) or ""
                             ) )
                             try:
-                                try:
-                                    vcs_backend.obtain( local_dir_with_sub_dir )
-                                except TypeError as e: # Pip version >= 19
-                                    vcs_backend.obtain( local_dir_with_sub_dir, pip_hide_url( vcs_backend.url ) )
+                                obtain( vcs_backend, local_dir_with_sub_dir, vcs_backend.url )
                                 logger.debug( "Successfully retrieved [{}]".format( as_info( location ) ) )
                                 break
                             except pip_exceptions.PipError as error:
