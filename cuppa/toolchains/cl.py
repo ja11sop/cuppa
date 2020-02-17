@@ -12,7 +12,6 @@ import os
 import collections
 import platform
 import six
-import sys
 
 import SCons.Script
 from SCons.Tool.MSCommon.vc import cached_get_installed_vcs, _VCVER, get_default_version

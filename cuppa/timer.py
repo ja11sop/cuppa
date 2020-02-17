@@ -11,7 +11,6 @@
 # Python Standard Library Imports
 import os
 import timeit
-import time
 import sys
 import itertools
 from cuppa.utility.python2to3 import process_time_ns
