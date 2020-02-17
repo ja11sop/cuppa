@@ -23,7 +23,6 @@ except ImportError:
     from urllib.request import urlretrieve
     from urllib.error import ContentTooShortError
 
-import urllib
 import zipfile
 import tarfile
 import shutil
@@ -43,6 +42,7 @@ from cuppa.colourise import as_notice, as_info, as_warning, as_error
 from cuppa.log import logger, register_secret
 from cuppa.path import split_common
 from cuppa.utility.python2to3 import as_str
+
 
 try:
     import pip.vcs as pip_vcs
@@ -75,13 +75,12 @@ except:
 
     try:
         import pip._internal.download as pip_download
-    except ModuleNotFoundError:
-        # pip 20
+    except ImportError: # pip 20
         import pip._internal.network.download as pip_download
 
     try:
-        from pip_download import is_archive_file as pip_is_archive_file
-        from pip_download import is_url as pip_is_url
+        from pip._internal.download import is_archive_file as pip_is_archive_file
+        from pip._internal.download import is_url as pip_is_url
     except: # Pip version >= 19.3.1
         from pip._internal.req.constructors import is_archive_file as pip_is_archive_file
         from pip._internal.vcs import is_url as pip_is_url
