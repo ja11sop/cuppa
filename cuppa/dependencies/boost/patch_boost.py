@@ -60,5 +60,5 @@ def apply_patch_if_needed( home, version_string ):
     if subprocess.call( shlex.split( command ), cwd=home ) != 0:
         logger.error( "Could not apply [{}]".format( diff_file ) )
     else:
-        with open( patch_applied_path, "w" ) as patch_applied_file:
-            pass
+        with open( patch_applied_path, "w" ):
+            logger.debug( 'Write "patch_applied_file" to record the patch has been applied.' )
