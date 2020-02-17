@@ -25,7 +25,7 @@ from SCons.Script import Flatten, Dir, Copy
 import cuppa.progress
 import cuppa.timer
 import cuppa.path
-from cuppa.colourise import as_notice, as_info, as_warning, as_error, colour_items, emphasise_time_by_digit
+from cuppa.colourise import as_notice, as_info, as_error, colour_items, emphasise_time_by_digit
 from cuppa.log import logger
 from cuppa.progress import NotifyProgress
 
@@ -401,6 +401,7 @@ class GenerateHtmlReportBuilder(object):
         name = env['offset_dir']
         if name.startswith("."+os.path.sep):
             name = name[2:]
+        # TODO: Check the assignment to sconscript_name as it is unused
         sconscript_name = os.path.splitext( os.path.split( env['sconscript_file'] )[1] )[0]
         return name + "/" + os.path.splitext( os.path.splitext( os.path.split( destination_path )[1] )[0] )[0]
 
@@ -551,8 +552,9 @@ class CollateReportIndexAction(object):
             logger.trace( "html_target = [{}]".format( as_notice( str(html_target) ) ) )
             logger.trace( "json_target = [{}]".format( as_info( str(json_target) ) ) )
 
+            # TODO: Check use of destination as it is currently unused
             destination = env['abs_final_dir']
-            if  self._destination:
+            if self._destination:
                 destination = self._destination + destination_subdir( env )
 
             logger.trace( "report_summary = {}".format( str( self._read( str(json_report) ) ) ) )
