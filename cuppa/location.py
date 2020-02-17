@@ -71,11 +71,17 @@ try:
 
 except:
     import pip._internal.vcs as pip_vcs
-    import pip._internal.download as pip_download
     import pip._internal.exceptions as pip_exceptions
+
     try:
-        from pip._internal.download import is_archive_file as pip_is_archive_file
-        from pip._internal.download import is_url as pip_is_url
+        import pip._internal.download as pip_download
+    except ModuleNotFoundError:
+        # pip 20
+        import pip._internal.network.download as pip_download
+
+    try:
+        from pip_download import is_archive_file as pip_is_archive_file
+        from pip_download import is_url as pip_is_url
     except: # Pip version >= 19.3.1
         from pip._internal.req.constructors import is_archive_file as pip_is_archive_file
         from pip._internal.vcs import is_url as pip_is_url
