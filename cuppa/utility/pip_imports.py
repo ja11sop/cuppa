@@ -58,6 +58,9 @@ if pip_version_gt_10_0_0():
         from pip._internal.vcs import is_url as pip_is_url
         from pip._internal.utils.misc import hide_url as pip_hide_url
 
+        def obtain( vcs_backend, dest, url ):
+            return vcs_backend.obtain( dest, pip_hide_url( url ) )
+
     else:
         from pip._internal.download import is_archive_file as pip_is_archive_file
         from pip._internal.download import is_url as pip_is_url
@@ -65,9 +68,8 @@ if pip_version_gt_10_0_0():
         def pip_hide_url( ignored ):
             pass
 
-
-    def obtain( vcs_backend, dest, url ):
-        return vcs_backend.obtain( dest, pip_hide_url( url ) )
+        def obtain( vcs_backend, dest, url ):
+            return vcs_backend.obtain( dest )
 
 
     def get_url_rev( vcs_backend ):
