@@ -50,10 +50,10 @@ class Bazaar:
 
         try:
             command = "{bzr} nick".format( bzr=cls.binary() )
-            branch = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT, cwd=path ).strip()
+            branch = as_str( subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT, cwd=path ).strip() )
 
             command = "{bzr} revno".format( bzr=cls.binary() )
-            revision = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT, cwd=path ).strip()
+            revision = as_str( subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT, cwd=path ).strip() )
 
             command = "{bzr} info".format( bzr=cls.binary() )
             bzr_info = as_str( subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT, cwd=path ).strip() )

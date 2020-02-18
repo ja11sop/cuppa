@@ -12,7 +12,7 @@ import subprocess
 import shlex
 import os
 
-from cuppa.utility.python2to3 import Exception
+from cuppa.utility.python2to3 import as_str, Exception
 
 
 class Mercurial:
@@ -50,7 +50,7 @@ class Mercurial:
 
         try:
             command = "{hg} summary".format( hg=cls.binary() )
-            summary = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT, cwd=path ).strip().split('\n')
+            summary = as_str( subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT, cwd=path ).strip() ).split('\n')
 
             revision = ""
             branch   = ""
@@ -65,7 +65,7 @@ class Mercurial:
                         break
 
             command = "{hg} path".format( hg=cls.binary() )
-            repository = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT, cwd=path ).strip().split('=')[1]
+            repository = as_str( subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT, cwd=path ).strip() ).split('=')[1]
             url = repository
 
         except subprocess.CalledProcessError:

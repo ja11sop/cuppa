@@ -18,6 +18,7 @@ import cuppa.output_processor
 import cuppa.build_platform
 from cuppa.colourise import as_info
 from cuppa.log import logger
+from cuppa.utility.python2to3 import as_str
 
 import SCons.Script
 
@@ -93,7 +94,7 @@ class build_with_qt5(object):
     def _set_qt5_dir( self, env ):
         command = "pkg-config --cflags Qt5Core"
         try:
-            cflags = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT ).strip()
+            cflags = as_str( subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT ).strip() )
             if cflags:
                 flags = env.ParseFlags( cflags )
                 if 'CPPPATH' in flags:
@@ -109,7 +110,7 @@ class build_with_qt5(object):
     def _get_qt5_version( self ):
         command = "pkg-config --modversion Qt5Core"
         try:
-            return subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT ).strip()
+            return as_str( subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT ).strip() )
         except:
             logger.debug( "In _get_qt5_version() failed to execute [{}]".format( command ) )
             return None

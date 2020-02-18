@@ -14,7 +14,7 @@ import re
 
 from cuppa.log import logger
 from cuppa.colourise import as_warning
-from cuppa.utility.python2to3 import Exception
+from cuppa.utility.python2to3 import as_str, Exception
 
 
 class Subversion:
@@ -50,7 +50,7 @@ class Subversion:
 
         try:
             command = "{svn} info {path}".format( svn=cls.binary(), path=path )
-            svn_info = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT )
+            svn_info = as_str( subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT ) )
             url        = re.search( r'URL: ([^\s]+)', svn_info ).expand(r'\1')
             repository = re.search( r'Repository Root: ([^\s]+)', svn_info ).expand(r'\1')
             branch     = re.search( r'Relative URL: \^/([^\s]+)', svn_info ).expand(r'\1')
@@ -64,7 +64,7 @@ class Subversion:
 
         try:
             command = "svnversion -n {path}".format( path=path )
-            revision = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT )
+            revision = as_str( subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT ) )
         except subprocess.CalledProcessError:
             pass
         except OSError:
