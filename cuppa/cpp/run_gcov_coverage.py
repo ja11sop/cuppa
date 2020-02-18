@@ -48,10 +48,9 @@ def gcov_offset_path( file_path, env ):
     return offset_path + filename + '##'
 
 
-def coverage_output( source, env ):
-
-    build_dir  = env['build_dir'].replace( os.path.sep, '#' )
-    offset_dir = env['offset_dir'].replace( os.path.sep, '#' )
+#def coverage_output( source, env ):
+#    build_dir  = env['build_dir'].replace( os.path.sep, '#' )
+#    offset_dir = env['offset_dir'].replace( os.path.sep, '#' )
 
 
 def url_coverage_base_name( sconscript_file ):
@@ -834,8 +833,6 @@ class CoverageIndexBuilder(object):
         if progress == 'sconstruct_end' and cls.all_lines_total > 0:
             lines_percent = 100.0 * float(cls.all_lines_covered) / float(cls.all_lines_total)
             sys.stdout.write( "COVERAGE = {:.1f}% : {:d}/{:d}\n".format( lines_percent, cls.all_lines_covered, cls.all_lines_total ) )
-
-            pattern = coverage_index_marker + "*.html"
 
             for destination_dir, final_dirs in six.iteritems(cls.destination_dirs):
 
