@@ -11,6 +11,7 @@ import subprocess
 import re
 import os
 import six
+from cuppa.utility.python2to3 import as_str, as_byte_str, Exception
 
 
 class AutoFlushFile(object):
@@ -27,13 +28,16 @@ class AutoFlushFile(object):
 
 
 class LineConsumer(object):
+  
+    _empty_str = as_byte_str("")
 
     def __init__( self, call_readline, processor=None ):
         self.call_readline = call_readline
         self.processor = processor
 
     def __call__( self ):
-        for line in iter( self.call_readline, "" ):
+        for line in iter( self.call_readline, self._empty_str ):
+            line = as_str( line )
             if line:
                 if self.processor:
                     line = self.processor( line )
@@ -50,7 +54,7 @@ class MaskSecrets(object):
         self.secrets = {}
         for key, val in six.iteritems(os.environ):
             if re.match( secret_regex, key ):
-                self.secrets[val] = key
+                self.secrets[as_str(val)] = key
 
     def mask( self, message ):
         for secret, mask in six.iteritems(self.secrets):

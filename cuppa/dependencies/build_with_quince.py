@@ -22,7 +22,7 @@ from cuppa.log import logger
 
 # Quince Imports
 from cuppa.build_with_location import location_dependency, LibraryMethod
-from cuppa.utility.python2to3 import Exception
+from cuppa.utility.python2to3 import as_str, Exception
 
 
 
@@ -111,11 +111,11 @@ class quince_postgresql( location_dependency( 'quince-postgresql', sys_include="
 
         if cuppa.output_processor.command_available( pg_config ):
             command = "{pg_config} --includedir".format( pg_config = pg_config )
-            libpq_include = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT ).strip()
+            libpq_include = as_str( subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT ).strip() )
             flags['INCPATH'].append( libpq_include )
 
             command = "{pg_config} --libdir".format( pg_config = pg_config )
-            libpq_libpath = subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT ).strip()
+            libpq_libpath = as_str( subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT ).strip() )
             flags['LIBPATH'] = [ libpq_libpath ]
         else:
             logger.error( "postgresql: pg_config not available so cannot determine LIBPATH for postgres libraries" )

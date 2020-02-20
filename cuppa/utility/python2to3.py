@@ -42,6 +42,11 @@ def as_str( bytes_or_string, encoding='utf-8' ):
         return bytes_or_string
     return bytes_or_string.decode(encoding)
 
+def as_byte_str( bytes_or_string, encoding='utf-8' ):
+    if None == bytes_or_string or not is_string( bytes_or_string ):
+        return bytes_or_string
+    return bytes_or_string.encode(encoding)
+
 try:
     from html import escape
 except ImportError:
