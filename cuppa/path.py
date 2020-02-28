@@ -1,4 +1,4 @@
-#          Copyright Jamie Allsop 2015-2019
+#          Copyright Jamie Allsop 2015-2020
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -13,7 +13,7 @@ import hashlib
 
 from cuppa.log import logger
 from cuppa.colourise import as_notice, as_error
-
+from cuppa.utility.python2to3 import as_byte_str
 
 
 def split_common( path1, path2 ):
@@ -47,7 +47,7 @@ def split_common( path1, path2 ):
 
 def unique_short_filename( filename, max_length=48 ):
     hasher = hashlib.md5()
-    hasher.update( filename )
+    hasher.update( as_byte_str( filename ) )
     digest = hasher.hexdigest()
     short_digest = "~" + digest[-8:]
     splice_length = min( len(filename), max_length-len(short_digest) )

@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2013-2019
+#          Copyright Jamie Allsop 2013-2020
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -449,7 +449,7 @@ class RunProcessTest(object):
     def __write_file_to_stderr( self, file_name ):
         error_file = open( file_name, "r" )
         for line in error_file:
-            print >> sys.stderr, line
+            sys.stderr.write( line + '\n' )
         error_file.close()
 
 
