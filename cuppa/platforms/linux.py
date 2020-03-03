@@ -16,6 +16,7 @@ import platform
 import SCons.Script
 
 from cuppa.log import logger
+from cuppa.utility.python2to3 import as_str
 
 
 class LinuxException(Exception):
@@ -71,7 +72,7 @@ class Linux:
 
         try:
             libc_version = Popen([libc_path], stdout=PIPE).communicate()[0]
-            return 'libc' + search( r'^GNU C Library [()a-zA-Z ]*([0-9][.0-9]+)', libc_version, MULTILINE ).expand(r'\1').replace('.','')
+            return 'libc' + search( r'^GNU C Library [()a-zA-Z ]*([0-9][.0-9]+)', as_str( libc_version ), MULTILINE ).expand(r'\1').replace('.','')
         except:
             logger.warn( "Could not detect the version of libc installed. You might be missing some development libraries!" )
             return None
