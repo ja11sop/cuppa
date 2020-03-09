@@ -23,6 +23,7 @@ from cuppa.output_processor import IncrementalSubProcess
 from cuppa.colourise import as_emphasised, as_highlighted, as_error, as_notice, is_error
 from cuppa.log import logger
 from cuppa.path import unique_short_filename
+from cuppa.utility.dict_tools import args_from_dict
 
 
 class Monitor(object):
@@ -172,10 +173,10 @@ class ProcessStderr(object):
 
 class RunProcessAction(object):
 
-    def __init__( self, final_dir, command=None, format_args=None, expected_exit_code=None, working_dir=None, retry_count=None, **ignored_kwargs ):
+    def __init__( self, final_dir, command=None, command_args=None, expected_exit_code=None, working_dir=None, retry_count=None, **ignored_kwargs ):
         self._final_dir = final_dir
         self._command = command
-        self._format_args = format_args
+        self._command_args = command_args
         self._expected_exit_code = expected_exit_code
         self._working_dir = working_dir
         self._retry_count = retry_count and retry_count or 0
@@ -245,7 +246,9 @@ class RunProcessAction(object):
             monitor = Monitor( program_path, env )
             monitor.start()
 
-            result = self._command( target, source, env )
+            command_args = args_from_dict( self._command_args )
+
+            result = self._command( target, source, env, **command_args )
 
             if result==0 or result==None:
                 self._write_success_file( success_file_name_from( program_path ) )
@@ -257,11 +260,9 @@ class RunProcessAction(object):
 
             if self._command:
                 command = self._command
-                if self._format_args:
-                    format_args = {}
-                    for key, value in six.iteritems(self._format_args):
-                        format_args[key] = callable(value) and value() or value
-                    command = command.format( **format_args )
+                if self._command_args:
+                    command_args = args_from_dict( self._command_args )
+                    command = command.format( **command_args )
                 working_dir = self._working_dir and self._working_dir or self._final_dir
                 program_path = os.path.splitext(os.path.splitext(str(target[0]))[0])[0]
             else:
