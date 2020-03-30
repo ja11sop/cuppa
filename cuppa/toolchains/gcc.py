@@ -43,6 +43,7 @@ class Gcc(object):
         return [
             "gcc",
             "gcc9",
+            "gcc93",
             "gcc92",
             "gcc91",
             "gcc8",
@@ -450,7 +451,7 @@ class Gcc(object):
             return '-std=c++1z'
         elif re.match( 'gcc8[0-3]', self._reported_version ):
             return '-std=c++2a'
-        elif re.match( 'gcc9[0-2]', self._reported_version ):
+        elif re.match( 'gcc9[0-3]', self._reported_version ):
             return '-std=c++2a'
 
 
