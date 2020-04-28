@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2019
+#          Copyright Jamie Allsop 2011-2020
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -10,6 +10,8 @@
 import os
 import re
 import lxml.html
+
+from packaging import version as packaging_version
 
 try:
     from urllib2 import urlopen
@@ -155,7 +157,7 @@ def get_boost_version( location ):
 
 
 def _determine_latest_boost_verion( offline ):
-    current_release = "1.71.0"
+    current_release = "1.73.0"
     if not offline:
         try:
             boost_version_url = 'https://www.boost.org/users/download/'
@@ -182,24 +184,28 @@ def _location_from_boost_version( location, offline ):
     if location:
         match = re.match( r'(boost_)?(?P<version>\d[._]\d\d(?P<minor>[._]\d)?)', location )
         if match:
-            version = match.group('version')
+            boost_version = match.group('version')
             if not match.group('minor'):
-                version += "_0"
+                boost_version += "_0"
             logger.debug( "Only boost version specified, retrieve from SourceForge if not already cached" )
             extension = ".tar.gz"
             if cuppa.build_platform.name() == "Windows":
                 extension = ".zip"
 
-            # Boost 1.71.0 source files are missing from the sourceforge repository.
-            if "1.71" in version:
+            numeric_version = boost_version.translate( maketrans( '._', '..' ) )
+            string_version = boost_version.translate( maketrans( '._', '__' ) )
+
+            # From 1.71 onwards source files are use bintray.com as the primary upload location.
+            if packaging_version.parse(numeric_version) > packaging_version.parse("1.70"):
                 return "https://dl.bintray.com/boostorg/release/{numeric_version}/source/boost_{string_version}{extension}".format(
-                            numeric_version = version.translate( maketrans( '._', '..' ) ),
-                            string_version = version.translate( maketrans( '._', '__' ) ),
+                            numeric_version = numeric_version,
+                            string_version = string_version,
                             extension = extension
                         )
-            return "http://sourceforge.net/projects/boost/files/boost/{numeric_version}/boost_{string_version}{extension}/download".format(
-                        numeric_version = version.translate( maketrans( '._', '..' ) ),
-                        string_version = version.translate( maketrans( '._', '__' ) ),
-                        extension = extension
-                    )
+            else:
+                return "http://sourceforge.net/projects/boost/files/boost/{numeric_version}/boost_{string_version}{extension}/download".format(
+                            numeric_version = numeric_version,
+                            string_version = string_version,
+                            extension = extension
+                        )
     return location
