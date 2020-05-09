@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2014-2019
+#          Copyright Jamie Allsop 2014-2020
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -57,13 +57,23 @@ class Clang(object):
     def version_from_command( cls, cxx ):
         command = "{} --version".format( cxx )
         if command_available( command ):
-            reported_version = as_str( Popen( shlex.split( command ), stdout=PIPE).communicate()[0] )
-            version = re.search( r'based on LLVM (\d)\.(\d)', reported_version )
-            if not version:
-                version = re.search( r'Apple LLVM version (\d)\.(\d)', reported_version )
-                if not version:
-                    version = re.search( r'clang version (\d)\.(\d+)', reported_version )
-            reported_version = 'clang' + version.expand(r'\1\2')
+            reported_version = None
+            version_string = as_str( Popen( shlex.split( command ), stdout=PIPE).communicate()[0] )
+            matches = re.search( r'based on LLVM (?P<major>\d+)\.(?P<minor>\d)', version_string )
+            if not matches:
+                matches = re.search( r'Apple LLVM version (?P<major>\d+)\.(?P<minor>\d)', version_string )
+                if not matches:
+                    matches = re.search( r'clang version (?P<major>\d+)\.(?P<minor>\d)', version_string )
+            if matches:
+                major = matches.group('major')
+                minor = matches.group('minor')
+                reported_version = {}
+                reported_version['toolchain'] = 'clang'
+                reported_version['name'] = 'clang' + major + minor
+                reported_version['major'] = int(major)
+                reported_version['minor'] = int(minor)
+                reported_version['version'] = major + "." + minor
+                reported_version['short_version'] = major + minor
             return reported_version
         return None
 
@@ -76,8 +86,8 @@ class Clang(object):
             reported_version = cls.version_from_command( command )
             cxx_version = ""
             if reported_version:
-                major = str(reported_version[5])
-                minor = str(reported_version[6])
+                major = reported_version['major']
+                minor = reported_version['minor']
                 version = "-{}.{}".format( major, minor )
                 exists = cls.version_from_command( "clang++{} --version".format( version ) )
                 if exists:
@@ -95,6 +105,9 @@ class Clang(object):
     def supported_versions( cls ):
         return [
             "clang",
+            "clang11",
+            "clang10",
+            "clang9",
             "clang8",
             "clang7",
             "clang60",
@@ -117,13 +130,24 @@ class Clang(object):
             cls._available_versions = collections.OrderedDict()
             for version in cls.supported_versions():
 
-                matches = re.match( r'clang(?P<major>(\d))?(?P<minor>(\d))?', version )
+                matches = re.match( r'clang(?P<version>(\d+)?)?', version )
 
                 if not matches:
                     raise ClangException("Clang toolchain [{}] is not recognised as supported!".format( version ) )
 
-                major = matches.group('major')
-                minor = matches.group('minor')
+                major = None
+                minor = None
+
+                version_string = matches.group('version')
+
+                if len(version_string):
+                    if int(version_string) <= 30:
+                        major = int(version_string)
+                    elif len(version_string) == 2:
+                        major = int(version_string[0])
+                        minor = int(version_string[1])
+                    else:
+                        major = int(version_string)
 
                 if not major and not minor:
                     default_ver, default_cxx = cls.default_version()
@@ -134,7 +158,7 @@ class Clang(object):
                                 'version': default_ver,
                                 'path': path
                         }
-                        cls._available_versions[default_ver] = {
+                        cls._available_versions[default_ver['name']] = {
                                 'cxx_version': default_cxx,
                                 'version': default_ver,
                                 'path': path
@@ -150,7 +174,7 @@ class Clang(object):
                                 'version': reported_version,
                                 'path': cxx_path
                         }
-                        cls._available_versions[reported_version] = {
+                        cls._available_versions[reported_version['name']] = {
                                 'cxx_version': cxx_version,
                                 'version': reported_version,
                                 'path': cxx_path
@@ -160,15 +184,15 @@ class Clang(object):
                     cxx = "clang++{}".format( cxx_version )
                     reported_version = cls.version_from_command( cxx )
                     if reported_version:
-                        if version == reported_version:
+                        if version == reported_version['name']:
                             cxx_path = cuppa.build_platform.where_is( cxx )
-                            cls._available_versions[version] = {
+                            cls._available_versions[reported_version['name']] = {
                                     'cxx_version': cxx_version,
                                     'version': reported_version,
                                     'path': cxx_path
                             }
                         else:
-                            raise ClangException("Clang toolchain [{}] reporting version as [{}].".format( version, reported_version ) )
+                            raise ClangException("Clang toolchain [{}] reporting version as [{}].".format( version, reported_version['name'] ) )
         return cls._available_versions
 
 
@@ -215,7 +239,7 @@ class Clang(object):
             logger.debug(
                     "Adding toolchain [{}] reported as [{}] with cxx_version [clang++{}] at [{}]".format(
                     as_info(version),
-                    as_info(clang['version']),
+                    as_info(clang['version']['name']),
                     as_info(clang['cxx_version']),
                     as_notice(clang['path'])
             ) )
@@ -249,8 +273,8 @@ class Clang(object):
 
     def __init__( self, version, cxx_version, reported_version, cxx_path, stdlib, suppress_debug_for_auto ):
 
-        self._version          = re.search( r'(\d)(\d)', reported_version ).expand(r'\1.\2')
-        self._short_version    = self._version.replace( ".", "" )
+        self._version          = reported_version['version']
+        self._short_version    = reported_version['short_version']
         self._cxx_version      = cxx_version.lstrip('-')
         self._cxx_path         = cxx_path
         if self._cxx_version == cxx_version:
@@ -258,7 +282,7 @@ class Clang(object):
         else:
             self._cxx_version = self._cxx_version
 
-        self._name             = reported_version
+        self._name             = reported_version['name']
         self._reported_version = reported_version
 
         self._suppress_debug_for_auto = suppress_debug_for_auto
@@ -434,14 +458,14 @@ class Clang(object):
         CommonCxxFlags = [ '-Wall', '-fexceptions' ]
         CommonCFlags   = [ '-Wall' ]
 
-        if not re.match( 'clang3[2-5]', version ) or not self._suppress_debug_for_auto:
+        if not re.match( 'clang3[2-5]', version['name'] ) or not self._suppress_debug_for_auto:
             CommonCxxFlags += [ "-g" ]
             CommonCFlags += [ "-g" ]
 
         if stdlib:
             CommonCxxFlags += [ "-stdlib={}".format(stdlib) ]
 
-        CommonCxxFlags += [ self.__default_abi_flag( version ) ]
+        CommonCxxFlags += self.__default_dialect_flags()
 
         self.values['debug_cxx_flags']     = CommonCxxFlags + []
         self.values['release_cxx_flags']   = CommonCxxFlags + [ '-O3', '-DNDEBUG' ]
@@ -479,30 +503,28 @@ class Clang(object):
                + source + ' > ' + source + '_summary.gcov'
 
 
-    def __default_abi_flag( self, name ):
-        if re.match( 'clang3[2-3]', name ):
-            return '-std=c++11'
-        elif re.match( 'clang3[4-8]', name ):
-            return '-std=c++1y'
-        elif re.match( 'clang3[9]', name ):
-            return '-std=c++1z'
-        elif re.match( 'clang4[0-9]', name ):
-            return '-std=c++1z'
-        elif re.match( 'clang5[0]', name ):
-            return '-std=c++1z'
-        elif re.match( 'clang6[0]', name ):
-            return '-std=c++2a'
-        elif re.match( 'clang7[0]', name ):
-            return '-std=c++2a'
-        elif re.match( 'clang8[0]', name ):
-            return '-std=c++2a'
+    def __default_dialect_flags( self ):
+        major_ver = self._reported_version['major']
+        minor_ver = self._reported_version['minor']
+        if major_ver == 3:
+            if minor_ver >= 2 and minor_ver <= 3:
+                return ['-std=c++11']
+            elif minor_ver >= 4 and minor_ver <= 8:
+                return ['-std=c++1y']
+            elif minor_ver >= 9:
+                return ['-std=c++1z']
+        elif major_ver >= 4 and major_ver <= 5:
+            return ['-std=c++1z']
+        elif major_ver >= 6:
+            return ['-std=c++2a']
+        return ['-std=c++03']
 
 
     def abi_flag( self, env ):
         if env['stdcpp']:
             return '-std={}'.format(env['stdcpp'])
         else:
-            return self.__default_abi_flag( self._name )
+            return self.__default_dialect_flags()[0]
 
 
     def abi( self, env ):
