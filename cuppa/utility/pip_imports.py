@@ -100,11 +100,15 @@ if pip_version_gt_10_0_0():
         return vcs_backend.make_rev_options()
 
 else:
-    import pip.vcs as pip_vcs
-    import pip.download as pip_download
-    import pip.exceptions as pip_exceptions
-    from pip.download import is_url as pip_is_url
-    from pip.download import is_archive_file as pip_is_archive_file
+    try:
+        import pip.vcs as pip_vcs
+        import pip.download as pip_download
+        import pip.exceptions as pip_exceptions
+        from pip.download import is_url as pip_is_url
+        from pip.download import is_archive_file as pip_is_archive_file
+    except ImportError as error:
+        logger.error( "Cuppa requires Python pip. Please make sure it is installed" )
+        raise error
 
 
     def pip_hide_url( ignored ):
