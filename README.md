@@ -625,6 +625,16 @@ The following toolchains are currently supported:
 
 | Toolchain | Description |
 | --------- | ----------- |
+| `gcc101`  | g++ 10.1 |
+| `gcc93`   | g++ 9.3 |
+| `gcc92`   | g++ 9.2 |
+| `gcc91`   | g++ 9.1 |
+| `gcc83`   | g++ 8.3 |
+| `gcc82`   | g++ 8.2 |
+| `gcc81`   | g++ 8.1 |
+| `gcc74`   | g++ 7.4 |
+| `gcc73`   | g++ 7.3 |
+| `gcc72`   | g++ 7.2 |
 | `gcc71`   | g++ 7.1 |
 | `gcc70`   | g++ 7.0 |
 | `gcc64`   | g++ 6.4 |
@@ -651,18 +661,23 @@ The following toolchains are currently supported:
 
 #### The Clang family
 
-| Toolchain | Description |
-| --------- | ----------- |
-| `clang50` | clang 5.0 |
-| `clang40` | clang 4.0 |
-| `clang39` | clang 3.9 |
-| `clang38` | clang 3.8 |
-| `clang37` | clang 3.7 |
-| `clang36` | clang 3.6 |
-| `clang35` | clang 3.5 |
-| `clang34` | clang 3.4 |
-| `clang33` | clang 3.3 |
-| `clang32` | clang 3.2 |
+| Toolchain  | Description |
+| ---------- | ----------- |
+| `clang100` | clang 10.0 |
+| `clang90`  | clang 9.0  |
+| `clang80`  | clang 8.0  |
+| `clang70`  | clang 7.0  |
+| `clang60`  | clang 6.0  |
+| `clang50`  | clang 5.0  |
+| `clang40`  | clang 4.0  |
+| `clang39`  | clang 3.9  |
+| `clang38`  | clang 3.8  |
+| `clang37`  | clang 3.7  |
+| `clang36`  | clang 3.6  |
+| `clang35`  | clang 3.5  |
+| `clang34`  | clang 3.4  |
+| `clang33`  | clang 3.3  |
+| `clang32`  | clang 3.2  |
 
 #### The Visual C++ family
 
