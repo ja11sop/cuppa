@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2019
+#          Copyright Jamie Allsop 2011-2020
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -42,6 +42,8 @@ class Gcc(object):
     def supported_versions( cls ):
         return [
             "gcc",
+            "gcc101",
+            "gcc10",
             "gcc9",
             "gcc93",
             "gcc92",
@@ -84,8 +86,19 @@ class Gcc(object):
     def version_from_command( cls, cxx, prefix ):
         command = "{} --version".format( cxx )
         if command_available( command ):
-            reported_version = as_str( Popen( shlex.split( command ), stdout=PIPE).communicate()[0] )
-            reported_version = prefix + re.search( r'(\d)\.(\d)', reported_version ).expand(r'\1\2')
+            reported_version = None
+            version_string = as_str( Popen( shlex.split( command ), stdout=PIPE).communicate()[0] )
+            matches = re.search( r'(?P<major>\d+)\.(?P<minor>\d)', version_string )
+            if matches:
+                major = matches.group('major')
+                minor = matches.group('minor')
+                reported_version = {}
+                reported_version['toolchain'] = prefix
+                reported_version['name'] = prefix + major + minor
+                reported_version['major'] = int(major)
+                reported_version['minor'] = int(minor)
+                reported_version['version'] = major + "." + minor
+                reported_version['short_version'] = major + minor
             return reported_version
         return None
 
@@ -98,8 +111,8 @@ class Gcc(object):
             reported_version = cls.version_from_command( command, 'gcc' )
             cxx_version = ""
             if reported_version:
-                major = str(reported_version[3])
-                minor = str(reported_version[4])
+                major = reported_version['major']
+                minor = reported_version['minor']
                 version = "-{}.{}".format( major, minor )
                 exists = cls.version_from_command( "g++{} --version".format( version ), 'gcc' )
                 if exists:
@@ -119,13 +132,26 @@ class Gcc(object):
             cls._available_versions = collections.OrderedDict()
             for version in cls.supported_versions():
 
-                matches = re.match( r'gcc(?P<major>(\d))?(?P<minor>(\d))?', version )
+                matches = re.match( r'gcc(?P<version>(\d+)?)?', version )
 
                 if not matches:
                     raise GccException("GCC toolchain [{}] is not recognised as supported!".format( version ) )
 
-                major = matches.group('major')
-                minor = matches.group('minor')
+                major = None
+                minor = None
+
+                version_string = matches.group('version')
+
+                if len(version_string) and len(version_string) <= 2 and int(version_string[0]) >= 3:
+                    matches = re.match( r'(?P<major>(\d))?(?P<minor>(\d))?', version_string )
+                    if matches:
+                        major = matches.group('major')
+                        minor = matches.group('minor')
+                elif len(version_string) >= 2:
+                    matches = re.match( r'(?P<major>(\d\d))?(?P<minor>(\d))?', version_string )
+                    if matches:
+                        major = matches.group('major')
+                        minor = matches.group('minor')
 
                 if not major and not minor:
                     default_ver, default_cxx = cls.default_version()
@@ -136,7 +162,7 @@ class Gcc(object):
                                 'version': default_ver,
                                 'path': path
                         }
-                        cls._available_versions[default_ver] = {
+                        cls._available_versions[default_ver['name']] = {
                                 'cxx_version': default_cxx,
                                 'version': default_ver,
                                 'path': path
@@ -152,7 +178,7 @@ class Gcc(object):
                                 'version': reported_version,
                                 'path': cxx_path
                         }
-                        cls._available_versions[reported_version] = {
+                        cls._available_versions[reported_version['name']] = {
                                 'cxx_version': cxx_version,
                                 'version': reported_version,
                                 'path': cxx_path
@@ -162,15 +188,15 @@ class Gcc(object):
                     cxx = "g++{}".format( cxx_version )
                     reported_version = cls.version_from_command( cxx, 'gcc' )
                     if reported_version:
-                        if version == reported_version:
+                        if version == reported_version['name']:
                             cxx_path = cuppa.build_platform.where_is( cxx )
-                            cls._available_versions[version] = {
+                            cls._available_versions[reported_version['name']] = {
                                     'cxx_version': cxx_version,
                                     'version': reported_version,
                                     'path': cxx_path
                             }
                         else:
-                            raise GccException("GCC toolchain [{}] reporting version as [{}].".format( version, reported_version ) )
+                            raise GccException("GCC toolchain [{}] reporting version as [{}].".format( version, reported_version['name'] ) )
         return cls._available_versions
 
 
@@ -203,7 +229,7 @@ class Gcc(object):
         for version, gcc in six.iteritems(cls.available_versions()):
             logger.debug(
                 "Adding toolchain [{}] reported as [{}] with cxx_version [g++{}] at [{}]"
-                .format( as_info(version), as_info(gcc['version']), as_info(gcc['cxx_version']), as_notice(gcc['path']) )
+                .format( as_info(version), as_info(gcc['version']['name']), as_info(gcc['cxx_version']), as_notice(gcc['path']) )
             )
             add_toolchain( version, cls( version, gcc['cxx_version'], gcc['version'], gcc['path'] ) )
 
@@ -234,8 +260,8 @@ class Gcc(object):
 
         self.values = {}
 
-        self._version          = re.search( r'(\d)(\d)', reported_version ).expand(r'\1.\2')
-        self._short_version    = self._version.replace( ".", "" )
+        self._version          = reported_version['version']
+        self._short_version    = reported_version['short_version']
         self._cxx_version      = cxx_version.lstrip('-')
         self._cxx_path         = cxx_path
         if self._cxx_version == cxx_version:
@@ -243,7 +269,7 @@ class Gcc(object):
         else:
             self._cxx_version = self._cxx_version
 
-        self._name             = reported_version
+        self._name             = reported_version['name']
         self._reported_version = reported_version
 
         self._initialise_toolchain( self._reported_version )
@@ -392,15 +418,15 @@ class Gcc(object):
             env.ReplaceFlags( "-std={}".format(env['stdcpp']) )
 
 
-    def _initialise_toolchain( self, toolchain ):
-        if toolchain == 'gcc34':
+    def _initialise_toolchain( self, toolchain_version ):
+        if toolchain_version['name'] == 'gcc34':
             self.values['sys_inc_prefix']  = '-I'
         else:
             self.values['sys_inc_prefix']  = '-isystem'
 
         self.values['sys_inc_suffix']  = ''
 
-        CommonCxxFlags = [ '-Wall', '-fexceptions', '-g', self.__default_abi_flag() ]
+        CommonCxxFlags = [ '-Wall', '-fexceptions', '-g'] + self.__default_dialect_flags()
         CommonCFlags   = [ '-Wall', '-g' ]
 
         self.values['debug_cxx_flags']    = CommonCxxFlags + []
@@ -434,32 +460,32 @@ class Gcc(object):
                + source + ' > ' + source + '_summary.gcov'
 
 
-    def __default_abi_flag( self ):
-        if re.match( 'gcc4[3-6]', self._reported_version ):
-            return '-std=c++0x'
-        elif re.match( 'gcc47', self._reported_version ):
-            return '-std=c++11'
-        elif re.match( 'gcc4[8-9]', self._reported_version ):
-            return '-std=c++1y'
-        elif re.match( 'gcc5[0-1]', self._reported_version ):
-            return '-std=c++1y'
-        elif re.match( 'gcc5[2-4]', self._reported_version ):
-            return '-std=c++1z'
-        elif re.match( 'gcc6[0-5]', self._reported_version ):
-            return '-std=c++1z'
-        elif re.match( 'gcc7[0-4]', self._reported_version ):
-            return '-std=c++1z'
-        elif re.match( 'gcc8[0-3]', self._reported_version ):
-            return '-std=c++2a'
-        elif re.match( 'gcc9[0-3]', self._reported_version ):
-            return '-std=c++2a'
+    def __default_dialect_flags( self ):
+        major_ver = self._reported_version['major']
+        minor_ver = self._reported_version['minor']
+        if major_ver == 4:
+            if minor_ver >= 3 and minor_ver <= 6:
+                return ['-std=c++0x']
+            elif minor_ver == 7:
+                return ['-std=c++11']
+            else:
+                return ['-std=c++1y']
+        elif major_ver == 5 and minor_ver <= 1:
+            return ['-std=c++1y']
+        elif major_ver >= 5 and major_ver <= 7:
+            return ['-std=c++1z']
+        elif major_ver >= 8 and major_ver <= 9:
+            return ['-std=c++2a']
+        elif major_ver >= 10:
+            return ['-std=c++2a', '-fconcepts', '-fcoroutines']
+        return ['-std=c++03']
 
 
     def abi_flag( self, env ):
         if env['stdcpp']:
             return '-std={}'.format(env['stdcpp'])
         else:
-            return self.__default_abi_flag()
+            return self.__default_dialect_flags()[0]
 
 
     def abi( self, env ):
