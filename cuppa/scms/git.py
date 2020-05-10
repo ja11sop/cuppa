@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2014-2019
+#          Copyright Jamie Allsop 2014-2020
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -38,7 +38,7 @@ class Git:
 
 
     @classmethod
-    def execute_command( cls, command, path ):
+    def execute_command( cls, command, path=None ):
         try:
             return subprocess.check_output( shlex.split( command ), stderr=subprocess.STDOUT, cwd=path )
         except subprocess.CalledProcessError:
@@ -47,6 +47,34 @@ class Git:
             raise cls.Error("Binary [{git}] is not available".format(
                     git=cls.binary()
             ) )
+
+
+    @classmethod
+    def remote_branch_exists( cls, repository, branch ):
+        command = "{git} ls-remote --heads {repository} {branch}".format( git=cls.binary(), repository=repository, branch=branch )
+        result = as_str( cls.execute_command( command ) ).strip()
+        logger.trace( "Result of calling [{command}] was [{result}]".format( command=as_info(command), result=as_notice(result) ) )
+        if result:
+            return True
+        return False
+
+
+    @classmethod
+    def remote_default_branch( cls, repository ):
+        command = "{git} ls-remote --symref {repository} HEAD".format( git=cls.binary(), repository=repository )
+        result = as_str( cls.execute_command( command ) ).strip()
+        logger.trace( "Result of calling [{command}] was [{result}]".format( command=as_info(command), result=as_notice(result) ) )
+
+        if result:
+            branch_pattern = r'ref[:]\s+refs/heads/(?P<default_branch>[^\s]+)\s+HEAD'
+            match = re.search( branch_pattern, result )
+            logger.trace(
+                    "When searching for default branch name for repoistory [{}] using regex [{}] the following match [{}] was returned".format(
+                    as_info(repository), as_notice(branch_pattern), as_info(str(match))
+            ) )
+            if match:
+                return match.group('default_branch')
+        return None
 
 
     @classmethod

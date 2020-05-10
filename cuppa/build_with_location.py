@@ -47,8 +47,8 @@ class base(object):
         return cls._name + "-develop"
 
     @classmethod
-    def branch_option( cls ):
-        return cls._name + "-branch"
+    def branch_path_option( cls ):
+        return cls._name + "-branch-path"
 
     @classmethod
     def include_option( cls ):
@@ -80,8 +80,8 @@ class base(object):
         add_option( '--' + cls.develop_option(), dest=cls.develop_option(), type='string', nargs=1, action='store',
                     help = cls._name + ' location to build against when in develop mode' )
 
-        add_option( '--' + cls.branch_option(), dest=cls.branch_option(), type='string', nargs=1, action='store',
-                    help = cls._name + ' branch to build against. Providing a branch is optional' )
+        add_option( '--' + cls.branch_path_option(), dest=cls.branch_path_option(), type='string', nargs=1, action='store',
+                    help = cls._name + ' branch_path to build against if using path-based branching (as in Subversion). Providing a branch_path is optional' )
 
         add_option( '--' + cls.include_option(), dest=cls.include_option(), type='string', nargs=1, action='store',
                     help = cls._name + ' include sub-directory to be added to the include path. Optional' )
@@ -106,15 +106,15 @@ class base(object):
 
     @classmethod
     def location_id( cls, env ):
-        location = env.get_option( cls.location_option() )
-        develop  = env.get_option( cls.develop_option() )
-        branch   = env.get_option( cls.branch_option() )
+        location    = env.get_option( cls.location_option() )
+        develop     = env.get_option( cls.develop_option() )
+        branch_path = env.get_option( cls.branch_path_option() )
 
         use_develop = env.get_option( "develop" )
 
         if not location and cls._default_location:
             location = cls._default_location
-        if not location and branch:
+        if not location and branch_path:
             location = env['branch_root']
         if not location and env['thirdparty']:
             location = env['thirdparty']
@@ -131,7 +131,7 @@ class base(object):
         if develop:
             develop = os.path.expanduser( develop )
 
-        return (location, develop, branch, use_develop)
+        return (location, develop, branch_path, use_develop)
 
 
     @classmethod
@@ -145,23 +145,29 @@ class base(object):
         if location_id not in cls._cached_locations:
             location = location_id[0]
             develop = location_id[1]
-            branch = location_id[2]
+            branch_path = location_id[2]
             use_develop = location_id[3]
             try:
-                cls._cached_locations[location_id] = cuppa.location.Location( env, location, develop=develop, branch=branch, extra_sub_path=cls._extra_sub_path )
+                cls._cached_locations[location_id] = cuppa.location.Location(
+                        env,
+                        location,
+                        develop=develop,
+                        branch_path=branch_path,
+                        extra_sub_path=cls._extra_sub_path
+                )
                 logger.debug( "Adding location [{}]({}) to cached locations".format(
                         as_notice( cls._name.title() ),
                         as_notice( str(location_id) )
                 ) )
             except cuppa.location.LocationException as error:
                 logger.error(
-                        "Could not get location for [{}] at [{}] (and develop [{}], use=[{}]) with branch [{}] and extra sub path [{}]. Failed with error [{}]"
+                        "Could not get location for [{}] at [{}] (and develop [{}], use=[{}]) with branch_path [{}] and extra sub path [{}]. Failed with error [{}]"
                         .format(
                                 as_notice( cls._name.title() ),
                                 as_info( str(location) ),
                                 as_info( str(develop) ),
                                 as_notice( str(use_develop and True or False) ),
-                                as_notice( str(branch) ),
+                                as_notice( str(branch_path) ),
                                 as_notice( str(cls._extra_sub_path) ),
                                 as_error( str(error) )
                         )

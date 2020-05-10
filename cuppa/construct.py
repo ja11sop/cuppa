@@ -31,6 +31,7 @@ import cuppa.output_processor
 import cuppa.recursive_glob
 import cuppa.configure
 import cuppa.version
+import cuppa.scms
 #import cuppa.progress
 #import cuppa.tree
 #import cuppa.cpp.stdcpp
@@ -394,6 +395,13 @@ class Construct(object):
 
         cuppa.core.storage_options.process_storage_options( cuppa_env )
         cuppa.core.location_options.process_location_options( cuppa_env )
+
+        cuppa_env['current_branch'] = ''
+        if not help and not self._configure.handle_conf_only():
+            if cuppa_env['location_match_current_branch']:
+                url, repo, branch, remote, rev = cuppa.scms.scms.get_current_rev_info( cuppa_env['sconstruct_dir'] )
+                if branch:
+                    cuppa_env['current_branch'] = branch
 
         cuppa_env['default_projects']     = default_projects
         cuppa_env['default_variants']     = default_variants and set( default_variants ) or set()
