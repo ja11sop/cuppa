@@ -201,13 +201,11 @@ class Gcc(object):
 
 
     @classmethod
-    def coverage_tool( cls, cxx_version, reported_version ):
+    def coverage_tool( cls, reported_version ):
         gcov = "gcov"
-        versioned_gcov = None
-        if cxx_version:
-            versioned_gcov = "{gcov}-{version}".format( gcov=gcov, version=cxx_version[0] )
-            if cuppa.build_platform.where_is( versioned_gcov ):
-                return versioned_gcov
+        versioned_gcov = "{gcov}-{version}".format( gcov=gcov, version=str(reported_version['major']) )
+        if cuppa.build_platform.where_is( versioned_gcov ):
+            return versioned_gcov
         if cuppa.build_platform.where_is( gcov ):
             version = cls.version_from_command( gcov, "gcc" )
             if version == reported_version:
@@ -393,7 +391,7 @@ class Gcc(object):
 
 
     def coverage_runner( self, program, final_dir, include_patterns=[], exclude_patterns=[] ):
-        coverage_tool = self.coverage_tool( self._cxx_version, self._reported_version )
+        coverage_tool = self.coverage_tool( self._reported_version )
         return RunGcovCoverageEmitter( program, final_dir, coverage_tool ), RunGcovCoverage( program, final_dir, coverage_tool, include_patterns, exclude_patterns )
 
 
