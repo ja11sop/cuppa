@@ -375,6 +375,7 @@ class ProcessStdout:
             test_case['aborted']    = 0
             test_case['line']       = matches.group('line')
             test_case['file']       = matches.group('file')
+            test_case['_state_']    = 'handle_asserts'
             self.notify.enter_test_case( test_case )
             return True
         return False
@@ -437,13 +438,30 @@ class ProcessStdout:
 
             test_case['assertions'] = test_case['assertions'] + 1
             test_case[status] = test_case[status] + 1
+            test_case['_state_'] = 'handle_asserts'
 
             if level == 'warning':
                 write_line = True
                 self.notify.display_assertion( line, "warning" )
             if status == 'failed':
                 write_line = True
+                test_case['_state_'] = 'handle_failed'
                 self.notify.display_assertion( line, "error" )
+
+        elif test_case['_state_'] == 'handle_failed':
+            has_context_matches = re.match( r'Failure occurred in (?:a|the) following context:', line.strip() )
+            if has_context_matches:
+                self.notify.display_assertion( "Failure occurred in the following context:", "error" )
+                test_case['_state_'] = 'handle_context'
+            else:
+                test_case['_state_'] == 'handle_asserts'
+
+        elif test_case['_state_'] == 'handle_context':
+            context_matches = re.match( r'\s\s\s\s.*', line.rstrip() )
+            if context_matches:
+                self.notify.display_assertion( line, "error" )
+            else:
+                test_case['_state_'] == 'handle_asserts'
 
         return is_assertion, write_line
 
