@@ -28,7 +28,7 @@ from cuppa.utility.python2to3 import maketrans
 
 # Boost Imports
 from cuppa.dependencies.boost.boost_exception import BoostException
-from cuppa.dependencies.boost.patch_boost     import apply_patch_if_needed
+from cuppa.dependencies.boost.patch_boost     import apply_patches_if_needed
 
 
 
@@ -129,8 +129,7 @@ def get_boost_location( env, location, version, base, patched ):
         location = _location_from_boost_version( version, offline )
         boost_location = cuppa.location.Location( env, location, extra_sub_path=extra_sub_path )
 
-    if patched:
-        apply_patch_if_needed( boost_location.local(), get_boost_version ( boost_location.local() )[0] )
+    apply_patches_if_needed( patched, boost_location.local(), get_boost_version ( boost_location.local() )[0] )
 
     return boost_location
 
