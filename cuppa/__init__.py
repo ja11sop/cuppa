@@ -29,6 +29,7 @@ def run( *args, **kwargs ):
     from cuppa.log import initialise_logging
     from cuppa.log import mask_secrets
     import SCons.Errors
+    import cuppa.output
 
     caller = getframeinfo(stack()[1][0])
     sconstruct_path = caller.filename

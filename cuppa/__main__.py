@@ -14,19 +14,6 @@ import six
 from cuppa.utility.python2to3 import as_str, as_byte_str, Exception
 
 
-class AutoFlushFile(object):
-
-    def __init__( self, f ):
-        self.f = f
-
-    def flush( self ):
-        self.f.flush()
-
-    def write( self, x ):
-        self.f.write(x)
-        self.f.flush()
-
-
 class LineConsumer(object):
   
     _empty_str = as_byte_str("")
@@ -76,8 +63,7 @@ def run_scons( args_list ):
         stdout_processor = masker.mask
         stderr_processor = masker.mask
 
-        sys.stdout = AutoFlushFile( sys.stdout )
-        sys.stderr = AutoFlushFile( sys.stderr )
+        import cuppa.output
 
         kwargs = {}
         kwargs['stdout']    = subprocess.PIPE

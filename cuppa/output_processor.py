@@ -36,19 +36,6 @@ def command_available( command ):
     return True
 
 
-class AutoFlushFile:
-
-    def __init__( self, f ):
-        self.f = f
-
-    def flush( self ):
-        self.f.flush()
-
-    def write( self, x ):
-        self.f.write(x)
-        self.f.flush()
-
-
 class LineConsumer:
 
     def __init__( self, call_readline, processor=None ):
@@ -89,15 +76,7 @@ class IncrementalSubProcess:
             use_shell = kwargs['scons_env'].get_option( 'use-shell' )
             del kwargs['scons_env']
 
-        orig_stdout = sys.stdout
-        orig_stderr = sys.stderr
-
         try:
-            # TODO: Review this as it might be needed for Windows otherwise replace
-            # the wrapped values with orig_stdout and orig_stderr respectively
-            sys.stdout = AutoFlushFile( colorama.initialise.wrapped_stdout )
-            sys.stderr = AutoFlushFile( colorama.initialise.wrapped_stderr )
-
             process = None
             stderr_thread = None
 
@@ -143,10 +122,6 @@ class IncrementalSubProcess:
                 logger.info( "Joining any running threads" )
                 stderr_thread.join()
             raise e
-
-        finally:
-            sys.stdout = orig_stdout
-            sys.stderr = orig_stderr
 
 
     @classmethod
