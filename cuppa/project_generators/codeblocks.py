@@ -51,7 +51,7 @@ class Codeblocks(object):
 
         add_option( '--generate-cbs-include-thirdparty', dest='generate_cbs_include_thirdparty',
                     action='store_true',
-                    help='Include dependencies under the thirdparty directory or in downloaded libraries.',
+                    help='Include dependencies under the "thirdparty" directory or in downloaded libraries.',
                     default=False )
 
         add_option( '--generate-cbs-exclude-relative-branches', dest='generate_cbs_exclude_relative_branches',
