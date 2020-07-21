@@ -44,6 +44,7 @@ setup(
     package_data = {
         'cuppa': [
             'VERSION',
+            os.path.join( 'dependencies','boost','boost_bug_fix_1.73.0.diff' ),
             os.path.join( 'dependencies','boost','boost_test_patch_1.58.0.diff' ),
             os.path.join( 'dependencies','boost','boost_test_patch_1.67.0.diff' ),
             os.path.join( 'dependencies','boost','boost_test_patch_1.68.0.diff' ),
