@@ -42,6 +42,7 @@ class Gcc(object):
     def supported_versions( cls ):
         return [
             "gcc",
+            "gcc102",
             "gcc101",
             "gcc10",
             "gcc9",
