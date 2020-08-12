@@ -88,11 +88,18 @@ class Git:
         remote = None
 
         # In case we have a detached head we use this
-        result = as_str( cls.execute_command( "{git} show -s --pretty=\%d --decorate=full HEAD".format( git=cls.binary() ), path ) ).strip()
+        result = as_str( cls.execute_command(
+                "{git} show -s --pretty=\%d --decorate=full HEAD".format( git=cls.binary() ), path
+        ) ).strip()
+
         match = re.search( r'HEAD(?:(?:[^ ]* -> |[^,]*, )(?P<refs>[^)]+))?', result )
+
         if match:
             refs = [ { "ref":r.strip(), "type": "" } for r in match.group("refs").split(',') ]
-            logger.trace( "Refs (using show) for [{}] are [{}]".format( as_notice(path), colour_items((r["ref"] for r in refs) )  ) )
+            logger.trace( "Refs (using show) for [{}] are [{}]".format(
+                    as_notice(path),
+                    colour_items( (r["ref"] for r in refs) )
+            ) )
             if refs:
                 for ref in refs:
                     if ref["ref"].startswith("refs/heads/"):
@@ -107,7 +114,10 @@ class Git:
                     else:
                         ref["type"] = "U"
 
-                logger.trace( "Refs (after classification) for [{}] are [{}]".format( as_notice(path), colour_items((":".join([r["type"], r["ref"]]) for r in refs) )  ) )
+                logger.trace( "Refs (after classification) for [{}] are [{}]".format(
+                        as_notice(path),
+                        colour_items( (":".join([r["type"], r["ref"]]) for r in refs) )
+                ) )
 
                 if refs[0]["type"] == "L":
                     branch = refs[0]["ref"]
