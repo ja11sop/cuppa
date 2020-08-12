@@ -45,9 +45,9 @@ def get_current_rev_info( path ):
                     path   = as_notice(path),
                     url    = as_info(url),
                     repo   = as_info(repo),
-                    branch = as_info(branch),
-                    remote = as_info(remote),
-                    rev    = as_info(rev)
+                    branch = branch and as_info(branch) or "<None>",
+                    remote = remote and as_info(remote) or "<None>",
+                    rev    = remote and as_info(rev) or "<None>"
         ) )
         return url, repo, branch, remote, rev
     return None, None, None, None, None

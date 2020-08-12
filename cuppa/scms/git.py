@@ -55,7 +55,12 @@ class Git:
         result = as_str( cls.execute_command( command ) ).strip()
         logger.trace( "Result of calling [{command}] was [{result}]".format( command=as_info(command), result=as_notice(result) ) )
         if result:
-            return True
+            for line in result.splitlines():
+                if line.startswith( "warning: redirecting"):
+                    logger.trace( "Ignoring redirection warning and proceeding" )
+                elif branch in line:
+                    logger.trace( "Branch {branch} found in {line}".format( branch=as_info(branch), line=as_notice(line) ) )
+                    return True
         return False
 
 
@@ -83,26 +88,41 @@ class Git:
         remote = None
 
         # In case we have a detached head we use this
-        result = as_str( cls.execute_command( "{git} show -s --pretty=\%d HEAD".format( git=cls.binary() ), path ) )
-        match = re.search( r'[(]HEAD[^,]*[,] (?P<branches>[^)]+)[)]', result )
+        result = as_str( cls.execute_command( "{git} show -s --pretty=\%d --decorate=full HEAD".format( git=cls.binary() ), path ) ).strip()
+        match = re.search( r'HEAD(?:(?:[^ ]* -> |[^,]*, )(?P<refs>[^)]+))?', result )
         if match:
-            branches = [ b.strip() for b in match.group("branches").split(',') ]
-            logger.trace( "Branches (using show) for [{}] are [{}]".format( as_notice(path), colour_items(branches) ) )
-            if len(branches) == 1:
-                # If this returns a tag: tag_name replace the ": " with "/" and then extract the tag_name
-                # otherwise this will simply extract the branch_name as expected
-                if not branches[0].startswith('tag:'):
-                    remote = branches[0]
-                branch = branches[0].replace(': ','/').split('/')[1]
-            else:
-                remote = branches[-2]
-                branch = remote.split('/')[1]
-            logger.trace( "Branch (using show) for [{}] is [{}]".format( as_notice(path), as_info(branch) ) )
+            refs = [ { "ref":r.strip(), "type": "" } for r in match.group("refs").split(',') ]
+            logger.trace( "Refs (using show) for [{}] are [{}]".format( as_notice(path), colour_items((r["ref"] for r in refs) )  ) )
+            if refs:
+                for ref in refs:
+                    if ref["ref"].startswith("refs/heads/"):
+                        ref["ref"] = ref["ref"][len("refs/heads/"):]
+                        ref["type"] = "L"
+                    elif ref["ref"].startswith("refs/tags/"):
+                        ref["ref"] = ref["ref"][len("refs/tags/"):]
+                        ref["type"] = "T"
+                    elif ref["ref"].startswith("refs/remotes/"):
+                        ref["ref"] = ref["ref"][len("refs/remotes/"):]
+                        ref["type"] = "R"
+                    else:
+                        ref["type"] = "U"
+
+                logger.trace( "Refs (after classification) for [{}] are [{}]".format( as_notice(path), colour_items((":".join([r["type"], r["ref"]]) for r in refs) )  ) )
+
+                if refs[0]["type"] == "L":
+                    branch = refs[0]["ref"]
+                elif refs[0]["type"] == "T":
+                    branch = refs[0]["ref"]
+                elif refs[0]["type"] == "R":
+                    branch = refs[0]["ref"].split('/')[1]
+
+                remote = next( ( ref["ref"] for ref in refs if ref["type"]=="R" ), None )
+
+            logger.trace( "Branch (using show) for [{}] is [{}]".format( as_notice(path), as_info(str(branch)) ) )
         else:
             logger.warn( "No branch found from [{}]".format( result ) )
 
         return branch, remote
-
 
 
     @classmethod
