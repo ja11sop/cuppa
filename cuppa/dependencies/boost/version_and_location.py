@@ -181,20 +181,24 @@ def _location_from_boost_version( location, offline ):
     if location == "latest" or location == "current":
         location = _determine_latest_boost_verion( offline )
     if location:
-        match = re.match( r'(boost_)?(?P<version>\d[._]\d\d(?P<minor>[._]\d)?)', location )
+        match = re.match( r'(boost_)?(?P<version>\d[._]\d\d(?P<minor>[._]\d)?)(?:[_\-.]rc(?P<release_candidate>\d))?', location )
         if match:
-            boost_version = match.group('version')
-            if not match.group('minor'):
-                boost_version += "_0"
             logger.debug( "Only boost version specified, retrieve from SourceForge if not already cached" )
+
             extension = ".tar.gz"
             if cuppa.build_platform.name() == "Windows":
                 extension = ".zip"
 
+            boost_version = match.group('version')
+            if not match.group('minor'):
+                boost_version += "_0"
             numeric_version = boost_version.translate( maketrans( '._', '..' ) )
-            string_version = boost_version.translate( maketrans( '._', '__' ) )
 
-            # From 1.71 onwards source files are use bintray.com as the primary upload location.
+            string_version = boost_version.translate( maketrans( '._', '__' ) )
+            if match.group('release_candidate'):
+                string_version += "_rc{}".format( match.group('release_candidate') )
+
+            # From 1.71 onwards source files use bintray.com as the primary upload location.
             if packaging_version.parse(numeric_version) > packaging_version.parse("1.70"):
                 return "https://dl.bintray.com/boostorg/release/{numeric_version}/source/boost_{string_version}{extension}".format(
                             numeric_version = numeric_version,
