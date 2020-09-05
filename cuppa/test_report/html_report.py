@@ -58,12 +58,14 @@ def vcs_info_from_location( location ):
         return cached_vcs_info[location]
 
     from cuppa.location import Location
+
     vcs_info = Location.detect_vcs_info( location )
 
     def clean_user_info( url_string ):
-        url = urlparse( url_string )
-        if url.scheme:
-            url_string = url.scheme + "://" + url.netloc.split("@")[-1] + url.path
+        if url_string:
+            url = urlparse( url_string )
+            if url.scheme:
+                url_string = url.scheme + "://" + url.netloc.split("@")[-1] + url.path
         return url_string
 
     vcs_info = ( clean_user_info( vcs_info[0] ), clean_user_info( vcs_info[1] ), vcs_info[2], vcs_info[3], vcs_info[4] )
@@ -78,14 +80,14 @@ def initialise_test_linking( env, link_style=None ):
         # TODO: escape properly and make sure this works on Windows
         base_uri = "file://" + env['sconstruct_dir']
     else:
-        vcs_info = vcs_info_from_location( env['sconstruct_dir'] )
-        if link_style == "gitlab":
+        url, repository, branch, remote, revision = vcs_info_from_location( env['sconstruct_dir'] )
+        if link_style == "gitlab" and url and remote:
             # NOTE: Might need to do VCS detection per test file
-            base_uri = os.path.join( os.path.splitext(vcs_info[0])[0], "blob", vcs_info[4] )
+            base_uri = os.path.join( os.path.splitext(url)[0], "blob", remote )
         elif link_style == "raw":
-            base_uri = vcs_info
-        else:
-            base_uri = vcs_info[0]
+            base_uri = url, repository, branch, remote, revision
+        elif url:
+            base_uri = url
     return base_uri
 
 
@@ -655,11 +657,12 @@ class ReportIndexBuilder(object):
 
                 summaries = {}
                 summaries['vcs_info'] = initialise_test_linking( env, link_style="raw" )
+                url, repository, branch, remote, revision = summaries['vcs_info']
                 summaries['name'] = str(env.Dir(destination_dir)) + "/*"
-                summaries['title'] = summaries['vcs_info'][0]
-                summaries['branch'] = summaries['vcs_info'][2]
-                summaries['commit'] = summaries['vcs_info'][4]
-                summaries['uri'] = summaries['vcs_info'][0]
+                summaries['title'] = url and url or env['sconstruct_dir']
+                summaries['branch'] = branch and branch or "None"
+                summaries['commit'] = remote and remote or "None"
+                summaries['uri'] = url and url or "Local"
                 summaries['toolchain_variants'] = {}
                 summaries['reports'] = {}
 

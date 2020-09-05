@@ -436,7 +436,16 @@ class Location(object):
     def retrieve_repo_info( cls, vcs_system, vcs_directory, expected_vc_type ):
         if not expected_vc_type or expected_vc_type == vcs_system.vc_type():
             try:
+                logger.trace( "expected_vc_type=[{expected_vc_type}], vcs_system=[{vc_type}], vcs_directory=[{directory}]".format(
+                        expected_vc_type=as_info( str(expected_vc_type) ),
+                        vc_type=as_info( vcs_system and vcs_system.vc_type() or "None" ),
+                        directory=as_notice( str(vcs_directory) )
+                ) )
+
                 info = vcs_system.info( vcs_directory )
+
+                logger.trace( "vcs_info=[{vcs_info}]".format( vcs_info=as_info(str(info)) ) )
+
                 return info
             except vcs_system.Error as ex:
                 if expected_vc_type:
