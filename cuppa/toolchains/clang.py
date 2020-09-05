@@ -113,14 +113,7 @@ class Clang(object):
             "clang60",
             "clang50",
             "clang40",
-            "clang39",
-            "clang38",
-            "clang37",
-            "clang36",
-            "clang35",
-            "clang34",
-            "clang33",
-            "clang32"
+            "clang39", "clang38", "clang37", "clang36", "clang35", "clang34", "clang33", "clang32"
         ]
 
 
