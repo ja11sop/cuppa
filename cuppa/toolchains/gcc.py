@@ -395,7 +395,7 @@ class Gcc(object):
 
         self.values['sys_inc_suffix']  = ''
 
-        CommonCxxFlags = [ '-Wall', '-fexceptions', '-g'] + self.__default_dialect_flags()
+        CommonCxxFlags = [ '-Wall', '-fexceptions', '-g' ] + self.__default_dialect_flags()
         CommonCFlags   = [ '-Wall', '-g' ]
 
         self.values['debug_cxx_flags']    = CommonCxxFlags + []
@@ -446,7 +446,7 @@ class Gcc(object):
         elif major_ver >= 8 and major_ver <= 9:
             return ['-std=c++2a']
         elif major_ver >= 10:
-            return ['-std=c++2a', '-fconcepts', '-fcoroutines']
+            return ['-std=c++2a', '-fconcepts', '-fcoroutines', '-flto']
         return ['-std=c++03']
 
 
