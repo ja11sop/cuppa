@@ -161,7 +161,8 @@ class Boost(object):
 
         self.values['defines'] = [
             'BOOST_PARAMETER_MAX_ARITY=20',
-            'BOOST_DATE_TIME_POSIX_TIME_STD_CONFIG'
+            'BOOST_DATE_TIME_POSIX_TIME_STD_CONFIG',
+            'BOOST_BIND_GLOBAL_PLACEHOLDERS',
         ]
 
 
