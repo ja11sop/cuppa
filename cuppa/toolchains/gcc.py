@@ -444,7 +444,7 @@ class Gcc(object):
         elif major_ver >= 5 and major_ver <= 7:
             return ['-std=c++1z']
         elif major_ver >= 8 and major_ver <= 9:
-            return ['-std=c++2a']
+            return ['-std=c++2a', '-fconcepts', '-flto']
         elif major_ver >= 10:
             return ['-std=c++2a', '-fconcepts', '-fcoroutines', '-flto']
         return ['-std=c++03']
