@@ -103,6 +103,10 @@ class Location(object):
         return None
 
 
+    def option_set( self, option ):
+        return option in self._cuppa_env and self._cuppa_env[option] or False
+
+
     def location_match_current_branch( self ):
         return 'location_match_current_branch' in self._cuppa_env and self._cuppa_env['location_match_current_branch']
 
@@ -158,7 +162,7 @@ class Location(object):
             return pip_is_archive_file( path )
 
 
-    def folder_name_from_path( self, path, cuppa_env ):
+    def folder_name_from_path( self, path ):
 
         replacement_regex = r'[$\\/+:() ]'
 
@@ -180,9 +184,9 @@ class Location(object):
 
         def name_from_dir( path ):
             if not os.path.isabs( path ):
-                path = os.path.normpath( os.path.join( cuppa_env['sconstruct_dir'], path ) )
+                path = os.path.normpath( os.path.join( self._cuppa_env['sconstruct_dir'], path ) )
                 logger.debug( "normalised path = [{}]".format( path ) )
-            common, tail1, tail2 = split_common( cuppa_env['abs_sconscript_dir'], os.path.abspath( path ) )
+            common, tail1, tail2 = split_common( self._cuppa_env['abs_sconscript_dir'], os.path.abspath( path ) )
             logger.debug( "common[{}], tail1[{}], tail2[{}]".format( as_notice( common ), as_notice( tail1 ), as_notice( tail2 ) ) )
             return tail2 and tail2 or ""
 
@@ -218,11 +222,11 @@ class Location(object):
         return expanded
 
 
-    def get_local_directory_for_non_url( self, cuppa_env, location, sub_dir, branch_path, base ):
+    def get_local_directory_for_non_url( self, location, sub_dir, branch_path, base ):
 
         if pip_is_archive_file( location ):
 
-            self._local_folder = self.folder_name_from_path( location, cuppa_env )
+            self._local_folder = self.folder_name_from_path( location )
             local_directory = os.path.join( base, self._local_folder )
 
             local_dir_with_sub_dir = os.path.join( local_directory, sub_dir and sub_dir or "" )
@@ -239,7 +243,7 @@ class Location(object):
 
         else:
             local_directory = branch_path and os.path.join( location, branch_path ) or location
-            self._local_folder = self.folder_name_from_path( location, cuppa_env )
+            self._local_folder = self.folder_name_from_path( location )
 
             logger.debug( "(local file) Location = [{}]".format( as_info( location ) ) )
             logger.debug( "(local file) Local folder = [{}]".format( as_info( self._local_folder ) ) )
@@ -247,7 +251,7 @@ class Location(object):
         return local_directory
 
 
-    def get_local_directory_for_download_url( self, cuppa_env, location, sub_dir, local_directory ):
+    def get_local_directory_for_download_url( self, location, sub_dir, local_directory ):
 
         logger.debug( "[{}] is an archive download".format( as_info( location ) ) )
 
@@ -266,11 +270,11 @@ class Location(object):
 
                 return local_directory
 
-        if cuppa_env['dump'] or cuppa_env['clean']:
+        if self._cuppa_env['dump'] or self._cuppa_env['clean']:
             return local_directory
 
         # If not we then check to see if we cached the download
-        cached_archive = self.get_cached_archive( cuppa_env['cache_root'], self._local_folder )
+        cached_archive = self.get_cached_archive( self._cuppa_env['cache_root'], self._local_folder )
         if cached_archive:
             logger.debug( "Cached archive [{}] found for [{}]".format(
                     as_info( cached_archive ),
@@ -290,8 +294,8 @@ class Location(object):
                         as_info( filename )
                 ) )
                 self.extract( filename, local_dir_with_sub_dir )
-                if cuppa_env['cache_root']:
-                    cached_archive = os.path.join( cuppa_env['cache_root'], self._local_folder )
+                if self._cuppa_env['cache_root']:
+                    cached_archive = os.path.join( self._cuppa_env['cache_root'], self._local_folder )
                     logger.debug( "Caching downloaded file as [{}]".format( as_info( cached_archive ) ) )
                     shutil.copyfile( filename, cached_archive )
             except ContentTooShortError as error:
@@ -304,7 +308,7 @@ class Location(object):
         return local_directory
 
 
-    def update_from_repository( self, cuppa_env, location, full_url, local_dir_with_sub_dir, vc_type, vcs_backend ):
+    def update_from_repository( self, location, full_url, local_dir_with_sub_dir, vc_type, vcs_backend ):
         url, repository, branch, remote, revision = self.get_info( location, local_dir_with_sub_dir, full_url, vc_type )
         rev_options = self.get_rev_options( vc_type, vcs_backend, local_remote=remote )
         version = self.ver_rev_summary( branch, revision, self._full_url.path )[0]
@@ -326,7 +330,7 @@ class Location(object):
             ) )
 
 
-    def obtain_from_repository( self, cuppa_env, location, full_url, local_dir_with_sub_dir, vc_type, vcs_backend ):
+    def obtain_from_repository( self, location, full_url, local_dir_with_sub_dir, vc_type, vcs_backend ):
         rev_options = self.get_rev_options( vc_type, vcs_backend )
         action = "Cloning"
         if vc_type == "svn":
@@ -360,7 +364,7 @@ class Location(object):
                     raise LocationException( str(error) )
 
 
-    def get_local_directory_for_repository( self, cuppa_env, location, sub_dir, full_url, local_directory ):
+    def get_local_directory_for_repository( self, location, sub_dir, full_url, local_directory ):
         vc_type = location.split('+', 1)[0]
         backend = pip_vcs.vcs.get_backend( vc_type )
         if not backend:
@@ -370,7 +374,7 @@ class Location(object):
             ) )
             raise LocationException( "URL VC of [{}] for [{}] NOT recognised so location cannot be retrieved".format( vc_type, location ) )
 
-        if cuppa_env['dump'] or cuppa_env['clean']:
+        if self._cuppa_env['dump'] or self._cuppa_env['clean']:
             return local_directory
 
         local_dir_with_sub_dir = os.path.join( local_directory, sub_dir and sub_dir or "" )
@@ -383,9 +387,9 @@ class Location(object):
                 vcs_backend = backend
 
             if os.path.exists( local_directory ):
-                self.update_from_repository( cuppa_env, location, full_url, local_dir_with_sub_dir, vc_type, vcs_backend )
+                self.update_from_repository( location, full_url, local_dir_with_sub_dir, vc_type, vcs_backend )
             else:
-                self.obtain_from_repository( cuppa_env, location, full_url, local_dir_with_sub_dir, vc_type, vcs_backend )
+                self.obtain_from_repository( location, full_url, local_dir_with_sub_dir, vc_type, vcs_backend )
 
             logger.debug( "(url path) Location = [{}]".format( as_info( location ) ) )
             logger.debug( "(url path) Local folder = [{}]".format( as_info( self._local_folder ) ) )
@@ -437,7 +441,7 @@ class Location(object):
         return local_directory
 
 
-    def get_local_directory( self, cuppa_env, location, sub_dir, branch_path, full_url ):
+    def get_local_directory( self, location, sub_dir, branch_path, full_url ):
 
         logger.debug( "Determine local directory for [{location}] when {offline}".format(
                 location=as_info(location),
@@ -446,25 +450,25 @@ class Location(object):
 
         local_directory = None
 
-        base = cuppa_env['download_root']
+        base = self._cuppa_env['download_root']
         if not os.path.isabs( base ):
-            base = os.path.join( cuppa_env['working_dir'], base )
+            base = os.path.join( self._cuppa_env['working_dir'], base )
 
         if location.startswith( 'file:' ):
             location = pip_download.url_to_path( location )
 
         if not pip_is_url( location ):
-            return self.get_local_directory_for_non_url( cuppa_env, location, sub_dir, branch_path, base )
+            return self.get_local_directory_for_non_url( location, sub_dir, branch_path, base )
 
         else:
-            self._local_folder = self.folder_name_from_path( full_url, cuppa_env )
+            self._local_folder = self.folder_name_from_path( full_url )
             local_directory = os.path.join( base, self._local_folder )
 
             if full_url.scheme.startswith( 'http' ) and self.url_is_download_archive_url( full_url.path ):
-                return self.get_local_directory_for_download_url( cuppa_env, location, sub_dir, local_directory )
+                return self.get_local_directory_for_download_url( location, sub_dir, local_directory )
 
             elif '+' in full_url.scheme:
-                return self.get_local_directory_for_repository( cuppa_env, location, sub_dir, full_url, local_directory )
+                return self.get_local_directory_for_repository( location, sub_dir, full_url, local_directory )
 
             return local_directory
 
@@ -554,10 +558,9 @@ class Location(object):
         return version, revision
 
 
-    @classmethod
-    def replace_sconstruct_anchor( cls, path, cuppa_env ):
+    def replace_sconstruct_anchor( self, path ):
         if path.startswith( "#" ):
-            path = os.path.join( cuppa_env['sconstruct_dir'], path[1:] )
+            path = os.path.join( self._cuppa_env['sconstruct_dir'], path[1:] )
         return path
 
 
@@ -586,25 +589,25 @@ class Location(object):
                 as_info( str(name_hint) )
         ) )
 
-        location = self.replace_sconstruct_anchor( location, cuppa_env )
+        self._cuppa_env = cuppa_env
+        self._supports_relative_versioning = False
+        self._current_branch = self._cuppa_env['current_branch']
+        self._offline = self.option_set('offline')
+        offline = self._offline
+
+        location = self.replace_sconstruct_anchor( location )
 
         if develop:
             if not os.path.isabs( develop ):
                 develop = '#' + develop
-            develop = self.replace_sconstruct_anchor( develop, cuppa_env )
+            develop = self.replace_sconstruct_anchor( develop )
             logger.debug( "Develop location specified [{}]".format( as_info( develop ) ) )
 
-        if 'develop' in cuppa_env and cuppa_env['develop'] and develop:
+        if self.option_set('develop') and develop:
             location = develop
             logger.debug( "--develop specified so using location=develop=[{}]".format( as_info( develop ) ) )
 
-        self._cuppa_env = cuppa_env
-        self._supports_relative_versioning = False
-        self._current_branch = cuppa_env['current_branch']#
-        self._offline = 'offline' in cuppa_env and cuppa_env['offline'] or False
-        offline = self._offline
-
-        scm_location  = location
+        scm_location = location
 
         if location[-1] == '@':
             self._supports_relative_versioning = True
@@ -653,8 +656,7 @@ class Location(object):
         elif( scm_system
                 and not versioning
                 and not offline
-                and 'location_explicit_default_branch' in cuppa_env
-                and cuppa_env['location_explicit_default_branch']
+                and self.option_set('location_explicit_default_branch')
         ):
             default_branch = scm_system.remote_default_branch( repo_location )
             if default_branch:
@@ -676,7 +678,7 @@ class Location(object):
         ## Get the location for the source dependency. If the location is a URL or an Archive we'll need to
         ## retrieve the URL and extract the archive. get_local_directory() returns the location of the source
         ## once this is done
-        local_directory = self.get_local_directory( cuppa_env, self._location, self._sub_dir, branch_path, self._full_url )
+        local_directory = self.get_local_directory( self._location, self._sub_dir, branch_path, self._full_url )
 
         logger.trace( "Local Directory for [{}] returned as [{}]".format(
                 as_notice( self._location ),
