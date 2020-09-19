@@ -38,7 +38,7 @@ import logging
 
 from .scms import scms, subversion, git, mercurial, bazaar
 
-from cuppa.colourise import as_notice, as_info, as_warning, as_error
+from cuppa.colourise import as_notice, as_info, as_warning, as_error, as_info_label, as_error_label
 from cuppa.log import logger, register_secret
 from cuppa.path import split_common
 from cuppa.utility.python2to3 import as_str
@@ -64,7 +64,6 @@ def get_common_top_directory_under( path ):
     if len(dirs) == 1 and os.path.isdir( top_dir ):
         return dirs[0]
     return None
-
 
 class ReportDownloadProgress(object):
 
@@ -102,6 +101,11 @@ class Location(object):
                 logger.debug( "Found cached archive [{}] skipping download".format( as_info( archive ) ) )
                 return os.path.join( cache_root, archive )
         return None
+
+
+    @classmethod
+    def location_match_current_branch( cls, cuppa_env ):
+        return 'location_match_current_branch' in cuppa_env and cuppa_env['location_match_current_branch']
 
 
     @classmethod
@@ -305,25 +309,22 @@ class Location(object):
         url, repository, branch, remote, revision = self.get_info( location, local_dir_with_sub_dir, full_url, vc_type )
         rev_options = self.get_rev_options( vc_type, vcs_backend, local_remote=remote )
         version = self.ver_rev_summary( branch, revision, self._full_url.path )[0]
-        if not cuppa_env['offline']:
-            logger.info( "Updating [{}] in [{}]{} at [{}]".format(
-                    as_info( location ),
-                    as_notice( local_dir_with_sub_dir ),
-                    ( rev_options and  " on {}".format( as_notice( str(rev_options) ) ) or "" ),
-                    as_info( version )
+        logger.info( "Updating [{}] in [{}]{} at [{}]".format(
+                as_info( location ),
+                as_notice( local_dir_with_sub_dir ),
+                ( rev_options and  " on {}".format( as_notice( str(rev_options) ) ) or "" ),
+                as_info( version )
+        ) )
+        try:
+            update( vcs_backend, local_dir_with_sub_dir, rev_options )
+            logger.debug( "Successfully updated [{}]".format( as_info( location ) ) )
+        except pip_exceptions.PipError as error:
+            logger.warn( "Could not update [{}] in [{}]{} due to error [{}]".format(
+                    as_warning( location ),
+                    as_warning( local_dir_with_sub_dir ),
+                    ( rev_options and  " at {}".format( as_warning( str(rev_options) ) ) or "" ),
+                    as_warning( str(error) )
             ) )
-            try:
-                update( vcs_backend, local_dir_with_sub_dir, rev_options )
-                logger.debug( "Successfully updated [{}]".format( as_info( location ) ) )
-            except pip_exceptions.PipError as error:
-                logger.warn( "Could not update [{}] in [{}]{} due to error [{}]".format(
-                        as_warning( location ),
-                        as_warning( local_dir_with_sub_dir ),
-                        ( rev_options and  " at {}".format( as_warning( str(rev_options) ) ) or "" ),
-                        as_warning( str(error) )
-                ) )
-        else:
-            logger.debug( "Skipping update for [{}] as running in offline mode".format( as_info( location ) ) )
 
 
     def obtain_from_repository( self, cuppa_env, location, full_url, local_dir_with_sub_dir, vc_type, vcs_backend ):
@@ -370,29 +371,62 @@ class Location(object):
             ) )
             raise LocationException( "URL VC of [{}] for [{}] NOT recognised so location cannot be retrieved".format( vc_type, location ) )
 
-        try:
-            vcs_backend = backend( self.expand_secret( location ) )
-        except: # Pip version >= 19
-            backend.url = self.expand_secret( location )
-            vcs_backend = backend
-
-        local_dir_with_sub_dir = os.path.join( local_directory, sub_dir and sub_dir or "" )
-
         if cuppa_env['dump'] or cuppa_env['clean']:
             return local_directory
 
-        if os.path.exists( local_directory ):
-            self.update_from_repository( cuppa_env, location, full_url, local_dir_with_sub_dir, vc_type, vcs_backend )
-        else:
-            self.obtain_from_repository( cuppa_env, location, full_url, local_dir_with_sub_dir, vc_type, vcs_backend )
+        local_dir_with_sub_dir = os.path.join( local_directory, sub_dir and sub_dir or "" )
 
-        logger.debug( "(url path) Location = [{}]".format( as_info( location ) ) )
-        logger.debug( "(url path) Local folder = [{}]".format( as_info( self._local_folder ) ) )
+        if not self._offline:
+            try:
+                vcs_backend = backend( self.expand_secret( location ) )
+            except: # Pip version >= 19
+                backend.url = self.expand_secret( location )
+                vcs_backend = backend
+
+            if os.path.exists( local_directory ):
+                self.update_from_repository( cuppa_env, location, full_url, local_dir_with_sub_dir, vc_type, vcs_backend )
+            else:
+                self.obtain_from_repository( cuppa_env, location, full_url, local_dir_with_sub_dir, vc_type, vcs_backend )
+
+            logger.debug( "(url path) Location = [{}]".format( as_info( location ) ) )
+            logger.debug( "(url path) Local folder = [{}]".format( as_info( self._local_folder ) ) )
+        else:
+            branched_local_directory = None
+            # If relative versioning is in play and we are offline check first to see
+            # if the specified branch is available and prefer that one
+            if self._relative_versioning and self._current_branch:
+                branched_local_directory = local_directory + "@" + self._current_branch
+                if os.path.exists( branched_local_directory ):
+                    return branched_local_directory
+            # If the preferred branch is not available then fallback to the
+            # default of no branch being specified
+            if os.path.exists( local_directory ):
+                return local_directory
+            else:
+                logger.error( "Running in {offline} mode and neither [{local_dir}]"
+                            " or a branched dir [{branched_dir}] exist so location"
+                            " cannot be retrieved".format(
+                        offline      = as_info_label("OFFLINE"),
+                        local_dir    = as_error(local_directory),
+                        branched_dir = as_error(str(branched_local_directory))
+                ) )
+                raise LocationException( "Running in {offline} mode and neither"
+                                        " [{local_dir}] or a branched dir [{branched_dir}]"
+                                        " exist so location cannot be retrieved".format(
+                        offline      = as_info_label("OFFLINE"),
+                        local_dir    = as_error(local_directory),
+                        branched_dir = as_error(str(branched_local_directory))
+                ) )
 
         return local_directory
 
 
     def get_local_directory( self, cuppa_env, location, sub_dir, branch_path, full_url ):
+
+        logger.debug( "Determine local directory for [{location}] when {offline}".format(
+                location=as_info(location),
+                offline= self._offline and as_info_label("OFFLINE") or "online"
+        ) )
 
         local_directory = None
 
@@ -525,6 +559,7 @@ class Location(object):
             return scms.get_scms( vc_type ), vc_type, repo_location, versioning
         return None, None, None, None
 
+
     def __init__( self, cuppa_env, location, develop=None, branch_path=None, extra_sub_path=None, name_hint=None ):
 
         logger.debug( "Create location using location=[{}], develop=[{}], branch_path=[{}], extra_sub_path=[{}], name_hint=[{}]".format(
@@ -548,29 +583,51 @@ class Location(object):
             logger.debug( "--develop specified so using location=develop=[{}]".format( as_info( develop ) ) )
 
         self._relative_versioning = False
-        scm_location = location
+        self._current_branch = cuppa_env['current_branch']#
+        self._offline = 'offline' in cuppa_env and cuppa_env['offline'] or False
+        offline = self._offline
+
+        scm_location  = location
 
         if location[-1] == '@':
             self._relative_versioning = True
             scm_location = location[:-1]
 
-        offline = cuppa_env['offline']
         scm_system, vc_type, repo_location, versioning = self.get_scm_system_and_info( self.expand_secret( scm_location ) )
 
+        logger.debug( "Local location and actions for [{location}] being determined in context:{offline}"
+                      " vc_type=[{vc_type}], repo_location=[{repo_location}],"
+                      " versioning=[{versioning}]".format(
+                location = as_info(location),
+                offline  = self._offline and " " + as_info_label("OFFLINE") + "," or "",
+                vc_type = as_info(str(vc_type)),
+                repo_location = as_info(str(repo_location)),
+                versioning = as_info(str(versioning))
+        ) )
+
         if self._relative_versioning:
-            if 'location_match_current_branch' in cuppa_env and cuppa_env['location_match_current_branch']:
+            if self.location_match_current_branch(cuppa_env):
                 if not scm_system:
                     logger.warn( "Location [{}] specified using relative versioning, but no SCM system is available"
                                  " that matches the version control type [{}]. Relative versioning will be ignored"
                                  " for this location.".format( location, vc_type ) )
                 else:
                     branch_exists = False
-                    current_branch = cuppa_env['current_branch']
-                    if current_branch:
+                    logger.debug( "Relative branching active for [{location}] with"
+                                  " current branch [{branch}]".format(
+                            location=as_info(str(location)),
+                            branch=as_info(str(self._current_branch))
+                    ) )
+
+                    if self._current_branch:
                         # Try to checkout on the explicit branch but if that fails fall back to
                         # to the default by stripping off the '@' from the end of the path
-                        if offline or scm_system.remote_branch_exists( repo_location, current_branch ):
-                            scm_location = location + current_branch
+                        if not offline and scm_system.remote_branch_exists( repo_location, self._current_branch ):
+                            scm_location = location + self._current_branch
+                            logger.trace( "scm_location = [{scm_location}]".format(
+                                    scm_location=as_info(str(scm_location))
+                            ) )
+
             elif scm_system and not offline:
                 default_branch = scm_system.remote_default_branch( repo_location )
                 if default_branch:
