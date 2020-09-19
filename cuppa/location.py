@@ -404,6 +404,11 @@ class Location(object):
                     if os.path.exists( branched_local_directory ):
                         return branched_local_directory
 
+            elif self._supports_relative_versioning and self._default_branch:
+                branched_local_directory = local_directory + "@" + self._default_branch
+                if os.path.exists( branched_local_directory ):
+                    return branched_local_directory
+
             # If the preferred branch is not available then fallback to the
             # default of no branch being specified
             if os.path.exists( local_directory ):
@@ -594,6 +599,7 @@ class Location(object):
         self._current_branch = self._cuppa_env['current_branch']
         self._offline = self.option_set('offline')
         offline = self._offline
+        self._default_branch = self._cuppa_env['location_default_branch']
 
         location = self.replace_sconstruct_anchor( location )
 
@@ -649,18 +655,18 @@ class Location(object):
                             ) )
 
             elif scm_system and not offline:
-                default_branch = scm_system.remote_default_branch( repo_location )
-                if default_branch:
-                    scm_location = location + default_branch
+                self._default_branch = scm_system.remote_default_branch( repo_location )
+                if self._default_branch:
+                    scm_location = location + self._default_branch
 
         elif( scm_system
                 and not versioning
                 and not offline
                 and self.option_set('location_explicit_default_branch')
         ):
-            default_branch = scm_system.remote_default_branch( repo_location )
-            if default_branch:
-                scm_location = location + '@' + default_branch
+            self._default_branch = scm_system.remote_default_branch( repo_location )
+            if self._default_branch:
+                scm_location = location + '@' + self._default_branch
 
         location = scm_location
 

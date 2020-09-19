@@ -13,6 +13,12 @@ def add_location_options( add_option ):
     add_option( '--develop', dest='develop', action='store_true',
                 help="Tell all locations to use their develop location if specified" )
 
+    add_option( '--location-default-branch', dest='location_default_branch', nargs=1, action='store',
+                default="master",
+                help="Tell cuppa what the name of the default branch is so it can be used"
+                     " correctly choose between default available branches and other branches"
+                     " when operating in offline mode." )
+
     add_option( '--location-match-current-branch', dest='location_match_current_branch', action='store_true',
                 help="If the current source is checked out on a particular branch then"
                      " any locations marked as \"relative\", this is, they are specified"
@@ -30,6 +36,7 @@ def add_location_options( add_option ):
 
 def process_location_options( cuppa_env ):
 
-    cuppa_env['develop'] = cuppa_env.get_option( 'develop' )
-    cuppa_env['location_match_current_branch'] = cuppa_env.get_option( 'location_match_current_branch' )
+    cuppa_env['develop']                          = cuppa_env.get_option( 'develop' )
+    cuppa_env['location_default_branch']          = cuppa_env.get_option( 'location_default_branch' )
+    cuppa_env['location_match_current_branch']    = cuppa_env.get_option( 'location_match_current_branch' )
     cuppa_env['location_explicit_default_branch'] = cuppa_env.get_option( 'location_explicit_default_branch' )
