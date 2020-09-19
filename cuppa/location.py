@@ -103,9 +103,8 @@ class Location(object):
         return None
 
 
-    @classmethod
-    def location_match_current_branch( cls, cuppa_env ):
-        return 'location_match_current_branch' in cuppa_env and cuppa_env['location_match_current_branch']
+    def location_match_current_branch( self ):
+        return 'location_match_current_branch' in self._cuppa_env and self._cuppa_env['location_match_current_branch']
 
 
     @classmethod
@@ -392,31 +391,48 @@ class Location(object):
             logger.debug( "(url path) Local folder = [{}]".format( as_info( self._local_folder ) ) )
         else:
             branched_local_directory = None
-            # If relative versioning is in play and we are offline check first to see
-            # if the specified branch is available and prefer that one
-            if self._relative_versioning and self._current_branch:
-                branched_local_directory = local_directory + "@" + self._current_branch
-                if os.path.exists( branched_local_directory ):
-                    return branched_local_directory
+
+            if self.location_match_current_branch():
+                # If relative versioning is in play and we are offline check first to see
+                # if the specified branch is available and prefer that one
+                if self._supports_relative_versioning and self._current_branch:
+                    branched_local_directory = local_directory + "@" + self._current_branch
+                    if os.path.exists( branched_local_directory ):
+                        return branched_local_directory
+
             # If the preferred branch is not available then fallback to the
             # default of no branch being specified
             if os.path.exists( local_directory ):
                 return local_directory
             else:
-                logger.error( "Running in {offline} mode and neither [{local_dir}]"
-                            " or a branched dir [{branched_dir}] exist so location"
-                            " cannot be retrieved".format(
-                        offline      = as_info_label("OFFLINE"),
-                        local_dir    = as_error(local_directory),
-                        branched_dir = as_error(str(branched_local_directory))
-                ) )
-                raise LocationException( "Running in {offline} mode and neither"
-                                        " [{local_dir}] or a branched dir [{branched_dir}]"
-                                        " exist so location cannot be retrieved".format(
-                        offline      = as_info_label("OFFLINE"),
-                        local_dir    = as_error(local_directory),
-                        branched_dir = as_error(str(branched_local_directory))
-                ) )
+                if self.location_match_current_branch():
+                    logger.error(
+                        "Running in {offline} mode and neither [{local_dir}] or a branched dir"
+                        " [{branched_dir}] exists so location cannot be retrieved".format(
+                            offline      = as_info_label("OFFLINE"),
+                            local_dir    = as_error(local_directory),
+                            branched_dir = as_error(str(branched_local_directory))
+                    ) )
+                    raise LocationException(
+                        "Running in {offline} mode and neither [{local_dir}] or a branched dir"
+                        " [{branched_dir}] exists so location cannot be retrieved".format(
+                            offline      = "OFFLINE",
+                            local_dir    = local_directory,
+                            branched_dir = str(branched_local_directory)
+                    ) )
+                else:
+                    logger.error(
+                        "Running in {offline} mode and [{local_dir}] does not exist"
+                        " so location cannot be retrieved".format(
+                            offline      = as_info_label("OFFLINE"),
+                            local_dir    = as_error(local_directory)
+                    ) )
+                    raise LocationException(
+                        "Running in {offline} mode and [{local_dir}] does not exist"
+                        " so location cannot be retrieved".format(
+                            offline      = "OFFLINE",
+                            local_dir    = local_directory
+                    ) )
 
         return local_directory
 
@@ -582,7 +598,8 @@ class Location(object):
             location = develop
             logger.debug( "--develop specified so using location=develop=[{}]".format( as_info( develop ) ) )
 
-        self._relative_versioning = False
+        self._cuppa_env = cuppa_env
+        self._supports_relative_versioning = False
         self._current_branch = cuppa_env['current_branch']#
         self._offline = 'offline' in cuppa_env and cuppa_env['offline'] or False
         offline = self._offline
@@ -590,7 +607,7 @@ class Location(object):
         scm_location  = location
 
         if location[-1] == '@':
-            self._relative_versioning = True
+            self._supports_relative_versioning = True
             scm_location = location[:-1]
 
         scm_system, vc_type, repo_location, versioning = self.get_scm_system_and_info( self.expand_secret( scm_location ) )
@@ -605,8 +622,8 @@ class Location(object):
                 versioning = as_info(str(versioning))
         ) )
 
-        if self._relative_versioning:
-            if self.location_match_current_branch(cuppa_env):
+        if self._supports_relative_versioning:
+            if self.location_match_current_branch():
                 if not scm_system:
                     logger.warn( "Location [{}] specified using relative versioning, but no SCM system is available"
                                  " that matches the version control type [{}]. Relative versioning will be ignored"
