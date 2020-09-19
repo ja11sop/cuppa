@@ -11,11 +11,12 @@ import subprocess
 import re
 import os
 import six
+import psutil
 from cuppa.utility.python2to3 import as_str, as_byte_str, Exception
 
 
 class LineConsumer(object):
-  
+
     _empty_str = as_byte_str("")
 
     def __init__( self, call_readline, processor=None ):
@@ -49,6 +50,22 @@ class MaskSecrets(object):
         return message
 
 
+def restrict_cpus():
+    process = psutil.Process()
+    core_count = psutil.cpu_count()
+    with process.oneshot():
+        if core_count <= 2:
+            process.cpu_affinity( list(range(core_count)) )
+        elif core_count <=4:
+            process.cpu_affinity( list(range(core_count-1)) )
+        elif core_count <=16:
+            process.cpu_affinity( list(range(core_count-2)) )
+        elif core_count <=32:
+            process.cpu_affinity( list(range(core_count-3)) )
+        else:
+            process.cpu_affinity( list(range(core_count-4)) )
+
+
 def run_scons( args_list ):
 
     masker = MaskSecrets()
@@ -59,6 +76,9 @@ def run_scons( args_list ):
 
     try:
         args_list = ['scons'] + args_list + ['--cuppa-mode']
+
+        if '--parallel' in args_list:
+            restrict_cpus()
 
         stdout_processor = masker.mask
         stderr_processor = masker.mask

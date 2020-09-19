@@ -58,9 +58,10 @@ setup(
     install_requires = [
         'colorama',
         'gcovr',
-        'lxml',
         'grip',
         'jinja2',
+        'lxml',
+        'psutil',
         'six',
     ],
     entry_points = {
