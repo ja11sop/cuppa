@@ -106,7 +106,7 @@ class Git:
 
         match = re.search( r'HEAD(?:(?:[^ ]* -> |[^,]*, )(?P<refs>[^)]+))?', result )
 
-        if match:
+        if match and match.group("refs"):
             refs = [ { "ref":r.strip(), "type": "" } for r in match.group("refs").split(',') ]
             logger.trace( "Refs (using show) for [{}] are [{}]".format(
                     as_notice(path),
@@ -142,7 +142,16 @@ class Git:
 
             logger.trace( "Branch (using show) for [{}] is [{}]".format( as_notice(path), as_info(str(branch)) ) )
         else:
-            logger.warn( "No branch found from [{}]".format( result ) )
+            if result == "(HEAD)":
+                command = "{git} branch".format( git=cls.binary() )
+                branch_info = cls.execute_command( command )
+                if branch_info:
+                    match = re.search( r'(no branch, rebasing (?P<branch>[^)]+))', branch_info )
+                    if match:
+                        branch = match.group("branch")
+                        logger.warn( as_warning( "Currently rebasing branch [{}]".format( branch ) ) )
+        if not branch:
+            logger.warn( as_warning( "No branch found from [{}]".format( result ) ) )
 
         return branch, remote
 
