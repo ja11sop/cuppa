@@ -44,15 +44,18 @@ class LineConsumer:
 
 
     def __call__( self ):
-        for line in iter( self.call_readline, "" ):
-            line = as_str( line.rstrip() )
-            if line:
-                if self.processor:
-                    line = self.processor( line )
-                    if line:
+        try:
+            for line in iter( self.call_readline, "" ):
+                line = as_str( line.rstrip() )
+                if line:
+                    if self.processor:
+                        line = self.processor( line )
+                        if line:
+                            print( line )
+                    else:
                         print( line )
-                else:
-                    print( line )
+        except UnicodeDecodeError as error:
+            print( "WARNING: Ignoring unicode error {}".format( error ) )
 
 
 

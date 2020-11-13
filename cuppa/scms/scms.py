@@ -43,8 +43,8 @@ def get_current_rev_info( path ):
                       " URL [{url}], Repository [{repo}], Branch [{branch}],"
                       " Remote [{remote}], Revision [{rev}]".format(
                     path   = as_notice(path),
-                    url    = as_info(url),
-                    repo   = as_info(repo),
+                    url    = url and as_info(url) or "<None>",
+                    repo   = repo and as_info(repo) or "<None>",
                     branch = branch and as_info(branch) or "<None>",
                     remote = remote and as_info(remote) or "<None>",
                     rev    = remote and as_info(rev) or "<None>"
