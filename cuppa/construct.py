@@ -510,7 +510,7 @@ class Construct(object):
             cuppa_env['job_count'] = job_count
             cuppa_env['parallel']  = parallel
             if job_count>1:
-                logger.debug( "Running in {} with option [{}] set {} as [{}]".format(
+                logger.info( "Running in {} with option [{}] set {} as [{}]".format(
                         as_emphasised("parallel mode"),
                         as_info( "jobs" ),
                         as_emphasised(parallel_mode),
