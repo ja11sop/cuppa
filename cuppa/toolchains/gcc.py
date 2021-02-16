@@ -553,6 +553,16 @@ class Gcc(object):
             'column'    : None,
         },
         {
+            'title'     : "In",
+            'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):[0-9]+)(:[ \t]+in .*)",
+            'meaning'   : 'message',
+            'highlight' : set( [ 1, 2 ] ),
+            'display'   : [ 1, 2, 4 ],
+            'file'      : 1,
+            'line'      : None,
+            'column'    : None,
+        },
+        {
             'title'     : "Compiler Warning 2",
             'regex'     : r"([][{}() \t#%@$~\w&_:+/\.-]+)(:([0-9]+):([0-9]+))(:[ \t]([Ww]arning:[ \t].*))",
             'meaning'   : 'warning',
