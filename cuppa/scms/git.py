@@ -66,6 +66,9 @@ class Git:
     def remote_branch_exists( cls, repository, branch ):
         command = "{git} ls-remote --heads {repository} {branch}".format( git=cls.binary(), repository=repository, branch=branch )
         result = cls.execute_command( command )
+        if not result:
+            command = "{git} ls-remote --tags {repository} {branch}".format( git=cls.binary(), repository=repository, branch=branch )
+            result = cls.execute_command( command )
         if result:
             for line in result.splitlines():
                 if line.startswith( "warning: redirecting"):
@@ -119,6 +122,9 @@ class Git:
                         ref["type"] = "L"
                     elif ref["ref"].startswith("refs/tags/"):
                         ref["ref"] = ref["ref"][len("refs/tags/"):]
+                        ref["type"] = "T"
+                    elif ref["ref"].startswith("tag: refs/tags/"):
+                        ref["ref"] = ref["ref"][len("tag: refs/tags/"):]
                         ref["type"] = "T"
                     elif ref["ref"].startswith("refs/remotes/"):
                         ref["ref"] = ref["ref"][len("refs/remotes/"):]
