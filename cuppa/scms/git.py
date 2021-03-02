@@ -101,6 +101,23 @@ class Git:
         branch = None
         remote = None
 
+        # Try git branch first as this should work on modern git, even with a detached HEAD
+        result = cls.execute_command( "{git} branch".format( git=cls.binary() ) )
+        if result:
+            match = re.search( r'[*] ([(]HEAD detached at )?(?P<branch>[^)\n]+)[)]?', result )
+            if match:
+                branch = match.group("branch")
+
+        # Try git status to find out the remote (if there is one) also should work on modern git
+        result = cls.execute_command( "{git} status -sb".format( git=cls.binary() ) )
+        if result:
+            match = re.search( r'## (?P<branch>[^)]+)[.][.][.](?P<remote>[^)\n]+)', result )
+            if match:
+                remote = match.group("remote")
+
+        if branch:
+            return branch, remote
+
         # In case we have a detached head we use this
         result = cls.execute_command(
                 "{git} show -s --pretty=\%d --decorate=full HEAD".format( git=cls.binary() ),
