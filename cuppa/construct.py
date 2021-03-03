@@ -402,6 +402,10 @@ class Construct(object):
                 url, repo, branch, remote, rev = cuppa.scms.scms.get_current_rev_info( cuppa_env['sconstruct_dir'] )
                 if branch:
                     cuppa_env['current_branch'] = branch
+                if rev:
+                    cuppa_env['current_revision'] = rev
+                if not branch:
+                    cuppa_env['current_branch'] = rev
 
         cuppa_env['default_projects']     = default_projects
         cuppa_env['default_variants']     = default_variants and set( default_variants ) or set()

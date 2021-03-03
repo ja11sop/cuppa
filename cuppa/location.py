@@ -398,7 +398,7 @@ class Location(object):
 
             if self.location_match_current_branch():
                 # If relative versioning is in play and we are offline check first to see
-                # if the specified branch is available and prefer that one
+                # if the specified branch or tag is available and prefer that one
                 if self._supports_relative_versioning and self._current_branch:
                     branched_local_directory = local_directory + "@" + self._current_branch
                     if os.path.exists( branched_local_directory ):
@@ -551,8 +551,10 @@ class Location(object):
     def ver_rev_summary( self, branch, revision, full_url_path ):
         if branch and revision:
             version = ' rev. '.join( [ str(branch), str(revision) ] )
-        elif branch and revision:
-            version = ' rev. '.join( [ str(branch), str(revision) ] )
+        elif not branch and revision:
+            version = 'rev. ' + str(revision)
+        elif branch:
+            version = str(branch)
         else:
             version = os.path.splitext( path_leaf( unquote( full_url_path ) ) )[0]
             name, ext = os.path.splitext( version )

@@ -96,87 +96,123 @@ class Git:
         return None
 
 
+    ## Example outputs:
+    #
+    ## 1. rebasing branch "rebase_test"
+    #
+    #    $ git branch
+    #    * (no branch, rebasing rebase_test)
+    #        master
+    #        rebase_test
+    #
+    #    $ git status -sb
+    #    ## HEAD (no branch)
+    #
+    #    $ git show -s --pretty=\%d --decorate=full HEAD
+    #     (HEAD, tag: refs/tags/product_beta_r1.13, refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+    #
+    ## 2. Detached HEAD
+    #
+    #    $ git branch
+    #    * (HEAD detached at product_beta_r1.13)
+    #      master
+    #
+    #    $ git status
+    #    HEAD detached at product_beta_r1.13
+    #    nothing to commit, working tree clean
+    #
+    #    $ git show -s --pretty=\%d --decorate=full HEAD
+    #     (HEAD, tag: refs/tags/product_beta_r1.9, tag: refs/tags/product_beta_r1.13, refs/remotes/origin/master, refs/remotes/origin/HEAD, refs/heads/master)
+    #
+    ## 3. normal
+    #
+
+
     @classmethod
     def get_branch( cls, path ):
         branch = None
         remote = None
 
-        # Try git branch first as this should work on modern git, even with a detached HEAD
-        result = cls.execute_command( "{git} branch".format( git=cls.binary() ) )
-        if result:
-            match = re.search( r'[*] ([(]HEAD detached at )?(?P<branch>[^)\n]+)[)]?', result )
-            if match:
-                branch = match.group("branch")
-
-        # Try git status to find out the remote (if there is one) also should work on modern git
-        result = cls.execute_command( "{git} status -sb".format( git=cls.binary() ) )
+        # Try git status to find out the branch and remote in one go
+        result = cls.execute_command( "{git} status -sb".format( git=cls.binary() ), path )
         if result:
             match = re.search( r'## (?P<branch>[^)]+)[.][.][.](?P<remote>[^)\n]+)', result )
             if match:
+                branch = match.group("branch")
                 remote = match.group("remote")
-
-        if branch:
-            return branch, remote
-
-        # In case we have a detached head we use this
-        result = cls.execute_command(
-                "{git} show -s --pretty=\%d --decorate=full HEAD".format( git=cls.binary() ),
-                path
-        )
-
-        match = re.search( r'HEAD(?:(?:[^ ]* -> |[^,]*, )(?P<refs>[^)]+))?', result )
-
-        if match and match.group("refs"):
-            refs = [ { "ref":r.strip(), "type": "" } for r in match.group("refs").split(',') ]
-            logger.trace( "Refs (using show) for [{}] are [{}]".format(
-                    as_notice(path),
-                    colour_items( (r["ref"] for r in refs) )
-            ) )
-            if refs:
-                for ref in refs:
-                    if ref["ref"].startswith("refs/heads/"):
-                        ref["ref"] = ref["ref"][len("refs/heads/"):]
-                        ref["type"] = "L"
-                    elif ref["ref"].startswith("refs/tags/"):
-                        ref["ref"] = ref["ref"][len("refs/tags/"):]
-                        ref["type"] = "T"
-                    elif ref["ref"].startswith("tag: refs/tags/"):
-                        ref["ref"] = ref["ref"][len("tag: refs/tags/"):]
-                        ref["type"] = "T"
-                    elif ref["ref"].startswith("refs/remotes/"):
-                        ref["ref"] = ref["ref"][len("refs/remotes/"):]
-                        ref["type"] = "R"
-                    else:
-                        ref["type"] = "U"
-
-                logger.trace( "Refs (after classification) for [{}] are [{}]".format(
-                        as_notice(path),
-                        colour_items( (":".join([r["type"], r["ref"]]) for r in refs) )
-                ) )
-
-                if refs[0]["type"] == "L":
-                    branch = refs[0]["ref"]
-                elif refs[0]["type"] == "T":
-                    branch = refs[0]["ref"]
-                elif refs[0]["type"] == "R":
-                    branch = refs[0]["ref"].split('/')[1]
-
-                remote = next( ( ref["ref"] for ref in refs if ref["type"]=="R" ), None )
-
-            logger.trace( "Branch (using show) for [{}] is [{}]".format( as_notice(path), as_info(str(branch)) ) )
-        else:
-            if result == "(HEAD)":
+            match = re.search( r'## HEAD (no branch)', result )
+            # Check if we are rebasing
+            if match:
                 command = "{git} branch".format( git=cls.binary() )
-                branch_info = cls.execute_command( command )
+                branch_info = cls.execute_command( command, path )
                 if branch_info:
                     match = re.search( r'(no branch, rebasing (?P<branch>[^)]+))', branch_info )
                     if match:
                         branch = match.group("branch")
                         logger.warn( as_warning( "Currently rebasing branch [{}]".format( branch ) ) )
-        if not branch:
-            logger.warn( as_warning( "No branch found from [{}]".format( result ) ) )
 
         return branch, remote
+
+        ## Old value
+        # In case we have a detached head we use this
+        #result = cls.execute_command(
+                #"{git} show -s --pretty=\%d --decorate=full HEAD".format( git=cls.binary() ),
+                #path
+        #)
+
+        #match = re.search( r'HEAD(?:(?:[^ ]* -> |[^,]*, )(?P<refs>[^)]+))?', result )
+
+        #if match and match.group("refs"):
+            #refs = [ { "ref":r.strip(), "type": "" } for r in match.group("refs").split(',') ]
+            #logger.trace( "Refs (using show) for [{}] are [{}]".format(
+                    #as_notice(path),
+                    #colour_items( (r["ref"] for r in refs) )
+            #) )
+            #if refs:
+                #for ref in refs:
+                    #if ref["ref"].startswith("refs/heads/"):
+                        #ref["ref"] = ref["ref"][len("refs/heads/"):]
+                        #ref["type"] = "L"
+                    #elif ref["ref"].startswith("refs/tags/"):
+                        #ref["ref"] = ref["ref"][len("refs/tags/"):]
+                        #ref["type"] = "T"
+                    #elif ref["ref"].startswith("tag: refs/tags/"):
+                        #ref["ref"] = ref["ref"][len("tag: refs/tags/"):]
+                        #ref["type"] = "T"
+                    #elif ref["ref"].startswith("refs/remotes/"):
+                        #ref["ref"] = ref["ref"][len("refs/remotes/"):]
+                        #ref["type"] = "R"
+                    #else:
+                        #ref["type"] = "U"
+
+                #logger.trace( "Refs (after classification) for [{}] are [{}]".format(
+                        #as_notice(path),
+                        #colour_items( (":".join([r["type"], r["ref"]]) for r in refs) )
+                #) )
+
+                #if refs[0]["type"] == "L":
+                    #branch = refs[0]["ref"]
+                #elif refs[0]["type"] == "T":
+                    #branch = refs[0]["ref"]
+                #elif refs[0]["type"] == "R":
+                    #branch = refs[0]["ref"].split('/')[1]
+
+                #remote = next( ( ref["ref"] for ref in refs if ref["type"]=="R" ), None )
+
+            #logger.trace( "Branch (using show) for [{}] is [{}]".format( as_notice(path), as_info(str(branch)) ) )
+        #else:
+            #if result == "(HEAD)":
+                #command = "{git} branch".format( git=cls.binary() )
+                #branch_info = cls.execute_command( command )
+                #if branch_info:
+                    #match = re.search( r'(no branch, rebasing (?P<branch>[^)]+))', branch_info )
+                    #if match:
+                        #branch = match.group("branch")
+                        #logger.warn( as_warning( "Currently rebasing branch [{}]".format( branch ) ) )
+        #if not branch:
+            #logger.warn( as_warning( "No branch found from [{}]".format( result ) ) )
+
+        #return branch, remote
 
 
     @classmethod
