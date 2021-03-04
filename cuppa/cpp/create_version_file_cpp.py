@@ -268,7 +268,7 @@ class CreateVersionFileCpp:
                         revisions = dependency.revisions()
                         if revisions:
                             for revision in revisions:
-                                lines += [ '    Dependencies[ "' +  name + '" ].revisions.push_back( "' + revision + '" );' ]
+                                lines += [ '    Dependencies[ "' +  name + '" ].revisions.push_back( "' + str(revision) + '" );' ]
                 except AttributeError:
                     pass
         lines += [ '    return Dependencies;\n'
