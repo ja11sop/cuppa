@@ -406,6 +406,13 @@ class Construct(object):
                     cuppa_env['current_revision'] = rev
                 if not branch:
                     cuppa_env['current_branch'] = rev
+                logger.info( "Current build on branch [{}] at revision [{}] from remote [{}] in [{}] at [{}]".format(
+                        as_info( str(branch) ),
+                        as_info( str(rev) ),
+                        as_info( str(remote) ),
+                        as_info( str(repo) ),
+                        as_info( str(url) )
+                ) )
 
         cuppa_env['default_projects']     = default_projects
         cuppa_env['default_variants']     = default_variants and set( default_variants ) or set()

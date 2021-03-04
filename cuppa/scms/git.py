@@ -133,86 +133,93 @@ class Git:
         branch = None
         remote = None
 
-        # Try git status to find out the branch and remote in one go
-        result = cls.execute_command( "{git} status -sb".format( git=cls.binary() ), path )
-        if result:
-            match = re.search( r'## (?P<branch>[^)]+)[.][.][.](?P<remote>[^)\n]+)', result )
+        head_detached = False
+        command = "{git} branch".format( git=cls.binary() )
+        branch_info = cls.execute_command( command, path )
+        if branch_info:
+            match = re.search( r'^[*] [(]HEAD detached ', branch_info )
             if match:
-                branch = match.group("branch")
-                remote = match.group("remote")
-            match = re.search( r'## HEAD (no branch)', result )
-            # Check if we are rebasing
-            if match:
-                command = "{git} branch".format( git=cls.binary() )
-                branch_info = cls.execute_command( command, path )
-                if branch_info:
-                    match = re.search( r'(no branch, rebasing (?P<branch>[^)]+))', branch_info )
-                    if match:
-                        branch = match.group("branch")
-                        logger.warn( as_warning( "Currently rebasing branch [{}]".format( branch ) ) )
+                head_detached = True
 
-        return branch, remote
+        if not head_detached:
+            result = cls.execute_command( "{git} status -sb".format( git=cls.binary() ), path )
+            if result:
+                match = re.search( r'## (?P<branch>[^)]+)[.][.][.](?P<remote>[^)\n]+)', result )
+                if match:
+                    branch = match.group("branch")
+                    remote = match.group("remote")
+                match = re.search( r'## HEAD (no branch)', result )
+                # Check if we are rebasing
+                if match:
+                    command = "{git} branch".format( git=cls.binary() )
+                    branch_info = cls.execute_command( command, path )
+                    if branch_info:
+                        match = re.search( r'(no branch, rebasing (?P<branch>[^)]+))', branch_info )
+                        if match:
+                            branch = match.group("branch")
+                            logger.warn( as_warning( "Currently rebasing branch [{}]".format( branch ) ) )
 
-        ## Old value
-        # In case we have a detached head we use this
-        #result = cls.execute_command(
-                #"{git} show -s --pretty=\%d --decorate=full HEAD".format( git=cls.binary() ),
-                #path
-        #)
+            return branch, remote
 
-        #match = re.search( r'HEAD(?:(?:[^ ]* -> |[^,]*, )(?P<refs>[^)]+))?', result )
+        else:
+            result = cls.execute_command(
+                    "{git} show -s --pretty=\%d --decorate=full HEAD".format( git=cls.binary() ),
+                    path
+            )
 
-        #if match and match.group("refs"):
-            #refs = [ { "ref":r.strip(), "type": "" } for r in match.group("refs").split(',') ]
-            #logger.trace( "Refs (using show) for [{}] are [{}]".format(
-                    #as_notice(path),
-                    #colour_items( (r["ref"] for r in refs) )
-            #) )
-            #if refs:
-                #for ref in refs:
-                    #if ref["ref"].startswith("refs/heads/"):
-                        #ref["ref"] = ref["ref"][len("refs/heads/"):]
-                        #ref["type"] = "L"
-                    #elif ref["ref"].startswith("refs/tags/"):
-                        #ref["ref"] = ref["ref"][len("refs/tags/"):]
-                        #ref["type"] = "T"
-                    #elif ref["ref"].startswith("tag: refs/tags/"):
-                        #ref["ref"] = ref["ref"][len("tag: refs/tags/"):]
-                        #ref["type"] = "T"
-                    #elif ref["ref"].startswith("refs/remotes/"):
-                        #ref["ref"] = ref["ref"][len("refs/remotes/"):]
-                        #ref["type"] = "R"
-                    #else:
-                        #ref["type"] = "U"
+            match = re.search( r'HEAD(?:(?:[^ ]* -> |[^,]*, )(?P<refs>[^)]+))?', result )
 
-                #logger.trace( "Refs (after classification) for [{}] are [{}]".format(
-                        #as_notice(path),
-                        #colour_items( (":".join([r["type"], r["ref"]]) for r in refs) )
-                #) )
+            if match and match.group("refs"):
+                refs = [ { "ref":r.strip(), "type": "" } for r in match.group("refs").split(',') ]
+                logger.trace( "Refs (using show) for [{}] are [{}]".format(
+                        as_notice(path),
+                        colour_items( (r["ref"] for r in refs) )
+                ) )
+                if refs:
+                    for ref in refs:
+                        if ref["ref"].startswith("refs/heads/"):
+                            ref["ref"] = ref["ref"][len("refs/heads/"):]
+                            ref["type"] = "L"
+                        elif ref["ref"].startswith("refs/tags/"):
+                            ref["ref"] = ref["ref"][len("refs/tags/"):]
+                            ref["type"] = "T"
+                        elif ref["ref"].startswith("tag: refs/tags/"):
+                            ref["ref"] = ref["ref"][len("tag: refs/tags/"):]
+                            ref["type"] = "T"
+                        elif ref["ref"].startswith("refs/remotes/"):
+                            ref["ref"] = ref["ref"][len("refs/remotes/"):]
+                            ref["type"] = "R"
+                        else:
+                            ref["type"] = "U"
 
-                #if refs[0]["type"] == "L":
-                    #branch = refs[0]["ref"]
-                #elif refs[0]["type"] == "T":
-                    #branch = refs[0]["ref"]
-                #elif refs[0]["type"] == "R":
-                    #branch = refs[0]["ref"].split('/')[1]
+                    logger.trace( "Refs (after classification) for [{}] are [{}]".format(
+                            as_notice(path),
+                            colour_items( (":".join([r["type"], r["ref"]]) for r in refs) )
+                    ) )
 
-                #remote = next( ( ref["ref"] for ref in refs if ref["type"]=="R" ), None )
+                    if refs[0]["type"] == "L":
+                        branch = refs[0]["ref"]
+                    #elif refs[0]["type"] == "T":
+                        #branch = refs[0]["ref"]
+                    elif refs[0]["type"] == "R":
+                        branch = refs[0]["ref"].split('/')[1]
 
-            #logger.trace( "Branch (using show) for [{}] is [{}]".format( as_notice(path), as_info(str(branch)) ) )
-        #else:
-            #if result == "(HEAD)":
-                #command = "{git} branch".format( git=cls.binary() )
-                #branch_info = cls.execute_command( command )
-                #if branch_info:
-                    #match = re.search( r'(no branch, rebasing (?P<branch>[^)]+))', branch_info )
-                    #if match:
-                        #branch = match.group("branch")
-                        #logger.warn( as_warning( "Currently rebasing branch [{}]".format( branch ) ) )
+                    remote = next( ( ref["ref"] for ref in refs if ref["type"]=="R" ), None )
+
+                logger.trace( "Branch (using show) for [{}] is [{}]".format( as_notice(path), as_info(str(branch)) ) )
+            else:
+                if result == "(HEAD)":
+                    command = "{git} branch".format( git=cls.binary() )
+                    branch_info = cls.execute_command( command )
+                    if branch_info:
+                        match = re.search( r'(no branch, rebasing (?P<branch>[^)]+))', branch_info )
+                        if match:
+                            branch = match.group("branch")
+                            logger.warn( as_warning( "Currently rebasing branch [{}]".format( branch ) ) )
         #if not branch:
             #logger.warn( as_warning( "No branch found from [{}]".format( result ) ) )
 
-        #return branch, remote
+        return branch, remote
 
 
     @classmethod
