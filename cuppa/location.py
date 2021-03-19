@@ -404,6 +404,11 @@ class Location(object):
                     if os.path.exists( branched_local_directory ):
                         return branched_local_directory
 
+                elif self._supports_relative_versioning and self._current_revision:
+                    branched_local_directory = local_directory + "@" + self._current_revision
+                    if os.path.exists( branched_local_directory ):
+                        return branched_local_directory
+
             elif self._supports_relative_versioning and self._default_branch:
                 branched_local_directory = local_directory + "@" + self._default_branch
                 if os.path.exists( branched_local_directory ):
@@ -599,6 +604,7 @@ class Location(object):
         self._cuppa_env = cuppa_env
         self._supports_relative_versioning = False
         self._current_branch = self._cuppa_env['current_branch']
+        self._current_revision = self._cuppa_env['current_revision']
         self._offline = self.option_set('offline')
         offline = self._offline
         self._default_branch = self._cuppa_env['location_default_branch']
@@ -642,9 +648,10 @@ class Location(object):
                 else:
                     branch_exists = False
                     logger.debug( "Relative branching active for [{location}] with"
-                                  " current branch [{branch}]".format(
+                                  " current branch [{branch}] and current revision [{revision}]".format(
                             location=as_info(str(location)),
-                            branch=as_info(str(self._current_branch))
+                            branch=as_info(str(self._current_branch)),
+                            revision=as_info(str(self._current_revision))
                     ) )
 
                     if self._current_branch:
@@ -652,6 +659,14 @@ class Location(object):
                         # to the default by stripping off the '@' from the end of the path
                         if not offline and scm_system.remote_branch_exists( repo_location, self._current_branch ):
                             scm_location = location + self._current_branch
+                            logger.trace( "scm_location = [{scm_location}]".format(
+                                    scm_location=as_info(str(scm_location))
+                            ) )
+                    elif self._current_revision:
+                        # Try to checkout on the explicit branch but if that fails fall back to
+                        # to the default by stripping off the '@' from the end of the path
+                        if not offline and scm_system.remote_branch_exists( repo_location, self._current_revision ):
+                            scm_location = location + self._current_revision
                             logger.trace( "scm_location = [{scm_location}]".format(
                                     scm_location=as_info(str(scm_location))
                             ) )

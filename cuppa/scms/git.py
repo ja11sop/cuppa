@@ -236,8 +236,13 @@ class Git:
         if not os.path.exists( os.path.join( path, ".git" ) ):
             raise cls.Error("Not a Git working copy")
 
-        command = "{git} describe --always".format( git=cls.binary() )
+        command = "{git} rev-parse HEAD".format( git=cls.binary() )
+        commit_sha = cls.execute_command( command, path )
+
+        command = "{git} name-rev --tags --name-only {commit_sha}".format( git=cls.binary(), commit_sha=commit_sha.strip() )
         revision = cls.execute_command( command, path )
+        if revision.strip() == "undefined":
+            revision = None
 
         branch, remote = cls.get_branch( path )
 

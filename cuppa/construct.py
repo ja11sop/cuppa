@@ -397,6 +397,7 @@ class Construct(object):
         cuppa.core.location_options.process_location_options( cuppa_env )
 
         cuppa_env['current_branch'] = ''
+        cuppa_env['current_revision'] = ''
         if not help and not self._configure.handle_conf_only():
             if cuppa_env['location_match_current_branch']:
                 url, repo, branch, remote, rev = cuppa.scms.scms.get_current_rev_info( cuppa_env['sconstruct_dir'] )
@@ -404,8 +405,6 @@ class Construct(object):
                     cuppa_env['current_branch'] = branch
                 if rev:
                     cuppa_env['current_revision'] = rev
-                if not branch:
-                    cuppa_env['current_branch'] = rev
                 logger.info( "Current build on branch [{}] at revision [{}] from remote [{}] in [{}] at [{}]".format(
                         as_info( str(branch) ),
                         as_info( str(rev) ),
