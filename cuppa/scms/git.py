@@ -66,15 +66,22 @@ class Git:
     def remote_branch_exists( cls, repository, branch ):
         command = "{git} ls-remote --heads {repository} {branch}".format( git=cls.binary(), repository=repository, branch=branch )
         result = cls.execute_command( command )
-        if not result:
-            command = "{git} ls-remote --tags {repository} {branch}".format( git=cls.binary(), repository=repository, branch=branch )
-            result = cls.execute_command( command )
         if result:
             for line in result.splitlines():
                 if line.startswith( "warning: redirecting"):
                     logger.trace( "Ignoring redirection warning and proceeding" )
                 elif branch in line:
                     logger.trace( "Branch {branch} found in {line}".format( branch=as_info(branch), line=as_notice(line) ) )
+                    return True
+        # Branch doesn't exist but a tag of the same name might
+        command = "{git} ls-remote --tags {repository} {branch}".format( git=cls.binary(), repository=repository, branch=branch )
+        result = cls.execute_command( command )
+        if result:
+            for line in result.splitlines():
+                if line.startswith( "warning: redirecting"):
+                    logger.trace( "Ignoring redirection warning and proceeding" )
+                elif branch in line:
+                    logger.trace( "Tag {branch} found in {line}".format( branch=as_info(branch), line=as_notice(line) ) )
                     return True
         return False
 
