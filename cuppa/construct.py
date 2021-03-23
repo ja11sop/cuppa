@@ -412,6 +412,10 @@ class Construct(object):
                         as_info( str(repo) ),
                         as_info( str(url) )
                 ) )
+            elif cuppa_env['location_match_tag']:
+                logger.info( "Build will attempt to build against repositories using the tag [{}]".format(
+                        as_info( str(cuppa_env['location_match_tag']) )
+                ) )
 
         cuppa_env['default_projects']     = default_projects
         cuppa_env['default_variants']     = default_variants and set( default_variants ) or set()
