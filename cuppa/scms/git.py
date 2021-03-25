@@ -151,7 +151,7 @@ class Git:
         if not head_detached:
             result = cls.execute_command( "{git} status -sb".format( git=cls.binary() ), path )
             if result:
-                match = re.search( r'## (?P<branch>[^)\n]+)([.][.][.](?P<remote>[^)\n]+))?', result )
+                match = re.search( r'## (?P<branch>(?:(?!\.\.)[^\^~:\s\\\n])+)(?:\.\.\.(?P<remote>[^\^~:\s\\\n]+))?', result )
                 if match:
                     branch = match.group("branch")
                     remote = match.group("remote")
