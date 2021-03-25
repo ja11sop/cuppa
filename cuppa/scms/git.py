@@ -151,7 +151,7 @@ class Git:
         if not head_detached:
             result = cls.execute_command( "{git} status -sb".format( git=cls.binary() ), path )
             if result:
-                match = re.search( r'## (?P<branch>[^)]+)[.][.][.](?P<remote>[^)\n]+)', result )
+                match = re.search( r'## (?P<branch>[^)\n]+)([.][.][.](?P<remote>[^)\n]+))?', result )
                 if match:
                     branch = match.group("branch")
                     remote = match.group("remote")
@@ -263,10 +263,10 @@ class Git:
 
         branch, remote = cls.get_branch( path )
 
-        if remote:
-            command = "{git} config --get remote.origin.url".format( git=cls.binary() )
-            repository = cls.execute_command( command, path )
-            url = repository
+        command = "{git} config --get remote.origin.url".format( git=cls.binary() )
+        repository = cls.execute_command( command, path )
+        repository = repository.strip()
+        url = repository
 
         return url, repository, branch, remote, revision
 
