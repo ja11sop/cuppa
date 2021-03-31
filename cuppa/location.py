@@ -111,6 +111,10 @@ class Location(object):
         return 'location_match_current_branch' in self._cuppa_env and self._cuppa_env['location_match_current_branch']
 
 
+    def location_match_branch( self ):
+        return 'location_match_branch' in self._cuppa_env and self._cuppa_env['location_match_branch']
+
+
     def location_match_tag( self ):
         return 'location_match_tag' in self._cuppa_env and self._cuppa_env['location_match_tag']
 
@@ -413,6 +417,12 @@ class Location(object):
                     if os.path.exists( branched_local_directory ):
                         return branched_local_directory
 
+            elif self.location_match_branch():
+                if self._supports_relative_versioning:
+                    branched_local_directory = local_directory + "@" + self.location_match_branch()
+                    if os.path.exists( branched_local_directory ):
+                        return branched_local_directory
+
             elif self.location_match_tag():
                 if self._supports_relative_versioning:
                     branched_local_directory = local_directory + "@" + self.location_match_tag()
@@ -676,6 +686,27 @@ class Location(object):
                         # to the default by stripping off the '@' from the end of the path
                         if not offline and scm_system.remote_branch_exists( repo_location, self._current_revision ):
                             scm_location = location + self._current_revision
+                            logger.trace( "scm_location = [{scm_location}]".format(
+                                    scm_location=as_info(str(scm_location))
+                            ) )
+
+            elif self.location_match_branch():
+                if not scm_system:
+                    logger.warn( "Location [{}] specified using relative versioning, but no SCM system is available"
+                                 " that matches the version control type [{}]. Relative versioning will be ignored"
+                                 " for this location.".format( location, vc_type ) )
+                else:
+                    logger.debug( "Relative branching active for [{location}] with"
+                                  " branch [{branch}]".format(
+                            location=as_info(str(location)),
+                            branch=as_info(str(self.location_match_branch()))
+                    ) )
+
+                    if self.location_match_branch():
+                        # Try to checkout on the explicit branch but if that fails fall back to
+                        # to the default by stripping off the '@' from the end of the path
+                        if not offline and scm_system.remote_branch_exists( repo_location, self.location_match_branch() ):
+                            scm_location = location + self.location_match_branch()
                             logger.trace( "scm_location = [{scm_location}]".format(
                                     scm_location=as_info(str(scm_location))
                             ) )

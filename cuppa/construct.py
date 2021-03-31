@@ -412,8 +412,12 @@ class Construct(object):
                         as_info( str(repo) ),
                         as_info( str(url) )
                 ) )
+            elif cuppa_env['location_match_branch']:
+                logger.info( "Build will attempt to build against repositories using the explicitly chosen branch [{}]".format(
+                        as_info( str(cuppa_env['location_match_branch']) )
+                ) )
             elif cuppa_env['location_match_tag']:
-                logger.info( "Build will attempt to build against repositories using the tag [{}]".format(
+                logger.info( "Build will attempt to build against repositories using the explicitly chosen tag [{}]".format(
                         as_info( str(cuppa_env['location_match_tag']) )
                 ) )
 
