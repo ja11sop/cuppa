@@ -15,7 +15,6 @@ import re
 import time
 import threading
 import shlex
-import colorama
 
 import platform
 import logging

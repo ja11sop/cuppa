@@ -12,7 +12,6 @@ import os
 import sys
 import shlex
 import re
-import six
 
 from SCons.Errors import BuildError
 from SCons.Script import Flatten

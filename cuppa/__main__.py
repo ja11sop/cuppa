@@ -108,7 +108,7 @@ def run_scons( args_list ):
         process.wait()
         return process.returncode
 
-    except Exception as e:
+    except Exception:
         if process:
             process.kill()
         if stderr_thread:

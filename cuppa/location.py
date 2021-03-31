@@ -38,7 +38,7 @@ import logging
 
 from .scms import scms, subversion, git, mercurial, bazaar
 
-from cuppa.colourise import as_notice, as_info, as_warning, as_error, as_info_label, as_error_label
+from cuppa.colourise import as_notice, as_info, as_warning, as_error, as_info_label
 from cuppa.log import logger, register_secret
 from cuppa.path import split_common
 from cuppa.utility.python2to3 import as_str

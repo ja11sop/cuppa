@@ -404,7 +404,7 @@ class GenerateHtmlReportBuilder(object):
         if name.startswith("."+os.path.sep):
             name = name[2:]
         # TODO: Check the assignment to sconscript_name as it is unused
-        sconscript_name = os.path.splitext( os.path.split( env['sconscript_file'] )[1] )[0]
+        # sconscript_name = os.path.splitext( os.path.split( env['sconscript_file'] )[1] )[0]
         return name + "/" + os.path.splitext( os.path.splitext( os.path.split( destination_path )[1] )[0] )[0]
 
 
@@ -555,9 +555,9 @@ class CollateReportIndexAction(object):
             logger.trace( "json_target = [{}]".format( as_info( str(json_target) ) ) )
 
             # TODO: Check use of destination as it is currently unused
-            destination = env['abs_final_dir']
-            if self._destination:
-                destination = self._destination + destination_subdir( env )
+            # destination = env['abs_final_dir']
+            # if self._destination:
+                # destination = self._destination + destination_subdir( env )
 
             logger.trace( "report_summary = {}".format( str( self._read( str(json_report) ) ) ) )
 

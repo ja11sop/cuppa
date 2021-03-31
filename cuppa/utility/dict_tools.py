@@ -10,8 +10,6 @@
 
 import six
 
-from cuppa.log import logger
-
 
 def args_from_dict( dictionary ):
     args = {}

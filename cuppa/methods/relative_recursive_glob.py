@@ -106,9 +106,7 @@ class GlobFilesMethod:
     def __call__( self, env, pattern, start=default ):
 
         start, rel_start, base_path = relative_start( env, start, self.default )
-
-        base = os.path.relpath( start, base_path )
-
+        # base = os.path.relpath( start, base_path )
         filenames = []
         for filename in os.listdir(start):
             if fnmatch.fnmatch( filename, pattern):
