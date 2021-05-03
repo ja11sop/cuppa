@@ -198,9 +198,9 @@ def _location_from_boost_version( location, offline ):
             if match.group('release_candidate'):
                 string_version += "_rc{}".format( match.group('release_candidate') )
 
-            # From 1.71 onwards source files use bintray.com as the primary upload location.
-            if packaging_version.parse(numeric_version) > packaging_version.parse("1.70"):
-                return "https://dl.bintray.com/boostorg/release/{numeric_version}/source/boost_{string_version}{extension}".format(
+            # From 1.64 onwards source files use jfrog.artifactory as the primary upload location.
+            if packaging_version.parse(numeric_version) > packaging_version.parse("1.64"):
+                return "https://boostorg.jfrog.io/artifactory/main/release/{numeric_version}/source/boost_{string_version}{extension}".format(
                             numeric_version = numeric_version,
                             string_version = string_version,
                             extension = extension
