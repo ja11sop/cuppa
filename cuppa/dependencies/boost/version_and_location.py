@@ -156,7 +156,7 @@ def get_boost_version( location ):
 
 
 def _determine_latest_boost_verion( offline ):
-    current_release = "1.76.0"
+    current_release = "1.77.0"
     if not offline:
         try:
             boost_version_url = 'https://www.boost.org/users/download/'
