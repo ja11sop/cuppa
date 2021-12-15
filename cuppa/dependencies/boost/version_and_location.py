@@ -31,6 +31,9 @@ from cuppa.dependencies.boost.boost_exception import BoostException
 from cuppa.dependencies.boost.patch_boost     import apply_patches_if_needed
 
 
+def current_boost_release():
+    return "1.78.0"
+
 
 def boost_location_id( env ):
 
@@ -156,7 +159,7 @@ def get_boost_version( location ):
 
 
 def _determine_latest_boost_verion( offline ):
-    current_release = "1.77.0"
+    current_release = current_boost_release()
     if not offline:
         try:
             boost_version_url = 'https://www.boost.org/users/download/'
