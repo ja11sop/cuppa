@@ -9,6 +9,7 @@
 #-------------------------------------------------------------------------------
 
 # python standard library imports
+from subprocess import Popen, PIPE
 import os
 import shlex
 import re
@@ -26,6 +27,7 @@ from cuppa.output_processor import IncrementalSubProcess, command_available
 from cuppa.colourise import as_notice, as_info, as_error, colour_items
 from cuppa.log import logger
 from cuppa.progress import NotifyProgress
+from cuppa.utility.python2to3 import as_str
 import cuppa.recursive_glob
 import cuppa.path
 
@@ -106,6 +108,24 @@ class CoverageSuite(object):
         return regexes
 
 
+    @classmethod
+    def get_gcovr_version( cls ):
+        command = "gcovr --version"
+        if command_available( command ):
+            reported_version = None
+            version_string = as_str( Popen( shlex.split( command ), stdout=PIPE).communicate()[0] )
+            matches = re.search( r'gcovr (?P<major>\d+)\.(?P<minor>\d)', version_string )
+            if matches:
+                major = matches.group('major')
+                minor = matches.group('minor')
+                reported_version = {}
+                reported_version['major'] = int(major)
+                reported_version['minor'] = int(minor)
+                reported_version['version'] = major + "." + minor
+            return reported_version
+        return None
+
+
     def __init__( self, program_id, name, scons_env, final_dir, include_patterns=[], exclude_patterns=[] ):
         self._program_id = program_id
         self._url_program_id = self._program_id.replace( '##', url_block_sep )
@@ -127,8 +147,8 @@ class CoverageSuite(object):
 
         cuppa.path.lazy_create_path( output_dir )
 
-        command = 'gcovr -h'
-        if not command_available( command ):
+        gcovr_version = self.get_gcovr_version()
+        if not gcovr_version:
             logger.warning( "Skipping gcovr output as not available" )
             return
 
@@ -149,9 +169,11 @@ class CoverageSuite(object):
         for exclude_regex in exclude_regexes:
             gcov_excludes += ' --gcov-exclude="{}"'.format( exclude_regex )
 
-        command = 'gcovr -g {gcov_includes} {gcov_excludes} -s -k -r . --html --html-details -o {index_file}'.format(
+        command = 'gcovr -g {gcov_includes} {gcov_excludes} -s -k -r . --html --html-details {self_contained_html} {html_theme} -o {index_file}'.format(
             gcov_includes = gcov_includes,
             gcov_excludes = gcov_excludes,
+            self_contained_html = gcovr_version['major'] >= 5 and "--html-self-contained" or "",
+            html_theme = gcovr_version['major'] >= 5 and "--html-theme blue" or "",
             index_file=index_file )
 
         return_code, output = run_command( command, working_dir, self._scons_env )
