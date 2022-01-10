@@ -14,7 +14,12 @@ import platform
 import six
 
 import SCons.Script
-from SCons.Tool.MSCommon.vc import cached_get_installed_vcs, _VCVER, get_default_version
+from SCons.Tool.MSCommon.vc import _VCVER, get_default_version
+
+try:
+    from SCons.Tool.MSCommon.vc import cached_get_installed_vcs as get_installed_vcs
+except: # scons version >= 4.1
+    from SCons.Tool.MSCommon.vc import get_installed_vcs as get_installed_vcs
 
 from cuppa.cpp.create_version_file_cpp import CreateVersionHeaderCpp, CreateVersionFileCpp
 from cuppa.cpp.run_boost_test import RunBoostTestEmitter, RunBoostTest
@@ -86,7 +91,7 @@ class Cl(object):
     def available_versions( cls, env ):
         if not hasattr( cls, '_available_versions' ):
             cls._available_versions = collections.OrderedDict()
-            installed_versions = cached_get_installed_vcs()
+            installed_versions = get_installed_vcs()
             if installed_versions:
                 default = cls.default_version( env )
                 cls._available_versions['vc'] = {
