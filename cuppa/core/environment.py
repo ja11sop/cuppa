@@ -1,4 +1,4 @@
-#          Copyright Jamie Allsop 2018-2018
+#          Copyright Jamie Allsop 2018-2022
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -8,7 +8,6 @@
 #-------------------------------------------------------------------------------
 
 # Python Standard
-import collections
 import six
 
 # Scons
@@ -17,10 +16,11 @@ import SCons.Script
 # Custom
 from cuppa.colourise import colouriser, as_info, as_info_label
 from cuppa.log import logger
+from cuppa.utility.python2to3 import MutableMapping
 
 
 
-class CuppaEnvironment(collections.MutableMapping):
+class CuppaEnvironment(MutableMapping):
 
     _tools = []
     _options = {}
@@ -120,8 +120,6 @@ class CuppaEnvironment(collections.MutableMapping):
         logger.info( as_info_label("Displaying Methods" ) )
         methods = json.dumps( expand_node(cls._methods), sort_keys=True, indent=4 )
         logger.info( "\n" + methods + "\n" )
-
-
 
 
     @classmethod
