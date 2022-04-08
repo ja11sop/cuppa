@@ -52,6 +52,7 @@ def pip_version_gt_10_0_0():
 
 
 def verbosity_level():
+    import logging
     log_level = logger.getEffectiveLevel()
     if log_level == logging.TRACE:
         return 2
