@@ -1,4 +1,4 @@
-#          Copyright Jamie Allsop 2020-2020
+#          Copyright Jamie Allsop 2020-2022
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -9,6 +9,15 @@
 
 from cuppa.colourise import as_notice, as_info
 from cuppa.log import logger
+
+
+def pip_version_gte_22_0_0():
+    try:
+        import pip
+        major_version = int(pip.__version__.split('.')[0])
+        return major_version >= 22
+    except ImportError:
+        return False
 
 
 def pip_version_gt_20_0_0():
@@ -59,7 +68,11 @@ if pip_version_gt_10_0_0():
         from pip._internal.utils.misc import hide_url as pip_hide_url
 
         def obtain( vcs_backend, dest, url ):
-            return vcs_backend.obtain( dest, pip_hide_url( url ) )
+            if pip_version_gte_22_0_0():
+                verbosity_level = 0
+                return vcs_backend.obtain( dest, pip_hide_url( url ), verbosity_level )
+            else:
+                return vcs_backend.obtain( dest, pip_hide_url( url ) )
 
     else:
         from pip._internal.download import is_archive_file as pip_is_archive_file
