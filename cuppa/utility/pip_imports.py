@@ -51,6 +51,24 @@ def pip_version_gt_10_0_0():
         return False
 
 
+def verbosity_level():
+    log_level = logger.getEffectiveLevel()
+    if log_level == logging.TRACE:
+        return 2
+    elif log_level == logging.DEBUG:
+        return 1
+    elif log_level == logging.EXCEPTION:
+        return 0
+    elif log_level == logging.INFO:
+        return 0
+    elif log_level == logging.WARN:
+        return -1
+    elif log_level == logging.ERROR:
+        return -2
+    elif log_level == logging.CRITICAL:
+        return -3
+    return 0
+
 
 if pip_version_gt_10_0_0():
 
@@ -69,8 +87,7 @@ if pip_version_gt_10_0_0():
 
         def obtain( vcs_backend, dest, url ):
             if pip_version_gte_22_0_0():
-                verbosity_level = 0
-                return vcs_backend.obtain( dest, pip_hide_url( url ), verbosity_level )
+                return vcs_backend.obtain( dest, pip_hide_url( url ), verbosity_level() )
             else:
                 return vcs_backend.obtain( dest, pip_hide_url( url ) )
 
