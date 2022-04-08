@@ -21,6 +21,8 @@ def pip_version_gte_22_0_0():
 
 
 def pip_version_gt_20_0_0():
+    if pip_version_gte_22_0_0():
+        return True
     try:
         import pip._internal.network.download
         #print( "PIP Version > 20" )
