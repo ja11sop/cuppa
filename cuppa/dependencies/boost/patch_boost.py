@@ -14,7 +14,7 @@ import os
 import glob
 
 # Cuppa Imports
-from cuppa.colourise import as_info
+from cuppa.colourise import as_info, as_notice
 from cuppa.log       import logger
 
 
@@ -26,6 +26,8 @@ def patched_boost_test( home ):
 def apply_patches_if_needed( patch_boost_test, home, version_string ):
     if patch_boost_test:
         apply_patch( "test_patch", home, version_string )
+    apply_patch( "patch", home, version_string )
+    apply_patch( "hot_fix", home, version_string )
     apply_patch( "bug_fix", home, version_string )
 
 
@@ -48,14 +50,22 @@ def apply_patch( name, home, version_string ):
             if diff_file <= expected_diff_file:
                 diff_file_to_use = diff_file
                 break
-        # XXX: Only apply bug fixes to the exact version of boost.
+        elif name == "patch":
+            if diff_file <= expected_diff_file:
+                diff_file_to_use = diff_file
+                break
+        # Note: Only apply fixes to the exact version of boost.
+        elif name == "hot_fix":
+            if diff_file == expected_diff_file:
+                diff_file_to_use = diff_file
+                break
         elif name == "bug_fix":
             if diff_file == expected_diff_file:
                 diff_file_to_use = diff_file
                 break
 
     if not diff_file_to_use:
-        logger.debug( "Nothing to patch for: {} {}".format( name, version_string ) )
+        logger.debug( "Nothing to [{}] for: [{}]".format( as_notice( name ), as_info( version_string ) ) )
         return
 
     logger.debug( "Using diff file [{}]".format( as_info( diff_file_to_use ) ) )
@@ -63,6 +73,8 @@ def apply_patch( name, home, version_string ):
     if os.path.exists( patch_applied_path ):
         logger.debug( "[{}] already applied".format( as_info( diff_file_to_use ) ) )
         return
+    else:
+        logger.info( "Applying [{}] for: [{}]".format( as_notice( name ), as_info( version_string ) ) )
 
     command = "patch --batch -p1 --input={}".format( diff_file_to_use )
 
