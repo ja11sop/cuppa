@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2020
+#          Copyright Jamie Allsop 2011-2022
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -32,7 +32,7 @@ from cuppa.dependencies.boost.patch_boost     import apply_patches_if_needed
 
 
 def current_boost_release():
-    return "1.79.0"
+    return "1.80.0"
 
 
 def boost_location_id( env ):

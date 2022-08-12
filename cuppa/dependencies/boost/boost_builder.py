@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2018
+#          Copyright Jamie Allsop 2011-2022
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -21,43 +21,43 @@ from cuppa.colourise        import as_info, as_notice, colour_items
 from cuppa.log              import logger
 
 # Boost Imports
-from cuppa.dependencies.boost.bjam                 import BjamOutputProcessor, BuildBjam, bjam_exe, bjam_command
+from cuppa.dependencies.boost.b2                   import B2OutputProcessor, BuildB2, b2_exe, b2_command
 from cuppa.dependencies.boost.configjam            import WriteToolsetConfigJam
 from cuppa.dependencies.boost.library_naming       import stage_directory, variant_name, static_library_name, shared_library_name, extract_library_name_from_path
 from cuppa.dependencies.boost.library_dependencies import add_dependent_libraries
 
 
 _prebuilt_boost_libraries = { 'action': {}, 'emitter': {}, 'builder': {} }
-_bjam_invocations = {}
+_b2_invocations = {}
 
-# NOTE: We want to take advantage of the ability to parallelise BJAM calls when building boost.
-#       However a number of aspects of how BJAM is executed are not "thread-safe" - that is
-#       concurrent calls to BJAM to build libraries that will touch the same folders or files
+# NOTE: We want to take advantage of the ability to parallelise B2 calls when building boost.
+#       However a number of aspects of how B2 is executed are not "thread-safe" - that is
+#       concurrent calls to B2 to build libraries that will touch the same folders or files
 #       on disk will result in spurious build failures. To address this issues we attempt to do
 #       two things:
 #
-#        1. We minimise the number of calls to BJAM by tracking the which libraries are being
-#           built and re-use targets when a BJAM call exists that will perform the build. This
+#        1. We minimise the number of calls to B2 by tracking the which libraries are being
+#           built and re-use targets when a B2 call exists that will perform the build. This
 #           is the purpose of the `_prebuilt_boost_libraries` dictionary. We only really need
 #           to track the libraries in the `buildber` sub-dict but the libraries as known to the
 #           `action` and `emitter` are also tracked to help with logging and diagnostics.
 #
 #           By performing this tracking we can re-use library targets when building the dependency
-#           tree and minimise unneeded calls to BJAM. We do this across a whole sconstruct file
+#           tree and minimise unneeded calls to B2. We do this across a whole sconstruct file
 #           as typically multiple sconscript files will make the same calls to build the same
 #           libraries and if we are executing Scons in parallel mode using `--parallel` on the
-#           cuppa commandline then those invocations of BJAM will potentially execute in parallel.
+#           cuppa commandline then those invocations of B2 will potentially execute in parallel.
 #
-#        2. We serialise calls to BJAM because concurrent calls to BJAM that build targets
+#        2. We serialise calls to B2 because concurrent calls to B2 that build targets
 #           touching the same areas of disk with spuriously fail. Since we will use sufficient
-#           cores to maximise the opportunity to execute builds in parallel when invoking BJAM we
+#           cores to maximise the opportunity to execute builds in parallel when invoking B2 we
 #           will, on average, not suffer any loss of processing opportuinty. In other words we
 #           can avoid hitting the build failures while still benefitting from executing a parallel
-#           build. This is the purpose of the `_bjam_invocations` dict. With this we track all
-#           invocations to BJAM and use a Requires() rule to force an ordering at the dependency
+#           build. This is the purpose of the `_b2_invocations` dict. With this we track all
+#           invocations to B2 and use a Requires() rule to force an ordering at the dependency
 #           tree level.
 #
-#       Here is an example of BJAM code in Boost that cannot reliably function concurrently. From
+#       Here is an example of B2 code in Boost that cannot reliably function concurrently. From
 #       'tools/build/src/util/path.jam':
 #
 #       ---------------------------------------------------------------------------------
@@ -108,7 +108,7 @@ _bjam_invocations = {}
 #       ---------------------------------------------------------------------------------
 #
 #       This change is needed as makedirs might fail because the directly already exists, perhaps
-#       because a concurrent invocation of BJAM created it between the call to exists and makedirs
+#       because a concurrent invocation of B2 created it between the call to exists and makedirs
 
 
 
@@ -166,6 +166,7 @@ class BoostLibraryAction(object):
         logger.debug( "Required libraries [{}]".format( colour_items( self._libraries ) ) )
 
         self._location       = boost.local()
+        self._boost_version  = boost.numeric_version()
         self._verbose_build  = verbose_build
         self._verbose_config = verbose_config
         self._job_count      = env['job_count']
@@ -178,8 +179,9 @@ class BoostLibraryAction(object):
         if not self._libraries:
             return None
 
-        args = bjam_command(
+        args = b2_command(
                     env,
+                    self._boost_version,
                     self._location,
                     self._toolchain,
                     self._libraries,
@@ -193,7 +195,7 @@ class BoostLibraryAction(object):
                     self._parallel
         )
 
-        processor = BjamOutputProcessor( env, self._verbose_build, self._verbose_config, self._toolchain )
+        processor = B2OutputProcessor( env, self._verbose_build, self._verbose_config, self._toolchain )
 
         returncode = IncrementalSubProcess.Popen(
                 processor,
@@ -280,9 +282,9 @@ class BoostLibraryBuilder(object):
         if sconstruct_id not in _prebuilt_boost_libraries['builder']:
             _prebuilt_boost_libraries['builder'][sconstruct_id] = {}
 
-        global _bjam_invocations
-        if sconstruct_id not in _bjam_invocations:
-            _bjam_invocations[sconstruct_id] = []
+        global _b2_invocations
+        if sconstruct_id not in _b2_invocations:
+            _b2_invocations[sconstruct_id] = []
 
         logger.trace( "Build Dir = [{}]".format( as_info( env['build_dir'] ) ) )
 
@@ -354,15 +356,15 @@ class BoostLibraryBuilder(object):
 
 
         if unbuilt_libraries:
-            # if this is not the first BJAM invocation for this set of libraries make it require (using Requires)
-            # the previous BJAM invocation otherwise we already have an invocation of BJAM that will create the
+            # if this is not the first B2 invocation for this set of libraries make it require (using Requires)
+            # the previous B2 invocation otherwise we already have an invocation of B2 that will create the
             # required libraries and therefore we can ignore the invocation
 
-            index = len(_bjam_invocations[sconstruct_id])
-            previous_invocation = _bjam_invocations[sconstruct_id] and _bjam_invocations[sconstruct_id][-1] or None
+            index = len(_b2_invocations[sconstruct_id])
+            previous_invocation = _b2_invocations[sconstruct_id] and _b2_invocations[sconstruct_id][-1] or None
 
             if previous_invocation and previous_invocation['invocation'] != built_libraries:
-                logger.debug( "Add BJAM invocation Requires() such that ([{}][{}][{}]) requires ([{}][{}][{}])".format(
+                logger.debug( "Add B2 invocation Requires() such that ([{}][{}][{}]) requires ([{}][{}][{}])".format(
                             as_info(str(index)),
                             as_info(variant_key),
                             colour_items( new_libraries ),
@@ -371,15 +373,15 @@ class BoostLibraryBuilder(object):
                             colour_items( previous_invocation['libraries'] )
                 ) )
                 env.Requires( built_libraries, previous_invocation['invocation'] )
-            # if this is the first invocation of BJAM then add it to the list of BJAM invocations, or if this is
-            # a different invocation (for different libraries) of BJAM add it to the list of invocations
+            # if this is the first invocation of B2 then add it to the list of B2 invocations, or if this is
+            # a different invocation (for different libraries) of B2 add it to the list of invocations
             if not previous_invocation or previous_invocation['invocation'] != built_libraries and built_libraries:
-                logger.debug( "Adding BJAM invocation [{}] for variant [{}] and new libraries [{}] to invocation list".format(
+                logger.debug( "Adding B2 invocation [{}] for variant [{}] and new libraries [{}] to invocation list".format(
                             as_info(str(index)),
                             as_info(variant_key),
                             colour_items( new_libraries )
                 ) )
-                _bjam_invocations[sconstruct_id].append( {
+                _b2_invocations[sconstruct_id].append( {
                         'invocation': built_libraries,
                         'index'     : index,
                         'variant'   : variant_key,
@@ -387,12 +389,12 @@ class BoostLibraryBuilder(object):
                 } )
 
 
-        bjam = env.Command( bjam_exe( self._boost ), [], BuildBjam( self._boost ) )
-        env.NoClean( bjam )
+        b2 = env.Command( b2_exe( self._boost.numeric_version(), self._boost.local() ), [], BuildB2( self._boost ) )
+        env.NoClean( b2 )
 
         if built_libraries:
 
-            env.Requires( built_libraries, bjam )
+            env.Requires( built_libraries, b2 )
 
             if cuppa.build_platform.name() == "Linux":
 

@@ -1,11 +1,11 @@
 
-#          Copyright Jamie Allsop 2011-2019
+#          Copyright Jamie Allsop 2011-2022
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   Bjam
+#   B2
 #-------------------------------------------------------------------------------
 import os
 import shutil
@@ -17,15 +17,34 @@ import shlex
 import cuppa.build_platform
 
 from cuppa.output_processor   import IncrementalSubProcess, ToolchainProcessor
-from cuppa.colourise          import as_emphasised
+from cuppa.colourise          import as_emphasised, as_notice, as_info
 from cuppa.log                import logger
 
 # Boost Imports
 from cuppa.dependencies.boost.library_naming import directory_from_abi_flag, toolset_from_toolchain
 
 
+def b2_exe_name( boost_version ):
+    exe_name = 'b2'
+    if boost_version < 1.47:
+        exe_name = 'bjam'
+    if platform.system() == "Windows":
+        exe_name += ".exe"
+    return exe_name
 
-def bjam_command( env, location, toolchain, libraries, variant, target_arch, linktype, stage_dir, verbose_build, verbose_config, job_count, parallel ):
+
+def b2_exe( boost_version, boost_location ):
+    exe_name = b2_exe_name( boost_version )
+    return os.path.join( boost_location, exe_name )
+
+
+def b2_as_command( boost_version, boost_location ):
+    if platform.system() != "Windows":
+        return "./" + b2_exe_name( boost_version )
+    return b2_exe( boost_version, boost_location )
+
+
+def b2_command( env, boost_version, location, toolchain, libraries, variant, target_arch, linktype, stage_dir, verbose_build, verbose_config, job_count, parallel ):
 
     verbose = ""
     if verbose_build:
@@ -67,15 +86,12 @@ def bjam_command( env, location, toolchain, libraries, variant, target_arch, lin
 
     build_dir = "bin." + directory_from_abi_flag( abi_flag )
 
-    bjam = './bjam'
-    if platform.system() == "Windows":
-        # Use full path on Windows
-        bjam = os.path.join( location, 'bjam.exe' )
+    b2 = b2_as_command( boost_version, location )
 
     toolset = toolset_from_toolchain( toolchain )
 
-    command_line = "{bjam}{verbose} -j {jobs}{with_libraries} toolset={toolset} variant={variant} {address_model} {architecture} {windows_api} {build_flags} link={linktype} --build-dir=.{path_sep}{build_dir} stage --stagedir=.{path_sep}{stage_dir} --ignore-site-config".format(
-            bjam            = bjam,
+    command_line = "{b2}{verbose} -j {jobs}{with_libraries} toolset={toolset} variant={variant} {address_model} {architecture} {windows_api} {build_flags} link={linktype} --build-dir=.{path_sep}{build_dir} stage --stagedir=.{path_sep}{stage_dir} --ignore-site-config".format(
+            b2              = b2,
             verbose         = verbose,
             jobs            = jobs,
             with_libraries  = with_libraries,
@@ -99,27 +115,16 @@ def bjam_command( env, location, toolchain, libraries, variant, target_arch, lin
 
 
 
-def bjam_exe( boost ):
-    exe_name = 'bjam'
-    if platform.system() == "Windows":
-        exe_name += ".exe"
-    return os.path.join( boost.local(), exe_name )
-
-
-
-class ProcessBjamBuild(object):
+class ProcessB2Build(object):
 
     def __init__( self, version ):
-        self.bjam_exe_path = 'bjam'
-        if platform.system() == "Windows":
-            self.bjam_exe_path += '.exe'
-
+        self.b2_exe_path = b2_exe_name( version )
         self.search_output_for_path = version < 1.71
 
     def _search_for_path( self, line ):
         match = re.search( r'\[COMPILE\] ([\S]+)', line )
         if match:
-            self.bjam_exe_path = match.expand( r'\1' )
+            self.b2_exe_path = match.expand( r'\1' )
         return line
 
     def __call__( self, line ):
@@ -128,11 +133,11 @@ class ProcessBjamBuild(object):
         return line
 
     def exe_path( self ):
-        return self.bjam_exe_path
+        return self.b2_exe_path
 
 
 
-class BuildBjam(object):
+class BuildB2(object):
 
     def __init__( self, boost ):
         self._location = boost.local()
@@ -151,42 +156,48 @@ class BuildBjam(object):
         else:
             build_script_path = os.path.join( build_script_path, 'v2', 'engine' )
 
-        bjam_build_script = './build.sh'
+        b2_build_script = './build.sh'
         if platform.system() == "Windows":
-            bjam_build_script = os.path.join( build_script_path, 'build.bat' )
+            b2_build_script = os.path.join( build_script_path, 'build.bat' )
 
         logger.debug( "Execute [{}] from [{}]".format(
-                bjam_build_script,
+                b2_build_script,
                 str(build_script_path)
         ) )
 
-        process_bjam_build = ProcessBjamBuild( self._version )
+        process_b2_build = ProcessB2Build( self._version )
 
         try:
             IncrementalSubProcess.Popen(
-                process_bjam_build,
-                [ bjam_build_script ],
+                process_b2_build,
+                [ b2_build_script ],
                 cwd=build_script_path
             )
 
-            bjam_exe_path = process_bjam_build.exe_path()
+            b2_exe_path = process_b2_build.exe_path()
 
-            if not bjam_exe_path:
-                logger.critical( "Could not determine bjam exe path" )
+            if not b2_exe_path:
+                logger.critical( "Could not determine b2 exe path" )
                 return 1
 
-            bjam_binary_path = os.path.join( build_script_path, bjam_exe_path )
-            shutil.copy( bjam_binary_path, target[0].path )
+            b2_binary_path = os.path.join( build_script_path, b2_exe_path )
+
+            if not os.path.exists( b2_binary_path ):
+                logger.critical( "Could find b2 exe on path [{}]".format( b2_binary_path ) )
+                return 1
+
+            logger.debug( "Copying b2 exe from [{}] to [{}]".format( as_info( b2_binary_path ), as_notice( target[0].path ) ) )
+            shutil.copy( b2_binary_path, target[0].path )
 
         except OSError as error:
-            logger.critical( "Error building bjam [{}]".format( str( error.args ) ) )
+            logger.critical( "Error building b2 [{}]".format( str( error.args ) ) )
             return 1
 
         return None
 
 
 
-class BjamOutputProcessor(object):
+class B2OutputProcessor(object):
 
     @classmethod
     def _toolset_name_from_toolchain( cls, toolchain ):
