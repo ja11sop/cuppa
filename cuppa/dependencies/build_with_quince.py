@@ -58,6 +58,14 @@ class build_with_quince( location_dependency( 'quince', sys_include="include", s
         ] )
 
 
+class quince_date_lib( location_dependency( 'quince_date_lib', sys_include='include', location='git+https://github.com/HowardHinnant/date.git', linktype='static' ) ):
+    def __call__( self, env, toolchain, variant ):
+        super( quince_date_lib, self ).__call__( env, toolchain, variant )
+        sources = env.Glob( self.local_sub_path( 'src/tz.cpp' ) )
+        library = self.build_library_from_source( env, sources, "tz" )
+        env.Append( STATICLIBS = [ library ] )
+        env.AppendUnique( SHAREDLIBS = [ 'curl' ] )
+
 
 class quince_postgresql( location_dependency( 'quince-postgresql', sys_include="include", source_path="src", linktype="static" ) ):
 
@@ -68,6 +76,7 @@ class quince_postgresql( location_dependency( 'quince-postgresql', sys_include="
 
         def update_env( env ):
             env.BuildWith('boost')
+            env.BuildWith('quince_date_lib')
 
         env.AddMethod( LibraryMethod( self, update_env ), "QuincePostgresqlLibrary" )
 
@@ -82,11 +91,13 @@ class quince_postgresql( location_dependency( 'quince-postgresql', sys_include="
         quince_postgresql_lib = env.QuincePostgresqlLibrary()
         quince_lib = env.QuinceLibrary()
 
-        env.Append( STATICLIBS  = [
+        env.Append( STATICLIBS = [
                 quince_postgresql_lib,
                 quince_lib,
                 env.BoostStaticLibs( [ 'date_time' ] ),
         ] )
+
+        env['dependencies']['quince_date_lib']( env )( env, toolchain, variant )
 
 
     @classmethod
