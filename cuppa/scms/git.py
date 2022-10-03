@@ -229,20 +229,22 @@ class Git:
 
     @classmethod
     def get_revision( cls, path ):
+        guessed_revision = None
         revision = None
+
         command = "{git} describe --always".format( git=cls.binary() )
         revision = cls.execute_command( command, path )
         if revision.strip():
-            return revision.strip()
+            guessed_revision = revision
 
         command = "{git} rev-parse HEAD".format( git=cls.binary() )
         commit_sha = cls.execute_command( command, path )
 
         command = "{git} name-rev --tags --name-only {commit_sha}".format( git=cls.binary(), commit_sha=commit_sha.strip() )
         revision = cls.execute_command( command, path )
-        if revision.strip() == "undefined":
-            revision = None
-        return revision
+        if revision.strip() != "undefined":
+            guessed_revision = revision
+        return guessed_revision
 
 
     @classmethod
