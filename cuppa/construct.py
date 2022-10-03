@@ -420,11 +420,13 @@ class Construct(object):
                 logger.info( "Build will attempt to build against repositories using the explicitly chosen branch [{}]".format(
                         as_info( str(cuppa_env['location_match_branch']) )
                 ) )
+                cuppa_env['current_branch'] = cuppa_env['location_match_branch']
             elif cuppa_env['location_match_tag']:
                 logger.info( "Setting [{}] is set".format( as_info( "location_match_tag" ) ) )
                 logger.info( "Build will attempt to build against repositories using the explicitly chosen tag [{}]".format(
                         as_info( str(cuppa_env['location_match_tag']) )
                 ) )
+                cuppa_env['current_revision'] = cuppa_env['location_match_tag']
 
         cuppa_env['default_projects']     = default_projects
         cuppa_env['default_variants']     = default_variants and set( default_variants ) or set()

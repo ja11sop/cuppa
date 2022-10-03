@@ -54,10 +54,10 @@
                 <a href="{{ summaries.uri }}">
                   <span class="small text-monospace font-weight-bold">{{ summaries.title }}</span>
                 </a>
-                {% if summaries.branch and summaries.commit %}
+                {% if summaries.branch or summaries.revision %}
                   <br />
                   <span class="small">
-                    ( on <span class="text-monospace font-weight-bold">{{ summaries.branch }}</span> at <span class="text-monospace font-weight-bold">{{ summaries.commit }}</span> )&nbsp;
+                    ( on <span class="text-monospace font-weight-bold">{{ summaries.branch }}</span> at <span class="text-monospace font-weight-bold">{{ summaries.revision }}</span> )&nbsp;
                   </span>
                 {% endif %}
                 <span class="small text-secondary font-weight-light">stored under <span class="text-monospace font-weight-bold">{{ summaries.name }}</span></span>

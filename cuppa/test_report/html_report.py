@@ -81,9 +81,16 @@ def initialise_test_linking( env, link_style=None ):
         base_uri = "file://" + env['sconstruct_dir']
     else:
         url, repository, branch, remote, revision = vcs_info_from_location( env['sconstruct_dir'] )
-        if link_style == "gitlab" and url and remote:
+
+        if not branch and env['current_branch']:
+            branch = env['current_branch']
+
+        if not revision and env['current_revision']:
+            revision = env['current_revision']
+
+        if link_style == "gitlab" and url and branch:
             # NOTE: Might need to do VCS detection per test file
-            base_uri = os.path.join( os.path.splitext(url)[0], "blob", remote )
+            base_uri = os.path.join( os.path.splitext(url)[0], "blob", branch )
         elif link_style == "raw":
             base_uri = url, repository, branch, remote, revision
         elif url:
@@ -660,8 +667,9 @@ class ReportIndexBuilder(object):
                 url, repository, branch, remote, revision = summaries['vcs_info']
                 summaries['name'] = str(env.Dir(destination_dir)) + "/*"
                 summaries['title'] = url and url or env['sconstruct_dir']
-                summaries['branch'] = branch and branch or "None"
-                summaries['commit'] = remote and remote or "None"
+                summaries['branch'] = branch and branch or ""
+                summaries['remote'] = remote and remote or ""
+                summaries['revision'] = revision and revision or ""
                 summaries['uri'] = url and url or "Local"
                 summaries['toolchain_variants'] = {}
                 summaries['reports'] = {}
