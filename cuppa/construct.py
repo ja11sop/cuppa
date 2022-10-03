@@ -399,24 +399,29 @@ class Construct(object):
         cuppa_env['current_branch'] = ''
         cuppa_env['current_revision'] = ''
         if not help and not self._configure.handle_conf_only():
-            if cuppa_env['location_match_current_branch']:
-                url, repo, branch, remote, rev = cuppa.scms.scms.get_current_rev_info( cuppa_env['sconstruct_dir'] )
-                if branch:
-                    cuppa_env['current_branch'] = branch
-                if rev:
-                    cuppa_env['current_revision'] = rev
-                logger.info( "Current build on branch [{}] at revision [{}] from remote [{}] in [{}] at [{}]".format(
+
+            url, repo, branch, remote, rev = cuppa.scms.scms.get_current_rev_info( cuppa_env['sconstruct_dir'] )
+            logger.info( "Current build is on branch [{}] at revision [{}] from remote [{}] in repo [{}] at url [{}]".format(
                         as_info( str(branch) ),
                         as_info( str(rev) ),
                         as_info( str(remote) ),
                         as_info( str(repo) ),
                         as_info( str(url) )
-                ) )
+            ) )
+
+            if cuppa_env['location_match_current_branch']:
+                logger.info( "Setting [{}] is set".format( as_info( "location_match_current_branch" ) ) )
+                if branch:
+                    cuppa_env['current_branch'] = branch
+                if rev:
+                    cuppa_env['current_revision'] = rev
             elif cuppa_env['location_match_branch']:
+                logger.info( "Setting [{}] is set".format( as_info( "location_match_branch" ) ) )
                 logger.info( "Build will attempt to build against repositories using the explicitly chosen branch [{}]".format(
                         as_info( str(cuppa_env['location_match_branch']) )
                 ) )
             elif cuppa_env['location_match_tag']:
+                logger.info( "Setting [{}] is set".format( as_info( "location_match_tag" ) ) )
                 logger.info( "Build will attempt to build against repositories using the explicitly chosen tag [{}]".format(
                         as_info( str(cuppa_env['location_match_tag']) )
                 ) )
