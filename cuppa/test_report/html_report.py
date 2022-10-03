@@ -52,7 +52,7 @@ def jinja2_templates():
 
 cached_vcs_info = {}
 
-def vcs_info_from_location( location ):
+def vcs_info_from_location( location, default_branch, default_rev ):
     global cached_vcs_info
     if location in cached_vcs_info:
         return cached_vcs_info[location]
@@ -68,6 +68,12 @@ def vcs_info_from_location( location ):
                 url_string = url.scheme + "://" + url.netloc.split("@")[-1] + url.path
         return url_string
 
+    if not vcs_info[2] and default_branch:
+        vcs_info[2] = default_branch
+
+    if not vcs_info[4] and default_revision:
+        vcs_info[4] = default_revision
+
     vcs_info = ( clean_user_info( vcs_info[0] ), clean_user_info( vcs_info[1] ), vcs_info[2], vcs_info[3], vcs_info[4] )
 
     cached_vcs_info[location] = vcs_info
@@ -80,13 +86,7 @@ def initialise_test_linking( env, link_style=None ):
         # TODO: escape properly and make sure this works on Windows
         base_uri = "file://" + env['sconstruct_dir']
     else:
-        url, repository, branch, remote, revision = vcs_info_from_location( env['sconstruct_dir'] )
-
-        if not branch and env['current_branch']:
-            branch = env['current_branch']
-
-        if not revision and env['current_revision']:
-            revision = env['current_revision']
+        url, repository, branch, remote, revision = vcs_info_from_location( env['sconstruct_dir'], env['current_branch'], env['current_revision'] )
 
         if link_style == "gitlab" and url and branch:
             # NOTE: Might need to do VCS detection per test file
