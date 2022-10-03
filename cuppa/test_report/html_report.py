@@ -68,13 +68,15 @@ def vcs_info_from_location( location, default_branch, default_rev ):
                 url_string = url.scheme + "://" + url.netloc.split("@")[-1] + url.path
         return url_string
 
-    if not vcs_info[2] and default_branch:
-        vcs_info[2] = default_branch
+    branch = vcs_info[2]
+    if not branch and default_branch:
+        branch = default_branch
 
-    if not vcs_info[4] and default_revision:
-        vcs_info[4] = default_revision
+    revision = vcs_info[4]
+    if not revision and default_revision:
+        revision = default_revision
 
-    vcs_info = ( clean_user_info( vcs_info[0] ), clean_user_info( vcs_info[1] ), vcs_info[2], vcs_info[3], vcs_info[4] )
+    vcs_info = ( clean_user_info( vcs_info[0] ), clean_user_info( vcs_info[1] ), branch, vcs_info[3], revision )
 
     cached_vcs_info[location] = vcs_info
     return vcs_info
