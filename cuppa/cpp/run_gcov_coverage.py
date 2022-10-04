@@ -544,6 +544,7 @@ class coverage_entry(object):
     entry_regex = re.compile(
         r"(?P<coverage_file>coverage[-#][#%@$~\w&_ :+/\.-]+)"
          "\nlines: (?P<lines_percent>[\d.]+)% [(](?P<lines_covered>\d+)[\D]+(?P<lines_total>\d+)[)]"
+         "(\nfunctions: (?P<functions_percent>[\d.]+)% [(](?P<functions_covered>\d+)[\D]+(?P<functions_total>\d+)[)])?"
          "\nbranches: (?P<branches_percent>[\d.]+)% [(](?P<branches_covered>\d+)[\D]+(?P<branches_total>\d+)[)]"
          "(\ntoolchain_variant_dir: (?P<toolchain_variant_dir>[#%@$~\w&_ +/\.-]+))?"
          "(\noffset_dir: (?P<offset_dir>[#%@$~\w&_ +/\.-]+))?"
@@ -683,6 +684,19 @@ class coverage_entry(object):
         self.branches_status = self.get_branches_status( self.branches_percent )
 
 
+    @classmethod
+    def create_from_summary( cls, summary, tool_variant_dir, offset_dir, destination, subdir=None, name=None ):
+        entry_string = "{}\n{}\n{}{}{}".format(
+            summary.strip(),
+            tool_variant_dir.strip(),
+            offset_dir.strip(),
+            subdir and "\n" + subdir.strip() or "",
+            name and "\n" + name.strip() or "",
+        )
+        logger.info( "coverage entry from\n{}\nin {}".format( as_info( entry_string ), as_notice( destination ) ) )
+        return coverage_entry.create_from_string( entry_string, destination )
+
+
 def lines_of_code_format( number ):
     number = float('{:.5g}'.format(number))
     base = 0
@@ -724,15 +738,12 @@ class CollateCoverageIndexAction(object):
 
                 for path in summary_files:
                     with open( str(path), 'r' ) as summary_file:
-                        index_file = summary_file.readline()
-                        lines_summary = summary_file.readline()
-                        branches_summary = summary_file.readline()
+
+                        contents = summary_file.read()
 
                         coverage.append(
-                            CoverageIndexBuilder.get_entry(
-                                index_file,
-                                lines_summary,
-                                branches_summary,
+                            coverage_entry.create_from_summary(
+                                contents,
                                 get_toolchain_variant_dir( env ),
                                 get_offset_dir( env ),
                                 self._destination
@@ -828,21 +839,6 @@ class CoverageIndexBuilder(object):
 
 
     @classmethod
-    def get_entry( self, index_file, lines_summary, branches_summary, tool_variant_dir, offset_dir, destination, subdir=None, name=None ):
-        entry_string = "{}\n{}\n{}\n{}\n{}{}{}".format(
-            index_file.strip(),
-            lines_summary.strip(),
-            branches_summary.strip(),
-            tool_variant_dir.strip(),
-            offset_dir.strip(),
-            subdir and "\n" + subdir.strip() or "",
-            name and "\n" + name.strip() or "",
-        )
-        logger.info( "coverage entry from\n{}\nin {}".format( as_info( entry_string ), as_notice( destination ) ) )
-        return coverage_entry.create_from_string( entry_string, destination )
-
-
-    @classmethod
     def update_coverage( cls, coverage ):
         cls.all_lines_covered += coverage.lines_covered
         cls.all_lines_total += coverage.lines_total
@@ -851,7 +847,12 @@ class CoverageIndexBuilder(object):
 
     @classmethod
     def on_progress( cls, progress, sconscript, variant, env, target, source ):
-        if progress == 'sconstruct_end' and cls.all_lines_total > 0:
+        if progress == 'sconstruct_end':
+
+            logger.debug( "COVERAGE = {:d}/{:d}\n".format( cls.all_lines_covered, cls.all_lines_total ) )
+
+            if not cls.all_lines_total > 0:
+                return
             lines_percent = 100.0 * float(cls.all_lines_covered) / float(cls.all_lines_total)
             sys.stdout.write( "COVERAGE = {:.1f}% : {:d}/{:d}\n".format( lines_percent, cls.all_lines_covered, cls.all_lines_total ) )
 
@@ -869,24 +870,10 @@ class CoverageIndexBuilder(object):
                         logger.debug( "Read coverage summary file for [{}]".format( as_notice( str(summary_path) ) ) )
 
                         with open( str(summary_path), 'r' ) as summary_file:
-                            index_file = summary_file.readline()
-                            lines_summary = summary_file.readline()
-                            branches_summary = summary_file.readline()
-                            tool_variant_dir = summary_file.readline()
-                            offset_dir = summary_file.readline()
-                            subdir = summary_file.readline()
-                            name = summary_file.readline()
+                            summary = summary_file.read()
                             coverage.append(
-                                cls.get_entry(
-                                    index_file,
-                                    lines_summary,
-                                    branches_summary,
-                                    tool_variant_dir,
-                                    offset_dir,
-                                    destination_dir,
-                                    subdir=subdir,
-                                    name=name,
-                            ) )
+                                coverage_entry( entry_string=summary, destination=destination_dir )
+                            )
 
                 master_index_path = os.path.join( destination_dir, "coverage-index.html" )
 
