@@ -62,6 +62,7 @@ setup(
         'jinja2',
         'lxml',
         'psutil',
+        'pyscss',
         'six',
     ],
     entry_points = {
