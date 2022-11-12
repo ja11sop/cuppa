@@ -26,6 +26,8 @@ class BuildWithMethod:
         # Ensure we have a list of dependencies
         dependencies = Flatten( dependencies )
 
+        env_dependencies = []
+
         # We might have string names of dependencies or actual factories
         # so refer to this as an id
         for named_dependency in dependencies:
@@ -47,11 +49,13 @@ class BuildWithMethod:
             dependency = dependency_factory( env )
             if dependency:
                 dependency( env, env['toolchain'], env['variant'].name() )
+                env_dependencies.append( dependency )
             else:
                 raise BuildWithException(
                     "The sconscript [{}] requires the dependency [{}] but it cannot be created."
                         .format( env['sconscript_file'], name )
                 )
+        return len(env_dependencies) == 1 and env_dependencies[0] or env_dependencies
 
 
     @classmethod
