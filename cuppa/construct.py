@@ -1,4 +1,4 @@
-#          Copyright Jamie Allsop 2011-2019
+#          Copyright Jamie Allsop 2011-2022
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -908,6 +908,8 @@ class Construct(object):
             sconscript_env.AppendUnique( INCPATH = [
                     sconscript_env['offset_dir']
             ] )
+
+            cuppa.core.environment.EnvironmentMethods.add_progress_tracking( sconscript_env )
 
             sconscript_exports = {
                 'env'                     : sconscript_env,

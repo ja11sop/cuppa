@@ -12,12 +12,74 @@ import six
 
 # Scons
 import SCons.Script
+import SCons.Node
 
 # Custom
-from cuppa.colourise import colouriser, as_info, as_info_label
+import cuppa.progress
+from cuppa.colourise import colouriser, as_info, as_info_label, as_notice
 from cuppa.log import logger
 from cuppa.utility.python2to3 import MutableMapping
 
+
+class MethodWithProgress(object):
+
+    def __init__( self, env, name, method ):
+        self._env = env
+        self._name = name
+        self._method = method
+
+    def __call__( self, *args, **kwargs ):
+        logger.debug( "calling [{}] with args [{}] and kwargs [{}]".format( as_info(self._name), as_notice(str(args)), as_notice(str(kwargs)) ) )
+        nodes = self._method( *args, **kwargs )
+        if nodes and type(nodes) is list and isinstance( nodes[0], SCons.Node.Node ):
+            cuppa.progress.NotifyProgress.add( self._env, nodes )
+        return nodes
+
+
+class EnvironmentMethods(object):
+
+    _scons_methods_and_builders = [
+        'CopyAs',
+        'CopyTo',
+        'Gs',
+        'Install',
+        'InstallAs',
+        'InstallVersionedLib',
+        'Jar',
+        'JarFile',
+        'Java',
+        'JavaClassDir',
+        'JavaClassFile',
+        'JavaFile',
+        'Library',
+        'LoadableModule',
+        'M4',
+        'Object',
+        'PDF',
+        'Program',
+        'ProgramAllAtOnce',
+        'RMIC',
+        'RPCGenClient',
+        'RPCGenHeader',
+        'RPCGenService',
+        'RPCGenXDR',
+        'SharedLibrary',
+        'SharedObject',
+        'StaticLibrary',
+        'StaticObject',
+        'Substfile',
+        'Tar',
+        'Textfile',
+        'Zip',
+    ]
+
+    @classmethod
+    def add_progress_tracking( cls, env ):
+        for name in cls._scons_methods_and_builders:
+            if hasattr( env, name ):
+                setattr( env, "_"+name, getattr( env, name ) )
+                method = getattr( env, "_"+name )
+                setattr( env, name, MethodWithProgress( env, name, method ) )
 
 
 class CuppaEnvironment(MutableMapping):
