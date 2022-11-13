@@ -1,6 +1,6 @@
 
 #          Copyright Declan Traynor 2012
-#          Copyright Jamie Allsop 2012-2019
+#          Copyright Jamie Allsop 2012-2022
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -241,7 +241,13 @@ def emphasise_time_by_digit( time_text, start_colour=None, start_highlight=None,
     return colouriser.emphasise_time_by_digit( time_text, start_colour, start_highlight, end_highlight )
 
 def colour_items( items, colour_func=as_notice ):
-    return "'{}'".format( "', '".join( colour_func( item ) for item in items ) )
+    if isinstance( items, list ):
+        return "'{}'".format( "', '".join( colour_func( item ) for item in items ) )
+    elif isinstance( items, dict ):
+        elements = []
+        for k,v in list( items.items() ):
+            elements.append( "'{}':'{}'".format( colour_func(str(k)), colour_func(str(v)) ) )
+        return "', '".join( elements )
 
 def is_error( meaning ):
     return meaning in ['error','failed','failure','aborted']
