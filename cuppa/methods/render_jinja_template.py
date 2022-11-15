@@ -18,7 +18,7 @@ class RenderTemplateAction(object):
 
     def __init__( self, base_path, variables ):
         self._base_path = base_path
-        self._variables = variables
+        self._variables = variables or {}
         if self._variables:
             logger.debug( "storing J2 variables {{{}}}".format( colour_items( variables ) ) )
 
@@ -36,7 +36,7 @@ class RenderTemplateAction(object):
             source_file = os.path.split( s.abspath )[1]
             logger.debug( "reading and rendering template file [{}] to [{}]...".format( as_notice( source_file ), as_notice( t.path ) ) )
             template = self._jinja_env.get_template( source_file )
-            print( self._variables )
+            logger.debug( "using variables {{{}}}".format( colour_items( self._variables ) ) )
             rendered_string = template.render( **self._variables )
             with open( t.abspath, "w" ) as output:
                 output.write( rendered_string )
@@ -87,7 +87,7 @@ class RenderTemplateEmitter(object):
 
 class RenderJinjaTemplateMethod(object):
 
-    def __call__( self, env, target, source, final_dir=None, base_path=None, variables={}, variables_file=None ):
+    def __call__( self, env, target, source, final_dir=None, base_path=None, variables=None, variables_file=None ):
         if final_dir == None:
             final_dir = env['abs_final_dir']
 
@@ -96,6 +96,8 @@ class RenderJinjaTemplateMethod(object):
 
         if variables_file:
             path = str(variables_file)
+            if not variables:
+                variables = {}
             with open( path, 'r' ) as variables_json:
                 data = json.load( variables_json )
                 logger.debug( "loaded variables [{}] from file [{}]".format( colour_items( data ), as_notice( path ) ) )
