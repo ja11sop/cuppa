@@ -9,7 +9,6 @@
 
 # Python imports
 import os.path
-import itertools
 import shlex
 import subprocess
 

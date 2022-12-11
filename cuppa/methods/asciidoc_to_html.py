@@ -9,12 +9,8 @@
 
 # Python imports
 import os.path
-import itertools
 import shlex
 import sys
-
-#SCons
-from SCons.Util import WhereIs
 
 # cuppa imports
 import cuppa.progress
