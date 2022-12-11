@@ -19,13 +19,15 @@ class CompileScssAction(object):
         self._load_path = load_path
 
     def __call__( self, target, source, env ):
-        logger.debug( "compiling SCSS files using load-path [{}]".format( as_notice( self._load_path ) ) )
+        if self._load_path:
+            logger.debug( "compiling SCSS files using load-path [{}]".format( as_notice( self._load_path ) ) )
         import shlex
         import subprocess
         for s, t in zip( source, target ):
             logger.debug( "compiling SCSS file [{}] to CSS file [{}]".format( as_notice( s.path ), as_notice( t.path ) ) )
             with open( s.abspath, 'rb', 0) as scss_file, open( t.abspath, 'wb') as css_file:
-                command = "python -m scss --load-path {}".format( self._load_path )
+                load_path = self._load_path and "--load-path {}".format( self._load_path ) or ""
+                command = "python -m scss {load_path}".format( load_path = load_path )
                 subprocess.call( shlex.split( command ), stdin=scss_file, stdout=css_file )
         return None
 
