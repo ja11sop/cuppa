@@ -401,12 +401,15 @@ class Construct(object):
         if not help and not self._configure.handle_conf_only():
 
             url, repo, branch, remote, rev = cuppa.scms.scms.get_current_rev_info( cuppa_env['sconstruct_dir'] )
-            logger.info( "Current build is on branch [{}] at revision [{}] from remote [{}] in repo [{}] at url [{}]".format(
+            cuppa_env['current_repo_path'] = urlparse( url )[2]
+
+            logger.info( "Current build is on branch [{}] at revision [{}] from remote [{}] in repo [{}] at url [{}] with path [{}]".format(
                         as_info( str(branch) ),
                         as_info( str(rev) ),
                         as_info( str(remote) ),
                         as_info( str(repo) ),
-                        as_info( str(url) )
+                        as_info( str(url) ),
+                        as_info( cuppa_env['current_repo_path'] )
             ) )
 
             if cuppa_env['location_match_current_branch']:
@@ -427,6 +430,9 @@ class Construct(object):
                         as_info( str(cuppa_env['location_match_tag']) )
                 ) )
                 cuppa_env['current_revision'] = cuppa_env['location_match_tag']
+            else:
+                cuppa_env['current_branch'] = branch and branch or ''
+                cuppa_env['current_revision'] = rev and rev or ''
 
         cuppa_env['default_projects']     = default_projects
         cuppa_env['default_variants']     = default_variants and set( default_variants ) or set()
