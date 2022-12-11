@@ -15,6 +15,7 @@ import fnmatch
 import multiprocessing
 import pkg_resources
 import six
+from urllib.parse import urlparse
 
 # Scons
 import SCons.Script
