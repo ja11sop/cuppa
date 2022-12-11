@@ -9,6 +9,7 @@
 #-------------------------------------------------------------------------------
 
 import json
+import os.path
 import cuppa.progress
 from cuppa.log import logger
 from cuppa.colourise import as_notice, colour_items
@@ -23,7 +24,6 @@ class RenderTemplateAction(object):
             logger.debug( "storing J2 variables {{{}}}".format( colour_items( variables ) ) )
 
     def __call__( self, target, source, env ):
-        import os.path
         from jinja2 import Environment, FileSystemLoader
 
         path_offset = os.path.relpath( os.path.split( source[0].abspath )[0], start=self._base_path )
@@ -60,7 +60,6 @@ class RenderTemplateEmitter(object):
 
     @classmethod
     def _target_from( cls, path ):
-        import os.path
         inner_path, outer_extension = os.path.splitext( path )
         file_path, inner_extension = os.path.splitext( inner_path )
         if outer_extension in cls._jinja_extensions:
@@ -71,7 +70,6 @@ class RenderTemplateEmitter(object):
 
 
     def __call__( self, target, source, env ):
-        import os.path
         path_offset = os.path.relpath( os.path.split( source[0].abspath )[0], start=self._base_path )
 
         num_targets = len(target)
@@ -87,12 +85,23 @@ class RenderTemplateEmitter(object):
 
 class RenderJinjaTemplateMethod(object):
 
+    _variables_file_id = 1
+
+    def __init__( self ):
+        self._variables_file_id = RenderJinjaTemplateMethod._variables_file_id
+        RenderJinjaTemplateMethod._variables_file_id += 1
+
     def __call__( self, env, target, source, final_dir=None, base_path=None, variables=None, variables_file=None ):
         if final_dir == None:
             final_dir = env['abs_final_dir']
 
         if base_path == None:
             base_path = env['sconstruct_dir']
+
+        if variables:
+            variables_file = os.path.join( env['abs_build_dir'], "_j2_variables_file_{}.json".format( self._variables_file_id ) )
+            with open( variables_file, 'w' ) as variables_fp:
+                json.dump( variables, variables_fp )
 
         if variables_file:
             path = str(variables_file)
