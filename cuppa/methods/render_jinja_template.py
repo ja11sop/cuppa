@@ -99,8 +99,8 @@ class RenderJinjaTemplateMethod(object):
             base_path = env['sconstruct_dir']
 
         if variables:
-            variables_file = os.path.join( env['abs_build_dir'], "_j2_variables_file_{}.json".format( self._variables_file_id ) )
-            with open( variables_file, 'w' ) as variables_fp:
+            variables_file = env.File( os.path.join( env['abs_build_dir'], "_j2_variables_file_{}.json".format( self._variables_file_id ) ) )
+            with open( str(variables_file), 'w' ) as variables_fp:
                 json.dump( variables, variables_fp )
 
         if variables_file:
