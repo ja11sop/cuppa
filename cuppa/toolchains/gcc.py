@@ -42,6 +42,7 @@ class Gcc(object):
     def supported_versions( cls ):
         return [
             "gcc",
+            "gcc12", "gcc121",
             "gcc11", "gcc111",
             "gcc10", "gcc102", "gcc101",
             "gcc9", "gcc93", "gcc92", "gcc91",
@@ -442,12 +443,14 @@ class Gcc(object):
                 return ['-std=c++1y']
         elif major_ver == 5 and minor_ver <= 1:
             return ['-std=c++1y']
-        elif major_ver >= 5 and major_ver <= 7:
+        elif major_ver >= 5 and major_ver < 8:
             return ['-std=c++1z']
-        elif major_ver >= 8 and major_ver <= 9:
+        elif major_ver >= 8 and major_ver < 10:
             return ['-std=c++2a', '-fconcepts', '-flto']
-        elif major_ver >= 10:
+        elif major_ver >= 10 and major_ver < 11:
             return ['-std=c++2a', '-fconcepts', '-fcoroutines', '-flto']
+        elif major_ver >= 11:
+            return ['-std=c++2b', '-fconcepts', '-fcoroutines', '-flto']
         return ['-std=c++03']
 
 
