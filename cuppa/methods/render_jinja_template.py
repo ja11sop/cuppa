@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2022-2022
+#          Copyright Jamie Allsop 2022-2023
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -10,7 +10,9 @@
 
 import json
 import os.path
+import yaml
 import cuppa.progress
+from cuppa.utility.file_types import is_json_ext, is_yaml_ext
 from cuppa.log import logger
 from cuppa.colourise import as_notice, colour_items
 
@@ -104,12 +106,18 @@ class RenderJinjaTemplateMethod(object):
                 json.dump( variables, variables_fp )
 
         if variables_file:
-            path = str(variables_file)
+            file_path = str(variables_file)
+            file_ext = str(os.path.splitext( file_path )[1] )
             if not variables:
                 variables = {}
-            with open( path, 'r' ) as variables_json:
-                data = json.load( variables_json )
-                logger.debug( "loaded variables [{}] from file [{}]".format( colour_items( data ), as_notice( path ) ) )
+            data = {}
+            with open( file_path, 'r' ) as variables_data:
+                if is_json_ext( file_ext ):
+                    data = json.load( variables_data )
+                elif is_yaml_ext( file_ext ):
+                    data = yaml.load( variables_data )
+            if data:
+                logger.debug( "loaded variables [{}] from file [{}]".format( colour_items( data ), as_notice( file_path ) ) )
                 variables.update( data )
 
         using_variables_file = variables_file and True or False

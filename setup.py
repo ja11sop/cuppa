@@ -64,6 +64,7 @@ setup(
         'psutil',
         'pyscss',
         'six',
+        'pyyaml',
     ],
     entry_points = {
         'console_scripts': [

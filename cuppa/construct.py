@@ -403,6 +403,8 @@ class Construct(object):
 
             url, repo, branch, remote, rev = cuppa.scms.scms.get_current_rev_info( cuppa_env['sconstruct_dir'] )
             cuppa_env['current_repo_path'] = urlparse( url )[2]
+            if cuppa_env['current_repo_path'].startswith( "git@" ):
+                cuppa_env['current_repo_path'] = os.path.splitext( cuppa_env['current_repo_path'].split(":")[1] )[0]
 
             logger.info( "Current build is on branch [{}] at revision [{}] from remote [{}] in repo [{}] at url [{}] with path [{}]".format(
                         as_info( str(branch) ),
