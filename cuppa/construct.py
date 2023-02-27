@@ -559,9 +559,9 @@ class Construct(object):
 
         if self._configure.handle_conf_only():
             print( "cuppa: Handling configuration only, so no builds will be attempted." )
-            print( "cuppa: With the current configuration executing 'scons -D' would be equivalent to:" )
+            print( "cuppa: With the current configuration executing 'cuppa -D' would be equivalent to:" )
             print( "" )
-            print( "scons -D {}".format( self._command_line_from_settings( cuppa_env['configured_options'] ) ) )
+            print( "cuppa -D {}".format( self._command_line_from_settings( cuppa_env['configured_options'] ) ) )
             print( "" )
             print( "cuppa: Nothing to be done. Exiting." )
             SCons.Script.Exit()

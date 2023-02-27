@@ -247,12 +247,17 @@ class Configure(object):
     def _is_saveable( self, key, value ):
         return(     not key.startswith("__")
                 and not self._is_defaulted_scons_option( key, value )
-                and not key =='save_conf'
-                and not key =='update_conf'
-                and not key =='remove_settings'
-                and not key =='show_conf'
-                and not key =='clear_conf'
-                and not key =='use_conf' )
+                and not key == 'cuppa-mode'
+                and not key == 'save_global_conf'
+                and not key == 'update_global_conf'
+                and not key == 'clear_global_conf'
+                and not key == 'remove_global_settings'
+                and not key == 'save_conf'
+                and not key == 'update_conf'
+                and not key == 'clear_conf'
+                and not key == 'remove_settings'
+                and not key == 'show_conf'
+                and not key == 'use_conf' )
 
 
     def _print_setting( self, action, key, value ):
