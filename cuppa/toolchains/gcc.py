@@ -378,9 +378,11 @@ class Gcc(object):
 
     def update_variant( self, env, variant ):
         if variant == 'dbg':
-            env.MergeFlags( self.values['debug_cxx_flags'] + self.values['debug_c_flags'] + self.values['debug_link_cxx_flags'] )
+            env.MergeFlags( self.values['debug_cxx_flags'] + self.values['debug_c_flags'] )
+            env.AppendUnique( LINKFLAGS = self.values['debug_link_cxx_flags'] )
         elif variant == 'rel':
-            env.MergeFlags( self.values['release_cxx_flags'] + self.values['release_c_flags'] + self.values['release_link_cxx_flags'] )
+            env.MergeFlags( self.values['release_cxx_flags'] + self.values['release_c_flags'] )
+            env.AppendUnique( LINKFLAGS = self.values['release_link_cxx_flags'] )
         elif variant == 'cov':
             env.MergeFlags( self.values['coverage_cxx_flags'] + self.values['coverage_c_flags'] )
             env.Append( CXXFLAGS = self.values['coverage_cxx_flags'] )
@@ -410,7 +412,7 @@ class Gcc(object):
 
         CommonLinkCxxFlags = []
         if cuppa.build_platform.name() == "Linux":
-            CommonLinkCxxFlags = ['-rdynamic', '-Wl,-rpath=.' ]
+            CommonLinkCxxFlags = self.__default_linker_flags() + ['-rdynamic', '-Wl,-rpath=.' ]
 
         self.values['debug_link_cxx_flags']    = CommonLinkCxxFlags
         self.values['release_link_cxx_flags']  = CommonLinkCxxFlags
@@ -449,9 +451,36 @@ class Gcc(object):
             return ['-std=c++2a', '-fconcepts', '-flto']
         elif major_ver >= 10 and major_ver < 11:
             return ['-std=c++2a', '-fconcepts', '-fcoroutines', '-flto']
-        elif major_ver >= 11:
+        elif major_ver >= 11 and major_ver < 12:
             return ['-std=c++2b', '-fconcepts', '-fcoroutines', '-flto']
+        elif major_ver >= 12:
+            return ['-std=c++2b', '-fconcepts', '-fcoroutines', '-flto=auto']
         return ['-std=c++03']
+
+
+    def __default_linker_flags( self ):
+        major_ver = self._reported_version['major']
+        minor_ver = self._reported_version['minor']
+        if major_ver == 4:
+            if minor_ver >= 3 and minor_ver <= 6:
+                return []
+            elif minor_ver == 7:
+                return []
+            else:
+                return []
+        elif major_ver == 5 and minor_ver <= 1:
+            return []
+        elif major_ver >= 5 and major_ver < 8:
+            return []
+        elif major_ver >= 8 and major_ver < 10:
+            return ['-flto']
+        elif major_ver >= 10 and major_ver < 11:
+            return ['-flto']
+        elif major_ver >= 11 and major_ver < 12:
+            return ['-flto']
+        elif major_ver >= 12:
+            return ['-flto=auto']
+        return []
 
 
     def abi_flag( self, env ):
