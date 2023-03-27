@@ -93,7 +93,7 @@ class RenderJinjaTemplateMethod(object):
         self._variables_file_id = RenderJinjaTemplateMethod._variables_file_id
         RenderJinjaTemplateMethod._variables_file_id += 1
 
-    def __call__( self, env, target, source, final_dir=None, base_path=None, variables=None, variables_file=None ):
+    def __call__( self, env, target, source, final_dir=None, base_path=None, variables=None, variables_file=None, yaml_loader=None ):
         if final_dir == None:
             final_dir = env['abs_final_dir']
 
@@ -115,7 +115,10 @@ class RenderJinjaTemplateMethod(object):
                 if is_json_ext( file_ext ):
                     data = json.load( variables_data )
                 elif is_yaml_ext( file_ext ):
-                    data = yaml.load( variables_data )
+                    if yaml_loader:
+                        data = yaml.load( variables_data, yaml_loader )
+                    else:
+                        data = yaml.safe_load( variables_data )
             if data:
                 logger.debug( "loaded variables [{}] from file [{}]".format( colour_items( data ), as_notice( file_path ) ) )
                 variables.update( data )
