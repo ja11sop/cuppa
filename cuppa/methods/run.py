@@ -17,14 +17,26 @@ from SCons.Script import Flatten
 class RunMethod(object):
 
     def __init__( self ):
-        pass
+        self._action_keys = [
+            'run',
+            'test',
+            'benchmark',
+            'force_run',
+            'force_test',
+            'force_benchmark'
+        ]
+        self._force_action_keys = [
+            'force_run',
+            'force_test',
+            'force_benchmark'
+        ]
 
 
     def __call__( self, env, source=None, target=None, final_dir=None, data=None, depends_on=None, command=None, command_args=None, expected_exit_code=None, working_dir=None, retry_count=None ):
 
         actions = env['variant_actions']
 
-        if 'run' in actions.keys() or 'test' in actions.keys() or 'force_run' in actions.keys() or 'force_test' in actions.keys():
+        if any( action_key in self._action_keys for action_key in actions.keys() ):
 
             if final_dir == None:
                 final_dir = env['abs_final_dir']
@@ -50,7 +62,7 @@ class RunMethod(object):
                 sources = Flatten( source and [ source, depends_on ] or [depends_on] )
 
             run_process = env.RunBuilder( [], sources )
-            if 'force_run' in env['variant_actions'].keys() or 'force_test' in  env['variant_actions'].keys():
+            if any( force_action in self._force_action_keys for force_action in env['variant_actions'].keys() ):
                 run_process = env.AlwaysBuild( run_process )
 
             cuppa.progress.NotifyProgress.add( env, run_process )

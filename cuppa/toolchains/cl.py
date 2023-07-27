@@ -268,6 +268,19 @@ class Cl(object):
         return [ 'process', 'boost', 'patched_boost' ]
 
 
+    def benchmark_runner( self, benchmarker, final_dir, expected, **kwargs ):
+        if not benchmarker or benchmarker =='process':
+            return RunProcessTest( expected, final_dir, **kwargs ), RunProcessTestEmitter( final_dir, **kwargs )
+        elif benchmarker == 'boost':
+            return RunBoostTest( expected, final_dir, **kwargs ), RunBoostTestEmitter( final_dir, **kwargs )
+        elif benchmarker == 'patched_boost':
+            return RunPatchedBoostTest( expected, final_dir, **kwargs ), RunPatchedBoostTestEmitter( final_dir, **kwargs )
+
+
+    def benchmark_runners( self ):
+        return [ 'process', 'boost', 'patched_boost' ]
+
+
     def coverage_runner( self, program, final_dir, include_patterns=[], exclude_patterns=[] ):
         return None, None
 
