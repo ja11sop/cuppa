@@ -1,15 +1,15 @@
 
-#          Copyright Jamie Allsop 2011-2018
+#          Copyright Jamie Allsop, Jonny Weir 2023
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   Test and Force Test
+#   Benchmark and Force Benchmark
 #-------------------------------------------------------------------------------
 
 
-class Test:
+class Benchmark:
 
     @classmethod
     def name( cls ):
@@ -19,8 +19,8 @@ class Test:
     @classmethod
     def add_options( cls, add_option ):
         add_option(
-                '--test', dest=cls.name(), action='store_true',
-                help='Execute any build outputs created using the BuildTest() method' )
+                '--benchmark', dest=cls.name(), action='store_true',
+                help='Execute any build outputs created using the BuildBenchmark() method' )
 
 
     @classmethod
@@ -29,18 +29,18 @@ class Test:
 
 
 
-class ForceTest:
+class ForceBenchmark:
 
     @classmethod
     def name( cls ):
-        return "force_test"
+        return "force_benchmark"
 
 
     @classmethod
     def add_options( cls, add_option ):
         add_option(
-                '--force-test', dest=cls.name(), action='store_true',
-                help='Execute any build outputs created using the Test() or BuildTest() method even if they do not need to be run' )
+                '--force-benchmark', dest=cls.name(), action='store_true',
+                help='Execute any build outputs created using the Benchmark() or BuildBenchmark() method even if they do not need to be run' )
 
 
     @classmethod
