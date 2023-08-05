@@ -42,7 +42,7 @@ class Gcc(object):
     def supported_versions( cls ):
         return [
             "gcc",
-            "gcc13", "gcc131",
+            "gcc13", "gcc131", "gcc132",
             "gcc12", "gcc121", "gcc122",
             "gcc11", "gcc111", "gcc112", "gcc113",
             "gcc10", "gcc102", "gcc101",
