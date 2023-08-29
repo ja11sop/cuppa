@@ -60,6 +60,7 @@ setup(
         'gcovr',
         'grip',
         'jinja2',
+        'libsass',
         'lxml',
         'psutil',
         'pyscss',

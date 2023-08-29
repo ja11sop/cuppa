@@ -8,6 +8,8 @@
 #   CompileScssMethod
 #-------------------------------------------------------------------------------
 
+import sys
+
 import cuppa.progress
 from cuppa.log import logger
 from cuppa.colourise import as_notice
@@ -25,10 +27,18 @@ class CompileScssAction(object):
         import subprocess
         for s, t in zip( source, target ):
             logger.debug( "compiling SCSS file [{}] to CSS file [{}]".format( as_notice( s.path ), as_notice( t.path ) ) )
-            with open( s.abspath, 'rb', 0) as scss_file, open( t.abspath, 'wb') as css_file:
-                load_path = self._load_path and "--load-path {}".format( self._load_path ) or ""
-                command = "python -m scss {load_path}".format( load_path = load_path )
-                subprocess.call( shlex.split( command ), stdin=scss_file, stdout=css_file )
+
+            if sys.version_info < (3,11,0):
+                # pyscss needs an update to allow it to work under python 3.11
+                with open( s.abspath, 'rb', 0) as scss_file, open( t.abspath, 'wb') as css_file:
+                    load_path = self._load_path and "--load-path {}".format( self._load_path ) or ""
+                    command = "python -m scss {load_path}".format( load_path = load_path )
+                    subprocess.call( shlex.split( command ), stdin=scss_file, stdout=css_file )
+            else:
+                load_path = self._load_path and "--include-dir {}".format( self._load_path ) or ""
+                command = "pysassc {load_path} {scss_file} {css_file}".format( load_path = load_path, scss_file=s.abspath, css_file=t.abspath )
+                subprocess.call( shlex.split( command ) )
+
         return None
 
 
