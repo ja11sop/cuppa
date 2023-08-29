@@ -14,6 +14,7 @@ from cuppa.utility.types import is_string
 from cuppa.colourise import as_notice
 from cuppa.log import logger
 
+from SCons.Node import  Node
 from SCons.Script import Flatten
 
 
@@ -39,6 +40,8 @@ def filter_nodes( nodes, match_patterns, exclude_patterns=[] ):
     filtered_nodes = []
 
     for node in nodes:
+        if not isinstance( node, Node ):
+            continue
         path = str( node )
         logger.trace( "Node in nodes to filter = [{}][{}]".format( as_notice(path), as_notice(node.path) ) )
 
