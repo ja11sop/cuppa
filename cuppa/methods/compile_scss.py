@@ -35,7 +35,7 @@ class CompileScssAction(object):
                     command = "python -m scss {load_path}".format( load_path = load_path )
                     subprocess.call( shlex.split( command ), stdin=scss_file, stdout=css_file )
             else:
-                load_path = self._load_path and "--include-dir {}".format( self._load_path ) or ""
+                load_path = self._load_path and "--include-path {}".format( self._load_path ) or ""
                 command = "pysassc {load_path} {scss_file} {css_file}".format( load_path = load_path, scss_file=s.abspath, css_file=t.abspath )
                 subprocess.call( shlex.split( command ) )
 
