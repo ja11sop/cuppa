@@ -105,6 +105,11 @@ class Clang(object):
     def supported_versions( cls ):
         return [
             "clang",
+            "clang16",
+            "clang15",
+            "clang14",
+            "clang13",
+            "clang12",
             "clang11",
             "clang10",
             "clang9",
@@ -521,8 +526,12 @@ class Clang(object):
                 return ['-std=c++1z']
         elif major_ver >= 4 and major_ver <= 5:
             return ['-std=c++1z']
-        elif major_ver >= 6:
+        elif major_ver >= 6 and major_ver <= 12:
             return ['-std=c++2a']
+        elif major_ver >= 13 and major_ver <= 16:
+            return ['-std=c++2b']
+        elif major_ver >= 17:
+            return ['-std=c++2c']
         return ['-std=c++03']
 
 
