@@ -403,39 +403,40 @@ class Construct(object):
 
             url, repo, branch, remote, rev = cuppa.scms.scms.get_current_rev_info( cuppa_env['sconstruct_dir'] )
             cuppa_env['current_repo_path'] = urlparse( url )[2]
-            if cuppa_env['current_repo_path'].startswith( "git@" ):
-                cuppa_env['current_repo_path'] = os.path.splitext( cuppa_env['current_repo_path'].split(":")[1] )[0]
+            if cuppa_env['current_repo_path']:
+                if cuppa_env['current_repo_path'].startswith( "git@" ):
+                    cuppa_env['current_repo_path'] = os.path.splitext( cuppa_env['current_repo_path'].split(":")[1] )[0]
 
-            logger.info( "Current build is on branch [{}] at revision [{}] from remote [{}] in repo [{}] at url [{}] with path [{}]".format(
-                        as_info( str(branch) ),
-                        as_info( str(rev) ),
-                        as_info( str(remote) ),
-                        as_info( str(repo) ),
-                        as_info( str(url) ),
-                        as_info( cuppa_env['current_repo_path'] )
-            ) )
+                logger.info( "Current build is on branch [{}] at revision [{}] from remote [{}] in repo [{}] at url [{}] with path [{}]".format(
+                            as_info( str(branch) ),
+                            as_info( str(rev) ),
+                            as_info( str(remote) ),
+                            as_info( str(repo) ),
+                            as_info( str(url) ),
+                            as_info( cuppa_env['current_repo_path'] )
+                ) )
 
-            if cuppa_env['location_match_current_branch']:
-                logger.info( "Setting [{}] is set".format( as_info( "location_match_current_branch" ) ) )
-                if branch:
-                    cuppa_env['current_branch'] = branch
-                if rev:
-                    cuppa_env['current_revision'] = rev
-            elif cuppa_env['location_match_branch']:
-                logger.info( "Setting [{}] is set".format( as_info( "location_match_branch" ) ) )
-                logger.info( "Build will attempt to build against repositories using the explicitly chosen branch [{}]".format(
-                        as_info( str(cuppa_env['location_match_branch']) )
-                ) )
-                cuppa_env['current_branch'] = cuppa_env['location_match_branch']
-            elif cuppa_env['location_match_tag']:
-                logger.info( "Setting [{}] is set".format( as_info( "location_match_tag" ) ) )
-                logger.info( "Build will attempt to build against repositories using the explicitly chosen tag [{}]".format(
-                        as_info( str(cuppa_env['location_match_tag']) )
-                ) )
-                cuppa_env['current_revision'] = cuppa_env['location_match_tag']
-            else:
-                cuppa_env['current_branch'] = branch and branch or ''
-                cuppa_env['current_revision'] = rev and rev or ''
+                if cuppa_env['location_match_current_branch']:
+                    logger.info( "Setting [{}] is set".format( as_info( "location_match_current_branch" ) ) )
+                    if branch:
+                        cuppa_env['current_branch'] = branch
+                    if rev:
+                        cuppa_env['current_revision'] = rev
+                elif cuppa_env['location_match_branch']:
+                    logger.info( "Setting [{}] is set".format( as_info( "location_match_branch" ) ) )
+                    logger.info( "Build will attempt to build against repositories using the explicitly chosen branch [{}]".format(
+                            as_info( str(cuppa_env['location_match_branch']) )
+                    ) )
+                    cuppa_env['current_branch'] = cuppa_env['location_match_branch']
+                elif cuppa_env['location_match_tag']:
+                    logger.info( "Setting [{}] is set".format( as_info( "location_match_tag" ) ) )
+                    logger.info( "Build will attempt to build against repositories using the explicitly chosen tag [{}]".format(
+                            as_info( str(cuppa_env['location_match_tag']) )
+                    ) )
+                    cuppa_env['current_revision'] = cuppa_env['location_match_tag']
+                else:
+                    cuppa_env['current_branch'] = branch and branch or ''
+                    cuppa_env['current_revision'] = rev and rev or ''
 
         cuppa_env['default_projects']     = default_projects
         cuppa_env['default_variants']     = default_variants and set( default_variants ) or set()
