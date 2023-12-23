@@ -609,11 +609,58 @@ class Construct(object):
         return active_actions
 
 
-    def create_build_envs( self, toolchain, cuppa_env ):
+    def propagate_env_variables( self, env, variant, target_arch, propagate_environment, propagate_path, merge_path ):
 
-        propagate_environment = cuppa_env['propagate_env']
-        propagate_path        = cuppa_env['propagate_path']
-        merge_path            = cuppa_env['merge_path']
+        def get_paths_from( environment, variable='PATH' ):
+            return variable in environment and environment[variable].split(os.pathsep) or []
+
+        # Always propagate PKG_CONFIG_PATH as this will be needed to discover packages on
+        # the system
+        pkg_config_paths = get_paths_from( os.environ, variable='PKG_CONFIG_PATH' )
+        if pkg_config_paths:
+            env['ENV']['PKG_CONFIG_PATH'] = pkg_config_paths
+            logger.debug( "propagating PKG_CONFIG_PATH for [{}:{}] to all subprocesses: [{}]".format(
+                    variant.name(),
+                    target_arch,
+                    colour_items( pkg_config_paths ) )
+            )
+
+        if propagate_environment or propagate_path or merge_path:
+
+            def merge_paths( default_paths, env_paths ):
+                path_set = set( default_paths + env_paths )
+                def record_path( path ):
+                    path_set.discard(path)
+                    return path
+                return [ record_path(p) for p in default_paths + env_paths if p in path_set ]
+
+            default_paths = get_paths_from( env['ENV'] )
+            env_paths = get_paths_from( os.environ )
+            if propagate_environment:
+                env['ENV'] = os.environ.copy()
+                logger.debug( "propagating environment for [{}:{}] to all subprocesses: [{}]".format(
+                        variant.name(),
+                        target_arch,
+                        as_notice( str(env['ENV']) ) )
+                )
+            if propagate_path and not propagate_environment:
+                env['ENV']['PATH'] = env_paths
+                logger.debug( "propagating PATH for [{}:{}] to all subprocesses: [{}]".format(
+                        variant.name(),
+                        target_arch,
+                        colour_items( env_paths ) )
+                )
+            elif merge_path:
+                merged_paths = merge_paths( default_paths, env_paths )
+                env['ENV']['PATH'] = os.pathsep.join( merged_paths )
+                logger.debug( "merging PATH for [{}:{}] to all subprocesses: [{}]".format(
+                        variant.name(),
+                        target_arch,
+                        colour_items( merged_paths ) )
+                )
+
+
+    def create_build_envs( self, toolchain, cuppa_env ):
 
         variants = cuppa_env[ self.variants_key ]
         actions  = cuppa_env[ self.actions_key ]
@@ -667,43 +714,14 @@ class Construct(object):
 
                 if env:
 
-                    # TODO: Refactor this code out
-                    if propagate_environment or propagate_path or merge_path:
-
-                        def merge_paths( default_paths, env_paths ):
-                            path_set = set( default_paths + env_paths )
-                            def record_path( path ):
-                                path_set.discard(path)
-                                return path
-                            return [ record_path(p) for p in default_paths + env_paths if p in path_set ]
-
-                        def get_paths_from( environment ):
-                            return 'PATH' in environment and environment['PATH'].split(os.pathsep) or []
-
-                        default_paths = get_paths_from( env['ENV'] )
-                        env_paths = get_paths_from( os.environ )
-                        if propagate_environment:
-                            env['ENV'] = os.environ.copy()
-                            logger.debug( "propagating environment for [{}:{}] to all subprocesses: [{}]".format(
-                                    variant.name(),
-                                    target_arch,
-                                    as_notice( str(env['ENV']) ) )
-                            )
-                        if propagate_path and not propagate_environment:
-                            env['ENV']['PATH'] = env_paths
-                            logger.debug( "propagating PATH for [{}:{}] to all subprocesses: [{}]".format(
-                                    variant.name(),
-                                    target_arch,
-                                    colour_items( env_paths ) )
-                            )
-                        elif merge_path:
-                            merged_paths = merge_paths( default_paths, env_paths )
-                            env['ENV']['PATH'] = os.pathsep.join( merged_paths )
-                            logger.debug( "merging PATH for [{}:{}] to all subprocesses: [{}]".format(
-                                    variant.name(),
-                                    target_arch,
-                                    colour_items( merged_paths ) )
-                            )
+                    self.propagate_env_variables(
+                            env,
+                            variant,
+                            target_arch,
+                            cuppa_env['propagate_env'],
+                            cuppa_env['propagate_path'],
+                            cuppa_env['merge_path']
+                    )
 
                     build_envs.append( {
                         'variant': key,
