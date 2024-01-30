@@ -23,6 +23,13 @@ _yml_extensions = set([
 ])
 
 
+_jinja_extensions = set([
+    ".j2",
+    ".jinja2",
+    ".jinja"
+])
+
+
 def is_json_ext( ext ):
     if ext:
         return ext.lower() == ".json"
@@ -47,6 +54,12 @@ def is_yaml_ext( ext ):
     return False
 
 
+def is_j2_ext( ext ):
+    if ext:
+        return ext.lower() in _jinja_extensions
+    return False
+
+
 def is_json( file_path ):
     return is_json_ext( os.path.splitext( file_path )[1] )
 
@@ -56,8 +69,15 @@ def is_yaml( file_path ):
 
 
 def is_asciidoc( file_path ):
-    return is_asciidoc_ext(  os.path.splitext( file_path )[1] )
+    return is_asciidoc_ext(  os.path.splitext( str(file_path) )[1] )
 
 
 def is_html( file_path ):
     return is_html_ext(  os.path.splitext( file_path )[1] )
+
+
+def is_j2_template( path ):
+    inner_path, outer_extension = os.path.splitext( str(path) )
+    file_path, inner_extension = os.path.splitext( inner_path )
+    return is_j2_ext( outer_extension ) or is_j2_ext( inner_extension )
+
