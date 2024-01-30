@@ -29,7 +29,7 @@ class MethodWithProgress(object):
         self._method = method
 
     def __call__( self, *args, **kwargs ):
-        logger.debug( "calling [{}] with args [{}] and kwargs [{}]".format( as_info(self._name), as_notice(str(args)), as_notice(str(kwargs)) ) )
+        logger.trace( "calling [{}] with args [{}] and kwargs [{}]".format( as_info(self._name), as_notice(str(args)), as_notice(str(kwargs)) ) )
         nodes = self._method( *args, **kwargs )
         if nodes and type(nodes) is list and isinstance( nodes[0], SCons.Node.Node ):
             cuppa.progress.NotifyProgress.add( self._env, nodes )
