@@ -100,8 +100,9 @@ def render_template( env, source, variables_id, template_variables, template_fil
 
     if template_file:
         target_files.append( source_template )
-        logger.debug( "copying template [{}] to [{}]".format( as_notice( str(template_file) ), as_notice( str(source_template) ) ) )
-        _copy_if_needed_to_build_dir( env, template_file, source_template )
+        if write:
+            logger.debug( "copying template [{}] to [{}]".format( as_notice( str(template_file) ), as_notice( str(source_template) ) ) )
+            _copy_if_needed_to_build_dir( env, template_file, source_template )
 
     target_files.append( target_rendered_template )
 

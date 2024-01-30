@@ -40,16 +40,25 @@ def _value_from_node( node ):
     return node
 
 
-def _get_variables_from_file( path ):
-    logger.debug( "Reading variables file [{}]".format( str(path) ) )
-    with open( str(path), 'r' ) as variables_file:
-        return json.load( variables_file )
+def _get_variables_from_file( path, env ):
+    if not env['clean']:
+        logger.debug( "Reading variables file [{}]".format( str(path) ) )
+        with open( str(path), 'r' ) as variables_file:
+            return json.load( variables_file )
+    return {}
 
 
-def _get_variables_from( paths ):
+def _get_variables_file( paths ):
     for path in paths:
         if is_json( str(path) ):
-            return _get_variables_from_file( path )
+            return path
+    return None
+
+
+def _get_variables_from( paths, env ):
+    variables_file = _get_variables_file( paths )
+    if variables_file:
+        return _get_variables_from_file( variables_file, env )
     return {}
 
 
@@ -79,7 +88,7 @@ class AsciidocToHtmlRunner(object):
         targets = Flatten( [target] )
         sources = [ s for s in Flatten( [source] ) if str(s) not in self._ignore_sources ]
 
-        variables = _get_variables_from( sources )
+        variables = _get_variables_from( sources, env )
 
         html_targets = []
         for t in targets:
@@ -192,7 +201,8 @@ class AsciidocToHtmlEmitter(object):
 
         targets = Flatten( [target] )
         sources = Flatten( [source] )
-        variables = _get_variables_from( sources )
+
+        variables = _get_variables_from( sources, env )
 
         asciidoc_sources = []
         new_targets = []
