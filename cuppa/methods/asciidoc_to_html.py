@@ -14,7 +14,6 @@ import os.path
 import re
 import shlex
 import sys
-import yaml
 
 from SCons.Script import Flatten
 
@@ -23,9 +22,8 @@ import cuppa.progress
 from cuppa.output_processor import IncrementalSubProcess
 from cuppa.log import logger
 from cuppa.colourise import as_notice, as_error, as_info, colour_items
-from cuppa.utility.file_types import is_json_ext, is_yaml_ext
-from cuppa.utility.jinja2_renderer import target_from_template, is_template, render_template
-from cuppa.utility.variables import process_variables
+from cuppa.utility.file_types import is_json, is_html, is_asciidoc
+from cuppa.utility.jinja2_renderer import is_template, render_template
 
 
 def process_stdout( line ):
@@ -34,22 +32,6 @@ def process_stdout( line ):
 
 def process_stderr( line ):
     sys.stderr.write( line + '\n' )
-
-
-_asciidoc_extensions = set([
-        ".adoc",
-        ".asciidoc",
-])
-
-
-def _is_asciidoc( path ):
-    extension = os.path.splitext( str(path) )[1]
-    return extension and extension in _asciidoc_extensions
-
-
-def _is_html( path ):
-    extension = os.path.splitext( str(path) )[1]
-    return extension and extension == ".html"
 
 
 def _value_from_node( node ):
@@ -66,7 +48,7 @@ def _get_variables_from_file( path ):
 
 def _get_variables_from( paths ):
     for path in paths:
-        if os.path.splitext( str(path) )[1] == ".json":
+        if is_json( str(path) ):
             return _get_variables_from_file( path )
     return {}
 
@@ -101,13 +83,13 @@ class AsciidocToHtmlRunner(object):
 
         html_targets = []
         for t in targets:
-            _is_html( str(t) ) and html_targets.append( t )
+            is_html( str(t) ) and html_targets.append( t )
             logger.debug( "AsciidocToHtmlRunner: target = {}"
                           .format( as_info( str(t) ) ) )
 
         asciidoc_sources = []
         for s in sources:
-            _is_asciidoc( str(s) ) and asciidoc_sources.append( s )
+            is_asciidoc( str(s) ) and asciidoc_sources.append( s )
             logger.debug( "AsciidocToHtmlRunner: source = {}"
                           .format( as_info( str(s) ) ) )
 
@@ -219,7 +201,7 @@ class AsciidocToHtmlEmitter(object):
 
             source_path = str(source_node)
 
-            if _is_asciidoc( source_path ):
+            if is_asciidoc( source_path ):
 
                 if is_template( source_path ):
                     new_targets.extend( render_template( env, source_node, 0, variables, write=False ) )
