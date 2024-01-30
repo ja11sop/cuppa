@@ -22,7 +22,7 @@ class FilterMethod:
 
         nodes = Flatten( [ nodes ] )
 
-        logger.debug( "nodes = [{}]".format( str(nodes) ) )
+        logger.trace( "nodes = [{}]".format( str(nodes) ) )
 
         filtered_nodes = filter_nodes( nodes, match, exclude )
         cuppa.progress.NotifyProgress.add( env, filtered_nodes )
