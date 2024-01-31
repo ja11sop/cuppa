@@ -92,17 +92,25 @@ def render_template( env, source, variables_id, template_variables, template_fil
 
     if not _path_is_inside_build_dir( env, source.abspath ):
         source_path = os.path.join( templates_search_path, os.path.relpath( source.abspath, start=base_path ) )
+        logger.debug( "source_path [{}] not inside templates_search_path [{}] making source_path=[{}]"
+                      .format( as_notice( str(source) ), as_notice( templates_search_path ), as_info(source_path) ) )
     else:
         source_path = os.path.relpath( source.abspath, start=env['abs_build_dir'] )
+        logger.debug( "source_path [{}] already inside templates_search_path [{}] making source_path=[{}]"
+                      .format( as_notice( str(source) ), as_notice( templates_search_path ), as_info(source_path) ) )
 
-    source_template = template_file and os.path.splitext( source_path )[0] + "_template.asciidoc" or source_path
-    target_rendered_template = os.path.splitext( source_path )[0] + "_rendered.asciidoc"
+    source_template = template_file and os.path.splitext( target_from_template( source_path ) )[0] + "_template.asciidoc" or source_path
+    target_rendered_template = os.path.splitext( target_from_template( source_path ) )[0] + "_rendered.asciidoc"
 
-    if template_file:
-        target_files.append( source_template )
-        if write:
+    target_files.append( source_template )
+
+    if write:
+        if template_file:
             logger.debug( "copying template [{}] to [{}]".format( as_notice( str(template_file) ), as_notice( str(source_template) ) ) )
             _copy_if_needed_to_build_dir( env, template_file, source_template )
+        else:
+            logger.debug( "copying template [{}] to [{}]".format( as_notice( str(source) ), as_notice( str(source_template) ) ) )
+            _copy_if_needed_to_build_dir( env, str(source), source_template )
 
     target_files.append( target_rendered_template )
 
