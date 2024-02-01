@@ -22,8 +22,8 @@ import cuppa.progress
 from cuppa.output_processor import IncrementalSubProcess
 from cuppa.log import logger
 from cuppa.colourise import as_notice, as_error, as_info, colour_items
-from cuppa.utility.file_types import is_json, is_html, is_asciidoc
-from cuppa.utility.jinja2_renderer import is_template, render_template
+from cuppa.utility.file_types import is_json, is_html, is_asciidoc, is_j2_template
+from cuppa.utility.jinja2_renderer import render_template, target_from_template
 
 
 def process_stdout( line ):
@@ -40,16 +40,26 @@ def _value_from_node( node ):
     return node
 
 
-def _get_variables_from_file( path ):
-    logger.debug( "Reading variables file [{}]".format( str(path) ) )
-    with open( str(path), 'r' ) as variables_file:
-        return json.load( variables_file )
+def _get_variables_from_file( path, env ):
+    if not env['clean']:
+        logger.debug( "Reading variables file [{}]".format( str(path) ) )
+        if os.path.exists( str(path) ):
+            with open( str(path), 'r' ) as variables_file:
+                return json.load( variables_file )
+    return {}
 
 
-def _get_variables_from( paths ):
+def _get_variables_file( paths ):
     for path in paths:
         if is_json( str(path) ):
-            return _get_variables_from_file( path )
+            return path
+    return None
+
+
+def _get_variables_from( paths, env ):
+    variables_file = _get_variables_file( paths )
+    if variables_file:
+        return _get_variables_from_file( variables_file, env )
     return {}
 
 
@@ -79,7 +89,7 @@ class AsciidocToHtmlRunner(object):
         targets = Flatten( [target] )
         sources = [ s for s in Flatten( [source] ) if str(s) not in self._ignore_sources ]
 
-        variables = _get_variables_from( sources )
+        variables = _get_variables_from( sources, env )
 
         html_targets = []
         for t in targets:
@@ -101,6 +111,7 @@ class AsciidocToHtmlRunner(object):
             current_target = next( target_iter )
             current_source = next( asciidoc_source_iter )
             html_asciidoc_source = current_source
+            targets_created = []
 
             if self._template_file and str(current_target).endswith( "_template.asciidoc" ):
 
@@ -108,6 +119,16 @@ class AsciidocToHtmlRunner(object):
                               .format( as_info( str(current_source) ), as_info( str(current_target) ) ) )
 
                 targets_created = render_template( env, current_source, 0, variables, template_file=self._template_file, write=True )
+                html_asciidoc_source = targets_created[-1]
+                next( target_iter )
+                current_target = next( target_iter )
+
+            elif is_j2_template( current_target ) and is_asciidoc( current_target ):
+
+                logger.debug( "Rendering template file [{}] given [{}]"
+                              .format( as_info( str(current_source) ), as_info( str(current_target) ) ) )
+
+                targets_created = render_template( env, current_source, 0, variables, write=True )
                 html_asciidoc_source = targets_created[-1]
                 next( target_iter )
                 current_target = next( target_iter )
@@ -192,9 +213,18 @@ class AsciidocToHtmlEmitter(object):
 
         targets = Flatten( [target] )
         sources = Flatten( [source] )
-        variables = _get_variables_from( sources )
 
-        asciidoc_sources = []
+        for t in targets:
+            logger.debug( "AsciidocToHtmlEmitter: target = {}"
+                          .format( as_info( str(t) ) ) )
+
+        for s in sources:
+            logger.debug( "AsciidocToHtmlEmitter: source = {}"
+                          .format( as_info( str(s) ) ) )
+
+        variables = _get_variables_from( sources, env )
+
+        asciidoc_to_search_for_images = []
         new_targets = []
 
         for source_node in sources:
@@ -203,10 +233,11 @@ class AsciidocToHtmlEmitter(object):
 
             if is_asciidoc( source_path ):
 
-                if is_template( source_path ):
+                if is_j2_template( source_path ):
+                    asciidoc_to_search_for_images.append( source_path )
                     new_targets.extend( render_template( env, source_node, 0, variables, write=False ) )
                 else:
-                    asciidoc_sources.append( source_path )
+                    asciidoc_to_search_for_images.append( source_path )
                     if self._template_file:
                         new_targets.extend( render_template( env, source_node, 0, variables, template_file=self._template_file, write=False ) )
 
@@ -215,7 +246,7 @@ class AsciidocToHtmlEmitter(object):
                     targets = targets[1:]
                 else:
                     path = os.path.join( env['abs_final_dir'], os.path.split( str(source_node) )[1] )
-                    html_target = os.path.splitext(path)[0]
+                    html_target = os.path.splitext( target_from_template( path ) )[0]
                     if html_target.endswith("_"):
                         html_target = html_target[:-1]
                     html_target += ".html"
@@ -226,10 +257,10 @@ class AsciidocToHtmlEmitter(object):
         target = []
         target.extend( new_targets )
 
-        logger.debug( "asciidoc_sources = [{}]".format( str(asciidoc_sources) ) )
+        logger.debug( "asciidoc_to_search_for_images = [{}]".format( str(asciidoc_to_search_for_images) ) )
 
         image_targets = []
-        for asciidoc_source in asciidoc_sources:
+        for asciidoc_source in asciidoc_to_search_for_images:
             source.append( asciidoc_source )
             images = self.get_image_targets( asciidoc_source, env['abs_build_dir'] )
             for t in images:
