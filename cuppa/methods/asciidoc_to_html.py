@@ -43,8 +43,9 @@ def _value_from_node( node ):
 def _get_variables_from_file( path, env ):
     if not env['clean']:
         logger.debug( "Reading variables file [{}]".format( str(path) ) )
-        with open( str(path), 'r' ) as variables_file:
-            return json.load( variables_file )
+        if os.path.exists( str(path) ):
+            with open( str(path), 'r' ) as variables_file:
+                return json.load( variables_file )
     return {}
 
 
@@ -217,14 +218,13 @@ class AsciidocToHtmlEmitter(object):
             logger.debug( "AsciidocToHtmlEmitter: target = {}"
                           .format( as_info( str(t) ) ) )
 
-        asciidoc_sources = []
         for s in sources:
             logger.debug( "AsciidocToHtmlEmitter: source = {}"
                           .format( as_info( str(s) ) ) )
 
         variables = _get_variables_from( sources, env )
 
-        asciidoc_sources = []
+        asciidoc_to_search_for_images = []
         new_targets = []
 
         for source_node in sources:
@@ -234,10 +234,10 @@ class AsciidocToHtmlEmitter(object):
             if is_asciidoc( source_path ):
 
                 if is_j2_template( source_path ):
-                    asciidoc_sources.append( source_path )
+                    asciidoc_to_search_for_images.append( source_path )
                     new_targets.extend( render_template( env, source_node, 0, variables, write=False ) )
                 else:
-                    asciidoc_sources.append( source_path )
+                    asciidoc_to_search_for_images.append( source_path )
                     if self._template_file:
                         new_targets.extend( render_template( env, source_node, 0, variables, template_file=self._template_file, write=False ) )
 
@@ -257,10 +257,10 @@ class AsciidocToHtmlEmitter(object):
         target = []
         target.extend( new_targets )
 
-        logger.debug( "asciidoc_sources = [{}]".format( str(asciidoc_sources) ) )
+        logger.debug( "asciidoc_to_search_for_images = [{}]".format( str(asciidoc_to_search_for_images) ) )
 
         image_targets = []
-        for asciidoc_source in asciidoc_sources:
+        for asciidoc_source in asciidoc_to_search_for_images:
             source.append( asciidoc_source )
             images = self.get_image_targets( asciidoc_source, env['abs_build_dir'] )
             for t in images:
