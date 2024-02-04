@@ -382,12 +382,12 @@ class Location(object):
             ) )
             raise LocationException( "URL VC of [{}] for [{}] NOT recognised so location cannot be retrieved".format( vc_type, location ) )
 
-        if self._cuppa_env['dump'] or self._cuppa_env['clean']:
+        if self._cuppa_env['dump']:
             return local_directory
 
         local_dir_with_sub_dir = os.path.join( local_directory, sub_dir and sub_dir or "" )
 
-        if not self._offline:
+        if not self._offline and not self._cuppa_env['clean']:
             try:
                 vcs_backend = backend( self.expand_secret( location ) )
             except: # Pip version >= 19
