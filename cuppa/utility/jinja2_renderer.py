@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2023-2023
+#          Copyright Jamie Allsop 2023-2024
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -11,7 +11,7 @@
 import os.path
 import shutil
 
-from cuppa.colourise import as_info, as_notice, as_error, colour_items
+from cuppa.colourise import as_info, as_notice, as_error, as_error_label, colour_items
 from cuppa.log import logger
 from cuppa.utility.variables import process_variables
 
@@ -52,19 +52,32 @@ def _process_variables( env, variables_id, template_variables ):
     return False, None, template_variables
 
 
-def _path_is_inside_build_dir( env, path ):
-    return not os.path.relpath( path, start=env['abs_build_dir'] ).startswith( ".." )
+def _path_is_outside_build_dir( env, path ):
+    return os.path.relpath( path, start=env['abs_build_dir'] ).startswith( ".." )
+
+
+def _get_build_path_from( env, path ):
+    if _path_is_outside_build_dir( env, str(path) ):
+        path = str(path)
+        offset_path = os.path.relpath( path, start=env['sconstruct_dir'] )
+        path = os.path.join( env['abs_build_dir'], offset_path )
+    return path
 
 
 def _copy_if_needed_to_build_dir( env, source_path, target_path=None ):
-    if not target_path and _path_is_inside_build_dir( env, source_path ):
+    source_path = str(source_path)
+    target_path = target_path and str(target_path) or None
+    if not target_path and not _path_is_outside_build_dir( env, source_path ):
         return None
     elif not target_path:
-        offset_path = os.path.relpath( source_path, start=env['sconstruct_dir'] )
-        target_path = target_path and target_path or os.path.join( env['abs_build_dir'], offset_path )
+        target_path = _get_build_path_from( env, source_path )
+    else:
+        target_path = _get_build_path_from( env, target_path )
     target_dir = os.path.split( target_path )[0]
     if not os.path.exists( target_dir ):
-        os.makedirs( os.path.split( target_path )[0] )
+        logger.debug( "target directory [{}] under [{}] does not exist, creating".format( as_info( target_dir ), as_notice( os.getcwd() ) ) )
+        os.makedirs( target_dir )
+    logger.debug( "Copying [{}] to [{}]".format( as_notice( source_path ), as_notice( target_path ) ) )
     shutil.copy2( source_path, target_path )
     return target_path
 
@@ -90,12 +103,12 @@ def render_template( env, source, variables_id, template_variables, template_fil
 
     source_path = None
 
-    if not _path_is_inside_build_dir( env, source.abspath ):
+    if _path_is_outside_build_dir( env, source.abspath ):
         source_path = os.path.join( templates_search_path, os.path.relpath( source.abspath, start=base_path ) )
-        logger.debug( "source_path [{}] not inside templates_search_path [{}] making source_path=[{}]"
+        logger.debug( "source_path [{}] outside templates_search_path [{}] making source_path=[{}]"
                       .format( as_notice( str(source) ), as_notice( templates_search_path ), as_info(source_path) ) )
     else:
-        source_path = os.path.relpath( source.abspath, start=env['abs_build_dir'] )
+        source_path = source.abspath
         logger.debug( "source_path [{}] already inside templates_search_path [{}] making source_path=[{}]"
                       .format( as_notice( str(source) ), as_notice( templates_search_path ), as_info(source_path) ) )
 
@@ -108,10 +121,11 @@ def render_template( env, source, variables_id, template_variables, template_fil
         if template_file:
             logger.debug( "copying template [{}] to [{}]".format( as_notice( str(template_file) ), as_notice( str(source_template) ) ) )
             _copy_if_needed_to_build_dir( env, template_file, source_template )
-        else:
+        elif source.abspath != source_template:
             logger.debug( "copying template [{}] to [{}]".format( as_notice( str(source) ), as_notice( str(source_template) ) ) )
             _copy_if_needed_to_build_dir( env, str(source), source_template )
 
+    logger.debug( "target_rendered_template = [{}]".format( as_info(target_rendered_template) ) )
     target_files.append( target_rendered_template )
 
     if write:
@@ -120,7 +134,8 @@ def render_template( env, source, variables_id, template_variables, template_fil
 
         jinja_env = Environment( loader=FileSystemLoader( templates_search_path ) )
 
-        source_template = os.path.relpath( source_template, start=templates_search_path )
+        if os.path.isabs( source_template ):
+            source_template = os.path.relpath( source_template, start=templates_search_path )
 
         logger.debug( "reading and rendering template file [{}] to [{}]...".format( as_notice( source_template ), as_notice( target_rendered_template ) ) )
 
@@ -138,6 +153,6 @@ def render_template( env, source, variables_id, template_variables, template_fil
                 output.write( rendered_string )
 
         except TemplateNotFound as error:
-            logger.error( "TemplateNotFound: {}".format( as_error( str(error) ) ) )
+            logger.error( "{} {}".format( as_error_label( "TemplateNotFound:"), as_error( str(error) ) ) )
 
     return target_files
