@@ -169,8 +169,9 @@ class AsciidocToHtmlRunner(object):
 
 class AsciidocToHtmlEmitter(object):
 
-    def __init__( self, plantuml_config=None, template_file=None, css_file=None ):
+    def __init__( self, final_dir=None, plantuml_config=None, template_file=None, css_file=None ):
 
+        self._final_dir = final_dir
         self._plantuml_config = _value_from_node( plantuml_config )
         self._template_file = _value_from_node( template_file )
         self._css_file = _value_from_node( css_file )
@@ -222,6 +223,14 @@ class AsciidocToHtmlEmitter(object):
             logger.debug( "AsciidocToHtmlEmitter: source = {}"
                           .format( as_info( str(s) ) ) )
 
+        if not self._final_dir:
+            self._final_dir = env['abs_final_dir']
+        elif not os.path.isabs( self._final_dir ):
+            if self._final_dir.startswith( ".." ):
+                self._final_dir = os.path.normpath( os.path.join( env['abs_build_dir'], self._final_dir ) )
+            else:
+                self._final_dir = os.path.join( env['abs_final_dir'], self._final_dir )
+
         variables = _get_variables_from( sources, env )
 
         asciidoc_to_search_for_images = []
@@ -245,7 +254,7 @@ class AsciidocToHtmlEmitter(object):
                     new_targets.append( targets[0] )
                     targets = targets[1:]
                 else:
-                    path = os.path.join( env['abs_final_dir'], os.path.split( str(source_node) )[1] )
+                    path = os.path.join( self._final_dir, os.path.split( str(source_node) )[1] )
                     html_target = os.path.splitext( target_from_template( path ) )[0]
                     if html_target.endswith("_"):
                         html_target = html_target[:-1]
@@ -269,7 +278,7 @@ class AsciidocToHtmlEmitter(object):
         if image_targets:
             logger.debug( "image_targets = [{}]".format(  colour_items( image_targets ) ) )
             for image_target in image_targets:
-                t = os.path.join( env['abs_final_dir'], image_target )
+                t = os.path.join( self._final_dir, image_target )
                 target.append( t )
                 logger.debug( "appending_target [{}]".format( as_info(str(t)) ) )
 
@@ -294,6 +303,7 @@ class AsciidoctorToHtmlMethod(object):
                         css_file=css_file
                 ),
                 emitter = AsciidocToHtmlEmitter(
+                        final_dir=final_dir,
                         plantuml_config=plantuml_config_file,
                         template_file=template_file,
                         css_file=css_file
