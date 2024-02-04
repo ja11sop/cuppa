@@ -65,11 +65,15 @@ def _get_variables_from( paths, env ):
 
 class AsciidocToHtmlRunner(object):
 
-    def __init__( self, env, plantuml_config=None, template_file=None, css_file=None ):
+    def __init__( self, env, plantuml_config=None, template_file=None, css_file=None, base_dir=None ):
 
         self._plantuml_config = _value_from_node( plantuml_config )
         self._template_file = _value_from_node( template_file )
         self._css_file = _value_from_node( css_file )
+        if not base_dir:
+            base_dir = env['sconstruct_dir']
+        elif not os.path.isabs( str(base_dir) ):
+            base_dir = os.path.join( env['sconstruct_dir'], str(base_dir) )
 
         self._ignore_sources = set()
 
@@ -77,7 +81,7 @@ class AsciidocToHtmlRunner(object):
         self._template_file and self._ignore_sources.add( self._template_file )
         self._css_file and self._ignore_sources.add( self._css_file )
 
-        self._command_template = "asciidoctor -r asciidoctor-diagram -B {}".format( env['sconstruct_dir'] )
+        self._command_template = "asciidoctor -r asciidoctor-diagram -B {}".format( base_dir )
 
         if self._plantuml_config:
             self._command_template += " -a config={}".format( str(self._plantuml_config) )
@@ -145,7 +149,7 @@ class AsciidocToHtmlRunner(object):
             logger.debug( "HTML target = [{}]".format( as_info( str(html_target) ) ) )
 
             working_dir = os.getcwd()
-            command = self._command_template.format( str(html_target), str(html_asciidoc_source) )
+            command = self._command_template.format( html_target.abspath, str(html_asciidoc_source) )
             logger.debug( "Creating HTML files using command [{}] in working directory [{}]".format( as_notice( command ), as_notice(working_dir) ) )
 
             try:
@@ -254,6 +258,7 @@ class AsciidocToHtmlEmitter(object):
                     new_targets.append( targets[0] )
                     targets = targets[1:]
                 else:
+                    logger.debug( "Generating HTML target from source [{}]".format( as_notice(str(source_node)) ) )
                     path = os.path.join( self._final_dir, os.path.split( str(source_node) )[1] )
                     html_target = os.path.splitext( target_from_template( path ) )[0]
                     if html_target.endswith("_"):
@@ -292,7 +297,7 @@ class AsciidocToHtmlEmitter(object):
 
 class AsciidoctorToHtmlMethod(object):
 
-    def __call__( self, env, target, source, final_dir=None, plantuml_config_file=None, template_file=None, css_file=None ):
+    def __call__( self, env, target, source, final_dir=None, plantuml_config_file=None, template_file=None, css_file=None, base_dir=None ):
 
         env.AppendUnique( BUILDERS = {
             'AsciidocToHtml' : env.Builder(
@@ -300,7 +305,8 @@ class AsciidoctorToHtmlMethod(object):
                         env,
                         plantuml_config=plantuml_config_file,
                         template_file=template_file,
-                        css_file=css_file
+                        css_file=css_file,
+                        base_dir=base_dir
                 ),
                 emitter = AsciidocToHtmlEmitter(
                         final_dir=final_dir,
