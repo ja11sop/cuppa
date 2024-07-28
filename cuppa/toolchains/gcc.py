@@ -468,8 +468,10 @@ class Gcc(object):
             return ['-std=c++2a', '-fconcepts', '-fcoroutines', '-flto']
         elif major_ver >= 11 and major_ver < 12:
             return ['-std=c++2b', '-fconcepts', '-fcoroutines', '-flto']
-        elif major_ver >= 12:
+        elif major_ver >= 12 and major_ver < 14:
             return ['-std=c++2b', '-fconcepts', '-fcoroutines', '-flto=auto']
+        elif major_ver >= 14:
+            return ['-std=c++2c', '-fconcepts', '-fcoroutines', '-flto=auto']
         return ['-std=c++03']
 
 
@@ -493,7 +495,9 @@ class Gcc(object):
             return ['-flto']
         elif major_ver >= 11 and major_ver < 12:
             return ['-flto']
-        elif major_ver >= 12:
+        elif major_ver >= 12 and major_ver < 14:
+            return ['-flto=auto']
+        elif major_ver >= 14:
             return ['-flto=auto']
         return []
 
