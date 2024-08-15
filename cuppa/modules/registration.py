@@ -48,7 +48,13 @@ def init_env_for_variant( module_name, sconscript_exports ):
 #-------------------------------------------------------------------------------
 
 import inspect
-import imp
+#try:
+from imp import find_module as find_module
+from imp import load_module as load_module
+#except ImportError: # Python 3.12+
+#    from importlib.util import find_spec as find_module
+#    from importlib import import_module as load_module
+
 import sys
 import logging
 
