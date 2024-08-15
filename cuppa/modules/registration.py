@@ -48,19 +48,26 @@ def init_env_for_variant( module_name, sconscript_exports ):
 #-------------------------------------------------------------------------------
 
 import inspect
-import imp
+
+try:
+    from imp import find_module as find_module
+    from imp import load_module as load_module
+except ImportError: # Python 3.12+
+    from importlib.util import find_spec as find_module
+    from importlib import import_module as load_module
+
 import sys
 import logging
 
 def __package( name ):
     package = None
     try:
-        filehandle, pathname, description = imp.find_module( name, None )
+        filehandle, pathname, description = find_module( name, None )
         try:
             try:
                 module = sys.modules[ name ]
             except KeyError:
-                module = imp.load_module( name, filehandle, pathname, description )
+                module = load_module( name, filehandle, pathname, description )
             package = pathname
         finally:
             if filehandle:
@@ -72,14 +79,14 @@ def __package( name ):
 
 def __call_classmethod_for_classes_in_module( package, name, path, method, *args, **kwargs ):
     try:
-        filehandle, pathname, description = imp.find_module( name, path and [ path ] or None )
+        filehandle, pathname, description = find_module( name, path and [ path ] or None )
         try:
             try:
                 qualified_name = package and package + "." + name or name
                 module = sys.modules[ qualified_name ]
 
             except KeyError:
-                module = imp.load_module( name, filehandle, pathname, description )
+                module = load_module( name, filehandle, pathname, description )
 
             for member_name in dir( module ):
 
