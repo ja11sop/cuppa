@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2019-2019
+#          Copyright Jamie Allsop 2019-2024
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -83,18 +83,17 @@ def run_scons( args_list ):
         stdout_processor = masker.mask
         stderr_processor = masker.mask
 
-        import cuppa.output
-
         kwargs = {}
         kwargs['stdout']    = subprocess.PIPE
         kwargs['stderr']    = subprocess.PIPE
         kwargs['close_fds'] = platform.system() == "Windows" and False or True
 
         use_shell = False
+        propagated_env = os.environ
 
         process = subprocess.Popen(
             use_shell and " ".join(args_list) or args_list,
-            **dict( kwargs, shell=use_shell )
+            **dict( kwargs, shell=use_shell, env=propagated_env )
         )
 
         stderr_consumer = LineConsumer( process.stderr.readline, stderr_processor )

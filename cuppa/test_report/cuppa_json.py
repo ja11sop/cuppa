@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2015-2015
+#          Copyright Jamie Allsop 2015-2024
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -10,21 +10,22 @@
 
 import json
 
-import cuppa.timer
+# cuppa imports
+from cuppa.timer import CpuTimes, Timer
 
 
 class Encoder( json.JSONEncoder ):
 
     def default(self, obj):
 
-        if isinstance( obj, cuppa.timer.CpuTimes ):
+        if isinstance( obj, CpuTimes ):
             return {
                 "wall_time"    : obj.wall,
                 "process_time" : obj.process,
                 "system_time"  : obj.system,
                 "user_time"    : obj.user
             }
-        elif isinstance( obj, cuppa.timer.Timer ):
+        elif isinstance( obj, Timer ):
             return {
                 "wall_time"    : obj.elapsed().wall,
                 "process_time" : obj.elapsed().process,

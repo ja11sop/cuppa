@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2015-2020
+#          Copyright Jamie Allsop 2015-2024
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -234,7 +234,7 @@ class Notify(object):
 
         matches = re.match(
             r'(?P<file>[a-zA-Z0-9.@_/\s\-]+)[(](?P<line>[0-9]+)[)]: '
-             '(?P<message>[a-zA-Z0-9(){}:%.*&_<>/\-+=!," \[\]]+)',
+            r'(?P<message>[a-zA-Z0-9(){}:%.*&_<>/\-+=!," \[\]]+)',
             line )
 
         if matches:
@@ -282,7 +282,7 @@ class ProcessStdout:
     def entered_test_suite( self, line ):
         matches = re.match(
             r'(?:(?P<file>[a-zA-Z0-9.@_/\s\-]+)?[(](?P<line>[0-9]+)[)]: )?'
-             'Entering test (suite|module) "(?P<suite>[a-zA-Z0-9(){}:&_<>/\-, ]+)"',
+            r'Entering test (suite|module) "(?P<suite>[a-zA-Z0-9(){}:&_<>/\-, ]+)"',
             line.strip() )
 
         if matches and matches.group('suite') != self.master_test_suite:
@@ -314,10 +314,10 @@ class ProcessStdout:
     def leaving_test_suite( self, line ):
         matches = re.match(
             r'(?:(?P<file>[a-zA-Z0-9.@_/\\\s\-]+)[(](?P<line>[0-9]+)[)]: )?'
-             'Leaving test (suite|module) "(?P<suite>[a-zA-Z0-9(){}:&_<>/\-, ]+)"'
-             '(?:; testing time: (?P<testing_time>[a-zA-Z0-9.s ,+=()%/]+))?'
-             '(\. Test suite (?P<status>passed|failed)\.'
-             '(?: (?P<results>.*))?)?',
+            r'Leaving test (suite|module) "(?P<suite>[a-zA-Z0-9(){}:&_<>/\-, ]+)"'
+            r'(?:; testing time: (?P<testing_time>[a-zA-Z0-9.s ,+=()%/]+))?'
+            r'(\. Test suite (?P<status>passed|failed)\.'
+            r'(?: (?P<results>.*))?)?',
             line.strip() )
 
         if matches and matches.group('suite') != self.master_test_suite:
@@ -352,7 +352,7 @@ class ProcessStdout:
     def entered_test_case( self, line ):
         matches = re.match(
             r'(?:(?P<file>[a-zA-Z0-9.@_/\\\s\-]+)[(](?P<line>[0-9]+)[)]: )?'
-             'Entering test case "(?P<test>[a-zA-Z0-9(){}\[\]:;&_<>\-, =]+)"',
+            r'Entering test case "(?P<test>[a-zA-Z0-9(){}\[\]:;&_<>\-, =]+)"',
             line.strip() )
 
         if matches:
@@ -385,10 +385,10 @@ class ProcessStdout:
 
         matches = re.match(
             r'(?:(?P<file>[a-zA-Z0-9.@_/\\\s\-]+)[(](?P<line>[0-9]+)[)]: )?'
-             'Leaving test case "(?:[a-zA-Z0-9(){}\[\]:;&_<>\-, =]+)"'
-             '(?:; testing time: (?P<testing_time>[a-zA-Z0-9.s ,+=()%/]+))?'
-             '(\. Test case (?P<status>passed|failed|skipped|aborted)\.'
-             '(?: (?P<results>.*))?)?',
+            r'Leaving test case "(?:[a-zA-Z0-9(){}\[\]:;&_<>\-, =]+)"'
+            r'(?:; testing time: (?P<testing_time>[a-zA-Z0-9.s ,+=()%/]+))?'
+            r'(\. Test case (?P<status>passed|failed|skipped|aborted)\.'
+            r'(?: (?P<results>.*))?)?',
             line.strip() )
 
         if matches:

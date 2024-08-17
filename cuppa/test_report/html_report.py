@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2019-2019
+#          Copyright Jamie Allsop 2019-2024
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -22,15 +22,15 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 
 from SCons.Script import Flatten, Dir, Copy
 
-import cuppa.progress
-import cuppa.timer
-import cuppa.path
+# cuppa imports
 from cuppa.colourise import as_notice, as_info, as_error, colour_items, emphasise_time_by_digit
 from cuppa.log import logger
+from cuppa.path import split_common
 from cuppa.progress import NotifyProgress
-
+from cuppa.timer import as_duration_string
 from cuppa.utility.python2to3 import escape
 from cuppa.utility.python2to3 import encode
+
 
 jinja2_env = None
 
@@ -317,7 +317,7 @@ class GenerateHtmlReportBuilder(object):
 
     @classmethod
     def _time_string( cls, nanoseconds ):
-        time_text = cuppa.timer.as_duration_string( nanoseconds )
+        time_text = as_duration_string( nanoseconds )
         return emphasise_time_by_digit(
             time_text,
             start_colour=" ",
@@ -476,7 +476,7 @@ class GenerateHtmlReportMethod(object):
         builder = GenerateHtmlReportBuilder( final_dir, sort_test_cases=sort_test_cases, auto_link_tests=auto_link_tests, link_style=link_style )
         env['BUILDERS']['GenerateHtmlReport'] = env.Builder( action=builder.GenerateHtmlTestReport, emitter=builder.emitter )
         report = env.GenerateHtmlReport( [], source )
-        cuppa.progress.NotifyProgress.add( env, report )
+        NotifyProgress.add( env, report )
         return report
 
 
@@ -598,7 +598,7 @@ class ReportIndexBuilder(object):
             new_common = None
             new_folder = None
             for path in cls.destination_dirs[destination_dir]:
-                common, tail1, tail2 = cuppa.path.split_common( path, final_dir )
+                common, tail1, tail2 = split_common( path, final_dir )
                 if common and (not tail1 or not tail2):
                     new_common = common
                     new_folder = final_dir
@@ -677,7 +677,7 @@ class ReportIndexBuilder(object):
                 summaries['reports'] = {}
 
                 for report_dir, json_reports in six.iteritems(cls.all_reports):
-                    common, tail1, tail2 = cuppa.path.split_common( report_dir, destination_dir )
+                    common, tail1, tail2 = split_common( report_dir, destination_dir )
                     logger.trace( "common, tail1, tail2 = {}, {}, {}".format( as_info(common), as_notice(tail1), as_notice(tail2) ) )
                     if common and (not tail1 or not tail2):
 
@@ -758,7 +758,7 @@ class CollateTestReportIndexMethod(object):
 
         index_file = env.CollateTestReportIndexBuilder( [], Flatten( [ sources ] ) )
 
-        cuppa.progress.NotifyProgress.add( env, index_file )
+        NotifyProgress.add( env, index_file )
         return index_file
 
 

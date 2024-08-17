@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2015-2015
+#          Copyright Jamie Allsop 2015-2024
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -14,7 +14,8 @@ import itertools
 import cgi
 import six
 
-import cuppa.progress
+# cuppa imports
+from cuppa.progress import NotifyProgress
 
 
 class GenerateReportBuilder(object):
@@ -85,7 +86,7 @@ class GenerateBittenReportMethod(object):
         builder = GenerateReportBuilder( final_dir )
         env['BUILDERS']['GenerateBittenReport'] = env.Builder( action=builder.GenerateBittenReport, emitter=builder.emitter )
         report = env.GenerateBittenReport( [], source )
-        cuppa.progress.NotifyProgress.add( env, report )
+        NotifyProgress.add( env, report )
         return report
 
 
