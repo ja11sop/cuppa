@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2019
+#          Copyright Jamie Allsop 2011-2024
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -9,7 +9,7 @@ import traceback
 from inspect import getframeinfo, stack
 
 
-def log_exception( error, suppress=None ):
+def log_exception( error, stack_trace, suppress=None ):
 
     from cuppa.log import logger
     from cuppa.colourise import as_info
@@ -21,7 +21,8 @@ def log_exception( error, suppress=None ):
         ) )
         if not logger.isEnabledFor( logging.EXCEPTION ):
             logger.warn( "Use {} (or above) to see the stack".format( as_info( "--verbosity=exception" ) ) )
-    logger.exception( traceback.format_exc() )
+
+    logger.exception( stack_trace )
 
 
 def run( *args, **kwargs ):
@@ -38,22 +39,26 @@ def run( *args, **kwargs ):
         import cuppa.construct
         cuppa.construct.run( sconstruct_path, *args, **kwargs )
     except SCons.Errors.BuildError as error:
-        log_exception( error )
+        stack_trace = traceback.format_exc()
+        log_exception( error, stack_trace )
         if len(error.args) >= 1:
             error.args = (mask_secrets(str(error.args[0])),) + error.args[1:]
         raise
     except SCons.Errors.StopError as error:
-        log_exception( error )
+        stack_trace = traceback.format_exc()
+        log_exception( error, stack_trace )
         if len(error.args) >= 1:
             error.args = (mask_secrets(str(error.args[0])),) + error.args[1:]
         raise
     except SCons.Errors.UserError as error:
-        log_exception( error )
+        stack_trace = traceback.format_exc()
+        log_exception( error, stack_trace )
         if len(error.args) >= 1:
             error.args = (mask_secrets(str(error.args[0])),) + error.args[1:]
         raise
     except Exception as error:
-        log_exception( error )
+        stack_trace = traceback.format_exc()
+        log_exception( error, stack_trace )
         if len(error.args) >= 1:
             error.args = (mask_secrets(str(error.args[0])),) + error.args[1:]
         raise SCons.Errors.StopError( error )

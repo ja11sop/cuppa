@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2015-2019
+#          Copyright Jamie Allsop 2015-2024
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -135,7 +135,6 @@ def enable_thirdparty_logging( enable ):
 
 def reset_logging_format():
     _log_handler.setFormatter( _formatter() )
-
 
 
 def set_logging_level( level ):

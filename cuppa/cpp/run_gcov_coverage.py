@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2019
+#          Copyright Jamie Allsop 2011-2024
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -155,8 +155,8 @@ class CoverageSuite(object):
         html_base_name = url_coverage_base_name( sconscript_id ) + "." + self._program_id[2:]
 
         index_file = html_base_name + ".html"
-        regex_filter = re.escape( os.path.join( build_dir, "" ) ).replace( "\_", "_" ).replace( "\#", "#" )
-        regex_filter = ".*" + regex_filter + ".*" + self._program_id + "\.gcov"
+        regex_filter = re.escape( os.path.join( build_dir, "" ) ).replace( r"\_", r"_" ).replace( r"\#", r"#" )
+        regex_filter = r".*" + regex_filter + r".*" + self._program_id + r"\.gcov"
 
         gcov_includes = ""
         for include_regex in include_regexes:
@@ -543,13 +543,13 @@ class coverage_entry(object):
 
     entry_regex = re.compile(
         r"(?P<coverage_file>coverage[-#][#%@$~\w&_ :+/\.-]+)"
-         "\nlines: (?P<lines_percent>[\d.]+)% [(](?P<lines_covered>\d+)[\D]+(?P<lines_total>\d+)[)]"
-         "(\nfunctions: (?P<functions_percent>[\d.]+)% [(](?P<functions_covered>\d+)[\D]+(?P<functions_total>\d+)[)])?"
-         "\nbranches: (?P<branches_percent>[\d.]+)% [(](?P<branches_covered>\d+)[\D]+(?P<branches_total>\d+)[)]"
-         "(\ntoolchain_variant_dir: (?P<toolchain_variant_dir>[#%@$~\w&_ +/\.-]+))?"
-         "(\noffset_dir: (?P<offset_dir>[#%@$~\w&_ +/\.-]+))?"
-         "(\nsubdir: (?P<subdir>[#%@$~\w&_ +/\.-]+))?"
-         "(\nname: (?P<name>[#%@$~\w&_ +/\.-]+))?",
+        r"\nlines: (?P<lines_percent>[\d.]+)% [(](?P<lines_covered>\d+)[\D]+(?P<lines_total>\d+)[)]"
+        r"(\nfunctions: (?P<functions_percent>[\d.]+)% [(](?P<functions_covered>\d+)[\D]+(?P<functions_total>\d+)[)])?"
+        r"\nbranches: (?P<branches_percent>[\d.]+)% [(](?P<branches_covered>\d+)[\D]+(?P<branches_total>\d+)[)]"
+        r"(\ntoolchain_variant_dir: (?P<toolchain_variant_dir>[#%@$~\w&_ +/\.-]+))?"
+        r"(\noffset_dir: (?P<offset_dir>[#%@$~\w&_ +/\.-]+))?"
+        r"(\nsubdir: (?P<subdir>[#%@$~\w&_ +/\.-]+))?"
+        r"(\nname: (?P<name>[#%@$~\w&_ +/\.-]+))?",
          re.MULTILINE
     )
 
