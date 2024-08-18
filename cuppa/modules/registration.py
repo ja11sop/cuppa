@@ -98,12 +98,12 @@ def __package( name ):
     try:
         import imp
         try:
-            filehandle, pathname, description = find_module( name, None )
+            filehandle, pathname, description = imp.find_module( name, None )
             try:
                 try:
                     module = sys.modules[ name ]
                 except KeyError:
-                    module = load_module( name, filehandle, pathname, description )
+                    module = imp.load_module( name, filehandle, pathname, description )
                 package = pathname
             finally:
                 if filehandle:
