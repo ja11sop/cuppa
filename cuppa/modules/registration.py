@@ -55,12 +55,10 @@ import logging
 def try_load_module( package, name, path ):
     module = None
     pathname = None
+
     try:
-        qualified_name = package and package + "." + name or name
-        module = sys.modules[ qualified_name ]
-    except:
+        import imp
         try:
-            import imp
             filehandle, pathname, description = imp.find_module( name, path and [ path ] or None )
             try:
                 try:
@@ -75,9 +73,15 @@ def try_load_module( package, name, path ):
             finally:
                 if filehandle:
                     filehandle.close()
-
         except ImportError:
-            import importlib
+            pass
+
+    except ImportError:
+        import importlib
+        try:
+            qualified_name = package and package + "." + name or name
+            module = sys.modules[ qualified_name ]
+        except KeyError:
             spec = importlib.machinery.PathFinder.find_spec( name, path and [ path ] or None )
             if spec is not None:
                 #try:
