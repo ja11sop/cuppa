@@ -188,6 +188,12 @@ class Boost(object):
     def location( self ):
         return self._location
 
+    def local_sub_path( self, *paths ):
+        return os.path.join( self._location.local(), *paths )
+
+    def local_abs_path( self, *paths ):
+        return os.path.abspath( os.path.join( self._location.local(), *paths ) )
+
     def includes( self ):
         return []
 
