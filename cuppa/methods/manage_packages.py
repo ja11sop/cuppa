@@ -56,3 +56,31 @@ class InstallPackageMethod(object):
     @classmethod
     def add_to_env( cls, cuppa_env ):
         cuppa_env.add_method( "InstallPackage", cls() )
+
+
+
+# Example for boost
+
+# from cuppa.dependencies.boost.library_dependencies import add_dependent_libraries
+#
+# boost_libraries = add_dependent_libraries( 1.86, "static", [
+#     'log_setup',
+#     'log',
+#     'system',
+#     'program_options',
+#     'unit_test_framework',
+# ] )
+#
+# from cuppa.package_managers.gitlab import GitlabPackageInstaller
+#
+# installer = GitlabPackageInstaller(
+#         env,
+#         registry = 'https://your.domain/api/v4/projects/group%2Fregistry',
+#         package  = 'boost',
+#         version  = "1.86",
+#         variant  = "rel"
+# )
+#
+# extracted_package = env.InstallPackage( installer )
+#
+# env.AppendUnique( STATICLIBS = installer.static_libs( env, "boost_", boost_libraries ) )
