@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2016
+#          Copyright Jamie Allsop 2011-2024
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -11,11 +11,16 @@
 import cuppa.progress
 import os.path
 
+from SCons.Script import Flatten
+
+from cuppa.colourise import as_notice
+from cuppa.log import logger
+
 
 class BuildMethod:
 
     @classmethod
-    def build( cls, env, target, source, final_dir = None, append_variant = False, LIBS=[], SHAREDLIBS=[], DYNAMICLIBS=[], STATICLIBS=[], **kwargs ):
+    def build( cls, env, target, source, final_dir=None, append_variant=False, depends_on=None, LIBS=[], SHAREDLIBS=[], DYNAMICLIBS=[], STATICLIBS=[], **kwargs ):
         if final_dir == None:
             final_dir = env['abs_final_dir']
         exe = os.path.join( final_dir, target )
@@ -29,8 +34,15 @@ class BuildMethod:
 
         all_libs = env['DYNAMICLIBS'] + env['STATICLIBS'] + LIBS + DYNAMICLIBS + SHAREDLIBS + STATICLIBS
 
+        logger.trace( "Building [{}] from [{}] which depends on [{}] and links against [{}]".format(
+                as_notice( str(target) ),
+                as_notice( str(source) ),
+                as_notice( str(depends_on) ),
+                as_notice( str( [str(l) for l in Flatten(all_libs) ] ) )
+        ) )
+
         program = env.Program( exe,
-                               env.Compile( source ),
+                               env.Compile( source, depends_on=depends_on ),
                                LIBS = all_libs,
                                DYNAMICLIBS = env['DYNAMICLIBS'] + LIBS + DYNAMICLIBS + SHAREDLIBS,
                                STATICLIBS = env['STATICLIBS'] + STATICLIBS,

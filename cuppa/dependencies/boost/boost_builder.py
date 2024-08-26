@@ -124,9 +124,9 @@ def _lazy_update_library_list( env, emitting, libraries, prebuilt_libraries, add
 
     if add_dependents:
         if not emitting:
-            libraries = set( build_with_library_name(l) for l in add_dependent_libraries( boost, linktype, libraries ) )
+            libraries = set( build_with_library_name(l) for l in add_dependent_libraries( boost.numeric_version(), linktype, libraries, patched_test=boost._patched_test ) )
         else:
-            libraries = add_dependent_libraries( boost, linktype, libraries )
+            libraries = add_dependent_libraries( boost.numeric_version(), linktype, libraries, patched_test=boost._patched_test )
 
     if not stage_dir in prebuilt_libraries:
         logger.trace( "Lazy update libraries list for [{}] to [{}]".format( as_info(stage_dir), colour_items(str(l) for l in libraries) ) )
@@ -326,7 +326,7 @@ class BoostLibraryBuilder(object):
 
         logger.trace( "Variant sources = [{}]".format( colour_items( _prebuilt_boost_libraries['builder'][sconstruct_id][ variant_key ].keys() ) ) )
 
-        required_libraries = add_dependent_libraries( self._boost, linktype, libraries )
+        required_libraries = add_dependent_libraries( self._boost.numeric_version(), linktype, libraries, patched_test=self._boost._patched_test )
 
         logger.trace( "Required libraries = [{}]".format( colour_items( required_libraries ) ) )
 

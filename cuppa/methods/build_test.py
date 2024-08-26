@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2019
+#          Copyright Jamie Allsop 2011-2024
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -22,6 +22,7 @@ class BuildTestMethod:
             env, target, source,
             final_dir=None,
             data=None,
+            depends_on=None,
             append_variant=None,
             runner=None,
             expected='passed',
@@ -35,7 +36,7 @@ class BuildTestMethod:
     ):
 
         nodes = []
-        program = env.Build( target, source, final_dir=final_dir, append_variant=append_variant, **kwargs )
+        program = env.Build( target, source, final_dir=final_dir, append_variant=append_variant, depends_on=depends_on, **kwargs )
         nodes.append( program )
 
         actions = env['variant_actions']

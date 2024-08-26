@@ -906,6 +906,7 @@ class Construct(object):
             sconscript_env['sconscript_toolchain_build_dir'] = os.path.join( path_without_ext, toolchain.name() )
             sconscript_env['sconscript_dir'] = os.path.join( sconscript_env['base_path'], sconstruct_offset_path )
             sconscript_env['abs_sconscript_dir'] = os.path.abspath( sconscript_env['sconscript_dir'] )
+            sconscript_env['tool_arch_abi_dir'] = os.path.join( toolchain.name(), target_arch, abi )
             sconscript_env['tool_variant_dir'] = os.path.join( toolchain.name(), variant, target_arch, abi )
             sconscript_env['tool_variant_working_dir'] = os.path.join( sconscript_env['tool_variant_dir'], working_folder )
 
