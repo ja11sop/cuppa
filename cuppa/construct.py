@@ -718,6 +718,8 @@ class Construct(object):
 
                 if env:
 
+                    abi = sanitise_abi( toolchain.abi( env ) )
+
                     self.propagate_env_variables(
                             env,
                             variant,
@@ -730,7 +732,8 @@ class Construct(object):
                     build_envs.append( {
                         'variant': key,
                         'target_arch': target_arch,
-                        'abi': toolchain.abi( env ),
+                        'abi': abi,
+                        'raw_abi': toolchain.abi( env ),
                         'env': env } )
 
                     if not cuppa_env['raw_output']:
