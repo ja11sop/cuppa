@@ -17,7 +17,6 @@ import subprocess
 from SCons.Script import Flatten, Touch
 
 # cuppa imports
-import cuppa.progress
 from cuppa.log import logger
 from cuppa.colourise import as_error, as_info
 
@@ -204,7 +203,7 @@ class GitlabPackageInstaller:
             self._target_dir = str(target_dir)
 
         package_file = package_file_name( env, package=package, variant=variant )
-        package_variant_dir = remove_prefix( package_file, package + "_" ).split(".")[0]
+        # package_variant_dir = remove_prefix( package_file, package + "_" ).split(".")[0]
         self._download_target = os.path.join( self._target_dir, package_file )
         download_dir = os.path.split( self._download_target )[0]
         self._extraction_dir = os.path.join( download_dir, tool_variant( env ) )
