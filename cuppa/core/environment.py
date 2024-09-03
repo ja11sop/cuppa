@@ -39,6 +39,7 @@ class MethodWithProgress(object):
 class EnvironmentMethods(object):
 
     _scons_methods_and_builders = [
+        'Command',
         'CopyAs',
         'CopyTo',
         'Gs',

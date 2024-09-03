@@ -705,6 +705,9 @@ class Construct(object):
         logger.debug( "Using active_variants = [{}]".format( colour_items( active_variants, as_info ) ) )
         logger.debug( "Using active_actions = [{}]".format( colour_items( active_actions, as_info ) ) )
 
+        def sanitise_abi( abi ):
+            return abi.replace( "+", "x" )
+
         build_envs = []
 
         for key, variant in active_variants.items():
@@ -736,7 +739,8 @@ class Construct(object):
                     env['toolchain']       = toolchain
                     env['variant']         = variant
                     env['target_arch']     = target_arch
-                    env['abi']             = toolchain.abi( env )
+                    env['abi']             = sanitise_abi( toolchain.abi( env ) )
+                    env['raw_abi']         = toolchain.abi( env )
                     env['variant_actions'] = self.get_active_actions( cuppa_env, variant, active_variants, active_actions )
 
         return build_envs

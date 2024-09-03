@@ -14,7 +14,7 @@ import os
 import shlex
 import subprocess
 
-from SCons.Script import Flatten
+from SCons.Script import Flatten, Touch
 
 # cuppa imports
 import cuppa.progress
@@ -77,8 +77,17 @@ def get_token( custom_token=None ):
 
 class GitlabPackagePublisher:
 
-    def __init__( self, env, source_include_dir=None, offset_include_dir=None, source_lib_dir=None, registry=None, package=None, version=None, custom_token=None ):
-
+    def __init__(
+        self,
+        env,
+        source_include_dir=None,
+        offset_include_dir=None,
+        source_lib_dir=None,
+        registry=None,
+        package=None,
+        version=None,
+        custom_token=None
+    ):
         self._source_include_dir = env.Dir( str(source_include_dir) )
         self._source_lib_dir     = env.Dir( str(source_lib_dir) )
         self._package_folder     = os.path.join( package, str(version) )
@@ -121,6 +130,7 @@ class GitlabPackagePublisher:
 
 
     def _publish( self, target, source, env ):
+        logger.warn( "Publishing package [{}]...".format( as_info( str(target[0]) ) ) )
         completion = subprocess.run( shlex.split( self._curl_command ) )
         if completion.returncode != 0:
             logger.error( "Executing [{}] failed with return code [{}]".format(
@@ -128,7 +138,6 @@ class GitlabPackagePublisher:
                     as_error( str(completion.returncode) ) )
             )
             return completion.returncode
-        Execute( Touch( target[0] ) )
         return None
 
 
@@ -154,9 +163,13 @@ class GitlabPackagePublisher:
 
         env.Clean( target, [ installed_package, installed_path_file ] )
 
-        if env.get_option( 'publish_package' ):
-            published = env.Command( target[0], [], self._publish )
-            env.Depends( published, installed_package )
+        publish = env.get_option( 'publish-package' ) and True or False
+
+        if publish:
+            logger.warn( "PUBLISH PACKAGE [{}] for [{}]".format( as_info(str(installed_package[0])), as_info(str(target[0])) ) )
+
+            if self._publish( target, source, env ) is None:
+                env.Execute( Touch( target[0] ) )
 
         return None
 
@@ -172,8 +185,19 @@ class GitlabPackagePublisher:
 
 class GitlabPackageInstaller:
 
-    def __init__( self, env, target_dir=None, registry=None, package=None, version=None, variant=None, custom_token=None ):
+    def __init__(
+            self,
+            env,
+            target_dir=None,
+            registry=None,
+            package=None,
+            version=None,
+            variant=None,
+            library_prefix=None,
+            custom_token=None
+        ):
 
+        self._env = env
         if not target_dir:
             self._target_dir = env['download_root']
         else:
@@ -187,6 +211,8 @@ class GitlabPackageInstaller:
         self._package_dir = os.path.join( self._extraction_dir, package, version )
         self._include_dir = os.path.join( self._package_dir, 'include' )
         self._lib_dir = os.path.join( self._package_dir, 'lib' )
+
+        self._library_prefix = library_prefix
 
         if not os.path.exists( self._extraction_dir ):
             os.makedirs( self._extraction_dir )
@@ -247,9 +273,11 @@ class GitlabPackageInstaller:
         return self._lib_dir
 
 
-    def static_libs( self, env, prefix, libs ):
+    def static_libs( self, libs ):
         libs = Flatten( libs )
+        env = self._env
         staticlibs = []
+        prefix = self._library_prefix and self._library_prefix or ""
         for lib in libs:
             library_path = os.path.join( self._lib_dir, env['LIBPREFIX'] + prefix + lib + env['LIBSUFFIX'] )
             staticlibs.append( env.File( library_path ) )

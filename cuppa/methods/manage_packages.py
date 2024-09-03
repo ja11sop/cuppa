@@ -31,7 +31,7 @@ class PublishPackageMethod(object):
 
     @classmethod
     def add_options( cls, add_option ):
-        add_option( '--publish-package', dest='publish_package', action='store_true',
+        add_option( '--publish-package', dest='publish-package', action='store_true',
                     help='Specify that you want to publish a package.' )
 
 
