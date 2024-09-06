@@ -57,9 +57,7 @@ def boost_libraries_with_no_dependencies():
     ] )
 
 
-def add_dependent_libraries( boost, linktype, libraries ):
-    version = boost.numeric_version()
-    patched_test = boost._patched_test
+def add_dependent_libraries( version, linktype, libraries, patched_test=False ):
     required_libraries = set( libraries )
 
     logger.trace( "Required Library Set = [{}]".format( colour_items( [l for l in required_libraries] ) ) )

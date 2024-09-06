@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2016-2017
+#          Copyright Jamie Allsop 2016-2024
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -10,6 +10,7 @@
 
 import os.path
 
+from SCons.Node import Node
 from SCons.Script import Flatten
 
 from cuppa.utility.filter import filter_nodes
@@ -23,8 +24,9 @@ class CopyFilesAsMethod:
 
         destinations = []
         for destination in Flatten([target]):
-            if destination[0] != '#' and not os.path.isabs( destination ):
-                destination = os.path.join( env['abs_final_dir'], destination )
+            if not isinstance( destination, Node ):
+                if destination[0] != '#' and not os.path.isabs( destination ):
+                    destination = os.path.join( env['abs_final_dir'], destination )
             destinations.append( destination )
 
         filtered_nodes = filter_nodes( source, match, exclude )

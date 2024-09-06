@@ -705,6 +705,9 @@ class Construct(object):
         logger.debug( "Using active_variants = [{}]".format( colour_items( active_variants, as_info ) ) )
         logger.debug( "Using active_actions = [{}]".format( colour_items( active_actions, as_info ) ) )
 
+        def sanitise_abi( abi ):
+            return abi.replace( "+", "x" )
+
         build_envs = []
 
         for key, variant in active_variants.items():
@@ -714,6 +717,8 @@ class Construct(object):
                 env, target_arch = toolchain.make_env( cuppa_env, variant, target_arch )
 
                 if env:
+
+                    abi = sanitise_abi( toolchain.abi( env ) )
 
                     self.propagate_env_variables(
                             env,
@@ -727,7 +732,8 @@ class Construct(object):
                     build_envs.append( {
                         'variant': key,
                         'target_arch': target_arch,
-                        'abi': toolchain.abi( env ),
+                        'abi': abi,
+                        'raw_abi': toolchain.abi( env ),
                         'env': env } )
 
                     if not cuppa_env['raw_output']:
@@ -736,7 +742,8 @@ class Construct(object):
                     env['toolchain']       = toolchain
                     env['variant']         = variant
                     env['target_arch']     = target_arch
-                    env['abi']             = toolchain.abi( env )
+                    env['abi']             = sanitise_abi( toolchain.abi( env ) )
+                    env['raw_abi']         = toolchain.abi( env )
                     env['variant_actions'] = self.get_active_actions( cuppa_env, variant, active_variants, active_actions )
 
         return build_envs
@@ -906,6 +913,7 @@ class Construct(object):
             sconscript_env['sconscript_toolchain_build_dir'] = os.path.join( path_without_ext, toolchain.name() )
             sconscript_env['sconscript_dir'] = os.path.join( sconscript_env['base_path'], sconstruct_offset_path )
             sconscript_env['abs_sconscript_dir'] = os.path.abspath( sconscript_env['sconscript_dir'] )
+            sconscript_env['tool_arch_abi_dir'] = os.path.join( toolchain.name(), target_arch, abi )
             sconscript_env['tool_variant_dir'] = os.path.join( toolchain.name(), variant, target_arch, abi )
             sconscript_env['tool_variant_working_dir'] = os.path.join( sconscript_env['tool_variant_dir'], working_folder )
 
