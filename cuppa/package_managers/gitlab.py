@@ -129,7 +129,7 @@ class GitlabPackagePublisher:
 
 
     def _publish( self, target, source, env ):
-        logger.warn( "Publishing package [{}]...".format( as_info( str(target[0]) ) ) )
+        logger.info( "Publishing package [{}]...".format( as_info( str(target[0]) ) ) )
         completion = subprocess.run( shlex.split( self._curl_command ) )
         if completion.returncode != 0:
             logger.error( "Executing [{}] failed with return code [{}]".format(
@@ -165,7 +165,7 @@ class GitlabPackagePublisher:
         publish = env.get_option( 'publish-package' ) and True or False
 
         if publish:
-            logger.warn( "PUBLISH PACKAGE [{}] for [{}]".format( as_info(str(installed_package[0])), as_info(str(target[0])) ) )
+            logger.debug( "Publish package [{}] for target [{}]".format( as_info(str(installed_package[0])), as_info(str(target[0])) ) )
 
             if self._publish( target, source, env ) is None:
                 env.Execute( Touch( target[0] ) )
