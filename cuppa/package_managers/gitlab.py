@@ -63,12 +63,12 @@ def package_url( env, registry=None, package=None, version=None, variant=None ):
 
 
 def get_token( custom_token=None ):
-    if 'CI_JOB_TOKEN' in os.environ:
-        return "CI_JOB_TOKEN: {}".format( os.environ['CI_JOB_TOKEN'] )
-    elif custom_token and custom_token in os.environ:
+    if custom_token and custom_token in os.environ:
         return "PRIVATE_TOKEN: {}".format( os.environ[custom_token] )
     elif 'GITLAB_REGISTRY_TOKEN' in os.environ:
         return "PRIVATE_TOKEN: {}".format( os.environ['GITLAB_REGISTRY_TOKEN'] )
+    elif 'CI_JOB_TOKEN' in os.environ:
+        return "CI_JOB_TOKEN: {}".format( os.environ['CI_JOB_TOKEN'] )
     logger.error( "Could not find token for package registry" )
     return str(None)
 
