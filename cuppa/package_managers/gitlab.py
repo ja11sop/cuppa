@@ -18,7 +18,7 @@ from SCons.Script import Flatten, Touch
 
 # cuppa imports
 from cuppa.log import logger
-from cuppa.colourise import as_error, as_info, as_warning, as_notice
+from cuppa.colourise import as_error, as_info, as_notice, as_info_label
 
 
 def remove_prefix( text, prefix ):
@@ -401,7 +401,7 @@ class GitlabPackageDependency:
                 logger.trace( "Getting option for [{}]".format( as_notice(attributes['id']) ) )
                 env_option = env.get_option( attributes['id'] )
                 if env_option:
-                    logger.trace( "Setting option for [{}] to [{}}]".format(
+                    logger.trace( "Setting option for [{}] to [{}]".format(
                             as_notice(attributes['id']),
                             as_info(str(env_option))
                     ) )
@@ -457,7 +457,6 @@ class GitlabPackageDependency:
         cache_dir = cuppa_env['cache_root']
         package_file = package_file_name( cuppa_env, package=package, variant=variant )
         self._download_target = os.path.join( cache_dir, package_file )
-        download_dir = os.path.split( self._download_target )[0]
 
         extraction_root = cuppa_env['download_root']
         self._extraction_dir = os.path.join( extraction_root, tool_variant( cuppa_env ) )

@@ -9,7 +9,6 @@
 
 import os
 
-import cuppa.location
 from cuppa.log import logger
 from cuppa.colourise import as_notice, as_error, as_info, colour_items
 
@@ -96,19 +95,13 @@ class base(object):
                 ) )
 
             else:
-                error_message = "Could not get package for [{}] at [{}] (and develop [{}], use=[{}]).".format(
-                        as_notice( cls._name.title() ),
-                        as_info( str(registry) ),
-                        as_info( str(develop) ),
-                        as_notice( str(use_develop and True or False) ),
-                        as_error( str(error) )
-                )
-                logger.error( error_message )
-                raise SCons.Errors.StopError( "Could not get package for [{}] at [{}] (and develop [{}], use=[{}]).".format(
+                logger.error( "Could not get package for [{}] identifed as [{}].".format(
+                        as_error( cls._name.title() ),
+                        as_error( str(package_id) )
+                ) )
+                raise SCons.Errors.StopError( "Could not get package for [{}] identifed as [{}].".format(
                         cls._name.title(),
-                        str(registry),
-                        str(develop),
-                        str(use_develop and True or False)
+                        str(package_id)
                 ) )
 
         else:
@@ -176,19 +169,17 @@ def package_dependency( name, package_manager=None, registry=None, develop=None,
 
     if not registry:
         logger.error(
-                "Cannot use [{}] package [{}] with no registry specified (and develop [{}], use=[{}])."
+                "Cannot use [{}] package [{}] with no registry specified (and develop [{}])."
                 .format(
                         as_notice( str(package_manager) ),
-                        as_info( cls._name.title() ),
-                        as_info( str(develop) ),
-                        as_notice( str(use_develop and True or False) )
+                        as_error( name.title() ),
+                        as_info( str(develop) )
                 )
         )
-        raise SCons.Errors.StopError( "Cannot use [{}] package [{}] with no registry specified (and develop [{}], use=[{}]).".format(
+        raise SCons.Errors.StopError( "Cannot use [{}] package [{}] with no registry specified (and develop [{}]).".format(
                 str(package_manager),
-                cls._name.title(),
-                str(develop),
-                str(use_develop and True or False)
+                name.title(),
+                str(develop)
         ) )
 
     # These arguments are common to all package managers
