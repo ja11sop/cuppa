@@ -407,6 +407,9 @@ class GitlabPackageDependency:
                     ) )
                     setattr( package, cls._member(option), env_option )
 
+        if not package._variant:
+            package._variant = "rel"
+
         use_develop = env.get_option( "develop" )
 
         identity = (
@@ -452,6 +455,13 @@ class GitlabPackageDependency:
         self._clean = self.is_option_set( "clean" )
         self._dump = self.is_option_set( "dump" )
 
+        if not variant:
+            self._variant = "rel"
+
+        self._library_prefix = library_prefix
+        if not self._library_prefix:
+            self._library_prefix = ""
+
         self._package_id = "/".join( [ package, version, variant ] )
 
         cache_dir = cuppa_env['cache_root']
@@ -471,8 +481,6 @@ class GitlabPackageDependency:
             else:
                 self._pkg_config_dir = os.path.join( self._package_dir, pkg_config_dir )
             self._pkg_config_dir = os.path.abspath( self._pkg_config_dir )
-
-        self._library_prefix = library_prefix
 
         if self._dump:
             return
