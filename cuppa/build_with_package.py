@@ -193,6 +193,12 @@ def package_dependency( name, package_manager=None, registry=None, develop=None,
     for arg, value in argument_dict.items():
         class_variables[ '_' + arg ] = value
 
+    if package_manager == 'gitlab':
+        for option in GitlabPackageDependency._options:
+            member = GitlabPackageDependency._member( option )
+            if not member in class_variables:
+                class_variables[ member ] = None
+
     type_name = 'BuildWithPackage' + name.title().replace("_","")
 
     logger.debug( "[{}], a [{}] package type for [{}] initialised with the cls members [{}]".format(
