@@ -524,7 +524,11 @@ class GitlabPackageDependency:
         # If there is no inculde_dir then we didn't successfully extract this before
         if not os.path.exists( self._include_dir ):
             if os.path.exists( self._download_target ):
-                logger.debug( "Extracting package [{}] by executing [{}]".format( as_info(self._download_target), as_info(self._tar_command) ) )
+                logger.debug( "Extracting package [{}] to [{}] by executing [{}]".format(
+                        as_info( self._download_target ),
+                        as_info( self._extraction_dir ),
+                        as_info( self._tar_command )
+                ) )
                 completion = subprocess.run( shlex.split(  self._tar_command ) )
                 if completion.returncode != 0:
                     logger.error( "Executing [{}] failed with return code [{}]".format(
@@ -560,6 +564,10 @@ class GitlabPackageDependency:
 
     def lib_dir( self ):
         return self._lib_dir
+
+
+    def local( self ):
+        return self._extraction_dir
 
 
     # Package Interface

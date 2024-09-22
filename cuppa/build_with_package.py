@@ -143,16 +143,16 @@ class base(object):
         self._package.use_libs( libs, depends_on=depends_on )
 
 
-    def location( self ):
+    def package( self ):
         return self._package
 
 
     def local_sub_path( self, *paths ):
-        return os.path.join( self._location.local(), *paths )
+        return os.path.join( self._package.local(), *paths )
 
 
     def local_abs_path( self, *paths ):
-        return os.path.abspath( os.path.join( self._location.local(), *paths ) )
+        return os.path.abspath( os.path.join( self._package.local(), *paths ) )
 
 
     @classmethod
