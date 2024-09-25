@@ -45,6 +45,11 @@ class base(object):
 
 
     @classmethod
+    def default_version( cls, version, env ):
+        pass
+
+
+    @classmethod
     def package_info( cls, env ):
 
         package_manager = env.get_option( cls.package_manager_option() )

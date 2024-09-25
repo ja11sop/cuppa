@@ -76,6 +76,8 @@ from cuppa.build_with_location import location_dependency as header_library_depe
 
 from cuppa.build_with_package import package_dependency
 
+import cuppa.packages.boost_package
+
 import cuppa.build_with_profile
 
 from cuppa.build_with_profile import profile
