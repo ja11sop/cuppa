@@ -14,8 +14,6 @@ import os
 import shlex
 import subprocess
 
-from SCons.Script import Flatten, Touch
-
 # cuppa imports
 from cuppa.log import logger
 from cuppa.colourise import as_error, as_info, as_notice, as_info_label
@@ -152,6 +150,8 @@ class GitlabPackagePublisher:
 
     def __call__( self, target, source, env ):
 
+        from SCons.Script import Touch
+
         libraries = env.CopyFiles( self._target_lib_dir, env.Glob( str( self._source_lib_dir ) + "/*" ) )
         includes  = env.CopyFiles( self._target_include_dir, env.Glob( str( self._source_include_dir ) + "/*" ) )
 
@@ -217,7 +217,7 @@ class GitlabPackageInstaller:
         # package_variant_dir = remove_prefix( package_file, package + "_" ).split(".")[0]
         self._download_target = os.path.join( self._target_dir, package_file )
         download_dir = os.path.split( self._download_target )[0]
-        self._extraction_dir = os.path.join( download_dir, tool_variant( env ) )
+        self._extraction_dir = os.path.join( download_dir, tool_variant( env, variant=variant ) )
         self._package_dir = os.path.join( self._extraction_dir, package, version )
         self._include_dir = os.path.join( self._package_dir, 'include' )
         self._lib_dir = os.path.join( self._package_dir, 'lib' )
@@ -292,6 +292,8 @@ class GitlabPackageInstaller:
 
     def build_with( self, env, libs=[], depends_on=[] ):
 
+        from SCons.Script import Flatten
+
         includes = env.AppendUnique( SYSINCPATH = self.include_dir() )
         env.Depends( includes, depends_on )
 
@@ -318,6 +320,9 @@ class GitlabPackageInstaller:
 
 
     def static_libs( self, env, libs ):
+
+        from SCons.Script import Flatten
+
         libs = Flatten( libs )
         env = self._env
         staticlibs = []
@@ -410,6 +415,8 @@ class GitlabPackageDependency:
         if not package._variant:
             package._variant = "rel"
 
+        package.default_version( package._version, env )
+
         use_develop = env.get_option( "develop" )
 
         identity = (
@@ -455,22 +462,27 @@ class GitlabPackageDependency:
         self._clean = self.is_option_set( "clean" )
         self._dump = self.is_option_set( "dump" )
 
-        if not variant:
+        self._version = version
+        self.version()
+
+        self._variant = variant
+
+        if not self._variant:
             self._variant = "rel"
 
         self._library_prefix = library_prefix
         if not self._library_prefix:
             self._library_prefix = ""
 
-        self._package_id = "/".join( [ package, version, variant ] )
+        self._package_id = "/".join( [ package, self.version(), variant ] )
 
         cache_dir = cuppa_env['cache_root']
         package_file = package_file_name( cuppa_env, package=package, variant=variant )
         self._download_target = os.path.join( cache_dir, package_file )
 
         extraction_root = cuppa_env['download_root']
-        self._extraction_dir = os.path.join( extraction_root, tool_variant( cuppa_env ) )
-        self._package_dir = os.path.join( self._extraction_dir, package, version )
+        self._extraction_dir = os.path.join( extraction_root, tool_variant( cuppa_env, variant=self._variant ) )
+        self._package_dir = os.path.join( self._extraction_dir, package, self.version() )
         self._include_dir = os.path.join( self._package_dir, 'include' )
         self._lib_dir = os.path.join( self._package_dir, 'lib' )
 
@@ -494,13 +506,18 @@ class GitlabPackageDependency:
         self._wget_command = 'wget --header="{token}" -P {cache_dir} -nv {package_location}'.format(
                 token = get_header_token( custom_token ),
                 cache_dir = cache_dir,
-                package_location = package_url( cuppa_env, registry=registry, package=package, version=version, variant=variant )
+                package_location = package_url( cuppa_env, registry=registry, package=package, version=self.version(), variant=variant )
         )
 
         # The package file doesn't exist so lets attempt to download it
         if not self._offline:
             if not os.path.exists( self._download_target ):
                 logger.debug( "Downloading package [{}] by executing [{}]".format( as_info(package_file), as_info(self._wget_command) ) )
+                logger.info( "Downloading package [{}] from [{}] as archive [{}]...".format(
+                        as_info( self._package_id ),
+                        as_notice( registry ),
+                        as_info( package_file )
+                ) )
                 completion = subprocess.run( shlex.split( self._wget_command ) )
                 if completion.returncode != 0:
                     logger.error( "Executing [{}] failed with return code [{}]".format(
@@ -510,6 +527,11 @@ class GitlabPackageDependency:
                     raise GitlabPackageDependencyException(
                         "Executing [{}] failed with return code [{}]".format( self._wget_command, str(completion.returncode) )
                     )
+                logger.info( "Package archive [{}] downloaded successfully for package [{}] from [{}]".format(
+                        as_info( package_file ),
+                        as_info( self._package_id ),
+                        as_notice( registry )
+                ) )
         elif self._offline and not os.path.exists(self._download_target):
             logger.error(
                 "Running in {offline} mode and [{download_target}] does not exist so package cannot be retrieved at this time.".format(
@@ -528,7 +550,7 @@ class GitlabPackageDependency:
                 package=self._download_target
         )
 
-        # If there is no inculde_dir then we didn't successfully extract this before
+        # If there is no include_dir then we didn't successfully extract this before
         if not os.path.exists( self._include_dir ):
             if os.path.exists( self._download_target ):
                 logger.debug( "Extracting package [{}] to [{}] by executing [{}]".format(
@@ -536,23 +558,40 @@ class GitlabPackageDependency:
                         as_info( self._extraction_dir ),
                         as_info( self._tar_command )
                 ) )
+                logger.info( "Extracting package archive [{}] to [{}]...".format(
+                        as_info( package_file ),
+                        as_info( self._extraction_dir )
+                ) )
                 completion = subprocess.run( shlex.split(  self._tar_command ) )
                 if completion.returncode != 0:
                     logger.error( "Executing [{}] failed with return code [{}]".format(
                             as_error( self._tar_command ),
                             as_error( str(completion.returncode) )
                     ) )
-                    return GitlabPackageDependencyException(
+                    raise GitlabPackageDependencyException(
                         "Executing [{}] failed with return code [{}]".format( self._tar_command, str(completion.returncode) )
                     )
+                logger.info( "Package archive [{}] successfully extracted to [{}]".format(
+                        as_info( package_file ),
+                        as_info( self._extraction_dir )
+                ) )
             else:
                 logger.error( "Cannot extract [{}] for package [{}] as the file does not exist".format(
-                            as_error( self._download_target ),
-                            as_error( self._package_id )
+                        as_error( self._download_target ),
+                        as_error( self._package_id )
                 ) )
+        else:
+            logger.info( "Using package [{}] from [{}]".format(
+                    as_info( self._package_id ),
+                    as_notice( os.path.join( self._extraction_dir, package, self.version() ) )
+            ) )
 
 
     # Observers
+    def version( self ):
+        return self._version
+
+
     def download_target( self ):
         return self._download_target
 
@@ -590,7 +629,31 @@ class GitlabPackageDependency:
         env.AppendUnique( SYSINCPATH = self._include_dir )
 
 
+    def parse_pkg_config( self, libs ):
+        env = self._env
+        library_prefix = self._library_prefix and self._library_prefix or ""
+
+        libraries = []
+        for lib in libs:
+            prefix = lib.startswith( library_prefix ) and "" or library_prefix
+            libraries.append( prefix + lib )
+
+        command = 'pkg-config --with-path={pkg_config_dir} --libs --cflags {libraries}'.format(
+                pkg_config_dir=self._pkg_config_dir,
+                libraries=" ".join( libraries )
+        )
+
+        logger.debug( "Using pkg-config command [{}] to determine appropriate compile and linker flags for package [{}]".format(
+                as_info( command ),
+                as_notice( self._package_id )
+        ) )
+        env.ParseConfig( command )
+
+
     def use_libs( self, libs, depends_on=[] ):
+
+        from SCons.Script import Flatten
+
         env = self._env
         libs = Flatten( [ libs ] )
 
@@ -599,28 +662,15 @@ class GitlabPackageDependency:
             env.Depends( includes, depends_on )
 
         if self._pkg_config_dir:
-            library_prefix = self._library_prefix and self._library_prefix or ""
-
-            libraries = []
-            for lib in libs:
-                prefix = lib.startswith( library_prefix ) and "" or library_prefix
-                libraries.append( prefix + lib )
-
-            command = 'pkg-config --with-path={pkg_config_dir} --libs --cflags {libraries}'.format(
-                    pkg_config_dir=self._pkg_config_dir,
-                    libraries=" ".join( libraries )
-            )
-
-            logger.debug( "Using pkg-config command [{}] to determine appropriate compile and linker flags for package [{}]".format(
-                    as_info( command ),
-                    as_notice( self._package_id )
-            ) )
-            env.ParseConfig( command )
+            self.parse_pkg_config( libs )
         else:
-            env.AppendUnique( STATICLIBS = self.static_libs( libs ) )
+            self.use_static_libs( libs )
 
 
-    def static_libs( self, libs ):
+    def use_static_libs( self, libs ):
+
+        from SCons.Script import Flatten
+
         libs = Flatten( [ libs ] )
         env = self._env
         staticlibs = []
@@ -629,4 +679,5 @@ class GitlabPackageDependency:
             prefix = lib.startswith( library_prefix ) and "" or library_prefix
             library_path = os.path.join( self._lib_dir, env['LIBPREFIX'] + prefix + lib + env['LIBSUFFIX'] )
             staticlibs.append( env.File( library_path ) )
-        return staticlibs
+
+        env.AppendUnique( STATICLIBS = staticlibs )

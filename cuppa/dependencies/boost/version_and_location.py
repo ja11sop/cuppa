@@ -158,7 +158,7 @@ def get_boost_version( location ):
 
 
 
-def _determine_latest_boost_verion( offline ):
+def determine_latest_boost_verion( offline ):
     current_release = current_boost_release()
     if not offline:
         try:
@@ -182,7 +182,7 @@ def _determine_latest_boost_verion( offline ):
 
 def _location_from_boost_version( location, offline ):
     if location == "latest" or location == "current":
-        location = _determine_latest_boost_verion( offline )
+        location = determine_latest_boost_verion( offline )
     if location:
         match = re.match( r'(boost_)?(?P<version>\d[._]\d\d(?P<minor>[._]\d)?)(?:[_\-.]rc(?P<release_candidate>\d))?', location )
         if match:

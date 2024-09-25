@@ -44,6 +44,7 @@ from cuppa.utility.types import is_string
 from cuppa.toolchains             import *
 from cuppa.methods                import *
 from cuppa.dependencies           import *
+from cuppa.packages               import *
 from cuppa.profiles               import *
 from cuppa.variants               import *
 from cuppa.project_generators     import *
@@ -122,6 +123,7 @@ class Construct(object):
     actions_key      = 'actions'
     toolchains_key   = 'toolchains'
     dependencies_key = 'dependencies'
+    packages_key     = 'packages'
     profiles_key     = 'profiles'
     methods_key      = 'methods'
     project_generators_key = 'project_generators'

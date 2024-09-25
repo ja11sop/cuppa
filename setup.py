@@ -33,6 +33,7 @@ setup(
         'cuppa.methods',
         'cuppa.modules',
         'cuppa.package_managers',
+        'cuppa.packages',
         'cuppa.platforms',
         'cuppa.profiles',
         'cuppa.project_generators',
