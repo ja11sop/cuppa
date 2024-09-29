@@ -14,14 +14,24 @@ import cuppa.progress
 
 class PublishPackageMethod(object):
 
-    def __call__( self, env, package_publisher=None ):
+    def __call__( self, env, source, publisher=None ):
 
-        package_published = env.File( package_publisher.package_published() )
+        package = env.File( publisher.package() )
+        built_package = env.Command( package, [ source, publisher.sources() ], publisher.build_package )
+        target = built_package
 
-        published_package = env.Command( package_published, [], package_publisher )
+        if env['clean']:
+            env.Clean( built_package, publisher.clean_targets() )
 
-        cuppa.progress.NotifyProgress.add( env, published_package )
-        return package_published
+        publish = env.get_option( 'publish-package' ) and True or False
+
+        if publish:
+            package_published = env.File( publisher.package_published() )
+            published_package = env.Command( package_published, built_package, publisher.publish_package )
+            target = published_package
+
+        cuppa.progress.NotifyProgress.add( env, target )
+        return target
 
 
     @classmethod
