@@ -12,6 +12,7 @@
 import platform
 import os
 import shlex
+import shutil
 import subprocess
 
 # cuppa imports
@@ -84,10 +85,13 @@ class GitlabPackagePublisher:
         version=None,
         custom_token=None
     ):
+        from SCons.Script import Flatten
+
         self._source_include_dir = env.Dir( str(source_include_dir) )
         self._source_lib_dir     = env.Dir( str(source_lib_dir) )
         self._package_folder     = os.path.join( package, str(version) )
-        self._target_include_dir = env.Dir( os.path.join( env['final_dir'], self._package_folder, "include" ) )
+        self._package_base_dir   = env.Dir( os.path.join( env['final_dir'], self._package_folder ) )
+        self._target_include_dir = env.Dir( os.path.join( str(self._package_base_dir), "include" ) )
 
         if not offset_include_dir is None:
             self._target_include_dir = env.Dir( os.path.join( str(self._target_include_dir), offset_include_dir ) )
@@ -95,6 +99,11 @@ class GitlabPackagePublisher:
         self._target_lib_dir    = env.Dir( os.path.join( env['final_dir'], self._package_folder, "lib" ) )
         self._package_file_name = package_file_name( env, package=package )
         self._package_location  = env.File( os.path.join( env['abs_final_dir'], self._package_file_name ) )
+
+        self._clean_targets = Flatten( [
+                self._target_lib_dir,
+                self._package_base_dir
+        ] )
 
         self._tar_command = 'tar -C {working_dir} -czf {package_file} {source_dir}'.format(
                 working_dir = env['abs_final_dir'],
@@ -108,24 +117,34 @@ class GitlabPackagePublisher:
                 package_location = package_url( env, registry=registry, package=package, version=version )
         )
 
-        self._package_file_path    = os.path.join( self._package_folder, self._package_file_name )
+        self._package_file_path = os.path.join( self._package_folder, self._package_file_name )
 
-        publish = env.get_option( 'publish-package' ) and True or False
-
-        if publish:
-            self._package_published_id = env.File( remove_suffix( self._package_file_path.replace( "/", "_" ), ".tar.gz" ).replace( ".", "_" ) + ".published" )
-        else:
-            self._package_published_id = env.File( remove_suffix( self._package_file_path.replace( "/", "_" ), ".tar.gz" ).replace( ".", "_" ) + ".created" )
-
-        self._path_file = os.path.join( env['abs_final_dir'], env['variant'].name() + ".txt" )
+        self._package_published_id = env.File(
+                remove_suffix( self._package_file_path.replace( "/", "_" ), ".tar.gz" ).replace( ".", "_" ) + ".published"
+        )
 
 
-    def _package( self, target, source, env ):
+    def build_package( self, target, source, env ):
 
-        print( "_package TARGET = [{}]".format( str([ str(t) for t in target ]) ) )
-        print( "_package SOURCE = [{}]".format( str([ str(s) for s in source ]) ) )
+        if not os.path.exists( str(self._target_include_dir) ):
+            logger.info( "For package [{}], include dir [{}] does not exist so copying include files from [{}]...".format(
+                    as_info( self._package_file_name ),
+                    as_info( str(self._target_include_dir) ),
+                    as_notice( str(self._source_include_dir) )
+            ) )
+            shutil.copytree( str( self._source_include_dir ), str(self._target_include_dir) )
 
-        logger.debug( "Creating package [{}]...".format( as_info( str(target[0]) ) ) )
+        if not os.path.exists( str(self._target_lib_dir) ):
+            logger.info( "For package [{}], lib dir [{}] does not exist so copying lib files from [{}]...".format(
+                    as_info( self._package_file_name ),
+                    as_info( str(self._target_lib_dir) ),
+                    as_notice( str(self._source_lib_dir) )
+            ) )
+            shutil.copytree( str( self._source_lib_dir ), str(self._target_lib_dir) )
+
+        logger.info( "Creating package [{}]...".format( as_info( str(target[0]) ) ) )
+        logger.info( "Using commnd [{}]".format( as_notice( self._tar_command ) ) )
+
         completion = subprocess.run( shlex.split( self._tar_command ) )
         if completion.returncode != 0:
             logger.error( "Executing [{}] failed with return code [{}]".format(
@@ -133,11 +152,19 @@ class GitlabPackagePublisher:
                     as_error( str(completion.returncode) ) )
             )
             return completion.returncode
+
+        logger.info( "Package [{}] created".format( as_info( str(target[0]) ) ) )
+
         return None
 
 
-    def _publish( self, target, source, env ):
-        logger.info( "Publishing package [{}]...".format( as_info( str(target[0]) ) ) )
+    def publish_package( self, target, source, env ):
+
+        from SCons.Script import Touch
+
+        logger.info( "Publishing package [{}]...".format( as_info( str(source[0]) ) ) )
+        logger.info( "Using commnd [{}]".format( as_notice( self._curl_command ) ) )
+
         completion = subprocess.run( shlex.split( self._curl_command ) )
         if completion.returncode != 0:
             logger.error( "Executing [{}] failed with return code [{}]".format(
@@ -145,42 +172,15 @@ class GitlabPackagePublisher:
                     as_error( str(completion.returncode) ) )
             )
             return completion.returncode
-        return None
 
-
-    def __call__( self, target, source, env ):
-
-        from SCons.Script import Touch
-
-        libraries = env.CopyFiles( self._target_lib_dir, env.Glob( str( self._source_lib_dir ) + "/*" ) )
-        includes  = env.CopyFiles( self._target_include_dir, env.Glob( str( self._source_include_dir ) + "/*" ) )
-
-        package = env.Command( self._package_location, [], self._package )
-
-        env.Depends( package, [ self._target_lib_dir, self._target_include_dir ] )
-
-        env.Clean( target, self._target_lib_dir )
-        env.Clean( target, self._target_include_dir )
-
-        installed_package = env.Install( '#_artifacts/', package  )
-
-        package_path_file = env.Textfile( self._path_file, [ self._package_file_path, self._package_file_name ] )
-
-        env.Depends( package_path_file, package )
-
-        installed_path_file = env.Install( '#_artifacts/', package_path_file  )
-
-        env.Clean( target, [ installed_package, installed_path_file ] )
-
-        publish = env.get_option( 'publish-package' ) and True or False
-
-        if publish:
-            logger.debug( "Publish package [{}] for target [{}]".format( as_info(str(installed_package[0])), as_info(str(target[0])) ) )
-
-            if self._publish( target, source, env ) is None:
-                env.Execute( Touch( target[0] ) )
+        env.Execute( Touch( target[0] ) )
+        logger.info( "Package [{}] published".format( as_info( str(source[0]) ) ) )
 
         return None
+
+
+    def sources( self ):
+        return [ self._source_include_dir ]
 
 
     def package_published( self ):
@@ -189,6 +189,10 @@ class GitlabPackagePublisher:
 
     def package( self ):
         return self._package_location
+
+
+    def clean_targets( self ):
+        return self._clean_targets
 
 
 
