@@ -480,7 +480,7 @@ class GitlabPackageDependency:
 
         self._package_id = "/".join( [ package, self.version(), variant ] )
 
-        cache_dir = cuppa_env['cache_root']
+        cache_dir = os.path.join( cuppa_env['cache_root'], 'packages', package, version )
         package_file = package_file_name( cuppa_env, package=package, variant=variant )
         self._download_target = os.path.join( cache_dir, package_file )
 
