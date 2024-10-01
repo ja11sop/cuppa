@@ -214,6 +214,8 @@ class GitlabPackageInstaller:
         self._env = env
         if not target_dir:
             self._target_dir = env['download_root']
+            if not os.path.isabs( self._target_dir ):
+                self._target_dir = os.path.abspath( os.path.join( env['sconstruct_dir'], self._target_dir ) )
         else:
             self._target_dir = str(target_dir)
 
@@ -252,7 +254,7 @@ class GitlabPackageInstaller:
     def __call__( self, target, source, env ):
 
         if not os.path.exists( self._download_target ):
-            logger.debug( "Executing [{}]".format( as_info(self._wget_command) ) )
+            logger.info( "Executing [{}]".format( as_info(self._wget_command) ) )
             completion = subprocess.run( shlex.split( self._wget_command ) )
             if completion.returncode != 0:
                 logger.error( "Executing [{}] failed with return code [{}]".format(
@@ -262,7 +264,7 @@ class GitlabPackageInstaller:
                 return completion.returncode
 
         if not os.path.exists( str(target[0]) ):
-            logger.debug( "Executing [{}]".format( as_info(self._tar_command) ) )
+            logger.info( "Executing [{}]".format( as_info(self._tar_command) ) )
             completion = subprocess.run( shlex.split(  self._tar_command ) )
             if completion.returncode != 0:
                 logger.error( "Executing [{}] failed with return code [{}]".format(
@@ -485,6 +487,9 @@ class GitlabPackageDependency:
         self._download_target = os.path.join( cache_dir, package_file )
 
         extraction_root = cuppa_env['download_root']
+        if not os.path.isabs( extraction_root ):
+            extraction_root = os.path.abspath( os.path.join( cuppa_env['sconstruct_dir'], extraction_root ) )
+
         self._extraction_dir = os.path.join( extraction_root, tool_variant( cuppa_env, variant=self._variant ) )
         self._package_dir = os.path.join( self._extraction_dir, package, self.version() )
         self._include_dir = os.path.join( self._package_dir, 'include' )
