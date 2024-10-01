@@ -13,15 +13,19 @@ import sys
 
 from cuppa.output_processor import IncrementalSubProcess
 from cuppa.log import logger
-from cuppa.colourise import as_notice, as_error
+from cuppa.colourise import as_info, as_notice, as_error
 
 
 class run:
 
     def __init__( self, command, working_dir=None, completion_file=None ):
+
+        from SCons.Node import Node
+
         self._command = command
-        self._working_dir = working_dir
+        self._working_dir = isinstance( working_dir, Node ) and working_dir.abspath or working_dir
         self._completion_file = completion_file
+
 
     def __call__( self, target, source, env ):
 
@@ -34,6 +38,10 @@ class run:
             sys.stderr.write( line + '\n' )
 
         try:
+            logger.info( "Executing [{}] in directory [{}]...".format(
+                    as_info( self._command ),
+                    as_notice( self._working_dir )
+            ) )
             return_code = IncrementalSubProcess.Popen2(
                     process_stdout,
                     process_stderr,
