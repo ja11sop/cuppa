@@ -468,6 +468,9 @@ class GitlabPackageDependency:
         self._clean = self.is_option_set( "clean" )
         self._dump = self.is_option_set( "dump" )
 
+        use_develop = self.is_option_set( "develop" )
+        self._develop = develop
+
         self._version = version
         self.version()
 
@@ -491,7 +494,13 @@ class GitlabPackageDependency:
             extraction_root = os.path.abspath( os.path.join( cuppa_env['sconstruct_dir'], extraction_root ) )
 
         self._extraction_dir = os.path.join( extraction_root, tool_variant( cuppa_env, variant=self._variant ) )
+
         self._package_dir = os.path.join( self._extraction_dir, package, self.version() )
+
+        if self._develop and use_develop:
+            self._develop = os.path.expanduser( self._develop )
+            self._package_dir = self._develop
+
         self._include_dir = os.path.join( self._package_dir, 'include' )
         self._lib_dir = os.path.join( self._package_dir, 'lib' )
 
@@ -507,6 +516,13 @@ class GitlabPackageDependency:
             return
 
         if self._clean:
+            return
+
+        if self._develop and use_develop:
+            logger.info( "--develop specified so using package [{}] from [{}]".format(
+                    as_info( self._package_id ),
+                    as_notice( self._package_dir )
+            ) )
             return
 
         if not os.path.exists( self._extraction_dir ):
