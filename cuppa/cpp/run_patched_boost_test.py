@@ -764,6 +764,8 @@ class RunPatchedBoostTest:
             boost_version = env['dependencies']['boost']( env ).numeric_version()
             if env['dependencies']['boost']( env ).patched_test():
                 argument_prefix="boost.test."
+            elif env['dependencies']['boost_package']( env ).patched_test():
+                argument_prefix="boost.test."
 
         test_command = executable + " --{0}log_format=hrf --{0}log_level=test_suite --{0}report_level=no".format( argument_prefix )
 

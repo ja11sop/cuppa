@@ -42,14 +42,15 @@ def default_version( package, version, env ):
         logger.info( "No Boost package version specified, using [{}]".format( as_info( package._version ) ) )
 
 
-def define( registry=None, version=None, variant=None ):
+def define( registry=None, version=None, variant=None, patched=True ):
 
     class boost( package_dependency(
             'boost_package',
             registry = registry,
             package  = 'boost',
             version  = version,
-            variant  = variant
+            variant  = variant,
+            patched  = patched
     ) ):
         def use_libs( self, libs ):
             import cuppa
@@ -59,5 +60,8 @@ def define( registry=None, version=None, variant=None ):
         def default_version( cls, version, env ):
             import cuppa
             cuppa.packages.boost_package.default_version( cls, version, env )
+
+        def patched_test( self ):
+            return self._patched
 
     return boost
