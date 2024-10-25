@@ -88,7 +88,7 @@ def add_dependent_libraries( version, linktype, libraries, patched_test=False ):
                 required_libraries.remove( 'test' )
                 required_libraries.update( ['unit_test_framework'] )
             if patched_test:
-                required_libraries.update( ['timer, chrono', 'system'] )
+                required_libraries.update( ['timer', 'chrono', 'system'] )
         elif library == 'timer':
             required_libraries.update( ['chrono', 'system'] )
 
