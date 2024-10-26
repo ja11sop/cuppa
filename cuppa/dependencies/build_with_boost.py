@@ -165,6 +165,9 @@ class Boost(object):
             'BOOST_BIND_GLOBAL_PLACEHOLDERS',
         ]
 
+        if self._patched_test:
+            self.values['defines'].append( 'BOOST_TEST_USE_QUALIFIED_COMMANDLINE_ARGUMENTS' )
+
 
     @classmethod
     def name( cls ):
@@ -220,3 +223,7 @@ class Boost(object):
 
     def patched_test( self ):
         return self._patched_test
+
+
+    def defines( self ):
+        return self.values['defines']

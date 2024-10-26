@@ -44,7 +44,7 @@ def b2_as_command( boost_version, boost_location ):
     return b2_exe( boost_version, boost_location )
 
 
-def b2_command( env, boost_version, location, toolchain, libraries, variant, target_arch, linktype, stage_dir, verbose_build, verbose_config, job_count, parallel ):
+def b2_command( env, boost_version, location, toolchain, libraries, variant, target_arch, linktype, stage_dir, verbose_build, verbose_config, job_count, parallel, defines ):
 
     verbose = ""
     if verbose_build:
@@ -79,7 +79,9 @@ def b2_command( env, boost_version, location, toolchain, libraries, variant, tar
         if toolchain.target_store() != "desktop":
             windows_api = "windows-api=" + toolchain.target_store()
 
-    build_flags += ' define="BOOST_DATE_TIME_POSIX_TIME_STD_CONFIG"'
+    if defines:
+        for define in defines:
+            build_flags += ' define="{}"'.format( define )
 
     if linktype == 'shared':
         build_flags += ' define="BOOST_ALL_DYN_LINK"'

@@ -167,6 +167,7 @@ class BoostLibraryAction(object):
 
         self._location       = boost.local()
         self._boost_version  = boost.numeric_version()
+        self._defines        = boost.defines()
         self._verbose_build  = verbose_build
         self._verbose_config = verbose_config
         self._job_count      = env['job_count']
@@ -192,7 +193,8 @@ class BoostLibraryAction(object):
                     self._verbose_build,
                     self._verbose_config,
                     self._job_count,
-                    self._parallel
+                    self._parallel,
+                    self._defines
         )
 
         processor = B2OutputProcessor( env, self._verbose_build, self._verbose_config, self._toolchain )
