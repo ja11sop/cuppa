@@ -773,7 +773,9 @@ class RunPatchedBoostTest:
         test_command = executable + " --{0}log_format=hrf --{0}log_level=test_suite --{0}report_level=no".format( argument_prefix )
 
         if boost_version:
-            if boost_version >= 1.67:
+            if boost_version >= 1.69:
+                test_command = executable + " --{0}log_format=HRF --{0}log_level=all --{0}report_level=no --{0}color_output=no".format( argument_prefix )
+            elif boost_version >= 1.67:
                 preprocess = cuppa.utility.preprocess.AnsiEscape.strip
                 test_command = executable + " --{0}log_format=HRF --{0}log_level=all --{0}report_level=no --{0}color_output=no".format( argument_prefix )
             elif boost_version >= 1.60:
