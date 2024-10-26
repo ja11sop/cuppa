@@ -54,8 +54,12 @@ def define( registry=None, version=None, variant=None, patched=True ):
     ) ):
 
         def __call__( self, env, toolchain, variant ):
+            env.MergeFlags( '-DBOOST_PARAMETER_MAX_ARITY=20' )
+            env.MergeFlags( '-DBOOST_DATE_TIME_POSIX_TIME_STD_CONFIG' )
+            env.MergeFlags( '-DBOOST_BIND_GLOBAL_PLACEHOLDERS' )
             if self._patched:
                 env.MergeFlags( '-DBOOST_TEST_USE_QUALIFIED_COMMANDLINE_ARGUMENTS' )
+
             self._package.initialise_build_variant( env, toolchain, variant )
 
 
