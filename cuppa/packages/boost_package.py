@@ -74,6 +74,11 @@ def define( registry=None, version=None, variant=None, patched=True ):
             cuppa.packages.boost_package.default_version( cls, version, env )
 
 
+        # API needed to support boost test runners
+        def numeric_version( self ):
+            return float(self._version)
+
+
         def patched_test( self ):
             return self._patched
 
