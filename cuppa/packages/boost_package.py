@@ -52,14 +52,23 @@ def define( registry=None, version=None, variant=None, patched=True ):
             variant  = variant,
             patched  = patched
     ) ):
+
+        def __call__( self, env, toolchain, variant ):
+            if self._patched:
+                env.MergeFlags( '-DBOOST_TEST_USE_QUALIFIED_COMMANDLINE_ARGUMENTS' )
+            self._package.initialise_build_variant( env, toolchain, variant )
+
+
         def use_libs( self, libs ):
             import cuppa
             cuppa.packages.boost_package.use_libs( self._package, libs )
+
 
         @classmethod
         def default_version( cls, version, env ):
             import cuppa
             cuppa.packages.boost_package.default_version( cls, version, env )
+
 
         def patched_test( self ):
             return self._patched
