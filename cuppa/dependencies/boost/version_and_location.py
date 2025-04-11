@@ -32,7 +32,7 @@ from cuppa.dependencies.boost.patch_boost     import apply_patches_if_needed
 
 
 def current_boost_release():
-    return "1.87.0"
+    return "1.88.0"
 
 
 def boost_location_id( env ):
@@ -201,17 +201,10 @@ def _location_from_boost_version( location, offline ):
             if match.group('release_candidate'):
                 string_version += "_rc{}".format( match.group('release_candidate') )
 
-            # From 1.64 onwards source files use jfrog.artifactory as the primary upload location.
-            if packaging_version.parse(numeric_version) > packaging_version.parse("1.64"):
-                return "https://boostorg.jfrog.io/artifactory/main/release/{numeric_version}/source/boost_{string_version}{extension}".format(
-                            numeric_version = numeric_version,
-                            string_version = string_version,
-                            extension = extension
-                        )
-            else:
-                return "http://sourceforge.net/projects/boost/files/boost/{numeric_version}/boost_{string_version}{extension}/download".format(
-                            numeric_version = numeric_version,
-                            string_version = string_version,
-                            extension = extension
-                        )
+            # All files are now available from archives.boost.io.
+            return "https://archives.boost.io/release/{numeric_version}/source/boost_{string_version}{extension}".format(
+                        numeric_version = numeric_version,
+                        string_version = string_version,
+                        extension = extension
+                    )
     return location
