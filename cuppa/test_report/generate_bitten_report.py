@@ -11,11 +11,11 @@
 import json
 import os
 import itertools
-import cgi
 import six
 
 # cuppa imports
 from cuppa.progress import NotifyProgress
+from cuppa.utility.python2to3 import escape
 
 
 class GenerateReportBuilder(object):
@@ -69,10 +69,10 @@ class GenerateReportBuilder(object):
                         continue
                     report.write( '        <%s>' % key )
                     if key == 'stdout':
-                        value = ( '<span class="line">' + cgi.escape(line) + '<br /></span>' for line in value )
+                        value = ( '<span class="line">' + escape(line) + '<br /></span>' for line in value )
                         value = '<![CDATA[' + "\n".join( value ) + ']]>'
                     else:
-                        value = cgi.escape( str( value ) )
+                        value = escape( str( value ) )
                     report.write( value )
                     report.write( '</%s>\n' % key )
                 report.write( '    </test>\n' )
