@@ -1,4 +1,16 @@
+# Setup virtualenv if not exist
+cd ..
+python -m virtualenv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cd cuppa/
+
+# Lint
 pyflakes cuppa
 pylint -E cuppa
+
+# Build
 rm -rf dist/ build/ && python setup.py sdist bdist_wheel
+
+# Upload to PyPi
 twine upload dist/*

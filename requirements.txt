@@ -1,0 +1,17 @@
+colorama
+gcovr
+grip
+jinja2
+libsass
+lxml
+psutil
+pyscss
+six
+pyyaml
+scons
+
+# for linting and building wheel only
+pyflakes
+pylint
+setuptools
+twine
