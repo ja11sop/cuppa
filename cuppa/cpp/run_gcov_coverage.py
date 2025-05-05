@@ -24,7 +24,7 @@ from SCons.Script import Glob, Flatten, Dir
 
 # construct imports
 from cuppa.output_processor import IncrementalSubProcess, command_available
-from cuppa.colourise import as_notice, as_info, as_error, colour_items
+from cuppa.colourise import as_notice, as_info, as_error, as_warning, colour_items
 from cuppa.log import logger
 from cuppa.progress import NotifyProgress
 from cuppa.utility.python2to3 import as_str
@@ -178,6 +178,14 @@ class CoverageSuite(object):
 
         return_code, output = run_command( command, working_dir, self._scons_env )
 
+        # Strip out any GCOVR logging from the output as this is not part of the
+        # simple text summary and breaks the coverage entry regex later on
+        cleaned_ouput = []
+        for line in output.splitlines():
+            if not line.startswith( "(INFO)" ):
+                cleaned_ouput.append( line )
+        output = "\n".join( cleaned_ouput )
+
         coverage_index_basename = "coverage" + self._url_program_id + ".html"
         new_index_file = os.path.join( output_dir, coverage_index_basename )
         try:
@@ -191,7 +199,7 @@ class CoverageSuite(object):
 
         coverage_summary_path = os.path.splitext( new_index_file )[0] + ".log"
         with open( coverage_summary_path, 'w' ) as coverage_summary_file:
-            coverage_summary_file.write( coverage_index_basename + "\n" + output  )
+            coverage_summary_file.write( coverage_index_basename + "\n" + output )
 
         logger.trace( "gcovr HTML file filter = [{}]".format( as_notice(html_base_name) ) )
         coverage_files = Glob( html_base_name + '*.html' )
@@ -656,6 +664,8 @@ class coverage_entry(object):
                 self.lines_status = self.get_lines_status( self.lines_percent )
                 self.progress_branches_status = self.get_progress_branches_status( self.branches_percent )
                 self.branches_status = self.get_branches_status( self.branches_percent )
+            else:
+                logger.warn( "Coverage entry_string \n{}\n does not match entry_regex so IGNORING".format( as_warning( entry_string ) ) )
 
         if self.subdir:
             self.coverage_file = os.path.join( self.subdir, self.coverage_file )
@@ -852,7 +862,10 @@ class CoverageIndexBuilder(object):
             logger.debug( "COVERAGE = {:d}/{:d}\n".format( cls.all_lines_covered, cls.all_lines_total ) )
 
             if not cls.all_lines_total > 0:
+                logger.info( "No lines of coverage (perhaps no tests were executed). Reported as {:d}/{:d} lines covered\n"
+                             .format( cls.all_lines_covered, cls.all_lines_total ) )
                 return
+
             lines_percent = 100.0 * float(cls.all_lines_covered) / float(cls.all_lines_total)
             sys.stdout.write( "COVERAGE = {:.1f}% : {:d}/{:d}\n".format( lines_percent, cls.all_lines_covered, cls.all_lines_total ) )
 
