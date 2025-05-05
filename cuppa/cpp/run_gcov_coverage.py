@@ -611,6 +611,7 @@ class coverage_entry(object):
         return name
 
 
+    @classmethod
     def summary_name( cls, filename, toolchain_variant_dir, offset_dir, sconscript_name ):
         name = os.path.splitext( filename )[0]
         if name.startswith( coverage_index_marker ):
