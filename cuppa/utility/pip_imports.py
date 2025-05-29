@@ -11,6 +11,16 @@ from cuppa.colourise import as_notice, as_info
 from cuppa.log import logger
 
 
+def pip_version_gte_25_1_0():
+    try:
+        import pip
+        major_version = int(pip.__version__.split('.')[0])
+        minor_version = int(pip.__version__.split('.')[1])
+        return major_version >= 25 and minor_version >=1
+    except ImportError:
+        return False
+
+
 def pip_version_gte_22_0_0():
     try:
         import pip
@@ -78,6 +88,8 @@ if pip_version_gt_10_0_0():
     import pip._internal.vcs as pip_vcs
     import pip._internal.exceptions as pip_exceptions
 
+    if pip_version_gte_25_1_0():
+        import pip._internal.req.req_install as pip_req_install
     if pip_version_gt_20_0_0():
         import pip._internal.network.download as pip_download
     else:
