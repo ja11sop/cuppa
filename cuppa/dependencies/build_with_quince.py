@@ -48,13 +48,19 @@ class build_with_quince( location_dependency( 'quince', sys_include="include", s
     def __call__( self, env, toolchain, variant ):
         super(build_with_quince,self).__call__( env, toolchain, variant )
 
+        static_libs = [
+            'filesystem',
+            'thread'
+        ]
+
+        boost_version = env['dependencies']['boost']( env ).numeric_version()
+
+        if boost_version < 1.89:
+            static_libs.append( 'system' )
+
         env.AppendUnique( STATICLIBS = [
                 env.QuinceLibrary(),
-                env.BoostStaticLibs( [
-                        'filesystem',
-                        'system',
-                        'thread',
-                ] ),
+                env.BoostStaticLibs( static_libs ),
         ] )
 
 

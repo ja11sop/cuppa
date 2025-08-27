@@ -66,31 +66,45 @@ def add_dependent_libraries( version, linktype, libraries, patched_test=False ):
         if library in boost_libraries_with_no_dependencies():
             continue
         elif library == 'chrono':
-            required_libraries.update( ['system'] )
+            if version < 1.89:
+                required_libraries.update( ['system'] )
         elif library == 'coroutine':
-            required_libraries.update( ['context', 'system'] )
+            required_libraries.update( ['context'] )
+            if version < 1.89:
+                required_libraries.update( ['system'] )
             if version > 1.55:
                 required_libraries.update( ['thread'] )
             if linktype == 'shared':
                 required_libraries.update( ['chrono'] )
         elif library == 'filesystem':
-            required_libraries.update( ['system'] )
+            if version < 1.89:
+                required_libraries.update( ['system'] )
         elif library == 'graph':
             required_libraries.update( ['regex'] )
         elif library == 'locale':
-            required_libraries.update( ['filesystem', 'system', 'thread'] )
+            required_libraries.update( ['filesystem', 'thread'] )
+            if version < 1.89:
+                required_libraries.update( ['system'] )
         elif library == 'log':
-            required_libraries.update( ['date_time', 'filesystem', 'system', 'thread'] )
+            required_libraries.update( ['date_time', 'filesystem', 'thread'] )
+            if version < 1.89:
+                required_libraries.update( ['system'] )
         elif library == 'log_setup':
-            required_libraries.update( ['log', 'date_time', 'filesystem', 'system', 'thread'] )
+            required_libraries.update( ['log', 'date_time', 'filesystem', 'thread'] )
+            if version < 1.89:
+                required_libraries.update( ['system'] )
         elif library in { 'test', 'prg_exec_monitor', 'test_exec_monitor', 'unit_test_framework' }:
             if library == 'test' and 'test' in required_libraries:
                 required_libraries.remove( 'test' )
                 required_libraries.update( ['unit_test_framework'] )
             if patched_test:
-                required_libraries.update( ['timer', 'chrono', 'system'] )
+                required_libraries.update( ['timer', 'chrono'] )
+                if version < 1.89:
+                    required_libraries.update( ['system'] )
         elif library == 'timer':
-            required_libraries.update( ['chrono', 'system'] )
+            required_libraries.update( ['chrono'] )
+            if version < 1.89:
+                required_libraries.update( ['system'] )
 
     libraries = []
 

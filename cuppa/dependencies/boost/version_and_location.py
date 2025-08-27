@@ -32,7 +32,7 @@ from cuppa.dependencies.boost.patch_boost     import apply_patches_if_needed
 
 
 def current_boost_release():
-    return "1.88.0"
+    return "1.89.0"
 
 
 def boost_location_id( env ):
@@ -158,15 +158,15 @@ def get_boost_version( location ):
 
 
 
-def determine_latest_boost_verion( offline ):
+def determine_latest_boost_version( offline ):
     current_release = current_boost_release()
     if not offline:
         try:
-            boost_version_url = 'https://www.boost.org/users/download/'
+            boost_version_url = 'https://www.boost.org/releases/latest/'
             logger.info( "Checking current boost version from {}...".format( as_info( boost_version_url ) ) )
             html = lxml.html.parse( urlopen( boost_version_url ) )
 
-            current_release = html.xpath("/html/body/div[2]/div/div[1]/div/div/div[2]/h3[1]/span")[0].text
+            current_release = html.xpath("string()")
             current_release = str( re.search( r'(\d[.]\d+([.]\d+)?)', current_release ).group(1) )
 
             logger.info( "Latest boost release detected as [{}]".format( as_info( current_release ) ) )
@@ -182,7 +182,7 @@ def determine_latest_boost_verion( offline ):
 
 def _location_from_boost_version( location, offline ):
     if location == "latest" or location == "current":
-        location = determine_latest_boost_verion( offline )
+        location = determine_latest_boost_version( offline )
     if location:
         match = re.match( r'(boost_)?(?P<version>\d[._]\d\d(?P<minor>[._]\d)?)(?:[_\-.]rc(?P<release_candidate>\d))?', location )
         if match:
