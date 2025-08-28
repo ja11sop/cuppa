@@ -19,6 +19,16 @@ from cuppa.log       import logger
 from cuppa.dependencies.boost.boost_builder import BoostLibraryBuilder
 
 
+def remove_system_static_lib( env, libraries ):
+    boost_version = env['dependencies']['boost']( env ).numeric_version()
+    if boost_version >= 1.89:
+        try:
+            libraries.remove( 'system' )
+            logger.debug( "Removed 'system' static_lib for boost 1.89 or above" )
+        except ValueError:
+            pass
+    return libraries
+
 
 class BoostStaticLibraryMethod(object):
 
@@ -33,6 +43,7 @@ class BoostStaticLibraryMethod(object):
 
         if not self._add_dependents:
             logger.warn( "BoostStaticLibrary() is deprecated, use BoostStaticLibs() or BoostStaticLib() instead" )
+        libraries = remove_system_static_lib( env, libraries )
         libraries = Flatten( [ libraries ] )
 
         if not 'boost' in env['BUILD_WITH']:

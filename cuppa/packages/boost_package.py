@@ -10,6 +10,7 @@
 
 import os.path
 
+from cuppa.dependencies.boost.boost_library_methods import remove_system_static_lib
 from cuppa.dependencies.boost.library_naming import static_library_name
 from cuppa.dependencies.boost.library_dependencies import add_dependent_libraries
 from cuppa.dependencies.boost.version_and_location import determine_latest_boost_version
@@ -23,6 +24,7 @@ def use_libs( package, libraries ):
     env = package._env
     version = package._version
 
+    libraries = remove_system_static_lib( env, libraries )
     required_libs = add_dependent_libraries( float(version), "static", libraries )
 
     static_libs = []
