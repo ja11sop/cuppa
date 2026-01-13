@@ -32,7 +32,7 @@ from cuppa.dependencies.boost.patch_boost     import apply_patches_if_needed
 
 
 def current_boost_release():
-    return "1.89.0"
+    return "1.90.0"
 
 
 def boost_location_id( env ):
