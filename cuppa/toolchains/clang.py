@@ -23,9 +23,9 @@ from cuppa.cpp.create_version_file_cpp import CreateVersionHeaderCpp, CreateVers
 from cuppa.cpp.run_boost_test import RunBoostTestEmitter, RunBoostTest
 from cuppa.cpp.run_patched_boost_test import RunPatchedBoostTestEmitter, RunPatchedBoostTest
 from cuppa.cpp.run_process_test import RunProcessTestEmitter, RunProcessTest
-#from cuppa.cpp.run_gcov_coverage import RunGcovCoverageEmitter, RunGcovCoverage, CollateCoverageFilesEmitter, CollateCoverageFilesAction, CollateCoverageIndexEmitter, CollateCoverageIndexAction
+from cuppa.cpp.run_gcov_coverage import RunGcovCoverageEmitter, RunGcovCoverage, CollateCoverageFilesEmitter, CollateCoverageFilesAction, CollateCoverageIndexEmitter, CollateCoverageIndexAction
 from cuppa.output_processor import command_available
-from cuppa.colourise import as_info, as_notice
+from cuppa.colourise import as_info, as_notice, as_warning
 from cuppa.log import logger
 from cuppa.utility.python2to3 import as_str, Exception
 
@@ -205,24 +205,47 @@ class Clang(object):
         command = "{} --version".format( llvm_tool )
         if command_available( command ):
             reported_version = as_str( Popen( shlex.split( command ), stdout=PIPE).communicate()[0] )
-            version = re.search( r'LLVM version (\d)\.(\d)\.(\d)', reported_version )
-            reported_version = version.expand(r'\1')
-            return reported_version
+            version = re.search( r'(?:LLVM version|clang version)\s+(\d+)(?:\.(\d+)\.(\d+))?', reported_version )
+            if version:
+                return version.group(1)
         return None
 
 
     @classmethod
-    def coverage_tool( cls, cxx_version ):
+    def coverage_tool( cls, reported_version ):
+        """Return an llvm-cov/gcov command suitable for RunGcovCoverage / gcovr."""
+        major = None
+        if isinstance( reported_version, dict ):
+            major = str( reported_version.get( 'major', '' ) or '' )
+        elif reported_version:
+            match = re.match( r'(\d+)', str( reported_version ).lstrip( '-' ) )
+            if match:
+                major = match.group( 1 )
+
         llvm_cov = "llvm-cov"
-        versioned_llvm_cov = None
-        if cxx_version:
-            versioned_llvm_cov = "{llvm_cov}-{version}".format( llvm_cov=llvm_cov, version=cxx_version[0] )
+        if major:
+            versioned_llvm_cov = "{llvm_cov}-{version}".format( llvm_cov=llvm_cov, version=major )
             if cuppa.build_platform.where_is( versioned_llvm_cov ):
                 return versioned_llvm_cov + " gcov"
+
         if cuppa.build_platform.where_is( llvm_cov ):
-            version = cls.llvm_version_from( llvm_cov )
-            if version == cxx_version:
-                return llvm_cov + " gcov"
+            if major:
+                tool_major = cls.llvm_version_from( llvm_cov )
+                if tool_major and tool_major != major:
+                    logger.warn(
+                        "Using [{}] (LLVM {}) for clang{} coverage; prefer llvm-cov-{} if available".format(
+                            as_warning( llvm_cov ),
+                            as_info( tool_major or "?" ),
+                            as_info( major ),
+                            as_info( major ),
+                        )
+                    )
+            return llvm_cov + " gcov"
+
+        if cuppa.build_platform.where_is( "gcov" ):
+            logger.warn( "llvm-cov not found; falling back to gcov for clang coverage" )
+            return "gcov"
+
         logger.warn( "Coverage requested for current toolchain but none is available" )
         return None
 
@@ -395,8 +418,7 @@ class Clang(object):
 
 
     def supports_coverage( self ):
-        #return 'coverage_cxx_flags' in self.values
-        return False
+        return 'coverage_cxx_flags' in self.values
 
 
     def version_file_builder( self, env, namespace, version, location, build_id=None ):
@@ -434,18 +456,21 @@ class Clang(object):
 
 
     def coverage_runner( self, program, final_dir, include_patterns=[], exclude_patterns=[] ):
-        #coverage_tool = self.coverage_tool( self._cxx_version )
-        #return RunGcovCoverageEmitter( program, final_dir, coverage_tool ), RunGcovCoverage( program, final_dir, coverage_tool, include_patterns, exclude_patterns )
-        return None, None
+        coverage_tool = self.coverage_tool( self._reported_version )
+        if not coverage_tool:
+            return None, None
+        return (
+            RunGcovCoverageEmitter( program, final_dir, coverage_tool ),
+            RunGcovCoverage( program, final_dir, coverage_tool, include_patterns, exclude_patterns ),
+        )
+
 
     def coverage_collate_files( self, destination=None ):
-        #return CollateCoverageFilesEmitter( destination ), CollateCoverageFilesAction( destination )
-        return None, None
+        return CollateCoverageFilesEmitter( destination ), CollateCoverageFilesAction( destination )
 
 
     def coverage_collate_index( self, destination=None ):
-        #return CollateCoverageIndexEmitter( destination ), CollateCoverageIndexAction( destination )
-        return None, None
+        return CollateCoverageIndexEmitter( destination ), CollateCoverageIndexAction( destination )
 
 
     def update_variant( self, env, variant ):
@@ -465,9 +490,17 @@ class Clang(object):
 
     def _gcov_format_version( self ):
         try:
-            gcov_version = Popen(["gcov", "--version"], stdout=PIPE).communicate()[0]
-            gcov_version = re.search( r'(\d)\.(\d)\.(\d)', gcov_version ).expand(r'\g<1>0\g<2>')
-            return gcov_version + '*'
+            gcov_version = as_str( Popen(["gcov", "--version"], stdout=PIPE).communicate()[0] )
+            match = re.search( r'(\d+)\.(\d+)\.(\d+)', gcov_version )
+            if not match:
+                return None
+            # Clang's -coverage-version expects a 4-char magic like "A89*" for older gcov.
+            # Prefer major/minor packed form when available; otherwise skip the override.
+            major = int( match.group(1) )
+            minor = int( match.group(2) )
+            if major < 10:
+                return "{major}0{minor}*".format( major=major, minor=minor )
+            return None
         except:
             return None
 
@@ -495,7 +528,15 @@ class Clang(object):
         self.values['debug_cxx_flags']     = CommonCxxFlags + []
         self.values['release_cxx_flags']   = CommonCxxFlags + [ '-O3', '-DNDEBUG' ]
 
-        coverage_options = "--coverage -Xclang -coverage-cfg-checksum -Xclang -coverage-no-function-names-in-data -Xclang -coverage-version={}".format( self._gcov_format )
+        if self._gcov_format:
+            coverage_options = (
+                "--coverage -Xclang -coverage-cfg-checksum "
+                "-Xclang -coverage-no-function-names-in-data "
+                "-Xclang -coverage-version={}".format( self._gcov_format )
+            )
+        else:
+            # Modern clang + llvm-cov gcov: plain --coverage is sufficient
+            coverage_options = "--coverage"
 
         self.values['coverage_flags']      = CommonCxxFlags
         self.values['coverage_cxx_flags']  = coverage_options.split()

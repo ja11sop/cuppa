@@ -17,6 +17,7 @@ import itertools
 import glob
 import sys
 import six
+import collections
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
@@ -32,6 +33,7 @@ import cuppa.recursive_glob
 import cuppa.path
 
 from cuppa.utility.python2to3 import Pattern
+from cuppa.cpp.coverage_by_source import generate_by_source_coverage, sanitized_toolchain_dirname
 
 url_block_sep = '--'
 coverage_id = 'coverage'
@@ -169,22 +171,20 @@ class CoverageSuite(object):
         for exclude_regex in exclude_regexes:
             gcov_excludes += ' --gcov-exclude="{}"'.format( exclude_regex )
 
-        command = 'gcovr -g {gcov_includes} {gcov_excludes} -s -k -r . --html --html-details {self_contained_html} {html_theme} -o {index_file}'.format(
+        command = 'gcovr -g {gcov_includes} {gcov_excludes} -s -k -r . --html --html-details {self_contained_html} {html_theme} -o {index_file}{json_args}'.format(
             gcov_includes = gcov_includes,
             gcov_excludes = gcov_excludes,
             self_contained_html = gcovr_version['major'] >= 5 and "--html-self-contained" or "",
             html_theme = gcovr_version['major'] >= 5 and "--html-theme blue" or "",
-            index_file=index_file )
+            index_file=index_file,
+            json_args = ( gcovr_version['major'] >= 4 and ( " --json " + html_base_name + ".json" ) or "" ),
+        )
 
         return_code, output = run_command( command, working_dir, self._scons_env )
 
         # Strip out any GCOVR logging from the output as this is not part of the
-        # simple text summary and breaks the coverage entry regex later on
-        cleaned_ouput = []
-        for line in output.splitlines():
-            if not line.startswith( "(INFO)" ):
-                cleaned_ouput.append( line )
-        output = "\n".join( cleaned_ouput )
+        # simple text summary and breaks the coverage entry regex later on.
+        output = strip_gcovr_log_noise( output )
 
         coverage_index_basename = "coverage" + self._url_program_id + ".html"
         new_index_file = os.path.join( output_dir, coverage_index_basename )
@@ -196,6 +196,21 @@ class CoverageSuite(object):
                         as_notice( new_index_file ),
                         as_error( str(e) )
             ) )
+
+        coverage_json_basename = "coverage" + self._url_program_id + ".json"
+        json_file = html_base_name + ".json"
+        new_json_file = os.path.join( output_dir, coverage_json_basename )
+        if os.path.exists( json_file ):
+            try:
+                os.rename( json_file, new_json_file )
+            except OSError as e:
+                logger.error( "Failed moving coverage JSON from [{}] to [{}] with error: {}".format(
+                            as_notice( json_file ),
+                            as_notice( new_json_file ),
+                            as_error( str(e) )
+                ) )
+            else:
+                target.append( new_json_file )
 
         coverage_summary_path = os.path.splitext( new_index_file )[0] + ".log"
         with open( coverage_summary_path, 'w' ) as coverage_summary_file:
@@ -218,7 +233,8 @@ class CoverageSuite(object):
 
         coverage_filter_path = os.path.join( output_dir, "coverage" + self._url_program_id + ".cov_filter" )
         with open( coverage_filter_path, 'w' ) as coverage_filter_file:
-            coverage_filter_file.write( html_base_name + '*.html' )
+            coverage_filter_file.write( html_base_name + '*.html\n' )
+            coverage_filter_file.write( coverage_json_basename + '\n' )
 
         sys.stdout.write( output + "\n" )
 
@@ -264,6 +280,11 @@ class RunGcovCoverageEmitter(object):
             coverage_index_file = os.path.join( self._final_dir, "coverage" + self._url_program_id + ".html" )
             logger.trace( "Adding target gcovr index file =[{}]".format( as_notice(coverage_index_file) ) )
             target.append( coverage_index_file )
+
+            coverage_json_file = os.path.join( self._final_dir, "coverage" + self._url_program_id + ".json" )
+            logger.trace( "Adding target gcovr JSON file =[{}]".format( as_notice(coverage_json_file) ) )
+            target.append( coverage_json_file )
+            env.Clean( source_file, coverage_json_file )
 
             coverage_summary_file = os.path.join( self._final_dir, "coverage" + self._url_program_id + ".log" )
             logger.trace( "Adding target gcovr summary file =[{}]".format( as_notice(coverage_summary_file) ) )
@@ -428,18 +449,20 @@ class CollateCoverageFilesEmitter(object):
 
             env.Clean( source, os.path.join( self._destination, os.path.split(str(report_node))[1] ) )
 
-            clean_pattern = None
-            if filter_node:
-                if os.path.exists( str(filter_node) ):
-                    with open( str(filter_node), 'r' ) as filter_file:
-                        clean_pattern = filter_file.readline().strip()
+            report_json = os.path.splitext( os.path.split(str(report_node))[1] )[0] + ".json"
+            env.Clean( source, os.path.join( self._destination, report_json ) )
+
+            if filter_node and os.path.exists( str(filter_node) ):
+                with open( str(filter_node), 'r' ) as filter_file:
+                    for raw_line in filter_file:
+                        clean_pattern = raw_line.strip()
+                        if not clean_pattern:
+                            continue
                         clean_pattern = os.path.join( self._destination, clean_pattern )
                         if clean_pattern.startswith('#'):
                             clean_pattern = os.path.join( env['sconstruct_dir'], clean_pattern[1:] )
                         logger.trace( "Clean pattern = [{}]".format( as_notice(clean_pattern) ) )
-
-            if clean_pattern:
-                env.Clean( source, Glob( clean_pattern ) )
+                        env.Clean( source, Glob( clean_pattern ) )
 
         return target, source
 
@@ -465,22 +488,29 @@ class CollateCoverageFilesAction(object):
 
             env.CopyFiles( self._destination, report_node )
 
+            report_json = os.path.splitext( str(report_node) )[0] + ".json"
+            if os.path.exists( report_json ):
+                env.CopyFiles( self._destination, report_json )
+
             final_dir = os.path.split( str(filter_node) )[0]
-            filter_pattern = None
+            output_files = []
 
             if os.path.exists( str(filter_node) ):
                 with open( str(filter_node), 'r' ) as filter_file:
-                    filter_pattern = filter_file.readline().strip()
+                    for raw_line in filter_file:
+                        filter_pattern = raw_line.strip()
+                        if not filter_pattern:
+                            continue
+                        matched = env.Glob( os.path.join( final_dir, filter_pattern ) )
+                        if matched:
+                            env.CopyFiles( self._destination, matched )
+                            output_files.extend( matched )
 
-            output_files = []
-
-            if filter_pattern:
-                output_files = env.Glob( os.path.join( final_dir, filter_pattern ) )
-                env.CopyFiles( self._destination, output_files )
-
-                with open( str(target[0]), 'w' ) as summary_file:
-                    for f in output_files:
-                        summary_file.write( str(f) )
+            with open( str(target[0]), 'w' ) as summary_file:
+                for f in output_files:
+                    summary_file.write( str(f) + "\n" )
+                if os.path.exists( report_json ):
+                    summary_file.write( report_json + "\n" )
         return None
 
 
@@ -512,8 +542,10 @@ class CollateCoverageIndexEmitter(object):
         if not destination:
             destination = env['abs_final_dir']
             env.Clean( source, os.path.join( self._destination, "coverage-index.html" ) )
+            env.Clean( source, Glob( os.path.join( self._destination, "by-source", "*" ) ) )
         else:
             env.Clean( source, os.path.join( self._destination, "coverage-index.html" ) )
+            env.Clean( source, Glob( os.path.join( self._destination, "by-source", "*" ) ) )
             destination = self._destination + destination_subdir( env )
 
         files_node = next( ( s for s in source if os.path.splitext(str(s))[1] == ".cov_files" ), None )
@@ -521,6 +553,8 @@ class CollateCoverageIndexEmitter(object):
             variant_index_file = os.path.join( env['abs_final_dir'], coverage_index_name_from( env ) )
             target.append( variant_index_file )
             env.Clean( source, os.path.join( destination, os.path.split( variant_index_file )[1] ) )
+            env.Clean( source, Glob( os.path.join( env['abs_final_dir'], "by-source", "*" ) ) )
+            env.Clean( source, Glob( os.path.join( destination, "by-source", "*" ) ) )
 
             variant_summary_file = os.path.splitext( variant_index_file )[0] + ".log"
             target.append( variant_summary_file )
@@ -698,7 +732,7 @@ class coverage_entry(object):
     @classmethod
     def create_from_summary( cls, summary, tool_variant_dir, offset_dir, destination, subdir=None, name=None ):
         entry_string = "{}\n{}\n{}{}{}".format(
-            summary.strip(),
+            strip_gcovr_log_noise( summary ).strip(),
             tool_variant_dir.strip(),
             offset_dir.strip(),
             subdir and "\n" + subdir.strip() or "",
@@ -708,6 +742,18 @@ class coverage_entry(object):
         return coverage_entry.create_from_string( entry_string, destination )
 
 
+def strip_gcovr_log_noise( text ):
+    """Remove colourised gcovr (INFO)/(WARNING) lines from coverage summary text."""
+    ansi_escape = re.compile( r'\x1b\[[0-9;]*m' )
+    cleaned = []
+    for line in text.splitlines():
+        plain = ansi_escape.sub( '', line ).strip()
+        if plain.startswith( "(INFO)" ) or plain.startswith( "(WARNING)" ):
+            continue
+        cleaned.append( plain )
+    return "\n".join( cleaned )
+
+
 def lines_of_code_format( number ):
     number = float('{:.5g}'.format(number))
     base = 0
@@ -715,6 +761,110 @@ def lines_of_code_format( number ):
         base += 1
         number /= 1000.0
     return '{}{}'.format( '{:f}'.format(number).rstrip('0').rstrip('.'), ['', 'k', 'M', 'B', 'T'][base] )
+
+
+def toolchain_label_of( entry ):
+    return entry.coverage_context or entry.toolchain_variant_dir or "unknown"
+
+
+def group_entries_by_toolchain( entries ):
+    """Return Ordered mapping toolchain_label -> [entries]."""
+    grouped = collections.OrderedDict()
+    for entry in entries:
+        label = toolchain_label_of( entry )
+        grouped.setdefault( label, [] ).append( entry )
+    return grouped
+
+
+def build_toolchain_summaries( entries ):
+    """One coverage_entry summary per toolchain (sums of that toolchain's indexes)."""
+    summaries = []
+    for label, toolchain_entries in six.iteritems( group_entries_by_toolchain( entries ) ):
+        summary = coverage_entry( coverage_file=label )
+        summary.coverage_name = label
+        summary.coverage_context = label
+        summary.toolchain_variant_dir = label
+        for entry in toolchain_entries:
+            summary.lines_covered += entry.lines_covered
+            summary.lines_total += entry.lines_total
+            summary.branches_covered += entry.branches_covered
+            summary.branches_total += entry.branches_total
+        if summary.lines_total:
+            summary.lines_percent = "{:.1f}".format(
+                100.0 * float( summary.lines_covered ) / float( summary.lines_total )
+            )
+        if summary.branches_total:
+            summary.branches_percent = "{:.1f}".format(
+                100.0 * float( summary.branches_covered ) / float( summary.branches_total )
+            )
+        summary.progress_lines_status = coverage_entry.get_progress_lines_status( summary.lines_percent )
+        summary.lines_status = coverage_entry.get_lines_status( summary.lines_percent )
+        summary.progress_branches_status = coverage_entry.get_progress_branches_status( summary.branches_percent )
+        summary.branches_status = coverage_entry.get_branches_status( summary.branches_percent )
+        summaries.append( summary )
+    summaries.sort( key=lambda item: item.coverage_name )
+    return summaries
+
+
+def build_coverage_groups( entries ):
+    """Group sconscript coverage rows by file name, each with per-toolchain entries."""
+    grouped = collections.OrderedDict()
+    for entry in entries:
+        grouped.setdefault( entry.coverage_name, [] ).append( entry )
+    groups = []
+    for name in sorted( grouped.keys() ):
+        toolchain_entries = sorted( grouped[name], key=lambda item: toolchain_label_of( item ) )
+        groups.append({
+            "coverage_name": name,
+            "entries": toolchain_entries,
+        })
+    return groups
+
+
+def build_source_groups( source_entries_by_toolchain ):
+    """Group source files across toolchains for side-by-side comparison."""
+    grouped = collections.OrderedDict()
+    for toolchain_label, entries in source_entries_by_toolchain:
+        for entry in entries:
+            grouped.setdefault( entry.coverage_name, [] ).append( entry )
+    groups = []
+    for name in sorted( grouped.keys() ):
+        entries = sorted(
+            grouped[name],
+            key=lambda item: item.toolchain_label or item.coverage_context or "",
+        )
+        groups.append({
+            "coverage_name": name,
+            "entries": entries,
+        })
+    return groups
+
+
+def search_roots_for_toolchain( final_dirs, destination_dir, toolchain_label ):
+    """Restrict coverage search roots to a single toolchain tree."""
+    key = sanitized_toolchain_dirname( toolchain_label )
+    slash_form = toolchain_label.replace( "\\", "/" ).strip( "/" )
+    roots = []
+    seen = set()
+    candidates = list( final_dirs ) + [ destination_dir ]
+    if key:
+        candidates.append( os.path.join( destination_dir, key ) )
+    for folder in candidates:
+        if not folder:
+            continue
+        normalized = os.path.normpath( str( folder ) ).replace( "\\", "/" )
+        if normalized in seen:
+            continue
+        underscored = normalized.replace( "/", "_" )
+        matches = False
+        if key and key in underscored:
+            matches = True
+        elif slash_form and slash_form in normalized:
+            matches = True
+        if matches:
+            seen.add( normalized )
+            roots.append( folder )
+    return roots
 
 
 class CollateCoverageIndexAction(object):
@@ -742,6 +892,7 @@ class CollateCoverageIndexAction(object):
 
             logger.trace( "summary_files = [{}]".format( colour_items( [ str(node) for node in summary_files ] ) ) )
 
+            by_source_files = []
             with open( variant_index_path, 'w' ) as variant_index_file:
 
                 coverage = coverage_entry( coverage_file=self.summary_name(env) )
@@ -761,11 +912,31 @@ class CollateCoverageIndexAction(object):
                         ) )
 
                 template = CoverageIndexBuilder.get_template()
+                index_basename = os.path.split( variant_index_path )[1]
+                repo_root = env.get( 'sconstruct_dir' ) or env.get( 'working_dir' ) or os.getcwd()
+                source_summary, source_entries, show_source_tab, by_source_files = generate_by_source_coverage(
+                    search_roots = [ env['abs_final_dir'] ],
+                    output_dir = env['abs_final_dir'],
+                    repo_root = repo_root,
+                    index_basename = index_basename,
+                    get_source_template = CoverageIndexBuilder.get_source_template,
+                    LOC = lines_of_code_format,
+                    title = coverage.coverage_file,
+                    context = "By source file (best line status across tests in this sconscript)",
+                )
 
                 variant_index_file.write(
                     template.render(
                         coverage_summary = coverage,
                         coverage_entries = sorted( coverage.entries, key=lambda entry: entry.coverage_name ),
+                        source_summary = source_summary,
+                        source_entries = source_entries,
+                        show_source_tab = show_source_tab,
+                        compare_toolchains = False,
+                        toolchain_summaries = [],
+                        coverage_groups = [],
+                        source_toolchain_summaries = [],
+                        source_groups = [],
                         LOC = lines_of_code_format,
                     )
                 )
@@ -802,6 +973,8 @@ class CollateCoverageIndexAction(object):
             logger.trace( "self._destination = [{}], variant_index_path = [{}]".format( as_info( str(self._destination) ), as_notice( str(variant_index_path) ) ) )
 
             env.CopyFiles( self._destination, variant_index_path )
+            if by_source_files:
+                env.CopyFiles( os.path.join( self._destination, "by-source" ), by_source_files )
 
         return None
 
@@ -850,6 +1023,11 @@ class CoverageIndexBuilder(object):
 
 
     @classmethod
+    def get_source_template( cls ):
+        return jinja2_templates().get_template('coverage_source_file.html')
+
+
+    @classmethod
     def update_coverage( cls, coverage ):
         cls.all_lines_covered += coverage.lines_covered
         cls.all_lines_total += coverage.lines_total
@@ -873,6 +1051,7 @@ class CoverageIndexBuilder(object):
             for destination_dir, final_dirs in six.iteritems(cls.destination_dirs):
 
                 coverage = coverage_entry( coverage_file=os.path.split( env['sconstruct_dir'] )[1] )
+                all_entries = []
 
                 for folder in final_dirs:
                     logger.debug( "Create coverage index file for [{}]".format( as_notice( folder ) ) )
@@ -884,16 +1063,53 @@ class CoverageIndexBuilder(object):
                         logger.debug( "Read coverage summary file for [{}]".format( as_notice( str(summary_path) ) ) )
 
                         with open( str(summary_path), 'r' ) as summary_file:
-                            summary = summary_file.read()
-                            coverage.append(
-                                coverage_entry( entry_string=summary, destination=destination_dir )
-                            )
+                            summary = strip_gcovr_log_noise( summary_file.read() )
+                            entry = coverage_entry( entry_string=summary, destination=destination_dir )
+                            coverage.append( entry )
+                            all_entries.append( entry )
 
                 master_index_path = os.path.join( destination_dir, "coverage-index.html" )
 
                 logger.debug( "Master coverage index path = [{}]".format( as_notice( master_index_path ) ) )
 
                 template = cls.get_template()
+                repo_root = env.get( 'sconstruct_dir' ) or os.getcwd()
+
+                toolchain_summaries = build_toolchain_summaries( all_entries )
+                coverage_groups = build_coverage_groups( all_entries )
+
+                source_toolchain_summaries = []
+                source_entries_by_toolchain = []
+                show_source_tab = False
+                for summary in toolchain_summaries:
+                    label = summary.coverage_name
+                    tc_key = sanitized_toolchain_dirname( label )
+                    search_roots = search_roots_for_toolchain( final_dirs, destination_dir, label )
+                    if not search_roots:
+                        logger.warn(
+                            "No coverage search roots found for toolchain [{}]".format( as_warning( label ) )
+                        )
+                        continue
+                    source_summary, source_entries, show_tab, _written = generate_by_source_coverage(
+                        search_roots = search_roots,
+                        output_dir = destination_dir,
+                        repo_root = repo_root,
+                        index_basename = "coverage-index.html",
+                        get_source_template = cls.get_source_template,
+                        LOC = lines_of_code_format,
+                        title = coverage.coverage_file,
+                        context = "By source file for {}".format( label ),
+                        by_source_subdir = tc_key,
+                        toolchain_label = label,
+                    )
+                    if show_tab:
+                        show_source_tab = True
+                        source_summary.coverage_name = label
+                        source_summary.coverage_context = label
+                        source_toolchain_summaries.append( source_summary )
+                        source_entries_by_toolchain.append( ( label, source_entries ) )
+
+                source_groups = build_source_groups( source_entries_by_toolchain )
 
                 with open( master_index_path, 'w' ) as master_index_file:
 
@@ -901,6 +1117,14 @@ class CoverageIndexBuilder(object):
                         template.render(
                             coverage_summary = coverage,
                             coverage_entries = sorted( coverage.entries, key=lambda entry: entry.coverage_name ),
+                            toolchain_summaries = toolchain_summaries,
+                            coverage_groups = coverage_groups,
+                            source_summary = source_toolchain_summaries[0] if source_toolchain_summaries else None,
+                            source_entries = [],
+                            source_toolchain_summaries = source_toolchain_summaries,
+                            source_groups = source_groups,
+                            show_source_tab = show_source_tab,
+                            compare_toolchains = True,
                             LOC = lines_of_code_format,
                         )
                     )

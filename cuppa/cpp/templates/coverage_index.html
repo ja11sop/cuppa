@@ -9,6 +9,11 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
 
     <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.2.0/css/all.css" integrity="sha384-hWVjflwFxL6sNzntih27bfxkr27PmbbK/iSvJ+a4+0owXq79v+lsFkW54bOGbiDQ" crossorigin="anonymous">
+    <style>
+      .cov-group-header { background: #f8f9fa; }
+      .cov-toolchain-row .cov-indent { padding-left: 1.25rem; }
+      .cov-file-label { font-weight: 600; }
+    </style>
     {% block bootstrap4_extra_head %}{% endblock %}
   </head>
   <body>
@@ -22,120 +27,527 @@
           <h3>Coverage Reports for <span class="text-monospace font-weight-bolder">{{ coverage_summary.coverage_file }}</span></h3>
           <h5 class="text-secondary font-weight-light">{{ coverage_summary.coverage_context }}</h5>
         </li>
-        <li class="list-group-item">
-          <div class="row align-items-center">
-            <div class="col-lg-4 col-sm-3">
-              <h5>Coverage Summary</h5>
-            </div>
-            <div class="col-lg-4 col-sm-3">
-              <div class="progress" style="height: 1.5rem;">
-                <div class="progress-bar {{ coverage_summary.progress_lines_status }}"
-                     role="progressbar"
-                     style="width: {{ coverage_summary.lines_percent }}%"
-                     aria-valuenow="{{ coverage_summary.lines_percent }}"
-                     aria-valuemin="0"
-                     aria-valuemax="100">
-                  {{ coverage_summary.lines_percent }}%
-                </div>
-              </div>
-            </div>
-            <div class="col-lg-2 col-sm-3">
-              <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
-                <div class="col-12 px-1 {{ coverage_summary.lines_status }}">
-                  <span class="font-weight-bolder">{{ coverage_summary.lines_percent }}%</span>
-                </div>
-                <div class="col-12 px-1 small {{ coverage_summary.lines_status }}">
-                  {{ LOC( coverage_summary.lines_covered ) }} / {{ LOC( coverage_summary.lines_total ) }}
-                </div>
-              </div>
-            </div>
-            <div class="col-lg-2 col-sm-3">
-              <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
-                <div class="col-12 px-1 {{ coverage_summary.branches_status }}">
-                  <span class="font-weight-bolder">{{ coverage_summary.branches_percent }}%</span>
-                </div>
-                <div class="col-12 px-1 small {{ coverage_summary.branches_status }}">
-                  {{ LOC( coverage_summary.branches_covered ) }} / {{ LOC( coverage_summary.branches_total ) }}
-                </div>
-              </div>
-            <div>
-          </div>
+        {% if show_source_tab|default(false) %}
+        <li class="list-group-item pb-0">
+          <ul class="nav nav-tabs" id="coverageTabs" role="tablist">
+            <li class="nav-item">
+              <a class="nav-link active" id="by-sconscript-tab" data-toggle="tab" href="#by-sconscript" role="tab" aria-controls="by-sconscript" aria-selected="true">By sconscript</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" id="by-source-tab" data-toggle="tab" href="#by-source" role="tab" aria-controls="by-source" aria-selected="false">By source file</a>
+            </li>
+          </ul>
         </li>
-        <li class="list-group-item d-none d-sm-block">
-          <div class="row align-items-center alert-secondary">
-            <div class="col-lg-4 col-sm-3">
-              Coverage File
-            </div>
-            <div class="col-lg-4 col-sm-3 px-1 text-center">
-              Coverage
-            </div>
-            <div class="col-lg-2 col-sm-3">
-              <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
-                <div class="col px-1">Lines</div>
-              </div>
-            </div>
-            <div class="col-lg-2 col-sm-3">
-              <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
-                <div class="col px-1">Branches</div>
-              </div>
-            <div>
-          </div>
-        </li>
-        {% for coverage_entry in coverage_entries %}
-        <li class="list-group-item">
-          <div class="row align-items-center">
-            <div class="col-lg-4 col-sm-3">
-              <a href="{{ coverage_entry.coverage_file }}" class="card-link">{{ coverage_entry.coverage_name }}</a>
-              {% if coverage_entry.coverage_context %}
-                <br><span class="small text-secondary">{{ coverage_entry.coverage_context }}</span>
-              {% endif %}
-            </div>
-            <div class="col-lg-4 col-sm-3">
-              <div class="progress">
-                <div class="progress-bar progress-bar-striped {{ coverage_entry.progress_lines_status }}"
-                     role="progressbar"
-                     style="width: {{ coverage_entry.lines_percent }}%"
-                     aria-valuenow="{{ coverage_entry.lines_percent }}"
-                     aria-valuemin="0"
-                     aria-valuemax="100">
-                  {{ coverage_entry.lines_percent }}%
-                </div>
-              </div>
-            </div>
-            <div class="col-lg-2 col-sm-3">
-              <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
-                <div class="col-12 px-1 {{ coverage_entry.lines_status }}">
-                  <span class="font-weight-bolder">{{ coverage_entry.lines_percent }}%</span>
-                </div>
-                <div class="col-12 px-1 small {{ coverage_entry.lines_status }}">
-                  {{ LOC( coverage_entry.lines_covered ) }} / {{ LOC( coverage_entry.lines_total ) }}
-                </div>
-              </div>
-            </div>
-            <div class="col-lg-2 col-sm-3">
-              <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
-                <div class="col-12 px-1 {{ coverage_entry.branches_status }}">
-                  <span class="font-weight-bolder">{{ coverage_entry.branches_percent }}%</span>
-                </div>
-                <div class="col-12 px-1 small {{ coverage_entry.branches_status }}">
-                  {{ LOC( coverage_entry.branches_covered ) }} / {{ LOC( coverage_entry.branches_total ) }}
-                </div>
-              </div>
-            <div>
-          </div>
-        </li>
-        {% endfor %}
+        {% endif %}
       </ul>
+
+      {% if show_source_tab|default(false) %}
+      <div class="tab-content">
+        <div class="tab-pane fade show active" id="by-sconscript" role="tabpanel" aria-labelledby="by-sconscript-tab">
+      {% endif %}
+          <ul class="list-group list-group-flush">
+            {% if compare_toolchains|default(false) %}
+            <li class="list-group-item">
+              <h5 class="mb-0">Coverage Summary</h5>
+              <div class="small text-secondary">One row per toolchain</div>
+            </li>
+            {% for summary in toolchain_summaries %}
+            <li class="list-group-item">
+              <div class="row align-items-center">
+                <div class="col-lg-4 col-sm-3">
+                  <span class="text-monospace">{{ summary.coverage_name }}</span>
+                </div>
+                <div class="col-lg-4 col-sm-3">
+                  <div class="progress" style="height: 1.5rem;">
+                    <div class="progress-bar {{ summary.progress_lines_status }}"
+                         role="progressbar"
+                         style="width: {{ summary.lines_percent }}%"
+                         aria-valuenow="{{ summary.lines_percent }}"
+                         aria-valuemin="0"
+                         aria-valuemax="100">
+                      {{ summary.lines_percent }}%
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
+                    <div class="col-12 px-1 {{ summary.lines_status }}">
+                      <span class="font-weight-bolder">{{ summary.lines_percent }}%</span>
+                    </div>
+                    <div class="col-12 px-1 small {{ summary.lines_status }}">
+                      {{ LOC( summary.lines_covered ) }} / {{ LOC( summary.lines_total ) }}
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
+                    <div class="col-12 px-1 {{ summary.branches_status }}">
+                      <span class="font-weight-bolder">{{ summary.branches_percent }}%</span>
+                    </div>
+                    <div class="col-12 px-1 small {{ summary.branches_status }}">
+                      {{ LOC( summary.branches_covered ) }} / {{ LOC( summary.branches_total ) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </li>
+            {% endfor %}
+            <li class="list-group-item d-none d-sm-block">
+              <div class="row align-items-center alert-secondary">
+                <div class="col-lg-4 col-sm-3">
+                  Coverage File / Toolchain
+                </div>
+                <div class="col-lg-4 col-sm-3 px-1 text-center">
+                  Coverage
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col px-1">Lines</div>
+                  </div>
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col px-1">Branches</div>
+                  </div>
+                </div>
+              </div>
+            </li>
+            {% for group in coverage_groups %}
+            <li class="list-group-item cov-group-header py-2">
+              <span class="cov-file-label text-monospace">{{ group.coverage_name }}</span>
+            </li>
+            {% for coverage_entry in group.entries %}
+            <li class="list-group-item cov-toolchain-row">
+              <div class="row align-items-center">
+                <div class="col-lg-4 col-sm-3 cov-indent">
+                  <a href="{{ coverage_entry.coverage_file }}" class="card-link text-monospace">{{ coverage_entry.coverage_context or coverage_entry.toolchain_variant_dir }}</a>
+                </div>
+                <div class="col-lg-4 col-sm-3">
+                  <div class="progress">
+                    <div class="progress-bar progress-bar-striped {{ coverage_entry.progress_lines_status }}"
+                         role="progressbar"
+                         style="width: {{ coverage_entry.lines_percent }}%"
+                         aria-valuenow="{{ coverage_entry.lines_percent }}"
+                         aria-valuemin="0"
+                         aria-valuemax="100">
+                      {{ coverage_entry.lines_percent }}%
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
+                    <div class="col-12 px-1 {{ coverage_entry.lines_status }}">
+                      <span class="font-weight-bolder">{{ coverage_entry.lines_percent }}%</span>
+                    </div>
+                    <div class="col-12 px-1 small {{ coverage_entry.lines_status }}">
+                      {{ LOC( coverage_entry.lines_covered ) }} / {{ LOC( coverage_entry.lines_total ) }}
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
+                    <div class="col-12 px-1 {{ coverage_entry.branches_status }}">
+                      <span class="font-weight-bolder">{{ coverage_entry.branches_percent }}%</span>
+                    </div>
+                    <div class="col-12 px-1 small {{ coverage_entry.branches_status }}">
+                      {{ LOC( coverage_entry.branches_covered ) }} / {{ LOC( coverage_entry.branches_total ) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </li>
+            {% endfor %}
+            {% endfor %}
+
+            {% else %}
+            <li class="list-group-item">
+              <div class="row align-items-center">
+                <div class="col-lg-4 col-sm-3">
+                  <h5>Coverage Summary</h5>
+                </div>
+                <div class="col-lg-4 col-sm-3">
+                  <div class="progress" style="height: 1.5rem;">
+                    <div class="progress-bar {{ coverage_summary.progress_lines_status }}"
+                         role="progressbar"
+                         style="width: {{ coverage_summary.lines_percent }}%"
+                         aria-valuenow="{{ coverage_summary.lines_percent }}"
+                         aria-valuemin="0"
+                         aria-valuemax="100">
+                      {{ coverage_summary.lines_percent }}%
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
+                    <div class="col-12 px-1 {{ coverage_summary.lines_status }}">
+                      <span class="font-weight-bolder">{{ coverage_summary.lines_percent }}%</span>
+                    </div>
+                    <div class="col-12 px-1 small {{ coverage_summary.lines_status }}">
+                      {{ LOC( coverage_summary.lines_covered ) }} / {{ LOC( coverage_summary.lines_total ) }}
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
+                    <div class="col-12 px-1 {{ coverage_summary.branches_status }}">
+                      <span class="font-weight-bolder">{{ coverage_summary.branches_percent }}%</span>
+                    </div>
+                    <div class="col-12 px-1 small {{ coverage_summary.branches_status }}">
+                      {{ LOC( coverage_summary.branches_covered ) }} / {{ LOC( coverage_summary.branches_total ) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </li>
+            <li class="list-group-item d-none d-sm-block">
+              <div class="row align-items-center alert-secondary">
+                <div class="col-lg-4 col-sm-3">
+                  Coverage File
+                </div>
+                <div class="col-lg-4 col-sm-3 px-1 text-center">
+                  Coverage
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col px-1">Lines</div>
+                  </div>
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col px-1">Branches</div>
+                  </div>
+                </div>
+              </div>
+            </li>
+            {% for coverage_entry in coverage_entries %}
+            <li class="list-group-item">
+              <div class="row align-items-center">
+                <div class="col-lg-4 col-sm-3">
+                  <a href="{{ coverage_entry.coverage_file }}" class="card-link">{{ coverage_entry.coverage_name }}</a>
+                  {% if coverage_entry.coverage_context %}
+                    <br><span class="small text-secondary">{{ coverage_entry.coverage_context }}</span>
+                  {% endif %}
+                </div>
+                <div class="col-lg-4 col-sm-3">
+                  <div class="progress">
+                    <div class="progress-bar progress-bar-striped {{ coverage_entry.progress_lines_status }}"
+                         role="progressbar"
+                         style="width: {{ coverage_entry.lines_percent }}%"
+                         aria-valuenow="{{ coverage_entry.lines_percent }}"
+                         aria-valuemin="0"
+                         aria-valuemax="100">
+                      {{ coverage_entry.lines_percent }}%
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
+                    <div class="col-12 px-1 {{ coverage_entry.lines_status }}">
+                      <span class="font-weight-bolder">{{ coverage_entry.lines_percent }}%</span>
+                    </div>
+                    <div class="col-12 px-1 small {{ coverage_entry.lines_status }}">
+                      {{ LOC( coverage_entry.lines_covered ) }} / {{ LOC( coverage_entry.lines_total ) }}
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
+                    <div class="col-12 px-1 {{ coverage_entry.branches_status }}">
+                      <span class="font-weight-bolder">{{ coverage_entry.branches_percent }}%</span>
+                    </div>
+                    <div class="col-12 px-1 small {{ coverage_entry.branches_status }}">
+                      {{ LOC( coverage_entry.branches_covered ) }} / {{ LOC( coverage_entry.branches_total ) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </li>
+            {% endfor %}
+            {% endif %}
+          </ul>
+      {% if show_source_tab|default(false) %}
+        </div>
+        <div class="tab-pane fade" id="by-source" role="tabpanel" aria-labelledby="by-source-tab">
+          <ul class="list-group list-group-flush">
+            {% if compare_toolchains|default(false) %}
+            <li class="list-group-item">
+              <h5 class="mb-0">Union Coverage Summary</h5>
+              <div class="small text-secondary">Per-toolchain JSON union (lines + branches)</div>
+            </li>
+            {% for summary in source_toolchain_summaries %}
+            <li class="list-group-item">
+              <div class="row align-items-center">
+                <div class="col-lg-4 col-sm-3">
+                  <span class="text-monospace">{{ summary.coverage_name }}</span>
+                </div>
+                <div class="col-lg-4 col-sm-3">
+                  <div class="progress" style="height: 1.5rem;">
+                    <div class="progress-bar {{ summary.progress_lines_status }}"
+                         role="progressbar"
+                         style="width: {{ summary.lines_percent }}%"
+                         aria-valuenow="{{ summary.lines_percent }}"
+                         aria-valuemin="0"
+                         aria-valuemax="100">
+                      {{ summary.lines_percent }}%
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
+                    <div class="col-12 px-1 {{ summary.lines_status }}">
+                      <span class="font-weight-bolder">{{ summary.lines_percent }}%</span>
+                    </div>
+                    <div class="col-12 px-1 small {{ summary.lines_status }}">
+                      {{ LOC( summary.lines_covered ) }} / {{ LOC( summary.lines_total ) }}
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
+                    {% if summary.branches_total %}
+                    <div class="col-12 px-1 {{ summary.branches_status }}">
+                      <span class="font-weight-bolder">{{ summary.branches_percent }}%</span>
+                    </div>
+                    <div class="col-12 px-1 small {{ summary.branches_status }}">
+                      {{ LOC( summary.branches_covered ) }} / {{ LOC( summary.branches_total ) }}
+                    </div>
+                    {% else %}
+                    <div class="col-12 px-1 text-secondary">
+                      <span class="font-weight-bolder">n/a</span>
+                    </div>
+                    <div class="col-12 px-1 small text-secondary">—</div>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </li>
+            {% endfor %}
+            <li class="list-group-item d-none d-sm-block">
+              <div class="row align-items-center alert-secondary">
+                <div class="col-lg-4 col-sm-3">
+                  Source File / Toolchain
+                </div>
+                <div class="col-lg-4 col-sm-3 px-1 text-center">
+                  Coverage
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col px-1">Lines</div>
+                  </div>
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col px-1">Branches</div>
+                  </div>
+                </div>
+              </div>
+            </li>
+            {% for group in source_groups %}
+            <li class="list-group-item cov-group-header py-2">
+              <span class="cov-file-label text-monospace">{{ group.coverage_name }}</span>
+            </li>
+            {% for source_entry in group.entries %}
+            <li class="list-group-item cov-toolchain-row">
+              <div class="row align-items-center">
+                <div class="col-lg-4 col-sm-3 cov-indent">
+                  <a href="{{ source_entry.coverage_file }}" class="card-link text-monospace">{{ source_entry.toolchain_label or source_entry.coverage_context }}</a>
+                </div>
+                <div class="col-lg-4 col-sm-3">
+                  <div class="progress">
+                    <div class="progress-bar progress-bar-striped {{ source_entry.progress_lines_status }}"
+                         role="progressbar"
+                         style="width: {{ source_entry.lines_percent }}%"
+                         aria-valuenow="{{ source_entry.lines_percent }}"
+                         aria-valuemin="0"
+                         aria-valuemax="100">
+                      {{ source_entry.lines_percent }}%
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
+                    <div class="col-12 px-1 {{ source_entry.lines_status }}">
+                      <span class="font-weight-bolder">{{ source_entry.lines_percent }}%</span>
+                    </div>
+                    <div class="col-12 px-1 small {{ source_entry.lines_status }}">
+                      {{ LOC( source_entry.lines_covered ) }} / {{ LOC( source_entry.lines_total ) }}
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
+                    {% if source_entry.branches_total %}
+                    <div class="col-12 px-1 {{ source_entry.branches_status }}">
+                      <span class="font-weight-bolder">{{ source_entry.branches_percent }}%</span>
+                    </div>
+                    <div class="col-12 px-1 small {{ source_entry.branches_status }}">
+                      {{ LOC( source_entry.branches_covered ) }} / {{ LOC( source_entry.branches_total ) }}
+                    </div>
+                    {% else %}
+                    <div class="col-12 px-1 text-secondary">
+                      <span class="font-weight-bolder">n/a</span>
+                    </div>
+                    <div class="col-12 px-1 small text-secondary">—</div>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </li>
+            {% endfor %}
+            {% endfor %}
+
+            {% else %}
+            <li class="list-group-item">
+              <div class="row align-items-center">
+                <div class="col-lg-4 col-sm-3">
+                  <h5>Union Coverage Summary</h5>
+                  <div class="small text-secondary">{{ source_summary.coverage_context }}</div>
+                </div>
+                <div class="col-lg-4 col-sm-3">
+                  <div class="progress" style="height: 1.5rem;">
+                    <div class="progress-bar {{ source_summary.progress_lines_status }}"
+                         role="progressbar"
+                         style="width: {{ source_summary.lines_percent }}%"
+                         aria-valuenow="{{ source_summary.lines_percent }}"
+                         aria-valuemin="0"
+                         aria-valuemax="100">
+                      {{ source_summary.lines_percent }}%
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
+                    <div class="col-12 px-1 {{ source_summary.lines_status }}">
+                      <span class="font-weight-bolder">{{ source_summary.lines_percent }}%</span>
+                    </div>
+                    <div class="col-12 px-1 small {{ source_summary.lines_status }}">
+                      {{ LOC( source_summary.lines_covered ) }} / {{ LOC( source_summary.lines_total ) }}
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
+                    {% if source_summary.branches_total %}
+                    <div class="col-12 px-1 {{ source_summary.branches_status }}">
+                      <span class="font-weight-bolder">{{ source_summary.branches_percent }}%</span>
+                    </div>
+                    <div class="col-12 px-1 small {{ source_summary.branches_status }}">
+                      {{ LOC( source_summary.branches_covered ) }} / {{ LOC( source_summary.branches_total ) }}
+                    </div>
+                    {% else %}
+                    <div class="col-12 px-1 text-secondary">
+                      <span class="font-weight-bolder">n/a</span>
+                    </div>
+                    <div class="col-12 px-1 small text-secondary">—</div>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </li>
+            <li class="list-group-item d-none d-sm-block">
+              <div class="row align-items-center alert-secondary">
+                <div class="col-lg-4 col-sm-3">
+                  Source File
+                </div>
+                <div class="col-lg-4 col-sm-3 px-1 text-center">
+                  Coverage
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col px-1">Lines</div>
+                  </div>
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 text-center">
+                    <div class="col px-1">Branches</div>
+                  </div>
+                </div>
+              </div>
+            </li>
+            {% for source_entry in source_entries %}
+            <li class="list-group-item">
+              <div class="row align-items-center">
+                <div class="col-lg-4 col-sm-3">
+                  <a href="{{ source_entry.coverage_file }}" class="card-link text-monospace">{{ source_entry.coverage_name }}</a>
+                  {% if source_entry.coverage_context %}
+                    <br><span class="small text-secondary">{{ source_entry.coverage_context }}</span>
+                  {% endif %}
+                </div>
+                <div class="col-lg-4 col-sm-3">
+                  <div class="progress">
+                    <div class="progress-bar progress-bar-striped {{ source_entry.progress_lines_status }}"
+                         role="progressbar"
+                         style="width: {{ source_entry.lines_percent }}%"
+                         aria-valuenow="{{ source_entry.lines_percent }}"
+                         aria-valuemin="0"
+                         aria-valuemax="100">
+                      {{ source_entry.lines_percent }}%
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
+                    <div class="col-12 px-1 {{ source_entry.lines_status }}">
+                      <span class="font-weight-bolder">{{ source_entry.lines_percent }}%</span>
+                    </div>
+                    <div class="col-12 px-1 small {{ source_entry.lines_status }}">
+                      {{ LOC( source_entry.lines_covered ) }} / {{ LOC( source_entry.lines_total ) }}
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-2 col-sm-3">
+                  <div class="row ml-0 mr-0 mx-sm-n2 mr-lg-1 align-items-center text-center">
+                    {% if source_entry.branches_total %}
+                    <div class="col-12 px-1 {{ source_entry.branches_status }}">
+                      <span class="font-weight-bolder">{{ source_entry.branches_percent }}%</span>
+                    </div>
+                    <div class="col-12 px-1 small {{ source_entry.branches_status }}">
+                      {{ LOC( source_entry.branches_covered ) }} / {{ LOC( source_entry.branches_total ) }}
+                    </div>
+                    {% else %}
+                    <div class="col-12 px-1 text-secondary">
+                      <span class="font-weight-bolder">n/a</span>
+                    </div>
+                    <div class="col-12 px-1 small text-secondary">—</div>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </li>
+            {% endfor %}
+            {% endif %}
+          </ul>
+        </div>
+      </div>
+      {% endif %}
       </div>
     </div>
     {% endblock %}
 
     {% block bootstrap4_after_content %}{% endblock %}
-    <!-- Optional JavaScript -->
-    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.6/umd/popper.min.js" integrity="sha384-wHAiFfRlMFy6i5SRaxvfOCifBUQy1xHdJ/yoi7FRNXMRBu5WHdZYu1hA6ZOblgut" crossorigin="anonymous"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.min.js" integrity="sha384-B0UglyR+jN6CkvvICOB2joaf5I4l3gm9GU6Hc1og6Ls7i6U/mkkaduKaBhlAXv9k" crossorigin="anonymous"></script>
+    {% if show_source_tab|default(false) %}
+    <script>
+      (function () {
+        function activateFromHash() {
+          if (window.location.hash === '#by-source') {
+            $('#by-source-tab').tab('show');
+          } else if (window.location.hash === '#by-sconscript') {
+            $('#by-sconscript-tab').tab('show');
+          }
+        }
+        activateFromHash();
+        $(window).on('hashchange', activateFromHash);
+        $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+          if (history.replaceState) {
+            history.replaceState(null, null, e.target.getAttribute('href'));
+          }
+        });
+      })();
+    </script>
+    {% endif %}
     {% block bootstrap4_extra_script %}{% endblock %}
   </body>
 </html>
