@@ -176,6 +176,10 @@ class Cl(object):
         return self._name
 
 
+    def package_name( self ):
+        return self.name()
+
+
     def family( self ):
         return "cl"
 
@@ -319,6 +323,10 @@ class Cl(object):
 
     def abi_flag( self, library ):
         return ""
+
+
+    def stdlib_flag( self, env ):
+        return None
 
 
     def abi( self, env ):

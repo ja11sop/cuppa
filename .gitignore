@@ -10,6 +10,10 @@ _build/
 _cuppa/
 config.log
 
+# Ignore VirtualEnvs
+venv*/
+env/
+
 # Ignore Scons files
 .sconsign.dblite
 .sconf_temp/

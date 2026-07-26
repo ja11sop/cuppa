@@ -63,10 +63,19 @@ def b2_command( env, boost_version, location, toolchain, libraries, variant, tar
     for library in libraries:
         with_libraries += " --with-" + library
 
-    build_flags = ""
+    cxxflags = []
     abi_flag = toolchain.abi_flag(env)
     if abi_flag:
-        build_flags = 'cxxflags="' + abi_flag + '"'
+        cxxflags.append( abi_flag )
+
+    stdlib_flag = toolchain.stdlib_flag(env)
+    if stdlib_flag:
+        cxxflags.append( stdlib_flag )
+
+    build_flags = ""
+
+    if cxxflags:
+        build_flags = 'cxxflags="' + ' '.join( cxxflags ) + '"'
 
     address_model = ""
     architecture = ""

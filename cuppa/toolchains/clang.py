@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2014-2020
+#          Copyright Jamie Allsop 2014-2026
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -105,6 +105,12 @@ class Clang(object):
     def supported_versions( cls ):
         return [
             "clang",
+            "clang22", "clang221",
+            "clang21", "clang211",
+            "clang20",
+            "clang19",
+            "clang18",
+            "clang17",
             "clang16",
             "clang15",
             "clang14",
@@ -285,6 +291,8 @@ class Clang(object):
 
         self._suppress_debug_for_auto = suppress_debug_for_auto
 
+        self._stdlib = stdlib
+
         self.values = {}
 
         self._gcov_format = self._gcov_format_version()
@@ -317,6 +325,12 @@ class Clang(object):
 
     def name( self ):
         return self._name
+
+
+    def package_name( self ):
+        if self._stdlib:
+            return "{}-{}".format( self.name(), self._stdlib )
+        return self.name()
 
 
     def family( self ):
@@ -493,6 +507,9 @@ class Clang(object):
         if cuppa.build_platform.name() == "Linux":
             CommonLinkCxxFlags = ['-rdynamic', '-Wl,-rpath=.' ]
 
+        if stdlib:
+            CommonLinkCxxFlags += [ "-stdlib={}".format(stdlib) ]
+
         self.values['debug_link_cxx_flags']   = CommonLinkCxxFlags
         self.values['release_link_cxx_flags'] = CommonLinkCxxFlags
         self.values['coverage_link_flags']    = CommonLinkCxxFlags + [ '--coverage' ]
@@ -540,6 +557,10 @@ class Clang(object):
             return '-std={}'.format(env['stdcpp'])
         else:
             return self.__default_dialect_flags()[0]
+
+
+    def stdlib_flag( self, env ):
+        return '-stdlib={}'.format(self._stdlib)
 
 
     def abi( self, env ):
