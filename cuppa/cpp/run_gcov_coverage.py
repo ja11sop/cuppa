@@ -175,7 +175,7 @@ class CoverageSuite(object):
             gcov_includes = gcov_includes,
             gcov_excludes = gcov_excludes,
             self_contained_html = gcovr_version['major'] >= 5 and "--html-self-contained" or "",
-            html_theme = gcovr_version['major'] >= 5 and "--html-theme blue" or "",
+            html_theme = gcovr_version['major'] >= 5 and "--html-theme green" or "",
             index_file=index_file,
             json_args = ( gcovr_version['major'] >= 4 and ( " --json " + html_base_name + ".json" ) or "" ),
         )
