@@ -169,18 +169,17 @@ def test_extract_zip_strips_top_directory(tmp_path):
 
 
 def test_extract_tar(tmp_path):
+    # Build from a real tree so members get readable modes (manual TarInfo
+    # defaults to mode 0, which breaks shutil.move on some CI runners).
+    source = tmp_path / "source"
+    wrapped = source / "wrapped"
+    wrapped.mkdir(parents=True)
+    (wrapped / "file.txt").write_text("payload", encoding="utf-8")
+
     archive = tmp_path / "pkg.tar"
     target = tmp_path / "out"
     with tarfile.open(archive, "w") as tf:
-        info_dir = tarfile.TarInfo(name="wrapped")
-        info_dir.type = tarfile.DIRTYPE
-        tf.addfile(info_dir)
-        data = b"payload"
-        info = tarfile.TarInfo(name="wrapped/file.txt")
-        info.size = len(data)
-        import io
-
-        tf.addfile(info, io.BytesIO(data))
+        tf.add(str(wrapped), arcname="wrapped")
 
     Location.extract(str(archive), str(target))
     assert (target / "file.txt").read_text(encoding="utf-8") == "payload"
