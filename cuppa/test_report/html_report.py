@@ -53,7 +53,6 @@ def jinja2_templates():
 cached_vcs_info = {}
 
 def vcs_info_from_location( location, default_branch, default_revision ):
-    global cached_vcs_info
     if location in cached_vcs_info:
         return cached_vcs_info[location]
 

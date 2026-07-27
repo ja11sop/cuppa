@@ -12,7 +12,7 @@ pyyaml
 scons
 
 # for linting and building wheel only
-pyflakes
+flake8
 pylint
 setuptools
 twine

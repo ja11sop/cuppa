@@ -46,7 +46,6 @@ class Notify(object):
             as_emphasised( "\nTest Suite Finished [%s] " % suite['name'] )
         )
 
-        total_tests       = int(suite['total_tests'])
         passed_tests      = int(suite['passed_tests'])
         failed_tests      = int(suite['failed_tests'])
         expected_failures = int(suite['expected_failures'])

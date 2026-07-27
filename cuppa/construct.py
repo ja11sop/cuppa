@@ -36,7 +36,7 @@ import cuppa.scms
 #import cuppa.tree
 #import cuppa.cpp.stdcpp
 
-from cuppa.colourise import colouriser, as_emphasised, as_info, as_error, as_notice, colour_items, as_info_label
+from cuppa.colourise import as_emphasised, as_info, as_error, as_notice, colour_items, as_info_label
 from cuppa.log import set_logging_level, reset_logging_format, logger, enable_thirdparty_logging
 from cuppa.utility.types import is_string
 from cuppa.utility.entry_points import iter_entry_points

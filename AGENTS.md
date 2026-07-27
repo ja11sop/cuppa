@@ -65,11 +65,13 @@ Plugins (setuptools): `cuppa.method.plugins`, `cuppa.profile.plugins`, `cuppa.de
 ## Validating changes to cuppa
 
 ```sh
-pyflakes cuppa
+flake8 cuppa
 pylint -E cuppa
 pytest -m unit
 pytest -m integration   # requires a C++ compiler (g++ preferred)
 ```
+
+Lint config: [`.flake8`](.flake8) and [`.pylintrc`](.pylintrc). Full settings and rationale for contributors/agents: [`docs/modules/ROOT/pages/linting.adoc`](docs/modules/ROOT/pages/linting.adoc). Keep the gate error-focused — do not broaden to style warnings without intent.
 
 Integration scenarios (with generated `sconstruct` / `sconscript` and expectations) are documented on the Antora site under **Integration tests** (`docs/modules/ROOT/pages/integration-tests.adoc` and `docs/modules/ROOT/pages/integration/`).
 
@@ -86,6 +88,7 @@ Release checklist: see `release.txt` (`sdist` / `bdist_wheel` / `twine`).
 
 - Human landing: `README.md`
 - Canonical reference: Antora under `docs/` → https://ja11sop.github.io/cuppa/
+- Lint settings / ignore rationale: `docs/modules/ROOT/pages/linting.adoc`
 - Preview docs: `cd docs && npm ci && npm run build` → `build/site/` (Lunr search via `@antora/lunr-extension`)
 - Integration test scenarios: Antora **Integration tests** section (`docs/modules/ROOT/pages/integration/`)
 

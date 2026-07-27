@@ -1,0 +1,14 @@
+[flake8]
+# F-codes only — same class of findings as pyflakes; no style pedantry.
+select = F
+per-file-ignores =
+    # Public package API re-exports
+    cuppa/__init__.py: F401
+    # Plugin / platform registration via star-imports (side effects)
+    cuppa/construct.py: F401,F403
+    cuppa/build_platform.py: F401,F403
+    # Py2/3 and pip version-probe shims (imports for side effects / re-export)
+    cuppa/utility/python2to3.py: F401
+    cuppa/utility/pip_imports.py: F401
+    # Side-effect import of registration helpers
+    cuppa/modules/__init__.py: F401

@@ -9,10 +9,8 @@
 #-------------------------------------------------------------------------------
 
 # Check if an object is a string
-try:
-    basestring
-    def is_string( x ):
-        return isinstance( x, basestring )
-except NameError:
-    def is_string( x ):
-        return isinstance( x, str )
+from six import string_types
+
+
+def is_string( x ):
+    return isinstance( x, string_types )

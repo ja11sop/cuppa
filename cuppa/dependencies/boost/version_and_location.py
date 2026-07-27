@@ -11,8 +11,6 @@ import os
 import re
 import lxml.html
 
-from packaging import version as packaging_version
-
 try:
     from urllib2 import urlopen
 except ImportError:

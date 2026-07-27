@@ -11,6 +11,7 @@
 * xref:testing-coverage.adoc[Testing and coverage]
 * xref:toolchains.adoc[Toolchains]
 * xref:extending.adoc[Extending cuppa]
+* xref:linting.adoc[Linting]
 * xref:integration-tests.adoc[Integration tests]
 ** xref:integration/test-minimal-example.adoc[Minimal example]
 ** xref:integration/test-configure-conf.adoc[configure.conf]

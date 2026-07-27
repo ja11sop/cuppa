@@ -34,6 +34,7 @@ import cuppa.path
 
 from cuppa.utility.python2to3 import Pattern
 from cuppa.cpp.coverage_by_source import generate_by_source_coverage, sanitized_toolchain_dirname
+from six.moves import zip_longest
 
 url_block_sep = '--'
 coverage_id = 'coverage'
@@ -311,7 +312,7 @@ class RunGcovCoverageEmitter(object):
 
 def iter_grouped( items, step=2, fillvalue=None ):
     it = iter( items )
-    return itertools.izip_longest( *[it]*step, fillvalue=fillvalue )
+    return zip_longest( *[it]*step, fillvalue=fillvalue )
 
 
 class RunGcovCoverage(object):

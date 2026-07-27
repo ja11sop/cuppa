@@ -27,7 +27,7 @@ jobs:
           pip install -e . --no-build-isolation
       - name: Lint
         run: |
-          pyflakes cuppa
+          flake8 cuppa
           pylint -E cuppa
       - name: Unit tests
         run: pytest -m unit -q

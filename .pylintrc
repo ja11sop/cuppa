@@ -1,0 +1,21 @@
+[MASTER]
+# Error-focused lint matches CI: `pylint -E cuppa`
+
+[TYPECHECK]
+# SCons injects Script helpers (Flatten, Glob, Dir, File, Decider, …) dynamically.
+ignored-modules=SCons,SCons.Script
+generated-members=Flatten,Glob,Dir,File,Decider,AddOption,GetOption,SetOption,DefaultEnvironment,Environment,Builder,Action,Command,Depends,AlwaysBuild,Alias,Export,Import,Return,SConscript,VariantDir,Repository,FindFile,FindSourceFiles,FindInstalledFiles,Install,InstallAs,PackageOption,PathOption,EnumOption,ListOption,BoolOption,Progress,GetBuildFailures,EnsureSConsVersion,EnsurePythonVersion
+
+[MESSAGES CONTROL]
+# Per-module: version-probe / Py2-3 shims that intentionally try unavailable imports.
+disable=
+
+[cuppa.utility.pip_imports]
+disable=import-error,no-name-in-module
+
+[cuppa.utility.python2to3]
+disable=import-error,no-name-in-module
+
+[cuppa.packages.boost_package]
+# Attributes come from package_dependency() factory base class.
+disable=no-member

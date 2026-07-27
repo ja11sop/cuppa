@@ -8,9 +8,6 @@
 #   QuadFloat
 #-------------------------------------------------------------------------------
 
-from cuppa.utility.python2to3 import Exception
-
-
 
 class quad_float():
 
