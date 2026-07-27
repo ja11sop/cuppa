@@ -7,8 +7,11 @@
     "clean": "rm -rf ../_docs_build/site ../_docs_build/antora-cache"
   },
   "devDependencies": {
-    "@antora/cli": "3.1.10",
+    "@antora/cli": "3.1.15",
     "@antora/lunr-extension": "^1.0.0-alpha.13",
-    "@antora/site-generator": "3.1.10"
+    "@antora/site-generator": "3.1.15"
+  },
+  "overrides": {
+    "js-yaml": "4.3.0"
   }
 }
