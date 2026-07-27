@@ -1,0 +1,53 @@
+= `test_run_actions` — `Run`, `Benchmark`, `BuildBenchmark`
+:description: Cuppa integration test documentation for test_run_actions
+
+
+== What is tested
+
+1. Build a binary, then execute it via `Run` and `Benchmark` with `--run` / `--benchmark`.
+2. `BuildBenchmark` builds and hooks the benchmark action in one step.
+
+== Generated files
+
+=== `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== Run + Benchmark — `sconscript`
+
+[source,python]
+----
+Import('env')
+prog = env.Build('noop_bench', 'benches/noop_bench.cpp')
+env.Run(prog)
+env.Benchmark(prog)
+----
+
+=== BuildBenchmark — `sconscript`
+
+[source,python]
+----
+Import('env')
+env.BuildBenchmark('noop_bench', 'benches/noop_bench.cpp')
+----
+
+== Commands
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg --run --benchmark
+cuppa -D --offline --toolchains=gcc --dbg --benchmark
+----
+
+== Expectations
+
+Exit 0; `noop_bench` under `final/`; success/report artifacts (`*.success` or `*.report.json`) for the run/benchmark path.
+
+'''
+
+Related test module: `tests/integration/methods/test_run_actions.py`.

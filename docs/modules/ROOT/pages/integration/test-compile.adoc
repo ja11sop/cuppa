@@ -1,0 +1,43 @@
+= `test_compile` — `CompileStatic` / `CompileShared`
+:description: Cuppa integration test documentation for test_compile
+
+
+== What is tested
+
+Object compilation helpers produce `.o` / `.obj` files under the working tree.
+
+== Generated files
+
+=== `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== `sconscript`
+
+[source,python]
+----
+Import('env')
+env.AppendUnique(CPPPATH=['#/include'])
+env.CompileStatic('src/hello.cpp')
+env.CompileShared('src/hello.cpp')
+----
+
+== Command
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg
+----
+
+== Expectations
+
+Exit 0; at least one object file matching `hello.*` under `_build`.
+
+'''
+
+Related test module: `tests/integration/methods/test_compile.py`.

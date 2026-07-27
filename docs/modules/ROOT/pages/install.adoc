@@ -1,0 +1,56 @@
+= Installation
+:description: How to install cuppa and its Python dependencies
+
+== Recommended: pip package
+
+[source,sh]
+----
+pip install cuppa
+----
+
+This installs the `cuppa` console script (a thin wrapper around `scons` that enables cuppa mode) and the `cuppa` Python package used from your `sconstruct`.
+
+== Local install beside a project
+
+To keep cuppa next to a single project (SCons will also find it via `site_scons`):
+
+[source,sh]
+----
+pip install cuppa -t .
+----
+
+== Bootstrap from sconstruct
+
+If cuppa might be missing on a clean machine, you can install it on first import:
+
+[source,python]
+----
+try:
+    import cuppa
+except ImportError:
+    import subprocess, shlex
+    print("Cuppa not found, installing...")
+    subprocess.check_call(shlex.split("pip install cuppa -t ."))
+    import cuppa
+----
+
+== Runtime Python dependencies
+
+Cuppa declares these packages in `setup.py` (installed automatically with pip):
+
+* `colorama` -- coloured console output
+* `gcovr` -- HTML/JSON coverage post-processing
+* `grip`, `jinja2`, `libsass`, `lxml`, `psutil`, `pyscss`, `six`, `pyyaml`
+
+== cuppa vs scons
+
+Both of these work once your `sconstruct` calls `cuppa.run()`:
+
+[source,sh]
+----
+cuppa -D --dbg --test
+scons -D --dbg --test
+----
+
+The `cuppa` entry point invokes `scons` with `--cuppa-mode`, masks environment values whose names contain `TOKEN`, and may adjust CPU affinity when `--parallel` is used.
+Standalone `cuppa --help` shows *SCons* help; cuppa-specific options appear when you run from a project that has loaded cuppa.

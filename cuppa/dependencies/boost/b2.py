@@ -63,10 +63,19 @@ def b2_command( env, boost_version, location, toolchain, libraries, variant, tar
     for library in libraries:
         with_libraries += " --with-" + library
 
-    build_flags = ""
+    cxxflags = []
     abi_flag = toolchain.abi_flag(env)
     if abi_flag:
-        build_flags = 'cxxflags="' + abi_flag + '"'
+        cxxflags.append( abi_flag )
+
+    stdlib_flag = toolchain.stdlib_flag(env)
+    if stdlib_flag:
+        cxxflags.append( stdlib_flag )
+
+    build_flags = ""
+
+    if cxxflags:
+        build_flags = 'cxxflags="' + ' '.join( cxxflags ) + '"'
 
     address_model = ""
     architecture = ""
@@ -74,8 +83,11 @@ def b2_command( env, boost_version, location, toolchain, libraries, variant, tar
     if toolchain.family() == "cl":
         if target_arch == "amd64":
             address_model = "address-model=64"
+        elif target_arch in ( "arm64", "aarch64" ):
+            address_model = "address-model=64"
+            architecture = "architecture=arm"
         elif target_arch == "arm":
-            address_model = "architecture=arm"
+            architecture = "architecture=arm"
         if toolchain.target_store() != "desktop":
             windows_api = "windows-api=" + toolchain.target_store()
 

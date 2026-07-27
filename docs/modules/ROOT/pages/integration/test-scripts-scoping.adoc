@@ -1,0 +1,53 @@
+= `test_scripts_scoping` — `--scripts` selection
+:description: Cuppa integration test documentation for test_scripts_scoping
+
+
+== What is tested
+
+Only the sconscript(s) listed in `--scripts=` are executed; siblings are skipped.
+
+== Generated files
+
+Default `sconstruct`. Root `sconscript` is *removed*. Two scoped scripts are added:
+
+=== `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== `only_a/sconscript`
+
+[source,python]
+----
+Import('env')
+env.AppendUnique(CPPPATH=['#/include'])
+env.Build('prog_a', '#/apps/main.cpp')
+----
+
+=== `only_b/sconscript`
+
+[source,python]
+----
+Import('env')
+env.AppendUnique(CPPPATH=['#/include'])
+env.Build('prog_b', '#/apps/main.cpp')
+----
+
+== Command
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg --scripts=only_a/sconscript
+----
+
+== Expectations
+
+`prog_a` appears under `_build/.../final/`; `prog_b` does not.
+
+'''
+
+Related test module: `tests/integration/test_scripts_scoping.py`.

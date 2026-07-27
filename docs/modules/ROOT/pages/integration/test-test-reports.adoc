@@ -1,0 +1,54 @@
+= `test_test_reports` — HTML and Bitten reports
+:description: Cuppa integration test documentation for test_test_reports
+
+
+== What is tested
+
+1. *`GenerateHtmlTestReport`* — HTML report from test JSON after `--test`.
+2. *`GenerateBittenReport`* — Bitten XML from the same test run.
+
+`CollateTestReportIndex` is deferred (VCS/progress quirks outside a git tree).
+
+== Generated files
+
+=== Shared `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== HTML — `sconscript`
+
+[source,python]
+----
+Import('env')
+prog = env.BuildTest('hello_test', 'tests/hello_test.cpp')
+env.GenerateHtmlTestReport(prog)
+----
+
+=== Bitten — `sconscript`
+
+[source,python]
+----
+Import('env')
+prog = env.BuildTest('hello_test', 'tests/hello_test.cpp')
+env.GenerateBittenReport(prog)
+----
+
+== Command
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg --test
+----
+
+== Expectations
+
+Exit 0; `*.report.html` and `*bitten*.xml` under `_build` respectively.
+
+'''
+
+Related test module: `tests/integration/methods/test_test_reports.py`.

@@ -1,0 +1,105 @@
+= CLI reference
+:description: Cuppa command-line options grouped by concern
+
+Cuppa registers options through SCons `AddOption`.
+They appear when you run `cuppa` or `scons` against a project whose `sconstruct` calls `cuppa.run()`.
+Standard SCons flags (`-D`, `-j`, `-c`, `-Q`, …) still apply.
+
+== Everyday build control
+
+|===
+| Option | Description
+
+| `--dbg` | Debug variant
+| `--rel` | Release variant
+| `--cov` | Coverage-instrumented variant (does *not* imply `--test`)
+| `--test` / `--force-test` | Run test targets
+| `--benchmark` / `--force-benchmark` | Run benchmark targets
+| `--run` / `--force-run` | Run `Run()` targets
+| `--toolchains=LIST` | Comma-separated toolchain names; supports fnmatch wildcards (`gcc*`, `clang21`)
+| `--scripts=LIST` / `--projects=LIST` | Limit which sconscripts run
+| `--parallel` | Parallel build (`-j` sized to the machine; `cuppa` may restrict CPU affinity)
+| `--offline` | Skip PyPI version check and remote repository updates
+| `--develop` | Prefer develop locations / develop package paths where configured
+| `--stdcpp=STD` | Override C++ dialect (`c++98`, `c++03`, `c++0x`, `c++11`, `c++1y`, `c++14`, `c++1z`)
+|===
+
+== Output and diagnostics
+
+|===
+| Option | Description
+
+| `--raw-output` | Disable cuppa output processing / colour
+| `--standard-output` | Processed output without colour
+| `--minimal-output` | Errors and warnings only
+| `--ignore-duplicates` | Suppress repeated diagnostics
+| `--verbosity=LEVEL` | `trace`, `debug`, `exception`, `info`, `warn`, `error`
+| `--show-test-output` | Show test process stdout/stderr
+| `--suppress-process-output` | Suppress subprocess stdout/stderr
+| `--enable-thirdparty-logging` | Allow logs from third-party modules (for example pip)
+| `--dump` | Dump the default environment and exit
+|===
+
+TIP: If cuppa fails early while reading sconscripts, re-run with `--verbosity=exception` or `--verbosity=debug`.
+
+== Storage
+
+|===
+| Option | Default
+
+| `--build-root` | `_build`
+| `--download-root` | `_cuppa`
+| `--cache-root` | `~/_cuppa/_cache`
+| `--thirdparty=DIR` | Third-party directory hint
+|===
+
+== Configuration persistence
+
+See xref:configuration.adoc[Configuration] for `--show-conf`, `--save-conf`, `--update-conf`, `--clear-conf`, `--remove-settings`, global variants, and `--use-conf`.
+
+== Location / develop workflow
+
+|===
+| Option | Description
+
+| `--develop` | Use develop locations for location/package dependencies that define them
+| `--location-default-branch` | Default branch name (default `master`) used in offline / relative location logic
+| `--location-match-current-branch` | For relative locations (`path@`), try the current branch
+| `--location-explicit-default-branch` | Record the default branch explicitly in local checkouts
+| `--location-match-branch` / `--location-match-tag` | Pin relative locations to a branch or tag
+|===
+
+Per-dependency location options follow the pattern `--<name>-location`, `--<name>-develop`, `--<name>-include`, `--<name>-sys-include`, `--<name>-branch-path`, and related flags.
+
+== Environment propagation
+
+|===
+| Option | Description
+
+| `--propagate-env` | Pass the full parent environment to subprocesses
+| `--propagate-path` | Pass only `PATH`
+| `--merge-path` | Merge parent `PATH` with the cuppa-managed path
+| `--use-shell` | Run subprocesses with `shell=True`
+| `--decider=DECIDER` | SCons decider: `timestamp-newer`, `timestamp-match`, `MD5`, `MD5-timestamp` (default)
+| `--runner=NAME` | Test runner (default `process`)
+|===
+
+== Toolchain-specific
+
+Clang:
+
+* `--clang-stdlib={libstdc++,libc++}`
+* `--clang-disable-debug-for-auto`
+
+Boost (source dependency) includes `--boost-home`, `--boost-location`, `--boost-version`, `--boost-latest`, `--boost-build-always`, `--boost-verbose-build`, `--boost-verbose-config`, `--boost-patch-boost-test`.
+
+== Packages
+
+* `--publish-package` -- enable publish actions from `env.PublishPackage(...)`
+* Per-package GitLab options: `--<name>-package-manager`, `--<name>-gitlab-registry`, `--<name>-gitlab-package`, `--<name>-gitlab-version`, `--<name>-gitlab-variant`, `--<name>-gitlab-develop`, `--<name>-gitlab-custom-token`, and related flags
+
+See xref:packages.adoc[Packages].
+
+== Project generators
+
+Code::Blocks export: `--generate-cbs` plus related include/exclude path filters.

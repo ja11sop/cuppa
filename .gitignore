@@ -5,10 +5,19 @@ dist/
 *.egg-info/
 *.save
 
-# Ignore _build and _cuppa
+# Node (docs tooling)
+node_modules/
+
+
+# Ignore _build, _cuppa, and Antora docs output
 _build/
 _cuppa/
+_docs_build/
 config.log
+
+# Ignore VirtualEnvs
+venv*/
+env/
 
 # Ignore Scons files
 .sconsign.dblite

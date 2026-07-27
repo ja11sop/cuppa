@@ -1,0 +1,67 @@
+= Configuration
+:description: Persisting CLI options in configure.conf and ~/.cuppaconfig
+
+Cuppa can remember command-line choices so you do not re-type local paths and defaults every build.
+
+== Configuration files
+
+|===
+| File | Scope
+
+| `configure.conf` (beside the `sconstruct`, or path from `--use-conf`) | Project
+| `~/.cuppaconfig` | Global (loaded first; project file overrides)
+|===
+
+Format is simple `key = value` lines; values are parsed with `ast.literal_eval`.
+
+== Managing configuration
+
+|===
+| Option | Effect
+
+| `--show-conf` | Print loaded settings
+| `--save-conf` | Write current CLI options to the project conf
+| `--update-conf` | Merge current CLI into the project conf
+| `--remove-settings=a,b` | Drop listed keys from the project conf
+| `--clear-conf` | Delete the project conf
+| `--save-global-conf` / `--update-global-conf` / `--clear-global-conf` / `--remove-global-settings` | Same operations on `~/.cuppaconfig`
+| `--use-conf=PATH` | Use an alternate project conf path
+|===
+
+Example -- save develop + offline as project defaults:
+
+[source,sh]
+----
+cuppa -D --develop --offline --save-conf
+----
+
+Conf-only operations skip a normal build when you are only saving or clearing settings.
+
+You can also seed defaults in code:
+
+[source,python]
+----
+cuppa.run(
+    default_options = {
+        'develop': True,
+        'offline': True,
+    },
+)
+----
+
+== Environment variables
+
+|===
+| Variable | Use
+
+| `GITLAB_REGISTRY_TOKEN` | Authenticate to a GitLab package registry
+| `CI_JOB_TOKEN` | GitLab CI job token for registry access
+| Per-package custom token | Via `--<name>-gitlab-custom-token` (option names a token-bearing setting)
+| `PATH` / `PKG_CONFIG_PATH` | Propagated or merged according to `--propagate-env`, `--propagate-path`, `--merge-path`
+|===
+
+The `cuppa` wrapper masks environment values whose names match `*TOKEN*` in build output.
+
+== Related location options
+
+See also `--develop` and the `--location-*` flags documented in xref:cli-reference.adoc[CLI reference] and xref:dependencies.adoc[Dependencies].

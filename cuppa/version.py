@@ -12,7 +12,10 @@ try:
 except ImportError:
     import xmlrpc.client as xmlrpclib
 
-from pkg_resources import parse_version
+try:
+    from packaging.version import parse as parse_version
+except ImportError:  # pragma: no cover
+    from pkg_resources import parse_version
 
 from cuppa.colourise import as_info, as_warning, as_emphasised
 from cuppa.log import logger

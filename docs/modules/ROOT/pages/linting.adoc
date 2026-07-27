@@ -1,0 +1,109 @@
+= Linting
+:description: flake8 and pylint settings, CI gate, and why ignores exist
+
+Cuppa's CI lint step (and the commands in `AGENTS.md` / `release.txt`) stay **error-focused**.
+The goal is to catch unused names, undefined names, and real import/member mistakes — not to enforce a style guide.
+
+[source,sh]
+----
+flake8 cuppa
+pylint -E cuppa
+----
+
+Config lives at the repository root:
+
+* `.flake8` — flake8 / pyflakes-class findings (`F` codes only)
+* `.pylintrc` — pylint errors (`pylint -E`)
+
+Do **not** broaden the gate to style warnings (pycodestyle `E`/`W`, pylint convention/refactor) without an explicit project decision.
+Prefer adjusting these config files over scattering `# noqa` / `# pylint: disable` unless a one-line local silence is clearer.
+
+== flake8 (`.flake8`)
+
+=== Why flake8 instead of raw pyflakes
+
+flake8 runs the same F-code checks as pyflakes, but supports `per-file-ignores`.
+That lets intentional patterns stay quiet without disabling checks project-wide.
+
+=== `select = F`
+
+Only pyflakes-class codes are enabled (unused import, undefined name, and related).
+Line length, whitespace, and other style rules are intentionally off.
+
+=== `per-file-ignores`
+
+|===
+| Path | Codes | Rationale
+
+| `cuppa/__init__.py`
+| `F401`
+| Public package API re-exports (`location_dependency`, `package_dependency`, `profile`, …). Imports look “unused” to the linter but are part of the import surface.
+
+| `cuppa/construct.py`
+| `F401`, `F403`
+| Star-imports of methods, dependencies, profiles, variants, toolchains, and project generators trigger plugin/module registration as a side effect.
+
+| `cuppa/build_platform.py`
+| `F401`, `F403`
+| Same registration pattern for platforms.
+
+| `cuppa/utility/python2to3.py`
+| `F401`
+| Compat shims that bind alternate import paths for re-export; many branches look unused under a single Python version.
+
+| `cuppa/utility/pip_imports.py`
+| `F401`
+| Version probes import pip internals that exist only on some pip releases; success of the import is the check.
+
+| `cuppa/modules/__init__.py`
+| `F401`
+| Side-effect import of `cuppa.modules.registration`.
+|===
+
+Anything still reported after these ignores is treated as a real issue (for example a dead local, a spurious `global`, or an undefined name) and should be fixed in code.
+
+== pylint (`.pylintrc`)
+
+=== Keep `-E`
+
+CI runs `pylint -E cuppa` so only error-class messages fail the build.
+The config exists to silence known false positives in that error set — not to enable a full pylint score gate.
+
+=== SCons dynamic API (`[TYPECHECK]`)
+
+SCons injects helpers onto `SCons.Script` at runtime (`Flatten`, `Glob`, `Dir`, `File`, `Decider`, `AddOption`, and related).
+Static analysis often reports `no-name-in-module` / `no-member` for those names even though they are valid at runtime.
+
+`.pylintrc` therefore:
+
+* lists `SCons` / `SCons.Script` under `ignored-modules`
+* lists common Script helpers under `generated-members`
+
+=== Per-module disables
+
+|===
+| Module section | Disabled | Rationale
+
+| `cuppa.utility.pip_imports`
+| `import-error`, `no-name-in-module`
+| Intentionally tries imports that fail on older/newer pip layouts.
+
+| `cuppa.utility.python2to3`
+| `import-error`, `no-name-in-module`
+| Py2/Py3 alternate import paths; one side always fails under a given interpreter.
+
+| `cuppa.packages.boost_package`
+| `no-member`
+| Attributes such as `_patched` / `_version` come from the `package_dependency()` factory base class, which pylint does not see as ordinary inheritance.
+|===
+
+== Changing the rules
+
+When adding a new ignore:
+
+1. Prefer fixing the code if the finding is a real defect.
+2. If the pattern is structural (registration side effects, public re-exports, version probes, SCons dynamics), extend `.flake8` / `.pylintrc` and document the reason here.
+3. Re-run `flake8 cuppa` and `pylint -E cuppa` and confirm exit status `0`.
+4. Spot-check that a deliberate unused local in a normal module still fails flake8 — signal must remain.
+
+See also xref:extending.adoc[Extending cuppa] for the full contribution validation commands.

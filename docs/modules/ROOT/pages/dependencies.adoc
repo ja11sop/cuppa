@@ -1,0 +1,102 @@
+= Dependencies
+:description: Boost, Qt, Quince, and location_dependency
+
+Dependencies encapsulate include paths, defines, library linkage, and optional download/build steps.
+
+== Declaring dependencies
+
+In `sconstruct`:
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(
+    default_dependencies = ['boost'],
+    default_options = {
+        'boost-location': '/opt/boost',
+    },
+)
+----
+
+Or per sconscript:
+
+[source,python]
+----
+Import('env')
+env.BuildWith('boost')
+----
+
+== Boost (source / Boost.Build)
+
+The built-in `boost` dependency builds or uses a Boost tree via Boost.Build (`b2`).
+
+Common options:
+
+* `--boost-home` / `--boost-location`
+* `--boost-version` / `--boost-latest`
+* `--boost-build-always`, `--boost-verbose-build`, `--boost-verbose-config`
+* `--boost-patch-boost-test`
+
+In a sconscript:
+
+[source,python]
+----
+env.AppendUnique(STATICLIBS=env.BoostStaticLibs(['system', 'filesystem']))
+# or
+env.AppendUnique(DYNAMICLIBS=env.BoostSharedLibs(['system']))
+----
+
+Aliases such as `BoostStaticLib` / `BoostStaticLibrary` also exist for compatibility.
+
+For *prebuilt* Boost from a GitLab registry, prefer xref:packages.adoc[boost_package] instead of compiling from source every time.
+
+== Qt4 and Qt5
+
+Dependencies `qt4` and `qt5` integrate SCons Qt tools for MOC/UIC/RCC-style workflows.
+Enable via `default_dependencies = ['qt5']` (or `qt4`) when Qt is installed on the builder.
+
+== Quince
+
+The `quince` dependency (and related Quince backends such as PostgreSQL/SQLite helpers) pulls Quince as location dependencies for ORM-style C++ projects.
+
+== Location-only (header) libraries
+
+Create a lightweight dependency with `cuppa.location_dependency()` (also aliased as `header_library_dependency`):
+
+[source,python]
+----
+import cuppa
+
+MyHeaders = cuppa.location_dependency(
+    'my_headers',
+    location = 'https://example.com/my_headers/archive/main.zip',
+    include_root = 'include',
+)
+
+cuppa.run(
+    dependencies = [MyHeaders],
+    default_dependencies = ['my_headers'],
+)
+----
+
+Locations may be filesystem paths, archive URLs, or VCS URLs (for example `git+https://…@branch`).
+Cuppa caches archives under `--cache-root` and checkouts under `--download-root`.
+
+With `--develop`, location dependencies that define a develop path use the local tree instead of fetching.
+
+Relative locations ending in `@` participate in `--location-match-*` branch/tag behaviour (see xref:cli-reference.adoc[CLI reference]).
+
+== Custom dependencies
+
+Implement a class with:
+
+* `add_options(add_option)` (optional)
+* `add_to_env(env, add_dependency)` classmethod that calls `add_dependency(name, factory)`
+* instance `__call__(env, toolchain, variant)` to mutate the environment
+* `name()` identifying the dependency
+
+You can also subclass or wrap `location_dependency` / `package_dependency` factories.
+Register extras via `cuppa.run(dependencies=[MyDep])` or setuptools entry point group `cuppa.dependency.plugins`.
+
+See xref:extending.adoc[Extending cuppa].

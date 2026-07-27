@@ -1,0 +1,61 @@
+= `test_build_test` — `BuildTest` and `Test`
+:description: Cuppa integration test documentation for test_build_test
+
+
+== What is tested
+
+1. *`BuildTest` success* — process runner passes when `main` returns 0.
+2. *`BuildTest` failure* — cuppa/scons fails when the test binary exits non-zero.
+3. *`Test`* — attach the process runner to an existing `Build` product.
+
+== Generated files
+
+=== Shared `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== Pass — `sconscript`
+
+[source,python]
+----
+Import('env')
+env.BuildTest('hello_test', 'tests/hello_test.cpp')
+----
+
+=== Fail — `sconscript`
+
+[source,python]
+----
+Import('env')
+env.BuildTest('fail_test', 'tests/fail_test.cpp')
+----
+
+=== `Test` on built binary — `sconscript`
+
+[source,python]
+----
+Import('env')
+prog = env.Build('hello_test', 'tests/hello_test.cpp')
+env.Test(prog)
+----
+
+== Commands
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg --test
+----
+
+== Expectations
+
+- Pass / `Test` cases: exit 0; `hello_test` under `final/`.
+- Fail case: non-zero exit from cuppa.
+
+'''
+
+Related test module: `tests/integration/methods/test_build_test.py`.

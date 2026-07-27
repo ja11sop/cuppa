@@ -1,0 +1,65 @@
+= `test_build_profile` — `BuildProfile`
+:description: Cuppa integration test documentation for test_build_profile
+
+
+== What is tested
+
+A custom profile class registered through `cuppa.run(profiles=[…])` is applied with `BuildProfile` and affects the compile (define appended).
+
+== Generated files
+
+=== `sconstruct` (custom)
+
+[source,python]
+----
+import cuppa
+
+class define_profile(object):
+    @classmethod
+    def add_options(cls, add_option):
+        pass
+
+    @classmethod
+    def add_to_env(cls, env, add_profile):
+        add_profile('define_profile', cls.create)
+
+    @classmethod
+    def create(cls, env):
+        return cls()
+
+    def name(self):
+        return 'define_profile'
+
+    def __call__(self, env, toolchain, variant):
+        env.AppendUnique(CCFLAGS=['-DCUPPA_PROFILE_ON=1'])
+
+cuppa.run(
+    default_variants=['dbg'],
+    profiles=[define_profile],
+)
+----
+
+=== `sconscript`
+
+[source,python]
+----
+Import('env')
+env.BuildProfile('define_profile')
+env.AppendUnique(CPPPATH=['#/include'])
+env.Build('main', 'apps/main.cpp')
+----
+
+== Command
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg
+----
+
+== Expectations
+
+Exit 0; `main` under `final/`.
+
+'''
+
+Related test module: `tests/integration/methods/test_build_profile.py`.

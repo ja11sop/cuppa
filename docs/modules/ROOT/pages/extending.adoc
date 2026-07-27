@@ -1,0 +1,111 @@
+= Extending cuppa
+:description: Custom methods, dependencies, profiles, and plugins
+
+== Module auto-registration
+
+Drop a Python module under one of these packages with classmethods `add_options` and/or `add_to_env`:
+
+* `cuppa/methods/`
+* `cuppa/dependencies/`
+* `cuppa/profiles/`
+* `cuppa/variants/`
+* `cuppa/toolchains/`
+* `cuppa/project_generators/`
+
+`cuppa.modules.registration` loads them when cuppa starts.
+
+Optional: `init_env_for_variant(sconscript_exports)` for per-variant setup.
+
+== setuptools entry points
+
+Third-party packages can register plugins without forking cuppa:
+
+|===
+| Group | Purpose
+
+| `cuppa.method.plugins` | Extra env methods (cuppa ships HTML/Bitten test report methods here)
+| `cuppa.profile.plugins` | Extra profiles
+| `cuppa.dependency.plugins` | Extra dependencies
+|===
+
+== Factories
+
+|===
+| Factory | Module
+
+| `cuppa.location_dependency(name, …)` | Location / header libraries
+| `cuppa.package_dependency(name, …)` | Registry packages
+| `cuppa.profile(name)` | Named profile class factory
+|===
+
+Pass custom classes into `cuppa.run(dependencies=[…], profiles=[…])`.
+
+== Custom dependency sketch
+
+[source,python]
+----
+class my_dependency(object):
+    @classmethod
+    def add_to_env(cls, env, add_dependency):
+        add_dependency('my_dependency', cls.create)
+
+    @classmethod
+    def create(cls, env):
+        return cls(env)
+
+    def __init__(self, env):
+        self._env = env
+
+    def __call__(self, env, toolchain, variant):
+        env.AppendUnique(CPPPATH=['#/include'])
+
+    def name(self):
+        return 'my_dependency'
+----
+
+== Custom profile sketch
+
+Profiles are callables applied like dependencies but geared at small flag sets:
+
+[source,python]
+----
+class sanitizers(object):
+    def __call__(self, env, toolchain, variant):
+        env.AppendUnique(CCFLAGS=['-fsanitize=address'])
+        env.AppendUnique(LINKFLAGS=['-fsanitize=address'])
+----
+
+== SCons Configure hook
+
+[source,python]
+----
+def configure(conf):
+    # conf is a SCons Configure context
+    pass
+
+cuppa.run(configure_callback=configure)
+----
+
+== Contributing changes to cuppa itself
+
+Validate changes with:
+
+[source,sh]
+----
+flake8 cuppa
+pylint -E cuppa
+pytest -m unit
+pytest -m integration
+----
+
+`pytest -m integration` requires a C++ compiler (typically `g++`).
+Smoke-test against `examples/minimal/` after installing your working tree (`pip install -e .` or `PYTHONPATH`).
+
+Lint settings and the rationale for ignores live in xref:linting.adoc[Linting] (`.flake8` / `.pylintrc`).
+
+Per-test documentation (generated `sconstruct` / `sconscript` and expectations) is on the docs site:
+
+* xref:integration-tests.adoc[Integration tests]
+* Pages under `docs/modules/ROOT/pages/integration/`
+
+See also the repository `AGENTS.md` / `release.txt`.

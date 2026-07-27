@@ -1,0 +1,50 @@
+= `test_templates` — `ExpandTemplateFile` and `RenderJinjaTemplate`
+:description: Cuppa integration test documentation for test_templates
+
+
+== What is tested
+
+String `.format` expansion and Jinja2 rendering both write expected text into `final/`.
+
+== Generated files
+
+=== `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== `sconscript`
+
+[source,python]
+----
+Import('env')
+import os
+out_txt = os.path.join(env['abs_final_dir'], 'expanded.txt')
+env.ExpandTemplateFile(out_txt, 'data/template.txt.in', name='cuppa')
+env.RenderJinjaTemplate(
+    [os.path.join(env['abs_final_dir'], 'rendered.txt')],
+    ['data/template.j2'],
+    variables={'name': 'cuppa'},
+)
+----
+
+Inputs: `data/template.txt.in` uses Python format (`Hello \{name}!`); `data/template.j2` uses Jinja (`Hello \{\{ name }}!`).
+
+== Command
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg
+----
+
+== Expectations
+
+Exit 0; `expanded.txt` and `rendered.txt` both contain `Hello cuppa!`.
+
+'''
+
+Related test module: `tests/integration/methods/test_templates.py`.

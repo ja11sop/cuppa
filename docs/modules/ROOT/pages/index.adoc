@@ -1,0 +1,51 @@
+= Cuppa
+:description: Extensible C++ build system built on SCons
+
+Cuppa is an extensible build system for C++ projects that sits on top of https://www.scons.org/[SCons].
+It keeps `sconscript` files declarative while handling toolchains, build variants, dependencies, tests, and coverage.
+
+SCons remains the low-level DAG / make replacement; cuppa captures common C++ build practices so experts can encapsulate toolchains and dependencies once, and everyone else expresses *intent* in short `sconscript` files.
+Location and package dependencies make revision- and branch-pinned library composition a first-class part of the build.
+
+== Why cuppa?
+
+* *Make-like CLI* -- from anywhere under your project tree, run `cuppa -D` (or `scons -D`) and cuppa builds the relevant `sconscript` files.
+* *Multi-toolchain, multi-variant* -- build debug, release, and coverage variants against GCC and Clang (and debug/release against MSVC on Windows) in one invocation.
+* *Dependencies as vocabulary* -- Boost, Qt, location-based header libraries, and GitLab package registry packages are first-class.
+* *Tests and coverage* -- `BuildTest`, runners, gcovr HTML/JSON reports (GCC/Clang), and coverage index collation.
+
+== Where to start
+
+* xref:install.adoc[Install cuppa]
+* xref:quickstart.adoc[Quickstart] -- minimal `sconstruct` / `sconscript`
+* xref:cli-reference.adoc[CLI reference] -- flags you will use every day
+* xref:concepts.adoc[Concepts] -- methods, dependencies, profiles, variants, toolchains
+* xref:integration-tests.adoc[Integration tests] -- pytest scenarios with generated build scripts
+
+== Project links
+
+* Source and issues: https://github.com/ja11sop/cuppa
+* PyPI: https://pypi.org/project/cuppa/
+* License: https://www.boost.org/LICENSE_1_0.txt[Boost Software License 1.0]
+
+== Design principles
+
+Cuppa aims to:
+
+* keep `sconscript` files declarative and free of build-system logic
+* give experts a place to encapsulate dependency and toolchain knowledge once
+* codify SCons best practices so callers express *intent* (`Build`, `BuildTest`, `BuildWith`) rather than low-level flag plumbing
+
+TIP: Artefacts live under `_build/` (not a hidden `.build` directory). A guaranteed clean rebuild is `rm -rf _build`.
+
+== Further reading
+
+Talks and write-ups that motivated or explained cuppa (historical; always prefer this site and the code when details disagree):
+
+* https://clearpool.io/tag/cuppa[clearpool.io -- posts tagged cuppa] -- index of related articles
+* https://clearpool.io/pulse/posts/2016/May/06/managing-c-build-complexity-using-cuppa/[Managing C++ Build Complexity using Cuppa] (ACCU 2016, *A Quick Cuppa*) -- intro, location model, Boost/Qt dependencies, plus bonus material on version files and Boost library dependents
+* https://clearpool.io/pulse/posts/2019/Jul/25/modern-c-builds-and-accu-autumn-preview/[Modern C++ Builds and ACCU Autumn Preview] -- updated *Another Quick Cuppa* slides; revision-based library composition from repositories
+* https://clearpool.io/pulse/posts/2019/Jul/30/c20-cuppa-and-the-three-asios/[C++20, Cuppa and the ¡Three Asios!] -- meetup notes including Brian Peters' *Building Codes* talk on SCons/Cuppa practice
+
+NOTE: *Building Codes* discusses project-local Python contexts (`SContext`) and related bootstrapping ideas used alongside cuppa in some organisations.
+That pattern is **not** part of upstream cuppa today; treat it as related practice, not shipped behaviour.

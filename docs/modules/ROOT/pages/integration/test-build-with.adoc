@@ -1,0 +1,50 @@
+= `test_build_with` — `BuildWith` and `Using`
+:description: Cuppa integration test documentation for test_build_with
+
+
+== What is tested
+
+A `location_dependency` over the project `include/` tree is registered, applied with `BuildWith`, and retrievable via `Using`.
+
+== Generated files
+
+=== `sconstruct` (custom)
+
+[source,python]
+----
+import cuppa
+Headers = cuppa.location_dependency(
+    'dummy_headers',
+    location='include',
+    include='.',
+)
+cuppa.run(
+    default_variants=['dbg'],
+    dependencies=[Headers],
+)
+----
+
+=== `sconscript`
+
+[source,python]
+----
+Import('env')
+env.BuildWith('dummy_headers')
+assert env.Using('dummy_headers') is not None
+env.Build('main', 'apps/main.cpp')
+----
+
+== Command
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg
+----
+
+== Expectations
+
+Exit 0; `main` under `final/` (headers resolved via the location dependency).
+
+'''
+
+Related test module: `tests/integration/methods/test_build_with.py`.

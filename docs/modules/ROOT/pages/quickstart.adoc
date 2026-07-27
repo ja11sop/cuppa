@@ -1,0 +1,110 @@
+= Quickstart
+:description: Minimal sconstruct and sconscript to build and test with cuppa
+
+== Minimal sconstruct
+
+Place this next to your project root (or higher in the tree if you use `-D`):
+
+[source,python]
+----
+import cuppa
+
+cuppa.run()
+----
+
+== Minimal sconscript
+
+In a directory of `.cpp` files:
+
+[source,python]
+----
+Import('env')
+
+for source in env.GlobFiles('*.cpp'):
+    env.Build(str(source)[:-4], source)
+----
+
+`env.Build()` is toolchain- and variant-aware (unlike a bare `env.Program()`).
+
+== Building
+
+From the project (or a subdirectory):
+
+[source,sh]
+----
+cuppa -D
+----
+
+The `-D` SCons flag walks up to find the `sconstruct`, then runs `sconscript` files relative to your starting directory.
+
+Default variants are typically debug and release for the platform default toolchain. Restrict them:
+
+[source,sh]
+----
+cuppa -D --dbg
+cuppa -D --rel
+----
+
+== Tests
+
+Treat sources as test binaries:
+
+[source,python]
+----
+Import('env')
+
+for source in env.GlobFiles('*.cpp'):
+    env.BuildTest(str(source)[:-4], source)
+----
+
+Build and run tests:
+
+[source,sh]
+----
+cuppa -D --dbg --test
+----
+
+Use `--show-test-output` to print stdout/stderr from test processes.
+
+== Default dependencies
+
+Wire a dependency (for example Boost) for every `sconscript`:
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(
+    default_options = {
+        'boost-location': '/path/to/boost',
+    },
+    default_dependencies = [
+        'boost',
+    ],
+)
+----
+
+In a `sconscript`, link Boost libraries:
+
+[source,python]
+----
+Import('env')
+
+env.AppendUnique(STATICLIBS=env.BoostStaticLibs([
+    'system',
+    'filesystem',
+]))
+
+env.BuildTest('my_test', 'my_test.cpp')
+----
+
+== Example in this repository
+
+See `examples/minimal/` for a self-contained smoke project you can run after installing cuppa.
+
+== Next steps
+
+* xref:concepts.adoc[Concepts]
+* xref:cli-reference.adoc[CLI reference]
+* xref:testing-coverage.adoc[Testing and coverage]
+* xref:dependencies.adoc[Dependencies]

@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2020
+#          Copyright Jamie Allsop 2011-2026
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -42,7 +42,8 @@ class Gcc(object):
     def supported_versions( cls ):
         return [
             "gcc",
-            "gcc15", "gcc151", "gcc152",
+            "gcc16", "gcc161",
+            "gcc15", "gcc151", "gcc152", "gcc153",
             "gcc14", "gcc141", "gcc142", "gcc143",
             "gcc13", "gcc131", "gcc132",
             "gcc12", "gcc121", "gcc122",
@@ -277,6 +278,10 @@ class Gcc(object):
         return self._name
 
 
+    def package_name( self ):
+        return self.name()
+
+
     def family( self ):
         return "gcc"
 
@@ -508,6 +513,10 @@ class Gcc(object):
             return '-std={}'.format(env['stdcpp'])
         else:
             return self.__default_dialect_flags()[0]
+
+
+    def stdlib_flag( self, env ):
+        return None
 
 
     def abi( self, env ):

@@ -6,8 +6,12 @@ pip install -r requirements.txt
 cd cuppa/
 
 # Lint
-pyflakes cuppa
+flake8 cuppa
 pylint -E cuppa
+
+# Tests
+pytest -m unit
+pytest -m integration
 
 # Build
 rm -rf dist/ build/ && python setup.py sdist bdist_wheel

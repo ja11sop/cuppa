@@ -4,6 +4,7 @@ grip
 jinja2
 libsass
 lxml
+packaging
 psutil
 pyscss
 six
@@ -11,7 +12,10 @@ pyyaml
 scons
 
 # for linting and building wheel only
-pyflakes
+flake8
 pylint
 setuptools
 twine
+
+# for testing
+pytest

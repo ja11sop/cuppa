@@ -1,0 +1,44 @@
+= `test_configure_conf` — configure.conf persistence
+:description: Cuppa integration test documentation for test_configure_conf
+
+
+== What is tested
+
+`--save-conf` writes project settings to `configure.conf`; `--show-conf` loads and displays them.
+
+== Generated files
+
+Copied from the dummy project, then:
+
+=== `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== `sconscript`
+
+[source,python]
+----
+Import('env')
+env.BuildTest('hello_test', 'tests/hello_test.cpp')
+----
+
+== Commands
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg --save-conf
+cuppa -D --offline --toolchains=gcc --show-conf
+----
+
+== Expectations
+
+`configure.conf` exists after the first run; the second run succeeds and reflects the saved `dbg` setting.
+
+'''
+
+Related test module: `tests/integration/test_configure_conf.py`.

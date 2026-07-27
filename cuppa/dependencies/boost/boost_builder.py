@@ -147,7 +147,6 @@ class BoostLibraryAction(object):
         self._env = env
 
         sconstruct_id = env['sconstruct_path']
-        global _prebuilt_boost_libraries
         if sconstruct_id not in _prebuilt_boost_libraries['action']:
             _prebuilt_boost_libraries['action'][sconstruct_id] = {}
 
@@ -223,7 +222,6 @@ class BoostLibraryEmitter(object):
         self._env = env
 
         sconstruct_id = env['sconstruct_path']
-        global _prebuilt_boost_libraries
         if sconstruct_id not in _prebuilt_boost_libraries['emitter']:
             _prebuilt_boost_libraries['emitter'][sconstruct_id] = {}
 
@@ -280,11 +278,9 @@ class BoostLibraryBuilder(object):
 
         sconstruct_id = env['sconstruct_path']
 
-        global _prebuilt_boost_libraries
         if sconstruct_id not in _prebuilt_boost_libraries['builder']:
             _prebuilt_boost_libraries['builder'][sconstruct_id] = {}
 
-        global _b2_invocations
         if sconstruct_id not in _b2_invocations:
             _b2_invocations[sconstruct_id] = []
 

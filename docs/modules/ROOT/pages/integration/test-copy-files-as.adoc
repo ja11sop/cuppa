@@ -1,0 +1,44 @@
+= `test_copy_files_as` — `CopyFilesAs`
+:description: Cuppa integration test documentation for test_copy_files_as
+
+
+== What is tested
+
+`CopyFilesAs` copies a source file to an explicitly named destination under `abs_final_dir`.
+
+== Generated files
+
+=== `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== `sconscript`
+
+[source,python]
+----
+Import('env')
+import os
+dest = os.path.join(env['abs_final_dir'], 'renamed.txt')
+env.CopyFilesAs(dest, 'data/copy_me.txt')
+env.BuildTest('hello_test', 'tests/hello_test.cpp')
+----
+
+== Command
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg --test
+----
+
+== Expectations
+
+Exit 0; `renamed.txt` under `_build`.
+
+'''
+
+Related test module: `tests/integration/methods/test_copy_files_as.py`.

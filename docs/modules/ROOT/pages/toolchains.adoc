@@ -1,0 +1,63 @@
+= Toolchains
+:description: GCC, Clang, and MSVC toolchain selection
+
+Cuppa discovers installed compilers at configure time and registers matching toolchain names.
+
+== Selecting toolchains
+
+[source,sh]
+----
+cuppa -D --toolchains=gcc,clang
+cuppa -D --toolchains=gcc15,clang21
+cuppa -D --toolchains=gcc*
+----
+
+Names are matched with fnmatch-style wildcards.
+If you omit `--toolchains`, cuppa uses the platform default toolchain.
+
+== GCC
+
+Supported aliases include the generic `gcc` (whatever `g++` on `PATH` reports) plus versioned names through **gcc16** (for example `gcc15`, `gcc151`, `gcc14`, … down through older releases).
+Only toolchains actually present on the machine become available.
+
+== Clang
+
+Supported aliases include `clang` plus versioned names through **clang22** (for example `clang21`, `clang211`, `clang20`, …).
+
+Clang-specific options:
+
+* `--clang-stdlib={libstdc++,libc++}`
+* `--clang-disable-debug-for-auto`
+
+== MSVC
+
+On Windows, the `cl` toolchain integrates with SCons Visual C++ detection.
+Names are the generic alias `vc` (SCons default install) plus versioned `vc*` names derived from SCons `_VCVER` (for example `vc143`).
+
+Capabilities:
+
+* Debug / release variants with modern defaults (`-EHsc`, `-permissive-`, `-Zc:__cplusplus`, `-utf-8`)
+* C++ dialect via `--stdcpp` / `env.StdCpp(...)`, mapped to MSVC `-std:c++NN` (default `-std:c++20`; hyphen form avoids SCons treating `/std:…` as a Windows path)
+* Host / target architecture maps including **arm64** / **aarch64** (legacy ia64 aliases remain)
+
+Limitations:
+
+* **Coverage is not supported** for MSVC (`--cov` does not instrument `cl` builds; use GCC or Clang for gcovr coverage)
+* Validate MSVC on Windows (CI uses `windows-latest` with `CUPPA_TEST_TOOLCHAIN=vc`)
+
+== C++ language level
+
+By default each toolchain picks a high compliance mode (MSVC defaults to `/std:c++20`).
+Override globally with `--stdcpp=…` or per env with `env.StdCpp('c++20')`.
+
+Allowed `--stdcpp` choices:
+
+`c++98`, `c++03`, `c++0x`, `c++11`, `c++1y`, `c++14`, `c++1z`, `c++17`, `c++2a`, `c++20`, `c++2b`, `c++23`, `c++2c`, `c++26`, `c++latest`.
+
+On MSVC, pre-C++14 aliases map to `/std:c++14` with a warning (MSVC has no matching `/std:` for those dialects).
+
+== Tips
+
+* Prefer naming a family (`gcc`, `clang`, `vc`) in everyday builds; pin versions in CI for reproducibility.
+* Coverage and test grids should run gcc and clang as separate invocations (or clearly separated report trees), not as one blended instrumentation set.
+* When debugging toolchain detection, use `--verbosity=debug` and `--dump`.

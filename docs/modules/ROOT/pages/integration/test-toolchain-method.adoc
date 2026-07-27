@@ -1,0 +1,45 @@
+= `test_toolchain_method` — `env.Toolchain`
+:description: Cuppa integration test documentation for test_toolchain_method
+
+
+== What is tested
+
+Looking up the active toolchain by name returns the same toolchain object/identity.
+
+== Generated files
+
+=== `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== `sconscript`
+
+[source,python]
+----
+Import('env')
+active = env['toolchain'].name()
+looked_up = env.Toolchain(active)
+assert looked_up is not None
+assert looked_up.name() == active
+env.BuildTest('hello_test', 'tests/hello_test.cpp')
+----
+
+== Command
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg --test
+----
+
+== Expectations
+
+Sconscript asserts pass; exit 0.
+
+'''
+
+Related test module: `tests/integration/methods/test_toolchain_method.py`.

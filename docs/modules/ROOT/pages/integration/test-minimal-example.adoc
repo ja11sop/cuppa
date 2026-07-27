@@ -1,0 +1,45 @@
+= `test_minimal_example` — examples/minimal smoke
+:description: Cuppa integration test documentation for test_minimal_example
+
+Uses the checked-in project under `examples/minimal/` (../../examples/minimal/) (not the dummy fixture).
+
+== What is tested
+
+End-to-end: installable cuppa can build and run a trivial `BuildTest` target with `--dbg --test`.
+
+== Generated / used files
+
+=== `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(
+    default_variants = ['dbg'],
+)
+----
+
+=== `sconscript`
+
+[source,python]
+----
+Import('env')
+
+env.BuildTest('hello_test', 'hello_test.cpp')
+----
+
+== Command
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg --test
+----
+
+== Expectations
+
+Process exits 0; `hello_test` builds and the process runner reports pass.
+
+'''
+
+Related test module: `tests/integration/test_minimal_example.py`.

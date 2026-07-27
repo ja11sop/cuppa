@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Coverage: {{ source_entry.coverage_name }}</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" crossorigin="anonymous">
+    <style>
+      body { background: #f6f8fa; }
+      .cov-summary .progress { height: 1.25rem; }
+      .cov-editor {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 12px;
+        line-height: 1.25;
+        background: #ffffff;
+        border-top: 1px solid #e1e4e8;
+        overflow-x: auto;
+      }
+      .cov-row {
+        display: flex;
+        align-items: stretch;
+        height: 1.2em;
+        white-space: normal;
+      }
+      .cov-row:hover { filter: brightness(0.98); }
+      .cov-lineno {
+        flex: 0 0 3.25rem;
+        text-align: right;
+        padding: 0 0.6rem 0 0.4rem;
+        color: #6a737d;
+        background: #f6f8fa;
+        border-right: 1px solid #e1e4e8;
+        user-select: none;
+        line-height: 1.25;
+      }
+      .cov-gutter {
+        flex: 0 0 0.35rem;
+        border-right: 1px solid transparent;
+      }
+      .cov-branches {
+        flex: 0 0 2.6rem;
+        text-align: right;
+        padding: 0 0.35rem 0 0.15rem;
+        color: #6a737d;
+        font-size: 10px;
+        line-height: 1.25;
+        user-select: none;
+      }
+      .cov-branches-partial { color: #b08800; font-weight: 600; }
+      .cov-branches-full { color: #22863a; }
+      .cov-code {
+        flex: 1 1 auto;
+        display: block;
+        padding: 0 0.75rem !important;
+        margin: 0 !important;
+        background: transparent !important;
+        font: inherit !important;
+        font-size: 12px !important;
+        line-height: 1.25 !important;
+        white-space: pre;
+        overflow: visible;
+      }
+      .cov-code.hljs { padding: 0 0.75rem !important; background: transparent !important; }
+      .cov-none .cov-gutter { background: transparent; }
+      .cov-other .cov-gutter { background: #ced4da; }
+      .cov-covered { background-color: rgba(40, 167, 69, 0.10); }
+      .cov-covered .cov-gutter { background: #28a745; }
+      .cov-partial { background-color: rgba(255, 193, 7, 0.16); }
+      .cov-partial .cov-gutter { background: #ffc107; }
+      .cov-uncovered { background-color: rgba(220, 53, 69, 0.12); }
+      .cov-uncovered .cov-gutter { background: #dc3545; }
+      .cov-legend span {
+        display: inline-block;
+        padding: 0.1rem 0.45rem;
+        margin-right: 0.5rem;
+        border-radius: 0.2rem;
+        font-size: 0.75rem;
+      }
+      .cov-legend .cov-covered { background-color: rgba(40, 167, 69, 0.18); }
+      .cov-legend .cov-partial { background-color: rgba(255, 193, 7, 0.28); }
+      .cov-legend .cov-uncovered { background-color: rgba(220, 53, 69, 0.18); }
+    </style>
+  </head>
+  <body>
+    <div class="container-fluid px-4">
+      <div class="card mt-3 mb-4 shadow-sm">
+        <ul class="list-group list-group-flush">
+          <li class="list-group-item py-2">
+            <a href="{{ index_href }}">&larr; Back to coverage index</a>
+          </li>
+          <li class="list-group-item text-center py-3">
+            <h4 class="mb-1">Coverage for <span class="text-monospace font-weight-bolder">{{ source_entry.coverage_name }}</span></h4>
+            <div class="text-secondary small">Union across tests — {{ source_entry.coverage_context }}</div>
+          </li>
+          <li class="list-group-item cov-summary py-3">
+            <div class="row align-items-center">
+              <div class="col-lg-3 col-sm-3">
+                <h6 class="mb-0">Coverage</h6>
+              </div>
+              <div class="col-lg-3 col-sm-3">
+                <div class="progress">
+                  <div class="progress-bar {{ source_entry.progress_lines_status }}"
+                       role="progressbar"
+                       style="width: {{ source_entry.lines_percent }}%"
+                       aria-valuenow="{{ source_entry.lines_percent }}"
+                       aria-valuemin="0"
+                       aria-valuemax="100">
+                    {{ source_entry.lines_percent }}%
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-3 col-sm-3 text-center {{ source_entry.lines_status }}">
+                <div class="font-weight-bolder">Lines {{ source_entry.lines_percent }}%</div>
+                <div class="small">{{ LOC( source_entry.lines_covered ) }} / {{ LOC( source_entry.lines_total ) }}</div>
+              </div>
+              <div class="col-lg-3 col-sm-3 text-center {% if source_entry.branches_total %}{{ source_entry.branches_status }}{% else %}text-secondary{% endif %}">
+                {% if source_entry.branches_total %}
+                <div class="font-weight-bolder">Branches {{ source_entry.branches_percent }}%</div>
+                <div class="small">{{ LOC( source_entry.branches_covered ) }} / {{ LOC( source_entry.branches_total ) }}</div>
+                {% else %}
+                <div class="font-weight-bolder">Branches n/a</div>
+                <div class="small">—</div>
+                {% endif %}
+              </div>
+            </div>
+            <div class="cov-legend mt-2 text-secondary">
+              <span class="cov-covered">covered</span>
+              <span class="cov-partial">partial</span>
+              <span class="cov-uncovered">uncovered</span>
+              <span>plain = non-executable / not instrumented</span>
+              <span class="ml-2">branch badge = taken/total</span>
+            </div>
+          </li>
+          <li class="list-group-item p-0">
+            <div class="cov-editor" id="cov-editor">
+              {% for line in source_lines -%}
+              <div class="cov-row cov-{{ line.kind }}" id="L{{ line.lineno }}"><span class="cov-lineno">{{ line.lineno }}</span><span class="cov-gutter" title="{{ line.kind }}"></span><span class="cov-branches{% if line.branches_total and line.branches_taken < line.branches_total %} cov-branches-partial{% elif line.branches_total and line.branches_taken == line.branches_total %} cov-branches-full{% endif %}" title="{% if line.branches_total %}{{ line.branches_taken }}/{{ line.branches_total }} branches taken{% else %}no branches{% endif %}">{% if line.branches_total %}{{ line.branches_taken }}/{{ line.branches_total }}{% endif %}</span><code class="cov-code language-{{ source_language }}">{{ line.text }}</code></div>
+              {% endfor %}
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/c.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/cpp.min.js" crossorigin="anonymous"></script>
+    <script>
+      (function () {
+        if (!window.hljs) { return; }
+        var nodes = document.querySelectorAll('#cov-editor .cov-code');
+        for (var i = 0; i < nodes.length; i++) {
+          hljs.highlightElement(nodes[i]);
+        }
+      })();
+    </script>
+  </body>
+</html>

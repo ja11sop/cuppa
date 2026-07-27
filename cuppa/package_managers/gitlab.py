@@ -34,7 +34,7 @@ def remove_suffix( text, suffix ):
 
 def tool_variant( env, variant=None ):
     return "{toolchain}_{variant}_{arch}_{abi}".format(
-            toolchain = env['toolchain'].name(),
+            toolchain = env['toolchain'].package_name(),
             variant = variant and variant or env['variant'].name(),
             arch = env['target_arch'],
             abi = env['abi']
@@ -83,6 +83,7 @@ class GitlabPackagePublisher:
         registry=None,
         package=None,
         version=None,
+        variant=None,
         custom_token=None
     ):
         from SCons.Script import Flatten
@@ -97,7 +98,8 @@ class GitlabPackagePublisher:
             self._target_include_dir = env.Dir( os.path.join( str(self._target_include_dir), offset_include_dir ) )
 
         self._target_lib_dir    = env.Dir( os.path.join( env['final_dir'], self._package_folder, "lib" ) )
-        self._package_file_name = package_file_name( env, package=package )
+        self._package_variant   = tool_variant( env, variant=variant )
+        self._package_file_name = package_file_name( env, package=package, variant=variant )
         self._package_location  = env.File( os.path.join( env['abs_final_dir'], self._package_file_name ) )
 
         self._clean_targets = Flatten( [
@@ -177,6 +179,10 @@ class GitlabPackagePublisher:
         logger.info( "Package [{}] published".format( as_info( str(source[0]) ) ) )
 
         return None
+
+
+    def package_variant( self ):
+        return self._package_variant
 
 
     def sources( self ):

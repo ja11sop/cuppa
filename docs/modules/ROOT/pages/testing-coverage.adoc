@@ -1,0 +1,65 @@
+= Testing and coverage
+:description: Test runners, BuildTest, and gcovr coverage reports
+
+== Running tests
+
+1. Declare tests with `env.BuildTest(target, sources)` (or `env.Test` on an existing binary).
+2. Pass `--test` (or `--force-test`) on the command line.
+
+[source,sh]
+----
+cuppa -D --dbg --test --show-test-output
+----
+
+Limit which sconscripts participate:
+
+[source,sh]
+----
+cuppa -D --dbg --test --scripts=test/sconscript
+----
+
+== Runners
+
+Select with `--runner` or `cuppa.run(default_runner=...)`.
+
+|===
+| Runner | Behaviour
+
+| `process` (default) | Success if the process exits cleanly
+| `boost` | Boost.Test aware
+| `patched_boost` | Boost.Test with cuppa's command-line patches where enabled
+|===
+
+Toolchain modules advertise which runners they support.
+
+== Coverage workflow
+
+Coverage needs the coverage *variant* and the test *action*:
+
+[source,sh]
+----
+cuppa -D --cov --test
+----
+
+IMPORTANT: `--cov` alone does not run tests. Always combine `--cov` with `--test` (or `--force-test`) when you want executed coverage data from `BuildTest` targets.
+
+Cuppa uses toolchain gcov support plus https://gcovr.com/[gcovr] to emit HTML/JSON beside the variant output (and optionally collated destinations).
+
+Useful methods:
+
+* `env.Coverage(program, sources, include_patterns=…, exclude_dependencies=…)`
+* `env.CollateCoverageFiles(sources, destination=…)`
+* `env.CollateCoverageIndex(...)` -- master index across tests/toolchains
+
+Consumer projects often write a master index under `_artifacts/coverage/` for browsing.
+
+Compare like-for-like toolchains (do not mix gcc and clang instrumentation into one logical report).
+
+== Benchmarks and run actions
+
+* `--benchmark` / `--force-benchmark` with `BuildBenchmark` / `Benchmark`
+* `--run` / `--force-run` with `env.Run(...)`
+
+== HTML test reports
+
+Plugin methods such as `GenerateHtmlTestReport` and `CollateTestReportIndex` produce browsable suite reports when tests run.

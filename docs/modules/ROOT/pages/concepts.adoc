@@ -1,0 +1,83 @@
+= Concepts
+:description: Methods, dependencies, profiles, variants, actions, and toolchains
+
+Cuppa uses a small vocabulary so `sconstruct` / `sconscript` files stay declarative.
+
+[#methods]
+== Methods
+
+Build helpers registered on the SCons environment, for example `env.Build()`, `env.BuildTest()`, `env.BuildWith()`, `env.Compile()`, and `env.CreateVersion()`.
+They differ from raw SCons builders (`Program`, `Object`) by understanding variants, toolchains, progress reporting, and cuppa's output layout.
+See xref:methods.adoc[Methods].
+
+[#dependencies]
+== Dependencies
+
+Named packages of compile/link settings and optional fetch/build logic -- Boost, Qt4/Qt5, Quince, location-based header libraries, or GitLab registry packages.
+Apply them with `default_dependencies` in `cuppa.run()` or `env.BuildWith('boost')` in a `sconscript`.
+See xref:dependencies.adoc[Dependencies] and xref:packages.adoc[Packages].
+
+[#profiles]
+== Profiles
+
+Lightweight collections of environment tweaks (sometimes wrapping dependencies).
+Example built-in: `quad_float` (links `quadmath`).
+Apply with `default_profiles` or `env.BuildProfile(...)`.
+
+[#variants-and-actions]
+== Variants and actions
+
+*Variants* select how binaries are compiled:
+
+|===
+| Flag | Meaning
+
+| `--dbg` | Debug
+| `--rel` | Release (optimised)
+| `--cov` | Coverage-instrumented
+|===
+
+*Actions* run additional work after (or as part of) the build:
+
+|===
+| Flag | Meaning
+
+| `--test` / `--force-test` | Run `BuildTest` / `Test` targets
+| `--benchmark` / `--force-benchmark` | Run benchmark targets
+| `--run` / `--force-run` | Run generic `Run` targets
+|===
+
+IMPORTANT: `--cov` does *not* imply `--test`. For a typical coverage workflow use both: `cuppa -D --cov --test`.
+
+[#toolchains]
+== Toolchains
+
+A toolchain is a concrete compiler family/version (for example `gcc15`, `clang21`, or the generic aliases `gcc` / `clang` that resolve to whatever is on `PATH`).
+Select with `--toolchains=gcc,clang` or wildcards such as `gcc*`.
+See xref:toolchains.adoc[Toolchains].
+
+[#platforms]
+== Platforms and target architecture
+
+Cuppa detects Linux, macOS (Darwin), and Windows.
+The *target architecture* (for example `x86_64`) is tracked so multiple arch builds can coexist under the build root.
+
+[#sconstruct-api]
+== cuppa.run() parameters
+
+Common keyword arguments to `cuppa.run()`:
+
+|===
+| Parameter | Purpose
+
+| `default_options` | Dict of option keys *without* `--` (for example `{'offline': True}`)
+| `default_projects` | Default list of `sconscript` paths
+| `default_variants` | Restrict default variants (for example `['rel']`)
+| `default_dependencies` | Dependency names or classes applied to every env
+| `default_profiles` | Profile names or classes
+| `dependencies` / `profiles` | Extra classes to register
+| `default_runner` | Test runner name (default `process`)
+| `configure_callback` | Optional SCons `Configure()` hook
+| `tools` | Extra SCons tools for all environments
+| `base_path` / `branch_root` | Project root / SCM branch root offsets
+|===
