@@ -116,8 +116,15 @@ def test_collate_test_report_index_shared_destination(tmp_path):
 
     artifacts = Path(project) / "_artifacts" / "test"
     report_names = {path.name for path in artifacts.rglob("*.report.html")}
-    assert "alpha_test.report.html" in report_names
-    assert "beta_test.report.html" in report_names
+
+    def has_report(stem):
+        return (
+            "{}.report.html".format(stem) in report_names
+            or "{}.exe.report.html".format(stem) in report_names
+        )
+
+    assert has_report("alpha_test")
+    assert has_report("beta_test")
     assert (artifacts / "test-report-index.html").is_file()
     index_text = (artifacts / "test-report-index.html").read_text(encoding="utf-8")
     assert "alpha_test" in index_text

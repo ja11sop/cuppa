@@ -67,7 +67,7 @@ cuppa -D --offline --toolchains=gcc --cov --test
 * HTML: exit 0; `*.report.html` and `*.report-summary.json` under `_build`; report HTML mentions `hello_test`.
 * With `--cov`: exit 0; `*.report.html` and `coverage--*.json` both exist.
 * Collate (single): reports under `_artifacts/test/`, plus master `test-report-index.html` / `test-report-index.json` (index mentions `hello_test`).
-* Collate (shared destination): both `alpha_test.report.html` and `beta_test.report.html` under `_artifacts/test/`, plus master index mentioning both names.
+* Collate (shared destination): both `alpha_test` and `beta_test` report HTML under `_artifacts/test/` (Windows may use `*.exe.report.html`), plus master index mentioning both names.
 * Bitten: `*bitten*.xml` under `_build`.
 
 '''
