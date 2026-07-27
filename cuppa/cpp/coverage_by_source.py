@@ -257,9 +257,9 @@ def load_source_text( repo_root, source_path, source_text_cache ):
     abs_source = os.path.join( repo_root, source_path )
     if os.path.isfile( abs_source ):
         try:
-            with open( abs_source, "r" ) as source_file:
+            with open( abs_source, "r", encoding="utf-8", errors="replace" ) as source_file:
                 source_text_cache[source_path] = source_file.read().splitlines()
-        except IOError:
+        except ( IOError, UnicodeDecodeError ):
             source_text_cache[source_path] = []
     else:
         source_text_cache[source_path] = []
@@ -278,7 +278,7 @@ def collect_union_coverage_from_json( search_roots, repo_root ):
 
     for json_path in sorted( iter_coverage_json_paths( search_roots ) ):
         try:
-            with open( json_path, "r" ) as json_file:
+            with open( json_path, "r", encoding="utf-8" ) as json_file:
                 payload = json.load( json_file )
         except ( IOError, ValueError, TypeError ) as exc:
             logger.warn(
@@ -376,7 +376,7 @@ def collect_union_coverage_from_html( search_roots, repo_root ):
             )
             continue
         try:
-            with open( html_path, "r" ) as html_file:
+            with open( html_path, "r", encoding="utf-8" ) as html_file:
                 html = html_file.read()
         except IOError as exc:
             logger.warn(
@@ -591,7 +591,7 @@ def write_source_detail_pages(
                 })
 
         page_path = os.path.join( output_dir, entry.coverage_file )
-        with open( page_path, "w" ) as page_file:
+        with open( page_path, "w", encoding="utf-8" ) as page_file:
             page_file.write(
                 template.render(
                     source_entry=entry,

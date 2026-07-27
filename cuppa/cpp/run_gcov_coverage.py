@@ -214,7 +214,7 @@ class CoverageSuite(object):
                 target.append( new_json_file )
 
         coverage_summary_path = os.path.splitext( new_index_file )[0] + ".log"
-        with open( coverage_summary_path, 'w' ) as coverage_summary_file:
+        with open( coverage_summary_path, 'w', encoding='utf-8' ) as coverage_summary_file:
             coverage_summary_file.write( coverage_index_basename + "\n" + output )
 
         logger.trace( "gcovr HTML file filter = [{}]".format( as_notice(html_base_name) ) )
@@ -233,7 +233,7 @@ class CoverageSuite(object):
                 ) )
 
         coverage_filter_path = os.path.join( output_dir, "coverage" + self._url_program_id + ".cov_filter" )
-        with open( coverage_filter_path, 'w' ) as coverage_filter_file:
+        with open( coverage_filter_path, 'w', encoding='utf-8' ) as coverage_filter_file:
             coverage_filter_file.write( html_base_name + '*.html\n' )
             coverage_filter_file.write( coverage_json_basename + '\n' )
 
@@ -401,7 +401,7 @@ class RunGcovCoverage(object):
                             as_error( str(e) )
                     ) )
 
-            with open( gcov_log_path, 'w' ) as summary_file:
+            with open( gcov_log_path, 'w', encoding='utf-8' ) as summary_file:
                 summary_file.write( output )
 
                 coverage_suite.run_suite( self._target )
@@ -454,7 +454,7 @@ class CollateCoverageFilesEmitter(object):
             env.Clean( source, os.path.join( self._destination, report_json ) )
 
             if filter_node and os.path.exists( str(filter_node) ):
-                with open( str(filter_node), 'r' ) as filter_file:
+                with open( str(filter_node), 'r', encoding='utf-8' ) as filter_file:
                     for raw_line in filter_file:
                         clean_pattern = raw_line.strip()
                         if not clean_pattern:
@@ -497,7 +497,7 @@ class CollateCoverageFilesAction(object):
             output_files = []
 
             if os.path.exists( str(filter_node) ):
-                with open( str(filter_node), 'r' ) as filter_file:
+                with open( str(filter_node), 'r', encoding='utf-8' ) as filter_file:
                     for raw_line in filter_file:
                         filter_pattern = raw_line.strip()
                         if not filter_pattern:
@@ -507,7 +507,7 @@ class CollateCoverageFilesAction(object):
                             env.CopyFiles( self._destination, matched )
                             output_files.extend( matched )
 
-            with open( str(target[0]), 'w' ) as summary_file:
+            with open( str(target[0]), 'w', encoding='utf-8' ) as summary_file:
                 for f in output_files:
                     summary_file.write( str(f) + "\n" )
                 if os.path.exists( report_json ):
@@ -894,13 +894,13 @@ class CollateCoverageIndexAction(object):
             logger.trace( "summary_files = [{}]".format( colour_items( [ str(node) for node in summary_files ] ) ) )
 
             by_source_files = []
-            with open( variant_index_path, 'w' ) as variant_index_file:
+            with open( variant_index_path, 'w', encoding='utf-8' ) as variant_index_file:
 
                 coverage = coverage_entry( coverage_file=self.summary_name(env) )
                 coverage.coverage_context = get_toolchain_variant_dir( env )
 
                 for path in summary_files:
-                    with open( str(path), 'r' ) as summary_file:
+                    with open( str(path), 'r', encoding='utf-8' ) as summary_file:
 
                         contents = summary_file.read()
 
@@ -946,7 +946,7 @@ class CollateCoverageIndexAction(object):
                 #lines: 100.0% (99 out of 99)
                 #branches: 50.0% (301 out of 602)
 
-                with open( variant_summary_path, 'w' ) as variant_summary_file:
+                with open( variant_summary_path, 'w', encoding='utf-8' ) as variant_summary_file:
                     variant_summary_file.write(
                         "{filename}\n"
                         "lines: {lines_percent}% ({lines_covered} out of {lines_total})\n"
@@ -1063,7 +1063,7 @@ class CoverageIndexBuilder(object):
                         summary_path = os.path.splitext( str(index_file) )[0] + ".log"
                         logger.debug( "Read coverage summary file for [{}]".format( as_notice( str(summary_path) ) ) )
 
-                        with open( str(summary_path), 'r' ) as summary_file:
+                        with open( str(summary_path), 'r', encoding='utf-8' ) as summary_file:
                             summary = strip_gcovr_log_noise( summary_file.read() )
                             entry = coverage_entry( entry_string=summary, destination=destination_dir )
                             coverage.append( entry )
@@ -1112,7 +1112,7 @@ class CoverageIndexBuilder(object):
 
                 source_groups = build_source_groups( source_entries_by_toolchain )
 
-                with open( master_index_path, 'w' ) as master_index_file:
+                with open( master_index_path, 'w', encoding='utf-8' ) as master_index_file:
 
                     master_index_file.write(
                         template.render(
