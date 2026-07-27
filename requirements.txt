@@ -18,4 +18,5 @@ twine
 
 # for testing
 pytest
+setuptools
 
