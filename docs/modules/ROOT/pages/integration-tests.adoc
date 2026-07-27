@@ -98,10 +98,10 @@ cuppa.run(default_variants=['dbg'])
 | `PublishPackage`, `InstallPackage`
 | xref:integration/test-packages.adoc[]
 
-| `GenerateHtmlTestReport`, `GenerateBittenReport`
+| `GenerateHtmlTestReport`, `CollateTestReportIndex`, `GenerateBittenReport`
 | xref:integration/test-test-reports.adoc[]
 |===
 
 === Deferred
 
-`CollateTestReportIndex` is not covered end-to-end yet (progress/VCS path quirks outside a git checkout).
+Full offline publish/install E2E against a live GitLab registry remains deferred (see xref:integration/test-packages.adoc[]).

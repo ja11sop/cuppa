@@ -59,6 +59,8 @@ def vcs_info_from_location( location, default_branch, default_revision ):
     from cuppa.location import Location
 
     vcs_info = Location.detect_vcs_info( location )
+    if not vcs_info:
+        vcs_info = ( None, None, None, None, None )
 
     def clean_user_info( url_string ):
         if url_string:
