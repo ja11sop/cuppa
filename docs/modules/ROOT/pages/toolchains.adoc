@@ -37,7 +37,7 @@ Names are the generic alias `vc` (SCons default install) plus versioned `vc*` na
 Capabilities:
 
 * Debug / release variants with modern defaults (`-EHsc`, `-permissive-`, `-Zc:__cplusplus`, `-utf-8`)
-* C++ dialect via `--stdcpp` / `env.StdCpp(...)`, mapped to MSVC `/std:c++NN` (default `/std:c++20`)
+* C++ dialect via `--stdcpp` / `env.StdCpp(...)`, mapped to MSVC `-std:c++NN` (default `-std:c++20`; hyphen form avoids SCons treating `/std:…` as a Windows path)
 * Host / target architecture maps including **arm64** / **aarch64** (legacy ia64 aliases remain)
 
 Limitations:

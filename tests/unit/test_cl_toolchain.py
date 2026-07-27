@@ -19,19 +19,19 @@ def test_vc_version_naming():
 @pytest.mark.parametrize(
     "standard,expected",
     [
-        ("c++14", "/std:c++14"),
-        ("c++1y", "/std:c++14"),
-        ("c++17", "/std:c++17"),
-        ("c++1z", "/std:c++17"),
-        ("c++20", "/std:c++20"),
-        ("c++2a", "/std:c++20"),
-        ("c++23", "/std:c++23"),
-        ("c++2b", "/std:c++23"),
-        ("c++26", "/std:c++latest"),
-        ("c++2c", "/std:c++latest"),
-        ("c++latest", "/std:c++latest"),
-        ("c++11", "/std:c++14"),
-        ("c++98", "/std:c++14"),
+        ("c++14", "-std:c++14"),
+        ("c++1y", "-std:c++14"),
+        ("c++17", "-std:c++17"),
+        ("c++1z", "-std:c++17"),
+        ("c++20", "-std:c++20"),
+        ("c++2a", "-std:c++20"),
+        ("c++23", "-std:c++23"),
+        ("c++2b", "-std:c++23"),
+        ("c++26", "-std:c++latest"),
+        ("c++2c", "-std:c++latest"),
+        ("c++latest", "-std:c++latest"),
+        ("c++11", "-std:c++14"),
+        ("c++98", "-std:c++14"),
     ],
 )
 def test_stdcpp_flag_for(standard, expected):
@@ -48,11 +48,11 @@ def test_abi_flag_default_and_override():
 
     env = Env()
     env["stdcpp"] = None
-    assert toolchain.abi_flag(env) == "/std:c++20"
+    assert toolchain.abi_flag(env) == "-std:c++20"
     assert toolchain.abi(env) == "c++20"
 
     env["stdcpp"] = "c++17"
-    assert toolchain.abi_flag(env) == "/std:c++17"
+    assert toolchain.abi_flag(env) == "-std:c++17"
     assert toolchain.abi(env) == "c++17"
 
 

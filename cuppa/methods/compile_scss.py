@@ -1,5 +1,4 @@
-
-#          Copyright Jamie Allsop 2022-2022
+#          Copyright Jamie Allsop 2022-2026
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -12,7 +11,7 @@ import sys
 
 import cuppa.progress
 from cuppa.log import logger
-from cuppa.colourise import as_notice
+from cuppa.colourise import as_notice, as_error
 
 
 class CompileScssAction(object):
@@ -23,7 +22,6 @@ class CompileScssAction(object):
     def __call__( self, target, source, env ):
         if self._load_path:
             logger.debug( "compiling SCSS files using load-path [{}]".format( as_notice( self._load_path ) ) )
-        import shlex
         import subprocess
         for s, t in zip( source, target ):
             logger.debug( "compiling SCSS file [{}] to CSS file [{}]".format( as_notice( s.path ), as_notice( t.path ) ) )
@@ -31,13 +29,25 @@ class CompileScssAction(object):
             if sys.version_info < (3,11,0):
                 # pyscss needs an update to allow it to work under python 3.11
                 with open( s.abspath, 'rb', 0) as scss_file, open( t.abspath, 'wb') as css_file:
-                    load_path = self._load_path and "--load-path {}".format( self._load_path ) or ""
-                    command = "python -m scss {load_path}".format( load_path = load_path )
-                    subprocess.call( shlex.split( command ), stdin=scss_file, stdout=css_file )
+                    # Avoid shlex.split — it mangles Windows paths (backslash escapes).
+                    command = [ sys.executable, "-m", "scss" ]
+                    if self._load_path:
+                        command.extend( [ "--load-path", self._load_path ] )
+                    status = subprocess.call( command, stdin=scss_file, stdout=css_file )
             else:
-                load_path = self._load_path and "--include-path {}".format( self._load_path ) or ""
-                command = "pysassc {load_path} {scss_file} {css_file}".format( load_path = load_path, scss_file=s.abspath, css_file=t.abspath )
-                subprocess.call( shlex.split( command ) )
+                # Avoid shlex.split — it mangles Windows paths (backslash escapes).
+                command = [ "pysassc" ]
+                if self._load_path:
+                    command.extend( [ "--include-path", self._load_path ] )
+                command.extend( [ s.abspath, t.abspath ] )
+                status = subprocess.call( command )
+
+            if status != 0:
+                logger.error(
+                    "SCSS compile failed for [{}] -> [{}] (exit {})"
+                    .format( as_error( s.path ), as_error( t.path ), status )
+                )
+                return status
 
         return None
 

@@ -30,26 +30,28 @@ from cuppa.log import logger
 
 class Cl(object):
 
-    _default_dialect_flag = '/std:c++20'
+    _default_dialect_flag = '-std:c++20'
 
-    # Map cuppa --stdcpp / StdCpp names onto MSVC /std: flags.
-    # Pre-C++14 aliases have no MSVC /std: equivalent; map to /std:c++14 with a warning.
+    # Map cuppa --stdcpp / StdCpp names onto MSVC -std: flags.
+    # Use '-' not '/' so SCons/Windows do not treat the flag as a filesystem path
+    # (e.g. "/std:c++14" → "C:\\std:c++14").
+    # Pre-C++14 aliases have no MSVC -std: equivalent; map to -std:c++14 with a warning.
     _stdcpp_flag_map = {
-        'c++98': '/std:c++14',
-        'c++03': '/std:c++14',
-        'c++0x': '/std:c++14',
-        'c++11': '/std:c++14',
-        'c++1y': '/std:c++14',
-        'c++14': '/std:c++14',
-        'c++1z': '/std:c++17',
-        'c++17': '/std:c++17',
-        'c++2a': '/std:c++20',
-        'c++20': '/std:c++20',
-        'c++2b': '/std:c++23',
-        'c++23': '/std:c++23',
-        'c++2c': '/std:c++latest',
-        'c++26': '/std:c++latest',
-        'c++latest': '/std:c++latest',
+        'c++98': '-std:c++14',
+        'c++03': '-std:c++14',
+        'c++0x': '-std:c++14',
+        'c++11': '-std:c++14',
+        'c++1y': '-std:c++14',
+        'c++14': '-std:c++14',
+        'c++1z': '-std:c++17',
+        'c++17': '-std:c++17',
+        'c++2a': '-std:c++20',
+        'c++20': '-std:c++20',
+        'c++2b': '-std:c++23',
+        'c++23': '-std:c++23',
+        'c++2c': '-std:c++latest',
+        'c++26': '-std:c++latest',
+        'c++latest': '-std:c++latest',
     }
 
     _pre_cxx14_standards = frozenset( [ 'c++98', 'c++03', 'c++0x', 'c++11' ] )
@@ -388,7 +390,7 @@ class Cl(object):
             return self._default_dialect_flag
         if standard in self._pre_cxx14_standards:
             logger.warn(
-                "MSVC has no /std: for [{}]; using {}"
+                "MSVC has no -std: for [{}]; using {}"
                 .format( as_warning( standard ), as_info( flag ) )
             )
         return flag

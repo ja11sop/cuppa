@@ -1,4 +1,5 @@
 import logging
+import os
 import shutil
 
 import pytest
@@ -12,6 +13,12 @@ logger = logging.getLogger(__name__)
 
 
 def test_coverage_method(tmp_path):
+    forced = os.environ.get("CUPPA_TEST_TOOLCHAIN", "").strip().lower()
+    if forced in ("vc", "cl", "msvc"):
+        message = "MSVC does not support gcov coverage; skipping coverage integration test"
+        logger.warning(message)
+        pytest.skip(message)
+
     if not shutil.which("gcov"):
         message = "gcov not on PATH; skipping coverage integration test"
         logger.warning(message)
