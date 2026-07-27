@@ -1,14 +1,10 @@
 import pytest
 
 from cuppa.core import storage_options
+from tests.helpers.fakes import FakeEnv
 
 
 pytestmark = pytest.mark.unit
-
-
-class FakeEnv(dict):
-    def get_option(self, name, default=None):
-        return self.get(name, default)
 
 
 def test_process_storage_options_defaults(monkeypatch, tmp_path):

@@ -74,6 +74,8 @@ pytest -m integration   # requires a C++ compiler (g++ preferred)
 # CUPPA_TEST_TOOLCHAIN=vc pytest -m integration   # Windows + MSVC
 ```
 
+Unit tests under `tests/unit/` cover foundations (`location`, `build_with_*`, `configure`, `registration`, construct helpers, `CuppaEnvironment`) with mocked SCons/filesystem — no compiler or network. Prefer adding unit cases there for parsing, precedence, and edge cases before new integration scenarios.
+
 Lint config: [`.flake8`](.flake8) and [`.pylintrc`](.pylintrc). Full settings and rationale for contributors/agents: [`docs/modules/ROOT/pages/linting.adoc`](docs/modules/ROOT/pages/linting.adoc). Keep the gate error-focused — do not broaden to style warnings without intent.
 
 CI runs the integration suite once per Linux toolchain (`gcc`, `clang`) via `CUPPA_TEST_TOOLCHAIN`, and once on `windows-latest` with MSVC (`vc`).
