@@ -447,7 +447,7 @@ class GenerateHtmlReportBuilder(object):
         self._add_render_fields( test_summary )
 
         summary_path = self._summary_path( destination_path )
-        with open( summary_path, 'w' ) as summary_file:
+        with open( summary_path, 'w', encoding='utf-8' ) as summary_file:
             json.dump(
                 test_summary,
                 summary_file,
@@ -463,7 +463,7 @@ class GenerateHtmlReportBuilder(object):
             test_summary = test_summary,
             test_suites = test_suite_list)
 
-        with open( destination_path, 'w' ) as test_suite_index:
+        with open( destination_path, 'w', encoding='utf-8' ) as test_suite_index:
                 test_suite_index.write(encode(templateRendered))
 
 
@@ -728,7 +728,7 @@ class ReportIndexBuilder(object):
 
                 logger.trace( "summaries = \n{}".format( summaries_json_report ) )
 
-                with open( master_report_path, 'w' ) as master_report_file:
+                with open( master_report_path, 'w', encoding='utf-8' ) as master_report_file:
                     master_report_file.write( summaries_json_report )
 
                 templateRendered = template.render(
@@ -737,7 +737,7 @@ class ReportIndexBuilder(object):
                     next=next,
                     len=len)
 
-                with open( master_index_path, 'w' ) as master_index_file:
+                with open( master_index_path, 'w', encoding='utf-8' ) as master_index_file:
                     master_index_file.write( encode( templateRendered ) )
 
 
