@@ -97,7 +97,7 @@ Release checklist: see `release.txt` (`sdist` / `bdist_wheel` / `twine`).
 - Canonical reference: Antora under `docs/` → https://ja11sop.github.io/cuppa/
 - Further reading (talks / Clearpool posts): `docs/modules/ROOT/pages/index.adoc` (Further reading) and https://clearpool.io/tag/cuppa
 - Lint settings / ignore rationale: `docs/modules/ROOT/pages/linting.adoc`
-- Preview docs: `cd docs && npm ci && npm run build` → `build/site/` (Lunr search via `@antora/lunr-extension`)
+- Preview docs: `cd docs && npm ci && npm run build` → `_docs_build/site/` (Lunr search via `@antora/lunr-extension`)
 - Integration test scenarios: Antora **Integration tests** section (`docs/modules/ROOT/pages/integration/`)
 
 When docs and code disagree, **code is authoritative** (especially storage defaults, toolchain version lists, and whether `--cov` implies `--test`).

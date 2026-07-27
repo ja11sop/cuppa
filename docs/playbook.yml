@@ -24,6 +24,6 @@ asciidoc:
     idseparator: '-'
     page-pagination: ''
 output:
-  dir: ./../build/site
+  dir: ./../_docs_build/site
 runtime:
-  cache_dir: ./../build/antora-cache
+  cache_dir: ./../_docs_build/antora-cache

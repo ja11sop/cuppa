@@ -9,9 +9,10 @@ dist/
 node_modules/
 
 
-# Ignore _build and _cuppa
+# Ignore _build, _cuppa, and Antora docs output
 _build/
 _cuppa/
+_docs_build/
 config.log
 
 # Ignore VirtualEnvs
