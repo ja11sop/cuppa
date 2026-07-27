@@ -41,7 +41,7 @@ from .scms import scms, subversion, git, mercurial, bazaar
 from cuppa.colourise import as_notice, as_info, as_warning, as_error, as_info_label
 from cuppa.log import logger, register_secret
 from cuppa.path import split_common
-from cuppa.utility.python2to3 import as_str
+from cuppa.utility.python2to3 import as_str, as_byte_str
 
 from cuppa.utility.pip_imports import pip_vcs, pip_download, pip_exceptions, pip_is_url, pip_is_archive_file, get_url_rev, obtain, update, make_rev_options
 
@@ -204,7 +204,7 @@ class Location(object):
         if platform.system() == "Windows":
             # Windows suffers from MAX_PATH limitations so we'll use a hash to shorten the name
             hasher = hashlib.md5()
-            hasher.update( local_folder )
+            hasher.update( as_byte_str( local_folder ) )
             digest = hasher.hexdigest()
             short_digest = digest[-8:]
             name_hint = self._name_hint
