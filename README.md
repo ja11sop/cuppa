@@ -191,6 +191,15 @@ Output is written to `build/site/`. Open `build/site/index.html`.
 - Encapsulate dependency and toolchain knowledge once, reuse everywhere
 - Codify SCons best practices behind intent-oriented methods (`Build`, `BuildTest`, `BuildWith`)
 
+## Further reading
+
+Historical talks and write-ups (prefer this README / the [docs site](https://ja11sop.github.io/cuppa/) / the code when details disagree):
+
+- [clearpool.io — posts tagged cuppa](https://clearpool.io/tag/cuppa)
+- [Managing C++ Build Complexity using Cuppa](https://clearpool.io/pulse/posts/2016/May/06/managing-c-build-complexity-using-cuppa/) (ACCU 2016, *A Quick Cuppa*)
+- [Modern C++ Builds and ACCU Autumn Preview](https://clearpool.io/pulse/posts/2019/Jul/25/modern-c-builds-and-accu-autumn-preview/) (*Another Quick Cuppa*)
+- [C++20, Cuppa and the ¡Three Asios!](https://clearpool.io/pulse/posts/2019/Jul/30/c20-cuppa-and-the-three-asios/) (includes *Building Codes*; `SContext`-style bootstrapping described there is **not** upstream cuppa)
+
 ## License
 
 [Boost Software License 1.0](LICENSE_1_0.txt)
