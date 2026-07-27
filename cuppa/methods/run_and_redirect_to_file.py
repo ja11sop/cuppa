@@ -1,4 +1,4 @@
-#          Copyright Jamie Allsop 2022-2022
+#          Copyright Jamie Allsop 2022-2026
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -8,6 +8,7 @@
 #-------------------------------------------------------------------------------
 
 # Python imports
+import os
 import os.path
 import shlex
 import subprocess
@@ -15,7 +16,7 @@ import subprocess
 # cuppa imports
 import cuppa.progress
 from cuppa.log import logger
-from cuppa.colourise import as_notice
+from cuppa.colourise import as_notice, as_error
 
 
 class RunAndRedirectToFileAction(object):
@@ -29,12 +30,25 @@ class RunAndRedirectToFileAction(object):
             program  = str(s)
             output_file = str(t)
 
-            command = "{} {}".format( program, self._command_args )
+            # Do not shlex-split the program path — backslashes on Windows are
+            # treated as escapes and the executable becomes "not found".
+            args = [ program ]
+            if self._command_args:
+                args.extend( shlex.split( self._command_args, posix=( os.name != 'nt' ) ) )
 
-            logger.debug( "Running command [{}] and redirecting output to [{}]".format( as_notice(command), as_notice(output_file) ) )
+            logger.debug(
+                "Running command [{}] and redirecting output to [{}]"
+                .format( as_notice( " ".join( args ) ), as_notice( output_file ) )
+            )
 
             with open( output_file, "wb" ) as output:
-                subprocess.call( shlex.split( command ), stdout=output )
+                status = subprocess.call( args, stdout=output )
+            if status != 0:
+                logger.error(
+                    "Command [{}] failed with exit status {}"
+                    .format( as_error( " ".join( args ) ), status )
+                )
+                return status
         return None
 
 
@@ -75,4 +89,3 @@ class RunAndRedirectToFileMethod(object):
     @classmethod
     def add_to_env( cls, cuppa_env ):
         cuppa_env.add_method( "RunAndRedirectToFile", cls() )
-
