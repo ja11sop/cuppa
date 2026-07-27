@@ -53,8 +53,9 @@ cuppa -D --offline --toolchains=gcc --dbg --test
 
 == Expectations
 
-- Pass / `Test` cases: exit 0; `hello_test` under `final/`.
+- Pass case: exit 0; `hello_test` under `final/`.
 - Fail case: non-zero exit from cuppa.
+- `Test` case: exit 0 (binary presence is not re-checked; the program was produced by `Build`).
 
 '''
 

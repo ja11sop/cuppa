@@ -1,14 +1,19 @@
-= `test_coverage` — `Coverage`
+= `test_coverage` — `Coverage` and `CollateCoverageIndex`
 :description: Cuppa integration test documentation for test_coverage
 
 
 == What is tested
 
-With `--cov --test`, `Coverage` runs gcov-based coverage for a `BuildTest` binary. Skipped (with log) if `gcov` is not on PATH.
+With `--cov --test`:
+
+* `Coverage` runs gcov-based coverage for a `BuildTest` binary.
+* `CollateCoverageFiles` / `CollateCoverageIndex` collate per-test coverage into a shared `#_artifacts/coverage/` tree from two sibling sconscripts (regression for mid-action `Install` clashes on `by-source` pages).
+
+Skipped (with log) if `gcov` / `gcovr` are not on PATH, or when `CUPPA_TEST_TOOLCHAIN` is MSVC (`vc` / `cl` / `msvc`).
 
 == Generated files
 
-=== `sconstruct`
+=== Shared `sconstruct`
 
 [source,python]
 ----
@@ -17,13 +22,27 @@ import cuppa
 cuppa.run(default_variants=['dbg'])
 ----
 
-=== `sconscript`
+=== `Coverage` scenario — `sconscript`
 
 [source,python]
 ----
 Import('env')
 prog = env.BuildTest('hello_test', 'tests/hello_test.cpp')
 env.Coverage(prog, 'tests/hello_test.cpp')
+----
+
+=== Shared-destination collate scenario
+
+Root `sconscript` is removed. Under `suite/`:
+
+`suite/alpha_test.sconscript` and `suite/beta_test.sconscript` (same pattern):
+
+[source,python]
+----
+Import('env')
+prog = env.BuildTest('alpha_test', 'alpha_test.cpp')
+cov = env.CollateCoverageFiles(prog, destination='#_artifacts/coverage/')
+env.CollateCoverageIndex(cov, destination='#_artifacts/coverage/')
 ----
 
 == Command
@@ -35,9 +54,8 @@ cuppa -D --offline --toolchains=gcc --cov --test
 
 == Expectations
 
-Exit 0; coverage artifacts under `_build` and/or `COVERAGE` in stdout.
-
-Note: `CollateCoverageFiles` / `CollateCoverageIndex` are not exercised here (see methods README deferred list).
+* Exit 0; coverage artifacts under `_build` and/or `COVERAGE` in stdout for the `Coverage` scenario.
+* For the collate scenario: `coverage-index--*.html` under `_artifacts/coverage/`, with by-source pages namespaced as `by-source/<index-stem>/...html` so sibling sconscripts can share the destination safely.
 
 '''
 

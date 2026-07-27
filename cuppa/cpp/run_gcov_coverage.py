@@ -12,6 +12,7 @@
 from subprocess import Popen, PIPE
 import os
 import shlex
+import shutil
 import re
 import itertools
 import glob
@@ -868,6 +869,27 @@ def search_roots_for_toolchain( final_dirs, destination_dir, toolchain_label ):
     return roots
 
 
+def _copy_coverage_artifact( source_path, destination_path ):
+    """Copy a coverage artifact without using env.Install (unsafe mid-action)."""
+    destination_dir = os.path.dirname( destination_path )
+    if destination_dir and not os.path.isdir( destination_dir ):
+        os.makedirs( destination_dir )
+    shutil.copy2( source_path, destination_path )
+
+
+def _copy_coverage_artifacts_relative( source_root, destination_root, source_paths ):
+    """Copy files into destination_root preserving paths relative to source_root."""
+    for source_path in source_paths:
+        source_path = str( source_path )
+        if not os.path.isfile( source_path ):
+            continue
+        relative_path = os.path.relpath( source_path, source_root )
+        _copy_coverage_artifact(
+            source_path,
+            os.path.join( destination_root, relative_path )
+        )
+
+
 class CollateCoverageIndexAction(object):
 
     def __init__( self, destination=None ):
@@ -914,6 +936,10 @@ class CollateCoverageIndexAction(object):
 
                 template = CoverageIndexBuilder.get_template()
                 index_basename = os.path.split( variant_index_path )[1]
+                # Unique per index so sconscripts that share an artifacts folder
+                # do not overwrite each other's by-source pages (or fight over
+                # the same env.Install targets mid-build).
+                by_source_subdir = os.path.splitext( index_basename )[0]
                 repo_root = env.get( 'sconstruct_dir' ) or env.get( 'working_dir' ) or os.getcwd()
                 source_summary, source_entries, show_source_tab, by_source_files = generate_by_source_coverage(
                     search_roots = [ env['abs_final_dir'] ],
@@ -924,6 +950,7 @@ class CollateCoverageIndexAction(object):
                     LOC = lines_of_code_format,
                     title = coverage.coverage_file,
                     context = "By source file (best line status across tests in this sconscript)",
+                    by_source_subdir = by_source_subdir,
                 )
 
                 variant_index_file.write(
@@ -973,9 +1000,19 @@ class CollateCoverageIndexAction(object):
 
             logger.trace( "self._destination = [{}], variant_index_path = [{}]".format( as_info( str(self._destination) ), as_notice( str(variant_index_path) ) ) )
 
-            env.CopyFiles( self._destination, variant_index_path )
+            # Filesystem copy only — env.CopyFiles/Install during an action races
+            # when multiple sconscripts share the same artifacts destination.
+            destination_root = str( Dir( self._destination ) )
+            _copy_coverage_artifact(
+                variant_index_path,
+                os.path.join( destination_root, os.path.basename( variant_index_path ) )
+            )
             if by_source_files:
-                env.CopyFiles( os.path.join( self._destination, "by-source" ), by_source_files )
+                _copy_coverage_artifacts_relative(
+                    env['abs_final_dir'],
+                    destination_root,
+                    by_source_files
+                )
 
         return None
 

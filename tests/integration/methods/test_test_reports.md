@@ -7,3 +7,9 @@ Canonical documentation for this integration test is on the Cuppa docs site:
 Source: [`docs/modules/ROOT/pages/integration/test-test-reports.adoc`](../../../../docs/modules/ROOT/pages/integration/test-test-reports.adoc)
 
 Related test module: `test_test_reports.py`
+
+Covers:
+
+- `GenerateHtmlTestReport` (including with `--cov`; asserts report HTML + coverage JSON both exist)
+- `CollateTestReportIndex` (single and shared-destination sibling sconscripts; master `test-report-index.html` / `.json`)
+- `GenerateBittenReport`
