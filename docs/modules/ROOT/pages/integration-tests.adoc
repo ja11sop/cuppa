@@ -92,7 +92,7 @@ cuppa.run(default_variants=['dbg'])
 | `BuildProfile`
 | xref:integration/test-build-profile.adoc[]
 
-| `Coverage`
+| `Coverage`, `CollateCoverageFiles`, `CollateCoverageIndex`
 | xref:integration/test-coverage.adoc[]
 
 | `PublishPackage`, `InstallPackage`
@@ -104,4 +104,4 @@ cuppa.run(default_variants=['dbg'])
 
 === Deferred
 
-`CollateCoverageFiles`, `CollateCoverageIndex`, and `CollateTestReportIndex` are not covered end-to-end yet (progress/VCS path quirks outside a git checkout).
+`CollateTestReportIndex` is not covered end-to-end yet (progress/VCS path quirks outside a git checkout).
