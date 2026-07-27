@@ -43,7 +43,7 @@ cuppa -D --offline --toolchains=gcc --dbg
 
 == Expectations
 
-Exit 0; `version.cpp` under `_build`; `main` links successfully.
+Exit 0; generated `version.cpp` under `_build` (the sconscript also links it into `main` via `Build`).
 
 '''
 

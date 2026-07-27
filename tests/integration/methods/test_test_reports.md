@@ -10,6 +10,6 @@ Related test module: `test_test_reports.py`
 
 Covers:
 
-- `GenerateHtmlTestReport` (including with `--cov`)
-- `CollateTestReportIndex` (single and shared-destination sibling sconscripts)
+- `GenerateHtmlTestReport` (including with `--cov`; asserts report HTML + coverage JSON both exist)
+- `CollateTestReportIndex` (single and shared-destination sibling sconscripts; master `test-report-index.html` / `.json`)
 - `GenerateBittenReport`

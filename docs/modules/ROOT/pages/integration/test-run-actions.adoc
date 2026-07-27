@@ -46,7 +46,8 @@ cuppa -D --offline --toolchains=gcc --dbg --benchmark
 
 == Expectations
 
-Exit 0; `noop_bench` under `final/`; success/report artifacts (`*.success` or `*.report.json`) for the run/benchmark path.
+- Run + Benchmark: exit 0; `noop_bench` under `final/`; `*.success` or `*.report.json` under `_build`.
+- BuildBenchmark: exit 0; `noop_bench` under `final/`.
 
 '''
 

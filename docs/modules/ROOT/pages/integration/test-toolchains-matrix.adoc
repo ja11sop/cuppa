@@ -4,7 +4,7 @@
 
 == What is tested
 
-`--toolchains=` selects the compiler family. Clang is skipped (with a log) when not installed.
+`--toolchains=` selects the compiler family. The gcc case is skipped when gcc is not on PATH; clang is skipped (with a log) when clang is not installed.
 
 == Generated files (both tests)
 

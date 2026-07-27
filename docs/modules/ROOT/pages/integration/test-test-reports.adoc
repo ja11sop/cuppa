@@ -4,8 +4,8 @@
 
 == What is tested
 
-1. *`GenerateHtmlTestReport`* — HTML + summary JSON from test report JSON after `--test`.
-2. *`GenerateHtmlTestReport` with `--cov`* — ignores `coverage--*.json` beside `*.report.json` (no duplicate `coverage--*.html` targets).
+1. *`GenerateHtmlTestReport`* — HTML + summary JSON from test report JSON after `--test` (HTML body includes the test name).
+2. *`GenerateHtmlTestReport` with `--cov`* — build succeeds with both `*.report.html` and `coverage--*.json` present (regression: coverage JSON must not break HTML report generation).
 3. *`CollateTestReportIndex`* — copies reports into `#_artifacts/test/` and writes `test-report-index.html` / `.json` at sconstruct end (including outside a VCS checkout).
 4. *Shared-destination collate* — two sibling sconscripts collating into the same artifacts folder.
 5. *`GenerateBittenReport`* — Bitten XML from the same test run.
@@ -64,9 +64,10 @@ cuppa -D --offline --toolchains=gcc --cov --test
 
 == Expectations
 
-* Exit 0; `*.report.html` and `*.report-summary.json` under `_build`.
-* With `--cov`, HTML reports still build (no SCons duplicate-target failure on `coverage--*.html`).
-* Collate scenarios: reports under `_artifacts/test/`, plus master `test-report-index.html` / `test-report-index.json`.
+* HTML: exit 0; `*.report.html` and `*.report-summary.json` under `_build`; report HTML mentions `hello_test`.
+* With `--cov`: exit 0; `*.report.html` and `coverage--*.json` both exist.
+* Collate (single): reports under `_artifacts/test/`, plus master `test-report-index.html` / `test-report-index.json` (index mentions `hello_test`).
+* Collate (shared destination): both `alpha_test.report.html` and `beta_test.report.html` under `_artifacts/test/`, plus master index mentioning both names.
 * Bitten: `*bitten*.xml` under `_build`.
 
 '''
