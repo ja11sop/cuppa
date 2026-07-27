@@ -15,3 +15,7 @@ pyflakes
 pylint
 setuptools
 twine
+
+# for testing
+pytest
+

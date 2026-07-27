@@ -5,6 +5,10 @@ dist/
 *.egg-info/
 *.save
 
+# Node (docs tooling)
+node_modules/
+
+
 # Ignore _build and _cuppa
 _build/
 _cuppa/

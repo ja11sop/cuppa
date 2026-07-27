@@ -1,0 +1,43 @@
+= `test_toolchains_matrix` — gcc / clang selection
+:description: Cuppa integration test documentation for test_toolchains_matrix
+
+
+== What is tested
+
+`--toolchains=` selects the compiler family. Clang is skipped (with a log) when not installed.
+
+== Generated files (both tests)
+
+=== `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== `sconscript`
+
+[source,python]
+----
+Import('env')
+env.AppendUnique(CPPPATH=['#/include'])
+env.Build('main', 'apps/main.cpp')
+----
+
+== Commands
+
+[source,sh]
+----
+cuppa -D --offline --dbg --toolchains=gcc
+cuppa -D --offline --dbg --toolchains=clang   # skipped if clang absent
+----
+
+== Expectations
+
+`main` binary exists under `_build/.../final/` for each available toolchain.
+
+'''
+
+Related test module: `tests/integration/test_toolchains_matrix.py`.

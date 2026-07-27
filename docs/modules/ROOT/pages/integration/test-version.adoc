@@ -1,0 +1,50 @@
+= `test_version` — `CreateVersion`
+:description: Cuppa integration test documentation for test_version
+
+
+== What is tested
+
+`CreateVersion` emits a generated `version.cpp` that can be linked into a program.
+
+== Generated files
+
+=== `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== `sconscript`
+
+[source,python]
+----
+Import('env')
+import os
+version_cpp = os.path.join(env['abs_final_dir'], 'version.cpp')
+env.CreateVersion(
+    version_cpp,
+    [],
+    namespaces=['dummy', 'version'],
+    version='1.2.3',
+)
+env.AppendUnique(CPPPATH=['#/include'])
+env.Build('main', ['apps/main.cpp', version_cpp])
+----
+
+== Command
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg
+----
+
+== Expectations
+
+Exit 0; `version.cpp` under `_build`; `main` links successfully.
+
+'''
+
+Related test module: `tests/integration/methods/test_version.py`.

@@ -1,0 +1,49 @@
+= `test_glob` — `GlobFiles` and `RecursiveGlob`
+:description: Cuppa integration test documentation for test_glob
+
+
+== What is tested
+
+- `GlobFiles` lists `*_test.cpp` under `tests/` (at least two files).
+- `RecursiveGlob` finds nested `src/nested/deep.cpp`.
+- Discovered sources can be built (`BuildTest`, `Compile`).
+
+== Generated files
+
+=== `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== `sconscript`
+
+[source,python]
+----
+Import('env')
+env.AppendUnique(CPPPATH=['#/include'])
+tests = env.GlobFiles('*_test.cpp', start='tests')
+assert len(tests) >= 2
+deep = env.RecursiveGlob('*.cpp', start='src')
+assert any('deep.cpp' in str(n).replace('\\','/') for n in deep)
+env.BuildTest('hello_test', 'tests/hello_test.cpp')
+env.Compile('src/nested/deep.cpp')
+----
+
+== Command
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg --test
+----
+
+== Expectations
+
+Exit 0; `hello_test` under `final/`; `deep.*` object under `_build`.
+
+'''
+
+Related test module: `tests/integration/methods/test_glob.py`.

@@ -1,0 +1,86 @@
+= Methods
+:description: Cuppa environment methods for building, testing, and reporting
+
+Methods are registered on each cuppa environment and called from `sconscript` files after `Import('env')`.
+
+== Core build methods
+
+|===
+| Method | Role
+
+| `env.Build(target, sources)` | Variant-aware program (like `Program`)
+| `env.BuildTest(target, sources)` | Build a test binary; run it when `--test` / `--force-test` is active
+| `env.Test(program)` | Attach an existing binary as a test
+| `env.BuildBenchmark` / `env.Benchmark` | Benchmark build / run (`--benchmark`)
+| `env.Run(program)` | Generic process runner (`--run`)
+| `env.Compile` / `CompileStatic` / `CompileShared` | Object compilation helpers
+| `env.BuildLib` / `BuildStaticLib` / `BuildSharedLib` | Libraries
+|===
+
+Runners may also expose specialised forms such as `BuildBoostTest` depending on the selected `--runner`.
+
+== Dependencies and profiles
+
+|===
+| Method | Role
+
+| `env.BuildWith('boost', …)` | Apply named dependencies to this env
+| `env.Using(…)` | Using-style dependency application
+| `env.BuildProfile(…)` | Apply profiles
+|===
+
+== Versioning and sources
+
+|===
+| Method | Role
+
+| `env.CreateVersion(…)` | SCM-aware generated version sources
+| `env.GlobFiles` / `env.RecursiveGlob` | Source discovery
+| `env.TargetFrom(path)` | Derive a target name from a path
+| `env.CopyFiles` / `env.CopyFilesAs` | Copy helpers
+|===
+
+== Flags and templates
+
+|===
+| Method | Role
+
+| `env.StdCpp(standard)` | Set C++ dialect flags for the current toolchain
+| `env.Filter` / `ReplaceFlags` / `RemoveFlags` | Flag manipulation
+| `env.ExpandTemplateFile` / `RenderJinjaTemplate` | Templating
+| `env.MarkdownToHtml` / `AsciidocToHtml` | Doc conversion builders
+| `env.CompileScss` | SCSS → CSS
+| `env.RunAndRedirectToFile` | Capture subprocess output to a file
+| `env.Toolchain()` | Toolchain introspection
+|===
+
+== Coverage
+
+|===
+| Method | Role
+
+| `env.Coverage(program, sources, …)` | Run coverage tooling for a binary (active with `--cov` / `--test` actions)
+| `env.CollateCoverageFiles(sources, destination=…)` | Collate coverage HTML/JSON
+| `env.CollateCoverageIndex(…)` | Master coverage index across tests/toolchains
+|===
+
+See xref:testing-coverage.adoc[Testing and coverage].
+
+== Packages
+
+|===
+| Method | Role
+
+| `env.PublishPackage(…)` | Publish (requires `--publish-package`)
+| `env.InstallPackage(…)` | Install a package locally
+|===
+
+== Test reporting plugins
+
+When the corresponding plugins are loaded (shipped with cuppa):
+
+* `env.GenerateHtmlTestReport(…)`
+* `env.CollateTestReportIndex(…)`
+* Bitten XML report generation
+
+These activate in concert with `--test`.

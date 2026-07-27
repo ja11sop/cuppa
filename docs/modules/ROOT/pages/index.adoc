@@ -1,0 +1,34 @@
+= Cuppa
+:description: Extensible C++ build system built on SCons
+
+Cuppa is an extensible build system for C++ projects that sits on top of https://www.scons.org/[SCons].
+It keeps `sconscript` files declarative while handling toolchains, build variants, dependencies, tests, and coverage.
+
+== Why cuppa?
+
+* *Make-like CLI* -- from anywhere under your project tree, run `cuppa -D` (or `scons -D`) and cuppa builds the relevant `sconscript` files.
+* *Multi-toolchain, multi-variant* -- build debug, release, and coverage variants against GCC, Clang, and MSVC in one invocation.
+* *Dependencies as vocabulary* -- Boost, Qt, location-based header libraries, and GitLab package registry packages are first-class.
+* *Tests and coverage* -- `BuildTest`, runners, gcovr HTML/JSON reports, and coverage index collation.
+
+== Where to start
+
+* xref:install.adoc[Install cuppa]
+* xref:quickstart.adoc[Quickstart] -- minimal `sconstruct` / `sconscript`
+* xref:cli-reference.adoc[CLI reference] -- flags you will use every day
+* xref:concepts.adoc[Concepts] -- methods, dependencies, profiles, variants, toolchains
+* xref:integration-tests.adoc[Integration tests] -- pytest scenarios with generated build scripts
+
+== Project links
+
+* Source and issues: https://github.com/ja11sop/cuppa
+* PyPI: https://pypi.org/project/cuppa/
+* License: https://www.boost.org/LICENSE_1_0.txt[Boost Software License 1.0]
+
+== Design principles
+
+Cuppa aims to:
+
+* keep `sconscript` files declarative and free of build-system logic
+* give experts a place to encapsulate dependency and toolchain knowledge once
+* codify SCons best practices so callers express *intent* (`Build`, `BuildTest`, `BuildWith`) rather than low-level flag plumbing

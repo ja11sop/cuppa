@@ -1,0 +1,65 @@
+= `test_docs_assets` — Markdown, AsciiDoc, SCSS
+:description: Cuppa integration test documentation for test_docs_assets
+
+
+== What is tested
+
+1. *`CompileScss`* — SCSS → CSS in `final/`.
+2. *`MarkdownToHtml`* — Markdown → HTML via grip.
+3. *`AsciidocToHtml`* — AsciiDoc → HTML (skipped if `asciidoc` / `asciidoctor` not on PATH).
+
+== Generated files
+
+=== Shared `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== CompileScss — `sconscript`
+
+[source,python]
+----
+Import('env')
+import os
+css = os.path.join(env['abs_final_dir'], 'sample.css')
+env.CompileScss(css, 'data/sample.scss')
+----
+
+=== MarkdownToHtml — `sconscript`
+
+[source,python]
+----
+Import('env')
+env.MarkdownToHtml('data/sample.md')
+----
+
+=== AsciidocToHtml — `sconscript`
+
+[source,python]
+----
+Import('env')
+import os
+html = os.path.join(env['abs_final_dir'], 'sample_adoc.html')
+env.AsciidocToHtml(html, 'data/sample.adoc')
+----
+
+== Command
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg
+----
+
+== Expectations
+
+- SCSS: `sample.css` under `_build`.
+- Markdown: at least one `.html` under `_build`.
+- AsciiDoc: `sample_adoc.html` under `_build`, or test skipped with a log line.
+
+'''
+
+Related test module: `tests/integration/methods/test_docs_assets.py`.

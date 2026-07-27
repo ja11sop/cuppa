@@ -10,7 +10,6 @@
 
 import json
 import os
-import itertools
 import six
 
 # cuppa imports
@@ -39,7 +38,7 @@ class GenerateReportBuilder(object):
 
 
     def GenerateBittenReport( self, target, source, env ):
-        for s, t in itertools.izip( source, target ):
+        for s, t in zip( source, target ):
             test_cases = self._read( str(s) )
             self._write( str(t), test_cases )
         return None

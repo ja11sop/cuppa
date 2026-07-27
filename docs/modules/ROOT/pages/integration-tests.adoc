@@ -1,0 +1,105 @@
+= Integration tests
+:description: Cuppa pytest integration suite — scenarios, generated sconstruct/sconscript, and expectations
+
+Cuppa's pytest integration suite lives under `tests/integration/`.
+Each scenario documented here shows the **`sconstruct` / `sconscript` the test generates** (or uses), the cuppa command, and what is asserted.
+
+== Running the suite
+
+[source,sh]
+----
+pytest -m integration
+----
+
+Requires a C++ compiler (`g++` preferred).
+Optional tools (`clang`, `gcov`, AsciiDoc) cause individual tests to skip with a log line when absent.
+
+Every `run_cuppa()` call also passes `-D`, `--offline`, and (unless overridden) `--toolchains=gcc` when gcc is available.
+
+== Shared fixture
+
+Most method tests copy `tests/fixtures/dummy_project/` into a temporary directory, then overwrite the build scripts.
+That tree provides apps, libraries, nested sources, pass/fail tests, benches, and sample data (templates, Markdown, SCSS, and so on).
+
+Default `sconstruct` used by many tests:
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+== Smoke and project-level tests
+
+* xref:integration/test-minimal-example.adoc[`examples/minimal` build + test]
+* xref:integration/test-configure-conf.adoc[`configure.conf` save / show]
+* xref:integration/test-scripts-scoping.adoc[`--scripts=` scoping]
+* xref:integration/test-toolchains-matrix.adoc[gcc / clang toolchains]
+
+== Method tests
+
+|===
+| Method(s) | Documentation
+
+| `Build`
+| xref:integration/test-build.adoc[]
+
+| `BuildTest`, `Test`
+| xref:integration/test-build-test.adoc[]
+
+| `BuildStaticLib`, `BuildSharedLib`
+| xref:integration/test-build-library.adoc[]
+
+| `CompileStatic`, `CompileShared`
+| xref:integration/test-compile.adoc[]
+
+| `GlobFiles`, `RecursiveGlob`
+| xref:integration/test-glob.adoc[]
+
+| `Run`, `Benchmark`, `BuildBenchmark`
+| xref:integration/test-run-actions.adoc[]
+
+| `StdCpp`, `Filter`, `ReplaceFlags`, `RemoveFlags`
+| xref:integration/test-flags.adoc[]
+
+| `CopyFiles`, `TargetFrom`
+| xref:integration/test-copy-and-target.adoc[]
+
+| `CopyFilesAs`
+| xref:integration/test-copy-files-as.adoc[]
+
+| `ExpandTemplateFile`, `RenderJinjaTemplate`
+| xref:integration/test-templates.adoc[]
+
+| `MarkdownToHtml`, `AsciidocToHtml`, `CompileScss`
+| xref:integration/test-docs-assets.adoc[]
+
+| `RunAndRedirectToFile`
+| xref:integration/test-redirect.adoc[]
+
+| `CreateVersion`
+| xref:integration/test-version.adoc[]
+
+| `Toolchain`
+| xref:integration/test-toolchain-method.adoc[]
+
+| `BuildWith`, `Using`
+| xref:integration/test-build-with.adoc[]
+
+| `BuildProfile`
+| xref:integration/test-build-profile.adoc[]
+
+| `Coverage`
+| xref:integration/test-coverage.adoc[]
+
+| `PublishPackage`, `InstallPackage`
+| xref:integration/test-packages.adoc[]
+
+| `GenerateHtmlTestReport`, `GenerateBittenReport`
+| xref:integration/test-test-reports.adoc[]
+|===
+
+=== Deferred
+
+`CollateCoverageFiles`, `CollateCoverageIndex`, and `CollateTestReportIndex` are not covered end-to-end yet (progress/VCS path quirks outside a git checkout).

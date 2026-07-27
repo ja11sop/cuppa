@@ -1,0 +1,43 @@
+= `test_build_library` — static and shared libraries
+:description: Cuppa integration test documentation for test_build_library
+
+
+== What is tested
+
+`BuildStaticLib` and `BuildSharedLib` emit libraries into the variant `final/` directory.
+
+== Generated files
+
+=== `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== `sconscript`
+
+[source,python]
+----
+Import('env')
+env.AppendUnique(CPPPATH=['#/include'])
+env.BuildStaticLib('hello', 'src/hello.cpp')
+env.BuildSharedLib('hello_shared', 'src/hello.cpp')
+----
+
+== Command
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg
+----
+
+== Expectations
+
+Exit 0; static (`.a` / `.lib`) and shared (`.so` / `.dylib` / `.dll`) artifacts under `_build/**/final/`.
+
+'''
+
+Related test module: `tests/integration/methods/test_build_library.py`.

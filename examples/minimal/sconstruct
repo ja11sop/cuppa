@@ -1,0 +1,5 @@
+import cuppa
+
+cuppa.run(
+    default_variants = ['dbg'],
+)

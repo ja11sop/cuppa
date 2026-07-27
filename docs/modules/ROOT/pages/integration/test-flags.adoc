@@ -1,0 +1,49 @@
+= `test_flags` — `StdCpp`, `RemoveFlags`, `ReplaceFlags`, `Filter`
+:description: Cuppa integration test documentation for test_flags
+
+
+== What is tested
+
+Dialect override and flag helpers can be applied before a successful `Build`. `Filter` selects matching file nodes.
+
+== Generated files
+
+=== `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== `sconscript`
+
+[source,python]
+----
+Import('env')
+env.StdCpp('c++14')
+env.AppendUnique(CCFLAGS=['-DCUPPA_FLAG_TEST=1'])
+env.RemoveFlags(['-DCUPPA_FLAG_TEST'])
+env.ReplaceFlags(['-Wall'])
+nodes = [env.File('data/copy_me.txt'), env.File('data/sample.md')]
+filtered = env.Filter(nodes, match='*.txt')
+assert len(filtered) == 1
+env.AppendUnique(CPPPATH=['#/include'])
+env.Build('main', 'apps/main.cpp')
+----
+
+== Command
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg
+----
+
+== Expectations
+
+Sconscript asserts pass; exit 0; `main` under `final/`.
+
+'''
+
+Related test module: `tests/integration/methods/test_flags.py`.

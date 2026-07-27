@@ -1,0 +1,45 @@
+= `test_copy_and_target` — `CopyFiles` and `TargetFrom`
+:description: Cuppa integration test documentation for test_copy_and_target
+
+
+== What is tested
+
+`CopyFiles` installs a data file into the final tree; `TargetFrom` derives a target name from a source node for `BuildTest`.
+
+== Generated files
+
+=== `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== `sconscript`
+
+[source,python]
+----
+Import('env')
+copied = env.CopyFiles('copied', 'data/copy_me.txt')
+assert copied
+src = env.File('tests/hello_test.cpp')
+name = env.TargetFrom(src)
+env.BuildTest(name, src)
+----
+
+== Command
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg --test
+----
+
+== Expectations
+
+Exit 0; `copy_me.txt` appears under `_build`.
+
+'''
+
+Related test module: `tests/integration/methods/test_copy_and_target.py`.

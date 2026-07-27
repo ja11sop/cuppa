@@ -1,0 +1,6 @@
+name: cuppa
+title: Cuppa
+version: ~
+start_page: ROOT:index.adoc
+nav:
+- modules/ROOT/nav.adoc

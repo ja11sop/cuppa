@@ -1,0 +1,48 @@
+<header class="header">
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <a class="navbar-item" href="{{{or site.url siteRootPath}}}">{{site.title}}</a>
+      {{#if env.SITE_SEARCH_PROVIDER}}
+      <div class="navbar-item search hide-for-print">
+        <div id="search-field" class="field">
+          <input id="search-input" type="text" placeholder="Search the docs"{{#if page.home}} autofocus{{/if}}>
+        </div>
+      </div>
+      {{/if}}
+      <button class="navbar-burger" aria-controls="topbar-nav" aria-expanded="false" aria-label="Toggle main menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+    <div id="topbar-nav" class="navbar-menu">
+      <div class="navbar-end">
+        <a class="navbar-item" href="{{{siteRootPath}}}/cuppa/index.html">Overview</a>
+        <div class="navbar-item has-dropdown is-hoverable">
+          <a class="navbar-link" href="{{{siteRootPath}}}/cuppa/quickstart.html">Get started</a>
+          <div class="navbar-dropdown">
+            <a class="navbar-item" href="{{{siteRootPath}}}/cuppa/install.html">Install</a>
+            <a class="navbar-item" href="{{{siteRootPath}}}/cuppa/quickstart.html">Quickstart</a>
+            <a class="navbar-item" href="{{{siteRootPath}}}/cuppa/concepts.html">Concepts</a>
+            <a class="navbar-item" href="{{{siteRootPath}}}/cuppa/build-layout.html">Build layout</a>
+          </div>
+        </div>
+        <div class="navbar-item has-dropdown is-hoverable">
+          <a class="navbar-link" href="{{{siteRootPath}}}/cuppa/cli-reference.html">Reference</a>
+          <div class="navbar-dropdown">
+            <a class="navbar-item" href="{{{siteRootPath}}}/cuppa/cli-reference.html">CLI</a>
+            <a class="navbar-item" href="{{{siteRootPath}}}/cuppa/methods.html">Methods</a>
+            <a class="navbar-item" href="{{{siteRootPath}}}/cuppa/dependencies.html">Dependencies</a>
+            <a class="navbar-item" href="{{{siteRootPath}}}/cuppa/packages.html">Packages</a>
+            <a class="navbar-item" href="{{{siteRootPath}}}/cuppa/testing-coverage.html">Testing and coverage</a>
+            <a class="navbar-item" href="{{{siteRootPath}}}/cuppa/toolchains.html">Toolchains</a>
+            <a class="navbar-item" href="{{{siteRootPath}}}/cuppa/configuration.html">Configuration</a>
+            <a class="navbar-item" href="{{{siteRootPath}}}/cuppa/extending.html">Extending cuppa</a>
+          </div>
+        </div>
+        <a class="navbar-item" href="https://github.com/ja11sop/cuppa">GitHub</a>
+        <a class="navbar-item" href="https://pypi.org/project/cuppa/">PyPI</a>
+      </div>
+    </div>
+  </nav>
+</header>

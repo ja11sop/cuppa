@@ -1,0 +1,42 @@
+= `test_build` — `env.Build`
+:description: Cuppa integration test documentation for test_build
+
+
+== What is tested
+
+`Build` produces a variant-aware program under `_build/.../final/`.
+
+== Generated files
+
+=== `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== `sconscript`
+
+[source,python]
+----
+Import('env')
+env.AppendUnique(CPPPATH=['#/include'])
+env.Build('main', 'apps/main.cpp')
+----
+
+== Command
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg
+----
+
+== Expectations
+
+Exit 0; `main` exists under `_build/**/final/`.
+
+'''
+
+Related test module: `tests/integration/methods/test_build.py`.

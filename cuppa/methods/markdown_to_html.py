@@ -9,7 +9,6 @@
 #-------------------------------------------------------------------------------
 
 import os.path
-import itertools
 import grip
 import cuppa.progress
 
@@ -17,7 +16,7 @@ import cuppa.progress
 class GripRunner(object):
 
     def __call__( self, target, source, env ):
-        for s, t in itertools.izip( source, target ):
+        for s, t in zip( source, target ):
             in_file  = str(s)
             out_file = str(t)
             try:

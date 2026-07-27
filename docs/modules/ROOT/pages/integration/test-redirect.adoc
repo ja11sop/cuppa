@@ -1,0 +1,42 @@
+= `test_redirect` — `RunAndRedirectToFile`
+:description: Cuppa integration test documentation for test_redirect
+
+
+== What is tested
+
+A built program’s stdout is captured to a file with a custom extension.
+
+== Generated files
+
+=== `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== `sconscript`
+
+[source,python]
+----
+Import('env')
+prog = env.Build('noop_bench', 'benches/noop_bench.cpp')
+env.RunAndRedirectToFile([], prog, extension='.captured')
+----
+
+== Command
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg
+----
+
+== Expectations
+
+Exit 0; `*.captured` under `_build`.
+
+'''
+
+Related test module: `tests/integration/methods/test_redirect.py`.

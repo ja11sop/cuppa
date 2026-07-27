@@ -1,0 +1,44 @@
+= Build layout
+:description: Where cuppa places build products, downloads, and caches
+
+== Default roots
+
+|===
+| Purpose | Default | Override
+
+| Build output | `_build` | `--build-root`
+| Downloaded / checked-out dependencies | `_cuppa` | `--download-root`
+| Archive cache | `~/_cuppa/_cache` | `--cache-root`
+|===
+
+These defaults live in `cuppa/core/storage_options.py`. Older documentation referred to `.build` / `.cuppa`; current cuppa uses the underscore-prefixed names above.
+
+== Per-sconscript output tree
+
+Under the build root, cuppa separates toolchains and variants:
+
+----
+<build_root>/<sconscript_path>/<toolchain>/<variant>/<target_arch>/<abi>/working/
+<build_root>/<sconscript_path>/<toolchain>/<variant>/<target_arch>/<abi>/final/
+----
+
+If the sconscript file is named exactly `sconscript`, that filename segment is omitted from the path so the directory name is enough to distinguish projects.
+
+* `working/` -- intermediate objects and intermediates
+* `final/` -- linked binaries and collated report outputs for that variant
+
+== Artifacts
+
+Consumer projects often collate coverage or test reports under a project-chosen directory such as `_artifacts/` (for example via `env.CollateCoverageIndex(destination='_artifacts/coverage')`).
+That path is a *project* convention; cuppa itself defaults to placing coverage next to the variant `final/` directory unless you pass a destination.
+
+== Cleaning
+
+Use standard SCons clean:
+
+[source,sh]
+----
+cuppa -D --dbg -c
+----
+
+Remove `_build` / `_cuppa` trees when you want a fully cold start (downloads may need to be fetched again unless still present in the cache root).

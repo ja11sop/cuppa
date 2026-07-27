@@ -1,1 +1,3 @@
-include README.md README.rst MANIFEST.in LICENSE_1_0.txt
+include README.md README.pypi.md README.rst AGENTS.md MANIFEST.in LICENSE_1_0.txt
+recursive-include docs *
+recursive-include examples *

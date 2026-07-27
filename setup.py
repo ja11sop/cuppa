@@ -11,7 +11,7 @@ from setuptools import setup
 import os
 import cuppa.version
 
-with open( 'README.rst' ) as readme_file:
+with open( 'README.pypi.md' ) as readme_file:
     long_description = readme_file.read()
 
 setup(
@@ -22,6 +22,7 @@ setup(
     url              = 'https://github.com/ja11sop/cuppa',
     license          = 'Boost Software License 1.0 - http://www.boost.org/LICENSE_1_0.txt',
     long_description = long_description,
+    long_description_content_type = 'text/markdown',
     packages = [
         'cuppa',
         'cuppa.core',
@@ -68,6 +69,7 @@ setup(
         'pyscss',
         'six',
         'pyyaml',
+        'scons'
     ],
     entry_points = {
         'console_scripts': [

@@ -1,0 +1,29 @@
+site:
+  title: Cuppa Documentation
+  url: https://ja11sop.github.io/cuppa
+  start_page: cuppa::index.adoc
+content:
+  sources:
+  - url: ./..
+    start_path: docs
+    branches: HEAD
+    worktrees: true
+ui:
+  bundle:
+    url: https://gitlab.com/antora/antora-ui-default/-/jobs/artifacts/HEAD/raw/build/ui-bundle.zip?job=bundle-stable
+    snapshot: true
+  supplemental_files: ./supplemental-ui
+antora:
+  extensions:
+  - require: '@antora/lunr-extension'
+    index_latest_only: true
+asciidoc:
+  attributes:
+    experimental: ''
+    idprefix: ''
+    idseparator: '-'
+    page-pagination: ''
+output:
+  dir: ./../build/site
+runtime:
+  cache_dir: ./../build/antora-cache

@@ -1,0 +1,14 @@
+{
+  "name": "cuppa-docs",
+  "private": true,
+  "description": "Build tooling for the Cuppa Antora documentation site",
+  "scripts": {
+    "build": "antora generate playbook.yml",
+    "clean": "rm -rf ../build/site ../build/antora-cache"
+  },
+  "devDependencies": {
+    "@antora/cli": "3.1.10",
+    "@antora/lunr-extension": "^1.0.0-alpha.13",
+    "@antora/site-generator": "3.1.10"
+  }
+}

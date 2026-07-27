@@ -1,0 +1,45 @@
+= `test_packages` — `PublishPackage` / `InstallPackage` registration
+:description: Cuppa integration test documentation for test_packages
+
+
+== What is tested
+
+Package methods are registered on the environment. Full offline publish/install E2E against a live GitLab registry is deferred.
+
+== Generated files
+
+=== `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== `sconscript`
+
+[source,python]
+----
+Import('env')
+assert hasattr(env, 'PublishPackage')
+assert hasattr(env, 'InstallPackage')
+assert callable(env.PublishPackage)
+assert callable(env.InstallPackage)
+env.BuildTest('hello_test', 'tests/hello_test.cpp')
+----
+
+== Command
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg --test
+----
+
+== Expectations
+
+Sconscript asserts pass; exit 0.
+
+'''
+
+Related test module: `tests/integration/methods/test_packages.py`.

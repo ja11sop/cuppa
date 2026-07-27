@@ -1,0 +1,47 @@
+= Toolchains
+:description: GCC, Clang, and MSVC toolchain selection
+
+Cuppa discovers installed compilers at configure time and registers matching toolchain names.
+
+== Selecting toolchains
+
+[source,sh]
+----
+cuppa -D --toolchains=gcc,clang
+cuppa -D --toolchains=gcc15,clang21
+cuppa -D --toolchains=gcc*
+----
+
+Names are matched with fnmatch-style wildcards.
+If you omit `--toolchains`, cuppa uses the platform default toolchain.
+
+== GCC
+
+Supported aliases include the generic `gcc` (whatever `g++` on `PATH` reports) plus versioned names through **gcc16** (for example `gcc15`, `gcc151`, `gcc14`, … down through older releases).
+Only toolchains actually present on the machine become available.
+
+== Clang
+
+Supported aliases include `clang` plus versioned names through **clang22** (for example `clang21`, `clang211`, `clang20`, …).
+
+Clang-specific options:
+
+* `--clang-stdlib={libstdc++,libc++}`
+* `--clang-disable-debug-for-auto`
+
+== MSVC
+
+On Windows, the `cl` toolchain integrates with SCons Visual C++ detection (`vc*` versions reported by the environment).
+
+== C++ language level
+
+By default cuppa asks the toolchain for a high compliance mode.
+Override globally with `--stdcpp=…` or per env with `env.StdCpp('c++14')`.
+
+Allowed `--stdcpp` choices: `c++98`, `c++03`, `c++0x`, `c++11`, `c++1y`, `c++14`, `c++1z`.
+
+== Tips
+
+* Prefer naming a family (`gcc`, `clang`) in everyday builds; pin versions in CI for reproducibility.
+* Coverage and test grids should run gcc and clang as separate invocations (or clearly separated report trees), not as one blended instrumentation set.
+* When debugging toolchain detection, use `--verbosity=debug` and `--dump`.

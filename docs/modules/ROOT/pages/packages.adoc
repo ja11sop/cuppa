@@ -1,0 +1,70 @@
+= Packages
+:description: GitLab package registry dependencies and publishing
+
+Cuppa can consume (and publish) prebuilt packages from a GitLab generic package registry via `cuppa.package_dependency()`.
+
+== package_dependency
+
+[source,python]
+----
+import cuppa
+
+MyPkg = cuppa.package_dependency(
+    'mypkg',
+    package_manager = 'gitlab',
+    registry = 'https://gitlab.example.com/api/v4/projects/123/packages/generic',
+    package = 'mypkg',
+    version = '1.2.3',
+)
+
+cuppa.run(
+    dependencies = [MyPkg],
+    default_dependencies = ['mypkg'],
+)
+----
+
+Package archives are typically *per toolchain / variant / architecture*.
+A missing package surfaces as a registry HTTP error (often `404`) during configure, before compile.
+
+== Authentication
+
+|===
+| Mechanism | Notes
+
+| `GITLAB_REGISTRY_TOKEN` | Personal or project access token with package read (and write if publishing)
+| `CI_JOB_TOKEN` | Used automatically in GitLab CI when available
+| `--<name>-gitlab-custom-token` | Point at another env var / token setting for that package
+|===
+
+The `cuppa` launcher redacts env values whose names contain `TOKEN` in logged output.
+
+== Develop vs package downloads
+
+`--develop` affects *location* develop paths and package develop flags where defined.
+It does *not* invent a local substitute for a missing registry archive: the matching package must exist in the registry or already be cached under the download/cache roots.
+
+== Boost package
+
+`cuppa.packages.boost_package.define(...)` builds a `boost_package` dependency backed by the registry:
+
+[source,python]
+----
+import cuppa
+
+BoostPkg = cuppa.packages.boost_package.define(
+    registry = 'https://gitlab.example.com/api/v4/projects/123/packages/generic',
+    version = '1.85',
+)
+
+cuppa.run(
+    dependencies = [BoostPkg],
+    default_dependencies = ['boost_package'],
+)
+----
+
+Use `package.use_libs([...])` helpers where provided to append the correct static library files for the active toolchain/variant.
+
+== Publishing
+
+From a sconscript, `env.PublishPackage(...)` combined with `--publish-package` uploads build products according to your package manager settings.
+`env.InstallPackage(...)` installs a package into the local cuppa download layout.
