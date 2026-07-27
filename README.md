@@ -15,8 +15,8 @@ Full reference documentation: **[https://ja11sop.github.io/cuppa/](https://ja11s
 ## Features
 
 - Make-like CLI via `cuppa` or `scons` with cuppa loaded in the `sconstruct`
-- Multi-variant builds: debug (`--dbg`), release (`--rel`), coverage (`--cov`)
-- Multi-toolchain: GCC, Clang, and MSVC, with wildcards (`--toolchains=gcc*,clang21`)
+- Multi-variant builds: debug (`--dbg`), release (`--rel`), coverage (`--cov`, GCC/Clang)
+- Multi-toolchain: GCC, Clang, and MSVC (`vc` on Windows), with wildcards (`--toolchains=gcc*,clang21`)
 - Out-of-tree builds under `_build/` (downloads under `_cuppa/`, archive cache under `~/_cuppa/_cache`)
 - Dependencies: Boost, Qt4/Qt5, Quince, location-based libraries, GitLab package registry
 - Test runners and HTML coverage (gcovr), plus optional HTML test reports
@@ -149,7 +149,7 @@ If the script file is named `sconscript`, that filename segment is omitted.
 | **Variants / actions** | How to compile (`dbg`/`rel`/`cov`) vs extra work (`test`/`benchmark`/`run`) |
 | **Toolchains** | Concrete compilers discovered at configure time (`gcc`, `gcc15`, `clang`, `clang21`, …) |
 
-Toolchains are discovered from the machine; supported aliases currently extend through **gcc16** and **clang22**. Details: [toolchains](https://ja11sop.github.io/cuppa/cuppa/toolchains.html).
+Toolchains are discovered from the machine; supported aliases currently extend through **gcc16** and **clang22**, plus MSVC `vc` / `vc*` on Windows (coverage is GCC/Clang only). Details: [toolchains](https://ja11sop.github.io/cuppa/cuppa/toolchains.html).
 
 ## Configuration
 

@@ -83,8 +83,11 @@ def b2_command( env, boost_version, location, toolchain, libraries, variant, tar
     if toolchain.family() == "cl":
         if target_arch == "amd64":
             address_model = "address-model=64"
+        elif target_arch in ( "arm64", "aarch64" ):
+            address_model = "address-model=64"
+            architecture = "architecture=arm"
         elif target_arch == "arm":
-            address_model = "architecture=arm"
+            architecture = "architecture=arm"
         if toolchain.target_store() != "desktop":
             windows_api = "windows-api=" + toolchain.target_store()
 

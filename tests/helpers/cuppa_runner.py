@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 import subprocess
 from pathlib import Path
 
@@ -18,7 +19,7 @@ def run_cuppa(project_dir, *flags, extra_env=None, timeout=180):
     if extra_env:
         env.update(extra_env)
 
-    args = ["python3", "-m", "cuppa", "-D", "--offline"]
+    args = [sys.executable, "-m", "cuppa", "-D", "--offline"]
     if not any(str(flag).startswith("--toolchains") for flag in flags):
         args.extend(default_toolchain_flags())
     args.extend(flags)
@@ -54,7 +55,13 @@ def find_under_build(project_dir, pattern="*"):
 
 
 def find_final_binaries(project_dir, name):
-    return [
-        path for path in find_under_build(project_dir, name)
-        if "final" in path.parts and path.is_file()
-    ]
+    """Find built programs under final/; accept Windows PROGSUFFIX (.exe)."""
+    patterns = [name]
+    if not name.lower().endswith(".exe"):
+        patterns.append(name + ".exe")
+    matches = []
+    for pattern in patterns:
+        for path in find_under_build(project_dir, pattern):
+            if "final" in path.parts and path.is_file():
+                matches.append(path)
+    return matches

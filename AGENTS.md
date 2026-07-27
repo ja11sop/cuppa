@@ -52,7 +52,7 @@ Equivalent: `scons -D …` when the project's `sconstruct` already imports cuppa
 | CLI options | `cuppa/core/base_options.py`, `storage_options.py`, `location_options.py`, `cuppa/configure.py` |
 | Methods | `cuppa/methods/` |
 | Variants / actions | `cuppa/variants/` |
-| Toolchains | `cuppa/toolchains/` (`gcc.py`, `clang.py`, `cl.py`) |
+| Toolchains | `cuppa/toolchains/` (`gcc.py`, `clang.py`, `cl.py` — MSVC/`vc` on Windows; coverage is GCC/Clang only) |
 | Dependencies | `cuppa/dependencies/`, `cuppa/build_with_location.py` |
 | Packages | `cuppa/build_with_package.py`, `cuppa/package_managers/`, `cuppa/packages/` |
 | Coverage | `cuppa/cpp/run_gcov_coverage.py`, `cuppa/methods/coverage.py` |
@@ -69,9 +69,14 @@ flake8 cuppa
 pylint -E cuppa
 pytest -m unit
 pytest -m integration   # requires a C++ compiler (g++ preferred)
+# Optionally force the toolchain used by integration helpers:
+# CUPPA_TEST_TOOLCHAIN=clang pytest -m integration
+# CUPPA_TEST_TOOLCHAIN=vc pytest -m integration   # Windows + MSVC
 ```
 
 Lint config: [`.flake8`](.flake8) and [`.pylintrc`](.pylintrc). Full settings and rationale for contributors/agents: [`docs/modules/ROOT/pages/linting.adoc`](docs/modules/ROOT/pages/linting.adoc). Keep the gate error-focused — do not broaden to style warnings without intent.
+
+CI runs the integration suite once per Linux toolchain (`gcc`, `clang`) via `CUPPA_TEST_TOOLCHAIN`, and once on `windows-latest` with MSVC (`vc`).
 
 Integration scenarios (with generated `sconstruct` / `sconscript` and expectations) are documented on the Antora site under **Integration tests** (`docs/modules/ROOT/pages/integration-tests.adoc` and `docs/modules/ROOT/pages/integration/`).
 

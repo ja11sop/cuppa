@@ -1,5 +1,4 @@
-
-#          Copyright Jamie Allsop 2014-2019
+#          Copyright Jamie Allsop 2014-2026
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -18,24 +17,42 @@ from SCons.Tool.MSCommon.vc import _VCVER, get_default_version
 
 try:
     from SCons.Tool.MSCommon.vc import cached_get_installed_vcs as get_installed_vcs
-except: # scons version >= 4.1
+except (ImportError, AttributeError):  # scons version >= 4.1
     from SCons.Tool.MSCommon.vc import get_installed_vcs as get_installed_vcs
 
 from cuppa.cpp.create_version_file_cpp import CreateVersionHeaderCpp, CreateVersionFileCpp
 from cuppa.cpp.run_boost_test import RunBoostTestEmitter, RunBoostTest
 from cuppa.cpp.run_patched_boost_test import RunPatchedBoostTestEmitter, RunPatchedBoostTest
 from cuppa.cpp.run_process_test import RunProcessTestEmitter, RunProcessTest
-from cuppa.utility.python2to3 import Exception
-
-
-class ClException(Exception):
-    def __init__(self, value):
-        self.parameter = value
-    def __str__(self):
-        return repr(self.parameter)
+from cuppa.colourise import as_info, as_notice, as_warning
+from cuppa.log import logger
 
 
 class Cl(object):
+
+    _default_dialect_flag = '/std:c++20'
+
+    # Map cuppa --stdcpp / StdCpp names onto MSVC /std: flags.
+    # Pre-C++14 aliases have no MSVC /std: equivalent; map to /std:c++14 with a warning.
+    _stdcpp_flag_map = {
+        'c++98': '/std:c++14',
+        'c++03': '/std:c++14',
+        'c++0x': '/std:c++14',
+        'c++11': '/std:c++14',
+        'c++1y': '/std:c++14',
+        'c++14': '/std:c++14',
+        'c++1z': '/std:c++17',
+        'c++17': '/std:c++17',
+        'c++2a': '/std:c++20',
+        'c++20': '/std:c++20',
+        'c++2b': '/std:c++23',
+        'c++23': '/std:c++23',
+        'c++2c': '/std:c++latest',
+        'c++26': '/std:c++latest',
+        'c++latest': '/std:c++latest',
+    }
+
+    _pre_cxx14_standards = frozenset( [ 'c++98', 'c++03', 'c++0x', 'c++11' ] )
 
     _supported_architectures = {
         "amd64"     : "amd64",
@@ -49,7 +66,9 @@ class Cl(object):
         "x86"       : "x86",
         "x86_64"    : "amd64",
         "x86_amd64" : "x86_amd64",
-        "arm"       : "arm"
+        "arm"       : "arm",
+        "arm64"     : "arm64",
+        "aarch64"   : "arm64",
     }
 
     _target_architectures = {
@@ -63,6 +82,11 @@ class Cl(object):
         ("x86", "arm")         : "x86_arm",
         ("amd64", "arm")       : "amd64_arm",
         ("arm", "arm")         : "arm",
+        ("amd64", "arm64")     : "amd64_arm64",
+        ("arm64", "arm64")     : "arm64",
+        ("arm64", "x86")       : "arm64_x86",
+        ("arm64", "amd64")     : "arm64_amd64",
+        ("x86", "arm64")       : "x86_arm64",
     }
 
     @classmethod
@@ -120,6 +144,10 @@ class Cl(object):
             add_to_supported( version )
 
         for name, vc in six.iteritems( cls.available_versions( env ) ):
+            logger.debug(
+                "Adding toolchain [{}] reported as [{}] (MSVC {})"
+                .format( as_info( name ), as_info( vc['vc_version'] ), as_notice( vc['version'] ) )
+            )
             add_toolchain( name, cls( name, vc['vc_version'], vc['version'] ) )
 
 
@@ -305,12 +333,22 @@ class Cl(object):
             env.AppendUnique( CXXFLAGS = self.values['rel_cxx_flags'] )
             env.AppendUnique( LINKFLAGS = self.values['rel_link_flags'] )
         elif variant == 'cov':
+            # MSVC coverage instrumentation is not supported.
             pass
+        env.AppendUnique( CXXFLAGS = [ self.abi_flag( env ) ] )
 
 
     def _initialise_toolchain( self ):
 
-        CommonCxxFlags = [ '-W4', '-EHac', '-nologo', '-GR' ]
+        CommonCxxFlags = [
+            '-W4',
+            '-EHsc',
+            '-nologo',
+            '-GR',
+            '-permissive-',
+            '-Zc:__cplusplus',
+            '-utf-8',
+        ]
 
         self.values['dbg_cxx_flags'] = CommonCxxFlags + [ '-Zi', '-MDd' ]
         self.values['rel_cxx_flags'] = CommonCxxFlags + [ '-Ox', '-MD' ]
@@ -321,8 +359,10 @@ class Cl(object):
         self.values['rel_link_flags'] = CommonLinkFlags + []
 
 
-    def abi_flag( self, library ):
-        return ""
+    def abi_flag( self, env ):
+        if env.get( 'stdcpp' ):
+            return self.stdcpp_flag_for( env['stdcpp'] )
+        return self._default_dialect_flag
 
 
     def stdlib_flag( self, env ):
@@ -330,13 +370,28 @@ class Cl(object):
 
 
     def abi( self, env ):
-        if env['stdcpp']:
+        flag = self.abi_flag( env )
+        if ':' in flag:
+            return flag.split( ':', 1 )[1]
+        if env.get( 'stdcpp' ):
             return env['stdcpp']
-        return "c++"
+        return 'c++20'
 
 
     def stdcpp_flag_for( self, standard ):
-        return ""
+        flag = self._stdcpp_flag_map.get( standard )
+        if flag is None:
+            logger.warn(
+                "Unknown C++ standard [{}] for MSVC; using {}"
+                .format( as_warning( standard ), as_info( self._default_dialect_flag ) )
+            )
+            return self._default_dialect_flag
+        if standard in self._pre_cxx14_standards:
+            logger.warn(
+                "MSVC has no /std: for [{}]; using {}"
+                .format( as_warning( standard ), as_info( flag ) )
+            )
+        return flag
 
 
     def error_format( self ):

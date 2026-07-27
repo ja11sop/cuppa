@@ -14,7 +14,14 @@ from cuppa.log import logger
 
 class StdCppMethod:
 
-    stdcpp_choices = ( "c++98", "c++03", "c++0x", "c++11", "c++1y", "c++14", "c++1z" )
+    stdcpp_choices = (
+        "c++98", "c++03", "c++0x", "c++11", "c++1y", "c++14",
+        "c++1z", "c++17",
+        "c++2a", "c++20",
+        "c++2b", "c++23",
+        "c++2c", "c++26",
+        "c++latest",
+    )
 
     @classmethod
     def add_options( cls, add_option ):

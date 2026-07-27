@@ -7,9 +7,9 @@ It keeps `sconscript` files declarative while handling toolchains, build variant
 == Why cuppa?
 
 * *Make-like CLI* -- from anywhere under your project tree, run `cuppa -D` (or `scons -D`) and cuppa builds the relevant `sconscript` files.
-* *Multi-toolchain, multi-variant* -- build debug, release, and coverage variants against GCC, Clang, and MSVC in one invocation.
+* *Multi-toolchain, multi-variant* -- build debug, release, and coverage variants against GCC and Clang (and debug/release against MSVC on Windows) in one invocation.
 * *Dependencies as vocabulary* -- Boost, Qt, location-based header libraries, and GitLab package registry packages are first-class.
-* *Tests and coverage* -- `BuildTest`, runners, gcovr HTML/JSON reports, and coverage index collation.
+* *Tests and coverage* -- `BuildTest`, runners, gcovr HTML/JSON reports (GCC/Clang), and coverage index collation.
 
 == Where to start
 

@@ -34,6 +34,12 @@ jobs:
 
   integration:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Smoke the full integration suite once per Linux toolchain family.
+        # MSVC (`vc`) requires Windows + Visual Studio and is not exercised here.
+        toolchain: [gcc, clang]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -42,11 +48,33 @@ jobs:
       - name: Install system packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y g++ gcovr
+          sudo apt-get install -y g++ clang gcovr
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -e . --no-build-isolation
-      - name: Integration tests
+      - name: Integration tests (${{ matrix.toolchain }})
+        env:
+          CUPPA_TEST_TOOLCHAIN: ${{ matrix.toolchain }}
+        run: pytest -m integration -q
+
+  integration-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          # Prefer a version with broad Windows wheels for native deps (lxml, libsass).
+          python-version: '3.12'
+      - name: Set up MSVC developer environment
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e . --no-build-isolation
+      - name: Integration tests (vc)
+        env:
+          CUPPA_TEST_TOOLCHAIN: vc
         run: pytest -m integration -q

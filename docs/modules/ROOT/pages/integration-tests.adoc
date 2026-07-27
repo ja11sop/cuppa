@@ -14,7 +14,9 @@ pytest -m integration
 Requires a C++ compiler (`g++` preferred).
 Optional tools (`clang`, `gcov`, AsciiDoc) cause individual tests to skip with a log line when absent.
 
-Every `run_cuppa()` call also passes `-D`, `--offline`, and (unless overridden) `--toolchains=gcc` when gcc is available.
+Every `run_cuppa()` call also passes `-D`, `--offline`, and a default `--toolchains=` selection.
+Override the default family with `CUPPA_TEST_TOOLCHAIN=gcc|clang|vc` (used by CI to smoke the suite per toolchain).
+Linux CI matrices `gcc` and `clang`; Windows CI uses MSVC (`vc`) via `windows-latest`.
 
 == Shared fixture
 

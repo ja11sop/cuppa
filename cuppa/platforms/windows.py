@@ -44,7 +44,7 @@ class Windows:
         machine = machine.lower()
         if machine == "x86":
             return '32'
-        elif machine == "amd64":
+        elif machine in ( "amd64", "x86_64", "arm64", "aarch64" ):
             return '64'
         else:
             return 'unknown'
