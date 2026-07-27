@@ -93,7 +93,7 @@ setup(
     classifiers = [
         "Topic :: Software Development :: Build Tools",
         "Intended Audience :: Developers",
-        "Development Status :: 4 - Beta",
+        "Development Status :: 6 - Mature",
         "License :: OSI Approved",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 2",
