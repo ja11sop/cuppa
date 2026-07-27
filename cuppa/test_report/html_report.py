@@ -118,9 +118,14 @@ class GenerateHtmlReportBuilder(object):
         targets = []
         try:
             for s in source:
-                if os.path.splitext( str(s) )[1] == ".json":
+                path = str(s)
+                # Only Boost/process test report JSON (*.report.json). Coverage
+                # emits coverage--*.json alongside BuildTest outputs; treating
+                # those as reports would claim coverage--*.html and conflict
+                # with the gcovr coverage builder.
+                if path.endswith(".report.json"):
                     sources.append( s )
-                    target_report = os.path.splitext( str(s) )[0] + ".html"
+                    target_report = os.path.splitext( path )[0] + ".html"
                     targets.append( target_report )
                     targets.append( self._summary_path(target_report) )
         except StopIteration:
