@@ -4,6 +4,7 @@ grip
 jinja2
 libsass
 lxml
+packaging
 psutil
 pyscss
 six
@@ -18,5 +19,3 @@ twine
 
 # for testing
 pytest
-setuptools
-

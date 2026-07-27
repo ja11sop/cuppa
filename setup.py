@@ -73,6 +73,7 @@ setup(
         'jinja2',
         'libsass',
         'lxml',
+        'packaging',
         'psutil',
         'pyscss',
         'six',

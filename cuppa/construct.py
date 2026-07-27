@@ -13,7 +13,6 @@ import os
 import re
 import fnmatch
 import multiprocessing
-import pkg_resources
 import six
 from urllib.parse import urlparse
 
@@ -40,6 +39,7 @@ import cuppa.scms
 from cuppa.colourise import colouriser, as_emphasised, as_info, as_error, as_notice, colour_items, as_info_label
 from cuppa.log import set_logging_level, reset_logging_format, logger, enable_thirdparty_logging
 from cuppa.utility.types import is_string
+from cuppa.utility.entry_points import iter_entry_points
 
 from cuppa.toolchains             import *
 from cuppa.methods                import *
@@ -191,7 +191,7 @@ class Construct(object):
         cuppa.modules.registration.add_options( self.project_generators_key )
         cuppa.modules.registration.add_options( self.methods_key )
 
-        for method_plugin in pkg_resources.iter_entry_points( group='cuppa.method.plugins', name=None ):
+        for method_plugin in iter_entry_points( group='cuppa.method.plugins', name=None ):
             try:
                 method_plugin.load().add_options( SCons.Script.AddOption )
             except AttributeError:
@@ -201,7 +201,7 @@ class Construct(object):
             for profile in profiles:
                 profile.add_options( SCons.Script.AddOption )
 
-        for profile_plugin in pkg_resources.iter_entry_points( group='cuppa.profile.plugins', name=None ):
+        for profile_plugin in iter_entry_points( group='cuppa.profile.plugins', name=None ):
             try:
                 profile_plugin.load().add_options( SCons.Script.AddOption )
             except AttributeError:
@@ -211,7 +211,7 @@ class Construct(object):
             for dependency in dependencies:
                 dependency.add_options( SCons.Script.AddOption )
 
-        for dependency_plugin in pkg_resources.iter_entry_points( group='cuppa.dependency.plugins', name=None ):
+        for dependency_plugin in iter_entry_points( group='cuppa.dependency.plugins', name=None ):
             try:
                 dependency_plugin.load().add_options( SCons.Script.AddOption )
             except AttributeError:
@@ -494,10 +494,10 @@ class Construct(object):
                 cuppa.modules.registration.add_to_env( "methods",            cuppa_env )
                 cuppa.modules.registration.add_to_env( "project_generators", cuppa_env )
 
-                for method_plugin in pkg_resources.iter_entry_points( group='cuppa.method.plugins', name=None ):
+                for method_plugin in iter_entry_points( group='cuppa.method.plugins', name=None ):
                     method_plugin.load().add_to_env( cuppa_env )
 
-                for profile_plugin in pkg_resources.iter_entry_points( group='cuppa.profile.plugins', name=None ):
+                for profile_plugin in iter_entry_points( group='cuppa.profile.plugins', name=None ):
                     profile_plugin.load().add_to_env( cuppa_env )
 
                 if profiles:
@@ -512,7 +512,7 @@ class Construct(object):
                         colour_items( sorted( cuppa_env["default_profiles"] ), as_info )
                 ) )
 
-                for dependency_plugin in pkg_resources.iter_entry_points( group='cuppa.dependency.plugins', name=None ):
+                for dependency_plugin in iter_entry_points( group='cuppa.dependency.plugins', name=None ):
                     dependency_plugin.load().add_to_env( cuppa_env, add_dependency )
 
                 if dependencies:
