@@ -107,7 +107,22 @@ Release checklist: see `release.txt` (`sdist` / `bdist_wheel` / `twine`).
 - Preview docs: `cd docs && npm ci && npm run build` → `_docs_build/site/` (Lunr search via `@antora/lunr-extension`)
 - Integration test scenarios: Antora **Integration tests** section (`docs/modules/ROOT/pages/integration/`)
 
-When docs and code disagree, **code is authoritative** (especially storage defaults, toolchain version lists, and whether `--cov` implies `--test`).
+When docs and code disagree, **code is authoritative** (especially storage defaults, toolchain version lists, default compiler flags, and whether `--cov` implies `--test`).
+
+### Where topics live (do not invent parallel pages)
+
+| Topic | Primary page |
+|-------|----------------|
+| Overview, benefits, CMake contrast | `docs/modules/ROOT/pages/index.adoc` |
+| Install / first project | `install.adoc`, `quickstart.adoc` |
+| Vocabulary (methods, deps, variants) | `concepts.adoc` |
+| Build / test / library APIs + examples | `methods.adoc` |
+| Compiler defaults and flags | `toolchains.adoc` |
+| C++20 modules intro, tutorial, papers, reference | `cxx-modules.adoc` |
+| CLI flags | `cli-reference.adoc` |
+| Pytest scenarios | `integration-tests.adoc` + `integration/*.adoc` |
+
+Update `docs/modules/ROOT/nav.adoc` when adding a new top-level page.
 
 ## Consumer-project tips
 
@@ -120,3 +135,191 @@ cuppa -D --cov --test --toolchains=gcc
 
 Package registry dependencies need matching toolchain archives in the registry (or cache); `--develop` does not invent them.
 GitLab auth: `GITLAB_REGISTRY_TOKEN` or `CI_JOB_TOKEN`.
+
+---
+description: Documentation style guide for Cuppa docs
+globs:
+  - "doc/**"
+  - "**/*.adoc"
+---
+
+# Style
+
+Technical documentation should be:
+
+- **Comprehensive and written for all experience levels**
+- **Technically detailed and correct**
+- **Practical, useful, and self-contained**
+- **Friendly but formal**
+
+## Comprehensive and Written for All Experience Levels
+
+Write clearly without assuming background knowledge. Provide explanations and context readers need to understand concepts, not just copy code.
+
+Avoid words like "simple," "straightforward," "easy," "simply," "obviously," and "just." These make assumptions about the reader's knowledge. A reader who hears something is "easy" may be frustrated when they encounter an issue.
+
+## Technically Detailed and Correct
+
+Don't provide blocks of code and ask readers to trust it works. Every command should have a detailed explanation. Every block of code should be followed by prose explaining what it does and why.
+
+When asking the reader to execute a command or modify code, first explain what it does and why. These details help readers grow their skills.
+
+Quote **real** toolchain defaults and CLI behaviour from `cuppa/toolchains/*.py` and `cuppa/methods/*.py`. If a flag list changes in code, update `toolchains.adoc` in the same change.
+
+## Practical and Self-Contained
+
+Readers should have something usable when finished. Link to prerequisites they should complete first. Link to other docs for additional information. Only send readers offsite if no existing doc covers it and the information can't be summarized.
+
+## Friendly but Formal
+
+No jargon, memes, excessive slang, emoji, or jokes. Aim for a tone that works across language and cultural boundaries.
+
+Use second person ("You will configure...") to keep focus on the reader. In some cases, use first person plural ("We will examine..."). Avoid first person singular ("I think...").
+
+Use motivational language focused on outcomes. Instead of "You will learn how to install Apache," try "In this tutorial, you will install Apache."
+
+## Cuppa subject matter
+
+Cuppa docs teach a **SCons-based C++ build system**. Prefer this framing:
+
+- **Intent over ceremony** -- show `env.Build` / `env.BuildTest` / `env.BuildWith` before raw SCons builders
+- **Visible artefacts** -- talk about `_build/`, variants (`--dbg` / `--rel` / `--cov`), and toolchains by name
+- **Honest comparisons** -- when contrasting CMake (or Make/Ninja wrappers), be specific about DSL complexity, property/generator-expression load, and where cuppa's Python API helps; do not dismiss other tools without nuance
+- **Toolchain truth** -- every toolchain page/section should state default dialect, warning, optimisation, CRT/stdlib, and modules flags so readers know what they are getting
+- **Modules as a product feature** -- for C++20 modules, start with *why* (include model costs), cite relevant WG21 papers (`wg21.link/p…`), then a cuppa tutorial, then reference detail; call out vendor gaps (Apple Clang, MSVC header units, GCC private fragments)
+- **Fail clearly** -- document cuppa's preference for StopError / skip-with-reason over silent fallback
+
+## Technical Depth for Core Topics
+
+Certain foundational topics require deeper, more methodical treatment, for example:
+
+- how `sconstruct` and `sconscript` files work together
+- how Python code in sconscript files is interpreted with SCons's deferred graph construction
+- foundational workflows (multi-toolchain grids, coverage+test, offline/develop)
+- significant features such as C++20 modules, package BMIs, and location dependencies
+
+For these sections:
+
+- Use more technical and methodical exposition
+- Provide convincing explanations with thorough reasoning
+- Include extended background and context
+- Explain the "why" behind design decisions
+- Prefer AsciiDoc tutorials with numbered steps (gerund titles) over bare API tables alone
+
+These topics build reader understanding from first principles, not just usage. Readers need to understand the reasoning to apply concepts correctly in their own code.
+
+# Build Workflow
+
+When documentation is built:
+
+- Obsolete pages are automatically removed
+- New pages are linked into the table of contents
+
+No manual cleanup of old files is needed. Do update `nav.adoc` for new top-level pages.
+
+# Structure
+
+## Introduction
+
+Usually one to three paragraphs. Answer:
+
+- What is this about? What does each component do (briefly)?
+- Why should the reader learn this? What are the benefits?
+- What will the reader do or create? Be specific.
+- What will they have accomplished when done? What new skills?
+
+Keep focus on the reader and what they will accomplish. Instead of "we will learn how to," use "you will configure" or "you will build."
+
+## Prerequisites
+
+Spell out exactly what the reader should have or do before starting. Format as a checklist. Link to existing docs covering prerequisite content.
+
+Be specific. "Familiarity with Boost" without a link gives little context. Instead: "Familiarity with Boost. To build your skills, check out [resource]."
+
+## Steps
+
+Each step describes what the reader needs to do and why. Include commands, code listings, and explanations of both what to do and why.
+
+Step titles describe what readers will accomplish using gerunds (-ing words):
+
+> Step 1 — Creating User Accounts
+
+After the title, add an introductory sentence describing what the reader will do and how it contributes to the overall goal.
+
+### Commands
+
+All commands go on their own line in a code block. Precede with a description of what the command does. After the command, explain arguments and why they're used:
+
+> Execute the following command to display the contents of the directory, including hidden files:
+>
+> `ls -al /home/sammy`
+>
+> The `-a` switch shows all files including hidden ones, and `-l` shows a long listing with timestamps and sizes.
+
+Display command output in a separate block with text explaining what it shows.
+
+### Code Blocks
+
+Introduce code with a high-level explanation of what it does. Show the code. Then call out important details:
+
+> Add the following code, which prints a message to the screen:
+>
+> ```cpp
+> std::cout << "Hello world!\n";
+> ```
+>
+> The `std::cout` stream sends text to standard output.
+
+When changing something specific in existing code, show the relevant parts and highlight what should change. Explain what the change does and why it's necessary.
+
+### Transitions
+
+Frame each step with a brief intro sentence and a closing transition describing what the reader accomplished and where they're going next. Vary the language to avoid repetition:
+
+> You have now configured the server. Before proceeding, you need to verify the settings in the next step.
+
+## Conclusion
+
+Summarize what the reader accomplished. Instead of "we learned how to," use "you configured" or "you built."
+
+Describe what the reader can do next: use cases, features to explore, links to related docs.
+
+# Formatting
+
+## Line-level
+
+**Bold** for:
+- Visible GUI text
+- Hostnames and usernames
+- Term lists
+- Emphasis when changing context
+
+*Italics* only for introducing technical terms.
+
+`Inline code` for:
+- Command names
+- Package names
+- File names and paths
+- Example URLs
+- Ports
+- Key presses (ALL CAPS, use + for simultaneous: `CTRL+C`)
+- Cuppa methods and CLI flags (`env.Build`, `--modules`)
+
+## Code Blocks
+
+Use for:
+- Commands to execute
+- Files and scripts (`sconstruct` / `sconscript`, C++ sources)
+- Terminal output
+
+Use ellipses (`...`) to indicate excerpts and omissions.
+
+If most of a file can be left with defaults, show just the section that needs changing.
+
+## Variables
+
+Highlight items the reader must change: example URLs, version numbers, modified lines. Make clear what needs customization.
+
+## Notes and Warnings
+
+Use note and warning callouts for very important information (unsupported toolchains, `--cov` not implying `--test`, Apple Clang vs LLVM Clang, MSVC DLL export vs module export).

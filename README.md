@@ -20,6 +20,7 @@ Full reference documentation: **[https://ja11sop.github.io/cuppa/](https://ja11s
 - Out-of-tree builds under `_build/` (downloads under `_cuppa/`, archive cache under `~/_cuppa/_cache`)
 - Dependencies: Boost, Qt4/Qt5, Quince, location-based libraries, GitLab package registry
 - Test runners and HTML coverage (gcovr), plus optional HTML test reports
+- Optional C++20 modules (`--modules`): named modules, partitions, header units, `import std` where supported
 - Persistent config: `configure.conf` and `~/.cuppaconfig`
 
 ## Installation

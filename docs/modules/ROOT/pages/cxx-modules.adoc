@@ -1,8 +1,10 @@
 = C++ modules
-:description: Experimental named modules, partitions, header units, and import std (GCC/Clang/MSVC)
+:description: Introduction, tutorial, and reference for C++20 modules with cuppa
 
-Cuppa can build C++20 **named modules** (including interface / implementation partitions),
-**header units** (GCC/Clang), and (with a capable toolchain) **`import std` / `import std.compat`**.
+In this guide you will learn what C++20 modules are for, how cuppa builds them, and how to adopt named modules, partitions, header units, and `import std` in a cuppa project.
+
+Cuppa treats modules as an **opt-in** feature (`--modules` or `env.Modules()`).
+Existing projects stay on the classic translation-unit path until you enable modules deliberately.
 
 Supported platforms / floors:
 
@@ -11,10 +13,148 @@ Supported platforms / floors:
 
 See <<macos-apple-clang>> for why Xcode’s Apple Clang is rejected on macOS.
 
-Enablement is **opt-in** so existing projects are unchanged.
-BMIs are per env / variant. Same-sconscript `BuildLib` / `Module` + `Build` share the registry.
-Libraries also install a `modules/module-map.json` next to `final/` for cross-project reuse via
-`env.ImportModules(...)` or `package_dependency` / `BuildWith` (see <<packaged-modules>>).
+== Prerequisites
+
+* xref:install.adoc[Cuppa installed] and a working xref:quickstart.adoc[quickstart] project
+* A modules-capable toolchain (see floors above and xref:toolchains.adoc[Toolchains])
+* Willingness to use C++20 or newer (`--stdcpp=c++20` or higher; cuppa raises the floor when `--modules` is set)
+
+== Why modules exist
+
+For decades, C++ physical design relied on `#include`: textual inclusion of headers into every translation unit that needs them.
+That model scales poorly: repeated parsing, fragile include guards / `#pragma once`, leakage of macros, and slow incremental builds.
+
+*Modules* give the language a named, compiler-checked boundary.
+You write `export module math;`, consumers write `import math;`, and the build system exchanges a binary module interface (BMI) -- `.gcm` (GCC), `.pcm` (Clang), or `.ifc` (MSVC) -- instead of re-parsing headers.
+
+Key ideas:
+
+* **Named modules** -- a primary interface (`export module M;`), optional implementation units (`module M;`), and optional partitions (`export module M:part;` / `module M:part;`)
+* **Header units** -- import an existing header as a BMI (`import "h.hpp";` / `import <span>;`) without rewriting it as a named module
+* **`import std`** -- import the standard library as a named module where the toolchain ships `std` / `std.compat` interfaces
+
+Cuppa's job is to scan sources, build BMIs in dependency order, pass the right toolchain flags, and (when you ship libraries) install a `module-map.json` so other projects can reuse those BMIs.
+
+== Papers and further reading
+
+The design of C++ modules spans many proposals. These documents are useful landmarks:
+
+|===
+| Paper / document | Topic
+
+| https://wg21.link/p1103r3[P1103R3] -- *Merging Modules*
+| The C++20 wording merge that brought modules into the working draft
+
+| https://wg21.link/p1241r0[P1241R0] / related follow-ups
+| Module dependency discovery discussion that influenced tooling expectations
+
+| https://wg21.link/p2465r3[P2465R3] -- *Standard Library Modules `std` and `std.compat`*
+| The named standard-library modules used by `import std;`
+
+| https://wg21.link/p2412r0[P2412R0] (and related)
+| Background on standard library module packaging concerns
+
+| https://eel.is/c++draft/module[C++ working draft -- `[module]`]
+| Normative reference for module units, partitions, and linkage
+
+| https://clang.llvm.org/docs/StandardCPlusPlusModules.html[Clang -- Standard C++ Modules]
+| Clang's BMI / `std.cppm` practice
+
+| https://gcc.gnu.org/onlinedocs/gcc/C_002b_002b-Modules.html[GCC -- C++ Modules]
+| GCC mapper and GCM model
+
+| https://learn.microsoft.com/en-us/cpp/cpp/modules-cpp[MSVC -- Overview of modules in C++]
+| MSVC IFC model, `/interface`, `/internalPartition`
+|===
+
+Compiler support still differs by vendor and version.
+Cuppa encodes those differences as explicit floors and fails clearly when `--modules` cannot be honoured.
+
+[#tutorial]
+== Tutorial: your first named module with cuppa
+
+In this tutorial you will create a tiny `math` module, import it from `main`, and build it with cuppa.
+
+=== Step 1 — Enabling modules for the build
+
+You will turn on modules and select a capable toolchain.
+
+[source,sh]
+----
+cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=gcc
+----
+
+`--modules` sets `env['modules']=True` for each variant env.
+If the selected dialect is below C++20, cuppa raises it to `c++20`.
+You can also call `env.Modules()` from a sconscript.
+On an unsupported toolchain, cuppa stops with a clear error (no silent fallback).
+
+=== Step 2 — Writing the interface and consumer
+
+Create an interface unit and a consumer:
+
+[source,cpp]
+----
+// math.cppm
+export module math;
+
+export int add(int a, int b)
+{
+    return a + b;
+}
+----
+
+[source,cpp]
+----
+// main.cpp
+import math;
+#include <cstdio>
+
+int main()
+{
+    std::printf("%d\n", add(2, 3));
+}
+----
+
+`export module math;` declares the primary module interface.
+`export int add…` makes `add` visible to importers.
+`import math;` brings that interface into `main.cpp` without `#include`.
+
+=== Step 3 — Declaring the build
+
+In your `sconscript`:
+
+[source,python]
+----
+Import('env')
+
+env.Build('math_app', ['math.cppm', 'main.cpp'])
+----
+
+Cuppa scans sources for `export module` / `module` / `import`, builds the BMI under `_build/.../working/modules/`, and wires SCons `Depends` so the interface compiles before the consumer.
+BMI nodes are **pre-registered** for every unit in the source list, so partitions may appear before or after the primary interface.
+
+Alternatively, use the `Module` sugar (compiles the interface, registers the BMI, and links objects into a later `Build` in the same sconscript):
+
+[source,python]
+----
+Import('env')
+
+env.Module('math', interface='math.cppm')
+env.Build('math_app', ['main.cpp'])
+----
+
+=== Step 4 — Building and inspecting artefacts
+
+[source,sh]
+----
+cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=gcc
+----
+
+Look under `_build/<toolchain>/dbg/.../working/modules/` for `math.gcm` (GCC), `math.pcm` (Clang), or `math.ifc` (MSVC), and under `final/` for `math_app`.
+
+You have now built a named module end-to-end with cuppa.
+The sections below cover libraries, partitions, header units, and `import std`.
 
 == Enable modules
 
@@ -25,19 +165,13 @@ cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=clang
 cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=vc   # Windows
 ----
 
-`--modules` sets `env['modules']=True` for each variant env.
-If the selected dialect is below C++20, cuppa raises it to `c++20`.
-You can also call `env.Modules()` from a sconscript.
-On an unsupported toolchain, `--modules` stops the build with a clear error (no silent fallback).
-
 Unresolved `import` names after BMI pre-registration fail the build with `StopError`
 (list the missing named / header imports). Declare `HeaderUnit` or include the interface
 unit in the same `Build` / `Compile` call.
 
-== Named modules
-
 Interface units use `.cppm` / `.cxxm` / `.ccm` / `.ixx` (or a `.cpp` that contains `export module`).
-Pass them to `Build` / `Compile` like any other source:
+
+== Named modules
 
 [source,python]
 ----
@@ -49,8 +183,7 @@ env.Build('app', [
 ])
 ----
 
-Or use the `Module` sugar (compiles the interface, registers the BMI, and links the
-objects into a later `Build` in the same sconscript):
+Or:
 
 [source,python]
 ----
@@ -58,11 +191,6 @@ Import('env')
 env.Module('math', interface='math.cppm', implementation=['math.cpp'])
 env.Build('app', ['main.cpp'])  # import math;
 ----
-
-Cuppa scans sources for `export module` / `module` / `import`, builds BMIs under
-`_build/.../working/modules/`, and wires SCons `Depends` so BMI-producing units
-compile before their consumers. BMI nodes are **pre-registered** for every unit in the
-source list, so partitions may appear before or after the primary interface.
 
 == Libraries with modules
 
@@ -78,7 +206,7 @@ env.AppendUnique(LIBPATH=[env['abs_final_dir']])
 env.Build('app', ['main.cpp'], LIBS=['mathlib'])
 ----
 
-Same pattern works with `BuildSharedLib`.
+Same pattern works with `BuildSharedLib` on platforms where the shared library also exports ordinary DLL/SO symbols as required by the linker.
 
 [[packaged-modules]]
 == Packaged modules (cross-project)
@@ -101,7 +229,7 @@ toolchain (`.gcm` vs `.pcm` vs `.ifc`) — cross-toolchain BMI reuse is not supp
 `PublishPackage` copies `modules/` into the package archive alongside `include/` and `lib/`.
 
 NOTE: Producer and consumer still need matching toolchain *family* for BMI format. Same-sconscript
-use remains the simplest path; packaging is for shipping modular libraries.
+use remains the most direct path; packaging is for shipping modular libraries.
 
 == Implementation units
 
@@ -184,6 +312,8 @@ env.Build('calc_app', [
 ])
 ----
 
+On MSVC, cuppa compiles non-exported partitions with `-internalPartition` rather than `-interface`.
+
 == Private module fragments
 
 Hide implementation details inside the primary interface unit with `module :private;`:
@@ -243,6 +373,8 @@ first, then `Build` sources that `import` both.
 Angle-bracket units are **explicit** (`HeaderUnit('<…>')`); cuppa does not auto-build a
 BMI for every `import <std_header>`.
 
+Header units are supported for GCC/Clang in this release; MSVC header units are not yet.
+
 == `import std` / `std.compat`
 
 When a scanned source contains `import std;` or `import std.compat;`, cuppa:
@@ -250,13 +382,14 @@ When a scanned source contains `import std;` or `import std.compat;`, cuppa:
 * Raises the dialect floor to **C++23** (if lower)
 * Builds the standard library BMI once per env/variant under `modules/std.gcm` or `modules/std.pcm`
 * Registers it as a named module for consumers
+* Builds `std` before `std.compat` when both are required (`std.compat` imports `std`)
 
 Requirements:
 
 * `--modules`
 * **GCC 15+** with `bits/std.cc` (and optionally `bits/std.compat.cc`)
 * **Clang 18+** with **libc++** (`--clang-stdlib=libc++`) and installed module interfaces
-  (typically `/usr/lib/llvm-<N>/share/libc++/v1/std.cppm`)
+  (typically `/usr/lib/llvm-<N>/share/libc++/v1/std.cppm`, or Homebrew LLVM paths on macOS)
 
 [source,python]
 ----
@@ -274,15 +407,17 @@ cuppa -D --dbg --modules --toolchains=clang22 --clang-stdlib=libc++
 
 ----
 _build/<toolchain>/<variant>/<arch>/<abi>/working/modules/
-  math.pcm|gcm
-  geo--point.pcm|gcm          # colon → -- in BMI filenames
+  math.pcm|gcm|ifc
+  geo--point.pcm|gcm|ifc      # colon → -- in BMI filenames
   header--include--widget.hpp.pcm|gcm
   header--angle--span.pcm|gcm
-    std.pcm|gcm|ifc
+  std.pcm|gcm|ifc
   std.compat.pcm|gcm|ifc
   module-mapper.txt           # GCC only
   (also installed under final/modules/ for libraries)
 ----
+
+Toolchain flag details for modules are listed under each compiler in xref:toolchains.adoc[Toolchains].
 
 == Limits
 

@@ -1,90 +1,308 @@
 = Methods
-:description: Cuppa environment methods for building, testing, and reporting
+:description: Cuppa environment methods for building, testing, libraries, and reporting
 
 Methods are registered on each cuppa environment and called from `sconscript` files after `Import('env')`.
+They differ from raw SCons builders (`Program`, `Object`, `StaticLibrary`) by understanding variants, toolchains, progress reporting, cuppa's `_build/` layout, and (when enabled) C++20 modules.
+
+This page focuses on the build surface you use every day.
+For the vocabulary behind methods, see xref:concepts.adoc[Concepts].
+For compiler defaults applied underneath these calls, see xref:toolchains.adoc[Toolchains].
+
+== Prerequisites
+
+* Cuppa installed and a project with `cuppa.run()` in `sconstruct` (xref:quickstart.adoc[Quickstart])
+* Familiarity with `Import('env')` in a `sconscript`
+* A C++ toolchain available to cuppa (`gcc`, `clang`, or `vc` on Windows)
 
 == Core build methods
 
-|===
-| Method | Role
+=== Building a program with `Build`
 
-| `env.Build(target, sources)` | Variant-aware program (like `Program`)
-| `env.BuildTest(target, sources)` | Build a test binary; run it when `--test` / `--force-test` is active
-| `env.Test(program)` | Attach an existing binary as a test
-| `env.BuildBenchmark` / `env.Benchmark` | Benchmark build / run (`--benchmark`)
-| `env.Run(program)` | Generic process runner (`--run`)
-| `env.Compile` / `CompileStatic` / `CompileShared` | Object compilation helpers
-| `env.BuildLib` / `BuildStaticLib` / `BuildSharedLib` | Libraries
+`env.Build(target, source, …)` produces a variant-aware executable.
+Cuppa compiles sources (via `Compile`), links a `Program`, and installs it under the variant's `final/` directory.
+
+In this tutorial you will declare a small program and build the debug variant.
+
+[source,python]
+----
+Import('env')
+
+env.Build('hello', ['hello.cpp'])
+----
+
+`target` is the logical program name (cuppa may append a variant suffix depending on options).
+`source` is a file, list of files, or nodes from `Compile` / `Module`.
+Additional keyword arguments are forwarded to SCons `Program` (for example `LIBS`, `LIBPATH`).
+
+Build it:
+
+[source,sh]
+----
+cuppa -D --dbg
+----
+
+`--dbg` selects the debug variant.
+`-D` walks upward until cuppa finds the `sconstruct`, then builds the active `sconscript` files.
+
+You can also pass library and dependency-related kwargs that cuppa understands when composing programs:
+
+[source,python]
+----
+Import('env')
+
+env.Build(
+    'app',
+    ['main.cpp', 'util.cpp'],
+    LIBS=['m'],
+    depends_on=[other_nodes],   # optional extra SCons Depends edges
+)
+----
+
+=== Compiling objects with `Compile`
+
+`env.Compile(source, …)` (and `CompileStatic` / `CompileShared`) turns sources into object files without linking.
+Use this when you need objects for custom link steps, or when you want to share objects across targets.
+
+[source,python]
+----
+Import('env')
+
+objs = env.Compile(['a.cpp', 'b.cpp'])
+env.Build('app', objs)
+----
+
+When `env['modules']` is true (see xref:cxx-modules.adoc[C++ modules]), `Compile` delegates to the modules compile path so interface units produce BMIs and consumers receive the right consume flags.
+
+=== Building libraries with `BuildLib`
+
+`env.BuildLib`, `BuildStaticLib`, and `BuildSharedLib` build libraries into `final/`.
+
+[source,python]
+----
+Import('env')
+
+env.BuildStaticLib('mathlib', ['math.cpp'])
+env.AppendUnique(LIBPATH=[env['abs_final_dir']])
+env.Build('app', ['main.cpp'], LIBS=['mathlib'])
+----
+
+With `--modules` enabled, library builds that contain named module interfaces also install BMIs under `final/modules/` and write `module-map.json` for consumers (see xref:cxx-modules.adoc#packaged-modules[Packaged modules]).
+
+NOTE: On Windows, MSVC *module* export is not the same as *DLL* export.
+A shared library may need `__declspec(dllexport)` (or a module-definition file) before the linker produces an import `.lib`.
+
+=== Testing with `BuildTest` and `Test`
+
+`env.BuildTest(target, source, …)` builds a program and, when `--test` or `--force-test` is active, runs it through the configured runner.
+
+[source,python]
+----
+Import('env')
+
+env.BuildTest('unit_tests', ['tests.cpp'])
+----
+
+Run tests:
+
+[source,sh]
+----
+cuppa -D --dbg --test --show-test-output
+----
+
+`--show-test-output` prints runner output instead of only the pass/fail summary.
+
+Useful `BuildTest` parameters:
+
+|===
+| Parameter | Role
+
+| `runner`
+| Runner name (default from `cuppa.run(default_runner=…)`; often `process`, `boost`, or `patched_boost`)
+
+| `expected`
+| Expected outcome string (default `'passed'`)
+
+| `expected_exit_code`
+| Override the expected process exit code
+
+| `data`
+| Extra files/directories associated with the test
+
+| `working_dir`
+| Directory in which to run the test
+
+| `cov_include_patterns` / `cov_exclude_patterns`
+| Narrow coverage instrumentation when combined with `--cov`
 |===
 
-Runners may also expose specialised forms such as `BuildBoostTest` depending on the selected `--runner`.
+`env.Test(program, …)` attaches a test action to an *existing* binary (for example one produced by `Build`).
+
+Toolchain-specific aliases such as `BuildBoostTest` / `BoostTest` appear when the toolchain advertises those runners.
+
+=== Benchmarks and generic runs
+
+* `env.BuildBenchmark` / `env.Benchmark` -- same shape as tests, activated by `--benchmark` / `--force-benchmark`
+* `env.Run` -- generic process runner activated by `--run` / `--force-run` (and also available alongside test/benchmark actions)
+
+[source,python]
+----
+Import('env')
+
+env.Build('tool', ['tool.cpp'])
+env.Run('tool', command_args=['--self-check'])
+----
 
 == Dependencies and profiles
 
-|===
-| Method | Role
+[source,python]
+----
+Import('env')
 
-| `env.BuildWith('boost', …)` | Apply named dependencies to this env
-| `env.Using(…)` | Using-style dependency application
-| `env.BuildProfile(…)` | Apply profiles
-|===
+env.BuildWith('boost')
+env.BuildProfile('quad_float')   # example built-in profile
+env.Build('app', ['main.cpp'])
+----
+
+* `BuildWith` applies named dependency factories (Boost, location packages, GitLab packages, …)
+* `Using` looks up a dependency factory by name
+* `BuildProfile` applies named profiles (lightweight env tweaks)
+
+See xref:dependencies.adoc[Dependencies] and xref:packages.adoc[Packages].
 
 == Versioning and sources
 
 |===
 | Method | Role
 
-| `env.CreateVersion(…)` | SCM-aware generated version sources
-| `env.GlobFiles` / `env.RecursiveGlob` | Source discovery
-| `env.TargetFrom(path)` | Derive a target name from a path
-| `env.CopyFiles` / `env.CopyFilesAs` | Copy helpers
+| `env.CreateVersion(…)`
+| SCM-aware generated version sources
+
+| `env.GlobFiles` / `env.RecursiveGlob`
+| Source discovery relative to the sconscript
+
+| `env.TargetFrom(path)`
+| Derive a target basename from a path
+
+| `env.CopyFiles` / `env.CopyFilesAs`
+| Filtered install/copy helpers
 |===
 
-== Flags and templates
+Example -- collect sources and name the binary from a path:
+
+[source,python]
+----
+Import('env')
+
+sources = env.RecursiveGlob('*.cpp', start='src')
+env.Build(env.TargetFrom('src/apps/server.cpp'), sources)
+----
+
+== Dialect, modules, and flags
 
 |===
 | Method | Role
 
-| `env.StdCpp(standard)` | Set C++ dialect flags for the current toolchain
-| `env.Modules()` / `--modules` | Enable experimental C++20 named modules + header units (GCC/Clang Linux)
-| `env.HeaderUnit(path)` | Register a header for BMI compilation (`'include/h.hpp'` or `'<span>'`; requires `--modules`; GCC/Clang)
-| `env.Module(name, interface=…, implementation=…)` | Compile/register a named module; objects link into later `Build` (same env)
-| `env.ImportModules(dir)` | Load `modules/module-map.json` + BMIs from a packaged library into the env registry
-| `env.Filter` / `ReplaceFlags` / `RemoveFlags` | Flag manipulation
-| `env.ExpandTemplateFile` / `RenderJinjaTemplate` | Templating
-| `env.MarkdownToHtml` / `AsciidocToHtml` | Doc conversion builders
-| `env.CompileScss` | SCSS → CSS
-| `env.RunAndRedirectToFile` | Capture subprocess output to a file
-| `env.Toolchain()` | Toolchain introspection
+| `env.StdCpp(standard)`
+| Set the C++ dialect for this env (for example `'c++20'`, `'c++23'`)
+
+| `env.Modules()` / `--modules`
+| Enable C++20 modules for this env / all variants
+
+| `env.HeaderUnit(path)`
+| Register a header for BMI compilation (`'include/h.hpp'` or `'<span>'`)
+
+| `env.Module(name, interface=…, implementation=…)`
+| Compile/register a named module; objects link into a later `Build` in the same env
+
+| `env.ImportModules(dir)`
+| Load `modules/module-map.json` + BMIs from a packaged library
+
+| `env.Filter` / `ReplaceFlags` / `RemoveFlags`
+| Flag list manipulation
 |===
+
+Dialect and modules interact with toolchain defaults documented in xref:toolchains.adoc[Toolchains].
+A full modules walkthrough is in xref:cxx-modules.adoc[C++ modules].
+
+[source,python]
+----
+Import('env')
+
+env.StdCpp('c++20')
+env.Modules()
+env.Module('math', interface='math.cppm', implementation=['math.cpp'])
+env.Build('app', ['main.cpp'])
+----
 
 == Coverage
 
 |===
 | Method | Role
 
-| `env.Coverage(program, sources, …)` | Run coverage tooling for a binary (active with `--cov` / `--test` actions)
-| `env.CollateCoverageFiles(sources, destination=…)` | Collate coverage HTML/JSON
-| `env.CollateCoverageIndex(…)` | Master coverage index across tests/toolchains
+| `env.Coverage(program, sources, …)`
+| Run coverage tooling for a binary (active with `--cov` / related actions)
+
+| `env.CollateCoverageFiles(sources, destination=…)`
+| Collate coverage HTML/JSON
+
+| `env.CollateCoverageIndex(…)`
+| Master coverage index across tests/toolchains
 |===
 
+IMPORTANT: `--cov` does *not* imply `--test`. For a typical coverage workflow:
+
+[source,sh]
+----
+cuppa -D --cov --test --toolchains=gcc
+----
+
 See xref:testing-coverage.adoc[Testing and coverage].
+Coverage instrumentation is supported for GCC and Clang; MSVC does not participate.
 
 == Packages
 
 |===
 | Method | Role
 
-| `env.PublishPackage(…)` | Publish (requires `--publish-package`)
-| `env.InstallPackage(…)` | Install a package locally
+| `env.PublishPackage(…)`
+| Build (and optionally publish) a package archive; publishing requires `--publish-package`
+
+| `env.InstallPackage(…)`
+| Install a package locally and extend `SYSINCPATH`
+|===
+
+== Templates and documentation helpers
+
+|===
+| Method | Role
+
+| `env.ExpandTemplateFile` / `env.RenderJinjaTemplate`
+| Template expansion
+
+| `env.MarkdownToHtml` / `env.AsciidocToHtml`
+| Doc conversion builders
+
+| `env.CompileScss`
+| SCSS → CSS
+
+| `env.RunAndRedirectToFile`
+| Capture subprocess stdout to a file
+
+| `env.Toolchain(name)`
+| Look up a registered toolchain object
 |===
 
 == Test reporting plugins
 
-When the corresponding plugins are loaded (shipped with cuppa):
+When the corresponding plugins are loaded (shipped with cuppa via `cuppa.method.plugins`):
 
 * `env.GenerateHtmlTestReport(…)`
 * `env.CollateTestReportIndex(…)`
-* Bitten XML report generation
+* Bitten XML report generation (`GenerateBittenReport`)
 
 These activate in concert with `--test`.
+
+== What you have available
+
+You can now express programs, libraries, tests, and module-aware builds using cuppa methods instead of assembling SCons builders by hand.
+Next, inspect xref:toolchains.adoc[Toolchains] so you know which flags each compiler receives by default, and xref:cxx-modules.adoc[C++ modules] if you are adopting `import` / `export module`.

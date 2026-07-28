@@ -2,24 +2,82 @@
 :description: Extensible C++ build system built on SCons
 
 Cuppa is an extensible build system for C++ projects that sits on top of https://www.scons.org/[SCons].
-It keeps `sconscript` files declarative while handling toolchains, build variants, dependencies, tests, and coverage.
+You keep short, declarative `sconscript` files that express *intent* (`Build`, `BuildTest`, `BuildWith`), while cuppa owns toolchains, build variants, dependencies, tests, coverage, and (optionally) C++20 modules.
 
-SCons remains the low-level DAG / make replacement; cuppa captures common C++ build practices so experts can encapsulate toolchains and dependencies once, and everyone else expresses *intent* in short `sconscript` files.
+SCons remains the low-level DAG and make replacement.
+Cuppa captures common C++ build practice so experts can encapsulate toolchains and dependencies once, and the rest of the team works in a stable vocabulary instead of fighting proprietary DSL syntax or hand-written flag matrices.
+
 Location and package dependencies make revision- and branch-pinned library composition a first-class part of the build.
+Artefacts land under a visible `_build/` tree (not a hidden directory), so a guaranteed clean rebuild is `rm -rf _build`.
 
 == Why cuppa?
 
-* *Make-like CLI* -- from anywhere under your project tree, run `cuppa -D` (or `scons -D`) and cuppa builds the relevant `sconscript` files.
+* *Make-like CLI* -- from anywhere under your project tree, run `cuppa -D` (or `scons -D`) and cuppa finds and builds the relevant `sconscript` files.
 * *Multi-toolchain, multi-variant* -- build debug, release, and coverage variants against GCC and Clang (and debug/release against MSVC on Windows) in one invocation.
-* *Dependencies as vocabulary* -- Boost, Qt, location-based header libraries, and GitLab package registry packages are first-class.
-* *Tests and coverage* -- `BuildTest`, runners, gcovr HTML/JSON reports (GCC/Clang), and coverage index collation.
+* *Dependencies as vocabulary* -- Boost, Qt, location-based header libraries, and GitLab package registry packages are first-class names, not ad-hoc `find_package` scripts.
+* *Tests and coverage* -- `BuildTest`, pluggable runners, gcovr HTML/JSON reports (GCC/Clang), and coverage index collation.
+* *C++20 modules when you opt in* -- named modules, partitions, header units (GCC/Clang), and `import std` where the toolchain supports it; see xref:cxx-modules.adoc[C++ modules].
+* *Python as the extension language* -- the same language you already use for tooling, packaging, and CI, rather than a parallel proprietary language.
+
+== Cuppa and CMake
+
+Many C++ teams meet CMake first.
+Cuppa solves a different design problem: keep the *project description* short and intentional, and keep the *build expertise* in reusable Python modules.
+
+|===
+| Concern | Cuppa | CMake
+
+| Project language
+| Python (`sconstruct` / `sconscript`)
+| CMake language (its own DSL)
+
+| Everyday build API
+| Intent methods: `env.Build`, `env.BuildTest`, `env.BuildWith`
+| Targets + properties + generator expressions
+
+| Multi-config / multi-toolchain
+| First-class `--dbg` / `--rel` / `--cov` and `--toolchains=gcc,clang`
+| Generators and toolchain files; often one configure tree per combo
+
+| Dependencies
+| Named cuppa dependencies and location/package pinning
+| `find_package`, FetchContent, ExternalProject, vendor scripts
+
+| Flag visibility
+| Documented toolchain defaults (see xref:toolchains.adoc[Toolchains]); override with methods
+| Implicit defaults plus directory/target property inheritance that is hard to audit
+
+| C++20 modules
+| Opt-in `--modules` with BMI registry, packaging, and clear unsupported-toolchain errors
+| Evolving `FILE_SET CXX_MODULES` support; compiler/scanner gaps (for example Apple Clang)
+
+| Extensibility
+| Python classes, setuptools plugins (`cuppa.method.plugins`, …)
+| CMake modules and toolchain files in the CMake language
+|===
+
+CMake remains a capable meta-build system, especially where IDE generators and a large ecosystem of `Find*.cmake` modules matter.
+Cuppa is a better fit when you want:
+
+* a *make-like* workflow from any subdirectory (`cuppa -D`)
+* the same Python stack for build logic, tests, and packaging
+* explicit, inspectable toolchain defaults instead of opaque property graphs
+* revision-pinned library composition without reinventing dependency scripts per repository
+
+The cost of CMake's flexibility is cognitive load: generator expressions, property scopes, and toolchain-file interactions that differ by generator.
+Cuppa pushes that complexity into toolchain and dependency *implementations* so `sconscript` authors stay in a small, stable API.
+
+TIP: When docs and code disagree, *code is authoritative* -- especially storage defaults, toolchain version lists, and whether `--cov` implies `--test` (it does not; use both).
 
 == Where to start
 
 * xref:install.adoc[Install cuppa]
 * xref:quickstart.adoc[Quickstart] -- minimal `sconstruct` / `sconscript`
-* xref:cli-reference.adoc[CLI reference] -- flags you will use every day
 * xref:concepts.adoc[Concepts] -- methods, dependencies, profiles, variants, toolchains
+* xref:methods.adoc[Methods] -- build, test, library, and helper APIs with examples
+* xref:toolchains.adoc[Toolchains] -- selection and *default flags* for GCC, Clang, and MSVC
+* xref:cxx-modules.adoc[C++ modules] -- introduction, tutorial, and reference
+* xref:cli-reference.adoc[CLI reference] -- flags you will use every day
 * xref:integration-tests.adoc[Integration tests] -- pytest scenarios with generated build scripts
 
 == Project links
@@ -35,6 +93,7 @@ Cuppa aims to:
 * keep `sconscript` files declarative and free of build-system logic
 * give experts a place to encapsulate dependency and toolchain knowledge once
 * codify SCons best practices so callers express *intent* (`Build`, `BuildTest`, `BuildWith`) rather than low-level flag plumbing
+* fail clearly when a feature (for example `--modules` on an unsupported toolchain) cannot be honoured -- no silent fallback
 
 TIP: Artefacts live under `_build/` (not a hidden `.build` directory). A guaranteed clean rebuild is `rm -rf _build`.
 
