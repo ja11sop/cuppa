@@ -372,10 +372,21 @@ class Cl(object):
 
 
     def supports_modules( self, env ):
-        return False
+        import cuppa.build_platform
+        if cuppa.build_platform.name() != "Windows":
+            return False
+        # Visual Studio 2019 16.10+ / VS 2022 — MSVC toolset 14.29+
+        try:
+            parts = [ int( p ) for p in str( self._long_version ).split( '.' )[:2] ]
+            major = parts[0]
+            minor = parts[1] if len( parts ) > 1 else 0
+            return ( major, minor ) >= ( 14, 29 )
+        except ( TypeError, ValueError ):
+            return True
 
 
     def supports_import_std( self, env ):
+        # STL named modules require a recent MSVC + std.ixx install; opt-in later.
         return False
 
 
@@ -384,27 +395,78 @@ class Cl(object):
 
 
     def module_bmi_path( self, env, module_name ):
-        raise NotImplementedError( "C++ modules are not supported for MSVC in this cuppa release" )
+        from cuppa.toolchains.cxx_modules_support import named_bmi_path
+        return named_bmi_path( env, module_name, '.ifc' )
 
 
     def header_unit_bmi_path( self, env, header_path ):
-        raise NotImplementedError( "C++ modules are not supported for MSVC in this cuppa release" )
+        from cuppa.toolchains.cxx_modules_support import header_bmi_path
+        return header_bmi_path( env, header_path, '.ifc' )
 
 
     def interface_module_flags( self, env, module_name, bmi_path ):
-        raise NotImplementedError( "C++ modules are not supported for MSVC in this cuppa release" )
+        # Hyphen forms avoid SCons treating /flags as paths on Windows.
+        return [
+            '-interface',
+            '-TP',
+            '-ifcOutput:{}'.format( bmi_path ),
+        ]
 
 
     def consume_module_flags( self, env, scan ):
-        raise NotImplementedError( "C++ modules are not supported for MSVC in this cuppa release" )
+        from cuppa.cpp.cxx_modules import get_registry, lookup_header_entry
+        from cuppa.cpp.module_scanner import owning_module_name, qualify_relative_import
+        flags = []
+        registry = get_registry( env )
+        if not scan:
+            return flags
+
+        def add_named( name, seen ):
+            if not name or name in seen:
+                return
+            entry = registry['named'].get( name )
+            if not entry:
+                return
+            seen.add( name )
+            flag = '-reference:{}={}'.format( name, entry['path'] )
+            if flag not in flags:
+                flags.append( flag )
+            for dep in entry.get( 'imports', [] ):
+                add_named( dep, seen )
+
+        owner = owning_module_name( scan )
+        seen = set()
+        for item in scan.imports:
+            if item.kind == 'named':
+                name = qualify_relative_import( item.name, owner )
+                add_named( name, seen )
+            else:
+                entry = lookup_header_entry( registry, item.name )
+                if entry:
+                    flag = '-reference:{}'.format( entry['path'] )
+                    if flag not in flags:
+                        flags.append( flag )
+        if scan.module_declaration:
+            decl = scan.module_declaration
+            primary = decl.split( ':', 1 )[0]
+            for candidate in ( decl, primary ):
+                if candidate in registry['named']:
+                    add_named( candidate, seen )
+                    break
+        return flags
 
 
     def build_header_unit( self, env, header, bmi_path, **kwargs ):
-        raise NotImplementedError( "C++ modules are not supported for MSVC in this cuppa release" )
+        raise NotImplementedError(
+            "MSVC header units are not supported in this cuppa release "
+            "(named modules via --modules are supported)"
+        )
 
 
     def build_std_module( self, env, name ):
-        raise NotImplementedError( "C++ modules are not supported for MSVC in this cuppa release" )
+        raise NotImplementedError(
+            "import std is not supported for MSVC in this cuppa release"
+        )
 
 
     def abi( self, env ):

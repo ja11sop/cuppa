@@ -1,0 +1,6 @@
+export module math_ccm;
+
+export int add_ccm( int a, int b )
+{
+    return a + b;
+}

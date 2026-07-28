@@ -118,6 +118,8 @@ def test_clang_supports_modules_version_gate(monkeypatch):
     toolchain._reported_version = {"major": 16, "minor": 0}
     monkeypatch.setattr("cuppa.build_platform.name", lambda: "Linux")
     assert toolchain.supports_modules(env=None) is True
+    monkeypatch.setattr("cuppa.build_platform.name", lambda: "Darwin")
+    assert toolchain.supports_modules(env=None) is True
     toolchain._reported_version = {"major": 15, "minor": 0}
     assert toolchain.supports_modules(env=None) is False
 
@@ -129,14 +131,22 @@ def test_gcc_supports_modules_version_gate(monkeypatch):
     toolchain._reported_version = {"major": 14, "minor": 0}
     monkeypatch.setattr("cuppa.build_platform.name", lambda: "Linux")
     assert toolchain.supports_modules(env=None) is True
+    monkeypatch.setattr("cuppa.build_platform.name", lambda: "Darwin")
+    assert toolchain.supports_modules(env=None) is True
     toolchain._reported_version = {"major": 13, "minor": 0}
     assert toolchain.supports_modules(env=None) is False
 
 
-def test_cl_does_not_support_modules():
+def test_cl_supports_modules_on_windows_version_gate(monkeypatch):
     from cuppa.toolchains.cl import Cl
 
     toolchain = Cl.__new__(Cl)
+    toolchain._long_version = "14.39"
+    monkeypatch.setattr("cuppa.build_platform.name", lambda: "Windows")
+    assert toolchain.supports_modules(env=None) is True
+    toolchain._long_version = "14.20"
+    assert toolchain.supports_modules(env=None) is False
+    monkeypatch.setattr("cuppa.build_platform.name", lambda: "Linux")
     assert toolchain.supports_modules(env=None) is False
 
 

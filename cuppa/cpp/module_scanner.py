@@ -46,7 +46,7 @@ _IMPORT_ANGLE_RE = re.compile(
 )
 
 
-INTERFACE_SUFFIXES = ( '.cppm', '.cxxm', '.ccm' )
+INTERFACE_SUFFIXES = ( '.cppm', '.cxxm', '.ccm', '.ixx' )
 
 
 def strip_comments( text ):

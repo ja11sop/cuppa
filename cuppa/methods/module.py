@@ -16,8 +16,8 @@ class ModuleMethod:
 
     BMIs are registered on the current env so a later Build/Compile in the same
     sconscript can import the module. Compiled objects are retained on the env
-    and linked into subsequent Build() programs. Cross-project BMI packaging is
-    out of scope.
+    and linked into subsequent Build() programs. BuildLib also installs BMIs under
+    final/modules/ (module-map.json) for ImportModules / package consumers.
     """
 
     def __call__( self, env, name, interface=None, implementation=None, **kwargs ):

@@ -1,15 +1,18 @@
 = C++ modules
-:description: Experimental named modules, partitions, header units, and import std (GCC/Clang on Linux)
+:description: Experimental named modules, partitions, header units, and import std (GCC/Clang/MSVC)
 
 Cuppa can build C++20 **named modules** (including interface / implementation partitions),
-**header units**, and (with a capable toolchain) **`import std` / `import std.compat`**
-on Linux with GCC 14+ or Clang 16+ (see floors below for `import std`).
-MSVC is not supported in this release.
+**header units** (GCC/Clang), and (with a capable toolchain) **`import std` / `import std.compat`**.
+
+Supported platforms / floors:
+
+* **Linux / macOS:** GCC 14+ or Clang 16+ (`import std`: GCC 15+; Clang 18+ with libc++)
+* **Windows:** MSVC toolset 14.29+ (VS 2019 16.10+ / VS 2022) for named modules; header units and `import std` not yet
 
 Enablement is **opt-in** so existing projects are unchanged.
-BMIs are **per env / variant** — they are not packaged for reuse across cuppa packages or
-separate projects yet. A `BuildLib` / `Module` producer and a `Build` consumer must share
-the same sconscript env.
+BMIs are per env / variant. Same-sconscript `BuildLib` / `Module` + `Build` share the registry.
+Libraries also install a `modules/module-map.json` next to `final/` for cross-project reuse via
+`env.ImportModules(...)` or `package_dependency` / `BuildWith` (see <<packaged-modules>>).
 
 == Enable modules
 
@@ -17,6 +20,7 @@ the same sconscript env.
 ----
 cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=gcc
 cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=clang
+cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=vc   # Windows
 ----
 
 `--modules` sets `env['modules']=True` for each variant env.
@@ -30,7 +34,7 @@ unit in the same `Build` / `Compile` call.
 
 == Named modules
 
-Interface units use `.cppm` / `.cxxm` / `.ccm` (or a `.cpp` that contains `export module`).
+Interface units use `.cppm` / `.cxxm` / `.ccm` / `.ixx` (or a `.cpp` that contains `export module`).
 Pass them to `Build` / `Compile` like any other source:
 
 [source,python]
@@ -72,7 +76,30 @@ env.AppendUnique(LIBPATH=[env['abs_final_dir']])
 env.Build('app', ['main.cpp'], LIBS=['mathlib'])
 ----
 
-Cross-project BMI packaging is out of scope.
+Same pattern works with `BuildSharedLib`.
+
+[[packaged-modules]]
+== Packaged modules (cross-project)
+
+When `--modules` is enabled, `BuildLib` / `BuildStaticLib` / `BuildSharedLib` install named-module
+BMIs under `final/modules/` and write `module-map.json`. Consumers in another project (or after
+extracting a cuppa package) load that map:
+
+[source,python]
+----
+Import('env')
+env.ImportModules('/path/to/final/modules')   # or package_dir/modules after BuildWith
+env.AppendUnique(LIBPATH=['/path/to/final'])
+env.Build('app', ['main.cpp'], LIBS=['mathlib'])
+----
+
+`package_dependency` / GitLab `BuildWith` automatically calls `ImportModules` when
+`{package_dir}/modules/module-map.json` is present. BMI extensions must match the consumer
+toolchain (`.gcm` vs `.pcm` vs `.ifc`) — cross-toolchain BMI reuse is not supported.
+`PublishPackage` copies `modules/` into the package archive alongside `include/` and `lib/`.
+
+NOTE: Producer and consumer still need matching toolchain *family* for BMI format. Same-sconscript
+use remains the simplest path; packaging is for shipping modular libraries.
 
 == Implementation units
 
@@ -249,18 +276,20 @@ _build/<toolchain>/<variant>/<arch>/<abi>/working/modules/
   geo--point.pcm|gcm          # colon → -- in BMI filenames
   header--include--widget.hpp.pcm|gcm
   header--angle--span.pcm|gcm
-  std.pcm|gcm
-  std.compat.pcm|gcm
+    std.pcm|gcm|ifc
+  std.compat.pcm|gcm|ifc
   module-mapper.txt           # GCC only
+  (also installed under final/modules/ for libraries)
 ----
 
 == Limits
 
-* Linux GCC 14+ / Clang 16+ only (`import std`: GCC 15+ / Clang 18+ with libc++)
+* Linux / macOS: GCC 14+ / Clang 16+ (`import std`: GCC 15+ / Clang 18+ with libc++)
+* Windows: MSVC 14.29+ named modules; header units and `import std` not yet
 * Lightweight line-oriented import scanner (macros that invent imports are unsupported)
-* Header-unit spelling in `import "..."` / `import <…>` must match `HeaderUnit`
+* Header-unit spelling in `import "..."` / `import <…>` must match `HeaderUnit` (GCC/Clang)
 * Private module fragments: Clang only (GCC unimplemented)
-* BMIs are not packaged across projects / cuppa packages yet
+* Packaged BMIs are toolchain-family specific (`.gcm` / `.pcm` / `.ifc`)
 * Experimental compiler support — expect toolchain-specific quirks
 * `--modules` on an unsupported toolchain stops the build with a clear error
-* Integration tests require a modules-capable compiler and **fail** if GCC/Clang is too old (MSVC is skipped)
+* Integration tests require a modules-capable compiler and **fail** if GCC/Clang is too old

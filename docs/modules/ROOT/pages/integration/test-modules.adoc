@@ -1,5 +1,5 @@
 = Integration: C++ modules
-:description: Named modules, partitions, private fragments, header units, and import std
+:description: Named modules, partitions, private fragments, header units, import std, packaging
 
 See xref:cxx-modules.adoc[C++ modules].
 
@@ -14,26 +14,34 @@ Covered by `tests/integration/methods/test_modules.py` using
 
 | `test_named_module_build`
 | Single `export module` + consumer
-| Baseline
+| Baseline (GCC/Clang/MSVC)
 
 | `test_header_unit_build`
 | `env.HeaderUnit` + `import "..."`
-|
+| Skipped on MSVC
 
 | `test_angle_header_unit_build`
 | `env.HeaderUnit('<span>')` + `import <span>;`
-|
+| Skipped on MSVC
 
 | `test_library_with_named_module`
-| `BuildStaticLib` + `Build` consumer (same env BMI registry)
+| `BuildStaticLib` + `Build` consumer (same env)
 |
+
+| `test_shared_library_with_named_module`
+| `BuildSharedLib` + consumer
+|
+
+| `test_packaged_modules_install_and_import`
+| Producer `final/modules` + consumer `ImportModules`
+| Cross-project BMI map
 
 | `test_module_sugar_build`
 | `env.Module(...)` then `Build`
 |
 
-| `test_cxxm_interface_smoke`
-| `.cxxm` interface suffix
+| `test_cxxm_interface_smoke` / `test_ccm_interface_smoke` / `test_cpp_export_module_smoke`
+| `.cxxm` / `.ccm` / `export module` in `.cpp`
 |
 
 | `test_unresolved_import_fails`
@@ -44,9 +52,13 @@ Covered by `tests/integration/methods/test_modules.py` using
 | Touch partition → primary BMI + consumer rebuild
 |
 
-| `test_import_std_build`
-| `import std;` + std BMI
-| GCC 15+ / Clang with libc++ `std.cppm`
+| `test_import_std_build` / `test_import_std_compat_build`
+| `import std;` / `import std.compat;`
+| GCC 15+ / Clang+libc++; skipped on MSVC
+
+| `test_modules_coverage_probe`
+| `--cov --modules` smoke
+| Skipped on MSVC
 
 | `test_implementation_unit_build`
 | Interface + `module M;` implementation TU
@@ -54,37 +66,33 @@ Covered by `tests/integration/methods/test_modules.py` using
 
 | `test_interface_partition_build`
 | `export module M:part` + `export import :part`
-| Primary listed before partition
+|
 
 | `test_implementation_partition_build`
-| `module M:part` used from `module M;` implementation unit
+| `module M:part` used from `module M;`
 |
 
 | `test_private_module_fragment_build`
 | `module :private;`
-| **Skipped on GCC** (unimplemented)
+| Clang only
 
 | `test_module_reexport_build`
 | `export import` across named modules
 |
 
 | `test_mixed_named_module_and_header_unit`
-| Named module + header unit in one app
-|
+| Named module + header unit
+| Skipped on MSVC
 
-| `test_named_module_build_then_clean`
-| `--clean` removes BMI, objects, binary, GCC mapper
-|
-
-| `test_header_unit_build_then_clean`
-| `--clean` removes header-unit BMI and consumers
+| `test_named_module_build_then_clean` / `test_header_unit_build_then_clean`
+| `--clean` removes BMI artifacts
 |
 |===
 
 == Toolchain selection
 
-* Skipped only for MSVC (`CUPPA_TEST_TOOLCHAIN=vc`)
-* **Fail** (do not skip) if no Linux GCC 14+ / Clang 16+ driver is on PATH
-* Prefer the default `g++` / `clang++` on PATH (typically via `update-alternatives`); only probe versioned drivers if the default is too old
-* For Clang CI, set `CUPPA_TEST_ARGS=--clang-stdlib=libstdc++` or `--clang-stdlib=libc++` (CI runs both cells)
-* `import std` on Clang may select a versioned toolchain (e.g. `clang22`) that ships `std.cppm`, and forces `--clang-stdlib=libc++` even when the job’s default is `libstdc++`
+* Linux CI: `gcc`, `clang`+libstdc++, `clang`+libc++
+* macOS CI: modules slice with Clang + libc++
+* Windows CI: full integration with `vc` (named modules; header/`import std` skipped)
+* **Fail** (do not skip) if no Linux GCC 14+ / Clang 16+ driver is on PATH when those families are selected
+* `import std` on Clang may select a versioned toolchain that ships `std.cppm`

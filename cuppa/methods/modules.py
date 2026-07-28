@@ -31,7 +31,7 @@ _DIALECT_RANK = {
 }
 
 
-MODULE_SOURCE_SUFFIXES = [ '.cppm', '.cxxm', '.ccm' ]
+MODULE_SOURCE_SUFFIXES = [ '.cppm', '.cxxm', '.ccm', '.ixx' ]
 
 
 def register_module_source_suffixes( env ):
@@ -90,12 +90,12 @@ def activate_modules_for_env( env ):
         import SCons.Errors
         message = (
             "--modules requested but toolchain [{}] does not support C++ modules "
-            "(Linux GCC 14+ / Clang 16+ only in this cuppa release)"
+            "(Linux/macOS GCC 14+ / Clang 16+, or Windows MSVC 14.29+ in this cuppa release)"
             .format( toolchain.name() )
         )
         logger.error(
             "--modules requested but toolchain [{}] does not support C++ modules "
-            "(Linux GCC 14+ / Clang 16+ only in this cuppa release)"
+            "(Linux/macOS GCC 14+ / Clang 16+, or Windows MSVC 14.29+ in this cuppa release)"
             .format( as_error( toolchain.name() ) )
         )
         env['modules'] = False

@@ -522,7 +522,7 @@ class Gcc(object):
 
     def supports_modules( self, env ):
         import cuppa.build_platform
-        if cuppa.build_platform.name() != "Linux":
+        if cuppa.build_platform.name() not in ( "Linux", "Darwin" ):
             return False
         return self._reported_version['major'] >= 14
 
@@ -649,7 +649,7 @@ class Gcc(object):
 
     def supports_import_std( self, env ):
         import cuppa.build_platform
-        if cuppa.build_platform.name() != "Linux":
+        if cuppa.build_platform.name() not in ( "Linux", "Darwin" ):
             return False
         return self._reported_version['major'] >= 15
 
@@ -718,7 +718,13 @@ class Gcc(object):
         modules_build_dir( env )
         bmi_path = named_bmi_path( env, name, '.gcm' )
         bmi_node = env.File( bmi_path )
-        register_named_module( env, name, bmi_path, bmi_node, imports=[] )
+        register_named_module(
+            env,
+            name,
+            bmi_path,
+            bmi_node,
+            imports=[ 'std' ] if name == 'std.compat' else [],
+        )
         write_gcc_module_mapper( env )
         # Object is discarded; BMI is written via the module mapper.
         obj_path = os.path.join( modules_build_dir( env ), name.replace( '.', '--' ) + '.std.o' )
@@ -727,7 +733,10 @@ class Gcc(object):
             '-fmodule-mapper={mapper} $CXXFLAGS $_CPPINCFLAGS {source}'
             .format( mapper=mapper_path( env ), source=source )
         )
-        env.Command( obj_path, [], action )
+        sources_nodes = []
+        if name == 'std.compat' and 'std' in get_registry( env )['named']:
+            sources_nodes = [ get_registry( env )['named']['std']['bmi'] ]
+        env.Command( obj_path, sources_nodes, action )
         env.SideEffect( bmi_path, obj_path )
         env.Depends( bmi_node, obj_path )
         return bmi_node

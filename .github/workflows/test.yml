@@ -142,3 +142,26 @@ jobs:
         env:
           CUPPA_TEST_TOOLCHAIN: vc
         run: pytest -m integration -q
+
+  integration-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e . --no-build-isolation
+          clang++ --version || true
+      - name: Modules integration slice (clang)
+        env:
+          CUPPA_TEST_TOOLCHAIN: clang
+          CUPPA_TEST_ARGS: --clang-stdlib=libc++
+        run: |
+          pytest -m integration -q \
+            tests/integration/methods/test_modules.py::test_named_module_build \
+            tests/integration/methods/test_modules.py::test_header_unit_build \
+            tests/integration/methods/test_modules.py::test_module_sugar_build

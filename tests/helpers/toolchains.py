@@ -213,16 +213,19 @@ def find_modules_capable_toolchain(family):
 
 def require_modules_capable_toolchain(family=None):
     """
-    Ensure a modules-capable Linux toolchain is available.
+    Ensure a modules-capable toolchain is available.
 
-    MSVC is skipped (unsupported). Too-old GCC/Clang **fail** (do not skip) so
-    CI cannot silently greenwash missing compiler coverage.
+    Too-old GCC/Clang **fail** (do not skip) so CI cannot silently greenwash.
+    On Windows with CUPPA_TEST_TOOLCHAIN=vc, returns the MSVC toolchain.
 
     Returns (cuppa_toolchain_alias, driver_command, major).
     """
     forced = os.environ.get("CUPPA_TEST_TOOLCHAIN", "").strip().lower()
     if forced in ("vc", "cl", "msvc"):
-        pytest.skip("C++ modules are not supported for MSVC in this cuppa release")
+        if os.name != "nt":
+            pytest.skip("MSVC modules tests require Windows")
+        require_toolchain("vc")
+        return "vc", "cl", 0
 
     if family is None:
         if forced.startswith("gcc"):

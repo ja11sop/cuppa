@@ -624,9 +624,18 @@ class Clang(object):
 
     def supports_modules( self, env ):
         import cuppa.build_platform
-        if cuppa.build_platform.name() != "Linux":
+        if cuppa.build_platform.name() not in ( "Linux", "Darwin" ):
             return False
         return self._reported_version['major'] >= 16
+
+
+    def supports_import_std( self, env ):
+        import cuppa.build_platform
+        if cuppa.build_platform.name() not in ( "Linux", "Darwin" ):
+            return False
+        if self._reported_version['major'] < 18:
+            return False
+        return getattr( self, '_stdlib', None ) == 'libc++'
 
 
     def modules_enable_flags( self, env ):
@@ -749,15 +758,6 @@ class Clang(object):
         return None
 
 
-    def supports_import_std( self, env ):
-        import cuppa.build_platform
-        if cuppa.build_platform.name() != "Linux":
-            return False
-        if self._reported_version['major'] < 18:
-            return False
-        return getattr( self, '_stdlib', None ) == 'libc++'
-
-
     def std_module_sources( self, env ):
         sources = {}
         for name, filename in (
@@ -795,6 +795,9 @@ class Clang(object):
                 '/usr/lib/llvm-{}/share/libc++/v1/{}'.format( major, filename )
             )
         candidates.append( '/usr/share/libc++/v1/{}'.format( filename ) )
+        # Homebrew / macOS SDK layouts
+        candidates.append( '/opt/homebrew/opt/llvm/share/libc++/v1/{}'.format( filename ) )
+        candidates.append( '/usr/local/opt/llvm/share/libc++/v1/{}'.format( filename ) )
         for path in candidates:
             if path and os.path.isfile( path ):
                 return path
@@ -815,18 +818,36 @@ class Clang(object):
         modules_build_dir( env )
         bmi_path = named_bmi_path( env, name, '.pcm' )
         bmi_node = env.File( bmi_path )
-        register_named_module( env, name, bmi_path, bmi_node, imports=[] )
+        register_named_module(
+            env,
+            name,
+            bmi_path,
+            bmi_node,
+            imports=[ 'std' ] if name == 'std.compat' else [],
+        )
         # Do not pass $CXXFLAGS: env modules flags include -fmodules, which enables
         # Clang header modules and conflicts with libc++'s C++20 std.cppm
         # ("redefinition of module 'std'" via module.modulemap).
         dialect = env.get( 'stdcpp' ) or 'c++23'
         stdlib = self.stdlib_flag( env ) or '-stdlib=libc++'
+        extra = ''
+        sources_nodes = []
+        if name == 'std.compat' and 'std' in get_registry( env )['named']:
+            std_bmi = get_registry( env )['named']['std']['path']
+            extra = '-fmodule-file=std={} '.format( std_bmi )
+            sources_nodes = [ get_registry( env )['named']['std']['bmi'] ]
         action = (
             '$CXX -o $TARGET --precompile -fmodule-output={bmi} '
-            '-std={dialect} {stdlib} {source}'
-            .format( bmi=bmi_path, dialect=dialect, stdlib=stdlib, source=source )
+            '{extra}-std={dialect} {stdlib} {source}'
+            .format(
+                bmi=bmi_path,
+                extra=extra,
+                dialect=dialect,
+                stdlib=stdlib,
+                source=source,
+            )
         )
-        return env.Command( bmi_path, [], action )[0]
+        return env.Command( bmi_path, sources_nodes, action )[0]
 
 
     def abi( self, env ):

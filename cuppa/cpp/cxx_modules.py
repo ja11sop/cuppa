@@ -21,11 +21,14 @@ from cuppa.cpp.module_scanner import (
     owning_module_name,
     parse_header_unit_declaration,
     qualify_relative_import,
+    sanitize_module_filename,
     scan_file,
     std_module_imports_from_scan,
 )
 from cuppa.log import logger
 import SCons.Errors
+import json
+import shutil
 
 
 REGISTRY_KEY = '_cuppa_module_registry'
@@ -257,13 +260,17 @@ def ensure_std_modules( env, classified ):
     toolchain = env['toolchain']
     if not hasattr( toolchain, 'supports_import_std' ) or not toolchain.supports_import_std( env ):
         raise SCons.Errors.StopError(
-            "import std / std.compat requires Linux GCC 15+ or Clang 18+ with libc++ "
+            "import std / std.compat requires Linux/macOS GCC 15+ or Clang 18+ with libc++ "
             "(toolchain [{}] is not eligible; for Clang pass --clang-stdlib=libc++)"
             .format( toolchain.name() )
         )
 
     registry = get_registry( env )
-    for name in sorted( needed ):
+    # std.compat imports std — always build std first when compat is needed.
+    if 'std.compat' in needed:
+        needed.add( 'std' )
+    order = [ name for name in ( 'std', 'std.compat' ) if name in needed ]
+    for name in order:
         if name in registry['named']:
             continue
         if not hasattr( toolchain, 'build_std_module' ):
@@ -277,6 +284,9 @@ def ensure_std_modules( env, classified ):
                 "Failed to build standard library module [{}] for toolchain [{}]"
                 .format( name, toolchain.name() )
             )
+        if name == 'std.compat' and 'std' in registry['named']:
+            env.Depends( bmi_node, registry['named']['std']['bmi'] )
+            registry['named'][name]['imports'] = [ 'std' ]
 
 
 def validate_module_imports( env, classified ):
@@ -485,3 +495,129 @@ def build_header_unit( env, header, **kwargs ):
         .format( as_info( declared ), as_notice( bmi_path ) )
     )
     return bmi_node
+
+
+MODULE_MAP_FILENAME = 'module-map.json'
+
+
+def packaged_modules_dir( final_dir ):
+    return os.path.join( final_dir, 'modules' )
+
+
+def install_packaged_modules( env, final_dir ):
+    """
+    Copy named-module BMIs from the env registry into final_dir/modules/
+    and write module-map.json for consumers / package archives.
+
+    Scheduled as a SCons Command so copies run after BMIs are produced.
+    """
+    if not env.get( 'modules' ):
+        return None
+    registry = get_registry( env ).get( 'named' ) or {}
+    if not registry:
+        return None
+
+    toolchain = env['toolchain']
+    extension = os.path.splitext( toolchain.module_bmi_path( env, '_probe' ) )[1]
+    return _schedule_module_install( env, final_dir, extension )
+
+
+def _schedule_module_install( env, final_dir, extension ):
+    """Defer BMI copy until after BMIs exist (SCons build phase)."""
+    dest_dir = packaged_modules_dir( final_dir )
+    map_path = os.path.join( dest_dir, MODULE_MAP_FILENAME )
+    registry = get_registry( env )['named']
+    bmi_nodes = [
+        entry['bmi'] for name, entry in registry.items()
+        if name not in ( 'std', 'std.compat' ) and entry.get( 'bmi' ) is not None
+    ]
+    if not bmi_nodes:
+        return None
+
+    def _install_action( target, source, env ):
+        if not os.path.isdir( dest_dir ):
+            os.makedirs( dest_dir )
+        modules = {}
+        for name, entry in sorted( registry.items() ):
+            if name in ( 'std', 'std.compat' ):
+                continue
+            src = entry.get( 'path' )
+            if not src or not os.path.isfile( str( src ) ):
+                continue
+            dst_name = sanitize_module_filename( name ) + extension
+            shutil.copy2( str( src ), os.path.join( dest_dir, dst_name ) )
+            modules[name] = {
+                'bmi': dst_name,
+                'imports': [
+                    dep for dep in entry.get( 'imports', [] )
+                    if dep not in ( 'std', 'std.compat' )
+                ],
+            }
+        with open( map_path, 'w' ) as handle:
+            json.dump( {
+                'format': 1,
+                'extension': extension,
+                'modules': modules,
+            }, handle, indent=2, sort_keys=True )
+            handle.write( '\n' )
+        return 0
+
+    installed = env.Command( map_path, bmi_nodes, _install_action )
+    env.Depends( installed, bmi_nodes )
+    cuppa.progress.NotifyProgress.add( env, installed )
+    return installed
+
+
+def load_packaged_modules( env, modules_dir ):
+    """
+    Load module-map.json from modules_dir and register BMIs on env.
+
+    Fails with StopError if the BMI extension does not match the current toolchain.
+    """
+    if not modules_dir:
+        return False
+    map_path = os.path.join( str( modules_dir ), MODULE_MAP_FILENAME )
+    if not os.path.isfile( map_path ):
+        return False
+    if not env.get( 'modules' ):
+        logger.warn(
+            "Found packaged modules at [{}] but --modules is not enabled; ignoring"
+            .format( as_warning( map_path ) )
+        )
+        return False
+
+    with open( map_path, 'r' ) as handle:
+        data = json.load( handle )
+
+    toolchain = env['toolchain']
+    expected_ext = os.path.splitext( toolchain.module_bmi_path( env, '_probe' ) )[1]
+    packaged_ext = data.get( 'extension' ) or expected_ext
+    if packaged_ext != expected_ext:
+        raise SCons.Errors.StopError(
+            "Packaged module BMI extension [{}] does not match toolchain [{}] "
+            "(expected {}); rebuild the package with the same toolchain family"
+            .format( packaged_ext, toolchain.name(), expected_ext )
+        )
+
+    modules = data.get( 'modules' ) or {}
+    for name, spec in sorted( modules.items() ):
+        bmi_name = spec.get( 'bmi' )
+        if not bmi_name:
+            continue
+        bmi_path = os.path.join( str( modules_dir ), bmi_name )
+        if not os.path.isfile( bmi_path ):
+            raise SCons.Errors.StopError(
+                "Packaged module [{}] BMI missing at [{}]".format( name, bmi_path )
+            )
+        register_named_module(
+            env,
+            name,
+            bmi_path,
+            env.File( bmi_path ),
+            imports=spec.get( 'imports' ) or [],
+        )
+    logger.debug(
+        "Loaded [{}] packaged module(s) from [{}]"
+        .format( as_info( str( len( modules ) ) ), as_notice( map_path ) )
+    )
+    return True

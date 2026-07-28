@@ -46,6 +46,15 @@ def _is_gcc_family(alias):
     return alias == "gcc" or alias.startswith("gcc")
 
 
+def _is_msvc(alias):
+    return alias in ("vc", "cl", "msvc") or str(alias).startswith("vc")
+
+
+def _skip_msvc_feature(alias, feature):
+    if _is_msvc(alias):
+        pytest.skip("{} is not supported for MSVC modules yet".format(feature))
+
+
 def _require_import_std_toolchain():
     """
     Select a toolchain that can build import std BMIs.
@@ -55,6 +64,8 @@ def _require_import_std_toolchain():
     import shutil
 
     alias, driver, major = require_modules_capable_toolchain()
+    if _is_msvc(alias):
+        pytest.skip("import std is not supported for MSVC in this cuppa release")
     if _is_gcc_family(alias):
         if major < 15:
             pytest.fail(
@@ -103,7 +114,8 @@ def test_named_module_build(tmp_path):
 
 
 def test_header_unit_build(tmp_path):
-    _, toolchain_flag = _modules_toolchain_flag()
+    alias, toolchain_flag = _modules_toolchain_flag()
+    _skip_msvc_feature(alias, "header units")
     project = _copy_modules_project(tmp_path)
     write_sconstruct(project)
     write_sconscript(
@@ -180,6 +192,7 @@ def test_private_module_fragment_build(tmp_path):
     alias, toolchain_flag = _modules_toolchain_flag()
     if _is_gcc_family(alias):
         pytest.skip("GCC does not implement private module fragments yet")
+    _skip_msvc_feature(alias, "private module fragments")
     project = _copy_modules_project(tmp_path)
     write_sconstruct(project)
     write_sconscript(
@@ -212,7 +225,8 @@ def test_module_reexport_build(tmp_path):
 
 
 def test_mixed_named_module_and_header_unit(tmp_path):
-    _, toolchain_flag = _modules_toolchain_flag()
+    alias, toolchain_flag = _modules_toolchain_flag()
+    _skip_msvc_feature(alias, "header units")
     project = _copy_modules_project(tmp_path)
     write_sconstruct(project)
     write_sconscript(
@@ -237,7 +251,7 @@ def test_named_module_build_then_clean(tmp_path):
     )
     assert_success(run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag))
     assert find_final_binaries(project, "math_app")
-    assert find_under_build(project, "*.gcm") or find_under_build(project, "*.pcm")
+    assert find_under_build(project, "*.gcm") or find_under_build(project, "*.pcm") or find_under_build(project, "*.ifc")
     assert find_under_build(project, "*.o") or find_under_build(project, "*.obj")
 
     assert_success(
@@ -251,7 +265,8 @@ def test_named_module_build_then_clean(tmp_path):
 
 
 def test_header_unit_build_then_clean(tmp_path):
-    _, toolchain_flag = _modules_toolchain_flag()
+    alias, toolchain_flag = _modules_toolchain_flag()
+    _skip_msvc_feature(alias, "header units")
     project = _copy_modules_project(tmp_path)
     write_sconstruct(project)
     write_sconscript(
@@ -264,7 +279,7 @@ def test_header_unit_build_then_clean(tmp_path):
     assert find_final_binaries(project, "widget_app")
     header_bmis = [
         path for path in build_files(project)
-        if path.name.startswith("header--") and path.suffix in (".gcm", ".pcm")
+        if path.name.startswith("header--") and path.suffix in (".gcm", ".pcm", ".ifc")
     ]
     assert header_bmis
 
@@ -279,7 +294,8 @@ def test_header_unit_build_then_clean(tmp_path):
 
 
 def test_angle_header_unit_build(tmp_path):
-    _, toolchain_flag = _modules_toolchain_flag()
+    alias, toolchain_flag = _modules_toolchain_flag()
+    _skip_msvc_feature(alias, "header units")
     project = _copy_modules_project(tmp_path)
     write_sconstruct(project)
     write_sconscript(
@@ -419,6 +435,7 @@ def test_partition_incremental_rebuild(tmp_path):
 
 def test_import_std_build(tmp_path):
     alias, toolchain_flag, extra = _require_import_std_toolchain()
+    _skip_msvc_feature(alias, "import std")
     logger.info("import std test using %s", alias)
     project = _copy_modules_project(tmp_path)
     write_sconstruct(project)
@@ -442,3 +459,142 @@ def test_import_std_build(tmp_path):
         path.stem == "std" and path.suffix in (".gcm", ".pcm")
         for path in build_files(project)
     )
+
+
+def test_import_std_compat_build(tmp_path):
+    alias, toolchain_flag, extra = _require_import_std_toolchain()
+    _skip_msvc_feature(alias, "import std.compat")
+    logger.info("import std.compat test using %s", alias)
+    project = _copy_modules_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.Build('std_compat_app', ['apps/std_compat_main.cpp'])\n",
+    )
+    result = run_cuppa(
+        project,
+        "--dbg",
+        "--modules",
+        "--stdcpp=c++20",
+        toolchain_flag,
+        *extra,
+        timeout=300,
+    )
+    assert_success(result)
+    assert find_final_binaries(project, "std_compat_app")
+    assert any(
+        path.stem in ("std.compat", "std--compat") and path.suffix in (".gcm", ".pcm")
+        for path in build_files(project)
+    )
+
+
+def test_shared_library_with_named_module(tmp_path):
+    _, toolchain_flag = _modules_toolchain_flag()
+    project = _copy_modules_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.BuildSharedLib('mathlib_shared', ['math.cppm'])\n"
+        "env.AppendUnique(LIBPATH=[env['abs_final_dir']])\n"
+        "env.AppendUnique(RPATH=[env['abs_final_dir']])\n"
+        "env.Build('math_shared_app', ['apps/main.cpp'], LIBS=['mathlib_shared'])\n",
+    )
+    result = run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag)
+    assert_success(result)
+    assert find_final_binaries(project, "math_shared_app")
+    shared_libs = [
+        path for path in find_under_build(project, "*mathlib_shared*")
+        if path.suffix in (".so", ".dylib", ".dll") and "final" in path.parts
+    ]
+    assert shared_libs
+
+
+def test_ccm_interface_smoke(tmp_path):
+    _, toolchain_flag = _modules_toolchain_flag()
+    project = _copy_modules_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.Build('ccm_app', ['math.ccm', 'apps/ccm_main.cpp'])\n",
+    )
+    result = run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag)
+    assert_success(result)
+    assert find_final_binaries(project, "ccm_app")
+
+
+def test_cpp_export_module_smoke(tmp_path):
+    _, toolchain_flag = _modules_toolchain_flag()
+    project = _copy_modules_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.Build('cpp_iface_app', ['math_iface.cpp', 'apps/cpp_iface_main.cpp'])\n",
+    )
+    result = run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag)
+    assert_success(result)
+    assert find_final_binaries(project, "cpp_iface_app")
+
+
+def test_modules_coverage_probe(tmp_path):
+    """Smoke that --cov --modules can compile a named-module binary (gcc/clang only)."""
+    import os
+    forced = os.environ.get("CUPPA_TEST_TOOLCHAIN", "").strip().lower()
+    if forced in ("vc", "cl", "msvc"):
+        pytest.skip("coverage is not supported for MSVC")
+    alias, toolchain_flag = _modules_toolchain_flag()
+    if not _is_gcc_family(alias):
+        # Clang coverage works via llvm-cov; still worth a light probe.
+        pass
+    project = _copy_modules_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.Build('cov_math_app', ['math.cppm', 'apps/main.cpp'])\n",
+    )
+    result = run_cuppa(
+        project, "--cov", "--modules", "--stdcpp=c++20", toolchain_flag, timeout=300
+    )
+    assert_success(result)
+    assert find_final_binaries(project, "cov_math_app")
+
+
+def test_packaged_modules_install_and_import(tmp_path):
+    """Producer installs BMIs under final/modules; a separate consumer loads the map."""
+    _, toolchain_flag = _modules_toolchain_flag()
+    producer = _copy_modules_project(tmp_path / "producer")
+    write_sconstruct(producer)
+    write_sconscript(
+        producer,
+        "Import('env')\n"
+        "env.BuildStaticLib('mathlib', ['math.cppm'])\n",
+    )
+    assert_success(run_cuppa(producer, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag))
+    module_maps = [
+        path for path in find_under_build(producer)
+        if path.name == "module-map.json"
+    ]
+    assert module_maps
+    modules_dir = module_maps[0].parent
+    lib_dir = modules_dir.parent
+    assert (modules_dir / "module-map.json").is_file()
+
+    consumer = tmp_path / "consumer"
+    consumer.mkdir()
+    shutil.copy(MODULES_PROJECT / "apps" / "main.cpp", consumer / "main.cpp")
+    write_sconstruct(consumer)
+    write_sconscript(
+        consumer,
+        "Import('env')\n"
+        "env.ImportModules({!r})\n"
+        "env.AppendUnique(LIBPATH=[{!r}])\n"
+        "env.Build('packaged_app', ['main.cpp'], LIBS=['mathlib'])\n"
+        .format(str(modules_dir), str(lib_dir)),
+    )
+    result = run_cuppa(consumer, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag)
+    assert_success(result)
+    assert find_final_binaries(consumer, "packaged_app")

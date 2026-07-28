@@ -26,6 +26,12 @@ class BuildLibMethod:
         else:
             lib = env.StaticLibrary( os.path.join( final_dir, target ), env.CompileStatic( source ), **kwargs )
 
+        if env.get( 'modules' ):
+            from cuppa.cpp.cxx_modules import install_packaged_modules
+            installed = install_packaged_modules( env, final_dir )
+            if installed:
+                env.Depends( lib, installed )
+
         cuppa.progress.NotifyProgress.add( env, lib )
 
         return lib
