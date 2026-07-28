@@ -291,7 +291,7 @@ def default_toolchain_flags():
     return []
 
 
-# Clang stdlib variants exercised by CI / matrix tests.
+# Clang stdlib variants exercised by CI / matrix tests (Linux only).
 CLANG_STDLIB_LIBSTDCXX = "libstdc++"
 CLANG_STDLIB_LIBCXX = "libc++"
 CLANG_STDLIB_VARIANTS = (CLANG_STDLIB_LIBSTDCXX, CLANG_STDLIB_LIBCXX)
@@ -317,14 +317,32 @@ def active_clang_stdlib():
     return None
 
 
+def clang_stdlib_matrix_supported():
+    """
+    Dual --clang-stdlib= coverage is a Linux GCC/Clang concern.
+
+    Windows CI uses MSVC (`CUPPA_TEST_TOOLCHAIN=vc`); clang++ may still appear on
+    PATH (LLVM install) but --clang-stdlib=libc++ is not a supported matrix cell
+    there and can hang.
+    """
+    if os.name == "nt":
+        return False
+    forced = os.environ.get("CUPPA_TEST_TOOLCHAIN", "").strip().lower()
+    if forced in ("vc", "cl", "msvc"):
+        return False
+    return True
+
+
 def clang_stdlib_usable(stdlib):
     """
     True if the default clang++ can compile a trivial TU with this -stdlib=.
 
     Used so the gcc CI job (clang on PATH, no libc++ packages) does not fail
-    the dual-stdlib matrix cell for libc++.
+    the dual-stdlib matrix cell for libc++. Always false off Linux / MSVC jobs.
     """
     if stdlib not in CLANG_STDLIB_VARIANTS:
+        return False
+    if not clang_stdlib_matrix_supported():
         return False
     if stdlib in _clang_stdlib_usable_cache:
         return _clang_stdlib_usable_cache[stdlib]
@@ -350,6 +368,10 @@ def clang_stdlib_usable(stdlib):
 
 def require_clang_stdlib(stdlib):
     """Skip (or fail when CI-pinned) unless Clang can use the given stdlib."""
+    if not clang_stdlib_matrix_supported():
+        message = "Clang --clang-stdlib= matrix is Linux-only; skipping on this platform/job"
+        logger.warning(message)
+        pytest.skip(message)
     if clang_stdlib_usable(stdlib):
         return
     pinned = active_clang_stdlib()
@@ -373,7 +395,10 @@ def clang_stdlib_matrix_params():
     variant so we do not triple-run inside a job that is already the dual matrix.
     Otherwise return each of libstdc++ / libc++ that the local clang can use
     (so the gcc job without libc++ packages only runs libstdc++).
+    Off Linux / MSVC jobs return a single placeholder id; the test skips.
     """
+    if not clang_stdlib_matrix_supported():
+        return [CLANG_STDLIB_LIBSTDCXX]
     pinned = active_clang_stdlib()
     if pinned in CLANG_STDLIB_VARIANTS:
         return [pinned]

@@ -35,6 +35,7 @@ def test_clang_stdlib_matrix_params_respects_env(monkeypatch):
     import tests.helpers.toolchains as toolchains
 
     monkeypatch.delenv("CUPPA_TEST_ARGS", raising=False)
+    monkeypatch.setattr(toolchains, "clang_stdlib_matrix_supported", lambda: True)
     toolchains._clang_stdlib_usable_cache.clear()
     monkeypatch.setattr(
         toolchains,
@@ -59,6 +60,7 @@ def test_clang_stdlib_matrix_params_omits_unusable_libcxx(monkeypatch):
     import tests.helpers.toolchains as toolchains
 
     monkeypatch.delenv("CUPPA_TEST_ARGS", raising=False)
+    monkeypatch.setattr(toolchains, "clang_stdlib_matrix_supported", lambda: True)
     toolchains._clang_stdlib_usable_cache.clear()
     monkeypatch.setattr(
         toolchains,
@@ -66,3 +68,12 @@ def test_clang_stdlib_matrix_params_omits_unusable_libcxx(monkeypatch):
         lambda stdlib: stdlib == CLANG_STDLIB_LIBSTDCXX,
     )
     assert clang_stdlib_matrix_params() == [CLANG_STDLIB_LIBSTDCXX]
+
+
+def test_clang_stdlib_matrix_unsupported_on_windows(monkeypatch):
+    import tests.helpers.toolchains as toolchains
+
+    monkeypatch.setattr(toolchains, "clang_stdlib_matrix_supported", lambda: False)
+    toolchains._clang_stdlib_usable_cache.clear()
+    assert clang_stdlib_matrix_params() == [CLANG_STDLIB_LIBSTDCXX]
+    assert toolchains.clang_stdlib_usable(CLANG_STDLIB_LIBCXX) is False
