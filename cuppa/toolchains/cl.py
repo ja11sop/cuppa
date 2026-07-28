@@ -493,13 +493,16 @@ class Cl(object):
         return header_bmi_path( env, header_path, '.ifc' )
 
 
-    def interface_module_flags( self, env, module_name, bmi_path ):
+    def interface_module_flags( self, env, module_name, bmi_path, exported=True ):
         # Hyphen forms avoid SCons treating /flags as paths on Windows.
         # Use space-separated -ifcOutput PATH: the colon form (-ifcOutput:PATH)
         # breaks on absolute Windows paths because MSVC treats the drive letter
         # colon as part of the filename (error C3474 on ':C:\...').
+        # Non-exported partitions (module M:part;) need -internalPartition, not
+        # -interface (otherwise MSVC C7621).
+        kind = '-interface' if exported else '-internalPartition'
         return [
-            '-interface',
+            kind,
             '-TP',
             '-ifcOutput',
             bmi_path,
@@ -544,11 +547,14 @@ class Cl(object):
                     append_reference( entry['path'] )
         if scan.module_declaration:
             decl = scan.module_declaration
-            primary = decl.split( ':', 1 )[0]
-            for candidate in ( decl, primary ):
-                if candidate in registry['named']:
-                    add_named( candidate, seen )
-                    break
+            if ':' in decl:
+                # Internal / interface partition unit: never self-reference the
+                # partition BMI being produced; pull in the primary module IFC.
+                primary = decl.split( ':', 1 )[0]
+                add_named( primary, seen )
+            else:
+                # Implementation unit `module M;`: reference primary BMI.
+                add_named( decl, seen )
         return flags
 
 

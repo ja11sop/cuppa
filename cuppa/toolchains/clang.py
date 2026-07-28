@@ -688,7 +688,7 @@ class Clang(object):
         return None
 
 
-    def interface_module_flags( self, env, module_name, bmi_path ):
+    def interface_module_flags( self, env, module_name, bmi_path, exported=True ):
         return [
             '-x', 'c++-module',
             '-fmodule-output={}'.format( bmi_path ),
@@ -730,11 +730,12 @@ class Clang(object):
                         flags.append( flag )
         if scan.module_declaration:
             decl = scan.module_declaration
-            primary = decl.split( ':', 1 )[0]
-            for candidate in ( decl, primary ):
-                if candidate in registry['named']:
-                    add_named( candidate, seen )
-                    break
+            if ':' in decl:
+                # Partition BMI unit: reference primary, never self-reference.
+                primary = decl.split( ':', 1 )[0]
+                add_named( primary, seen )
+            else:
+                add_named( decl, seen )
         return flags
 
 

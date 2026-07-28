@@ -30,7 +30,7 @@ Covered by `tests/integration/methods/test_modules.py` using
 
 | `test_shared_library_with_named_module`
 | `BuildSharedLib` + consumer
-|
+| Skipped on MSVC (module export ≠ DLL export / no `.lib`)
 
 | `test_packaged_modules_install_and_import`
 | Producer `final/modules` + consumer `ImportModules`
@@ -96,6 +96,6 @@ Covered by `tests/integration/methods/test_modules.py` using
   and passes `--propagate-path` so SCons does not fall back to `/usr/bin/clang++`.
   Apple Clang is rejected: it reports high majors but does not ship `clang-scan-deps` / a modules-capable toolchain.
   See xref:cxx-modules.adoc#macos-apple-clang[macOS: Apple Clang vs LLVM Clang].
-* Windows CI: full integration with `vc` (named modules; header/`import std` skipped)
+* Windows CI: full integration with `vc` (named modules; header units / `import std` / shared-lib-without-DLL-exports skipped)
 * **Fail** (do not skip) if no Linux GCC 14+ / Clang 16+ driver is on PATH when those families are selected
 * `import std` on Clang may select a versioned toolchain that ships `std.cppm`

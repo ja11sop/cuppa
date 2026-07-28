@@ -388,7 +388,12 @@ def compile_with_modules( env, sources, obj_builder, obj_prefix, obj_suffix, dep
                 imports=named_import_names( scan ),
             )
             cxx_flags = list( env.get( 'CXXFLAGS', [] ) )
-            cxx_flags.extend( toolchain.interface_module_flags( env, module_name, bmi_path ) )
+            exported = bool( scan and scan.export_module )
+            cxx_flags.extend(
+                toolchain.interface_module_flags(
+                    env, module_name, bmi_path, exported=exported
+                )
+            )
             for flag in toolchain.consume_module_flags( env, scan ):
                 if flag not in cxx_flags:
                     cxx_flags.append( flag )

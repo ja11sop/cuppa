@@ -167,10 +167,18 @@ def test_cl_interface_and_consume_flags_use_space_separated_paths():
     assert not any(f.startswith("-ifcOutput:") for f in flags)
     assert flags[flags.index("-ifcOutput") + 1] == win_bmi
 
+    internal = toolchain.interface_module_flags({}, "calc:core", win_bmi, exported=False)
+    assert "-internalPartition" in internal
+    assert "-interface" not in internal
+
     env = {
         "build_dir": r"C:\build",
         "_cuppa_module_registry": {
-            "named": {"math": {"path": win_bmi, "bmi": object()}},
+            "named": {
+                "math": {"path": win_bmi, "bmi": object()},
+                "calc": {"path": r"C:\build\modules\calc.ifc", "bmi": object()},
+                "calc:core": {"path": r"C:\build\modules\calc--core.ifc", "bmi": object()},
+            },
             "headers": {},
         },
     }
@@ -179,6 +187,12 @@ def test_cl_interface_and_consume_flags_use_space_separated_paths():
     assert "-reference" in consume
     assert "math={}".format(win_bmi) in consume
     assert not any(f.startswith("-reference:") for f in consume)
+
+    # Internal partition must reference primary, not itself.
+    partition_scan = ModuleScan(None, "calc:core", [], False)
+    partition_consume = toolchain.consume_module_flags(env, partition_scan)
+    assert "calc={}".format(r"C:\build\modules\calc.ifc") in partition_consume
+    assert "calc:core=" not in " ".join(partition_consume)
 
 
 def test_clang_interface_and_consume_flags():

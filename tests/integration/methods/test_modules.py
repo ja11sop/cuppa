@@ -397,7 +397,7 @@ def test_partition_incremental_rebuild(tmp_path):
     def _bmi_named(stem):
         matches = [
             path for path in build_files(project)
-            if path.stem == stem and path.suffix in (".gcm", ".pcm")
+            if path.stem == stem and path.suffix in (".gcm", ".pcm", ".ifc")
         ]
         assert matches, "missing BMI for {}".format(stem)
         return matches[0]
@@ -490,7 +490,10 @@ def test_import_std_compat_build(tmp_path):
 
 
 def test_shared_library_with_named_module(tmp_path):
-    _, toolchain_flag = _modules_toolchain_flag()
+    alias, toolchain_flag = _modules_toolchain_flag()
+    # MSVC module export ≠ DLL export: without __declspec(dllexport) (or a .def),
+    # the linker produces no import library and LNK1181 follows.
+    _skip_msvc_feature(alias, "shared libraries with modules without explicit DLL exports")
     project = _copy_modules_project(tmp_path)
     write_sconstruct(project)
     write_sconscript(

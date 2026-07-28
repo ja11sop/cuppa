@@ -548,7 +548,7 @@ class Gcc(object):
         return write_gcc_module_mapper( env )
 
 
-    def interface_module_flags( self, env, module_name, bmi_path ):
+    def interface_module_flags( self, env, module_name, bmi_path, exported=True ):
         from cuppa.toolchains.cxx_modules_support import mapper_path, write_gcc_module_mapper
         write_gcc_module_mapper( env )
         return [ '-fmodules', '-fmodule-mapper={}'.format( mapper_path( env ) ) ]

@@ -59,7 +59,7 @@ Capabilities:
 * Debug / release variants with modern defaults (`-EHsc`, `-permissive-`, `-Zc:__cplusplus`, `-utf-8`)
 * C++ dialect via `--stdcpp` / `env.StdCpp(...)`, mapped to MSVC `-std:c++NN` (default `-std:c++20`; hyphen form avoids SCons treating `/std:…` as a Windows path)
 * Host / target architecture maps including **arm64** / **aarch64** (legacy ia64 aliases remain)
-* C++20 named modules (`--modules`): `-interface`, space-separated `-ifcOutput PATH` and `-reference name=PATH` (colon-attached forms break on absolute `C:\…` paths)
+* C++20 named modules (`--modules`): `-interface` (exported) or `-internalPartition` (non-exported `module M:part;`), space-separated `-ifcOutput PATH` and `-reference name=PATH` (colon-attached forms break on absolute `C:\…` paths)
 
 Limitations:
 
