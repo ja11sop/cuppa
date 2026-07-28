@@ -58,6 +58,11 @@ def find_under_build(project_dir, pattern="*"):
     return sorted(build_root.rglob(pattern))
 
 
+def build_files(project_dir):
+    """Return all regular files under `_build/` (empty dirs are ignored)."""
+    return [path for path in find_under_build(project_dir) if path.is_file()]
+
+
 def find_final_binaries(project_dir, name):
     """Find built programs under final/; accept Windows PROGSUFFIX (.exe)."""
     patterns = [name]

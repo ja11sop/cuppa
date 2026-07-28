@@ -9,7 +9,13 @@ from pathlib import Path
 
 import pytest
 
-from tests.helpers.cuppa_runner import assert_success, find_final_binaries, run_cuppa
+from tests.helpers.cuppa_runner import (
+    assert_success,
+    build_files,
+    find_final_binaries,
+    find_under_build,
+    run_cuppa,
+)
 from tests.helpers.project import write_sconscript, write_sconstruct
 from tests.helpers.toolchains import require_modules_capable_toolchain
 
@@ -174,3 +180,55 @@ def test_mixed_named_module_and_header_unit(tmp_path):
     result = run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag)
     assert_success(result)
     assert find_final_binaries(project, "mixed_app")
+
+
+def test_named_module_build_then_clean(tmp_path):
+    _, toolchain_flag = _modules_toolchain_flag()
+    project = _copy_modules_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.Build('math_app', ['math.cppm', 'apps/main.cpp'])\n",
+    )
+    assert_success(run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag))
+    assert find_final_binaries(project, "math_app")
+    assert find_under_build(project, "*.gcm") or find_under_build(project, "*.pcm")
+    assert find_under_build(project, "*.o") or find_under_build(project, "*.obj")
+
+    assert_success(
+        run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag, "--clean")
+    )
+    leftover = build_files(project)
+    assert leftover == [], (
+        "expected no files under _build after --clean, found:\n"
+        + "\n".join(str(path) for path in leftover)
+    )
+
+
+def test_header_unit_build_then_clean(tmp_path):
+    _, toolchain_flag = _modules_toolchain_flag()
+    project = _copy_modules_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.HeaderUnit('include/widget.hpp')\n"
+        "env.Build('widget_app', ['apps/header_main.cpp'])\n",
+    )
+    assert_success(run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag))
+    assert find_final_binaries(project, "widget_app")
+    header_bmis = [
+        path for path in build_files(project)
+        if path.name.startswith("header--") and path.suffix in (".gcm", ".pcm")
+    ]
+    assert header_bmis
+
+    assert_success(
+        run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag, "--clean")
+    )
+    leftover = build_files(project)
+    assert leftover == [], (
+        "expected no files under _build after --clean, found:\n"
+        + "\n".join(str(path) for path in leftover)
+    )

@@ -104,6 +104,16 @@ def mapper_path( env ):
     return os.path.join( modules_build_dir( env ), 'module-mapper.txt' )
 
 
+def register_mapper_for_clean( env, bmi_node ):
+    """Ensure the GCC module mapper is removed by scons --clean / -c."""
+    if bmi_node is None:
+        return
+    try:
+        env.Clean( bmi_node, mapper_path( env ) )
+    except Exception:
+        pass
+
+
 def _header_mapper_candidates( env, names ):
     """Expand header spellings GCC might look up in the module mapper."""
     base = env.get( 'sconscript_dir' ) or env.get( 'base_path' )
@@ -139,6 +149,12 @@ def write_gcc_module_mapper( env ):
     """Write a GCC module mapper covering registered named modules and header units."""
     from cuppa.cpp.cxx_modules import get_registry
 
+    path = mapper_path( env )
+    # Avoid recreating the mapper during a clean run; Clean targets remove the
+    # previous build's copy once BMI nodes are registered with env.Clean.
+    if env.get( 'clean' ):
+        return path
+
     registry = get_registry( env )
     root = modules_build_dir( env )
     lines = [ '$root {}'.format( root ) ]
@@ -171,7 +187,6 @@ def write_gcc_module_mapper( env ):
         for candidate in sorted( c for c in _header_mapper_candidates( env, names ) if c ):
             lines.append( '{} {}'.format( candidate, rel ) )
 
-    path = mapper_path( env )
     with open( path, 'w' ) as handle:
         handle.write( '\n'.join( lines ) + '\n' )
     return path

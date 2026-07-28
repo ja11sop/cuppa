@@ -43,6 +43,14 @@ Covered by `tests/integration/methods/test_modules.py` using
 | `test_mixed_named_module_and_header_unit`
 | Named module + header unit in one app
 |
+
+| `test_named_module_build_then_clean`
+| `--clean` removes BMI, objects, binary, GCC mapper
+|
+
+| `test_header_unit_build_then_clean`
+| `--clean` removes header-unit BMI and consumers
+|
 |===
 
 == Toolchain selection

@@ -34,11 +34,15 @@ That path is a *project* convention; cuppa itself defaults to placing coverage n
 
 == Cleaning
 
-Use standard SCons clean:
+Use standard SCons clean (`--clean` or `-c`) with the same variant / toolchain flags
+you used to build:
 
 [source,sh]
 ----
-cuppa -D --dbg -c
+cuppa -D --dbg --clean
+cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=gcc --clean
 ----
 
-Remove `_build` / `_cuppa` trees when you want a fully cold start (downloads may need to be fetched again unless still present in the cache root).
+That removes objects, binaries, module BMIs (`.gcm` / `.pcm`), and the GCC
+`module-mapper.txt`. Empty directories under `_build` may remain; delete `_build`
+for a fully cold tree.

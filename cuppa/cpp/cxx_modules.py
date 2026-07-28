@@ -175,6 +175,8 @@ def register_named_module( env, module_name, bmi_path, bmi_node, imports=None ):
     entry['path'] = bmi_path
     if imports is not None:
         entry['imports'] = list( imports )
+    from cuppa.toolchains.cxx_modules_support import register_mapper_for_clean
+    register_mapper_for_clean( env, bmi_node )
     toolchain = env['toolchain']
     if hasattr( toolchain, 'write_module_mapper' ):
         toolchain.write_module_mapper( env )
@@ -202,6 +204,8 @@ def register_header_unit( env, header_path, bmi_path, bmi_node ):
     for key in keys:
         if key:
             registry['headers'][key] = entry
+    from cuppa.toolchains.cxx_modules_support import register_mapper_for_clean
+    register_mapper_for_clean( env, bmi_node )
     toolchain = env['toolchain']
     if hasattr( toolchain, 'write_module_mapper' ):
         toolchain.write_module_mapper( env )

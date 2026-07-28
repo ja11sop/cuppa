@@ -37,6 +37,12 @@ cuppa -D --offline --toolchains=gcc --dbg
 
 Exit 0; `main` exists under `_build/**/final/`.
 
+== Clean
+
+`test_build_then_clean_removes_outputs` builds the same project, then reruns with
+`--clean` (same variant flags). Expectation: no regular files remain under `_build/`
+(empty directories may remain).
+
 '''
 
 Related test module: `tests/integration/methods/test_build.py`.
