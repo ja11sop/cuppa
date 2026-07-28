@@ -72,6 +72,8 @@ pytest -m unit
 pytest -m integration   # requires a C++ compiler (g++ preferred)
 # Optionally force the toolchain used by integration helpers:
 # CUPPA_TEST_TOOLCHAIN=clang pytest -m integration
+# CUPPA_TEST_TOOLCHAIN=clang CUPPA_TEST_ARGS='--clang-stdlib=libc++' pytest -m integration
+# CUPPA_TEST_TOOLCHAIN=clang CUPPA_TEST_ARGS='--clang-stdlib=libstdc++' pytest -m integration
 # CUPPA_TEST_TOOLCHAIN=vc pytest -m integration   # Windows + MSVC
 ```
 
@@ -79,9 +81,10 @@ Unit tests under `tests/unit/` cover foundations (`location`, `build_with_*`, `c
 
 Lint config: [`.flake8`](.flake8) and [`.pylintrc`](.pylintrc). Full settings and rationale for contributors/agents: [`docs/modules/ROOT/pages/linting.adoc`](docs/modules/ROOT/pages/linting.adoc). Keep the gate error-focused — do not broaden to style warnings without intent.
 
-CI runs the integration suite once per Linux toolchain (`gcc`, `clang`) via `CUPPA_TEST_TOOLCHAIN`, and once on `windows-latest` with MSVC (`vc`).
+CI runs the integration suite once per Linux cell via `CUPPA_TEST_TOOLCHAIN` / `CUPPA_TEST_ARGS`:
+`gcc`, `clang` + `--clang-stdlib=libstdc++`, and `clang` + `--clang-stdlib=libc++`, plus once on `windows-latest` with MSVC (`vc`).
 Linux CI installs **g++-15** (via `ppa:ubuntu-toolchain-r/test` + `update-alternatives`) **only on the gcc integration job**.
-The clang job installs the newest available Clang from [apt.llvm.org](https://apt.llvm.org/) (tried newest-first), selects it with `update-alternatives`, and runs with `--clang-stdlib=libc++` (`CUPPA_TEST_ARGS`) so it does not depend on GCC’s libstdc++.
+The clang jobs install the newest available Clang from [apt.llvm.org](https://apt.llvm.org/) (tried newest-first), select it with `update-alternatives`, and install matching libc++ so both stdlib cells (and `import std`) can run. The libstdc++ cell uses the distro libstdc++ — do not install a newer GCC on those jobs.
 Modules integration tests prefer that job’s default compiler family alias and only probe versioned drivers if the default is below the modules floor; they **fail** on too-old GCC/Clang rather than skipping.
 
 Integration scenarios (with generated `sconstruct` / `sconscript` and expectations) are documented on the Antora site under **Integration tests** (`docs/modules/ROOT/pages/integration-tests.adoc` and `docs/modules/ROOT/pages/integration/`).

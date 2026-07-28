@@ -27,6 +27,7 @@ Supported aliases include `clang` plus versioned names through **clang22** (for 
 Clang-specific options:
 
 * `--clang-stdlib={libstdc++,libc++}` (on Linux defaults to `libstdc++`, so Boost b2 receives an explicit `-stdlib=` flag)
+* Linux CI runs the full integration suite twice for Clang — once with each stdlib — via `CUPPA_TEST_ARGS`
 * `--clang-disable-debug-for-auto`
 
 C++20 modules (opt-in via `--modules`) are documented in xref:cxx-modules.adoc[C++ modules].

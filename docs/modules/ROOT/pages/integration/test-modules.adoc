@@ -86,5 +86,5 @@ Covered by `tests/integration/methods/test_modules.py` using
 * Skipped only for MSVC (`CUPPA_TEST_TOOLCHAIN=vc`)
 * **Fail** (do not skip) if no Linux GCC 14+ / Clang 16+ driver is on PATH
 * Prefer the default `g++` / `clang++` on PATH (typically via `update-alternatives`); only probe versioned drivers if the default is too old
-* For Clang CI, set `CUPPA_TEST_ARGS=--clang-stdlib=libc++` when needed
-* `import std` on Clang may select a versioned toolchain (e.g. `clang22`) that ships `std.cppm`
+* For Clang CI, set `CUPPA_TEST_ARGS=--clang-stdlib=libstdc++` or `--clang-stdlib=libc++` (CI runs both cells)
+* `import std` on Clang may select a versioned toolchain (e.g. `clang22`) that ships `std.cppm`, and forces `--clang-stdlib=libc++` even when the job’s default is `libstdc++`

@@ -37,9 +37,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Smoke the full integration suite once per Linux toolchain family.
+        # Smoke the full integration suite per Linux compiler / Clang stdlib.
         # MSVC (`vc`) requires Windows + Visual Studio and is not exercised here.
-        toolchain: [gcc, clang]
+        include:
+          - toolchain: gcc
+            clang_stdlib: ""
+            cuppa_test_args: ""
+            name_suffix: gcc
+          # Default Clang + libstdc++ (explicit flag so the option path is covered).
+          # Do not install a newer GCC/libstdc++ on this job — see install step.
+          - toolchain: clang
+            clang_stdlib: libstdc++
+            cuppa_test_args: "--clang-stdlib=libstdc++"
+            name_suffix: clang-libstdc++
+          # Matching libc++ avoids coupling to whatever libstdc++ is on the image.
+          - toolchain: clang
+            clang_stdlib: libc++
+            cuppa_test_args: "--clang-stdlib=libc++"
+            name_suffix: clang-libc++
+    name: integration (${{ matrix.name_suffix }})
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -49,7 +65,7 @@ jobs:
         if: matrix.toolchain == 'gcc'
         run: |
           # Prefer GCC 15 when available (ubuntu-latest / 24.04 needs the toolchain test PPA).
-          # Keep this off the clang job: Clang + libstdc++ from GCC 15 breaks with -std=c++2c
+          # Keep this off the clang jobs: Clang + libstdc++ from GCC 15 breaks with -std=c++2c
           # (e.g. <format> constexpr errors in CreateVersion).
           sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
           sudo apt-get update
@@ -69,7 +85,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcovr wget ca-certificates
           # Install the newest Clang that apt.llvm.org offers for this Ubuntu.
-          # Do not pull a newer GCC/libstdc++ — use matching libc++ instead.
+          # Install matching libc++ so the libc++ matrix cell (and import std) work;
+          # the libstdc++ cell uses the distro libstdc++ (do not pull a newer GCC).
           wget -q https://apt.llvm.org/llvm.sh -O /tmp/llvm.sh
           chmod +x /tmp/llvm.sh
           CLANG_VER=""
@@ -100,11 +117,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -e . --no-build-isolation
-      - name: Integration tests (${{ matrix.toolchain }})
+      - name: Integration tests (${{ matrix.name_suffix }})
         env:
           CUPPA_TEST_TOOLCHAIN: ${{ matrix.toolchain }}
-          # Recent Clang + matching libc++ avoids coupling to whatever libstdc++ GCC left on the image.
-          CUPPA_TEST_ARGS: ${{ matrix.toolchain == 'clang' && '--clang-stdlib=libc++' || '' }}
+          CUPPA_TEST_ARGS: ${{ matrix.cuppa_test_args }}
         run: pytest -m integration -q
 
   integration-windows:

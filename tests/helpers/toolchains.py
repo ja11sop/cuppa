@@ -289,3 +289,41 @@ def default_toolchain_flags():
         return ["--toolchains=vc"]
     require_cxx()
     return []
+
+
+# Clang stdlib variants exercised by CI / matrix tests.
+CLANG_STDLIB_LIBSTDCXX = "libstdc++"
+CLANG_STDLIB_LIBCXX = "libc++"
+CLANG_STDLIB_VARIANTS = (CLANG_STDLIB_LIBSTDCXX, CLANG_STDLIB_LIBCXX)
+
+
+def clang_stdlib_flag(stdlib):
+    """Return the cuppa CLI flag for a Clang standard library choice."""
+    return "--clang-stdlib={}".format(stdlib)
+
+
+def active_clang_stdlib():
+    """
+    Stdlib selected by CUPPA_TEST_ARGS, if any.
+
+    Returns 'libstdc++', 'libc++', or None when CUPPA_TEST_ARGS does not set it
+    (cuppa then applies its Linux default of libstdc++).
+    """
+    for arg in os.environ.get("CUPPA_TEST_ARGS", "").split():
+        if arg.startswith("--clang-stdlib="):
+            return arg.split("=", 1)[1]
+    return None
+
+
+def clang_stdlib_matrix_params():
+    """
+    Parametrize ids for Clang builds that should cover both stdlibs.
+
+    When CUPPA_TEST_ARGS already pins a stdlib (CI job), return only that
+    variant so we do not triple-run inside a job that is already the dual matrix.
+    Otherwise return both libstdc++ and libc++.
+    """
+    pinned = active_clang_stdlib()
+    if pinned in CLANG_STDLIB_VARIANTS:
+        return [pinned]
+    return list(CLANG_STDLIB_VARIANTS)
