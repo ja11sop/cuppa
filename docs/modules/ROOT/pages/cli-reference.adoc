@@ -88,7 +88,7 @@ Per-dependency location options follow the pattern `--<name>-location`, `--<name
 
 Clang:
 
-* `--clang-stdlib={libstdc++,libc++}`
+* `--clang-stdlib={libstdc++,libc++}` (Linux default: `libstdc++`)
 * `--clang-disable-debug-for-auto`
 
 Boost (source dependency) includes `--boost-home`, `--boost-location`, `--boost-version`, `--boost-latest`, `--boost-build-always`, `--boost-verbose-build`, `--boost-verbose-config`, `--boost-patch-boost-test`.
