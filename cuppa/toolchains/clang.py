@@ -622,6 +622,74 @@ class Clang(object):
         return '-stdlib={}'.format(self._stdlib)
 
 
+    def supports_modules( self, env ):
+        import cuppa.build_platform
+        if cuppa.build_platform.name() != "Linux":
+            return False
+        return self._reported_version['major'] >= 16
+
+
+    def modules_enable_flags( self, env ):
+        return [ '-fmodules' ]
+
+
+    def module_bmi_path( self, env, module_name ):
+        from cuppa.toolchains.cxx_modules_support import named_bmi_path
+        return named_bmi_path( env, module_name, '.pcm' )
+
+
+    def header_unit_bmi_path( self, env, header_path ):
+        from cuppa.toolchains.cxx_modules_support import header_bmi_path
+        return header_bmi_path( env, header_path, '.pcm' )
+
+
+    def write_module_mapper( self, env ):
+        return None
+
+
+    def interface_module_flags( self, env, module_name, bmi_path ):
+        return [
+            '-fmodules',
+            '-fmodule-output={}'.format( bmi_path ),
+        ]
+
+
+    def consume_module_flags( self, env, scan ):
+        from cuppa.cpp.cxx_modules import get_registry, lookup_header_entry
+        flags = [ '-fmodules' ]
+        registry = get_registry( env )
+        if not scan:
+            return flags
+        for item in scan.imports:
+            if item.kind == 'named':
+                entry = registry['named'].get( item.name )
+                if entry:
+                    flags.append(
+                        '-fmodule-file={}={}'.format( item.name, entry['path'] )
+                    )
+            else:
+                entry = lookup_header_entry( registry, item.name )
+                if entry:
+                    flags.append( '-fmodule-file={}'.format( entry['path'] ) )
+        if scan.module_declaration:
+            entry = registry['named'].get( scan.module_declaration )
+            if entry:
+                flag = '-fmodule-file={}={}'.format(
+                    scan.module_declaration, entry['path']
+                )
+                if flag not in flags:
+                    flags.append( flag )
+        return flags
+
+
+    def build_header_unit( self, env, header, bmi_path, **kwargs ):
+        kwargs.pop( 'declared', None )
+        action = (
+            '$CXX -o $TARGET --precompile -fmodule-header $CXXFLAGS $_CPPINCFLAGS $SOURCES'
+        )
+        return env.Command( bmi_path, header, action, **kwargs )[0]
+
+
     def abi( self, env ):
         return self.abi_flag( env ).split('=')[1]
 

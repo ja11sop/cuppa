@@ -371,6 +371,34 @@ class Cl(object):
         return None
 
 
+    def supports_modules( self, env ):
+        return False
+
+
+    def modules_enable_flags( self, env ):
+        return []
+
+
+    def module_bmi_path( self, env, module_name ):
+        raise NotImplementedError( "C++ modules are not supported for MSVC in this cuppa release" )
+
+
+    def header_unit_bmi_path( self, env, header_path ):
+        raise NotImplementedError( "C++ modules are not supported for MSVC in this cuppa release" )
+
+
+    def interface_module_flags( self, env, module_name, bmi_path ):
+        raise NotImplementedError( "C++ modules are not supported for MSVC in this cuppa release" )
+
+
+    def consume_module_flags( self, env, scan ):
+        raise NotImplementedError( "C++ modules are not supported for MSVC in this cuppa release" )
+
+
+    def build_header_unit( self, env, header, bmi_path, **kwargs ):
+        raise NotImplementedError( "C++ modules are not supported for MSVC in this cuppa release" )
+
+
     def abi( self, env ):
         flag = self.abi_flag( env )
         if ':' in flag:

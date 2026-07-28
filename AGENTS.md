@@ -56,6 +56,7 @@ Equivalent: `scons -D …` when the project's `sconstruct` already imports cuppa
 | Dependencies | `cuppa/dependencies/`, `cuppa/build_with_location.py` |
 | Packages | `cuppa/build_with_package.py`, `cuppa/package_managers/`, `cuppa/packages/` |
 | Coverage | `cuppa/cpp/run_gcov_coverage.py`, `cuppa/methods/coverage.py` |
+| C++ modules | `cuppa/cpp/module_scanner.py`, `cuppa/cpp/cxx_modules.py`, `cuppa/methods/modules.py`, `cuppa/methods/header_unit.py`, toolchain helpers in `gcc.py` / `clang.py` |
 | Console entry | `cuppa/__main__.py` |
 
 Module auto-registration: `cuppa/modules/registration.py` loads classes exposing `add_options` / `add_to_env` under methods, dependencies, profiles, variants, toolchains, project_generators.

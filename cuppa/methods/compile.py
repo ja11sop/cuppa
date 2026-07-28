@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2013-2024
+#          Copyright Jamie Allsop 2013-2026
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -41,6 +41,18 @@ class CompileMethod:
         logger.trace( "Build Root = [{}]".format( as_notice( env['build_root'] ) ) )
 
         dependencies = kwargs.get( 'depends_on', None )
+
+        if env.get( 'modules' ):
+            from cuppa.cpp.cxx_modules import compile_with_modules
+            return compile_with_modules(
+                env,
+                sources,
+                obj_builder,
+                obj_prefix,
+                obj_suffix,
+                dependencies,
+                { k: v for k, v in kwargs.items() if k != 'depends_on' },
+            )
 
         for source in sources:
             if not isinstance( source, Node ):

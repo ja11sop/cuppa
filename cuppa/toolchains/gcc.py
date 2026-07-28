@@ -519,6 +519,83 @@ class Gcc(object):
         return None
 
 
+    def supports_modules( self, env ):
+        import cuppa.build_platform
+        if cuppa.build_platform.name() != "Linux":
+            return False
+        return self._reported_version['major'] >= 14
+
+
+    def modules_enable_flags( self, env ):
+        from cuppa.toolchains.cxx_modules_support import mapper_path, write_gcc_module_mapper
+        write_gcc_module_mapper( env )
+        return [ '-fmodules', '-fmodule-mapper={}'.format( mapper_path( env ) ) ]
+
+
+    def module_bmi_path( self, env, module_name ):
+        from cuppa.toolchains.cxx_modules_support import named_bmi_path
+        return named_bmi_path( env, module_name, '.gcm' )
+
+
+    def header_unit_bmi_path( self, env, header_path ):
+        from cuppa.toolchains.cxx_modules_support import header_bmi_path
+        return header_bmi_path( env, header_path, '.gcm' )
+
+
+    def write_module_mapper( self, env ):
+        from cuppa.toolchains.cxx_modules_support import write_gcc_module_mapper
+        return write_gcc_module_mapper( env )
+
+
+    def interface_module_flags( self, env, module_name, bmi_path ):
+        from cuppa.toolchains.cxx_modules_support import mapper_path, write_gcc_module_mapper
+        write_gcc_module_mapper( env )
+        return [ '-fmodules', '-fmodule-mapper={}'.format( mapper_path( env ) ) ]
+
+
+    def consume_module_flags( self, env, scan ):
+        from cuppa.toolchains.cxx_modules_support import mapper_path, write_gcc_module_mapper
+        write_gcc_module_mapper( env )
+        return [ '-fmodules', '-fmodule-mapper={}'.format( mapper_path( env ) ) ]
+
+
+    def build_header_unit( self, env, header, bmi_path, **kwargs ):
+        import os
+        from cuppa.toolchains.cxx_modules_support import mapper_path, write_gcc_module_mapper
+        from cuppa.cpp.cxx_modules import register_header_unit
+        declared = kwargs.pop( 'declared', None )
+        bmi_node = env.File( bmi_path )
+        header_path = header.get_abspath() if hasattr( header, 'get_abspath' ) else str( header )
+        register_header_unit( env, header_path, bmi_path, bmi_node )
+        if declared:
+            register_header_unit( env, declared, bmi_path, bmi_node )
+            register_header_unit(
+                env,
+                './' + declared.replace( '\\', '/' ).lstrip( './' ),
+                bmi_path,
+                bmi_node,
+            )
+        else:
+            register_header_unit( env, str( header ), bmi_path, bmi_node )
+            try:
+                rel = os.path.relpath( header_path, env.get( 'sconscript_dir', os.getcwd() ) )
+                # Drop VariantDir prefixes if present
+                build_dir = env.get( 'build_dir', '' )
+                if build_dir and rel.replace( '\\', '/' ).startswith( build_dir.replace( '\\', '/' ).rstrip( '/' ) + '/' ):
+                    rel = os.path.relpath( rel, build_dir )
+                register_header_unit( env, rel, bmi_path, bmi_node )
+                register_header_unit( env, './' + rel.replace( '\\', '/' ).lstrip( './' ), bmi_path, bmi_node )
+            except ValueError:
+                pass
+        write_gcc_module_mapper( env )
+        action = (
+            '$CXX -o $TARGET -c -fmodule-header -fmodules '
+            '-fmodule-mapper={mapper} $CXXFLAGS $_CPPINCFLAGS $SOURCES'
+            .format( mapper=mapper_path( env ) )
+        )
+        return env.Command( bmi_path, header, action, **kwargs )[0]
+
+
     def abi( self, env ):
         return self.abi_flag( env ).split('=')[1]
 

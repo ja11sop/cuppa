@@ -29,6 +29,8 @@ Clang-specific options:
 * `--clang-stdlib={libstdc++,libc++}` (on Linux defaults to `libstdc++`, so Boost b2 receives an explicit `-stdlib=` flag)
 * `--clang-disable-debug-for-auto`
 
+C++20 modules (opt-in via `--modules`) are documented in xref:cxx-modules.adoc[C++ modules].
+
 == MSVC
 
 On Windows, the `cl` toolchain integrates with SCons Visual C++ detection.

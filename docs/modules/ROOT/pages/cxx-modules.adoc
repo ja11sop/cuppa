@@ -1,0 +1,64 @@
+= C++ modules
+:description: Experimental named modules and header units (GCC/Clang on Linux)
+
+Cuppa can build C++20 **named modules** and **header units** on Linux with GCC 14+ or Clang 16+.
+MSVC is not supported in this release. `import std` is out of scope.
+
+Enablement is **opt-in** so existing projects are unchanged.
+
+== Enable modules
+
+[source,sh]
+----
+cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=gcc
+cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=clang
+----
+
+`--modules` sets `env['modules']=True` for each variant env.
+If the selected dialect is below C++20, cuppa raises it to `c++20`.
+You can also call `env.Modules()` from a sconscript.
+
+== Named modules
+
+Interface units use `.cppm` / `.cxxm` / `.ccm` (or a `.cpp` that contains `export module`).
+Pass them to `Build` / `Compile` like any other source:
+
+[source,python]
+----
+Import('env')
+env.Build('app', [
+    'math.cppm',      # export module math;
+    'math.cpp',       # module math;   (optional implementation unit)
+    'main.cpp',       # import math;
+])
+----
+
+Cuppa scans sources for `export module` / `module` / `import`, builds BMIs under
+`_build/.../working/modules/`, and wires SCons `Depends` so interfaces compile before consumers.
+
+== Header units
+
+Declare headers that should be imported as header units:
+
+[source,python]
+----
+Import('env')
+env.HeaderUnit('include/widget.hpp')
+env.Build('tool', ['tool.cpp'])   # import "include/widget.hpp";
+----
+
+== Artifact layout
+
+----
+_build/<toolchain>/<variant>/<arch>/<abi>/working/modules/
+  math.pcm|gcm
+  header--include--widget.hpp.pcm|gcm
+  module-mapper.txt          # GCC only
+----
+
+== Limits
+
+* Linux GCC 14+ / Clang 16+ only
+* Lightweight line-oriented import scanner (macros that invent imports are unsupported)
+* Header-unit spelling in `import "..."` should match the path passed to `HeaderUnit`
+* Experimental compiler support — expect toolchain-specific quirks

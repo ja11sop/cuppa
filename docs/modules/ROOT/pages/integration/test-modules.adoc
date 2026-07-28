@@ -1,0 +1,6 @@
+= Integration: C++ modules
+:description: Named modules and header units with --modules
+
+See xref:cxx-modules.adoc[C++ modules].
+
+Covered by `tests/integration/methods/test_modules.py` (skipped on MSVC / old compilers).
