@@ -3,10 +3,17 @@
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
+import os
+
 import pytest
 
 from cuppa.cpp.module_scanner import ModuleImport, ModuleScan
-from cuppa.toolchains.cxx_modules_support import header_bmi_path, named_bmi_path
+from cuppa.toolchains.cxx_modules_support import (
+    header_bmi_path,
+    header_unit_label,
+    named_bmi_path,
+    write_gcc_module_mapper,
+)
 
 
 pytestmark = pytest.mark.unit
@@ -17,8 +24,66 @@ def test_named_and_header_bmi_paths(tmp_path):
     named = named_bmi_path(env, "math.util", ".pcm")
     assert named.endswith("modules/math--util.pcm")
     header = header_bmi_path(env, "include/widget.hpp", ".gcm")
-    assert "modules/header--" in header.replace("\\", "/")
-    assert header.endswith(".gcm")
+    assert header.replace("\\", "/").endswith("modules/header--include--widget.hpp.gcm")
+
+
+def test_header_unit_label_strips_variant_dir(tmp_path):
+    project = tmp_path / "proj"
+    build = project / "_build" / "gcc15" / "dbg" / "x86_64" / "cxx20" / "working"
+    env = {
+        "build_dir": "_build/gcc15/dbg/x86_64/cxx20/working",
+        "abs_build_dir": str(build),
+        "sconscript_dir": str(project),
+        "base_path": str(project),
+    }
+    assert header_unit_label(env, "include/widget.hpp") == "include/widget.hpp"
+    assert header_unit_label(
+        env,
+        str(build / "include" / "widget.hpp"),
+    ) == "include/widget.hpp"
+    assert header_unit_label(
+        env,
+        "_build/gcc15/dbg/x86_64/cxx20/working/include/widget.hpp",
+    ) == "include/widget.hpp"
+    bmi = header_bmi_path(env, str(build / "include" / "widget.hpp"), ".gcm")
+    assert "_build" not in os.path.basename(bmi)
+    assert bmi.endswith("header--include--widget.hpp.gcm")
+
+
+def test_gcc_mapper_includes_declared_header_spelling(tmp_path):
+    build = tmp_path / "working"
+    build.mkdir()
+    env = {
+        "build_dir": str(build),
+        "abs_build_dir": str(build),
+        "sconscript_dir": str(tmp_path),
+        "base_path": str(tmp_path),
+        "_cuppa_module_registry": {
+            "named": {},
+            "headers": {},
+        },
+    }
+    bmi = str(build / "modules" / "header--include--widget.hpp.gcm")
+    # Register VariantDir path first (insertion order that previously starved the mapper)
+    from cuppa.cpp.cxx_modules import register_header_unit
+
+    class _Bmi:
+        pass
+
+    bmi_node = _Bmi()
+    # Avoid toolchain.write_module_mapper during register
+    env["toolchain"] = type("T", (), {})()
+    register_header_unit(
+        env,
+        str(build / "include" / "widget.hpp"),
+        bmi,
+        bmi_node,
+    )
+    register_header_unit(env, "include/widget.hpp", bmi, bmi_node)
+    mapper = write_gcc_module_mapper(env)
+    text = open(mapper).read()
+    assert "include/widget.hpp" in text
+    assert "header--include--widget.hpp.gcm" in text
 
 
 def test_clang_supports_modules_version_gate(monkeypatch):

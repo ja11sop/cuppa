@@ -36,17 +36,64 @@ def named_bmi_path( env, module_name, extension ):
     )
 
 
+def _strip_prefix_path( path, prefix ):
+    if not path or not prefix:
+        return None
+    try:
+        rel = os.path.relpath( os.path.normpath( path ), os.path.normpath( prefix ) )
+    except ValueError:
+        return None
+    if rel == os.curdir:
+        return ''
+    if rel.startswith( '..' ):
+        return None
+    return rel
+
+
+def header_unit_label( env, header_path ):
+    """
+    Stable project-relative label for header-unit BMI names / mapper keys.
+
+    Trust already-relative declarations (e.g. include/widget.hpp). Absolute or
+    VariantDir paths are stripped back to the same form so GCC sees the spelling
+    used on the compile line rather than _build/.../working/... .
+    """
+    if not header_path:
+        return 'header'
+
+    path = os.path.normpath( str( header_path ) )
+    build_dir = env.get( 'build_dir' )
+    abs_build = env.get( 'abs_build_dir' )
+    sconscript_dir = env.get( 'sconscript_dir' ) or env.get( 'base_path' )
+
+    if os.path.isabs( path ):
+        for prefix in ( abs_build, build_dir, sconscript_dir ):
+            stripped = _strip_prefix_path( path, prefix )
+            if stripped is not None:
+                path = stripped
+                break
+    elif build_dir:
+        # Relative path under the variant dir (not a user declaration)
+        stripped = _strip_prefix_path( path, build_dir )
+        if stripped is not None:
+            path = stripped
+
+    if os.path.isabs( path ):
+        path = os.path.basename( path )
+
+    label = path.replace( '\\', '/' ).lstrip( './' )
+    # Fallback if a VariantDir-relative path slipped through
+    parts = label.split( '/' )
+    if parts and parts[0] == '_build' and 'working' in parts:
+        idx = parts.index( 'working' )
+        rest = '/'.join( parts[idx + 1:] )
+        if rest:
+            label = rest
+    return label or os.path.basename( str( header_path ) )
+
+
 def header_bmi_path( env, header_path, extension ):
-    label = header_path
-    base = env.get( 'sconscript_dir' ) or env.get( 'base_path' )
-    if base:
-        try:
-            label = os.path.relpath( header_path, base )
-        except ValueError:
-            label = os.path.basename( header_path )
-    # Keep labels stable and short when given an absolute path outside the project
-    if os.path.isabs( label ):
-        label = os.path.basename( header_path )
+    label = header_unit_label( env, header_path )
     return os.path.join(
         modules_build_dir( env ),
         sanitize_header_filename( label ) + extension,
@@ -57,13 +104,43 @@ def mapper_path( env ):
     return os.path.join( modules_build_dir( env ), 'module-mapper.txt' )
 
 
+def _header_mapper_candidates( env, names ):
+    """Expand header spellings GCC might look up in the module mapper."""
+    base = env.get( 'sconscript_dir' ) or env.get( 'base_path' )
+    candidates = set()
+    for name in names:
+        if not name:
+            continue
+        label = header_unit_label( env, name )
+        for candidate in ( name, label ):
+            if not candidate:
+                continue
+            candidates.add( candidate )
+            candidates.add( os.path.basename( candidate ) )
+            normalised = candidate.replace( '\\', '/' )
+            candidates.add( normalised )
+            if not os.path.isabs( candidate ):
+                candidates.add( './' + normalised.lstrip( './' ) )
+            if label:
+                candidates.add( label )
+                candidates.add( './' + label.lstrip( './' ) )
+            if base and os.path.isabs( str( candidate ) ):
+                try:
+                    rel_header = os.path.relpath( candidate, base ).replace( '\\', '/' )
+                    if not rel_header.startswith( '..' ):
+                        candidates.add( rel_header )
+                        candidates.add( './' + rel_header.lstrip( './' ) )
+                except ValueError:
+                    pass
+    return candidates
+
+
 def write_gcc_module_mapper( env ):
     """Write a GCC module mapper covering registered named modules and header units."""
     from cuppa.cpp.cxx_modules import get_registry
 
     registry = get_registry( env )
     root = modules_build_dir( env )
-    base = env.get( 'sconscript_dir' ) or env.get( 'base_path' )
     lines = [ '$root {}'.format( root ) ]
 
     for name, entry in sorted( registry['named'].items() ):
@@ -74,37 +151,24 @@ def write_gcc_module_mapper( env ):
         else:
             lines.append( '{} {}'.format( name, bmi ) )
 
-    seen_bmis = set()
+    # Union all registry keys / header spellings per BMI. Using only the first
+    # dict entry is flaky (set insertion order) and often drops the compile-line
+    # spelling include/foo.hpp in favour of a VariantDir path.
+    by_bmi = {}
     for key, entry in registry['headers'].items():
-        header = entry.get( 'header', key )
         bmi = os.path.abspath( entry['path'] )
-        if bmi in seen_bmis:
-            continue
-        seen_bmis.add( bmi )
+        group = by_bmi.setdefault( bmi, set() )
+        group.add( key )
+        header = entry.get( 'header' )
+        if header:
+            group.add( header )
+
+    for bmi, names in sorted( by_bmi.items() ):
         if bmi.startswith( root + os.sep ):
             rel = os.path.relpath( bmi, root )
         else:
             rel = bmi
-
-        candidates = set()
-        for candidate in ( header, key, entry.get( 'header' ) ):
-            if not candidate:
-                continue
-            candidates.add( candidate )
-            candidates.add( os.path.basename( candidate ) )
-            candidates.add( './' + os.path.basename( candidate ) )
-            normalised = candidate.replace( '\\', '/' )
-            candidates.add( normalised )
-            candidates.add( './' + normalised.lstrip( './' ) )
-            if base:
-                try:
-                    rel_header = os.path.relpath( candidate, base ).replace( '\\', '/' )
-                    candidates.add( rel_header )
-                    candidates.add( './' + rel_header.lstrip( './' ) )
-                except ValueError:
-                    pass
-
-        for candidate in sorted( c for c in candidates if c ):
+        for candidate in sorted( c for c in _header_mapper_candidates( env, names ) if c ):
             lines.append( '{} {}'.format( candidate, rel ) )
 
     path = mapper_path( env )

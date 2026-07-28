@@ -282,22 +282,26 @@ def build_header_unit( env, header, **kwargs ):
 
     modules_dir( env )
     header_path = _source_abspath( header )
-    bmi_path = toolchain.header_unit_bmi_path( env, declared or header_path )
-    bmi_node = toolchain.build_header_unit( env, header, bmi_path, declared=declared, **kwargs )
+    # Prefer the user-declared spelling so BMI names stay project-relative
+    # (VariantDir abspaths would otherwise embed _build/.../working/...).
+    from cuppa.toolchains.cxx_modules_support import header_unit_label
+    label = header_unit_label( env, declared or header_path )
+    bmi_path = toolchain.header_unit_bmi_path( env, label )
+    bmi_node = toolchain.build_header_unit( env, header, bmi_path, declared=label, **kwargs )
     register_header_unit( env, header_path, bmi_path, bmi_node )
     register_header_unit( env, str( header ), bmi_path, bmi_node )
-    if declared:
-        register_header_unit( env, declared, bmi_path, bmi_node )
-        register_header_unit( env, declared.replace( '\\', '/' ), bmi_path, bmi_node )
+    if label:
+        register_header_unit( env, label, bmi_path, bmi_node )
+        register_header_unit( env, label.replace( '\\', '/' ), bmi_path, bmi_node )
         register_header_unit(
             env,
-            './' + declared.replace( '\\', '/' ).lstrip( './' ),
+            './' + label.replace( '\\', '/' ).lstrip( './' ),
             bmi_path,
             bmi_node,
         )
     cuppa.progress.NotifyProgress.add( env, bmi_node )
     logger.debug(
         "Registered header unit [{}] BMI [{}]"
-        .format( as_info( declared or str( header ) ), as_notice( bmi_path ) )
+        .format( as_info( label or str( header ) ), as_notice( bmi_path ) )
     )
     return bmi_node
