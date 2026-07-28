@@ -7,8 +7,9 @@ Cuppa can build C++20 **named modules** (including interface / implementation pa
 Supported platforms / floors:
 
 * **Linux / macOS:** GCC 14+ or **LLVM** Clang 16+ (`import std`: GCC 15+; Clang 18+ with libc++)
-* **macOS note:** Apple Clang (Xcode) is **not** modules-capable even when it reports a high major (e.g. `Apple clang version 21`). Use Homebrew `llvm` (or another upstream Clang) and ensure its `bin` precedes `/usr/bin` on `PATH`.
 * **Windows:** MSVC toolset 14.29+ (VS 2019 16.10+ / VS 2022) for named modules; header units and `import std` not yet
+
+See <<macos-apple-clang>> for why Xcode’s Apple Clang is rejected on macOS.
 
 Enablement is **opt-in** so existing projects are unchanged.
 BMIs are per env / variant. Same-sconscript `BuildLib` / `Module` + `Build` share the registry.
@@ -285,7 +286,7 @@ _build/<toolchain>/<variant>/<arch>/<abi>/working/modules/
 
 == Limits
 
-* Linux / macOS: GCC 14+ / LLVM Clang 16+ (`import std`: GCC 15+ / Clang 18+ with libc++; Apple Clang unsupported)
+* Linux / macOS: GCC 14+ / LLVM Clang 16+ (`import std`: GCC 15+ / Clang 18+ with libc++; Apple Clang unsupported — see <<macos-apple-clang>>)
 * Windows: MSVC 14.29+ named modules; header units and `import std` not yet
 * Lightweight line-oriented import scanner (macros that invent imports are unsupported)
 * Header-unit spelling in `import "..."` / `import <…>` must match `HeaderUnit` (GCC/Clang)
@@ -294,3 +295,42 @@ _build/<toolchain>/<variant>/<arch>/<abi>/working/modules/
 * Experimental compiler support — expect toolchain-specific quirks
 * `--modules` on an unsupported toolchain stops the build with a clear error
 * Integration tests require a modules-capable compiler and **fail** if GCC/Clang is too old
+
+[#macos-apple-clang]
+== macOS: Apple Clang vs LLVM Clang
+
+**Apple Clang** (the `clang++` shipped with Xcode / Command Line Tools) is **not** the same product as upstream **LLVM Clang**, even when `--version` reports a high major:
+
+[source,text]
+----
+Apple clang version 21.0.0 (clang-2100.1.1.101)
+Target: arm64-apple-darwin25.4.0
+----
+
+Cuppa detects the `Apple clang` / `Apple LLVM` banner, sets an `apple` flag on the toolchain version, and treats that driver as **not** modules-capable (`supports_modules` / `supports_import_std` are false). A marketing major such as 16 or 21 must not be mistaken for LLVM Clang 16 / 21.
+
+=== Why Apple Clang fails for C++20 modules
+
+Apple’s toolchain does **not** ship **`clang-scan-deps`**, the dependency scanner that discovers module import graphs.
+Without it, build systems that rely on compiler-provided module scanning cannot drive C++20 modules correctly.
+The same gap shows up with CMake’s `CXX_MODULES` support (configure fails with “compiler does not provide a way to discover the import graph dependencies”); see for example
+https://stackoverflow.com/questions/79143467/using-c-20-modules-with-cmake-using-appleclang-16-with-macos[this Stack Overflow discussion].
+
+Cuppa’s own scanner is line-oriented and does not call `clang-scan-deps`, but Apple Clang still lacks a complete, reliable C++20 modules story for the flags and BMI workflow cuppa expects from LLVM Clang 16+. Cuppa therefore **fails clearly** under `--modules` rather than attempting a half-supported path.
+
+=== What to use on macOS
+
+Install upstream LLVM Clang (Homebrew is the usual route) and put it ahead of `/usr/bin` on `PATH`:
+
+[source,sh]
+----
+brew install llvm
+export PATH="$(brew --prefix llvm)/bin:$PATH"
+clang++ --version   # should NOT say "Apple clang"
+cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=clang --clang-stdlib=libc++
+----
+
+Typical Homebrew locations: `/opt/homebrew/opt/llvm/bin` (Apple Silicon) or `/usr/local/opt/llvm/bin` (Intel).
+Cuppa’s macOS CI modules slice installs Homebrew `llvm` the same way and rejects Apple Clang in the test helpers.
+
+If a Homebrew Clang build cannot find macOS SDK headers, point it at the system SDK (for example `xcrun --show-sdk-path` / `SDKROOT`, or `--sysroot=…`). That is a general LLVM-on-macOS concern, not cuppa-specific.
