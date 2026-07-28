@@ -150,12 +150,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install Homebrew LLVM (not Apple Clang)
+        run: |
+          brew install llvm
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -e . --no-build-isolation
-          clang++ --version || true
+          which clang++
+          clang++ --version
       - name: Modules integration slice (clang)
         env:
           CUPPA_TEST_TOOLCHAIN: clang

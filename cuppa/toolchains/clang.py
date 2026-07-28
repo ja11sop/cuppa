@@ -60,11 +60,12 @@ class Clang(object):
         if command_available( command ):
             reported_version = None
             version_string = as_str( Popen( shlex.split( command ), stdout=PIPE).communicate()[0] )
+            is_apple = bool( re.search( r'Apple (?:clang|LLVM) version', version_string ) )
             matches = re.search( r'based on LLVM (?P<major>\d+)\.(?P<minor>\d)', version_string )
             if not matches:
-                matches = re.search( r'Apple LLVM version (?P<major>\d+)\.(?P<minor>\d)', version_string )
+                matches = re.search( r'Apple (?:clang|LLVM) version (?P<major>\d+)\.(?P<minor>\d)', version_string )
                 if not matches:
-                    matches = re.search( r'clang version (?P<major>\d+)\.(?P<minor>\d)', version_string )
+                    matches = re.search( r'(?<!Apple )clang version (?P<major>\d+)\.(?P<minor>\d)', version_string )
             if matches:
                 major = matches.group('major')
                 minor = matches.group('minor')
@@ -75,6 +76,7 @@ class Clang(object):
                 reported_version['minor'] = int(minor)
                 reported_version['version'] = major + "." + minor
                 reported_version['short_version'] = major + minor
+                reported_version['apple'] = is_apple
             return reported_version
         return None
 
@@ -626,12 +628,18 @@ class Clang(object):
         import cuppa.build_platform
         if cuppa.build_platform.name() not in ( "Linux", "Darwin" ):
             return False
+        # Apple Clang reports high majors but does not support C++20 named modules.
+        if self._reported_version.get( 'apple' ):
+            return False
         return self._reported_version['major'] >= 16
 
 
     def supports_import_std( self, env ):
         import cuppa.build_platform
         if cuppa.build_platform.name() not in ( "Linux", "Darwin" ):
+            return False
+        # Apple Clang does not provide C++20 modules / import std.
+        if self._reported_version.get( 'apple' ):
             return False
         if self._reported_version['major'] < 18:
             return False

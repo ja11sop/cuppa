@@ -119,8 +119,13 @@ def require_toolchain(family):
     pytest.skip(message)
 
 
-def compiler_major_version(command):
-    """Return the major version reported by `command --version`, or None."""
+def is_apple_clang_version_text(output):
+    """True if --version text is Apple Clang / Apple LLVM."""
+    return bool(re.search(r"Apple (?:clang|LLVM) version", output or ""))
+
+
+def is_apple_clang(command):
+    """True if the driver on PATH is Apple Clang / Apple LLVM."""
     try:
         output = subprocess.check_output(
             [command, "--version"],
@@ -128,6 +133,26 @@ def compiler_major_version(command):
             text=True,
         )
     except (OSError, subprocess.CalledProcessError):
+        return False
+    return is_apple_clang_version_text(output)
+
+
+def compiler_major_version(command):
+    """Return the major version reported by `command --version`, or None.
+
+    Apple Clang is treated as not modules-capable: returns None so helpers
+    do not mistake its marketing major (e.g. 21) for LLVM Clang 21.
+    """
+    try:
+        output = subprocess.check_output(
+            [command, "--version"],
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    # Apple Clang reports high majors but does not support C++20 named modules.
+    if is_apple_clang_version_text(output):
         return None
     # clang: "Debian clang version 21.1.8" / "clang version 16.0.0"
     # gcc:   "g++ (Debian 15.3.0-2) 15.3.0" / "g++ (Ubuntu 13.3.0-6ubuntu2) 13.3.0"
@@ -266,11 +291,22 @@ def require_modules_capable_toolchain(family=None):
     selected = find_modules_capable_toolchain(family)
     if selected is None:
         minimum = MODULES_MIN_GCC_MAJOR if family == "gcc" else MODULES_MIN_CLANG_MAJOR
+        apple_hint = ""
+        if family == "clang":
+            for probe in ("clang++", "clang"):
+                if shutil.which(probe) and is_apple_clang(probe):
+                    apple_hint = (
+                        " Apple Clang on PATH is not modules-capable; "
+                        "install Homebrew llvm and put its bin ahead of "
+                        "/usr/bin (e.g. brew install llvm)."
+                    )
+                    break
         pytest.fail(
             "C++ modules tests require {} {}+ on PATH "
             "(default g++/clang++ via update-alternatives, or a newer versioned driver). "
-            "These tests do not skip for unsupported versions."
-            .format(family, minimum)
+            "These tests do not skip for unsupported versions.{}".format(
+                family, minimum, apple_hint
+            )
         )
     return selected
 

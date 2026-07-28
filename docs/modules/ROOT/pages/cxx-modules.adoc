@@ -6,7 +6,8 @@ Cuppa can build C++20 **named modules** (including interface / implementation pa
 
 Supported platforms / floors:
 
-* **Linux / macOS:** GCC 14+ or Clang 16+ (`import std`: GCC 15+; Clang 18+ with libc++)
+* **Linux / macOS:** GCC 14+ or **LLVM** Clang 16+ (`import std`: GCC 15+; Clang 18+ with libc++)
+* **macOS note:** Apple Clang (Xcode) is **not** modules-capable even when it reports a high major (e.g. `Apple clang version 21`). Use Homebrew `llvm` (or another upstream Clang) and ensure its `bin` precedes `/usr/bin` on `PATH`.
 * **Windows:** MSVC toolset 14.29+ (VS 2019 16.10+ / VS 2022) for named modules; header units and `import std` not yet
 
 Enablement is **opt-in** so existing projects are unchanged.
@@ -284,7 +285,7 @@ _build/<toolchain>/<variant>/<arch>/<abi>/working/modules/
 
 == Limits
 
-* Linux / macOS: GCC 14+ / Clang 16+ (`import std`: GCC 15+ / Clang 18+ with libc++)
+* Linux / macOS: GCC 14+ / LLVM Clang 16+ (`import std`: GCC 15+ / Clang 18+ with libc++; Apple Clang unsupported)
 * Windows: MSVC 14.29+ named modules; header units and `import std` not yet
 * Lightweight line-oriented import scanner (macros that invent imports are unsupported)
 * Header-unit spelling in `import "..."` / `import <…>` must match `HeaderUnit` (GCC/Clang)

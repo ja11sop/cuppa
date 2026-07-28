@@ -92,7 +92,7 @@ Covered by `tests/integration/methods/test_modules.py` using
 == Toolchain selection
 
 * Linux CI: `gcc`, `clang`+libstdc++, `clang`+libc++
-* macOS CI: modules slice with Clang + libc++
+* macOS CI: modules slice with Homebrew LLVM Clang + libc++ (Apple Clang is rejected)
 * Windows CI: full integration with `vc` (named modules; header/`import std` skipped)
 * **Fail** (do not skip) if no Linux GCC 14+ / Clang 16+ driver is on PATH when those families are selected
 * `import std` on Clang may select a versioned toolchain that ships `std.cppm`
