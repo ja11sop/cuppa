@@ -26,7 +26,7 @@ Supported aliases include `clang` plus versioned names through **clang22** (for 
 
 Clang-specific options:
 
-* `--clang-stdlib={libstdc++,libc++}`
+* `--clang-stdlib={libstdc++,libc++}` (on Linux defaults to `libstdc++`, so Boost b2 receives an explicit `-stdlib=` flag)
 * `--clang-disable-debug-for-auto`
 
 == MSVC

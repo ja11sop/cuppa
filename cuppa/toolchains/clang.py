@@ -46,7 +46,8 @@ class Clang(object):
         std_lib_choices = ("libstdc++", "libc++")
 
         add_option( '--clang-stdlib', dest='clang-stdlib', choices=std_lib_choices, nargs=1, action='store',
-                    help="!Experimental! Specify the standard library Version to build against. Value may be one of {}".format( str(std_lib_choices) ) )
+                    help="Specify the C++ standard library to build against ({}). "
+                         "On Linux defaults to libstdc++.".format( str(std_lib_choices) ) )
 
 
         add_option( '--clang-disable-debug-for-auto', dest='clang-disable-debug-for-auto', action='store_true',
@@ -251,13 +252,26 @@ class Clang(object):
 
 
     @classmethod
+    def default_stdlib( cls ):
+        # Clang on Linux uses libstdc++ by default; make that explicit for Boost b2
+        # and for consistent -stdlib= flags on compile/link lines.
+        if cuppa.build_platform.name() == "Linux":
+            return "libstdc++"
+        return None
+
+
+    @classmethod
     def add_to_env( cls, env, add_toolchain, add_to_supported ):
         stdlib = None
+        suppress_debug_for_auto = False
         try:
             stdlib = env.get_option( 'clang-stdlib' )
             suppress_debug_for_auto = env.get_option( 'clang-disable-debug-for-auto' )
         except:
             pass
+
+        if not stdlib:
+            stdlib = cls.default_stdlib()
 
         for version in cls.supported_versions():
             add_to_supported( version )
@@ -351,7 +365,9 @@ class Clang(object):
 
 
     def package_name( self ):
-        if self._stdlib:
+        # Platform default stdlib (libstdc++ on Linux) keeps the plain toolchain name so
+        # existing package identities stay stable; only a non-default choice is tagged.
+        if self._stdlib and self._stdlib != self.default_stdlib():
             return "{}-{}".format( self.name(), self._stdlib )
         return self.name()
 
@@ -601,6 +617,8 @@ class Clang(object):
 
 
     def stdlib_flag( self, env ):
+        if not self._stdlib:
+            return None
         return '-stdlib={}'.format(self._stdlib)
 
 
