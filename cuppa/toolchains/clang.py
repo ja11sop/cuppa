@@ -630,7 +630,9 @@ class Clang(object):
 
 
     def modules_enable_flags( self, env ):
-        return [ '-fmodules' ]
+        # Avoid -fmodules here: that enables Clang *header* modules and breaks
+        # C++20 header-unit imports (import <span>;) and libc++ std.cppm.
+        return []
 
 
     def module_bmi_path( self, env, module_name ):
@@ -649,7 +651,6 @@ class Clang(object):
 
     def interface_module_flags( self, env, module_name, bmi_path ):
         return [
-            '-fmodules',
             '-x', 'c++-module',
             '-fmodule-output={}'.format( bmi_path ),
         ]
@@ -658,7 +659,7 @@ class Clang(object):
     def consume_module_flags( self, env, scan ):
         from cuppa.cpp.cxx_modules import get_registry, lookup_header_entry
         from cuppa.cpp.module_scanner import owning_module_name, qualify_relative_import
-        flags = [ '-fmodules' ]
+        flags = []
         registry = get_registry( env )
         if not scan:
             return flags
@@ -700,10 +701,133 @@ class Clang(object):
 
     def build_header_unit( self, env, header, bmi_path, **kwargs ):
         kwargs.pop( 'declared', None )
+        system_header = kwargs.pop( 'system_header', None )
+        if system_header:
+            header_abs = self._find_system_header_path( env, system_header )
+            source = header_abs or system_header
+            action = (
+                '$CXX -o $TARGET --precompile -fmodule-header -x c++-header '
+                '$CXXFLAGS $_CPPINCFLAGS {source}'
+                .format( source=source )
+            )
+            return env.Command( bmi_path, [], action, **kwargs )[0]
         action = (
             '$CXX -o $TARGET --precompile -fmodule-header $CXXFLAGS $_CPPINCFLAGS $SOURCES'
         )
         return env.Command( bmi_path, header, action, **kwargs )[0]
+
+
+    def _find_system_header_path( self, env, name ):
+        import os
+        import subprocess
+        try:
+            probe = '#include <{}>\n'.format( name )
+            cmd = [ self.binary(), '-std=c++20', '-M', '-x', 'c++', '-' ]
+            stdlib = self.stdlib_flag( env )
+            if stdlib:
+                cmd.insert( 1, stdlib )
+            result = subprocess.run(
+                cmd,
+                input=probe,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            for token in result.stdout.replace( '\\', ' ' ).split():
+                if token.endswith( '/' + name ) or os.path.basename( token ) == name:
+                    if os.path.isfile( token ):
+                        return os.path.abspath( token )
+        except Exception:
+            pass
+        # Common libc++ / system locations
+        for candidate in (
+            '/usr/include/c++/v1/{}'.format( name ),
+            '/usr/include/{}'.format( name ),
+        ):
+            if os.path.isfile( candidate ):
+                return candidate
+        return None
+
+
+    def supports_import_std( self, env ):
+        import cuppa.build_platform
+        if cuppa.build_platform.name() != "Linux":
+            return False
+        if self._reported_version['major'] < 18:
+            return False
+        return getattr( self, '_stdlib', None ) == 'libc++'
+
+
+    def std_module_sources( self, env ):
+        sources = {}
+        for name, filename in (
+            ( 'std', 'std.cppm' ),
+            ( 'std.compat', 'std.compat.cppm' ),
+        ):
+            path = self._find_libcxx_module_interface( filename )
+            if path:
+                sources[name] = path
+        return sources
+
+
+    def _find_libcxx_module_interface( self, filename ):
+        import os
+        import subprocess
+        candidates = []
+        try:
+            result = subprocess.run(
+                [ self.binary(), '-print-resource-dir' ],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            resource = ( result.stdout or '' ).strip()
+            if resource:
+                # resource-dir is typically .../lib/clang/N — modules live under the llvm root.
+                root = os.path.abspath( os.path.join( resource, '..', '..', '..' ) )
+                candidates.append( os.path.join( root, 'share', 'libc++', 'v1', filename ) )
+        except Exception:
+            pass
+        # Only probe the matching major — cross-version std.cppm is not ABI-safe.
+        major = self._reported_version.get( 'major' )
+        if major:
+            candidates.append(
+                '/usr/lib/llvm-{}/share/libc++/v1/{}'.format( major, filename )
+            )
+        candidates.append( '/usr/share/libc++/v1/{}'.format( filename ) )
+        for path in candidates:
+            if path and os.path.isfile( path ):
+                return path
+        return None
+
+
+    def build_std_module( self, env, name ):
+        import os
+        from cuppa.toolchains.cxx_modules_support import modules_build_dir, named_bmi_path
+        from cuppa.cpp.cxx_modules import register_named_module, get_registry
+
+        sources = self.std_module_sources( env )
+        source = sources.get( name )
+        if not source:
+            return None
+        if name in get_registry( env )['named']:
+            return get_registry( env )['named'][name]['bmi']
+
+        modules_build_dir( env )
+        bmi_path = named_bmi_path( env, name, '.pcm' )
+        bmi_node = env.File( bmi_path )
+        register_named_module( env, name, bmi_path, bmi_node, imports=[] )
+        # Do not pass $CXXFLAGS: env modules flags include -fmodules, which enables
+        # Clang header modules and conflicts with libc++'s C++20 std.cppm
+        # ("redefinition of module 'std'" via module.modulemap).
+        dialect = env.get( 'stdcpp' ) or 'c++23'
+        stdlib = self.stdlib_flag( env ) or '-stdlib=libc++'
+        action = (
+            '$CXX -o $TARGET --precompile -fmodule-output={bmi} '
+            '-std={dialect} {stdlib} {source}'
+            .format( bmi=bmi_path, dialect=dialect, stdlib=stdlib, source=source )
+        )
+        return env.Command( bmi_path, [], action )[0]
 
 
     def abi( self, env ):

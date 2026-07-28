@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from tests.helpers.cuppa_runner import (
+    assert_failure,
     assert_success,
     build_files,
     find_final_binaries,
@@ -17,8 +18,9 @@ from tests.helpers.cuppa_runner import (
     run_cuppa,
 )
 from tests.helpers.project import write_sconscript, write_sconstruct
-from tests.helpers.toolchains import require_modules_capable_toolchain
-
+from tests.helpers.toolchains import (
+    require_modules_capable_toolchain,
+)
 logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.integration
@@ -42,6 +44,48 @@ def _modules_toolchain_flag():
 
 def _is_gcc_family(alias):
     return alias == "gcc" or alias.startswith("gcc")
+
+
+def _require_import_std_toolchain():
+    """
+    Select a toolchain that can build import std BMIs.
+
+    GCC 15+ with bits/std.cc, or Clang 18+ with libc++ and matching std.cppm.
+    """
+    import shutil
+
+    alias, driver, major = require_modules_capable_toolchain()
+    if _is_gcc_family(alias):
+        if major < 15:
+            pytest.fail(
+                "import std tests require GCC 15+ (found {} major {})".format(alias, major)
+            )
+        std_cc = Path("/usr/include/c++/{}/bits/std.cc".format(major))
+        if not std_cc.is_file():
+            pytest.fail("GCC import std source missing: {}".format(std_cc))
+        return alias, "--toolchains={}".format(alias), []
+
+    # Clang: need libc++ module interfaces for this compiler major.
+    def _has_std_cppm(maj):
+        return Path("/usr/lib/llvm-{}/share/libc++/v1/std.cppm".format(maj)).is_file()
+
+    if _has_std_cppm(major) and major >= 18:
+        return alias, "--toolchains={}".format(alias), ["--clang-stdlib=libc++"]
+
+    for candidate_major in range(25, 17, -1):
+        cmd = "clang++-{}".format(candidate_major)
+        if shutil.which(cmd) and _has_std_cppm(candidate_major):
+            return (
+                "clang{}".format(candidate_major),
+                "--toolchains=clang{}".format(candidate_major),
+                ["--clang-stdlib=libc++"],
+            )
+
+    pytest.fail(
+        "import std for Clang requires libc++ std.cppm next to the compiler "
+        "(need /usr/lib/llvm-<N>/share/libc++/v1/std.cppm; none found for {})"
+        .format(alias)
+    )
 
 
 def test_named_module_build(tmp_path):
@@ -231,4 +275,170 @@ def test_header_unit_build_then_clean(tmp_path):
     assert leftover == [], (
         "expected no files under _build after --clean, found:\n"
         + "\n".join(str(path) for path in leftover)
+    )
+
+
+def test_angle_header_unit_build(tmp_path):
+    _, toolchain_flag = _modules_toolchain_flag()
+    project = _copy_modules_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.HeaderUnit('<span>')\n"
+        "env.Build('angle_app', ['apps/angle_main.cpp'])\n",
+    )
+    result = run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag)
+    assert_success(result)
+    assert find_final_binaries(project, "angle_app")
+    assert any(
+        path.name.startswith("header--angle--span") and path.suffix in (".gcm", ".pcm")
+        for path in build_files(project)
+    )
+
+
+def test_library_with_named_module(tmp_path):
+    """BuildStaticLib + Build consumer share the same env BMI registry."""
+    _, toolchain_flag = _modules_toolchain_flag()
+    project = _copy_modules_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.BuildStaticLib('mathlib', ['math.cppm'])\n"
+        "env.AppendUnique(LIBPATH=[env['abs_final_dir']])\n"
+        "env.Build('math_lib_app', ['apps/main.cpp'], LIBS=['mathlib'])\n",
+    )
+    result = run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag)
+    assert_success(result)
+    assert find_final_binaries(project, "math_lib_app")
+    static_libs = [
+        path for path in find_under_build(project, "*mathlib*")
+        if path.suffix in (".a", ".lib") and "final" in path.parts
+    ]
+    assert static_libs
+
+
+def test_module_sugar_build(tmp_path):
+    _, toolchain_flag = _modules_toolchain_flag()
+    project = _copy_modules_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.Module('math', interface='math.cppm')\n"
+        "env.Build('math_sugar_app', ['apps/main.cpp'])\n",
+    )
+    result = run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag)
+    assert_success(result)
+    assert find_final_binaries(project, "math_sugar_app")
+
+
+def test_cxxm_interface_smoke(tmp_path):
+    _, toolchain_flag = _modules_toolchain_flag()
+    project = _copy_modules_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.Build('cxxm_app', ['math.cxxm', 'apps/cxxm_main.cpp'])\n",
+    )
+    result = run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag)
+    assert_success(result)
+    assert find_final_binaries(project, "cxxm_app")
+
+
+def test_unresolved_import_fails(tmp_path):
+    _, toolchain_flag = _modules_toolchain_flag()
+    project = _copy_modules_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.Build('broken_app', ['apps/main.cpp'])\n",
+    )
+    result = run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag)
+    assert_failure(result)
+    assert "Unresolved C++ module imports" in result.stdout
+
+
+def test_partition_incremental_rebuild(tmp_path):
+    """Touching a partition interface should rebuild primary BMI and consumer object."""
+    _, toolchain_flag = _modules_toolchain_flag()
+    project = _copy_modules_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.Build('geo_app', [\n"
+        "    'geo/geo.cppm',\n"
+        "    'geo/point.cppm',\n"
+        "    'apps/geo_main.cpp',\n"
+        "])\n",
+    )
+    assert_success(run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag))
+
+    def _bmi_named(stem):
+        matches = [
+            path for path in build_files(project)
+            if path.stem == stem and path.suffix in (".gcm", ".pcm")
+        ]
+        assert matches, "missing BMI for {}".format(stem)
+        return matches[0]
+
+    def _object_named(name):
+        matches = [
+            path for path in build_files(project)
+            if path.stem == name and path.suffix in (".o", ".obj")
+        ]
+        assert matches, "missing object for {}".format(name)
+        return matches[0]
+
+    primary = _bmi_named("geo")
+    partition = _bmi_named("geo--point")
+    consumer = _object_named("geo_main")
+    before = {
+        "primary": primary.stat().st_mtime_ns,
+        "partition": partition.stat().st_mtime_ns,
+        "consumer": consumer.stat().st_mtime_ns,
+    }
+
+    import time
+    time.sleep(1.1)
+    point = project / "geo" / "point.cppm"
+    point.write_text(point.read_text() + "\n// touch for rebuild\n")
+
+    assert_success(run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag))
+    after_partition = partition.stat().st_mtime_ns
+    after_primary = primary.stat().st_mtime_ns
+    after_consumer = consumer.stat().st_mtime_ns
+    assert after_partition > before["partition"]
+    assert after_primary > before["primary"]
+    assert after_consumer > before["consumer"]
+
+
+def test_import_std_build(tmp_path):
+    alias, toolchain_flag, extra = _require_import_std_toolchain()
+    logger.info("import std test using %s", alias)
+    project = _copy_modules_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.Build('std_app', ['apps/std_main.cpp'])\n",
+    )
+    result = run_cuppa(
+        project,
+        "--dbg",
+        "--modules",
+        "--stdcpp=c++20",
+        toolchain_flag,
+        *extra,
+        timeout=300,
+    )
+    assert_success(result)
+    assert find_final_binaries(project, "std_app")
+    assert any(
+        path.stem == "std" and path.suffix in (".gcm", ".pcm")
+        for path in build_files(project)
     )

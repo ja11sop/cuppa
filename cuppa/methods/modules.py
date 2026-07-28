@@ -54,29 +54,33 @@ def dialect_rank( standard ):
     return _DIALECT_RANK.get( standard, 0 )
 
 
-def ensure_modules_dialect_floor( env ):
-    """When modules are enabled, require at least C++20."""
+def ensure_modules_dialect_floor( env, floor='c++20' ):
+    """When modules are enabled, require at least the given dialect floor."""
     current = env.get( 'stdcpp' )
-    if dialect_rank( current ) >= 20:
+    floor_rank = dialect_rank( floor )
+    if dialect_rank( current ) >= floor_rank:
         return current
 
     toolchain = env['toolchain']
-    # If unset, toolchain default may already be high enough — still pin c++20
-    # so module BMIs see an explicit dialect.
     if not current:
         logger.info(
             "C++ modules enabled; setting dialect to {}"
-            .format( as_info( 'c++20' ) )
+            .format( as_info( floor ) )
         )
     else:
         logger.warn(
-            "C++ modules require C++20+; raising dialect from {} to {}"
-            .format( as_warning( current ), as_info( 'c++20' ) )
+            "C++ modules require {}+; raising dialect from {} to {}"
+            .format( as_info( floor ), as_warning( current ), as_info( floor ) )
         )
-    env['stdcpp'] = 'c++20'
-    flag = toolchain.stdcpp_flag_for( 'c++20' )
+    env['stdcpp'] = floor
+    flag = toolchain.stdcpp_flag_for( floor )
     env.ReplaceFlags( [ flag ] )
-    return 'c++20'
+    return floor
+
+
+def ensure_import_std_dialect_floor( env ):
+    """import std / std.compat require C++23."""
+    return ensure_modules_dialect_floor( env, floor='c++23' )
 
 
 def activate_modules_for_env( env ):

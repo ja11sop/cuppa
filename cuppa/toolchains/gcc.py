@@ -11,6 +11,7 @@
 import SCons.Script
 
 from subprocess import Popen, PIPE
+import os
 import re
 import shlex
 import collections
@@ -560,11 +561,31 @@ class Gcc(object):
 
 
     def build_header_unit( self, env, header, bmi_path, **kwargs ):
-        import os
         from cuppa.toolchains.cxx_modules_support import mapper_path, write_gcc_module_mapper
         from cuppa.cpp.cxx_modules import register_header_unit
         declared = kwargs.pop( 'declared', None )
+        system_header = kwargs.pop( 'system_header', None )
         bmi_node = env.File( bmi_path )
+
+        if system_header:
+            # Resolve absolute path so the mapper can key the compile-line spelling.
+            header_abs = self._find_system_header_path( env, system_header )
+            register_header_unit( env, system_header, bmi_path, bmi_node )
+            register_header_unit( env, '<' + system_header + '>', bmi_path, bmi_node )
+            if declared:
+                register_header_unit( env, declared, bmi_path, bmi_node )
+            if header_abs:
+                register_header_unit( env, header_abs, bmi_path, bmi_node )
+            write_gcc_module_mapper( env )
+            source_arg = header_abs or system_header
+            action = (
+                '$CXX -o $TARGET -c -fmodule-header -fmodules '
+                '-fmodule-mapper={mapper} $CXXFLAGS $_CPPINCFLAGS '
+                '-x c++-header {source}'
+                .format( mapper=mapper_path( env ), source=source_arg )
+            )
+            return env.Command( bmi_path, [], action, **kwargs )[0]
+
         header_path = header.get_abspath() if hasattr( header, 'get_abspath' ) else str( header )
         register_header_unit( env, header_path, bmi_path, bmi_node )
         if declared:
@@ -579,7 +600,6 @@ class Gcc(object):
             register_header_unit( env, str( header ), bmi_path, bmi_node )
             try:
                 rel = os.path.relpath( header_path, env.get( 'sconscript_dir', os.getcwd() ) )
-                # Drop VariantDir prefixes if present
                 build_dir = env.get( 'build_dir', '' )
                 if build_dir and rel.replace( '\\', '/' ).startswith( build_dir.replace( '\\', '/' ).rstrip( '/' ) + '/' ):
                     rel = os.path.relpath( rel, build_dir )
@@ -594,6 +614,123 @@ class Gcc(object):
             .format( mapper=mapper_path( env ) )
         )
         return env.Command( bmi_path, header, action, **kwargs )[0]
+
+
+    def _find_system_header_path( self, env, name ):
+        import subprocess
+        try:
+            probe = '#include <{}>\n'.format( name )
+            result = subprocess.run(
+                [ self.binary(), '-std=c++20', '-M', '-x', 'c++', '-' ],
+                input=probe,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            for token in result.stdout.replace( '\\', ' ' ).split():
+                if token.endswith( '/' + name ) or token.endswith( os.sep + name ) or token == name:
+                    if os.path.isfile( token ):
+                        return os.path.abspath( token )
+        except Exception:
+            pass
+        # Fall back to common libstdc++ include roots from -print-search-dirs / known paths
+        for major in (
+            str( self._reported_version.get( 'major', '' ) ),
+            '',
+        ):
+            candidates = [
+                '/usr/include/c++/{}/{}'.format( major, name ) if major else None,
+            ]
+            for path in candidates:
+                if path and os.path.isfile( path ):
+                    return path
+        return None
+
+
+    def supports_import_std( self, env ):
+        import cuppa.build_platform
+        if cuppa.build_platform.name() != "Linux":
+            return False
+        return self._reported_version['major'] >= 15
+
+
+    def std_module_sources( self, env ):
+        sources = {}
+        for name, relative in (
+            ( 'std', 'bits/std.cc' ),
+            ( 'std.compat', 'bits/std.compat.cc' ),
+        ):
+            path = self._find_gcc_include_file( relative )
+            if path:
+                sources[name] = path
+        return sources
+
+
+    def _find_gcc_include_file( self, relative ):
+        import subprocess
+        # Prefer include-tree lookup over -print-file-name (often returns relative stubs).
+        try:
+            result = subprocess.run(
+                [ self.binary(), '-E', '-Wp,-v', '-xc++', '/dev/null' ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            in_search = False
+            for line in ( result.stderr or '' ).splitlines():
+                text = line.strip()
+                if 'search starts here' in text:
+                    in_search = True
+                    continue
+                if text.startswith( 'End of search' ):
+                    break
+                if in_search and text.startswith( '/' ):
+                    candidate = os.path.join( text, relative )
+                    if os.path.isfile( candidate ):
+                        return candidate
+        except Exception:
+            pass
+        major = self._reported_version.get( 'major' )
+        if major:
+            candidate = '/usr/include/c++/{}/{}'.format( major, relative )
+            if os.path.isfile( candidate ):
+                return candidate
+        return None
+
+
+    def build_std_module( self, env, name ):
+        import os
+        from cuppa.toolchains.cxx_modules_support import (
+            mapper_path,
+            modules_build_dir,
+            named_bmi_path,
+            write_gcc_module_mapper,
+        )
+        from cuppa.cpp.cxx_modules import register_named_module, get_registry
+
+        sources = self.std_module_sources( env )
+        source = sources.get( name )
+        if not source:
+            return None
+        if name in get_registry( env )['named']:
+            return get_registry( env )['named'][name]['bmi']
+
+        modules_build_dir( env )
+        bmi_path = named_bmi_path( env, name, '.gcm' )
+        bmi_node = env.File( bmi_path )
+        register_named_module( env, name, bmi_path, bmi_node, imports=[] )
+        write_gcc_module_mapper( env )
+        # Object is discarded; BMI is written via the module mapper.
+        obj_path = os.path.join( modules_build_dir( env ), name.replace( '.', '--' ) + '.std.o' )
+        action = (
+            '$CXX -o $TARGET -c -fmodules -fsearch-include-path '
+            '-fmodule-mapper={mapper} $CXXFLAGS $_CPPINCFLAGS {source}'
+            .format( mapper=mapper_path( env ), source=source )
+        )
+        env.Command( obj_path, [], action )
+        env.SideEffect( bmi_path, obj_path )
+        env.Depends( bmi_node, obj_path )
+        return bmi_node
 
 
     def abi( self, env ):

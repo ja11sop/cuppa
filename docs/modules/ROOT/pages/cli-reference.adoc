@@ -93,7 +93,7 @@ Clang:
 
 Modules (experimental, Linux GCC 14+ / Clang 16+):
 
-* `--modules` -- enable named modules and header units (see xref:cxx-modules.adoc[C++ modules])
+* `--modules` -- enable named modules, header units, and `import std` when the toolchain supports it (see xref:cxx-modules.adoc[C++ modules])
 
 Boost (source dependency) includes `--boost-home`, `--boost-location`, `--boost-version`, `--boost-latest`, `--boost-build-always`, `--boost-verbose-build`, `--boost-verbose-config`, `--boost-patch-boost-test`.
 

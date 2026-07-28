@@ -41,8 +41,12 @@ class BuildMethod:
                 as_notice( str( [str(l) for l in Flatten(all_libs) ] ) )
         ) )
 
+        objects = Flatten( [ env.Compile( source, depends_on=depends_on ) ] )
+        # Objects from prior env.Module(...) calls in this sconscript.
+        objects.extend( Flatten( [ env.get( '_cuppa_module_objects', [] ) ] ) )
+
         program = env.Program( exe,
-                               env.Compile( source, depends_on=depends_on ),
+                               objects,
                                LIBS = all_libs,
                                DYNAMICLIBS = env['DYNAMICLIBS'] + LIBS + DYNAMICLIBS + SHAREDLIBS,
                                STATICLIBS = env['STATICLIBS'] + STATICLIBS,

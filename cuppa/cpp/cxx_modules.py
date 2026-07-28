@@ -19,10 +19,13 @@ from cuppa.cpp.module_scanner import (
     is_interface_source,
     module_bmi_name,
     owning_module_name,
+    parse_header_unit_declaration,
     qualify_relative_import,
     scan_file,
+    std_module_imports_from_scan,
 )
 from cuppa.log import logger
+import SCons.Errors
 
 
 REGISTRY_KEY = '_cuppa_module_registry'
@@ -194,7 +197,12 @@ def register_header_unit( env, header_path, bmi_path, bmi_node ):
         os.path.basename( header_path ),
         header_path.replace( '\\', '/' ),
     }
-    if 'sconscript_dir' in env:
+    kind, name, declared = parse_header_unit_declaration( header_path )
+    keys.add( name )
+    keys.add( declared )
+    if kind == 'angle':
+        keys.add( '<' + name + '>' )
+    if 'sconscript_dir' in env and kind == 'quoted' and not header_path.startswith( '<' ):
         try:
             rel = os.path.relpath( header_path, env['sconscript_dir'] )
             keys.add( rel )
@@ -228,6 +236,69 @@ def ensure_modules_enabled( env ):
     return True
 
 
+def _collect_std_imports( classified ):
+    needed = set()
+    for kind, source, scan in classified:
+        if kind == 'object' or not scan:
+            continue
+        needed |= std_module_imports_from_scan( scan )
+    return needed
+
+
+def ensure_std_modules( env, classified ):
+    """Build and register std / std.compat BMIs when imported."""
+    needed = _collect_std_imports( classified )
+    if not needed:
+        return
+
+    from cuppa.methods.modules import ensure_import_std_dialect_floor
+    ensure_import_std_dialect_floor( env )
+
+    toolchain = env['toolchain']
+    if not hasattr( toolchain, 'supports_import_std' ) or not toolchain.supports_import_std( env ):
+        raise SCons.Errors.StopError(
+            "import std / std.compat requires Linux GCC 15+ or Clang 18+ with libc++ "
+            "(toolchain [{}] is not eligible; for Clang pass --clang-stdlib=libc++)"
+            .format( toolchain.name() )
+        )
+
+    registry = get_registry( env )
+    for name in sorted( needed ):
+        if name in registry['named']:
+            continue
+        if not hasattr( toolchain, 'build_std_module' ):
+            raise SCons.Errors.StopError(
+                "Toolchain [{}] cannot build the {} module"
+                .format( toolchain.name(), name )
+            )
+        bmi_node = toolchain.build_std_module( env, name )
+        if bmi_node is None:
+            raise SCons.Errors.StopError(
+                "Failed to build standard library module [{}] for toolchain [{}]"
+                .format( name, toolchain.name() )
+            )
+
+
+def validate_module_imports( env, classified ):
+    """Fail if any import cannot be resolved after BMI pre-registration."""
+    missing_entries = []
+    for kind, source, scan in classified:
+        if kind == 'object' or not scan:
+            continue
+        owner = owning_module_name( scan )
+        _, missing = resolve_import_nodes( env, scan.imports, owning_module=owner )
+        for name in missing:
+            missing_entries.append( ( str( source ), name ) )
+    if not missing_entries:
+        return
+    lines = [
+        "Unresolved C++ module imports (declare HeaderUnit / include the interface in this Build):"
+    ]
+    for source, name in missing_entries:
+        lines.append( "  [{}] imports [{}]".format( source, name ) )
+    raise SCons.Errors.StopError( "\n".join( lines ) )
+
+
 def compile_with_modules( env, sources, obj_builder, obj_prefix, obj_suffix, dependencies, kwargs ):
     if not ensure_modules_enabled( env ):
         return []
@@ -250,6 +321,8 @@ def compile_with_modules( env, sources, obj_builder, obj_prefix, obj_suffix, dep
         else:
             classified.append( ( 'tu', source, scan ) )
 
+    ensure_std_modules( env, classified )
+
     # Pre-register BMI nodes so partition / re-export Depends resolve regardless
     # of source list order (primary may appear before its partitions).
     for kind, source, scan in classified:
@@ -263,6 +336,8 @@ def compile_with_modules( env, sources, obj_builder, obj_prefix, obj_suffix, dep
         register_named_module(
             env, name, bmi_path, bmi_node, imports=named_import_names( scan )
         )
+
+    validate_module_imports( env, classified )
 
     objects = []
 
@@ -279,9 +354,10 @@ def compile_with_modules( env, sources, obj_builder, obj_prefix, obj_suffix, dep
             env, scan.imports if scan else [], owning_module=owner
         )
         if missing:
-            logger.warn(
-                "Module imports not yet registered for [{}]: {}"
-                .format( as_notice( str( source ) ), as_warning( ', '.join( missing ) ) )
+            # Should have been caught by validate_module_imports; keep as error.
+            raise SCons.Errors.StopError(
+                "Unresolved C++ module imports for [{}]: {}"
+                .format( str( source ), ', '.join( missing ) )
             )
 
         module_name = None
@@ -303,8 +379,6 @@ def compile_with_modules( env, sources, obj_builder, obj_prefix, obj_suffix, dep
             )
             cxx_flags = list( env.get( 'CXXFLAGS', [] ) )
             cxx_flags.extend( toolchain.interface_module_flags( env, module_name, bmi_path ) )
-            # Clang needs -fmodule-file for imported partitions / re-exports while
-            # emitting this unit's BMI; GCC relies on the module mapper instead.
             for flag in toolchain.consume_module_flags( env, scan ):
                 if flag not in cxx_flags:
                     cxx_flags.append( flag )
@@ -329,7 +403,6 @@ def compile_with_modules( env, sources, obj_builder, obj_prefix, obj_suffix, dep
             )
 
         if not is_bmi and scan and scan.module_declaration:
-            # Implementation units depend on the primary (or partition) BMI
             decl = scan.module_declaration
             primary = decl.split( ':', 1 )[0]
             for candidate in ( decl, primary ):
@@ -362,42 +435,53 @@ def build_header_unit( env, header, **kwargs ):
         return None
 
     toolchain = env['toolchain']
-    declared = None
-    if not isinstance( header, Node ):
-        declared = str( header )
-        header = env.File( header )
-    else:
-        try:
-            src = header.srcnode()
-            declared = os.path.relpath(
-                src.get_abspath(),
-                env.get( 'sconscript_dir' ) or os.getcwd(),
-            )
-        except Exception:
-            declared = str( header )
+    kind, name, declared = parse_header_unit_declaration( header )
 
     modules_dir( env )
-    header_path = _source_abspath( header )
-    # Prefer the user-declared spelling so BMI names stay project-relative
-    # (VariantDir abspaths would otherwise embed _build/.../working/...).
     from cuppa.toolchains.cxx_modules_support import header_unit_label
-    label = header_unit_label( env, declared or header_path )
+    label = header_unit_label( env, declared )
     bmi_path = toolchain.header_unit_bmi_path( env, label )
-    bmi_node = toolchain.build_header_unit( env, header, bmi_path, declared=label, **kwargs )
-    register_header_unit( env, header_path, bmi_path, bmi_node )
-    register_header_unit( env, str( header ), bmi_path, bmi_node )
-    if label:
-        register_header_unit( env, label, bmi_path, bmi_node )
-        register_header_unit( env, label.replace( '\\', '/' ), bmi_path, bmi_node )
-        register_header_unit(
-            env,
-            './' + label.replace( '\\', '/' ).lstrip( './' ),
-            bmi_path,
-            bmi_node,
+
+    if kind == 'angle':
+        bmi_node = toolchain.build_header_unit(
+            env, None, bmi_path, declared=declared, system_header=name, **kwargs
         )
+        register_header_unit( env, declared, bmi_path, bmi_node )
+        register_header_unit( env, name, bmi_path, bmi_node )
+    else:
+        if not isinstance( header, Node ):
+            header_node = env.File( header )
+        else:
+            header_node = header
+            try:
+                src = header_node.srcnode()
+                declared = os.path.relpath(
+                    src.get_abspath(),
+                    env.get( 'sconscript_dir' ) or os.getcwd(),
+                )
+                label = header_unit_label( env, declared )
+                bmi_path = toolchain.header_unit_bmi_path( env, label )
+            except Exception:
+                pass
+        header_path = _source_abspath( header_node )
+        bmi_node = toolchain.build_header_unit(
+            env, header_node, bmi_path, declared=label, **kwargs
+        )
+        register_header_unit( env, header_path, bmi_path, bmi_node )
+        register_header_unit( env, str( header_node ), bmi_path, bmi_node )
+        if label:
+            register_header_unit( env, label, bmi_path, bmi_node )
+            register_header_unit( env, label.replace( '\\', '/' ), bmi_path, bmi_node )
+            register_header_unit(
+                env,
+                './' + label.replace( '\\', '/' ).lstrip( './' ),
+                bmi_path,
+                bmi_node,
+            )
+
     cuppa.progress.NotifyProgress.add( env, bmi_node )
     logger.debug(
         "Registered header unit [{}] BMI [{}]"
-        .format( as_info( label or str( header ) ), as_notice( bmi_path ) )
+        .format( as_info( declared ), as_notice( bmi_path ) )
     )
     return bmi_node

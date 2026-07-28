@@ -57,11 +57,16 @@ def header_unit_label( env, header_path ):
     Trust already-relative declarations (e.g. include/widget.hpp). Absolute or
     VariantDir paths are stripped back to the same form so GCC sees the spelling
     used on the compile line rather than _build/.../working/... .
+    Angle-bracket system headers keep their `<name>` spelling.
     """
     if not header_path:
         return 'header'
 
-    path = os.path.normpath( str( header_path ) )
+    text = str( header_path ).strip()
+    if text.startswith( '<' ) and text.endswith( '>' ):
+        return text
+
+    path = os.path.normpath( text )
     build_dir = env.get( 'build_dir' )
     abs_build = env.get( 'abs_build_dir' )
     sconscript_dir = env.get( 'sconscript_dir' ) or env.get( 'base_path' )
@@ -134,6 +139,10 @@ def _header_mapper_candidates( env, names ):
             if label:
                 candidates.add( label )
                 candidates.add( './' + label.lstrip( './' ) )
+            if label.startswith( '<' ) and label.endswith( '>' ):
+                inner = label[1:-1]
+                candidates.add( inner )
+                candidates.add( '<' + inner + '>' )
             if base and os.path.isabs( str( candidate ) ):
                 try:
                     rel_header = os.path.relpath( candidate, base ).replace( '\\', '/' )

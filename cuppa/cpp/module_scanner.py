@@ -181,5 +181,36 @@ def sanitize_module_filename( name ):
 
 
 def sanitize_header_filename( header_path ):
-    normalised = header_path.replace( '\\', '/' ).lstrip( './' )
-    return 'header--' + normalised.replace( '/', '--' ).replace( ' ', '_' )
+    normalised = str( header_path ).replace( '\\', '/' ).lstrip( './' )
+    if normalised.startswith( '<' ) and normalised.endswith( '>' ):
+        normalised = 'angle--' + normalised[1:-1]
+    return 'header--' + normalised.replace( '/', '--' ).replace( ' ', '_' ).replace( '<', '' ).replace( '>', '' )
+
+
+def parse_header_unit_declaration( header ):
+    """
+    Return (kind, name, declared) for a HeaderUnit argument.
+
+    kind is 'angle' for '<span>' or 'quoted' for project paths / "hdr".
+    name is the lookup key used by import <name> / import "name".
+    declared is the canonical spelling stored in the registry.
+    """
+    text = str( header ).strip()
+    if len( text ) >= 2 and text.startswith( '<' ) and text.endswith( '>' ):
+        inner = text[1:-1].strip()
+        return 'angle', inner, '<' + inner + '>'
+    if len( text ) >= 2 and text[0] == '"' and text[-1] == '"':
+        inner = text[1:-1]
+        return 'quoted', inner, inner
+    return 'quoted', text, text
+
+
+def std_module_imports_from_scan( scan ):
+    """Return the set of standard library module names imported by scan."""
+    if not scan:
+        return set()
+    found = set()
+    for item in scan.imports:
+        if item.kind == 'named' and item.name in ( 'std', 'std.compat' ):
+            found.add( item.name )
+    return found

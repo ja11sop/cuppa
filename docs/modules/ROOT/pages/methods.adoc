@@ -47,7 +47,8 @@ Runners may also expose specialised forms such as `BuildBoostTest` depending on 
 
 | `env.StdCpp(standard)` | Set C++ dialect flags for the current toolchain
 | `env.Modules()` / `--modules` | Enable experimental C++20 named modules + header units (GCC/Clang Linux)
-| `env.HeaderUnit(path)` | Register a header for BMI compilation (requires `--modules`)
+| `env.HeaderUnit(path)` | Register a header for BMI compilation (`'include/h.hpp'` or `'<span>'`; requires `--modules`)
+| `env.Module(name, interface=…, implementation=…)` | Compile/register a named module; objects link into later `Build` (same env)
 | `env.Filter` / `ReplaceFlags` / `RemoveFlags` | Flag manipulation
 | `env.ExpandTemplateFile` / `RenderJinjaTemplate` | Templating
 | `env.MarkdownToHtml` / `AsciidocToHtml` | Doc conversion builders

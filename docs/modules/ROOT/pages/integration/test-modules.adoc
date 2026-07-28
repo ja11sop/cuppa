@@ -1,5 +1,5 @@
 = Integration: C++ modules
-:description: Named modules, partitions, private fragments, and header units
+:description: Named modules, partitions, private fragments, header units, and import std
 
 See xref:cxx-modules.adoc[C++ modules].
 
@@ -19,6 +19,34 @@ Covered by `tests/integration/methods/test_modules.py` using
 | `test_header_unit_build`
 | `env.HeaderUnit` + `import "..."`
 |
+
+| `test_angle_header_unit_build`
+| `env.HeaderUnit('<span>')` + `import <span>;`
+|
+
+| `test_library_with_named_module`
+| `BuildStaticLib` + `Build` consumer (same env BMI registry)
+|
+
+| `test_module_sugar_build`
+| `env.Module(...)` then `Build`
+|
+
+| `test_cxxm_interface_smoke`
+| `.cxxm` interface suffix
+|
+
+| `test_unresolved_import_fails`
+| Missing interface → `StopError`
+|
+
+| `test_partition_incremental_rebuild`
+| Touch partition → primary BMI + consumer rebuild
+|
+
+| `test_import_std_build`
+| `import std;` + std BMI
+| GCC 15+ / Clang with libc++ `std.cppm`
 
 | `test_implementation_unit_build`
 | Interface + `module M;` implementation TU
@@ -59,3 +87,4 @@ Covered by `tests/integration/methods/test_modules.py` using
 * **Fail** (do not skip) if no Linux GCC 14+ / Clang 16+ driver is on PATH
 * Prefer the default `g++` / `clang++` on PATH (typically via `update-alternatives`); only probe versioned drivers if the default is too old
 * For Clang CI, set `CUPPA_TEST_ARGS=--clang-stdlib=libc++` when needed
+* `import std` on Clang may select a versioned toolchain (e.g. `clang22`) that ships `std.cppm`

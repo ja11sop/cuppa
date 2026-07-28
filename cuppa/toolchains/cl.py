@@ -375,6 +375,10 @@ class Cl(object):
         return False
 
 
+    def supports_import_std( self, env ):
+        return False
+
+
     def modules_enable_flags( self, env ):
         return []
 
@@ -396,6 +400,10 @@ class Cl(object):
 
 
     def build_header_unit( self, env, header, bmi_path, **kwargs ):
+        raise NotImplementedError( "C++ modules are not supported for MSVC in this cuppa release" )
+
+
+    def build_std_module( self, env, name ):
         raise NotImplementedError( "C++ modules are not supported for MSVC in this cuppa release" )
 
 

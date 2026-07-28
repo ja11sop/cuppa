@@ -1,11 +1,15 @@
 = C++ modules
-:description: Experimental named modules, partitions, and header units (GCC/Clang on Linux)
+:description: Experimental named modules, partitions, header units, and import std (GCC/Clang on Linux)
 
-Cuppa can build C++20 **named modules** (including interface / implementation partitions)
-and **header units** on Linux with GCC 14+ or Clang 16+.
-MSVC is not supported in this release. `import std` is out of scope.
+Cuppa can build C++20 **named modules** (including interface / implementation partitions),
+**header units**, and (with a capable toolchain) **`import std` / `import std.compat`**
+on Linux with GCC 14+ or Clang 16+ (see floors below for `import std`).
+MSVC is not supported in this release.
 
 Enablement is **opt-in** so existing projects are unchanged.
+BMIs are **per env / variant** — they are not packaged for reuse across cuppa packages or
+separate projects yet. A `BuildLib` / `Module` producer and a `Build` consumer must share
+the same sconscript env.
 
 == Enable modules
 
@@ -18,6 +22,11 @@ cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=clang
 `--modules` sets `env['modules']=True` for each variant env.
 If the selected dialect is below C++20, cuppa raises it to `c++20`.
 You can also call `env.Modules()` from a sconscript.
+On an unsupported toolchain, `--modules` stops the build with a clear error (no silent fallback).
+
+Unresolved `import` names after BMI pre-registration fail the build with `StopError`
+(list the missing named / header imports). Declare `HeaderUnit` or include the interface
+unit in the same `Build` / `Compile` call.
 
 == Named modules
 
@@ -34,10 +43,36 @@ env.Build('app', [
 ])
 ----
 
+Or use the `Module` sugar (compiles the interface, registers the BMI, and links the
+objects into a later `Build` in the same sconscript):
+
+[source,python]
+----
+Import('env')
+env.Module('math', interface='math.cppm', implementation=['math.cpp'])
+env.Build('app', ['main.cpp'])  # import math;
+----
+
 Cuppa scans sources for `export module` / `module` / `import`, builds BMIs under
 `_build/.../working/modules/`, and wires SCons `Depends` so BMI-producing units
 compile before their consumers. BMI nodes are **pre-registered** for every unit in the
 source list, so partitions may appear before or after the primary interface.
+
+== Libraries with modules
+
+`BuildLib` / `BuildStaticLib` / `BuildSharedLib` go through the same modules compile path.
+A consumer in the **same** sconscript can import the library's named modules because they
+share the env BMI registry:
+
+[source,python]
+----
+Import('env')
+env.BuildStaticLib('mathlib', ['math.cppm'])
+env.AppendUnique(LIBPATH=[env['abs_final_dir']])
+env.Build('app', ['main.cpp'], LIBS=['mathlib'])
+----
+
+Cross-project BMI packaging is out of scope.
 
 == Implementation units
 
@@ -161,17 +196,50 @@ env.Build('reexport_app', ['appmod.cppm', 'util.cppm', 'apps/reexport_main.cpp']
 
 == Header units
 
-Declare headers that should be imported as header units:
+Declare headers that should be imported as header units. Spelling must match the
+`import` line (quoted path or angle brackets):
 
 [source,python]
 ----
 Import('env')
 env.HeaderUnit('include/widget.hpp')
 env.Build('tool', ['tool.cpp'])   # import "include/widget.hpp";
+
+env.HeaderUnit('<span>')
+env.Build('span_tool', ['span_tool.cpp'])  # import <span>;
 ----
 
 Named modules and header units can be mixed in one binary — declare the header unit
 first, then `Build` sources that `import` both.
+Angle-bracket units are **explicit** (`HeaderUnit('<…>')`); cuppa does not auto-build a
+BMI for every `import <std_header>`.
+
+== `import std` / `std.compat`
+
+When a scanned source contains `import std;` or `import std.compat;`, cuppa:
+
+* Raises the dialect floor to **C++23** (if lower)
+* Builds the standard library BMI once per env/variant under `modules/std.gcm` or `modules/std.pcm`
+* Registers it as a named module for consumers
+
+Requirements:
+
+* `--modules`
+* **GCC 15+** with `bits/std.cc` (and optionally `bits/std.compat.cc`)
+* **Clang 18+** with **libc++** (`--clang-stdlib=libc++`) and installed module interfaces
+  (typically `/usr/lib/llvm-<N>/share/libc++/v1/std.cppm`)
+
+[source,python]
+----
+Import('env')
+env.Build('std_app', ['apps/std_main.cpp'])  # import std;
+----
+
+[source,sh]
+----
+cuppa -D --dbg --modules --toolchains=gcc
+cuppa -D --dbg --modules --toolchains=clang22 --clang-stdlib=libc++
+----
 
 == Artifact layout
 
@@ -180,15 +248,19 @@ _build/<toolchain>/<variant>/<arch>/<abi>/working/modules/
   math.pcm|gcm
   geo--point.pcm|gcm          # colon → -- in BMI filenames
   header--include--widget.hpp.pcm|gcm
+  header--angle--span.pcm|gcm
+  std.pcm|gcm
+  std.compat.pcm|gcm
   module-mapper.txt           # GCC only
 ----
 
 == Limits
 
-* Linux GCC 14+ / Clang 16+ only
+* Linux GCC 14+ / Clang 16+ only (`import std`: GCC 15+ / Clang 18+ with libc++)
 * Lightweight line-oriented import scanner (macros that invent imports are unsupported)
-* Header-unit spelling in `import "..."` should match the path passed to `HeaderUnit`
+* Header-unit spelling in `import "..."` / `import <…>` must match `HeaderUnit`
 * Private module fragments: Clang only (GCC unimplemented)
+* BMIs are not packaged across projects / cuppa packages yet
 * Experimental compiler support — expect toolchain-specific quirks
-* `--modules` on an unsupported toolchain stops the build with a clear error (it does not silently fall back)
+* `--modules` on an unsupported toolchain stops the build with a clear error
 * Integration tests require a modules-capable compiler and **fail** if GCC/Clang is too old (MSVC is skipped)

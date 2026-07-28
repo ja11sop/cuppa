@@ -65,7 +65,7 @@ cuppa.run(default_variants=['dbg'])
 | `StdCpp`, `Filter`, `ReplaceFlags`, `RemoveFlags`
 | xref:integration/test-flags.adoc[]
 
-| `--modules`, partitions, `HeaderUnit` (GCC 14+ / Clang 16+)
+| `--modules`, partitions, `HeaderUnit`, `import std` (GCC 14+ / Clang 16+; std needs GCC 15+ / Clang+libc++)
 | xref:integration/test-modules.adoc[]
 
 | `CopyFiles`, `TargetFrom`
