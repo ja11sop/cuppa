@@ -83,13 +83,19 @@ def activate_modules_for_env( env ):
     toolchain = env['toolchain']
     if not toolchain.supports_modules( env ):
         from cuppa.colourise import as_error
+        import SCons.Errors
+        message = (
+            "--modules requested but toolchain [{}] does not support C++ modules "
+            "(Linux GCC 14+ / Clang 16+ only in this cuppa release)"
+            .format( toolchain.name() )
+        )
         logger.error(
             "--modules requested but toolchain [{}] does not support C++ modules "
             "(Linux GCC 14+ / Clang 16+ only in this cuppa release)"
             .format( as_error( toolchain.name() ) )
         )
         env['modules'] = False
-        return False
+        raise SCons.Errors.StopError( message )
 
     env['modules'] = True
     ensure_modules_dialect_floor( env )

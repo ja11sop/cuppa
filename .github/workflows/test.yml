@@ -47,8 +47,18 @@ jobs:
           python-version: '3.14'
       - name: Install system packages
         run: |
+          # Prefer GCC 15 when available (ubuntu-latest / 24.04 needs the toolchain test PPA).
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
           sudo apt-get update
-          sudo apt-get install -y g++ clang gcovr
+          sudo apt-get install -y g++-15 clang gcovr
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-15 150
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-15 150
+          sudo update-alternatives --set gcc /usr/bin/gcc-15
+          sudo update-alternatives --set g++ /usr/bin/g++-15
+          hash -r || true
+          gcc --version
+          g++ --version
+          clang++ --version
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip

@@ -3,4 +3,9 @@
 
 See xref:cxx-modules.adoc[C++ modules].
 
-Covered by `tests/integration/methods/test_modules.py` (skipped on MSVC / old compilers).
+Covered by `tests/integration/methods/test_modules.py`.
+
+* Skipped only for MSVC (`CUPPA_TEST_TOOLCHAIN=vc`)
+* **Fail** (do not skip) if no Linux GCC 14+ / Clang 16+ driver is on PATH
+* Prefer the default `g++` / `clang++` on PATH (typically via `update-alternatives`); only probe versioned drivers if the default is too old
+

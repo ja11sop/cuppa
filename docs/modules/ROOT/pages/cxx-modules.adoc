@@ -62,3 +62,5 @@ _build/<toolchain>/<variant>/<arch>/<abi>/working/modules/
 * Lightweight line-oriented import scanner (macros that invent imports are unsupported)
 * Header-unit spelling in `import "..."` should match the path passed to `HeaderUnit`
 * Experimental compiler support — expect toolchain-specific quirks
+* `--modules` on an unsupported toolchain stops the build with a clear error (it does not silently fall back)
+* Integration tests require a modules-capable compiler and **fail** if GCC/Clang is too old (MSVC is skipped)
