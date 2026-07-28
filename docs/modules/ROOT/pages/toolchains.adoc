@@ -35,7 +35,24 @@ C++20 modules (opt-in via `--modules`) are documented in xref:cxx-modules.adoc[C
 == MSVC
 
 On Windows, the `cl` toolchain integrates with SCons Visual C++ detection.
-Names are the generic alias `vc` (SCons default install) plus versioned `vc*` names derived from SCons `_VCVER` (for example `vc143`).
+Names are the generic alias `vc` (SCons default install) plus versioned aliases derived from the SCons MSVC **toolset** id (`_VCVER` / installed VCs):
+
+| SCons / VS toolset | Cuppa `--toolchains=` | Notes |
+| --- | --- | --- |
+| `14.5` | `vc145` | VS 2026+ platform toolset *v145* |
+| `14.3` | `vc143` | VS 2022 *v143* |
+| `14.2` / `14.2Exp` | `vc142` / `vc142e` | VS 2019 *v142* |
+| `14.1` | `vc141` | VS 2017 *v141* |
+
+The alias drops the dot so CLI names stay short and match the familiar `v145`-style label (same digit style as `gcc15` / `clang21`).
+Cuppa compares capability floors against this **toolset** `(major, minor)` — not MSVC compiler update strings such as `14.29` / `19.51`.
+
+[source,sh]
+----
+cuppa -D --dbg --toolchains=vc
+cuppa -D --dbg --toolchains=vc145
+cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=vc143
+----
 
 Capabilities:
 

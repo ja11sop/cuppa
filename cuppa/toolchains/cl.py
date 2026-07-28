@@ -10,7 +10,9 @@
 import os
 import collections
 import platform
+import re
 import six
+from collections import namedtuple
 
 import SCons.Script
 from SCons.Tool.MSCommon.vc import _VCVER, get_default_version
@@ -26,6 +28,18 @@ from cuppa.cpp.run_patched_boost_test import RunPatchedBoostTestEmitter, RunPatc
 from cuppa.cpp.run_process_test import RunProcessTestEmitter, RunProcessTest
 from cuppa.colourise import as_info, as_notice, as_warning
 from cuppa.log import logger
+
+
+# SCons MSVC ids look like "14.5", "14.3", "14.2Exp" — the Visual Studio
+# *platform toolset* major.minor (v145 / v143 / v142), NOT the compiler update
+# string people sometimes write as "14.29" / "19.29".
+MsvcToolsetVersion = namedtuple(
+    'MsvcToolsetVersion',
+    ( 'scons', 'major', 'minor', 'experimental', 'alias' ),
+)
+
+# C++20 named modules: VS 2019 toolset family onward (SCons "14.2"+).
+MODULES_MIN_MSVC_TOOLSET = ( 14, 2 )
 
 
 class Cl(object):
@@ -99,10 +113,63 @@ class Cl(object):
 
 
     @classmethod
+    def parse_toolset_version( cls, long_version ):
+        """
+        Parse a SCons MSVC version id into structured toolset fields.
+
+        Examples::
+
+            "14.5"    → alias vc145,  key (14, 5)
+            "14.3"    → alias vc143,  key (14, 3)
+            "14.2Exp" → alias vc142e, key (14, 2)
+            "14.51"   → alias vc1451, key (14, 51)   # if SCons ever reports it
+
+        Cuppa CLI names drop the dot so they stay short and match the VS
+        platform toolset label (`v145` ↔ `--toolchains=vc145`), same digit
+        style as `gcc15` / `clang21`.
+        """
+        text = str( long_version ).strip()
+        match = re.match(
+            r'^(?P<major>\d+)\.(?P<minor>\d+)(?P<exp>Exp)?$',
+            text,
+            flags=re.IGNORECASE,
+        )
+        if not match:
+            # Fallback: preserve legacy strip-dots behaviour for odd ids.
+            compact = text.replace( '.', '' ).replace( 'Exp', 'e' ).replace( 'exp', 'e' )
+            digits = re.match( r'^(?P<body>\d+)(?P<e>e?)$', compact )
+            if not digits:
+                raise ValueError( "Unrecognised MSVC toolset version {!r}".format( long_version ) )
+            body = digits.group( 'body' )
+            # Best-effort: treat first two digits as major when length >= 3 (e.g. 145 → 14,5).
+            if len( body ) >= 3:
+                major = int( body[:2] )
+                minor = int( body[2:] )
+            else:
+                major = int( body )
+                minor = 0
+            experimental = bool( digits.group( 'e' ) )
+            alias = 'vc' + body + ( 'e' if experimental else '' )
+            return MsvcToolsetVersion( text, major, minor, experimental, alias )
+
+        major = int( match.group( 'major' ) )
+        minor = int( match.group( 'minor' ) )
+        experimental = bool( match.group( 'exp' ) )
+        alias = 'vc{}{}{}'.format( major, minor, 'e' if experimental else '' )
+        return MsvcToolsetVersion( text, major, minor, experimental, alias )
+
+
+    @classmethod
     def vc_version( cls, long_version ):
-        version = long_version.replace( ".", "" )
-        version = version.replace( "Exp", "e" )
-        return 'vc' + version
+        """Cuppa toolchain alias for a SCons MSVC version (e.g. ``14.5`` → ``vc145``)."""
+        return cls.parse_toolset_version( long_version ).alias
+
+
+    @classmethod
+    def toolset_key( cls, long_version ):
+        """Comparable ``(major, minor)`` tuple for a SCons MSVC version id."""
+        parsed = cls.parse_toolset_version( long_version )
+        return ( parsed.major, parsed.minor )
 
 
     @classmethod
@@ -120,16 +187,19 @@ class Cl(object):
             installed_versions = get_installed_vcs()
             if installed_versions:
                 default = cls.default_version( env )
+                parsed = cls.parse_toolset_version( default )
                 cls._available_versions['vc'] = {
-                        'vc_version': cls.vc_version( default ),
-                        'version': default,
+                        'vc_version': parsed.alias,
+                        'version': parsed.scons,
+                        'toolset': parsed,
                 }
 
             for version in installed_versions:
-                vc_version = cls.vc_version( version )
-                cls._available_versions[vc_version] = {
-                        'vc_version': vc_version,
-                        'version': version,
+                parsed = cls.parse_toolset_version( version )
+                cls._available_versions[parsed.alias] = {
+                        'vc_version': parsed.alias,
+                        'version': parsed.scons,
+                        'toolset': parsed,
                 }
 
         return cls._available_versions
@@ -146,9 +216,15 @@ class Cl(object):
             add_to_supported( version )
 
         for name, vc in six.iteritems( cls.available_versions( env ) ):
+            toolset = vc.get( 'toolset' ) or cls.parse_toolset_version( vc['version'] )
             logger.debug(
-                "Adding toolchain [{}] reported as [{}] (MSVC {})"
-                .format( as_info( name ), as_info( vc['vc_version'] ), as_notice( vc['version'] ) )
+                "Adding toolchain [{}] reported as [{}] (MSVC toolset {}, alias {})"
+                .format(
+                    as_info( name ),
+                    as_info( vc['vc_version'] ),
+                    as_notice( toolset.scons ),
+                    as_info( toolset.alias ),
+                )
             )
             add_toolchain( name, cls( name, vc['vc_version'], vc['version'] ) )
 
@@ -181,10 +257,18 @@ class Cl(object):
 
         self._host_arch = self.host_architecture( env )
 
-        self._name    = vc_version
-        self._version = vc_version
-        self._long_version = version
-        self._short_version = vc_version[2:].replace( "e", "" )
+        self._toolset = self.parse_toolset_version( version )
+        # Prefer the structured alias so name()/package ids stay consistent even
+        # if a caller passes a slightly different vc_version string.
+        self._name    = self._toolset.alias
+        self._version = self._toolset.alias
+        self._long_version = self._toolset.scons
+        self._short_version = "{}{}".format(
+            self._toolset.major,
+            self._toolset.minor,
+        ) + ( "e" if self._toolset.experimental else "" )
+        # Keep the registration key (e.g. "vc") when it differs from the alias.
+        self._requested_name = name
 
         self._target_store = "desktop"
 
@@ -371,18 +455,23 @@ class Cl(object):
         return None
 
 
+    def toolset_version( self ):
+        """SCons MSVC toolset id (e.g. ``14.5``)."""
+        return self._long_version
+
+
+    def toolset( self ):
+        """Structured MSVC toolset fields (``MsvcToolsetVersion``)."""
+        return self._toolset
+
+
     def supports_modules( self, env ):
         import cuppa.build_platform
         if cuppa.build_platform.name() != "Windows":
             return False
-        # Visual Studio 2019 16.10+ / VS 2022 — MSVC toolset 14.29+
-        try:
-            parts = [ int( p ) for p in str( self._long_version ).split( '.' )[:2] ]
-            major = parts[0]
-            minor = parts[1] if len( parts ) > 1 else 0
-            return ( major, minor ) >= ( 14, 29 )
-        except ( TypeError, ValueError ):
-            return True
+        # Compare SCons toolset major.minor (14.2, 14.3, 14.5, …) — not compiler
+        # update numbers such as 14.29 / 19.29.
+        return self.toolset_key( self._long_version ) >= MODULES_MIN_MSVC_TOOLSET
 
 
     def supports_import_std( self, env ):

@@ -3,9 +3,36 @@
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
+from unittest.mock import patch
+
 import pytest
 
-from cuppa.toolchains.cl import Cl
+from cuppa.toolchains.cl import MODULES_MIN_MSVC_TOOLSET, Cl
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "scons_version,alias,major,minor,experimental",
+    [
+        ("14.5", "vc145", 14, 5, False),
+        ("14.3", "vc143", 14, 3, False),
+        ("14.2", "vc142", 14, 2, False),
+        ("14.2Exp", "vc142e", 14, 2, True),
+        ("14.1", "vc141", 14, 1, False),
+        ("14.0", "vc140", 14, 0, False),
+        ("14.51", "vc1451", 14, 51, False),
+        ("12.0", "vc120", 12, 0, False),
+    ],
+)
+def test_parse_toolset_version(scons_version, alias, major, minor, experimental):
+    parsed = Cl.parse_toolset_version(scons_version)
+    assert parsed.scons == scons_version
+    assert parsed.alias == alias
+    assert parsed.major == major
+    assert parsed.minor == minor
+    assert parsed.experimental is experimental
+    assert Cl.vc_version(scons_version) == alias
+    assert Cl.toolset_key(scons_version) == (major, minor)
 
 
 @pytest.mark.unit
@@ -13,6 +40,29 @@ def test_vc_version_naming():
     assert Cl.vc_version("14.3") == "vc143"
     assert Cl.vc_version("14.2Exp") == "vc142e"
     assert Cl.vc_version("14.0") == "vc140"
+    assert Cl.vc_version("14.5") == "vc145"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "scons_version,expected",
+    [
+        ("14.1", False),
+        ("14.0", False),
+        ("14.2", True),
+        ("14.2Exp", True),
+        ("14.3", True),
+        ("14.5", True),
+        ("14.51", True),
+    ],
+)
+def test_supports_modules_uses_scons_toolset_floor(scons_version, expected):
+    toolchain = Cl.__new__(Cl)
+    toolchain._toolset = Cl.parse_toolset_version(scons_version)
+    toolchain._long_version = toolchain._toolset.scons
+    with patch("cuppa.build_platform.name", return_value="Windows"):
+        assert toolchain.supports_modules(None) is expected
+    assert MODULES_MIN_MSVC_TOOLSET == (14, 2)
 
 
 @pytest.mark.unit

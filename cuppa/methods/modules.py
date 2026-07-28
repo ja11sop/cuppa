@@ -90,12 +90,14 @@ def activate_modules_for_env( env ):
         import SCons.Errors
         message = (
             "--modules requested but toolchain [{}] does not support C++ modules "
-            "(Linux/macOS GCC 14+ / Clang 16+, or Windows MSVC 14.29+ in this cuppa release)"
+            "(Linux/macOS GCC 14+ / Clang 16+, or Windows MSVC toolset 14.2+ "
+            "[--toolchains=vc142 / vc143 / vc145 / …] in this cuppa release)"
             .format( toolchain.name() )
         )
         logger.error(
             "--modules requested but toolchain [{}] does not support C++ modules "
-            "(Linux/macOS GCC 14+ / Clang 16+, or Windows MSVC 14.29+ in this cuppa release)"
+            "(Linux/macOS GCC 14+ / Clang 16+, or Windows MSVC toolset 14.2+ "
+            "[--toolchains=vc142 / vc143 / vc145 / …] in this cuppa release)"
             .format( as_error( toolchain.name() ) )
         )
         env['modules'] = False
