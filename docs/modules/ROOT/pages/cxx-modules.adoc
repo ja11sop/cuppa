@@ -28,9 +28,9 @@ Pass them to `Build` / `Compile` like any other source:
 ----
 Import('env')
 env.Build('app', [
-    'math_decl.cppm', # export module math_impl;
-    'math_impl.cpp',  # module math_impl;   (implementation unit)
-    'main.cpp',       # import math_impl;
+    'math.cppm',  # export module math;  → math.cppm.o
+    'math.cpp',   # module math;         → math.o
+    'main.cpp',   # import math;
 ])
 ----
 
@@ -96,7 +96,7 @@ partition holds helpers, and an implementation unit wires them together:
 
 [source,cpp]
 ----
-// calc/interface.cppm
+// calc/calc.cppm
 export module calc;
 export int add(int a, int b);
 
@@ -104,7 +104,7 @@ export int add(int a, int b);
 module calc:core;              // implementation partition → its own BMI
 int core_add(int a, int b);
 
-// calc/impl.cpp
+// calc/calc.cpp
 module calc;
 import :core;
 int add(int a, int b) { return core_add(a, b); }
@@ -113,20 +113,12 @@ int add(int a, int b) { return core_add(a, b); }
 [source,python]
 ----
 env.Build('calc_app', [
-    'calc/interface.cppm',
+    'calc/calc.cppm',   # → calc.cppm.o (extension kept in object stem)
     'calc/core.cpp',
-    'calc/impl.cpp',
+    'calc/calc.cpp',    # → calc.o
     'apps/calc_main.cpp',
 ])
 ----
-
-NOTE: Give interface and implementation files **different basenames** (for example
-`interface.cppm` and `impl.cpp`). That is a **cuppa object-naming** constraint, not a
-language or compiler one: cuppa derives the `.o` path from the file stem, so
-`calc.cppm` and `calc.cpp` would both target `calc.o`. GCC/Clang are happy to
-compile both units if the build gives them distinct `-o` paths. The suffix
-(`.cppm` vs `.cpp`) is mainly a convention / toolchain hint about the kind of
-unit; the module role still comes from `export module` / `module` in the source.
 
 == Private module fragments
 

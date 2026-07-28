@@ -19,6 +19,31 @@ from cuppa.toolchains.cxx_modules_support import (
 pytestmark = pytest.mark.unit
 
 
+def test_object_target_keeps_interface_suffix(tmp_path):
+    from cuppa.cpp.cxx_modules import object_target_for
+
+    class _Src:
+        def __init__( self, path ):
+            self.path = path
+
+        def __str__( self ):
+            return self.path
+
+    class _Env( dict ):
+        def File( self, path ):
+            return path
+
+    env = _Env({
+        "build_root": "_build",
+        "build_dir": str( tmp_path / "working" ),
+    })
+    cppm = object_target_for( env, _Src( "calc/calc.cppm" ), "", ".o" )
+    cpp = object_target_for( env, _Src( "calc/calc.cpp" ), "", ".o" )
+    assert cppm.replace( "\\", "/" ).endswith( "calc.cppm.o" )
+    assert cpp.replace( "\\", "/" ).endswith( "calc.o" )
+    assert cppm != cpp
+
+
 def test_named_and_header_bmi_paths(tmp_path):
     env = {"build_dir": str(tmp_path / "working")}
     named = named_bmi_path(env, "math.util", ".pcm")

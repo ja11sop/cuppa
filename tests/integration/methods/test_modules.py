@@ -110,9 +110,9 @@ def test_implementation_partition_build(tmp_path):
         project,
         "Import('env')\n"
         "env.Build('calc_app', [\n"
-        "    'calc/interface.cppm',\n"
+        "    'calc/calc.cppm',\n"
         "    'calc/core.cpp',\n"
-        "    'calc/impl.cpp',\n"
+        "    'calc/calc.cpp',\n"
         "    'apps/calc_main.cpp',\n"
         "])\n",
     )
