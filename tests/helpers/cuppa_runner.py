@@ -23,6 +23,10 @@ def run_cuppa(project_dir, *flags, extra_env=None, timeout=180):
     if not any(str(flag).startswith("--toolchains") for flag in flags):
         args.extend(default_toolchain_flags())
     args.extend(flags)
+    # Optional CI/local extras, e.g. CUPPA_TEST_ARGS='--clang-stdlib=libc++'
+    extra_args = os.environ.get("CUPPA_TEST_ARGS", "").strip()
+    if extra_args:
+        args.extend(extra_args.split())
 
     logger.info("Running in %s: %s", project_dir, " ".join(args))
     result = subprocess.run(

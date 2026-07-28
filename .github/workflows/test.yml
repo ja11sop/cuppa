@@ -65,12 +65,36 @@ jobs:
       - name: Install packages (clang)
         if: matrix.toolchain == 'clang'
         run: |
+          set -euo pipefail
           sudo apt-get update
-          # Do not install a newer g++/libstdc++ here — Clang uses -stdlib=libstdc++ by
-          # default on Linux and would pick up an incompatible GCC 15 standard library.
-          sudo apt-get install -y clang gcovr
+          sudo apt-get install -y gcovr wget ca-certificates
+          # Install the newest Clang that apt.llvm.org offers for this Ubuntu.
+          # Do not pull a newer GCC/libstdc++ — use matching libc++ instead.
+          wget -q https://apt.llvm.org/llvm.sh -O /tmp/llvm.sh
+          chmod +x /tmp/llvm.sh
+          CLANG_VER=""
+          for ver in 22 21 20 19 18; do
+            if sudo /tmp/llvm.sh "${ver}"; then
+              CLANG_VER="${ver}"
+              break
+            fi
+            echo "LLVM ${ver} install failed; trying an older release..."
+          done
+          if [ -z "${CLANG_VER}" ]; then
+            echo "Falling back to distro clang"
+            sudo apt-get install -y clang libc++-dev libc++abi-dev
+            clang++ --version
+            exit 0
+          fi
+          sudo apt-get install -y "clang-${CLANG_VER}" "libc++-${CLANG_VER}-dev" "libc++abi-${CLANG_VER}-dev"
+          sudo update-alternatives --install /usr/bin/clang clang "/usr/bin/clang-${CLANG_VER}" $((CLANG_VER * 10))
+          sudo update-alternatives --install /usr/bin/clang++ clang++ "/usr/bin/clang++-${CLANG_VER}" $((CLANG_VER * 10))
+          sudo update-alternatives --set clang "/usr/bin/clang-${CLANG_VER}"
+          sudo update-alternatives --set clang++ "/usr/bin/clang++-${CLANG_VER}"
+          hash -r || true
+          echo "Installed Clang ${CLANG_VER}"
+          clang --version
           clang++ --version
-          g++ --version || true
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -79,6 +103,8 @@ jobs:
       - name: Integration tests (${{ matrix.toolchain }})
         env:
           CUPPA_TEST_TOOLCHAIN: ${{ matrix.toolchain }}
+          # Recent Clang + matching libc++ avoids coupling to whatever libstdc++ GCC left on the image.
+          CUPPA_TEST_ARGS: ${{ matrix.toolchain == 'clang' && '--clang-stdlib=libc++' || '' }}
         run: pytest -m integration -q
 
   integration-windows:
