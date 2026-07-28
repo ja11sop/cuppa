@@ -140,13 +140,17 @@ def test_gcc_supports_modules_version_gate(monkeypatch):
 def test_cl_supports_modules_on_windows_version_gate(monkeypatch):
     from cuppa.toolchains.cl import Cl
 
+    # Floors use SCons toolset ids (14.2, 14.3, 14.5), not compiler update numbers.
     toolchain = Cl.__new__(Cl)
-    toolchain._long_version = "14.39"
     monkeypatch.setattr("cuppa.build_platform.name", lambda: "Windows")
-    assert toolchain.supports_modules(env=None) is True
-    toolchain._long_version = "14.20"
-    assert toolchain.supports_modules(env=None) is False
+    for capable in ("14.2", "14.3", "14.5"):
+        toolchain._long_version = capable
+        assert toolchain.supports_modules(env=None) is True
+    for too_old in ("14.1", "14.0"):
+        toolchain._long_version = too_old
+        assert toolchain.supports_modules(env=None) is False
     monkeypatch.setattr("cuppa.build_platform.name", lambda: "Linux")
+    toolchain._long_version = "14.5"
     assert toolchain.supports_modules(env=None) is False
 
 
