@@ -6,8 +6,10 @@
 
 `--toolchains=` selects the compiler family. The gcc case is skipped when gcc is not on PATH; clang is skipped (with a log) when clang is not installed.
 
-Clang is exercised for **both** `--clang-stdlib=libstdc++` and `--clang-stdlib=libc++`
-(unless `CUPPA_TEST_ARGS` already pins one stdlib for the current CI cell).
+Clang is exercised for each usable `--clang-stdlib=` (typically `libstdc++` and
+`libc++`). When `CUPPA_TEST_ARGS` already pins a stdlib for the current CI cell,
+only that variant runs. The gcc CI job may have `clang++` on PATH without libc++
+packages — the `libc++` cell is then omitted/skipped rather than failed.
 
 == Generated files (both tests)
 

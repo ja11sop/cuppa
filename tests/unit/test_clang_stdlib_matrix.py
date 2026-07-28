@@ -32,7 +32,15 @@ def test_merge_cuppa_args_preserves_non_options():
 
 
 def test_clang_stdlib_matrix_params_respects_env(monkeypatch):
+    import tests.helpers.toolchains as toolchains
+
     monkeypatch.delenv("CUPPA_TEST_ARGS", raising=False)
+    toolchains._clang_stdlib_usable_cache.clear()
+    monkeypatch.setattr(
+        toolchains,
+        "clang_stdlib_usable",
+        lambda stdlib: True,
+    )
     assert clang_stdlib_matrix_params() == [
         CLANG_STDLIB_LIBSTDCXX,
         CLANG_STDLIB_LIBCXX,
@@ -44,4 +52,17 @@ def test_clang_stdlib_matrix_params_respects_env(monkeypatch):
     assert clang_stdlib_flag(CLANG_STDLIB_LIBCXX) == "--clang-stdlib=libc++"
 
     monkeypatch.setenv("CUPPA_TEST_ARGS", "--offline --clang-stdlib=libstdc++")
+    assert clang_stdlib_matrix_params() == [CLANG_STDLIB_LIBSTDCXX]
+
+
+def test_clang_stdlib_matrix_params_omits_unusable_libcxx(monkeypatch):
+    import tests.helpers.toolchains as toolchains
+
+    monkeypatch.delenv("CUPPA_TEST_ARGS", raising=False)
+    toolchains._clang_stdlib_usable_cache.clear()
+    monkeypatch.setattr(
+        toolchains,
+        "clang_stdlib_usable",
+        lambda stdlib: stdlib == CLANG_STDLIB_LIBSTDCXX,
+    )
     assert clang_stdlib_matrix_params() == [CLANG_STDLIB_LIBSTDCXX]

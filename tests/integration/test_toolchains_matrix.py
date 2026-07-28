@@ -8,6 +8,7 @@ from tests.helpers.project import copy_dummy_project, write_sconstruct, write_sc
 from tests.helpers.toolchains import (
     clang_stdlib_flag,
     clang_stdlib_matrix_params,
+    require_clang_stdlib,
 )
 
 
@@ -38,6 +39,8 @@ def test_toolchains_clang_when_available(tmp_path, stdlib):
         message = "clang not available; skipping clang toolchain integration test"
         logger.warning(message)
         pytest.skip(message)
+
+    require_clang_stdlib(stdlib)
 
     project = copy_dummy_project(tmp_path)
     write_sconstruct(project)

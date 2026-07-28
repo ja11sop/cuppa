@@ -296,6 +296,8 @@ CLANG_STDLIB_LIBSTDCXX = "libstdc++"
 CLANG_STDLIB_LIBCXX = "libc++"
 CLANG_STDLIB_VARIANTS = (CLANG_STDLIB_LIBSTDCXX, CLANG_STDLIB_LIBCXX)
 
+_clang_stdlib_usable_cache = {}
+
 
 def clang_stdlib_flag(stdlib):
     """Return the cuppa CLI flag for a Clang standard library choice."""
@@ -315,15 +317,66 @@ def active_clang_stdlib():
     return None
 
 
+def clang_stdlib_usable(stdlib):
+    """
+    True if the default clang++ can compile a trivial TU with this -stdlib=.
+
+    Used so the gcc CI job (clang on PATH, no libc++ packages) does not fail
+    the dual-stdlib matrix cell for libc++.
+    """
+    if stdlib not in CLANG_STDLIB_VARIANTS:
+        return False
+    if stdlib in _clang_stdlib_usable_cache:
+        return _clang_stdlib_usable_cache[stdlib]
+
+    usable = False
+    driver = shutil.which("clang++") or shutil.which("clang")
+    if driver:
+        try:
+            result = subprocess.run(
+                [driver, "-stdlib={}".format(stdlib), "-std=c++20", "-x", "c++", "-fsyntax-only", "-"],
+                input="#include <cstdlib>\nint main() { return 0; }\n",
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            usable = result.returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            usable = False
+
+    _clang_stdlib_usable_cache[stdlib] = usable
+    return usable
+
+
+def require_clang_stdlib(stdlib):
+    """Skip (or fail when CI-pinned) unless Clang can use the given stdlib."""
+    if clang_stdlib_usable(stdlib):
+        return
+    pinned = active_clang_stdlib()
+    message = (
+        "Clang -stdlib={} is not usable with the clang++ on PATH "
+        "(missing headers/runtime; install libc++-dev for libc++)"
+        .format(stdlib)
+    )
+    # Pinned CI cells must fail loudly if packages are missing.
+    if pinned == stdlib:
+        pytest.fail(message)
+    logger.warning(message)
+    pytest.skip(message)
+
+
 def clang_stdlib_matrix_params():
     """
     Parametrize ids for Clang builds that should cover both stdlibs.
 
     When CUPPA_TEST_ARGS already pins a stdlib (CI job), return only that
     variant so we do not triple-run inside a job that is already the dual matrix.
-    Otherwise return both libstdc++ and libc++.
+    Otherwise return each of libstdc++ / libc++ that the local clang can use
+    (so the gcc job without libc++ packages only runs libstdc++).
     """
     pinned = active_clang_stdlib()
     if pinned in CLANG_STDLIB_VARIANTS:
         return [pinned]
-    return list(CLANG_STDLIB_VARIANTS)
+    usable = [stdlib for stdlib in CLANG_STDLIB_VARIANTS if clang_stdlib_usable(stdlib)]
+    # Keep one id so collection succeeds when clang/libc++ are absent; the test skips.
+    return usable or [CLANG_STDLIB_LIBSTDCXX]
