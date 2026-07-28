@@ -121,8 +121,12 @@ env.Build('calc_app', [
 ----
 
 NOTE: Give interface and implementation files **different basenames** (for example
-`interface.cppm` and `impl.cpp`). Cuppa's object naming uses the stem, so
-`calc.cppm` and `calc.cpp` would both target `calc.o`.
+`interface.cppm` and `impl.cpp`). That is a **cuppa object-naming** constraint, not a
+language or compiler one: cuppa derives the `.o` path from the file stem, so
+`calc.cppm` and `calc.cpp` would both target `calc.o`. GCC/Clang are happy to
+compile both units if the build gives them distinct `-o` paths. The suffix
+(`.cppm` vs `.cpp`) is mainly a convention / toolchain hint about the kind of
+unit; the module role still comes from `export module` / `module` in the source.
 
 == Private module fragments
 
