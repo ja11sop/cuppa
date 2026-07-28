@@ -650,35 +650,51 @@ class Clang(object):
     def interface_module_flags( self, env, module_name, bmi_path ):
         return [
             '-fmodules',
+            '-x', 'c++-module',
             '-fmodule-output={}'.format( bmi_path ),
         ]
 
 
     def consume_module_flags( self, env, scan ):
         from cuppa.cpp.cxx_modules import get_registry, lookup_header_entry
+        from cuppa.cpp.module_scanner import owning_module_name, qualify_relative_import
         flags = [ '-fmodules' ]
         registry = get_registry( env )
         if not scan:
             return flags
+
+        def add_named( name, seen ):
+            if not name or name in seen:
+                return
+            entry = registry['named'].get( name )
+            if not entry:
+                return
+            seen.add( name )
+            flag = '-fmodule-file={}={}'.format( name, entry['path'] )
+            if flag not in flags:
+                flags.append( flag )
+            for dep in entry.get( 'imports', [] ):
+                add_named( dep, seen )
+
+        owner = owning_module_name( scan )
+        seen = set()
         for item in scan.imports:
             if item.kind == 'named':
-                entry = registry['named'].get( item.name )
-                if entry:
-                    flags.append(
-                        '-fmodule-file={}={}'.format( item.name, entry['path'] )
-                    )
+                name = qualify_relative_import( item.name, owner )
+                add_named( name, seen )
             else:
                 entry = lookup_header_entry( registry, item.name )
                 if entry:
-                    flags.append( '-fmodule-file={}'.format( entry['path'] ) )
+                    flag = '-fmodule-file={}'.format( entry['path'] )
+                    if flag not in flags:
+                        flags.append( flag )
         if scan.module_declaration:
-            entry = registry['named'].get( scan.module_declaration )
-            if entry:
-                flag = '-fmodule-file={}={}'.format(
-                    scan.module_declaration, entry['path']
-                )
-                if flag not in flags:
-                    flags.append( flag )
+            decl = scan.module_declaration
+            primary = decl.split( ':', 1 )[0]
+            for candidate in ( decl, primary ):
+                if candidate in registry['named']:
+                    add_named( candidate, seen )
+                    break
         return flags
 
 

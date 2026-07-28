@@ -31,11 +31,15 @@ def _modules_toolchain_flag():
     """Prefer default gcc/clang (e.g. via update-alternatives); probe only if needed."""
     alias, driver, major = require_modules_capable_toolchain()
     logger.info("C++ modules tests using toolchain %s (%s major %s)", alias, driver, major)
-    return "--toolchains={}".format(alias)
+    return alias, "--toolchains={}".format(alias)
+
+
+def _is_gcc_family(alias):
+    return alias == "gcc" or alias.startswith("gcc")
 
 
 def test_named_module_build(tmp_path):
-    toolchain_flag = _modules_toolchain_flag()
+    _, toolchain_flag = _modules_toolchain_flag()
     project = _copy_modules_project(tmp_path)
     write_sconstruct(project)
     write_sconscript(
@@ -49,7 +53,7 @@ def test_named_module_build(tmp_path):
 
 
 def test_header_unit_build(tmp_path):
-    toolchain_flag = _modules_toolchain_flag()
+    _, toolchain_flag = _modules_toolchain_flag()
     project = _copy_modules_project(tmp_path)
     write_sconstruct(project)
     write_sconscript(
@@ -61,3 +65,112 @@ def test_header_unit_build(tmp_path):
     result = run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag)
     assert_success(result)
     assert find_final_binaries(project, "widget_app")
+
+
+def test_implementation_unit_build(tmp_path):
+    _, toolchain_flag = _modules_toolchain_flag()
+    project = _copy_modules_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.Build('impl_app', ['math_decl.cppm', 'math_impl.cpp', 'apps/impl_main.cpp'])\n",
+    )
+    result = run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag)
+    assert_success(result)
+    assert find_final_binaries(project, "impl_app")
+
+
+def test_interface_partition_build(tmp_path):
+    """Primary interface re-exports a partition (export import :point)."""
+    _, toolchain_flag = _modules_toolchain_flag()
+    project = _copy_modules_project(tmp_path)
+    write_sconstruct(project)
+    # Primary listed before the partition — BMI pre-registration must still work.
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.Build('geo_app', [\n"
+        "    'geo/geo.cppm',\n"
+        "    'geo/point.cppm',\n"
+        "    'apps/geo_main.cpp',\n"
+        "])\n",
+    )
+    result = run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag)
+    assert_success(result)
+    assert find_final_binaries(project, "geo_app")
+
+
+def test_implementation_partition_build(tmp_path):
+    """Internal partition (module calc:core) used by an implementation unit."""
+    _, toolchain_flag = _modules_toolchain_flag()
+    project = _copy_modules_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.Build('calc_app', [\n"
+        "    'calc/interface.cppm',\n"
+        "    'calc/core.cpp',\n"
+        "    'calc/impl.cpp',\n"
+        "    'apps/calc_main.cpp',\n"
+        "])\n",
+    )
+    result = run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag)
+    assert_success(result)
+    assert find_final_binaries(project, "calc_app")
+
+
+def test_private_module_fragment_build(tmp_path):
+    """
+    Private module fragment (module :private;).
+
+    GCC still reports this as unimplemented; Clang supports it.
+    """
+    alias, toolchain_flag = _modules_toolchain_flag()
+    if _is_gcc_family(alias):
+        pytest.skip("GCC does not implement private module fragments yet")
+    project = _copy_modules_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.Build('secrets_app', ['secrets.cppm', 'apps/secrets_main.cpp'])\n",
+    )
+    result = run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag)
+    assert_success(result)
+    assert find_final_binaries(project, "secrets_app")
+
+
+def test_module_reexport_build(tmp_path):
+    """export import util; from a second named module."""
+    _, toolchain_flag = _modules_toolchain_flag()
+    project = _copy_modules_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.Build('reexport_app', [\n"
+        "    'appmod.cppm',\n"
+        "    'util.cppm',\n"
+        "    'apps/reexport_main.cpp',\n"
+        "])\n",
+    )
+    result = run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag)
+    assert_success(result)
+    assert find_final_binaries(project, "reexport_app")
+
+
+def test_mixed_named_module_and_header_unit(tmp_path):
+    _, toolchain_flag = _modules_toolchain_flag()
+    project = _copy_modules_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.HeaderUnit('include/widget.hpp')\n"
+        "env.Build('mixed_app', ['math.cppm', 'apps/mixed_main.cpp'])\n",
+    )
+    result = run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag)
+    assert_success(result)
+    assert find_final_binaries(project, "mixed_app")

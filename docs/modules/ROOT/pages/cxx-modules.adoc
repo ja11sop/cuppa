@@ -1,7 +1,8 @@
 = C++ modules
-:description: Experimental named modules and header units (GCC/Clang on Linux)
+:description: Experimental named modules, partitions, and header units (GCC/Clang on Linux)
 
-Cuppa can build C++20 **named modules** and **header units** on Linux with GCC 14+ or Clang 16+.
+Cuppa can build C++20 **named modules** (including interface / implementation partitions)
+and **header units** on Linux with GCC 14+ or Clang 16+.
 MSVC is not supported in this release. `import std` is out of scope.
 
 Enablement is **opt-in** so existing projects are unchanged.
@@ -27,14 +28,140 @@ Pass them to `Build` / `Compile` like any other source:
 ----
 Import('env')
 env.Build('app', [
-    'math.cppm',      # export module math;
-    'math.cpp',       # module math;   (optional implementation unit)
-    'main.cpp',       # import math;
+    'math_decl.cppm', # export module math_impl;
+    'math_impl.cpp',  # module math_impl;   (implementation unit)
+    'main.cpp',       # import math_impl;
 ])
 ----
 
 Cuppa scans sources for `export module` / `module` / `import`, builds BMIs under
-`_build/.../working/modules/`, and wires SCons `Depends` so interfaces compile before consumers.
+`_build/.../working/modules/`, and wires SCons `Depends` so BMI-producing units
+compile before their consumers. BMI nodes are **pre-registered** for every unit in the
+source list, so partitions may appear before or after the primary interface.
+
+== Implementation units
+
+Keep declarations in the interface and definitions in a separate TU:
+
+[source,cpp]
+----
+// math_decl.cppm
+export module math_impl;
+export int add(int a, int b);
+
+// math_impl.cpp
+module math_impl;
+int add(int a, int b) { return a + b; }
+----
+
+[source,python]
+----
+env.Build('impl_app', ['math_decl.cppm', 'math_impl.cpp', 'apps/impl_main.cpp'])
+----
+
+== Interface partitions
+
+Split a large interface across partition units and re-export them from the primary:
+
+[source,cpp]
+----
+// geo/point.cppm
+export module geo:point;
+export struct Point { int x; int y; };
+export int manhattan(Point p);
+
+// geo/geo.cppm
+export module geo;
+export import :point;          // relative partition import
+export int origin_distance(Point p);
+----
+
+[source,python]
+----
+env.Build('geo_app', [
+    'geo/geo.cppm',      # order does not matter — BMIs are pre-registered
+    'geo/point.cppm',
+    'apps/geo_main.cpp', # import geo;
+])
+----
+
+Relative imports (`import :point` / `export import :point`) are resolved against the
+owning module's primary name (`geo:point`).
+
+== Implementation partitions
+
+Internal partitions are not exported to importers of the primary module.
+A common pattern is: primary interface declares the API, an implementation
+partition holds helpers, and an implementation unit wires them together:
+
+[source,cpp]
+----
+// calc/interface.cppm
+export module calc;
+export int add(int a, int b);
+
+// calc/core.cpp
+module calc:core;              // implementation partition → its own BMI
+int core_add(int a, int b);
+
+// calc/impl.cpp
+module calc;
+import :core;
+int add(int a, int b) { return core_add(a, b); }
+----
+
+[source,python]
+----
+env.Build('calc_app', [
+    'calc/interface.cppm',
+    'calc/core.cpp',
+    'calc/impl.cpp',
+    'apps/calc_main.cpp',
+])
+----
+
+NOTE: Give interface and implementation files **different basenames** (for example
+`interface.cppm` and `impl.cpp`). Cuppa's object naming uses the stem, so
+`calc.cppm` and `calc.cpp` would both target `calc.o`.
+
+== Private module fragments
+
+Hide implementation details inside the primary interface unit with `module :private;`:
+
+[source,cpp]
+----
+export module secrets;
+export int public_answer();
+module :private;
+static int hidden = 7;
+int public_answer() { return hidden; }
+----
+
+[NOTE]
+====
+**Toolchain support:** Clang 16+ implements private module fragments.
+GCC (through at least GCC 15) still reports `sorry, unimplemented: private module fragment`.
+Cuppa scans and registers the module either way; prefer Clang when you need this feature.
+====
+
+== Re-exports and multi-module graphs
+
+`export import` forwards another module's interface:
+
+[source,cpp]
+----
+export module util;
+export int answer();
+
+export module appmod;
+export import util;
+export int use_util();
+----
+
+[source,python]
+----
+env.Build('reexport_app', ['appmod.cppm', 'util.cppm', 'apps/reexport_main.cpp'])
+----
 
 == Header units
 
@@ -47,13 +174,17 @@ env.HeaderUnit('include/widget.hpp')
 env.Build('tool', ['tool.cpp'])   # import "include/widget.hpp";
 ----
 
+Named modules and header units can be mixed in one binary — declare the header unit
+first, then `Build` sources that `import` both.
+
 == Artifact layout
 
 ----
 _build/<toolchain>/<variant>/<arch>/<abi>/working/modules/
   math.pcm|gcm
+  geo--point.pcm|gcm          # colon → -- in BMI filenames
   header--include--widget.hpp.pcm|gcm
-  module-mapper.txt          # GCC only
+  module-mapper.txt           # GCC only
 ----
 
 == Limits
@@ -61,6 +192,7 @@ _build/<toolchain>/<variant>/<arch>/<abi>/working/modules/
 * Linux GCC 14+ / Clang 16+ only
 * Lightweight line-oriented import scanner (macros that invent imports are unsupported)
 * Header-unit spelling in `import "..."` should match the path passed to `HeaderUnit`
+* Private module fragments: Clang only (GCC unimplemented)
 * Experimental compiler support — expect toolchain-specific quirks
 * `--modules` on an unsupported toolchain stops the build with a clear error (it does not silently fall back)
 * Integration tests require a modules-capable compiler and **fail** if GCC/Clang is too old (MSVC is skipped)

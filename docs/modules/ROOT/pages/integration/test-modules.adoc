@@ -1,11 +1,53 @@
 = Integration: C++ modules
-:description: Named modules and header units with --modules
+:description: Named modules, partitions, private fragments, and header units
 
 See xref:cxx-modules.adoc[C++ modules].
 
-Covered by `tests/integration/methods/test_modules.py`.
+Covered by `tests/integration/methods/test_modules.py` using
+`tests/fixtures/modules_project/`.
+
+== Cases
+
+[cols="1,2,1"]
+|===
+| Test | What it exercises | Notes
+
+| `test_named_module_build`
+| Single `export module` + consumer
+| Baseline
+
+| `test_header_unit_build`
+| `env.HeaderUnit` + `import "..."`
+|
+
+| `test_implementation_unit_build`
+| Interface + `module M;` implementation TU
+|
+
+| `test_interface_partition_build`
+| `export module M:part` + `export import :part`
+| Primary listed before partition
+
+| `test_implementation_partition_build`
+| `module M:part` used from `module M;` implementation unit
+|
+
+| `test_private_module_fragment_build`
+| `module :private;`
+| **Skipped on GCC** (unimplemented)
+
+| `test_module_reexport_build`
+| `export import` across named modules
+|
+
+| `test_mixed_named_module_and_header_unit`
+| Named module + header unit in one app
+|
+|===
+
+== Toolchain selection
 
 * Skipped only for MSVC (`CUPPA_TEST_TOOLCHAIN=vc`)
 * **Fail** (do not skip) if no Linux GCC 14+ / Clang 16+ driver is on PATH
 * Prefer the default `g++` / `clang++` on PATH (typically via `update-alternatives`); only probe versioned drivers if the default is too old
-
+* For Clang CI, set `CUPPA_TEST_ARGS=--clang-stdlib=libc++` when needed

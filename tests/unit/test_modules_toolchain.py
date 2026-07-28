@@ -130,6 +130,6 @@ def test_clang_interface_and_consume_flags():
     assert "-fmodules" in flags
     assert any(f.startswith("-fmodule-output=") for f in flags)
 
-    scan = ModuleScan(None, None, [ModuleImport("named", "math")])
+    scan = ModuleScan(None, None, [ModuleImport("named", "math")], False)
     consume = toolchain.consume_module_flags(env, scan)
     assert "-fmodule-file=math=/tmp/build/modules/math.pcm" in consume

@@ -14,7 +14,14 @@ from SCons.Script import Flatten
 
 import cuppa.progress
 from cuppa.colourise import as_error, as_info, as_notice, as_warning
-from cuppa.cpp.module_scanner import ModuleScan, is_interface_source, scan_file
+from cuppa.cpp.module_scanner import (
+    ModuleScan,
+    is_interface_source,
+    module_bmi_name,
+    owning_module_name,
+    qualify_relative_import,
+    scan_file,
+)
 from cuppa.log import logger
 
 
@@ -72,7 +79,7 @@ def _scan_source( source ):
             "Could not scan [{}] for modules: {}"
             .format( as_warning( path ), as_warning( str( exc ) ) )
         )
-        return ModuleScan( None, None, [] )
+        return ModuleScan( None, None, [], False )
 
 
 def lookup_header_entry( registry, name ):
@@ -90,17 +97,50 @@ def lookup_header_entry( registry, name ):
     return None
 
 
-def resolve_import_nodes( env, imports ):
+def named_import_names( scan ):
+    """Qualified named-module import names for registry / transitive BMI flags."""
+    if not scan:
+        return []
+    owner = owning_module_name( scan )
+    names = []
+    for item in scan.imports:
+        if item.kind != 'named':
+            continue
+        names.append( qualify_relative_import( item.name, owner ) )
+    return names
+
+
+def collect_named_bmi_nodes( registry, module_name, seen=None ):
+    """Transitive BMI nodes for a named module and its recorded imports."""
+    if seen is None:
+        seen = set()
+    if not module_name or module_name in seen:
+        return []
+    seen.add( module_name )
+    entry = registry['named'].get( module_name )
+    if not entry:
+        return []
+    nodes = [ entry['bmi'] ]
+    for dep in entry.get( 'imports', [] ):
+        nodes.extend( collect_named_bmi_nodes( registry, dep, seen ) )
+    return nodes
+
+
+def resolve_import_nodes( env, imports, owning_module=None ):
     registry = get_registry( env )
     nodes = []
     missing = []
+    seen = set()
     for item in imports:
         if item.kind == 'named':
-            entry = registry['named'].get( item.name )
+            name = qualify_relative_import( item.name, owning_module )
+            entry = registry['named'].get( name )
             if entry:
-                nodes.append( entry['bmi'] )
+                for node in collect_named_bmi_nodes( registry, name, seen ):
+                    if node not in nodes:
+                        nodes.append( node )
             else:
-                missing.append( item.name )
+                missing.append( name )
         else:
             entry = lookup_header_entry( registry, item.name )
             if entry:
@@ -110,12 +150,17 @@ def resolve_import_nodes( env, imports ):
     return nodes, missing
 
 
-def register_named_module( env, module_name, bmi_path, bmi_node ):
+def register_named_module( env, module_name, bmi_path, bmi_node, imports=None ):
     registry = get_registry( env )
-    registry['named'][module_name] = {
+    entry = registry['named'].setdefault( module_name, {
         'bmi': bmi_node,
         'path': bmi_path,
-    }
+        'imports': [],
+    } )
+    entry['bmi'] = bmi_node
+    entry['path'] = bmi_path
+    if imports is not None:
+        entry['imports'] = list( imports )
     toolchain = env['toolchain']
     if hasattr( toolchain, 'write_module_mapper' ):
         toolchain.write_module_mapper( env )
@@ -181,14 +226,29 @@ def compile_with_modules( env, sources, obj_builder, obj_prefix, obj_suffix, dep
             classified.append( ( 'object', source, None ) )
             continue
         scan = _scan_source( source )
-        if is_interface_source( str( source ), scan ):
-            classified.append( ( 'interface', source, scan ) )
+        bmi_name = module_bmi_name( scan )
+        if bmi_name or is_interface_source( str( source ), scan ):
+            classified.append( ( 'bmi', source, scan ) )
         else:
             classified.append( ( 'tu', source, scan ) )
 
+    # Pre-register BMI nodes so partition / re-export Depends resolve regardless
+    # of source list order (primary may appear before its partitions).
+    for kind, source, scan in classified:
+        if kind != 'bmi':
+            continue
+        name = module_bmi_name( scan )
+        if not name:
+            name = os.path.splitext( os.path.basename( str( source ) ) )[0]
+        bmi_path = toolchain.module_bmi_path( env, name )
+        bmi_node = env.File( bmi_path )
+        register_named_module(
+            env, name, bmi_path, bmi_node, imports=named_import_names( scan )
+        )
+
     objects = []
 
-    def _build_one( source, scan, extra_flags, is_interface=False ):
+    def _build_one( source, scan, extra_flags, is_bmi=False ):
         if dependencies:
             env.Depends( source, Flatten( [ dependencies ] ) )
 
@@ -196,7 +256,10 @@ def compile_with_modules( env, sources, obj_builder, obj_prefix, obj_suffix, dep
         build_kwargs = dict( kwargs )
         build_kwargs['CPPPATH'] = env['SYSINCPATH'] + env['INCPATH']
 
-        imported_nodes, missing = resolve_import_nodes( env, scan.imports if scan else [] )
+        owner = owning_module_name( scan )
+        imported_nodes, missing = resolve_import_nodes(
+            env, scan.imports if scan else [], owning_module=owner
+        )
         if missing:
             logger.warn(
                 "Module imports not yet registered for [{}]: {}"
@@ -206,18 +269,28 @@ def compile_with_modules( env, sources, obj_builder, obj_prefix, obj_suffix, dep
         module_name = None
         bmi_path = None
         bmi_node = None
-        if is_interface:
-            if scan and scan.export_module:
-                module_name = scan.export_module
-            else:
+        if is_bmi:
+            module_name = module_bmi_name( scan )
+            if not module_name:
                 module_name = os.path.splitext( os.path.basename( str( source ) ) )[0]
-            bmi_path = toolchain.module_bmi_path( env, module_name )
-            bmi_node = env.File( bmi_path )
-            # GCC module mapper must list the module before the interface is compiled
-            register_named_module( env, module_name, bmi_path, bmi_node )
-            build_kwargs['CXXFLAGS'] = list( env.get( 'CXXFLAGS', [] ) ) + list(
-                toolchain.interface_module_flags( env, module_name, bmi_path )
+            entry = get_registry( env )['named'].get( module_name )
+            bmi_path = entry['path'] if entry else toolchain.module_bmi_path( env, module_name )
+            bmi_node = entry['bmi'] if entry else env.File( bmi_path )
+            register_named_module(
+                env,
+                module_name,
+                bmi_path,
+                bmi_node,
+                imports=named_import_names( scan ),
             )
+            cxx_flags = list( env.get( 'CXXFLAGS', [] ) )
+            cxx_flags.extend( toolchain.interface_module_flags( env, module_name, bmi_path ) )
+            # Clang needs -fmodule-file for imported partitions / re-exports while
+            # emitting this unit's BMI; GCC relies on the module mapper instead.
+            for flag in toolchain.consume_module_flags( env, scan ):
+                if flag not in cxx_flags:
+                    cxx_flags.append( flag )
+            build_kwargs['CXXFLAGS'] = cxx_flags
         else:
             build_kwargs['CXXFLAGS'] = list( env.get( 'CXXFLAGS', [] ) ) + list( extra_flags )
 
@@ -237,25 +310,30 @@ def compile_with_modules( env, sources, obj_builder, obj_prefix, obj_suffix, dep
                 .format( as_info( module_name ), as_notice( bmi_path ) )
             )
 
-        if not is_interface and scan and scan.module_declaration:
-            entry = get_registry( env )['named'].get( scan.module_declaration )
-            if entry:
-                for node in obj_nodes:
-                    env.Depends( node, entry['bmi'] )
+        if not is_bmi and scan and scan.module_declaration:
+            # Implementation units depend on the primary (or partition) BMI
+            decl = scan.module_declaration
+            primary = decl.split( ':', 1 )[0]
+            for candidate in ( decl, primary ):
+                entry = get_registry( env )['named'].get( candidate )
+                if entry:
+                    for node in obj_nodes:
+                        env.Depends( node, entry['bmi'] )
+                    break
 
         return obj_nodes
 
     for kind, source, scan in classified:
         if kind == 'object':
             objects.append( source )
-        elif kind == 'interface':
-            objects.extend( _build_one( source, scan, [], is_interface=True ) )
+        elif kind == 'bmi':
+            objects.extend( _build_one( source, scan, [], is_bmi=True ) )
 
     for kind, source, scan in classified:
         if kind != 'tu':
             continue
         consume_flags = toolchain.consume_module_flags( env, scan )
-        objects.extend( _build_one( source, scan, consume_flags, is_interface=False ) )
+        objects.extend( _build_one( source, scan, consume_flags, is_bmi=False ) )
 
     cuppa.progress.NotifyProgress.add( env, objects )
     return objects
