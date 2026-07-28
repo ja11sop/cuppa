@@ -154,6 +154,33 @@ def test_cl_supports_modules_on_windows_version_gate(monkeypatch):
     assert toolchain.supports_modules(env=None) is False
 
 
+def test_cl_interface_and_consume_flags_use_space_separated_paths():
+    from cuppa.toolchains.cl import Cl
+
+    toolchain = Cl.__new__(Cl)
+    win_bmi = r"C:\build\modules\math.ifc"
+    flags = toolchain.interface_module_flags({}, "math", win_bmi)
+    assert "-interface" in flags
+    assert "-ifcOutput" in flags
+    assert win_bmi in flags
+    # Colon form breaks MSVC on drive-letter paths (C3474 on ':C:\...').
+    assert not any(f.startswith("-ifcOutput:") for f in flags)
+    assert flags[flags.index("-ifcOutput") + 1] == win_bmi
+
+    env = {
+        "build_dir": r"C:\build",
+        "_cuppa_module_registry": {
+            "named": {"math": {"path": win_bmi, "bmi": object()}},
+            "headers": {},
+        },
+    }
+    scan = ModuleScan(None, None, [ModuleImport("named", "math")], False)
+    consume = toolchain.consume_module_flags(env, scan)
+    assert "-reference" in consume
+    assert "math={}".format(win_bmi) in consume
+    assert not any(f.startswith("-reference:") for f in consume)
+
+
 def test_clang_interface_and_consume_flags():
     from cuppa.toolchains.clang import Clang
 

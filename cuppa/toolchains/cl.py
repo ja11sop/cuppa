@@ -495,10 +495,14 @@ class Cl(object):
 
     def interface_module_flags( self, env, module_name, bmi_path ):
         # Hyphen forms avoid SCons treating /flags as paths on Windows.
+        # Use space-separated -ifcOutput PATH: the colon form (-ifcOutput:PATH)
+        # breaks on absolute Windows paths because MSVC treats the drive letter
+        # colon as part of the filename (error C3474 on ':C:\...').
         return [
             '-interface',
             '-TP',
-            '-ifcOutput:{}'.format( bmi_path ),
+            '-ifcOutput',
+            bmi_path,
         ]
 
 
@@ -510,6 +514,13 @@ class Cl(object):
         if not scan:
             return flags
 
+        def append_reference( payload ):
+            # Space-separated -reference avoids drive-letter colon issues on Windows.
+            for i in range( 0, len( flags ) - 1 ):
+                if flags[i] == '-reference' and flags[i + 1] == payload:
+                    return
+            flags.extend( [ '-reference', payload ] )
+
         def add_named( name, seen ):
             if not name or name in seen:
                 return
@@ -517,9 +528,7 @@ class Cl(object):
             if not entry:
                 return
             seen.add( name )
-            flag = '-reference:{}={}'.format( name, entry['path'] )
-            if flag not in flags:
-                flags.append( flag )
+            append_reference( '{}={}'.format( name, entry['path'] ) )
             for dep in entry.get( 'imports', [] ):
                 add_named( dep, seen )
 
@@ -532,9 +541,7 @@ class Cl(object):
             else:
                 entry = lookup_header_entry( registry, item.name )
                 if entry:
-                    flag = '-reference:{}'.format( entry['path'] )
-                    if flag not in flags:
-                        flags.append( flag )
+                    append_reference( entry['path'] )
         if scan.module_declaration:
             decl = scan.module_declaration
             primary = decl.split( ':', 1 )[0]
