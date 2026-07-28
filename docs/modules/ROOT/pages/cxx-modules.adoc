@@ -331,6 +331,11 @@ cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=clang --clang-stdlib=libc++
 ----
 
 Typical Homebrew locations: `/opt/homebrew/opt/llvm/bin` (Apple Silicon) or `/usr/local/opt/llvm/bin` (Intel).
-Cuppa’s macOS CI modules slice installs Homebrew `llvm` the same way and rejects Apple Clang in the test helpers.
+Cuppa records the discovered Clang’s install directory and prefers an **absolute** `CXX` / `CC`, and prepends that directory to the SCons build `PATH`, so a configure-time Homebrew Clang is not silently replaced by `/usr/bin/clang++` at build time.
+
+If you still see `export module` rejected with “expected template”, the build is almost certainly using Apple Clang.
+Pass `--propagate-path` (or `--merge-path`) so subprocesses inherit your shell `PATH`, and confirm the compile line shows the Homebrew binary (not bare `clang++` resolving via `/usr/bin`).
+
+Cuppa’s macOS CI modules slice installs Homebrew `llvm`, puts it on `PATH`, and passes `--propagate-path`.
 
 If a Homebrew Clang build cannot find macOS SDK headers, point it at the system SDK (for example `xcrun --show-sdk-path` / `SDKROOT`, or `--sysroot=…`). That is a general LLVM-on-macOS concern, not cuppa-specific.

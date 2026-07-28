@@ -164,7 +164,9 @@ jobs:
       - name: Modules integration slice (clang)
         env:
           CUPPA_TEST_TOOLCHAIN: clang
-          CUPPA_TEST_ARGS: --clang-stdlib=libc++
+          # propagate-path: SCons defaults to a minimal ENV; without it builds can
+          # pick /usr/bin/clang++ (Apple Clang) after configure saw Homebrew LLVM.
+          CUPPA_TEST_ARGS: --clang-stdlib=libc++ --propagate-path
         run: |
           pytest -m integration -q \
             tests/integration/methods/test_modules.py::test_named_module_build \

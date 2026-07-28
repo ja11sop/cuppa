@@ -71,6 +71,16 @@ def test_llvm_clang_version_from_command_not_apple(mock_popen, _available):
 
 
 @pytest.mark.unit
+def test_resolve_driver_prefers_absolute_path(tmp_path):
+    toolchain = Clang.__new__(Clang)
+    driver = tmp_path / "clang++"
+    driver.write_text("")
+    toolchain._cxx_path = str(tmp_path)
+    assert toolchain._resolve_driver("clang++") == str(driver)
+    assert toolchain._resolve_driver("missing-clang++") == "missing-clang++"
+
+
+@pytest.mark.unit
 def test_apple_clang_does_not_support_modules():
     toolchain = Clang.__new__(Clang)
     toolchain._reported_version = {

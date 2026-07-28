@@ -11,6 +11,7 @@
 import SCons.Script
 
 from subprocess import Popen, PIPE
+import os
 import re
 import shlex
 import collections
@@ -337,8 +338,12 @@ class Clang(object):
         self._gcov_format = self._gcov_format_version()
         self._initialise_toolchain( self._reported_version, stdlib )
 
-        self.values['CXX'] = "clang++{}".format( self._cxx_version and "-" +  self._cxx_version or "" )
-        self.values['CC']  = "clang{}".format( self._cxx_version and "-" +  self._cxx_version or "" )
+        cxx_name = "clang++{}".format( self._cxx_version and "-" +  self._cxx_version or "" )
+        cc_name  = "clang{}".format( self._cxx_version and "-" +  self._cxx_version or "" )
+        # Prefer absolute drivers so SCons' default ENV PATH (often /usr/bin first)
+        # cannot silently pick up Apple Clang after configure saw Homebrew LLVM.
+        self.values['CXX'] = self._resolve_driver( cxx_name )
+        self.values['CC']  = self._resolve_driver( cc_name )
 
         env = SCons.Script.DefaultEnvironment()
         if platform.system() == "Windows":
@@ -398,6 +403,15 @@ class Clang(object):
         return self._cxx_version
 
 
+    def _resolve_driver( self, name ):
+        """Return an absolute path to a clang driver when its install dir is known."""
+        if self._cxx_path:
+            candidate = os.path.join( self._cxx_path, name )
+            if os.path.exists( candidate ):
+                return candidate
+        return name
+
+
     def binary( self ):
         return self.values['CXX']
 
@@ -410,9 +424,17 @@ class Clang(object):
 
         if platform.system() == "Windows":
             env = cuppa_env.create_env( tools = ['mingw'] )
-            env['ENV']['PATH'] = ";".join( [ env['ENV']['PATH'], self._cxx_path ] )
+            env['ENV']['PATH'] = os.pathsep.join( [ env['ENV']['PATH'], self._cxx_path ] )
         else:
             env = cuppa_env.create_env( tools = ['g++'] )
+            # Prepend the discovered toolchain bin dir so sibling tools (and a
+            # non-absolute CXX fallback) resolve to the same Clang as configure.
+            if self._cxx_path:
+                default_path = env['ENV'].get( 'PATH', '' )
+                parts = [ self._cxx_path ]
+                if default_path:
+                    parts.extend( default_path.split( os.pathsep ) )
+                env['ENV']['PATH'] = os.pathsep.join( parts )
 
         env['CXX']          = self.values['CXX']
         env['CC']           = self.values['CC']

@@ -92,7 +92,8 @@ Covered by `tests/integration/methods/test_modules.py` using
 == Toolchain selection
 
 * Linux CI: `gcc`, `clang`+libstdc++, `clang`+libc++
-* macOS CI: modules slice installs **Homebrew LLVM** Clang + libc++ (not Xcode Apple Clang).
+* macOS CI: modules slice installs **Homebrew LLVM** Clang + libc++ (not Xcode Apple Clang),
+  and passes `--propagate-path` so SCons does not fall back to `/usr/bin/clang++`.
   Apple Clang is rejected: it reports high majors but does not ship `clang-scan-deps` / a modules-capable toolchain.
   See xref:cxx-modules.adoc#macos-apple-clang[macOS: Apple Clang vs LLVM Clang].
 * Windows CI: full integration with `vc` (named modules; header/`import std` skipped)
