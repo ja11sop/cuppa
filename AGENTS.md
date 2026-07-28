@@ -80,8 +80,9 @@ Unit tests under `tests/unit/` cover foundations (`location`, `build_with_*`, `c
 Lint config: [`.flake8`](.flake8) and [`.pylintrc`](.pylintrc). Full settings and rationale for contributors/agents: [`docs/modules/ROOT/pages/linting.adoc`](docs/modules/ROOT/pages/linting.adoc). Keep the gate error-focused — do not broaden to style warnings without intent.
 
 CI runs the integration suite once per Linux toolchain (`gcc`, `clang`) via `CUPPA_TEST_TOOLCHAIN`, and once on `windows-latest` with MSVC (`vc`).
-Linux CI installs **g++-15** from `ppa:ubuntu-toolchain-r/test` and selects it with `update-alternatives`.
-Modules integration tests prefer that default `g++` (`--toolchains=gcc`) and only probe versioned drivers if the default is below the modules floor; they **fail** on too-old GCC/Clang rather than skipping.
+Linux CI installs **g++-15** (via `ppa:ubuntu-toolchain-r/test` + `update-alternatives`) **only on the gcc integration job**.
+The clang job does not install a newer GCC — Clang defaults to `-stdlib=libstdc++` on Linux, and GCC 15’s headers break Clang 18 with `-std=c++2c` (seen in `CreateVersion` / `<format>`).
+Modules integration tests prefer that job’s default `g++` (`--toolchains=gcc`) and only probe versioned drivers if the default is below the modules floor; they **fail** on too-old GCC/Clang rather than skipping.
 
 Integration scenarios (with generated `sconstruct` / `sconscript` and expectations) are documented on the Antora site under **Integration tests** (`docs/modules/ROOT/pages/integration-tests.adoc` and `docs/modules/ROOT/pages/integration/`).
 
