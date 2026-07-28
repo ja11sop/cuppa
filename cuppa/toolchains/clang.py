@@ -802,7 +802,6 @@ class Clang(object):
 
 
     def build_std_module( self, env, name ):
-        import os
         from cuppa.toolchains.cxx_modules_support import modules_build_dir, named_bmi_path
         from cuppa.cpp.cxx_modules import register_named_module, get_registry
 
