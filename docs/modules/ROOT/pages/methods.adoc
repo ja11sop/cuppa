@@ -316,7 +316,9 @@ from cuppa.utility.command import run
 
 tool = env.Build('tool', ['tool.cpp'])
 marker = env.File(os.path.join(env['abs_final_dir'], 'tool.done'))
-tool_cmd = '{} --self-check'.format(os.path.join('.', 'tool' + env['PROGSUFFIX']))
+# Basename only: working_dir supplies the directory. Avoid './' or '.\\' prefixes —
+# shlex.split (posix) would treat '\\t' in '.\\tool.exe' as an escape on Windows.
+tool_cmd = 'tool{} --self-check'.format(env['PROGSUFFIX'])
 
 env.Command(
     marker,
@@ -325,7 +327,8 @@ env.Command(
 )
 ----
 
-`cuppa.utility.command.run` splits the command with `shlex` and runs it via cuppa's incremental subprocess helper with `cwd=working_dir`.
+`cuppa.utility.command.run` splits the command with `shlex`, resolves a relative executable against `working_dir` when that file exists, and runs it via cuppa's incremental subprocess helper with `cwd=working_dir`.
+Pass a basename such as `tool` / `tool.exe` (via `env['PROGSUFFIX']`) rather than `./tool` or `.\\tool.exe` — the latter is mangled by posix `shlex` on Windows (`\\t` becomes a tab escape).
 That stays correct under `--parallel` / SCons `-j` because each process gets its own working directory without `os.chdir` in the build process.
 
 You can also use a small Python `Action` that builds an argv list and passes `cwd=` to `subprocess` (or to `IncrementalSubProcess.Popen2`) yourself.
@@ -333,12 +336,19 @@ Python actions do not go through the coloured `SPAWN` path as shell strings.
 
 === When `--use-shell` is appropriate
 
-`--use-shell` makes cuppa join the argv list and run with `subprocess` `shell=True`.
-That can unstick a legacy multi-part shell action or shell-only quoting, but:
+`--use-shell` makes cuppa join the argv list and run with `subprocess` `shell=True` on the **IncrementalSubProcess** path used by colourised POSIX `SPAWN` (and by helpers such as `cuppa.utility.command.run`).
+
+That can unstick a legacy multi-part shell action or shell-only quoting on that path, but:
 
 * It is *not* the default (enabling it by default has broken Linux builds in the past)
 * Prefer rewriting the action with `working_dir` / `cwd=` / a Python callable instead
 * Treat it as an escape hatch for tools you do not control, not as the recommended pattern
+
+Platform note for issue #14-style `Action("cd … && …")` strings:
+
+* **POSIX + colourised output (default):** cuppa replaces `SPAWN` with `posix_spawn`, which runs argv via `IncrementalSubProcess` — multi-part shell strings fail (`cd` is treated as the executable).
+* **POSIX + `--raw-output`:** colourised `SPAWN` is not installed; SCons' default shell spawn can run `cd … && …` (still not recommended for parallel-safe builds).
+* **Windows + colourised output (default):** cuppa's `windows_spawn` wraps native SCons `PSPAWN` for colouring; it does *not* use the argv `IncrementalSubProcess` path, so shell-style strings may still succeed. Do not take that as a reason to use `cd &&` in portable sconscripts.
 
 See xref:cli-reference.adoc[CLI reference] for the flag.
 

@@ -1,5 +1,4 @@
-
-#          Copyright Jamie Allsop 2024-2024
+#          Copyright Jamie Allsop 2024-2026
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -8,12 +7,36 @@
 #   Helpers for running command with env.Command
 #-------------------------------------------------------------------------------
 
+import os
 import shlex
 import sys
 
 from cuppa.output_processor import IncrementalSubProcess
 from cuppa.log import logger
 from cuppa.colourise import as_info, as_notice, as_error
+
+
+def _resolve_executable( args_list, working_dir ):
+    """
+    Resolve a relative argv[0] against ``working_dir`` when that file exists.
+
+    Bare names like ``tool`` / ``tool.exe`` are not on PATH; POSIX also requires
+    ``./tool`` for cwd binaries. Prefer an absolute path under ``working_dir``
+    so callers can pass a basename when ``cwd`` is set.
+    """
+    if not working_dir or not args_list:
+        return args_list
+    exe = args_list[0]
+    if os.path.isabs( exe ):
+        return args_list
+    candidate = os.path.normpath( os.path.join( working_dir, exe ) )
+    if os.path.isfile( candidate ):
+        return [ candidate ] + list( args_list[1:] )
+    if not exe.lower().endswith( '.exe' ):
+        candidate_exe = candidate + '.exe'
+        if os.path.isfile( candidate_exe ):
+            return [ candidate_exe ] + list( args_list[1:] )
+    return args_list
 
 
 class run:
@@ -42,19 +65,26 @@ class run:
                     as_info( self._command ),
                     as_notice( self._working_dir )
             ) )
+            args_list = _resolve_executable(
+                    shlex.split( self._command ),
+                    self._working_dir
+            )
             return_code = IncrementalSubProcess.Popen2(
                     process_stdout,
                     process_stderr,
-                    shlex.split( self._command ),
+                    args_list,
                     cwd=self._working_dir
             )
             if return_code < 0:
                 logger.error( "Execution of [{}] terminated by signal: {}".format( as_notice( self._command ), as_error( str(-return_code) ) ) )
+                return return_code
             elif return_code > 0:
                 logger.error( "Execution of [{}] returned with error code: {}".format( as_notice( self._command ), as_error( str(return_code) ) ) )
-            else:
-                if self._completion_file:
-                    env.Execute( Touch( self._completion_file ) )
+                return return_code
+            if self._completion_file:
+                env.Execute( Touch( self._completion_file ) )
+            return 0
 
         except OSError as error:
             logger.error( "Execution of [{}] failed with error: {}".format( as_notice( self._command ), as_error( str(error) ) ) )
+            return 1
