@@ -727,8 +727,9 @@ class Cl(object):
             imports=[ 'std' ] if name == 'std.compat' else [],
         )
 
-        # Compile STL .ixx to IFC (+ obj). Match consumer dialect via $CXXFLAGS.
-        # Space-separated -ifcOutput / -Fo avoid drive-letter colon pitfalls.
+        # Compile STL .ixx to IFC (+ obj).
+        # -ifcOutput PATH: space-separated (colon form breaks on C:\ drive letters).
+        # -FoPATH: must be glued — "-Fo PATH" makes MSVC treat PATH as a source file.
         extra = ''
         sources_nodes = []
         if name == 'std.compat' and 'std' in get_registry( env )['named']:
@@ -736,10 +737,15 @@ class Cl(object):
             extra = '-reference std={} '.format( std_bmi )
             sources_nodes = [ get_registry( env )['named']['std']['bmi'] ]
 
+        # Ensure dialect is on the command line after $CXXFLAGS so a stale
+        # -std:c++20 from the variant floor cannot win over the import-std raise.
+        dialect = self.stdcpp_flag_for( env.get( 'stdcpp' ) or 'c++23' )
         action = (
-            '$CXX $CXXFLAGS -c -TP -interface -ifcOutput {bmi} -Fo {obj} '
+            '$CXX $CXXFLAGS {dialect} -c -TP -interface '
+            '-ifcOutput {bmi} -Fo"{obj}" '
             '{extra}"{source}"'
             .format(
+                dialect=dialect,
                 bmi=bmi_path,
                 obj=obj_path,
                 extra=extra,

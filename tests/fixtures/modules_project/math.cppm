@@ -1,8 +1,9 @@
 export module math;
 
-// MSVC: module symbols used from a DLL need an explicit export so the linker
-// produces an import library (.lib). Harmless for static libs / executables.
-#ifdef _MSC_VER
+// MSVC: DLL builds need __declspec(dllexport) so the linker emits an import
+// library. Only enable when MATH_DLL_EXPORT is defined (shared-lib tests);
+// always-on dllexport leaves .exp/.lib next to executables that --clean misses.
+#if defined(_MSC_VER) && defined(MATH_DLL_EXPORT)
 #define MATH_API __declspec(dllexport)
 #else
 #define MATH_API

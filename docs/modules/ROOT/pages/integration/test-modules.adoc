@@ -30,7 +30,7 @@ Covered by `tests/integration/methods/test_modules.py` using
 
 | `test_shared_library_with_named_module`
 | `BuildSharedLib` + consumer
-| Fixture uses `__declspec(dllexport)` on MSVC so an import `.lib` is produced
+| Defines `MATH_DLL_EXPORT` so MSVC gets `__declspec(dllexport)` and an import `.lib`
 
 | `test_packaged_modules_install_and_import`
 | Producer `final/modules` + consumer `ImportModules`

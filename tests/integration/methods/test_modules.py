@@ -492,14 +492,15 @@ def test_import_std_compat_build(tmp_path):
 
 
 def test_shared_library_with_named_module(tmp_path):
-    """Shared lib + consumer. MSVC needs __declspec(dllexport) on module exports
-    (see math.cppm) so the linker emits an import library."""
+    """Shared lib + consumer. On MSVC, MATH_DLL_EXPORT enables dllexport in math.cppm
+    so the linker emits an import library."""
     _, toolchain_flag = _modules_toolchain_flag()
     project = _copy_modules_project(tmp_path)
     write_sconstruct(project)
     write_sconscript(
         project,
         "Import('env')\n"
+        "env.AppendUnique(CPPDEFINES=['MATH_DLL_EXPORT'])\n"
         "env.BuildSharedLib('mathlib_shared', ['math.cppm'])\n"
         "env.AppendUnique(LIBPATH=[env['abs_final_dir']])\n"
         "env.AppendUnique(RPATH=[env['abs_final_dir']])\n"
