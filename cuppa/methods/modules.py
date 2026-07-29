@@ -140,8 +140,8 @@ class ModulesMethod:
         env['modules'] = bool( env.get_option( 'modules' ) )
 
     def __call__( self, env, enabled=True ):
-        # Module-mode toggle/configuration only. Any build action NotifyProgress
-        # wiring happens later in Compile/cxx_modules methods that emit nodes.
+        # Module-mode toggle/configuration only. NotifyProgress for build
+        # actions is added later by Compile/cxx_modules when they emit nodes.
         env['modules'] = bool( enabled )
         if enabled:
             activate_modules_for_env( env )

@@ -36,8 +36,8 @@ class BuildTestMethod:
     ):
 
         nodes = []
-        # No direct NotifyProgress call here: Build()/Test()/Coverage() methods
-        # each wire their own variant-scoped progress dependencies.
+        # No direct NotifyProgress call here: Build()/Test()/Coverage() each
+        # NotifyProgress the nodes they produce.
         program = env.Build( target, source, final_dir=final_dir, append_variant=append_variant, depends_on=depends_on, **kwargs )
         nodes.append( program )
 

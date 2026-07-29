@@ -22,9 +22,10 @@ class FilterMethod:
 
         logger.trace( "nodes = [{}]".format( str(nodes) ) )
 
-        # Filter is a node-selection helper, not a build action; do not call
-        # NotifyProgress here or we can incorrectly couple unrelated targets
-        # into the current variant's completion chain.
+        # Filter only selects among existing nodes; it does not create build
+        # actions. Do not call NotifyProgress here — progress belongs to the
+        # methods that emitted those nodes. Re-attaching filtered nodes would
+        # only restate (or accidentally extend) the variant Finished set.
         filtered_nodes = filter_nodes( nodes, match, exclude )
         return filtered_nodes
 
