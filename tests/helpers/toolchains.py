@@ -311,6 +311,44 @@ def require_modules_capable_toolchain(family=None):
     return selected
 
 
+def find_libcxx_std_cppm(driver="clang++", major=None):
+    """
+    Locate libc++ ``std.cppm`` for ``import std`` tests.
+
+    Mirrors ``Clang._find_libcxx_module_interface``: resource-dir walk, Linux
+    ``/usr/lib/llvm-<N>/…``, and Homebrew LLVM layouts on macOS.
+    """
+    filename = "std.cppm"
+    candidates = []
+    try:
+        result = subprocess.run(
+            [driver, "-print-resource-dir"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+        resource = (result.stdout or "").strip()
+        if resource:
+            root = os.path.abspath(os.path.join(resource, "..", "..", ".."))
+            candidates.append(os.path.join(root, "share", "libc++", "v1", filename))
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+    if major:
+        candidates.append(
+            "/usr/lib/llvm-{}/share/libc++/v1/{}".format(major, filename)
+        )
+    candidates.append("/usr/share/libc++/v1/{}".format(filename))
+    candidates.append("/opt/homebrew/opt/llvm/share/libc++/v1/{}".format(filename))
+    candidates.append("/usr/local/opt/llvm/share/libc++/v1/{}".format(filename))
+
+    for path in candidates:
+        if path and os.path.isfile(path):
+            return path
+    return None
+
+
 def default_toolchain_flags():
     """Prefer CUPPA_TEST_TOOLCHAIN, else gcc, else clang, else vc on Windows."""
     forced = os.environ.get("CUPPA_TEST_TOOLCHAIN", "").strip()

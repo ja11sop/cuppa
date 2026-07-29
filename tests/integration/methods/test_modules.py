@@ -19,6 +19,7 @@ from tests.helpers.cuppa_runner import (
 )
 from tests.helpers.project import write_sconscript, write_sconstruct
 from tests.helpers.toolchains import (
+    find_libcxx_std_cppm,
     require_modules_capable_toolchain,
 )
 logger = logging.getLogger(__name__)
@@ -59,8 +60,9 @@ def _require_import_std_toolchain():
     """
     Select a toolchain that can build import std BMIs.
 
-    GCC 15+ with bits/std.cc, Clang 18+ with libc++ and matching std.cppm,
-    or MSVC toolset 14.3+ with STL modules/std.ixx.
+    GCC 15+ with bits/std.cc, Clang 18+ with libc++ and matching std.cppm
+    (Linux llvm-<N> or Homebrew LLVM on macOS), or MSVC toolset 14.3+ with
+    STL modules/std.ixx.
     """
     import shutil
 
@@ -84,16 +86,13 @@ def _require_import_std_toolchain():
             pytest.fail("GCC import std source missing: {}".format(std_cc))
         return alias, "--toolchains={}".format(alias), []
 
-    # Clang: need libc++ module interfaces for this compiler major.
-    def _has_std_cppm(maj):
-        return Path("/usr/lib/llvm-{}/share/libc++/v1/std.cppm".format(maj)).is_file()
-
-    if _has_std_cppm(major) and major >= 18:
+    # Clang: need libc++ module interfaces (resource-dir / llvm-N / Homebrew).
+    if major >= 18 and find_libcxx_std_cppm(driver, major):
         return alias, "--toolchains={}".format(alias), ["--clang-stdlib=libc++"]
 
     for candidate_major in range(25, 17, -1):
         cmd = "clang++-{}".format(candidate_major)
-        if shutil.which(cmd) and _has_std_cppm(candidate_major):
+        if shutil.which(cmd) and find_libcxx_std_cppm(cmd, candidate_major):
             return (
                 "clang{}".format(candidate_major),
                 "--toolchains=clang{}".format(candidate_major),
@@ -102,8 +101,9 @@ def _require_import_std_toolchain():
 
     pytest.fail(
         "import std for Clang requires libc++ std.cppm next to the compiler "
-        "(need /usr/lib/llvm-<N>/share/libc++/v1/std.cppm; none found for {})"
-        .format(alias)
+        "(resource-dir share/libc++/v1, /usr/lib/llvm-<N>/…, or Homebrew "
+        "opt/llvm/share/libc++/v1; none found for {} / {})"
+        .format(alias, driver)
     )
 
 
