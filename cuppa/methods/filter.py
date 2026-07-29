@@ -10,7 +10,6 @@
 
 from SCons.Script import Flatten
 
-import cuppa.utility
 from cuppa.utility.filter import filter_nodes
 from cuppa.log import logger
 
