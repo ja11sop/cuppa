@@ -14,6 +14,8 @@ class UseMethod:
         self.__dependencies = dependencies
 
     def __call__( self, env, dependency ):
+        # Lookup helper only (returns a dependency factory/instance).
+        # No build nodes are emitted, so NotifyProgress is intentionally unused.
         if dependency in self.__dependencies:
             return self.__dependencies[ dependency ]
         return None

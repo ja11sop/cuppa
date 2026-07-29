@@ -22,6 +22,9 @@ class BuildWithException(Exception):
 class BuildWithMethod:
 
     def __call__( self, env, dependencies ):
+        # Dependency initialisation/configuration step only.
+        # BuildWith mutates env/toolchain state and returns dependency objects;
+        # it does not create variant build action nodes for NotifyProgress.
 
         # Ensure we have a list of dependencies
         dependencies = Flatten( dependencies )

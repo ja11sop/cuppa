@@ -13,6 +13,8 @@ from cuppa.cpp.cxx_modules import build_header_unit
 class HeaderUnitMethod:
 
     def __call__( self, env, header, **kwargs ):
+        # Delegates to cxx_modules.build_header_unit(), which creates the BMI
+        # command and wires NotifyProgress for the returned node.
         return build_header_unit( env, header, **kwargs )
 
     @classmethod

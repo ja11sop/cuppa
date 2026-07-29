@@ -13,6 +13,8 @@ from cuppa.cpp.cxx_modules import load_packaged_modules
 class ImportModulesMethod:
 
     def __call__( self, env, modules_dir, **kwargs ):
+        # Registry/load operation only: reads module-map metadata into env state.
+        # No build action node is created, so NotifyProgress is not applicable.
         return load_packaged_modules( env, modules_dir )
 
     @classmethod

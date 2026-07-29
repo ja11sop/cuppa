@@ -34,6 +34,8 @@ class RemoveFlagsMethod:
 
 
     def __call__( self, env, flags ):
+        # Flag mutation utility only; no SCons target nodes are created.
+        # NotifyProgress applies to build actions, not env flag edits.
         remove = set( self._flag_family( f ) for f in flags )
         env.Replace( CCFLAGS   = self._remove_flags( remove, env['CCFLAGS'] ) )
         env.Replace( CXXFLAGS  = self._remove_flags( remove, env['CXXFLAGS'] ) )

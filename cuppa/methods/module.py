@@ -28,6 +28,9 @@ class ModuleMethod:
             sources.extend( Flatten( [ implementation ] ) )
         if not sources:
             return []
+        # No direct NotifyProgress call here: Module() is orchestration sugar.
+        # Progress wiring is owned by env.Compile()/compile_with_modules(),
+        # which add variant-scoped NotifyProgress edges for produced BMIs/objects.
         objects = env.Compile( sources, **kwargs )
         pending = env.setdefault( '_cuppa_module_objects', [] )
         for obj in Flatten( [ objects ] ):

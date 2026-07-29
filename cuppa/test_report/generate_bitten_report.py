@@ -82,6 +82,8 @@ class GenerateReportBuilder(object):
 class GenerateBittenReportMethod(object):
 
     def __call__( self, env, source, final_dir=None ):
+        if not 'test' in env['variant_actions'].keys():
+            return []
         builder = GenerateReportBuilder( final_dir )
         env['BUILDERS']['GenerateBittenReport'] = env.Builder( action=builder.GenerateBittenReport, emitter=builder.emitter )
         report = env.GenerateBittenReport( [], source )

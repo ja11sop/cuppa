@@ -15,6 +15,10 @@ class CreateVersionMethod:
 
 
     def __call__( self, env, target, source, namespaces, version, location=None, build_id=None ):
+        # CreateVersion registers/invokes a builder and returns the resulting
+        # node list to the caller. We intentionally do not call NotifyProgress
+        # here because this helper is commonly consumed as part of larger
+        # Build/Test graphs that already add variant-scoped progress wiring.
         location = location and location or env['base_path']
         create_version_file_builder = env['toolchain'].version_file_builder( env, namespaces, version, location=location, build_id=build_id )
         create_version_file_emitter = env['toolchain'].version_file_emitter( env, namespaces, version, location=location, build_id=build_id )

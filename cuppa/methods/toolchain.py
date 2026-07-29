@@ -14,6 +14,8 @@ class ToolchainMethod:
         self.__toolchains = toolchains
 
     def __call__( self, env, toolchain ):
+        # Lookup helper only (returns toolchain metadata/object).
+        # No build nodes are emitted, so NotifyProgress is intentionally unused.
         if toolchain and toolchain in self.__toolchains:
             return self.__toolchains[ toolchain ]
 

@@ -15,6 +15,8 @@ class ReplaceFlagsMethod:
 
 
     def __call__( self, env, flags ):
+        # Flag mutation utility only; no SCons target nodes are created.
+        # NotifyProgress applies to build actions, not env flag edits.
         env.RemoveFlags( flags )
         env.MergeFlags( flags )
         return None
