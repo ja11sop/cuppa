@@ -412,6 +412,23 @@ class Clang(object):
         return name
 
 
+    def _resolve_versioned_tool( self, base_name ):
+        """Prefer a major-versioned sibling of this Clang (e.g. llvm-ar-21), else base_name."""
+        major = self._reported_version['major']
+        names = [
+            "{}-{}".format( base_name, major ),
+            base_name,
+        ]
+        for name in names:
+            resolved = self._resolve_driver( name )
+            if os.path.isabs( resolved ) and os.path.exists( resolved ):
+                return resolved
+            found = cuppa.build_platform.where_is( name )
+            if found:
+                return found
+        return None
+
+
     def binary( self ):
         return self.values['CXX']
 
@@ -447,6 +464,17 @@ class Clang(object):
         env['LIBS']         = []
         env['STATICLIBS']   = []
         env['DYNAMICLIBS']  = self.values['dynamic_libraries']
+
+        # Clang LTO bitcode in static archives needs a matching llvm-ar/ranlib.
+        # Binutils ar loads whatever LLVMgold.so is on the system plugin path
+        # (often an older LLVM), which silently drops symbols from .a files.
+        if self.__lto_flags():
+            llvm_ar = self._resolve_versioned_tool( 'llvm-ar' )
+            if llvm_ar:
+                env['AR'] = llvm_ar
+            llvm_ranlib = self._resolve_versioned_tool( 'llvm-ranlib' )
+            if llvm_ranlib:
+                env['RANLIB'] = llvm_ranlib
 
         self.update_variant( env, variant.name() )
 
@@ -594,8 +622,16 @@ class Clang(object):
         if stdlib:
             CommonLinkCxxFlags += [ "-stdlib={}".format(stdlib) ]
 
+        release_link_flags = list( CommonLinkCxxFlags )
+        if lto_flags:
+            release_link_flags += lto_flags
+            # Prefer lld for Clang LTO so linking does not depend on binutils'
+            # LLVMgold plugin matching this Clang's bitcode version.
+            if self._resolve_versioned_tool( 'ld.lld' ) or self._resolve_versioned_tool( 'lld' ):
+                release_link_flags.append( '-fuse-ld=lld' )
+
         self.values['debug_link_cxx_flags']   = CommonLinkCxxFlags
-        self.values['release_link_cxx_flags'] = CommonLinkCxxFlags + lto_flags
+        self.values['release_link_cxx_flags'] = release_link_flags
         self.values['coverage_link_flags']    = CommonLinkCxxFlags + [ '--coverage' ]
 
         DynamicLibraries = []
@@ -637,12 +673,17 @@ class Clang(object):
 
 
     def __lto_flags( self ):
-        """Release-only LTO flags (compile and link). Empty before Clang 8."""
+        """Release-only LTO flags (compile and link). Empty before Clang 8.
+
+        Include `-ffat-lto-objects` so static archives remain usable when the
+        archiver is binutils `ar` (system LLVMgold is often an older LLVM than
+        the active clang++, which otherwise drops bitcode members).
+        """
         major_ver = self._reported_version['major']
         if major_ver >= 17:
-            return ['-flto=auto']
+            return ['-flto=auto', '-ffat-lto-objects']
         if major_ver >= 8:
-            return ['-flto']
+            return ['-flto', '-ffat-lto-objects']
         return []
 
 

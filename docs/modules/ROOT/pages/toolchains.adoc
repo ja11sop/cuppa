@@ -218,11 +218,18 @@ Same policy as GCC: LTO is applied on **`--rel`** only (compile and link), not o
 | _(none)_
 
 | 8–16
-| `-flto`
+| `-flto`, `-ffat-lto-objects`
 
 | 17+
-| `-flto=auto`
+| `-flto=auto`, `-ffat-lto-objects`
 |===
+
+When LTO is enabled, cuppa also:
+
+* Prefers a version-matched `llvm-ar` / `llvm-ranlib` (for example `llvm-ar-21`) so static archives keep Clang bitcode correctly
+* Adds `-fuse-ld=lld` on the release link line when `lld` / `ld.lld` is available, avoiding binutils `LLVMgold` version mismatches
+
+`-ffat-lto-objects` keeps archives usable even if the system archiver falls back to binutils `ar`.
 
 === Stdlib selection
 
