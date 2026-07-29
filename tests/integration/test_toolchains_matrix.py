@@ -3,7 +3,7 @@ import shutil
 
 import pytest
 
-from tests.helpers.cuppa_runner import assert_success, find_final_binaries, run_cuppa
+from tests.helpers.cuppa_runner import assert_failure, assert_success, find_final_binaries, run_cuppa
 from tests.helpers.project import copy_dummy_project, write_sconstruct, write_sconscript
 from tests.helpers.toolchains import (
     clang_stdlib_flag,
@@ -14,6 +14,20 @@ from tests.helpers.toolchains import (
 
 pytestmark = pytest.mark.integration
 logger = logging.getLogger(__name__)
+
+
+def test_toolchains_unknown_fails_closed(tmp_path):
+    project = copy_dummy_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.AppendUnique(CPPPATH=['#/include'])\n"
+        "env.Build('main', 'apps/main.cpp')\n",
+    )
+    result = run_cuppa(project, "--dbg", "--toolchains=not_a_real_toolchain")
+    assert_failure(result)
+    assert "None of the requested toolchains are available" in result.stdout
 
 
 def test_toolchains_gcc_build(tmp_path):

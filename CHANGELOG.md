@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fail configure with `StopError` when `--toolchains` matches no available toolchain instead of falling back to the platform default (#69).
+- Honour project `default_variants` when only an action such as `--test` is active (#47).
+
 ### Security
 
 ## [1.2.0] - 2026-07-29
