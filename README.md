@@ -10,7 +10,7 @@ cuppa -D
 
 and cuppa builds the relevant `sconscript` files (the `-D` SCons flag finds the `sconstruct` and runs scripts relative to your starting directory).
 
-Full reference documentation: **[https://ja11sop.github.io/cuppa/](https://ja11sop.github.io/cuppa/)** (Antora site in [`docs/`](docs/)). Agent-oriented guidance: [`AGENTS.md`](AGENTS.md).
+Full reference documentation: **[https://ja11sop.github.io/cuppa/](https://ja11sop.github.io/cuppa/)** (Antora site in [`docs/`](docs/)). Agent-oriented guidance: [`AGENTS.md`](AGENTS.md). Feature roadmap: [`ROADMAP.md`](ROADMAP.md). Release notes: [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Features
 
@@ -20,6 +20,7 @@ Full reference documentation: **[https://ja11sop.github.io/cuppa/](https://ja11s
 - Out-of-tree builds under `_build/` (downloads under `_cuppa/`, archive cache under `~/_cuppa/_cache`)
 - Dependencies: Boost, Qt4/Qt5, Quince, location-based libraries, GitLab package registry
 - Test runners and HTML coverage (gcovr), plus optional HTML test reports
+- Optional C++20 modules (`--modules`): named modules, partitions, header units, `import std` where supported
 - Persistent config: `configure.conf` and `~/.cuppaconfig`
 
 ## Installation

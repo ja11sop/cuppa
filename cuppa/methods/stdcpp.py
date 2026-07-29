@@ -41,6 +41,8 @@ class StdCppMethod:
 
 
     def __call__( self, env, standard ):
+        # Dialect/flag configuration only; this method does not create targets.
+        # NotifyProgress is for build action nodes emitted by builders.
         if standard not in self.stdcpp_choices:
             logger.error( "[{}] not in allowed list {}".format( as_error( standard ), as_notice( self.stdcpp_choices ) ) )
             return None

@@ -82,6 +82,10 @@ class GenerateReportBuilder(object):
 class GenerateBittenReportMethod(object):
 
     def __call__( self, env, source, final_dir=None ):
+        # Same action gate as GenerateHtmlTestReport / CollateTestReportIndex:
+        # only emit Bitten XML when --test / --force-test is active.
+        if 'test' not in env['variant_actions'].keys():
+            return []
         builder = GenerateReportBuilder( final_dir )
         env['BUILDERS']['GenerateBittenReport'] = env.Builder( action=builder.GenerateBittenReport, emitter=builder.emitter )
         report = env.GenerateBittenReport( [], source )

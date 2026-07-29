@@ -10,8 +10,6 @@
 
 from SCons.Script import Flatten
 
-import cuppa.utility
-import cuppa.progress
 from cuppa.utility.filter import filter_nodes
 from cuppa.log import logger
 
@@ -24,8 +22,11 @@ class FilterMethod:
 
         logger.trace( "nodes = [{}]".format( str(nodes) ) )
 
+        # Filter only selects among existing nodes; it does not create build
+        # actions. Do not call NotifyProgress here — progress belongs to the
+        # methods that emitted those nodes. Re-attaching filtered nodes would
+        # only restate (or accidentally extend) the variant Finished set.
         filtered_nodes = filter_nodes( nodes, match, exclude )
-        cuppa.progress.NotifyProgress.add( env, filtered_nodes )
         return filtered_nodes
 
     @classmethod

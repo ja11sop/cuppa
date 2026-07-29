@@ -13,6 +13,8 @@ import os
 class TargetFromMethod:
 
     def __call__( self, env, source, final_dir=None ):
+        # Pure path derivation helper (no SCons action node emitted), so
+        # NotifyProgress is intentionally not used.
         target = os.path.splitext( os.path.relpath( source.path, env['build_dir'] ) )[0]
         return target
 

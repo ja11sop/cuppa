@@ -6,6 +6,12 @@
 
 `--toolchains=` selects the compiler family. The gcc case is skipped when gcc is not on PATH; clang is skipped (with a log) when clang is not installed.
 
+Clang `--clang-stdlib=` dual coverage is **Linux-only**. When `CUPPA_TEST_ARGS`
+already pins a stdlib for the current CI cell, only that variant runs. The gcc CI
+job may have `clang++` on PATH without libc++ packages — the `libc++` cell is then
+omitted/skipped rather than failed. Windows / `CUPPA_TEST_TOOLCHAIN=vc` jobs skip
+this test (LLVM clang on PATH is not a supported stdlib matrix there).
+
 == Generated files (both tests)
 
 === `sconstruct`
@@ -31,12 +37,13 @@ env.Build('main', 'apps/main.cpp')
 [source,sh]
 ----
 cuppa -D --offline --dbg --toolchains=gcc
-cuppa -D --offline --dbg --toolchains=clang   # skipped if clang absent
+cuppa -D --offline --dbg --toolchains=clang --clang-stdlib=libstdc++
+cuppa -D --offline --dbg --toolchains=clang --clang-stdlib=libc++
 ----
 
 == Expectations
 
-`main` binary exists under `_build/.../final/` for each available toolchain.
+`main` binary exists under `_build/.../final/` for each available toolchain / Clang stdlib.
 
 '''
 

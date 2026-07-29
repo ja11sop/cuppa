@@ -1,0 +1,90 @@
+= Integration: C++ modules
+:description: Named modules, partitions, private fragments, header units, import std, packaging
+
+See xref:cxx-modules.adoc[C++ modules].
+
+Covered by `tests/integration/methods/test_modules.py` using
+`tests/fixtures/modules_project/`.
+
+== Cases
+
+[cols="1,2,1"]
+|===
+| Test | What it exercises | Notes
+
+| `test_named_module_build`
+| Single `export module` + consumer
+| Baseline (GCC/Clang/MSVC)
+
+| `test_header_unit_build`
+| `env.HeaderUnit` + `import "..."`
+| GCC/Clang/MSVC
+
+| `test_angle_header_unit_build`
+| `env.HeaderUnit('<span>')` + `import <span>;`
+| GCC/Clang/MSVC
+
+| `test_library_with_named_module`
+| `BuildStaticLib` + `Build` consumer (same env)
+|
+
+| `test_shared_library_with_named_module`
+| `BuildSharedLib` + consumer
+| Defines `MATH_DLL_EXPORT` so MSVC gets `__declspec(dllexport)` and an import `.lib`
+
+| `test_packaged_modules_install_and_import`
+| Producer `final/modules` + consumer `ImportModules`
+| Cross-project BMI map
+
+| `test_module_method_build`
+| `env.Module(...)` then `Build`
+|
+
+| `test_cxxm_interface_smoke` / `test_ccm_interface_smoke` / `test_ixx_interface_smoke` / `test_cpp_export_module_smoke`
+| `.cxxm` / `.ccm` / `.ixx` / `export module` in `.cpp`
+|
+
+| `test_unresolved_import_fails`
+| Missing interface → `StopError`
+|
+
+| `test_partition_incremental_rebuild`
+| Touch partition → primary BMI + consumer rebuild
+|
+
+| `test_import_std_build` / `test_import_std_compat_build`
+| `import std;` / `import std.compat;`
+| GCC 15+ / Clang+libc++ / MSVC with `std.ixx`
+
+| `test_modules_coverage_probe`
+| `--cov --modules` smoke
+| Skipped on MSVC
+
+| `test_implementation_unit_build`
+| Interface + `module M;` implementation TU
+|
+
+| `test_interface_partition_build`
+| `export module M:part` + `export import :part`
+|
+
+| `test_implementation_partition_build`
+| `module M:part` used from `module M;`
+|
+
+| `test_private_module_fragment_build`
+| `module :private;`
+| Clang only
+
+| `test_module_reexport_build`
+| `export import` across named modules
+|
+|===
+
+== CI notes
+
+* Linux CI: full suite × `gcc`, `clang`+libstdc++, `clang`+libc++
+* Windows CI: full integration with `vc` (header units, `import std` when `std.ixx` present, shared libs with DLL exports)
+* macOS CI: Homebrew LLVM + libc++ — named, header, `Module` method, partitions, implementation units, `.ixx`, packaging, `import std`
+* `import std` on Clang may select a versioned toolchain that ships `std.cppm`
+* Too-old GCC/Clang on Linux **fail** rather than skip

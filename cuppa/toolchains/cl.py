@@ -10,7 +10,9 @@
 import os
 import collections
 import platform
+import re
 import six
+from collections import namedtuple
 
 import SCons.Script
 from SCons.Tool.MSCommon.vc import _VCVER, get_default_version
@@ -28,6 +30,113 @@ from cuppa.colourise import as_info, as_notice, as_warning
 from cuppa.log import logger
 
 
+# SCons MSVC ids look like "14.5", "14.3", "14.2Exp" — the Visual Studio
+# *platform toolset* major.minor (v145 / v143 / v142), NOT the compiler update
+# string people sometimes write as "14.29" / "19.29".
+MsvcToolsetVersion = namedtuple(
+    'MsvcToolsetVersion',
+    ( 'scons', 'major', 'minor', 'experimental', 'alias' ),
+)
+
+# C++20 named modules: VS 2019 toolset family onward (SCons "14.2"+).
+MODULES_MIN_MSVC_TOOLSET = ( 14, 2 )
+
+# import std ships with VS 2022 17.5+ STL (toolset 14.3 family); still gate on std.ixx.
+IMPORT_STD_MIN_MSVC_TOOLSET = ( 14, 3 )
+
+
+def find_msvc_modules_dir( env=None ):
+    """
+    Locate the MSVC STL ``modules`` directory that holds ``std.ixx``.
+
+    Search order: ``VCToolsInstallDir`` (env / process), walk up from ``cl.exe``,
+    then common Visual Studio install layouts.
+    """
+    candidates = []
+
+    def _add( path ):
+        if path and path not in candidates:
+            candidates.append( path )
+
+    def _from_vctools( root ):
+        if not root:
+            return
+        root = os.path.expandvars( str( root ) ).strip( '"%' )
+        _add( os.path.join( root, 'modules' ) )
+
+    if env is not None:
+        _from_vctools( env.get( 'VCToolsInstallDir' ) )
+        nested = env.get( 'ENV' ) or {}
+        if isinstance( nested, dict ):
+            _from_vctools( nested.get( 'VCToolsInstallDir' ) )
+        cxx = env.get( 'CXX' )
+        if cxx:
+            _add( _modules_dir_from_cl_path( str( cxx ) ) )
+
+    _from_vctools( os.environ.get( 'VCToolsInstallDir' ) )
+
+    try:
+        import shutil
+        cl_path = shutil.which( 'cl' ) or shutil.which( 'cl.exe' )
+        if cl_path:
+            _add( _modules_dir_from_cl_path( cl_path ) )
+    except Exception:
+        pass
+
+    for base in (
+        r'C:\Program Files\Microsoft Visual Studio',
+        r'C:\Program Files (x86)\Microsoft Visual Studio',
+    ):
+        if not os.path.isdir( base ):
+            continue
+        for year in ( '18', '2025', '2022', '2019' ):
+            year_root = os.path.join( base, year )
+            if not os.path.isdir( year_root ):
+                continue
+            for edition in ( 'Enterprise', 'Professional', 'Community', 'BuildTools' ):
+                msvc_root = os.path.join(
+                    year_root, edition, 'VC', 'Tools', 'MSVC'
+                )
+                if not os.path.isdir( msvc_root ):
+                    continue
+                try:
+                    versions = sorted( os.listdir( msvc_root ), reverse=True )
+                except OSError:
+                    continue
+                for ver in versions:
+                    _add( os.path.join( msvc_root, ver, 'modules' ) )
+
+    for path in candidates:
+        if path and os.path.isfile( os.path.join( path, 'std.ixx' ) ):
+            return path
+    return None
+
+
+def _modules_dir_from_cl_path( cl_path ):
+    """
+    ``.../MSVC/<ver>/bin/Hostx64/x64/cl.exe`` → ``.../MSVC/<ver>/modules``.
+    """
+    path = os.path.abspath( os.path.normpath( cl_path ) )
+    # bin/Host*/arch/cl.exe → four parents up to MSVC/<ver>
+    ver_root = path
+    for _ in range( 4 ):
+        ver_root = os.path.dirname( ver_root )
+    modules = os.path.join( ver_root, 'modules' )
+    if os.path.isdir( modules ):
+        return modules
+    # Fallback: walk parents looking for modules/std.ixx
+    cur = os.path.dirname( path )
+    for _ in range( 8 ):
+        candidate = os.path.join( cur, 'modules' )
+        if os.path.isfile( os.path.join( candidate, 'std.ixx' ) ):
+            return candidate
+        parent = os.path.dirname( cur )
+        if parent == cur:
+            break
+        cur = parent
+    return None
+
+
 class Cl(object):
 
     _default_dialect_flag = '-std:c++20'
@@ -36,6 +145,10 @@ class Cl(object):
     # Use '-' not '/' so SCons/Windows do not treat the flag as a filesystem path
     # (e.g. "/std:c++14" → "C:\\std:c++14").
     # Pre-C++14 aliases have no MSVC -std: equivalent; map to -std:c++14 with a warning.
+    # c++23 / c++2b → -std:c++latest: many MSVC toolsets (including 19.51 / VS 18)
+    # ignore unknown `-std:c++23` (D9002), which then breaks `import std` / std.ixx
+    # ("Standard Library Modules are available only with C++20 or later").
+    # Microsoft’s own import-std tutorial uses /std:c++latest.
     _stdcpp_flag_map = {
         'c++98': '-std:c++14',
         'c++03': '-std:c++14',
@@ -47,8 +160,8 @@ class Cl(object):
         'c++17': '-std:c++17',
         'c++2a': '-std:c++20',
         'c++20': '-std:c++20',
-        'c++2b': '-std:c++23',
-        'c++23': '-std:c++23',
+        'c++2b': '-std:c++latest',
+        'c++23': '-std:c++latest',
         'c++2c': '-std:c++latest',
         'c++26': '-std:c++latest',
         'c++latest': '-std:c++latest',
@@ -99,10 +212,63 @@ class Cl(object):
 
 
     @classmethod
+    def parse_toolset_version( cls, long_version ):
+        """
+        Parse a SCons MSVC version id into structured toolset fields.
+
+        Examples::
+
+            "14.5"    → alias vc145,  key (14, 5)
+            "14.3"    → alias vc143,  key (14, 3)
+            "14.2Exp" → alias vc142e, key (14, 2)
+            "14.51"   → alias vc1451, key (14, 51)   # if SCons ever reports it
+
+        Cuppa CLI names drop the dot so they stay short and match the VS
+        platform toolset label (`v145` ↔ `--toolchains=vc145`), same digit
+        style as `gcc15` / `clang21`.
+        """
+        text = str( long_version ).strip()
+        match = re.match(
+            r'^(?P<major>\d+)\.(?P<minor>\d+)(?P<exp>Exp)?$',
+            text,
+            flags=re.IGNORECASE,
+        )
+        if not match:
+            # Fallback: preserve legacy strip-dots behaviour for odd ids.
+            compact = text.replace( '.', '' ).replace( 'Exp', 'e' ).replace( 'exp', 'e' )
+            digits = re.match( r'^(?P<body>\d+)(?P<e>e?)$', compact )
+            if not digits:
+                raise ValueError( "Unrecognised MSVC toolset version {!r}".format( long_version ) )
+            body = digits.group( 'body' )
+            # Best-effort: treat first two digits as major when length >= 3 (e.g. 145 → 14,5).
+            if len( body ) >= 3:
+                major = int( body[:2] )
+                minor = int( body[2:] )
+            else:
+                major = int( body )
+                minor = 0
+            experimental = bool( digits.group( 'e' ) )
+            alias = 'vc' + body + ( 'e' if experimental else '' )
+            return MsvcToolsetVersion( text, major, minor, experimental, alias )
+
+        major = int( match.group( 'major' ) )
+        minor = int( match.group( 'minor' ) )
+        experimental = bool( match.group( 'exp' ) )
+        alias = 'vc{}{}{}'.format( major, minor, 'e' if experimental else '' )
+        return MsvcToolsetVersion( text, major, minor, experimental, alias )
+
+
+    @classmethod
     def vc_version( cls, long_version ):
-        version = long_version.replace( ".", "" )
-        version = version.replace( "Exp", "e" )
-        return 'vc' + version
+        """Cuppa toolchain alias for a SCons MSVC version (e.g. ``14.5`` → ``vc145``)."""
+        return cls.parse_toolset_version( long_version ).alias
+
+
+    @classmethod
+    def toolset_key( cls, long_version ):
+        """Comparable ``(major, minor)`` tuple for a SCons MSVC version id."""
+        parsed = cls.parse_toolset_version( long_version )
+        return ( parsed.major, parsed.minor )
 
 
     @classmethod
@@ -120,16 +286,19 @@ class Cl(object):
             installed_versions = get_installed_vcs()
             if installed_versions:
                 default = cls.default_version( env )
+                parsed = cls.parse_toolset_version( default )
                 cls._available_versions['vc'] = {
-                        'vc_version': cls.vc_version( default ),
-                        'version': default,
+                        'vc_version': parsed.alias,
+                        'version': parsed.scons,
+                        'toolset': parsed,
                 }
 
             for version in installed_versions:
-                vc_version = cls.vc_version( version )
-                cls._available_versions[vc_version] = {
-                        'vc_version': vc_version,
-                        'version': version,
+                parsed = cls.parse_toolset_version( version )
+                cls._available_versions[parsed.alias] = {
+                        'vc_version': parsed.alias,
+                        'version': parsed.scons,
+                        'toolset': parsed,
                 }
 
         return cls._available_versions
@@ -146,9 +315,15 @@ class Cl(object):
             add_to_supported( version )
 
         for name, vc in six.iteritems( cls.available_versions( env ) ):
+            toolset = vc.get( 'toolset' ) or cls.parse_toolset_version( vc['version'] )
             logger.debug(
-                "Adding toolchain [{}] reported as [{}] (MSVC {})"
-                .format( as_info( name ), as_info( vc['vc_version'] ), as_notice( vc['version'] ) )
+                "Adding toolchain [{}] reported as [{}] (MSVC toolset {}, alias {})"
+                .format(
+                    as_info( name ),
+                    as_info( vc['vc_version'] ),
+                    as_notice( toolset.scons ),
+                    as_info( toolset.alias ),
+                )
             )
             add_toolchain( name, cls( name, vc['vc_version'], vc['version'] ) )
 
@@ -181,10 +356,18 @@ class Cl(object):
 
         self._host_arch = self.host_architecture( env )
 
-        self._name    = vc_version
-        self._version = vc_version
-        self._long_version = version
-        self._short_version = vc_version[2:].replace( "e", "" )
+        self._toolset = self.parse_toolset_version( version )
+        # Prefer the structured alias so name()/package ids stay consistent even
+        # if a caller passes a slightly different vc_version string.
+        self._name    = self._toolset.alias
+        self._version = self._toolset.alias
+        self._long_version = self._toolset.scons
+        self._short_version = "{}{}".format(
+            self._toolset.major,
+            self._toolset.minor,
+        ) + ( "e" if self._toolset.experimental else "" )
+        # Keep the registration key (e.g. "vc") when it differs from the alias.
+        self._requested_name = name
 
         self._target_store = "desktop"
 
@@ -371,12 +554,219 @@ class Cl(object):
         return None
 
 
+    def toolset_version( self ):
+        """SCons MSVC toolset id (e.g. ``14.5``)."""
+        return self._long_version
+
+
+    def toolset( self ):
+        """Structured MSVC toolset fields (``MsvcToolsetVersion``)."""
+        return self._toolset
+
+
+    def supports_modules( self, env ):
+        import cuppa.build_platform
+        if cuppa.build_platform.name() != "Windows":
+            return False
+        # Compare SCons toolset major.minor (14.2, 14.3, 14.5, …) — not compiler
+        # update numbers such as 14.29 / 19.29.
+        return self.toolset_key( self._long_version ) >= MODULES_MIN_MSVC_TOOLSET
+
+
+    def supports_import_std( self, env ):
+        if not self.supports_modules( env ):
+            return False
+        if self.toolset_key( self._long_version ) < IMPORT_STD_MIN_MSVC_TOOLSET:
+            return False
+        return 'std' in self.std_module_sources( env )
+
+
+    def modules_enable_flags( self, env ):
+        return []
+
+
+    def module_bmi_path( self, env, module_name ):
+        from cuppa.toolchains.cxx_modules_support import named_bmi_path
+        return named_bmi_path( env, module_name, '.ifc' )
+
+
+    def header_unit_bmi_path( self, env, header_path ):
+        from cuppa.toolchains.cxx_modules_support import header_bmi_path
+        return header_bmi_path( env, header_path, '.ifc' )
+
+
+    def interface_module_flags( self, env, module_name, bmi_path, exported=True ):
+        # Hyphen forms avoid SCons treating /flags as paths on Windows.
+        # Use space-separated -ifcOutput PATH: the colon form (-ifcOutput:PATH)
+        # breaks on absolute Windows paths because MSVC treats the drive letter
+        # colon as part of the filename (error C3474 on ':C:\...').
+        # Non-exported partitions (module M:part;) need -internalPartition, not
+        # -interface (otherwise MSVC C7621).
+        kind = '-interface' if exported else '-internalPartition'
+        return [
+            kind,
+            '-TP',
+            '-ifcOutput',
+            bmi_path,
+        ]
+
+
+    @staticmethod
+    def _append_flag_pair( flags, flag, payload ):
+        for i in range( 0, len( flags ) - 1 ):
+            if flags[i] == flag and flags[i + 1] == payload:
+                return
+        flags.extend( [ flag, payload ] )
+
+
+    def consume_module_flags( self, env, scan ):
+        from cuppa.cpp.cxx_modules import get_registry, lookup_header_entry
+        from cuppa.cpp.module_scanner import owning_module_name, qualify_relative_import
+        flags = []
+        registry = get_registry( env )
+        if not scan:
+            return flags
+
+        def add_named( name, seen ):
+            if not name or name in seen:
+                return
+            entry = registry['named'].get( name )
+            if not entry:
+                return
+            seen.add( name )
+            # Space-separated -reference avoids drive-letter colon issues on Windows.
+            self._append_flag_pair(
+                flags, '-reference', '{}={}'.format( name, entry['path'] )
+            )
+            for dep in entry.get( 'imports', [] ):
+                add_named( dep, seen )
+
+        owner = owning_module_name( scan )
+        seen = set()
+        for item in scan.imports:
+            if item.kind == 'named':
+                name = qualify_relative_import( item.name, owner )
+                add_named( name, seen )
+            else:
+                entry = lookup_header_entry( registry, item.name )
+                if not entry:
+                    continue
+                # Header units need -headerUnit, not -reference (MSVC).
+                # Keep header=ifc as one argv payload so C:\ paths stay intact.
+                payload = '{}={}'.format( item.name, entry['path'] )
+                if item.kind == 'header_angle':
+                    self._append_flag_pair( flags, '-headerUnit:angle', payload )
+                else:
+                    self._append_flag_pair( flags, '-headerUnit', payload )
+        if scan.module_declaration:
+            decl = scan.module_declaration
+            if ':' in decl:
+                # Internal / interface partition unit: never self-reference the
+                # partition BMI being produced; pull in the primary module IFC.
+                primary = decl.split( ':', 1 )[0]
+                add_named( primary, seen )
+            else:
+                # Implementation unit `module M;`: reference primary BMI.
+                add_named( decl, seen )
+        return flags
+
+
+    def build_header_unit( self, env, header, bmi_path, **kwargs ):
+        kwargs.pop( 'declared', None )
+        system_header = kwargs.pop( 'system_header', None )
+        # -exportHeader creates the IFC; -ifcOutput PATH places it (space form).
+        if system_header:
+            action = (
+                '$CXX $CXXFLAGS $_CPPINCFLAGS -exportHeader -headerName:angle '
+                '{name} -ifcOutput $TARGET'
+                .format( name=system_header )
+            )
+            return env.Command( bmi_path, [], action, **kwargs )[0]
+        action = (
+            '$CXX $CXXFLAGS $_CPPINCFLAGS -exportHeader -ifcOutput $TARGET $SOURCES'
+        )
+        return env.Command( bmi_path, header, action, **kwargs )[0]
+
+
+    def _msvc_modules_dir( self, env=None ):
+        """Directory containing STL ``std.ixx`` / ``std.compat.ixx``, if present."""
+        return find_msvc_modules_dir( env )
+
+
+    def std_module_sources( self, env ):
+        sources = {}
+        modules_dir = self._msvc_modules_dir( env )
+        if not modules_dir:
+            return sources
+        for name, filename in (
+            ( 'std', 'std.ixx' ),
+            ( 'std.compat', 'std.compat.ixx' ),
+        ):
+            path = os.path.join( modules_dir, filename )
+            if os.path.isfile( path ):
+                sources[name] = path
+        return sources
+
+
+    def build_std_module( self, env, name ):
+        from cuppa.toolchains.cxx_modules_support import modules_build_dir, named_bmi_path
+        from cuppa.cpp.cxx_modules import register_named_module, get_registry
+
+        sources = self.std_module_sources( env )
+        source = sources.get( name )
+        if not source:
+            return None
+        if name in get_registry( env )['named']:
+            return get_registry( env )['named'][name]['bmi']
+
+        modules_build_dir( env )
+        bmi_path = named_bmi_path( env, name, '.ifc' )
+        obj_path = os.path.splitext( bmi_path )[0] + '.obj'
+        bmi_node = env.File( bmi_path )
+        register_named_module(
+            env,
+            name,
+            bmi_path,
+            bmi_node,
+            imports=[ 'std' ] if name == 'std.compat' else [],
+        )
+
+        # Compile STL .ixx to IFC (+ obj).
+        # -ifcOutput PATH: space-separated (colon form breaks on C:\ drive letters).
+        # -FoPATH: must be glued — "-Fo PATH" makes MSVC treat PATH as a source file.
+        extra = ''
+        sources_nodes = []
+        if name == 'std.compat' and 'std' in get_registry( env )['named']:
+            std_bmi = get_registry( env )['named']['std']['path']
+            extra = '-reference std={} '.format( std_bmi )
+            sources_nodes = [ get_registry( env )['named']['std']['bmi'] ]
+
+        # Prefer c++latest for STL modules: matches Microsoft’s tutorial and
+        # avoids toolchains that ignore -std:c++23 (D9002).
+        dialect = self.stdcpp_flag_for( 'c++latest' )
+        action = (
+            '$CXX $CXXFLAGS {dialect} -c -TP -interface '
+            '-ifcOutput {bmi} -Fo"{obj}" '
+            '{extra}"{source}"'
+            .format(
+                dialect=dialect,
+                bmi=bmi_path,
+                obj=obj_path,
+                extra=extra,
+                source=source,
+            )
+        )
+        return env.Command( bmi_path, sources_nodes, action )[0]
+
+
     def abi( self, env ):
+        # Prefer the cuppa dialect name so --stdcpp=c++23 stays "c++23" in paths
+        # even when the MSVC flag is -std:c++latest.
+        if env.get( 'stdcpp' ):
+            return env['stdcpp']
         flag = self.abi_flag( env )
         if ':' in flag:
             return flag.split( ':', 1 )[1]
-        if env.get( 'stdcpp' ):
-            return env['stdcpp']
         return 'c++20'
 
 

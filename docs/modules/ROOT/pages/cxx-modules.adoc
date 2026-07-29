@@ -1,0 +1,575 @@
+= C++ modules
+:description: Introduction, tutorial, and reference for C++20 modules with cuppa
+
+In this guide you will learn what C++20 modules are for, how cuppa builds them, and how to adopt named modules, partitions, header units, and `import std` in a cuppa project.
+
+Cuppa treats modules as an **opt-in** feature (`--modules` or `env.Modules()`).
+Existing projects stay on the classic translation-unit path until you enable modules deliberately.
+
+Supported platforms / floors:
+
+* **Linux / macOS:** GCC 14+ or **LLVM** Clang 16+ (`import std`: GCC 15+; Clang 18+ with libc++)
+* **Windows:** MSVC toolset **14.2+** (SCons `14.2` / cuppa `vc142` and newer — VS 2019+) for named modules, partitions, and header units; `import std` needs toolset **14.3+** with STL `modules/std.ixx` (VS 2022 17.5+)
+
+See <<macos-apple-clang>> for why Xcode’s Apple Clang is rejected on macOS.
+
+== Capability matrix (current)
+
+The matrix below summarises the currently supported feature surface by toolchain family.
+Use it as a quick compatibility checklist before adopting modules in a new project.
+
+[cols="2,1,1,1,1,3"]
+|===
+| Feature | GCC | LLVM Clang | MSVC | Apple Clang | Notes
+
+| Named modules
+| Yes
+| Yes
+| Yes
+| No
+| Apple Clang is treated as unsupported under `--modules`; use Homebrew LLVM Clang on macOS.
+
+| Interface / implementation partitions
+| Yes
+| Yes
+| Yes
+| No
+| MSVC uses `-interface` / `-internalPartition` as appropriate.
+
+| Implementation units (`module M;`)
+| Yes
+| Yes
+| Yes
+| No
+| Compiled as ordinary objects that consume the primary module BMI.
+
+| Header units (`HeaderUnit`, `import "..."`, `import <...>`)
+| Yes
+| Yes
+| Yes
+| No
+| Header-unit spelling must match the declared form.
+
+| `import std` / `import std.compat`
+| Yes (15+)
+| Yes (18+ + libc++)
+| Yes (14.3+ + `std.ixx`)
+| No
+| Cuppa builds `std` before `std.compat` and raises the dialect floor to C++23.
+
+| Private module fragments (`module :private;`)
+| No
+| Yes
+| n/a
+| No
+| GCC currently reports this as unimplemented.
+
+| Shared libraries with module interfaces
+| Yes
+| Yes
+| Yes
+| No
+| On MSVC, module exports still need ordinary DLL export mechanics (`__declspec(dllexport)` / `.def`).
+
+| Package BMI install + `ImportModules`
+| Yes
+| Yes
+| Yes
+| No
+| BMIs are toolchain-family specific (`.gcm` / `.pcm` / `.ifc`) and are not cross-compatible.
+
+| `--cov --modules`
+| Yes
+| Yes
+| No
+| No
+| MSVC coverage instrumentation is not supported.
+|===
+
+== Prerequisites
+
+* xref:install.adoc[Cuppa installed] and a working xref:quickstart.adoc[quickstart] project
+* A modules-capable toolchain (see floors above and xref:toolchains.adoc[Toolchains])
+* Willingness to use C++20 or newer (`--stdcpp=c++20` or higher; cuppa raises the floor when `--modules` is set)
+
+== Why modules exist
+
+For decades, C++ physical design relied on `#include`: textual inclusion of headers into every translation unit that needs them.
+That model scales poorly: repeated parsing, fragile include guards / `#pragma once`, leakage of macros, and slow incremental builds.
+
+*Modules* give the language a named, compiler-checked boundary.
+You write `export module math;`, consumers write `import math;`, and the build system exchanges a binary module interface (BMI) -- `.gcm` (GCC), `.pcm` (Clang), or `.ifc` (MSVC) -- instead of re-parsing headers.
+
+Key ideas:
+
+* **Named modules** -- a primary interface (`export module M;`), optional implementation units (`module M;`), and optional partitions (`export module M:part;` / `module M:part;`)
+* **Header units** -- import an existing header as a BMI (`import "h.hpp";` / `import <span>;`) without rewriting it as a named module
+* **`import std`** -- import the standard library as a named module where the toolchain ships `std` / `std.compat` interfaces
+
+Cuppa's job is to scan sources, build BMIs in dependency order, pass the right toolchain flags, and (when you ship libraries) install a `module-map.json` so other projects can reuse those BMIs.
+
+== Papers and further reading
+
+The design of C++ modules spans many proposals. These documents are useful landmarks:
+
+|===
+| Paper / document | Topic
+
+| https://wg21.link/p1103r3[P1103R3] -- *Merging Modules*
+| The C++20 wording merge that brought modules into the working draft
+
+| https://wg21.link/p1241r0[P1241R0] / related follow-ups
+| Module dependency discovery discussion that influenced tooling expectations
+
+| https://wg21.link/p2465r3[P2465R3] -- *Standard Library Modules `std` and `std.compat`*
+| The named standard-library modules used by `import std;`
+
+| https://wg21.link/p2412r0[P2412R0] (and related)
+| Background on standard library module packaging concerns
+
+| https://eel.is/c++draft/module[C++ working draft -- `[module]`]
+| Normative reference for module units, partitions, and linkage
+
+| https://clang.llvm.org/docs/StandardCPlusPlusModules.html[Clang -- Standard C++ Modules]
+| Clang's BMI / `std.cppm` practice
+
+| https://gcc.gnu.org/onlinedocs/gcc/C_002b_002b-Modules.html[GCC -- C++ Modules]
+| GCC mapper and GCM model
+
+| https://learn.microsoft.com/en-us/cpp/cpp/modules-cpp[MSVC -- Overview of modules in C++]
+| MSVC IFC model, `/interface`, `/internalPartition`
+|===
+
+Compiler support still differs by vendor and version.
+Cuppa encodes those differences as explicit floors and fails clearly when `--modules` cannot be honoured.
+
+[#tutorial]
+== Tutorial: your first named module with cuppa
+
+In this tutorial you will create a tiny `math` module, import it from `main`, and build it with cuppa.
+
+=== Step 1 — Enabling modules for the build
+
+You will turn on modules and select a capable toolchain.
+
+[source,sh]
+----
+cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=gcc
+----
+
+`--modules` sets `env['modules']=True` for each variant env.
+If the selected dialect is below C++20, cuppa raises it to `c++20`.
+You can also call `env.Modules()` from a sconscript.
+On an unsupported toolchain, cuppa stops with a clear error (no silent fallback).
+
+=== Step 2 — Writing the interface and consumer
+
+Create an interface unit and a consumer:
+
+[source,cpp]
+----
+// math.cppm
+export module math;
+
+export int add(int a, int b)
+{
+    return a + b;
+}
+----
+
+[source,cpp]
+----
+// main.cpp
+import math;
+#include <cstdio>
+
+int main()
+{
+    std::printf("%d\n", add(2, 3));
+}
+----
+
+`export module math;` declares the primary module interface.
+`export int add…` makes `add` visible to importers.
+`import math;` brings that interface into `main.cpp` without `#include`.
+
+=== Step 3 — Declaring the build
+
+In your `sconscript`:
+
+[source,python]
+----
+Import('env')
+
+env.Build('math_app', ['math.cppm', 'main.cpp'])
+----
+
+Cuppa scans sources for `export module` / `module` / `import`, builds the BMI under `_build/.../working/modules/`, and wires SCons `Depends` so the interface compiles before the consumer.
+BMI nodes are **pre-registered** for every unit in the source list, so partitions may appear before or after the primary interface.
+
+Alternatively, use the `Module` convenience method (compiles the interface, registers the BMI, and links objects into a later `Build` in the same sconscript):
+
+[source,python]
+----
+Import('env')
+
+env.Module('math', interface='math.cppm')
+env.Build('math_app', ['main.cpp'])
+----
+
+=== Step 4 — Building and inspecting artefacts
+
+[source,sh]
+----
+cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=gcc
+----
+
+Look under `_build/<toolchain>/dbg/.../working/modules/` for `math.gcm` (GCC), `math.pcm` (Clang), or `math.ifc` (MSVC), and under `final/` for `math_app`.
+
+You have now built a named module end-to-end with cuppa.
+The sections below cover libraries, partitions, header units, and `import std`.
+
+== Enable modules
+
+[source,sh]
+----
+cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=gcc
+cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=clang
+cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=vc   # Windows
+----
+
+Unresolved `import` names after BMI pre-registration fail the build with `StopError`
+(list the missing named / header imports). Declare `HeaderUnit` or include the interface
+unit in the same `Build` / `Compile` call.
+
+Interface units use `.cppm` / `.cxxm` / `.ccm` / `.ixx` (or a `.cpp` that contains `export module`).
+
+== Named modules
+
+[mermaid]
+....
+flowchart TD
+    IF["Interface unit — export module math"] --> BMI["BMI (.gcm / .pcm / .ifc)"]
+    IF --> IO[interface object]
+    IMPL["Implementation unit — module math"] --> OO[implementation object]
+    MAIN["Consumer TU — import math"] --> CO[consumer object]
+    BMI --> MAIN
+    IO --> LINK[link]
+    OO --> LINK
+    CO --> LINK
+    LINK --> APP[final executable]
+....
+
+[source,python]
+----
+Import('env')
+env.Build('app', [
+    'math.cppm',  # export module math;  → math.cppm.o
+    'math.cpp',   # module math;         → math.o
+    'main.cpp',   # import math;
+])
+----
+
+Or:
+
+[source,python]
+----
+Import('env')
+env.Module('math', interface='math.cppm', implementation=['math.cpp'])
+env.Build('app', ['main.cpp'])  # import math;
+----
+
+== Libraries with modules
+
+`BuildLib` / `BuildStaticLib` / `BuildSharedLib` go through the same modules compile path.
+A consumer in the **same** sconscript can import the library's named modules because they
+share the env BMI registry:
+
+[source,python]
+----
+Import('env')
+env.BuildStaticLib('mathlib', ['math.cppm'])
+env.AppendUnique(LIBPATH=[env['abs_final_dir']])
+env.Build('app', ['main.cpp'], LIBS=['mathlib'])
+----
+
+Same pattern works with `BuildSharedLib` on platforms where the shared library also exports ordinary DLL/SO symbols as required by the linker.
+
+[[packaged-modules]]
+== Packaged modules (cross-project)
+
+[mermaid]
+....
+flowchart TD
+    P[Producer BuildLib / BuildStaticLib / BuildSharedLib] --> M["final/modules/ — module-map.json + BMIs"]
+    M --> PKG[PublishPackage includes modules/]
+    PKG --> CON[Consumer BuildWith / package_dependency]
+    CON --> IMP["ImportModules(package_dir/modules)"]
+    IMP --> CBUILD[Consumer Build / Test imports producer modules]
+....
+
+When `--modules` is enabled, `BuildLib` / `BuildStaticLib` / `BuildSharedLib` install named-module
+BMIs under `final/modules/` and write `module-map.json`. Consumers in another project (or after
+extracting a cuppa package) load that map:
+
+[source,python]
+----
+Import('env')
+env.ImportModules('/path/to/final/modules')   # or package_dir/modules after BuildWith
+env.AppendUnique(LIBPATH=['/path/to/final'])
+env.Build('app', ['main.cpp'], LIBS=['mathlib'])
+----
+
+`package_dependency` / GitLab `BuildWith` automatically calls `ImportModules` when
+`package_dir/modules/module-map.json` is present. BMI extensions must match the consumer
+toolchain (`.gcm` vs `.pcm` vs `.ifc`) — cross-toolchain BMI reuse is not supported.
+`PublishPackage` copies `modules/` into the package archive alongside `include/` and `lib/`.
+
+NOTE: Producer and consumer still need matching toolchain *family* for BMI format. Same-sconscript
+use remains the most direct path; packaging is for shipping modular libraries.
+
+== Implementation units
+
+Keep declarations in the interface and definitions in a separate TU:
+
+[source,cpp]
+----
+// math_decl.cppm
+export module math_impl;
+export int add(int a, int b);
+
+// math_impl.cpp
+module math_impl;
+int add(int a, int b) { return a + b; }
+----
+
+[source,python]
+----
+env.Build('impl_app', ['math_decl.cppm', 'math_impl.cpp', 'apps/impl_main.cpp'])
+----
+
+== Interface partitions
+
+Split a large interface across partition units and re-export them from the primary:
+
+[source,cpp]
+----
+// geo/point.cppm
+export module geo:point;
+export struct Point { int x; int y; };
+export int manhattan(Point p);
+
+// geo/geo.cppm
+export module geo;
+export import :point;          // relative partition import
+export int origin_distance(Point p);
+----
+
+[source,python]
+----
+env.Build('geo_app', [
+    'geo/geo.cppm',      # order does not matter — BMIs are pre-registered
+    'geo/point.cppm',
+    'apps/geo_main.cpp', # import geo;
+])
+----
+
+Relative imports (`import :point` / `export import :point`) are resolved against the
+owning module's primary name (`geo:point`).
+
+== Implementation partitions
+
+Internal partitions are not exported to importers of the primary module.
+A common pattern is: primary interface declares the API, an implementation
+partition holds helpers, and an implementation unit wires them together:
+
+[source,cpp]
+----
+// calc/calc.cppm
+export module calc;
+export int add(int a, int b);
+
+// calc/core.cpp
+module calc:core;              // implementation partition → its own BMI
+int core_add(int a, int b);
+
+// calc/calc.cpp
+module calc;
+import :core;
+int add(int a, int b) { return core_add(a, b); }
+----
+
+[source,python]
+----
+env.Build('calc_app', [
+    'calc/calc.cppm',   # → calc.cppm.o (extension kept in object stem)
+    'calc/core.cpp',
+    'calc/calc.cpp',    # → calc.o
+    'apps/calc_main.cpp',
+])
+----
+
+On MSVC, cuppa compiles non-exported partitions with `-internalPartition` rather than `-interface`.
+
+== Private module fragments
+
+Hide implementation details inside the primary interface unit with `module :private;`:
+
+[source,cpp]
+----
+export module secrets;
+export int public_answer();
+module :private;
+static int hidden = 7;
+int public_answer() { return hidden; }
+----
+
+[NOTE]
+====
+**Toolchain support:** Clang 16+ implements private module fragments.
+GCC (through at least GCC 15) still reports `sorry, unimplemented: private module fragment`.
+Cuppa scans and registers the module either way; prefer Clang when you need this feature.
+====
+
+== Re-exports and multi-module graphs
+
+`export import` forwards another module's interface:
+
+[source,cpp]
+----
+export module util;
+export int answer();
+
+export module appmod;
+export import util;
+export int use_util();
+----
+
+[source,python]
+----
+env.Build('reexport_app', ['appmod.cppm', 'util.cppm', 'apps/reexport_main.cpp'])
+----
+
+== Header units
+
+Declare headers that should be imported as header units. Spelling must match the
+`import` line (quoted path or angle brackets):
+
+[source,python]
+----
+Import('env')
+env.HeaderUnit('include/widget.hpp')
+env.Build('tool', ['tool.cpp'])   # import "include/widget.hpp";
+
+env.HeaderUnit('<span>')
+env.Build('span_tool', ['span_tool.cpp'])  # import <span>;
+----
+
+Named modules and header units can be mixed in one binary — declare the header unit
+first, then `Build` sources that `import` both.
+Angle-bracket units are **explicit** (`HeaderUnit('<…>')`); cuppa does not auto-build a
+BMI for every `import <std_header>`.
+
+Header units are supported for GCC, Clang, and MSVC in this release.
+
+== `import std` / `std.compat`
+
+When a scanned source contains `import std;` or `import std.compat;`, cuppa:
+
+* Raises the dialect floor to **C++23** (if lower)
+* Builds the standard library BMI once per env/variant under `modules/std.gcm`, `modules/std.pcm`, or `modules/std.ifc`
+* Registers it as a named module for consumers
+* Builds `std` before `std.compat` when both are required (`std.compat` imports `std`)
+
+Requirements:
+
+* `--modules`
+* **GCC 15+** with `bits/std.cc` (and optionally `bits/std.compat.cc`)
+* **Clang 18+** with **libc++** (`--clang-stdlib=libc++`) and installed module interfaces
+  (typically `/usr/lib/llvm-<N>/share/libc++/v1/std.cppm`, or Homebrew LLVM paths on macOS)
+* **MSVC** toolset **14.3+** with STL `modules/std.ixx` (VS 2022 17.5+; cuppa locates `VCToolsInstallDir\modules`)
+
+[source,python]
+----
+Import('env')
+env.Build('std_app', ['apps/std_main.cpp'])  # import std;
+----
+
+[source,sh]
+----
+cuppa -D --dbg --modules --toolchains=gcc
+cuppa -D --dbg --modules --toolchains=clang22 --clang-stdlib=libc++
+cuppa -D --dbg --modules --toolchains=vc
+----
+
+== Artifact layout
+
+----
+_build/<toolchain>/<variant>/<arch>/<abi>/working/modules/
+  math.pcm|gcm|ifc
+  geo--point.pcm|gcm|ifc      # colon → -- in BMI filenames
+  header--include--widget.hpp.pcm|gcm
+  header--angle--span.pcm|gcm
+  std.pcm|gcm|ifc
+  std.compat.pcm|gcm|ifc
+  module-mapper.txt           # GCC only
+  (also installed under final/modules/ for libraries)
+----
+
+Toolchain flag details for modules are listed under each compiler in xref:toolchains.adoc[Toolchains].
+
+== Limits
+
+* Linux / macOS: GCC 14+ / LLVM Clang 16+ (`import std`: GCC 15+ / Clang 18+ with libc++; Apple Clang unsupported — see <<macos-apple-clang>>)
+* Windows: MSVC toolset 14.2+ (`vc142` / `vc143` / `vc145` / …) for named modules, partitions, header units, and shared libraries (export module symbols with `__declspec(dllexport)` when building DLLs); `import std` / `std.compat` require toolset 14.3+ with STL `modules/std.ixx` (VS 2022 17.5+)
+* Lightweight line-oriented import scanner (macros / `#if` that invent imports are unsupported; optional `clang-scan-deps` integration is not shipped yet)
+* Header-unit spelling in `import "..."` / `import <…>` must match `HeaderUnit` (GCC/Clang/MSVC)
+* Private module fragments: Clang only (GCC unimplemented)
+* Packaged BMIs are toolchain-family specific (`.gcm` / `.pcm` / `.ifc`)
+* Toolchain quirks remain — prefer the floors above and fail clearly rather than guess
+* `--modules` on an unsupported toolchain stops the build with a clear error
+* Integration tests require a modules-capable compiler and **fail** if GCC/Clang is too old
+
+[#macos-apple-clang]
+== macOS: Apple Clang vs LLVM Clang
+
+**Apple Clang** (the `clang++` shipped with Xcode / Command Line Tools) is **not** the same product as upstream **LLVM Clang**, even when `--version` reports a high major:
+
+[source,text]
+----
+Apple clang version 21.0.0 (clang-2100.1.1.101)
+Target: arm64-apple-darwin25.4.0
+----
+
+Cuppa detects the `Apple clang` / `Apple LLVM` banner, sets an `apple` flag on the toolchain version, and treats that driver as **not** modules-capable (`supports_modules` / `supports_import_std` are false). A marketing major such as 16 or 21 must not be mistaken for LLVM Clang 16 / 21.
+
+=== Why Apple Clang fails for C++20 modules
+
+Apple’s toolchain does **not** ship **`clang-scan-deps`**, the dependency scanner that discovers module import graphs.
+Without it, build systems that rely on compiler-provided module scanning cannot drive C++20 modules correctly.
+The same gap shows up with CMake’s `CXX_MODULES` support (configure fails with “compiler does not provide a way to discover the import graph dependencies”); see for example
+https://stackoverflow.com/questions/79143467/using-c-20-modules-with-cmake-using-appleclang-16-with-macos[this Stack Overflow discussion].
+
+Cuppa’s own scanner is line-oriented and does not call `clang-scan-deps`, but Apple Clang still lacks a complete, reliable C++20 modules story for the flags and BMI workflow cuppa expects from LLVM Clang 16+. Cuppa therefore **fails clearly** under `--modules` rather than attempting a half-supported path.
+
+=== What to use on macOS
+
+Install upstream LLVM Clang (Homebrew is the usual route) and put it ahead of `/usr/bin` on `PATH`:
+
+[source,sh]
+----
+brew install llvm
+export PATH="$(brew --prefix llvm)/bin:$PATH"
+clang++ --version   # should NOT say "Apple clang"
+cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=clang --clang-stdlib=libc++
+----
+
+Typical Homebrew locations: `/opt/homebrew/opt/llvm/bin` (Apple Silicon) or `/usr/local/opt/llvm/bin` (Intel).
+Cuppa records the discovered Clang’s install directory and prefers an **absolute** `CXX` / `CC`, and prepends that directory to the SCons build `PATH`, so a configure-time Homebrew Clang is not silently replaced by `/usr/bin/clang++` at build time.
+
+If you still see `export module` rejected with “expected template”, the build is almost certainly using Apple Clang.
+Pass `--propagate-path` (or `--merge-path`) so subprocesses inherit your shell `PATH`, and confirm the compile line shows the Homebrew binary (not bare `clang++` resolving via `/usr/bin`).
+
+Cuppa’s macOS CI modules slice installs Homebrew `llvm`, puts it on `PATH`, and passes `--propagate-path`.
+
+If a Homebrew Clang build cannot find macOS SDK headers, point it at the system SDK (for example `xcrun --show-sdk-path` / `SDKROOT`, or `--sysroot=…`). That is a general LLVM-on-macOS concern, not cuppa-specific.

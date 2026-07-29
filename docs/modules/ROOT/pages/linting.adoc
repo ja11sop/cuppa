@@ -49,7 +49,7 @@ Line length, whitespace, and other style rules are intentionally off.
 
 | `cuppa/utility/python2to3.py`
 | `F401`
-| Compat shims that bind alternate import paths for re-export; many branches look unused under a single Python version.
+| Compatibility wrappers that bind alternate import paths for re-export; many branches look unused under a single Python version.
 
 | `cuppa/utility/pip_imports.py`
 | `F401`

@@ -16,7 +16,11 @@ Optional tools (`clang`, `gcov`, AsciiDoc) cause individual tests to skip with a
 
 Every `run_cuppa()` call also passes `-D`, `--offline`, and a default `--toolchains=` selection.
 Override the default family with `CUPPA_TEST_TOOLCHAIN=gcc|clang|vc` (used by CI to smoke the suite per toolchain).
-Linux CI matrices `gcc` and `clang`; Windows CI uses MSVC (`vc`) via `windows-latest`.
+For Clang, pin the standard library with `CUPPA_TEST_ARGS=--clang-stdlib=libstdc++` or
+`CUPPA_TEST_ARGS=--clang-stdlib=libc++` (explicit flags in a test override the env extras).
+
+Linux CI matrices three cells: `gcc`, `clang` + `libstdc++`, and `clang` + `libc++`.
+Windows CI uses MSVC (`vc`) via `windows-latest`.
 
 == Shared fixture
 
@@ -64,6 +68,9 @@ cuppa.run(default_variants=['dbg'])
 
 | `StdCpp`, `Filter`, `ReplaceFlags`, `RemoveFlags`
 | xref:integration/test-flags.adoc[]
+
+| `--modules`, partitions, `HeaderUnit`, `import std` (GCC 14+ / Clang 16+; std needs GCC 15+ / Clang+libc++)
+| xref:integration/test-modules.adoc[]
 
 | `CopyFiles`, `TargetFrom`
 | xref:integration/test-copy-and-target.adoc[]

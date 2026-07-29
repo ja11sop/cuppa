@@ -142,7 +142,20 @@ class GitlabPackagePublisher:
                     as_info( str(self._target_lib_dir) ),
                     as_notice( str(self._source_lib_dir) )
             ) )
-            shutil.copytree( str( self._source_lib_dir ), str(self._target_lib_dir) )
+            shutil.copytree(
+                str( self._source_lib_dir ),
+                str( self._target_lib_dir ),
+                ignore=shutil.ignore_patterns( 'modules' ),
+            )
+
+        source_modules = os.path.join( str( self._source_lib_dir ), 'modules' )
+        target_modules = os.path.join( str( self._package_base_dir ), 'modules' )
+        if os.path.isdir( source_modules ) and not os.path.exists( target_modules ):
+            logger.info( "For package [{}], copying modules from [{}]...".format(
+                    as_info( self._package_file_name ),
+                    as_notice( source_modules ),
+            ) )
+            shutil.copytree( source_modules, target_modules )
 
         logger.info( "Creating package [{}]...".format( as_info( str(target[0]) ) ) )
         logger.info( "Using commnd [{}]".format( as_notice( self._tar_command ) ) )
@@ -658,6 +671,10 @@ class GitlabPackageDependency:
         ) )
         self._env = env
         env.AppendUnique( SYSINCPATH = self._include_dir )
+        modules_dir = os.path.join( self._package_dir, 'modules' )
+        if os.path.isdir( modules_dir ):
+            from cuppa.cpp.cxx_modules import load_packaged_modules
+            load_packaged_modules( env, modules_dir )
 
 
     def parse_pkg_config( self, libs ):

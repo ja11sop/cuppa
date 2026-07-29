@@ -35,6 +35,8 @@ class BuildBenchmarkMethod:
     ):
 
         nodes = []
+        # No direct NotifyProgress call here: delegated Build()/Benchmark()/
+        # Coverage() each NotifyProgress the nodes they produce.
         program = env.Build( target, source, final_dir=final_dir, append_variant=append_variant, **kwargs )
         nodes.append( program )
 

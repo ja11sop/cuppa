@@ -37,26 +37,90 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Smoke the full integration suite once per Linux toolchain family.
+        # Smoke the full integration suite per Linux compiler / Clang stdlib.
         # MSVC (`vc`) requires Windows + Visual Studio and is not exercised here.
-        toolchain: [gcc, clang]
+        include:
+          - toolchain: gcc
+            clang_stdlib: ""
+            cuppa_test_args: ""
+            name_suffix: gcc
+          # Default Clang + libstdc++ (explicit flag so the option path is covered).
+          # Do not install a newer GCC/libstdc++ on this job — see install step.
+          - toolchain: clang
+            clang_stdlib: libstdc++
+            cuppa_test_args: "--clang-stdlib=libstdc++"
+            name_suffix: clang-libstdc++
+          # Matching libc++ avoids coupling to whatever libstdc++ is on the image.
+          - toolchain: clang
+            clang_stdlib: libc++
+            cuppa_test_args: "--clang-stdlib=libc++"
+            name_suffix: clang-libc++
+    name: integration (${{ matrix.name_suffix }})
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.14'
-      - name: Install system packages
+      - name: Install packages (gcc)
+        if: matrix.toolchain == 'gcc'
         run: |
+          # Prefer GCC 15 when available (ubuntu-latest / 24.04 needs the toolchain test PPA).
+          # Keep this off the clang jobs: Clang + libstdc++ from GCC 15 breaks with -std=c++2c
+          # (e.g. <format> constexpr errors in CreateVersion).
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
           sudo apt-get update
-          sudo apt-get install -y g++ clang gcovr
+          sudo apt-get install -y g++-15 gcovr
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-15 150
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-15 150
+          sudo update-alternatives --set gcc /usr/bin/gcc-15
+          sudo update-alternatives --set g++ /usr/bin/g++-15
+          hash -r || true
+          gcc --version
+          g++ --version
+          g++-15 --version
+      - name: Install packages (clang)
+        if: matrix.toolchain == 'clang'
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y gcovr wget ca-certificates
+          # Install the newest Clang that apt.llvm.org offers for this Ubuntu.
+          # Install matching libc++ so the libc++ matrix cell (and import std) work;
+          # the libstdc++ cell uses the distro libstdc++ (do not pull a newer GCC).
+          wget -q https://apt.llvm.org/llvm.sh -O /tmp/llvm.sh
+          chmod +x /tmp/llvm.sh
+          CLANG_VER=""
+          for ver in 22 21 20 19 18; do
+            if sudo /tmp/llvm.sh "${ver}"; then
+              CLANG_VER="${ver}"
+              break
+            fi
+            echo "LLVM ${ver} install failed; trying an older release..."
+          done
+          if [ -z "${CLANG_VER}" ]; then
+            echo "Falling back to distro clang"
+            sudo apt-get install -y clang libc++-dev libc++abi-dev
+            clang++ --version
+            exit 0
+          fi
+          sudo apt-get install -y "clang-${CLANG_VER}" "libc++-${CLANG_VER}-dev" "libc++abi-${CLANG_VER}-dev"
+          sudo update-alternatives --install /usr/bin/clang clang "/usr/bin/clang-${CLANG_VER}" $((CLANG_VER * 10))
+          sudo update-alternatives --install /usr/bin/clang++ clang++ "/usr/bin/clang++-${CLANG_VER}" $((CLANG_VER * 10))
+          sudo update-alternatives --set clang "/usr/bin/clang-${CLANG_VER}"
+          sudo update-alternatives --set clang++ "/usr/bin/clang++-${CLANG_VER}"
+          hash -r || true
+          echo "Installed Clang ${CLANG_VER}"
+          clang --version
+          clang++ --version
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -e . --no-build-isolation
-      - name: Integration tests (${{ matrix.toolchain }})
+      - name: Integration tests (${{ matrix.name_suffix }})
         env:
           CUPPA_TEST_TOOLCHAIN: ${{ matrix.toolchain }}
+          CUPPA_TEST_ARGS: ${{ matrix.cuppa_test_args }}
         run: pytest -m integration -q
 
   integration-windows:
@@ -78,3 +142,38 @@ jobs:
         env:
           CUPPA_TEST_TOOLCHAIN: vc
         run: pytest -m integration -q
+
+  integration-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Homebrew LLVM (not Apple Clang)
+        run: |
+          brew install llvm
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e . --no-build-isolation
+          which clang++
+          clang++ --version
+      - name: Modules integration (clang + libc++)
+        env:
+          CUPPA_TEST_TOOLCHAIN: clang
+          # propagate-path: SCons defaults to a minimal ENV; without it builds can
+          # pick /usr/bin/clang++ (Apple Clang) after configure saw Homebrew LLVM.
+          CUPPA_TEST_ARGS: --clang-stdlib=libc++ --propagate-path
+        run: |
+          pytest -m integration -q \
+            tests/integration/methods/test_modules.py::test_named_module_build \
+            tests/integration/methods/test_modules.py::test_header_unit_build \
+            tests/integration/methods/test_modules.py::test_module_method_build \
+            tests/integration/methods/test_modules.py::test_interface_partition_build \
+            tests/integration/methods/test_modules.py::test_implementation_unit_build \
+            tests/integration/methods/test_modules.py::test_ixx_interface_smoke \
+            tests/integration/methods/test_modules.py::test_packaged_modules_install_and_import \
+            tests/integration/methods/test_modules.py::test_import_std_build

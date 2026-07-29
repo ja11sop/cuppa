@@ -11,6 +11,7 @@
 import SCons.Script
 
 from subprocess import Popen, PIPE
+import os
 import re
 import shlex
 import collections
@@ -60,11 +61,12 @@ class Clang(object):
         if command_available( command ):
             reported_version = None
             version_string = as_str( Popen( shlex.split( command ), stdout=PIPE).communicate()[0] )
+            is_apple = bool( re.search( r'Apple (?:clang|LLVM) version', version_string ) )
             matches = re.search( r'based on LLVM (?P<major>\d+)\.(?P<minor>\d)', version_string )
             if not matches:
-                matches = re.search( r'Apple LLVM version (?P<major>\d+)\.(?P<minor>\d)', version_string )
+                matches = re.search( r'Apple (?:clang|LLVM) version (?P<major>\d+)\.(?P<minor>\d)', version_string )
                 if not matches:
-                    matches = re.search( r'clang version (?P<major>\d+)\.(?P<minor>\d)', version_string )
+                    matches = re.search( r'(?<!Apple )clang version (?P<major>\d+)\.(?P<minor>\d)', version_string )
             if matches:
                 major = matches.group('major')
                 minor = matches.group('minor')
@@ -75,6 +77,7 @@ class Clang(object):
                 reported_version['minor'] = int(minor)
                 reported_version['version'] = major + "." + minor
                 reported_version['short_version'] = major + minor
+                reported_version['apple'] = is_apple
             return reported_version
         return None
 
@@ -335,8 +338,12 @@ class Clang(object):
         self._gcov_format = self._gcov_format_version()
         self._initialise_toolchain( self._reported_version, stdlib )
 
-        self.values['CXX'] = "clang++{}".format( self._cxx_version and "-" +  self._cxx_version or "" )
-        self.values['CC']  = "clang{}".format( self._cxx_version and "-" +  self._cxx_version or "" )
+        cxx_name = "clang++{}".format( self._cxx_version and "-" +  self._cxx_version or "" )
+        cc_name  = "clang{}".format( self._cxx_version and "-" +  self._cxx_version or "" )
+        # Prefer absolute drivers so SCons' default ENV PATH (often /usr/bin first)
+        # cannot silently pick up Apple Clang after configure saw Homebrew LLVM.
+        self.values['CXX'] = self._resolve_driver( cxx_name )
+        self.values['CC']  = self._resolve_driver( cc_name )
 
         env = SCons.Script.DefaultEnvironment()
         if platform.system() == "Windows":
@@ -396,6 +403,32 @@ class Clang(object):
         return self._cxx_version
 
 
+    def _resolve_driver( self, name ):
+        """Return an absolute path to a clang driver when its install dir is known."""
+        if self._cxx_path:
+            candidate = os.path.join( self._cxx_path, name )
+            if os.path.exists( candidate ):
+                return candidate
+        return name
+
+
+    def _resolve_versioned_tool( self, base_name ):
+        """Prefer a major-versioned sibling of this Clang (e.g. llvm-ar-21), else base_name."""
+        major = self._reported_version['major']
+        names = [
+            "{}-{}".format( base_name, major ),
+            base_name,
+        ]
+        for name in names:
+            resolved = self._resolve_driver( name )
+            if os.path.isabs( resolved ) and os.path.exists( resolved ):
+                return resolved
+            found = cuppa.build_platform.where_is( name )
+            if found:
+                return found
+        return None
+
+
     def binary( self ):
         return self.values['CXX']
 
@@ -408,9 +441,17 @@ class Clang(object):
 
         if platform.system() == "Windows":
             env = cuppa_env.create_env( tools = ['mingw'] )
-            env['ENV']['PATH'] = ";".join( [ env['ENV']['PATH'], self._cxx_path ] )
+            env['ENV']['PATH'] = os.pathsep.join( [ env['ENV']['PATH'], self._cxx_path ] )
         else:
             env = cuppa_env.create_env( tools = ['g++'] )
+            # Prepend the discovered toolchain bin dir so sibling tools (and a
+            # non-absolute CXX fallback) resolve to the same Clang as configure.
+            if self._cxx_path:
+                default_path = env['ENV'].get( 'PATH', '' )
+                parts = [ self._cxx_path ]
+                if default_path:
+                    parts.extend( default_path.split( os.pathsep ) )
+                env['ENV']['PATH'] = os.pathsep.join( parts )
 
         env['CXX']          = self.values['CXX']
         env['CC']           = self.values['CC']
@@ -423,6 +464,17 @@ class Clang(object):
         env['LIBS']         = []
         env['STATICLIBS']   = []
         env['DYNAMICLIBS']  = self.values['dynamic_libraries']
+
+        # Clang LTO bitcode in static archives needs a matching llvm-ar/ranlib.
+        # Binutils ar loads whatever LLVMgold.so is on the system plugin path
+        # (often an older LLVM), which silently drops symbols from .a files.
+        if self.__lto_flags():
+            llvm_ar = self._resolve_versioned_tool( 'llvm-ar' )
+            if llvm_ar:
+                env['AR'] = llvm_ar
+            llvm_ranlib = self._resolve_versioned_tool( 'llvm-ranlib' )
+            if llvm_ranlib:
+                env['RANLIB'] = llvm_ranlib
 
         self.update_variant( env, variant.name() )
 
@@ -540,9 +592,12 @@ class Clang(object):
             CommonCxxFlags += [ "-stdlib={}".format(stdlib) ]
 
         CommonCxxFlags += self.__default_dialect_flags()
+        lto_flags       = self.__lto_flags()
 
         self.values['debug_cxx_flags']     = CommonCxxFlags + []
-        self.values['release_cxx_flags']   = CommonCxxFlags + [ '-O3', '-DNDEBUG' ]
+        # LTO is release-only (same policy as GCC): slower/heavier for dbg/cov;
+        # runtime wins belong on --rel.
+        self.values['release_cxx_flags']   = CommonCxxFlags + [ '-O3', '-DNDEBUG' ] + lto_flags
 
         if self._gcov_format:
             coverage_options = (
@@ -567,8 +622,16 @@ class Clang(object):
         if stdlib:
             CommonLinkCxxFlags += [ "-stdlib={}".format(stdlib) ]
 
+        release_link_flags = list( CommonLinkCxxFlags )
+        if lto_flags:
+            release_link_flags += lto_flags
+            # Prefer lld for Clang LTO so linking does not depend on binutils'
+            # LLVMgold plugin matching this Clang's bitcode version.
+            if self._resolve_versioned_tool( 'ld.lld' ) or self._resolve_versioned_tool( 'lld' ):
+                release_link_flags.append( '-fuse-ld=lld' )
+
         self.values['debug_link_cxx_flags']   = CommonLinkCxxFlags
-        self.values['release_link_cxx_flags'] = CommonLinkCxxFlags
+        self.values['release_link_cxx_flags'] = release_link_flags
         self.values['coverage_link_flags']    = CommonLinkCxxFlags + [ '--coverage' ]
 
         DynamicLibraries = []
@@ -609,6 +672,21 @@ class Clang(object):
         return ['-std=c++03']
 
 
+    def __lto_flags( self ):
+        """Release-only LTO flags (compile and link). Empty before Clang 8.
+
+        Include `-ffat-lto-objects` so static archives remain usable when the
+        archiver is binutils `ar` (system LLVMgold is often an older LLVM than
+        the active clang++, which otherwise drops bitcode members).
+        """
+        major_ver = self._reported_version['major']
+        if major_ver >= 17:
+            return ['-flto=auto', '-ffat-lto-objects']
+        if major_ver >= 8:
+            return ['-flto', '-ffat-lto-objects']
+        return []
+
+
     def abi_flag( self, env ):
         if env['stdcpp']:
             return '-std={}'.format(env['stdcpp'])
@@ -620,6 +698,241 @@ class Clang(object):
         if not self._stdlib:
             return None
         return '-stdlib={}'.format(self._stdlib)
+
+
+    def supports_modules( self, env ):
+        import cuppa.build_platform
+        if cuppa.build_platform.name() not in ( "Linux", "Darwin" ):
+            return False
+        # Apple Clang reports high majors but does not support C++20 named modules.
+        if self._reported_version.get( 'apple' ):
+            return False
+        return self._reported_version['major'] >= 16
+
+
+    def supports_import_std( self, env ):
+        import cuppa.build_platform
+        if cuppa.build_platform.name() not in ( "Linux", "Darwin" ):
+            return False
+        # Apple Clang does not provide C++20 modules / import std.
+        if self._reported_version.get( 'apple' ):
+            return False
+        if self._reported_version['major'] < 18:
+            return False
+        return getattr( self, '_stdlib', None ) == 'libc++'
+
+
+    def modules_enable_flags( self, env ):
+        # Avoid -fmodules here: that enables Clang *header* modules and breaks
+        # C++20 header-unit imports (import <span>;) and libc++ std.cppm.
+        return []
+
+
+    def module_bmi_path( self, env, module_name ):
+        from cuppa.toolchains.cxx_modules_support import named_bmi_path
+        return named_bmi_path( env, module_name, '.pcm' )
+
+
+    def header_unit_bmi_path( self, env, header_path ):
+        from cuppa.toolchains.cxx_modules_support import header_bmi_path
+        return header_bmi_path( env, header_path, '.pcm' )
+
+
+    def write_module_mapper( self, env ):
+        return None
+
+
+    def interface_module_flags( self, env, module_name, bmi_path, exported=True ):
+        return [
+            '-x', 'c++-module',
+            '-fmodule-output={}'.format( bmi_path ),
+        ]
+
+
+    def consume_module_flags( self, env, scan ):
+        from cuppa.cpp.cxx_modules import get_registry, lookup_header_entry
+        from cuppa.cpp.module_scanner import owning_module_name, qualify_relative_import
+        flags = []
+        registry = get_registry( env )
+        if not scan:
+            return flags
+
+        def add_named( name, seen ):
+            if not name or name in seen:
+                return
+            entry = registry['named'].get( name )
+            if not entry:
+                return
+            seen.add( name )
+            flag = '-fmodule-file={}={}'.format( name, entry['path'] )
+            if flag not in flags:
+                flags.append( flag )
+            for dep in entry.get( 'imports', [] ):
+                add_named( dep, seen )
+
+        owner = owning_module_name( scan )
+        seen = set()
+        for item in scan.imports:
+            if item.kind == 'named':
+                name = qualify_relative_import( item.name, owner )
+                add_named( name, seen )
+            else:
+                entry = lookup_header_entry( registry, item.name )
+                if entry:
+                    flag = '-fmodule-file={}'.format( entry['path'] )
+                    if flag not in flags:
+                        flags.append( flag )
+        if scan.module_declaration:
+            decl = scan.module_declaration
+            if ':' in decl:
+                # Partition BMI unit: reference primary, never self-reference.
+                primary = decl.split( ':', 1 )[0]
+                add_named( primary, seen )
+            else:
+                add_named( decl, seen )
+        return flags
+
+
+    def build_header_unit( self, env, header, bmi_path, **kwargs ):
+        kwargs.pop( 'declared', None )
+        system_header = kwargs.pop( 'system_header', None )
+        if system_header:
+            header_abs = self._find_system_header_path( env, system_header )
+            source = header_abs or system_header
+            action = (
+                '$CXX -o $TARGET --precompile -fmodule-header -x c++-header '
+                '$CXXFLAGS $_CPPINCFLAGS {source}'
+                .format( source=source )
+            )
+            return env.Command( bmi_path, [], action, **kwargs )[0]
+        action = (
+            '$CXX -o $TARGET --precompile -fmodule-header $CXXFLAGS $_CPPINCFLAGS $SOURCES'
+        )
+        return env.Command( bmi_path, header, action, **kwargs )[0]
+
+
+    def _find_system_header_path( self, env, name ):
+        import os
+        import subprocess
+        try:
+            probe = '#include <{}>\n'.format( name )
+            cmd = [ self.binary(), '-std=c++20', '-M', '-x', 'c++', '-' ]
+            stdlib = self.stdlib_flag( env )
+            if stdlib:
+                cmd.insert( 1, stdlib )
+            result = subprocess.run(
+                cmd,
+                input=probe,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            for token in result.stdout.replace( '\\', ' ' ).split():
+                if token.endswith( '/' + name ) or os.path.basename( token ) == name:
+                    if os.path.isfile( token ):
+                        return os.path.abspath( token )
+        except Exception:
+            pass
+        # Common libc++ / system locations
+        for candidate in (
+            '/usr/include/c++/v1/{}'.format( name ),
+            '/usr/include/{}'.format( name ),
+        ):
+            if os.path.isfile( candidate ):
+                return candidate
+        return None
+
+
+    def std_module_sources( self, env ):
+        sources = {}
+        for name, filename in (
+            ( 'std', 'std.cppm' ),
+            ( 'std.compat', 'std.compat.cppm' ),
+        ):
+            path = self._find_libcxx_module_interface( filename )
+            if path:
+                sources[name] = path
+        return sources
+
+
+    def _find_libcxx_module_interface( self, filename ):
+        import os
+        import subprocess
+        candidates = []
+        try:
+            result = subprocess.run(
+                [ self.binary(), '-print-resource-dir' ],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            resource = ( result.stdout or '' ).strip()
+            if resource:
+                # resource-dir is typically .../lib/clang/N — modules live under the llvm root.
+                root = os.path.abspath( os.path.join( resource, '..', '..', '..' ) )
+                candidates.append( os.path.join( root, 'share', 'libc++', 'v1', filename ) )
+        except Exception:
+            pass
+        # Only probe the matching major — cross-version std.cppm is not ABI-safe.
+        major = self._reported_version.get( 'major' )
+        if major:
+            candidates.append(
+                '/usr/lib/llvm-{}/share/libc++/v1/{}'.format( major, filename )
+            )
+        candidates.append( '/usr/share/libc++/v1/{}'.format( filename ) )
+        # Homebrew / macOS SDK layouts
+        candidates.append( '/opt/homebrew/opt/llvm/share/libc++/v1/{}'.format( filename ) )
+        candidates.append( '/usr/local/opt/llvm/share/libc++/v1/{}'.format( filename ) )
+        for path in candidates:
+            if path and os.path.isfile( path ):
+                return path
+        return None
+
+
+    def build_std_module( self, env, name ):
+        from cuppa.toolchains.cxx_modules_support import modules_build_dir, named_bmi_path
+        from cuppa.cpp.cxx_modules import register_named_module, get_registry
+
+        sources = self.std_module_sources( env )
+        source = sources.get( name )
+        if not source:
+            return None
+        if name in get_registry( env )['named']:
+            return get_registry( env )['named'][name]['bmi']
+
+        modules_build_dir( env )
+        bmi_path = named_bmi_path( env, name, '.pcm' )
+        bmi_node = env.File( bmi_path )
+        register_named_module(
+            env,
+            name,
+            bmi_path,
+            bmi_node,
+            imports=[ 'std' ] if name == 'std.compat' else [],
+        )
+        # Do not pass $CXXFLAGS: env modules flags include -fmodules, which enables
+        # Clang header modules and conflicts with libc++'s C++20 std.cppm
+        # ("redefinition of module 'std'" via module.modulemap).
+        dialect = env.get( 'stdcpp' ) or 'c++23'
+        stdlib = self.stdlib_flag( env ) or '-stdlib=libc++'
+        extra = ''
+        sources_nodes = []
+        if name == 'std.compat' and 'std' in get_registry( env )['named']:
+            std_bmi = get_registry( env )['named']['std']['path']
+            extra = '-fmodule-file=std={} '.format( std_bmi )
+            sources_nodes = [ get_registry( env )['named']['std']['bmi'] ]
+        action = (
+            '$CXX -o $TARGET --precompile -fmodule-output={bmi} '
+            '{extra}-std={dialect} {stdlib} {source}'
+            .format(
+                bmi=bmi_path,
+                extra=extra,
+                dialect=dialect,
+                stdlib=stdlib,
+                source=source,
+            )
+        )
+        return env.Command( bmi_path, sources_nodes, action )[0]
 
 
     def abi( self, env ):

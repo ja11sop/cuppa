@@ -55,6 +55,8 @@ class RecursiveGlobMethod:
     default = ()
 
     def __call__( self, env, pattern, start=default, exclude_dirs=default ):
+        # Discovery helper only: returns file nodes selected from the tree.
+        # No build commands are emitted, so NotifyProgress is not applicable.
 
         start, rel_start, base_path = relative_start( env, start, self.default )
 
@@ -104,6 +106,8 @@ class GlobFilesMethod:
     default = ()
 
     def __call__( self, env, pattern, start=default ):
+        # Discovery helper only: lists files and wraps them as nodes.
+        # No build commands are emitted, so NotifyProgress is not applicable.
 
         start, rel_start, base_path = relative_start( env, start, self.default )
         # base = os.path.relpath( start, base_path )

@@ -41,6 +41,17 @@ Coverage needs the coverage *variant* and the test *action*:
 cuppa -D --cov --test
 ----
 
+[mermaid]
+....
+flowchart TD
+    A[BuildTest / Test targets] --> B["--test executes binaries"]
+    B --> C[coverage data files]
+    C --> D["env.Coverage() with gcovr"]
+    D --> E[HTML / JSON per test]
+    E --> F[CollateCoverageFiles / CollateCoverageIndex]
+    F --> G["_artifacts/coverage index"]
+....
+
 IMPORTANT: `--cov` alone does not run tests. Always combine `--cov` with `--test` (or `--force-test`) when you want executed coverage data from `BuildTest` targets.
 
 Cuppa uses toolchain gcov support plus https://gcovr.com/[gcovr] to emit HTML/JSON beside the variant output (and optionally collated destinations).

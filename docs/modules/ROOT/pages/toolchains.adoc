@@ -1,7 +1,10 @@
 = Toolchains
-:description: GCC, Clang, and MSVC toolchain selection
+:description: GCC, Clang, and MSVC selection and default compile/link flags
 
 Cuppa discovers installed compilers at configure time and registers matching toolchain names.
+When you call `env.Build` / `env.Compile`, the active toolchain applies a documented set of default flags for the selected *variant* (`--dbg`, `--rel`, `--cov`).
+
+This page tells you exactly what those defaults are so you can predict compile lines and override them deliberately (`StdCpp`, `ReplaceFlags`, `RemoveFlags`, or raw `env.AppendUnique`).
 
 == Selecting toolchains
 
@@ -15,49 +18,337 @@ cuppa -D --toolchains=gcc*
 Names are matched with fnmatch-style wildcards.
 If you omit `--toolchains`, cuppa uses the platform default toolchain.
 
+Prefer a family alias (`gcc`, `clang`, `vc`) for everyday builds; pin versioned aliases in CI for reproducibility.
+
+When debugging detection, use `--verbosity=debug` and `--dump`.
+
+== C++ language level
+
+Each toolchain picks a high-compliance default dialect for its compiler version (tables below).
+Override globally with `--stdcpp=…` or per env with `env.StdCpp('c++20')`.
+
+Allowed `--stdcpp` / `StdCpp` choices:
+
+`c++98`, `c++03`, `c++0x`, `c++11`, `c++1y`, `c++14`, `c++1z`, `c++17`, `c++2a`, `c++20`, `c++2b`, `c++23`, `c++2c`, `c++26`, `c++latest`.
+
+With `--modules`, cuppa raises the dialect to at least C++20 if it is lower.
+
+On MSVC, pre-C++14 aliases map to `-std:c++14` with a warning (MSVC has no matching `-std:` for those dialects).
+`c++23` / `c++2b` map to `-std:c++latest` (many MSVC toolsets ignore unknown `-std:c++23`, which breaks `import std`).
+Cuppa passes MSVC standard flags in *hyphen* form (`-std:c++20`) so SCons on Windows does not treat `/std:…` as a filesystem path.
+
+[#gcc-toolchain]
 == GCC
 
-Supported aliases include the generic `gcc` (whatever `g++` on `PATH` reports) plus versioned names through **gcc16** (for example `gcc15`, `gcc151`, `gcc14`, … down through older releases).
+Supported aliases include the generic `gcc` (whatever `g++` on `PATH` reports) plus versioned names through **gcc16** (for example `gcc15`, `gcc151`, `gcc14`, …).
 Only toolchains actually present on the machine become available.
 
+=== Default compile flags (all GCC versions)
+
+Common C++ flags always include:
+
+* `-Wall` -- enable common warnings
+* `-fexceptions` -- enable exception handling
+* `-g` -- debug information (kept for release as well; optimisation differs by variant)
+
+Common C flags: `-Wall`, `-g`.
+
+Variant-specific additions:
+
+|===
+| Variant | Extra CXX flags | Extra C flags | Extra link flags (Linux)
+
+| `--dbg`
+| _(none beyond common + dialect)_
+| _(none)_
+| see linker defaults below
+
+| `--rel`
+| `-O3`, `-DNDEBUG`, plus LTO when supported (see below)
+| `-O3`, `-DNDEBUG`
+| linker defaults plus the same LTO flags
+
+| `--cov`
+| `--coverage`
+| `--coverage`
+| `--coverage` in addition to linker defaults (no LTO)
+|===
+
+On Linux, link lines also receive `-rdynamic` and `-Wl,-rpath=.` so dynamic symbols remain visible for backtraces/plugins and colocated shared objects resolve at run time.
+
+=== Default dialect by GCC version
+
+Cuppa selects dialect (and related language flags) from the *reported* GCC major/minor:
+
+|===
+| GCC version | Default dialect-related flags
+
+| 4.3–4.6
+| `-std=c++0x`
+
+| 4.7
+| `-std=c++11`
+
+| 4.8–5.1
+| `-std=c++1y`
+
+| 5.2–7.x
+| `-std=c++1z`
+
+| 8–9
+| `-std=c++2a`, `-fconcepts`
+
+| 10
+| `-std=c++2a`, `-fconcepts`, `-fcoroutines`
+
+| 11–13
+| `-std=c++2b`, `-fconcepts`, `-fcoroutines`
+
+| 14+
+| `-std=c++2c`, `-fconcepts`, `-fcoroutines`
+
+| fallback
+| `-std=c++03`
+|===
+
+=== LTO (release only)
+
+Link-time optimisation is applied on the **`--rel`** variant only (compile and link).
+It is not enabled for `--dbg` or `--cov`: LTO raises peak link memory and slows those builds, while the runtime benefit belongs on release.
+
+|===
+| GCC version | `--rel` LTO flags
+
+| before 8
+| _(none)_
+
+| 8–11
+| `-flto`
+
+| 12+
+| `-flto=auto`
+|===
+
+=== Stdlib
+
+GCC uses the system **libstdc++**.
+Cuppa does not pass `-stdlib=` for GCC.
+
+=== Modules (opt-in)
+
+* Floor: GCC **14+** on Linux / macOS
+* Enablement: `-fmodules` plus `-fmodule-mapper=<path>` pointing at cuppa's mapper file under the variant `modules/` directory
+* BMI extension: `.gcm`
+
+See xref:cxx-modules.adoc[C++ modules].
+
+[#clang-toolchain]
 == Clang
 
 Supported aliases include `clang` plus versioned names through **clang22** (for example `clang21`, `clang211`, `clang20`, …).
 
-Clang-specific options:
+=== Default compile flags
 
-* `--clang-stdlib={libstdc++,libc++}` (on Linux defaults to `libstdc++`, so Boost b2 receives an explicit `-stdlib=` flag)
-* `--clang-disable-debug-for-auto`
+Common C++ flags:
 
-== MSVC
+* `-Wall`
+* `-fexceptions`
+* `-g` (omitted only for Clang 3.2–3.5 when `--clang-disable-debug-for-auto` is set)
+* `-stdlib=<lib>` when a stdlib is selected (see below)
+* dialect flags from the version table
+
+Common C flags: `-Wall`, and `-g` under the same debug rule.
+
+Variant-specific additions:
+
+|===
+| Variant | Extra CXX flags | Extra C flags | Extra link flags (Linux)
+
+| `--dbg`
+| _(none beyond common + dialect)_
+| _(none)_
+| `-rdynamic`, `-Wl,-rpath=.`, optional `-stdlib=`
+
+| `--rel`
+| `-O3`, `-DNDEBUG`, plus LTO when supported (see below)
+| `-O3`, `-DNDEBUG`
+| same linker defaults plus the same LTO flags
+
+| `--cov`
+| `--coverage` (plus older Clang gcov format `-Xclang` tweaks when needed)
+| _(coverage driven primarily via CXX)_
+| `--coverage` (no LTO)
+|===
+
+=== Default dialect by Clang version
+
+|===
+| Clang version | Default dialect flags
+
+| 3.2–3.3
+| `-std=c++11`
+
+| 3.4–3.8
+| `-std=c++1y`
+
+| 3.9–5.x
+| `-std=c++1z`
+
+| 6–12
+| `-std=c++2a`
+
+| 13–16
+| `-std=c++2b`
+
+| 17+
+| `-std=c++2c`
+
+| fallback
+| `-std=c++03`
+|===
+
+=== LTO (release only)
+
+Same policy as GCC: LTO is applied on **`--rel`** only (compile and link), not on `--dbg` or `--cov`.
+
+|===
+| Clang version | `--rel` LTO flags
+
+| before 8
+| _(none)_
+
+| 8–16
+| `-flto`, `-ffat-lto-objects`
+
+| 17+
+| `-flto=auto`, `-ffat-lto-objects`
+|===
+
+When LTO is enabled, cuppa also:
+
+* Prefers a version-matched `llvm-ar` / `llvm-ranlib` (for example `llvm-ar-21`) so static archives keep Clang bitcode correctly
+* Adds `-fuse-ld=lld` on the release link line when `lld` / `ld.lld` is available, avoiding binutils `LLVMgold` version mismatches
+
+`-ffat-lto-objects` keeps archives usable even if the system archiver falls back to binutils `ar`.
+
+=== Stdlib selection
+
+* `--clang-stdlib={libstdc++,libc++}`
+* On **Linux**, the default is `libstdc++` so Boost b2 and the rest of the stack see an explicit `-stdlib=` when needed
+* On other platforms the default may be unset (system default)
+* When `libc++` is selected on Linux, cuppa also links `c++abi`, `c++`, `m`, `c`, `gcc_s`, and `gcc` as required by typical libc++ deployments
+
+=== Modules (opt-in)
+
+* Floor: **LLVM** Clang **16+** on Linux / macOS (**Apple Clang is rejected** -- see xref:cxx-modules.adoc#macos-apple-clang[macOS notes])
+* `modules_enable_flags` is intentionally **empty**: cuppa does *not* pass Clang's `-fmodules` (that flag enables *Clang header modules*, which conflict with C++20 header units / `std.cppm`)
+* Interface units: `-x c++-module` and `-fmodule-output=<bmi>`
+* BMI extension: `.pcm`
+* `import std`: Clang **18+** with **libc++**
+
+[#msvc-toolchain]
+== MSVC (`vc` / `cl`)
 
 On Windows, the `cl` toolchain integrates with SCons Visual C++ detection.
-Names are the generic alias `vc` (SCons default install) plus versioned `vc*` names derived from SCons `_VCVER` (for example `vc143`).
+Names are the generic alias `vc` (SCons default install) plus versioned aliases derived from the SCons MSVC **toolset** id:
 
-Capabilities:
+|===
+| SCons / VS toolset | Cuppa `--toolchains=` | Notes
 
-* Debug / release variants with modern defaults (`-EHsc`, `-permissive-`, `-Zc:__cplusplus`, `-utf-8`)
-* C++ dialect via `--stdcpp` / `env.StdCpp(...)`, mapped to MSVC `-std:c++NN` (default `-std:c++20`; hyphen form avoids SCons treating `/std:…` as a Windows path)
-* Host / target architecture maps including **arm64** / **aarch64** (legacy ia64 aliases remain)
+| `14.5`
+| `vc145`
+| VS 2026+ platform toolset *v145*
 
-Limitations:
+| `14.3`
+| `vc143`
+| VS 2022 *v143*
 
-* **Coverage is not supported** for MSVC (`--cov` does not instrument `cl` builds; use GCC or Clang for gcovr coverage)
-* Validate MSVC on Windows (CI uses `windows-latest` with `CUPPA_TEST_TOOLCHAIN=vc`)
+| `14.2` / `14.2Exp`
+| `vc142` / `vc142e`
+| VS 2019 *v142*
 
-== C++ language level
+| `14.1`
+| `vc141`
+| VS 2017 *v141*
+|===
 
-By default each toolchain picks a high compliance mode (MSVC defaults to `/std:c++20`).
-Override globally with `--stdcpp=…` or per env with `env.StdCpp('c++20')`.
+The alias drops the dot so CLI names stay short and match the familiar `v145`-style label (same digit style as `gcc15` / `clang21`).
+Capability floors use this toolset `(major, minor)` -- not compiler marketing strings such as `14.29` / `19.51`.
 
-Allowed `--stdcpp` choices:
+[source,sh]
+----
+cuppa -D --dbg --toolchains=vc
+cuppa -D --dbg --toolchains=vc145
+cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=vc143
+----
 
-`c++98`, `c++03`, `c++0x`, `c++11`, `c++1y`, `c++14`, `c++1z`, `c++17`, `c++2a`, `c++20`, `c++2b`, `c++23`, `c++2c`, `c++26`, `c++latest`.
+=== Default compile and link flags
 
-On MSVC, pre-C++14 aliases map to `/std:c++14` with a warning (MSVC has no matching `/std:` for those dialects).
+Common C++ flags on every MSVC build:
+
+|===
+| Flag | Purpose
+
+| `-W4`
+| High warning level
+
+| `-EHsc`
+| Synchronous exception model with C++ extern "C" defaults
+
+| `-nologo`
+| Suppress banner noise on every invocation
+
+| `-GR`
+| Enable RTTI
+
+| `-permissive-`
+| Stricter standards conformance mode
+
+| `-Zc:__cplusplus`
+| Make `__cplusplus` report the selected standard correctly
+
+| `-utf-8`
+| Source and execution charset UTF-8
+|===
+
+Variant-specific additions:
+
+|===
+| Variant | Extra CXX flags | Link flags
+
+| `--dbg`
+| `-Zi` (debug info), `-MDd` (debug DLL CRT)
+| `-OPT:REF`
+
+| `--rel`
+| `-Ox` (full optimisation), `-MD` (release DLL CRT)
+| `-OPT:REF`
+
+| `--cov`
+| _(not supported -- no instrumentation)_
+| _(not supported)_
+|===
+
+Default dialect flag: `-std:c++20` (overridable via `--stdcpp` / `StdCpp`).
+
+=== Modules (opt-in)
+
+* Floor: toolset **14.2+** (`vc142` and newer)
+* Exported interface units: `-interface`, `-TP`, space-separated `-ifcOutput PATH`
+* Non-exported partitions (`module M:part;`): `-internalPartition`, `-TP`, `-ifcOutput PATH`
+* Consumers: space-separated `-reference name=PATH` (colon-attached forms break on absolute `C:\…` paths)
+* BMI extension: `.ifc`
+* Header units: `-exportHeader` (+ `-headerName:angle` for system headers); consumers use `-headerUnit` / `-headerUnit:angle`
+* `import std`: toolset **14.3+** when STL `modules/std.ixx` is present (compiled with `-interface` / `-ifcOutput`)
+
+=== Limitations
+
+* Coverage is not supported for MSVC
+* Shared libraries that export module symbols still need `__declspec(dllexport)` (or a `.def`) so the linker produces an import library — cuppa does not invent DLL exports from `export` alone
 
 == Tips
 
 * Prefer naming a family (`gcc`, `clang`, `vc`) in everyday builds; pin versions in CI for reproducibility.
 * Coverage and test grids should run gcc and clang as separate invocations (or clearly separated report trees), not as one blended instrumentation set.
+* Override defaults with `env.StdCpp`, `env.ReplaceFlags` / `RemoveFlags`, or `env.AppendUnique(CXXFLAGS=…)` after you understand the baseline above.
 * When debugging toolchain detection, use `--verbosity=debug` and `--dump`.

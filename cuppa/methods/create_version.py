@@ -15,6 +15,9 @@ class CreateVersionMethod:
 
 
     def __call__( self, env, target, source, namespaces, version, location=None, build_id=None ):
+        # CreateVersion emits a generated source node but does not call
+        # NotifyProgress. Callers typically pass that node into Build/Compile,
+        # whose targets already participate in the variant progress chain.
         location = location and location or env['base_path']
         create_version_file_builder = env['toolchain'].version_file_builder( env, namespaces, version, location=location, build_id=build_id )
         create_version_file_emitter = env['toolchain'].version_file_emitter( env, namespaces, version, location=location, build_id=build_id )

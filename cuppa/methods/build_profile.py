@@ -24,6 +24,8 @@ class BuildProfileException(Exception):
 class BuildProfileMethod:
 
     def __call__( self, env, profiles ):
+        # Profile initialisation/configuration only: mutates env flags/settings
+        # and emits no build action nodes, so NotifyProgress is not used.
         # Ensure we have a list of profiles
         profiles = Flatten( profiles )
 
