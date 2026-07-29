@@ -1,0 +1,90 @@
+= `test_custom_commands` — working directories and `cuppa.utility.command.run`
+:description: Cuppa integration tests for methods.adoc custom-command examples (#14)
+
+These scenarios mirror the examples under xref:methods.adoc#custom-commands-and-working-directories[Custom commands and working directories].
+
+== What is tested
+
+1. `BuildTest(..., working_dir=env['abs_final_dir'])` runs the test with subprocess `cwd` set (no `cd && …` shell string).
+2. `cuppa.utility.command.run(..., working_dir=…, completion_file=…)` on `env.Command` is parallel-safe and creates the marker under `final/`.
+3. A multi-part shell `Action("cd … && …")` fails when cuppa’s coloured `SPAWN` uses argv (without `--use-shell`).
+
+== Generated files
+
+=== `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== BuildTest + `working_dir` — `sconscript`
+
+[source,python]
+----
+Import('env')
+env.BuildTest(
+    'cwd_probe',
+    ['cwd_probe.cpp'],
+    working_dir=env['abs_final_dir'],
+)
+----
+
+`cwd_probe.cpp` writes `cwd_probe.txt` into the process current directory.
+
+=== `command.run` + `cwd` — `sconscript`
+
+[source,python]
+----
+Import('env')
+import os
+from cuppa.utility.command import run
+
+tool = env.Build('tool', ['tool.cpp'])
+marker = env.File(os.path.join(env['abs_final_dir'], 'tool.done'))
+tool_cmd = '{} --self-check'.format(os.path.join('.', 'tool' + env['PROGSUFFIX']))
+
+env.Command(
+    marker,
+    tool,
+    run(tool_cmd, working_dir=env['abs_final_dir'], completion_file=marker),
+)
+----
+
+=== Multi-part shell anti-pattern — `sconscript`
+
+[source,python]
+----
+Import('env')
+import os
+from SCons.Script import Action
+
+tool = env.Build('tool', ['tool.cpp'])
+marker = env.File(os.path.join(env['abs_final_dir'], 'shell.done'))
+shell_cmd = 'cd {} && {} --self-check'.format(
+    env['abs_final_dir'],
+    os.path.join('.', 'tool' + env['PROGSUFFIX']),
+)
+env.Command(marker, tool, Action(shell_cmd))
+----
+
+== Commands
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg --test
+cuppa -D --offline --toolchains=gcc --dbg --parallel
+cuppa -D --offline --toolchains=gcc --dbg
+----
+
+== Expectations
+
+- BuildTest + `working_dir`: exit 0; `cwd_probe` under `final/`; `cwd_probe.txt` under `final/`.
+- `command.run`: exit 0; `tool` and `tool.done` under `final/`; `cwd_probe.txt` under `final/`.
+- Multi-part shell Action: non-zero exit; no `shell.done` under `_build`.
+
+'''
+
+Related test module: `tests/integration/methods/test_custom_commands.py`.

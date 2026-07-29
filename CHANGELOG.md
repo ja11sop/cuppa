@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [1.2.4] - 2026-07-29
+
+### Changed
+
+- Document parallel-safe alternatives to multi-part shell Actions (`working_dir`, `cuppa.utility.command.run` with `cwd=`) and clarify `--use-shell` as an escape hatch (#14).
+- Integration tests for the custom-command / `working_dir` documentation examples (`test_custom_commands`).
+
 ## [1.2.3] - 2026-07-29
 
 ### Changed

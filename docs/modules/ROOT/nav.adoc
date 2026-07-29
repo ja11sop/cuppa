@@ -24,6 +24,7 @@
 ** xref:integration/test-compile.adoc[Compile]
 ** xref:integration/test-glob.adoc[Glob]
 ** xref:integration/test-run-actions.adoc[Run and Benchmark]
+** xref:integration/test-custom-commands.adoc[Custom commands and working directories]
 ** xref:integration/test-flags.adoc[Flags]
 ** xref:integration/test-modules.adoc[C++ modules]
 ** xref:integration/test-copy-and-target.adoc[CopyFiles and TargetFrom]

@@ -66,6 +66,9 @@ cuppa.run(default_variants=['dbg'])
 | `Run`, `Benchmark`, `BuildBenchmark`
 | xref:integration/test-run-actions.adoc[]
 
+| `working_dir`, `cuppa.utility.command.run`, multi-part shell anti-pattern
+| xref:integration/test-custom-commands.adoc[]
+
 | `StdCpp`, `Filter`, `ReplaceFlags`, `RemoveFlags`
 | xref:integration/test-flags.adoc[]
 
