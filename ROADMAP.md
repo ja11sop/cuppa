@@ -10,7 +10,7 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-07-29
+**As of:** 2026-07-30
 
 ---
 
@@ -91,6 +91,80 @@ Companion canvas (optional): Cursor canvas `cxx-modules-status`.
 | `apple-emulation` | Emulating Apple Clang modules without vendor support | Prefer fail-clearly |
 
 Boost / package-registry packaging work is tracked separately from modules.
+
+---
+
+## SCons Tool dependencies (#27)
+
+Goal: make it trivial to wrap an existing **SCons Tool** so it appears as a normal Cuppa dependency (`env.BuildWith('…')`), with variants, toolchains, methods, and **pip-installable** discovery via `cuppa.dependency.plugins`.
+
+In-tree references today: [`cuppa/dependencies/build_with_qt4.py`](cuppa/dependencies/build_with_qt4.py) and [`build_with_qt5.py`](cuppa/dependencies/build_with_qt5.py) — each detects an install, then calls `SCons.Script.Tool('qtN', toolpath=[…])(env)` inside `__call__`.
+
+### Today
+
+| Capability | Status |
+|------------|--------|
+| Hand-written Tool-backed deps (Qt4/Qt5) | Yes |
+| `cuppa.dependency.plugins` entry points | Yes (construct loads them) |
+| Generic Tool → dependency factory | No |
+| Documented pip packaging for Tool wrappers | No |
+
+### Planned / potential
+
+| ID | Work | Priority | Notes |
+|----|------|----------|-------|
+| `scons-tool-dep` | Public `scons_tool_dependency(...)` (or equivalent) factory: name, Tool id, toolpath/location, prepare/after hooks; registers via `add_dependency` | High | Extract the Qt pattern without requiring Qt-specific detection in the core facility |
+| `scons-tool-pip` | Docs + minimal example package: `setup.cfg` / `pyproject.toml` entry point under `cuppa.dependency.plugins`; install via `requirements.txt` | High | Same discovery path as other Cuppa plugins |
+| `scons-tool-tests` | Unit test with a tiny fake Tool; optional integration smoke | High | No Qt install required in CI |
+| `scons-tool-qt-migrate` | Optionally refactor in-tree Qt4/Qt5 onto the facility | Later | Keep Qt-specific pkg-config / `QTnDIR` detection as hooks, not in the generic core |
+
+### Out of scope (SCons Tools)
+
+| ID | Item | Reason |
+|----|------|--------|
+| `rewrite-tools` | Rewriting upstream SCons Tools as Cuppa-native code | Wrappers should consume Tools as-is |
+| `auto-toolpath-scan` | Scanning the whole system for arbitrary Tools without declaration | Explicit name + toolpath/location keeps builds reproducible |
+
+Tracked as GitHub issue [#27](https://github.com/ja11sop/cuppa/issues/27).
+
+---
+
+## Conan consumer integration (#29)
+
+Goal: optional **Conan 2 consumer** support so projects can pull mainstream packages (fmt, OpenSSL, …) and apply them through `env.BuildWith`, without making Conan Cuppa’s orchestrator or replacing location/GitLab package deps.
+
+Detailed exploration, trade-offs, and API sketches: [`CONAN_CONSUMER_PLAN.md`](CONAN_CONSUMER_PLAN.md).
+
+### Today
+
+| Capability | Status |
+|------------|--------|
+| `location_dependency` / git-style deps | Yes |
+| GitLab `package_dependency` | Yes |
+| Conan install → Cuppa env flags | Yes (optional; `conan_deps` / SConsDeps) |
+
+### Planned / potential
+
+| ID | Work | Priority | Notes |
+|----|------|----------|-------|
+| `conan-spike` | Spike **SConsDeps** + `MergeFlags` + fmt hello (no pkg-config on happy path) | Done | Evidence locked generator for Phase 1 |
+| `conan-consume` | `conan_deps` / `conan_dependency`; fingerprint cache + lock; runtime ENV; `BuildWith` | Done | Consumer only; Conan 2 + SConsDeps (`cuppa/build_with_conan.py`) |
+| `conan-reuse` | Consume pre-run `conan install` output folder (`generators_folder`) | Medium | CI-friendly; Approach C |
+| `conan-json` | Custom CuppaDeps/JSON only if SConsDeps proves insufficient | Later | Not on critical path |
+| `conan-pkgconfig` | Document PkgConfigDeps as optional fallback | Later | Not MVP default |
+| `conan-docs-pip` | Docs + optional thin pip plugin example | Medium | Same discovery story as #27 |
+
+### Out of scope (Conan)
+
+| ID | Item | Reason |
+|----|------|--------|
+| `conan-orchestrator` | Conan as primary build driver / required dependency manager | Cuppa stays the orchestrator |
+| `conan1` | First-class Conan 1.x | Conan 2 only unless a thin shim appears later |
+| `conancenter-vendor` | Hosting/mirroring ConanCenter inside Cuppa | Not a package host |
+| `conan-cross-mvp` | Build vs host profiles / cross in Phase 1 | Host-only MVP |
+| `conan-tool-requires` | `tool_requires` / codegen plugins in MVP | Document limitation; later |
+
+Tracked as GitHub issue [#29](https://github.com/ja11sop/cuppa/issues/29).
 
 ---
 

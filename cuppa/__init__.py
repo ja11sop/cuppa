@@ -76,6 +76,9 @@ from cuppa.build_with_location import location_dependency as header_library_depe
 
 from cuppa.build_with_package import package_dependency
 
+from cuppa.build_with_conan import conan_deps
+from cuppa.build_with_conan import conan_dependency
+
 import cuppa.packages.boost_package
 
 import cuppa.build_with_profile
