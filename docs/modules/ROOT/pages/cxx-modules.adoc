@@ -207,7 +207,7 @@ env.Build('math_app', ['math.cppm', 'main.cpp'])
 Cuppa scans sources for `export module` / `module` / `import`, builds the BMI under `_build/.../working/modules/`, and wires SCons `Depends` so the interface compiles before the consumer.
 BMI nodes are **pre-registered** for every unit in the source list, so partitions may appear before or after the primary interface.
 
-Alternatively, use the `Module` sugar (compiles the interface, registers the BMI, and links objects into a later `Build` in the same sconscript):
+Alternatively, use the `Module` convenience method (compiles the interface, registers the BMI, and links objects into a later `Build` in the same sconscript):
 
 [source,python]
 ----

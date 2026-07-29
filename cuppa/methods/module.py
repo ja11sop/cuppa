@@ -4,7 +4,7 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   Module method — sugar for interface (+ optional implementation) sources
+#   Module method — convenience wrapper for interface (+ optional implementation)
 #-------------------------------------------------------------------------------
 
 from SCons.Script import Flatten
@@ -28,9 +28,9 @@ class ModuleMethod:
             sources.extend( Flatten( [ implementation ] ) )
         if not sources:
             return []
-        # No direct NotifyProgress call here: Module() is orchestration sugar.
-        # Progress wiring is owned by env.Compile()/compile_with_modules(),
-        # which NotifyProgress the BMIs/objects they produce.
+        # No direct NotifyProgress call here: Module() is a convenience method
+        # that delegates to env.Compile()/compile_with_modules(), which
+        # NotifyProgress the BMIs/objects they produce.
         objects = env.Compile( sources, **kwargs )
         pending = env.setdefault( '_cuppa_module_objects', [] )
         for obj in Flatten( [ objects ] ):

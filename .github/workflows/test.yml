@@ -171,7 +171,7 @@ jobs:
           pytest -m integration -q \
             tests/integration/methods/test_modules.py::test_named_module_build \
             tests/integration/methods/test_modules.py::test_header_unit_build \
-            tests/integration/methods/test_modules.py::test_module_sugar_build \
+            tests/integration/methods/test_modules.py::test_module_method_build \
             tests/integration/methods/test_modules.py::test_interface_partition_build \
             tests/integration/methods/test_modules.py::test_implementation_unit_build \
             tests/integration/methods/test_modules.py::test_ixx_interface_smoke \

@@ -12,7 +12,7 @@ Cuppa can remember command-line choices so you do not re-type local paths and de
 | `~/.cuppaconfig` | Global (loaded first; project file overrides)
 |===
 
-Format is simple `key = value` lines; values are parsed with `ast.literal_eval`.
+Format is `key = value` lines; values are parsed with `ast.literal_eval`.
 
 == Managing configuration
 

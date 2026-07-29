@@ -104,8 +104,10 @@ Release checklist: see `release.txt` (`sdist` / `bdist_wheel` / `twine`).
 - Canonical reference: Antora under `docs/` → https://ja11sop.github.io/cuppa/
 - Further reading (talks / Clearpool posts): `docs/modules/ROOT/pages/index.adoc` (Further reading) and https://clearpool.io/tag/cuppa
 - Lint settings / ignore rationale: `docs/modules/ROOT/pages/linting.adoc`
-- Preview docs: `cd docs && npm ci && npm run build` → `_docs_build/site/` (Lunr search via `@antora/lunr-extension`)
+- Preview docs: `cd docs && npm ci && npm run build` → `_docs_build/site/` (Lunr search via `@antora/lunr-extension`; diagrams via `asciidoctor-kroki`)
 - Integration test scenarios: Antora **Integration tests** section (`docs/modules/ROOT/pages/integration/`)
+
+**Diagrams:** Antora 3 uses Asciidoctor.js, so the Ruby gem `asciidoctor-diagram` cannot be registered as an Antora AsciiDoc extension. Use `asciidoctor-kroki` (`docs/playbook.yml`, pin `0.18.x` for Asciidoctor.js 2 / Antora 3) with Mermaid/PlantUML blocks and `kroki-fetch-diagram: true` so images are fetched at site-build time.
 
 When docs and code disagree, **code is authoritative** (especially storage defaults, toolchain version lists, default compiler flags, and whether `--cov` implies `--test`).
 
@@ -157,6 +159,7 @@ Technical documentation should be:
 Write clearly without assuming background knowledge. Provide explanations and context readers need to understand concepts, not just copy code.
 
 Avoid words like "simple," "straightforward," "easy," "simply," "obviously," and "just." These make assumptions about the reader's knowledge. A reader who hears something is "easy" may be frustrated when they encounter an issue.
+Prefer precise terms over colloquial ones (for example "convenience method" instead of "sugar", "compatibility wrapper" instead of slangy shorthand).
 
 ## Technically Detailed and Correct
 

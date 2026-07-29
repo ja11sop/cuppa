@@ -339,7 +339,7 @@ def test_library_with_named_module(tmp_path):
     assert static_libs
 
 
-def test_module_sugar_build(tmp_path):
+def test_module_method_build(tmp_path):
     _, toolchain_flag = _modules_toolchain_flag()
     project = _copy_modules_project(tmp_path)
     write_sconstruct(project)
@@ -347,11 +347,11 @@ def test_module_sugar_build(tmp_path):
         project,
         "Import('env')\n"
         "env.Module('math', interface='math.cppm')\n"
-        "env.Build('math_sugar_app', ['apps/main.cpp'])\n",
+        "env.Build('math_module_app', ['apps/main.cpp'])\n",
     )
     result = run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag)
     assert_success(result)
-    assert find_final_binaries(project, "math_sugar_app")
+    assert find_final_binaries(project, "math_module_app")
 
 
 def test_cxxm_interface_smoke(tmp_path):

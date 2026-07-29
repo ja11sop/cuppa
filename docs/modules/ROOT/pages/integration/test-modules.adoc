@@ -36,7 +36,7 @@ Covered by `tests/integration/methods/test_modules.py` using
 | Producer `final/modules` + consumer `ImportModules`
 | Cross-project BMI map
 
-| `test_module_sugar_build`
+| `test_module_method_build`
 | `env.Module(...)` then `Build`
 |
 
@@ -85,6 +85,6 @@ Covered by `tests/integration/methods/test_modules.py` using
 
 * Linux CI: full suite × `gcc`, `clang`+libstdc++, `clang`+libc++
 * Windows CI: full integration with `vc` (header units, `import std` when `std.ixx` present, shared libs with DLL exports)
-* macOS CI: Homebrew LLVM + libc++ — named, header, sugar, partitions, implementation units, `.ixx`, packaging, `import std`
+* macOS CI: Homebrew LLVM + libc++ — named, header, `Module` method, partitions, implementation units, `.ixx`, packaging, `import std`
 * `import std` on Clang may select a versioned toolchain that ships `std.cppm`
 * Too-old GCC/Clang on Linux **fail** rather than skip
