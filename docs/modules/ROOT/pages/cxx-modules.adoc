@@ -246,6 +246,20 @@ Interface units use `.cppm` / `.cxxm` / `.ccm` / `.ixx` (or a `.cpp` that contai
 
 == Named modules
 
+[mermaid]
+....
+flowchart TD
+    IF["Interface unit — export module math"] --> BMI["BMI (.gcm / .pcm / .ifc)"]
+    IF --> IO[interface object]
+    IMPL["Implementation unit — module math"] --> OO[implementation object]
+    MAIN["Consumer TU — import math"] --> CO[consumer object]
+    BMI --> MAIN
+    IO --> LINK[link]
+    OO --> LINK
+    CO --> LINK
+    LINK --> APP[final executable]
+....
+
 [source,python]
 ----
 Import('env')
@@ -283,6 +297,16 @@ Same pattern works with `BuildSharedLib` on platforms where the shared library a
 
 [[packaged-modules]]
 == Packaged modules (cross-project)
+
+[mermaid]
+....
+flowchart TD
+    P[Producer BuildLib / BuildStaticLib / BuildSharedLib] --> M["final/modules/ — module-map.json + BMIs"]
+    M --> PKG[PublishPackage includes modules/]
+    PKG --> CON[Consumer BuildWith / package_dependency]
+    CON --> IMP["ImportModules(package_dir/modules)"]
+    IMP --> CBUILD[Consumer Build / Test imports producer modules]
+....
 
 When `--modules` is enabled, `BuildLib` / `BuildStaticLib` / `BuildSharedLib` install named-module
 BMIs under `final/modules/` and write `module-map.json`. Consumers in another project (or after

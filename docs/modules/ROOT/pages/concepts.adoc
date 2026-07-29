@@ -9,6 +9,7 @@ Cuppa uses a small vocabulary so `sconstruct` / `sconscript` files stay declarat
 Build helpers registered on the SCons environment, for example `env.Build()`, `env.BuildTest()`, `env.BuildWith()`, `env.Compile()`, and `env.CreateVersion()`.
 They differ from raw SCons builders (`Program`, `Object`) by understanding variants, toolchains, progress reporting, and cuppa's output layout.
 See xref:methods.adoc[Methods].
+For how progress events are scoped to avoid cross-variant coupling, see xref:methods.adoc#progress-tracking-and-variant-scoping[Progress tracking and variant scoping].
 
 [#dependencies]
 == Dependencies

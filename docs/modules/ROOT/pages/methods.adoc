@@ -14,6 +14,33 @@ For compiler defaults applied underneath these calls, see xref:toolchains.adoc[T
 * Familiarity with `Import('env')` in a `sconscript`
 * A C++ toolchain available to cuppa (`gcc`, `clang`, or `vc` on Windows)
 
+== Progress tracking and variant scoping
+
+Cuppa wires build progress through `cuppa.progress.NotifyProgress` so each build variant reports begin/start/finish/end in a predictable order.
+
+`NotifyProgress` is attached to methods that emit build action nodes (`Build`, `Compile`, `Test`, coverage collation, doc builders, and so on).
+Methods that only mutate env state or select nodes (`StdCpp`, `BuildWith`, `Filter`, `RecursiveGlob`, `ImportModules`, etc.) do **not** call it directly.
+
+The important behavior is that progress edges are scoped by **sconscript + variant**, not just by variant name.
+That prevents unrelated sconscript graphs from being coupled when multiple variants are built together.
+
+[mermaid]
+....
+flowchart TD
+    SB[SconstructBegin] --> B[Begin sconscript]
+    B --> ST[Starting sconscript + variant]
+    ST --> T[Method targets]
+    T --> F[Finished sconscript + variant]
+    F --> E[End sconscript]
+    E --> SE[SconstructEnd]
+....
+
+Practical rules when adding or changing methods:
+
+* If a method creates SCons action nodes, wire `NotifyProgress.add(env, targets)` (or delegate to a method that already does).
+* If a method only configures env or returns filtered/existing nodes, do not add progress wiring.
+* Keep progress wiring on the same variant env that creates the nodes.
+
 == Core build methods
 
 === Building a program with `Build`

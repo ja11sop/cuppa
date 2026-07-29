@@ -17,6 +17,20 @@ These defaults live in `cuppa/core/storage_options.py`. Older documentation refe
 
 Under the build root, cuppa separates toolchains and variants:
 
+[mermaid]
+....
+flowchart TD
+    BR["_build / --build-root"] --> SP[sconscript path]
+    SP --> TC[toolchain]
+    TC --> V["variant (dbg / rel / cov)"]
+    V --> AR[target_arch]
+    AR --> ABI[abi]
+    ABI --> W["working/ — objects, BMIs, intermediates"]
+    ABI --> F["final/ — binaries, collated outputs"]
+....
+
+Concrete path templates:
+
 ----
 <build_root>/<sconscript_path>/<toolchain>/<variant>/<target_arch>/<abi>/working/
 <build_root>/<sconscript_path>/<toolchain>/<variant>/<target_arch>/<abi>/final/
