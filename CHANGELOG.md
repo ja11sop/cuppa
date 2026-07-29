@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fail configure with `StopError` when `--toolchains` matches no available toolchain instead of falling back to the platform default (#69).
 - Honour project `default_variants` when only an action such as `--test` is active (#47).
+- Avoid unused local typedef warnings in generated `version.cpp` when `CreateVersion` has no dependency entries (#25).
 
 ### Security
 

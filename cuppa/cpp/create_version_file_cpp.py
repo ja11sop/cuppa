@@ -249,28 +249,34 @@ class CreateVersionFileCpp:
         lines += [ '\nidentity::dependencies_t initialise_dependencies()\n'
                    '{\n'
                    '    typedef identity::dependencies_t dependencies_t;\n'
-                   '    typedef identity::dependency_t   dependency_t;\n'
-                   '    typedef identity::revisions_t    revisions_t;\n'
                    '    dependencies_t Dependencies;' ]
+
+        dependency_entries = []
         for name in dependencies:
             if name in self.__env['dependencies']:
                 dependency_factory = self.__env['dependencies'][name]
                 dependency = dependency_factory( self.__env )
+                dependency_entries.append( ( name, dependency ) )
 
-                lines += [ '    Dependencies[ "' +  name + '" ] = dependency_t( "'
-                               + try_attr_as_str( dependency, "name", "N/A" ) + '", "'
-                               + try_attr_as_str( dependency, "version", "N/A" ) + '", "'
-                               + try_attr_as_str( dependency, "repository", "N/A" ) + '", "'
-                               + try_attr_as_str( dependency, "branch", "N/A" )
-                               + '", revisions_t() );' ]
-                try:
-                    if callable( getattr( dependency, 'revisions' ) ):
-                        revisions = dependency.revisions()
-                        if revisions:
-                            for revision in revisions:
-                                lines += [ '    Dependencies[ "' +  name + '" ].revisions.push_back( "' + str(revision) + '" );' ]
-                except AttributeError:
-                    pass
+        if dependency_entries:
+            lines += [ '    typedef identity::dependency_t   dependency_t;\n'
+                       '    typedef identity::revisions_t    revisions_t;' ]
+
+        for name, dependency in dependency_entries:
+            lines += [ '    Dependencies[ "' +  name + '" ] = dependency_t( "'
+                           + try_attr_as_str( dependency, "name", "N/A" ) + '", "'
+                           + try_attr_as_str( dependency, "version", "N/A" ) + '", "'
+                           + try_attr_as_str( dependency, "repository", "N/A" ) + '", "'
+                           + try_attr_as_str( dependency, "branch", "N/A" )
+                           + '", revisions_t() );' ]
+            try:
+                if callable( getattr( dependency, 'revisions' ) ):
+                    revisions = dependency.revisions()
+                    if revisions:
+                        for revision in revisions:
+                            lines += [ '    Dependencies[ "' +  name + '" ].revisions.push_back( "' + str(revision) + '" );' ]
+            except AttributeError:
+                pass
         lines += [ '    return Dependencies;\n'
                    '}\n'
                    '\n'

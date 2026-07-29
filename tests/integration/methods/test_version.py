@@ -28,3 +28,9 @@ def test_create_version(tmp_path):
     assert_success(result)
     version_files = list(find_under_build(project, "version.cpp"))
     assert version_files
+    assert "unused-local-typedefs" not in result.stdout
+    init_fn = version_files[0].read_text().split("initialise_dependencies()")[1].split(
+        "identity::Dependencies_"
+    )[0]
+    assert "typedef identity::dependency_t" not in init_fn
+    assert "typedef identity::revisions_t" not in init_fn
