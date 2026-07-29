@@ -17,11 +17,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Fail configure with `StopError` when `--toolchains` matches no available toolchain instead of falling back to the platform default (#69).
-- Honour project `default_variants` when only an action such as `--test` is active (#47).
+### Security
+
+## [1.2.3] - 2026-07-29
+
+### Changed
+
+- Dual-barreled methods use explicit Depends names: `build_depends_on` and `test_depends_on` on `BuildTest`; `build_depends_on` and `benchmark_depends_on` on `BuildBenchmark`. Legacy `depends_on` / `data` remain as aliases and merge when both are set (#34).
+- Single-barreled `Test` / `Benchmark` / `Run` prefer `depends_on` for run-side Depends; `data` remains a legacy alias (#34).
+- Methods docs document `BuildTest`, `Test`, `BuildBenchmark`, `Benchmark`, and `Run` separately, with preferred parameters listed before deprecated aliases.
+
+## [1.2.2] - 2026-07-29
+
+### Fixed
+
 - Avoid unused local typedef warnings in generated `version.cpp` when `CreateVersion` has no dependency entries (#25).
 
-### Security
+## [1.2.1] - 2026-07-29
+
+### Fixed
+
+- Fail configure with `StopError` when `--toolchains` matches no available toolchain instead of falling back to the platform default (#69).
+- Honour project `default_variants` when only an action such as `--test` is active (#47).
 
 ## [1.2.0] - 2026-07-29
 

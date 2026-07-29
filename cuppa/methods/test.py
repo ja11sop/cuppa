@@ -10,7 +10,7 @@
 
 import cuppa.progress
 
-from SCons.Script import Flatten
+from cuppa.utility.depends import with_depends
 
 
 class TestMethod(object):
@@ -19,7 +19,20 @@ class TestMethod(object):
         self._default_runner = default_test_runner
 
 
-    def __call__( self, env, source, target=None, final_dir=None, data=None, runner=None, expected='passed', command=None, expected_exit_code=None, working_dir=None ):
+    def __call__(
+            self,
+            env,
+            source,
+            target=None,
+            final_dir=None,
+            data=None,
+            depends_on=None,
+            runner=None,
+            expected='passed',
+            command=None,
+            expected_exit_code=None,
+            working_dir=None
+    ):
 
         actions = env['variant_actions']
 
@@ -42,9 +55,10 @@ class TestMethod(object):
 
             env['BUILDERS']['TestBuilder'] = env.Builder( action=test_builder, emitter=test_emitter )
 
-            sources = source
-            if data:
-                sources = Flatten( [ source, data ] )
+            # depends_on is preferred; data is a legacy alias. Both merge into
+            # the TestBuilder sources (SCons Depends / rebuild association), not
+            # program argv — use command / expected_exit_code for that.
+            sources = with_depends( source, depends_on, data )
 
             test = env.TestBuilder( [], sources )
             if 'force_test' in env['variant_actions'].keys():

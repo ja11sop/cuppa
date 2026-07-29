@@ -1,4 +1,3 @@
-
 #          Copyright Jamie Allsop 2011-2024
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
@@ -9,6 +8,8 @@
 #-------------------------------------------------------------------------------
 
 from SCons.Script import Flatten
+
+from cuppa.utility.depends import merge_depends
 
 
 class BuildTestMethod:
@@ -21,8 +22,11 @@ class BuildTestMethod:
             self,
             env, target, source,
             final_dir=None,
-            data=None,
+            build_depends_on=None,
+            test_depends_on=None,
+            # Legacy aliases (prefer build_depends_on / test_depends_on)
             depends_on=None,
+            data=None,
             append_variant=None,
             runner=None,
             expected='passed',
@@ -38,7 +42,14 @@ class BuildTestMethod:
         nodes = []
         # No direct NotifyProgress call here: Build()/Test()/Coverage() each
         # NotifyProgress the nodes they produce.
-        program = env.Build( target, source, final_dir=final_dir, append_variant=append_variant, depends_on=depends_on, **kwargs )
+        program = env.Build(
+            target,
+            source,
+            final_dir=final_dir,
+            append_variant=append_variant,
+            depends_on=merge_depends( build_depends_on, depends_on ),
+            **kwargs
+        )
         nodes.append( program )
 
         actions = env['variant_actions']
@@ -47,9 +58,11 @@ class BuildTestMethod:
             if not runner:
                 runner = self._default_runner
 
+            # test_depends_on preferred; data is a legacy alias. Neither is argv.
             test = env.Test(
                 program,
                 final_dir=final_dir,
+                depends_on=test_depends_on,
                 data=data,
                 runner=runner,
                 expected=expected,

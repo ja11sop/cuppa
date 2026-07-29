@@ -10,8 +10,7 @@
 
 import cuppa.progress
 from cuppa.method_helpers.run_process import runner
-
-from SCons.Script import Flatten
+from cuppa.utility.depends import with_depends
 
 
 class RunMethod(object):
@@ -53,13 +52,8 @@ class RunMethod(object):
 
             env['BUILDERS']['RunBuilder'] = env.Builder( action=action, emitter=emitter )
 
-            sources = source
-
-            # data should be deprecated in favour of depends_on
-            if data:
-                sources = Flatten( source and [ source, data ] or [data] )
-            if depends_on:
-                sources = Flatten( source and [ source, depends_on ] or [depends_on] )
+            # depends_on preferred; data is a legacy alias. Both merge.
+            sources = with_depends( source, depends_on, data )
 
             run_process = env.RunBuilder( [], sources )
             if any( force_action in self._force_action_keys for force_action in env['variant_actions'].keys() ):

@@ -121,7 +121,7 @@ With `--modules` enabled, library builds that contain named module interfaces al
 NOTE: On Windows, MSVC *module* export is not the same as *DLL* export.
 A shared library may need `__declspec(dllexport)` (or a module-definition file) before the linker produces an import `.lib`.
 
-=== Testing with `BuildTest` and `Test`
+=== Testing with `BuildTest`
 
 `env.BuildTest(target, source, …)` builds a program and, when `--test` or `--force-test` is active, runs it through the configured runner.
 
@@ -141,7 +141,7 @@ cuppa -D --dbg --test --show-test-output
 
 `--show-test-output` prints runner output instead of only the pass/fail summary.
 
-Useful `BuildTest` parameters:
+Preferred parameters:
 
 |===
 | Parameter | Role
@@ -155,32 +155,119 @@ Useful `BuildTest` parameters:
 | `expected_exit_code`
 | Override the expected process exit code
 
-| `data`
-| Extra files/directories associated with the test
+| `build_depends_on`
+| Extra SCons Depends for the *build* (compile/link)
+
+| `test_depends_on`
+| Extra files/nodes associated with the *test run* (rebuild/re-run when they change)
 
 | `working_dir`
 | Directory in which to run the test
+
+| `command`
+| Override the command used to invoke the test binary (use this for CLI arguments)
 
 | `cov_include_patterns` / `cov_exclude_patterns`
 | Narrow coverage instrumentation when combined with `--cov`
 |===
 
+IMPORTANT: `test_depends_on` adds nodes to the test builder's source list so SCons re-runs the test when those files change.
+It is *not* passed as command-line arguments to the test program.
+Use `command` (or a wrapper) when the program must receive paths on argv.
+
+Deprecated aliases (still accepted; prefer the names above):
+
+|===
+| Alias | Prefer instead
+
+| `depends_on`
+| `build_depends_on`
+
+| `data`
+| `test_depends_on`
+|===
+
+When both a preferred name and its alias are supplied, the lists are merged.
+
+Toolchain-specific aliases such as `BuildBoostTest` appear when the toolchain advertises those runners.
+
+=== Testing with `Test`
+
 `env.Test(program, …)` attaches a test action to an *existing* binary (for example one produced by `Build`).
 
-Toolchain-specific aliases such as `BuildBoostTest` / `BoostTest` appear when the toolchain advertises those runners.
+[source,python]
+----
+Import('env')
 
-=== Benchmarks and generic runs
+prog = env.Build('unit_tests', ['tests.cpp'])
+env.Test(prog, depends_on=['fixtures/input.txt'])
+----
 
-* `env.BuildBenchmark` / `env.Benchmark` -- same shape as tests, activated by `--benchmark` / `--force-benchmark`
-* `env.Run` -- generic process runner activated by `--run` / `--force-run` (and also available alongside test/benchmark actions)
+Preferred parameters:
+
+|===
+| Parameter | Role
+
+| `depends_on`
+| Extra files/nodes associated with the test run (rebuild/re-run when they change)
+
+| `runner` / `expected` / `expected_exit_code` / `command` / `working_dir`
+| Same meaning as on `BuildTest`
+|===
+
+Deprecated aliases:
+
+|===
+| Alias | Prefer instead
+
+| `data`
+| `depends_on`
+|===
+
+When both `depends_on` and `data` are supplied, the lists are merged.
+`depends_on` / `data` are *not* program argv — use `command` for that.
+
+Toolchain-specific aliases such as `BoostTest` appear when the toolchain advertises those runners.
+
+=== Benchmarks with `BuildBenchmark`
+
+`env.BuildBenchmark(target, source, …)` builds a program and, when `--benchmark` or `--force-benchmark` is active, runs it through the configured runner.
+
+Preferred parameters mirror `BuildTest`, with explicit Depends names:
+
+|===
+| Parameter | Role
+
+| `build_depends_on`
+| Extra SCons Depends for the *build* (compile/link)
+
+| `benchmark_depends_on`
+| Extra files/nodes associated with the *benchmark run*
+|===
+
+Deprecated aliases: `depends_on` → `build_depends_on`; `data` → `benchmark_depends_on`.
+
+=== Benchmarks with `Benchmark`
+
+`env.Benchmark(program, …)` attaches a benchmark action to an existing binary.
+
+Preferred: `depends_on` for run-side Depends.
+Deprecated alias: `data`.
+
+=== Generic runs with `Run`
+
+`env.Run` is a generic process runner activated by `--run` / `--force-run` (and also available alongside test/benchmark actions).
 
 [source,python]
 ----
 Import('env')
 
 env.Build('tool', ['tool.cpp'])
-env.Run('tool', command_args=['--self-check'])
+env.Run('tool', command_args=['--self-check'], depends_on=['config.json'])
 ----
+
+Preferred: `depends_on` for run-side Depends; `command_args` for argv.
+Deprecated alias: `data`.
 
 == Dependencies and profiles
 
