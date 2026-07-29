@@ -41,6 +41,101 @@ MsvcToolsetVersion = namedtuple(
 # C++20 named modules: VS 2019 toolset family onward (SCons "14.2"+).
 MODULES_MIN_MSVC_TOOLSET = ( 14, 2 )
 
+# import std ships with VS 2022 17.5+ STL (toolset 14.3 family); still gate on std.ixx.
+IMPORT_STD_MIN_MSVC_TOOLSET = ( 14, 3 )
+
+
+def find_msvc_modules_dir( env=None ):
+    """
+    Locate the MSVC STL ``modules`` directory that holds ``std.ixx``.
+
+    Search order: ``VCToolsInstallDir`` (env / process), walk up from ``cl.exe``,
+    then common Visual Studio install layouts.
+    """
+    candidates = []
+
+    def _add( path ):
+        if path and path not in candidates:
+            candidates.append( path )
+
+    def _from_vctools( root ):
+        if not root:
+            return
+        root = os.path.expandvars( str( root ) ).strip( '"%' )
+        _add( os.path.join( root, 'modules' ) )
+
+    if env is not None:
+        _from_vctools( env.get( 'VCToolsInstallDir' ) )
+        nested = env.get( 'ENV' ) or {}
+        if isinstance( nested, dict ):
+            _from_vctools( nested.get( 'VCToolsInstallDir' ) )
+        cxx = env.get( 'CXX' )
+        if cxx:
+            _add( _modules_dir_from_cl_path( str( cxx ) ) )
+
+    _from_vctools( os.environ.get( 'VCToolsInstallDir' ) )
+
+    try:
+        import shutil
+        cl_path = shutil.which( 'cl' ) or shutil.which( 'cl.exe' )
+        if cl_path:
+            _add( _modules_dir_from_cl_path( cl_path ) )
+    except Exception:
+        pass
+
+    for base in (
+        r'C:\Program Files\Microsoft Visual Studio',
+        r'C:\Program Files (x86)\Microsoft Visual Studio',
+    ):
+        if not os.path.isdir( base ):
+            continue
+        for year in ( '2025', '2022', '2019' ):
+            year_root = os.path.join( base, year )
+            if not os.path.isdir( year_root ):
+                continue
+            for edition in ( 'Enterprise', 'Professional', 'Community', 'BuildTools' ):
+                msvc_root = os.path.join(
+                    year_root, edition, 'VC', 'Tools', 'MSVC'
+                )
+                if not os.path.isdir( msvc_root ):
+                    continue
+                try:
+                    versions = sorted( os.listdir( msvc_root ), reverse=True )
+                except OSError:
+                    continue
+                for ver in versions:
+                    _add( os.path.join( msvc_root, ver, 'modules' ) )
+
+    for path in candidates:
+        if path and os.path.isfile( os.path.join( path, 'std.ixx' ) ):
+            return path
+    return None
+
+
+def _modules_dir_from_cl_path( cl_path ):
+    """
+    ``.../MSVC/<ver>/bin/Hostx64/x64/cl.exe`` → ``.../MSVC/<ver>/modules``.
+    """
+    path = os.path.abspath( os.path.normpath( cl_path ) )
+    # bin/Host*/arch/cl.exe → four parents up to MSVC/<ver>
+    ver_root = path
+    for _ in range( 4 ):
+        ver_root = os.path.dirname( ver_root )
+    modules = os.path.join( ver_root, 'modules' )
+    if os.path.isdir( modules ):
+        return modules
+    # Fallback: walk parents looking for modules/std.ixx
+    cur = os.path.dirname( path )
+    for _ in range( 8 ):
+        candidate = os.path.join( cur, 'modules' )
+        if os.path.isfile( os.path.join( candidate, 'std.ixx' ) ):
+            return candidate
+        parent = os.path.dirname( cur )
+        if parent == cur:
+            break
+        cur = parent
+    return None
+
 
 class Cl(object):
 
@@ -475,8 +570,11 @@ class Cl(object):
 
 
     def supports_import_std( self, env ):
-        # STL named modules require a recent MSVC + std.ixx install; opt-in later.
-        return False
+        if not self.supports_modules( env ):
+            return False
+        if self.toolset_key( self._long_version ) < IMPORT_STD_MIN_MSVC_TOOLSET:
+            return False
+        return 'std' in self.std_module_sources( env )
 
 
     def modules_enable_flags( self, env ):
@@ -509,6 +607,14 @@ class Cl(object):
         ]
 
 
+    @staticmethod
+    def _append_flag_pair( flags, flag, payload ):
+        for i in range( 0, len( flags ) - 1 ):
+            if flags[i] == flag and flags[i + 1] == payload:
+                return
+        flags.extend( [ flag, payload ] )
+
+
     def consume_module_flags( self, env, scan ):
         from cuppa.cpp.cxx_modules import get_registry, lookup_header_entry
         from cuppa.cpp.module_scanner import owning_module_name, qualify_relative_import
@@ -517,13 +623,6 @@ class Cl(object):
         if not scan:
             return flags
 
-        def append_reference( payload ):
-            # Space-separated -reference avoids drive-letter colon issues on Windows.
-            for i in range( 0, len( flags ) - 1 ):
-                if flags[i] == '-reference' and flags[i + 1] == payload:
-                    return
-            flags.extend( [ '-reference', payload ] )
-
         def add_named( name, seen ):
             if not name or name in seen:
                 return
@@ -531,7 +630,10 @@ class Cl(object):
             if not entry:
                 return
             seen.add( name )
-            append_reference( '{}={}'.format( name, entry['path'] ) )
+            # Space-separated -reference avoids drive-letter colon issues on Windows.
+            self._append_flag_pair(
+                flags, '-reference', '{}={}'.format( name, entry['path'] )
+            )
             for dep in entry.get( 'imports', [] ):
                 add_named( dep, seen )
 
@@ -543,8 +645,15 @@ class Cl(object):
                 add_named( name, seen )
             else:
                 entry = lookup_header_entry( registry, item.name )
-                if entry:
-                    append_reference( entry['path'] )
+                if not entry:
+                    continue
+                # Header units need -headerUnit, not -reference (MSVC).
+                # Keep header=ifc as one argv payload so C:\ paths stay intact.
+                payload = '{}={}'.format( item.name, entry['path'] )
+                if item.kind == 'header_angle':
+                    self._append_flag_pair( flags, '-headerUnit:angle', payload )
+                else:
+                    self._append_flag_pair( flags, '-headerUnit', payload )
         if scan.module_declaration:
             decl = scan.module_declaration
             if ':' in decl:
@@ -559,16 +668,85 @@ class Cl(object):
 
 
     def build_header_unit( self, env, header, bmi_path, **kwargs ):
-        raise NotImplementedError(
-            "MSVC header units are not supported in this cuppa release "
-            "(named modules via --modules are supported)"
+        kwargs.pop( 'declared', None )
+        system_header = kwargs.pop( 'system_header', None )
+        # -exportHeader creates the IFC; -ifcOutput PATH places it (space form).
+        if system_header:
+            action = (
+                '$CXX $CXXFLAGS $_CPPINCFLAGS -exportHeader -headerName:angle '
+                '{name} -ifcOutput $TARGET'
+                .format( name=system_header )
+            )
+            return env.Command( bmi_path, [], action, **kwargs )[0]
+        action = (
+            '$CXX $CXXFLAGS $_CPPINCFLAGS -exportHeader -ifcOutput $TARGET $SOURCES'
         )
+        return env.Command( bmi_path, header, action, **kwargs )[0]
+
+
+    def _msvc_modules_dir( self, env=None ):
+        """Directory containing STL ``std.ixx`` / ``std.compat.ixx``, if present."""
+        return find_msvc_modules_dir( env )
+
+
+    def std_module_sources( self, env ):
+        sources = {}
+        modules_dir = self._msvc_modules_dir( env )
+        if not modules_dir:
+            return sources
+        for name, filename in (
+            ( 'std', 'std.ixx' ),
+            ( 'std.compat', 'std.compat.ixx' ),
+        ):
+            path = os.path.join( modules_dir, filename )
+            if os.path.isfile( path ):
+                sources[name] = path
+        return sources
 
 
     def build_std_module( self, env, name ):
-        raise NotImplementedError(
-            "import std is not supported for MSVC in this cuppa release"
+        from cuppa.toolchains.cxx_modules_support import modules_build_dir, named_bmi_path
+        from cuppa.cpp.cxx_modules import register_named_module, get_registry
+
+        sources = self.std_module_sources( env )
+        source = sources.get( name )
+        if not source:
+            return None
+        if name in get_registry( env )['named']:
+            return get_registry( env )['named'][name]['bmi']
+
+        modules_build_dir( env )
+        bmi_path = named_bmi_path( env, name, '.ifc' )
+        obj_path = os.path.splitext( bmi_path )[0] + '.obj'
+        bmi_node = env.File( bmi_path )
+        register_named_module(
+            env,
+            name,
+            bmi_path,
+            bmi_node,
+            imports=[ 'std' ] if name == 'std.compat' else [],
         )
+
+        # Compile STL .ixx to IFC (+ obj). Match consumer dialect via $CXXFLAGS.
+        # Space-separated -ifcOutput / -Fo avoid drive-letter colon pitfalls.
+        extra = ''
+        sources_nodes = []
+        if name == 'std.compat' and 'std' in get_registry( env )['named']:
+            std_bmi = get_registry( env )['named']['std']['path']
+            extra = '-reference std={} '.format( std_bmi )
+            sources_nodes = [ get_registry( env )['named']['std']['bmi'] ]
+
+        action = (
+            '$CXX $CXXFLAGS -c -TP -interface -ifcOutput {bmi} -Fo {obj} '
+            '{extra}"{source}"'
+            .format(
+                bmi=bmi_path,
+                obj=obj_path,
+                extra=extra,
+                source=source,
+            )
+        )
+        return env.Command( bmi_path, sources_nodes, action )[0]
 
 
     def abi( self, env ):

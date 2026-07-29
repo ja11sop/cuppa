@@ -300,12 +300,13 @@ Default dialect flag: `-std:c++20` (overridable via `--stdcpp` / `StdCpp`).
 * Non-exported partitions (`module M:part;`): `-internalPartition`, `-TP`, `-ifcOutput PATH`
 * Consumers: space-separated `-reference name=PATH` (colon-attached forms break on absolute `C:\…` paths)
 * BMI extension: `.ifc`
-* Header units and `import std` are not supported in this cuppa release
+* Header units: `-exportHeader` (+ `-headerName:angle` for system headers); consumers use `-headerUnit` / `-headerUnit:angle`
+* `import std`: toolset **14.3+** when STL `modules/std.ixx` is present (compiled with `-interface` / `-ifcOutput`)
 
 === Limitations
 
 * Coverage is not supported for MSVC
-* Shared libraries that only use C++ module `export` still need ordinary DLL export annotations (or a `.def`) before an import library appears
+* Shared libraries that export module symbols still need `__declspec(dllexport)` (or a `.def`) so the linker produces an import library — cuppa does not invent DLL exports from `export` alone
 
 == Tips
 

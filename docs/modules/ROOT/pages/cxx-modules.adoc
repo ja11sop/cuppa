@@ -9,7 +9,7 @@ Existing projects stay on the classic translation-unit path until you enable mod
 Supported platforms / floors:
 
 * **Linux / macOS:** GCC 14+ or **LLVM** Clang 16+ (`import std`: GCC 15+; Clang 18+ with libc++)
-* **Windows:** MSVC toolset **14.2+** (SCons `14.2` / cuppa `vc142` and newer — VS 2019+) for named modules; header units and `import std` not yet
+* **Windows:** MSVC toolset **14.2+** (SCons `14.2` / cuppa `vc142` and newer — VS 2019+) for named modules, partitions, and header units; `import std` needs toolset **14.3+** with STL `modules/std.ixx` (VS 2022 17.5+)
 
 See <<macos-apple-clang>> for why Xcode’s Apple Clang is rejected on macOS.
 
@@ -373,14 +373,14 @@ first, then `Build` sources that `import` both.
 Angle-bracket units are **explicit** (`HeaderUnit('<…>')`); cuppa does not auto-build a
 BMI for every `import <std_header>`.
 
-Header units are supported for GCC/Clang in this release; MSVC header units are not yet.
+Header units are supported for GCC, Clang, and MSVC in this release.
 
 == `import std` / `std.compat`
 
 When a scanned source contains `import std;` or `import std.compat;`, cuppa:
 
 * Raises the dialect floor to **C++23** (if lower)
-* Builds the standard library BMI once per env/variant under `modules/std.gcm` or `modules/std.pcm`
+* Builds the standard library BMI once per env/variant under `modules/std.gcm`, `modules/std.pcm`, or `modules/std.ifc`
 * Registers it as a named module for consumers
 * Builds `std` before `std.compat` when both are required (`std.compat` imports `std`)
 
@@ -390,6 +390,7 @@ Requirements:
 * **GCC 15+** with `bits/std.cc` (and optionally `bits/std.compat.cc`)
 * **Clang 18+** with **libc++** (`--clang-stdlib=libc++`) and installed module interfaces
   (typically `/usr/lib/llvm-<N>/share/libc++/v1/std.cppm`, or Homebrew LLVM paths on macOS)
+* **MSVC** toolset **14.3+** with STL `modules/std.ixx` (VS 2022 17.5+; cuppa locates `VCToolsInstallDir\modules`)
 
 [source,python]
 ----
@@ -401,6 +402,7 @@ env.Build('std_app', ['apps/std_main.cpp'])  # import std;
 ----
 cuppa -D --dbg --modules --toolchains=gcc
 cuppa -D --dbg --modules --toolchains=clang22 --clang-stdlib=libc++
+cuppa -D --dbg --modules --toolchains=vc
 ----
 
 == Artifact layout
@@ -422,9 +424,9 @@ Toolchain flag details for modules are listed under each compiler in xref:toolch
 == Limits
 
 * Linux / macOS: GCC 14+ / LLVM Clang 16+ (`import std`: GCC 15+ / Clang 18+ with libc++; Apple Clang unsupported — see <<macos-apple-clang>>)
-* Windows: MSVC toolset 14.2+ (`vc142` / `vc143` / `vc145` / …) named modules; header units and `import std` not yet
+* Windows: MSVC toolset 14.2+ (`vc142` / `vc143` / `vc145` / …) for named modules, partitions, header units, and shared libraries (export module symbols with `__declspec(dllexport)` when building DLLs); `import std` / `std.compat` require toolset 14.3+ with STL `modules/std.ixx` (VS 2022 17.5+)
 * Lightweight line-oriented import scanner (macros that invent imports are unsupported)
-* Header-unit spelling in `import "..."` / `import <…>` must match `HeaderUnit` (GCC/Clang)
+* Header-unit spelling in `import "..."` / `import <…>` must match `HeaderUnit` (GCC/Clang/MSVC)
 * Private module fragments: Clang only (GCC unimplemented)
 * Packaged BMIs are toolchain-family specific (`.gcm` / `.pcm` / `.ifc`)
 * Experimental compiler support — expect toolchain-specific quirks

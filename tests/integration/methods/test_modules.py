@@ -59,13 +59,21 @@ def _require_import_std_toolchain():
     """
     Select a toolchain that can build import std BMIs.
 
-    GCC 15+ with bits/std.cc, or Clang 18+ with libc++ and matching std.cppm.
+    GCC 15+ with bits/std.cc, Clang 18+ with libc++ and matching std.cppm,
+    or MSVC toolset 14.3+ with STL modules/std.ixx.
     """
     import shutil
 
     alias, driver, major = require_modules_capable_toolchain()
     if _is_msvc(alias):
-        pytest.skip("import std is not supported for MSVC in this cuppa release")
+        from cuppa.toolchains.cl import find_msvc_modules_dir
+        modules_dir = find_msvc_modules_dir()
+        if not modules_dir:
+            pytest.skip(
+                "import std for MSVC requires STL modules/std.ixx "
+                "(VS 2022 17.5+ / toolset 14.3+)"
+            )
+        return alias, "--toolchains={}".format(alias), []
     if _is_gcc_family(alias):
         if major < 15:
             pytest.fail(
@@ -114,8 +122,7 @@ def test_named_module_build(tmp_path):
 
 
 def test_header_unit_build(tmp_path):
-    alias, toolchain_flag = _modules_toolchain_flag()
-    _skip_msvc_feature(alias, "header units")
+    _, toolchain_flag = _modules_toolchain_flag()
     project = _copy_modules_project(tmp_path)
     write_sconstruct(project)
     write_sconscript(
@@ -225,8 +232,7 @@ def test_module_reexport_build(tmp_path):
 
 
 def test_mixed_named_module_and_header_unit(tmp_path):
-    alias, toolchain_flag = _modules_toolchain_flag()
-    _skip_msvc_feature(alias, "header units")
+    _, toolchain_flag = _modules_toolchain_flag()
     project = _copy_modules_project(tmp_path)
     write_sconstruct(project)
     write_sconscript(
@@ -265,8 +271,7 @@ def test_named_module_build_then_clean(tmp_path):
 
 
 def test_header_unit_build_then_clean(tmp_path):
-    alias, toolchain_flag = _modules_toolchain_flag()
-    _skip_msvc_feature(alias, "header units")
+    _, toolchain_flag = _modules_toolchain_flag()
     project = _copy_modules_project(tmp_path)
     write_sconstruct(project)
     write_sconscript(
@@ -294,8 +299,7 @@ def test_header_unit_build_then_clean(tmp_path):
 
 
 def test_angle_header_unit_build(tmp_path):
-    alias, toolchain_flag = _modules_toolchain_flag()
-    _skip_msvc_feature(alias, "header units")
+    _, toolchain_flag = _modules_toolchain_flag()
     project = _copy_modules_project(tmp_path)
     write_sconstruct(project)
     write_sconscript(
@@ -308,7 +312,7 @@ def test_angle_header_unit_build(tmp_path):
     assert_success(result)
     assert find_final_binaries(project, "angle_app")
     assert any(
-        path.name.startswith("header--angle--span") and path.suffix in (".gcm", ".pcm")
+        path.name.startswith("header--angle--span") and path.suffix in (".gcm", ".pcm", ".ifc")
         for path in build_files(project)
     )
 
@@ -435,7 +439,6 @@ def test_partition_incremental_rebuild(tmp_path):
 
 def test_import_std_build(tmp_path):
     alias, toolchain_flag, extra = _require_import_std_toolchain()
-    _skip_msvc_feature(alias, "import std")
     logger.info("import std test using %s", alias)
     project = _copy_modules_project(tmp_path)
     write_sconstruct(project)
@@ -456,14 +459,13 @@ def test_import_std_build(tmp_path):
     assert_success(result)
     assert find_final_binaries(project, "std_app")
     assert any(
-        path.stem == "std" and path.suffix in (".gcm", ".pcm")
+        path.stem == "std" and path.suffix in (".gcm", ".pcm", ".ifc")
         for path in build_files(project)
     )
 
 
 def test_import_std_compat_build(tmp_path):
     alias, toolchain_flag, extra = _require_import_std_toolchain()
-    _skip_msvc_feature(alias, "import std.compat")
     logger.info("import std.compat test using %s", alias)
     project = _copy_modules_project(tmp_path)
     write_sconstruct(project)
@@ -484,16 +486,15 @@ def test_import_std_compat_build(tmp_path):
     assert_success(result)
     assert find_final_binaries(project, "std_compat_app")
     assert any(
-        path.stem in ("std.compat", "std--compat") and path.suffix in (".gcm", ".pcm")
+        path.stem in ("std.compat", "std--compat") and path.suffix in (".gcm", ".pcm", ".ifc")
         for path in build_files(project)
     )
 
 
 def test_shared_library_with_named_module(tmp_path):
-    alias, toolchain_flag = _modules_toolchain_flag()
-    # MSVC module export ≠ DLL export: without __declspec(dllexport) (or a .def),
-    # the linker produces no import library and LNK1181 follows.
-    _skip_msvc_feature(alias, "shared libraries with modules without explicit DLL exports")
+    """Shared lib + consumer. MSVC needs __declspec(dllexport) on module exports
+    (see math.cppm) so the linker emits an import library."""
+    _, toolchain_flag = _modules_toolchain_flag()
     project = _copy_modules_project(tmp_path)
     write_sconstruct(project)
     write_sconscript(
@@ -526,6 +527,21 @@ def test_ccm_interface_smoke(tmp_path):
     result = run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag)
     assert_success(result)
     assert find_final_binaries(project, "ccm_app")
+
+
+def test_ixx_interface_smoke(tmp_path):
+    """MSVC-style .ixx interface suffix (registered in MODULE_SOURCE_SUFFIXES)."""
+    _, toolchain_flag = _modules_toolchain_flag()
+    project = _copy_modules_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.Build('ixx_app', ['math.ixx', 'apps/ixx_main.cpp'])\n",
+    )
+    result = run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag)
+    assert_success(result)
+    assert find_final_binaries(project, "ixx_app")
 
 
 def test_cpp_export_module_smoke(tmp_path):

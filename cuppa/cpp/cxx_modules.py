@@ -260,7 +260,8 @@ def ensure_std_modules( env, classified ):
     toolchain = env['toolchain']
     if not hasattr( toolchain, 'supports_import_std' ) or not toolchain.supports_import_std( env ):
         raise SCons.Errors.StopError(
-            "import std / std.compat requires Linux/macOS GCC 15+ or Clang 18+ with libc++ "
+            "import std / std.compat requires GCC 15+, Clang 18+ with libc++, "
+            "or MSVC toolset 14.3+ with STL modules/std.ixx "
             "(toolchain [{}] is not eligible; for Clang pass --clang-stdlib=libc++)"
             .format( toolchain.name() )
         )

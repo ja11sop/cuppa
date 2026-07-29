@@ -56,7 +56,7 @@ Equivalent: `scons -D …` when the project's `sconstruct` already imports cuppa
 | Dependencies | `cuppa/dependencies/`, `cuppa/build_with_location.py` |
 | Packages | `cuppa/build_with_package.py`, `cuppa/package_managers/`, `cuppa/packages/` |
 | Coverage | `cuppa/cpp/run_gcov_coverage.py`, `cuppa/methods/coverage.py` |
-| C++ modules | `cuppa/cpp/module_scanner.py`, `cuppa/cpp/cxx_modules.py`, `cuppa/methods/modules.py`, `cuppa/methods/header_unit.py`, toolchain helpers in `gcc.py` / `clang.py` (named modules, partitions, header units; see `docs/modules/ROOT/pages/cxx-modules.adoc`) |
+| C++ modules | `cuppa/cpp/module_scanner.py`, `cuppa/cpp/cxx_modules.py`, `cuppa/methods/modules.py`, `cuppa/methods/header_unit.py`, toolchain helpers in `gcc.py` / `clang.py` / `cl.py` (named modules, partitions, header units, `import std` where supported; see `docs/modules/ROOT/pages/cxx-modules.adoc`) |
 | Console entry | `cuppa/__main__.py` |
 
 Module auto-registration: `cuppa/modules/registration.py` loads classes exposing `add_options` / `add_to_env` under methods, dependencies, profiles, variants, toolchains, project_generators.
@@ -186,7 +186,7 @@ Cuppa docs teach a **SCons-based C++ build system**. Prefer this framing:
 - **Visible artefacts** -- talk about `_build/`, variants (`--dbg` / `--rel` / `--cov`), and toolchains by name
 - **Honest comparisons** -- when contrasting CMake (or Make/Ninja wrappers), be specific about DSL complexity, property/generator-expression load, and where cuppa's Python API helps; do not dismiss other tools without nuance
 - **Toolchain truth** -- every toolchain page/section should state default dialect, warning, optimisation, CRT/stdlib, and modules flags so readers know what they are getting
-- **Modules as a product feature** -- for C++20 modules, start with *why* (include model costs), cite relevant WG21 papers (`wg21.link/p…`), then a cuppa tutorial, then reference detail; call out vendor gaps (Apple Clang, MSVC header units, GCC private fragments)
+- **Modules as a product feature** -- for C++20 modules, start with *why* (include model costs), cite relevant WG21 papers (`wg21.link/p…`), then a cuppa tutorial, then reference detail; call out vendor gaps (Apple Clang, GCC private fragments, MSVC DLL export vs module export)
 - **Fail clearly** -- document cuppa's preference for StopError / skip-with-reason over silent fallback
 
 ## Technical Depth for Core Topics

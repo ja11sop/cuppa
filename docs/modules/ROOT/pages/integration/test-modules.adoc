@@ -18,11 +18,11 @@ Covered by `tests/integration/methods/test_modules.py` using
 
 | `test_header_unit_build`
 | `env.HeaderUnit` + `import "..."`
-| Skipped on MSVC
+| GCC/Clang/MSVC
 
 | `test_angle_header_unit_build`
 | `env.HeaderUnit('<span>')` + `import <span>;`
-| Skipped on MSVC
+| GCC/Clang/MSVC
 
 | `test_library_with_named_module`
 | `BuildStaticLib` + `Build` consumer (same env)
@@ -30,7 +30,7 @@ Covered by `tests/integration/methods/test_modules.py` using
 
 | `test_shared_library_with_named_module`
 | `BuildSharedLib` + consumer
-| Skipped on MSVC (module export ≠ DLL export / no `.lib`)
+| Fixture uses `__declspec(dllexport)` on MSVC so an import `.lib` is produced
 
 | `test_packaged_modules_install_and_import`
 | Producer `final/modules` + consumer `ImportModules`
@@ -40,8 +40,8 @@ Covered by `tests/integration/methods/test_modules.py` using
 | `env.Module(...)` then `Build`
 |
 
-| `test_cxxm_interface_smoke` / `test_ccm_interface_smoke` / `test_cpp_export_module_smoke`
-| `.cxxm` / `.ccm` / `export module` in `.cpp`
+| `test_cxxm_interface_smoke` / `test_ccm_interface_smoke` / `test_ixx_interface_smoke` / `test_cpp_export_module_smoke`
+| `.cxxm` / `.ccm` / `.ixx` / `export module` in `.cpp`
 |
 
 | `test_unresolved_import_fails`
@@ -54,7 +54,7 @@ Covered by `tests/integration/methods/test_modules.py` using
 
 | `test_import_std_build` / `test_import_std_compat_build`
 | `import std;` / `import std.compat;`
-| GCC 15+ / Clang+libc++; skipped on MSVC
+| GCC 15+ / Clang+libc++ / MSVC with `std.ixx`
 
 | `test_modules_coverage_probe`
 | `--cov --modules` smoke
@@ -79,23 +79,12 @@ Covered by `tests/integration/methods/test_modules.py` using
 | `test_module_reexport_build`
 | `export import` across named modules
 |
-
-| `test_mixed_named_module_and_header_unit`
-| Named module + header unit
-| Skipped on MSVC
-
-| `test_named_module_build_then_clean` / `test_header_unit_build_then_clean`
-| `--clean` removes BMI artifacts
-|
 |===
 
-== Toolchain selection
+== CI notes
 
-* Linux CI: `gcc`, `clang`+libstdc++, `clang`+libc++
-* macOS CI: modules slice installs **Homebrew LLVM** Clang + libc++ (not Xcode Apple Clang),
-  and passes `--propagate-path` so SCons does not fall back to `/usr/bin/clang++`.
-  Apple Clang is rejected: it reports high majors but does not ship `clang-scan-deps` / a modules-capable toolchain.
-  See xref:cxx-modules.adoc#macos-apple-clang[macOS: Apple Clang vs LLVM Clang].
-* Windows CI: full integration with `vc` (named modules; header units / `import std` / shared-lib-without-DLL-exports skipped)
-* **Fail** (do not skip) if no Linux GCC 14+ / Clang 16+ driver is on PATH when those families are selected
+* Linux CI: full suite × `gcc`, `clang`+libstdc++, `clang`+libc++
+* Windows CI: full integration with `vc` (header units, `import std` when `std.ixx` present, shared libs with DLL exports)
+* macOS CI: Homebrew LLVM slice (named / header / sugar)
 * `import std` on Clang may select a versioned toolchain that ships `std.cppm`
+* Too-old GCC/Clang on Linux **fail** rather than skip
