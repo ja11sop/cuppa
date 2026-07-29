@@ -17,6 +17,7 @@ class _FakeEnv(dict):
         super().__init__(*args, **kwargs)
         self.requires_calls = []
         self.depends_calls = []
+        self.command_calls = []
 
     def Requires(self, target, dependency):
         self.requires_calls.append((target, dependency))
@@ -24,6 +25,10 @@ class _FakeEnv(dict):
 
     def Depends(self, target, dependencies):
         self.depends_calls.append((target, dependencies))
+        return target
+
+    def Command(self, target, source, action):
+        self.command_calls.append((target, source, action))
         return target
 
 
@@ -59,8 +64,18 @@ def _reset_notifyprogress_state(monkeypatch):
     monkeypatch.setattr(progress_module, "progress", _fake_progress)
 
 
+def test_variant_is_parent_of_build_dir():
+    env = _make_env("test/sconscript", "_build/test/gcc15/dbg/x86_64/c++20/working")
+    assert NotifyProgress.variant(env) == "_build/test/gcc15/dbg/x86_64/c++20"
+
+
+def test_key_joins_sconscript_and_variant():
+    env = _make_env("test/sconscript", "_build/test/gcc15/dbg/x86_64/c++20/working")
+    assert NotifyProgress.key(env) == "test/sconscript/_build/test/gcc15/dbg/x86_64/c++20"
+
+
 def test_add_skips_in_pre_sconscript_phase():
-    env = _make_env("a/sconscript", "/repo/a/dbg/working")
+    env = _make_env("a/sconscript", "_build/a/dbg/working")
     env["_pre_sconscript_phase_"] = True
 
     NotifyProgress.add(env, ["node"])
@@ -71,23 +86,64 @@ def test_add_skips_in_pre_sconscript_phase():
     assert NotifyProgress._finished == {}
 
 
-def test_add_uses_sconscript_and_variant_key_for_started_finished_nodes():
-    # Same variant path, different sconscript files: must not share started/finished.
-    env_a = _make_env("a/sconscript", "/repo/dbg/working")
-    env_b = _make_env("b/sconscript", "/repo/dbg/working")
+def test_add_keys_started_and_finished_by_variant_path():
+    # Existing behaviour: _started/_finished are keyed by variant() only
+    # (parent of build_dir), not by NotifyProgress.key().
+    env = _make_env("test/sconscript", "_build/test/gcc15/dbg/x86_64/c++20/working")
+
+    NotifyProgress.add(env, ["node"])
+
+    variant = "_build/test/gcc15/dbg/x86_64/c++20"
+    assert list(NotifyProgress._started.keys()) == [variant]
+    assert list(NotifyProgress._finished.keys()) == [variant]
+
+
+def test_add_reuses_started_finished_for_same_variant_path():
+    # Two targets that share the same build_dir parent share Starting/Finished.
+    env = _make_env("test/sconscript", "_build/test/dbg/working")
+
+    NotifyProgress.add(env, ["node_a"])
+    NotifyProgress.add(env, ["node_b"])
+
+    assert len(NotifyProgress._started) == 1
+    assert len(NotifyProgress._finished) == 1
+    assert "_build/test/dbg" in NotifyProgress._started
+
+
+def test_cuppa_layout_gives_distinct_variant_keys_per_sconscript():
+    # In real cuppa layouts, build_dir includes the sconscript path segment, so
+    # different sconscripts naturally get different variant() keys without
+    # needing sconscript+variant composite keys for _started/_finished.
+    env_a = _make_env("a/sconscript", "_build/a/gcc15/dbg/x86_64/c++20/working")
+    env_b = _make_env("b/sconscript", "_build/b/gcc15/dbg/x86_64/c++20/working")
 
     NotifyProgress.add(env_a, ["node_a"])
     NotifyProgress.add(env_b, ["node_b"])
 
+    assert set(NotifyProgress._started.keys()) == {
+        "_build/a/gcc15/dbg/x86_64/c++20",
+        "_build/b/gcc15/dbg/x86_64/c++20",
+    }
+    assert set(NotifyProgress._begin.keys()) == {"a/sconscript", "b/sconscript"}
+    assert set(NotifyProgress._end.keys()) == {"a/sconscript", "b/sconscript"}
+
+
+def test_begin_and_end_are_keyed_by_sconscript():
+    env_dbg = _make_env("test/sconscript", "_build/test/gcc15/dbg/x86_64/c++20/working")
+    env_rel = _make_env("test/sconscript", "_build/test/gcc15/rel/x86_64/c++20/working")
+
+    NotifyProgress.add(env_dbg, ["node_dbg"])
+    NotifyProgress.add(env_rel, ["node_rel"])
+
+    assert list(NotifyProgress._begin.keys()) == ["test/sconscript"]
+    assert list(NotifyProgress._end.keys()) == ["test/sconscript"]
     assert len(NotifyProgress._started) == 2
     assert len(NotifyProgress._finished) == 2
-    assert "a/sconscript//repo/dbg" in NotifyProgress._started
-    assert "b/sconscript//repo/dbg" in NotifyProgress._started
 
 
 def test_register_callback_routes_env_specific_and_global_callbacks():
     events = []
-    env = _make_env("a/sconscript", "/repo/a/dbg/working")
+    env = _make_env("a/sconscript", "_build/a/dbg/working")
 
     def _local(event, sconscript, variant, callback_env, target, source):
         events.append(("local", event, sconscript, variant, callback_env))
@@ -98,8 +154,7 @@ def test_register_callback_routes_env_specific_and_global_callbacks():
     NotifyProgress.register_callback(env, _local)
     NotifyProgress.register_callback(None, _global)
 
-    NotifyProgress.call_callbacks("finished", "a/sconscript", "/repo/a/dbg", env, [], [])
+    NotifyProgress.call_callbacks("finished", "a/sconscript", "_build/a/dbg", env, [], [])
 
-    assert ("local", "finished", "a/sconscript", "/repo/a/dbg", env) in events
-    assert ("global", "finished", "a/sconscript", "/repo/a/dbg", env) in events
-
+    assert ("local", "finished", "a/sconscript", "_build/a/dbg", env) in events
+    assert ("global", "finished", "a/sconscript", "_build/a/dbg", env) in events
