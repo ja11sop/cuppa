@@ -24,6 +24,22 @@ def test_build_test_passes(tmp_path):
     assert find_final_binaries(project, "hello_test")
 
 
+def test_default_variants_honoured_with_test_only(tmp_path):
+    """Project default_variants=['dbg'] must apply when only --test is passed (#47)."""
+    project = copy_dummy_project(tmp_path)
+    write_sconstruct(project, default_variants=["dbg"])
+    write_sconscript(
+        project,
+        "Import('env')\nenv.BuildTest('hello_test', 'tests/hello_test.cpp')\n",
+    )
+    result = run_cuppa(project, "--test")
+    assert_success(result)
+    binaries = find_final_binaries(project, "hello_test")
+    assert binaries
+    assert all("dbg" in path.parts for path in binaries)
+    assert not any("rel" in path.parts for path in binaries)
+
+
 def test_build_test_fails_on_nonzero_exit(tmp_path):
     project = copy_dummy_project(tmp_path)
     write_sconstruct(project)

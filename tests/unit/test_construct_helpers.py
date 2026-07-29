@@ -79,6 +79,87 @@ def test_get_active_actions_matrix():
     assert "test" in active_with_variant
 
 
+def _make_variant(name):
+    return SimpleNamespace(name=lambda n=name: n)
+
+
+def _create_build_envs_fixture(default_variants, option_flags):
+    construct = Construct.__new__(Construct)
+    construct.variants_key = "variants"
+    construct.actions_key = "actions"
+
+    dbg = _make_variant("dbg")
+    rel = _make_variant("rel")
+    test_action = SimpleNamespace(name=lambda: "test")
+
+    options = {
+        "dbg": False,
+        "rel": False,
+        "cov": False,
+        "test": False,
+        "benchmark": False,
+        "run": False,
+    }
+    options.update(option_flags)
+
+    cuppa_env = FakeEnv(
+        {
+            "variants": {"dbg": dbg, "rel": rel},
+            "actions": {"dbg": dbg, "rel": rel, "test": test_action},
+            "default_variants": set(default_variants),
+            "target_architectures": [None],
+            "propagate_env": False,
+            "propagate_path": False,
+            "merge_path": False,
+            "raw_output": True,
+        }
+    )
+    cuppa_env.update(options)
+
+    built = []
+
+    def make_env(cuppa_env_arg, variant, target_arch):
+        built.append(variant.name())
+        return FakeEnv({"ENV": {}}), target_arch
+
+    toolchain = SimpleNamespace(
+        default_variants=lambda: ["dbg", "rel"],
+        make_env=make_env,
+        abi=lambda env: "abi",
+    )
+    return construct, toolchain, cuppa_env, built
+
+
+def test_create_build_envs_honours_project_defaults_with_test_action():
+    construct, toolchain, cuppa_env, built = _create_build_envs_fixture(
+        default_variants=["dbg"],
+        option_flags={"test": True},
+    )
+    envs = construct.create_build_envs(toolchain, cuppa_env)
+    assert [e["variant"] for e in envs] == ["dbg"]
+    assert built == ["dbg"]
+
+
+def test_create_build_envs_uses_toolchain_defaults_without_project_defaults():
+    construct, toolchain, cuppa_env, built = _create_build_envs_fixture(
+        default_variants=[],
+        option_flags={"test": True},
+    )
+    envs = construct.create_build_envs(toolchain, cuppa_env)
+    assert set(e["variant"] for e in envs) == {"dbg", "rel"}
+    assert set(built) == {"dbg", "rel"}
+
+
+def test_create_build_envs_cli_variant_not_overridden_by_defaults():
+    construct, toolchain, cuppa_env, built = _create_build_envs_fixture(
+        default_variants=["dbg"],
+        option_flags={"rel": True},
+    )
+    envs = construct.create_build_envs(toolchain, cuppa_env)
+    assert [e["variant"] for e in envs] == ["rel"]
+    assert built == ["rel"]
+
+
 def test_get_sub_sconscripts_discovers_tree(tmp_path):
     construct = Construct.__new__(Construct)
     root = tmp_path / "proj"

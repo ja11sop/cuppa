@@ -17,6 +17,7 @@ import six
 from urllib.parse import urlparse
 
 # Scons
+import SCons.Errors
 import SCons.Script
 
 # Custom
@@ -83,7 +84,9 @@ class ParseToolchainsOption(object):
                     toolchains.update( available )
 
         if not toolchains:
-            logger.error( "None of the requested toolchains are available" )
+            raise SCons.Errors.StopError(
+                "None of the requested toolchains are available"
+            )
 
         parser.values.toolchains = list(toolchains)
 
@@ -472,6 +475,13 @@ class Construct(object):
         if not help and not self._configure.handle_conf_only():
             default_toolchain = cuppa_env['platform'].default_toolchain()
 
+            # Empty list means --toolchains was given but nothing matched (StopError
+            # is raised in ParseToolchainsOption); never fall back to the default.
+            if toolchains is not None and len( toolchains ) == 0:
+                raise SCons.Errors.StopError(
+                    "None of the requested toolchains are available"
+                )
+
             if not toolchains:
                 toolchains = [ cuppa_env[self.toolchains_key][default_toolchain] ]
             else:
@@ -682,6 +692,7 @@ class Construct(object):
 
         active_variants = get_active_from_options( variants )
         active_actions  = get_active_from_options( actions )
+        cli_variants = bool( active_variants )
 
         def get_active_from_defaults( default_tasks, tasks ):
             active_tasks = {}
@@ -690,19 +701,24 @@ class Construct(object):
                     active_tasks[ task ] = tasks[ task ]
             return active_tasks
 
-        if not active_variants and not active_actions:
-            default_variants = cuppa_env['default_variants'] or toolchain.default_variants()
-            if default_variants:
-                active_variants = get_active_from_defaults( default_variants, variants )
-                active_actions = get_active_from_defaults( default_variants, actions )
-                if active_variants:
-                    logger.info( "Default build variants of [{}] being used.".format( colour_items( active_variants, as_info ) ) )
-                if active_actions:
-                    logger.info( "Default build actions of [{}] being used.".format( colour_items( active_actions, as_info ) ) )
-
+        # Variant selection is independent of actions (--test, --benchmark, …).
+        # Project default_variants win over toolchain defaults when no CLI variant
+        # flags are set (including when only an action such as --test is active).
         if not active_variants:
-            active_variants = get_active_from_defaults( toolchain.default_variants(), variants )
-            logger.info( "No active variants specified so toolchain defaults of [{}] being used.".format( colour_items( active_variants, as_info ) ) )
+            defaults = cuppa_env['default_variants'] or toolchain.default_variants()
+            active_variants = get_active_from_defaults( defaults, variants )
+            if cuppa_env['default_variants']:
+                logger.info( "Default build variants of [{}] being used.".format( colour_items( active_variants, as_info ) ) )
+            else:
+                logger.info( "No active variants specified so toolchain defaults of [{}] being used.".format( colour_items( active_variants, as_info ) ) )
+
+        # Auto-fill actions from defaults only when neither variants nor actions
+        # were selected on the CLI (preserves --dbg-only behaviour).
+        if not active_actions and not cli_variants:
+            defaults = cuppa_env['default_variants'] or toolchain.default_variants()
+            active_actions = get_active_from_defaults( defaults, actions )
+            if active_actions:
+                logger.info( "Default build actions of [{}] being used.".format( colour_items( active_actions, as_info ) ) )
 
         logger.debug( "Using active_variants = [{}]".format( colour_items( active_variants, as_info ) ) )
         logger.debug( "Using active_actions = [{}]".format( colour_items( active_actions, as_info ) ) )
