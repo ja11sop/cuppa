@@ -7,6 +7,8 @@ description: Guidance for AI agents working on the cuppa repository or using cup
 
 Cuppa is a SCons extension for C++ builds. This repository is the **cuppa package itself**. Consumer projects call `import cuppa` / `cuppa.run()` from their own `sconstruct`.
 
+**Roadmap (large features, current vs planned):** [`ROADMAP.md`](ROADMAP.md) — start here for C++20 modules status and follow-on work; other major areas will be added as sections.
+
 ## Preferred invocation
 
 ```sh
