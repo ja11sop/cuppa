@@ -107,10 +107,10 @@ Release checklist: see `release.txt` (`sdist` / `bdist_wheel` / `twine`).
 - Canonical reference: Antora under `docs/` → https://ja11sop.github.io/cuppa/
 - Further reading (talks / Clearpool posts): `docs/modules/ROOT/pages/index.adoc` (Further reading) and https://clearpool.io/tag/cuppa
 - Lint settings / ignore rationale: `docs/modules/ROOT/pages/linting.adoc`
-- Preview docs: `cd docs && npm ci && npm run build` → `_docs_build/site/` (Lunr search via `@antora/lunr-extension`; diagrams via `asciidoctor-kroki`)
+- Preview docs: `cd docs && npm ci && npm run build` → `_docs_build/site/` (Lunr search via `@antora/lunr-extension`; Mermaid via `@sntke/antora-mermaid-extension`)
 - Integration test scenarios: Antora **Integration tests** section (`docs/modules/ROOT/pages/integration/`)
 
-**Diagrams:** Antora 3 uses Asciidoctor.js, so the Ruby gem `asciidoctor-diagram` cannot be registered as an Antora AsciiDoc extension. Use `asciidoctor-kroki` (`docs/playbook.yml`, pin `0.18.x` for Asciidoctor.js 2 / Antora 3) with Mermaid/PlantUML blocks and `kroki-fetch-diagram: true` so images are fetched at site-build time.
+**Diagrams:** Antora 3 uses Asciidoctor.js, so the Ruby gem `asciidoctor-diagram` cannot be registered as an Antora AsciiDoc extension. Use `@sntke/antora-mermaid-extension` (`docs/playbook.yml`) so `[mermaid]` listing blocks render client-side with Mermaid.js (no Kroki network fetch at build time).
 
 When docs and code disagree, **code is authoritative** (especially storage defaults, toolchain version lists, default compiler flags, and whether `--cov` implies `--test`).
 

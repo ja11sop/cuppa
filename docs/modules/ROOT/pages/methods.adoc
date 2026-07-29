@@ -344,11 +344,29 @@ That can unstick a legacy multi-part shell action or shell-only quoting on that 
 * Prefer rewriting the action with `working_dir` / `cwd=` / a Python callable instead
 * Treat it as an escape hatch for tools you do not control, not as the recommended pattern
 
-Platform note for issue #14-style `Action("cd … && …")` strings:
+[NOTE]
+====
+*Why Linux and Windows colourise differently*
 
-* **POSIX + colourised output (default):** cuppa replaces `SPAWN` with `posix_spawn`, which runs argv via `IncrementalSubProcess` — multi-part shell strings fail (`cd` is treated as the executable).
+SCons exposes both `SPAWN` (normal process launch) and `PSPAWN` (piped launch that can write stdout/stderr to caller-supplied streams).
+Cuppa replaces `SPAWN` on both platforms so toolchain output can be filtered and colourised.
+
+On **Windows**, colourised `SPAWN` wraps the native `PSPAWN` implementation: SCons still launches the process (including shell-capable `cmd` behaviour), and cuppa reads the piped streams on the side.
+That was a practical way to colour output without reimplementing Windows process launching.
+
+On **POSIX**, the colourised path instead launches via `IncrementalSubProcess` (`subprocess.Popen` on an argv list) and consumes stdout/stderr *line by line* as the child runs.
+The motivation was interactive feedback: wrapping or buffering through the default piped spawn tended to hold output until a long compile or link finished, so the user saw nothing useful for a long time.
+Reading incrementally from pipes lets cuppa print and colour warnings/errors as they appear.
+
+The trade-off is that this POSIX path does not go through a shell.
+Multi-part strings such as `Action("cd … && …")` therefore fail under default colourised output on Linux (`cd` is treated as the executable).
+
+Windows colourised `SPAWN` may still accept those strings because it reuses `PSPAWN`; that is a platform difference in the spawn wrapper, not a reason to use `cd &&` in portable sconscripts.
+
+* **POSIX + colourised output (default):** argv `IncrementalSubProcess` — multi-part shell strings fail.
 * **POSIX + `--raw-output`:** colourised `SPAWN` is not installed; SCons' default shell spawn can run `cd … && …` (still not recommended for parallel-safe builds).
-* **Windows + colourised output (default):** cuppa's `windows_spawn` wraps native SCons `PSPAWN` for colouring; it does *not* use the argv `IncrementalSubProcess` path, so shell-style strings may still succeed. Do not take that as a reason to use `cd &&` in portable sconscripts.
+* **Windows + colourised output (default):** `windows_spawn` wraps native `PSPAWN` — shell-style strings may succeed; prefer `working_dir` / `cwd=` anyway.
+====
 
 See xref:cli-reference.adoc[CLI reference] for the flag.
 
