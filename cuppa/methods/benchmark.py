@@ -10,7 +10,7 @@
 
 import cuppa.progress
 
-from SCons.Script import Flatten
+from cuppa.utility.depends import with_depends
 
 
 class BenchmarkMethod(object):
@@ -19,7 +19,20 @@ class BenchmarkMethod(object):
         self._default_runner = default_benchmark_runner
 
 
-    def __call__( self, env, source, target=None, final_dir=None, data=None, runner=None, expected='passed', command=None, expected_exit_code=None, working_dir=None ):
+    def __call__(
+            self,
+            env,
+            source,
+            target=None,
+            final_dir=None,
+            data=None,
+            depends_on=None,
+            runner=None,
+            expected='passed',
+            command=None,
+            expected_exit_code=None,
+            working_dir=None
+    ):
 
         actions = env['variant_actions']
 
@@ -42,9 +55,8 @@ class BenchmarkMethod(object):
 
             env['BUILDERS']['BenchmarkBuilder'] = env.Builder( action=benchmark_builder, emitter=benchmark_emitter )
 
-            sources = source
-            if data:
-                sources = Flatten( [ source, data ] )
+            # depends_on preferred; data is a legacy alias (rebuild association).
+            sources = with_depends( source, depends_on, data )
 
             benchmark = env.BenchmarkBuilder( [], sources )
             if 'force_benchmark' in env['variant_actions'].keys():
