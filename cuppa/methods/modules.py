@@ -130,8 +130,9 @@ class ModulesMethod:
             '--modules',
             dest='modules',
             action='store_true',
-            help='Enable experimental C++20 named modules and header units '
-                 '(GCC 14+ / Clang 16+ on Linux)',
+            help='Enable C++20 named modules, header units, and import std '
+                 'when the toolchain supports them '
+                 '(GCC 14+ / LLVM Clang 16+ / MSVC toolset 14.2+)',
         )
 
     @classmethod

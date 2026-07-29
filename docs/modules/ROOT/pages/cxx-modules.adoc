@@ -425,11 +425,11 @@ Toolchain flag details for modules are listed under each compiler in xref:toolch
 
 * Linux / macOS: GCC 14+ / LLVM Clang 16+ (`import std`: GCC 15+ / Clang 18+ with libc++; Apple Clang unsupported — see <<macos-apple-clang>>)
 * Windows: MSVC toolset 14.2+ (`vc142` / `vc143` / `vc145` / …) for named modules, partitions, header units, and shared libraries (export module symbols with `__declspec(dllexport)` when building DLLs); `import std` / `std.compat` require toolset 14.3+ with STL `modules/std.ixx` (VS 2022 17.5+)
-* Lightweight line-oriented import scanner (macros that invent imports are unsupported)
+* Lightweight line-oriented import scanner (macros / `#if` that invent imports are unsupported; optional `clang-scan-deps` integration is not shipped yet)
 * Header-unit spelling in `import "..."` / `import <…>` must match `HeaderUnit` (GCC/Clang/MSVC)
 * Private module fragments: Clang only (GCC unimplemented)
 * Packaged BMIs are toolchain-family specific (`.gcm` / `.pcm` / `.ifc`)
-* Experimental compiler support — expect toolchain-specific quirks
+* Toolchain quirks remain — prefer the floors above and fail clearly rather than guess
 * `--modules` on an unsupported toolchain stops the build with a clear error
 * Integration tests require a modules-capable compiler and **fail** if GCC/Clang is too old
 

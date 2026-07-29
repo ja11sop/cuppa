@@ -161,7 +161,7 @@ jobs:
           pip install -e . --no-build-isolation
           which clang++
           clang++ --version
-      - name: Modules integration slice (clang)
+      - name: Modules integration (clang + libc++)
         env:
           CUPPA_TEST_TOOLCHAIN: clang
           # propagate-path: SCons defaults to a minimal ENV; without it builds can
@@ -171,4 +171,9 @@ jobs:
           pytest -m integration -q \
             tests/integration/methods/test_modules.py::test_named_module_build \
             tests/integration/methods/test_modules.py::test_header_unit_build \
-            tests/integration/methods/test_modules.py::test_module_sugar_build
+            tests/integration/methods/test_modules.py::test_module_sugar_build \
+            tests/integration/methods/test_modules.py::test_interface_partition_build \
+            tests/integration/methods/test_modules.py::test_implementation_unit_build \
+            tests/integration/methods/test_modules.py::test_ixx_interface_smoke \
+            tests/integration/methods/test_modules.py::test_packaged_modules_install_and_import \
+            tests/integration/methods/test_modules.py::test_import_std_build
