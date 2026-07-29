@@ -79,7 +79,7 @@ Per-dependency location options follow the pattern `--<name>-location`, `--<name
 | `--propagate-env` | Pass the full parent environment to subprocesses
 | `--propagate-path` | Pass only `PATH`
 | `--merge-path` | Merge parent `PATH` with the cuppa-managed path
-| `--use-shell` | Run subprocesses with `shell=True`
+| `--use-shell` | Escape hatch: run coloured `SPAWN` subprocesses with `shell=True` (joins the argv list into one shell command). Prefer `working_dir` / `cwd=` / Python actions instead of multi-part shell strings such as `cd … && …`. See xref:methods.adoc#custom-commands-and-working-directories[Custom commands and working directories].
 | `--decider=DECIDER` | SCons decider: `timestamp-newer`, `timestamp-match`, `MD5`, `MD5-timestamp` (default)
 | `--runner=NAME` | Test runner (default `process`)
 |===

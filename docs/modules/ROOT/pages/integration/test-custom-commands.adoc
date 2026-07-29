@@ -1,0 +1,99 @@
+= `test_custom_commands` — working directories and `cuppa.utility.command.run`
+:description: Cuppa integration tests for methods.adoc custom-command examples (#14)
+
+These scenarios mirror the examples under xref:methods.adoc#custom-commands-and-working-directories[Custom commands and working directories].
+
+== What is tested
+
+1. `BuildTest(..., working_dir=env['abs_final_dir'])` runs the test with subprocess `cwd` set (no `cd && …` shell string).
+2. `cuppa.utility.command.run(..., working_dir=…, completion_file=…)` on `env.Command` is parallel-safe and creates the marker under `final/`.
+3. A multi-part shell `Action("cd … && …")` **fails under colourised POSIX `SPAWN`** (issue #14: argv `IncrementalSubProcess`).
+4. The same Action **succeeds with `--raw-output` on POSIX** (colourised `SPAWN` not installed).
+5. On **Windows**, the same Action **succeeds under default colourised `SPAWN`**, because `windows_spawn` wraps native `PSPAWN` rather than argv `Popen` — still not a portable pattern.
+
+== Generated files
+
+=== `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== BuildTest + `working_dir` — `sconscript`
+
+[source,python]
+----
+Import('env')
+env.BuildTest(
+    'cwd_probe',
+    ['cwd_probe.cpp'],
+    working_dir=env['abs_final_dir'],
+)
+----
+
+`cwd_probe.cpp` writes `cwd_probe.txt` into the process current directory.
+
+=== `command.run` + `cwd` — `sconscript`
+
+[source,python]
+----
+Import('env')
+import os
+from cuppa.utility.command import run
+
+tool = env.Build('tool', ['tool.cpp'])
+marker = env.File(os.path.join(env['abs_final_dir'], 'tool.done'))
+tool_cmd = 'tool{} --self-check'.format(env['PROGSUFFIX'])
+
+env.Command(
+    marker,
+    tool,
+    run(tool_cmd, working_dir=env['abs_final_dir'], completion_file=marker),
+)
+----
+
+=== Multi-part shell anti-pattern — `sconscript`
+
+[source,python]
+----
+Import('env')
+import os
+from SCons.Script import Action
+
+tool = env.Build('tool', ['tool.cpp'])
+marker = env.File(os.path.join(env['abs_final_dir'], 'shell.done'))
+shell_cmd = 'cd {} && {} --self-check'.format(
+    env['abs_final_dir'],
+    ('./tool' if os.name != 'nt' else 'tool') + env['PROGSUFFIX'],
+)
+env.Command(marker, tool, Action(shell_cmd))
+----
+
+NOTE: The #14 failure mode is specifically **colourised POSIX `SPAWN`** (`posix_spawn` → `IncrementalSubProcess` argv).
+It is *not* “Windows lacks colourisation”.
+Windows colourised `SPAWN` wraps native `PSPAWN`, so shell-style strings may succeed there; `--raw-output` on POSIX also restores shell behaviour.
+Prefer `working_dir` / `cuppa.utility.command.run` in portable projects.
+
+== Commands
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg --test
+cuppa -D --offline --toolchains=gcc --dbg --parallel
+cuppa -D --offline --toolchains=gcc --dbg
+----
+
+== Expectations
+
+- BuildTest + `working_dir`: exit 0; `cwd_probe` under `final/`; `cwd_probe.txt` under `final/`.
+- `command.run`: exit 0; `tool` and `tool.done` under `final/`; `cwd_probe.txt` under `final/`.
+- Multi-part shell + colourised POSIX SPAWN: non-zero exit; error mentioning `cd`; no `cwd_probe.txt`.
+- Multi-part shell + `--raw-output` (POSIX): exit 0; `cwd_probe.txt` under `final/`.
+- Multi-part shell + colourised Windows SPAWN: exit 0; `cwd_probe.txt` under `final/` (documents PSPAWN wrapper — not a portable recommendation).
+
+'''
+
+Related test module: `tests/integration/methods/test_custom_commands.py`.
