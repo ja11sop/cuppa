@@ -64,19 +64,19 @@ Variant-specific additions:
 | see linker defaults below
 
 | `--rel`
+| `-O3`, `-DNDEBUG`, plus LTO when supported (see below)
 | `-O3`, `-DNDEBUG`
-| `-O3`, `-DNDEBUG`
-| same linker defaults
+| linker defaults plus the same LTO flags
 
 | `--cov`
 | `--coverage`
 | `--coverage`
-| `--coverage` in addition to linker defaults
+| `--coverage` in addition to linker defaults (no LTO)
 |===
 
 On Linux, link lines also receive `-rdynamic` and `-Wl,-rpath=.` so dynamic symbols remain visible for backtraces/plugins and colocated shared objects resolve at run time.
 
-=== Default dialect and LTO by GCC version
+=== Default dialect by GCC version
 
 Cuppa selects dialect (and related language flags) from the *reported* GCC major/minor:
 
@@ -96,25 +96,38 @@ Cuppa selects dialect (and related language flags) from the *reported* GCC major
 | `-std=c++1z`
 
 | 8–9
-| `-std=c++2a`, `-fconcepts`, `-flto`
+| `-std=c++2a`, `-fconcepts`
 
 | 10
-| `-std=c++2a`, `-fconcepts`, `-fcoroutines`, `-flto`
+| `-std=c++2a`, `-fconcepts`, `-fcoroutines`
 
-| 11
-| `-std=c++2b`, `-fconcepts`, `-fcoroutines`, `-flto`
-
-| 12–13
-| `-std=c++2b`, `-fconcepts`, `-fcoroutines`, `-flto=auto`
+| 11–13
+| `-std=c++2b`, `-fconcepts`, `-fcoroutines`
 
 | 14+
-| `-std=c++2c`, `-fconcepts`, `-fcoroutines`, `-flto=auto`
+| `-std=c++2c`, `-fconcepts`, `-fcoroutines`
 
 | fallback
 | `-std=c++03`
 |===
 
-Default *linker* LTO flags: none before GCC 8; `-flto` for 8–11; `-flto=auto` for 12+.
+=== LTO (release only)
+
+Link-time optimisation is applied on the **`--rel`** variant only (compile and link).
+It is not enabled for `--dbg` or `--cov`: LTO raises peak link memory and slows those builds, while the runtime benefit belongs on release.
+
+|===
+| GCC version | `--rel` LTO flags
+
+| before 8
+| _(none)_
+
+| 8–11
+| `-flto`
+
+| 12+
+| `-flto=auto`
+|===
 
 === Stdlib
 
@@ -157,14 +170,14 @@ Variant-specific additions:
 | `-rdynamic`, `-Wl,-rpath=.`, optional `-stdlib=`
 
 | `--rel`
+| `-O3`, `-DNDEBUG`, plus LTO when supported (see below)
 | `-O3`, `-DNDEBUG`
-| `-O3`, `-DNDEBUG`
-| same
+| same linker defaults plus the same LTO flags
 
 | `--cov`
 | `--coverage` (plus older Clang gcov format `-Xclang` tweaks when needed)
 | _(coverage driven primarily via CXX)_
-| `--coverage`
+| `--coverage` (no LTO)
 |===
 
 === Default dialect by Clang version
@@ -192,6 +205,23 @@ Variant-specific additions:
 
 | fallback
 | `-std=c++03`
+|===
+
+=== LTO (release only)
+
+Same policy as GCC: LTO is applied on **`--rel`** only (compile and link), not on `--dbg` or `--cov`.
+
+|===
+| Clang version | `--rel` LTO flags
+
+| before 8
+| _(none)_
+
+| 8–16
+| `-flto`
+
+| 17+
+| `-flto=auto`
 |===
 
 === Stdlib selection

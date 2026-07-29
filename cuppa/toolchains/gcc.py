@@ -423,9 +423,12 @@ class Gcc(object):
 
         CommonCxxFlags = [ '-Wall', '-fexceptions', '-g' ] + self.__default_dialect_flags()
         CommonCFlags   = [ '-Wall', '-g' ]
+        lto_flags      = self.__lto_flags()
 
         self.values['debug_cxx_flags']    = CommonCxxFlags + []
-        self.values['release_cxx_flags']  = CommonCxxFlags + [ '-O3', '-DNDEBUG' ]
+        # LTO is release-only: it raises link-time memory and slows dbg/cov builds;
+        # the runtime benefit belongs on --rel.
+        self.values['release_cxx_flags']  = CommonCxxFlags + [ '-O3', '-DNDEBUG' ] + lto_flags
         self.values['coverage_cxx_flags'] = CommonCxxFlags + [ '--coverage' ]
 
         self.values['debug_c_flags']      = CommonCFlags + []
@@ -434,10 +437,10 @@ class Gcc(object):
 
         CommonLinkCxxFlags = []
         if cuppa.build_platform.name() == "Linux":
-            CommonLinkCxxFlags = self.__default_linker_flags() + ['-rdynamic', '-Wl,-rpath=.' ]
+            CommonLinkCxxFlags = ['-rdynamic', '-Wl,-rpath=.' ]
 
         self.values['debug_link_cxx_flags']    = CommonLinkCxxFlags
-        self.values['release_link_cxx_flags']  = CommonLinkCxxFlags
+        self.values['release_link_cxx_flags']  = CommonLinkCxxFlags + lto_flags
         self.values['coverage_link_cxx_flags'] = CommonLinkCxxFlags + [ '--coverage' ]
 
         DynamicLibraries = []
@@ -470,42 +473,25 @@ class Gcc(object):
         elif major_ver >= 5 and major_ver < 8:
             return ['-std=c++1z']
         elif major_ver >= 8 and major_ver < 10:
-            return ['-std=c++2a', '-fconcepts', '-flto']
+            return ['-std=c++2a', '-fconcepts']
         elif major_ver >= 10 and major_ver < 11:
-            return ['-std=c++2a', '-fconcepts', '-fcoroutines', '-flto']
+            return ['-std=c++2a', '-fconcepts', '-fcoroutines']
         elif major_ver >= 11 and major_ver < 12:
-            return ['-std=c++2b', '-fconcepts', '-fcoroutines', '-flto']
+            return ['-std=c++2b', '-fconcepts', '-fcoroutines']
         elif major_ver >= 12 and major_ver < 14:
-            return ['-std=c++2b', '-fconcepts', '-fcoroutines', '-flto=auto']
+            return ['-std=c++2b', '-fconcepts', '-fcoroutines']
         elif major_ver >= 14:
-            return ['-std=c++2c', '-fconcepts', '-fcoroutines', '-flto=auto']
+            return ['-std=c++2c', '-fconcepts', '-fcoroutines']
         return ['-std=c++03']
 
 
-    def __default_linker_flags( self ):
+    def __lto_flags( self ):
+        """Release-only LTO flags (compile and link). Empty before GCC 8."""
         major_ver = self._reported_version['major']
-        minor_ver = self._reported_version['minor']
-        if major_ver == 4:
-            if minor_ver >= 3 and minor_ver <= 6:
-                return []
-            elif minor_ver == 7:
-                return []
-            else:
-                return []
-        elif major_ver == 5 and minor_ver <= 1:
-            return []
-        elif major_ver >= 5 and major_ver < 8:
-            return []
-        elif major_ver >= 8 and major_ver < 10:
-            return ['-flto']
-        elif major_ver >= 10 and major_ver < 11:
-            return ['-flto']
-        elif major_ver >= 11 and major_ver < 12:
-            return ['-flto']
-        elif major_ver >= 12 and major_ver < 14:
+        if major_ver >= 12:
             return ['-flto=auto']
-        elif major_ver >= 14:
-            return ['-flto=auto']
+        if major_ver >= 8:
+            return ['-flto']
         return []
 
 

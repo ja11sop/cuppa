@@ -564,9 +564,12 @@ class Clang(object):
             CommonCxxFlags += [ "-stdlib={}".format(stdlib) ]
 
         CommonCxxFlags += self.__default_dialect_flags()
+        lto_flags       = self.__lto_flags()
 
         self.values['debug_cxx_flags']     = CommonCxxFlags + []
-        self.values['release_cxx_flags']   = CommonCxxFlags + [ '-O3', '-DNDEBUG' ]
+        # LTO is release-only (same policy as GCC): slower/heavier for dbg/cov;
+        # runtime wins belong on --rel.
+        self.values['release_cxx_flags']   = CommonCxxFlags + [ '-O3', '-DNDEBUG' ] + lto_flags
 
         if self._gcov_format:
             coverage_options = (
@@ -592,7 +595,7 @@ class Clang(object):
             CommonLinkCxxFlags += [ "-stdlib={}".format(stdlib) ]
 
         self.values['debug_link_cxx_flags']   = CommonLinkCxxFlags
-        self.values['release_link_cxx_flags'] = CommonLinkCxxFlags
+        self.values['release_link_cxx_flags'] = CommonLinkCxxFlags + lto_flags
         self.values['coverage_link_flags']    = CommonLinkCxxFlags + [ '--coverage' ]
 
         DynamicLibraries = []
@@ -631,6 +634,16 @@ class Clang(object):
         elif major_ver >= 17:
             return ['-std=c++2c']
         return ['-std=c++03']
+
+
+    def __lto_flags( self ):
+        """Release-only LTO flags (compile and link). Empty before Clang 8."""
+        major_ver = self._reported_version['major']
+        if major_ver >= 17:
+            return ['-flto=auto']
+        if major_ver >= 8:
+            return ['-flto']
+        return []
 
 
     def abi_flag( self, env ):
