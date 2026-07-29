@@ -6,6 +6,7 @@ Use this document to see what is shipped today, what is planned next, and what i
 **Audience:** maintainers and AI agents working on cuppa.
 **Canonical product docs:** [https://ja11sop.github.io/cuppa/](https://ja11sop.github.io/cuppa/) under `docs/`.
 **Agent notes:** [`AGENTS.md`](AGENTS.md).
+**Release notes:** [`CHANGELOG.md`](CHANGELOG.md) (Keep a Changelog; SemVer via `cuppa/VERSION`).
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 

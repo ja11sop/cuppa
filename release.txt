@@ -13,6 +13,12 @@ pylint -E cuppa
 pytest -m unit
 pytest -m integration
 
+# Release notes
+# - Move items from [Unreleased] into a new ## [X.Y.Z] - YYYY-MM-DD section in CHANGELOG.md
+# - Update compare links at the bottom of CHANGELOG.md
+# - Bump cuppa/VERSION to match
+# - After tagging, create the GitHub release from CHANGELOG.md for that version
+
 # Build
 rm -rf dist/ build/ && python setup.py sdist bdist_wheel
 
