@@ -13,6 +13,79 @@ Supported platforms / floors:
 
 See <<macos-apple-clang>> for why Xcode’s Apple Clang is rejected on macOS.
 
+== Capability matrix (current)
+
+The matrix below summarises the currently supported feature surface by toolchain family.
+Use it as a quick compatibility checklist before adopting modules in a new project.
+
+[cols="2,1,1,1,1,3"]
+|===
+| Feature | GCC | LLVM Clang | MSVC | Apple Clang | Notes
+
+| Named modules
+| Yes
+| Yes
+| Yes
+| No
+| Apple Clang is treated as unsupported under `--modules`; use Homebrew LLVM Clang on macOS.
+
+| Interface / implementation partitions
+| Yes
+| Yes
+| Yes
+| No
+| MSVC uses `-interface` / `-internalPartition` as appropriate.
+
+| Implementation units (`module M;`)
+| Yes
+| Yes
+| Yes
+| No
+| Compiled as ordinary objects that consume the primary module BMI.
+
+| Header units (`HeaderUnit`, `import "..."`, `import <...>`)
+| Yes
+| Yes
+| Yes
+| No
+| Header-unit spelling must match the declared form.
+
+| `import std` / `import std.compat`
+| Yes (15+)
+| Yes (18+ + libc++)
+| Yes (14.3+ + `std.ixx`)
+| No
+| Cuppa builds `std` before `std.compat` and raises the dialect floor to C++23.
+
+| Private module fragments (`module :private;`)
+| No
+| Yes
+| n/a
+| No
+| GCC currently reports this as unimplemented.
+
+| Shared libraries with module interfaces
+| Yes
+| Yes
+| Yes
+| No
+| On MSVC, module exports still need ordinary DLL export mechanics (`__declspec(dllexport)` / `.def`).
+
+| Package BMI install + `ImportModules`
+| Yes
+| Yes
+| Yes
+| No
+| BMIs are toolchain-family specific (`.gcm` / `.pcm` / `.ifc`) and are not cross-compatible.
+
+| `--cov --modules`
+| Yes
+| Yes
+| No
+| No
+| MSVC coverage instrumentation is not supported.
+|===
+
 == Prerequisites
 
 * xref:install.adoc[Cuppa installed] and a working xref:quickstart.adoc[quickstart] project
@@ -224,7 +297,7 @@ env.Build('app', ['main.cpp'], LIBS=['mathlib'])
 ----
 
 `package_dependency` / GitLab `BuildWith` automatically calls `ImportModules` when
-`{package_dir}/modules/module-map.json` is present. BMI extensions must match the consumer
+`package_dir/modules/module-map.json` is present. BMI extensions must match the consumer
 toolchain (`.gcm` vs `.pcm` vs `.ifc`) — cross-toolchain BMI reuse is not supported.
 `PublishPackage` copies `modules/` into the package archive alongside `include/` and `lib/`.
 

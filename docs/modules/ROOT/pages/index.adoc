@@ -76,7 +76,7 @@ TIP: When docs and code disagree, *code is authoritative* -- especially storage 
 * xref:concepts.adoc[Concepts] -- methods, dependencies, profiles, variants, toolchains
 * xref:methods.adoc[Methods] -- build, test, library, and helper APIs with examples
 * xref:toolchains.adoc[Toolchains] -- selection and *default flags* for GCC, Clang, and MSVC
-* xref:cxx-modules.adoc[C++ modules] -- introduction, tutorial, and reference
+* xref:cxx-modules.adoc[C++ modules] -- introduction, tutorial, reference, and an up-to-date capability matrix by toolchain family
 * xref:cli-reference.adoc[CLI reference] -- flags you will use every day
 * xref:integration-tests.adoc[Integration tests] -- pytest scenarios with generated build scripts
 
