@@ -11,7 +11,6 @@ import os
 import shutil
 import re
 import platform
-import shlex
 
 # Cuppa Imports
 import cuppa.build_platform
@@ -45,23 +44,52 @@ def b2_as_command( boost_version, boost_location ):
 
 
 def b2_command( env, boost_version, location, toolchain, libraries, variant, target_arch, linktype, stage_dir, verbose_build, verbose_config, job_count, parallel, defines ):
+    # Build argv as a list. Do not round-trip through a quoted string + shlex.split:
+    # escaping quotes before split used to tear cxxflags apart (e.g.
+    # cxxflags="-std=c++2c -stdlib=libstdc++" -> ['cxxflags="-std=c++2c', '-stdlib=libstdc++"'])
+    # which made b2 emit broken compile lines ("Unterminated quoted string").
 
-    verbose = ""
-    if verbose_build:
-        verbose += " -d+2"
-    if verbose_config:
-        verbose += " --debug-configuration"
-
-    jobs = "1"
+    jobs = 1
     if job_count >= 2 and parallel:
         if len(libraries)>4:
-            jobs = str( job_count - 1 )
+            jobs = job_count - 1
         else:
-            jobs = str( job_count/4 + 1 )
+            jobs = int( job_count/4 + 1 )
 
-    with_libraries = ""
+    args = [ b2_as_command( boost_version, location ) ]
+
+    if verbose_build:
+        args.append( "-d+2" )
+    if verbose_config:
+        args.append( "--debug-configuration" )
+
+    args.extend( [ "-j", str( jobs ) ] )
+
     for library in libraries:
-        with_libraries += " --with-" + library
+        args.append( "--with-" + library )
+
+    toolset = toolset_from_toolchain( toolchain )
+    args.append( "toolset=" + toolset )
+    args.append( "variant=" + variant )
+
+    # Boost.Context selects asm via address-model/architecture/abi/binary-format.
+    # Without architecture=x86 on x86_64, b2 reports "No best alternative for .../asm_sources".
+    arch = ( target_arch or "" ).lower()
+    if arch in ( "amd64", "x86_64", "x64" ):
+        args.append( "address-model=64" )
+        args.append( "architecture=x86" )
+    elif arch in ( "x86", "i386", "i486", "i586", "i686" ):
+        args.append( "address-model=32" )
+        args.append( "architecture=x86" )
+    elif arch in ( "arm64", "aarch64" ):
+        args.append( "address-model=64" )
+        args.append( "architecture=arm" )
+    elif arch == "arm":
+        args.append( "architecture=arm" )
+
+    if toolchain.family() == "cl":
+        if toolchain.target_store() != "desktop":
+            args.append( "windows-api=" + toolchain.target_store() )
 
     cxxflags = []
     abi_flag = toolchain.abi_flag(env)
@@ -72,60 +100,27 @@ def b2_command( env, boost_version, location, toolchain, libraries, variant, tar
     if stdlib_flag:
         cxxflags.append( stdlib_flag )
 
-    build_flags = ""
-
     if cxxflags:
-        build_flags = 'cxxflags="' + ' '.join( cxxflags ) + '"'
-
-    address_model = ""
-    architecture = ""
-    windows_api = ""
-    if toolchain.family() == "cl":
-        if target_arch == "amd64":
-            address_model = "address-model=64"
-        elif target_arch in ( "arm64", "aarch64" ):
-            address_model = "address-model=64"
-            architecture = "architecture=arm"
-        elif target_arch == "arm":
-            architecture = "architecture=arm"
-        if toolchain.target_store() != "desktop":
-            windows_api = "windows-api=" + toolchain.target_store()
+        # One argv element so spaces in the flag list stay together for b2.
+        args.append( "cxxflags=" + " ".join( cxxflags ) )
 
     if defines:
         for define in defines:
-            build_flags += ' define="{}"'.format( define )
+            args.append( "define=" + define )
 
     if linktype == 'shared':
-        build_flags += ' define="BOOST_ALL_DYN_LINK"'
+        args.append( "define=BOOST_ALL_DYN_LINK" )
+
+    args.append( "link=" + linktype )
 
     build_dir = "bin." + directory_from_abi_flag( abi_flag )
+    path_sep = os.path.sep
+    args.append( "--build-dir=." + path_sep + build_dir )
+    args.append( "stage" )
+    args.append( "--stagedir=." + path_sep + stage_dir )
+    args.append( "--ignore-site-config" )
 
-    b2 = b2_as_command( boost_version, location )
-
-    toolset = toolset_from_toolchain( toolchain )
-
-    command_line = "{b2}{verbose} -j {jobs}{with_libraries} toolset={toolset} variant={variant} {address_model} {architecture} {windows_api} {build_flags} link={linktype} --build-dir=.{path_sep}{build_dir} stage --stagedir=.{path_sep}{stage_dir} --ignore-site-config".format(
-            b2              = b2,
-            verbose         = verbose,
-            jobs            = jobs,
-            with_libraries  = with_libraries,
-            toolset         = toolset,
-            variant         = variant,
-            address_model   = address_model,
-            architecture    = architecture,
-            windows_api     = windows_api,
-            build_flags     = build_flags,
-            linktype        = linktype,
-            build_dir       = build_dir,
-            stage_dir       = stage_dir,
-            path_sep        = os.path.sep
-    )
-
-    if platform.system() == "Windows":
-        command_line = command_line.replace( "\\", "\\\\" )
-    command_line = command_line.replace( '"', '\\"' )
-
-    return shlex.split( command_line )
+    return args
 
 
 
