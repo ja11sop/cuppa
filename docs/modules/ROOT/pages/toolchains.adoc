@@ -34,6 +34,7 @@ Allowed `--stdcpp` / `StdCpp` choices:
 With `--modules`, cuppa raises the dialect to at least C++20 if it is lower.
 
 On MSVC, pre-C++14 aliases map to `-std:c++14` with a warning (MSVC has no matching `-std:` for those dialects).
+`c++23` / `c++2b` map to `-std:c++latest` (many MSVC toolsets ignore unknown `-std:c++23`, which breaks `import std`).
 Cuppa passes MSVC standard flags in *hyphen* form (`-std:c++20`) so SCons on Windows does not treat `/std:…` as a filesystem path.
 
 [#gcc-toolchain]

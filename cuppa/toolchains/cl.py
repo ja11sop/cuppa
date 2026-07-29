@@ -89,7 +89,7 @@ def find_msvc_modules_dir( env=None ):
     ):
         if not os.path.isdir( base ):
             continue
-        for year in ( '2025', '2022', '2019' ):
+        for year in ( '18', '2025', '2022', '2019' ):
             year_root = os.path.join( base, year )
             if not os.path.isdir( year_root ):
                 continue
@@ -145,6 +145,10 @@ class Cl(object):
     # Use '-' not '/' so SCons/Windows do not treat the flag as a filesystem path
     # (e.g. "/std:c++14" → "C:\\std:c++14").
     # Pre-C++14 aliases have no MSVC -std: equivalent; map to -std:c++14 with a warning.
+    # c++23 / c++2b → -std:c++latest: many MSVC toolsets (including 19.51 / VS 18)
+    # ignore unknown `-std:c++23` (D9002), which then breaks `import std` / std.ixx
+    # ("Standard Library Modules are available only with C++20 or later").
+    # Microsoft’s own import-std tutorial uses /std:c++latest.
     _stdcpp_flag_map = {
         'c++98': '-std:c++14',
         'c++03': '-std:c++14',
@@ -156,8 +160,8 @@ class Cl(object):
         'c++17': '-std:c++17',
         'c++2a': '-std:c++20',
         'c++20': '-std:c++20',
-        'c++2b': '-std:c++23',
-        'c++23': '-std:c++23',
+        'c++2b': '-std:c++latest',
+        'c++23': '-std:c++latest',
         'c++2c': '-std:c++latest',
         'c++26': '-std:c++latest',
         'c++latest': '-std:c++latest',
@@ -737,9 +741,9 @@ class Cl(object):
             extra = '-reference std={} '.format( std_bmi )
             sources_nodes = [ get_registry( env )['named']['std']['bmi'] ]
 
-        # Ensure dialect is on the command line after $CXXFLAGS so a stale
-        # -std:c++20 from the variant floor cannot win over the import-std raise.
-        dialect = self.stdcpp_flag_for( env.get( 'stdcpp' ) or 'c++23' )
+        # Prefer c++latest for STL modules: matches Microsoft’s tutorial and
+        # avoids toolchains that ignore -std:c++23 (D9002).
+        dialect = self.stdcpp_flag_for( 'c++latest' )
         action = (
             '$CXX $CXXFLAGS {dialect} -c -TP -interface '
             '-ifcOutput {bmi} -Fo"{obj}" '
@@ -756,11 +760,13 @@ class Cl(object):
 
 
     def abi( self, env ):
+        # Prefer the cuppa dialect name so --stdcpp=c++23 stays "c++23" in paths
+        # even when the MSVC flag is -std:c++latest.
+        if env.get( 'stdcpp' ):
+            return env['stdcpp']
         flag = self.abi_flag( env )
         if ':' in flag:
             return flag.split( ':', 1 )[1]
-        if env.get( 'stdcpp' ):
-            return env['stdcpp']
         return 'c++20'
 
 
