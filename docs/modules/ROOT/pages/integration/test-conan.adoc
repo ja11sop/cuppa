@@ -15,10 +15,12 @@ Optional Conan 2 consumer support via `cuppa.conan_deps` / `cuppa.conan_dependen
 * **Publish modules/BMI** — `--modules` producer stages `modules/`; consumer `conan_deps` + `import` under `--modules --offline` (skips without a modules-capable toolchain)
 
 Tests skip when `conan` is missing or is not a working Conan 2 CLI.
+Linux CI installs Conan 2 (`pip install 'conan>=2,<3'`) on each integration matrix cell so these scenarios run rather than skip.
+Windows CI does not install Conan yet (see Out of scope).
 
 == Prerequisites
 
-* Conan 2 on `PATH` (`conan version` succeeds)
+* Conan 2 on `PATH` (`conan version` succeeds) — installed on Linux CI; install locally for developers
 * Network (or a warm Conan cache) for install / plugin scenarios
 * C++ compiler (suite default toolchain)
 

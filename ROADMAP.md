@@ -155,7 +155,7 @@ Detailed exploration, trade-offs, and API sketches: [`CONAN_CONSUMER_PLAN.md`](C
 | `conan-json` | Custom CuppaDeps/JSON only if SConsDeps proves insufficient | Later | Not on critical path |
 | `conan-pkgconfig` | Document PkgConfigDeps as optional fallback | Later | Not MVP default |
 | `conan-docs-pip` | Docs + example pip plugin (`examples/conan_fmt_plugin`) | Done | Entry point `cuppa.dependency.plugins`; covered by `test_conan` |
-| `conan-integration` | Linux integration: install / generators_folder / shared `--test` / plugin / offline miss | Done | `tests/integration/methods/test_conan.py` |
+| `conan-integration` | Linux integration: install / generators_folder / shared `--test` / plugin / offline miss / publish | Done | `test_conan.py`; Linux CI installs Conan 2 |
 | `conan-publish-spike` | Spike Cuppa-build → `export-pkg` → local-cache consumer round-trip | Done | Producer path evidence |
 | `conan-publish` | `ConanPackagePublisher` + `PublishPackage`; settings; upload via `--publish-package` | Done | See [`CONAN_PUBLISH_PLAN.md`](CONAN_PUBLISH_PLAN.md) |
 | `conan-publish-recipe` | Hand-written `conanfile=` override; `shared=`; generated `requires=` | Done | Components still deferred; see [`CONAN_COMPONENTS_ISSUE.md`](CONAN_COMPONENTS_ISSUE.md) |

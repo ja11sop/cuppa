@@ -117,6 +117,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -e . --no-build-isolation
+          # Conan 2 so test_conan scenarios run (not skipped). Not a cuppa runtime dep.
+          pip install 'conan>=2,<3'
+          conan version
       - name: Integration tests (${{ matrix.name_suffix }})
         env:
           CUPPA_TEST_TOOLCHAIN: ${{ matrix.toolchain }}

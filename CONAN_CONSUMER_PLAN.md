@@ -38,7 +38,7 @@ Cuppa runs `conan install` when needed (or reuses a fingerprint cache), loads Co
 | Cross-compilation profiles (build vs host) in MVP | Host-only Phase 1 |
 | `tool_requires` / code generators (e.g. protobuf plugins) | SConsDeps historically weak; document limitation |
 | Editable / local recipe workflows | Later |
-| Conan BMI / C++ modules packages | Separate from modules BMI packaging |
+| Conan-native BMI / `cxxflags` packaging | Cuppa stages Cuppa-native `modules/` + `module-map.json` (parity with GitLab); see [`CONAN_PUBLISH_PLAN.md`](CONAN_PUBLISH_PLAN.md) Phase 2b — **done** |
 
 ## Locked decision: primary generator is SConsDeps
 
@@ -184,8 +184,8 @@ Responsibilities:
 | Kind | Approach |
 |------|----------|
 | Unit | Mock install dir with a minimal `SConscript_conandeps` fixture; assert `MergeFlags` keys applied; fingerprint / offline behaviour |
-| Integration | `@pytest.mark.skipif(not shutil.which('conan'))` + network-or-cache; Linux primary |
-| Windows CI | Only if Conan + compiler profile is maintainable; otherwise document skip |
+| Integration | Linux CI installs Conan 2; `@pytest.mark.skipif` only when CLI missing locally |
+| Windows CI | Conan not installed yet; document skip until a maintainable Conan+MSVC profile exists |
 | Negative | Missing `conan` CLI → `StopError`; corrupt/missing `SConscript_conandeps` → `StopError` |
 
 ## Phased delivery
@@ -205,7 +205,7 @@ Recorded 2026-07-30 with Conan 2.31.1 + gcc 15:
 1. `cuppa/build_with_conan.py` + export from `__init__.py`.
 2. Fingerprint + cache + lock; `BuildWith` apply; runtime ENV.
 3. Unit fixture tests; docs on [`dependencies.adoc`](docs/modules/ROOT/pages/dependencies.adoc); CHANGELOG; ROADMAP IDs.
-4. Optional thin integration scenario if Conan is available in CI/dev.
+4. Integration scenarios under `test_conan` (Linux CI installs Conan 2).
 
 ### Phase 1b — Hardening follow-ups — **done**
 
@@ -213,6 +213,7 @@ Recorded 2026-07-30 with Conan 2.31.1 + gcc 15:
 2. MSVC `compiler.runtime` / toolset version mapping; document `cxx2c` → `cppstd=26`.
 3. Lockfile warning only on actual install (not every configure).
 4. Example pip plugin package: `examples/conan_fmt_plugin`.
+5. Modules/BMI consumer load after SConsDeps (`load_conan_packaged_modules`); publisher stages `modules/` — see publish plan Phase 2b.
 
 ### Phase 2 — Hardening (later)
 

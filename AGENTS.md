@@ -87,6 +87,7 @@ Lint config: [`.flake8`](.flake8) and [`.pylintrc`](.pylintrc). Full settings an
 CI runs the integration suite once per Linux cell via `CUPPA_TEST_TOOLCHAIN` / `CUPPA_TEST_ARGS`:
 `gcc`, `clang` + `--clang-stdlib=libstdc++`, and `clang` + `--clang-stdlib=libc++`, plus once on `windows-latest` with MSVC (`vc`), and a macOS modules job that installs **Homebrew LLVM** Clang + libc++ (Apple/Xcode Clang is not modules-capable — no `clang-scan-deps`; see `docs/modules/ROOT/pages/cxx-modules.adoc` § macOS). The macOS job covers named modules, header units, partitions, packaging, and `import std` (not the full Linux matrix).
 Linux CI installs **g++-15** (via `ppa:ubuntu-toolchain-r/test` + `update-alternatives`) **only on the gcc integration job**.
+Each Linux integration job also `pip install`s **Conan 2** (`conan>=2,<3`) so `tests/integration/methods/test_conan.py` runs instead of skipping; Conan is not a cuppa runtime dependency and is not required for the unit job.
 The clang jobs install the newest available Clang from [apt.llvm.org](https://apt.llvm.org/) (tried newest-first), select it with `update-alternatives`, and install matching libc++ so both stdlib cells (and `import std`) can run. The libstdc++ cell uses the distro libstdc++ — do not install a newer GCC on those jobs.
 Modules integration tests prefer that job’s default compiler family alias and only probe versioned drivers if the default is below the modules floor; they **fail** on too-old GCC/Clang (and on Apple Clang) rather than skipping.
 

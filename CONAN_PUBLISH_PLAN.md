@@ -29,6 +29,7 @@ publisher = ConanPackagePublisher(
     remote_url=None,    # optional: add remote if missing
     source_include_dir='include',
     source_lib_dir=env['abs_final_dir'],
+    source_modules_dir=None,  # optional; default {source_lib_dir}/modules if present
     libs=None,          # optional; auto-detect from lib dir
     shared=False,       # optional; None = infer from staged libs
     requires=None,      # optional; generated recipe only
