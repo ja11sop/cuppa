@@ -79,6 +79,8 @@ def test_write_prebuilt_conanfile( tmp_path ):
     assert 'options = {"shared": [True, False]}' in text
     assert 'default_options = {"shared": False}' in text
     assert 'requires =' not in text
+    assert 'modules_src' in text
+    assert 'cuppa_modules_dir' in text
 
 
 def test_write_prebuilt_conanfile_shared_and_requires( tmp_path ):
@@ -361,6 +363,61 @@ def test_build_package_conanfile_override( tmp_path, monkeypatch ):
     assert 'ignored/1.0' not in staged
     export_calls = [ c for c in calls if c and c[0] == 'conan' ]
     assert 'shared=True' in export_calls[0]
+
+
+def test_build_package_stages_modules( tmp_path, monkeypatch ):
+    env = PublisherEnv(
+            final_dir=str( tmp_path / 'final' ),
+            abs_final_dir=str( tmp_path / 'final' ),
+            target_arch='x86_64',
+            stdcpp='c++20',
+            toolchain=_FakeToolchain(),
+            variant=_FakeVariant(),
+    )
+    include = tmp_path / 'include'
+    include.mkdir()
+    lib = tmp_path / 'lib'
+    lib.mkdir()
+    ( lib / 'libmylib.a' ).write_bytes( b'!' )
+    modules = lib / 'modules'
+    modules.mkdir()
+    ( modules / 'module-map.json' ).write_text(
+            '{"format": 1, "extension": ".gcm", "modules": {}}\n',
+            encoding='utf-8',
+    )
+    ( modules / 'math.gcm' ).write_bytes( b'bmi' )
+
+    pub = ConanPackagePublisher(
+            env,
+            name='mylib',
+            version='0.1.0',
+            source_include_dir=str( include ),
+            source_lib_dir=str( lib ),
+            libs=[ 'mylib' ],
+    )
+
+    class _Completed(object):
+        returncode = 0
+        stdout = ''
+        stderr = ''
+
+    monkeypatch.setattr(
+            'cuppa.package_managers.conan._find_conan_executable',
+            lambda: 'conan',
+    )
+    monkeypatch.setattr(
+            'cuppa.package_managers.conan.subprocess.run',
+            lambda *a, **k: _Completed(),
+    )
+
+    stamp = tmp_path / 'final' / 'mylib-0.1.0.conan.pkg'
+    stamp.parent.mkdir( parents=True, exist_ok=True )
+    assert pub.build_package( [ str( stamp ) ], [], env ) is None
+    staged = tmp_path / 'final' / 'conan_pkg_mylib_0.1.0' / 'modules'
+    assert ( staged / 'module-map.json' ).is_file()
+    assert ( staged / 'math.gcm' ).is_file()
+    # modules must not appear under staged lib/
+    assert not ( tmp_path / 'final' / 'conan_pkg_mylib_0.1.0' / 'lib' / 'modules' ).exists()
 
 
 def test_publish_package_offline_fails( tmp_path ):

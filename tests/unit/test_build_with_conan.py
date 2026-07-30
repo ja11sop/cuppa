@@ -13,6 +13,7 @@ from cuppa.build_with_conan import (
     conan_settings_for,
     load_sconsdeps,
     merge_conan_flags,
+    modules_dirs_from_sconsdeps,
     settings_to_cli,
     version_summary_from_info,
     write_transient_conanfile,
@@ -116,6 +117,36 @@ def test_map_cppstd_common_values():
     assert _map_cppstd( 'cxx2c' ) == '26'
     assert _map_cppstd( '-std=c++17' ) == '17'
     assert _map_cppstd( 'gnu++20' ) == 'gnu20'
+
+
+def test_modules_dirs_from_sconsdeps( tmp_path ):
+    pkg = tmp_path / 'p'
+    include = pkg / 'include'
+    lib = pkg / 'lib'
+    modules = pkg / 'modules'
+    include.mkdir( parents=True )
+    lib.mkdir()
+    modules.mkdir()
+    ( modules / 'module-map.json' ).write_text( '{}\n', encoding='utf-8' )
+    info = {
+        'conandeps': {
+            'CPPPATH': [ str( include ) ],
+            'LIBPATH': [ str( lib ) ],
+        },
+        'mylib': {
+            'CPPPATH': [ str( include ) ],
+            'LIBPATH': [ str( lib ) ],
+        },
+    }
+    found = modules_dirs_from_sconsdeps( info )
+    assert found == [ str( modules ) ]
+
+
+def test_modules_dirs_from_sconsdeps_absent( tmp_path ):
+    include = tmp_path / 'include'
+    include.mkdir()
+    info = { 'conandeps': { 'CPPPATH': [ str( include ) ] } }
+    assert modules_dirs_from_sconsdeps( info ) == []
 
 
 def test_conan_settings_for_msvc_runtime():

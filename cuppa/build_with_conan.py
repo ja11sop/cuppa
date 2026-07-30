@@ -363,6 +363,51 @@ def merge_conan_flags( env, flags ):
     _apply_runtime_paths( env, binpaths, libpaths )
 
 
+def modules_dirs_from_sconsdeps( info ):
+    """Find ``modules/`` dirs (with module-map.json) beside Conan package include/lib.
+
+    SConsDeps typically sets CPPPATH to ``…/package/include`` and LIBPATH to
+    ``…/package/lib``; Cuppa ships BMIs under the sibling ``modules/`` folder.
+    """
+    if not isinstance( info, dict ):
+        return []
+    candidates = set()
+
+    def _consider_path( path ):
+        if not path:
+            return
+        path = os.path.normpath( str( path ) )
+        base = path
+        leaf = os.path.basename( base )
+        if leaf in ( 'include', 'lib', 'bin' ):
+            base = os.path.dirname( base )
+        modules = os.path.join( base, 'modules' )
+        if os.path.isfile( os.path.join( modules, 'module-map.json' ) ):
+            candidates.add( modules )
+
+    for key, value in info.items():
+        if not isinstance( value, dict ):
+            continue
+        for path_key in ( 'CPPPATH', 'LIBPATH', 'BINPATH' ):
+            for entry in value.get( path_key ) or []:
+                _consider_path( entry )
+
+    return sorted( candidates )
+
+
+def load_conan_packaged_modules( env, info ):
+    """Load Cuppa ``module-map.json`` BMIs from Conan package folders, if present."""
+    dirs = modules_dirs_from_sconsdeps( info )
+    if not dirs:
+        return
+    from cuppa.cpp.cxx_modules import load_packaged_modules
+    for modules_dir in dirs:
+        load_packaged_modules( env, modules_dir )
+        logger.debug( "Loaded Conan packaged modules from [{}]".format(
+                as_notice( modules_dir )
+        ) )
+
+
 def _apply_runtime_paths( env, binpaths, libpaths ):
     import cuppa.build_platform
     platform_name = cuppa.build_platform.name()
@@ -390,6 +435,7 @@ def version_summary_from_info( info ):
             pkg = key[:-len( '_version' )]
             versions.append( '{}={}'.format( pkg, value ) )
     return ', '.join( versions ) if versions else 'conan'
+
 
 
 class base( object ):
@@ -465,6 +511,7 @@ class base( object ):
         # ``conandeps`` for correct link lines (whole graph or single-require sugar).
         flags = info.get( 'conandeps' ) or {}
         merge_conan_flags( env, flags )
+        load_conan_packaged_modules( env, info )
         logger.debug( "Applied Conan SConsDeps [conandeps] from [{}]".format(
                 as_notice( install_dir )
         ) )

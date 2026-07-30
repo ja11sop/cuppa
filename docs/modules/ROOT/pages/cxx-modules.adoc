@@ -321,9 +321,12 @@ env.Build('app', ['main.cpp'], LIBS=['mathlib'])
 ----
 
 `package_dependency` / GitLab `BuildWith` automatically calls `ImportModules` when
-`package_dir/modules/module-map.json` is present. BMI extensions must match the consumer
+`package_dir/modules/module-map.json` is present.
+Conan consumers via `cuppa.conan_deps` do the same when a Conan package ships
+`modules/module-map.json` (see xref:packages.adoc#conan-package-publishing[Conan 2 publishing]).
+BMI extensions must match the consumer
 toolchain (`.gcm` vs `.pcm` vs `.ifc`) — cross-toolchain BMI reuse is not supported.
-`PublishPackage` copies `modules/` into the package archive alongside `include/` and `lib/`.
+`PublishPackage` (GitLab or Conan) copies `modules/` into the package alongside `include/` and `lib/`.
 
 NOTE: Producer and consumer still need matching toolchain *family* for BMI format. Same-sconscript
 use remains the most direct path; packaging is for shipping modular libraries.

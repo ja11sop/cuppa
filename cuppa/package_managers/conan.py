@@ -50,15 +50,21 @@ class CuppaPrebuiltConan(ConanFile):
     def package(self):
         include_src = os.path.join(self.recipe_folder, "include")
         lib_src = os.path.join(self.recipe_folder, "lib")
+        modules_src = os.path.join(self.recipe_folder, "modules")
         if os.path.isdir(include_src):
             copy(self, "*", src=include_src,
                  dst=os.path.join(self.package_folder, "include"))
         if os.path.isdir(lib_src):
             copy(self, "*", src=lib_src,
                  dst=os.path.join(self.package_folder, "lib"))
+        if os.path.isdir(modules_src):
+            copy(self, "*", src=modules_src,
+                 dst=os.path.join(self.package_folder, "modules"))
 {requirements_method}
     def package_info(self):
         self.cpp_info.libs = {libs!r}
+        if os.path.isdir(os.path.join(self.package_folder, "modules")):
+            self.cpp_info.set_property("cuppa_modules_dir", "modules")
 '''
 
 
@@ -194,6 +200,7 @@ class ConanPackagePublisher:
             conanfile=None,
             shared=None,
             requires=None,
+            source_modules_dir=None,
     ):
         from SCons.Script import Flatten
 
@@ -217,6 +224,9 @@ class ConanPackagePublisher:
 
         self._source_include_dir = env.Dir( str( source_include_dir ) ) if source_include_dir else None
         self._source_lib_dir = env.Dir( str( source_lib_dir ) ) if source_lib_dir else None
+        self._source_modules_dir = (
+            env.Dir( str( source_modules_dir ) ) if source_modules_dir else None
+        )
 
         if conanfile:
             self._conanfile_override = env.File( str( conanfile ) )
@@ -225,6 +235,7 @@ class ConanPackagePublisher:
         self._stage_dir = env.Dir( os.path.join( env['final_dir'], stage_name ) )
         self._stage_include = env.Dir( os.path.join( str( self._stage_dir ), 'include' ) )
         self._stage_lib = env.Dir( os.path.join( str( self._stage_dir ), 'lib' ) )
+        self._stage_modules = env.Dir( os.path.join( str( self._stage_dir ), 'modules' ) )
         self._conanfile_path = os.path.join( str( self._stage_dir ), 'conanfile.py' )
 
         stamp = '{name}-{version}.conan.pkg'.format( name=self._name, version=self._version )
@@ -282,6 +293,8 @@ class ConanPackagePublisher:
                 os.makedirs( str( self._stage_lib ), exist_ok=True )
         else:
             os.makedirs( str( self._stage_lib ), exist_ok=True )
+
+        self._stage_modules_tree()
 
         if self._conanfile_override:
             src_recipe = _resolve_node_path( self._conanfile_override )
@@ -433,6 +446,39 @@ class ConanPackagePublisher:
                 as_info( self._reference ), as_info( str( self._remote ) )
         ) )
         return None
+
+    def _modules_source_path( self ):
+        """Resolve BMI modules dir: explicit source_modules_dir or lib_dir/modules."""
+        if self._source_modules_dir:
+            return _resolve_node_path( self._source_modules_dir )
+        if self._source_lib_dir:
+            candidate = os.path.join( _resolve_node_path( self._source_lib_dir ), 'modules' )
+            map_path = os.path.join( candidate, 'module-map.json' )
+            if os.path.isfile( map_path ):
+                return candidate
+        return None
+
+    def _stage_modules_tree( self ):
+        src_modules = self._modules_source_path()
+        if not src_modules:
+            return
+        if not os.path.isdir( src_modules ):
+            logger.warn( "Conan package [{}]: modules dir [{}] missing".format(
+                    as_notice( self._name ), as_notice( src_modules )
+            ) )
+            return
+        map_path = os.path.join( src_modules, 'module-map.json' )
+        if not os.path.isfile( map_path ):
+            logger.warn(
+                "Conan package [{}]: modules dir [{}] has no module-map.json; skipping".format(
+                        as_notice( self._name ), as_notice( src_modules )
+                )
+            )
+            return
+        shutil.copytree( src_modules, str( self._stage_modules ) )
+        logger.info( "Conan package [{}]: staged modules from [{}]".format(
+                as_info( self._name ), as_notice( src_modules )
+        ) )
 
     def _ensure_remote( self, conan ):
         listed = subprocess.run(

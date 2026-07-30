@@ -143,6 +143,7 @@ Detailed exploration, trade-offs, and API sketches: [`CONAN_CONSUMER_PLAN.md`](C
 | GitLab `package_dependency` | Yes |
 | Conan install → Cuppa env flags | Yes (optional; `conan_deps` / SConsDeps) |
 | Conan export-pkg / upload of Cuppa-built libs | Yes (optional; `ConanPackagePublisher`) |
+| Conan modules/BMI (`modules/` + `module-map.json`) | Yes (optional; parity with GitLab generic) |
 
 ### Planned / potential
 
@@ -157,7 +158,8 @@ Detailed exploration, trade-offs, and API sketches: [`CONAN_CONSUMER_PLAN.md`](C
 | `conan-integration` | Linux integration: install / generators_folder / shared `--test` / plugin / offline miss | Done | `tests/integration/methods/test_conan.py` |
 | `conan-publish-spike` | Spike Cuppa-build → `export-pkg` → local-cache consumer round-trip | Done | Producer path evidence |
 | `conan-publish` | `ConanPackagePublisher` + `PublishPackage`; settings; upload via `--publish-package` | Done | See [`CONAN_PUBLISH_PLAN.md`](CONAN_PUBLISH_PLAN.md) |
-| `conan-publish-recipe` | Hand-written `conanfile=` override; `shared=`; generated `requires=` | Done | Components / modules/BMI still deferred; see [`CONAN_PUBLISH_PLAN.md`](CONAN_PUBLISH_PLAN.md) |
+| `conan-publish-recipe` | Hand-written `conanfile=` override; `shared=`; generated `requires=` | Done | Components still deferred; see [`CONAN_COMPONENTS_ISSUE.md`](CONAN_COMPONENTS_ISSUE.md) |
+| `conan-publish-modules` | Stage Cuppa `modules/` + BMI map in Conan packages; consumer `load_packaged_modules` | Done | Parity with GitLab generic `modules/` path |
 
 ### Out of scope (Conan)
 

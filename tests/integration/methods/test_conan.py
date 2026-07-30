@@ -14,6 +14,7 @@ import pytest
 from tests.helpers.cuppa_runner import (
     assert_success,
     find_final_binaries,
+    find_under_build,
     run_cuppa,
 )
 from tests.helpers.project import write_sconstruct, write_sconscript
@@ -646,3 +647,127 @@ def test_conan_publish_conanfile_override_with_requires(tmp_path):
     )
     assert ran.returncode == 0, ran.stdout
     assert "wrap=43" in ran.stdout
+
+
+def test_conan_publish_modules_bmi_round_trip(tmp_path):
+    """BuildLib --modules → ConanPackagePublisher stages modules/ → consumer import."""
+    import os
+    import shutil
+
+    from tests.helpers.toolchains import (
+        REPO_ROOT,
+        require_modules_capable_toolchain,
+    )
+
+    conan = _require_conan()
+    alias, driver, major = require_modules_capable_toolchain()
+    toolchain_flag = "--toolchains={}".format(alias)
+    logger.info(
+        "Conan modules publish using toolchain %s (%s major %s)",
+        alias,
+        driver,
+        major,
+    )
+
+    conan_home = tmp_path / "conan_home"
+    conan_home.mkdir()
+    extra = {"CONAN_HOME": str(conan_home)}
+    detect = subprocess.run(
+        [conan, "profile", "detect", "--force"],
+        env={**os.environ, **extra},
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+    )
+    if detect.returncode != 0:
+        pytest.fail("conan profile detect failed:\n{}".format(detect.stdout))
+
+    fixtures = REPO_ROOT / "tests" / "fixtures" / "modules_project"
+    producer = tmp_path / "mod_publisher"
+    producer.mkdir()
+    shutil.copy(fixtures / "math.cppm", producer / "math.cppm")
+    write_sconstruct(producer, body="import cuppa\ncuppa.run(default_variants=['dbg'])\n")
+    write_sconscript(
+        producer,
+        "Import('env')\n"
+        "from cuppa.package_managers.conan import ConanPackagePublisher\n"
+        "lib = env.BuildStaticLib('cuppa_mathlib', ['math.cppm'])\n"
+        "env.PublishPackage(lib, ConanPackagePublisher(\n"
+        "    env, name='cuppa_mathlib', version='0.1.0',\n"
+        "    source_include_dir='include',\n"
+        "    source_lib_dir=env['abs_final_dir'],\n"
+        "    libs=['cuppa_mathlib'], shared=False,\n"
+        "))\n",
+    )
+    # Empty include dir so publisher has a source tree (headers optional for this module).
+    (producer / "include").mkdir()
+
+    produced = run_cuppa(
+        producer,
+        "--dbg",
+        "--modules",
+        "--stdcpp=c++20",
+        toolchain_flag,
+        offline=True,
+        timeout=300,
+        extra_env=extra,
+    )
+    assert_success(produced)
+    module_maps = [
+        path for path in find_under_build(producer)
+        if path.name == "module-map.json" and "conan_pkg_" in str(path)
+    ]
+    assert module_maps, "expected staged modules/module-map.json under conan_pkg_*"
+
+    consumer = tmp_path / "mod_consumer"
+    consumer.mkdir()
+    shutil.copy(fixtures / "apps" / "main.cpp", consumer / "main.cpp")
+    (consumer / "conanfile.txt").write_text(
+        "[requires]\n"
+        "cuppa_mathlib/0.1.0\n"
+        "\n"
+        "[generators]\n"
+        "SConsDeps\n"
+        "VirtualRunEnv\n",
+        encoding="utf-8",
+    )
+    write_sconstruct(
+        consumer,
+        body=(
+            "import cuppa\n"
+            "Conan = cuppa.conan_deps(conanfile='conanfile.txt')\n"
+            "cuppa.run(\n"
+            "    default_variants=['dbg'],\n"
+            "    dependencies=[Conan],\n"
+            "    default_dependencies=['conan'],\n"
+            ")\n"
+        ),
+    )
+    write_sconscript(
+        consumer,
+        "Import('env')\n"
+        "env.Build('math_app', ['main.cpp'])\n",
+    )
+
+    consumed = run_cuppa(
+        consumer,
+        "--dbg",
+        "--modules",
+        "--stdcpp=c++20",
+        toolchain_flag,
+        offline=True,
+        timeout=300,
+        extra_env=extra,
+    )
+    assert_success(consumed)
+    binaries = find_final_binaries(consumer, "math_app")
+    assert binaries
+    ran = subprocess.run(
+        [str(binaries[0])],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+    )
+    assert ran.returncode == 0, ran.stdout

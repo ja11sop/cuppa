@@ -123,6 +123,16 @@ Declare `requires`, `package()`, and `package_info()` in that recipe yourself.
 `requires=` on the publisher is ignored when `conanfile=` is set (Cuppa logs a warning).
 
 Hand-written recipes must still only **package** prebuilt artefacts — do not call Cuppa or compile from `build()`.
+If you override `package()` and ship modules, copy staged `modules/` (Cuppa still stages BMIs into the recipe folder when `final/modules/module-map.json` exists).
+
+=== Packaged modules (BMI)
+
+When the producer builds with `--modules`, `BuildLib` installs BMIs under `final/modules/` with `module-map.json`.
+`ConanPackagePublisher` copies that tree into the Conan package (same layout as GitLab generic packages).
+`cuppa.conan_deps` consumers automatically call `load_packaged_modules` when a dependency’s package contains `modules/module-map.json` and the consumer build uses `--modules`.
+BMI extensions remain toolchain-family specific (`.gcm` / `.pcm` / `.ifc`).
+
+Optional ctor: `source_modules_dir=` to point at a modules tree explicitly; otherwise `{source_lib_dir}/modules` is used when `module-map.json` is present.
 
 [NOTE]
 ====
@@ -160,5 +170,5 @@ GitLab's Conan 2 package registry may still be marked under development.
 Treat it as one possible remote; Artifactory and other Conan 2 remotes are equally valid targets.
 ====
 
-Components / multi-lib `cpp_info.components` and Conan packaging of C++20 modules/BMIs remain deferred (BMI packaging stays on the GitLab generic `modules/` path for now).
-See `CONAN_PUBLISH_PLAN.md` in the repository.
+Components / multi-lib `cpp_info.components` remain deferred (see `CONAN_COMPONENTS_ISSUE.md` in the repository for a GitHub-issue draft).
+Conan packages may include Cuppa `modules/module-map.json` + BMIs for parity with GitLab generic packages; consumers load them automatically via `conan_deps` when `--modules` is enabled.
