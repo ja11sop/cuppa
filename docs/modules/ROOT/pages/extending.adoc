@@ -76,7 +76,7 @@ class fmt(
     cuppa.location_dependency(
         'fmt',
         sys_include='include',
-        location='https://github.com/fmtlib/fmt/archive/refs/tags/11.1.4.zip',
+        location='https://github.com/fmtlib/fmt/archive/refs/tags/12.2.0.zip',
         linktype='static',
     )
 ):

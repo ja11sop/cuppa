@@ -24,7 +24,9 @@ class fmt(
     cuppa.location_dependency(
         'fmt',
         sys_include='include',
-        location='https://github.com/fmtlib/fmt/archive/refs/tags/11.1.4.zip',
+        # 12.2.0+ includes <cstdlib> so malloc/free are declared under
+        # Clang + libc++ (see fmtlib/fmt#4477). 11.1.4 fails on that combo.
+        location='https://github.com/fmtlib/fmt/archive/refs/tags/12.2.0.zip',
         linktype='static',
     )
 ):
