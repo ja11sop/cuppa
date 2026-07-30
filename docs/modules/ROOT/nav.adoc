@@ -35,6 +35,7 @@
 ** xref:integration/test-version.adoc[CreateVersion]
 ** xref:integration/test-toolchain-method.adoc[Toolchain method]
 ** xref:integration/test-build-with.adoc[BuildWith and Using]
+** xref:integration/test-fmt-location-plugin.adoc[fmt location pip plugin]
 ** xref:integration/test-conan.adoc[Conan consumer]
 ** xref:integration/test-build-profile.adoc[BuildProfile]
 ** xref:integration/test-coverage.adoc[Coverage]

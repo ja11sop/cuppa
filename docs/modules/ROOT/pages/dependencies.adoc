@@ -161,8 +161,9 @@ Cuppa's default dialect folder (`cxx2c` / `-std=c++2c`) maps to Conan `compiler.
 You can ship a Conan-backed dependency as a pip package so consumers only `pip install` it and list the name in `default_dependencies`.
 Cuppa discovers plugins through the `cuppa.dependency.plugins` entry point.
 
-A complete example lives in the repository at `examples/conan_fmt_plugin/` (registers `fmt` via `cuppa.conan_dependency`).
-Walkthrough: xref:extending.adoc#pip-dependency-plugin-conan-example[Extending cuppa — Pip dependency plugin].
+A Conan example lives at `examples/conan_fmt_plugin/` (registers `fmt` via `cuppa.conan_dependency`).
+For the same `fmt` name built from a GitHub archive with `location_dependency` instead, see `examples/cuppa_fmt_plugin/`.
+Walkthrough for both: xref:extending.adoc#pip-dependency-plugins[Extending cuppa — Pip dependency plugins].
 
 === Offline mode
 
