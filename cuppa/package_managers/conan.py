@@ -44,7 +44,9 @@ class CuppaPrebuiltConan(ConanFile):
     version = "{version}"
     package_type = "{package_type}"
     settings = "os", "compiler", "build_type", "arch"
-
+    options = {{"shared": [True, False]}}
+    default_options = {{"shared": {shared_default}}}
+{requires_attr}
     def package(self):
         include_src = os.path.join(self.recipe_folder, "include")
         lib_src = os.path.join(self.recipe_folder, "lib")
@@ -54,7 +56,7 @@ class CuppaPrebuiltConan(ConanFile):
         if os.path.isdir(lib_src):
             copy(self, "*", src=lib_src,
                  dst=os.path.join(self.package_folder, "lib"))
-
+{requirements_method}
     def package_info(self):
         self.cpp_info.libs = {libs!r}
 '''
@@ -94,6 +96,15 @@ def package_type_for_libs( lib_dir ):
     return 'static-library'
 
 
+def package_type_for_shared( shared ):
+    """Map publisher shared= flag to Conan package_type."""
+    if shared is True:
+        return 'shared-library'
+    if shared is False:
+        return 'static-library'
+    return None
+
+
 def conan_reference( name, version, user=None, channel=None ):
     ref = '{}/{}'.format( name, version )
     if user:
@@ -106,14 +117,34 @@ def conan_reference( name, version, user=None, channel=None ):
     return ref
 
 
-def write_prebuilt_conanfile( path, name, version, libs, package_type='static-library' ):
+def write_prebuilt_conanfile(
+        path,
+        name,
+        version,
+        libs,
+        package_type='static-library',
+        shared=False,
+        requires=None,
+):
     parent = os.path.dirname( path )
     if parent:
         os.makedirs( parent, exist_ok=True )
+
+    requires_list = list( requires ) if requires else []
+    if requires_list:
+        requires_attr = '    requires = {!r}\n'.format( tuple( requires_list ) )
+        requirements_method = ''
+    else:
+        requires_attr = ''
+        requirements_method = ''
+
     contents = _CONANFILE_TEMPLATE.format(
             name=name,
             version=version,
             package_type=package_type,
+            shared_default=bool( shared ),
+            requires_attr=requires_attr,
+            requirements_method=requirements_method,
             libs=list( libs ),
     )
     with open( path, 'w', encoding='utf-8' ) as handle:
@@ -138,6 +169,13 @@ def write_conan_profile( path, settings ):
     return path
 
 
+def _resolve_node_path( node ):
+    path = str( node )
+    if hasattr( node, 'srcnode' ):
+        path = str( node.srcnode() )
+    return path
+
+
 class ConanPackagePublisher:
     """Duck-typed publisher for ``env.PublishPackage`` (see GitlabPackagePublisher)."""
 
@@ -153,6 +191,9 @@ class ConanPackagePublisher:
             source_include_dir=None,
             source_lib_dir=None,
             libs=None,
+            conanfile=None,
+            shared=None,
+            requires=None,
     ):
         from SCons.Script import Flatten
 
@@ -170,9 +211,15 @@ class ConanPackagePublisher:
         self._remote = remote
         self._remote_url = remote_url
         self._libs_override = list( libs ) if libs else None
+        self._shared = shared
+        self._requires = list( requires ) if requires else []
+        self._conanfile_override = None
 
         self._source_include_dir = env.Dir( str( source_include_dir ) ) if source_include_dir else None
         self._source_lib_dir = env.Dir( str( source_lib_dir ) ) if source_lib_dir else None
+
+        if conanfile:
+            self._conanfile_override = env.File( str( conanfile ) )
 
         stage_name = 'conan_pkg_{}_{}'.format( self._name, self._version )
         self._stage_dir = env.Dir( os.path.join( env['final_dir'], stage_name ) )
@@ -207,9 +254,7 @@ class ConanPackagePublisher:
         os.makedirs( stage, exist_ok=True )
 
         if self._source_include_dir:
-            src_inc = str( self._source_include_dir )
-            if hasattr( self._source_include_dir, 'srcnode' ):
-                src_inc = str( self._source_include_dir.srcnode() )
+            src_inc = _resolve_node_path( self._source_include_dir )
             if os.path.isdir( src_inc ):
                 shutil.copytree( src_inc, str( self._stage_include ) )
             else:
@@ -221,9 +266,7 @@ class ConanPackagePublisher:
             os.makedirs( str( self._stage_include ), exist_ok=True )
 
         if self._source_lib_dir:
-            src_lib = str( self._source_lib_dir )
-            if hasattr( self._source_lib_dir, 'srcnode' ):
-                src_lib = str( self._source_lib_dir.srcnode() )
+            src_lib = _resolve_node_path( self._source_lib_dir )
             if os.path.isdir( src_lib ):
                 # Exclude our own stage/stamp artefacts so copytree cannot nest
                 # when source_lib_dir is abs_final_dir (stage lives under final/).
@@ -240,22 +283,48 @@ class ConanPackagePublisher:
         else:
             os.makedirs( str( self._stage_lib ), exist_ok=True )
 
-        libs = self._libs_override
-        if libs is None:
-            libs = detect_library_names( str( self._stage_lib ) )
-        if not libs:
-            logger.warn( "Conan package [{}]: no libraries detected under [{}]".format(
-                    as_notice( self._name ), as_notice( str( self._stage_lib ) )
-            ) )
+        if self._conanfile_override:
+            src_recipe = _resolve_node_path( self._conanfile_override )
+            if not os.path.isfile( src_recipe ):
+                logger.error(
+                    "ConanPackagePublisher conanfile= [{}] not found".format(
+                            as_error( src_recipe )
+                    )
+                )
+                return 1
+            shutil.copy2( src_recipe, self._conanfile_path )
+            if self._requires:
+                logger.warn(
+                    "Conan package [{}]: requires= ignored when conanfile= is set "
+                    "(declare requires in the hand-written recipe)".format(
+                            as_notice( self._name )
+                    )
+                )
+        else:
+            libs = self._libs_override
+            if libs is None:
+                libs = detect_library_names( str( self._stage_lib ) )
+            if not libs:
+                logger.warn( "Conan package [{}]: no libraries detected under [{}]".format(
+                        as_notice( self._name ), as_notice( str( self._stage_lib ) )
+                ) )
 
-        pkg_type = package_type_for_libs( str( self._stage_lib ) )
-        write_prebuilt_conanfile(
-                self._conanfile_path,
-                self._name,
-                self._version,
-                libs,
-                package_type=pkg_type,
-        )
+            pkg_type = package_type_for_shared( self._shared )
+            if pkg_type is None:
+                pkg_type = package_type_for_libs( str( self._stage_lib ) )
+            shared_default = (
+                self._shared if self._shared is not None
+                else ( pkg_type == 'shared-library' )
+            )
+            write_prebuilt_conanfile(
+                    self._conanfile_path,
+                    self._name,
+                    self._version,
+                    libs,
+                    package_type=pkg_type,
+                    shared=shared_default,
+                    requires=self._requires,
+            )
 
         toolchain = env.get( 'toolchain' )
         variant = env.get( 'variant' )
@@ -275,6 +344,8 @@ class ConanPackagePublisher:
             cmd.extend( [ '--user', str( self._user ) ] )
         if self._channel:
             cmd.extend( [ '--channel', str( self._channel ) ] )
+        if self._shared is not None:
+            cmd.extend( [ '-o', 'shared={}'.format( bool( self._shared ) ) ] )
         # Keep explicit -s as belt-and-braces with the generated profile.
         cmd.extend( settings_to_cli( settings ) )
 
@@ -425,6 +496,8 @@ class ConanPackagePublisher:
             stamp_parent = os.path.realpath( os.path.dirname( str( self._package_location ) ) )
             if inc != stamp_parent and not inc.startswith( stamp_parent + os.sep ):
                 sources.append( self._source_include_dir )
+        if self._conanfile_override:
+            sources.append( self._conanfile_override )
         return sources
 
     def package_published( self ):

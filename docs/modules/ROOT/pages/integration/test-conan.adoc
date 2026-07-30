@@ -11,6 +11,7 @@ Optional Conan 2 consumer support via `cuppa.conan_deps` / `cuppa.conan_dependen
 * **Pip plugin** — `examples/conan_fmt_plugin` installed via `pip install --target`; Cuppa discovers `fmt` through `cuppa.dependency.plugins` with only `default_dependencies=['fmt']`
 * **Offline miss** — empty Conan home + Cuppa `--offline` fails clearly when the package is not cached
 * **Publish round-trip** — `BuildStaticLib` + `ConanPackagePublisher` / `PublishPackage` (`export-pkg` only) into an isolated `CONAN_HOME`, then a second project consumes via `conan_deps` under `--offline`
+* **Publish `conanfile=` + requires** — leaf package, then wrapper with hand-written recipe requiring the leaf; consumer builds against the wrapper under `--offline`
 
 Tests skip when `conan` is missing or is not a working Conan 2 CLI.
 
@@ -111,6 +112,7 @@ cuppa -D --dbg --test --show-test-output
 * Second offline pass after a successful install does not re-run `conan install`
 * Offline miss exits non-zero with a Conan-related error
 * Publish round-trip consumer binary prints `answer=42`
+* Override+requires consumer binary prints `wrap=43`
 
 == Deferred / known gaps
 
@@ -122,7 +124,8 @@ These are intentional follow-ups, not regressions:
 * Windows CI with Conan (skipped unless a maintainable Conan+compiler profile exists)
 * `tool_requires` / code generators
 * Live Conan remote upload (`--publish-package` + `remote=`); round-trip covers local-cache `export-pkg` only
-* Hand-written `conanfile=` override and transitive `requires` in generated recipes
+* Components / multi-lib `cpp_info.components` and Conan modules/BMI packaging
+* Integration coverage of generated-recipe `requires=` (unit-tested; integration covers `conanfile=` override with requires)
 
 '''
 

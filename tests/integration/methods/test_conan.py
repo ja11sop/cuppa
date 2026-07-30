@@ -481,3 +481,168 @@ def test_conan_publish_export_pkg_round_trip(tmp_path):
     )
     assert ran.returncode == 0, ran.stdout
     assert "answer=42" in ran.stdout
+
+
+def test_conan_publish_conanfile_override_with_requires(tmp_path):
+    """Leaf export-pkg, then wrapper with conanfile= requires leaf; consumer uses wrapper."""
+    import os
+
+    conan = _require_conan()
+    conan_home = tmp_path / "conan_home"
+    conan_home.mkdir()
+    extra = {"CONAN_HOME": str(conan_home)}
+    detect = subprocess.run(
+        [conan, "profile", "detect", "--force"],
+        env={**os.environ, **extra},
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+    )
+    if detect.returncode != 0:
+        pytest.fail("conan profile detect failed:\n{}".format(detect.stdout))
+
+    leaf = tmp_path / "leaf"
+    leaf.mkdir()
+    include = leaf / "include" / "cuppa_pub_mylib"
+    include.mkdir(parents=True)
+    (include / "answer.hpp").write_text(
+        "#pragma once\n"
+        "int cuppa_pub_answer();\n",
+        encoding="utf-8",
+    )
+    (leaf / "answer.cpp").write_text(
+        "#include <cuppa_pub_mylib/answer.hpp>\n"
+        "int cuppa_pub_answer() { return 42; }\n",
+        encoding="utf-8",
+    )
+    write_sconstruct(leaf, body="import cuppa\ncuppa.run(default_variants=['dbg'])\n")
+    write_sconscript(
+        leaf,
+        "Import('env')\n"
+        "from cuppa.package_managers.conan import ConanPackagePublisher\n"
+        "env.AppendUnique(INCPATH=['include'])\n"
+        "lib = env.BuildStaticLib('cuppa_pub_mylib', 'answer.cpp')\n"
+        "env.PublishPackage(lib, ConanPackagePublisher(\n"
+        "    env, name='cuppa_pub_mylib', version='0.1.0',\n"
+        "    source_include_dir='include',\n"
+        "    source_lib_dir=env['abs_final_dir'],\n"
+        "    libs=['cuppa_pub_mylib'], shared=False,\n"
+        "))\n",
+    )
+    assert_success(run_cuppa(leaf, "--dbg", offline=True, timeout=300, extra_env=extra))
+
+    wrap = tmp_path / "wrapper"
+    wrap.mkdir()
+    wrap_inc = wrap / "include" / "cuppa_pub_wrap"
+    wrap_inc.mkdir(parents=True)
+    (wrap_inc / "wrap.hpp").write_text(
+        "#pragma once\n"
+        "#include <cuppa_pub_mylib/answer.hpp>\n"
+        "inline int cuppa_pub_wrap() { return cuppa_pub_answer() + 1; }\n",
+        encoding="utf-8",
+    )
+    (wrap / "wrap.cpp").write_text(
+        "#include <cuppa_pub_wrap/wrap.hpp>\n"
+        "int cuppa_pub_wrap_lib() { return cuppa_pub_wrap(); }\n",
+        encoding="utf-8",
+    )
+    (wrap / "conanfile.py").write_text(
+        "from conan import ConanFile\n"
+        "from conan.tools.files import copy\n"
+        "import os\n"
+        "\n"
+        "class CuppaPubWrap(ConanFile):\n"
+        "    name = 'cuppa_pub_wrap'\n"
+        "    version = '0.1.0'\n"
+        "    package_type = 'static-library'\n"
+        "    settings = 'os', 'compiler', 'build_type', 'arch'\n"
+        "    options = {'shared': [True, False]}\n"
+        "    default_options = {'shared': False}\n"
+        "    requires = 'cuppa_pub_mylib/0.1.0'\n"
+        "\n"
+        "    def package(self):\n"
+        "        include_src = os.path.join(self.recipe_folder, 'include')\n"
+        "        lib_src = os.path.join(self.recipe_folder, 'lib')\n"
+        "        if os.path.isdir(include_src):\n"
+        "            copy(self, '*', src=include_src,\n"
+        "                 dst=os.path.join(self.package_folder, 'include'))\n"
+        "        if os.path.isdir(lib_src):\n"
+        "            copy(self, '*', src=lib_src,\n"
+        "                 dst=os.path.join(self.package_folder, 'lib'))\n"
+        "\n"
+        "    def package_info(self):\n"
+        "        self.cpp_info.libs = ['cuppa_pub_wrap']\n",
+        encoding="utf-8",
+    )
+    write_sconstruct(wrap, body="import cuppa\ncuppa.run(default_variants=['dbg'])\n")
+    # Header-only use of leaf at compile time needs the leaf headers; for the
+    # wrapper lib we only need wrap.hpp which includes leaf — provide leaf
+    # includes via SYSINCPATH from a local copy (same tree as leaf include).
+    import shutil
+
+    shutil.copytree(leaf / "include" / "cuppa_pub_mylib", wrap / "include" / "cuppa_pub_mylib")
+    write_sconscript(
+        wrap,
+        "Import('env')\n"
+        "from cuppa.package_managers.conan import ConanPackagePublisher\n"
+        "env.AppendUnique(INCPATH=['include'])\n"
+        "lib = env.BuildStaticLib('cuppa_pub_wrap', 'wrap.cpp')\n"
+        "env.PublishPackage(lib, ConanPackagePublisher(\n"
+        "    env, name='cuppa_pub_wrap', version='0.1.0',\n"
+        "    source_include_dir='include',\n"
+        "    source_lib_dir=env['abs_final_dir'],\n"
+        "    conanfile='conanfile.py',\n"
+        "    shared=False,\n"
+        "))\n",
+    )
+    wrapped = run_cuppa(wrap, "--dbg", offline=True, timeout=300, extra_env=extra)
+    assert_success(wrapped)
+
+    consumer = tmp_path / "consumer"
+    consumer.mkdir()
+    (consumer / "conanfile.txt").write_text(
+        "[requires]\n"
+        "cuppa_pub_wrap/0.1.0\n"
+        "\n"
+        "[generators]\n"
+        "SConsDeps\n"
+        "VirtualRunEnv\n",
+        encoding="utf-8",
+    )
+    (consumer / "hello.cpp").write_text(
+        "#include <cuppa_pub_wrap/wrap.hpp>\n"
+        "#include <cstdio>\n"
+        "int main() {\n"
+        "    std::printf(\"wrap=%d\\n\", cuppa_pub_wrap());\n"
+        "    return cuppa_pub_wrap() == 43 ? 0 : 1;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    write_sconstruct(
+        consumer,
+        body=(
+            "import cuppa\n"
+            "Conan = cuppa.conan_deps(conanfile='conanfile.txt')\n"
+            "cuppa.run(\n"
+            "    default_variants=['dbg'],\n"
+            "    dependencies=[Conan],\n"
+            "    default_dependencies=['conan'],\n"
+            ")\n"
+        ),
+    )
+    write_sconscript(consumer, "Import('env')\nenv.Build('hello', 'hello.cpp')\n")
+
+    consumed = run_cuppa(consumer, "--dbg", offline=True, timeout=300, extra_env=extra)
+    assert_success(consumed)
+    binaries = find_final_binaries(consumer, "hello")
+    assert binaries
+    ran = subprocess.run(
+        [str(binaries[0])],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+    )
+    assert ran.returncode == 0, ran.stdout
+    assert "wrap=43" in ran.stdout

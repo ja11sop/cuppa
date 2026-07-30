@@ -157,7 +157,7 @@ Detailed exploration, trade-offs, and API sketches: [`CONAN_CONSUMER_PLAN.md`](C
 | `conan-integration` | Linux integration: install / generators_folder / shared `--test` / plugin / offline miss | Done | `tests/integration/methods/test_conan.py` |
 | `conan-publish-spike` | Spike Cuppa-build → `export-pkg` → local-cache consumer round-trip | Done | Producer path evidence |
 | `conan-publish` | `ConanPackagePublisher` + `PublishPackage`; settings; upload via `--publish-package` | Done | See [`CONAN_PUBLISH_PLAN.md`](CONAN_PUBLISH_PLAN.md) |
-| `conan-publish-recipe` | Hand-written `conanfile=` override; shared option; `requires` | Later | Phase 2 |
+| `conan-publish-recipe` | Hand-written `conanfile=` override; `shared=`; generated `requires=` | Done | Components / modules/BMI still deferred; see [`CONAN_PUBLISH_PLAN.md`](CONAN_PUBLISH_PLAN.md) |
 
 ### Out of scope (Conan)
 

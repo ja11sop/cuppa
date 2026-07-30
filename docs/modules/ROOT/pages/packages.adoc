@@ -96,14 +96,33 @@ publisher = ConanPackagePublisher(
     remote_url = None,       # optional: conan remote add if missing
     source_include_dir = 'include',
     source_lib_dir = env['abs_final_dir'],
+    shared = False,          # optional; None = infer from staged libs
+    requires = None,         # optional; generated recipe only
+    # conanfile = 'conanfile.py',  # optional hand-written recipe override
 )
 
 env.PublishPackage(lib, publisher)
 ----
 
-Without `--publish-package`, Cuppa stages headers/libs, writes a minimal `conanfile.py`, and runs `conan export-pkg` into the local Conan cache (settings match the active toolchain and variant via the same mapping as `conan_deps`).
+Without `--publish-package`, Cuppa stages headers/libs, writes a minimal `conanfile.py` (unless `conanfile=` is set), and runs `conan export-pkg` into the local Conan cache (settings match the active toolchain and variant via the same mapping as `conan_deps`).
 
 With `--publish-package`, Cuppa also runs `conan upload` to `remote=` (and may `conan remote add` when `remote_url=` is set and the remote is missing).
+
+=== Generated recipe options and requires
+
+When Cuppa generates the recipe:
+
+* `shared=True/False` sets Conan `options.shared` / `default_options` and `package_type`, and passes `-o shared=…` to `export-pkg`. When omitted, Cuppa infers static vs shared from staged library files.
+* `requires=['fmt/11.1.4', …]` embeds those dependencies on the generated recipe. At `export-pkg` time they must already be in the local Conan cache if you are `--offline` (otherwise remotes may be used by Conan).
+
+=== Hand-written `conanfile=`
+
+Pass `conanfile='conanfile.py'` to copy a recipe you author into the stage instead of generating one.
+Cuppa still stages `include/` and `lib/` and still supplies settings / name / version / user / channel on `export-pkg`.
+Declare `requires`, `package()`, and `package_info()` in that recipe yourself.
+`requires=` on the publisher is ignored when `conanfile=` is set (Cuppa logs a warning).
+
+Hand-written recipes must still only **package** prebuilt artefacts — do not call Cuppa or compile from `build()`.
 
 [NOTE]
 ====
@@ -128,6 +147,7 @@ Configure remotes and login before the Cuppa job (or in CI):
 
 With `--offline`, `export-pkg` may still update the **local** Conan cache.
 Upload is refused with a clear error (remotes are not contacted for publish).
+Recipes with `requires` still need those packages already cached locally under `--offline`.
 
 === Consumer round-trip
 
@@ -140,5 +160,5 @@ GitLab's Conan 2 package registry may still be marked under development.
 Treat it as one possible remote; Artifactory and other Conan 2 remotes are equally valid targets.
 ====
 
-MVP recipes are leaf packages (headers + libs, no generated `requires`).
-Hand-written recipes, shared/static options, and transitive Conan requires are follow-on work (see `CONAN_PUBLISH_PLAN.md` in the repository).
+Components / multi-lib `cpp_info.components` and Conan packaging of C++20 modules/BMIs remain deferred (BMI packaging stays on the GitLab generic `modules/` path for now).
+See `CONAN_PUBLISH_PLAN.md` in the repository.
