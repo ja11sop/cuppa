@@ -118,8 +118,10 @@ jobs:
           pip install -r requirements.txt
           pip install -e . --no-build-isolation
           # Conan 2 so test_conan scenarios run (not skipped). Not a cuppa runtime dep.
+          # Fresh Conan needs a build profile even when Cuppa passes host -s settings.
           pip install 'conan>=2,<3'
           conan version
+          conan profile detect --force
       - name: Integration tests (${{ matrix.name_suffix }})
         env:
           CUPPA_TEST_TOOLCHAIN: ${{ matrix.toolchain }}

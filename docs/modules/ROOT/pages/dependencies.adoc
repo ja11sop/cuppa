@@ -128,6 +128,13 @@ cuppa.run(
 
 Cuppa maps the active toolchain and variant into Conan settings (`compiler`, `compiler.version`, `compiler.cppstd`, `compiler.libcxx`, `build_type`, `os`, `arch`), runs `conan install` once per settings fingerprint (cached under the download root), and merges the resulting flags.
 
+Conan 2 still requires a **build** profile for the machine that runs `conan install` (even when Cuppa passes host settings with `-s`). On a fresh Conan home, create one once:
+
+[source,sh]
+----
+conan profile detect
+----
+
 If `conan.lock` sits beside the conanfile, Cuppa passes it to `conan install`. Without a lockfile, dependency versions are not pinned.
 
 === Sugar for a single require
