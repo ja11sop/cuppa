@@ -35,6 +35,7 @@ Third-party packages can register plugins without forking cuppa:
 
 | `cuppa.location_dependency(name, …)` | Location / header libraries
 | `cuppa.package_dependency(name, …)` | Registry packages
+| `cuppa.conan_deps(…)` / `cuppa.conan_dependency(…)` | Optional Conan 2 consumer (see xref:dependencies.adoc#conan-2-consumer-optional[Dependencies])
 | `cuppa.profile(name)` | Named profile class factory
 |===
 
@@ -43,6 +44,69 @@ Pass custom classes into `cuppa.run(dependencies=[…], profiles=[…])`.
 When writing custom `env.Command` / `Action` helpers, avoid multi-part shell strings such as `cd … && …`.
 Use a Python action with subprocess `cwd=` (or `cuppa.utility.command.run`) so parallel builds stay correct.
 See xref:methods.adoc#custom-commands-and-working-directories[Custom commands and working directories].
+
+== Pip dependency plugin (Conan example)
+
+Third-party packages can ship a named dependency that Cuppa discovers automatically via `cuppa.dependency.plugins`.
+The repository includes a complete example at `examples/conan_fmt_plugin/`: a thin wrapper around `cuppa.conan_dependency` that registers `fmt`.
+
+=== Package layout
+
+[source,text]
+----
+examples/conan_fmt_plugin/
+  pyproject.toml
+  cuppa_conan_fmt/
+    __init__.py
+----
+
+`pyproject.toml` declares the entry point:
+
+[source,toml]
+----
+[project.entry-points."cuppa.dependency.plugins"]
+fmt = "cuppa_conan_fmt:FmtConan"
+----
+
+The module builds the dependency class with the Conan factory:
+
+[source,python]
+----
+import cuppa
+
+FmtConan = cuppa.conan_dependency(
+    'fmt',
+    requires=['fmt/11.1.4'],
+)
+----
+
+`FmtConan` is the type returned by `conan_dependency` (it already implements `add_to_env` / `create` / `name`).
+
+=== Installing and using
+
+From a project that already has Cuppa available:
+
+[source,sh]
+----
+pip install -e path/to/examples/conan_fmt_plugin
+----
+
+In that project's `sconstruct`, list the dependency **by name** only — do not pass it in `dependencies=[…]` unless you also want an in-tree duplicate:
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(
+    default_variants=['dbg'],
+    default_dependencies=['fmt'],
+)
+----
+
+Cuppa loads entry-point plugins at startup and registers `fmt` for `env.BuildWith('fmt')` / `default_dependencies`.
+The consumer still needs Conan 2 on `PATH` for installs (unless you use `generators_folder` with a pre-run install).
+
+The same entry-point group works for non-Conan dependencies (for example a future SCons Tool wrapper); only the factory inside the plugin module changes.
 
 == Custom dependency sketch
 

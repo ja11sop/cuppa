@@ -3,18 +3,20 @@
 
 == What is tested
 
-Optional Conan 2 consumer support via `cuppa.conan_deps` (SConsDeps):
+Optional Conan 2 consumer support via `cuppa.conan_deps` / `cuppa.conan_dependency` (SConsDeps):
 
 * **generators_folder reuse** — pre-run `conan install`, Cuppa loads `SConscript_conandeps` only
-* **Full install** — Cuppa runs `conan install`, builds and runs a `fmt` hello
-* **Shared library runtime** — `fmt` built shared; `BuildTest` succeeds with injected `LD_LIBRARY_PATH` / `PATH`
+* **Full install** — Cuppa runs `conan install`, builds and runs a `fmt` hello; second `--offline` pass reuses the fingerprint cache
+* **Shared library runtime** — `fmt` built shared; `BuildTest` succeeds with injected library search paths
+* **Pip plugin** — `examples/conan_fmt_plugin` installed via `pip install --target`; Cuppa discovers `fmt` through `cuppa.dependency.plugins` with only `default_dependencies=['fmt']`
+* **Offline miss** — empty Conan home + Cuppa `--offline` fails clearly when the package is not cached
 
 Tests skip when `conan` is missing or is not a working Conan 2 CLI.
 
 == Prerequisites
 
 * Conan 2 on `PATH` (`conan version` succeeds)
-* Network (or a warm Conan cache) for install scenarios
+* Network (or a warm Conan cache) for install / plugin scenarios
 * C++ compiler (suite default toolchain)
 
 == Generated files (shared pattern)
@@ -65,6 +67,19 @@ cuppa.run(
 )
 ----
 
+=== `sconstruct` (pip plugin)
+
+No `dependencies=[…]` — the plugin registers `fmt`:
+
+[source,python]
+----
+import cuppa
+cuppa.run(
+    default_variants=['dbg'],
+    default_dependencies=['fmt'],
+)
+----
+
 === `sconscript`
 
 [source,python]
@@ -82,19 +97,31 @@ Shared-runtime scenario uses `env.BuildTest('hello_test', 'hello.cpp')` with `--
 # generators_folder: cuppa stays --offline after a prior conan install into _conan/
 cuppa -D --offline --dbg
 
-# full install / shared: allow remotes so a cold cache can fetch
+# full install / shared / plugin: allow remotes so a cold cache can fetch
 cuppa -D --dbg
 cuppa -D --dbg --test --show-test-output
 ----
 
 == Expectations
 
-* Exit 0
+* Exit 0 for happy paths
 * `hello` (or `hello_test`) under `final/`
-* Program output contains `hello from conan integration`
+* Program output contains the scenario-specific hello string
 * Second offline pass after a successful install does not re-run `conan install`
+* Offline miss exits non-zero with a Conan-related error
+
+== Deferred / known gaps
+
+These are intentional follow-ups, not regressions:
+
+* Multi-package `conanfile` graphs (MVP always merges aggregated `conandeps`; coverage is via single-package `fmt`)
+* Lockfile-pinned installs (`conan.lock` beside the conanfile)
+* Clang / MSVC Conan settings under the integration suite (unit tests cover settings mapping; Linux gcc is the integration default)
+* Windows CI with Conan (skipped unless a maintainable Conan+compiler profile exists)
+* `tool_requires` / code generators
 
 '''
 
 Related test module: `tests/integration/methods/test_conan.py`.
-See also xref:dependencies.adoc[Dependencies] (Conan 2 consumer) and `CONAN_CONSUMER_PLAN.md`.
+Example plugin package: `examples/conan_fmt_plugin/`.
+See also xref:dependencies.adoc[Dependencies] (Conan 2 consumer), xref:extending.adoc#pip-dependency-plugin-conan-example[Extending cuppa], and `CONAN_CONSUMER_PLAN.md`.

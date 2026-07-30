@@ -225,3 +225,145 @@ def test_conan_shared_lib_runtime_paths_with_test(tmp_path):
     # Ensure we did not only static-link: shared install should mention .so/.dylib/.dll
     # in cuppa/conan output or the binary should have run via injected paths.
     assert find_final_binaries(project, "hello_test") or "hello from conan integration" in result.stdout
+
+
+def _install_plugin_target(target_dir):
+    """Install examples/conan_fmt_plugin into target_dir for entry-point discovery."""
+    from tests.helpers.toolchains import REPO_ROOT
+    import sys
+
+    plugin_src = REPO_ROOT / "examples" / "conan_fmt_plugin"
+    assert plugin_src.is_dir(), "missing examples/conan_fmt_plugin"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--target",
+            str(target_dir),
+            "--no-deps",
+            str(plugin_src),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        pytest.fail("pip install plugin failed:\n{}".format(completed.stdout))
+    return target_dir
+
+
+def test_conan_fmt_pip_plugin_entry_point(tmp_path):
+    """Discover fmt via cuppa.dependency.plugins (examples/conan_fmt_plugin)."""
+    import os
+
+    _require_conan()
+    plugin_site = _install_plugin_target(tmp_path / "plugin_site")
+
+    project = tmp_path / "conan_plugin_consumer"
+    project.mkdir()
+    # Plugin embeds requires=fmt/11.1.4 — no project conanfile needed.
+    (project / "hello.cpp").write_text(
+        "#include <fmt/core.h>\n"
+        "int main() {\n"
+        "    fmt::print(\"hello from conan plugin\\n\");\n"
+        "    return 0;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    write_sconstruct(
+        project,
+        body=(
+            "import cuppa\n"
+            "cuppa.run(\n"
+            "    default_variants=['dbg'],\n"
+            "    default_dependencies=['fmt'],\n"
+            ")\n"
+        ),
+    )
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "assert 'fmt' in env['dependencies']\n"
+        "env.Build('hello', 'hello.cpp')\n",
+    )
+
+    # Plugin site first so importlib.metadata finds the entry point; cuppa stays
+    # importable via run_cuppa's REPO_ROOT PYTHONPATH entry.
+    existing = os.environ.get("PYTHONPATH", "")
+    pythonpath = os.pathsep.join(
+        p for p in (str(plugin_site), existing) if p
+    )
+    result = run_cuppa(
+        project,
+        "--dbg",
+        offline=False,
+        timeout=600,
+        extra_env={"PYTHONPATH": pythonpath},
+    )
+    assert_success(result)
+    binaries = find_final_binaries(project, "hello")
+    assert binaries
+    ran = subprocess.run(
+        [str(binaries[0])],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+    )
+    assert ran.returncode == 0, ran.stdout
+    assert "hello from conan plugin" in ran.stdout
+
+
+def test_conan_offline_fails_when_cache_missing(tmp_path):
+    """Cuppa --offline must fail clearly when Conan cannot resolve without remotes."""
+    from tests.helpers.cuppa_runner import assert_failure
+
+    _require_conan()
+    project = tmp_path / "conan_offline_miss"
+    project.mkdir()
+    _write_fmt_hello(project)
+    write_sconstruct(
+        project,
+        body=(
+            "import cuppa\n"
+            "Conan = cuppa.conan_deps(conanfile='conanfile.txt')\n"
+            "cuppa.run(\n"
+            "    default_variants=['dbg'],\n"
+            "    dependencies=[Conan],\n"
+            "    default_dependencies=['conan'],\n"
+            ")\n"
+        ),
+    )
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.Build('hello', 'hello.cpp')\n",
+    )
+
+    empty_home = tmp_path / "empty_conan_home"
+    empty_home.mkdir()
+    download_root = tmp_path / "cuppa_download"
+    download_root.mkdir()
+    result = run_cuppa(
+        project,
+        "--dbg",
+        "--download-root={}".format(download_root),
+        offline=True,
+        timeout=180,
+        extra_env={"CONAN_HOME": str(empty_home)},
+    )
+    assert_failure(result)
+    combined = result.stdout.lower()
+    assert "conan" in combined
+    assert (
+        "offline" in combined
+        or "no remote" in combined
+        or "no-remote" in combined
+        or "not found" in combined
+        or "failed" in combined
+        or "error" in combined
+    )
