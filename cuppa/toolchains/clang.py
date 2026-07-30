@@ -368,14 +368,15 @@ class Clang(object):
 
 
     def name( self ):
+        # Build/ABI identity: platform default stdlib (libstdc++ on Linux) keeps the
+        # bare reported name so existing paths stay stable; only a non-default
+        # choice is tagged (e.g. clang21-libc++). Compiler commands use binary()/CXX.
+        if self._stdlib and self._stdlib != self.default_stdlib():
+            return "{}-{}".format( self._name, self._stdlib )
         return self._name
 
 
     def package_name( self ):
-        # Platform default stdlib (libstdc++ on Linux) keeps the plain toolchain name so
-        # existing package identities stay stable; only a non-default choice is tagged.
-        if self._stdlib and self._stdlib != self.default_stdlib():
-            return "{}-{}".format( self.name(), self._stdlib )
         return self.name()
 
 

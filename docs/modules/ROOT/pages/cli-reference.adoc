@@ -100,7 +100,7 @@ Dependencies that install their own shared libraries (for example the optional x
 
 Clang:
 
-* `--clang-stdlib={libstdc++,libc++}` (Linux default: `libstdc++`)
+* `--clang-stdlib={libstdc++,libc++}` (Linux default: `libstdc++`; non-default values tag `toolchain.name()` / `_build` paths, e.g. `clang21-libc++`)
 * `--clang-disable-debug-for-auto`
 
 Modules (opt-in; GCC 14+ / LLVM Clang 16+ / MSVC toolset 14.2+):

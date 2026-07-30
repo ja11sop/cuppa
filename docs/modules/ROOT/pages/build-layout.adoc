@@ -36,6 +36,11 @@ Concrete path templates:
 <build_root>/<sconscript_path>/<toolchain>/<variant>/<target_arch>/<abi>/final/
 ----
 
+The `<toolchain>` segment is `toolchain.name()` (build/ABI identity), not the compiler binary name.
+For Clang, a non-default `--clang-stdlib=` is part of that identity (for example `clang21-libc++` when using libc++ on Linux).
+The default Linux Clang stdlib (`libstdc++`) keeps the plain name (`clang21`).
+`--toolchains=clang` / `clang21` still select the registry entry; `toolchain.binary()` / `CXX` remain the real `clang++` driver used on compile lines.
+
 If the sconscript file is named exactly `sconscript`, that filename segment is omitted from the path so the directory name is enough to distinguish projects.
 
 * `working/` -- intermediate objects and intermediates
