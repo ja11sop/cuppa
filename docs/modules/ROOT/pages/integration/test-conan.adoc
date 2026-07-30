@@ -12,7 +12,10 @@ Optional Conan 2 consumer support via `cuppa.conan_deps` / `cuppa.conan_dependen
 * **Offline miss** — empty Conan home + Cuppa `--offline` fails clearly when the package is not cached
 * **Publish round-trip** — `BuildStaticLib` + `ConanPackagePublisher` / `PublishPackage` (`export-pkg` only) into an isolated `CONAN_HOME`, then a second project consumes via `conan_deps` under `--offline`
 * **Publish `conanfile=` + requires** — leaf package, then wrapper with hand-written recipe requiring the leaf; consumer builds against the wrapper under `--offline`
+* **Publish generated `requires=`** — same leaf/wrapper shape as above, but the wrapper uses the generated recipe's `requires=` (no `conanfile=`)
+* **Publish `shared=True`** — `BuildSharedLib` + `shared=True` export-pkg; consumer `BuildTest` exercises runtime library search paths
 * **Publish modules/BMI** — `--modules` producer stages `modules/`; consumer `conan_deps` + `import` under `--modules --offline` (skips without a modules-capable toolchain)
+* **Publish `source_modules_dir=`** — modules relocated out of `final/modules` before publish; publisher stages from the explicit override path
 
 Tests skip when `conan` is missing or is not a working Conan 2 CLI.
 Linux CI installs Conan 2 (`pip install 'conan>=2,<3'`) on each integration matrix cell so these scenarios run rather than skip.
@@ -118,8 +121,9 @@ cuppa -D --dbg --test --show-test-output
 * Second offline pass after a successful install does not re-run `conan install`
 * Offline miss exits non-zero with a Conan-related error
 * Publish round-trip consumer binary prints `answer=42`
-* Override+requires consumer binary prints `wrap=43`
-* Modules/BMI publish consumer `math_app` exits 0
+* Override+requires and generated-`requires=` consumers print `wrap=43`
+* Shared publish consumer test output contains `answer=42`
+* Modules/BMI publish (default and `source_modules_dir=`) consumer `math_app` exits 0
 
 == Deferred / known gaps
 
@@ -127,13 +131,22 @@ These are intentional follow-ups, not regressions:
 
 * Multi-package `conanfile` graphs (MVP always merges aggregated `conandeps`; coverage is via single-package `fmt`)
 * Lockfile-pinned installs (`conan.lock` beside the conanfile)
-* Clang / MSVC Conan settings under the integration suite (unit tests cover settings mapping; Linux gcc is the integration default)
-* Windows CI with Conan (skipped unless a maintainable Conan+compiler profile exists)
+* Windows CI with Conan (not installed yet — see below)
 * `tool_requires` / code generators
 * Live Conan remote upload (`--publish-package` + `remote=`); round-trip covers local-cache `export-pkg` only
 * Components / multi-lib `cpp_info.components` (see `CONAN_COMPONENTS_ISSUE.md`)
-* Integration coverage of generated-recipe `requires=` (unit-tested; integration covers `conanfile=` override with requires)
 * Conan-native BMI `cxxflags` / CPS module manifests (Cuppa uses `module-map.json` instead)
+
+=== Why Windows CI does not install Conan yet
+
+Linux CI installs Conan 2 and runs the full `test_conan` suite.
+Windows CI (`CUPPA_TEST_TOOLCHAIN=vc`) does **not** install Conan, so those tests skip when `conan` is missing.
+
+Reasons this stayed deferred:
+
+* **Profile / settings fidelity** — Cuppa's MSVC → Conan mapping (`compiler.runtime`, toolset → `compiler.version`) is unit-tested, but a cold Windows runner still needs a maintainable Conan 2 + MSVC profile (`conan profile detect` / Visual Studio integration) that reliably builds or finds packages such as `fmt` under `--build=missing`.
+* **Cost and flakes** — from-source Conan builds on `windows-latest` are slower and more brittle than Linux; shared-library runtime (`PATH`) and modules cells add more matrix surface.
+* **Optional feature** — Conan is not a Cuppa runtime dependency; Linux coverage already exercises consumer + publisher paths. Windows can be added later as a dedicated job once an MSVC Conan profile is proven locally.
 
 '''
 

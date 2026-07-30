@@ -175,6 +175,49 @@ def _conan_install(conan, project, output_folder, extra_settings=None):
     assert script.is_file(), "SConscript_conandeps missing after conan install"
 
 
+def _isolated_conan_home(tmp_path, conan):
+    """
+    Fresh CONAN_HOME + default profile for local export-pkg round-trips.
+
+    Also returns a ``--download-root=`` flag under ``tmp_path`` so Cuppa's Conan
+    fingerprint cache (and embedded package paths in ``SConscript_conandeps``)
+    cannot leak across tests via ``~/.cuppaconfig`` / ``~/_cuppa``.
+    """
+    import os
+
+    conan_home = tmp_path / "conan_home"
+    conan_home.mkdir()
+    download_root = tmp_path / "cuppa_download"
+    download_root.mkdir()
+    extra = {"CONAN_HOME": str(conan_home)}
+    detect = subprocess.run(
+        [conan, "profile", "detect", "--force"],
+        env={**os.environ, **extra},
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+    )
+    if detect.returncode != 0:
+        pytest.fail("conan profile detect failed:\n{}".format(detect.stdout))
+    return extra, "--download-root={}".format(download_root)
+
+def _write_answer_library(project, package="cuppa_pub_mylib", answer=42):
+    """Minimal header + source library used by Conan publish round-trips."""
+    include = project / "include" / package
+    include.mkdir(parents=True)
+    (include / "answer.hpp").write_text(
+        "#pragma once\n"
+        "int cuppa_pub_answer();\n",
+        encoding="utf-8",
+    )
+    (project / "answer.cpp").write_text(
+        "#include <{}/answer.hpp>\n"
+        "int cuppa_pub_answer() {{ return {}; }}\n".format(package, answer),
+        encoding="utf-8",
+    )
+
+
 def test_conan_deps_generators_folder_reuse(tmp_path):
     """Approach C: pre-run conan install, Cuppa only loads SConsDeps."""
     conan = _require_conan()
@@ -824,6 +867,370 @@ def test_conan_publish_modules_bmi_round_trip(tmp_path):
         "--modules",
         "--stdcpp=c++20",
         toolchain_flag,
+        offline=True,
+        timeout=300,
+        extra_env=extra,
+    )
+    assert_success(consumed)
+    binaries = find_final_binaries(consumer, "math_app")
+    assert binaries
+    ran = subprocess.run(
+        [str(binaries[0])],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+    )
+    assert ran.returncode == 0, ran.stdout
+
+
+def test_conan_publish_generated_requires_round_trip(tmp_path):
+    """Leaf export-pkg, then wrapper with generated requires= (no conanfile=)."""
+    import shutil
+
+    conan = _require_conan()
+    extra, download_root = _isolated_conan_home(tmp_path, conan)
+
+    leaf = tmp_path / "leaf"
+    leaf.mkdir()
+    _write_answer_library(leaf)
+    write_sconstruct(leaf, body="import cuppa\ncuppa.run(default_variants=['dbg'])\n")
+    write_sconscript(
+        leaf,
+        "Import('env')\n"
+        "from cuppa.package_managers.conan import ConanPackagePublisher\n"
+        "env.AppendUnique(INCPATH=['include'])\n"
+        "lib = env.BuildStaticLib('cuppa_pub_mylib', 'answer.cpp')\n"
+        "env.PublishPackage(lib, ConanPackagePublisher(\n"
+        "    env, name='cuppa_pub_mylib', version='0.1.0',\n"
+        "    source_include_dir='include',\n"
+        "    source_lib_dir=env['abs_final_dir'],\n"
+        "    libs=['cuppa_pub_mylib'], shared=False,\n"
+        "))\n",
+    )
+    assert_success(
+        run_cuppa(leaf, "--dbg", download_root, offline=True, timeout=300, extra_env=extra)
+    )
+
+    wrap = tmp_path / "wrapper"
+    wrap.mkdir()
+    wrap_inc = wrap / "include" / "cuppa_pub_wrap"
+    wrap_inc.mkdir(parents=True)
+    (wrap_inc / "wrap.hpp").write_text(
+        "#pragma once\n"
+        "#include <cuppa_pub_mylib/answer.hpp>\n"
+        "inline int cuppa_pub_wrap() { return cuppa_pub_answer() + 1; }\n",
+        encoding="utf-8",
+    )
+    (wrap / "wrap.cpp").write_text(
+        "#include <cuppa_pub_wrap/wrap.hpp>\n"
+        "int cuppa_pub_wrap_lib() { return cuppa_pub_wrap(); }\n",
+        encoding="utf-8",
+    )
+    shutil.copytree(leaf / "include" / "cuppa_pub_mylib", wrap / "include" / "cuppa_pub_mylib")
+    write_sconstruct(wrap, body="import cuppa\ncuppa.run(default_variants=['dbg'])\n")
+    write_sconscript(
+        wrap,
+        "Import('env')\n"
+        "from cuppa.package_managers.conan import ConanPackagePublisher\n"
+        "env.AppendUnique(INCPATH=['include'])\n"
+        "lib = env.BuildStaticLib('cuppa_pub_wrap', 'wrap.cpp')\n"
+        "env.PublishPackage(lib, ConanPackagePublisher(\n"
+        "    env, name='cuppa_pub_wrap', version='0.1.0',\n"
+        "    source_include_dir='include',\n"
+        "    source_lib_dir=env['abs_final_dir'],\n"
+        "    libs=['cuppa_pub_wrap'],\n"
+        "    shared=False,\n"
+        "    requires=['cuppa_pub_mylib/0.1.0'],\n"
+        "))\n",
+    )
+    wrapped = run_cuppa(wrap, "--dbg", download_root, offline=True, timeout=300, extra_env=extra)
+    assert_success(wrapped)
+
+    # Generated recipe must embed requires= (not a hand-written conanfile=).
+    staged = [
+        path for path in find_under_build(wrap)
+        if path.name == "conanfile.py" and "conan_pkg_" in str(path)
+    ]
+    assert staged, "expected generated conanfile.py under conan_pkg_*"
+    assert "cuppa_pub_mylib/0.1.0" in staged[0].read_text(encoding="utf-8")
+
+    consumer = tmp_path / "consumer"
+    consumer.mkdir()
+    (consumer / "conanfile.txt").write_text(
+        "[requires]\n"
+        "cuppa_pub_wrap/0.1.0\n"
+        "\n"
+        "[generators]\n"
+        "SConsDeps\n"
+        "VirtualRunEnv\n",
+        encoding="utf-8",
+    )
+    (consumer / "hello.cpp").write_text(
+        "#include <cuppa_pub_wrap/wrap.hpp>\n"
+        "#include <cstdio>\n"
+        "int main() {\n"
+        "    std::printf(\"wrap=%d\\n\", cuppa_pub_wrap());\n"
+        "    return cuppa_pub_wrap() == 43 ? 0 : 1;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    write_sconstruct(
+        consumer,
+        body=(
+            "import cuppa\n"
+            "Conan = cuppa.conan_deps(conanfile='conanfile.txt')\n"
+            "cuppa.run(\n"
+            "    default_variants=['dbg'],\n"
+            "    dependencies=[Conan],\n"
+            "    default_dependencies=['conan'],\n"
+            ")\n"
+        ),
+    )
+    write_sconscript(consumer, "Import('env')\nenv.Build('hello', 'hello.cpp')\n")
+
+    consumed = run_cuppa(
+        consumer, "--dbg", download_root, offline=True, timeout=300, extra_env=extra
+    )
+    assert_success(consumed)
+    binaries = find_final_binaries(consumer, "hello")
+    assert binaries
+    ran = subprocess.run(
+        [str(binaries[0])],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+    )
+    assert ran.returncode == 0, ran.stdout
+    assert "wrap=43" in ran.stdout
+
+
+def test_conan_publish_shared_lib_round_trip(tmp_path):
+    """BuildSharedLib + shared=True publish → consumer BuildTest with runtime paths."""
+    conan = _require_conan()
+    extra, download_root = _isolated_conan_home(tmp_path, conan)
+
+    producer = tmp_path / "publisher"
+    producer.mkdir()
+    _write_answer_library(producer)
+    write_sconstruct(producer, body="import cuppa\ncuppa.run(default_variants=['dbg'])\n")
+    write_sconscript(
+        producer,
+        "Import('env')\n"
+        "from cuppa.package_managers.conan import ConanPackagePublisher\n"
+        "env.AppendUnique(INCPATH=['include'])\n"
+        "lib = env.BuildSharedLib('cuppa_pub_mylib', 'answer.cpp')\n"
+        "env.PublishPackage(lib, ConanPackagePublisher(\n"
+        "    env, name='cuppa_pub_mylib', version='0.1.0',\n"
+        "    source_include_dir='include',\n"
+        "    source_lib_dir=env['abs_final_dir'],\n"
+        "    libs=['cuppa_pub_mylib'],\n"
+        "    shared=True,\n"
+        "))\n",
+    )
+
+    produced = run_cuppa(
+        producer, "--dbg", download_root, offline=True, timeout=300, extra_env=extra
+    )
+    assert_success(produced)
+    shared_libs = [
+        path for path in find_under_build(producer, "*cuppa_pub_mylib*")
+        if path.suffix in (".so", ".dylib", ".dll") and "final" in path.parts
+    ]
+    assert shared_libs, "expected shared library under final/"
+    staged_recipes = [
+        path for path in find_under_build(producer)
+        if path.name == "conanfile.py" and "conan_pkg_" in str(path)
+    ]
+    assert staged_recipes
+    recipe_text = staged_recipes[0].read_text(encoding="utf-8")
+    assert "shared-library" in recipe_text
+    assert "True" in recipe_text  # default_options shared=True in generated recipe
+
+    consumer = tmp_path / "consumer"
+    consumer.mkdir()
+    (consumer / "conanfile.txt").write_text(
+        "[requires]\n"
+        "cuppa_pub_mylib/0.1.0\n"
+        "\n"
+        "[generators]\n"
+        "SConsDeps\n"
+        "VirtualRunEnv\n",
+        encoding="utf-8",
+    )
+    (consumer / "hello.cpp").write_text(
+        "#include <cuppa_pub_mylib/answer.hpp>\n"
+        "#include <cstdio>\n"
+        "int main() {\n"
+        "    std::printf(\"answer=%d\\n\", cuppa_pub_answer());\n"
+        "    return cuppa_pub_answer() == 42 ? 0 : 1;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    write_sconstruct(
+        consumer,
+        body=(
+            "import cuppa\n"
+            "Conan = cuppa.conan_deps(conanfile='conanfile.txt')\n"
+            "cuppa.run(\n"
+            "    default_variants=['dbg'],\n"
+            "    dependencies=[Conan],\n"
+            "    default_dependencies=['conan'],\n"
+            ")\n"
+        ),
+    )
+    write_sconscript(
+        consumer,
+        "Import('env')\n"
+        "env.BuildTest('hello_test', 'hello.cpp')\n",
+    )
+
+    consumed = run_cuppa(
+        consumer,
+        "--dbg",
+        download_root,
+        "--test",
+        "--show-test-output",
+        offline=True,
+        timeout=300,
+        extra_env=extra,
+    )
+    assert_success(consumed)
+    assert "answer=42" in consumed.stdout
+
+
+def test_conan_publish_source_modules_dir_override(tmp_path):
+    """Publish modules from an explicit source_modules_dir= (not final/modules)."""
+    import shutil
+
+    from tests.helpers.toolchains import (
+        REPO_ROOT,
+        require_modules_capable_toolchain,
+    )
+
+    conan = _require_conan()
+    alias, driver, major = require_modules_capable_toolchain()
+    toolchain_flag = "--toolchains={}".format(alias)
+    logger.info(
+        "Conan source_modules_dir publish using toolchain %s (%s major %s)",
+        alias,
+        driver,
+        major,
+    )
+    extra, download_root = _isolated_conan_home(tmp_path, conan)
+
+    fixtures = REPO_ROOT / "tests" / "fixtures" / "modules_project"
+    producer = tmp_path / "mod_publisher"
+    producer.mkdir()
+    shutil.copy(fixtures / "math.cppm", producer / "math.cppm")
+    (producer / "include").mkdir()
+    write_sconstruct(producer, body="import cuppa\ncuppa.run(default_variants=['dbg'])\n")
+    write_sconscript(
+        producer,
+        "Import('env')\n"
+        "env.BuildStaticLib('cuppa_mathlib', ['math.cppm'])\n",
+    )
+
+    built = run_cuppa(
+        producer,
+        "--dbg",
+        "--modules",
+        "--stdcpp=c++20",
+        toolchain_flag,
+        download_root,
+        offline=True,
+        timeout=300,
+        extra_env=extra,
+    )
+    assert_success(built)
+
+    module_maps = [
+        path for path in find_under_build(producer)
+        if (
+            path.name == "module-map.json"
+            and "final" in path.parts
+            and "modules" in path.parts
+            and "conan_pkg_" not in str(path)
+        )
+    ]
+    assert module_maps, "expected final/modules/module-map.json after --modules build"
+    default_modules = module_maps[0].parent
+    bmi_out = producer / "bmi_out"
+    shutil.copytree(default_modules, bmi_out)
+    shutil.rmtree(default_modules)
+
+    write_sconscript(
+        producer,
+        "Import('env')\n"
+        "from cuppa.package_managers.conan import ConanPackagePublisher\n"
+        "from SCons.Script import Touch\n"
+        "# Library artefacts already in final/; stamp drives PublishPackage.\n"
+        "stamp = env.Command('publish_stamp', [], Touch('$TARGET'))\n"
+        "env.PublishPackage(stamp, ConanPackagePublisher(\n"
+        "    env, name='cuppa_mathlib', version='0.1.0',\n"
+        "    source_include_dir='include',\n"
+        "    source_lib_dir=env['abs_final_dir'],\n"
+        "    source_modules_dir='bmi_out',\n"
+        "    libs=['cuppa_mathlib'], shared=False,\n"
+        "))\n",
+    )
+
+    published = run_cuppa(
+        producer,
+        "--dbg",
+        "--modules",
+        "--stdcpp=c++20",
+        toolchain_flag,
+        download_root,
+        offline=True,
+        timeout=300,
+        extra_env=extra,
+    )
+    assert_success(published)
+    staged_maps = [
+        path for path in find_under_build(producer)
+        if path.name == "module-map.json" and "conan_pkg_" in str(path)
+    ]
+    assert staged_maps, "expected modules staged from bmi_out into conan_pkg_*"
+
+    consumer = tmp_path / "mod_consumer"
+    consumer.mkdir()
+    shutil.copy(fixtures / "apps" / "main.cpp", consumer / "main.cpp")
+    (consumer / "conanfile.txt").write_text(
+        "[requires]\n"
+        "cuppa_mathlib/0.1.0\n"
+        "\n"
+        "[generators]\n"
+        "SConsDeps\n"
+        "VirtualRunEnv\n",
+        encoding="utf-8",
+    )
+    write_sconstruct(
+        consumer,
+        body=(
+            "import cuppa\n"
+            "Conan = cuppa.conan_deps(conanfile='conanfile.txt')\n"
+            "cuppa.run(\n"
+            "    default_variants=['dbg'],\n"
+            "    dependencies=[Conan],\n"
+            "    default_dependencies=['conan'],\n"
+            ")\n"
+        ),
+    )
+    write_sconscript(
+        consumer,
+        "Import('env')\n"
+        "env.Build('math_app', ['main.cpp'])\n",
+    )
+
+    consumed = run_cuppa(
+        consumer,
+        "--dbg",
+        "--modules",
+        "--stdcpp=c++20",
+        toolchain_flag,
+        download_root,
         offline=True,
         timeout=300,
         extra_env=extra,
