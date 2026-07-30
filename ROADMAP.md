@@ -133,7 +133,7 @@ Tracked as GitHub issue [#27](https://github.com/ja11sop/cuppa/issues/27).
 
 Goal: optional **Conan 2 consumer** support so projects can pull mainstream packages (fmt, OpenSSL, …) and apply them through `env.BuildWith`, without making Conan Cuppa’s orchestrator or replacing location/GitLab package deps.
 
-Detailed exploration, trade-offs, and API sketches: [`CONAN_CONSUMER_PLAN.md`](CONAN_CONSUMER_PLAN.md).
+Detailed exploration, trade-offs, and API sketches: [`CONAN_CONSUMER_PLAN.md`](CONAN_CONSUMER_PLAN.md) (consumer), [`CONAN_PUBLISH_PLAN.md`](CONAN_PUBLISH_PLAN.md) (producer).
 
 ### Today
 
@@ -142,6 +142,7 @@ Detailed exploration, trade-offs, and API sketches: [`CONAN_CONSUMER_PLAN.md`](C
 | `location_dependency` / git-style deps | Yes |
 | GitLab `package_dependency` | Yes |
 | Conan install → Cuppa env flags | Yes (optional; `conan_deps` / SConsDeps) |
+| Conan export-pkg / upload of Cuppa-built libs | Yes (optional; `ConanPackagePublisher`) |
 
 ### Planned / potential
 
@@ -154,6 +155,9 @@ Detailed exploration, trade-offs, and API sketches: [`CONAN_CONSUMER_PLAN.md`](C
 | `conan-pkgconfig` | Document PkgConfigDeps as optional fallback | Later | Not MVP default |
 | `conan-docs-pip` | Docs + example pip plugin (`examples/conan_fmt_plugin`) | Done | Entry point `cuppa.dependency.plugins`; covered by `test_conan` |
 | `conan-integration` | Linux integration: install / generators_folder / shared `--test` / plugin / offline miss | Done | `tests/integration/methods/test_conan.py` |
+| `conan-publish-spike` | Spike Cuppa-build → `export-pkg` → local-cache consumer round-trip | Done | Producer path evidence |
+| `conan-publish` | `ConanPackagePublisher` + `PublishPackage`; settings; upload via `--publish-package` | Done | See [`CONAN_PUBLISH_PLAN.md`](CONAN_PUBLISH_PLAN.md) |
+| `conan-publish-recipe` | Hand-written `conanfile=` override; shared option; `requires` | Later | Phase 2 |
 
 ### Out of scope (Conan)
 
@@ -164,6 +168,7 @@ Detailed exploration, trade-offs, and API sketches: [`CONAN_CONSUMER_PLAN.md`](C
 | `conancenter-vendor` | Hosting/mirroring ConanCenter inside Cuppa | Not a package host |
 | `conan-cross-mvp` | Build vs host profiles / cross in Phase 1 | Host-only MVP |
 | `conan-tool-requires` | `tool_requires` / codegen plugins in MVP | Document limitation; later |
+| `conan-create-build` | `conan create` with `build()` invoking Cuppa/SCons | Fights orchestrator stance; use export-pkg |
 
 Tracked as GitHub issue [#29](https://github.com/ja11sop/cuppa/issues/29).
 

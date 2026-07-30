@@ -1,5 +1,5 @@
-= `test_conan` — Conan 2 consumer (`conan_deps`)
-:description: Cuppa integration tests for optional Conan 2 SConsDeps consumer support
+= `test_conan` — Conan 2 consumer and publisher
+:description: Cuppa integration tests for optional Conan 2 SConsDeps consumer and export-pkg publisher
 
 == What is tested
 
@@ -10,6 +10,7 @@ Optional Conan 2 consumer support via `cuppa.conan_deps` / `cuppa.conan_dependen
 * **Shared library runtime** — `fmt` built shared; `BuildTest` succeeds with injected library search paths
 * **Pip plugin** — `examples/conan_fmt_plugin` installed via `pip install --target`; Cuppa discovers `fmt` through `cuppa.dependency.plugins` with only `default_dependencies=['fmt']`
 * **Offline miss** — empty Conan home + Cuppa `--offline` fails clearly when the package is not cached
+* **Publish round-trip** — `BuildStaticLib` + `ConanPackagePublisher` / `PublishPackage` (`export-pkg` only) into an isolated `CONAN_HOME`, then a second project consumes via `conan_deps` under `--offline`
 
 Tests skip when `conan` is missing or is not a working Conan 2 CLI.
 
@@ -109,6 +110,7 @@ cuppa -D --dbg --test --show-test-output
 * Program output contains the scenario-specific hello string
 * Second offline pass after a successful install does not re-run `conan install`
 * Offline miss exits non-zero with a Conan-related error
+* Publish round-trip consumer binary prints `answer=42`
 
 == Deferred / known gaps
 
@@ -119,9 +121,11 @@ These are intentional follow-ups, not regressions:
 * Clang / MSVC Conan settings under the integration suite (unit tests cover settings mapping; Linux gcc is the integration default)
 * Windows CI with Conan (skipped unless a maintainable Conan+compiler profile exists)
 * `tool_requires` / code generators
+* Live Conan remote upload (`--publish-package` + `remote=`); round-trip covers local-cache `export-pkg` only
+* Hand-written `conanfile=` override and transitive `requires` in generated recipes
 
 '''
 
 Related test module: `tests/integration/methods/test_conan.py`.
 Example plugin package: `examples/conan_fmt_plugin/`.
-See also xref:dependencies.adoc[Dependencies] (Conan 2 consumer), xref:extending.adoc#pip-dependency-plugin-conan-example[Extending cuppa], and `CONAN_CONSUMER_PLAN.md`.
+See also xref:dependencies.adoc[Dependencies] (Conan 2 consumer), xref:packages.adoc#conan-package-publishing[Conan 2 publishing], xref:extending.adoc#pip-dependency-plugin-conan-example[Extending cuppa], `CONAN_CONSUMER_PLAN.md`, and `CONAN_PUBLISH_PLAN.md`.

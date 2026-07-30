@@ -151,6 +151,7 @@ Conan = cuppa.conan_deps( generators_folder = '_conan' )
 Point `generators_folder` at a directory that already contains `SConscript_conandeps` from a prior `conan install`. Cuppa skips install and only loads flags. This is the preferred pattern when CI (or a wrapper script) already ran Conan.
 
 Integration coverage: xref:integration/test-conan.adoc[].
+For publishing Cuppa-built libraries into Conan, see xref:packages.adoc#conan-package-publishing[Conan 2 publishing].
 
 === Dialect mapping note
 

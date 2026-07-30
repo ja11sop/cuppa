@@ -102,7 +102,7 @@ cuppa.run(default_variants=['dbg'])
 | `fmt` pip plugin (`location_dependency` + static lib)
 | xref:integration/test-fmt-location-plugin.adoc[]
 
-| `conan_deps` (Conan 2 / SConsDeps; skips without `conan`)
+| `conan_deps` / Conan publish (Conan 2; skips without `conan`)
 | xref:integration/test-conan.adoc[]
 
 | `BuildProfile`
