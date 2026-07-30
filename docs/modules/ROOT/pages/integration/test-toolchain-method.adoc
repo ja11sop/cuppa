@@ -4,7 +4,8 @@
 
 == What is tested
 
-Looking up the active toolchain by name returns the same toolchain object/identity.
+Looking up the active toolchain by `toolchain.name()` (build/ABI identity) or by registry key returns the same toolchain object.
+For Clang with `--clang-stdlib=libc++`, `name()` may be `clang-libc++` while the registry key remains `clang`; both forms resolve.
 
 == Generated files
 
