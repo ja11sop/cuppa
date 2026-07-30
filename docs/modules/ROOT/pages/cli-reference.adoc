@@ -73,16 +73,28 @@ Per-dependency location options follow the pattern `--<name>-location`, `--<name
 
 == Environment propagation
 
+These flags control how much of your **shell** environment Cuppa passes into build, test, and run subprocesses (compilers, linkers, `BuildTest` / `Run` binaries, and similar).
+
 |===
 | Option | Description
 
 | `--propagate-env` | Pass the full parent environment to subprocesses
-| `--propagate-path` | Pass only `PATH`
-| `--merge-path` | Merge parent `PATH` with the cuppa-managed path
+| `--propagate-path` | Pass only the parent shell `PATH`
+| `--merge-path` | Merge the parent shell `PATH` with Cuppa’s managed path (parent entries kept, Cuppa defaults included)
 | `--use-shell` | Escape hatch: run coloured `SPAWN` subprocesses with `shell=True` (joins the argv list into one shell command). Prefer `working_dir` / `cwd=` / Python actions instead of multi-part shell strings such as `cd … && …`. See xref:methods.adoc#custom-commands-and-working-directories[Custom commands and working directories].
 | `--decider=DECIDER` | SCons decider: `timestamp-newer`, `timestamp-match`, `MD5`, `MD5-timestamp` (default)
 | `--runner=NAME` | Test runner (default `process`)
 |===
+
+**When to use them**
+
+* Use `--propagate-path` or `--merge-path` when tools you need (for example a Homebrew Clang, or extra utilities) are on your shell `PATH` but not on Cuppa’s default path.
+* Use `--propagate-env` when subprocesses need other shell variables as well (credentials, `PKG_CONFIG_PATH` customisations beyond what Cuppa already forwards, locale settings, and so on). Prefer the narrower path flags when only `PATH` matters.
+* Without these flags, Cuppa still forwards host `PKG_CONFIG_PATH` when it is set, so system `.pc` discovery continues to work.
+
+**What they are not for**
+
+Dependencies that install their own shared libraries (for example the optional xref:dependencies.adoc#conan-2-consumer-optional[Conan consumer]) add library search paths for `--test` / `--run` themselves. You do **not** need `--propagate-env` for those packages to load at test time.
 
 == Toolchain-specific
 

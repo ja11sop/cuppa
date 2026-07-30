@@ -57,7 +57,7 @@ cuppa.run(
 | `GITLAB_REGISTRY_TOKEN` | Authenticate to a GitLab package registry
 | `CI_JOB_TOKEN` | GitLab CI job token for registry access
 | Per-package custom token | Via `--<name>-gitlab-custom-token` (option names a token-bearing setting)
-| `PATH` / `PKG_CONFIG_PATH` | Propagated or merged according to `--propagate-env`, `--propagate-path`, `--merge-path`
+| `PATH` / `PKG_CONFIG_PATH` | How much of your shell environment reaches build/test/run subprocesses depends on `--propagate-env`, `--propagate-path`, and `--merge-path` (see xref:cli-reference.adoc#environment-propagation[Environment propagation]). Host `PKG_CONFIG_PATH` is forwarded even when those flags are off.
 |===
 
 The `cuppa` wrapper masks environment values whose names match `*TOKEN*` in build output.

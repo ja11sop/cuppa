@@ -118,6 +118,20 @@ def test_map_cppstd_common_values():
     assert _map_cppstd( 'gnu++20' ) == 'gnu20'
 
 
+def test_conan_settings_for_msvc_runtime():
+    env = FakeEnv( stdcpp='c++20', target_arch='x86_64' )
+    toolset = type( 'Toolset', (), { 'major': 14, 'minor': 5 } )()
+    toolchain = FakeToolchain( family='cl', major=19 )
+    toolchain._toolset = toolset
+    toolchain._short_version = '145'
+    settings = conan_settings_for( env, toolchain, 'dbg' )
+    assert settings['compiler'] == 'msvc'
+    assert settings['compiler.version'] == '194'
+    assert settings['compiler.runtime'] == 'dynamic'
+    assert settings['compiler.runtime_type'] == 'Debug'
+    assert 'compiler.libcxx' not in settings
+
+
 def test_conan_settings_for_gcc_debug():
     env = FakeEnv( stdcpp='c++20', target_arch='x86_64' )
     toolchain = FakeToolchain( family='gcc', major=15 )

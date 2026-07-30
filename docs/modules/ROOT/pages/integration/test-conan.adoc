@@ -1,0 +1,100 @@
+= `test_conan` — Conan 2 consumer (`conan_deps`)
+:description: Cuppa integration tests for optional Conan 2 SConsDeps consumer support
+
+== What is tested
+
+Optional Conan 2 consumer support via `cuppa.conan_deps` (SConsDeps):
+
+* **generators_folder reuse** — pre-run `conan install`, Cuppa loads `SConscript_conandeps` only
+* **Full install** — Cuppa runs `conan install`, builds and runs a `fmt` hello
+* **Shared library runtime** — `fmt` built shared; `BuildTest` succeeds with injected `LD_LIBRARY_PATH` / `PATH`
+
+Tests skip when `conan` is missing or is not a working Conan 2 CLI.
+
+== Prerequisites
+
+* Conan 2 on `PATH` (`conan version` succeeds)
+* Network (or a warm Conan cache) for install scenarios
+* C++ compiler (suite default toolchain)
+
+== Generated files (shared pattern)
+
+=== `conanfile.txt`
+
+[source,ini]
+----
+[requires]
+fmt/11.1.4
+
+[generators]
+SConsDeps
+VirtualRunEnv
+----
+
+Shared-library scenario adds:
+
+[source,ini]
+----
+[options]
+fmt/*:shared=True
+----
+
+=== `sconstruct` (install path)
+
+[source,python]
+----
+import cuppa
+Conan = cuppa.conan_deps(conanfile='conanfile.txt')
+cuppa.run(
+    default_variants=['dbg'],
+    dependencies=[Conan],
+    default_dependencies=['conan'],
+)
+----
+
+=== `sconstruct` (generators_folder)
+
+[source,python]
+----
+import cuppa
+Conan = cuppa.conan_deps(generators_folder='_conan')
+cuppa.run(
+    default_variants=['dbg'],
+    dependencies=[Conan],
+    default_dependencies=['conan'],
+)
+----
+
+=== `sconscript`
+
+[source,python]
+----
+Import('env')
+env.Build('hello', 'hello.cpp')
+----
+
+Shared-runtime scenario uses `env.BuildTest('hello_test', 'hello.cpp')` with `--test`.
+
+== Commands
+
+[source,sh]
+----
+# generators_folder: cuppa stays --offline after a prior conan install into _conan/
+cuppa -D --offline --dbg
+
+# full install / shared: allow remotes so a cold cache can fetch
+cuppa -D --dbg
+cuppa -D --dbg --test --show-test-output
+----
+
+== Expectations
+
+* Exit 0
+* `hello` (or `hello_test`) under `final/`
+* Program output contains `hello from conan integration`
+* Second offline pass after a successful install does not re-run `conan install`
+
+'''
+
+Related test module: `tests/integration/methods/test_conan.py`.
+See also xref:dependencies.adoc[Dependencies] (Conan 2 consumer) and `CONAN_CONSUMER_PLAN.md`.

@@ -99,6 +99,9 @@ cuppa.run(default_variants=['dbg'])
 | `BuildWith`, `Using`
 | xref:integration/test-build-with.adoc[]
 
+| `conan_deps` (Conan 2 / SConsDeps; skips without `conan`)
+| xref:integration/test-conan.adoc[]
+
 | `BuildProfile`
 | xref:integration/test-build-profile.adoc[]
 

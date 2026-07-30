@@ -144,23 +144,20 @@ def _compiler_family( toolchain ):
 
 
 def _compiler_version( toolchain ):
+    family = _compiler_family( toolchain )
+    if family == 'msvc':
+        return _msvc_conan_version( toolchain )
+
     reported = getattr( toolchain, '_reported_version', None )
     if isinstance( reported, dict ) and reported.get( 'major' ) is not None:
-        major = reported['major']
-        family = _compiler_family( toolchain )
-        if family == 'msvc':
-            # Prefer full Conan-style toolset version when available.
-            if hasattr( toolchain, 'short_version' ):
-                return str( toolchain.short_version() )
-            return str( major )
-        return str( major )
+        return str( reported['major'] )
     if hasattr( toolchain, 'short_version' ):
         short = str( toolchain.short_version() )
         match = re.match( r'(\d+)', short )
         if match:
             # gcc153 -> 15 for Conan major; if short is already "15", keep it.
             digits = match.group( 1 )
-            if len( digits ) >= 3 and _compiler_family( toolchain ) == 'gcc':
+            if len( digits ) >= 3 and family == 'gcc':
                 return digits[:2] if int( digits[:2] ) >= 10 else digits[0]
             return digits
     if hasattr( toolchain, 'version' ):
@@ -170,13 +167,42 @@ def _compiler_version( toolchain ):
     return None
 
 
+def _msvc_conan_version( toolchain ):
+    """Map Cuppa MSVC toolset (e.g. vc145 / 14.5) to Conan ``compiler.version``."""
+    toolset = getattr( toolchain, '_toolset', None )
+    major = minor = None
+    if toolset is not None:
+        try:
+            major = int( toolset.major )
+            minor = int( toolset.minor )
+        except ( TypeError, ValueError, AttributeError ):
+            major = minor = None
+    if major is None and hasattr( toolchain, 'short_version' ):
+        short = re.sub( r'\D', '', str( toolchain.short_version() ) )
+        if len( short ) >= 2:
+            major = int( short[:2] )
+            minor = int( short[2] ) if len( short ) >= 3 and short[2].isdigit() else 0
+    if major == 14:
+        if minor >= 4:
+            return '194'
+        if minor >= 3:
+            return '193'
+        if minor >= 2:
+            return '192'
+        if minor >= 1:
+            return '191'
+        return '190'
+    if major is not None:
+        return str( major )
+    return None
+
+
 def _compiler_libcxx( env, toolchain ):
     family = _compiler_family( toolchain )
     if family not in ( 'clang', 'apple-clang' ):
         if family == 'gcc':
             return 'libstdc++11'
         return None
-    stdlib = None
     if hasattr( toolchain, 'stdlib_flag' ):
         flag = toolchain.stdlib_flag( env )
         if flag and 'libc++' in flag:
@@ -196,11 +222,22 @@ def _compiler_libcxx( env, toolchain ):
     return 'libstdc++11'
 
 
+def _msvc_runtime( env, variant ):
+    """Cuppa defaults to the dynamic CRT; map variant to Conan runtime settings."""
+    # Prefer dynamic (/MD, /MDd). Static CRT can be added later via options.
+    runtime = 'dynamic'
+    build_type = _build_type_for_variant( variant )
+    # Conan 2: compiler.runtime_type distinguishes Debug vs Release CRT when set.
+    runtime_type = 'Debug' if build_type == 'Debug' else 'Release'
+    return runtime, runtime_type
+
+
 def _build_type_for_variant( variant ):
     name = variant if isinstance( variant, str ) else getattr( variant, 'name', lambda: str( variant ) )()
     if callable( name ):
         name = name()
     name = str( name )
+    # Coverage instrumentation builds as Debug-compatible for Conan packages.
     if name in ( 'dbg', 'cov', 'Debug' ):
         return 'Debug'
     return 'Release'
@@ -233,9 +270,15 @@ def conan_settings_for( env, toolchain, variant ):
     if cppstd:
         settings['compiler.cppstd'] = cppstd
 
-    libcxx = _compiler_libcxx( env, toolchain )
-    if libcxx:
-        settings['compiler.libcxx'] = libcxx
+    family = settings['compiler']
+    if family == 'msvc':
+        runtime, runtime_type = _msvc_runtime( env, variant )
+        settings['compiler.runtime'] = runtime
+        settings['compiler.runtime_type'] = runtime_type
+    else:
+        libcxx = _compiler_libcxx( env, toolchain )
+        if libcxx:
+            settings['compiler.libcxx'] = libcxx
 
     return settings
 
@@ -457,11 +500,6 @@ class base( object ):
                 parts.append( 'lock=' + _sha256_file( lockfile ) )
             else:
                 parts.append( 'lock=none' )
-                logger.warn(
-                    "Conan dependency [{}]: no conan.lock beside [{}]; builds are not pinned".format(
-                            as_notice( self._name ), as_notice( conanfile_path )
-                    )
-                )
         elif self._requires:
             reqs = tuple( sorted( str( r ) for r in self._requires ) )
             parts.append( 'requires=' + _sha256_text( '|'.join( reqs ) ) )
@@ -559,6 +597,12 @@ class base( object ):
         lockfile = os.path.join( os.path.dirname( path_for_install ), 'conan.lock' )
         if os.path.isfile( lockfile ):
             cmd.extend( [ '-l', lockfile ] )
+        else:
+            logger.warn(
+                "Conan dependency [{}]: no conan.lock beside [{}]; builds are not pinned".format(
+                        as_notice( self._name ), as_notice( path_for_install )
+                )
+            )
 
         if self._remote:
             cmd.extend( [ '-r', str( self._remote ) ] )

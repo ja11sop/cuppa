@@ -149,10 +149,11 @@ Detailed exploration, trade-offs, and API sketches: [`CONAN_CONSUMER_PLAN.md`](C
 |----|------|----------|-------|
 | `conan-spike` | Spike **SConsDeps** + `MergeFlags` + fmt hello (no pkg-config on happy path) | Done | Evidence locked generator for Phase 1 |
 | `conan-consume` | `conan_deps` / `conan_dependency`; fingerprint cache + lock; runtime ENV; `BuildWith` | Done | Consumer only; Conan 2 + SConsDeps (`cuppa/build_with_conan.py`) |
-| `conan-reuse` | Consume pre-run `conan install` output folder (`generators_folder`) | Medium | CI-friendly; Approach C |
+| `conan-reuse` | Consume pre-run `conan install` output folder (`generators_folder`) | Done | Covered by MVP + `test_conan` integration |
 | `conan-json` | Custom CuppaDeps/JSON only if SConsDeps proves insufficient | Later | Not on critical path |
 | `conan-pkgconfig` | Document PkgConfigDeps as optional fallback | Later | Not MVP default |
 | `conan-docs-pip` | Docs + optional thin pip plugin example | Medium | Same discovery story as #27 |
+| `conan-integration` | Linux integration: install / generators_folder / shared `--test` | Done | `tests/integration/methods/test_conan.py` |
 
 ### Out of scope (Conan)
 

@@ -148,7 +148,13 @@ Prefer one `conan_deps(conanfile=...)` for multi-package graphs so Cuppa perform
 Conan = cuppa.conan_deps( generators_folder = '_conan' )
 ----
 
-Point `generators_folder` at a directory that already contains `SConscript_conandeps` from a prior `conan install`. Cuppa skips install and only loads flags.
+Point `generators_folder` at a directory that already contains `SConscript_conandeps` from a prior `conan install`. Cuppa skips install and only loads flags. This is the preferred pattern when CI (or a wrapper script) already ran Conan.
+
+Integration coverage: xref:integration/test-conan.adoc[].
+
+=== Dialect mapping note
+
+Cuppa's default dialect folder (`cxx2c` / `-std=c++2c`) maps to Conan `compiler.cppstd=26`. Packages may rebuild from source when no binary exists for that setting; pin `--stdcpp=c++20` (or similar) if you need broader binary compatibility from ConanCenter.
 
 === Offline mode
 
@@ -156,7 +162,11 @@ With Cuppa `--offline`, Conan is invoked with `--no-remote`: the local Conan cac
 
 === Runtime libraries for `--test` / `--run`
 
-Shared library search paths from SConsDeps (`BINPATH` / `LIBPATH`) are prepended to `PATH`, `LD_LIBRARY_PATH`, or `DYLD_LIBRARY_PATH` as appropriate so test and run actions can locate Conan shared libraries.
+When Conan packages install shared libraries, linking alone is not enough for `--test` and `--run`: the dynamic loader must find those libraries when the binary starts.
+
+Cuppa applies the package search paths from SConsDeps so test and run actions can locate them (`PATH` on Windows; `LD_LIBRARY_PATH` on Linux; `DYLD_LIBRARY_PATH` / `PATH` on macOS as appropriate).
+
+You do **not** need `--propagate-env` (or the path-propagation flags) for this. Those flags control whether your *shell* environment is visible to subprocesses; Conan runtime paths are applied by the Conan dependency itself. See xref:cli-reference.adoc#environment-propagation[Environment propagation] when you instead need tools from your shell `PATH`.
 
 === Limitations (MVP)
 
