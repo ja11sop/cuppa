@@ -73,7 +73,8 @@ class run:
                     process_stdout,
                     process_stderr,
                     args_list,
-                    cwd=self._working_dir
+                    cwd=self._working_dir,
+                    scons_env=env,
             )
             if return_code < 0:
                 logger.error( "Execution of [{}] terminated by signal: {}".format( as_notice( self._command ), as_error( str(-return_code) ) ) )

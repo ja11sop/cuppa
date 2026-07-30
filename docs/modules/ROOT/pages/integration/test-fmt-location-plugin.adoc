@@ -1,0 +1,59 @@
+= `test_fmt_location_plugin` — pip `location_dependency` fmt plugin
+:description: Cuppa integration test for examples/cuppa_fmt_plugin
+
+== What is tested
+
+The example package `examples/cuppa_fmt_plugin` registers `fmt` through `cuppa.dependency.plugins` by subclassing `cuppa.location_dependency`, downloading a pinned fmt archive (12.2.0+, required for Clang + libc++), compiling `src/format.cc` and `src/os.cc`, and linking a static library.
+
+* Plugin install via `pip install --target --no-deps`
+* Consumer uses only `default_dependencies=['fmt']` (no `dependencies=[…]`)
+* Builds and runs a hello that `#include <fmt/core.h>`
+* Second `--offline` pass succeeds after the archive is cached
+
+== Prerequisites
+
+* Network (or a warm Cuppa download/cache) for the first fmt archive fetch
+* C++ compiler (suite default toolchain)
+
+== Generated consumer files
+
+=== `sconstruct`
+
+[source,python]
+----
+import cuppa
+cuppa.run(
+    default_variants=['dbg'],
+    default_dependencies=['fmt'],
+)
+----
+
+=== `sconscript`
+
+[source,python]
+----
+Import('env')
+assert 'fmt' in env['dependencies']
+env.Build('hello', 'hello.cpp')
+----
+
+== Commands
+
+[source,sh]
+----
+pip install --target <site> --no-deps examples/cuppa_fmt_plugin
+PYTHONPATH=<site>:$PYTHONPATH cuppa -D --dbg
+PYTHONPATH=<site>:$PYTHONPATH cuppa -D --offline --dbg
+----
+
+== Expectations
+
+* Exit 0
+* `hello` under `final/`
+* Output contains `hello from location fmt plugin`
+
+'''
+
+Related test module: `tests/integration/methods/test_fmt_location_plugin.py`.
+Example package: `examples/cuppa_fmt_plugin/`.
+See also xref:extending.adoc#pip-dependency-plugins[Extending cuppa] and xref:integration/test-conan.adoc[] (Conan-backed `fmt` plugin alternative).

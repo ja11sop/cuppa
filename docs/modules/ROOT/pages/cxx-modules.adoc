@@ -321,9 +321,12 @@ env.Build('app', ['main.cpp'], LIBS=['mathlib'])
 ----
 
 `package_dependency` / GitLab `BuildWith` automatically calls `ImportModules` when
-`package_dir/modules/module-map.json` is present. BMI extensions must match the consumer
+`package_dir/modules/module-map.json` is present.
+Conan consumers via `cuppa.conan_deps` do the same when a Conan package ships
+`modules/module-map.json` (see xref:packages.adoc#conan-package-publishing[Conan 2 publishing]).
+BMI extensions must match the consumer
 toolchain (`.gcm` vs `.pcm` vs `.ifc`) — cross-toolchain BMI reuse is not supported.
-`PublishPackage` copies `modules/` into the package archive alongside `include/` and `lib/`.
+`PublishPackage` (GitLab or Conan) copies `modules/` into the package alongside `include/` and `lib/`.
 
 NOTE: Producer and consumer still need matching toolchain *family* for BMI format. Same-sconscript
 use remains the most direct path; packaging is for shipping modular libraries.
@@ -568,7 +571,7 @@ Typical Homebrew locations: `/opt/homebrew/opt/llvm/bin` (Apple Silicon) or `/us
 Cuppa records the discovered Clang’s install directory and prefers an **absolute** `CXX` / `CC`, and prepends that directory to the SCons build `PATH`, so a configure-time Homebrew Clang is not silently replaced by `/usr/bin/clang++` at build time.
 
 If you still see `export module` rejected with “expected template”, the build is almost certainly using Apple Clang.
-Pass `--propagate-path` (or `--merge-path`) so subprocesses inherit your shell `PATH`, and confirm the compile line shows the Homebrew binary (not bare `clang++` resolving via `/usr/bin`).
+Pass `--propagate-path` (or `--merge-path`) so build and test subprocesses inherit your shell `PATH`, and confirm the compile line shows the Homebrew binary (not bare `clang++` resolving via `/usr/bin`). See xref:cli-reference.adoc#environment-propagation[Environment propagation].
 
 Cuppa’s macOS CI modules slice installs Homebrew `llvm`, puts it on `PATH`, and passes `--propagate-path`.
 

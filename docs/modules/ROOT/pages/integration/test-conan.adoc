@@ -1,0 +1,155 @@
+= `test_conan` — Conan 2 consumer and publisher
+:description: Cuppa integration tests for optional Conan 2 SConsDeps consumer and export-pkg publisher
+
+== What is tested
+
+Optional Conan 2 consumer support via `cuppa.conan_deps` / `cuppa.conan_dependency` (SConsDeps):
+
+* **generators_folder reuse** — pre-run `conan install`, Cuppa loads `SConscript_conandeps` only
+* **Full install** — Cuppa runs `conan install`, builds and runs a `fmt` hello; second `--offline` pass reuses the fingerprint cache
+* **Shared library runtime** — `fmt` built shared; `BuildTest` succeeds with injected library search paths
+* **Pip plugin** — `examples/conan_fmt_plugin` installed via `pip install --target`; Cuppa discovers `fmt` through `cuppa.dependency.plugins` with only `default_dependencies=['fmt']`
+* **Offline miss** — empty Conan home + Cuppa `--offline` fails clearly when the package is not cached
+* **Publish round-trip** — `BuildStaticLib` + `ConanPackagePublisher` / `PublishPackage` (`export-pkg` only) into an isolated `CONAN_HOME`, then a second project consumes via `conan_deps` under `--offline`
+* **Publish `conanfile=` + requires** — leaf package, then wrapper with hand-written recipe requiring the leaf; consumer builds against the wrapper under `--offline`
+* **Publish generated `requires=`** — same leaf/wrapper shape as above, but the wrapper uses the generated recipe's `requires=` (no `conanfile=`)
+* **Publish `shared=True`** — `BuildSharedLib` + `shared=True` export-pkg; consumer `BuildTest` exercises runtime library search paths
+* **Publish modules/BMI** — `--modules` producer stages `modules/`; consumer `conan_deps` + `import` under `--modules --offline` (skips without a modules-capable toolchain)
+* **Publish `source_modules_dir=`** — modules relocated out of `final/modules` before publish; publisher stages from the explicit override path
+
+Tests skip when `conan` is missing or is not a working Conan 2 CLI.
+Linux CI installs Conan 2 (`pip install 'conan>=2,<3'`) on each integration matrix cell so these scenarios run rather than skip.
+Windows CI does not install Conan yet (see Out of scope).
+
+== Prerequisites
+
+* Conan 2 on `PATH` (`conan version` succeeds) — installed on Linux CI; install locally for developers
+* A Conan default profile (`conan profile detect` once on a fresh Conan home) — Linux CI runs `conan profile detect --force`
+* Network (or a warm Conan cache) for install / plugin scenarios
+* C++ compiler (suite default toolchain)
+
+== Generated files (shared pattern)
+
+=== `conanfile.txt`
+
+[source,ini]
+----
+[requires]
+fmt/12.1.0
+
+[generators]
+SConsDeps
+VirtualRunEnv
+----
+
+Pinned to fmt 12.1.0 (latest on ConanCenter with the Clang 21+ / libc++ fix; fmtlib/fmt#4477). The location-based `cuppa_fmt_plugin` may pin a newer GitHub tag independently.
+
+Shared-library scenario adds:
+
+[source,ini]
+----
+[options]
+fmt/*:shared=True
+----
+
+=== `sconstruct` (install path)
+
+[source,python]
+----
+import cuppa
+Conan = cuppa.conan_deps(conanfile='conanfile.txt')
+cuppa.run(
+    default_variants=['dbg'],
+    dependencies=[Conan],
+    default_dependencies=['conan'],
+)
+----
+
+=== `sconstruct` (generators_folder)
+
+[source,python]
+----
+import cuppa
+Conan = cuppa.conan_deps(generators_folder='_conan')
+cuppa.run(
+    default_variants=['dbg'],
+    dependencies=[Conan],
+    default_dependencies=['conan'],
+)
+----
+
+=== `sconstruct` (pip plugin)
+
+No `dependencies=[…]` — the plugin registers `fmt`:
+
+[source,python]
+----
+import cuppa
+cuppa.run(
+    default_variants=['dbg'],
+    default_dependencies=['fmt'],
+)
+----
+
+=== `sconscript`
+
+[source,python]
+----
+Import('env')
+env.Build('hello', 'hello.cpp')
+----
+
+Shared-runtime scenario uses `env.BuildTest('hello_test', 'hello.cpp')` with `--test`.
+
+== Commands
+
+[source,sh]
+----
+# generators_folder: cuppa stays --offline after a prior conan install into _conan/
+cuppa -D --offline --dbg
+
+# full install / shared / plugin: allow remotes so a cold cache can fetch
+cuppa -D --dbg
+cuppa -D --dbg --test --show-test-output
+----
+
+== Expectations
+
+* Exit 0 for happy paths
+* `hello` (or `hello_test`) under `final/`
+* Program output contains the scenario-specific hello string
+* Second offline pass after a successful install does not re-run `conan install`
+* Offline miss exits non-zero with a Conan-related error
+* Publish round-trip consumer binary prints `answer=42`
+* Override+requires and generated-`requires=` consumers print `wrap=43`
+* Shared publish consumer test output contains `answer=42`
+* Modules/BMI publish (default and `source_modules_dir=`) consumer `math_app` exits 0
+
+== Deferred / known gaps
+
+These are intentional follow-ups, not regressions:
+
+* Multi-package `conanfile` graphs (MVP always merges aggregated `conandeps`; coverage is via single-package `fmt`)
+* Lockfile-pinned installs (`conan.lock` beside the conanfile)
+* Windows CI with Conan (not installed yet — see below)
+* `tool_requires` / code generators
+* Live Conan remote upload (`--publish-package` + `remote=`); round-trip covers local-cache `export-pkg` only
+* Components / multi-lib `cpp_info.components` (see `CONAN_COMPONENTS_ISSUE.md`)
+* Conan-native BMI `cxxflags` / CPS module manifests (Cuppa uses `module-map.json` instead)
+
+=== Why Windows CI does not install Conan yet
+
+Linux CI installs Conan 2 and runs the full `test_conan` suite.
+Windows CI (`CUPPA_TEST_TOOLCHAIN=vc`) does **not** install Conan, so those tests skip when `conan` is missing.
+
+Reasons this stayed deferred:
+
+* **Profile / settings fidelity** — Cuppa's MSVC → Conan mapping (`compiler.runtime`, toolset → `compiler.version`) is unit-tested, but a cold Windows runner still needs a maintainable Conan 2 + MSVC profile (`conan profile detect` / Visual Studio integration) that reliably builds or finds packages such as `fmt` under `--build=missing`.
+* **Cost and flakes** — from-source Conan builds on `windows-latest` are slower and more brittle than Linux; shared-library runtime (`PATH`) and modules cells add more matrix surface.
+* **Optional feature** — Conan is not a Cuppa runtime dependency; Linux coverage already exercises consumer + publisher paths. Windows can be added later as a dedicated job once an MSVC Conan profile is proven locally.
+
+'''
+
+Related test module: `tests/integration/methods/test_conan.py`.
+Example plugin package: `examples/conan_fmt_plugin/`.
+See also xref:dependencies.adoc[Dependencies] (Conan 2 consumer), xref:packages.adoc#conan-package-publishing[Conan 2 publishing], xref:extending.adoc#pip-dependency-plugin-conan-example[Extending cuppa], `CONAN_CONSUMER_PLAN.md`, and `CONAN_PUBLISH_PLAN.md`.

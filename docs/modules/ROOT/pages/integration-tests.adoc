@@ -20,7 +20,8 @@ For Clang, pin the standard library with `CUPPA_TEST_ARGS=--clang-stdlib=libstdc
 `CUPPA_TEST_ARGS=--clang-stdlib=libc++` (explicit flags in a test override the env extras).
 
 Linux CI matrices three cells: `gcc`, `clang` + `libstdc++`, and `clang` + `libc++`.
-Windows CI uses MSVC (`vc`) via `windows-latest`.
+Each Linux integration job also installs Conan 2 so xref:integration/test-conan.adoc[`test_conan`] runs (not skipped).
+Windows CI uses MSVC (`vc`) via `windows-latest` (Conan not installed there yet).
 
 == Shared fixture
 
@@ -98,6 +99,12 @@ cuppa.run(default_variants=['dbg'])
 
 | `BuildWith`, `Using`
 | xref:integration/test-build-with.adoc[]
+
+| `fmt` pip plugin (`location_dependency` + static lib)
+| xref:integration/test-fmt-location-plugin.adoc[]
+
+| `conan_deps` / Conan publish (Conan 2; skips without `conan`)
+| xref:integration/test-conan.adoc[]
 
 | `BuildProfile`
 | xref:integration/test-build-profile.adoc[]

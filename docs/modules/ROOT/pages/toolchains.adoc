@@ -237,6 +237,8 @@ When LTO is enabled, cuppa also:
 * On **Linux**, the default is `libstdc++` so Boost b2 and the rest of the stack see an explicit `-stdlib=` when needed
 * On other platforms the default may be unset (system default)
 * When `libc++` is selected on Linux, cuppa also links `c++abi`, `c++`, `m`, `c`, `gcc_s`, and `gcc` as required by typical libc++ deployments
+* **Build identity:** `toolchain.name()` (and therefore `_build/.../<toolchain>/...`) includes a non-default stdlib tag, for example `clang21-libc++`. The Linux default (`libstdc++`) keeps the plain name (`clang21`). `package_name()` matches `name()`. Compile commands still use `toolchain.binary()` / `CXX` (`clang++…`), not the tagged folder name.
+* `--toolchains=clang` / versioned aliases remain the registry keys used on the CLI; they do not embed the stdlib tag
 
 === Modules (opt-in)
 

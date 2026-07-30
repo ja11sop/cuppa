@@ -1,5 +1,5 @@
 = Dependencies
-:description: Boost, Qt, Quince, and location_dependency
+:description: Boost, Qt, Quince, location_dependency, and optional Conan 2 consumer
 
 Dependencies encapsulate include paths, defines, library linkage, and optional download/build steps.
 
@@ -86,6 +86,118 @@ Cuppa caches archives under `--cache-root` and checkouts under `--download-root`
 With `--develop`, location dependencies that define a develop path use the local tree instead of fetching.
 
 Relative locations ending in `@` participate in `--location-match-*` branch/tag behaviour (see xref:cli-reference.adoc[CLI reference]).
+
+== Conan 2 consumer (optional)
+
+Cuppa can consume Conan 2 packages through `cuppa.conan_deps` / `cuppa.conan_dependency` and apply them with `env.BuildWith`, using Conan's **SConsDeps** generator (`SConscript_conandeps` + `env.MergeFlags`).
+
+Conan is **not** required to use Cuppa. Location dependencies and GitLab `package_dependency` remain separate supply chains. `--develop` does **not** substitute Conan packages with local develop paths.
+
+[WARNING]
+====
+`conan install` executes recipe code from remotes (same class of risk as fetching location dependencies). Prefer pinned lockfiles and trusted remotes.
+====
+
+=== Declaring a Conan graph
+
+Create a `conanfile.txt` (preferred for Cuppa-managed installs) that lists requires and includes `SConsDeps`:
+
+[source,ini]
+----
+[requires]
+fmt/12.1.0
+
+[generators]
+SConsDeps
+VirtualRunEnv
+----
+
+Prefer fmt 12.0+ when targeting Clang 21+ with libc++ (older releases hit undeclared `malloc`/`free`; fmtlib/fmt#4477). Examples use **12.1.0**, the latest 12.x on ConanCenter at the time of writing.
+
+Wire it into Cuppa:
+
+[source,python]
+----
+import cuppa
+
+Conan = cuppa.conan_deps( conanfile = 'conanfile.txt' )
+
+cuppa.run(
+    dependencies = [Conan],
+    default_dependencies = ['conan'],
+)
+----
+
+Cuppa maps the active toolchain and variant into Conan settings (`compiler`, `compiler.version`, `compiler.cppstd`, `compiler.libcxx`, `build_type`, `os`, `arch`), runs `conan install` once per settings fingerprint (cached under the download root), and merges the resulting flags.
+
+Cuppa also passes Conan conf `tools.build:compiler_executables` from the active toolchain's C/C++ drivers.
+Without that, host settings can say `compiler=clang` while CMake still picks `g++` from `PATH` when building missing packages — a common failure on Linux CI images that ship both compilers.
+
+Conan 2 still requires a **build** profile for the machine that runs `conan install` (even when Cuppa passes host settings with `-s`). On a fresh Conan home, create one once:
+
+[source,sh]
+----
+conan profile detect
+----
+
+If `conan.lock` sits beside the conanfile, Cuppa passes it to `conan install`. Without a lockfile, dependency versions are not pinned.
+
+=== Sugar for a single require
+
+[source,python]
+----
+Fmt = cuppa.conan_dependency( 'fmt' )  # requires fmt/[*]
+# or
+Fmt = cuppa.conan_dependency( 'fmt', requires = ['fmt/12.1.0'] )
+----
+
+Prefer one `conan_deps(conanfile=...)` for multi-package graphs so Cuppa performs a single install.
+
+=== Reusing a pre-run install (CI)
+
+[source,python]
+----
+Conan = cuppa.conan_deps( generators_folder = '_conan' )
+----
+
+Point `generators_folder` at a directory that already contains `SConscript_conandeps` from a prior `conan install`. Cuppa skips install and only loads flags. This is the preferred pattern when CI (or a wrapper script) already ran Conan.
+
+Integration coverage: xref:integration/test-conan.adoc[].
+For publishing Cuppa-built libraries into Conan, see xref:packages.adoc#conan-package-publishing[Conan 2 publishing].
+
+=== Dialect mapping note
+
+Cuppa's default dialect folder (`cxx2c` / `-std=c++2c`) maps to Conan `compiler.cppstd=26`. Packages may rebuild from source when no binary exists for that setting; pin `--stdcpp=c++20` (or similar) if you need broader binary compatibility from ConanCenter.
+
+=== Pip plugin packaging
+
+You can ship a Conan-backed dependency as a pip package so consumers only `pip install` it and list the name in `default_dependencies`.
+Cuppa discovers plugins through the `cuppa.dependency.plugins` entry point.
+
+A Conan example lives at `examples/conan_fmt_plugin/` (registers `fmt` via `cuppa.conan_dependency`).
+For the same `fmt` name built from a GitHub archive with `location_dependency` instead, see `examples/cuppa_fmt_plugin/`.
+Walkthrough for both: xref:extending.adoc#pip-dependency-plugins[Extending cuppa — Pip dependency plugins].
+
+=== Offline mode
+
+With Cuppa `--offline`, Conan is invoked with `--no-remote`: the local Conan cache may be used, but remotes are not contacted. Missing packages fail clearly.
+
+=== Runtime libraries for `--test` / `--run`
+
+When Conan packages install shared libraries, linking alone is not enough for `--test` and `--run`: the dynamic loader must find those libraries when the binary starts.
+
+Cuppa applies the package search paths from SConsDeps so test and run actions can locate them (`PATH` on Windows; `LD_LIBRARY_PATH` on Linux; `DYLD_LIBRARY_PATH` / `PATH` on macOS as appropriate).
+
+You do **not** need `--propagate-env` (or the path-propagation flags) for this. Those flags control whether your *shell* environment is visible to subprocesses; Conan runtime paths are applied by the Conan dependency itself. See xref:cli-reference.adoc#environment-propagation[Environment propagation] when you instead need tools from your shell `PATH`.
+
+=== Limitations (MVP)
+
+* Host-only profiles (no cross build/host split yet)
+* `tool_requires` / code generators (for example protobuf plugins) are out of scope
+* Link flags use Conan's `LIBS` via `MergeFlags` (no extra `STATICLIBS` / `DYNAMICLIBS` routing yet)
+* Prefer including `SConsDeps` in the conanfile (or rely on Cuppa's `-g SConsDeps`); a fully custom `generate()` must still produce `SConscript_conandeps`
+
+Design notes: see the repository file `CONAN_CONSUMER_PLAN.md`.
 
 == Custom dependencies
 

@@ -17,7 +17,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Conan integration / `examples/conan_fmt_plugin`: pin fmt **12.1.0** (latest ConanCenter 12.x with Clang 21+ / libc++ fix; fmtlib/fmt#4477). Approach C warm-install passes host settings matching `CUPPA_TEST_*`.
+
+- Conan consumer: pass `tools.build:compiler_executables` from the Cuppa toolchain so `--build=missing` uses `clang++`/`g++` matching host settings (avoids CMake picking the wrong driver from `PATH`).
+
+- Conan publish integration: generated-recipe `requires=`, `shared=True` round-trip, and explicit `source_modules_dir=` modules staging.
+
 ### Security
+
+## [1.3.0-dev] - planned
+
+### Added
+
+- Optional Conan 2 consumer via `cuppa.conan_deps` / `cuppa.conan_dependency`, using Conan's **SConsDeps** generator, settings fingerprint cache, runtime library path injection, and `env.BuildWith` integration (#29).
+- Optional Conan 2 publisher via `cuppa.package_managers.conan.ConanPackagePublisher` with `env.PublishPackage` (`conan export-pkg` of Cuppa-built artefacts; upload with `--publish-package`) (#29).
+- Conan publisher hardening: hand-written `conanfile=` override, `shared=` option (`-o shared=`), and generated-recipe `requires=` (#29).
+- Conan publisher modules/BMI parity: stage `final/modules/` into Conan packages; `conan_deps` loads `module-map.json` via `load_packaged_modules` (#29).
+- Conan integration tests (`test_conan`): generators_folder reuse, full install + build, shared-library `--test` runtime paths, pip plugin discovery, offline cache-miss failure, publish export-pkg → consumer round-trip, `conanfile=` override with transitive requires, and modules/BMI publish round-trip (skipped when Conan 2 / modules-capable toolchain unavailable).
+- Example pip dependency plugin `examples/conan_fmt_plugin` registering Conan-backed `fmt` via `cuppa.dependency.plugins`.
+- Example pip dependency plugin `examples/cuppa_fmt_plugin` registering `fmt` via subclassed `location_dependency` (build static lib from source).
+- MSVC Conan settings mapping (`compiler.runtime` / `compiler.runtime_type`, toolset → Conan `compiler.version`).
+
+### Changed
+
+- Document Cuppa `cxx2c` → Conan `compiler.cppstd=26` dialect mapping and prefer `generators_folder` for CI pre-installs.
+- Clarify `--propagate-env` / `--propagate-path` / `--merge-path` (shell environment for subprocesses) versus dependency-injected runtime library paths for `--test` / `--run`.
+- Clang `toolchain.name()` (build tree segment) includes a non-default `--clang-stdlib=` tag (e.g. `clang21-libc++`); `package_name()` equals `name()`. Linux default `libstdc++` paths stay untagged. **Breaking for libc++ users:** clean `_build` or expect artefacts under `*-libc++` instead of the bare Clang name; compile still uses `binary()`/`clang++`, and `--toolchains=clang` is unchanged.
+
+### Fixed
+
+- Propagate SCons `env['ENV']` into `IncrementalSubProcess` children when `scons_env=` is passed so `--test` / `--run` honour Conan (and other) runtime library paths.
+- Pin `examples/cuppa_fmt_plugin` to fmt 12.2.0 so Clang + libc++ builds (undeclared `malloc`/`free` in fmt 11.1.4; fmtlib/fmt#4477).
+- `env.Toolchain(name)` resolves Clang ABI-tagged `name()` values (e.g. `clang-libc++`) as well as registry keys (`clang`), so looking up `env['toolchain'].name()` works under `--clang-stdlib=libc++`.
 
 ## [1.2.4] - 2026-07-29
 

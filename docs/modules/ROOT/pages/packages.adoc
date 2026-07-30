@@ -1,7 +1,8 @@
 = Packages
-:description: GitLab package registry dependencies and publishing
+:description: GitLab package registry and Conan package publishing
 
 Cuppa can consume (and publish) prebuilt packages from a GitLab generic package registry via `cuppa.package_dependency()`.
+You can also publish Cuppa-built libraries as **Conan 2** packages (parallel to GitLab generic packages; see <<conan-package-publishing>>).
 
 == package_dependency
 
@@ -64,7 +65,110 @@ cuppa.run(
 
 Use `package.use_libs([...])` helpers where provided to append the correct static library files for the active toolchain/variant.
 
-== Publishing
+== Publishing (GitLab generic)
 
-From a sconscript, `env.PublishPackage(...)` combined with `--publish-package` uploads build products according to your package manager settings.
+From a sconscript, `env.PublishPackage(...)` with a `GitlabPackagePublisher` builds a toolchain-scoped tarball.
+Add `--publish-package` to upload it to the GitLab generic registry.
 `env.InstallPackage(...)` installs a package into the local cuppa download layout.
+
+[#conan-package-publishing]
+== Conan 2 publishing (optional)
+
+Cuppa can package libraries it has already built and export them into a Conan 2 cache (and optionally upload to a remote).
+Conan does **not** drive the compile: Cuppa remains the orchestrator.
+
+Use `ConanPackagePublisher` with the same `env.PublishPackage(...)` method used for GitLab:
+
+[source,python]
+----
+Import('env')
+from cuppa.package_managers.conan import ConanPackagePublisher
+
+lib = env.BuildStaticLib('mylib', 'mylib.cpp')
+
+publisher = ConanPackagePublisher(
+    env,
+    name = 'mylib',
+    version = '1.2.3',
+    user = 'myorg',          # optional → mylib/1.2.3@myorg/stable
+    channel = 'stable',
+    remote = 'artifactory',  # required only for upload
+    remote_url = None,       # optional: conan remote add if missing
+    source_include_dir = 'include',
+    source_lib_dir = env['abs_final_dir'],
+    shared = False,          # optional; None = infer from staged libs
+    requires = None,         # optional; generated recipe only
+    # conanfile = 'conanfile.py',  # optional hand-written recipe override
+)
+
+env.PublishPackage(lib, publisher)
+----
+
+Without `--publish-package`, Cuppa stages headers/libs, writes a minimal `conanfile.py` (unless `conanfile=` is set), and runs `conan export-pkg` into the local Conan cache (settings match the active toolchain and variant via the same mapping as `conan_deps`).
+
+With `--publish-package`, Cuppa also runs `conan upload` to `remote=` (and may `conan remote add` when `remote_url=` is set and the remote is missing).
+
+=== Generated recipe options and requires
+
+When Cuppa generates the recipe:
+
+* `shared=True/False` sets Conan `options.shared` / `default_options` and `package_type`, and passes `-o shared=…` to `export-pkg`. When omitted, Cuppa infers static vs shared from staged library files.
+* `requires=['fmt/12.1.0', …]` embeds those dependencies on the generated recipe. At `export-pkg` time they must already be in the local Conan cache if you are `--offline` (otherwise remotes may be used by Conan).
+
+=== Hand-written `conanfile=`
+
+Pass `conanfile='conanfile.py'` to copy a recipe you author into the stage instead of generating one.
+Cuppa still stages `include/` and `lib/` and still supplies settings / name / version / user / channel on `export-pkg`.
+Declare `requires`, `package()`, and `package_info()` in that recipe yourself.
+`requires=` on the publisher is ignored when `conanfile=` is set (Cuppa logs a warning).
+
+Hand-written recipes must still only **package** prebuilt artefacts — do not call Cuppa or compile from `build()`.
+If you override `package()` and ship modules, copy staged `modules/` (Cuppa still stages BMIs into the recipe folder when `final/modules/module-map.json` exists).
+
+=== Packaged modules (BMI)
+
+When the producer builds with `--modules`, `BuildLib` installs BMIs under `final/modules/` with `module-map.json`.
+`ConanPackagePublisher` copies that tree into the Conan package (same layout as GitLab generic packages).
+`cuppa.conan_deps` consumers automatically call `load_packaged_modules` when a dependency’s package contains `modules/module-map.json` and the consumer build uses `--modules`.
+BMI extensions remain toolchain-family specific (`.gcm` / `.pcm` / `.ifc`).
+
+Optional ctor: `source_modules_dir=` to point at a modules tree explicitly; otherwise `{source_lib_dir}/modules` is used when `module-map.json` is present.
+
+[NOTE]
+====
+Reuse `--publish-package` for both GitLab and Conan publishers.
+If several `PublishPackage` nodes appear in the graph, each publisher runs when the flag is set.
+====
+
+=== Authentication
+
+Cuppa does not store Conan credentials.
+Configure remotes and login before the Cuppa job (or in CI):
+
+|===
+| Mechanism | Notes
+
+| `CONAN_LOGIN_USERNAME` / `CONAN_PASSWORD` | Common for non-interactive `conan remote login`
+| GitLab CI | Often `ci_user` + `CI_JOB_TOKEN` against a GitLab Conan remote
+| Pre-login | `conan remote login <name>` already done by the user or pipeline
+|===
+
+=== Offline behaviour
+
+With `--offline`, `export-pkg` may still update the **local** Conan cache.
+Upload is refused with a clear error (remotes are not contacted for publish).
+Recipes with `requires` still need those packages already cached locally under `--offline`.
+
+=== Consumer round-trip
+
+A second Cuppa project can require the published reference through existing `cuppa.conan_deps` / `conan_dependency` (see xref:dependencies.adoc#conan-2-consumer-optional[Dependencies]).
+Settings fidelity matters: consume with the same toolchain, variant, arch, and C++ dialect that produced the package.
+
+[WARNING]
+====
+GitLab's Conan 2 package registry may still be marked under development.
+Treat it as one possible remote; Artifactory and other Conan 2 remotes are equally valid targets.
+====
+
+Components / multi-lib `cpp_info.components` remain deferred (see `CONAN_COMPONENTS_ISSUE.md` in the repository for a GitHub-issue draft).
+Conan packages may include Cuppa `modules/module-map.json` + BMIs for parity with GitLab generic packages; consumers load them automatically via `conan_deps` when `--modules` is enabled.

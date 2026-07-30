@@ -485,11 +485,13 @@ Coverage instrumentation is supported for GCC and Clang; MSVC does not participa
 | Method | Role
 
 | `env.PublishPackage(…)`
-| Build (and optionally publish) a package archive; publishing requires `--publish-package`
+| Build (and optionally publish) a package; GitLab generic tarball or Conan `export-pkg` via a publisher object; upload requires `--publish-package`
 
 | `env.InstallPackage(…)`
 | Install a package locally and extend `SYSINCPATH`
 |===
+
+See xref:packages.adoc[Packages] for `GitlabPackagePublisher` and `ConanPackagePublisher` usage.
 
 == Templates and documentation helpers
 
@@ -509,7 +511,7 @@ Coverage instrumentation is supported for GCC and Clang; MSVC does not participa
 | Capture subprocess stdout to a file
 
 | `env.Toolchain(name)`
-| Look up a registered toolchain object
+| Look up a registered toolchain by registry key (`clang`, `gcc15`, …) or by `toolchain.name()` (build/ABI identity, e.g. `clang-libc++`)
 |===
 
 == Test reporting plugins

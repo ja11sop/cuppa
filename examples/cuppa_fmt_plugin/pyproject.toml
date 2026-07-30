@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cuppa-fmt"
+version = "0.1.0"
+description = "Example Cuppa dependency plugin: fmt via location_dependency"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "cuppa",
+]
+
+[project.entry-points."cuppa.dependency.plugins"]
+fmt = "cuppa_fmt:fmt"
+
+[tool.setuptools.packages.find]
+include = ["cuppa_fmt*"]

@@ -48,7 +48,7 @@ def cuppa_test_env_args():
     return _split_extra_args(os.environ.get("CUPPA_TEST_ARGS", "").strip())
 
 
-def run_cuppa(project_dir, *flags, extra_env=None, timeout=180):
+def run_cuppa(project_dir, *flags, extra_env=None, timeout=180, offline=True):
     require_cxx()
     env = os.environ.copy()
     pythonpath = str(REPO_ROOT)
@@ -58,7 +58,9 @@ def run_cuppa(project_dir, *flags, extra_env=None, timeout=180):
     if extra_env:
         env.update(extra_env)
 
-    args = [sys.executable, "-m", "cuppa", "-D", "--offline"]
+    args = [sys.executable, "-m", "cuppa", "-D"]
+    if offline:
+        args.append("--offline")
     default_tc = []
     if not any(str(flag).startswith("--toolchains") for flag in flags):
         default_tc = default_toolchain_flags()

@@ -41,11 +41,21 @@ def test_default_stdlib_unset_off_linux(monkeypatch):
     assert Clang.default_stdlib() is None
 
 
-def test_package_name_omits_linux_default_stdlib(monkeypatch):
+def test_name_omits_linux_default_stdlib(monkeypatch):
+    monkeypatch.setattr("cuppa.build_platform.name", lambda: "Linux")
+    tc = _clang_with_stdlib("libstdc++")
+    assert tc.name() == "clang21"
+    assert tc.package_name() == tc.name()
+
+
+def test_name_tags_non_default_stdlib(monkeypatch):
+    monkeypatch.setattr("cuppa.build_platform.name", lambda: "Linux")
+    tc = _clang_with_stdlib("libc++")
+    assert tc.name() == "clang21-libc++"
+    assert tc.package_name() == tc.name()
+
+
+def test_package_name_equals_name(monkeypatch):
     monkeypatch.setattr("cuppa.build_platform.name", lambda: "Linux")
     assert _clang_with_stdlib("libstdc++").package_name() == "clang21"
-
-
-def test_package_name_tags_non_default_stdlib(monkeypatch):
-    monkeypatch.setattr("cuppa.build_platform.name", lambda: "Linux")
     assert _clang_with_stdlib("libc++").package_name() == "clang21-libc++"

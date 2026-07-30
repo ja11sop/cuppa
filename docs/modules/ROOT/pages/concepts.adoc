@@ -14,8 +14,9 @@ For how progress events and variant scoping work, see xref:methods.adoc#progress
 [#dependencies]
 == Dependencies
 
-Named packages of compile/link settings and optional fetch/build logic -- Boost, Qt4/Qt5, Quince, location-based header libraries, or GitLab registry packages.
+Named packages of compile/link settings and optional fetch/build logic -- Boost, Qt4/Qt5, Quince, location-based header libraries, GitLab registry packages, or optional xref:dependencies.adoc#conan-2-consumer-optional[Conan 2] graphs (`conan_deps` / `conan_dependency`).
 Apply them with `default_dependencies` in `cuppa.run()` or `env.BuildWith('boost')` in a `sconscript`.
+Publish Cuppa-built libraries with `env.PublishPackage` to GitLab generic packages or a Conan remote.
 See xref:dependencies.adoc[Dependencies] and xref:packages.adoc[Packages].
 
 [#profiles]

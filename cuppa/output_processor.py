@@ -61,6 +61,25 @@ class LineConsumer:
 class IncrementalSubProcess:
 
     @classmethod
+    def _subprocess_env( cls, construction_env ):
+        """Copy SCons ``ENV`` into a dict suitable for ``subprocess.Popen``.
+
+        SCons (and Cuppa) may store path-like values as lists; the child
+        process environment requires string values only.
+        """
+        result = {}
+        for key, value in construction_env.items():
+            if value is None:
+                continue
+            if isinstance( value, ( list, tuple ) ):
+                value = os.pathsep.join( str( part ) for part in value if part is not None )
+            else:
+                value = str( value )
+            result[str( key )] = value
+        return result
+
+
+    @classmethod
     def Popen2( cls, stdout_processor, stderr_processor, args_list, **kwargs ):
 
         kwargs['stdout'] = subprocess.PIPE
@@ -75,8 +94,15 @@ class IncrementalSubProcess:
 
         use_shell = False
         if 'scons_env' in kwargs:
-            use_shell = kwargs['scons_env'].get_option( 'use-shell' )
-            del kwargs['scons_env']
+            scons_env = kwargs.pop( 'scons_env' )
+            use_shell = bool( scons_env.get_option( 'use-shell' ) ) if hasattr( scons_env, 'get_option' ) else False
+            # SCons construction ENV (PATH, LD_LIBRARY_PATH, …) must reach --test/--run
+            # children. Without this, Conan shared libs and similar runtime deps fail
+            # to load even when BuildWith injected paths into env['ENV'].
+            if 'env' not in kwargs:
+                construction_env = scons_env.get( 'ENV' )
+                if construction_env is not None:
+                    kwargs['env'] = cls._subprocess_env( construction_env )
 
         try:
             process = None
