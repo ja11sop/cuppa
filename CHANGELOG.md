@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Conan integration / `examples/conan_fmt_plugin`: pin fmt 12.2.0 for Clang 21+ / libc++ (same undeclared `malloc`/`free` issue as the location plugin; fmtlib/fmt#4477). Approach C warm-install passes host settings matching `CUPPA_TEST_*`.
+- Conan integration / `examples/conan_fmt_plugin`: pin fmt **12.1.0** (latest ConanCenter 12.x with Clang 21+ / libc++ fix; fmtlib/fmt#4477). Approach C warm-install passes host settings matching `CUPPA_TEST_*`.
 
 ### Security
 

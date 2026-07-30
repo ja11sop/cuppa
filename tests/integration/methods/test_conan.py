@@ -25,9 +25,9 @@ pytestmark = pytest.mark.integration
 
 logger = logging.getLogger(__name__)
 
-# 11.1.4 fails on Clang 21+ / libc++ (undeclared malloc/free; fmtlib/fmt#4477).
-# Match examples/cuppa_fmt_plugin pin.
-FMT_VERSION = "12.2.0"
+# Prefer 12.x for Clang 21+ / libc++ (fmtlib/fmt#4477). ConanCenter latest is
+# 12.1.0 (GitHub location plugin may pin newer tags independently).
+FMT_VERSION = "12.1.0"
 
 
 def _require_conan():
@@ -320,7 +320,7 @@ def test_conan_fmt_pip_plugin_entry_point(tmp_path):
 
     project = tmp_path / "conan_plugin_consumer"
     project.mkdir()
-    # Plugin embeds requires=fmt/12.2.0 — no project conanfile needed.
+    # Plugin embeds requires=fmt/12.1.0 — no project conanfile needed.
     (project / "hello.cpp").write_text(
         "#include <fmt/core.h>\n"
         "int main() {\n"

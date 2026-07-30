@@ -113,7 +113,7 @@ With `--publish-package`, Cuppa also runs `conan upload` to `remote=` (and may `
 When Cuppa generates the recipe:
 
 * `shared=True/False` sets Conan `options.shared` / `default_options` and `package_type`, and passes `-o shared=…` to `export-pkg`. When omitted, Cuppa infers static vs shared from staged library files.
-* `requires=['fmt/12.2.0', …]` embeds those dependencies on the generated recipe. At `export-pkg` time they must already be in the local Conan cache if you are `--offline` (otherwise remotes may be used by Conan).
+* `requires=['fmt/12.1.0', …]` embeds those dependencies on the generated recipe. At `export-pkg` time they must already be in the local Conan cache if you are `--offline` (otherwise remotes may be used by Conan).
 
 === Hand-written `conanfile=`
 

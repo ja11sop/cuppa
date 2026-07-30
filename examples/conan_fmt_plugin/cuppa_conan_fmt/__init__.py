@@ -20,6 +20,6 @@ import cuppa
 # ``name`` — the shape Cuppa expects from ``cuppa.dependency.plugins``.
 FmtConan = cuppa.conan_dependency(
     'fmt',
-    # 12.2.0+: Clang 21+ / libc++ (fmtlib/fmt#4477); match cuppa_fmt_plugin pin.
-    requires=['fmt/12.2.0'],
+    # 12.0+: Clang 21+ / libc++ (fmtlib/fmt#4477). Pin ConanCenter's latest 12.x.
+    requires=['fmt/12.1.0'],
 )
