@@ -292,6 +292,63 @@ def settings_to_cli( settings ):
     return args
 
 
+def _companion_c_compiler( cxx ):
+    """Derive a C driver name/path from a C++ driver (``clang++`` → ``clang``, …)."""
+    if not cxx:
+        return None
+    directory, base = os.path.split( cxx )
+    if base.startswith( 'clang++' ):
+        c_base = 'clang' + base[len( 'clang++' ):]
+    elif base.startswith( 'g++' ):
+        c_base = 'gcc' + base[len( 'g++' ):]
+    elif base in ( 'c++', 'CC' ):
+        c_base = 'cc'
+    else:
+        return None
+    return os.path.join( directory, c_base ) if directory else c_base
+
+
+def compiler_executables_for( toolchain ):
+    """
+    Map a Cuppa toolchain to Conan ``tools.build:compiler_executables``.
+
+    Host ``-s compiler=clang`` alone does not make CMake use ``clang++`` when
+    ``g++`` is first on ``PATH`` (common on Linux CI). Pass executables so
+    ``--build=missing`` package builds match Cuppa's compiler.
+    """
+    family = _compiler_family( toolchain )
+    if family == 'msvc':
+        return None
+
+    cxx = None
+    if hasattr( toolchain, 'binary' ):
+        try:
+            cxx = toolchain.binary()
+        except Exception:
+            cxx = None
+
+    if family in ( 'clang', 'apple-clang' ):
+        cxx = cxx or 'clang++'
+        c_compiler = _companion_c_compiler( cxx ) or 'clang'
+        return { 'c': c_compiler, 'cpp': cxx }
+
+    if family == 'gcc':
+        cxx = cxx or 'g++'
+        c_compiler = _companion_c_compiler( cxx ) or 'gcc'
+        return { 'c': c_compiler, 'cpp': cxx }
+
+    return None
+
+
+def compiler_executables_to_cli( executables ):
+    """Serialize ``tools.build:compiler_executables`` as Conan ``-c`` args."""
+    if not executables:
+        return []
+    import json
+    payload = json.dumps( executables, sort_keys=True, separators=( ',', ':' ) )
+    return [ '-c', 'tools.build:compiler_executables={}'.format( payload ) ]
+
+
 def write_transient_conanfile( path, requires ):
     lines = [ '[requires]' ]
     for req in requires:
@@ -598,12 +655,12 @@ class base( object ):
                     pass
 
             self._run_conan_install(
-                    env, install_dir, conanfile_path, settings, fingerprint
+                    env, install_dir, conanfile_path, settings, fingerprint, toolchain
             )
             self._install_cache[cache_key] = install_dir
             return install_dir
 
-    def _run_conan_install( self, env, install_dir, conanfile_path, settings, fingerprint ):
+    def _run_conan_install( self, env, install_dir, conanfile_path, settings, fingerprint, toolchain=None ):
         import SCons.Errors
 
         conan = _find_conan_executable()
@@ -640,6 +697,8 @@ class base( object ):
             '--build=missing',
         ]
         cmd.extend( settings_to_cli( settings ) )
+        if toolchain is not None:
+            cmd.extend( compiler_executables_to_cli( compiler_executables_for( toolchain ) ) )
 
         lockfile = os.path.join( os.path.dirname( path_for_install ), 'conan.lock' )
         if os.path.isfile( lockfile ):

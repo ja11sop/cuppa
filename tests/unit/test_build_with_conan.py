@@ -7,7 +7,10 @@ import pytest
 import SCons.Errors
 
 from cuppa.build_with_conan import (
+    _companion_c_compiler,
     _map_cppstd,
+    compiler_executables_for,
+    compiler_executables_to_cli,
     conan_deps,
     conan_dependency,
     conan_settings_for,
@@ -66,12 +69,18 @@ Return('conandeps')
 
 
 class FakeToolchain(object):
-    def __init__( self, family='gcc', major=15, stdlib=None ):
+    def __init__( self, family='gcc', major=15, stdlib=None, binary=None ):
         self._family = family
         self._reported_version = { 'major': major }
         self._version = str( major )
         self._short_version = str( major )
         self._stdlib = stdlib
+        if binary is not None:
+            self._binary = binary
+        elif family == 'clang':
+            self._binary = 'clang++'
+        else:
+            self._binary = 'g++'
 
     def family( self ):
         return self._family
@@ -83,7 +92,7 @@ class FakeToolchain(object):
         return self._short_version
 
     def binary( self ):
-        return 'g++'
+        return self._binary
 
     def abi( self, env ):
         return env.get( 'stdcpp' ) or 'c++2c'
@@ -117,6 +126,33 @@ def test_map_cppstd_common_values():
     assert _map_cppstd( 'cxx2c' ) == '26'
     assert _map_cppstd( '-std=c++17' ) == '17'
     assert _map_cppstd( 'gnu++20' ) == 'gnu20'
+
+
+def test_companion_c_compiler_from_cxx_drivers():
+    assert _companion_c_compiler( 'clang++' ) == 'clang'
+    assert _companion_c_compiler( 'clang++-22' ) == 'clang-22'
+    assert _companion_c_compiler( '/opt/llvm/bin/clang++' ) == '/opt/llvm/bin/clang'
+    assert _companion_c_compiler( 'g++' ) == 'gcc'
+    assert _companion_c_compiler( 'g++-15' ) == 'gcc-15'
+
+
+def test_compiler_executables_for_clang_and_gcc():
+    clang = compiler_executables_for( FakeToolchain( family='clang', major=22 ) )
+    assert clang == { 'c': 'clang', 'cpp': 'clang++' }
+    versioned = compiler_executables_for(
+        FakeToolchain( family='clang', major=22, binary='/usr/bin/clang++-22' )
+    )
+    assert versioned == { 'c': '/usr/bin/clang-22', 'cpp': '/usr/bin/clang++-22' }
+    gcc = compiler_executables_for( FakeToolchain( family='gcc', major=15 ) )
+    assert gcc == { 'c': 'gcc', 'cpp': 'g++' }
+    assert compiler_executables_for( FakeToolchain( family='msvc', major=194 ) ) is None
+
+
+def test_compiler_executables_to_cli_json():
+    args = compiler_executables_to_cli( { 'c': 'clang', 'cpp': 'clang++' } )
+    assert args[0] == '-c'
+    assert args[1] == 'tools.build:compiler_executables={"c":"clang","cpp":"clang++"}'
+    assert compiler_executables_to_cli( None ) == []
 
 
 def test_modules_dirs_from_sconsdeps( tmp_path ):

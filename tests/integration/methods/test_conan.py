@@ -105,6 +105,7 @@ def _host_settings_for_cuppa_job():
             stdlib = arg.split("=", 1)[1]
 
     settings = ["compiler.cppstd=26"]
+    executables = None
     if toolchain.startswith("clang") or toolchain == "clang":
         settings.append("compiler=clang")
         clangxx = shutil.which("clang++")
@@ -116,6 +117,9 @@ def _host_settings_for_cuppa_job():
                 "libc++" if stdlib == "libc++" else "libstdc++11"
             )
         )
+        cxx = clangxx or "clang++"
+        c_compiler = cxx.replace("clang++", "clang") if "clang++" in os.path.basename(cxx) else "clang"
+        executables = {"c": c_compiler, "cpp": cxx}
     elif toolchain.startswith("gcc") or toolchain == "gcc" or not toolchain:
         settings.append("compiler=gcc")
         gxx = shutil.which("g++")
@@ -123,12 +127,17 @@ def _host_settings_for_cuppa_job():
         if major:
             settings.append("compiler.version={}".format(major))
         settings.append("compiler.libcxx=libstdc++11")
+        cxx = gxx or "g++"
+        c_compiler = cxx.replace("g++", "gcc") if os.path.basename(cxx).startswith("g++") else "gcc"
+        executables = {"c": c_compiler, "cpp": cxx}
     elif toolchain in ("vc", "cl", "msvc"):
         settings.append("compiler=msvc")
-    return settings
+    return settings, executables
 
 
 def _conan_install(conan, project, output_folder, extra_settings=None):
+    import json
+
     cmd = [
         conan,
         "install",
@@ -143,8 +152,13 @@ def _conan_install(conan, project, output_folder, extra_settings=None):
         "-s",
         "build_type=Debug",
     ]
-    for setting in list(_host_settings_for_cuppa_job()) + list(extra_settings or []):
+    host_settings, executables = _host_settings_for_cuppa_job()
+    for setting in list(host_settings) + list(extra_settings or []):
         cmd.extend(["-s", setting])
+    # Match Cuppa: host -s compiler=clang alone still lets CMake pick g++ from PATH.
+    if executables:
+        payload = json.dumps(executables, sort_keys=True, separators=(",", ":"))
+        cmd.extend(["-c", "tools.build:compiler_executables={}".format(payload)])
     logger.info("Warming Conan install: %s", " ".join(cmd))
     completed = subprocess.run(
         cmd,

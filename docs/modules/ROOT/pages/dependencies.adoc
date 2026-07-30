@@ -130,6 +130,9 @@ cuppa.run(
 
 Cuppa maps the active toolchain and variant into Conan settings (`compiler`, `compiler.version`, `compiler.cppstd`, `compiler.libcxx`, `build_type`, `os`, `arch`), runs `conan install` once per settings fingerprint (cached under the download root), and merges the resulting flags.
 
+Cuppa also passes Conan conf `tools.build:compiler_executables` from the active toolchain's C/C++ drivers.
+Without that, host settings can say `compiler=clang` while CMake still picks `g++` from `PATH` when building missing packages — a common failure on Linux CI images that ship both compilers.
+
 Conan 2 still requires a **build** profile for the machine that runs `conan install` (even when Cuppa passes host settings with `-s`). On a fresh Conan home, create one once:
 
 [source,sh]
