@@ -194,7 +194,7 @@ Responsibilities:
 
 Recorded 2026-07-30 with Conan 2.31.1 + gcc 15:
 
-1. `conanfile.txt` with `fmt/11.1.4`, generators `SConsDeps` + `VirtualRunEnv`.
+1. `conanfile.txt` with `fmt/12.2.0`, generators `SConsDeps` + `VirtualRunEnv`.
 2. `conan install . -of=conan_install -s build_type=Debug -s compiler.cppstd=gnu20 --build=missing`.
 3. Plain SCons and a tiny Cuppa project loaded `SConscript_conandeps`, `MergeFlags` (excluding `BINPATH`), compiled `#include <fmt/core.h>` hello — **no pkg-config**.
 4. Settings used: `os=Linux`, `arch=x86_64`, `compiler=gcc`, `compiler.version=15`, `compiler.libcxx=libstdc++11`, `build_type=Debug`, `compiler.cppstd=gnu20`.

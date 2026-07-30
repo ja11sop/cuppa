@@ -105,12 +105,14 @@ Create a `conanfile.txt` (preferred for Cuppa-managed installs) that lists requi
 [source,ini]
 ----
 [requires]
-fmt/11.1.4
+fmt/12.2.0
 
 [generators]
 SConsDeps
 VirtualRunEnv
 ----
+
+Prefer fmt 12.2.0+ when targeting Clang 21+ with libc++ (older releases hit undeclared `malloc`/`free`; fmtlib/fmt#4477).
 
 Wire it into Cuppa:
 
@@ -143,7 +145,7 @@ If `conan.lock` sits beside the conanfile, Cuppa passes it to `conan install`. W
 ----
 Fmt = cuppa.conan_dependency( 'fmt' )  # requires fmt/[*]
 # or
-Fmt = cuppa.conan_dependency( 'fmt', requires = ['fmt/11.1.4'] )
+Fmt = cuppa.conan_dependency( 'fmt', requires = ['fmt/12.2.0'] )
 ----
 
 Prefer one `conan_deps(conanfile=...)` for multi-package graphs so Cuppa performs a single install.

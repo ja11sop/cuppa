@@ -6,6 +6,7 @@
 """Integration tests for optional Conan 2 consumer support (SConsDeps)."""
 
 import logging
+import re
 import shutil
 import subprocess
 
@@ -24,7 +25,9 @@ pytestmark = pytest.mark.integration
 
 logger = logging.getLogger(__name__)
 
-FMT_VERSION = "11.1.4"
+# 11.1.4 fails on Clang 21+ / libc++ (undeclared malloc/free; fmtlib/fmt#4477).
+# Match examples/cuppa_fmt_plugin pin.
+FMT_VERSION = "12.2.0"
 
 
 def _require_conan():
@@ -74,6 +77,57 @@ def _write_fmt_hello(project, shared=False):
     )
 
 
+def _compiler_major(command):
+    """Best-effort major version from ``clang++ --version`` / ``g++ --version``."""
+    completed = subprocess.run(
+        [command, "--version"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+    )
+    text = completed.stdout or ""
+    match = re.search(r"version\s+(\d+)", text) or re.search(r"\b(\d+)\.\d+\.\d+\b", text)
+    return match.group(1) if match else None
+
+
+def _host_settings_for_cuppa_job():
+    """
+    Align Approach C warm-install with CUPPA_TEST_* so CI clang/libc++ cells
+    do not reuse a default-profile (often gcc) package ID.
+    """
+    import os
+
+    toolchain = os.environ.get("CUPPA_TEST_TOOLCHAIN", "").strip().lower()
+    stdlib = None
+    for arg in os.environ.get("CUPPA_TEST_ARGS", "").split():
+        if arg.startswith("--clang-stdlib="):
+            stdlib = arg.split("=", 1)[1]
+
+    settings = ["compiler.cppstd=26"]
+    if toolchain.startswith("clang") or toolchain == "clang":
+        settings.append("compiler=clang")
+        clangxx = shutil.which("clang++")
+        major = _compiler_major(clangxx) if clangxx else None
+        if major:
+            settings.append("compiler.version={}".format(major))
+        settings.append(
+            "compiler.libcxx={}".format(
+                "libc++" if stdlib == "libc++" else "libstdc++11"
+            )
+        )
+    elif toolchain.startswith("gcc") or toolchain == "gcc" or not toolchain:
+        settings.append("compiler=gcc")
+        gxx = shutil.which("g++")
+        major = _compiler_major(gxx) if gxx else None
+        if major:
+            settings.append("compiler.version={}".format(major))
+        settings.append("compiler.libcxx=libstdc++11")
+    elif toolchain in ("vc", "cl", "msvc"):
+        settings.append("compiler=msvc")
+    return settings
+
+
 def _conan_install(conan, project, output_folder, extra_settings=None):
     cmd = [
         conan,
@@ -89,7 +143,7 @@ def _conan_install(conan, project, output_folder, extra_settings=None):
         "-s",
         "build_type=Debug",
     ]
-    for setting in extra_settings or []:
+    for setting in list(_host_settings_for_cuppa_job()) + list(extra_settings or []):
         cmd.extend(["-s", setting])
     logger.info("Warming Conan install: %s", " ".join(cmd))
     completed = subprocess.run(
@@ -266,7 +320,7 @@ def test_conan_fmt_pip_plugin_entry_point(tmp_path):
 
     project = tmp_path / "conan_plugin_consumer"
     project.mkdir()
-    # Plugin embeds requires=fmt/11.1.4 — no project conanfile needed.
+    # Plugin embeds requires=fmt/12.2.0 — no project conanfile needed.
     (project / "hello.cpp").write_text(
         "#include <fmt/core.h>\n"
         "int main() {\n"

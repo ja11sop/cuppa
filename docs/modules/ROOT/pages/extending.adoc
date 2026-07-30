@@ -125,7 +125,7 @@ import cuppa
 
 FmtConan = cuppa.conan_dependency(
     'fmt',
-    requires=['fmt/11.1.4'],
+    requires=['fmt/12.2.0'],
 )
 ----
 
