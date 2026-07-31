@@ -534,16 +534,28 @@ class Gcc(object):
         return write_gcc_module_mapper( env )
 
 
-    def interface_module_flags( self, env, module_name, bmi_path, exported=True ):
+    def _modules_mapper_flags( self, env ):
+        """Refresh the module mapper and return the flags a compile still needs.
+
+        Both interface and consuming compiles need `-fmodules` and the mapper,
+        but `modules_enable_flags` has usually already put them on the env, so
+        return nothing rather than repeating them on the command line.
+        """
         from cuppa.toolchains.cxx_modules_support import mapper_path, write_gcc_module_mapper
         write_gcc_module_mapper( env )
-        return [ '-fmodules', '-fmodule-mapper={}'.format( mapper_path( env ) ) ]
+        flags = [ '-fmodules', '-fmodule-mapper={}'.format( mapper_path( env ) ) ]
+        existing = list( env.get( 'CXXFLAGS', [] ) )
+        if all( flag in existing for flag in flags ):
+            return []
+        return flags
+
+
+    def interface_module_flags( self, env, module_name, bmi_path, exported=True ):
+        return self._modules_mapper_flags( env )
 
 
     def consume_module_flags( self, env, scan ):
-        from cuppa.toolchains.cxx_modules_support import mapper_path, write_gcc_module_mapper
-        write_gcc_module_mapper( env )
-        return [ '-fmodules', '-fmodule-mapper={}'.format( mapper_path( env ) ) ]
+        return self._modules_mapper_flags( env )
 
 
     def build_header_unit( self, env, header, bmi_path, **kwargs ):

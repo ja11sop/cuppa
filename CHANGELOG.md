@@ -37,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Dialect ranks are ordinal: `c++98` / `c++03` no longer outrank `c++26`, so `--stdcpp=c++98 --modules` is raised to C++20 rather than silently passing the floor check.
 
-- GCC modules builds no longer repeat `-fmodules -fmodule-mapper=…` on translation-unit compile lines (the flags arrived from both the env and `consume_module_flags`).
+- GCC modules builds no longer repeat `-fmodules -fmodule-mapper=…` on translation-unit compile lines. `interface_module_flags` / `consume_module_flags` now omit those flags when `modules_enable_flags` has already put them on the env, so MSVC's paired `-reference name=path` argv tokens are left alone.
 
 ### Security
 

@@ -411,16 +411,13 @@ def compile_with_modules( env, sources, obj_builder, obj_prefix, obj_suffix, dep
                     env, module_name, bmi_path, exported=exported
                 )
             )
-            for flag in toolchain.consume_module_flags( env, scan ):
-                if flag not in cxx_flags:
-                    cxx_flags.append( flag )
+            # Flags are appended as given: MSVC emits pairs of argv tokens
+            # (`-reference`, `name=path`), so dropping a repeated token would
+            # detach the payload that follows it.
+            cxx_flags.extend( toolchain.consume_module_flags( env, scan ) )
             build_kwargs['CXXFLAGS'] = cxx_flags
         else:
-            cxx_flags = list( env.get( 'CXXFLAGS', [] ) )
-            for flag in extra_flags:
-                if flag not in cxx_flags:
-                    cxx_flags.append( flag )
-            build_kwargs['CXXFLAGS'] = cxx_flags
+            build_kwargs['CXXFLAGS'] = list( env.get( 'CXXFLAGS', [] ) ) + list( extra_flags )
 
         obj = obj_builder( target=target, source=source, **build_kwargs )
         obj_nodes = Flatten( [ obj ] )

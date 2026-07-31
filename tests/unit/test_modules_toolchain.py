@@ -421,6 +421,65 @@ def test_modules_floor_falls_back_when_a_dialect_query_fails():
     assert env.replaced == []
 
 
+def _modules_env(tmp_path, named=None, cxx_flags=None):
+    build = tmp_path / "working"
+    build.mkdir(exist_ok=True)
+    return {
+        "build_dir": str(build),
+        "abs_build_dir": str(build),
+        "sconscript_dir": str(tmp_path),
+        "base_path": str(tmp_path),
+        "CXXFLAGS": list(cxx_flags or []),
+        "_cuppa_module_registry": {"named": dict(named or {}), "headers": {}},
+        "toolchain": type("T", (), {})(),
+    }
+
+
+def test_gcc_module_flags_are_omitted_when_the_env_already_has_them(tmp_path):
+    """GCC's mapper flags come from the env; repeating them bloats every compile."""
+    from cuppa.toolchains.gcc import Gcc
+    from cuppa.toolchains.cxx_modules_support import mapper_path
+
+    toolchain = Gcc.__new__(Gcc)
+    env = _modules_env(tmp_path)
+    enable = toolchain.modules_enable_flags(env)
+    assert enable == ["-fmodules", "-fmodule-mapper={}".format(mapper_path(env))]
+
+    # Before the env carries them, a compile must still be given them.
+    assert toolchain.consume_module_flags(env, None) == enable
+    assert toolchain.interface_module_flags(env, "math", "math.gcm") == enable
+
+    env["CXXFLAGS"] = list(enable)
+    assert toolchain.consume_module_flags(env, None) == []
+    assert toolchain.interface_module_flags(env, "math", "math.gcm") == []
+
+
+def test_msvc_consume_module_flags_keep_reference_pairs(tmp_path):
+    """MSVC passes -reference as two argv tokens; each import needs its own pair."""
+    from cuppa.toolchains.cl import Cl
+
+    toolchain = Cl.__new__(Cl)
+    toolchain._library_prefix = ""
+    env = _modules_env(
+        tmp_path,
+        named={
+            "geo": {"path": "geo.ifc", "imports": []},
+            "geo:point": {"path": "geo--point.ifc", "imports": []},
+        },
+    )
+    scan = ModuleScan(
+        None,
+        None,
+        [ModuleImport("named", "geo"), ModuleImport("named", "geo:point")],
+        False,
+    )
+    flags = toolchain.consume_module_flags(env, scan)
+    assert flags == [
+        "-reference", "geo=geo.ifc",
+        "-reference", "geo:point=geo--point.ifc",
+    ]
+
+
 def test_sources_use_modules_detects_module_participation():
     from cuppa.cpp.cxx_modules import sources_use_modules
 
