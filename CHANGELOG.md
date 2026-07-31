@@ -17,15 +17,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Conan integration / `examples/conan_fmt_plugin`: pin fmt **12.1.0** (latest ConanCenter 12.x with Clang 21+ / libc++ fix; fmtlib/fmt#4477). Approach C warm-install passes host settings matching `CUPPA_TEST_*`.
+### Security
 
-- Conan consumer: pass `tools.build:compiler_executables` from the Cuppa toolchain so `--build=missing` uses `clang++`/`g++` matching host settings (avoids CMake picking the wrong driver from `PATH`).
+## [1.3.1-dev] - 2026-07-31
 
-- Conan publish integration: generated-recipe `requires=`, `shared=True` round-trip, and explicit `source_modules_dir=` modules staging.
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- `--modules` no longer lowers the C++ dialect. The C++20 floor now consults the dialect the build would actually use — `--stdcpp` if given, otherwise the toolchain default via `abi` / `abi_flag` — so a compiler defaulting to `c++2c` keeps `c++2c`. Previously `--modules` without `--stdcpp` forced `-std=c++20` while the variant path still said `cxx2c`, which broke sources using post-C++20 library features.
+
+- The modules dialect floor is applied by the compile that builds, declares, or imports a module instead of when each variant env is created. It no longer repeats its message once per sconscript, and no longer changes the dialect for sources that use no modules.
+
+- Dialect ranks are ordinal: `c++98` / `c++03` no longer outrank `c++26`, so `--stdcpp=c++98 --modules` is raised to C++20 rather than silently passing the floor check.
+
+- GCC modules builds no longer repeat `-fmodules -fmodule-mapper=…` on translation-unit compile lines (the flags arrived from both the env and `consume_module_flags`).
 
 ### Security
 
-## [1.3.0-dev] - planned
+## [1.3.0] - 2026-07-30
 
 ### Added
 
@@ -49,6 +65,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Propagate SCons `env['ENV']` into `IncrementalSubProcess` children when `scons_env=` is passed so `--test` / `--run` honour Conan (and other) runtime library paths.
 - Pin `examples/cuppa_fmt_plugin` to fmt 12.2.0 so Clang + libc++ builds (undeclared `malloc`/`free` in fmt 11.1.4; fmtlib/fmt#4477).
 - `env.Toolchain(name)` resolves Clang ABI-tagged `name()` values (e.g. `clang-libc++`) as well as registry keys (`clang`), so looking up `env['toolchain'].name()` works under `--clang-stdlib=libc++`.
+- Conan integration / `examples/conan_fmt_plugin`: pin fmt **12.1.0** (latest ConanCenter 12.x with Clang 21+ / libc++ fix; fmtlib/fmt#4477). Approach C warm-install passes host settings matching `CUPPA_TEST_*`.
+- Conan consumer: pass `tools.build:compiler_executables` from the Cuppa toolchain so `--build=missing` uses `clang++`/`g++` matching host settings (avoids CMake picking the wrong driver from `PATH`).
+- Conan publish integration: generated-recipe `requires=`, `shared=True` round-trip, and explicit `source_modules_dir=` modules staging.
 
 ## [1.2.4] - 2026-07-29
 

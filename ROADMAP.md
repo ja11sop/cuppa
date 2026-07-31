@@ -30,6 +30,8 @@ Add new top-level `##` sections when starting other large efforts (for example p
 ## C++20 modules
 
 Opt-in via `--modules` / `env.Modules()`.
+Whether activation should become automatic (with `--modules` / `--no-modules` as overrides) is
+worked out in [`MODULES_ACTIVATION_PLAN.md`](MODULES_ACTIVATION_PLAN.md).
 User guide and Limits: `docs/modules/ROOT/pages/cxx-modules.adoc`.
 Integration scenarios: `docs/modules/ROOT/pages/integration/test-modules.adoc`.
 Companion canvas (optional): Cursor canvas `cxx-modules-status`.
@@ -49,6 +51,7 @@ Companion canvas (optional): Cursor canvas `cxx-modules-status`.
 | `--cov --modules` | Yes | Yes | No | No | MSVC coverage instrumentation not supported |
 | `.ixx` interface suffix | Yes | Yes | Yes | No | Smoke-tested via `MODULE_SOURCE_SUFFIXES` |
 | `env.Module` convenience method | Yes | Yes | Yes | No | Delegates to `Compile` / modules compile path |
+| C++20 dialect floor | Yes | Yes | Yes | n/a | Honours the toolchain default (never lowers a dialect) and applies at the compile that uses modules |
 | Product label | Opt-in | Opt-in | Opt-in | Rejected | Graduated from “experimental” in CLI help |
 
 **CI coverage**
@@ -70,6 +73,10 @@ Companion canvas (optional): Cursor canvas `cxx-modules-status`.
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
+| `mod-scan-preamble` | Stop scanning a source at the end of its preamble | High | `scan_file` reads whole files today; prerequisite for any always-on scanning |
+| `mod-scan-cache` | Cache scan results per path / mtime / size | High | Same sources are scanned by every `Compile` call that lists them |
+| `mod-activate-evidence` | Activate the modules path on module sources / `Module` / `HeaderUnit` / `ImportModules` rather than a global flag, with `--modules` / `--no-modules` as overrides | Medium | Gated on read-phase timing; see [`MODULES_ACTIVATION_PLAN.md`](MODULES_ACTIVATION_PLAN.md) |
+| `mod-gcc-flag-scope` | Give GCC `-fmodules` / `-fmodule-mapper=` to the compiles that need them instead of every TU | Medium | The only always-on compiler flag change among the three toolchains |
 | `scan-deps` | Optional `clang-scan-deps` (or P1689) dependency backend | Medium | Flag or auto-detect; keep line scanner as fallback. Substantial: driver discovery, JSON graph merge, fallback path |
 | `gcc-private` | Private module fragments on GCC | Later | Re-enable / unskip tests when GCC implements the feature |
 | `apple-clang` | Apple Clang modules support | Later | Revisit only if Apple ships a usable scanner and reliable BMI flags |
@@ -87,7 +94,7 @@ Companion canvas (optional): Cursor canvas `cxx-modules-status`.
 | ID | Item | Reason |
 |----|------|--------|
 | `cross-bmi` | Cross-toolchain BMI packages | BMI formats are vendor-specific |
-| `modules-default` | Making modules the default build path | Remain opt-in via `--modules` / `env.Modules()` |
+| `modules-default` | Routing every project through the modules compile path | Superseded by `mod-activate-evidence`: activate where there is evidence of modules, rather than for all builds |
 | `apple-emulation` | Emulating Apple Clang modules without vendor support | Prefer fail-clearly |
 
 Boost / package-registry packaging work is tracked separately from modules.

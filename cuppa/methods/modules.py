@@ -11,10 +11,12 @@ from cuppa.colourise import as_info, as_notice, as_warning
 from cuppa.log import logger
 
 
-# Relative dialect ranks; aliases share a rank.
+# Ordinal dialect ranks: a later standard always ranks higher. Aliases share a
+# rank. Pre-C++11 standards share the lowest rank; the distinction between them
+# never matters for a modules floor.
 _DIALECT_RANK = {
-    'c++98': 98,
-    'c++03': 98,
+    'c++98': 3,
+    'c++03': 3,
     'c++0x': 11,
     'c++11': 11,
     'c++1y': 14,
@@ -54,24 +56,96 @@ def dialect_rank( standard ):
     return _DIALECT_RANK.get( standard, 0 )
 
 
+def dialect_from_flag( value ):
+    """Dialect name from a dialect name or a dialect flag.
+
+    Accepts `c++20`, `-std=c++2c` (GCC / Clang), and `-std:c++latest` (MSVC).
+    """
+    if not value:
+        return None
+    text = value.strip()
+    for separator in ( '=', ':' ):
+        if separator in text:
+            text = text.split( separator, 1 )[1].strip()
+            break
+    return text if text in _DIALECT_RANK else None
+
+
+def effective_dialect( env ):
+    """The dialect this build will actually compile with.
+
+    Returns `( dialect, requested )` where `requested` is True when the dialect
+    came from `--stdcpp` / `env.StdCpp()` rather than the toolchain default.
+    `env['stdcpp']` is unset unless the dialect was asked for explicitly, so the
+    toolchain default has to be consulted before concluding a floor is unmet.
+    """
+    requested = env.get( 'stdcpp' )
+    if requested:
+        return requested, True
+
+    toolchain = env.get( 'toolchain' )
+    for attribute in ( 'abi', 'abi_flag' ):
+        query = getattr( toolchain, attribute, None )
+        if not query:
+            continue
+        try:
+            dialect = dialect_from_flag( query( env ) )
+        except Exception:
+            continue
+        if dialect:
+            return dialect, False
+    return None, False
+
+
+# Each variant env applies the floor separately, so remember what has been
+# reported to keep one message per toolchain and dialect change per build.
+_reported_dialect_floors = set()
+
+
+def _report_dialect_floor_once( toolchain, current, floor ):
+    try:
+        name = toolchain.name()
+    except Exception:
+        name = str( toolchain )
+    key = ( name, current, floor )
+    if key in _reported_dialect_floors:
+        return False
+    _reported_dialect_floors.add( key )
+    return True
+
+
 def ensure_modules_dialect_floor( env, floor='c++20' ):
-    """When modules are enabled, require at least the given dialect floor."""
-    current = env.get( 'stdcpp' )
+    """When modules are enabled, require at least the given dialect floor.
+
+    The toolchain default counts towards the floor: a toolchain that already
+    defaults to the floor or later is left alone, so `--modules` never lowers
+    the dialect a build would otherwise have used.
+    """
+    current, requested = effective_dialect( env )
     floor_rank = dialect_rank( floor )
     if dialect_rank( current ) >= floor_rank:
+        logger.debug(
+            "C++ modules dialect floor {} already met by {}"
+            .format( as_info( floor ), as_notice( current ) )
+        )
         return current
 
     toolchain = env['toolchain']
-    if not current:
-        logger.info(
-            "C++ modules enabled; setting dialect to {}"
-            .format( as_info( floor ) )
-        )
-    else:
-        logger.warn(
-            "C++ modules require {}+; raising dialect from {} to {}"
-            .format( as_info( floor ), as_warning( current ), as_info( floor ) )
-        )
+    if _report_dialect_floor_once( toolchain, current, floor ):
+        if requested:
+            logger.warn(
+                "C++ modules require {}+; raising the requested dialect from {} to {}. "
+                "Pass --stdcpp={} or later so build paths name the dialect actually used"
+                .format( as_info( floor ), as_warning( current ), as_info( floor ), floor )
+            )
+        else:
+            logger.info(
+                "C++ modules require {}; setting dialect to it{}"
+                .format(
+                    as_info( floor ),
+                    " (toolchain default is {})".format( as_notice( current ) ) if current else "",
+                )
+            )
     env['stdcpp'] = floor
     flag = toolchain.stdcpp_flag_for( floor )
     env.ReplaceFlags( [ flag ] )
@@ -104,7 +178,8 @@ def activate_modules_for_env( env ):
         raise SCons.Errors.StopError( message )
 
     env['modules'] = True
-    ensure_modules_dialect_floor( env )
+    # The dialect floor belongs to the compile that actually builds or consumes a
+    # module (see cuppa.cpp.cxx_modules), not to enabling modules for the env.
     register_module_source_suffixes( env )
 
     from cuppa.cpp.cxx_modules import get_registry, modules_dir

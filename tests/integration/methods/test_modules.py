@@ -121,6 +121,50 @@ def test_named_module_build(tmp_path):
     assert find_final_binaries(project, "math_app")
 
 
+def _forced_dialect_flags(output):
+    """Dialect flags in the build output that name the modules floor."""
+    return [
+        flag for flag in ("-std=c++20", "-std:c++20")
+        if flag in output
+    ]
+
+
+def test_named_module_build_keeps_the_toolchain_dialect(tmp_path):
+    """--modules must not lower a default dialect that already clears the floor."""
+    _, toolchain_flag = _modules_toolchain_flag()
+    project = _copy_modules_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.Build('math_app', ['math.cppm', 'apps/main.cpp'])\n",
+    )
+    result = run_cuppa(project, "--dbg", "--modules", toolchain_flag)
+    assert_success(result)
+    assert find_final_binaries(project, "math_app")
+    assert _forced_dialect_flags(result.stdout) == [], result.stdout
+
+
+def test_modules_leave_plain_sources_on_the_toolchain_dialect(tmp_path):
+    """A source that neither declares nor imports a module keeps its dialect."""
+    _, toolchain_flag = _modules_toolchain_flag()
+    project = _copy_modules_project(tmp_path)
+    (project / "plain.cpp").write_text(
+        "#include <cstdio>\n"
+        "int main() { std::printf( \"plain\\n\" ); return 0; }\n"
+    )
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.Build('plain_app', ['plain.cpp'])\n",
+    )
+    result = run_cuppa(project, "--dbg", "--modules", toolchain_flag)
+    assert_success(result)
+    assert find_final_binaries(project, "plain_app")
+    assert _forced_dialect_flags(result.stdout) == [], result.stdout
+
+
 def test_header_unit_build(tmp_path):
     _, toolchain_flag = _modules_toolchain_flag()
     project = _copy_modules_project(tmp_path)
