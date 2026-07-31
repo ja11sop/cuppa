@@ -107,6 +107,29 @@ class Location(object):
         return option in self._cuppa_env and self._cuppa_env[option] or False
 
 
+    def retrieval_disabled_reason( self ):
+        """Name why locations are neither retrieved nor updated, or None when they are."""
+        if self._offline:
+            return "--offline"
+        if self._cuppa_env['clean']:
+            return "--clean"
+        return None
+
+
+    def build_outputs_from_location( self ):
+        """Build root folder holding artefacts built from this location's sources, if any.
+
+        Only location dependencies that compile their own sources (through
+        build_library_from_source()) place anything there. When the location
+        itself is missing those artefacts can no longer be described, and so
+        cannot be cleaned.
+        """
+        if 'abs_build_root' not in self._cuppa_env or not self._local_folder:
+            return None
+        outputs = os.path.join( self._cuppa_env['abs_build_root'], self._local_folder )
+        return os.path.isdir( outputs ) and outputs or None
+
+
     def location_match_current_branch( self ):
         return 'location_match_current_branch' in self._cuppa_env and self._cuppa_env['location_match_current_branch']
 
@@ -387,7 +410,7 @@ class Location(object):
 
         local_dir_with_sub_dir = os.path.join( local_directory, sub_dir and sub_dir or "" )
 
-        if not self._offline and not self._cuppa_env['clean']:
+        if not self.retrieval_disabled_reason():
             try:
                 vcs_backend = backend( self.expand_secret( location ) )
             except: # Pip version >= 19
@@ -405,8 +428,8 @@ class Location(object):
             branched_local_directory = None
 
             if self.location_match_current_branch():
-                # If relative versioning is in play and we are offline check first to see
-                # if the specified branch or tag is available and prefer that one
+                # If relative versioning is in play and retrieval is disabled check first
+                # to see if the specified branch or tag is available and prefer that one
                 if self._supports_relative_versioning and self._current_branch:
                     branched_local_directory = local_directory + "@" + self._current_branch
                     if os.path.exists( branched_local_directory ):
@@ -439,43 +462,58 @@ class Location(object):
             if os.path.exists( local_directory ):
                 return local_directory
             else:
-                if self.location_match_current_branch():
-                    logger.error(
-                        "Running in {offline} mode and neither [{local_dir}] or a branched dir"
-                        " [{branched_dir}] exists so location cannot be retrieved".format(
-                            offline      = as_info_label("OFFLINE"),
-                            local_dir    = as_error(local_directory),
-                            branched_dir = as_error(str(branched_local_directory))
+                reason = self.retrieval_disabled_reason()
+
+                def unavailable( emphasise, highlight ):
+                    if self.location_match_current_branch():
+                        return (
+                            "Retrieving locations is disabled by {reason} and neither [{local_dir}]"
+                            " or a branched dir [{branched_dir}] exists".format(
+                                reason       = emphasise( reason ),
+                                local_dir    = highlight( local_directory ),
+                                branched_dir = highlight( str(branched_local_directory) )
+                        ) )
+                    return (
+                        "Retrieving locations is disabled by {reason} and [{local_dir}] does not exist".format(
+                            reason    = emphasise( reason ),
+                            local_dir = highlight( local_directory )
                     ) )
-                    raise LocationException(
-                        "Running in {offline} mode and neither [{local_dir}] or a branched dir"
-                        " [{branched_dir}] exists so location cannot be retrieved".format(
-                            offline      = "OFFLINE",
-                            local_dir    = local_directory,
-                            branched_dir = str(branched_local_directory)
-                    ) )
-                else:
-                    logger.error(
-                        "Running in {offline} mode and [{local_dir}] does not exist"
-                        " so location cannot be retrieved".format(
-                            offline      = as_info_label("OFFLINE"),
-                            local_dir    = as_error(local_directory)
-                    ) )
-                    raise LocationException(
-                        "Running in {offline} mode and [{local_dir}] does not exist"
-                        " so location cannot be retrieved".format(
-                            offline      = "OFFLINE",
-                            local_dir    = local_directory
-                    ) )
+
+                # Cleaning only removes files, so a location that was never retrieved
+                # normally has nothing to clean. Carry on with the missing path rather
+                # than failing the clean.
+                if self._cuppa_env['clean']:
+                    leftovers = self.build_outputs_from_location()
+                    if leftovers:
+                        logger.warn( "{unavailable} so artefacts previously built from it in"
+                                     " [{leftovers}] cannot be cleaned. Remove that folder by hand"
+                                     " if you need it gone".format(
+                                unavailable = unavailable( as_info_label, as_warning ),
+                                leftovers   = as_warning( leftovers )
+                        ) )
+                    else:
+                        logger.info( "{} so there is nothing from it to clean".format(
+                                unavailable( as_info_label, as_notice )
+                        ) )
+                    return local_directory
+
+                logger.error( "{} so location cannot be retrieved".format(
+                        unavailable( as_info_label, as_error )
+                ) )
+                raise LocationException( "{} so location cannot be retrieved".format(
+                        unavailable( lambda text: text, lambda text: text )
+                ) )
 
         return local_directory
 
 
     def get_local_directory( self, location, sub_dir, branch_path, full_url ):
 
-        logger.debug( "Determine local directory for [{location}] when {offline}".format(
+        reason = self.retrieval_disabled_reason()
+
+        logger.debug( "Determine local directory for [{location}] when {retrieval}".format(
                 location=as_info(location),
-                offline= self._offline and as_info_label("OFFLINE") or "online"
+                retrieval= reason and "retrieval is disabled by {}".format( as_info_label(reason) ) or "retrieval is enabled"
         ) )
 
         local_directory = None
@@ -649,11 +687,13 @@ class Location(object):
 
         scm_system, vc_type, repo_location, versioning = self.get_scm_system_and_info( self.expand_secret( scm_location ) )
 
-        logger.debug( "Local location and actions for [{location}] being determined in context:{offline}"
+        retrieval_disabled_by = self.retrieval_disabled_reason()
+
+        logger.debug( "Local location and actions for [{location}] being determined in context:{retrieval}"
                       " vc_type=[{vc_type}], repo_location=[{repo_location}],"
                       " versioning=[{versioning}]".format(
                 location = as_info(location),
-                offline  = self._offline and " " + as_info_label("OFFLINE") + "," or "",
+                retrieval = retrieval_disabled_by and " retrieval disabled by {},".format( as_info_label(retrieval_disabled_by) ) or "",
                 vc_type = as_info(str(vc_type)),
                 repo_location = as_info(str(repo_location)),
                 versioning = as_info(str(versioning))

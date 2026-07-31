@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Location retrieval failures name the option that disabled retrieval (`--offline` or `--clean`) instead of always reporting `OFFLINE` mode, so a missing download during `--clean` is no longer reported as an offline build.
+- `--clean` no longer fails when a location dependency is missing from the download root. Cuppa reports it at info level and lets the clean finish, warning only when `_build/<location folder>/` holds artefacts built from that location's sources, which can no longer be described and so cannot be cleaned. `--offline` still fails as before.
+- `--clean` skips `pkg-config` parsing for GitLab registry packages that are not present in the download root, reporting at info level instead of aborting the clean.
+
 ### Deprecated
 
 ### Removed

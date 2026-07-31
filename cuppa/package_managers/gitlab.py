@@ -681,6 +681,18 @@ class GitlabPackageDependency:
         env = self._env
         library_prefix = self._library_prefix and self._library_prefix or ""
 
+        # Packages are not retrieved when cleaning, so their .pc files are only
+        # present if a previous build downloaded them. The flags they provide
+        # affect compiling and linking, not the targets to be removed, so
+        # skipping them does not leave anything behind.
+        if self._clean and not os.path.isdir( self._pkg_config_dir ):
+            logger.info( "Package [{}] was not retrieved so pkg-config data in [{}] is not available."
+                         " Skipping it as it is not needed to clean".format(
+                    as_info( self._package_id ),
+                    as_notice( self._pkg_config_dir )
+            ) )
+            return
+
         libraries = []
         for lib in libs:
             prefix = lib.startswith( library_prefix ) and "" or library_prefix

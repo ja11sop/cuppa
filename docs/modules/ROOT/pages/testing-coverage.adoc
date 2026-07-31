@@ -60,6 +60,8 @@ IMPORTANT: `--cov` alone does not run tests. Always combine `--cov` with `--test
 
 Cuppa uses toolchain gcov support plus https://gcovr.com/[gcovr] to emit HTML/JSON beside the variant output (and optionally collated destinations).
 
+`CollateCoverageIndex` also builds a *By source file* union (JSON across tests, annotated HTML under `by-source/`), so you can read coverage per source file rather than per test binary.
+
 Useful methods:
 
 * `env.Coverage(program, sources, include_patterns=…, exclude_dependencies=…)`

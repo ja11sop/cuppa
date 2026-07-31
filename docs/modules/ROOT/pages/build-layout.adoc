@@ -65,3 +65,17 @@ cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=gcc --clean
 That removes objects, binaries, module BMIs (`.gcm` / `.pcm`), and the GCC
 `module-mapper.txt`. Empty directories under `_build` may remain; delete `_build`
 for a fully cold tree.
+
+Cleaning never retrieves or updates dependencies. If a location or package dependency
+is not present in the download root, cuppa reports that at info level and treats it as
+absent rather than stopping the clean, so a partially populated download root does not
+block you from clearing `_build`. In the usual case nothing is missed: a dependency you
+never downloaded cannot have contributed any files to remove, and your own targets are
+still described (and therefore still cleaned) with or without it.
+
+The exception is a location dependency that compiles its own sources through
+`build_library_from_source`, because those artefacts live under `_build/<location folder>/`
+rather than in the download root. If that folder exists while the location itself does not,
+cuppa warns and names the folder, since the sources needed to describe those artefacts are
+gone and SCons cannot remove them. Delete the folder by hand, or restore the location and
+clean again.

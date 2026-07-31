@@ -10,6 +10,26 @@ Cuppa is a SCons extension for C++ builds. This repository is the **cuppa packag
 **Roadmap (large features, current vs planned):** [`ROADMAP.md`](ROADMAP.md) — start here for C++20 modules status and follow-on work; other major areas will be added as sections.
 **Release notes:** [`CHANGELOG.md`](CHANGELOG.md) — Keep a Changelog / SemVer; update `[Unreleased]` as you work, then cut a dated section when bumping `cuppa/VERSION`.
 
+## Private projects — never name them here
+
+This repository is public. Cuppa is developed against private consumer projects, and their
+names must not appear in anything tracked here — no private repository, group, host,
+dependency, or package names, and no personal absolute paths (`/home/<user>/…`).
+
+That applies to code, tests, docs, `CHANGELOG.md`, `ROADMAP.md`, and plan documents, including
+pasted build output. Instead:
+
+- Refer to a consumer project by a stable label (**project A**, **project B**) plus the part
+  that is technically relevant — its shape: file counts, test style, run times.
+- Use the existing generic fixtures for dependency and package names (`widget`,
+  `https://example.com/org/widget.git`, `gitlab.example`) and `/home/user/…` for paths.
+- Public references are fine: OSS libraries, published articles, the company website.
+
+`INTERNAL_PROJECTS.local.md` maps those labels back to the real projects. It is gitignored
+(`*.local.md`). Read it when you need to know which project a label means, and update it
+whenever you introduce a new anonymised reference — but never copy a name out of it into a
+tracked file.
+
 ## Preferred invocation
 
 ```sh

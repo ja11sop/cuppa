@@ -10,7 +10,7 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-07-30
+**As of:** 2026-07-31
 
 ---
 
@@ -183,12 +183,57 @@ Tracked as GitHub issue [#29](https://github.com/ja11sop/cuppa/issues/29).
 
 ---
 
+## Coverage reporting and performance
+
+Goal: keep the multi-toolchain coverage reports (per test, by sconscript, by source) while
+making `--cov --test` cheap enough to run routinely on large codebases.
+
+Measurements, analysis of the current implementation, and the ordered list of candidate changes:
+[`COVERAGE_PERFORMANCE_PLAN.md`](COVERAGE_PERFORMANCE_PLAN.md).
+
+### Today
+
+| Capability | Status |
+|------------|--------|
+| Per-test gcovr HTML + JSON (GCC and Clang) | Yes |
+| By-sconscript and master indexes, toolchains compared side by side | Yes |
+| By-source union across tests (JSON preferred, HTML fallback) | Yes, always on |
+| Per-phase timing of a coverage run | No |
+
+**Measured, 2026-07-31** — a header-heavy consumer project (**project A**: 38 test sconscripts,
+362 single-source test binaries, 545 headers), `--cov --test --offline` after a clean
+`--cov --parallel` build: **8m32** without by-source, **7m43** with it. By-source is not the
+bottleneck on that project; the earlier suspicion that it caused a 40 → 70 minute regression on
+another project is unconfirmed.
+
+### Planned / potential
+
+| ID | Work | Priority | Notes |
+|----|------|----------|-------|
+| `cov-timing` | Opt-in per-phase timing (gcov, gcovr, union, page writing, collation) | High | Nothing else should be optimised before this exists |
+| `cov-once-per-test` | Run gcovr once per test binary instead of once per source file | High | `run_suite` is called inside the per-source loop in `_run_gcov`; an N× multiplier on multi-source tests |
+| `cov-version-cache` | Cache the gcovr version instead of probing per report | Low | One subprocess per report today |
+| `cov-union-once` | Share one union per toolchain between sconscript indexes and the master index | Medium | Same JSON is parsed at least twice per build |
+| `cov-html-optional` | Make gcovr `--html-details` opt-in, with by-source as the browsing UI | Medium | Detail pages scale with tests × covered files and embed CSS each |
+| `cov-union-incremental` | Cache the union on JSON mtime / size and skip unchanged work | Medium | Biggest win on repeat runs |
+| `cov-branch-index` | Group branches by line once rather than scanning per line | Low | Removes an O(lines × branches) scan |
+| `cov-second-project-ab` | Repeat the A/B measurement on the project the regression was reported from (**project B**) | High | Fewer, larger test binaries and much longer coverage runs than project A |
+
+### Out of scope (coverage)
+
+| ID | Item | Reason |
+|----|------|--------|
+| `cov-by-source-flag` | A permanent flag to disable by-source reporting | Measurement does not support it; make the report cheap instead. The temporary `--cov-by-source` used for the experiment has been reverted |
+| `cov-msvc` | Coverage on MSVC | gcov-based; GCC and Clang only |
+
+---
+
 ## Future feature sections
 
 Add new `##` headings here as larger efforts start, for example:
 
 - Packages / GitLab registry UX
-- Coverage reporting and multi-toolchain indexes
+- Storage roots, listing, and removal options (see [`REMOVAL_OPTIONS_PLAN.md`](REMOVAL_OPTIONS_PLAN.md))
 - Additional toolchains or platforms
 
 Each new section should follow the same shape: **Today** → **Planned / potential** → **Out of scope**.
