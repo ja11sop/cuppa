@@ -1,6 +1,11 @@
 # Windows CI: run Conan 2 integration tests under MSVC
 
-> Draft for a GitHub issue. Deferred on purpose after shipping Linux Conan consumer/publisher coverage (#29).
+- **Status:** issue draft
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Conan 2 integration; follows GitHub [#29](https://github.com/ja11sop/cuppa/issues/29)
+- **Updated:** 2026-07-31
+
+Deferred on purpose after shipping Linux Conan consumer and publisher coverage. File this as a
+GitHub issue when Windows Conan coverage is picked up, then delete this draft.
 
 ## Summary
 
@@ -20,10 +25,10 @@ This issue tracks enabling Conan integration on Windows with MSVC so consumer + 
 
 Relevant files:
 
-- [`.github/workflows/test.yml`](.github/workflows/test.yml) — `integration-windows` job
-- [`tests/integration/methods/test_conan.py`](tests/integration/methods/test_conan.py)
-- [`cuppa/build_with_conan.py`](cuppa/build_with_conan.py) — settings + `tools.build:compiler_executables`
-- Docs: [`docs/modules/ROOT/pages/integration/test-conan.adoc`](docs/modules/ROOT/pages/integration/test-conan.adoc) (Windows deferral note)
+- [`.github/workflows/test.yml`](../../.github/workflows/test.yml) — `integration-windows` job
+- [`tests/integration/methods/test_conan.py`](../../tests/integration/methods/test_conan.py)
+- [`cuppa/build_with_conan.py`](../../cuppa/build_with_conan.py) — settings + `tools.build:compiler_executables`
+- Docs: [`docs/modules/ROOT/pages/integration/test-conan.adoc`](../../docs/modules/ROOT/pages/integration/test-conan.adoc) (Windows deferral note)
 
 ## Why it was deferred
 
@@ -43,7 +48,7 @@ Relevant files:
 - Making Conan mandatory for Cuppa on Windows.
 - Live `--publish-package` upload to a real remote.
 - macOS Conan matrix (separate decision if needed).
-- Conan components / multi-lib (see [`CONAN_COMPONENTS_ISSUE.md`](CONAN_COMPONENTS_ISSUE.md)).
+- Conan components / multi-lib (see [`conan-components.md`](conan-components.md)).
 
 ## Proposed work
 
@@ -98,5 +103,5 @@ Document any required `tools.build:compiler_executables` / env (`VCINSTALLDIR`, 
 ## References
 
 - GitHub [#29](https://github.com/ja11sop/cuppa/issues/29) (Conan supply chain)
-- [`CONAN_CONSUMER_PLAN.md`](CONAN_CONSUMER_PLAN.md), [`CONAN_PUBLISH_PLAN.md`](CONAN_PUBLISH_PLAN.md)
+- [`conan-consumer-plan.md`](../archive/conan-consumer-plan.md), [`conan-publish-plan.md`](../archive/conan-publish-plan.md)
 - Conan 2 profiles / MSVC settings: https://docs.conan.io/2/reference/config_files/profiles.html

@@ -1,8 +1,10 @@
 # Plan: removal options for build folders and dependencies
 
-Status: **proposal** (not implemented)
+- **Status:** proposal
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Storage roots, listing, and removal options
+- **Updated:** 2026-07-31
 
-Follow-on from the `--clean` work in `cuppa/location.py` and `cuppa/package_managers/gitlab.py`,
+Nothing here is implemented. Follow-on from the `--clean` work in `cuppa/location.py` and `cuppa/package_managers/gitlab.py`,
 where a clean could not complete because a dependency was missing, and where the advice for
 leftover artefacts was "remove the folder by hand". Telling people to run `rm -rf` is
 unsatisfying: it is platform-specific, it is easy to aim at the wrong path, and cuppa already

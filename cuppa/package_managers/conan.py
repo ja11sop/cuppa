@@ -13,7 +13,7 @@ Cuppa remains the build orchestrator: compile/link with SCons first, then
 ``conan export-pkg`` packages staged headers/libs and optionally
 ``conan upload`` to a remote when ``--publish-package`` is set.
 
-See ``CONAN_PUBLISH_PLAN.md``.
+See ``design/archive/conan-publish-plan.md``.
 """
 
 from __future__ import annotations

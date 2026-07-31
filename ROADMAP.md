@@ -7,6 +7,7 @@ Use this document to see what is shipped today, what is planned next, and what i
 **Canonical product docs:** [https://ja11sop.github.io/cuppa/](https://ja11sop.github.io/cuppa/) under `docs/`.
 **Agent notes:** [`AGENTS.md`](AGENTS.md).
 **Release notes:** [`CHANGELOG.md`](CHANGELOG.md) (Keep a Changelog; SemVer via `cuppa/VERSION`).
+**Design notes behind these entries:** [`design/README.md`](design/README.md).
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
@@ -31,7 +32,7 @@ Add new top-level `##` sections when starting other large efforts (for example p
 
 Opt-in via `--modules` / `env.Modules()`.
 Whether activation should become automatic (with `--modules` / `--no-modules` as overrides) is
-worked out in [`MODULES_ACTIVATION_PLAN.md`](MODULES_ACTIVATION_PLAN.md).
+worked out in [`design/plans/modules-activation.md`](design/plans/modules-activation.md).
 User guide and Limits: `docs/modules/ROOT/pages/cxx-modules.adoc`.
 Integration scenarios: `docs/modules/ROOT/pages/integration/test-modules.adoc`.
 Companion canvas (optional): Cursor canvas `cxx-modules-status`.
@@ -75,7 +76,7 @@ Companion canvas (optional): Cursor canvas `cxx-modules-status`.
 |----|------|----------|-------|
 | `mod-scan-preamble` | Stop scanning a source at the end of its preamble | High | `scan_file` reads whole files today; prerequisite for any always-on scanning |
 | `mod-scan-cache` | Cache scan results per path / mtime / size | High | Same sources are scanned by every `Compile` call that lists them |
-| `mod-activate-evidence` | Activate the modules path on module sources / `Module` / `HeaderUnit` / `ImportModules` rather than a global flag, with `--modules` / `--no-modules` as overrides | Medium | Gated on read-phase timing; see [`MODULES_ACTIVATION_PLAN.md`](MODULES_ACTIVATION_PLAN.md) |
+| `mod-activate-evidence` | Activate the modules path on module sources / `Module` / `HeaderUnit` / `ImportModules` rather than a global flag, with `--modules` / `--no-modules` as overrides | Medium | Gated on read-phase timing; see [`design/plans/modules-activation.md`](design/plans/modules-activation.md) |
 | `mod-gcc-flag-scope` | Give GCC `-fmodules` / `-fmodule-mapper=` to the compiles that need them instead of every TU | Medium | The only always-on compiler flag change among the three toolchains |
 | `scan-deps` | Optional `clang-scan-deps` (or P1689) dependency backend | Medium | Flag or auto-detect; keep line scanner as fallback. Substantial: driver discovery, JSON graph merge, fallback path |
 | `gcc-private` | Private module fragments on GCC | Later | Re-enable / unskip tests when GCC implements the feature |
@@ -140,7 +141,7 @@ Tracked as GitHub issue [#27](https://github.com/ja11sop/cuppa/issues/27).
 
 Goal: optional **Conan 2 consumer** support so projects can pull mainstream packages (fmt, OpenSSL, …) and apply them through `env.BuildWith`, without making Conan Cuppa’s orchestrator or replacing location/GitLab package deps.
 
-Detailed exploration, trade-offs, and API sketches: [`CONAN_CONSUMER_PLAN.md`](CONAN_CONSUMER_PLAN.md) (consumer), [`CONAN_PUBLISH_PLAN.md`](CONAN_PUBLISH_PLAN.md) (producer).
+Detailed exploration, trade-offs, and API sketches: [`design/archive/conan-consumer-plan.md`](design/archive/conan-consumer-plan.md) (consumer), [`design/archive/conan-publish-plan.md`](design/archive/conan-publish-plan.md) (producer).
 
 ### Today
 
@@ -164,8 +165,8 @@ Detailed exploration, trade-offs, and API sketches: [`CONAN_CONSUMER_PLAN.md`](C
 | `conan-docs-pip` | Docs + example pip plugin (`examples/conan_fmt_plugin`) | Done | Entry point `cuppa.dependency.plugins`; covered by `test_conan` |
 | `conan-integration` | Linux integration: install / generators_folder / shared `--test` / plugin / offline miss / publish | Done | `test_conan.py`; Linux CI installs Conan 2 |
 | `conan-publish-spike` | Spike Cuppa-build → `export-pkg` → local-cache consumer round-trip | Done | Producer path evidence |
-| `conan-publish` | `ConanPackagePublisher` + `PublishPackage`; settings; upload via `--publish-package` | Done | See [`CONAN_PUBLISH_PLAN.md`](CONAN_PUBLISH_PLAN.md) |
-| `conan-publish-recipe` | Hand-written `conanfile=` override; `shared=`; generated `requires=` | Done | Components still deferred; see [`CONAN_COMPONENTS_ISSUE.md`](CONAN_COMPONENTS_ISSUE.md) |
+| `conan-publish` | `ConanPackagePublisher` + `PublishPackage`; settings; upload via `--publish-package` | Done | See [`design/archive/conan-publish-plan.md`](design/archive/conan-publish-plan.md) |
+| `conan-publish-recipe` | Hand-written `conanfile=` override; `shared=`; generated `requires=` | Done | Components still deferred; see [`design/issues/conan-components.md`](design/issues/conan-components.md) |
 | `conan-publish-modules` | Stage Cuppa `modules/` + BMI map in Conan packages; consumer `load_packaged_modules` | Done | Parity with GitLab generic `modules/` path |
 
 ### Out of scope (Conan)
@@ -189,7 +190,7 @@ Goal: keep the multi-toolchain coverage reports (per test, by sconscript, by sou
 making `--cov --test` cheap enough to run routinely on large codebases.
 
 Measurements, analysis of the current implementation, and the ordered list of candidate changes:
-[`COVERAGE_PERFORMANCE_PLAN.md`](COVERAGE_PERFORMANCE_PLAN.md).
+[`design/plans/coverage-performance.md`](design/plans/coverage-performance.md).
 
 ### Today
 
@@ -233,7 +234,7 @@ another project is unconfirmed.
 Add new `##` headings here as larger efforts start, for example:
 
 - Packages / GitLab registry UX
-- Storage roots, listing, and removal options (see [`REMOVAL_OPTIONS_PLAN.md`](REMOVAL_OPTIONS_PLAN.md))
+- Storage roots, listing, and removal options (see [`design/plans/removal-options.md`](design/plans/removal-options.md))
 - Additional toolchains or platforms
 
 Each new section should follow the same shape: **Today** → **Planned / potential** → **Out of scope**.

@@ -1,8 +1,10 @@
 # Coverage performance: measurements, analysis, and plan
 
-Status: **analysis and proposal** (no performance work done yet)
+- **Status:** proposal
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Coverage reporting and performance
+- **Updated:** 2026-07-31
 
-This records what we measured, what the measurement ruled out, and where the remaining
+No performance work has been done yet. This records what we measured, what the measurement ruled out, and where the remaining
 suspects are, so the work can be picked up later without repeating the investigation.
 
 Two consumer projects are referred to throughout by label, because they are private:

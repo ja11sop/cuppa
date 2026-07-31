@@ -1,6 +1,11 @@
 # Conan publisher: `cpp_info.components` / multi-lib selection
 
-> Draft for a future GitHub issue. Not scheduled work.
+- **Status:** issue draft
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `conan-publish-recipe`; follows GitHub [#29](https://github.com/ja11sop/cuppa/issues/29)
+- **Updated:** 2026-07-30
+
+Not scheduled work. File this as a GitHub issue when the components work is picked up, then
+delete this draft.
 
 ## Summary
 
@@ -59,5 +64,5 @@ Without components, consumers either link everything or maintain separate Conan 
 ## References
 
 - Conan `package_info` / `cpp_info.components`
-- Cuppa [`CONAN_PUBLISH_PLAN.md`](CONAN_PUBLISH_PLAN.md), [`cuppa/package_managers/conan.py`](cuppa/package_managers/conan.py), [`cuppa/build_with_conan.py`](cuppa/build_with_conan.py)
+- Cuppa [`conan-publish-plan.md`](../archive/conan-publish-plan.md), [`cuppa/package_managers/conan.py`](../../cuppa/package_managers/conan.py), [`cuppa/build_with_conan.py`](../../cuppa/build_with_conan.py)
 - Related: modules/BMI Conan parity (done; Cuppa-native `modules/` path)

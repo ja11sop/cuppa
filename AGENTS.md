@@ -9,6 +9,24 @@ Cuppa is a SCons extension for C++ builds. This repository is the **cuppa packag
 
 **Roadmap (large features, current vs planned):** [`ROADMAP.md`](ROADMAP.md) — start here for C++20 modules status and follow-on work; other major areas will be added as sections.
 **Release notes:** [`CHANGELOG.md`](CHANGELOG.md) — Keep a Changelog / SemVer; update `[Unreleased]` as you work, then cut a dated section when bumping `cuppa/VERSION`.
+**Design notes, plans, issue drafts:** [`design/README.md`](design/README.md) — the index; read it before writing a new plan, in case one already exists.
+
+## Working documents
+
+Long-form plans, measurements, and unfiled issue text live under `design/`, never in the
+repository root and never in `docs/` (that tree is the published Antora site):
+
+- `design/plans/` — proposals that have not shipped. Delete a plan when its work ships, unless
+  the reasoning is still cited from code or docs, in which case move it to `design/archive/`.
+- `design/issues/` — text drafted for a GitHub issue. Delete it once the issue is filed.
+- `design/archive/` — shipped work whose rationale something still references.
+
+Filenames are kebab-case. Every document opens with a `Status` / `Related` / `Updated` header,
+and must be added to the Index table in `design/README.md`; `tests/unit/test_design_index.py`
+fails otherwise. Statuses are `proposal`, `in progress`, `issue draft`, or `shipped`.
+
+`ROADMAP.md` remains the canonical statement of what is planned — a design document explains the
+reasoning behind a roadmap entry and links back to it, rather than duplicating it.
 
 ## Private projects — never name them here
 
@@ -25,7 +43,7 @@ pasted build output. Instead:
   `https://example.com/org/widget.git`, `gitlab.example`) and `/home/user/…` for paths.
 - Public references are fine: OSS libraries, published articles, the company website.
 
-`INTERNAL_PROJECTS.local.md` maps those labels back to the real projects. It is gitignored
+`design/INTERNAL_PROJECTS.local.md` maps those labels back to the real projects. It is gitignored
 (`*.local.md`). Read it when you need to know which project a label means, and update it
 whenever you introduce a new anonymised reference — but never copy a name out of it into a
 tracked file.

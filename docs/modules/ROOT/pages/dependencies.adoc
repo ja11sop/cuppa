@@ -197,7 +197,7 @@ You do **not** need `--propagate-env` (or the path-propagation flags) for this. 
 * Link flags use Conan's `LIBS` via `MergeFlags` (no extra `STATICLIBS` / `DYNAMICLIBS` routing yet)
 * Prefer including `SConsDeps` in the conanfile (or rely on Cuppa's `-g SConsDeps`); a fully custom `generate()` must still produce `SConscript_conandeps`
 
-Design notes: see the repository file `CONAN_CONSUMER_PLAN.md`.
+Design notes: see the repository file `design/archive/conan-consumer-plan.md`.
 
 == Custom dependencies
 

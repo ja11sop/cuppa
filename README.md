@@ -10,7 +10,7 @@ cuppa -D
 
 and cuppa builds the relevant `sconscript` files (the `-D` SCons flag finds the `sconstruct` and runs scripts relative to your starting directory).
 
-Full reference documentation: **[https://ja11sop.github.io/cuppa/](https://ja11sop.github.io/cuppa/)** (Antora site in [`docs/`](docs/)). Agent-oriented guidance: [`AGENTS.md`](AGENTS.md). Feature roadmap: [`ROADMAP.md`](ROADMAP.md). Release notes: [`CHANGELOG.md`](CHANGELOG.md).
+Full reference documentation: **[https://ja11sop.github.io/cuppa/](https://ja11sop.github.io/cuppa/)** (Antora site in [`docs/`](docs/)). Agent-oriented guidance: [`AGENTS.md`](AGENTS.md). Feature roadmap: [`ROADMAP.md`](ROADMAP.md). Release notes: [`CHANGELOG.md`](CHANGELOG.md). Design notes and plans: [`design/`](design/).
 
 ## Features
 

@@ -10,7 +10,7 @@
 """Optional Conan 2 consumer support for Cuppa.
 
 Primary generator is Conan 2 ``SConsDeps`` (``SConscript_conandeps`` +
-``env.MergeFlags``). See ``CONAN_CONSUMER_PLAN.md``.
+``env.MergeFlags``). See ``design/archive/conan-consumer-plan.md``.
 """
 
 from __future__ import annotations
