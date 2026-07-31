@@ -239,6 +239,18 @@ def ensure_modules_enabled( env ):
     return True
 
 
+def sources_use_modules( classified ):
+    """True when any classified source builds, declares, or imports a module."""
+    for kind, source, scan in classified:
+        if kind == 'bmi':
+            return True
+        if not scan:
+            continue
+        if scan.imports or scan.export_module or scan.module_declaration:
+            return True
+    return False
+
+
 def _collect_std_imports( classified ):
     needed = set()
     for kind, source, scan in classified:
@@ -332,6 +344,10 @@ def compile_with_modules( env, sources, obj_builder, obj_prefix, obj_suffix, dep
         else:
             classified.append( ( 'tu', source, scan ) )
 
+    if sources_use_modules( classified ):
+        from cuppa.methods.modules import ensure_modules_dialect_floor
+        ensure_modules_dialect_floor( env )
+
     ensure_std_modules( env, classified )
 
     # Pre-register BMI nodes so partition / re-export Depends resolve regardless
@@ -395,9 +411,10 @@ def compile_with_modules( env, sources, obj_builder, obj_prefix, obj_suffix, dep
                     env, module_name, bmi_path, exported=exported
                 )
             )
-            for flag in toolchain.consume_module_flags( env, scan ):
-                if flag not in cxx_flags:
-                    cxx_flags.append( flag )
+            # Flags are appended as given: MSVC emits pairs of argv tokens
+            # (`-reference`, `name=path`), so dropping a repeated token would
+            # detach the payload that follows it.
+            cxx_flags.extend( toolchain.consume_module_flags( env, scan ) )
             build_kwargs['CXXFLAGS'] = cxx_flags
         else:
             build_kwargs['CXXFLAGS'] = list( env.get( 'CXXFLAGS', [] ) ) + list( extra_flags )
@@ -449,6 +466,9 @@ def compile_with_modules( env, sources, obj_builder, obj_prefix, obj_suffix, dep
 def build_header_unit( env, header, **kwargs ):
     if not ensure_modules_enabled( env ):
         return None
+
+    from cuppa.methods.modules import ensure_modules_dialect_floor
+    ensure_modules_dialect_floor( env )
 
     toolchain = env['toolchain']
     kind, name, declared = parse_header_unit_declaration( header )

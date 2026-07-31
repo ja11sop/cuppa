@@ -238,6 +238,12 @@ cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=clang
 cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=vc   # Windows
 ----
 
+The `--stdcpp=c++20` above is explicit for clarity, not a requirement.
+Every modules-capable toolchain already defaults to C++20 or later, and cuppa keeps that default:
+the C++20 floor is applied only when the dialect in force is lower, and only for compiles that
+build, declare, or import a module.
+See xref:toolchains.adoc#c-language-level[C++ language level] for the exact rule.
+
 Unresolved `import` names after BMI pre-registration fail the build with `StopError`
 (list the missing named / header imports). Declare `HeaderUnit` or include the interface
 unit in the same `Build` / `Compile` call.

@@ -314,3 +314,181 @@ def test_ensure_import_std_dialect_floor():
     env = FakeEnv({"stdcpp": "c++20", "toolchain": FakeToolchain()})
     assert ensure_import_std_dialect_floor(env) == "c++23"
     assert env["stdcpp"] == "c++23"
+
+
+class _DialectToolchain:
+    """Toolchain stub built by _toolchain() with only the queries under test."""
+
+    def name(self):
+        return "fake-tc"
+
+    def stdcpp_flag_for(self, standard):
+        return "-std={}".format(standard)
+
+
+class _DialectEnv(dict):
+    def __init__(self, *args, **kwargs):
+        dict.__init__(self, *args, **kwargs)
+        self.replaced = []
+
+    def ReplaceFlags(self, flags):
+        self.replaced.append(flags)
+
+
+def _toolchain(abi=None, abi_flag=None, abi_raises=False):
+    toolchain = _DialectToolchain.__new__(_DialectToolchain)
+    if abi_raises:
+        def raising(env):
+            raise RuntimeError("no dialect available")
+        toolchain.abi = raising
+    elif abi is not None:
+        toolchain.abi = lambda env: abi
+    if abi_flag is not None:
+        toolchain.abi_flag = lambda env: abi_flag
+    return toolchain
+
+
+def test_dialect_ranks_are_ordinal():
+    from cuppa.methods.modules import dialect_rank
+
+    ordered = ["c++98", "c++03", "c++11", "c++14", "c++17", "c++20", "c++23", "c++26"]
+    ranks = [dialect_rank(standard) for standard in ordered]
+    assert ranks == sorted(ranks)
+    # A pre-C++11 dialect must never outrank a modules-capable one.
+    assert dialect_rank("c++98") < dialect_rank("c++20")
+    assert dialect_rank("c++2c") == dialect_rank("c++26")
+    assert dialect_rank("c++latest") >= dialect_rank("c++23")
+    assert dialect_rank(None) == 0
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("c++20", "c++20"),
+        ("-std=c++2c", "c++2c"),
+        ("-std:c++latest", "c++latest"),
+        ("-std=c++17", "c++17"),
+        ("-std=gnu++17", None),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_dialect_from_flag_forms(value, expected):
+    from cuppa.methods.modules import dialect_from_flag
+
+    assert dialect_from_flag(value) == expected
+
+
+def test_modules_floor_keeps_a_toolchain_default_that_already_meets_it():
+    from cuppa.methods.modules import ensure_modules_dialect_floor
+
+    env = _DialectEnv({"toolchain": _toolchain(abi="c++2c")})
+    assert ensure_modules_dialect_floor(env) == "c++2c"
+    assert "stdcpp" not in env
+    assert env.replaced == []
+
+
+def test_modules_floor_keeps_msvc_latest_default():
+    from cuppa.methods.modules import ensure_modules_dialect_floor
+
+    env = _DialectEnv({"toolchain": _toolchain(abi_flag="-std:c++latest")})
+    assert ensure_modules_dialect_floor(env) == "c++latest"
+    assert env.replaced == []
+
+
+def test_modules_floor_raises_a_toolchain_default_below_it():
+    from cuppa.methods.modules import ensure_modules_dialect_floor
+
+    env = _DialectEnv({"toolchain": _toolchain(abi_flag="-std=c++17")})
+    assert ensure_modules_dialect_floor(env) == "c++20"
+    assert env["stdcpp"] == "c++20"
+    assert env.replaced == [["-std=c++20"]]
+
+
+def test_modules_floor_raises_an_explicitly_requested_lower_dialect():
+    from cuppa.methods.modules import ensure_modules_dialect_floor
+
+    env = _DialectEnv({"stdcpp": "c++17", "toolchain": _toolchain(abi="c++2c")})
+    assert ensure_modules_dialect_floor(env) == "c++20"
+    assert env["stdcpp"] == "c++20"
+
+
+def test_modules_floor_falls_back_when_a_dialect_query_fails():
+    from cuppa.methods.modules import ensure_modules_dialect_floor
+
+    env = _DialectEnv({"toolchain": _toolchain(abi_raises=True, abi_flag="-std=c++2b")})
+    assert ensure_modules_dialect_floor(env) == "c++2b"
+    assert env.replaced == []
+
+
+def _modules_env(tmp_path, named=None, cxx_flags=None):
+    build = tmp_path / "working"
+    build.mkdir(exist_ok=True)
+    return {
+        "build_dir": str(build),
+        "abs_build_dir": str(build),
+        "sconscript_dir": str(tmp_path),
+        "base_path": str(tmp_path),
+        "CXXFLAGS": list(cxx_flags or []),
+        "_cuppa_module_registry": {"named": dict(named or {}), "headers": {}},
+        "toolchain": type("T", (), {})(),
+    }
+
+
+def test_gcc_module_flags_are_omitted_when_the_env_already_has_them(tmp_path):
+    """GCC's mapper flags come from the env; repeating them bloats every compile."""
+    from cuppa.toolchains.gcc import Gcc
+    from cuppa.toolchains.cxx_modules_support import mapper_path
+
+    toolchain = Gcc.__new__(Gcc)
+    env = _modules_env(tmp_path)
+    enable = toolchain.modules_enable_flags(env)
+    assert enable == ["-fmodules", "-fmodule-mapper={}".format(mapper_path(env))]
+
+    # Before the env carries them, a compile must still be given them.
+    assert toolchain.consume_module_flags(env, None) == enable
+    assert toolchain.interface_module_flags(env, "math", "math.gcm") == enable
+
+    env["CXXFLAGS"] = list(enable)
+    assert toolchain.consume_module_flags(env, None) == []
+    assert toolchain.interface_module_flags(env, "math", "math.gcm") == []
+
+
+def test_msvc_consume_module_flags_keep_reference_pairs(tmp_path):
+    """MSVC passes -reference as two argv tokens; each import needs its own pair."""
+    from cuppa.toolchains.cl import Cl
+
+    toolchain = Cl.__new__(Cl)
+    toolchain._library_prefix = ""
+    env = _modules_env(
+        tmp_path,
+        named={
+            "geo": {"path": "geo.ifc", "imports": []},
+            "geo:point": {"path": "geo--point.ifc", "imports": []},
+        },
+    )
+    scan = ModuleScan(
+        None,
+        None,
+        [ModuleImport("named", "geo"), ModuleImport("named", "geo:point")],
+        False,
+    )
+    flags = toolchain.consume_module_flags(env, scan)
+    assert flags == [
+        "-reference", "geo=geo.ifc",
+        "-reference", "geo:point=geo--point.ifc",
+    ]
+
+
+def test_sources_use_modules_detects_module_participation():
+    from cuppa.cpp.cxx_modules import sources_use_modules
+
+    plain = ModuleScan(None, None, [], False)
+    importing = ModuleScan(None, None, [ModuleImport("named", "math")], False)
+    implementation = ModuleScan(None, "math", [], False)
+
+    assert sources_use_modules([("tu", "main.cpp", plain)]) is False
+    assert sources_use_modules([("object", "prebuilt.o", None)]) is False
+    assert sources_use_modules([("tu", "main.cpp", importing)]) is True
+    assert sources_use_modules([("tu", "impl.cpp", implementation)]) is True
+    assert sources_use_modules([("bmi", "math.cppm", plain)]) is True

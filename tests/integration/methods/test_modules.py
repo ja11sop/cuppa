@@ -4,6 +4,7 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 import logging
+import re
 import shutil
 from pathlib import Path
 
@@ -119,6 +120,83 @@ def test_named_module_build(tmp_path):
     result = run_cuppa(project, "--dbg", "--modules", "--stdcpp=c++20", toolchain_flag)
     assert_success(result)
     assert find_final_binaries(project, "math_app")
+
+
+PLAIN_SOURCE = (
+    "#include <cstdio>\n"
+    "int main() { std::printf( \"plain\\n\" ); return 0; }\n"
+)
+
+# GCC / Clang spell the dialect -std=c++2c; MSVC spells it -std:c++20.
+DIALECT_FLAG_PATTERN = re.compile(r"-std[=:](c\+\+[0-9a-z]+)")
+
+
+def _dialect_flags(output):
+    """The distinct C++ dialects the compiler was invoked with."""
+    return sorted(set(DIALECT_FLAG_PATTERN.findall(output)))
+
+
+def _toolchain_default_dialects(project, toolchain_flag):
+    """Dialects a plain build uses without --modules, whatever the toolchain.
+
+    Compiles its own source so the build under test always has work to do; an
+    up-to-date object would emit no compile line and no dialect to compare.
+    """
+    (project / "baseline.cpp").write_text(PLAIN_SOURCE)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.Build('baseline_app', ['baseline.cpp'])\n",
+    )
+    result = run_cuppa(project, "--dbg", toolchain_flag)
+    assert_success(result)
+    dialects = _dialect_flags(result.stdout)
+    assert dialects, "no dialect flag seen in a plain build:\n{}".format(result.stdout)
+    return dialects
+
+
+def _assert_dialects_unchanged(result, expected):
+    dialects = _dialect_flags(result.stdout)
+    assert dialects, "nothing was compiled, so no dialect to check:\n{}".format(result.stdout)
+    assert dialects == expected, result.stdout
+
+
+def test_named_module_build_keeps_the_toolchain_dialect(tmp_path):
+    """--modules must not change the dialect a build would otherwise use."""
+    _, toolchain_flag = _modules_toolchain_flag()
+    project = _copy_modules_project(tmp_path)
+    (project / "plain.cpp").write_text(PLAIN_SOURCE)
+    write_sconstruct(project)
+    expected = _toolchain_default_dialects(project, toolchain_flag)
+
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.Build('math_app', ['math.cppm', 'apps/main.cpp'])\n",
+    )
+    result = run_cuppa(project, "--dbg", "--modules", toolchain_flag)
+    assert_success(result)
+    assert find_final_binaries(project, "math_app")
+    _assert_dialects_unchanged(result, expected)
+
+
+def test_modules_leave_plain_sources_on_the_toolchain_dialect(tmp_path):
+    """A source that neither declares nor imports a module keeps its dialect."""
+    _, toolchain_flag = _modules_toolchain_flag()
+    project = _copy_modules_project(tmp_path)
+    (project / "plain.cpp").write_text(PLAIN_SOURCE)
+    write_sconstruct(project)
+    expected = _toolchain_default_dialects(project, toolchain_flag)
+
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.Build('plain_app', ['plain.cpp'])\n",
+    )
+    result = run_cuppa(project, "--dbg", "--modules", toolchain_flag)
+    assert_success(result)
+    assert find_final_binaries(project, "plain_app")
+    _assert_dialects_unchanged(result, expected)
 
 
 def test_header_unit_build(tmp_path):

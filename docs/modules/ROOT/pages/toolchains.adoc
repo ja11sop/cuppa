@@ -22,6 +22,7 @@ Prefer a family alias (`gcc`, `clang`, `vc`) for everyday builds; pin versioned 
 
 When debugging detection, use `--verbosity=debug` and `--dump`.
 
+[#c-language-level]
 == C++ language level
 
 Each toolchain picks a high-compliance default dialect for its compiler version (tables below).
@@ -31,7 +32,13 @@ Allowed `--stdcpp` / `StdCpp` choices:
 
 `c++98`, `c++03`, `c++0x`, `c++11`, `c++1y`, `c++14`, `c++1z`, `c++17`, `c++2a`, `c++20`, `c++2b`, `c++23`, `c++2c`, `c++26`, `c++latest`.
 
-With `--modules`, cuppa raises the dialect to at least C++20 if it is lower.
+With `--modules`, cuppa raises the dialect to at least C++20 when the dialect the build would
+otherwise use is lower, and only for a compile that actually builds, declares, or imports a
+module. The toolchain default counts towards that floor, so a compiler defaulting to `c++2c`
+keeps `c++2c`; `--modules` never lowers a dialect. When you have asked for a lower dialect
+explicitly (`--stdcpp=c++17 --modules`), cuppa raises it to C++20 and warns, because the
+variant path still names the dialect you requested -- pass `--stdcpp=c++20` or later to keep the
+two consistent.
 
 On MSVC, pre-C++14 aliases map to `-std:c++14` with a warning (MSVC has no matching `-std:` for those dialects).
 `c++23` / `c++2b` map to `-std:c++latest` (many MSVC toolsets ignore unknown `-std:c++23`, which breaks `import std`).

@@ -132,7 +132,7 @@ When the producer builds with `--modules`, `BuildLib` installs BMIs under `final
 `cuppa.conan_deps` consumers automatically call `load_packaged_modules` when a dependency’s package contains `modules/module-map.json` and the consumer build uses `--modules`.
 BMI extensions remain toolchain-family specific (`.gcm` / `.pcm` / `.ifc`).
 
-Optional ctor: `source_modules_dir=` to point at a modules tree explicitly; otherwise `{source_lib_dir}/modules` is used when `module-map.json` is present.
+Optional ctor: `source_modules_dir=` to point at a modules tree explicitly; otherwise `\{source_lib_dir}/modules` is used when `module-map.json` is present.
 
 [NOTE]
 ====
