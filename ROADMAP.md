@@ -166,8 +166,10 @@ Detailed exploration, trade-offs, and API sketches: [`design/archive/conan-consu
 | `conan-integration` | Linux integration: install / generators_folder / shared `--test` / plugin / offline miss / publish | Done | `test_conan.py`; Linux CI installs Conan 2 |
 | `conan-publish-spike` | Spike Cuppa-build → `export-pkg` → local-cache consumer round-trip | Done | Producer path evidence |
 | `conan-publish` | `ConanPackagePublisher` + `PublishPackage`; settings; upload via `--publish-package` | Done | See [`design/archive/conan-publish-plan.md`](design/archive/conan-publish-plan.md) |
-| `conan-publish-recipe` | Hand-written `conanfile=` override; `shared=`; generated `requires=` | Done | Components still deferred; see [`design/issues/conan-components.md`](design/issues/conan-components.md) |
+| `conan-publish-recipe` | Hand-written `conanfile=` override; `shared=`; generated `requires=` | Done | Components still deferred; see `conan-components` below |
 | `conan-publish-modules` | Stage Cuppa `modules/` + BMI map in Conan packages; consumer `load_packaged_modules` | Done | Parity with GitLab generic `modules/` path |
+| `conan-components` | First-class multi-target packages via `cpp_info.components` | Later | Flat `cpp_info.libs` covers single-target packages today; GitHub [#125](https://github.com/ja11sop/cuppa/issues/125) |
+| `conan-windows-ci` | Install Conan 2 on the Windows job so `test_conan.py` runs under MSVC instead of skipping | Later | Needs a proven MSVC Conan profile; GitHub [#126](https://github.com/ja11sop/cuppa/issues/126) |
 
 ### Out of scope (Conan)
 

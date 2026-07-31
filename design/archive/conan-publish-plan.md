@@ -60,7 +60,7 @@ Reuse `conan_settings_for()` / `settings_to_cli()` from `cuppa/build_with_conan.
 | 1 MVP | Done — `ConanPackagePublisher`, unit/integration tests, packages docs |
 | 2 Hardening | Done — `conanfile=` override, `shared=`, generated `requires=` |
 | 2b Modules/BMI | Done — stage `modules/` + consumer `load_packaged_modules` (Cuppa-native; parity with GitLab) |
-| Later | Components / multi-lib `cpp_info.components` (see [`conan-components.md`](../issues/conan-components.md)) |
+| Later | Components / multi-lib `cpp_info.components` (see GitHub [#125](https://github.com/ja11sop/cuppa/issues/125)) |
 
 ## Caveats
 

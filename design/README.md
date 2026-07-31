@@ -10,9 +10,9 @@ alternatives behind one of those roadmap entries.
 
 | Folder | Holds | Lifecycle |
 |--------|-------|-----------|
-| [`plans/`](plans) | Proposals and design work that has not shipped | Delete when the work ships, unless the reasoning still answers questions later — then move to `archive/` |
-| [`issues/`](issues) | Text drafted for a GitHub issue that has not been filed yet | Delete once the issue is filed; the issue becomes the record |
-| [`archive/`](archive) | Shipped work whose design rationale is still cited from code or documentation | Keep while something references it |
+| `plans/` | Proposals and design work that has not shipped | Delete when the work ships, unless the reasoning still answers questions later — then move to `archive/` |
+| `issues/` | Text drafted for a GitHub issue that has not been filed yet | Delete once the issue is filed; the issue becomes the record, and the folder is empty until the next draft |
+| `archive/` | Shipped work whose design rationale is still cited from code or documentation | Keep while something references it |
 
 ## Index
 
@@ -22,8 +22,6 @@ alternatives behind one of those roadmap entries.
 | [`plans/modules-activation.md`](plans/modules-activation.md) | proposal | Whether C++ modules should stay opt-in behind `--modules` or become opt-out, and what must land first |
 | [`plans/removal-options.md`](plans/removal-options.md) | proposal | `--remove-build` / `--remove-dependencies` / `--purge-*`, listing with sizes, and renaming the storage roots |
 | [`plans/scons-tool-wrapper.md`](plans/scons-tool-wrapper.md) | proposal | Wrapping an SCons Tool as a cuppa dependency instead of hand-writing a dependency class |
-| [`issues/conan-components.md`](issues/conan-components.md) | issue draft | First-class multi-target Conan packages via `cpp_info.components` |
-| [`issues/conan-windows-ci.md`](issues/conan-windows-ci.md) | issue draft | Running the Conan 2 integration tests on Windows under MSVC |
 | [`archive/conan-consumer-plan.md`](archive/conan-consumer-plan.md) | shipped | Design of `conan_deps` / `conan_dependency` consumer support |
 | [`archive/conan-publish-plan.md`](archive/conan-publish-plan.md) | shipped | Design of `ConanPackagePublisher` and `--publish-package` |
 
