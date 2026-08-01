@@ -115,10 +115,10 @@ notes set up. For authenticated writes use `scripts.github_api` (and the helpers
 anonymous reads use the public GitHub HTTP API, `curl`, or `urllib` — still not `gh`.
 
 Cuppa is a public repository, so anything that only reads it — issue lists, issue bodies, pull
-request state — needs no credential at all. Use the public API anonymously and do not ask for a
-token. A token is only for **writing**: filing or editing issues, applying labels, commenting on
-pull requests. Pushing a branch is ordinary `git push -u origin HEAD`; that does not need this
-credential.
+request state, check runs — needs no credential at all. Use the public API anonymously
+(`GitHub.public()` / `pr-status` / `watch-pr`) and do not ask for a token. A token is only for
+**writing**: filing or editing issues, applying labels, commenting on pull requests. Pushing a
+branch is ordinary `git push -u origin HEAD`; that does not need this credential either.
 
 Having a token is optional. If you want an agent to write on your behalf, set it up as follows;
 tokens are personal, so mint your own rather than reusing anyone else's, and what an agent did
@@ -199,6 +199,10 @@ python -m scripts.github_helpers watch-pr          # current branch's open PR
 python -m scripts.github_helpers watch-pr --pr 139
 python -m scripts.github_helpers pr-status --pr 139   # one snapshot; no wait
 ```
+
+These status helpers read the public API anonymously — they do **not** unseal the token. Owner and
+repository come from the local `origin` remote. The default poll interval is three minutes; that
+matters less without a seal, but still keeps the noise down on long integration runs.
 
 Exit codes: `0` all checks succeeded (or were skipped / neutral), `1` at least one failed, `2`
 still pending (`pr-status` only), `3` timed out while still pending (`watch-pr`). Prefer

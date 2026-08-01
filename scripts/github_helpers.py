@@ -1,19 +1,25 @@
 """Higher-level GitHub operations for agents and maintenance, on top of ``github_api``.
 
 ``scripts.github_api`` is the credential and transport layer. This module is the place to add
-repeated write workflows — create a pull request, apply the ``impact:`` label, watch CI — so an
-agent does not rewrite the same ``urllib`` call every time. Grow it when the same sequence appears
+repeated workflows — create a pull request, apply the ``impact:`` label, watch CI — so an agent
+does not rewrite the same ``urllib`` call every time. Grow it when the same sequence appears
 twice; do not invent helpers for a one-off.
 
-Pushing a branch is still ``git push -u origin HEAD``. These helpers only cover the GitHub API
-surface that needs the sealed token (or that is easier through the same client).
+Owner and repository always come from the local ``origin`` remote (or explicit ``--owner`` /
+``--repo``). There is no baked-in default, so a checkout of a fork cannot silently talk to the
+wrong repository.
+
+Reads on a public repository use the anonymous API. ``pr-status`` and ``watch-pr`` do not unseal
+the token. Writes (``create-pr``, labelling) still go through the sealed credential.
+
+Pushing a branch is still ``git push -u origin HEAD``.
 
 Create a pull request from the current branch:
 
     python -m scripts.github_helpers create-pr \\
         --title "…" --body-file /tmp/pr.md --label impact:minor
 
-After a push, watch the open pull request's checks until they finish:
+After a push, watch the open pull request's checks until they finish (public read, no seal):
 
     python -m scripts.github_helpers watch-pr
     python -m scripts.github_helpers pr-status --pr 139
@@ -36,10 +42,8 @@ from collections import namedtuple
 from scripts.github_api import CredentialError, GitHub
 
 
-DEFAULT_OWNER = 'ja11sop'
-DEFAULT_REPO = 'cuppa'
 DEFAULT_BASE = 'master'
-DEFAULT_POLL_SECONDS = 30
+DEFAULT_POLL_SECONDS = 180
 DEFAULT_WATCH_TIMEOUT = 3600
 
 # Exit codes for pr-status / watch-pr so agents can branch without parsing prose.
@@ -84,23 +88,29 @@ def current_branch():
 
 
 def repository( owner=None, repo=None ):
-    """``owner/repo`` for API paths.
+    """``owner/repo`` for API paths, taken from the local ``origin`` remote.
 
-    Explicit arguments win. Otherwise the ``origin`` remote is parsed when it looks like this
-    repository; falling back to the defaults keeps the helpers usable outside a checkout.
+    Explicit arguments win when both are given. Otherwise ``origin`` must be configured and parse
+    as a GitHub owner/repo URL — there is no fallback name, so a missing or exotic remote fails
+    loudly instead of talking to the wrong repository.
     """
     if owner and repo:
         return owner, repo
+    if owner or repo:
+        raise GitHubHelperError( "give both --owner and --repo, or neither" )
 
-    try:
-        url = _run_git( 'config', '--get', 'remote.origin.url' )
-    except GitHubHelperError:
-        return owner or DEFAULT_OWNER, repo or DEFAULT_REPO
-
+    url = _run_git( 'config', '--get', 'remote.origin.url' )
     match = re.search( r'[:/]([^/]+)/([^/]+?)(?:\.git)?$', url )
-    if match:
-        return match.group( 1 ), match.group( 2 )
-    return owner or DEFAULT_OWNER, repo or DEFAULT_REPO
+    if not match:
+        raise GitHubHelperError(
+            "could not parse owner/repo from origin remote [{}]".format( url )
+        )
+    return match.group( 1 ), match.group( 2 )
+
+
+def public_github( github=None ):
+    """Client for public reads. Reuses ``github`` when the caller already has one."""
+    return github if github is not None else GitHub.public()
 
 
 def create_pull_request(
@@ -152,7 +162,7 @@ def find_open_pull_request( head=None, owner=None, repo=None, github=None ):
     """The open pull request for ``head`` (default: current branch), or None."""
     owner, repo = repository( owner, repo )
     head = head or current_branch()
-    client = github or GitHub()
+    client = public_github( github )
 
     status, pulls = client.request(
         'GET',
@@ -169,7 +179,7 @@ def find_open_pull_request( head=None, owner=None, repo=None, github=None ):
 def resolve_pull_request( number=None, head=None, owner=None, repo=None, github=None ):
     """A pull request by number, or the open one for the current branch."""
     owner, repo = repository( owner, repo )
-    client = github or GitHub()
+    client = public_github( github )
 
     if number is not None:
         status, pull = client.request(
@@ -222,9 +232,9 @@ def outcome_for( checks ):
 
 
 def pull_request_status( number=None, head=None, owner=None, repo=None, github=None ):
-    """Where the pull request's checks stand right now."""
+    """Where the pull request's checks stand right now (public API; no sealed token)."""
     owner, repo = repository( owner, repo )
-    client = github or GitHub()
+    client = public_github( github )
     pull = resolve_pull_request(
         number=number, head=head, owner=owner, repo=repo, github=client
     )
@@ -386,7 +396,7 @@ def main( argv=None ):
     _add_pr_selection_arguments( watch )
     watch.add_argument(
         '--interval', type=int, default=DEFAULT_POLL_SECONDS,
-        help="seconds between polls (default {})".format( DEFAULT_POLL_SECONDS ),
+        help="seconds between polls (default {} = 3 minutes)".format( DEFAULT_POLL_SECONDS ),
     )
     watch.add_argument(
         '--timeout', type=int, default=DEFAULT_WATCH_TIMEOUT,

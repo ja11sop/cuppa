@@ -39,11 +39,46 @@ def test_repository_parses_ssh_and_https_remotes( monkeypatch ):
     assert github_helpers.repository() == ( 'ja11sop', 'cuppa' )
 
 
-def test_repository_falls_back_when_git_is_unavailable( monkeypatch ):
+def test_repository_fails_when_origin_is_missing_or_unparseable( monkeypatch ):
     def fail( *args ):
         raise github_helpers.GitHubHelperError( 'no git' )
     monkeypatch.setattr( github_helpers, '_run_git', fail )
-    assert github_helpers.repository() == ( 'ja11sop', 'cuppa' )
+    with pytest.raises( github_helpers.GitHubHelperError, match='no git' ):
+        github_helpers.repository()
+
+    monkeypatch.setattr( github_helpers, '_run_git', lambda *args: 'not-a-github-remote' )
+    with pytest.raises( github_helpers.GitHubHelperError, match='could not parse' ):
+        github_helpers.repository()
+
+
+def test_pull_request_status_uses_a_public_client_by_default( monkeypatch ):
+    created = []
+
+    class CapturingPublic( object ):
+        @classmethod
+        def public( cls ):
+            client = FakeGitHub( responses=[
+                ( 200, {
+                    'number': 139,
+                    'html_url': 'https://example.com/pr/139',
+                    'state': 'open',
+                    'mergeable_state': 'clean',
+                    'head': { 'sha': 'abcdef0123456789' },
+                } ),
+                ( 200, { 'check_runs': [] } ),
+            ] )
+            created.append( client )
+            return client
+
+    monkeypatch.setattr( github_helpers, 'GitHub', CapturingPublic )
+    monkeypatch.setattr(
+        github_helpers, 'repository',
+        lambda owner=None, repo=None: ( 'ja11sop', 'cuppa' ),
+    )
+
+    status = github_helpers.pull_request_status( number=139 )
+    assert status.number == 139
+    assert created, "status helpers must use GitHub.public(), not the sealed client"
 
 
 def test_create_pull_request_opens_and_labels( monkeypatch ):
