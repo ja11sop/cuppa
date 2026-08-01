@@ -187,6 +187,24 @@ from scripts.github_helpers import create_pull_request
 create_pull_request( title='…', body='…', labels=['impact:minor'] )
 ```
 
+### After pushing a pull request branch
+
+After `git push -u origin HEAD` (or any later push to an open PR), **do not stop without knowing
+how CI finished**. The person should not be the first to discover a red check. Poll until the
+checks complete, then report the outcome and be ready to decide next steps — merge discussion if
+green, diagnosis and a fix if red.
+
+```sh
+python -m scripts.github_helpers watch-pr          # current branch's open PR
+python -m scripts.github_helpers watch-pr --pr 139
+python -m scripts.github_helpers pr-status --pr 139   # one snapshot; no wait
+```
+
+Exit codes: `0` all checks succeeded (or were skipped / neutral), `1` at least one failed, `2`
+still pending (`pr-status` only), `3` timed out while still pending (`watch-pr`). Prefer
+`watch-pr` after a push; use `pr-status` when you only need a snapshot. Grow this helper if the
+same follow-up (for example fetching a failed job log) starts repeating.
+
 Be clear about what sealing buys. It makes the stored file meaningless anywhere else — in a backup,
 a synced folder, or a pasted diff. It does **not** stop a process running as you from asking the
 helper for the token, because unattended decryption means the helper answers whoever asks. That
