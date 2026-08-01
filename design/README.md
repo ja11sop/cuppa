@@ -22,6 +22,10 @@ alternatives behind one of those roadmap entries.
 | [`plans/modules-activation.md`](plans/modules-activation.md) | proposal | Whether C++ modules should stay opt-in behind `--modules` or become opt-out, and what must land first |
 | [`plans/removal-options.md`](plans/removal-options.md) | proposal | `--remove-build` / `--remove-dependencies` / `--purge-*`, listing with sizes, and renaming the storage roots |
 | [`plans/scons-tool-wrapper.md`](plans/scons-tool-wrapper.md) | proposal | Wrapping an SCons Tool as a cuppa dependency instead of hand-writing a dependency class |
+| [`issues/storage-roots.md`](issues/storage-roots.md) | issue draft | Rename the storage roots and add `--storage-root` (removal plan Phase 1) |
+| [`issues/storage-listing-removal.md`](issues/storage-listing-removal.md) | issue draft | Listing and removal options for builds, dependencies, and downloads (Phases 2–4) |
+| [`issues/develop-copies.md`](issues/develop-copies.md) | issue draft | `--list-develop` and `--update-develop` (Phase 5) |
+| [`issues/artefact-removal-design.md`](issues/artefact-removal-design.md) | issue draft | Design pass for removing artefacts outside the build root (Phase 6) |
 | [`archive/conan-consumer-plan.md`](archive/conan-consumer-plan.md) | shipped | Design of `conan_deps` / `conan_dependency` consumer support |
 | [`archive/conan-publish-plan.md`](archive/conan-publish-plan.md) | shipped | Design of `ConanPackagePublisher` and `--publish-package` |
 
