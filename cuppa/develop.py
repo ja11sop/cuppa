@@ -19,11 +19,15 @@ Observation, reporting, and the git commands are kept out of them so the rules c
 without a repository, and so the two options can never judge the same copy differently.
 """
 
+import locale
 import os
+import re
+import sys
+import textwrap
 
 from collections import namedtuple
 
-from cuppa.colourise import as_error, as_info, as_info_label, as_notice, as_warning
+from cuppa.colourise import as_error, as_info, as_info_label, as_notice, as_subdued, as_warning
 from cuppa.location import develop_location
 from cuppa.log import logger
 from cuppa.scms import scms
@@ -63,12 +67,31 @@ def plural( count, noun, plural_noun=None ):
     return "{} {}".format( count, plural_noun or noun + "s" )
 
 
+def display_path( path ):
+    """A develop path as somewhere you can recognise.
+
+    Most develop paths are written relative to the sconstruct, so the resolved path carries the
+    `..` segments that got it there. Those are noise in a report, and the same path has to read
+    the same way in the table and in the judgement about it.
+    """
+    if not path:
+        return path
+    path = os.path.normpath( path )
+    home = os.path.expanduser( "~" )
+    if path.startswith( home ):
+        return "~" + path[len(home):]
+    return path
+
+
 #-------------------------------------------------------------------------------
 #   The rules
 #-------------------------------------------------------------------------------
 
 def classify( copy, current_branch, default_branch ):
     """How much of a problem this copy is, and why. A pure function of observed state.
+
+    Each note continues the sentence its dependency's name begins, because the report groups
+    notes under that name rather than repeating it on every line.
 
     Local work is benign only where the rest of the world will find it. On the branch being built
     it is the intended workflow, because pushing that branch makes every other build see the same
@@ -77,14 +100,14 @@ def classify( copy, current_branch, default_branch ):
     """
     if not copy.exists:
         return Classification( ERROR, [
-            "[{}] develop path [{}] does not exist, so this build cannot succeed".format(
-                    copy.name, copy.path )
+            "has a develop path [{}] that does not exist, so this build cannot succeed".format(
+                    display_path( copy.path ) )
         ] )
 
     if not copy.is_working_copy:
         return Classification( WARNING, [
-            "[{}] at [{}] is not a working copy, so its state cannot be reasoned about".format(
-                    copy.name, copy.path )
+            "at [{}] is not a working copy, so its state cannot be reasoned about".format(
+                    display_path( copy.path ) )
         ] )
 
     severities = [ OK ]
@@ -95,35 +118,32 @@ def classify( copy, current_branch, default_branch ):
 
     if copy.detached:
         severities.append( WARNING )
-        notes.append( "[{}] is on a detached HEAD; it works today and is forgotten"
-                      " tomorrow".format( copy.name ) )
+        notes.append( "is on a detached HEAD; it works today and is forgotten tomorrow" )
     elif not on_built_branch and not on_default_branch:
         severities.append( WARNING )
         if current_branch:
-            notes.append( "[{}] is on [{}], which is neither [{}] nor the default branch"
-                          " [{}]".format( copy.name, copy.branch, current_branch,
-                                          default_branch ) )
+            notes.append( "is on [{}], which is neither [{}] nor the default branch [{}]".format(
+                    copy.branch, current_branch, default_branch ) )
         else:
-            notes.append( "[{}] is on [{}], which is not the default branch [{}]".format(
-                    copy.name, copy.branch, default_branch ) )
+            notes.append( "is on [{}], which is not the default branch [{}]".format(
+                    copy.branch, default_branch ) )
 
     if copy.scm != 'git':
         severities.append( NOTE )
-        notes.append( "[{}] is a {} working copy; ahead, behind and modified are not"
-                      " reported for it".format( copy.name, copy.scm or "non-git" ) )
+        notes.append( "is a {} working copy; ahead, behind and modified are not reported"
+                      " for it".format( copy.scm or "non-git" ) )
     elif not copy.detached and not copy.upstream:
         severities.append( NOTE )
-        notes.append( "[{}] has no upstream branch, so ahead and behind cannot be"
-                      " answered".format( copy.name ) )
+        notes.append( "has no upstream branch, so ahead and behind cannot be answered" )
 
     if copy.behind and copy.ahead:
         severities.append( WARNING )
-        notes.append( "[{}] has diverged from [{}]: {} ahead, {} behind as of your last"
-                      " fetch".format( copy.name, copy.upstream, copy.ahead, copy.behind ) )
+        notes.append( "has diverged from [{}]: {} ahead, {} behind as of your last fetch".format(
+                copy.upstream, copy.ahead, copy.behind ) )
     elif copy.behind:
         severities.append( WARNING )
-        notes.append( "[{}] is {} behind [{}] as of your last fetch".format(
-                copy.name, plural( copy.behind, "commit" ), copy.upstream ) )
+        notes.append( "is {} behind [{}] as of your last fetch".format(
+                plural( copy.behind, "commit" ), copy.upstream ) )
     elif copy.ahead:
         severities.append( _local_work_severity( on_default_branch ) )
         notes.append( _local_work_note( copy, on_default_branch,
@@ -142,11 +162,11 @@ def _local_work_severity( on_default_branch ):
 
 def _local_work_note( copy, on_default_branch, work ):
     if on_default_branch:
-        return ( "[{name}] has {work} on the default branch [{branch}]; a build without"
-                 " --develop resolves [{name}] to the published [{branch}] and will not see"
-                 " them. Put the work on a branch named for the branch you are building, commit"
-                 " it, and push it".format( name=copy.name, work=work, branch=copy.branch ) )
-    return "[{}] has {} on [{}]".format( copy.name, work, copy.branch )
+        return ( "has {work} on the default branch [{branch}]; a build without --develop resolves"
+                 " it to the published [{branch}] and will not see them. Put the work on a branch"
+                 " named for the branch you are building, commit it, and push it".format(
+                        work=work, branch=copy.branch ) )
+    return "has {} on [{}]".format( work, copy.branch )
 
 
 def update_action( copy ):
@@ -282,30 +302,74 @@ def survey( cuppa_env ):
 
 #-------------------------------------------------------------------------------
 #   Reporting
+#
+#   A report is what was asked for, not commentary on producing it, so it is written to standard
+#   output rather than logged. Logging it would mean `--verbosity=warn` printing the warning rows
+#   of a table without its header, and `-Q` printing nothing at all. The logger keeps the
+#   diagnostics.
 #-------------------------------------------------------------------------------
 
-COLUMNS = ( "DEPENDENCY", "BRANCH", "UPSTREAM", "STATE", "PATH" )
-
-COLOUR_FOR = { OK: as_info, NOTE: as_info, WARNING: as_warning, ERROR: as_error }
+COLUMNS = ( "STATUS", "DEPENDENCY", "BRANCH", "UPSTREAM", "STATE", "PATH" )
 
 
-def log_at( severity, message ):
-    { OK: logger.info, NOTE: logger.info, WARNING: logger.warn, ERROR: logger.error }[severity](
-            COLOUR_FOR[severity]( message ) )
+def uncoloured( text ):
+    return text
 
 
-def display_path( path ):
-    if not path:
-        return path
-    path = os.path.normpath( path )
-    home = os.path.expanduser( "~" )
-    if path.startswith( home ):
-        return "~" + path[len(home):]
-    return path
+# A copy with nothing to be done about it is left in the console's own colour, so the rows that
+# want attention are the only coloured ones in the table.
+COLOUR_FOR = { OK: uncoloured, NOTE: as_info, WARNING: as_warning, ERROR: as_error }
+
+# Severity has to survive --raw-output, so it is a column rather than a colour or a log prefix.
+STATUS_FOR = { OK: "ok", NOTE: "note", WARNING: "warn", ERROR: "error" }
+
+# The column abbreviates to keep the table narrow; a heading has the room to say it in full.
+HEADING_FOR = { OK: "ok", NOTE: "note", WARNING: "warning", ERROR: "error" }
+
+INDENT = "  "
+RULE = "-"
+
+# Prose is wrapped to the table's right edge so the report has one, but a wide table comes from a
+# long path rather than from anything worth reading across, so the text stops at a readable width.
+WIDEST_PROSE = 110
+NARROWEST_PROSE = 40
+
+# The values a note is about. Colouring these and leaving the prose plain is what lets a name be
+# found in a page of text; colouring both leaves nothing to find.
+VALUES = re.compile( r'\[([^\[\]]+)\]' )
+
+# tee, elbow, and the two continuations that sit under them, each the same width.
+GLYPHS = ( "\u251c\u2500\u2500 ", "\u2514\u2500\u2500 ", "\u2502   ", "    " )
+ASCII_GLYPHS = ( "+-- ", "`-- ", "|   ", "    " )
 
 
-def row_for( copy ):
+Entry = namedtuple( 'Entry', [ 'copy', 'severity', 'notes' ] )
+
+
+def write( text="" ):
+    print( text )
+
+
+def highlight_values( text, colour ):
+    return VALUES.sub( lambda match: "[" + colour( match.group(1) ) + "]", text )
+
+
+def action_line( text, colour=as_info ):
+    """An action, indented under the table, with only the values it names picked out."""
+    return INDENT + highlight_values( text, colour )
+
+
+def entries( copies, current_branch, default_branch ):
+    """The report as data, so a renderer decides only how to present it."""
+    return [
+        Entry( copy, *classify( copy, current_branch, default_branch ) ) for copy in copies
+    ]
+
+
+def row_for( entry ):
+    copy = entry.copy
     return (
+        STATUS_FOR[entry.severity],
         copy.name,
         copy.detached and "(detached)" or ( copy.branch or "-" ),
         copy.upstream or "-",
@@ -314,62 +378,182 @@ def row_for( copy ):
     )
 
 
-def table( copies ):
-    """The rows, padded to the widest value in each column including the header."""
-    rows = [ COLUMNS ] + [ row_for( copy ) for copy in copies ]
+def table( entries ):
+    """Header and rows as plain text, padded to the widest value in each column."""
+    rows = [ COLUMNS ] + [ row_for( entry ) for entry in entries ]
     widths = [ max( len( row[column] ) for row in rows ) for column in range( len( COLUMNS ) ) ]
     return [
-        "  " + "  ".join( value.ljust( width )
-                          for value, width in zip( row, widths ) ).rstrip()
+        INDENT + "  ".join( value.ljust( width )
+                            for value, width in zip( row, widths ) ).rstrip()
         for row in rows
     ]
 
 
-def report( copies, without_develop, current_branch, default_branch, develop_active ):
-    """Print the table, then the judgements in full, so a reason needs no column decoding."""
+def table_width( entries ):
+    return max( len( row ) for row in table( entries ) )
+
+
+def emphasis( severity, text ):
+    """A row asking for attention is shown at full strength, and everything else recedes.
+
+    Reduced intensity is what makes a copy with nothing to be done about it quiet without hiding
+    it, and it behaves the same way on a light console as on a dark one.
+    """
+    coloured = COLOUR_FOR[severity]( text )
+    return as_subdued( coloured ) if severity in ( OK, NOTE ) else coloured
+
+
+def render_table( entries ):
+    """The table, ruled around the header and under the last row."""
+    rows = table( entries )
+    rule = as_subdued( INDENT + RULE * ( table_width( entries ) - len( INDENT ) ) )
+
+    lines = [ rule, rows[0], rule ]
+    for entry, row in zip( entries, rows[1:] ):
+        lines.append( emphasis( entry.severity, row ) )
+    lines.append( rule )
+    return lines
+
+
+def glyphs( encoding=None ):
+    """Box drawing where the console can encode it, ASCII where it cannot."""
+    encoding = ( encoding
+                 or getattr( sys.stdout, 'encoding', None )
+                 or locale.getpreferredencoding()
+                 or 'ascii' )
+    try:
+        "".join( GLYPHS ).encode( encoding )
+    except ( UnicodeError, LookupError ):
+        return ASCII_GLYPHS
+    return GLYPHS
+
+
+def wrapped( text, width ):
+    """The text as lines that fit, keeping bracketed values whole so they can still be coloured."""
+    if not width:
+        return [ text ]
+    return textwrap.wrap( text, max( width, NARROWEST_PROSE ),
+                          break_long_words=False, break_on_hyphens=False ) or [ text ]
+
+
+def render_judgements( entries, width=None, encoding=None ):
+    """Every judgement in one tree that hangs from the summary line: severity, then dependency,
+    then reason, worst first.
+
+    Reading down the tree is reading a work list. What must be fixed for the build to succeed is
+    at the top, and what is only worth knowing is at the bottom, each dependency named once.
+
+    A reason long enough to run past `width` is wrapped and the stem is carried down through the
+    wrapped lines, so the tree stays a tree and the report keeps one right edge.
+    """
+    tee, elbow, pipe, gap = glyphs( encoding )
+    stub = pipe.rstrip()
+    lines = []
+
+    groups = [ ( severity, [ entry for entry in entries
+                             if entry.severity == severity and entry.notes ] )
+               for severity in ( ERROR, WARNING, NOTE ) ]
+    groups = [ group for group in groups if group[1] ]
+
+    for index, ( severity, group ) in enumerate( groups ):
+        last_group = index == len( groups ) - 1
+        colour = COLOUR_FOR[severity]
+        # A gap on the stem above each name, so a dependency and its reasons read as one block
+        # rather than as a wall of branches.
+        lines.append( as_subdued( stub ) )
+        lines.append( as_subdued( last_group and elbow or tee )
+                      + colour( plural( len( group ), HEADING_FOR[severity] ) ) )
+
+        under_severity = last_group and gap or pipe
+        for position, entry in enumerate( group ):
+            last_entry = position == len( group ) - 1
+            lines.append( as_subdued( under_severity + stub ) )
+            lines.append( as_subdued( under_severity + ( last_entry and elbow or tee ) )
+                          + colour( entry.copy.name ) )
+
+            under_entry = under_severity + ( last_entry and gap or pipe )
+            for note_index, note in enumerate( entry.notes ):
+                last_note = note_index == len( entry.notes ) - 1
+                branch = under_entry + ( last_note and elbow or tee )
+                carried = under_entry + ( last_note and gap or pipe )
+                for piece in wrapped( note, width and width - len( branch ) ):
+                    lines.append( as_subdued( branch ) + highlight_values( piece, colour ) )
+                    branch = carried
+
+    return lines
+
+
+def summary( entries, without_develop ):
+    counts = { OK: 0, NOTE: 0, WARNING: 0, ERROR: 0 }
+    for entry in entries:
+        counts[entry.severity] += 1
+    return "{}: {} ok, {}, {}, {}; {} not using develop".format(
+            plural( len( entries ), "develop location" ),
+            counts[OK],
+            plural( counts[NOTE], "note" ),
+            plural( counts[WARNING], "warning" ),
+            plural( counts[ERROR], "error" ),
+            plural( len( without_develop ), "dependency", "dependencies" ) )
+
+
+def suggestion( copies ):
+    """What `--update-develop` would make of what has just been observed, or nothing when it
+    would leave every copy alone.
+
+    The decision comes from `update_action()`, the same function `--update-develop` uses, so the
+    suggestion cannot promise something the option will then decline to do. It can understate,
+    because `--update-develop` fetches before deciding and a fetch can find more, and the line
+    says so rather than leaving the reader to discover it.
+    """
+    ready = [ copy.name for copy in copies if update_action( copy ).act ]
+    if not ready:
+        return None
+    return ( "Of these, --update-develop would fast-forward {} ({}) as of your last fetch;"
+             " it fetches first, so it may find more".format(
+                    len( ready ), ", ".join( "[{}]".format( name ) for name in ready ) ) )
+
+
+def report( copies, without_develop, current_branch, default_branch, develop_active, out=write,
+            suggest_update=False ):
+    """Write the table, then the judgements in full, so a reason needs no column decoding."""
     if not copies:
-        logger.info( "No dependencies have a develop location configured; {} dependencies"
-                     " in total".format( len( without_develop ) ) )
+        out()
+        out( "No dependencies have a develop location configured; {} in total".format(
+                plural( len( without_develop ), "dependency", "dependencies" ) ) )
         return OK
 
-    classifications = [
-        ( copy, classify( copy, current_branch, default_branch ) ) for copy in copies
-    ]
+    found = entries( copies, current_branch, default_branch )
+    width = min( table_width( found ), WIDEST_PROSE )
 
-    logger.info( "Building on branch [{}] with default branch [{}]; --develop is {}".format(
+    out()
+    out( "Building on branch [{}] with default branch [{}]; --develop is {}".format(
             as_info( current_branch or "unknown" ),
             as_info( default_branch ),
             develop_active and as_info_label( "active" ) or as_notice( "not active" )
     ) )
+    out()
 
-    lines = table( copies )
-    logger.info( lines[0] )
-    for ( copy, classification ), line in zip( classifications, lines[1:] ):
-        log_at( classification.severity, line )
+    for line in render_table( found ):
+        out( line )
 
-    counts = { OK: 0, NOTE: 0, WARNING: 0, ERROR: 0 }
-    for copy, classification in classifications:
-        counts[classification.severity] += 1
+    out()
+    out( summary( found, without_develop ) )
 
-    logger.info( "{}: {} ok, {}, {}, {};"
-                 " {} not using develop".format(
-                        plural( len( copies ), "develop location" ),
-                        counts[OK],
-                        plural( counts[NOTE], "note" ),
-                        plural( counts[WARNING], "warning" ),
-                        plural( counts[ERROR], "error" ),
-                        plural( len( without_develop ), "dependency", "dependencies" ) ) )
+    for line in render_judgements( found, width ):
+        out( line )
 
-    for copy, classification in classifications:
-        for note in classification.notes:
-            log_at( classification.severity, note )
+    out()
+    out( "Ahead and behind are relative to your last fetch; no remote was contacted" )
 
-    logger.info( "Ahead and behind are relative to your last fetch; no remote was contacted" )
+    advice = suggest_update and suggestion( copies ) or None
+    if advice:
+        for piece in wrapped( advice, width ):
+            out( highlight_values( piece, as_info ) )
 
-    return worst( [ classification.severity for copy, classification in classifications ] )
+    return worst( [ entry.severity for entry in found ] )
 
 
-def list_develop( cuppa_env ):
+def list_develop( cuppa_env, out=write ):
     """`--list-develop`. Non-zero only when a develop path does not exist, because that build
     cannot succeed and a CI job should hear about it."""
     copies, without_develop = survey( cuppa_env )
@@ -378,12 +562,14 @@ def list_develop( cuppa_env ):
             without_develop,
             cuppa_env['current_branch'],
             cuppa_env['location_default_branch'],
-            cuppa_env['develop']
+            cuppa_env['develop'],
+            out,
+            suggest_update=True
     )
     return severity == ERROR and 1 or 0
 
 
-def update_develop( cuppa_env ):
+def update_develop( cuppa_env, out=write ):
     """`--update-develop`. Fetch, then fast-forward only where nothing can be lost."""
     if cuppa_env['offline']:
         logger.error( "--update-develop needs the network, but --offline was specified" )
@@ -395,51 +581,55 @@ def update_develop( cuppa_env ):
     dry_run = cuppa_env.get_option( 'no_exec' ) and True or False
 
     copies, without_develop = survey( cuppa_env )
-    report( copies, without_develop, current_branch, default_branch, develop_active )
+    report( copies, without_develop, current_branch, default_branch, develop_active, out )
 
+    out()
     if dry_run:
-        logger.info( as_info_label( "Dry run: showing what --update-develop would do" ) )
+        # No fetch happens, so the decisions shown are the ones the last fetch supports.
+        out( "{} {}".format(
+                as_info_label( "Dry run" ),
+                "showing what --update-develop would do, judged as of your last fetch" ) )
 
     failures = 0
     updated = []
 
     for copy in copies:
-        observed, failed = _fetch( copy, dry_run )
+        observed, failed = _fetch( copy, dry_run, out )
         failures += failed
 
         action = update_action( observed )
         if not action.act:
-            logger.info( "Leaving [{}] alone: {}".format(
-                    as_info( observed.name ), as_notice( action.reason ) ) )
+            out( action_line( "Leaving [{}] alone: {}".format(
+                    observed.name, action.reason ) ) )
             continue
 
         if dry_run:
-            logger.info( "Would fast-forward [{}], {}".format(
-                    as_info( observed.name ), as_notice( action.reason ) ) )
+            out( action_line( "Would fast-forward [{}], {}".format(
+                    observed.name, action.reason ) ) )
             continue
 
         try:
             Git.fast_forward( observed.path )
             updated.append( observed.name )
-            logger.info( "Fast-forwarded [{}], which was {}".format(
-                    as_info( observed.name ), as_notice( action.reason ) ) )
+            out( action_line( "Fast-forwarded [{}], which was {}".format(
+                    observed.name, action.reason ) ) )
         except Git.Error as error:
             failures += 1
-            logger.error( "Could not fast-forward [{}]: {}".format(
-                    as_error( observed.name ), as_error( str(error) ) ) )
+            out( action_line( "Could not fast-forward [{}]: {}".format(
+                    observed.name, str(error) ), as_error ) )
 
     if dry_run:
         return 0
 
-    severity = OK
     if updated:
-        logger.info( "Updated {} of {} develop locations. The state is now:".format(
-                len( updated ), len( copies ) ) )
+        out()
+        out( "Updated {} of {}. The state is now:".format(
+                len( updated ), plural( len( copies ), "develop location" ) ) )
         copies, without_develop = survey( cuppa_env )
         severity = report( copies, without_develop, current_branch, default_branch,
-                           develop_active )
+                           develop_active, out )
     else:
-        logger.info( "Nothing could be fast-forwarded; no working copy was changed" )
+        out( INDENT + "Nothing could be fast-forwarded; no working copy was changed" )
         severity = worst( [ OK ] + [
             classify( copy, current_branch, default_branch ).severity for copy in copies
         ] )
@@ -449,21 +639,21 @@ def update_develop( cuppa_env ):
     return severity == ERROR and 1 or 0
 
 
-def _fetch( copy, dry_run ):
+def _fetch( copy, dry_run, out ):
     """Fetch, then observe again: the decision must be taken on what is true after the fetch."""
     if not copy.exists or copy.scm != 'git':
         return copy, 0
 
     if dry_run:
-        logger.info( "Would fetch [{}] in [{}]".format(
-                as_info( copy.name ), as_notice( display_path( copy.path ) ) ) )
+        out( action_line( "Would fetch [{}] in [{}]".format(
+                copy.name, display_path( copy.path ) ) ) )
         return copy, 0
 
     try:
         Git.fetch( copy.path )
     except Git.Error as error:
-        logger.error( "Could not fetch [{}]: {}".format(
-                as_error( copy.name ), as_error( str(error) ) ) )
+        out( action_line( "Could not fetch [{}]: {}".format(
+                copy.name, str(error) ), as_error ) )
         return copy, 1
 
     return inspect( copy.name, copy.path ), 0

@@ -23,6 +23,11 @@ class AutoFlushWriter(object):
         self.f.write(x)
         self.f.flush()
 
+    def __getattr__( self, name ):
+        # Anything else the stream is asked for -- encoding, isatty, fileno -- is answered by the
+        # stream being wrapped, rather than looking like a stream that cannot answer.
+        return getattr( self.f, name )
+
 
 try:
     import colorama

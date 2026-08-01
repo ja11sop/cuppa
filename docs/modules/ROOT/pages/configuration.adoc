@@ -58,6 +58,7 @@ cuppa.run(
 | `CI_JOB_TOKEN` | GitLab CI job token for registry access
 | Per-package custom token | Via `--<name>-gitlab-custom-token` (option names a token-bearing setting)
 | `PATH` / `PKG_CONFIG_PATH` | How much of your shell environment reaches build/test/run subprocesses depends on `--propagate-env`, `--propagate-path`, and `--merge-path` (see xref:cli-reference.adoc#environment-propagation[Environment propagation]). Host `PKG_CONFIG_PATH` is forwarded even when those flags are off.
+| `CUPPA_CONSOLE_BACKGROUND` | `light` or `dark`. Tells cuppa which way to make text recede: reduced intensity on a dark console, grey on a light one. Set it when your console is light, because most terminals report nothing and reduced intensity applied to black text on white can look untouched. Where a terminal does set `COLORFGBG`, cuppa reads it, and this variable overrides it.
 |===
 
 The `cuppa` wrapper masks environment values whose names match `*TOKEN*` in build output.

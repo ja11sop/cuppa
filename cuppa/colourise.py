@@ -9,7 +9,42 @@
 #   Colouriser
 #-------------------------------------------------------------------------------
 
+import os
 import re
+
+
+# Reduced intensity moves text towards the background, which only works when the background is
+# the darker end. On a light console the default foreground is already black and dimming it can
+# leave it looking untouched, so a grey foreground is used there instead.
+GREY_256 = "\x1b[38;5;244m"
+BRIGHT_BLACK = "\x1b[90m"
+
+# The convention COLORFGBG reports: the last field is the background colour index, and 7 or 15
+# means a light background. Anything else is treated as dark, which is the safe assumption.
+LIGHT_BACKGROUNDS = ( 7, 15 )
+
+
+def console_background():
+    """`light`, `dark`, or `unknown` where the terminal does not say.
+
+    `CUPPA_CONSOLE_BACKGROUND` settles it for terminals that report nothing, which is most of
+    them; `COLORFGBG` is used where a terminal does set it.
+    """
+    declared = os.environ.get( 'CUPPA_CONSOLE_BACKGROUND', '' ).strip().lower()
+    if declared in ( 'light', 'dark' ):
+        return declared
+
+    fields = os.environ.get( 'COLORFGBG', '' ).split( ';' )
+    background = fields[-1].strip()
+    if background.isdigit():
+        return int( background ) in LIGHT_BACKGROUNDS and 'light' or 'dark'
+
+    return 'unknown'
+
+
+def supports_256_colours():
+    term = os.environ.get( 'TERM', '' )
+    return '256color' in term or bool( os.environ.get( 'COLORTERM', '' ) )
 
 
 try:
@@ -49,6 +84,25 @@ class Colouriser(object):
             return text
         else:
             return colorama.Style.BRIGHT + text + colorama.Style.RESET_ALL
+
+
+    def subdue( self, text ):
+        """Text that recedes: reduced intensity on a dark console, grey on a light one.
+
+        Both move the text towards the background rather than towards a colour, so the meaning
+        survives either console, and a terminal that ignores the sequence shows ordinary text.
+        """
+        if not self.use_colour:
+            return text
+        return self.start_subdued() + text + colorama.Style.RESET_ALL
+
+
+    def start_subdued( self ):
+        if not self.use_colour:
+            return ''
+        if console_background() == 'light':
+            return supports_256_colours() and GREY_256 or BRIGHT_BLACK
+        return colorama.Style.DIM
 
 
     def emphasise_time_by_group( self, time_text ):
@@ -200,6 +254,12 @@ def as_highlighted( meaning, text ):
 
 def as_emphasised( text ):
     return colouriser.emphasise( text )
+
+def as_subdued( text ):
+    return colouriser.subdue( text )
+
+def start_subdued():
+    return colouriser.start_subdued()
 
 def as_error( text ):
     return colouriser.colour( 'error', text )

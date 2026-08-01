@@ -5,12 +5,16 @@
 
 """The rules behind --list-develop and --update-develop, which are pure functions of state."""
 
+import logging
 import os
 import shutil
 import subprocess
 
+from contextlib import contextmanager
+
 import pytest
 
+from cuppa.colourise import colouriser, start_subdued
 from cuppa.develop import (
     ERROR,
     NOTE,
@@ -18,15 +22,22 @@ from cuppa.develop import (
     WARNING,
     Copy,
     classify,
+    entries,
+    highlight_values,
     inspect,
     list_develop,
+    render_judgements,
+    render_table,
+    row_for,
     state_summary,
+    suggestion,
     survey,
     table,
     update_action,
     update_develop,
 )
 from cuppa.location import Location, develop_location
+from cuppa.log import logger
 from cuppa.scms.git import Git
 
 
@@ -35,6 +46,25 @@ pytestmark = pytest.mark.unit
 
 BUILT = "feature_orders"
 DEFAULT = "master"
+
+RESET = "\x1b[0m"
+
+STUB  = "\u2502"
+TEE   = "\u251c\u2500\u2500 "
+ELBOW = "\u2514\u2500\u2500 "
+PIPE  = "\u2502   "
+GAP   = "    "
+
+
+@contextmanager
+def colour():
+    """Colour is off by default in a test run, so a test that is about colour turns it on."""
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        yield start_subdued()
+    finally:
+        colouriser.use_colour = was
 
 
 def copy( **observed ):
@@ -178,11 +208,161 @@ def test_state_summary( observed, expected ):
 
 
 def test_the_table_has_a_header_row_and_aligned_columns():
-    lines = table( [ copy( name="widget" ), copy( name="a_much_longer_name" ) ] )
+    lines = table( entries( [ copy( name="widget" ), copy( name="a_much_longer_name" ) ],
+                            BUILT, DEFAULT ) )
 
-    assert lines[0].split() == [ "DEPENDENCY", "BRANCH", "UPSTREAM", "STATE", "PATH" ]
+    assert lines[0].split() == [ "STATUS", "DEPENDENCY", "BRANCH", "UPSTREAM", "STATE", "PATH" ]
     assert lines[0].index( "BRANCH" ) == lines[1].index( BUILT )
     assert lines[1].index( BUILT ) == lines[2].index( BUILT )
+
+
+def test_the_table_is_ruled_above_and_below_the_header_and_at_the_foot():
+    found = entries( [ copy( name="widget" ), copy( name="gadget" ) ], BUILT, DEFAULT )
+    lines = render_table( found )
+
+    assert lines[0] == lines[2] == lines[-1]
+    assert set( lines[0].strip() ) == { "-" }
+    assert len( lines[0] ) == max( len( row ) for row in table( found ) )
+    assert lines[1].split()[0] == "STATUS"
+    assert len( lines ) == 4 + len( found )
+
+
+def test_rows_that_need_nothing_recede_and_rows_that_need_attention_do_not():
+    """Receding, rather than a background colour, reads the same way on a light console as on a
+    dark one, and a terminal that ignores it just shows a plain table."""
+    found = entries( [ copy( name="widget" ),
+                       copy( name="flange", ahead=2 ),
+                       copy( name="gadget", behind=2 ),
+                       copy( name="gizmo", exists=False ) ], BUILT, DEFAULT )
+
+    with colour() as subdued:
+        rows = render_table( found )[3:-1]
+
+    assert [ row.startswith( subdued ) for row in rows ] == [ True, True, False, False ]
+
+
+def test_a_note_colours_the_values_and_leaves_the_prose_plain():
+    coloured = highlight_values( "[flange] is behind [origin/master] as of your last fetch",
+                                 lambda value: "<" + value + ">" )
+    assert coloured == "[<flange>] is behind [<origin/master>] as of your last fetch"
+
+
+def test_judgements_hang_from_the_summary_as_one_tree_worst_first():
+    """Reading down the tree is reading a work list: what stops the build, then what needs a
+    decision, then what is only worth knowing, all of it one tree rooted on the summary."""
+    found = entries( [ copy( name="widget" ),
+                       copy( name="flange", ahead=2 ),
+                       copy( name="doodad", detached=True, branch=None ),
+                       copy( name="gizmo", exists=False ) ], BUILT, DEFAULT )
+    lines = render_judgements( found )
+
+    assert lines[0] == STUB
+    assert lines[1] == TEE + "1 error"
+    assert lines[2] == PIPE + STUB
+    assert lines[3] == PIPE + ELBOW + "gizmo"
+    assert lines[4].startswith( PIPE + GAP + ELBOW + "has a develop path" )
+    assert lines[5] == STUB
+    assert lines[6] == TEE + "1 warning"
+    assert lines[10] == STUB
+    assert lines[11] == ELBOW + "1 note"
+    assert lines[12] == GAP + STUB
+    assert lines[13] == GAP + ELBOW + "flange"
+    assert lines[14] == GAP + GAP + ELBOW + "has 2 unpushed commits on [feature_orders]"
+
+
+def test_a_severity_heading_counts_the_dependencies_under_it():
+    """The heading answers how much of this there is before you read any of it."""
+    found = entries( [ copy( name="doodad", detached=True, branch=None ),
+                       copy( name="gadget", detached=True, branch=None ),
+                       copy( name="flange", ahead=2 ) ], BUILT, DEFAULT )
+    lines = render_judgements( found )
+
+    assert lines[1] == TEE + "2 warnings"
+    assert ELBOW + "1 note" in lines
+
+
+def test_a_severity_with_two_dependencies_keeps_the_stem_under_the_first():
+    found = entries( [ copy( name="doodad", detached=True, branch=None ),
+                       copy( name="gadget", branch="spike", upstream="origin/spike",
+                             modified=True ) ], BUILT, DEFAULT )
+    lines = render_judgements( found )
+
+    assert lines == [
+        STUB,
+        ELBOW + "2 warnings",
+        GAP + STUB,
+        GAP + TEE + "doodad",
+        GAP + PIPE + ELBOW + "is on a detached HEAD; it works today and is forgotten tomorrow",
+        GAP + STUB,
+        GAP + ELBOW + "gadget",
+        GAP + GAP + TEE + "is on [spike], which is neither [feature_orders] nor the default"
+        " branch [master]",
+        GAP + GAP + ELBOW + "has uncommitted changes on [spike]",
+    ]
+
+
+def test_the_tree_falls_back_to_ascii_when_the_console_cannot_encode_it():
+    found = entries( [ copy( name="doodad", detached=True, branch=None ) ], BUILT, DEFAULT )
+
+    assert render_judgements( found, encoding='ascii' )[:4] == [
+        "|", "`-- 1 warning", "    |", "    `-- doodad"
+    ]
+    assert render_judgements( found, encoding='utf-8' )[3] == GAP + ELBOW + "doodad"
+
+
+def test_a_long_reason_wraps_and_the_stem_is_carried_down_the_wrapped_lines():
+    """A reason that runs past the table's right edge is wrapped rather than left to wrap itself
+    at the console edge, which would break the tree."""
+    found = entries( [ copy( name="widget", branch=DEFAULT, upstream="origin/" + DEFAULT,
+                             modified=True ) ], BUILT, DEFAULT )
+    lines = render_judgements( found, width=72 )
+    reasons = lines[4:]
+
+    assert len( reasons ) > 1
+    assert reasons[0].startswith( GAP + GAP + ELBOW )
+    assert all( line.startswith( GAP + GAP + GAP ) for line in reasons[1:] )
+    assert all( len( line ) <= 72 for line in lines )
+    assert " ".join( line.lstrip( "\u2502\u251c\u2514\u2500 " ) for line in reasons ) \
+        == found[0].notes[0]
+
+
+def test_a_reason_is_not_wrapped_when_no_width_is_given():
+    found = entries( [ copy( name="widget", branch=DEFAULT, upstream="origin/" + DEFAULT,
+                             modified=True ) ], BUILT, DEFAULT )
+
+    assert render_judgements( found )[4:] == [ GAP + GAP + ELBOW + found[0].notes[0] ]
+
+
+def test_an_ok_copy_recedes_and_says_nothing_more():
+    """Nothing to be done, so nothing to draw the eye: no colour of its own, and no note."""
+    entry = entries( [ copy( name="widget" ) ], BUILT, DEFAULT )[0]
+
+    with colour() as subdued:
+        row = render_table( [ entry ] )[3]
+
+    assert row == subdued + table( [ entry ] )[1] + RESET
+    assert render_judgements( [ entry ] ) == []
+
+
+def test_a_judgement_names_a_path_the_way_the_table_does():
+    """Develop paths are usually written relative to the sconstruct, so the resolved path is full
+    of `..`. The table tidies it and the judgement about it has to agree."""
+    relative = os.path.join( os.path.expanduser( "~" ), "coding", "project", "..", "gizmo" )
+    entry = entries( [ copy( name="gizmo", path=relative, exists=False ) ], BUILT, DEFAULT )[0]
+
+    assert entry.notes[0].startswith( "has a develop path [~/coding/gizmo]" )
+    assert row_for( entry )[-1] == "~/coding/gizmo"
+
+
+def test_severity_is_a_column_so_it_survives_colourless_output():
+    """With no log prefix and no colour, the status must still be readable and greppable."""
+    rows = table( entries( [ copy( name="widget" ),
+                             copy( name="flange", behind=2 ),
+                             copy( name="gizmo", exists=False ) ], BUILT, DEFAULT ) )
+
+    assert rows[1].split()[0] == "ok"
+    assert rows[2].split()[0] == "warn"
+    assert rows[3].split()[0] == "error"
 
 
 #-------------------------------------------------------------------------------
@@ -210,6 +390,22 @@ def test_everything_else_is_skipped_with_a_reason( observed, reason ):
     action = update_action( copy( **observed ) )
     assert not action.act
     assert reason in action.reason
+
+
+def test_the_report_says_what_updating_would_do_when_it_would_do_something():
+    """The suggestion comes from update_action(), so it cannot offer what --update-develop then
+    declines to do, and it says that a fetch may find more rather than reading as a promise."""
+    advice = suggestion( [ copy( name="widget", behind=3 ),
+                           copy( name="flange", behind=1 ),
+                           copy( name="gadget", modified=True ) ] )
+
+    assert "fast-forward 2 ([widget], [flange])" in advice
+    assert "as of your last fetch" in advice
+    assert "may find more" in advice
+
+
+def test_nothing_is_suggested_when_every_copy_would_be_left_alone():
+    assert suggestion( [ copy( name="widget" ), copy( name="gadget", modified=True ) ] ) is None
 
 
 #-------------------------------------------------------------------------------
@@ -289,6 +485,33 @@ def test_a_report_exits_zero_even_when_it_warns( tmp_path ):
     """A directory that is not a working copy is worth a warning, not a failed build."""
     env = fake_env( { 'widget': dependency_with_develop( 'widget', str(tmp_path) ) } )
     assert list_develop( env ) == 0
+
+
+def test_the_report_is_written_to_standard_output( tmp_path, capsys ):
+    env = fake_env( { 'widget': dependency_with_develop( 'widget', str(tmp_path) ) } )
+    list_develop( env )
+
+    written = capsys.readouterr().out
+    assert "DEPENDENCY" in written
+    assert "widget" in written
+    assert "develop location" in written
+
+
+def test_the_report_survives_a_quiet_log_level( tmp_path, capsys ):
+    """The report is what was asked for, so a quieter log must not take pieces out of it."""
+    env = fake_env( { 'widget': dependency_with_develop( 'widget', str(tmp_path) ) } )
+
+    was = logger.level
+    logger.setLevel( logging.CRITICAL )
+    try:
+        list_develop( env )
+    finally:
+        logger.setLevel( was )
+
+    written = capsys.readouterr().out
+    assert "DEPENDENCY" in written
+    assert "not a working copy" in written
+    assert "develop location" in written
 
 
 def test_a_missing_develop_path_exits_non_zero( tmp_path ):
@@ -431,3 +654,24 @@ def test_a_directory_that_is_not_a_working_copy_is_observed_as_such( tmp_path ):
     observed = inspect( "widget", str(tmp_path) )
     assert observed.exists
     assert not observed.is_working_copy
+
+
+@git_available
+def test_listing_ends_by_saying_what_updating_would_do( working_copy, capsys ):
+    origin, clone = working_copy
+    commit( origin, "second" )
+    Git.fetch( str(clone) )
+
+    list_develop( fake_env( { 'widget': dependency_with_develop( 'widget', str(clone) ) } ) )
+
+    assert "--update-develop would fast-forward 1 ([widget])" in capsys.readouterr().out
+
+
+@git_available
+def test_updating_does_not_suggest_the_option_you_have_just_run( working_copy, capsys ):
+    origin, clone = working_copy
+    commit( origin, "second" )
+
+    update_develop( fake_env( { 'widget': dependency_with_develop( 'widget', str(clone) ) } ) )
+
+    assert "--update-develop would fast-forward" not in capsys.readouterr().out
