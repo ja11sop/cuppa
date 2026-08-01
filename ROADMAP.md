@@ -255,6 +255,7 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 |----|------|----------|-------|
 | `storage-roots` | Rename to `--dependencies-root` / `--downloads-root`, add `--storage-root`, default to `~/.cuppa` | High | Old options kept as deprecated aliases; existing trees still used. GitHub [#133](https://github.com/ja11sop/cuppa/issues/133) |
 | `storage-listing-removal` | `--list-*`, `--remove-*`, `--purge-*` for builds, dependencies, and downloads | Medium | Depends on the rename so one vocabulary is used throughout. GitHub [#134](https://github.com/ja11sop/cuppa/issues/134) |
+| `develop-clone` | `--clone-develop` for a develop working copy that is configured but not yet on disk, for a new machine or a dependency added since you last looked | Medium | Surface settled, remaining design to finalise first: pinned locations, submodules, whether retrieval machinery is reused. [`design/plans/removal-options.md`](design/plans/removal-options.md) §3.7. GitHub [#138](https://github.com/ja11sop/cuppa/issues/138) |
 | `artefact-removal` | Decide how to remove artefacts written outside the build root | Low | Design pass first; `--remove-build` deliberately stops at `_build`. GitHub [#135](https://github.com/ja11sop/cuppa/issues/135) |
 
 ### Out of scope (storage)
