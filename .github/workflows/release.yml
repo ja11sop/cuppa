@@ -1,0 +1,23 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  gate:
+    # A tag may only name a released version whose changelog section is written and dated.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install packaging
+      - name: Check release
+        run: |
+          python -m scripts.check_release \
+            --tag "${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}"

@@ -9,6 +9,27 @@ on:
   workflow_dispatch:
 
 jobs:
+  version:
+    # The target version must match the impact:<none|patch|minor|major> label on the pull request.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install packaging
+      - name: Fetch base branch
+        run: git fetch --no-tags origin ${{ github.base_ref }}
+      - name: Check version and changelog
+        run: |
+          python -m scripts.check_version_bump \
+            --base-ref "origin/${{ github.base_ref }}" \
+            --labels "${{ join(github.event.pull_request.labels.*.name, ',') }}"
+
   unit:
     runs-on: ubuntu-latest
     strategy:

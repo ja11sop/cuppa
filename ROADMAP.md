@@ -11,7 +11,7 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-07-31
+**As of:** 2026-08-01
 
 ---
 
@@ -231,12 +231,47 @@ another project is unconfirmed.
 
 ---
 
+## Storage roots, listing, and removal
+
+Goal: make the storage cuppa owns — the build tree, retrieved dependencies, cached downloads, and
+local working copies used by `--develop` — something you can see and manage through cuppa, rather
+than through `rm -rf` on paths you had to work out yourself.
+
+The design, including the naming rationale, the safety model, and the sizing and inventory
+mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
+
+### Today
+
+| Capability | Status |
+|------------|--------|
+| `--clean` removes the current variant's build outputs | Yes |
+| Remove a whole build tree, a dependency, or a stale download | No — manual deletion |
+| See what is stored, where, and how large it is | No |
+| See which branch each `--develop` working copy is on | No |
+
+### Planned / potential
+
+| ID | Work | Priority | Notes |
+|----|------|----------|-------|
+| `develop-report` | `--list-develop` and a fast-forward-only `--update-develop` | High | Independent of the storage rename; no migration risk. GitHub [#132](https://github.com/ja11sop/cuppa/issues/132) |
+| `storage-roots` | Rename to `--dependencies-root` / `--downloads-root`, add `--storage-root`, default to `~/.cuppa` | High | Old options kept as deprecated aliases; existing trees still used. GitHub [#133](https://github.com/ja11sop/cuppa/issues/133) |
+| `storage-listing-removal` | `--list-*`, `--remove-*`, `--purge-*` for builds, dependencies, and downloads | Medium | Depends on the rename so one vocabulary is used throughout. GitHub [#134](https://github.com/ja11sop/cuppa/issues/134) |
+| `artefact-removal` | Decide how to remove artefacts written outside the build root | Low | Design pass first; `--remove-build` deliberately stops at `_build`. GitHub [#135](https://github.com/ja11sop/cuppa/issues/135) |
+
+### Out of scope (storage)
+
+| ID | Item | Reason |
+|----|------|--------|
+| `storage-gc` | Automatic eviction of unused downloads | Deleting without being asked is the wrong default; listing plus explicit removal first |
+| `storage-build-root` | Moving `build_root` under `--storage-root` | Build outputs stay project-relative and reviewable beside the sources |
+
+---
+
 ## Future feature sections
 
 Add new `##` headings here as larger efforts start, for example:
 
 - Packages / GitLab registry UX
-- Storage roots, listing, and removal options (see [`design/plans/removal-options.md`](design/plans/removal-options.md))
 - Additional toolchains or platforms
 
 Each new section should follow the same shape: **Today** → **Planned / potential** → **Out of scope**.

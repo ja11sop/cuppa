@@ -72,3 +72,6 @@ env/
 # Vim: ctags/cscope files
 tags
 cscope.*
+
+# Agent .env
+.env*
