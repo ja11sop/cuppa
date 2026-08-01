@@ -110,16 +110,21 @@ Otherwise, follow the shape already in the log:
 
 ## GitHub access
 
+**Do not use the `gh` CLI.** It is not authenticated in this environment and is not the path these
+notes set up. For authenticated writes use `scripts.github_api` (and the helpers below). For
+anonymous reads use the public GitHub HTTP API, `curl`, or `urllib` — still not `gh`.
+
 Cuppa is a public repository, so anything that only reads it — issue lists, issue bodies, pull
 request state — needs no credential at all. Use the public API anonymously and do not ask for a
 token. A token is only for **writing**: filing or editing issues, applying labels, commenting on
-pull requests.
+pull requests. Pushing a branch is ordinary `git push -u origin HEAD`; that does not need this
+credential.
 
-Having one is optional. If you want an agent to write on your behalf, set it up as follows; tokens
-are personal, so mint your own rather than reusing anyone else's, and what an agent did stays
-attributable to you while revoking it affects nobody else. Agents: when no credential is present,
-that is not a blocker — say what needs filing, labelling, or commenting, and leave it to the
-person.
+Having a token is optional. If you want an agent to write on your behalf, set it up as follows;
+tokens are personal, so mint your own rather than reusing anyone else's, and what an agent did
+stays attributable to you while revoking it affects nobody else. Agents: when no credential is
+present, that is not a blocker — say what needs filing, labelling, or commenting, and leave it to
+the person.
 
 ### Creating the token
 
@@ -155,7 +160,8 @@ work on a machine with no TPM.
 
 ### Using it
 
-One helper reads the credential into the calling process, never into the environment:
+`scripts.github_api` is the credential and transport layer. It reads the sealed token into the
+calling process only — never into the environment — and makes authenticated API calls:
 
 ```sh
 python -m scripts.github_api GET /repos/ja11sop/cuppa/issues/132
@@ -164,6 +170,21 @@ python -m scripts.github_api GET /repos/ja11sop/cuppa/issues/132
 ```python
 from scripts.github_api import GitHub
 GitHub().request( 'POST', '/repos/ja11sop/cuppa/issues/132/labels', { 'labels': [ 'bug' ] } )
+```
+
+Repeated write workflows live in `scripts.github_helpers` so agents do not rewrite the same API
+sequence each time. Add to that module when the same sequence appears twice; do not invent helpers
+for a one-off. Opening a pull request for the current branch (and applying labels such as
+`impact:minor`) is already there:
+
+```sh
+python -m scripts.github_helpers create-pr \
+    --title "…" --body-file /tmp/pr.md --label impact:minor
+```
+
+```python
+from scripts.github_helpers import create_pull_request
+create_pull_request( title='…', body='…', labels=['impact:minor'] )
 ```
 
 Be clear about what sealing buys. It makes the stored file meaningless anywhere else — in a backup,
