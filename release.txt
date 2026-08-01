@@ -14,13 +14,24 @@ pytest -m unit
 pytest -m integration
 
 # Release notes
-# - Move items from [Unreleased] into a new ## [X.Y.Z] - YYYY-MM-DD section in CHANGELOG.md
-# - Update compare links at the bottom of CHANGELOG.md
-# - Bump cuppa/VERSION to match
-# - After tagging, create the GitHub release from CHANGELOG.md for that version
+# The changelog section is already open and filled in (scripts.start_release ran with the
+# first commit of the cycle and entries were written as the work landed). Closing it dates
+# the section, drops the .dev from cuppa/VERSION, prunes empty subsections, and closes the
+# compare link:
+python -m scripts.finish_release
+
+# Commit, then tag. The release workflow re-runs scripts.check_release on the tag.
+git commit -am "Release $(cat cuppa/VERSION)"
+git tag -a "v$(cat cuppa/VERSION)" -m "cuppa $(cat cuppa/VERSION)"
+git push origin master "v$(cat cuppa/VERSION)"
+
+# Create the GitHub release from the CHANGELOG.md section for that version
 
 # Build
 rm -rf dist/ build/ && python setup.py sdist bdist_wheel
 
 # Upload to PyPi
 twine upload dist/*
+
+# Open the next cycle when the following workstream starts (not now)
+# python -m scripts.start_release X.Y.Z

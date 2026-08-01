@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from scripts.changelog import IMPACTS
+
 
 pytestmark = pytest.mark.unit
 
@@ -89,6 +91,19 @@ def test_document_header_parses(document):
     updated = header_field(document, "Updated")
     assert updated, "{} has no Updated field".format(relative_path(document))
     datetime.strptime(updated, "%Y-%m-%d")
+
+
+@pytest.mark.parametrize("document", design_documents(), ids=relative_path)
+def test_issue_drafts_declare_their_release_impact(document):
+    """An issue draft carries the impact label the pull request will need."""
+    if document.parent.name != "issues":
+        return
+
+    impact = header_field(document, "Impact")
+    assert impact, "{} has no Impact field".format(relative_path(document))
+    assert impact.split()[0] in IMPACTS, "{} declares impact [{}], expected one of {}".format(
+        relative_path(document), impact, IMPACTS
+    )
 
 
 @pytest.mark.parametrize("document", design_documents(), ids=relative_path)

@@ -8,8 +8,47 @@ description: Guidance for AI agents working on the cuppa repository or using cup
 Cuppa is a SCons extension for C++ builds. This repository is the **cuppa package itself**. Consumer projects call `import cuppa` / `cuppa.run()` from their own `sconstruct`.
 
 **Roadmap (large features, current vs planned):** [`ROADMAP.md`](ROADMAP.md) — start here for C++20 modules status and follow-on work; other major areas will be added as sections.
-**Release notes:** [`CHANGELOG.md`](CHANGELOG.md) — Keep a Changelog / SemVer; update `[Unreleased]` as you work, then cut a dated section when bumping `cuppa/VERSION`.
+**Release notes:** [`CHANGELOG.md`](CHANGELOG.md) — Keep a Changelog / SemVer; write entries into the open section as you work (see [Versioning and changelog](#versioning-and-changelog)).
 **Design notes, plans, issue drafts:** [`design/README.md`](design/README.md) — the index; read it before writing a new plan, in case one already exists.
+
+## Versioning and changelog
+
+`cuppa/VERSION` names the version being assembled, with a `.dev` suffix while it is open —
+`1.4.0.dev` becomes `1.4.0` at release. `CHANGELOG.md` carries exactly one open section,
+`## [X.Y.Z] - unreleased`, at the top, and dated sections below it.
+
+The version is chosen when a workstream starts, from what it does to the public surface —
+the CLI flags, the `env.*` methods, `cuppa.run()` arguments, and configuration file keys:
+
+| Change | Impact | Version |
+|--------|--------|---------|
+| New option, method, or behaviour a project can opt into | `minor` | `X.Y+1.0` |
+| Fix, message, docs, tests, or internal refactor | `patch` | `X.Y.Z+1` |
+| Removed or repurposed option, changed default a project depends on | `major` | `X+1.0.0` |
+| No release impact at all (CI, design documents) | `none` | unchanged |
+
+Two commands do the mechanical work; do not hand-edit the version or the section headings:
+
+```sh
+python -m scripts.start_release 1.4.0 # first commit of a workstream: open the cycle
+python -m scripts.finish_release      # release: date the section, drop .dev, close the link
+```
+
+Write entries under the open section as each change lands, not in a sweep at the end.
+
+Three checks keep this honest, all sharing `scripts/changelog.py` so they cannot disagree:
+
+- `tests/unit/test_version_and_changelog.py` — the version and the changelog describe the same
+  release, one open section at the top, sections descend, recent versions have compare links.
+- The `version` job on pull requests — the target version is at least what the pull request's
+  `impact:` label implies, and the open section has entries. Every pull request needs exactly one
+  `impact:none`, `impact:patch`, `impact:minor`, or `impact:major` label.
+- The `release` workflow on a `v*` tag — no `.dev`, the section is dated and non-empty, and the
+  tag matches `cuppa/VERSION`.
+
+A patch-sized pull request landing inside an open minor cycle is fine: the gate asks for *at
+least* the implied version, so `1.4.0.dev` satisfies a `patch` label. Raising the target
+mid-cycle (a `major` arrives) is a `start_release` call on that branch.
 
 ## Working documents
 
@@ -23,7 +62,9 @@ repository root and never in `docs/` (that tree is the published Antora site):
 
 Filenames are kebab-case. Every document opens with a `Status` / `Related` / `Updated` header,
 and must be added to the Index table in `design/README.md`; `tests/unit/test_design_index.py`
-fails otherwise. Statuses are `proposal`, `in progress`, `issue draft`, or `shipped`.
+fails otherwise. Statuses are `proposal`, `in progress`, `issue draft`, or `shipped`. An issue
+draft also carries an `Impact` line — the release impact of the work, which becomes the pull
+request's `impact:` label and decides the version it targets.
 
 `ROADMAP.md` remains the canonical statement of what is planned — a design document explains the
 reasoning behind a roadmap entry and links back to it, rather than duplicating it.
@@ -47,6 +88,76 @@ pasted build output. Instead:
 (`*.local.md`). Read it when you need to know which project a label means, and update it
 whenever you introduce a new anonymised reference — but never copy a name out of it into a
 tracked file.
+
+## GitHub access
+
+Cuppa is a public repository, so anything that only reads it — issue lists, issue bodies, pull
+request state — needs no credential at all. Use the public API anonymously and do not ask for a
+token. A token is only for **writing**: filing or editing issues, applying labels, commenting on
+pull requests.
+
+Having one is optional. If you want an agent to write on your behalf, set it up as follows; tokens
+are personal, so mint your own rather than reusing anyone else's, and what an agent did stays
+attributable to you while revoking it affects nobody else. Agents: when no credential is present,
+that is not a blocker — say what needs filing, labelling, or commenting, and leave it to the
+person.
+
+### Creating the token
+
+On GitHub, under **Settings → Developer settings → Personal access tokens → Fine-grained tokens**,
+create a token with:
+
+- **Repository access:** only the cuppa repository — your fork if you work from one.
+- **Permissions:** *Issues* read and write, *Pull requests* read and write, *Metadata* read-only.
+  Grant nothing else. Without *Contents* or *Workflows* write, the worst an agent can do is
+  reversible, visible noise on issues and pull requests; it cannot touch code, branches, or CI.
+- **Expiry:** short. Thirty days or less, so a value that escapes has a deadline.
+
+Copy the value once, into the next step. Do not paste it into a chat, a file in the working tree,
+or a shell command.
+
+### Storing it
+
+Seal it with the helper, which encrypts it to your machine's TPM and writes
+`~/.config/cuppa/github-token.cred` — outside the working tree, so it cannot be committed:
+
+```sh
+python -m scripts.github_api seal
+```
+
+The paste is not echoed. The command verifies that the sealed credential reads back correctly and
+makes one authenticated call before reporting success, so a truncated paste fails now rather than
+at the next write. Rotating later is the same command.
+
+This needs `systemd-creds` and a TPM, which most current Linux systems have. Without them, seal
+fails and the helper falls back to `GITHUB_TOKEN` from the environment, with a warning — usable,
+but it gives up the protection described below, so prefer a keyring or another sealed store if you
+work on a machine with no TPM.
+
+### Using it
+
+One helper reads the credential into the calling process, never into the environment:
+
+```sh
+python -m scripts.github_api GET /repos/ja11sop/cuppa/issues/132
+```
+
+```python
+from scripts.github_api import GitHub
+GitHub().request( 'POST', '/repos/ja11sop/cuppa/issues/132/labels', { 'labels': [ 'bug' ] } )
+```
+
+Be clear about what sealing buys. It makes the stored file meaningless anywhere else — in a backup,
+a synced folder, or a pasted diff. It does **not** stop a process running as you from asking the
+helper for the token, because unattended decryption means the helper answers whoever asks. That
+residual risk is what the narrow permissions and the short expiry are for. So: never
+`export GITHUB_TOKEN`, never echo the value, and never pass it on a command line, where the command
+text lands in shell history and terminal logs.
+
+Every call prints how long the token has left, and warns loudly under three days. Rotate when it
+says so, or immediately if a value was ever printed, pasted, or committed. A TPM clear or a move to
+another machine makes the sealed file unreadable; that is a two-minute recovery, not a lockout —
+mint a new token and seal it again.
 
 ## Preferred invocation
 
