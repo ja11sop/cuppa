@@ -45,10 +45,25 @@ def add_location_options( add_option ):
                      " attempt to check those locations out on the same tag as specified, if it exists"
                      " or the default branch otherwise." )
 
+    add_option( '--list-develop', dest='list_develop', action='store_true',
+                help="Report the state of the local working copies that --develop builds against,"
+                     " and exit. Shows the branch each copy is on, whether it is behind its"
+                     " upstream as of your last fetch, and whether it has uncommitted or unpushed"
+                     " work, warning where that will not be visible to a build that does not use"
+                     " --develop. No remote is contacted." )
+
+    add_option( '--update-develop', dest='update_develop', action='store_true',
+                help="Fetch each local working copy used by --develop and fast-forward the ones"
+                     " that are clean and behind their upstream, then exit. Copies that are"
+                     " modified, ahead, diverged or detached are left alone and reported."
+                     " Nothing is stashed, reset or switched. Not available with --offline." )
+
 
 def process_location_options( cuppa_env ):
 
     cuppa_env['develop']                          = cuppa_env.get_option( 'develop' )
+    cuppa_env['list_develop']                     = cuppa_env.get_option( 'list_develop' )
+    cuppa_env['update_develop']                   = cuppa_env.get_option( 'update_develop' )
     cuppa_env['location_default_branch']          = cuppa_env.get_option( 'location_default_branch' )
     cuppa_env['location_match_current_branch']    = cuppa_env.get_option( 'location_match_current_branch' )
     cuppa_env['location_explicit_default_branch'] = cuppa_env.get_option( 'location_explicit_default_branch' )

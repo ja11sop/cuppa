@@ -168,6 +168,8 @@ cuppa -D --rel
 cuppa -D --cov --test
 cuppa -D --toolchains=gcc,clang
 cuppa -D --scripts=path/to/sconscript
+cuppa -D --list-develop
+cuppa -D --update-develop
 ```
 
 `cuppa` wraps `scons`, appends `--cuppa-mode`, masks `*TOKEN*` env values in output, and may restrict CPU affinity with `--parallel`.
@@ -285,8 +287,12 @@ In a project that *uses* cuppa (not this repo):
 
 ```sh
 cuppa -D --dbg --develop --offline --test
+cuppa -D --list-develop
+cuppa -D --update-develop
 cuppa -D --cov --test --toolchains=gcc
 ```
+
+`--list-develop` reports the branch and cleanliness of each configured develop working copy; `--update-develop` fast-forwards the clean ones that are behind. See `dependencies.adoc` § Checking your develop copies.
 
 Package registry dependencies need matching toolchain archives in the registry (or cache); `--develop` does not invent them.
 GitLab auth: `GITLAB_REGISTRY_TOKEN` or `CI_JOB_TOKEN`.

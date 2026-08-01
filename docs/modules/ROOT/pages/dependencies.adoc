@@ -87,6 +87,64 @@ With `--develop`, location dependencies that define a develop path use the local
 
 Relative locations ending in `@` participate in `--location-match-*` branch/tag behaviour (see xref:cli-reference.adoc[CLI reference]).
 
+== Checking your develop copies
+
+`--develop` substitutes a working copy on disk for a retrieved dependency and says nothing about the state of that copy.
+You can be building your feature branch against a dependency parked on someone else's spike branch, or against a copy that has not been pulled for months, and the only symptom is a compile error that makes no sense, a test that fails only on your machine, or one that passes only on your machine.
+A develop path that does not exist is not checked at all today: the swap happens regardless and the failure surfaces much later as a missing include.
+
+`--list-develop` reports what you are actually building against.
+It runs after dependency registration and exits without building.
+One row appears for every dependency that has a develop location configured, whether or not `--develop` is active, plus a count of those that have none:
+
+[source,shell]
+----
+cuppa -D --list-develop
+----
+
+The columns are dependency, branch, upstream, state, and path.
+Ahead and behind are relative to your last fetch, and the report says so; no remote is contacted, so the option remains available with `--offline`.
+
+Severity is the value of the option:
+
+|===
+| Situation | Severity
+
+| Branch equals the branch being built, or the default branch | ok
+| Any other branch, or detached HEAD | warning
+| Behind upstream, or diverged | warning
+| Ahead or modified, on the branch being built | note — this is the intended workflow
+| Ahead or modified, on the default branch | warning — local work that no other build will see
+| No upstream tracking branch | note — ahead and behind cannot be answered
+| Not a working copy | warning
+| Path does not exist | error
+|===
+
+Local work is only benign where the rest of the world will find it.
+Uncommitted or unpushed changes on a branch that matches the branch being built are the intended workflow: when that branch is pushed, `--location-match-current-branch` selects it and everyone else's build sees the same code.
+The same changes sitting on the default branch are a trap.
+Your build works, because `--develop` reads the working copy; every build that does not use `--develop` resolves the dependency to the published default branch and compiles something else.
+The warning names the remedy: put the work on a branch named for the branch you are building, commit it, and push it.
+
+The exit status is zero for a report, and non-zero when a develop path does not exist, because that build cannot succeed and a CI job should hear about it.
+
+`--update-develop` answers the next question after `--list-develop` tells you a copy is behind.
+It fetches each git working copy, then fast-forwards only those that are clean and strictly behind their upstream.
+Everything else is skipped and reported with the reason: ahead, diverged, modified, detached, no upstream, not a working copy, or path missing.
+
+[source,shell]
+----
+cuppa -D --update-develop
+cuppa -D --update-develop -n
+----
+
+It never stashes, resets, rewrites history, or switches branches.
+A fast-forward of a clean tree discards nothing and leaves nothing to recover from.
+`--offline` makes `--update-develop` an error rather than a silent no-op, because this is the one option in the family that needs the network.
+`-n` / `--no-exec` shows the plan and changes nothing.
+
+Subversion, Mercurial, and Bazaar copies appear in the `--list-develop` table with branch and revision from the existing SCM support; ahead, behind, and modified are reported as unknown, and `--update-develop` leaves them alone.
+
 == Conan 2 consumer (optional)
 
 Cuppa can consume Conan 2 packages through `cuppa.conan_deps` / `cuppa.conan_dependency` and apply them with `env.BuildWith`, using Conan's **SConsDeps** generator (`SConscript_conandeps` + `env.MergeFlags`).

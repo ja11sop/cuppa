@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `--list-develop` reports the state of every configured develop working copy — branch, upstream,
+  ahead / behind as of your last fetch, and whether the tree is modified — and exits without
+  building. It warns when a copy is on the wrong branch, behind, diverged, or carrying local work
+  on the default branch that no other build will see, and exits non-zero when a develop path does
+  not exist (#132).
+- `--update-develop` fetches each git develop working copy and fast-forwards only those that are
+  clean and strictly behind their upstream. Modified, ahead, diverged, and detached copies are
+  left alone and reported. It refuses under `--offline`, and `-n` shows the plan without changing
+  anything (#132).
+
 ### Changed
 
 - `cuppa/VERSION` carries a `.dev` suffix while a release is being assembled, so a build from a

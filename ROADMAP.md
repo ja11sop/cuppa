@@ -245,15 +245,14 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 | Capability | Status |
 |------------|--------|
 | `--clean` removes the current variant's build outputs | Yes |
+| `--list-develop` / `--update-develop` for the working copies `--develop` builds against | Yes — [#132](https://github.com/ja11sop/cuppa/issues/132) |
 | Remove a whole build tree, a dependency, or a stale download | No — manual deletion |
 | See what is stored, where, and how large it is | No |
-| See which branch each `--develop` working copy is on | No |
 
 ### Planned / potential
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `develop-report` | `--list-develop` and a fast-forward-only `--update-develop` | High | Independent of the storage rename; no migration risk. GitHub [#132](https://github.com/ja11sop/cuppa/issues/132) |
 | `storage-roots` | Rename to `--dependencies-root` / `--downloads-root`, add `--storage-root`, default to `~/.cuppa` | High | Old options kept as deprecated aliases; existing trees still used. GitHub [#133](https://github.com/ja11sop/cuppa/issues/133) |
 | `storage-listing-removal` | `--list-*`, `--remove-*`, `--purge-*` for builds, dependencies, and downloads | Medium | Depends on the rename so one vocabulary is used throughout. GitHub [#134](https://github.com/ja11sop/cuppa/issues/134) |
 | `artefact-removal` | Decide how to remove artefacts written outside the build root | Low | Design pass first; `--remove-build` deliberately stops at `_build`. GitHub [#135](https://github.com/ja11sop/cuppa/issues/135) |

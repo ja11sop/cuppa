@@ -4,11 +4,12 @@
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Storage roots, listing, and removal; GitHub [#132](https://github.com/ja11sop/cuppa/issues/132), [#133](https://github.com/ja11sop/cuppa/issues/133), [#134](https://github.com/ja11sop/cuppa/issues/134), [#135](https://github.com/ja11sop/cuppa/issues/135)
 - **Updated:** 2026-08-01
 
-Nothing here is implemented. Follow-on from the `--clean` work in `cuppa/location.py` and `cuppa/package_managers/gitlab.py`,
-where a clean could not complete because a dependency was missing, and where the advice for
-leftover artefacts was "remove the folder by hand". Telling people to run `rm -rf` is
-unsatisfying: it is platform-specific, it is easy to aim at the wrong path, and cuppa already
-knows exactly which folders belong to which variant and which dependency.
+`--list-develop` and `--update-develop` (§3.5, §3.6) are implemented; the storage rename and the
+removal options are not. Follow-on from the `--clean` work in `cuppa/location.py` and
+`cuppa/package_managers/gitlab.py`, where a clean could not complete because a dependency was
+missing, and where the advice for leftover artefacts was "remove the folder by hand". Telling
+people to run `rm -rf` is unsatisfying: it is platform-specific, it is easy to aim at the wrong
+path, and cuppa already knows exactly which folders belong to which variant and which dependency.
 
 This plan proposes renaming the storage roots, a way to list what is in them, a family of
 explicit removal options, a report on the state of the local working copies `--develop`

@@ -33,6 +33,7 @@ import cuppa.recursive_glob
 import cuppa.configure
 import cuppa.version
 import cuppa.scms
+import cuppa.develop
 #import cuppa.progress
 #import cuppa.tree
 #import cuppa.cpp.stdcpp
@@ -544,6 +545,18 @@ class Construct(object):
             if cuppa_env['dump']:
                 logger.info( as_info_label( "Running in DUMP mode, no building will be attempted" ) )
                 cuppa_env.dump()
+
+            # Both report on dependencies, so they run once those are registered, and neither
+            # builds anything.
+            if cuppa_env['update_develop']:
+                logger.info( as_info_label(
+                        "Running in UPDATE DEVELOP mode, no building will be attempted" ) )
+                SCons.Script.Exit( cuppa.develop.update_develop( cuppa_env ) )
+
+            if cuppa_env['list_develop']:
+                logger.info( as_info_label(
+                        "Running in LIST DEVELOP mode, no building will be attempted" ) )
+                SCons.Script.Exit( cuppa.develop.list_develop( cuppa_env ) )
 
             job_count = cuppa_env.get_option( 'num_jobs' )
             parallel  = cuppa_env.get_option( 'parallel' )

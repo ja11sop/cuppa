@@ -65,6 +65,31 @@ def get_common_top_directory_under( path ):
         return dirs[0]
     return None
 
+
+def replace_sconstruct_anchor( sconstruct_dir, path ):
+    if path.startswith( "#" ):
+        path = os.path.join( sconstruct_dir, path[1:] )
+    return path
+
+
+def develop_location( sconstruct_dir, develop ):
+    """Where a develop location actually lives on disk.
+
+    A relative develop path is anchored to the sconstruct directory rather than to the working
+    directory, so it means the same thing wherever cuppa is invoked from. Anything reporting on
+    develop copies must resolve them through here, or it describes a different path from the one
+    the build substitutes.
+
+    Home-relative and explicitly anchored paths are recognised before that, since neither is
+    relative to the sconstruct directory in the sense that needs anchoring.
+    """
+    if not develop:
+        return None
+    develop = os.path.expanduser( develop )
+    if not os.path.isabs( develop ) and not develop.startswith( "#" ):
+        develop = '#' + develop
+    return replace_sconstruct_anchor( sconstruct_dir, develop )
+
 class ReportDownloadProgress(object):
 
     def __init__( self ):
@@ -629,9 +654,7 @@ class Location(object):
 
 
     def replace_sconstruct_anchor( self, path ):
-        if path.startswith( "#" ):
-            path = os.path.join( self._cuppa_env['sconstruct_dir'], path[1:] )
-        return path
+        return replace_sconstruct_anchor( self._cuppa_env['sconstruct_dir'], path )
 
 
     @classmethod
@@ -670,9 +693,7 @@ class Location(object):
         location = self.replace_sconstruct_anchor( location )
 
         if develop:
-            if not os.path.isabs( develop ):
-                develop = '#' + develop
-            develop = self.replace_sconstruct_anchor( develop )
+            develop = develop_location( self._cuppa_env['sconstruct_dir'], develop )
             logger.debug( "Develop location specified [{}]".format( as_info( develop ) ) )
 
         if self.option_set('develop') and develop:
