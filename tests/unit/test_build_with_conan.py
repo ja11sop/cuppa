@@ -261,7 +261,7 @@ def test_load_and_apply_fixture_via_generators_folder( tmp_path, monkeypatch ):
     Dep = conan_deps( name='conan', generators_folder=str( install ) )
     env = RecordingEnv(
             sconstruct_dir=str( tmp_path ),
-            download_root=str( tmp_path / 'dl' ),
+            dependencies_root=str( tmp_path / 'dl' ),
             offline=False,
             stdcpp='c++20',
             target_arch='x86_64',
@@ -299,7 +299,7 @@ def test_offline_install_fails_without_conan( tmp_path, monkeypatch ):
     Dep = conan_deps( name='conan', conanfile=str( conanfile ) )
     env = RecordingEnv(
             sconstruct_dir=str( tmp_path ),
-            download_root=str( tmp_path / 'dl' ),
+            dependencies_root=str( tmp_path / 'dl' ),
             offline=True,
             stdcpp='c++20',
             target_arch='x86_64',

@@ -35,6 +35,18 @@ Example -- save develop + offline as project defaults:
 cuppa -D --develop --offline --save-conf
 ----
 
+Storage choices are worth saving this way too. A project that must keep everything it retrieves
+inside its own directory can record that once rather than relying on everyone remembering the
+flag:
+
+[source,sh]
+----
+cuppa -D --storage-root=_cuppa --save-conf
+----
+
+Every later build in that project then resolves its dependencies and downloads roots under
+`_cuppa`. See xref:build-layout.adoc[Build layout] for what those roots hold.
+
 Conf-only operations skip a normal build when you are only saving or clearing settings.
 
 You can also seed defaults in code:

@@ -61,7 +61,7 @@ class RecursiveGlobMethod:
         start, rel_start, base_path = relative_start( env, start, self.default )
 
         if exclude_dirs == self.default:
-            exclude_dirs = [ env['download_root'], env['build_root' ] ]
+            exclude_dirs = [ env['dependencies_root'], env['build_root' ] ]
 
         exclude_dirs_regex = None
 
@@ -69,9 +69,10 @@ class RecursiveGlobMethod:
             def up_dir( path ):
                 element = next( e for e in path.split(os.path.sep) if e )
                 return element == ".."
-            exclude_dirs = [ re.escape(d) for d in exclude_dirs if not os.path.isabs(d) and not up_dir(d) ]
-            exclude_dirs = "|".join( exclude_dirs )
-            exclude_dirs_regex = re.compile( exclude_dirs )
+            exclude_dirs = [ re.escape(d) for d in exclude_dirs if d and not os.path.isabs(d) and not up_dir(d) ]
+            # An empty alternation matches every folder. Absolute roots are already skipped above,
+            # which is the common case now that dependencies live outside the project by default.
+            exclude_dirs_regex = exclude_dirs and re.compile( "|".join( exclude_dirs ) ) or None
 
         matches = cuppa.recursive_glob.glob( start, pattern, exclude_dirs_pattern=exclude_dirs_regex )
 

@@ -48,10 +48,17 @@ TIP: If cuppa fails early while reading sconscripts, re-run with `--verbosity=ex
 | Option | Default
 
 | `--build-root` | `_build`
-| `--download-root` | `_cuppa`
-| `--cache-root` | `~/_cuppa/_cache`
+| `--storage-root` | `~/.cuppa` -- the parent of the two roots below
+| `--dependencies-root` | `<storage-root>/dependencies` -- retrieved trees, ready to build against
+| `--downloads-root` | `<storage-root>/downloads` -- the archives they came from
+| `--download-root` | Deprecated alias for `--dependencies-root`
+| `--cache-root` | Deprecated alias for `--downloads-root`
 | `--thirdparty=DIR` | Third-party directory hint
 |===
+
+The dependencies and downloads roots are shared between projects. Set `--storage-root` to move
+both, or name one of them to move only that half. See xref:build-layout.adoc[Build layout] for
+what goes where and for how cuppa treats storage left by an earlier version.
 
 == Configuration persistence
 

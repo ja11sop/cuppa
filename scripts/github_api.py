@@ -18,6 +18,9 @@ Use it:
     github = GitHub()
     github.request( 'POST', '/repos/ja11sop/cuppa/issues/132/labels', { 'labels': [ 'bug' ] } )
 
+    # Public repository reads — no sealed token:
+    GitHub.public().request( 'GET', '/repos/ja11sop/cuppa/pulls/139' )
+
 Every run reports how long the token has left, so rotation is prompted by use rather than by a
 checklist nobody reads.
 """
@@ -141,22 +144,38 @@ def report_expiry( header_value ):
 
 
 class GitHub( object ):
-    """Minimal API client. Holds the token in memory only, and never in the environment."""
+    """Minimal API client.
 
-    def __init__( self, credential=None ):
-        self._token = credential if credential is not None else token()
+    Authenticated instances hold the token in memory only, and never in the environment.
+    Anonymous instances omit the credential entirely — enough for reads on a public repository,
+    which is what status helpers should use so watching CI does not unseal the token every poll.
+    """
+
+    def __init__( self, credential=None, anonymous=False ):
+        if anonymous:
+            self._token = None
+        else:
+            self._token = credential if credential is not None else token()
         self._expiry_reported = False
 
+    @classmethod
+    def public( cls ):
+        """Unauthenticated client for public repository reads."""
+        return cls( anonymous=True )
+
     def request( self, method, path, payload=None ):
+        headers = {
+            'Accept': 'application/vnd.github+json',
+            'User-Agent': USER_AGENT,
+        }
+        if self._token is not None:
+            headers['Authorization'] = 'Bearer ' + self._token
+
         request = urllib.request.Request(
             path if path.startswith( 'http' ) else API + path,
             data = json.dumps( payload ).encode( 'utf-8' ) if payload is not None else None,
             method = method,
-            headers = {
-                'Authorization': 'Bearer ' + self._token,
-                'Accept': 'application/vnd.github+json',
-                'User-Agent': USER_AGENT,
-            }
+            headers = headers,
         )
         try:
             with urllib.request.urlopen( request ) as response:
@@ -169,9 +188,10 @@ class GitHub( object ):
             return error.code, ( json.loads( body ) if body else {} )
 
     def _report_expiry_once( self, headers ):
-        if not self._expiry_reported:
-            self._expiry_reported = True
-            report_expiry( headers.get( EXPIRY_HEADER ) )
+        if self._token is None or self._expiry_reported:
+            return
+        self._expiry_reported = True
+        report_expiry( headers.get( EXPIRY_HEADER ) )
 
 
 def seal_command():

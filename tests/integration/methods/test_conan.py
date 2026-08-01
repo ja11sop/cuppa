@@ -179,16 +179,16 @@ def _isolated_conan_home(tmp_path, conan):
     """
     Fresh CONAN_HOME + default profile for local export-pkg round-trips.
 
-    Also returns a ``--download-root=`` flag under ``tmp_path`` so Cuppa's Conan
+    Also returns a ``--dependencies-root=`` flag under ``tmp_path`` so Cuppa's Conan
     fingerprint cache (and embedded package paths in ``SConscript_conandeps``)
-    cannot leak across tests via ``~/.cuppaconfig`` / ``~/_cuppa``.
+    cannot leak across tests via ``~/.cuppaconfig`` / ``~/.cuppa``.
     """
     import os
 
     conan_home = tmp_path / "conan_home"
     conan_home.mkdir()
-    download_root = tmp_path / "cuppa_download"
-    download_root.mkdir()
+    dependencies_root = tmp_path / "cuppa_dependencies"
+    dependencies_root.mkdir()
     extra = {"CONAN_HOME": str(conan_home)}
     detect = subprocess.run(
         [conan, "profile", "detect", "--force"],
@@ -200,7 +200,7 @@ def _isolated_conan_home(tmp_path, conan):
     )
     if detect.returncode != 0:
         pytest.fail("conan profile detect failed:\n{}".format(detect.stdout))
-    return extra, "--download-root={}".format(download_root)
+    return extra, "--dependencies-root={}".format(dependencies_root)
 
 def _write_answer_library(project, package="cuppa_pub_mylib", answer=42):
     """Minimal header + source library used by Conan publish round-trips."""
@@ -458,12 +458,12 @@ def test_conan_offline_fails_when_cache_missing(tmp_path):
 
     empty_home = tmp_path / "empty_conan_home"
     empty_home.mkdir()
-    download_root = tmp_path / "cuppa_download"
-    download_root.mkdir()
+    dependencies_root = tmp_path / "cuppa_dependencies"
+    dependencies_root.mkdir()
     result = run_cuppa(
         project,
         "--dbg",
-        "--download-root={}".format(download_root),
+        "--dependencies-root={}".format(dependencies_root),
         offline=True,
         timeout=180,
         extra_env={"CONAN_HOME": str(empty_home)},
@@ -889,7 +889,7 @@ def test_conan_publish_generated_requires_round_trip(tmp_path):
     import shutil
 
     conan = _require_conan()
-    extra, download_root = _isolated_conan_home(tmp_path, conan)
+    extra, dependencies_root = _isolated_conan_home(tmp_path, conan)
 
     leaf = tmp_path / "leaf"
     leaf.mkdir()
@@ -909,7 +909,7 @@ def test_conan_publish_generated_requires_round_trip(tmp_path):
         "))\n",
     )
     assert_success(
-        run_cuppa(leaf, "--dbg", download_root, offline=True, timeout=300, extra_env=extra)
+        run_cuppa(leaf, "--dbg", dependencies_root, offline=True, timeout=300, extra_env=extra)
     )
 
     wrap = tmp_path / "wrapper"
@@ -944,7 +944,7 @@ def test_conan_publish_generated_requires_round_trip(tmp_path):
         "    requires=['cuppa_pub_mylib/0.1.0'],\n"
         "))\n",
     )
-    wrapped = run_cuppa(wrap, "--dbg", download_root, offline=True, timeout=300, extra_env=extra)
+    wrapped = run_cuppa(wrap, "--dbg", dependencies_root, offline=True, timeout=300, extra_env=extra)
     assert_success(wrapped)
 
     # Generated recipe must embed requires= (not a hand-written conanfile=).
@@ -990,7 +990,7 @@ def test_conan_publish_generated_requires_round_trip(tmp_path):
     write_sconscript(consumer, "Import('env')\nenv.Build('hello', 'hello.cpp')\n")
 
     consumed = run_cuppa(
-        consumer, "--dbg", download_root, offline=True, timeout=300, extra_env=extra
+        consumer, "--dbg", dependencies_root, offline=True, timeout=300, extra_env=extra
     )
     assert_success(consumed)
     binaries = find_final_binaries(consumer, "hello")
@@ -1009,7 +1009,7 @@ def test_conan_publish_generated_requires_round_trip(tmp_path):
 def test_conan_publish_shared_lib_round_trip(tmp_path):
     """BuildSharedLib + shared=True publish → consumer BuildTest with runtime paths."""
     conan = _require_conan()
-    extra, download_root = _isolated_conan_home(tmp_path, conan)
+    extra, dependencies_root = _isolated_conan_home(tmp_path, conan)
 
     producer = tmp_path / "publisher"
     producer.mkdir()
@@ -1031,7 +1031,7 @@ def test_conan_publish_shared_lib_round_trip(tmp_path):
     )
 
     produced = run_cuppa(
-        producer, "--dbg", download_root, offline=True, timeout=300, extra_env=extra
+        producer, "--dbg", dependencies_root, offline=True, timeout=300, extra_env=extra
     )
     assert_success(produced)
     shared_libs = [
@@ -1089,7 +1089,7 @@ def test_conan_publish_shared_lib_round_trip(tmp_path):
     consumed = run_cuppa(
         consumer,
         "--dbg",
-        download_root,
+        dependencies_root,
         "--test",
         "--show-test-output",
         offline=True,
@@ -1118,7 +1118,7 @@ def test_conan_publish_source_modules_dir_override(tmp_path):
         driver,
         major,
     )
-    extra, download_root = _isolated_conan_home(tmp_path, conan)
+    extra, dependencies_root = _isolated_conan_home(tmp_path, conan)
 
     fixtures = REPO_ROOT / "tests" / "fixtures" / "modules_project"
     producer = tmp_path / "mod_publisher"
@@ -1138,7 +1138,7 @@ def test_conan_publish_source_modules_dir_override(tmp_path):
         "--modules",
         "--stdcpp=c++20",
         toolchain_flag,
-        download_root,
+        dependencies_root,
         offline=True,
         timeout=300,
         extra_env=extra,
@@ -1182,7 +1182,7 @@ def test_conan_publish_source_modules_dir_override(tmp_path):
         "--modules",
         "--stdcpp=c++20",
         toolchain_flag,
-        download_root,
+        dependencies_root,
         offline=True,
         timeout=300,
         extra_env=extra,
@@ -1230,7 +1230,7 @@ def test_conan_publish_source_modules_dir_override(tmp_path):
         "--modules",
         "--stdcpp=c++20",
         toolchain_flag,
-        download_root,
+        dependencies_root,
         offline=True,
         timeout=300,
         extra_env=extra,

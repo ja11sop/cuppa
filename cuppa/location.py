@@ -38,6 +38,8 @@ import logging
 
 from .scms import scms, subversion, git, mercurial, bazaar
 
+import cuppa.core.storage_options
+
 from cuppa.colourise import as_notice, as_info, as_warning, as_error, as_info_label
 from cuppa.log import logger, register_secret
 from cuppa.path import split_common
@@ -330,7 +332,7 @@ class Location(object):
             return local_directory
 
         # If not we then check to see if we cached the download
-        cached_archive = self.get_cached_archive( self._cuppa_env['cache_root'], self._local_folder )
+        cached_archive = self.get_cached_archive( self._cuppa_env['downloads_root'], self._local_folder )
         if cached_archive:
             logger.debug( "Cached archive [{}] found for [{}]".format(
                     as_info( cached_archive ),
@@ -350,8 +352,8 @@ class Location(object):
                         as_info( filename )
                 ) )
                 self.extract( filename, local_dir_with_sub_dir )
-                if self._cuppa_env['cache_root']:
-                    cached_archive = os.path.join( self._cuppa_env['cache_root'], self._local_folder )
+                if self._cuppa_env['downloads_root']:
+                    cached_archive = os.path.join( self._cuppa_env['downloads_root'], self._local_folder )
                     logger.debug( "Caching downloaded file as [{}]".format( as_info( cached_archive ) ) )
                     shutil.copyfile( filename, cached_archive )
             except ContentTooShortError as error:
@@ -534,6 +536,8 @@ class Location(object):
 
     def get_local_directory( self, location, sub_dir, branch_path, full_url ):
 
+        cuppa.core.storage_options.report_roots( self._cuppa_env )
+
         reason = self.retrieval_disabled_reason()
 
         logger.debug( "Determine local directory for [{location}] when {retrieval}".format(
@@ -543,7 +547,7 @@ class Location(object):
 
         local_directory = None
 
-        base = self._cuppa_env['download_root']
+        base = self._cuppa_env['dependencies_root']
         if not os.path.isabs( base ):
             base = os.path.join( self._cuppa_env['working_dir'], base )
 

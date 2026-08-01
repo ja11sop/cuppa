@@ -614,8 +614,8 @@ class base( object ):
         return digest, settings
 
     def _install_root( self, env ):
-        download_root = env.get( 'download_root' ) or os.path.join( os.getcwd(), '_cuppa' )
-        return os.path.join( os.path.expanduser( download_root ), 'conan', self._name )
+        dependencies_root = env.get( 'dependencies_root' ) or os.path.join( os.getcwd(), '_cuppa' )
+        return os.path.join( os.path.expanduser( dependencies_root ), 'conan', self._name )
 
     def _ensure_installed( self, env, toolchain, variant ):
         import SCons.Errors

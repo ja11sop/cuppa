@@ -110,16 +110,21 @@ Otherwise, follow the shape already in the log:
 
 ## GitHub access
 
-Cuppa is a public repository, so anything that only reads it — issue lists, issue bodies, pull
-request state — needs no credential at all. Use the public API anonymously and do not ask for a
-token. A token is only for **writing**: filing or editing issues, applying labels, commenting on
-pull requests.
+**Do not use the `gh` CLI.** It is not authenticated in this environment and is not the path these
+notes set up. For authenticated writes use `scripts.github_api` (and the helpers below). For
+anonymous reads use the public GitHub HTTP API, `curl`, or `urllib` — still not `gh`.
 
-Having one is optional. If you want an agent to write on your behalf, set it up as follows; tokens
-are personal, so mint your own rather than reusing anyone else's, and what an agent did stays
-attributable to you while revoking it affects nobody else. Agents: when no credential is present,
-that is not a blocker — say what needs filing, labelling, or commenting, and leave it to the
-person.
+Cuppa is a public repository, so anything that only reads it — issue lists, issue bodies, pull
+request state, check runs — needs no credential at all. Use the public API anonymously
+(`GitHub.public()` / `pr-status` / `watch-pr`) and do not ask for a token. A token is only for
+**writing**: filing or editing issues, applying labels, commenting on pull requests. Pushing a
+branch is ordinary `git push -u origin HEAD`; that does not need this credential either.
+
+Having a token is optional. If you want an agent to write on your behalf, set it up as follows;
+tokens are personal, so mint your own rather than reusing anyone else's, and what an agent did
+stays attributable to you while revoking it affects nobody else. Agents: when no credential is
+present, that is not a blocker — say what needs filing, labelling, or commenting, and leave it to
+the person.
 
 ### Creating the token
 
@@ -155,7 +160,8 @@ work on a machine with no TPM.
 
 ### Using it
 
-One helper reads the credential into the calling process, never into the environment:
+`scripts.github_api` is the credential and transport layer. It reads the sealed token into the
+calling process only — never into the environment — and makes authenticated API calls:
 
 ```sh
 python -m scripts.github_api GET /repos/ja11sop/cuppa/issues/132
@@ -165,6 +171,42 @@ python -m scripts.github_api GET /repos/ja11sop/cuppa/issues/132
 from scripts.github_api import GitHub
 GitHub().request( 'POST', '/repos/ja11sop/cuppa/issues/132/labels', { 'labels': [ 'bug' ] } )
 ```
+
+Repeated write workflows live in `scripts.github_helpers` so agents do not rewrite the same API
+sequence each time. Add to that module when the same sequence appears twice; do not invent helpers
+for a one-off. Opening a pull request for the current branch (and applying labels such as
+`impact:minor`) is already there:
+
+```sh
+python -m scripts.github_helpers create-pr \
+    --title "…" --body-file /tmp/pr.md --label impact:minor
+```
+
+```python
+from scripts.github_helpers import create_pull_request
+create_pull_request( title='…', body='…', labels=['impact:minor'] )
+```
+
+### After pushing a pull request branch
+
+After `git push -u origin HEAD` (or any later push to an open PR), **do not stop without knowing
+how CI finished**. The person should not be the first to discover a red check. Poll until the
+checks complete, then report the outcome and be ready to decide next steps — merge discussion if
+green, diagnosis and a fix if red.
+
+```sh
+python -m scripts.github_helpers watch-pr          # current branch's open PR
+python -m scripts.github_helpers watch-pr --pr 139
+python -m scripts.github_helpers pr-status --pr 139   # one snapshot; no wait
+```
+
+These status helpers read the public API anonymously — they do **not** unseal the token. Owner and
+repository come from the local `origin` remote. The default poll interval is thirty seconds.
+
+Exit codes: `0` all checks succeeded (or were skipped / neutral), `1` at least one failed, `2`
+still pending (`pr-status` only), `3` timed out while still pending (`watch-pr`). Prefer
+`watch-pr` after a push; use `pr-status` when you only need a snapshot. Grow this helper if the
+same follow-up (for example fetching a failed job log) starts repeating.
 
 Be clear about what sealing buys. It makes the stored file meaningless anywhere else — in a backup,
 a synced folder, or a pasted diff. It does **not** stop a process running as you from asking the
@@ -202,8 +244,9 @@ Equivalent: `scons -D …` when the project's `sconstruct` already imports cuppa
 | Purpose | Default |
 |---------|---------|
 | Build root | `_build` |
-| Download root | `_cuppa` |
-| Cache root | `~/_cuppa/_cache` |
+| Storage root | `~/.cuppa` |
+| Dependencies root | `~/.cuppa/dependencies` (`--dependencies-root`, was `--download-root`) |
+| Downloads root | `~/.cuppa/downloads` (`--downloads-root`, was `--cache-root`) |
 | Project conf | `configure.conf` |
 | Global conf | `~/.cuppaconfig` |
 

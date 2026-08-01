@@ -113,7 +113,7 @@ cuppa.run(
 )
 ----
 
-Cuppa fetches the archive on first use (cached under the download/cache roots). Pass `--offline` only after the tree is already cached.
+Cuppa fetches the archive on first use (kept under the dependencies and downloads roots). Pass `--offline` only after the tree is already cached.
 
 === Conan-based plugin (`cuppa-conan-fmt`)
 

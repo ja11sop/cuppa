@@ -16,6 +16,8 @@ import shutil
 import subprocess
 
 # cuppa imports
+import cuppa.core.storage_options
+
 from cuppa.log import logger
 from cuppa.colourise import as_error, as_info, as_notice, as_info_label
 
@@ -232,7 +234,7 @@ class GitlabPackageInstaller:
 
         self._env = env
         if not target_dir:
-            self._target_dir = env['download_root']
+            self._target_dir = env['dependencies_root']
             if not os.path.isabs( self._target_dir ):
                 self._target_dir = os.path.abspath( os.path.join( env['sconstruct_dir'], self._target_dir ) )
         else:
@@ -504,11 +506,13 @@ class GitlabPackageDependency:
 
         self._package_id = "/".join( [ package, self.version(), variant ] )
 
-        cache_dir = os.path.join( cuppa_env['cache_root'], 'packages', package, version )
+        cuppa.core.storage_options.report_roots( cuppa_env )
+
+        cache_dir = os.path.join( cuppa_env['downloads_root'], 'packages', package, version )
         package_file = package_file_name( cuppa_env, package=package, variant=variant )
         self._download_target = os.path.join( cache_dir, package_file )
 
-        extraction_root = cuppa_env['download_root']
+        extraction_root = cuppa_env['dependencies_root']
         if not os.path.isabs( extraction_root ):
             extraction_root = os.path.abspath( os.path.join( cuppa_env['sconstruct_dir'], extraction_root ) )
 

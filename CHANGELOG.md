@@ -27,14 +27,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   clean and strictly behind their upstream. Modified, ahead, diverged, and detached copies are
   left alone and reported. It refuses under `--offline`, and `-n` shows the plan without changing
   anything (#132).
+- `--storage-root` names the parent of the dependencies and downloads roots, so one flag moves
+  cuppa's storage as a whole. `--dependencies-root` and `--downloads-root` set either root on its
+  own and leave the other derived from the storage root. `--storage-root=_cuppa` keeps everything
+  a build retrieves inside the project (#133).
+- The dependencies and downloads roots are named at info level the first time a run retrieves
+  anything, so where a build is reading from and writing to is visible in its output (#133).
 
 ### Changed
 
 - `cuppa/VERSION` carries a `.dev` suffix while a release is being assembled, so a build from a
   checkout between releases reports, for example, `cuppa: version 1.4.0.dev` rather than claiming
   to be the last release. Released versions are unchanged.
+- Retrieved dependency trees and downloaded archives now default to `~/.cuppa/dependencies` and
+  `~/.cuppa/downloads`, shared between projects. Previously dependencies went into a `_cuppa`
+  folder inside each project, so the same library was retrieved again for every project that used
+  it. Where a `_cuppa` folder beside your sconstruct, or a `~/_cuppa/_download` or `~/_cuppa/_cache`
+  from an earlier cuppa, already exists and you have not named a root yourself, cuppa keeps using
+  it and says so once, so upgrading does not trigger a re-fetch. Pass `--storage-root=_cuppa` to
+  keep the previous project-local arrangement (#133).
+- The environment keys are `storage_root`, `dependencies_root`, and `downloads_root`.
+  `download_root` and `cache_root` remain as aliases of the resolved values, so a dependency
+  plugin reading them keeps working (#133).
 
 ### Deprecated
+
+- `--download-root` and `--cache-root` are deprecated in favour of `--dependencies-root` and
+  `--downloads-root`. They still choose the same roots, and cuppa names the replacement when one
+  is used (#133).
 
 ### Removed
 

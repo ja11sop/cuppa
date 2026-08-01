@@ -35,8 +35,8 @@ class CoverageMethod(object):
 
         exclude_dependency_pattern = None
         if exclude_dependencies:
-            exclude_dependency_pattern = re.escape( env['download_root'] ).replace( r"\_", r"_" ).replace( r"\#", r"#" )
-            if os.path.isabs( env['download_root'] ):
+            exclude_dependency_pattern = re.escape( env['dependencies_root'] ).replace( r"\_", r"_" ).replace( r"\#", r"#" )
+            if os.path.isabs( env['dependencies_root'] ):
                 exclude_dependency_pattern = exclude_dependency_pattern + "#.*"
             else:
                 exclude_dependency_pattern = ".*##" + exclude_dependency_pattern + "#.*"

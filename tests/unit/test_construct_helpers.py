@@ -181,3 +181,23 @@ def test_get_sub_sconscripts_discovers_tree(tmp_path):
     assert any(p.endswith("app/foo.sconscript") for p in found_str)
     assert not any("_build" in p for p in found_str)
     assert not any("vendor/other" in p for p in found_str)
+
+
+def test_get_sub_sconscripts_with_only_absolute_excludes_still_finds_scripts(tmp_path):
+    """Absolute roots are skipped from the exclude pattern; that must not discard the tree.
+
+    Dependencies now default outside the project, so the exclude list can be empty after
+    absolute paths are filtered out. An empty alternation would match every folder.
+    """
+    construct = Construct.__new__(Construct)
+    root = tmp_path / "proj"
+    (root / "lib").mkdir(parents=True)
+    (root / "lib" / "sconscript").write_text("", encoding="utf-8")
+
+    found = construct.get_sub_sconscripts(str(root), [str(tmp_path / "elsewhere"), "_build"])
+    found_str = [str(p).replace("\\", "/") for p in found]
+    assert any(p.endswith("lib/sconscript") for p in found_str)
+
+    found = construct.get_sub_sconscripts(str(root), [str(tmp_path / "elsewhere")])
+    found_str = [str(p).replace("\\", "/") for p in found]
+    assert any(p.endswith("lib/sconscript") for p in found_str)

@@ -121,7 +121,7 @@ class Codeblocks(object):
         base_include = self._exclude_branches and env['base_path'] or env['branch_root']
 
         base = os.path.realpath( base_include )
-        download = os.path.realpath( env['download_root'] )
+        download = os.path.realpath( env['dependencies_root'] )
 
         thirdparty = env['thirdparty'] and os.path.realpath( env['thirdparty'] ) or None
 
@@ -138,7 +138,7 @@ class Codeblocks(object):
 
         if not self._include_thirdparty:
             if download_under_base:
-                self._exclude_paths.append( env['download_root'] )
+                self._exclude_paths.append( env['dependencies_root'] )
 
             if thirdparty and thirdparty_under_base:
                 self._exclude_paths.append( env['thirdparty'] )
@@ -147,7 +147,7 @@ class Codeblocks(object):
 
         if self._include_thirdparty:
             if not download_under_base:
-                self._include_paths.append( env['download_root'] )
+                self._include_paths.append( env['dependencies_root'] )
 
             if thirdparty and not thirdparty_under_base:
                 self._include_paths.append( env['thirdparty'] )
