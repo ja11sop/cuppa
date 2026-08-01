@@ -1,0 +1,63 @@
+= `test_storage_roots` — where cuppa keeps dependencies and downloads
+:description: Cuppa integration test documentation for test_storage_roots
+
+
+== What is tested
+
+The storage roots resolve the way the command line says they should, in a real run rather than in
+isolation. Five behaviours are covered: `--storage-root` moving both roots together, naming one
+root leaving the other derived, the deprecated `--download-root` and `--cache-root` still working
+while saying they are deprecated, an existing project-local `_cuppa` folder being kept in use, and
+the defaults landing in the shared folder under the home directory.
+
+Each run uses `--dump`, so cuppa reports its resolved options and exits without building. That
+keeps the test about path resolution and quick to run.
+
+Every run is also given a home directory of its own through `HOME` and `USERPROFILE`. The defaults
+live under the home directory, and cuppa keeps an older folder in use when it finds one, so a run
+that shared the developer's home would report whatever that machine happens to have rather than
+what the test asked for.
+
+== Generated files
+
+The dummy project with the default `sconstruct`.
+
+=== `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+== Commands
+
+[source,sh]
+----
+cuppa -D --offline --dbg --dump --storage-root=<tmp>/storage
+cuppa -D --offline --dbg --dump --storage-root=<tmp>/storage --downloads-root=<tmp>/archives
+cuppa -D --offline --dbg --dump --download-root=<tmp>/trees --cache-root=<tmp>/archives
+cuppa -D --offline --dbg --dump
+----
+
+== Expectations
+
+With `--storage-root=<tmp>/storage`, the dump reports `dependencies_root` as
+`<tmp>/storage/dependencies` and `downloads_root` as `<tmp>/storage/downloads`, and the downloads
+folder exists on disk because cuppa creates it ready for an archive to land in.
+
+Adding `--downloads-root` moves only the downloads half; the dependencies root stays derived from
+the storage root.
+
+The deprecated names still choose their roots, and the output names both the old option and the
+one that replaces it.
+
+With a `_cuppa` folder beside the sconstruct, the dependencies root is reported as `_cuppa` and
+stays relative, so nothing that folder already holds is re-fetched into the new default location.
+
+With none of those flags, both roots are under `~/.cuppa`, which is the shared default.
+
+'''
+
+Related test module: `tests/integration/test_storage_roots.py`.

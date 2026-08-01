@@ -4,25 +4,24 @@
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Storage roots, listing, and removal; GitHub [#132](https://github.com/ja11sop/cuppa/issues/132), [#133](https://github.com/ja11sop/cuppa/issues/133), [#134](https://github.com/ja11sop/cuppa/issues/134), [#135](https://github.com/ja11sop/cuppa/issues/135), [#138](https://github.com/ja11sop/cuppa/issues/138)
 - **Updated:** 2026-08-01
 
-`--list-develop` and `--update-develop` (§3.5, §3.6) are implemented; cloning a missing develop
-copy (§3.7) came out of using them and is a proposal, as are the storage rename and the removal
-options. Follow-on from the `--clean` work in `cuppa/location.py` and
-`cuppa/package_managers/gitlab.py`, where a clean could not complete because a dependency was
-missing, and where the advice for leftover artefacts was "remove the folder by hand". Telling
-people to run `rm -rf` is unsatisfying: it is platform-specific, it is easy to aim at the wrong
-path, and cuppa already knows exactly which folders belong to which variant and which dependency.
+`--list-develop` and `--update-develop` (§3.5, §3.6) and the storage rename (§3.1, §8, Phase 1)
+are implemented. Cloning a missing develop copy (§3.7) came out of using the develop report and
+is a proposal, as are the listing and removal options. Follow-on from the `--clean` work in
+`cuppa/location.py` and `cuppa/package_managers/gitlab.py`, where a clean could not complete
+because a dependency was missing, and where the advice for leftover artefacts was "remove the
+folder by hand". Telling people to run `rm -rf` is unsatisfying: it is platform-specific, it is
+easy to aim at the wrong path, and cuppa already knows exactly which folders belong to which
+variant and which dependency.
 
-This plan proposes renaming the storage roots, a way to list what is in them, a family of
-explicit removal options, a report on the state of the local working copies `--develop`
-substitutes together with conservative ways to bring them up to date and to create the ones that
-are missing, and the safety model that governs all of it.
+This plan proposes a way to list what is in the storage roots, a family of explicit removal
+options, a report on the state of the local working copies `--develop` substitutes together with
+conservative ways to bring them up to date and to create the ones that are missing, and the
+safety model that governs all of it.
 
-The storage rename comes **first** (§6, Phase 1). Every later phase talks about paths, so doing
-the rename up front means each subsequent discussion and changeset uses one vocabulary, instead
-of every review having to translate between the old and new names. Throughout this document the
-new names are used: `dependencies_root` for what is currently `download_root`, and
-`downloads_root` for what is currently `cache_root`. Both default to subfolders of a single
-`storage_root`, which defaults to `~/.cuppa` and can be moved with one option.
+The storage rename came **first** (§6, Phase 1) so every later phase talks about one vocabulary.
+Throughout this document the new names are used: `dependencies_root` (was `download_root`) and
+`downloads_root` (was `cache_root`). Both default to subfolders of a single `storage_root`,
+which defaults to `~/.cuppa` and can be moved with one option.
 
 ---
 
@@ -819,27 +818,17 @@ could land at any point, and Phase 6 needs a design pass this plan does not atte
 | 5 | `--list-develop`, `--update-develop` | nothing in this plan |
 | 6 | `--remove-artefacts` | its own design pass first |
 
-**Phase 1 — storage naming** (§8, §3.1)
+**Phase 1 — storage naming** (§8, §3.1) — **done**
 
-- `cuppa/core/storage_options.py`: add `--storage-root`, `--dependencies-root` /
-  `--downloads-root` and the matching `storage_root` / `dependencies_root` / `downloads_root`
-  keys; keep `--download-root` / `--cache-root` and their keys as deprecated aliases that
-  resolve to the same values.
-- Resolution order in one place: explicit root, else derived from `storage_root`, else derived
-  from the default `storage_root`, with the deprecated aliases feeding the explicit slot. Every
-  reader takes the resolved value, so no subsystem re-implements the precedence.
-- Fallback: when an old folder exists and the new one does not, keep using the old one and log
-  once at info level explaining the new name and location.
-- Update every internal reader (`cuppa/location.py`, `cuppa/package_managers/gitlab.py`,
-  `cuppa/build_with_conan.py`, `cuppa/dependencies/…`) to the new keys.
-- Report the resolved roots at info level on the first retrieval of a run, so the new shared
-  location is visible in build output and not only in documentation (§8.3).
-- Docs and `CHANGELOG.md` in the same change: Deprecated for the old options, Changed for the
-  default location, and the shared-by-default explanation the change obliges us to write (§8.3).
-
-Landing this alone is low risk and self-contained: no behaviour changes beyond where the
-defaults point, and the alias layer keeps existing `~/.cuppaconfig` files and dependency plugins
-working.
+- `cuppa/core/storage_options.py`: `--storage-root`, `--dependencies-root` /
+  `--downloads-root` and the matching keys; `--download-root` / `--cache-root` and their keys
+  kept as deprecated aliases of the resolved values.
+- Resolution in one place (`resolve_root`): explicit option, else deprecated alias, else an
+  existing older folder, else derived from `storage_root`. Both the project-local `_cuppa` and
+  the shared `~/_cuppa/_download` are considered for dependencies, project-local first.
+- Internal readers moved to the new keys; the old keys remain as aliases for plugins.
+- Roots reported at info level on the first retrieval of a run.
+- Docs and `CHANGELOG.md` updated under Changed and Deprecated.
 
 **Phase 2 — build removal and `--list-builds`** (§3.3, §4.1, §4.2)
 
@@ -1152,6 +1141,19 @@ Renaming storage silently would strand existing trees and force re-downloads, so
    info level explaining the new name and how to move. This matters more than a pure rename
    would, because the default location changes too: an existing `~/_cuppa/_download` full of
    trees must not silently become an empty `~/.cuppa/dependencies` and a machine-wide re-fetch.
+
+   The fallback has to consider **two** old dependency locations, not one. `download_root`
+   defaults to `_cuppa` *inside the project* today, so the tree a project has by default is
+   `<project>/_cuppa`, and only a person who configured `download_root` themselves has the shared
+   `~/_cuppa/_download` this section originally named. Checking the shared path alone would leave
+   every unconfigured project re-fetching into `~/.cuppa/dependencies` with a perfectly good tree
+   sitting beside its sconstruct — the exact outcome the fallback exists to prevent. Both are
+   checked, project-local first, because that is what the old default produced.
+
+   A root kept by the fallback is kept in the form it was written in. A relative `_cuppa` stays
+   relative rather than being resolved to an absolute path, because `construct.py` excludes the
+   dependencies root from sconscript discovery by folder name and only a relative name matches:
+   resolving it would quietly start scanning every retrieved tree for sconscripts.
 4. Document the change in `CHANGELOG.md` under Deprecated, and give the `mv` commands in the docs.
 5. Consider a `--migrate-storage` action that performs the moves, once the machinery in this plan
    exists, since it needs the same containment and reporting code.

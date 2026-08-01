@@ -237,8 +237,9 @@ class Construct(object):
                 'base_path',
                 'branch_root',
                 'branch_dir',
-                'download_root',
-                'cache_root',
+                'storage_root',
+                'dependencies_root',
+                'downloads_root',
                 'thirdparty',
                 'build_root',
                 'default_dependencies',
@@ -788,9 +789,12 @@ class Construct(object):
             element = next( e for e in path.split(os.path.sep) if e )
             return element == ".."
 
-        exclude_dirs = [ re.escape(d) for d in exclude_dirs if not os.path.isabs(d) and not up_dir(d) ]
-        exclude_dirs = "|".join( exclude_dirs )
-        exclude_dirs_regex = re.compile( exclude_dirs, re.IGNORECASE )
+        exclude_dirs = [ re.escape(d) for d in exclude_dirs if d and not os.path.isabs(d) and not up_dir(d) ]
+
+        # An empty alternation matches every folder, which would discard the whole tree. Nothing
+        # to exclude is now the common case, because the dependencies root is outside the project
+        # by default and absolute paths are already skipped above.
+        exclude_dirs_regex = exclude_dirs and re.compile( "|".join( exclude_dirs ), re.IGNORECASE ) or None
 
         return cuppa.recursive_glob.glob(
                 path,
@@ -843,7 +847,7 @@ class Construct(object):
             if not projects or not cuppa_env['run_from_launch_dir']:
                 sub_sconscripts = self.get_sub_sconscripts(
                         cuppa_env['launch_dir'],
-                        [ cuppa_env['build_root'], cuppa_env['download_root'] ]
+                        [ cuppa_env['build_root'], cuppa_env['dependencies_root'] ]
                 )
                 if sub_sconscripts:
                     projects = sub_sconscripts
@@ -867,7 +871,7 @@ class Construct(object):
                         if os.path.isdir( path ):
                             sub_sconscripts = self.get_sub_sconscripts(
                                 project,
-                                [ cuppa_env['build_root'], cuppa_env['download_root'] ]
+                                [ cuppa_env['build_root'], cuppa_env['dependencies_root'] ]
                             )
                             if sub_sconscripts:
                                 logger.info( "Reading project folder [{}] and using sub-sconscripts [{}]".format(
@@ -880,7 +884,7 @@ class Construct(object):
                 elif os.path.exists( project ) and os.path.isdir( project ):
                     sub_sconscripts = self.get_sub_sconscripts(
                             project,
-                            [ cuppa_env['build_root'], cuppa_env['download_root'] ]
+                            [ cuppa_env['build_root'], cuppa_env['dependencies_root'] ]
                     )
                     if sub_sconscripts:
                         logger.info( "Reading project folder [{}] and using sub-sconscripts [{}]".format(

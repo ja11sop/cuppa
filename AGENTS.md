@@ -202,8 +202,9 @@ Equivalent: `scons -D …` when the project's `sconstruct` already imports cuppa
 | Purpose | Default |
 |---------|---------|
 | Build root | `_build` |
-| Download root | `_cuppa` |
-| Cache root | `~/_cuppa/_cache` |
+| Storage root | `~/.cuppa` |
+| Dependencies root | `~/.cuppa/dependencies` (`--dependencies-root`, was `--download-root`) |
+| Downloads root | `~/.cuppa/downloads` (`--downloads-root`, was `--cache-root`) |
 | Project conf | `configure.conf` |
 | Global conf | `~/.cuppaconfig` |
 

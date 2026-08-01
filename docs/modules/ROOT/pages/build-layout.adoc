@@ -1,5 +1,5 @@
 = Build layout
-:description: Where cuppa places build products, downloads, and caches
+:description: Where cuppa places build products, dependencies, and downloads
 
 == Default roots
 
@@ -7,11 +7,42 @@
 | Purpose | Default | Override
 
 | Build output | `_build` | `--build-root`
-| Downloaded / checked-out dependencies | `_cuppa` | `--download-root`
-| Archive cache | `~/_cuppa/_cache` | `--cache-root`
+| Dependency trees, ready to build against | `~/.cuppa/dependencies` | `--dependencies-root`
+| Downloaded archives | `~/.cuppa/downloads` | `--downloads-root`
 |===
 
-These defaults live in `cuppa/core/storage_options.py`. Older documentation referred to `.build` / `.cuppa`; current cuppa uses the underscore-prefixed names above.
+These defaults live in `cuppa/core/storage_options.py`.
+
+Build output belongs to one project and stays beside it. The other two are the same for every
+project on the machine: a dependency you retrieved once is worth reusing, so they default to a
+shared `~/.cuppa` rather than to a folder inside whichever project fetched them first.
+
+`--storage-root` moves both of them together, which is the flag to reach for when you want a
+different location rather than a different arrangement:
+
+[source,sh]
+----
+cuppa -D --dbg --storage-root=/fast-disk/cuppa
+----
+
+Pass `--storage-root=_cuppa` to keep everything inside the project, which is worth doing when a
+build must not touch anything outside its own directory. Naming `--dependencies-root` or
+`--downloads-root` sets that one root and leaves the other derived from the storage root, so you
+can keep trees local while still sharing the archive downloads.
+
+NOTE: `--download-root` and `--cache-root` are the previous names for `--dependencies-root` and
+`--downloads-root`. They still work and still choose the same roots, and cuppa names the
+replacement when you use one.
+
+=== Storage from an earlier cuppa
+
+Before these names existed, dependencies went into a project-relative `_cuppa` folder by default,
+and downloads into `~/_cuppa/_cache`. Where such a folder already exists and you have not chosen a
+root yourself, cuppa keeps using it and says so once, so that upgrading does not turn a populated
+tree into an empty `~/.cuppa` and a machine-wide re-fetch. A project-local `_cuppa` beside your
+sconstruct is preferred over the shared one, because that is what the old default produced.
+
+To move to the new location, move or delete the old folder, or name the root you want explicitly.
 
 == Per-sconscript output tree
 
@@ -67,15 +98,15 @@ That removes objects, binaries, module BMIs (`.gcm` / `.pcm`), and the GCC
 for a fully cold tree.
 
 Cleaning never retrieves or updates dependencies. If a location or package dependency
-is not present in the download root, cuppa reports that at info level and treats it as
-absent rather than stopping the clean, so a partially populated download root does not
+is not present in the dependencies root, cuppa reports that at info level and treats it as
+absent rather than stopping the clean, so a partially populated dependencies root does not
 block you from clearing `_build`. In the usual case nothing is missed: a dependency you
 never downloaded cannot have contributed any files to remove, and your own targets are
 still described (and therefore still cleaned) with or without it.
 
 The exception is a location dependency that compiles its own sources through
 `build_library_from_source`, because those artefacts live under `_build/<location folder>/`
-rather than in the download root. If that folder exists while the location itself does not,
+rather than in the dependencies root. If that folder exists while the location itself does not,
 cuppa warns and names the folder, since the sources needed to describe those artefacts are
 gone and SCons cannot remove them. Delete the folder by hand, or restore the location and
 clean again.

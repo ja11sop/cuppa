@@ -81,7 +81,9 @@ cuppa.run(
 ----
 
 Locations may be filesystem paths, archive URLs, or VCS URLs (for example `git+https://…@branch`).
-Cuppa caches archives under `--cache-root` and checkouts under `--download-root`.
+Cuppa keeps checkouts and extracted archives under `--dependencies-root` and the downloaded
+archives themselves under `--downloads-root`, both shared between projects by default. See
+xref:build-layout.adoc[Build layout] for the defaults and for how to move them.
 
 With `--develop`, location dependencies that define a develop path use the local tree instead of fetching.
 
@@ -250,7 +252,7 @@ cuppa.run(
 )
 ----
 
-Cuppa maps the active toolchain and variant into Conan settings (`compiler`, `compiler.version`, `compiler.cppstd`, `compiler.libcxx`, `build_type`, `os`, `arch`), runs `conan install` once per settings fingerprint (cached under the download root), and merges the resulting flags.
+Cuppa maps the active toolchain and variant into Conan settings (`compiler`, `compiler.version`, `compiler.cppstd`, `compiler.libcxx`, `build_type`, `os`, `arch`), runs `conan install` once per settings fingerprint (cached under the dependencies root), and merges the resulting flags.
 
 Cuppa also passes Conan conf `tools.build:compiler_executables` from the active toolchain's C/C++ drivers.
 Without that, host settings can say `compiler=clang` while CMake still picks `g++` from `PATH` when building missing packages — a common failure on Linux CI images that ship both compilers.

@@ -17,7 +17,7 @@ Full reference documentation: **[https://ja11sop.github.io/cuppa/](https://ja11s
 - Make-like CLI via `cuppa` or `scons` with cuppa loaded in the `sconstruct`
 - Multi-variant builds: debug (`--dbg`), release (`--rel`), coverage (`--cov`, GCC/Clang)
 - Multi-toolchain: GCC, Clang, and MSVC (`vc` on Windows), with wildcards (`--toolchains=gcc*,clang21`)
-- Out-of-tree builds under `_build/` (downloads under `_cuppa/`, archive cache under `~/_cuppa/_cache`)
+- Out-of-tree builds under `_build/`, with dependencies and downloads shared under `~/.cuppa/`
 - Dependencies: Boost, Qt4/Qt5, Quince, location-based libraries, GitLab package registry
 - Test runners and HTML coverage (gcovr), plus optional HTML test reports
 - Optional C++20 modules (`--modules`): named modules, partitions, header units, `import std` where supported
@@ -128,8 +128,11 @@ See the [CLI reference](https://ja11sop.github.io/cuppa/cuppa/cli-reference.html
 | Purpose | Default | Override |
 |---------|---------|----------|
 | Build output | `_build` | `--build-root` |
-| Downloads / checkouts | `_cuppa` | `--download-root` |
-| Archive cache | `~/_cuppa/_cache` | `--cache-root` |
+| Dependency trees | `~/.cuppa/dependencies` | `--dependencies-root` |
+| Downloaded archives | `~/.cuppa/downloads` | `--downloads-root` |
+
+The last two are shared between projects. `--storage-root` moves both together, so
+`--storage-root=_cuppa` keeps all storage inside the project.
 
 Layout under the build root:
 
