@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `--list-develop` reports the state of every configured develop working copy — branch, upstream,
+  ahead / behind as of your last fetch, and whether the tree is modified — and exits without
+  building. It warns when a copy is on the wrong branch, behind, diverged, or carrying local work
+  on the default branch that no other build will see, and exits non-zero when a develop path does
+  not exist. The report is written to standard output rather than logged, so `--verbosity` and
+  `-Q` cannot take pieces out of it and `cuppa -Q -D --list-develop` prints the report on its own.
+  Severity appears in a `STATUS` column as well as in colour, so it survives `--raw-output`.
+  Below the table the reasons hang from the summary line as one tree, grouped by severity with the
+  worst first and counted in each heading, so reading down it is reading a work list. Long reasons
+  are wrapped to the table's right edge with the stem carried down the wrapped lines. The report
+  closes by naming the copies `--update-develop` would fast-forward, when there are any (#132).
+- `CUPPA_CONSOLE_BACKGROUND=light` (or `dark`) tells cuppa which way to make text recede: reduced
+  intensity on a dark console, grey on a light one, where dimming black text can look untouched.
+  `COLORFGBG` is used where a terminal sets it, and this setting overrides it.
+- `--update-develop` fetches each git develop working copy and fast-forwards only those that are
+  clean and strictly behind their upstream. Modified, ahead, diverged, and detached copies are
+  left alone and reported. It refuses under `--offline`, and `-n` shows the plan without changing
+  anything (#132).
+
 ### Changed
 
 - `cuppa/VERSION` carries a `.dev` suffix while a release is being assembled, so a build from a

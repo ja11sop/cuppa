@@ -13,9 +13,19 @@ import shlex
 import os
 import re
 
+from collections import namedtuple
+
 from cuppa.log import logger
 from cuppa.colourise import as_notice, as_info, colour_items, as_warning
 from cuppa.utility.python2to3 import as_str, Exception
+
+
+# What a working copy looks like without asking the network. Counts are relative to the last
+# fetch; None means the question could not be answered rather than zero.
+WorkingCopyState = namedtuple(
+        'WorkingCopyState',
+        [ 'branch', 'detached', 'upstream', 'ahead', 'behind', 'modified' ]
+)
 
 
 class Git:
@@ -245,6 +255,81 @@ class Git:
         if revision.strip() != "undefined":
             guessed_revision = revision
         return guessed_revision
+
+
+    @classmethod
+    def get_working_copy_state( cls, path ):
+        """Branch, upstream, ahead, behind and modified, without touching the network.
+
+        The counts describe the working copy against the upstream ref as it stood after the last
+        fetch. `modified` ignores untracked files: they are not what stops a fast-forward.
+        """
+        if not path or not os.path.exists( os.path.join( path, ".git" ) ):
+            raise cls.Error("Not a Git working copy")
+
+        branch = None
+        detached = False
+        try:
+            branch = cls.execute_command(
+                    "{git} symbolic-ref --short -q HEAD".format( git=cls.binary() ), path
+            )
+        except cls.Error:
+            detached = True
+
+        upstream = None
+        if branch:
+            try:
+                upstream = cls.execute_command(
+                        "{git} rev-parse --abbrev-ref --symbolic-full-name @{{upstream}}".format(
+                                git=cls.binary()
+                        ),
+                        path
+                )
+            except cls.Error:
+                logger.trace( "No upstream branch for [{}] in [{}]".format(
+                        as_notice(branch), as_notice(path)
+                ) )
+
+        ahead = None
+        behind = None
+        if upstream:
+            counts = cls.execute_command(
+                    "{git} rev-list --left-right --count @{{upstream}}...HEAD".format(
+                            git=cls.binary()
+                    ),
+                    path
+            )
+            fields = counts.split()
+            if len(fields) == 2:
+                behind, ahead = int(fields[0]), int(fields[1])
+
+        status = cls.execute_command(
+                "{git} status --porcelain --untracked-files=no".format( git=cls.binary() ), path
+        )
+
+        return WorkingCopyState(
+                branch   = branch,
+                detached = detached,
+                upstream = upstream,
+                ahead    = ahead,
+                behind   = behind,
+                modified = bool( status.strip() )
+        )
+
+
+    @classmethod
+    def fetch( cls, path ):
+        """Update the remote-tracking refs. The one command in this family that uses the network."""
+        return cls.execute_command( "{git} fetch".format( git=cls.binary() ), path )
+
+
+    @classmethod
+    def fast_forward( cls, path ):
+        """Advance the checked-out branch to its upstream, refusing anything that is not a
+        fast-forward. Git enforces that, so a copy that has moved on is never rewritten here."""
+        return cls.execute_command( "{git} merge --ff-only @{{upstream}}".format(
+                git=cls.binary()
+        ), path )
 
 
     @classmethod

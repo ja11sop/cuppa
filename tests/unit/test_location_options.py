@@ -16,6 +16,8 @@ def test_process_location_options_copies_flags():
     env = FakeEnv(
         {
             "develop": True,
+            "list_develop": True,
+            "update_develop": False,
             "location_default_branch": "main",
             "location_match_current_branch": True,
             "location_explicit_default_branch": False,
@@ -25,6 +27,8 @@ def test_process_location_options_copies_flags():
     )
     location_options.process_location_options(env)
     assert env["develop"] is True
+    assert env["list_develop"] is True
+    assert env["update_develop"] is False
     assert env["location_default_branch"] == "main"
     assert env["location_match_current_branch"] is True
     assert env["location_explicit_default_branch"] is False

@@ -89,6 +89,25 @@ pasted build output. Instead:
 whenever you introduce a new anonymised reference — but never copy a name out of it into a
 tracked file.
 
+## Commit messages
+
+**No trailers.** A commit message ends with its last paragraph — no `Co-authored-by`, no
+`Signed-off-by`, no generated-by or tool attribution lines, and nothing appended by a client.
+The history records what changed and why; who or what typed it is the author field's job, and
+trailers naming tools date the history and add a line of noise to every `git log`.
+
+That means `git commit` is never invoked with `--trailer`, and a `Co-authored-by:` line is
+never written into the message body either. An agent committing here passes the message with
+`-m` or `-F` and nothing else.
+
+Otherwise, follow the shape already in the log:
+
+- A subject line that names the change, in the imperative, without a full stop.
+- A blank line, then prose explaining **why** the change was needed and what it now does. Wrap
+  at roughly 72 characters, and use bullets for a change with several distinct parts.
+- Reference issues in prose (`Groundwork for #132`), not as a trailer.
+- One coherent change per commit; split unrelated work rather than describing two things at once.
+
 ## GitHub access
 
 Cuppa is a public repository, so anything that only reads it — issue lists, issue bodies, pull
@@ -168,6 +187,8 @@ cuppa -D --rel
 cuppa -D --cov --test
 cuppa -D --toolchains=gcc,clang
 cuppa -D --scripts=path/to/sconscript
+cuppa -D --list-develop
+cuppa -D --update-develop
 ```
 
 `cuppa` wraps `scons`, appends `--cuppa-mode`, masks `*TOKEN*` env values in output, and may restrict CPU affinity with `--parallel`.
@@ -285,8 +306,12 @@ In a project that *uses* cuppa (not this repo):
 
 ```sh
 cuppa -D --dbg --develop --offline --test
+cuppa -D --list-develop
+cuppa -D --update-develop
 cuppa -D --cov --test --toolchains=gcc
 ```
+
+`--list-develop` reports the branch and cleanliness of each configured develop working copy; `--update-develop` fast-forwards the clean ones that are behind. See `dependencies.adoc` § Checking your develop copies.
 
 Package registry dependencies need matching toolchain archives in the registry (or cache); `--develop` does not invent them.
 GitLab auth: `GITLAB_REGISTRY_TOKEN` or `CI_JOB_TOKEN`.

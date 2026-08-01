@@ -63,13 +63,17 @@ See xref:configuration.adoc[Configuration] for `--show-conf`, `--save-conf`, `--
 | Option | Description
 
 | `--develop` | Use develop locations for location/package dependencies that define them
-| `--location-default-branch` | Default branch name (default `master`) used in offline / relative location logic
+| `--list-develop` | Report the state of each configured develop working copy and exit (no network access)
+| `--update-develop` | Fetch each git develop working copy and fast-forward those that are clean and behind; refuse under `--offline`
+| `--location-default-branch` | Default branch name (default `master`) used in offline / relative location logic and by `--list-develop`
 | `--location-match-current-branch` | For relative locations (`path@`), try the current branch
 | `--location-explicit-default-branch` | Record the default branch explicitly in local checkouts
 | `--location-match-branch` / `--location-match-tag` | Pin relative locations to a branch or tag
 |===
 
 Per-dependency location options follow the pattern `--<name>-location`, `--<name>-develop`, `--<name>-include`, `--<name>-sys-include`, `--<name>-branch-path`, and related flags.
+
+See xref:dependencies.adoc#checking-your-develop-copies[Checking your develop copies] for what each state means and what `--update-develop` changes.
 
 == Environment propagation
 

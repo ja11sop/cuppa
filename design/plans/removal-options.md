@@ -1,19 +1,21 @@
 # Plan: removal options for build folders and dependencies
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Storage roots, listing, and removal; GitHub [#132](https://github.com/ja11sop/cuppa/issues/132), [#133](https://github.com/ja11sop/cuppa/issues/133), [#134](https://github.com/ja11sop/cuppa/issues/134), [#135](https://github.com/ja11sop/cuppa/issues/135)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Storage roots, listing, and removal; GitHub [#132](https://github.com/ja11sop/cuppa/issues/132), [#133](https://github.com/ja11sop/cuppa/issues/133), [#134](https://github.com/ja11sop/cuppa/issues/134), [#135](https://github.com/ja11sop/cuppa/issues/135), [#138](https://github.com/ja11sop/cuppa/issues/138)
 - **Updated:** 2026-08-01
 
-Nothing here is implemented. Follow-on from the `--clean` work in `cuppa/location.py` and `cuppa/package_managers/gitlab.py`,
-where a clean could not complete because a dependency was missing, and where the advice for
-leftover artefacts was "remove the folder by hand". Telling people to run `rm -rf` is
-unsatisfying: it is platform-specific, it is easy to aim at the wrong path, and cuppa already
-knows exactly which folders belong to which variant and which dependency.
+`--list-develop` and `--update-develop` (§3.5, §3.6) are implemented; cloning a missing develop
+copy (§3.7) came out of using them and is a proposal, as are the storage rename and the removal
+options. Follow-on from the `--clean` work in `cuppa/location.py` and
+`cuppa/package_managers/gitlab.py`, where a clean could not complete because a dependency was
+missing, and where the advice for leftover artefacts was "remove the folder by hand". Telling
+people to run `rm -rf` is unsatisfying: it is platform-specific, it is easy to aim at the wrong
+path, and cuppa already knows exactly which folders belong to which variant and which dependency.
 
 This plan proposes renaming the storage roots, a way to list what is in them, a family of
 explicit removal options, a report on the state of the local working copies `--develop`
-substitutes together with a conservative way to bring them up to date, and the safety model that
-governs all of it.
+substitutes together with conservative ways to bring them up to date and to create the ones that
+are missing, and the safety model that governs all of it.
 
 The storage rename comes **first** (§6, Phase 1). Every later phase talks about paths, so doing
 the rename up front means each subsequent discussion and changeset uses one vocabulary, instead
@@ -35,6 +37,8 @@ new names are used: `dependencies_root` for what is currently `download_root`, a
 - Let people see the state of the local working copies `--develop` substitutes, relative to the
   branch being built, so a mismatched or stale copy is found before it confuses a build (§3.5),
   and bring the out-of-date ones forward where that cannot lose work (§3.6).
+- Create a develop working copy that is configured but not yet on disk, so a new machine, or a
+  dependency added since you last looked, does not need a clone worked out by hand (§3.7).
 - Remove the build output for the *currently selected* variant / toolchain combination.
 - Remove the whole build root.
 - Remove the on-disk copies of dependencies cuppa manages, either all of them or by name.
@@ -455,6 +459,117 @@ it. And because the value slot is spoken for, per-dependency scoping would need 
 (`--update-develop-only=dep1,dep2`), which is a further reason to wait until there is evidence
 that scoping is wanted at all.
 
+### 3.7 Cloning a develop copy that is not there yet
+
+Tracked as GitHub [#138](https://github.com/ja11sop/cuppa/issues/138). The surface is settled —
+a first-class `--clone-develop` — and the remaining design questions are gathered at the end of
+this section and in §9; they should be answered before implementation starts.
+
+Using `--list-develop` on real projects surfaced a case the two options above only report on: a
+dependency has a develop path configured, and there is nothing at that path. Today that is the
+one row `--list-develop` calls an `error`, because a build with `--develop` active cannot
+succeed, and the remedy is entirely manual — find the remote, clone it into exactly the right
+directory, and check out a branch that will not immediately be flagged as wrong.
+
+Three situations produce that row, and all three are ordinary:
+
+- **A new machine.** Someone joins, or rebuilds their laptop, has their SSH key working, and
+  wants the set of repositories the project develops against.
+- **A dependency added since you last looked.** The project grew a new component; everyone
+  else's tree has it, yours does not, and the first sign is a failed build.
+- **A dependency you have never needed to edit until now.** It was being retrieved into the
+  dependencies root and that was fine, until the change you are making spans it.
+
+**Cuppa already knows all three of the things a person has to work out by hand.** The location
+dependency carries the remote and, often, the branch (`git+ssh://…/widget.git@master`); the
+develop clause carries the destination, resolved by the same `develop_location()` helper the
+report and the swap both use; and §3.5's classification already produces the row that says the
+destination is empty. So this is a new *action* over observation that exists, in the same shape
+as §3.6: one decision per copy, taken from state already gathered.
+
+**Surface.** Three candidates, and the choice matters because it decides what `--update-develop`
+promises:
+
+| Form | For | Against |
+|------|-----|---------|
+| Fold into `--update-develop` | One command makes the environment right, which is what a newcomer wants | Changes the option's character. Fast-forwarding is seconds and reversible; cloning is minutes, megabytes, and network. A missing path is also what a **typo** in a develop clause looks like, and answering a typo by cloning a repository into it is the wrong reflex |
+| `--update-develop=clone-missing` | Fits the additive-modes idea already set out in §3.6 | The modes slot was reserved for *how much of someone's unpublished work you are willing to disturb*. Creating a copy is a different axis, and overloading the slot makes both harder to explain |
+| A first-class `--clone-develop` (**recommended**) | Keeps `--update-develop`'s promise intact; composes — `cuppa -D --clone-develop --update-develop` is the onboarding command, and either half is useful alone; leaves the mode slot for tolerance levels; says plainly what it does | One more option in the family, and people have to learn that update does not clone |
+
+The third is the one taken. The family then reads as three verbs over one observation:
+`--list-develop` looks, `--clone-develop` creates what is missing, `--update-develop` moves
+forward what is behind.
+
+**Which branch a fresh copy lands on.** A clone that is born a warning is a poor introduction, so
+the checkout has to satisfy §3.5's rules rather than merely succeed. The order should be: the
+branch being built, when the remote has it and the project is using branch matching; otherwise
+the branch the location names; otherwise the remote's default branch. What it must **never** do
+is leave a detached HEAD, which is what checking out a tag or a revision produces. That is a real
+difference from managed retrieval, where a detached checkout at a pinned revision is exactly
+right: a copy in the dependencies root is read, and a develop copy is worked in. Where the
+location pins a tag or a revision, the honest outcome is to clone and check out the branch that
+contains it, or to refuse and say why, rather than to hand back a copy nobody can commit to.
+
+**Credentials must not end up in the clone.** `Location.expand_secret` puts tokens into HTTPS
+URLs so retrieval can authenticate. A develop copy lives in someone's home directory for months,
+so writing `https://oauth2:<token>@host/…` into its `.git/config` would persist a credential
+where nobody thinks to look for one, keep working after the token should have been rotated, and
+travel into the first support paste that includes `git remote -v`. The clone must therefore use
+the **unexpanded** URL and let SSH or the user's git credential helper answer, and refuse with a
+clear message rather than quietly embedding a secret. This also argues against cuppa growing a
+protocol option: git already rewrites remotes through `url.<base>.insteadOf`, so a developer who
+wants SSH where the project names HTTPS can say so once in their own git configuration, and both
+cuppa and every other tool honour it.
+
+**Where it must refuse.** Cloning is the one write in this family with no destructive potential,
+but only because it never touches anything that already exists:
+
+| Situation | Response |
+|-----------|----------|
+| Destination is a working copy already | Nothing to do; that is `--update-develop`'s job |
+| Destination exists and is not empty | Refuse and report. Emptying it is a person's decision |
+| Destination exists and is empty | Clone into it |
+| Parent directories are missing | Create them, and say which were created |
+| Dependency has no develop clause | Skip. Nothing says where the copy should go (see the follow-on below) |
+| Location is an archive, a plain path, or an unsupported VCS | Skip with the reason; there is nothing to clone |
+| `--offline` | An error, exactly as for `--update-develop` — this option is nothing but network |
+| Authentication or remote failure | Report per dependency, continue with the rest, exit non-zero |
+
+Nothing is ever removed, moved, or overwritten, which is what makes the option safe enough to
+run without a dry run first — though `-n` still prints the plan: what would be cloned, from
+where, to where, and on which branch.
+
+**Submodules and depth.** A dependency that uses submodules and is cloned without them produces
+a tree that fails to build in a way that looks like a code error, so recursing is the kinder
+default; the cost is size, and the alternative is a confusing failure. Shallow clones should not
+be offered: a develop copy has to support branching, pushing, and the ahead / behind counts
+`--list-develop` reports, all of which a shallow history complicates for no benefit to someone
+who is going to work in the tree.
+
+**Reporting.** The same shape as §3.6 — the table before, a line per copy saying what was cloned
+and where, and the table afterwards. A successful clone turns an `error` row into an `ok` row,
+which is the proof the reader wants, and the closing suggestion that names what
+`--update-develop` would do next follows naturally from it.
+
+**Follow-on: the one-command fresh machine.** Everything above assumes the develop paths are
+already configured, which in practice means a shared `configure.conf` or the clauses being in the
+`sconstruct`. That covers the second and third situations completely and the first one as soon as
+the newcomer has the project's configuration. It does not cover the truly bare machine, where
+nothing yet says where copies should live. A `--develop-root=<path>` that clones every dependency
+to `<root>/<name>` and treats those as the develop locations would close that gap, but it turns
+cuppa from something that reads your configuration into something that writes it, so it deserves
+its own design pass rather than being smuggled in here.
+
+**Follow-on: name the option in the failure.** When a `--develop` build fails because a develop
+path does not exist, the message should say which option creates it. That is a one-line change
+once the option exists, and it is how most people will discover it.
+
+**Testing sketch.** The decision is a third pure function over the state §3.5 already observes —
+`clone_action(copy, location)` returning create-or-skip and a reason — so every row of the
+refusal table above is a unit test with no network. Integration tests clone from a local origin:
+one landing on the branch being built, one falling back to the remote default, one refusing on a
+non-empty directory, and one asserting that no token appears in the resulting `.git/config`.
+
 ---
 
 ## 4. Scope resolution
@@ -820,6 +935,12 @@ working.
 - The `--update-develop` decision is a second pure function over the same state: fast-forward
   only when clean and strictly behind, skip with a reason in every other case, and refuse
   outright under `--offline`.
+- The `--clone-develop` decision is a third pure function over the same state plus the location:
+  clone only into a missing or empty destination, skip with a reason for a working copy, a
+  non-empty directory, a missing develop clause, or a location with nothing to clone, and refuse
+  outright under `--offline` (§3.7). The branch a fresh copy would land on is chosen by the same
+  rules `--list-develop` judges by, so a clone cannot be born a warning, and the remote recorded
+  in the clone never carries an expanded secret.
 
 **Integration tests** (`tests/integration/`):
 
@@ -834,6 +955,9 @@ working.
 - `-n` reports paths and removes nothing.
 - Dependency removal against a location dependency backed by a local archive, then a rebuild to
   prove re-fetch works.
+- `--clone-develop` against a local origin: a missing develop path becomes a working copy on the
+  expected branch and the following `--list-develop` reports it as `ok`; a non-empty destination
+  is refused and left untouched.
 
 **Documentation:**
 
@@ -1045,6 +1169,7 @@ Settled while reviewing this plan, and folded into the sections above:
 | An inventory under the dependencies root | Yes — per-entry JSON, updated on resolve, advisory only (§4.5) |
 | Exact or sampled sizing | Sampled, cached in the inventory, refreshed lazily, `~` marks an estimate, `--exact-sizes` measures (§4.5) |
 | Shared or project-relative default | Shared, with a documentation obligation rather than a footnote, and one option to make a project self-contained (§8.3) |
+| Whether cloning a missing develop copy is its own option or a mode of `--update-develop` | Its own option, `--clone-develop`, so that updating keeps its narrow promise and the mode slot stays reserved for tolerance levels (§3.7, [#138](https://github.com/ja11sop/cuppa/issues/138)) |
 
 Still open, and none of them block Phase 1:
 
@@ -1063,6 +1188,12 @@ Still open, and none of them block Phase 1:
 - **Which `--update-develop` modes are worth adding** beyond the fast-forward default, and
   whether per-dependency scoping is wanted once the value slot is spoken for (§3.6). Both should
   be answered by using `--list-develop` and `--update-develop`, not by guessing now.
+- **What a pinned develop location should clone to** (§3.7). Where a location names a tag or a
+  revision there is no branch to land on, and the choice is between checking out the branch that
+  contains it and refusing with an explanation. Refusing is the safer first answer.
+- **Whether `--develop-root` should exist** (§3.7), letting a bare machine clone every dependency
+  into one root without develop clauses being configured first. It would make onboarding a single
+  command, at the cost of cuppa writing configuration rather than reading it.
 - **What happens to the inventory when the roots move.** A `--migrate-storage` action (§8.5)
   would need to rewrite recorded paths, or simply discard the inventory and let it rebuild —
   which is cheap, and probably the right answer.

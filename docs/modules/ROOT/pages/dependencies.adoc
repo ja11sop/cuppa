@@ -87,6 +87,128 @@ With `--develop`, location dependencies that define a develop path use the local
 
 Relative locations ending in `@` participate in `--location-match-*` branch/tag behaviour (see xref:cli-reference.adoc[CLI reference]).
 
+== Checking your develop copies
+
+`--develop` substitutes a working copy on disk for a retrieved dependency and says nothing about the state of that copy.
+You can be building your feature branch against a dependency parked on someone else's spike branch, or against a copy that has not been pulled for months, and the only symptom is a compile error that makes no sense, a test that fails only on your machine, or one that passes only on your machine.
+A develop path that does not exist is not checked at all today: the swap happens regardless and the failure surfaces much later as a missing include.
+
+`--list-develop` reports what you are actually building against.
+It runs after dependency registration and exits without building.
+One row appears for every dependency that has a develop location configured, whether or not `--develop` is active, plus a count of those that have none:
+
+[source,shell]
+----
+cuppa -D --list-develop
+----
+
+....
+Building on branch [feature_orders] with default branch [master]; --develop is active
+
+  ---------------------------------------------------------------------------------------------
+  STATUS  DEPENDENCY  BRANCH          UPSTREAM               STATE                PATH
+  ---------------------------------------------------------------------------------------------
+  note    widget      feature_orders  origin/feature_orders  modified, 2 ahead    ~/coding/widget
+  ok      gadget      master          origin/master          clean                ~/coding/gadget
+  warn    flange      spike_cache     origin/spike_cache     clean, 12 behind     ~/coding/flange
+  error   gizmo       -               -                      path does not exist  ~/coding/gizmo
+  ---------------------------------------------------------------------------------------------
+
+4 develop locations: 1 ok, 1 note, 1 warning, 1 error; 6 dependencies not using develop
+│
+├── 1 error
+│   │
+│   └── gizmo
+│       └── has a develop path [~/coding/gizmo] that does not exist, so this build cannot
+│           succeed
+│
+├── 1 warning
+│   │
+│   └── flange
+│       ├── is on [spike_cache], which is neither [feature_orders] nor the default branch
+│       │   [master]
+│       └── is 12 commits behind [origin/spike_cache] as of your last fetch
+│
+└── 1 note
+    │
+    └── widget
+        └── has 2 unpushed commits on [feature_orders]
+
+Ahead and behind are relative to your last fetch; no remote was contacted
+Of these, --update-develop would fast-forward 1 ([flange]) as of your last fetch; it fetches
+first, so it may find more
+....
+
+The table is the inventory of what you are building against.
+Every judgement then hangs from the summary line as one tree, grouped by severity with the worst first, so reading down the tree is reading a work list: what stops the build, then what needs a decision, then what is only worth knowing.
+Each severity heading counts the dependencies beneath it, and each dependency is named once, with a gap on the stem above each name so that a dependency and its reasons read as one block.
+A reason too long for the line is wrapped to the table's right edge and the stem is carried down through the wrapped lines, so the report keeps one right edge and the tree stays a tree.
+Paths are shown the way the table shows them, with `..` segments resolved and your home directory written as `~`, because a develop location written relative to the `sconstruct` resolves to a path that is hard to recognise.
+Where the console cannot encode box drawing characters the tree falls back to ASCII.
+No remote is contacted, so the option remains available with `--offline`.
+
+The last line appears when `--update-develop` would do something with what has just been observed, and names the copies it would fast-forward.
+The decision behind it is the one `--update-develop` uses, so the line cannot offer an update that the option then declines to make.
+It can understate, because `--update-develop` fetches before deciding and a fetch can find copies that are behind without your knowing yet, which is why the line says so.
+Nothing is printed when every copy would be left alone.
+
+On a colour console the `ok` and `note` rows recede, so the rows at full strength are exactly the ones wanting attention.
+Receding is done by reduced intensity rather than by a background colour, so it works on either console, and a terminal that ignores it simply shows a plain table.
+On a light console reduced intensity applied to black text can look untouched, so grey is used there instead; set `CUPPA_CONSOLE_BACKGROUND=light` to say which console you have, since most terminals do not report it (see xref:configuration.adoc#_environment_variables[Environment variables]).
+In the judgement tree the severity, the dependency name, and the values are coloured and the prose is left plain, so a dependency or branch name can be found without reading every line.
+
+The report is written to standard output rather than to the log, because it is the result you asked for rather than commentary on producing it.
+That means a quieter build does not take pieces out of it, and `-Q` gives you the report on its own:
+
+[source,shell]
+----
+cuppa -Q -D --list-develop
+cuppa -Q -D --list-develop --raw-output > develop.txt
+----
+
+Severity appears in the `STATUS` column as well as in colour, so it survives `--raw-output` and can be searched for.
+It is the value of the option:
+
+|===
+| Situation | Severity
+
+| Branch equals the branch being built, or the default branch | ok
+| Any other branch, or detached HEAD | warning
+| Behind upstream, or diverged | warning
+| Ahead or modified, on the branch being built | note — this is the intended workflow
+| Ahead or modified, on the default branch | warning — local work that no other build will see
+| No upstream tracking branch | note — ahead and behind cannot be answered
+| Not a working copy | warning
+| Path does not exist | error
+|===
+
+Local work is only benign where the rest of the world will find it.
+Uncommitted or unpushed changes on a branch that matches the branch being built are the intended workflow: when that branch is pushed, `--location-match-current-branch` selects it and everyone else's build sees the same code.
+The same changes sitting on the default branch are a trap.
+Your build works, because `--develop` reads the working copy; every build that does not use `--develop` resolves the dependency to the published default branch and compiles something else.
+The warning names the remedy: put the work on a branch named for the branch you are building, commit it, and push it.
+
+The exit status is zero for a report, and non-zero when a develop path does not exist, because that build cannot succeed and a CI job should hear about it.
+
+`--update-develop` answers the next question after `--list-develop` tells you a copy is behind.
+It fetches each git working copy, then fast-forwards only those that are clean and strictly behind their upstream.
+Everything else is skipped and reported with the reason: ahead, diverged, modified, detached, no upstream, not a working copy, or path missing.
+
+[source,shell]
+----
+cuppa -D --update-develop
+cuppa -D --update-develop -n
+----
+
+It prints the table before acting, then what it did to each copy, then the table again if anything moved, so the effect is visible rather than inferred.
+It never stashes, resets, rewrites history, or switches branches.
+A fast-forward of a clean tree discards nothing and leaves nothing to recover from.
+`--offline` makes `--update-develop` an error rather than a silent no-op, because this is the one option in the family that needs the network.
+`-n` / `--no-exec` shows the plan and changes nothing; because no fetch happens, the plan is judged as of your last fetch, and the report says so.
+Updating several repositories is not atomic: a failure in one is reported, the rest continue, and the exit status is non-zero.
+
+Subversion, Mercurial, and Bazaar copies appear in the `--list-develop` table with branch and revision from the existing SCM support; ahead, behind, and modified are reported as unknown, and `--update-develop` leaves them alone.
+
 == Conan 2 consumer (optional)
 
 Cuppa can consume Conan 2 packages through `cuppa.conan_deps` / `cuppa.conan_dependency` and apply them with `env.BuildWith`, using Conan's **SConsDeps** generator (`SConscript_conandeps` + `env.MergeFlags`).
