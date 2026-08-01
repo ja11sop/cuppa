@@ -43,7 +43,7 @@ from scripts.github_api import CredentialError, GitHub
 
 
 DEFAULT_BASE = 'master'
-DEFAULT_POLL_SECONDS = 180
+DEFAULT_POLL_SECONDS = 30
 DEFAULT_WATCH_TIMEOUT = 3600
 
 # Exit codes for pr-status / watch-pr so agents can branch without parsing prose.
@@ -396,7 +396,7 @@ def main( argv=None ):
     _add_pr_selection_arguments( watch )
     watch.add_argument(
         '--interval', type=int, default=DEFAULT_POLL_SECONDS,
-        help="seconds between polls (default {} = 3 minutes)".format( DEFAULT_POLL_SECONDS ),
+        help="seconds between polls (default {})".format( DEFAULT_POLL_SECONDS ),
     )
     watch.add_argument(
         '--timeout', type=int, default=DEFAULT_WATCH_TIMEOUT,

@@ -201,8 +201,7 @@ python -m scripts.github_helpers pr-status --pr 139   # one snapshot; no wait
 ```
 
 These status helpers read the public API anonymously — they do **not** unseal the token. Owner and
-repository come from the local `origin` remote. The default poll interval is three minutes; that
-matters less without a seal, but still keeps the noise down on long integration runs.
+repository come from the local `origin` remote. The default poll interval is thirty seconds.
 
 Exit codes: `0` all checks succeeded (or were skipped / neutral), `1` at least one failed, `2`
 still pending (`pr-status` only), `3` timed out while still pending (`watch-pr`). Prefer
