@@ -1,3 +1,7 @@
+# Local-only notes (for example INTERNAL_PROJECTS.local.md, which maps
+# anonymised labels used in tracked files to private project names)
+*.local.md
+
 # Python files
 *.py[cod]
 build/

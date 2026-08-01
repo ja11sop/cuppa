@@ -170,5 +170,5 @@ GitLab's Conan 2 package registry may still be marked under development.
 Treat it as one possible remote; Artifactory and other Conan 2 remotes are equally valid targets.
 ====
 
-Components / multi-lib `cpp_info.components` remain deferred (see `CONAN_COMPONENTS_ISSUE.md` in the repository for a GitHub-issue draft).
+Components / multi-lib `cpp_info.components` remain deferred (tracked as https://github.com/ja11sop/cuppa/issues/125[#125]).
 Conan packages may include Cuppa `modules/module-map.json` + BMIs for parity with GitLab generic packages; consumers load them automatically via `conan_deps` when `--modules` is enabled.

@@ -1,8 +1,10 @@
 # Conan package publishing for Cuppa
 
-Producer-side Conan 2 support: package Cuppa-built libraries and upload them to a Conan remote, without making Conan the build orchestrator.
+- **Status:** shipped
+- **Related:** [`conan-consumer-plan.md`](conan-consumer-plan.md), [`ROADMAP.md`](../../ROADMAP.md) — Conan 2 integration; GitHub [#29](https://github.com/ja11sop/cuppa/issues/29)
+- **Updated:** 2026-07-30
 
-Related: [`CONAN_CONSUMER_PLAN.md`](CONAN_CONSUMER_PLAN.md), [`ROADMAP.md`](ROADMAP.md), GitHub [#29](https://github.com/ja11sop/cuppa/issues/29).
+Producer-side Conan 2 support: package Cuppa-built libraries and upload them to a Conan remote, without making Conan the build orchestrator. It is kept after shipping because `cuppa/package_managers/conan.py` and the documentation refer to it for the reasoning behind the design.
 
 ## Goal
 
@@ -58,7 +60,7 @@ Reuse `conan_settings_for()` / `settings_to_cli()` from `cuppa/build_with_conan.
 | 1 MVP | Done — `ConanPackagePublisher`, unit/integration tests, packages docs |
 | 2 Hardening | Done — `conanfile=` override, `shared=`, generated `requires=` |
 | 2b Modules/BMI | Done — stage `modules/` + consumer `load_packaged_modules` (Cuppa-native; parity with GitLab) |
-| Later | Components / multi-lib `cpp_info.components` (see `CONAN_COMPONENTS_ISSUE.md`) |
+| Later | Components / multi-lib `cpp_info.components` (see GitHub [#125](https://github.com/ja11sop/cuppa/issues/125)) |
 
 ## Caveats
 

@@ -19,6 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [1.3.2] - 2026-07-31
+
+### Changed
+
+- Location retrieval failures name the option that disabled retrieval (`--offline` or `--clean`) instead of always reporting `OFFLINE` mode, so a missing download during `--clean` is no longer reported as an offline build.
+- `--clean` no longer fails when a location dependency is missing from the download root. Cuppa reports it at info level and lets the clean finish, warning only when `_build/<location folder>/` holds artefacts built from that location's sources, which can no longer be described and so cannot be cleaned. `--offline` still fails as before.
+- `--clean` skips `pkg-config` parsing for GitLab registry packages that are not present in the download root, reporting at info level instead of aborting the clean.
+
 ## [1.3.1] - 2026-07-31
 
 ### Fixed
@@ -30,8 +38,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dialect ranks are ordinal: `c++98` / `c++03` no longer outrank `c++26`, so `--stdcpp=c++98 --modules` is raised to C++20 rather than silently passing the floor check.
 
 - GCC modules builds no longer repeat `-fmodules -fmodule-mapper=…` on translation-unit compile lines. `interface_module_flags` / `consume_module_flags` now omit those flags when `modules_enable_flags` has already put them on the env, so MSVC's paired `-reference name=path` argv tokens are left alone.
-
-### Security
 
 ## [1.3.0] - 2026-07-30
 

@@ -1,6 +1,10 @@
 # C++ modules: how modules should be activated
 
-Status: **proposal** (the dialect fixes described in §2 are done; nothing in §4 onwards is built)
+- **Status:** proposal
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `mod-activate-evidence`, `mod-scan-preamble`, `mod-scan-cache`
+- **Updated:** 2026-07-31
+
+The dialect fixes described in §2 are done; nothing from §4 onwards is built.
 
 Today modules are opt-in through `--modules` / `env.Modules()`. This document works out whether
 that should become opt-out — modules available whenever the toolchain supports them, in the way

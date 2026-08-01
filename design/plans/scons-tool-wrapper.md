@@ -1,7 +1,10 @@
 # Plan: SCons Tool → Cuppa dependency wrapper (#27)
 
-Paste-ready summary for [issue #27](https://github.com/ja11sop/cuppa/issues/27).
-Canonical roadmap section: [`ROADMAP.md`](ROADMAP.md) — **SCons Tool dependencies**.
+- **Status:** proposal
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — SCons Tool dependencies; GitHub [#27](https://github.com/ja11sop/cuppa/issues/27)
+- **Updated:** 2026-07-30
+
+This is also the paste-ready summary for issue #27.
 
 ## Problem
 

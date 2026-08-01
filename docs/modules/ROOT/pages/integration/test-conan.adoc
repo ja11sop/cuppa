@@ -131,10 +131,10 @@ These are intentional follow-ups, not regressions:
 
 * Multi-package `conanfile` graphs (MVP always merges aggregated `conandeps`; coverage is via single-package `fmt`)
 * Lockfile-pinned installs (`conan.lock` beside the conanfile)
-* Windows CI with Conan (not installed yet — see below)
+* Windows CI with Conan (not installed yet — see below; https://github.com/ja11sop/cuppa/issues/126[#126])
 * `tool_requires` / code generators
 * Live Conan remote upload (`--publish-package` + `remote=`); round-trip covers local-cache `export-pkg` only
-* Components / multi-lib `cpp_info.components` (see `CONAN_COMPONENTS_ISSUE.md`)
+* Components / multi-lib `cpp_info.components` (see https://github.com/ja11sop/cuppa/issues/125[#125])
 * Conan-native BMI `cxxflags` / CPS module manifests (Cuppa uses `module-map.json` instead)
 
 === Why Windows CI does not install Conan yet
@@ -152,4 +152,4 @@ Reasons this stayed deferred:
 
 Related test module: `tests/integration/methods/test_conan.py`.
 Example plugin package: `examples/conan_fmt_plugin/`.
-See also xref:dependencies.adoc[Dependencies] (Conan 2 consumer), xref:packages.adoc#conan-package-publishing[Conan 2 publishing], xref:extending.adoc#pip-dependency-plugin-conan-example[Extending cuppa], `CONAN_CONSUMER_PLAN.md`, and `CONAN_PUBLISH_PLAN.md`.
+See also xref:dependencies.adoc[Dependencies] (Conan 2 consumer), xref:packages.adoc#conan-package-publishing[Conan 2 publishing], xref:extending.adoc#pip-dependency-plugin-conan-example[Extending cuppa], `design/archive/conan-consumer-plan.md`, and `design/archive/conan-publish-plan.md`.

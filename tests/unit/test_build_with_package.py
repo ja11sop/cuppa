@@ -16,12 +16,12 @@ pytestmark = pytest.mark.unit
 
 def test_package_dependency_requires_registry():
     with pytest.raises(SCons.Errors.StopError):
-        package_dependency("capy", package_manager="gitlab")
+        package_dependency("widget", package_manager="gitlab")
 
 
 def test_package_info_none_without_manager():
     Dep = package_dependency(
-        "capy", package_manager="gitlab", registry="https://gitlab.example/api/v4"
+        "widget", package_manager="gitlab", registry="https://gitlab.example/api/v4"
     )
     Dep._package_manager = None
     env = FakeEnv()
@@ -30,17 +30,17 @@ def test_package_info_none_without_manager():
 
 def test_package_info_identity_and_default_variant(reset_location_caches):
     Dep = package_dependency(
-        "capy",
+        "widget",
         package_manager="gitlab",
         registry="https://gitlab.example/api/v4",
-        package="capy",
+        package="widget",
         version="1.2.3",
     )
     env = FakeEnv(develop=False)
     info = Dep.package_info(env)
     assert info["manager"] == "gitlab"
     assert info["package"]["id"][0] == "https://gitlab.example/api/v4"
-    assert info["package"]["id"][1] == "capy"
+    assert info["package"]["id"][1] == "widget"
     assert info["package"]["id"][2] == "1.2.3"
     assert info["package"]["id"][3] == "rel"
     assert info["package"]["args"]["variant"] == "rel"

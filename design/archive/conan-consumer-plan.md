@@ -1,8 +1,10 @@
 # Conan consumer integration for Cuppa (#29)
 
-This document is the design and implementation plan for optional **Conan 2 consumer** support in Cuppa. It supersedes earlier sketches that led with PkgConfigDeps.
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Conan 2 integration; GitHub [#29](https://github.com/ja11sop/cuppa/issues/29)
+- **Updated:** 2026-07-30
 
-Related: [ROADMAP.md](ROADMAP.md) (Conan section), GitHub [#29](https://github.com/ja11sop/cuppa/issues/29).
+This document is the design and implementation plan for optional **Conan 2 consumer** support in Cuppa. It supersedes earlier sketches that led with PkgConfigDeps. It is kept after shipping because `cuppa/build_with_conan.py` and the documentation refer to it for the reasoning behind the design.
 
 ## Goal
 
@@ -38,7 +40,7 @@ Cuppa runs `conan install` when needed (or reuses a fingerprint cache), loads Co
 | Cross-compilation profiles (build vs host) in MVP | Host-only Phase 1 |
 | `tool_requires` / code generators (e.g. protobuf plugins) | SConsDeps historically weak; document limitation |
 | Editable / local recipe workflows | Later |
-| Conan-native BMI / `cxxflags` packaging | Cuppa stages Cuppa-native `modules/` + `module-map.json` (parity with GitLab); see [`CONAN_PUBLISH_PLAN.md`](CONAN_PUBLISH_PLAN.md) Phase 2b — **done** |
+| Conan-native BMI / `cxxflags` packaging | Cuppa stages Cuppa-native `modules/` + `module-map.json` (parity with GitLab); see [`conan-publish-plan.md`](conan-publish-plan.md) Phase 2b — **done** |
 
 ## Locked decision: primary generator is SConsDeps
 
@@ -71,7 +73,7 @@ flowchart TD
 
 ## How Cuppa dependencies work today (integration surface)
 
-`env.BuildWith( names )` resolves each name in `env['dependencies']` and calls the dependency object with `(env, env, nest_level)` ([`cuppa/methods/build_with.py`](cuppa/methods/build_with.py)). Location and package deps implement `__call__` and mutate `CPPPATH` / `LIBPATH` / `LIBS` (and related).
+`env.BuildWith( names )` resolves each name in `env['dependencies']` and calls the dependency object with `(env, env, nest_level)` ([`cuppa/methods/build_with.py`](../../cuppa/methods/build_with.py)). Location and package deps implement `__call__` and mutate `CPPPATH` / `LIBPATH` / `LIBS` (and related).
 
 `default_dependencies` are applied in `init_env_for_variant` during SConscript evaluation — **configure-time Python**, not a SCons builder node.
 
@@ -167,7 +169,7 @@ Lockfiles: if `conan.lock` sits beside the conanfile, pass `--lockfile` / locked
 
 ## Implementation sketch
 
-Suggested module: [`cuppa/build_with_conan.py`](cuppa/build_with_conan.py), exported from [`cuppa/__init__.py`](cuppa/__init__.py) as `conan_deps` / `conan_dependency`.
+Suggested module: [`cuppa/build_with_conan.py`](../../cuppa/build_with_conan.py), exported from [`cuppa/__init__.py`](../../cuppa/__init__.py) as `conan_deps` / `conan_dependency`.
 
 Responsibilities:
 
@@ -204,7 +206,7 @@ Recorded 2026-07-30 with Conan 2.31.1 + gcc 15:
 
 1. `cuppa/build_with_conan.py` + export from `__init__.py`.
 2. Fingerprint + cache + lock; `BuildWith` apply; runtime ENV.
-3. Unit fixture tests; docs on [`dependencies.adoc`](docs/modules/ROOT/pages/dependencies.adoc); CHANGELOG; ROADMAP IDs.
+3. Unit fixture tests; docs on [`dependencies.adoc`](../../docs/modules/ROOT/pages/dependencies.adoc); CHANGELOG; ROADMAP IDs.
 4. Integration scenarios under `test_conan` (Linux CI installs Conan 2).
 
 ### Phase 1b — Hardening follow-ups — **done**

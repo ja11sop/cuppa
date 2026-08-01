@@ -109,6 +109,83 @@ def test_expand_secret_registers_mask(monkeypatch):
     assert "s3cr3t-value" not in mask_secrets(expanded)
 
 
+def _location_with_retrieval_options(offline, clean):
+    location = Location.__new__(Location)
+    location._offline = offline
+    location._cuppa_env = {"clean": clean}
+    return location
+
+
+def test_retrieval_disabled_reason_names_the_active_option():
+    assert _location_with_retrieval_options(False, False).retrieval_disabled_reason() is None
+    assert _location_with_retrieval_options(True, False).retrieval_disabled_reason() == "--offline"
+    assert _location_with_retrieval_options(False, True).retrieval_disabled_reason() == "--clean"
+    assert _location_with_retrieval_options(True, True).retrieval_disabled_reason() == "--offline"
+
+
+def _repository_location(tmp_path, monkeypatch, offline, clean):
+    monkeypatch.setattr("cuppa.location.pip_vcs.vcs.get_backend", lambda vc_type: object())
+
+    location = _location_with_retrieval_options(offline, clean)
+    location._cuppa_env["dump"] = False
+    location._cuppa_env["location_match_current_branch"] = False
+    location._cuppa_env["abs_build_root"] = str(tmp_path / "_build")
+    location._supports_relative_versioning = False
+    location._default_branch = None
+    location._local_folder = "git_https_example.com_org_repo"
+
+    return location, str(tmp_path / "not_downloaded")
+
+
+def _clean_repository_location(tmp_path, monkeypatch):
+    return _repository_location(tmp_path, monkeypatch, offline=False, clean=True)
+
+
+def _get_local_directory_for_repository(location, missing):
+    return location.get_local_directory_for_repository(
+        "git+ssh://git@example.com/org/repo",
+        None,
+        urlparse("git+ssh://git@example.com/org/repo"),
+        missing,
+    )
+
+
+def test_missing_local_directory_offline_reports_the_offline_option(tmp_path, monkeypatch):
+    location, missing = _repository_location(tmp_path, monkeypatch, offline=True, clean=False)
+
+    with pytest.raises(LocationException) as excinfo:
+        _get_local_directory_for_repository(location, missing)
+
+    message = str(excinfo.value)
+    assert "--offline" in message
+    assert "OFFLINE" not in message
+
+
+def test_missing_local_directory_does_not_fail_a_clean(tmp_path, monkeypatch, caplog):
+    location, missing = _clean_repository_location(tmp_path, monkeypatch)
+
+    with caplog.at_level("DEBUG"):
+        result = _get_local_directory_for_repository(location, missing)
+
+    assert result == missing
+    assert "--clean" in caplog.text
+    assert [record.levelname for record in caplog.records if "--clean" in record.message] == ["INFO"]
+
+
+def test_clean_warns_when_the_location_left_build_outputs(tmp_path, monkeypatch, caplog):
+    location, missing = _clean_repository_location(tmp_path, monkeypatch)
+
+    leftovers = tmp_path / "_build" / location._local_folder
+    leftovers.mkdir(parents=True)
+
+    with caplog.at_level("DEBUG"):
+        result = _get_local_directory_for_repository(location, missing)
+
+    assert result == missing
+    assert [record.levelname for record in caplog.records if "--clean" in record.message] == ["WARNING"]
+    assert str(leftovers) in caplog.text
+
+
 def test_ver_rev_summary_variants():
     location = Location.__new__(Location)
     assert location.ver_rev_summary("main", "abc123", "https://x/y") == (

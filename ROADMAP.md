@@ -7,10 +7,11 @@ Use this document to see what is shipped today, what is planned next, and what i
 **Canonical product docs:** [https://ja11sop.github.io/cuppa/](https://ja11sop.github.io/cuppa/) under `docs/`.
 **Agent notes:** [`AGENTS.md`](AGENTS.md).
 **Release notes:** [`CHANGELOG.md`](CHANGELOG.md) (Keep a Changelog; SemVer via `cuppa/VERSION`).
+**Design notes behind these entries:** [`design/README.md`](design/README.md).
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-07-30
+**As of:** 2026-07-31
 
 ---
 
@@ -31,7 +32,7 @@ Add new top-level `##` sections when starting other large efforts (for example p
 
 Opt-in via `--modules` / `env.Modules()`.
 Whether activation should become automatic (with `--modules` / `--no-modules` as overrides) is
-worked out in [`MODULES_ACTIVATION_PLAN.md`](MODULES_ACTIVATION_PLAN.md).
+worked out in [`design/plans/modules-activation.md`](design/plans/modules-activation.md).
 User guide and Limits: `docs/modules/ROOT/pages/cxx-modules.adoc`.
 Integration scenarios: `docs/modules/ROOT/pages/integration/test-modules.adoc`.
 Companion canvas (optional): Cursor canvas `cxx-modules-status`.
@@ -75,7 +76,7 @@ Companion canvas (optional): Cursor canvas `cxx-modules-status`.
 |----|------|----------|-------|
 | `mod-scan-preamble` | Stop scanning a source at the end of its preamble | High | `scan_file` reads whole files today; prerequisite for any always-on scanning |
 | `mod-scan-cache` | Cache scan results per path / mtime / size | High | Same sources are scanned by every `Compile` call that lists them |
-| `mod-activate-evidence` | Activate the modules path on module sources / `Module` / `HeaderUnit` / `ImportModules` rather than a global flag, with `--modules` / `--no-modules` as overrides | Medium | Gated on read-phase timing; see [`MODULES_ACTIVATION_PLAN.md`](MODULES_ACTIVATION_PLAN.md) |
+| `mod-activate-evidence` | Activate the modules path on module sources / `Module` / `HeaderUnit` / `ImportModules` rather than a global flag, with `--modules` / `--no-modules` as overrides | Medium | Gated on read-phase timing; see [`design/plans/modules-activation.md`](design/plans/modules-activation.md) |
 | `mod-gcc-flag-scope` | Give GCC `-fmodules` / `-fmodule-mapper=` to the compiles that need them instead of every TU | Medium | The only always-on compiler flag change among the three toolchains |
 | `scan-deps` | Optional `clang-scan-deps` (or P1689) dependency backend | Medium | Flag or auto-detect; keep line scanner as fallback. Substantial: driver discovery, JSON graph merge, fallback path |
 | `gcc-private` | Private module fragments on GCC | Later | Re-enable / unskip tests when GCC implements the feature |
@@ -140,7 +141,7 @@ Tracked as GitHub issue [#27](https://github.com/ja11sop/cuppa/issues/27).
 
 Goal: optional **Conan 2 consumer** support so projects can pull mainstream packages (fmt, OpenSSL, …) and apply them through `env.BuildWith`, without making Conan Cuppa’s orchestrator or replacing location/GitLab package deps.
 
-Detailed exploration, trade-offs, and API sketches: [`CONAN_CONSUMER_PLAN.md`](CONAN_CONSUMER_PLAN.md) (consumer), [`CONAN_PUBLISH_PLAN.md`](CONAN_PUBLISH_PLAN.md) (producer).
+Detailed exploration, trade-offs, and API sketches: [`design/archive/conan-consumer-plan.md`](design/archive/conan-consumer-plan.md) (consumer), [`design/archive/conan-publish-plan.md`](design/archive/conan-publish-plan.md) (producer).
 
 ### Today
 
@@ -164,9 +165,11 @@ Detailed exploration, trade-offs, and API sketches: [`CONAN_CONSUMER_PLAN.md`](C
 | `conan-docs-pip` | Docs + example pip plugin (`examples/conan_fmt_plugin`) | Done | Entry point `cuppa.dependency.plugins`; covered by `test_conan` |
 | `conan-integration` | Linux integration: install / generators_folder / shared `--test` / plugin / offline miss / publish | Done | `test_conan.py`; Linux CI installs Conan 2 |
 | `conan-publish-spike` | Spike Cuppa-build → `export-pkg` → local-cache consumer round-trip | Done | Producer path evidence |
-| `conan-publish` | `ConanPackagePublisher` + `PublishPackage`; settings; upload via `--publish-package` | Done | See [`CONAN_PUBLISH_PLAN.md`](CONAN_PUBLISH_PLAN.md) |
-| `conan-publish-recipe` | Hand-written `conanfile=` override; `shared=`; generated `requires=` | Done | Components still deferred; see [`CONAN_COMPONENTS_ISSUE.md`](CONAN_COMPONENTS_ISSUE.md) |
+| `conan-publish` | `ConanPackagePublisher` + `PublishPackage`; settings; upload via `--publish-package` | Done | See [`design/archive/conan-publish-plan.md`](design/archive/conan-publish-plan.md) |
+| `conan-publish-recipe` | Hand-written `conanfile=` override; `shared=`; generated `requires=` | Done | Components still deferred; see `conan-components` below |
 | `conan-publish-modules` | Stage Cuppa `modules/` + BMI map in Conan packages; consumer `load_packaged_modules` | Done | Parity with GitLab generic `modules/` path |
+| `conan-components` | First-class multi-target packages via `cpp_info.components` | Later | Flat `cpp_info.libs` covers single-target packages today; GitHub [#125](https://github.com/ja11sop/cuppa/issues/125) |
+| `conan-windows-ci` | Install Conan 2 on the Windows job so `test_conan.py` runs under MSVC instead of skipping | Later | Needs a proven MSVC Conan profile; GitHub [#126](https://github.com/ja11sop/cuppa/issues/126) |
 
 ### Out of scope (Conan)
 
@@ -183,12 +186,57 @@ Tracked as GitHub issue [#29](https://github.com/ja11sop/cuppa/issues/29).
 
 ---
 
+## Coverage reporting and performance
+
+Goal: keep the multi-toolchain coverage reports (per test, by sconscript, by source) while
+making `--cov --test` cheap enough to run routinely on large codebases.
+
+Measurements, analysis of the current implementation, and the ordered list of candidate changes:
+[`design/plans/coverage-performance.md`](design/plans/coverage-performance.md).
+
+### Today
+
+| Capability | Status |
+|------------|--------|
+| Per-test gcovr HTML + JSON (GCC and Clang) | Yes |
+| By-sconscript and master indexes, toolchains compared side by side | Yes |
+| By-source union across tests (JSON preferred, HTML fallback) | Yes, always on |
+| Per-phase timing of a coverage run | No |
+
+**Measured, 2026-07-31** — a header-heavy consumer project (**project A**: 38 test sconscripts,
+362 single-source test binaries, 545 headers), `--cov --test --offline` after a clean
+`--cov --parallel` build: **8m32** without by-source, **7m43** with it. By-source is not the
+bottleneck on that project; the earlier suspicion that it caused a 40 → 70 minute regression on
+another project is unconfirmed.
+
+### Planned / potential
+
+| ID | Work | Priority | Notes |
+|----|------|----------|-------|
+| `cov-timing` | Opt-in per-phase timing (gcov, gcovr, union, page writing, collation) | High | Nothing else should be optimised before this exists |
+| `cov-once-per-test` | Run gcovr once per test binary instead of once per source file | High | `run_suite` is called inside the per-source loop in `_run_gcov`; an N× multiplier on multi-source tests |
+| `cov-version-cache` | Cache the gcovr version instead of probing per report | Low | One subprocess per report today |
+| `cov-union-once` | Share one union per toolchain between sconscript indexes and the master index | Medium | Same JSON is parsed at least twice per build |
+| `cov-html-optional` | Make gcovr `--html-details` opt-in, with by-source as the browsing UI | Medium | Detail pages scale with tests × covered files and embed CSS each |
+| `cov-union-incremental` | Cache the union on JSON mtime / size and skip unchanged work | Medium | Biggest win on repeat runs |
+| `cov-branch-index` | Group branches by line once rather than scanning per line | Low | Removes an O(lines × branches) scan |
+| `cov-second-project-ab` | Repeat the A/B measurement on the project the regression was reported from (**project B**) | High | Fewer, larger test binaries and much longer coverage runs than project A |
+
+### Out of scope (coverage)
+
+| ID | Item | Reason |
+|----|------|--------|
+| `cov-by-source-flag` | A permanent flag to disable by-source reporting | Measurement does not support it; make the report cheap instead. The temporary `--cov-by-source` used for the experiment has been reverted |
+| `cov-msvc` | Coverage on MSVC | gcov-based; GCC and Clang only |
+
+---
+
 ## Future feature sections
 
 Add new `##` headings here as larger efforts start, for example:
 
 - Packages / GitLab registry UX
-- Coverage reporting and multi-toolchain indexes
+- Storage roots, listing, and removal options (see [`design/plans/removal-options.md`](design/plans/removal-options.md))
 - Additional toolchains or platforms
 
 Each new section should follow the same shape: **Today** → **Planned / potential** → **Out of scope**.
