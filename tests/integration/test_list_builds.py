@@ -28,25 +28,29 @@ def test_list_builds_after_a_debug_build(tmp_path):
     assert "BY SCONSCRIPT" in listed.stdout
     assert "selected" in listed.stdout
     assert "cuppa -D" in listed.stdout
-    assert "--remove-build" in listed.stdout
+    assert "--remove-builds" in listed.stdout
 
 
-def test_remove_build_dry_run_keeps_the_tree(tmp_path):
+def test_remove_builds_dry_run_keeps_the_tree(tmp_path):
     project = a_project(tmp_path)
     assert_success(run_cuppa(project, "--dbg"))
 
-    dry = run_cuppa(project, "--dbg", "--remove-build", "-n")
+    dry = run_cuppa(project, "--dbg", "--remove-builds", "-n")
     assert_success(dry)
     assert "Would remove" in dry.stdout or "dry run" in dry.stdout
+    assert "BUILD FOLDER" in dry.stdout
+    assert "REMOVED" in dry.stdout or "BY SCONSCRIPT" in dry.stdout
+    assert "Verify the removal" in dry.stdout
+    assert "--list-builds" in dry.stdout
     assert (project / "_build").exists()
 
 
-def test_remove_build_removes_matching_trees(tmp_path):
+def test_remove_builds_removes_matching_trees(tmp_path):
     project = a_project(tmp_path)
     assert_success(run_cuppa(project, "--dbg"))
     assert (project / "_build").exists()
 
-    removed = run_cuppa(project, "--dbg", "--remove-build")
+    removed = run_cuppa(project, "--dbg", "--remove-builds")
     assert_success(removed)
     # The selected variant trees are gone; the build root may remain as an empty shell
     # or be fully pruned depending on what else was under it.

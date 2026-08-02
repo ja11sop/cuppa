@@ -53,7 +53,7 @@ which defaults to `~/.cuppa` and can be moved with one option.
 - Managing storage owned by third-party tools (the Conan home cache, pip caches, system
   package managers). Cuppa only removes what it created.
 - Removing output a project writes outside the build root. That is a real need, but it is a
-  separate option with a separate design pass (§4.6), not a widening of `--remove-build`.
+  separate option with a separate design pass (§4.6), not a widening of `--remove-builds`.
 - Touching `--develop` working copies or anything outside the storage roots (see §5).
 
 ---
@@ -267,7 +267,7 @@ cuppa: storage: [info]   3 entries, 216M total, 36M unreferenced
 
   cuppa -D --dbg --toolchains=gcc153
 
-  Append --remove-build to clear those folders.
+  Append --remove-builds to clear those folders.
 ```
 
 The folder section hangs the **selected** subset under the build root with the same branch
@@ -281,7 +281,7 @@ names (the folder above the toolchain variants) and their marks use the info col
 when not fully selected, and emphasised when fully selected. Tree branch glyphs are always
 subdued. A closing summary emphasises the selected size (info-coloured when it is less than the
 total) and prints an explicit `cuppa -D …` command for the selected builds that exist on disk
-(formatted like `--show-conf`), so appending `--remove-build` clears those folders without
+(formatted like `--show-conf`), so appending `--remove-builds` clears those folders without
 naming absent variants.
 
 In `--list-format=json` the same structures appear as `folder`, `by_toolchain_variant`,
@@ -289,13 +289,13 @@ In `--list-format=json` the same structures appear as `folder`, `by_toolchain_va
 `size`), so scripts read fields by name and people read columns.
 
 The summary command is the prompt to reclaim space: the tables show what is selected; the
-command is what you append `--remove-build` to.
+command is what you append `--remove-builds` to.
 
 ### 3.3 Removal
 
 | Option | Removes |
 |--------|---------|
-| `--remove-build` | Every `<tool_variant_dir>` subtree under `build_root` matching the current toolchain / variant / arch / ABI selection |
+| `--remove-builds` | Every `<tool_variant_dir>` subtree under `build_root` matching the current toolchain / variant / arch / ABI selection |
 | `--remove-all-builds` | The `build_root` folder itself |
 | `--remove-dependencies=dep1,dep2` | The `dependencies_root` folders for the named dependencies, for the current selection |
 | `--remove-all-dependencies` | As above for every dependency the current build knows about |
@@ -305,7 +305,7 @@ command is what you append `--remove-build` to.
 
 The build options are confined to `build_root`. Everything a project writes elsewhere — the
 conventional `_artifacts/` tree that collated coverage indexes and reports land in, generated
-sources, copied runtime files — is `--remove-artefacts`' problem, not `--remove-build`'s. That
+sources, copied runtime files — is `--remove-artefacts`' problem, not `--remove-builds`'s. That
 separation keeps the build options describable in one sentence each and keeps the harder
 discovery question (§4.6) out of their way.
 
@@ -623,7 +623,7 @@ non-empty directory, and one asserting that no token appears in the resulting `.
 
 ## 4. Scope resolution
 
-### 4.1 `--remove-build`
+### 4.1 `--remove-builds`
 
 1. Compute `tool_variant_dir` for each active toolchain / variant / arch / ABI, using the same
    composition as `construct.py` so the two cannot drift. Factor that composition into a shared
@@ -814,7 +814,7 @@ Two candidate mechanisms, not yet chosen:
 
 The likely answer is both: declaration for the coarse trees a project knows it owns, discovery
 for the rest, with removal reporting which mechanism found each path. Until that is worked out,
-`--remove-build` and `--remove-all-builds` stay confined to `build_root`, and the documentation
+`--remove-builds` and `--remove-all-builds` stay confined to `build_root`, and the documentation
 says plainly that artefact trees are not removed.
 
 ---
@@ -862,7 +862,7 @@ could land at any point, and Phase 6 needs a design pass this plan does not atte
 | Phase | Delivers | Depends on | Status |
 |-------|----------|-----------|--------|
 | 1 | `--storage-root` and the renamed roots | — | **done** ([#133](https://github.com/ja11sop/cuppa/issues/133)) |
-| 2 | `--remove-build`, `--remove-all-builds`, `--list-builds` | 1 | in progress |
+| 2 | `--remove-builds`, `--remove-all-builds`, `--list-builds` | 1 | in progress |
 | 3 | Inventory, `--list-dependencies`, `--remove-dependencies` / `--remove-all-dependencies` | 1, 2 | |
 | 4 | `--list-downloads`, `--purge-*` | 3 | |
 | 5 | `--list-develop`, `--update-develop` | nothing in this plan | **done** ([#132](https://github.com/ja11sop/cuppa/issues/132)) |
@@ -884,7 +884,7 @@ could land at any point, and Phase 6 needs a design pass this plan does not atte
 
 - `cuppa/core/build_layout.py`: shared `tool_variant_dir` composition, extracted from
   `construct.py` and used by both.
-- `cuppa/core/storage_actions.py`: `--list-builds` / `--remove-build` / `--remove-all-builds`,
+- `cuppa/core/storage_actions.py`: `--list-builds` / `--remove-builds` / `--remove-all-builds`,
   the three-section report (folder, toolchain tree, sconscript tree), selection marks, and the
   explicit-command summary.
 - `cuppa/utility/storage.py`: directory sizing and ages, human-readable formatting, containment
@@ -983,7 +983,7 @@ could land at any point, and Phase 6 needs a design pass this plan does not atte
   the same project configured with the new options produces identical layout.
 - A project built with `--storage-root=<tmp>` writes both roots underneath it, and adding
   `--downloads-root` moves only the downloads half.
-- Build two variants, `--remove-build` one, assert the other survives.
+- Build two variants, `--remove-builds` one, assert the other survives.
 - Build, `--remove-all-builds`, assert the build root is gone.
 - `--list-builds` / `--list-dependencies` report the expected entries and totals and change
   nothing on disk.
@@ -1215,7 +1215,7 @@ Settled while reviewing this plan, and folded into the sections above:
 
 | Question | Decision |
 |----------|----------|
-| Artefacts written outside the build root | Not the build options' job. A separate `--remove-artefacts` with its own design pass (§4.6, Phase 6); `--remove-build` and `--remove-all-builds` stay inside `build_root` |
+| Artefacts written outside the build root | Not the build options' job. A separate `--remove-artefacts` with its own design pass (§4.6, Phase 6); `--remove-builds` and `--remove-all-builds` stay inside `build_root` |
 | Scope of `--remove-all-dependencies` | Remove what the current selection uses, report what is left for other selections (§4.3) |
 | An inventory under the dependencies root | Yes — per-entry JSON, updated on resolve, advisory only (§4.5) |
 | Exact or sampled sizing | Sampled, cached in the inventory, refreshed lazily, `~` marks an estimate, `--exact-sizes` measures (§4.5) |

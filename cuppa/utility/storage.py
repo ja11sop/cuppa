@@ -16,9 +16,11 @@ sizing for dependencies and downloads so the reports never disagree about how a 
 import json
 import locale
 import os
+import re
 import shutil
 import stat
 import sys
+import textwrap
 import time
 from collections import namedtuple
 
@@ -31,9 +33,17 @@ class StorageError( Exception ):
 GLYPHS = ( "\u251c\u2500\u2500 ", "\u2514\u2500\u2500 ", "\u2502   ", "    " )
 ASCII_GLYPHS = ( "+-- ", "`-- ", "|   ", "    " )
 
-# Affirmative mark for a selected build row; ASCII where the console cannot encode it.
+# Affirmative mark for a selected / removed build row; ASCII where the console cannot encode it.
 SELECTED_MARK = "\u2713"
 ASCII_SELECTED_MARK = "*"
+# Heavier form used when a fully matched name-row mark is emphasised.
+HEAVY_SELECTED_MARK = "\u2714"
+
+# Ballot for a removal that failed; ASCII where the console cannot encode it.
+FAILED_MARK = "\u2717"
+ASCII_FAILED_MARK = "x"
+# Heavier form used when a fully matched name-row mark is emphasised.
+HEAVY_FAILED_MARK = "\u2718"
 
 DirectoryStats = namedtuple( 'DirectoryStats', [ 'bytes', 'mtime' ] )
 
@@ -117,6 +127,28 @@ def selected_mark( encoding=None ):
     return SELECTED_MARK
 
 
+def failed_mark( encoding=None ):
+    """Ballot mark where the console can encode it, ``x`` where it cannot."""
+    try:
+        FAILED_MARK.encode( _console_encoding( encoding ) )
+    except ( UnicodeError, LookupError ):
+        return ASCII_FAILED_MARK
+    return FAILED_MARK
+
+
+def with_heavy_marks( text, encoding=None ):
+    """Upgrade light ``✓`` / ``✗`` to heavy ``✔`` / ``✘`` when the console can encode them."""
+    if not text:
+        return text
+    try:
+        ( HEAVY_SELECTED_MARK + HEAVY_FAILED_MARK ).encode( _console_encoding( encoding ) )
+    except ( UnicodeError, LookupError ):
+        return text
+    return text.replace( SELECTED_MARK, HEAVY_SELECTED_MARK ).replace(
+        FAILED_MARK, HEAVY_FAILED_MARK
+    )
+
+
 def selection_triple( status, encoding=None ):
     """Three-character selection: full ``✓✓✓``, partial ``-✓-``, none ``---`` (ASCII ``*``)."""
     mark = selected_mark( encoding )
@@ -125,6 +157,87 @@ def selection_triple( status, encoding=None ):
     if status == 'partial':
         return '-' + mark + '-'
     return '---'
+
+
+def outcome_triple( selection, result, encoding=None ):
+    """Rollup mark for a removal report: checks for success, ballots for failure.
+
+    ``result`` is ``removed``, ``failed``, ``mixed``, or ``none``.
+    All-failed rollups are ``✗✗✗``; mixed success and failure is ``✓-✗``; all-removed follows
+    the usual full / partial check pattern.
+    """
+    if result == 'none' or selection == 'none':
+        return '---' if selection != 'none' else ''
+    ok = selected_mark( encoding )
+    bad = failed_mark( encoding )
+    if result == 'removed':
+        if selection == 'full':
+            return ok * 3
+        return '-' + ok + '-'
+    if result == 'failed':
+        return bad * 3
+    # mixed: some removed, some failed
+    return ok + '-' + bad
+
+
+def short_path( path, project_dir=None ):
+    """Prefer a project-relative path, otherwise ``~``, for report text."""
+    if not path:
+        return path
+    path = os.path.normpath( path )
+    if project_dir:
+        project = real_path( project_dir )
+        real = real_path( path )
+        try:
+            common = os.path.commonpath( [ real, project ] )
+        except ValueError:
+            common = None
+        if common == project:
+            relative = os.path.relpath( real, project )
+            return relative if relative != '.' else os.path.basename( project ) or '.'
+    return display_path( path )
+
+
+def shorten_paths_in_text( text, project_dir=None ):
+    """Replace absolute / home paths in ``text`` with :func:`short_path` forms."""
+    if not text:
+        return text
+
+    def replace( match ):
+        quote = match.group( 1 ) or ''
+        raw = match.group( 2 ) or match.group( 3 )
+        shortened = short_path( raw, project_dir=project_dir )
+        if quote:
+            return quote + shortened + quote
+        return shortened
+
+    # Quoted paths first, then bare absolute / home paths.
+    pattern = re.compile(
+        r"(['\"])([^'\"]+)\1|(?<![\w./])(~?/[^\s\"']+)"
+    )
+    return pattern.sub( replace, text )
+
+
+# Bracketed placeholders in report prose — colour these, leave the surrounding text plain
+# (same convention as ``--list-develop``).
+_VALUES = re.compile( r'\[([^\[\]]+)\]' )
+WIDEST_PROSE = 110
+NARROWEST_PROSE = 40
+
+
+def highlight_values( text, colour ):
+    """Colour only ``[placeholder]`` spans in otherwise plain report prose."""
+    return _VALUES.sub( lambda match: "[" + colour( match.group( 1 ) ) + "]", text )
+
+
+def wrapped( text, width ):
+    """Wrap prose, keeping bracketed values whole so they can still be coloured."""
+    if not width:
+        return [ text ]
+    return textwrap.wrap(
+        text, max( width, NARROWEST_PROSE ),
+        break_long_words=False, break_on_hyphens=False
+    ) or [ text ]
 
 
 def directory_stats( path ):

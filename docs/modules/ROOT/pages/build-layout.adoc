@@ -94,7 +94,7 @@ cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=gcc --clean
 ----
 
 That removes objects, binaries, module BMIs (`.gcm` / `.pcm`), and the GCC
-`module-mapper.txt`. Empty directories under `_build` may remain; use `--remove-build` or
+`module-mapper.txt`. Empty directories under `_build` may remain; use `--remove-builds` or
 `--remove-all-builds` (below) when you want the directories gone too.
 
 [#listing-and-removing-builds]
@@ -106,47 +106,247 @@ individual targets, use the storage actions. They run instead of a build.
 [source,sh]
 ----
 cuppa -D --list-builds
-cuppa -D --dbg --toolchains=gcc --remove-build
-cuppa -D --dbg --toolchains=gcc --remove-build -n
+cuppa -D --dbg --toolchains=gcc --remove-builds -n
+cuppa -D --dbg --toolchains=gcc --remove-builds
 cuppa -D --remove-all-builds
 ----
 
-`--list-builds` prints three related views of the build root, then a short selection summary:
+The examples below use a small project that has already built debug and release under `test/`,
+and debug under `lib/`, with `--dbg` (and a matching toolchain) as the active selection. Your
+sizes, ages, and toolchain names will differ; the shape of the report does not. Colour is
+described in the commentary — terminals show info in blue, errors in red, and warnings in
+magenta; emphasised text is bold.
 
-* **BUILD FOLDER** — total size and newest build under the root (info-coloured), with the selected
-  subset hung underneath as `└── selected (N of M entries)` (or `all N entries selected` when
-  every entry matches). When every entry is selected, that hang line's size and label are
-  emphasised.
-* **BY TOOLCHAIN VARIANT** — size and last-build age rolled up across every sconscript, grouped as
-  `toolchain` → `variant/arch/abi`. Each row carries a three-character mark: `✓✓✓` when fully
-  selected, `-✓-` when a toolchain is only partially selected, and `---` when not selected
-  (ASCII uses `*` for the check). Toolchain names and their marks use the info colour (subdued
-  when partial or unselected). When a toolchain is fully selected, its size, mark, and name are
-  also emphasised. Partial and unselected rows are dimmed.
-* **BY SCONSCRIPT** — a directory tree with rolled-up sizes. Each tool-variant leaf is shown as
-  the toolchain name with `variant/arch/abi` underneath. Where a folder both builds and contains
-  nested sconscripts, its toolchain variants are listed before the nested folders. Rollup folders
-  show `✓✓✓` when fully selected and `-✓-` when partially selected (partial and unselected rows
-  are dimmed); leaves show a single centered `✓`. The sconscript name — the folder above the
-  toolchain variants — and its selection mark are drawn in the info colour, subdued when not
-  fully selected, and with size, mark, and name emphasised when fully selected. Tree branch
-  glyphs are always subdued.
+[#list-builds-example]
+=== `--list-builds`
+
+`--list-builds` prints three related views of the build root, then a short selection summary.
+Run it with the same variant and toolchain flags you would use for a build when you want the
+**SELECTED** marks to reflect that selection:
+
+[source,sh]
+----
+cuppa -D --dbg --toolchains=gcc --list-builds
+----
+
+Example output:
+
+[source,text]
+----
+  --------------------------------------------------------
+      SIZE  LAST BUILD    BUILD FOLDER
+  --------------------------------------------------------
+    146.5K  3 days ago    _build
+     68.4K  3 days ago    └── selected (2 of 3 entries)
+  --------------------------------------------------------
+
+  --------------------------------------------------------
+      SIZE  LAST BUILD    BY TOOLCHAIN VARIANT
+  --------------------------------------------------------
+    146.5K  3 days ago    └── -✓- gcc15
+     68.4K  3 days ago            ├── ✓✓✓ dbg/x86_64/cxx2c
+     78.1K  3 days ago            └── --- rel/x86_64/cxx2c
+  --------------------------------------------------------
+
+  --------------------------------------------------------
+      SIZE  SELECTED      BY SCONSCRIPT
+  --------------------------------------------------------
+     19.5K     ✔✔✔        ├── lib
+     19.5K     ✓✓✓        │   └── gcc15
+     19.5K      ✓         │       └── dbg/x86_64/cxx2c
+      127K     -✓-        └── test
+      127K     -✓-            └── gcc15
+     48.8K      ✓                 ├── dbg/x86_64/cxx2c
+     78.1K                        └── rel/x86_64/cxx2c
+  --------------------------------------------------------
+
+Selected 68.4K of 146.5K (2 of 3 entries)
+
+Explicit command for the selected builds:
+
+cuppa -D --dbg --toolchains=gcc15
+
+Append --remove-builds to clear those folders.
+----
+
+Reading the report:
+
+* **BUILD FOLDER** — the root total (info-coloured) with the selected subset hung underneath.
+  Here two of the three on-disk entries match `--dbg`, so the hang reads
+  `selected (2 of 3 entries)`. When every entry matches, that line becomes
+  `all N entries selected` and its size and label are emphasised.
+* **BY TOOLCHAIN VARIANT** — sizes rolled up across every sconscript as
+  `toolchain` → `variant/arch/abi`. Marks are `✓✓✓` (fully selected), `-✓-` (partial), or
+  `---` (not selected); ASCII terminals use `*` for the check. The toolchain name and mark use
+  the info colour; a fully selected toolchain also emphasises size, mark, and name (with a heavy
+  `✔` in the mark). Partial and unselected rows are dimmed.
+* **BY SCONSCRIPT** — the same selection marks on a directory tree. Toolchain folders are listed
+  before nested sconscript folders. Leaves show a single centered `✓`. The sconscript name
+  (the folder above the toolchains) uses the info colour; when fully selected, size, mark, and
+  name are emphasised (`✔✔✔` on that name row). Branch glyphs are always subdued.
 
 The closing summary emphasises the selected and total sizes (the selected size is also
 info-coloured when it is less than the total) and prints an explicit `cuppa -D …` command for
 the selected builds that exist on disk (formatted like `--show-conf`), omitting active variants
-that have no matching trees. Append `--remove-build` to clear those folders.
+that have no matching trees. Append `--remove-builds` to that command to clear those folders.
+
 `--list-format=json` emits the same structures (`folder`, `by_toolchain_variant`,
-`by_sconscript`, `summary`, plus a flat `entries` list).
+`by_sconscript`, `summary`, plus a flat `entries` list) for scripts.
 
-`--remove-build` removes only the variant suffixes the current options would write — the same
+[#remove-builds-example]
+=== `--remove-builds`
+
+`--remove-builds` removes only the variant suffixes the current options would write — the same
 `<toolchain>/<variant>/<arch>/<abi>` composition the build uses — under every sconscript path,
-then prunes empty parents. `--remove-all-builds` removes the build root itself.
+then prunes empty parents. Prefer a dry run first:
 
-Both removals report the paths first, honour SCons `-n` as a dry run, refuse to follow symlinks,
-and refuse a build root that is `/`, your home directory, or the sconstruct directory. They never
-touch trees outside the build root; collated coverage under `_artifacts/` and other project
-artefacts stay put.
+[source,sh]
+----
+cuppa -D --dbg --toolchains=gcc --remove-builds -n
+----
+
+Example dry-run output (tables match a live run; nothing is deleted):
+
+[source,text]
+----
+Would remove 2 entries (68.4K) under _build
+
+  --------------------------------------------------------
+      SIZE  LAST BUILD    BUILD FOLDER
+  --------------------------------------------------------
+    146.5K  3 days ago    _build
+     68.4K  3 days ago    └── removed (2 of 3 entries)
+  --------------------------------------------------------
+
+  --------------------------------------------------------
+      SIZE  LAST BUILD    BY TOOLCHAIN VARIANT
+  --------------------------------------------------------
+    146.5K  3 days ago    └── -✓- gcc15
+     68.4K  3 days ago            ├── ✓✓✓ dbg/x86_64/cxx2c
+     78.1K  3 days ago            └── --- rel/x86_64/cxx2c
+  --------------------------------------------------------
+
+  --------------------------------------------------------
+      SIZE  REMOVED       BY SCONSCRIPT
+  --------------------------------------------------------
+     19.5K     ✔✔✔        ├── lib
+     19.5K     ✓✓✓        │   └── gcc15
+     19.5K      ✓         │       └── dbg/x86_64/cxx2c
+      127K     -✓-        └── test
+      127K     -✓-            └── gcc15
+     48.8K      ✓                 ├── dbg/x86_64/cxx2c
+     78.1K                        └── rel/x86_64/cxx2c
+  --------------------------------------------------------
+
+Would remove 2 entries freeing up 68.4K of disk space.
+dry run (-n); nothing removed
+
+Verify the removal with the same selection by adding --list-builds:
+
+cuppa -D --dbg --toolchains=gcc15 --list-builds
+----
+
+Reading the report:
+
+* The first line announces how many entries and how much space would go (count and size
+  emphasised; the build-root path info-coloured and shortened, for example `_build` or
+  `~/project/_build`).
+* The three tables are the same shape as `--list-builds`, but the middle column is **REMOVED**
+  and the folder hang reads `removed (N of M entries)`. Successful removals use the error
+  (red) colour and checks; a fully cleared sconscript name row emphasises size, mark, and name
+  with heavy `✔` marks. Rows that were never candidates stay dim with a blank mark (here
+  `rel/…`).
+* After a live run the closing line is `Removed N entries freeing up SIZE of disk space.`
+  Dry-run uses `Would remove…` and `dry run (-n); nothing removed`.
+* The final block is a ready-made `--list-builds` command for the same selection so you can
+  confirm that nothing remains selected and that the build-folder size has dropped.
+
+If a path cannot be deleted, the tables mark it with a ballot (`✗`, or heavy `✘` on an
+emphasised name row) in the warning or error colour, and a reason tree follows (same shape as
+`--list-develop`). Already-deleted paths are warnings; other failures are errors. Mixed success
+and failure under one rollup shows `✓-✗`. Only bracketed values in the reason lines are
+coloured — for example `[Errno 13]` and `[_build/lib/…/working]`.
+
+[source,text]
+----
+Not all requested build entries could be removed: 1 error
+
+  1 error
+  │
+  └── lib/gcc15/dbg/x86_64/cxx2c
+      └── [Errno 13] Permission denied: [_build/lib/gcc15/dbg/x86_64/cxx2c/working]
+----
+
+[#remove-all-builds-example]
+=== `--remove-all-builds`
+
+`--remove-all-builds` removes the entire build root. It inventories every variant first, then
+attempts the wipe, then prints the same three **REMOVED** tables so you can review what was
+cleared — or see which rows are still present if something blocked the delete.
+
+[source,sh]
+----
+cuppa -D --remove-all-builds -n
+----
+
+Example dry-run output:
+
+[source,text]
+----
+Would remove build root _build (146.5K)
+
+  --------------------------------------------------------
+      SIZE  LAST BUILD    BUILD FOLDER
+  --------------------------------------------------------
+    146.5K  3 days ago    _build
+    146.5K  3 days ago    └── removed all 3 entries
+  --------------------------------------------------------
+
+  --------------------------------------------------------
+      SIZE  LAST BUILD    BY TOOLCHAIN VARIANT
+  --------------------------------------------------------
+    146.5K  3 days ago    └── ✔✔✔ gcc15
+     68.4K  3 days ago            ├── ✓✓✓ dbg/x86_64/cxx2c
+     78.1K  3 days ago            └── ✓✓✓ rel/x86_64/cxx2c
+  --------------------------------------------------------
+
+  --------------------------------------------------------
+      SIZE  REMOVED       BY SCONSCRIPT
+  --------------------------------------------------------
+     19.5K     ✔✔✔        ├── lib
+     19.5K     ✓✓✓        │   └── gcc15
+     19.5K      ✓         │       └── dbg/x86_64/cxx2c
+      127K     ✔✔✔        └── test
+      127K     ✓✓✓            └── gcc15
+     48.8K      ✓                 ├── dbg/x86_64/cxx2c
+     78.1K      ✓                 └── rel/x86_64/cxx2c
+  --------------------------------------------------------
+
+Would remove build root _build freeing up 146.5K of disk space.
+dry run (-n); nothing removed
+
+Verify with --list-builds:
+
+cuppa -D --list-builds
+----
+
+Reading the report:
+
+* Every on-disk variant is a removal candidate, so the hang reads `removed all N entries` and
+  toolchain / sconscript rollups show full checks when the plan (or live wipe) succeeds.
+* On failure, variants that remain on disk are marked with ballots; paths already deleted before
+  the failure show as removed. The reason tree uses the intro
+  `The build root could not be removed` and labels the obstructing path (often a file under a
+  specific variant), so you can match the tree entry to a failed row in the tables.
+* A live success ends with `Removed build root … freeing up SIZE of disk space.` Verify with
+  `--list-builds` as suggested — an empty or much smaller build root is the expected result.
+
+[#removal-safety]
+=== Safety and scope
+
+Both removals honour SCons `-n` as a dry run, refuse to follow symlinks, and refuse a build root
+that is `/`, your home directory, or the sconstruct directory. They never touch trees outside the
+build root; collated coverage under `_artifacts/` and other project artefacts stay put.
 
 Cleaning never retrieves or updates dependencies. If a location or package dependency
 is not present in the dependencies root, cuppa reports that at info level and treats it as
