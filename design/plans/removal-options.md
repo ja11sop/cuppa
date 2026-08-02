@@ -1,6 +1,6 @@
 # Plan: removal options for build folders and dependencies
 
-- **Status:** in progress (Phases 1, 2, and 5 done; 3, 4, and 6 remain)
+- **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Storage roots, listing, and removal; GitHub [#132](https://github.com/ja11sop/cuppa/issues/132), [#133](https://github.com/ja11sop/cuppa/issues/133), [#134](https://github.com/ja11sop/cuppa/issues/134), [#135](https://github.com/ja11sop/cuppa/issues/135), [#138](https://github.com/ja11sop/cuppa/issues/138)
 - **Updated:** 2026-08-02
 
