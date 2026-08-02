@@ -2,21 +2,21 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Storage roots, listing, and removal; GitHub [#132](https://github.com/ja11sop/cuppa/issues/132), [#133](https://github.com/ja11sop/cuppa/issues/133), [#134](https://github.com/ja11sop/cuppa/issues/134), [#135](https://github.com/ja11sop/cuppa/issues/135), [#138](https://github.com/ja11sop/cuppa/issues/138)
-- **Updated:** 2026-08-01
+- **Updated:** 2026-08-02
 
-`--list-develop` and `--update-develop` (§3.5, §3.6) and the storage rename (§3.1, §8, Phase 1)
-are implemented. Cloning a missing develop copy (§3.7) came out of using the develop report and
-is a proposal, as are the listing and removal options. Follow-on from the `--clean` work in
-`cuppa/location.py` and `cuppa/package_managers/gitlab.py`, where a clean could not complete
-because a dependency was missing, and where the advice for leftover artefacts was "remove the
-folder by hand". Telling people to run `rm -rf` is unsatisfying: it is platform-specific, it is
-easy to aim at the wrong path, and cuppa already knows exactly which folders belong to which
-variant and which dependency.
+`--list-develop` and `--update-develop` (§3.5, §3.6), the storage rename (§3.1, §8, Phase 1),
+and build listing/removal (`--list-builds`, `--remove-builds`, `--remove-all-builds`, Phase 2)
+are implemented. Cloning a missing develop copy (§3.7) remains a proposal, as do dependency and
+download listing/removal (Phases 3–4) and artefact removal (Phase 6). Follow-on from the
+`--clean` work in `cuppa/location.py` and `cuppa/package_managers/gitlab.py`, where a clean
+could not complete because a dependency was missing, and where the advice for leftover
+artefacts was "remove the folder by hand". Telling people to run `rm -rf` is unsatisfying: it
+is platform-specific, it is easy to aim at the wrong path, and cuppa already knows exactly which
+folders belong to which variant and which dependency.
 
 This plan proposes a way to list what is in the storage roots, a family of explicit removal
-options, a report on the state of the local working copies `--develop` substitutes together with
-conservative ways to bring them up to date and to create the ones that are missing, and the
-safety model that governs all of it.
+options (Phase 2 done; Phases 3–4 next), conservative ways to create develop copies that are
+missing (§3.7), and the safety model that governs deletion.
 
 The storage rename came **first** (§6, Phase 1) so every later phase talks about one vocabulary.
 Throughout this document the new names are used: `dependencies_root` (was `download_root`) and
@@ -54,7 +54,7 @@ which defaults to `~/.cuppa` and can be moved with one option.
 - Managing storage owned by third-party tools (the Conan home cache, pip caches, system
   package managers). Cuppa only removes what it created.
 - Removing output a project writes outside the build root. That is a real need, but it is a
-  separate option with a separate design pass (§4.6), not a widening of `--remove-build`.
+  separate option with a separate design pass (§4.6), not a widening of `--remove-builds`.
 - Touching `--develop` working copies or anything outside the storage roots (see §5).
 
 ---
@@ -69,9 +69,9 @@ which defaults to `~/.cuppa` and can be moved with one option.
 | Remove a variant folder | manual `rm -rf _build/...` |
 | Remove all build output | manual `rm -rf _build` |
 | See what dependencies are on disk and how big they are | manual `du -sh` |
-| Remove one stale dependency | manual `rm -rf` under the download root |
+| Remove one stale dependency | manual `rm -rf` under the dependencies root |
 | Remove all dependencies | manual |
-| Remove cached archives | manual, under `cache_root` |
+| Remove cached archives | manual, under the downloads root |
 
 The listing gap matters as much as the removal gap. Working across branches leaves
 branch-qualified trees (`…@feature_x`) behind indefinitely, and nothing ever reports them, so
@@ -79,20 +79,23 @@ they accumulate unnoticed until a disk fills.
 
 ### 2.2 Storage roots
 
-From `cuppa/core/storage_options.py`:
+From `cuppa/core/storage_options.py` **after Phase 1**:
 
 | Key | Default | Set by |
 |-----|---------|--------|
 | `build_root` / `abs_build_root` | `_build` | `--build-root` |
-| `download_root` | `_cuppa` (project-relative) | `--download-root` |
-| `cache_root` | `~/_cuppa/_cache` | `--cache-root` |
+| `storage_root` | `~/.cuppa` | `--storage-root` |
+| `dependencies_root` | `<storage_root>/dependencies` | `--dependencies-root` |
+| `downloads_root` | `<storage_root>/downloads` | `--downloads-root` |
 
-Many users point `download_root` at a shared location (for example `~/_cuppa/_download` via
-`~/.cuppaconfig`), which is what makes stale dependency trees shared across projects and
-therefore worth a managed removal command.
+`download_root` and `cache_root` remain as aliases of the resolved `dependencies_root` and
+`downloads_root` (and `--download-root` / `--cache-root` as deprecated CLI aliases) so plugins and
+`~/.cuppaconfig` entries keep working. Where an older tree already exists — project-local `_cuppa`,
+or `~/_cuppa/_download` / `~/_cuppa/_cache` — and no root is named, that tree is kept in use so an
+upgrade does not re-fetch; see §8.5.
 
-This table describes today. Phase 1 renames these to `dependencies_root` and `downloads_root`,
-changes where they default to, and adds the `storage_root` they derive from; see §8.
+Shared dependency trees are now the default, which is what makes stale trees across projects
+worth a managed removal command in later phases.
 
 ### 2.3 Build root layout
 
@@ -117,30 +120,31 @@ Two consequences matter for removal:
    the location folder name, and are exactly the leftovers the current `--clean` warning
    points at.
 
-### 2.4 Download root layout
+### 2.4 Dependencies root layout
 
-Written by several subsystems, all under `download_root`:
+Written by several subsystems, all under `dependencies_root`:
 
 | Producer | Path shape |
 |----------|-----------|
-| `cuppa/location.py` (VCS) | `<download_root>/<folder_name_from_path(url)>[@<branch or tag>]` |
-| `cuppa/location.py` (archives) | `<download_root>/<folder_name_from_path(url)>` (extracted) |
-| `cuppa/package_managers/gitlab.py` | `<download_root>/<tool_variant>/<package>/<version>/` |
-| `cuppa/build_with_conan.py` | `<download_root>/conan/<dependency name>/` |
+| `cuppa/location.py` (VCS) | `<dependencies_root>/<folder_name_from_path(url)>[@<branch or tag>]` |
+| `cuppa/location.py` (archives) | `<dependencies_root>/<folder_name_from_path(url)>` (extracted) |
+| `cuppa/package_managers/gitlab.py` | `<dependencies_root>/<tool_variant>/<package>/<version>/` |
+| `cuppa/build_with_conan.py` | `<dependencies_root>/conan/<dependency name>/` |
 
 The `@<branch>` suffix is decided by relative versioning plus `--location-match-current-branch`
 / `--location-match-branch` / `--location-match-tag`, so the *same* dependency can legitimately
 have several sibling folders. Removal has to be explicit about which of those it is deleting.
 
-### 2.5 Cache root layout
+### 2.5 Downloads root layout
 
 | Producer | Path shape |
 |----------|-----------|
-| `cuppa/location.py` | `<cache_root>/<local folder name>` — the raw downloaded archive |
-| `cuppa/package_managers/gitlab.py` | `<cache_root>/packages/<package>/<version>/<package file>.tar.gz` |
+| `cuppa/location.py` | `<downloads_root>/<local folder name>` — the raw downloaded archive |
+| `cuppa/package_managers/gitlab.py` | `<downloads_root>/packages/<package>/<version>/<package file>.tar.gz` |
 
-Note the asymmetry that motivates §8: the folder called `_download` holds *extracted, ready to
-use* trees, and the folder called `_cache` holds the *actual downloaded files*.
+The names after Phase 1 match the contents: `dependencies` holds extracted, ready-to-use trees;
+`downloads` holds the archives they came from. Older layouts used `_download` / `_cache` under
+`_cuppa` for the same split (§8.5).
 
 ---
 
@@ -185,7 +189,7 @@ Read-only, and useful on their own:
 |--------|---------|
 | `--list-dependencies` | Every dependency tree under `dependencies_root`, with size, which dependency name owns it, which branch or tag qualifier it carries, and when it was last used |
 | `--list-downloads` | Every archive under `downloads_root`, with size and the dependency it feeds |
-| `--list-builds` | Every variant subtree under `build_root`, with size |
+| `--list-builds` | Three views of `build_root`: folder summary, toolchain → variant tree, and sconscript tree, plus an explicit command for the selected builds |
 
 A fourth listing, `--list-develop`, answers a different question — the state of local working
 copies rather than what storage costs — and is covered separately in §3.5.
@@ -231,21 +235,68 @@ cuppa: storage: [info]   36M    gadget_2.26.0_rel_x86_64.tar.gz    gadget  unref
 cuppa: storage: [info]   3 entries, 216M total, 36M unreferenced
 ```
 
-`--list-builds` follows with `SIZE`, `SCONSCRIPT`, `TOOLCHAIN VARIANT`, and `STATE`, where the
-state distinguishes the variant the current options select from the others present.
+`--list-builds` is three related views of the same walk, not a flat table:
 
-In `--list-format=json` there is no header row: each entry is an object whose keys are the
-lower-cased column names (`size_bytes` alongside the human-readable `size`), so scripts read
-fields by name and people read columns.
+```
+  --------------------------------------------------------------------
+      SIZE  LAST BUILD    BUILD FOLDER
+  --------------------------------------------------------------------
+    229.5M  today         ~/coding/project/_build
+    124.5M  today         └── selected (25 of 39 entries)
+  --------------------------------------------------------------------
 
-Two lines of that output answer the question people currently answer with `du` and guesswork,
-and the last line is the one that prompts a `--remove-dependencies=widget`.
+  --------------------------------------------------------------------
+      SIZE  LAST BUILD    BY TOOLCHAIN VARIANT
+  --------------------------------------------------------------------
+     51.4M  2 years ago   ├── --- clang211
+     51.4M  2 years ago   │       └── --- dbg/x86_64/cxx2c
+     14.6M  today         └── ✓✓✓ gcc153
+     14.6M  today                 └── ✓✓✓ dbg/x86_64/cxx2c
+  --------------------------------------------------------------------
+
+  --------------------------------------------------------------------
+      SIZE  SELECTED      BY SCONSCRIPT
+  --------------------------------------------------------------------
+     41.1M                ├── test
+     20.4M      ✓         │   └── gcc153
+     14.6M      ✓         │       └── dbg/x86_64/cxx2c
+  --------------------------------------------------------------------
+
+  Selected 124.5M of 229.5M (25 of 39 entries)
+
+  Explicit command for the selected builds:
+
+  cuppa -D --dbg --toolchains=gcc153
+
+  Append --remove-builds to clear those folders.
+```
+
+The folder section hangs the **selected** subset under the build root with the same branch
+notation (`all N entries selected` when every entry matches). The toolchain section is the prune
+view: age and size without per-sconscript noise, grouped as `toolchain` → `variant/arch/abi`,
+with `✓✓✓` / `-✓-` / `---` for full, partial, and unselected (ASCII `*`). Toolchain names and
+marks use the info colour; fully selected name rows also emphasise size, mark, and name.
+Partial and unselected rows are dimmed. The sconscript section is a rollup tree with the same
+marks; toolchain children are listed before nested folders under a mixed parent. Sconscript
+names (the folder above the toolchain variants) and their marks use the info colour, subdued
+when not fully selected, and emphasised when fully selected. Tree branch glyphs are always
+subdued. A closing summary emphasises the selected size (info-coloured when it is less than the
+total) and prints an explicit `cuppa -D …` command for the selected builds that exist on disk
+(formatted like `--show-conf`), so appending `--remove-builds` clears those folders without
+naming absent variants.
+
+In `--list-format=json` the same structures appear as `folder`, `by_toolchain_variant`,
+`by_sconscript`, `summary`, and a flat `entries` list (`size_bytes` alongside human-readable
+`size`), so scripts read fields by name and people read columns.
+
+The summary command is the prompt to reclaim space: the tables show what is selected; the
+command is what you append `--remove-builds` to.
 
 ### 3.3 Removal
 
 | Option | Removes |
 |--------|---------|
-| `--remove-build` | Every `<tool_variant_dir>` subtree under `build_root` matching the current toolchain / variant / arch / ABI selection |
+| `--remove-builds` | Every `<tool_variant_dir>` subtree under `build_root` matching the current toolchain / variant / arch / ABI selection |
 | `--remove-all-builds` | The `build_root` folder itself |
 | `--remove-dependencies=dep1,dep2` | The `dependencies_root` folders for the named dependencies, for the current selection |
 | `--remove-all-dependencies` | As above for every dependency the current build knows about |
@@ -255,7 +306,7 @@ and the last line is the one that prompts a `--remove-dependencies=widget`.
 
 The build options are confined to `build_root`. Everything a project writes elsewhere — the
 conventional `_artifacts/` tree that collated coverage indexes and reports land in, generated
-sources, copied runtime files — is `--remove-artefacts`' problem, not `--remove-build`'s. That
+sources, copied runtime files — is `--remove-artefacts`' problem, not `--remove-builds`'s. That
 separation keeps the build options describable in one sentence each and keeps the harder
 discovery question (§4.6) out of their way.
 
@@ -573,7 +624,7 @@ non-empty directory, and one asserting that no token appears in the resulting `.
 
 ## 4. Scope resolution
 
-### 4.1 `--remove-build`
+### 4.1 `--remove-builds`
 
 1. Compute `tool_variant_dir` for each active toolchain / variant / arch / ABI, using the same
    composition as `construct.py` so the two cannot drift. Factor that composition into a shared
@@ -764,7 +815,7 @@ Two candidate mechanisms, not yet chosen:
 
 The likely answer is both: declaration for the coarse trees a project knows it owns, discovery
 for the rest, with removal reporting which mechanism found each path. Until that is worked out,
-`--remove-build` and `--remove-all-builds` stay confined to `build_root`, and the documentation
+`--remove-builds` and `--remove-all-builds` stay confined to `build_root`, and the documentation
 says plainly that artefact trees are not removed.
 
 ---
@@ -809,14 +860,14 @@ discussion uses one set of names. Phases 1 to 4 form one chain: each needs the v
 machinery of the one before it. Phases 5 and 6 do not — Phase 5 touches no storage at all and
 could land at any point, and Phase 6 needs a design pass this plan does not attempt.
 
-| Phase | Delivers | Depends on |
-|-------|----------|-----------|
-| 1 | `--storage-root` and the renamed roots | — |
-| 2 | `--remove-build`, `--remove-all-builds`, `--list-builds` | 1 |
-| 3 | Inventory, `--list-dependencies`, `--remove-dependencies` / `--remove-all-dependencies` | 1, 2 |
-| 4 | `--list-downloads`, `--purge-*` | 3 |
-| 5 | `--list-develop`, `--update-develop` | nothing in this plan |
-| 6 | `--remove-artefacts` | its own design pass first |
+| Phase | Delivers | Depends on | Status |
+|-------|----------|-----------|--------|
+| 1 | `--storage-root` and the renamed roots | — | **done** ([#133](https://github.com/ja11sop/cuppa/issues/133)) |
+| 2 | `--remove-builds`, `--remove-all-builds`, `--list-builds` | 1 | **done** ([#134](https://github.com/ja11sop/cuppa/issues/134) / #140) |
+| 3 | Inventory, `--list-dependencies`, `--remove-dependencies` / `--remove-all-dependencies` | 1, 2 | |
+| 4 | `--list-downloads`, `--purge-*` | 3 | |
+| 5 | `--list-develop`, `--update-develop` | nothing in this plan | **done** ([#132](https://github.com/ja11sop/cuppa/issues/132)) |
+| 6 | `--remove-artefacts` | its own design pass first | |
 
 **Phase 1 — storage naming** (§8, §3.1) — **done**
 
@@ -830,15 +881,16 @@ could land at any point, and Phase 6 needs a design pass this plan does not atte
 - Roots reported at info level on the first retrieval of a run.
 - Docs and `CHANGELOG.md` updated under Changed and Deprecated.
 
-**Phase 2 — build removal and `--list-builds`** (§3.3, §4.1, §4.2)
+**Phase 2 — build removal and `--list-builds`** (§3.3, §4.1, §4.2) — **done**
 
 - `cuppa/core/build_layout.py`: shared `tool_variant_dir` composition, extracted from
   `construct.py` and used by both.
-- `cuppa/core/storage_actions.py`: option registration and scope resolution for listing and
-  removal.
-- `cuppa/utility/storage.py`: directory sizing, human-readable formatting, containment checks,
-  removal, empty-directory pruning, and the table renderer — header row, padded columns, totals,
-  and the `--list-format=json` form (§3.2), which every later listing reuses.
+- `cuppa/core/storage_actions.py`: `--list-builds` / `--remove-builds` / `--remove-all-builds`,
+  the three-section report (folder, toolchain tree, sconscript tree), selection marks, and the
+  explicit-command summary.
+- `cuppa/utility/storage.py`: directory sizing and ages, human-readable formatting, containment
+  checks, removal, empty-directory pruning, tree glyphs, and `--list-format=json` helpers that
+  later listings reuse.
 - The safety model (§5) lands here too, since Phase 2 is the first phase that deletes anything:
   containment, symlink and suspicious-root refusal, report-before-acting, `-n`, exit status.
 - Wire into `cuppa/construct.py` after option processing, before `self.build(...)`; report and
@@ -864,21 +916,16 @@ could land at any point, and Phase 6 needs a design pass this plan does not atte
 - Extend the protocol results with download entries, add `--list-downloads` and the `--purge-*`
   variants.
 
-**Phase 5 — develop copies** (§3.5, §3.6 — independent of Phases 1 to 4)
+**Phase 5 — develop copies** (§3.5, §3.6 — independent of Phases 1 to 4) — **done**
 
-- Touches no storage root, needs no inventory, and removes nothing, so it can land at any point,
-  including before Phase 1. It is numbered last of the buildable phases only because the storage
-  chain is the reason this plan exists.
-- Extract the develop-path resolution from `Location.__init__` into a shared helper — `~`
-  expansion and the `#` anchor to `sconstruct_dir` — so the report and the swap cannot disagree.
-- Add `Git.get_working_copy_state()` (`git status --porcelain`,
-  `git rev-list --left-right --count @{upstream}...HEAD`) and the classification of §3.5, then
-  `--list-develop` on top of the report-and-exit wiring Phase 2 established.
-- Then `--update-develop`: fetch, fast-forward the copies that are clean and strictly behind,
-  skip and report everything else. One decision per copy, no new state, and an error rather than
-  a silent no-op under `--offline`.
-- The `=fetch-only` / `=allow-rebase` / `=allow-merge` values are **not** in this phase. They
-  wait for evidence from using the two options above (§3.6).
+- Landed ahead of Phase 2 ([#132](https://github.com/ja11sop/cuppa/issues/132) / #137): touches no
+  storage root, needs no inventory, and removes nothing.
+- Develop-path resolution is shared (`develop_location`); `Git.get_working_copy_state()` feeds
+  the classification; `--list-develop` reports to stdout and exits; `--update-develop` fetches and
+  fast-forwards only clean, strictly-behind copies.
+- `--clone-develop` (§3.7) remains a proposal ([#138](https://github.com/ja11sop/cuppa/issues/138)).
+- The `=fetch-only` / `=allow-rebase` / `=allow-merge` values are still out of scope until there
+  is evidence from using the two shipped options (§3.6).
 
 **Phase 6 — artefacts outside the build root** (§4.6)
 
@@ -937,7 +984,7 @@ could land at any point, and Phase 6 needs a design pass this plan does not atte
   the same project configured with the new options produces identical layout.
 - A project built with `--storage-root=<tmp>` writes both roots underneath it, and adding
   `--downloads-root` moves only the downloads half.
-- Build two variants, `--remove-build` one, assert the other survives.
+- Build two variants, `--remove-builds` one, assert the other survives.
 - Build, `--remove-all-builds`, assert the build root is gone.
 - `--list-builds` / `--list-dependencies` report the expected entries and totals and change
   nothing on disk.
@@ -1029,14 +1076,14 @@ unless set individually (§3.1). This is what makes the hidden default in §8.4 
 person who wants their dependency trees somewhere visible, or on another volume, says
 `--storage-root=~/cuppa-storage` once, in `~/.cuppaconfig`, and never thinks about it again.
 
-**The default moves from project-relative to shared.** `download_root` currently defaults to
-`_cuppa` *inside the project*. Defaulting to `~/.cuppa/dependencies` matches what people
-configure in practice, and means a second checkout of the same project reuses trees instead of
-re-cloning them. The cost is coupling: one bad tree now affects every project on the machine,
-and branch-qualified trees from every project pile up in one place. That cost is precisely what
-the listing options in §3.2 are there to make visible, which is another reason they belong in
-this plan rather than a later one. A project that wants isolation still says
-`--storage-root=_cuppa` and gets both roots inside the project, or
+**The default moved from project-relative to shared (Phase 1).** Before the rename,
+`download_root` defaulted to `_cuppa` *inside the project*. Defaulting to
+`~/.cuppa/dependencies` matches what people configured in practice, and means a second checkout
+of the same project reuses trees instead of re-cloning them. The cost is coupling: one bad tree
+now affects every project on the machine, and branch-qualified trees from every project pile up
+in one place. That cost is precisely what the listing options in §3.2 are there to make visible,
+which is another reason they belong in this plan rather than a later one. A project that wants
+isolation still says `--storage-root=_cuppa` and gets both roots inside the project, or
 `--dependencies-root=_cuppa/dependencies` to keep only the trees local while still sharing
 downloaded archives.
 
@@ -1131,32 +1178,35 @@ against their will; the change is to what a new installation chooses for itself.
 
 ### 8.5 Migration
 
-Renaming storage silently would strand existing trees and force re-downloads, so:
+Renaming storage silently would strand existing trees and force re-downloads. Phase 1 shipped
+the following; what remains is optional tooling once listing and removal exist.
 
-1. Add `--storage-root`, `--dependencies-root`, and `--downloads-root` as the primary options;
-   keep `--download-root` / `--cache-root` working as documented aliases.
-2. Keep the environment keys (`download_root`, `cache_root`) as aliases of the new keys for at
-   least one minor release so third-party dependency plugins keep working.
-3. On startup, if an old folder exists and the new one does not, use the old one and log once at
-   info level explaining the new name and how to move. This matters more than a pure rename
-   would, because the default location changes too: an existing `~/_cuppa/_download` full of
-   trees must not silently become an empty `~/.cuppa/dependencies` and a machine-wide re-fetch.
+1. **Done.** `--storage-root`, `--dependencies-root`, and `--downloads-root` are the primary
+   options; `--download-root` / `--cache-root` remain documented aliases.
+2. **Done.** The environment keys `download_root` / `cache_root` alias the resolved new keys for
+   at least one minor release so third-party dependency plugins keep working.
+3. **Done.** On startup, if an old folder exists and the new one does not, use the old one and
+   log once at info level explaining the new name and how to move. This matters more than a pure
+   rename would, because the default location changed too: an existing `~/_cuppa/_download` full
+   of trees must not silently become an empty `~/.cuppa/dependencies` and a machine-wide
+   re-fetch.
 
-   The fallback has to consider **two** old dependency locations, not one. `download_root`
-   defaults to `_cuppa` *inside the project* today, so the tree a project has by default is
-   `<project>/_cuppa`, and only a person who configured `download_root` themselves has the shared
-   `~/_cuppa/_download` this section originally named. Checking the shared path alone would leave
-   every unconfigured project re-fetching into `~/.cuppa/dependencies` with a perfectly good tree
-   sitting beside its sconstruct — the exact outcome the fallback exists to prevent. Both are
-   checked, project-local first, because that is what the old default produced.
+   The fallback considers **two** old dependency locations, not one. Before Phase 1,
+   `download_root` defaulted to `_cuppa` *inside the project*, so the tree a project had by
+   default was `<project>/_cuppa`, and only a person who configured `download_root` themselves
+   had the shared `~/_cuppa/_download`. Checking the shared path alone would leave every
+   unconfigured project re-fetching into `~/.cuppa/dependencies` with a perfectly good tree
+   sitting beside its sconstruct. Both are checked, project-local first.
 
    A root kept by the fallback is kept in the form it was written in. A relative `_cuppa` stays
    relative rather than being resolved to an absolute path, because `construct.py` excludes the
    dependencies root from sconscript discovery by folder name and only a relative name matches:
    resolving it would quietly start scanning every retrieved tree for sconscripts.
-4. Document the change in `CHANGELOG.md` under Deprecated, and give the `mv` commands in the docs.
-5. Consider a `--migrate-storage` action that performs the moves, once the machinery in this plan
-   exists, since it needs the same containment and reporting code.
+4. **Done.** `CHANGELOG.md` under Deprecated / Changed, and the docs describe the new defaults
+   and how to keep a project self-contained.
+5. **Still open.** Consider a `--migrate-storage` action that performs the moves, once the
+   listing and removal machinery in this plan exists, since it needs the same containment and
+   reporting code.
 
 ---
 
@@ -1166,14 +1216,14 @@ Settled while reviewing this plan, and folded into the sections above:
 
 | Question | Decision |
 |----------|----------|
-| Artefacts written outside the build root | Not the build options' job. A separate `--remove-artefacts` with its own design pass (§4.6, Phase 6); `--remove-build` and `--remove-all-builds` stay inside `build_root` |
+| Artefacts written outside the build root | Not the build options' job. A separate `--remove-artefacts` with its own design pass (§4.6, Phase 6); `--remove-builds` and `--remove-all-builds` stay inside `build_root` |
 | Scope of `--remove-all-dependencies` | Remove what the current selection uses, report what is left for other selections (§4.3) |
 | An inventory under the dependencies root | Yes — per-entry JSON, updated on resolve, advisory only (§4.5) |
 | Exact or sampled sizing | Sampled, cached in the inventory, refreshed lazily, `~` marks an estimate, `--exact-sizes` measures (§4.5) |
 | Shared or project-relative default | Shared, with a documentation obligation rather than a footnote, and one option to make a project self-contained (§8.3) |
 | Whether cloning a missing develop copy is its own option or a mode of `--update-develop` | Its own option, `--clone-develop`, so that updating keeps its narrow promise and the mode slot stays reserved for tolerance levels (§3.7, [#138](https://github.com/ja11sop/cuppa/issues/138)) |
 
-Still open, and none of them block Phase 1:
+Still open, and none of them block Phase 2:
 
 - **How `--remove-artefacts` finds paths.** Graph discovery, project declaration, or both, and
   what it adds over SCons `--clean`. This wants measurement on a real project before an option

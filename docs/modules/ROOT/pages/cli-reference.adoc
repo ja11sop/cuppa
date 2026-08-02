@@ -60,6 +60,29 @@ The dependencies and downloads roots are shared between projects. Set `--storage
 both, or name one of them to move only that half. See xref:build-layout.adoc[Build layout] for
 what goes where and for how cuppa treats storage left by an earlier version.
 
+== Build listing and removal
+
+These run instead of a build: cuppa resolves the same toolchain and variant selection the build
+would use, reports or removes, and exits. Annotated example output for each command is in
+xref:build-layout.adoc#listing-and-removing-builds[Listing and removing builds]
+(xref:build-layout.adoc#list-builds-example[`--list-builds`],
+xref:build-layout.adoc#remove-builds-example[`--remove-builds`],
+xref:build-layout.adoc#remove-all-builds-example[`--remove-all-builds`]).
+
+|===
+| Option | Effect
+
+| `--list-builds` | List the build root as folder summary, toolchain → variant tree, and sconscript tree; print an explicit command for the selected builds
+| `--remove-builds` | Remove variant subtrees matching the current `--toolchains` / `--dbg` / `--rel` / `--cov` selection
+| `--remove-all-builds` | Remove the entire build root
+| `--list-format=text\|json` | Format for `--list-*` output (default `text`)
+|===
+
+SCons `-n` / `--no-exec` turns either removal into a dry run: the same report, nothing deleted.
+Containment, symlink refusal, and refusal of home / filesystem / sconstruct-directory roots are
+described in xref:build-layout.adoc#removal-safety[Safety and scope].
+Artefact trees outside the build root (for example `_artifacts/`) are not removed.
+
 == Configuration persistence
 
 See xref:configuration.adoc[Configuration] for `--show-conf`, `--save-conf`, `--update-conf`, `--clear-conf`, `--remove-settings`, global variants, and `--use-conf`.

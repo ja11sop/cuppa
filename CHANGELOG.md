@@ -33,6 +33,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a build retrieves inside the project (#133).
 - The dependencies and downloads roots are named at info level the first time a run retrieves
   anything, so where a build is reading from and writing to is visible in its output (#133).
+- `--list-builds` reports the build root in three views and exits without building: an info-coloured
+  folder total with the selected subset hung beneath it (`all N entries selected` when every entry
+  matches), a toolchain → `variant/arch/abi` tree with `✓✓✓` / `-✓-` / `---` selection marks
+  (ASCII `*`), and a sconscript tree with rolled-up sizes. Fully selected sconscript and toolchain
+  name rows emphasise size, mark, and name in the info colour; partial and unselected rows are
+  dimmed. A closing summary emphasises the selected size (info-coloured when less than the total)
+  and prints an explicit `cuppa -D …` command for the selected builds present on disk (for use
+  with `--remove-builds`). `--list-format=json` makes the same structures scriptable (#134).
+- `--remove-builds` removes the variant subtrees that match the current toolchain and variant
+  selection (the same composition the build uses), then prunes empty parents. It announces the
+  removal, acts, then prints the same three views as `--list-builds` with a `REMOVED` column
+  (error colour and checks for success; warning/error colour and ballots for failures, with a
+  reason tree using short paths), and finishes with `Removed N entries freeing up SIZE` plus an
+  explicit `cuppa -D … --list-builds` verification command. Mixed success/failure rollups use
+  `✓-✗`. Dry-run (`-n`) shows the plan without deleting.
+  `--remove-all-builds` removes the entire build root, with the same short-path announce styling,
+  the same three REMOVED tables afterwards, and the same failure reason tree when the root cannot
+  be deleted.
+  Both refuse suspicious roots and symlink
+  traversal and honour SCons `-n`. Neither touches artefact trees outside the build root.
+  Annotated example output for `--list-builds`, `--remove-builds`, and `--remove-all-builds` is in
+  the build-layout documentation (#134).
 
 ### Changed
 

@@ -10,19 +10,22 @@ Seal or rotate a token:
 
     python -m scripts.github_api seal
 
-Use it:
+Reads on a public repository use the anonymous API by default (GET / HEAD do not unseal):
 
     python -m scripts.github_api GET /repos/ja11sop/cuppa/issues/132
+    python -m scripts.github_api GET /repos/ja11sop/cuppa/pulls/140 --auth   # sealed, if needed
 
     from scripts.github_api import GitHub
-    github = GitHub()
-    github.request( 'POST', '/repos/ja11sop/cuppa/issues/132/labels', { 'labels': [ 'bug' ] } )
-
-    # Public repository reads — no sealed token:
     GitHub.public().request( 'GET', '/repos/ja11sop/cuppa/pulls/139' )
 
-Every run reports how long the token has left, so rotation is prompted by use rather than by a
-checklist nobody reads.
+Writes always use the sealed credential:
+
+    from scripts.github_api import GitHub
+    GitHub().request( 'POST', '/repos/ja11sop/cuppa/issues/132/labels', { 'labels': [ 'bug' ] } )
+    python -m scripts.github_api PATCH /repos/ja11sop/cuppa/pulls/140 --data '{"title":"…"}'
+
+Authenticated runs report how long the token has left, so rotation is prompted by use rather
+than by a checklist nobody reads.
 """
 
 import argparse
@@ -215,11 +218,19 @@ def seal_command():
     return 0 if status == 200 else 1
 
 
+# Safe methods default to the anonymous client so a casual GET does not unseal the token.
+PUBLIC_METHODS = frozenset( { 'GET', 'HEAD' } )
+
+
 def main( argv=None ):
     parser = argparse.ArgumentParser( description=__doc__ )
     parser.add_argument( 'method', help="an HTTP method, or 'seal' to store a token" )
     parser.add_argument( 'path', nargs='?', help="an API path, for example /repos/owner/name" )
     parser.add_argument( '--data', help="a JSON request body" )
+    parser.add_argument(
+        '--auth', action='store_true',
+        help="unseal the credential (default for writes; optional for GET/HEAD)",
+    )
     arguments = parser.parse_args( argv )
 
     try:
@@ -230,8 +241,11 @@ def main( argv=None ):
             print( "Give an API path" )
             return 1
 
+        method = arguments.method.upper()
         payload = json.loads( arguments.data ) if arguments.data else None
-        status, body = GitHub().request( arguments.method.upper(), arguments.path, payload )
+        use_public = method in PUBLIC_METHODS and not arguments.auth
+        client = GitHub.public() if use_public else GitHub()
+        status, body = client.request( method, arguments.path, payload )
     except CredentialError as error:
         print( "Credential error: {}".format( error ) )
         return 1
