@@ -209,6 +209,19 @@ class Boost(object):
         env.AppendUnique( CPPDEFINES = self.values['defines'] )
 
 
+    def storage_paths( self ):
+        """Delegate to the Boost Location (optional storage protocol)."""
+        location = getattr( self, '_location', None )
+        if location is None:
+            return None
+        method = getattr( location, 'storage_paths', None )
+        return method() if method else None
+
+
+    def storage_qualifier( self ):
+        return self.values.get( 'full_version' ) or self.values.get( 'version' )
+
+
     def numeric_version( self ):
         return self.values['numeric_version']
 

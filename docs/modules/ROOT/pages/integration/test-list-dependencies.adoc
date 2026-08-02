@@ -1,0 +1,34 @@
+= `test_list_dependencies` — list dependency trees
+:description: Cuppa integration test documentation for test_list_dependencies
+
+
+== What is tested
+
+With planted trees under a private `--storage-root`, `--list-dependencies` reports them as a
+ruled table (including `unreferenced` state) without removing anything, and
+`--list-format=json` emits parseable objects. A second listing after `--exact-sizes` still
+succeeds.
+
+== Generated files
+
+The dummy project with the default `sconstruct`, plus a planted
+`<storage>/dependencies/widget@master` tree.
+
+== Commands
+
+[source,sh]
+----
+cuppa -D --offline --list-dependencies --storage-root=<storage>
+cuppa -D --offline --list-dependencies --list-format=json --storage-root=<storage>
+cuppa -D --offline --list-dependencies --exact-sizes --storage-root=<storage>
+----
+
+== Expectations
+
+Text output includes `Dependencies in`, a `DEPENDENCY` header, the planted tree name, and
+`unreferenced`. JSON parses with `entries`, `size_bytes`, `state`, and `dependencies_root`.
+The planted tree remains on disk after listing.
+
+'''
+
+Related test module: `tests/integration/test_list_dependencies.py`.

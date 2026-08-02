@@ -140,6 +140,8 @@ class Location(object):
             return "--offline"
         if self._cuppa_env['clean']:
             return "--clean"
+        if self._cuppa_env.get( 'storage_resolve_only' ):
+            return "storage action"
         return None
 
 
@@ -328,7 +330,13 @@ class Location(object):
 
                 return local_directory
 
-        if self._cuppa_env['dump'] or self._cuppa_env['clean']:
+        # dump / clean / storage resolve-only: compute the path but do not download or extract.
+        # --offline still extracts from a cached archive when one is present.
+        if (
+                self._cuppa_env['dump']
+                or self._cuppa_env['clean']
+                or self._cuppa_env.get( 'storage_resolve_only' )
+        ):
             return local_directory
 
         # If not we then check to see if we cached the download
@@ -857,6 +865,46 @@ class Location(object):
 
     def base_local( self ):
         return self._base_local_directory
+
+
+    def storage_paths( self ):
+        """On-disk paths this location owns under the storage roots (optional protocol)."""
+        from cuppa.utility import storage as storage_util
+
+        paths = {
+            'dependencies': [],
+            'downloads': [],
+            'build': [],
+            'develop': [],
+        }
+        base = self._base_local_directory
+        if not base:
+            return paths
+
+        dependencies_root = self._cuppa_env.get( 'dependencies_root' )
+        downloads_root = self._cuppa_env.get( 'downloads_root' )
+        develop = False
+        if dependencies_root and storage_util.is_contained( base, dependencies_root ):
+            paths['dependencies'].append( base )
+        else:
+            # Outside the dependencies root — typically a --develop working copy or a
+            # project-local path. Removals must not touch these.
+            paths['develop'].append( base )
+            develop = True
+
+        if not develop and downloads_root and getattr( self, '_local_folder', None ):
+            cached = self.get_cached_archive( downloads_root, self._local_folder )
+            if cached:
+                paths['downloads'].append( cached )
+            else:
+                candidate = os.path.join( downloads_root, self._local_folder )
+                if os.path.exists( candidate ):
+                    paths['downloads'].append( candidate )
+
+        outputs = self.build_outputs_from_location()
+        if outputs:
+            paths['build'].append( outputs )
+        return paths
 
 
     def sub_dir( self ):

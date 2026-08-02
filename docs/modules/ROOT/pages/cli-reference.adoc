@@ -75,6 +75,8 @@ xref:build-layout.adoc#remove-all-builds-example[`--remove-all-builds`]).
 | `--list-builds` | List the build root as folder summary, toolchain → variant tree, and sconscript tree; print an explicit command for the selected builds
 | `--remove-builds` | Remove variant subtrees matching the current `--toolchains` / `--dbg` / `--rel` / `--cov` selection
 | `--remove-all-builds` | Remove the entire build root
+| `--list-dependencies` | List dependency trees under the dependencies root (size, name, qualifier, toolchain variant, last used, referenced / unreferenced) and exit
+| `--exact-sizes` | Force a full walk when measuring dependency tree sizes (updates the inventory cache)
 | `--list-format=text\|json` | Format for `--list-*` output (default `text`)
 |===
 
@@ -82,6 +84,9 @@ SCons `-n` / `--no-exec` turns either removal into a dry run: the same report, n
 Containment, symlink refusal, and refusal of home / filesystem / sconstruct-directory roots are
 described in xref:build-layout.adoc#removal-safety[Safety and scope].
 Artefact trees outside the build root (for example `_artifacts/`) are not removed.
+
+`--remove-dependencies` / `--remove-all-dependencies` are reserved for the next step of the
+storage work (Phase 3 removal); listing ships first so the inventory can earn trust.
 
 == Configuration persistence
 

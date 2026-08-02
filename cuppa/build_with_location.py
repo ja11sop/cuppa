@@ -255,6 +255,15 @@ class base(object):
         env.AppendUnique( SYSINCPATH = self._sys_includes )
 
 
+    def storage_paths( self ):
+        """Delegate to the resolved Location (optional storage protocol)."""
+        location = getattr( self, '_location', None )
+        if location is None:
+            return None
+        method = getattr( location, 'storage_paths', None )
+        return method() if method else None
+
+
     @classmethod
     def lazy_create_node( cls, variant_key, cached_nodes ):
         if not cls._name in cached_nodes:

@@ -19,6 +19,7 @@
 ** xref:integration/test-scripts-scoping.adoc[Scripts scoping]
 ** xref:integration/test-storage-roots.adoc[Storage roots]
 ** xref:integration/test-list-builds.adoc[List builds]
+** xref:integration/test-list-dependencies.adoc[List dependencies]
 ** xref:integration/test-toolchains-matrix.adoc[Toolchains matrix]
 ** xref:integration/test-build.adoc[Build]
 ** xref:integration/test-build-test.adoc[BuildTest and Test]

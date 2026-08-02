@@ -55,6 +55,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   traversal and honour SCons `-n`. Neither touches artefact trees outside the build root.
   Annotated example output for `--list-builds`, `--remove-builds`, and `--remove-all-builds` is in
   the build-layout documentation (#134).
+- `--list-dependencies` reports trees under the dependencies root as a ruled stdout table (size,
+  dependency, version/branch, toolchain variant, last used, referenced / unreferenced) and exits
+  without building. Sizes come from a per-entry inventory under
+  `<dependencies_root>/.cuppa-inventory/` (sampled with a leading `~`, or exact with
+  `--exact-sizes`). Dependencies declare ownership through optional `storage_paths()`; resolve-only
+  path discovery does not retrieve. `--list-format=json` is supported. Removal flags follow in the
+  same Phase 3 workstream (#134).
 
 ### Changed
 

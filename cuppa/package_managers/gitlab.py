@@ -516,11 +516,13 @@ class GitlabPackageDependency:
         if not os.path.isabs( extraction_root ):
             extraction_root = os.path.abspath( os.path.join( cuppa_env['sconstruct_dir'], extraction_root ) )
 
-        self._extraction_dir = os.path.join( extraction_root, tool_variant( cuppa_env, variant=self._variant ) )
+        self._tool_variant = tool_variant( cuppa_env, variant=self._variant )
+        self._extraction_dir = os.path.join( extraction_root, self._tool_variant )
 
         self._package_dir = os.path.join( self._extraction_dir, package, self.version() )
+        self._using_develop = bool( self._develop and use_develop )
 
-        if self._develop and use_develop:
+        if self._using_develop:
             self._develop = os.path.expanduser( self._develop )
             self._package_dir = self._develop
 
@@ -535,10 +537,9 @@ class GitlabPackageDependency:
                 self._pkg_config_dir = os.path.join( self._package_dir, pkg_config_dir )
             self._pkg_config_dir = os.path.abspath( self._pkg_config_dir )
 
-        if self._dump:
-            return
-
-        if self._clean:
+        # dump / clean / storage resolve-only: paths are known; do not download or extract.
+        # --offline still extracts from a cached archive when one is present.
+        if self._dump or self._clean or self._cuppa_env.get( 'storage_resolve_only' ):
             return
 
         if self._develop and use_develop:
@@ -662,6 +663,34 @@ class GitlabPackageDependency:
 
     def local( self ):
         return self._extraction_dir
+
+
+    def storage_paths( self ):
+        """On-disk paths this package owns under the storage roots (optional protocol)."""
+        paths = {
+            'dependencies': [],
+            'downloads': [],
+            'build': [],
+            'develop': [],
+        }
+        if getattr( self, '_using_develop', False ):
+            if self._package_dir:
+                paths['develop'].append( self._package_dir )
+            return paths
+
+        if getattr( self, '_package_dir', None ):
+            paths['dependencies'].append( self._package_dir )
+        if getattr( self, '_download_target', None ):
+            paths['downloads'].append( self._download_target )
+        return paths
+
+
+    def storage_qualifier( self ):
+        return self.version()
+
+
+    def storage_tool_variant( self ):
+        return getattr( self, '_tool_variant', None )
 
 
     # Package Interface

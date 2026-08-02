@@ -55,6 +55,8 @@ def add_storage_action_options( add_option ):
         nargs=1, action='store', default='text',
         help="Output format for --list-* options: text (default) or json",
     )
+    from cuppa.core import dependency_actions
+    dependency_actions.add_dependency_action_options( add_option )
 
 
 def process_storage_action_options( cuppa_env ):
@@ -65,13 +67,17 @@ def process_storage_action_options( cuppa_env ):
     if isinstance( list_format, ( list, tuple ) ):
         list_format = list_format[0] if list_format else 'text'
     cuppa_env['list_format'] = list_format or 'text'
+    from cuppa.core import dependency_actions
+    dependency_actions.process_dependency_action_options( cuppa_env )
 
 
 def wants_storage_action( cuppa_env ):
+    from cuppa.core import dependency_actions
     return bool(
         cuppa_env.get( 'list_builds' )
         or cuppa_env.get( 'remove_builds' )
         or cuppa_env.get( 'remove_all_builds' )
+        or dependency_actions.wants_dependency_action( cuppa_env )
     )
 
 
@@ -1385,6 +1391,7 @@ def remove_all_builds( cuppa_env, out=None ):
 def run( construct, cuppa_env, out=None ):
     """Dispatch the requested storage action. Returns an exit status."""
     out = out or sys.stdout
+    from cuppa.core import dependency_actions
     try:
         if cuppa_env.get( 'remove_all_builds' ) and (
                 cuppa_env.get( 'remove_builds' ) or cuppa_env.get( 'list_builds' )
@@ -1407,6 +1414,9 @@ def run( construct, cuppa_env, out=None ):
             logger.info( as_info_label(
                     "Running in LIST BUILDS mode, no building will be attempted" ) )
             return list_builds( construct, cuppa_env, out=out )
+
+        if dependency_actions.wants_dependency_action( cuppa_env ):
+            return dependency_actions.run( construct, cuppa_env, out=out )
 
     except storage.StorageError as error:
         logger.error( as_error( str( error ) ) )
