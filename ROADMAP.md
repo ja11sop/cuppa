@@ -275,3 +275,27 @@ Add new `##` headings here as larger efforts start, for example:
 - Additional toolchains or platforms
 
 Each new section should follow the same shape: **Today** → **Planned / potential** → **Out of scope**.
+
+---
+
+## Documentation tooling
+
+### Today
+
+| Capability | Status |
+|------------|--------|
+| Antora site under `docs/` with Mermaid and Lunr | Yes |
+| Plain-text examples of report output in AsciiDoc | Yes — e.g. build-layout listing/removal samples |
+| Terminal colour via colorama meanings (`as_error`, `as_info`, …) | Yes |
+
+### Planned / potential
+
+| ID | Work | Priority | Notes |
+|----|------|----------|-------|
+| `doc-output-samples` | Capture report output as semantic HTML for Antora and local preview | Low | Prefer meaning→CSS over ANSI scrape. [`design/plans/colourised-doc-samples.md`](design/plans/colourised-doc-samples.md) |
+
+### Out of scope (docs tooling)
+
+| ID | Item | Reason |
+|----|------|--------|
+| `doc-ansi-only` | Rely solely on ANSI→HTML for committed samples | Terminal palette and light/dark subdued handling make samples drift |

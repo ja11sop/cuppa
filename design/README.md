@@ -18,6 +18,7 @@ alternatives behind one of those roadmap entries.
 
 | Document | Status | Subject |
 |----------|--------|---------|
+| [`plans/colourised-doc-samples.md`](plans/colourised-doc-samples.md) | proposal | Capture cuppa report output as semantic HTML for Antora samples and local preview |
 | [`plans/coverage-performance.md`](plans/coverage-performance.md) | proposal | Where `--cov --test` time actually goes, what the A/B measurement ruled out, and the remaining suspects |
 | [`plans/modules-activation.md`](plans/modules-activation.md) | proposal | Whether C++ modules should stay opt-in behind `--modules` or become opt-out, and what must land first |
 | [`plans/removal-options.md`](plans/removal-options.md) | in progress | Phase 2 is in progress for [#134](https://github.com/ja11sop/cuppa/issues/134); storage rename done ([#133](https://github.com/ja11sop/cuppa/issues/133)); `--list-develop` / `--update-develop` done ([#132](https://github.com/ja11sop/cuppa/issues/132)) |
