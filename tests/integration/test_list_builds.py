@@ -54,9 +54,47 @@ def test_remove_builds_removes_matching_trees(tmp_path):
     assert_success(removed)
     # The selected variant trees are gone; the build root may remain as an empty shell
     # or be fully pruned depending on what else was under it.
-    assert "removed" in removed.stdout
+    assert "BUILD FOLDER" in removed.stdout
+    assert "REMOVED" in removed.stdout
+    assert "Removed" in removed.stdout and "freeing up" in removed.stdout
+    assert "Verify the removal" in removed.stdout
     remaining = list((project / "_build").rglob("working")) if (project / "_build").exists() else []
     assert remaining == []
+
+    listed = run_cuppa(project, "--dbg", "--list-builds")
+    assert_success(listed)
+    assert "selected (0 of" in listed.stdout or "Selected 0" in listed.stdout or (
+        "0 of 0" in listed.stdout
+    )
+
+
+def test_remove_all_builds_dry_run_keeps_the_root(tmp_path):
+    project = a_project(tmp_path)
+    assert_success(run_cuppa(project, "--dbg"))
+
+    dry = run_cuppa(project, "--remove-all-builds", "-n")
+    assert_success(dry)
+    assert "Would remove build root" in dry.stdout
+    assert "BUILD FOLDER" in dry.stdout
+    assert "REMOVED" in dry.stdout
+    assert "dry run" in dry.stdout
+    assert "--list-builds" in dry.stdout
+    assert (project / "_build").exists()
+    assert list((project / "_build").rglob("working"))
+
+
+def test_remove_all_builds_removes_the_build_root(tmp_path):
+    project = a_project(tmp_path)
+    assert_success(run_cuppa(project, "--dbg"))
+    assert (project / "_build").exists()
+
+    removed = run_cuppa(project, "--remove-all-builds")
+    assert_success(removed)
+    assert "BUILD FOLDER" in removed.stdout
+    assert "REMOVED" in removed.stdout
+    assert "Removed build root" in removed.stdout
+    assert "freeing up" in removed.stdout
+    assert not (project / "_build").exists()
 
 
 def test_list_builds_json(tmp_path):
