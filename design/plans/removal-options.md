@@ -188,7 +188,7 @@ Read-only, and useful on their own:
 |--------|---------|
 | `--list-dependencies` | Every dependency tree under `dependencies_root`, with size, which dependency name owns it, which branch or tag qualifier it carries, and when it was last used |
 | `--list-downloads` | Every archive under `downloads_root`, with size and the dependency it feeds |
-| `--list-builds` | Every variant subtree under `build_root`, with size |
+| `--list-builds` | Three views of `build_root`: folder summary, toolchain → variant tree, and sconscript tree, plus an explicit command for the selected builds |
 
 A fourth listing, `--list-develop`, answers a different question — the state of local working
 copies rather than what storage costs — and is covered separately in §3.5.
@@ -234,15 +234,62 @@ cuppa: storage: [info]   36M    gadget_2.26.0_rel_x86_64.tar.gz    gadget  unref
 cuppa: storage: [info]   3 entries, 216M total, 36M unreferenced
 ```
 
-`--list-builds` follows with `SIZE`, `SCONSCRIPT`, `TOOLCHAIN VARIANT`, and `STATE`, where the
-state distinguishes the variant the current options select from the others present.
+`--list-builds` is three related views of the same walk, not a flat table:
 
-In `--list-format=json` there is no header row: each entry is an object whose keys are the
-lower-cased column names (`size_bytes` alongside the human-readable `size`), so scripts read
-fields by name and people read columns.
+```
+  --------------------------------------------------------------------
+      SIZE  LAST BUILD    BUILD FOLDER
+  --------------------------------------------------------------------
+    229.5M  today         ~/coding/project/_build
+    124.5M  today         └── selected (25 of 39 entries)
+  --------------------------------------------------------------------
 
-Two lines of that output answer the question people currently answer with `du` and guesswork,
-and the last line is the one that prompts a `--remove-dependencies=widget`.
+  --------------------------------------------------------------------
+      SIZE  LAST BUILD    BY TOOLCHAIN VARIANT
+  --------------------------------------------------------------------
+     51.4M  2 years ago   ├── --- clang211
+     51.4M  2 years ago   │       └── --- dbg/x86_64/cxx2c
+     14.6M  today         └── ✓✓✓ gcc153
+     14.6M  today                 └── ✓✓✓ dbg/x86_64/cxx2c
+  --------------------------------------------------------------------
+
+  --------------------------------------------------------------------
+      SIZE  SELECTED      BY SCONSCRIPT
+  --------------------------------------------------------------------
+     41.1M                ├── test
+     20.4M      ✓         │   └── gcc153
+     14.6M      ✓         │       └── dbg/x86_64/cxx2c
+  --------------------------------------------------------------------
+
+  Selected 124.5M of 229.5M (25 of 39 entries)
+
+  Explicit command for the selected builds:
+
+  cuppa -D --dbg --toolchains=gcc153
+
+  Append --remove-build to clear those folders.
+```
+
+The folder section hangs the **selected** subset under the build root with the same branch
+notation (`all N entries selected` when every entry matches). The toolchain section is the prune
+view: age and size without per-sconscript noise, grouped as `toolchain` → `variant/arch/abi`,
+with `✓✓✓` / `-✓-` / `---` for full, partial, and unselected (ASCII `*`). Toolchain names and
+marks use the info colour; fully selected name rows also emphasise size, mark, and name.
+Partial and unselected rows are dimmed. The sconscript section is a rollup tree with the same
+marks; toolchain children are listed before nested folders under a mixed parent. Sconscript
+names (the folder above the toolchain variants) and their marks use the info colour, subdued
+when not fully selected, and emphasised when fully selected. Tree branch glyphs are always
+subdued. A closing summary emphasises the selected size (info-coloured when it is less than the
+total) and prints an explicit `cuppa -D …` command for the selected builds that exist on disk
+(formatted like `--show-conf`), so appending `--remove-build` clears those folders without
+naming absent variants.
+
+In `--list-format=json` the same structures appear as `folder`, `by_toolchain_variant`,
+`by_sconscript`, `summary`, and a flat `entries` list (`size_bytes` alongside human-readable
+`size`), so scripts read fields by name and people read columns.
+
+The summary command is the prompt to reclaim space: the tables show what is selected; the
+command is what you append `--remove-build` to.
 
 ### 3.3 Removal
 
@@ -815,7 +862,7 @@ could land at any point, and Phase 6 needs a design pass this plan does not atte
 | Phase | Delivers | Depends on | Status |
 |-------|----------|-----------|--------|
 | 1 | `--storage-root` and the renamed roots | — | **done** ([#133](https://github.com/ja11sop/cuppa/issues/133)) |
-| 2 | `--remove-build`, `--remove-all-builds`, `--list-builds` | 1 | next |
+| 2 | `--remove-build`, `--remove-all-builds`, `--list-builds` | 1 | in progress |
 | 3 | Inventory, `--list-dependencies`, `--remove-dependencies` / `--remove-all-dependencies` | 1, 2 | |
 | 4 | `--list-downloads`, `--purge-*` | 3 | |
 | 5 | `--list-develop`, `--update-develop` | nothing in this plan | **done** ([#132](https://github.com/ja11sop/cuppa/issues/132)) |
@@ -837,11 +884,12 @@ could land at any point, and Phase 6 needs a design pass this plan does not atte
 
 - `cuppa/core/build_layout.py`: shared `tool_variant_dir` composition, extracted from
   `construct.py` and used by both.
-- `cuppa/core/storage_actions.py`: option registration and scope resolution for listing and
-  removal.
-- `cuppa/utility/storage.py`: directory sizing, human-readable formatting, containment checks,
-  removal, empty-directory pruning, and the table renderer — header row, padded columns, totals,
-  and the `--list-format=json` form (§3.2), which every later listing reuses.
+- `cuppa/core/storage_actions.py`: `--list-builds` / `--remove-build` / `--remove-all-builds`,
+  the three-section report (folder, toolchain tree, sconscript tree), selection marks, and the
+  explicit-command summary.
+- `cuppa/utility/storage.py`: directory sizing and ages, human-readable formatting, containment
+  checks, removal, empty-directory pruning, tree glyphs, and `--list-format=json` helpers that
+  later listings reuse.
 - The safety model (§5) lands here too, since Phase 2 is the first phase that deletes anything:
   containment, symlink and suspicious-root refusal, report-before-acting, `-n`, exit status.
 - Wire into `cuppa/construct.py` after option processing, before `self.build(...)`; report and

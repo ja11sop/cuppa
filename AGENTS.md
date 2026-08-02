@@ -231,6 +231,8 @@ cuppa -D --toolchains=gcc,clang
 cuppa -D --scripts=path/to/sconscript
 cuppa -D --list-develop
 cuppa -D --update-develop
+cuppa -D --list-builds
+cuppa -D --dbg --remove-build -n
 ```
 
 `cuppa` wraps `scons`, appends `--cuppa-mode`, masks `*TOKEN*` env values in output, and may restrict CPU affinity with `--parallel`.

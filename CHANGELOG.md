@@ -33,6 +33,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a build retrieves inside the project (#133).
 - The dependencies and downloads roots are named at info level the first time a run retrieves
   anything, so where a build is reading from and writing to is visible in its output (#133).
+- `--list-builds` reports the build root in three views and exits without building: an info-coloured
+  folder total with the selected subset hung beneath it (`all N entries selected` when every entry
+  matches), a toolchain → `variant/arch/abi` tree with `✓✓✓` / `-✓-` / `---` selection marks
+  (ASCII `*`), and a sconscript tree with rolled-up sizes. Fully selected sconscript and toolchain
+  name rows emphasise size, mark, and name in the info colour; partial and unselected rows are
+  dimmed. A closing summary emphasises the selected size (info-coloured when less than the total)
+  and prints an explicit `cuppa -D …` command for the selected builds present on disk (for use
+  with `--remove-build`). `--list-format=json` makes the same structures scriptable (#134).
+- `--remove-build` removes the variant subtrees that match the current toolchain and variant
+  selection (the same composition the build uses), then prunes empty parents. `--remove-all-builds`
+  removes the entire build root. Both refuse suspicious roots and symlink traversal, report before
+  acting, and honour SCons `-n` as a dry run. Neither touches artefact trees outside the build
+  root (#134).
 
 ### Changed
 

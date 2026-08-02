@@ -247,14 +247,14 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 | `--clean` removes the current variant's build outputs | Yes |
 | `--list-develop` / `--update-develop` for the working copies `--develop` builds against | Yes — [#132](https://github.com/ja11sop/cuppa/issues/132) |
 | Shared storage under `~/.cuppa`, named `--dependencies-root` / `--downloads-root`, with `--storage-root` to move both | Yes — [#133](https://github.com/ja11sop/cuppa/issues/133) |
-| Remove a whole build tree, a dependency, or a stale download | No — manual deletion |
-| See what is stored, where, and how large it is | No |
+| Remove a whole build tree, a dependency, or a stale download | Builds: `--remove-build` / `--remove-all-builds` in progress ([#134](https://github.com/ja11sop/cuppa/issues/134)); dependencies and downloads still manual |
+| See what is stored, where, and how large it is | Builds: `--list-builds` in progress ([#134](https://github.com/ja11sop/cuppa/issues/134)); dependencies and downloads still no |
 
 ### Planned / potential
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `storage-listing-removal` | `--list-*`, `--remove-*`, `--purge-*` for builds, dependencies, and downloads | Medium | Depends on the rename so one vocabulary is used throughout. GitHub [#134](https://github.com/ja11sop/cuppa/issues/134) |
+| `storage-listing-removal` | `--list-*`, `--remove-*`, `--purge-*` for builds, dependencies, and downloads | Medium | Build half in progress on `134_list_and_remove_builds`; dependency/download halves follow. GitHub [#134](https://github.com/ja11sop/cuppa/issues/134) |
 | `develop-clone` | `--clone-develop` for a develop working copy that is configured but not yet on disk, for a new machine or a dependency added since you last looked | Medium | Surface settled, remaining design to finalise first: pinned locations, submodules, whether retrieval machinery is reused. [`design/plans/removal-options.md`](design/plans/removal-options.md) §3.7. GitHub [#138](https://github.com/ja11sop/cuppa/issues/138) |
 | `artefact-removal` | Decide how to remove artefacts written outside the build root | Low | Design pass first; `--remove-build` deliberately stops at `_build`. GitHub [#135](https://github.com/ja11sop/cuppa/issues/135) |
 

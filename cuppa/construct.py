@@ -24,8 +24,10 @@ import SCons.Script
 import cuppa.core.environment
 import cuppa.core.base_options
 import cuppa.core.storage_options
+import cuppa.core.storage_actions
 import cuppa.core.location_options
 import cuppa.core.options
+import cuppa.core.build_layout
 import cuppa.modules.registration
 import cuppa.build_platform
 import cuppa.output_processor
@@ -402,6 +404,7 @@ class Construct(object):
         cuppa_env['thirdparty'] = thirdparty
 
         cuppa.core.storage_options.process_storage_options( cuppa_env )
+        cuppa.core.storage_actions.process_storage_action_options( cuppa_env )
         cuppa.core.location_options.process_location_options( cuppa_env )
 
         cuppa_env['current_branch'] = ''
@@ -558,6 +561,11 @@ class Construct(object):
                 logger.info( as_info_label(
                         "Running in LIST DEVELOP mode, no building will be attempted" ) )
                 SCons.Script.Exit( cuppa.develop.list_develop( cuppa_env ) )
+
+            if cuppa.core.storage_actions.wants_storage_action( cuppa_env ):
+                SCons.Script.Exit(
+                        cuppa.core.storage_actions.run( self, cuppa_env )
+                )
 
             job_count = cuppa_env.get_option( 'num_jobs' )
             parallel  = cuppa_env.get_option( 'parallel' )
@@ -737,9 +745,6 @@ class Construct(object):
         logger.debug( "Using active_variants = [{}]".format( colour_items( active_variants, as_info ) ) )
         logger.debug( "Using active_actions = [{}]".format( colour_items( active_actions, as_info ) ) )
 
-        def sanitise_abi( abi ):
-            return abi.replace( "+", "x" )
-
         build_envs = []
 
         for key, variant in active_variants.items():
@@ -750,7 +755,7 @@ class Construct(object):
 
                 if env:
 
-                    abi = sanitise_abi( toolchain.abi( env ) )
+                    abi = cuppa.core.build_layout.sanitise_abi( toolchain.abi( env ) )
 
                     self.propagate_env_variables(
                             env,
@@ -774,7 +779,7 @@ class Construct(object):
                     env['toolchain']       = toolchain
                     env['variant']         = variant
                     env['target_arch']     = target_arch
-                    env['abi']             = sanitise_abi( toolchain.abi( env ) )
+                    env['abi']             = cuppa.core.build_layout.sanitise_abi( toolchain.abi( env ) )
                     env['raw_abi']         = toolchain.abi( env )
                     env['variant_actions'] = self.get_active_actions( cuppa_env, variant, active_variants, active_actions )
 
@@ -949,7 +954,9 @@ class Construct(object):
             sconscript_env['sconscript_dir'] = os.path.join( sconscript_env['base_path'], sconstruct_offset_path )
             sconscript_env['abs_sconscript_dir'] = os.path.abspath( sconscript_env['sconscript_dir'] )
             sconscript_env['tool_arch_abi_dir'] = os.path.join( toolchain.name(), target_arch, abi )
-            sconscript_env['tool_variant_dir'] = os.path.join( toolchain.name(), variant, target_arch, abi )
+            sconscript_env['tool_variant_dir'] = cuppa.core.build_layout.tool_variant_dir(
+                    toolchain.name(), variant, target_arch, abi
+            )
             sconscript_env['package_tool_variant_dir'] = os.path.join( toolchain.package_name(), variant, target_arch, abi )
             sconscript_env['tool_variant_working_dir'] = os.path.join( sconscript_env['tool_variant_dir'], working_folder )
 

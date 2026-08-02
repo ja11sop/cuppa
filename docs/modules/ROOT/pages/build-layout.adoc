@@ -94,8 +94,59 @@ cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=gcc --clean
 ----
 
 That removes objects, binaries, module BMIs (`.gcm` / `.pcm`), and the GCC
-`module-mapper.txt`. Empty directories under `_build` may remain; delete `_build`
-for a fully cold tree.
+`module-mapper.txt`. Empty directories under `_build` may remain; use `--remove-build` or
+`--remove-all-builds` (below) when you want the directories gone too.
+
+[#listing-and-removing-builds]
+== Listing and removing builds
+
+When you want to see what is under the build root, or remove whole variant trees rather than
+individual targets, use the storage actions. They run instead of a build.
+
+[source,sh]
+----
+cuppa -D --list-builds
+cuppa -D --dbg --toolchains=gcc --remove-build
+cuppa -D --dbg --toolchains=gcc --remove-build -n
+cuppa -D --remove-all-builds
+----
+
+`--list-builds` prints three related views of the build root, then a short selection summary:
+
+* **BUILD FOLDER** — total size and newest build under the root (info-coloured), with the selected
+  subset hung underneath as `└── selected (N of M entries)` (or `all N entries selected` when
+  every entry matches). When every entry is selected, that hang line's size and label are
+  emphasised.
+* **BY TOOLCHAIN VARIANT** — size and last-build age rolled up across every sconscript, grouped as
+  `toolchain` → `variant/arch/abi`. Each row carries a three-character mark: `✓✓✓` when fully
+  selected, `-✓-` when a toolchain is only partially selected, and `---` when not selected
+  (ASCII uses `*` for the check). Toolchain names and their marks use the info colour (subdued
+  when partial or unselected). When a toolchain is fully selected, its size, mark, and name are
+  also emphasised. Partial and unselected rows are dimmed.
+* **BY SCONSCRIPT** — a directory tree with rolled-up sizes. Each tool-variant leaf is shown as
+  the toolchain name with `variant/arch/abi` underneath. Where a folder both builds and contains
+  nested sconscripts, its toolchain variants are listed before the nested folders. Rollup folders
+  show `✓✓✓` when fully selected and `-✓-` when partially selected (partial and unselected rows
+  are dimmed); leaves show a single centered `✓`. The sconscript name — the folder above the
+  toolchain variants — and its selection mark are drawn in the info colour, subdued when not
+  fully selected, and with size, mark, and name emphasised when fully selected. Tree branch
+  glyphs are always subdued.
+
+The closing summary emphasises the selected and total sizes (the selected size is also
+info-coloured when it is less than the total) and prints an explicit `cuppa -D …` command for
+the selected builds that exist on disk (formatted like `--show-conf`), omitting active variants
+that have no matching trees. Append `--remove-build` to clear those folders.
+`--list-format=json` emits the same structures (`folder`, `by_toolchain_variant`,
+`by_sconscript`, `summary`, plus a flat `entries` list).
+
+`--remove-build` removes only the variant suffixes the current options would write — the same
+`<toolchain>/<variant>/<arch>/<abi>` composition the build uses — under every sconscript path,
+then prunes empty parents. `--remove-all-builds` removes the build root itself.
+
+Both removals report the paths first, honour SCons `-n` as a dry run, refuse to follow symlinks,
+and refuse a build root that is `/`, your home directory, or the sconstruct directory. They never
+touch trees outside the build root; collated coverage under `_artifacts/` and other project
+artefacts stay put.
 
 Cleaning never retrieves or updates dependencies. If a location or package dependency
 is not present in the dependencies root, cuppa reports that at info level and treats it as

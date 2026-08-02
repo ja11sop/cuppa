@@ -1,0 +1,36 @@
+= `test_list_builds` — list and remove build trees
+:description: Cuppa integration test documentation for test_list_builds
+
+
+== What is tested
+
+After a debug build, `--list-builds` reports the variant trees under `_build`, `--remove-build -n`
+shows the plan without deleting, `--remove-build` removes the matching trees, and
+`--list-format=json` emits parseable objects.
+
+== Generated files
+
+The dummy project with the default `sconstruct`.
+
+== Commands
+
+[source,sh]
+----
+cuppa -D --offline --dbg
+cuppa -D --offline --dbg --list-builds
+cuppa -D --offline --dbg --remove-build -n
+cuppa -D --offline --dbg --remove-build
+cuppa -D --offline --dbg --list-builds --list-format=json
+----
+
+== Expectations
+
+The listing includes `BUILD FOLDER`, `BY TOOLCHAIN VARIANT`, and `BY SCONSCRIPT` sections, a
+selected hang under the build folder, and a closing `Explicit command for the selected builds`
+block with a `cuppa -D …` line. The dry run keeps `_build`. The real removal leaves no `working`
+directories under `_build`. JSON output parses and includes `folder`, `by_toolchain_variant`,
+`by_sconscript`, `summary`, and `size_bytes` on each entry.
+
+'''
+
+Related test module: `tests/integration/test_list_builds.py`.
