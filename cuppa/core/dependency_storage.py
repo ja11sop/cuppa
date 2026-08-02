@@ -14,10 +14,16 @@ Types that omit it are reported as skipped (layout not declared), never guessed.
 
 ``cuppa_env['storage_resolve_only']`` disables fetch/extract while factories still compute paths
 (the same idea as ``retrieval_disabled_reason()`` for ``--offline`` / ``--clean``).
+
+``construct.create_build_envs`` returns a list of selection dicts
+``{ 'env', 'variant', 'target_arch', 'abi', ... }`` — factories take the nested ``env``.
 """
 
+import os
+import re
 from collections import namedtuple
 
+from cuppa.core import build_layout
 from cuppa.log import logger
 from cuppa.colourise import as_info, as_warning
 
@@ -39,6 +45,11 @@ OwnedPath = namedtuple(
 )
 
 Skip = namedtuple( 'Skip', [ 'dependency', 'reason' ] )
+
+# tool_variant dirs look like gcc153_rel_x86_64_cxx2c / clang211_dbg_x86_64_cxx2c
+_TOOL_VARIANT_DIR = re.compile(
+    r'^.+_(dbg|rel|cov)_[A-Za-z0-9_]+$'
+)
 
 
 def enable_resolve_only( cuppa_env ):
@@ -70,6 +81,61 @@ def normalise_storage_paths( paths ):
             value = [ value ]
         result[key] = [ p for p in value if p ]
     return result
+
+
+def looks_like_tool_variant_dir( name ):
+    return bool( name and _TOOL_VARIANT_DIR.match( name ) )
+
+
+# Keys location / package factories read from the env during resolve-only. SConscript
+# loading normally sets abs_sconscript_dir; storage actions run before that.
+_ENV_KEYS_FROM_CUPPA = (
+    'sconstruct_dir',
+    'abs_sconstruct_dir',
+    'dependencies_root',
+    'downloads_root',
+    'storage_root',
+    'storage_resolve_only',
+    'offline',
+    'clean',
+    'dump',
+    'develop',
+    'current_branch',
+    'current_revision',
+    'location_match_current_branch',
+    'location_match_branch',
+    'location_match_tag',
+    'location_explicit_default_branch',
+)
+
+
+def selection_build_envs( construct, cuppa_env ):
+    """Flattened list of ``create_build_envs`` selection dicts for active toolchains."""
+    selections = []
+    sconstruct_dir = cuppa_env.get( 'sconstruct_dir' )
+    for toolchain in cuppa_env.get( 'active_toolchains' ) or []:
+        for selection in construct.create_build_envs( toolchain, cuppa_env ):
+            selection = dict( selection )
+            selection['toolchain'] = toolchain
+            env = selection.get( 'env' )
+            if env is not None:
+                for key in _ENV_KEYS_FROM_CUPPA:
+                    if key in cuppa_env and key not in env:
+                        env[key] = cuppa_env[key]
+                if 'abs_sconscript_dir' not in env and sconstruct_dir:
+                    env['abs_sconscript_dir'] = os.path.abspath( sconstruct_dir )
+                if 'sconscript_dir' not in env and sconstruct_dir:
+                    env['sconscript_dir'] = sconstruct_dir
+                env['storage_resolve_only'] = True
+                if 'tool_variant_dir' not in env:
+                    env['tool_variant_dir'] = build_layout.tool_variant_dir(
+                        toolchain.name(),
+                        selection['variant'],
+                        selection['target_arch'],
+                        selection['abi'],
+                    )
+            selections.append( selection )
+    return selections
 
 
 def _dependency_kind( instance ):
@@ -124,12 +190,23 @@ def _meta_from_instance( instance ):
             local_folder = getattr( location, 'local_folder', None )
             if callable( local_folder ):
                 folder = local_folder()
-                if folder and '@' in folder:
-                    qualifier = '@' + folder.rsplit( '@', 1 )[-1]
+                if folder:
+                    _name, folder_qualifier = split_location_folder_name( folder )
+                    if folder_qualifier:
+                        qualifier = folder_qualifier
     return qualifier, tool_variant
 
 
-def resolve_named_dependencies( construct, cuppa_env, names ):
+def _scons_env_from_selection( selection ):
+    """``create_build_envs`` yields dicts; factories need the nested SCons env."""
+    if selection is None:
+        return None
+    if isinstance( selection, dict ) and 'env' in selection:
+        return selection['env']
+    return selection
+
+
+def resolve_named_dependencies( construct, cuppa_env, names, selections=None ):
     """Create each named dependency for the active selection and collect owned paths.
 
     Returns ``(owned_paths, skips)``. Factories that return ``None`` or lack
@@ -142,8 +219,9 @@ def resolve_named_dependencies( construct, cuppa_env, names ):
     skips = []
     seen_paths = set()
 
-    toolchains = cuppa_env.get( 'active_toolchains' ) or []
-    if not toolchains:
+    if selections is None:
+        selections = selection_build_envs( construct, cuppa_env )
+    if not selections:
         skips.append( Skip( dependency='*', reason='no active toolchains' ) )
         return owned, skips
 
@@ -158,56 +236,56 @@ def resolve_named_dependencies( construct, cuppa_env, names ):
 
         created_any = False
         declared = False
-        for toolchain in toolchains:
-            for build_env in construct.create_build_envs( toolchain, cuppa_env ):
-                try:
-                    instance = factory( build_env )
-                except Exception as error:
-                    logger.warn( "Could not resolve dependency [{}] for storage: {}".format(
-                            as_warning( name ), as_warning( str( error ) )
-                    ) )
-                    skips.append( Skip( dependency=name, reason=str( error ) ) )
-                    created_any = True
-                    continue
-
-                if instance is None:
-                    continue
+        for selection in selections:
+            env = _scons_env_from_selection( selection )
+            if env is None:
+                continue
+            try:
+                instance = factory( env )
+            except Exception as error:
+                logger.warn( "Could not resolve dependency [{}] for storage: {}".format(
+                        as_warning( name ), as_warning( str( error ) )
+                ) )
+                skips.append( Skip( dependency=name, reason=str( error ) ) )
                 created_any = True
+                continue
 
-                paths = _call_storage_paths( instance )
-                if paths is None:
-                    # Try the wrapped package / location if the outer wrapper has none.
-                    for attr in ( '_package', '_location' ):
-                        inner = getattr( instance, attr, None )
-                        if inner is not None:
-                            paths = _call_storage_paths( inner )
-                            if paths is not None:
-                                break
-                if paths is None:
-                    continue
+            if instance is None:
+                continue
+            created_any = True
 
-                declared = True
-                kind = _dependency_kind( instance )
-                qualifier, tool_variant = _meta_from_instance( instance )
-                if tool_variant is None and 'tool_variant_dir' in build_env:
-                    # Flatten tool_variant_dir (toolchain/variant/arch/abi) to package style.
-                    tool_variant = build_env['tool_variant_dir'].replace( '/', '_' ).replace( '\\', '_' )
+            paths = _call_storage_paths( instance )
+            if paths is None:
+                for attr in ( '_package', '_location' ):
+                    inner = getattr( instance, attr, None )
+                    if inner is not None:
+                        paths = _call_storage_paths( inner )
+                        if paths is not None:
+                            break
+            if paths is None:
+                continue
 
-                for category, path_list in paths.items():
-                    for path in path_list:
-                        key = ( category, path )
-                        if key in seen_paths:
-                            continue
-                        seen_paths.add( key )
-                        owned.append( OwnedPath(
-                            dependency=name,
-                            kind=kind,
-                            category=category,
-                            path=path,
-                            qualifier=qualifier,
-                            tool_variant=tool_variant if category != 'develop' else None,
-                            develop=( category == 'develop' ),
-                        ) )
+            declared = True
+            kind = _dependency_kind( instance )
+            qualifier, tool_variant = _meta_from_instance( instance )
+            if tool_variant is None:
+                tool_variant = env.get( 'tool_variant_dir', '' ).replace( '/', '_' ).replace( '\\', '_' ) or None
+
+            for category, path_list in paths.items():
+                for path in path_list:
+                    key = ( category, path )
+                    if key in seen_paths:
+                        continue
+                    seen_paths.add( key )
+                    owned.append( OwnedPath(
+                        dependency=name,
+                        kind=kind,
+                        category=category,
+                        path=path,
+                        qualifier=qualifier,
+                        tool_variant=tool_variant if category != 'develop' else None,
+                        develop=( category == 'develop' ),
+                    ) )
 
         if not created_any:
             skips.append( Skip( dependency=name, reason='factory returned nothing' ) )
@@ -221,3 +299,74 @@ def resolve_named_dependencies( construct, cuppa_env, names ):
 def default_dependency_names( cuppa_env ):
     """Names Phase 3 treats as known to this build (default_dependencies only for now)."""
     return list( cuppa_env.get( 'default_dependencies' ) or [] )
+
+
+def describe_tree_path( path, dependencies_root ):
+    """Best-effort dependency / qualifier / tool_variant from a path under the root.
+
+    Used for on-disk trees that are not yet in the inventory. Never invents ownership
+    for nested source folders inside a VCS tree.
+    """
+    root = os.path.realpath( os.path.expanduser( dependencies_root ) )
+    real = os.path.realpath( path )
+    try:
+        relative = os.path.relpath( real, root )
+    except ValueError:
+        return {
+            'dependency': os.path.basename( real ),
+            'qualifier': None,
+            'tool_variant': None,
+            'kind': 'unknown',
+        }
+    parts = relative.split( os.sep )
+    if not parts or parts[0] in ( '', '.' ):
+        return {
+            'dependency': os.path.basename( real ),
+            'qualifier': None,
+            'tool_variant': None,
+            'kind': 'unknown',
+        }
+
+    if parts[0] == 'conan' and len( parts ) >= 3:
+        return {
+            'dependency': parts[1],
+            'qualifier': parts[2],
+            'tool_variant': None,
+            'kind': 'conan',
+        }
+
+    if looks_like_tool_variant_dir( parts[0] ) and len( parts ) >= 3:
+        return {
+            'dependency': parts[1],
+            'qualifier': parts[2],
+            'tool_variant': parts[0],
+            'kind': 'package',
+        }
+
+    top = parts[0]
+    dependency, qualifier = split_location_folder_name( top )
+    return {
+        'dependency': dependency,
+        'qualifier': qualifier,
+        'tool_variant': None,
+        'kind': 'location',
+    }
+
+
+def split_location_folder_name( folder ):
+    """Split a location folder into ``(name, @branch_or_None)``.
+
+    Encoded ``git@host`` URLs become folders like ``git_ssh_git@host__path``, so a single
+    ``@`` there is part of the name. A second ``@`` is a branch/tag (``…@master``).
+    HTTPS folders use at most one ``@`` for the branch (``…fmt.git@11.1.1``).
+    """
+    if not folder:
+        return folder, None
+    at_count = folder.count( '@' )
+    if at_count >= 2:
+        name, branch = folder.rsplit( '@', 1 )
+        return name, '@' + branch
+    if at_count == 1 and not folder.startswith( 'git_ssh_git@' ):
+        name, branch = folder.rsplit( '@', 1 )
+        return name, '@' + branch
+    return folder, None

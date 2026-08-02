@@ -81,8 +81,20 @@ def _dependencies_root( cuppa_env ):
     return root
 
 
+def _isdir( path ):
+    return os.path.isdir( path ) and not os.path.islink( path )
+
+
 def _walk_dependency_trees( dependencies_root ):
-    """Yield directory paths that look like dependency trees under the root."""
+    """Yield ownership-unit directories under the root — never nested source folders.
+
+    Layouts recognised:
+
+    - ``<tool_variant>/<package>/<version>/`` — GitLab / Boost package extracts
+    - ``conan/<name>/<fingerprint>/`` — Conan consumer installs
+    - anything else at the top level (``git_*``, archive folders, …) — one row per
+      top-level directory; do not recurse into VCS trees
+    """
     if not os.path.isdir( dependencies_root ):
         return
 
@@ -92,42 +104,39 @@ def _walk_dependency_trees( dependencies_root ):
         if name in skip_names or name.startswith( '.' ):
             continue
         top = os.path.join( dependencies_root, name )
-        if not os.path.isdir( top ) or os.path.islink( top ):
+        if not _isdir( top ):
             continue
 
-        # conan/<dep>/<fingerprint>
         if name == 'conan':
             for dep_name in sorted( os.listdir( top ) ):
                 dep_dir = os.path.join( top, dep_name )
-                if not os.path.isdir( dep_dir ) or os.path.islink( dep_dir ):
+                if not _isdir( dep_dir ):
                     continue
                 for fingerprint in sorted( os.listdir( dep_dir ) ):
                     finger_dir = os.path.join( dep_dir, fingerprint )
-                    if os.path.isdir( finger_dir ) and not os.path.islink( finger_dir ):
+                    if _isdir( finger_dir ):
                         yield finger_dir
             continue
 
-        # tool_variant/package/version  (package layout has three segments under root)
-        # Heuristic: if children look like package/version pairs, yield those; else yield top.
-        children = [
-            c for c in sorted( os.listdir( top ) )
-            if os.path.isdir( os.path.join( top, c ) ) and not os.path.islink( os.path.join( top, c ) )
-        ]
-        package_style = False
-        if children:
-            for child in children:
-                child_path = os.path.join( top, child )
+        if dependency_storage.looks_like_tool_variant_dir( name ):
+            for package in sorted( os.listdir( top ) ):
+                package_dir = os.path.join( top, package )
+                if not _isdir( package_dir ):
+                    continue
                 versions = [
-                    v for v in os.listdir( child_path )
-                    if os.path.isdir( os.path.join( child_path, v ) )
-                    and not os.path.islink( os.path.join( child_path, v ) )
+                    v for v in sorted( os.listdir( package_dir ) )
+                    if _isdir( os.path.join( package_dir, v ) )
                 ]
                 if versions:
-                    package_style = True
-                    for version in sorted( versions ):
-                        yield os.path.join( child_path, version )
-        if not package_style:
-            yield top
+                    for version in versions:
+                        yield os.path.join( package_dir, version )
+                else:
+                    # Incomplete package tree — still report the package folder.
+                    yield package_dir
+            continue
+
+        # Location / archive trees: the top-level folder is the ownership unit.
+        yield top
 
 
 def _collect_rows( construct, cuppa_env ):
@@ -136,7 +145,10 @@ def _collect_rows( construct, cuppa_env ):
     sconstruct_dir = cuppa_env.get( 'sconstruct_dir' )
 
     names = dependency_storage.default_dependency_names( cuppa_env )
-    owned, skips = dependency_storage.resolve_named_dependencies( construct, cuppa_env, names )
+    selections = dependency_storage.selection_build_envs( construct, cuppa_env )
+    owned, skips = dependency_storage.resolve_named_dependencies(
+            construct, cuppa_env, names, selections=selections
+    )
 
     referenced = set()
     for item in owned:
@@ -181,15 +193,14 @@ def _collect_rows( construct, cuppa_env ):
         real = storage.real_path( path )
         if real in by_path:
             continue
-        # Unknown on-disk tree — measure and invent a provisional row (no invent write
-        # without ownership metadata beyond the path basename).
+        described = dependency_storage.describe_tree_path( path, dependencies_root )
         size = dependency_inventory.measure_size( path, exact=exact )
         by_path[real] = {
             'path': real,
-            'kind': 'unknown',
-            'dependency': os.path.basename( path ),
-            'qualifier': None,
-            'tool_variant': None,
+            'kind': described['kind'],
+            'dependency': described['dependency'],
+            'qualifier': described['qualifier'],
+            'tool_variant': described['tool_variant'],
             'last_used': None,
             'size': size,
             '_provisional': True,
