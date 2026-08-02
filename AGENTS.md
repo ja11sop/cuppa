@@ -160,11 +160,27 @@ work on a machine with no TPM.
 
 ### Using it
 
-`scripts.github_api` is the credential and transport layer. It reads the sealed token into the
-calling process only — never into the environment — and makes authenticated API calls:
+**Reads** go through the public API — no sealed token. Prefer `scripts.github_helpers`
+(`pr-status` / `watch-pr`) for pull-request CI, or an anonymous client for ad-hoc GETs:
 
 ```sh
 python -m scripts.github_api GET /repos/ja11sop/cuppa/issues/132
+python -m scripts.github_helpers pr-status --pr 140
+```
+
+```python
+from scripts.github_api import GitHub
+GitHub.public().request( 'GET', '/repos/ja11sop/cuppa/pulls/140' )
+```
+
+The CLI uses the anonymous client for `GET` / `HEAD` by default. Pass `--auth` only when a read
+truly needs the sealed credential (private resources). Do not unseal just to poll CI.
+
+**Writes** use the sealed credential. `scripts.github_api` reads the token into the calling
+process only — never into the environment:
+
+```sh
+python -m scripts.github_api PATCH /repos/ja11sop/cuppa/pulls/140 --data '{"title":"…"}'
 ```
 
 ```python
