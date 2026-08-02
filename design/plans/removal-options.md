@@ -1,21 +1,22 @@
 # Plan: removal options for build folders and dependencies
 
-- **Status:** in progress
+- **Status:** in progress (Phases 1, 2, and 5 done; 3, 4, and 6 remain)
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Storage roots, listing, and removal; GitHub [#132](https://github.com/ja11sop/cuppa/issues/132), [#133](https://github.com/ja11sop/cuppa/issues/133), [#134](https://github.com/ja11sop/cuppa/issues/134), [#135](https://github.com/ja11sop/cuppa/issues/135), [#138](https://github.com/ja11sop/cuppa/issues/138)
-- **Updated:** 2026-08-01
+- **Updated:** 2026-08-02
 
-`--list-develop` and `--update-develop` (§3.5, §3.6) and the storage rename (§3.1, §8, Phase 1)
-are implemented. Cloning a missing develop copy (§3.7) came out of using the develop report and
-is a proposal, as are the listing and removal options. Follow-on from the `--clean` work in
-`cuppa/location.py` and `cuppa/package_managers/gitlab.py`, where a clean could not complete
-because a dependency was missing, and where the advice for leftover artefacts was "remove the
-folder by hand". Telling people to run `rm -rf` is unsatisfying: it is platform-specific, it is
-easy to aim at the wrong path, and cuppa already knows exactly which folders belong to which
-variant and which dependency.
+`--list-develop` and `--update-develop` (§3.5, §3.6), the storage rename (§3.1, §8, Phase 1),
+and build listing/removal (`--list-builds`, `--remove-builds`, `--remove-all-builds`, Phase 2)
+are implemented. Cloning a missing develop copy (§3.7) remains a proposal, as do dependency and
+download listing/removal (Phases 3–4) and artefact removal (Phase 6). Follow-on from the
+`--clean` work in `cuppa/location.py` and `cuppa/package_managers/gitlab.py`, where a clean
+could not complete because a dependency was missing, and where the advice for leftover
+artefacts was "remove the folder by hand". Telling people to run `rm -rf` is unsatisfying: it
+is platform-specific, it is easy to aim at the wrong path, and cuppa already knows exactly which
+folders belong to which variant and which dependency.
 
 This plan proposes a way to list what is in the storage roots, a family of explicit removal
-options (Phase 2 next), conservative ways to create develop copies that are missing (§3.7), and
-the safety model that governs deletion.
+options (Phase 2 done; Phases 3–4 next), conservative ways to create develop copies that are
+missing (§3.7), and the safety model that governs deletion.
 
 The storage rename came **first** (§6, Phase 1) so every later phase talks about one vocabulary.
 Throughout this document the new names are used: `dependencies_root` (was `download_root`) and
@@ -862,7 +863,7 @@ could land at any point, and Phase 6 needs a design pass this plan does not atte
 | Phase | Delivers | Depends on | Status |
 |-------|----------|-----------|--------|
 | 1 | `--storage-root` and the renamed roots | — | **done** ([#133](https://github.com/ja11sop/cuppa/issues/133)) |
-| 2 | `--remove-builds`, `--remove-all-builds`, `--list-builds` | 1 | in progress |
+| 2 | `--remove-builds`, `--remove-all-builds`, `--list-builds` | 1 | **done** ([#134](https://github.com/ja11sop/cuppa/issues/134) / #140) |
 | 3 | Inventory, `--list-dependencies`, `--remove-dependencies` / `--remove-all-dependencies` | 1, 2 | |
 | 4 | `--list-downloads`, `--purge-*` | 3 | |
 | 5 | `--list-develop`, `--update-develop` | nothing in this plan | **done** ([#132](https://github.com/ja11sop/cuppa/issues/132)) |
@@ -880,7 +881,7 @@ could land at any point, and Phase 6 needs a design pass this plan does not atte
 - Roots reported at info level on the first retrieval of a run.
 - Docs and `CHANGELOG.md` updated under Changed and Deprecated.
 
-**Phase 2 — build removal and `--list-builds`** (§3.3, §4.1, §4.2)
+**Phase 2 — build removal and `--list-builds`** (§3.3, §4.1, §4.2) — **done**
 
 - `cuppa/core/build_layout.py`: shared `tool_variant_dir` composition, extracted from
   `construct.py` and used by both.
