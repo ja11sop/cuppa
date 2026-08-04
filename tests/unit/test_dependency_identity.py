@@ -349,8 +349,10 @@ def test_tree_missing_gitlab_version_and_dashes():
     import re
     plain = re.sub( r'\x1b\[[0-9;]*m', '', plain )
     assert 'google_cloud_cpp' in plain
-    # Only the missing leaf carries the remark (identity / version stay quiet).
-    assert plain.count( 'missing' ) == 1
+    # Referenced summary names missing trees; the toolchain leaf still carries REMARK missing.
+    assert 'missing dependencies' in plain
+    leaf_lines = [ line for line in plain.splitlines() if 'gcc153_rel' in line ]
+    assert leaf_lines and 'missing' in leaf_lines[0]
     # Missing SIZE / LAST USED are dashes, not 0B.
     assert '0B' not in plain
     identity = None
