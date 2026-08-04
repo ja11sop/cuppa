@@ -4,6 +4,7 @@ import pytest
 
 from cuppa.package_managers.gitlab import (
     GitlabPackageDependency,
+    os_release_id,
     package_file_name,
     package_url,
     remove_prefix,
@@ -47,6 +48,43 @@ def test_tool_variant_and_package_names(monkeypatch):
         version="1.0.0",
     )
     assert url.endswith("/packages/generic/widget/1.0.0/" + name)
+
+
+def test_os_release_id_falls_back_without_freedesktop(monkeypatch):
+    def _missing():
+        raise AttributeError("freedesktop_os_release")
+
+    monkeypatch.setattr(
+        "cuppa.package_managers.gitlab.platform.freedesktop_os_release",
+        _missing,
+    )
+    monkeypatch.setattr(
+        "cuppa.package_managers.gitlab.platform.system",
+        lambda: "Windows",
+    )
+    assert os_release_id() == "windows"
+
+    monkeypatch.setattr(
+        "cuppa.package_managers.gitlab.platform.system",
+        lambda: "Darwin",
+    )
+    assert os_release_id() == "macos"
+
+    toolchain = SimpleNamespace(package_name=lambda: "vc143")
+    variant = SimpleNamespace(name=lambda: "rel")
+    env = {
+        "toolchain": toolchain,
+        "variant": variant,
+        "target_arch": "x86_64",
+        "abi": "cxx17",
+    }
+    monkeypatch.setattr(
+        "cuppa.package_managers.gitlab.platform.system",
+        lambda: "Windows",
+    )
+    assert package_file_name(env, package="boost") == (
+        "boost_windows_vc143_rel_x86_64_cxx17.tar.gz"
+    )
 
 
 def _dependency_for_pkg_config(tmp_path, clean):

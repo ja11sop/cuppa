@@ -358,11 +358,8 @@ def gitlab_archive_name( package, tool_variant, system=None ):
     if not package or not tool_variant or tool_variant in ( '-', '' ):
         return None
     if system is None:
-        try:
-            import platform
-            system = platform.freedesktop_os_release()['ID']
-        except ( AttributeError, KeyError, OSError, TypeError, ValueError ):
-            system = 'unknown'
+        from cuppa.package_managers.gitlab import os_release_id
+        system = os_release_id()
     return '{package}_{system}_{build}.tar.gz'.format(
             package=package,
             system=system,

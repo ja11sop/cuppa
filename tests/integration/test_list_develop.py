@@ -1,7 +1,9 @@
 """Integration coverage for ``--list-develop`` with realistic planted git copies."""
 
+import os
 import re
 import shutil
+import stat
 import subprocess
 from pathlib import Path
 
@@ -16,6 +18,31 @@ pytestmark = pytest.mark.integration
 
 def _git_available():
     return shutil.which( "git" ) is not None
+
+
+def _rmtree( path ):
+    """Remove a tree; clear read-only bits so Windows can delete ``.git`` objects."""
+    path = Path( path )
+    if not path.exists():
+        return
+
+    def _onexc( func, name, exc ):
+        if not isinstance( exc, PermissionError ):
+            raise exc
+        os.chmod( name, stat.S_IWRITE )
+        func( name )
+
+    # ``onexc`` is 3.12+; ``onerror`` remains for older interpreters.
+    try:
+        shutil.rmtree( path, onexc=_onexc )
+    except TypeError:
+        def _onerror( func, name, _exc_info ):
+            try:
+                os.chmod( name, stat.S_IWRITE )
+                func( name )
+            except OSError:
+                raise
+        shutil.rmtree( path, onerror=_onerror )
 
 
 def _run_git( cwd, *args ):
@@ -65,7 +92,7 @@ def _setup_behind_on_branch( work, branch="spike_cache", behind=2 ):
     for index in range( behind ):
         _add_commit( scratch, "ahead_{}.txt".format( index ), "ahead {}".format( index ) )
     _run_git( scratch, "push", "origin", branch )
-    shutil.rmtree( scratch )
+    _rmtree( scratch )
     # Refresh remote-tracking refs in the working copy without merging.
     _run_git( work, "fetch", "origin" )
     return work

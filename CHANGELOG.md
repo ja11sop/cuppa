@@ -120,6 +120,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- GitLab package archive naming no longer calls Linux-only `platform.freedesktop_os_release()`
+  unconditionally. On Windows and macOS it falls back to a stable OS label (`windows` / `macos`)
+  so package construction — and therefore `--list-dependencies` registry LOCATION for GitLab
+  packages — works outside Linux (#134).
 - `--list-dependencies` verbose LOCATION for unreferenced GitLab packages now shows the registry
   `registry/package/version` URL on each version row (matching referenced). The inventory stores
   `remote_location` when resolve knows it; sibling versions of the same package inherit that base

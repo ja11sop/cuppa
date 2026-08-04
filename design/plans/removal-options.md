@@ -1315,6 +1315,25 @@ two spellings — both valid for their source.
 configured, always prefer `origin`, or leave mixed) based on experience using the listing.
 No code change until that call is made.
 
+### 4.12 Settled: no downloads-root path under `[D]` in verbose LOCATION
+
+Verbose `--list-dependencies` prefixes LOCATION with `[D]` when a regenerating archive exists
+under `downloads_root` (HTTP/Boost extract rows; GitLab toolchain archive basenames — not the
+registry URL on the version row). A footer explains the mark.
+
+**Not doing:** nesting a second LOCATION line with the path relative to `--downloads-root`
+(for example `packages/google-cloud-cpp/2.28.0/….tar.gz`) under each `[D]` leaf.
+
+**Rationale.** Verbose LOCATION already answers *what* the leaf is (URL or archive basename);
+`[D]` answers *whether* a regenerating file is present. The useful action is remove/re-fetch by
+dependency identity (package + version + toolchain), which listing and later purge should name
+without teaching on-disk layout under downloads. A per-row path doubles vertical noise on every
+toolchain leaf and fights the point of managed removal: users should not need to know where the
+file lives. Absolute or relative download paths remain available in `--list-format=json`
+(`download_path`) and belong in a dedicated `--list-downloads` (Phase 4), not as default verbose
+tree chrome. Until purge exists, the `[D]` footer pointing at the downloads root is enough for
+occasional hand deletion.
+
 ---
 
 ## 5. Safety model
@@ -1863,6 +1882,7 @@ Settled while reviewing this plan, and folded into the sections above:
 | Exact or sampled sizing | Sampled, cached in the inventory, refreshed lazily, `~` marks an estimate, `--exact-sizes` measures (§4.5) |
 | Shared or project-relative default | Shared, with a documentation obligation rather than a footnote, and one option to make a project self-contained (§8.3) |
 | Whether cloning a missing develop copy is its own option or a mode of `--update-develop` | Its own option, `--clone-develop`, so that updating keeps its narrow promise and the mode slot stays reserved for tolerance levels (§3.7, [#138](https://github.com/ja11sop/cuppa/issues/138)) |
+| Downloads-root path under verbose `[D]` LOCATION | No. `[D]` + basename (+ footer) only; paths stay in JSON / `--list-downloads` (§4.12) |
 
 Still open, and none of them block Phase 2:
 

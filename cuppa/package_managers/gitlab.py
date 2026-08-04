@@ -43,10 +43,27 @@ def tool_variant( env, variant=None ):
     )
 
 
+def os_release_id():
+    """Linux ``/etc/os-release`` ID (``debian``, ``ubuntu``, …), else a platform fallback.
+
+    Archive names embed this so packages stay OS-scoped. Windows and macOS have no
+    freedesktop os-release; fall back to a stable label rather than raising.
+    """
+    try:
+        return platform.freedesktop_os_release()['ID']
+    except ( AttributeError, KeyError, OSError, TypeError, ValueError ):
+        system = platform.system().lower()
+        if system == 'windows':
+            return 'windows'
+        if system == 'darwin':
+            return 'macos'
+        return system or 'unknown'
+
+
 def package_file_name( env, package=None, variant=None, target_dir=None ):
     name = "{package}_{system}_{build_name}.tar.gz".format(
             package    = str(package),
-            system     = platform.freedesktop_os_release()['ID'],
+            system     = os_release_id(),
             build_name = tool_variant( env, variant )
     )
     if target_dir:
