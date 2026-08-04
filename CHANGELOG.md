@@ -146,6 +146,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (with a subdued notice that the pass may take a while). `--exact-sizes` still forces a full
   remeasure of every tree. Archive-product remove verify hints drop the mandatory
   `--exact-sizes` flag (#134).
+- ROADMAP and the removal plan mark archive clean-by-variant done (#143) and Phase 4
+  downloads/purge as next; Dependencies docs add a Boost `storage_clean` remove sample and
+  document optional `storage_paths` / `storage_clean` on the Extending page (#134).
 - `watch-pr` polls CI on a sparse schedule (2 minutes, then 8, then every 2 minutes) instead of
   every 30 seconds, and falls back to the sealed credential if the public API rate-limits. Pass
   `--interval` for a fixed delay, or `--auth` to start authenticated.

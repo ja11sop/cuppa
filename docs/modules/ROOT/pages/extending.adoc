@@ -163,6 +163,14 @@ class my_dependency(object):
         return 'my_dependency'
 ----
 
+Optional storage hooks (see xref:dependencies.adoc#remove-dependencies[Removing dependency trees]):
+
+* `storage_paths(env, selection)` — declare owned trees under the dependencies root so
+  `--list-dependencies` / `--remove-dependencies` can find them without retrieving.
+* `storage_clean(env, selection)` — when present, remove only selection-scoped products and
+  leave the extract; return `{targets, extract}` (or `None` if unsupported). Source Boost uses
+  this for b2 stage / `bin.<abi>` cleans.
+
 == Custom profile sketch
 
 Profiles are callables applied like dependencies but geared at small flag sets:

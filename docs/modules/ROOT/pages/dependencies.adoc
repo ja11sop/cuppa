@@ -108,7 +108,7 @@ switch; `--list-develop` is a *report* about working copies. They are easy to mi
 |===
 | You want to know… | Use | Looks at
 
-| What is under the shared dependencies root, and which trees this project would use | `--list-dependencies` | `--dependencies-root` (for example `~/.cuppa/dependencies` or a legacy `~/_cuppa/_download`)
+| What is under the shared dependencies root, and which trees this project would use | `--list-dependencies` (optional `--list-dependencies-scope`) | `--dependencies-root` (for example `~/.cuppa/dependencies` or a legacy `~/_cuppa/_download`)
 | Branch, cleanliness, and ahead/behind of configured develop working copies | `--list-develop` | Develop paths from the sconstruct
 | What is under `_build` | `--list-builds` | `--build-root`
 |===
@@ -332,8 +332,32 @@ selected package variant folder).
 ----
 cuppa -Q -D --remove-dependencies=boost_package
 cuppa -Q -D --dbg --toolchains=gcc --remove-dependencies=boost_package
+cuppa -Q -D --dbg --remove-dependencies=boost
 cuppa -Q -D -n --remove-dependencies=widget
 cuppa -Q -D --remove-all-dependencies
+----
+
+Example shape after a source Boost product clean (extract stays; sizes and toolset ids vary).
+The identity SIZE is the full extract; `source assets` is the non-product remainder:
+
+[source,text]
+----
+Removed 2 dependency trees (412.3M) under ~/.cuppa/dependencies
+
+  ------------------------------------------------------------------------------------
+       SIZE  LAST USED      REMARK     DEPENDENCY
+  ------------------------------------------------------------------------------------
+       2.1G                             boost  1.91.0
+    298.4M   yesterday      removed    ├── ✔ clean/build.c++2c [gcc153/debug/x86_64]
+    113.9M   yesterday      removed    ├── ✔ clean/bin.c++2c [gcc-15*/debug]
+       1.7G   yesterday                └── source assets
+  ------------------------------------------------------------------------------------
+
+Removed 2 trees freeing up 412.3M of disk space, leaving a final archive size of 1.7G.
+
+Verify with:
+
+cuppa -Q -D --list-dependencies
 ----
 
 Example shape after removing the selected GitLab toolchain tree while other toolchains remain

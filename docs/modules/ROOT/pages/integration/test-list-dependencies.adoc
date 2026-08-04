@@ -40,14 +40,15 @@ cuppa -D --offline --list-dependencies --storage-root=<storage>
 cuppa -D --offline --list-dependencies --list-dependencies-scope=referenced --storage-root=<storage>
 cuppa -D --offline --list-dependencies --list-dependencies-scope=unreferenced --storage-root=<storage>
 cuppa -D --offline --list-dependencies --list-format=json --storage-root=<storage>
-cuppa -D --offline --list-dependencies --exact-sizes --storage-root=<storage>
 cuppa -D --offline --list-dependencies --list-format=verbose --storage-root=<storage>
+cuppa -D --offline --list-dependencies --exact-sizes --storage-root=<storage>
 ----
 
 == Expectations
 
 Text output includes `Dependencies in`, a `DEPENDENCY` header, the planted tree name, and
-`unreferenced`. JSON parses with `entries`, `size_bytes`, `state`, `tree`, and
+`unreferenced`. The first listing may print `Measuring exact sizes…` when inventory sizes are
+missing; a second listing reuses the cache. JSON parses with `entries`, `size_bytes`, `state`, `tree`, and
 `dependencies_root`. The planted tree remains on disk after listing.
 
 Verbose output includes `LOCATION`, grouped archive short names, `[D]` on cached download
