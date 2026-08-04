@@ -1802,9 +1802,8 @@ The identity SIZE is the full extract (aligned with `--list-dependencies`); a mu
 `source assets` leaf covers non-product bytes; the freed-space line reports the remaining
 archive size after product removal. Live cleans rewrite that extract's inventory size exactly;
 the verify hint uses `--list-dependencies` (listing upgrades missing or estimated sizes).
-Sizes are measured live per target;
-inventory-backed size cache is optional later if walks become costly. Leave the source tree and
-b2 executable.
+Sizes are measured live per target; after a live product clean the extract's inventory size is
+rewritten exactly. Leave the source tree and b2 executable.
 
 **Phasing.** Name gate shipped with Slice D (#142). Archive clean (§4.14.3) is **done**
 (#143): optional `storage_clean`, Boost stage / `bin.<abi>` clean, docs, and tests.
