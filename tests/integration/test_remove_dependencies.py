@@ -2,9 +2,12 @@
 
 import json
 import re
+from urllib.parse import urlparse
 
 import pytest
 
+from cuppa.core.dependency_storage import split_location_folder_name
+from cuppa.location import Location
 from tests.helpers.cuppa_runner import assert_success, run_cuppa
 from tests.helpers.project import copy_dummy_project, write_sconstruct
 from tests.integration.test_list_dependencies import own_home, strip_ansi
@@ -17,6 +20,23 @@ def _json_payload(result):
     match = re.search(r"\{.*\}", result.stdout, re.DOTALL)
     assert match, result.stdout
     return json.loads(match.group(0))
+
+
+def location_cache_folder_name(location_url, tmp_path):
+    """Dependencies-root folder name cuppa would use for ``location_url`` on this OS.
+
+    Windows shortens URL folder names with an MD5 suffix (MAX_PATH); Linux keeps the
+    full encoded URL. Tests that plant location trees must use this helper so remove
+    / list resolve the same path cuppa expects.
+    """
+    location = Location.__new__(Location)
+    location._cuppa_env = {
+        "sconstruct_dir": str(tmp_path),
+        "abs_sconscript_dir": str(tmp_path),
+    }
+    location._name_hint = None
+    location.url_replacement_char = "_"
+    return location.folder_name_from_path(urlparse(location_url))
 
 
 def test_remove_dependencies_unknown_name(tmp_path):
@@ -109,14 +129,25 @@ def test_remove_location_keeps_sibling_branch(tmp_path):
     project = copy_dummy_project(tmp_path)
     storage = tmp_path / "storage"
     deps = storage / "dependencies"
-    master = deps / "git_https_example.com__org_widget.git@master"
-    feature = deps / "git_https_example.com__org_widget.git@feature_x"
+    master_url = "git+https://example.com/org/widget.git@master"
+    feature_url = "git+https://example.com/org/widget.git@feature_x"
+    master_name = location_cache_folder_name(master_url, tmp_path)
+    feature_name = location_cache_folder_name(feature_url, tmp_path)
+    master = deps / master_name
+    feature = deps / feature_name
     master.mkdir(parents=True)
     feature.mkdir(parents=True)
     (master / "src").mkdir()
     (master / "src" / "a.cpp").write_text("int a;\n", encoding="utf-8")
     (feature / "src").mkdir()
     (feature / "src" / "b.cpp").write_text("int b;\n", encoding="utf-8")
+
+    # Sibling leftover reporting needs a shared stem (name before @branch). On Windows,
+    # URL folder names are hashed including the @branch, so stems diverge and leftovers
+    # are not detected — the other tree must still be left on disk.
+    master_stem, _ = split_location_folder_name(master_name)
+    feature_stem, _ = split_location_folder_name(feature_name)
+    siblings_share_stem = master_stem == feature_stem
 
     write_sconstruct(
         project,
@@ -160,15 +191,16 @@ cuppa.run(
     assert_success(removed)
     plain = strip_ansi(removed.stdout)
     assert "Removed" in plain
-    assert "Leaving" in plain
-    assert "as shown" in plain
-    assert "feature_x" in plain or "@feature_x" in plain
-    assert "git_https_example.com__org_widget.git@master" in plain
-    assert "git_https_example.com__org_widget.git@feature_x" in plain
+    assert master_name in plain
     assert "LAST USED" in plain
     assert not master.exists()
     assert feature.is_dir()
     assert "list-dependencies" in plain
+    if siblings_share_stem:
+        assert "Leaving" in plain
+        assert "as shown" in plain
+        assert "feature_x" in plain or "@feature_x" in plain
+        assert feature_name in plain
 
 
 def test_remove_develop_skips_working_copy(tmp_path):

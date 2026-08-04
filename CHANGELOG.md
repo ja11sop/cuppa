@@ -147,6 +147,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   entries no longer exist (``BINPATH`` is ignored — Conan often lists a non-existent
   ``bin`` folder). Isolated ``CONAN_HOME`` (integration tests, CI) no longer reuses
   generator output that still points at a deleted Conan package folder.
+- `--remove-dependencies` location integration tests plant OS-correct cache folder names
+  (Windows MD5-shortened URL folders) so dry-run / remove resolve the same trees cuppa
+  expects (#134).
 
 - Referenced dependency-tree summaries no longer count ``missing`` leaves as
   "potentially stale" / unused. Absent expected trees get a ``missing dependencies`` /
