@@ -21,7 +21,16 @@ from collections import defaultdict
 
 import SCons.Script
 
-from cuppa.colourise import as_emphasised, as_error, as_info, as_info_label, as_subdued, as_warning
+from cuppa.colourise import (
+    as_emphasised,
+    as_error,
+    as_info,
+    as_info_label,
+    as_remove_error,
+    as_remove_notice,
+    as_subdued,
+    as_warning,
+)
 from cuppa.core import build_layout
 from cuppa.log import logger
 from cuppa.utility import storage
@@ -442,10 +451,10 @@ def _node_outcome_cell( node ):
 
 
 def _accent_for_result( result ):
-    if result in ( 'failed', 'mixed' ):
-        return 'warning'
-    if result == 'removed':
-        return 'error'
+    if result == 'failed':
+        return 'remove_error'
+    if result in ( 'removed', 'mixed' ):
+        return 'remove_notice'
     return 'info'
 
 
@@ -454,8 +463,10 @@ def _paint( text, dim ):
 
 
 def _accent_colour( accent ):
-    if accent == 'error':
-        return as_error
+    if accent in ( 'error', 'remove_error' ):
+        return as_remove_error if accent == 'remove_error' else as_error
+    if accent == 'remove_notice':
+        return as_remove_notice
     if accent == 'warning':
         return as_warning
     return as_info
@@ -482,7 +493,9 @@ def _paint_sconscript_name( name, is_sconscript_name, dim, accent='info' ):
 
 def _paint_sconscript_mark( mark, is_sconscript_name, dim, accent='info' ):
     """Accent-coloured marks; fully matched name-row marks are also emphasised."""
-    colour_mark = is_sconscript_name or accent in ( 'error', 'warning' )
+    colour_mark = is_sconscript_name or accent in (
+            'error', 'warning', 'remove_notice', 'remove_error',
+    )
     if colour_mark and mark.strip():
         display = mark
         # Emphasised name rows use the heavier check / ballot so they read as settled.
@@ -1201,12 +1214,14 @@ def remove_builds( construct, cuppa_env, out=None ):
     folder['selected_bytes'] = removed_bytes
     folder['selected_size'] = storage.human_size( removed_bytes )
     has_errors = any( item['severity'] == 'error' for item in failures )
-    if has_errors:
-        folder_accent = 'error'
+    if removed_rows:
+        folder_accent = 'remove_notice'
+    elif has_errors:
+        folder_accent = 'remove_error'
     elif failures:
         folder_accent = 'warning'
     else:
-        folder_accent = 'error'
+        folder_accent = 'remove_notice'
     toolchain_tree = _toolchain_variant_tree( rows )
     sconscript_tree = _build_sconscript_tree( rows )
 
@@ -1237,12 +1252,14 @@ def _emit_outcome_tables( out, folder, rows, failures=None, intro=None ):
     folder['selected_bytes'] = removed_bytes
     folder['selected_size'] = storage.human_size( removed_bytes )
     has_errors = any( item['severity'] == 'error' for item in ( failures or [] ) )
-    if has_errors:
-        folder_accent = 'error'
+    if removed_rows:
+        folder_accent = 'remove_notice'
+    elif has_errors:
+        folder_accent = 'remove_error'
     elif failures:
         folder_accent = 'warning'
     else:
-        folder_accent = 'error'
+        folder_accent = 'remove_notice'
     toolchain_tree = _toolchain_variant_tree( rows )
     sconscript_tree = _build_sconscript_tree( rows )
     _write_build_report(

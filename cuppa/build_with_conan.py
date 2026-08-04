@@ -52,6 +52,41 @@ def _sha256_text( text ):
     return hashlib.sha256( text.encode( 'utf-8' ) ).hexdigest()
 
 
+def resolved_conan_home():
+    """Absolute Conan home used for installs (``CONAN_HOME`` or ``~/.conan2``).
+
+    SConsDeps embeds absolute package paths under this home. The cuppa install
+    fingerprint must include it so a fresh ``CONAN_HOME`` (integration tests,
+    CI jobs, or a relocated cache) does not reuse stale generator output.
+    """
+    override = os.environ.get( 'CONAN_HOME' )
+    if override:
+        return os.path.normpath( os.path.expanduser( override ) )
+    return os.path.normpath( os.path.expanduser( os.path.join( '~', '.conan2' ) ) )
+
+
+def sconsdeps_package_paths_exist( info ):
+    """True when aggregated SConsDeps CPPPATH/LIBPATH entries exist on disk.
+
+    Missing include/lib paths usually mean a previous ``conan install`` pointed
+    at a Conan home or package folder that has since been removed; the install
+    cache should be refreshed. ``BINPATH`` is ignored: SConsDeps often lists a
+    ``…/bin`` folder even when the package never created one.
+    """
+    if not isinstance( info, dict ):
+        return False
+    flags = info.get( 'conandeps' ) or {}
+    if not isinstance( flags, dict ):
+        return False
+    for path_key in ( 'CPPPATH', 'LIBPATH' ):
+        for entry in flags.get( path_key ) or []:
+            if not entry:
+                continue
+            if not os.path.exists( str( entry ) ):
+                return False
+    return True
+
+
 @contextmanager
 def _exclusive_file_lock( lock_path ):
     """Process-safe lock so parallel SCons workers do not race ``conan install``."""
@@ -596,6 +631,7 @@ class base( object ):
         parts = [
             'name=' + str( self._name ),
             'settings=' + ','.join( '{}={}'.format( k, settings[k] ) for k in sorted( settings ) ),
+            'conan_home=' + resolved_conan_home(),
         ]
         if conanfile_path and os.path.isfile( conanfile_path ):
             parts.append( 'conanfile=' + _sha256_file( conanfile_path ) )
@@ -686,8 +722,19 @@ class base( object ):
                 try:
                     with open( done_path, encoding='utf-8' ) as handle:
                         if handle.read().strip() == fingerprint:
-                            self._install_cache[cache_key] = install_dir
-                            return install_dir
+                            try:
+                                cached = load_sconsdeps( install_dir )
+                            except Exception:
+                                cached = None
+                            if cached is not None and sconsdeps_package_paths_exist( cached ):
+                                self._install_cache[cache_key] = install_dir
+                                return install_dir
+                            logger.warn(
+                                "Conan dependency [{}]: cached SConsDeps under [{}] "
+                                "points at missing package paths; reinstalling".format(
+                                        as_notice( self._name ), as_notice( install_dir )
+                                )
+                            )
                 except OSError:
                     pass
 

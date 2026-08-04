@@ -138,12 +138,16 @@ cuppa -Q -D --list-dependencies --develop
 
 `--list-dependencies` walks the dependencies root and prints a hierarchical table: size,
 last used, remark (`in use` / `N used` when more than one leaf is selected / `missing` /
-`develop`), and dependency identity. Rows are grouped referenced first then unreferenced,
+`develop`), and dependency identity. Before the walk it prints `Collating dependency tree...`
+(text and verbose only; omitted for JSON). Rows are grouped referenced first then unreferenced,
 then by type (location dependencies, gitlab packages, archives, …), then by short name or
 registry name, with branch or version children underneath. On-disk paths are omitted by
 default; pass `--list-format=verbose` to add a LOCATION column, or `--list-format=json` for a
 machine-readable tree (plus flat `entries`). Default dependencies that are expected but absent
-appear as `missing`. It exits without building (exit 0 even when some rows are missing). See
+appear as `missing`. Referenced section roll-ups separate `dependencies in use`,
+`missing dependencies` (when any expected trees are absent), and only then
+`potentially stale dependencies` for other non-selected referenced leaves. It exits without
+building (exit 0 even when some rows are missing). See
 xref:integration/test-list-dependencies.adoc[`test_list_dependencies`] for the integration
 scenario.
 
@@ -192,7 +196,8 @@ Default dependencies: boost_package
 
 `SIZE` is right-aligned in a fixed eight-character field. Blank rows that carry only a tree
 stem (`│`) keep the hanging lines continuous between siblings. Referenced trees open with a
-`dependencies in use` roll-up when at least one leaf is selected.
+`dependencies in use` roll-up when at least one leaf is selected; absent expected trees add a
+`missing dependencies` / `N missing` summary (error-coloured like other missing rows).
 
 Under `--list-format=verbose` a LOCATION column is added. What it shows depends on the type:
 
@@ -249,6 +254,73 @@ The inventory under `<dependencies_root>/.cuppa-inventory/` records size samples
 `remote_location` / `source_url` (configured or reconstructed remotes), and paths of known
 download archives so later listings can show LOCATION and `[D]` without re-guessing. Listing
 does not stamp `last_used`; that belongs to a real resolve or build.
+
+[#remove-dependencies]
+== Removing dependency trees
+
+`--remove-dependencies=name1,name2` and `--remove-all-dependencies` delete trees under the
+dependencies root for the named registry dependencies (or every default dependency), scoped to
+the current toolchain / variant / location-match selection — the same options that decide where
+cuppa writes. They exit without building. Downloads, develop working copies, and unreferenced
+trees that are not named stay put; siblings for other toolchains or branches are reported as
+left behind. SCons `-n` is a dry run.
+
+Names are the keys this project uses: `default_dependencies` plus names registered from the
+sconstruct’s `dependencies=[…]` list. Built-in factories that module scan always registers
+(`boost`, `qt4`, …) are **not** removable unless the project names them that way. On-disk folder
+names and listing short names are rejected. An unknown or unused name prints an error (rejected name error-coloured and emphasised) and a
+ruled tree of dependencies that *can* be removed for the current selection (the in-use /
+referenced picture from `--list-dependencies`, without unreferenced leftovers), after
+`Collating dependency tree...`. See
+xref:integration/test-remove-dependencies.adoc[`test_remove_dependencies`].
+
+Source Boost (the `boost` dependency that builds with b2) stores all toolchain variants inside
+one extract folder. When the project uses that dependency, `--remove-dependencies=boost` removes
+the **entire** extract (not one toolchain leaf). Per-variant clean inside the extract is a later
+enhancement; prefer GitLab `boost_package` when you want selection-scoped package trees.
+
+[source,shell]
+----
+cuppa -Q -D --remove-dependencies=boost_package
+cuppa -Q -D --dbg --toolchains=gcc --remove-dependencies=boost_package
+cuppa -Q -D -n --remove-dependencies=widget
+cuppa -Q -D --remove-all-dependencies
+----
+
+Example shape after removing the selected GitLab toolchain tree while other toolchains remain
+(sizes and toolchain ids vary; leftover rows are muted in the tree):
+
+[source,text]
+----
+Would remove 1 dependency tree (166M) under ~/.cuppa/dependencies
+(dry run; pass without -n to remove)
+
+  ------------------------------------------------------------------------------------
+       SIZE  LAST USED      REMARK     DEPENDENCY
+  ------------------------------------------------------------------------------------
+    757.8M                             boost_package  1.91
+      294M   11 days ago               ├── - clang211_rel_x86_64_cxx2c/boost/1.91
+    297.8M   2 months ago              ├── - gcc152_rel_x86_64_cxx2c/boost/1.91
+      166M   yesterday      would rm   └── ✔ gcc153_rel_x86_64_cxx2c/boost/1.91
+  ------------------------------------------------------------------------------------
+
+Leaving 2 trees (591.8M) for other selections as shown.
+
+Would remove 1 tree freeing up 166M of disk space.
+
+Verify with:
+
+cuppa -Q -D --list-dependencies
+----
+
+The identity row rolls up size (muted) and emphasises the dependency name and package version.
+Selected leaves use a check (or ballot on failure) with the removal-notice colour; leftover
+leaves stay muted with a `-` mark. Tree stems are subdued. `LAST USED` comes from inventory
+resolve stamps when present, otherwise the tree's modification time. Passing multiple
+toolchains (for example `--toolchains=gcc,clang`) removes each matching package variant.
+
+With `--develop`, a develop working copy is never deleted; the report lists it under skipped
+develop paths. Cached stems under the dependencies root may still be removed when selected.
 
 == Checking your develop copies
 

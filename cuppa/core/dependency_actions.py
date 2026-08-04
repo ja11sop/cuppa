@@ -9,20 +9,29 @@
 
 """Opt-in actions that report or remove what cuppa wrote under ``dependencies_root``.
 
-Listings run instead of a build. Report body goes to stdout (mode banner via the logger).
+Listings and removals run instead of a build. Report body goes to stdout (mode banner via the logger).
 """
 
 import os
 import sys
 
 from cuppa.colourise import as_emphasised, as_error, as_info, as_info_label, as_subdued
-from cuppa.core import dependency_identity, dependency_inventory, dependency_storage, dependency_tree
+from cuppa.core import (
+    dependency_identity,
+    dependency_inventory,
+    dependency_removal,
+    dependency_storage,
+    dependency_tree,
+)
 from cuppa.log import logger
 from cuppa.utility import storage
 
 
 INDENT = '  '
 RULE = '-'
+
+# Leaf states that belong in the remove-name hint (project trees for the current selection).
+_REMOVAL_HINT_STATES = frozenset( ( 'referenced', 'missing', 'cached' ) )
 
 COLUMNS = [
     ( 'size', 'SIZE' ),
@@ -270,13 +279,14 @@ def _backfill_gitlab_remote_locations( rows, dependencies_root, by_path ):
             _persist( row, remote )
 
 
-def _collect_rows( construct, cuppa_env ):
+def _collect_rows( construct, cuppa_env, names=None ):
     dependencies_root = _dependencies_root( cuppa_env )
     downloads_root = cuppa_env.get( 'downloads_root' ) or cuppa_env.get( 'cache_root' )
     exact = bool( cuppa_env.get( 'exact_sizes' ) )
     sconstruct_dir = cuppa_env.get( 'sconstruct_dir' )
 
-    names = dependency_storage.default_dependency_names( cuppa_env )
+    if names is None:
+        names = dependency_storage.default_dependency_names( cuppa_env )
     selections = dependency_storage.selection_build_envs( construct, cuppa_env )
     owned, skips = dependency_storage.resolve_named_dependencies(
             construct, cuppa_env, names, selections=selections
@@ -690,14 +700,89 @@ def _render_skip_tree( skips ):
     return lines
 
 
+def _write_ruled_tree( out, tree, verbose=False ):
+    """Write a ruled SIZE / LAST USED / REMARK / DEPENDENCY table for ``tree``."""
+    lines, _columns = dependency_tree.render_tree_lines( tree, verbose=verbose )
+    if not lines:
+        return False
+    width = max( storage.visible_len( line ) for line in lines )
+    rule = as_subdued( INDENT + RULE * width )
+    out.write( rule + "\n" )
+    out.write( INDENT + lines[0] + "\n" )
+    out.write( rule + "\n" )
+    for line in lines[1:]:
+        out.write( INDENT + line + "\n" )
+    out.write( rule + "\n" )
+    return True
+
+
+def _write_collating( out ):
+    out.write( as_subdued( "Collating dependency tree..." ) + "\n" )
+
+
+def write_unknown_remove_names_error( construct, cuppa_env, error, out=None ):
+    """Stdout report when ``--remove-dependencies`` names are not project-used."""
+    out = out or sys.stdout
+    unknown = list( error.unknown )
+    highlighted = [
+            as_emphasised( as_error( name ) ) for name in unknown
+    ]
+    if len( highlighted ) == 1:
+        out.write(
+            "error: {} is not a used dependency for the specified build variants "
+            "in this project.\n".format( highlighted[0] )
+        )
+    else:
+        out.write(
+            "error: {} are not used dependencies for the specified build variants "
+            "in this project.\n".format( ', '.join( highlighted ) )
+        )
+
+    project_used = list( error.project_used )
+    if not project_used:
+        out.write( "\n" )
+        out.write( "This project has no dependencies that can be removed.\n" )
+        return
+
+    out.write( "\n" )
+    out.write( "Known dependencies which can be removed are:\n\n" )
+    _write_collating( out )
+
+    try:
+        data = _collect_rows( construct, cuppa_env, names=project_used )
+    except storage.StorageError as storage_error:
+        out.write( "  (could not list trees: {})\n".format( storage_error ) )
+        out.write( "  Names: {}\n".format( ', '.join( project_used ) ) )
+        return
+
+    project_set = set( project_used )
+    hint_rows = [
+            row for row in data['rows']
+            if row.get( 'state' ) in _REMOVAL_HINT_STATES
+            and row.get( 'dependency' ) in project_set
+    ]
+    tree = dependency_tree.build_tree( hint_rows )
+    # Removable hint: referenced section only (no unreferenced leftovers).
+    tree = {
+        'sections': [
+                section for section in tree.get( 'sections' ) or []
+                if section.get( 'label' ) == 'referenced' and section.get( 'children' )
+        ],
+    }
+    if not _write_ruled_tree( out, tree ):
+        out.write( "  {}\n".format( ', '.join( project_used ) ) )
+
+
 def list_dependencies( construct, cuppa_env, out=None ):
     """``--list-dependencies``. Always exits 0 unless a storage error is raised."""
     out = out or sys.stdout
+    list_format = cuppa_env.get( 'list_format' ) or 'text'
+    if list_format != 'json':
+        _write_collating( out )
     data = _collect_rows( construct, cuppa_env )
     root = data['dependencies_root']
     rows = data['rows']
     tree = data.get( 'tree' ) or dependency_tree.build_tree( rows )
-    list_format = cuppa_env.get( 'list_format' ) or 'text'
     verbose = list_format == 'verbose'
 
     if list_format == 'json':
@@ -746,16 +831,7 @@ def list_dependencies( construct, cuppa_env, out=None ):
                 as_info( ', '.join( names ) )
         ) )
 
-    lines, _columns = dependency_tree.render_tree_lines( tree, verbose=verbose )
-    if lines:
-        width = max( storage.visible_len( line ) for line in lines )
-        rule = as_subdued( INDENT + RULE * width )
-        out.write( rule + "\n" )
-        out.write( INDENT + lines[0] + "\n" )
-        out.write( rule + "\n" )
-        for line in lines[1:]:
-            out.write( INDENT + line + "\n" )
-        out.write( rule + "\n" )
+    _write_ruled_tree( out, tree, verbose=verbose )
 
     total = storage.human_size( data['total_bytes'] )
     unref = storage.human_size( data['unreferenced_bytes'] )
@@ -813,12 +889,9 @@ def run( construct, cuppa_env, out=None ):
     out = out or sys.stdout
     try:
         if cuppa_env.get( 'remove_all_dependencies' ) or cuppa_env.get( 'remove_dependencies' ):
-            # Slice D — stub until removal lands.
-            logger.error( as_error(
-                    "--remove-dependencies / --remove-all-dependencies are not implemented yet"
-            ) )
-            out.write( "error: dependency removal is not implemented yet\n" )
-            return 1
+            logger.info( as_info_label(
+                    "Running in REMOVE DEPENDENCIES mode, no building will be attempted" ) )
+            return dependency_removal.remove_dependencies( construct, cuppa_env, out=out )
 
         if cuppa_env.get( 'list_dependencies' ):
             logger.info( as_info_label(

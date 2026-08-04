@@ -528,12 +528,16 @@ def _build_section( name, identities ):
     if name == 'referenced' and type_nodes:
         used_bytes = None
         unused_bytes = None
+        missing_bytes = None
         used_epoch = None
         unused_epoch = None
+        missing_epoch = None
         used_count = 0
         unused_count = 0
+        missing_count = 0
         used_saw = False
         unused_saw = False
+        missing_saw = False
         for type_node in type_nodes:
             for leaf in _iter_leaves( type_node ):
                 leaf_bytes = _measured_size(
@@ -542,12 +546,20 @@ def _build_section( name, identities ):
                         leaf.get( 'remark' ),
                 )
                 leaf_epoch = leaf.get( 'last_used_epoch' )
-                if leaf.get( 'state' ) == 'referenced':
+                state = leaf.get( 'state' )
+                if state == 'referenced':
                     used_count += 1
                     if leaf_bytes is not None:
                         used_saw = True
                         used_bytes = ( used_bytes or 0 ) + leaf_bytes
                     used_epoch = _max_epoch( used_epoch, leaf_epoch )
+                elif state == 'missing':
+                    # Expected by this project but absent — not "stale".
+                    missing_count += 1
+                    if leaf_bytes is not None:
+                        missing_saw = True
+                        missing_bytes = ( missing_bytes or 0 ) + leaf_bytes
+                    missing_epoch = _max_epoch( missing_epoch, leaf_epoch )
                 else:
                     unused_count += 1
                     if leaf_bytes is not None:
@@ -558,7 +570,9 @@ def _build_section( name, identities ):
             used_bytes = None
         if not unused_saw:
             unused_bytes = None
-        total = used_count + unused_count
+        if not missing_saw:
+            missing_bytes = None
+        total = used_count + unused_count + missing_count
         remark = _remark_count( total, 'total' )
         children.append( _spacer_node() )
         if used_count:
@@ -568,6 +582,17 @@ def _build_section( name, identities ):
                 'size_bytes': used_bytes,
                 'last_used_epoch': used_epoch,
                 'remark': _remark_count( used_count, 'used' ),
+                'location': '',
+                'children': [],
+            } )
+        if missing_count:
+            children.append( {
+                'kind': 'summary',
+                'label': 'missing dependencies',
+                'size_bytes': missing_bytes,
+                'last_used_epoch': missing_epoch,
+                'remark': _remark_count( missing_count, 'missing' ),
+                'state': 'missing',
                 'location': '',
                 'children': [],
             } )

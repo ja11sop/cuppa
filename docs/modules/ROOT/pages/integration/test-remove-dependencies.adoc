@@ -1,0 +1,40 @@
+= `test_remove_dependencies` — remove dependency trees
+:description: Cuppa integration test documentation for test_remove_dependencies
+
+
+== What is tested
+
+With planted trees under a private `--storage-root`:
+
+* An unknown or unused name exits non-zero with a clear error and a ruled tree of dependencies
+  that can be removed for the current selection (in-use / referenced only). Auto-registered
+  `boost` is rejected when the project only declares `boost_package`.
+* Removing a location dependency deletes only the selected branch folder and reports a sibling
+  `@feature_x` tree as left for other selections; `-n` leaves both folders in place.
+* With `--develop`, a configured develop working copy is never deleted.
+* A GitLab package dependency removes only the selected toolchain's
+  `tool_variant/package/version` tree and leaves another toolchain's sibling; `--toolchains=gcc,clang`
+  removes each matching package variant.
+
+== Generated files
+
+The dummy project with a custom `sconstruct` declaring `widget` and/or `boost_package`, plus
+planted folders under `<storage>/dependencies/` (and a develop tree outside storage for the
+develop-skip case).
+
+== Commands
+
+[source,sh]
+----
+cuppa -D --offline --remove-dependencies=widgt --storage-root=<storage>
+cuppa -D --offline -n --remove-dependencies=widget --storage-root=<storage>
+cuppa -D --offline --remove-dependencies=widget --storage-root=<storage>
+cuppa -D --offline --develop --remove-dependencies=widget --storage-root=<storage>
+cuppa -D --offline --dbg --remove-dependencies=boost_package --storage-root=<storage>
+----
+
+== Expected outcome
+
+Successful removals print an announce line, a compact REMARK table, optional leftovers and
+develop skips, a freed-space summary, and a `--list-dependencies` verification hint. Dry-run
+uses “Would remove”. Unknown names fail before any delete.

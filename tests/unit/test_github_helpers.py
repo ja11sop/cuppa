@@ -206,7 +206,8 @@ def test_watch_pull_request_returns_when_checks_finish( monkeypatch ):
 
     assert code == github_helpers.EXIT_SUCCESS
     assert last.outcome == 'success'
-    assert sleeps == [ 1 ]
+    # Sleep before each poll (fixed --interval): pending then success.
+    assert sleeps == [ 1, 1 ]
     assert 'outcome=pending' in out.getvalue()
     assert 'outcome=success' in out.getvalue()
 
