@@ -124,6 +124,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unconditionally. On Windows and macOS it falls back to a stable OS label (`windows` / `macos`)
   so package construction — and therefore `--list-dependencies` registry LOCATION for GitLab
   packages — works outside Linux (#134).
+- GitLab packages publish and prefer `.zip` on Windows (`.tar.gz` elsewhere). Download resolve
+  also accepts the alternate extension so an existing `*_windows_*.tar.gz` still works until
+  republished. Boost LOCATION reconstruction preserves the on-disk archive extension (`.zip` on
+  Windows downloads) instead of always emitting `.tar.gz` (#134).
 - `--list-dependencies` verbose LOCATION for unreferenced GitLab packages now shows the registry
   `registry/package/version` URL on each version row (matching referenced). The inventory stores
   `remote_location` when resolve knows it; sibling versions of the same package inherit that base

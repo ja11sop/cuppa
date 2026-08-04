@@ -44,6 +44,8 @@ def plant_realistic_dependencies_root(storage):
 
 def plant_archives_and_downloads(storage):
     """GitHub release extracts + matching downloads; one tag without a download."""
+    import platform
+
     from cuppa.core.dependency_identity import gitlab_archive_name
 
     deps = storage / "dependencies"
@@ -61,20 +63,25 @@ def plant_archives_and_downloads(storage):
 
     (downloads / fmt_11).write_bytes(b"zip-bytes")
 
+    # Cuppa downloads Boost as .zip on Windows and .tar.gz elsewhere.
+    boost_ext = ".zip" if platform.system() == "Windows" else ".tar.gz"
     boost_folder = (
-        "https_archives.boost.io__release_1.91.0_source_boost_1_91_0.tar.gz"
+        "https_archives.boost.io__release_1.91.0_source_boost_1_91_0" + boost_ext
+    )
+    boost_url = (
+        "https://archives.boost.io/release/1.91.0/source/boost_1_91_0" + boost_ext
     )
     boost = deps / boost_folder
     boost.mkdir(parents=True)
     (boost / "boost").mkdir()
     (boost / "boost" / "version.hpp").write_text("//\n", encoding="utf-8")
-    (downloads / boost_folder).write_bytes(b"tar-bytes")
+    (downloads / boost_folder).write_bytes(b"archive-bytes")
 
     tool_variant = "gcc153_rel_x86_64_cxx2c"
     gitlab = deps / tool_variant / "boost" / "1.91"
     gitlab.mkdir(parents=True)
     (gitlab / "include" / "boost").mkdir(parents=True)
-    # Match the host OS id (debian/ubuntu/…) used by gitlab_archive_name.
+    # Match the host OS id (debian/ubuntu/windows/…) used by gitlab_archive_name.
     archive = gitlab_archive_name("boost", tool_variant)
     pkg_dir = downloads / "packages" / "boost" / "1.91"
     pkg_dir.mkdir(parents=True)
@@ -84,6 +91,7 @@ def plant_archives_and_downloads(storage):
         "fmt_11": fmt_11,
         "fmt_12": fmt_12,
         "boost_folder": boost_folder,
+        "boost_url": boost_url,
         "gitlab_archive": archive,
         "tool_variant": tool_variant,
     }
@@ -284,7 +292,7 @@ cuppa.run(
 
     assert re.search(r"\bboost\b", plain)
     assert "1.91.0" in plain or "boost_1_91_0" in plain or "archives.boost.io" in plain
-    assert "[D] https://archives.boost.io/release/1.91.0/source/boost_1_91_0.tar.gz" in plain
+    assert "[D] {}".format(planted["boost_url"]) in plain
 
     # GitLab: registry URL on the version row without [D]; archive leaf with [D].
     assert "gitlab.example/api/v4/projects/1/boost/1.91" in plain

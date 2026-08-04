@@ -14,6 +14,7 @@ path-shape package names over decoding lossy folder stems.
 """
 
 import os
+import platform
 import re
 from urllib.parse import urlparse, unquote
 
@@ -103,20 +104,31 @@ def boost_remote_from_folder( folder ):
         patch = '0'
     version = '{}.{}.{}'.format( major, minor, patch )
     stem = 'boost_{}_{}_{}'.format( major, minor, patch )
+    extension = boost_archive_extension_from_folder( folder )
     # Prefer matching the host encoded in the folder.
     if 'archives.boost.io' in folder:
-        return 'https://archives.boost.io/release/{}/source/{}.tar.gz'.format(
-                version, stem
+        return 'https://archives.boost.io/release/{}/source/{}{}'.format(
+                version, stem, extension
         )
     if 'boostorg.jfrog.io' in folder:
         return (
             'https://boostorg.jfrog.io/artifactory/main/release/'
-            '{}/source/{}.tar.gz'.format( version, stem )
+            '{}/source/{}{}'.format( version, stem, extension )
         )
     # Fallback to the current canonical host.
-    return 'https://archives.boost.io/release/{}/source/{}.tar.gz'.format(
-            version, stem
+    return 'https://archives.boost.io/release/{}/source/{}{}'.format(
+            version, stem, extension
     )
+
+
+def boost_archive_extension_from_folder( folder ):
+    """Archive suffix encoded in a Boost folder name, or the platform download default."""
+    match = re.search( r'\.(zip|tar\.gz|tar\.bz2|7z)$', str( folder or '' ), re.IGNORECASE )
+    if match:
+        return '.' + match.group( 1 ).lower()
+    if platform.system() == 'Windows':
+        return '.zip'
+    return '.tar.gz'
 
 
 # Encoded GitHub archive downloads:
@@ -353,17 +365,23 @@ def gitlab_remote_for_package_version( registry_base, package, version ):
     )
 
 
-def gitlab_archive_name( package, tool_variant, system=None ):
+def gitlab_archive_name( package, tool_variant, system=None, extension=None ):
     """Archive basename as published/downloaded for a GitLab generic package."""
     if not package or not tool_variant or tool_variant in ( '-', '' ):
         return None
+    from cuppa.package_managers.gitlab import (
+        os_release_id,
+        package_archive_extension,
+    )
     if system is None:
-        from cuppa.package_managers.gitlab import os_release_id
         system = os_release_id()
-    return '{package}_{system}_{build}.tar.gz'.format(
+    if extension is None:
+        extension = package_archive_extension()
+    return '{package}_{system}_{build}{ext}'.format(
             package=package,
             system=system,
             build=tool_variant,
+            ext=extension,
     )
 
 
@@ -396,7 +414,7 @@ def find_cached_download(
     """Return an existing download path for this dependency tree, or ``None``.
 
     Archive / HTTP extracts use ``<downloads_root>/<encoded folder>``. GitLab packages
-    use ``<downloads_root>/packages/<package>/<version>/<archive>.tar.gz``.
+    use ``<downloads_root>/packages/<package>/<version>/<archive>.{zip,tar.gz}``.
     """
     if inventory_downloads:
         for candidate in inventory_downloads:
@@ -442,6 +460,19 @@ def find_cached_download(
             candidate = os.path.join( package_dir, archive )
             if os.path.isfile( candidate ):
                 return candidate
+            # Preferred extension missing: try the alternate (.zip ↔ .tar.gz).
+            from cuppa.package_managers.gitlab import (
+                package_archive_extensions,
+                strip_package_archive_extension,
+            )
+            stem = strip_package_archive_extension( archive )
+            for extension in package_archive_extensions():
+                alternate = stem + extension
+                if alternate == archive:
+                    continue
+                candidate = os.path.join( package_dir, alternate )
+                if os.path.isfile( candidate ):
+                    return candidate
         try:
             for name in sorted( os.listdir( package_dir ) ):
                 candidate = os.path.join( package_dir, name )
