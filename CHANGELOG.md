@@ -62,7 +62,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from a per-entry inventory under `<dependencies_root>/.cuppa-inventory/` (sampled with a leading
   `~`, or exact with `--exact-sizes`). Dependencies declare ownership through optional
   `storage_paths()`; resolve-only path discovery does not retrieve. `--list-format=json` is
-  supported. Removal flags follow in the same Phase 3 workstream (#134).
+  supported (#134).
+- `--remove-dependencies=name1,name2` and `--remove-all-dependencies` remove selected trees under
+  the dependencies root for named registry dependencies (or every default dependency), using the
+  current toolchain / variant / location-match selection. They announce, support SCons `-n`,
+  report leftovers for other toolchains or branches, never delete develop working copies or
+  downloads, and finish with a `--list-dependencies` verification hint. Unknown names error with
+  the known key list (#134).
 - Table padding for coloured listing cells uses visible width (ANSI ignored), so
   `--list-dependencies` columns stay aligned between referenced and unreferenced rows and the
   ruled header is not stretched by escape sequences (#134).

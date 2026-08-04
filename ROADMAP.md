@@ -247,7 +247,7 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 | `--clean` removes the current variant's build outputs | Yes |
 | `--list-develop` / `--update-develop` for the working copies `--develop` builds against | Yes — [#132](https://github.com/ja11sop/cuppa/issues/132) |
 | Shared storage under `~/.cuppa`, named `--dependencies-root` / `--downloads-root`, with `--storage-root` to move both | Yes — [#133](https://github.com/ja11sop/cuppa/issues/133) |
-| Remove a whole build tree, a dependency, or a stale download | Builds: `--remove-builds` / `--remove-all-builds` ([#134](https://github.com/ja11sop/cuppa/issues/134) / #140); dependencies and downloads still manual |
+| Remove a whole build tree, a dependency, or a stale download | Builds: `--remove-builds` / `--remove-all-builds` ([#134](https://github.com/ja11sop/cuppa/issues/134) / #140); dependencies: `--remove-dependencies` in progress on `134_remove_dependencies`; downloads still manual |
 | See what is stored, where, and how large it is | Builds: `--list-builds` ([#134](https://github.com/ja11sop/cuppa/issues/134) / #140); dependencies: `--list-dependencies` ([#134](https://github.com/ja11sop/cuppa/issues/134) / #141); downloads still no |
 
 ### Planned / potential

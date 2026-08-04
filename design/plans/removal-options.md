@@ -44,7 +44,7 @@ Phase **3 removal** (Slice D) and Phases **4** / **6** / **§3.7** are not start
 | Phase 3 — short-name / stem derivation | **done** | Git remote, gitlab path, Boost + GitHub archive heuristics; inventory `remote_location` / `source_url` |
 | Phase 3 — Conan install metadata (§4.7) | **open** | `.cuppa_conan_meta.json` not written yet; Conan rows stay fingerprint-weak |
 | Phase 3 — default-branch quirk (§4.8) | **open** | Unqualified vs `stem@master` doubling; location + listing + optional cleanup; `<default_branch>` labels in §4.9 |
-| Phase 3 — `--remove-dependencies` / `--remove-all-dependencies` | **open** | Stubbed; concrete plan in §4.13 (Slice D) |
+| Phase 3 — `--remove-dependencies` / `--remove-all-dependencies` | **in progress** | Slice D on `134_remove_dependencies` (§4.13); no purge |
 | Phase 3 — **dependencies documentation split** (§7.1) | **open** | Partition the monolithic `dependencies.adoc` (+ reconcile `packages.adoc` / `extending.adoc`); Managing examples now match the tree — split can proceed when convenient |
 | Phase 4 — downloads list / purge | **open** | After Slice D; purge flags not in Slice D |
 | Phase 6 — artefacts | **open** | Sketch only (§4.6) |
