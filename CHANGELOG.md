@@ -142,6 +142,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Conan consumer install cache fingerprints ``CONAN_HOME`` (or ``~/.conan2``) alongside
+  the recipe and settings, and reinstalls when cached SConsDeps ``CPPPATH`` / ``LIBPATH``
+  entries no longer exist (``BINPATH`` is ignored — Conan often lists a non-existent
+  ``bin`` folder). Isolated ``CONAN_HOME`` (integration tests, CI) no longer reuses
+  generator output that still points at a deleted Conan package folder.
+
 - Referenced dependency-tree summaries no longer count ``missing`` leaves as
   "potentially stale" / unused. Absent expected trees get a ``missing dependencies`` /
   ``N missing`` summary row (error-coloured like other missing rows) (#134).

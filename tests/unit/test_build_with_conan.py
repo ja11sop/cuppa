@@ -3,9 +3,12 @@
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
+import os
+
 import pytest
 import SCons.Errors
 
+from cuppa import build_with_conan
 from cuppa.build_with_conan import (
     _companion_c_compiler,
     _map_cppstd,
@@ -17,6 +20,8 @@ from cuppa.build_with_conan import (
     load_sconsdeps,
     merge_conan_flags,
     modules_dirs_from_sconsdeps,
+    resolved_conan_home,
+    sconsdeps_package_paths_exist,
     settings_to_cli,
     version_summary_from_info,
     write_transient_conanfile,
@@ -316,3 +321,63 @@ def test_load_sconsdeps_direct( tmp_path ):
     info = load_sconsdeps( str( install ) )
     assert 'conandeps' in info
     assert info['fmt_version'] == '11.1.4'
+
+
+def test_resolved_conan_home_uses_env_override( monkeypatch, tmp_path ):
+    home = tmp_path / 'custom-conan'
+    home.mkdir()
+    monkeypatch.setenv( 'CONAN_HOME', str( home ) )
+    assert resolved_conan_home() == os.path.normpath( str( home ) )
+
+
+def test_resolved_conan_home_defaults_to_dot_conan2( monkeypatch, tmp_path ):
+    monkeypatch.delenv( 'CONAN_HOME', raising=False )
+    monkeypatch.setenv( 'HOME', str( tmp_path ) )
+    expected = os.path.normpath( os.path.join( str( tmp_path ), '.conan2' ) )
+    assert resolved_conan_home() == expected
+
+
+def test_fingerprint_includes_conan_home( monkeypatch, tmp_path ):
+    Dep = build_with_conan.conan_deps( conanfile='conanfile.txt' )
+    env = FakeEnv( toolchain='gcc', variant='dbg' )
+    recipe = tmp_path / 'conanfile.txt'
+    recipe.write_text( '[requires]\nfmt/12.1.0\n', encoding='utf-8' )
+
+    home_a = tmp_path / 'home-a'
+    home_b = tmp_path / 'home-b'
+    home_a.mkdir()
+    home_b.mkdir()
+
+    monkeypatch.setenv( 'CONAN_HOME', str( home_a ) )
+    dep = Dep( env )
+    digest_a, _ = dep._fingerprint( env, 'gcc', 'dbg', str( recipe ) )
+
+    monkeypatch.setenv( 'CONAN_HOME', str( home_b ) )
+    digest_b, _ = dep._fingerprint( env, 'gcc', 'dbg', str( recipe ) )
+
+    assert digest_a != digest_b
+
+
+def test_sconsdeps_package_paths_exist_rejects_missing( tmp_path ):
+    present = tmp_path / 'include'
+    present.mkdir()
+    missing = tmp_path / 'gone' / 'include'
+    # BINPATH often points at a package bin/ that was never created; ignore it.
+    info_ok = {
+        'conandeps': {
+            'CPPPATH': [ str( present ) ],
+            'LIBPATH': [],
+            'BINPATH': [ str( tmp_path / 'no-bin' ) ],
+        }
+    }
+    info_bad = {
+        'conandeps': {
+            'CPPPATH': [ str( missing ) ],
+            'LIBPATH': [],
+            'BINPATH': [],
+        }
+    }
+    assert sconsdeps_package_paths_exist( info_ok ) is True
+    assert sconsdeps_package_paths_exist( info_bad ) is False
+    assert sconsdeps_package_paths_exist( { 'conandeps': {} } ) is True
+    assert sconsdeps_package_paths_exist( {} ) is True
