@@ -165,6 +165,14 @@ class base(object):
         return method() if callable( method ) else None
 
 
+    def remote_location( self ):
+        package = getattr( self, '_package', None )
+        if package is None:
+            return None
+        method = getattr( package, 'remote_location', None )
+        return method() if callable( method ) else None
+
+
     def use_libs( self, libs, depends_on=[] ):
         self._package.use_libs( libs, depends_on=depends_on )
 

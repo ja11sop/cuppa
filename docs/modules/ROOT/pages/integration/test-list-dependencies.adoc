@@ -5,14 +5,29 @@
 == What is tested
 
 With planted trees under a private `--storage-root`, `--list-dependencies` reports them as a
-ruled table (including `unreferenced` state) without removing anything, and
-`--list-format=json` emits parseable objects. A second listing after `--exact-sizes` still
-succeeds.
+hierarchical table (including an `unreferenced` section) without removing anything, and
+`--list-format=json` emits parseable objects with a `tree` and flat `entries`. A second listing
+after `--exact-sizes` still succeeds. A default location dependency whose tree is absent appears
+as `missing` (including in JSON `missing_count` / entries) without aborting the listing.
+
+A second fixture plants GitHub release extracts, a Boost source archive, a GitLab package tree,
+and matching files under `downloads/`. Verbose listing then checks:
+
+* archive identities (`github.com/fmtlib/fmt`, `boost`) with version children
+* LOCATION download URLs reconstructed from encoded folder names
+* `[D]` only where a regenerating archive exists under downloads (GitHub tag with a zip;
+  Boost tarball; GitLab toolchain `.tar.gz` leaf — not the GitLab registry URL on the version
+  row)
+* the `[D]` footer text
+* JSON `has_download`, `download_path`, and `remote_location` on those entries
 
 == Generated files
 
-The dummy project with the default `sconstruct`, plus a planted
-`<storage>/dependencies/widget@master` tree.
+The dummy project with the default `sconstruct`, plus planted trees under
+`<storage>/dependencies/` (VCS-style folders, GitLab `tool_variant/package/version`, and encoded
+HTTP archive folders). The verbose scenario also plants `<storage>/downloads/` (flat archive
+files and `packages/<package>/<version>/*.tar.gz`) and a `sconstruct` that declares a GitLab
+`boost_package` so resolve can supply a registry URL.
 
 == Commands
 
@@ -21,13 +36,18 @@ The dummy project with the default `sconstruct`, plus a planted
 cuppa -D --offline --list-dependencies --storage-root=<storage>
 cuppa -D --offline --list-dependencies --list-format=json --storage-root=<storage>
 cuppa -D --offline --list-dependencies --exact-sizes --storage-root=<storage>
+cuppa -D --offline --list-dependencies --list-format=verbose --storage-root=<storage>
 ----
 
 == Expectations
 
 Text output includes `Dependencies in`, a `DEPENDENCY` header, the planted tree name, and
-`unreferenced`. JSON parses with `entries`, `size_bytes`, `state`, and `dependencies_root`.
-The planted tree remains on disk after listing.
+`unreferenced`. JSON parses with `entries`, `size_bytes`, `state`, `tree`, and
+`dependencies_root`. The planted tree remains on disk after listing.
+
+Verbose output includes `LOCATION`, grouped archive short names, `[D]` on cached download
+leaves only, and the downloads footer. JSON entries for those leaves carry `has_download` /
+`download_path` / `remote_location` as appropriate.
 
 '''
 

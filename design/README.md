@@ -21,7 +21,7 @@ alternatives behind one of those roadmap entries.
 | [`plans/colourised-doc-samples.md`](plans/colourised-doc-samples.md) | proposal | Capture cuppa report output as semantic HTML for Antora samples and local preview |
 | [`plans/coverage-performance.md`](plans/coverage-performance.md) | proposal | Where `--cov --test` time actually goes, what the A/B measurement ruled out, and the remaining suspects |
 | [`plans/modules-activation.md`](plans/modules-activation.md) | proposal | Whether C++ modules should stay opt-in behind `--modules` or become opt-out, and what must land first |
-| [`plans/removal-options.md`](plans/removal-options.md) | in progress | Phases 1, 2, and 5 done (#133, #140, #132); Phase 3 listing (`--list-dependencies`) in progress on `134_list_and_remove_dependencies`; removal/downloads ([#134](https://github.com/ja11sop/cuppa/issues/134)) and artefacts ([#135](https://github.com/ja11sop/cuppa/issues/135)) remain |
+| [`plans/removal-options.md`](plans/removal-options.md) | in progress | Phases 1, 2, 5 done; Phase 3 listing partial; table presentation, Conan meta, default-branch quirk, removal, and dependencies doc split (§7.1) still open — see plan progress snapshot; [#134](https://github.com/ja11sop/cuppa/issues/134) / [#135](https://github.com/ja11sop/cuppa/issues/135) |
 | [`plans/scons-tool-wrapper.md`](plans/scons-tool-wrapper.md) | proposal | Wrapping an SCons Tool as a cuppa dependency instead of hand-writing a dependency class |
 | [`archive/conan-consumer-plan.md`](archive/conan-consumer-plan.md) | shipped | Design of `conan_deps` / `conan_dependency` consumer support |
 | [`archive/conan-publish-plan.md`](archive/conan-publish-plan.md) | shipped | Design of `ConanPackagePublisher` and `--publish-package` |

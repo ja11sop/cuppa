@@ -75,9 +75,9 @@ xref:build-layout.adoc#remove-all-builds-example[`--remove-all-builds`]).
 | `--list-builds` | List the build root as folder summary, toolchain → variant tree, and sconscript tree; print an explicit command for the selected builds
 | `--remove-builds` | Remove variant subtrees matching the current `--toolchains` / `--dbg` / `--rel` / `--cov` selection
 | `--remove-all-builds` | Remove the entire build root
-| `--list-dependencies` | List dependency trees under the dependencies root (size, name, qualifier, toolchain variant, last used, referenced / unreferenced) and exit
+| `--list-dependencies` | List dependency trees under the dependencies root as a hierarchical table (referenced then unreferenced; short-name groups; REMARK) and exit. Omit `--develop` for normal storage inspection; see xref:dependencies.adoc#which-listing[Which listing for which question]
 | `--exact-sizes` | Force a full walk when measuring dependency tree sizes (updates the inventory cache)
-| `--list-format=text\|json` | Format for `--list-*` output (default `text`)
+| `--list-format=text\|verbose\|json` | Format for `--list-*` output (default `text`). On `--list-dependencies`, `verbose` adds LOCATION (remotes, registry URLs, archive names) and prefixes regenerating downloads with `[D]`
 |===
 
 SCons `-n` / `--no-exec` turns either removal into a dry run: the same report, nothing deleted.
@@ -98,7 +98,7 @@ See xref:configuration.adoc[Configuration] for `--show-conf`, `--save-conf`, `--
 | Option | Description
 
 | `--develop` | Use develop locations for location/package dependencies that define them
-| `--list-develop` | Report the state of each configured develop working copy and exit (no network access)
+| `--list-develop` | Report the state of each configured develop working copy and exit (no network access). Does not require `--develop`; see xref:dependencies.adoc#checking-your-develop-copies[Checking your develop copies]
 | `--update-develop` | Fetch each git develop working copy and fast-forward those that are clean and behind; refuse under `--offline`
 | `--location-default-branch` | Default branch name (default `master`) used in offline / relative location logic and by `--list-develop`
 | `--location-match-current-branch` | For relative locations (`path@`), try the current branch

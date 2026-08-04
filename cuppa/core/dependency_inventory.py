@@ -209,7 +209,7 @@ def touch_entry(
         dependencies_root,
         path,
         *,
-        kind,
+        storage_type,
         dependency,
         qualifier=None,
         tool_variant=None,
@@ -217,24 +217,51 @@ def touch_entry(
         sconstruct_dir=None,
         exact_sizes=False,
         refresh_size=True,
+        update_last_used=True,
+        short_name=None,
+        stem=None,
+        source_url=None,
+        remote_location=None,
 ):
-    """Create or update an inventory entry for ``path`` and return it."""
+    """Create or update an inventory entry for ``path`` and return it.
+
+    ``storage_type`` is one of ``gitlab`` / ``conan`` / ``location`` / ``archive`` (see
+    ``dependency_storage.STORAGE_TYPES``). It is recorded so a future namespaced layout
+    migration can move trees without re-guessing.
+
+    ``source_url`` is typically a live git remote. ``remote_location`` is the configured
+    identity (pip-style VCS URL, or GitLab ``registry/package/version``) used for listing.
+    """
     key = entry_key_for_path( path )
     entry = load_entry( dependencies_root, key ) or {}
     now = _utc_now()
     if 'first_seen' not in entry:
         entry['first_seen'] = now
     entry['path'] = storage.real_path( path ) if os.path.exists( path ) else path
-    entry['kind'] = kind
+    entry['type'] = storage_type
+    # Older field name kept in sync while readers migrate.
+    entry['kind'] = storage_type
     entry['dependency'] = dependency
     entry['qualifier'] = qualifier
     entry['tool_variant'] = tool_variant
+    if short_name is not None:
+        entry['short_name'] = short_name
+    if stem is not None:
+        entry['stem'] = stem
+    if source_url is not None:
+        entry['source_url'] = source_url
+    if remote_location is not None:
+        entry['remote_location'] = remote_location
     entry['downloads'] = list( downloads or entry.get( 'downloads' ) or [] )
-    entry['last_used'] = now
-    used_by = dict( entry.get( 'used_by' ) or {} )
-    if sconstruct_dir:
-        used_by[ storage.real_path( sconstruct_dir ) ] = now
-    entry['used_by'] = used_by
+    if update_last_used:
+        entry['last_used'] = now
+        entry['last_used_source'] = 'resolve'
+        used_by = dict( entry.get( 'used_by' ) or {} )
+        if sconstruct_dir:
+            used_by[ storage.real_path( sconstruct_dir ) ] = now
+        entry['used_by'] = used_by
+    elif 'used_by' not in entry:
+        entry['used_by'] = {}
 
     if refresh_size and (
             exact_sizes

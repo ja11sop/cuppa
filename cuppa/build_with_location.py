@@ -264,6 +264,14 @@ class base(object):
         return method() if method else None
 
 
+    def remote_location( self ):
+        location = getattr( self, '_location', None )
+        if location is None:
+            return None
+        method = getattr( location, 'remote_location', None )
+        return method() if callable( method ) else None
+
+
     @classmethod
     def lazy_create_node( cls, variant_key, cached_nodes ):
         if not cls._name in cached_nodes:

@@ -56,12 +56,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Annotated example output for `--list-builds`, `--remove-builds`, and `--remove-all-builds` is in
   the build-layout documentation (#134).
 - `--list-dependencies` reports trees under the dependencies root as a ruled stdout table (size,
-  dependency, version/branch, toolchain variant, last used, referenced / unreferenced) and exits
-  without building. Sizes come from a per-entry inventory under
-  `<dependencies_root>/.cuppa-inventory/` (sampled with a leading `~`, or exact with
-  `--exact-sizes`). Dependencies declare ownership through optional `storage_paths()`; resolve-only
-  path discovery does not retrieve. `--list-format=json` is supported. Removal flags follow in the
-  same Phase 3 workstream (#134).
+  type, dependency, version/branch, toolchain variant, last used, referenced / unreferenced) and
+  exits without building. `type` is `gitlab`, `conan`, `location`, or `archive` (path-shape
+  classification, recorded in the inventory for a future namespaced layout migration). Sizes come
+  from a per-entry inventory under `<dependencies_root>/.cuppa-inventory/` (sampled with a leading
+  `~`, or exact with `--exact-sizes`). Dependencies declare ownership through optional
+  `storage_paths()`; resolve-only path discovery does not retrieve. `--list-format=json` is
+  supported. Removal flags follow in the same Phase 3 workstream (#134).
+- Table padding for coloured listing cells uses visible width (ANSI ignored), so
+  `--list-dependencies` columns stay aligned between referenced and unreferenced rows and the
+  ruled header is not stretched by escape sequences (#134).
+- `--list-dependencies` under `--develop` binds location trees under the dependencies root to the
+  registry name and shows REMARK `develop` on the dependency name (branch leaves unmarked), with a
+  footer pointing at `--list-develop` (#134).
+- `--list-dependencies` shows expected-but-absent default dependencies as error-coloured
+  `STATE` `missing` rows (size `-`) instead of only logging a resolve failure; Location soft-returns
+  the expected path under resolve-only so listing can see it (aligned with GitLab packages). The
+  footer reports a missing count; JSON includes `missing_count` and `state: missing`. Fixed a
+  post-table crash when rendering skips (`glyphs` tuple unpack) (#134).
+- `--list-dependencies` presents a hierarchical tree (referenced then unreferenced; type →
+  short-name / registry identity → branch or version / toolchain children) with rolled-up sizes,
+  REMARK (`in use` / `N used` when N>1 / `missing`), and short names derived from git remotes, package
+  paths, and Boost archive heuristics. Missing identity rows show the configured
+  `remote_location()` (URL or registry/package/version) instead of the short name; missing SIZE and
+  LAST USED are `-`, and missing GitLab versions repeat the `missing` remark. Referenced section
+  leads with used / potentially-stale size rollups (`N total` / `N used` / `N unused`), emphasises
+  referenced dependency names (muted brackets; muted identity SIZE/LAST USED), keeps section rows
+  and unreferenced group/identity names in normal colour, partitions referenced from unreferenced
+  with a rule, and places `missing` only on the absent leaf. Under `--develop`, shadowed stems use
+  REMARK `develop` on the identity (info-coloured like `in use`) rather than `cached` on each
+  branch, with a footer pointing at `--list-develop`. Verbose LOCATION for location trees uses
+  `URL@branch` on leaves; GitLab puts the registry URL on the version row and the archive
+  basename on the toolchain leaf. Unspecified
+  location folders show as `@`. On-disk LOCATION is available via `--list-format=verbose`;
+  `--list-format=json` includes a `tree` object plus enriched flat `entries` (#134).
+- Documented which listing answers which question (`--list-dependencies` vs `--list-develop` vs
+  combining `--develop`), with motivating examples on the Dependencies page, and added an
+  integration scenario that plants realistic git develop copies for `--list-develop` (#134).
 
 ### Changed
 
@@ -88,6 +119,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+
+- `--list-dependencies` verbose LOCATION for unreferenced GitLab packages now shows the registry
+  `registry/package/version` URL on each version row (matching referenced). The inventory stores
+  `remote_location` when resolve knows it; sibling versions of the same package inherit that base
+  with the version segment substituted when only one version was resolved. When every known GitLab
+  URL shares one registry prefix, other packages on disk (e.g. never resolved by the current
+  project) get `{registry}/{package}/{version}` as well (#134).
+- `--list-dependencies` groups GitHub release archives under `github.com/<owner>/<repo>` with the
+  tag as the version (like Boost under `boost`), and stores/shows the reconstructed download URL
+  as LOCATION instead of only the encoded on-disk folder name (#134).
+- Verbose `--list-dependencies` prefixes LOCATION with `[D]` when a regenerating archive exists
+  under the downloads root (HTTP/Boost extracts and GitLab package tarballs). On GitLab trees the
+  mark appears on toolchain archive leaves only, not on the registry URL version row. A footer
+  explains the mark and that a corrupt download must be removed there — deleting only the
+  dependency tree is not enough. Documented with examples on the Dependencies page and covered by
+  the list-dependencies integration scenario (#134).
 
 ### Security
 

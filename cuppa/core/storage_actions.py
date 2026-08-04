@@ -51,9 +51,10 @@ def add_storage_action_options( add_option ):
         help="Remove the entire build root, then exit",
     )
     add_option(
-        '--list-format', dest='list_format', choices=( 'text', 'json' ),
+        '--list-format', dest='list_format', choices=( 'text', 'verbose', 'json' ),
         nargs=1, action='store', default='text',
-        help="Output format for --list-* options: text (default) or json",
+        help="Output format for --list-* options: text (default), verbose (text plus "
+             "LOCATION for --list-dependencies), or json",
     )
     from cuppa.core import dependency_actions
     dependency_actions.add_dependency_action_options( add_option )

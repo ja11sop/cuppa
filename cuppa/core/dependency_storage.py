@@ -30,18 +30,24 @@ from cuppa.colourise import as_info, as_warning
 
 RESOLVE_ONLY_REASON = "storage action"
 
+# Stable storage types for inventory and a future namespaced layout migration.
+# Discriminated from path shape (+ cheap .git check) on today's flat root.
+STORAGE_TYPES = ( 'gitlab', 'conan', 'location', 'archive' )
+
 # One owned path discovered for a named dependency under the current selection.
 OwnedPath = namedtuple(
     'OwnedPath',
     [
         'dependency',       # sconstruct / registry name
-        'kind',             # location | package | conan | boost | …
-        'category',         # dependencies | downloads | build | develop
+        'storage_type',     # gitlab | conan | location | archive
+        'category',         # dependencies | downloads | build | develop | cached
         'path',
         'qualifier',        # @branch, version, fingerprint prefix, …
         'tool_variant',     # toolchain_variant_arch_abi or None
         'develop',          # True when this path is a develop working copy
+        'remote_location',  # configured URL / registry/package/version
     ],
+    defaults=( None, ),
 )
 
 Skip = namedtuple( 'Skip', [ 'dependency', 'reason' ] )
@@ -49,6 +55,15 @@ Skip = namedtuple( 'Skip', [ 'dependency', 'reason' ] )
 # tool_variant dirs look like gcc153_rel_x86_64_cxx2c / clang211_dbg_x86_64_cxx2c
 _TOOL_VARIANT_DIR = re.compile(
     r'^.+_(dbg|rel|cov)_[A-Za-z0-9_]+$'
+)
+
+# Encoded VCS location folders (see Location.folder_name_from_path).
+_VCS_FOLDER_PREFIXES = (
+    'git_ssh_git@',
+    'git_https_',
+    'git_http_',
+    'svn_',
+    'hg_',
 )
 
 
@@ -67,11 +82,13 @@ def empty_storage_paths():
         'downloads': [],
         'build': [],
         'develop': [],
+        # Under --develop: trees still on disk under dependencies_root for this identity
+        'cached': [],
     }
 
 
 def normalise_storage_paths( paths ):
-    """Coerce a ``storage_paths()`` result into the standard four lists."""
+    """Coerce a ``storage_paths()`` result into the standard category lists."""
     result = empty_storage_paths()
     if not paths:
         return result
@@ -138,18 +155,71 @@ def selection_build_envs( construct, cuppa_env ):
     return selections
 
 
-def _dependency_kind( instance ):
+def _instance_family( instance ):
+    """Coarse factory family before path-based storage typing."""
     module = getattr( type( instance ), '__module__', '' ) or ''
     name = type( instance ).__name__
     if 'conan' in module or 'conan' in name.lower():
         return 'conan'
+    if 'package' in module or 'Package' in name:
+        return 'gitlab'
     if 'boost' in module or name == 'Boost':
         return 'boost'
-    if 'package' in module or 'Package' in name:
-        return 'package'
     if 'location' in module or hasattr( instance, '_location' ):
         return 'location'
-    return 'dependency'
+    return 'unknown'
+
+
+def classify_storage_type( path, dependencies_root ):
+    """Return one of STORAGE_TYPES (or ``unknown``) for a tree under the root.
+
+    Uses path shape under ``dependencies_root``, plus a ``.git`` directory check to
+    separate VCS working copies from extracted archives when both sit at the top level.
+    """
+    if not path or not dependencies_root:
+        return 'unknown'
+    root = os.path.realpath( os.path.expanduser( dependencies_root ) )
+    real = os.path.realpath( os.path.expanduser( path ) )
+    try:
+        relative = os.path.relpath( real, root )
+    except ValueError:
+        return 'unknown'
+    if relative.startswith( '..' ):
+        return 'unknown'
+    parts = [ p for p in relative.split( os.sep ) if p and p != '.' ]
+    if not parts:
+        return 'unknown'
+
+    if parts[0] == 'conan':
+        return 'conan'
+    if looks_like_tool_variant_dir( parts[0] ):
+        return 'gitlab'
+
+    top_name = parts[0]
+    top_path = os.path.join( root, top_name )
+    if os.path.isdir( os.path.join( top_path, '.git' ) ):
+        return 'location'
+    if top_name.startswith( _VCS_FOLDER_PREFIXES ):
+        # Encoded VCS URL even if .git is missing (partial checkout / cleaned).
+        return 'location'
+    # Top-level extracts from http(s) archives, boost tarballs, etc.
+    return 'archive'
+
+
+def storage_type_for_owned_path( instance, path, dependencies_root ):
+    """Type for a path discovered via ``storage_paths()``."""
+    family = _instance_family( instance )
+    if family in ( 'conan', 'gitlab' ):
+        return family
+    # location / boost / unknown — prefer the on-disk classifier.
+    classified = classify_storage_type( path, dependencies_root )
+    if classified != 'unknown':
+        return classified
+    if family == 'boost':
+        return 'archive'
+    if family == 'location':
+        return 'location'
+    return 'unknown'
 
 
 def _call_storage_paths( instance ):
@@ -157,6 +227,25 @@ def _call_storage_paths( instance ):
     if method is None:
         return None
     return normalise_storage_paths( method() )
+
+
+def _remote_location_from_instance( instance ):
+    """Best-effort configured remote string from a factory instance or wrapper."""
+    method = getattr( instance, 'remote_location', None )
+    if callable( method ):
+        value = method()
+        if value:
+            return value
+    for attr in ( '_package', '_location' ):
+        inner = getattr( instance, attr, None )
+        if inner is None:
+            continue
+        method = getattr( inner, 'remote_location', None )
+        if callable( method ):
+            value = method()
+            if value:
+                return value
+    return None
 
 
 def _meta_from_instance( instance ):
@@ -254,6 +343,8 @@ def resolve_named_dependencies( construct, cuppa_env, names, selections=None ):
                 continue
             created_any = True
 
+            remote_location = _remote_location_from_instance( instance )
+
             paths = _call_storage_paths( instance )
             if paths is None:
                 for attr in ( '_package', '_location' ):
@@ -266,10 +357,10 @@ def resolve_named_dependencies( construct, cuppa_env, names, selections=None ):
                 continue
 
             declared = True
-            kind = _dependency_kind( instance )
             qualifier, tool_variant = _meta_from_instance( instance )
             if tool_variant is None:
                 tool_variant = env.get( 'tool_variant_dir', '' ).replace( '/', '_' ).replace( '\\', '_' ) or None
+            dependencies_root = env.get( 'dependencies_root' ) or cuppa_env.get( 'dependencies_root' )
 
             for category, path_list in paths.items():
                 for path in path_list:
@@ -277,14 +368,26 @@ def resolve_named_dependencies( construct, cuppa_env, names, selections=None ):
                     if key in seen_paths:
                         continue
                     seen_paths.add( key )
+                    storage_type = storage_type_for_owned_path(
+                            instance, path, dependencies_root
+                    )
+                    item_qualifier = qualifier
+                    item_tool_variant = tool_variant
+                    if category in ( 'develop', 'cached' ):
+                        item_tool_variant = None
+                    if category == 'cached':
+                        _stem, item_qualifier = split_location_folder_name(
+                                os.path.basename( path.rstrip( '\\/' ) )
+                        )
                     owned.append( OwnedPath(
                         dependency=name,
-                        kind=kind,
+                        storage_type=storage_type,
                         category=category,
                         path=path,
-                        qualifier=qualifier,
-                        tool_variant=tool_variant if category != 'develop' else None,
+                        qualifier=item_qualifier,
+                        tool_variant=item_tool_variant,
                         develop=( category == 'develop' ),
+                        remote_location=remote_location,
                     ) )
 
         if not created_any:
@@ -302,13 +405,14 @@ def default_dependency_names( cuppa_env ):
 
 
 def describe_tree_path( path, dependencies_root ):
-    """Best-effort dependency / qualifier / tool_variant from a path under the root.
+    """Best-effort dependency / qualifier / tool_variant / type from a path under the root.
 
     Used for on-disk trees that are not yet in the inventory. Never invents ownership
     for nested source folders inside a VCS tree.
     """
     root = os.path.realpath( os.path.expanduser( dependencies_root ) )
     real = os.path.realpath( path )
+    storage_type = classify_storage_type( real, root )
     try:
         relative = os.path.relpath( real, root )
     except ValueError:
@@ -316,15 +420,15 @@ def describe_tree_path( path, dependencies_root ):
             'dependency': os.path.basename( real ),
             'qualifier': None,
             'tool_variant': None,
-            'kind': 'unknown',
+            'type': storage_type,
         }
-    parts = relative.split( os.sep )
-    if not parts or parts[0] in ( '', '.' ):
+    parts = [ p for p in relative.split( os.sep ) if p and p != '.' ]
+    if not parts:
         return {
             'dependency': os.path.basename( real ),
             'qualifier': None,
             'tool_variant': None,
-            'kind': 'unknown',
+            'type': storage_type,
         }
 
     if parts[0] == 'conan' and len( parts ) >= 3:
@@ -332,7 +436,7 @@ def describe_tree_path( path, dependencies_root ):
             'dependency': parts[1],
             'qualifier': parts[2],
             'tool_variant': None,
-            'kind': 'conan',
+            'type': 'conan',
         }
 
     if looks_like_tool_variant_dir( parts[0] ) and len( parts ) >= 3:
@@ -340,7 +444,7 @@ def describe_tree_path( path, dependencies_root ):
             'dependency': parts[1],
             'qualifier': parts[2],
             'tool_variant': parts[0],
-            'kind': 'package',
+            'type': 'gitlab',
         }
 
     top = parts[0]
@@ -349,7 +453,7 @@ def describe_tree_path( path, dependencies_root ):
         'dependency': dependency,
         'qualifier': qualifier,
         'tool_variant': None,
-        'kind': 'location',
+        'type': storage_type if storage_type != 'unknown' else 'location',
     }
 
 

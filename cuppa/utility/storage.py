@@ -24,9 +24,29 @@ import textwrap
 import time
 from collections import namedtuple
 
+from cuppa.utility.preprocess import AnsiEscape
+
 
 class StorageError( Exception ):
     pass
+
+
+# CSI / OSC sequences inflate len(); table padding and rule widths must ignore them.
+_ANSI_ESCAPE_RE = AnsiEscape.ansi_escape_re
+
+
+def visible_len( text ):
+    """Display width of ``text`` with ANSI escape sequences removed."""
+    return len( _ANSI_ESCAPE_RE.sub( '', str( text ) ) )
+
+
+def pad_visible( text, width ):
+    """Left-justify ``text`` to a visible width of ``width`` columns."""
+    text = str( text )
+    pad = width - visible_len( text )
+    if pad <= 0:
+        return text
+    return text + ( ' ' * pad )
 
 
 # tee, elbow, and the two continuations that sit under them, each the same width.
@@ -351,18 +371,22 @@ def prune_empty_parents( path, stop_at ):
 
 
 def render_table( columns, rows ):
-    """Padded plain-text table: header, one row per entry. Columns are ``(key, heading)``."""
+    """Padded plain-text table: header, one row per entry. Columns are ``(key, heading)``.
+
+    Widths use visible length so cells that already carry ANSI colour still align with
+    plain headers and with rows painted differently (e.g. referenced vs unreferenced).
+    """
     keys = [ key for key, _heading in columns ]
     headings = [ heading for _key, heading in columns ]
     cells = [ headings ]
     for row in rows:
         cells.append( [ str( row.get( key, '' ) ) for key in keys ] )
 
-    widths = [ max( len( cell[i] ) for cell in cells ) for i in range( len( keys ) ) ]
+    widths = [ max( visible_len( cell[i] ) for cell in cells ) for i in range( len( keys ) ) ]
     lines = []
     for cell in cells:
         lines.append( "  ".join(
-            value.ljust( widths[i] ) for i, value in enumerate( cell )
+            pad_visible( value, widths[i] ) for i, value in enumerate( cell )
         ).rstrip() )
     return lines
 

@@ -492,6 +492,8 @@ class GitlabPackageDependency:
         use_develop = self.is_option_set( "develop" )
         self._develop = develop
 
+        self._registry = registry
+        self._package = package
         self._version = version
         self.version()
 
@@ -691,6 +693,15 @@ class GitlabPackageDependency:
 
     def storage_tool_variant( self ):
         return getattr( self, '_tool_variant', None )
+
+
+    def remote_location( self ):
+        """Registry identity string for listing (registry/package/version)."""
+        registry = getattr( self, '_registry', None )
+        package = getattr( self, '_package', None )
+        version = self.version()
+        parts = [ part for part in ( registry, package, version ) if part ]
+        return '/'.join( str( part ) for part in parts ) if parts else None
 
 
     # Package Interface

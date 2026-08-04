@@ -30,7 +30,7 @@ def test_touch_and_load_entry( tmp_path ):
     entry = dependency_inventory.touch_entry(
             str( dependencies_root ),
             str( tree ),
-            kind='location',
+            storage_type='location',
             dependency='widget',
             qualifier='@master',
             tool_variant=None,
@@ -39,6 +39,8 @@ def test_touch_and_load_entry( tmp_path ):
     )
     assert entry['dependency'] == 'widget'
     assert entry['qualifier'] == '@master'
+    assert entry['type'] == 'location'
+    assert entry['kind'] == 'location'
     assert entry['size']['method'] == 'exact'
     assert entry['size']['bytes'] >= 5
     assert str( tmp_path / 'project' ) in entry['used_by'] or storage.real_path(
@@ -54,6 +56,7 @@ def test_touch_and_load_entry( tmp_path ):
     files = list( on_disk.glob( '*.json' ) )
     assert len( files ) == 1
     payload = json.loads( files[0].read_text( encoding='utf-8' ) )
+    assert payload['type'] == 'location'
     assert payload['kind'] == 'location'
 
 
@@ -95,7 +98,7 @@ def test_delete_entry_for_path( tmp_path ):
     dependency_inventory.touch_entry(
             str( dependencies_root ),
             str( tree ),
-            kind='package',
+            storage_type='gitlab',
             dependency='gadget',
             exact_sizes=True,
             refresh_size=True,

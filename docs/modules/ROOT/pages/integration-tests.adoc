@@ -45,6 +45,7 @@ cuppa.run(default_variants=['dbg'])
 * xref:integration/test-storage-roots.adoc[Storage root resolution]
 * xref:integration/test-list-builds.adoc[List and remove builds]
 * xref:integration/test-list-dependencies.adoc[List dependencies]
+* xref:integration/test-list-develop.adoc[List develop]
 * xref:integration/test-toolchains-matrix.adoc[gcc / clang toolchains]
 
 == Method tests

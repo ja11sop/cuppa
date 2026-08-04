@@ -532,6 +532,22 @@ class Location(object):
                         ) )
                     return local_directory
 
+                # Listing / storage resolve-only needs the expected path so
+                # --list-dependencies can show STATE missing (same idea as packages).
+                if self._cuppa_env.get( 'storage_resolve_only' ):
+                    warned = getattr( Location, '_resolve_only_missing_warned', None )
+                    if warned is None:
+                        Location._resolve_only_missing_warned = set()
+                        warned = Location._resolve_only_missing_warned
+                    if local_directory not in warned:
+                        warned.add( local_directory )
+                        logger.warn(
+                                "{} so listing will report it as missing".format(
+                                        unavailable( as_info_label, as_warning )
+                                )
+                        )
+                    return local_directory
+
                 logger.error( "{} so location cannot be retrieved".format(
                         unavailable( as_info_label, as_error )
                 ) )
@@ -703,12 +719,21 @@ class Location(object):
         self._default_branch = self._cuppa_env['location_default_branch']
 
         location = self.replace_sconstruct_anchor( location )
+        configured_location = location
+        # Preserved for listing / inventory: the URL as configured in the
+        # sconstruct, before --develop rewrite or relative-branch resolution.
+        self._configured_location = configured_location
 
         if develop:
             develop = develop_location( self._cuppa_env['sconstruct_dir'], develop )
             logger.debug( "Develop location specified [{}]".format( as_info( develop ) ) )
 
+        # With --develop the active checkout becomes the working copy and the remote URL is
+        # no longer used for _local_folder. Keep the dependencies-root stem so listing can
+        # still bind cached trees for this dependency identity.
+        self._cache_folder_stem = None
         if self.option_set('develop') and develop:
+            self._cache_folder_stem = self.folder_stem_for_configured_location( configured_location )
             location = develop
             logger.debug( "--develop specified so using location=develop=[{}]".format( as_info( develop ) ) )
 
@@ -867,6 +892,48 @@ class Location(object):
         return self._base_local_directory
 
 
+    def folder_stem_for_configured_location( self, location ):
+        """Dependencies-root folder stem for a configured remote URL (before --develop swap)."""
+        if not location:
+            return None
+        loc = location
+        if loc.endswith( '@' ):
+            loc = loc[:-1]
+        if loc.startswith( 'file:' ):
+            return None
+        if not pip_is_url( loc ):
+            return None
+        try:
+            folder = self.folder_name_from_path( urlparse( loc ) )
+        except Exception:
+            return None
+        from cuppa.core.dependency_storage import split_location_folder_name
+        stem, _qualifier = split_location_folder_name( folder )
+        return stem
+
+
+    def cached_trees_for_stem( self, dependencies_root, stem ):
+        """Directories under ``dependencies_root`` for ``stem`` and ``stem@*``."""
+        if not dependencies_root or not stem:
+            return []
+        found = []
+        exact = os.path.join( dependencies_root, stem )
+        if os.path.isdir( exact ) and not os.path.islink( exact ):
+            found.append( exact )
+        prefix = stem + '@'
+        try:
+            names = os.listdir( dependencies_root )
+        except OSError:
+            return found
+        for name in sorted( names ):
+            if not name.startswith( prefix ):
+                continue
+            path = os.path.join( dependencies_root, name )
+            if os.path.isdir( path ) and not os.path.islink( path ):
+                found.append( path )
+        return found
+
+
     def storage_paths( self ):
         """On-disk paths this location owns under the storage roots (optional protocol)."""
         from cuppa.utility import storage as storage_util
@@ -876,6 +943,7 @@ class Location(object):
             'downloads': [],
             'build': [],
             'develop': [],
+            'cached': [],
         }
         base = self._base_local_directory
         if not base:
@@ -891,6 +959,9 @@ class Location(object):
             # project-local path. Removals must not touch these.
             paths['develop'].append( base )
             develop = True
+            # Cached retrieve under dependencies_root still belongs to this identity.
+            stem = getattr( self, '_cache_folder_stem', None )
+            paths['cached'] = self.cached_trees_for_stem( dependencies_root, stem )
 
         if not develop and downloads_root and getattr( self, '_local_folder', None ):
             cached = self.get_cached_archive( downloads_root, self._local_folder )
@@ -913,6 +984,16 @@ class Location(object):
 
     def location( self ):
         return self._location
+
+
+    def remote_location( self ):
+        """Configured remote / source string for display (not the local checkout).
+
+        Prefer this over ``location()`` when showing what a missing dependency
+        was supposed to resolve from — ``location()`` may already be a develop
+        path or a branch-resolved SCM URL.
+        """
+        return getattr( self, '_configured_location', None ) or self._location
 
 
     def url( self ):

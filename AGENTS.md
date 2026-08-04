@@ -357,9 +357,36 @@ When docs and code disagree, **code is authoritative** (especially storage defau
 | Compiler defaults and flags | `toolchains.adoc` |
 | C++20 modules intro, tutorial, papers, reference | `cxx-modules.adoc` |
 | CLI flags | `cli-reference.adoc` |
+| Dependencies overview (kinds, declare, `BuildWith`) | `dependencies.adoc` (hub) |
+| Location / header libraries | `dependencies-location.adoc` (planned; today mid-`dependencies.adoc`) |
+| Package consume overview | `dependencies-packages.adoc` (planned; today partly `packages.adoc`) |
+| GitLab packages (consume) | `dependencies-gitlab.adoc` (planned) |
+| Conan packages (consume) | `dependencies-conan.adoc` (planned; today end of `dependencies.adoc`) |
+| Built-in deps index | `dependencies-builtins.adoc` (planned) |
+| Boost (source / b2; contrast `boost_package`) | `dependencies-boost.adoc` (planned) |
+| Qt / Quince | `dependencies-qt.adoc` / `dependencies-quince.adoc` (planned; thin stubs OK) |
+| Managing deps (list / update / remove) | `dependencies-managing.adoc` (planned; today mid-`dependencies.adoc`) |
+| Writing your own dependencies | `dependencies-extending.adoc` (planned; also `extending.adoc` for plugins) |
+| Publishing packages (GitLab / Conan) | `packages.adoc` (publish focus; not consume tutorials) |
 | Pytest scenarios | `integration-tests.adoc` + `integration/*.adoc` |
 
-Update `docs/modules/ROOT/nav.adoc` when adding a new top-level page.
+Until the Phase 3 documentation split in [`design/plans/removal-options.md`](design/plans/removal-options.md) §7.1 lands, prefer extending the eventual page above rather than growing the monolith further when you know which child owns the topic.
+
+Update `docs/modules/ROOT/nav.adoc` when adding a new top-level page or nesting children under Dependencies.
+
+### Documentation partitioning (rules of thumb)
+
+Use these when splitting or placing dependency (and similar) docs — same principles as §7.1 of the removal-options plan:
+
+- **Mirror the code shape.** Location, GitLab package, Conan, built-ins, manage-on-disk, and authoring already live in different modules; docs should follow that map rather than one growing page.
+- **Hub pages stay short.** Overview + kinds table + `cuppa.run` / `BuildWith` + pointers. No deep tutorials on the hub.
+- **Consume vs publish.** Consuming a registry or Conan package belongs under Dependencies; publishing Cuppa-built libraries belongs under Packages (or a Publishing child). Cross-link the round-trip; do not duplicate the full story on both sides.
+- **Managing is its own page.** List / update / remove / inventory are storage and develop workflows, not a footnote on declaring dependencies.
+- **Nest by surface area, not by every registered name.** Give a child page when the topic has its own CLI options, `env.*` helpers, or a choose-your-flavour decision (e.g. Boost source vs `boost_package`). Keep an index as name → one-line purpose → xref.
+- **Honest stubs beat invented depth.** Thin or nearly undocumented built-ins (Qt, Quince today) get short pages or index sections that name the dependency, prerequisites, and module — expand when real usage is documented.
+- **Do not rewrite unstable samples twice.** When CLI table presentation or removal flags are still churning, finish that polish before (or land Managing together with) the docs that quote those examples.
+- **Integration test pages stay under Integration tests**; topic pages link them rather than inlining scenario prose.
+- **Fix known doc/code drift while moving** (wrong method names, obsolete paths); do not copy mistakes into the new tree.
 
 ## Consumer-project tips
 
@@ -460,6 +487,19 @@ When documentation is built:
 No manual cleanup of old files is needed. Do update `nav.adoc` for new top-level pages.
 
 # Structure
+
+## Page partitioning
+
+Prefer a **hub + topic children** over a single long page when a subject already has distinct code modules or reader jobs (declare vs consume vs publish vs manage vs extend).
+
+Rules of thumb (see also agent notes § Documentation partitioning and `design/plans/removal-options.md` §7.1):
+
+- Keep the hub short: what it is, kinds or map, how to declare, where to go next.
+- Split **consume** tutorials from **publish** tutorials; cross-link instead of duplicating.
+- Put **manage on disk** workflows (list / update / remove) on their own page.
+- Nest further only when surface area warrants it (own CLI flags, `env.*` helpers, or a non-trivial flavour choice). An index of registered names with one-line purpose and xrefs is enough for thin built-ins.
+- Prefer honest stubs over pages that invent depth the product does not yet document.
+- Update `nav.adoc` so nested children appear under the hub; do not leave orphan pages.
 
 ## Introduction
 

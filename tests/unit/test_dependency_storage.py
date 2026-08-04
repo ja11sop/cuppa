@@ -92,10 +92,66 @@ def test_location_storage_paths_marks_develop_outside_root( tmp_path ):
     location._base_local_directory = str( develop )
     location._local_folder = 'widget'
     location._local_directory = str( develop )
+    location._cache_folder_stem = None
 
     paths = location.storage_paths()
     assert paths['dependencies'] == []
     assert paths['develop'] == [ str( develop ) ]
+    assert paths['cached'] == []
+
+
+def test_location_storage_paths_reports_cached_stem_under_develop( tmp_path ):
+    from cuppa.location import Location
+
+    dependencies_root = tmp_path / 'dependencies'
+    dependencies_root.mkdir()
+    stem = 'git_ssh_git@host__org_widget'
+    unqualified = dependencies_root / stem
+    branched = dependencies_root / ( stem + '@master' )
+    other = dependencies_root / ( stem + '_pipelines@master' )
+    unqualified.mkdir()
+    branched.mkdir()
+    other.mkdir()
+    develop = tmp_path / 'src' / 'widget'
+    develop.mkdir( parents=True )
+
+    env = {
+        'dependencies_root': str( dependencies_root ),
+        'downloads_root': str( tmp_path / 'downloads' ),
+        'abs_build_root': str( tmp_path / '_build' ),
+        'offline': True,
+        'clean': False,
+        'dump': False,
+        'storage_resolve_only': True,
+        'sconstruct_dir': str( tmp_path ),
+    }
+
+    location = Location.__new__( Location )
+    location._cuppa_env = env
+    location._offline = True
+    location._base_local_directory = str( develop )
+    location._local_folder = 'widget'
+    location._local_directory = str( develop )
+    location._cache_folder_stem = stem
+
+    paths = location.storage_paths()
+    assert paths['develop'] == [ str( develop ) ]
+    assert set( paths['cached'] ) == { str( unqualified ), str( branched ) }
+    assert str( other ) not in paths['cached']
+
+
+def test_folder_stem_for_configured_location_strips_relative_marker():
+    from cuppa.location import Location
+
+    location = Location.__new__( Location )
+    location._cuppa_env = {
+        'sconstruct_dir': '/home/user/project',
+        'abs_sconscript_dir': '/home/user/project',
+    }
+    stem = location.folder_stem_for_configured_location(
+            'git+ssh://git@git.example.com/org/widget@'
+    )
+    assert stem == 'git_ssh_git@git.example.com__org_widget'
 
 
 def test_retrieval_disabled_reason_includes_storage_resolve_only():
@@ -173,7 +229,7 @@ def test_describe_tree_path_package_layout( tmp_path ):
     assert described['dependency'] == 'boost'
     assert described['qualifier'] == '1.91'
     assert described['tool_variant'] == 'gcc153_rel_x86_64_cxx2c'
-    assert described['kind'] == 'package'
+    assert described['type'] == 'gitlab'
 
 
 def test_describe_tree_path_vcs_with_branch( tmp_path ):
@@ -183,7 +239,64 @@ def test_describe_tree_path_vcs_with_branch( tmp_path ):
     described = dependency_storage.describe_tree_path( str( path ), str( root ) )
     assert described['dependency'] == 'git_ssh_git@host__org_widget'
     assert described['qualifier'] == '@master'
-    assert described['kind'] == 'location'
+    assert described['type'] == 'location'
+
+
+def test_classify_storage_type_four_kinds( tmp_path ):
+    root = tmp_path / 'dependencies'
+    gitlab = root / 'gcc153_rel_x86_64_cxx2c' / 'capy' / '1.0'
+    conan = root / 'conan' / 'fmt' / 'abc123'
+    location = root / 'git_https_github.com__fmtlib_fmt.git'
+    archive = root / 'https_archives.example.com__boost_1_88_0.tar.gz'
+    for path in ( gitlab, conan, location, archive ):
+        path.mkdir( parents=True )
+    ( location / '.git' ).mkdir()
+
+    assert dependency_storage.classify_storage_type( str( gitlab ), str( root ) ) == 'gitlab'
+    assert dependency_storage.classify_storage_type( str( conan ), str( root ) ) == 'conan'
+    assert dependency_storage.classify_storage_type( str( location ), str( root ) ) == 'location'
+    assert dependency_storage.classify_storage_type( str( archive ), str( root ) ) == 'archive'
+
+
+def test_classify_storage_type_on_legacy_download_root():
+    """Optional smoke against a real mixed root (~/_cuppa/_download)."""
+    root = os.path.expanduser( '~/_cuppa/_download' )
+    if not os.path.isdir( root ):
+        pytest.skip( 'legacy download root not present' )
+
+    found = set()
+    for name in os.listdir( root ):
+        path = os.path.join( root, name )
+        if not os.path.isdir( path ) or name.startswith( '.' ):
+            continue
+        if dependency_storage.looks_like_tool_variant_dir( name ):
+            # Classify a package leaf under the tool-variant dir.
+            for pkg in os.listdir( path ):
+                pkg_path = os.path.join( path, pkg )
+                if not os.path.isdir( pkg_path ):
+                    continue
+                for ver in os.listdir( pkg_path ):
+                    leaf = os.path.join( pkg_path, ver )
+                    if os.path.isdir( leaf ):
+                        found.add( dependency_storage.classify_storage_type( leaf, root ) )
+                        break
+                break
+            continue
+        if name == 'conan':
+            for pkg in os.listdir( path ):
+                pkg_path = os.path.join( path, pkg )
+                if not os.path.isdir( pkg_path ):
+                    continue
+                for fingerprint in os.listdir( pkg_path ):
+                    leaf = os.path.join( pkg_path, fingerprint )
+                    if os.path.isdir( leaf ):
+                        found.add( dependency_storage.classify_storage_type( leaf, root ) )
+                        break
+                break
+            continue
+        found.add( dependency_storage.classify_storage_type( path, root ) )
+
+    assert found >= { 'gitlab', 'conan', 'location', 'archive' }
 
 
 def test_describe_tree_path_keeps_git_at_in_name( tmp_path ):
@@ -254,3 +367,4 @@ def test_resolve_named_dependencies_passes_nested_scons_env( tmp_path ):
     assert seen and hasattr( seen[0], 'get_option' )
     assert len( owned ) == 1
     assert owned[0].dependency == 'widget'
+    assert owned[0].storage_type in dependency_storage.STORAGE_TYPES or owned[0].storage_type == 'unknown'
