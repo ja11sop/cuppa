@@ -120,6 +120,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Verbose `--list-dependencies` `[D]` footer no longer uses a Unicode em dash in the
+  "corrupt archive" sentence. On Windows that character could not be encoded to the console
+  code page after the first footer line, so the advice was missing from captured output while
+  the listing still exited 0 (#134).
 - GitLab package archive naming no longer calls Linux-only `platform.freedesktop_os_release()`
   unconditionally. On Windows and macOS it falls back to a stable OS label (`windows` / `macos`)
   so package construction — and therefore `--list-dependencies` registry LOCATION for GitLab
@@ -140,7 +144,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Verbose `--list-dependencies` prefixes LOCATION with `[D]` when a regenerating archive exists
   under the downloads root (HTTP/Boost extracts and GitLab package tarballs). On GitLab trees the
   mark appears on toolchain archive leaves only, not on the registry URL version row. A footer
-  explains the mark and that a corrupt download must be removed there — deleting only the
+  explains the mark and that a corrupt download must be removed there - deleting only the
   dependency tree is not enough. Documented with examples on the Dependencies page and covered by
   the list-dependencies integration scenario (#134).
 

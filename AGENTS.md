@@ -114,11 +114,19 @@ Otherwise, follow the shape already in the log:
 notes set up. For authenticated writes use `scripts.github_api` (and the helpers below). For
 anonymous reads use the public GitHub HTTP API, `curl`, or `urllib` — still not `gh`.
 
-Cuppa is a public repository, so anything that only reads it — issue lists, issue bodies, pull
-request state, check runs — needs no credential at all. Use the public API anonymously
-(`GitHub.public()` / `pr-status` / `watch-pr`) and do not ask for a token. A token is only for
-**writing**: filing or editing issues, applying labels, commenting on pull requests. Pushing a
-branch is ordinary `git push -u origin HEAD`; that does not need this credential either.
+Cuppa is a public repository, so anything that only reads *metadata* — issue lists, issue bodies,
+pull request state, check-run conclusions — needs no credential at all. Use the public API
+anonymously (`GitHub.public()` / `pr-status` / `watch-pr`) and do not ask for a token.
+
+**Exception — Actions log archives:** even on a public repository, GitHub's
+`/actions/runs/{id}/logs` and `/actions/jobs/{id}/logs` endpoints return **403** to anonymous
+clients ("Must have admin rights to Repository"). Check-run *annotations* are public but usually
+only say the step exited non-zero. To read the pytest failure text, use ``fetch-ci-logs`` with
+the sealed credential (see below).
+
+A token is for **writing** (filing or editing issues, applying labels, commenting on pull
+requests) and for **downloading CI logs**. Pushing a branch is ordinary `git push -u origin HEAD`;
+that does not need this credential either.
 
 Having a token is optional. If you want an agent to write on your behalf, set it up as follows;
 tokens are personal, so mint your own rather than reusing anyone else's, and what an agent did
@@ -132,9 +140,11 @@ On GitHub, under **Settings → Developer settings → Personal access tokens �
 create a token with:
 
 - **Repository access:** only the cuppa repository — your fork if you work from one.
-- **Permissions:** *Issues* read and write, *Pull requests* read and write, *Metadata* read-only.
-  Grant nothing else. Without *Contents* or *Workflows* write, the worst an agent can do is
-  reversible, visible noise on issues and pull requests; it cannot touch code, branches, or CI.
+- **Permissions:** *Issues* read and write, *Pull requests* read and write, *Actions* read-only,
+  *Metadata* read-only. Grant nothing else. *Actions* read is only so ``fetch-ci-logs`` can
+  download workflow log zips; without it, status polling still works via the public API. Without
+  *Contents* or *Workflows* write, the worst an agent can do is reversible, visible noise on
+  issues and pull requests; it cannot touch code, branches, or CI configuration.
 - **Expiry:** short. Thirty days or less, so a value that escapes has a deadline.
 
 Copy the value once, into the next step. Do not paste it into a chat, a file in the working tree,
@@ -221,8 +231,24 @@ repository come from the local `origin` remote. The default poll interval is thi
 
 Exit codes: `0` all checks succeeded (or were skipped / neutral), `1` at least one failed, `2`
 still pending (`pr-status` only), `3` timed out while still pending (`watch-pr`). Prefer
-`watch-pr` after a push; use `pr-status` when you only need a snapshot. Grow this helper if the
-same follow-up (for example fetching a failed job log) starts repeating.
+`watch-pr` after a push; use `pr-status` when you only need a snapshot.
+
+When `watch-pr` / `pr-status` reports a failure, feed the failed job name into the log helper
+(sealed token; Actions read permission required — see token permissions above):
+
+```sh
+python -m scripts.github_helpers fetch-ci-logs
+python -m scripts.github_helpers fetch-ci-logs --job integration-windows
+python -m scripts.github_helpers fetch-ci-logs --job integration-windows --full
+python -m scripts.github_helpers fetch-ci-logs --output-dir /tmp/cuppa-ci-logs
+```
+
+`fetch-ci-logs` defaults to every check that failed on the open PR, downloads that head's workflow
+run log zip, and prints failure excerpts (`FAILED`, `AssertionError`, …). Pass `--job` to narrow
+to one check name substring from the `pr-status` listing. Do not use `gh` for this, and do not
+hand-roll log downloads when the helper already encodes the redirect/auth stripping.
+
+Grow this helper if the same follow-up starts repeating.
 
 Be clear about what sealing buys. It makes the stored file meaningless anywhere else — in a backup,
 a synced folder, or a pasted diff. It does **not** stop a process running as you from asking the

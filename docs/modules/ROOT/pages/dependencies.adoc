@@ -220,7 +220,7 @@ Default dependencies: boost_package
   3 entries, 305.1M total, 5.8M unreferenced
 
   [D] = archive present under downloads (~/.cuppa/downloads).
-  If re-extracting a dependency fails, remove the corrupt archive there — deleting only the
+  If re-extracting a dependency fails, remove the corrupt archive there - deleting only the
   dependency tree is not enough.
 ----
 

@@ -10,7 +10,8 @@ Owner and repository always come from the local ``origin`` remote (or explicit `
 wrong repository.
 
 Reads on a public repository use the anonymous API. ``pr-status`` and ``watch-pr`` do not unseal
-the token. Writes (``create-pr``, labelling) still go through the sealed credential.
+the token. Writes (``create-pr``, labelling) and CI log downloads (``fetch-ci-logs``) still go
+through the sealed credential.
 
 Pushing a branch is still ``git push -u origin HEAD``.
 
@@ -24,6 +25,12 @@ After a push, watch the open pull request's checks until they finish (public rea
     python -m scripts.github_helpers watch-pr
     python -m scripts.github_helpers pr-status --pr 139
 
+When a check fails, pull the job log excerpt with the sealed credential (Actions logs are not
+public even on a public repository):
+
+    python -m scripts.github_helpers fetch-ci-logs
+    python -m scripts.github_helpers fetch-ci-logs --job integration-windows
+
 Or from Python:
 
     from scripts.github_helpers import create_pull_request, watch_pull_request
@@ -32,11 +39,14 @@ Or from Python:
 """
 
 import argparse
+import io
 import json
+import os
 import re
 import subprocess
 import sys
 import time
+import zipfile
 from collections import namedtuple
 
 from scripts.github_api import CredentialError, GitHub
@@ -316,6 +326,175 @@ def watch_pull_request(
         sleep( min( interval, remaining ) )
 
 
+FAILURE_LINE_MARKERS = (
+    'FAILED ',
+    'ERROR ',
+    'AssertionError',
+    'PermissionError',
+    'Traceback (most recent call last)',
+    'E       ',
+    ' short test summary ',
+)
+
+
+def _workflow_run_for_sha( sha, owner, repo, github ):
+    status, payload = github.request(
+        'GET',
+        '/repos/{}/{}/actions/runs?head_sha={}&per_page=10'.format( owner, repo, sha ),
+    )
+    if status >= 400:
+        raise GitHubHelperError( "listing workflow runs failed ({}): {}".format(
+            status, json.dumps( payload ) ) )
+    runs = payload.get( 'workflow_runs' ) or []
+    if not runs:
+        raise GitHubHelperError( "no workflow runs for commit {}".format( sha[:8] ) )
+    # Prefer the newest completed failure when several workflows exist; else newest.
+    failed = [ run for run in runs if run.get( 'conclusion' ) in FAILED_CONCLUSIONS ]
+    return ( failed or runs )[0]
+
+
+def _job_name_filters( status, job=None ):
+    """Substring filters for zip members / job folders from failed checks or ``--job``."""
+    if job:
+        return [ job ]
+    failed = [
+        check.name for check in status.checks
+        if check.status == 'completed' and check.conclusion in FAILED_CONCLUSIONS
+    ]
+    if not failed:
+        raise GitHubHelperError(
+            "no failed checks on PR #{} (outcome={}); pass --job to pick a job".format(
+                status.number, status.outcome
+            )
+        )
+    return failed
+
+
+def _member_matches( name, filters ):
+    lowered = name.lower().replace( '\\', '/' )
+    for needle in filters:
+        token = needle.lower().replace( ' ', '-' )
+        if token in lowered or needle.lower() in lowered:
+            return True
+    return False
+
+
+def _interesting_log_lines( text ):
+    lines = text.splitlines()
+    interesting = []
+    for index, line in enumerate( lines ):
+        # Drop the leading GitHub Actions timestamp / stream prefix when present.
+        body = re.sub( r'^\d{4}-\d{2}-\d{2}T[^\s]+\s+', '', line )
+        if any( marker in body for marker in FAILURE_LINE_MARKERS ):
+            interesting.append( body )
+            continue
+        # Keep a little context after pytest failure headers.
+        if body.strip().startswith( '____' ) and 'test_' in body:
+            interesting.append( body )
+    # Deduplicate while preserving order (run zip often duplicates job + step files).
+    seen = set()
+    unique = []
+    for line in interesting:
+        if line in seen:
+            continue
+        seen.add( line )
+        unique.append( line )
+    return unique
+
+
+def fetch_ci_logs(
+        number=None,
+        head=None,
+        owner=None,
+        repo=None,
+        job=None,
+        run_id=None,
+        output_dir=None,
+        full=False,
+        github=None,
+        public=None,
+        out=None,
+):
+    """Download Actions logs for failed checks (or ``--job``) and print failure excerpts.
+
+    Status discovery uses the public API. The log zip requires the sealed credential — GitHub
+    returns 403 for anonymous log downloads even on public repositories.
+    """
+    out = out or sys.stdout
+    owner, repo = repository( owner, repo )
+    public_client = public_github( public )
+    status = pull_request_status(
+        number=number, head=head, owner=owner, repo=repo, github=public_client
+    )
+    filters = _job_name_filters( status, job=job )
+
+    if run_id is None:
+        run = _workflow_run_for_sha( status.head_sha, owner, repo, public_client )
+        run_id = run['id']
+        out.write( "workflow run {} ({})  head={}\n".format(
+            run_id,
+            run.get( 'conclusion' ) or run.get( 'status' ),
+            status.head_sha[:8],
+        ) )
+    else:
+        out.write( "workflow run {}\n".format( run_id ) )
+    out.write( "jobs: {}\n".format( ', '.join( filters ) ) )
+    out.flush()
+
+    auth = github or GitHub()
+    code, payload = auth.download(
+        '/repos/{}/{}/actions/runs/{}/logs'.format( owner, repo, run_id )
+    )
+    if code >= 400:
+        message = payload.get( 'message' ) if isinstance( payload, dict ) else payload
+        raise GitHubHelperError(
+            "downloading logs failed ({}): {}. "
+            "Fine-grained tokens need Actions read permission for this repository.".format(
+                code, message
+            )
+        )
+    if not isinstance( payload, ( bytes, bytearray ) ):
+        raise GitHubHelperError( "expected a zip archive, got {}".format( type( payload ) ) )
+
+    if output_dir:
+        os.makedirs( output_dir, exist_ok=True )
+        zip_path = os.path.join( output_dir, 'run-{}-logs.zip'.format( run_id ) )
+        with open( zip_path, 'wb' ) as handle:
+            handle.write( payload )
+        out.write( "saved {}\n".format( zip_path ) )
+
+    with zipfile.ZipFile( io.BytesIO( payload ) ) as archive:
+        members = [ name for name in archive.namelist() if _member_matches( name, filters ) ]
+        if not members:
+            raise GitHubHelperError(
+                "no log members matched {}; archive has: {}".format(
+                    filters, ', '.join( archive.namelist()[:20] )
+                )
+            )
+        # Prefer the integration/test step files over setup noise.
+        preferred = [
+            name for name in members
+            if re.search( r'(?i)(test|integration|pytest)', os.path.basename( name ) )
+        ]
+        selected = preferred or members
+        for name in selected:
+            text = archive.read( name ).decode( 'utf-8', 'replace' )
+            out.write( "\n=== {} ===\n".format( name ) )
+            if full:
+                out.write( text )
+                if not text.endswith( '\n' ):
+                    out.write( '\n' )
+                continue
+            excerpt = _interesting_log_lines( text )
+            if not excerpt:
+                out.write( "(no failure markers; pass --full for the whole file)\n" )
+                continue
+            for line in excerpt:
+                out.write( line + '\n' )
+    out.flush()
+    return EXIT_SUCCESS
+
+
 def _read_body( arguments ):
     if arguments.body_file:
         with open( arguments.body_file, encoding='utf-8' ) as body_file:
@@ -362,6 +541,19 @@ def watch_pr_command( arguments ):
     return code
 
 
+def fetch_ci_logs_command( arguments ):
+    return fetch_ci_logs(
+        number = arguments.pr,
+        head = arguments.head,
+        owner = arguments.owner,
+        repo = arguments.repo,
+        job = arguments.job,
+        run_id = arguments.run_id,
+        output_dir = arguments.output_dir,
+        full = arguments.full,
+    )
+
+
 def _add_pr_selection_arguments( parser ):
     parser.add_argument( '--pr', type=int, help="pull request number (default: open PR for branch)" )
     parser.add_argument( '--head', help="branch used to find an open pull request" )
@@ -403,6 +595,25 @@ def main( argv=None ):
         help="give up after this many seconds (default {})".format( DEFAULT_WATCH_TIMEOUT ),
     )
 
+    logs = commands.add_parser(
+        'fetch-ci-logs',
+        help="download Actions logs for failed checks (sealed token; not public)",
+    )
+    _add_pr_selection_arguments( logs )
+    logs.add_argument(
+        '--job',
+        help="job / check name substring (default: all failed checks from pr-status)",
+    )
+    logs.add_argument( '--run-id', type=int, help="workflow run id (default: newest for PR head)" )
+    logs.add_argument(
+        '--output-dir',
+        help="also save the raw run log zip under this directory",
+    )
+    logs.add_argument(
+        '--full', action='store_true',
+        help="print matched log files in full instead of failure excerpts",
+    )
+
     arguments = parser.parse_args( argv )
     if not arguments.command:
         parser.print_help()
@@ -415,6 +626,8 @@ def main( argv=None ):
             return pr_status_command( arguments )
         if arguments.command == 'watch-pr':
             return watch_pr_command( arguments )
+        if arguments.command == 'fetch-ci-logs':
+            return fetch_ci_logs_command( arguments )
     except ( CredentialError, GitHubHelperError ) as error:
         print( error, file=sys.stderr )
         return 1

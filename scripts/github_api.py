@@ -190,6 +190,61 @@ class GitHub( object ):
             body = error.read()
             return error.code, ( json.loads( body ) if body else {} )
 
+    def download( self, path ):
+        """Authenticated GET returning raw ``bytes`` (for zip log archives and similar).
+
+        GitHub redirects log downloads to object storage. Forwarding the Bearer token to that
+        host fails authentication, so Authorization is dropped on cross-host redirects.
+        """
+        if self._token is None:
+            raise CredentialError(
+                "download requires the sealed credential "
+                "(python -m scripts.github_api seal)"
+            )
+
+        headers = {
+            'Accept': 'application/vnd.github+json',
+            'User-Agent': USER_AGENT,
+            'Authorization': 'Bearer ' + self._token,
+        }
+        request = urllib.request.Request(
+            path if path.startswith( 'http' ) else API + path,
+            method = 'GET',
+            headers = headers,
+        )
+
+        class _StripAuthRedirect( urllib.request.HTTPRedirectHandler ):
+            def redirect_request( self, req, fp, code, msg, headers, newurl ):
+                new_request = urllib.request.HTTPRedirectHandler.redirect_request(
+                    self, req, fp, code, msg, headers, newurl
+                )
+                if new_request is None:
+                    return None
+                if 'api.github.com' not in new_request.full_url:
+                    for header_name in list( new_request.headers ):
+                        if header_name.lower() == 'authorization':
+                            del new_request.headers[header_name]
+                    unredirected = getattr( new_request, 'unredirected_hdrs', None )
+                    if unredirected:
+                        for header_name in list( unredirected ):
+                            if header_name.lower() == 'authorization':
+                                del unredirected[header_name]
+                return new_request
+
+        opener = urllib.request.build_opener( _StripAuthRedirect )
+        try:
+            with opener.open( request ) as response:
+                self._report_expiry_once( response.headers )
+                return response.status, response.read()
+        except urllib.error.HTTPError as error:
+            self._report_expiry_once( error.headers )
+            body = error.read()
+            try:
+                payload = json.loads( body ) if body else {}
+            except ( TypeError, ValueError ):
+                payload = { 'message': body.decode( 'utf-8', 'replace' ) if body else '' }
+            return error.code, payload
+
     def _report_expiry_once( self, headers ):
         if self._token is None or self._expiry_reported:
             return

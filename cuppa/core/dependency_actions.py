@@ -792,7 +792,7 @@ def list_dependencies( construct, cuppa_env, out=None ):
             ) )
         out.write( ".\n" )
         out.write(
-            "If re-extracting a dependency fails, remove the corrupt archive there — "
+            "If re-extracting a dependency fails, remove the corrupt archive there - "
             "deleting only the dependency tree is not enough.\n"
         )
 
