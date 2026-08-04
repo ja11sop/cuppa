@@ -126,7 +126,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the listing still exited 0 (#134).
 - Dependency listing examples in the Dependencies documentation match real table layout: full-width
   partition rules, right-aligned `SIZE`, stem-only connector rows, and current
-  `--list-develop` columns (#134).
+  `--list-develop` columns. The “which listing” comparison table is AsciiDoc (`|===`), not
+  Markdown (#134).
 - GitLab package archive naming no longer calls Linux-only `platform.freedesktop_os_release()`
   unconditionally. On Windows and macOS it falls back to a stable OS label (`windows` / `macos`)
   so package construction — and therefore `--list-dependencies` registry LOCATION for GitLab

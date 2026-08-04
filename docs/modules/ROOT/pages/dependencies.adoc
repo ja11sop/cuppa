@@ -95,11 +95,13 @@ Relative locations ending in `@` participate in `--location-match-*` branch/tag 
 Cuppa has several read-only reports that answer different questions. `--develop` is a *build*
 switch; `--list-develop` is a *report* about working copies. They are easy to mix up.
 
-| You want to know… | Use | Looks at |
-|---|---|---|
-| What is under the shared dependencies root, and which trees this project would use | `--list-dependencies` | `--dependencies-root` (for example `~/.cuppa/dependencies` or a legacy `~/_cuppa/_download`) |
-| Branch, cleanliness, and ahead/behind of configured develop working copies | `--list-develop` | Develop paths from the sconstruct |
-| What is under `_build` | `--list-builds` | `--build-root` |
+|===
+| You want to know… | Use | Looks at
+
+| What is under the shared dependencies root, and which trees this project would use | `--list-dependencies` | `--dependencies-root` (for example `~/.cuppa/dependencies` or a legacy `~/_cuppa/_download`)
+| Branch, cleanliness, and ahead/behind of configured develop working copies | `--list-develop` | Develop paths from the sconstruct
+| What is under `_build` | `--list-builds` | `--build-root`
+|===
 
 **Inspecting dependency storage** — omit `--develop`:
 
