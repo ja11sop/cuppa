@@ -17,7 +17,6 @@ import hashlib
 import json
 import os
 import tempfile
-import time
 from datetime import datetime, timezone
 
 from cuppa.log import logger
@@ -169,7 +168,6 @@ def measure_size( path, exact=False ):
     method = 'exact'
     if truncated and files > 1:
         # Estimate remaining from mean size of the sample.
-        mean = total / float( files - 1 )
         # Rough multiplier: assume similar density for the rest of the tree depth.
         # Prefer over-estimate slightly by scaling with a walk of directories.
         dir_count = 0

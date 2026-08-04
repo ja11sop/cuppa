@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Storage roots, listing, and removal; GitHub [#132](https://github.com/ja11sop/cuppa/issues/132), [#133](https://github.com/ja11sop/cuppa/issues/133), [#134](https://github.com/ja11sop/cuppa/issues/134), [#135](https://github.com/ja11sop/cuppa/issues/135), [#138](https://github.com/ja11sop/cuppa/issues/138)
-- **Updated:** 2026-08-04 (`[D]` download-cache mark on verbose LOCATION; inventory `remote_location`; §4.11 `git+` note)
+- **Updated:** 2026-08-04
 
 `--list-develop` and `--update-develop` (§3.5, §3.6), the storage rename (§3.1, §8, Phase 1),
 and build listing/removal (`--list-builds`, `--remove-builds`, `--remove-all-builds`, Phase 2)

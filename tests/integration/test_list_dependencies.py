@@ -44,6 +44,8 @@ def plant_realistic_dependencies_root(storage):
 
 def plant_archives_and_downloads(storage):
     """GitHub release extracts + matching downloads; one tag without a download."""
+    from cuppa.core.dependency_identity import gitlab_archive_name
+
     deps = storage / "dependencies"
     downloads = storage / "downloads"
     downloads.mkdir(parents=True)
@@ -68,10 +70,12 @@ def plant_archives_and_downloads(storage):
     (boost / "boost" / "version.hpp").write_text("//\n", encoding="utf-8")
     (downloads / boost_folder).write_bytes(b"tar-bytes")
 
-    gitlab = deps / "gcc153_rel_x86_64_cxx2c" / "boost" / "1.91"
+    tool_variant = "gcc153_rel_x86_64_cxx2c"
+    gitlab = deps / tool_variant / "boost" / "1.91"
     gitlab.mkdir(parents=True)
     (gitlab / "include" / "boost").mkdir(parents=True)
-    archive = "boost_debian_gcc153_rel_x86_64_cxx2c.tar.gz"
+    # Match the host OS id (debian/ubuntu/…) used by gitlab_archive_name.
+    archive = gitlab_archive_name("boost", tool_variant)
     pkg_dir = downloads / "packages" / "boost" / "1.91"
     pkg_dir.mkdir(parents=True)
     (pkg_dir / archive).write_bytes(b"pkg-bytes")
@@ -81,6 +85,7 @@ def plant_archives_and_downloads(storage):
         "fmt_12": fmt_12,
         "boost_folder": boost_folder,
         "gitlab_archive": archive,
+        "tool_variant": tool_variant,
     }
 
 
@@ -233,7 +238,7 @@ def test_list_dependencies_verbose_archives_and_download_mark(tmp_path):
     """Verbose LOCATION groups GitHub/Boost archives and marks cached downloads with [D]."""
     project = copy_dummy_project(tmp_path)
     storage = tmp_path / "storage"
-    plant_archives_and_downloads(storage)
+    planted = plant_archives_and_downloads(storage)
     write_sconstruct(
         project,
         body="""\
@@ -284,7 +289,7 @@ cuppa.run(
     # GitLab: registry URL on the version row without [D]; archive leaf with [D].
     assert "gitlab.example/api/v4/projects/1/boost/1.91" in plain
     assert "[D] https://gitlab.example/api/v4/projects/1/boost/1.91" not in plain
-    assert "[D] boost_debian_gcc153_rel_x86_64_cxx2c.tar.gz" in plain
+    assert "[D] {}".format(planted["gitlab_archive"]) in plain
 
     assert "[D] = archive present under downloads" in plain
     assert "corrupt archive" in plain

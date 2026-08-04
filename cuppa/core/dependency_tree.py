@@ -9,6 +9,7 @@
 
 """Build and render the §4.9 dependency tree from enriched leaf rows."""
 
+import os
 import re
 
 from cuppa.colourise import as_emphasised, as_error, as_info, as_subdued
@@ -367,6 +368,9 @@ def _gitlab_children( leaves_in ):
         tool_children = []
         for leaf in sorted( variants, key=lambda item: item.get( 'tool_variant' ) or '' ):
             archive = leaf.get( 'package_archive' )
+            download_path = leaf.get( 'download_path' )
+            if download_path:
+                archive = os.path.basename( str( download_path ).rstrip( '\\/' ) )
             if not archive:
                 archive = gitlab_archive_name(
                         package_name, leaf.get( 'tool_variant' )

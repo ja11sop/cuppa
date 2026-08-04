@@ -42,7 +42,10 @@ def _init_repo( path, branch="master", message="init" ):
 
 
 def _add_commit( path, name, message ):
-    ( Path( path ) / name ).write_text( "x\n", encoding="utf-8" )
+    path = Path( path )
+    _run_git( path, "config", "user.email", "cuppa-test@example.com" )
+    _run_git( path, "config", "user.name", "Cuppa Test" )
+    ( path / name ).write_text( "x\n", encoding="utf-8" )
     _run_git( path, "add", name )
     _run_git( path, "commit", "-m", message )
 
