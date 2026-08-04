@@ -153,33 +153,44 @@ cuppa -Q -D --list-dependencies --list-format=json
 cuppa -Q -D --list-dependencies --exact-sizes
 ----
 
-Example shape (sizes and names vary; `~` marks a sampled size; glyphs may be ASCII on some
-consoles):
+Example shape (sizes and names vary; glyphs may be ASCII on some consoles). Every horizontal
+rule — including the one between `referenced` and `unreferenced` — spans the full table width
+(the same run of hyphen characters as the header and footer rules), not a short separator:
 
 [source,text]
 ----
 Dependencies in ~/.cuppa/dependencies
-Default dependencies: widget, boost_package
-
-  -----------------------------------------------------------------------------------------------
-  SIZE     LAST USED  REMARK   DEPENDENCY
-  -----------------------------------------------------------------------------------------------
-  301.3M   today      2 used   referenced
-  1M       today      1 used   ├── location dependencies
-  1M       today      in use   │   └── widget [github.com/example/widget]
-  1M       today      in use   │       └── @master
-  299.3M   today      1 used   └── gitlab packages
-  299.3M   today      in use       └── boost_package [boost]
-  299.3M   today      in use           └── 1.91
-  299.3M   today      in use               └── gcc153_rel_x86_64_cxx2c
-  ----------
-  963.1K   12 Jun              unreferenced
-  963.1K   12 Jun              └── location dependencies
-  963.1K   12 Jun                  └── github.com/example/widget
-  963.1K   12 Jun                      └── @feature_x
-  -----------------------------------------------------------------------------------------------
-  3 entries, 301.3M total, 963.1K unreferenced   (~ estimated; --exact-sizes measures)
+Default dependencies: boost_package
+  ---------------------------------------------------------------------
+      SIZE  LAST USED  REMARK   DEPENDENCY
+  ---------------------------------------------------------------------
+    299.3M  today      1 total  referenced
+                                │
+    299.3M  today      1 used   ├── dependencies in use
+                                │
+    299.3M  today      1 used   └── gitlab packages
+                                    │
+    299.3M  today                   └── boost_package
+    299.3M  today                       └── 1.91
+    299.3M  today      in use               └── gcc153_rel_x86_64_cxx2c
+  ---------------------------------------------------------------------
+      5.8M  today               unreferenced
+                                │
+      5.8M  today               └── archives
+                                    │
+      2.9M  today                   ├── boost
+      2.9M  today                   │   └── 1.91.0
+                                    │
+      2.9M  today                   └── github.com/fmtlib/fmt
+      1.4M  today                       ├── 11.1.4
+      1.5M  today                       └── 12.2.0
+  ---------------------------------------------------------------------
+  3 entries, 305.1M total, 5.8M unreferenced
 ----
+
+`SIZE` is right-aligned in a fixed eight-character field. Blank rows that carry only a tree
+stem (`│`) keep the hanging lines continuous between siblings. Referenced trees open with a
+`dependencies in use` roll-up when at least one leaf is selected.
 
 Under `--list-format=verbose` a LOCATION column is added. What it shows depends on the type:
 
@@ -193,35 +204,43 @@ Under `--list-format=verbose` a LOCATION column is added. What it shows depends 
 When a regenerating archive exists under the downloads root (`--downloads-root`, for example
 `~/.cuppa/downloads` or a legacy `~/_cuppa/_cache`), LOCATION is prefixed with `[D]` on the
 leaf that names that archive (HTTP/Boost extract rows, and GitLab toolchain archive basenames —
-not the GitLab registry URL on the version row). A footer explains the mark. If re-extracting a
-dependency fails, remove the corrupt archive under downloads; deleting only the dependency tree
-is not enough.
+not the GitLab registry URL on the version row). A footer explains the mark whenever such archives
+are present (including under the default text format, even though LOCATION is omitted there). If
+re-extracting a dependency fails, remove the corrupt archive under downloads; deleting only the
+dependency tree is not enough.
 
 [source,text]
 ----
 Dependencies in ~/.cuppa/dependencies
 Default dependencies: boost_package
-
-  ----------------------------------------------------------------------------------------------------------------------------------
-  SIZE     LAST USED  REMARK   DEPENDENCY                                                         LOCATION
-  ----------------------------------------------------------------------------------------------------------------------------------
-  299.3M   today      1 used   referenced
-  299.3M   today      1 used   └── gitlab packages
-  299.3M   today      in use       └── boost_package [boost]
-  299.3M   today               │       └── 1.91                                                   https://gitlab.example/api/v4/projects/1/boost/1.91
-  299.3M   today      in use   │           └── gcc153_rel_x86_64_cxx2c                            [D] boost_debian_gcc153_rel_x86_64_cxx2c.tar.gz
-  ----------
-  5.8M     4 days ago          unreferenced
-  5.8M     4 days ago          └── archives
-  5.8M     4 days ago              └── github.com/fmtlib/fmt
-  2.9M     5 days ago                  ├── 11.1.4                                                 [D] https://github.com/fmtlib/fmt/archive/refs/tags/11.1.4.zip
-  2.9M     4 days ago                  └── 12.2.0                                                     https://github.com/fmtlib/fmt/archive/refs/tags/12.2.0.zip
-  ----------------------------------------------------------------------------------------------------------------------------------
+  ----------------------------------------------------------------------------------------------------------------------------------------------
+      SIZE  LAST USED  REMARK   DEPENDENCY                               LOCATION
+  ----------------------------------------------------------------------------------------------------------------------------------------------
+    299.3M  today      1 total  referenced
+                                │
+    299.3M  today      1 used   ├── dependencies in use
+                                │
+    299.3M  today      1 used   └── gitlab packages
+                                    │
+    299.3M  today                   └── boost_package
+    299.3M  today                       └── 1.91                         https://gitlab.example/api/v4/projects/1/boost/1.91
+    299.3M  today      in use               └── gcc153_rel_x86_64_cxx2c  [D] boost_debian_gcc153_rel_x86_64_cxx2c.tar.gz
+  ----------------------------------------------------------------------------------------------------------------------------------------------
+      5.8M  today               unreferenced
+                                │
+      5.8M  today               └── archives
+                                    │
+      2.9M  today                   ├── boost
+      2.9M  today                   │   └── 1.91.0                       [D] https://archives.boost.io/release/1.91.0/source/boost_1_91_0.tar.gz
+                                    │
+      2.9M  today                   └── github.com/fmtlib/fmt
+      1.4M  today                       ├── 11.1.4                       [D] https://github.com/fmtlib/fmt/archive/refs/tags/11.1.4.zip
+      1.5M  today                       └── 12.2.0                       https://github.com/fmtlib/fmt/archive/refs/tags/12.2.0.zip
+  ----------------------------------------------------------------------------------------------------------------------------------------------
   3 entries, 305.1M total, 5.8M unreferenced
 
-  [D] = archive present under downloads (~/.cuppa/downloads).
-  If re-extracting a dependency fails, remove the corrupt archive there - deleting only the
-  dependency tree is not enough.
+[D] = archive present under downloads (~/.cuppa/downloads).
+If re-extracting a dependency fails, remove the corrupt archive there - deleting only the dependency tree is not enough.
 ----
 
 The inventory under `<dependencies_root>/.cuppa-inventory/` records size samples, optional
@@ -252,14 +271,14 @@ differ; the shape of the report does not. Colour is described in the commentary 
 ----
 Building on branch [feature_orders] with default branch [master]; --develop is not active
 
-  ------------------------------------------------------------------------------------------------------------------
-  STATUS  DEPENDENCY  BRANCH          UPSTREAM               STATE                PATH
-  ------------------------------------------------------------------------------------------------------------------
-  warn    flange      spike_cache     origin/spike_cache     clean, 2 behind      ~/coding/flange
-  error   gizmo       -               -                      path does not exist  ~/coding/gizmo
-  ok      gadget      master          origin/master          clean                ~/coding/gadget
-  note    widget      feature_orders  -                      modified             ~/coding/widget
-  ------------------------------------------------------------------------------------------------------------------
+  ----------------------------------------------------------------------------------------------
+  STATUS  DEPENDENCY  BRANCH          UPSTREAM            STATE                  PATH
+  ----------------------------------------------------------------------------------------------
+  warn    flange      spike_cache     origin/spike_cache  clean, 2 behind        ~/coding/flange
+  ok      gadget      master          origin/master       clean                  ~/coding/gadget
+  error   gizmo       -               -                   path does not exist    ~/coding/gizmo
+  note    widget      feature_orders  -                   modified, no upstream  ~/coding/widget
+  ----------------------------------------------------------------------------------------------
 
 4 develop locations: 1 ok, 1 note, 1 warning, 1 error; 1 dependency not using develop
 │
@@ -272,13 +291,13 @@ Building on branch [feature_orders] with default branch [master]; --develop is n
 ├── 1 warning
 │   │
 │   └── flange
-│       ├── is on [spike_cache], which is neither [feature_orders] nor the default branch
-│       │   [master]
+│       ├── is on [spike_cache], which is neither [feature_orders] nor the default branch [master]
 │       └── is 2 commits behind [origin/spike_cache] as of your last fetch
 │
 └── 1 note
     │
     └── widget
+        ├── has no upstream branch, so ahead and behind cannot be answered
         └── has uncommitted changes on [feature_orders]
 
 Ahead and behind are relative to your last fetch; no remote was contacted

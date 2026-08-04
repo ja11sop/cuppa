@@ -124,6 +124,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "corrupt archive" sentence. On Windows that character could not be encoded to the console
   code page after the first footer line, so the advice was missing from captured output while
   the listing still exited 0 (#134).
+- Dependency listing examples in the Dependencies documentation match real table layout: full-width
+  partition rules, right-aligned `SIZE`, stem-only connector rows, and current
+  `--list-develop` columns (#134).
 - GitLab package archive naming no longer calls Linux-only `platform.freedesktop_os_release()`
   unconditionally. On Windows and macOS it falls back to a stable OS label (`windows` / `macos`)
   so package construction — and therefore `--list-dependencies` registry LOCATION for GitLab

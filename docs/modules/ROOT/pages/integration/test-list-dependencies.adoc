@@ -16,8 +16,8 @@ and matching files under `downloads/`. Verbose listing then checks:
 * archive identities (`github.com/fmtlib/fmt`, `boost`) with version children
 * LOCATION download URLs reconstructed from encoded folder names
 * `[D]` only where a regenerating archive exists under downloads (GitHub tag with a zip;
-  Boost tarball; GitLab toolchain `.tar.gz` leaf — not the GitLab registry URL on the version
-  row)
+  Boost `.tar.gz` or `.zip` depending on platform; GitLab toolchain archive leaf — not the
+  GitLab registry URL on the version row)
 * the `[D]` footer text
 * JSON `has_download`, `download_path`, and `remote_location` on those entries
 
@@ -26,7 +26,7 @@ and matching files under `downloads/`. Verbose listing then checks:
 The dummy project with the default `sconstruct`, plus planted trees under
 `<storage>/dependencies/` (VCS-style folders, GitLab `tool_variant/package/version`, and encoded
 HTTP archive folders). The verbose scenario also plants `<storage>/downloads/` (flat archive
-files and `packages/<package>/<version>/*.tar.gz`) and a `sconstruct` that declares a GitLab
+files and `packages/<package>/<version>/*.{tar.gz,zip}`) and a `sconstruct` that declares a GitLab
 `boost_package` so resolve can supply a registry URL.
 
 == Commands
