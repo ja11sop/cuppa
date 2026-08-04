@@ -114,11 +114,19 @@ Otherwise, follow the shape already in the log:
 notes set up. For authenticated writes use `scripts.github_api` (and the helpers below). For
 anonymous reads use the public GitHub HTTP API, `curl`, or `urllib` — still not `gh`.
 
-Cuppa is a public repository, so anything that only reads it — issue lists, issue bodies, pull
-request state, check runs — needs no credential at all. Use the public API anonymously
-(`GitHub.public()` / `pr-status` / `watch-pr`) and do not ask for a token. A token is only for
-**writing**: filing or editing issues, applying labels, commenting on pull requests. Pushing a
-branch is ordinary `git push -u origin HEAD`; that does not need this credential either.
+Cuppa is a public repository, so anything that only reads *metadata* — issue lists, issue bodies,
+pull request state, check-run conclusions — needs no credential at all. Use the public API
+anonymously (`GitHub.public()` / `pr-status` / `watch-pr`) and do not ask for a token.
+
+**Exception — Actions log archives:** even on a public repository, GitHub's
+`/actions/runs/{id}/logs` and `/actions/jobs/{id}/logs` endpoints return **403** to anonymous
+clients ("Must have admin rights to Repository"). Check-run *annotations* are public but usually
+only say the step exited non-zero. To read the pytest failure text, use ``fetch-ci-logs`` with
+the sealed credential (see below).
+
+A token is for **writing** (filing or editing issues, applying labels, commenting on pull
+requests) and for **downloading CI logs**. Pushing a branch is ordinary `git push -u origin HEAD`;
+that does not need this credential either.
 
 Having a token is optional. If you want an agent to write on your behalf, set it up as follows;
 tokens are personal, so mint your own rather than reusing anyone else's, and what an agent did
@@ -132,9 +140,11 @@ On GitHub, under **Settings → Developer settings → Personal access tokens �
 create a token with:
 
 - **Repository access:** only the cuppa repository — your fork if you work from one.
-- **Permissions:** *Issues* read and write, *Pull requests* read and write, *Metadata* read-only.
-  Grant nothing else. Without *Contents* or *Workflows* write, the worst an agent can do is
-  reversible, visible noise on issues and pull requests; it cannot touch code, branches, or CI.
+- **Permissions:** *Issues* read and write, *Pull requests* read and write, *Actions* read-only,
+  *Metadata* read-only. Grant nothing else. *Actions* read is only so ``fetch-ci-logs`` can
+  download workflow log zips; without it, status polling still works via the public API. Without
+  *Contents* or *Workflows* write, the worst an agent can do is reversible, visible noise on
+  issues and pull requests; it cannot touch code, branches, or CI configuration.
 - **Expiry:** short. Thirty days or less, so a value that escapes has a deadline.
 
 Copy the value once, into the next step. Do not paste it into a chat, a file in the working tree,
@@ -221,8 +231,24 @@ repository come from the local `origin` remote. The default poll interval is thi
 
 Exit codes: `0` all checks succeeded (or were skipped / neutral), `1` at least one failed, `2`
 still pending (`pr-status` only), `3` timed out while still pending (`watch-pr`). Prefer
-`watch-pr` after a push; use `pr-status` when you only need a snapshot. Grow this helper if the
-same follow-up (for example fetching a failed job log) starts repeating.
+`watch-pr` after a push; use `pr-status` when you only need a snapshot.
+
+When `watch-pr` / `pr-status` reports a failure, feed the failed job name into the log helper
+(sealed token; Actions read permission required — see token permissions above):
+
+```sh
+python -m scripts.github_helpers fetch-ci-logs
+python -m scripts.github_helpers fetch-ci-logs --job integration-windows
+python -m scripts.github_helpers fetch-ci-logs --job integration-windows --full
+python -m scripts.github_helpers fetch-ci-logs --output-dir /tmp/cuppa-ci-logs
+```
+
+`fetch-ci-logs` defaults to every check that failed on the open PR, downloads that head's workflow
+run log zip, and prints failure excerpts (`FAILED`, `AssertionError`, …). Pass `--job` to narrow
+to one check name substring from the `pr-status` listing. Do not use `gh` for this, and do not
+hand-roll log downloads when the helper already encodes the redirect/auth stripping.
+
+Grow this helper if the same follow-up starts repeating.
 
 Be clear about what sealing buys. It makes the stored file meaningless anywhere else — in a backup,
 a synced folder, or a pasted diff. It does **not** stop a process running as you from asking the
@@ -357,9 +383,36 @@ When docs and code disagree, **code is authoritative** (especially storage defau
 | Compiler defaults and flags | `toolchains.adoc` |
 | C++20 modules intro, tutorial, papers, reference | `cxx-modules.adoc` |
 | CLI flags | `cli-reference.adoc` |
+| Dependencies overview (kinds, declare, `BuildWith`) | `dependencies.adoc` (hub) |
+| Location / header libraries | `dependencies-location.adoc` (planned; today mid-`dependencies.adoc`) |
+| Package consume overview | `dependencies-packages.adoc` (planned; today partly `packages.adoc`) |
+| GitLab packages (consume) | `dependencies-gitlab.adoc` (planned) |
+| Conan packages (consume) | `dependencies-conan.adoc` (planned; today end of `dependencies.adoc`) |
+| Built-in deps index | `dependencies-builtins.adoc` (planned) |
+| Boost (source / b2; contrast `boost_package`) | `dependencies-boost.adoc` (planned) |
+| Qt / Quince | `dependencies-qt.adoc` / `dependencies-quince.adoc` (planned; thin stubs OK) |
+| Managing deps (list / update / remove) | `dependencies-managing.adoc` (planned; today mid-`dependencies.adoc`) |
+| Writing your own dependencies | `dependencies-extending.adoc` (planned; also `extending.adoc` for plugins) |
+| Publishing packages (GitLab / Conan) | `packages.adoc` (publish focus; not consume tutorials) |
 | Pytest scenarios | `integration-tests.adoc` + `integration/*.adoc` |
 
-Update `docs/modules/ROOT/nav.adoc` when adding a new top-level page.
+Until the Phase 3 documentation split in [`design/plans/removal-options.md`](design/plans/removal-options.md) §7.1 lands, prefer extending the eventual page above rather than growing the monolith further when you know which child owns the topic.
+
+Update `docs/modules/ROOT/nav.adoc` when adding a new top-level page or nesting children under Dependencies.
+
+### Documentation partitioning (rules of thumb)
+
+Use these when splitting or placing dependency (and similar) docs — same principles as §7.1 of the removal-options plan:
+
+- **Mirror the code shape.** Location, GitLab package, Conan, built-ins, manage-on-disk, and authoring already live in different modules; docs should follow that map rather than one growing page.
+- **Hub pages stay short.** Overview + kinds table + `cuppa.run` / `BuildWith` + pointers. No deep tutorials on the hub.
+- **Consume vs publish.** Consuming a registry or Conan package belongs under Dependencies; publishing Cuppa-built libraries belongs under Packages (or a Publishing child). Cross-link the round-trip; do not duplicate the full story on both sides.
+- **Managing is its own page.** List / update / remove / inventory are storage and develop workflows, not a footnote on declaring dependencies.
+- **Nest by surface area, not by every registered name.** Give a child page when the topic has its own CLI options, `env.*` helpers, or a choose-your-flavour decision (e.g. Boost source vs `boost_package`). Keep an index as name → one-line purpose → xref.
+- **Honest stubs beat invented depth.** Thin or nearly undocumented built-ins (Qt, Quince today) get short pages or index sections that name the dependency, prerequisites, and module — expand when real usage is documented.
+- **Do not rewrite unstable samples twice.** When CLI table presentation or removal flags are still churning, finish that polish before (or land Managing together with) the docs that quote those examples.
+- **Integration test pages stay under Integration tests**; topic pages link them rather than inlining scenario prose.
+- **Fix known doc/code drift while moving** (wrong method names, obsolete paths); do not copy mistakes into the new tree.
 
 ## Consumer-project tips
 
@@ -460,6 +513,19 @@ When documentation is built:
 No manual cleanup of old files is needed. Do update `nav.adoc` for new top-level pages.
 
 # Structure
+
+## Page partitioning
+
+Prefer a **hub + topic children** over a single long page when a subject already has distinct code modules or reader jobs (declare vs consume vs publish vs manage vs extend).
+
+Rules of thumb (see also agent notes § Documentation partitioning and `design/plans/removal-options.md` §7.1):
+
+- Keep the hub short: what it is, kinds or map, how to declare, where to go next.
+- Split **consume** tutorials from **publish** tutorials; cross-link instead of duplicating.
+- Put **manage on disk** workflows (list / update / remove) on their own page.
+- Nest further only when surface area warrants it (own CLI flags, `env.*` helpers, or a non-trivial flavour choice). An index of registered names with one-line purpose and xrefs is enough for thin built-ins.
+- Prefer honest stubs over pages that invent depth the product does not yet document.
+- Update `nav.adoc` so nested children appear under the hub; do not leave orphan pages.
 
 ## Introduction
 

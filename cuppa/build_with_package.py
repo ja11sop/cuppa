@@ -137,6 +137,42 @@ class base(object):
         self._package.initialise_build_variant( env, toolchain, variant )
 
 
+    def storage_paths( self ):
+        """Delegate to the resolved package (optional storage protocol)."""
+        package = getattr( self, '_package', None )
+        if package is None:
+            return None
+        method = getattr( package, 'storage_paths', None )
+        return method() if method else None
+
+
+    def storage_qualifier( self ):
+        package = getattr( self, '_package', None )
+        if package is None:
+            return None
+        method = getattr( package, 'storage_qualifier', None )
+        if callable( method ):
+            return method()
+        version = getattr( package, 'version', None )
+        return version() if callable( version ) else None
+
+
+    def storage_tool_variant( self ):
+        package = getattr( self, '_package', None )
+        if package is None:
+            return None
+        method = getattr( package, 'storage_tool_variant', None )
+        return method() if callable( method ) else None
+
+
+    def remote_location( self ):
+        package = getattr( self, '_package', None )
+        if package is None:
+            return None
+        method = getattr( package, 'remote_location', None )
+        return method() if callable( method ) else None
+
+
     def use_libs( self, libs, depends_on=[] ):
         self._package.use_libs( libs, depends_on=depends_on )
 

@@ -1,0 +1,43 @@
+= `test_list_develop` — list develop working copies
+:description: Cuppa integration test documentation for test_list_develop
+
+
+== What is tested
+
+With planted git working copies (and one missing path) wired as `develop=` on location
+dependencies, `--list-develop` prints the ruled STATUS table, a summary line, and a judgement
+tree grouped by severity. A project with no develop locations still prints the banner and a
+zero-count summary. Exit status is non-zero when a develop path does not exist.
+
+The scenario is the source of the realistic example on
+xref:dependencies.adoc#checking-your-develop-copies[Dependencies — Checking your develop copies].
+
+== Generated files
+
+The dummy project, initialised as a git repository on branch `feature_orders`, plus:
+
+* `deps/widget` — on `feature_orders`, dirty working tree
+* `deps/gadget` — on `master`, clean
+* `deps/flange` — on `spike_cache`, clean, behind a local `origin`
+* `deps/gizmo` — path configured but not created
+* `boostish` — registered without a develop path (counted as "not using develop")
+
+== Commands
+
+[source,sh]
+----
+cuppa -D --offline -Q --list-develop
+----
+
+== Expectations
+
+Text output includes `Building on branch [feature_orders]`, `--develop is not active`, the
+`STATUS` / `DEPENDENCY` / `BRANCH` header, rows for `widget`, `gadget`, `flange`, and `gizmo`,
+`path does not exist`, a behind warning for `flange`, the summary with ok / note / warning /
+error counts, `1 dependency not using develop`, and the fetch disclaimer. Return code is `1`
+because of the missing develop path. A second project with no develop clauses exits `0` and
+reports zero develop locations.
+
+'''
+
+Related test module: `tests/integration/test_list_develop.py`.

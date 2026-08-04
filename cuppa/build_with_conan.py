@@ -617,6 +617,43 @@ class base( object ):
         dependencies_root = env.get( 'dependencies_root' ) or os.path.join( os.getcwd(), '_cuppa' )
         return os.path.join( os.path.expanduser( dependencies_root ), 'conan', self._name )
 
+    def storage_paths( self ):
+        """On-disk paths this Conan consumer owns under dependencies_root.
+
+        The Conan home cache (``~/.conan2``) is not managed by cuppa and is never listed here.
+        Under storage resolve-only, the fingerprint install directory for the current
+        toolchain/variant is reported without running ``conan install``.
+        """
+        env = self._env_ref
+        paths = {
+            'dependencies': [],
+            'downloads': [],
+            'build': [],
+            'develop': [],
+        }
+        if self._generators_folder:
+            return paths
+        install_dir = self._install_dir
+        if not install_dir and env.get( 'storage_resolve_only' ):
+            try:
+                conanfile_path = self._resolve_conanfile_path( env )
+                fingerprint, _settings = self._fingerprint(
+                        env, env['toolchain'], env['variant'], conanfile_path
+                )
+                install_dir = os.path.join( self._install_root( env ), fingerprint[:16] )
+                self._install_dir = install_dir
+            except Exception:
+                install_dir = self._install_root( env )
+        if not install_dir:
+            install_dir = self._install_root( env )
+        paths['dependencies'].append( install_dir )
+        return paths
+
+    def storage_qualifier( self ):
+        if self._install_dir:
+            return os.path.basename( self._install_dir )
+        return 'conan'
+
     def _ensure_installed( self, env, toolchain, variant ):
         import SCons.Errors
 

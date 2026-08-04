@@ -4,10 +4,15 @@ import pytest
 
 from cuppa.package_managers.gitlab import (
     GitlabPackageDependency,
+    os_release_id,
+    package_archive_extension,
+    package_archive_extensions,
     package_file_name,
     package_url,
     remove_prefix,
     remove_suffix,
+    resolve_existing_package_archive,
+    strip_package_archive_extension,
     tool_variant,
 )
 
@@ -20,6 +25,12 @@ def test_remove_prefix_and_suffix():
     assert remove_prefix("foobar", "baz") == "foobar"
     assert remove_suffix("foobar", "bar") == "foo"
     assert remove_suffix("foobar", "baz") == "foobar"
+    assert strip_package_archive_extension("widget_debian_gcc15_rel.tar.gz") == (
+        "widget_debian_gcc15_rel"
+    )
+    assert strip_package_archive_extension("widget_windows_vc143_rel.zip") == (
+        "widget_windows_vc143_rel"
+    )
 
 
 def test_tool_variant_and_package_names(monkeypatch):
@@ -38,6 +49,10 @@ def test_tool_variant_and_package_names(monkeypatch):
         "cuppa.package_managers.gitlab.platform.freedesktop_os_release",
         lambda: {"ID": "debian"},
     )
+    monkeypatch.setattr(
+        "cuppa.package_managers.gitlab.platform.system",
+        lambda: "Linux",
+    )
     name = package_file_name(env, package="widget")
     assert name == "widget_debian_gcc15_rel_x86_64_cxx2c.tar.gz"
     url = package_url(
@@ -47,6 +62,63 @@ def test_tool_variant_and_package_names(monkeypatch):
         version="1.0.0",
     )
     assert url.endswith("/packages/generic/widget/1.0.0/" + name)
+
+
+def test_os_release_id_falls_back_without_freedesktop(monkeypatch):
+    def _missing():
+        raise AttributeError("freedesktop_os_release")
+
+    monkeypatch.setattr(
+        "cuppa.package_managers.gitlab.platform.freedesktop_os_release",
+        _missing,
+    )
+    monkeypatch.setattr(
+        "cuppa.package_managers.gitlab.platform.system",
+        lambda: "Windows",
+    )
+    assert os_release_id() == "windows"
+    assert package_archive_extension() == ".zip"
+    assert package_archive_extensions() == (".zip", ".tar.gz")
+
+    monkeypatch.setattr(
+        "cuppa.package_managers.gitlab.platform.system",
+        lambda: "Darwin",
+    )
+    assert os_release_id() == "macos"
+    assert package_archive_extension() == ".tar.gz"
+
+    toolchain = SimpleNamespace(package_name=lambda: "vc143")
+    variant = SimpleNamespace(name=lambda: "rel")
+    env = {
+        "toolchain": toolchain,
+        "variant": variant,
+        "target_arch": "x86_64",
+        "abi": "cxx17",
+    }
+    monkeypatch.setattr(
+        "cuppa.package_managers.gitlab.platform.system",
+        lambda: "Windows",
+    )
+    assert package_file_name(env, package="boost") == (
+        "boost_windows_vc143_rel_x86_64_cxx17.zip"
+    )
+
+
+def test_resolve_existing_package_archive_prefers_platform_then_alternate(
+        tmp_path, monkeypatch
+):
+    monkeypatch.setattr(
+        "cuppa.package_managers.gitlab.platform.system",
+        lambda: "Windows",
+    )
+    stem = "boost_windows_vc143_rel_x86_64_cxx17"
+    legacy = tmp_path / (stem + ".tar.gz")
+    legacy.write_bytes(b"tar")
+    assert resolve_existing_package_archive(str(tmp_path), stem) == str(legacy)
+
+    preferred = tmp_path / (stem + ".zip")
+    preferred.write_bytes(b"zip")
+    assert resolve_existing_package_archive(str(tmp_path), stem) == str(preferred)
 
 
 def _dependency_for_pkg_config(tmp_path, clean):

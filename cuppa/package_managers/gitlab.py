@@ -14,6 +14,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import zipfile
 
 # cuppa imports
 import cuppa.core.storage_options
@@ -43,15 +44,109 @@ def tool_variant( env, variant=None ):
     )
 
 
-def package_file_name( env, package=None, variant=None, target_dir=None ):
-    name = "{package}_{system}_{build_name}.tar.gz".format(
+def os_release_id():
+    """Linux ``/etc/os-release`` ID (``debian``, ``ubuntu``, …), else a platform fallback.
+
+    Archive names embed this so packages stay OS-scoped. Windows and macOS have no
+    freedesktop os-release; fall back to a stable label rather than raising.
+    """
+    try:
+        return platform.freedesktop_os_release()['ID']
+    except ( AttributeError, KeyError, OSError, TypeError, ValueError ):
+        system = platform.system().lower()
+        if system == 'windows':
+            return 'windows'
+        if system == 'darwin':
+            return 'macos'
+        return system or 'unknown'
+
+
+def package_archive_extension():
+    """Preferred package archive suffix: ``.zip`` on Windows, ``.tar.gz`` elsewhere."""
+    if platform.system() == 'Windows':
+        return '.zip'
+    return '.tar.gz'
+
+
+def package_archive_extensions():
+    """Preferred then alternate archive suffixes for resolve fallback."""
+    preferred = package_archive_extension()
+    alternate = '.tar.gz' if preferred == '.zip' else '.zip'
+    return preferred, alternate
+
+
+def package_file_stem( env, package=None, variant=None ):
+    """Basename without archive extension: ``{package}_{os}_{tool_variant}``."""
+    return "{package}_{system}_{build_name}".format(
             package    = str(package),
-            system     = platform.freedesktop_os_release()['ID'],
+            system     = os_release_id(),
             build_name = tool_variant( env, variant )
     )
+
+
+def package_file_name( env, package=None, variant=None, target_dir=None ):
+    name = package_file_stem( env, package=package, variant=variant ) + package_archive_extension()
     if target_dir:
         return os.path.join( target_dir, name )
     return name
+
+
+def resolve_existing_package_archive( directory, stem ):
+    """Return an existing archive path under ``directory`` for ``stem``, preferring the platform extension.
+
+    Looks for ``stem`` + preferred extension, then the alternate (``.zip`` / ``.tar.gz``), so a
+    Windows build can still use a previously published ``*.tar.gz``.
+    """
+    if not directory or not stem:
+        return None
+    for extension in package_archive_extensions():
+        candidate = os.path.join( directory, stem + extension )
+        if os.path.isfile( candidate ):
+            return candidate
+    return None
+
+
+def strip_package_archive_extension( name ):
+    """Remove a trailing ``.tar.gz`` or ``.zip`` from an archive basename."""
+    text = str( name )
+    for extension in ( '.tar.gz', '.zip' ):
+        if text.endswith( extension ):
+            return text[:-len( extension )]
+    return text
+
+
+def create_package_archive( archive_path, working_dir, source_dir ):
+    """Create ``archive_path`` from ``working_dir/source_dir`` (zip on Windows, tar.gz elsewhere)."""
+    if archive_path.endswith( '.zip' ):
+        root = os.path.join( working_dir, source_dir )
+        with zipfile.ZipFile( archive_path, 'w', zipfile.ZIP_DEFLATED ) as archive:
+            for dirpath, _dirnames, filenames in os.walk( root ):
+                for filename in filenames:
+                    full = os.path.join( dirpath, filename )
+                    arcname = os.path.relpath( full, working_dir )
+                    archive.write( full, arcname )
+        return 0
+    command = 'tar -C {working_dir} -czf {package_file} {source_dir}'.format(
+            working_dir = working_dir,
+            package_file = archive_path,
+            source_dir = source_dir,
+    )
+    completion = subprocess.run( shlex.split( command ) )
+    return completion.returncode
+
+
+def extract_package_archive( archive_path, extraction_dir ):
+    """Extract a GitLab package archive into ``extraction_dir`` (preserves ``package/version/…``)."""
+    if archive_path.endswith( '.zip' ):
+        with zipfile.ZipFile( archive_path ) as archive:
+            archive.extractall( extraction_dir )
+        return 0
+    command = 'tar -C {working_dir} -xzf {package}'.format(
+            working_dir = extraction_dir,
+            package = archive_path,
+    )
+    completion = subprocess.run( shlex.split( command ) )
+    return completion.returncode
 
 
 def package_url( env, registry=None, package=None, version=None, variant=None ):
@@ -103,17 +198,12 @@ class GitlabPackagePublisher:
         self._package_variant   = tool_variant( env, variant=variant )
         self._package_file_name = package_file_name( env, package=package, variant=variant )
         self._package_location  = env.File( os.path.join( env['abs_final_dir'], self._package_file_name ) )
+        self._package_source_dir = package
 
         self._clean_targets = Flatten( [
                 self._target_lib_dir,
                 self._package_base_dir
         ] )
-
-        self._tar_command = 'tar -C {working_dir} -czf {package_file} {source_dir}'.format(
-                working_dir = env['abs_final_dir'],
-                package_file = str( self._package_location ),
-                source_dir = package
-        )
 
         self._curl_command = 'curl --fail-with-body --header "{token}" --upload-file {package_file} "{package_location}"'.format(
                 token = get_header_token( custom_token ),
@@ -124,7 +214,9 @@ class GitlabPackagePublisher:
         self._package_file_path = os.path.join( self._package_folder, self._package_file_name )
 
         self._package_published_id = env.File(
-                remove_suffix( self._package_file_path.replace( "/", "_" ), ".tar.gz" ).replace( ".", "_" ) + ".published"
+                strip_package_archive_extension(
+                        self._package_file_path.replace( "/", "_" )
+                ).replace( ".", "_" ) + ".published"
         )
 
 
@@ -160,15 +252,17 @@ class GitlabPackagePublisher:
             shutil.copytree( source_modules, target_modules )
 
         logger.info( "Creating package [{}]...".format( as_info( str(target[0]) ) ) )
-        logger.info( "Using commnd [{}]".format( as_notice( self._tar_command ) ) )
-
-        completion = subprocess.run( shlex.split( self._tar_command ) )
-        if completion.returncode != 0:
-            logger.error( "Executing [{}] failed with return code [{}]".format(
-                    as_error( self._tar_command ),
-                    as_error( str(completion.returncode) ) )
+        returncode = create_package_archive(
+                str( self._package_location ),
+                env['abs_final_dir'],
+                self._package_source_dir,
+        )
+        if returncode != 0:
+            logger.error( "Creating package archive [{}] failed with return code [{}]".format(
+                    as_error( str( self._package_location ) ),
+                    as_error( str( returncode ) ) )
             )
-            return completion.returncode
+            return returncode
 
         logger.info( "Package [{}] created".format( as_info( str(target[0]) ) ) )
 
@@ -241,8 +335,11 @@ class GitlabPackageInstaller:
             self._target_dir = str(target_dir)
 
         package_file = package_file_name( env, package=package, variant=variant )
+        stem = package_file_stem( env, package=package, variant=variant )
         # package_variant_dir = remove_prefix( package_file, package + "_" ).split(".")[0]
-        self._download_target = os.path.join( self._target_dir, package_file )
+        preferred_target = os.path.join( self._target_dir, package_file )
+        existing = resolve_existing_package_archive( self._target_dir, stem )
+        self._download_target = existing or preferred_target
         download_dir = os.path.split( self._download_target )[0]
         self._extraction_dir = os.path.join( download_dir, tool_variant( env, variant=variant ) )
         self._package_dir = os.path.join( self._extraction_dir, package, version )
@@ -266,10 +363,6 @@ class GitlabPackageInstaller:
                 target_dir = self._target_dir,
                 package_location = package_url( env, registry=registry, package=package, version=version, variant=variant )
         )
-        self._tar_command = 'tar -C {working_dir} -xzf {package}'.format(
-                working_dir=self._extraction_dir,
-                package=self._download_target
-        )
 
 
     def __call__( self, target, source, env ):
@@ -285,14 +378,17 @@ class GitlabPackageInstaller:
                 return completion.returncode
 
         if not os.path.exists( str(target[0]) ):
-            logger.info( "Executing [{}]".format( as_info(self._tar_command) ) )
-            completion = subprocess.run( shlex.split(  self._tar_command ) )
-            if completion.returncode != 0:
-                logger.error( "Executing [{}] failed with return code [{}]".format(
-                        as_error( self._tar_command ),
-                        as_error( str(completion.returncode) ) )
+            logger.info( "Extracting [{}] into [{}]".format(
+                    as_info( self._download_target ),
+                    as_info( self._extraction_dir ),
+            ) )
+            returncode = extract_package_archive( self._download_target, self._extraction_dir )
+            if returncode != 0:
+                logger.error( "Extracting [{}] failed with return code [{}]".format(
+                        as_error( self._download_target ),
+                        as_error( str( returncode ) ) )
                 )
-                return completion.returncode
+                return returncode
 
         return None
 
@@ -492,6 +588,8 @@ class GitlabPackageDependency:
         use_develop = self.is_option_set( "develop" )
         self._develop = develop
 
+        self._registry = registry
+        self._package = package
         self._version = version
         self.version()
 
@@ -510,17 +608,22 @@ class GitlabPackageDependency:
 
         cache_dir = os.path.join( cuppa_env['downloads_root'], 'packages', package, version )
         package_file = package_file_name( cuppa_env, package=package, variant=variant )
-        self._download_target = os.path.join( cache_dir, package_file )
+        stem = package_file_stem( cuppa_env, package=package, variant=variant )
+        preferred_target = os.path.join( cache_dir, package_file )
+        existing = resolve_existing_package_archive( cache_dir, stem )
+        self._download_target = existing or preferred_target
 
         extraction_root = cuppa_env['dependencies_root']
         if not os.path.isabs( extraction_root ):
             extraction_root = os.path.abspath( os.path.join( cuppa_env['sconstruct_dir'], extraction_root ) )
 
-        self._extraction_dir = os.path.join( extraction_root, tool_variant( cuppa_env, variant=self._variant ) )
+        self._tool_variant = tool_variant( cuppa_env, variant=self._variant )
+        self._extraction_dir = os.path.join( extraction_root, self._tool_variant )
 
         self._package_dir = os.path.join( self._extraction_dir, package, self.version() )
+        self._using_develop = bool( self._develop and use_develop )
 
-        if self._develop and use_develop:
+        if self._using_develop:
             self._develop = os.path.expanduser( self._develop )
             self._package_dir = self._develop
 
@@ -535,10 +638,9 @@ class GitlabPackageDependency:
                 self._pkg_config_dir = os.path.join( self._package_dir, pkg_config_dir )
             self._pkg_config_dir = os.path.abspath( self._pkg_config_dir )
 
-        if self._dump:
-            return
-
-        if self._clean:
+        # dump / clean / storage resolve-only: paths are known; do not download or extract.
+        # --offline still extracts from a cached archive when one is present.
+        if self._dump or self._clean or self._cuppa_env.get( 'storage_resolve_only' ):
             return
 
         if self._develop and use_develop:
@@ -551,6 +653,12 @@ class GitlabPackageDependency:
         if not os.path.exists( self._extraction_dir ):
             os.makedirs( self._extraction_dir )
 
+        # Prefer an already-cached alternate extension (e.g. legacy Windows .tar.gz).
+        existing = resolve_existing_package_archive( cache_dir, stem )
+        if existing:
+            self._download_target = existing
+            package_file = os.path.basename( existing )
+
         self._wget_command = 'wget --header="{token}" -P {cache_dir} -nv {package_location}'.format(
                 token = get_header_token( custom_token ),
                 cache_dir = cache_dir,
@@ -560,6 +668,9 @@ class GitlabPackageDependency:
         # The package file doesn't exist so lets attempt to download it
         if not self._offline:
             if not os.path.exists( self._download_target ):
+                # Download the preferred platform name into cache_dir.
+                self._download_target = preferred_target
+                package_file = os.path.basename( preferred_target )
                 logger.debug( "Downloading package [{}] by executing [{}]".format( as_info(package_file), as_info(self._wget_command) ) )
                 logger.info( "Downloading package [{}] from [{}] as archive [{}]...".format(
                         as_info( self._package_id ),
@@ -592,32 +703,27 @@ class GitlabPackageDependency:
                     download_target = self._download_target
             ) )
 
-
-        self._tar_command = 'tar -C {working_dir} -xzf {package}'.format(
-                working_dir=self._extraction_dir,
-                package=self._download_target
-        )
-
         # If there is no include_dir then we didn't successfully extract this before
         if not os.path.exists( self._include_dir ):
             if os.path.exists( self._download_target ):
-                logger.debug( "Extracting package [{}] to [{}] by executing [{}]".format(
+                logger.debug( "Extracting package [{}] to [{}]".format(
                         as_info( self._download_target ),
                         as_info( self._extraction_dir ),
-                        as_info( self._tar_command )
                 ) )
                 logger.info( "Extracting package archive [{}] to [{}]...".format(
                         as_info( package_file ),
                         as_info( self._extraction_dir )
                 ) )
-                completion = subprocess.run( shlex.split(  self._tar_command ) )
-                if completion.returncode != 0:
-                    logger.error( "Executing [{}] failed with return code [{}]".format(
-                            as_error( self._tar_command ),
-                            as_error( str(completion.returncode) )
+                returncode = extract_package_archive( self._download_target, self._extraction_dir )
+                if returncode != 0:
+                    logger.error( "Extracting [{}] failed with return code [{}]".format(
+                            as_error( self._download_target ),
+                            as_error( str( returncode ) )
                     ) )
                     raise GitlabPackageDependencyException(
-                        "Executing [{}] failed with return code [{}]".format( self._tar_command, str(completion.returncode) )
+                        "Extracting [{}] failed with return code [{}]".format(
+                                self._download_target, str( returncode )
+                        )
                     )
                 logger.info( "Package archive [{}] successfully extracted to [{}]".format(
                         as_info( package_file ),
@@ -662,6 +768,43 @@ class GitlabPackageDependency:
 
     def local( self ):
         return self._extraction_dir
+
+
+    def storage_paths( self ):
+        """On-disk paths this package owns under the storage roots (optional protocol)."""
+        paths = {
+            'dependencies': [],
+            'downloads': [],
+            'build': [],
+            'develop': [],
+        }
+        if getattr( self, '_using_develop', False ):
+            if self._package_dir:
+                paths['develop'].append( self._package_dir )
+            return paths
+
+        if getattr( self, '_package_dir', None ):
+            paths['dependencies'].append( self._package_dir )
+        if getattr( self, '_download_target', None ):
+            paths['downloads'].append( self._download_target )
+        return paths
+
+
+    def storage_qualifier( self ):
+        return self.version()
+
+
+    def storage_tool_variant( self ):
+        return getattr( self, '_tool_variant', None )
+
+
+    def remote_location( self ):
+        """Registry identity string for listing (registry/package/version)."""
+        registry = getattr( self, '_registry', None )
+        package = getattr( self, '_package', None )
+        version = self.version()
+        parts = [ part for part in ( registry, package, version ) if part ]
+        return '/'.join( str( part ) for part in parts ) if parts else None
 
 
     # Package Interface
