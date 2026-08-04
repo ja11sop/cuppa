@@ -64,6 +64,9 @@ cuppa.run(
 ----
 
 Use `package.use_libs([...])` helpers where provided to append the correct static library files for the active toolchain/variant.
+The built-in source `boost` dependency accepts the same call shape —
+`env.BuildWith('boost').use_libs([...])` — so switching supply chains does not require rewriting
+sconscripts beyond the dependency name (see xref:dependencies.adoc[Dependencies]).
 
 == Publishing (GitLab generic)
 

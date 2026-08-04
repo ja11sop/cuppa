@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Storage roots, listing, and removal; GitHub [#132](https://github.com/ja11sop/cuppa/issues/132), [#133](https://github.com/ja11sop/cuppa/issues/133), [#134](https://github.com/ja11sop/cuppa/issues/134), [#135](https://github.com/ja11sop/cuppa/issues/135), [#138](https://github.com/ja11sop/cuppa/issues/138)
-- **Updated:** 2026-08-04
+- **Updated:** 2026-08-05
 
 `--list-develop` and `--update-develop` (§3.5, §3.6), the storage rename (§3.1, §8, Phase 1),
 build listing/removal (`--list-builds`, `--remove-builds`, `--remove-all-builds`, Phase 2),
@@ -10,9 +10,9 @@ Phase 3 **listing** (`--list-dependencies` hierarchical tree, inventory, verbose
 `[D]`, docs examples), and Phase 3 **removal Slice D** (`--remove-dependencies` /
 `--remove-all-dependencies` under `dependencies_root`, project-used name gate, no purge) are
 implemented on `master` (listing [#141](https://github.com/ja11sop/cuppa/pull/141); removal
-[#142](https://github.com/ja11sop/cuppa/pull/142)). Cloning a missing develop copy (§3.7) remains
-a proposal, as do download listing/removal (Phase 4), artefact removal (Phase 6), and the
-active follow-on on `134_archive_clean`: archive clean-by-variant (§4.14.3). Follow-on from the
+[#142](https://github.com/ja11sop/cuppa/pull/142)). Archive clean-by-variant (§4.14.3) is
+implemented on `134_archive_clean`. Cloning a missing develop copy (§3.7) remains a proposal,
+as do download listing/removal (Phase 4) and artefact removal (Phase 6). Follow-on from the
 `--clean` work in `cuppa/location.py` and `cuppa/package_managers/gitlab.py`, where a clean
 could not complete because a dependency was missing, and where the advice for leftover
 artefacts was "remove the folder by hand". Telling people to run `rm -rf` is unsatisfying: it
@@ -20,7 +20,7 @@ is platform-specific, it is easy to aim at the wrong path, and cuppa already kno
 which folders belong to which variant and which dependency.
 
 This plan proposes a way to list what is in the storage roots, a family of explicit removal
-options (Phases 1–2 and Phase 3 listing + Slice D removal done; archive clean next, then
+options (Phases 1–2 and Phase 3 listing + Slice D removal + archive clean done; then
 Phase 4 purge), conservative ways to create develop copies that are missing (§3.7), and the
 safety model that governs deletion.
 
@@ -31,12 +31,12 @@ which defaults to `~/.cuppa` and can be moved with one option.
 
 ### Progress snapshot (2026-08-04)
 
-Phases **1**, **2**, and **5**, Phase **3 listing**, and Phase **3 removal Slice D** are
-**done on `master`** ([#141](https://github.com/ja11sop/cuppa/pull/141) /
+Phases **1**, **2**, and **5**, Phase **3 listing**, Phase **3 removal Slice D**, and
+archive clean-by-variant (§4.14.3) are **done** on `master` or `134_archive_clean`
+([#141](https://github.com/ja11sop/cuppa/pull/141) /
 [#142](https://github.com/ja11sop/cuppa/pull/142) / umbrella
-[#134](https://github.com/ja11sop/cuppa/issues/134)). Slice D does **not** close #134. Archive
-clean-by-variant (§4.14.3) is in progress on `134_archive_clean`. Phases **4** / **6** /
-**§3.7** remain open.
+[#134](https://github.com/ja11sop/cuppa/issues/134)). Slice D and archive clean do **not**
+close #134. Phases **4** / **6** / **§3.7** and the deferred Phase 3 polish items remain open.
 
 | Area | State | Notes |
 |------|--------|-------|
@@ -44,23 +44,33 @@ clean-by-variant (§4.14.3) is in progress on `134_archive_clean`. Phases **4** 
 | Phase 2 — `--list-builds` / `--remove-builds` / `--remove-all-builds` | **done** | #140 |
 | Phase 5 — `--list-develop` / `--update-develop` | **done** | #132 / #137; realistic integration example + docs for which listing to use |
 | Phase 3 — `storage_paths()` + resolve-only | **done** | location, GitLab package, Conan, Boost; skips when undeclared |
-| Phase 3 — inventory + `--list-dependencies` | **done** | Walk, sizes, `type`, JSON `tree` + flat `entries`, `referenced` / `unreferenced` / `missing`; ANSI-safe column padding; listing does not stamp `last_used`; `Collating dependency tree...` before the walk (text/verbose) |
+| Phase 3 — inventory + `--list-dependencies` | **done** | Walk, sizes, `type`, JSON `tree` + flat `entries`, `referenced` / `unreferenced` / `missing`; ANSI-safe column padding; listing does not stamp `last_used`; `Collating dependency tree...` before the walk (text/verbose); lazy exact upgrade for missing/sampled inventory (§4.5) |
+| Phase 3 — native `du` for exact bytes (§4.5.1) | **future** | Only if practice shows Python `os.walk` exact measure is too slow; not scheduled |
 | Phase 3 — `--list-dependencies` **table presentation** | **done** | Hierarchical tree (§4.9 P1–P4): REMARK / rollups / colour; missing vs stale summaries; `--list-format=verbose` LOCATION; `[D]` + footer (§4.12); GitHub archive grouping; GitLab registry LOCATION on unreferenced too; Windows `.zip` + OS label for package archives; docs examples match real ruled output |
 | Phase 3 — inventory `used_by` on resolve | **open** | Listing must not stamp use; real resolve/build should. Prerequisite for §4.10 remarks |
 | Phase 3 — short-name / stem derivation | **done** | Git remote, gitlab path, Boost + GitHub archive heuristics; inventory `remote_location` / `source_url` |
 | Phase 3 — Conan install metadata (§4.7) | **open** | `.cuppa_conan_meta.json` not written yet; Conan rows stay fingerprint-weak |
 | Phase 3 — default-branch quirk (§4.8) | **open** | Unqualified vs `stem@master` doubling; location + listing + optional cleanup; `<default_branch>` labels in §4.9 |
 | Phase 3 — `--remove-dependencies` / `--remove-all-dependencies` | **done** | Slice D on `master` (#142 / §4.13): project-used name gate, hierarchical remove report, multi-toolchain packages, unknown-name in-use tree hint; no purge |
-| Phase 3 — archive / Boost clean-by-variant (§4.14) | **in progress** | `134_archive_clean` — optional `storage_clean` protocol + Boost b2 (§4.14.3) |
+| Phase 3 — archive / Boost clean-by-variant (§4.14) | **done on branch** | `134_archive_clean` — optional `storage_clean` + Boost b2 stage/`bin.<abi>` clean; whole-extract only when unsupported |
 | Phase 3 — **dependencies documentation split** (§7.1) | **open** | Partition the monolithic `dependencies.adoc` (+ reconcile `packages.adoc` / `extending.adoc`); Managing examples match list + remove — split can proceed when convenient |
 | Phase 4 — downloads list / purge | **open** | After archive clean (or in parallel if preferred); purge flags not in Slice D |
 | Phase 6 — artefacts | **open** | Sketch only (§4.6) |
 | §3.7 — `--clone-develop` | **open** | #138 |
 
-**Next focus:** Archive clean-by-variant on `134_archive_clean` (§4.14.3). Then Phase 4
-downloads / purge. Parallel polish that does not block: Conan meta (§4.7), default-branch
-quirk (§4.8), `used_by` stamping (enables §4.10), and the dependencies documentation split
-(§7.1). Deferred listing follow-ons remain §4.10 / §4.11.
+**Next focus:** Phase 4 downloads / purge (after merging archive clean). Deferred Phase 3 polish
+items below remain open and do not block Phase 4.
+
+**Deferred Phase 3 polish** (finish after archive clean or in parallel branches):
+
+1. Inventory `used_by` on resolve (§4.10) — prerequisite for empty-map remarks
+2. Conan install metadata `.cuppa_conan_meta.json` (§4.7)
+3. Default-branch quirk (§4.8) — canonical `stem@branch`, labels, optional cleanup
+4. Dependencies documentation split (§7.1)
+
+Deferred listing follow-ons remain §4.10 / §4.11 presentation details beyond `used_by`.
+Native `du` for exact byte totals (§4.5.1) is a **future optimisation only** — do not schedule
+it unless listing/removal sizing proves slow enough in practice.
 
 ---
 
@@ -906,20 +916,94 @@ on a personal machine, and it is why the inventory stays inside the storage root
 uploaded, packaged, or shared, and a multi-user shared root is already outside what this plan
 supports.
 
-**Sizing is sampled and lazily refreshed.** Walking a multi-gigabyte shared root on every
-listing is the one thing that would make these options feel slow, so sizes come from the
+**Sizing is sampled on resolve, then upgraded to exact on list.** Walking a multi-gigabyte
+shared root on every resolve would make ordinary builds feel slow, so sizes come from the
 inventory:
 
-- A size is measured when an entry is first created, and re-measured when the entry is used and
-  the recorded size is older than the tree's most recent modification, so a tree that has not
-  changed is never walked twice.
-- Large trees are **sampled**: walk to a bounded number of entries, then estimate the remainder
-  from the mean file size seen, and record `"method": "sampled"`. Listings mark those with a
-  leading `~` (`~1.4G`) so an estimate never masquerades as a measurement.
-- `--exact-sizes` forces a full walk and rewrites the cache. It is the flag to reach for before
-  making a decision about several gigabytes.
-- A listing with no inventory yet still works: it measures as it goes and writes entries, so the
-  first run is the slow one and subsequent runs are effectively instant.
+- A size is measured when an entry is first created during resolve/build (sampled for large
+  trees), and re-measured when the entry is used and the recorded size is older than the tree's
+  most recent modification, so a tree that has not changed is never walked twice for that path.
+- Large trees may be **sampled** during resolve: walk to a bounded number of entries, then
+  estimate the remainder from the mean file size seen, and record `"method": "sampled"`. A
+  sampled cell is marked with a leading `~` (`~1.4G`) so an estimate never masquerades as a
+  measurement.
+- `--list-dependencies` **lazily upgrades** missing or sampled inventory sizes to exact on
+  encounter (one notice when that pass may take a while). Subsequent listings reuse the exact
+  cache unless the tree changes or `--exact-sizes` forces a full remeasure of every tree.
+- A listing with no inventory yet still works: it measures exact sizes as it goes and writes
+  entries, so the first list is the slow one and subsequent runs are effectively instant.
+
+Exact measurement today uses Python `os.walk` + `lstat` (`cuppa.utility.storage.directory_stats`).
+That is correct and portable. A faster native path is recorded below as a **future optimisation
+only** — do not implement unless practice shows the first exact upgrade (or `--exact-sizes`) is
+painful enough to justify the platform surface.
+
+#### 4.5.1 Future optimisation — native `du` for exact byte totals (not scheduled)
+
+**Status:** proposal / park. Ship nothing from this subsection until sizing latency is a
+measured problem on real dependency roots (large archive extracts such as Boost are the likely
+trigger). The inventory cache and lazy exact upgrade already avoid repeating the deep walk on
+every list; this subsection is only about making that **first** exact pass cheaper.
+
+**Do not conflate discovery with sizing.** Listing already uses two different walks:
+
+| Purpose | Code | Depth |
+|---------|------|-------|
+| Discover ownership units under `dependencies_root` | `_walk_dependency_trees` | Shallow: VCS tops, `tool/package/version`, archive extract roots. Does **not** descend into Boost headers/libs. |
+| Measure bytes for one ownership unit | `measure_size` → `directory_stats` | Deep: every regular file under that path when measuring or upgrading. |
+
+We do **not** walk all of Boost to *find* it. We walk Boost only when we need an **exact** size
+and the inventory lacks a fresh exact entry. There is no portable OS call that returns
+“recursive bytes under this folder” without visiting the tree: `stat`/`lstat` on a directory is
+directory metadata only, not the sum of children. Tools such as `du` look fast because they are
+native walkers; they still traverse. Approximate sampling, or trusting a prior exact inventory
+entry, are the only ways to avoid a deep visit for a total.
+
+**What a `du` path would buy.** Not a different cost model — still one deep traversal — but a
+potentially faster implementation for huge trees (native C, better dentry caching) versus
+Python `os.walk`. Calling `du` as a subprocess is therefore an **acceleration of exact byte
+totals**, not a way to skip walking Boost.
+
+**Recommended shape if ever needed** (narrow; low–moderate effort):
+
+```text
+directory_bytes(path) -> int
+  if a recognised usable `du` is on PATH:
+      run it, parse one integer
+  else:
+      existing os.walk / lstat sum (current directory_stats bytes path)
+```
+
+Wire that into exact `measure_size` and optionally removal’s byte helper only. Leave
+`directory_stats` on `os.walk` until mtime is redesigned: that helper returns **both** total
+bytes and newest mtime, and build listing (`--list-builds`) uses both for `SIZE` and
+`LAST BUILD`. Putting `du` behind all of `directory_stats` forces a second strategy for mtime
+(another walk, or weaker “top dir only” semantics) and is where complexity and behaviour drift
+appear. Exact dependency sizing only needs bytes — that is the sweet spot.
+
+**Effort ballpark**
+
+| Scope | Rough effort |
+|--------|----------------|
+| Prefer GNU `du` when `du --version` looks GNU; else walk; exact inventory + removal bytes only | Small (~half day including tests/docs) |
+| + macOS/BSD apparent-size where flags exist | Small add-on |
+| + threshold / “use `du` only for large trees” | Small |
+| + change `directory_stats` so builds also use `du` **and** keep newest-mtime meaning | Medium |
+
+**Fiddly points to get right (not hard, but must not be hand-waved)**
+
+| Issue | Detail |
+|--------|--------|
+| Semantics | Today cuppa sums `st_size` and does not follow directory symlinks. Prefer GNU `du -sb --apparent-size` (or equivalent). Plain `du -sb` is **disk blocks** (`st_blocks`), which will disagree with current numbers and with human expectations for “how big is this tree”. |
+| Platform flavours | GNU coreutils ≠ BSD/macOS `du` flags. Feature-detect once per process; unknown `du` → walk. Do not pretend every `du` on `PATH` is the same. Windows CI has no `du` by default — fallback keeps that green. |
+| Symlinks | Match “don’t follow directory symlinks” or document a deliberate difference. |
+| Spawn cost | Hundreds of tiny trees: many `du` processes can lose to one Python walk. Optional heuristic: use `du` only above a size/file threshold, or always for exact upgrades (Boost-sized extracts are the case that matters). |
+| Failure modes | Non-zero exit, odd locale output, paths with spaces — catch and fall back to walk. |
+
+**Rationale for parking.** The correct optimisation for day-to-day listing is already in place:
+cache exact sizes in `.cuppa-inventory/` and upgrade missing/sampled entries once with a notice.
+A native `du` helper is worthwhile only if that first exact pass (or forced `--exact-sizes` over
+many large trees) is still too slow in practice. Until then, extra platform surface is pure cost.
 
 ### 4.6 Artefacts outside the build root — sketch only
 
@@ -1613,7 +1697,7 @@ unreferenced strangers.
 | Scope | Current selection only; leftovers muted in the same tree (`Leaving … as shown`) |
 | Develop | Never delete develop paths |
 | Downloads | Untouched (no purge) |
-| Archive / Boost | Whole extract today; per-variant clean deferred (§4.14.3) |
+| Archive / Boost | Selection-scoped `storage_clean` for Boost (§4.14.3); whole extract when unsupported |
 | Unreferenced sweep | No |
 | UX | Builds-like report on stdout; checks/ballots; `-n` supported; info-coloured freed size |
 | Docs | Managing + CLI in same PR |
@@ -1678,7 +1762,7 @@ So `--remove-dependencies=boost` (when allowed) frees the whole tree. Ideal foll
 *variant build products* inside the extract when selection is set, without always deleting
 headers and the b2 binary.
 
-#### 4.14.3 Proposed protocol (follow-on slice — not Slice D)
+#### 4.14.3 Proposed protocol (done on `134_archive_clean`)
 
 Optional peer to `storage_paths()`:
 
@@ -1687,30 +1771,40 @@ def storage_clean(self, env, selection):
     """Clean variant build products for this dependency under the current selection.
 
     Returns None if unsupported (caller falls back to whole-tree remove via storage_paths).
-    Otherwise a mapping or structured result naming cleaned paths / bytes freed.
+    Otherwise a dict with ``paths`` (absolute dirs to remove) and optional ``extract``
+    (archive root left in place; used for leftovers / containment).
     """
 ```
 
 | Responsibility | Owner |
 |----------------|--------|
-| Map cuppa selection → clean targets | Dependency (Boost: stage dirs + b2 `--build-dir` trees from `library_naming.stage_directory` / `b2_command`) |
+| Map cuppa selection → clean targets | Dependency (Boost: stage dirs + `bin.<abi>` trees from `library_naming.stage_directory` / `b2_command`) |
 | Measure before / after | Cuppa removal (b2 will not report bytes reliably) |
 | Dry-run (`-n`) | Prefer deterministic path enumeration without invoking b2 when layouts are known |
 | Report | Same removal tree: identity = archive; leaves = cleaned variant dirs; muted leftovers for other internal variants; freed space from measured delta |
-| Full extract removal | Only when no variant products remain, or via an explicit “remove whole archive” / later purge-adjacent mode |
+| Full extract removal | Only when `storage_clean` is absent/`None`, or via a later explicit “remove whole archive” / purge-adjacent mode |
 
-GitLab packages and plain Location deps return `None` / omit the method — behaviour unchanged.
+GitLab packages and plain Location deps return `None` / omit the method — behaviour unchanged
+(whole extract / tree remove as today).
 
-**Boost sketch.** For each active toolchain × variant × arch: remove
-`stage_directory(...)` and the matching `--build-dir` tree under the extract (or invoke
-`b2 --clean` with the same flags cuppa uses to build). Leave the source tree and b2 executable
-unless a full-extract remove is requested. Document that selection-scoped clean frees disk
-without forcing a re-download of the tarball.
+**Boost.** For each active toolchain × variant × arch: remove
+`stage_directory(...)` and matching Boost.Build toolset directories under `bin.<abi>`
+(path deletion; toolset-scoped, not the whole `bin.<abi>`; no `b2 --clean` in this slice).
+`storage_clean` returns labelled `targets` (`paths` + `label` + `tool_variant`) so the remove
+report can show e.g. `clean/bin.c++2c [clang-linux-21*/debug]` alongside
+`clean/build.c++2c [clang211/debug/x86_64]` (bin = b2 major family; stage = cuppa-precise).
+The identity SIZE is the full extract (aligned with `--list-dependencies`); a muted
+`source assets` leaf covers non-product bytes; the freed-space line reports the remaining
+archive size after product removal. Live cleans rewrite that extract's inventory size exactly;
+the verify hint uses `--list-dependencies` (listing upgrades missing or estimated sizes).
+Sizes are measured live per target;
+inventory-backed size cache is optional later if walks become costly. Leave the source tree and
+b2 executable.
 
-**Phasing.** Name gate shipped with Slice D (#142). Archive clean is the **active checklist**
-on `134_archive_clean` (protocol + Boost implementation + docs + tests). Until that lands,
-document that `--remove-dependencies=boost` (when the project uses source Boost) removes the
-**entire extract**.
+**Phasing.** Name gate shipped with Slice D (#142). Archive clean (§4.14.3) is **done** on
+`134_archive_clean`: optional `storage_clean`, Boost stage / `bin.<abi>` clean, docs, and tests.
+Dependencies without `storage_clean` still remove the whole owned tree under the dependencies
+root.
 
 #### 4.14.4 Settled vs open
 
@@ -1718,8 +1812,8 @@ document that `--remove-dependencies=boost` (when the project uses source Boost)
 |-------|--------|
 | Project-used name gate | **Done** (Slice D) |
 | Unknown-name in-use tree hint | **Done** (Slice D) |
-| Document whole-extract archive remove | **Done** (Slice D docs) |
-| `storage_clean` / b2 per-variant clean | **Open** — follow-on |
+| Document whole-extract archive remove | **Done** (Slice D docs; superseded for Boost by storage_clean) |
+| `storage_clean` / b2 per-variant clean | **Done** — `134_archive_clean` |
 | Short-name remove when uniquely referenced | **Rejected for Slice D** (unchanged) |
 
 ---
@@ -1768,7 +1862,7 @@ could land at any point, and Phase 6 needs a design pass this plan does not atte
 |-------|----------|-----------|--------|
 | 1 | `--storage-root` and the renamed roots | — | **done** ([#133](https://github.com/ja11sop/cuppa/issues/133)) |
 | 2 | `--remove-builds`, `--remove-all-builds`, `--list-builds` | 1 | **done** ([#134](https://github.com/ja11sop/cuppa/issues/134) / #140) |
-| 3 | Inventory, `--list-dependencies`, `--remove-dependencies` / `--remove-all-dependencies` | 1, 2 | **listing done** (#141); **Slice D removal done** on `master` (#142 / §4.13); purge still Phase 4; archive clean §4.14.3 **in progress** on `134_archive_clean` |
+| 3 | Inventory, `--list-dependencies`, `--remove-dependencies` / `--remove-all-dependencies` | 1, 2 | **listing done** (#141); **Slice D removal done** on `master` (#142 / §4.13); archive clean §4.14.3 **done** on `134_archive_clean`; purge still Phase 4 |
 | 4 | `--list-downloads`, `--purge-*` | 3 | |
 | 5 | `--list-develop`, `--update-develop` | nothing in this plan | **done** ([#132](https://github.com/ja11sop/cuppa/issues/132)) |
 | 6 | `--remove-artefacts` | its own design pass first | |
@@ -1804,8 +1898,8 @@ could land at any point, and Phase 6 needs a design pass this plan does not atte
 **Phase 3 — dependency listing, inventory, and removal** (§3.2, §4.3, §4.5, §4.7, §4.8)
 
 Listing half **done** on `master` (#141). Removal Slice D **done** on `master` (#142 /
-§4.13 / §4.14.1); purge remains Phase 4; archive clean-by-variant (§4.14.3) is **in progress**
-on `134_archive_clean`.
+§4.13 / §4.14.1); archive clean-by-variant (§4.14.3) **done** on `134_archive_clean`; purge
+remains Phase 4.
 
 - `storage_paths()` + resolve-only: **done** (location, GitLab package, Conan, Boost).
 - Inventory (§4.5): **done** for sizes / type / remote fields; `used_by` stamping on real
@@ -1816,8 +1910,8 @@ on `134_archive_clean`.
 - **Done — removal Slice D:** `--remove-dependencies` / `--remove-all-dependencies` under
   `dependencies_root` only; project-used name gate; hierarchical remove report; unknown-name
   in-use tree hint. Purge is Phase 4.
-- **In progress — archive clean (§4.14.3):** optional `storage_clean` / b2 per-variant clean on
-  `134_archive_clean`.
+- **Done — archive clean (§4.14.3):** optional `storage_clean`; Boost cleans selection-scoped
+  stage / `bin.<abi>`; whole-extract only when `storage_clean` is absent/`None`.
 - **Still open — Conan install metadata (§4.7):** write `.cuppa_conan_meta.json` on successful
   install and backfill on reuse; teach listing to read it; Conan `storage_tool_variant()` for
   resolve touches.
@@ -1877,7 +1971,8 @@ on `134_archive_clean`.
   file, a corrupt entry degrades one row rather than the listing, an entry whose path is gone is
   reported and dropped, and an inventory that claims a path outside the roots is refused.
 - Sizing: a cached size is reused while the tree is unmodified, re-measured after a change,
-  sampled sizes are marked, and `--exact-sizes` rewrites the cache.
+  sampled sizes are marked until listing upgrades them; `--exact-sizes` still forces a full
+  remasure.
 - `--remove-all-dependencies` removes only what the current selection uses and reports the rest,
   for a mix of per-toolchain package trees and toolchain-independent VCS trees.
 - Develop classification (§3.5) is a pure function from `(project branch, default branch, copy
@@ -2265,14 +2360,16 @@ Settled while reviewing this plan, and folded into the sections above:
 | Artefacts written outside the build root | Not the build options' job. A separate `--remove-artefacts` with its own design pass (§4.6, Phase 6); `--remove-builds` and `--remove-all-builds` stay inside `build_root` |
 | Scope of `--remove-all-dependencies` | Remove what the current selection uses, report what is left for other selections (§4.3) |
 | An inventory under the dependencies root | Yes — per-entry JSON, updated on resolve, advisory only (§4.5) |
-| Exact or sampled sizing | Sampled, cached in the inventory, refreshed lazily, `~` marks an estimate, `--exact-sizes` measures (§4.5) |
+| Exact or sampled sizing | Resolve may sample; `--list-dependencies` upgrades missing/sampled to exact (with notice); `--exact-sizes` forces remasure (§4.5) |
+| Native `du` for exact bytes | Future only, if practice needs it — GNU/`du` prefer + `os.walk` fallback for **bytes**, not behind full `directory_stats` (§4.5.1) |
 | Shared or project-relative default | Shared, with a documentation obligation rather than a footnote, and one option to make a project self-contained (§8.3) |
 | Whether cloning a missing develop copy is its own option or a mode of `--update-develop` | Its own option, `--clone-develop`, so that updating keeps its narrow promise and the mode slot stays reserved for tolerance levels (§3.7, [#138](https://github.com/ja11sop/cuppa/issues/138)) |
 | Downloads-root path under verbose `[D]` LOCATION | No. `[D]` + basename (+ footer) only; paths stay in JSON / `--list-downloads` (§4.12) |
 
-Still open after Slice D (#142 on `master`; none of these block archive clean on
-`134_archive_clean`):
+Still open after Slice D (#142) and archive clean on `134_archive_clean`:
 
+- **Native `du` for exact byte totals (§4.5.1).** Parked future optimisation — not open work.
+  Revisit only if first exact inventory upgrades or `--exact-sizes` prove too slow in practice.
 - **How `--remove-artefacts` finds paths.** Graph discovery, project declaration, or both, and
   what it adds over SCons `--clean`. This wants measurement on a real project before an option
   is designed (§4.6).

@@ -91,6 +91,42 @@ def test_format_size_cell_marks_sampled():
     } ).startswith( '~' )
 
 
+def test_size_should_upgrade_to_exact():
+    assert dependency_inventory.size_should_upgrade_to_exact( {} )
+    assert dependency_inventory.size_should_upgrade_to_exact( { 'size': None } )
+    assert dependency_inventory.size_should_upgrade_to_exact( {
+        'size': { 'bytes': 10, 'method': 'sampled' },
+    } )
+    assert not dependency_inventory.size_should_upgrade_to_exact( {
+        'size': { 'bytes': 10, 'method': 'exact' },
+    } )
+
+
+def test_touch_entry_refresh_size_false_skips_measure( tmp_path ):
+    dependencies_root = tmp_path / 'dependencies'
+    tree = dependencies_root / 'widget@master'
+    tree.mkdir( parents=True )
+    ( tree / 'readme' ).write_text( 'hello', encoding='utf-8' )
+
+    entry = dependency_inventory.touch_entry(
+            str( dependencies_root ),
+            str( tree ),
+            storage_type='location',
+            dependency='widget',
+            qualifier='@master',
+            refresh_size=False,
+            update_last_used=False,
+    )
+    assert 'size' not in entry
+
+    loaded = dependency_inventory.load_entry(
+            str( dependencies_root ),
+            dependency_inventory.entry_key_for_path( str( tree ) ),
+    )
+    assert loaded is not None
+    assert 'size' not in loaded
+
+
 def test_delete_entry_for_path( tmp_path ):
     dependencies_root = tmp_path / 'dependencies'
     tree = dependencies_root / 'gadget'

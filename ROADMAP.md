@@ -254,7 +254,7 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `storage-listing-removal` | `--list-*`, `--remove-*`, `--purge-*` for builds, dependencies, and downloads | Medium | Builds done (#140); `--list-dependencies` done (#141); Slice D dependency removal done (#142 / §4.13); next archive clean-by-variant on `134_archive_clean` (§4.14.3), then downloads/purge. GitHub [#134](https://github.com/ja11sop/cuppa/issues/134) |
+| `storage-listing-removal` | `--list-*`, `--remove-*`, `--purge-*` for builds, dependencies, and downloads | Medium | Builds done (#140); `--list-dependencies` done (#141); Slice D dependency removal done (#142 / §4.13); archive clean-by-variant (§4.14.3) on `134_archive_clean`; next downloads/purge. GitHub [#134](https://github.com/ja11sop/cuppa/issues/134) |
 | `develop-clone` | `--clone-develop` for a develop working copy that is configured but not yet on disk, for a new machine or a dependency added since you last looked | Medium | Surface settled, remaining design to finalise first: pinned locations, submodules, whether retrieval machinery is reused. [`design/plans/removal-options.md`](design/plans/removal-options.md) §3.7. GitHub [#138](https://github.com/ja11sop/cuppa/issues/138) |
 | `artefact-removal` | Decide how to remove artefacts written outside the build root | Low | Design pass first; `--remove-builds` deliberately stops at `_build`. GitHub [#135](https://github.com/ja11sop/cuppa/issues/135) |
 

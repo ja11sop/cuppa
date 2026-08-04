@@ -203,6 +203,14 @@ def size_needs_refresh( entry, path ):
     return _tree_mtime( path ) > measured_epoch + 1.0
 
 
+def size_should_upgrade_to_exact( entry ):
+    """True when inventory has no size or only a sampled estimate."""
+    size = ( entry or {} ).get( 'size' )
+    if not size:
+        return True
+    return size.get( 'method' ) == 'sampled'
+
+
 def touch_entry(
         dependencies_root,
         path,
@@ -261,13 +269,13 @@ def touch_entry(
     elif 'used_by' not in entry:
         entry['used_by'] = {}
 
+    # When refresh_size is False, leave size alone so the caller can measure once
+    # (e.g. --list-dependencies upgrades missing/sampled with a single exact walk).
     if refresh_size and (
             exact_sizes
             or 'size' not in entry
             or size_needs_refresh( entry, path )
     ):
-        entry['size'] = measure_size( path, exact=exact_sizes )
-    elif 'size' not in entry:
         entry['size'] = measure_size( path, exact=exact_sizes )
 
     write_entry( dependencies_root, entry, key=key )

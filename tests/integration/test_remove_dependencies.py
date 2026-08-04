@@ -1,15 +1,22 @@
 """Integration tests for --remove-dependencies (Slice D)."""
 
 import json
+import platform
 import re
+from pathlib import Path
 from urllib.parse import urlparse
 
 import pytest
 
 from cuppa.core.dependency_storage import split_location_folder_name
+from cuppa.dependencies.boost.library_naming import (
+    directory_from_abi_flag,
+    stage_directory,
+)
 from cuppa.location import Location
 from tests.helpers.cuppa_runner import assert_success, run_cuppa
 from tests.helpers.project import copy_dummy_project, write_sconstruct
+from tests.helpers.toolchains import default_toolchain_flags
 from tests.integration.test_list_dependencies import own_home, strip_ansi
 
 
@@ -37,6 +44,97 @@ def location_cache_folder_name(location_url, tmp_path):
     location._name_hint = None
     location.url_replacement_char = "_"
     return location.folder_name_from_path(urlparse(location_url))
+
+
+def _selection_toolchain_layout():
+    """Return (toolchain_name, abi_flag) matching ``run_cuppa``'s default toolchain."""
+    flags = default_toolchain_flags()
+    family = "gcc"
+    for flag in flags:
+        if str(flag).startswith("--toolchains="):
+            family = str(flag).split("=", 1)[1].split(",")[0].strip()
+            break
+    if family.startswith("clang") or family in ("cl", "vc", "msvc"):
+        if family in ("cl", "vc", "msvc"):
+            pytest.skip("Boost archive-clean layout is exercised on gcc/clang")
+        from cuppa.toolchains.clang import Clang
+
+        reported = Clang.version_from_command("clang++")
+        if not reported:
+            reported = Clang.version_from_command("clang")
+        assert reported, "clang version not detected"
+        major = reported["major"]
+        if major >= 17:
+            abi = "-std=c++2c"
+        elif major >= 13:
+            abi = "-std=c++2b"
+        elif major >= 6:
+            abi = "-std=c++2a"
+        else:
+            abi = "-std=c++1z"
+        return reported["name"], abi
+
+    from cuppa.toolchains.gcc import Gcc
+
+    reported = Gcc.version_from_command("g++ --version", "gcc")
+    assert reported, "g++ version not detected"
+    major = reported["major"]
+    if major >= 14:
+        abi = "-std=c++2c"
+    elif major >= 11:
+        abi = "-std=c++2b"
+    elif major >= 10:
+        abi = "-std=c++2a"
+    else:
+        abi = "-std=c++1z"
+    return reported["name"], abi
+
+
+def _boost_stage_and_bin(home, boost_variant):
+    """Absolute stage leaf and ``bin.<abi>`` under Boost ``clean``/``patched`` home."""
+    class _Toolchain(object):
+        def __init__(self, name):
+            self._name = name
+
+        def name(self):
+            return self._name
+
+    tc_name, abi = _selection_toolchain_layout()
+    arch = platform.machine()
+    stage = Path(home) / stage_directory(_Toolchain(tc_name), boost_variant, arch, abi)
+    bindir = Path(home) / ("bin." + (directory_from_abi_flag(abi) or ""))
+    return stage, bindir, tc_name, abi
+
+
+def _b2_toolset_token_for_selection():
+    from cuppa.dependencies.boost.library_naming import b2_build_dir_toolset_token
+
+    tc_name, _abi = _selection_toolchain_layout()
+    family = "gcc"
+    major = 15
+    if tc_name.startswith("clang"):
+        family = "clang"
+        major = int(tc_name.replace("clang", "")[:2] or "21")
+    elif tc_name.startswith("gcc"):
+        major = int(tc_name.replace("gcc", "")[:2] or "15")
+
+    class _TC(object):
+        def __init__(self):
+            self._reported_version = {"major": major, "minor": 0}
+
+        def name(self):
+            return tc_name
+
+        def toolset_name(self):
+            return family
+
+        def version(self):
+            return "{}.0".format(major)
+
+        def cxx_version(self):
+            return str(major)
+
+    return b2_build_dir_toolset_token(_TC())
 
 
 def test_remove_dependencies_unknown_name(tmp_path):
@@ -200,7 +298,8 @@ cuppa.run(
         assert "Leaving" in plain
         assert "as shown" in plain
         assert "feature_x" in plain or "@feature_x" in plain
-        assert feature_name in plain
+        # Leftover leaf uses the identity label, not the raw cache folder name.
+        assert "widget / @feature_x" in plain
 
 
 def test_remove_develop_skips_working_copy(tmp_path):
@@ -428,3 +527,77 @@ cuppa.run(
     assert gcc_info[1] in plain
     assert clang_info[1] in plain
     assert "2 tree" in plain or "2 trees" in plain or "Removed 2" in plain
+
+
+def test_remove_boost_cleans_selected_variant_products(tmp_path):
+    """Source Boost with storage_clean removes stage/toolset bin products, not the extract."""
+    project = copy_dummy_project(tmp_path)
+    storage = tmp_path / "storage"
+    deps = storage / "dependencies"
+    # --boost-home is the extract root; Boost.local() is extract/clean.
+    boost_home = deps / "boost_source"
+    clean = boost_home / "clean"
+    dbg, bindir, tc_name, _abi = _boost_stage_and_bin(clean, "debug")
+    rel, _, _, _ = _boost_stage_and_bin(clean, "release")
+    token = _b2_toolset_token_for_selection()
+    other_token = "gcc-15" if token.startswith("clang") else "clang-linux-21"
+    selected_bin = bindir / "boost" / "bin.v2" / "libs" / "system" / token / "debug"
+    other_bin = bindir / "boost" / "bin.v2" / "libs" / "system" / other_token / "debug"
+    dbg.mkdir(parents=True)
+    rel.mkdir(parents=True)
+    selected_bin.mkdir(parents=True)
+    other_bin.mkdir(parents=True)
+    (dbg / "lib").mkdir()
+    (dbg / "lib" / "libboost_system.a").write_text("x", encoding="utf-8")
+    (rel / "lib").mkdir()
+    (rel / "lib" / "libboost_system.a").write_text("x", encoding="utf-8")
+    (selected_bin / "obj").write_text("x", encoding="utf-8")
+    (other_bin / "obj").write_text("x", encoding="utf-8")
+    (clean / "boost").mkdir(parents=True)
+    (clean / "boost" / "version.hpp").write_text(
+        "#ifndef BOOST_VERSION_HPP\n"
+        "#define BOOST_VERSION_HPP\n"
+        "#define BOOST_VERSION 109100\n"
+        "#define BOOST_LIB_VERSION \"1_91\"\n"
+        "#endif\n",
+        encoding="utf-8",
+    )
+
+    write_sconstruct(
+        project,
+        body="""\
+import cuppa
+
+cuppa.run(
+    default_variants=['dbg'],
+    default_dependencies=['boost'],
+)
+""",
+    )
+
+    removed = run_cuppa(
+        project,
+        "--offline",
+        "--dbg",
+        "--boost-home={}".format(boost_home),
+        "--remove-dependencies=boost",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(removed)
+    plain = strip_ansi(removed.stdout)
+    assert "Removed" in plain or "removed" in plain.lower()
+    assert "source assets" in plain
+    assert "leaving a final archive size of" in plain
+    assert "cuppa -Q -D --list-dependencies" in plain
+    assert "--exact-sizes" not in plain
+    assert boost_home.is_dir()
+    assert clean.is_dir()
+    assert (clean / "boost" / "version.hpp").is_file()
+    assert not dbg.exists()
+    assert rel.is_dir()
+    assert bindir.is_dir()
+    assert not selected_bin.exists()
+    assert other_bin.is_dir()
+    assert "[{}_dbg_".format(tc_name) in plain or "bin." in plain
+    assert "Leaving" in plain or "release" in plain.lower()

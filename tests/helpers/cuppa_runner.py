@@ -51,12 +51,28 @@ def cuppa_test_env_args():
 def run_cuppa(project_dir, *flags, extra_env=None, timeout=180, offline=True):
     require_cxx()
     env = os.environ.copy()
-    pythonpath = str(REPO_ROOT)
+    root = str(REPO_ROOT)
+    pythonpath_parts = [root]
     if env.get("PYTHONPATH"):
-        pythonpath = pythonpath + os.pathsep + env["PYTHONPATH"]
-    env["PYTHONPATH"] = pythonpath
+        pythonpath_parts.extend(
+                part for part in env["PYTHONPATH"].split(os.pathsep)
+                if part and part != root
+        )
+    env["PYTHONPATH"] = os.pathsep.join(pythonpath_parts)
     if extra_env:
-        env.update(extra_env)
+        extra = dict(extra_env)
+        # Callers may put a plugin install first on PYTHONPATH; never drop the repo
+        # root or ``python -m cuppa`` fails with "No module named cuppa".
+        if "PYTHONPATH" in extra:
+            caller_parts = [
+                    part for part in str(extra.pop("PYTHONPATH")).split(os.pathsep) if part
+            ]
+            merged = []
+            for part in caller_parts + pythonpath_parts:
+                if part and part not in merged:
+                    merged.append(part)
+            env["PYTHONPATH"] = os.pathsep.join(merged)
+        env.update(extra)
 
     args = [sys.executable, "-m", "cuppa", "-D"]
     if offline:

@@ -163,13 +163,18 @@ def test_list_dependencies_json(tmp_path):
 def test_list_dependencies_second_pass_still_works(tmp_path):
     project, storage = a_project_with_planted_dependency(tmp_path)
 
-    assert_success(run_cuppa(
+    first = run_cuppa(
         project,
         "--list-dependencies",
-        "--exact-sizes",
         "--storage-root={}".format(storage),
         extra_env=own_home(tmp_path),
-    ))
+    )
+    assert_success(first)
+    first_plain = strip_ansi(first.stdout)
+    assert "Measuring exact sizes" in first_plain
+    assert "may take a while" in first_plain
+    assert "~ estimated" not in first_plain
+
     listed = run_cuppa(
         project,
         "--list-dependencies",
@@ -177,7 +182,9 @@ def test_list_dependencies_second_pass_still_works(tmp_path):
         extra_env=own_home(tmp_path),
     )
     assert_success(listed)
-    assert "3 entries" in listed.stdout
+    second_plain = strip_ansi(listed.stdout)
+    assert "Measuring exact sizes" not in second_plain
+    assert "3 entries" in second_plain
 
 
 def test_list_dependencies_reports_missing_expected_location(tmp_path):
@@ -240,6 +247,115 @@ cuppa.run(
             (entry.get("remote_location") or "").find("widget") >= 0
             for entry in missing
     )
+
+
+def test_list_dependencies_scope_referenced_hides_unreferenced(tmp_path):
+    """--list-dependencies-scope=referenced omits the unreferenced section."""
+    project = copy_dummy_project(tmp_path)
+    storage = tmp_path / "storage"
+    plant_archives_and_downloads(storage)
+    write_sconstruct(
+        project,
+        body="""\
+import cuppa
+
+Boost = cuppa.package_dependency(
+    'boost_package',
+    package_manager='gitlab',
+    registry='https://gitlab.example/api/v4/projects/1',
+    package='boost',
+    version='1.91',
+)
+
+cuppa.run(
+    default_variants=['dbg'],
+    dependencies=[Boost],
+    default_dependencies=['boost_package'],
+)
+""",
+    )
+
+    listed = run_cuppa(
+        project,
+        "--offline",
+        "--list-dependencies",
+        "--list-dependencies-scope=referenced",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(listed)
+    plain = strip_ansi(listed.stdout)
+    assert "boost_package" in plain or "boost" in plain
+    assert "referenced" in plain
+    assert "Review unreferenced trees" not in plain
+    assert re.search( r"\bentries, .* referenced\b", plain )
+    assert "unreferenced" not in plain
+
+    as_json = run_cuppa(
+        project,
+        "--offline",
+        "--list-dependencies",
+        "--list-dependencies-scope=referenced",
+        "--list-format=json",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(as_json)
+    match = re.search(r"\{.*\}", as_json.stdout, re.DOTALL)
+    assert match, as_json.stdout
+    payload = json.loads(match.group(0))
+    assert payload.get("scope") == "referenced"
+    assert all(entry["state"] != "unreferenced" for entry in payload["entries"])
+    section_labels = [
+            section.get("label")
+            for section in (payload.get("tree") or {}).get("sections") or []
+    ]
+    assert "unreferenced" not in section_labels
+    assert "referenced" in section_labels
+
+
+def test_list_dependencies_scope_unreferenced_hides_referenced(tmp_path):
+    """--list-dependencies-scope=unreferenced keeps only leftover trees."""
+    project = copy_dummy_project(tmp_path)
+    storage = tmp_path / "storage"
+    plant_archives_and_downloads(storage)
+    write_sconstruct(
+        project,
+        body="""\
+import cuppa
+
+Boost = cuppa.package_dependency(
+    'boost_package',
+    package_manager='gitlab',
+    registry='https://gitlab.example/api/v4/projects/1',
+    package='boost',
+    version='1.91',
+)
+
+cuppa.run(
+    default_variants=['dbg'],
+    dependencies=[Boost],
+    default_dependencies=['boost_package'],
+)
+""",
+    )
+
+    listed = run_cuppa(
+        project,
+        "--offline",
+        "--list-dependencies",
+        "--list-dependencies-scope=unreferenced",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(listed)
+    plain = strip_ansi(listed.stdout)
+    assert "unreferenced" in plain
+    assert "fmt" in plain or "github.com" in plain or "boost" in plain
+    assert "Review unreferenced trees" in plain
+    # [D] footer is verbose-only even when regenerating archives exist.
+    assert "[D] = archive present under downloads" not in plain
+    assert "corrupt archive" not in plain
 
 
 def test_list_dependencies_verbose_archives_and_download_mark(tmp_path):

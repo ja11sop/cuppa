@@ -15,6 +15,9 @@ With planted trees under a private `--storage-root`:
 * A GitLab package dependency removes only the selected toolchain's
   `tool_variant/package/version` tree and leaves another toolchain's sibling; `--toolchains=gcc,clang`
   removes each matching package variant.
+* Source `boost` with `--boost-home` under the storage dependencies root removes only the selected
+  variant's stage directory and shared `bin.<abi>` under `clean/`, leaving the extract, headers,
+  and another variant's stage tree in place.
 
 == Generated files
 
@@ -36,5 +39,6 @@ cuppa -D --offline --dbg --remove-dependencies=boost_package --storage-root=<sto
 == Expected outcome
 
 Successful removals print an announce line, a compact REMARK table, optional leftovers and
-develop skips, a freed-space summary, and a `--list-dependencies` verification hint. Dry-run
+develop skips, a freed-space summary, and a `--list-dependencies` verification hint
+(noting that archive `storage_clean` left source assets when applicable). Dry-run
 uses “Would remove”. Unknown names fail before any delete.

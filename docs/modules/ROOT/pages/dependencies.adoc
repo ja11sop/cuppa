@@ -42,12 +42,22 @@ In a sconscript:
 
 [source,python]
 ----
+env.BuildWith('boost').use_libs(['system', 'filesystem'])
+# or the older env-method form:
 env.AppendUnique(STATICLIBS=env.BoostStaticLibs(['system', 'filesystem']))
 # or
 env.AppendUnique(DYNAMICLIBS=env.BoostSharedLibs(['system']))
 ----
 
-Aliases such as `BoostStaticLib` / `BoostStaticLibrary` also exist for compatibility.
+`use_libs([...])` matches the call shape used by registry packages such as
+xref:packages.adoc[boost_package], so you can switch between source Boost and a prebuilt
+package by changing only the `BuildWith` name. It builds (or reuses) static libraries via
+`BoostStaticLibs` and appends them to `STATICLIBS`. Aliases such as `BoostStaticLib` /
+`BoostStaticLibrary` also exist for compatibility.
+
+Optional dependency convention: when a dependency offers linkable libraries, prefer exposing
+`use_libs(libs, depends_on=[])` on the instance returned by `env.BuildWith(...)`. Package
+dependencies already do this; location-only (header) dependencies typically omit it.
 
 For *prebuilt* Boost from a GitLab registry, prefer xref:packages.adoc[boost_package] instead of compiling from source every time.
 
@@ -139,7 +149,10 @@ cuppa -Q -D --list-dependencies --develop
 `--list-dependencies` walks the dependencies root and prints a hierarchical table: size,
 last used, remark (`in use` / `N used` when more than one leaf is selected / `missing` /
 `develop`), and dependency identity. Before the walk it prints `Collating dependency tree...`
-(text and verbose only; omitted for JSON). Rows are grouped referenced first then unreferenced,
+(text and verbose only; omitted for JSON). When inventory sizes are missing or only sampled
+estimates, it prints a short notice and upgrades those trees to exact sizes (the first run on a
+large root can take a while; later runs reuse the cache). Pass `--exact-sizes` to force a full
+remeasure of every tree. Rows are grouped referenced first then unreferenced,
 then by type (location dependencies, gitlab packages, archives, …), then by short name or
 registry name, with branch or version children underneath. On-disk paths are omitted by
 default; pass `--list-format=verbose` to add a LOCATION column, or `--list-format=json` for a
@@ -154,10 +167,30 @@ scenario.
 [source,shell]
 ----
 cuppa -Q -D --list-dependencies
+cuppa -Q -D --list-dependencies --list-dependencies-scope=referenced
 cuppa -Q -D --list-dependencies --list-format=verbose
 cuppa -Q -D --list-dependencies --list-format=json
 cuppa -Q -D --list-dependencies --exact-sizes
 ----
+
+`--list-dependencies-scope` selects which sections appear. It is independent of
+`--list-format` (so you can combine `referenced` with `verbose` or `json`). Persist a
+preference in `~/.cuppaconfig` or `configure.conf` as
+`list_dependencies_scope = 'referenced'`.
+
+|===
+| Scope | Effect
+
+| `all` (default)
+| Referenced section, then unreferenced (current behaviour)
+
+| `referenced`
+| Only the referenced section (in use, missing, and other leaves under those identities).
+  Footer: `N entries, X total, X referenced` (no unreferenced size)
+
+| `unreferenced`
+| Only leftover trees this project does not resolve
+|===
 
 Example shape (sizes and names vary; glyphs may be ASCII on some consoles). Every horizontal
 rule — including the one between `referenced` and `unreferenced` — spans the full table width
@@ -211,10 +244,9 @@ Under `--list-format=verbose` a LOCATION column is added. What it shows depends 
 When a regenerating archive exists under the downloads root (`--downloads-root`, for example
 `~/.cuppa/downloads` or a legacy `~/_cuppa/_cache`), LOCATION is prefixed with `[D]` on the
 leaf that names that archive (HTTP/Boost extract rows, and GitLab toolchain archive basenames —
-not the GitLab registry URL on the version row). A footer explains the mark whenever such archives
-are present (including under the default text format, even though LOCATION is omitted there). If
-re-extracting a dependency fails, remove the corrupt archive under downloads; deleting only the
-dependency tree is not enough.
+not the GitLab registry URL on the version row). A footer explains the mark in verbose mode
+whenever such archives are present. If re-extracting a dependency fails, remove the corrupt
+archive under downloads; deleting only the dependency tree is not enough.
 
 [source,text]
 ----
@@ -250,7 +282,9 @@ Default dependencies: boost_package
 If re-extracting a dependency fails, remove the corrupt archive there - deleting only the dependency tree is not enough.
 ----
 
-The inventory under `<dependencies_root>/.cuppa-inventory/` records size samples, optional
+The inventory under `<dependencies_root>/.cuppa-inventory/` records sizes (exact after listing
+upgrades missing or sampled entries; resolve/build may still write samples until listing
+upgrades them), optional
 `remote_location` / `source_url` (configured or reconstructed remotes), and paths of known
 download archives so later listings can show LOCATION and `[D]` without re-guessing. Listing
 does not stamp `last_used`; that belongs to a real resolve or build.
@@ -274,10 +308,25 @@ referenced picture from `--list-dependencies`, without unreferenced leftovers), 
 `Collating dependency tree...`. See
 xref:integration/test-remove-dependencies.adoc[`test_remove_dependencies`].
 
-Source Boost (the `boost` dependency that builds with b2) stores all toolchain variants inside
-one extract folder. When the project uses that dependency, `--remove-dependencies=boost` removes
-the **entire** extract (not one toolchain leaf). Per-variant clean inside the extract is a later
-enhancement; prefer GitLab `boost_package` when you want selection-scoped package trees.
+Source Boost (the `boost` dependency that builds with b2) stores headers and all toolchain
+variant products inside one extract folder. When that dependency implements selection-scoped
+`storage_clean` (Boost does), `--remove-dependencies=boost` deletes only the b2 **stage** and
+matching Boost.Build toolset directories under `--build-dir` (`bin.<abi>`) for the current
+toolchain / variant / arch selection — not the whole `bin.<abi>` tree. The extract root,
+headers, and the `b2` binary stay in place so a later build does not need to re-download the
+tarball. Other stage trees and other toolsets' intermediates under the same extract are reported
+as left behind. Removal leaves use honest scopes: cuppa-precise for stage
+(`clean/build.c++2c [clang211/debug/x86_64]`) and Boost.Build toolset **family** for bin
+(`clean/bin.c++2c [clang-linux-21*/debug]` — major family ± patch dirs such as `clang-linux-21.1`,
+not a cuppa minor like `clang211`). The identity SIZE is the full extract (same basis as
+`--list-dependencies`); a muted `source assets` leaf shows non-product bytes that stay on disk,
+and the freed-space summary reports the remaining archive size after product removal.
+After a live product clean, cuppa refreshes that extract's inventory with an exact size, and the
+verify hint is `cuppa -Q -D --list-dependencies` (listing upgrades any remaining missing or
+estimated inventory sizes to exact on encounter).
+Dependencies without `storage_clean` still remove their
+whole owned tree under the dependencies root (for example GitLab `boost_package` removes the
+selected package variant folder).
 
 [source,shell]
 ----
