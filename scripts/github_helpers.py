@@ -20,7 +20,12 @@ Create a pull request from the current branch:
     python -m scripts.github_helpers create-pr \\
         --title "…" --body-file /tmp/pr.md --label impact:minor
 
-After a push, watch the open pull request's checks until they finish (public read, no seal):
+After a push, watch the open pull request's checks until they finish (public read, no seal).
+The default schedule waits **2 minutes**, polls once (catching quick lint / setup failures),
+waits **another 8 minutes** (about when full CI usually finishes), then polls **every 2 minutes**.
+That keeps anonymous API use low. Pass ``--interval N`` for a fixed delay instead. If the
+public API rate-limits, ``watch-pr`` falls back to the sealed credential for later polls
+(same schedule).
 
     python -m scripts.github_helpers watch-pr
     python -m scripts.github_helpers pr-status --pr 139
@@ -53,7 +58,9 @@ from scripts.github_api import CredentialError, GitHub
 
 
 DEFAULT_BASE = 'master'
-DEFAULT_POLL_SECONDS = 30
+# Wait before 1st poll, wait before 2nd, then steady wait between later polls.
+# Total time to the second poll is 2 + 8 = 10 minutes — near typical full CI duration.
+DEFAULT_POLL_SCHEDULE_SECONDS = ( 120, 480, 120 )
 DEFAULT_WATCH_TIMEOUT = 3600
 
 # Exit codes for pr-status / watch-pr so agents can branch without parsing prose.
@@ -69,6 +76,11 @@ FAILED_CONCLUSIONS = frozenset( {
 
 
 class GitHubHelperError( Exception ):
+    pass
+
+
+class RateLimited( GitHubHelperError ):
+    """Public (or authenticated) GitHub API returned a rate-limit response."""
     pass
 
 
@@ -121,6 +133,44 @@ def repository( owner=None, repo=None ):
 def public_github( github=None ):
     """Client for public reads. Reuses ``github`` when the caller already has one."""
     return github if github is not None else GitHub.public()
+
+
+def is_anonymous_client( github ):
+    """True when ``github`` has no credential (public reads)."""
+    return github is None or getattr( github, '_token', None ) is None
+
+
+def is_rate_limit_response( status, payload ):
+    """True for HTTP 429 or a 403 whose message mentions rate limiting."""
+    if status == 429:
+        return True
+    if status != 403:
+        return False
+    if not isinstance( payload, dict ):
+        return 'rate limit' in str( payload ).lower()
+    message = str( payload.get( 'message' ) or '' ).lower()
+    return 'rate limit' in message or 'secondary rate' in message
+
+
+def iter_poll_delays( schedule=None, interval=None ):
+    """Yield sleep durations *before* each successive status poll.
+
+    Default schedule: 2 minutes, then 8 minutes, then every 2 minutes. Pass ``interval`` for a
+    fixed delay before every poll (including the first), which replaces the schedule.
+    """
+    if interval is not None:
+        if interval < 0:
+            raise ValueError( "interval must be >= 0" )
+        while True:
+            yield interval
+    delays = tuple( schedule or DEFAULT_POLL_SCHEDULE_SECONDS )
+    if len( delays ) < 3:
+        raise ValueError( "poll schedule needs at least three values (first, second, steady)" )
+    yield delays[0]
+    yield delays[1]
+    steady = delays[2]
+    while True:
+        yield steady
 
 
 def create_pull_request(
@@ -178,6 +228,9 @@ def find_open_pull_request( head=None, owner=None, repo=None, github=None ):
         'GET',
         '/repos/{}/{}/pulls?state=open&head={}:{}'.format( owner, repo, owner, head ),
     )
+    if is_rate_limit_response( status, pulls ):
+        raise RateLimited( "listing pull requests rate-limited ({}): {}".format(
+            status, json.dumps( pulls ) ) )
     if status >= 400:
         raise GitHubHelperError( "listing pull requests failed ({}): {}".format(
             status, json.dumps( pulls ) ) )
@@ -197,6 +250,9 @@ def resolve_pull_request( number=None, head=None, owner=None, repo=None, github=
             '/repos/{}/{}/pulls/{}'.format( owner, repo, number ),
         )
         if status >= 400:
+            if is_rate_limit_response( status, pull ):
+                raise RateLimited( "reading pull request {} rate-limited ({}): {}".format(
+                    number, status, json.dumps( pull ) ) )
             raise GitHubHelperError( "reading pull request {} failed ({}): {}".format(
                 number, status, json.dumps( pull ) ) )
         return pull
@@ -214,6 +270,9 @@ def _check_runs_for( sha, owner, repo, github ):
         'GET',
         '/repos/{}/{}/commits/{}/check-runs?per_page=100'.format( owner, repo, sha ),
     )
+    if is_rate_limit_response( status, payload ):
+        raise RateLimited( "reading check runs rate-limited ({}): {}".format(
+            status, json.dumps( payload ) ) )
     if status >= 400:
         raise GitHubHelperError( "reading check runs failed ({}): {}".format(
             status, json.dumps( payload ) ) )
@@ -242,7 +301,7 @@ def outcome_for( checks ):
 
 
 def pull_request_status( number=None, head=None, owner=None, repo=None, github=None ):
-    """Where the pull request's checks stand right now (public API; no sealed token)."""
+    """Where the pull request's checks stand right now (public API by default)."""
     owner, repo = repository( owner, repo )
     client = public_github( github )
     pull = resolve_pull_request(
@@ -259,6 +318,79 @@ def pull_request_status( number=None, head=None, owner=None, repo=None, github=N
         checks = checks,
         outcome = outcome_for( checks ),
     )
+
+
+def _status_with_auth_fallback( number=None, head=None, owner=None, repo=None, github=None, out=None ):
+    """Return ``(PullRequestStatus, client)``, switching to the sealed token on rate limit."""
+    out = out or sys.stdout
+    client = public_github( github )
+    try:
+        return pull_request_status(
+            number=number, head=head, owner=owner, repo=repo, github=client
+        ), client
+    except RateLimited:
+        if not is_anonymous_client( client ):
+            raise
+        out.write(
+            "public API rate-limited; retrying with sealed credential "
+            "(same poll schedule)\n"
+        )
+        out.flush()
+        client = GitHub()
+        return pull_request_status(
+            number=number, head=head, owner=owner, repo=repo, github=client
+        ), client
+
+
+def watch_pull_request(
+        number=None,
+        head=None,
+        owner=None,
+        repo=None,
+        github=None,
+        interval=None,
+        schedule=None,
+        timeout=DEFAULT_WATCH_TIMEOUT,
+        out=None,
+        sleep=time.sleep,
+        clock=time.monotonic,
+):
+    """Poll until checks finish. Returns ``(exit_code, PullRequestStatus)``.
+
+    Sleeps *before* each poll. Default schedule: 2 minutes, then 8 minutes, then every
+    2 minutes. Pass ``interval`` for a fixed delay instead. On public rate limits, falls back
+    to the sealed credential and keeps that client for later polls.
+    """
+    out = out or sys.stdout
+    deadline = clock() + timeout
+    last = None
+    client = github
+    delays = iter_poll_delays( schedule=schedule, interval=interval )
+
+    while True:
+        remaining = deadline - clock()
+        if remaining <= 0:
+            out.write( "timed out after {}s while checks were still pending\n".format( timeout ) )
+            out.flush()
+            return EXIT_TIMEOUT, last
+
+        delay = next( delays )
+        sleep( min( delay, remaining ) )
+
+        remaining = deadline - clock()
+        if remaining < 0 and last is not None:
+            out.write( "timed out after {}s while checks were still pending\n".format( timeout ) )
+            out.flush()
+            return EXIT_TIMEOUT, last
+
+        last, client = _status_with_auth_fallback(
+            number=number, head=head, owner=owner, repo=repo, github=client, out=out
+        )
+        out.write( format_pull_request_status( last ) + "\n" )
+        out.flush()
+
+        if last.outcome != 'pending':
+            return exit_code_for( last.outcome ), last
 
 
 def format_pull_request_status( status ):
@@ -288,42 +420,6 @@ def exit_code_for( outcome ):
     if outcome == 'failure':
         return EXIT_FAILURE
     return EXIT_PENDING
-
-
-def watch_pull_request(
-        number=None,
-        head=None,
-        owner=None,
-        repo=None,
-        github=None,
-        interval=DEFAULT_POLL_SECONDS,
-        timeout=DEFAULT_WATCH_TIMEOUT,
-        out=None,
-        sleep=time.sleep,
-        clock=time.monotonic,
-):
-    """Poll until checks finish. Returns ``(exit_code, PullRequestStatus)``."""
-    out = out or sys.stdout
-    deadline = clock() + timeout
-    last = None
-
-    while True:
-        last = pull_request_status(
-            number=number, head=head, owner=owner, repo=repo, github=github
-        )
-        out.write( format_pull_request_status( last ) + "\n" )
-        out.flush()
-
-        if last.outcome != 'pending':
-            return exit_code_for( last.outcome ), last
-
-        remaining = deadline - clock()
-        if remaining <= 0:
-            out.write( "timed out after {}s while checks were still pending\n".format( timeout ) )
-            out.flush()
-            return EXIT_TIMEOUT, last
-
-        sleep( min( interval, remaining ) )
 
 
 FAILURE_LINE_MARKERS = (
@@ -519,22 +615,26 @@ def create_pr_command( arguments ):
 
 
 def pr_status_command( arguments ):
-    status = pull_request_status(
+    github = GitHub() if arguments.auth else None
+    status, _client = _status_with_auth_fallback(
         number = arguments.pr,
         head = arguments.head,
         owner = arguments.owner,
         repo = arguments.repo,
+        github = github,
     )
     print( format_pull_request_status( status ) )
     return exit_code_for( status.outcome )
 
 
 def watch_pr_command( arguments ):
+    github = GitHub() if arguments.auth else None
     code, _ = watch_pull_request(
         number = arguments.pr,
         head = arguments.head,
         owner = arguments.owner,
         repo = arguments.repo,
+        github = github,
         interval = arguments.interval,
         timeout = arguments.timeout,
     )
@@ -559,6 +659,11 @@ def _add_pr_selection_arguments( parser ):
     parser.add_argument( '--head', help="branch used to find an open pull request" )
     parser.add_argument( '--owner' )
     parser.add_argument( '--repo' )
+    parser.add_argument(
+        '--auth', action='store_true',
+        help="use the sealed credential instead of the public API (also used automatically "
+             "when the public API rate-limits)",
+    )
 
 
 def main( argv=None ):
@@ -587,8 +692,8 @@ def main( argv=None ):
     )
     _add_pr_selection_arguments( watch )
     watch.add_argument(
-        '--interval', type=int, default=DEFAULT_POLL_SECONDS,
-        help="seconds between polls (default {})".format( DEFAULT_POLL_SECONDS ),
+        '--interval', type=int, default=None,
+        help="fixed seconds before every poll (default: schedule 120, then 480, then every 120)",
     )
     watch.add_argument(
         '--timeout', type=int, default=DEFAULT_WATCH_TIMEOUT,

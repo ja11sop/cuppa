@@ -213,6 +213,24 @@ from scripts.github_helpers import create_pull_request
 create_pull_request( title='…', body='…', labels=['impact:minor'] )
 ```
 
+### Before pushing a pull request branch
+
+**Always run the full local Python test gate before `git push`.** Waiting for CI to report a unit
+or integration failure wastes a long Actions cycle and rate-limited status polls. From the repo
+root (with cuppa importable — e.g. `pip install -e .` or `PYTHONPATH=.`):
+
+```sh
+flake8 cuppa
+pylint -E cuppa
+pytest -m unit
+pytest -m integration
+```
+
+Do not skip `pytest -m unit` or `pytest -m integration` because only a helper script or docs
+changed — those suites are fast relative to CI and catch import / CLI regressions. Use
+`CUPPA_TEST_TOOLCHAIN=…` when you need a non-default compiler for integration (see
+[Validating changes to cuppa](#validating-changes-to-cuppa)). Fix failures locally, then push.
+
 ### After pushing a pull request branch
 
 After `git push -u origin HEAD` (or any later push to an open PR), **do not stop without knowing
@@ -226,12 +244,24 @@ python -m scripts.github_helpers watch-pr --pr 139
 python -m scripts.github_helpers pr-status --pr 139   # one snapshot; no wait
 ```
 
-These status helpers read the public API anonymously — they do **not** unseal the token. Owner and
-repository come from the local `origin` remote. The default poll interval is thirty seconds.
+These status helpers read the public API anonymously by default — they do **not** unseal the token
+unless you pass `--auth` or the public API rate-limits (then they fall back to the sealed
+credential and keep using it for later polls). Owner and repository come from the local `origin`
+remote.
+
+**Default `watch-pr` schedule** (sleep *before* each poll):
+
+1. Wait **2 minutes**, then poll once — catches quick failures (lint, misconfigured CI) without
+   hammering the API while jobs are still queuing.
+2. Wait **another 8 minutes** (about **10 minutes** from start) — full CI usually finishes around
+   here, so mid-run polls are skipped on purpose.
+3. Then poll **every 2 minutes** until success, failure, or `--timeout` (default one hour).
+
+Pass `--interval N` for a fixed delay before every poll instead of that schedule. Prefer the
+default after a push; use `pr-status` when you only need a snapshot.
 
 Exit codes: `0` all checks succeeded (or were skipped / neutral), `1` at least one failed, `2`
-still pending (`pr-status` only), `3` timed out while still pending (`watch-pr`). Prefer
-`watch-pr` after a push; use `pr-status` when you only need a snapshot.
+still pending (`pr-status` only), `3` timed out while still pending (`watch-pr`).
 
 When `watch-pr` / `pr-status` reports a failure, feed the failed job name into the log helper
 (sealed token; Actions read permission required — see token permissions above):
@@ -324,6 +354,10 @@ Module auto-registration: `cuppa/modules/registration.py` loads classes exposing
 Plugins (setuptools): `cuppa.method.plugins`, `cuppa.profile.plugins`, `cuppa.dependency.plugins`.
 
 ## Validating changes to cuppa
+
+Run this **before every push** to a pull-request branch (see
+[Before pushing a pull request branch](#before-pushing-a-pull-request-branch)). It is much cheaper
+than learning about a failed unit or integration test from CI.
 
 ```sh
 flake8 cuppa
