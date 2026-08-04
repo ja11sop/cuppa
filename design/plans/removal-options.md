@@ -6,20 +6,23 @@
 
 `--list-develop` and `--update-develop` (§3.5, §3.6), the storage rename (§3.1, §8, Phase 1),
 build listing/removal (`--list-builds`, `--remove-builds`, `--remove-all-builds`, Phase 2),
-and Phase 3 **listing** (`--list-dependencies` hierarchical tree, inventory, verbose LOCATION /
-`[D]`, docs examples) are implemented. Phase 3 **removal** (`--remove-dependencies` /
-`--remove-all-dependencies` / purge) is not started. Cloning a missing develop copy (§3.7)
-remains a proposal, as do download listing/removal (Phase 4) and artefact removal (Phase 6).
-Follow-on from the `--clean` work in `cuppa/location.py` and `cuppa/package_managers/gitlab.py`,
-where a clean could not complete because a dependency was missing, and where the advice for
-leftover artefacts was "remove the folder by hand". Telling people to run `rm -rf` is
-unsatisfying: it is platform-specific, it is easy to aim at the wrong path, and cuppa already
-knows exactly which folders belong to which variant and which dependency.
+Phase 3 **listing** (`--list-dependencies` hierarchical tree, inventory, verbose LOCATION /
+`[D]`, docs examples), and Phase 3 **removal Slice D** (`--remove-dependencies` /
+`--remove-all-dependencies` under `dependencies_root`, project-used name gate, no purge) are
+implemented (listing on `master` via [#141](https://github.com/ja11sop/cuppa/pull/141); removal on
+`134_remove_dependencies`). Cloning a missing develop copy (§3.7) remains a proposal, as do
+download listing/removal (Phase 4), archive clean-by-variant (§4.14.3), and artefact removal
+(Phase 6). Follow-on from the `--clean` work in `cuppa/location.py` and
+`cuppa/package_managers/gitlab.py`, where a clean could not complete because a dependency was
+missing, and where the advice for leftover artefacts was "remove the folder by hand". Telling
+people to run `rm -rf` is unsatisfying: it is platform-specific, it is easy to aim at the wrong
+path, and cuppa already knows exactly which folders belong to which variant and which
+dependency.
 
 This plan proposes a way to list what is in the storage roots, a family of explicit removal
-options (Phases 1–2 and Phase 3 listing done; Phase 3 removal and Phase 4 next), conservative
-ways to create develop copies that are missing (§3.7), and the safety model that governs
-deletion.
+options (Phases 1–2, Phase 3 listing, and Slice D removal done; Phase 4 purge next),
+conservative ways to create develop copies that are missing (§3.7), and the safety model that
+governs deletion.
 
 The storage rename came **first** (§6, Phase 1) so every later phase talks about one vocabulary.
 Throughout this document the new names are used: `dependencies_root` (was `download_root`) and
@@ -30,7 +33,9 @@ which defaults to `~/.cuppa` and can be moved with one option.
 
 Phases **1**, **2**, and **5**, and Phase **3 listing**, are **done on `master`**
 ([#141](https://github.com/ja11sop/cuppa/pull/141) / umbrella [#134](https://github.com/ja11sop/cuppa/issues/134)).
-Phase **3 removal** (Slice D) and Phases **4** / **6** / **§3.7** are not started.
+Phase **3 removal Slice D** is **implemented on `134_remove_dependencies`** (ready to merge;
+does not close #134). Phases **4** / **6** / **§3.7** and archive clean-by-variant (§4.14.3)
+remain open.
 
 | Area | State | Notes |
 |------|--------|-------|
@@ -38,23 +43,23 @@ Phase **3 removal** (Slice D) and Phases **4** / **6** / **§3.7** are not start
 | Phase 2 — `--list-builds` / `--remove-builds` / `--remove-all-builds` | **done** | #140 |
 | Phase 5 — `--list-develop` / `--update-develop` | **done** | #132 / #137; realistic integration example + docs for which listing to use |
 | Phase 3 — `storage_paths()` + resolve-only | **done** | location, GitLab package, Conan, Boost; skips when undeclared |
-| Phase 3 — inventory + `--list-dependencies` | **done** | Walk, sizes, `type`, JSON `tree` + flat `entries`, `referenced` / `unreferenced` / `missing`; ANSI-safe column padding; listing does not stamp `last_used` |
-| Phase 3 — `--list-dependencies` **table presentation** | **done** | Hierarchical tree (§4.9 P1–P4): REMARK / rollups / colour; `--list-format=verbose` LOCATION; `[D]` + footer (§4.12); GitHub archive grouping; GitLab registry LOCATION on unreferenced too; Windows `.zip` + OS label for package archives; docs examples match real ruled output |
+| Phase 3 — inventory + `--list-dependencies` | **done** | Walk, sizes, `type`, JSON `tree` + flat `entries`, `referenced` / `unreferenced` / `missing`; ANSI-safe column padding; listing does not stamp `last_used`; `Collating dependency tree...` before the walk (text/verbose) |
+| Phase 3 — `--list-dependencies` **table presentation** | **done** | Hierarchical tree (§4.9 P1–P4): REMARK / rollups / colour; missing vs stale summaries; `--list-format=verbose` LOCATION; `[D]` + footer (§4.12); GitHub archive grouping; GitLab registry LOCATION on unreferenced too; Windows `.zip` + OS label for package archives; docs examples match real ruled output |
 | Phase 3 — inventory `used_by` on resolve | **open** | Listing must not stamp use; real resolve/build should. Prerequisite for §4.10 remarks |
 | Phase 3 — short-name / stem derivation | **done** | Git remote, gitlab path, Boost + GitHub archive heuristics; inventory `remote_location` / `source_url` |
 | Phase 3 — Conan install metadata (§4.7) | **open** | `.cuppa_conan_meta.json` not written yet; Conan rows stay fingerprint-weak |
 | Phase 3 — default-branch quirk (§4.8) | **open** | Unqualified vs `stem@master` doubling; location + listing + optional cleanup; `<default_branch>` labels in §4.9 |
-| Phase 3 — `--remove-dependencies` / `--remove-all-dependencies` | **in progress** | Slice D on `134_remove_dependencies` (§4.13); no purge |
-| Phase 3 — **dependencies documentation split** (§7.1) | **open** | Partition the monolithic `dependencies.adoc` (+ reconcile `packages.adoc` / `extending.adoc`); Managing examples now match the tree — split can proceed when convenient |
-| Phase 4 — downloads list / purge | **open** | After Slice D; purge flags not in Slice D |
+| Phase 3 — `--remove-dependencies` / `--remove-all-dependencies` | **done on branch** | Slice D on `134_remove_dependencies` (§4.13): project-used name gate, hierarchical remove report, multi-toolchain packages, unknown-name in-use tree hint; no purge |
+| Phase 3 — archive / Boost clean-by-variant (§4.14) | **open** | Follow-on after Slice D merges; optional `storage_clean` protocol + b2 |
+| Phase 3 — **dependencies documentation split** (§7.1) | **open** | Partition the monolithic `dependencies.adoc` (+ reconcile `packages.adoc` / `extending.adoc`); Managing examples match list + remove — split can proceed when convenient |
+| Phase 4 — downloads list / purge | **open** | After Slice D merges; purge flags not in Slice D |
 | Phase 6 — artefacts | **open** | Sketch only (§4.6) |
 | §3.7 — `--clone-develop` | **open** | #138 |
 
-**Next focus:** Phase 3 **removal** — Slice D (§4.13): `--remove-dependencies` /
-`--remove-all-dependencies` for trees under `dependencies_root` only. Parallel polish that does
-not block removal: Conan meta (§4.7), default-branch quirk (§4.8), `used_by` stamping (enables
-§4.10), and the dependencies documentation split (§7.1). Deferred listing follow-ons remain
-§4.10 / §4.11. Purge / `--list-downloads` are Phase 4.
+**Next focus:** Merge Slice D (`134_remove_dependencies`), then archive clean-by-variant
+(§4.14.3) or Phase 4 downloads / purge. Parallel polish that does not block: Conan meta
+(§4.7), default-branch quirk (§4.8), `used_by` stamping (enables §4.10), and the dependencies
+documentation split (§7.1). Deferred listing follow-ons remain §4.10 / §4.11.
 
 ---
 
@@ -1375,31 +1380,47 @@ decisions with rationale, worked examples, UX, tests, and an ordered checklist.
 
 #### Decision D1 — What a “name” means
 
-**Proposal (preferred): registry / sconstruct dependency names only.**
+**Proposal (preferred): project-used dependency names only** (sconstruct keys that this build
+declares or defaults — not every factory cuppa can load).
 
 ```
 cuppa -Q -D --remove-dependencies=boost_package,widget
 cuppa -Q -D --remove-all-dependencies
 ```
 
+Cuppa keeps two maps:
+
+| Map | Key | Contents |
+|-----|-----|----------|
+| **Registry** | `cuppa_env['dependencies']` | Every factory cuppa can instantiate (built-ins from module scan — `boost`, `qt4`, `qt5`, `quince` — plus plugins and the sconstruct’s `dependencies=[…]`) |
+| **Project-used** | `default_dependencies` ∪ `declared_dependencies` | What *this* project names: defaults passed to `cuppa.run`, plus keys registered when walking the sconstruct’s `dependencies=[…]` list |
+
 | Accepted | Rejected (Slice D) | Rationale |
 |----------|--------------------|-----------|
-| `boost_package` (key in `cuppa_env['dependencies']`) | `boost` (extract folder / short name) | Same as BuildWith; typo against known keys is an error with a list of known names |
-| Comma-separated list | Encoded on-disk folder | Users never type `git_ssh_…_widget@master` |
+| `boost_package` when listed in `default_dependencies` or `dependencies=[…]` | `boost` when only auto-registered via module scan | Same as BuildWith intent; a shared root must not lose another project’s Boost extract because a package-only sconstruct typed the short built-in name |
+| Comma-separated list of project-used keys | Encoded on-disk folder | Users never type `git_ssh_…_widget@master` |
 | | `widget@feature_x` as a CLI token | Branch selection already comes from `--location-match-*` / current options; a second grammar fights that |
 | | Toolchain leaf as a name | Use `--toolchains=` / `--dbg` / `--rel` / `--cov` |
+| | Short name / extract folder (`boost` as unreferenced archive label) | Listing shows short names for unreferenced trees; removal stays on registry keys the project actually uses |
 
-**Unknown name → error** listing known dependency keys (not a silent no-op).
+**Unknown or not used by this project → error** with the rejected name emphasised, then a ruled
+**in-use** dependency tree for the current selection (same presentation as
+`--list-dependencies` referenced section). Example: a sconstruct that only declares
+`boost_package` rejects `--remove-dependencies=boost` even though `Boost.create` sits in the
+registry.
 
-**`--remove-all-dependencies`** = union of `default_dependencies` and anything reached through
-`BuildWith` for this run — **not** every folder under the root. Unreferenced leftovers stay
-until named in a later flag or removed by hand after `--list-dependencies`.
+**`--remove-all-dependencies`** = every **project-used** name (defaults ∪ declared), still
+selection-scoped — **not** every folder under the root, and **not** every auto-scanned built-in.
+Unreferenced leftovers stay until named in a later flag or removed by hand after
+`--list-dependencies`.
 
 **Rationale.** Listing already teaches registry names in the DEPENDENCY column for referenced
 trees. Short names appear for unreferenced archives (`boost`, `github.com/…`); deleting those
-by short name without a registry binding is how a shared root loses another project's tree.
-Workflow for leftovers: list → identify → if it is *your* dependency, remove by registry name
-with a selection that matches that leaf; if it is not yours, leave it (or a future
+by short name without a project binding is how a shared root loses another project's tree.
+Built-in factories are always *available* for `BuildWith('boost')` when a project opts in via
+`default_dependencies`; they must not be *removable* merely because the factory exists.
+Workflow for leftovers: list → identify → if it is *your* dependency, remove by project-used
+name with a selection that matches that leaf; if it is not yours, leave it (or a future
 `--remove-unreferenced-dependencies` with stronger guards).
 
 **Open to verify:** should `--remove-dependencies=` also accept a short name when **exactly one**
@@ -1530,13 +1551,26 @@ cuppa -Q -D --develop --remove-dependencies=widget
 Skips the develop path with an explicit reason. If a cache stem still exists under
 `dependencies_root` and is selected, it may be removed; the working copy never is.
 
-**E4 — Unknown name**
+**E4 — Unknown name / built-in not used by this project**
 
 ```
 cuppa -Q -D --remove-dependencies=widgt
 ```
 
-Exit non-zero: unknown dependency `widgt`; known: `widget`, `boost_package`, …
+Exit non-zero. Message:
+`error: widgt is not a used dependency for the specified build variants in this project.`
+(the rejected name is error-coloured and emphasised). Then a ruled **in-use / referenced**
+dependency tree for the current selection (same renderer as `--list-dependencies`, no
+unreferenced section), introduced by `Known dependencies which can be removed are:` and
+`Collating dependency tree...`.
+
+```
+cuppa -Q -D --remove-dependencies=boost
+```
+
+when the sconstruct only declares `boost_package` (built-in `boost` is in the registry but not
+project-used): same error shape — rejected name emphasised; hint tree shows `boost_package` and
+other project-used identities.
 
 **E5 — Nothing selected**
 
@@ -1556,14 +1590,14 @@ unreferenced strangers.
 
 #### Implementation checklist
 
-1. Replace stub in `dependency_actions.run` with real remove path.
-2. Name resolution + errors (D1).
-3. Path collection + selection filter + develop skip (D2).
-4. Announce / dry-run / delete / prune (D3).
-5. Post-remove report + leftovers + verify command (D3).
-6. Inventory cleanup best-effort.
-7. Unit + integration tests (E1–E5 at least).
-8. Docs: Dependencies Managing + CLI reference; CHANGELOG under Added.
+1. Replace stub in `dependency_actions.run` with real remove path. **Done**
+2. Name resolution + errors (D1 / project-used gate). **Done** (unknown-name hint tree)
+3. Path collection + selection filter + develop skip (D2). **Done**
+4. Announce / dry-run / delete / prune (D3). **Done**
+5. Post-remove report + leftovers + verify command (D3). **Done** (hierarchical remove tree)
+6. Inventory cleanup best-effort. **Done**
+7. Unit + integration tests (E1–E6, multi-toolchain, name gate). **Done**
+8. Docs: Dependencies Managing + CLI reference; CHANGELOG under Added. **Done**
 9. Update this plan’s progress snapshot when the PR merges; do **not** close #134 until purge /
    remaining Phase 3 goals are agreed (message like #141: “completes the dependency removal
    half…” without `fixes` / `closes`).
@@ -1572,21 +1606,119 @@ unreferenced strangers.
 
 | Topic | Decision |
 |-------|----------|
-| Names | Registry / sconstruct keys only |
-| Scope | Current selection only; report siblings / other toolchains |
+| Names | Project-used keys only (`default_dependencies` ∪ `declared_dependencies`); not the full factory registry |
+| Unknown name UX | Emphasised error name + in-use tree hint (not a flat key list) |
+| Scope | Current selection only; leftovers muted in the same tree (`Leaving … as shown`) |
 | Develop | Never delete develop paths |
 | Downloads | Untouched (no purge) |
+| Archive / Boost | Whole extract today; per-variant clean deferred (§4.14.3) |
 | Unreferenced sweep | No |
-| UX | Builds-like report on stdout; `-n` supported |
+| UX | Builds-like report on stdout; checks/ballots; `-n` supported; info-coloured freed size |
 | Docs | Managing + CLI in same PR |
 
 #### Still verify while implementing (small)
 
-- Exact wording of the leftovers block (flat list vs mini-tree).
-- Whether post-remove reuses the full `--list-dependencies` renderer with a REMOVED column or a
-  dedicated compact table (lean toward compact if full tree is noisy after deletes).
-- Whether `--remove-all-dependencies` with zero default dependencies is “nothing to remove” or
-  an error (lean toward nothing to remove + hint to name dependencies).
+Settled in implementation:
+
+- Leftovers live in the remove tree (muted) with `Leaving N trees (…) for other selections as shown.`
+- Dedicated hierarchical remove table (not a full `--list-dependencies` REMOVED overlay).
+- `--remove-all-dependencies` with zero project-used names → nothing to remove (not an error).
+
+### 4.14 Project-used name gate and archive-style clean-by-variant
+
+Umbrella [#134](https://github.com/ja11sop/cuppa/issues/134). Two related findings from exercising
+Slice D against a package-only consumer (GitLab `boost_package`, no source `boost` in
+`default_dependencies`):
+
+1. **`--remove-dependencies=boost` succeeded** and planned deletion of a multi-gigabyte shared
+   Boost extract under the dependencies root, even though the sconstruct never named `boost`.
+2. **Archive layout** means that when source `boost` *is* project-used, today’s removal deletes
+   the entire extract — every toolchain and variant that b2 staged inside it — which is correct
+   for “wipe this Boost install” but surprising if selection (`--toolchains=`, `--dbg`) is
+   assumed to narrow the target the way it does for GitLab packages.
+
+#### 4.14.1 Name gate (Slice D — **done** on `134_remove_dependencies`)
+
+**Bug (fixed).** `known_dependency_names` read the full factory registry. Module scan always
+registers `boost` (and `qt4` / `qt5` / `quince`). Resolve then called `Boost.create()` →
+`storage_paths()` → the shared archive folder. On a shared root that was a cross-project
+deletion hazard.
+
+**Fix (shipped).** Track `declared_dependencies` when walking the sconstruct’s
+`dependencies=[…]` list in `construct.py`. For remove name resolution:
+
+```
+project_used = default_dependencies ∪ declared_dependencies
+```
+
+Validate `--remove-dependencies=` against `project_used` only. Rejected names print an
+emphasised error plus a ruled in-use dependency tree for the current selection (not a flat
+key list). `--remove-all-dependencies` iterates the same set (still selection-scoped).
+Built-in factories remain in the registry for `BuildWith('boost')` when a project opts in via
+`default_dependencies=['boost']`.
+
+**Tests.** Package-only sconstruct → `--remove-dependencies=boost` exits non-zero and does not
+plan the archive tree; sconstruct with `default_dependencies=['boost']` still removes the
+extract. Same gate for other auto-scanned built-ins.
+
+**Non-goal for the gate.** Changing how listing discovers unreferenced archives on disk (short
+name `boost` in the unreferenced section remains a listing heuristic, not a remove handle).
+
+#### 4.14.2 Why archives differ from GitLab packages
+
+| Kind | On-disk ownership | Selection today |
+|------|-------------------|-----------------|
+| **GitLab / toolchain package** | `{tool_variant}/{package}/{version}/` | `--toolchains=` / variants select which trees `storage_paths()` returns |
+| **Location (VCS)** | Stem / `@branch` folders | Match options select one qualifier; siblings reported as leftovers |
+| **Archive / source Boost** | One encoded extract folder; b2 stages libs under `build[.abi]/<toolchain>/<variant>/<arch>/` inside it | `storage_paths()` returns the **top-level extract** only — selection does not narrow |
+
+So `--remove-dependencies=boost` (when allowed) frees the whole tree. Ideal follow-on: clean
+*variant build products* inside the extract when selection is set, without always deleting
+headers and the b2 binary.
+
+#### 4.14.3 Proposed protocol (follow-on slice — not Slice D)
+
+Optional peer to `storage_paths()`:
+
+```python
+def storage_clean(self, env, selection):
+    """Clean variant build products for this dependency under the current selection.
+
+    Returns None if unsupported (caller falls back to whole-tree remove via storage_paths).
+    Otherwise a mapping or structured result naming cleaned paths / bytes freed.
+    """
+```
+
+| Responsibility | Owner |
+|----------------|--------|
+| Map cuppa selection → clean targets | Dependency (Boost: stage dirs + b2 `--build-dir` trees from `library_naming.stage_directory` / `b2_command`) |
+| Measure before / after | Cuppa removal (b2 will not report bytes reliably) |
+| Dry-run (`-n`) | Prefer deterministic path enumeration without invoking b2 when layouts are known |
+| Report | Same removal tree: identity = archive; leaves = cleaned variant dirs; muted leftovers for other internal variants; freed space from measured delta |
+| Full extract removal | Only when no variant products remain, or via an explicit “remove whole archive” / later purge-adjacent mode |
+
+GitLab packages and plain Location deps return `None` / omit the method — behaviour unchanged.
+
+**Boost sketch.** For each active toolchain × variant × arch: remove
+`stage_directory(...)` and the matching `--build-dir` tree under the extract (or invoke
+`b2 --clean` with the same flags cuppa uses to build). Leave the source tree and b2 executable
+unless a full-extract remove is requested. Document that selection-scoped clean frees disk
+without forcing a re-download of the tarball.
+
+**Phasing.** Name gate ships with Slice D. Archive clean is a **separate checklist** after D
+merges (protocol + Boost implementation + docs + tests). Until then, document that
+`--remove-dependencies=boost` (when the project uses source Boost) removes the **entire
+extract**.
+
+#### 4.14.4 Settled vs open
+
+| Topic | State |
+|-------|--------|
+| Project-used name gate | **Done** (Slice D) |
+| Unknown-name in-use tree hint | **Done** (Slice D) |
+| Document whole-extract archive remove | **Done** (Slice D docs) |
+| `storage_clean` / b2 per-variant clean | **Open** — follow-on |
+| Short-name remove when uniquely referenced | **Rejected for Slice D** (unchanged) |
 
 ---
 
@@ -1634,7 +1766,7 @@ could land at any point, and Phase 6 needs a design pass this plan does not atte
 |-------|----------|-----------|--------|
 | 1 | `--storage-root` and the renamed roots | — | **done** ([#133](https://github.com/ja11sop/cuppa/issues/133)) |
 | 2 | `--remove-builds`, `--remove-all-builds`, `--list-builds` | 1 | **done** ([#134](https://github.com/ja11sop/cuppa/issues/134) / #140) |
-| 3 | Inventory, `--list-dependencies`, `--remove-dependencies` / `--remove-all-dependencies` | 1, 2 | **listing done** (#141); **removal open** (§4.13 Slice D) |
+| 3 | Inventory, `--list-dependencies`, `--remove-dependencies` / `--remove-all-dependencies` | 1, 2 | **listing done** (#141); **Slice D removal done on branch** `134_remove_dependencies` (§4.13); purge still Phase 4; archive clean §4.14.3 open |
 | 4 | `--list-downloads`, `--purge-*` | 3 | |
 | 5 | `--list-develop`, `--update-develop` | nothing in this plan | **done** ([#132](https://github.com/ja11sop/cuppa/issues/132)) |
 | 6 | `--remove-artefacts` | its own design pass first | |
@@ -1669,15 +1801,19 @@ could land at any point, and Phase 6 needs a design pass this plan does not atte
 
 **Phase 3 — dependency listing, inventory, and removal** (§3.2, §4.3, §4.5, §4.7, §4.8)
 
-Listing half **done** on `134_list_and_remove_dependencies`; removal still open.
+Listing half **done** on `master` (#141). Removal Slice D **done** on `134_remove_dependencies`
+(§4.13 / §4.14.1); purge remains Phase 4; archive clean-by-variant (§4.14.3) is follow-on.
 
 - `storage_paths()` + resolve-only: **done** (location, GitLab package, Conan, Boost).
 - Inventory (§4.5): **done** for sizes / type / remote fields; `used_by` stamping on real
   resolve/build still **open** (§4.10). Listing does not stamp `last_used`.
-- `--list-dependencies` hierarchical tree (§4.9 P1–P4): **done** (REMARK, rollups, verbose
-  LOCATION / `[D]`, JSON `tree` + flat `entries`, docs examples).
-- **Still open — removal:** Slice D (§4.13) — `--remove-dependencies` /
-  `--remove-all-dependencies` under `dependencies_root` only; purge is Phase 4.
+- `--list-dependencies` hierarchical tree (§4.9 P1–P4): **done** (REMARK, rollups, missing vs
+  stale summaries, verbose LOCATION / `[D]`, JSON `tree` + flat `entries`, collating message,
+  docs examples).
+- **Done — removal Slice D:** `--remove-dependencies` / `--remove-all-dependencies` under
+  `dependencies_root` only; project-used name gate; hierarchical remove report; unknown-name
+  in-use tree hint. Purge is Phase 4.
+- **Still open — archive clean (§4.14.3):** optional `storage_clean` / b2 per-variant clean.
 - **Still open — Conan install metadata (§4.7):** write `.cuppa_conan_meta.json` on successful
   install and backfill on reuse; teach listing to read it; Conan `storage_tool_variant()` for
   resolve touches.
@@ -1686,8 +1822,8 @@ Listing half **done** on `134_list_and_remove_dependencies`; removal still open.
   `develop` already shipped.
 - Removal must re-verify every path on disk and re-apply the §5 containment rules; the inventory
   informs the report and never authorises a deletion.
-- **Documentation split (§7.1):** Managing samples match the tree; partition `dependencies.adoc`
-  when convenient, preferably alongside removal docs so list + remove land as one Managing page.
+- **Documentation split (§7.1):** Managing samples match list + remove; partition
+  `dependencies.adoc` when convenient.
 
 **Phase 4 — downloads listing and purge** (§3.3)
 
@@ -2130,7 +2266,7 @@ Settled while reviewing this plan, and folded into the sections above:
 | Whether cloning a missing develop copy is its own option or a mode of `--update-develop` | Its own option, `--clone-develop`, so that updating keeps its narrow promise and the mode slot stays reserved for tolerance levels (§3.7, [#138](https://github.com/ja11sop/cuppa/issues/138)) |
 | Downloads-root path under verbose `[D]` LOCATION | No. `[D]` + basename (+ footer) only; paths stay in JSON / `--list-downloads` (§4.12) |
 
-Still open, and none of them block starting Phase 3 removal (Slice D, §4.13):
+Still open after Slice D (none block merging `134_remove_dependencies`):
 
 - **How `--remove-artefacts` finds paths.** Graph discovery, project declaration, or both, and
   what it adds over SCons `--clean`. This wants measurement on a real project before an option

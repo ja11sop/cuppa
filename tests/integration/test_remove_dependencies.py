@@ -49,9 +49,60 @@ cuppa.run(
     )
     assert removed.returncode != 0
     plain = strip_ansi(removed.stdout + (removed.stderr or ""))
-    assert "unknown" in plain.lower()
+    assert "is not a used dependency" in plain
     assert "widgt" in plain
+    assert "Collating dependency tree" in plain
+    assert "Known dependencies which can be removed" in plain
+    assert "DEPENDENCY" in plain
     assert "widget" in plain
+
+
+def test_remove_rejects_builtin_boost_when_only_package_declared(tmp_path):
+    """Auto-registered ``boost`` is not removable unless the project uses it."""
+    project = copy_dummy_project(tmp_path)
+    storage = tmp_path / "storage"
+    deps = storage / "dependencies"
+    archive = deps / "https_archives.boost.io__release_1.91.0_source_boost_1_91_0.tar.gz"
+    archive.mkdir(parents=True)
+    (archive / "boost").mkdir()
+    (archive / "boost" / "version.hpp").write_text("//\n", encoding="utf-8")
+
+    write_sconstruct(
+        project,
+        body="""\
+import cuppa
+
+Boost = cuppa.package_dependency(
+    'boost_package',
+    package_manager='gitlab',
+    registry='https://gitlab.example/api/v4/projects/1',
+    package='boost',
+    version='1.91',
+)
+
+cuppa.run(
+    default_variants=['dbg'],
+    dependencies=[Boost],
+    default_dependencies=['boost_package'],
+)
+""",
+    )
+    removed = run_cuppa(
+        project,
+        "--offline",
+        "-n",
+        "--remove-dependencies=boost",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert removed.returncode != 0
+    plain = strip_ansi(removed.stdout + (removed.stderr or ""))
+    assert "is not a used dependency" in plain
+    assert "boost" in plain
+    assert "Known dependencies which can be removed" in plain
+    assert "boost_package" in plain
+    assert "DEPENDENCY" in plain
+    assert archive.is_dir()
 
 
 def test_remove_location_keeps_sibling_branch(tmp_path):
@@ -110,7 +161,11 @@ cuppa.run(
     plain = strip_ansi(removed.stdout)
     assert "Removed" in plain
     assert "Leaving" in plain
+    assert "as shown" in plain
     assert "feature_x" in plain or "@feature_x" in plain
+    assert "git_https_example.com__org_widget.git@master" in plain
+    assert "git_https_example.com__org_widget.git@feature_x" in plain
+    assert "LAST USED" in plain
     assert not master.exists()
     assert feature.is_dir()
     assert "list-dependencies" in plain
@@ -234,3 +289,110 @@ cuppa.run(
     assert not selected.exists()
     assert other.is_dir()
     assert "Leaving" in plain
+    assert "as shown" in plain
+    assert other_variant in plain or str(other.relative_to(deps)).replace("\\", "/") in plain
+
+
+def test_remove_multiple_toolchains(tmp_path):
+    """--toolchains=gcc,clang removes each selected package variant."""
+    project = copy_dummy_project(tmp_path)
+    storage = tmp_path / "storage"
+    deps = storage / "dependencies"
+    deps.mkdir(parents=True)
+
+    write_sconstruct(
+        project,
+        body="""\
+import cuppa
+
+Boost = cuppa.package_dependency(
+    'boost_package',
+    package_manager='gitlab',
+    registry='https://gitlab.example/api/v4/projects/1',
+    package='boost',
+    version='1.91',
+)
+
+cuppa.run(
+    default_variants=['dbg'],
+    dependencies=[Boost],
+    default_dependencies=['boost_package'],
+)
+""",
+    )
+
+    def missing_path(toolchains):
+        listed = run_cuppa(
+            project,
+            "--offline",
+            "--list-dependencies",
+            "--list-format=json",
+            "--toolchains={}".format(toolchains),
+            "--storage-root={}".format(storage),
+            extra_env=own_home(tmp_path),
+        )
+        if listed.returncode != 0:
+            return None
+        payload = _json_payload(listed)
+        missing = [
+                entry for entry in payload["entries"]
+                if entry.get("dependency") == "boost_package"
+                and entry.get("state") == "missing"
+        ]
+        if not missing:
+            return None
+        return missing[0]["path"], missing[0].get("tool_variant")
+
+    gcc_info = missing_path("gcc")
+    clang_info = missing_path("clang")
+    if not gcc_info or not clang_info:
+        pytest.skip("gcc and clang toolchains required for multi-toolchain removal test")
+    if gcc_info[1] == clang_info[1]:
+        pytest.skip("gcc and clang resolved to the same tool_variant")
+
+    from pathlib import Path
+    paths = []
+    for path_str, _variant in (gcc_info, clang_info):
+        path = Path(path_str)
+        path.mkdir(parents=True)
+        (path / "include").mkdir(parents=True)
+        (path / "include" / "boost.hpp").write_text("//\n", encoding="utf-8")
+        paths.append(path)
+
+    # Single invocation must resolve both package extracts.
+    listed_both = run_cuppa(
+        project,
+        "--offline",
+        "--list-dependencies",
+        "--list-format=json",
+        "--toolchains=gcc,clang",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(listed_both)
+    both_payload = _json_payload(listed_both)
+    boost_paths = {
+            entry["path"]
+            for entry in both_payload["entries"]
+            if entry.get("dependency") == "boost_package"
+    }
+    assert Path(gcc_info[0]) in {Path(p) for p in boost_paths}
+    assert Path(clang_info[0]) in {Path(p) for p in boost_paths}
+
+    removed = run_cuppa(
+        project,
+        "--offline",
+        "--dbg",
+        "--toolchains=gcc,clang",
+        "--remove-dependencies=boost_package",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(removed)
+    plain = strip_ansi(removed.stdout)
+    assert "Removed" in plain or "removed" in plain
+    for path in paths:
+        assert not path.exists(), path
+    assert gcc_info[1] in plain
+    assert clang_info[1] in plain
+    assert "2 tree" in plain or "2 trees" in plain or "Removed 2" in plain

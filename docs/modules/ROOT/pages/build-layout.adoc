@@ -252,20 +252,21 @@ Reading the report:
   emphasised; the build-root path info-coloured and shortened, for example `_build` or
   `~/project/_build`).
 * The three tables are the same shape as `--list-builds`, but the middle column is **REMOVED**
-  and the folder hang reads `removed (N of M entries)`. Successful removals use the error
-  (red) colour and checks; a fully cleared sconscript name row emphasises size, mark, and name
-  with heavy `✔` marks. Rows that were never candidates stay dim with a blank mark (here
-  `rel/…`).
+  and the folder hang reads `removed (N of M entries)`. Successful removals use the
+  **remove_notice** colour (warn / purple family) and checks; a fully cleared sconscript name
+  row emphasises size, mark, and name with heavy `✔` marks. Rows that were never candidates stay
+  dim with a blank mark (here `rel/…`).
 * After a live run the closing line is `Removed N entries freeing up SIZE of disk space.`
   Dry-run uses `Would remove…` and `dry run (-n); nothing removed`.
 * The final block is a ready-made `--list-builds` command for the same selection so you can
   confirm that nothing remains selected and that the build-folder size has dropped.
 
 If a path cannot be deleted, the tables mark it with a ballot (`✗`, or heavy `✘` on an
-emphasised name row) in the warning or error colour, and a reason tree follows (same shape as
-`--list-develop`). Already-deleted paths are warnings; other failures are errors. Mixed success
-and failure under one rollup shows `✓-✗`. Only bracketed values in the reason lines are
-coloured — for example `[Errno 13]` and `[_build/lib/…/working]`.
+emphasised name row) in the **remove_error** colour, and a reason tree follows (same shape as
+`--list-develop`) using ordinary warning / error colours for the prose. Already-deleted paths
+are warnings; other failures are errors. Mixed success and failure under one rollup shows
+`✓-✗`. Only bracketed values in the reason lines are coloured — for example `[Errno 13]` and
+`[_build/lib/…/working]`.
 
 [source,text]
 ----

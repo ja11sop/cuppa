@@ -43,6 +43,9 @@ def test_package_info_identity_and_default_variant(reset_location_caches):
     assert info["package"]["id"][1] == "widget"
     assert info["package"]["id"][2] == "1.2.3"
     assert info["package"]["id"][3] == "rel"
+    assert info["package"]["id"][4] is False
+    # No toolchain on FakeEnv → tool_variant segment is None.
+    assert info["package"]["id"][5] is None
     assert info["package"]["args"]["variant"] == "rel"
 
 
@@ -53,3 +56,42 @@ def test_package_id_default_variant_via_gitlab_helper():
     result = GitlabPackageDependency.package_id(pkg, env)
     assert result["id"][3] == "rel"
     assert result["id"][4] is True
+    assert result["id"][5] is None
+
+
+class _FakeToolchain:
+    def __init__(self, name):
+        self._name = name
+
+    def package_name(self):
+        return self._name
+
+
+class _FakeVariant:
+    def name(self):
+        return "dbg"
+
+
+def test_package_id_includes_tool_variant_per_toolchain():
+    pkg = type("Pkg", (), {
+        "_registry": "r",
+        "_package": "boost",
+        "_version": "1.91",
+        "_variant": "rel",
+    })()
+    pkg.default_version = lambda version, env: None
+
+    def make_env(toolchain_name):
+        return FakeEnv(
+            develop=False,
+            toolchain=_FakeToolchain(toolchain_name),
+            variant=_FakeVariant(),
+            target_arch="x86_64",
+            abi="cxx2c",
+        )
+
+    gcc_id = GitlabPackageDependency.package_id(pkg, make_env("gcc153"))["id"]
+    clang_id = GitlabPackageDependency.package_id(pkg, make_env("clang211"))["id"]
+    assert gcc_id[5] == "gcc153_rel_x86_64_cxx2c"
+    assert clang_id[5] == "clang211_rel_x86_64_cxx2c"
+    assert gcc_id != clang_id

@@ -181,7 +181,11 @@ class Colouriser(object):
     def _start_colour( self, meaning ):
         if meaning == 'error':
             return colorama.Fore.RED
+        elif meaning == 'remove_error':
+            return colorama.Fore.RED
         elif meaning == 'warning':
+            return colorama.Fore.MAGENTA
+        elif meaning == 'remove_notice':
             return colorama.Fore.MAGENTA
         elif meaning == 'summary':
             return colorama.Fore.BLACK
@@ -213,7 +217,11 @@ class Colouriser(object):
     def _start_highlight( self, meaning ):
         if meaning == 'error':
             return colorama.Style.BRIGHT + colorama.Back.RED + colorama.Fore.WHITE
+        elif meaning == 'remove_error':
+            return colorama.Style.BRIGHT + colorama.Back.RED + colorama.Fore.WHITE
         elif meaning == 'warning':
+            return colorama.Style.BRIGHT + colorama.Back.MAGENTA + colorama.Fore.WHITE
+        elif meaning == 'remove_notice':
             return colorama.Style.BRIGHT + colorama.Back.MAGENTA + colorama.Fore.WHITE
         elif meaning == 'summary':
             return colorama.Style.BRIGHT + colorama.Back.BLACK + colorama.Fore.WHITE
@@ -267,11 +275,25 @@ def as_error( text ):
 def as_error_label( text ):
     return colouriser.highlight( 'error', text )
 
+def as_remove_error( text ):
+    """Removal attempt failed (permissions, missing path, and similar)."""
+    return colouriser.colour( 'remove_error', text )
+
+def as_remove_error_label( text ):
+    return colouriser.highlight( 'remove_error', text )
+
 def as_warning( text ):
     return colouriser.colour( 'warning', text )
 
 def as_warning_label( text ):
     return colouriser.highlight( 'warning', text )
+
+def as_remove_notice( text ):
+    """Planned or successful removal highlight (warn / purple family)."""
+    return colouriser.colour( 'remove_notice', text )
+
+def as_remove_notice_label( text ):
+    return colouriser.highlight( 'remove_notice', text )
 
 def as_info( text ):
     return colouriser.colour( 'info', text )
@@ -310,5 +332,5 @@ def colour_items( items, colour_func=as_notice ):
         return "', '".join( elements )
 
 def is_error( meaning ):
-    return meaning in ['error','failed','failure','aborted']
+    return meaning in ['error', 'failed', 'failure', 'aborted', 'remove_error']
 

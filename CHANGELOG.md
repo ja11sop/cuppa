@@ -64,11 +64,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `storage_paths()`; resolve-only path discovery does not retrieve. `--list-format=json` is
   supported (#134).
 - `--remove-dependencies=name1,name2` and `--remove-all-dependencies` remove selected trees under
-  the dependencies root for named registry dependencies (or every default dependency), using the
-  current toolchain / variant / location-match selection. They announce, support SCons `-n`,
-  report leftovers for other toolchains or branches, never delete develop working copies or
-  downloads, and finish with a `--list-dependencies` verification hint. Unknown names error with
-  the known key list (#134).
+  the dependencies root for dependencies **this project uses** (`default_dependencies` ∪ names
+  from `dependencies=[…]`), using the current toolchain / variant / location-match selection.
+  Auto-scanned built-ins such as `boost` are rejected unless the project names them. They announce,
+  support SCons `-n`, never delete develop working copies or downloads, and finish with a
+  `--list-dependencies` verification hint. Unknown or unused names print an error plus a ruled
+  in-use dependency tree (same presentation as `--list-dependencies`, referenced only) so the
+  removable keys are obvious. The report is a ruled tree: muted rolled-up size on the identity
+  (name and package version emphasised), `LAST USED` and remove/leave status on each leaf, checks
+  for successful or planned removals and ballots for failures (same marks as `--remove-builds`),
+  muted leftover leaves for other selections, a short "Leaving … as shown" line, and an
+  info-coloured freed-space summary. Passing multiple toolchains removes each matching package
+  variant. Source Boost archives remove the whole extract when that dependency is project-used
+  (per-variant b2 clean is a later phase) (#134).
+- Removal reports use dedicated `remove_notice` (warn / purple family) and `remove_error`
+  semantics so planned or successful removals are distinct from ordinary info, while failed
+  attempts stay in the error family. `--remove-builds` outcome trees use the same accents
+  (checks for success, ballots for failure); failure reason trees keep ordinary error / warning
+  colours (#134).
 - Table padding for coloured listing cells uses visible width (ANSI ignored), so
   `--list-dependencies` columns stay aligned between referenced and unreferenced rows and the
   ruled header is not stretched by escape sequences (#134).
@@ -126,6 +139,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Referenced dependency-tree summaries no longer count ``missing`` leaves as
+  "potentially stale" / unused. Absent expected trees get a ``missing dependencies`` /
+  ``N missing`` summary row (error-coloured like other missing rows) (#134).
+- `--list-dependencies` and the unknown-name remove hint print
+  `Collating dependency tree...` before the walk so long inventories show progress on
+  stdout (skipped for `--list-format=json`) (#134).
+- `--remove-dependencies` accepts only names this project uses (`default_dependencies` ∪
+  `declared_dependencies` from `dependencies=[…]`). Auto-scanned built-ins such as `boost` are no
+  longer removable on a package-only sconstruct, which previously could plan deletion of a shared
+  Boost extract under the dependencies root. Rejected names print a ruled in-use dependency tree
+  for the current selection instead of a flat key list (#134).
+- GitLab package cache keys now include the package `tool_variant` (toolchain / package variant /
+  arch / ABI). A single `--toolchains=gcc,clang` run no longer reuses the first toolchain's package
+  instance for the second, so `--list-dependencies` and `--remove-dependencies` resolve each
+  matching extract (#134).
 - Verbose `--list-dependencies` `[D]` footer no longer uses a Unicode em dash in the
   "corrupt archive" sentence. On Windows that character could not be encoded to the console
   code page after the first footer line, so the advice was missing from captured output while

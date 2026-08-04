@@ -6,12 +6,15 @@
 
 With planted trees under a private `--storage-root`:
 
-* An unknown registry name exits non-zero and lists known dependency keys.
+* An unknown or unused name exits non-zero with a clear error and a ruled tree of dependencies
+  that can be removed for the current selection (in-use / referenced only). Auto-registered
+  `boost` is rejected when the project only declares `boost_package`.
 * Removing a location dependency deletes only the selected branch folder and reports a sibling
   `@feature_x` tree as left for other selections; `-n` leaves both folders in place.
 * With `--develop`, a configured develop working copy is never deleted.
 * A GitLab package dependency removes only the selected toolchain's
-  `tool_variant/package/version` tree and leaves another toolchain's sibling.
+  `tool_variant/package/version` tree and leaves another toolchain's sibling; `--toolchains=gcc,clang`
+  removes each matching package variant.
 
 == Generated files
 

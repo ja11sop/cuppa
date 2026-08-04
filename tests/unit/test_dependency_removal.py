@@ -2,7 +2,7 @@
 
 import pytest
 
-from cuppa.core import dependency_removal, dependency_storage
+from cuppa.core import dependency_removal
 from cuppa.utility import storage
 
 
@@ -21,25 +21,68 @@ def test_parse_dependency_names_splits_and_strips():
 def test_resolve_requested_names_unknown_error():
     cuppa_env = {
         'remove_dependencies': 'widgt',
-        'dependencies': { 'widget': object(), 'boost_package': object() },
+        'dependencies': { 'widget': object(), 'boost_package': object(), 'boost': object() },
+        'default_dependencies': [ 'widget', 'boost_package' ],
+        'declared_dependencies': [ 'widget', 'boost_package' ],
     }
     names, error = dependency_removal.resolve_requested_names( cuppa_env )
     assert names == []
-    assert error is not None
-    assert 'widgt' in error
-    assert 'widget' in error
-    assert 'boost_package' in error
+    assert isinstance( error, dependency_removal.UnknownDependencyNames )
+    assert error.unknown == ( 'widgt', )
+    assert 'widget' in error.project_used
+    assert 'boost_package' in error.project_used
 
 
-def test_resolve_requested_names_all_uses_defaults():
+def test_resolve_requested_names_rejects_registry_only_builtin():
+    """Built-in ``boost`` in the registry is not removable unless the project uses it."""
+    cuppa_env = {
+        'remove_dependencies': 'boost',
+        'dependencies': { 'boost': object(), 'boost_package': object() },
+        'default_dependencies': [ 'boost_package' ],
+        'declared_dependencies': [ 'boost_package' ],
+    }
+    names, error = dependency_removal.resolve_requested_names( cuppa_env )
+    assert names == []
+    assert isinstance( error, dependency_removal.UnknownDependencyNames )
+    assert error.unknown == ( 'boost', )
+    assert error.project_used == ( 'boost_package', )
+
+
+def test_resolve_requested_names_accepts_builtin_when_defaulted():
+    cuppa_env = {
+        'remove_dependencies': 'boost',
+        'dependencies': { 'boost': object(), 'boost_package': object() },
+        'default_dependencies': [ 'boost' ],
+        'declared_dependencies': [],
+    }
+    names, error = dependency_removal.resolve_requested_names( cuppa_env )
+    assert error is None
+    assert names == [ 'boost' ]
+
+
+def test_resolve_requested_names_all_uses_project_used():
     cuppa_env = {
         'remove_all_dependencies': True,
-        'default_dependencies': [ 'widget', 'boost_package' ],
-        'dependencies': { 'widget': object(), 'boost_package': object(), 'extra': object() },
+        'default_dependencies': [ 'widget' ],
+        'declared_dependencies': [ 'boost_package' ],
+        'dependencies': {
+            'widget': object(),
+            'boost_package': object(),
+            'boost': object(),
+            'extra': object(),
+        },
     }
     names, error = dependency_removal.resolve_requested_names( cuppa_env )
     assert error is None
     assert names == [ 'widget', 'boost_package' ]
+
+
+def test_project_dependency_names_union_preserves_order():
+    cuppa_env = {
+        'default_dependencies': [ 'a', 'b' ],
+        'declared_dependencies': [ 'b', 'c' ],
+    }
+    assert dependency_removal.project_dependency_names( cuppa_env ) == [ 'a', 'b', 'c' ]
 
 
 def test_sibling_leftovers_gitlab(tmp_path):
@@ -91,6 +134,10 @@ def test_sibling_leftovers_location_branches(tmp_path):
     assert leftovers[0].qualifier == '@feature_x'
 
 
-def test_looks_like_tool_variant_still_works():
-    assert dependency_storage.looks_like_tool_variant_dir( 'gcc153_dbg_x86_64_cxx2c' )
-    assert not dependency_storage.looks_like_tool_variant_dir( 'git_https_example.com__org_widget.git@master' )
+def test_relative_removal_path_under_root(tmp_path):
+    root = tmp_path / 'dependencies'
+    path = root / 'gcc153_rel_x86_64_cxx2c' / 'boost' / '1.91'
+    path.mkdir(parents=True)
+    assert dependency_removal._relative_removal_path(
+            str( path ), str( root )
+    ) == 'gcc153_rel_x86_64_cxx2c/boost/1.91'

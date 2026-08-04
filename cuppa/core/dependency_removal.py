@@ -22,8 +22,9 @@ from collections import namedtuple
 
 from cuppa.colourise import (
     as_emphasised,
-    as_error,
     as_info,
+    as_remove_error,
+    as_remove_notice,
     as_subdued,
     as_warning,
 )
@@ -35,6 +36,7 @@ from cuppa.utility import storage
 INDENT = '  '
 RULE = '-'
 SIZE_WIDTH = 8
+AGE_WIDTH = 12
 REMARK_WIDTH = 9
 
 RemovalTarget = namedtuple(
@@ -50,6 +52,11 @@ Leftover = namedtuple(
 DevelopSkip = namedtuple(
     'DevelopSkip',
     [ 'dependency', 'path', 'reason' ],
+)
+
+UnknownDependencyNames = namedtuple(
+    'UnknownDependencyNames',
+    [ 'unknown', 'project_used' ],
 )
 
 
@@ -68,34 +75,52 @@ def parse_dependency_names( spec ):
 
 
 def known_dependency_names( cuppa_env ):
-    """Registry keys available for naming (and for unknown-name errors)."""
+    """Registry keys available for instantiation (built-ins + project + plugins)."""
     factories = cuppa_env.get( 'dependencies' ) or {}
     return sorted( factories.keys() )
 
 
-def resolve_requested_names( cuppa_env ):
-    """Return ``(names, error_message)`` for the current remove flags.
+def project_dependency_names( cuppa_env ):
+    """Names this sconstruct uses: ``default_dependencies`` ∪ ``declared_dependencies``.
 
-    Unknown names produce an error listing known keys. ``--remove-all-dependencies`` with no
-    default dependencies yields an empty list (caller prints nothing-to-remove).
+    Auto-scanned built-ins (``boost``, ``qt4``, …) appear in the full registry but are only
+    removable when the project names them in defaults or in ``dependencies=[…]``.
     """
+    names = []
+    seen = set()
+    for source in (
+            cuppa_env.get( 'default_dependencies' ) or [],
+            cuppa_env.get( 'declared_dependencies' ) or [],
+    ):
+        for name in source:
+            if name and name not in seen:
+                seen.add( name )
+                names.append( name )
+    return names
+
+
+def resolve_requested_names( cuppa_env ):
+    """Return ``(names, error)`` for the current remove flags.
+
+    ``error`` is ``None`` on success, a string for empty input, or
+    :class:`UnknownDependencyNames` when names are not project-used.
+    ``--remove-all-dependencies`` with no project-used names yields an empty list.
+    """
+    project_used = project_dependency_names( cuppa_env )
+    project_set = set( project_used )
+
     if cuppa_env.get( 'remove_all_dependencies' ):
-        return list( dependency_storage.default_dependency_names( cuppa_env ) ), None
+        return list( project_used ), None
 
     names = parse_dependency_names( cuppa_env.get( 'remove_dependencies' ) )
     if not names:
         return [], "no dependency names given (use --remove-dependencies=name or --remove-all-dependencies)"
 
-    known = known_dependency_names( cuppa_env )
-    known_set = set( known )
-    unknown = [ name for name in names if name not in known_set ]
+    unknown = [ name for name in names if name not in project_set ]
     if unknown:
-        return [], (
-            "unknown dependenc{}: {}; known: {}".format(
-                'y' if len( unknown ) == 1 else 'ies',
-                ', '.join( unknown ),
-                ', '.join( known ) or 'none',
-            )
+        return [], UnknownDependencyNames(
+                unknown=tuple( unknown ),
+                project_used=tuple( project_used ),
         )
     # Preserve order, drop duplicates.
     seen = set()
@@ -311,97 +336,287 @@ def _format_size( size_bytes ):
     return storage.human_size( size_bytes ).rjust( SIZE_WIDTH )
 
 
-def _write_removed_table( out, targets, outcomes_by_path, planning ):
-    """Compact table of removal candidates with REMARK removed / failed / would remove."""
-    if not targets:
+def _relative_removal_path( path, root ):
+    try:
+        relative = os.path.relpath( path, root )
+    except ValueError:
+        return storage.display_path( path )
+    if relative.startswith( '..' ):
+        return storage.display_path( path )
+    return relative.replace( '\\', '/' )
+
+
+def _age_for_path( root, path ):
+    """LAST USED text and epoch for a tree (resolve inventory, else directory mtime)."""
+    try:
+        key = dependency_inventory.entry_key_for_path( path )
+        entry = dependency_inventory.load_entry( root, key )
+    except Exception:
+        entry = None
+    if entry and entry.get( 'last_used_source' ) == 'resolve':
+        stamp = entry.get( 'last_used' )
+        text = dependency_inventory.format_age( stamp )
+        # Best-effort epoch for rollups.
+        try:
+            from datetime import datetime, timezone
+            when = datetime.strptime(
+                    stamp.replace( 'Z', '' ), '%Y-%m-%dT%H:%M:%S'
+            ).replace( tzinfo=timezone.utc )
+            return text, when.timestamp()
+        except ( ValueError, AttributeError, TypeError ):
+            return text, None
+    try:
+        mtime = os.path.getmtime( path )
+        return storage.relative_age( mtime ), mtime
+    except OSError:
+        return '-', None
+
+
+def _leaf_result( outcomes_by_path, path, planning, removing ):
+    if not removing:
+        return 'left'
+    outcome = outcomes_by_path.get( storage.real_path( path ), {} )
+    result = outcome.get( 'result', 'removed' if planning else 'pending' )
+    if planning and result == 'removed':
+        return 'would_rm'
+    if result == 'removed':
+        return 'removed'
+    if result == 'failed':
+        return 'failed'
+    return result
+
+
+def _remark_for_result( result ):
+    if result == 'would_rm':
+        return 'would rm'
+    if result in ( 'removed', 'failed' ):
+        return result
+    return ''
+
+
+def _parent_rollup_result( child_results ):
+    """Roll removal status to the identity when every child is a removal candidate."""
+    actionable = [ r for r in child_results if r != 'left' ]
+    if not actionable:
+        return ''
+    if any( r == 'left' for r in child_results ):
+        # Mixed leave + remove: status stays on leaves (matches the sketch).
+        return ''
+    if any( r == 'failed' for r in actionable ):
+        if all( r == 'failed' for r in actionable ):
+            return 'failed'
+        return ''
+    if all( r == 'would_rm' for r in actionable ):
+        return 'would rm'
+    if all( r == 'removed' for r in actionable ):
+        return 'removed'
+    return ''
+
+
+def _group_removal_rows( targets, leftovers, outcomes_by_path, planning, root ):
+    """Group targets and leftovers by dependency for the removal tree."""
+    groups = {}
+
+    def ensure( dependency ):
+        if dependency not in groups:
+            groups[dependency] = {
+                'dependency': dependency,
+                'qualifiers': set(),
+                'leaves': [],
+            }
+        return groups[dependency]
+
+    for target in targets:
+        group = ensure( target.dependency )
+        if target.qualifier:
+            group['qualifiers'].add( target.qualifier )
+        age_text, age_epoch = _age_for_path( root, target.path )
+        group['leaves'].append( {
+            'path': target.path,
+            'rel_path': _relative_removal_path( target.path, root ),
+            'size_bytes': target.size_bytes,
+            'qualifier': target.qualifier,
+            'tool_variant': target.tool_variant,
+            'age_text': age_text,
+            'age_epoch': age_epoch,
+            'removing': True,
+            'result': _leaf_result( outcomes_by_path, target.path, planning, True ),
+        } )
+
+    for leftover in leftovers:
+        group = ensure( leftover.dependency )
+        if leftover.qualifier:
+            group['qualifiers'].add( leftover.qualifier )
+        age_text, age_epoch = _age_for_path( root, leftover.path )
+        group['leaves'].append( {
+            'path': leftover.path,
+            'rel_path': _relative_removal_path( leftover.path, root ),
+            'size_bytes': leftover.size_bytes,
+            'qualifier': leftover.qualifier,
+            'tool_variant': leftover.tool_variant,
+            'age_text': age_text,
+            'age_epoch': age_epoch,
+            'removing': False,
+            'result': 'left',
+        } )
+
+    for group in groups.values():
+        group['leaves'].sort( key=lambda leaf: (
+                leaf.get( 'tool_variant' ) or '',
+                leaf.get( 'qualifier' ) or '',
+                leaf['rel_path'],
+        ) )
+        # Shared qualifier (e.g. package version) hangs on the parent label.
+        quals = group['qualifiers']
+        group['parent_qualifier'] = next( iter( quals ) ) if len( quals ) == 1 else None
+    return [ groups[name] for name in sorted( groups ) ]
+
+
+def _write_removal_tree( out, targets, leftovers, outcomes_by_path, planning, root ):
+    """Hierarchical removal table: identity rollup, selected leaves, muted leftovers."""
+    if not targets and not leftovers:
         return
 
-    rows = []
-    for target in sorted(
-            targets,
-            key=lambda item: (
-                item.dependency,
-                item.qualifier or '',
-                item.tool_variant or '',
-                item.path,
-            ),
-    ):
-        outcome = outcomes_by_path.get( storage.real_path( target.path ), {} )
-        result = outcome.get( 'result', 'removed' if planning else 'pending' )
-        if planning and result == 'removed':
-            remark = 'would rm'
-        elif result == 'removed':
-            remark = 'removed'
-        elif result == 'failed':
-            remark = 'failed'
-        else:
-            remark = result
-        rows.append( ( target, remark ) )
+    tee, elbow, _pipe, _gap = storage.glyphs()
+    check = storage.with_heavy_marks( storage.selected_mark() )
+    ballot = storage.with_heavy_marks( storage.failed_mark() )
+    groups = _group_removal_rows( targets, leftovers, outcomes_by_path, planning, root )
 
-    # Body width: size + spaces + remark + spaces + dependency label.
-    labels = []
-    for target, remark in rows:
-        label = target.dependency
-        if target.qualifier:
-            label = "{}  {}".format( label, target.qualifier )
-        if target.tool_variant:
-            label = "{}  {}".format( label, target.tool_variant )
-        labels.append( label )
-    width = max(
-        len( _rule_line( 0 ) ),
-        SIZE_WIDTH + 2 + REMARK_WIDTH + 2 + max( ( len( x ) for x in labels ), default=10 ) + 2,
-        len( INDENT + "SIZE".rjust( SIZE_WIDTH ) + "  " + "REMARK".ljust( REMARK_WIDTH ) + "  DEPENDENCY" ),
-    )
-
-    out.write( _rule_line( width - len( INDENT ) ) + "\n" )
-    out.write( "{}{}  {}  {}\n".format(
+    header = "{}{}  {}  {}  {}".format(
             INDENT,
             "SIZE".rjust( SIZE_WIDTH ),
+            "LAST USED".ljust( AGE_WIDTH ),
             "REMARK".ljust( REMARK_WIDTH ),
             "DEPENDENCY",
-    ) )
-    out.write( _rule_line( width - len( INDENT ) ) + "\n" )
-    for ( target, remark ), label in zip( rows, labels ):
-        remark_text = remark
-        if remark == 'failed':
-            remark_text = as_error( remark.ljust( REMARK_WIDTH ) )
-        elif remark in ( 'removed', 'would rm' ):
-            remark_text = as_info( remark.ljust( REMARK_WIDTH ) )
+    )
+    # Prefix before DEPENDENCY column content.
+    dep_pad = SIZE_WIDTH + 2 + AGE_WIDTH + 2 + REMARK_WIDTH + 2
+
+    body_lines = []  # plain-width samples for rule sizing
+    rendered = []
+
+    for group in groups:
+        leaves = group['leaves']
+        total_bytes = sum( leaf['size_bytes'] for leaf in leaves )
+        parent_label = group['dependency']
+        if group.get( 'parent_qualifier' ):
+            parent_label = "{}  {}".format( parent_label, group['parent_qualifier'] )
+        parent_remark = _parent_rollup_result( [ leaf['result'] for leaf in leaves ] )
+
+        body_lines.append( parent_label )
+        rendered.append( {
+            'kind': 'parent',
+            'size': _format_size( total_bytes ),
+            'age': ' ' * AGE_WIDTH,
+            'remark': parent_remark.ljust( REMARK_WIDTH ),
+            'label': parent_label,
+            'parent_remark': parent_remark,
+        } )
+
+        for index, leaf in enumerate( leaves ):
+            branch = elbow if index == len( leaves ) - 1 else tee
+            result = leaf['result']
+            remark = _remark_for_result( result )
+            if result == 'failed':
+                mark = ballot
+            elif leaf['removing']:
+                mark = check
+            else:
+                mark = '-'
+            leaf_label = "{} {} {}".format( branch, mark, leaf['rel_path'] )
+            body_lines.append( leaf_label )
+            rendered.append( {
+                'kind': 'leaf',
+                'size': _format_size( leaf['size_bytes'] ),
+                'age': ( leaf['age_text'] or '-' ).ljust( AGE_WIDTH ),
+                'remark': remark.ljust( REMARK_WIDTH ),
+                'label': leaf_label,
+                'branch': branch,
+                'mark': mark,
+                'rel_path': leaf['rel_path'],
+                'result': result,
+                'removing': leaf['removing'],
+                'remark_text': remark,
+            } )
+
+    width = max(
+            len( header ),
+            max( ( dep_pad + len( INDENT ) + len( line ) for line in body_lines ), default=40 ),
+            40,
+    )
+
+    out.write( as_subdued( _rule_line( width - len( INDENT ) ) ) + "\n" )
+    out.write( header + "\n" )
+    out.write( as_subdued( _rule_line( width - len( INDENT ) ) ) + "\n" )
+
+    for row in rendered:
+        if row['kind'] == 'parent':
+            remark = row['parent_remark']
+            if remark == 'failed':
+                remark_cell = as_remove_error( remark.ljust( REMARK_WIDTH ) )
+            elif remark:
+                remark_cell = as_remove_notice( remark.ljust( REMARK_WIDTH ) )
+            else:
+                remark_cell = ' ' * REMARK_WIDTH
+            out.write( "{}{}  {}  {}  {}\n".format(
+                    INDENT,
+                    as_subdued( row['size'] ),
+                    row['age'],
+                    remark_cell,
+                    as_emphasised( row['label'] ),
+            ) )
+            continue
+
+        # Leaf
+        if row['removing']:
+            if row['result'] == 'failed':
+                accent = as_remove_error
+            else:
+                accent = as_remove_notice
+            remark_cell = (
+                    accent( row['remark_text'].ljust( REMARK_WIDTH ) )
+                    if row['remark_text'] else ' ' * REMARK_WIDTH
+            )
+            label = "{}{} {}".format(
+                    as_subdued( row['branch'] + ' ' ),
+                    accent( row['mark'] ),
+                    accent( row['rel_path'] ),
+            )
+            out.write( "{}{}  {}  {}  {}\n".format(
+                    INDENT,
+                    row['size'],
+                    row['age'],
+                    remark_cell,
+                    label,
+            ) )
         else:
-            remark_text = remark.ljust( REMARK_WIDTH )
-        out.write( "{}{}  {}  {}\n".format(
-                INDENT,
-                as_subdued( _format_size( target.size_bytes ) ),
-                remark_text,
-                label,
-        ) )
-    out.write( _rule_line( width - len( INDENT ) ) + "\n" )
+            label = "{}{} {}".format(
+                    as_subdued( row['branch'] + ' ' ),
+                    as_subdued( row['mark'] ),
+                    as_subdued( row['rel_path'] ),
+            )
+            out.write( "{}{}  {}  {}  {}\n".format(
+                    INDENT,
+                    as_subdued( row['size'] ),
+                    as_subdued( row['age'] ),
+                    ' ' * REMARK_WIDTH,
+                    label,
+            ) )
+
+    out.write( as_subdued( _rule_line( width - len( INDENT ) ) ) + "\n" )
 
 
-def _write_leftovers( out, leftovers ):
+def _write_leftovers_summary( out, leftovers ):
     if not leftovers:
         return
     total = sum( item.size_bytes for item in leftovers )
     unit = "tree" if len( leftovers ) == 1 else "trees"
     out.write( "\n" )
-    out.write( "Leaving {} {} ({}) for other selections:\n".format(
+    out.write( "Leaving {} {} ({}) for other selections as shown.\n".format(
             len( leftovers ),
             unit,
             storage.human_size( total ),
     ) )
-    # Group by dependency for readability.
-    by_dep = {}
-    for item in leftovers:
-        by_dep.setdefault( item.dependency, [] ).append( item )
-    for dependency in sorted( by_dep ):
-        items = by_dep[dependency]
-        bits = []
-        for item in items:
-            detail = item.qualifier or '-'
-            if item.tool_variant:
-                detail = "{} / {}".format( detail, item.tool_variant )
-            bits.append( "{} ({})".format( detail, storage.human_size( item.size_bytes ) ) )
-        out.write( "  {}: {}\n".format( dependency, ', '.join( bits ) ) )
 
 
 def _write_develop_skips( out, develop_skips ):
@@ -422,10 +637,30 @@ def _write_verify( out ):
     out.write( as_emphasised( "cuppa -Q -D --list-dependencies" ) + "\n" )
 
 
+def _write_freed_summary( out, planning, removed_count, removed_bytes ):
+    unit = "tree" if removed_count == 1 else "trees"
+    size = as_emphasised( as_info( storage.human_size( removed_bytes ) ) )
+    if planning:
+        out.write( "Would remove {} {} freeing up {} of disk space.\n".format(
+                removed_count, unit, size,
+        ) )
+    else:
+        out.write( "Removed {} {} freeing up {} of disk space.\n".format(
+                removed_count, unit, size,
+        ) )
+
+
 def remove_dependencies( construct, cuppa_env, out=None ):
     """Remove named (or all default) dependency trees for the current selection."""
     out = out or sys.stdout
     names, error = resolve_requested_names( cuppa_env )
+    if isinstance( error, UnknownDependencyNames ):
+        # Lazy import: dependency_actions imports this module at load time.
+        from cuppa.core import dependency_actions
+        dependency_actions.write_unknown_remove_names_error(
+                construct, cuppa_env, error, out=out
+        )
+        return 1
     if error:
         out.write( "error: {}\n".format( error ) )
         return 1
@@ -446,7 +681,9 @@ def remove_dependencies( construct, cuppa_env, out=None ):
                     ', '.join( names )
             ) )
         out.write( " under {}\n".format( storage.display_path( root ) ) )
-        _write_leftovers( out, leftovers )
+        if leftovers:
+            _write_removal_tree( out, [], leftovers, {}, planning, root )
+            _write_leftovers_summary( out, leftovers )
         _write_develop_skips( out, develop_skips )
         if leftovers or develop_skips:
             _write_verify( out )
@@ -516,33 +753,22 @@ def remove_dependencies( construct, cuppa_env, out=None ):
                 'severity': 'error',
             } )
 
-    _write_removed_table( out, targets, outcomes_by_path, planning )
-    _write_leftovers( out, leftovers )
+    _write_removal_tree( out, targets, leftovers, outcomes_by_path, planning, root )
+    _write_leftovers_summary( out, leftovers )
     _write_develop_skips( out, develop_skips )
 
     if failures:
         out.write( "\n" )
         out.write( as_warning( "Not all requested dependency trees could be removed:" ) + "\n" )
         for item in failures:
-            colour = as_error if item['severity'] == 'error' else as_warning
+            colour = as_remove_error if item['severity'] == 'error' else as_warning
             out.write( "  {}: {}\n".format(
                     colour( item['dependency'] ),
                     item['reason'],
             ) )
 
     out.write( "\n" )
-    if planning:
-        out.write( "Would remove {} {} freeing up {} of disk space.\n".format(
-                removed_count,
-                "tree" if removed_count == 1 else "trees",
-                storage.human_size( removed_bytes ),
-        ) )
-    else:
-        out.write( "Removed {} {} freeing up {} of disk space.\n".format(
-                removed_count,
-                "tree" if removed_count == 1 else "trees",
-                storage.human_size( removed_bytes ),
-        ) )
+    _write_freed_summary( out, planning, removed_count, removed_bytes )
     _write_verify( out )
 
     hard_errors = [ item for item in failures if item['severity'] == 'error' ]

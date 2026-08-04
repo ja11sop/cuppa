@@ -530,10 +530,20 @@ class Construct(object):
                 for dependency_plugin in iter_entry_points( group='cuppa.dependency.plugins', name=None ):
                     dependency_plugin.load().add_to_env( cuppa_env, add_dependency )
 
+                # Names registered from the sconstruct's dependencies=[…] (not auto-scanned
+                # built-ins). Used with default_dependencies for --remove-dependencies.
+                declared_dependencies = []
+
+                def add_declared_dependency( name, dependency ):
+                    add_dependency( name, dependency )
+                    if name not in declared_dependencies:
+                        declared_dependencies.append( name )
+
                 if dependencies:
                     for dependency in dependencies:
-                        dependency.add_to_env( cuppa_env, add_dependency )
+                        dependency.add_to_env( cuppa_env, add_declared_dependency )
 
+                cuppa_env['declared_dependencies'] = declared_dependencies
 
                 logger.trace( "available dependencies are [{}]".format(
                         colour_items( sorted( cuppa_env["dependencies"].keys() ) )

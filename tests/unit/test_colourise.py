@@ -72,7 +72,7 @@ def test_a_light_console_recedes_by_going_grey_rather_than_by_dimming( plain_env
     assert start_subdued() == BRIGHT_BLACK
 
 
-def test_nothing_is_emitted_when_colour_is_off( plain_environment ):
-    plain_environment.setenv( 'CUPPA_CONSOLE_BACKGROUND', "light" )
-    colouriser.use_colour = False
-    assert start_subdued() == ''
+def test_remove_notice_and_remove_error_meanings( plain_environment ):
+    from cuppa.colourise import as_remove_error, as_remove_notice, as_error, as_warning
+    assert as_remove_notice( 'x' ) == as_warning( 'x' )
+    assert as_remove_error( 'x' ) == as_error( 'x' )

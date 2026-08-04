@@ -542,12 +542,20 @@ class GitlabPackageDependency:
 
         use_develop = env.get_option( "develop" )
 
+        # Extraction dirs are per tool_variant; without this key a multi-toolchain run
+        # reuses the first package instance and only resolves one tree.
+        try:
+            build_id = tool_variant( env, variant=package._variant )
+        except ( KeyError, AttributeError, TypeError ):
+            build_id = None
+
         identity = (
             package._registry,
             package._package,
             package._version,
             package._variant,
-            use_develop
+            use_develop,
+            build_id,
         )
 
         short_id = cls._id( package._package, package._version, package._variant )
