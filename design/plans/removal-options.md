@@ -5,9 +5,10 @@
 - **Updated:** 2026-08-04
 
 `--list-develop` and `--update-develop` (§3.5, §3.6), the storage rename (§3.1, §8, Phase 1),
-and build listing/removal (`--list-builds`, `--remove-builds`, `--remove-all-builds`, Phase 2)
-are implemented. `--list-dependencies` exists and is usable, but Phase 3 table presentation and
-removal are unfinished (see the progress snapshot below). Cloning a missing develop copy (§3.7)
+build listing/removal (`--list-builds`, `--remove-builds`, `--remove-all-builds`, Phase 2),
+and Phase 3 **listing** (`--list-dependencies` hierarchical tree, inventory, verbose LOCATION /
+`[D]`, docs examples) are implemented. Phase 3 **removal** (`--remove-dependencies` /
+`--remove-all-dependencies` / purge) is not started. Cloning a missing develop copy (§3.7)
 remains a proposal, as do download listing/removal (Phase 4) and artefact removal (Phase 6).
 Follow-on from the `--clean` work in `cuppa/location.py` and `cuppa/package_managers/gitlab.py`,
 where a clean could not complete because a dependency was missing, and where the advice for
@@ -16,19 +17,21 @@ unsatisfying: it is platform-specific, it is easy to aim at the wrong path, and 
 knows exactly which folders belong to which variant and which dependency.
 
 This plan proposes a way to list what is in the storage roots, a family of explicit removal
-options (Phase 2 done; Phases 3–4 next), conservative ways to create develop copies that are
-missing (§3.7), and the safety model that governs deletion.
+options (Phases 1–2 and Phase 3 listing done; Phase 3 removal and Phase 4 next), conservative
+ways to create develop copies that are missing (§3.7), and the safety model that governs
+deletion.
 
 The storage rename came **first** (§6, Phase 1) so every later phase talks about one vocabulary.
 Throughout this document the new names are used: `dependencies_root` (was `download_root`) and
 `downloads_root` (was `cache_root`). Both default to subfolders of a single `storage_root`,
 which defaults to `~/.cuppa` and can be moved with one option.
 
-### Progress snapshot (2026-08-03)
+### Progress snapshot (2026-08-04)
 
 Branch `134_list_and_remove_dependencies` (umbrella [#134](https://github.com/ja11sop/cuppa/issues/134)).
-Phases **1**, **2**, and **5** are done on `master`. Phase **3** listing is in progress; removal
-and Phases **4** / **6** / **§3.7** are not started.
+Phases **1**, **2**, and **5** are done on `master`. Phase **3 listing** (tree presentation,
+inventory enrichment, verbose LOCATION / `[D]`, docs) is **done on this branch**; Phase **3
+removal** and Phases **4** / **6** / **§3.7** are not started.
 
 | Area | State | Notes |
 |------|--------|-------|
@@ -36,22 +39,22 @@ and Phases **4** / **6** / **§3.7** are not started.
 | Phase 2 — `--list-builds` / `--remove-builds` / `--remove-all-builds` | **done** | #140 |
 | Phase 5 — `--list-develop` / `--update-develop` | **done** | #132 / #137; realistic integration example + docs for which listing to use |
 | Phase 3 — `storage_paths()` + resolve-only | **done** | location, GitLab package, Conan, Boost; skips when undeclared |
-| Phase 3 — inventory + `--list-dependencies` | **partial** | Walk, sizes, `type`, JSON, `referenced` / `unreferenced` / `cached` / `missing`; ANSI-safe column padding; skip-tree glyphs fixed |
-| Phase 3 — `--list-dependencies` **table presentation** | **partial** | Hierarchical tree (§4.9) shipped + presentation polish; deferred follow-ons in §4.10 (`--list-format=all`, `unrecorded`) and §4.11 (LOCATION URL spelling) |
+| Phase 3 — inventory + `--list-dependencies` | **done** | Walk, sizes, `type`, JSON `tree` + flat `entries`, `referenced` / `unreferenced` / `missing`; ANSI-safe column padding; listing does not stamp `last_used` |
+| Phase 3 — `--list-dependencies` **table presentation** | **done** | Hierarchical tree (§4.9 P1–P4): REMARK / rollups / colour; `--list-format=verbose` LOCATION; `[D]` + footer (§4.12); GitHub archive grouping; GitLab registry LOCATION on unreferenced too; Windows `.zip` + OS label for package archives; docs examples match real ruled output |
 | Phase 3 — inventory `used_by` on resolve | **open** | Listing must not stamp use; real resolve/build should. Prerequisite for §4.10 remarks |
-| Phase 3 — short-name / stem derivation | **done** | Git remote, gitlab path, Boost + GitHub archive heuristics; inventory `remote_location` |
+| Phase 3 — short-name / stem derivation | **done** | Git remote, gitlab path, Boost + GitHub archive heuristics; inventory `remote_location` / `source_url` |
 | Phase 3 — Conan install metadata (§4.7) | **open** | `.cuppa_conan_meta.json` not written yet; Conan rows stay fingerprint-weak |
 | Phase 3 — default-branch quirk (§4.8) | **open** | Unqualified vs `stem@master` doubling; location + listing + optional cleanup; `<default_branch>` labels in §4.9 |
 | Phase 3 — `--remove-dependencies` / `--remove-all-dependencies` | **open** | Stubbed; Slice D |
-| Phase 3 — **dependencies documentation split** (§7.1) | **open** | Partition the monolithic `dependencies.adoc` (+ reconcile `packages.adoc` / `extending.adoc`); after table presentation so Managing examples stay stable |
+| Phase 3 — **dependencies documentation split** (§7.1) | **open** | Partition the monolithic `dependencies.adoc` (+ reconcile `packages.adoc` / `extending.adoc`); Managing examples now match the tree — split can proceed when convenient |
 | Phase 4 — downloads list / purge | **open** | |
 | Phase 6 — artefacts | **open** | Sketch only (§4.6) |
 | §3.7 — `--clone-develop` | **open** | #138 |
 
-**Next focus for listing:** hierarchical `--list-dependencies` presentation (§4.9), starting with
-short-name / stem derivation and a tree data model, then the text renderer (no LOCATION by
-default). Conan meta, default-branch canonicalisation, and removal follow. The documentation
-split (§7.1) waits until Managing samples match the new tree.
+**Next focus:** Phase 3 **removal** (`--remove-dependencies` / `--remove-all-dependencies`, then
+purge) using the tree's identity / qualifier naming. Parallel polish that does not block removal:
+Conan meta (§4.7), default-branch quirk (§4.8), `used_by` stamping (enables §4.10), and the
+dependencies documentation split (§7.1). Deferred listing follow-ons remain §4.10 / §4.11.
 
 ---
 
@@ -96,12 +99,12 @@ split (§7.1) waits until Managing samples match the new tree.
 | Need | Today |
 |------|-------|
 | Remove built targets | SCons `--clean` / `-c`, variant-scoped, graph-driven |
-| Remove a variant folder | manual `rm -rf _build/...` |
-| Remove all build output | manual `rm -rf _build` |
-| See what dependencies are on disk and how big they are | manual `du -sh` |
-| Remove one stale dependency | manual `rm -rf` under the dependencies root |
-| Remove all dependencies | manual |
-| Remove cached archives | manual, under the downloads root |
+| Remove a variant folder | `--remove-builds` (Phase 2); else manual `rm -rf _build/...` |
+| Remove all build output | `--remove-all-builds` (Phase 2) |
+| See what dependencies are on disk and how big they are | `--list-dependencies` (Phase 3 listing) |
+| Remove one stale dependency | manual `rm -rf` under the dependencies root (removal flags still open) |
+| Remove all dependencies | manual (removal flags still open) |
+| Remove cached archives | manual, under the downloads root (Phase 4) |
 
 The listing gap matters as much as the removal gap. Working across branches leaves
 branch-qualified trees (`…@feature_x`) behind indefinitely, and nothing ever reports them, so
@@ -173,8 +176,8 @@ can only show the dependency name and an opaque fingerprint prefix.
 
 | Producer | Path shape |
 |----------|-----------|
-| `cuppa/location.py` | `<downloads_root>/<local folder name>` — the raw downloaded archive |
-| `cuppa/package_managers/gitlab.py` | `<downloads_root>/packages/<package>/<version>/<package file>.tar.gz` |
+| `cuppa/location.py` | `<downloads_root>/<local folder name>` — the raw downloaded archive (extension preserved; often `.tar.gz`, `.zip` on Windows Boost downloads) |
+| `cuppa/package_managers/gitlab.py` | `<downloads_root>/packages/<package>/<version>/<package file>.zip` on Windows, `.tar.gz` elsewhere (download also accepts the alternate extension) |
 
 The names after Phase 1 match the contents: `dependencies` holds extracted, ready-to-use trees;
 `downloads` holds the archives they came from. Older layouts used `_download` / `_cache` under
@@ -259,11 +262,11 @@ cuppa -Q -D --list-develop
 
 **`--list-dependencies --develop` is optional and uncommon.** `--develop` is a build switch:
 resolve location deps to working copies instead of the cache. `--list-dependencies` reuses that
-resolve for STATE, so with `--develop` active the cache trees for those identities are no longer
-`referenced` — they show as `cached` (“this project owns this dependency, but a develop build
-would not use this folder”). That is useful only when you care how the storage table would look
-*as if* you were about to build with `--develop`. It is not how you inspect develop checkouts
-(use `--list-develop`) and not the default way to reclaim disk (omit `--develop`).
+resolve for remarks, so with `--develop` active those identities show REMARK `develop` on the
+dependency name (branch leaves unmarked) rather than `in use` on a cache leaf — the cache trees
+remain listed under the identity. That is useful only when you care how the storage table would
+look *as if* you were about to build with `--develop`. It is not how you inspect develop
+checkouts (use `--list-develop`) and not the default way to reclaim disk (omit `--develop`).
 
 Motivating examples:
 
@@ -274,43 +277,62 @@ cuppa -Q -D --list-dependencies
 # Are my develop checkouts on the right branch / clean / behind?
 cuppa -Q -D --list-develop
 
-# Only if you specifically want storage STATE under a develop resolve:
+# Only if you specifically want storage remarks under a develop resolve:
 cuppa -Q -D --list-dependencies --develop
 ```
 
-Each listing ends with a total and, where cuppa can tell, marks entries the current build does
-*not* reference as `unreferenced` — the transient-branch trees that are the usual reason a
+Each listing ends with a total and, where cuppa can tell, partitions entries the current build
+does *not* reference as `unreferenced` — the transient-branch trees that are the usual reason a
 storage root has quietly grown. Sizes are human readable by default (`1.2G`, `340M`), come from
 the inventory rather than a fresh walk of the whole root, and carry a leading `~` when they were
 estimated by sampling (§4.5); a `--list-format=json` variant makes the output scriptable without
 parsing columns.
 
-Every listing prints a **header row** naming its columns, then one row per entry, then the
-totals. Without a header the columns are guessable at best: a bare `widget @release_1.14` next
-to `gadget 2.28.0/rel` leaves the reader working out which field is a branch, which is a
-version, and what the trailing toolchain string belongs to. Columns are padded to their widest
-value so the output stays aligned as names grow, and the header is printed once per listing,
-including when a listing is empty, so an empty result still says what it looked for.
+`--list-dependencies` prints a **ruled hierarchical table** (referenced then unreferenced; type
+→ identity → branch / version / toolchain children) with rolled-up SIZE and LAST USED, REMARK
+on useful nodes, and full-width partition rules. Default columns omit on-disk paths;
+`--list-format=verbose` adds LOCATION (remotes, registry URLs, archive basenames) and prefixes
+regenerating downloads with `[D]` (§4.12). Columns are padded by visible width so ANSI colour
+does not stretch the rules. Shape detail and implementation history live in §4.9; the Antora
+Dependencies page carries annotated examples that match real output.
 
 ```
-cuppa: storage: [info] Dependencies in /home/user/.cuppa/dependencies
-cuppa: storage: [info]   SIZE    DEPENDENCY  VERSION / BRANCH  TOOLCHAIN VARIANT         LAST USED  STATE
-cuppa: storage: [info]   ~1.4G   widget      @master           -                         today      referenced
-cuppa: storage: [info]   ~1.4G   widget      @release_1.14     -                         12 Jun     unreferenced
-cuppa: storage: [info]   ~1.3G   widget      @feature_x        -                         2 Mar      unreferenced
-cuppa: storage: [info]   860M    boost       1.91.0            gcc153_rel_x86_64_cxx2c   today      referenced
-cuppa: storage: [info]   210M    gadget      2.28.0/rel        gcc153_rel_x86_64_cxx2c   today      referenced
-cuppa: storage: [info]   5 entries, 5.2G total, 2.7G unreferenced   (~ estimated; --exact-sizes measures)
+Dependencies in /home/user/.cuppa/dependencies
+Default dependencies: boost_package
+  ---------------------------------------------------------------------
+      SIZE  LAST USED  REMARK   DEPENDENCY
+  ---------------------------------------------------------------------
+    299.3M  today      1 total  referenced
+                                │
+    299.3M  today      1 used   ├── dependencies in use
+                                │
+    299.3M  today      1 used   └── gitlab packages
+                                    │
+    299.3M  today                   └── boost_package
+    299.3M  today                       └── 1.91
+    299.3M  today      in use               └── gcc153_rel_x86_64_cxx2c
+  ---------------------------------------------------------------------
+      5.8M  today               unreferenced
+                                │
+      5.8M  today               └── archives
+                                    │
+      2.9M  today                   ├── boost
+      2.9M  today                   │   └── 1.91.0
+                                    │
+      2.9M  today                   └── github.com/fmtlib/fmt
+      1.4M  today                       ├── 11.1.4
+      1.5M  today                       └── 12.2.0
+  ---------------------------------------------------------------------
+  3 entries, 305.1M total, 5.8M unreferenced
 ```
 
-`TOOLCHAIN VARIANT` is `-` for trees that are not toolchain-specific, which is itself worth
-seeing: it is the difference between a tree that a second toolchain will reuse and one that will
-be fetched again per toolchain. Conan install dirs do not encode that string in the path; until
-install metadata is persisted (§4.7), Conan rows can only show a fingerprint qualifier and the
-column stays `-`, which is not enough to act on. `LAST USED` comes from the inventory (§4.5) and is the column
-that turns a listing into a decision — a tree last used in March, by a project you finished, is
-an easy 1.3G to reclaim. `--list-downloads` uses the same shape with the columns that suit
-archives:
+`TOOLCHAIN VARIANT` is no longer a separate column: GitLab and similar trees nest the toolchain
+string under the version. Location trees nest `@branch` (or `@` for an unqualified stem — see
+§4.8). Conan install dirs do not encode a toolchain string in the path; until install metadata
+is persisted (§4.7), Conan children stay fingerprint-labelled, which is not enough to act on.
+`LAST USED` comes from the inventory (§4.5) and is the column that turns a listing into a
+decision — a tree last used in March, by a project you finished, is an easy reclaim.
+`--list-downloads` (Phase 4) uses a flatter shape with the columns that suit archives:
 
 ```
 cuppa: storage: [info] Downloads in /home/user/.cuppa/downloads
@@ -424,8 +446,8 @@ If a "remove then rebuild" workflow proves wanted, it can be added later as an e
 
 ### 3.5 `--list-develop`
 
-A related question, answered by nothing today: when `--develop` is active, **what state are the
-local working copies actually in?**
+A related question, answered by `--list-develop` (shipped): when `--develop` is active — or when
+develop paths are configured at all — **what state are the local working copies actually in?**
 
 `--develop` swaps a retrieved dependency for a working copy on disk (`cuppa/location.py`, the
 `develop` branch of `Location.__init__`). That is the right tool for changing two repositories
@@ -1088,10 +1110,9 @@ should omit `--develop` (§3.2); `--list-develop` is the command for working cop
 
 **Status.** Listing bind shipped: `Location` keeps `_cache_folder_stem` across the develop swap,
 `storage_paths()['cached']` lists matching stem / stem`@*` trees, and `--list-dependencies`
-with `--develop` reports them as STATE `cached` with the registry name (still never a removal of
-the develop path). Further presentation (short names, stem families in the DEPENDENCY column)
-remains open above. How dependency information should be tracked and displayed as a whole is a
-follow-on after the listing-mode docs settle.
+with `--develop` shows REMARK `develop` on the identity (branch leaves unmarked; still never a
+removal of the develop path). Tree presentation (§4.9) has shipped; remaining open items here
+are the default-branch quirk (above) and Conan meta (§4.7).
 
 #### Expected but absent (STATE `missing`)
 
@@ -1107,18 +1128,18 @@ stays 0 (inspect tool). True skips (unknown name, undeclared layout) remain belo
 
 ### 4.9 Hierarchical `--list-dependencies` presentation
 
-The flat ruled table is usable but fights the mental model: people care about *which
-dependencies this sconstruct uses* and *which stale variants of those same identities sit on
-disk*, not about one row per encoded folder. A sketched tree (referenced first, then
-unreferenced; type groups; short-name families; qualifier / version / toolchain children)
-matches how `--list-builds` already presents selection with rollups.
+The earlier flat ruled table fought the mental model: people care about *which dependencies
+this sconstruct uses* and *which stale variants of those same identities sit on disk*, not
+about one row per encoded folder. The hierarchical tree (referenced first, then unreferenced;
+type groups; short-name families; qualifier / version / toolchain children) matches how
+`--list-builds` already presents selection with rollups.
 
 #### Verdict
 
-**Viable.** The sketch is the right presentation for Phase 3 table work. Most of the identity
-data can be recovered from existing trees (§4.8 short-name capability); the gap is
-**grouping + rendering**, not inventing new storage layouts. Ship a tree whose default columns
-hide on-disk paths; put LOCATION behind a more verbose `--list-format`.
+**Shipped** (Phase 3 listing on `134_list_and_remove_dependencies`). The sketch was the right
+presentation: grouping + rendering, not new storage layouts. Default columns hide on-disk
+paths; LOCATION sits behind `--list-format=verbose`. Remaining polish is §4.8 / §4.7 / removal
+naming (P5), not reopening the tree shape.
 
 #### Target shape (default columns)
 
@@ -1202,51 +1223,39 @@ above/below type group names.
 | Need | Status |
 |------|--------|
 | Flat walk + sizes + type | **Have** |
-| `referenced` / `unreferenced` / `missing` / `cached` per path | **Have** |
+| `referenced` / `unreferenced` / `missing` per path | **Have** |
 | Registry name when resolve binds | **Have** (owned paths) |
-| Short name for git (from `origin`) | **Can derive** — not coded; `Git.info` + URL normaliser |
-| Short name for gitlab (package segment) | **Have** from path |
-| Short name for Boost archives | **Done** — regex on encoded folder; reconstruct download URL |
-| Short name for GitHub archives | **Done** — `github.com/<owner>/<repo>` + tag; reconstruct download URL |
-| Stem family = all `stem` / `stem@*` siblings | **Partial** — `split_location_folder_name` + walk; must group before render |
+| Short name for git (from `origin`) | **Have** |
+| Short name for gitlab (package segment) | **Have** |
+| Short name for Boost archives | **Have** — regex on encoded folder; reconstruct download URL |
+| Short name for GitHub archives | **Have** — `github.com/<owner>/<repo>` + tag; reconstruct download URL |
+| Stem family = all `stem` / `stem@*` siblings | **Have** — grouped under referenced identity when any leaf binds |
 | Which leaf is `in use` | **Have** — owned/referenced path from resolve |
 | Unspecified qualifier on unqualified stem | Show `@` (not `<default_branch>`); §4.8 quirk fix removes the need long-term |
-| Registry name vs extract folder (`boost_package` → disk `boost/`) | **Gap** — bind package id / `storage_paths` folder to registry name when they differ |
-| Tree renderer (glyphs, hang, width) | **Reusable patterns** from `storage_actions` / develop; not wired for deps |
-| JSON tree | **Gap** — today flat `entries[]`; add nested `tree` (keep flat entries for a transition?) |
-| Verbose LOCATION via `--list-format` | **Gap** — extend choices with `verbose`; json always carries paths |
+| Registry name vs extract folder (`boost_package` → disk `boost/`) | **Partial** — registry name on referenced GitLab identities; bracketed short path still a polish item when they differ |
+| Tree renderer (glyphs, hang, width) | **Have** |
+| JSON tree | **Have** — nested `tree` plus flat `entries` |
+| Verbose LOCATION via `--list-format` | **Have** — `verbose` column; `[D]` mark + footer (§4.12); JSON carries paths / `download_path` |
 | Conan human labels | **Blocked** on §4.7 meta; show name + fingerprint until then |
 
 #### Implementation slices (Phase 3 presentation)
 
-**P1 — Identity enrichment (no UI change required first).** Derive `short_name`, `stem`,
-`source_url` (optional) when walking / resolving; write into inventory. Helpers: URL→host/path
-for git; path segment for gitlab; Boost archive regex. Unit-test against planted fixtures.
-JSON gains the new fields on flat entries so we can inspect before rewriting the text UI.
+**P1 — Identity enrichment.** **Done.** `short_name`, `stem`, `source_url` / `remote_location`
+on walk / resolve; inventory persistence; unit + integration coverage.
 
-**P2 — Tree model.** Build from enriched leaves:
+**P2 — Tree model.** **Done.** Referenced vs unreferenced partition; type → identity →
+variants; stem siblings under referenced identities.
 
-- Attach every on-disk leaf to an identity key (`short_name` or stem; prefer short_name).
-- If any leaf of that identity is referenced/missing/cached for this sconstruct, the **whole
-  identity** sits under `referenced` (siblings unmarked).
-- Else the identity sits under `unreferenced`.
-- Sort: registry name (referenced) or short_name (unreferenced); gitlab versions descending;
-  location qualifiers with `@` (unspecified) first, then alpha; toolchains alpha.
+**P3 — Text renderer (default).** **Done.** Ruled hierarchical table; REMARK + rollups;
+footer counts; no LOCATION for `--list-format=text`.
 
-**P3 — Text renderer (default).** Replace the flat ruled table with the tree; REMARK + rollups;
-footer counts (entries, total, unreferenced bytes, missing). No LOCATION column for
-`--list-format=text`.
-Integration test against a planted multi-branch location + multi-variant package fixture.
+**P4 — Verbose + JSON tree.** **Done.** `--list-format=verbose` LOCATION + `[D]`; JSON
+`tree` + enriched flat `entries`.
 
-**P4 — Verbose + JSON tree.** `--list-format=verbose` adds the LOCATION column to the text
-tree. `--list-format=json` emits the hierarchical structure (including path / location fields)
-plus flat `entries` until consumers move.
-
-**P5 — Polish tied to other open items.** §4.8 quirk fix retires unqualified stems (and thus
-most `@` unspecified rows); Conan children when §4.7 meta lands; removal UX should name
-identities and variants the way the tree does (`--remove-dependencies=baa` vs a specific
-qualifier — decide when Slice D is designed, prefer identity-level with optional qualifier
-filter).
+**P5 — Polish tied to other open items.** Still open: §4.8 quirk fix; Conan children when
+§4.7 meta lands; removal UX should name identities and variants the way the tree does
+(`--remove-dependencies=baa` vs a specific qualifier — decide when Slice D is designed,
+prefer identity-level with optional qualifier filter).
 
 #### Non-goals for the first tree ship
 
@@ -1264,8 +1273,8 @@ filter).
   package folder in brackets (`[boost]`) when they differ — same pattern as location
   `baa [clearpool.io/…]`.
 - `cached` (develop shadow) belongs with the referenced identity as a remark variant, not a
-  second section — e.g. REMARK `develop` on the identity (branch leaves unmarked); footer points
-  at `--list-develop`.
+  second section — **shipped** as REMARK `develop` on the identity (branch leaves unmarked);
+  footer points at `--list-develop`.
 
 ### 4.10 Deferred: all-dependencies view and empty-`used_by` remark
 
@@ -1380,7 +1389,7 @@ could land at any point, and Phase 6 needs a design pass this plan does not atte
 |-------|----------|-----------|--------|
 | 1 | `--storage-root` and the renamed roots | — | **done** ([#133](https://github.com/ja11sop/cuppa/issues/133)) |
 | 2 | `--remove-builds`, `--remove-all-builds`, `--list-builds` | 1 | **done** ([#134](https://github.com/ja11sop/cuppa/issues/134) / #140) |
-| 3 | Inventory, `--list-dependencies`, `--remove-dependencies` / `--remove-all-dependencies` | 1, 2 | in progress (`--list-dependencies` first) |
+| 3 | Inventory, `--list-dependencies`, `--remove-dependencies` / `--remove-all-dependencies` | 1, 2 | **listing done** on branch; **removal open** |
 | 4 | `--list-downloads`, `--purge-*` | 3 | |
 | 5 | `--list-develop`, `--update-develop` | nothing in this plan | **done** ([#132](https://github.com/ja11sop/cuppa/issues/132)) |
 | 6 | `--remove-artefacts` | its own design pass first | |
@@ -1415,33 +1424,25 @@ could land at any point, and Phase 6 needs a design pass this plan does not atte
 
 **Phase 3 — dependency listing, inventory, and removal** (§3.2, §4.3, §4.5, §4.7, §4.8)
 
-- Add the `storage_paths()` protocol and implement it for location, GitLab package, Conan, and
-  Boost dependencies. Dependencies that do not implement it are reported as skipped, never
-  guessed at.
-- Add the resolve-only mode (retrieval disabled) and reuse `retrieval_disabled_reason()`.
-- Add the inventory (§4.5): per-entry files, atomic writes, `last_used` / `used_by` updates on
-  **resolve/build** (not on listing), and sampled sizes with lazy refresh plus `--exact-sizes`.
-  Record storage `type` (`gitlab` / `conan` / `location` / `archive`) for a future namespaced
-  layout migration. Empty-`used_by` remarks and an all-dependencies view wait until stamping is
-  real (§4.10).
-- Implement `--list-dependencies` first — it is useful on its own and it is how the inventory
-  earns trust — then `--remove-dependencies` / `--remove-all-dependencies` on top of the same
-  data, scoped to the current selection and reporting what they leave behind.
-- **Conan install metadata (§4.7):** write `.cuppa_conan_meta.json` (tool_variant + Conan
-  settings) on successful install and backfill on reuse; teach listing/inventory to read it so
-  Conan rows are not fingerprint-only. Implement Conan `storage_tool_variant()` for resolve
-  touches. Without this, `--list-dependencies` cannot usefully describe Conan trees.
-- **Location identity (§4.8) + hierarchical presentation (§4.9):** derive short_name / stem;
-  build referenced→type→identity→variant tree with REMARK and rollups; LOCATION only when
-  verbose; bind inventory under `--develop` as `cached`; prefer addressing the default-branch
-  unqualified-vs-`@branch` doubling as a location + listing fix (canonical folder form,
-  `<default_branch>` labels, warn/list duplicates, optional cleanup — not auto-delete).
-- Removal re-verifies every path on disk and re-applies the §5 containment rules; the inventory
+Listing half **done** on `134_list_and_remove_dependencies`; removal still open.
+
+- `storage_paths()` + resolve-only: **done** (location, GitLab package, Conan, Boost).
+- Inventory (§4.5): **done** for sizes / type / remote fields; `used_by` stamping on real
+  resolve/build still **open** (§4.10). Listing does not stamp `last_used`.
+- `--list-dependencies` hierarchical tree (§4.9 P1–P4): **done** (REMARK, rollups, verbose
+  LOCATION / `[D]`, JSON `tree` + flat `entries`, docs examples).
+- **Still open — removal:** `--remove-dependencies` / `--remove-all-dependencies` on the same
+  data, scoped to the current selection and reporting what they leave behind (Slice D).
+- **Still open — Conan install metadata (§4.7):** write `.cuppa_conan_meta.json` on successful
+  install and backfill on reuse; teach listing to read it; Conan `storage_tool_variant()` for
+  resolve touches.
+- **Still open — default-branch quirk (§4.8):** canonical `stem@branch`, `<default_branch>`
+  labels, warn/list duplicates, optional cleanup — not auto-delete. Develop bind / REMARK
+  `develop` already shipped.
+- Removal must re-verify every path on disk and re-apply the §5 containment rules; the inventory
   informs the report and never authorises a deletion.
-- **Documentation split (§7.1):** after hierarchical presentation (§4.9) is stable, partition
-  `dependencies.adoc` into hub + topic pages (location, packages, GitLab, Conan, built-ins,
-  managing, writing your own) and reconcile `packages.adoc` / `extending.adoc`. Prefer landing
-  Managing together with removal docs so list + remove are not documented in two passes.
+- **Documentation split (§7.1):** Managing samples match the tree; partition `dependencies.adoc`
+  when convenient, preferably alongside removal docs so list + remove land as one Managing page.
 
 **Phase 4 — downloads listing and purge** (§3.3)
 
@@ -1540,8 +1541,8 @@ could land at any point, and Phase 6 needs a design pass this plan does not atte
 - `docs/modules/ROOT/pages/configuration.adoc` — the renamed keys in `~/.cuppaconfig`, the new
   `storage_root` key, and the precedence between them.
 - Dependency topic pages — today a single large `dependencies.adoc` plus overlapping
-  `packages.adoc` / `extending.adoc`. Partition as in §7.1 once Phase 3 listing presentation is
-  stable enough that the Managing page will not need an immediate rewrite.
+  `packages.adoc` / `extending.adoc`. Partition as in §7.1; listing presentation is stable enough
+  that Managing will not need an immediate rewrite for the tree shape.
 - `CHANGELOG.md` per phase; Phase 1 under both Changed and Deprecated.
 
 ### 7.1 Partitioning the Dependencies documentation
@@ -1652,17 +1653,17 @@ name needs a page on day one.
 **When to do it (phase).**
 
 This is a **Phase 3 documentation track**, not a separate product phase and not a blocker for
-table polish or removal code:
+removal code:
 
-1. **After** `--list-dependencies` hierarchical presentation (§4.9) is good enough that Managing
-   examples will not immediately churn — otherwise the split rewrites the same samples twice.
+1. **Ready for the split** — `--list-dependencies` hierarchical presentation (§4.9) is shipped
+   and Managing examples match the tree; do not wait for further listing polish.
 2. **In parallel with or just before** documenting `--remove-dependencies` (Slice D), so
    Managing ships as one coherent page rather than list-only then remove bolted on.
 3. **Before Phase 4** (downloads list/purge), so downloads management can extend Managing
    instead of growing the old monolith again.
 
 Scaffolding the hub + stub children earlier is fine if links are kept honest ("content moving
-here"); finishing the split waits on the listing table.
+here").
 
 **Out of scope for the split itself:** changing CLI behaviour, inventing new dependency kinds,
 or merging `extending.adoc` entirely into Dependencies — keep Extending as the plugin/entry-point
@@ -1884,7 +1885,7 @@ Settled while reviewing this plan, and folded into the sections above:
 | Whether cloning a missing develop copy is its own option or a mode of `--update-develop` | Its own option, `--clone-develop`, so that updating keeps its narrow promise and the mode slot stays reserved for tolerance levels (§3.7, [#138](https://github.com/ja11sop/cuppa/issues/138)) |
 | Downloads-root path under verbose `[D]` LOCATION | No. `[D]` + basename (+ footer) only; paths stay in JSON / `--list-downloads` (§4.12) |
 
-Still open, and none of them block Phase 2:
+Still open, and none of them block starting Phase 3 removal:
 
 - **How `--remove-artefacts` finds paths.** Graph discovery, project declaration, or both, and
   what it adds over SCons `--clean`. This wants measurement on a real project before an option
@@ -1902,13 +1903,14 @@ Still open, and none of them block Phase 2:
 - **Conan listing without install metadata.** Decided: persist `.cuppa_conan_meta.json` at
   install time (§4.7). Until that lands, Conan rows under `--list-dependencies` stay weak
   (name + fingerprint). Treat the meta write/read as Phase 3 polish, not an optional nice-to-have.
-- **Location listing identity and hierarchical presentation.** Captured in §4.8 / §4.9: derive
-  short_name / stem; replace the flat table with referenced→type→identity→variant tree, REMARK,
-  rollups; LOCATION only when verbose. **Default-branch quirk** should still be fixed (canonical
-  `stem@branch`, `<default_branch>` labels, warn + optional cleanup). **Develop vs cached stem**
-  bind shipped. Docs split (§7.1) follows the tree UI.
+- **Location listing identity and hierarchical presentation.** **Done** for the tree UI
+  (§4.8 / §4.9 P1–P4): short_name / stem; referenced→type→identity→variant tree; REMARK;
+  rollups; LOCATION when verbose; `[D]` settled (§4.12). **Default-branch quirk** (§4.8) should
+  still be fixed (canonical `stem@branch`, `<default_branch>` labels, warn + optional cleanup).
+  **Develop vs cached stem** bind shipped. Docs split (§7.1) can proceed — Managing samples
+  already match the tree.
 - **Dependencies documentation split.** Outline in §7.1: partition the monolith as a Phase 3
-  docs track after §4.9 presentation, with Managing alongside removal docs; before Phase 4.
+  docs track; Managing can stay alongside removal docs; before Phase 4.
 - **Whether the inventory should record anything else.** `type` (`gitlab` / `conan` /
   `location` / `archive`) is already recorded from path shape so a namespaced layout migration
   can move trees without re-guessing. Stem / short_name / registry binding follow §4.8 / §4.9. A coarse

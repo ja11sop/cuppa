@@ -254,7 +254,7 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `storage-listing-removal` | `--list-*`, `--remove-*`, `--purge-*` for builds, dependencies, and downloads | Medium | Build half done (#140); `--list-dependencies` in progress on `134_list_and_remove_dependencies`; removal and downloads follow. GitHub [#134](https://github.com/ja11sop/cuppa/issues/134) |
+| `storage-listing-removal` | `--list-*`, `--remove-*`, `--purge-*` for builds, dependencies, and downloads | Medium | Build half done (#140); `--list-dependencies` tree done on `134_list_and_remove_dependencies`; dependency removal and downloads follow. GitHub [#134](https://github.com/ja11sop/cuppa/issues/134) |
 | `develop-clone` | `--clone-develop` for a develop working copy that is configured but not yet on disk, for a new machine or a dependency added since you last looked | Medium | Surface settled, remaining design to finalise first: pinned locations, submodules, whether retrieval machinery is reused. [`design/plans/removal-options.md`](design/plans/removal-options.md) §3.7. GitHub [#138](https://github.com/ja11sop/cuppa/issues/138) |
 | `artefact-removal` | Decide how to remove artefacts written outside the build root | Low | Design pass first; `--remove-builds` deliberately stops at `_build`. GitHub [#135](https://github.com/ja11sop/cuppa/issues/135) |
 
