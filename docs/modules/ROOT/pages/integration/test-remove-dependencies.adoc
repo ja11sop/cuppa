@@ -15,12 +15,18 @@ With planted trees under a private `--storage-root`:
 * A GitLab package dependency removes only the selected toolchain's
   `tool_variant/package/version` tree and leaves another toolchain's sibling; `--toolchains=gcc,clang`
   removes each matching package variant.
+* Source `boost` with `--boost-home` under the storage dependencies root removes only the selected
+  variant's stage directory and matching Boost.Build toolset **variant** folder under
+  `bin.<abi>` (`storage_clean`), leaving the extract, headers, another variant's stage tree, and
+  other toolsets' bin products in place. The report shows a muted `source assets` leaf and a
+  remaining archive size in the freed-space line.
 
 == Generated files
 
 The dummy project with a custom `sconstruct` declaring `widget` and/or `boost_package`, plus
 planted folders under `<storage>/dependencies/` (and a develop tree outside storage for the
-develop-skip case).
+develop-skip case). The Boost case plants a `--boost-home` extract with `clean/` stage and
+`bin.<abi>` products.
 
 == Commands
 
@@ -31,10 +37,12 @@ cuppa -D --offline -n --remove-dependencies=widget --storage-root=<storage>
 cuppa -D --offline --remove-dependencies=widget --storage-root=<storage>
 cuppa -D --offline --develop --remove-dependencies=widget --storage-root=<storage>
 cuppa -D --offline --dbg --remove-dependencies=boost_package --storage-root=<storage>
+cuppa -D --offline --dbg --boost-home=<extract> --remove-dependencies=boost --storage-root=<storage>
 ----
 
 == Expected outcome
 
 Successful removals print an announce line, a compact REMARK table, optional leftovers and
-develop skips, a freed-space summary, and a `--list-dependencies` verification hint. Dry-run
+develop skips, a freed-space summary, and a `--list-dependencies` verification hint
+(noting that archive `storage_clean` left source assets when applicable). Dry-run
 uses “Would remove”. Unknown names fail before any delete.

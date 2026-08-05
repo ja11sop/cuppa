@@ -231,6 +231,51 @@ changed — those suites are fast relative to CI and catch import / CLI regressi
 `CUPPA_TEST_TOOLCHAIN=…` when you need a non-default compiler for integration (see
 [Validating changes to cuppa](#validating-changes-to-cuppa)). Fix failures locally, then push.
 
+**Batch local commits; do not push every small edit.** Each push restarts CI, and a full matrix
+run often takes **more than ten minutes**. While a PR is open — especially once feature work is
+largely done and you are polishing docs, plans, CHANGELOG wording, or tiny test fixes — prefer:
+
+1. Make several related commits locally (or one coherent commit).
+2. Re-read the diff and run the local gate above until you are satisfied.
+3. **Then** push once (or rarely), and only then run `watch-pr`.
+
+Pushing after every minor tweak is eager in the wrong way: it burns CI time and delays the merge
+more than holding a few commits until the batch is ready. Reserve frequent pushes for real CI
+failures that need a green signal on the next head, not for iterative housekeeping.
+
+### When a pull request is ready to merge
+
+Once the branch looks merge-ready (feature work done, local tests green, or CI already green and
+only polish remains), **do a documentation and housekeeping pass before the final push** — do not
+treat merge readiness as “CI green alone”. In the same local batch (see batching above):
+
+1. **Documentation review** — Antora pages under `docs/`, CLI reference, integration-test pages,
+   and any consumer-facing samples touched by the work. Confirm they match shipped behaviour
+   (flags, report shape, verify hints, examples). Prefer updating the eventual topic page from
+   [Documentation](#documentation) / the removal-plan docs split rather than leaving stale prose.
+2. **`CHANGELOG.md`** — open section has accurate Added / Changed / Fixed entries for everything
+   that lands in the PR (including late fixes). No sweep of unrelated history.
+3. **`ROADMAP.md`** — Today / Planned rows reflect what this PR ships and what is next; do not
+   leave “on branch `…`” once the PR is the landing vehicle (cite the PR number).
+4. **Related design plans** — progress snapshot, phase tables, “next focus”, and `design/README.md`
+   index row. Mark shipped slices done; park deferred work explicitly; update `Updated:` dates.
+   Do not close umbrella issues in PR text unless the plan says that slice closes them.
+
+After that batch is committed and pushed, watch CI as usual. If only docs/plan/CHANGELOG change
+after a green run, still prefer **one** push of the housekeeping batch rather than dripping
+commits.
+
+5. **PR test plan** — open the pull request body and walk the Test plan checklist. Tick items that
+   are done (local gate, focused integration suites, **CI green on the matrix**). Leave optional
+   manual spot-checks unchecked unless they were actually run, and say so when reporting
+   merge readiness. Update the PR body via the API / `create-pr` helpers if the checklist is
+   stale — do not treat an unchecked “CI green” box as unknown when `watch-pr` already
+   succeeded.
+6. **Squash commit message** — when the person will squash-merge, draft a single commit message
+   that matches this repo’s style (imperative subject, blank line, why/what prose, no trailers;
+   reference umbrella issues in prose, not `Fixes`/`Closes` unless that slice should close them).
+   Offer it in the chat (and optionally paste into the GitHub squash UI) before merge.
+
 ### After pushing a pull request branch
 
 After `git push -u origin HEAD` (or any later push to an open PR), **do not stop without knowing

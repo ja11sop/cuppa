@@ -384,6 +384,9 @@ env.Build('app', ['main.cpp'])
 ----
 
 * `BuildWith` applies named dependency factories (Boost, location packages, GitLab packages, …)
+  and returns the dependency instance (or a list). Where the dependency provides libraries,
+  chain `.use_libs([...])` — for example `env.BuildWith('boost').use_libs(['filesystem'])` or
+  the same call on a `boost_package` / other `package_dependency`
 * `Using` looks up a dependency factory by name
 * `BuildProfile` applies named profiles (lightweight env tweaks)
 

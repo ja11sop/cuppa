@@ -30,6 +30,7 @@ from cuppa.colourise import (
 )
 from cuppa.core import dependency_inventory, dependency_storage
 from cuppa.core.storage_actions import dry_run
+from cuppa.log import logger
 from cuppa.utility import storage
 
 
@@ -41,7 +42,10 @@ REMARK_WIDTH = 9
 
 RemovalTarget = namedtuple(
     'RemovalTarget',
-    [ 'dependency', 'path', 'qualifier', 'tool_variant', 'storage_type', 'size_bytes' ],
+    [
+        'dependency', 'path', 'qualifier', 'tool_variant', 'storage_type',
+        'size_bytes', 'label', 'extra_paths',
+    ],
 )
 
 Leftover = namedtuple(
@@ -251,6 +255,11 @@ def _sibling_leftovers( root, target, remove_reals ):
         cand_real = storage.real_path( candidate )
         if cand_real in remove_reals or cand_real == real:
             continue
+        # Product clean inside an extract: the extract root itself is not a leftover sibling.
+        if real.startswith( cand_real + os.sep ):
+            continue
+        if cand_real.startswith( real + os.sep ):
+            continue
         leftovers.append( Leftover(
             dependency=target.dependency,
             path=candidate,
@@ -262,16 +271,255 @@ def _sibling_leftovers( root, target, remove_reals ):
     return leftovers
 
 
+def enumerate_archive_product_dirs( home ):
+    """List b2 stage leaves and folded ``bin.*`` toolset units under a Boost home.
+
+    Stage products remain one leaf per ``build…/<toolchain>/<variant>/<arch>``.
+    Bin products are one unit per ``bin.<abi>/<toolset-token>`` (nested Boost.Build
+    dirs for that toolset folded together for leftovers / reporting).
+    """
+    from cuppa.dependencies.boost.library_naming import (
+        b2_toolset_family_label,
+        b2_toolset_family_token,
+        enumerate_b2_build_dir_toolset_products,
+        is_b2_toolset_dir_name,
+    )
+
+    products = []
+    if not home or not os.path.isdir( home ):
+        return products
+    try:
+        names = os.listdir( home )
+    except OSError:
+        return products
+    for name in sorted( names ):
+        path = os.path.join( home, name )
+        if not os.path.isdir( path ):
+            continue
+        if name.startswith( 'bin.' ):
+            by_family = {}
+            for product in enumerate_b2_build_dir_toolset_products( path ):
+                token = os.path.basename( product )
+                if token in ( 'debug', 'release' ):
+                    token = os.path.basename( os.path.dirname( product ) )
+                if not is_b2_toolset_dir_name( token ):
+                    token = os.path.basename( product )
+                family = b2_toolset_family_token( token )
+                by_family.setdefault( family, [] ).append( product )
+            if by_family:
+                for family in sorted( by_family ):
+                    products.append( {
+                        'path': path,
+                        'paths': by_family[family],
+                        'tool_variant': b2_toolset_family_label( family ),
+                        'kind': 'bin_toolset',
+                    } )
+            else:
+                products.append( {
+                    'path': os.path.abspath( path ),
+                    'paths': [ os.path.abspath( path ) ],
+                    'tool_variant': name,
+                    'kind': 'bin_root',
+                } )
+            continue
+        if not name.startswith( 'build' ):
+            continue
+        try:
+            toolchains = os.listdir( path )
+        except OSError:
+            continue
+        for toolchain_name in sorted( toolchains ):
+            tpath = os.path.join( path, toolchain_name )
+            if not os.path.isdir( tpath ):
+                continue
+            try:
+                variants = os.listdir( tpath )
+            except OSError:
+                continue
+            for variant in sorted( variants ):
+                vpath = os.path.join( tpath, variant )
+                if not os.path.isdir( vpath ):
+                    continue
+                try:
+                    arches = os.listdir( vpath )
+                except OSError:
+                    continue
+                for arch in sorted( arches ):
+                    apath = os.path.join( vpath, arch )
+                    if os.path.isdir( apath ):
+                        products.append( {
+                            'path': path,
+                            'paths': [ os.path.abspath( apath ) ],
+                            'tool_variant': '{}/{}/{}'.format(
+                                    toolchain_name, variant, arch
+                            ),
+                            'kind': 'stage',
+                        } )
+    return products
+
+
+def _collect_storage_clean( construct, cuppa_env, names, selections ):
+    """Call optional ``storage_clean`` on each named dependency for each selection.
+
+    Returns ``{ name: { 'paths', 'targets', 'extract', 'supported', ... } }``
+    only for dependencies that implement ``storage_clean`` (even when empty).
+    """
+    factories = cuppa_env.get( 'dependencies' ) or {}
+    by_name = {}
+    for name in names:
+        factory = factories.get( name )
+        if factory is None:
+            continue
+        for selection in selections:
+            env = dependency_storage._scons_env_from_selection( selection )
+            if env is None:
+                continue
+            try:
+                instance = factory( env )
+            except Exception:
+                continue
+            if instance is None:
+                continue
+            method = getattr( instance, 'storage_clean', None )
+            if not callable( method ):
+                for attr in ( '_package', '_location' ):
+                    inner = getattr( instance, attr, None )
+                    if inner is None:
+                        continue
+                    method = getattr( inner, 'storage_clean', None )
+                    if callable( method ):
+                        break
+                else:
+                    continue
+            try:
+                result = method( env, selection )
+            except Exception:
+                continue
+            if result is None:
+                continue
+            entry = by_name.setdefault( name, {
+                'paths': [],
+                'targets': [],
+                'extract': None,
+                'supported': True,
+                'storage_type': 'archive',
+                'qualifier': None,
+            } )
+            if result.get( 'extract' ):
+                entry['extract'] = os.path.abspath( os.path.expanduser( result['extract'] ) )
+
+            structured = list( result.get( 'targets' ) or [] )
+            if not structured and result.get( 'paths' ):
+                # Compat: plain path list → one target per path.
+                structured = [
+                        { 'paths': [ path ], 'label': None, 'tool_variant': None }
+                        for path in result['paths']
+                ]
+
+            for spec in structured:
+                paths = []
+                for path in spec.get( 'paths' ) or []:
+                    if not path:
+                        continue
+                    abs_path = os.path.abspath( os.path.expanduser( path ) )
+                    if abs_path not in paths:
+                        paths.append( abs_path )
+                    if abs_path not in entry['paths']:
+                        entry['paths'].append( abs_path )
+                if not paths:
+                    continue
+                entry['targets'].append( {
+                    'paths': paths,
+                    'label': spec.get( 'label' ),
+                    'tool_variant': spec.get( 'tool_variant' ),
+                } )
+
+            qualifier = getattr( instance, 'storage_qualifier', None )
+            if callable( qualifier ):
+                try:
+                    entry['qualifier'] = qualifier()
+                except Exception:
+                    pass
+            storage_type = dependency_storage.storage_type_for_owned_path(
+                    instance,
+                    entry.get( 'extract' ) or ( entry['paths'][0] if entry['paths'] else '' ),
+                    cuppa_env.get( 'dependencies_root' ),
+            )
+            if storage_type and storage_type != 'unknown':
+                entry['storage_type'] = storage_type
+    return by_name
+
+
+def _product_leftovers( dependency, extract, home, remove_reals, storage_type, qualifier, root=None ):
+    """Muted leftovers: other stage/bin product units under the same extract home."""
+    leftovers = []
+    for candidate in enumerate_archive_product_dirs( home ):
+        if isinstance( candidate, dict ):
+            paths = candidate.get( 'paths' ) or [ candidate['path'] ]
+            display_path = candidate['path']
+            tool_variant = candidate.get( 'tool_variant' )
+            kind = candidate.get( 'kind' )
+        else:
+            paths = [ candidate ]
+            display_path = candidate
+            tool_variant = None
+            kind = None
+        remaining = []
+        for path in paths:
+            cand_real = storage.real_path( path )
+            if cand_real in remove_reals:
+                continue
+            if any(
+                    cand_real == remove
+                    or cand_real.startswith( remove + os.sep )
+                    or remove.startswith( cand_real + os.sep )
+                    for remove in remove_reals
+            ):
+                continue
+            remaining.append( path )
+        if not remaining:
+            continue
+        size_bytes = sum( _measure_bytes( path ) for path in remaining )
+        try:
+            label = os.path.relpath( display_path, extract or home )
+        except ValueError:
+            label = os.path.basename( display_path )
+        label = label.replace( '\\', '/' )
+        if tool_variant and kind in ( 'bin_toolset', 'stage' ):
+            label = "{} [{}]".format( label, tool_variant )
+        if root and extract:
+            extract_rel = _relative_removal_path( extract, root )
+            if extract_rel and not label.startswith( extract_rel + '/' ) and label != extract_rel:
+                label = "{}/{}".format( extract_rel, label )
+        leftovers.append( Leftover(
+            dependency=dependency,
+            path=remaining[0],
+            qualifier=qualifier,
+            tool_variant=( tool_variant or label ).replace( '\\', '/' ),
+            size_bytes=size_bytes,
+            label=label,
+        ) )
+    return leftovers
+
+
 def collect_removal_plan( construct, cuppa_env, names ):
     """Build remove targets, leftovers, develop skips, and resolve skips for ``names``."""
     root = _dependencies_root( cuppa_env )
+    selections = dependency_storage.selection_build_envs( construct, cuppa_env )
     owned, skips = dependency_storage.resolve_named_dependencies(
-            construct, cuppa_env, names
+            construct, cuppa_env, names, selections=selections
     )
+    clean_by_name = _collect_storage_clean( construct, cuppa_env, names, selections )
 
     develop_skips = []
     targets = []
     seen_remove = set()
+    # Extract roots skipped because storage_clean owns product removal for this name.
+    clean_extract_reals = set()
+    for name, clean in clean_by_name.items():
+        extract = clean.get( 'extract' )
+        if extract and os.path.isdir( extract ):
+            clean_extract_reals.add( storage.real_path( extract ) )
 
     for item in owned:
         if item.category == 'develop' or item.develop:
@@ -289,6 +537,13 @@ def collect_removal_plan( construct, cuppa_env, names ):
         if not os.path.lexists( path ):
             continue
         real = storage.real_path( path )
+        # When storage_clean is supported, leave the archive extract in place.
+        if item.dependency in clean_by_name and item.category == 'dependencies':
+            if real in clean_extract_reals or (
+                    clean_by_name[item.dependency].get( 'extract' )
+                    and real == storage.real_path( clean_by_name[item.dependency]['extract'] )
+            ):
+                continue
         if real in seen_remove:
             continue
         # Containment before we measure or delete.
@@ -305,7 +560,78 @@ def collect_removal_plan( construct, cuppa_env, names ):
             tool_variant=item.tool_variant,
             storage_type=item.storage_type,
             size_bytes=_measure_bytes( path ),
+            label=None,
+            extra_paths=(),
         ) )
+
+    # Selection-scoped product dirs from storage_clean (possibly multi-path targets).
+    from cuppa.dependencies.boost.library_naming import _prune_nested_paths
+    for name, clean in clean_by_name.items():
+        extract = clean.get( 'extract' )
+        specs = list( clean.get( 'targets' ) or [] )
+        if not specs and clean.get( 'paths' ):
+            specs = [
+                    { 'paths': [ path ], 'label': None, 'tool_variant': None }
+                    for path in clean['paths']
+            ]
+        for spec in specs:
+            paths = [
+                    path for path in ( spec.get( 'paths' ) or [] )
+                    if path and os.path.lexists( path )
+            ]
+            if not paths:
+                continue
+            paths = _prune_nested_paths( paths )
+            if not paths:
+                continue
+            primary = paths[0]
+            extra = tuple( paths[1:] )
+            real = storage.real_path( primary )
+            if real in seen_remove:
+                # Still register extras for containment/removal if primary already queued.
+                continue
+            if extract:
+                for path in paths:
+                    storage.ensure_contained( path, extract, what="dependency product path" )
+            for path in paths:
+                storage.ensure_contained( path, root, what="dependency path" )
+                if os.path.islink( path ):
+                    raise storage.StorageError(
+                        "refusing to remove through symlink [{}]".format( path )
+                    )
+            seen_remove.add( real )
+            for path in extra:
+                seen_remove.add( storage.real_path( path ) )
+
+            label = spec.get( 'label' )
+            tool_variant = spec.get( 'tool_variant' )
+            if not label:
+                try:
+                    label = os.path.relpath( primary, extract or primary )
+                except ValueError:
+                    label = os.path.basename( primary )
+                label = label.replace( '\\', '/' )
+            # Report paths relative to the dependencies root (include extract folder).
+            if extract:
+                extract_rel = _relative_removal_path( extract, root )
+                if extract_rel and not label.startswith( extract_rel + '/' ) and label != extract_rel:
+                    label = "{}/{}".format( extract_rel, label )
+            if tool_variant and '[{}]'.format( tool_variant ) not in label:
+                display = "{} [{}]".format( label, tool_variant )
+            else:
+                display = label
+
+            size_bytes = sum( _measure_bytes( path ) for path in paths )
+            targets.append( RemovalTarget(
+                dependency=name,
+                path=primary,
+                qualifier=clean.get( 'qualifier' ),
+                tool_variant=tool_variant or label,
+                storage_type=clean.get( 'storage_type' ) or 'archive',
+                size_bytes=size_bytes,
+                label=display,
+                extra_paths=extra,
+            ) )
 
     leftovers = []
     leftover_seen = set()
@@ -317,15 +643,86 @@ def collect_removal_plan( construct, cuppa_env, names ):
             leftover_seen.add( real )
             leftovers.append( leftover )
 
+    # Other variant products left under the same extract home.
+    for name, clean in clean_by_name.items():
+        extract = clean.get( 'extract' )
+        if not extract:
+            continue
+        # Boost products live under clean/ or patched/ inside the extract.
+        homes = []
+        for sub in ( 'clean', 'patched' ):
+            candidate = os.path.join( extract, sub )
+            if os.path.isdir( candidate ):
+                homes.append( candidate )
+        if not homes and os.path.isdir( extract ):
+            homes.append( extract )
+        for home in homes:
+            for leftover in _product_leftovers(
+                    name,
+                    extract,
+                    home,
+                    seen_remove,
+                    clean.get( 'storage_type' ) or 'archive',
+                    clean.get( 'qualifier' ),
+                    root=root,
+            ):
+                real = storage.real_path( leftover.path )
+                if real in leftover_seen or real in seen_remove:
+                    continue
+                leftover_seen.add( real )
+                leftovers.append( leftover )
+
     # Deepest paths first so parents prune cleanly.
     targets.sort( key=lambda item: item.path.count( os.sep ), reverse=True )
+
+    archives = _archive_contexts( root, clean_by_name, targets, leftovers )
     return {
         'root': root,
         'targets': targets,
         'leftovers': leftovers,
+        'archives': archives,
         'develop_skips': develop_skips,
         'skips': skips,
     }
+
+
+def _path_under_extract( path, extract_real ):
+    real = storage.real_path( path )
+    return real == extract_real or real.startswith( extract_real + os.sep )
+
+
+def _archive_contexts( root, clean_by_name, targets, leftovers ):
+    """Per-extract size context so removal reports can match ``--list-dependencies``."""
+    archives = []
+    for name, clean in clean_by_name.items():
+        extract = clean.get( 'extract' )
+        if not extract or not os.path.isdir( extract ):
+            continue
+        extract_real = storage.real_path( extract )
+        extract_bytes = _measure_bytes( extract )
+        product_bytes = 0
+        for target in targets:
+            if target.dependency != name:
+                continue
+            if _path_under_extract( target.path, extract_real ):
+                product_bytes += target.size_bytes
+        for leftover in leftovers:
+            if leftover.dependency != name:
+                continue
+            if _path_under_extract( leftover.path, extract_real ):
+                product_bytes += leftover.size_bytes
+        source_bytes = max( 0, extract_bytes - product_bytes )
+        age_text, age_epoch = _age_for_path( root, extract )
+        archives.append( {
+            'dependency': name,
+            'extract': extract,
+            'extract_bytes': extract_bytes,
+            'source_bytes': source_bytes,
+            'qualifier': clean.get( 'qualifier' ),
+            'age_text': age_text,
+            'age_epoch': age_epoch,
+        } )
+    return archives
 
 
 def _rule_line( width ):
@@ -413,9 +810,10 @@ def _parent_rollup_result( child_results ):
     return ''
 
 
-def _group_removal_rows( targets, leftovers, outcomes_by_path, planning, root ):
+def _group_removal_rows( targets, leftovers, outcomes_by_path, planning, root, archives=None ):
     """Group targets and leftovers by dependency for the removal tree."""
     groups = {}
+    archives = archives or []
 
     def ensure( dependency ):
         if dependency not in groups:
@@ -423,8 +821,29 @@ def _group_removal_rows( targets, leftovers, outcomes_by_path, planning, root ):
                 'dependency': dependency,
                 'qualifiers': set(),
                 'leaves': [],
+                'extract_bytes': None,
             }
         return groups[dependency]
+
+    for archive in archives:
+        group = ensure( archive['dependency'] )
+        if archive.get( 'qualifier' ):
+            group['qualifiers'].add( archive['qualifier'] )
+        group['extract_bytes'] = archive['extract_bytes']
+        group['leaves'].append( {
+            'path': archive['extract'],
+            'rel_path': _relative_removal_path( archive['extract'], root ),
+            'display': 'source assets',
+            'size_bytes': archive['source_bytes'],
+            'qualifier': archive.get( 'qualifier' ),
+            'tool_variant': '',
+            'age_text': archive.get( 'age_text' ) or '-',
+            'age_epoch': archive.get( 'age_epoch' ),
+            'removing': False,
+            'result': 'left',
+            'extra_paths': [],
+            'kind': 'source_assets',
+        } )
 
     for target in targets:
         group = ensure( target.dependency )
@@ -434,6 +853,7 @@ def _group_removal_rows( targets, leftovers, outcomes_by_path, planning, root ):
         group['leaves'].append( {
             'path': target.path,
             'rel_path': _relative_removal_path( target.path, root ),
+            'display': target.label or _relative_removal_path( target.path, root ),
             'size_bytes': target.size_bytes,
             'qualifier': target.qualifier,
             'tool_variant': target.tool_variant,
@@ -441,6 +861,8 @@ def _group_removal_rows( targets, leftovers, outcomes_by_path, planning, root ):
             'age_epoch': age_epoch,
             'removing': True,
             'result': _leaf_result( outcomes_by_path, target.path, planning, True ),
+            'extra_paths': list( target.extra_paths or () ),
+            'kind': 'product',
         } )
 
     for leftover in leftovers:
@@ -451,6 +873,7 @@ def _group_removal_rows( targets, leftovers, outcomes_by_path, planning, root ):
         group['leaves'].append( {
             'path': leftover.path,
             'rel_path': _relative_removal_path( leftover.path, root ),
+            'display': leftover.label or _relative_removal_path( leftover.path, root ),
             'size_bytes': leftover.size_bytes,
             'qualifier': leftover.qualifier,
             'tool_variant': leftover.tool_variant,
@@ -458,10 +881,14 @@ def _group_removal_rows( targets, leftovers, outcomes_by_path, planning, root ):
             'age_epoch': age_epoch,
             'removing': False,
             'result': 'left',
+            'extra_paths': [],
+            'kind': 'product',
         } )
 
     for group in groups.values():
+        # Source assets first; then products by tool_variant / path.
         group['leaves'].sort( key=lambda leaf: (
+                0 if leaf.get( 'kind' ) == 'source_assets' else 1,
                 leaf.get( 'tool_variant' ) or '',
                 leaf.get( 'qualifier' ) or '',
                 leaf['rel_path'],
@@ -472,15 +899,17 @@ def _group_removal_rows( targets, leftovers, outcomes_by_path, planning, root ):
     return [ groups[name] for name in sorted( groups ) ]
 
 
-def _write_removal_tree( out, targets, leftovers, outcomes_by_path, planning, root ):
+def _write_removal_tree( out, targets, leftovers, outcomes_by_path, planning, root, archives=None ):
     """Hierarchical removal table: identity rollup, selected leaves, muted leftovers."""
-    if not targets and not leftovers:
+    if not targets and not leftovers and not archives:
         return
 
     tee, elbow, _pipe, _gap = storage.glyphs()
     check = storage.with_heavy_marks( storage.selected_mark() )
     ballot = storage.with_heavy_marks( storage.failed_mark() )
-    groups = _group_removal_rows( targets, leftovers, outcomes_by_path, planning, root )
+    groups = _group_removal_rows(
+            targets, leftovers, outcomes_by_path, planning, root, archives=archives
+    )
 
     header = "{}{}  {}  {}  {}".format(
             INDENT,
@@ -497,11 +926,20 @@ def _write_removal_tree( out, targets, leftovers, outcomes_by_path, planning, ro
 
     for group in groups:
         leaves = group['leaves']
-        total_bytes = sum( leaf['size_bytes'] for leaf in leaves )
+        if group.get( 'extract_bytes' ) is not None:
+            total_bytes = group['extract_bytes']
+        else:
+            total_bytes = sum( leaf['size_bytes'] for leaf in leaves )
         parent_label = group['dependency']
         if group.get( 'parent_qualifier' ):
             parent_label = "{}  {}".format( parent_label, group['parent_qualifier'] )
-        parent_remark = _parent_rollup_result( [ leaf['result'] for leaf in leaves ] )
+        # Archive identity is never fully removed (source assets stay) — no parent REMARK.
+        if group.get( 'extract_bytes' ) is not None:
+            parent_remark = ''
+        else:
+            parent_remark = _parent_rollup_result( [
+                    leaf['result'] for leaf in leaves
+            ] )
 
         body_lines.append( parent_label )
         rendered.append( {
@@ -523,7 +961,10 @@ def _write_removal_tree( out, targets, leftovers, outcomes_by_path, planning, ro
                 mark = check
             else:
                 mark = '-'
-            leaf_label = "{} {} {}".format( branch, mark, leaf['rel_path'] )
+            leaf_display = leaf.get( 'display' ) or leaf['rel_path']
+            leaf_label = "{} {} {}".format(
+                    branch, mark, leaf_display
+            )
             body_lines.append( leaf_label )
             rendered.append( {
                 'kind': 'leaf',
@@ -533,6 +974,7 @@ def _write_removal_tree( out, targets, leftovers, outcomes_by_path, planning, ro
                 'label': leaf_label,
                 'branch': branch,
                 'mark': mark,
+                'display': leaf_display,
                 'rel_path': leaf['rel_path'],
                 'result': result,
                 'removing': leaf['removing'],
@@ -580,7 +1022,7 @@ def _write_removal_tree( out, targets, leftovers, outcomes_by_path, planning, ro
             label = "{}{} {}".format(
                     as_subdued( row['branch'] + ' ' ),
                     accent( row['mark'] ),
-                    accent( row['rel_path'] ),
+                    accent( row.get( 'display' ) or row['rel_path'] ),
             )
             out.write( "{}{}  {}  {}  {}\n".format(
                     INDENT,
@@ -593,7 +1035,7 @@ def _write_removal_tree( out, targets, leftovers, outcomes_by_path, planning, ro
             label = "{}{} {}".format(
                     as_subdued( row['branch'] + ' ' ),
                     as_subdued( row['mark'] ),
-                    as_subdued( row['rel_path'] ),
+                    as_subdued( row.get( 'display' ) or row['rel_path'] ),
             )
             out.write( "{}{}  {}  {}  {}\n".format(
                     INDENT,
@@ -631,23 +1073,103 @@ def _write_develop_skips( out, develop_skips ):
         ) )
 
 
-def _write_verify( out ):
+def _write_verify( out, archives=None ):
     out.write( "\n" )
     out.write( "Verify with:\n\n" )
     out.write( as_emphasised( "cuppa -Q -D --list-dependencies" ) + "\n" )
+    if archives:
+        out.write( as_subdued(
+                "(archive product clean leaves source assets; listing upgrades "
+                "missing or estimated inventory sizes to exact)\n"
+        ) )
 
 
-def _write_freed_summary( out, planning, removed_count, removed_bytes ):
+def _refresh_archive_inventory_sizes( root, archives, targets, outcomes_by_path ):
+    """Rewrite exact inventory sizes for extracts after successful product removal."""
+    for archive in archives:
+        extract = archive.get( 'extract' )
+        if not extract or not os.path.isdir( extract ):
+            continue
+        extract_real = storage.real_path( extract )
+        removed_any = False
+        for target in targets:
+            if target.dependency != archive['dependency']:
+                continue
+            if not _path_under_extract( target.path, extract_real ):
+                continue
+            outcome = outcomes_by_path.get( storage.real_path( target.path ), {} )
+            if outcome.get( 'result' ) == 'removed':
+                removed_any = True
+                break
+        if not removed_any:
+            continue
+        key = dependency_inventory.entry_key_for_path( extract )
+        entry = dependency_inventory.load_entry( root, key ) or {}
+        try:
+            dependency_inventory.touch_entry(
+                    root,
+                    extract,
+                    storage_type=entry.get( 'type' ) or entry.get( 'kind' ) or 'archive',
+                    dependency=archive['dependency'],
+                    qualifier=archive.get( 'qualifier' ) or entry.get( 'qualifier' ),
+                    tool_variant=entry.get( 'tool_variant' ),
+                    downloads=entry.get( 'downloads' ),
+                    exact_sizes=True,
+                    refresh_size=True,
+                    update_last_used=False,
+                    short_name=entry.get( 'short_name' ),
+                    stem=entry.get( 'stem' ),
+                    source_url=entry.get( 'source_url' ),
+                    remote_location=entry.get( 'remote_location' ),
+            )
+        except Exception as error:
+            logger.warn(
+                    "Could not refresh inventory size for [{}]: {}".format(
+                            as_warning( extract ), as_warning( str( error ) )
+                    )
+            )
+
+
+def _write_freed_summary( out, planning, removed_count, removed_bytes, remaining_archive_bytes=None ):
     unit = "tree" if removed_count == 1 else "trees"
     size = as_emphasised( as_info( storage.human_size( removed_bytes ) ) )
     if planning:
-        out.write( "Would remove {} {} freeing up {} of disk space.\n".format(
+        line = "Would remove {} {} freeing up {} of disk space".format(
                 removed_count, unit, size,
-        ) )
+        )
     else:
-        out.write( "Removed {} {} freeing up {} of disk space.\n".format(
+        line = "Removed {} {} freeing up {} of disk space".format(
                 removed_count, unit, size,
-        ) )
+        )
+    if remaining_archive_bytes is not None:
+        line += " leaving a final archive size of {}".format(
+                as_emphasised( as_info( storage.human_size( remaining_archive_bytes ) ) )
+        )
+    out.write( line + ".\n" )
+
+
+def _remaining_archive_bytes( archives, targets, outcomes_by_path, planning ):
+    """Extract bytes left after successful (or planned) product removals."""
+    if not archives:
+        return None
+    remaining = 0
+    for archive in archives:
+        removed = 0
+        extract_real = storage.real_path( archive['extract'] )
+        for target in targets:
+            if target.dependency != archive['dependency']:
+                continue
+            if not _path_under_extract( target.path, extract_real ):
+                continue
+            outcome = outcomes_by_path.get( storage.real_path( target.path ), {} )
+            result = outcome.get( 'result' )
+            if result == 'removed' or ( planning and result == 'removed' ):
+                removed += target.size_bytes
+            elif planning and not outcome:
+                # Defensive: treat as removed when planning without an outcome entry.
+                removed += target.size_bytes
+        remaining += max( 0, archive['extract_bytes'] - removed )
+    return remaining
 
 
 def remove_dependencies( construct, cuppa_env, out=None ):
@@ -671,6 +1193,7 @@ def remove_dependencies( construct, cuppa_env, out=None ):
     plan = collect_removal_plan( construct, cuppa_env, names )
     targets = plan['targets']
     leftovers = plan['leftovers']
+    archives = plan.get( 'archives' ) or []
     develop_skips = plan['develop_skips']
     planning = dry_run( cuppa_env )
 
@@ -681,12 +1204,14 @@ def remove_dependencies( construct, cuppa_env, out=None ):
                     ', '.join( names )
             ) )
         out.write( " under {}\n".format( storage.display_path( root ) ) )
-        if leftovers:
-            _write_removal_tree( out, [], leftovers, {}, planning, root )
+        if leftovers or archives:
+            _write_removal_tree(
+                    out, [], leftovers, {}, planning, root, archives=archives
+            )
             _write_leftovers_summary( out, leftovers )
         _write_develop_skips( out, develop_skips )
-        if leftovers or develop_skips:
-            _write_verify( out )
+        if leftovers or develop_skips or archives:
+            _write_verify( out, archives=archives or None )
         return 0
 
     planned_bytes = sum( item.size_bytes for item in targets )
@@ -709,6 +1234,7 @@ def remove_dependencies( construct, cuppa_env, out=None ):
     removed_count = 0
 
     for target in targets:
+        paths = ( target.path, ) + tuple( target.extra_paths or () )
         real = storage.real_path( target.path )
         if planning:
             outcomes_by_path[real] = { 'result': 'removed' }
@@ -716,22 +1242,24 @@ def remove_dependencies( construct, cuppa_env, out=None ):
             removed_count += 1
             continue
         try:
-            storage.ensure_contained( target.path, root, what="dependency path" )
-            if os.path.islink( target.path ):
-                raise storage.StorageError(
-                    "refusing to remove through symlink [{}]".format( target.path )
-                )
-            if not os.path.lexists( target.path ):
-                raise storage.StorageError( "not found (possibly already deleted)" )
-            storage.remove_path( target.path, dry_run=False )
-            storage.prune_empty_parents( os.path.dirname( target.path ), root )
+            for path in paths:
+                storage.ensure_contained( path, root, what="dependency path" )
+                if os.path.islink( path ):
+                    raise storage.StorageError(
+                        "refusing to remove through symlink [{}]".format( path )
+                    )
+                if not os.path.lexists( path ):
+                    # Sibling product may already be gone; continue others.
+                    continue
+                storage.remove_path( path, dry_run=False )
+                storage.prune_empty_parents( os.path.dirname( path ), root )
+                try:
+                    dependency_inventory.delete_entry_for_path( root, path )
+                except Exception:
+                    pass
             outcomes_by_path[real] = { 'result': 'removed' }
             removed_bytes += target.size_bytes
             removed_count += 1
-            try:
-                dependency_inventory.delete_entry_for_path( root, target.path )
-            except Exception:
-                pass
         except storage.StorageError as error:
             reason = str( error )
             already_gone = "already deleted" in reason.lower() or "not found" in reason.lower()
@@ -753,7 +1281,9 @@ def remove_dependencies( construct, cuppa_env, out=None ):
                 'severity': 'error',
             } )
 
-    _write_removal_tree( out, targets, leftovers, outcomes_by_path, planning, root )
+    _write_removal_tree(
+            out, targets, leftovers, outcomes_by_path, planning, root, archives=archives
+    )
     _write_leftovers_summary( out, leftovers )
     _write_develop_skips( out, develop_skips )
 
@@ -768,8 +1298,14 @@ def remove_dependencies( construct, cuppa_env, out=None ):
             ) )
 
     out.write( "\n" )
-    _write_freed_summary( out, planning, removed_count, removed_bytes )
-    _write_verify( out )
+    remaining = _remaining_archive_bytes( archives, targets, outcomes_by_path, planning )
+    _write_freed_summary(
+            out, planning, removed_count, removed_bytes,
+            remaining_archive_bytes=remaining,
+    )
+    if not planning and archives:
+        _refresh_archive_inventory_sizes( root, archives, targets, outcomes_by_path )
+    _write_verify( out, archives=archives or None )
 
     hard_errors = [ item for item in failures if item['severity'] == 'error' ]
     return 1 if hard_errors else 0

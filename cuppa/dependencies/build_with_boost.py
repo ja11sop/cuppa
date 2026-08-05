@@ -140,6 +140,7 @@ class Boost(object):
 
     def __init__( self, cuppa_env, platform, location ):
 
+        self._env = cuppa_env
         self._location = location
         self.values = {}
         self.values['home'] = self._location.local()
@@ -220,6 +221,138 @@ class Boost(object):
 
     def storage_qualifier( self ):
         return self.values.get( 'full_version' ) or self.values.get( 'version' )
+
+
+    def _extract_root( self ):
+        """Top-level archive folder under dependencies_root (parent of clean/patched)."""
+        location = getattr( self, '_location', None )
+        if location is None:
+            return None
+        base = getattr( location, 'base_local', None )
+        if callable( base ):
+            return base()
+        return getattr( location, '_base_local_directory', None )
+
+
+    def storage_clean( self, env, selection ):
+        """Return selection-scoped b2 stage / build-dir products under the Boost extract.
+
+        Leaves headers and the b2 binary in place. Returns ``None`` only when Boost
+        has no local tree to reason about; otherwise a dict with:
+
+        - ``extract`` — archive root left in place
+        - ``targets`` — list of ``{paths, label, tool_variant}`` for reporting and removal
+        - ``paths`` — flat absolute paths (compat / union of all target paths)
+
+        Stage dirs are cuppa toolchain/variant/arch scoped (``build.<abi> [gcc153/debug/x86_64]``).
+        Under ``bin.<abi>``, Boost.Build only distinguishes the major toolset family, so clean
+        removes ``gcc-15`` / ``gcc-15.*`` (reported as ``bin.<abi> [gcc-15*/debug]``) — not the
+        whole ``bin.<abi>`` tree and not a cuppa minor such as ``gcc153``.
+        """
+        from cuppa.dependencies.boost.library_naming import (
+            b2_build_dir_toolset_token,
+            b2_toolset_family_label,
+            directory_from_abi_flag,
+            find_b2_build_dir_products,
+            stage_directory,
+            variant_name,
+        )
+
+        home = self.local()
+        extract = self._extract_root()
+        if not home:
+            return None
+
+        toolchain = selection.get( 'toolchain' ) or env.get( 'toolchain' )
+        if toolchain is None:
+            return { 'paths': [], 'targets': [], 'extract': extract }
+
+        variant_key = selection.get( 'variant' )
+        if variant_key is None:
+            variant_obj = env.get( 'variant' )
+            if hasattr( variant_obj, 'name' ):
+                variant_key = variant_obj.name()
+            else:
+                variant_key = variant_obj
+        boost_variant = variant_name( str( variant_key ) )
+
+        target_arch = selection.get( 'target_arch' ) or env.get( 'target_arch' )
+        abi_flag = None
+        if hasattr( toolchain, 'abi_flag' ):
+            try:
+                abi_flag = toolchain.abi_flag( env )
+            except Exception:
+                abi_flag = None
+
+        targets = []
+        paths = []
+
+        stage_rel = stage_directory( toolchain, boost_variant, target_arch, abi_flag )
+        stage = os.path.join( home, stage_rel )
+        if os.path.isdir( stage ):
+            stage_abs = os.path.abspath( stage )
+            paths.append( stage_abs )
+            # Cuppa-precise stage layout: fold under build.<abi> with an exact scope tag.
+            abi_dir = directory_from_abi_flag( abi_flag )
+            stage_root_name = 'build.' + ( abi_dir if abi_dir else '' )
+            try:
+                stage_root_label = os.path.relpath(
+                        os.path.join( home, stage_root_name ), extract or home
+                ).replace( '\\', '/' )
+            except ValueError:
+                stage_root_label = stage_root_name
+            stage_scope = '{}/{}/{}'.format(
+                    toolchain.name() if toolchain is not None else 'toolchain',
+                    boost_variant,
+                    target_arch or 'arch',
+            )
+            targets.append( {
+                'paths': [ stage_abs ],
+                'label': stage_root_label,
+                'tool_variant': stage_scope,
+            } )
+
+        abi_dir = directory_from_abi_flag( abi_flag )
+        bin_name = 'bin.' + ( abi_dir if abi_dir else '' )
+        bin_dir = os.path.join( home, bin_name )
+        if os.path.isdir( bin_dir ):
+            token = b2_build_dir_toolset_token( toolchain )
+            bin_products = find_b2_build_dir_products( bin_dir, token, boost_variant )
+            if bin_products:
+                paths.extend( bin_products )
+                try:
+                    bin_label = os.path.relpath( os.path.abspath( bin_dir ), extract or home )
+                except ValueError:
+                    bin_label = bin_name
+                # Honest b2 family scope (major toolset ± patch), not cuppa minor.
+                bin_scope = b2_toolset_family_label( token, boost_variant )
+                targets.append( {
+                    'paths': list( bin_products ),
+                    'label': bin_label.replace( '\\', '/' ),
+                    'tool_variant': bin_scope,
+                } )
+
+        return { 'paths': paths, 'targets': targets, 'extract': extract }
+
+
+    def use_libs( self, libs, depends_on=[] ):
+        """Append static Boost libraries for ``libs`` (same role as ``boost_package.use_libs``).
+
+        Intended for ``env.BuildWith('boost').use_libs([...])`` so a project can switch
+        between source Boost and a registry ``boost_package`` without changing call shape.
+        Builds (or reuses) libraries via ``env.BoostStaticLibs`` and appends them to
+        ``STATICLIBS``. Optional ``depends_on`` is passed to ``env.Depends`` on those
+        library nodes. Returns the library nodes.
+        """
+        from SCons.Script import Flatten
+
+        env = self._env
+        libs = Flatten( [ libs ] )
+        libraries = env.BoostStaticLibs( libs )
+        env.AppendUnique( STATICLIBS = libraries )
+        if depends_on:
+            env.Depends( libraries, Flatten( [ depends_on ] ) )
+        return libraries
 
 
     def numeric_version( self ):

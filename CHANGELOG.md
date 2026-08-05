@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `--list-dependencies-scope=all|referenced|unreferenced` filters which sections
+  `--list-dependencies` shows (default `all`). Orthogonal to `--list-format`; JSON includes a
+  `scope` field. Persist as `list_dependencies_scope` in `~/.cuppaconfig` or `configure.conf`.
+- Built-in source `boost` exposes `use_libs(libs, depends_on=[])` on the dependency instance
+  returned by `env.BuildWith('boost')`, matching `boost_package` / `package_dependency` so a
+  project can switch supply chains without changing sconscript call shape. It builds or reuses
+  static libraries via `BoostStaticLibs` and appends them to `STATICLIBS`.
 - `--list-develop` reports the state of every configured develop working copy — branch, upstream,
   ahead / behind as of your last fetch, and whether the tree is modified — and exits without
   building. It warns when a copy is on the wrong branch, behind, diverged, or carrying local work
@@ -59,8 +66,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   type, dependency, version/branch, toolchain variant, last used, referenced / unreferenced) and
   exits without building. `type` is `gitlab`, `conan`, `location`, or `archive` (path-shape
   classification, recorded in the inventory for a future namespaced layout migration). Sizes come
-  from a per-entry inventory under `<dependencies_root>/.cuppa-inventory/` (sampled with a leading
-  `~`, or exact with `--exact-sizes`). Dependencies declare ownership through optional
+  from a per-entry inventory under `<dependencies_root>/.cuppa-inventory/` (sampled during
+  resolve/build with a leading `~` until listing upgrades, or exact after
+  `--list-dependencies` upgrades missing/estimated entries or `--exact-sizes` forces a
+  remeasure). Dependencies declare ownership through optional
   `storage_paths()`; resolve-only path discovery does not retrieve. `--list-format=json` is
   supported (#134).
 - `--remove-dependencies=name1,name2` and `--remove-all-dependencies` remove selected trees under
@@ -74,9 +83,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (name and package version emphasised), `LAST USED` and remove/leave status on each leaf, checks
   for successful or planned removals and ballots for failures (same marks as `--remove-builds`),
   muted leftover leaves for other selections, a short "Leaving … as shown" line, and an
-  info-coloured freed-space summary. Passing multiple toolchains removes each matching package
-  variant. Source Boost archives remove the whole extract when that dependency is project-used
-  (per-variant b2 clean is a later phase) (#134).
+  info-coloured freed-space summary. For archive deps with `storage_clean`, the identity SIZE is
+  the full extract (aligned with `--list-dependencies`), a muted `source assets` leaf covers
+  non-product bytes, and the freed-space line states the remaining archive size after product
+  removal. After a live archive product clean, cuppa rewrites that extract's inventory size with
+  `--exact-sizes` semantics, and the verify hint is
+  `cuppa -Q -D --list-dependencies` (listing upgrades missing or estimated inventory sizes to
+  exact on encounter so list and remove sizes correlate).
+  Passing multiple toolchains removes each matching package
+  variant. Dependencies may implement optional `storage_clean(env, selection)` to remove
+  selection-scoped products while leaving the archive extract in place; source Boost cleans the
+  current selection's b2 stage and matching Boost.Build toolset **variant** folders under
+  `bin.<abi>`   (not the whole `bin.<abi>` tree, and not a bare toolset directory that may hold
+  another variant). Bin leaves use honest Boost.Build family tags such as
+  `clean/bin.c++2c [gcc-15*/debug]` (major family ± patch; cuppa minors like `gcc153` are
+  not implied); stage leaves use the cuppa-precise scope
+  `clean/build.c++2c [gcc153/debug/x86_64]`. Other stage/toolset products are leftovers.
+  Dependencies without `storage_clean`
+  still remove the whole owned tree under the dependencies root (#134).
+- Optional dependency protocol `storage_clean(env, selection)` returns `None` (unsupported) or
+  a result with `targets` (`{paths, label, tool_variant}`) plus `extract` (flat `paths` still
+  accepted). Cuppa measures sizes per target at removal time (#134).
 - Removal reports use dedicated `remove_notice` (warn / purple family) and `remove_error`
   semantics so planned or successful removals are distinct from ordinary info, while failed
   attempts stay in the error family. `--remove-builds` outcome trees use the same accents
@@ -115,6 +142,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `--list-dependencies` upgrades missing or sampled inventory sizes to exact on encounter
+  (with a subdued notice that the pass may take a while). `--exact-sizes` still forces a full
+  remeasure of every tree. Archive-product remove verify hints drop the mandatory
+  `--exact-sizes` flag (#134).
+- ROADMAP and the removal plan mark archive clean-by-variant done (#143) and Phase 4
+  downloads/purge as next; Dependencies docs add a Boost `storage_clean` remove sample and
+  document optional `storage_paths` / `storage_clean` on the Extending page (#134).
 - `watch-pr` polls CI on a sparse schedule (2 minutes, then 8, then every 2 minutes) instead of
   every 30 seconds, and falls back to the sealed credential if the public API rate-limits. Pass
   `--interval` for a fixed delay, or `--auth` to start authenticated.
@@ -142,6 +176,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Boost archive-clean integration planting follows `Clang.name()` when
+  `--clang-stdlib=libc++` is active (stage path `clangNNN-libc++`), so the
+  `clang-libc++` CI cell matches remove selection (#134).
+- Integration `run_cuppa` keeps the repository root on `PYTHONPATH` when tests pass
+  `extra_env={"PYTHONPATH": …}` (e.g. pip-installed dependency plugins), so
+  `python -m cuppa` does not fail with `No module named cuppa`.
+- `--list-dependencies --list-dependencies-scope=referenced` footer reports
+  `N entries, X total, X referenced` instead of a useless `0B unreferenced`.
+- `--list-dependencies` prints the `[D]` downloads-archive footer only under
+  `--list-format=verbose`, matching where the mark appears in LOCATION.
 - Conan consumer install cache fingerprints ``CONAN_HOME`` (or ``~/.conan2``) alongside
   the recipe and settings, and reinstalls when cached SConsDeps ``CPPPATH`` / ``LIBPATH``
   entries no longer exist (``BINPATH`` is ignored — Conan often lists a non-existent

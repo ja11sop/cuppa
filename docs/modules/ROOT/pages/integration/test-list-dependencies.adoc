@@ -6,9 +6,12 @@
 
 With planted trees under a private `--storage-root`, `--list-dependencies` reports them as a
 hierarchical table (including an `unreferenced` section) without removing anything, and
-`--list-format=json` emits parseable objects with a `tree` and flat `entries`. A second listing
-after `--exact-sizes` still succeeds. A default location dependency whose tree is absent appears
+`--list-format=json` emits parseable objects with a `tree` and flat `entries`. The first listing
+upgrades missing inventory sizes to exact (with a notice that measuring may take a while); a
+second listing reuses the cache. A default location dependency whose tree is absent appears
 as `missing` (including in JSON `missing_count` / entries) without aborting the listing.
+`--list-dependencies-scope=referenced` and `unreferenced` filter which sections appear (including
+in JSON `scope` / `entries` / `tree`).
 
 A second fixture plants GitHub release extracts, a Boost source archive, a GitLab package tree,
 and matching files under `downloads/`. Verbose listing then checks:
@@ -34,15 +37,18 @@ files and `packages/<package>/<version>/*.{tar.gz,zip}`) and a `sconstruct` that
 [source,sh]
 ----
 cuppa -D --offline --list-dependencies --storage-root=<storage>
+cuppa -D --offline --list-dependencies --list-dependencies-scope=referenced --storage-root=<storage>
+cuppa -D --offline --list-dependencies --list-dependencies-scope=unreferenced --storage-root=<storage>
 cuppa -D --offline --list-dependencies --list-format=json --storage-root=<storage>
-cuppa -D --offline --list-dependencies --exact-sizes --storage-root=<storage>
 cuppa -D --offline --list-dependencies --list-format=verbose --storage-root=<storage>
+cuppa -D --offline --list-dependencies --exact-sizes --storage-root=<storage>
 ----
 
 == Expectations
 
 Text output includes `Dependencies in`, a `DEPENDENCY` header, the planted tree name, and
-`unreferenced`. JSON parses with `entries`, `size_bytes`, `state`, `tree`, and
+`unreferenced`. The first listing may print `Measuring exact sizes…` when inventory sizes are
+missing; a second listing reuses the cache. JSON parses with `entries`, `size_bytes`, `state`, `tree`, and
 `dependencies_root`. The planted tree remains on disk after listing.
 
 Verbose output includes `LOCATION`, grouped archive short names, `[D]` on cached download

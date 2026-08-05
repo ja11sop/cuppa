@@ -33,6 +33,52 @@ RULE = '-'
 # Leaf states that belong in the remove-name hint (project trees for the current selection).
 _REMOVAL_HINT_STATES = frozenset( ( 'referenced', 'missing', 'cached' ) )
 
+_LIST_DEPENDENCIES_SCOPES = frozenset( ( 'all', 'referenced', 'unreferenced' ) )
+
+_LIST_SCOPE_STATES = {
+    'all': None,
+    'referenced': dependency_tree.REFERENCED_STATES,
+    'unreferenced': frozenset( ( 'unreferenced', ) ),
+}
+
+
+def apply_list_dependencies_scope( data, scope ):
+    """Filter collected listing data to ``all``, ``referenced``, or ``unreferenced``.
+
+    Rebuilds the hierarchical tree and size rollups so text and JSON stay consistent.
+    """
+    scope = ( scope or 'all' ).strip().lower()
+    if scope not in _LIST_DEPENDENCIES_SCOPES:
+        scope = 'all'
+    states = _LIST_SCOPE_STATES.get( scope )
+    rows = list( data.get( 'rows' ) or [] )
+    if states is not None:
+        rows = [ row for row in rows if row.get( 'state' ) in states ]
+    total_bytes = sum( int( row.get( 'size_bytes' ) or 0 ) for row in rows )
+    unreferenced_bytes = sum(
+            int( row.get( 'size_bytes' ) or 0 )
+            for row in rows if row.get( 'state' ) == 'unreferenced'
+    )
+    missing_count = sum( 1 for row in rows if row.get( 'state' ) == 'missing' )
+    has_download_marks = any( row.get( 'has_download' ) for row in rows )
+    filtered = dict( data )
+    filtered['rows'] = rows
+    tree = dependency_tree.build_tree( rows )
+    if scope != 'all':
+        tree = {
+            'sections': [
+                section for section in ( tree.get( 'sections' ) or [] )
+                if section.get( 'label' ) == scope and section.get( 'children' )
+            ],
+        }
+    filtered['tree'] = tree
+    filtered['total_bytes'] = total_bytes
+    filtered['unreferenced_bytes'] = unreferenced_bytes
+    filtered['missing_count'] = missing_count
+    filtered['has_download_marks'] = has_download_marks
+    filtered['scope'] = scope
+    return filtered
+
 COLUMNS = [
     ( 'size', 'SIZE' ),
     ( 'type', 'TYPE' ),
@@ -91,8 +137,17 @@ def add_dependency_action_options( add_option ):
         help="List dependency trees under the dependencies root and exit",
     )
     add_option(
+        '--list-dependencies-scope', dest='list_dependencies_scope',
+        choices=( 'all', 'referenced', 'unreferenced' ),
+        nargs=1, action='store', default='all',
+        help="Which dependency sections --list-dependencies shows: all (default), "
+             "referenced only, or unreferenced only. Orthogonal to --list-format",
+    )
+    add_option(
         '--exact-sizes', dest='exact_sizes', action='store_true',
-        help="Measure dependency tree sizes with a full walk (updates the inventory cache)",
+        help="Force a full remeasure of every dependency tree size (updates the inventory). "
+             "Without this flag, --list-dependencies still upgrades missing or estimated "
+             "sizes to exact on first encounter",
     )
     add_option(
         '--remove-dependencies', dest='remove_dependencies', type='string', nargs=1,
@@ -113,6 +168,13 @@ def process_dependency_action_options( cuppa_env ):
     if isinstance( remove, ( list, tuple ) ):
         remove = remove[0] if remove else None
     cuppa_env['remove_dependencies'] = remove
+    scope = cuppa_env.get_option( 'list_dependencies_scope', default='all' )
+    if isinstance( scope, ( list, tuple ) ):
+        scope = scope[0] if scope else 'all'
+    scope = ( scope or 'all' ).strip().lower()
+    if scope not in _LIST_DEPENDENCIES_SCOPES:
+        scope = 'all'
+    cuppa_env['list_dependencies_scope'] = scope
 
 
 def wants_dependency_action( cuppa_env ):
@@ -279,7 +341,7 @@ def _backfill_gitlab_remote_locations( rows, dependencies_root, by_path ):
             _persist( row, remote )
 
 
-def _collect_rows( construct, cuppa_env, names=None ):
+def _collect_rows( construct, cuppa_env, names=None, out=None ):
     dependencies_root = _dependencies_root( cuppa_env )
     downloads_root = cuppa_env.get( 'downloads_root' ) or cuppa_env.get( 'cache_root' )
     exact = bool( cuppa_env.get( 'exact_sizes' ) )
@@ -329,6 +391,8 @@ def _collect_rows( construct, cuppa_env, names=None ):
                     ],
                     sconstruct_dir=sconstruct_dir,
                     exact_sizes=exact,
+                    # Defer sizing to the refresh pass below (one exact walk per upgrade).
+                    refresh_size=False,
                     # Listing must not stamp last_used — that is for real resolve/build use.
                     update_last_used=False,
                     short_name=described.get( 'short_name' ),
@@ -411,6 +475,7 @@ def _collect_rows( construct, cuppa_env, names=None ):
                     qualifier=described['qualifier'],
                     tool_variant=described['tool_variant'],
                     exact_sizes=exact,
+                    refresh_size=False,
                     update_last_used=False,
                     short_name=described.get( 'short_name' ),
                     stem=described.get( 'stem' ),
@@ -429,17 +494,19 @@ def _collect_rows( construct, cuppa_env, names=None ):
                 'stem': described.get( 'stem' ),
                 'source_url': described.get( 'source_url' ),
                 'last_used': None,
-                'size': dependency_inventory.measure_size( path, exact=exact ),
+                '_provisional': True,
             }
         by_path[real] = entry
 
-    # Refresh sizes for inventoried rows when asked or stale.
+    # Exact sizes: --exact-sizes forces every tree; otherwise upgrade missing/sampled
+    # (and remasure stale entries) so listing never keeps a leading ~ estimate.
     rows = []
     total_bytes = 0
     unreferenced_bytes = 0
     missing_count = 0
     estimated = False
     row_paths = set()
+    measure_queue = []
     for real, entry in sorted( by_path.items(), key=lambda item: (
             item[1].get( 'dependency' ) or '',
             item[1].get( 'qualifier' ) or '',
@@ -449,17 +516,62 @@ def _collect_rows( construct, cuppa_env, names=None ):
         path = entry.get( 'path' ) or real
         if not os.path.isdir( path ):
             continue
-        size_info = entry.get( 'size' )
-        if (
-                exact
-                or not size_info
-                or dependency_inventory.size_needs_refresh( entry, path )
-        ):
-            size_info = dependency_inventory.measure_size( path, exact=exact )
+        upgrade = dependency_inventory.size_should_upgrade_to_exact( entry )
+        stale = dependency_inventory.size_needs_refresh( entry, path )
+        if exact or upgrade or stale:
+            measure_queue.append( ( real, entry, path, upgrade ) )
+
+    if measure_queue and out is not None:
+        lazy_upgrades = sum( 1 for _r, _e, _p, upgrade in measure_queue if upgrade )
+        if exact:
+            out.write( as_subdued(
+                    "Measuring exact sizes for {} trees (--exact-sizes; "
+                    "this may take a while)...".format( len( measure_queue ) )
+            ) + "\n" )
+        elif lazy_upgrades:
+            out.write( as_subdued(
+                    "Measuring exact sizes for {} trees "
+                    "(missing or estimated inventory; this may take a while)...".format(
+                            len( measure_queue )
+                    )
+            ) + "\n" )
+        else:
+            out.write( as_subdued(
+                    "Refreshing sizes for {} changed trees...".format( len( measure_queue ) )
+            ) + "\n" )
+
+    measured_by_real = {}
+    for real, entry, path, _upgrade in measure_queue:
+        # Listing always writes exact sizes so estimates are not sticky.
+        size_info = dependency_inventory.measure_size( path, exact=True )
+        measured_by_real[real] = size_info
+        if not entry.get( '_provisional' ):
+            entry['size'] = size_info
+            try:
+                dependency_inventory.write_entry(
+                        dependencies_root, entry, key=entry.get( '_key' )
+                )
+            except storage.StorageError:
+                pass
+
+    for real, entry in sorted( by_path.items(), key=lambda item: (
+            item[1].get( 'dependency' ) or '',
+            item[1].get( 'qualifier' ) or '',
+            item[1].get( 'tool_variant' ) or '',
+            item[0],
+    ) ):
+        path = entry.get( 'path' ) or real
+        if not os.path.isdir( path ):
+            continue
+        size_info = measured_by_real.get( real ) or entry.get( 'size' )
+        if not size_info:
+            size_info = dependency_inventory.measure_size( path, exact=True )
             if not entry.get( '_provisional' ):
                 entry['size'] = size_info
                 try:
-                    dependency_inventory.write_entry( dependencies_root, entry, key=entry.get( '_key' ) )
+                    dependency_inventory.write_entry(
+                            dependencies_root, entry, key=entry.get( '_key' )
+                    )
                 except storage.StorageError:
                     pass
         bytes_ = int( ( size_info or {} ).get( 'bytes' ) or 0 )
@@ -749,7 +861,7 @@ def write_unknown_remove_names_error( construct, cuppa_env, error, out=None ):
     _write_collating( out )
 
     try:
-        data = _collect_rows( construct, cuppa_env, names=project_used )
+        data = _collect_rows( construct, cuppa_env, names=project_used, out=out )
     except storage.StorageError as storage_error:
         out.write( "  (could not list trees: {})\n".format( storage_error ) )
         out.write( "  Names: {}\n".format( ', '.join( project_used ) ) )
@@ -779,7 +891,12 @@ def list_dependencies( construct, cuppa_env, out=None ):
     list_format = cuppa_env.get( 'list_format' ) or 'text'
     if list_format != 'json':
         _write_collating( out )
-    data = _collect_rows( construct, cuppa_env )
+    # Progress lines go to the same stream as the table; omit for JSON payloads.
+    progress_out = None if list_format == 'json' else out
+    data = apply_list_dependencies_scope(
+            _collect_rows( construct, cuppa_env, out=progress_out ),
+            cuppa_env.get( 'list_dependencies_scope' ) or 'all',
+    )
     root = data['dependencies_root']
     rows = data['rows']
     tree = data.get( 'tree' ) or dependency_tree.build_tree( rows )
@@ -788,6 +905,7 @@ def list_dependencies( construct, cuppa_env, out=None ):
     if list_format == 'json':
         payload = {
             'dependencies_root': root,
+            'scope': data.get( 'scope' ) or 'all',
             'tree': dependency_tree.tree_to_json( tree ),
             'entries': [
                 {
@@ -842,19 +960,31 @@ def list_dependencies( construct, cuppa_env, out=None ):
     missing_note = ''
     if missing:
         missing_note = ', {} missing'.format( missing )
-    out.write( "{}{} entries, {} total, {} unreferenced{}{}\n".format(
-            INDENT,
-            len( rows ),
-            total,
-            unref,
-            missing_note,
-            estimate_note,
-    ) )
+    scope = data.get( 'scope' ) or 'all'
+    if scope == 'referenced':
+        # Scoped view: total is the referenced section; omit a useless 0B unreferenced.
+        out.write( "{}{} entries, {} total, {} referenced{}{}\n".format(
+                INDENT,
+                len( rows ),
+                total,
+                total,
+                missing_note,
+                estimate_note,
+        ) )
+    else:
+        out.write( "{}{} entries, {} total, {} unreferenced{}{}\n".format(
+                INDENT,
+                len( rows ),
+                total,
+                unref,
+                missing_note,
+                estimate_note,
+        ) )
 
     for line in _render_skip_tree( data['skips'] ):
         out.write( line + "\n" )
 
-    if data.get( 'has_download_marks' ):
+    if verbose and data.get( 'has_download_marks' ):
         downloads_root = data.get( 'downloads_root' ) or cuppa_env.get( 'downloads_root' )
         out.write( "\n" )
         out.write(
