@@ -52,29 +52,28 @@ deferred Phase 3 polish items remain open and do not keep #134 open.
 | Phase 3 — inventory + `--list-dependencies` | **done** | Walk, sizes, `type`, JSON `tree` + flat `entries`, `referenced` / `unreferenced` / `missing`; ANSI-safe column padding; listing does not stamp `last_used`; `Collating dependency tree...` before the walk (text/verbose); lazy exact upgrade for missing/sampled inventory (§4.5); `--list-scope` (alias `--list-dependencies-scope`) |
 | Phase 3 — native `du` for exact bytes (§4.5.1) | **future** | Parked; first exact list upgrade felt fine in practice on large Boost extracts — revisit only if that changes |
 | Phase 3 — `--list-dependencies` **table presentation** | **done** | Hierarchical tree (§4.9 P1–P4): REMARK / rollups / colour; missing vs stale summaries; `--list-format=verbose` LOCATION; `[D]` + footer (§4.12); GitHub archive grouping; GitLab registry LOCATION on unreferenced too; Windows `.zip` + OS label for package archives; docs examples match real ruled output |
-| Phase 3 — inventory `used_by` on resolve | **open** | [#145](https://github.com/ja11sop/cuppa/issues/145) — Listing must not stamp use; real resolve/build should. Prerequisite for §4.10 remarks |
+| Phase 3 — inventory `used_by` on resolve | **done** | [#145](https://github.com/ja11sop/cuppa/issues/145) — `BuildWith` stamps `used_by` / `last_used`; listing must not. Empty-map remarks (§4.10) still parked |
 | Phase 3 — short-name / stem derivation | **done** | Git remote, gitlab path, Boost + GitHub archive heuristics; inventory `remote_location` / `source_url` |
-| Phase 3 — Conan install metadata (§4.7) | **open** | [#145](https://github.com/ja11sop/cuppa/issues/145) — `.cuppa_conan_meta.json` not written yet; Conan rows stay fingerprint-weak |
-| Phase 3 — default-branch quirk (§4.8) | **open** | [#145](https://github.com/ja11sop/cuppa/issues/145) — Unqualified vs `stem@master` doubling; location + listing + optional cleanup; `<default_branch>` labels in §4.9 |
+| Phase 3 — Conan install metadata (§4.7) | **done** | [#145](https://github.com/ja11sop/cuppa/issues/145) — sidecar + `storage_tool_variant()` + list reads `tool_variant` |
+| Phase 3 — default-branch quirk (§4.8) | **done** | [#145](https://github.com/ja11sop/cuppa/issues/145) — Canonical `stem@branch` going forward; keep unqualified-only; both → canonical + warn; listing `@master (unqualified)`. No auto-delete |
 | Phase 3 — `--remove-dependencies` / `--remove-all-dependencies` | **done** | Slice D on `master` (#142 / §4.13): project-used name gate, hierarchical remove report, multi-toolchain packages, unknown-name in-use tree hint; no purge |
 | Phase 3 — archive / Boost clean-by-variant (§4.14) | **done** | #143 — optional `storage_clean` + Boost b2 stage/`bin.<abi>` clean; source-assets leaf + remaining archive size; whole-extract only when unsupported |
-| Phase 3 — **dependencies documentation split** (§7.1) | **open** | [#145](https://github.com/ja11sop/cuppa/issues/145) — Partition the monolithic `dependencies.adoc` (+ reconcile `packages.adoc` / `extending.adoc`); Managing examples match list + remove — split can proceed when convenient |
+| Phase 3 — **dependencies documentation split** (§7.1) | **done** | [#145](https://github.com/ja11sop/cuppa/issues/145) — Hub + children; `packages.adoc` publish focus; `include`/`sys_include` drift fixed |
 | Phase 4 — downloads list / purge | **done** | `--list-downloads` + `--purge-dependencies` / `--purge-all-dependencies` in [#144](https://github.com/ja11sop/cuppa/pull/144); that PR closes #134 |
 | `--wipe-dependencies` | **open** | [#146](https://github.com/ja11sop/cuppa/issues/146) — clear-down of extract + matching downloads; next build retrieves as usual |
 | Phase 6 — artefacts | **open** | Sketch only (§4.6) / [#135](https://github.com/ja11sop/cuppa/issues/135) |
 | §3.7 — `--clone-develop` | **open** | #138 |
 
-**Next focus:** merge [#144](https://github.com/ja11sop/cuppa/pull/144) to close #134, then
-[#145](https://github.com/ja11sop/cuppa/issues/145) (Phase 3 polish), then
-[#146](https://github.com/ja11sop/cuppa/issues/146) (`--wipe-dependencies`, clear-down only).
-Boost package identity stays on [`boost-updates.md`](boost-updates.md).
+**Next focus:** [#146](https://github.com/ja11sop/cuppa/issues/146)
+(`--wipe-dependencies`, clear-down only). Boost package identity stays on
+[`boost-updates.md`](boost-updates.md).
 
 **Deferred Phase 3 polish** ([#145](https://github.com/ja11sop/cuppa/issues/145); parallel branches fine):
 
-1. Inventory `used_by` on resolve (§4.10) — prerequisite for empty-map remarks
-2. Conan install metadata `.cuppa_conan_meta.json` (§4.7)
-3. Default-branch quirk (§4.8) — canonical `stem@branch`, labels, optional cleanup
-4. Dependencies documentation split (§7.1)
+1. Inventory `used_by` on resolve (§4.10) — **done** (stamp only; empty-map remarks still parked)
+2. Conan install metadata `.cuppa_conan_meta.json` (§4.7) — **done**
+3. Default-branch quirk (§4.8) — **done** (canonical `stem@branch`, labels; no auto-delete)
+4. Dependencies documentation split (§7.1) — **done**
 
 Deferred listing follow-ons remain §4.10 / §4.11 presentation details beyond `used_by`.
 Native `du` for exact byte totals (§4.5.1) stays parked — practice on large Boost extracts did
@@ -1241,8 +1240,8 @@ should omit `--develop` (§3.2); `--list-develop` is the command for working cop
 **Status.** Listing bind shipped: `Location` keeps `_cache_folder_stem` across the develop swap,
 `storage_paths()['cached']` lists matching stem / stem`@*` trees, and `--list-dependencies`
 with `--develop` shows REMARK `develop` on the identity (branch leaves unmarked; still never a
-removal of the develop path). Tree presentation (§4.9) has shipped; remaining open items here
-are the default-branch quirk (above) and Conan meta (§4.7).
+removal of the develop path). Tree presentation (§4.9) has shipped; default-branch quirk and
+Conan meta (§4.7 / §4.8) have shipped.
 
 #### Expected but absent (STATE `missing`)
 
@@ -1949,16 +1948,14 @@ Listing half **done** on `master` (#141). Removal Slice D **done** on `master` (
 - **Done — archive clean (§4.14.3 / #143):** optional `storage_clean`; Boost cleans
   selection-scoped stage / `bin.<abi>`; source-assets leaf + remaining archive size; lazy exact
   list sizes; whole-extract only when `storage_clean` is absent/`None`.
-- **Still open — Conan install metadata (§4.7):** write `.cuppa_conan_meta.json` on successful
-  install and backfill on reuse; teach listing to read it; Conan `storage_tool_variant()` for
-  resolve touches.
-- **Still open — default-branch quirk (§4.8):** canonical `stem@branch`, `<default_branch>`
-  labels, warn/list duplicates, optional cleanup — not auto-delete. Develop bind / REMARK
-  `develop` already shipped.
+- **Done — Conan install metadata (§4.7):** `.cuppa_conan_meta.json` on install + backfill;
+  listing reads `tool_variant`; Conan `storage_tool_variant()`.
+- **Done — default-branch quirk (§4.8):** canonical `stem@branch` going forward; unqualified-only
+  kept; both → canonical + warn; listing `@<default> (unqualified)`. No auto-delete. Develop bind
+  / REMARK `develop` already shipped.
 - Removal must re-verify every path on disk and re-apply the §5 containment rules; the inventory
   informs the report and never authorises a deletion.
-- **Documentation split (§7.1):** Managing samples match list + remove; partition
-  `dependencies.adoc` when convenient.
+- **Documentation split (§7.1):** **done** — hub + children; `packages.adoc` publish focus.
 
 **Phase 4 — downloads listing and purge** (§3.3) — **done**
 
@@ -2436,12 +2433,9 @@ Still open after Slice D (#142) and archive clean (#143):
   (name + fingerprint). Treat the meta write/read as Phase 3 polish, not an optional nice-to-have.
 - **Location listing identity and hierarchical presentation.** **Done** for the tree UI
   (§4.8 / §4.9 P1–P4): short_name / stem; referenced→type→identity→variant tree; REMARK;
-  rollups; LOCATION when verbose; `[D]` settled (§4.12). **Default-branch quirk** (§4.8) should
-  still be fixed (canonical `stem@branch`, `<default_branch>` labels, warn + optional cleanup).
-  **Develop vs cached stem** bind shipped. Docs split (§7.1) can proceed — Managing samples
-  already match the tree.
-- **Dependencies documentation split.** Outline in §7.1: partition the monolith as a Phase 3
-  docs track; Managing can stay alongside removal docs; before Phase 4.
+  rollups; LOCATION when verbose; `[D]` settled (§4.12). **Default-branch quirk** (§4.8) **done**
+  (canonical `stem@branch`, `@<default> (unqualified)` labels, warn; no auto-delete).
+  **Develop vs cached stem** bind shipped. **Dependencies documentation split (§7.1) done.**
 - **Whether the inventory should record anything else.** `type` (`gitlab` / `conan` /
   `location` / `archive`) is already recorded from path shape so a namespaced layout migration
   can move trees without re-guessing. Stem / short_name / registry binding follow §4.8 / §4.9. A coarse

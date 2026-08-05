@@ -496,3 +496,133 @@ cuppa.run(
             (entry.get("remote_location") or "").endswith("/boost/1.91")
             for entry in gitlab_rows
     )
+
+
+def test_build_stamps_inventory_used_by_and_listing_does_not(tmp_path):
+    """A real BuildWith stamps used_by; --list-dependencies alone does not."""
+    from cuppa.core import dependency_inventory
+    from cuppa.utility import storage as storage_util
+
+    project = copy_dummy_project(tmp_path)
+    storage = tmp_path / "storage"
+    widget = storage / "dependencies" / "widget_tree"
+    (widget / "include").mkdir(parents=True)
+    (widget / "include" / "w.hpp").write_text("//\n", encoding="utf-8")
+
+    write_sconstruct(
+        project,
+        body=(
+            "import cuppa\n"
+            "\n"
+            "Widget = cuppa.location_dependency(\n"
+            "    'widget',\n"
+            "    location={!r},\n"
+            "    include='include',\n"
+            ")\n"
+            "\n"
+            "cuppa.run(\n"
+            "    default_variants=['dbg'],\n"
+            "    dependencies=[Widget],\n"
+            "    default_dependencies=['widget'],\n"
+            ")\n"
+        ).format(str(widget)),
+    )
+
+    listed = run_cuppa(
+        project,
+        "--list-dependencies",
+        "--list-format=json",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(listed)
+    after_list = dependency_inventory.load_entry(
+            str(storage / "dependencies"),
+            dependency_inventory.entry_key_for_path(str(widget)),
+    )
+    assert after_list is not None
+    assert after_list.get("last_used_source") != "resolve"
+    assert not after_list.get("used_by")
+
+    built = run_cuppa(
+        project,
+        "--dbg",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(built)
+
+    after_build = dependency_inventory.load_entry(
+            str(storage / "dependencies"),
+            dependency_inventory.entry_key_for_path(str(widget)),
+    )
+    assert after_build is not None
+    assert after_build.get("last_used_source") == "resolve"
+    assert storage_util.real_path(str(project)) in after_build.get("used_by", {})
+
+
+def test_list_dependencies_labels_unqualified_default_branch_duplicate(tmp_path):
+    """Unqualified stem + stem@master list as one family; unqualified is labelled."""
+    project = copy_dummy_project(tmp_path)
+    storage = tmp_path / "storage"
+    deps = storage / "dependencies"
+    stem = "git_https_example.com__org_widget.git"
+    unqualified = deps / stem
+    canonical = deps / (stem + "@master")
+    for tree in (unqualified, canonical):
+        (tree / "include").mkdir(parents=True)
+        (tree / "include" / "w.hpp").write_text("//\n", encoding="utf-8")
+
+    write_sconstruct(
+        project,
+        body="""\
+import cuppa
+
+Widget = cuppa.location_dependency(
+    'widget',
+    location='git+https://example.com/org/widget.git@master',
+)
+
+cuppa.run(
+    default_variants=['dbg'],
+    dependencies=[Widget],
+    default_dependencies=['widget'],
+)
+""",
+    )
+
+    listed = run_cuppa(
+        project,
+        "--offline",
+        "--list-dependencies",
+        "--list-format=json",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(listed)
+    match = re.search(r"\{.*\}", listed.stdout, re.DOTALL)
+    assert match, listed.stdout
+    payload = json.loads(match.group(0))
+    widget_rows = [
+            entry for entry in payload["entries"]
+            if "widget" in (entry.get("dependency") or "")
+            or "widget" in (entry.get("short_name") or "")
+            or (entry.get("path") or "").endswith(stem)
+            or (entry.get("path") or "").endswith(stem + "@master")
+    ]
+    qualifiers = {entry.get("qualifier") for entry in payload["entries"] if entry.get("type") == "location"}
+    assert "@master (unqualified)" in qualifiers
+    assert "@master" in qualifiers
+
+    text = run_cuppa(
+        project,
+        "--offline",
+        "--list-dependencies",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(text)
+    plain = strip_ansi(text.stdout)
+    assert "@master (unqualified)" in plain
+    err = (text.stderr or "") + (listed.stderr or "")
+    assert "removal candidate" in err or "unqualified" in plain

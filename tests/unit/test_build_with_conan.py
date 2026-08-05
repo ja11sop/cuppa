@@ -381,3 +381,64 @@ def test_sconsdeps_package_paths_exist_rejects_missing( tmp_path ):
     assert sconsdeps_package_paths_exist( info_bad ) is False
     assert sconsdeps_package_paths_exist( { 'conandeps': {} } ) is True
     assert sconsdeps_package_paths_exist( {} ) is True
+
+
+def test_write_and_read_conan_meta( tmp_path ):
+    install_dir = tmp_path / 'ada9fefffbb67043'
+    install_dir.mkdir()
+    settings = { 'compiler': 'gcc', 'build_type': 'Debug' }
+    build_with_conan.write_conan_meta(
+            str( install_dir ),
+            fingerprint='abc123',
+            name='fmt',
+            tool_variant='gcc153_dbg_x86_64_cxx2c',
+            settings=settings,
+    )
+    loaded = build_with_conan.read_conan_meta( str( install_dir ) )
+    assert loaded['fingerprint'] == 'abc123'
+    assert loaded['name'] == 'fmt'
+    assert loaded['tool_variant'] == 'gcc153_dbg_x86_64_cxx2c'
+    assert loaded['settings'] == settings
+
+
+def test_read_conan_meta_ignores_corrupt( tmp_path ):
+    install_dir = tmp_path / 'broken'
+    install_dir.mkdir()
+    ( install_dir / build_with_conan._META_NAME ).write_text( '{nope', encoding='utf-8' )
+    assert build_with_conan.read_conan_meta( str( install_dir ) ) is None
+
+
+def test_conan_storage_tool_variant_from_env( tmp_path ):
+    factory = conan_deps( name='fmt', requires=['fmt/12.1.0'] )
+    env = FakeEnv()
+    env['tool_variant_dir'] = 'gcc153_dbg_x86_64_cxx2c'
+    env['sconstruct_dir'] = str( tmp_path )
+    instance = factory( env )
+    assert instance.storage_tool_variant() == 'gcc153_dbg_x86_64_cxx2c'
+
+
+def test_maybe_backfill_conan_meta( tmp_path ):
+    factory = conan_deps( name='fmt', requires=['fmt/12.1.0'] )
+    env = FakeEnv()
+    env['tool_variant_dir'] = 'clang211_rel_x86_64_cxx2c'
+    env['sconstruct_dir'] = str( tmp_path )
+    instance = factory( env )
+    install_dir = tmp_path / 'install'
+    install_dir.mkdir()
+    instance._maybe_backfill_conan_meta(
+            env,
+            str( install_dir ),
+            'deadbeef',
+            { 'compiler': 'clang' },
+    )
+    loaded = build_with_conan.read_conan_meta( str( install_dir ) )
+    assert loaded['tool_variant'] == 'clang211_rel_x86_64_cxx2c'
+    assert loaded['fingerprint'] == 'deadbeef'
+    instance._maybe_backfill_conan_meta(
+            env,
+            str( install_dir ),
+            'other',
+            { 'compiler': 'gcc' },
+    )
+    loaded_again = build_with_conan.read_conan_meta( str( install_dir ) )
+    assert loaded_again['fingerprint'] == 'deadbeef'

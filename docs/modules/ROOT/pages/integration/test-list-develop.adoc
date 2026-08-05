@@ -10,7 +10,7 @@ tree grouped by severity. A project with no develop locations still prints the b
 zero-count summary. Exit status is non-zero when a develop path does not exist.
 
 The scenario is the source of the realistic example on
-xref:dependencies.adoc#checking-your-develop-copies[Dependencies — Checking your develop copies].
+xref:dependencies-managing.adoc#checking-your-develop-copies[Dependencies — Checking your develop copies].
 
 == Generated files
 

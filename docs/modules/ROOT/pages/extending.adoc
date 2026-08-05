@@ -35,7 +35,7 @@ Third-party packages can register plugins without forking cuppa:
 
 | `cuppa.location_dependency(name, …)` | Location / header libraries
 | `cuppa.package_dependency(name, …)` | Registry packages
-| `cuppa.conan_deps(…)` / `cuppa.conan_dependency(…)` | Optional Conan 2 consumer (see xref:dependencies.adoc#conan-2-consumer-optional[Dependencies])
+| `cuppa.conan_deps(…)` / `cuppa.conan_dependency(…)` | Optional Conan 2 consumer (see xref:dependencies-conan.adoc#conan-2-consumer-optional[Conan packages])
 | `cuppa.profile(name)` | Named profile class factory
 |===
 
@@ -136,7 +136,7 @@ fmt = "cuppa_conan_fmt:FmtConan"
 ----
 
 The consumer still needs Conan 2 on `PATH` for installs (unless you use `generators_folder` with a pre-run install).
-Details: xref:dependencies.adoc#conan-2-consumer-optional[Dependencies — Conan 2 consumer].
+Details: xref:dependencies-conan.adoc#conan-2-consumer-optional[Conan packages].
 
 The same entry-point group works for any dependency type (location, package, Conan, or a future SCons Tool wrapper); only the class behind the entry point changes.
 
@@ -163,7 +163,7 @@ class my_dependency(object):
         return 'my_dependency'
 ----
 
-Optional storage hooks (see xref:dependencies.adoc#remove-dependencies[Removing dependency trees]):
+Optional storage hooks (see xref:dependencies-managing.adoc#remove-dependencies[Removing dependency trees] and xref:dependencies-extending.adoc[Writing your own dependencies]):
 
 * `storage_paths(env, selection)` — declare owned trees under the dependencies root so
   `--list-dependencies` / `--remove-dependencies` can find them without retrieving.

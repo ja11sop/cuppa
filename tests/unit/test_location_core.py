@@ -245,6 +245,76 @@ def test_extract_zip_strips_top_directory(tmp_path):
     assert not (target / "pkg-1.0").exists()
 
 
+def _select_location(tmp_path, default_branch="master", relative=True, match_branch=None):
+    location = Location.__new__(Location)
+    location._cuppa_env = {
+        "clean": False,
+        "dump": False,
+        "location_match_current_branch": False,
+        "location_match_branch": match_branch,
+        "location_match_tag": None,
+    }
+    location._supports_relative_versioning = relative
+    location._default_branch = default_branch
+    location._current_branch = None
+    location._current_revision = None
+    Location._unqualified_duplicate_warned = set()
+    return location, str(tmp_path / "git_https_example.com__org_repo.git")
+
+
+def test_select_repository_directory_neither_uses_canonical(tmp_path):
+    location, stem = _select_location(tmp_path)
+    assert location._select_repository_directory(stem) == stem + "@master"
+
+
+def test_select_repository_directory_unqualified_only(tmp_path):
+    location, stem = _select_location(tmp_path)
+    os.mkdir(stem)
+    assert location._select_repository_directory(stem) == stem
+
+
+def test_select_repository_directory_canonical_only(tmp_path):
+    location, stem = _select_location(tmp_path)
+    os.mkdir(stem + "@master")
+    assert location._select_repository_directory(stem) == stem + "@master"
+
+
+def test_select_repository_directory_both_prefers_canonical_and_warns(tmp_path, caplog):
+    location, stem = _select_location(tmp_path)
+    os.mkdir(stem)
+    os.mkdir(stem + "@master")
+    with caplog.at_level("WARNING"):
+        chosen = location._select_repository_directory(stem)
+    assert chosen == stem + "@master"
+    assert "removal candidate" in caplog.text
+    # Second call does not warn again.
+    caplog.clear()
+    with caplog.at_level("WARNING"):
+        assert location._select_repository_directory(stem) == stem + "@master"
+    assert "removal candidate" not in caplog.text
+
+
+def test_select_repository_directory_url_already_qualified_is_not_double_suffixed(tmp_path, caplog):
+    location, stem = _select_location(tmp_path)
+    qualified = stem + "@master"
+    os.mkdir(stem)
+    os.mkdir(qualified)
+    with caplog.at_level("WARNING"):
+        chosen = location._select_repository_directory(qualified)
+    assert chosen == qualified
+    assert "removal candidate" in caplog.text
+
+
+def test_select_repository_directory_no_default_branch_stays_unqualified(tmp_path):
+    location, stem = _select_location(tmp_path, default_branch=None, relative=False)
+    assert location._select_repository_directory(stem) == stem
+
+
+def test_select_repository_directory_match_branch_relative(tmp_path):
+    location, stem = _select_location(tmp_path, match_branch="feature_x")
+    assert location._select_repository_directory(stem) == stem + "@feature_x"
+
+
 def test_extract_tar(tmp_path):
     # Build from a real tree so members get readable modes (manual TarInfo
     # defaults to mode 0, which breaks shutil.move on some CI runners).

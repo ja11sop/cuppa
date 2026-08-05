@@ -1,78 +1,24 @@
-= Packages
-:description: GitLab package registry and Conan package publishing
+= Publishing packages
+:description: Publish Cuppa-built libraries to GitLab generic registries and Conan 2
 
-Cuppa can consume (and publish) prebuilt packages from a GitLab generic package registry via `cuppa.package_dependency()`.
-You can also publish Cuppa-built libraries as **Conan 2** packages (parallel to GitLab generic packages; see <<conan-package-publishing>>).
+Consuming a prebuilt archive belongs under Dependencies:
+xref:dependencies-packages.adoc[Package dependencies] and
+xref:dependencies-gitlab.adoc[GitLab packages].
+This page is about **publishing** libraries that Cuppa has already built.
 
-== package_dependency
-
-[source,python]
-----
-import cuppa
-
-MyPkg = cuppa.package_dependency(
-    'mypkg',
-    package_manager = 'gitlab',
-    registry = 'https://gitlab.example.com/api/v4/projects/123/packages/generic',
-    package = 'mypkg',
-    version = '1.2.3',
-)
-
-cuppa.run(
-    dependencies = [MyPkg],
-    default_dependencies = ['mypkg'],
-)
-----
-
-Package archives are typically *per toolchain / variant / architecture*.
-A missing package surfaces as a registry HTTP error (often `404`) during configure, before compile.
-
-== Authentication
-
-|===
-| Mechanism | Notes
-
-| `GITLAB_REGISTRY_TOKEN` | Personal or project access token with package read (and write if publishing)
-| `CI_JOB_TOKEN` | Used automatically in GitLab CI when available
-| `--<name>-gitlab-custom-token` | Point at another env var / token setting for that package
-|===
-
-The `cuppa` launcher redacts env values whose names contain `TOKEN` in logged output.
-
-== Develop vs package downloads
-
-`--develop` affects *location* develop paths and package develop flags where defined.
-It does *not* invent a local substitute for a missing registry archive: the matching package must exist in the registry or already be cached under the dependencies and downloads roots.
-
-== Boost package
-
-`cuppa.packages.boost_package.define(...)` builds a `boost_package` dependency backed by the registry:
-
-[source,python]
-----
-import cuppa
-
-BoostPkg = cuppa.packages.boost_package.define(
-    registry = 'https://gitlab.example.com/api/v4/projects/123/packages/generic',
-    version = '1.85',
-)
-
-cuppa.run(
-    dependencies = [BoostPkg],
-    default_dependencies = ['boost_package'],
-)
-----
-
-Use `package.use_libs([...])` helpers where provided to append the correct static library files for the active toolchain/variant.
-The built-in source `boost` dependency accepts the same call shape —
-`env.BuildWith('boost').use_libs([...])` — so switching supply chains does not require rewriting
-sconscripts beyond the dependency name (see xref:dependencies.adoc[Dependencies]).
+You can publish to a GitLab generic package registry (`env.PublishPackage` +
+`GitlabPackagePublisher`) or as **Conan 2** packages (`ConanPackagePublisher`; see
+<<conan-package-publishing>>).
 
 == Publishing (GitLab generic)
 
 From a sconscript, `env.PublishPackage(...)` with a `GitlabPackagePublisher` builds a toolchain-scoped tarball.
 Add `--publish-package` to upload it to the GitLab generic registry.
 `env.InstallPackage(...)` installs a package into the local cuppa dependencies layout.
+
+Authentication for registry upload uses the same tokens as consume
+(`GITLAB_REGISTRY_TOKEN`, `CI_JOB_TOKEN`, `--<name>-gitlab-custom-token`).
+See xref:dependencies-gitlab.adoc[GitLab packages].
 
 [#conan-package-publishing]
 == Conan 2 publishing (optional)
@@ -164,7 +110,7 @@ Recipes with `requires` still need those packages already cached locally under `
 
 === Consumer round-trip
 
-A second Cuppa project can require the published reference through existing `cuppa.conan_deps` / `conan_dependency` (see xref:dependencies.adoc#conan-2-consumer-optional[Dependencies]).
+A second Cuppa project can require the published reference through existing `cuppa.conan_deps` / `conan_dependency` (see xref:dependencies-conan.adoc#conan-2-consumer-optional[Conan packages]).
 Settings fidelity matters: consume with the same toolchain, variant, arch, and C++ dialect that produced the package.
 
 [WARNING]

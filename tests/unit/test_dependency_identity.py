@@ -7,6 +7,7 @@ from cuppa.core.dependency_identity import (
     display_qualifier,
     gitlab_archive_name,
     short_name_from_git_url,
+    unqualified_default_branch_label,
     with_vcs_qualifier,
 )
 from cuppa.core import dependency_tree
@@ -217,6 +218,28 @@ def test_display_qualifier_unspecified_is_at():
     assert display_qualifier( '-', 'location' ) == '@'
     assert display_qualifier( '@master', 'location' ) == '@master'
     assert display_qualifier( 'master', 'location' ) == '@master'
+
+
+def test_unqualified_default_branch_label():
+    assert unqualified_default_branch_label(
+            'git_https_example.com__org_widget.git', 'master'
+    ) == '@master (unqualified)'
+    assert unqualified_default_branch_label(
+            'git_https_example.com__org_widget.git@master', 'master'
+    ) is None
+    assert unqualified_default_branch_label(
+            'git_ssh_git@host__org_widget', 'master'
+    ) == '@master (unqualified)'
+    assert unqualified_default_branch_label(
+            'git_ssh_git@host__org_widget@master', 'master'
+    ) is None
+    assert unqualified_default_branch_label( 'widget_tree', 'master' ) is None
+    assert unqualified_default_branch_label(
+            'git_https_example.com__org_widget.git', 'master', storage_type='archive'
+    ) is None
+    assert unqualified_default_branch_label(
+            'git_https_example.com__org_widget.git', None
+    ) is None
 
 
 def test_tree_groups_referenced_siblings():

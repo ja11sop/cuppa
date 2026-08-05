@@ -19,6 +19,7 @@ Types that omit it are reported as skipped (layout not declared), never guessed.
 ``{ 'env', 'variant', 'target_arch', 'abi', ... }`` — factories take the nested ``env``.
 """
 
+import json
 import os
 import re
 from collections import namedtuple
@@ -404,6 +405,23 @@ def default_dependency_names( cuppa_env ):
     return list( cuppa_env.get( 'default_dependencies' ) or [] )
 
 
+_CONAN_META_NAME = '.cuppa_conan_meta.json'
+
+
+def _conan_meta_tool_variant( install_dir ):
+    """Best-effort ``tool_variant`` from a Conan install sidecar; ignore corrupt files."""
+    meta_path = os.path.join( install_dir, _CONAN_META_NAME )
+    try:
+        with open( meta_path, encoding='utf-8' ) as handle:
+            data = json.load( handle )
+    except ( OSError, ValueError, TypeError ):
+        return None
+    if not isinstance( data, dict ):
+        return None
+    value = data.get( 'tool_variant' )
+    return value or None
+
+
 def describe_tree_path( path, dependencies_root ):
     """Best-effort dependency / qualifier / tool_variant / type from a path under the root.
 
@@ -432,10 +450,11 @@ def describe_tree_path( path, dependencies_root ):
         }
 
     if parts[0] == 'conan' and len( parts ) >= 3:
+        install_dir = os.path.join( root, parts[0], parts[1], parts[2] )
         return {
             'dependency': parts[1],
             'qualifier': parts[2],
-            'tool_variant': None,
+            'tool_variant': _conan_meta_tool_variant( install_dir ),
             'type': 'conan',
         }
 
@@ -474,3 +493,71 @@ def split_location_folder_name( folder ):
         name, branch = folder.rsplit( '@', 1 )
         return name, '@' + branch
     return folder, None
+
+
+def record_resolve_use( env, instance, dependency_name ):
+    """Stamp inventory ``last_used`` / ``used_by`` after a real ``BuildWith`` resolve.
+
+    No-op under storage resolve-only (list / remove / purge), when the dependencies
+    root is missing, or when the instance does not declare ``storage_paths()``.
+    Develop copies and other paths outside the dependencies root are skipped.
+    Cached stems left behind by ``--develop`` are not stamped — this build did not
+    use them. Inventory failures are logged and never fail the build.
+    """
+    if instance is None or not dependency_name:
+        return
+    if resolve_only_active( env ):
+        return
+    dependencies_root = env.get( 'dependencies_root' )
+    if not dependencies_root:
+        return
+
+    paths = _call_storage_paths( instance )
+    if paths is None:
+        for attr in ( '_package', '_location' ):
+            inner = getattr( instance, attr, None )
+            if inner is None:
+                continue
+            paths = _call_storage_paths( inner )
+            if paths is not None:
+                break
+    if paths is None:
+        return
+
+    from cuppa.core import dependency_inventory
+    from cuppa.utility import storage as storage_util
+
+    qualifier, tool_variant = _meta_from_instance( instance )
+    if tool_variant is None:
+        tool_variant = (
+                str( env.get( 'tool_variant_dir', '' ) or '' )
+                .replace( '/', '_' ).replace( '\\', '_' )
+                or None
+        )
+    remote_location = _remote_location_from_instance( instance )
+    sconstruct_dir = env.get( 'sconstruct_dir' )
+
+    for path in paths.get( 'dependencies' ) or []:
+        if not path or not os.path.isdir( path ):
+            continue
+        if not storage_util.is_contained( path, dependencies_root ):
+            continue
+        storage_type = storage_type_for_owned_path( instance, path, dependencies_root )
+        if storage_type == 'unknown':
+            storage_type = 'location'
+        try:
+            dependency_inventory.touch_entry(
+                    dependencies_root,
+                    path,
+                    storage_type=storage_type,
+                    dependency=dependency_name,
+                    qualifier=qualifier,
+                    tool_variant=tool_variant,
+                    sconstruct_dir=sconstruct_dir,
+                    update_last_used=True,
+                    remote_location=remote_location,
+            )
+        except storage_util.StorageError as error:
+            logger.warn( "Could not record inventory use for [{}]: {}".format(
+                    as_warning( dependency_name ), as_warning( str( error ) )
+            ) )

@@ -390,7 +390,7 @@ env.Build('app', ['main.cpp'])
 * `Using` looks up a dependency factory by name
 * `BuildProfile` applies named profiles (lightweight env tweaks)
 
-See xref:dependencies.adoc[Dependencies] and xref:packages.adoc[Packages].
+See xref:dependencies.adoc[Dependencies] and xref:packages.adoc[Publishing packages].
 
 == Versioning and sources
 
@@ -494,7 +494,7 @@ Coverage instrumentation is supported for GCC and Clang; MSVC does not participa
 | Install a package locally and extend `SYSINCPATH`
 |===
 
-See xref:packages.adoc[Packages] for `GitlabPackagePublisher` and `ConanPackagePublisher` usage.
+See xref:packages.adoc[Publishing packages] for `GitlabPackagePublisher` and `ConanPackagePublisher` usage.
 
 == Templates and documentation helpers
 

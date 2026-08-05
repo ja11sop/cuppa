@@ -191,6 +191,23 @@ def display_qualifier( qualifier, storage_type='location' ):
     return text
 
 
+_VCS_FOLDER_PREFIXES = ( 'git_', 'svn_', 'hg_', 'bzr_' )
+
+
+def unqualified_default_branch_label( folder, default_branch, storage_type='location' ):
+    """Label an unqualified VCS stem as ``@<default> (unqualified)``, or ``None``."""
+    if storage_type not in ( 'location', 'unknown' ):
+        return None
+    if not folder or not default_branch:
+        return None
+    if not folder.startswith( _VCS_FOLDER_PREFIXES ):
+        return None
+    _stem, folder_qualifier = split_location_folder_name( folder )
+    if folder_qualifier:
+        return None
+    return '@{} (unqualified)'.format( default_branch )
+
+
 def enrich_described( path, described ):
     """Add ``short_name``, ``stem``, ``source_url`` to a ``describe_tree_path`` result.
 
