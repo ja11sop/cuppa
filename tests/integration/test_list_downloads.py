@@ -39,13 +39,36 @@ cuppa.run(
 """
 
 
+def _boost_package_tool_variant(project, storage, tmp_path):
+    """Resolve the GitLab package tool_variant for this host selection."""
+    listed = run_cuppa(
+        project,
+        "--offline",
+        "--list-dependencies",
+        "--list-format=json",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(listed)
+    payload = _json_payload(listed)
+    missing = [
+            entry for entry in payload["entries"]
+            if entry.get("dependency") == "boost_package" and entry.get("state") == "missing"
+    ]
+    assert missing, payload["entries"]
+    tool_variant = missing[0].get("tool_variant")
+    assert tool_variant, missing[0]
+    return tool_variant
+
+
 def test_list_downloads_hierarchical_text_and_json(tmp_path):
     project = copy_dummy_project(tmp_path)
     storage = tmp_path / "storage"
-    planted = plant_archives_and_downloads(storage)
+    write_sconstruct(project, body=_boost_package_sconstruct())
+    tool_variant = _boost_package_tool_variant(project, storage, tmp_path)
+    planted = plant_archives_and_downloads(storage, tool_variant=tool_variant)
     leftover = storage / "downloads" / "orphan.tar.gz"
     leftover.write_bytes(b"orphan-bytes")
-    write_sconstruct(project, body=_boost_package_sconstruct())
 
     listed = run_cuppa(
         project,
@@ -188,10 +211,11 @@ def test_list_downloads_marks_selected_gitlab_archive_referenced(tmp_path):
 def test_list_downloads_scope_referenced_hides_unreferenced(tmp_path):
     project = copy_dummy_project(tmp_path)
     storage = tmp_path / "storage"
-    planted = plant_archives_and_downloads(storage)
+    write_sconstruct(project, body=_boost_package_sconstruct())
+    tool_variant = _boost_package_tool_variant(project, storage, tmp_path)
+    planted = plant_archives_and_downloads(storage, tool_variant=tool_variant)
     leftover = storage / "downloads" / "orphan.tar.gz"
     leftover.write_bytes(b"orphan-bytes")
-    write_sconstruct(project, body=_boost_package_sconstruct())
 
     listed = run_cuppa(
         project,
@@ -235,10 +259,11 @@ def test_list_downloads_scope_referenced_hides_unreferenced(tmp_path):
 def test_list_downloads_scope_unreferenced_hides_referenced(tmp_path):
     project = copy_dummy_project(tmp_path)
     storage = tmp_path / "storage"
-    plant_archives_and_downloads(storage)
+    write_sconstruct(project, body=_boost_package_sconstruct())
+    tool_variant = _boost_package_tool_variant(project, storage, tmp_path)
+    plant_archives_and_downloads(storage, tool_variant=tool_variant)
     leftover = storage / "downloads" / "orphan.tar.gz"
     leftover.write_bytes(b"orphan-bytes")
-    write_sconstruct(project, body=_boost_package_sconstruct())
 
     listed = run_cuppa(
         project,

@@ -42,15 +42,20 @@ def plant_realistic_dependencies_root(storage):
     return deps, vcs, package, branched
 
 
-def plant_archives_and_downloads(storage):
-    """GitHub release extracts + matching downloads; one tag without a download."""
+def plant_archives_and_downloads(storage, tool_variant=None):
+    """GitHub release extracts + matching downloads; one tag without a download.
+
+    ``tool_variant`` selects the GitLab package extract/archive pair. Default
+    ``gcc153_rel_x86_64_cxx2c`` is fine for dependency-listing tests; download
+    referenced-state tests should pass the current selection's tool variant.
+    """
     import platform
 
     from cuppa.core.dependency_identity import gitlab_archive_name
 
     deps = storage / "dependencies"
     downloads = storage / "downloads"
-    downloads.mkdir(parents=True)
+    downloads.mkdir(parents=True, exist_ok=True)
 
     fmt_11 = "https_github.com__fmtlib_fmt_archive_refs_tags_11.1.4.zip"
     fmt_12 = "https_github.com__fmtlib_fmt_archive_refs_tags_12.2.0.zip"
@@ -77,7 +82,7 @@ def plant_archives_and_downloads(storage):
     (boost / "boost" / "version.hpp").write_text("//\n", encoding="utf-8")
     (downloads / boost_folder).write_bytes(b"archive-bytes")
 
-    tool_variant = "gcc153_rel_x86_64_cxx2c"
+    tool_variant = tool_variant or "gcc153_rel_x86_64_cxx2c"
     gitlab = deps / tool_variant / "boost" / "1.91"
     gitlab.mkdir(parents=True)
     (gitlab / "include" / "boost").mkdir(parents=True)
