@@ -1,7 +1,7 @@
 # Plan: removal options for build folders and dependencies
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Storage roots, listing, and removal; GitHub [#132](https://github.com/ja11sop/cuppa/issues/132), [#133](https://github.com/ja11sop/cuppa/issues/133), [#134](https://github.com/ja11sop/cuppa/issues/134), [#135](https://github.com/ja11sop/cuppa/issues/135), [#138](https://github.com/ja11sop/cuppa/issues/138)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Storage roots, listing, and removal; GitHub [#132](https://github.com/ja11sop/cuppa/issues/132), [#133](https://github.com/ja11sop/cuppa/issues/133), [#134](https://github.com/ja11sop/cuppa/issues/134), [#135](https://github.com/ja11sop/cuppa/issues/135), [#138](https://github.com/ja11sop/cuppa/issues/138), [#145](https://github.com/ja11sop/cuppa/issues/145), [#146](https://github.com/ja11sop/cuppa/issues/146)
 - **Updated:** 2026-08-05
 
 `--list-develop` and `--update-develop` (§3.5, §3.6), the storage rename (§3.1, §8, Phase 1),
@@ -52,23 +52,24 @@ deferred Phase 3 polish items remain open and do not keep #134 open.
 | Phase 3 — inventory + `--list-dependencies` | **done** | Walk, sizes, `type`, JSON `tree` + flat `entries`, `referenced` / `unreferenced` / `missing`; ANSI-safe column padding; listing does not stamp `last_used`; `Collating dependency tree...` before the walk (text/verbose); lazy exact upgrade for missing/sampled inventory (§4.5); `--list-scope` (alias `--list-dependencies-scope`) |
 | Phase 3 — native `du` for exact bytes (§4.5.1) | **future** | Parked; first exact list upgrade felt fine in practice on large Boost extracts — revisit only if that changes |
 | Phase 3 — `--list-dependencies` **table presentation** | **done** | Hierarchical tree (§4.9 P1–P4): REMARK / rollups / colour; missing vs stale summaries; `--list-format=verbose` LOCATION; `[D]` + footer (§4.12); GitHub archive grouping; GitLab registry LOCATION on unreferenced too; Windows `.zip` + OS label for package archives; docs examples match real ruled output |
-| Phase 3 — inventory `used_by` on resolve | **open** | Listing must not stamp use; real resolve/build should. Prerequisite for §4.10 remarks |
+| Phase 3 — inventory `used_by` on resolve | **open** | [#145](https://github.com/ja11sop/cuppa/issues/145) — Listing must not stamp use; real resolve/build should. Prerequisite for §4.10 remarks |
 | Phase 3 — short-name / stem derivation | **done** | Git remote, gitlab path, Boost + GitHub archive heuristics; inventory `remote_location` / `source_url` |
-| Phase 3 — Conan install metadata (§4.7) | **open** | `.cuppa_conan_meta.json` not written yet; Conan rows stay fingerprint-weak |
-| Phase 3 — default-branch quirk (§4.8) | **open** | Unqualified vs `stem@master` doubling; location + listing + optional cleanup; `<default_branch>` labels in §4.9 |
+| Phase 3 — Conan install metadata (§4.7) | **open** | [#145](https://github.com/ja11sop/cuppa/issues/145) — `.cuppa_conan_meta.json` not written yet; Conan rows stay fingerprint-weak |
+| Phase 3 — default-branch quirk (§4.8) | **open** | [#145](https://github.com/ja11sop/cuppa/issues/145) — Unqualified vs `stem@master` doubling; location + listing + optional cleanup; `<default_branch>` labels in §4.9 |
 | Phase 3 — `--remove-dependencies` / `--remove-all-dependencies` | **done** | Slice D on `master` (#142 / §4.13): project-used name gate, hierarchical remove report, multi-toolchain packages, unknown-name in-use tree hint; no purge |
 | Phase 3 — archive / Boost clean-by-variant (§4.14) | **done** | #143 — optional `storage_clean` + Boost b2 stage/`bin.<abi>` clean; source-assets leaf + remaining archive size; whole-extract only when unsupported |
-| Phase 3 — **dependencies documentation split** (§7.1) | **open** | Partition the monolithic `dependencies.adoc` (+ reconcile `packages.adoc` / `extending.adoc`); Managing examples match list + remove — split can proceed when convenient |
+| Phase 3 — **dependencies documentation split** (§7.1) | **open** | [#145](https://github.com/ja11sop/cuppa/issues/145) — Partition the monolithic `dependencies.adoc` (+ reconcile `packages.adoc` / `extending.adoc`); Managing examples match list + remove — split can proceed when convenient |
 | Phase 4 — downloads list / purge | **done** | `--list-downloads` + `--purge-dependencies` / `--purge-all-dependencies` in [#144](https://github.com/ja11sop/cuppa/pull/144); that PR closes #134 |
-| Phase 6 — artefacts | **open** | Sketch only (§4.6) |
+| `--wipe-dependencies` | **open** | [#146](https://github.com/ja11sop/cuppa/issues/146) — clear-down of extract + matching downloads; next build retrieves as usual |
+| Phase 6 — artefacts | **open** | Sketch only (§4.6) / [#135](https://github.com/ja11sop/cuppa/issues/135) |
 | §3.7 — `--clone-develop` | **open** | #138 |
 
 **Next focus:** merge [#144](https://github.com/ja11sop/cuppa/pull/144) to close #134, then
-deferred Phase 3 polish, then `--wipe-dependencies` (clear-down only; the next build
-re-downloads / re-extracts as usual). Boost package identity stays on
-[`boost-updates.md`](boost-updates.md).
+[#145](https://github.com/ja11sop/cuppa/issues/145) (Phase 3 polish), then
+[#146](https://github.com/ja11sop/cuppa/issues/146) (`--wipe-dependencies`, clear-down only).
+Boost package identity stays on [`boost-updates.md`](boost-updates.md).
 
-**Deferred Phase 3 polish** (parallel branches fine):
+**Deferred Phase 3 polish** ([#145](https://github.com/ja11sop/cuppa/issues/145); parallel branches fine):
 
 1. Inventory `used_by` on resolve (§4.10) — prerequisite for empty-map remarks
 2. Conan install metadata `.cuppa_conan_meta.json` (§4.7)
@@ -1968,9 +1969,8 @@ Listing half **done** on `master` (#141). Removal Slice D **done** on `master` (
   leftover other-selection archives stay; verify with `--list-downloads`.
 - `--boost-patched` selects the source-Boost `patched/` home (deprecated alias
   `--boost-patch-boost-test`). Empty `bin.<abi>` husks are omitted from reports.
-- **Not in this phase:** `--wipe-dependencies` (clear-down of extract and matching downloads;
-  the next build retrieves again on its own); Boost GitLab package patched/clean identity
-  ([`boost-updates.md`](boost-updates.md)).
+- **Not in this phase:** `--wipe-dependencies` ([#146](https://github.com/ja11sop/cuppa/issues/146));
+  Boost GitLab package patched/clean identity ([`boost-updates.md`](boost-updates.md)).
 
 **Phase 5 — develop copies** (§3.5, §3.6 — independent of Phases 1 to 4) — **done**
 
