@@ -63,8 +63,9 @@ def add_storage_action_options( add_option ):
         '--list-format', dest='list_format', choices=( 'text', 'verbose', 'json' ),
         nargs=1, action='store', default='text',
         help="Output format for --list-* options: text (default), verbose (text plus "
-             "LOCATION for --list-dependencies / --list-downloads), or json. "
-             "Section filtering for those two listings is --list-scope",
+             "LOCATION for --list-dependencies / --list-downloads), or json "
+             "(including --list-develop). Section filtering for dependency and "
+             "download listings is --list-scope",
     )
     from cuppa.core import dependency_actions
     dependency_actions.add_dependency_action_options( add_option )

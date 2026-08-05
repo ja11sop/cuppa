@@ -208,6 +208,29 @@ cuppa.run(
     assert re.search( r"gizmo", plain )
     assert re.search( r"flange", plain )
 
+    as_json = run_cuppa(
+            project,
+            "--list-develop",
+            "--list-format=json",
+            "-Q",
+            "--location-default-branch=master",
+    )
+    assert as_json.returncode == 1
+    import json
+    payload = json.loads( as_json.stdout )
+    assert payload["current_branch"] == "feature_orders"
+    assert payload["default_branch"] == "master"
+    assert payload["develop_active"] is False
+    assert "boostish" in payload["without_develop"]
+    assert payload["worst_severity"] == "error"
+    assert "flange" in payload["would_update"]
+    by_name = { entry["name"]: entry for entry in payload["entries"] }
+    assert by_name["widget"]["modified"] is True
+    assert by_name["gadget"]["severity"] == "ok"
+    assert by_name["flange"]["behind"] == 2
+    assert by_name["gizmo"]["exists"] is False
+    assert by_name["gizmo"]["severity"] == "error"
+
 
 def test_list_develop_without_develop_locations_still_reports( tmp_path ):
     if not _git_available():

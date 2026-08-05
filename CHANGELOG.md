@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `--list-develop --list-format=json` emits structured develop-copy state for agents and scripts
+  (`entries`, `would_update`, `worst_severity`, and the same context as the text banner). Text
+  output is unchanged; exit status still fails when a develop path is missing (#148).
 - `--list-downloads` lists cached archives under the downloads root as a hierarchical table
   (`referenced from downloads` / `unreferenced downloads`): each download file nests an `[E]`
   extract/package child. Type group is `source archives` (shared with `--list-dependencies`).

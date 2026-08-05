@@ -283,7 +283,7 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 | Capability | Status |
 |------------|--------|
 | `--clean` removes the current variant's build outputs | Yes |
-| `--list-develop` / `--update-develop` for the working copies `--develop` builds against | Yes — [#132](https://github.com/ja11sop/cuppa/issues/132) |
+| `--list-develop` / `--update-develop` for the working copies `--develop` builds against | Yes — [#132](https://github.com/ja11sop/cuppa/issues/132); `--list-format=json` for develop — [#148](https://github.com/ja11sop/cuppa/issues/148) |
 | Shared storage under `~/.cuppa`, named `--dependencies-root` / `--downloads-root`, with `--storage-root` to move both | Yes — [#133](https://github.com/ja11sop/cuppa/issues/133) |
 | Remove a whole build tree, a dependency, or a stale download | Builds: `--remove-builds` / `--remove-all-builds` ([#134](https://github.com/ja11sop/cuppa/issues/134) / [#140](https://github.com/ja11sop/cuppa/pull/140)); dependencies: `--remove-dependencies` / `--remove-all-dependencies` ([#142](https://github.com/ja11sop/cuppa/pull/142)), with selection-scoped archive product clean via `storage_clean` ([#143](https://github.com/ja11sop/cuppa/pull/143)); downloads: `--purge-dependencies` / `--purge-all-dependencies` ([#144](https://github.com/ja11sop/cuppa/pull/144)) |
 | See what is stored, where, and how large it is | Builds: `--list-builds` ([#140](https://github.com/ja11sop/cuppa/pull/140)); dependencies: `--list-dependencies` ([#141](https://github.com/ja11sop/cuppa/pull/141)), with lazy exact size upgrade ([#143](https://github.com/ja11sop/cuppa/pull/143)); downloads: `--list-downloads` ([#144](https://github.com/ja11sop/cuppa/pull/144)), filterable with `--list-scope` |
