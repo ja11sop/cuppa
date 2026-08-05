@@ -176,6 +176,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Boost archive-clean integration planting follows `Clang.name()` when
+  `--clang-stdlib=libc++` is active (stage path `clangNNN-libc++`), so the
+  `clang-libc++` CI cell matches remove selection (#134).
 - Integration `run_cuppa` keeps the repository root on `PYTHONPATH` when tests pass
   `extra_env={"PYTHONPATH": …}` (e.g. pip-installed dependency plugins), so
   `python -m cuppa` does not fail with `No module named cuppa`.

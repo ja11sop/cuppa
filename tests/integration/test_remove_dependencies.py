@@ -46,14 +46,24 @@ def location_cache_folder_name(location_url, tmp_path):
     return location.folder_name_from_path(urlparse(location_url))
 
 
+def _merged_cuppa_test_flags():
+    """Same flag precedence as ``run_cuppa`` (defaults, then ``CUPPA_TEST_ARGS``)."""
+    from tests.helpers.cuppa_runner import cuppa_test_env_args, merge_cuppa_args
+
+    return merge_cuppa_args(default_toolchain_flags(), cuppa_test_env_args())
+
+
 def _selection_toolchain_layout():
     """Return (toolchain_name, abi_flag) matching ``run_cuppa``'s default toolchain."""
-    flags = default_toolchain_flags()
+    flags = _merged_cuppa_test_flags()
     family = "gcc"
+    clang_stdlib = None
     for flag in flags:
-        if str(flag).startswith("--toolchains="):
-            family = str(flag).split("=", 1)[1].split(",")[0].strip()
-            break
+        text = str(flag)
+        if text.startswith("--toolchains="):
+            family = text.split("=", 1)[1].split(",")[0].strip()
+        elif text.startswith("--clang-stdlib="):
+            clang_stdlib = text.split("=", 1)[1].strip()
     if family.startswith("clang") or family in ("cl", "vc", "msvc"):
         if family in ("cl", "vc", "msvc"):
             pytest.skip("Boost archive-clean layout is exercised on gcc/clang")
@@ -72,7 +82,11 @@ def _selection_toolchain_layout():
             abi = "-std=c++2a"
         else:
             abi = "-std=c++1z"
-        return reported["name"], abi
+        # Match Clang.name(): non-default stdlib is part of the stage path identity.
+        name = reported["name"]
+        if clang_stdlib and clang_stdlib != Clang.default_stdlib():
+            name = "{}-{}".format(name, clang_stdlib)
+        return name, abi
 
     from cuppa.toolchains.gcc import Gcc
 
