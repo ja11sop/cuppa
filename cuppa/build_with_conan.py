@@ -16,6 +16,7 @@ Primary generator is Conan 2 ``SConsDeps`` (``SConscript_conandeps`` +
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -29,7 +30,45 @@ from cuppa.log import logger
 
 _MERGE_SKIP_KEYS = frozenset( {'BINPATH'} )
 _DONE_MARKER = '.cuppa_conan_ok'
+_META_NAME = '.cuppa_conan_meta.json'
 _LOCK_NAME = '.cuppa_conan.lock'
+
+
+def tool_variant_id( env ):
+    """Cuppa folder id for the active selection (same shape as GitLab package paths)."""
+    if not env:
+        return None
+    value = env.get( 'tool_variant_dir' )
+    if not value:
+        return None
+    return str( value ).replace( '/', '_' ).replace( '\\', '_' ) or None
+
+
+def write_conan_meta( install_dir, *, fingerprint, name, tool_variant, settings ):
+    """Write ``.cuppa_conan_meta.json`` beside the install marker."""
+    payload = {
+        'fingerprint': fingerprint,
+        'name': name,
+        'tool_variant': tool_variant,
+        'settings': dict( settings or {} ),
+    }
+    path = os.path.join( install_dir, _META_NAME )
+    with open( path, 'w', encoding='utf-8' ) as handle:
+        json.dump( payload, handle, indent=2, sort_keys=True )
+        handle.write( '\n' )
+
+
+def read_conan_meta( install_dir ):
+    """Return the sidecar dict, or ``None`` when missing or unreadable."""
+    path = os.path.join( install_dir, _META_NAME )
+    try:
+        with open( path, encoding='utf-8' ) as handle:
+            data = json.load( handle )
+    except ( OSError, ValueError, TypeError ):
+        return None
+    if not isinstance( data, dict ):
+        return None
+    return data
 
 
 class ConanDependencyException( Exception ):
@@ -690,6 +729,20 @@ class base( object ):
             return os.path.basename( self._install_dir )
         return 'conan'
 
+    def storage_tool_variant( self ):
+        return tool_variant_id( self._env_ref )
+
+    def _maybe_backfill_conan_meta( self, env, install_dir, fingerprint, settings ):
+        if read_conan_meta( install_dir ):
+            return
+        write_conan_meta(
+                install_dir,
+                fingerprint=fingerprint,
+                name=self._name,
+                tool_variant=tool_variant_id( env ),
+                settings=settings,
+        )
+
     def _ensure_installed( self, env, toolchain, variant ):
         import SCons.Errors
 
@@ -727,6 +780,9 @@ class base( object ):
                             except Exception:
                                 cached = None
                             if cached is not None and sconsdeps_package_paths_exist( cached ):
+                                self._maybe_backfill_conan_meta(
+                                        env, install_dir, fingerprint, settings
+                                )
                                 self._install_cache[cache_key] = install_dir
                                 return install_dir
                             logger.warn(
@@ -839,6 +895,13 @@ class base( object ):
 
         with open( os.path.join( install_dir, _DONE_MARKER ), 'w', encoding='utf-8' ) as handle:
             handle.write( fingerprint )
+        write_conan_meta(
+                install_dir,
+                fingerprint=fingerprint,
+                name=self._name,
+                tool_variant=tool_variant_id( env ),
+                settings=settings,
+        )
 
 
 def conan_deps(

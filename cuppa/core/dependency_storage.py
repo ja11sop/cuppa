@@ -19,6 +19,7 @@ Types that omit it are reported as skipped (layout not declared), never guessed.
 ``{ 'env', 'variant', 'target_arch', 'abi', ... }`` — factories take the nested ``env``.
 """
 
+import json
 import os
 import re
 from collections import namedtuple
@@ -404,6 +405,23 @@ def default_dependency_names( cuppa_env ):
     return list( cuppa_env.get( 'default_dependencies' ) or [] )
 
 
+_CONAN_META_NAME = '.cuppa_conan_meta.json'
+
+
+def _conan_meta_tool_variant( install_dir ):
+    """Best-effort ``tool_variant`` from a Conan install sidecar; ignore corrupt files."""
+    meta_path = os.path.join( install_dir, _CONAN_META_NAME )
+    try:
+        with open( meta_path, encoding='utf-8' ) as handle:
+            data = json.load( handle )
+    except ( OSError, ValueError, TypeError ):
+        return None
+    if not isinstance( data, dict ):
+        return None
+    value = data.get( 'tool_variant' )
+    return value or None
+
+
 def describe_tree_path( path, dependencies_root ):
     """Best-effort dependency / qualifier / tool_variant / type from a path under the root.
 
@@ -432,10 +450,11 @@ def describe_tree_path( path, dependencies_root ):
         }
 
     if parts[0] == 'conan' and len( parts ) >= 3:
+        install_dir = os.path.join( root, parts[0], parts[1], parts[2] )
         return {
             'dependency': parts[1],
             'qualifier': parts[2],
-            'tool_variant': None,
+            'tool_variant': _conan_meta_tool_variant( install_dir ),
             'type': 'conan',
         }
 

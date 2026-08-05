@@ -221,6 +221,30 @@ def test_looks_like_tool_variant_dir():
     assert not dependency_storage.looks_like_tool_variant_dir( 'conan' )
 
 
+def test_describe_tree_path_conan_reads_sidecar( tmp_path ):
+    root = tmp_path / 'dependencies'
+    path = root / 'conan' / 'fmt' / 'ada9fefffbb67043'
+    path.mkdir( parents=True )
+    ( path / '.cuppa_conan_meta.json' ).write_text(
+            '{"tool_variant": "gcc153_dbg_x86_64_cxx2c", "name": "fmt"}\n',
+            encoding='utf-8',
+    )
+    described = dependency_storage.describe_tree_path( str( path ), str( root ) )
+    assert described['dependency'] == 'fmt'
+    assert described['qualifier'] == 'ada9fefffbb67043'
+    assert described['type'] == 'conan'
+    assert described['tool_variant'] == 'gcc153_dbg_x86_64_cxx2c'
+
+
+def test_describe_tree_path_conan_missing_sidecar( tmp_path ):
+    root = tmp_path / 'dependencies'
+    path = root / 'conan' / 'fmt' / 'ada9fefffbb67043'
+    path.mkdir( parents=True )
+    described = dependency_storage.describe_tree_path( str( path ), str( root ) )
+    assert described['type'] == 'conan'
+    assert described['tool_variant'] is None
+
+
 def test_describe_tree_path_package_layout( tmp_path ):
     root = tmp_path / 'dependencies'
     path = root / 'gcc153_rel_x86_64_cxx2c' / 'boost' / '1.91'
