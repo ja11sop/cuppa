@@ -124,12 +124,18 @@ def test_archive_tree_groups_github_versions():
 def test_with_download_mark_and_find_cached_download( tmp_path ):
     from cuppa.core.dependency_identity import (
         DOWNLOAD_MARK,
+        EXTRACT_MARK,
         find_cached_download,
         with_download_mark,
+        with_extract_mark,
     )
     assert with_download_mark( 'https://example/a.zip', True ) == \
         '{} https://example/a.zip'.format( DOWNLOAD_MARK )
     assert with_download_mark( 'https://example/a.zip', False ) == 'https://example/a.zip'
+    assert with_extract_mark( 'boost/1.91.0' ) == '{} boost/1.91.0'.format( EXTRACT_MARK )
+    assert with_extract_mark( '{} already'.format( EXTRACT_MARK ) ) == '{} already'.format(
+            EXTRACT_MARK
+    )
 
     downloads = tmp_path / 'downloads'
     downloads.mkdir()

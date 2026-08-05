@@ -76,18 +76,20 @@ xref:build-layout.adoc#remove-all-builds-example[`--remove-all-builds`]).
 | `--remove-builds` | Remove variant subtrees matching the current `--toolchains` / `--dbg` / `--rel` / `--cov` selection
 | `--remove-all-builds` | Remove the entire build root
 | `--list-dependencies` | List dependency trees under the dependencies root as a hierarchical table (referenced then unreferenced; short-name groups; REMARK) and exit. Omit `--develop` for normal storage inspection; see xref:dependencies.adoc#which-listing[Which listing for which question]
+| `--list-downloads` | List cached archives under the downloads root as a hierarchical table (archive + extract/package leaves; referenced then unreferenced) and exit. Footer totals are archive bytes only. See xref:dependencies.adoc#list-downloads[Listing downloads]
 | `--list-dependencies-scope=all\|referenced\|unreferenced` | Which sections `--list-dependencies` shows (default `all`). Orthogonal to `--list-format`; useful in `~/.cuppaconfig` as `list_dependencies_scope`
 | `--remove-dependencies=LIST` | Remove named dependencies (comma-separated keys this project uses — `default_dependencies` plus `dependencies=[…]`) for the current toolchain / variant / location-match selection, then exit. When a dependency supports `storage_clean` (source Boost), only selection-scoped build products are removed and the extract stays; otherwise the owned tree under the dependencies root is removed. Reports leftovers for other selections; never deletes develop working copies or downloads. Built-in factories not named by the project are rejected
 | `--remove-all-dependencies` | As `--remove-dependencies` for every dependency this project uses (defaults ∪ declared)
 | `--exact-sizes` | Force a full remeasure of every dependency tree size (updates the inventory). Without this flag, `--list-dependencies` still upgrades missing or estimated (`~`) inventory sizes to exact the first time it encounters them
-| `--list-format=text\|verbose\|json` | Format for `--list-*` output (default `text`). On `--list-dependencies`, `verbose` adds LOCATION (remotes, registry URLs, archive names) and prefixes regenerating downloads with `[D]`
+| `--list-format=text\|verbose\|json` | Format for `--list-*` output (default `text`). On `--list-dependencies`, `verbose` adds LOCATION (remotes, registry URLs, archive names) and prefixes regenerating downloads with `[D]`. On `--list-downloads`, `verbose` adds archive and extract paths
 |===
 
 SCons `-n` / `--no-exec` turns build or dependency removal into a dry run: the same report, nothing deleted.
 Containment, symlink refusal, and refusal of home / filesystem / sconstruct-directory roots are
 described in xref:build-layout.adoc#removal-safety[Safety and scope].
 Artefact trees outside the build root (for example `_artifacts/`) are not removed.
-`--remove-dependencies` does not touch `--downloads-root` (purge flags are a later phase).
+`--remove-dependencies` does not touch `--downloads-root` (use `--list-downloads` to inspect
+cached archives; purge flags follow).
 
 == Configuration persistence
 

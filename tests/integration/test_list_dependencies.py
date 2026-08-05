@@ -396,7 +396,7 @@ cuppa.run(
     plain = strip_ansi(listed.stdout)
 
     assert "LOCATION" in plain
-    assert "archives" in plain
+    assert "source archives" in plain
     assert "github.com/fmtlib/fmt" in plain
     assert "11.1.4" in plain
     assert "12.2.0" in plain

@@ -388,6 +388,9 @@ def gitlab_archive_name( package, tool_variant, system=None, extension=None ):
 # Verbose LOCATION prefix when a regenerating archive exists under downloads_root.
 DOWNLOAD_MARK = '[D]'
 
+# Extract / expanded tree under dependencies_root (used by --list-downloads).
+EXTRACT_MARK = '[E]'
+
 
 def with_download_mark( location, has_download ):
     """Prefix LOCATION with ``[D]`` when a downloads-root archive is present."""
@@ -396,6 +399,17 @@ def with_download_mark( location, has_download ):
     text = str( location )
     prefix = DOWNLOAD_MARK + ' '
     if text.startswith( prefix ) or text.startswith( DOWNLOAD_MARK ):
+        return text
+    return prefix + text
+
+
+def with_extract_mark( label ):
+    """Prefix an extract/product leaf label with ``[E]``."""
+    if not label:
+        return EXTRACT_MARK
+    text = str( label )
+    prefix = EXTRACT_MARK + ' '
+    if text.startswith( prefix ) or text.startswith( EXTRACT_MARK ):
         return text
     return prefix + text
 

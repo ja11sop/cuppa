@@ -17,6 +17,7 @@ import sys
 
 from cuppa.colourise import as_emphasised, as_error, as_info, as_info_label, as_subdued
 from cuppa.core import (
+    dependency_downloads,
     dependency_identity,
     dependency_inventory,
     dependency_removal,
@@ -137,6 +138,10 @@ def add_dependency_action_options( add_option ):
         help="List dependency trees under the dependencies root and exit",
     )
     add_option(
+        '--list-downloads', dest='list_downloads', action='store_true',
+        help="List cached archives under the downloads root (and the trees they feed) and exit",
+    )
+    add_option(
         '--list-dependencies-scope', dest='list_dependencies_scope',
         choices=( 'all', 'referenced', 'unreferenced' ),
         nargs=1, action='store', default='all',
@@ -162,6 +167,7 @@ def add_dependency_action_options( add_option ):
 
 def process_dependency_action_options( cuppa_env ):
     cuppa_env['list_dependencies'] = bool( cuppa_env.get_option( 'list_dependencies' ) )
+    cuppa_env['list_downloads'] = bool( cuppa_env.get_option( 'list_downloads' ) )
     cuppa_env['exact_sizes'] = bool( cuppa_env.get_option( 'exact_sizes' ) )
     cuppa_env['remove_all_dependencies'] = bool( cuppa_env.get_option( 'remove_all_dependencies' ) )
     remove = cuppa_env.get_option( 'remove_dependencies' )
@@ -180,6 +186,7 @@ def process_dependency_action_options( cuppa_env ):
 def wants_dependency_action( cuppa_env ):
     return bool(
         cuppa_env.get( 'list_dependencies' )
+        or cuppa_env.get( 'list_downloads' )
         or cuppa_env.get( 'remove_dependencies' )
         or cuppa_env.get( 'remove_all_dependencies' )
     )
@@ -812,9 +819,11 @@ def _render_skip_tree( skips ):
     return lines
 
 
-def _write_ruled_tree( out, tree, verbose=False ):
+def _write_ruled_tree( out, tree, verbose=False, tree_header='DEPENDENCY' ):
     """Write a ruled SIZE / LAST USED / REMARK / DEPENDENCY table for ``tree``."""
-    lines, _columns = dependency_tree.render_tree_lines( tree, verbose=verbose )
+    lines, _columns = dependency_tree.render_tree_lines(
+            tree, verbose=verbose, tree_header=tree_header,
+    )
     if not lines:
         return False
     width = max( storage.visible_len( line ) for line in lines )
@@ -1015,6 +1024,97 @@ def list_dependencies( construct, cuppa_env, out=None ):
     return 0
 
 
+def list_downloads( construct, cuppa_env, out=None ):
+    """``--list-downloads``. Always exits 0 unless a storage error is raised."""
+    out = out or sys.stdout
+    list_format = cuppa_env.get( 'list_format' ) or 'text'
+    if list_format != 'json':
+        out.write( as_subdued( "Collating downloads tree..." ) + "\n" )
+    data = dependency_downloads.collect_download_rows( construct, cuppa_env )
+    root = data.get( 'downloads_root' )
+    rows = data.get( 'rows' ) or []
+    tree = data.get( 'tree' ) or dependency_downloads.build_downloads_tree( rows )
+    verbose = list_format == 'verbose'
+
+    if list_format == 'json':
+        payload = {
+            'downloads_root': root,
+            'dependencies_root': data.get( 'dependencies_root' ),
+            'tree': dependency_tree.tree_to_json( tree ),
+            'entries': [
+                {
+                    'kind': row.get( 'role' ),
+                    'size': storage.human_size( int( row.get( 'size_bytes' ) or 0 ) ),
+                    'size_bytes': int( row.get( 'size_bytes' ) or 0 ),
+                    'dependency': row.get( 'dependency' ),
+                    'short_name': row.get( 'short_name' ),
+                    'qualifier': row.get( 'qualifier' ),
+                    'tool_variant': row.get( 'tool_variant' ),
+                    'state': row.get( 'state' ),
+                    'type': row.get( 'type' ),
+                    'path': row.get( 'path' ),
+                    'label': row.get( 'label' ),
+                    'location': row.get( 'location' ),
+                    'source_url': row.get( 'source_url' ),
+                    'remote_location': row.get( 'remote_location' ),
+                }
+                for row in rows
+            ],
+            'archive_count': data.get( 'archive_count' ) or 0,
+            'total_bytes': data.get( 'total_bytes' ) or 0,
+            'unreferenced_bytes': data.get( 'unreferenced_bytes' ) or 0,
+            'skips': [
+                { 'dependency': s.dependency, 'reason': s.reason } for s in data.get( 'skips' ) or []
+            ],
+        }
+        out.write( storage.render_json_payload( payload ) + "\n" )
+        return 0
+
+    out.write( "\n" )
+    out.write( "Downloads in {}\n".format(
+            as_info( storage.display_path( root ) ) if root else '-'
+    ) )
+    names = dependency_storage.default_dependency_names( cuppa_env )
+    if names:
+        out.write( "Default dependencies: {}\n".format(
+                as_info( ', '.join( names ) )
+        ) )
+
+    _write_ruled_tree(
+            out, tree, verbose=verbose, tree_header='DEPENDENCY / DOWNLOAD',
+    )
+
+    archive_count = int( data.get( 'archive_count' ) or 0 )
+    total = storage.human_size( data.get( 'total_bytes' ) or 0 )
+    unref = storage.human_size( data.get( 'unreferenced_bytes' ) or 0 )
+    out.write( "{}{} archives, {} download total, {} unreferenced\n".format(
+            INDENT,
+            archive_count,
+            total,
+            unref,
+    ) )
+
+    for line in _render_skip_tree( data.get( 'skips' ) or [] ):
+        out.write( line + "\n" )
+
+    if any( row.get( 'role' ) == 'product' for row in rows ):
+        out.write( "\n" )
+        out.write(
+            "{} = dependency extracted from the download above\n".format(
+                    as_info( dependency_identity.EXTRACT_MARK )
+            )
+        )
+
+    if any( row.get( 'state' ) == 'unreferenced' and row.get( 'role' ) == 'archive' for row in rows ):
+        out.write( "\n" )
+        out.write(
+            "Review unreferenced downloads. Deleting only a dependency tree leaves the "
+            "download in place.\n"
+        )
+
+    return 0
+
+
 def run( construct, cuppa_env, out=None ):
     out = out or sys.stdout
     try:
@@ -1022,6 +1122,11 @@ def run( construct, cuppa_env, out=None ):
             logger.info( as_info_label(
                     "Running in REMOVE DEPENDENCIES mode, no building will be attempted" ) )
             return dependency_removal.remove_dependencies( construct, cuppa_env, out=out )
+
+        if cuppa_env.get( 'list_downloads' ):
+            logger.info( as_info_label(
+                    "Running in LIST DOWNLOADS mode, no building will be attempted" ) )
+            return list_downloads( construct, cuppa_env, out=out )
 
         if cuppa_env.get( 'list_dependencies' ):
             logger.info( as_info_label(

@@ -1,0 +1,41 @@
+= `test_list_downloads` — list cached archives
+:description: Cuppa integration test documentation for test_list_downloads
+
+
+== What is tested
+
+With planted archives under a private `--storage-root`, `--list-downloads` reports a hierarchical
+table of download files and the dependency trees they feed (`referenced from downloads` /
+`unreferenced downloads`). `--list-format=json` emits parseable objects with a `tree` and flat
+`entries` (`kind` is `archive` or `product`). Verbose output adds LOCATION paths under the
+downloads and dependencies roots.
+
+A GitLab `boost_package` declaration plus a planted selection-scoped package archive is
+`referenced`; a leftover archive for another toolchain stays `unreferenced`. HTTP and GitLab
+extracts appear as `[E]` children of their download file, not as siblings.
+
+== Generated files
+
+The dummy project with a `sconstruct` declaring GitLab `boost_package`, plus planted files under
+`<storage>/downloads/` (top-level archives, `packages/<package>/<version>/*`, and an orphan) and
+matching trees under `<storage>/dependencies/`.
+
+== Commands
+
+[source,sh]
+----
+cuppa -D --offline --list-downloads --storage-root=<storage>
+cuppa -D --offline --list-downloads --list-format=verbose --storage-root=<storage>
+cuppa -D --offline --list-downloads --list-format=json --storage-root=<storage>
+----
+
+== Expectations
+
+Text output includes `Downloads in`, a `DEPENDENCY / DOWNLOAD` header, `source archives`,
+`referenced from downloads`, planted archive names, `[E]` extract children, and an archive-focused
+footer (`N archives, … download total`) plus `[E] = dependency extracted from the download above`. JSON parses with
+`entries`, `kind`, `archive_count`, `tree`, and `downloads_root`. Files remain on disk after listing.
+
+'''
+
+Related test module: `tests/integration/test_list_downloads.py`.

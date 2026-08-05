@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `--list-downloads` lists cached archives under the downloads root as a hierarchical table
+  (`referenced from downloads` / `unreferenced downloads`): each download file nests an `[E]`
+  extract/package child. Type group is `source archives` (shared with `--list-dependencies`).
+  Parent sizes and the footer count archive bytes only. `--list-format=verbose` adds LOCATION;
+  `--list-format=json` includes `tree` and `entries` with `kind` `archive` or `product` (#134).
 - `--list-dependencies-scope=all|referenced|unreferenced` filters which sections
   `--list-dependencies` shows (default `all`). Orthogonal to `--list-format`; JSON includes a
   `scope` field. Persist as `list_dependencies_scope` in `~/.cuppaconfig` or `configure.conf`.

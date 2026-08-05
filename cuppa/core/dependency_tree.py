@@ -29,7 +29,7 @@ TYPE_LABELS = (
     ( 'location', 'location dependencies' ),
     ( 'gitlab', 'gitlab packages' ),
     ( 'conan', 'conan packages' ),
-    ( 'archive', 'archives' ),
+    ( 'archive', 'source archives' ),
 )
 
 REFERENCED_STATES = frozenset( ( 'referenced', 'missing', 'cached' ) )
@@ -668,6 +668,10 @@ def tree_to_json( tree ):
             payload['label_detail'] = node['label_detail']
         if node.get( 'missing' ):
             payload['missing'] = True
+        if node.get( 'role' ):
+            payload['role'] = node['role']
+        if node.get( 'display_label' ):
+            payload['display_label'] = node['display_label']
         children = []
         for child in node.get( 'children' ) or []:
             converted = convert( child )
@@ -756,13 +760,13 @@ def _error_row_fields( label, size, last_used, remark, location ):
     return label, size, last_used, remark, location
 
 
-def render_tree_lines( tree, verbose=False ):
+def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
     """Return ``(lines, columns)`` for the dependency tree text view."""
     columns = [
         ( 'size', 'SIZE'.rjust( SIZE_WIDTH ) ),
         ( 'last_used', 'LAST USED' ),
         ( 'remark', 'REMARK' ),
-        ( 'dependency', 'DEPENDENCY' ),
+        ( 'dependency', tree_header ),
     ]
     if verbose:
         columns.append( ( 'location', 'LOCATION' ) )
@@ -799,7 +803,7 @@ def render_tree_lines( tree, verbose=False ):
             return
         if is_root:
             stem = ''
-            label = node.get( 'label' ) or ''
+            label = node.get( 'display_label' ) or node.get( 'label' ) or ''
         else:
             branch = elbow if is_last else tee
             stem = prefix + branch

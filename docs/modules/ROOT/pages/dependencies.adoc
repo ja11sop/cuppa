@@ -109,6 +109,7 @@ switch; `--list-develop` is a *report* about working copies. They are easy to mi
 | You want to know… | Use | Looks at
 
 | What is under the shared dependencies root, and which trees this project would use | `--list-dependencies` (optional `--list-dependencies-scope`) | `--dependencies-root` (for example `~/.cuppa/dependencies` or a legacy `~/_cuppa/_download`)
+| What archives sit under the downloads root, and which trees they feed | `--list-downloads` | `--downloads-root` (for example `~/.cuppa/downloads` or a legacy `~/_cuppa/_cache`)
 | Branch, cleanliness, and ahead/behind of configured develop working copies | `--list-develop` | Develop paths from the sconstruct
 | What is under `_build` | `--list-builds` | `--build-root`
 |===
@@ -153,7 +154,7 @@ last used, remark (`in use` / `N used` when more than one leaf is selected / `mi
 estimates, it prints a short notice and upgrades those trees to exact sizes (the first run on a
 large root can take a while; later runs reuse the cache). Pass `--exact-sizes` to force a full
 remeasure of every tree. Rows are grouped referenced first then unreferenced,
-then by type (location dependencies, gitlab packages, archives, …), then by short name or
+then by type (location dependencies, gitlab packages, source archives, …), then by short name or
 registry name, with branch or version children underneath. On-disk paths are omitted by
 default; pass `--list-format=verbose` to add a LOCATION column, or `--list-format=json` for a
 machine-readable tree (plus flat `entries`). Default dependencies that are expected but absent
@@ -177,6 +178,67 @@ cuppa -Q -D --list-dependencies --exact-sizes
 `--list-format` (so you can combine `referenced` with `verbose` or `json`). Persist a
 preference in `~/.cuppaconfig` or `configure.conf` as
 `list_dependencies_scope = 'referenced'`.
+
+[#list-downloads]
+== Listing downloads
+
+`--list-downloads` walks the downloads root and prints a hierarchical table of cached archives
+together with the dependency trees they regenerate. Before the walk it prints
+`Collating downloads tree...` (text and verbose only). Rows are grouped referenced first then
+unreferenced, then by type, then by identity. Under each identity the archive leaf is the file
+under `--downloads-root`; an `[E]` child shows the matching tree under
+`--dependencies-root` (GitLab toolchain folder, or `name/version` for HTTP source archives).
+Parent `SIZE` values roll up **archive** bytes only so the footer answers how much download
+cache would be reclaimed. Extract sizes stay on the `[E]` leaf for impact.
+
+`--list-format=verbose` adds LOCATION (archive path and extract path). `--list-format=json`
+includes `tree`, flat `entries` with `kind` `archive` or `product`, `archive_count`, and
+archive-only `total_bytes` / `unreferenced_bytes`. See
+xref:integration/test-list-downloads.adoc[`test_list_downloads`].
+
+[source,shell]
+----
+cuppa -Q -D --list-downloads
+cuppa -Q -D --list-downloads --list-format=verbose
+cuppa -Q -D --list-downloads --list-format=json
+----
+
+Example shape (sizes and names vary):
+
+[source,text]
+----
+Downloads in ~/.cuppa/downloads
+Default dependencies: boost, boost_package
+  ---------------------------------------------------------------------------------
+      SIZE  LAST USED  REMARK   DEPENDENCY / DOWNLOAD
+  ---------------------------------------------------------------------------------
+    180.0M  today      2 total  referenced from downloads
+                                │
+    142.0M  today      1 used   ├── source archives
+                                │
+    142.0M  today               │   └── boost
+    142.0M  today      in use   │       └── boost_1_91_0.tar.bz2
+       2.1G  today      in use   │           └── [E] boost/1.91.0
+                                │
+     38.0M  today      1 used   └── gitlab packages
+                                │
+     38.0M  today               └── boost_package
+     38.0M  today                   └── 1.91
+     38.0M  today      in use           └── boost_…_gcc153_rel_….tar.gz
+    299.3M  today      in use               └── [E] gcc153_rel_x86_64_cxx2c
+  ---------------------------------------------------------------------------------
+     36.0M  today               unreferenced downloads
+                                │
+     36.0M  today               └── gitlab packages
+                                    │
+     36.0M  today                   └── boost_package
+     36.0M  today                       └── 1.91
+     36.0M  today                           └── boost_…_clang211_rel_….tar.gz
+  ---------------------------------------------------------------------------------
+  3 archives, 216.0M download total, 36.0M unreferenced
+
+[E] = dependency extracted from the download above
+----
 
 |===
 | Scope | Effect
@@ -215,7 +277,7 @@ Default dependencies: boost_package
   ---------------------------------------------------------------------
       5.8M  today               unreferenced
                                 │
-      5.8M  today               └── archives
+      5.8M  today               └── source archives
                                     │
       2.9M  today                   ├── boost
       2.9M  today                   │   └── 1.91.0
@@ -237,7 +299,7 @@ Under `--list-format=verbose` a LOCATION column is added. What it shows depends 
 * *Location dependencies* — bare repository URL on the identity; `URL@branch` on each branch leaf.
 * *GitLab packages* — empty on the identity; registry `…/package/version` on the version row;
   archive basename on each toolchain leaf.
-* *Archives* (Boost source tarballs, GitHub release zips, and similar) — short name such as
+* *Source archives* (Boost source tarballs, GitHub release zips, and similar) — short name such as
   `boost` or `github.com/fmtlib/fmt` on the identity; version or tag on each child; download URL
   on the version leaf.
 
@@ -267,7 +329,7 @@ Default dependencies: boost_package
   ----------------------------------------------------------------------------------------------------------------------------------------------
       5.8M  today               unreferenced
                                 │
-      5.8M  today               └── archives
+      5.8M  today               └── source archives
                                     │
       2.9M  today                   ├── boost
       2.9M  today                   │   └── 1.91.0                       [D] https://archives.boost.io/release/1.91.0/source/boost_1_91_0.tar.gz

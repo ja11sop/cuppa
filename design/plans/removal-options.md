@@ -56,12 +56,13 @@ Phases **4** / **6** / **§3.7** and the deferred Phase 3 polish items remain op
 | Phase 3 — `--remove-dependencies` / `--remove-all-dependencies` | **done** | Slice D on `master` (#142 / §4.13): project-used name gate, hierarchical remove report, multi-toolchain packages, unknown-name in-use tree hint; no purge |
 | Phase 3 — archive / Boost clean-by-variant (§4.14) | **done** | #143 — optional `storage_clean` + Boost b2 stage/`bin.<abi>` clean; source-assets leaf + remaining archive size; whole-extract only when unsupported |
 | Phase 3 — **dependencies documentation split** (§7.1) | **open** | Partition the monolithic `dependencies.adoc` (+ reconcile `packages.adoc` / `extending.adoc`); Managing examples match list + remove — split can proceed when convenient |
-| Phase 4 — downloads list / purge | **open** | **Next focus** after #143; purge flags not in Slice D / archive clean |
+| Phase 4 — downloads list / purge | **in progress** | `--list-downloads` hierarchical listing on `134_list_and_purge_downloads`; purge flags still open |
 | Phase 6 — artefacts | **open** | Sketch only (§4.6) |
 | §3.7 — `--clone-develop` | **open** | #138 |
 
-**Next focus:** Phase 4 downloads list / purge. Deferred Phase 3 polish items below remain open
-and do not block Phase 4.
+**Next focus:** Phase 4 purge (`--purge-dependencies` / `--purge-all-dependencies`) after
+`--list-downloads` feedback. Deferred Phase 3 polish items below remain open and do not block
+Phase 4.
 
 **Deferred Phase 3 polish** (parallel branches fine):
 
@@ -333,7 +334,7 @@ Default dependencies: boost_package
   ---------------------------------------------------------------------
       5.8M  today               unreferenced
                                 │
-      5.8M  today               └── archives
+      5.8M  today               └── source archives
                                     │
       2.9M  today                   ├── boost
       2.9M  today                   │   └── 1.91.0
@@ -351,15 +352,42 @@ string under the version. Location trees nest `@branch` (or `@` for an unqualifi
 is persisted (§4.7), Conan children stay fingerprint-labelled, which is not enough to act on.
 `LAST USED` comes from the inventory (§4.5) and is the column that turns a listing into a
 decision — a tree last used in March, by a project you finished, is an easy reclaim.
-`--list-downloads` (Phase 4) uses a flatter shape with the columns that suit archives:
+`--list-downloads` uses the same ruled hierarchical language as `--list-dependencies`, oriented
+around each identity’s archive and the extract/package it feeds (flat `SIZE | ARCHIVE | FEEDS`
+is superseded):
 
 ```
-cuppa: storage: [info] Downloads in /home/user/.cuppa/downloads
-cuppa: storage: [info]   SIZE   ARCHIVE                            FEEDS   STATE
-cuppa: storage: [info]   142M   boost_1_91_0.tar.bz2               boost   referenced
-cuppa: storage: [info]   38M    gadget_2.28.0_rel_x86_64.tar.gz    gadget  referenced
-cuppa: storage: [info]   36M    gadget_2.26.0_rel_x86_64.tar.gz    gadget  unreferenced
-cuppa: storage: [info]   3 entries, 216M total, 36M unreferenced
+Downloads in ~/.cuppa/downloads
+Default dependencies: boost, boost_package
+  ---------------------------------------------------------------------------------
+      SIZE  LAST USED  REMARK   DEPENDENCY / DOWNLOAD
+  ---------------------------------------------------------------------------------
+    180.0M  today      2 total  referenced from downloads
+                                │
+    142.0M  today      1 used   ├── source archives
+                                │
+    142.0M  today               │   └── boost
+    142.0M  today      in use   │       └── boost_1_91_0.tar.bz2
+       2.1G  today      in use   │           └── [E] boost/1.91.0
+                                │
+     38.0M  today      1 used   └── gitlab packages
+                                │
+     38.0M  today               └── boost_package
+     38.0M  today                   └── 1.91
+     38.0M  today      in use           └── boost_…_gcc153_rel_….tar.gz
+    299.3M  today      in use               └── [E] gcc153_rel_x86_64_cxx2c
+  ---------------------------------------------------------------------------------
+     36.0M  today               unreferenced downloads
+                                │
+     36.0M  today               └── gitlab packages
+                                    │
+     36.0M  today                   └── boost_package
+     36.0M  today                       └── 1.91
+     36.0M  today                           └── boost_…_clang211_rel_….tar.gz
+  ---------------------------------------------------------------------------------
+  3 archives, 216.0M download total, 36.0M unreferenced
+
+[E] = dependency extracted from the download above
 ```
 
 `--list-builds` is three related views of the same walk, not a flat table:
@@ -1867,7 +1895,7 @@ could land at any point, and Phase 6 needs a design pass this plan does not atte
 | 1 | `--storage-root` and the renamed roots | — | **done** ([#133](https://github.com/ja11sop/cuppa/issues/133)) |
 | 2 | `--remove-builds`, `--remove-all-builds`, `--list-builds` | 1 | **done** ([#134](https://github.com/ja11sop/cuppa/issues/134) / #140) |
 | 3 | Inventory, `--list-dependencies`, `--remove-dependencies` / `--remove-all-dependencies` | 1, 2 | **listing done** (#141); **Slice D removal done** (#142 / §4.13); archive clean §4.14.3 **done** (#143); purge still Phase 4 |
-| 4 | `--list-downloads`, `--purge-*` | 3 | **next** |
+| 4 | `--list-downloads`, `--purge-*` | 3 | **listing in progress**; purge next |
 | 5 | `--list-develop`, `--update-develop` | nothing in this plan | **done** ([#132](https://github.com/ja11sop/cuppa/issues/132)) |
 | 6 | `--remove-artefacts` | its own design pass first | |
 
@@ -1929,8 +1957,9 @@ Listing half **done** on `master` (#141). Removal Slice D **done** on `master` (
 
 **Phase 4 — downloads listing and purge** (§3.3)
 
-- Extend the protocol results with download entries, add `--list-downloads` and the `--purge-*`
-  variants.
+- **Listing in progress:** hierarchical `--list-downloads` (archive + product leaves, referenced /
+  unreferenced, archive-only footer totals, JSON `kind`).
+- **Still open:** `--purge-dependencies` / `--purge-all-dependencies` on top of Slice D remove.
 
 **Phase 5 — develop copies** (§3.5, §3.6 — independent of Phases 1 to 4) — **done**
 
