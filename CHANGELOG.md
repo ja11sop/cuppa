@@ -9,9 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `--list-dependencies-scope=all|referenced|unreferenced` filters which sections
-  `--list-dependencies` shows (default `all`). Orthogonal to `--list-format`; JSON includes a
-  `scope` field. Persist as `list_dependencies_scope` in `~/.cuppaconfig` or `configure.conf`.
+- `--list-downloads` lists cached archives under the downloads root as a hierarchical table
+  (`referenced from downloads` / `unreferenced downloads`): each download file nests an `[E]`
+  extract/package child. Type group is `source archives` (shared with `--list-dependencies`).
+  Parent sizes and the footer count archive bytes only. `--list-format=verbose` adds LOCATION;
+  `--list-format=json` includes `tree` and `entries` with `kind` `archive` or `product` (#134).
+- `--purge-dependencies` / `--purge-all-dependencies` remove the same selection-scoped trees as
+  `--remove-*`, then delete matching archives under the downloads root (project-used names only).
+  The report nests download → `[E]` → source assets / products (`-✔-` when the extract stays).
+  Leftover other-selection downloads stay. Missing archives are not a failure. Combining
+  `--purge-*` with `--remove-*` is refused. Source Boost `storage_clean` still leaves the extract;
+  the download file is deleted. Verify with `--list-downloads` (#134).
+- `--boost-patched` selects the `patched/` Boost home (build / remove / purge).
+  `--boost-patch-boost-test` remains as a deprecated alias.
+- `--list-scope=all|referenced|unreferenced` filters which sections `--list-dependencies` and
+  `--list-downloads` show (default `all`). Orthogonal to `--list-format`; JSON includes a
+  `scope` field. Persist as `list_scope` in `~/.cuppaconfig` or `configure.conf`. Ignored by
+  `--list-builds` and `--list-develop`. `--list-dependencies-scope` / `list_dependencies_scope`
+  remain as a deprecated alias.
 - Built-in source `boost` exposes `use_libs(libs, depends_on=[])` on the dependency instance
   returned by `env.BuildWith('boost')`, matching `boost_package` / `package_dependency` so a
   project can switch supply chains without changing sconscript call shape. It builds or reuses
@@ -84,8 +99,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for successful or planned removals and ballots for failures (same marks as `--remove-builds`),
   muted leftover leaves for other selections, a short "Leaving … as shown" line, and an
   info-coloured freed-space summary. For archive deps with `storage_clean`, the identity SIZE is
-  the full extract (aligned with `--list-dependencies`), a muted `source assets` leaf covers
-  non-product bytes, and the freed-space line states the remaining archive size after product
+  the full extract (aligned with `--list-dependencies`); products and a muted `source assets`
+  leaf hang under `[E]`, and the freed-space line states the remaining archive size after product
   removal. After a live archive product clean, cuppa rewrites that extract's inventory size with
   `--exact-sizes` semantics, and the verify hint is
   `cuppa -Q -D --list-dependencies` (listing upgrades missing or estimated inventory sizes to
@@ -146,6 +161,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (with a subdued notice that the pass may take a while). `--exact-sizes` still forces a full
   remeasure of every tree. Archive-product remove verify hints drop the mandatory
   `--exact-sizes` flag (#134).
+- Archive `--remove-dependencies` / `--purge-dependencies` reports nest products and
+  `source assets` under an `[E]` extract row (`---` / `-✔-` / `✔✔✔`). Empty `bin.<abi>` husks
+  with no toolset children stay on disk but are omitted from leftover rows.
 - ROADMAP and the removal plan mark archive clean-by-variant done (#143) and Phase 4
   downloads/purge as next; Dependencies docs add a Boost `storage_clean` remove sample and
   document optional `storage_paths` / `storage_clean` on the Extending page (#134).
@@ -168,6 +186,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Deprecated
 
+- `--list-dependencies-scope` is deprecated in favour of `--list-scope` (same values; also
+  applies to `--list-downloads`). Existing `list_dependencies_scope` conf entries still work.
+- `--boost-patch-boost-test` is deprecated in favour of `--boost-patched`.
 - `--download-root` and `--cache-root` are deprecated in favour of `--dependencies-root` and
   `--downloads-root`. They still choose the same roots, and cuppa names the replacement when one
   is used (#133).
@@ -182,7 +203,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Integration `run_cuppa` keeps the repository root on `PYTHONPATH` when tests pass
   `extra_env={"PYTHONPATH": …}` (e.g. pip-installed dependency plugins), so
   `python -m cuppa` does not fail with `No module named cuppa`.
-- `--list-dependencies --list-dependencies-scope=referenced` footer reports
+- `--list-dependencies --list-scope=referenced` footer reports
   `N entries, X total, X referenced` instead of a useless `0B unreferenced`.
 - `--list-dependencies` prints the `[D]` downloads-archive footer only under
   `--list-format=verbose`, matching where the mark appears in LOCATION.

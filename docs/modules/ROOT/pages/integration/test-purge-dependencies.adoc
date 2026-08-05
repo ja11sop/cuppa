@@ -1,0 +1,41 @@
+= `test_purge_dependencies` — purge trees and matching downloads
+:description: Cuppa integration test documentation for test_purge_dependencies
+
+
+== What is tested
+
+With planted trees and archives under a private `--storage-root`:
+
+* Combining any `--purge-*` flag with any `--remove-*` flag exits non-zero without deleting.
+* Purging a GitLab package deletes the selected toolchain extract **and** its tarball, leaves
+  another toolchain's extract and tarball, and reports download + `[E]` leaves plus leftover
+  downloads. Verify hint is `--list-downloads`.
+* SCons `-n` is a dry run: extract and archive stay on disk.
+* Source `boost` with `storage_clean` deletes the download and selection-scoped products; the
+  extract / headers stay.
+* With `--develop`, the working copy is never deleted (a download for that name may still go).
+
+== Generated files
+
+Dummy project `sconstruct` declaring `boost_package` or `boost` / `widget`, plus planted folders
+under `<storage>/dependencies/` and archives under `<storage>/downloads/` (including
+`packages/<package>/<version>/`).
+
+== Commands
+
+[source,sh]
+----
+cuppa -D --offline --purge-dependencies=boost_package --remove-dependencies=boost_package --storage-root=<storage>
+cuppa -D --offline --dbg --purge-dependencies=boost_package --storage-root=<storage>
+cuppa -D --offline --dbg -n --purge-dependencies=boost_package --storage-root=<storage>
+cuppa -D --offline --dbg --boost-home=<extract> --purge-dependencies=boost --storage-root=<storage>
+cuppa -D --offline --develop --purge-dependencies=widget --storage-root=<storage>
+----
+
+== Expected outcome
+
+Successful purges print an announce line covering trees and downloads, a compact REMARK table with
+download → `[E]` → source-asset / product nesting (partial marks when the extract stays), leftover
+other-selection downloads/extracts, a freed-space summary that includes download bytes, and
+`cuppa -Q -D --list-downloads`.
+Dry-run uses “Would remove”. Combined purge+remove fails before any delete.

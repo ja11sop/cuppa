@@ -42,15 +42,20 @@ def plant_realistic_dependencies_root(storage):
     return deps, vcs, package, branched
 
 
-def plant_archives_and_downloads(storage):
-    """GitHub release extracts + matching downloads; one tag without a download."""
+def plant_archives_and_downloads(storage, tool_variant=None):
+    """GitHub release extracts + matching downloads; one tag without a download.
+
+    ``tool_variant`` selects the GitLab package extract/archive pair. Default
+    ``gcc153_rel_x86_64_cxx2c`` is fine for dependency-listing tests; download
+    referenced-state tests should pass the current selection's tool variant.
+    """
     import platform
 
     from cuppa.core.dependency_identity import gitlab_archive_name
 
     deps = storage / "dependencies"
     downloads = storage / "downloads"
-    downloads.mkdir(parents=True)
+    downloads.mkdir(parents=True, exist_ok=True)
 
     fmt_11 = "https_github.com__fmtlib_fmt_archive_refs_tags_11.1.4.zip"
     fmt_12 = "https_github.com__fmtlib_fmt_archive_refs_tags_12.2.0.zip"
@@ -77,7 +82,7 @@ def plant_archives_and_downloads(storage):
     (boost / "boost" / "version.hpp").write_text("//\n", encoding="utf-8")
     (downloads / boost_folder).write_bytes(b"archive-bytes")
 
-    tool_variant = "gcc153_rel_x86_64_cxx2c"
+    tool_variant = tool_variant or "gcc153_rel_x86_64_cxx2c"
     gitlab = deps / tool_variant / "boost" / "1.91"
     gitlab.mkdir(parents=True)
     (gitlab / "include" / "boost").mkdir(parents=True)
@@ -250,7 +255,7 @@ cuppa.run(
 
 
 def test_list_dependencies_scope_referenced_hides_unreferenced(tmp_path):
-    """--list-dependencies-scope=referenced omits the unreferenced section."""
+    """--list-scope=referenced omits the unreferenced section."""
     project = copy_dummy_project(tmp_path)
     storage = tmp_path / "storage"
     plant_archives_and_downloads(storage)
@@ -279,7 +284,7 @@ cuppa.run(
         project,
         "--offline",
         "--list-dependencies",
-        "--list-dependencies-scope=referenced",
+        "--list-scope=referenced",
         "--storage-root={}".format(storage),
         extra_env=own_home(tmp_path),
     )
@@ -295,7 +300,7 @@ cuppa.run(
         project,
         "--offline",
         "--list-dependencies",
-        "--list-dependencies-scope=referenced",
+        "--list-scope=referenced",
         "--list-format=json",
         "--storage-root={}".format(storage),
         extra_env=own_home(tmp_path),
@@ -315,7 +320,7 @@ cuppa.run(
 
 
 def test_list_dependencies_scope_unreferenced_hides_referenced(tmp_path):
-    """--list-dependencies-scope=unreferenced keeps only leftover trees."""
+    """--list-scope=unreferenced keeps only leftover trees."""
     project = copy_dummy_project(tmp_path)
     storage = tmp_path / "storage"
     plant_archives_and_downloads(storage)
@@ -344,7 +349,7 @@ cuppa.run(
         project,
         "--offline",
         "--list-dependencies",
-        "--list-dependencies-scope=unreferenced",
+        "--list-scope=unreferenced",
         "--storage-root={}".format(storage),
         extra_env=own_home(tmp_path),
     )
@@ -356,6 +361,45 @@ cuppa.run(
     # [D] footer is verbose-only even when regenerating archives exist.
     assert "[D] = archive present under downloads" not in plain
     assert "corrupt archive" not in plain
+
+
+def test_list_dependencies_scope_alias_still_works(tmp_path):
+    """Deprecated --list-dependencies-scope remains an alias of --list-scope."""
+    project = copy_dummy_project(tmp_path)
+    storage = tmp_path / "storage"
+    plant_archives_and_downloads(storage)
+    write_sconstruct(
+        project,
+        body="""\
+import cuppa
+
+Boost = cuppa.package_dependency(
+    'boost_package',
+    package_manager='gitlab',
+    registry='https://gitlab.example/api/v4/projects/1',
+    package='boost',
+    version='1.91',
+)
+
+cuppa.run(
+    default_variants=['dbg'],
+    dependencies=[Boost],
+    default_dependencies=['boost_package'],
+)
+""",
+    )
+    listed = run_cuppa(
+        project,
+        "--offline",
+        "--list-dependencies",
+        "--list-dependencies-scope=referenced",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(listed)
+    plain = strip_ansi(listed.stdout)
+    assert "unreferenced" not in plain
+    assert "referenced" in plain
 
 
 def test_list_dependencies_verbose_archives_and_download_mark(tmp_path):
@@ -396,7 +440,7 @@ cuppa.run(
     plain = strip_ansi(listed.stdout)
 
     assert "LOCATION" in plain
-    assert "archives" in plain
+    assert "source archives" in plain
     assert "github.com/fmtlib/fmt" in plain
     assert "11.1.4" in plain
     assert "12.2.0" in plain

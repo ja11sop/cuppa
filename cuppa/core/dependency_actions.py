@@ -17,6 +17,7 @@ import sys
 
 from cuppa.colourise import as_emphasised, as_error, as_info, as_info_label, as_subdued
 from cuppa.core import (
+    dependency_downloads,
     dependency_identity,
     dependency_inventory,
     dependency_removal,
@@ -33,7 +34,7 @@ RULE = '-'
 # Leaf states that belong in the remove-name hint (project trees for the current selection).
 _REMOVAL_HINT_STATES = frozenset( ( 'referenced', 'missing', 'cached' ) )
 
-_LIST_DEPENDENCIES_SCOPES = frozenset( ( 'all', 'referenced', 'unreferenced' ) )
+_LIST_SCOPES = frozenset( ( 'all', 'referenced', 'unreferenced' ) )
 
 _LIST_SCOPE_STATES = {
     'all': None,
@@ -42,28 +43,46 @@ _LIST_SCOPE_STATES = {
 }
 
 
-def apply_list_dependencies_scope( data, scope ):
-    """Filter collected listing data to ``all``, ``referenced``, or ``unreferenced``.
+def normalise_list_scope( scope ):
+    scope = ( scope or 'all' )
+    if isinstance( scope, ( list, tuple ) ):
+        scope = scope[0] if scope else 'all'
+    scope = str( scope ).strip().lower()
+    if scope not in _LIST_SCOPES:
+        return 'all'
+    return scope
 
-    Rebuilds the hierarchical tree and size rollups so text and JSON stay consistent.
+
+def apply_list_scope( data, scope, tree_builder=None ):
+    """Filter listing data to ``all``, ``referenced``, or ``unreferenced``.
+
+    Used by ``--list-dependencies`` and ``--list-downloads``. Rebuilds the hierarchical
+    tree and size rollups so text and JSON stay consistent.
     """
-    scope = ( scope or 'all' ).strip().lower()
-    if scope not in _LIST_DEPENDENCIES_SCOPES:
-        scope = 'all'
+    scope = normalise_list_scope( scope )
     states = _LIST_SCOPE_STATES.get( scope )
     rows = list( data.get( 'rows' ) or [] )
     if states is not None:
         rows = [ row for row in rows if row.get( 'state' ) in states ]
-    total_bytes = sum( int( row.get( 'size_bytes' ) or 0 ) for row in rows )
-    unreferenced_bytes = sum(
-            int( row.get( 'size_bytes' ) or 0 )
-            for row in rows if row.get( 'state' ) == 'unreferenced'
-    )
-    missing_count = sum( 1 for row in rows if row.get( 'state' ) == 'missing' )
-    has_download_marks = any( row.get( 'has_download' ) for row in rows )
     filtered = dict( data )
     filtered['rows'] = rows
-    tree = dependency_tree.build_tree( rows )
+    filtered['scope'] = scope
+
+    downloads_listing = (
+            'archive_count' in data
+            or any( row.get( 'role' ) in ( 'archive', 'product' ) for row in rows )
+            or any(
+                    row.get( 'role' ) in ( 'archive', 'product' )
+                    for row in ( data.get( 'rows' ) or [] )
+            )
+    )
+    if tree_builder is None:
+        if downloads_listing:
+            tree_builder = dependency_downloads.build_downloads_tree
+        else:
+            tree_builder = dependency_tree.build_tree
+
+    tree = tree_builder( rows )
     if scope != 'all':
         tree = {
             'sections': [
@@ -72,12 +91,35 @@ def apply_list_dependencies_scope( data, scope ):
             ],
         }
     filtered['tree'] = tree
-    filtered['total_bytes'] = total_bytes
-    filtered['unreferenced_bytes'] = unreferenced_bytes
-    filtered['missing_count'] = missing_count
-    filtered['has_download_marks'] = has_download_marks
-    filtered['scope'] = scope
+
+    if downloads_listing:
+        filtered['archive_count'] = sum(
+                1 for row in rows if row.get( 'role' ) == 'archive'
+        )
+        filtered['total_bytes'] = sum(
+                int( row.get( 'size_bytes' ) or 0 )
+                for row in rows if row.get( 'role' ) == 'archive'
+        )
+        filtered['unreferenced_bytes'] = sum(
+                int( row.get( 'size_bytes' ) or 0 )
+                for row in rows
+                if row.get( 'role' ) == 'archive' and row.get( 'state' ) == 'unreferenced'
+        )
+        return filtered
+
+    filtered['total_bytes'] = sum( int( row.get( 'size_bytes' ) or 0 ) for row in rows )
+    filtered['unreferenced_bytes'] = sum(
+            int( row.get( 'size_bytes' ) or 0 )
+            for row in rows if row.get( 'state' ) == 'unreferenced'
+    )
+    filtered['missing_count'] = sum( 1 for row in rows if row.get( 'state' ) == 'missing' )
+    filtered['has_download_marks'] = any( row.get( 'has_download' ) for row in rows )
     return filtered
+
+
+def apply_list_dependencies_scope( data, scope ):
+    """Backward-compatible name for dependency-tree ``apply_list_scope``."""
+    return apply_list_scope( data, scope, tree_builder=dependency_tree.build_tree )
 
 COLUMNS = [
     ( 'size', 'SIZE' ),
@@ -137,11 +179,22 @@ def add_dependency_action_options( add_option ):
         help="List dependency trees under the dependencies root and exit",
     )
     add_option(
+        '--list-downloads', dest='list_downloads', action='store_true',
+        help="List cached archives under the downloads root (and the trees they feed) and exit",
+    )
+    add_option(
+        '--list-scope', dest='list_scope',
+        choices=( 'all', 'referenced', 'unreferenced' ),
+        nargs=1, action='store',
+        help="Which sections --list-dependencies and --list-downloads show: all (default), "
+             "referenced only, or unreferenced only. Orthogonal to --list-format. "
+             "Ignored by --list-builds and --list-develop",
+    )
+    add_option(
         '--list-dependencies-scope', dest='list_dependencies_scope',
         choices=( 'all', 'referenced', 'unreferenced' ),
-        nargs=1, action='store', default='all',
-        help="Which dependency sections --list-dependencies shows: all (default), "
-             "referenced only, or unreferenced only. Orthogonal to --list-format",
+        nargs=1, action='store',
+        help="Deprecated alias of --list-scope (kept for ~/.cuppaconfig compatibility)",
     )
     add_option(
         '--exact-sizes', dest='exact_sizes', action='store_true',
@@ -158,30 +211,54 @@ def add_dependency_action_options( add_option ):
         '--remove-all-dependencies', dest='remove_all_dependencies', action='store_true',
         help="Remove every default dependency for the current selection, then exit",
     )
+    add_option(
+        '--purge-dependencies', dest='purge_dependencies', type='string', nargs=1,
+        action='store',
+        help="Remove named dependencies and their matching downloads for the current "
+             "selection (comma-separated), then exit",
+    )
+    add_option(
+        '--purge-all-dependencies', dest='purge_all_dependencies', action='store_true',
+        help="Remove every project-used dependency and matching downloads for the current "
+             "selection, then exit",
+    )
 
 
 def process_dependency_action_options( cuppa_env ):
     cuppa_env['list_dependencies'] = bool( cuppa_env.get_option( 'list_dependencies' ) )
+    cuppa_env['list_downloads'] = bool( cuppa_env.get_option( 'list_downloads' ) )
     cuppa_env['exact_sizes'] = bool( cuppa_env.get_option( 'exact_sizes' ) )
     cuppa_env['remove_all_dependencies'] = bool( cuppa_env.get_option( 'remove_all_dependencies' ) )
+    cuppa_env['purge_all_dependencies'] = bool( cuppa_env.get_option( 'purge_all_dependencies' ) )
     remove = cuppa_env.get_option( 'remove_dependencies' )
     if isinstance( remove, ( list, tuple ) ):
         remove = remove[0] if remove else None
     cuppa_env['remove_dependencies'] = remove
-    scope = cuppa_env.get_option( 'list_dependencies_scope', default='all' )
-    if isinstance( scope, ( list, tuple ) ):
-        scope = scope[0] if scope else 'all'
-    scope = ( scope or 'all' ).strip().lower()
-    if scope not in _LIST_DEPENDENCIES_SCOPES:
-        scope = 'all'
+    purge = cuppa_env.get_option( 'purge_dependencies' )
+    if isinstance( purge, ( list, tuple ) ):
+        purge = purge[0] if purge else None
+    cuppa_env['purge_dependencies'] = purge
+    def _scope_option( name ):
+        value = cuppa_env.get_option( name )
+        if isinstance( value, ( list, tuple ) ):
+            value = value[0] if value else None
+        return value
+
+    scope = normalise_list_scope(
+            _scope_option( 'list_scope' ) or _scope_option( 'list_dependencies_scope' )
+    )
+    cuppa_env['list_scope'] = scope
     cuppa_env['list_dependencies_scope'] = scope
 
 
 def wants_dependency_action( cuppa_env ):
     return bool(
         cuppa_env.get( 'list_dependencies' )
+        or cuppa_env.get( 'list_downloads' )
         or cuppa_env.get( 'remove_dependencies' )
         or cuppa_env.get( 'remove_all_dependencies' )
+        or cuppa_env.get( 'purge_dependencies' )
+        or cuppa_env.get( 'purge_all_dependencies' )
     )
 
 
@@ -812,9 +889,11 @@ def _render_skip_tree( skips ):
     return lines
 
 
-def _write_ruled_tree( out, tree, verbose=False ):
+def _write_ruled_tree( out, tree, verbose=False, tree_header='DEPENDENCY' ):
     """Write a ruled SIZE / LAST USED / REMARK / DEPENDENCY table for ``tree``."""
-    lines, _columns = dependency_tree.render_tree_lines( tree, verbose=verbose )
+    lines, _columns = dependency_tree.render_tree_lines(
+            tree, verbose=verbose, tree_header=tree_header,
+    )
     if not lines:
         return False
     width = max( storage.visible_len( line ) for line in lines )
@@ -893,9 +972,10 @@ def list_dependencies( construct, cuppa_env, out=None ):
         _write_collating( out )
     # Progress lines go to the same stream as the table; omit for JSON payloads.
     progress_out = None if list_format == 'json' else out
-    data = apply_list_dependencies_scope(
+    data = apply_list_scope(
             _collect_rows( construct, cuppa_env, out=progress_out ),
-            cuppa_env.get( 'list_dependencies_scope' ) or 'all',
+            cuppa_env.get( 'list_scope' ) or 'all',
+            tree_builder=dependency_tree.build_tree,
     )
     root = data['dependencies_root']
     rows = data['rows']
@@ -1015,13 +1095,137 @@ def list_dependencies( construct, cuppa_env, out=None ):
     return 0
 
 
+def list_downloads( construct, cuppa_env, out=None ):
+    """``--list-downloads``. Always exits 0 unless a storage error is raised."""
+    out = out or sys.stdout
+    list_format = cuppa_env.get( 'list_format' ) or 'text'
+    if list_format != 'json':
+        out.write( as_subdued( "Collating downloads tree..." ) + "\n" )
+    data = apply_list_scope(
+            dependency_downloads.collect_download_rows( construct, cuppa_env ),
+            cuppa_env.get( 'list_scope' ) or 'all',
+            tree_builder=dependency_downloads.build_downloads_tree,
+    )
+    root = data.get( 'downloads_root' )
+    rows = data.get( 'rows' ) or []
+    tree = data.get( 'tree' ) or dependency_downloads.build_downloads_tree( rows )
+    verbose = list_format == 'verbose'
+
+    if list_format == 'json':
+        payload = {
+            'downloads_root': root,
+            'dependencies_root': data.get( 'dependencies_root' ),
+            'scope': data.get( 'scope' ) or 'all',
+            'tree': dependency_tree.tree_to_json( tree ),
+            'entries': [
+                {
+                    'kind': row.get( 'role' ),
+                    'size': storage.human_size( int( row.get( 'size_bytes' ) or 0 ) ),
+                    'size_bytes': int( row.get( 'size_bytes' ) or 0 ),
+                    'dependency': row.get( 'dependency' ),
+                    'short_name': row.get( 'short_name' ),
+                    'qualifier': row.get( 'qualifier' ),
+                    'tool_variant': row.get( 'tool_variant' ),
+                    'state': row.get( 'state' ),
+                    'type': row.get( 'type' ),
+                    'path': row.get( 'path' ),
+                    'label': row.get( 'label' ),
+                    'location': row.get( 'location' ),
+                    'source_url': row.get( 'source_url' ),
+                    'remote_location': row.get( 'remote_location' ),
+                }
+                for row in rows
+            ],
+            'archive_count': data.get( 'archive_count' ) or 0,
+            'total_bytes': data.get( 'total_bytes' ) or 0,
+            'unreferenced_bytes': data.get( 'unreferenced_bytes' ) or 0,
+            'skips': [
+                { 'dependency': s.dependency, 'reason': s.reason } for s in data.get( 'skips' ) or []
+            ],
+        }
+        out.write( storage.render_json_payload( payload ) + "\n" )
+        return 0
+
+    out.write( "\n" )
+    out.write( "Downloads in {}\n".format(
+            as_info( storage.display_path( root ) ) if root else '-'
+    ) )
+    names = dependency_storage.default_dependency_names( cuppa_env )
+    if names:
+        out.write( "Default dependencies: {}\n".format(
+                as_info( ', '.join( names ) )
+        ) )
+
+    _write_ruled_tree(
+            out, tree, verbose=verbose, tree_header='DEPENDENCY / DOWNLOAD',
+    )
+
+    archive_count = int( data.get( 'archive_count' ) or 0 )
+    total = storage.human_size( data.get( 'total_bytes' ) or 0 )
+    unref = storage.human_size( data.get( 'unreferenced_bytes' ) or 0 )
+    scope = data.get( 'scope' ) or 'all'
+    if scope == 'referenced':
+        out.write( "{}{} archives, {} download total, {} referenced\n".format(
+                INDENT,
+                archive_count,
+                total,
+                total,
+        ) )
+    else:
+        out.write( "{}{} archives, {} download total, {} unreferenced\n".format(
+                INDENT,
+                archive_count,
+                total,
+                unref,
+        ) )
+
+    for line in _render_skip_tree( data.get( 'skips' ) or [] ):
+        out.write( line + "\n" )
+
+    if any( row.get( 'role' ) == 'product' for row in rows ):
+        out.write( "\n" )
+        out.write(
+            "{} = dependency extracted from the download above\n".format(
+                    as_info( dependency_identity.EXTRACT_MARK )
+            )
+        )
+
+    if any( row.get( 'state' ) == 'unreferenced' and row.get( 'role' ) == 'archive' for row in rows ):
+        out.write( "\n" )
+        out.write(
+            "Review unreferenced downloads. Deleting only a dependency tree leaves the "
+            "download in place.\n"
+        )
+
+    return 0
+
+
 def run( construct, cuppa_env, out=None ):
     out = out or sys.stdout
     try:
+        if dependency_removal.purge_and_remove_combined( cuppa_env ):
+            out.write(
+                    "error: do not combine --purge-* with --remove-* in one invocation\n"
+            )
+            return 1
+
+        if (
+                cuppa_env.get( 'purge_all_dependencies' )
+                or cuppa_env.get( 'purge_dependencies' )
+        ):
+            logger.info( as_info_label(
+                    "Running in PURGE DEPENDENCIES mode, no building will be attempted" ) )
+            return dependency_removal.remove_dependencies( construct, cuppa_env, out=out )
+
         if cuppa_env.get( 'remove_all_dependencies' ) or cuppa_env.get( 'remove_dependencies' ):
             logger.info( as_info_label(
                     "Running in REMOVE DEPENDENCIES mode, no building will be attempted" ) )
             return dependency_removal.remove_dependencies( construct, cuppa_env, out=out )
+
+        if cuppa_env.get( 'list_downloads' ):
+            logger.info( as_info_label(
+                    "Running in LIST DOWNLOADS mode, no building will be attempted" ) )
+            return list_downloads( construct, cuppa_env, out=out )
 
         if cuppa_env.get( 'list_dependencies' ):
             logger.info( as_info_label(

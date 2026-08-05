@@ -33,6 +33,14 @@ def current_boost_release():
     return "1.91.0"
 
 
+def boost_patched_requested( env ):
+    """True when the patched Boost home is selected (``clean/`` vs ``patched/``)."""
+    return bool(
+            env.get_option( 'boost-patched' )
+            or env.get_option( 'boost-patch-boost-test' )
+    )
+
+
 def boost_location_id( env ):
 
     location   = env.get_option( 'boost-location' )
@@ -40,7 +48,7 @@ def boost_location_id( env ):
     version    = env.get_option( 'boost-version' )
     latest     = env.get_option( 'boost-latest' )
     thirdparty = env[ 'thirdparty' ]
-    patch_test = env.get_option( 'boost-patch-boost-test' )
+    patch_test = boost_patched_requested( env )
 
     base = None
 

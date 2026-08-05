@@ -150,6 +150,16 @@ def test_enumerate_archive_product_dirs( tmp_path ):
     assert all( unit['path'].rstrip( '/\\' ).endswith( 'build.c++2c' ) for unit in stage_units )
 
 
+def test_enumerate_skips_empty_bin_root_husk( tmp_path ):
+    home = tmp_path / 'clean'
+    ( home / 'bin.c++2c' / 'boost' / 'bin.v2' / 'libs' / 'system' ).mkdir( parents=True )
+    ( home / 'build.c++2c' / 'gcc153' / 'debug' / 'x86_64' ).mkdir( parents=True )
+    found = enumerate_archive_product_dirs( str( home ) )
+    assert all( unit.get( 'kind' ) != 'bin_root' for unit in found )
+    assert not any( unit.get( 'kind' ) == 'bin_toolset' for unit in found )
+    assert any( unit.get( 'kind' ) == 'stage' for unit in found )
+
+
 def test_enumerate_folds_b2_patch_toolsets_into_family( tmp_path ):
     home = tmp_path / 'clean'
     bindir = home / 'bin.c++2c'
@@ -297,3 +307,21 @@ def test_boost_storage_clean_empty_when_nothing_built( tmp_path ):
     assert result['paths'] == []
     assert result['targets'] == []
     assert result['extract'] == str( extract )
+
+
+def test_boost_location_id_accepts_boost_patched_alias():
+    from cuppa.dependencies.boost.version_and_location import boost_location_id
+
+    class Env( object ):
+        def __init__( self, options ):
+            self._options = options
+
+        def get_option( self, name ):
+            return self._options.get( name )
+
+        def __getitem__( self, key ):
+            return { 'thirdparty': None }[key]
+
+    assert boost_location_id( Env( { 'boost-patched': True } ) )[3]
+    assert boost_location_id( Env( { 'boost-patch-boost-test': True } ) )[3]
+    assert not boost_location_id( Env( {} ) )[3]

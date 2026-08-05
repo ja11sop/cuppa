@@ -11,7 +11,7 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-08-01
+**As of:** 2026-08-05
 
 ---
 
@@ -98,7 +98,45 @@ Companion canvas (optional): Cursor canvas `cxx-modules-status`.
 | `modules-default` | Routing every project through the modules compile path | Superseded by `mod-activate-evidence`: activate where there is evidence of modules, rather than for all builds |
 | `apple-emulation` | Emulating Apple Clang modules without vendor support | Prefer fail-clearly |
 
-Boost / package-registry packaging work is tracked separately from modules.
+Boost / package-registry packaging work is tracked separately from modules — see
+[Boost source and packages](#boost-source-and-packages).
+
+---
+
+## Boost source and packages
+
+Goal: source `boost` and GitLab `boost_package` stay interchangeable at the sconscript
+(`use_libs`) while patch status is an honest identity — especially for prebuilt packages, which
+are patched by default.
+
+Design: [`design/plans/boost-updates.md`](design/plans/boost-updates.md).
+
+### Today
+
+| Capability | Status |
+|------------|--------|
+| Source `--boost-patched` selects `patched/` vs `clean/` under one extract | Yes (alias `--boost-patch-boost-test`) |
+| Source remove/purge is selection-scoped per home | Yes ([#144](https://github.com/ja11sop/cuppa/pull/144)) |
+| `boost_package.define(..., patched=True)` default | Yes — compile define + `patched_test()` only |
+| Package archive / extract / version distinguish patched vs clean | No — same `boost` + `1.91` + tool variant |
+| Package `use_libs` passes `patched_test=` into library deps | No |
+
+### Planned / potential
+
+| ID | Work | Priority | Notes |
+|----|------|----------|-------|
+| `boost-pkg-version` | Canonical version `{base}-patched` / `{base}-clean`; publisher + resolve + `package_id` | High | Visible qualifier; avoids extract collision |
+| `boost-pkg-compat` | Patched resolve falls back to unadorned `{base}`; clean does not | High | Existing registry tarballs are patched and unnamed |
+| `boost-pkg-use-libs` | Package `use_libs` passes `patched_test=` | High | Parity with source Boost |
+| `boost-pkg-docs` | Document opposite defaults (source clean / package patched) and identity | Medium | `packages.adoc` / `dependencies.adoc` |
+| `boost-pkg-flag` | Optional: `--boost-patched` selects among declared package flavours | Later | Not required if a project only consumes patched packages |
+
+### Out of scope (Boost)
+
+| ID | Item | Reason |
+|----|------|--------|
+| `boost-pkg-as-source-homes` | Two homes under one GitLab extract | Packages are whole prebuilt trees, not b2 stage layouts |
+| `boost-src-two-downloads` | Separate tarballs for source clean vs patched | One upstream archive; patch is applied after extract |
 
 ---
 
@@ -247,14 +285,15 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 | `--clean` removes the current variant's build outputs | Yes |
 | `--list-develop` / `--update-develop` for the working copies `--develop` builds against | Yes — [#132](https://github.com/ja11sop/cuppa/issues/132) |
 | Shared storage under `~/.cuppa`, named `--dependencies-root` / `--downloads-root`, with `--storage-root` to move both | Yes — [#133](https://github.com/ja11sop/cuppa/issues/133) |
-| Remove a whole build tree, a dependency, or a stale download | Builds: `--remove-builds` / `--remove-all-builds` ([#134](https://github.com/ja11sop/cuppa/issues/134) / #140); dependencies: `--remove-dependencies` / `--remove-all-dependencies` ([#134](https://github.com/ja11sop/cuppa/issues/134) / #142), with selection-scoped archive product clean via `storage_clean` ([#143](https://github.com/ja11sop/cuppa/pull/143)); downloads still manual |
-| See what is stored, where, and how large it is | Builds: `--list-builds` ([#134](https://github.com/ja11sop/cuppa/issues/134) / #140); dependencies: `--list-dependencies` ([#134](https://github.com/ja11sop/cuppa/issues/134) / #141), with lazy exact size upgrade ([#143](https://github.com/ja11sop/cuppa/pull/143)); downloads still no |
+| Remove a whole build tree, a dependency, or a stale download | Builds: `--remove-builds` / `--remove-all-builds` ([#134](https://github.com/ja11sop/cuppa/issues/134) / [#140](https://github.com/ja11sop/cuppa/pull/140)); dependencies: `--remove-dependencies` / `--remove-all-dependencies` ([#142](https://github.com/ja11sop/cuppa/pull/142)), with selection-scoped archive product clean via `storage_clean` ([#143](https://github.com/ja11sop/cuppa/pull/143)); downloads: `--purge-dependencies` / `--purge-all-dependencies` ([#144](https://github.com/ja11sop/cuppa/pull/144)) |
+| See what is stored, where, and how large it is | Builds: `--list-builds` ([#140](https://github.com/ja11sop/cuppa/pull/140)); dependencies: `--list-dependencies` ([#141](https://github.com/ja11sop/cuppa/pull/141)), with lazy exact size upgrade ([#143](https://github.com/ja11sop/cuppa/pull/143)); downloads: `--list-downloads` ([#144](https://github.com/ja11sop/cuppa/pull/144)), filterable with `--list-scope` |
 
 ### Planned / potential
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `storage-listing-removal` | `--list-*`, `--remove-*`, `--purge-*` for builds, dependencies, and downloads | Medium | Builds done (#140); `--list-dependencies` done (#141); Slice D dependency removal done (#142 / §4.13); archive clean-by-variant (§4.14.3) done (#143); **next:** downloads list/purge (Phase 4). GitHub [#134](https://github.com/ja11sop/cuppa/issues/134) |
+| `storage-listing-removal` | `--list-*`, `--remove-*`, `--purge-*` for builds, dependencies, and downloads | Medium | Umbrella [#134](https://github.com/ja11sop/cuppa/issues/134) closes when [#144](https://github.com/ja11sop/cuppa/pull/144) merges. Builds #140; list-deps #141; remove #142; archive clean #143; Phase 4 list-downloads + purge #144. Follow-on polish: [#145](https://github.com/ja11sop/cuppa/issues/145). |
+| `storage-wipe` | `--wipe-dependencies` — clear down extract and matching downloads | Medium | [#146](https://github.com/ja11sop/cuppa/issues/146). Space-saving purge can leave extracts; wipe only deletes. The next build retrieves as usual. After #144 / [#145](https://github.com/ja11sop/cuppa/issues/145). |
 | `develop-clone` | `--clone-develop` for a develop working copy that is configured but not yet on disk, for a new machine or a dependency added since you last looked | Medium | Surface settled, remaining design to finalise first: pinned locations, submodules, whether retrieval machinery is reused. [`design/plans/removal-options.md`](design/plans/removal-options.md) §3.7. GitHub [#138](https://github.com/ja11sop/cuppa/issues/138) |
 | `artefact-removal` | Decide how to remove artefacts written outside the build root | Low | Design pass first; `--remove-builds` deliberately stops at `_build`. GitHub [#135](https://github.com/ja11sop/cuppa/issues/135) |
 
@@ -271,7 +310,6 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 
 Add new `##` headings here as larger efforts start, for example:
 
-- Packages / GitLab registry UX
 - Additional toolchains or platforms
 
 Each new section should follow the same shape: **Today** → **Planned / potential** → **Out of scope**.

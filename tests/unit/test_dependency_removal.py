@@ -60,6 +60,46 @@ def test_resolve_requested_names_accepts_builtin_when_defaulted():
     assert names == [ 'boost' ]
 
 
+def test_resolve_requested_names_purge_flags_use_same_gate():
+    cuppa_env = {
+        'purge_dependencies': 'widgt',
+        'default_dependencies': [ 'widget' ],
+        'declared_dependencies': [],
+        'dependencies': { 'widget': object(), 'boost': object() },
+    }
+    names, error = dependency_removal.resolve_requested_names( cuppa_env )
+    assert names == []
+    assert isinstance( error, dependency_removal.UnknownDependencyNames )
+    assert error.unknown == ( 'widgt', )
+
+    cuppa_env = {
+        'purge_all_dependencies': True,
+        'default_dependencies': [ 'widget' ],
+        'declared_dependencies': [ 'boost_package' ],
+        'dependencies': { 'widget': object(), 'boost_package': object(), 'boost': object() },
+    }
+    names, error = dependency_removal.resolve_requested_names( cuppa_env )
+    assert error is None
+    assert names == [ 'widget', 'boost_package' ]
+
+
+def test_purge_and_remove_combined():
+    assert dependency_removal.purge_and_remove_combined( {
+        'purge_dependencies': 'widget',
+        'remove_dependencies': 'widget',
+    } )
+    assert dependency_removal.purge_and_remove_combined( {
+        'purge_all_dependencies': True,
+        'remove_all_dependencies': True,
+    } )
+    assert not dependency_removal.purge_and_remove_combined( {
+        'purge_dependencies': 'widget',
+    } )
+    assert not dependency_removal.purge_and_remove_combined( {
+        'remove_dependencies': 'widget',
+    } )
+
+
 def test_resolve_requested_names_all_uses_project_used():
     cuppa_env = {
         'remove_all_dependencies': True,
@@ -380,8 +420,14 @@ def test_archive_contexts_and_source_assets_report( tmp_path ):
     )
     text = out.getvalue()
     assert 'source assets' in text
+    assert '[E]' in text
     assert storage.human_size( extract_size ) in text
     assert storage.human_size( archives[0]['source_bytes'] ) in text
+    assert 'boost_extract/clean/build.c++2c [gcc153/debug/x86_64]' in text
+    source_idx = text.index( 'source assets' )
+    product_idx = text.index( 'boost_extract/clean/build.c++2c' )
+    extract_idx = text.index( '[E]' )
+    assert extract_idx < source_idx < product_idx
 
     remaining = dependency_removal._remaining_archive_bytes(
             archives, targets, outcomes, planning=True,
@@ -395,6 +441,82 @@ def test_archive_contexts_and_source_assets_report( tmp_path ):
     summary_text = summary.getvalue()
     assert 'leaving a final archive size of' in summary_text
     assert storage.human_size( remaining ) in summary_text
+
+
+def test_write_removal_tree_nests_extract_rollup_under_download( tmp_path ):
+    import io
+
+    root = tmp_path / 'dependencies'
+    downloads = tmp_path / 'downloads'
+    extract = root / 'boost_source'
+    home = extract / 'clean'
+    stage = home / 'build.c++2c' / 'gcc153' / 'debug' / 'x86_64'
+    leftover_stage = home / 'build.c++2c' / 'gcc153' / 'release' / 'x86_64'
+    stage.mkdir( parents=True )
+    leftover_stage.mkdir( parents=True )
+    ( extract / 'headers.hpp' ).write_bytes( b'h' * 50 )
+    archive = downloads / 'boost_source'
+    archive.parent.mkdir( parents=True )
+    archive.write_bytes( b'tarball' )
+
+    targets = [
+            dependency_removal.RemovalTarget(
+                    dependency='boost',
+                    path=str( stage ),
+                    qualifier='1.91.0',
+                    tool_variant='gcc153/debug/x86_64',
+                    storage_type='archive',
+                    size_bytes=10,
+                    label='boost_source/clean/build.c++2c [gcc153/debug/x86_64]',
+                    extra_paths=(),
+            ),
+    ]
+    leftovers = [
+            dependency_removal.Leftover(
+                    dependency='boost',
+                    path=str( leftover_stage ),
+                    qualifier='1.91.0',
+                    tool_variant='gcc153/release/x86_64',
+                    size_bytes=8,
+                    label='boost_source/clean/build.c++2c [gcc153/release/x86_64]',
+            ),
+    ]
+    archives = dependency_removal._archive_contexts(
+            str( root ),
+            { 'boost': { 'extract': str( extract ), 'qualifier': '1.91.0' } },
+            targets,
+            leftovers,
+    )
+    download = dependency_removal.DownloadTarget(
+            dependency='boost',
+            path=str( archive ),
+            qualifier='1.91.0',
+            tool_variant='',
+            storage_type='archive',
+            size_bytes=7,
+            label=archive.name,
+            missing=False,
+    )
+    out = io.StringIO()
+    outcomes = {
+            storage.real_path( str( stage ) ): { 'result': 'removed' },
+            storage.real_path( str( archive ) ): { 'result': 'removed' },
+    }
+    dependency_removal._write_removal_tree(
+            out, targets, leftovers, outcomes, planning=True, root=str( root ),
+            archives=archives, downloads=[ download ], downloads_root=str( downloads ),
+    )
+    text = out.getvalue()
+    assert archive.name in text
+    assert '[E]' in text
+    assert 'source assets' in text
+    assert 'boost_source/clean/build.c++2c [gcc153/debug/x86_64]' in text
+    assert 'boost_source/clean/build.c++2c [gcc153/release/x86_64]' in text
+    download_idx = text.index( archive.name )
+    extract_idx = text.index( '[E]' )
+    source_idx = text.index( 'source assets' )
+    assert download_idx < extract_idx < source_idx
+    assert '-✔-' in text or '-*-' in text
 
 
 def test_write_verify_archive_notes_source_assets( tmp_path ):
@@ -411,6 +533,14 @@ def test_write_verify_archive_notes_source_assets( tmp_path ):
     assert 'cuppa -Q -D --list-dependencies' in text
     assert '--exact-sizes' not in text
     assert 'source assets' in text
+
+    out = io.StringIO()
+    dependency_removal._write_verify(
+            out, archives=[ { 'extract': str( tmp_path ) } ], purge=True,
+    )
+    text = out.getvalue()
+    assert 'cuppa -Q -D --list-downloads' in text
+    assert '--list-dependencies still useful' in text
 
 
 def test_refresh_archive_inventory_sizes_writes_exact( tmp_path ):

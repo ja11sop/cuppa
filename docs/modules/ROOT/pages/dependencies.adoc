@@ -36,7 +36,7 @@ Common options:
 * `--boost-home` / `--boost-location`
 * `--boost-version` / `--boost-latest`
 * `--boost-build-always`, `--boost-verbose-build`, `--boost-verbose-config`
-* `--boost-patch-boost-test`
+* `--boost-patched` (deprecated alias: `--boost-patch-boost-test`)
 
 In a sconscript:
 
@@ -58,6 +58,12 @@ package by changing only the `BuildWith` name. It builds (or reuses) static libr
 Optional dependency convention: when a dependency offers linkable libraries, prefer exposing
 `use_libs(libs, depends_on=[])` on the instance returned by `env.BuildWith(...)`. Package
 dependencies already do this; location-only (header) dependencies typically omit it.
+
+Source Boost keeps two homes under one extract: `clean/` (default) and `patched/`.
+`--boost-patched` is a **selection axis**, like `--dbg` / `--rel`: build, `--remove-dependencies`,
+and `--purge-dependencies` use only the active home. Products under the other home are reported
+as leftovers, not deleted. Use a second invocation with the other flag (or omit it) to clean that
+home too.
 
 For *prebuilt* Boost from a GitLab registry, prefer xref:packages.adoc[boost_package] instead of compiling from source every time.
 
@@ -108,7 +114,8 @@ switch; `--list-develop` is a *report* about working copies. They are easy to mi
 |===
 | You want to know… | Use | Looks at
 
-| What is under the shared dependencies root, and which trees this project would use | `--list-dependencies` (optional `--list-dependencies-scope`) | `--dependencies-root` (for example `~/.cuppa/dependencies` or a legacy `~/_cuppa/_download`)
+| What is under the shared dependencies root, and which trees this project would use | `--list-dependencies` (optional `--list-scope`) | `--dependencies-root` (for example `~/.cuppa/dependencies` or a legacy `~/_cuppa/_download`)
+| What archives sit under the downloads root, and which trees they feed | `--list-downloads` (optional `--list-scope`) | `--downloads-root` (for example `~/.cuppa/downloads` or a legacy `~/_cuppa/_cache`)
 | Branch, cleanliness, and ahead/behind of configured develop working copies | `--list-develop` | Develop paths from the sconstruct
 | What is under `_build` | `--list-builds` | `--build-root`
 |===
@@ -153,7 +160,7 @@ last used, remark (`in use` / `N used` when more than one leaf is selected / `mi
 estimates, it prints a short notice and upgrades those trees to exact sizes (the first run on a
 large root can take a while; later runs reuse the cache). Pass `--exact-sizes` to force a full
 remeasure of every tree. Rows are grouped referenced first then unreferenced,
-then by type (location dependencies, gitlab packages, archives, …), then by short name or
+then by type (location dependencies, gitlab packages, source archives, …), then by short name or
 registry name, with branch or version children underneath. On-disk paths are omitted by
 default; pass `--list-format=verbose` to add a LOCATION column, or `--list-format=json` for a
 machine-readable tree (plus flat `entries`). Default dependencies that are expected but absent
@@ -167,16 +174,81 @@ scenario.
 [source,shell]
 ----
 cuppa -Q -D --list-dependencies
-cuppa -Q -D --list-dependencies --list-dependencies-scope=referenced
+cuppa -Q -D --list-dependencies --list-scope=referenced
 cuppa -Q -D --list-dependencies --list-format=verbose
 cuppa -Q -D --list-dependencies --list-format=json
 cuppa -Q -D --list-dependencies --exact-sizes
 ----
 
-`--list-dependencies-scope` selects which sections appear. It is independent of
-`--list-format` (so you can combine `referenced` with `verbose` or `json`). Persist a
-preference in `~/.cuppaconfig` or `configure.conf` as
-`list_dependencies_scope = 'referenced'`.
+`--list-scope` selects which sections appear (`all`, `referenced`, or `unreferenced`).
+It is independent of `--list-format` (so you can combine `referenced` with `verbose` or
+`json`) and is shared with `--list-downloads`. Persist a preference in `~/.cuppaconfig`
+or `configure.conf` as `list_scope = 'referenced'`. `--list-dependencies-scope` remains
+as a deprecated alias.
+
+[#list-downloads]
+== Listing downloads
+
+`--list-downloads` walks the downloads root and prints a hierarchical table of cached archives
+together with the dependency trees they regenerate. Before the walk it prints
+`Collating downloads tree...` (text and verbose only). Rows are grouped referenced first then
+unreferenced, then by type, then by identity. Under each identity the archive leaf is the file
+under `--downloads-root`; an `[E]` child shows the matching tree under
+`--dependencies-root` (GitLab toolchain folder, or `name/version` for HTTP source archives).
+Parent `SIZE` values roll up **archive** bytes only so the footer answers how much download
+cache would be reclaimed. Extract sizes stay on the `[E]` leaf for impact.
+
+`--list-scope` filters the referenced / unreferenced sections the same way as
+`--list-dependencies`. `--list-format=verbose` adds LOCATION (archive path and extract
+path). `--list-format=json` includes `tree`, flat `entries` with `kind` `archive` or
+`product`, `archive_count`, `scope`, and archive-only `total_bytes` /
+`unreferenced_bytes`. See
+xref:integration/test-list-downloads.adoc[`test_list_downloads`].
+
+[source,shell]
+----
+cuppa -Q -D --list-downloads
+cuppa -Q -D --list-downloads --list-scope=referenced
+cuppa -Q -D --list-downloads --list-format=verbose
+cuppa -Q -D --list-downloads --list-format=json
+----
+
+Example shape (sizes and names vary):
+
+[source,text]
+----
+Downloads in ~/.cuppa/downloads
+Default dependencies: boost, boost_package
+  ---------------------------------------------------------------------------------
+      SIZE  LAST USED  REMARK   DEPENDENCY / DOWNLOAD
+  ---------------------------------------------------------------------------------
+    180.0M  today      2 total  referenced from downloads
+                                │
+    142.0M  today      1 used   ├── source archives
+                                │
+    142.0M  today               │   └── boost
+    142.0M  today      in use   │       └── boost_1_91_0.tar.bz2
+       2.1G  today      in use   │           └── [E] boost/1.91.0
+                                │
+     38.0M  today      1 used   └── gitlab packages
+                                │
+     38.0M  today               └── boost_package
+     38.0M  today                   └── 1.91
+     38.0M  today      in use           └── boost_…_gcc153_rel_….tar.gz
+    299.3M  today      in use               └── [E] gcc153_rel_x86_64_cxx2c
+  ---------------------------------------------------------------------------------
+     36.0M  today               unreferenced downloads
+                                │
+     36.0M  today               └── gitlab packages
+                                    │
+     36.0M  today                   └── boost_package
+     36.0M  today                       └── 1.91
+     36.0M  today                           └── boost_…_clang211_rel_….tar.gz
+  ---------------------------------------------------------------------------------
+  3 archives, 216.0M download total, 36.0M unreferenced
+
+[E] = dependency extracted from the download above
+----
 
 |===
 | Scope | Effect
@@ -215,7 +287,7 @@ Default dependencies: boost_package
   ---------------------------------------------------------------------
       5.8M  today               unreferenced
                                 │
-      5.8M  today               └── archives
+      5.8M  today               └── source archives
                                     │
       2.9M  today                   ├── boost
       2.9M  today                   │   └── 1.91.0
@@ -237,7 +309,7 @@ Under `--list-format=verbose` a LOCATION column is added. What it shows depends 
 * *Location dependencies* — bare repository URL on the identity; `URL@branch` on each branch leaf.
 * *GitLab packages* — empty on the identity; registry `…/package/version` on the version row;
   archive basename on each toolchain leaf.
-* *Archives* (Boost source tarballs, GitHub release zips, and similar) — short name such as
+* *Source archives* (Boost source tarballs, GitHub release zips, and similar) — short name such as
   `boost` or `github.com/fmtlib/fmt` on the identity; version or tag on each child; download URL
   on the version leaf.
 
@@ -267,7 +339,7 @@ Default dependencies: boost_package
   ----------------------------------------------------------------------------------------------------------------------------------------------
       5.8M  today               unreferenced
                                 │
-      5.8M  today               └── archives
+      5.8M  today               └── source archives
                                     │
       2.9M  today                   ├── boost
       2.9M  today                   │   └── 1.91.0                       [D] https://archives.boost.io/release/1.91.0/source/boost_1_91_0.tar.gz
@@ -319,14 +391,19 @@ as left behind. Removal leaves use honest scopes: cuppa-precise for stage
 (`clean/build.c++2c [clang211/debug/x86_64]`) and Boost.Build toolset **family** for bin
 (`clean/bin.c++2c [clang-linux-21*/debug]` — major family ± patch dirs such as `clang-linux-21.1`,
 not a cuppa minor like `clang211`). The identity SIZE is the full extract (same basis as
-`--list-dependencies`); a muted `source assets` leaf shows non-product bytes that stay on disk,
-and the freed-space summary reports the remaining archive size after product removal.
+`--list-dependencies`). Products and a muted `source assets` leaf hang under an `[E]` extract
+row (`---` nothing going, `-✔-` partial, `✔✔✔` everything under it going). Empty `bin.<abi>`
+husks with no toolset children stay on disk but are omitted from the table. The freed-space
+summary reports the remaining archive size after product removal.
+`--boost-patched` selects the `patched/` home; without it, `clean/` is active and `patched/`
+products show as leftovers.
 After a live product clean, cuppa refreshes that extract's inventory with an exact size, and the
 verify hint is `cuppa -Q -D --list-dependencies` (listing upgrades any remaining missing or
 estimated inventory sizes to exact on encounter).
 Dependencies without `storage_clean` still remove their
 whole owned tree under the dependencies root (for example GitLab `boost_package` removes the
-selected package variant folder).
+selected package variant folder). Dependency authors declare those trees with `storage_paths()`
+and optional `storage_clean()` — see xref:extending.adoc[Extending cuppa].
 
 [source,shell]
 ----
@@ -338,7 +415,7 @@ cuppa -Q -D --remove-all-dependencies
 ----
 
 Example shape after a source Boost product clean (extract stays; sizes and toolset ids vary).
-The identity SIZE is the full extract; `source assets` is the non-product remainder:
+The identity SIZE is the full extract; `[E]` is partial because source assets stay:
 
 [source,text]
 ----
@@ -348,9 +425,10 @@ Removed 2 dependency trees (412.3M) under ~/.cuppa/dependencies
        SIZE  LAST USED      REMARK     DEPENDENCY
   ------------------------------------------------------------------------------------
        2.1G                             boost  1.91.0
-    298.4M   yesterday      removed    ├── ✔ clean/build.c++2c [gcc153/debug/x86_64]
-    113.9M   yesterday      removed    ├── ✔ clean/bin.c++2c [gcc-15*/debug]
-       1.7G   yesterday                └── source assets
+       2.1G   yesterday                └── -✔- [E] boost_1_91_0
+       1.7G   yesterday                       ├── - source assets
+    298.4M   yesterday      removed           ├── ✔ clean/build.c++2c [gcc153/debug/x86_64]
+    113.9M   yesterday      removed           └── ✔ clean/bin.c++2c [gcc-15*/debug]
   ------------------------------------------------------------------------------------
 
 Removed 2 trees freeing up 412.3M of disk space, leaving a final archive size of 1.7G.
@@ -394,6 +472,69 @@ toolchains (for example `--toolchains=gcc,clang`) removes each matching package 
 
 With `--develop`, a develop working copy is never deleted; the report lists it under skipped
 develop paths. Cached stems under the dependencies root may still be removed when selected.
+
+[#purge-dependencies]
+== Purging dependencies and downloads
+
+`--purge-dependencies=name1,name2` and `--purge-all-dependencies` do everything
+`--remove-dependencies` / `--remove-all-dependencies` do, then delete the matching archives
+under the downloads root for the **same names and selection** (`--toolchains`, variants,
+location-match). `--purge-all-dependencies` means every **project-used** name — not every leftover
+toolchain tarball on disk. Unreferenced clang archives stay, just as `--list-downloads` shows them.
+
+Do not combine any `--purge-*` flag with any `--remove-*` flag in one invocation (name lists are
+not merged). Unknown names use the same hint tree as remove. A missing download is not a failure:
+remove still runs and the report notes there was no archive to delete. Develop working copies are
+never deleted; downloads for that name may still be purged. SCons `-n` is a dry run.
+
+Source Boost with `storage_clean` still leaves the extract (headers / `b2` / the other patch home);
+the **download file** is deleted. That reclaims download space; the next build keeps using the
+extract. A later `--wipe-dependencies` is a clear-down of the extract (and matching downloads);
+the next build then re-downloads and re-extracts as usual.
+
+The report nests download → `[E]` → source assets and products (the same pairing as
+`--list-downloads`). `[E]` uses a partial mark when the extract stays. Remove-without-purge uses
+the same `[E]` subtree directly under the identity. Leftover other-selection extracts **and**
+leftover downloads are called out like today’s leftover trees. Freed space includes download
+bytes. Verify with `cuppa -Q -D --list-downloads` (a subdued note remains when archive-clean left
+source assets — `--list-dependencies` is still useful there).
+
+[source,shell]
+----
+cuppa -Q -D --purge-dependencies=boost_package
+cuppa -Q -D --dbg --toolchains=gcc --purge-dependencies=boost_package
+cuppa -Q -D --dbg --purge-dependencies=boost
+cuppa -Q -D -n --purge-dependencies=widget
+cuppa -Q -D --purge-all-dependencies
+----
+
+Example shape after purging the selected GitLab toolchain tree and tarball while another
+toolchain remains (sizes and ids vary):
+
+[source,text]
+----
+Removed 1 dependency tree and 1 download (166M) under ~/.cuppa/dependencies / ~/.cuppa/downloads
+
+  ------------------------------------------------------------------------------------
+       SIZE  LAST USED      REMARK     DEPENDENCY
+  ------------------------------------------------------------------------------------
+    757.8M                             boost_package  1.91
+      1.2M   yesterday      removed    ├── ✔ boost_debian_gcc153_rel_x86_64_cxx2c.tar.gz
+      166M   yesterday      removed    │       └── ✔ [E] gcc153_rel_x86_64_cxx2c/boost/1.91
+      1.1M   11 days ago               └── - boost_debian_clang211_rel_x86_64_cxx2c.tar.gz
+      294M   11 days ago                       └── - [E] clang211_rel_x86_64_cxx2c/boost/1.91
+  ------------------------------------------------------------------------------------
+
+Leaving 1 tree and 1 download (295.1M) for other selections as shown.
+
+Removed 1 tree and 1 download freeing up 167.2M of disk space.
+
+Verify with:
+
+cuppa -Q -D --list-downloads
+----
+
+See xref:integration/test-purge-dependencies.adoc[`test_purge_dependencies`].
 
 == Checking your develop copies
 
