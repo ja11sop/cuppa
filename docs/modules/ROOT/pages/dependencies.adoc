@@ -402,7 +402,8 @@ verify hint is `cuppa -Q -D --list-dependencies` (listing upgrades any remaining
 estimated inventory sizes to exact on encounter).
 Dependencies without `storage_clean` still remove their
 whole owned tree under the dependencies root (for example GitLab `boost_package` removes the
-selected package variant folder).
+selected package variant folder). Dependency authors declare those trees with `storage_paths()`
+and optional `storage_clean()` — see xref:extending.adoc[Extending cuppa].
 
 [source,shell]
 ----
@@ -487,9 +488,9 @@ remove still runs and the report notes there was no archive to delete. Develop w
 never deleted; downloads for that name may still be purged. SCons `-n` is a dry run.
 
 Source Boost with `storage_clean` still leaves the extract (headers / `b2` / the other patch home);
-the **download file** is deleted. That reclaims download space but does not force a re-extract on
-the next build. A later wipe mode may delete the extract as well so the next resolve re-downloads
-and re-extracts a clean copy.
+the **download file** is deleted. That reclaims download space; the next build keeps using the
+extract. A later `--wipe-dependencies` is a clear-down of the extract (and matching downloads);
+the next build then re-downloads and re-extracts as usual.
 
 The report nests download → `[E]` → source assets and products (the same pairing as
 `--list-downloads`). `[E]` uses a partial mark when the extract stays. Remove-without-purge uses

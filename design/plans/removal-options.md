@@ -15,8 +15,8 @@ clean, lazy exact inventory sizes on list) are implemented (listing
 [#142](https://github.com/ja11sop/cuppa/pull/142) on `master`; archive clean
 [#143](https://github.com/ja11sop/cuppa/pull/143)). Cloning a missing develop copy (§3.7)
 remains a proposal, as does artefact removal (Phase 6). Phase 4 listing + purge
-(`--list-downloads` / `--purge-dependencies` / `--purge-all-dependencies`) is implemented on
-`134_list_and_purge_downloads` (closes #134 when the PR merges).
+(`--list-downloads` / `--purge-dependencies` / `--purge-all-dependencies`) is implemented in
+[#144](https://github.com/ja11sop/cuppa/pull/144) (closes #134 when that PR merges).
 Follow-on from the `--clean` work in `cuppa/location.py` and `cuppa/package_managers/gitlab.py`,
 where a clean could not complete because a dependency was missing, and where the advice for
 leftover artefacts was "remove the folder by hand". Telling people to run `rm -rf` is
@@ -24,7 +24,7 @@ unsatisfying: it is platform-specific, it is easy to aim at the wrong path, and 
 knows exactly which folders belong to which variant and which dependency.
 
 This plan proposes a way to list what is in the storage roots, a family of explicit removal
-options (Phases 1–3 listing/removal/archive clean done; then Phase 4 purge), conservative ways
+options (Phases 1–4 listing / removal / archive clean / purge done), conservative ways
 to create develop copies that are missing (§3.7), and the safety model that governs deletion.
 
 The storage rename came **first** (§6, Phase 1) so every later phase talks about one vocabulary.
@@ -37,10 +37,11 @@ which defaults to `~/.cuppa` and can be moved with one option.
 Phases **1**, **2**, **4**, and **5**, Phase **3 listing**, Phase **3 removal Slice D**, and
 archive clean-by-variant (§4.14.3) are **done**
 ([#141](https://github.com/ja11sop/cuppa/pull/141) /
-[#142](https://github.com/ja11sop/cuppa/pull/142) on `master`;
-[#143](https://github.com/ja11sop/cuppa/pull/143) for archive clean / umbrella
-[#134](https://github.com/ja11sop/cuppa/issues/134)). None of those PRs close #134.
-Phase **6** / **§3.7** and the deferred Phase 3 polish items remain open.
+[#142](https://github.com/ja11sop/cuppa/pull/142) /
+[#143](https://github.com/ja11sop/cuppa/pull/143) on `master`;
+Phase 4 in [#144](https://github.com/ja11sop/cuppa/pull/144)). #144 is the PR that closes
+umbrella [#134](https://github.com/ja11sop/cuppa/issues/134). Phase **6** / **§3.7** and the
+deferred Phase 3 polish items remain open and do not keep #134 open.
 
 | Area | State | Notes |
 |------|--------|-------|
@@ -58,12 +59,14 @@ Phase **6** / **§3.7** and the deferred Phase 3 polish items remain open.
 | Phase 3 — `--remove-dependencies` / `--remove-all-dependencies` | **done** | Slice D on `master` (#142 / §4.13): project-used name gate, hierarchical remove report, multi-toolchain packages, unknown-name in-use tree hint; no purge |
 | Phase 3 — archive / Boost clean-by-variant (§4.14) | **done** | #143 — optional `storage_clean` + Boost b2 stage/`bin.<abi>` clean; source-assets leaf + remaining archive size; whole-extract only when unsupported |
 | Phase 3 — **dependencies documentation split** (§7.1) | **open** | Partition the monolithic `dependencies.adoc` (+ reconcile `packages.adoc` / `extending.adoc`); Managing examples match list + remove — split can proceed when convenient |
-| Phase 4 — downloads list / purge | **done** | `--list-downloads` + `--purge-dependencies` / `--purge-all-dependencies` on `134_list_and_purge_downloads`; PR closes #134 |
+| Phase 4 — downloads list / purge | **done** | `--list-downloads` + `--purge-dependencies` / `--purge-all-dependencies` in [#144](https://github.com/ja11sop/cuppa/pull/144); that PR closes #134 |
 | Phase 6 — artefacts | **open** | Sketch only (§4.6) |
 | §3.7 — `--clone-develop` | **open** | #138 |
 
-**Next focus:** pre-merge for #134 (docs review, test-plan, squash). Deferred Phase 3 polish
-items below remain open and do not block closing #134.
+**Next focus:** merge [#144](https://github.com/ja11sop/cuppa/pull/144) to close #134, then
+deferred Phase 3 polish, then `--wipe-dependencies` (clear-down only; the next build
+re-downloads / re-extracts as usual). Boost package identity stays on
+[`boost-updates.md`](boost-updates.md).
 
 **Deferred Phase 3 polish** (parallel branches fine):
 
@@ -1896,7 +1899,7 @@ could land at any point, and Phase 6 needs a design pass this plan does not atte
 | 1 | `--storage-root` and the renamed roots | — | **done** ([#133](https://github.com/ja11sop/cuppa/issues/133)) |
 | 2 | `--remove-builds`, `--remove-all-builds`, `--list-builds` | 1 | **done** ([#134](https://github.com/ja11sop/cuppa/issues/134) / #140) |
 | 3 | Inventory, `--list-dependencies`, `--remove-dependencies` / `--remove-all-dependencies` | 1, 2 | **listing done** (#141); **Slice D removal done** (#142 / §4.13); archive clean §4.14.3 **done** (#143) |
-| 4 | `--list-downloads`, `--purge-*` | 3 | **done** (listing + purge on `134_list_and_purge_downloads`) |
+| 4 | `--list-downloads`, `--purge-*` | 3 | **done** ([#144](https://github.com/ja11sop/cuppa/pull/144); closes #134) |
 | 5 | `--list-develop`, `--update-develop` | nothing in this plan | **done** ([#132](https://github.com/ja11sop/cuppa/issues/132)) |
 | 6 | `--remove-artefacts` | its own design pass first | |
 
@@ -1959,10 +1962,15 @@ Listing half **done** on `master` (#141). Removal Slice D **done** on `master` (
 **Phase 4 — downloads listing and purge** (§3.3) — **done**
 
 - Hierarchical `--list-downloads` (archive + `[E]` extract children, referenced / unreferenced,
-  archive-only footer totals, JSON `kind`).
+  archive-only footer totals, JSON `kind`). `--list-scope` is shared with `--list-dependencies`.
 - `--purge-dependencies` / `--purge-all-dependencies`: same name gate and selection as remove,
   then delete matching downloads; Boost `storage_clean` extract stays, download file is deleted;
   leftover other-selection archives stay; verify with `--list-downloads`.
+- `--boost-patched` selects the source-Boost `patched/` home (deprecated alias
+  `--boost-patch-boost-test`). Empty `bin.<abi>` husks are omitted from reports.
+- **Not in this phase:** `--wipe-dependencies` (clear-down of extract and matching downloads;
+  the next build retrieves again on its own); Boost GitLab package patched/clean identity
+  ([`boost-updates.md`](boost-updates.md)).
 
 **Phase 5 — develop copies** (§3.5, §3.6 — independent of Phases 1 to 4) — **done**
 
@@ -2177,8 +2185,9 @@ removal code:
    and Managing examples match the tree; do not wait for further listing polish.
 2. **In parallel with or just before** documenting `--remove-dependencies` (Slice D), so
    Managing ships as one coherent page rather than list-only then remove bolted on.
-3. **Before Phase 4** (downloads list/purge), so downloads management can extend Managing
-   instead of growing the old monolith again.
+3. **Originally before Phase 4** so downloads management could extend Managing instead of
+   growing the old monolith again. Phase 4 shipped on the existing `dependencies.adoc`
+   Managing sections; the split is still open polish and is not a closer for #134.
 
 Scaffolding the hub + stub children earlier is fine if links are kept honest ("content moving
 here").

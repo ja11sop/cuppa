@@ -116,7 +116,7 @@ Design: [`design/plans/boost-updates.md`](design/plans/boost-updates.md).
 | Capability | Status |
 |------------|--------|
 | Source `--boost-patched` selects `patched/` vs `clean/` under one extract | Yes (alias `--boost-patch-boost-test`) |
-| Source remove/purge is selection-scoped per home | Yes on `134_list_and_purge_downloads` |
+| Source remove/purge is selection-scoped per home | Yes ([#144](https://github.com/ja11sop/cuppa/pull/144)) |
 | `boost_package.define(..., patched=True)` default | Yes — compile define + `patched_test()` only |
 | Package archive / extract / version distinguish patched vs clean | No — same `boost` + `1.91` + tool variant |
 | Package `use_libs` passes `patched_test=` into library deps | No |
@@ -285,14 +285,15 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 | `--clean` removes the current variant's build outputs | Yes |
 | `--list-develop` / `--update-develop` for the working copies `--develop` builds against | Yes — [#132](https://github.com/ja11sop/cuppa/issues/132) |
 | Shared storage under `~/.cuppa`, named `--dependencies-root` / `--downloads-root`, with `--storage-root` to move both | Yes — [#133](https://github.com/ja11sop/cuppa/issues/133) |
-| Remove a whole build tree, a dependency, or a stale download | Builds: `--remove-builds` / `--remove-all-builds` ([#134](https://github.com/ja11sop/cuppa/issues/134) / #140); dependencies: `--remove-dependencies` / `--remove-all-dependencies` ([#134](https://github.com/ja11sop/cuppa/issues/134) / #142), with selection-scoped archive product clean via `storage_clean` ([#143](https://github.com/ja11sop/cuppa/pull/143)); downloads still manual |
-| See what is stored, where, and how large it is | Builds: `--list-builds` ([#134](https://github.com/ja11sop/cuppa/issues/134) / #140); dependencies: `--list-dependencies` ([#134](https://github.com/ja11sop/cuppa/issues/134) / #141), with lazy exact size upgrade ([#143](https://github.com/ja11sop/cuppa/pull/143)); downloads still no |
+| Remove a whole build tree, a dependency, or a stale download | Builds: `--remove-builds` / `--remove-all-builds` ([#134](https://github.com/ja11sop/cuppa/issues/134) / [#140](https://github.com/ja11sop/cuppa/pull/140)); dependencies: `--remove-dependencies` / `--remove-all-dependencies` ([#142](https://github.com/ja11sop/cuppa/pull/142)), with selection-scoped archive product clean via `storage_clean` ([#143](https://github.com/ja11sop/cuppa/pull/143)); downloads: `--purge-dependencies` / `--purge-all-dependencies` ([#144](https://github.com/ja11sop/cuppa/pull/144)) |
+| See what is stored, where, and how large it is | Builds: `--list-builds` ([#140](https://github.com/ja11sop/cuppa/pull/140)); dependencies: `--list-dependencies` ([#141](https://github.com/ja11sop/cuppa/pull/141)), with lazy exact size upgrade ([#143](https://github.com/ja11sop/cuppa/pull/143)); downloads: `--list-downloads` ([#144](https://github.com/ja11sop/cuppa/pull/144)), filterable with `--list-scope` |
 
 ### Planned / potential
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `storage-listing-removal` | `--list-*`, `--remove-*`, `--purge-*` for builds, dependencies, and downloads | Medium | Builds done (#140); `--list-dependencies` done (#141); Slice D dependency removal done (#142 / §4.13); archive clean-by-variant (§4.14.3) done (#143); Phase 4 `--list-downloads` + `--purge-*` on `134_list_and_purge_downloads` (closes [#134](https://github.com/ja11sop/cuppa/issues/134) at merge). |
+| `storage-listing-removal` | `--list-*`, `--remove-*`, `--purge-*` for builds, dependencies, and downloads | Medium | Umbrella [#134](https://github.com/ja11sop/cuppa/issues/134) closes when [#144](https://github.com/ja11sop/cuppa/pull/144) merges. Builds #140; list-deps #141; remove #142; archive clean #143; Phase 4 list-downloads + purge #144. Follow-on polish (does not keep #134 open): inventory `used_by`, Conan meta, default-branch quirk, docs split. |
+| `storage-wipe` | `--wipe-dependencies` — clear down extract and matching downloads | Medium | Space-saving purge can leave extracts; wipe only deletes. The next build re-downloads / re-extracts as usual. After #144 / Phase 3 polish. |
 | `develop-clone` | `--clone-develop` for a develop working copy that is configured but not yet on disk, for a new machine or a dependency added since you last looked | Medium | Surface settled, remaining design to finalise first: pinned locations, submodules, whether retrieval machinery is reused. [`design/plans/removal-options.md`](design/plans/removal-options.md) §3.7. GitHub [#138](https://github.com/ja11sop/cuppa/issues/138) |
 | `artefact-removal` | Decide how to remove artefacts written outside the build root | Low | Design pass first; `--remove-builds` deliberately stops at `_build`. GitHub [#135](https://github.com/ja11sop/cuppa/issues/135) |
 
