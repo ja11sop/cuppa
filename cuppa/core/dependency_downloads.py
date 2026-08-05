@@ -127,6 +127,51 @@ def tool_variant_from_gitlab_archive( package, archive_name ):
     return None
 
 
+def matching_products( meta, products ):
+    """Return product dicts that pair with a download described by ``meta``.
+
+    Used by ``--list-downloads`` and purge so archive↔extract matching stays one place.
+    Each product is a mapping with at least ``path``, ``type``, ``dependency``,
+    ``short_name``, ``qualifier``, and ``tool_variant``.
+    """
+    matches = []
+    storage_type = meta.get( 'type' )
+    for product in products:
+        if storage_type == 'gitlab':
+            if product.get( 'type' ) != 'gitlab':
+                continue
+            parts = [
+                    part for part in str( product.get( 'path' ) or '' ).replace( '\\', '/' ).split( '/' )
+                    if part
+            ]
+            folder_pkg = parts[-2] if len( parts ) >= 2 else None
+            meta_folder = meta.get( 'package_folder' )
+            meta_names = { meta.get( 'short_name' ), meta.get( 'dependency' ), meta_folder }
+            product_names = { product.get( 'short_name' ), product.get( 'dependency' ), folder_pkg }
+            meta_names.discard( None )
+            meta_names.discard( '' )
+            product_names.discard( None )
+            product_names.discard( '' )
+            folder_match = bool( meta_folder and folder_pkg and meta_folder == folder_pkg )
+            if not folder_match and meta_names.isdisjoint( product_names ):
+                continue
+            if meta.get( 'qualifier' ) and str( product.get( 'qualifier' ) or '' ) not in (
+                    '', '-', str( meta.get( 'qualifier' ) )
+            ):
+                continue
+            if meta.get( 'tool_variant' ) and product.get( 'tool_variant' ) not in (
+                    None, '', '-', meta.get( 'tool_variant' )
+            ):
+                continue
+            matches.append( product )
+            continue
+        archive_name = meta.get( 'archive' ) or ''
+        product_base = os.path.basename( str( product.get( 'path' ) or '' ).rstrip( '\\/' ) )
+        if archive_name and product_base == archive_name:
+            matches.append( product )
+    return matches
+
+
 def _file_size( path ):
     try:
         return int( os.lstat( path ).st_size )
@@ -354,44 +399,6 @@ def collect_download_rows( construct, cuppa_env ):
             'last_used_epoch': epoch,
         } )
 
-    def matching_products( meta ):
-        matches = []
-        storage_type = meta.get( 'type' )
-        for product in products_by_key:
-            if storage_type == 'gitlab':
-                if product.get( 'type' ) != 'gitlab':
-                    continue
-                parts = [
-                        part for part in str( product.get( 'path' ) or '' ).replace( '\\', '/' ).split( '/' )
-                        if part
-                ]
-                folder_pkg = parts[-2] if len( parts ) >= 2 else None
-                meta_folder = meta.get( 'package_folder' )
-                meta_names = { meta.get( 'short_name' ), meta.get( 'dependency' ), meta_folder }
-                product_names = { product.get( 'short_name' ), product.get( 'dependency' ), folder_pkg }
-                meta_names.discard( None )
-                meta_names.discard( '' )
-                product_names.discard( None )
-                product_names.discard( '' )
-                folder_match = bool( meta_folder and folder_pkg and meta_folder == folder_pkg )
-                if not folder_match and meta_names.isdisjoint( product_names ):
-                    continue
-                if meta.get( 'qualifier' ) and str( product.get( 'qualifier' ) or '' ) not in (
-                        '', '-', str( meta.get( 'qualifier' ) )
-                ):
-                    continue
-                if meta.get( 'tool_variant' ) and product.get( 'tool_variant' ) not in (
-                        None, '', '-', meta.get( 'tool_variant' )
-                ):
-                    continue
-                matches.append( product )
-                continue
-            archive_name = meta.get( 'archive' ) or ''
-            product_base = os.path.basename( str( product.get( 'path' ) or '' ).rstrip( '\\/' ) )
-            if archive_name and product_base == archive_name:
-                matches.append( product )
-        return matches
-
     def apply_registry_name( meta ):
         folder = meta.get( 'package_folder' )
         registry = gitlab_folder_to_registry.get( folder ) if folder else None
@@ -432,7 +439,7 @@ def collect_download_rows( construct, cuppa_env ):
             meta['remote_location'] = item.remote_location
         apply_registry_name( meta )
         add_archive_row( item.path, meta, 'referenced' )
-        products = matching_products( meta )
+        products = matching_products( meta, products_by_key )
         for product in products:
             add_product_row(
                     product, 'referenced',
@@ -469,7 +476,7 @@ def collect_download_rows( construct, cuppa_env ):
                 break
         apply_registry_name( meta )
         add_archive_row( path, meta, state )
-        products = matching_products( meta )
+        products = matching_products( meta, products_by_key )
         for product in products:
             add_product_row(
                     product, state,

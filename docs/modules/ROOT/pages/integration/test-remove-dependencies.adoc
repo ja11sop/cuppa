@@ -18,8 +18,8 @@ With planted trees under a private `--storage-root`:
 * Source `boost` with `--boost-home` under the storage dependencies root removes only the selected
   variant's stage directory and matching Boost.Build toolset **variant** folder under
   `bin.<abi>` (`storage_clean`), leaving the extract, headers, another variant's stage tree, and
-  other toolsets' bin products in place. The report shows a muted `source assets` leaf and a
-  remaining archive size in the freed-space line.
+  other toolsets' bin products in place. The report nests those leaves under `[E]` with a muted
+  `source assets` row and a remaining archive size in the freed-space line.
 
 == Generated files
 

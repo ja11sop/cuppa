@@ -250,7 +250,7 @@ cuppa.run(
 
 
 def test_list_dependencies_scope_referenced_hides_unreferenced(tmp_path):
-    """--list-dependencies-scope=referenced omits the unreferenced section."""
+    """--list-scope=referenced omits the unreferenced section."""
     project = copy_dummy_project(tmp_path)
     storage = tmp_path / "storage"
     plant_archives_and_downloads(storage)
@@ -279,7 +279,7 @@ cuppa.run(
         project,
         "--offline",
         "--list-dependencies",
-        "--list-dependencies-scope=referenced",
+        "--list-scope=referenced",
         "--storage-root={}".format(storage),
         extra_env=own_home(tmp_path),
     )
@@ -295,7 +295,7 @@ cuppa.run(
         project,
         "--offline",
         "--list-dependencies",
-        "--list-dependencies-scope=referenced",
+        "--list-scope=referenced",
         "--list-format=json",
         "--storage-root={}".format(storage),
         extra_env=own_home(tmp_path),
@@ -315,7 +315,7 @@ cuppa.run(
 
 
 def test_list_dependencies_scope_unreferenced_hides_referenced(tmp_path):
-    """--list-dependencies-scope=unreferenced keeps only leftover trees."""
+    """--list-scope=unreferenced keeps only leftover trees."""
     project = copy_dummy_project(tmp_path)
     storage = tmp_path / "storage"
     plant_archives_and_downloads(storage)
@@ -344,7 +344,7 @@ cuppa.run(
         project,
         "--offline",
         "--list-dependencies",
-        "--list-dependencies-scope=unreferenced",
+        "--list-scope=unreferenced",
         "--storage-root={}".format(storage),
         extra_env=own_home(tmp_path),
     )
@@ -356,6 +356,45 @@ cuppa.run(
     # [D] footer is verbose-only even when regenerating archives exist.
     assert "[D] = archive present under downloads" not in plain
     assert "corrupt archive" not in plain
+
+
+def test_list_dependencies_scope_alias_still_works(tmp_path):
+    """Deprecated --list-dependencies-scope remains an alias of --list-scope."""
+    project = copy_dummy_project(tmp_path)
+    storage = tmp_path / "storage"
+    plant_archives_and_downloads(storage)
+    write_sconstruct(
+        project,
+        body="""\
+import cuppa
+
+Boost = cuppa.package_dependency(
+    'boost_package',
+    package_manager='gitlab',
+    registry='https://gitlab.example/api/v4/projects/1',
+    package='boost',
+    version='1.91',
+)
+
+cuppa.run(
+    default_variants=['dbg'],
+    dependencies=[Boost],
+    default_dependencies=['boost_package'],
+)
+""",
+    )
+    listed = run_cuppa(
+        project,
+        "--offline",
+        "--list-dependencies",
+        "--list-dependencies-scope=referenced",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(listed)
+    plain = strip_ansi(listed.stdout)
+    assert "unreferenced" not in plain
+    assert "referenced" in plain
 
 
 def test_list_dependencies_verbose_archives_and_download_mark(tmp_path):

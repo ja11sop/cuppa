@@ -183,3 +183,74 @@ def test_list_downloads_marks_selected_gitlab_archive_referenced(tmp_path):
     assert [child.get("label") for child in archive_leaf.get("children") or []] == [
             "[E] {}".format(tool_variant)
     ]
+
+
+def test_list_downloads_scope_referenced_hides_unreferenced(tmp_path):
+    project = copy_dummy_project(tmp_path)
+    storage = tmp_path / "storage"
+    planted = plant_archives_and_downloads(storage)
+    leftover = storage / "downloads" / "orphan.tar.gz"
+    leftover.write_bytes(b"orphan-bytes")
+    write_sconstruct(project, body=_boost_package_sconstruct())
+
+    listed = run_cuppa(
+        project,
+        "--offline",
+        "--list-downloads",
+        "--list-scope=referenced",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(listed)
+    plain = strip_ansi(listed.stdout)
+    assert "referenced from downloads" in plain
+    assert "unreferenced downloads" not in plain
+    assert "orphan.tar.gz" not in plain
+    assert "Review unreferenced downloads" not in plain
+    assert "referenced" in plain
+    assert planted["gitlab_archive"] in plain or planted["boost_folder"] in plain
+
+    as_json = run_cuppa(
+        project,
+        "--offline",
+        "--list-downloads",
+        "--list-scope=referenced",
+        "--list-format=json",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(as_json)
+    payload = _json_payload(as_json)
+    assert payload.get("scope") == "referenced"
+    assert all(entry.get("state") != "unreferenced" for entry in payload["entries"])
+    assert "orphan.tar.gz" not in {entry.get("label") for entry in payload["entries"]}
+    section_labels = [
+            section.get("label")
+            for section in (payload.get("tree") or {}).get("sections") or []
+    ]
+    assert "unreferenced" not in section_labels
+    assert "referenced" in section_labels
+
+
+def test_list_downloads_scope_unreferenced_hides_referenced(tmp_path):
+    project = copy_dummy_project(tmp_path)
+    storage = tmp_path / "storage"
+    plant_archives_and_downloads(storage)
+    leftover = storage / "downloads" / "orphan.tar.gz"
+    leftover.write_bytes(b"orphan-bytes")
+    write_sconstruct(project, body=_boost_package_sconstruct())
+
+    listed = run_cuppa(
+        project,
+        "--offline",
+        "--list-downloads",
+        "--list-scope=unreferenced",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(listed)
+    plain = strip_ansi(listed.stdout)
+    assert "unreferenced downloads" in plain
+    assert "referenced from downloads" not in plain
+    assert "orphan.tar.gz" in plain
+    assert "Review unreferenced downloads" in plain

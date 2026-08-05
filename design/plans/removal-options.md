@@ -14,7 +14,9 @@ clean, lazy exact inventory sizes on list) are implemented (listing
 [#141](https://github.com/ja11sop/cuppa/pull/141) and removal
 [#142](https://github.com/ja11sop/cuppa/pull/142) on `master`; archive clean
 [#143](https://github.com/ja11sop/cuppa/pull/143)). Cloning a missing develop copy (§3.7)
-remains a proposal, as do download listing/removal (Phase 4) and artefact removal (Phase 6).
+remains a proposal, as does artefact removal (Phase 6). Phase 4 listing + purge
+(`--list-downloads` / `--purge-dependencies` / `--purge-all-dependencies`) is implemented on
+`134_list_and_purge_downloads` (closes #134 when the PR merges).
 Follow-on from the `--clean` work in `cuppa/location.py` and `cuppa/package_managers/gitlab.py`,
 where a clean could not complete because a dependency was missing, and where the advice for
 leftover artefacts was "remove the folder by hand". Telling people to run `rm -rf` is
@@ -32,13 +34,13 @@ which defaults to `~/.cuppa` and can be moved with one option.
 
 ### Progress snapshot (2026-08-05)
 
-Phases **1**, **2**, and **5**, Phase **3 listing**, Phase **3 removal Slice D**, and
+Phases **1**, **2**, **4**, and **5**, Phase **3 listing**, Phase **3 removal Slice D**, and
 archive clean-by-variant (§4.14.3) are **done**
 ([#141](https://github.com/ja11sop/cuppa/pull/141) /
 [#142](https://github.com/ja11sop/cuppa/pull/142) on `master`;
 [#143](https://github.com/ja11sop/cuppa/pull/143) for archive clean / umbrella
 [#134](https://github.com/ja11sop/cuppa/issues/134)). None of those PRs close #134.
-Phases **4** / **6** / **§3.7** and the deferred Phase 3 polish items remain open.
+Phase **6** / **§3.7** and the deferred Phase 3 polish items remain open.
 
 | Area | State | Notes |
 |------|--------|-------|
@@ -46,7 +48,7 @@ Phases **4** / **6** / **§3.7** and the deferred Phase 3 polish items remain op
 | Phase 2 — `--list-builds` / `--remove-builds` / `--remove-all-builds` | **done** | #140 |
 | Phase 5 — `--list-develop` / `--update-develop` | **done** | #132 / #137; realistic integration example + docs for which listing to use |
 | Phase 3 — `storage_paths()` + resolve-only | **done** | location, GitLab package, Conan, Boost; skips when undeclared |
-| Phase 3 — inventory + `--list-dependencies` | **done** | Walk, sizes, `type`, JSON `tree` + flat `entries`, `referenced` / `unreferenced` / `missing`; ANSI-safe column padding; listing does not stamp `last_used`; `Collating dependency tree...` before the walk (text/verbose); lazy exact upgrade for missing/sampled inventory (§4.5); `--list-dependencies-scope` |
+| Phase 3 — inventory + `--list-dependencies` | **done** | Walk, sizes, `type`, JSON `tree` + flat `entries`, `referenced` / `unreferenced` / `missing`; ANSI-safe column padding; listing does not stamp `last_used`; `Collating dependency tree...` before the walk (text/verbose); lazy exact upgrade for missing/sampled inventory (§4.5); `--list-scope` (alias `--list-dependencies-scope`) |
 | Phase 3 — native `du` for exact bytes (§4.5.1) | **future** | Parked; first exact list upgrade felt fine in practice on large Boost extracts — revisit only if that changes |
 | Phase 3 — `--list-dependencies` **table presentation** | **done** | Hierarchical tree (§4.9 P1–P4): REMARK / rollups / colour; missing vs stale summaries; `--list-format=verbose` LOCATION; `[D]` + footer (§4.12); GitHub archive grouping; GitLab registry LOCATION on unreferenced too; Windows `.zip` + OS label for package archives; docs examples match real ruled output |
 | Phase 3 — inventory `used_by` on resolve | **open** | Listing must not stamp use; real resolve/build should. Prerequisite for §4.10 remarks |
@@ -56,13 +58,12 @@ Phases **4** / **6** / **§3.7** and the deferred Phase 3 polish items remain op
 | Phase 3 — `--remove-dependencies` / `--remove-all-dependencies` | **done** | Slice D on `master` (#142 / §4.13): project-used name gate, hierarchical remove report, multi-toolchain packages, unknown-name in-use tree hint; no purge |
 | Phase 3 — archive / Boost clean-by-variant (§4.14) | **done** | #143 — optional `storage_clean` + Boost b2 stage/`bin.<abi>` clean; source-assets leaf + remaining archive size; whole-extract only when unsupported |
 | Phase 3 — **dependencies documentation split** (§7.1) | **open** | Partition the monolithic `dependencies.adoc` (+ reconcile `packages.adoc` / `extending.adoc`); Managing examples match list + remove — split can proceed when convenient |
-| Phase 4 — downloads list / purge | **in progress** | `--list-downloads` hierarchical listing on `134_list_and_purge_downloads`; purge flags still open |
+| Phase 4 — downloads list / purge | **done** | `--list-downloads` + `--purge-dependencies` / `--purge-all-dependencies` on `134_list_and_purge_downloads`; PR closes #134 |
 | Phase 6 — artefacts | **open** | Sketch only (§4.6) |
 | §3.7 — `--clone-develop` | **open** | #138 |
 
-**Next focus:** Phase 4 purge (`--purge-dependencies` / `--purge-all-dependencies`) after
-`--list-downloads` feedback. Deferred Phase 3 polish items below remain open and do not block
-Phase 4.
+**Next focus:** pre-merge for #134 (docs review, test-plan, squash). Deferred Phase 3 polish
+items below remain open and do not block closing #134.
 
 **Deferred Phase 3 polish** (parallel branches fine):
 
@@ -124,7 +125,7 @@ not show a need after the lazy exact upgrade shipped.
 | Remove one stale dependency | `--remove-dependencies=name` (Slice D / #142); selection-scoped |
 | Remove archive build products without wiping the extract | `storage_clean` / Boost stage + `bin.<abi>` (#143 / §4.14.3) |
 | Remove all dependencies used by this project (current selection) | `--remove-all-dependencies` (Slice D / #142); leftovers for other selections reported |
-| Remove cached archives | manual, under the downloads root (Phase 4) |
+| Remove cached archives | `--purge-dependencies` / `--purge-all-dependencies` (Phase 4); selection-scoped, project-used names |
 
 The listing gap matters as much as the removal gap. Working across branches leaves
 branch-qualified trees (`…@feature_x`) behind indefinitely, and nothing ever reports them, so
@@ -1894,8 +1895,8 @@ could land at any point, and Phase 6 needs a design pass this plan does not atte
 |-------|----------|-----------|--------|
 | 1 | `--storage-root` and the renamed roots | — | **done** ([#133](https://github.com/ja11sop/cuppa/issues/133)) |
 | 2 | `--remove-builds`, `--remove-all-builds`, `--list-builds` | 1 | **done** ([#134](https://github.com/ja11sop/cuppa/issues/134) / #140) |
-| 3 | Inventory, `--list-dependencies`, `--remove-dependencies` / `--remove-all-dependencies` | 1, 2 | **listing done** (#141); **Slice D removal done** (#142 / §4.13); archive clean §4.14.3 **done** (#143); purge still Phase 4 |
-| 4 | `--list-downloads`, `--purge-*` | 3 | **listing in progress**; purge next |
+| 3 | Inventory, `--list-dependencies`, `--remove-dependencies` / `--remove-all-dependencies` | 1, 2 | **listing done** (#141); **Slice D removal done** (#142 / §4.13); archive clean §4.14.3 **done** (#143) |
+| 4 | `--list-downloads`, `--purge-*` | 3 | **done** (listing + purge on `134_list_and_purge_downloads`) |
 | 5 | `--list-develop`, `--update-develop` | nothing in this plan | **done** ([#132](https://github.com/ja11sop/cuppa/issues/132)) |
 | 6 | `--remove-artefacts` | its own design pass first | |
 
@@ -1930,7 +1931,7 @@ could land at any point, and Phase 6 needs a design pass this plan does not atte
 **Phase 3 — dependency listing, inventory, and removal** (§3.2, §4.3, §4.5, §4.7, §4.8)
 
 Listing half **done** on `master` (#141). Removal Slice D **done** on `master` (#142 /
-§4.13 / §4.14.1); archive clean-by-variant (§4.14.3) **done** (#143); purge remains Phase 4.
+§4.13 / §4.14.1); archive clean-by-variant (§4.14.3) **done** (#143); purge is Phase 4 (**done**).
 
 - `storage_paths()` + resolve-only: **done** (location, GitLab package, Conan, Boost).
 - Inventory (§4.5): **done** for sizes / type / remote fields; `used_by` stamping on real
@@ -1940,7 +1941,7 @@ Listing half **done** on `master` (#141). Removal Slice D **done** on `master` (
   docs examples).
 - **Done — removal Slice D:** `--remove-dependencies` / `--remove-all-dependencies` under
   `dependencies_root` only; project-used name gate; hierarchical remove report; unknown-name
-  in-use tree hint. Purge is Phase 4.
+  in-use tree hint. Purge is Phase 4 (**done**).
 - **Done — archive clean (§4.14.3 / #143):** optional `storage_clean`; Boost cleans
   selection-scoped stage / `bin.<abi>`; source-assets leaf + remaining archive size; lazy exact
   list sizes; whole-extract only when `storage_clean` is absent/`None`.
@@ -1955,11 +1956,13 @@ Listing half **done** on `master` (#141). Removal Slice D **done** on `master` (
 - **Documentation split (§7.1):** Managing samples match list + remove; partition
   `dependencies.adoc` when convenient.
 
-**Phase 4 — downloads listing and purge** (§3.3)
+**Phase 4 — downloads listing and purge** (§3.3) — **done**
 
-- **Listing in progress:** hierarchical `--list-downloads` (archive + product leaves, referenced /
-  unreferenced, archive-only footer totals, JSON `kind`).
-- **Still open:** `--purge-dependencies` / `--purge-all-dependencies` on top of Slice D remove.
+- Hierarchical `--list-downloads` (archive + `[E]` extract children, referenced / unreferenced,
+  archive-only footer totals, JSON `kind`).
+- `--purge-dependencies` / `--purge-all-dependencies`: same name gate and selection as remove,
+  then delete matching downloads; Boost `storage_clean` extract stays, download file is deleted;
+  leftover other-selection archives stay; verify with `--list-downloads`.
 
 **Phase 5 — develop copies** (§3.5, §3.6 — independent of Phases 1 to 4) — **done**
 

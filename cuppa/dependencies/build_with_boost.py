@@ -50,8 +50,13 @@ class Boost(object):
         add_option( '--boost-verbose-config', dest='boost-verbose-config', action='store_true',
                     help="Pass this option if you wish to see the configuration output of boost build" )
 
+        add_option( '--boost-patched', dest='boost-patched', action='store_true',
+                    help="Use the patched Boost source tree (patched/ instead of clean/ under the "
+                         "extract). Affects build, --remove-dependencies, and --purge-dependencies "
+                         "selection." )
+
         add_option( '--boost-patch-boost-test', dest='boost-patch-boost-test', action='store_true',
-                    help="Use this option to patch boost test so it uses the new Boost.Timer and provides more usable output" )
+                    help="Deprecated alias of --boost-patched" )
 
 
 
