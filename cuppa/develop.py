@@ -505,12 +505,52 @@ def suggestion( copies ):
     because `--update-develop` fetches before deciding and a fetch can find more, and the line
     says so rather than leaving the reader to discover it.
     """
-    ready = [ copy.name for copy in copies if update_action( copy ).act ]
+    ready = names_that_would_update( copies )
     if not ready:
         return None
     return ( "Of these, --update-develop would fast-forward {} ({}) as of your last fetch;"
              " it fetches first, so it may find more".format(
                     len( ready ), ", ".join( "[{}]".format( name ) for name in ready ) ) )
+
+
+def names_that_would_update( copies ):
+    """Dependency names ``--update-develop`` would fast-forward as of the last fetch."""
+    return [ copy.name for copy in copies if update_action( copy ).act ]
+
+
+def list_payload( copies, without_develop, current_branch, default_branch, develop_active ):
+    """Serializable report for ``--list-develop --list-format=json``."""
+    found = entries( copies, current_branch, default_branch )
+    severities = [ entry.severity for entry in found ]
+    return {
+        'current_branch': current_branch,
+        'default_branch': default_branch,
+        'develop_active': bool( develop_active ),
+        'without_develop': list( without_develop ),
+        'would_update': names_that_would_update( copies ),
+        'worst_severity': worst( severities ) if severities else OK,
+        'entries': [
+            {
+                'name': entry.copy.name,
+                'path': entry.copy.path,
+                'display_path': display_path( entry.copy.path ),
+                'exists': entry.copy.exists,
+                'is_working_copy': entry.copy.is_working_copy,
+                'scm': entry.copy.scm,
+                'branch': entry.copy.branch,
+                'detached': entry.copy.detached,
+                'upstream': entry.copy.upstream,
+                'ahead': entry.copy.ahead,
+                'behind': entry.copy.behind,
+                'modified': entry.copy.modified,
+                'severity': entry.severity,
+                'status': STATUS_FOR[entry.severity],
+                'state': state_summary( entry.copy ),
+                'notes': list( entry.notes ),
+            }
+            for entry in found
+        ],
+    }
 
 
 def report( copies, without_develop, current_branch, default_branch, develop_active, out=write,
@@ -557,12 +597,28 @@ def list_develop( cuppa_env, out=write ):
     """`--list-develop`. Non-zero only when a develop path does not exist, because that build
     cannot succeed and a CI job should hear about it."""
     copies, without_develop = survey( cuppa_env )
+    current_branch = cuppa_env['current_branch']
+    default_branch = cuppa_env['location_default_branch']
+    develop_active = cuppa_env['develop']
+
+    if cuppa_env.get( 'list_format' ) == 'json':
+        from cuppa.utility import storage
+        payload = list_payload(
+                copies,
+                without_develop,
+                current_branch,
+                default_branch,
+                develop_active,
+        )
+        out( storage.render_json_payload( payload ) )
+        return payload['worst_severity'] == ERROR and 1 or 0
+
     severity = report(
             copies,
             without_develop,
-            cuppa_env['current_branch'],
-            cuppa_env['location_default_branch'],
-            cuppa_env['develop'],
+            current_branch,
+            default_branch,
+            develop_active,
             out,
             suggest_update=True
     )

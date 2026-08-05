@@ -1,7 +1,7 @@
 # Plan: removal options for build folders and dependencies
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Storage roots, listing, and removal; GitHub [#132](https://github.com/ja11sop/cuppa/issues/132), [#133](https://github.com/ja11sop/cuppa/issues/133), [#134](https://github.com/ja11sop/cuppa/issues/134), [#135](https://github.com/ja11sop/cuppa/issues/135), [#138](https://github.com/ja11sop/cuppa/issues/138), [#145](https://github.com/ja11sop/cuppa/issues/145), [#146](https://github.com/ja11sop/cuppa/issues/146)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Storage roots, listing, and removal; GitHub [#132](https://github.com/ja11sop/cuppa/issues/132), [#133](https://github.com/ja11sop/cuppa/issues/133), [#134](https://github.com/ja11sop/cuppa/issues/134), [#135](https://github.com/ja11sop/cuppa/issues/135), [#138](https://github.com/ja11sop/cuppa/issues/138), [#145](https://github.com/ja11sop/cuppa/issues/145), [#146](https://github.com/ja11sop/cuppa/issues/146), [#148](https://github.com/ja11sop/cuppa/issues/148)
 - **Updated:** 2026-08-05
 
 `--list-develop` and `--update-develop` (§3.5, §3.6), the storage rename (§3.1, §8, Phase 1),
@@ -59,6 +59,7 @@ deferred Phase 3 polish items remain open and do not keep #134 open.
 | Phase 3 — `--remove-dependencies` / `--remove-all-dependencies` | **done** | Slice D on `master` (#142 / §4.13): project-used name gate, hierarchical remove report, multi-toolchain packages, unknown-name in-use tree hint; no purge |
 | Phase 3 — archive / Boost clean-by-variant (§4.14) | **done** | #143 — optional `storage_clean` + Boost b2 stage/`bin.<abi>` clean; source-assets leaf + remaining archive size; whole-extract only when unsupported |
 | Phase 3 — **dependencies documentation split** (§7.1) | **done** | [#145](https://github.com/ja11sop/cuppa/issues/145) — Hub + children; `packages.adoc` publish focus; `include`/`sys_include` drift fixed |
+| Phase 3 — `--list-develop --list-format=json` | **done** | [#148](https://github.com/ja11sop/cuppa/issues/148) — Shared `--list-format=json` parity for develop copies (agents / scripts); text unchanged |
 | Phase 4 — downloads list / purge | **done** | `--list-downloads` + `--purge-dependencies` / `--purge-all-dependencies` in [#144](https://github.com/ja11sop/cuppa/pull/144); that PR closes #134 |
 | `--wipe-dependencies` | **open** | [#146](https://github.com/ja11sop/cuppa/issues/146) — clear-down of extract + matching downloads; next build retrieves as usual |
 | Phase 6 — artefacts | **open** | Sketch only (§4.6) / [#135](https://github.com/ja11sop/cuppa/issues/135) |
@@ -74,6 +75,7 @@ deferred Phase 3 polish items remain open and do not keep #134 open.
 2. Conan install metadata `.cuppa_conan_meta.json` (§4.7) — **done**
 3. Default-branch quirk (§4.8) — **done** (canonical `stem@branch`, labels; no auto-delete)
 4. Dependencies documentation split (§7.1) — **done**
+5. `--list-develop --list-format=json` — **done** ([#148](https://github.com/ja11sop/cuppa/issues/148))
 
 Deferred listing follow-ons remain §4.10 / §4.11 presentation details beyond `used_by`.
 Native `du` for exact byte totals (§4.5.1) stays parked — practice on large Boost extracts did

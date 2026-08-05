@@ -6,8 +6,10 @@
 
 With planted git working copies (and one missing path) wired as `develop=` on location
 dependencies, `--list-develop` prints the ruled STATUS table, a summary line, and a judgement
-tree grouped by severity. A project with no develop locations still prints the banner and a
-zero-count summary. Exit status is non-zero when a develop path does not exist.
+tree grouped by severity. `--list-format=json` emits the same observations as a single JSON
+object (`entries`, `would_update`, `worst_severity`, …). A project with no develop locations
+still prints the banner and a zero-count summary (or an empty `entries` list in JSON). Exit
+status is non-zero when a develop path does not exist.
 
 The scenario is the source of the realistic example on
 xref:dependencies-managing.adoc#checking-your-develop-copies[Dependencies — Checking your develop copies].
@@ -27,6 +29,7 @@ The dummy project, initialised as a git repository on branch `feature_orders`, p
 [source,sh]
 ----
 cuppa -D --offline -Q --list-develop
+cuppa -D --offline -Q --list-develop --list-format=json
 ----
 
 == Expectations

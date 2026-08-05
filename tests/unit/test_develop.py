@@ -26,6 +26,8 @@ from cuppa.develop import (
     highlight_values,
     inspect,
     list_develop,
+    list_payload,
+    names_that_would_update,
     render_judgements,
     render_table,
     row_for,
@@ -518,6 +520,69 @@ def test_a_missing_develop_path_exits_non_zero( tmp_path ):
     missing = str( tmp_path / "not_here" )
     env = fake_env( { 'widget': dependency_with_develop( 'widget', missing ) } )
     assert list_develop( env ) == 1
+
+
+def test_list_payload_carries_severity_and_would_update():
+    behind = copy(
+            name='flange',
+            behind=2,
+            branch='spike_cache',
+            upstream='origin/spike_cache',
+    )
+    missing = copy( name='gizmo', path='/missing', exists=False )
+    payload = list_payload(
+            [ behind, missing ],
+            without_develop=[ 'boost' ],
+            current_branch=BUILT,
+            default_branch=DEFAULT,
+            develop_active=False,
+    )
+    assert payload['current_branch'] == BUILT
+    assert payload['default_branch'] == DEFAULT
+    assert payload['develop_active'] is False
+    assert payload['without_develop'] == [ 'boost' ]
+    assert payload['would_update'] == [ 'flange' ]
+    assert payload['worst_severity'] == ERROR
+    by_name = { entry['name']: entry for entry in payload['entries'] }
+    assert by_name['flange']['severity'] == WARNING
+    assert by_name['flange']['status'] == 'warn'
+    assert by_name['flange']['behind'] == 2
+    assert by_name['flange']['state'] == 'clean, 2 behind'
+    assert by_name['gizmo']['exists'] is False
+    assert by_name['gizmo']['severity'] == ERROR
+    assert names_that_would_update( [ behind, missing ] ) == [ 'flange' ]
+
+
+def test_list_develop_json_is_parseable_and_exits_on_missing( tmp_path, capsys ):
+    import json
+
+    missing = str( tmp_path / "not_here" )
+    env = fake_env(
+            { 'widget': dependency_with_develop( 'widget', missing ) },
+            list_format='json',
+    )
+    assert list_develop( env ) == 1
+    written = capsys.readouterr().out
+    payload = json.loads( written )
+    assert payload['worst_severity'] == ERROR
+    assert payload['entries'][0]['name'] == 'widget'
+    assert payload['entries'][0]['exists'] is False
+    assert 'DEPENDENCY' not in written
+
+
+def test_list_develop_json_with_no_develop_locations( capsys ):
+    import json
+
+    env = fake_env(
+            { 'gadget': type( 'gadget', (object,), { '_name': 'gadget' } ) },
+            list_format='json',
+    )
+    assert list_develop( env ) == 0
+    payload = json.loads( capsys.readouterr().out )
+    assert payload['entries'] == []
+    assert payload['without_develop'] == [ 'gadget' ]
+    assert payload['worst_severity'] == OK
+    assert payload['would_update'] == []
 
 
 def test_update_refuses_to_run_offline( tmp_path ):

@@ -1,5 +1,6 @@
 """Integration coverage for ``--list-develop`` with realistic planted git copies."""
 
+import json
 import os
 import re
 import shutil
@@ -14,6 +15,13 @@ from tests.helpers.project import copy_dummy_project, write_sconstruct
 
 
 pytestmark = pytest.mark.integration
+
+
+def _json_payload( result ):
+    """Parse JSON from cuppa stdout, skipping toolchain probe noise (MSVC on Windows)."""
+    match = re.search( r"\{.*\}", result.stdout, re.DOTALL )
+    assert match, result.stdout
+    return json.loads( match.group( 0 ) )
 
 
 def _git_available():
@@ -207,6 +215,28 @@ cuppa.run(
     assert "Ahead and behind are relative to your last fetch" in plain
     assert re.search( r"gizmo", plain )
     assert re.search( r"flange", plain )
+
+    as_json = run_cuppa(
+            project,
+            "--list-develop",
+            "--list-format=json",
+            "-Q",
+            "--location-default-branch=master",
+    )
+    assert as_json.returncode == 1
+    payload = _json_payload( as_json )
+    assert payload["current_branch"] == "feature_orders"
+    assert payload["default_branch"] == "master"
+    assert payload["develop_active"] is False
+    assert "boostish" in payload["without_develop"]
+    assert payload["worst_severity"] == "error"
+    assert "flange" in payload["would_update"]
+    by_name = { entry["name"]: entry for entry in payload["entries"] }
+    assert by_name["widget"]["modified"] is True
+    assert by_name["gadget"]["severity"] == "ok"
+    assert by_name["flange"]["behind"] == 2
+    assert by_name["gizmo"]["exists"] is False
+    assert by_name["gizmo"]["severity"] == "error"
 
 
 def test_list_develop_without_develop_locations_still_reports( tmp_path ):

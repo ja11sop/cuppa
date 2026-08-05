@@ -447,7 +447,14 @@ One row appears for every dependency that has a develop location configured, whe
 [source,shell]
 ----
 cuppa -Q -D --list-develop
+cuppa -Q -D --list-develop --list-format=json
 ----
+
+`--list-format=json` emits a single object with `current_branch`, `default_branch`,
+`develop_active`, `without_develop`, `would_update` (names `--update-develop` would
+fast-forward as of the last fetch), `worst_severity`, and `entries` for each develop copy
+(observed state, `severity` / `status`, `state` summary, and `notes`). Exit status is still
+non-zero when a develop path does not exist.
 
 Example output from a project with several develop locations (integration scenario
 xref:integration/test-list-develop.adoc[`test_list_develop`]). Your branch names and paths will
