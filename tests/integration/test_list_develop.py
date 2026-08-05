@@ -1,5 +1,6 @@
 """Integration coverage for ``--list-develop`` with realistic planted git copies."""
 
+import json
 import os
 import re
 import shutil
@@ -14,6 +15,13 @@ from tests.helpers.project import copy_dummy_project, write_sconstruct
 
 
 pytestmark = pytest.mark.integration
+
+
+def _json_payload( result ):
+    """Parse JSON from cuppa stdout, skipping toolchain probe noise (MSVC on Windows)."""
+    match = re.search( r"\{.*\}", result.stdout, re.DOTALL )
+    assert match, result.stdout
+    return json.loads( match.group( 0 ) )
 
 
 def _git_available():
@@ -216,8 +224,7 @@ cuppa.run(
             "--location-default-branch=master",
     )
     assert as_json.returncode == 1
-    import json
-    payload = json.loads( as_json.stdout )
+    payload = _json_payload( as_json )
     assert payload["current_branch"] == "feature_orders"
     assert payload["default_branch"] == "master"
     assert payload["develop_active"] is False
