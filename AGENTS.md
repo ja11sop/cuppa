@@ -265,6 +265,17 @@ After that batch is committed and pushed, watch CI as usual. If only docs/plan/C
 after a green run, still prefer **one** push of the housekeeping batch rather than dripping
 commits.
 
+5. **PR test plan** — open the pull request body and walk the Test plan checklist. Tick items that
+   are done (local gate, focused integration suites, **CI green on the matrix**). Leave optional
+   manual spot-checks unchecked unless they were actually run, and say so when reporting
+   merge readiness. Update the PR body via the API / `create-pr` helpers if the checklist is
+   stale — do not treat an unchecked “CI green” box as unknown when `watch-pr` already
+   succeeded.
+6. **Squash commit message** — when the person will squash-merge, draft a single commit message
+   that matches this repo’s style (imperative subject, blank line, why/what prose, no trailers;
+   reference umbrella issues in prose, not `Fixes`/`Closes` unless that slice should close them).
+   Offer it in the chat (and optionally paste into the GitHub squash UI) before merge.
+
 ### After pushing a pull request branch
 
 After `git push -u origin HEAD` (or any later push to an open PR), **do not stop without knowing
