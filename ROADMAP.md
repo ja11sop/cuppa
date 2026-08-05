@@ -98,7 +98,45 @@ Companion canvas (optional): Cursor canvas `cxx-modules-status`.
 | `modules-default` | Routing every project through the modules compile path | Superseded by `mod-activate-evidence`: activate where there is evidence of modules, rather than for all builds |
 | `apple-emulation` | Emulating Apple Clang modules without vendor support | Prefer fail-clearly |
 
-Boost / package-registry packaging work is tracked separately from modules.
+Boost / package-registry packaging work is tracked separately from modules — see
+[Boost source and packages](#boost-source-and-packages).
+
+---
+
+## Boost source and packages
+
+Goal: source `boost` and GitLab `boost_package` stay interchangeable at the sconscript
+(`use_libs`) while patch status is an honest identity — especially for prebuilt packages, which
+are patched by default.
+
+Design: [`design/plans/boost-updates.md`](design/plans/boost-updates.md).
+
+### Today
+
+| Capability | Status |
+|------------|--------|
+| Source `--boost-patched` selects `patched/` vs `clean/` under one extract | Yes (alias `--boost-patch-boost-test`) |
+| Source remove/purge is selection-scoped per home | Yes on `134_list_and_purge_downloads` |
+| `boost_package.define(..., patched=True)` default | Yes — compile define + `patched_test()` only |
+| Package archive / extract / version distinguish patched vs clean | No — same `boost` + `1.91` + tool variant |
+| Package `use_libs` passes `patched_test=` into library deps | No |
+
+### Planned / potential
+
+| ID | Work | Priority | Notes |
+|----|------|----------|-------|
+| `boost-pkg-version` | Canonical version `{base}-patched` / `{base}-clean`; publisher + resolve + `package_id` | High | Visible qualifier; avoids extract collision |
+| `boost-pkg-compat` | Patched resolve falls back to unadorned `{base}`; clean does not | High | Existing registry tarballs are patched and unnamed |
+| `boost-pkg-use-libs` | Package `use_libs` passes `patched_test=` | High | Parity with source Boost |
+| `boost-pkg-docs` | Document opposite defaults (source clean / package patched) and identity | Medium | `packages.adoc` / `dependencies.adoc` |
+| `boost-pkg-flag` | Optional: `--boost-patched` selects among declared package flavours | Later | Not required if a project only consumes patched packages |
+
+### Out of scope (Boost)
+
+| ID | Item | Reason |
+|----|------|--------|
+| `boost-pkg-as-source-homes` | Two homes under one GitLab extract | Packages are whole prebuilt trees, not b2 stage layouts |
+| `boost-src-two-downloads` | Separate tarballs for source clean vs patched | One upstream archive; patch is applied after extract |
 
 ---
 
@@ -271,7 +309,6 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 
 Add new `##` headings here as larger efforts start, for example:
 
-- Packages / GitLab registry UX
 - Additional toolchains or platforms
 
 Each new section should follow the same shape: **Today** → **Planned / potential** → **Out of scope**.
