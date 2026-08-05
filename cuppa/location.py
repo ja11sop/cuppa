@@ -171,6 +171,70 @@ class Location(object):
         return 'location_match_tag' in self._cuppa_env and self._cuppa_env['location_match_tag']
 
 
+    def _canonical_branch_suffix( self ):
+        """Branch/tag folder suffix once a resolved branch name is known."""
+        if getattr( self, '_supports_relative_versioning', False ):
+            if self.location_match_current_branch():
+                return self._current_branch or self._current_revision
+            if self.location_match_branch():
+                return self.location_match_branch()
+            if self.location_match_tag():
+                return self.location_match_tag()
+        return getattr( self, '_default_branch', None )
+
+
+    def _warn_unqualified_duplicate( self, unqualified, canonical ):
+        warned = getattr( Location, '_unqualified_duplicate_warned', None )
+        if warned is None:
+            Location._unqualified_duplicate_warned = set()
+            warned = Location._unqualified_duplicate_warned
+        key = ( unqualified, canonical )
+        if key in warned:
+            return
+        warned.add( key )
+        logger.warn(
+            "Location has both [{}] and [{}]; using the canonical branch folder. "
+            "The unqualified copy is unused by this selection and is a removal candidate.".format(
+                    as_warning( unqualified ), as_info( canonical )
+            )
+        )
+
+
+    def _select_repository_directory( self, local_directory ):
+        """Choose ``stem`` vs ``stem@branch``.
+
+        Canonical going forward is ``stem@<branch>`` when the branch is known.
+        An existing unqualified stem is kept (no silent move). When both exist,
+        prefer canonical and warn. When neither exists, return the canonical
+        path so a retrieve or a missing listing uses that spelling.
+        Folders that already encode a branch in the name (URL ``@branch``) are
+        left as-is so the suffix is not applied twice.
+        """
+        from cuppa.core.dependency_storage import split_location_folder_name
+
+        folder = os.path.basename( local_directory.rstrip( os.sep ) )
+        parent = os.path.dirname( local_directory.rstrip( os.sep ) )
+        stem, existing_qualifier = split_location_folder_name( folder )
+        unqualified = os.path.join( parent, stem ) if parent else stem
+
+        if existing_qualifier:
+            if os.path.exists( unqualified ) and os.path.exists( local_directory ):
+                self._warn_unqualified_duplicate( unqualified, local_directory )
+            return local_directory
+
+        suffix = self._canonical_branch_suffix()
+        canonical = ( local_directory + "@" + str( suffix ) ) if suffix else None
+        unqualified_exists = os.path.exists( local_directory )
+        canonical_exists = bool( canonical and os.path.exists( canonical ) )
+        if canonical_exists:
+            if unqualified_exists:
+                self._warn_unqualified_duplicate( local_directory, canonical )
+            return canonical
+        if unqualified_exists:
+            return local_directory
+        return canonical or local_directory
+
+
     @classmethod
     def remove_common_top_directory_under( cls, path ):
         dirs = os.listdir( path )
@@ -443,7 +507,11 @@ class Location(object):
         if self._cuppa_env['dump']:
             return local_directory
 
-        local_dir_with_sub_dir = os.path.join( local_directory, sub_dir and sub_dir or "" )
+        target = self._select_repository_directory( local_directory )
+        if os.path.basename( target ) != os.path.basename( local_directory.rstrip( os.sep ) ):
+            self._local_folder = os.path.basename( target )
+
+        local_dir_with_sub_dir = os.path.join( target, sub_dir and sub_dir or "" )
 
         if not self.retrieval_disabled_reason():
             try:
@@ -452,110 +520,75 @@ class Location(object):
                 backend.url = self.expand_secret( location )
                 vcs_backend = backend
 
-            if os.path.exists( local_directory ):
+            if os.path.exists( target ):
                 self.update_from_repository( location, full_url, local_dir_with_sub_dir, vc_type, vcs_backend )
             else:
                 self.obtain_from_repository( location, full_url, local_dir_with_sub_dir, vc_type, vcs_backend )
 
             logger.debug( "(url path) Location = [{}]".format( as_info( location ) ) )
             logger.debug( "(url path) Local folder = [{}]".format( as_info( self._local_folder ) ) )
-        else:
-            branched_local_directory = None
+            return target
 
-            if self.location_match_current_branch():
-                # If relative versioning is in play and retrieval is disabled check first
-                # to see if the specified branch or tag is available and prefer that one
-                if self._supports_relative_versioning and self._current_branch:
-                    branched_local_directory = local_directory + "@" + self._current_branch
-                    if os.path.exists( branched_local_directory ):
-                        return branched_local_directory
+        if os.path.exists( target ):
+            return target
 
-                elif self._supports_relative_versioning and self._current_revision:
-                    branched_local_directory = local_directory + "@" + self._current_revision
-                    if os.path.exists( branched_local_directory ):
-                        return branched_local_directory
+        reason = self.retrieval_disabled_reason()
 
-            elif self.location_match_branch():
-                if self._supports_relative_versioning:
-                    branched_local_directory = local_directory + "@" + self.location_match_branch()
-                    if os.path.exists( branched_local_directory ):
-                        return branched_local_directory
+        def unavailable( emphasise, highlight ):
+            if target != local_directory:
+                return (
+                    "Retrieving locations is disabled by {reason} and neither [{local_dir}]"
+                    " or a branched dir [{branched_dir}] exists".format(
+                        reason       = emphasise( reason ),
+                        local_dir    = highlight( local_directory ),
+                        branched_dir = highlight( target )
+                ) )
+            return (
+                "Retrieving locations is disabled by {reason} and [{local_dir}] does not exist".format(
+                    reason    = emphasise( reason ),
+                    local_dir = highlight( target )
+            ) )
 
-            elif self.location_match_tag():
-                if self._supports_relative_versioning:
-                    branched_local_directory = local_directory + "@" + self.location_match_tag()
-                    if os.path.exists( branched_local_directory ):
-                        return branched_local_directory
-
-            elif self._supports_relative_versioning and self._default_branch:
-                branched_local_directory = local_directory + "@" + self._default_branch
-                if os.path.exists( branched_local_directory ):
-                    return branched_local_directory
-
-            # If the preferred branch is not available then fallback to the
-            # default of no branch being specified
-            if os.path.exists( local_directory ):
-                return local_directory
+        # Cleaning only removes files, so a location that was never retrieved
+        # normally has nothing to clean. Carry on with the missing path rather
+        # than failing the clean.
+        if self._cuppa_env['clean']:
+            leftovers = self.build_outputs_from_location()
+            if leftovers:
+                logger.warn( "{unavailable} so artefacts previously built from it in"
+                             " [{leftovers}] cannot be cleaned. Remove that folder by hand"
+                             " if you need it gone".format(
+                        unavailable = unavailable( as_info_label, as_warning ),
+                        leftovers   = as_warning( leftovers )
+                ) )
             else:
-                reason = self.retrieval_disabled_reason()
+                logger.info( "{} so there is nothing from it to clean".format(
+                        unavailable( as_info_label, as_notice )
+                ) )
+            return target
 
-                def unavailable( emphasise, highlight ):
-                    if self.location_match_current_branch():
-                        return (
-                            "Retrieving locations is disabled by {reason} and neither [{local_dir}]"
-                            " or a branched dir [{branched_dir}] exists".format(
-                                reason       = emphasise( reason ),
-                                local_dir    = highlight( local_directory ),
-                                branched_dir = highlight( str(branched_local_directory) )
-                        ) )
-                    return (
-                        "Retrieving locations is disabled by {reason} and [{local_dir}] does not exist".format(
-                            reason    = emphasise( reason ),
-                            local_dir = highlight( local_directory )
-                    ) )
-
-                # Cleaning only removes files, so a location that was never retrieved
-                # normally has nothing to clean. Carry on with the missing path rather
-                # than failing the clean.
-                if self._cuppa_env['clean']:
-                    leftovers = self.build_outputs_from_location()
-                    if leftovers:
-                        logger.warn( "{unavailable} so artefacts previously built from it in"
-                                     " [{leftovers}] cannot be cleaned. Remove that folder by hand"
-                                     " if you need it gone".format(
-                                unavailable = unavailable( as_info_label, as_warning ),
-                                leftovers   = as_warning( leftovers )
-                        ) )
-                    else:
-                        logger.info( "{} so there is nothing from it to clean".format(
-                                unavailable( as_info_label, as_notice )
-                        ) )
-                    return local_directory
-
-                # Listing / storage resolve-only needs the expected path so
-                # --list-dependencies can show STATE missing (same idea as packages).
-                if self._cuppa_env.get( 'storage_resolve_only' ):
-                    warned = getattr( Location, '_resolve_only_missing_warned', None )
-                    if warned is None:
-                        Location._resolve_only_missing_warned = set()
-                        warned = Location._resolve_only_missing_warned
-                    if local_directory not in warned:
-                        warned.add( local_directory )
-                        logger.warn(
-                                "{} so listing will report it as missing".format(
-                                        unavailable( as_info_label, as_warning )
-                                )
+        # Listing / storage resolve-only needs the expected path so
+        # --list-dependencies can show STATE missing (same idea as packages).
+        if self._cuppa_env.get( 'storage_resolve_only' ):
+            warned = getattr( Location, '_resolve_only_missing_warned', None )
+            if warned is None:
+                Location._resolve_only_missing_warned = set()
+                warned = Location._resolve_only_missing_warned
+            if target not in warned:
+                warned.add( target )
+                logger.warn(
+                        "{} so listing will report it as missing".format(
+                                unavailable( as_info_label, as_warning )
                         )
-                    return local_directory
+                )
+            return target
 
-                logger.error( "{} so location cannot be retrieved".format(
-                        unavailable( as_info_label, as_error )
-                ) )
-                raise LocationException( "{} so location cannot be retrieved".format(
-                        unavailable( lambda text: text, lambda text: text )
-                ) )
-
-        return local_directory
+        logger.error( "{} so location cannot be retrieved".format(
+                unavailable( as_info_label, as_error )
+        ) )
+        raise LocationException( "{} so location cannot be retrieved".format(
+                unavailable( lambda text: text, lambda text: text )
+        ) )
 
 
     def get_local_directory( self, location, sub_dir, branch_path, full_url ):

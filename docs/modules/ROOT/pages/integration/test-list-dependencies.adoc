@@ -17,6 +17,9 @@ works.
 A local location tree under `--storage-root` is listed without stamping `used_by`. A subsequent
 `--dbg` build records `last_used_source=resolve` and the project path in `used_by`.
 
+Planted unqualified and `stem@master` copies of the same VCS identity list as one family: the
+unqualified row is labelled `@master (unqualified)`.
+
 A second fixture plants GitHub release extracts, a Boost source archive, a GitLab package tree,
 and matching files under `downloads/`. Verbose listing then checks:
 

@@ -835,6 +835,16 @@ def _collect_rows( construct, cuppa_env, names=None, out=None ):
 
     _backfill_gitlab_remote_locations( rows, dependencies_root, by_path )
 
+    default_branch = cuppa_env.get( 'location_default_branch' )
+    for row in rows:
+        labelled = dependency_identity.unqualified_default_branch_label(
+                os.path.basename( ( row.get( 'path' ) or '' ).rstrip( '\\/' ) ),
+                default_branch,
+                storage_type=row.get( 'type' ),
+        )
+        if labelled:
+            row['qualifier'] = labelled
+
     rows.sort( key=lambda row: (
             row.get( 'dependency' ) or '',
             row.get( 'qualifier' ) or '',

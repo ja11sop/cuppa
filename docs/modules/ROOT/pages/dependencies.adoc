@@ -101,6 +101,13 @@ Cuppa keeps checkouts and extracted archives under `--dependencies-root` and the
 archives themselves under `--downloads-root`, both shared between projects by default. See
 xref:build-layout.adoc[Build layout] for the defaults and for how to move them.
 
+VCS folders use a canonical `stem@<branch>` spelling once the branch is known — including the
+default branch (`--location-default-branch`, usually `master`). An older unqualified stem is
+kept if it is the only copy on disk (cuppa does not move or delete it). When both exist, resolve
+uses the canonical folder and warns that the unqualified duplicate is unused by this selection.
+`--list-dependencies` labels that row `@master (unqualified)` (or `@main (unqualified)`, …)
+so the doubling is obvious; remove it yourself when you no longer need it.
+
 With `--develop`, location dependencies that define a develop path use the local tree instead of fetching.
 
 Relative locations ending in `@` participate in `--location-match-*` branch/tag behaviour (see xref:cli-reference.adoc[CLI reference]).
@@ -360,7 +367,8 @@ upgrades them), optional
 `remote_location` / `source_url` (configured or reconstructed remotes), and paths of known
 download archives so later listings can show LOCATION and `[D]` without re-guessing. Listing
 does not stamp `last_used` or `used_by`; a real `BuildWith` / default-dependency resolve does,
-recording the current sconstruct directory in `used_by`.
+recording the current sconstruct directory in `used_by`. Unqualified VCS stems that share a
+default-branch family with `stem@<branch>` are labelled `@<default> (unqualified)`.
 
 [#remove-dependencies]
 == Removing dependency trees
