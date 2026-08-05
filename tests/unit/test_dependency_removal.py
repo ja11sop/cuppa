@@ -100,6 +100,95 @@ def test_purge_and_remove_combined():
     } )
 
 
+def test_conflicting_dependency_modes_includes_wipe():
+    assert dependency_removal.conflicting_dependency_modes( {
+        'wipe_dependencies': 'widget',
+        'remove_dependencies': 'widget',
+    } ) == [ 'remove', 'wipe' ]
+    assert dependency_removal.conflicting_dependency_modes( {
+        'force_wipe_all_dependencies': True,
+        'purge_dependencies': 'widget',
+    } ) == [ 'purge', 'wipe' ]
+    assert dependency_removal.conflicting_dependency_modes( {
+        'force_wipe_unreferenced_dependencies': True,
+        'wipe_dependencies': 'widget',
+    } ) == [ 'wipe', 'force-wipe-unreferenced' ]
+    assert dependency_removal.conflicting_dependency_modes( {
+        'force_wipe_dependencies': 'boost/1.86.0',
+        'wipe_dependencies': 'boost',
+    } ) == [ 'wipe', 'force-wipe' ]
+    assert dependency_removal.conflicting_dependency_modes( {
+        'wipe_dependencies': 'widget',
+    } ) is None
+
+
+def test_parse_force_wipe_tokens():
+    tokens, error = dependency_removal.parse_force_wipe_tokens(
+            'boost/1.86.0, fmt/@11.1.1'
+    )
+    assert error is None
+    assert tokens == [ ( 'boost', '1.86.0' ), ( 'fmt', '@11.1.1' ) ]
+    tokens, error = dependency_removal.parse_force_wipe_tokens( 'boost' )
+    assert tokens == []
+    assert 'name/qualifier' in error
+    tokens, error = dependency_removal.parse_force_wipe_tokens( '' )
+    assert tokens == []
+    assert error
+
+
+def test_row_matches_force_token():
+    row = {
+        'short_name': 'boost',
+        'dependency': 'boost',
+        'qualifier': '1.86.0',
+        'type': 'archive',
+        'path': '/tmp/boost_1_86_0',
+    }
+    assert dependency_removal._row_matches_force_token( row, 'boost', '1.86.0' )
+    assert not dependency_removal._row_matches_force_token( row, 'boost', '1.91.0' )
+    loc = {
+        'short_name': 'fmt',
+        'dependency': 'fmt',
+        'qualifier': '11.1.1',
+        'type': 'location',
+        'path': '/tmp/fmt@11.1.1',
+    }
+    assert dependency_removal._row_matches_force_token( loc, 'fmt', '@11.1.1' )
+    assert dependency_removal._row_matches_force_token( loc, 'fmt', '11.1.1' )
+
+
+def test_resolve_requested_names_wipe_flags_use_same_gate():
+    cuppa_env = {
+        'wipe_dependencies': 'widgt',
+        'default_dependencies': [ 'widget' ],
+        'declared_dependencies': [],
+        'dependencies': { 'widget': object(), 'boost': object() },
+    }
+    names, error = dependency_removal.resolve_requested_names( cuppa_env )
+    assert names == []
+    assert isinstance( error, dependency_removal.UnknownDependencyNames )
+
+    cuppa_env = {
+        'force_wipe_all_dependencies': True,
+        'default_dependencies': [ 'widget' ],
+        'declared_dependencies': [ 'boost_package' ],
+        'dependencies': { 'widget': object(), 'boost_package': object(), 'boost': object() },
+    }
+    names, error = dependency_removal.resolve_requested_names( cuppa_env )
+    assert error is None
+    assert names == [ 'widget', 'boost_package' ]
+
+
+def test_other_project_used_by():
+    assert dependency_removal._other_project_used_by( {}, '/proj/a' ) == []
+    assert dependency_removal._other_project_used_by(
+            { 'used_by': { '/proj/a': 't' } }, '/proj/a'
+    ) == []
+    assert dependency_removal._other_project_used_by(
+            { 'used_by': { '/proj/a': 't', '/proj/b': 't' } }, '/proj/a'
+    ) == [ '/proj/b' ]
+
+
 def test_resolve_requested_names_all_uses_project_used():
     cuppa_env = {
         'remove_all_dependencies': True,
@@ -290,6 +379,81 @@ def test_collect_removal_plan_prefers_storage_clean_products( tmp_path, monkeypa
     assert extract.is_dir()
     leftover_paths = { leftover.path for leftover in plan['leftovers'] }
     assert any( 'release' in p for p in leftover_paths )
+
+
+def test_collect_removal_plan_wipe_includes_extract( tmp_path, monkeypatch ):
+    """Wipe queues the whole extract even when storage_clean is available."""
+    root = tmp_path / 'dependencies'
+    extract = root / 'boost_extract'
+    home = extract / 'clean'
+    dbg = home / 'build.c++2c' / 'gcc153' / 'debug' / 'x86_64'
+    dbg.mkdir( parents=True )
+    ( home / 'boost' ).mkdir()
+    ( home / 'boost' / 'version.hpp' ).write_text(
+            '#define BOOST_VERSION 109100\n', encoding='utf-8'
+    )
+
+    def fake_resolve( construct, cuppa_env, names, selections=None ):
+        from cuppa.core.dependency_storage import OwnedPath
+        return [
+            OwnedPath(
+                dependency='boost',
+                storage_type='archive',
+                category='dependencies',
+                path=str( extract ),
+                qualifier='1.91.0',
+                tool_variant=None,
+                develop=False,
+                remote_location=None,
+            ),
+        ], []
+
+    def fake_selections( construct, cuppa_env ):
+        return [ {
+            'variant': 'dbg',
+            'target_arch': 'x86_64',
+            'abi': 'cxx2c',
+            'toolchain': object(),
+            'env': {
+                'dependencies_root': str( root ),
+                'toolchain': object(),
+                'target_arch': 'x86_64',
+                'variant': type( 'V', (), { 'name': lambda self: 'dbg' } )(),
+            },
+        } ]
+
+    monkeypatch.setattr(
+            dependency_removal.dependency_storage,
+            'resolve_named_dependencies',
+            fake_resolve,
+    )
+    monkeypatch.setattr(
+            dependency_removal.dependency_storage,
+            'selection_build_envs',
+            fake_selections,
+    )
+    monkeypatch.setattr(
+            dependency_removal,
+            '_collect_storage_clean',
+            lambda *args, **kwargs: {
+                'boost': {
+                    'paths': [ str( dbg ) ],
+                    'extract': str( extract ),
+                    'supported': True,
+                    'storage_type': 'archive',
+                    'qualifier': '1.91.0',
+                },
+            },
+    )
+
+    cuppa_env = { 'dependencies_root': str( root ), 'dependencies': {} }
+    plan = dependency_removal.collect_removal_plan(
+            object(), cuppa_env, [ 'boost' ], wipe=True
+    )
+    target_paths = { t.path for t in plan['targets'] }
+    assert str( extract ) in target_paths
+    assert plan['archives'] == []
+    assert str( dbg ) not in target_paths
 
 
 def test_write_removal_tree_uses_folded_display_labels( tmp_path ):

@@ -387,8 +387,8 @@ never deleted; downloads for that name may still be purged. SCons `-n` is a dry 
 
 Source Boost with `storage_clean` still leaves the extract (headers / `b2` / the other patch home);
 the **download file** is deleted. That reclaims download space; the next build keeps using the
-extract. A later `--wipe-dependencies` is a clear-down of the extract (and matching downloads);
-the next build then re-downloads and re-extracts as usual.
+extract. For a full clear-down of the extract (and matching downloads) so the next build
+re-downloads and re-extracts, use xref:#wipe-dependencies[`--wipe-dependencies`].
 
 The report nests download → `[E]` → source assets and products (the same pairing as
 `--list-downloads`). `[E]` uses a partial mark when the extract stays. Remove-without-purge uses
@@ -433,6 +433,92 @@ cuppa -Q -D --list-downloads
 ----
 
 See xref:integration/test-purge-dependencies.adoc[`test_purge_dependencies`].
+
+[#wipe-dependencies]
+== Wiping dependencies (clear-down)
+
+`--wipe-dependencies=name1,name2` clears the **whole extract** for the named **project-used**
+dependencies under the **current selection**, plus matching downloads. Unlike purge, source Boost
+with `storage_clean` does **not** stop at product clean — the extract goes too. The next build
+without `--offline` re-downloads and re-extracts as usual.
+
+For wiping **every** project-used name in the current selection, use
+`--force-wipe-all-dependencies` (the `force-` prefix marks how wide that is). For specific old
+versions or branches visible in the list tree (including unused siblings under a referenced
+identity), use xref:#force-wipe-dependencies[`--force-wipe-dependencies`].
+
+Do not combine any wipe / force-wipe flag with `--remove-*` or `--purge-*`, or with another wipe
+mode, in one invocation. Develop working copies are never deleted. SCons `-n` is a dry run.
+Missing trees / downloads are not a failure.
+
+[source,shell]
+----
+cuppa -Q -D --wipe-dependencies=boost
+cuppa -Q -D --dbg --wipe-dependencies=boost_package
+cuppa -Q -D -n --wipe-dependencies=widget
+cuppa -Q -D --force-wipe-all-dependencies
+----
+
+Verify with `--list-dependencies` and `--list-downloads`.
+
+See xref:integration/test-wipe-dependencies.adoc[`test_wipe_dependencies`].
+
+[#force-wipe-dependencies]
+== Force-wiping named leaves
+
+Old Boost versions and unused location branches often sit under the **referenced** section as
+siblings of the leaf marked `in use` — they are **not** in `unreferenced`. Naming them from the
+list tree is the reclaim path:
+
+[source,shell]
+----
+cuppa -Q -D --list-dependencies
+cuppa -Q -D -n --force-wipe-dependencies=boost/1.86.0,boost/1.87.0
+cuppa -Q -D --force-wipe-dependencies=boost/1.86.0,boost/1.87.0
+----
+
+Tokens are always `name/qualifier` as shown in the tree (`boost/1.86.0`, `fmt/@11.1.1`). Bare
+names belong on `--wipe-dependencies`. Matching downloads are wiped too. Referenced /
+unreferenced / `in use` do **not** block the wipe — the long flag name is the acknowledgement.
+Inventory `used_by` naming another project prints a warning and still proceeds. Ambiguous or
+unknown tokens exit non-zero with candidates.
+
+Location example (unused `@11.1.1`, keep `@master` in use):
+
+[source,shell]
+----
+cuppa -Q -D --force-wipe-dependencies=fmt/@11.1.1
+----
+
+Mixed archive + location tokens:
+
+[source,shell]
+----
+cuppa -Q -D --force-wipe-dependencies=boost/1.86.0,boost/1.87.0,fmt/@11.1.1
+----
+
+[#force-wipe-unreferenced-dependencies]
+== Force-wiping unreferenced dependencies
+
+`--force-wipe-unreferenced-dependencies` clears every dependency **tree** and matching
+**download** this resolve marks as `unreferenced` — a rare blunt orphan sweep. Prefer
+xref:#force-wipe-dependencies[`--force-wipe-dependencies`] when reclaiming specific old Boost
+versions under a referenced identity.
+
+[source,shell]
+----
+cuppa -Q -D --list-dependencies --list-scope=unreferenced
+cuppa -Q -D -n --force-wipe-unreferenced-dependencies
+cuppa -Q -D --force-wipe-unreferenced-dependencies
+----
+
+Verify with:
+
+[source,shell]
+----
+cuppa -Q -D --list-dependencies --list-scope=unreferenced
+cuppa -Q -D --list-downloads --list-scope=unreferenced
+----
 
 == Checking your develop copies
 

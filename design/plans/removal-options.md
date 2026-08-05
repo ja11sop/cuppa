@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Storage roots, listing, and removal; GitHub [#132](https://github.com/ja11sop/cuppa/issues/132), [#133](https://github.com/ja11sop/cuppa/issues/133), [#134](https://github.com/ja11sop/cuppa/issues/134), [#135](https://github.com/ja11sop/cuppa/issues/135), [#138](https://github.com/ja11sop/cuppa/issues/138), [#145](https://github.com/ja11sop/cuppa/issues/145), [#146](https://github.com/ja11sop/cuppa/issues/146), [#148](https://github.com/ja11sop/cuppa/issues/148)
-- **Updated:** 2026-08-05
+- **Updated:** 2026-08-06
 
 `--list-develop` and `--update-develop` (§3.5, §3.6), the storage rename (§3.1, §8, Phase 1),
 build listing/removal (`--list-builds`, `--remove-builds`, `--remove-all-builds`, Phase 2),
@@ -61,13 +61,14 @@ deferred Phase 3 polish items remain open and do not keep #134 open.
 | Phase 3 — **dependencies documentation split** (§7.1) | **done** | [#145](https://github.com/ja11sop/cuppa/issues/145) — Hub + children; `packages.adoc` publish focus; `include`/`sys_include` drift fixed |
 | Phase 3 — `--list-develop --list-format=json` | **done** | [#148](https://github.com/ja11sop/cuppa/issues/148) — Shared `--list-format=json` parity for develop copies (agents / scripts); text unchanged |
 | Phase 4 — downloads list / purge | **done** | `--list-downloads` + `--purge-dependencies` / `--purge-all-dependencies` in [#144](https://github.com/ja11sop/cuppa/pull/144); that PR closes #134 |
-| `--wipe-dependencies` | **open** | [#146](https://github.com/ja11sop/cuppa/issues/146) — clear-down of extract + matching downloads; next build retrieves as usual |
+| `--wipe-dependencies` | **done** | [#146](https://github.com/ja11sop/cuppa/issues/146) — Named selection clear-down; `--force-wipe-dependencies=name/qualifier` for list leaves; `--force-wipe-all-dependencies`; `--force-wipe-unreferenced-dependencies` for orphans |
 | Phase 6 — artefacts | **open** | Sketch only (§4.6) / [#135](https://github.com/ja11sop/cuppa/issues/135) |
 | §3.7 — `--clone-develop` | **open** | #138 |
 
-**Next focus:** [#146](https://github.com/ja11sop/cuppa/issues/146)
-(`--wipe-dependencies`, clear-down only). Boost package identity stays on
-[`boost-updates.md`](boost-updates.md).
+**Next focus:** [#138](https://github.com/ja11sop/cuppa/issues/138)
+(`--clone-develop`) / [#135](https://github.com/ja11sop/cuppa/issues/135) (artefacts). Boost package
+identity stays on [`boost-updates.md`](boost-updates.md). Age-gated unreferenced GC
+(`--older-than`) remains deferred (§9).
 
 **Deferred Phase 3 polish** ([#145](https://github.com/ja11sop/cuppa/issues/145); parallel branches fine):
 
@@ -1968,8 +1969,10 @@ Listing half **done** on `master` (#141). Removal Slice D **done** on `master` (
   leftover other-selection archives stay; verify with `--list-downloads`.
 - `--boost-patched` selects the source-Boost `patched/` home (deprecated alias
   `--boost-patch-boost-test`). Empty `bin.<abi>` husks are omitted from reports.
-- **Not in this phase:** `--wipe-dependencies` ([#146](https://github.com/ja11sop/cuppa/issues/146));
-  Boost GitLab package patched/clean identity ([`boost-updates.md`](boost-updates.md)).
+- **Not in this phase (at ship time):** `--wipe-dependencies` was deferred to
+  [#146](https://github.com/ja11sop/cuppa/issues/146) (now **done** — selection wipe + force-wipe
+  leaf/all/unreferenced). Boost GitLab package patched/clean identity remains on
+  [`boost-updates.md`](boost-updates.md).
 
 **Phase 5 — develop copies** (§3.5, §3.6 — independent of Phases 1 to 4) — **done**
 
@@ -2420,9 +2423,11 @@ Still open after Slice D (#142) and archive clean (#143):
 - **How `--remove-artefacts` finds paths.** Graph discovery, project declaration, or both, and
   what it adds over SCons `--clean`. This wants measurement on a real project before an option
   is designed (§4.6).
-- **When `--remove-unreferenced-dependencies` ships.** The inventory makes it defensible, but it
-  should wait until the listing has been used enough to trust its picture. A first cut could
-  require an age (`--older-than=90d`) rather than relying on "unreferenced" alone.
+- **When `--remove-unreferenced-dependencies` / age gates ship.** Partially answered by
+  `--force-wipe-dependencies=name/qualifier` and `--force-wipe-unreferenced-dependencies` (#146):
+  list-driven clear-down of chosen leaves (including unused siblings under referenced identities)
+  and of orphan leaves, with warnings when inventory `used_by` cites another project. An
+  `--older-than` age gate remains a later tightening rather than a requirement for the first cut.
 - **All-dependencies view and empty-`used_by` remark (§4.10).** Deferred. After `used_by` is
   stamped on resolve/build, consider REMARK `unrecorded` or `no record` (prefer those over
   `unused` / `orphan`) for empty maps, and a disk-only listing mode tentatively

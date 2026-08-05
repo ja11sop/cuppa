@@ -4,14 +4,17 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   Dependency removal — --remove-dependencies / --purge-dependencies
+#   Dependency removal — --remove-dependencies / --purge-dependencies / --wipe-*
 #-------------------------------------------------------------------------------
 
-"""Remove selected dependency trees under ``dependencies_root`` (Slice D).
+"""Remove or wipe selected dependency trees under ``dependencies_root``.
 
-``--purge-*`` also deletes matching archives under ``downloads_root``. Develop working copies
-and build artefacts stay put. Selection follows the same toolchain / variant / location-match
-options as writing the trees. See ``design/plans/removal-options.md`` §4.13 / Phase 4.
+``--purge-*`` also deletes matching archives under ``downloads_root``. ``--wipe-*`` clears
+the whole extract (bypassing ``storage_clean`` product-only behaviour) plus matching
+downloads. ``--force-wipe-dependencies=name/qualifier`` targets list-tree leaves regardless
+of referenced state; ``--force-wipe-unreferenced-dependencies`` clears orphan trees and
+downloads. Develop working copies stay put. See
+``design/plans/removal-options.md`` §4.13 / Phase 4 / #146.
 """
 
 from __future__ import annotations
@@ -72,19 +75,59 @@ DownloadTarget = namedtuple(
 )
 
 
-def purge_and_remove_combined( cuppa_env ):
-    """True when any purge flag is combined with any remove flag."""
-    purge = bool( cuppa_env.get( 'purge_dependencies' ) or cuppa_env.get( 'purge_all_dependencies' ) )
-    remove = bool( cuppa_env.get( 'remove_dependencies' ) or cuppa_env.get( 'remove_all_dependencies' ) )
-    return purge and remove
+def wants_remove( cuppa_env ):
+    return bool(
+            cuppa_env.get( 'remove_dependencies' ) or cuppa_env.get( 'remove_all_dependencies' )
+    )
 
 
 def wants_purge( cuppa_env ):
     return bool( cuppa_env.get( 'purge_dependencies' ) or cuppa_env.get( 'purge_all_dependencies' ) )
 
 
+def wants_wipe( cuppa_env ):
+    """Selection wipe: named ``--wipe-dependencies`` or ``--force-wipe-all-dependencies``."""
+    return bool(
+            cuppa_env.get( 'wipe_dependencies' )
+            or cuppa_env.get( 'force_wipe_all_dependencies' )
+    )
+
+
+def wants_force_wipe( cuppa_env ):
+    return bool( cuppa_env.get( 'force_wipe_dependencies' ) )
+
+
+def wants_force_wipe_unreferenced( cuppa_env ):
+    return bool( cuppa_env.get( 'force_wipe_unreferenced_dependencies' ) )
+
+
+def conflicting_dependency_modes( cuppa_env ):
+    """Return mode names when more than one of remove/purge/wipe/force-wipe is set."""
+    modes = []
+    if wants_remove( cuppa_env ):
+        modes.append( 'remove' )
+    if wants_purge( cuppa_env ):
+        modes.append( 'purge' )
+    if wants_wipe( cuppa_env ):
+        modes.append( 'wipe' )
+    if wants_force_wipe( cuppa_env ):
+        modes.append( 'force-wipe' )
+    if wants_force_wipe_unreferenced( cuppa_env ):
+        modes.append( 'force-wipe-unreferenced' )
+    if len( modes ) > 1:
+        return modes
+    return None
+
+
+def purge_and_remove_combined( cuppa_env ):
+    """True when any purge flag is combined with any remove flag."""
+    return bool(
+            wants_purge( cuppa_env ) and wants_remove( cuppa_env )
+    )
+
+
 def parse_dependency_names( spec ):
-    """Split a comma-separated ``--remove-dependencies`` / ``--purge-dependencies`` value."""
+    """Split a comma-separated remove / purge / wipe dependency name list."""
     if not spec:
         return []
     if isinstance( spec, ( list, tuple ) ):
@@ -123,27 +166,33 @@ def project_dependency_names( cuppa_env ):
 
 
 def resolve_requested_names( cuppa_env ):
-    """Return ``(names, error)`` for the current remove or purge flags.
+    """Return ``(names, error)`` for the current remove, purge, or wipe flags.
 
     ``error`` is ``None`` on success, a string for empty input, or
     :class:`UnknownDependencyNames` when names are not project-used.
-    ``--remove-all-dependencies`` / ``--purge-all-dependencies`` with no project-used
-    names yields an empty list.
+    ``--*-all-dependencies`` with no project-used names yields an empty list.
     """
     project_used = project_dependency_names( cuppa_env )
     project_set = set( project_used )
 
-    if cuppa_env.get( 'remove_all_dependencies' ) or cuppa_env.get( 'purge_all_dependencies' ):
+    if (
+            cuppa_env.get( 'remove_all_dependencies' )
+            or cuppa_env.get( 'purge_all_dependencies' )
+            or cuppa_env.get( 'force_wipe_all_dependencies' )
+    ):
         return list( project_used ), None
 
     names = parse_dependency_names(
-            cuppa_env.get( 'purge_dependencies' ) or cuppa_env.get( 'remove_dependencies' )
+            cuppa_env.get( 'wipe_dependencies' )
+            or cuppa_env.get( 'purge_dependencies' )
+            or cuppa_env.get( 'remove_dependencies' )
     )
     if not names:
         return [], (
                 "no dependency names given (use --remove-dependencies=name, "
-                "--purge-dependencies=name, --remove-all-dependencies, or "
-                "--purge-all-dependencies)"
+                "--purge-dependencies=name, --wipe-dependencies=name, "
+                "--remove-all-dependencies, --purge-all-dependencies, or "
+                "--force-wipe-all-dependencies)"
         )
 
     unknown = [ name for name in names if name not in project_set ]
@@ -541,14 +590,21 @@ def _product_leftovers( dependency, extract, home, remove_reals, storage_type, q
     return leftovers
 
 
-def collect_removal_plan( construct, cuppa_env, names ):
-    """Build remove targets, leftovers, develop skips, and resolve skips for ``names``."""
+def collect_removal_plan( construct, cuppa_env, names, wipe=False ):
+    """Build remove targets, leftovers, develop skips, and resolve skips for ``names``.
+
+    When ``wipe`` is True, archive extracts are queued for full deletion even when the
+    dependency implements ``storage_clean`` (product-only clean is skipped).
+    """
     root = _dependencies_root( cuppa_env )
     selections = dependency_storage.selection_build_envs( construct, cuppa_env )
     owned, skips = dependency_storage.resolve_named_dependencies(
             construct, cuppa_env, names, selections=selections
     )
-    clean_by_name = _collect_storage_clean( construct, cuppa_env, names, selections )
+    # Wipe clears the extract; do not consult storage_clean product-only paths.
+    clean_by_name = (
+            {} if wipe else _collect_storage_clean( construct, cuppa_env, names, selections )
+    )
 
     develop_skips = []
     targets = []
@@ -1620,11 +1676,22 @@ def _write_develop_skips( out, develop_skips ):
         ) )
 
 
-def _write_verify( out, archives=None, purge=False ):
+def _write_verify( out, archives=None, purge=False, wipe=False, unreferenced=False ):
     out.write( "\n" )
     out.write( "Verify with:\n\n" )
-    if purge:
+    if unreferenced:
+        out.write( as_emphasised(
+                "cuppa -Q -D --list-dependencies --list-scope=unreferenced"
+        ) + "\n" )
+        out.write( as_emphasised(
+                "cuppa -Q -D --list-downloads --list-scope=unreferenced"
+        ) + "\n" )
+        return
+    if wipe or purge:
         out.write( as_emphasised( "cuppa -Q -D --list-downloads" ) + "\n" )
+        if wipe:
+            out.write( as_emphasised( "cuppa -Q -D --list-dependencies" ) + "\n" )
+            return
         if archives:
             out.write( as_subdued(
                     "(archive product clean leaves source assets; "
@@ -1768,7 +1835,8 @@ def _staying_extracts_from_owned( owned, targets, leftovers ):
 def remove_dependencies( construct, cuppa_env, out=None ):
     """Remove named (or all default) dependency trees for the current selection.
 
-    When purge flags are set, also delete matching archives under ``downloads_root``.
+    When purge or wipe flags are set, also delete matching archives under ``downloads_root``.
+    Wipe clears the whole extract even when ``storage_clean`` would leave it.
     """
     out = out or sys.stdout
     names, error = resolve_requested_names( cuppa_env )
@@ -1786,7 +1854,8 @@ def remove_dependencies( construct, cuppa_env, out=None ):
     root = _dependencies_root( cuppa_env )
     _refuse_suspicious_dependencies_root( root, cuppa_env.get( 'sconstruct_dir' ) )
 
-    purge = wants_purge( cuppa_env )
+    wipe = wants_wipe( cuppa_env )
+    purge = wants_purge( cuppa_env ) or wipe
     if purge:
         downloads_root_check = _downloads_root( cuppa_env )
         if downloads_root_check and storage.is_suspicious_root( downloads_root_check ):
@@ -1795,7 +1864,7 @@ def remove_dependencies( construct, cuppa_env, out=None ):
                         downloads_root_check
                 )
             )
-    plan = collect_removal_plan( construct, cuppa_env, names )
+    plan = collect_removal_plan( construct, cuppa_env, names, wipe=wipe )
     targets = plan['targets']
     leftovers = plan['leftovers']
     archives = plan.get( 'archives' ) or []
@@ -1811,7 +1880,8 @@ def remove_dependencies( construct, cuppa_env, out=None ):
         download_targets, download_leftovers, downloads_root = collect_purge_downloads(
                 construct, cuppa_env, names, owned=owned,
         )
-        staying_extracts = _staying_extracts_from_owned( owned, targets, leftovers )
+        if not wipe:
+            staying_extracts = _staying_extracts_from_owned( owned, targets, leftovers )
 
     actionable_downloads = [ item for item in download_targets if not item.missing ]
     if not targets and not actionable_downloads:
@@ -1830,7 +1900,7 @@ def remove_dependencies( construct, cuppa_env, out=None ):
             _write_leftovers_summary( out, leftovers, download_leftovers )
         _write_develop_skips( out, develop_skips )
         if leftovers or develop_skips or archives or download_targets or download_leftovers:
-            _write_verify( out, archives=archives or None, purge=purge )
+            _write_verify( out, archives=archives or None, purge=purge, wipe=wipe )
         return 0
 
     planned_bytes = sum( item.size_bytes for item in targets ) + sum(
@@ -1850,15 +1920,19 @@ def remove_dependencies( construct, cuppa_env, out=None ):
     where = as_info( storage.display_path( root ) )
     if purge and downloads_root:
         where = "{} / {}".format( where, as_info( storage.display_path( downloads_root ) ) )
+    verb = "Would wipe" if planning and wipe else (
+            "Wiping" if wipe else ( "Would remove" if planning else "Removing" )
+    )
     announce = "{} {} ({}) under {}".format(
-            "Would remove" if planning else "Removing",
+            verb,
             " and ".join( announce_parts ),
             as_emphasised( storage.human_size( planned_bytes ) ),
             where,
     )
     out.write( announce + "\n" )
     if planning:
-        out.write( as_subdued( "(dry run; pass without -n to remove)" ) + "\n" )
+        hint = "wipe" if wipe else "remove"
+        out.write( as_subdued( "(dry run; pass without -n to {})".format( hint ) ) + "\n" )
     out.write( "\n" )
 
     outcomes_by_path = {}
@@ -1980,15 +2054,578 @@ def remove_dependencies( construct, cuppa_env, out=None ):
             ) )
 
     out.write( "\n" )
-    remaining = _remaining_archive_bytes( archives, targets, outcomes_by_path, planning )
+    remaining = 0 if wipe else _remaining_archive_bytes(
+            archives, targets, outcomes_by_path, planning
+    )
     _write_freed_summary(
             out, planning, removed_count, removed_bytes,
             remaining_archive_bytes=remaining,
             download_count=download_removed_count,
     )
-    if not planning and archives:
+    if not planning and archives and not wipe:
         _refresh_archive_inventory_sizes( root, archives, targets, outcomes_by_path )
-    _write_verify( out, archives=archives or None, purge=purge )
+    _write_verify( out, archives=archives or None, purge=purge, wipe=wipe )
 
     hard_errors = [ item for item in failures if item['severity'] == 'error' ]
     return 1 if hard_errors else 0
+
+
+def _other_project_used_by( entry, this_project ):
+    """Return used_by paths that are not this project."""
+    used_by = ( entry or {} ).get( 'used_by' ) or {}
+    if not used_by:
+        return []
+    if not this_project:
+        return sorted( used_by.keys() )
+    this_real = storage.real_path( this_project )
+    return sorted(
+            path for path in used_by
+            if storage.real_path( path ) != this_real
+    )
+
+
+def parse_force_wipe_tokens( spec ):
+    """Parse ``name/qualifier`` tokens for ``--force-wipe-dependencies``.
+
+    Returns ``(tokens, error)`` where each token is ``(name, qualifier)``.
+    """
+    parts = parse_dependency_names( spec )
+    if not parts:
+        return [], (
+                "no force-wipe tokens given "
+                "(use --force-wipe-dependencies=name/qualifier,…)"
+        )
+    tokens = []
+    for part in parts:
+        if '/' not in part:
+            return [], (
+                    "force-wipe token [{}] must be name/qualifier "
+                    "(bare names belong on --wipe-dependencies)".format( part )
+            )
+        name, qualifier = part.split( '/', 1 )
+        name = name.strip()
+        qualifier = qualifier.strip()
+        if not name or not qualifier:
+            return [], (
+                    "force-wipe token [{}] must be name/qualifier "
+                    "with both sides non-empty".format( part )
+            )
+        tokens.append( ( name, qualifier ) )
+    return tokens, None
+
+
+def _normalise_wipe_name( value ):
+    return ( value or '' ).strip().lower()
+
+
+def _qualifier_aliases( qualifier, storage_type ):
+    """Return forms that should match a list leaf qualifier / display label."""
+    from cuppa.core.dependency_identity import display_qualifier
+
+    raw = ( qualifier or '' ).strip()
+    aliases = { raw, raw.lower() }
+    display = display_qualifier( raw, storage_type or 'location' )
+    if display:
+        aliases.add( display )
+        aliases.add( display.lower() )
+    # Accept with or without leading @ for location-style tokens.
+    if raw.startswith( '@' ):
+        aliases.add( raw[1:] )
+        aliases.add( raw[1:].lower() )
+    else:
+        aliases.add( '@' + raw )
+        aliases.add( ( '@' + raw ).lower() )
+    # Unqualified default-branch label: "@master (unqualified)".
+    if ' (unqualified)' in display.lower():
+        base = display.split( ' (', 1 )[0]
+        aliases.add( base )
+        aliases.add( base.lower() )
+    return { item for item in aliases if item }
+
+
+def _row_matches_force_token( row, name, qualifier ):
+    short = _normalise_wipe_name( row.get( 'short_name' ) )
+    dep = _normalise_wipe_name( row.get( 'dependency' ) )
+    stem = _normalise_wipe_name( row.get( 'stem' ) )
+    want = _normalise_wipe_name( name )
+    if want not in ( short, dep, stem ):
+        return False
+    storage_type = row.get( 'type' ) or row.get( 'kind' ) or 'unknown'
+    row_qual = row.get( 'qualifier' )
+    # Prefer an explicit display label on the row when present.
+    candidates = _qualifier_aliases( row_qual, storage_type )
+    label = row.get( 'label' )
+    if label:
+        candidates.add( str( label ).strip() )
+        candidates.add( str( label ).strip().lower() )
+    want_aliases = _qualifier_aliases( qualifier, storage_type )
+    return bool( candidates & want_aliases )
+
+
+def _inventory_by_path( root ):
+    by_path = {}
+    for entry in dependency_inventory.load_all_entries( root ):
+        path = entry.get( 'path' )
+        if path:
+            by_path[storage.real_path( path )] = entry
+    return by_path
+
+
+def _target_from_row( row ):
+    path = row.get( 'path' )
+    return RemovalTarget(
+            dependency=row.get( 'dependency' ) or row.get( 'short_name' ) or '-',
+            path=path,
+            qualifier=row.get( 'qualifier' ),
+            tool_variant=row.get( 'tool_variant' ),
+            storage_type=row.get( 'type' ) or row.get( 'kind' ) or 'unknown',
+            size_bytes=int( row.get( 'size_bytes' ) or _measure_bytes( path ) ),
+            label=None,
+            extra_paths=(),
+    )
+
+
+def _download_from_row( row, missing=False ):
+    path = row.get( 'path' )
+    return DownloadTarget(
+            dependency=row.get( 'dependency' ) or row.get( 'short_name' ) or '-',
+            path=path,
+            qualifier=row.get( 'qualifier' ),
+            tool_variant=row.get( 'tool_variant' ),
+            storage_type=row.get( 'type' ) or 'archive',
+            size_bytes=0 if missing else int(
+                    row.get( 'size_bytes' ) or _download_file_size( path )
+            ),
+            label=row.get( 'label' ) or os.path.basename( path or '' ),
+            missing=missing,
+    )
+
+
+def _execute_force_wipe(
+        out, root, downloads_root, targets, download_targets, planning,
+        notes=None, used_by_warnings=None, unreferenced=False,
+):
+    """Announce, delete, and report a force-wipe plan."""
+    notes = notes or []
+    used_by_warnings = used_by_warnings or []
+    actionable_downloads = [ item for item in download_targets if not item.missing ]
+    if not targets and not actionable_downloads:
+        out.write( "nothing to wipe under the requested force-wipe selection\n" )
+        for item in used_by_warnings:
+            out.write( as_warning(
+                    "warning: {} still recorded as used by another project: {}\n".format(
+                            item['dependency'],
+                            ', '.join( storage.display_path( p ) for p in item['used_by'] ),
+                    )
+            ) )
+        _write_verify( out, wipe=True, unreferenced=unreferenced )
+        return 0
+
+    planned_bytes = sum( item.size_bytes for item in targets ) + sum(
+            item.size_bytes for item in actionable_downloads
+    )
+    announce_parts = []
+    if targets:
+        unit = "dependency tree" if len( targets ) == 1 else "dependency trees"
+        announce_parts.append( "{} {}".format( as_emphasised( str( len( targets ) ) ), unit ) )
+    if actionable_downloads:
+        unit = "download" if len( actionable_downloads ) == 1 else "downloads"
+        announce_parts.append(
+                "{} {}".format( as_emphasised( str( len( actionable_downloads ) ) ), unit )
+        )
+    where = as_info( storage.display_path( root ) )
+    if downloads_root:
+        where = "{} / {}".format( where, as_info( storage.display_path( downloads_root ) ) )
+    out.write( "{} {} ({}) under {}\n".format(
+            "Would wipe" if planning else "Wiping",
+            " and ".join( announce_parts ),
+            as_emphasised( storage.human_size( planned_bytes ) ),
+            where,
+    ) )
+    if planning:
+        out.write( as_subdued( "(dry run; pass without -n to wipe)" ) + "\n" )
+    out.write( "\n" )
+    for note in notes:
+        out.write( as_subdued( note ) + "\n" )
+    if notes:
+        out.write( "\n" )
+    for item in used_by_warnings:
+        out.write( as_warning(
+                "warning: wiping {} despite used_by from another project ({})\n".format(
+                        storage.display_path( item['path'] ),
+                        ', '.join( storage.display_path( p ) for p in item['used_by'] ),
+                )
+        ) )
+    if used_by_warnings:
+        out.write( "\n" )
+
+    outcomes_by_path = {}
+    failures = []
+    removed_bytes = 0
+    removed_count = 0
+
+    for target in targets:
+        real = storage.real_path( target.path )
+        if planning:
+            outcomes_by_path[real] = { 'result': 'removed' }
+            removed_bytes += target.size_bytes
+            removed_count += 1
+            continue
+        try:
+            storage.ensure_contained( target.path, root, what="dependency path" )
+            if os.path.islink( target.path ):
+                raise storage.StorageError(
+                    "refusing to remove through symlink [{}]".format( target.path )
+                )
+            if os.path.lexists( target.path ):
+                storage.remove_path( target.path, dry_run=False )
+                storage.prune_empty_parents( os.path.dirname( target.path ), root )
+                try:
+                    dependency_inventory.delete_entry_for_path( root, target.path )
+                except Exception:
+                    pass
+            outcomes_by_path[real] = { 'result': 'removed' }
+            removed_bytes += target.size_bytes
+            removed_count += 1
+        except ( storage.StorageError, OSError ) as error:
+            reason = str( error )
+            already_gone = "already deleted" in reason.lower() or "not found" in reason.lower()
+            severity = 'warning' if already_gone else 'error'
+            outcomes_by_path[real] = { 'result': 'failed', 'reason': reason }
+            failures.append( {
+                'dependency': target.dependency,
+                'path': target.path,
+                'reason': reason,
+                'severity': severity,
+            } )
+
+    download_removed_count = 0
+    for download in download_targets:
+        real_key = (
+                storage.real_path( download.path )
+                if os.path.lexists( download.path ) else download.path
+        )
+        if download.missing:
+            outcomes_by_path[real_key] = { 'result': 'absent' }
+            continue
+        if planning:
+            outcomes_by_path[real_key] = { 'result': 'removed' }
+            removed_bytes += download.size_bytes
+            download_removed_count += 1
+            continue
+        try:
+            storage.ensure_contained( download.path, downloads_root, what="download path" )
+            if os.path.islink( download.path ):
+                raise storage.StorageError(
+                    "refusing to remove through symlink [{}]".format( download.path )
+                )
+            if os.path.lexists( download.path ):
+                storage.remove_path( download.path, dry_run=False )
+                storage.prune_empty_parents( os.path.dirname( download.path ), downloads_root )
+            outcomes_by_path[real_key] = { 'result': 'removed' }
+            removed_bytes += download.size_bytes
+            download_removed_count += 1
+        except ( storage.StorageError, OSError ) as error:
+            reason = str( error )
+            already_gone = "already deleted" in reason.lower() or "not found" in reason.lower()
+            severity = 'warning' if already_gone else 'error'
+            outcomes_by_path[real_key] = { 'result': 'failed', 'reason': reason }
+            failures.append( {
+                'dependency': download.dependency,
+                'path': download.path,
+                'reason': reason,
+                'severity': severity,
+            } )
+
+    _write_removal_tree(
+            out, targets, [], outcomes_by_path, planning, root,
+            downloads=download_targets, download_leftovers=[],
+            downloads_root=downloads_root, staying_extracts=[],
+    )
+
+    if failures:
+        out.write( "\n" )
+        out.write( as_warning( "Not all requested paths could be wiped:" ) + "\n" )
+        for item in failures:
+            colour = as_remove_error if item['severity'] == 'error' else as_warning
+            out.write( "  {}: {}\n".format(
+                    colour( item['dependency'] ),
+                    item['reason'],
+            ) )
+
+    out.write( "\n" )
+    _write_freed_summary(
+            out, planning, removed_count, removed_bytes,
+            remaining_archive_bytes=0,
+            download_count=download_removed_count,
+    )
+    _write_verify( out, wipe=True, unreferenced=unreferenced )
+    hard_errors = [ item for item in failures if item['severity'] == 'error' ]
+    return 1 if hard_errors else 0
+
+
+def force_wipe_dependencies( construct, cuppa_env, out=None ):
+    """Clear-down list-tree leaves named as ``name/qualifier`` tokens."""
+    from cuppa.core import dependency_actions, dependency_downloads, dependency_identity
+
+    out = out or sys.stdout
+    tokens, error = parse_force_wipe_tokens( cuppa_env.get( 'force_wipe_dependencies' ) )
+    if error:
+        out.write( "error: {}\n".format( error ) )
+        return 1
+
+    root = _dependencies_root( cuppa_env )
+    _refuse_suspicious_dependencies_root( root, cuppa_env.get( 'sconstruct_dir' ) )
+    downloads_root = _downloads_root( cuppa_env )
+    if downloads_root and storage.is_suspicious_root( downloads_root ):
+        raise storage.StorageError(
+            "refusing to wipe under suspicious downloads root [{}]".format( downloads_root )
+        )
+
+    rows = dependency_actions._collect_rows( construct, cuppa_env ).get( 'rows' ) or []
+    dl_rows = dependency_downloads.collect_download_rows( construct, cuppa_env ).get( 'rows' ) or []
+    by_path = _inventory_by_path( root )
+    this_project = cuppa_env.get( 'sconstruct_dir' )
+    planning = dry_run( cuppa_env )
+
+    targets = []
+    seen = set()
+    notes = []
+    used_by_warnings = []
+    matched_reals = set()
+
+    for name, qualifier in tokens:
+        matches = [
+                row for row in rows
+                if row.get( 'path' ) and _row_matches_force_token( row, name, qualifier )
+        ]
+        # Distinct paths only.
+        by_real = {}
+        for row in matches:
+            real = storage.real_path( row['path'] ) if os.path.lexists( row['path'] ) else row['path']
+            by_real.setdefault( real, row )
+        if not by_real:
+            out.write( "error: no dependency leaf matches [{}/{}]\n".format( name, qualifier ) )
+            return 1
+        if len( by_real ) > 1:
+            out.write( "error: ambiguous force-wipe token [{}/{}]; candidates:\n".format(
+                    name, qualifier
+            ) )
+            for row in sorted( by_real.values(), key=lambda item: item.get( 'path' ) or '' ):
+                out.write( "  {} ({})\n".format(
+                        storage.display_path( row['path'] ),
+                        storage.human_size( int( row.get( 'size_bytes' ) or 0 ) ),
+                ) )
+            return 1
+        row = next( iter( by_real.values() ) )
+        path = row['path']
+        if not os.path.lexists( path ):
+            out.write( "error: matched leaf [{}/{}] path does not exist: {}\n".format(
+                    name, qualifier, path
+            ) )
+            return 1
+        real = storage.real_path( path )
+        if real in seen:
+            continue
+        storage.ensure_contained( path, root, what="dependency path" )
+        if os.path.islink( path ):
+            raise storage.StorageError(
+                "refusing to remove through symlink [{}]".format( path )
+            )
+        entry = by_path.get( real ) or {}
+        others = _other_project_used_by( entry, this_project )
+        if others:
+            used_by_warnings.append( {
+                'dependency': row.get( 'dependency' ) or row.get( 'short_name' ) or path,
+                'path': path,
+                'used_by': others,
+            } )
+        if not entry:
+            notes.append( "no inventory record for {}".format( storage.display_path( path ) ) )
+        seen.add( real )
+        matched_reals.add( real )
+        targets.append( _target_from_row( row ) )
+
+    download_targets = []
+    download_seen = set()
+    for row in dl_rows:
+        if row.get( 'role' ) != 'archive':
+            continue
+        path = row.get( 'path' )
+        if not path:
+            continue
+        # Match by same name/qualifier token, or by paired extract already queued.
+        paired = False
+        for name, qualifier in tokens:
+            if _row_matches_force_token( row, name, qualifier ):
+                paired = True
+                break
+        if not paired:
+            # Product children in downloads listing may point at extract paths.
+            continue
+        real = storage.real_path( path ) if os.path.lexists( path ) else path
+        if real in download_seen:
+            continue
+        download_seen.add( real )
+        if not os.path.lexists( path ):
+            download_targets.append( _download_from_row( row, missing=True ) )
+            continue
+        if not downloads_root:
+            continue
+        storage.ensure_contained( path, downloads_root, what="download path" )
+        if os.path.islink( path ):
+            raise storage.StorageError(
+                "refusing to remove through symlink [{}]".format( path )
+            )
+        download_targets.append( _download_from_row( row, missing=False ) )
+
+    # Also pick up archives whose basename/path is linked from inventory downloads
+    # for wiped extracts, or find_cached_download for archive homes.
+    for target in targets:
+        entry = by_path.get( storage.real_path( target.path ) ) or {}
+        for download_path in entry.get( 'downloads' ) or []:
+            if not download_path:
+                continue
+            real = storage.real_path( download_path ) if os.path.lexists( download_path ) else download_path
+            if real in download_seen:
+                continue
+            download_seen.add( real )
+            if not downloads_root or not os.path.lexists( download_path ):
+                download_targets.append( DownloadTarget(
+                        dependency=target.dependency,
+                        path=download_path,
+                        qualifier=target.qualifier,
+                        tool_variant=target.tool_variant,
+                        storage_type='archive',
+                        size_bytes=0,
+                        label=os.path.basename( download_path ),
+                        missing=not os.path.lexists( download_path ),
+                ) )
+                continue
+            storage.ensure_contained( download_path, downloads_root, what="download path" )
+            download_targets.append( DownloadTarget(
+                    dependency=target.dependency,
+                    path=download_path,
+                    qualifier=target.qualifier,
+                    tool_variant=target.tool_variant,
+                    storage_type='archive',
+                    size_bytes=_download_file_size( download_path ),
+                    label=os.path.basename( download_path ),
+                    missing=False,
+            ) )
+        try:
+            found = dependency_identity.find_cached_download(
+                    downloads_root,
+                    storage_type=target.storage_type,
+                    path=target.path,
+            )
+        except Exception:
+            found = None
+        if found and downloads_root:
+            real = storage.real_path( found ) if os.path.lexists( found ) else found
+            if real not in download_seen:
+                download_seen.add( real )
+                if os.path.lexists( found ):
+                    storage.ensure_contained( found, downloads_root, what="download path" )
+                    download_targets.append( DownloadTarget(
+                            dependency=target.dependency,
+                            path=found,
+                            qualifier=target.qualifier,
+                            tool_variant=target.tool_variant,
+                            storage_type='archive',
+                            size_bytes=_download_file_size( found ),
+                            label=os.path.basename( found ),
+                            missing=False,
+                    ) )
+
+    return _execute_force_wipe(
+            out, root, downloads_root, targets, download_targets, planning,
+            notes=notes, used_by_warnings=used_by_warnings, unreferenced=False,
+    )
+
+
+def force_wipe_unreferenced_dependencies( construct, cuppa_env, out=None ):
+    """Clear-down every tree and download this resolve marks as unreferenced."""
+    from cuppa.core import dependency_actions, dependency_downloads, dependency_tree
+
+    out = out or sys.stdout
+    root = _dependencies_root( cuppa_env )
+    _refuse_suspicious_dependencies_root( root, cuppa_env.get( 'sconstruct_dir' ) )
+    downloads_root = _downloads_root( cuppa_env )
+    if downloads_root and storage.is_suspicious_root( downloads_root ):
+        raise storage.StorageError(
+            "refusing to wipe under suspicious downloads root [{}]".format( downloads_root )
+        )
+
+    dep_data = dependency_actions.apply_list_scope(
+            dependency_actions._collect_rows( construct, cuppa_env ),
+            'unreferenced',
+            tree_builder=dependency_tree.build_tree,
+    )
+    dl_data = dependency_actions.apply_list_scope(
+            dependency_downloads.collect_download_rows( construct, cuppa_env ),
+            'unreferenced',
+            tree_builder=dependency_downloads.build_downloads_tree,
+    )
+
+    this_project = cuppa_env.get( 'sconstruct_dir' )
+    planning = dry_run( cuppa_env )
+    by_path = _inventory_by_path( root )
+
+    targets = []
+    seen = set()
+    notes = []
+    used_by_warnings = []
+
+    for row in dep_data.get( 'rows' ) or []:
+        if row.get( 'state' ) != 'unreferenced':
+            continue
+        path = row.get( 'path' )
+        if not path or not os.path.lexists( path ):
+            continue
+        real = storage.real_path( path )
+        if real in seen:
+            continue
+        storage.ensure_contained( path, root, what="dependency path" )
+        if os.path.islink( path ):
+            raise storage.StorageError(
+                "refusing to remove through symlink [{}]".format( path )
+            )
+        entry = by_path.get( real ) or {}
+        others = _other_project_used_by( entry, this_project )
+        if others:
+            used_by_warnings.append( {
+                'dependency': row.get( 'dependency' ) or row.get( 'short_name' ) or path,
+                'path': path,
+                'used_by': others,
+            } )
+        if not entry:
+            notes.append( "no inventory record for {}".format( storage.display_path( path ) ) )
+        seen.add( real )
+        targets.append( _target_from_row( row ) )
+
+    download_targets = []
+    for row in dl_data.get( 'rows' ) or []:
+        if row.get( 'state' ) != 'unreferenced':
+            continue
+        if row.get( 'role' ) != 'archive':
+            continue
+        path = row.get( 'path' )
+        if not path:
+            continue
+        if not os.path.lexists( path ):
+            download_targets.append( _download_from_row( row, missing=True ) )
+            continue
+        if not downloads_root:
+            continue
+        storage.ensure_contained( path, downloads_root, what="download path" )
+        if os.path.islink( path ):
+            raise storage.StorageError(
+                "refusing to remove through symlink [{}]".format( path )
+            )
+        download_targets.append( _download_from_row( row, missing=False ) )
+
+    return _execute_force_wipe(
+            out, root, downloads_root, targets, download_targets, planning,
+            notes=notes, used_by_warnings=used_by_warnings, unreferenced=True,
+    )
