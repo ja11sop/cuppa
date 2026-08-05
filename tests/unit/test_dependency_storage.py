@@ -368,3 +368,85 @@ def test_resolve_named_dependencies_passes_nested_scons_env( tmp_path ):
     assert len( owned ) == 1
     assert owned[0].dependency == 'widget'
     assert owned[0].storage_type in dependency_storage.STORAGE_TYPES or owned[0].storage_type == 'unknown'
+
+
+class _StubDependency( object ):
+    def __init__( self, paths, qualifier=None, tool_variant=None ):
+        self._paths = paths
+        self._qualifier = qualifier
+        self._tool_variant = tool_variant
+
+    def storage_paths( self ):
+        return self._paths
+
+    def storage_qualifier( self ):
+        return self._qualifier
+
+    def storage_tool_variant( self ):
+        return self._tool_variant
+
+
+def test_record_resolve_use_stamps_used_by( tmp_path ):
+    from cuppa.core import dependency_inventory
+
+    dependencies_root = tmp_path / 'dependencies'
+    tree = dependencies_root / 'widget@master'
+    tree.mkdir( parents=True )
+    ( tree / 'readme' ).write_text( 'ok\n', encoding='utf-8' )
+    project = tmp_path / 'project'
+    project.mkdir()
+
+    env = {
+        'dependencies_root': str( dependencies_root ),
+        'sconstruct_dir': str( project ),
+    }
+    instance = _StubDependency(
+            { 'dependencies': [ str( tree ) ] },
+            qualifier='@master',
+    )
+    dependency_storage.record_resolve_use( env, instance, 'widget' )
+
+    entry = dependency_inventory.load_entry(
+            str( dependencies_root ),
+            dependency_inventory.entry_key_for_path( str( tree ) ),
+    )
+    assert entry is not None
+    assert entry['last_used_source'] == 'resolve'
+    assert entry['dependency'] == 'widget'
+    assert storage_util.real_path( str( project ) ) in entry['used_by']
+
+
+def test_record_resolve_use_skips_resolve_only( tmp_path ):
+    from cuppa.core import dependency_inventory
+
+    dependencies_root = tmp_path / 'dependencies'
+    tree = dependencies_root / 'widget@master'
+    tree.mkdir( parents=True )
+    env = {
+        'dependencies_root': str( dependencies_root ),
+        'sconstruct_dir': str( tmp_path / 'project' ),
+        'storage_resolve_only': True,
+    }
+    instance = _StubDependency( { 'dependencies': [ str( tree ) ] } )
+    dependency_storage.record_resolve_use( env, instance, 'widget' )
+    assert dependency_inventory.load_all_entries( str( dependencies_root ) ) == []
+
+
+def test_record_resolve_use_skips_paths_outside_root( tmp_path ):
+    from cuppa.core import dependency_inventory
+
+    dependencies_root = tmp_path / 'dependencies'
+    dependencies_root.mkdir()
+    outside = tmp_path / 'develop' / 'widget'
+    outside.mkdir( parents=True )
+    env = {
+        'dependencies_root': str( dependencies_root ),
+        'sconstruct_dir': str( tmp_path / 'project' ),
+    }
+    instance = _StubDependency( {
+        'dependencies': [ str( outside ) ],
+        'cached': [ str( dependencies_root / 'widget@master' ) ],
+    } )
+    ( dependencies_root / 'widget@master' ).mkdir()
+    dependency_storage.record_resolve_use( env, instance, 'widget' )
+    assert dependency_inventory.load_all_entries( str( dependencies_root ) ) == []

@@ -102,6 +102,27 @@ def test_size_should_upgrade_to_exact():
     } )
 
 
+def test_touch_entry_without_last_used_leaves_used_by_empty( tmp_path ):
+    dependencies_root = tmp_path / 'dependencies'
+    tree = dependencies_root / 'widget@master'
+    tree.mkdir( parents=True )
+    ( tree / 'readme' ).write_text( 'hello', encoding='utf-8' )
+
+    entry = dependency_inventory.touch_entry(
+            str( dependencies_root ),
+            str( tree ),
+            storage_type='location',
+            dependency='widget',
+            qualifier='@master',
+            sconstruct_dir=str( tmp_path / 'project' ),
+            refresh_size=False,
+            update_last_used=False,
+    )
+    assert entry.get( 'used_by' ) == {}
+    assert entry.get( 'last_used_source' ) != 'resolve'
+    assert 'last_used' not in entry or entry.get( 'last_used_source' ) != 'resolve'
+
+
 def test_touch_entry_refresh_size_false_skips_measure( tmp_path ):
     dependencies_root = tmp_path / 'dependencies'
     tree = dependencies_root / 'widget@master'

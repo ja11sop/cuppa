@@ -157,6 +157,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Real `BuildWith` / default-dependency resolves stamp inventory `last_used` and `used_by`
+  (sconstruct directory). `--list-dependencies` and remove / purge still do not (#145).
 - `--list-dependencies` upgrades missing or sampled inventory sizes to exact on encounter
   (with a subdued notice that the pass may take a while). `--exact-sizes` still forces a full
   remeasure of every tree. Archive-product remove verify hints drop the mandatory

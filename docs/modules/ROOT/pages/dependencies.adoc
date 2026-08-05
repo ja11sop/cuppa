@@ -359,7 +359,8 @@ upgrades missing or sampled entries; resolve/build may still write samples until
 upgrades them), optional
 `remote_location` / `source_url` (configured or reconstructed remotes), and paths of known
 download archives so later listings can show LOCATION and `[D]` without re-guessing. Listing
-does not stamp `last_used`; that belongs to a real resolve or build.
+does not stamp `last_used` or `used_by`; a real `BuildWith` / default-dependency resolve does,
+recording the current sconstruct directory in `used_by`.
 
 [#remove-dependencies]
 == Removing dependency trees

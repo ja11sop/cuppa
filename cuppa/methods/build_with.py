@@ -52,6 +52,8 @@ class BuildWithMethod:
             dependency = dependency_factory( env )
             if dependency:
                 dependency( env, env['toolchain'], env['variant'].name() )
+                from cuppa.core import dependency_storage
+                dependency_storage.record_resolve_use( env, dependency, name )
                 env_dependencies.append( dependency )
             else:
                 raise BuildWithException(

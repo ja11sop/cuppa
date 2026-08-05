@@ -52,7 +52,7 @@ deferred Phase 3 polish items remain open and do not keep #134 open.
 | Phase 3 — inventory + `--list-dependencies` | **done** | Walk, sizes, `type`, JSON `tree` + flat `entries`, `referenced` / `unreferenced` / `missing`; ANSI-safe column padding; listing does not stamp `last_used`; `Collating dependency tree...` before the walk (text/verbose); lazy exact upgrade for missing/sampled inventory (§4.5); `--list-scope` (alias `--list-dependencies-scope`) |
 | Phase 3 — native `du` for exact bytes (§4.5.1) | **future** | Parked; first exact list upgrade felt fine in practice on large Boost extracts — revisit only if that changes |
 | Phase 3 — `--list-dependencies` **table presentation** | **done** | Hierarchical tree (§4.9 P1–P4): REMARK / rollups / colour; missing vs stale summaries; `--list-format=verbose` LOCATION; `[D]` + footer (§4.12); GitHub archive grouping; GitLab registry LOCATION on unreferenced too; Windows `.zip` + OS label for package archives; docs examples match real ruled output |
-| Phase 3 — inventory `used_by` on resolve | **open** | [#145](https://github.com/ja11sop/cuppa/issues/145) — Listing must not stamp use; real resolve/build should. Prerequisite for §4.10 remarks |
+| Phase 3 — inventory `used_by` on resolve | **done** | [#145](https://github.com/ja11sop/cuppa/issues/145) — `BuildWith` stamps `used_by` / `last_used`; listing must not. Empty-map remarks (§4.10) still parked |
 | Phase 3 — short-name / stem derivation | **done** | Git remote, gitlab path, Boost + GitHub archive heuristics; inventory `remote_location` / `source_url` |
 | Phase 3 — Conan install metadata (§4.7) | **open** | [#145](https://github.com/ja11sop/cuppa/issues/145) — `.cuppa_conan_meta.json` not written yet; Conan rows stay fingerprint-weak |
 | Phase 3 — default-branch quirk (§4.8) | **open** | [#145](https://github.com/ja11sop/cuppa/issues/145) — Unqualified vs `stem@master` doubling; location + listing + optional cleanup; `<default_branch>` labels in §4.9 |
@@ -64,14 +64,14 @@ deferred Phase 3 polish items remain open and do not keep #134 open.
 | Phase 6 — artefacts | **open** | Sketch only (§4.6) / [#135](https://github.com/ja11sop/cuppa/issues/135) |
 | §3.7 — `--clone-develop` | **open** | #138 |
 
-**Next focus:** merge [#144](https://github.com/ja11sop/cuppa/pull/144) to close #134, then
-[#145](https://github.com/ja11sop/cuppa/issues/145) (Phase 3 polish), then
-[#146](https://github.com/ja11sop/cuppa/issues/146) (`--wipe-dependencies`, clear-down only).
-Boost package identity stays on [`boost-updates.md`](boost-updates.md).
+**Next focus:** [#145](https://github.com/ja11sop/cuppa/issues/145) remaining polish (Conan meta,
+default-branch quirk, docs split), then [#146](https://github.com/ja11sop/cuppa/issues/146)
+(`--wipe-dependencies`, clear-down only). Boost package identity stays on
+[`boost-updates.md`](boost-updates.md).
 
 **Deferred Phase 3 polish** ([#145](https://github.com/ja11sop/cuppa/issues/145); parallel branches fine):
 
-1. Inventory `used_by` on resolve (§4.10) — prerequisite for empty-map remarks
+1. Inventory `used_by` on resolve (§4.10) — **done** (stamp only; empty-map remarks still parked)
 2. Conan install metadata `.cuppa_conan_meta.json` (§4.7)
 3. Default-branch quirk (§4.8) — canonical `stem@branch`, labels, optional cleanup
 4. Dependencies documentation split (§7.1)

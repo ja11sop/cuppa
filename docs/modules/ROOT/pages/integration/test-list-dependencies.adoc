@@ -14,6 +14,9 @@ as `missing` (including in JSON `missing_count` / entries) without aborting the 
 in JSON `scope` / `entries` / `tree`). The deprecated `--list-dependencies-scope` alias still
 works.
 
+A local location tree under `--storage-root` is listed without stamping `used_by`. A subsequent
+`--dbg` build records `last_used_source=resolve` and the project path in `used_by`.
+
 A second fixture plants GitHub release extracts, a Boost source archive, a GitLab package tree,
 and matching files under `downloads/`. Verbose listing then checks:
 
