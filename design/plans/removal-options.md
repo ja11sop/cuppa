@@ -58,14 +58,13 @@ deferred Phase 3 polish items remain open and do not keep #134 open.
 | Phase 3 — default-branch quirk (§4.8) | **done** | [#145](https://github.com/ja11sop/cuppa/issues/145) — Canonical `stem@branch` going forward; keep unqualified-only; both → canonical + warn; listing `@master (unqualified)`. No auto-delete |
 | Phase 3 — `--remove-dependencies` / `--remove-all-dependencies` | **done** | Slice D on `master` (#142 / §4.13): project-used name gate, hierarchical remove report, multi-toolchain packages, unknown-name in-use tree hint; no purge |
 | Phase 3 — archive / Boost clean-by-variant (§4.14) | **done** | #143 — optional `storage_clean` + Boost b2 stage/`bin.<abi>` clean; source-assets leaf + remaining archive size; whole-extract only when unsupported |
-| Phase 3 — **dependencies documentation split** (§7.1) | **open** | [#145](https://github.com/ja11sop/cuppa/issues/145) — Partition the monolithic `dependencies.adoc` (+ reconcile `packages.adoc` / `extending.adoc`); Managing examples match list + remove — split can proceed when convenient |
+| Phase 3 — **dependencies documentation split** (§7.1) | **done** | [#145](https://github.com/ja11sop/cuppa/issues/145) — Hub + children; `packages.adoc` publish focus; `include`/`sys_include` drift fixed |
 | Phase 4 — downloads list / purge | **done** | `--list-downloads` + `--purge-dependencies` / `--purge-all-dependencies` in [#144](https://github.com/ja11sop/cuppa/pull/144); that PR closes #134 |
 | `--wipe-dependencies` | **open** | [#146](https://github.com/ja11sop/cuppa/issues/146) — clear-down of extract + matching downloads; next build retrieves as usual |
 | Phase 6 — artefacts | **open** | Sketch only (§4.6) / [#135](https://github.com/ja11sop/cuppa/issues/135) |
 | §3.7 — `--clone-develop` | **open** | #138 |
 
-**Next focus:** [#145](https://github.com/ja11sop/cuppa/issues/145) remaining polish (docs split),
-then [#146](https://github.com/ja11sop/cuppa/issues/146)
+**Next focus:** [#146](https://github.com/ja11sop/cuppa/issues/146)
 (`--wipe-dependencies`, clear-down only). Boost package identity stays on
 [`boost-updates.md`](boost-updates.md).
 
@@ -74,7 +73,7 @@ then [#146](https://github.com/ja11sop/cuppa/issues/146)
 1. Inventory `used_by` on resolve (§4.10) — **done** (stamp only; empty-map remarks still parked)
 2. Conan install metadata `.cuppa_conan_meta.json` (§4.7) — **done**
 3. Default-branch quirk (§4.8) — **done** (canonical `stem@branch`, labels; no auto-delete)
-4. Dependencies documentation split (§7.1)
+4. Dependencies documentation split (§7.1) — **done**
 
 Deferred listing follow-ons remain §4.10 / §4.11 presentation details beyond `used_by`.
 Native `du` for exact byte totals (§4.5.1) stays parked — practice on large Boost extracts did
@@ -1956,8 +1955,7 @@ Listing half **done** on `master` (#141). Removal Slice D **done** on `master` (
   / REMARK `develop` already shipped.
 - Removal must re-verify every path on disk and re-apply the §5 containment rules; the inventory
   informs the report and never authorises a deletion.
-- **Documentation split (§7.1):** Managing samples match list + remove; partition
-  `dependencies.adoc` when convenient.
+- **Documentation split (§7.1):** **done** — hub + children; `packages.adoc` publish focus.
 
 **Phase 4 — downloads listing and purge** (§3.3) — **done**
 
@@ -2437,10 +2435,7 @@ Still open after Slice D (#142) and archive clean (#143):
   (§4.8 / §4.9 P1–P4): short_name / stem; referenced→type→identity→variant tree; REMARK;
   rollups; LOCATION when verbose; `[D]` settled (§4.12). **Default-branch quirk** (§4.8) **done**
   (canonical `stem@branch`, `@<default> (unqualified)` labels, warn; no auto-delete).
-  **Develop vs cached stem** bind shipped. Docs split (§7.1) can proceed — Managing samples
-  already match the tree.
-- **Dependencies documentation split.** Outline in §7.1: partition the monolith as a Phase 3
-  docs track; Managing can stay alongside removal docs; before Phase 4.
+  **Develop vs cached stem** bind shipped. **Dependencies documentation split (§7.1) done.**
 - **Whether the inventory should record anything else.** `type` (`gitlab` / `conan` /
   `location` / `archive`) is already recorded from path shape so a namespaced layout migration
   can move trees without re-guessing. Stem / short_name / registry binding follow §4.8 / §4.9. A coarse

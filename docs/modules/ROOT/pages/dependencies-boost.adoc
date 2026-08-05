@@ -1,0 +1,46 @@
+= Boost (source / Boost.Build)
+:description: Built-in boost dependency — b2, use_libs, patched home, vs boost_package
+
+The built-in `boost` dependency builds or uses a Boost tree via Boost.Build (`b2`).
+It is registered as the name `boost`. For prebuilt Boost from a GitLab registry, use
+xref:dependencies-gitlab.adoc#boost-package[`boost_package`] instead — same `use_libs([...])`
+call shape, different supply chain.
+
+== Options
+
+* `--boost-home` / `--boost-location`
+* `--boost-version` / `--boost-latest`
+* `--boost-build-always`, `--boost-verbose-build`, `--boost-verbose-config`
+* `--boost-patched` (deprecated alias: `--boost-patch-boost-test`)
+
+== Using libraries
+
+[source,python]
+----
+env.BuildWith('boost').use_libs(['system', 'filesystem'])
+# or the older env-method form:
+env.AppendUnique(STATICLIBS=env.BoostStaticLibs(['system', 'filesystem']))
+# or
+env.AppendUnique(DYNAMICLIBS=env.BoostSharedLibs(['system']))
+----
+
+`use_libs([...])` matches registry packages such as `boost_package`, so you can switch supply
+chains by changing only the `BuildWith` name. It builds (or reuses) static libraries via
+`BoostStaticLibs` and appends them to `STATICLIBS`. Aliases such as `BoostStaticLib` /
+`BoostStaticLibrary` also exist for compatibility.
+
+When a dependency offers linkable libraries, prefer exposing `use_libs(libs, depends_on=[])`
+on the instance returned by `env.BuildWith(...)`. Package dependencies already do this;
+location-only (header) dependencies typically omit it.
+
+== Clean and patched homes
+
+Source Boost keeps two homes under one extract: `clean/` (default) and `patched/`.
+`--boost-patched` is a **selection axis**, like `--dbg` / `--rel`: build,
+`--remove-dependencies`, and `--purge-dependencies` use only the active home. Products under
+the other home are reported as leftovers, not deleted. Use a second invocation with the other
+flag (or omit it) to clean that home too.
+
+`--remove-dependencies=boost` uses `storage_clean` to delete only the selected b2 **stage** and
+matching Boost.Build toolset directories — not the whole extract. Details and sample output:
+xref:dependencies-managing.adoc#remove-dependencies[Removing dependency trees].

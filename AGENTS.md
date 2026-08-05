@@ -463,19 +463,19 @@ When docs and code disagree, **code is authoritative** (especially storage defau
 | C++20 modules intro, tutorial, papers, reference | `cxx-modules.adoc` |
 | CLI flags | `cli-reference.adoc` |
 | Dependencies overview (kinds, declare, `BuildWith`) | `dependencies.adoc` (hub) |
-| Location / header libraries | `dependencies-location.adoc` (planned; today mid-`dependencies.adoc`) |
-| Package consume overview | `dependencies-packages.adoc` (planned; today partly `packages.adoc`) |
-| GitLab packages (consume) | `dependencies-gitlab.adoc` (planned) |
-| Conan packages (consume) | `dependencies-conan.adoc` (planned; today end of `dependencies.adoc`) |
-| Built-in deps index | `dependencies-builtins.adoc` (planned) |
-| Boost (source / b2; contrast `boost_package`) | `dependencies-boost.adoc` (planned) |
-| Qt / Quince | `dependencies-qt.adoc` / `dependencies-quince.adoc` (planned; thin stubs OK) |
-| Managing deps (list / update / remove) | `dependencies-managing.adoc` (planned; today mid-`dependencies.adoc`) |
-| Writing your own dependencies | `dependencies-extending.adoc` (planned; also `extending.adoc` for plugins) |
+| Location / header libraries | `dependencies-location.adoc` |
+| Package consume overview | `dependencies-packages.adoc` |
+| GitLab packages (consume) | `dependencies-gitlab.adoc` |
+| Conan packages (consume) | `dependencies-conan.adoc` |
+| Built-in deps index | `dependencies-builtins.adoc` |
+| Boost (source / b2; contrast `boost_package`) | `dependencies-boost.adoc` |
+| Qt / Quince | `dependencies-qt.adoc` / `dependencies-quince.adoc` (thin stubs) |
+| Managing deps (list / update / remove) | `dependencies-managing.adoc` |
+| Writing your own dependencies | `dependencies-extending.adoc` (also `extending.adoc` for plugins) |
 | Publishing packages (GitLab / Conan) | `packages.adoc` (publish focus; not consume tutorials) |
 | Pytest scenarios | `integration-tests.adoc` + `integration/*.adoc` |
 
-Until the Phase 3 documentation split in [`design/plans/removal-options.md`](design/plans/removal-options.md) §7.1 lands, prefer extending the eventual page above rather than growing the monolith further when you know which child owns the topic.
+The Phase 3 documentation split in [`design/plans/removal-options.md`](design/plans/removal-options.md) §7.1 has landed. Prefer the child page above rather than growing the hub.
 
 Update `docs/modules/ROOT/nav.adoc` when adding a new top-level page or nesting children under Dependencies.
 

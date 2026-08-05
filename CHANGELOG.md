@@ -165,6 +165,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   branch). Existing unqualified stems are kept when they are the only copy; when both exist,
   resolve prefers the canonical folder and warns. `--list-dependencies` labels the unqualified
   row `@<default> (unqualified)` (#145).
+- Dependencies documentation is split into a short hub plus location, packages, GitLab, Conan,
+  built-ins / Boost / Qt / Quince, managing, and extending pages. `packages.adoc` is retitled
+  toward publishing; consume material lives under Dependencies (#145).
 - `--list-dependencies` upgrades missing or sampled inventory sizes to exact on encounter
   (with a subdued notice that the pass may take a while). `--exact-sizes` still forces a full
   remeasure of every tree. Archive-product remove verify hints drop the mandatory

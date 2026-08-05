@@ -1,0 +1,35 @@
+= Package dependencies
+:description: package_dependency overview — consume registry archives
+
+`cuppa.package_dependency()` downloads a prebuilt archive from a package registry and lays it
+out under `--dependencies-root` per toolchain / variant / architecture.
+
+[source,python]
+----
+import cuppa
+
+MyPkg = cuppa.package_dependency(
+    'mypkg',
+    package_manager = 'gitlab',
+    registry = 'https://gitlab.example.com/api/v4/projects/123/packages/generic',
+    package = 'mypkg',
+    version = '1.2.3',
+)
+
+cuppa.run(
+    dependencies = [MyPkg],
+    default_dependencies = ['mypkg'],
+)
+----
+
+A missing package surfaces as a registry HTTP error (often `404`) during configure, before compile.
+
+Today the supported `package_manager` is GitLab generic packages — see
+xref:dependencies-gitlab.adoc[GitLab packages]. Publishing Cuppa-built libraries is a different
+workflow: xref:packages.adoc[Publishing packages].
+
+== Develop vs package downloads
+
+`--develop` affects *location* develop paths and package develop flags where defined.
+It does *not* invent a local substitute for a missing registry archive: the matching package
+must exist in the registry or already be cached under the dependencies and downloads roots.

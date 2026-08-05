@@ -1,0 +1,32 @@
+= Writing your own dependencies
+:description: Dependency factories, storage_paths / storage_clean, and pip plugins
+
+Implement a class with:
+
+* `add_options(add_option)` (optional)
+* `add_to_env(env, add_dependency)` classmethod that calls `add_dependency(name, factory)`
+* instance `__call__(env, toolchain, variant)` to mutate the environment
+* `name()` identifying the dependency
+
+You can also subclass or wrap `location_dependency` / `package_dependency` / `conan_dependency`
+factories. Register extras via `cuppa.run(dependencies=[MyDep])` or the setuptools entry point
+group `cuppa.dependency.plugins`.
+
+== Storage contract
+
+Optional hooks so listing and removal can find (and clean) what you own:
+
+* `storage_paths()` — declare owned trees under the dependencies root so
+  `--list-dependencies` / `--remove-dependencies` can find them without retrieving.
+* `storage_clean()` — when present, remove only selection-scoped products and leave the
+  extract; return a mapping of targets plus the extract (or `None` if unsupported). Source
+  Boost uses this for b2 stage / `bin.<abi>` cleans.
+
+User-facing remove / purge behaviour:
+xref:dependencies-managing.adoc#remove-dependencies[Removing dependency trees].
+
+== Plugins and methods
+
+Pip packaging, entry points, and full extension sketches live on
+xref:extending.adoc[Extending cuppa] (including
+xref:extending.adoc#pip-dependency-plugins[pip dependency plugins] and the fmt examples).

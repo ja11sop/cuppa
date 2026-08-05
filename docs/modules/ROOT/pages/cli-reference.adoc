@@ -75,12 +75,12 @@ xref:build-layout.adoc#remove-all-builds-example[`--remove-all-builds`]).
 | `--list-builds` | List the build root as folder summary, toolchain → variant tree, and sconscript tree; print an explicit command for the selected builds
 | `--remove-builds` | Remove variant subtrees matching the current `--toolchains` / `--dbg` / `--rel` / `--cov` selection
 | `--remove-all-builds` | Remove the entire build root
-| `--list-dependencies` | List dependency trees under the dependencies root as a hierarchical table (referenced then unreferenced; short-name groups; REMARK) and exit. Omit `--develop` for normal storage inspection; see xref:dependencies.adoc#which-listing[Which listing for which question]
-| `--list-downloads` | List cached archives under the downloads root as a hierarchical table (archive + extract/package leaves; referenced then unreferenced) and exit. Footer totals are archive bytes only. See xref:dependencies.adoc#list-downloads[Listing downloads]
+| `--list-dependencies` | List dependency trees under the dependencies root as a hierarchical table (referenced then unreferenced; short-name groups; REMARK) and exit. Omit `--develop` for normal storage inspection; see xref:dependencies-managing.adoc#which-listing[Which listing for which question]
+| `--list-downloads` | List cached archives under the downloads root as a hierarchical table (archive + extract/package leaves; referenced then unreferenced) and exit. Footer totals are archive bytes only. See xref:dependencies-managing.adoc#list-downloads[Listing downloads]
 | `--list-scope=all\|referenced\|unreferenced` | Which sections `--list-dependencies` and `--list-downloads` show (default `all`). Orthogonal to `--list-format`. Ignored by `--list-builds` / `--list-develop`. Persist as `list_scope` in `~/.cuppaconfig`. `--list-dependencies-scope` is a deprecated alias
 | `--remove-dependencies=LIST` | Remove named dependencies (comma-separated keys this project uses — `default_dependencies` plus `dependencies=[…]`) for the current toolchain / variant / location-match selection, then exit. When a dependency supports `storage_clean` (source Boost), only selection-scoped build products are removed and the extract stays; otherwise the owned tree under the dependencies root is removed. Reports leftovers for other selections; never deletes develop working copies or downloads. Built-in factories not named by the project are rejected
 | `--remove-all-dependencies` | As `--remove-dependencies` for every dependency this project uses (defaults ∪ declared)
-| `--purge-dependencies=LIST` | As `--remove-dependencies` plus matching archives under `--downloads-root` for the same names and selection. `--purge-all-*` means every **project-used** name, not leftover toolchain tarballs on disk. Missing downloads are not a failure. Do not combine with `--remove-*`. See xref:dependencies.adoc#purge-dependencies[Purging dependencies and downloads]
+| `--purge-dependencies=LIST` | As `--remove-dependencies` plus matching archives under `--downloads-root` for the same names and selection. `--purge-all-*` means every **project-used** name, not leftover toolchain tarballs on disk. Missing downloads are not a failure. Do not combine with `--remove-*`. See xref:dependencies-managing.adoc#purge-dependencies[Purging dependencies and downloads]
 | `--purge-all-dependencies` | As `--purge-dependencies` for every dependency this project uses (defaults ∪ declared)
 | `--exact-sizes` | Force a full remeasure of every dependency tree size (updates the inventory). Without this flag, `--list-dependencies` still upgrades missing or estimated (`~`) inventory sizes to exact the first time it encounters them
 | `--list-format=text\|verbose\|json` | Format for `--list-*` output (default `text`). On `--list-dependencies`, `verbose` adds LOCATION (remotes, registry URLs, archive names) and prefixes regenerating downloads with `[D]`. On `--list-downloads`, `verbose` adds archive and extract paths
@@ -104,7 +104,7 @@ See xref:configuration.adoc[Configuration] for `--show-conf`, `--save-conf`, `--
 | Option | Description
 
 | `--develop` | Use develop locations for location/package dependencies that define them
-| `--list-develop` | Report the state of each configured develop working copy and exit (no network access). Does not require `--develop`; see xref:dependencies.adoc#checking-your-develop-copies[Checking your develop copies]
+| `--list-develop` | Report the state of each configured develop working copy and exit (no network access). Does not require `--develop`; see xref:dependencies-managing.adoc#checking-your-develop-copies[Checking your develop copies]
 | `--update-develop` | Fetch each git develop working copy and fast-forward those that are clean and behind; refuse under `--offline`
 | `--location-default-branch` | Default branch name (default `master`) used in offline / relative location logic and by `--list-develop`
 | `--location-match-current-branch` | For relative locations (`path@`), try the current branch
@@ -114,7 +114,7 @@ See xref:configuration.adoc[Configuration] for `--show-conf`, `--save-conf`, `--
 
 Per-dependency location options follow the pattern `--<name>-location`, `--<name>-develop`, `--<name>-include`, `--<name>-sys-include`, `--<name>-branch-path`, and related flags.
 
-See xref:dependencies.adoc#checking-your-develop-copies[Checking your develop copies] for what each state means and what `--update-develop` changes.
+See xref:dependencies-managing.adoc#checking-your-develop-copies[Checking your develop copies] for what each state means and what `--update-develop` changes.
 
 == Environment propagation
 
@@ -139,7 +139,7 @@ These flags control how much of your **shell** environment Cuppa passes into bui
 
 **What they are not for**
 
-Dependencies that install their own shared libraries (for example the optional xref:dependencies.adoc#conan-2-consumer-optional[Conan consumer]) add library search paths for `--test` / `--run` themselves. You do **not** need `--propagate-env` for those packages to load at test time.
+Dependencies that install their own shared libraries (for example the optional xref:dependencies-conan.adoc#conan-2-consumer-optional[Conan consumer]) add library search paths for `--test` / `--run` themselves. You do **not** need `--propagate-env` for those packages to load at test time.
 
 == Toolchain-specific
 
@@ -159,7 +159,7 @@ Boost (source dependency) includes `--boost-home`, `--boost-location`, `--boost-
 * `--publish-package` -- enable publish actions from `env.PublishPackage(...)`
 * Per-package GitLab options: `--<name>-package-manager`, `--<name>-gitlab-registry`, `--<name>-gitlab-package`, `--<name>-gitlab-version`, `--<name>-gitlab-variant`, `--<name>-gitlab-develop`, `--<name>-gitlab-custom-token`, and related flags
 
-See xref:packages.adoc[Packages].
+See xref:packages.adoc[Publishing packages].
 
 == Project generators
 

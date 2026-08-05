@@ -1,0 +1,26 @@
+= Built-in dependencies
+:description: Registered built-in dependency names and when to use them
+
+Cuppa registers some dependencies by module scan. Use a built-in when you want that
+integration; use a xref:dependencies-location.adoc[location],
+xref:dependencies-packages.adoc[package], or xref:dependencies-conan.adoc[Conan] dependency
+when you are wiring an external tree yourself.
+
+|===
+| Name | Purpose | Page
+
+| `boost`
+| Source Boost via Boost.Build (`b2`)
+| xref:dependencies-boost.adoc[Boost]
+
+| `qt4` / `qt5`
+| SCons Qt MOC/UIC/RCC tools
+| xref:dependencies-qt.adoc[Qt4 and Qt5]
+
+| `quince` (+ backends)
+| Quince ORM as location wiring
+| xref:dependencies-quince.adoc[Quince]
+|===
+
+`boost_package` is **not** a built-in. It is a GitLab `package_dependency` helper — see
+xref:dependencies-gitlab.adoc#boost-package[Boost from the registry].
