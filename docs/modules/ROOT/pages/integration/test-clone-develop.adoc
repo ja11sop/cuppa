@@ -1,0 +1,20 @@
+= test_clone_develop
+:description: Integration coverage for --clone-develop and develop branch helpers
+
+== Purpose
+
+Exercise `--clone-develop`, `--checkout-develop-branch`, and `--reset-develop-branch` against a
+local `git+file://` origin and a configured develop path.
+
+== Scenario
+
+A temporary project declares a `location_dependency` with a develop path that does not exist yet.
+`--clone-develop` creates the working copy from the unexpanded file URL.
+A feature branch is pushed to the origin; `--checkout-develop-branch` switches the develop copy
+onto it; `--reset-develop-branch` returns it to `master`.
+
+Non-empty develop destinations are refused without cloning.
+
+== See also
+
+xref:dependencies-managing.adoc#checking-your-develop-copies[Checking your develop copies]

@@ -560,17 +560,46 @@ class Construct(object):
                 logger.info( as_info_label( "Running in DUMP mode, no building will be attempted" ) )
                 cuppa_env.dump()
 
-            # Both report on dependencies, so they run once those are registered, and neither
-            # builds anything.
+            # Develop-family actions report on dependencies, so they run once those are
+            # registered, and none of them builds. Several may be combined (e.g. clone then
+            # update); each runs in turn and the worst exit status wins.
+            develop_actions = []
+            if cuppa_env['clone_develop']:
+                develop_actions.append( (
+                        "CLONE DEVELOP",
+                        cuppa.develop.clone_develop,
+                ) )
+            if cuppa_env.get( 'checkout_develop_branch' ):
+                develop_actions.append( (
+                        "CHECKOUT DEVELOP BRANCH",
+                        cuppa.develop.checkout_develop_branch,
+                ) )
+            if cuppa_env['reset_develop_branch']:
+                develop_actions.append( (
+                        "RESET DEVELOP BRANCH",
+                        cuppa.develop.reset_develop_branch,
+                ) )
             if cuppa_env['update_develop']:
-                logger.info( as_info_label(
-                        "Running in UPDATE DEVELOP mode, no building will be attempted" ) )
-                SCons.Script.Exit( cuppa.develop.update_develop( cuppa_env ) )
+                develop_actions.append( (
+                        "UPDATE DEVELOP",
+                        cuppa.develop.update_develop,
+                ) )
+            if cuppa_env['list_develop'] and not develop_actions:
+                develop_actions.append( (
+                        "LIST DEVELOP",
+                        cuppa.develop.list_develop,
+                ) )
 
-            if cuppa_env['list_develop']:
-                logger.info( as_info_label(
-                        "Running in LIST DEVELOP mode, no building will be attempted" ) )
-                SCons.Script.Exit( cuppa.develop.list_develop( cuppa_env ) )
+            if develop_actions:
+                exit_status = 0
+                for label, action in develop_actions:
+                    logger.info( as_info_label(
+                            "Running in {} mode, no building will be attempted".format( label )
+                    ) )
+                    result = action( cuppa_env )
+                    if result:
+                        exit_status = result
+                SCons.Script.Exit( exit_status )
 
             if cuppa.core.storage_actions.wants_storage_action( cuppa_env ):
                 SCons.Script.Exit(

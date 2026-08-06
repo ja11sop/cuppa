@@ -769,6 +769,11 @@ class Location(object):
             self._cache_folder_stem = self.folder_stem_for_configured_location( configured_location )
             location = develop
             logger.debug( "--develop specified so using location=develop=[{}]".format( as_info( develop ) ) )
+            if not os.path.exists( develop ):
+                logger.error(
+                        "Develop path [{}] does not exist. Create missing develop working"
+                        " copies with: cuppa -D --clone-develop".format( as_info( develop ) )
+                )
 
         scm_location = location
 

@@ -7,16 +7,20 @@
 #   Develop
 #-------------------------------------------------------------------------------
 
-"""Reporting on, and updating, the local working copies that `--develop` builds against.
+"""Reporting on, updating, cloning, and aligning the local working copies that `--develop`
+builds against.
 
 `--develop` substitutes a working copy on disk for a retrieved dependency and says nothing about
 the state of that copy, so a build can be reading someone else's spike branch, or a checkout that
 has not been pulled for months. `--list-develop` answers what you are actually building against,
-and `--update-develop` fast-forwards the copies where doing so cannot lose work.
+`--clone-develop` creates configured paths that are missing, `--update-develop` fast-forwards the
+copies where doing so cannot lose work, and `--checkout-develop-branch` /
+`--reset-develop-branch` align those copies onto a feature branch and back to the default.
 
-The decisions are `classify()` and `update_action()`, pure functions of observed state.
-Observation, reporting, and the git commands are kept out of them so the rules can be tested
-without a repository, and so the two options can never judge the same copy differently.
+The decisions are pure functions of observed state (`classify`, `update_action`, `clone_action`,
+`checkout_branch_action`, `reset_branch_action`). Observation, reporting, and the git commands
+are kept out of them so the rules can be tested without a repository, and so the options can
+never judge the same copy differently.
 """
 
 import locale
@@ -195,6 +199,99 @@ def update_action( copy ):
         return Action( False, "already up to date" )
     return Action( True, "{} behind [{}]".format(
             plural( copy.behind, "commit" ), copy.upstream ) )
+
+
+def path_is_clonable_destination( path ):
+    """Missing or empty directory — safe to clone into without removing anything."""
+    if not path:
+        return False
+    if not os.path.exists( path ):
+        return True
+    if not os.path.isdir( path ):
+        return False
+    try:
+        return not os.listdir( path )
+    except OSError:
+        return False
+
+
+def looks_like_revision_pin( versioning ):
+    """True when ``@versioning`` looks like a commit id rather than a branch name."""
+    if not versioning:
+        return False
+    text = str( versioning ).strip()
+    if len( text ) < 7:
+        return False
+    return bool( re.fullmatch( r'[0-9a-fA-F]{7,40}', text ) )
+
+
+def clone_action( copy, url=None, vc_type=None, versioning=None, pinned=False ):
+    """Whether this develop path should be cloned, or why it is being left alone."""
+    if copy.exists and copy.is_working_copy:
+        return Action( False, "already a working copy" )
+    if copy.exists and not path_is_clonable_destination( copy.path ):
+        return Action( False, "destination exists and is not empty" )
+    if not url:
+        return Action( False, "no cloneable location" )
+    if vc_type != 'git':
+        return Action( False, "only git locations can be cloned (got {})".format(
+                vc_type or "none" ) )
+    if pinned or looks_like_revision_pin( versioning ):
+        return Action(
+                False,
+                "location pins a tag or revision; refuse a detached develop copy",
+        )
+    return Action( True, "clone from [{}]".format( url ) )
+
+
+def checkout_branch_action( copy, target, default_branch ):
+    """Whether this copy can be switched to ``target``, or why not.
+
+    ``reason`` values that begin with ``track:``, ``create:``, or ``already:`` encode the plan
+    for the orchestrator; other reasons are refusals.
+    """
+    if not copy.exists:
+        return Action( False, "path does not exist; use --clone-develop" )
+    if not copy.is_working_copy:
+        return Action( False, "not a working copy" )
+    if copy.scm != 'git':
+        return Action( False, "only git working copies can change branch" )
+    if copy.detached:
+        return Action( False, "detached HEAD" )
+    if copy.modified:
+        return Action( False, "uncommitted changes" )
+    if copy.ahead and copy.behind:
+        return Action( False, "diverged from [{}]".format( copy.upstream or 'upstream' ) )
+    if copy.ahead:
+        return Action( False, "ahead of [{}] with unpushed commits".format(
+                copy.upstream or copy.branch ) )
+    if copy.branch == target:
+        return Action( False, "already on [{}]".format( target ) )
+    # Leaving another branch is fine when clean and not ahead; orchestrator picks track vs create.
+    return Action( True, "switch to [{}]".format( target ) )
+
+
+def reset_branch_action( copy, default_branch ):
+    """Whether this copy can return to ``default_branch`` and be fast-forwarded."""
+    if not copy.exists:
+        return Action( False, "path does not exist; use --clone-develop" )
+    if not copy.is_working_copy:
+        return Action( False, "not a working copy" )
+    if copy.scm != 'git':
+        return Action( False, "only git working copies can be reset" )
+    if copy.detached:
+        return Action( False, "detached HEAD" )
+    if copy.modified:
+        return Action( False, "uncommitted changes" )
+    if copy.ahead and copy.behind:
+        return Action( False, "diverged from [{}]".format( copy.upstream or 'upstream' ) )
+    if copy.ahead:
+        return Action( False, "ahead of [{}] with unpushed commits".format(
+                copy.upstream or copy.branch ) )
+    if copy.branch == default_branch:
+        # Still allow update_action to ff if behind.
+        return Action( True, "already on default [{}]".format( default_branch ) )
+    return Action( True, "checkout default [{}]".format( default_branch ) )
 
 
 def state_summary( copy ):
@@ -713,3 +810,450 @@ def _fetch( copy, dry_run, out ):
         return copy, 1
 
     return inspect( copy.name, copy.path ), 0
+
+
+#-------------------------------------------------------------------------------
+#   Clone / branch alignment
+#-------------------------------------------------------------------------------
+
+CloneSource = namedtuple(
+        'CloneSource',
+        [ 'copy', 'url', 'vc_type', 'versioning', 'pinned', 'relative' ],
+)
+
+
+def _plain_git_url( repo_location ):
+    """Strip a trailing ``.git`` path quirk only for display; return clone URL as-is."""
+    return repo_location
+
+
+def _versioning_is_pin( versioning, url ):
+    """Heuristic: commit-shaped ``@rev``, or tag-only remote refs (checked at clone time)."""
+    if looks_like_revision_pin( versioning ):
+        return True
+    return False
+
+
+def clone_source_for_dependency( name, dependency, cuppa_env ):
+    """Build a :class:`CloneSource` for one dependency, or ``None`` if no develop path."""
+    from cuppa.location import Location
+
+    path = configured_develop( dependency, cuppa_env )
+    if not path:
+        return None
+    copy = inspect( name, path )
+
+    location_id = getattr( dependency, 'location_id', None )
+    if not location_id:
+        return CloneSource( copy, None, None, None, False, False )
+
+    try:
+        identity = location_id( cuppa_env )
+    except Exception:
+        return CloneSource( copy, None, None, None, False, False )
+    if not identity or not identity[0]:
+        return CloneSource( copy, None, None, None, False, False )
+
+    configured = identity[0]
+    relative = configured.endswith( '@' )
+    scm_location = configured[:-1] if relative else configured
+    # Unexpanded — never Location.expand_secret.
+    scm_system, vc_type, repo_location, versioning = Location.get_scm_system_and_info(
+            scm_location
+    )
+    if not vc_type:
+        return CloneSource( copy, None, None, None, False, relative )
+
+    pinned = _versioning_is_pin( versioning, repo_location )
+    # Tag pins: versioning present, not a relative-only ``@``, and not a commit — still may be
+    # a branch name. Treat as pin only when commit-shaped; branch vs tag decided at clone via
+    # ls-remote heads.
+    return CloneSource(
+            copy,
+            _plain_git_url( repo_location ),
+            vc_type,
+            versioning or None,
+            pinned,
+            relative,
+    )
+
+
+def survey_clone_sources( cuppa_env ):
+    sources = []
+    without_develop = []
+    for name in sorted( cuppa_env['dependencies'] ):
+        factory = cuppa_env['dependencies'][name]
+        dependency = getattr( factory, '__self__', factory )
+        path = configured_develop( dependency, cuppa_env )
+        if not path:
+            without_develop.append( name )
+            continue
+        sources.append( clone_source_for_dependency( name, dependency, cuppa_env ) )
+    return sources, without_develop
+
+
+def choose_clone_branch( source, cuppa_env ):
+    """Branch name for a fresh clone, or ``None`` with a refusal reason string."""
+    if source.pinned:
+        return None, "location pins a tag or revision; refuse a detached develop copy"
+    current = cuppa_env.get( 'current_branch' )
+    match_current = cuppa_env.get( 'location_match_current_branch' )
+    versioning = source.versioning
+    url = source.url
+
+    if match_current and current:
+        try:
+            if Git.remote_branch_exists( url, current ):
+                # remote_branch_exists also matches tags — require heads-only intent by checking
+                # we are not only a tag. Prefer current when ls-remote --heads finds it.
+                return current, None
+        except Git.Error:
+            pass
+
+    if versioning:
+        try:
+            # Prefer heads; if only a tag matches, refuse.
+            if Git.remote_branch_exists( url, versioning ):
+                # Distinguish tag-only: remote_branch_exists also matches tags.
+                result = Git.execute_command(
+                        "{git} ls-remote --heads {repository} {branch}".format(
+                                git=Git.binary(),
+                                repository=url,
+                                branch=versioning,
+                        )
+                )
+                if result and versioning in result:
+                    return versioning, None
+                return None, "location pins a tag or revision; refuse a detached develop copy"
+        except Git.Error as error:
+            return None, str( error )
+
+    try:
+        default = Git.remote_default_branch( url )
+    except Git.Error as error:
+        return None, str( error )
+    if default:
+        return default, None
+    return cuppa_env.get( 'location_default_branch' ), None
+
+
+def clone_develop( cuppa_env, out=write ):
+    """``--clone-develop``. Create missing develop working copies from unexpanded remotes."""
+    if cuppa_env['offline']:
+        logger.error( "--clone-develop needs the network, but --offline was specified" )
+        return 1
+
+    current_branch = cuppa_env['current_branch']
+    default_branch = cuppa_env['location_default_branch']
+    develop_active = cuppa_env['develop']
+    dry_run = cuppa_env.get_option( 'no_exec' ) and True or False
+
+    sources, without_develop = survey_clone_sources( cuppa_env )
+    copies = [ source.copy for source in sources ]
+    report( copies, without_develop, current_branch, default_branch, develop_active, out )
+
+    out()
+    if dry_run:
+        out( "{} {}".format(
+                as_info_label( "Dry run" ),
+                "showing what --clone-develop would do" ) )
+
+    failures = 0
+    cloned = []
+
+    for source in sources:
+        action = clone_action(
+                source.copy,
+                url=source.url,
+                vc_type=source.vc_type,
+                versioning=source.versioning,
+                pinned=source.pinned,
+        )
+        if not action.act:
+            out( action_line( "Leaving [{}] alone: {}".format(
+                    source.copy.name, action.reason ) ) )
+            continue
+
+        branch, branch_error = choose_clone_branch( source, cuppa_env )
+        if branch_error:
+            failures += 1
+            out( action_line( "Could not clone [{}]: {}".format(
+                    source.copy.name, branch_error ), as_error ) )
+            continue
+        if not branch:
+            failures += 1
+            out( action_line( "Could not clone [{}]: no branch to land on".format(
+                    source.copy.name ), as_error ) )
+            continue
+
+        if dry_run:
+            out( action_line( "Would clone [{}] from [{}] on branch [{}] into [{}]".format(
+                    source.copy.name,
+                    source.url,
+                    branch,
+                    display_path( source.copy.path ),
+            ) ) )
+            continue
+
+        parent = os.path.dirname( source.copy.path.rstrip( os.sep ) )
+        created_parents = []
+        if parent and not os.path.exists( parent ):
+            os.makedirs( parent )
+            created_parents.append( parent )
+
+        try:
+            if created_parents:
+                out( action_line( "Created parent directories: {}".format(
+                        ", ".join( display_path( p ) for p in created_parents ) ) ) )
+            Git.clone( source.url, source.copy.path, branch=branch, recurse_submodules=True )
+            cloned.append( source.copy.name )
+            out( action_line( "Cloned [{}] from [{}] on branch [{}] into [{}]".format(
+                    source.copy.name,
+                    source.url,
+                    branch,
+                    display_path( source.copy.path ),
+            ) ) )
+        except Git.Error as error:
+            failures += 1
+            out( action_line( "Could not clone [{}]: {}".format(
+                    source.copy.name, str( error ) ), as_error ) )
+
+    if dry_run:
+        return 0
+
+    if cloned:
+        out()
+        out( "Cloned {} of {}. The state is now:".format(
+                len( cloned ), plural( len( copies ), "develop location" ) ) )
+        copies, without_develop = survey( cuppa_env )
+        severity = report(
+                copies, without_develop, current_branch, default_branch, develop_active, out,
+                suggest_update=True,
+        )
+    else:
+        out( INDENT + "Nothing was cloned; no working copy was created" )
+        severity = worst( [ OK ] + [
+            classify( copy, current_branch, default_branch ).severity for copy in copies
+        ] )
+
+    if failures:
+        return 1
+    return severity == ERROR and 1 or 0
+
+
+def _resolve_checkout_target( cuppa_env ):
+    raw = cuppa_env.get( 'checkout_develop_branch' )
+    if raw is None or raw is False or raw == '':
+        return None, "--checkout-develop-branch requires a branch name or 'current'"
+    if str( raw ) == 'current':
+        current = cuppa_env.get( 'current_branch' )
+        if not current:
+            return None, "current branch is unknown; pass an explicit branch name"
+        return current, None
+    return str( raw ), None
+
+
+def _perform_checkout( observed, target, default_branch, dry_run, out ):
+    """Execute one checkout plan after a successful checkout_branch_action."""
+    if dry_run:
+        if Git.remote_tracking_branch_exists( observed.path, target ):
+            out( action_line( "Would checkout tracking branch [{}] for [{}]".format(
+                    target, observed.name ) ) )
+        elif Git.local_branch_exists( observed.path, target ):
+            out( action_line( "Would checkout local branch [{}] for [{}]".format(
+                    target, observed.name ) ) )
+        else:
+            out( action_line(
+                    "Would move [{}] via default [{}] then create branch [{}]".format(
+                            observed.name, default_branch, target ) ) )
+        return 0
+
+    try:
+        if Git.remote_tracking_branch_exists( observed.path, target ):
+            Git.checkout_tracking_branch( observed.path, target )
+            out( action_line( "Checked out tracking branch [{}] for [{}]".format(
+                    target, observed.name ) ) )
+            return 0
+        if Git.local_branch_exists( observed.path, target ):
+            Git.checkout_branch( observed.path, target )
+            out( action_line( "Checked out local branch [{}] for [{}]".format(
+                    target, observed.name ) ) )
+            return 0
+
+        # Default-base path: default → ff → create.
+        if observed.branch != default_branch:
+            Git.checkout_branch( observed.path, default_branch )
+            observed = inspect( observed.name, observed.path )
+        Git.fetch( observed.path )
+        observed = inspect( observed.name, observed.path )
+        ff = update_action( observed )
+        if ff.act:
+            Git.fast_forward( observed.path )
+        Git.create_branch_from_head( observed.path, target )
+        out( action_line( "Created branch [{}] for [{}] from updated [{}]".format(
+                target, observed.name, default_branch ) ) )
+        return 0
+    except Git.Error as error:
+        out( action_line( "Could not checkout [{}] for [{}]: {}".format(
+                target, observed.name, str( error ) ), as_error ) )
+        return 1
+
+
+def checkout_develop_branch( cuppa_env, out=write ):
+    """``--checkout-develop-branch``. Align develop copies onto a named branch."""
+    if cuppa_env['offline']:
+        logger.error(
+                "--checkout-develop-branch needs the network, but --offline was specified"
+        )
+        return 1
+
+    target, error = _resolve_checkout_target( cuppa_env )
+    if error:
+        logger.error( error )
+        return 1
+
+    current_branch = cuppa_env['current_branch']
+    default_branch = cuppa_env['location_default_branch']
+    develop_active = cuppa_env['develop']
+    dry_run = cuppa_env.get_option( 'no_exec' ) and True or False
+
+    copies, without_develop = survey( cuppa_env )
+    report( copies, without_develop, current_branch, default_branch, develop_active, out )
+    out()
+    if dry_run:
+        out( "{} {}".format(
+                as_info_label( "Dry run" ),
+                "showing what --checkout-develop-branch would do" ) )
+
+    failures = 0
+    changed = []
+    skipped_person = False
+
+    for copy in copies:
+        observed, failed = _fetch( copy, dry_run, out )
+        failures += failed
+        action = checkout_branch_action( observed, target, default_branch )
+        if not action.act:
+            if action.reason.startswith( 'already on' ):
+                out( action_line( "Leaving [{}] alone: {}".format(
+                        observed.name, action.reason ) ) )
+            else:
+                skipped_person = True
+                out( action_line( "Leaving [{}] alone: {}".format(
+                        observed.name, action.reason ) ) )
+            continue
+
+        result = _perform_checkout( observed, target, default_branch, dry_run, out )
+        failures += result
+        if not dry_run and result == 0:
+            changed.append( observed.name )
+
+    if dry_run:
+        return 0
+
+    if changed:
+        out()
+        out( "Switched {} of {}. The state is now:".format(
+                len( changed ), plural( len( copies ), "develop location" ) ) )
+        copies, without_develop = survey( cuppa_env )
+        severity = report(
+                copies, without_develop, current_branch, default_branch, develop_active, out
+        )
+    else:
+        out( INDENT + "No develop branch was switched" )
+        copies, without_develop = survey( cuppa_env )
+        severity = report(
+                copies, without_develop, current_branch, default_branch, develop_active, out
+        )
+
+    if skipped_person:
+        out()
+        out( "Resolve dirty or unpushed copies with git locally, then "
+             "cuppa -Q -D --list-develop" )
+
+    if failures:
+        return 1
+    return severity == ERROR and 1 or 0
+
+
+def reset_develop_branch( cuppa_env, out=write ):
+    """``--reset-develop-branch``. Return develop copies to the default branch and ff-only."""
+    if cuppa_env['offline']:
+        logger.error( "--reset-develop-branch needs the network, but --offline was specified" )
+        return 1
+
+    current_branch = cuppa_env['current_branch']
+    default_branch = cuppa_env['location_default_branch']
+    develop_active = cuppa_env['develop']
+    dry_run = cuppa_env.get_option( 'no_exec' ) and True or False
+
+    copies, without_develop = survey( cuppa_env )
+    report( copies, without_develop, current_branch, default_branch, develop_active, out )
+    out()
+    if dry_run:
+        out( "{} {}".format(
+                as_info_label( "Dry run" ),
+                "showing what --reset-develop-branch would do" ) )
+
+    failures = 0
+    changed = []
+    skipped_person = False
+
+    for copy in copies:
+        observed, failed = _fetch( copy, dry_run, out )
+        failures += failed
+        action = reset_branch_action( observed, default_branch )
+        if not action.act:
+            skipped_person = True
+            out( action_line( "Leaving [{}] alone: {}".format(
+                    observed.name, action.reason ) ) )
+            continue
+
+        if dry_run:
+            if observed.branch != default_branch:
+                out( action_line( "Would checkout [{}] for [{}]".format(
+                        default_branch, observed.name ) ) )
+            out( action_line( "Would fetch and fast-forward [{}] if behind".format(
+                    observed.name ) ) )
+            continue
+
+        try:
+            if observed.branch != default_branch:
+                Git.checkout_branch( observed.path, default_branch )
+                observed = inspect( observed.name, observed.path )
+                out( action_line( "Checked out [{}] for [{}]".format(
+                        default_branch, observed.name ) ) )
+            Git.fetch( observed.path )
+            observed = inspect( observed.name, observed.path )
+            ff = update_action( observed )
+            if ff.act:
+                Git.fast_forward( observed.path )
+                out( action_line( "Fast-forwarded [{}], which was {}".format(
+                        observed.name, ff.reason ) ) )
+            else:
+                out( action_line( "Left [{}] on [{}]: {}".format(
+                        observed.name, default_branch, ff.reason ) ) )
+            changed.append( observed.name )
+        except Git.Error as error:
+            failures += 1
+            out( action_line( "Could not reset [{}]: {}".format(
+                    observed.name, str( error ) ), as_error ) )
+
+    if dry_run:
+        return 0
+
+    out()
+    out( "Reset complete. The state is now:" )
+    copies, without_develop = survey( cuppa_env )
+    severity = report(
+            copies, without_develop, current_branch, default_branch, develop_active, out
+    )
+
+    if skipped_person:
+        out()
+        out( "Resolve dirty or unpushed copies with git locally, then "
+             "cuppa -Q -D --list-develop" )
+
+    if failures:
+        return 1
+    return severity == ERROR and 1 or 0

@@ -740,3 +740,82 @@ def test_updating_does_not_suggest_the_option_you_have_just_run( working_copy, c
     update_develop( fake_env( { 'widget': dependency_with_develop( 'widget', str(clone) ) } ) )
 
     assert "--update-develop would fast-forward" not in capsys.readouterr().out
+
+
+#-------------------------------------------------------------------------------
+#   clone / checkout / reset actions
+#-------------------------------------------------------------------------------
+
+from cuppa.develop import (
+    checkout_branch_action,
+    clone_action,
+    looks_like_revision_pin,
+    path_is_clonable_destination,
+    reset_branch_action,
+)
+
+
+def test_looks_like_revision_pin():
+    assert looks_like_revision_pin( 'abcdef0' )
+    assert looks_like_revision_pin( 'a' * 40 )
+    assert not looks_like_revision_pin( 'master' )
+    assert not looks_like_revision_pin( '1.2.3' )
+    assert not looks_like_revision_pin( None )
+
+
+def test_path_is_clonable_destination( tmp_path ):
+    missing = tmp_path / 'missing'
+    assert path_is_clonable_destination( str( missing ) )
+    empty = tmp_path / 'empty'
+    empty.mkdir()
+    assert path_is_clonable_destination( str( empty ) )
+    filled = tmp_path / 'filled'
+    filled.mkdir()
+    ( filled / 'x' ).write_text( 'y', encoding='utf-8' )
+    assert not path_is_clonable_destination( str( filled ) )
+
+
+def test_clone_action_refusal_table( tmp_path ):
+    existing = copy( exists=True, is_working_copy=True )
+    assert not clone_action( existing, url='git@host/r.git', vc_type='git' ).act
+
+    nonempty = copy( exists=True, is_working_copy=False, path=str( tmp_path ) )
+    ( tmp_path / 'noise' ).write_text( 'x', encoding='utf-8' )
+    assert clone_action(
+            nonempty, url='git@host/r.git', vc_type='git'
+    ).reason == "destination exists and is not empty"
+
+    missing = copy( exists=False, path=str( tmp_path / 'new' ) )
+    assert not clone_action( missing, url=None, vc_type='git' ).act
+    assert not clone_action( missing, url='http://x', vc_type='hg' ).act
+    assert not clone_action(
+            missing, url='http://x', vc_type='git', versioning='abcdef0123456', pinned=False
+    ).act
+    assert clone_action( missing, url='git@host/r.git', vc_type='git' ).act
+
+
+def test_checkout_branch_action_refusal_table():
+    assert checkout_branch_action(
+            copy( exists=False ), 'feature', DEFAULT
+    ).reason.startswith( 'path does not exist' )
+    assert not checkout_branch_action( copy( modified=True ), 'feature', DEFAULT ).act
+    assert not checkout_branch_action( copy( ahead=2 ), 'feature', DEFAULT ).act
+    assert not checkout_branch_action(
+            copy( branch='feature' ), 'feature', DEFAULT
+    ).act
+    assert checkout_branch_action(
+            copy( branch=DEFAULT, ahead=0, behind=0 ), 'feature', DEFAULT
+    ).act
+
+
+def test_reset_branch_action_refusal_table():
+    assert reset_branch_action( copy( exists=False ), DEFAULT ).reason.startswith(
+            'path does not exist'
+    )
+    assert not reset_branch_action( copy( modified=True ), DEFAULT ).act
+    assert reset_branch_action(
+            copy( branch='feature', ahead=0, behind=0 ), DEFAULT
+    ).act
+    assert reset_branch_action(
+            copy( branch=DEFAULT, ahead=0, behind=0 ), DEFAULT
+    ).act

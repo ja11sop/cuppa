@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `--clone-develop` creates configured develop working copies that are missing or empty,
+  cloning from the dependency's **unexpanded** git URL (no embedded tokens), checking out a
+  branch that `--list-develop` will call ok, and recursing submodules. Refuses non-empty
+  destinations and tag/revision pins. Compose with update:
+  `cuppa -D --clone-develop --update-develop`. A `--develop` build that hits a missing path
+  names this option (#138).
+- `--checkout-develop-branch=NAME` switches every develop git working copy to `NAME` (use
+  `current` for the consumer project's branch), creating the branch via the default + pull when
+  needed. `--reset-develop-branch` returns copies to `location_default_branch` and fast-forwards
+  where safe. Dirty or unpushed copies are left alone; `--list-develop` remains the check for
+  outstanding work (#153).
 - `--wipe-dependencies=name` clear-down of project-used extracts and matching downloads for the
   current selection (bypasses `storage_clean` product-only behaviour). Power tools:
   `--force-wipe-dependencies` with `[selector]name/qualifier` tokens (e.g. `[source]boost/1.8*`,
