@@ -1987,6 +1987,13 @@ def _write_removal_tree(
                 if group.get( 'extract_bytes' ) is not None and not ver_full:
                     ver_remark = ''
                 ver_label = version['label'] or '-'
+
+                if ver_index > 0:
+                    # Blank row between qualifier siblings (list-style identity spacing).
+                    between_versions = id_prefix + '│'
+                    body_lines.append( between_versions )
+                    rendered.append( _spacer_render_row( between_versions ) )
+
                 if ver_mark:
                     version_line = "{}{} {}".format( ver_branch, ver_mark, ver_label )
                 else:
