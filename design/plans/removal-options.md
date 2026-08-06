@@ -34,12 +34,14 @@ which defaults to `~/.cuppa` and can be moved with one option.
 
 ### Progress snapshot (2026-08-06)
 
-Phases **1**, **2**, **4**, and **5**, Phase **3 listing**, Phase **3 removal Slice D**, and
-archive clean-by-variant (§4.14.3) are **done**
+Phases **1**, **2**, **4**, and **5**, Phase **3 listing**, Phase **3 removal Slice D**,
+archive clean-by-variant (§4.14.3), and **wipe / §4.15** are **done**
 ([#141](https://github.com/ja11sop/cuppa/pull/141) /
 [#142](https://github.com/ja11sop/cuppa/pull/142) /
 [#143](https://github.com/ja11sop/cuppa/pull/143) on `master`;
-Phase 4 in [#144](https://github.com/ja11sop/cuppa/pull/144)). #144 is the PR that closes
+Phase 4 in [#144](https://github.com/ja11sop/cuppa/pull/144);
+wipe in [#150](https://github.com/ja11sop/cuppa/pull/150), closes
+[#146](https://github.com/ja11sop/cuppa/issues/146)). #144 is the PR that closes
 umbrella [#134](https://github.com/ja11sop/cuppa/issues/134). Phase **6** / **§3.7** and the
 deferred Phase 3 polish items remain open and do not keep #134 open.
 
@@ -61,15 +63,15 @@ deferred Phase 3 polish items remain open and do not keep #134 open.
 | Phase 3 — **dependencies documentation split** (§7.1) | **done** | [#145](https://github.com/ja11sop/cuppa/issues/145) — Hub + children; `packages.adoc` publish focus; `include`/`sys_include` drift fixed |
 | Phase 3 — `--list-develop --list-format=json` | **done** | [#148](https://github.com/ja11sop/cuppa/issues/148) — Shared `--list-format=json` parity for develop copies (agents / scripts); text unchanged |
 | Phase 4 — downloads list / purge | **done** | `--list-downloads` + `--purge-dependencies` / `--purge-all-dependencies` in [#144](https://github.com/ja11sop/cuppa/pull/144); that PR closes #134 |
-| `--wipe-dependencies` | **in progress** | [#146](https://github.com/ja11sop/cuppa/issues/146) / [#150](https://github.com/ja11sop/cuppa/pull/150) — §4.15 shipped on branch: selectors, repository rename, shared tokens, summary → type → identity → version → leaves |
+| `--wipe-dependencies` / §4.15 | **done** | [#146](https://github.com/ja11sop/cuppa/issues/146) / [#150](https://github.com/ja11sop/cuppa/pull/150) — wipe + force-wipe, selectors, repository rename, shared tokens, summary → type → identity → version → leaves |
 | Phase 6 — artefacts | **open** | Sketch only (§4.6) / [#135](https://github.com/ja11sop/cuppa/issues/135) |
 | §3.7 — `--clone-develop` | **open** | #138 |
 
-**Next focus:** Push and land [#150](https://github.com/ja11sop/cuppa/pull/150) (§4.15 + shared
-removal report). Then [#138](https://github.com/ja11sop/cuppa/issues/138)
-(`--clone-develop`) / [#135](https://github.com/ja11sop/cuppa/issues/135) (artefacts). Boost package
-identity stays on [`boost-updates.md`](boost-updates.md). Age-gated unreferenced GC
-(`--older-than`) remains deferred (§9).
+**Next focus:** [#138](https://github.com/ja11sop/cuppa/issues/138) (`--clone-develop`) /
+[#135](https://github.com/ja11sop/cuppa/issues/135) (artefacts). Boost package identity stays on
+[`boost-updates.md`](boost-updates.md). Age-gated unreferenced GC (`--older-than`) remains
+deferred (§9). Optional `[selector]` on `--force-wipe-all-*` / unreferenced stays out of scope
+for §4.15.
 
 **Deferred Phase 3 polish** ([#145](https://github.com/ja11sop/cuppa/issues/145); parallel branches fine):
 
@@ -1860,16 +1862,16 @@ root.
 
 ### 4.15 Selectors, repository rename, and shared dependency tokens
 
-**Status:** in progress on [#150](https://github.com/ja11sop/cuppa/pull/150) (umbrella [#146](https://github.com/ja11sop/cuppa/issues/146)).
+**Status:** **done** — [#150](https://github.com/ja11sop/cuppa/pull/150) (closes [#146](https://github.com/ja11sop/cuppa/issues/146)).
 
-Wipe already supports leaf tokens and fnmatch (`boost/1.8*`), but (1) untyped tokens mixed
+Wipe already supported leaf tokens and fnmatch (`boost/1.8*`), but (1) untyped tokens mixed
 **source archives** and **gitlab packages** under one identity parent, (2) the list type group
-**location dependencies** names the retrieve *mechanism* (`location_dependency`), not the
+**location dependencies** named the retrieve *mechanism* (`location_dependency`), not the
 on-disk *bucket*, and (3) only force-wipe was gaining richer tokens while remove / purge / wipe
 still took bare project-used names.
 
-Nothing in the new list/remove/purge/wipe surface is released yet — vocabulary and token grammar
-can change now. The long-standing Python API `cuppa.location_dependency()` **stays**.
+§4.15 locked vocabulary and token grammar for the list/remove/purge/wipe surface. The
+long-standing Python API `cuppa.location_dependency()` **stays**.
 
 #### Mechanism vs storage bucket
 
@@ -1946,7 +1948,7 @@ that nest ``[E]`` under downloads print the same extract legend as ``--list-down
 2. Shared token parser + alias registry. **done**
 3. Force-wipe match + type-partitioned report + sibling context. **done**
 4. Remove / purge / wipe accept the same grammar. **done**
-5. Docs, CHANGELOG, tests, PR #150. **done** (land on #150)
+5. Docs, CHANGELOG, tests, PR #150. **done**
 
 #### Out of scope for §4.15
 
