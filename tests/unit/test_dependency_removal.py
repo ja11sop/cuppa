@@ -712,7 +712,10 @@ def test_write_removal_tree_summary_and_version_nesting():
     text = out.getvalue()
     lines = [ line for line in text.splitlines() if 'DEPENDENCY' not in line ]
     # Spacer under summary root, under types, and between identity and versions.
-    assert any( line.rstrip().endswith( '│' ) for line in lines )
+    assert any(
+            line.rstrip().endswith( ( '│', '|' ) )
+            for line in lines
+    )
     assert any( 'related dependencies for boost' in line for line in lines )
     assert any( line.rstrip().endswith( 'removing' ) for line in lines )
     assert any( line.rstrip().endswith( 'remaining' ) for line in lines )
@@ -737,6 +740,47 @@ def test_write_removal_tree_summary_and_version_nesting():
     assert 'product-a' in lines[version_idx + 1] or 'product-b' in lines[version_idx + 1]
     # Partial identity keeps a partial mark.
     assert '-✔-' in boost_line or '-✓-' in boost_line or '-*-' in boost_line
+
+
+def test_write_removal_tree_spacers_encode_on_legacy_consoles( monkeypatch ):
+    """Spacer pipes must use glyphs(), not a hardcoded box-drawing character."""
+    import io
+
+    monkeypatch.setattr(
+            storage, 'glyphs', lambda encoding=None: storage.ASCII_GLYPHS,
+    )
+    targets = [
+            dependency_removal.RemovalTarget(
+                    dependency='boost',
+                    path='/deps/boost@1.91.0/a',
+                    qualifier='1.91.0',
+                    tool_variant='gcc',
+                    storage_type='archive',
+                    size_bytes=100,
+                    label='product-a',
+                    extra_paths=(),
+            ),
+    ]
+    leftovers = [
+            dependency_removal.Leftover(
+                    dependency='boost',
+                    path='/deps/boost@1.88.0/c',
+                    qualifier='1.88.0',
+                    tool_variant='',
+                    size_bytes=20,
+                    label='product-c',
+                    storage_type='archive',
+            ),
+    ]
+    out = io.StringIO()
+    dependency_removal._write_removal_tree(
+            out, targets, leftovers, {}, planning=True, root='/deps',
+            summary_label='related dependencies for boost',
+            action_label='removing',
+    )
+    text = out.getvalue()
+    assert '\u2502' not in text
+    assert '|' in text
 
 
 def test_write_removal_tree_uses_folded_display_labels( tmp_path ):

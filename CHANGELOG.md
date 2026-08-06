@@ -221,6 +221,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Removal-report spacer rows use encoding-safe tree glyphs (ASCII `|` on legacy Windows
+  consoles) instead of a hardcoded box-drawing pipe that raised `UnicodeEncodeError` under
+  `cp1252` (#146).
 - Boost archive-clean integration planting follows `Clang.name()` when
   `--clang-stdlib=libc++` is active (stage path `clangNNN-libc++`), so the
   `clang-libc++` CI cell matches remove selection (#134).

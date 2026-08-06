@@ -1903,7 +1903,7 @@ def _write_removal_tree(
         } )
 
         # Spacer under type before first identity: continuation + child pipe.
-        type_child_spacer = type_prefix + '│'
+        type_child_spacer = ( type_prefix + pipe ).rstrip()
         body_lines.append( type_child_spacer )
         rendered.append( _spacer_render_row( type_child_spacer ) )
 
@@ -1951,7 +1951,7 @@ def _write_removal_tree(
             # Qualifier nesting: skip version row when no qualifier on any leaf.
             has_version_rows = any( version.get( 'label' ) for version in versions )
             if not has_version_rows:
-                id_child_spacer = id_prefix + '│'
+                id_child_spacer = ( id_prefix + pipe ).rstrip()
                 body_lines.append( id_child_spacer )
                 rendered.append( _spacer_render_row( id_child_spacer ) )
                 rows, labels = _flatten_removal_leaves(
@@ -1963,7 +1963,7 @@ def _write_removal_tree(
                 continue
 
             # Spacer between identity and version leaves.
-            id_child_spacer = id_prefix + '│'
+            id_child_spacer = ( id_prefix + pipe ).rstrip()
             body_lines.append( id_child_spacer )
             rendered.append( _spacer_render_row( id_child_spacer ) )
 
@@ -1990,7 +1990,7 @@ def _write_removal_tree(
 
                 if ver_index > 0:
                     # Blank row between qualifier siblings (list-style identity spacing).
-                    between_versions = id_prefix + '│'
+                    between_versions = ( id_prefix + pipe ).rstrip()
                     body_lines.append( between_versions )
                     rendered.append( _spacer_render_row( between_versions ) )
 
