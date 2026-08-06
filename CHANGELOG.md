@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `--clone-develop` creates configured develop working copies that are missing or empty,
+  cloning from the dependency's **unexpanded** git URL (no embedded tokens), checking out a
+  branch that `--list-develop` will call ok, and recursing submodules. Refuses non-empty
+  destinations and tag/revision pins. Compose with update:
+  `cuppa -D --clone-develop --update-develop`. A `--develop` build that hits a missing path
+  names this option (#138).
+- `--checkout-develop-branch=NAME` switches every develop git working copy to `NAME` (use
+  `current` for the consumer project's branch), creating the branch via the develop base + pull when
+  needed. `--reset-develop-branch[=NAME|current|default|base]` returns copies to the develop base
+  (bare / `base`), the published default (`default`), `current`, or a named branch, then
+  fast-forwards where safe. `--location-base-branch` sets the develop home used by create and bare
+  reset (defaults to `--location-default-branch`). Dirty or unpushed copies are left alone;
+  `--list-develop` remains the check for outstanding work (#153).
 - `--wipe-dependencies=name` clear-down of project-used extracts and matching downloads for the
   current selection (bypasses `storage_clean` product-only behaviour). Power tools:
   `--force-wipe-dependencies` with `[selector]name/qualifier` tokens (e.g. `[source]boost/1.8*`,
@@ -194,6 +207,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `watch-pr` polls CI on a sparse schedule (2 minutes, then 8, then every 2 minutes) instead of
   every 30 seconds, and falls back to the sealed credential if the public API rate-limits. Pass
   `--interval` for a fixed delay, or `--auth` to start authenticated.
+- `update-pr` patches an open pull request's title and/or body (and can add labels) through the
+  sealed credential, so agents do not hand-roll `PATCH /pulls/{n}` response handling.
+- Agent notes (`AGENTS.md`) spell out settling plan vocabulary before coding, updating plan
+  progress with behaviour commits, encoding repeated chat corrections, and what to do when
+  Actions shows no check runs during a forge outage.
 - `cuppa/VERSION` carries a `.dev` suffix while a release is being assembled, so a build from a
   checkout between releases reports, for example, `cuppa: version 1.4.0.dev` rather than claiming
   to be the last release. Released versions are unchanged.
@@ -221,6 +239,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `git+file://` locations with a Windows drive letter and `@branch` (urlparse puts the path in
+  `netloc`) now split versioning correctly, so `--clone-develop` can `ls-remote` a local origin
+  on Windows (#138).
 - Removal-report spacer rows use encoding-safe tree glyphs (ASCII `|` on legacy Windows
   consoles) instead of a hardcoded box-drawing pipe that raised `UnicodeEncodeError` under
   `cp1252` (#146).

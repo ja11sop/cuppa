@@ -715,6 +715,144 @@ The warning names the remedy: put the work on a branch named for the branch you 
 
 The exit status is zero for a report, and non-zero when a develop path does not exist, because that build cannot succeed and a CI job should hear about it.
 
+=== Cloning missing develop copies
+
+`--clone-develop` creates configured develop paths that are missing or empty.
+It clones from the dependency's **unexpanded** git URL (so tokens never land in `.git/config`), checks out a branch that `--list-develop` will call ok, and recurses submodules.
+It refuses non-empty destinations and locations that pin a tag or revision (develop copies must not be detached).
+`--offline` is an error; `-n` prints the plan.
+
+[source,shell]
+----
+cuppa -D --clone-develop
+cuppa -D --clone-develop --update-develop
+----
+
+A `--develop` build that fails because a develop path is missing names this option in the error.
+
+=== Aligning develop copies onto a feature branch
+
+When a feature spans the consumer project and several local develop dependencies, put those copies on the same branch name, then return them to the *develop base* (home) when the work is done.
+
+Git does not record which branch a feature was created from, so cuppa does not guess a parent.
+Two settings describe home:
+
+|===
+| Notion | Option | Role
+
+| Published default
+| `--location-default-branch` (default `master`)
+| What non-`--develop` builds resolve to; `--list-develop` treats uncommitted work here as a trap
+
+| Develop base
+| `--location-base-branch`
+| Where `--checkout-develop-branch` creates a missing feature from, and where bare `--reset-develop-branch` returns. When unset, base is the published default
+|===
+
+[mermaid]
+....
+flowchart TD
+    master["published default\n(location-default-branch)"]
+    base["develop base / home\n(location-base-branch)"]
+    feature["feature branch\n(checkout-develop-branch)"]
+    master -.->|"simple repos: base unset\nbase ≡ default"| base
+    base -->|"create missing feature\nfrom updated base"| feature
+    feature -->|"bare --reset-develop-branch"| base
+....
+
+For a long-running integration line off `master`, set the base once (CLI or `configure.conf`):
+
+[source,shell]
+----
+cuppa -D --location-base-branch=integration --save
+----
+
+That setting matches this history shape — features fork from and merge back to the middle line, while `master` stays the published default:
+
+[mermaid]
+....
+%%{init: { 'gitGraph': { 'mainBranchName': 'master' } } }%%
+gitGraph
+  commit id: "on master"
+  branch integration
+  checkout integration
+  commit id: "develop home"
+  branch feature_orders
+  checkout feature_orders
+  commit id: "feature work"
+  checkout integration
+  merge feature_orders
+....
+
+When `--location-base-branch` is unset, base is the published default and the shape is the familiar feature-off-default line:
+
+[mermaid]
+....
+%%{init: { 'gitGraph': { 'mainBranchName': 'master' } } }%%
+gitGraph
+  commit id: "on default"
+  branch feature_orders
+  checkout feature_orders
+  commit id: "feature work"
+  checkout master
+  merge feature_orders
+....
+
+Typical feature workflow:
+
+[mermaid]
+....
+sequenceDiagram
+    participant Dev as Developer
+    participant Cuppa as cuppa
+    participant Copies as Develop copies
+    Dev->>Cuppa: --checkout-develop-branch=current
+    Cuppa->>Copies: switch to feature (create from base if needed)
+    Dev->>Dev: commit and push in each repo
+    Dev->>Cuppa: -Q -D --list-develop
+    Cuppa->>Dev: report dirty / unpushed / ok
+    Dev->>Cuppa: --reset-develop-branch
+    Cuppa->>Copies: checkout base, then fetch and fast-forward
+....
+
+[source,shell]
+----
+cuppa -D --checkout-develop-branch=current
+# ... commit and push in each repo ...
+cuppa -Q -D --list-develop
+cuppa -D --reset-develop-branch
+----
+
+`--checkout-develop-branch=NAME` switches every develop git working copy to `NAME` (`current` means the consumer project's current branch).
+Clean copies left on a stale feature branch move via the develop base and a pull first, then create or track `NAME`.
+Dirty or unpushed copies are left alone and reported — use `--list-develop` to see outstanding commits before you abandon a branch.
+
+`--reset-develop-branch` returns each copy to a target, then fetches and fast-forwards where `--update-develop` would:
+
+* bare flag, or `=base` — the develop base (`--location-base-branch`, else the published default)
+* `=default` — `--location-default-branch` even when base differs
+* `=current` — the consumer project's current branch
+* `=NAME` — that branch name
+
+It does not delete leftover feature branches.
+
+[mermaid]
+....
+flowchart LR
+    subgraph home [Home policy]
+      D["default\nmaster"]
+      B["base\nintegration"]
+    end
+    F[feature_orders]
+    F -->|"--reset-develop-branch"| B
+    F -->|"--reset-develop-branch=default"| D
+    F -->|"--reset-develop-branch=current"| C[consumer current]
+....
+
+`--list-develop` treats a copy as on an acceptable branch when it is on the consumer's current branch, the published default, or the develop base.
+
+=== Updating develop copies
+
 `--update-develop` answers the next question after `--list-develop` tells you a copy is behind.
 It fetches each git working copy, then fast-forwards only those that are clean and strictly behind their upstream.
 Everything else is skipped and reported with the reason: ahead, diverged, modified, detached, no upstream, not a working copy, or path missing.
@@ -728,7 +866,7 @@ cuppa -D --update-develop -n
 It prints the table before acting, then what it did to each copy, then the table again if anything moved, so the effect is visible rather than inferred.
 It never stashes, resets, rewrites history, or switches branches.
 A fast-forward of a clean tree discards nothing and leaves nothing to recover from.
-`--offline` makes `--update-develop` an error rather than a silent no-op, because this is the one option in the family that needs the network.
+`--offline` makes `--update-develop` an error rather than a silent no-op, because options in this family that need the network refuse `--offline`.
 `-n` / `--no-exec` shows the plan and changes nothing; because no fetch happens, the plan is judged as of your last fetch, and the report says so.
 Updating several repositories is not atomic: a failure in one is reported, the rest continue, and the exit status is non-zero.
 

@@ -333,6 +333,86 @@ class Git:
 
 
     @classmethod
+    def clone( cls, repository, path, branch=None, recurse_submodules=True ):
+        """Clone ``repository`` into ``path`` on ``branch`` (unexpanded URL — no embedded secrets)."""
+        parent = os.path.dirname( path.rstrip( os.sep ) ) or '.'
+        if parent and not os.path.exists( parent ):
+            os.makedirs( parent )
+        parts = [ cls.binary(), "clone" ]
+        if branch:
+            parts.extend( [ "--branch", branch ] )
+        if recurse_submodules:
+            parts.append( "--recurse-submodules" )
+        parts.extend( [ repository, path ] )
+        # Quote via shlex.join when available; fall back for older Pythons.
+        try:
+            command = shlex.join( parts )
+        except AttributeError:
+            command = " ".join( shlex.quote( part ) for part in parts )
+        return cls.execute_command( command )
+
+
+    @classmethod
+    def local_branch_exists( cls, path, branch ):
+        try:
+            cls.execute_command(
+                    "{git} show-ref --verify --quiet refs/heads/{branch}".format(
+                            git=cls.binary(), branch=branch
+                    ),
+                    path,
+            )
+            return True
+        except cls.Error:
+            return False
+
+
+    @classmethod
+    def remote_tracking_branch_exists( cls, path, branch, remote='origin' ):
+        try:
+            cls.execute_command(
+                    "{git} show-ref --verify --quiet refs/remotes/{remote}/{branch}".format(
+                            git=cls.binary(), remote=remote, branch=branch
+                    ),
+                    path,
+            )
+            return True
+        except cls.Error:
+            return False
+
+
+    @classmethod
+    def checkout_branch( cls, path, branch ):
+        """Switch to an existing local branch."""
+        return cls.execute_command(
+                "{git} checkout {branch}".format( git=cls.binary(), branch=branch ),
+                path,
+        )
+
+
+    @classmethod
+    def checkout_tracking_branch( cls, path, branch, remote='origin' ):
+        """Create a local branch tracking ``remote/branch``, or switch if it already exists."""
+        if cls.local_branch_exists( path, branch ):
+            cls.checkout_branch( path, branch )
+            return
+        return cls.execute_command(
+                "{git} checkout -b {branch} --track {remote}/{branch}".format(
+                        git=cls.binary(), branch=branch, remote=remote
+                ),
+                path,
+        )
+
+
+    @classmethod
+    def create_branch_from_head( cls, path, branch ):
+        """Create and switch to ``branch`` from the current HEAD."""
+        return cls.execute_command(
+                "{git} checkout -b {branch}".format( git=cls.binary(), branch=branch ),
+                path,
+        )
+
+
+    @classmethod
     def info( cls, path ):
         if not path:
             raise cls.Error("No working copy path specified for calling git commands with.")

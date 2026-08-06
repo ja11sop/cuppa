@@ -721,16 +721,37 @@ class Location(object):
     @classmethod
     def get_scm_system_and_info( cls, location ):
         full_url = urlparse( location )
-        #print( str(full_url) )
-        if '+' in full_url.scheme:
-            vc_type, scheme = full_url.scheme.split('+')
-            path_elements = full_url.path.split('@')
+        if '+' not in full_url.scheme:
+            return None, None, None, None
+        vc_type, scheme = full_url.scheme.split( '+', 1 )
+
+        # Windows drive-letter file URLs: urlparse('git+file://C:\\path@branch') puts the
+        # whole path in netloc (including @versioning) and leaves path empty. Normalise to
+        # file:///C:/path so git and the versioning split both work.
+        if (
+                scheme == 'file'
+                and full_url.netloc
+                and len( full_url.netloc ) >= 2
+                and full_url.netloc[1] == ':'
+                and not full_url.path
+        ):
+            combined = full_url.netloc.replace( '\\', '/' )
             versioning = ''
-            if len(path_elements) > 1:
-                versioning = path_elements[1]
-            repo_location = urlunparse( (scheme, full_url.netloc, path_elements[0], '', '', '', ) )
+            if '@' in combined:
+                combined, versioning = combined.rsplit( '@', 1 )
+            if not combined.startswith( '/' ):
+                combined = '/' + combined
+            repo_location = urlunparse( ( scheme, '', combined, '', '', '' ) )
             return scms.get_scms( vc_type ), vc_type, repo_location, versioning
-        return None, None, None, None
+
+        path_elements = full_url.path.split( '@' )
+        versioning = ''
+        if len( path_elements ) > 1:
+            versioning = path_elements[1]
+        repo_location = urlunparse(
+                ( scheme, full_url.netloc, path_elements[0], '', '', '' )
+        )
+        return scms.get_scms( vc_type ), vc_type, repo_location, versioning
 
 
     def __init__( self, cuppa_env, location, develop=None, branch_path=None, extra_sub_path=None, name_hint=None ):
@@ -769,6 +790,11 @@ class Location(object):
             self._cache_folder_stem = self.folder_stem_for_configured_location( configured_location )
             location = develop
             logger.debug( "--develop specified so using location=develop=[{}]".format( as_info( develop ) ) )
+            if not os.path.exists( develop ):
+                logger.error(
+                        "Develop path [{}] does not exist. Create missing develop working"
+                        " copies with: cuppa -D --clone-develop".format( as_info( develop ) )
+                )
 
         scm_location = location
 

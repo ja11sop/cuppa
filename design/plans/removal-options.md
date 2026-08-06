@@ -1,8 +1,8 @@
 # Plan: removal options for build folders and dependencies
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Storage roots, listing, and removal; GitHub [#132](https://github.com/ja11sop/cuppa/issues/132), [#133](https://github.com/ja11sop/cuppa/issues/133), [#134](https://github.com/ja11sop/cuppa/issues/134), [#135](https://github.com/ja11sop/cuppa/issues/135), [#138](https://github.com/ja11sop/cuppa/issues/138), [#145](https://github.com/ja11sop/cuppa/issues/145), [#146](https://github.com/ja11sop/cuppa/issues/146), [#148](https://github.com/ja11sop/cuppa/issues/148)
-- **Updated:** 2026-08-06
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Storage roots, listing, and removal; GitHub [#132](https://github.com/ja11sop/cuppa/issues/132), [#133](https://github.com/ja11sop/cuppa/issues/133), [#134](https://github.com/ja11sop/cuppa/issues/134), [#135](https://github.com/ja11sop/cuppa/issues/135), [#138](https://github.com/ja11sop/cuppa/issues/138), [#145](https://github.com/ja11sop/cuppa/issues/145), [#146](https://github.com/ja11sop/cuppa/issues/146), [#148](https://github.com/ja11sop/cuppa/issues/148), [#153](https://github.com/ja11sop/cuppa/issues/153)
+- **Updated:** 2026-08-07
 
 `--list-develop` and `--update-develop` (§3.5, §3.6), the storage rename (§3.1, §8, Phase 1),
 build listing/removal (`--list-builds`, `--remove-builds`, `--remove-all-builds`, Phase 2),
@@ -13,10 +13,11 @@ archive clean-by-variant (§4.14.3 — optional `storage_clean`, Boost stage/`bi
 clean, lazy exact inventory sizes on list) are implemented (listing
 [#141](https://github.com/ja11sop/cuppa/pull/141) and removal
 [#142](https://github.com/ja11sop/cuppa/pull/142) on `master`; archive clean
-[#143](https://github.com/ja11sop/cuppa/pull/143)). Cloning a missing develop copy (§3.7)
-remains a proposal, as does artefact removal (Phase 6). Phase 4 listing + purge
+[#143](https://github.com/ja11sop/cuppa/pull/143)). `--clone-develop` (§3.7) and develop branch
+alignment (§3.8) land in [#154](https://github.com/ja11sop/cuppa/pull/154) (closes #138 / #153).
+Artefact removal (Phase 6) remains open. Phase 4 listing + purge
 (`--list-downloads` / `--purge-dependencies` / `--purge-all-dependencies`) is implemented in
-[#144](https://github.com/ja11sop/cuppa/pull/144) (closes #134 when that PR merges).
+[#144](https://github.com/ja11sop/cuppa/pull/144) (closes #134).
 Follow-on from the `--clean` work in `cuppa/location.py` and `cuppa/package_managers/gitlab.py`,
 where a clean could not complete because a dependency was missing, and where the advice for
 leftover artefacts was "remove the folder by hand". Telling people to run `rm -rf` is
@@ -25,24 +26,28 @@ knows exactly which folders belong to which variant and which dependency.
 
 This plan proposes a way to list what is in the storage roots, a family of explicit removal
 options (Phases 1–4 listing / removal / archive clean / purge done), conservative ways
-to create develop copies that are missing (§3.7), and the safety model that governs deletion.
+to create and align develop copies (§3.7, §3.8), and the safety model that governs deletion.
 
 The storage rename came **first** (§6, Phase 1) so every later phase talks about one vocabulary.
 Throughout this document the new names are used: `dependencies_root` (was `download_root`) and
 `downloads_root` (was `cache_root`). Both default to subfolders of a single `storage_root`,
 which defaults to `~/.cuppa` and can be moved with one option.
 
-### Progress snapshot (2026-08-06)
+### Progress snapshot (2026-08-07)
 
 Phases **1**, **2**, **4**, and **5**, Phase **3 listing**, Phase **3 removal Slice D**,
-archive clean-by-variant (§4.14.3), and **wipe / §4.15** are **done**
+archive clean-by-variant (§4.14.3), **wipe / §4.15**, and develop clone + branch alignment
+(§3.7 / §3.8) are **done** or landing
 ([#141](https://github.com/ja11sop/cuppa/pull/141) /
 [#142](https://github.com/ja11sop/cuppa/pull/142) /
 [#143](https://github.com/ja11sop/cuppa/pull/143) on `master`;
 Phase 4 in [#144](https://github.com/ja11sop/cuppa/pull/144);
 wipe in [#150](https://github.com/ja11sop/cuppa/pull/150), closes
-[#146](https://github.com/ja11sop/cuppa/issues/146)). #144 is the PR that closes
-umbrella [#134](https://github.com/ja11sop/cuppa/issues/134). Phase **6** / **§3.7** and the
+[#146](https://github.com/ja11sop/cuppa/issues/146);
+§3.7 / §3.8 in [#154](https://github.com/ja11sop/cuppa/pull/154), closes
+[#138](https://github.com/ja11sop/cuppa/issues/138) /
+[#153](https://github.com/ja11sop/cuppa/issues/153)). #144 closed
+umbrella [#134](https://github.com/ja11sop/cuppa/issues/134). Phase **6** and the
 deferred Phase 3 polish items remain open and do not keep #134 open.
 
 | Area | State | Notes |
@@ -64,14 +69,15 @@ deferred Phase 3 polish items remain open and do not keep #134 open.
 | Phase 3 — `--list-develop --list-format=json` | **done** | [#148](https://github.com/ja11sop/cuppa/issues/148) — Shared `--list-format=json` parity for develop copies (agents / scripts); text unchanged |
 | Phase 4 — downloads list / purge | **done** | `--list-downloads` + `--purge-dependencies` / `--purge-all-dependencies` in [#144](https://github.com/ja11sop/cuppa/pull/144); that PR closes #134 |
 | `--wipe-dependencies` / §4.15 | **done** | [#146](https://github.com/ja11sop/cuppa/issues/146) / [#150](https://github.com/ja11sop/cuppa/pull/150) — wipe + force-wipe, selectors, repository rename, shared tokens, summary → type → identity → version → leaves |
+| §3.7 — `--clone-develop` | **done** (on [#154](https://github.com/ja11sop/cuppa/pull/154)) | Closes [#138](https://github.com/ja11sop/cuppa/issues/138) — refuse pins; recurse submodules; dedicated `Git.clone`, unexpanded URL |
+| §3.8 — develop branch alignment | **done** (on [#154](https://github.com/ja11sop/cuppa/pull/154)) | Closes [#153](https://github.com/ja11sop/cuppa/issues/153) — checkout / reset; `--location-base-branch`; optional reset target |
 | Phase 6 — artefacts | **open** | Sketch only (§4.6) / [#135](https://github.com/ja11sop/cuppa/issues/135) |
-| §3.7 — `--clone-develop` | **open** | #138 |
 
-**Next focus:** [#138](https://github.com/ja11sop/cuppa/issues/138) (`--clone-develop`) /
-[#135](https://github.com/ja11sop/cuppa/issues/135) (artefacts). Boost package identity stays on
-[`boost-updates.md`](boost-updates.md). Age-gated unreferenced GC (`--older-than`) remains
-deferred (§9). Optional `[selector]` on `--force-wipe-all-*` / unreferenced stays out of scope
-for §4.15.
+**Next focus:** [#135](https://github.com/ja11sop/cuppa/issues/135) (artefacts) when that design pass starts.
+Nothing else in this plan is required for the develop/storage listing family to be usable.
+Boost package identity stays on [`boost-updates.md`](boost-updates.md). Age-gated unreferenced
+GC (`--older-than`) remains deferred (§9). `--develop-root` remains an open question under §3.7
+(not required for #138 / #154).
 
 **Deferred Phase 3 polish** ([#145](https://github.com/ja11sop/cuppa/issues/145); parallel branches fine):
 
@@ -100,6 +106,8 @@ not show a need after the lazy exact upgrade shipped.
   and bring the out-of-date ones forward where that cannot lose work (§3.6).
 - Create a develop working copy that is configured but not yet on disk, so a new machine, or a
   dependency added since you last looked, does not need a clone worked out by hand (§3.7).
+- Align those develop copies onto a shared feature branch and back to a configured develop home
+  without guessing git parents (§3.8).
 - Remove the build output for the *currently selected* variant / toolchain combination.
 - Remove the whole build root.
 - Remove the on-disk copies of dependencies cuppa manages, either all of them or by name.
@@ -677,8 +685,8 @@ that scoping is wanted at all.
 ### 3.7 Cloning a develop copy that is not there yet
 
 Tracked as GitHub [#138](https://github.com/ja11sop/cuppa/issues/138). The surface is settled —
-a first-class `--clone-develop` — and the remaining design questions are gathered at the end of
-this section and in §9; they should be answered before implementation starts.
+a first-class `--clone-develop` — and the remaining design questions are **settled** below;
+implementation can proceed.
 
 Using `--list-develop` on real projects surfaced a case the two options above only report on: a
 dependency has a develop path configured, and there is nothing at that path. Today that is the
@@ -713,7 +721,7 @@ promises:
 
 The third is the one taken. The family then reads as three verbs over one observation:
 `--list-develop` looks, `--clone-develop` creates what is missing, `--update-develop` moves
-forward what is behind.
+forward what is behind. §3.8 adds branch-alignment verbs on the same observation.
 
 **Which branch a fresh copy lands on.** A clone that is born a warning is a poor introduction, so
 the checkout has to satisfy §3.5's rules rather than merely succeed. The order should be: the
@@ -722,8 +730,8 @@ the branch the location names; otherwise the remote's default branch. What it mu
 is leave a detached HEAD, which is what checking out a tag or a revision produces. That is a real
 difference from managed retrieval, where a detached checkout at a pinned revision is exactly
 right: a copy in the dependencies root is read, and a develop copy is worked in. Where the
-location pins a tag or a revision, the honest outcome is to clone and check out the branch that
-contains it, or to refuse and say why, rather than to hand back a copy nobody can commit to.
+location pins a tag or a revision, **refuse with an explanation** (settled) — do not invent a
+containing branch.
 
 **Credentials must not end up in the clone.** `Location.expand_secret` puts tokens into HTTPS
 URLs so retrieval can authenticate. A develop copy lives in someone's home directory for months,
@@ -736,6 +744,10 @@ protocol option: git already rewrites remotes through `url.<base>.insteadOf`, so
 wants SSH where the project names HTTPS can say so once in their own git configuration, and both
 cuppa and every other tool honour it.
 
+**Do not reuse pip VCS retrieval** (`Location.obtain_from_repository`). Retrieval may expand
+secrets and may detach at a pin — both wrong for develop clones. Use a dedicated `Git.clone` on
+the unexpanded repository URL.
+
 **Where it must refuse.** Cloning is the one write in this family with no destructive potential,
 but only because it never touches anything that already exists:
 
@@ -747,6 +759,7 @@ but only because it never touches anything that already exists:
 | Parent directories are missing | Create them, and say which were created |
 | Dependency has no develop clause | Skip. Nothing says where the copy should go (see the follow-on below) |
 | Location is an archive, a plain path, or an unsupported VCS | Skip with the reason; there is nothing to clone |
+| Location pins a tag or revision | Refuse; develop copies must land on a branch |
 | `--offline` | An error, exactly as for `--update-develop` — this option is nothing but network |
 | Authentication or remote failure | Report per dependency, continue with the rest, exit non-zero |
 
@@ -754,12 +767,8 @@ Nothing is ever removed, moved, or overwritten, which is what makes the option s
 run without a dry run first — though `-n` still prints the plan: what would be cloned, from
 where, to where, and on which branch.
 
-**Submodules and depth.** A dependency that uses submodules and is cloned without them produces
-a tree that fails to build in a way that looks like a code error, so recursing is the kinder
-default; the cost is size, and the alternative is a confusing failure. Shallow clones should not
-be offered: a develop copy has to support branching, pushing, and the ahead / behind counts
-`--list-develop` reports, all of which a shallow history complicates for no benefit to someone
-who is going to work in the tree.
+**Submodules and depth.** Recurse (`submodule update --init --recursive`) by default. Shallow
+clones are not offered.
 
 **Reporting.** The same shape as §3.6 — the table before, a line per copy saying what was cloned
 and where, and the table afterwards. A successful clone turns an `error` row into an `ok` row,
@@ -777,13 +786,67 @@ its own design pass rather than being smuggled in here.
 
 **Follow-on: name the option in the failure.** When a `--develop` build fails because a develop
 path does not exist, the message should say which option creates it. That is a one-line change
-once the option exists, and it is how most people will discover it.
+once the option exists, and it is how most people will discover it. **In scope for #138.**
 
 **Testing sketch.** The decision is a third pure function over the state §3.5 already observes —
 `clone_action(copy, location)` returning create-or-skip and a reason — so every row of the
 refusal table above is a unit test with no network. Integration tests clone from a local origin:
 one landing on the branch being built, one falling back to the remote default, one refusing on a
 non-empty directory, and one asserting that no token appears in the resulting `.git/config`.
+
+### 3.8 Aligning develop copies onto a feature branch
+
+Tracked as GitHub [#153](https://github.com/ja11sop/cuppa/issues/153) (sibling of
+[#138](https://github.com/ja11sop/cuppa/issues/138)). Motivation: you start
+a feature branch on the consumer project (repo A) and depend on several locally checked-out
+develop copies. You want those copies on the **same** branch name so related edits share a
+branch, then return everyone to the **develop home** after the work merges.
+
+Git does not record “branched from X”, so cuppa does not guess a parent. Home is **policy**:
+
+| Notion | Option | Role |
+|--------|--------|------|
+| Published / repo default | `--location-default-branch` (default `master`) | Non-`--develop` resolution story; “local work on default is a trap” in `--list-develop` |
+| Develop base (home) | `--location-base-branch` | Where new feature branches are **created from**, and where bare `--reset-develop-branch` returns. When unset, base ≡ default |
+
+Long-running integration lines set base once (`--location-base-branch=integration` or conf).
+Simple repos leave it unset.
+
+**Surface.** Two first-class flags (not modes of `--update-develop`):
+
+| Flag | Role |
+|------|------|
+| `--checkout-develop-branch=NAME` | Create if needed and switch every develop git working copy to `NAME`. Special value **`current`** means the consumer project's `current_branch`. |
+| `--reset-develop-branch[=NAME\|current\|default\|base]` | Return copies to a target, then fetch + ff-only (same gates as `--update-develop`). **Bare** flag (or `=base`) → develop base. `=default` → `location_default_branch`. `=current` / `=NAME` → that branch. |
+
+Philosophy matches §3.6: **act where safe; skip and report where a person must decide.** The
+before/after report is the same `--list-develop` table. Unpushed commits and dirty trees stay
+visible there — guide the user to commit and push before abandoning a feature branch or before
+considering a reset “done”.
+
+`--list-develop` treats a copy as on an acceptable branch when it is on the consumer's current
+branch, the published default, **or** the develop base (when base ≠ default).
+
+**`--checkout-develop-branch` per copy**
+
+| State | Action |
+|-------|--------|
+| Missing path | Skip; point at `--clone-develop` |
+| Already on `NAME` | Skip (“already on …”) |
+| Dirty, diverged, or ahead in a way that switching would lose work | Refuse |
+| Detached / non-git | Refuse |
+| Clean; remote has `NAME` | Fetch; checkout tracking `origin/NAME` (do not recreate from base) |
+| Clean; no remote `NAME` | Via **develop base**: checkout base → fetch + ff → `checkout -b NAME` (or local `NAME` if it already exists) |
+
+**`--reset-develop-branch` per copy:** resolve target (bare → base); if not on target, checkout
+target (refuse if unsafe); then fetch + ff-only. Do **not** delete leftover feature branches —
+leave them for manual cleanup.
+
+**`--offline`:** error (network required). `-n`: print the plan. Package develop paths without a
+VCS remote are skipped with a reason (same as clone).
+
+**Out of scope:** `--develop-root`; inventing develop paths; force-deleting feature branches;
+rebase/merge modes on `--update-develop`; inferring parent branch from merge-base / reflog / forge.
 
 ---
 
@@ -2074,16 +2137,20 @@ Listing half **done** on `master` (#141). Removal Slice D **done** on `master` (
   leaf/all/unreferenced). Boost GitLab package patched/clean identity remains on
   [`boost-updates.md`](boost-updates.md).
 
-**Phase 5 — develop copies** (§3.5, §3.6 — independent of Phases 1 to 4) — **done**
+**Phase 5 — develop copies** (§3.5–§3.8 — independent of Phases 1 to 4) — **done**
+(§3.7 / §3.8 on [#154](https://github.com/ja11sop/cuppa/pull/154))
 
 - Landed ahead of Phase 2 ([#132](https://github.com/ja11sop/cuppa/issues/132) / #137): touches no
   storage root, needs no inventory, and removes nothing.
 - Develop-path resolution is shared (`develop_location`); `Git.get_working_copy_state()` feeds
   the classification; `--list-develop` reports to stdout and exits; `--update-develop` fetches and
   fast-forwards only clean, strictly-behind copies.
-- `--clone-develop` (§3.7) remains a proposal ([#138](https://github.com/ja11sop/cuppa/issues/138)).
+- `--clone-develop` (§3.7) and `--checkout-develop-branch` / `--reset-develop-branch` with
+  `--location-base-branch` (§3.8) land in [#154](https://github.com/ja11sop/cuppa/pull/154)
+  (closes [#138](https://github.com/ja11sop/cuppa/issues/138) /
+  [#153](https://github.com/ja11sop/cuppa/issues/153)).
 - The `=fetch-only` / `=allow-rebase` / `=allow-merge` values are still out of scope until there
-  is evidence from using the two shipped options (§3.6).
+  is evidence from using the shipped update option (§3.6).
 
 **Phase 6 — artefacts outside the build root** (§4.6)
 
@@ -2513,6 +2580,11 @@ Settled while reviewing this plan, and folded into the sections above:
 | Native `du` for exact bytes | Future only, if practice needs it — GNU/`du` prefer + `os.walk` fallback for **bytes**, not behind full `directory_stats` (§4.5.1) |
 | Shared or project-relative default | Shared, with a documentation obligation rather than a footnote, and one option to make a project self-contained (§8.3) |
 | Whether cloning a missing develop copy is its own option or a mode of `--update-develop` | Its own option, `--clone-develop`, so that updating keeps its narrow promise and the mode slot stays reserved for tolerance levels (§3.7, [#138](https://github.com/ja11sop/cuppa/issues/138)) |
+| What a pinned develop location should clone to | **Refuse** with an explanation — develop copies must not be detached (§3.7) |
+| Submodules / shallow clones for `--clone-develop` | Recurse by default; no shallow clones (§3.7) |
+| Reuse pip VCS retrieval for develop clones | **No** — dedicated `Git.clone` on the unexpanded URL (§3.7) |
+| Aligning develop copies onto a feature branch | First-class `--checkout-develop-branch=NAME\|current` and `--reset-develop-branch[=NAME\|current\|default\|base]`; develop home via `--location-base-branch` (defaults to published default) (§3.8) |
+| Inferring feature-branch parent automatically | **No** — Git does not record it; wrong guesses move every develop copy. Home is `--location-base-branch` / explicit reset target (§3.8) |
 | Downloads-root path under verbose `[D]` LOCATION | No. `[D]` + basename (+ footer) only; paths stay in JSON / `--list-downloads` (§4.12) |
 
 Still open after Slice D (#142) and archive clean (#143):
@@ -2557,9 +2629,6 @@ Still open after Slice D (#142) and archive clean (#143):
 - **Which `--update-develop` modes are worth adding** beyond the fast-forward default, and
   whether per-dependency scoping is wanted once the value slot is spoken for (§3.6). Both should
   be answered by using `--list-develop` and `--update-develop`, not by guessing now.
-- **What a pinned develop location should clone to** (§3.7). Where a location names a tag or a
-  revision there is no branch to land on, and the choice is between checking out the branch that
-  contains it and refusing with an explanation. Refusing is the safer first answer.
 - **Whether `--develop-root` should exist** (§3.7), letting a bare machine clone every dependency
   into one root without develop clauses being configured first. It would make onboarding a single
   command, at the cost of cuppa writing configuration rather than reading it.

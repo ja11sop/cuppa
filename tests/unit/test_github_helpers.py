@@ -115,6 +115,60 @@ def test_create_pull_request_reports_api_failure():
         )
 
 
+def test_update_pull_request_patches_title_and_body( monkeypatch ):
+    monkeypatch.setattr(
+        github_helpers, 'repository',
+        lambda owner=None, repo=None: ( 'ja11sop', 'cuppa' ),
+    )
+    client = FakeGitHub( responses=[
+        ( 200, {
+            'number': 154,
+            'html_url': 'https://example.com/pr/154',
+            'title': 'New title',
+            'body': 'New body',
+        } ),
+    ] )
+
+    pull = github_helpers.update_pull_request(
+        number = 154,
+        title = 'New title',
+        body = 'New body',
+        github = client,
+    )
+
+    assert pull['html_url'] == 'https://example.com/pr/154'
+    assert client.calls[0][0] == 'PATCH'
+    assert client.calls[0][1].endswith( '/pulls/154' )
+    assert client.calls[0][2] == { 'title': 'New title', 'body': 'New body' }
+
+
+def test_update_pull_request_finds_open_pr_when_number_omitted( monkeypatch ):
+    monkeypatch.setattr( github_helpers, 'current_branch', lambda: 'feature' )
+    monkeypatch.setattr(
+        github_helpers, 'repository',
+        lambda owner=None, repo=None: ( 'ja11sop', 'cuppa' ),
+    )
+    monkeypatch.setattr(
+        github_helpers, 'find_open_pull_request',
+        lambda **kwargs: { 'number': 99, 'html_url': 'https://example.com/pr/99' },
+    )
+    client = FakeGitHub( responses=[
+        ( 200, { 'number': 99, 'html_url': 'https://example.com/pr/99' } ),
+    ] )
+
+    pull = github_helpers.update_pull_request(
+        title = 'Only title',
+        github = client,
+    )
+    assert pull['number'] == 99
+    assert client.calls[0][2] == { 'title': 'Only title' }
+
+
+def test_update_pull_request_requires_something_to_change():
+    with pytest.raises( github_helpers.GitHubHelperError, match='at least one' ):
+        github_helpers.update_pull_request( number=1, github=FakeGitHub() )
+
+
 def test_outcome_for_pending_success_and_failure():
     pending = [ github_helpers.CheckRun( 'unit', 'in_progress', None, '' ) ]
     assert github_helpers.outcome_for( pending ) == 'pending'

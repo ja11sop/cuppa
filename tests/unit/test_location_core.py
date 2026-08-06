@@ -37,6 +37,26 @@ def test_get_scm_system_and_info_git_with_branch():
     assert versioning == "feature"
 
 
+def test_get_scm_system_and_info_windows_file_url_backslash_netloc():
+    # urlparse puts drive-letter paths in netloc when written as file://C:\…
+    scm, vc_type, repo, versioning = Location.get_scm_system_and_info(
+        r"git+file://C:\Users\user\origin@master"
+    )
+    assert scm is git_scm.Git
+    assert vc_type == "git"
+    assert repo == "file:///C:/Users/user/origin"
+    assert versioning == "master"
+
+
+def test_get_scm_system_and_info_windows_file_uri_path():
+    scm, vc_type, repo, versioning = Location.get_scm_system_and_info(
+        "git+file:///C:/Users/user/origin@master"
+    )
+    assert scm is git_scm.Git
+    assert repo == "file:///C:/Users/user/origin"
+    assert versioning == "master"
+
+
 def test_get_scm_system_and_info_svn_style():
     scm, vc_type, repo, versioning = Location.get_scm_system_and_info(
         "svn+https://example.com/svn/trunk@123"
