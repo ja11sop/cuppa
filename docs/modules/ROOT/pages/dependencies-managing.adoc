@@ -278,6 +278,10 @@ referenced picture from `--list-dependencies`, without unreferenced leftovers), 
 `Collating dependency tree...`. See
 xref:integration/test-remove-dependencies.adoc[`test_remove_dependencies`].
 
+Tokens may also use the shared `[selector]name[/qualifier]` form described in
+xref:#dependency-tokens[Dependency tokens] — for example `[source]boost` or
+`[gl]boost_package/1.91` — to restrict by storage bucket and optional leaf qualifier.
+
 Source Boost (the `boost` dependency that builds with b2) stores headers and all toolchain
 variant products inside one extract folder. When that dependency implements selection-scoped
 `storage_clean` (Boost does), `--remove-dependencies=boost` deletes only the b2 **stage** and
@@ -308,8 +312,43 @@ and optional `storage_clean()` — see xref:dependencies-extending.adoc[Writing 
 cuppa -Q -D --remove-dependencies=boost_package
 cuppa -Q -D --dbg --toolchains=gcc --remove-dependencies=boost_package
 cuppa -Q -D --dbg --remove-dependencies=boost
+cuppa -Q -D --dbg --remove-dependencies='[source]boost'
 cuppa -Q -D -n --remove-dependencies=widget
 cuppa -Q -D --remove-all-dependencies
+----
+
+[#dependency-tokens]
+== Dependency tokens
+
+`--remove-dependencies`, `--purge-dependencies`, `--wipe-dependencies`, and
+`--force-wipe-dependencies` share one token grammar:
+
+[source,text]
+----
+[selector]name
+[selector]name/qualifier
+name
+name/qualifier
+----
+
+* **Selector** (optional) restricts the match to one storage bucket, using the same axis as
+  `--list-dependencies` type groups. Aliases: `[source]` / `[sa]` / `[archive]` for source
+  archives; `[gl]` / `[gitlab]` for GitLab packages; `[repo]` / `[vcs]` / `[repository]` for
+  repository (VCS) trees; `[conan]` / `[cn]` for Conan. `[gh]` is reserved. Quiet alias
+  `[location]` still maps to repository.
+* **Untyped** tokens match across **all** buckets on purpose (for example source Boost and a
+  GitLab package that share a name).
+* **Qualifier** is the leaf shown in the list tree (`1.91.0`, `@11.1.1`). Shell / `fnmatch`
+  wildcards (`*`, `?`, `[…]`) are accepted on the name and/or qualifier; quote them so the shell
+  does not expand them.
+* Remove / purge / wipe still require **project-used** names; force-wipe does not.
+* Reports nest **type → identity → leaves**, matching `--list-dependencies`.
+
+[source,shell]
+----
+cuppa -Q -D -n --remove-dependencies='[source]boost'
+cuppa -Q -D -n --wipe-dependencies='[gl]boost_package/1.91'
+cuppa -Q -D -n --force-wipe-dependencies='[source]boost/1.8*'
 ----
 
 Example shape after a source Boost product clean (extract stays; sizes and toolset ids vary).
@@ -322,11 +361,12 @@ Removed 2 dependency trees (412.3M) under ~/.cuppa/dependencies
   ------------------------------------------------------------------------------------
        SIZE  LAST USED      REMARK     DEPENDENCY
   ------------------------------------------------------------------------------------
-       2.1G                             boost  1.91.0
-       2.1G   yesterday                └── -✔- [E] boost_1_91_0
-       1.7G   yesterday                       ├── - source assets
-    298.4M   yesterday      removed           ├── ✔ clean/build.c++2c [gcc153/debug/x86_64]
-    113.9M   yesterday      removed           └── ✔ clean/bin.c++2c [gcc-15*/debug]
+       2.1G                             source archives
+       2.1G                             └── boost  1.91.0
+       2.1G   yesterday                    └── -✔- [E] boost_1_91_0
+       1.7G   yesterday                           ├── - source assets
+    298.4M   yesterday      removed               ├── ✔ clean/build.c++2c [gcc153/debug/x86_64]
+    113.9M   yesterday      removed               └── ✔ clean/bin.c++2c [gcc-15*/debug]
   ------------------------------------------------------------------------------------
 
 Removed 2 trees freeing up 412.3M of disk space, leaving a final archive size of 1.7G.
@@ -347,10 +387,11 @@ Would remove 1 dependency tree (166M) under ~/.cuppa/dependencies
   ------------------------------------------------------------------------------------
        SIZE  LAST USED      REMARK     DEPENDENCY
   ------------------------------------------------------------------------------------
-    757.8M                             boost_package  1.91
-      294M   11 days ago               ├── - clang211_rel_x86_64_cxx2c/boost/1.91
-    297.8M   2 months ago              ├── - gcc152_rel_x86_64_cxx2c/boost/1.91
-      166M   yesterday      would rm   └── ✔ gcc153_rel_x86_64_cxx2c/boost/1.91
+    757.8M                             gitlab packages
+    757.8M                             └── boost_package  1.91
+      294M   11 days ago                   ├── - clang211_rel_x86_64_cxx2c/boost/1.91
+    297.8M   2 months ago                  ├── - gcc152_rel_x86_64_cxx2c/boost/1.91
+      166M   yesterday      would rm       └── ✔ gcc153_rel_x86_64_cxx2c/boost/1.91
   ------------------------------------------------------------------------------------
 
 Leaving 2 trees (591.8M) for other selections as shown.
@@ -477,8 +518,10 @@ cuppa -Q -D -n --force-wipe-dependencies=boost/1.86.0,boost/1.87.0
 cuppa -Q -D --force-wipe-dependencies=boost/1.86.0,boost/1.87.0
 ----
 
-Tokens are always `name/qualifier` as shown in the tree (`boost/1.86.0`, `fmt/@11.1.1`). Bare
-names belong on `--wipe-dependencies`. Matching downloads are wiped too. Referenced /
+Tokens are `[selector]name` or `[selector]name/qualifier` (selector optional) as shown in the
+tree — see xref:#dependency-tokens[Dependency tokens]. Examples: `boost/1.86.0`,
+`[source]boost/1.8*`, `fmt/@11.1.1`. Bare project-used identity names belong on
+`--wipe-dependencies`. Matching downloads are wiped too. Referenced /
 unreferenced / `in use` do **not** block the wipe — the long flag name is the acknowledgement.
 Inventory `used_by` naming another project prints a warning and still proceeds.
 

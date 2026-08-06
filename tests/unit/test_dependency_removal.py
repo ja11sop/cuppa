@@ -76,6 +76,76 @@ def test_resolve_requested_names_accepts_selectors_and_stores_tokens():
     ]
 
 
+def test_filter_plan_by_tokens_restricts_type_and_keeps_sibling_context():
+    cuppa_env = {
+        'dependency_tokens': [ ( 'archive', 'boost', '1.91.0' ) ],
+    }
+    targets = [
+            dependency_removal.RemovalTarget(
+                    dependency='boost',
+                    path='/deps/boost@1.91.0',
+                    qualifier='1.91.0',
+                    tool_variant=None,
+                    storage_type='archive',
+                    size_bytes=10,
+                    label='boost@1.91.0',
+                    extra_paths=(),
+            ),
+            dependency_removal.RemovalTarget(
+                    dependency='boost',
+                    path='/deps/boost@1.89.0',
+                    qualifier='1.89.0',
+                    tool_variant=None,
+                    storage_type='archive',
+                    size_bytes=8,
+                    label='boost@1.89.0',
+                    extra_paths=(),
+            ),
+            dependency_removal.RemovalTarget(
+                    dependency='boost',
+                    path='/deps/gcc/boost/1.91.0',
+                    qualifier='1.91.0',
+                    tool_variant='gcc',
+                    storage_type='gitlab',
+                    size_bytes=12,
+                    label='gcc/boost/1.91.0',
+                    extra_paths=(),
+            ),
+    ]
+    (
+            kept, leftovers, archives, downloads, download_leftovers,
+    ) = dependency_removal._filter_plan_by_tokens(
+            cuppa_env, targets, [], [],
+    )
+    assert [ item.path for item in kept ] == [ '/deps/boost@1.91.0' ]
+    assert [ item.path for item in leftovers ] == [ '/deps/boost@1.89.0' ]
+    assert archives == []
+    assert downloads == []
+    assert download_leftovers == []
+
+
+def test_item_matches_any_token_typed_identity():
+    item = dependency_removal.RemovalTarget(
+            dependency='boost',
+            path='/deps/boost@1.91.0',
+            qualifier='1.91.0',
+            tool_variant=None,
+            storage_type='archive',
+            size_bytes=1,
+            label=None,
+            extra_paths=(),
+    )
+    assert dependency_removal._item_matches_any_token(
+            item, [ ( 'archive', 'boost', None ) ]
+    )
+    assert not dependency_removal._item_matches_any_token(
+            item, [ ( 'gitlab', 'boost', None ) ]
+    )
+    assert dependency_removal._item_matches_any_token(
+            item, [ ( None, 'boost', None ) ]
+    )
+
+
 def test_resolve_requested_names_purge_flags_use_same_gate():
     cuppa_env = {
         'purge_dependencies': 'widgt',

@@ -1055,6 +1055,7 @@ def _archive_contexts( root, clean_by_name, targets, leftovers ):
             'extract_bytes': extract_bytes,
             'source_bytes': source_bytes,
             'qualifier': clean.get( 'qualifier' ),
+            'storage_type': clean.get( 'storage_type' ) or 'archive',
             'age_text': age_text,
             'age_epoch': age_epoch,
         } )
@@ -1941,6 +1942,142 @@ def _staying_extracts_from_owned( owned, targets, leftovers ):
     return staying
 
 
+def _item_field( item, name, default=None ):
+    if isinstance( item, dict ):
+        return item.get( name, default )
+    return getattr( item, name, default )
+
+
+def _item_matches_any_token( item, tokens ):
+    """True when ``item`` matches at least one resolved ``dependency_tokens`` entry."""
+    from cuppa.core import dependency_tokens
+    from cuppa.core.dependency_storage import normalise_storage_type
+
+    if not tokens:
+        return True
+
+    raw_type = _item_field( item, 'storage_type' )
+    item_type = normalise_storage_type( raw_type ) or raw_type or ''
+    item_name = _item_field( item, 'dependency' ) or ''
+    item_qual = _item_field( item, 'qualifier' )
+    item_label = _item_field( item, 'label' )
+
+    for storage_type, name, qualifier in tokens:
+        if storage_type and item_type and item_type != storage_type:
+            continue
+        if storage_type and not item_type:
+            continue
+        if not dependency_tokens.name_matches( name, item_name ):
+            continue
+        if qualifier is None:
+            return True
+        row_like = {
+            'type': item_type or 'unknown',
+            'kind': item_type or 'unknown',
+            'qualifier': item_qual,
+            'dependency': item_name,
+            'short_name': item_name,
+            'label': item_label,
+        }
+        if _row_matches_force_token( row_like, name, qualifier ):
+            return True
+    return False
+
+
+def _tokens_need_leaf_filter( tokens ):
+    """True when any token restricts by storage type or qualifier."""
+    return any(
+            storage_type is not None or qualifier is not None
+            for storage_type, _name, qualifier in ( tokens or [] )
+    )
+
+
+def _identity_key( item ):
+    from cuppa.core.dependency_storage import normalise_storage_type
+
+    storage_type = _item_field( item, 'storage_type' )
+    return (
+            normalise_storage_type( storage_type ) or storage_type,
+            ( _item_field( item, 'dependency' ) or '' ).lower(),
+    )
+
+
+def _target_as_leftover( target ):
+    label = target.label
+    if not label:
+        label = os.path.basename( str( target.path ).rstrip( '\\/' ) )
+    return Leftover(
+            dependency=target.dependency,
+            path=target.path,
+            qualifier=target.qualifier,
+            tool_variant=target.tool_variant,
+            size_bytes=target.size_bytes,
+            label=label,
+            storage_type=target.storage_type,
+    )
+
+
+def _filter_plan_by_tokens(
+        cuppa_env, targets, leftovers, archives,
+        download_targets=None, download_leftovers=None,
+):
+    """Apply ``cuppa_env['dependency_tokens']`` type/qualifier filters to a removal plan."""
+    tokens = cuppa_env.get( 'dependency_tokens' ) or []
+    if not _tokens_need_leaf_filter( tokens ):
+        return (
+                list( targets or [] ),
+                list( leftovers or [] ),
+                list( archives or [] ),
+                list( download_targets or [] ),
+                list( download_leftovers or [] ),
+        )
+
+    filtered_targets = []
+    demoted = []
+    for item in targets or []:
+        if _item_matches_any_token( item, tokens ):
+            filtered_targets.append( item )
+        else:
+            demoted.append( item )
+
+    kept_identities = { _identity_key( item ) for item in filtered_targets }
+    filtered_leftovers = [
+            _target_as_leftover( item )
+            for item in demoted
+            if _identity_key( item ) in kept_identities
+    ]
+    for item in leftovers or []:
+        if _identity_key( item ) in kept_identities:
+            filtered_leftovers.append( item )
+
+    filtered_archives = [
+            archive for archive in ( archives or [] )
+            if _item_matches_any_token( archive, tokens )
+    ]
+
+    filtered_downloads = []
+    demoted_downloads = []
+    for item in download_targets or []:
+        if _item_matches_any_token( item, tokens ):
+            filtered_downloads.append( item )
+        else:
+            demoted_downloads.append( item )
+
+    kept_dl_identities = { _identity_key( item ) for item in filtered_downloads }
+    filtered_dl_leftovers = []
+    for item in list( download_leftovers or [] ) + demoted_downloads:
+        if _identity_key( item ) in kept_dl_identities:
+            filtered_dl_leftovers.append( item )
+
+    return (
+            filtered_targets,
+            filtered_leftovers,
+            filtered_archives,
+            filtered_downloads,
+            filtered_dl_leftovers,
+    )
+
+
 def remove_dependencies( construct, cuppa_env, out=None ):
     """Remove named (or all default) dependency trees for the current selection.
 
@@ -1991,6 +2128,16 @@ def remove_dependencies( construct, cuppa_env, out=None ):
         )
         if not wipe:
             staying_extracts = _staying_extracts_from_owned( owned, targets, leftovers )
+
+    (
+            targets, leftovers, archives, download_targets, download_leftovers,
+    ) = _filter_plan_by_tokens(
+            cuppa_env, targets, leftovers, archives,
+            download_targets=download_targets,
+            download_leftovers=download_leftovers,
+    )
+    if purge and not wipe:
+        staying_extracts = _staying_extracts_from_owned( owned, targets, leftovers )
 
     actionable_downloads = [ item for item in download_targets if not item.missing ]
     if not targets and not actionable_downloads:

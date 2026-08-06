@@ -61,12 +61,13 @@ deferred Phase 3 polish items remain open and do not keep #134 open.
 | Phase 3 — **dependencies documentation split** (§7.1) | **done** | [#145](https://github.com/ja11sop/cuppa/issues/145) — Hub + children; `packages.adoc` publish focus; `include`/`sys_include` drift fixed |
 | Phase 3 — `--list-develop --list-format=json` | **done** | [#148](https://github.com/ja11sop/cuppa/issues/148) — Shared `--list-format=json` parity for develop copies (agents / scripts); text unchanged |
 | Phase 4 — downloads list / purge | **done** | `--list-downloads` + `--purge-dependencies` / `--purge-all-dependencies` in [#144](https://github.com/ja11sop/cuppa/pull/144); that PR closes #134 |
-| `--wipe-dependencies` | **in progress** | [#146](https://github.com/ja11sop/cuppa/issues/146) / [#150](https://github.com/ja11sop/cuppa/pull/150) — Selection wipe + force-wipe shipped on branch; **§4.15** selectors, `location`→`repository` rename, shared tokens for remove/purge/wipe **in progress** |
+| `--wipe-dependencies` | **in progress** | [#146](https://github.com/ja11sop/cuppa/issues/146) / [#150](https://github.com/ja11sop/cuppa/pull/150) — Selection wipe + force-wipe shipped on branch; **§4.15** selectors, `location`→`repository`, shared tokens + type→identity reports on remove/purge/wipe |
 | Phase 6 — artefacts | **open** | Sketch only (§4.6) / [#135](https://github.com/ja11sop/cuppa/issues/135) |
 | §3.7 — `--clone-develop` | **open** | #138 |
 
-**Next focus:** Finish §4.15 on [#150](https://github.com/ja11sop/cuppa/pull/150) (selectors +
-repository rename + shared tokens), then [#138](https://github.com/ja11sop/cuppa/issues/138)
+**Next focus:** Docs polish + local gate + push [#150](https://github.com/ja11sop/cuppa/pull/150)
+(§4.15 largely on branch: selectors, repository rename, shared tokens, type→identity nesting,
+remove/purge/wipe filtering). Then [#138](https://github.com/ja11sop/cuppa/issues/138)
 (`--clone-develop`) / [#135](https://github.com/ja11sop/cuppa/issues/135) (artefacts). Boost package
 identity stays on [`boost-updates.md`](boost-updates.md). Age-gated unreferenced GC
 (`--older-than`) remains deferred (§9).
@@ -1937,11 +1938,11 @@ includes what remains. `AGE_WIDTH` must fit `relative_age` (13 for `N months ago
 
 #### Implementation order
 
-1. Rename classify / `TYPE_LABELS` / tree / downloads / identity paths; inventory compat-read.
-2. Shared token parser + alias registry.
-3. Force-wipe match + type-partitioned report + sibling context.
-4. Remove / purge / wipe accept the same grammar.
-5. Docs, CHANGELOG, tests, PR #150.
+1. Rename classify / `TYPE_LABELS` / tree / downloads / identity paths; inventory compat-read. **done**
+2. Shared token parser + alias registry. **done**
+3. Force-wipe match + type-partitioned report + sibling context. **done**
+4. Remove / purge / wipe accept the same grammar. **done**
+5. Docs, CHANGELOG, tests, PR #150. **in progress**
 
 #### Out of scope for §4.15
 
