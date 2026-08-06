@@ -1536,7 +1536,8 @@ def _flatten_removal_leaves( leaves, tee, elbow, pipe, gap, check, ballot, prefi
         remark = _remark_for_result( result )
         mark = _mark_for_leaf( leaf, check, ballot )
         display = leaf.get( 'display' ) or leaf['rel_path']
-        label = "{} {} {}".format( branch, mark, display )
+        # Connectors already include a trailing space; keep a single space before the mark.
+        label = "{}{} {}".format( branch, mark, display )
         labels.append( label )
         rows.append( {
             'kind': 'leaf',
@@ -1554,7 +1555,7 @@ def _flatten_removal_leaves( leaves, tee, elbow, pipe, gap, check, ballot, prefi
         } )
         children = leaf.get( 'children' ) or []
         if children:
-            child_prefix = prefix + ( ( gap if last else pipe ) + '   ' )
+            child_prefix = prefix + ( gap if last else pipe )
             child_rows, child_labels = _flatten_removal_leaves(
                     children, tee, elbow, pipe, gap, check, ballot, child_prefix,
             )
@@ -1950,6 +1951,9 @@ def _write_removal_tree(
             # Qualifier nesting: skip version row when no qualifier on any leaf.
             has_version_rows = any( version.get( 'label' ) for version in versions )
             if not has_version_rows:
+                id_child_spacer = id_prefix + '│'
+                body_lines.append( id_child_spacer )
+                rendered.append( _spacer_render_row( id_child_spacer ) )
                 rows, labels = _flatten_removal_leaves(
                         identity_leaves, tee, elbow, pipe, gap, check, ballot,
                         prefix=id_prefix,
@@ -2002,6 +2006,10 @@ def _write_removal_tree(
                     'name': ver_label,
                     'branch': ver_branch,
                 } )
+                # Spacer between version and its leaves (matches force-wipe identity spacing).
+                ver_child_spacer = ver_prefix + '│'
+                body_lines.append( ver_child_spacer )
+                rendered.append( _spacer_render_row( ver_child_spacer ) )
                 rows, labels = _flatten_removal_leaves(
                         ver_leaves, tee, elbow, pipe, gap, check, ballot,
                         prefix=ver_prefix,
@@ -2135,8 +2143,9 @@ def _write_removal_tree(
                     accent( row['remark_text'].ljust( REMARK_WIDTH ) )
                     if row['remark_text'] else ' ' * REMARK_WIDTH
             )
+            # Branch glyphs already include a trailing space.
             label = "{}{} {}".format(
-                    as_subdued( row['branch'] + ' ' ),
+                    as_subdued( row['branch'] ),
                     accent( row['mark'] ),
                     accent( row.get( 'display' ) or row['rel_path'] ),
             )
@@ -2149,7 +2158,7 @@ def _write_removal_tree(
             ) )
         else:
             label = "{}{} {}".format(
-                    as_subdued( row['branch'] + ' ' ),
+                    as_subdued( row['branch'] ),
                     as_subdued( row['mark'] ),
                     as_subdued( row.get( 'display' ) or row['rel_path'] ),
             )
