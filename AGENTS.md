@@ -205,12 +205,16 @@ for a one-off. Opening a pull request for the current branch (and applying label
 
 ```sh
 python -m scripts.github_helpers create-pr \
-    --title "…" --body-file /tmp/pr.md --label impact:minor
+  --title "…" --body-file /tmp/pr.md --label impact:minor
+
+python -m scripts.github_helpers update-pr \
+  --pr 154 --title "…" --body-file /tmp/pr.md
 ```
 
 ```python
-from scripts.github_helpers import create_pull_request
+from scripts.github_helpers import create_pull_request, update_pull_request
 create_pull_request( title='…', body='…', labels=['impact:minor'] )
+update_pull_request( number=154, title='…', body='…' )
 ```
 
 ### Before pushing a pull request branch
@@ -268,7 +272,8 @@ commits.
 5. **PR test plan** — open the pull request body and walk the Test plan checklist. Tick items that
    are done (local gate, focused integration suites, **CI green on the matrix**). Leave optional
    manual spot-checks unchecked unless they were actually run, and say so when reporting
-   merge readiness. Update the PR body via the API / `create-pr` helpers if the checklist is
+   merge readiness. Update the PR body via ``update-pr`` (or ``create-pr`` when opening) if the
+   checklist is
    stale — do not treat an unchecked “CI green” box as unknown when `watch-pr` already
    succeeded.
 6. **Squash commit message** — when the person will squash-merge, draft a single commit message

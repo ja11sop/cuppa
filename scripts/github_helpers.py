@@ -10,7 +10,7 @@ Owner and repository always come from the local ``origin`` remote (or explicit `
 wrong repository.
 
 Reads on a public repository use the anonymous API. ``pr-status`` and ``watch-pr`` do not unseal
-the token. Writes (``create-pr``, labelling) and CI log downloads (``fetch-ci-logs``) still go
+the token. Writes (``create-pr``, ``update-pr``, labelling) and CI log downloads (``fetch-ci-logs``) still go
 through the sealed credential.
 
 Pushing a branch is still ``git push -u origin HEAD``.
@@ -19,6 +19,11 @@ Create a pull request from the current branch:
 
     python -m scripts.github_helpers create-pr \\
         --title "…" --body-file /tmp/pr.md --label impact:minor
+
+Update an open pull request's title and/or body (current branch's PR, or ``--pr``):
+
+    python -m scripts.github_helpers update-pr \\
+        --pr 154 --title "…" --body-file /tmp/pr.md
 
 After a push, watch the open pull request's checks until they finish (public read, no seal).
 The default schedule waits **2 minutes**, polls once (catching quick lint / setup failures),
@@ -36,10 +41,11 @@ public even on a public repository):
     python -m scripts.github_helpers fetch-ci-logs
     python -m scripts.github_helpers fetch-ci-logs --job integration-windows
 
-Or from Python:
+    Or from Python:
 
-    from scripts.github_helpers import create_pull_request, watch_pull_request
+    from scripts.github_helpers import create_pull_request, update_pull_request, watch_pull_request
     create_pull_request( title='…', body='…', labels=['impact:minor'] )
+    update_pull_request( number=154, title='…', body='…' )
     watch_pull_request( number=139 )
 """
 
@@ -214,6 +220,78 @@ def create_pull_request(
                 "pull request {} was created but labelling failed ({}): {}".format(
                     pull.get( 'html_url' ), label_status, json.dumps( labelled ) )
             )
+
+    return pull
+
+
+def update_pull_request(
+        number=None,
+        title=None,
+        body=None,
+        labels=None,
+        head=None,
+        owner=None,
+        repo=None,
+        github=None,
+):
+    """Patch title and/or body on an open pull request; optionally add labels.
+
+    ``number`` defaults to the open pull request for ``head`` (current branch). Returns the
+    pull request dict from GitHub after the update.
+    """
+    if title is None and body is None and not labels:
+        raise GitHubHelperError( "give at least one of title, body, or labels to update" )
+
+    owner, repo = repository( owner, repo )
+    client = github or GitHub()
+
+    if number is None:
+        found = find_open_pull_request( head=head, owner=owner, repo=repo )
+        if found is None:
+            raise GitHubHelperError(
+                "no open pull request for branch [{}]; pass number=".format(
+                    head or current_branch()
+                )
+            )
+        number = found['number']
+
+    pull = None
+    payload = {}
+    if title is not None:
+        payload['title'] = title
+    if body is not None:
+        payload['body'] = body
+
+    if payload:
+        status, pull = client.request(
+            'PATCH',
+            '/repos/{}/{}/pulls/{}'.format( owner, repo, number ),
+            payload,
+        )
+        if status >= 400:
+            raise GitHubHelperError( "updating pull request {} failed ({}): {}".format(
+                number, status, json.dumps( pull ) ) )
+
+    if labels:
+        label_status, labelled = client.request(
+            'POST',
+            '/repos/{}/{}/issues/{}/labels'.format( owner, repo, number ),
+            { 'labels': list( labels ) },
+        )
+        if label_status >= 400:
+            raise GitHubHelperError(
+                "pull request {} was updated but labelling failed ({}): {}".format(
+                    number, label_status, json.dumps( labelled ) )
+            )
+
+    if pull is None:
+        status, pull = client.request(
+            'GET',
+            '/repos/{}/{}/pulls/{}'.format( owner, repo, number ),
+        )
+        if status >= 400:
+            raise GitHubHelperError( "reading pull request {} failed ({}): {}".format(
+                number, status, json.dumps( pull ) ) )
 
     return pull
 
@@ -591,13 +669,15 @@ def fetch_ci_logs(
     return EXIT_SUCCESS
 
 
-def _read_body( arguments ):
-    if arguments.body_file:
+def _read_body( arguments, required=True ):
+    if getattr( arguments, 'body_file', None ):
         with open( arguments.body_file, encoding='utf-8' ) as body_file:
             return body_file.read()
-    if arguments.body is not None:
+    if getattr( arguments, 'body', None ) is not None:
         return arguments.body
-    raise GitHubHelperError( "give --body or --body-file" )
+    if required:
+        raise GitHubHelperError( "give --body or --body-file" )
+    return None
 
 
 def create_pr_command( arguments ):
@@ -607,6 +687,20 @@ def create_pr_command( arguments ):
         head = arguments.head,
         base = arguments.base,
         labels = arguments.label,
+        owner = arguments.owner,
+        repo = arguments.repo,
+    )
+    print( pull['html_url'] )
+    return 0
+
+
+def update_pr_command( arguments ):
+    pull = update_pull_request(
+        number = arguments.pr,
+        title = arguments.title,
+        body = _read_body( arguments, required=False ),
+        labels = arguments.label or None,
+        head = arguments.head,
         owner = arguments.owner,
         repo = arguments.repo,
     )
@@ -683,6 +777,22 @@ def main( argv=None ):
     create.add_argument( '--owner' )
     create.add_argument( '--repo' )
 
+    update = commands.add_parser(
+        'update-pr',
+        help="update title and/or body on an open pull request (sealed token)",
+    )
+    update.add_argument( '--pr', type=int, help="pull request number (default: open PR for head)" )
+    update.add_argument( '--title', help="new pull request title" )
+    update.add_argument( '--body', default=None, help="new pull request body text" )
+    update.add_argument( '--body-file', help="read the new body from this file instead" )
+    update.add_argument( '--head', help="head branch used to find the open PR (default: current)" )
+    update.add_argument(
+        '--label', action='append', default=[],
+        help="label to add; repeat for more than one",
+    )
+    update.add_argument( '--owner' )
+    update.add_argument( '--repo' )
+
     status = commands.add_parser( 'pr-status', help="show check status once and exit" )
     _add_pr_selection_arguments( status )
 
@@ -727,6 +837,8 @@ def main( argv=None ):
     try:
         if arguments.command == 'create-pr':
             return create_pr_command( arguments )
+        if arguments.command == 'update-pr':
+            return update_pr_command( arguments )
         if arguments.command == 'pr-status':
             return pr_status_command( arguments )
         if arguments.command == 'watch-pr':

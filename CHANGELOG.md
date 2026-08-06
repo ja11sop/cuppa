@@ -207,6 +207,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `watch-pr` polls CI on a sparse schedule (2 minutes, then 8, then every 2 minutes) instead of
   every 30 seconds, and falls back to the sealed credential if the public API rate-limits. Pass
   `--interval` for a fixed delay, or `--auth` to start authenticated.
+- `update-pr` patches an open pull request's title and/or body (and can add labels) through the
+  sealed credential, so agents do not hand-roll `PATCH /pulls/{n}` response handling.
 - `cuppa/VERSION` carries a `.dev` suffix while a release is being assembled, so a build from a
   checkout between releases reports, for example, `cuppa: version 1.4.0.dev` rather than claiming
   to be the last release. Released versions are unchanged.
