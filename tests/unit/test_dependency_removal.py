@@ -701,7 +701,9 @@ def test_write_removal_tree_summary_and_version_nesting():
             action_label='removing',
     )
     text = out.getvalue()
-    lines = [ line for line in text.splitlines() if line.strip() ]
+    lines = [ line for line in text.splitlines() if 'DEPENDENCY' not in line ]
+    # Spacer under summary root, under types, and between identity and versions.
+    assert any( line.rstrip().endswith( '│' ) for line in lines )
     assert any( 'related dependencies for boost' in line for line in lines )
     assert any( line.rstrip().endswith( 'removing' ) for line in lines )
     assert any( line.rstrip().endswith( 'remaining' ) for line in lines )
@@ -716,6 +718,8 @@ def test_write_removal_tree_summary_and_version_nesting():
     assert version_line.index( '1.91.0' ) > boost_line.index( 'boost' )
     assert 'product-a' in text
     assert 'product-b' in text
+    # Partial identity keeps a partial mark.
+    assert '-✔-' in boost_line or '-✓-' in boost_line or '-*-' in boost_line
 
 
 def test_write_removal_tree_uses_folded_display_labels( tmp_path ):

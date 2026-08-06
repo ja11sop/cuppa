@@ -1637,7 +1637,7 @@ def _format_age_cell( age_text, age_epoch ):
 
 
 def _selection_mark_for_leaves( leaves ):
-    """Return ``(mark_or_empty, remark, fully_removing)`` for a parent of ``leaves``."""
+    """Return ``(mark_or_empty, remark, fully_removing, partially_removing)``."""
     removing = []
     staying = []
 
@@ -1655,24 +1655,22 @@ def _selection_mark_for_leaves( leaves ):
                 staying.append( leaf )
 
     walk( leaves )
-    if not removing and not staying:
-        return '', '', False
     if not removing:
-        return '', '', False
+        return '', '', False, False
     failed = [ leaf for leaf in removing if leaf.get( 'result' ) == 'failed' ]
     if failed and len( failed ) == len( removing ) and not staying:
         mark = storage.with_heavy_marks( storage.outcome_triple( 'full', 'failed' ) )
-        return mark, 'failed', True
+        return mark, 'failed', True, False
     if failed:
         mark = storage.with_heavy_marks( storage.outcome_triple( 'full', 'mixed' ) )
-        return mark, '', False
+        return mark, '', False, True
     if staying:
         mark = storage.with_heavy_marks( storage.outcome_triple( 'partial', 'removed' ) )
-        return mark, '', False
+        return mark, '', False, True
     mark = storage.with_heavy_marks( storage.outcome_triple( 'full', 'removed' ) )
     results = [ leaf.get( 'result' ) for leaf in removing ]
     remark = _parent_rollup_result( results )
-    return mark, remark, True
+    return mark, remark, True, False
 
 
 def _versions_from_group( group ):
@@ -1808,8 +1806,13 @@ def _write_removal_tree(
         'parent_remark': '',
         'level': 'summary',
         'fully_removing': False,
+        'partially_removing': False,
         'mark': '',
     } )
+
+    # Spacer under the summary root (matches --list-dependencies section spacing).
+    body_lines.append( pipe )
+    rendered.append( _spacer_render_row( pipe ) )
 
     body_lines.append( "{}{}".format( tee, action_label ) )
     rendered.append( {
@@ -1821,6 +1824,7 @@ def _write_removal_tree(
         'parent_remark': '',
         'level': 'action',
         'fully_removing': True,
+        'partially_removing': False,
         'mark': '',
         'name': action_label,
         'branch': tee,
@@ -1836,6 +1840,7 @@ def _write_removal_tree(
         'parent_remark': '',
         'level': 'remaining',
         'fully_removing': False,
+        'partially_removing': False,
         'mark': '',
         'name': 'remaining',
         'branch': tee,
@@ -1869,8 +1874,9 @@ def _write_removal_tree(
         type_age_text, type_age_epoch = _max_age_from_leaves( type_leaves )
 
         if type_index > 0:
-            body_lines.append( pipe if not last_type else gap )
-            rendered.append( _spacer_render_row( pipe if not last_type else gap ) )
+            # Root still continues until the last type row — always show a pipe.
+            body_lines.append( pipe )
+            rendered.append( _spacer_render_row( pipe ) )
 
         type_line = "{}{}".format( type_connector, type_label )
         body_lines.append( type_line )
@@ -1883,14 +1889,16 @@ def _write_removal_tree(
             'parent_remark': '',
             'level': 'type',
             'fully_removing': False,
+            'partially_removing': False,
             'mark': '',
             'name': type_label,
             'branch': type_connector,
         } )
 
-        # Spacer under type before first identity.
-        body_lines.append( type_prefix.rstrip() )
-        rendered.append( _spacer_render_row( type_prefix.rstrip() ) )
+        # Spacer under type before first identity: continuation + child pipe.
+        type_child_spacer = type_prefix + '│'
+        body_lines.append( type_child_spacer )
+        rendered.append( _spacer_render_row( type_child_spacer ) )
 
         for group_index, group in enumerate( cluster ):
             last_identity = group_index == len( cluster ) - 1
@@ -1901,14 +1909,16 @@ def _write_removal_tree(
             identity_leaves = group['leaves']
             total_bytes = _group_total_bytes( group )
             id_age_text, id_age_epoch = _max_age_from_leaves( identity_leaves )
-            id_mark, id_remark, id_full = _selection_mark_for_leaves( identity_leaves )
+            id_mark, id_remark, id_full, id_partial = _selection_mark_for_leaves(
+                    identity_leaves
+            )
             # Archive product-clean: identity remark stays blank (source assets remain).
             if group.get( 'extract_bytes' ) is not None and not id_full:
                 id_remark = ''
 
             if group_index > 0:
-                body_lines.append( type_prefix.rstrip() )
-                rendered.append( _spacer_render_row( type_prefix.rstrip() ) )
+                body_lines.append( type_child_spacer )
+                rendered.append( _spacer_render_row( type_child_spacer ) )
 
             name = group['dependency'] or '-'
             if id_mark:
@@ -1925,6 +1935,7 @@ def _write_removal_tree(
                 'parent_remark': id_remark,
                 'level': 'identity',
                 'fully_removing': id_full,
+                'partially_removing': id_partial,
                 'mark': id_mark,
                 'name': name,
                 'branch': id_branch,
@@ -1941,6 +1952,11 @@ def _write_removal_tree(
                 rendered.extend( rows )
                 continue
 
+            # Spacer between identity and version leaves.
+            id_child_spacer = id_prefix + '│'
+            body_lines.append( id_child_spacer )
+            rendered.append( _spacer_render_row( id_child_spacer ) )
+
             for ver_index, version in enumerate( versions ):
                 last_version = ver_index == len( versions ) - 1
                 ver_connector = elbow if last_version else tee
@@ -1955,7 +1971,9 @@ def _write_removal_tree(
                 ):
                     ver_bytes = _group_total_bytes( group )
                 ver_age_text, ver_age_epoch = _max_age_from_leaves( ver_leaves )
-                ver_mark, ver_remark, ver_full = _selection_mark_for_leaves( ver_leaves )
+                ver_mark, ver_remark, ver_full, ver_partial = _selection_mark_for_leaves(
+                        ver_leaves
+                )
                 if group.get( 'extract_bytes' ) is not None and not ver_full:
                     ver_remark = ''
                 ver_label = version['label'] or '-'
@@ -1973,6 +1991,7 @@ def _write_removal_tree(
                     'parent_remark': ver_remark,
                     'level': 'version',
                     'fully_removing': ver_full,
+                    'partially_removing': ver_partial,
                     'mark': ver_mark,
                     'name': ver_label,
                     'branch': ver_branch,
@@ -2045,6 +2064,21 @@ def _write_removal_tree(
                 if row.get( 'fully_removing' ):
                     size_cell = as_emphasised( as_remove_notice( row['size'] ) )
                     age_cell = row['age']
+                    if mark:
+                        label = "{}{} {}".format(
+                                as_subdued( branch ),
+                                as_remove_notice( mark ),
+                                as_emphasised( as_remove_notice( name ) ),
+                        )
+                    else:
+                        label = "{}{}".format(
+                                as_subdued( branch ),
+                                as_emphasised( as_remove_notice( name ) ),
+                        )
+                elif row.get( 'partially_removing' ):
+                    # Partial wipe: colour mark + name only; size/age stay secondary.
+                    size_cell = as_subdued( row['size'] )
+                    age_cell = as_subdued( row['age'] )
                     if mark:
                         label = "{}{} {}".format(
                                 as_subdued( branch ),
