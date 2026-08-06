@@ -574,7 +574,7 @@ class Construct(object):
                         "CHECKOUT DEVELOP BRANCH",
                         cuppa.develop.checkout_develop_branch,
                 ) )
-            if cuppa_env['reset_develop_branch']:
+            if cuppa_env.get( 'reset_develop_branch' ) is not None:
                 develop_actions.append( (
                         "RESET DEVELOP BRANCH",
                         cuppa.develop.reset_develop_branch,

@@ -148,3 +148,59 @@ def test_checkout_and_reset_develop_branch( tmp_path, widget_origin ):
     assert_success( result )
     branch = _run_git( develop, "rev-parse", "--abbrev-ref", "HEAD" )
     assert branch == "master"
+
+
+def test_reset_develop_branch_uses_location_base_branch( tmp_path, widget_origin ):
+    """Long-running parent: bare reset returns to base, not published default."""
+    project = tmp_path / "project"
+    project.mkdir()
+    develop = tmp_path / "develop" / "widget"
+    _write_project( project, widget_origin, develop )
+
+    _run_git( widget_origin, "checkout", "-b", "integration" )
+    ( widget_origin / "integration.txt" ).write_text( "i\n", encoding="utf-8" )
+    _run_git( widget_origin, "add", "integration.txt" )
+    _run_git( widget_origin, "commit", "-m", "integration" )
+    _run_git( widget_origin, "checkout", "-b", "feature_orders" )
+    ( widget_origin / "feature.txt" ).write_text( "f\n", encoding="utf-8" )
+    _run_git( widget_origin, "add", "feature.txt" )
+    _run_git( widget_origin, "commit", "-m", "feature" )
+    _run_git( widget_origin, "checkout", "master" )
+
+    assert_success( run_cuppa(
+            project, "--clone-develop", "-Q", offline=False,
+    ) )
+    assert_success( run_cuppa(
+            project,
+            "--checkout-develop-branch=feature_orders",
+            "-Q",
+            offline=False,
+    ) )
+    assert _run_git( develop, "rev-parse", "--abbrev-ref", "HEAD" ) == "feature_orders"
+
+    result = run_cuppa(
+            project,
+            "--location-base-branch=integration",
+            "--reset-develop-branch",
+            "-Q",
+            offline=False,
+    )
+    assert_success( result )
+    assert _run_git( develop, "rev-parse", "--abbrev-ref", "HEAD" ) == "integration"
+
+    result = run_cuppa(
+            project,
+            "--location-base-branch=integration",
+            "--checkout-develop-branch=feature_orders",
+            "-Q",
+            offline=False,
+    )
+    assert_success( result )
+    result = run_cuppa(
+            project,
+            "--reset-develop-branch=default",
+            "-Q",
+            offline=False,
+    )
+    assert_success( result )
+    assert _run_git( develop, "rev-parse", "--abbrev-ref", "HEAD" ) == "master"

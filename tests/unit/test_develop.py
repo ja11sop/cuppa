@@ -539,6 +539,7 @@ def test_list_payload_carries_severity_and_would_update():
     )
     assert payload['current_branch'] == BUILT
     assert payload['default_branch'] == DEFAULT
+    assert payload['base_branch'] == DEFAULT
     assert payload['develop_active'] is False
     assert payload['without_develop'] == [ 'boost' ]
     assert payload['would_update'] == [ 'flange' ]
@@ -818,4 +819,39 @@ def test_reset_branch_action_refusal_table():
     ).act
     assert reset_branch_action(
             copy( branch=DEFAULT, ahead=0, behind=0 ), DEFAULT
-    ).act
+    ).reason.startswith( 'already on' )
+
+
+def test_resolve_reset_target_uses_base_and_overrides():
+    from cuppa.develop import RESET_TO_BASE, effective_base_branch, resolve_reset_target
+
+    env = {
+        'location_default_branch': 'master',
+        'location_base_branch': 'integration',
+        'current_branch': 'feature_orders',
+        'reset_develop_branch': RESET_TO_BASE,
+    }
+    assert effective_base_branch( env ) == 'integration'
+    assert resolve_reset_target( env ) == ( 'integration', None )
+
+    env['reset_develop_branch'] = 'base'
+    assert resolve_reset_target( env ) == ( 'integration', None )
+
+    env['reset_develop_branch'] = 'default'
+    assert resolve_reset_target( env ) == ( 'master', None )
+
+    env['reset_develop_branch'] = 'current'
+    assert resolve_reset_target( env ) == ( 'feature_orders', None )
+
+    env['reset_develop_branch'] = 'release/2.x'
+    assert resolve_reset_target( env ) == ( 'release/2.x', None )
+
+    env['location_base_branch'] = None
+    env['reset_develop_branch'] = RESET_TO_BASE
+    assert resolve_reset_target( env ) == ( 'master', None )
+
+
+def test_classify_accepts_develop_base_branch():
+    on_base = copy( branch='integration', upstream='origin/integration' )
+    assert classify( on_base, BUILT, DEFAULT, base_branch='integration' ).severity == OK
+    assert classify( on_base, BUILT, DEFAULT ).severity == WARNING

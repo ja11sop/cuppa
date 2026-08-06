@@ -15,7 +15,7 @@ the state of that copy, so a build can be reading someone else's spike branch, o
 has not been pulled for months. `--list-develop` answers what you are actually building against,
 `--clone-develop` creates configured paths that are missing, `--update-develop` fast-forwards the
 copies where doing so cannot lose work, and `--checkout-develop-branch` /
-`--reset-develop-branch` align those copies onto a feature branch and back to the default.
+`--reset-develop-branch` align those copies onto a feature branch and back to the develop base.
 
 The decisions are pure functions of observed state (`classify`, `update_action`, `clone_action`,
 `checkout_branch_action`, `reset_branch_action`). Observation, reporting, and the git commands
@@ -60,6 +60,9 @@ Classification = namedtuple( 'Classification', [ 'severity', 'notes' ] )
 
 Action = namedtuple( 'Action', [ 'act', 'reason' ] )
 
+# Option parser const when `--reset-develop-branch` is passed with no NAME.
+RESET_TO_BASE = '__BASE__'
+
 
 def worst( severities ):
     return max( severities, key=lambda severity: SEVERITY_ORDER[severity] )
@@ -87,11 +90,26 @@ def display_path( path ):
     return path
 
 
+def effective_base_branch( cuppa_env ):
+    """Develop home: configured base, else the published default."""
+    base = cuppa_env.get( 'location_base_branch' )
+    if base:
+        return base
+    return cuppa_env.get( 'location_default_branch' ) or 'master'
+
+
+def normalize_base_branch( default_branch, base_branch=None ):
+    """Resolve optional base for pure helpers; unset means base ≡ default."""
+    if base_branch:
+        return base_branch
+    return default_branch
+
+
 #-------------------------------------------------------------------------------
 #   The rules
 #-------------------------------------------------------------------------------
 
-def classify( copy, current_branch, default_branch ):
+def classify( copy, current_branch, default_branch, base_branch=None ):
     """How much of a problem this copy is, and why. A pure function of observed state.
 
     Each note continues the sentence its dependency's name begins, because the report groups
@@ -99,9 +117,11 @@ def classify( copy, current_branch, default_branch ):
 
     Local work is benign only where the rest of the world will find it. On the branch being built
     it is the intended workflow, because pushing that branch makes every other build see the same
-    code. The same work on the default branch is a trap: your build reads the working copy, while
-    every build without `--develop` resolves the dependency to the published default branch.
+    code. The same work on the published default branch is a trap: your build reads the working
+    copy, while every build without `--develop` resolves the dependency to the published default.
     """
+    base_branch = normalize_base_branch( default_branch, base_branch )
+
     if not copy.exists:
         return Classification( ERROR, [
             "has a develop path [{}] that does not exist, so this build cannot succeed".format(
@@ -119,15 +139,28 @@ def classify( copy, current_branch, default_branch ):
 
     on_built_branch = bool( current_branch ) and copy.branch == current_branch
     on_default_branch = copy.branch == default_branch
+    on_base_branch = copy.branch == base_branch
+    on_acceptable = on_built_branch or on_default_branch or on_base_branch
 
     if copy.detached:
         severities.append( WARNING )
         notes.append( "is on a detached HEAD; it works today and is forgotten tomorrow" )
-    elif not on_built_branch and not on_default_branch:
+    elif not on_acceptable:
         severities.append( WARNING )
-        if current_branch:
+        if current_branch and base_branch != default_branch:
+            notes.append(
+                    "is on [{}], which is neither [{}], the develop base [{}], nor the default"
+                    " branch [{}]".format(
+                            copy.branch, current_branch, base_branch, default_branch )
+            )
+        elif current_branch:
             notes.append( "is on [{}], which is neither [{}] nor the default branch [{}]".format(
                     copy.branch, current_branch, default_branch ) )
+        elif base_branch != default_branch:
+            notes.append(
+                    "is on [{}], which is neither the develop base [{}] nor the default branch"
+                    " [{}]".format( copy.branch, base_branch, default_branch )
+            )
         else:
             notes.append( "is on [{}], which is not the default branch [{}]".format(
                     copy.branch, default_branch ) )
@@ -271,8 +304,8 @@ def checkout_branch_action( copy, target, default_branch ):
     return Action( True, "switch to [{}]".format( target ) )
 
 
-def reset_branch_action( copy, default_branch ):
-    """Whether this copy can return to ``default_branch`` and be fast-forwarded."""
+def reset_branch_action( copy, target ):
+    """Whether this copy can switch to ``target`` and be fast-forwarded."""
     if not copy.exists:
         return Action( False, "path does not exist; use --clone-develop" )
     if not copy.is_working_copy:
@@ -288,10 +321,10 @@ def reset_branch_action( copy, default_branch ):
     if copy.ahead:
         return Action( False, "ahead of [{}] with unpushed commits".format(
                 copy.upstream or copy.branch ) )
-    if copy.branch == default_branch:
+    if copy.branch == target:
         # Still allow update_action to ff if behind.
-        return Action( True, "already on default [{}]".format( default_branch ) )
-    return Action( True, "checkout default [{}]".format( default_branch ) )
+        return Action( True, "already on [{}]".format( target ) )
+    return Action( True, "checkout [{}]".format( target ) )
 
 
 def state_summary( copy ):
@@ -456,10 +489,12 @@ def action_line( text, colour=as_info ):
     return INDENT + highlight_values( text, colour )
 
 
-def entries( copies, current_branch, default_branch ):
+def entries( copies, current_branch, default_branch, base_branch=None ):
     """The report as data, so a renderer decides only how to present it."""
+    base_branch = normalize_base_branch( default_branch, base_branch )
     return [
-        Entry( copy, *classify( copy, current_branch, default_branch ) ) for copy in copies
+        Entry( copy, *classify( copy, current_branch, default_branch, base_branch ) )
+        for copy in copies
     ]
 
 
@@ -615,13 +650,16 @@ def names_that_would_update( copies ):
     return [ copy.name for copy in copies if update_action( copy ).act ]
 
 
-def list_payload( copies, without_develop, current_branch, default_branch, develop_active ):
+def list_payload( copies, without_develop, current_branch, default_branch, develop_active,
+                  base_branch=None ):
     """Serializable report for ``--list-develop --list-format=json``."""
-    found = entries( copies, current_branch, default_branch )
+    base_branch = normalize_base_branch( default_branch, base_branch )
+    found = entries( copies, current_branch, default_branch, base_branch )
     severities = [ entry.severity for entry in found ]
     return {
         'current_branch': current_branch,
         'default_branch': default_branch,
+        'base_branch': base_branch,
         'develop_active': bool( develop_active ),
         'without_develop': list( without_develop ),
         'would_update': names_that_would_update( copies ),
@@ -651,7 +689,7 @@ def list_payload( copies, without_develop, current_branch, default_branch, devel
 
 
 def report( copies, without_develop, current_branch, default_branch, develop_active, out=write,
-            suggest_update=False ):
+            suggest_update=False, base_branch=None ):
     """Write the table, then the judgements in full, so a reason needs no column decoding."""
     if not copies:
         out()
@@ -659,15 +697,25 @@ def report( copies, without_develop, current_branch, default_branch, develop_act
                 plural( len( without_develop ), "dependency", "dependencies" ) ) )
         return OK
 
-    found = entries( copies, current_branch, default_branch )
+    base_branch = normalize_base_branch( default_branch, base_branch )
+    found = entries( copies, current_branch, default_branch, base_branch )
     width = min( table_width( found ), WIDEST_PROSE )
 
     out()
-    out( "Building on branch [{}] with default branch [{}]; --develop is {}".format(
-            as_info( current_branch or "unknown" ),
-            as_info( default_branch ),
-            develop_active and as_info_label( "active" ) or as_notice( "not active" )
-    ) )
+    if base_branch != default_branch:
+        out( "Building on branch [{}] with default branch [{}] and develop base [{}];"
+             " --develop is {}".format(
+                    as_info( current_branch or "unknown" ),
+                    as_info( default_branch ),
+                    as_info( base_branch ),
+                    develop_active and as_info_label( "active" ) or as_notice( "not active" )
+            ) )
+    else:
+        out( "Building on branch [{}] with default branch [{}]; --develop is {}".format(
+                as_info( current_branch or "unknown" ),
+                as_info( default_branch ),
+                develop_active and as_info_label( "active" ) or as_notice( "not active" )
+        ) )
     out()
 
     for line in render_table( found ):
@@ -696,6 +744,7 @@ def list_develop( cuppa_env, out=write ):
     copies, without_develop = survey( cuppa_env )
     current_branch = cuppa_env['current_branch']
     default_branch = cuppa_env['location_default_branch']
+    base_branch = effective_base_branch( cuppa_env )
     develop_active = cuppa_env['develop']
 
     if cuppa_env.get( 'list_format' ) == 'json':
@@ -706,6 +755,7 @@ def list_develop( cuppa_env, out=write ):
                 current_branch,
                 default_branch,
                 develop_active,
+                base_branch=base_branch,
         )
         out( storage.render_json_payload( payload ) )
         return payload['worst_severity'] == ERROR and 1 or 0
@@ -717,7 +767,8 @@ def list_develop( cuppa_env, out=write ):
             default_branch,
             develop_active,
             out,
-            suggest_update=True
+            suggest_update=True,
+            base_branch=base_branch,
     )
     return severity == ERROR and 1 or 0
 
@@ -730,11 +781,15 @@ def update_develop( cuppa_env, out=write ):
 
     current_branch = cuppa_env['current_branch']
     default_branch = cuppa_env['location_default_branch']
+    base_branch = effective_base_branch( cuppa_env )
     develop_active = cuppa_env['develop']
     dry_run = cuppa_env.get_option( 'no_exec' ) and True or False
 
     copies, without_develop = survey( cuppa_env )
-    report( copies, without_develop, current_branch, default_branch, develop_active, out )
+    report(
+            copies, without_develop, current_branch, default_branch, develop_active, out,
+            base_branch=base_branch,
+    )
 
     out()
     if dry_run:
@@ -779,12 +834,15 @@ def update_develop( cuppa_env, out=write ):
         out( "Updated {} of {}. The state is now:".format(
                 len( updated ), plural( len( copies ), "develop location" ) ) )
         copies, without_develop = survey( cuppa_env )
-        severity = report( copies, without_develop, current_branch, default_branch,
-                           develop_active, out )
+        severity = report(
+                copies, without_develop, current_branch, default_branch,
+                develop_active, out, base_branch=base_branch,
+        )
     else:
         out( INDENT + "Nothing could be fast-forwarded; no working copy was changed" )
         severity = worst( [ OK ] + [
-            classify( copy, current_branch, default_branch ).severity for copy in copies
+            classify( copy, current_branch, default_branch, base_branch ).severity
+            for copy in copies
         ] )
 
     if failures:
@@ -945,12 +1003,16 @@ def clone_develop( cuppa_env, out=write ):
 
     current_branch = cuppa_env['current_branch']
     default_branch = cuppa_env['location_default_branch']
+    base_branch = effective_base_branch( cuppa_env )
     develop_active = cuppa_env['develop']
     dry_run = cuppa_env.get_option( 'no_exec' ) and True or False
 
     sources, without_develop = survey_clone_sources( cuppa_env )
     copies = [ source.copy for source in sources ]
-    report( copies, without_develop, current_branch, default_branch, develop_active, out )
+    report(
+            copies, without_develop, current_branch, default_branch, develop_active, out,
+            base_branch=base_branch,
+    )
 
     out()
     if dry_run:
@@ -1029,11 +1091,13 @@ def clone_develop( cuppa_env, out=write ):
         severity = report(
                 copies, without_develop, current_branch, default_branch, develop_active, out,
                 suggest_update=True,
+                base_branch=base_branch,
         )
     else:
         out( INDENT + "Nothing was cloned; no working copy was created" )
         severity = worst( [ OK ] + [
-            classify( copy, current_branch, default_branch ).severity for copy in copies
+            classify( copy, current_branch, default_branch, base_branch ).severity
+            for copy in copies
         ] )
 
     if failures:
@@ -1053,7 +1117,27 @@ def _resolve_checkout_target( cuppa_env ):
     return str( raw ), None
 
 
-def _perform_checkout( observed, target, default_branch, dry_run, out ):
+def resolve_reset_target( cuppa_env ):
+    """Branch ``--reset-develop-branch`` should land on, or ``(None, error)``."""
+    raw = cuppa_env.get( 'reset_develop_branch' )
+    if raw is None:
+        return None, "--reset-develop-branch was not requested"
+    if raw is True:
+        return effective_base_branch( cuppa_env ), None
+    text = str( raw )
+    if text in ( RESET_TO_BASE, '', 'base' ):
+        return effective_base_branch( cuppa_env ), None
+    if text == 'current':
+        current = cuppa_env.get( 'current_branch' )
+        if not current:
+            return None, "current branch is unknown; pass an explicit branch name"
+        return current, None
+    if text == 'default':
+        return cuppa_env['location_default_branch'], None
+    return text, None
+
+
+def _perform_checkout( observed, target, base_branch, dry_run, out ):
     """Execute one checkout plan after a successful checkout_branch_action."""
     if dry_run:
         if Git.remote_tracking_branch_exists( observed.path, target ):
@@ -1064,8 +1148,8 @@ def _perform_checkout( observed, target, default_branch, dry_run, out ):
                     target, observed.name ) ) )
         else:
             out( action_line(
-                    "Would move [{}] via default [{}] then create branch [{}]".format(
-                            observed.name, default_branch, target ) ) )
+                    "Would move [{}] via develop base [{}] then create branch [{}]".format(
+                            observed.name, base_branch, target ) ) )
         return 0
 
     try:
@@ -1080,9 +1164,9 @@ def _perform_checkout( observed, target, default_branch, dry_run, out ):
                     target, observed.name ) ) )
             return 0
 
-        # Default-base path: default → ff → create.
-        if observed.branch != default_branch:
-            Git.checkout_branch( observed.path, default_branch )
+        # Base path: develop home → ff → create.
+        if observed.branch != base_branch:
+            Git.checkout_branch( observed.path, base_branch )
             observed = inspect( observed.name, observed.path )
         Git.fetch( observed.path )
         observed = inspect( observed.name, observed.path )
@@ -1091,7 +1175,7 @@ def _perform_checkout( observed, target, default_branch, dry_run, out ):
             Git.fast_forward( observed.path )
         Git.create_branch_from_head( observed.path, target )
         out( action_line( "Created branch [{}] for [{}] from updated [{}]".format(
-                target, observed.name, default_branch ) ) )
+                target, observed.name, base_branch ) ) )
         return 0
     except Git.Error as error:
         out( action_line( "Could not checkout [{}] for [{}]: {}".format(
@@ -1114,11 +1198,15 @@ def checkout_develop_branch( cuppa_env, out=write ):
 
     current_branch = cuppa_env['current_branch']
     default_branch = cuppa_env['location_default_branch']
+    base_branch = effective_base_branch( cuppa_env )
     develop_active = cuppa_env['develop']
     dry_run = cuppa_env.get_option( 'no_exec' ) and True or False
 
     copies, without_develop = survey( cuppa_env )
-    report( copies, without_develop, current_branch, default_branch, develop_active, out )
+    report(
+            copies, without_develop, current_branch, default_branch, develop_active, out,
+            base_branch=base_branch,
+    )
     out()
     if dry_run:
         out( "{} {}".format(
@@ -1132,7 +1220,7 @@ def checkout_develop_branch( cuppa_env, out=write ):
     for copy in copies:
         observed, failed = _fetch( copy, dry_run, out )
         failures += failed
-        action = checkout_branch_action( observed, target, default_branch )
+        action = checkout_branch_action( observed, target, base_branch )
         if not action.act:
             if action.reason.startswith( 'already on' ):
                 out( action_line( "Leaving [{}] alone: {}".format(
@@ -1143,7 +1231,7 @@ def checkout_develop_branch( cuppa_env, out=write ):
                         observed.name, action.reason ) ) )
             continue
 
-        result = _perform_checkout( observed, target, default_branch, dry_run, out )
+        result = _perform_checkout( observed, target, base_branch, dry_run, out )
         failures += result
         if not dry_run and result == 0:
             changed.append( observed.name )
@@ -1157,13 +1245,15 @@ def checkout_develop_branch( cuppa_env, out=write ):
                 len( changed ), plural( len( copies ), "develop location" ) ) )
         copies, without_develop = survey( cuppa_env )
         severity = report(
-                copies, without_develop, current_branch, default_branch, develop_active, out
+                copies, without_develop, current_branch, default_branch, develop_active, out,
+                base_branch=base_branch,
         )
     else:
         out( INDENT + "No develop branch was switched" )
         copies, without_develop = survey( cuppa_env )
         severity = report(
-                copies, without_develop, current_branch, default_branch, develop_active, out
+                copies, without_develop, current_branch, default_branch, develop_active, out,
+                base_branch=base_branch,
         )
 
     if skipped_person:
@@ -1177,18 +1267,27 @@ def checkout_develop_branch( cuppa_env, out=write ):
 
 
 def reset_develop_branch( cuppa_env, out=write ):
-    """``--reset-develop-branch``. Return develop copies to the default branch and ff-only."""
+    """``--reset-develop-branch``. Return develop copies to the develop base (or named target)."""
     if cuppa_env['offline']:
         logger.error( "--reset-develop-branch needs the network, but --offline was specified" )
         return 1
 
+    target, error = resolve_reset_target( cuppa_env )
+    if error:
+        logger.error( error )
+        return 1
+
     current_branch = cuppa_env['current_branch']
     default_branch = cuppa_env['location_default_branch']
+    base_branch = effective_base_branch( cuppa_env )
     develop_active = cuppa_env['develop']
     dry_run = cuppa_env.get_option( 'no_exec' ) and True or False
 
     copies, without_develop = survey( cuppa_env )
-    report( copies, without_develop, current_branch, default_branch, develop_active, out )
+    report(
+            copies, without_develop, current_branch, default_branch, develop_active, out,
+            base_branch=base_branch,
+    )
     out()
     if dry_run:
         out( "{} {}".format(
@@ -1202,7 +1301,7 @@ def reset_develop_branch( cuppa_env, out=write ):
     for copy in copies:
         observed, failed = _fetch( copy, dry_run, out )
         failures += failed
-        action = reset_branch_action( observed, default_branch )
+        action = reset_branch_action( observed, target )
         if not action.act:
             skipped_person = True
             out( action_line( "Leaving [{}] alone: {}".format(
@@ -1210,19 +1309,19 @@ def reset_develop_branch( cuppa_env, out=write ):
             continue
 
         if dry_run:
-            if observed.branch != default_branch:
+            if observed.branch != target:
                 out( action_line( "Would checkout [{}] for [{}]".format(
-                        default_branch, observed.name ) ) )
+                        target, observed.name ) ) )
             out( action_line( "Would fetch and fast-forward [{}] if behind".format(
                     observed.name ) ) )
             continue
 
         try:
-            if observed.branch != default_branch:
-                Git.checkout_branch( observed.path, default_branch )
+            if observed.branch != target:
+                Git.checkout_branch( observed.path, target )
                 observed = inspect( observed.name, observed.path )
                 out( action_line( "Checked out [{}] for [{}]".format(
-                        default_branch, observed.name ) ) )
+                        target, observed.name ) ) )
             Git.fetch( observed.path )
             observed = inspect( observed.name, observed.path )
             ff = update_action( observed )
@@ -1232,7 +1331,7 @@ def reset_develop_branch( cuppa_env, out=write ):
                         observed.name, ff.reason ) ) )
             else:
                 out( action_line( "Left [{}] on [{}]: {}".format(
-                        observed.name, default_branch, ff.reason ) ) )
+                        observed.name, target, ff.reason ) ) )
             changed.append( observed.name )
         except Git.Error as error:
             failures += 1
@@ -1242,11 +1341,17 @@ def reset_develop_branch( cuppa_env, out=write ):
     if dry_run:
         return 0
 
-    out()
-    out( "Reset complete. The state is now:" )
+    if changed:
+        out()
+        out( "Reset {} of {}. The state is now:".format(
+                len( changed ), plural( len( copies ), "develop location" ) ) )
+    else:
+        out( INDENT + "No develop branch was reset" )
+
     copies, without_develop = survey( cuppa_env )
     severity = report(
-            copies, without_develop, current_branch, default_branch, develop_active, out
+            copies, without_develop, current_branch, default_branch, develop_active, out,
+            base_branch=base_branch,
     )
 
     if skipped_person:

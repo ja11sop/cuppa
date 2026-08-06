@@ -16,10 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `cuppa -D --clone-develop --update-develop`. A `--develop` build that hits a missing path
   names this option (#138).
 - `--checkout-develop-branch=NAME` switches every develop git working copy to `NAME` (use
-  `current` for the consumer project's branch), creating the branch via the default + pull when
-  needed. `--reset-develop-branch` returns copies to `location_default_branch` and fast-forwards
-  where safe. Dirty or unpushed copies are left alone; `--list-develop` remains the check for
-  outstanding work (#153).
+  `current` for the consumer project's branch), creating the branch via the develop base + pull when
+  needed. `--reset-develop-branch[=NAME|current|default|base]` returns copies to the develop base
+  (bare / `base`), the published default (`default`), `current`, or a named branch, then
+  fast-forwards where safe. `--location-base-branch` sets the develop home used by create and bare
+  reset (defaults to `--location-default-branch`). Dirty or unpushed copies are left alone;
+  `--list-develop` remains the check for outstanding work (#153).
 - `--wipe-dependencies=name` clear-down of project-used extracts and matching downloads for the
   current selection (bypasses `storage_clean` product-only behaviour). Power tools:
   `--force-wipe-dependencies` with `[selector]name/qualifier` tokens (e.g. `[source]boost/1.8*`,

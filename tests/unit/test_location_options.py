@@ -19,6 +19,7 @@ def test_process_location_options_copies_flags():
             "list_develop": True,
             "update_develop": False,
             "location_default_branch": "main",
+            "location_base_branch": "integration",
             "location_match_current_branch": True,
             "location_explicit_default_branch": False,
             "location_match_branch": "feature",
@@ -30,6 +31,7 @@ def test_process_location_options_copies_flags():
     assert env["list_develop"] is True
     assert env["update_develop"] is False
     assert env["location_default_branch"] == "main"
+    assert env["location_base_branch"] == "integration"
     assert env["location_match_current_branch"] is True
     assert env["location_explicit_default_branch"] is False
     assert env["location_match_branch"] == "feature"

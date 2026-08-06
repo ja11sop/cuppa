@@ -732,7 +732,57 @@ A `--develop` build that fails because a develop path is missing names this opti
 
 === Aligning develop copies onto a feature branch
 
-When a feature spans the consumer project and several local develop dependencies, put those copies on the same branch name, then return them to the default branch when the work is done:
+When a feature spans the consumer project and several local develop dependencies, put those copies on the same branch name, then return them to the *develop base* (home) when the work is done.
+
+Git does not record which branch a feature was created from, so cuppa does not guess a parent.
+Two settings describe home:
+
+|===
+| Notion | Option | Role
+
+| Published default
+| `--location-default-branch` (default `master`)
+| What non-`--develop` builds resolve to; `--list-develop` treats uncommitted work here as a trap
+
+| Develop base
+| `--location-base-branch`
+| Where `--checkout-develop-branch` creates a missing feature from, and where bare `--reset-develop-branch` returns. When unset, base is the published default
+|===
+
+[mermaid]
+....
+flowchart TD
+    master["published default\n(location-default-branch)"]
+    base["develop base / home\n(location-base-branch)"]
+    feature["feature branch\n(checkout-develop-branch)"]
+    master -.->|"simple repos: base unset\nbase ≡ default"| base
+    base -->|"create missing feature\nfrom updated base"| feature
+    feature -->|"bare --reset-develop-branch"| base
+....
+
+For a long-running integration line off `master`, set the base once (CLI or `configure.conf`):
+
+[source,shell]
+----
+cuppa -D --location-base-branch=integration --save
+----
+
+Typical feature workflow:
+
+[mermaid]
+....
+sequenceDiagram
+    participant Dev as Developer
+    participant Cuppa as cuppa
+    participant Copies as Develop copies
+    Dev->>Cuppa: --checkout-develop-branch=current
+    Cuppa->>Copies: switch to feature (create from base if needed)
+    Dev->>Dev: commit and push in each repo
+    Dev->>Cuppa: -Q -D --list-develop
+    Cuppa->>Dev: report dirty / unpushed / ok
+    Dev->>Cuppa: --reset-develop-branch
+    Cuppa->>Copies: checkout base, then fetch and fast-forward
+....
 
 [source,shell]
 ----
@@ -743,11 +793,32 @@ cuppa -D --reset-develop-branch
 ----
 
 `--checkout-develop-branch=NAME` switches every develop git working copy to `NAME` (`current` means the consumer project's current branch).
-Clean copies left on a stale feature branch move via the default branch and a pull first, then create or track `NAME`.
+Clean copies left on a stale feature branch move via the develop base and a pull first, then create or track `NAME`.
 Dirty or unpushed copies are left alone and reported — use `--list-develop` to see outstanding commits before you abandon a branch.
 
-`--reset-develop-branch` checks out `location_default_branch` on each copy, then fetches and fast-forwards where `--update-develop` would.
+`--reset-develop-branch` returns each copy to a target, then fetches and fast-forwards where `--update-develop` would:
+
+* bare flag, or `=base` — the develop base (`--location-base-branch`, else the published default)
+* `=default` — `--location-default-branch` even when base differs
+* `=current` — the consumer project's current branch
+* `=NAME` — that branch name
+
 It does not delete leftover feature branches.
+
+[mermaid]
+....
+flowchart LR
+    subgraph home [Home policy]
+      D["default\nmaster"]
+      B["base\nintegration"]
+    end
+    F[feature_orders]
+    F -->|"--reset-develop-branch"| B
+    F -->|"--reset-develop-branch=default"| D
+    F -->|"--reset-develop-branch=current"| C[consumer current]
+....
+
+`--list-develop` treats a copy as on an acceptable branch when it is on the consumer's current branch, the published default, or the develop base.
 
 === Updating develop copies
 

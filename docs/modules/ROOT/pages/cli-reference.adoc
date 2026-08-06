@@ -111,10 +111,11 @@ See xref:configuration.adoc[Configuration] for `--show-conf`, `--save-conf`, `--
 | `--develop` | Use develop locations for location/package dependencies that define them
 | `--list-develop` | Report the state of each configured develop working copy and exit (no network access). Does not require `--develop`; use `--list-format=json` for a machine-readable report. See xref:dependencies-managing.adoc#checking-your-develop-copies[Checking your develop copies]
 | `--clone-develop` | Clone missing or empty configured develop paths from the dependency's unexpanded git URL and exit. Recurses submodules; refuses non-empty destinations and tag/revision pins. Not available with `--offline`. See xref:dependencies-managing.adoc#checking-your-develop-copies[Checking your develop copies]
-| `--checkout-develop-branch=NAME` | Switch each develop git working copy to branch `NAME` (`current` = consumer project branch). Creates via default + pull when needed; refuses dirty/unpushed copies. Not available with `--offline`
-| `--reset-develop-branch` | Checkout `location_default_branch` on each develop git working copy, then fetch and fast-forward where safe. Does not delete leftover feature branches. Not available with `--offline`
+| `--checkout-develop-branch=NAME` | Switch each develop git working copy to branch `NAME` (`current` = consumer project branch). Creates via the develop base + pull when needed; refuses dirty/unpushed copies. Not available with `--offline`
+| `--reset-develop-branch[=NAME]` | Return each develop git working copy to a branch, then fetch and fast-forward where safe. Bare / `base` → develop base; `default` → published default; `current` / `NAME` as named. Does not delete leftover feature branches. Not available with `--offline`
 | `--update-develop` | Fetch each git develop working copy and fast-forward those that are clean and behind; refuse under `--offline`
-| `--location-default-branch` | Default branch name (default `master`) used in offline / relative location logic and by `--list-develop`
+| `--location-default-branch` | Published default branch name (default `master`) used in offline / relative location logic and by `--list-develop`
+| `--location-base-branch` | Develop home: create-from and bare `--reset-develop-branch` target. When unset, equals `--location-default-branch`
 | `--location-match-current-branch` | For relative locations (`path@`), try the current branch
 | `--location-explicit-default-branch` | Record the default branch explicitly in local checkouts
 | `--location-match-branch` / `--location-match-tag` | Pin relative locations to a branch or tag

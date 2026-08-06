@@ -792,19 +792,32 @@ Tracked as GitHub [#153](https://github.com/ja11sop/cuppa/issues/153) (sibling o
 [#138](https://github.com/ja11sop/cuppa/issues/138)). Motivation: you start
 a feature branch on the consumer project (repo A) and depend on several locally checked-out
 develop copies. You want those copies on the **same** branch name so related edits share a
-branch, then return everyone to the default branch after the work merges.
+branch, then return everyone to the **develop home** after the work merges.
+
+Git does not record “branched from X”, so cuppa does not guess a parent. Home is **policy**:
+
+| Notion | Option | Role |
+|--------|--------|------|
+| Published / repo default | `--location-default-branch` (default `master`) | Non-`--develop` resolution story; “local work on default is a trap” in `--list-develop` |
+| Develop base (home) | `--location-base-branch` | Where new feature branches are **created from**, and where bare `--reset-develop-branch` returns. When unset, base ≡ default |
+
+Long-running integration lines set base once (`--location-base-branch=integration` or conf).
+Simple repos leave it unset.
 
 **Surface.** Two first-class flags (not modes of `--update-develop`):
 
 | Flag | Role |
 |------|------|
 | `--checkout-develop-branch=NAME` | Create if needed and switch every develop git working copy to `NAME`. Special value **`current`** means the consumer project's `current_branch`. |
-| `--reset-develop-branch` | Checkout `location_default_branch` on each copy, then fetch + ff-only (same gates as `--update-develop`). |
+| `--reset-develop-branch[=NAME\|current\|default\|base]` | Return copies to a target, then fetch + ff-only (same gates as `--update-develop`). **Bare** flag (or `=base`) → develop base. `=default` → `location_default_branch`. `=current` / `=NAME` → that branch. |
 
 Philosophy matches §3.6: **act where safe; skip and report where a person must decide.** The
 before/after report is the same `--list-develop` table. Unpushed commits and dirty trees stay
 visible there — guide the user to commit and push before abandoning a feature branch or before
 considering a reset “done”.
+
+`--list-develop` treats a copy as on an acceptable branch when it is on the consumer's current
+branch, the published default, **or** the develop base (when base ≠ default).
 
 **`--checkout-develop-branch` per copy**
 
@@ -814,17 +827,18 @@ considering a reset “done”.
 | Already on `NAME` | Skip (“already on …”) |
 | Dirty, diverged, or ahead in a way that switching would lose work | Refuse |
 | Detached / non-git | Refuse |
-| Clean; remote has `NAME` | Fetch; checkout tracking `origin/NAME` (do not recreate from default) |
-| Clean; no remote `NAME` | Via **default base**: checkout default → fetch + ff → `checkout -b NAME` (or local `NAME` if it already exists) |
+| Clean; remote has `NAME` | Fetch; checkout tracking `origin/NAME` (do not recreate from base) |
+| Clean; no remote `NAME` | Via **develop base**: checkout base → fetch + ff → `checkout -b NAME` (or local `NAME` if it already exists) |
 
-**`--reset-develop-branch` per copy:** if not on default, checkout default (refuse if unsafe);
-then fetch + ff-only. Do **not** delete leftover feature branches — leave them for manual cleanup.
+**`--reset-develop-branch` per copy:** resolve target (bare → base); if not on target, checkout
+target (refuse if unsafe); then fetch + ff-only. Do **not** delete leftover feature branches —
+leave them for manual cleanup.
 
 **`--offline`:** error (network required). `-n`: print the plan. Package develop paths without a
 VCS remote are skipped with a reason (same as clone).
 
 **Out of scope:** `--develop-root`; inventing develop paths; force-deleting feature branches;
-rebase/merge modes on `--update-develop`.
+rebase/merge modes on `--update-develop`; inferring parent branch from merge-base / reflog / forge.
 
 ---
 
@@ -2557,7 +2571,8 @@ Settled while reviewing this plan, and folded into the sections above:
 | What a pinned develop location should clone to | **Refuse** with an explanation — develop copies must not be detached (§3.7) |
 | Submodules / shallow clones for `--clone-develop` | Recurse by default; no shallow clones (§3.7) |
 | Reuse pip VCS retrieval for develop clones | **No** — dedicated `Git.clone` on the unexpanded URL (§3.7) |
-| Aligning develop copies onto a feature branch | First-class `--checkout-develop-branch=NAME\|current` and `--reset-develop-branch` (§3.8) |
+| Aligning develop copies onto a feature branch | First-class `--checkout-develop-branch=NAME\|current` and `--reset-develop-branch[=NAME\|current\|default\|base]`; develop home via `--location-base-branch` (defaults to published default) (§3.8) |
+| Inferring feature-branch parent automatically | **No** — Git does not record it; wrong guesses move every develop copy. Home is `--location-base-branch` / explicit reset target (§3.8) |
 | Downloads-root path under verbose `[D]` LOCATION | No. `[D]` + basename (+ footer) only; paths stay in JSON / `--list-downloads` (§4.12) |
 
 Still open after Slice D (#142) and archive clean (#143):
