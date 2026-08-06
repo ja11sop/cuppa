@@ -480,8 +480,23 @@ cuppa -Q -D --force-wipe-dependencies=boost/1.86.0,boost/1.87.0
 Tokens are always `name/qualifier` as shown in the tree (`boost/1.86.0`, `fmt/@11.1.1`). Bare
 names belong on `--wipe-dependencies`. Matching downloads are wiped too. Referenced /
 unreferenced / `in use` do **not** block the wipe — the long flag name is the acknowledgement.
-Inventory `used_by` naming another project prints a warning and still proceeds. Ambiguous or
-unknown tokens exit non-zero with candidates.
+Inventory `used_by` naming another project prints a warning and still proceeds.
+
+Exact tokens must resolve to exactly one leaf (zero or multiple → error with candidates).
+Shell / `fnmatch` wildcards (`*`, `?`, `[…]`) on either side wipe **all** matching leaves —
+useful for a version series:
+
+[source,shell]
+----
+cuppa -Q -D -n --force-wipe-dependencies='boost/1.8*'
+cuppa -Q -D --force-wipe-dependencies='boost/1.8*'
+----
+
+Quote the token in the shell so `*` is not expanded by the shell before cuppa sees it.
+
+Dry-run (`-n`) lists every matched path and size before you drop `-n`. A wildcard that matches
+nothing exits non-zero. Full regular expressions are not accepted (dots in versions stay
+literal under `fnmatch`).
 
 Location example (unused `@11.1.1`, keep `@master` in use):
 

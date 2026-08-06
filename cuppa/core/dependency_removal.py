@@ -19,6 +19,7 @@ downloads. Develop working copies stay put. See
 
 from __future__ import annotations
 
+import fnmatch
 import os
 import sys
 from collections import namedtuple
@@ -2118,6 +2119,16 @@ def _normalise_wipe_name( value ):
     return ( value or '' ).strip().lower()
 
 
+def _is_wildcard_pattern( text ):
+    """True when ``text`` uses shell / ``fnmatch`` wildcards (``*``, ``?``, ``[``)."""
+    return any( char in ( text or '' ) for char in '*?[' )
+
+
+def force_token_is_wildcard( name, qualifier ):
+    """True when either side of a ``name/qualifier`` force-wipe token is a glob."""
+    return _is_wildcard_pattern( name ) or _is_wildcard_pattern( qualifier )
+
+
 def _qualifier_aliases( qualifier, storage_type ):
     """Return forms that should match a list leaf qualifier / display label."""
     from cuppa.core.dependency_identity import display_qualifier
@@ -2143,14 +2154,37 @@ def _qualifier_aliases( qualifier, storage_type ):
     return { item for item in aliases if item }
 
 
+def _row_name_candidates( row ):
+    return {
+            item for item in (
+                    ( row.get( 'short_name' ) or '' ).strip(),
+                    ( row.get( 'dependency' ) or '' ).strip(),
+                    ( row.get( 'stem' ) or '' ).strip(),
+            ) if item
+    }
+
+
+def _fnmatch_any( candidates, patterns ):
+    """Case-insensitive ``fnmatch`` of any candidate against any pattern."""
+    for candidate in candidates:
+        cand_l = candidate.lower()
+        for pattern in patterns:
+            if fnmatch.fnmatch( cand_l, pattern.lower() ):
+                return True
+    return False
+
+
 def _row_matches_force_token( row, name, qualifier ):
-    short = _normalise_wipe_name( row.get( 'short_name' ) )
-    dep = _normalise_wipe_name( row.get( 'dependency' ) )
-    stem = _normalise_wipe_name( row.get( 'stem' ) )
-    want = _normalise_wipe_name( name )
-    if want not in ( short, dep, stem ):
-        return False
     storage_type = row.get( 'type' ) or row.get( 'kind' ) or 'unknown'
+    name_candidates = _row_name_candidates( row )
+    if _is_wildcard_pattern( name ):
+        if not _fnmatch_any( name_candidates, { name } ):
+            return False
+    else:
+        want = _normalise_wipe_name( name )
+        if want not in { _normalise_wipe_name( item ) for item in name_candidates }:
+            return False
+
     row_qual = row.get( 'qualifier' )
     # Prefer an explicit display label on the row when present.
     candidates = _qualifier_aliases( row_qual, storage_type )
@@ -2159,6 +2193,8 @@ def _row_matches_force_token( row, name, qualifier ):
         candidates.add( str( label ).strip() )
         candidates.add( str( label ).strip().lower() )
     want_aliases = _qualifier_aliases( qualifier, storage_type )
+    if _is_wildcard_pattern( qualifier ):
+        return _fnmatch_any( candidates, want_aliases )
     return bool( candidates & want_aliases )
 
 
@@ -2407,7 +2443,8 @@ def force_wipe_dependencies( construct, cuppa_env, out=None ):
         if not by_real:
             out.write( "error: no dependency leaf matches [{}/{}]\n".format( name, qualifier ) )
             return 1
-        if len( by_real ) > 1:
+        wildcard = force_token_is_wildcard( name, qualifier )
+        if not wildcard and len( by_real ) > 1:
             out.write( "error: ambiguous force-wipe token [{}/{}]; candidates:\n".format(
                     name, qualifier
             ) )
@@ -2417,34 +2454,34 @@ def force_wipe_dependencies( construct, cuppa_env, out=None ):
                         storage.human_size( int( row.get( 'size_bytes' ) or 0 ) ),
                 ) )
             return 1
-        row = next( iter( by_real.values() ) )
-        path = row['path']
-        if not os.path.lexists( path ):
-            out.write( "error: matched leaf [{}/{}] path does not exist: {}\n".format(
-                    name, qualifier, path
-            ) )
-            return 1
-        real = storage.real_path( path )
-        if real in seen:
-            continue
-        storage.ensure_contained( path, root, what="dependency path" )
-        if os.path.islink( path ):
-            raise storage.StorageError(
-                "refusing to remove through symlink [{}]".format( path )
-            )
-        entry = by_path.get( real ) or {}
-        others = _other_project_used_by( entry, this_project )
-        if others:
-            used_by_warnings.append( {
-                'dependency': row.get( 'dependency' ) or row.get( 'short_name' ) or path,
-                'path': path,
-                'used_by': others,
-            } )
-        if not entry:
-            notes.append( "no inventory record for {}".format( storage.display_path( path ) ) )
-        seen.add( real )
-        matched_reals.add( real )
-        targets.append( _target_from_row( row ) )
+        for row in sorted( by_real.values(), key=lambda item: item.get( 'path' ) or '' ):
+            path = row['path']
+            if not os.path.lexists( path ):
+                out.write( "error: matched leaf [{}/{}] path does not exist: {}\n".format(
+                        name, qualifier, path
+                ) )
+                return 1
+            real = storage.real_path( path )
+            if real in seen:
+                continue
+            storage.ensure_contained( path, root, what="dependency path" )
+            if os.path.islink( path ):
+                raise storage.StorageError(
+                    "refusing to remove through symlink [{}]".format( path )
+                )
+            entry = by_path.get( real ) or {}
+            others = _other_project_used_by( entry, this_project )
+            if others:
+                used_by_warnings.append( {
+                    'dependency': row.get( 'dependency' ) or row.get( 'short_name' ) or path,
+                    'path': path,
+                    'used_by': others,
+                } )
+            if not entry:
+                notes.append( "no inventory record for {}".format( storage.display_path( path ) ) )
+            seen.add( real )
+            matched_reals.add( real )
+            targets.append( _target_from_row( row ) )
 
     download_targets = []
     download_seen = set()

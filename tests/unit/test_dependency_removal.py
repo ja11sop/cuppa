@@ -146,6 +146,10 @@ def test_row_matches_force_token():
     }
     assert dependency_removal._row_matches_force_token( row, 'boost', '1.86.0' )
     assert not dependency_removal._row_matches_force_token( row, 'boost', '1.91.0' )
+    assert dependency_removal._row_matches_force_token( row, 'boost', '1.8*' )
+    assert dependency_removal._row_matches_force_token( row, 'boost', '1.86.?' )
+    assert not dependency_removal._row_matches_force_token( row, 'boost', '1.9*' )
+    assert dependency_removal._row_matches_force_token( row, 'bo*', '1.86.0' )
     loc = {
         'short_name': 'fmt',
         'dependency': 'fmt',
@@ -155,6 +159,15 @@ def test_row_matches_force_token():
     }
     assert dependency_removal._row_matches_force_token( loc, 'fmt', '@11.1.1' )
     assert dependency_removal._row_matches_force_token( loc, 'fmt', '11.1.1' )
+    assert dependency_removal._row_matches_force_token( loc, 'fmt', '@11*' )
+    assert not dependency_removal._row_matches_force_token( loc, 'fmt', '@12*' )
+
+
+def test_force_token_is_wildcard():
+    assert not dependency_removal.force_token_is_wildcard( 'boost', '1.86.0' )
+    assert dependency_removal.force_token_is_wildcard( 'boost', '1.8*' )
+    assert dependency_removal.force_token_is_wildcard( 'bo?st', '1.86.0' )
+    assert dependency_removal.force_token_is_wildcard( 'boost', '1.8[6-9]*' )
 
 
 def test_resolve_requested_names_wipe_flags_use_same_gate():

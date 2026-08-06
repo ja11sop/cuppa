@@ -265,6 +265,69 @@ cuppa.run(
     assert current_archive.is_file()
 
 
+def test_force_wipe_wildcard_boost_versions_keeps_current(tmp_path):
+    project = copy_dummy_project(tmp_path)
+    storage = tmp_path / "storage"
+    deps = storage / "dependencies"
+    downloads = storage / "downloads"
+
+    current, current_archive = _plant_boost_version(
+            deps, downloads, "boost_1_91_0", "109100"
+    )
+    old_a, old_a_archive = _plant_boost_version(
+            deps, downloads, "boost_1_86_0", "108600"
+    )
+    old_b, old_b_archive = _plant_boost_version(
+            deps, downloads, "boost_1_87_0", "108700"
+    )
+
+    write_sconstruct(
+        project,
+        body="""\
+import cuppa
+
+cuppa.run(
+    default_variants=['dbg'],
+    default_dependencies=['boost'],
+)
+""",
+    )
+
+    dry = run_cuppa(
+        project,
+        "--offline",
+        "--dbg",
+        "-n",
+        "--boost-home={}".format(current),
+        "--force-wipe-dependencies=boost/1.8*",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(dry)
+    plain_dry = strip_ansi(dry.stdout)
+    assert "Would wipe" in plain_dry
+    assert "boost_1_86_0" in plain_dry or "1.86" in plain_dry
+    assert "boost_1_87_0" in plain_dry or "1.87" in plain_dry
+    assert old_a.is_dir() and old_b.is_dir() and current.is_dir()
+
+    wiped = run_cuppa(
+        project,
+        "--offline",
+        "--dbg",
+        "--boost-home={}".format(current),
+        "--force-wipe-dependencies=boost/1.8*",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(wiped)
+    assert not old_a.exists()
+    assert not old_b.exists()
+    assert not old_a_archive.exists()
+    assert not old_b_archive.exists()
+    assert current.is_dir()
+    assert current_archive.is_file()
+
+
 def test_force_wipe_unreferenced_deletes_old_boost_keeps_current(tmp_path):
     project = copy_dummy_project(tmp_path)
     storage = tmp_path / "storage"

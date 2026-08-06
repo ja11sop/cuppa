@@ -12,9 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--wipe-dependencies=name` clear-down of project-used extracts and matching downloads for the
   current selection (bypasses `storage_clean` product-only behaviour). Power tools:
   `--force-wipe-dependencies=name/qualifier` for list-tree leaves (e.g. `boost/1.86.0`,
-  `fmt/@11.1.1`) regardless of referenced/unreferenced; `--force-wipe-all-dependencies` for every
-  project-used name in the selection; `--force-wipe-unreferenced-dependencies` for orphan leaves.
-  Do not combine wipe modes with remove or purge (#146).
+  `fmt/@11.1.1`, or fnmatch `boost/1.8*`) regardless of referenced/unreferenced;
+  `--force-wipe-all-dependencies` for every project-used name in the selection;
+  `--force-wipe-unreferenced-dependencies` for orphan leaves. Do not combine wipe modes with
+  remove or purge (#146).
 - `--list-develop --list-format=json` emits structured develop-copy state for agents and scripts
   (`entries`, `would_update`, `worst_severity`, and the same context as the text banner). Text
   output is unchanged; exit status still fails when a develop path is missing (#148).

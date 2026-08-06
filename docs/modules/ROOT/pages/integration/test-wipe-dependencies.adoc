@@ -13,6 +13,8 @@ With planted trees and archives under a private `--storage-root`:
   extract and tarball stay.
 * `--force-wipe-dependencies=boost/1.86.0,boost/1.87.0` deletes only those version leaves (and
   matching downloads) while keeping the current `--boost-home` extract.
+* `--force-wipe-dependencies=boost/1.8*` (fnmatch) deletes every matching `1.8*` leaf while
+  keeping `1.91.0`; `-n` lists each hit.
 * `--force-wipe-unreferenced-dependencies` deletes an orphan Boost tree/archive while keeping the
   current extract.
 
@@ -30,13 +32,15 @@ cuppa -D --offline --dbg -n --boost-home=<extract> --wipe-dependencies=boost --s
 cuppa -D --offline --dbg --boost-home=<extract> --wipe-dependencies=boost --storage-root=<storage>
 cuppa -D --offline --dbg --wipe-dependencies=boost_package --storage-root=<storage>
 cuppa -D --offline --dbg --boost-home=<current> --force-wipe-dependencies=boost/1.86.0,boost/1.87.0 --storage-root=<storage>
+cuppa -D --offline --dbg --boost-home=<current> --force-wipe-dependencies=boost/1.8* --storage-root=<storage>
 cuppa -D --offline --dbg --boost-home=<current> --force-wipe-unreferenced-dependencies --storage-root=<storage>
 ----
 
 == Outcome
 
 Conflict runs exit non-zero. Named wipe removes the selected extract and download. Force-wipe
-leaf tokens remove only the named versions. Unreferenced force-wipe removes only orphan
-tree/archive. Verify hints point at `--list-dependencies` / `--list-downloads`.
+leaf tokens remove only the named versions; wildcards remove every matching leaf. Unreferenced
+force-wipe removes only orphan tree/archive. Verify hints point at `--list-dependencies` /
+`--list-downloads`.
 
 Related test module: `tests/integration/test_wipe_dependencies.py`.

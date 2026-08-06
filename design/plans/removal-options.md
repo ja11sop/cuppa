@@ -61,7 +61,7 @@ deferred Phase 3 polish items remain open and do not keep #134 open.
 | Phase 3 — **dependencies documentation split** (§7.1) | **done** | [#145](https://github.com/ja11sop/cuppa/issues/145) — Hub + children; `packages.adoc` publish focus; `include`/`sys_include` drift fixed |
 | Phase 3 — `--list-develop --list-format=json` | **done** | [#148](https://github.com/ja11sop/cuppa/issues/148) — Shared `--list-format=json` parity for develop copies (agents / scripts); text unchanged |
 | Phase 4 — downloads list / purge | **done** | `--list-downloads` + `--purge-dependencies` / `--purge-all-dependencies` in [#144](https://github.com/ja11sop/cuppa/pull/144); that PR closes #134 |
-| `--wipe-dependencies` | **done** | [#146](https://github.com/ja11sop/cuppa/issues/146) — Named selection clear-down; `--force-wipe-dependencies=name/qualifier` for list leaves; `--force-wipe-all-dependencies`; `--force-wipe-unreferenced-dependencies` for orphans |
+| `--wipe-dependencies` | **done** | [#146](https://github.com/ja11sop/cuppa/issues/146) — Named selection clear-down; `--force-wipe-dependencies=name/qualifier` (exact or fnmatch, e.g. `boost/1.8*`); `--force-wipe-all-dependencies`; `--force-wipe-unreferenced-dependencies` for orphans |
 | Phase 6 — artefacts | **open** | Sketch only (§4.6) / [#135](https://github.com/ja11sop/cuppa/issues/135) |
 | §3.7 — `--clone-develop` | **open** | #138 |
 
@@ -2425,9 +2425,10 @@ Still open after Slice D (#142) and archive clean (#143):
   is designed (§4.6).
 - **When `--remove-unreferenced-dependencies` / age gates ship.** Partially answered by
   `--force-wipe-dependencies=name/qualifier` and `--force-wipe-unreferenced-dependencies` (#146):
-  list-driven clear-down of chosen leaves (including unused siblings under referenced identities)
-  and of orphan leaves, with warnings when inventory `used_by` cites another project. An
-  `--older-than` age gate remains a later tightening rather than a requirement for the first cut.
+  list-driven clear-down of chosen leaves (including unused siblings under referenced identities,
+  exact tokens or fnmatch globs such as `boost/1.8*`) and of orphan leaves, with warnings when
+  inventory `used_by` cites another project. An `--older-than` age gate remains a later tightening
+  rather than a requirement for the first cut.
 - **All-dependencies view and empty-`used_by` remark (§4.10).** Deferred. After `used_by` is
   stamped on resolve/build, consider REMARK `unrecorded` or `no record` (prefer those over
   `unused` / `orphan`) for empty maps, and a disk-only listing mode tentatively
