@@ -693,6 +693,15 @@ def test_write_removal_tree_summary_and_version_nesting():
                     label='product-b',
                     storage_type='archive',
             ),
+            dependency_removal.Leftover(
+                    dependency='boost',
+                    path='/deps/boost@1.88.0/c',
+                    qualifier='1.88.0',
+                    tool_variant='',
+                    size_bytes=20,
+                    label='product-c',
+                    storage_type='archive',
+            ),
     ]
     out = io.StringIO()
     dependency_removal._write_removal_tree(
@@ -716,6 +725,11 @@ def test_write_removal_tree_summary_and_version_nesting():
     assert '1.91.0' not in boost_line
     # Version row is indented further than the identity row.
     assert version_line.index( '1.91.0' ) > boost_line.index( 'boost' )
+    # Untouched leftover version uses --- (same as extract rollups).
+    leftover_version = next(
+            line for line in lines if line.rstrip().endswith( '1.88.0' )
+    )
+    assert '---' in leftover_version
     assert 'product-a' in text
     assert 'product-b' in text
     # Partial identity keeps a partial mark.

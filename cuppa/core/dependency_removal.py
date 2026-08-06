@@ -1637,7 +1637,10 @@ def _format_age_cell( age_text, age_epoch ):
 
 
 def _selection_mark_for_leaves( leaves ):
-    """Return ``(mark_or_empty, remark, fully_removing, partially_removing)``."""
+    """Return ``(mark_or_empty, remark, fully_removing, partially_removing)``.
+
+    Untouched parents (nothing going) use ``---``, matching extract rollups.
+    """
     removing = []
     staying = []
 
@@ -1656,6 +1659,9 @@ def _selection_mark_for_leaves( leaves ):
 
     walk( leaves )
     if not removing:
+        if staying:
+            # Same language as extract ``[E]`` when nothing under it is selected.
+            return storage.outcome_triple( 'full', 'none' ), '', False, False
         return '', '', False, False
     failed = [ leaf for leaf in removing if leaf.get( 'result' ) == 'failed' ]
     if failed and len( failed ) == len( removing ) and not staying:
@@ -2094,9 +2100,10 @@ def _write_removal_tree(
                     size_cell = as_subdued( row['size'] ) if level == 'identity' else row['size']
                     age_cell = as_subdued( row['age'] ) if level == 'identity' else row['age']
                     if mark:
+                        # Untouched ``---`` (and any other non-action mark): subdued.
                         label = "{}{} {}".format(
                                 as_subdued( branch ),
-                                mark,
+                                as_subdued( mark ),
                                 as_emphasised( name ),
                         )
                     else:
