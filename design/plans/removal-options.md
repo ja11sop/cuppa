@@ -1,8 +1,8 @@
 # Plan: removal options for build folders and dependencies
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Storage roots, listing, and removal; GitHub [#132](https://github.com/ja11sop/cuppa/issues/132), [#133](https://github.com/ja11sop/cuppa/issues/133), [#134](https://github.com/ja11sop/cuppa/issues/134), [#135](https://github.com/ja11sop/cuppa/issues/135), [#138](https://github.com/ja11sop/cuppa/issues/138), [#145](https://github.com/ja11sop/cuppa/issues/145), [#146](https://github.com/ja11sop/cuppa/issues/146), [#148](https://github.com/ja11sop/cuppa/issues/148)
-- **Updated:** 2026-08-06
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Storage roots, listing, and removal; GitHub [#132](https://github.com/ja11sop/cuppa/issues/132), [#133](https://github.com/ja11sop/cuppa/issues/133), [#134](https://github.com/ja11sop/cuppa/issues/134), [#135](https://github.com/ja11sop/cuppa/issues/135), [#138](https://github.com/ja11sop/cuppa/issues/138), [#145](https://github.com/ja11sop/cuppa/issues/145), [#146](https://github.com/ja11sop/cuppa/issues/146), [#148](https://github.com/ja11sop/cuppa/issues/148), [#153](https://github.com/ja11sop/cuppa/issues/153)
+- **Updated:** 2026-08-07
 
 `--list-develop` and `--update-develop` (§3.5, §3.6), the storage rename (§3.1, §8, Phase 1),
 build listing/removal (`--list-builds`, `--remove-builds`, `--remove-all-builds`, Phase 2),
@@ -13,10 +13,11 @@ archive clean-by-variant (§4.14.3 — optional `storage_clean`, Boost stage/`bi
 clean, lazy exact inventory sizes on list) are implemented (listing
 [#141](https://github.com/ja11sop/cuppa/pull/141) and removal
 [#142](https://github.com/ja11sop/cuppa/pull/142) on `master`; archive clean
-[#143](https://github.com/ja11sop/cuppa/pull/143)). Cloning a missing develop copy (§3.7)
-remains a proposal, as does artefact removal (Phase 6). Phase 4 listing + purge
+[#143](https://github.com/ja11sop/cuppa/pull/143)). `--clone-develop` (§3.7) and develop branch
+alignment (§3.8) land in [#154](https://github.com/ja11sop/cuppa/pull/154) (closes #138 / #153).
+Artefact removal (Phase 6) remains open. Phase 4 listing + purge
 (`--list-downloads` / `--purge-dependencies` / `--purge-all-dependencies`) is implemented in
-[#144](https://github.com/ja11sop/cuppa/pull/144) (closes #134 when that PR merges).
+[#144](https://github.com/ja11sop/cuppa/pull/144) (closes #134).
 Follow-on from the `--clean` work in `cuppa/location.py` and `cuppa/package_managers/gitlab.py`,
 where a clean could not complete because a dependency was missing, and where the advice for
 leftover artefacts was "remove the folder by hand". Telling people to run `rm -rf` is
@@ -25,24 +26,28 @@ knows exactly which folders belong to which variant and which dependency.
 
 This plan proposes a way to list what is in the storage roots, a family of explicit removal
 options (Phases 1–4 listing / removal / archive clean / purge done), conservative ways
-to create develop copies that are missing (§3.7), and the safety model that governs deletion.
+to create and align develop copies (§3.7, §3.8), and the safety model that governs deletion.
 
 The storage rename came **first** (§6, Phase 1) so every later phase talks about one vocabulary.
 Throughout this document the new names are used: `dependencies_root` (was `download_root`) and
 `downloads_root` (was `cache_root`). Both default to subfolders of a single `storage_root`,
 which defaults to `~/.cuppa` and can be moved with one option.
 
-### Progress snapshot (2026-08-06)
+### Progress snapshot (2026-08-07)
 
 Phases **1**, **2**, **4**, and **5**, Phase **3 listing**, Phase **3 removal Slice D**,
-archive clean-by-variant (§4.14.3), and **wipe / §4.15** are **done**
+archive clean-by-variant (§4.14.3), **wipe / §4.15**, and develop clone + branch alignment
+(§3.7 / §3.8) are **done** or landing
 ([#141](https://github.com/ja11sop/cuppa/pull/141) /
 [#142](https://github.com/ja11sop/cuppa/pull/142) /
 [#143](https://github.com/ja11sop/cuppa/pull/143) on `master`;
 Phase 4 in [#144](https://github.com/ja11sop/cuppa/pull/144);
 wipe in [#150](https://github.com/ja11sop/cuppa/pull/150), closes
-[#146](https://github.com/ja11sop/cuppa/issues/146)). #144 is the PR that closes
-umbrella [#134](https://github.com/ja11sop/cuppa/issues/134). Phase **6** / **§3.7** and the
+[#146](https://github.com/ja11sop/cuppa/issues/146);
+§3.7 / §3.8 in [#154](https://github.com/ja11sop/cuppa/pull/154), closes
+[#138](https://github.com/ja11sop/cuppa/issues/138) /
+[#153](https://github.com/ja11sop/cuppa/issues/153)). #144 closed
+umbrella [#134](https://github.com/ja11sop/cuppa/issues/134). Phase **6** and the
 deferred Phase 3 polish items remain open and do not keep #134 open.
 
 | Area | State | Notes |
@@ -64,14 +69,15 @@ deferred Phase 3 polish items remain open and do not keep #134 open.
 | Phase 3 — `--list-develop --list-format=json` | **done** | [#148](https://github.com/ja11sop/cuppa/issues/148) — Shared `--list-format=json` parity for develop copies (agents / scripts); text unchanged |
 | Phase 4 — downloads list / purge | **done** | `--list-downloads` + `--purge-dependencies` / `--purge-all-dependencies` in [#144](https://github.com/ja11sop/cuppa/pull/144); that PR closes #134 |
 | `--wipe-dependencies` / §4.15 | **done** | [#146](https://github.com/ja11sop/cuppa/issues/146) / [#150](https://github.com/ja11sop/cuppa/pull/150) — wipe + force-wipe, selectors, repository rename, shared tokens, summary → type → identity → version → leaves |
+| §3.7 — `--clone-develop` | **done** (on [#154](https://github.com/ja11sop/cuppa/pull/154)) | Closes [#138](https://github.com/ja11sop/cuppa/issues/138) — refuse pins; recurse submodules; dedicated `Git.clone`, unexpanded URL |
+| §3.8 — develop branch alignment | **done** (on [#154](https://github.com/ja11sop/cuppa/pull/154)) | Closes [#153](https://github.com/ja11sop/cuppa/issues/153) — checkout / reset; `--location-base-branch`; optional reset target |
 | Phase 6 — artefacts | **open** | Sketch only (§4.6) / [#135](https://github.com/ja11sop/cuppa/issues/135) |
-| §3.7 — `--clone-develop` | **in progress** | [#138](https://github.com/ja11sop/cuppa/issues/138) — design settled (refuse pins; recurse submodules; dedicated `Git.clone`, unexpanded URL) |
-| §3.8 — develop branch alignment | **in progress** | [#153](https://github.com/ja11sop/cuppa/issues/153) — `--checkout-develop-branch` / `--reset-develop-branch` |
 
-**Next focus:** [#138](https://github.com/ja11sop/cuppa/issues/138) (`--clone-develop`) then §3.8 branch
-helpers; [#135](https://github.com/ja11sop/cuppa/issues/135) (artefacts). Boost package identity
-stays on [`boost-updates.md`](boost-updates.md). Age-gated unreferenced GC (`--older-than`)
-remains deferred (§9).
+**Next focus:** [#135](https://github.com/ja11sop/cuppa/issues/135) (artefacts) when that design pass starts.
+Nothing else in this plan is required for the develop/storage listing family to be usable.
+Boost package identity stays on [`boost-updates.md`](boost-updates.md). Age-gated unreferenced
+GC (`--older-than`) remains deferred (§9). `--develop-root` remains an open question under §3.7
+(not required for #138 / #154).
 
 **Deferred Phase 3 polish** ([#145](https://github.com/ja11sop/cuppa/issues/145); parallel branches fine):
 
@@ -100,6 +106,8 @@ not show a need after the lazy exact upgrade shipped.
   and bring the out-of-date ones forward where that cannot lose work (§3.6).
 - Create a develop working copy that is configured but not yet on disk, so a new machine, or a
   dependency added since you last looked, does not need a clone worked out by hand (§3.7).
+- Align those develop copies onto a shared feature branch and back to a configured develop home
+  without guessing git parents (§3.8).
 - Remove the build output for the *currently selected* variant / toolchain combination.
 - Remove the whole build root.
 - Remove the on-disk copies of dependencies cuppa manages, either all of them or by name.
@@ -2129,16 +2137,20 @@ Listing half **done** on `master` (#141). Removal Slice D **done** on `master` (
   leaf/all/unreferenced). Boost GitLab package patched/clean identity remains on
   [`boost-updates.md`](boost-updates.md).
 
-**Phase 5 — develop copies** (§3.5, §3.6 — independent of Phases 1 to 4) — **done**
+**Phase 5 — develop copies** (§3.5–§3.8 — independent of Phases 1 to 4) — **done**
+(§3.7 / §3.8 on [#154](https://github.com/ja11sop/cuppa/pull/154))
 
 - Landed ahead of Phase 2 ([#132](https://github.com/ja11sop/cuppa/issues/132) / #137): touches no
   storage root, needs no inventory, and removes nothing.
 - Develop-path resolution is shared (`develop_location`); `Git.get_working_copy_state()` feeds
   the classification; `--list-develop` reports to stdout and exits; `--update-develop` fetches and
   fast-forwards only clean, strictly-behind copies.
-- `--clone-develop` (§3.7) remains a proposal ([#138](https://github.com/ja11sop/cuppa/issues/138)).
+- `--clone-develop` (§3.7) and `--checkout-develop-branch` / `--reset-develop-branch` with
+  `--location-base-branch` (§3.8) land in [#154](https://github.com/ja11sop/cuppa/pull/154)
+  (closes [#138](https://github.com/ja11sop/cuppa/issues/138) /
+  [#153](https://github.com/ja11sop/cuppa/issues/153)).
 - The `=fetch-only` / `=allow-rebase` / `=allow-merge` values are still out of scope until there
-  is evidence from using the two shipped options (§3.6).
+  is evidence from using the shipped update option (§3.6).
 
 **Phase 6 — artefacts outside the build root** (§4.6)
 

@@ -767,6 +767,37 @@ For a long-running integration line off `master`, set the base once (CLI or `con
 cuppa -D --location-base-branch=integration --save
 ----
 
+That setting matches this history shape — features fork from and merge back to the middle line, while `master` stays the published default:
+
+[mermaid]
+....
+%%{init: { 'gitGraph': { 'mainBranchName': 'master' } } }%%
+gitGraph
+  commit id: "on master"
+  branch integration
+  checkout integration
+  commit id: "develop home"
+  branch feature_orders
+  checkout feature_orders
+  commit id: "feature work"
+  checkout integration
+  merge feature_orders
+....
+
+When `--location-base-branch` is unset, base is the published default and the shape is the familiar feature-off-default line:
+
+[mermaid]
+....
+%%{init: { 'gitGraph': { 'mainBranchName': 'master' } } }%%
+gitGraph
+  commit id: "on default"
+  branch feature_orders
+  checkout feature_orders
+  commit id: "feature work"
+  checkout master
+  merge feature_orders
+....
+
 Typical feature workflow:
 
 [mermaid]
