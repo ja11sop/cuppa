@@ -69,6 +69,12 @@ request's `impact:` label and decides the version it targets.
 `ROADMAP.md` remains the canonical statement of what is planned — a design document explains the
 reasoning behind a roadmap entry and links back to it, rather than duplicating it.
 
+For a multi-PR workstream, **settle vocabulary and refusal rules in the plan before the first
+implementation commit** (a short settled-decisions table beats rewiring CLI help mid-flight).
+When behaviour lands, **update that plan's progress snapshot in the same change** (or the same
+PR), not only in a late housekeeping sweep — stale “still a proposal” rows are how agents and
+people lose the plot.
+
 ## Private projects — never name them here
 
 This repository is public. Cuppa is developed against private consumer projects, and their
@@ -263,6 +269,7 @@ treat merge readiness as “CI green alone”. In the same local batch (see batc
    leave “on branch `…`” once the PR is the landing vehicle (cite the PR number).
 4. **Related design plans** — progress snapshot, phase tables, “next focus”, and `design/README.md`
    index row. Mark shipped slices done; park deferred work explicitly; update `Updated:` dates.
+   Prefer that these already moved with the behaviour commits; this pass is the safety net.
    Do not close umbrella issues in PR text unless the plan says that slice closes them.
 
 After that batch is committed and pushed, watch CI as usual. If only docs/plan/CHANGELOG change
@@ -313,6 +320,12 @@ default after a push; use `pr-status` when you only need a snapshot.
 Exit codes: `0` all checks succeeded (or were skipped / neutral), `1` at least one failed, `2`
 still pending (`pr-status` only), `3` timed out while still pending (`watch-pr`).
 
+If `watch-pr` times out with **no check runs**, or Actions never starts for new pushes, check
+[GitHub Status](https://www.githubstatus.com/) before assuming the branch is wrong. During an
+Actions outage, webhooks are often throttled: empty “retrigger” commits do nothing useful. Keep
+the PR honest (local gate ticked; CI box unchecked with a note), wait for recovery, then
+`watch-pr` or re-run from the UI — do not burn the API on empty pushes.
+
 When `watch-pr` / `pr-status` reports a failure, feed the failed job name into the log helper
 (sealed token; Actions read permission required — see token permissions above):
 
@@ -329,6 +342,14 @@ to one check name substring from the `pr-status` listing. Do not use `gh` for th
 hand-roll log downloads when the helper already encodes the redirect/auth stripping.
 
 Grow this helper if the same follow-up starts repeating.
+
+**When chat has to correct the same mistake twice**, encode it: extend this file, add a helper
+under `scripts.github_helpers` (or similar), or add a unit test that fails when an index / version
+/ plan header drifts. Do not leave the rule only in conversation memory.
+
+Prefer **separate pull requests** for agent/CI tooling (`update-pr`, poll schedules, sealed-token
+fixes) versus product behaviour when practical — mixed PRs ship fine in a pinch, but they make
+review and squash messages harder.
 
 Be clear about what sealing buys. It makes the stored file meaningless anywhere else — in a backup,
 a synced folder, or a pasted diff. It does **not** stop a process running as you from asking the
