@@ -342,7 +342,9 @@ name/qualifier
   wildcards (`*`, `?`, `[…]`) are accepted on the name and/or qualifier; quote them so the shell
   does not expand them.
 * Remove / purge / wipe still require **project-used** names; force-wipe does not.
-* Reports nest **type → identity → leaves**, matching `--list-dependencies`.
+* Reports nest **type → identity → version → leaves**, matching `--list-dependencies`.
+  A summary root shows **removing** / **wiped** vs **remaining** bytes. Match versions with
+  `name/qualifier` tokens (for example `boost/1.8*`), not a glued name like `boost*1.8*`.
 
 [source,shell]
 ----
@@ -352,7 +354,7 @@ cuppa -Q -D -n --force-wipe-dependencies='[source]boost/1.8*'
 ----
 
 Example shape after a source Boost product clean (extract stays; sizes and toolset ids vary).
-The identity SIZE is the full extract; `[E]` is partial because source assets stay:
+The version nests under the identity; `[E]` is partial because source assets stay:
 
 [source,text]
 ----
@@ -361,12 +363,18 @@ Removed 2 dependency trees (412.3M) under ~/.cuppa/dependencies
   ------------------------------------------------------------------------------------
        SIZE  LAST USED      REMARK     DEPENDENCY
   ------------------------------------------------------------------------------------
-       2.1G                             source archives
-       2.1G                             └── boost  1.91.0
-       2.1G   yesterday                    └── -✔- [E] boost_1_91_0
-       1.7G   yesterday                           ├── - source assets
-    298.4M   yesterday      removed               ├── ✔ clean/build.c++2c [gcc153/debug/x86_64]
-    113.9M   yesterday      removed               └── ✔ clean/bin.c++2c [gcc-15*/debug]
+       2.1G                             related dependencies for boost
+     412.3M                             ├── removing
+       1.7G                             ├── remaining
+                                        │
+       2.1G                             └── source archives
+                                        │
+       2.1G                                 └── -✔- boost
+       2.1G                                        └── -✔- 1.91.0
+       2.1G   yesterday                               └── -✔- [E] boost_1_91_0
+       1.7G   yesterday                                      ├── - source assets
+    298.4M   yesterday      removed                          ├── ✔ clean/build.c++2c [gcc153/debug/x86_64]
+    113.9M   yesterday      removed                          └── ✔ clean/bin.c++2c [gcc-15*/debug]
   ------------------------------------------------------------------------------------
 
 Removed 2 trees freeing up 412.3M of disk space, leaving a final archive size of 1.7G.
@@ -387,11 +395,17 @@ Would remove 1 dependency tree (166M) under ~/.cuppa/dependencies
   ------------------------------------------------------------------------------------
        SIZE  LAST USED      REMARK     DEPENDENCY
   ------------------------------------------------------------------------------------
-    757.8M                             gitlab packages
-    757.8M                             └── boost_package  1.91
-      294M   11 days ago                   ├── - clang211_rel_x86_64_cxx2c/boost/1.91
-    297.8M   2 months ago                  ├── - gcc152_rel_x86_64_cxx2c/boost/1.91
-      166M   yesterday      would rm       └── ✔ gcc153_rel_x86_64_cxx2c/boost/1.91
+    757.8M                             related dependencies for boost_package
+      166M                             ├── removing
+    591.8M                             ├── remaining
+                                       │
+    757.8M                             └── gitlab packages
+                                       │
+    757.8M                                 └── -✔- boost_package
+    757.8M                                        └── -✔- 1.91
+      294M   11 days ago                             ├── - clang211_rel_x86_64_cxx2c/boost/1.91
+    297.8M   2 months ago                            ├── - gcc152_rel_x86_64_cxx2c/boost/1.91
+      166M   yesterday      would rm                 └── ✔ gcc153_rel_x86_64_cxx2c/boost/1.91
   ------------------------------------------------------------------------------------
 
 Leaving 2 trees (591.8M) for other selections as shown.

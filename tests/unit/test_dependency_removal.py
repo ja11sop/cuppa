@@ -667,6 +667,57 @@ def test_collect_removal_plan_wipe_includes_extract( tmp_path, monkeypatch ):
     assert str( dbg ) not in target_paths
 
 
+def test_write_removal_tree_summary_and_version_nesting():
+    """Removal reports nest version under identity and show action/remaining rollup."""
+    import io
+
+    targets = [
+            dependency_removal.RemovalTarget(
+                    dependency='boost',
+                    path='/deps/boost@1.91.0/a',
+                    qualifier='1.91.0',
+                    tool_variant='gcc',
+                    storage_type='archive',
+                    size_bytes=100,
+                    label='product-a',
+                    extra_paths=(),
+            ),
+    ]
+    leftovers = [
+            dependency_removal.Leftover(
+                    dependency='boost',
+                    path='/deps/boost@1.91.0/b',
+                    qualifier='1.91.0',
+                    tool_variant='clang',
+                    size_bytes=40,
+                    label='product-b',
+                    storage_type='archive',
+            ),
+    ]
+    out = io.StringIO()
+    dependency_removal._write_removal_tree(
+            out, targets, leftovers, {}, planning=True, root='/deps',
+            summary_label='related dependencies for boost',
+            action_label='removing',
+    )
+    text = out.getvalue()
+    lines = [ line for line in text.splitlines() if line.strip() ]
+    assert any( 'related dependencies for boost' in line for line in lines )
+    assert any( line.rstrip().endswith( 'removing' ) for line in lines )
+    assert any( line.rstrip().endswith( 'remaining' ) for line in lines )
+    assert any( line.rstrip().endswith( 'source archives' ) for line in lines )
+    boost_line = next(
+            line for line in lines
+            if line.rstrip().endswith( 'boost' ) and 'related dependencies' not in line
+    )
+    version_line = next( line for line in lines if line.rstrip().endswith( '1.91.0' ) )
+    assert '1.91.0' not in boost_line
+    # Version row is indented further than the identity row.
+    assert version_line.index( '1.91.0' ) > boost_line.index( 'boost' )
+    assert 'product-a' in text
+    assert 'product-b' in text
+
+
 def test_write_removal_tree_uses_folded_display_labels( tmp_path ):
     """Removal table must print target/leftover labels, not only primary paths."""
     import io
@@ -722,7 +773,14 @@ def test_write_removal_tree_uses_folded_display_labels( tmp_path ):
             out, targets, leftovers, outcomes, planning=True, root=str( root ),
     )
     text = out.getvalue()
+    assert 'related dependencies for' in text
+    assert 'removing' in text or 'removed' in text
+    assert 'remaining' in text
     assert 'source archives' in text
+    assert 'boost' in text
+    assert '1.91.0' in text
+    # Version nested under identity — not flattened onto one label.
+    assert 'boost  1.91.0' not in text
     assert 'archive/clean/bin.c++2c [clang-linux-21*/debug]' in text
     assert 'archive/clean/build.c++2c [clang211/debug/x86_64]' in text
     assert 'archive/patched/bin.c++2c [gcc-15*]' in text

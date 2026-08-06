@@ -1575,12 +1575,151 @@ def _group_total_bytes( group ):
     return total_bytes
 
 
+def _leaf_tree_bytes( leaf ):
+    total = int( leaf.get( 'size_bytes' ) or 0 )
+    for child in leaf.get( 'children' ) or []:
+        total += _leaf_tree_bytes( child )
+    return total
+
+
+def _collect_action_remaining_bytes( leaves ):
+    """Sum wiped/removing vs remaining bytes without double-counting extract trees."""
+    wiped = 0
+    remaining = 0
+    for leaf in leaves or []:
+        children = leaf.get( 'children' ) or []
+        if children:
+            child_wiped, child_remaining = _collect_action_remaining_bytes( children )
+            wiped += child_wiped
+            remaining += child_remaining
+            # Download / paired archive rows contribute their own file size.
+            if leaf.get( 'kind' ) == 'download':
+                if leaf.get( 'removing' ) and leaf.get( 'result' ) in (
+                        'would_rm', 'removed', 'failed',
+                ):
+                    wiped += int( leaf.get( 'size_bytes' ) or 0 )
+                elif leaf.get( 'result' ) != 'absent':
+                    remaining += int( leaf.get( 'size_bytes' ) or 0 )
+            continue
+        if leaf.get( 'result' ) == 'absent':
+            continue
+        size = int( leaf.get( 'size_bytes' ) or 0 )
+        if leaf.get( 'removing' ) and leaf.get( 'result' ) in (
+                'would_rm', 'removed', 'failed',
+        ):
+            wiped += size
+        else:
+            remaining += size
+    return wiped, remaining
+
+
+def _max_age_from_leaves( leaves ):
+    """Return ``(age_text, age_epoch)`` using the most recent child age."""
+    best_epoch = None
+    best_text = None
+    for leaf in leaves or []:
+        epoch = leaf.get( 'age_epoch' )
+        if epoch is not None and ( best_epoch is None or epoch > best_epoch ):
+            best_epoch = epoch
+            best_text = leaf.get( 'age_text' ) or '-'
+        child_text, child_epoch = _max_age_from_leaves( leaf.get( 'children' ) or [] )
+        if child_epoch is not None and ( best_epoch is None or child_epoch > best_epoch ):
+            best_epoch = child_epoch
+            best_text = child_text
+    return best_text or ( ' ' * AGE_WIDTH ).strip(), best_epoch
+
+
+def _format_age_cell( age_text, age_epoch ):
+    if age_epoch is None:
+        return ' ' * AGE_WIDTH
+    text = age_text or '-'
+    return text.ljust( AGE_WIDTH )
+
+
+def _selection_mark_for_leaves( leaves ):
+    """Return ``(mark_or_empty, remark, fully_removing)`` for a parent of ``leaves``."""
+    removing = []
+    staying = []
+
+    def walk( nodes ):
+        for leaf in nodes or []:
+            if leaf.get( 'result' ) == 'absent':
+                continue
+            children = leaf.get( 'children' ) or []
+            if children:
+                walk( children )
+                continue
+            if leaf.get( 'removing' ):
+                removing.append( leaf )
+            else:
+                staying.append( leaf )
+
+    walk( leaves )
+    if not removing and not staying:
+        return '', '', False
+    if not removing:
+        return '', '', False
+    failed = [ leaf for leaf in removing if leaf.get( 'result' ) == 'failed' ]
+    if failed and len( failed ) == len( removing ) and not staying:
+        mark = storage.with_heavy_marks( storage.outcome_triple( 'full', 'failed' ) )
+        return mark, 'failed', True
+    if failed:
+        mark = storage.with_heavy_marks( storage.outcome_triple( 'full', 'mixed' ) )
+        return mark, '', False
+    if staying:
+        mark = storage.with_heavy_marks( storage.outcome_triple( 'partial', 'removed' ) )
+        return mark, '', False
+    mark = storage.with_heavy_marks( storage.outcome_triple( 'full', 'removed' ) )
+    results = [ leaf.get( 'result' ) for leaf in removing ]
+    remark = _parent_rollup_result( results )
+    return mark, remark, True
+
+
+def _versions_from_group( group ):
+    """Split group leaves into ``(qualifier_or_None, leaves)`` buckets."""
+    from cuppa.core.dependency_identity import display_qualifier
+
+    by_qual = {}
+    order = []
+    storage_type = group.get( 'storage_type' ) or 'archive'
+    for leaf in group.get( 'leaves' ) or []:
+        raw = leaf.get( 'qualifier' )
+        key = raw if raw not in ( None, '' ) else None
+        if key not in by_qual:
+            by_qual[key] = []
+            order.append( key )
+        by_qual[key].append( leaf )
+    versions = []
+    for key in order:
+        if key is None:
+            label = None
+        else:
+            label = display_qualifier( key, storage_type )
+        versions.append( {
+            'qualifier': key,
+            'label': label,
+            'leaves': by_qual[key],
+        } )
+    return versions
+
+
+def _spacer_render_row( branch='' ):
+    return {
+        'kind': 'spacer',
+        'size': ' ' * SIZE_WIDTH,
+        'age': ' ' * AGE_WIDTH,
+        'remark': ' ' * REMARK_WIDTH,
+        'label': branch,
+        'branch': branch,
+    }
+
+
 def _write_removal_tree(
         out, targets, leftovers, outcomes_by_path, planning, root, archives=None,
         downloads=None, download_leftovers=None, downloads_root=None,
-        staying_extracts=None,
+        staying_extracts=None, summary_label=None, action_label=None,
 ):
-    """Hierarchical removal table: type → identity → leaves (list-aligned)."""
+    """Hierarchical removal table: summary → type → identity → version → leaves."""
     from cuppa.core.dependency_tree import TYPE_LABELS
 
     downloads = list( downloads or [] )
@@ -1606,12 +1745,107 @@ def _write_removal_tree(
             "REMARK".ljust( REMARK_WIDTH ),
             "DEPENDENCY",
     )
-    # Prefix before DEPENDENCY column content.
     dep_pad = SIZE_WIDTH + 2 + AGE_WIDTH + 2 + REMARK_WIDTH + 2
 
-    body_lines = []  # plain-width samples for rule sizing
+    body_lines = []
     rendered = []
 
+    all_leaves = []
+    for group in groups:
+        all_leaves.extend( group['leaves'] )
+    action_bytes, remaining_bytes = _collect_action_remaining_bytes( all_leaves )
+    total_bytes = action_bytes + remaining_bytes
+    total_age_text, total_age_epoch = _max_age_from_leaves( all_leaves )
+
+    action_leaves = []
+    remaining_leaves = []
+
+    def _partition_leaves( leaves, into_action, into_remaining ):
+        for leaf in leaves or []:
+            children = leaf.get( 'children' ) or []
+            if children:
+                _partition_leaves( children, into_action, into_remaining )
+                if leaf.get( 'kind' ) == 'download':
+                    if leaf.get( 'removing' ) and leaf.get( 'result' ) in (
+                            'would_rm', 'removed', 'failed',
+                    ):
+                        into_action.append( leaf )
+                    elif leaf.get( 'result' ) != 'absent':
+                        into_remaining.append( leaf )
+                continue
+            if leaf.get( 'result' ) == 'absent':
+                continue
+            if leaf.get( 'removing' ) and leaf.get( 'result' ) in (
+                    'would_rm', 'removed', 'failed',
+            ):
+                into_action.append( leaf )
+            else:
+                into_remaining.append( leaf )
+
+    _partition_leaves( all_leaves, action_leaves, remaining_leaves )
+    action_age_text, action_age_epoch = _max_age_from_leaves( action_leaves )
+    remaining_age_text, remaining_age_epoch = _max_age_from_leaves( remaining_leaves )
+
+    if not summary_label:
+        names = sorted( {
+                ( group.get( 'dependency' ) or '' )
+                for group in groups if group.get( 'dependency' )
+        } )
+        summary_label = "related dependencies for {}".format(
+                ', '.join( names ) if names else 'selection'
+        )
+    if not action_label:
+        action_label = 'removing' if planning else 'removed'
+
+    # Root + action + remaining under a synthetic root connector set.
+    body_lines.append( summary_label )
+    rendered.append( {
+        'kind': 'parent',
+        'size': _format_size( total_bytes ),
+        'age': _format_age_cell( total_age_text, total_age_epoch ),
+        'remark': ' ' * REMARK_WIDTH,
+        'label': summary_label,
+        'parent_remark': '',
+        'level': 'summary',
+        'fully_removing': False,
+        'mark': '',
+    } )
+
+    body_lines.append( "{}{}".format( tee, action_label ) )
+    rendered.append( {
+        'kind': 'parent',
+        'size': _format_size( action_bytes ),
+        'age': _format_age_cell( action_age_text, action_age_epoch ),
+        'remark': ' ' * REMARK_WIDTH,
+        'label': "{}{}".format( tee, action_label ),
+        'parent_remark': '',
+        'level': 'action',
+        'fully_removing': True,
+        'mark': '',
+        'name': action_label,
+        'branch': tee,
+    } )
+
+    body_lines.append( "{}{}".format( tee, 'remaining' ) )
+    rendered.append( {
+        'kind': 'parent',
+        'size': _format_size( remaining_bytes ),
+        'age': _format_age_cell( remaining_age_text, remaining_age_epoch ),
+        'remark': ' ' * REMARK_WIDTH,
+        'label': "{}{}".format( tee, 'remaining' ),
+        'parent_remark': '',
+        'level': 'remaining',
+        'fully_removing': False,
+        'mark': '',
+        'name': 'remaining',
+        'branch': tee,
+    } )
+
+    body_lines.append( pipe )
+    rendered.append( _spacer_render_row( pipe ) )
+
+    # Type clusters hang from the summary root after action/remaining.
+    type_clusters = []
     index = 0
     while index < len( groups ):
         storage_type = groups[index].get( 'storage_type' ) or 'unknown'
@@ -1621,57 +1855,134 @@ def _write_removal_tree(
         ) == storage_type:
             cluster.append( groups[index] )
             index += 1
+        type_clusters.append( ( storage_type, cluster ) )
 
+    for type_index, ( storage_type, cluster ) in enumerate( type_clusters ):
+        last_type = type_index == len( type_clusters ) - 1
+        type_connector = elbow if last_type else tee
+        type_prefix = gap if last_type else pipe
         type_label = type_labels.get( storage_type, storage_type )
         type_leaves = []
         for group in cluster:
             type_leaves.extend( group['leaves'] )
         type_bytes = sum( _group_total_bytes( group ) for group in cluster )
-        type_remark = _parent_rollup_result( _collect_leaf_results( type_leaves ) )
+        type_age_text, type_age_epoch = _max_age_from_leaves( type_leaves )
 
-        body_lines.append( type_label )
+        if type_index > 0:
+            body_lines.append( pipe if not last_type else gap )
+            rendered.append( _spacer_render_row( pipe if not last_type else gap ) )
+
+        type_line = "{}{}".format( type_connector, type_label )
+        body_lines.append( type_line )
         rendered.append( {
             'kind': 'parent',
             'size': _format_size( type_bytes ),
-            'age': ' ' * AGE_WIDTH,
-            'remark': type_remark.ljust( REMARK_WIDTH ),
-            'label': type_label,
-            'parent_remark': type_remark,
+            'age': _format_age_cell( type_age_text, type_age_epoch ),
+            'remark': ' ' * REMARK_WIDTH,
+            'label': type_line,
+            'parent_remark': '',
             'level': 'type',
+            'fully_removing': False,
+            'mark': '',
+            'name': type_label,
+            'branch': type_connector,
         } )
+
+        # Spacer under type before first identity.
+        body_lines.append( type_prefix.rstrip() )
+        rendered.append( _spacer_render_row( type_prefix.rstrip() ) )
 
         for group_index, group in enumerate( cluster ):
             last_identity = group_index == len( cluster ) - 1
-            connector = elbow if last_identity else tee
-            identity_prefix = ( gap if last_identity else pipe ) + '   '
-            leaves = group['leaves']
+            id_connector = elbow if last_identity else tee
+            id_branch = type_prefix + id_connector
+            id_prefix = type_prefix + ( gap if last_identity else pipe )
+            versions = _versions_from_group( group )
+            identity_leaves = group['leaves']
             total_bytes = _group_total_bytes( group )
-            parent_label = group['dependency']
-            if group.get( 'parent_qualifier' ):
-                parent_label = "{}  {}".format( parent_label, group['parent_qualifier'] )
-            if group.get( 'extract_bytes' ) is not None:
-                parent_remark = ''
-            else:
-                parent_remark = _parent_rollup_result( _collect_leaf_results( leaves ) )
+            id_age_text, id_age_epoch = _max_age_from_leaves( identity_leaves )
+            id_mark, id_remark, id_full = _selection_mark_for_leaves( identity_leaves )
+            # Archive product-clean: identity remark stays blank (source assets remain).
+            if group.get( 'extract_bytes' ) is not None and not id_full:
+                id_remark = ''
 
-            identity_line = "{} {}".format( connector, parent_label )
+            if group_index > 0:
+                body_lines.append( type_prefix.rstrip() )
+                rendered.append( _spacer_render_row( type_prefix.rstrip() ) )
+
+            name = group['dependency'] or '-'
+            if id_mark:
+                identity_line = "{}{} {}".format( id_branch, id_mark, name )
+            else:
+                identity_line = "{}{}".format( id_branch, name )
             body_lines.append( identity_line )
             rendered.append( {
                 'kind': 'parent',
                 'size': _format_size( total_bytes ),
-                'age': ' ' * AGE_WIDTH,
-                'remark': parent_remark.ljust( REMARK_WIDTH ),
+                'age': _format_age_cell( id_age_text, id_age_epoch ),
+                'remark': id_remark.ljust( REMARK_WIDTH ),
                 'label': identity_line,
-                'parent_remark': parent_remark,
+                'parent_remark': id_remark,
                 'level': 'identity',
+                'fully_removing': id_full,
+                'mark': id_mark,
+                'name': name,
+                'branch': id_branch,
             } )
 
-            rows, labels = _flatten_removal_leaves(
-                    leaves, tee, elbow, pipe, gap, check, ballot,
-                    prefix=identity_prefix,
-            )
-            body_lines.extend( labels )
-            rendered.extend( rows )
+            # Qualifier nesting: skip version row when no qualifier on any leaf.
+            has_version_rows = any( version.get( 'label' ) for version in versions )
+            if not has_version_rows:
+                rows, labels = _flatten_removal_leaves(
+                        identity_leaves, tee, elbow, pipe, gap, check, ballot,
+                        prefix=id_prefix,
+                )
+                body_lines.extend( labels )
+                rendered.extend( rows )
+                continue
+
+            for ver_index, version in enumerate( versions ):
+                last_version = ver_index == len( versions ) - 1
+                ver_connector = elbow if last_version else tee
+                ver_branch = id_prefix + ver_connector
+                ver_prefix = id_prefix + ( gap if last_version else pipe )
+                ver_leaves = version['leaves']
+                ver_bytes = sum( _leaf_tree_bytes( leaf ) for leaf in ver_leaves )
+                # Prefer group extract sizing when this is the sole archive version.
+                if (
+                        group.get( 'extract_bytes' ) is not None
+                        and len( versions ) == 1
+                ):
+                    ver_bytes = _group_total_bytes( group )
+                ver_age_text, ver_age_epoch = _max_age_from_leaves( ver_leaves )
+                ver_mark, ver_remark, ver_full = _selection_mark_for_leaves( ver_leaves )
+                if group.get( 'extract_bytes' ) is not None and not ver_full:
+                    ver_remark = ''
+                ver_label = version['label'] or '-'
+                if ver_mark:
+                    version_line = "{}{} {}".format( ver_branch, ver_mark, ver_label )
+                else:
+                    version_line = "{}{}".format( ver_branch, ver_label )
+                body_lines.append( version_line )
+                rendered.append( {
+                    'kind': 'parent',
+                    'size': _format_size( ver_bytes ),
+                    'age': _format_age_cell( ver_age_text, ver_age_epoch ),
+                    'remark': ver_remark.ljust( REMARK_WIDTH ),
+                    'label': version_line,
+                    'parent_remark': ver_remark,
+                    'level': 'version',
+                    'fully_removing': ver_full,
+                    'mark': ver_mark,
+                    'name': ver_label,
+                    'branch': ver_branch,
+                } )
+                rows, labels = _flatten_removal_leaves(
+                        ver_leaves, tee, elbow, pipe, gap, check, ballot,
+                        prefix=ver_prefix,
+                )
+                body_lines.extend( labels )
+                rendered.extend( rows )
 
     width = max(
             len( header ),
@@ -1684,30 +1995,90 @@ def _write_removal_tree(
     out.write( as_subdued( _rule_line( width - len( INDENT ) ) ) + "\n" )
 
     for row in rendered:
+        if row['kind'] == 'spacer':
+            out.write( "{}{}  {}  {}  {}\n".format(
+                    INDENT,
+                    row['size'],
+                    row['age'],
+                    row['remark'],
+                    as_subdued( row.get( 'branch' ) or '' ),
+            ) )
+            continue
+
         if row['kind'] == 'parent':
-            remark = row['parent_remark']
+            remark = row.get( 'parent_remark' ) or ''
             if remark == 'failed':
                 remark_cell = as_remove_error( remark.ljust( REMARK_WIDTH ) )
             elif remark:
                 remark_cell = as_remove_notice( remark.ljust( REMARK_WIDTH ) )
             else:
                 remark_cell = ' ' * REMARK_WIDTH
-            label = row['label']
-            if row.get( 'level' ) == 'type':
-                label = as_emphasised( label )
-            elif row.get( 'level' ) == 'identity':
-                # Branch glyph subdued; identity name emphasised.
-                parts = label.split( ' ', 1 )
-                if len( parts ) == 2:
-                    label = "{} {}".format( as_subdued( parts[0] ), as_emphasised( parts[1] ) )
+
+            level = row.get( 'level' )
+            branch = row.get( 'branch' ) or ''
+            name = row.get( 'name' )
+            mark = row.get( 'mark' ) or ''
+
+            if level == 'summary':
+                size_cell = as_emphasised( row['size'] )
+                age_cell = row['age']
+                label = as_emphasised( row['label'] )
+            elif level == 'action':
+                size_cell = as_emphasised( as_remove_notice( row['size'] ) )
+                age_cell = row['age']
+                label = "{}{}".format(
+                        as_subdued( branch ),
+                        as_emphasised( as_remove_notice( name ) ),
+                )
+            elif level == 'remaining':
+                size_cell = as_subdued( row['size'] )
+                age_cell = as_subdued( row['age'] )
+                label = "{}{}".format(
+                        as_subdued( branch ),
+                        as_subdued( name ),
+                )
+            elif level == 'type':
+                size_cell = row['size']
+                age_cell = row['age']
+                label = "{}{}".format( as_subdued( branch ), name )
+            elif level in ( 'identity', 'version' ):
+                if row.get( 'fully_removing' ):
+                    size_cell = as_emphasised( as_remove_notice( row['size'] ) )
+                    age_cell = row['age']
+                    if mark:
+                        label = "{}{} {}".format(
+                                as_subdued( branch ),
+                                as_remove_notice( mark ),
+                                as_emphasised( as_remove_notice( name ) ),
+                        )
+                    else:
+                        label = "{}{}".format(
+                                as_subdued( branch ),
+                                as_emphasised( as_remove_notice( name ) ),
+                        )
                 else:
-                    label = as_emphasised( label )
+                    size_cell = as_subdued( row['size'] ) if level == 'identity' else row['size']
+                    age_cell = as_subdued( row['age'] ) if level == 'identity' else row['age']
+                    if mark:
+                        label = "{}{} {}".format(
+                                as_subdued( branch ),
+                                mark,
+                                as_emphasised( name ),
+                        )
+                    else:
+                        label = "{}{}".format(
+                                as_subdued( branch ),
+                                as_emphasised( name ),
+                        )
             else:
-                label = as_emphasised( label )
+                size_cell = as_subdued( row['size'] )
+                age_cell = row['age']
+                label = as_emphasised( row['label'] )
+
             out.write( "{}{}  {}  {}  {}\n".format(
                     INDENT,
-                    as_subdued( row['size'] ),
-                    row['age'],
+                    size_cell,
+                    age_cell,
                     remark_cell,
                     label,
             ) )
@@ -2152,6 +2523,12 @@ def remove_dependencies( construct, cuppa_env, out=None ):
                     out, [], leftovers, {}, planning, root, archives=archives,
                     downloads=download_targets, download_leftovers=download_leftovers,
                     downloads_root=downloads_root, staying_extracts=staying_extracts,
+                    summary_label="related dependencies for {}".format(
+                            ', '.join( names ) if names else 'selection'
+                    ),
+                    action_label=(
+                            'wiped' if wipe else ( 'removing' if planning else 'removed' )
+                    ),
             )
             _write_leftovers_summary( out, leftovers, download_leftovers )
         _write_develop_skips( out, develop_skips )
@@ -2295,6 +2672,12 @@ def remove_dependencies( construct, cuppa_env, out=None ):
             out, targets, leftovers, outcomes_by_path, planning, root, archives=archives,
             downloads=download_targets, download_leftovers=download_leftovers,
             downloads_root=downloads_root, staying_extracts=staying_extracts,
+            summary_label="related dependencies for {}".format(
+                    ', '.join( names ) if names else 'selection'
+            ),
+            action_label=(
+                    'wiped' if wipe else ( 'removing' if planning else 'removed' )
+            ),
     )
     _write_leftovers_summary( out, leftovers, download_leftovers )
     _write_develop_skips( out, develop_skips )
@@ -2564,13 +2947,18 @@ def _collect_force_wipe_context( rows, dl_rows, targets, download_targets ):
 def _execute_force_wipe(
         out, root, downloads_root, targets, download_targets, planning,
         notes=None, used_by_warnings=None, unreferenced=False,
-        leftovers=None, download_leftovers=None,
+        leftovers=None, download_leftovers=None, summary_label=None,
 ):
     """Announce, delete, and report a force-wipe plan."""
     notes = notes or []
     used_by_warnings = used_by_warnings or []
     leftovers = list( leftovers or [] )
     download_leftovers = list( download_leftovers or [] )
+    if not summary_label:
+        summary_label = (
+                'unreferenced dependencies' if unreferenced
+                else 'related dependencies for selection'
+        )
     actionable_downloads = [ item for item in download_targets if not item.missing ]
     if not targets and not actionable_downloads:
         out.write( "nothing to wipe under the requested force-wipe selection\n" )
@@ -2586,6 +2974,8 @@ def _execute_force_wipe(
                     out, [], leftovers, {}, planning, root,
                     downloads=[], download_leftovers=download_leftovers,
                     downloads_root=downloads_root, staying_extracts=[],
+                    summary_label=summary_label,
+                    action_label='wiped',
             )
         _write_verify( out, wipe=True, unreferenced=unreferenced )
         return 0
@@ -2710,6 +3100,8 @@ def _execute_force_wipe(
             out, targets, leftovers, outcomes_by_path, planning, root,
             downloads=download_targets, download_leftovers=download_leftovers,
             downloads_root=downloads_root, staying_extracts=[],
+            summary_label=summary_label,
+            action_label='wiped',
     )
 
     if failures:
@@ -2918,10 +3310,17 @@ def force_wipe_dependencies( construct, cuppa_env, out=None ):
     leftovers, download_leftovers = _collect_force_wipe_context(
             rows, dl_rows, targets, download_targets,
     )
+    raw_spec = cuppa_env.get( 'force_wipe_dependencies' )
+    if isinstance( raw_spec, ( list, tuple ) ):
+        raw_spec = raw_spec[0] if raw_spec else ''
+    summary_label = "related dependencies for {}".format(
+            str( raw_spec ).strip() or 'selection'
+    )
     return _execute_force_wipe(
             out, root, downloads_root, targets, download_targets, planning,
             notes=notes, used_by_warnings=used_by_warnings, unreferenced=False,
             leftovers=leftovers, download_leftovers=download_leftovers,
+            summary_label=summary_label,
     )
 
 
@@ -3009,4 +3408,5 @@ def force_wipe_unreferenced_dependencies( construct, cuppa_env, out=None ):
     return _execute_force_wipe(
             out, root, downloads_root, targets, download_targets, planning,
             notes=notes, used_by_warnings=used_by_warnings, unreferenced=True,
+            summary_label='unreferenced dependencies',
     )
