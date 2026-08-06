@@ -60,6 +60,22 @@ def test_resolve_requested_names_accepts_builtin_when_defaulted():
     assert names == [ 'boost' ]
 
 
+def test_resolve_requested_names_accepts_selectors_and_stores_tokens():
+    cuppa_env = {
+        'remove_dependencies': '[source]boost,[gitlab]boost_package',
+        'dependencies': { 'boost': object(), 'boost_package': object() },
+        'default_dependencies': [ 'boost', 'boost_package' ],
+        'declared_dependencies': [],
+    }
+    names, error = dependency_removal.resolve_requested_names( cuppa_env )
+    assert error is None
+    assert names == [ 'boost', 'boost_package' ]
+    assert cuppa_env['dependency_tokens'] == [
+            ( 'archive', 'boost', None ),
+            ( 'gitlab', 'boost_package', None ),
+    ]
+
+
 def test_resolve_requested_names_purge_flags_use_same_gate():
     cuppa_env = {
         'purge_dependencies': 'widgt',
@@ -624,6 +640,7 @@ def test_write_removal_tree_uses_folded_display_labels( tmp_path ):
                     tool_variant='gcc-15*',
                     size_bytes=40,
                     label='archive/patched/bin.c++2c [gcc-15*]',
+                    storage_type='archive',
             ),
     ]
     out = io.StringIO()
@@ -635,6 +652,7 @@ def test_write_removal_tree_uses_folded_display_labels( tmp_path ):
             out, targets, leftovers, outcomes, planning=True, root=str( root ),
     )
     text = out.getvalue()
+    assert 'source archives' in text
     assert 'archive/clean/bin.c++2c [clang-linux-21*/debug]' in text
     assert 'archive/clean/build.c++2c [clang211/debug/x86_64]' in text
     assert 'archive/patched/bin.c++2c [gcc-15*]' in text
@@ -768,6 +786,7 @@ def test_write_removal_tree_nests_extract_rollup_under_download( tmp_path ):
                     tool_variant='gcc153/release/x86_64',
                     size_bytes=8,
                     label='boost_source/clean/build.c++2c [gcc153/release/x86_64]',
+                    storage_type='archive',
             ),
     ]
     archives = dependency_removal._archive_contexts(

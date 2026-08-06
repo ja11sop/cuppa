@@ -55,8 +55,12 @@ RemovalTarget = namedtuple(
 
 Leftover = namedtuple(
     'Leftover',
-    [ 'dependency', 'path', 'qualifier', 'tool_variant', 'size_bytes', 'label' ],
+    [
+        'dependency', 'path', 'qualifier', 'tool_variant', 'size_bytes', 'label',
+        'storage_type',
+    ],
 )
+Leftover.__new__.__defaults__ = ( None, )
 
 DevelopSkip = namedtuple(
     'DevelopSkip',
@@ -173,7 +177,13 @@ def resolve_requested_names( cuppa_env ):
     ``error`` is ``None`` on success, a string for empty input, or
     :class:`UnknownDependencyNames` when names are not project-used.
     ``--*-all-dependencies`` with no project-used names yields an empty list.
+
+    Accepts shared ``[selector]name[/qualifier]`` tokens (§4.15). Selectors and
+    leaf qualifiers are stored on ``cuppa_env['dependency_tokens']`` for later
+    filtering; this function still returns the resolved project-used **names**.
     """
+    from cuppa.core import dependency_tokens
+
     project_used = project_dependency_names( cuppa_env )
     project_set = set( project_used )
 
@@ -182,35 +192,62 @@ def resolve_requested_names( cuppa_env ):
             or cuppa_env.get( 'purge_all_dependencies' )
             or cuppa_env.get( 'force_wipe_all_dependencies' )
     ):
+        cuppa_env['dependency_tokens'] = [
+                ( None, name, None ) for name in project_used
+        ]
         return list( project_used ), None
 
-    names = parse_dependency_names(
+    spec = (
             cuppa_env.get( 'wipe_dependencies' )
             or cuppa_env.get( 'purge_dependencies' )
             or cuppa_env.get( 'remove_dependencies' )
     )
-    if not names:
-        return [], (
-                "no dependency names given (use --remove-dependencies=name, "
-                "--purge-dependencies=name, --wipe-dependencies=name, "
-                "--remove-all-dependencies, --purge-all-dependencies, or "
-                "--force-wipe-all-dependencies)"
-        )
+    tokens, error = dependency_tokens.parse_dependency_tokens( spec )
+    if error:
+        if error == "no dependency tokens given":
+            return [], (
+                    "no dependency names given (use --remove-dependencies=name, "
+                    "--purge-dependencies=name, --wipe-dependencies=name, "
+                    "--remove-all-dependencies, --purge-all-dependencies, or "
+                    "--force-wipe-all-dependencies)"
+            )
+        return [], error
 
-    unknown = [ name for name in names if name not in project_set ]
+    resolved_tokens = []
+    unknown = []
+    ordered_names = []
+    seen_names = set()
+    for storage_type, name, qualifier in tokens:
+        if dependency_tokens.is_wildcard_pattern( name ):
+            matched = [
+                    project for project in project_used
+                    if dependency_tokens.name_matches( name, project )
+            ]
+            if not matched:
+                unknown.append( name )
+                continue
+            for project in matched:
+                resolved_tokens.append( ( storage_type, project, qualifier ) )
+                if project not in seen_names:
+                    seen_names.add( project )
+                    ordered_names.append( project )
+            continue
+        if name not in project_set:
+            unknown.append( name )
+            continue
+        resolved_tokens.append( ( storage_type, name, qualifier ) )
+        if name not in seen_names:
+            seen_names.add( name )
+            ordered_names.append( name )
+
     if unknown:
         return [], UnknownDependencyNames(
                 unknown=tuple( unknown ),
                 project_used=tuple( project_used ),
         )
-    # Preserve order, drop duplicates.
-    seen = set()
-    ordered = []
-    for name in names:
-        if name not in seen:
-            seen.add( name )
-            ordered.append( name )
-    return ordered, None
+
+    cuppa_env['dependency_tokens'] = resolved_tokens
+    return ordered_names, None
 
 
 def _dependencies_root( cuppa_env ):
@@ -301,6 +338,7 @@ def _sibling_leftovers( root, target, remove_reals ):
                 tool_variant=name,
                 size_bytes=_measure_bytes( candidate ),
                 label=_path_label( target.dependency, version, name ),
+                storage_type=target.storage_type,
             ) )
         return leftovers
 
@@ -328,6 +366,7 @@ def _sibling_leftovers( root, target, remove_reals ):
                 tool_variant=None,
                 size_bytes=_measure_bytes( candidate ),
                 label=_path_label( target.dependency, fingerprint[:16], None ),
+                storage_type=target.storage_type,
             ) )
         return leftovers
 
@@ -362,6 +401,7 @@ def _sibling_leftovers( root, target, remove_reals ):
             tool_variant=None,
             size_bytes=_measure_bytes( candidate ),
             label=_path_label( target.dependency, other_qual or '@', None ),
+            storage_type=target.storage_type,
         ) )
     return leftovers
 
@@ -588,6 +628,7 @@ def _product_leftovers( dependency, extract, home, remove_reals, storage_type, q
             tool_variant=( tool_variant or label ).replace( '\\', '/' ),
             size_bytes=size_bytes,
             label=label,
+            storage_type='archive',
         ) )
     return leftovers
 
@@ -1287,23 +1328,29 @@ def _group_removal_rows(
         downloads=None, download_leftovers=None, downloads_root=None,
         staying_extracts=None,
 ):
-    """Group targets and leftovers by dependency for the removal tree."""
+    """Group targets and leftovers by storage type and dependency for the removal tree."""
+    from cuppa.core.dependency_storage import normalise_storage_type
+    from cuppa.core.dependency_tree import TYPE_LABELS
+
     groups = {}
     archives = archives or []
     downloads = list( downloads or [] )
     download_leftovers = list( download_leftovers or [] )
     staying_extracts = list( staying_extracts or [] )
 
-    def ensure( dependency ):
-        if dependency not in groups:
-            groups[dependency] = {
+    def ensure( dependency, storage_type=None ):
+        storage_type = normalise_storage_type( storage_type ) or storage_type or 'unknown'
+        key = ( storage_type, dependency )
+        if key not in groups:
+            groups[key] = {
                 'dependency': dependency,
+                'storage_type': storage_type,
                 'qualifiers': set(),
                 'leaves': [],
                 'extract_bytes': None,
                 'download_bytes': 0,
             }
-        return groups[dependency]
+        return groups[key]
 
     product_leaves = [
             _product_leaf( target, outcomes_by_path, planning, root, True )
@@ -1334,7 +1381,7 @@ def _group_removal_rows(
                 label=os.path.basename( str( archive['extract'] ).rstrip( '\\/' ) ),
                 extra_paths=(),
         ) )
-        group = ensure( archive['dependency'] )
+        group = ensure( archive['dependency'], 'archive' )
         if archive.get( 'qualifier' ):
             group['qualifiers'].add( archive['qualifier'] )
         group['extract_bytes'] = archive['extract_bytes']
@@ -1384,7 +1431,7 @@ def _group_removal_rows(
         return children
 
     for download in downloads:
-        group = ensure( download.dependency )
+        group = ensure( download.dependency, download.storage_type )
         if download.qualifier:
             group['qualifiers'].add( download.qualifier )
         group['leaves'].append( _download_leaf(
@@ -1394,7 +1441,7 @@ def _group_removal_rows(
         group['download_bytes'] += download.size_bytes
 
     for leftover_dl in download_leftovers:
-        group = ensure( leftover_dl.dependency )
+        group = ensure( leftover_dl.dependency, leftover_dl.storage_type )
         if leftover_dl.qualifier:
             group['qualifiers'].add( leftover_dl.qualifier )
         group['leaves'].append( _download_leaf(
@@ -1410,7 +1457,7 @@ def _group_removal_rows(
         real = storage.real_path( node['path'] )
         if real in used_rollup_reals:
             continue
-        group = ensure( node['dependency'] )
+        group = ensure( node['dependency'], 'archive' )
         if node.get( 'qualifier' ):
             group['qualifiers'].add( node['qualifier'] )
         group['leaves'].append( node )
@@ -1419,7 +1466,7 @@ def _group_removal_rows(
         real = storage.real_path( target.path )
         if real in used_pair_reals:
             continue
-        group = ensure( target.dependency )
+        group = ensure( target.dependency, target.storage_type )
         if target.qualifier:
             group['qualifiers'].add( target.qualifier )
         group['leaves'].append(
@@ -1430,7 +1477,10 @@ def _group_removal_rows(
         real = storage.real_path( leftover.path )
         if real in used_pair_reals:
             continue
-        group = ensure( leftover.dependency )
+        group = ensure(
+                leftover.dependency,
+                getattr( leftover, 'storage_type', None ),
+        )
         if leftover.qualifier:
             group['qualifiers'].add( leftover.qualifier )
         group['leaves'].append(
@@ -1447,7 +1497,12 @@ def _group_removal_rows(
         ) )
         quals = group['qualifiers']
         group['parent_qualifier'] = next( iter( quals ) ) if len( quals ) == 1 else None
-    return [ groups[name] for name in sorted( groups ) ]
+
+    type_order = { key: index for index, ( key, _label ) in enumerate( TYPE_LABELS ) }
+    return sorted( groups.values(), key=lambda group: (
+            type_order.get( group['storage_type'], 99 ),
+            ( group['dependency'] or '' ).lower(),
+    ) )
 
 
 def _collect_leaf_results( leaves ):
@@ -1507,12 +1562,26 @@ def _flatten_removal_leaves( leaves, tee, elbow, pipe, gap, check, ballot, prefi
     return rows, labels
 
 
+def _group_total_bytes( group ):
+    download_bytes = group.get( 'download_bytes' ) or 0
+    if group.get( 'extract_bytes' ) is not None:
+        return group['extract_bytes'] + download_bytes
+    total_bytes = sum( leaf['size_bytes'] for leaf in group['leaves'] )
+    for leaf in group['leaves']:
+        total_bytes += sum(
+                child['size_bytes'] for child in ( leaf.get( 'children' ) or [] )
+        )
+    return total_bytes
+
+
 def _write_removal_tree(
         out, targets, leftovers, outcomes_by_path, planning, root, archives=None,
         downloads=None, download_leftovers=None, downloads_root=None,
         staying_extracts=None,
 ):
-    """Hierarchical removal table: identity rollup, selected leaves, muted leftovers."""
+    """Hierarchical removal table: type → identity → leaves (list-aligned)."""
+    from cuppa.core.dependency_tree import TYPE_LABELS
+
     downloads = list( downloads or [] )
     download_leftovers = list( download_leftovers or [] )
     staying_extracts = list( staying_extracts or [] )
@@ -1527,6 +1596,7 @@ def _write_removal_tree(
             downloads=downloads, download_leftovers=download_leftovers,
             downloads_root=downloads_root, staying_extracts=staying_extracts,
     )
+    type_labels = dict( TYPE_LABELS )
 
     header = "{}{}  {}  {}  {}".format(
             INDENT,
@@ -1541,41 +1611,66 @@ def _write_removal_tree(
     body_lines = []  # plain-width samples for rule sizing
     rendered = []
 
-    for group in groups:
-        leaves = group['leaves']
-        download_bytes = group.get( 'download_bytes' ) or 0
-        if group.get( 'extract_bytes' ) is not None:
-            total_bytes = group['extract_bytes'] + download_bytes
-        else:
-            total_bytes = sum( leaf['size_bytes'] for leaf in leaves )
-            for leaf in leaves:
-                total_bytes += sum(
-                        child['size_bytes'] for child in ( leaf.get( 'children' ) or [] )
-                )
-        parent_label = group['dependency']
-        if group.get( 'parent_qualifier' ):
-            parent_label = "{}  {}".format( parent_label, group['parent_qualifier'] )
-        # Archive identity is never fully removed (source assets stay) — no parent REMARK.
-        if group.get( 'extract_bytes' ) is not None:
-            parent_remark = ''
-        else:
-            parent_remark = _parent_rollup_result( _collect_leaf_results( leaves ) )
+    index = 0
+    while index < len( groups ):
+        storage_type = groups[index].get( 'storage_type' ) or 'unknown'
+        cluster = []
+        while index < len( groups ) and (
+                groups[index].get( 'storage_type' ) or 'unknown'
+        ) == storage_type:
+            cluster.append( groups[index] )
+            index += 1
 
-        body_lines.append( parent_label )
+        type_label = type_labels.get( storage_type, storage_type )
+        type_leaves = []
+        for group in cluster:
+            type_leaves.extend( group['leaves'] )
+        type_bytes = sum( _group_total_bytes( group ) for group in cluster )
+        type_remark = _parent_rollup_result( _collect_leaf_results( type_leaves ) )
+
+        body_lines.append( type_label )
         rendered.append( {
             'kind': 'parent',
-            'size': _format_size( total_bytes ),
+            'size': _format_size( type_bytes ),
             'age': ' ' * AGE_WIDTH,
-            'remark': parent_remark.ljust( REMARK_WIDTH ),
-            'label': parent_label,
-            'parent_remark': parent_remark,
+            'remark': type_remark.ljust( REMARK_WIDTH ),
+            'label': type_label,
+            'parent_remark': type_remark,
+            'level': 'type',
         } )
 
-        rows, labels = _flatten_removal_leaves(
-                leaves, tee, elbow, pipe, gap, check, ballot,
-        )
-        body_lines.extend( labels )
-        rendered.extend( rows )
+        for group_index, group in enumerate( cluster ):
+            last_identity = group_index == len( cluster ) - 1
+            connector = elbow if last_identity else tee
+            identity_prefix = ( gap if last_identity else pipe ) + '   '
+            leaves = group['leaves']
+            total_bytes = _group_total_bytes( group )
+            parent_label = group['dependency']
+            if group.get( 'parent_qualifier' ):
+                parent_label = "{}  {}".format( parent_label, group['parent_qualifier'] )
+            if group.get( 'extract_bytes' ) is not None:
+                parent_remark = ''
+            else:
+                parent_remark = _parent_rollup_result( _collect_leaf_results( leaves ) )
+
+            identity_line = "{} {}".format( connector, parent_label )
+            body_lines.append( identity_line )
+            rendered.append( {
+                'kind': 'parent',
+                'size': _format_size( total_bytes ),
+                'age': ' ' * AGE_WIDTH,
+                'remark': parent_remark.ljust( REMARK_WIDTH ),
+                'label': identity_line,
+                'parent_remark': parent_remark,
+                'level': 'identity',
+            } )
+
+            rows, labels = _flatten_removal_leaves(
+                    leaves, tee, elbow, pipe, gap, check, ballot,
+                    prefix=identity_prefix,
+            )
+            body_lines.extend( labels )
+            rendered.extend( rows )
 
     width = max(
             len( header ),
@@ -1596,12 +1691,24 @@ def _write_removal_tree(
                 remark_cell = as_remove_notice( remark.ljust( REMARK_WIDTH ) )
             else:
                 remark_cell = ' ' * REMARK_WIDTH
+            label = row['label']
+            if row.get( 'level' ) == 'type':
+                label = as_emphasised( label )
+            elif row.get( 'level' ) == 'identity':
+                # Branch glyph subdued; identity name emphasised.
+                parts = label.split( ' ', 1 )
+                if len( parts ) == 2:
+                    label = "{} {}".format( as_subdued( parts[0] ), as_emphasised( parts[1] ) )
+                else:
+                    label = as_emphasised( label )
+            else:
+                label = as_emphasised( label )
             out.write( "{}{}  {}  {}  {}\n".format(
                     INDENT,
                     as_subdued( row['size'] ),
                     row['age'],
                     remark_cell,
-                    as_emphasised( row['label'] ),
+                    label,
             ) )
             continue
 

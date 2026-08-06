@@ -151,6 +151,7 @@ def test_write_removal_tree_nests_download_and_extract( tmp_path ):
             tool_variant='clang999_dbg_x86_64_cxx2c',
             size_bytes=10,
             label='clang999_dbg_x86_64_cxx2c/boost/1.91',
+            storage_type='gitlab',
     )
     leftover_extract_path = deps / 'clang999_dbg_x86_64_cxx2c' / 'boost' / '1.91'
     leftover_extract_path.mkdir( parents=True )
