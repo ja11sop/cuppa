@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `--wipe-dependencies=name` clear-down of project-used extracts and matching downloads for the
+  current selection (bypasses `storage_clean` product-only behaviour). Power tools:
+  `--force-wipe-dependencies` with `[selector]name/qualifier` tokens (e.g. `[source]boost/1.8*`,
+  `fmt/@11.1.1`; untyped tokens match all storage buckets) plus `--force-wipe-all-dependencies`
+  and `--force-wipe-unreferenced-dependencies`. The same token grammar applies to
+  `--remove-dependencies`, `--purge-dependencies`, and `--wipe-dependencies`. Removal reports nest
+  **summary → type → identity → version → leaves** with removing/wiped vs remaining rollups.
+  List/storage type `location` renamed to `repository` (Python `location_dependency()` unchanged).
+  Partial force-wipe reports keep unmatched same-identity siblings visible. Do not combine wipe
+  modes with remove or purge (#146).
 - `--list-develop --list-format=json` emits structured develop-copy state for agents and scripts
   (`entries`, `would_update`, `worst_severity`, and the same context as the text banner). Text
   output is unchanged; exit status still fails when a develop path is missing (#148).
@@ -211,6 +221,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Removal-report spacer rows use encoding-safe tree glyphs (ASCII `|` on legacy Windows
+  consoles) instead of a hardcoded box-drawing pipe that raised `UnicodeEncodeError` under
+  `cp1252` (#146).
 - Boost archive-clean integration planting follows `Clang.name()` when
   `--clang-stdlib=libc++` is active (stage path `clangNNN-libc++`), so the
   `clang-libc++` CI cell matches remove selection (#134).

@@ -26,7 +26,7 @@ from cuppa.utility import storage
 
 
 TYPE_LABELS = (
-    ( 'location', 'location dependencies' ),
+    ( 'repository', 'repository dependencies' ),
     ( 'gitlab', 'gitlab packages' ),
     ( 'conan', 'conan packages' ),
     ( 'archive', 'source archives' ),
@@ -199,7 +199,7 @@ def build_tree( leaves ):
 
     def sort_idents( items ):
         return sorted( items, key=lambda node: (
-                0 if node['type'] == 'location' else
+                0 if node['type'] == 'repository' else
                 1 if node['type'] == 'gitlab' else
                 2 if node['type'] == 'conan' else
                 3 if node['type'] == 'archive' else 4,
@@ -223,7 +223,7 @@ def _build_identity( group, section ):
 
     if storage_type == 'gitlab':
         children = _gitlab_children( leaves_in )
-    elif storage_type == 'location':
+    elif storage_type == 'repository':
         children = _location_children( leaves_in )
     elif storage_type == 'conan':
         children = _flat_variant_children( leaves_in, label_key='qualifier' )
@@ -251,7 +251,7 @@ def _build_identity( group, section ):
     # LOCATION (verbose): location identities show the bare repository URL (no branch);
     # each leaf carries URL@branch. GitLab identity stays blank — version holds the registry URL.
     location = ''
-    if storage_type == 'location':
+    if storage_type == 'repository':
         base = remote_location or ''
         if not base:
             for leaf in leaves_in:
@@ -299,7 +299,7 @@ def _build_identity( group, section ):
 def _location_children( leaves_in ):
     by_qual = {}
     for leaf in leaves_in:
-        qual = display_qualifier( leaf.get( 'qualifier' ), 'location' )
+        qual = display_qualifier( leaf.get( 'qualifier' ), 'repository' )
         by_qual.setdefault( qual, [] ).append( leaf )
     children = []
     # `@` (unspecified) first, then alpha.

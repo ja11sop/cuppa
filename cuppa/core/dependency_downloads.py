@@ -570,7 +570,7 @@ def build_downloads_tree( rows ):
 
     def sort_idents( items ):
         return sorted( items, key=lambda node: (
-                0 if node['type'] == 'location' else
+                0 if node['type'] == 'repository' else
                 1 if node['type'] == 'gitlab' else
                 2 if node['type'] == 'conan' else
                 3 if node['type'] == 'archive' else 4,

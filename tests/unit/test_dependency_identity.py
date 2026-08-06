@@ -214,10 +214,10 @@ def test_archive_tree_marks_download_on_location():
 
 
 def test_display_qualifier_unspecified_is_at():
-    assert display_qualifier( None, 'location' ) == '@'
-    assert display_qualifier( '-', 'location' ) == '@'
-    assert display_qualifier( '@master', 'location' ) == '@master'
-    assert display_qualifier( 'master', 'location' ) == '@master'
+    assert display_qualifier( None, 'repository' ) == '@'
+    assert display_qualifier( '-', 'repository' ) == '@'
+    assert display_qualifier( '@master', 'repository' ) == '@master'
+    assert display_qualifier( 'master', 'repository' ) == '@master'
 
 
 def test_unqualified_default_branch_label():
@@ -245,7 +245,7 @@ def test_unqualified_default_branch_label():
 def test_tree_groups_referenced_siblings():
     leaves = [
         {
-            'type': 'location',
+            'type': 'repository',
             'dependency': 'baa',
             'short_name': 'git.clearpool.io/cplx_core/baa',
             'stem': 'git_ssh_git@git.clearpool.io__cplx_core_baa',
@@ -259,7 +259,7 @@ def test_tree_groups_referenced_siblings():
             'source_url': 'ssh://git@git.clearpool.io/cplx_core/baa',
         },
         {
-            'type': 'location',
+            'type': 'repository',
             'dependency': 'git_ssh_git@git.clearpool.io__cplx_core_baa',
             'short_name': 'git.clearpool.io/cplx_core/baa',
             'stem': 'git_ssh_git@git.clearpool.io__cplx_core_baa',
@@ -314,7 +314,7 @@ def test_tree_groups_referenced_siblings():
 def test_tree_missing_identity_prefers_remote_location():
     leaves = [
         {
-            'type': 'location',
+            'type': 'repository',
             'dependency': 'matching_facility',
             'short_name': 'git.clearpool.io/cplx_core/matching_facility',
             'stem': 'git_ssh_git@git.clearpool.io__cplx_core_matching_facility',
@@ -408,7 +408,7 @@ def test_render_missing_dependency_emphasises_name_errors_children():
 
     leaves = [
         {
-            'type': 'location',
+            'type': 'repository',
             'dependency': 'matching_facility',
             'short_name': 'git.clearpool.io/cplx_core/matching_facility',
             'qualifier': '@',
@@ -468,7 +468,7 @@ def test_render_package_mutes_version_size_keeps_in_use_size():
 def test_spacer_between_identities():
     leaves = [
         {
-            'type': 'location',
+            'type': 'repository',
             'dependency': 'alpha',
             'short_name': 'alpha',
             'qualifier': '@master',
@@ -479,7 +479,7 @@ def test_spacer_between_identities():
             'path': '/deps/alpha',
         },
         {
-            'type': 'location',
+            'type': 'repository',
             'dependency': 'beta',
             'short_name': 'beta',
             'qualifier': '@master',
@@ -504,7 +504,7 @@ def test_render_referenced_colours_identity_and_mutes_sibling_leaves():
 
     leaves = [
         {
-            'type': 'location',
+            'type': 'repository',
             'dependency': 'baa',
             'short_name': 'git.clearpool.io/cplx_core/baa',
             'qualifier': '@master',
@@ -516,7 +516,7 @@ def test_render_referenced_colours_identity_and_mutes_sibling_leaves():
             'location': 'loc-master',
         },
         {
-            'type': 'location',
+            'type': 'repository',
             'dependency': 'baa',
             'short_name': 'git.clearpool.io/cplx_core/baa',
             'qualifier': '@feature',
@@ -546,7 +546,7 @@ def test_render_partitions_sections_and_keeps_unreferenced_names_normal():
 
     leaves = [
         {
-            'type': 'location',
+            'type': 'repository',
             'dependency': 'baa',
             'short_name': 'git.clearpool.io/cplx_core/baa',
             'qualifier': '@master',
@@ -558,7 +558,7 @@ def test_render_partitions_sections_and_keeps_unreferenced_names_normal():
             'location': 'loc-master',
         },
         {
-            'type': 'location',
+            'type': 'repository',
             'dependency': 'orphan',
             'short_name': 'git.clearpool.io/cplx_core/orphan',
             'qualifier': '@main',
@@ -601,7 +601,7 @@ def test_render_partitions_sections_and_keeps_unreferenced_names_normal():
 def test_develop_remark_on_identity_not_on_branches():
     leaves = [
         {
-            'type': 'location',
+            'type': 'repository',
             'dependency': 'baa',
             'short_name': 'git.clearpool.io/cplx_core/baa',
             'qualifier': '@master',
@@ -612,7 +612,7 @@ def test_develop_remark_on_identity_not_on_branches():
             'path': '/deps/baa@master',
         },
         {
-            'type': 'location',
+            'type': 'repository',
             'dependency': 'baa',
             'short_name': 'git.clearpool.io/cplx_core/baa',
             'qualifier': '@feature',
@@ -813,7 +813,7 @@ def test_gitlab_verbose_locations_on_version_and_archive_leaf():
 def test_location_leaf_location_includes_branch():
     leaves = [
         {
-            'type': 'location',
+            'type': 'repository',
             'dependency': 'baa',
             'short_name': 'git.clearpool.io/cplx_core/baa',
             'qualifier': '@master',
@@ -826,7 +826,7 @@ def test_location_leaf_location_includes_branch():
             'source_url': 'ssh://git@git.clearpool.io/cplx_core/baa',
         },
         {
-            'type': 'location',
+            'type': 'repository',
             'dependency': 'baa',
             'short_name': 'git.clearpool.io/cplx_core/baa',
             'qualifier': '@feature',

@@ -60,6 +60,92 @@ def test_resolve_requested_names_accepts_builtin_when_defaulted():
     assert names == [ 'boost' ]
 
 
+def test_resolve_requested_names_accepts_selectors_and_stores_tokens():
+    cuppa_env = {
+        'remove_dependencies': '[source]boost,[gitlab]boost_package',
+        'dependencies': { 'boost': object(), 'boost_package': object() },
+        'default_dependencies': [ 'boost', 'boost_package' ],
+        'declared_dependencies': [],
+    }
+    names, error = dependency_removal.resolve_requested_names( cuppa_env )
+    assert error is None
+    assert names == [ 'boost', 'boost_package' ]
+    assert cuppa_env['dependency_tokens'] == [
+            ( 'archive', 'boost', None ),
+            ( 'gitlab', 'boost_package', None ),
+    ]
+
+
+def test_filter_plan_by_tokens_restricts_type_and_keeps_sibling_context():
+    cuppa_env = {
+        'dependency_tokens': [ ( 'archive', 'boost', '1.91.0' ) ],
+    }
+    targets = [
+            dependency_removal.RemovalTarget(
+                    dependency='boost',
+                    path='/deps/boost@1.91.0',
+                    qualifier='1.91.0',
+                    tool_variant=None,
+                    storage_type='archive',
+                    size_bytes=10,
+                    label='boost@1.91.0',
+                    extra_paths=(),
+            ),
+            dependency_removal.RemovalTarget(
+                    dependency='boost',
+                    path='/deps/boost@1.89.0',
+                    qualifier='1.89.0',
+                    tool_variant=None,
+                    storage_type='archive',
+                    size_bytes=8,
+                    label='boost@1.89.0',
+                    extra_paths=(),
+            ),
+            dependency_removal.RemovalTarget(
+                    dependency='boost',
+                    path='/deps/gcc/boost/1.91.0',
+                    qualifier='1.91.0',
+                    tool_variant='gcc',
+                    storage_type='gitlab',
+                    size_bytes=12,
+                    label='gcc/boost/1.91.0',
+                    extra_paths=(),
+            ),
+    ]
+    (
+            kept, leftovers, archives, downloads, download_leftovers,
+    ) = dependency_removal._filter_plan_by_tokens(
+            cuppa_env, targets, [], [],
+    )
+    assert [ item.path for item in kept ] == [ '/deps/boost@1.91.0' ]
+    assert [ item.path for item in leftovers ] == [ '/deps/boost@1.89.0' ]
+    assert archives == []
+    assert downloads == []
+    assert download_leftovers == []
+
+
+def test_item_matches_any_token_typed_identity():
+    item = dependency_removal.RemovalTarget(
+            dependency='boost',
+            path='/deps/boost@1.91.0',
+            qualifier='1.91.0',
+            tool_variant=None,
+            storage_type='archive',
+            size_bytes=1,
+            label=None,
+            extra_paths=(),
+    )
+    assert dependency_removal._item_matches_any_token(
+            item, [ ( 'archive', 'boost', None ) ]
+    )
+    assert not dependency_removal._item_matches_any_token(
+            item, [ ( 'gitlab', 'boost', None ) ]
+    )
+    assert dependency_removal._item_matches_any_token(
+            item, [ ( None, 'boost', None ) ]
+    )
+
+
 def test_resolve_requested_names_purge_flags_use_same_gate():
     cuppa_env = {
         'purge_dependencies': 'widgt',
@@ -98,6 +184,220 @@ def test_purge_and_remove_combined():
     assert not dependency_removal.purge_and_remove_combined( {
         'remove_dependencies': 'widget',
     } )
+
+
+def test_conflicting_dependency_modes_includes_wipe():
+    assert dependency_removal.conflicting_dependency_modes( {
+        'wipe_dependencies': 'widget',
+        'remove_dependencies': 'widget',
+    } ) == [ 'remove', 'wipe' ]
+    assert dependency_removal.conflicting_dependency_modes( {
+        'force_wipe_all_dependencies': True,
+        'purge_dependencies': 'widget',
+    } ) == [ 'purge', 'wipe' ]
+    assert dependency_removal.conflicting_dependency_modes( {
+        'force_wipe_unreferenced_dependencies': True,
+        'wipe_dependencies': 'widget',
+    } ) == [ 'wipe', 'force-wipe-unreferenced' ]
+    assert dependency_removal.conflicting_dependency_modes( {
+        'force_wipe_dependencies': 'boost/1.86.0',
+        'wipe_dependencies': 'boost',
+    } ) == [ 'wipe', 'force-wipe' ]
+    assert dependency_removal.conflicting_dependency_modes( {
+        'wipe_dependencies': 'widget',
+    } ) is None
+
+
+def test_parse_force_wipe_tokens():
+    tokens, error = dependency_removal.parse_force_wipe_tokens(
+            'boost/1.86.0, fmt/@11.1.1'
+    )
+    assert error is None
+    assert tokens == [
+            ( None, 'boost', '1.86.0' ),
+            ( None, 'fmt', '@11.1.1' ),
+    ]
+    tokens, error = dependency_removal.parse_force_wipe_tokens( '[source]boost/1.8*' )
+    assert error is None
+    assert tokens == [ ( 'archive', 'boost', '1.8*' ) ]
+    tokens, error = dependency_removal.parse_force_wipe_tokens( 'boost' )
+    assert error is None
+    assert tokens == [ ( None, 'boost', None ) ]
+    tokens, error = dependency_removal.parse_force_wipe_tokens( '' )
+    assert tokens == []
+    assert error
+
+
+def test_row_matches_force_token():
+    row = {
+        'short_name': 'boost',
+        'dependency': 'boost',
+        'qualifier': '1.86.0',
+        'type': 'archive',
+        'path': '/tmp/boost_1_86_0',
+    }
+    assert dependency_removal._row_matches_force_token( row, 'boost', '1.86.0' )
+    assert not dependency_removal._row_matches_force_token( row, 'boost', '1.91.0' )
+    assert dependency_removal._row_matches_force_token( row, 'boost', '1.8*' )
+    assert dependency_removal._row_matches_force_token( row, 'boost', '1.86.?' )
+    assert not dependency_removal._row_matches_force_token( row, 'boost', '1.9*' )
+    assert dependency_removal._row_matches_force_token( row, 'bo*', '1.86.0' )
+    loc = {
+        'short_name': 'fmt',
+        'dependency': 'fmt',
+        'qualifier': '11.1.1',
+        'type': 'repository',
+        'path': '/tmp/fmt@11.1.1',
+    }
+    assert dependency_removal._row_matches_force_token( loc, 'fmt', '@11.1.1' )
+    assert dependency_removal._row_matches_force_token( loc, 'fmt', '11.1.1' )
+    assert dependency_removal._row_matches_force_token( loc, 'fmt', '@11*' )
+    assert not dependency_removal._row_matches_force_token( loc, 'fmt', '@12*' )
+
+
+def test_force_token_is_wildcard():
+    assert not dependency_removal.force_token_is_wildcard( 'boost', '1.86.0' )
+    assert dependency_removal.force_token_is_wildcard( 'boost', '1.8*' )
+    assert dependency_removal.force_token_is_wildcard( 'bo?st', '1.86.0' )
+    assert dependency_removal.force_token_is_wildcard( 'boost', '1.8[6-9]*' )
+
+
+def test_collect_force_wipe_context_keeps_sibling_leaves( tmp_path ):
+    root = tmp_path / 'dependencies'
+    downloads = tmp_path / 'downloads'
+    root.mkdir()
+    downloads.mkdir()
+    old = root / 'boost_1_86_0'
+    keep = root / 'boost_1_91_0'
+    old.mkdir()
+    keep.mkdir()
+    ( old / 'x' ).write_text( 'old' )
+    ( keep / 'x' ).write_text( 'keep-keep-keep' )
+    old_archive = downloads / 'boost_1_86_0.tar.gz'
+    keep_archive = downloads / 'boost_1_91_0.tar.gz'
+    old_archive.write_bytes( b'old-archive' )
+    keep_archive.write_bytes( b'keep-archive-bytes' )
+
+    rows = [
+            {
+                'short_name': 'boost',
+                'dependency': 'boost',
+                'qualifier': '1.86.0',
+                'type': 'archive',
+                'path': str( old ),
+                'size_bytes': dependency_removal._measure_bytes( str( old ) ),
+            },
+            {
+                'short_name': 'boost',
+                'dependency': 'boost',
+                'qualifier': '1.91.0',
+                'type': 'archive',
+                'path': str( keep ),
+                'size_bytes': dependency_removal._measure_bytes( str( keep ) ),
+            },
+            {
+                'short_name': 'fmt',
+                'dependency': 'fmt',
+                'qualifier': '11.1.1',
+                'type': 'repository',
+                'path': str( root / 'fmt@11.1.1' ),
+                'size_bytes': 0,
+            },
+    ]
+    ( root / 'fmt@11.1.1' ).mkdir()
+    dl_rows = [
+            {
+                'role': 'archive',
+                'short_name': 'boost',
+                'dependency': 'boost',
+                'qualifier': '1.86.0',
+                'type': 'archive',
+                'path': str( old_archive ),
+                'size_bytes': old_archive.stat().st_size,
+                'label': old_archive.name,
+            },
+            {
+                'role': 'archive',
+                'short_name': 'boost',
+                'dependency': 'boost',
+                'qualifier': '1.91.0',
+                'type': 'archive',
+                'path': str( keep_archive ),
+                'size_bytes': keep_archive.stat().st_size,
+                'label': keep_archive.name,
+            },
+    ]
+    targets = [ dependency_removal._target_from_row( rows[0] ) ]
+    download_targets = [ dependency_removal._download_from_row( dl_rows[0] ) ]
+    leftovers, download_leftovers = dependency_removal._collect_force_wipe_context(
+            rows, dl_rows, targets, download_targets,
+    )
+    assert [ item.path for item in leftovers ] == [ str( keep ) ]
+    assert [ item.path for item in download_leftovers ] == [ str( keep_archive ) ]
+
+    out = __import__( 'io' ).StringIO()
+    outcomes = {
+            storage.real_path( str( old ) ): { 'result': 'removed' },
+            storage.real_path( str( old_archive ) ): { 'result': 'removed' },
+    }
+    dependency_removal._write_removal_tree(
+            out, targets, leftovers, outcomes, planning=True, root=str( root ),
+            downloads=download_targets, download_leftovers=download_leftovers,
+            downloads_root=str( downloads ),
+    )
+    text = out.getvalue()
+    parent_line = next(
+            line for line in text.splitlines()
+            if line.strip().endswith( 'boost' ) and 'SIZE' not in line
+    )
+    assert 'would rm' not in parent_line.lower()
+    assert 'boost_1_91_0' in text
+    assert 'would rm' in text.lower()
+
+
+def test_parent_rollup_result_mixed_leaves_blank():
+    assert dependency_removal._parent_rollup_result( [ 'would_rm', 'would_rm' ] ) == 'would rm'
+    assert dependency_removal._parent_rollup_result( [ 'would_rm', 'left' ] ) == ''
+    assert dependency_removal._parent_rollup_result( [ 'left', 'left' ] ) == ''
+
+
+def test_removal_age_width_fits_double_digit_months():
+    """Fixed LAST USED width must fit the longest ``relative_age`` form."""
+    assert len( '21 months ago' ) <= dependency_removal.AGE_WIDTH
+    assert len( '10 months ago' ) <= dependency_removal.AGE_WIDTH
+    assert len( storage.relative_age( 0, now=700 * 86400 ) ) <= dependency_removal.AGE_WIDTH
+
+
+def test_resolve_requested_names_wipe_flags_use_same_gate():
+    cuppa_env = {
+        'wipe_dependencies': 'widgt',
+        'default_dependencies': [ 'widget' ],
+        'declared_dependencies': [],
+        'dependencies': { 'widget': object(), 'boost': object() },
+    }
+    names, error = dependency_removal.resolve_requested_names( cuppa_env )
+    assert names == []
+    assert isinstance( error, dependency_removal.UnknownDependencyNames )
+
+    cuppa_env = {
+        'force_wipe_all_dependencies': True,
+        'default_dependencies': [ 'widget' ],
+        'declared_dependencies': [ 'boost_package' ],
+        'dependencies': { 'widget': object(), 'boost_package': object(), 'boost': object() },
+    }
+    names, error = dependency_removal.resolve_requested_names( cuppa_env )
+    assert error is None
+    assert names == [ 'widget', 'boost_package' ]
+
+
+def test_other_project_used_by():
+    assert dependency_removal._other_project_used_by( {}, '/proj/a' ) == []
+    assert dependency_removal._other_project_used_by(
+            { 'used_by': { '/proj/a': 't' } }, '/proj/a'
+    ) == []
+    assert dependency_removal._other_project_used_by(
+            { 'used_by': { '/proj/a': 't', '/proj/b': 't' } }, '/proj/a'
+    ) == [ '/proj/b' ]
 
 
 def test_resolve_requested_names_all_uses_project_used():
@@ -166,7 +466,7 @@ def test_sibling_leftovers_location_branches(tmp_path):
             path=str( master ),
             qualifier='@master',
             tool_variant=None,
-            storage_type='location',
+            storage_type='repository',
             size_bytes=1,
             label=None,
             extra_paths=(),
@@ -292,6 +592,197 @@ def test_collect_removal_plan_prefers_storage_clean_products( tmp_path, monkeypa
     assert any( 'release' in p for p in leftover_paths )
 
 
+def test_collect_removal_plan_wipe_includes_extract( tmp_path, monkeypatch ):
+    """Wipe queues the whole extract even when storage_clean is available."""
+    root = tmp_path / 'dependencies'
+    extract = root / 'boost_extract'
+    home = extract / 'clean'
+    dbg = home / 'build.c++2c' / 'gcc153' / 'debug' / 'x86_64'
+    dbg.mkdir( parents=True )
+    ( home / 'boost' ).mkdir()
+    ( home / 'boost' / 'version.hpp' ).write_text(
+            '#define BOOST_VERSION 109100\n', encoding='utf-8'
+    )
+
+    def fake_resolve( construct, cuppa_env, names, selections=None ):
+        from cuppa.core.dependency_storage import OwnedPath
+        return [
+            OwnedPath(
+                dependency='boost',
+                storage_type='archive',
+                category='dependencies',
+                path=str( extract ),
+                qualifier='1.91.0',
+                tool_variant=None,
+                develop=False,
+                remote_location=None,
+            ),
+        ], []
+
+    def fake_selections( construct, cuppa_env ):
+        return [ {
+            'variant': 'dbg',
+            'target_arch': 'x86_64',
+            'abi': 'cxx2c',
+            'toolchain': object(),
+            'env': {
+                'dependencies_root': str( root ),
+                'toolchain': object(),
+                'target_arch': 'x86_64',
+                'variant': type( 'V', (), { 'name': lambda self: 'dbg' } )(),
+            },
+        } ]
+
+    monkeypatch.setattr(
+            dependency_removal.dependency_storage,
+            'resolve_named_dependencies',
+            fake_resolve,
+    )
+    monkeypatch.setattr(
+            dependency_removal.dependency_storage,
+            'selection_build_envs',
+            fake_selections,
+    )
+    monkeypatch.setattr(
+            dependency_removal,
+            '_collect_storage_clean',
+            lambda *args, **kwargs: {
+                'boost': {
+                    'paths': [ str( dbg ) ],
+                    'extract': str( extract ),
+                    'supported': True,
+                    'storage_type': 'archive',
+                    'qualifier': '1.91.0',
+                },
+            },
+    )
+
+    cuppa_env = { 'dependencies_root': str( root ), 'dependencies': {} }
+    plan = dependency_removal.collect_removal_plan(
+            object(), cuppa_env, [ 'boost' ], wipe=True
+    )
+    target_paths = { t.path for t in plan['targets'] }
+    assert str( extract ) in target_paths
+    assert plan['archives'] == []
+    assert str( dbg ) not in target_paths
+
+
+def test_write_removal_tree_summary_and_version_nesting():
+    """Removal reports nest version under identity and show action/remaining rollup."""
+    import io
+
+    targets = [
+            dependency_removal.RemovalTarget(
+                    dependency='boost',
+                    path='/deps/boost@1.91.0/a',
+                    qualifier='1.91.0',
+                    tool_variant='gcc',
+                    storage_type='archive',
+                    size_bytes=100,
+                    label='product-a',
+                    extra_paths=(),
+            ),
+    ]
+    leftovers = [
+            dependency_removal.Leftover(
+                    dependency='boost',
+                    path='/deps/boost@1.91.0/b',
+                    qualifier='1.91.0',
+                    tool_variant='clang',
+                    size_bytes=40,
+                    label='product-b',
+                    storage_type='archive',
+            ),
+            dependency_removal.Leftover(
+                    dependency='boost',
+                    path='/deps/boost@1.88.0/c',
+                    qualifier='1.88.0',
+                    tool_variant='',
+                    size_bytes=20,
+                    label='product-c',
+                    storage_type='archive',
+            ),
+    ]
+    out = io.StringIO()
+    dependency_removal._write_removal_tree(
+            out, targets, leftovers, {}, planning=True, root='/deps',
+            summary_label='related dependencies for boost',
+            action_label='removing',
+    )
+    text = out.getvalue()
+    lines = [ line for line in text.splitlines() if 'DEPENDENCY' not in line ]
+    # Spacer under summary root, under types, and between identity and versions.
+    assert any(
+            line.rstrip().endswith( ( '│', '|' ) )
+            for line in lines
+    )
+    assert any( 'related dependencies for boost' in line for line in lines )
+    assert any( line.rstrip().endswith( 'removing' ) for line in lines )
+    assert any( line.rstrip().endswith( 'remaining' ) for line in lines )
+    assert any( line.rstrip().endswith( 'source archives' ) for line in lines )
+    boost_line = next(
+            line for line in lines
+            if line.rstrip().endswith( 'boost' ) and 'related dependencies' not in line
+    )
+    version_line = next( line for line in lines if line.rstrip().endswith( '1.91.0' ) )
+    assert '1.91.0' not in boost_line
+    # Version row is indented further than the identity row.
+    assert version_line.index( '1.91.0' ) > boost_line.index( 'boost' )
+    # Untouched leftover version uses --- (same as extract rollups).
+    leftover_version = next(
+            line for line in lines if line.rstrip().endswith( '1.88.0' )
+    )
+    assert '---' in leftover_version
+    assert 'product-a' in text
+    assert 'product-b' in text
+    # No spacer between a version and its leaves.
+    version_idx = next( i for i, line in enumerate( lines ) if line.rstrip().endswith( '1.91.0' ) )
+    assert 'product-a' in lines[version_idx + 1] or 'product-b' in lines[version_idx + 1]
+    # Partial identity keeps a partial mark.
+    assert '-✔-' in boost_line or '-✓-' in boost_line or '-*-' in boost_line
+
+
+def test_write_removal_tree_spacers_encode_on_legacy_consoles( monkeypatch ):
+    """Spacer pipes must use glyphs(), not a hardcoded box-drawing character."""
+    import io
+
+    monkeypatch.setattr(
+            storage, 'glyphs', lambda encoding=None: storage.ASCII_GLYPHS,
+    )
+    targets = [
+            dependency_removal.RemovalTarget(
+                    dependency='boost',
+                    path='/deps/boost@1.91.0/a',
+                    qualifier='1.91.0',
+                    tool_variant='gcc',
+                    storage_type='archive',
+                    size_bytes=100,
+                    label='product-a',
+                    extra_paths=(),
+            ),
+    ]
+    leftovers = [
+            dependency_removal.Leftover(
+                    dependency='boost',
+                    path='/deps/boost@1.88.0/c',
+                    qualifier='1.88.0',
+                    tool_variant='',
+                    size_bytes=20,
+                    label='product-c',
+                    storage_type='archive',
+            ),
+    ]
+    out = io.StringIO()
+    dependency_removal._write_removal_tree(
+            out, targets, leftovers, {}, planning=True, root='/deps',
+            summary_label='related dependencies for boost',
+            action_label='removing',
+    )
+    text = out.getvalue()
+    assert '\u2502' not in text
+    assert '|' in text
+
+
 def test_write_removal_tree_uses_folded_display_labels( tmp_path ):
     """Removal table must print target/leftover labels, not only primary paths."""
     import io
@@ -335,6 +826,7 @@ def test_write_removal_tree_uses_folded_display_labels( tmp_path ):
                     tool_variant='gcc-15*',
                     size_bytes=40,
                     label='archive/patched/bin.c++2c [gcc-15*]',
+                    storage_type='archive',
             ),
     ]
     out = io.StringIO()
@@ -346,6 +838,14 @@ def test_write_removal_tree_uses_folded_display_labels( tmp_path ):
             out, targets, leftovers, outcomes, planning=True, root=str( root ),
     )
     text = out.getvalue()
+    assert 'related dependencies for' in text
+    assert 'removing' in text or 'removed' in text
+    assert 'remaining' in text
+    assert 'source archives' in text
+    assert 'boost' in text
+    assert '1.91.0' in text
+    # Version nested under identity — not flattened onto one label.
+    assert 'boost  1.91.0' not in text
     assert 'archive/clean/bin.c++2c [clang-linux-21*/debug]' in text
     assert 'archive/clean/build.c++2c [clang211/debug/x86_64]' in text
     assert 'archive/patched/bin.c++2c [gcc-15*]' in text
@@ -424,6 +924,8 @@ def test_archive_contexts_and_source_assets_report( tmp_path ):
     assert storage.human_size( extract_size ) in text
     assert storage.human_size( archives[0]['source_bytes'] ) in text
     assert 'boost_extract/clean/build.c++2c [gcc153/debug/x86_64]' in text
+    # Product-clean remove has no download parent — no list-downloads [E] legend.
+    assert '[E] = dependency extracted from the download above' not in text
     source_idx = text.index( 'source assets' )
     product_idx = text.index( 'boost_extract/clean/build.c++2c' )
     extract_idx = text.index( '[E]' )
@@ -479,6 +981,7 @@ def test_write_removal_tree_nests_extract_rollup_under_download( tmp_path ):
                     tool_variant='gcc153/release/x86_64',
                     size_bytes=8,
                     label='boost_source/clean/build.c++2c [gcc153/release/x86_64]',
+                    storage_type='archive',
             ),
     ]
     archives = dependency_removal._archive_contexts(
@@ -517,6 +1020,7 @@ def test_write_removal_tree_nests_extract_rollup_under_download( tmp_path ):
     source_idx = text.index( 'source assets' )
     assert download_idx < extract_idx < source_idx
     assert '-✔-' in text or '-*-' in text
+    assert '[E] = dependency extracted from the download above' in text
 
 
 def test_write_verify_archive_notes_source_assets( tmp_path ):

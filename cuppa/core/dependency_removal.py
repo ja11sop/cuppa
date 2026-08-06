@@ -4,18 +4,22 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   Dependency removal — --remove-dependencies / --purge-dependencies
+#   Dependency removal — --remove-dependencies / --purge-dependencies / --wipe-*
 #-------------------------------------------------------------------------------
 
-"""Remove selected dependency trees under ``dependencies_root`` (Slice D).
+"""Remove or wipe selected dependency trees under ``dependencies_root``.
 
-``--purge-*`` also deletes matching archives under ``downloads_root``. Develop working copies
-and build artefacts stay put. Selection follows the same toolchain / variant / location-match
-options as writing the trees. See ``design/plans/removal-options.md`` §4.13 / Phase 4.
+``--purge-*`` also deletes matching archives under ``downloads_root``. ``--wipe-*`` clears
+the whole extract (bypassing ``storage_clean`` product-only behaviour) plus matching
+downloads. ``--force-wipe-dependencies=name/qualifier`` targets list-tree leaves regardless
+of referenced state; ``--force-wipe-unreferenced-dependencies`` clears orphan trees and
+downloads. Develop working copies stay put. See
+``design/plans/removal-options.md`` §4.13 / Phase 4 / #146.
 """
 
 from __future__ import annotations
 
+import fnmatch
 import os
 import sys
 from collections import namedtuple
@@ -37,7 +41,8 @@ from cuppa.utility import storage
 INDENT = '  '
 RULE = '-'
 SIZE_WIDTH = 8
-AGE_WIDTH = 12
+# Long enough for ``relative_age`` ("10 months ago" … "24 months ago" are 13 chars).
+AGE_WIDTH = 13
 REMARK_WIDTH = 9
 
 RemovalTarget = namedtuple(
@@ -50,8 +55,12 @@ RemovalTarget = namedtuple(
 
 Leftover = namedtuple(
     'Leftover',
-    [ 'dependency', 'path', 'qualifier', 'tool_variant', 'size_bytes', 'label' ],
+    [
+        'dependency', 'path', 'qualifier', 'tool_variant', 'size_bytes', 'label',
+        'storage_type',
+    ],
 )
+Leftover.__new__.__defaults__ = ( None, )
 
 DevelopSkip = namedtuple(
     'DevelopSkip',
@@ -72,19 +81,59 @@ DownloadTarget = namedtuple(
 )
 
 
-def purge_and_remove_combined( cuppa_env ):
-    """True when any purge flag is combined with any remove flag."""
-    purge = bool( cuppa_env.get( 'purge_dependencies' ) or cuppa_env.get( 'purge_all_dependencies' ) )
-    remove = bool( cuppa_env.get( 'remove_dependencies' ) or cuppa_env.get( 'remove_all_dependencies' ) )
-    return purge and remove
+def wants_remove( cuppa_env ):
+    return bool(
+            cuppa_env.get( 'remove_dependencies' ) or cuppa_env.get( 'remove_all_dependencies' )
+    )
 
 
 def wants_purge( cuppa_env ):
     return bool( cuppa_env.get( 'purge_dependencies' ) or cuppa_env.get( 'purge_all_dependencies' ) )
 
 
+def wants_wipe( cuppa_env ):
+    """Selection wipe: named ``--wipe-dependencies`` or ``--force-wipe-all-dependencies``."""
+    return bool(
+            cuppa_env.get( 'wipe_dependencies' )
+            or cuppa_env.get( 'force_wipe_all_dependencies' )
+    )
+
+
+def wants_force_wipe( cuppa_env ):
+    return bool( cuppa_env.get( 'force_wipe_dependencies' ) )
+
+
+def wants_force_wipe_unreferenced( cuppa_env ):
+    return bool( cuppa_env.get( 'force_wipe_unreferenced_dependencies' ) )
+
+
+def conflicting_dependency_modes( cuppa_env ):
+    """Return mode names when more than one of remove/purge/wipe/force-wipe is set."""
+    modes = []
+    if wants_remove( cuppa_env ):
+        modes.append( 'remove' )
+    if wants_purge( cuppa_env ):
+        modes.append( 'purge' )
+    if wants_wipe( cuppa_env ):
+        modes.append( 'wipe' )
+    if wants_force_wipe( cuppa_env ):
+        modes.append( 'force-wipe' )
+    if wants_force_wipe_unreferenced( cuppa_env ):
+        modes.append( 'force-wipe-unreferenced' )
+    if len( modes ) > 1:
+        return modes
+    return None
+
+
+def purge_and_remove_combined( cuppa_env ):
+    """True when any purge flag is combined with any remove flag."""
+    return bool(
+            wants_purge( cuppa_env ) and wants_remove( cuppa_env )
+    )
+
+
 def parse_dependency_names( spec ):
-    """Split a comma-separated ``--remove-dependencies`` / ``--purge-dependencies`` value."""
+    """Split a comma-separated remove / purge / wipe dependency name list."""
     if not spec:
         return []
     if isinstance( spec, ( list, tuple ) ):
@@ -123,43 +172,82 @@ def project_dependency_names( cuppa_env ):
 
 
 def resolve_requested_names( cuppa_env ):
-    """Return ``(names, error)`` for the current remove or purge flags.
+    """Return ``(names, error)`` for the current remove, purge, or wipe flags.
 
     ``error`` is ``None`` on success, a string for empty input, or
     :class:`UnknownDependencyNames` when names are not project-used.
-    ``--remove-all-dependencies`` / ``--purge-all-dependencies`` with no project-used
-    names yields an empty list.
+    ``--*-all-dependencies`` with no project-used names yields an empty list.
+
+    Accepts shared ``[selector]name[/qualifier]`` tokens (§4.15). Selectors and
+    leaf qualifiers are stored on ``cuppa_env['dependency_tokens']`` for later
+    filtering; this function still returns the resolved project-used **names**.
     """
+    from cuppa.core import dependency_tokens
+
     project_used = project_dependency_names( cuppa_env )
     project_set = set( project_used )
 
-    if cuppa_env.get( 'remove_all_dependencies' ) or cuppa_env.get( 'purge_all_dependencies' ):
+    if (
+            cuppa_env.get( 'remove_all_dependencies' )
+            or cuppa_env.get( 'purge_all_dependencies' )
+            or cuppa_env.get( 'force_wipe_all_dependencies' )
+    ):
+        cuppa_env['dependency_tokens'] = [
+                ( None, name, None ) for name in project_used
+        ]
         return list( project_used ), None
 
-    names = parse_dependency_names(
-            cuppa_env.get( 'purge_dependencies' ) or cuppa_env.get( 'remove_dependencies' )
+    spec = (
+            cuppa_env.get( 'wipe_dependencies' )
+            or cuppa_env.get( 'purge_dependencies' )
+            or cuppa_env.get( 'remove_dependencies' )
     )
-    if not names:
-        return [], (
-                "no dependency names given (use --remove-dependencies=name, "
-                "--purge-dependencies=name, --remove-all-dependencies, or "
-                "--purge-all-dependencies)"
-        )
+    tokens, error = dependency_tokens.parse_dependency_tokens( spec )
+    if error:
+        if error == "no dependency tokens given":
+            return [], (
+                    "no dependency names given (use --remove-dependencies=name, "
+                    "--purge-dependencies=name, --wipe-dependencies=name, "
+                    "--remove-all-dependencies, --purge-all-dependencies, or "
+                    "--force-wipe-all-dependencies)"
+            )
+        return [], error
 
-    unknown = [ name for name in names if name not in project_set ]
+    resolved_tokens = []
+    unknown = []
+    ordered_names = []
+    seen_names = set()
+    for storage_type, name, qualifier in tokens:
+        if dependency_tokens.is_wildcard_pattern( name ):
+            matched = [
+                    project for project in project_used
+                    if dependency_tokens.name_matches( name, project )
+            ]
+            if not matched:
+                unknown.append( name )
+                continue
+            for project in matched:
+                resolved_tokens.append( ( storage_type, project, qualifier ) )
+                if project not in seen_names:
+                    seen_names.add( project )
+                    ordered_names.append( project )
+            continue
+        if name not in project_set:
+            unknown.append( name )
+            continue
+        resolved_tokens.append( ( storage_type, name, qualifier ) )
+        if name not in seen_names:
+            seen_names.add( name )
+            ordered_names.append( name )
+
     if unknown:
         return [], UnknownDependencyNames(
                 unknown=tuple( unknown ),
                 project_used=tuple( project_used ),
         )
-    # Preserve order, drop duplicates.
-    seen = set()
-    ordered = []
-    for name in names:
-        if name not in seen:
-            seen.add( name )
-            ordered.append( name )
-    return ordered, None
+
+    cuppa_env['dependency_tokens'] = resolved_tokens
+    return ordered_names, None
 
 
 def _dependencies_root( cuppa_env ):
@@ -250,6 +338,7 @@ def _sibling_leftovers( root, target, remove_reals ):
                 tool_variant=name,
                 size_bytes=_measure_bytes( candidate ),
                 label=_path_label( target.dependency, version, name ),
+                storage_type=target.storage_type,
             ) )
         return leftovers
 
@@ -277,6 +366,7 @@ def _sibling_leftovers( root, target, remove_reals ):
                 tool_variant=None,
                 size_bytes=_measure_bytes( candidate ),
                 label=_path_label( target.dependency, fingerprint[:16], None ),
+                storage_type=target.storage_type,
             ) )
         return leftovers
 
@@ -311,6 +401,7 @@ def _sibling_leftovers( root, target, remove_reals ):
             tool_variant=None,
             size_bytes=_measure_bytes( candidate ),
             label=_path_label( target.dependency, other_qual or '@', None ),
+            storage_type=target.storage_type,
         ) )
     return leftovers
 
@@ -537,18 +628,26 @@ def _product_leftovers( dependency, extract, home, remove_reals, storage_type, q
             tool_variant=( tool_variant or label ).replace( '\\', '/' ),
             size_bytes=size_bytes,
             label=label,
+            storage_type='archive',
         ) )
     return leftovers
 
 
-def collect_removal_plan( construct, cuppa_env, names ):
-    """Build remove targets, leftovers, develop skips, and resolve skips for ``names``."""
+def collect_removal_plan( construct, cuppa_env, names, wipe=False ):
+    """Build remove targets, leftovers, develop skips, and resolve skips for ``names``.
+
+    When ``wipe`` is True, archive extracts are queued for full deletion even when the
+    dependency implements ``storage_clean`` (product-only clean is skipped).
+    """
     root = _dependencies_root( cuppa_env )
     selections = dependency_storage.selection_build_envs( construct, cuppa_env )
     owned, skips = dependency_storage.resolve_named_dependencies(
             construct, cuppa_env, names, selections=selections
     )
-    clean_by_name = _collect_storage_clean( construct, cuppa_env, names, selections )
+    # Wipe clears the extract; do not consult storage_clean product-only paths.
+    clean_by_name = (
+            {} if wipe else _collect_storage_clean( construct, cuppa_env, names, selections )
+    )
 
     develop_skips = []
     targets = []
@@ -956,6 +1055,7 @@ def _archive_contexts( root, clean_by_name, targets, leftovers ):
             'extract_bytes': extract_bytes,
             'source_bytes': source_bytes,
             'qualifier': clean.get( 'qualifier' ),
+            'storage_type': clean.get( 'storage_type' ) or 'archive',
             'age_text': age_text,
             'age_epoch': age_epoch,
         } )
@@ -1229,23 +1329,29 @@ def _group_removal_rows(
         downloads=None, download_leftovers=None, downloads_root=None,
         staying_extracts=None,
 ):
-    """Group targets and leftovers by dependency for the removal tree."""
+    """Group targets and leftovers by storage type and dependency for the removal tree."""
+    from cuppa.core.dependency_storage import normalise_storage_type
+    from cuppa.core.dependency_tree import TYPE_LABELS
+
     groups = {}
     archives = archives or []
     downloads = list( downloads or [] )
     download_leftovers = list( download_leftovers or [] )
     staying_extracts = list( staying_extracts or [] )
 
-    def ensure( dependency ):
-        if dependency not in groups:
-            groups[dependency] = {
+    def ensure( dependency, storage_type=None ):
+        storage_type = normalise_storage_type( storage_type ) or storage_type or 'unknown'
+        key = ( storage_type, dependency )
+        if key not in groups:
+            groups[key] = {
                 'dependency': dependency,
+                'storage_type': storage_type,
                 'qualifiers': set(),
                 'leaves': [],
                 'extract_bytes': None,
                 'download_bytes': 0,
             }
-        return groups[dependency]
+        return groups[key]
 
     product_leaves = [
             _product_leaf( target, outcomes_by_path, planning, root, True )
@@ -1276,7 +1382,7 @@ def _group_removal_rows(
                 label=os.path.basename( str( archive['extract'] ).rstrip( '\\/' ) ),
                 extra_paths=(),
         ) )
-        group = ensure( archive['dependency'] )
+        group = ensure( archive['dependency'], 'archive' )
         if archive.get( 'qualifier' ):
             group['qualifiers'].add( archive['qualifier'] )
         group['extract_bytes'] = archive['extract_bytes']
@@ -1326,7 +1432,7 @@ def _group_removal_rows(
         return children
 
     for download in downloads:
-        group = ensure( download.dependency )
+        group = ensure( download.dependency, download.storage_type )
         if download.qualifier:
             group['qualifiers'].add( download.qualifier )
         group['leaves'].append( _download_leaf(
@@ -1336,7 +1442,7 @@ def _group_removal_rows(
         group['download_bytes'] += download.size_bytes
 
     for leftover_dl in download_leftovers:
-        group = ensure( leftover_dl.dependency )
+        group = ensure( leftover_dl.dependency, leftover_dl.storage_type )
         if leftover_dl.qualifier:
             group['qualifiers'].add( leftover_dl.qualifier )
         group['leaves'].append( _download_leaf(
@@ -1352,7 +1458,7 @@ def _group_removal_rows(
         real = storage.real_path( node['path'] )
         if real in used_rollup_reals:
             continue
-        group = ensure( node['dependency'] )
+        group = ensure( node['dependency'], 'archive' )
         if node.get( 'qualifier' ):
             group['qualifiers'].add( node['qualifier'] )
         group['leaves'].append( node )
@@ -1361,7 +1467,7 @@ def _group_removal_rows(
         real = storage.real_path( target.path )
         if real in used_pair_reals:
             continue
-        group = ensure( target.dependency )
+        group = ensure( target.dependency, target.storage_type )
         if target.qualifier:
             group['qualifiers'].add( target.qualifier )
         group['leaves'].append(
@@ -1372,7 +1478,10 @@ def _group_removal_rows(
         real = storage.real_path( leftover.path )
         if real in used_pair_reals:
             continue
-        group = ensure( leftover.dependency )
+        group = ensure(
+                leftover.dependency,
+                getattr( leftover, 'storage_type', None ),
+        )
         if leftover.qualifier:
             group['qualifiers'].add( leftover.qualifier )
         group['leaves'].append(
@@ -1389,7 +1498,12 @@ def _group_removal_rows(
         ) )
         quals = group['qualifiers']
         group['parent_qualifier'] = next( iter( quals ) ) if len( quals ) == 1 else None
-    return [ groups[name] for name in sorted( groups ) ]
+
+    type_order = { key: index for index, ( key, _label ) in enumerate( TYPE_LABELS ) }
+    return sorted( groups.values(), key=lambda group: (
+            type_order.get( group['storage_type'], 99 ),
+            ( group['dependency'] or '' ).lower(),
+    ) )
 
 
 def _collect_leaf_results( leaves ):
@@ -1422,7 +1536,8 @@ def _flatten_removal_leaves( leaves, tee, elbow, pipe, gap, check, ballot, prefi
         remark = _remark_for_result( result )
         mark = _mark_for_leaf( leaf, check, ballot )
         display = leaf.get( 'display' ) or leaf['rel_path']
-        label = "{} {} {}".format( branch, mark, display )
+        # Connectors already include a trailing space; keep a single space before the mark.
+        label = "{}{} {}".format( branch, mark, display )
         labels.append( label )
         rows.append( {
             'kind': 'leaf',
@@ -1440,7 +1555,7 @@ def _flatten_removal_leaves( leaves, tee, elbow, pipe, gap, check, ballot, prefi
         } )
         children = leaf.get( 'children' ) or []
         if children:
-            child_prefix = prefix + ( ( gap if last else pipe ) + '   ' )
+            child_prefix = prefix + ( gap if last else pipe )
             child_rows, child_labels = _flatten_removal_leaves(
                     children, tee, elbow, pipe, gap, check, ballot, child_prefix,
             )
@@ -1449,12 +1564,169 @@ def _flatten_removal_leaves( leaves, tee, elbow, pipe, gap, check, ballot, prefi
     return rows, labels
 
 
+def _group_total_bytes( group ):
+    download_bytes = group.get( 'download_bytes' ) or 0
+    if group.get( 'extract_bytes' ) is not None:
+        return group['extract_bytes'] + download_bytes
+    total_bytes = sum( leaf['size_bytes'] for leaf in group['leaves'] )
+    for leaf in group['leaves']:
+        total_bytes += sum(
+                child['size_bytes'] for child in ( leaf.get( 'children' ) or [] )
+        )
+    return total_bytes
+
+
+def _leaf_tree_bytes( leaf ):
+    total = int( leaf.get( 'size_bytes' ) or 0 )
+    for child in leaf.get( 'children' ) or []:
+        total += _leaf_tree_bytes( child )
+    return total
+
+
+def _collect_action_remaining_bytes( leaves ):
+    """Sum wiped/removing vs remaining bytes without double-counting extract trees."""
+    wiped = 0
+    remaining = 0
+    for leaf in leaves or []:
+        children = leaf.get( 'children' ) or []
+        if children:
+            child_wiped, child_remaining = _collect_action_remaining_bytes( children )
+            wiped += child_wiped
+            remaining += child_remaining
+            # Download / paired archive rows contribute their own file size.
+            if leaf.get( 'kind' ) == 'download':
+                if leaf.get( 'removing' ) and leaf.get( 'result' ) in (
+                        'would_rm', 'removed', 'failed',
+                ):
+                    wiped += int( leaf.get( 'size_bytes' ) or 0 )
+                elif leaf.get( 'result' ) != 'absent':
+                    remaining += int( leaf.get( 'size_bytes' ) or 0 )
+            continue
+        if leaf.get( 'result' ) == 'absent':
+            continue
+        size = int( leaf.get( 'size_bytes' ) or 0 )
+        if leaf.get( 'removing' ) and leaf.get( 'result' ) in (
+                'would_rm', 'removed', 'failed',
+        ):
+            wiped += size
+        else:
+            remaining += size
+    return wiped, remaining
+
+
+def _max_age_from_leaves( leaves ):
+    """Return ``(age_text, age_epoch)`` using the most recent child age."""
+    best_epoch = None
+    best_text = None
+    for leaf in leaves or []:
+        epoch = leaf.get( 'age_epoch' )
+        if epoch is not None and ( best_epoch is None or epoch > best_epoch ):
+            best_epoch = epoch
+            best_text = leaf.get( 'age_text' ) or '-'
+        child_text, child_epoch = _max_age_from_leaves( leaf.get( 'children' ) or [] )
+        if child_epoch is not None and ( best_epoch is None or child_epoch > best_epoch ):
+            best_epoch = child_epoch
+            best_text = child_text
+    return best_text or ( ' ' * AGE_WIDTH ).strip(), best_epoch
+
+
+def _format_age_cell( age_text, age_epoch ):
+    if age_epoch is None:
+        return ' ' * AGE_WIDTH
+    text = age_text or '-'
+    return text.ljust( AGE_WIDTH )
+
+
+def _selection_mark_for_leaves( leaves ):
+    """Return ``(mark_or_empty, remark, fully_removing, partially_removing)``.
+
+    Untouched parents (nothing going) use ``---``, matching extract rollups.
+    """
+    removing = []
+    staying = []
+
+    def walk( nodes ):
+        for leaf in nodes or []:
+            if leaf.get( 'result' ) == 'absent':
+                continue
+            children = leaf.get( 'children' ) or []
+            if children:
+                walk( children )
+                continue
+            if leaf.get( 'removing' ):
+                removing.append( leaf )
+            else:
+                staying.append( leaf )
+
+    walk( leaves )
+    if not removing:
+        if staying:
+            # Same language as extract ``[E]`` when nothing under it is selected.
+            return storage.outcome_triple( 'full', 'none' ), '', False, False
+        return '', '', False, False
+    failed = [ leaf for leaf in removing if leaf.get( 'result' ) == 'failed' ]
+    if failed and len( failed ) == len( removing ) and not staying:
+        mark = storage.with_heavy_marks( storage.outcome_triple( 'full', 'failed' ) )
+        return mark, 'failed', True, False
+    if failed:
+        mark = storage.with_heavy_marks( storage.outcome_triple( 'full', 'mixed' ) )
+        return mark, '', False, True
+    if staying:
+        mark = storage.with_heavy_marks( storage.outcome_triple( 'partial', 'removed' ) )
+        return mark, '', False, True
+    mark = storage.with_heavy_marks( storage.outcome_triple( 'full', 'removed' ) )
+    results = [ leaf.get( 'result' ) for leaf in removing ]
+    remark = _parent_rollup_result( results )
+    return mark, remark, True, False
+
+
+def _versions_from_group( group ):
+    """Split group leaves into ``(qualifier_or_None, leaves)`` buckets."""
+    from cuppa.core.dependency_identity import display_qualifier
+
+    by_qual = {}
+    order = []
+    storage_type = group.get( 'storage_type' ) or 'archive'
+    for leaf in group.get( 'leaves' ) or []:
+        raw = leaf.get( 'qualifier' )
+        key = raw if raw not in ( None, '' ) else None
+        if key not in by_qual:
+            by_qual[key] = []
+            order.append( key )
+        by_qual[key].append( leaf )
+    versions = []
+    for key in order:
+        if key is None:
+            label = None
+        else:
+            label = display_qualifier( key, storage_type )
+        versions.append( {
+            'qualifier': key,
+            'label': label,
+            'leaves': by_qual[key],
+        } )
+    return versions
+
+
+def _spacer_render_row( branch='' ):
+    return {
+        'kind': 'spacer',
+        'size': ' ' * SIZE_WIDTH,
+        'age': ' ' * AGE_WIDTH,
+        'remark': ' ' * REMARK_WIDTH,
+        'label': branch,
+        'branch': branch,
+    }
+
+
 def _write_removal_tree(
         out, targets, leftovers, outcomes_by_path, planning, root, archives=None,
         downloads=None, download_leftovers=None, downloads_root=None,
-        staying_extracts=None,
+        staying_extracts=None, summary_label=None, action_label=None,
 ):
-    """Hierarchical removal table: identity rollup, selected leaves, muted leftovers."""
+    """Hierarchical removal table: summary → type → identity → version → leaves."""
+    from cuppa.core.dependency_tree import TYPE_LABELS
+
     downloads = list( downloads or [] )
     download_leftovers = list( download_leftovers or [] )
     staying_extracts = list( staying_extracts or [] )
@@ -1469,6 +1741,7 @@ def _write_removal_tree(
             downloads=downloads, download_leftovers=download_leftovers,
             downloads_root=downloads_root, staying_extracts=staying_extracts,
     )
+    type_labels = dict( TYPE_LABELS )
 
     header = "{}{}  {}  {}  {}".format(
             INDENT,
@@ -1477,47 +1750,275 @@ def _write_removal_tree(
             "REMARK".ljust( REMARK_WIDTH ),
             "DEPENDENCY",
     )
-    # Prefix before DEPENDENCY column content.
     dep_pad = SIZE_WIDTH + 2 + AGE_WIDTH + 2 + REMARK_WIDTH + 2
 
-    body_lines = []  # plain-width samples for rule sizing
+    body_lines = []
     rendered = []
 
+    all_leaves = []
     for group in groups:
-        leaves = group['leaves']
-        download_bytes = group.get( 'download_bytes' ) or 0
-        if group.get( 'extract_bytes' ) is not None:
-            total_bytes = group['extract_bytes'] + download_bytes
-        else:
-            total_bytes = sum( leaf['size_bytes'] for leaf in leaves )
-            for leaf in leaves:
-                total_bytes += sum(
-                        child['size_bytes'] for child in ( leaf.get( 'children' ) or [] )
-                )
-        parent_label = group['dependency']
-        if group.get( 'parent_qualifier' ):
-            parent_label = "{}  {}".format( parent_label, group['parent_qualifier'] )
-        # Archive identity is never fully removed (source assets stay) — no parent REMARK.
-        if group.get( 'extract_bytes' ) is not None:
-            parent_remark = ''
-        else:
-            parent_remark = _parent_rollup_result( _collect_leaf_results( leaves ) )
+        all_leaves.extend( group['leaves'] )
+    action_bytes, remaining_bytes = _collect_action_remaining_bytes( all_leaves )
+    total_bytes = action_bytes + remaining_bytes
+    total_age_text, total_age_epoch = _max_age_from_leaves( all_leaves )
 
-        body_lines.append( parent_label )
+    action_leaves = []
+    remaining_leaves = []
+
+    def _partition_leaves( leaves, into_action, into_remaining ):
+        for leaf in leaves or []:
+            children = leaf.get( 'children' ) or []
+            if children:
+                _partition_leaves( children, into_action, into_remaining )
+                if leaf.get( 'kind' ) == 'download':
+                    if leaf.get( 'removing' ) and leaf.get( 'result' ) in (
+                            'would_rm', 'removed', 'failed',
+                    ):
+                        into_action.append( leaf )
+                    elif leaf.get( 'result' ) != 'absent':
+                        into_remaining.append( leaf )
+                continue
+            if leaf.get( 'result' ) == 'absent':
+                continue
+            if leaf.get( 'removing' ) and leaf.get( 'result' ) in (
+                    'would_rm', 'removed', 'failed',
+            ):
+                into_action.append( leaf )
+            else:
+                into_remaining.append( leaf )
+
+    _partition_leaves( all_leaves, action_leaves, remaining_leaves )
+    action_age_text, action_age_epoch = _max_age_from_leaves( action_leaves )
+    remaining_age_text, remaining_age_epoch = _max_age_from_leaves( remaining_leaves )
+
+    if not summary_label:
+        names = sorted( {
+                ( group.get( 'dependency' ) or '' )
+                for group in groups if group.get( 'dependency' )
+        } )
+        summary_label = "related dependencies for {}".format(
+                ', '.join( names ) if names else 'selection'
+        )
+    if not action_label:
+        action_label = 'removing' if planning else 'removed'
+
+    # Root + action + remaining under a synthetic root connector set.
+    body_lines.append( summary_label )
+    rendered.append( {
+        'kind': 'parent',
+        'size': _format_size( total_bytes ),
+        'age': _format_age_cell( total_age_text, total_age_epoch ),
+        'remark': ' ' * REMARK_WIDTH,
+        'label': summary_label,
+        'parent_remark': '',
+        'level': 'summary',
+        'fully_removing': False,
+        'partially_removing': False,
+        'mark': '',
+    } )
+
+    # Spacer under the summary root (matches --list-dependencies section spacing).
+    body_lines.append( pipe )
+    rendered.append( _spacer_render_row( pipe ) )
+
+    body_lines.append( "{}{}".format( tee, action_label ) )
+    rendered.append( {
+        'kind': 'parent',
+        'size': _format_size( action_bytes ),
+        'age': _format_age_cell( action_age_text, action_age_epoch ),
+        'remark': ' ' * REMARK_WIDTH,
+        'label': "{}{}".format( tee, action_label ),
+        'parent_remark': '',
+        'level': 'action',
+        'fully_removing': True,
+        'partially_removing': False,
+        'mark': '',
+        'name': action_label,
+        'branch': tee,
+    } )
+
+    body_lines.append( "{}{}".format( tee, 'remaining' ) )
+    rendered.append( {
+        'kind': 'parent',
+        'size': _format_size( remaining_bytes ),
+        'age': _format_age_cell( remaining_age_text, remaining_age_epoch ),
+        'remark': ' ' * REMARK_WIDTH,
+        'label': "{}{}".format( tee, 'remaining' ),
+        'parent_remark': '',
+        'level': 'remaining',
+        'fully_removing': False,
+        'partially_removing': False,
+        'mark': '',
+        'name': 'remaining',
+        'branch': tee,
+    } )
+
+    body_lines.append( pipe )
+    rendered.append( _spacer_render_row( pipe ) )
+
+    # Type clusters hang from the summary root after action/remaining.
+    type_clusters = []
+    index = 0
+    while index < len( groups ):
+        storage_type = groups[index].get( 'storage_type' ) or 'unknown'
+        cluster = []
+        while index < len( groups ) and (
+                groups[index].get( 'storage_type' ) or 'unknown'
+        ) == storage_type:
+            cluster.append( groups[index] )
+            index += 1
+        type_clusters.append( ( storage_type, cluster ) )
+
+    for type_index, ( storage_type, cluster ) in enumerate( type_clusters ):
+        last_type = type_index == len( type_clusters ) - 1
+        type_connector = elbow if last_type else tee
+        type_prefix = gap if last_type else pipe
+        type_label = type_labels.get( storage_type, storage_type )
+        type_leaves = []
+        for group in cluster:
+            type_leaves.extend( group['leaves'] )
+        type_bytes = sum( _group_total_bytes( group ) for group in cluster )
+        type_age_text, type_age_epoch = _max_age_from_leaves( type_leaves )
+
+        if type_index > 0:
+            # Root still continues until the last type row — always show a pipe.
+            body_lines.append( pipe )
+            rendered.append( _spacer_render_row( pipe ) )
+
+        type_line = "{}{}".format( type_connector, type_label )
+        body_lines.append( type_line )
         rendered.append( {
             'kind': 'parent',
-            'size': _format_size( total_bytes ),
-            'age': ' ' * AGE_WIDTH,
-            'remark': parent_remark.ljust( REMARK_WIDTH ),
-            'label': parent_label,
-            'parent_remark': parent_remark,
+            'size': _format_size( type_bytes ),
+            'age': _format_age_cell( type_age_text, type_age_epoch ),
+            'remark': ' ' * REMARK_WIDTH,
+            'label': type_line,
+            'parent_remark': '',
+            'level': 'type',
+            'fully_removing': False,
+            'partially_removing': False,
+            'mark': '',
+            'name': type_label,
+            'branch': type_connector,
         } )
 
-        rows, labels = _flatten_removal_leaves(
-                leaves, tee, elbow, pipe, gap, check, ballot,
-        )
-        body_lines.extend( labels )
-        rendered.extend( rows )
+        # Spacer under type before first identity: continuation + child pipe.
+        type_child_spacer = ( type_prefix + pipe ).rstrip()
+        body_lines.append( type_child_spacer )
+        rendered.append( _spacer_render_row( type_child_spacer ) )
+
+        for group_index, group in enumerate( cluster ):
+            last_identity = group_index == len( cluster ) - 1
+            id_connector = elbow if last_identity else tee
+            id_branch = type_prefix + id_connector
+            id_prefix = type_prefix + ( gap if last_identity else pipe )
+            versions = _versions_from_group( group )
+            identity_leaves = group['leaves']
+            total_bytes = _group_total_bytes( group )
+            id_age_text, id_age_epoch = _max_age_from_leaves( identity_leaves )
+            id_mark, id_remark, id_full, id_partial = _selection_mark_for_leaves(
+                    identity_leaves
+            )
+            # Archive product-clean: identity remark stays blank (source assets remain).
+            if group.get( 'extract_bytes' ) is not None and not id_full:
+                id_remark = ''
+
+            if group_index > 0:
+                body_lines.append( type_child_spacer )
+                rendered.append( _spacer_render_row( type_child_spacer ) )
+
+            name = group['dependency'] or '-'
+            if id_mark:
+                identity_line = "{}{} {}".format( id_branch, id_mark, name )
+            else:
+                identity_line = "{}{}".format( id_branch, name )
+            body_lines.append( identity_line )
+            rendered.append( {
+                'kind': 'parent',
+                'size': _format_size( total_bytes ),
+                'age': _format_age_cell( id_age_text, id_age_epoch ),
+                'remark': id_remark.ljust( REMARK_WIDTH ),
+                'label': identity_line,
+                'parent_remark': id_remark,
+                'level': 'identity',
+                'fully_removing': id_full,
+                'partially_removing': id_partial,
+                'mark': id_mark,
+                'name': name,
+                'branch': id_branch,
+            } )
+
+            # Qualifier nesting: skip version row when no qualifier on any leaf.
+            has_version_rows = any( version.get( 'label' ) for version in versions )
+            if not has_version_rows:
+                id_child_spacer = ( id_prefix + pipe ).rstrip()
+                body_lines.append( id_child_spacer )
+                rendered.append( _spacer_render_row( id_child_spacer ) )
+                rows, labels = _flatten_removal_leaves(
+                        identity_leaves, tee, elbow, pipe, gap, check, ballot,
+                        prefix=id_prefix,
+                )
+                body_lines.extend( labels )
+                rendered.extend( rows )
+                continue
+
+            # Spacer between identity and version leaves.
+            id_child_spacer = ( id_prefix + pipe ).rstrip()
+            body_lines.append( id_child_spacer )
+            rendered.append( _spacer_render_row( id_child_spacer ) )
+
+            for ver_index, version in enumerate( versions ):
+                last_version = ver_index == len( versions ) - 1
+                ver_connector = elbow if last_version else tee
+                ver_branch = id_prefix + ver_connector
+                ver_prefix = id_prefix + ( gap if last_version else pipe )
+                ver_leaves = version['leaves']
+                ver_bytes = sum( _leaf_tree_bytes( leaf ) for leaf in ver_leaves )
+                # Prefer group extract sizing when this is the sole archive version.
+                if (
+                        group.get( 'extract_bytes' ) is not None
+                        and len( versions ) == 1
+                ):
+                    ver_bytes = _group_total_bytes( group )
+                ver_age_text, ver_age_epoch = _max_age_from_leaves( ver_leaves )
+                ver_mark, ver_remark, ver_full, ver_partial = _selection_mark_for_leaves(
+                        ver_leaves
+                )
+                if group.get( 'extract_bytes' ) is not None and not ver_full:
+                    ver_remark = ''
+                ver_label = version['label'] or '-'
+
+                if ver_index > 0:
+                    # Blank row between qualifier siblings (list-style identity spacing).
+                    between_versions = ( id_prefix + pipe ).rstrip()
+                    body_lines.append( between_versions )
+                    rendered.append( _spacer_render_row( between_versions ) )
+
+                if ver_mark:
+                    version_line = "{}{} {}".format( ver_branch, ver_mark, ver_label )
+                else:
+                    version_line = "{}{}".format( ver_branch, ver_label )
+                body_lines.append( version_line )
+                rendered.append( {
+                    'kind': 'parent',
+                    'size': _format_size( ver_bytes ),
+                    'age': _format_age_cell( ver_age_text, ver_age_epoch ),
+                    'remark': ver_remark.ljust( REMARK_WIDTH ),
+                    'label': version_line,
+                    'parent_remark': ver_remark,
+                    'level': 'version',
+                    'fully_removing': ver_full,
+                    'partially_removing': ver_partial,
+                    'mark': ver_mark,
+                    'name': ver_label,
+                    'branch': ver_branch,
+                } )
+                rows, labels = _flatten_removal_leaves(
+                        ver_leaves, tee, elbow, pipe, gap, check, ballot,
+                        prefix=ver_prefix,
+                )
+                body_lines.extend( labels )
+                rendered.extend( rows )
 
     width = max(
             len( header ),
@@ -1530,20 +2031,108 @@ def _write_removal_tree(
     out.write( as_subdued( _rule_line( width - len( INDENT ) ) ) + "\n" )
 
     for row in rendered:
+        if row['kind'] == 'spacer':
+            out.write( "{}{}  {}  {}  {}\n".format(
+                    INDENT,
+                    row['size'],
+                    row['age'],
+                    row['remark'],
+                    as_subdued( row.get( 'branch' ) or '' ),
+            ) )
+            continue
+
         if row['kind'] == 'parent':
-            remark = row['parent_remark']
+            remark = row.get( 'parent_remark' ) or ''
             if remark == 'failed':
                 remark_cell = as_remove_error( remark.ljust( REMARK_WIDTH ) )
             elif remark:
                 remark_cell = as_remove_notice( remark.ljust( REMARK_WIDTH ) )
             else:
                 remark_cell = ' ' * REMARK_WIDTH
+
+            level = row.get( 'level' )
+            branch = row.get( 'branch' ) or ''
+            name = row.get( 'name' )
+            mark = row.get( 'mark' ) or ''
+
+            if level == 'summary':
+                size_cell = as_emphasised( row['size'] )
+                age_cell = row['age']
+                label = as_emphasised( row['label'] )
+            elif level == 'action':
+                size_cell = as_emphasised( as_remove_notice( row['size'] ) )
+                age_cell = row['age']
+                label = "{}{}".format(
+                        as_subdued( branch ),
+                        as_emphasised( as_remove_notice( name ) ),
+                )
+            elif level == 'remaining':
+                size_cell = as_subdued( row['size'] )
+                age_cell = as_subdued( row['age'] )
+                label = "{}{}".format(
+                        as_subdued( branch ),
+                        as_subdued( name ),
+                )
+            elif level == 'type':
+                size_cell = row['size']
+                age_cell = row['age']
+                label = "{}{}".format( as_subdued( branch ), name )
+            elif level in ( 'identity', 'version' ):
+                if row.get( 'fully_removing' ):
+                    size_cell = as_emphasised( as_remove_notice( row['size'] ) )
+                    age_cell = row['age']
+                    if mark:
+                        label = "{}{} {}".format(
+                                as_subdued( branch ),
+                                as_remove_notice( mark ),
+                                as_emphasised( as_remove_notice( name ) ),
+                        )
+                    else:
+                        label = "{}{}".format(
+                                as_subdued( branch ),
+                                as_emphasised( as_remove_notice( name ) ),
+                        )
+                elif row.get( 'partially_removing' ):
+                    # Partial wipe: colour mark + name only; size/age stay secondary.
+                    size_cell = as_subdued( row['size'] )
+                    age_cell = as_subdued( row['age'] )
+                    if mark:
+                        label = "{}{} {}".format(
+                                as_subdued( branch ),
+                                as_remove_notice( mark ),
+                                as_emphasised( as_remove_notice( name ) ),
+                        )
+                    else:
+                        label = "{}{}".format(
+                                as_subdued( branch ),
+                                as_emphasised( as_remove_notice( name ) ),
+                        )
+                else:
+                    size_cell = as_subdued( row['size'] ) if level == 'identity' else row['size']
+                    age_cell = as_subdued( row['age'] ) if level == 'identity' else row['age']
+                    if mark:
+                        # Untouched ``---`` (and any other non-action mark): subdued.
+                        label = "{}{} {}".format(
+                                as_subdued( branch ),
+                                as_subdued( mark ),
+                                as_emphasised( name ),
+                        )
+                    else:
+                        label = "{}{}".format(
+                                as_subdued( branch ),
+                                as_emphasised( name ),
+                        )
+            else:
+                size_cell = as_subdued( row['size'] )
+                age_cell = row['age']
+                label = as_emphasised( row['label'] )
+
             out.write( "{}{}  {}  {}  {}\n".format(
                     INDENT,
-                    as_subdued( row['size'] ),
-                    row['age'],
+                    size_cell,
+                    age_cell,
                     remark_cell,
-                    as_emphasised( row['label'] ),
+                    label,
             ) )
             continue
 
@@ -1557,8 +2146,9 @@ def _write_removal_tree(
                     accent( row['remark_text'].ljust( REMARK_WIDTH ) )
                     if row['remark_text'] else ' ' * REMARK_WIDTH
             )
+            # Branch glyphs already include a trailing space.
             label = "{}{} {}".format(
-                    as_subdued( row['branch'] + ' ' ),
+                    as_subdued( row['branch'] ),
                     accent( row['mark'] ),
                     accent( row.get( 'display' ) or row['rel_path'] ),
             )
@@ -1571,7 +2161,7 @@ def _write_removal_tree(
             ) )
         else:
             label = "{}{} {}".format(
-                    as_subdued( row['branch'] + ' ' ),
+                    as_subdued( row['branch'] ),
                     as_subdued( row['mark'] ),
                     as_subdued( row.get( 'display' ) or row['rel_path'] ),
             )
@@ -1584,6 +2174,20 @@ def _write_removal_tree(
             ) )
 
     out.write( as_subdued( _rule_line( width - len( INDENT ) ) ) + "\n" )
+
+    # Same legend as ``--list-downloads`` when purge / wipe nests ``[E]`` under archives.
+    if downloads or download_leftovers:
+        from cuppa.core.dependency_identity import EXTRACT_MARK
+        if any(
+                ( row.get( 'display' ) or '' ).startswith( EXTRACT_MARK )
+                for row in rendered if row.get( 'kind' ) == 'leaf'
+        ):
+            out.write( "\n" )
+            out.write(
+                "{} = dependency extracted from the download above\n".format(
+                        as_info( EXTRACT_MARK )
+                )
+            )
 
 
 def _write_leftovers_summary( out, leftovers, download_leftovers=None ):
@@ -1620,11 +2224,22 @@ def _write_develop_skips( out, develop_skips ):
         ) )
 
 
-def _write_verify( out, archives=None, purge=False ):
+def _write_verify( out, archives=None, purge=False, wipe=False, unreferenced=False ):
     out.write( "\n" )
     out.write( "Verify with:\n\n" )
-    if purge:
+    if unreferenced:
+        out.write( as_emphasised(
+                "cuppa -Q -D --list-dependencies --list-scope=unreferenced"
+        ) + "\n" )
+        out.write( as_emphasised(
+                "cuppa -Q -D --list-downloads --list-scope=unreferenced"
+        ) + "\n" )
+        return
+    if wipe or purge:
         out.write( as_emphasised( "cuppa -Q -D --list-downloads" ) + "\n" )
+        if wipe:
+            out.write( as_emphasised( "cuppa -Q -D --list-dependencies" ) + "\n" )
+            return
         if archives:
             out.write( as_subdued(
                     "(archive product clean leaves source assets; "
@@ -1765,10 +2380,147 @@ def _staying_extracts_from_owned( owned, targets, leftovers ):
     return staying
 
 
+def _item_field( item, name, default=None ):
+    if isinstance( item, dict ):
+        return item.get( name, default )
+    return getattr( item, name, default )
+
+
+def _item_matches_any_token( item, tokens ):
+    """True when ``item`` matches at least one resolved ``dependency_tokens`` entry."""
+    from cuppa.core import dependency_tokens
+    from cuppa.core.dependency_storage import normalise_storage_type
+
+    if not tokens:
+        return True
+
+    raw_type = _item_field( item, 'storage_type' )
+    item_type = normalise_storage_type( raw_type ) or raw_type or ''
+    item_name = _item_field( item, 'dependency' ) or ''
+    item_qual = _item_field( item, 'qualifier' )
+    item_label = _item_field( item, 'label' )
+
+    for storage_type, name, qualifier in tokens:
+        if storage_type and item_type and item_type != storage_type:
+            continue
+        if storage_type and not item_type:
+            continue
+        if not dependency_tokens.name_matches( name, item_name ):
+            continue
+        if qualifier is None:
+            return True
+        row_like = {
+            'type': item_type or 'unknown',
+            'kind': item_type or 'unknown',
+            'qualifier': item_qual,
+            'dependency': item_name,
+            'short_name': item_name,
+            'label': item_label,
+        }
+        if _row_matches_force_token( row_like, name, qualifier ):
+            return True
+    return False
+
+
+def _tokens_need_leaf_filter( tokens ):
+    """True when any token restricts by storage type or qualifier."""
+    return any(
+            storage_type is not None or qualifier is not None
+            for storage_type, _name, qualifier in ( tokens or [] )
+    )
+
+
+def _identity_key( item ):
+    from cuppa.core.dependency_storage import normalise_storage_type
+
+    storage_type = _item_field( item, 'storage_type' )
+    return (
+            normalise_storage_type( storage_type ) or storage_type,
+            ( _item_field( item, 'dependency' ) or '' ).lower(),
+    )
+
+
+def _target_as_leftover( target ):
+    label = target.label
+    if not label:
+        label = os.path.basename( str( target.path ).rstrip( '\\/' ) )
+    return Leftover(
+            dependency=target.dependency,
+            path=target.path,
+            qualifier=target.qualifier,
+            tool_variant=target.tool_variant,
+            size_bytes=target.size_bytes,
+            label=label,
+            storage_type=target.storage_type,
+    )
+
+
+def _filter_plan_by_tokens(
+        cuppa_env, targets, leftovers, archives,
+        download_targets=None, download_leftovers=None,
+):
+    """Apply ``cuppa_env['dependency_tokens']`` type/qualifier filters to a removal plan."""
+    tokens = cuppa_env.get( 'dependency_tokens' ) or []
+    if not _tokens_need_leaf_filter( tokens ):
+        return (
+                list( targets or [] ),
+                list( leftovers or [] ),
+                list( archives or [] ),
+                list( download_targets or [] ),
+                list( download_leftovers or [] ),
+        )
+
+    filtered_targets = []
+    demoted = []
+    for item in targets or []:
+        if _item_matches_any_token( item, tokens ):
+            filtered_targets.append( item )
+        else:
+            demoted.append( item )
+
+    kept_identities = { _identity_key( item ) for item in filtered_targets }
+    filtered_leftovers = [
+            _target_as_leftover( item )
+            for item in demoted
+            if _identity_key( item ) in kept_identities
+    ]
+    for item in leftovers or []:
+        if _identity_key( item ) in kept_identities:
+            filtered_leftovers.append( item )
+
+    filtered_archives = [
+            archive for archive in ( archives or [] )
+            if _item_matches_any_token( archive, tokens )
+    ]
+
+    filtered_downloads = []
+    demoted_downloads = []
+    for item in download_targets or []:
+        if _item_matches_any_token( item, tokens ):
+            filtered_downloads.append( item )
+        else:
+            demoted_downloads.append( item )
+
+    kept_dl_identities = { _identity_key( item ) for item in filtered_downloads }
+    filtered_dl_leftovers = []
+    for item in list( download_leftovers or [] ) + demoted_downloads:
+        if _identity_key( item ) in kept_dl_identities:
+            filtered_dl_leftovers.append( item )
+
+    return (
+            filtered_targets,
+            filtered_leftovers,
+            filtered_archives,
+            filtered_downloads,
+            filtered_dl_leftovers,
+    )
+
+
 def remove_dependencies( construct, cuppa_env, out=None ):
     """Remove named (or all default) dependency trees for the current selection.
 
-    When purge flags are set, also delete matching archives under ``downloads_root``.
+    When purge or wipe flags are set, also delete matching archives under ``downloads_root``.
+    Wipe clears the whole extract even when ``storage_clean`` would leave it.
     """
     out = out or sys.stdout
     names, error = resolve_requested_names( cuppa_env )
@@ -1786,7 +2538,8 @@ def remove_dependencies( construct, cuppa_env, out=None ):
     root = _dependencies_root( cuppa_env )
     _refuse_suspicious_dependencies_root( root, cuppa_env.get( 'sconstruct_dir' ) )
 
-    purge = wants_purge( cuppa_env )
+    wipe = wants_wipe( cuppa_env )
+    purge = wants_purge( cuppa_env ) or wipe
     if purge:
         downloads_root_check = _downloads_root( cuppa_env )
         if downloads_root_check and storage.is_suspicious_root( downloads_root_check ):
@@ -1795,7 +2548,7 @@ def remove_dependencies( construct, cuppa_env, out=None ):
                         downloads_root_check
                 )
             )
-    plan = collect_removal_plan( construct, cuppa_env, names )
+    plan = collect_removal_plan( construct, cuppa_env, names, wipe=wipe )
     targets = plan['targets']
     leftovers = plan['leftovers']
     archives = plan.get( 'archives' ) or []
@@ -1811,6 +2564,17 @@ def remove_dependencies( construct, cuppa_env, out=None ):
         download_targets, download_leftovers, downloads_root = collect_purge_downloads(
                 construct, cuppa_env, names, owned=owned,
         )
+        if not wipe:
+            staying_extracts = _staying_extracts_from_owned( owned, targets, leftovers )
+
+    (
+            targets, leftovers, archives, download_targets, download_leftovers,
+    ) = _filter_plan_by_tokens(
+            cuppa_env, targets, leftovers, archives,
+            download_targets=download_targets,
+            download_leftovers=download_leftovers,
+    )
+    if purge and not wipe:
         staying_extracts = _staying_extracts_from_owned( owned, targets, leftovers )
 
     actionable_downloads = [ item for item in download_targets if not item.missing ]
@@ -1826,11 +2590,17 @@ def remove_dependencies( construct, cuppa_env, out=None ):
                     out, [], leftovers, {}, planning, root, archives=archives,
                     downloads=download_targets, download_leftovers=download_leftovers,
                     downloads_root=downloads_root, staying_extracts=staying_extracts,
+                    summary_label="related dependencies for {}".format(
+                            ', '.join( names ) if names else 'selection'
+                    ),
+                    action_label=(
+                            'wiped' if wipe else ( 'removing' if planning else 'removed' )
+                    ),
             )
             _write_leftovers_summary( out, leftovers, download_leftovers )
         _write_develop_skips( out, develop_skips )
         if leftovers or develop_skips or archives or download_targets or download_leftovers:
-            _write_verify( out, archives=archives or None, purge=purge )
+            _write_verify( out, archives=archives or None, purge=purge, wipe=wipe )
         return 0
 
     planned_bytes = sum( item.size_bytes for item in targets ) + sum(
@@ -1850,15 +2620,19 @@ def remove_dependencies( construct, cuppa_env, out=None ):
     where = as_info( storage.display_path( root ) )
     if purge and downloads_root:
         where = "{} / {}".format( where, as_info( storage.display_path( downloads_root ) ) )
+    verb = "Would wipe" if planning and wipe else (
+            "Wiping" if wipe else ( "Would remove" if planning else "Removing" )
+    )
     announce = "{} {} ({}) under {}".format(
-            "Would remove" if planning else "Removing",
+            verb,
             " and ".join( announce_parts ),
             as_emphasised( storage.human_size( planned_bytes ) ),
             where,
     )
     out.write( announce + "\n" )
     if planning:
-        out.write( as_subdued( "(dry run; pass without -n to remove)" ) + "\n" )
+        hint = "wipe" if wipe else "remove"
+        out.write( as_subdued( "(dry run; pass without -n to {})".format( hint ) ) + "\n" )
     out.write( "\n" )
 
     outcomes_by_path = {}
@@ -1965,6 +2739,12 @@ def remove_dependencies( construct, cuppa_env, out=None ):
             out, targets, leftovers, outcomes_by_path, planning, root, archives=archives,
             downloads=download_targets, download_leftovers=download_leftovers,
             downloads_root=downloads_root, staying_extracts=staying_extracts,
+            summary_label="related dependencies for {}".format(
+                    ', '.join( names ) if names else 'selection'
+            ),
+            action_label=(
+                    'wiped' if wipe else ( 'removing' if planning else 'removed' )
+            ),
     )
     _write_leftovers_summary( out, leftovers, download_leftovers )
     _write_develop_skips( out, develop_skips )
@@ -1980,15 +2760,720 @@ def remove_dependencies( construct, cuppa_env, out=None ):
             ) )
 
     out.write( "\n" )
-    remaining = _remaining_archive_bytes( archives, targets, outcomes_by_path, planning )
+    remaining = 0 if wipe else _remaining_archive_bytes(
+            archives, targets, outcomes_by_path, planning
+    )
     _write_freed_summary(
             out, planning, removed_count, removed_bytes,
             remaining_archive_bytes=remaining,
             download_count=download_removed_count,
     )
-    if not planning and archives:
+    if not planning and archives and not wipe:
         _refresh_archive_inventory_sizes( root, archives, targets, outcomes_by_path )
-    _write_verify( out, archives=archives or None, purge=purge )
+    _write_verify( out, archives=archives or None, purge=purge, wipe=wipe )
 
     hard_errors = [ item for item in failures if item['severity'] == 'error' ]
     return 1 if hard_errors else 0
+
+
+def _other_project_used_by( entry, this_project ):
+    """Return used_by paths that are not this project."""
+    used_by = ( entry or {} ).get( 'used_by' ) or {}
+    if not used_by:
+        return []
+    if not this_project:
+        return sorted( used_by.keys() )
+    this_real = storage.real_path( this_project )
+    return sorted(
+            path for path in used_by
+            if storage.real_path( path ) != this_real
+    )
+
+
+def parse_force_wipe_tokens( spec ):
+    """Parse force-wipe tokens: optional ``[selector]`` plus ``name`` or ``name/qualifier``.
+
+    Returns ``(tokens, error)`` where each token is
+    ``(storage_type_or_None, name, qualifier_or_None)``.
+    """
+    from cuppa.core import dependency_tokens
+
+    tokens, error = dependency_tokens.parse_dependency_tokens( spec )
+    if error:
+        if error == "no dependency tokens given":
+            return [], (
+                    "no force-wipe tokens given "
+                    "(use --force-wipe-dependencies=[source]name/qualifier,…)"
+            )
+        return [], error
+    return tokens, None
+
+
+def force_token_is_wildcard( name, qualifier ):
+    """True when the token is a glob or an identity-wide (no qualifier) match."""
+    if qualifier is None:
+        return True
+    return _is_wildcard_pattern( name ) or _is_wildcard_pattern( qualifier )
+
+
+def _normalise_wipe_name( value ):
+    return ( value or '' ).strip().lower()
+
+
+def _is_wildcard_pattern( text ):
+    """True when ``text`` uses shell / ``fnmatch`` wildcards (``*``, ``?``, ``[``)."""
+    return any( char in ( text or '' ) for char in '*?[' )
+
+
+def _qualifier_aliases( qualifier, storage_type ):
+    """Return forms that should match a list leaf qualifier / display label."""
+    from cuppa.core.dependency_identity import display_qualifier
+
+    raw = ( qualifier or '' ).strip()
+    aliases = { raw, raw.lower() }
+    display = display_qualifier( raw, storage_type or 'repository' )
+    if display:
+        aliases.add( display )
+        aliases.add( display.lower() )
+    # Accept with or without leading @ for location-style tokens.
+    if raw.startswith( '@' ):
+        aliases.add( raw[1:] )
+        aliases.add( raw[1:].lower() )
+    else:
+        aliases.add( '@' + raw )
+        aliases.add( ( '@' + raw ).lower() )
+    # Unqualified default-branch label: "@master (unqualified)".
+    if ' (unqualified)' in display.lower():
+        base = display.split( ' (', 1 )[0]
+        aliases.add( base )
+        aliases.add( base.lower() )
+    return { item for item in aliases if item }
+
+
+def _row_name_candidates( row ):
+    return {
+            item for item in (
+                    ( row.get( 'short_name' ) or '' ).strip(),
+                    ( row.get( 'dependency' ) or '' ).strip(),
+                    ( row.get( 'stem' ) or '' ).strip(),
+            ) if item
+    }
+
+
+def _fnmatch_any( candidates, patterns ):
+    """Case-insensitive ``fnmatch`` of any candidate against any pattern."""
+    for candidate in candidates:
+        cand_l = candidate.lower()
+        for pattern in patterns:
+            if fnmatch.fnmatch( cand_l, pattern.lower() ):
+                return True
+    return False
+
+
+def _row_matches_force_token( row, name, qualifier ):
+    storage_type = row.get( 'type' ) or row.get( 'kind' ) or 'unknown'
+    name_candidates = _row_name_candidates( row )
+    if _is_wildcard_pattern( name ):
+        if not _fnmatch_any( name_candidates, { name } ):
+            return False
+    else:
+        want = _normalise_wipe_name( name )
+        if want not in { _normalise_wipe_name( item ) for item in name_candidates }:
+            return False
+
+    row_qual = row.get( 'qualifier' )
+    # Prefer an explicit display label on the row when present.
+    candidates = _qualifier_aliases( row_qual, storage_type )
+    label = row.get( 'label' )
+    if label:
+        candidates.add( str( label ).strip() )
+        candidates.add( str( label ).strip().lower() )
+    want_aliases = _qualifier_aliases( qualifier, storage_type )
+    if _is_wildcard_pattern( qualifier ):
+        return _fnmatch_any( candidates, want_aliases )
+    return bool( candidates & want_aliases )
+
+
+def _inventory_by_path( root ):
+    by_path = {}
+    for entry in dependency_inventory.load_all_entries( root ):
+        path = entry.get( 'path' )
+        if path:
+            by_path[storage.real_path( path )] = entry
+    return by_path
+
+
+def _target_from_row( row ):
+    path = row.get( 'path' )
+    return RemovalTarget(
+            dependency=row.get( 'dependency' ) or row.get( 'short_name' ) or '-',
+            path=path,
+            qualifier=row.get( 'qualifier' ),
+            tool_variant=row.get( 'tool_variant' ),
+            storage_type=row.get( 'type' ) or row.get( 'kind' ) or 'unknown',
+            size_bytes=int( row.get( 'size_bytes' ) or _measure_bytes( path ) ),
+            label=None,
+            extra_paths=(),
+    )
+
+
+def _download_from_row( row, missing=False ):
+    path = row.get( 'path' )
+    return DownloadTarget(
+            dependency=row.get( 'dependency' ) or row.get( 'short_name' ) or '-',
+            path=path,
+            qualifier=row.get( 'qualifier' ),
+            tool_variant=row.get( 'tool_variant' ),
+            storage_type=row.get( 'type' ) or 'archive',
+            size_bytes=0 if missing else int(
+                    row.get( 'size_bytes' ) or _download_file_size( path )
+            ),
+            label=row.get( 'label' ) or os.path.basename( path or '' ),
+            missing=missing,
+    )
+
+
+def _force_wipe_identity_names( targets, download_targets ):
+    """Normalised identity names touched by a force-wipe plan."""
+    names = set()
+    for item in list( targets or [] ) + list( download_targets or [] ):
+        name = _normalise_wipe_name( getattr( item, 'dependency', None ) )
+        if name:
+            names.add( name )
+    return names
+
+
+def _row_matches_identities( row, identities ):
+    if not identities:
+        return False
+    for key in ( row.get( 'short_name' ), row.get( 'dependency' ), row.get( 'stem' ) ):
+        if _normalise_wipe_name( key ) in identities:
+            return True
+    return False
+
+
+def _collect_force_wipe_context( rows, dl_rows, targets, download_targets ):
+    """Same-identity leaves that remain after a partial force-wipe.
+
+    Shown muted in the report (no ``would rm``) so the identity parent is not marked
+    removed when siblings stay, and so the final size includes what is left.
+    """
+    identities = _force_wipe_identity_names( targets, download_targets )
+    wipe_extract = {
+            storage.real_path( item.path )
+            for item in targets
+            if item.path and os.path.lexists( item.path )
+    }
+    wipe_download = set()
+    for item in download_targets or []:
+        if not item.path:
+            continue
+        wipe_download.add(
+                storage.real_path( item.path ) if os.path.lexists( item.path ) else item.path
+        )
+
+    leftovers = []
+    leftover_seen = set( wipe_extract )
+    for row in rows or []:
+        if not _row_matches_identities( row, identities ):
+            continue
+        path = row.get( 'path' )
+        if not path or not os.path.lexists( path ):
+            continue
+        if os.path.islink( path ):
+            continue
+        real = storage.real_path( path )
+        if real in leftover_seen:
+            continue
+        leftover_seen.add( real )
+        leftovers.append( _target_from_row( row ) )
+
+    download_leftovers = []
+    download_seen = set( wipe_download )
+    for row in dl_rows or []:
+        if row.get( 'role' ) != 'archive':
+            continue
+        if not _row_matches_identities( row, identities ):
+            continue
+        path = row.get( 'path' )
+        if not path:
+            continue
+        real = storage.real_path( path ) if os.path.lexists( path ) else path
+        if real in download_seen:
+            continue
+        download_seen.add( real )
+        if not os.path.lexists( path ):
+            continue
+        if os.path.islink( path ):
+            continue
+        download_leftovers.append( _download_from_row( row, missing=False ) )
+
+    return leftovers, download_leftovers
+
+
+def _execute_force_wipe(
+        out, root, downloads_root, targets, download_targets, planning,
+        notes=None, used_by_warnings=None, unreferenced=False,
+        leftovers=None, download_leftovers=None, summary_label=None,
+):
+    """Announce, delete, and report a force-wipe plan."""
+    notes = notes or []
+    used_by_warnings = used_by_warnings or []
+    leftovers = list( leftovers or [] )
+    download_leftovers = list( download_leftovers or [] )
+    if not summary_label:
+        summary_label = (
+                'unreferenced dependencies' if unreferenced
+                else 'related dependencies for selection'
+        )
+    actionable_downloads = [ item for item in download_targets if not item.missing ]
+    if not targets and not actionable_downloads:
+        out.write( "nothing to wipe under the requested force-wipe selection\n" )
+        for item in used_by_warnings:
+            out.write( as_warning(
+                    "warning: {} still recorded as used by another project: {}\n".format(
+                            item['dependency'],
+                            ', '.join( storage.display_path( p ) for p in item['used_by'] ),
+                    )
+            ) )
+        if leftovers or download_leftovers:
+            _write_removal_tree(
+                    out, [], leftovers, {}, planning, root,
+                    downloads=[], download_leftovers=download_leftovers,
+                    downloads_root=downloads_root, staying_extracts=[],
+                    summary_label=summary_label,
+                    action_label='wiped',
+            )
+        _write_verify( out, wipe=True, unreferenced=unreferenced )
+        return 0
+
+    planned_bytes = sum( item.size_bytes for item in targets ) + sum(
+            item.size_bytes for item in actionable_downloads
+    )
+    announce_parts = []
+    if targets:
+        unit = "dependency tree" if len( targets ) == 1 else "dependency trees"
+        announce_parts.append( "{} {}".format( as_emphasised( str( len( targets ) ) ), unit ) )
+    if actionable_downloads:
+        unit = "download" if len( actionable_downloads ) == 1 else "downloads"
+        announce_parts.append(
+                "{} {}".format( as_emphasised( str( len( actionable_downloads ) ) ), unit )
+        )
+    where = as_info( storage.display_path( root ) )
+    if downloads_root:
+        where = "{} / {}".format( where, as_info( storage.display_path( downloads_root ) ) )
+    out.write( "{} {} ({}) under {}\n".format(
+            "Would wipe" if planning else "Wiping",
+            " and ".join( announce_parts ),
+            as_emphasised( storage.human_size( planned_bytes ) ),
+            where,
+    ) )
+    if planning:
+        out.write( as_subdued( "(dry run; pass without -n to wipe)" ) + "\n" )
+    out.write( "\n" )
+    for note in notes:
+        out.write( as_subdued( note ) + "\n" )
+    if notes:
+        out.write( "\n" )
+    for item in used_by_warnings:
+        out.write( as_warning(
+                "warning: wiping {} despite used_by from another project ({})\n".format(
+                        storage.display_path( item['path'] ),
+                        ', '.join( storage.display_path( p ) for p in item['used_by'] ),
+                )
+        ) )
+    if used_by_warnings:
+        out.write( "\n" )
+
+    outcomes_by_path = {}
+    failures = []
+    removed_bytes = 0
+    removed_count = 0
+
+    for target in targets:
+        real = storage.real_path( target.path )
+        if planning:
+            outcomes_by_path[real] = { 'result': 'removed' }
+            removed_bytes += target.size_bytes
+            removed_count += 1
+            continue
+        try:
+            storage.ensure_contained( target.path, root, what="dependency path" )
+            if os.path.islink( target.path ):
+                raise storage.StorageError(
+                    "refusing to remove through symlink [{}]".format( target.path )
+                )
+            if os.path.lexists( target.path ):
+                storage.remove_path( target.path, dry_run=False )
+                storage.prune_empty_parents( os.path.dirname( target.path ), root )
+                try:
+                    dependency_inventory.delete_entry_for_path( root, target.path )
+                except Exception:
+                    pass
+            outcomes_by_path[real] = { 'result': 'removed' }
+            removed_bytes += target.size_bytes
+            removed_count += 1
+        except ( storage.StorageError, OSError ) as error:
+            reason = str( error )
+            already_gone = "already deleted" in reason.lower() or "not found" in reason.lower()
+            severity = 'warning' if already_gone else 'error'
+            outcomes_by_path[real] = { 'result': 'failed', 'reason': reason }
+            failures.append( {
+                'dependency': target.dependency,
+                'path': target.path,
+                'reason': reason,
+                'severity': severity,
+            } )
+
+    download_removed_count = 0
+    for download in download_targets:
+        real_key = (
+                storage.real_path( download.path )
+                if os.path.lexists( download.path ) else download.path
+        )
+        if download.missing:
+            outcomes_by_path[real_key] = { 'result': 'absent' }
+            continue
+        if planning:
+            outcomes_by_path[real_key] = { 'result': 'removed' }
+            removed_bytes += download.size_bytes
+            download_removed_count += 1
+            continue
+        try:
+            storage.ensure_contained( download.path, downloads_root, what="download path" )
+            if os.path.islink( download.path ):
+                raise storage.StorageError(
+                    "refusing to remove through symlink [{}]".format( download.path )
+                )
+            if os.path.lexists( download.path ):
+                storage.remove_path( download.path, dry_run=False )
+                storage.prune_empty_parents( os.path.dirname( download.path ), downloads_root )
+            outcomes_by_path[real_key] = { 'result': 'removed' }
+            removed_bytes += download.size_bytes
+            download_removed_count += 1
+        except ( storage.StorageError, OSError ) as error:
+            reason = str( error )
+            already_gone = "already deleted" in reason.lower() or "not found" in reason.lower()
+            severity = 'warning' if already_gone else 'error'
+            outcomes_by_path[real_key] = { 'result': 'failed', 'reason': reason }
+            failures.append( {
+                'dependency': download.dependency,
+                'path': download.path,
+                'reason': reason,
+                'severity': severity,
+            } )
+
+    _write_removal_tree(
+            out, targets, leftovers, outcomes_by_path, planning, root,
+            downloads=download_targets, download_leftovers=download_leftovers,
+            downloads_root=downloads_root, staying_extracts=[],
+            summary_label=summary_label,
+            action_label='wiped',
+    )
+
+    if failures:
+        out.write( "\n" )
+        out.write( as_warning( "Not all requested paths could be wiped:" ) + "\n" )
+        for item in failures:
+            colour = as_remove_error if item['severity'] == 'error' else as_warning
+            out.write( "  {}: {}\n".format(
+                    colour( item['dependency'] ),
+                    item['reason'],
+            ) )
+
+    remaining = sum( item.size_bytes for item in leftovers ) + sum(
+            item.size_bytes for item in download_leftovers if not getattr( item, 'missing', False )
+    )
+    out.write( "\n" )
+    _write_freed_summary(
+            out, planning, removed_count, removed_bytes,
+            remaining_archive_bytes=remaining,
+            download_count=download_removed_count,
+    )
+    _write_verify( out, wipe=True, unreferenced=unreferenced )
+    hard_errors = [ item for item in failures if item['severity'] == 'error' ]
+    return 1 if hard_errors else 0
+
+
+def force_wipe_dependencies( construct, cuppa_env, out=None ):
+    """Clear-down list-tree leaves named as ``name/qualifier`` tokens."""
+    from cuppa.core import dependency_actions, dependency_downloads, dependency_identity
+
+    out = out or sys.stdout
+    tokens, error = parse_force_wipe_tokens( cuppa_env.get( 'force_wipe_dependencies' ) )
+    if error:
+        out.write( "error: {}\n".format( error ) )
+        return 1
+
+    root = _dependencies_root( cuppa_env )
+    _refuse_suspicious_dependencies_root( root, cuppa_env.get( 'sconstruct_dir' ) )
+    downloads_root = _downloads_root( cuppa_env )
+    if downloads_root and storage.is_suspicious_root( downloads_root ):
+        raise storage.StorageError(
+            "refusing to wipe under suspicious downloads root [{}]".format( downloads_root )
+        )
+
+    rows = dependency_actions._collect_rows( construct, cuppa_env ).get( 'rows' ) or []
+    dl_rows = dependency_downloads.collect_download_rows( construct, cuppa_env ).get( 'rows' ) or []
+    by_path = _inventory_by_path( root )
+    this_project = cuppa_env.get( 'sconstruct_dir' )
+    planning = dry_run( cuppa_env )
+
+    from cuppa.core import dependency_tokens
+
+    targets = []
+    seen = set()
+    notes = []
+    used_by_warnings = []
+    matched_reals = set()
+
+    for storage_type, name, qualifier in tokens:
+        token_label = dependency_tokens.format_token( storage_type, name, qualifier )
+        matches = [
+                row for row in rows
+                if row.get( 'path' ) and dependency_tokens.row_matches_token(
+                        row, storage_type, name, qualifier
+                )
+        ]
+        # Distinct paths only.
+        by_real = {}
+        for row in matches:
+            real = storage.real_path( row['path'] ) if os.path.lexists( row['path'] ) else row['path']
+            by_real.setdefault( real, row )
+        if not by_real:
+            out.write( "error: no dependency leaf matches [{}]\n".format( token_label ) )
+            return 1
+        wildcard = force_token_is_wildcard( name, qualifier )
+        if not wildcard and len( by_real ) > 1:
+            out.write( "error: ambiguous force-wipe token [{}]; candidates:\n".format(
+                    token_label
+            ) )
+            for row in sorted( by_real.values(), key=lambda item: item.get( 'path' ) or '' ):
+                out.write( "  {} ({})\n".format(
+                        storage.display_path( row['path'] ),
+                        storage.human_size( int( row.get( 'size_bytes' ) or 0 ) ),
+                ) )
+            return 1
+        for row in sorted( by_real.values(), key=lambda item: item.get( 'path' ) or '' ):
+            path = row['path']
+            if not os.path.lexists( path ):
+                out.write( "error: matched leaf [{}] path does not exist: {}\n".format(
+                        token_label, path
+                ) )
+                return 1
+            real = storage.real_path( path )
+            if real in seen:
+                continue
+            storage.ensure_contained( path, root, what="dependency path" )
+            if os.path.islink( path ):
+                raise storage.StorageError(
+                    "refusing to remove through symlink [{}]".format( path )
+                )
+            entry = by_path.get( real ) or {}
+            others = _other_project_used_by( entry, this_project )
+            if others:
+                used_by_warnings.append( {
+                    'dependency': row.get( 'dependency' ) or row.get( 'short_name' ) or path,
+                    'path': path,
+                    'used_by': others,
+                } )
+            if not entry:
+                notes.append( "no inventory record for {}".format( storage.display_path( path ) ) )
+            seen.add( real )
+            matched_reals.add( real )
+            targets.append( _target_from_row( row ) )
+
+    download_targets = []
+    download_seen = set()
+    for row in dl_rows:
+        if row.get( 'role' ) != 'archive':
+            continue
+        path = row.get( 'path' )
+        if not path:
+            continue
+        paired = False
+        for storage_type, name, qualifier in tokens:
+            if dependency_tokens.row_matches_token( row, storage_type, name, qualifier ):
+                paired = True
+                break
+        if not paired:
+            # Product children in downloads listing may point at extract paths.
+            continue
+        real = storage.real_path( path ) if os.path.lexists( path ) else path
+        if real in download_seen:
+            continue
+        download_seen.add( real )
+        if not os.path.lexists( path ):
+            download_targets.append( _download_from_row( row, missing=True ) )
+            continue
+        if not downloads_root:
+            continue
+        storage.ensure_contained( path, downloads_root, what="download path" )
+        if os.path.islink( path ):
+            raise storage.StorageError(
+                "refusing to remove through symlink [{}]".format( path )
+            )
+        download_targets.append( _download_from_row( row, missing=False ) )
+
+    # Also pick up archives whose basename/path is linked from inventory downloads
+    # for wiped extracts, or find_cached_download for archive homes.
+    for target in targets:
+        entry = by_path.get( storage.real_path( target.path ) ) or {}
+        for download_path in entry.get( 'downloads' ) or []:
+            if not download_path:
+                continue
+            real = storage.real_path( download_path ) if os.path.lexists( download_path ) else download_path
+            if real in download_seen:
+                continue
+            download_seen.add( real )
+            if not downloads_root or not os.path.lexists( download_path ):
+                download_targets.append( DownloadTarget(
+                        dependency=target.dependency,
+                        path=download_path,
+                        qualifier=target.qualifier,
+                        tool_variant=target.tool_variant,
+                        storage_type='archive',
+                        size_bytes=0,
+                        label=os.path.basename( download_path ),
+                        missing=not os.path.lexists( download_path ),
+                ) )
+                continue
+            storage.ensure_contained( download_path, downloads_root, what="download path" )
+            download_targets.append( DownloadTarget(
+                    dependency=target.dependency,
+                    path=download_path,
+                    qualifier=target.qualifier,
+                    tool_variant=target.tool_variant,
+                    storage_type='archive',
+                    size_bytes=_download_file_size( download_path ),
+                    label=os.path.basename( download_path ),
+                    missing=False,
+            ) )
+        try:
+            found = dependency_identity.find_cached_download(
+                    downloads_root,
+                    storage_type=target.storage_type,
+                    path=target.path,
+            )
+        except Exception:
+            found = None
+        if found and downloads_root:
+            real = storage.real_path( found ) if os.path.lexists( found ) else found
+            if real not in download_seen:
+                download_seen.add( real )
+                if os.path.lexists( found ):
+                    storage.ensure_contained( found, downloads_root, what="download path" )
+                    download_targets.append( DownloadTarget(
+                            dependency=target.dependency,
+                            path=found,
+                            qualifier=target.qualifier,
+                            tool_variant=target.tool_variant,
+                            storage_type='archive',
+                            size_bytes=_download_file_size( found ),
+                            label=os.path.basename( found ),
+                            missing=False,
+                    ) )
+
+    leftovers, download_leftovers = _collect_force_wipe_context(
+            rows, dl_rows, targets, download_targets,
+    )
+    raw_spec = cuppa_env.get( 'force_wipe_dependencies' )
+    if isinstance( raw_spec, ( list, tuple ) ):
+        raw_spec = raw_spec[0] if raw_spec else ''
+    summary_label = "related dependencies for {}".format(
+            str( raw_spec ).strip() or 'selection'
+    )
+    return _execute_force_wipe(
+            out, root, downloads_root, targets, download_targets, planning,
+            notes=notes, used_by_warnings=used_by_warnings, unreferenced=False,
+            leftovers=leftovers, download_leftovers=download_leftovers,
+            summary_label=summary_label,
+    )
+
+
+def force_wipe_unreferenced_dependencies( construct, cuppa_env, out=None ):
+    """Clear-down every tree and download this resolve marks as unreferenced."""
+    from cuppa.core import dependency_actions, dependency_downloads, dependency_tree
+
+    out = out or sys.stdout
+    root = _dependencies_root( cuppa_env )
+    _refuse_suspicious_dependencies_root( root, cuppa_env.get( 'sconstruct_dir' ) )
+    downloads_root = _downloads_root( cuppa_env )
+    if downloads_root and storage.is_suspicious_root( downloads_root ):
+        raise storage.StorageError(
+            "refusing to wipe under suspicious downloads root [{}]".format( downloads_root )
+        )
+
+    dep_data = dependency_actions.apply_list_scope(
+            dependency_actions._collect_rows( construct, cuppa_env ),
+            'unreferenced',
+            tree_builder=dependency_tree.build_tree,
+    )
+    dl_data = dependency_actions.apply_list_scope(
+            dependency_downloads.collect_download_rows( construct, cuppa_env ),
+            'unreferenced',
+            tree_builder=dependency_downloads.build_downloads_tree,
+    )
+
+    this_project = cuppa_env.get( 'sconstruct_dir' )
+    planning = dry_run( cuppa_env )
+    by_path = _inventory_by_path( root )
+
+    targets = []
+    seen = set()
+    notes = []
+    used_by_warnings = []
+
+    for row in dep_data.get( 'rows' ) or []:
+        if row.get( 'state' ) != 'unreferenced':
+            continue
+        path = row.get( 'path' )
+        if not path or not os.path.lexists( path ):
+            continue
+        real = storage.real_path( path )
+        if real in seen:
+            continue
+        storage.ensure_contained( path, root, what="dependency path" )
+        if os.path.islink( path ):
+            raise storage.StorageError(
+                "refusing to remove through symlink [{}]".format( path )
+            )
+        entry = by_path.get( real ) or {}
+        others = _other_project_used_by( entry, this_project )
+        if others:
+            used_by_warnings.append( {
+                'dependency': row.get( 'dependency' ) or row.get( 'short_name' ) or path,
+                'path': path,
+                'used_by': others,
+            } )
+        if not entry:
+            notes.append( "no inventory record for {}".format( storage.display_path( path ) ) )
+        seen.add( real )
+        targets.append( _target_from_row( row ) )
+
+    download_targets = []
+    for row in dl_data.get( 'rows' ) or []:
+        if row.get( 'state' ) != 'unreferenced':
+            continue
+        if row.get( 'role' ) != 'archive':
+            continue
+        path = row.get( 'path' )
+        if not path:
+            continue
+        if not os.path.lexists( path ):
+            download_targets.append( _download_from_row( row, missing=True ) )
+            continue
+        if not downloads_root:
+            continue
+        storage.ensure_contained( path, downloads_root, what="download path" )
+        if os.path.islink( path ):
+            raise storage.StorageError(
+                "refusing to remove through symlink [{}]".format( path )
+            )
+        download_targets.append( _download_from_row( row, missing=False ) )
+
+    return _execute_force_wipe(
+            out, root, downloads_root, targets, download_targets, planning,
+            notes=notes, used_by_warnings=used_by_warnings, unreferenced=True,
+            summary_label='unreferenced dependencies',
+    )

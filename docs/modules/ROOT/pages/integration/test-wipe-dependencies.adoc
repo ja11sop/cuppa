@@ -1,0 +1,46 @@
+= `test_wipe_dependencies` — wipe and force-wipe
+:description: Cuppa integration test documentation for test_wipe_dependencies
+
+
+== What is tested
+
+With planted trees and archives under a private `--storage-root`:
+
+* Combining wipe / force-wipe flags with `--remove-*` or `--purge-*` exits non-zero without deleting.
+* Source `boost` `--wipe-dependencies` deletes the extract **and** the download (contrast purge,
+  which leaves the extract). SCons `-n` reports the same paths and deletes nothing.
+* Wiping a GitLab package deletes the selected toolchain extract and tarball; another toolchain's
+  extract and tarball stay.
+* `--force-wipe-dependencies=boost/1.86.0,boost/1.87.0` deletes only those version leaves (and
+  matching downloads) while keeping the current `--boost-home` extract.
+* `--force-wipe-dependencies=boost/1.8*` (fnmatch) deletes every matching `1.8*` leaf while
+  keeping `1.91.0`; `-n` lists each hit.
+* `--force-wipe-unreferenced-dependencies` deletes an orphan Boost tree/archive while keeping the
+  current extract.
+
+== Generated files
+
+Dummy project `sconstruct` declaring `boost_package` or `boost`, plus planted folders under
+`<storage>/dependencies/` and archives under `<storage>/downloads/`.
+
+== Commands
+
+[source,shell]
+----
+cuppa -D --offline --wipe-dependencies=boost_package --remove-dependencies=boost_package --storage-root=<storage>
+cuppa -D --offline --dbg -n --boost-home=<extract> --wipe-dependencies=boost --storage-root=<storage>
+cuppa -D --offline --dbg --boost-home=<extract> --wipe-dependencies=boost --storage-root=<storage>
+cuppa -D --offline --dbg --wipe-dependencies=boost_package --storage-root=<storage>
+cuppa -D --offline --dbg --boost-home=<current> --force-wipe-dependencies=boost/1.86.0,boost/1.87.0 --storage-root=<storage>
+cuppa -D --offline --dbg --boost-home=<current> --force-wipe-dependencies=boost/1.8* --storage-root=<storage>
+cuppa -D --offline --dbg --boost-home=<current> --force-wipe-unreferenced-dependencies --storage-root=<storage>
+----
+
+== Outcome
+
+Conflict runs exit non-zero. Named wipe removes the selected extract and download. Force-wipe
+leaf tokens remove only the named versions; wildcards remove every matching leaf. Unreferenced
+force-wipe removes only orphan tree/archive. Verify hints point at `--list-dependencies` /
+`--list-downloads`.
+
+Related test module: `tests/integration/test_wipe_dependencies.py`.

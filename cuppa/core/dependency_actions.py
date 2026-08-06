@@ -222,6 +222,34 @@ def add_dependency_action_options( add_option ):
         help="Remove every project-used dependency and matching downloads for the current "
              "selection, then exit",
     )
+    add_option(
+        '--wipe-dependencies', dest='wipe_dependencies', type='string', nargs=1,
+        action='store',
+        help="Clear-down named project-used dependency extracts and matching downloads for "
+             "the current selection (comma-separated), then exit. Unlike purge, archive "
+             "extracts are deleted too so the next build re-fetches. For specific versions "
+             "or branches from the list tree, use --force-wipe-dependencies=name/qualifier",
+    )
+    add_option(
+        '--force-wipe-dependencies', dest='force_wipe_dependencies', type='string', nargs=1,
+        action='store',
+        help="Power tool: clear-down list-tree leaves by [selector]name/qualifier "
+             "(e.g. [source]boost/1.8*, fmt/@11.1.1) and matching downloads, regardless of "
+             "referenced/unreferenced/in use, then exit",
+    )
+    add_option(
+        '--force-wipe-all-dependencies', dest='force_wipe_all_dependencies',
+        action='store_true',
+        help="Power tool: clear-down every project-used dependency extract and matching "
+             "downloads for the current selection, then exit (not unreferenced leftovers)",
+    )
+    add_option(
+        '--force-wipe-unreferenced-dependencies',
+        dest='force_wipe_unreferenced_dependencies',
+        action='store_true',
+        help="Power tool: clear-down every dependency tree and matching download this "
+             "resolve marks as unreferenced (orphans), then exit",
+    )
 
 
 def process_dependency_action_options( cuppa_env ):
@@ -230,6 +258,12 @@ def process_dependency_action_options( cuppa_env ):
     cuppa_env['exact_sizes'] = bool( cuppa_env.get_option( 'exact_sizes' ) )
     cuppa_env['remove_all_dependencies'] = bool( cuppa_env.get_option( 'remove_all_dependencies' ) )
     cuppa_env['purge_all_dependencies'] = bool( cuppa_env.get_option( 'purge_all_dependencies' ) )
+    cuppa_env['force_wipe_all_dependencies'] = bool(
+            cuppa_env.get_option( 'force_wipe_all_dependencies' )
+    )
+    cuppa_env['force_wipe_unreferenced_dependencies'] = bool(
+            cuppa_env.get_option( 'force_wipe_unreferenced_dependencies' )
+    )
     remove = cuppa_env.get_option( 'remove_dependencies' )
     if isinstance( remove, ( list, tuple ) ):
         remove = remove[0] if remove else None
@@ -238,6 +272,14 @@ def process_dependency_action_options( cuppa_env ):
     if isinstance( purge, ( list, tuple ) ):
         purge = purge[0] if purge else None
     cuppa_env['purge_dependencies'] = purge
+    wipe = cuppa_env.get_option( 'wipe_dependencies' )
+    if isinstance( wipe, ( list, tuple ) ):
+        wipe = wipe[0] if wipe else None
+    cuppa_env['wipe_dependencies'] = wipe
+    force_wipe = cuppa_env.get_option( 'force_wipe_dependencies' )
+    if isinstance( force_wipe, ( list, tuple ) ):
+        force_wipe = force_wipe[0] if force_wipe else None
+    cuppa_env['force_wipe_dependencies'] = force_wipe
     def _scope_option( name ):
         value = cuppa_env.get_option( name )
         if isinstance( value, ( list, tuple ) ):
@@ -259,6 +301,10 @@ def wants_dependency_action( cuppa_env ):
         or cuppa_env.get( 'remove_all_dependencies' )
         or cuppa_env.get( 'purge_dependencies' )
         or cuppa_env.get( 'purge_all_dependencies' )
+        or cuppa_env.get( 'wipe_dependencies' )
+        or cuppa_env.get( 'force_wipe_dependencies' )
+        or cuppa_env.get( 'force_wipe_all_dependencies' )
+        or cuppa_env.get( 'force_wipe_unreferenced_dependencies' )
     )
 
 
@@ -1094,8 +1140,8 @@ def list_dependencies( construct, cuppa_env, out=None ):
 
     if any( row['state'] == 'unreferenced' for row in rows ):
         out.write( "\n" )
-        out.write( "Review unreferenced trees, then remove by name with:\n\n" )
-        out.write( as_emphasised( "cuppa -D --remove-dependencies=<name>" ) + "\n" )
+        out.write( "Review unreferenced trees, then clear them with:\n\n" )
+        out.write( as_emphasised( "cuppa -Q -D --force-wipe-unreferenced-dependencies" ) + "\n" )
 
     if any( row.get( 'state' ) == 'cached' for row in rows ):
         out.write( "\n" )
@@ -1213,11 +1259,39 @@ def list_downloads( construct, cuppa_env, out=None ):
 def run( construct, cuppa_env, out=None ):
     out = out or sys.stdout
     try:
-        if dependency_removal.purge_and_remove_combined( cuppa_env ):
+        conflict = dependency_removal.conflicting_dependency_modes( cuppa_env )
+        if conflict:
             out.write(
-                    "error: do not combine --purge-* with --remove-* in one invocation\n"
+                    "error: do not combine remove/purge/wipe modes in one invocation "
+                    "(got: {})\n".format( ", ".join( conflict ) )
             )
             return 1
+
+        if cuppa_env.get( 'force_wipe_unreferenced_dependencies' ):
+            logger.info( as_info_label(
+                    "Running in FORCE WIPE UNREFERENCED DEPENDENCIES mode, "
+                    "no building will be attempted"
+            ) )
+            return dependency_removal.force_wipe_unreferenced_dependencies(
+                    construct, cuppa_env, out=out
+            )
+
+        if cuppa_env.get( 'force_wipe_dependencies' ):
+            logger.info( as_info_label(
+                    "Running in FORCE WIPE DEPENDENCIES mode, "
+                    "no building will be attempted"
+            ) )
+            return dependency_removal.force_wipe_dependencies(
+                    construct, cuppa_env, out=out
+            )
+
+        if (
+                cuppa_env.get( 'force_wipe_all_dependencies' )
+                or cuppa_env.get( 'wipe_dependencies' )
+        ):
+            logger.info( as_info_label(
+                    "Running in WIPE DEPENDENCIES mode, no building will be attempted" ) )
+            return dependency_removal.remove_dependencies( construct, cuppa_env, out=out )
 
         if (
                 cuppa_env.get( 'purge_all_dependencies' )
