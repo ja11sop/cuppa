@@ -30,7 +30,7 @@ def test_touch_and_load_entry( tmp_path ):
     entry = dependency_inventory.touch_entry(
             str( dependencies_root ),
             str( tree ),
-            storage_type='location',
+            storage_type='repository',
             dependency='widget',
             qualifier='@master',
             tool_variant=None,
@@ -39,8 +39,8 @@ def test_touch_and_load_entry( tmp_path ):
     )
     assert entry['dependency'] == 'widget'
     assert entry['qualifier'] == '@master'
-    assert entry['type'] == 'location'
-    assert entry['kind'] == 'location'
+    assert entry['type'] == 'repository'
+    assert entry['kind'] == 'repository'
     assert entry['size']['method'] == 'exact'
     assert entry['size']['bytes'] >= 5
     assert str( tmp_path / 'project' ) in entry['used_by'] or storage.real_path(
@@ -56,8 +56,8 @@ def test_touch_and_load_entry( tmp_path ):
     files = list( on_disk.glob( '*.json' ) )
     assert len( files ) == 1
     payload = json.loads( files[0].read_text( encoding='utf-8' ) )
-    assert payload['type'] == 'location'
-    assert payload['kind'] == 'location'
+    assert payload['type'] == 'repository'
+    assert payload['kind'] == 'repository'
 
 
 def test_write_entry_refuses_path_outside_root( tmp_path ):
@@ -69,7 +69,7 @@ def test_write_entry_refuses_path_outside_root( tmp_path ):
         dependency_inventory.write_entry( str( dependencies_root ), {
             'path': str( outside ),
             'dependency': 'x',
-            'kind': 'location',
+            'kind': 'repository',
         } )
 
 
@@ -111,7 +111,7 @@ def test_touch_entry_without_last_used_leaves_used_by_empty( tmp_path ):
     entry = dependency_inventory.touch_entry(
             str( dependencies_root ),
             str( tree ),
-            storage_type='location',
+            storage_type='repository',
             dependency='widget',
             qualifier='@master',
             sconstruct_dir=str( tmp_path / 'project' ),
@@ -132,7 +132,7 @@ def test_touch_entry_refresh_size_false_skips_measure( tmp_path ):
     entry = dependency_inventory.touch_entry(
             str( dependencies_root ),
             str( tree ),
-            storage_type='location',
+            storage_type='repository',
             dependency='widget',
             qualifier='@master',
             refresh_size=False,

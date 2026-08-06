@@ -233,9 +233,9 @@ def add_dependency_action_options( add_option ):
     add_option(
         '--force-wipe-dependencies', dest='force_wipe_dependencies', type='string', nargs=1,
         action='store',
-        help="Power tool: clear-down list-tree leaves by name/qualifier "
-             "(e.g. boost/1.86.0, fmt/@11.1.1, or fnmatch boost/1.8*) and matching "
-             "downloads, regardless of referenced/unreferenced/in use, then exit",
+        help="Power tool: clear-down list-tree leaves by [selector]name/qualifier "
+             "(e.g. [source]boost/1.8*, fmt/@11.1.1) and matching downloads, regardless of "
+             "referenced/unreferenced/in use, then exit",
     )
     add_option(
         '--force-wipe-all-dependencies', dest='force_wipe_all_dependencies',

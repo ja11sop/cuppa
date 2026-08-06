@@ -308,6 +308,16 @@ cuppa.run(
     assert "Would wipe" in plain_dry
     assert "boost_1_86_0" in plain_dry or "1.86" in plain_dry
     assert "boost_1_87_0" in plain_dry or "1.87" in plain_dry
+    # Remaining current version must appear without a remove remark; parent must not
+    # look fully wiped when siblings stay.
+    assert "boost_1_91_0" in plain_dry or "1.91" in plain_dry
+    assert "leaving a final archive size of" in plain_dry
+    assert "leaving a final archive size of 0B" not in plain_dry
+    parent_line = next(
+            line for line in plain_dry.splitlines()
+            if line.strip().endswith( 'boost' ) and 'SIZE' not in line
+    )
+    assert 'would rm' not in parent_line.lower()
     assert old_a.is_dir() and old_b.is_dir() and current.is_dir()
 
     wiped = run_cuppa(

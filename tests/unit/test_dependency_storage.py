@@ -263,7 +263,7 @@ def test_describe_tree_path_vcs_with_branch( tmp_path ):
     described = dependency_storage.describe_tree_path( str( path ), str( root ) )
     assert described['dependency'] == 'git_ssh_git@host__org_widget'
     assert described['qualifier'] == '@master'
-    assert described['type'] == 'location'
+    assert described['type'] == 'repository'
 
 
 def test_classify_storage_type_four_kinds( tmp_path ):
@@ -278,7 +278,7 @@ def test_classify_storage_type_four_kinds( tmp_path ):
 
     assert dependency_storage.classify_storage_type( str( gitlab ), str( root ) ) == 'gitlab'
     assert dependency_storage.classify_storage_type( str( conan ), str( root ) ) == 'conan'
-    assert dependency_storage.classify_storage_type( str( location ), str( root ) ) == 'location'
+    assert dependency_storage.classify_storage_type( str( location ), str( root ) ) == 'repository'
     assert dependency_storage.classify_storage_type( str( archive ), str( root ) ) == 'archive'
 
 
@@ -320,7 +320,7 @@ def test_classify_storage_type_on_legacy_download_root():
             continue
         found.add( dependency_storage.classify_storage_type( path, root ) )
 
-    assert found >= { 'gitlab', 'conan', 'location', 'archive' }
+    assert found >= { 'gitlab', 'conan', 'repository', 'archive' }
 
 
 def test_describe_tree_path_keeps_git_at_in_name( tmp_path ):

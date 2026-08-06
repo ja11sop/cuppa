@@ -32,7 +32,7 @@ Throughout this document the new names are used: `dependencies_root` (was `downl
 `downloads_root` (was `cache_root`). Both default to subfolders of a single `storage_root`,
 which defaults to `~/.cuppa` and can be moved with one option.
 
-### Progress snapshot (2026-08-05)
+### Progress snapshot (2026-08-06)
 
 Phases **1**, **2**, **4**, and **5**, Phase **3 listing**, Phase **3 removal Slice D**, and
 archive clean-by-variant (§4.14.3) are **done**
@@ -61,11 +61,12 @@ deferred Phase 3 polish items remain open and do not keep #134 open.
 | Phase 3 — **dependencies documentation split** (§7.1) | **done** | [#145](https://github.com/ja11sop/cuppa/issues/145) — Hub + children; `packages.adoc` publish focus; `include`/`sys_include` drift fixed |
 | Phase 3 — `--list-develop --list-format=json` | **done** | [#148](https://github.com/ja11sop/cuppa/issues/148) — Shared `--list-format=json` parity for develop copies (agents / scripts); text unchanged |
 | Phase 4 — downloads list / purge | **done** | `--list-downloads` + `--purge-dependencies` / `--purge-all-dependencies` in [#144](https://github.com/ja11sop/cuppa/pull/144); that PR closes #134 |
-| `--wipe-dependencies` | **done** | [#146](https://github.com/ja11sop/cuppa/issues/146) — Named selection clear-down; `--force-wipe-dependencies=name/qualifier` (exact or fnmatch, e.g. `boost/1.8*`); `--force-wipe-all-dependencies`; `--force-wipe-unreferenced-dependencies` for orphans |
+| `--wipe-dependencies` | **in progress** | [#146](https://github.com/ja11sop/cuppa/issues/146) / [#150](https://github.com/ja11sop/cuppa/pull/150) — Selection wipe + force-wipe shipped on branch; **§4.15** selectors, `location`→`repository` rename, shared tokens for remove/purge/wipe **in progress** |
 | Phase 6 — artefacts | **open** | Sketch only (§4.6) / [#135](https://github.com/ja11sop/cuppa/issues/135) |
 | §3.7 — `--clone-develop` | **open** | #138 |
 
-**Next focus:** [#138](https://github.com/ja11sop/cuppa/issues/138)
+**Next focus:** Finish §4.15 on [#150](https://github.com/ja11sop/cuppa/pull/150) (selectors +
+repository rename + shared tokens), then [#138](https://github.com/ja11sop/cuppa/issues/138)
 (`--clone-develop`) / [#135](https://github.com/ja11sop/cuppa/issues/135) (artefacts). Boost package
 identity stays on [`boost-updates.md`](boost-updates.md). Age-gated unreferenced GC
 (`--older-than`) remains deferred (§9).
@@ -1283,15 +1284,17 @@ Hierarchy (outer → inner):
 
 1. **Section:** `referenced` (includes `missing` and `cached` under the identities this
    sconstruct cares about) then `unreferenced` (orphans with no registry binding in this run).
-2. **Type group:** location dependencies, gitlab packages, conan, archives (omit empty groups).
+2. **Type group:** repository dependencies, gitlab packages, conan, source archives (omit empty
+   groups). See §4.15 for the `location` → `repository` rename and wipe/remove selectors.
 3. **Identity:** registry name for referenced (`baa [clearpool.io/cplx_core/baa]`); short name
    alone for unreferenced (`clearpool.io/cplx_core/transport_layer`). For **missing** referenced
    identities, replace the short name with `remote_location()` (configured location URL, or
    `registry/package/version` for GitLab packages).
 4. **Variants:**
-   - **location:** one child per qualifier (`@` for unspecified / unqualified stem, `@master`,
-     `@feature_x`, …). Prefer `@` over inventing `<default_branch>` — until the §4.8 quirk fix
-     makes unqualified stems go away, `@` correctly means "branch not encoded in the folder".
+   - **repository** (was `location`): one child per qualifier (`@` for unspecified / unqualified
+     stem, `@master`, `@feature_x`, …). Prefer `@` over inventing `<default_branch>` — until the
+     §4.8 quirk fix makes unqualified stems go away, `@` correctly means "branch not encoded in
+     the folder".
    - **gitlab:** version (descending) → toolchain variant children
    - **conan:** fingerprint children until §4.7 meta improves labels
    - **archive:** version / archive id children (Boost heuristic → `boost` + `1.86.0`)
@@ -1854,6 +1857,96 @@ root.
 | Document whole-extract archive remove | **Done** (Slice D docs; superseded for Boost by storage_clean) |
 | `storage_clean` / b2 per-variant clean | **Done** — #143 |
 | Short-name remove when uniquely referenced | **Rejected for Slice D** (unchanged) |
+
+### 4.15 Selectors, repository rename, and shared dependency tokens
+
+**Status:** in progress on [#150](https://github.com/ja11sop/cuppa/pull/150) (umbrella [#146](https://github.com/ja11sop/cuppa/issues/146)).
+
+Wipe already supports leaf tokens and fnmatch (`boost/1.8*`), but (1) untyped tokens mixed
+**source archives** and **gitlab packages** under one identity parent, (2) the list type group
+**location dependencies** names the retrieve *mechanism* (`location_dependency`), not the
+on-disk *bucket*, and (3) only force-wipe was gaining richer tokens while remove / purge / wipe
+still took bare project-used names.
+
+Nothing in the new list/remove/purge/wipe surface is released yet — vocabulary and token grammar
+can change now. The long-standing Python API `cuppa.location_dependency()` **stays**.
+
+#### Mechanism vs storage bucket
+
+| Layer | Role | Example |
+|-------|------|---------|
+| Retrieve mechanism | How the sconstruct declared / fetched the dep | fmt via `location_dependency` from GitHub |
+| Storage / list bucket | How `--list-dependencies` / `--list-downloads` classify on-disk trees | That fmt often under **source archives** (zip + `[E]`) |
+
+Selectors and type groups follow the **bucket**, not the factory. A location-fetched zip is
+still `[source]` / `archive`.
+
+#### Rename `location` → `repository` (list / storage)
+
+| Layer | Decision |
+|-------|----------|
+| List / downloads type label | **`repository dependencies`** (VCS / checkout trees with `@branch` leaves) |
+| Internal `storage_type` | **`repository`** (JSON, classify, inventory writes) |
+| Inventory compat | **Read** legacy `type: location` as `repository`; **write** `repository` |
+| Python API | **Keep** `location_dependency` / module paths |
+
+#### Selector grammar (shared)
+
+```
+token := [ selector ] dependency_match
+dependency_match := name [ '/' qualifier ]
+```
+
+- **Primary spelling:** `[selector]name` or `[selector]name/qualifier` (quote for shell when
+  using `*`, `?`, or `[`).
+- **Identity form:** `[source]boost`, `boost`, `boost*` (fnmatch on name).
+- **Leaf form:** `[source]boost/1.8*`, `boost/1.8*` (fnmatch on name and/or qualifier).
+- **Untyped** (no `[selector]`): match across **all** buckets — intentional (e.g. source Boost
+  *and* GitLab packages). Dry-run / reports **must** show type partitions.
+- **Typed:** restrict to that canonical type only.
+- Rejected: slash type-prefix (`archive/boost/…` clashes with dependency names); single-letter
+  selectors; shipping `#` / paren forms in this cut. Regex `r'…'` deferred.
+
+**Alias map** (canonical = `storage_type`; no single-letter selectors):
+
+| Canonical | List label | Selectors |
+|-----------|------------|-----------|
+| `archive` | source archives | `archive`, `source`, `source_archive`, `source-archive`, `sa` |
+| `gitlab` | gitlab packages | `gitlab`, `gitlab_package`, `gitlab-package`, `gl` (`gh` reserved for a future GitHub package kind) |
+| `repository` | repository dependencies | `repository`, `repo`, `vcs`, `vcs_dependency`, `repository_dependency`; quiet alias `location` |
+| `conan` | conan packages | `conan`, `conan_package`, `cn` |
+
+#### Verb behaviour
+
+| Flag family | Identity / leaf tokens | Notes |
+|-------------|------------------------|-------|
+| `--force-wipe-dependencies` | Both | No referenced gate; develop never deleted; sibling context in report |
+| `--wipe-dependencies` | Both (selection-scoped) | Project-used + selection gate |
+| `--remove-dependencies` | Both (selection-scoped) | Project-used + selection gate |
+| `--purge-dependencies` | Both + matching downloads | Same gates as remove |
+| `--*-all-*` / `--force-wipe-unreferenced-*` | Unchanged for now | Optional `[selector]` on all-flags deferred |
+
+Exact leaf with multiple paths in one type → ambiguous error. Glob → all matches (including
+cross-type when untyped).
+
+#### Report shape
+
+Nest **type → identity → leaves** (same axis as `--list-dependencies`). Partial force-wipe
+keeps unmatched same-`(type, identity)` siblings visible (no parent `would rm`); final size
+includes what remains. `AGE_WIDTH` must fit `relative_age` (13 for `N months ago`).
+
+#### Implementation order
+
+1. Rename classify / `TYPE_LABELS` / tree / downloads / identity paths; inventory compat-read.
+2. Shared token parser + alias registry.
+3. Force-wipe match + type-partitioned report + sibling context.
+4. Remove / purge / wipe accept the same grammar.
+5. Docs, CHANGELOG, tests, PR #150.
+
+#### Out of scope for §4.15
+
+Regex tokens; renaming `location_dependency()`; implementing a GitHub package kind; `[selector]`
+on `--force-wipe-all-*` / unreferenced unless trivial.
 
 ---
 
@@ -2424,11 +2517,10 @@ Still open after Slice D (#142) and archive clean (#143):
   what it adds over SCons `--clean`. This wants measurement on a real project before an option
   is designed (§4.6).
 - **When `--remove-unreferenced-dependencies` / age gates ship.** Partially answered by
-  `--force-wipe-dependencies=name/qualifier` and `--force-wipe-unreferenced-dependencies` (#146):
-  list-driven clear-down of chosen leaves (including unused siblings under referenced identities,
-  exact tokens or fnmatch globs such as `boost/1.8*`) and of orphan leaves, with warnings when
-  inventory `used_by` cites another project. An `--older-than` age gate remains a later tightening
-  rather than a requirement for the first cut.
+  `--force-wipe-dependencies` and `--force-wipe-unreferenced-dependencies` (#146): list-driven
+  clear-down of chosen leaves (including unused siblings under referenced identities) and of
+  orphan leaves. **§4.15** adds `[selector]` + shared tokens and `location`→`repository`. An
+  `--older-than` age gate remains a later tightening.
 - **All-dependencies view and empty-`used_by` remark (§4.10).** Deferred. After `used_by` is
   stamped on resolve/build, consider REMARK `unrecorded` or `no record` (prefer those over
   `unused` / `orphan`) for empty maps, and a disk-only listing mode tentatively
@@ -2445,13 +2537,13 @@ Still open after Slice D (#142) and archive clean (#143):
   (canonical `stem@branch`, `@<default> (unqualified)` labels, warn; no auto-delete).
   **Develop vs cached stem** bind shipped. **Dependencies documentation split (§7.1) done.**
 - **Whether the inventory should record anything else.** `type` (`gitlab` / `conan` /
-  `location` / `archive`) is already recorded from path shape so a namespaced layout migration
-  can move trees without re-guessing. Stem / short_name / registry binding follow §4.8 / §4.9. A coarse
-  `class` (`package` / `location` / `archive`) can wait until listing or migration needs it as a
-  field rather than a helper over `{gitlab,conan}`. Revision or commit for VCS trees would still
-  let a listing say which revision a tree holds without shelling out to git, at the cost of
-  another field to keep honest. Archive subtypes (e.g. Boost with custom build steps) are a
-  later classification if behaviour diverges.
+  `repository` / `archive`; legacy inventory may still say `location`) is already recorded from
+  path shape so a namespaced layout migration can move trees without re-guessing. Stem /
+  short_name / registry binding follow §4.8 / §4.9. A coarse `class` (`package` / `repository` /
+  `archive`) can wait until listing or migration needs it as a field rather than a helper over
+  `{gitlab,conan}`. Revision or commit for VCS trees would still let a listing say which revision
+  a tree holds without shelling out to git, at the cost of another field to keep honest. Archive
+  subtypes (e.g. Boost with custom build steps) are a later classification if behaviour diverges.
 - **Whether the `--list-develop` warnings should appear automatically** during any `--develop`
   build once the classification has proved itself, and how they are silenced (§3.5). The option
   name itself is settled.

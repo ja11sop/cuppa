@@ -177,7 +177,7 @@ def github_archive_from_folder( folder ):
     return short_name, ref, remote
 
 
-def display_qualifier( qualifier, storage_type='location' ):
+def display_qualifier( qualifier, storage_type='repository' ):
     """Normalise a qualifier for the tree: unspecified location → ``@``."""
     if storage_type in ( 'gitlab', 'conan', 'archive' ):
         if not qualifier or qualifier == '-':
@@ -194,9 +194,9 @@ def display_qualifier( qualifier, storage_type='location' ):
 _VCS_FOLDER_PREFIXES = ( 'git_', 'svn_', 'hg_', 'bzr_' )
 
 
-def unqualified_default_branch_label( folder, default_branch, storage_type='location' ):
+def unqualified_default_branch_label( folder, default_branch, storage_type='repository' ):
     """Label an unqualified VCS stem as ``@<default> (unqualified)``, or ``None``."""
-    if storage_type not in ( 'location', 'unknown' ):
+    if storage_type not in ( 'repository', 'location', 'unknown' ):
         return None
     if not folder or not default_branch:
         return None
@@ -313,7 +313,7 @@ def with_vcs_qualifier( url, qualifier ):
     if not url:
         return ''
     base = strip_vcs_qualifier( url ) or ''
-    display = display_qualifier( qualifier, 'location' )
+    display = display_qualifier( qualifier, 'repository' )
     if display == '@':
         if base.endswith( '@' ):
             return base
@@ -517,7 +517,7 @@ def find_cached_download(
         return None
 
     # Location trees: optional raw archive beside the working copy name.
-    if storage_type == 'location' and path:
+    if storage_type in ( 'repository', 'location' ) and path:
         folder = os.path.basename( str( path ).rstrip( '\\/' ) )
         stem, _ = split_location_folder_name( folder )
         for name in ( folder, stem ):

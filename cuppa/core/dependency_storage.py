@@ -33,14 +33,25 @@ RESOLVE_ONLY_REASON = "storage action"
 
 # Stable storage types for inventory and a future namespaced layout migration.
 # Discriminated from path shape (+ cheap .git check) on today's flat root.
-STORAGE_TYPES = ( 'gitlab', 'conan', 'location', 'archive' )
+# ``location`` remains a read alias of ``repository`` (pre-rename inventory / branch caches).
+STORAGE_TYPES = ( 'gitlab', 'conan', 'repository', 'archive' )
+STORAGE_TYPE_ALIASES = {
+    'location': 'repository',
+}
+
+
+def normalise_storage_type( storage_type ):
+    """Map legacy ``location`` to ``repository``; pass through other values."""
+    if not storage_type:
+        return storage_type
+    return STORAGE_TYPE_ALIASES.get( storage_type, storage_type )
 
 # One owned path discovered for a named dependency under the current selection.
 OwnedPath = namedtuple(
     'OwnedPath',
     [
         'dependency',       # sconstruct / registry name
-        'storage_type',     # gitlab | conan | location | archive
+        'storage_type',     # gitlab | conan | repository | archive
         'category',         # dependencies | downloads | build | develop | cached
         'path',
         'qualifier',        # @branch, version, fingerprint prefix, …
@@ -199,10 +210,10 @@ def classify_storage_type( path, dependencies_root ):
     top_name = parts[0]
     top_path = os.path.join( root, top_name )
     if os.path.isdir( os.path.join( top_path, '.git' ) ):
-        return 'location'
+        return 'repository'
     if top_name.startswith( _VCS_FOLDER_PREFIXES ):
         # Encoded VCS URL even if .git is missing (partial checkout / cleaned).
-        return 'location'
+        return 'repository'
     # Top-level extracts from http(s) archives, boost tarballs, etc.
     return 'archive'
 
@@ -219,7 +230,7 @@ def storage_type_for_owned_path( instance, path, dependencies_root ):
     if family == 'boost':
         return 'archive'
     if family == 'location':
-        return 'location'
+        return 'repository'
     return 'unknown'
 
 
@@ -472,7 +483,7 @@ def describe_tree_path( path, dependencies_root ):
         'dependency': dependency,
         'qualifier': qualifier,
         'tool_variant': None,
-        'type': storage_type if storage_type != 'unknown' else 'location',
+        'type': storage_type if storage_type != 'unknown' else 'repository',
     }
 
 
@@ -544,7 +555,7 @@ def record_resolve_use( env, instance, dependency_name ):
             continue
         storage_type = storage_type_for_owned_path( instance, path, dependencies_root )
         if storage_type == 'unknown':
-            storage_type = 'location'
+            storage_type = 'repository'
         try:
             dependency_inventory.touch_entry(
                     dependencies_root,

@@ -8,7 +8,7 @@ from cuppa.core import dependency_tree
 pytestmark = pytest.mark.unit
 
 
-def _leaf( dependency, state, size_bytes=100, storage_type='location', qualifier='@master' ):
+def _leaf( dependency, state, size_bytes=100, storage_type='repository', qualifier='@master' ):
     return {
         'type': storage_type,
         'short_name': dependency,
@@ -42,8 +42,8 @@ def test_referenced_summary_splits_missing_from_stale():
             _leaf( 'absent', 'missing' ),
             _leaf( 'also_absent', 'missing', storage_type='gitlab', qualifier='1.0' ),
     ]
-    # Second missing needs a tool_variant leaf shape for gitlab — keep location for simplicity.
-    leaves[2]['type'] = 'location'
+    # Second missing needs a tool_variant leaf shape for gitlab — keep repository for simplicity.
+    leaves[2]['type'] = 'repository'
     leaves[2]['qualifier'] = '@master'
 
     tree = dependency_tree.build_tree( leaves )

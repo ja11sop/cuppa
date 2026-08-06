@@ -610,7 +610,10 @@ cuppa.run(
             or (entry.get("path") or "").endswith(stem)
             or (entry.get("path") or "").endswith(stem + "@master")
     ]
-    qualifiers = {entry.get("qualifier") for entry in payload["entries"] if entry.get("type") == "location"}
+    qualifiers = {
+            entry.get( "qualifier" ) for entry in payload["entries"]
+            if entry.get( "type" ) == "repository"
+    }
     assert "@master (unqualified)" in qualifiers
     assert "@master" in qualifiers
 

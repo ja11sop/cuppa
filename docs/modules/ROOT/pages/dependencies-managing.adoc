@@ -56,7 +56,7 @@ last used, remark (`in use` / `N used` when more than one leaf is selected / `mi
 estimates, it prints a short notice and upgrades those trees to exact sizes (the first run on a
 large root can take a while; later runs reuse the cache). Pass `--exact-sizes` to force a full
 remeasure of every tree. Rows are grouped referenced first then unreferenced,
-then by type (location dependencies, gitlab packages, source archives, …), then by short name or
+then by type (repository dependencies, gitlab packages, source archives, …), then by short name or
 registry name, with branch or version children underneath. On-disk paths are omitted by
 default; pass `--list-format=verbose` to add a LOCATION column, or `--list-format=json` for a
 machine-readable tree (plus flat `entries`). Default dependencies that are expected but absent
@@ -493,10 +493,12 @@ cuppa -Q -D --force-wipe-dependencies='boost/1.8*'
 ----
 
 Quote the token in the shell so `*` is not expanded by the shell before cuppa sees it.
-
-Dry-run (`-n`) lists every matched path and size before you drop `-n`. A wildcard that matches
-nothing exits non-zero. Full regular expressions are not accepted (dots in versions stay
-literal under `fnmatch`).
+Dry-run (`-n`) lists every matched path and size before you drop `-n`. Same-identity
+siblings that are **not** matched (for example `boost/1.90.0` when wiping `boost/1.8*`)
+stay in the report without a remove remark, so the identity parent is not marked as fully
+removed and the final size includes what remains. A wildcard that matches nothing exits
+non-zero. Full regular expressions are not accepted (dots in versions stay literal under
+`fnmatch`).
 
 Location example (unused `@11.1.1`, keep `@master` in use):
 

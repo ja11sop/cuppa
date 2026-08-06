@@ -127,10 +127,16 @@ def test_parse_force_wipe_tokens():
             'boost/1.86.0, fmt/@11.1.1'
     )
     assert error is None
-    assert tokens == [ ( 'boost', '1.86.0' ), ( 'fmt', '@11.1.1' ) ]
+    assert tokens == [
+            ( None, 'boost', '1.86.0' ),
+            ( None, 'fmt', '@11.1.1' ),
+    ]
+    tokens, error = dependency_removal.parse_force_wipe_tokens( '[source]boost/1.8*' )
+    assert error is None
+    assert tokens == [ ( 'archive', 'boost', '1.8*' ) ]
     tokens, error = dependency_removal.parse_force_wipe_tokens( 'boost' )
-    assert tokens == []
-    assert 'name/qualifier' in error
+    assert error is None
+    assert tokens == [ ( None, 'boost', None ) ]
     tokens, error = dependency_removal.parse_force_wipe_tokens( '' )
     assert tokens == []
     assert error
@@ -154,7 +160,7 @@ def test_row_matches_force_token():
         'short_name': 'fmt',
         'dependency': 'fmt',
         'qualifier': '11.1.1',
-        'type': 'location',
+        'type': 'repository',
         'path': '/tmp/fmt@11.1.1',
     }
     assert dependency_removal._row_matches_force_token( loc, 'fmt', '@11.1.1' )
@@ -168,6 +174,112 @@ def test_force_token_is_wildcard():
     assert dependency_removal.force_token_is_wildcard( 'boost', '1.8*' )
     assert dependency_removal.force_token_is_wildcard( 'bo?st', '1.86.0' )
     assert dependency_removal.force_token_is_wildcard( 'boost', '1.8[6-9]*' )
+
+
+def test_collect_force_wipe_context_keeps_sibling_leaves( tmp_path ):
+    root = tmp_path / 'dependencies'
+    downloads = tmp_path / 'downloads'
+    root.mkdir()
+    downloads.mkdir()
+    old = root / 'boost_1_86_0'
+    keep = root / 'boost_1_91_0'
+    old.mkdir()
+    keep.mkdir()
+    ( old / 'x' ).write_text( 'old' )
+    ( keep / 'x' ).write_text( 'keep-keep-keep' )
+    old_archive = downloads / 'boost_1_86_0.tar.gz'
+    keep_archive = downloads / 'boost_1_91_0.tar.gz'
+    old_archive.write_bytes( b'old-archive' )
+    keep_archive.write_bytes( b'keep-archive-bytes' )
+
+    rows = [
+            {
+                'short_name': 'boost',
+                'dependency': 'boost',
+                'qualifier': '1.86.0',
+                'type': 'archive',
+                'path': str( old ),
+                'size_bytes': dependency_removal._measure_bytes( str( old ) ),
+            },
+            {
+                'short_name': 'boost',
+                'dependency': 'boost',
+                'qualifier': '1.91.0',
+                'type': 'archive',
+                'path': str( keep ),
+                'size_bytes': dependency_removal._measure_bytes( str( keep ) ),
+            },
+            {
+                'short_name': 'fmt',
+                'dependency': 'fmt',
+                'qualifier': '11.1.1',
+                'type': 'repository',
+                'path': str( root / 'fmt@11.1.1' ),
+                'size_bytes': 0,
+            },
+    ]
+    ( root / 'fmt@11.1.1' ).mkdir()
+    dl_rows = [
+            {
+                'role': 'archive',
+                'short_name': 'boost',
+                'dependency': 'boost',
+                'qualifier': '1.86.0',
+                'type': 'archive',
+                'path': str( old_archive ),
+                'size_bytes': old_archive.stat().st_size,
+                'label': old_archive.name,
+            },
+            {
+                'role': 'archive',
+                'short_name': 'boost',
+                'dependency': 'boost',
+                'qualifier': '1.91.0',
+                'type': 'archive',
+                'path': str( keep_archive ),
+                'size_bytes': keep_archive.stat().st_size,
+                'label': keep_archive.name,
+            },
+    ]
+    targets = [ dependency_removal._target_from_row( rows[0] ) ]
+    download_targets = [ dependency_removal._download_from_row( dl_rows[0] ) ]
+    leftovers, download_leftovers = dependency_removal._collect_force_wipe_context(
+            rows, dl_rows, targets, download_targets,
+    )
+    assert [ item.path for item in leftovers ] == [ str( keep ) ]
+    assert [ item.path for item in download_leftovers ] == [ str( keep_archive ) ]
+
+    out = __import__( 'io' ).StringIO()
+    outcomes = {
+            storage.real_path( str( old ) ): { 'result': 'removed' },
+            storage.real_path( str( old_archive ) ): { 'result': 'removed' },
+    }
+    dependency_removal._write_removal_tree(
+            out, targets, leftovers, outcomes, planning=True, root=str( root ),
+            downloads=download_targets, download_leftovers=download_leftovers,
+            downloads_root=str( downloads ),
+    )
+    text = out.getvalue()
+    parent_line = next(
+            line for line in text.splitlines()
+            if line.strip().endswith( 'boost' ) and 'SIZE' not in line
+    )
+    assert 'would rm' not in parent_line.lower()
+    assert 'boost_1_91_0' in text
+    assert 'would rm' in text.lower()
+
+
+def test_parent_rollup_result_mixed_leaves_blank():
+    assert dependency_removal._parent_rollup_result( [ 'would_rm', 'would_rm' ] ) == 'would rm'
+    assert dependency_removal._parent_rollup_result( [ 'would_rm', 'left' ] ) == ''
+    assert dependency_removal._parent_rollup_result( [ 'left', 'left' ] ) == ''
+
+
+def test_removal_age_width_fits_double_digit_months():
+    """Fixed LAST USED width must fit the longest ``relative_age`` form."""
+    assert len( '21 months ago' ) <= dependency_removal.AGE_WIDTH
+    assert len( '10 months ago' ) <= dependency_removal.AGE_WIDTH
+    assert len( storage.relative_age( 0, now=700 * 86400 ) ) <= dependency_removal.AGE_WIDTH
 
 
 def test_resolve_requested_names_wipe_flags_use_same_gate():
@@ -268,7 +380,7 @@ def test_sibling_leftovers_location_branches(tmp_path):
             path=str( master ),
             qualifier='@master',
             tool_variant=None,
-            storage_type='location',
+            storage_type='repository',
             size_bytes=1,
             label=None,
             extra_paths=(),

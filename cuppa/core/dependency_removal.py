@@ -41,7 +41,8 @@ from cuppa.utility import storage
 INDENT = '  '
 RULE = '-'
 SIZE_WIDTH = 8
-AGE_WIDTH = 12
+# Long enough for ``relative_age`` ("10 months ago" … "24 months ago" are 13 chars).
+AGE_WIDTH = 13
 REMARK_WIDTH = 9
 
 RemovalTarget = namedtuple(
@@ -2086,33 +2087,29 @@ def _other_project_used_by( entry, this_project ):
 
 
 def parse_force_wipe_tokens( spec ):
-    """Parse ``name/qualifier`` tokens for ``--force-wipe-dependencies``.
+    """Parse force-wipe tokens: optional ``[selector]`` plus ``name`` or ``name/qualifier``.
 
-    Returns ``(tokens, error)`` where each token is ``(name, qualifier)``.
+    Returns ``(tokens, error)`` where each token is
+    ``(storage_type_or_None, name, qualifier_or_None)``.
     """
-    parts = parse_dependency_names( spec )
-    if not parts:
-        return [], (
-                "no force-wipe tokens given "
-                "(use --force-wipe-dependencies=name/qualifier,…)"
-        )
-    tokens = []
-    for part in parts:
-        if '/' not in part:
+    from cuppa.core import dependency_tokens
+
+    tokens, error = dependency_tokens.parse_dependency_tokens( spec )
+    if error:
+        if error == "no dependency tokens given":
             return [], (
-                    "force-wipe token [{}] must be name/qualifier "
-                    "(bare names belong on --wipe-dependencies)".format( part )
+                    "no force-wipe tokens given "
+                    "(use --force-wipe-dependencies=[source]name/qualifier,…)"
             )
-        name, qualifier = part.split( '/', 1 )
-        name = name.strip()
-        qualifier = qualifier.strip()
-        if not name or not qualifier:
-            return [], (
-                    "force-wipe token [{}] must be name/qualifier "
-                    "with both sides non-empty".format( part )
-            )
-        tokens.append( ( name, qualifier ) )
+        return [], error
     return tokens, None
+
+
+def force_token_is_wildcard( name, qualifier ):
+    """True when the token is a glob or an identity-wide (no qualifier) match."""
+    if qualifier is None:
+        return True
+    return _is_wildcard_pattern( name ) or _is_wildcard_pattern( qualifier )
 
 
 def _normalise_wipe_name( value ):
@@ -2124,18 +2121,13 @@ def _is_wildcard_pattern( text ):
     return any( char in ( text or '' ) for char in '*?[' )
 
 
-def force_token_is_wildcard( name, qualifier ):
-    """True when either side of a ``name/qualifier`` force-wipe token is a glob."""
-    return _is_wildcard_pattern( name ) or _is_wildcard_pattern( qualifier )
-
-
 def _qualifier_aliases( qualifier, storage_type ):
     """Return forms that should match a list leaf qualifier / display label."""
     from cuppa.core.dependency_identity import display_qualifier
 
     raw = ( qualifier or '' ).strip()
     aliases = { raw, raw.lower() }
-    display = display_qualifier( raw, storage_type or 'location' )
+    display = display_qualifier( raw, storage_type or 'repository' )
     if display:
         aliases.add( display )
         aliases.add( display.lower() )
@@ -2237,13 +2229,94 @@ def _download_from_row( row, missing=False ):
     )
 
 
+def _force_wipe_identity_names( targets, download_targets ):
+    """Normalised identity names touched by a force-wipe plan."""
+    names = set()
+    for item in list( targets or [] ) + list( download_targets or [] ):
+        name = _normalise_wipe_name( getattr( item, 'dependency', None ) )
+        if name:
+            names.add( name )
+    return names
+
+
+def _row_matches_identities( row, identities ):
+    if not identities:
+        return False
+    for key in ( row.get( 'short_name' ), row.get( 'dependency' ), row.get( 'stem' ) ):
+        if _normalise_wipe_name( key ) in identities:
+            return True
+    return False
+
+
+def _collect_force_wipe_context( rows, dl_rows, targets, download_targets ):
+    """Same-identity leaves that remain after a partial force-wipe.
+
+    Shown muted in the report (no ``would rm``) so the identity parent is not marked
+    removed when siblings stay, and so the final size includes what is left.
+    """
+    identities = _force_wipe_identity_names( targets, download_targets )
+    wipe_extract = {
+            storage.real_path( item.path )
+            for item in targets
+            if item.path and os.path.lexists( item.path )
+    }
+    wipe_download = set()
+    for item in download_targets or []:
+        if not item.path:
+            continue
+        wipe_download.add(
+                storage.real_path( item.path ) if os.path.lexists( item.path ) else item.path
+        )
+
+    leftovers = []
+    leftover_seen = set( wipe_extract )
+    for row in rows or []:
+        if not _row_matches_identities( row, identities ):
+            continue
+        path = row.get( 'path' )
+        if not path or not os.path.lexists( path ):
+            continue
+        if os.path.islink( path ):
+            continue
+        real = storage.real_path( path )
+        if real in leftover_seen:
+            continue
+        leftover_seen.add( real )
+        leftovers.append( _target_from_row( row ) )
+
+    download_leftovers = []
+    download_seen = set( wipe_download )
+    for row in dl_rows or []:
+        if row.get( 'role' ) != 'archive':
+            continue
+        if not _row_matches_identities( row, identities ):
+            continue
+        path = row.get( 'path' )
+        if not path:
+            continue
+        real = storage.real_path( path ) if os.path.lexists( path ) else path
+        if real in download_seen:
+            continue
+        download_seen.add( real )
+        if not os.path.lexists( path ):
+            continue
+        if os.path.islink( path ):
+            continue
+        download_leftovers.append( _download_from_row( row, missing=False ) )
+
+    return leftovers, download_leftovers
+
+
 def _execute_force_wipe(
         out, root, downloads_root, targets, download_targets, planning,
         notes=None, used_by_warnings=None, unreferenced=False,
+        leftovers=None, download_leftovers=None,
 ):
     """Announce, delete, and report a force-wipe plan."""
     notes = notes or []
     used_by_warnings = used_by_warnings or []
+    leftovers = list( leftovers or [] )
+    download_leftovers = list( download_leftovers or [] )
     actionable_downloads = [ item for item in download_targets if not item.missing ]
     if not targets and not actionable_downloads:
         out.write( "nothing to wipe under the requested force-wipe selection\n" )
@@ -2254,6 +2327,12 @@ def _execute_force_wipe(
                             ', '.join( storage.display_path( p ) for p in item['used_by'] ),
                     )
             ) )
+        if leftovers or download_leftovers:
+            _write_removal_tree(
+                    out, [], leftovers, {}, planning, root,
+                    downloads=[], download_leftovers=download_leftovers,
+                    downloads_root=downloads_root, staying_extracts=[],
+            )
         _write_verify( out, wipe=True, unreferenced=unreferenced )
         return 0
 
@@ -2374,8 +2453,8 @@ def _execute_force_wipe(
             } )
 
     _write_removal_tree(
-            out, targets, [], outcomes_by_path, planning, root,
-            downloads=download_targets, download_leftovers=[],
+            out, targets, leftovers, outcomes_by_path, planning, root,
+            downloads=download_targets, download_leftovers=download_leftovers,
             downloads_root=downloads_root, staying_extracts=[],
     )
 
@@ -2389,10 +2468,13 @@ def _execute_force_wipe(
                     item['reason'],
             ) )
 
+    remaining = sum( item.size_bytes for item in leftovers ) + sum(
+            item.size_bytes for item in download_leftovers if not getattr( item, 'missing', False )
+    )
     out.write( "\n" )
     _write_freed_summary(
             out, planning, removed_count, removed_bytes,
-            remaining_archive_bytes=0,
+            remaining_archive_bytes=remaining,
             download_count=download_removed_count,
     )
     _write_verify( out, wipe=True, unreferenced=unreferenced )
@@ -2424,16 +2506,21 @@ def force_wipe_dependencies( construct, cuppa_env, out=None ):
     this_project = cuppa_env.get( 'sconstruct_dir' )
     planning = dry_run( cuppa_env )
 
+    from cuppa.core import dependency_tokens
+
     targets = []
     seen = set()
     notes = []
     used_by_warnings = []
     matched_reals = set()
 
-    for name, qualifier in tokens:
+    for storage_type, name, qualifier in tokens:
+        token_label = dependency_tokens.format_token( storage_type, name, qualifier )
         matches = [
                 row for row in rows
-                if row.get( 'path' ) and _row_matches_force_token( row, name, qualifier )
+                if row.get( 'path' ) and dependency_tokens.row_matches_token(
+                        row, storage_type, name, qualifier
+                )
         ]
         # Distinct paths only.
         by_real = {}
@@ -2441,12 +2528,12 @@ def force_wipe_dependencies( construct, cuppa_env, out=None ):
             real = storage.real_path( row['path'] ) if os.path.lexists( row['path'] ) else row['path']
             by_real.setdefault( real, row )
         if not by_real:
-            out.write( "error: no dependency leaf matches [{}/{}]\n".format( name, qualifier ) )
+            out.write( "error: no dependency leaf matches [{}]\n".format( token_label ) )
             return 1
         wildcard = force_token_is_wildcard( name, qualifier )
         if not wildcard and len( by_real ) > 1:
-            out.write( "error: ambiguous force-wipe token [{}/{}]; candidates:\n".format(
-                    name, qualifier
+            out.write( "error: ambiguous force-wipe token [{}]; candidates:\n".format(
+                    token_label
             ) )
             for row in sorted( by_real.values(), key=lambda item: item.get( 'path' ) or '' ):
                 out.write( "  {} ({})\n".format(
@@ -2457,8 +2544,8 @@ def force_wipe_dependencies( construct, cuppa_env, out=None ):
         for row in sorted( by_real.values(), key=lambda item: item.get( 'path' ) or '' ):
             path = row['path']
             if not os.path.lexists( path ):
-                out.write( "error: matched leaf [{}/{}] path does not exist: {}\n".format(
-                        name, qualifier, path
+                out.write( "error: matched leaf [{}] path does not exist: {}\n".format(
+                        token_label, path
                 ) )
                 return 1
             real = storage.real_path( path )
@@ -2491,10 +2578,9 @@ def force_wipe_dependencies( construct, cuppa_env, out=None ):
         path = row.get( 'path' )
         if not path:
             continue
-        # Match by same name/qualifier token, or by paired extract already queued.
         paired = False
-        for name, qualifier in tokens:
-            if _row_matches_force_token( row, name, qualifier ):
+        for storage_type, name, qualifier in tokens:
+            if dependency_tokens.row_matches_token( row, storage_type, name, qualifier ):
                 paired = True
                 break
         if not paired:
@@ -2575,9 +2661,13 @@ def force_wipe_dependencies( construct, cuppa_env, out=None ):
                             missing=False,
                     ) )
 
+    leftovers, download_leftovers = _collect_force_wipe_context(
+            rows, dl_rows, targets, download_targets,
+    )
     return _execute_force_wipe(
             out, root, downloads_root, targets, download_targets, planning,
             notes=notes, used_by_warnings=used_by_warnings, unreferenced=False,
+            leftovers=leftovers, download_leftovers=download_leftovers,
     )
 
 

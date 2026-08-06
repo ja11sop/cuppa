@@ -52,11 +52,23 @@ def _entry_path( dependencies_root, key ):
     return os.path.join( inventory_dir( dependencies_root ), key + '.json' )
 
 
+def _normalise_entry_types( entry ):
+    """Map legacy inventory ``location`` type/kind to ``repository``."""
+    if not entry:
+        return entry
+    from cuppa.core.dependency_storage import normalise_storage_type
+    for field in ( 'type', 'kind' ):
+        value = entry.get( field )
+        if value:
+            entry[field] = normalise_storage_type( value )
+    return entry
+
+
 def load_entry( dependencies_root, key ):
     path = _entry_path( dependencies_root, key )
     try:
         with open( path, encoding='utf-8' ) as handle:
-            return json.load( handle )
+            return _normalise_entry_types( json.load( handle ) )
     except FileNotFoundError:
         return None
     except ( OSError, ValueError, TypeError ) as error:
@@ -231,19 +243,22 @@ def touch_entry(
 ):
     """Create or update an inventory entry for ``path`` and return it.
 
-    ``storage_type`` is one of ``gitlab`` / ``conan`` / ``location`` / ``archive`` (see
-    ``dependency_storage.STORAGE_TYPES``). It is recorded so a future namespaced layout
-    migration can move trees without re-guessing.
+    ``storage_type`` is one of ``gitlab`` / ``conan`` / ``repository`` / ``archive`` (see
+    ``dependency_storage.STORAGE_TYPES``; legacy ``location`` is normalised to ``repository``).
+    It is recorded so a future namespaced layout migration can move trees without re-guessing.
 
     ``source_url`` is typically a live git remote. ``remote_location`` is the configured
     identity (pip-style VCS URL, or GitLab ``registry/package/version``) used for listing.
     """
+    from cuppa.core.dependency_storage import normalise_storage_type
+
     key = entry_key_for_path( path )
     entry = load_entry( dependencies_root, key ) or {}
     now = _utc_now()
     if 'first_seen' not in entry:
         entry['first_seen'] = now
     entry['path'] = storage.real_path( path ) if os.path.exists( path ) else path
+    storage_type = normalise_storage_type( storage_type ) or storage_type
     entry['type'] = storage_type
     # Older field name kept in sync while readers migrate.
     entry['kind'] = storage_type
