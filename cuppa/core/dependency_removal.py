@@ -2013,10 +2013,6 @@ def _write_removal_tree(
                     'name': ver_label,
                     'branch': ver_branch,
                 } )
-                # Spacer between version and its leaves (matches force-wipe identity spacing).
-                ver_child_spacer = ver_prefix + '│'
-                body_lines.append( ver_child_spacer )
-                rendered.append( _spacer_render_row( ver_child_spacer ) )
                 rows, labels = _flatten_removal_leaves(
                         ver_leaves, tee, elbow, pipe, gap, check, ballot,
                         prefix=ver_prefix,
@@ -2178,6 +2174,20 @@ def _write_removal_tree(
             ) )
 
     out.write( as_subdued( _rule_line( width - len( INDENT ) ) ) + "\n" )
+
+    # Same legend as ``--list-downloads`` when purge / wipe nests ``[E]`` under archives.
+    if downloads or download_leftovers:
+        from cuppa.core.dependency_identity import EXTRACT_MARK
+        if any(
+                ( row.get( 'display' ) or '' ).startswith( EXTRACT_MARK )
+                for row in rendered if row.get( 'kind' ) == 'leaf'
+        ):
+            out.write( "\n" )
+            out.write(
+                "{} = dependency extracted from the download above\n".format(
+                        as_info( EXTRACT_MARK )
+                )
+            )
 
 
 def _write_leftovers_summary( out, leftovers, download_leftovers=None ):

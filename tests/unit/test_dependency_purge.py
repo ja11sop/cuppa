@@ -174,3 +174,4 @@ def test_write_removal_tree_nests_download_and_extract( tmp_path ):
     after_selected = text[text.index( archive.name ):]
     assert '[E]' in after_selected
     assert 'gcc153_dbg_x86_64_cxx2c/boost/1.91' in after_selected
+    assert '[E] = dependency extracted from the download above' in text

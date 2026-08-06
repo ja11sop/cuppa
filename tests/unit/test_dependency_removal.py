@@ -732,6 +732,9 @@ def test_write_removal_tree_summary_and_version_nesting():
     assert '---' in leftover_version
     assert 'product-a' in text
     assert 'product-b' in text
+    # No spacer between a version and its leaves.
+    version_idx = next( i for i, line in enumerate( lines ) if line.rstrip().endswith( '1.91.0' ) )
+    assert 'product-a' in lines[version_idx + 1] or 'product-b' in lines[version_idx + 1]
     # Partial identity keeps a partial mark.
     assert '-✔-' in boost_line or '-✓-' in boost_line or '-*-' in boost_line
 
@@ -877,6 +880,8 @@ def test_archive_contexts_and_source_assets_report( tmp_path ):
     assert storage.human_size( extract_size ) in text
     assert storage.human_size( archives[0]['source_bytes'] ) in text
     assert 'boost_extract/clean/build.c++2c [gcc153/debug/x86_64]' in text
+    # Product-clean remove has no download parent — no list-downloads [E] legend.
+    assert '[E] = dependency extracted from the download above' not in text
     source_idx = text.index( 'source assets' )
     product_idx = text.index( 'boost_extract/clean/build.c++2c' )
     extract_idx = text.index( '[E]' )
@@ -971,6 +976,7 @@ def test_write_removal_tree_nests_extract_rollup_under_download( tmp_path ):
     source_idx = text.index( 'source assets' )
     assert download_idx < extract_idx < source_idx
     assert '-✔-' in text or '-*-' in text
+    assert '[E] = dependency extracted from the download above' in text
 
 
 def test_write_verify_archive_notes_source_assets( tmp_path ):

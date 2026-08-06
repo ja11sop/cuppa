@@ -61,13 +61,12 @@ deferred Phase 3 polish items remain open and do not keep #134 open.
 | Phase 3 — **dependencies documentation split** (§7.1) | **done** | [#145](https://github.com/ja11sop/cuppa/issues/145) — Hub + children; `packages.adoc` publish focus; `include`/`sys_include` drift fixed |
 | Phase 3 — `--list-develop --list-format=json` | **done** | [#148](https://github.com/ja11sop/cuppa/issues/148) — Shared `--list-format=json` parity for develop copies (agents / scripts); text unchanged |
 | Phase 4 — downloads list / purge | **done** | `--list-downloads` + `--purge-dependencies` / `--purge-all-dependencies` in [#144](https://github.com/ja11sop/cuppa/pull/144); that PR closes #134 |
-| `--wipe-dependencies` | **in progress** | [#146](https://github.com/ja11sop/cuppa/issues/146) / [#150](https://github.com/ja11sop/cuppa/pull/150) — §4.15 + shared removal tree: summary → type → identity → version → leaves |
+| `--wipe-dependencies` | **in progress** | [#146](https://github.com/ja11sop/cuppa/issues/146) / [#150](https://github.com/ja11sop/cuppa/pull/150) — §4.15 shipped on branch: selectors, repository rename, shared tokens, summary → type → identity → version → leaves |
 | Phase 6 — artefacts | **open** | Sketch only (§4.6) / [#135](https://github.com/ja11sop/cuppa/issues/135) |
 | §3.7 — `--clone-develop` | **open** | #138 |
 
-**Next focus:** Docs polish + local gate + push [#150](https://github.com/ja11sop/cuppa/pull/150)
-(§4.15 largely on branch: selectors, repository rename, shared tokens, type→identity nesting,
-remove/purge/wipe filtering). Then [#138](https://github.com/ja11sop/cuppa/issues/138)
+**Next focus:** Push and land [#150](https://github.com/ja11sop/cuppa/pull/150) (§4.15 + shared
+removal report). Then [#138](https://github.com/ja11sop/cuppa/issues/138)
 (`--clone-develop`) / [#135](https://github.com/ja11sop/cuppa/issues/135) (artefacts). Boost package
 identity stays on [`boost-updates.md`](boost-updates.md). Age-gated unreferenced GC
 (`--older-than`) remains deferred (§9).
@@ -1932,9 +1931,14 @@ cross-type when untyped).
 
 #### Report shape
 
-Nest **type → identity → leaves** (same axis as `--list-dependencies`). Partial force-wipe
-keeps unmatched same-`(type, identity)` siblings visible (no parent `would rm`); final size
-includes what remains. `AGE_WIDTH` must fit `relative_age` (13 for `N months ago`).
+Nest **summary → type → identity → version → leaves** (identity/version axis matches
+`--list-dependencies`). Summary children are **wiped** / **removing** / **removed** vs
+**remaining**. Version marks match extract rollups (`✔✔✔` full, `-✔-` partial, `---` untouched).
+Spacers sit under the summary, under types, under identities, and between version siblings —
+not between a version and its leaves. Partial force-wipe keeps unmatched same-`(type, identity)`
+siblings visible (no parent `would rm`); final size includes what remains. Purge / wipe reports
+that nest ``[E]`` under downloads print the same extract legend as ``--list-downloads``.
+`AGE_WIDTH` must fit `relative_age` (13 for `N months ago`).
 
 #### Implementation order
 
@@ -1942,7 +1946,7 @@ includes what remains. `AGE_WIDTH` must fit `relative_age` (13 for `N months ago
 2. Shared token parser + alias registry. **done**
 3. Force-wipe match + type-partitioned report + sibling context. **done**
 4. Remove / purge / wipe accept the same grammar. **done**
-5. Docs, CHANGELOG, tests, PR #150. **in progress**
+5. Docs, CHANGELOG, tests, PR #150. **done** (land on #150)
 
 #### Out of scope for §4.15
 
