@@ -51,6 +51,9 @@ def widget_origin( tmp_path ):
 
 
 def _write_project( project, origin, develop_path ):
+    # Prefer pathlib URI form so Windows drive paths do not become git+file://C:\…@branch
+    # (urlparse puts that in netloc and leaves @versioning attached).
+    origin_uri = Path( origin ).resolve().as_uri()
     write_sconstruct(
             project,
             """
@@ -65,7 +68,7 @@ cuppa.run(
         dependencies=[Widget],
 )
 """.format(
-                    location="git+file://{}@master".format( Path( origin ).resolve() ),
+                    location="git+{}@master".format( origin_uri ),
                     develop=str( develop_path ),
             ),
     )

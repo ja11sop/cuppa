@@ -232,6 +232,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `git+file://` locations with a Windows drive letter and `@branch` (urlparse puts the path in
+  `netloc`) now split versioning correctly, so `--clone-develop` can `ls-remote` a local origin
+  on Windows (#138).
 - Removal-report spacer rows use encoding-safe tree glyphs (ASCII `|` on legacy Windows
   consoles) instead of a hardcoded box-drawing pipe that raised `UnicodeEncodeError` under
   `cp1252` (#146).
