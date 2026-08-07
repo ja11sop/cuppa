@@ -69,18 +69,35 @@ def _unqualified_wipe_name( row ):
     return None
 
 
+def _unqualified_peer_key( row ):
+    """Group stem and ``stem@branch`` siblings even when ``short_name`` differs.
+
+    Listing may give the resolve-selected leaf a registry ``short_name`` (``widget``)
+    while the unused unqualified stem still carries the encoded folder identity. On
+    Windows that split is common; grouping only by ``list_identity_key`` then misses
+    the duplicate and yields no ``name/@`` wipe token.
+    """
+    storage_type = row.get( 'type' ) or row.get( 'kind' ) or 'unknown'
+    path = row.get( 'path' ) or ''
+    folder = os.path.basename( str( path ).rstrip( '\\/' ) )
+    stem, _qualifier = dependency_storage.split_location_folder_name( folder )
+    if stem and storage_type in ( 'repository', 'unknown' ):
+        return ( 'repository', stem )
+    return dependency_identity.list_identity_key( row )
+
+
 def mark_unqualified_duplicate_rows( rows, cuppa_env=None, dependencies_root=None ):
     """Flag unused ``@… (unqualified)`` siblings and return ``name/@`` wipe tokens.
 
     Only marks leaves that sit beside at least one resolve-selected peer under the
-    same list identity (the location “both folders exist” case).
+    same folder stem (the location “both folders exist” case).
 
     When ``--offline``, tokens whose inventory ``used_by`` names another project are
     omitted from the recommended wipe list (re-fetch may be unavailable).
     """
     by_key = {}
     for row in rows:
-        by_key.setdefault( dependency_identity.list_identity_key( row ), [] ).append( row )
+        by_key.setdefault( _unqualified_peer_key( row ), [] ).append( row )
 
     offline = bool( cuppa_env and cuppa_env.get( 'offline' ) )
     this_project = cuppa_env.get( 'sconstruct_dir' ) if cuppa_env else None

@@ -7,7 +7,7 @@
 
 import pytest
 
-from cuppa.core import dependency_actions, dependency_downloads
+from cuppa.core import dependency_actions, dependency_downloads, dependency_identity
 
 
 pytestmark = pytest.mark.unit
@@ -398,6 +398,35 @@ def test_mark_unqualified_duplicate_rows_only_unused_siblings():
     assert rows[1].get( 'removal_candidate' ) == 'unqualified_duplicate'
     assert 'removal_candidate' not in rows[0]
     assert 'removal_candidate' not in rows[2]
+
+
+def test_mark_unqualified_duplicate_rows_groups_by_folder_stem():
+    """Resolve may label the selected leaf ``widget`` while the stem stays encoded."""
+    rows = [
+            {
+                **_row( 'widget', 'referenced', 100 ),
+                'qualifier': '@master',
+                'path': r'C:\deps\git_https_example.com__org_widget.git@master',
+                'type': 'repository',
+                'kind': 'repository',
+                'short_name': 'widget',
+                'dependency': 'widget',
+            },
+            {
+                **_row( 'git_https_example.com__org_widget.git', 'unreferenced', 80 ),
+                'qualifier': '@master (unqualified)',
+                'path': r'C:\deps\git_https_example.com__org_widget.git',
+                'type': 'repository',
+                'kind': 'repository',
+                'short_name': 'git_https_example.com__org_widget.git',
+                'dependency': 'git_https_example.com__org_widget.git',
+            },
+    ]
+    assert dependency_identity.list_identity_key( rows[0] ) != \
+            dependency_identity.list_identity_key( rows[1] )
+    tokens = dependency_actions.mark_unqualified_duplicate_rows( rows )
+    assert tokens == [ 'widget/@' ]
+    assert rows[1].get( 'removal_candidate' ) == 'unqualified_duplicate'
 
 
 def test_apply_list_scope_preserves_unqualified_duplicate_tokens():
