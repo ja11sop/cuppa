@@ -429,6 +429,33 @@ def test_mark_unqualified_duplicate_rows_groups_by_folder_stem():
     assert rows[1].get( 'removal_candidate' ) == 'unqualified_duplicate'
 
 
+def test_mark_unqualified_duplicate_rows_with_unreferenced_branch_sibling():
+    """Branch-qualified sibling is enough even when resolve marks neither referenced."""
+    rows = [
+            {
+                **_row( 'widget', 'unreferenced', 100 ),
+                'qualifier': '@master',
+                'path': r'C:\deps\_org_wid09f20908@master',
+                'type': 'repository',
+                'kind': 'repository',
+                'short_name': 'widget',
+                'dependency': 'widget',
+            },
+            {
+                **_row( '_org_wid09f20908', 'unreferenced', 80 ),
+                'qualifier': '@master (unqualified)',
+                'path': r'C:\deps\_org_wid09f20908',
+                'type': 'repository',
+                'kind': 'repository',
+                'short_name': '_org_wid09f20908',
+                'dependency': '_org_wid09f20908',
+            },
+    ]
+    tokens = dependency_actions.mark_unqualified_duplicate_rows( rows )
+    assert tokens == [ 'widget/@' ]
+    assert rows[1].get( 'removal_candidate' ) == 'unqualified_duplicate'
+
+
 def test_apply_list_scope_preserves_unqualified_duplicate_tokens():
     rows = [
             {

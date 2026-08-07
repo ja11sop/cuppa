@@ -69,6 +69,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   still keeps unused `boost/<version>` siblings. `--list-scope=compact` is the short
   refinement of that view (resolve-selected leaves only). Groundwork for
   [#161](https://github.com/ja11sop/cuppa/issues/161).
+- Unqualified-stem duplicate wipe tokens are recommended when a branch-qualified sibling folder
+  exists even if resolve has not marked either leaf referenced, and the integration fixture
+  plants Windows MAX_PATH-hashed location folder names so
+  `test_list_dependencies_labels_unqualified_default_branch_duplicate` matches real
+  `Location` layout on Windows.
 
 ### Security
 

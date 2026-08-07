@@ -89,8 +89,9 @@ def _unqualified_peer_key( row ):
 def mark_unqualified_duplicate_rows( rows, cuppa_env=None, dependencies_root=None ):
     """Flag unused ``@… (unqualified)`` siblings and return ``name/@`` wipe tokens.
 
-    Only marks leaves that sit beside at least one resolve-selected peer under the
-    same folder stem (the location “both folders exist” case).
+    Marks leaves that sit beside a resolve-selected peer under the same folder
+    stem, or beside a branch-qualified folder sibling (the location “both folders
+    exist” case — including when resolve has not marked either leaf referenced).
 
     When ``--offline``, tokens whose inventory ``used_by`` names another project are
     omitted from the recommended wipe list (re-fetch may be unavailable).
@@ -115,7 +116,11 @@ def mark_unqualified_duplicate_rows( rows, cuppa_env=None, dependencies_root=Non
                 peer.get( 'state' ) in dependency_tree.REFERENCED_STATES
                 for peer in peers
         )
-        if not has_selected:
+        has_branch_sibling = any(
+                not _is_unqualified_qualifier( peer.get( 'qualifier' ) )
+                for peer in peers
+        )
+        if not ( has_selected or has_branch_sibling ):
             continue
         wipe_name = None
         ordered = sorted(

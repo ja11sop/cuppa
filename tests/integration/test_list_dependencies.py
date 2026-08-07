@@ -1,8 +1,11 @@
 import json
 import re
+from urllib.parse import urlparse
 
 import pytest
 
+from cuppa.core.dependency_storage import split_location_folder_name
+from cuppa.location import Location
 from tests.helpers.cuppa_runner import assert_success, run_cuppa
 from tests.helpers.project import copy_dummy_project, write_sconstruct
 
@@ -18,6 +21,25 @@ def own_home(tmp_path):
 
 def strip_ansi(text):
     return re.sub(r"\x1b\[[0-9;]*m", "", text)
+
+
+def vcs_duplicate_folder_pair( location_url, default_branch="master" ):
+    """Return ``(unqualified_stem, canonical_folder)`` as ``Location`` would name them.
+
+    On Linux the encoded URL keeps ``@branch`` visible. On Windows, ``Location``
+    hashes the folder for MAX_PATH and ``_select_repository_directory`` then
+    appends ``@<default_branch>`` when the hash has no qualifier.
+    """
+    class _Namer:
+        url_replacement_char = Location.url_replacement_char
+        _name_hint = None
+        _cuppa_env = {}
+
+    local = Location.folder_name_from_path( _Namer(), urlparse( location_url ) )
+    stem, qualifier = split_location_folder_name( local )
+    if qualifier:
+        return stem, local
+    return local, "{}@{}".format( local, default_branch )
 
 
 def plant_realistic_dependencies_root(storage):
@@ -647,9 +669,10 @@ def test_list_dependencies_labels_unqualified_default_branch_duplicate(tmp_path)
     project = copy_dummy_project(tmp_path)
     storage = tmp_path / "storage"
     deps = storage / "dependencies"
-    stem = "git_https_example.com__org_widget.git"
+    location_url = "git+https://example.com/org/widget.git@master"
+    stem, canonical_name = vcs_duplicate_folder_pair( location_url )
     unqualified = deps / stem
-    canonical = deps / (stem + "@master")
+    canonical = deps / canonical_name
     for tree in (unqualified, canonical):
         (tree / "include").mkdir(parents=True)
         (tree / "include" / "w.hpp").write_text("//\n", encoding="utf-8")
@@ -661,7 +684,7 @@ import cuppa
 
 Widget = cuppa.location_dependency(
     'widget',
-    location='git+https://example.com/org/widget.git@master',
+    location={!r},
 )
 
 cuppa.run(
@@ -669,7 +692,7 @@ cuppa.run(
     dependencies=[Widget],
     default_dependencies=['widget'],
 )
-""",
+""".format( location_url ),
     )
 
     listed = run_cuppa(
@@ -684,13 +707,14 @@ cuppa.run(
     match = re.search(r"\{.*\}", listed.stdout, re.DOTALL)
     assert match, listed.stdout
     payload = json.loads(match.group(0))
-    qualifiers = {
-            entry.get( "qualifier" ) for entry in payload["entries"]
+    repo_entries = [
+            entry for entry in payload["entries"]
             if entry.get( "type" ) == "repository"
-    }
-    assert "@master (unqualified)" in qualifiers
-    assert "@master" in qualifiers
-    assert payload.get("unqualified_duplicate_tokens") == ["widget/@"]
+    ]
+    qualifiers = { entry.get( "qualifier" ) for entry in repo_entries }
+    assert "@master (unqualified)" in qualifiers, repo_entries
+    assert "@master" in qualifiers, repo_entries
+    assert payload.get("unqualified_duplicate_tokens") == ["widget/@"], repo_entries
 
     text = run_cuppa(
         project,
