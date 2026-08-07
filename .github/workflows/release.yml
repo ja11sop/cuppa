@@ -1,23 +1,16 @@
 name: release
 
-# Tag push or manual dispatch publishes a cuppa release.
+# Prepare or publish a cuppa release from the Actions UI (preferred), or from a git tag push.
 #
-# Order of setup (once):
-# 1. Merge this workflow to master.
-# 2. Create a GitHub Environment named `pypi` with required reviewers
-#    (Settings → Environments).
-# 3. On PyPI → project cuppa → Publishing → Trusted publishers, add:
-#      Owner: ja11sop
-#      Repository: cuppa
-#      Workflow: release.yml
-#      Environment: pypi
+# Once (Trusted Publishing):
+# 1. Environment `pypi` with required reviewers.
+# 2. PyPI trusted publisher: ja11sop / cuppa / release.yml / environment pypi.
 #
-# Cut a release:
-# 1. PR that runs `python -m scripts.finish_release` (VERSION + CHANGELOG), merge.
-# 2. Tag that merge commit `vX.Y.Z` and push the tag (or create the tag in the UI).
-# 3. This workflow gates, builds, creates the GitHub Release, then waits for
-#    approval on the `pypi` environment before uploading to PyPI.
-# 4. Re-run publish for an existing tag via workflow_dispatch with that tag.
+# Each release (happy path — no local git tags):
+# 1. Actions → release → Run workflow → action **prepare** → merge the PR CI opens.
+# 2. Actions → release → Run workflow → action **publish** (leave tag blank) → approve `pypi`.
+#
+# Re-run or escape hatch: publish with tag=vX.Y.Z, or `git push origin vX.Y.Z`.
 
 on:
   push:
@@ -25,21 +18,107 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
-      tag:
-        description: 'Existing release tag to publish (for example v1.4.0)'
+      action:
+        description: 'prepare = finish_release PR on master; publish = GitHub Release + PyPI'
         required: true
+        type: choice
+        options:
+          - prepare
+          - publish
+        default: publish
+      tag:
+        description: 'publish only — existing tag to re-run (e.g. v1.4.0). Leave blank to publish current master.'
+        required: false
         type: string
+        default: ''
 
 permissions:
   contents: read
 
 jobs:
+  prepare:
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'prepare'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install packaging
+      - name: Finish release on a branch and open a PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="$(tr -d '[:space:]' < cuppa/VERSION)"
+          case "$VERSION" in
+            *.dev) ;;
+            *)
+              echo "cuppa/VERSION is [$VERSION] (already a release). Open the next cycle with start_release before prepare." >&2
+              exit 1
+              ;;
+          esac
+
+          python -m scripts.finish_release
+          RELEASE_VERSION="$(tr -d '[:space:]' < cuppa/VERSION)"
+          BRANCH="release_${RELEASE_VERSION//./_}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add cuppa/VERSION CHANGELOG.md
+          git commit -m "Release ${RELEASE_VERSION}"
+          git push -u origin "HEAD:${BRANCH}" --force
+
+          BODY="$(cat <<EOF
+          ## Summary
+          - Close the ${RELEASE_VERSION} cycle (\`finish_release\` via Actions **prepare**).
+
+          ## After merge
+          1. Actions → **release** → Run workflow → action **publish** (leave tag blank).
+          2. Approve the \`pypi\` environment when asked.
+
+          ## Test plan
+          - [ ] CI green on this PR
+          - [ ] After merge: publish workflow from master tip
+          EOF
+          )"
+          # Strip leading spaces from the heredoc for readable markdown.
+          BODY="$(printf '%s\n' "$BODY" | sed 's/^          //')"
+
+          EXISTING="$(gh pr list --head "$BRANCH" --base master --state open --json url --jq '.[0].url // empty')"
+          if [ -n "$EXISTING" ]; then
+            echo "Pull request already open: $EXISTING"
+            exit 0
+          fi
+          gh pr create \
+            --base master \
+            --head "$BRANCH" \
+            --title "Release ${RELEASE_VERSION}" \
+            --body "$BODY" \
+            --label impact:none
+
   resolve:
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.action == 'publish')
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.set.outputs.tag }}
       version: ${{ steps.set.outputs.version }}
+      ref: ${{ steps.set.outputs.ref }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
       - id: set
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -47,10 +126,22 @@ jobs:
           INPUT_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            TAG="$INPUT_TAG"
-          else
+          if [ "$EVENT_NAME" = "push" ]; then
             TAG="$REF_NAME"
+            REF="$TAG"
+          elif [ -n "${INPUT_TAG:-}" ]; then
+            TAG="$INPUT_TAG"
+            REF="$TAG"
+          else
+            VERSION="$(tr -d '[:space:]' < cuppa/VERSION)"
+            case "$VERSION" in
+              *.dev)
+                echo "cuppa/VERSION is still [$VERSION]. Run prepare, merge that PR, then publish." >&2
+                exit 1
+                ;;
+            esac
+            TAG="v${VERSION}"
+            REF="master"
           fi
           case "$TAG" in
             v[0-9]*) ;;
@@ -61,6 +152,7 @@ jobs:
           esac
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
 
   gate:
     needs: resolve
@@ -68,7 +160,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.resolve.outputs.tag }}
+          ref: ${{ needs.resolve.outputs.ref }}
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -76,6 +169,19 @@ jobs:
         run: pip install packaging
       - name: Check release
         run: python -m scripts.check_release --tag "${{ needs.resolve.outputs.tag }}"
+      - name: Refuse a tag that points at the wrong commit
+        if: needs.resolve.outputs.ref == 'master'
+        env:
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
+          HEAD="$(git rev-parse HEAD)"
+          REMOTE="$(git ls-remote --tags origin "refs/tags/${TAG}" "refs/tags/${TAG}^{}" | awk 'END {print $1}')"
+          if [ -n "${REMOTE:-}" ] && [ "$REMOTE" != "$HEAD" ]; then
+            echo "Tag ${TAG} already exists at ${REMOTE}, but master is ${HEAD}." >&2
+            echo "Delete the bad tag (git push origin :refs/tags/${TAG}) and re-run publish." >&2
+            exit 1
+          fi
 
   build:
     needs: [ resolve, gate ]
@@ -83,7 +189,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.resolve.outputs.tag }}
+          ref: ${{ needs.resolve.outputs.ref }}
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -109,9 +216,16 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.ref }}
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           name: dist
+      - name: Resolve commit to tag
+        id: head
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -120,7 +234,8 @@ jobs:
           body_path: release-notes.md
           files: dist/*
           fail_on_unmatched_files: true
-          # Re-running workflow_dispatch on an existing release updates notes/assets.
+          target_commitish: ${{ steps.head.outputs.sha }}
+          # New tags via the API do not re-trigger this workflow's push:tags path.
           make_latest: true
 
   pypi:
@@ -140,3 +255,4 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
+          skip-existing: true

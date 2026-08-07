@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - unreleased
+
+### Added
+
+### Changed
+
+- Release workflow Actions buttons: **prepare** opens the `finish_release` PR; **publish**
+  builds from master tip, creates the GitHub Release and tag, then waits for `pypi` approval.
+  Manual `v*` tag push remains as an escape hatch. Antora **Contributing** documents the flow
+  with Mermaid diagrams (`contributing.adoc` and children). See `release.txt`.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
 ## [1.4.0] - 2026-08-07
 
 ### Added
@@ -429,6 +448,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Baseline release on `master` before the modules work landed.
 Detailed notes for 1.1.x and earlier were not maintained in this file; start recording notable changes here from 1.2.0 onward.
 
+[1.5.0]: https://github.com/ja11sop/cuppa/compare/v1.4.0...HEAD
 [1.4.0]: https://github.com/ja11sop/cuppa/compare/v1.3.2...v1.4.0
 [1.2.0]: https://github.com/ja11sop/cuppa/compare/v1.1.3...v1.2.0
 [1.1.3]: https://github.com/ja11sop/cuppa/releases/tag/v1.1.3
