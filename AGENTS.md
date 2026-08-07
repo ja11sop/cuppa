@@ -43,10 +43,10 @@ Three checks keep this honest, all sharing `scripts/changelog.py` so they cannot
 - The `version` job on pull requests — the target version is at least what the pull request's
   `impact:` label implies, and the open section has entries. Every pull request needs exactly one
   `impact:none`, `impact:patch`, `impact:minor`, or `impact:major` label.
-- The `release` workflow on a `v*` tag (or `workflow_dispatch` with that tag) — no `.dev`, the
-  section is dated and non-empty, and the tag matches `cuppa/VERSION`. After the gate it builds
-  sdist/wheel, creates the GitHub Release, then publishes to PyPI via Trusted Publishing once the
-  `pypi` environment is approved (see `release.txt`).
+- The `release` workflow — no `.dev`, the section is dated and non-empty, and the tag matches
+  `cuppa/VERSION`. Prefer Actions **prepare** (opens the finish_release PR) then **publish**
+  (builds from master, creates the GitHub Release/tag, then PyPI after `pypi` environment
+  approval). A `v*` tag push is an escape hatch. See `release.txt`.
 
 A patch-sized pull request landing inside an open minor cycle is fine: the gate asks for *at
 least* the implied version, so `1.4.0.dev` satisfies a `patch` label. Raising the target
@@ -469,7 +469,7 @@ cd examples/minimal
 cuppa -D --dbg --test
 ```
 
-Release checklist: see `release.txt` (finish on a PR → tag → approve the `pypi` environment).
+Release checklist: see `release.txt` (Actions **prepare** → merge → **publish** → approve `pypi`).
 
 ## Documentation
 

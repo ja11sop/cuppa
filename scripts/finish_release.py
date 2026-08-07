@@ -103,9 +103,9 @@ def main( argv=None ):
         return 1
 
     print( "Closed [{}] - {}".format( target, arguments.date ) )
-    print( "Next: commit, then tag the release" )
-    print( "  git tag -a v{version} -m 'cuppa {version}'".format( version=target ) )
-    print( "  git push origin v{}".format( target ) )
+    print( "Next: commit and merge this PR, then Actions → release → publish" )
+    print( "  (or: git tag -a v{version} -m 'cuppa {version}' && git push origin v{version})"
+           .format( version=target ) )
     return 0
 
 

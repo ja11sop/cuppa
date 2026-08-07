@@ -1,47 +1,32 @@
-# Cut a cuppa release (master is protected — every step that changes the tree uses a PR).
+# Cut a cuppa release (master is protected — prefer the Actions buttons below).
 
-# --- Once: wire Trusted Publishing (after release.yml is on master) ---------------
+# --- Once: Trusted Publishing ----------------------------------------------------
 #
-# 1. GitHub → Settings → Environments → New environment → name it `pypi`.
-#    Add required reviewers (yourself). Optional: wait timer.
-# 2. PyPI → https://pypi.org/manage/project/cuppa/settings/publishing/
-#    → Add a new pending/trusted publisher:
-#      Owner:           ja11sop
-#      Repository:      cuppa
-#      Workflow name:   release.yml
-#      Environment:     pypi
+# 1. GitHub → Settings → Environments → `pypi` with required reviewers.
+# 2. PyPI → project cuppa → Publishing → trusted publisher:
+#      Owner: ja11sop  Repository: cuppa  Workflow: release.yml  Environment: pypi
+
+# --- Each release (happy path) ---------------------------------------------------
 #
-# You need the workflow file on the default branch before PyPI will accept the publisher.
-# You can create the GitHub environment before or after merging the workflow.
-
-# --- Each release ----------------------------------------------------------------
-
-# Local gate (from a clean checkout of master, with cuppa importable):
-flake8 cuppa
-pylint -E cuppa
-pytest -m unit
-pytest -m integration
-
-# On a PR branch (never push master directly):
-python -m scripts.finish_release
-git commit -am "Release $(cat cuppa/VERSION)"
-# Push the branch, open/merge the PR (impact:none is fine for release-only VERSION/CHANGELOG).
-
-# After that PR is on master, create and push the matching tag on the merge commit:
-#   git checkout master && git pull
-#   git tag -a "v$(cat cuppa/VERSION)" -m "cuppa $(cat cuppa/VERSION)"
-#   git push origin "v$(cat cuppa/VERSION)"
-# Or create the annotated tag in the GitHub UI on that commit.
-
-# GitHub Actions workflow `release` then:
-#   - runs scripts.check_release
-#   - builds sdist + wheel
-#   - creates/updates the GitHub Release with CHANGELOG notes
-#   - waits for approval on the `pypi` environment
-#   - uploads to PyPI via Trusted Publishing (OIDC — no API token)
+# Prerequisites: open cycle on master (`cuppa/VERSION` is X.Y.Z.dev, CHANGELOG has entries).
 #
-# To re-run publish for an existing tag (e.g. after fixing the publisher):
-#   Actions → release → Run workflow → enter the tag (v1.4.0)
+# 1. Actions → release → Run workflow → action: **prepare**
+#      Opens a PR that runs finish_release (VERSION + dated CHANGELOG, impact:none).
+# 2. Merge that PR when CI is green.
+# 3. Actions → release → Run workflow → action: **publish** (leave tag blank)
+#      Builds from master tip, creates the GitHub Release + tag via API, then waits for
+#      approval on the `pypi` environment before uploading.
+# 4. Approve the `pypi` deployment.
+#
+# Do not push a v* tag by hand unless you mean to; publish from master is the supported path.
+# Re-run publish for an existing tag: action **publish** with tag=vX.Y.Z.
+# `git push origin vX.Y.Z` still triggers the same publish jobs (escape hatch).
 
-# Open the next cycle when the following workstream starts (not as part of the tag):
-# python -m scripts.start_release X.Y.Z
+# --- Opening the next cycle (after a release lands) ------------------------------
+#
+# On a PR branch when the next workstream starts:
+#   python -m scripts.start_release X.Y.Z
+#
+# Local finish_release is still available if you prefer a hand-rolled prepare PR:
+#   python -m scripts.finish_release
+#   git commit -am "Release $(cat cuppa/VERSION)"
