@@ -1,37 +1,47 @@
-# Setup virtualenv if not exist
-cd ..
-python -m virtualenv venv
-source venv/bin/activate
-pip install -r requirements.txt
-cd cuppa/
+# Cut a cuppa release (master is protected — every step that changes the tree uses a PR).
 
-# Lint
+# --- Once: wire Trusted Publishing (after release.yml is on master) ---------------
+#
+# 1. GitHub → Settings → Environments → New environment → name it `pypi`.
+#    Add required reviewers (yourself). Optional: wait timer.
+# 2. PyPI → https://pypi.org/manage/project/cuppa/settings/publishing/
+#    → Add a new pending/trusted publisher:
+#      Owner:           ja11sop
+#      Repository:      cuppa
+#      Workflow name:   release.yml
+#      Environment:     pypi
+#
+# You need the workflow file on the default branch before PyPI will accept the publisher.
+# You can create the GitHub environment before or after merging the workflow.
+
+# --- Each release ----------------------------------------------------------------
+
+# Local gate (from a clean checkout of master, with cuppa importable):
 flake8 cuppa
 pylint -E cuppa
-
-# Tests
 pytest -m unit
 pytest -m integration
 
-# Release notes
-# The changelog section is already open and filled in (scripts.start_release ran with the
-# first commit of the cycle and entries were written as the work landed). Closing it dates
-# the section, drops the .dev from cuppa/VERSION, prunes empty subsections, and closes the
-# compare link:
+# On a PR branch (never push master directly):
 python -m scripts.finish_release
-
-# Commit, then tag. The release workflow re-runs scripts.check_release on the tag.
 git commit -am "Release $(cat cuppa/VERSION)"
-git tag -a "v$(cat cuppa/VERSION)" -m "cuppa $(cat cuppa/VERSION)"
-git push origin master "v$(cat cuppa/VERSION)"
+# Push the branch, open/merge the PR (impact:none is fine for release-only VERSION/CHANGELOG).
 
-# Create the GitHub release from the CHANGELOG.md section for that version
+# After that PR is on master, create and push the matching tag on the merge commit:
+#   git checkout master && git pull
+#   git tag -a "v$(cat cuppa/VERSION)" -m "cuppa $(cat cuppa/VERSION)"
+#   git push origin "v$(cat cuppa/VERSION)"
+# Or create the annotated tag in the GitHub UI on that commit.
 
-# Build
-rm -rf dist/ build/ && python setup.py sdist bdist_wheel
+# GitHub Actions workflow `release` then:
+#   - runs scripts.check_release
+#   - builds sdist + wheel
+#   - creates/updates the GitHub Release with CHANGELOG notes
+#   - waits for approval on the `pypi` environment
+#   - uploads to PyPI via Trusted Publishing (OIDC — no API token)
+#
+# To re-run publish for an existing tag (e.g. after fixing the publisher):
+#   Actions → release → Run workflow → enter the tag (v1.4.0)
 
-# Upload to PyPi
-twine upload dist/*
-
-# Open the next cycle when the following workstream starts (not now)
+# Open the next cycle when the following workstream starts (not as part of the tag):
 # python -m scripts.start_release X.Y.Z

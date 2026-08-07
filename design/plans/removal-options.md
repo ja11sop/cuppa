@@ -14,7 +14,7 @@ clean, lazy exact inventory sizes on list) are implemented (listing
 [#141](https://github.com/ja11sop/cuppa/pull/141) and removal
 [#142](https://github.com/ja11sop/cuppa/pull/142) on `master`; archive clean
 [#143](https://github.com/ja11sop/cuppa/pull/143)). `--clone-develop` (§3.7) and develop branch
-alignment (§3.8) land in [#154](https://github.com/ja11sop/cuppa/pull/154) (closes #138 / #153).
+alignment (§3.8) shipped in [#154](https://github.com/ja11sop/cuppa/pull/154) (closes #138 / #153).
 Artefact removal (Phase 6) remains open. Phase 4 listing + purge
 (`--list-downloads` / `--purge-dependencies` / `--purge-all-dependencies`) is implemented in
 [#144](https://github.com/ja11sop/cuppa/pull/144) (closes #134).
@@ -69,8 +69,8 @@ deferred Phase 3 polish items remain open and do not keep #134 open.
 | Phase 3 — `--list-develop --list-format=json` | **done** | [#148](https://github.com/ja11sop/cuppa/issues/148) — Shared `--list-format=json` parity for develop copies (agents / scripts); text unchanged |
 | Phase 4 — downloads list / purge | **done** | `--list-downloads` + `--purge-dependencies` / `--purge-all-dependencies` in [#144](https://github.com/ja11sop/cuppa/pull/144); that PR closes #134 |
 | `--wipe-dependencies` / §4.15 | **done** | [#146](https://github.com/ja11sop/cuppa/issues/146) / [#150](https://github.com/ja11sop/cuppa/pull/150) — wipe + force-wipe, selectors, repository rename, shared tokens, summary → type → identity → version → leaves |
-| §3.7 — `--clone-develop` | **done** (on [#154](https://github.com/ja11sop/cuppa/pull/154)) | Closes [#138](https://github.com/ja11sop/cuppa/issues/138) — refuse pins; recurse submodules; dedicated `Git.clone`, unexpanded URL |
-| §3.8 — develop branch alignment | **done** (on [#154](https://github.com/ja11sop/cuppa/pull/154)) | Closes [#153](https://github.com/ja11sop/cuppa/issues/153) — checkout / reset; `--location-base-branch`; optional reset target |
+| §3.7 — `--clone-develop` | **done** | [#154](https://github.com/ja11sop/cuppa/pull/154) closes [#138](https://github.com/ja11sop/cuppa/issues/138) — refuse pins; recurse submodules; dedicated `Git.clone`, unexpanded URL |
+| §3.8 — develop branch alignment | **done** | [#154](https://github.com/ja11sop/cuppa/pull/154) closes [#153](https://github.com/ja11sop/cuppa/issues/153) — checkout / reset; `--location-base-branch`; optional reset target |
 | Phase 6 — artefacts | **open** | Sketch only (§4.6) / [#135](https://github.com/ja11sop/cuppa/issues/135) |
 
 **Next focus:** [#135](https://github.com/ja11sop/cuppa/issues/135) (artefacts) when that design pass starts.
@@ -2146,7 +2146,7 @@ Listing half **done** on `master` (#141). Removal Slice D **done** on `master` (
   the classification; `--list-develop` reports to stdout and exits; `--update-develop` fetches and
   fast-forwards only clean, strictly-behind copies.
 - `--clone-develop` (§3.7) and `--checkout-develop-branch` / `--reset-develop-branch` with
-  `--location-base-branch` (§3.8) land in [#154](https://github.com/ja11sop/cuppa/pull/154)
+  `--location-base-branch` (§3.8) shipped in [#154](https://github.com/ja11sop/cuppa/pull/154)
   (closes [#138](https://github.com/ja11sop/cuppa/issues/138) /
   [#153](https://github.com/ja11sop/cuppa/issues/153)).
 - The `=fetch-only` / `=allow-rebase` / `=allow-merge` values are still out of scope until there
