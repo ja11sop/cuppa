@@ -146,3 +146,23 @@ def test_register_skips_existing_name( tmp_path ):
     assert names == []
     assert added == []
     assert cuppa_env['toolchains']['clang24_profiles_2026_08_07_27'] is preexisting
+
+
+def test_remind_reuse_names( caplog ):
+    import logging
+    cuppa_env = {
+        'toolchain_archive_names': [ 'clang24_profiles_2026_08_07_27' ],
+    }
+    with caplog.at_level( logging.INFO ):
+        ta.remind_reuse_names( cuppa_env )
+    assert any(
+        '--toolchains=clang24_profiles_2026_08_07_27' in record.getMessage()
+        for record in caplog.records
+    )
+
+
+def test_remind_reuse_names_noop_without_names( caplog ):
+    import logging
+    with caplog.at_level( logging.INFO ):
+        ta.remind_reuse_names( {} )
+    assert not any( 'Reuse this toolchain' in record.getMessage() for record in caplog.records )

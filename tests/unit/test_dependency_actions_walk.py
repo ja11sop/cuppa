@@ -42,6 +42,18 @@ def test_walk_yields_conan_fingerprint_dirs( tmp_path ):
     assert walked == [ str( install ) ]
 
 
+def test_walk_yields_toolchain_extract_dirs( tmp_path ):
+    root = tmp_path / 'dependencies'
+    extract = root / 'toolchains' / 'clang' / 'profiles_2026_08_07_27'
+    extract.mkdir( parents=True )
+    ( extract / 'bin' ).mkdir()
+    # Nested noise must not appear.
+    ( extract / 'lib' / 'clang' ).mkdir( parents=True )
+
+    walked = list( _walk_dependency_trees( str( root ) ) )
+    assert walked == [ str( extract ) ]
+
+
 def test_walk_skips_inventory_dir( tmp_path ):
     root = tmp_path / 'dependencies'
     ( root / '.cuppa-inventory' ).mkdir( parents=True )

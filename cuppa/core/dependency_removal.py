@@ -370,8 +370,42 @@ def _sibling_leftovers( root, target, remove_reals ):
             ) )
         return leftovers
 
+    if (
+            target.storage_type == 'toolchain'
+            and len( parts ) >= 3
+            and parts[0] == 'toolchains'
+    ):
+        # toolchains/<identity>/<qualifier> — leave other qualifiers for the same identity.
+        identity = parts[1]
+        parent = os.path.join( root, 'toolchains', identity )
+        if not os.path.isdir( parent ):
+            return leftovers
+        try:
+            qualifiers = os.listdir( parent )
+        except OSError:
+            return leftovers
+        for qualifier in sorted( qualifiers ):
+            candidate = os.path.join( parent, qualifier )
+            if not os.path.isdir( candidate ):
+                continue
+            cand_real = storage.real_path( candidate )
+            if cand_real in remove_reals or cand_real == real:
+                continue
+            leftovers.append( Leftover(
+                dependency=target.dependency,
+                path=candidate,
+                qualifier=qualifier,
+                tool_variant=None,
+                size_bytes=_measure_bytes( candidate ),
+                label=_path_label( target.dependency, qualifier, None ),
+                storage_type=target.storage_type,
+            ) )
+        return leftovers
+
     # Location / archive (and unknown top-level): siblings share the stem (name before @).
     if dependency_storage.looks_like_tool_variant_dir( parts[0] ):
+        return leftovers
+    if parts[0] in ( 'conan', 'toolchains' ):
         return leftovers
     top = parts[0]
     stem, _qual = dependency_storage.split_location_folder_name( top )

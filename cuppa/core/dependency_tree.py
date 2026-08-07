@@ -30,6 +30,7 @@ TYPE_LABELS = (
     ( 'gitlab', 'gitlab packages' ),
     ( 'conan', 'conan packages' ),
     ( 'archive', 'source archives' ),
+    ( 'toolchain', 'toolchains' ),
 )
 
 REFERENCED_STATES = frozenset( ( 'referenced', 'missing', 'cached' ) )
@@ -202,7 +203,8 @@ def build_tree( leaves ):
                 0 if node['type'] == 'repository' else
                 1 if node['type'] == 'gitlab' else
                 2 if node['type'] == 'conan' else
-                3 if node['type'] == 'archive' else 4,
+                3 if node['type'] == 'archive' else
+                4 if node['type'] == 'toolchain' else 5,
                 ( node.get( 'registry_name' ) or node.get( 'short_name' ) or '' ).lower(),
         ) )
 
@@ -229,6 +231,8 @@ def _build_identity( group, section ):
         children = _flat_variant_children( leaves_in, label_key='qualifier' )
     elif storage_type == 'archive':
         children = _archive_children( leaves_in )
+    elif storage_type == 'toolchain':
+        children = _flat_variant_children( leaves_in, label_key='qualifier' )
     else:
         children = _flat_variant_children( leaves_in, label_key='qualifier' )
 
@@ -262,7 +266,7 @@ def _build_identity( group, section ):
             stripped = strip_vcs_qualifier( base )
             # Prefer a clean repo URL without a trailing bare '@'.
             location = stripped[:-1] if stripped.endswith( '@' ) else stripped
-    elif storage_type not in ( 'gitlab', 'archive' ) and len( leaves_in ) == 1:
+    elif storage_type not in ( 'gitlab', 'archive', 'toolchain' ) and len( leaves_in ) == 1:
         leaf = leaves_in[0]
         location = (
             leaf.get( 'remote_location' )

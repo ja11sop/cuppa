@@ -505,6 +505,9 @@ class Construct(object):
 
             cuppa_env['active_toolchains'] = toolchains
 
+            from cuppa.toolchains import toolchain_archive
+            toolchain_archive.install_reuse_reminder( cuppa_env )
+
             def add_profile( name, profile ):
                 cuppa_env['profiles'][name] = profile
 

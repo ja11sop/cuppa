@@ -61,7 +61,21 @@ cuppa -D --dbg --clang-root=/path/to/install --toolchains=clang24_local_*
 
 `--clang-root` names are `clang{major}_local_{hash}`. Use `--clang-stdlib=libstdc++` (the Linux default) with slim Profiles Release tarballs that do not ship libc++.
 
-List / remove / wipe for type `toolchain` will follow; see `design/plans/toolchains-as-dependencies.md`.
+After a successful build that used `--toolchain-archive=` or `--clang-root=` in the session, cuppa logs the shorthand reuse flag near the end of the output, for example `--toolchains=clang24_profiles_2026_08_07_27`, so you do not need to scroll back to the registration line.
+
+[#fetched-clang-storage]
+=== Listing and clearing toolchain archives
+
+Fetched Clang extracts appear under `--list-dependencies` / `--list-downloads` as storage type **toolchain** (`toolchains/clang/<qualifier>/`), not as a mistaken top-level source archive named `toolchains`.
+
+Which management flags apply:
+
+* `--list-dependencies` / `--list-downloads` — yes; extracts show as unreferenced until a future resolve stamps them, and download tarballs sit under `downloads_root/toolchains/…`.
+* `--force-wipe-dependencies=[toolchain]clang/profiles_*` — yes; clears the named extract and matching download regardless of referenced state.
+* `--force-wipe-unreferenced-dependencies` — yes; toolchain trees are always outside `BuildWith` resolve, so they count as unreferenced and are included.
+* `--remove-dependencies` / `--purge-dependencies` / `--wipe-dependencies` (and the `*-all-*` forms) — no; those only target **project-used** dependency names from the current selection (`default_dependencies` / `BuildWith`), not compiler installs.
+
+List / remove polish for type `toolchain` continues in `design/plans/toolchains-as-dependencies.md`.
 
 [#c-language-level]
 == C++ language level

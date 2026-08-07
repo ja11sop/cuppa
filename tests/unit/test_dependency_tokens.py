@@ -15,6 +15,8 @@ def test_resolve_selector_aliases():
     assert dependency_tokens.resolve_selector( 'repo' ) == 'repository'
     assert dependency_tokens.resolve_selector( 'location' ) == 'repository'
     assert dependency_tokens.resolve_selector( 'cn' ) == 'conan'
+    assert dependency_tokens.resolve_selector( 'toolchain' ) == 'toolchain'
+    assert dependency_tokens.resolve_selector( 'tc' ) == 'toolchain'
 
 
 def test_resolve_selector_rejects_single_letter_and_reserved():

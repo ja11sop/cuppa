@@ -179,7 +179,7 @@ def github_archive_from_folder( folder ):
 
 def display_qualifier( qualifier, storage_type='repository' ):
     """Normalise a qualifier for the tree: unspecified location → ``@``."""
-    if storage_type in ( 'gitlab', 'conan', 'archive' ):
+    if storage_type in ( 'gitlab', 'conan', 'archive', 'toolchain' ):
         if not qualifier or qualifier == '-':
             return '-'
         return str( qualifier )
@@ -229,6 +229,11 @@ def enrich_described( path, described ):
         return described
 
     if storage_type == 'conan':
+        described['short_name'] = dependency
+        described['stem'] = dependency
+        return described
+
+    if storage_type == 'toolchain':
         described['short_name'] = dependency
         described['stem'] = dependency
         return described

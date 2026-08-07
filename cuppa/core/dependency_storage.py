@@ -34,7 +34,7 @@ RESOLVE_ONLY_REASON = "storage action"
 # Stable storage types for inventory and a future namespaced layout migration.
 # Discriminated from path shape (+ cheap .git check) on today's flat root.
 # ``location`` remains a read alias of ``repository`` (pre-rename inventory / branch caches).
-STORAGE_TYPES = ( 'gitlab', 'conan', 'repository', 'archive' )
+STORAGE_TYPES = ( 'gitlab', 'conan', 'repository', 'archive', 'toolchain' )
 STORAGE_TYPE_ALIASES = {
     'location': 'repository',
 }
@@ -51,7 +51,7 @@ OwnedPath = namedtuple(
     'OwnedPath',
     [
         'dependency',       # sconstruct / registry name
-        'storage_type',     # gitlab | conan | repository | archive
+        'storage_type',     # gitlab | conan | repository | archive | toolchain
         'category',         # dependencies | downloads | build | develop | cached
         'path',
         'qualifier',        # @branch, version, fingerprint prefix, …
@@ -204,6 +204,8 @@ def classify_storage_type( path, dependencies_root ):
 
     if parts[0] == 'conan':
         return 'conan'
+    if parts[0] == 'toolchains':
+        return 'toolchain'
     if looks_like_tool_variant_dir( parts[0] ):
         return 'gitlab'
 
@@ -467,6 +469,14 @@ def describe_tree_path( path, dependencies_root ):
             'qualifier': parts[2],
             'tool_variant': _conan_meta_tool_variant( install_dir ),
             'type': 'conan',
+        }
+
+    if parts[0] == 'toolchains' and len( parts ) >= 3:
+        return {
+            'dependency': parts[1],
+            'qualifier': parts[2],
+            'tool_variant': None,
+            'type': 'toolchain',
         }
 
     if looks_like_tool_variant_dir( parts[0] ) and len( parts ) >= 3:

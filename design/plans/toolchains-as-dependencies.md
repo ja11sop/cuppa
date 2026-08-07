@@ -78,8 +78,8 @@ Offline: require cache / extract; clear error if missing.
 | `tc-dep-archive` | `--toolchain-archive=` public HTTPS / file download + extract | done |
 | `tc-dep-discover` | Start-up scan of cached extracts; `--toolchains=` without archive URL | done |
 | `tc-dep-docs` | toolchains.adoc + CHANGELOG | done |
-| `tc-dep-list` | `--list-dependencies` shows `toolchain` / `clang` | later |
-| `tc-dep-remove` | remove / wipe `[toolchain]clang/…` | later |
+| `tc-dep-list` | `--list-dependencies` / downloads show `toolchain` / `clang` | done (classify + walk) |
+| `tc-dep-remove` | `--force-wipe-*` with `[toolchain]…`; project remove/purge/wipe N/A | done (force-wipe path) |
 | `tc-dep-profiles` | `#127` `--profiles` / `-fprofiles` | later |
 | `tc-dep-actions` | Authenticated Actions artifact URLs | later |
 

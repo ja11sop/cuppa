@@ -234,8 +234,8 @@ def add_dependency_action_options( add_option ):
         '--force-wipe-dependencies', dest='force_wipe_dependencies', type='string', nargs=1,
         action='store',
         help="Power tool: clear-down list-tree leaves by [selector]name/qualifier "
-             "(e.g. [source]boost/1.8*, fmt/@11.1.1) and matching downloads, regardless of "
-             "referenced/unreferenced/in use, then exit",
+             "(e.g. [source]boost/1.8*, [toolchain]clang/profiles_*, fmt/@11.1.1) and "
+             "matching downloads, regardless of referenced/unreferenced/in use, then exit",
     )
     add_option(
         '--force-wipe-all-dependencies', dest='force_wipe_all_dependencies',
@@ -328,6 +328,7 @@ def _walk_dependency_trees( dependencies_root ):
 
     - ``<tool_variant>/<package>/<version>/`` — GitLab / Boost package extracts
     - ``conan/<name>/<fingerprint>/`` — Conan consumer installs
+    - ``toolchains/<identity>/<qualifier>/`` — fetched compiler installs
     - anything else at the top level (``git_*``, archive folders, …) — one row per
       top-level directory; do not recurse into VCS trees
     """
@@ -352,6 +353,18 @@ def _walk_dependency_trees( dependencies_root ):
                     finger_dir = os.path.join( dep_dir, fingerprint )
                     if _isdir( finger_dir ):
                         yield finger_dir
+            continue
+
+        if name == 'toolchains':
+            # toolchains/<identity>/<qualifier>/ (e.g. toolchains/clang/profiles_…)
+            for identity in sorted( os.listdir( top ) ):
+                identity_dir = os.path.join( top, identity )
+                if not _isdir( identity_dir ):
+                    continue
+                for qualifier in sorted( os.listdir( identity_dir ) ):
+                    extract_dir = os.path.join( identity_dir, qualifier )
+                    if _isdir( extract_dir ):
+                        yield extract_dir
             continue
 
         if dependency_storage.looks_like_tool_variant_dir( name ):

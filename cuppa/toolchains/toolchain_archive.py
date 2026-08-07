@@ -383,3 +383,31 @@ def register_prepared( cuppa_env, add_toolchain, add_to_supported, clang_cls ):
 
     cuppa_env['toolchain_archive_names'] = explicit_names
     return explicit_names
+
+
+def remind_reuse_names( cuppa_env ):
+    """Log shorthand ``--toolchains=`` names after a successful archive/root session."""
+    names = cuppa_env.get( 'toolchain_archive_names' ) or []
+    if not names:
+        return
+    for name in names:
+        logger.info(
+            "Reuse this toolchain next time with [{}]".format(
+                as_info( "--toolchains={}".format( name ) )
+            )
+        )
+
+
+def install_reuse_reminder( cuppa_env ):
+    """Register a progress callback that prints reuse hints at sconstruct end."""
+    names = cuppa_env.get( 'toolchain_archive_names' ) or []
+    if not names:
+        return
+
+    from cuppa.progress import NotifyProgress
+
+    def _on_progress( event, sconscript, variant, env, target, source ):
+        if event == 'sconstruct_end':
+            remind_reuse_names( cuppa_env )
+
+    NotifyProgress.register_callback( None, _on_progress )

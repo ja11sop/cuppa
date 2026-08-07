@@ -35,6 +35,9 @@ SELECTOR_ALIASES = {
     'conan': (
         'conan', 'conan_package', 'cn',
     ),
+    'toolchain': (
+        'toolchain', 'toolchains', 'tc', 'compiler',
+    ),
 }
 
 # Reserved for a future GitHub generic package kind — must not map to gitlab.
@@ -93,6 +96,7 @@ def format_token( storage_type, name, qualifier ):
         'gitlab': 'gl',
         'repository': 'repo',
         'conan': 'conan',
+        'toolchain': 'toolchain',
     }.get( storage_type, storage_type )
     return "[{}]{}".format( short, body )
 
