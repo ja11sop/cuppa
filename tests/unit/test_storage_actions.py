@@ -268,8 +268,10 @@ def test_remove_builds_reports_failures_with_ballot( tmp_path, monkeypatch ):
     assert re.search( r'[✗✘x]{3}', text )
     assert 'Permission denied' in text
     assert 'Not all requested build entries could be removed' in text
+    assert '[1 error]' in text
+    assert '[0 warnings]' in text
+    assert '[0 notes]' in text
     assert '1 error' in text
-    assert re.search( r'(^|\n)\s*1 error\s*\n', text )
     assert 'lib/gcc15/dbg/x86_64/cxx2c' in text
     assert '[Errno 13]' in text or 'Errno 13' in text
     assert '_build/' in text
@@ -303,7 +305,46 @@ def test_removal_error_lines_wrap_long_reasons():
     assert len( reason_lines ) >= 2
 
 
-def test_remove_builds_already_deleted_is_a_warning( tmp_path, monkeypatch ):
+def test_removal_error_lines_summary_brackets_and_notes():
+    from cuppa.colourise import as_error, as_info, as_subdued, as_warning
+
+    failures = [
+            {
+                'severity': 'error',
+                'label': 'broken',
+                'reason': 'could not remove [broken]',
+            },
+            {
+                'severity': 'warning',
+                'label': 'stale',
+                'reason': 'already deleted [stale]',
+            },
+            {
+                'severity': 'note',
+                'label': 'hint',
+                'reason': 'left [hint] in place',
+            },
+    ]
+    intro = 'Wiping ' + storage.emphasised_count_phrase( 3, 'tree' )
+    lines = storage_actions._removal_error_lines( failures, intro=intro )
+    assert lines[1].startswith( 'Wiping ' )
+    assert storage.emphasised_count_phrase( 3, 'tree' ) in lines[1]
+    assert as_error( '[1 error]' ) in lines[1]
+    assert as_warning( '[1 warning]' ) in lines[1]
+    assert as_info( '[1 note]' ) in lines[1]
+
+    zeroed = storage_actions._removal_error_lines(
+            [ failures[1] ],
+            intro='Wiping ' + storage.emphasised_count_phrase( 1, 'tree' ),
+    )
+    assert as_subdued( '[0 errors]' ) in zeroed[1]
+    assert as_warning( '[1 warning]' ) in zeroed[1]
+    assert as_subdued( '[0 notes]' ) in zeroed[1]
+    assert any( '1 warning' in line for line in zeroed )
+    assert any( 'stale' in line for line in zeroed )
+
+
+def test_remove_builds_already_deleted_is_a_note( tmp_path, monkeypatch ):
     env, build = env_for( tmp_path, remove_builds=True )
     path = plant_variant( build, 'lib', 'gcc15', 'dbg', 'x86_64', 'cxx2c' )
     construct = FakeConstruct( [ ( 'gcc15', 'dbg', 'x86_64', 'cxx2c' ) ] )
@@ -321,9 +362,19 @@ def test_remove_builds_already_deleted_is_a_warning( tmp_path, monkeypatch ):
     text = out.getvalue()
 
     assert status == 0
-    assert '1 warning' in text
-    assert 'already deleted' in text
+    assert '1 note' in text
+    assert '[1 note]' in text
+    assert '[0 warnings]' in text
+    assert 'was already gone' in text
     assert 'Not all requested build entries could be removed' in text
+
+
+def test_already_gone_helpers_are_past_tense_notes():
+    err = storage.StorageError( "not found (possibly already deleted)" )
+    assert storage_actions._is_already_gone_error( err )
+    reason = storage_actions._already_gone_note_reason( '/tmp/project/_build/lib', project_dir='/tmp/project' )
+    assert reason.startswith( 'was already gone: [' )
+    assert '_build/' in reason or 'lib' in reason
 
 
 def test_outcome_triple_marks_mixed_as_check_dash_ballot():
@@ -332,6 +383,12 @@ def test_outcome_triple_marks_mixed_as_check_dash_ballot():
     assert mixed[0] in ( '✓', '*' )
     assert mixed[1] == '-'
     assert mixed[2] in ( '✗', 'x' )
+
+
+def test_outcome_binary_is_single_slot():
+    assert storage.outcome_binary( 'none' ) == '-'
+    assert storage.outcome_binary( 'removed' ) in ( '✓', '*' )
+    assert storage.outcome_binary( 'failed' ) in ( '✗', 'x' )
 
 
 def test_with_heavy_marks_upgrades_light_check_and_ballot():

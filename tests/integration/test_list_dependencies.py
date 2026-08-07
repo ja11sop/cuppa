@@ -255,10 +255,16 @@ cuppa.run(
 
 
 def test_list_dependencies_scope_referenced_hides_unreferenced(tmp_path):
-    """--list-scope=referenced omits the unreferenced section."""
+    """--list-scope=referenced omits the unreferenced section but keeps unused siblings."""
     project = copy_dummy_project(tmp_path)
     storage = tmp_path / "storage"
     plant_archives_and_downloads(storage)
+    # Unused sibling under the same GitLab boost identity as the selected 1.91.
+    tool_variant = "gcc153_rel_x86_64_cxx2c"
+    sibling = storage / "dependencies" / tool_variant / "boost" / "1.90"
+    sibling.mkdir(parents=True)
+    (sibling / "include" / "boost").mkdir(parents=True)
+
     write_sconstruct(
         project,
         body="""\
@@ -291,10 +297,13 @@ cuppa.run(
     assert_success(listed)
     plain = strip_ansi(listed.stdout)
     assert "boost_package" in plain or "boost" in plain
+    assert "1.91" in plain
+    assert "1.90" in plain
     assert "referenced" in plain
     assert "Review unreferenced trees" not in plain
     assert re.search( r"\bentries, .* referenced\b", plain )
-    assert "unreferenced" not in plain
+    # Section label absent; unused siblings may still have leaf state unreferenced.
+    assert not re.search( r"(?m)^\s*unreferenced\s*$", plain )
 
     as_json = run_cuppa(
         project,
@@ -310,13 +319,85 @@ cuppa.run(
     assert match, as_json.stdout
     payload = json.loads(match.group(0))
     assert payload.get("scope") == "referenced"
-    assert all(entry["state"] != "unreferenced" for entry in payload["entries"])
+    qualifiers = { entry.get("qualifier") for entry in payload["entries"] }
+    assert "1.91" in qualifiers
+    assert "1.90" in qualifiers
     section_labels = [
             section.get("label")
             for section in (payload.get("tree") or {}).get("sections") or []
     ]
     assert "unreferenced" not in section_labels
     assert "referenced" in section_labels
+
+
+def test_list_dependencies_scope_compact_is_referenced_without_siblings(tmp_path):
+    """--list-scope=compact is a refinement of referenced (selected leaves only)."""
+    project = copy_dummy_project(tmp_path)
+    storage = tmp_path / "storage"
+    plant_archives_and_downloads(storage)
+    tool_variant = "gcc153_rel_x86_64_cxx2c"
+    sibling = storage / "dependencies" / tool_variant / "boost" / "1.90"
+    sibling.mkdir(parents=True)
+    (sibling / "include" / "boost").mkdir(parents=True)
+
+    write_sconstruct(
+        project,
+        body="""\
+import cuppa
+
+Boost = cuppa.package_dependency(
+    'boost_package',
+    package_manager='gitlab',
+    registry='https://gitlab.example/api/v4/projects/1',
+    package='boost',
+    version='1.91',
+)
+
+cuppa.run(
+    default_variants=['dbg'],
+    dependencies=[Boost],
+    default_dependencies=['boost_package'],
+)
+""",
+    )
+
+    listed = run_cuppa(
+        project,
+        "--offline",
+        "--list-dependencies",
+        "--list-scope=compact",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(listed)
+    plain = strip_ansi(listed.stdout)
+    assert "1.91" in plain
+    assert "1.90" not in plain
+    assert re.search( r"\bentries, .* compact\b", plain )
+    assert "Review unreferenced trees" not in plain
+    assert not re.search( r"(?m)^\s*unreferenced\s*$", plain )
+
+    as_json = run_cuppa(
+        project,
+        "--offline",
+        "--list-dependencies",
+        "--list-scope=compact",
+        "--list-format=json",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(as_json)
+    match = re.search(r"\{.*\}", as_json.stdout, re.DOTALL)
+    assert match, as_json.stdout
+    payload = json.loads(match.group(0))
+    assert payload.get("scope") == "compact"
+    assert all(entry.get("state") in ("referenced", "missing", "cached") for entry in payload["entries"])
+    assert all(entry.get("qualifier") != "1.90" for entry in payload["entries"])
+    section_labels = [
+            section.get("label")
+            for section in (payload.get("tree") or {}).get("sections") or []
+    ]
+    assert section_labels == ["referenced"]
 
 
 def test_list_dependencies_scope_unreferenced_hides_referenced(tmp_path):
@@ -603,19 +684,13 @@ cuppa.run(
     match = re.search(r"\{.*\}", listed.stdout, re.DOTALL)
     assert match, listed.stdout
     payload = json.loads(match.group(0))
-    widget_rows = [
-            entry for entry in payload["entries"]
-            if "widget" in (entry.get("dependency") or "")
-            or "widget" in (entry.get("short_name") or "")
-            or (entry.get("path") or "").endswith(stem)
-            or (entry.get("path") or "").endswith(stem + "@master")
-    ]
     qualifiers = {
             entry.get( "qualifier" ) for entry in payload["entries"]
             if entry.get( "type" ) == "repository"
     }
     assert "@master (unqualified)" in qualifiers
     assert "@master" in qualifiers
+    assert payload.get("unqualified_duplicate_tokens") == ["widget/@"]
 
     text = run_cuppa(
         project,
@@ -627,5 +702,20 @@ cuppa.run(
     assert_success(text)
     plain = strip_ansi(text.stdout)
     assert "@master (unqualified)" in plain
+    assert "force-wipe-dependencies=widget/@" in plain
+    assert "Drop -n and re-run after confirming" in plain
     err = (text.stderr or "") + (listed.stderr or "")
     assert "removal candidate" in err or "unqualified" in plain
+
+    compact = run_cuppa(
+        project,
+        "--offline",
+        "--list-dependencies",
+        "--list-scope=compact",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(compact)
+    compact_plain = strip_ansi(compact.stdout)
+    assert "force-wipe-dependencies=widget/@" in compact_plain
+    assert "@master (unqualified)" not in compact_plain

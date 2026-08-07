@@ -255,6 +255,42 @@ def test_row_matches_force_token():
     assert not dependency_removal._row_matches_force_token( loc, 'fmt', '@12*' )
 
 
+def test_row_matches_force_token_bare_at_is_unqualified_stem():
+    """``name/@`` matches ``@master (unqualified)``, not canonical ``@master``."""
+    unqualified = {
+        'short_name': 'widget',
+        'dependency': 'widget',
+        'qualifier': '@master (unqualified)',
+        'type': 'repository',
+        'path': '/tmp/git_https_example.com__org_widget.git',
+    }
+    canonical = {
+        'short_name': 'widget',
+        'dependency': 'widget',
+        'qualifier': '@master',
+        'type': 'repository',
+        'path': '/tmp/git_https_example.com__org_widget.git@master',
+    }
+    branch = {
+        'short_name': 'widget',
+        'dependency': 'widget',
+        'qualifier': '@feature',
+        'type': 'repository',
+        'path': '/tmp/git_https_example.com__org_widget.git@feature',
+    }
+    assert dependency_removal._row_matches_force_token( unqualified, 'widget', '@' )
+    assert not dependency_removal._row_matches_force_token( canonical, 'widget', '@' )
+    assert not dependency_removal._row_matches_force_token( branch, 'widget', '@' )
+    archive = {
+        'short_name': 'boost',
+        'dependency': 'boost',
+        'qualifier': '1.91.0',
+        'type': 'archive',
+        'path': '/tmp/boost',
+    }
+    assert not dependency_removal._row_matches_force_token( archive, 'boost', '@' )
+
+
 def test_force_token_is_wildcard():
     assert not dependency_removal.force_token_is_wildcard( 'boost', '1.86.0' )
     assert dependency_removal.force_token_is_wildcard( 'boost', '1.8*' )
@@ -398,6 +434,176 @@ def test_other_project_used_by():
     assert dependency_removal._other_project_used_by(
             { 'used_by': { '/proj/a': 't', '/proj/b': 't' } }, '/proj/a'
     ) == [ '/proj/b' ]
+
+
+def test_safe_unqualified_duplicate_wipe_requires_canonical_sibling( tmp_path ):
+    stem = tmp_path / 'git_https_example.com__org_widget.git'
+    stem.mkdir()
+    assert not dependency_removal._is_safe_unqualified_duplicate_wipe( str( stem ), 'master' )
+    ( tmp_path / 'git_https_example.com__org_widget.git@master' ).mkdir()
+    assert dependency_removal._is_safe_unqualified_duplicate_wipe( str( stem ), 'master' )
+
+
+def test_write_used_by_wipe_warning_colours_paths_and_explains_safe( tmp_path ):
+    import io
+    from cuppa.colourise import as_emphasised
+    from cuppa.core.storage_actions import _removal_error_lines
+
+    stem = tmp_path / 'git_https_example.com__org_widget.git'
+    canonical = tmp_path / 'git_https_example.com__org_widget.git@master'
+    stem.mkdir()
+    canonical.mkdir()
+    notice = {
+            'dependency': 'widget',
+            'short_name': 'widget',
+            'path': str( stem ),
+            'used_by': [ '/other/project', '/second/project' ],
+            'safe_unqualified_duplicate': True,
+    }
+    items = dependency_removal._used_by_wipe_notice_items(
+            [ notice ], default_branch='master', planning=True,
+    )
+    assert len( items ) == 1
+    assert items[0]['label'] == 'widget'
+    assert items[0]['severity'] == 'warning'
+    blocks = items[0]['blocks']
+    assert blocks[0]['kind'] == 'prose'
+    assert blocks[0]['text'].startswith( 'wiping [' )
+    assert 'despite being used' in blocks[0]['text']
+    assert blocks[1]['kind'] == 'list'
+    assert blocks[1]['intro'] == 'by 2 projects:'
+    assert blocks[1]['items'] == [
+            '[{}]'.format( storage.display_path( '/other/project' ) ),
+            '[{}]'.format( storage.display_path( '/second/project' ) ),
+    ]
+    assert blocks[2]['kind'] == 'prose'
+    assert 'unused' not in blocks[2]['text']
+    assert as_emphasised( 'NOTE' ) in blocks[2]['text']
+    assert as_emphasised( 'removing this copy is safe' ) in blocks[2]['text']
+    assert 'would be re-fetched' in blocks[2]['text']
+    assert '[git_https_example.com__org_widget.git@master]' in blocks[2]['text']
+
+    done = dependency_removal._used_by_wipe_notice_items(
+            [ notice ], default_branch='master', planning=False,
+    )
+    assert done[0]['severity'] == 'note'
+    assert done[0]['blocks'][0]['text'].startswith( 'wiped [' )
+    assert as_emphasised( 'removing the copy was safe' ) in done[0]['blocks'][2]['text']
+    assert 'will be re-fetched' in done[0]['blocks'][2]['text']
+
+    single = dependency_removal._used_by_wipe_notice_items(
+            [ {
+                'dependency': 'widget',
+                'path': str( stem ),
+                'used_by': [ '/other/project' ],
+                'safe_unqualified_duplicate': False,
+            } ],
+            default_branch='master',
+            planning=True,
+    )
+    assert single[0]['blocks'][1]['intro'] == 'by 1 project:'
+    assert len( single[0]['blocks'][1]['items'] ) == 1
+
+    out = io.StringIO()
+    dependency_removal._write_wipe_notice_tree(
+            out,
+            used_by_warnings=[ notice ],
+            default_branch='master',
+            tree_count=7,
+            planning=True,
+    )
+    text = out.getvalue()
+    assert 'Wiping ' in text
+    assert 'trees:' in text
+    assert as_emphasised( '7' ) in text
+    assert '[0 errors]' in text
+    assert '[1 warning]' in text
+    assert '[0 notes]' in text
+    assert 'widget' in text
+    assert 'by 2 projects:' in text
+    assert storage.display_path( '/other/project' ) in text
+    assert storage.display_path( '/second/project' ) in text
+    assert _removal_error_lines( items, intro='probe' )
+
+    done_out = io.StringIO()
+    dependency_removal._write_wipe_notice_tree(
+            out=done_out,
+            used_by_warnings=[ notice ],
+            default_branch='master',
+            tree_count=7,
+            planning=False,
+    )
+    done_text = done_out.getvalue()
+    assert 'Wiped ' in done_text
+    assert '[0 warnings]' in done_text
+    assert '[1 note]' in done_text
+    assert 'wiped' in done_text
+    assert 'will be re-fetched' in done_text
+    assert 'removing the copy was safe' in done_text or \
+            as_emphasised( 'removing the copy was safe' ) in done_text
+
+
+def test_dependency_already_gone_is_a_note_in_judgement_tree():
+    """Benign misses after a real remove use notes + shared judgement intro, not flat warnings."""
+    from cuppa.core.storage_actions import (
+        _already_gone_note_reason,
+        _removal_error_lines,
+    )
+
+    items = [
+            {
+                'severity': 'note',
+                'label': 'widget',
+                'reason': _already_gone_note_reason(
+                        '/home/user/_cuppa/dependencies/widget@master'
+                ),
+            },
+            {
+                'severity': 'error',
+                'label': 'gadget',
+                'reason': '[Errno 13] Permission denied: [/home/user/_cuppa/dependencies/gadget]',
+            },
+    ]
+    # Simulate remove_dependencies failure reporting.
+    intro = "Removed " + storage.emphasised_count_phrase( 2, 'tree' )
+    lines = _removal_error_lines( items, intro=intro )
+    text = "\n".join( lines )
+    assert 'Removed ' in text
+    assert '[1 error]' in text
+    assert '[0 warnings]' in text
+    assert '[1 note]' in text
+    assert 'was already gone' in text
+    assert '1 note' in text
+    assert '1 error' in text
+    assert 'widget' in text
+    assert 'gadget' in text
+
+
+def test_selection_mark_binary_for_single_repository_branch():
+    leaves = [ {
+        'removing': True,
+        'result': 'would_rm',
+        'children': [],
+    } ]
+    mark, remark, full, partial = dependency_removal._selection_mark_for_leaves(
+            leaves, binary=True,
+    )
+    assert full
+    assert not partial
+    assert remark == 'would rm'
+    # Single check, not a triple rollup.
+    assert mark.count( storage.with_heavy_marks( storage.selected_mark() ) ) == 1 or \
+            len( mark ) == 1
+    staying = [ {
+        'removing': False,
+        'result': 'kept',
+        'children': [],
+    } ]
+    mark, remark, full, partial = dependency_removal._selection_mark_for_leaves(
+            staying, binary=True,
+    )
+    assert mark == storage.with_heavy_marks( '-' )
+    assert remark == ''
 
 
 def test_resolve_requested_names_all_uses_project_used():

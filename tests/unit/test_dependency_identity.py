@@ -556,6 +556,42 @@ def test_render_referenced_colours_identity_and_mutes_sibling_leaves():
     assert 'potentially stale dependencies' in joined
 
 
+def test_render_unqualified_duplicate_uses_remove_notice():
+    from cuppa.colourise import as_remove_notice
+
+    leaves = [
+        {
+            'type': 'repository',
+            'dependency': 'widget',
+            'short_name': 'github.com/org/widget',
+            'qualifier': '@master',
+            'tool_variant': '-',
+            'state': 'referenced',
+            'size_bytes': 100,
+            'last_used_epoch': 1000.0,
+            'path': '/deps/widget@master',
+            'location': 'loc-master',
+        },
+        {
+            'type': 'repository',
+            'dependency': 'widget',
+            'short_name': 'github.com/org/widget',
+            'qualifier': '@master (unqualified)',
+            'tool_variant': '-',
+            'state': 'unreferenced',
+            'size_bytes': 50,
+            'last_used_epoch': 900.0,
+            'path': '/deps/widget',
+            'location': 'loc-unqualified',
+            'removal_candidate': 'unqualified_duplicate',
+        },
+    ]
+    tree = dependency_tree.build_tree( leaves )
+    lines, _ = dependency_tree.render_tree_lines( tree )
+    joined = '\n'.join( lines )
+    assert as_remove_notice( '@master (unqualified)' ) in joined
+
+
 def test_render_partitions_sections_and_keeps_unreferenced_names_normal():
     from cuppa.colourise import as_emphasised, as_info
 
@@ -602,6 +638,7 @@ def test_render_partitions_sections_and_keeps_unreferenced_names_normal():
             for type_node in section['children'] if type_node.get( 'kind' ) == 'type'
             for child in type_node['children'] if child.get( 'kind' ) == 'identity'
     )
+    assert 'orphan' in ( unref_identity.get( 'label' ) or '' )
     assert 'git.clearpool.io/cplx_core/orphan' in plain
     joined = '\n'.join( lines )
     # Unreferenced names are emphasised but not info/blue.

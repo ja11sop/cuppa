@@ -263,19 +263,20 @@ Reading the report:
 
 If a path cannot be deleted, the tables mark it with a ballot (`✗`, or heavy `✘` on an
 emphasised name row) in the **remove_error** colour, and a reason tree follows (same shape as
-`--list-develop`) using ordinary warning / error colours for the prose. Already-deleted paths
-are warnings; other failures are errors. Mixed success and failure under one rollup shows
-`✓-✗`. Only bracketed values in the reason lines are coloured — for example `[Errno 13]` and
-`[_build/lib/…/working]`.
+`--list-develop` and dependency wipe) with
+`[N errors][N warnings][N notes]` on the intro line. Paths that were already gone are
+**notes** in the past tense (`was already gone`); other failures are **errors**. Mixed success
+and failure under one rollup shows `✓-✗`. Only bracketed values in the reason lines are
+coloured — for example `[Errno 13]` and `[_build/lib/…/working]`.
 
 [source,text]
 ----
-Not all requested build entries could be removed: 1 error
-
-  1 error
-  │
-  └── lib/gcc15/dbg/x86_64/cxx2c
-      └── [Errno 13] Permission denied: [_build/lib/gcc15/dbg/x86_64/cxx2c/working]
+Not all requested build entries could be removed: [1 error][0 warnings][0 notes]
+│
+└── 1 error
+    │
+    └── lib/gcc15/dbg/x86_64/cxx2c
+        └── [Errno 13] Permission denied: [_build/lib/gcc15/dbg/x86_64/cxx2c/working]
 ----
 
 [#remove-all-builds-example]

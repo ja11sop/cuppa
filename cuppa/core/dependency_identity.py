@@ -18,7 +18,10 @@ import platform
 import re
 from urllib.parse import urlparse, unquote
 
-from cuppa.core.dependency_storage import split_location_folder_name
+from cuppa.core.dependency_storage import (
+    looks_like_tool_variant_dir,
+    split_location_folder_name,
+)
 from cuppa.scms import git as git_scm
 
 
@@ -362,6 +365,47 @@ def gitlab_package_from_path( path ):
     if len( parts ) < 2:
         return None, None
     return parts[-2], parts[-1]
+
+
+def gitlab_family_name( row ):
+    """Return the on-disk GitLab package folder that groups registry aliases.
+
+    ``boost_package`` (registry) and ``…/<tool>/boost/<version>`` (folder) share
+    family ``boost``, so unused sibling versions stay under one list identity.
+    """
+    folder = row.get( 'package_folder' )
+    if folder:
+        return folder
+    path = row.get( 'path' ) or ''
+    parts = [ p for p in str( path ).replace( '\\', '/' ).split( '/' ) if p ]
+    # Extract: <tool_variant>/<package>/<version>
+    if len( parts ) >= 3 and looks_like_tool_variant_dir( parts[-3] ):
+        return parts[-2]
+    # Download archive: packages/<package>/<version>/<archive>
+    if len( parts ) >= 4 and parts[-4] == 'packages':
+        return parts[-3]
+    package, _version = gitlab_package_from_remote(
+            row.get( 'remote_location' ) or row.get( 'source_url' ) or ''
+    )
+    if package:
+        return package
+    return None
+
+
+def list_identity_key( row ):
+    """Stable ``(type, family)`` key for list tree / ``--list-scope`` grouping."""
+    storage_type = row.get( 'type' ) or row.get( 'kind' ) or 'unknown'
+    if storage_type == 'gitlab':
+        family = gitlab_family_name( row )
+        if family:
+            return ( storage_type, family )
+    short = (
+            row.get( 'short_name' )
+            or row.get( 'stem' )
+            or row.get( 'dependency' )
+            or '-'
+    )
+    return ( storage_type, short )
 
 
 def gitlab_remote_for_version( remote_location, version ):

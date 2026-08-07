@@ -31,11 +31,22 @@ import textwrap
 
 from collections import namedtuple
 
-from cuppa.colourise import as_error, as_info, as_info_label, as_notice, as_subdued, as_warning
+from cuppa.colourise import (
+    as_error,
+    as_info,
+    as_info_label,
+    as_notice,
+    as_subdued,
+    as_warning,
+)
 from cuppa.location import develop_location
 from cuppa.log import logger
 from cuppa.scms import scms
 from cuppa.scms.git import Git
+from cuppa.utility.storage import (
+    emphasised_count_phrase,
+    format_severity_count_brackets,
+)
 
 
 OK      = 'ok'
@@ -616,16 +627,23 @@ def render_judgements( entries, width=None, encoding=None ):
 
 
 def summary( entries, without_develop ):
+    """Judgement-tree intro: emphasised subject count, then severity brackets like removal."""
     counts = { OK: 0, NOTE: 0, WARNING: 0, ERROR: 0 }
     for entry in entries:
         counts[entry.severity] += 1
-    return "{}: {} ok, {}, {}, {}; {} not using develop".format(
-            plural( len( entries ), "develop location" ),
-            counts[OK],
-            plural( counts[NOTE], "note" ),
-            plural( counts[WARNING], "warning" ),
-            plural( counts[ERROR], "error" ),
-            plural( len( without_develop ), "dependency", "dependencies" ) )
+    head = emphasised_count_phrase( len( entries ), "develop location" )
+    brackets = format_severity_count_brackets(
+            errors=counts[ERROR],
+            warnings=counts[WARNING],
+            notes=counts[NOTE],
+    )
+    return "{}: {}; {}; {}".format(
+            head,
+            brackets,
+            plural( counts[OK], "ok" ),
+            plural( len( without_develop ), "dependency", "dependencies" )
+            + " not using develop",
+    )
 
 
 def suggestion( copies ):

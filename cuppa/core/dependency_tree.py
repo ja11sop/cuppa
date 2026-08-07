@@ -12,12 +12,19 @@
 import os
 import re
 
-from cuppa.colourise import as_emphasised, as_error, as_info, as_subdued
+from cuppa.colourise import (
+    as_emphasised,
+    as_error,
+    as_info,
+    as_remove_notice,
+    as_subdued,
+)
 from cuppa.core import dependency_inventory
 from cuppa.core.dependency_identity import (
     display_qualifier,
     gitlab_archive_name,
     gitlab_package_from_remote,
+    list_identity_key,
     strip_vcs_qualifier,
     with_download_mark,
     with_vcs_qualifier,
@@ -147,16 +154,14 @@ def build_tree( leaves ):
     groups = {}  # (type, group_key) -> dict
 
     for leaf in leaves:
-        storage_type = leaf.get( 'type' ) or 'unknown'
-        short = leaf.get( 'short_name' ) or leaf.get( 'stem' ) or leaf.get( 'dependency' ) or '-'
+        storage_type, group_key = list_identity_key( leaf )
         # Prefer short_name as the stable family key so boost_package and disk boost/ meet.
-        group_key = short
         key = ( storage_type, group_key )
         group = groups.get( key )
         if group is None:
             group = {
                 'type': storage_type,
-                'short_name': short,
+                'short_name': group_key,
                 'registry_name': None,
                 'remote_location': None,
                 'leaves': [],
@@ -167,11 +172,15 @@ def build_tree( leaves ):
             name = leaf['dependency']
             if (
                     name
-                    and name != short
+                    and name != group_key
                     and not name.startswith( 'git_' )
                     and not name.startswith( 'https_' )
             ):
                 group['registry_name'] = name
+                # GitLab: registry alias (boost_package) is the identity label; the
+                # group key stays the on-disk package folder so siblings meet.
+                if storage_type == 'gitlab':
+                    group['short_name'] = name
             elif (
                     group['registry_name'] is None
                     and name
@@ -179,6 +188,8 @@ def build_tree( leaves ):
                     and not name.startswith( 'https_' )
             ):
                 group['registry_name'] = name
+                if storage_type == 'gitlab':
+                    group['short_name'] = name
         if leaf.get( 'remote_location' ) and not group.get( 'remote_location' ):
             group['remote_location'] = leaf['remote_location']
         elif leaf.get( 'source_url' ) and not group.get( 'remote_location' ):
@@ -457,7 +468,7 @@ def _leaf_node( leaf, label, location=None ):
     if location is None:
         location = leaf.get( 'location' ) or leaf.get( 'path' ) or ''
         location = with_download_mark( location, leaf.get( 'has_download' ) )
-    return {
+    node = {
         'kind': 'leaf',
         'label': label,
         'size_bytes': None if missing else int( leaf.get( 'size_bytes' ) or 0 ),
@@ -469,6 +480,9 @@ def _leaf_node( leaf, label, location=None ):
         'path': leaf.get( 'path' ),
         'children': [],
     }
+    if leaf.get( 'removal_candidate' ):
+        node['removal_candidate'] = leaf['removal_candidate']
+    return node
 
 
 def _spacer_between_identities( identities ):
@@ -750,6 +764,20 @@ def _emphasised_normal( text ):
     return as_emphasised( text )
 
 
+def _remove_row_fields( label, size, last_used, remark, location ):
+    if label:
+        label = as_remove_notice( label )
+    if size.strip():
+        size = as_remove_notice( size )
+    if last_used:
+        last_used = as_remove_notice( last_used )
+    if remark:
+        remark = as_remove_notice( remark )
+    if location:
+        location = as_remove_notice( location )
+    return label, size, last_used, remark, location
+
+
 def _error_row_fields( label, size, last_used, remark, location ):
     if label:
         label = as_error( label )
@@ -837,6 +865,7 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
             '_label_detail': node.get( 'label_detail' ),
             '_missing_identity': missing_identity,
             '_under_missing': row_missing,
+            '_removal_candidate': node.get( 'removal_candidate' ),
         } )
         children = node.get( 'children' ) or []
         child_prefix = '' if is_root else prefix + ( gap if is_last else pipe )
@@ -966,9 +995,14 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                     if kind == 'summary' and size.strip():
                         size = as_info( size )
             elif kind == 'leaf':
-                label, size, last_used, remark, location = _mute_row_fields(
-                        label, size, last_used, remark, location
-                )
+                if row.get( '_removal_candidate' ) == 'unqualified_duplicate':
+                    label, size, last_used, remark, location = _remove_row_fields(
+                            label, size, last_used, remark, location
+                    )
+                else:
+                    label, size, last_used, remark, location = _mute_row_fields(
+                            label, size, last_used, remark, location
+                    )
             # section / type: normal colour (layout structure).
 
         # Tree glyphs stay muted regardless of row accent (same as --list-builds).

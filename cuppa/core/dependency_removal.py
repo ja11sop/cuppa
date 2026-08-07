@@ -33,7 +33,12 @@ from cuppa.colourise import (
     as_warning,
 )
 from cuppa.core import dependency_inventory, dependency_storage
-from cuppa.core.storage_actions import dry_run
+from cuppa.core.storage_actions import (
+    dry_run,
+    _already_gone_note_reason,
+    _is_already_gone_error,
+    _removal_error_lines,
+)
 from cuppa.log import logger
 from cuppa.utility import storage
 
@@ -1671,10 +1676,12 @@ def _format_age_cell( age_text, age_epoch ):
     return text.ljust( AGE_WIDTH )
 
 
-def _selection_mark_for_leaves( leaves ):
+def _selection_mark_for_leaves( leaves, binary=False ):
     """Return ``(mark_or_empty, remark, fully_removing, partially_removing)``.
 
-    Untouched parents (nothing going) use ``---``, matching extract rollups.
+    Untouched parents (nothing going) use ``---`` (or ``-`` when ``binary``), matching
+    extract rollups. ``binary`` is for parents with a single actionable child (repository
+    branch folders), where triple marks would overstate the rollup.
     """
     removing = []
     staying = []
@@ -1695,20 +1702,31 @@ def _selection_mark_for_leaves( leaves ):
     walk( leaves )
     if not removing:
         if staying:
+            if binary:
+                return storage.with_heavy_marks( storage.outcome_binary( 'none' ) ), '', False, False
             # Same language as extract ``[E]`` when nothing under it is selected.
             return storage.outcome_triple( 'full', 'none' ), '', False, False
         return '', '', False, False
     failed = [ leaf for leaf in removing if leaf.get( 'result' ) == 'failed' ]
     if failed and len( failed ) == len( removing ) and not staying:
-        mark = storage.with_heavy_marks( storage.outcome_triple( 'full', 'failed' ) )
+        if binary:
+            mark = storage.with_heavy_marks( storage.outcome_binary( 'failed' ) )
+        else:
+            mark = storage.with_heavy_marks( storage.outcome_triple( 'full', 'failed' ) )
         return mark, 'failed', True, False
     if failed:
-        mark = storage.with_heavy_marks( storage.outcome_triple( 'full', 'mixed' ) )
+        if binary:
+            mark = storage.with_heavy_marks( storage.outcome_binary( 'mixed' ) )
+        else:
+            mark = storage.with_heavy_marks( storage.outcome_triple( 'full', 'mixed' ) )
         return mark, '', False, True
     if staying:
         mark = storage.with_heavy_marks( storage.outcome_triple( 'partial', 'removed' ) )
         return mark, '', False, True
-    mark = storage.with_heavy_marks( storage.outcome_triple( 'full', 'removed' ) )
+    if binary:
+        mark = storage.with_heavy_marks( storage.outcome_binary( 'removed' ) )
+    else:
+        mark = storage.with_heavy_marks( storage.outcome_triple( 'full', 'removed' ) )
     results = [ leaf.get( 'result' ) for leaf in removing ]
     remark = _parent_rollup_result( results )
     return mark, remark, True, False
@@ -2016,7 +2034,8 @@ def _write_removal_tree(
                     ver_bytes = _group_total_bytes( group )
                 ver_age_text, ver_age_epoch = _max_age_from_leaves( ver_leaves )
                 ver_mark, ver_remark, ver_full, ver_partial = _selection_mark_for_leaves(
-                        ver_leaves
+                        ver_leaves,
+                        binary=( group.get( 'storage_type' ) == 'repository' ),
                 )
                 if group.get( 'extract_bytes' ) is not None and not ver_full:
                     ver_remark = ''
@@ -2341,12 +2360,12 @@ def _write_freed_summary(
     parts = []
     if removed_count:
         unit = "tree" if removed_count == 1 else "trees"
-        parts.append( "{} {}".format( removed_count, unit ) )
+        parts.append( "{} {}".format( as_emphasised( str( removed_count ) ), unit ) )
     if download_count:
         unit = "download" if download_count == 1 else "downloads"
-        parts.append( "{} {}".format( download_count, unit ) )
+        parts.append( "{} {}".format( as_emphasised( str( download_count ) ), unit ) )
     if not parts:
-        parts.append( "0 trees" )
+        parts.append( "{} trees".format( as_emphasised( "0" ) ) )
     size = as_emphasised( as_info( storage.human_size( removed_bytes ) ) )
     joined = " and ".join( parts )
     if planning:
@@ -2703,8 +2722,12 @@ def remove_dependencies( construct, cuppa_env, out=None ):
             removed_count += 1
         except storage.StorageError as error:
             reason = str( error )
-            already_gone = "already deleted" in reason.lower() or "not found" in reason.lower()
-            severity = 'warning' if already_gone else 'error'
+            already_gone = _is_already_gone_error( error )
+            if already_gone:
+                severity = 'note'
+                reason = _already_gone_note_reason( target.path )
+            else:
+                severity = 'error'
             outcomes_by_path[real] = { 'result': 'failed', 'reason': reason }
             failures.append( {
                 'dependency': target.dependency,
@@ -2750,8 +2773,12 @@ def remove_dependencies( construct, cuppa_env, out=None ):
             download_removed_count += 1
         except storage.StorageError as error:
             reason = str( error )
-            already_gone = "already deleted" in reason.lower() or "not found" in reason.lower()
-            severity = 'warning' if already_gone else 'error'
+            already_gone = _is_already_gone_error( error )
+            if already_gone:
+                severity = 'note'
+                reason = _already_gone_note_reason( download.path )
+            else:
+                severity = 'error'
             outcomes_by_path[real_key] = { 'result': 'failed', 'reason': reason }
             failures.append( {
                 'dependency': download.dependency,
@@ -2784,14 +2811,25 @@ def remove_dependencies( construct, cuppa_env, out=None ):
     _write_develop_skips( out, develop_skips )
 
     if failures:
-        out.write( "\n" )
-        out.write( as_warning( "Not all requested dependency trees could be removed:" ) + "\n" )
-        for item in failures:
-            colour = as_remove_error if item['severity'] == 'error' else as_warning
-            out.write( "  {}: {}\n".format(
-                    colour( item['dependency'] ),
-                    item['reason'],
-            ) )
+        items = [
+                {
+                    'severity': item['severity'],
+                    'label': item.get( 'dependency' ) or item.get( 'label' ) or '-',
+                    'reason': item['reason'],
+                }
+                for item in failures
+        ]
+        tree_count = len( targets ) + len( actionable_downloads )
+        if wipe:
+            verb = "Would wipe" if planning else "Wiped"
+        else:
+            verb = "Would remove" if planning else "Removed"
+        intro = "{} {}".format(
+                verb,
+                storage.emphasised_count_phrase( tree_count, 'tree' ),
+        )
+        for line in _removal_error_lines( items, intro=intro ):
+            out.write( line + "\n" )
 
     out.write( "\n" )
     remaining = 0 if wipe else _remaining_archive_bytes(
@@ -2822,6 +2860,129 @@ def _other_project_used_by( entry, this_project ):
             path for path in used_by
             if storage.real_path( path ) != this_real
     )
+
+
+def _canonical_default_branch_sibling( path, default_branch ):
+    """Return the ``stem@<default>`` sibling path when ``path`` is an unqualified stem."""
+    if not path or not default_branch:
+        return None
+    folder = os.path.basename( str( path ).rstrip( '\\/' ) )
+    parent = os.path.dirname( str( path ).rstrip( '\\/' ) )
+    stem, qualifier = dependency_storage.split_location_folder_name( folder )
+    if qualifier:
+        return None
+    if not stem:
+        return None
+    return os.path.join( parent, '{}@{}'.format( stem, default_branch ) )
+
+
+def _is_safe_unqualified_duplicate_wipe( path, default_branch ):
+    """True when wiping an unused unqualified stem beside the canonical default folder."""
+    sibling = _canonical_default_branch_sibling( path, default_branch )
+    return bool( sibling and os.path.isdir( sibling ) )
+
+
+def _used_by_wipe_notice_items( used_by_warnings, default_branch='master', planning=True ):
+    """Turn used_by wipe notices into judgement items.
+
+    Dry-run keeps these as warnings (you can still abort). After a real wipe they become
+    notes in the past tense — the action already happened, so warning is no longer useful.
+    """
+    branch = default_branch or 'master'
+    branch_label = '@{}'.format( branch )
+    severity = 'warning' if planning else 'note'
+    action = 'wiping' if planning else 'wiped'
+    items = []
+    for item in used_by_warnings or []:
+        name = (
+                ( item.get( 'dependency' ) or '' ).strip()
+                or ( item.get( 'short_name' ) or '' ).strip()
+                or '-'
+        )
+        path_text = storage.display_path( item['path'] )
+        projects = [
+                '[{}]'.format( storage.display_path( path ) )
+                for path in ( item.get( 'used_by' ) or [] )
+        ]
+        count = len( projects )
+        unit = 'project' if count == 1 else 'projects'
+        blocks = [
+                {
+                    'kind': 'prose',
+                    'text': '{} [{}] despite being used'.format( action, path_text ),
+                },
+                {
+                    'kind': 'list',
+                    'intro': 'by {} {}:'.format( count, unit ),
+                    'items': projects,
+                },
+        ]
+        if item.get( 'safe_unqualified_duplicate' ):
+            sibling = _canonical_default_branch_sibling( item['path'], branch )
+            refetch = (
+                    os.path.basename( sibling.rstrip( '\\/' ) )
+                    if sibling else '…{}'.format( branch_label )
+            )
+            if planning:
+                safe_phrase = as_emphasised( "removing this copy is safe" )
+                refetch_phrase = "would be re-fetched"
+            else:
+                safe_phrase = as_emphasised( "removing the copy was safe" )
+                refetch_phrase = "will be re-fetched"
+            blocks.append( {
+                'kind': 'prose',
+                'text': (
+                        "{}: This is an unqualified stem beside [{}]; other projects "
+                        "resolve to that canonical folder ([{}]), and so {} "
+                        "(a missing tree {} as [{}] if needed)."
+                ).format(
+                        as_emphasised( "NOTE" ),
+                        branch_label,
+                        branch,
+                        safe_phrase,
+                        refetch_phrase,
+                        refetch,
+                ),
+            } )
+        items.append( {
+            'severity': severity,
+            'label': name,
+            'blocks': blocks,
+        } )
+    return items
+
+
+def _write_wipe_notice_tree(
+        out, failures=None, used_by_warnings=None, default_branch='master',
+        tree_count=0, planning=True,
+):
+    """Emit the post-table judgement tree for wipe failures and used_by notices.
+
+    Intro is generic (``Wiping`` / ``Wiped N trees`` with ``N`` emphasised); severity counts
+    and message bodies carry the detail. Used-by notices are warnings on dry-run and notes
+    after a real wipe.
+    """
+    failures = failures or []
+    used_items = _used_by_wipe_notice_items(
+            used_by_warnings, default_branch=default_branch, planning=planning,
+    )
+    failure_items = [
+            {
+                'severity': item['severity'],
+                'label': item.get( 'dependency' ) or item.get( 'label' ) or '-',
+                'reason': item['reason'],
+            }
+            for item in failures
+    ]
+    items = failure_items + used_items
+    if not items:
+        return
+    intro = "{} {}".format(
+            "Wiping" if planning else "Wiped",
+            storage.emphasised_count_phrase( tree_count, 'tree' ),
+    )
+    for line in _removal_error_lines( items, intro=intro ):
+        out.write( line + "\n" )
 
 
 def parse_force_wipe_tokens( spec ):
@@ -2884,6 +3045,25 @@ def _qualifier_aliases( qualifier, storage_type ):
     return { item for item in aliases if item }
 
 
+def _is_bare_at_qualifier( qualifier ):
+    """True for wipe shorthand ``name/@`` (unqualified stem only)."""
+    return ( qualifier or '' ).strip() == '@'
+
+
+def _matches_unqualified_stem( candidates ):
+    """Whether qualifier candidates describe an unqualified VCS stem folder."""
+    for candidate in candidates:
+        text = str( candidate or '' ).strip()
+        if not text:
+            continue
+        lower = text.lower()
+        if ' (unqualified)' in lower:
+            return True
+        if text == '@':
+            return True
+    return False
+
+
 def _row_name_candidates( row ):
     return {
             item for item in (
@@ -2922,6 +3102,11 @@ def _row_matches_force_token( row, name, qualifier ):
     if label:
         candidates.add( str( label ).strip() )
         candidates.add( str( label ).strip().lower() )
+    # ``name/@`` = unqualified stem (listed as ``@master (unqualified)``), not ``@master``.
+    if _is_bare_at_qualifier( qualifier ):
+        if storage_type not in ( 'repository', 'location', 'unknown' ):
+            return False
+        return _matches_unqualified_stem( candidates )
     want_aliases = _qualifier_aliases( qualifier, storage_type )
     if _is_wildcard_pattern( qualifier ):
         return _fnmatch_any( candidates, want_aliases )
@@ -3049,6 +3234,7 @@ def _execute_force_wipe(
         out, root, downloads_root, targets, download_targets, planning,
         notes=None, used_by_warnings=None, unreferenced=False,
         leftovers=None, download_leftovers=None, summary_label=None,
+        default_branch='master',
 ):
     """Announce, delete, and report a force-wipe plan."""
     notes = notes or []
@@ -3063,13 +3249,6 @@ def _execute_force_wipe(
     actionable_downloads = [ item for item in download_targets if not item.missing ]
     if not targets and not actionable_downloads:
         out.write( "nothing to wipe under the requested force-wipe selection\n" )
-        for item in used_by_warnings:
-            out.write( as_warning(
-                    "warning: {} still recorded as used by another project: {}\n".format(
-                            item['dependency'],
-                            ', '.join( storage.display_path( p ) for p in item['used_by'] ),
-                    )
-            ) )
         if leftovers or download_leftovers:
             _write_removal_tree(
                     out, [], leftovers, {}, planning, root,
@@ -3078,6 +3257,10 @@ def _execute_force_wipe(
                     summary_label=summary_label,
                     action_label='wiped',
             )
+        _write_wipe_notice_tree(
+                out, used_by_warnings=used_by_warnings, default_branch=default_branch,
+                tree_count=0, planning=planning,
+        )
         _write_verify( out, wipe=True, unreferenced=unreferenced )
         return 0
 
@@ -3108,15 +3291,6 @@ def _execute_force_wipe(
     for note in notes:
         out.write( as_subdued( note ) + "\n" )
     if notes:
-        out.write( "\n" )
-    for item in used_by_warnings:
-        out.write( as_warning(
-                "warning: wiping {} despite used_by from another project ({})\n".format(
-                        storage.display_path( item['path'] ),
-                        ', '.join( storage.display_path( p ) for p in item['used_by'] ),
-                )
-        ) )
-    if used_by_warnings:
         out.write( "\n" )
 
     outcomes_by_path = {}
@@ -3149,8 +3323,12 @@ def _execute_force_wipe(
             removed_count += 1
         except ( storage.StorageError, OSError ) as error:
             reason = str( error )
-            already_gone = "already deleted" in reason.lower() or "not found" in reason.lower()
-            severity = 'warning' if already_gone else 'error'
+            already_gone = _is_already_gone_error( error )
+            if already_gone:
+                severity = 'note'
+                reason = _already_gone_note_reason( target.path )
+            else:
+                severity = 'error'
             outcomes_by_path[real] = { 'result': 'failed', 'reason': reason }
             failures.append( {
                 'dependency': target.dependency,
@@ -3187,8 +3365,12 @@ def _execute_force_wipe(
             download_removed_count += 1
         except ( storage.StorageError, OSError ) as error:
             reason = str( error )
-            already_gone = "already deleted" in reason.lower() or "not found" in reason.lower()
-            severity = 'warning' if already_gone else 'error'
+            already_gone = _is_already_gone_error( error )
+            if already_gone:
+                severity = 'note'
+                reason = _already_gone_note_reason( download.path )
+            else:
+                severity = 'error'
             outcomes_by_path[real_key] = { 'result': 'failed', 'reason': reason }
             failures.append( {
                 'dependency': download.dependency,
@@ -3205,15 +3387,12 @@ def _execute_force_wipe(
             action_label='wiped',
     )
 
-    if failures:
-        out.write( "\n" )
-        out.write( as_warning( "Not all requested paths could be wiped:" ) + "\n" )
-        for item in failures:
-            colour = as_remove_error if item['severity'] == 'error' else as_warning
-            out.write( "  {}: {}\n".format(
-                    colour( item['dependency'] ),
-                    item['reason'],
-            ) )
+    _write_wipe_notice_tree(
+            out, failures=failures, used_by_warnings=used_by_warnings,
+            default_branch=default_branch,
+            tree_count=len( targets ) + len( actionable_downloads ),
+            planning=planning,
+    )
 
     remaining = sum( item.size_bytes for item in leftovers ) + sum(
             item.size_bytes for item in download_leftovers if not getattr( item, 'missing', False )
@@ -3252,6 +3431,7 @@ def force_wipe_dependencies( construct, cuppa_env, out=None ):
     by_path = _inventory_by_path( root )
     this_project = cuppa_env.get( 'sconstruct_dir' )
     planning = dry_run( cuppa_env )
+    default_branch = cuppa_env.get( 'location_default_branch' ) or 'master'
 
     from cuppa.core import dependency_tokens
 
@@ -3308,8 +3488,12 @@ def force_wipe_dependencies( construct, cuppa_env, out=None ):
             if others:
                 used_by_warnings.append( {
                     'dependency': row.get( 'dependency' ) or row.get( 'short_name' ) or path,
+                    'short_name': row.get( 'short_name' ),
                     'path': path,
                     'used_by': others,
+                    'safe_unqualified_duplicate': _is_safe_unqualified_duplicate_wipe(
+                            path, default_branch
+                    ),
                 } )
             if not entry:
                 notes.append( "no inventory record for {}".format( storage.display_path( path ) ) )
@@ -3422,6 +3606,7 @@ def force_wipe_dependencies( construct, cuppa_env, out=None ):
             notes=notes, used_by_warnings=used_by_warnings, unreferenced=False,
             leftovers=leftovers, download_leftovers=download_leftovers,
             summary_label=summary_label,
+            default_branch=default_branch,
     )
 
 
@@ -3477,8 +3662,12 @@ def force_wipe_unreferenced_dependencies( construct, cuppa_env, out=None ):
         if others:
             used_by_warnings.append( {
                 'dependency': row.get( 'dependency' ) or row.get( 'short_name' ) or path,
+                'short_name': row.get( 'short_name' ),
                 'path': path,
                 'used_by': others,
+                'safe_unqualified_duplicate': _is_safe_unqualified_duplicate_wipe(
+                        path, cuppa_env.get( 'location_default_branch' ) or 'master'
+                ),
             } )
         if not entry:
             notes.append( "no inventory record for {}".format( storage.display_path( path ) ) )
@@ -3510,4 +3699,5 @@ def force_wipe_unreferenced_dependencies( construct, cuppa_env, out=None ):
             out, root, downloads_root, targets, download_targets, planning,
             notes=notes, used_by_warnings=used_by_warnings, unreferenced=True,
             summary_label='unreferenced dependencies',
+            default_branch=cuppa_env.get( 'location_default_branch' ) or 'master',
     )

@@ -1,7 +1,7 @@
 # Plan: Toolchains as dependencies
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md); Profiles [#127](https://github.com/ja11sop/cuppa/issues/127); type-selector note in [`boost-updates.md`](boost-updates.md)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md); umbrella [#160](https://github.com/ja11sop/cuppa/issues/160); Profiles follow-on [#127](https://github.com/ja11sop/cuppa/issues/127); type-selector note in [`boost-updates.md`](boost-updates.md); report polish [#161](https://github.com/ja11sop/cuppa/issues/161)
 - **Updated:** 2026-08-07
 
 Fetched compilers should behave like other cuppa dependencies: download once, extract under
@@ -22,7 +22,8 @@ runs — easy to collide with distro `clang24`, and invisible to list/remove.
 2. **Session registration** — non-colliding name for `--toolchains=` and build layout.
 3. **Public HTTPS / `file://` / local root** first; Actions artifact auth later.
 4. **List / remove / wipe** under the same grammar as other deps (`[toolchain]clang/…`).
-5. Enable [#127](https://github.com/ja11sop/cuppa/issues/127) `--profiles` on capable Clangs.
+5. Enable [#127](https://github.com/ja11sop/cuppa/issues/127) `--profiles` on capable Clangs
+   (separate issue; not part of the first PR).
 
 ## Non-goals (this phase)
 
@@ -30,6 +31,7 @@ runs — easy to collide with distro `clang24`, and invisible to list/remove.
 - GCC / MSVC archive toolchains
 - Actions artifact API downloads
 - Full wipe UX polish beyond force-wipe + list (done for classify / `[D]` / session-name wipe)
+- Judgement-tree / list-scope polish — tracked in [#161](https://github.com/ja11sop/cuppa/issues/161)
 
 ## Naming
 
@@ -105,11 +107,14 @@ Offline: require cache / extract; clear error if missing.
 | `tc-dep-docs` | toolchains.adoc + CHANGELOG | done |
 | `tc-dep-list` | `--list-dependencies` / downloads show `toolchain` / `clang` | done (classify + walk) |
 | `tc-dep-remove` | `--force-wipe-*` with `[toolchain]…`; project remove/purge/wipe N/A | done (force-wipe path) |
+| `tc-dep-pr` | Land first slice via PR (cites [#160](https://github.com/ja11sop/cuppa/issues/160)) | in progress |
 | `tc-dep-url-sugar` | Optional URL token in `--toolchains=` (see note above) | later |
-| `tc-dep-profiles` | `#127` `--profiles` / `-fprofiles` | later |
+| `tc-dep-profiles` | [#127](https://github.com/ja11sop/cuppa/issues/127) `--profiles` / `-fprofiles` | later |
 | `tc-dep-actions` | Authenticated Actions artifact URLs | later |
 
 ## Related
 
 - Type selectors for cross-type name clashes (`[gitlab]boost` vs `[archive]boost`) — see
   [`boost-updates.md`](boost-updates.md); not required for the first Clang archive PR.
+- Report / judgement-tree polish that landed beside this work:
+  [`console-report-patterns.md`](console-report-patterns.md) / [#161](https://github.com/ja11sop/cuppa/issues/161).

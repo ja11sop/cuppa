@@ -583,14 +583,13 @@ def build_downloads_tree( rows ):
     """Group archive/product rows into section → type → identity → leaves."""
     groups = {}
     for row in rows:
-        storage_type = row.get( 'type' ) or 'unknown'
-        short = row.get( 'short_name' ) or row.get( 'dependency' ) or '-'
-        key = ( storage_type, short )
+        storage_type, group_key = dependency_identity.list_identity_key( row )
+        key = ( storage_type, group_key )
         group = groups.get( key )
         if group is None:
             group = {
                 'type': storage_type,
-                'short_name': short,
+                'short_name': group_key,
                 'registry_name': None,
                 'remote_location': None,
                 'rows': [],
@@ -598,10 +597,14 @@ def build_downloads_tree( rows ):
             groups[key] = group
         if row.get( 'state' ) in dependency_tree.REFERENCED_STATES and row.get( 'dependency' ):
             name = row['dependency']
-            if name and name != short and not str( name ).startswith( ( 'git_', 'https_' ) ):
+            if name and name != group_key and not str( name ).startswith( ( 'git_', 'https_' ) ):
                 group['registry_name'] = name
+                if storage_type == 'gitlab':
+                    group['short_name'] = name
             elif group['registry_name'] is None and name and not str( name ).startswith( ( 'git_', 'https_' ) ):
                 group['registry_name'] = name
+                if storage_type == 'gitlab':
+                    group['short_name'] = name
         if row.get( 'remote_location' ) and not group.get( 'remote_location' ):
             group['remote_location'] = row['remote_location']
         group['rows'].append( row )
