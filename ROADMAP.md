@@ -330,9 +330,11 @@ remains [#127](https://github.com/ja11sop/cuppa/issues/127) and is not this sect
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
 | `tc-dep-url-sugar` | Optional URL token in `--toolchains=` | Low | Keep `--toolchain-archive=` as explicit supply |
+| `tc-dep-gcc-root` | `--gcc-root=` for local / Debian gcc-snapshot prefixes | Medium | Same shape as `--clang-root=`; manual `.deb` extract documented in the plan |
+| `tc-dep-gcc-deb` | Optional `.deb` as `--toolchain-archive=` for gcc-snapshot | Low | After `--gcc-root=` works |
 | `tc-dep-profiles` | [#127](https://github.com/ja11sop/cuppa/issues/127) `--profiles` / `-fprofiles` | Medium | Needs a Profiles-capable Clang via [#160](https://github.com/ja11sop/cuppa/issues/160) |
 | `tc-dep-actions` | Authenticated Actions artifact URLs | Low | After public HTTPS / file path is solid |
-| `tc-dep-gcc-msvc` | GCC / MSVC archive toolchains | Low | Same storage type; separate drivers |
+| `tc-dep-msvc` | MSVC archive / layout as toolchain dep | Low | Separate driver; not gcc-snapshot |
 
 ### Out of scope (toolchains-as-deps)
 
