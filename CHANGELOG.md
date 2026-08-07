@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.4.0] - unreleased
+## [1.4.0] - 2026-08-07
 
 ### Added
 
@@ -238,8 +238,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--downloads-root`. They still choose the same roots, and cuppa names the replacement when one
   is used (#133).
 
-### Removed
-
 ### Fixed
 
 - `git+file://` locations with a Windows drive letter and `@branch` (urlparse puts the path in
@@ -313,8 +311,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   explains the mark and that a corrupt download must be removed there - deleting only the
   dependency tree is not enough. Documented with examples on the Dependencies page and covered by
   the list-dependencies integration scenario (#134).
-
-### Security
 
 ## [1.3.2] - 2026-07-31
 
@@ -433,6 +429,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Baseline release on `master` before the modules work landed.
 Detailed notes for 1.1.x and earlier were not maintained in this file; start recording notable changes here from 1.2.0 onward.
 
-[1.4.0]: https://github.com/ja11sop/cuppa/compare/v1.3.2...HEAD
+[1.4.0]: https://github.com/ja11sop/cuppa/compare/v1.3.2...v1.4.0
 [1.2.0]: https://github.com/ja11sop/cuppa/compare/v1.1.3...v1.2.0
 [1.1.3]: https://github.com/ja11sop/cuppa/releases/tag/v1.1.3
