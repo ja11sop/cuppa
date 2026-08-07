@@ -97,6 +97,11 @@ tracked file.
 
 ## Commit messages
 
+**`master` is protected.** Never push commits directly to `master` (or force-push it). Land every
+change — including release tagging prep, ROADMAP/CHANGELOG housekeeping, and `AGENTS.md` edits —
+through a pull request branch: create a branch, `git push -u origin HEAD`, open or update the PR,
+wait for CI, then merge on GitHub. `git push origin master` will be rejected.
+
 **No trailers.** A commit message ends with its last paragraph — no `Co-authored-by`, no
 `Signed-off-by`, no generated-by or tool attribution lines, and nothing appended by a client.
 The history records what changed and why; who or what typed it is the author field's job, and
