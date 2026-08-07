@@ -407,6 +407,13 @@ class Construct(object):
         cuppa.core.storage_actions.process_storage_action_options( cuppa_env )
         cuppa.core.location_options.process_location_options( cuppa_env )
 
+        if not help and not self._configure.handle_conf_only():
+            from cuppa.toolchains import toolchain_archive
+            try:
+                toolchain_archive.prepare( cuppa_env )
+            except toolchain_archive.ToolchainArchiveException as error:
+                raise SCons.Errors.StopError( str( error ) )
+
         cuppa_env['current_branch'] = ''
         cuppa_env['current_revision'] = ''
         if not help and not self._configure.handle_conf_only():
@@ -488,7 +495,11 @@ class Construct(object):
                 )
 
             if not toolchains:
-                toolchains = [ cuppa_env[self.toolchains_key][default_toolchain] ]
+                archived = cuppa_env.get( 'toolchain_archive_names' )
+                if archived:
+                    toolchains = [ cuppa_env[self.toolchains_key][name] for name in archived ]
+                else:
+                    toolchains = [ cuppa_env[self.toolchains_key][default_toolchain] ]
             else:
                 toolchains = [ cuppa_env[self.toolchains_key][t] for t in toolchains ]
 

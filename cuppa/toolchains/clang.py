@@ -292,6 +292,9 @@ class Clang(object):
                     cls( version, clang['cxx_version'], clang['version'], clang['path'], stdlib, suppress_debug_for_auto )
             )
 
+        from cuppa.toolchains import toolchain_archive
+        toolchain_archive.register_prepared( env, add_toolchain, add_to_supported, cls )
+
 
     @classmethod
     def default_variants( cls ):

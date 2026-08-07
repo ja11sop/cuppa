@@ -22,6 +22,35 @@ Prefer a family alias (`gcc`, `clang`, `vc`) for everyday builds; pin versioned 
 
 When debugging detection, use `--verbosity=debug` and `--dump`.
 
+[#fetched-clang]
+== Fetched Clang archives (toolchain dependencies)
+
+Cuppa can download or point at a Clang install and register it as a **toolchain dependency** for the session — the same idea as other dependencies (cached under the downloads / dependencies roots), without putting URLs in `--toolchains=`.
+
+[source,sh]
+----
+cuppa -D --dbg \
+  --toolchain-archive=https://github.com/cppalliance/clang/releases/download/profiles-2026-08-07-27/clang-profiles-linux-x86_64.tar.gz
+----
+
+What happens:
+
+* The archive is cached under `downloads_root/toolchains/clang/<release_tag>/` and extracted under `dependencies_root/toolchains/clang/<release_tag>/`.
+* Cuppa probes `bin/clang++`, then registers a name `clang{major}_{sanitised_tag}` (for example `clang24_profiles_2026_08_07_27`) so it does not collide with a distro `clang24`.
+* If you omit `--toolchains=`, that registered toolchain is selected automatically.
+* `--offline` requires the archive (or extract) to be present already.
+
+For an already-unpacked prefix:
+
+[source,sh]
+----
+cuppa -D --dbg --clang-root=/path/to/install --toolchains=clang24_local_*
+----
+
+`--clang-root` names are `clang{major}_local_{hash}`. Use `--clang-stdlib=libstdc++` (the Linux default) with slim Profiles Release tarballs that do not ship libc++.
+
+List / remove / wipe for type `toolchain` will follow; see `design/plans/toolchains-as-dependencies.md`.
+
 [#c-language-level]
 == C++ language level
 

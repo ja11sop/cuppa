@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `--toolchain-archive=` and `--clang-root=` fetch or point at a Clang install, cache it under
+  the downloads / dependencies roots as a toolchain dependency, and register
+  `clang{major}_{release_tag}` (or `clang{major}_local_{hash}`) so Profiles / experimental
+  Release builds do not collide with distro `clang24`. Omitting `--toolchains=` selects the
+  registered archive toolchain. See `design/plans/toolchains-as-dependencies.md`.
+
 ### Changed
 
 - Release workflow Actions buttons: **prepare** opens the `finish_release` PR; **publish**

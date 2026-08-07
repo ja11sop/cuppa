@@ -2,7 +2,7 @@
 
 - **Status:** proposal
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Boost source and packages; storage listing/removal stays in [`removal-options.md`](removal-options.md)
-- **Updated:** 2026-08-05
+- **Updated:** 2026-08-07
 
 Source `boost` (b2 / extract homes) and GitLab `boost_package` share Boost.Test patch semantics
 but not storage identity. This plan is the home for those Boost-specific follow-ups. List /
@@ -170,6 +170,29 @@ Still in this plan if we touch source Boost again:
 | `boost-pkg-list-tests` | Unit + integration: two flavours on disk, list/remove/purge select the right tree | Plant `-patched` and `-clean` folders |
 | `boost-src-docs` | Cross-link source vs package defaults (if not covered in `boost-pkg-docs`) | Low |
 | `boost-pkg-flag` | Optional later: `--boost-patched` selects among declared package flavours | Not in the first PR |
+
+## Related observation: type selectors for name clashes
+
+Boost is the sharpest case today (`boost` source / archive extract vs GitLab `boost_package`
+both reading as “boost” in human speech), but the same clash appears whenever two supply chains
+share a short name.
+
+**Idea (not in the first Boost identity PR):** allow an optional type prefix on dependency
+tokens, consistent with wipe/remove grammar already used for storage types:
+
+| Token | Meaning |
+|-------|---------|
+| `[gitlab]boost` / `[gitlab]boost/1.91-patched` | Registry package identity |
+| `[archive]boost` / `[source]boost` | Source / archive-extract Boost |
+| `[toolchain]clang/profiles-2026-08-07-27` | Fetched toolchain archive (see toolchain-archive plan) |
+
+Unprefixed `boost` keeps today’s resolution rules (project-declared deps, existing heuristics).
+Selectors disambiguate **list / remove / purge / wipe** and any future “pin this flavour”
+CLIs when two types coexist on disk.
+
+Track implementation with removal-options / dependency listing work; Boost identity
+(`-patched` / `-clean` versions) remains the first fix for GitLab vs GitLab collisions.
+Type selectors address **cross-type** collisions.
 
 ## Suggested first PR
 

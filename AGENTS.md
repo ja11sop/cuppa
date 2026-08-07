@@ -524,6 +524,7 @@ When docs and code disagree, **code is authoritative** (especially storage defau
 | Vocabulary (methods, deps, variants) | `concepts.adoc` |
 | Build / test / library APIs + examples | `methods.adoc` |
 | Compiler defaults and flags | `toolchains.adoc` |
+| Fetched Clang archives (`--toolchain-archive`) | `toolchains.adoc` § Fetched Clang |
 | C++20 modules intro, tutorial, papers, reference | `cxx-modules.adoc` |
 | CLI flags | `cli-reference.adoc` |
 | Dependencies overview (kinds, declare, `BuildWith`) | `dependencies.adoc` (hub) |
