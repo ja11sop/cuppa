@@ -294,6 +294,35 @@ def test_describe_tree_path_toolchain( tmp_path ):
     assert described['qualifier'] == 'profiles_2026_08_07_27'
 
 
+def test_stale_toolchain_inventory_paths( tmp_path ):
+    root = tmp_path / 'dependencies'
+    parent = root / 'toolchains'
+    identity = parent / 'clang'
+    extract = identity / 'profiles_2026_08_07_27'
+    extract.mkdir( parents=True )
+
+    assert dependency_storage.is_stale_toolchain_inventory_path( str( parent ), str( root ) )
+    assert dependency_storage.is_stale_toolchain_inventory_path( str( identity ), str( root ) )
+    assert not dependency_storage.is_stale_toolchain_inventory_path( str( extract ), str( root ) )
+    assert dependency_storage.is_toolchain_ownership_unit( str( extract ), str( root ) )
+
+
+def test_active_toolchain_extract_paths( tmp_path ):
+    root = tmp_path / 'dependencies'
+    extract = root / 'toolchains' / 'clang' / 'profiles_2026_08_07_27'
+    bindir = extract / 'bin'
+    bindir.mkdir( parents=True )
+
+    class FakeToolchain( object ):
+        _cxx_path = str( bindir )
+
+    paths = dependency_storage.active_toolchain_extract_paths( {
+        'dependencies_root': str( root ),
+        'active_toolchains': [ FakeToolchain() ],
+    } )
+    assert paths == { os.path.realpath( str( extract ) ) }
+
+
 def test_classify_storage_type_on_legacy_download_root():
     """Optional smoke against a real mixed root (~/_cuppa/_download)."""
     root = os.path.expanduser( '~/_cuppa/_download' )

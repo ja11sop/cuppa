@@ -498,6 +498,9 @@ def _collect_rows( construct, cuppa_env, names=None, out=None ):
         elif item.category == 'cached':
             cached.add( storage.real_path( item.path ) )
 
+    # Selected --toolchains= extracts under toolchains/ count as referenced for listing.
+    referenced.update( dependency_storage.active_toolchain_extract_paths( cuppa_env ) )
+
     # Touch inventory for active dependency trees and develop-shadowed cached stems.
     for item in owned:
         if item.category not in ( 'dependencies', 'cached' ) or item.develop:
@@ -547,10 +550,20 @@ def _collect_rows( construct, cuppa_env, names=None, out=None ):
         if not path:
             continue
         real = storage.real_path( path ) if os.path.exists( path ) else path
-        # Refresh type if an older entry lacks it.
-        if not entry.get( 'type' ):
-            entry['type'] = dependency_storage.classify_storage_type( real, dependencies_root )
-            entry['kind'] = entry['type']
+        # Drop pre-layout inventory for toolchains/ or toolchains/<id> (not ownership units).
+        if dependency_storage.is_stale_toolchain_inventory_path( path, dependencies_root ):
+            try:
+                dependency_inventory.delete_entry_for_path( dependencies_root, path )
+            except storage.StorageError:
+                pass
+            continue
+        # Refresh type if an older entry lacks it, or still says archive under toolchains/.
+        classified = dependency_storage.classify_storage_type( real, dependencies_root )
+        if not entry.get( 'type' ) or (
+                classified == 'toolchain' and entry.get( 'type' ) != 'toolchain'
+        ):
+            entry['type'] = classified
+            entry['kind'] = classified
         by_path[real] = entry
 
     for path in _walk_dependency_trees( dependencies_root ):
@@ -562,10 +575,25 @@ def _collect_rows( construct, cuppa_env, names=None, out=None ):
         if real in by_path:
             # Ensure walked trees keep a current type classification and identity.
             existing = by_path[real]
-            if existing.get( 'type' ) in ( None, '', 'unknown' ):
+            changed = False
+            if existing.get( 'type' ) in ( None, '', 'unknown' ) or (
+                    described.get( 'type' ) == 'toolchain'
+                    and existing.get( 'type' ) != 'toolchain'
+            ):
                 existing['type'] = described['type']
                 existing['kind'] = described['type']
-            changed = False
+                changed = True
+            if described.get( 'type' ) == 'toolchain':
+                if described.get( 'dependency' ):
+                    existing['dependency'] = described['dependency']
+                    changed = True
+                if described.get( 'short_name' ):
+                    existing['short_name'] = described['short_name']
+                    existing['stem'] = described.get( 'stem' ) or described['short_name']
+                    changed = True
+                if described.get( 'qualifier' ):
+                    existing['qualifier'] = described['qualifier']
+                    changed = True
             old_short = existing.get( 'short_name' )
             new_short = described.get( 'short_name' )
             # Refresh when missing, or when an archive still carries the encoded folder.

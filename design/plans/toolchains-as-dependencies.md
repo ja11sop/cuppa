@@ -59,6 +59,8 @@ cuppa -D --dbg \
 - Later sessions: scan extracts under `dependencies_root/toolchains/clang/`, register each as
   available, skip if the derived name is already in the pre-registered toolchain map, and
   select with `--toolchains=clang24_profiles_…` (no auto-select for cached-only discovery)
+- Listing: type `toolchain`; selected `--toolchains=` extract is **referenced**; drop stale
+  inventory for the `toolchains/` parent folder (no duplicate under source archives)
 
 ## Storage layout
 

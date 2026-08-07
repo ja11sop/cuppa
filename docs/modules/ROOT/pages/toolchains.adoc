@@ -70,9 +70,9 @@ Fetched Clang extracts appear under `--list-dependencies` / `--list-downloads` a
 
 Which management flags apply:
 
-* `--list-dependencies` / `--list-downloads` — yes; extracts show as unreferenced until a future resolve stamps them, and download tarballs sit under `downloads_root/toolchains/…`.
+* `--list-dependencies` / `--list-downloads` — yes. When you pass `--toolchains=clang24_profiles_…` (or auto-select via `--toolchain-archive=`), that extract is marked **referenced** / `in use`. Other cached extracts stay unreferenced.
 * `--force-wipe-dependencies=[toolchain]clang/profiles_*` — yes; clears the named extract and matching download regardless of referenced state.
-* `--force-wipe-unreferenced-dependencies` — yes; toolchain trees are always outside `BuildWith` resolve, so they count as unreferenced and are included.
+* `--force-wipe-unreferenced-dependencies` — yes for extracts that are not the active selection.
 * `--remove-dependencies` / `--purge-dependencies` / `--wipe-dependencies` (and the `*-all-*` forms) — no; those only target **project-used** dependency names from the current selection (`default_dependencies` / `BuildWith`), not compiler installs.
 
 List / remove polish for type `toolchain` continues in `design/plans/toolchains-as-dependencies.md`.

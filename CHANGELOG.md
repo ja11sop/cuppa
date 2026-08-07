@@ -18,10 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--toolchains=clang24_profiles_…` without re-passing the archive URL; a cached name that
   already exists in the pre-registered list is skipped. After a successful archive/root
   session, cuppa logs the reuse `--toolchains=` flag at sconstruct end. List/downloads
-  classify these trees as type `toolchain`; clear them with
-  `--force-wipe-dependencies=[toolchain]clang/…` (or `--force-wipe-unreferenced-dependencies`).
-  Project-scoped `--remove-` / `--purge-` / `--wipe-dependencies` do not apply. See
-  `design/plans/toolchains-as-dependencies.md`.
+  classify these trees as type `toolchain` (stale parent-folder inventory rows are dropped).
+  An extract selected via `--toolchains=` / archive auto-select is listed as referenced;
+  clear unused ones with `--force-wipe-dependencies=[toolchain]clang/…` or
+  `--force-wipe-unreferenced-dependencies`. Project-scoped `--remove-` / `--purge-` /
+  `--wipe-dependencies` do not apply. See `design/plans/toolchains-as-dependencies.md`.
 
 ### Changed
 
