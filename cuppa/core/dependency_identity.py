@@ -451,6 +451,7 @@ def find_cached_download(
 
     Archive / HTTP extracts use ``<downloads_root>/<encoded folder>``. GitLab packages
     use ``<downloads_root>/packages/<package>/<version>/<archive>.{zip,tar.gz}``.
+    Toolchain archives use ``<downloads_root>/toolchains/<identity>/<qualifier>/<asset>``.
     """
     if inventory_downloads:
         for candidate in inventory_downloads:
@@ -517,6 +518,35 @@ def find_cached_download(
                 if tool_variant and tool_variant not in name:
                     continue
                 return candidate
+        except OSError:
+            return None
+        return None
+
+    if storage_type == 'toolchain':
+        # downloads_root/toolchains/<identity>/<qualifier>/<asset>
+        identity = package
+        qualifier = version
+        if ( not identity or not qualifier or qualifier == '-' ) and path:
+            parts = [
+                    part for part in str( path ).replace( '\\', '/' ).split( '/' ) if part
+            ]
+            try:
+                idx = parts.index( 'toolchains' )
+            except ValueError:
+                idx = -1
+            if idx >= 0 and len( parts ) >= idx + 3:
+                identity = identity or parts[idx + 1]
+                qualifier = qualifier if qualifier not in ( None, '', '-' ) else parts[idx + 2]
+        if not identity or not qualifier or qualifier == '-':
+            return None
+        cache_dir = os.path.join( downloads_root, 'toolchains', identity, str( qualifier ) )
+        if not os.path.isdir( cache_dir ):
+            return None
+        try:
+            for name in sorted( os.listdir( cache_dir ) ):
+                candidate = os.path.join( cache_dir, name )
+                if os.path.isfile( candidate ):
+                    return candidate
         except OSError:
             return None
         return None

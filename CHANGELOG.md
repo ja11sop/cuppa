@@ -20,9 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   session, cuppa logs the reuse `--toolchains=` flag at sconstruct end. List/downloads
   classify these trees as type `toolchain` (stale parent-folder inventory rows are dropped).
   An extract selected via `--toolchains=` / archive auto-select is listed as referenced;
-  clear unused ones with `--force-wipe-dependencies=[toolchain]clang/…` or
-  `--force-wipe-unreferenced-dependencies`. Project-scoped `--remove-` / `--purge-` /
-  `--wipe-dependencies` do not apply. See `design/plans/toolchains-as-dependencies.md`.
+  verbose LOCATION shows `[D]` when the download archive is present. Force-wipe accepts
+  `[toolchain]clang/profiles_…` or the session name `[toolchain]clang24_profiles_…`.
+  Clear unused ones with those tokens or `--force-wipe-unreferenced-dependencies`.
+  Project-scoped `--remove-` / `--purge-` / `--wipe-dependencies` do not apply. See
+  `design/plans/toolchains-as-dependencies.md`.
 
 ### Changed
 

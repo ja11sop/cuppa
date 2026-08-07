@@ -164,6 +164,21 @@ def test_with_download_mark_and_find_cached_download( tmp_path ):
     )
     assert found == str( pkg_dir / archive )
 
+    tc_dir = downloads / 'toolchains' / 'clang' / 'profiles_2026_08_07_27'
+    tc_dir.mkdir( parents=True )
+    tc_archive = 'clang-profiles-linux-x86_64.tar.gz'
+    ( tc_dir / tc_archive ).write_text( 'z' )
+    found = find_cached_download(
+            str( downloads ),
+            storage_type='toolchain',
+            path=str(
+                tmp_path / 'deps' / 'toolchains' / 'clang' / 'profiles_2026_08_07_27'
+            ),
+            package='clang',
+            version='profiles_2026_08_07_27',
+    )
+    assert found == str( tc_dir / tc_archive )
+
 
 def test_archive_tree_marks_download_on_location():
     leaves = [

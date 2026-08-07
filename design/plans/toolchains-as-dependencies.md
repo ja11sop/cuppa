@@ -26,11 +26,10 @@ runs — easy to collide with distro `clang24`, and invisible to list/remove.
 
 ## Non-goals (this phase)
 
-- URLs inside `--toolchains=`
 - Auto “latest Profiles release”
 - GCC / MSVC archive toolchains
 - Actions artifact API downloads
-- Full wipe UX polish (storage layout first; wire list/remove next)
+- Full wipe UX polish beyond force-wipe + list (done for classify / `[D]` / session-name wipe)
 
 ## Naming
 
@@ -44,6 +43,11 @@ Do not register as plain `clang24` (collides with PATH Clang). `--name()` / buil
 this full id. Wildcards: `clang24_profiles*`.
 
 `--clang-root=` without a tag: `clang{major}_local_{short_path_hash}`.
+
+Force-wipe accepts both storage identity and session name:
+
+- `[toolchain]clang/profiles_2026_08_07_27`
+- `[toolchain]clang24_profiles_2026_08_07_27`
 
 ## CLI
 
@@ -60,7 +64,26 @@ cuppa -D --dbg \
   available, skip if the derived name is already in the pre-registered toolchain map, and
   select with `--toolchains=clang24_profiles_…` (no auto-select for cached-only discovery)
 - Listing: type `toolchain`; selected `--toolchains=` extract is **referenced**; drop stale
-  inventory for the `toolchains/` parent folder (no duplicate under source archives)
+  inventory for the `toolchains/` parent folder (no duplicate under source archives);
+  verbose LOCATION uses `[D]` when the download archive is present
+
+### Why not `--toolchains=https://…` (kept separate for now)
+
+`ParseToolchainsOption` is names + wildcards. Keep **supply** (`--toolchain-archive=`) and
+**selection** (`--toolchains=`) as separate flags.
+
+That still matches the common “only URL” case via auto-select: omitting `--toolchains=` after
+`--toolchain-archive=` selects the registered name for this session. Putting the URL *inside*
+`--toolchains=` would feel natural for that one case, but it muddies:
+
+- comma-lists and wildcards (`gcc,clang24_profiles*`)
+- error attribution (fetch failed vs unknown name)
+- parallel supply via `--clang-root=` (not a URL)
+- future multi-archive / “fetch but do not select”
+
+**Open follow-up (`tc-dep-url-sugar`):** optionally accept a URL token in `--toolchains=` as
+sugar for “prepare this archive and select it”, while keeping `--toolchain-archive=` as the
+explicit supply flag. Not required for the first PR.
 
 ## Storage layout
 
@@ -82,6 +105,7 @@ Offline: require cache / extract; clear error if missing.
 | `tc-dep-docs` | toolchains.adoc + CHANGELOG | done |
 | `tc-dep-list` | `--list-dependencies` / downloads show `toolchain` / `clang` | done (classify + walk) |
 | `tc-dep-remove` | `--force-wipe-*` with `[toolchain]…`; project remove/purge/wipe N/A | done (force-wipe path) |
+| `tc-dep-url-sugar` | Optional URL token in `--toolchains=` (see note above) | later |
 | `tc-dep-profiles` | `#127` `--profiles` / `-fprofiles` | later |
 | `tc-dep-actions` | Authenticated Actions artifact URLs | later |
 

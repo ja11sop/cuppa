@@ -68,3 +68,36 @@ def test_row_matches_token_respects_selector():
     assert dependency_tokens.row_matches_token( row, 'archive', 'boost', '1.8*' )
     assert not dependency_tokens.row_matches_token( row, 'gitlab', 'boost', '1.8*' )
     assert dependency_tokens.row_matches_token( row, None, 'boost', '1.8*' )
+
+
+def test_parse_registered_toolchain_name():
+    assert dependency_tokens.parse_registered_toolchain_name(
+            'clang24_profiles_2026_08_07_27'
+    ) == ( 'clang', 'profiles_2026_08_07_27' )
+    assert dependency_tokens.parse_registered_toolchain_name( 'clang24_profiles*' ) == (
+            'clang', 'profiles*'
+    )
+    assert dependency_tokens.parse_registered_toolchain_name( 'clang/profiles_x' ) is None
+    assert dependency_tokens.parse_registered_toolchain_name( 'clang24' ) is None
+
+
+def test_row_matches_registered_toolchain_session_name():
+    row = {
+        'short_name': 'clang',
+        'dependency': 'clang',
+        'qualifier': 'profiles_2026_08_07_27',
+        'type': 'toolchain',
+        'path': '/tmp/toolchains/clang/profiles_2026_08_07_27',
+    }
+    assert dependency_tokens.row_matches_token(
+            row, 'toolchain', 'clang24_profiles_2026_08_07_27', None
+    )
+    assert dependency_tokens.row_matches_token(
+            row, 'toolchain', 'clang', 'profiles_2026_08_07_27'
+    )
+    assert dependency_tokens.row_matches_token(
+            row, 'toolchain', 'clang24_profiles*', None
+    )
+    assert not dependency_tokens.row_matches_token(
+            row, 'toolchain', 'clang24_other_tag', None
+    )
