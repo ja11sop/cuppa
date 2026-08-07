@@ -1,4 +1,8 @@
 # Cut a cuppa release (master is protected — prefer the Actions buttons below).
+#
+# Full guide with diagrams:
+#   docs/modules/ROOT/pages/contributing-release.adoc
+#   (Antora: Contributing → Cutting a release)
 
 # --- Once: Trusted Publishing ----------------------------------------------------
 #

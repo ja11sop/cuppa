@@ -1,0 +1,150 @@
+= Cutting a release
+:description: Prepare and publish cuppa releases from GitHub Actions, with git and workflow diagrams
+
+This page is the human guide for publishing a cuppa release to GitHub and PyPI.
+The one-page checklist in the repository is `release.txt`; keep this page and that file aligned
+when the workflow changes.
+
+== Prerequisites
+
+* You can merge pull requests to `master` and approve the `pypi` GitHub Environment.
+* An open release cycle is on `master`: `cuppa/VERSION` is `X.Y.Z.dev` and `CHANGELOG.md` has
+  entries under `## [X.Y.Z] - unreleased`. See xref:contributing-versioning.adoc[Versioning and changelog].
+* Trusted Publishing is configured once (see <<trusted-publishing>> below).
+
+== Happy path
+
+Two Actions runs and one merge — no local `git tag` push.
+
+. Actions → **release** → Run workflow → action **prepare**.
+. Merge the pull request CI opens (`finish_release`, usually labelled `impact:none`).
+. Actions → **release** → Run workflow → action **publish** (leave **tag** blank).
+. Approve the `pypi` environment when the workflow asks.
+
+[mermaid]
+....
+flowchart TD
+    open["master: X.Y.Z.dev\nCHANGELOG unreleased"] --> prepare["Actions: prepare"]
+    prepare --> pr["PR: finish_release\nVERSION + dated CHANGELOG"]
+    pr --> merge["Merge PR when CI is green"]
+    merge --> closed["master: X.Y.Z\nCHANGELOG dated"]
+    closed --> publish["Actions: publish\ntag blank"]
+    publish --> build["Gate + build sdist/wheel"]
+    build --> ghrel["GitHub Release + tag vX.Y.Z\nvia API"]
+    ghrel --> approve["Approve pypi environment"]
+    approve --> pypi["Upload to PyPI\nTrusted Publishing OIDC"]
+....
+
+=== What each button does
+
+**prepare** checks out `master`, runs `python -m scripts.finish_release`, pushes a branch such as
+`release_1_5_0`, and opens a pull request.
+Re-running prepare on the same version force-updates that branch if the PR is not merged yet.
+
+**publish** (tag blank) refuses to run while `cuppa/VERSION` still ends in `.dev`.
+After the prepare PR is on `master`, it builds that tip, creates the GitHub Release and annotated
+tag through the GitHub API (so the `push: tags` workflow path does not fire a second time), then
+waits for `pypi` approval before uploading.
+PyPI uploads use `skip-existing` so a re-run does not fail on artefacts that already landed.
+
+== Git history for a release
+
+The diagram below is the shape you want: work accumulates on `master` under `.dev`, prepare
+commits the close on a short-lived branch, merge makes `master` the release commit, and publish
+places `vX.Y.Z` on **that** commit.
+
+[mermaid]
+....
+%%{init: { 'gitGraph': { 'mainBranchName': 'master' } } }%%
+gitGraph
+  commit id: "open X.Y.Z.dev"
+  commit id: "feature PRs"
+  branch release_X_Y_Z
+  checkout release_X_Y_Z
+  commit id: "finish_release"
+  checkout master
+  merge release_X_Y_Z id: "merge prepare PR" tag: "vX.Y.Z"
+  commit id: "start_release next"
+....
+
+Publish creates the tag through the API after the merge; you do not need a separate tag-push step
+in the happy path.
+
+== Sequence (who does what)
+
+[mermaid]
+....
+sequenceDiagram
+    actor You
+    participant Actions as release workflow
+    participant PR as finish_release PR
+    participant Master as master
+    participant GH as GitHub Release
+    participant Env as pypi environment
+    participant PyPI
+
+    You->>Actions: prepare
+    Actions->>PR: open branch + PR
+    You->>PR: merge when CI green
+    PR->>Master: X.Y.Z (no .dev)
+    You->>Actions: publish (tag blank)
+    Actions->>Master: checkout tip, gate, build
+    Actions->>GH: create release + tag vX.Y.Z
+    Actions->>Env: wait for approval
+    You->>Env: approve
+    Env->>PyPI: OIDC upload
+....
+
+== Failure mode to avoid
+
+Tagging (or publishing against a tag that points at) a commit that is still `.dev` fails the
+release gate — the same mistake as tagging the wrong merge before `finish_release` landed.
+
+[mermaid]
+....
+flowchart TD
+    bad["Tag vX.Y.Z on a .dev commit"] --> gate["scripts.check_release"]
+    gate --> fail["Fails: VERSION is development\nCHANGELOG still unreleased"]
+    fail --> fix["Delete the bad tag,\nmerge prepare, publish from master"]
+....
+
+**publish** from master also refuses if `vX.Y.Z` already exists but points at a different commit.
+Delete the bad tag (`git push origin :refs/tags/vX.Y.Z`) and run publish again.
+
+== Escape hatches
+
+|===
+| Situation | What to do
+
+| Re-run publish for an existing good tag
+| Actions → **publish** with **tag** set to `vX.Y.Z`
+
+| Prefer a local tag push
+| After prepare is merged: `git tag -a vX.Y.Z -m "cuppa X.Y.Z"` and `git push origin vX.Y.Z`
+(triggers the same publish jobs as a tag-push event)
+
+| Prefer a hand-rolled prepare PR
+| `python -m scripts.finish_release` on a branch, commit, open the PR yourself
+|===
+
+[[trusted-publishing]]
+== Trusted Publishing (once)
+
+. GitHub → Settings → Environments → create **`pypi`** with required reviewers.
+. PyPI → project cuppa → Publishing → add a trusted publisher:
+  **Owner** `ja11sop`, **Repository** `cuppa`, **Workflow** `release.yml`, **Environment** `pypi`.
+
+The workflow file must be on the default branch before PyPI accepts the publisher.
+There is no long-lived Twine API token in CI; upload uses OIDC after environment approval.
+
+== After the release
+
+Open the next cycle when the following workstream starts (on a PR branch):
+
+[source,sh]
+----
+python -m scripts.start_release X.Y.Z
+----
+
+That is intentionally separate from publish so the next version number is chosen with the next
+feature cut, not automatically at tag time.

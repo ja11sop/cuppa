@@ -13,7 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Release workflow Actions buttons: **prepare** opens the `finish_release` PR; **publish**
   builds from master tip, creates the GitHub Release and tag, then waits for `pypi` approval.
-  Manual `v*` tag push remains as an escape hatch. See `release.txt`.
+  Manual `v*` tag push remains as an escape hatch. Antora **Contributing** documents the flow
+  with Mermaid diagrams (`contributing.adoc` and children). See `release.txt`.
 
 ### Deprecated
 

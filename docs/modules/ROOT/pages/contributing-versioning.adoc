@@ -1,0 +1,112 @@
+= Versioning and changelog
+:description: SemVer cycles, cuppa/VERSION, Keep a Changelog, and start_release / finish_release
+
+Cuppa versions follow https://semver.org/spec/v2.0.0.html[Semantic Versioning].
+Release notes follow https://keepachangelog.com/en/1.1.0/[Keep a Changelog] in `CHANGELOG.md`.
+
+While a version is being assembled, `cuppa/VERSION` carries a `.dev` suffix (for example
+`1.5.0.dev`) and the top section of `CHANGELOG.md` is marked `unreleased`.
+At release those become a plain version and a dated section.
+
+== Version state
+
+[mermaid]
+....
+stateDiagram-v2
+    [*] --> Open: start_release X.Y.Z
+    Open: cuppa/VERSION = X.Y.Z.dev\nCHANGELOG = unreleased
+    Open --> Closed: finish_release
+    Closed: cuppa/VERSION = X.Y.Z\nCHANGELOG dated
+    Closed --> Open: start_release next
+....
+
+Do not hand-edit the version string or the `## [X.Y.Z]` headings.
+Use the scripts so CI, the changelog, and the release workflow stay aligned.
+
+== Choosing the next version
+
+Choose the target when a workstream starts, from what it does to the **public surface**
+(CLI flags, `env.*` methods, `cuppa.run()` arguments, configuration keys):
+
+|===
+| Change | Impact label | Version step
+
+| New option, method, or opt-in behaviour
+| `impact:minor`
+| Next minor (`X.Y+1.0`)
+
+| Fix, message, docs, tests, internal refactor
+| `impact:patch`
+| Next patch (`X.Y.Z+1`)
+
+| Removed or repurposed option, changed default
+| `impact:major`
+| Next major (`X+1.0.0`)
+
+| CI, design documents, no release impact
+| `impact:none`
+| Unchanged (still write under the open section when you touch user-visible docs)
+|===
+
+A patch-sized pull request may land inside an open minor cycle: the version gate asks for *at
+least* the implied version, so `1.5.0.dev` satisfies `impact:patch`.
+Raising the target mid-cycle (for example a `major` arrives) means running `start_release` again
+on that branch for the higher version.
+
+== Opening a cycle
+
+On a pull-request branch (never push `master` directly):
+
+[source,sh]
+----
+python -m scripts.start_release 1.5.0
+----
+
+That sets `cuppa/VERSION` to `1.5.0.dev`, inserts `## [1.5.0] - unreleased` (with the usual
+Added / Changed / … subsections) if needed, and points the compare link at `HEAD`.
+
+Write changelog entries under that section as each change lands — not in a sweep at the end.
+
+== Closing a cycle
+
+Closing is part of xref:contributing-release.adoc[Cutting a release].
+The supported path is the Actions **prepare** button, which runs:
+
+[source,sh]
+----
+python -m scripts.finish_release
+----
+
+That drops `.dev`, dates the top changelog section, and rewrites the compare link to the release
+tag.
+You can still run `finish_release` locally and open the PR by hand if you prefer.
+
+== Checks that keep this honest
+
+Three places share `scripts/changelog.py` so they cannot disagree:
+
+* `tests/unit/test_version_and_changelog.py` — version and changelog describe the same release,
+  one open section at the top, sections descend, recent versions have compare links.
+* The `version` job on pull requests — the target version is at least what the pull request's
+  `impact:` label implies, and the open section has entries when the impact is not `none`.
+* The `release` workflow gate — no `.dev`, the section is dated and non-empty, and the tag matches
+  `cuppa/VERSION`.
+
+== Git shape for ordinary work
+
+Feature and docs work use the same protected-`master` pattern: branch, pull request, merge.
+
+[mermaid]
+....
+%%{init: { 'gitGraph': { 'mainBranchName': 'master' } } }%%
+gitGraph
+  commit id: "1.5.0.dev on master"
+  branch feature_branch
+  checkout feature_branch
+  commit id: "start_release if needed"
+  commit id: "feature + CHANGELOG entry"
+  checkout master
+  merge feature_branch id: "merge PR"
+....
+
+The release-specific branches and tags are on xref:contributing-release.adoc[Cutting a release].
