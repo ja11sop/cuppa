@@ -227,8 +227,37 @@ def prepare_from_root( cuppa_env, root ):
     }
 
 
+def discover_cached( cuppa_env, skip_qualifiers=None ):
+    """Find previously extracted Clang toolchain deps under dependencies_root."""
+    skip_qualifiers = set( skip_qualifiers or [] )
+    dependencies = cuppa_env.get( 'dependencies_root' )
+    if not dependencies:
+        return []
+    base = os.path.join( dependencies, 'toolchains', 'clang' )
+    if not os.path.isdir( base ):
+        return []
+    found = []
+    for qualifier in sorted( os.listdir( base ) ):
+        if qualifier in skip_qualifiers:
+            continue
+        extract_root = os.path.join( base, qualifier )
+        if not os.path.isdir( extract_root ):
+            continue
+        bin_dir = find_clang_bin_dir( extract_root )
+        if not bin_dir:
+            continue
+        found.append( {
+            'source': extract_root,
+            'qualifier': qualifier,
+            'bin_dir': bin_dir,
+            'extract_root': extract_root,
+            'kind': 'cached',
+        } )
+    return found
+
+
 def prepare( cuppa_env ):
-    """Resolve --toolchain-archive / --clang-root into cuppa_env['prepared_toolchain_archives']."""
+    """Resolve --toolchain-archive / --clang-root and discover cached toolchain deps."""
     prepared = []
     try:
         archive = cuppa_env.get_option( 'toolchain-archive' )
@@ -244,7 +273,11 @@ def prepare( cuppa_env ):
     if clang_root:
         prepared.append( prepare_from_root( cuppa_env, clang_root ) )
 
+    skip = { entry['qualifier'] for entry in prepared }
+    discovered = discover_cached( cuppa_env, skip_qualifiers=skip )
+
     cuppa_env['prepared_toolchain_archives'] = prepared
+    cuppa_env['discovered_toolchain_archives'] = discovered
     return prepared
 
 
@@ -260,32 +293,40 @@ class ToolchainArchive( object ):
         return
 
 
-def register_prepared( cuppa_env, add_toolchain, add_to_supported, clang_cls ):
-    """Register prepared Clang installs with the Clang toolchain class."""
-    prepared = cuppa_env.get( 'prepared_toolchain_archives' ) or []
-    if not prepared:
-        return []
-
-    try:
-        stdlib = cuppa_env.get_option( 'clang-stdlib' )
-        suppress_debug_for_auto = cuppa_env.get_option( 'clang-disable-debug-for-auto' )
-    except Exception:
-        stdlib = None
-        suppress_debug_for_auto = False
-    if not stdlib:
-        stdlib = clang_cls.default_stdlib()
-
+def _register_entries(
+        cuppa_env,
+        entries,
+        add_toolchain,
+        add_to_supported,
+        clang_cls,
+        stdlib,
+        suppress_debug_for_auto,
+        skip_existing,
+):
     names = []
-    for entry in prepared:
+    existing = cuppa_env.get( 'toolchains' ) or {}
+    for entry in entries:
         cxx = os.path.join( entry['bin_dir'], 'clang++' )
         if os.name == 'nt' and not os.path.isfile( cxx ):
             cxx = os.path.join( entry['bin_dir'], 'clang++.exe' )
         reported = clang_cls.version_from_command( cxx )
         if not reported:
+            if entry.get( 'kind' ) == 'cached':
+                logger.warn(
+                    "Skipping cached toolchain at [{}]; could not read version".format(
+                        as_notice( entry['bin_dir'] )
+                    )
+                )
+                continue
             raise ToolchainArchiveException(
                 "could not read version from [{}]".format( cxx )
             )
         name = toolchain_name( reported['major'], entry['qualifier'] )
+        if skip_existing and name in existing:
+            logger.debug(
+                "Skipping toolchain [{}]; already available".format( as_info( name ) )
+            )
+            continue
         reported = dict( reported )
         reported['name'] = name
         add_to_supported( name )
@@ -298,6 +339,7 @@ def register_prepared( cuppa_env, add_toolchain, add_to_supported, clang_cls ):
             suppress_debug_for_auto,
         )
         add_toolchain( name, toolchain )
+        existing[ name ] = toolchain
         names.append( name )
         logger.info(
             "Registered toolchain [{}] from [{}] at [{}] (clang {})".format(
@@ -307,6 +349,37 @@ def register_prepared( cuppa_env, add_toolchain, add_to_supported, clang_cls ):
                 as_info( reported['version'] ),
             )
         )
-
-    cuppa_env['toolchain_archive_names'] = names
     return names
+
+
+def register_prepared( cuppa_env, add_toolchain, add_to_supported, clang_cls ):
+    """Register explicit and cached Clang toolchain installs.
+
+    Cached extracts under ``dependencies_root/toolchains/clang/`` become available for
+    ``--toolchains=clang24_profiles_…`` without re-passing ``--toolchain-archive``.
+    Auto-select (when ``--toolchains`` is omitted) only applies to toolchains fetched
+    this session via ``--toolchain-archive`` / ``--clang-root``.
+    """
+    try:
+        stdlib = cuppa_env.get_option( 'clang-stdlib' )
+        suppress_debug_for_auto = cuppa_env.get_option( 'clang-disable-debug-for-auto' )
+    except Exception:
+        stdlib = None
+        suppress_debug_for_auto = False
+    if not stdlib:
+        stdlib = clang_cls.default_stdlib()
+
+    prepared = cuppa_env.get( 'prepared_toolchain_archives' ) or []
+    discovered = cuppa_env.get( 'discovered_toolchain_archives' ) or []
+
+    explicit_names = _register_entries(
+        cuppa_env, prepared, add_toolchain, add_to_supported, clang_cls,
+        stdlib, suppress_debug_for_auto, skip_existing=False,
+    )
+    _register_entries(
+        cuppa_env, discovered, add_toolchain, add_to_supported, clang_cls,
+        stdlib, suppress_debug_for_auto, skip_existing=True,
+    )
+
+    cuppa_env['toolchain_archive_names'] = explicit_names
+    return explicit_names

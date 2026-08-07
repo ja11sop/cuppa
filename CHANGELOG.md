@@ -13,7 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the downloads / dependencies roots as a toolchain dependency, and register
   `clang{major}_{release_tag}` (or `clang{major}_local_{hash}`) so Profiles / experimental
   Release builds do not collide with distro `clang24`. Omitting `--toolchains=` selects the
-  registered archive toolchain. See `design/plans/toolchains-as-dependencies.md`.
+  registered archive toolchain for that session. Later runs discover extracts under
+  `dependencies_root/toolchains/clang/` so you can select them with
+  `--toolchains=clang24_profiles_…` without re-passing the archive URL; a cached name that
+  already exists in the pre-registered list is skipped. See
+  `design/plans/toolchains-as-dependencies.md`.
 
 ### Changed
 

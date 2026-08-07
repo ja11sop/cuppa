@@ -26,7 +26,7 @@ maintainer workflow evolved.
 | [`plans/modules-activation.md`](plans/modules-activation.md) | proposal | Whether C++ modules should stay opt-in behind `--modules` or become opt-out, and what must land first |
 | [`plans/removal-options.md`](plans/removal-options.md) | in progress | Phases 1–5 + wipe + §3.7/§3.8 shipped ([#154](https://github.com/ja11sop/cuppa/pull/154)); Phase 6 artefacts [#135](https://github.com/ja11sop/cuppa/issues/135) open; next focus artefacts when that design starts |
 | [`plans/scons-tool-wrapper.md`](plans/scons-tool-wrapper.md) | proposal | Wrapping an SCons Tool as a cuppa dependency instead of hand-writing a dependency class |
-| [`plans/toolchains-as-dependencies.md`](plans/toolchains-as-dependencies.md) | in progress | Fetched compilers as toolchain deps (Clang + public archives first; list/remove later) |
+| [`plans/toolchains-as-dependencies.md`](plans/toolchains-as-dependencies.md) | in progress | Fetched compilers as toolchain deps (Clang archives + cached discover; list/remove later) |
 | [`process/agent-workflow-journey.md`](process/agent-workflow-journey.md) | living | How cuppa’s maintainer workflow was hardened for humans and agents (blueprint + case studies) |
 | [`archive/conan-consumer-plan.md`](archive/conan-consumer-plan.md) | shipped | Design of `conan_deps` / `conan_dependency` consumer support |
 | [`archive/conan-publish-plan.md`](archive/conan-publish-plan.md) | shipped | Design of `ConanPackagePublisher` and `--publish-package` |

@@ -59,18 +59,90 @@ def test_prepare_from_root( tmp_path ):
     clangxx.write_text( '#!/bin/sh\necho "clang version 24.0.0"\n' )
     os.chmod( str( clangxx ), 0o755 )
 
-    env = {
-        'sconstruct_dir': str( tmp_path ),
-        'downloads_root': str( tmp_path / 'dl' ),
-        'dependencies_root': str( tmp_path / 'deps' ),
-        'offline': False,
-    }
-    # Minimal stand-in: prepare_from_root only needs expand path
     class Env( dict ):
         def get_option( self, name, default=None ):
             return self.get( name, default )
 
-    cuppa_env = Env( env )
+    cuppa_env = Env( {
+        'sconstruct_dir': str( tmp_path ),
+        'downloads_root': str( tmp_path / 'dl' ),
+        'dependencies_root': str( tmp_path / 'deps' ),
+        'offline': False,
+    } )
     entry = ta.prepare_from_root( cuppa_env, str( root ) )
     assert entry['bin_dir'] == str( bindir )
     assert entry['qualifier'].startswith( 'local_' )
+
+
+def test_discover_cached( tmp_path ):
+    deps = tmp_path / 'deps'
+    qualifier = 'profiles_2026_08_07_27'
+    bindir = deps / 'toolchains' / 'clang' / qualifier / 'bin'
+    bindir.mkdir( parents=True )
+    ( bindir / 'clang++' ).write_text( '#!/bin/sh\n' )
+
+    env = { 'dependencies_root': str( deps ) }
+    found = ta.discover_cached( env )
+    assert len( found ) == 1
+    assert found[0]['qualifier'] == qualifier
+    assert found[0]['kind'] == 'cached'
+
+
+def test_discover_cached_skips_qualifier( tmp_path ):
+    deps = tmp_path / 'deps'
+    for qualifier in ( 'keep_me', 'skip_me' ):
+        bindir = deps / 'toolchains' / 'clang' / qualifier / 'bin'
+        bindir.mkdir( parents=True )
+        ( bindir / 'clang++' ).write_text( '#!/bin/sh\n' )
+
+    found = ta.discover_cached(
+        { 'dependencies_root': str( deps ) },
+        skip_qualifiers={ 'skip_me' },
+    )
+    assert [ entry['qualifier'] for entry in found ] == [ 'keep_me' ]
+
+
+def test_register_skips_existing_name( tmp_path ):
+    bindir = tmp_path / 'bin'
+    bindir.mkdir()
+    ( bindir / 'clang++' ).write_text( '#!/bin/sh\n' )
+
+    preexisting = object()
+    cuppa_env = {
+        'toolchains': { 'clang24_profiles_2026_08_07_27': preexisting },
+    }
+    added = []
+
+    class FakeClang( object ):
+        @classmethod
+        def version_from_command( cls, cxx ):
+            return {
+                'major': 24,
+                'minor': 0,
+                'version': '24.0.0',
+                'short_version': '24.0',
+                'name': 'clang24',
+            }
+
+        def __init__( self, *args, **kwargs ):
+            raise AssertionError( 'should not construct when name exists' )
+
+    names = ta._register_entries(
+        cuppa_env,
+        [ {
+            'source': str( tmp_path ),
+            'qualifier': 'profiles_2026_08_07_27',
+            'bin_dir': str( bindir ),
+            'extract_root': str( tmp_path ),
+            'kind': 'cached',
+        } ],
+        lambda name, toolchain: added.append( name ),
+        lambda name: None,
+        FakeClang,
+        'libstdc++',
+        False,
+        skip_existing=True,
+    )
+    assert names == []
+    assert added == []
+    assert cuppa_env['toolchains']['clang24_profiles_2026_08_07_27'] is preexisting

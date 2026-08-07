@@ -56,6 +56,9 @@ cuppa -D --dbg \
 - `--toolchain-archive=` — public archive URL or `file://` / local path to `.tar.gz` / `.zip`
 - `--clang-root=` — existing install prefix containing `bin/clang++`
 - If archive/root is set and `--toolchains=` omitted → auto-select the registered name(s)
+- Later sessions: scan extracts under `dependencies_root/toolchains/clang/`, register each as
+  available, skip if the derived name is already in the pre-registered toolchain map, and
+  select with `--toolchains=clang24_profiles_…` (no auto-select for cached-only discovery)
 
 ## Storage layout
 
@@ -71,9 +74,10 @@ Offline: require cache / extract; clear error if missing.
 | Id | Work | Status |
 |----|------|--------|
 | `tc-dep-plan` | This plan + index | done |
-| `tc-dep-clang-root` | `--clang-root=` + naming + register before/with `add_toolchains` | in progress |
-| `tc-dep-archive` | `--toolchain-archive=` public HTTPS / file download + extract | in progress |
-| `tc-dep-docs` | toolchains.adoc + CHANGELOG | in progress |
+| `tc-dep-clang-root` | `--clang-root=` + naming + register before/with `add_toolchains` | done |
+| `tc-dep-archive` | `--toolchain-archive=` public HTTPS / file download + extract | done |
+| `tc-dep-discover` | Start-up scan of cached extracts; `--toolchains=` without archive URL | done |
+| `tc-dep-docs` | toolchains.adoc + CHANGELOG | done |
 | `tc-dep-list` | `--list-dependencies` shows `toolchain` / `clang` | later |
 | `tc-dep-remove` | remove / wipe `[toolchain]clang/…` | later |
 | `tc-dep-profiles` | `#127` `--profiles` / `-fprofiles` | later |

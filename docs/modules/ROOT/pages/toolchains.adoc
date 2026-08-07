@@ -40,6 +40,18 @@ What happens:
 * If you omit `--toolchains=`, that registered toolchain is selected automatically.
 * `--offline` requires the archive (or extract) to be present already.
 
+On later runs you do not need to pass `--toolchain-archive=` again.
+Cuppa scans `dependencies_root/toolchains/clang/*/`, registers each extract that still has `bin/clang++`, and skips a derived name that is already in the pre-registered toolchain list (for example a PATH `clang24`).
+Select the cached toolchain by name:
+
+[source,sh]
+----
+cuppa -D --dbg --test --toolchains=clang24_profiles_2026_08_07_27
+----
+
+Cached discovery only makes the toolchain *available*; it does not auto-select it.
+Auto-select still applies only when you pass `--toolchain-archive=` or `--clang-root=` in the current session and omit `--toolchains=`.
+
 For an already-unpacked prefix:
 
 [source,sh]

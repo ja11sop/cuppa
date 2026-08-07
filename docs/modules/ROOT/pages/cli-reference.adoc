@@ -17,7 +17,7 @@ Standard SCons flags (`-D`, `-j`, `-c`, `-Q`, …) still apply.
 | `--benchmark` / `--force-benchmark` | Run benchmark targets
 | `--run` / `--force-run` | Run `Run()` targets
 | `--toolchains=LIST` | Comma-separated toolchain names; supports fnmatch wildcards (`gcc*`, `clang21`)
-| `--toolchain-archive=URL` | Public Clang archive URL or local path; cached as a toolchain dependency and registered as `clang{major}_{tag}`
+| `--toolchain-archive=URL` | Public Clang archive URL or local path; cached as a toolchain dependency and registered as `clang{major}_{tag}` (later runs reuse the extract via `--toolchains=` alone)
 | `--clang-root=PATH` | Existing Clang install prefix (`bin/clang++`); registered as `clang{major}_local_{hash}`
 | `--scripts=LIST` / `--projects=LIST` | Limit which sconscripts run
 | `--parallel` | Parallel build (`-j` sized to the machine; `cuppa` may restrict CPU affinity)
