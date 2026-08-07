@@ -609,22 +609,18 @@ def build_downloads_tree( rows ):
     referenced_idents = []
     unreferenced_idents = []
     for group in groups.values():
-        referenced_rows = [
-                row for row in group['rows']
-                if row.get( 'state' ) in dependency_tree.REFERENCED_STATES
-        ]
-        unreferenced_rows = [
-                row for row in group['rows']
-                if row.get( 'state' ) not in dependency_tree.REFERENCED_STATES
-        ]
-        if referenced_rows:
-            referenced_idents.append( _build_downloads_identity(
-                    dict( group, rows=referenced_rows ), 'referenced',
-            ) )
-        if unreferenced_rows:
-            unreferenced_idents.append( _build_downloads_identity(
-                    dict( group, rows=unreferenced_rows ), 'unreferenced',
-            ) )
+        # Match dependency listing: any selected leaf pulls the whole identity
+        # (including unused sibling archives) into the referenced section.
+        pulls_referenced = any(
+                row.get( 'state' ) in dependency_tree.REFERENCED_STATES
+                for row in group['rows']
+        )
+        section = 'referenced' if pulls_referenced else 'unreferenced'
+        identity = _build_downloads_identity( group, section )
+        if section == 'referenced':
+            referenced_idents.append( identity )
+        else:
+            unreferenced_idents.append( identity )
 
     def sort_idents( items ):
         return sorted( items, key=lambda node: (

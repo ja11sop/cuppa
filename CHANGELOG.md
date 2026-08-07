@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Clear unused ones with those tokens or `--force-wipe-unreferenced-dependencies`.
   Project-scoped `--remove-` / `--purge-` / `--wipe-dependencies` do not apply. See
   `design/plans/toolchains-as-dependencies.md`.
+- `--list-scope=compact` shows only resolve-selected dependency leaves (no unused siblings).
 
 ### Changed
 
@@ -44,6 +45,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clang `_resolve_versioned_tool` joins the tool name onto `where_is()`'s directory again, so
   archive Clang (no in-tree `llvm-ar`) sets `AR` to `/usr/bin/llvm-ar` rather than `/usr/bin`
   and static library archives no longer fail with `Permission denied: '/usr/bin'`.
+- `--list-scope=referenced` keeps unused sibling leaves under resolved identities (other Boost
+  versions, other branches next to `in use`), matching the documented referenced section.
+  `--list-scope=compact` is the short view that shows only resolve-selected leaves.
 
 ### Security
 

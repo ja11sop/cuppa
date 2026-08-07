@@ -121,6 +121,64 @@ def test_scope_referenced_drops_unreferenced_section():
     assert labels == [ 'referenced' ]
 
 
+def test_scope_referenced_keeps_unused_siblings_under_identity():
+    """referenced = whole identities that resolve, including unused sibling leaves."""
+    rows = [
+            {
+                **_row( 'boost', 'referenced', 100 ),
+                'qualifier': '1.91.0',
+                'type': 'archive',
+                'kind': 'archive',
+                'short_name': 'boost',
+                'path': '/tmp/boost_1_91_0',
+            },
+            {
+                **_row( 'boost', 'unreferenced', 80 ),
+                'qualifier': '1.90.0',
+                'type': 'archive',
+                'kind': 'archive',
+                'short_name': 'boost',
+                'path': '/tmp/boost_1_90_0',
+            },
+            _row( 'orphan', 'unreferenced', 20 ),
+    ]
+    filtered = dependency_actions.apply_list_scope( _data( rows ), 'referenced' )
+    assert filtered['scope'] == 'referenced'
+    assert len( filtered['rows'] ) == 2
+    assert { row['path'] for row in filtered['rows'] } == {
+            '/tmp/boost_1_91_0', '/tmp/boost_1_90_0',
+    }
+    assert filtered['total_bytes'] == 180
+    assert filtered['unreferenced_bytes'] == 0
+
+
+def test_scope_compact_keeps_only_selected_leaves():
+    rows = [
+            {
+                **_row( 'boost', 'referenced', 100 ),
+                'qualifier': '1.91.0',
+                'type': 'archive',
+                'kind': 'archive',
+                'short_name': 'boost',
+                'path': '/tmp/boost_1_91_0',
+            },
+            {
+                **_row( 'boost', 'unreferenced', 80 ),
+                'qualifier': '1.90.0',
+                'type': 'archive',
+                'kind': 'archive',
+                'short_name': 'boost',
+                'path': '/tmp/boost_1_90_0',
+            },
+            _row( 'orphan', 'unreferenced', 20 ),
+    ]
+    filtered = dependency_actions.apply_list_scope( _data( rows ), 'compact' )
+    assert filtered['scope'] == 'compact'
+    assert len( filtered['rows'] ) == 1
+    assert filtered['rows'][0]['path'] == '/tmp/boost_1_91_0'
+    assert filtered['total_bytes'] == 100
+
+
 def test_scope_unreferenced_keeps_only_orphans():
     rows = [
             _row( 'widget', 'referenced', 50 ),
@@ -202,3 +260,4 @@ def test_normalise_list_scope_prefers_known_values():
     assert dependency_actions.normalise_list_scope( None ) == 'all'
     assert dependency_actions.normalise_list_scope( [ 'referenced' ] ) == 'referenced'
     assert dependency_actions.normalise_list_scope( 'UNREFERENCED' ) == 'unreferenced'
+    assert dependency_actions.normalise_list_scope( 'compact' ) == 'compact'

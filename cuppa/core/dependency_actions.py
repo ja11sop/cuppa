@@ -34,11 +34,12 @@ RULE = '-'
 # Leaf states that belong in the remove-name hint (project trees for the current selection).
 _REMOVAL_HINT_STATES = frozenset( ( 'referenced', 'missing', 'cached' ) )
 
-_LIST_SCOPES = frozenset( ( 'all', 'referenced', 'unreferenced' ) )
+_LIST_SCOPES = frozenset( ( 'all', 'referenced', 'unreferenced', 'compact' ) )
 
 _LIST_SCOPE_STATES = {
     'all': None,
-    'referenced': dependency_tree.REFERENCED_STATES,
+    # compact: only resolve-selected / missing / develop-shadowed leaves (no unused siblings).
+    'compact': dependency_tree.REFERENCED_STATES,
     'unreferenced': frozenset( ( 'unreferenced', ) ),
 }
 
@@ -53,17 +54,61 @@ def normalise_list_scope( scope ):
     return scope
 
 
+def _list_identity_key( row ):
+    """Group key matching ``dependency_tree.build_tree`` / downloads identity grouping."""
+    storage_type = row.get( 'type' ) or row.get( 'kind' ) or 'unknown'
+    short = (
+            row.get( 'short_name' )
+            or row.get( 'stem' )
+            or row.get( 'dependency' )
+            or '-'
+    )
+    return ( storage_type, short )
+
+
+def _referenced_identity_keys( rows ):
+    keys = set()
+    for row in rows:
+        if row.get( 'state' ) in dependency_tree.REFERENCED_STATES:
+            keys.add( _list_identity_key( row ) )
+    return keys
+
+
+def _filter_rows_for_scope( rows, scope ):
+    """Return rows for a list scope.
+
+    ``referenced`` keeps every leaf under an identity that has at least one
+    resolve-selected / missing / cached leaf (unused siblings stay visible).
+    ``compact`` keeps only those selected states. ``unreferenced`` keeps
+    identities with no selected leaf.
+    """
+    if scope == 'all':
+        return list( rows )
+    if scope == 'compact':
+        states = _LIST_SCOPE_STATES['compact']
+        return [ row for row in rows if row.get( 'state' ) in states ]
+    referenced_keys = _referenced_identity_keys( rows )
+    if scope == 'referenced':
+        return [
+                row for row in rows
+                if _list_identity_key( row ) in referenced_keys
+        ]
+    if scope == 'unreferenced':
+        return [
+                row for row in rows
+                if _list_identity_key( row ) not in referenced_keys
+        ]
+    return list( rows )
+
+
 def apply_list_scope( data, scope, tree_builder=None ):
-    """Filter listing data to ``all``, ``referenced``, or ``unreferenced``.
+    """Filter listing data to ``all``, ``referenced``, ``unreferenced``, or ``compact``.
 
     Used by ``--list-dependencies`` and ``--list-downloads``. Rebuilds the hierarchical
     tree and size rollups so text and JSON stay consistent.
     """
     scope = normalise_list_scope( scope )
-    states = _LIST_SCOPE_STATES.get( scope )
-    rows = list( data.get( 'rows' ) or [] )
-    if states is not None:
-        rows = [ row for row in rows if row.get( 'state' ) in states ]
+    rows = _filter_rows_for_scope( data.get( 'rows' ) or [], scope )
     filtered = dict( data )
     filtered['rows'] = rows
     filtered['scope'] = scope
@@ -84,10 +129,12 @@ def apply_list_scope( data, scope, tree_builder=None ):
 
     tree = tree_builder( rows )
     if scope != 'all':
+        # compact lands in the referenced section; keep that label for the tree.
+        section_label = 'referenced' if scope == 'compact' else scope
         tree = {
             'sections': [
                 section for section in ( tree.get( 'sections' ) or [] )
-                if section.get( 'label' ) == scope and section.get( 'children' )
+                if section.get( 'label' ) == section_label and section.get( 'children' )
             ],
         }
     filtered['tree'] = tree
@@ -100,18 +147,24 @@ def apply_list_scope( data, scope, tree_builder=None ):
                 int( row.get( 'size_bytes' ) or 0 )
                 for row in rows if row.get( 'role' ) == 'archive'
         )
-        filtered['unreferenced_bytes'] = sum(
-                int( row.get( 'size_bytes' ) or 0 )
-                for row in rows
-                if row.get( 'role' ) == 'archive' and row.get( 'state' ) == 'unreferenced'
-        )
+        if scope in ( 'referenced', 'compact' ):
+            filtered['unreferenced_bytes'] = 0
+        else:
+            filtered['unreferenced_bytes'] = sum(
+                    int( row.get( 'size_bytes' ) or 0 )
+                    for row in rows
+                    if row.get( 'role' ) == 'archive' and row.get( 'state' ) == 'unreferenced'
+            )
         return filtered
 
     filtered['total_bytes'] = sum( int( row.get( 'size_bytes' ) or 0 ) for row in rows )
-    filtered['unreferenced_bytes'] = sum(
-            int( row.get( 'size_bytes' ) or 0 )
-            for row in rows if row.get( 'state' ) == 'unreferenced'
-    )
+    if scope in ( 'referenced', 'compact' ):
+        filtered['unreferenced_bytes'] = 0
+    else:
+        filtered['unreferenced_bytes'] = sum(
+                int( row.get( 'size_bytes' ) or 0 )
+                for row in rows if row.get( 'state' ) == 'unreferenced'
+        )
     filtered['missing_count'] = sum( 1 for row in rows if row.get( 'state' ) == 'missing' )
     filtered['has_download_marks'] = any( row.get( 'has_download' ) for row in rows )
     return filtered
@@ -184,15 +237,16 @@ def add_dependency_action_options( add_option ):
     )
     add_option(
         '--list-scope', dest='list_scope',
-        choices=( 'all', 'referenced', 'unreferenced' ),
+        choices=( 'all', 'referenced', 'unreferenced', 'compact' ),
         nargs=1, action='store',
         help="Which sections --list-dependencies and --list-downloads show: all (default), "
-             "referenced only, or unreferenced only. Orthogonal to --list-format. "
-             "Ignored by --list-builds and --list-develop",
+             "referenced (identities this project resolves, including unused siblings), "
+             "unreferenced only, or compact (resolve-selected leaves only). "
+             "Orthogonal to --list-format. Ignored by --list-builds and --list-develop",
     )
     add_option(
         '--list-dependencies-scope', dest='list_dependencies_scope',
-        choices=( 'all', 'referenced', 'unreferenced' ),
+        choices=( 'all', 'referenced', 'unreferenced', 'compact' ),
         nargs=1, action='store',
         help="Deprecated alias of --list-scope (kept for ~/.cuppaconfig compatibility)",
     )
@@ -1139,13 +1193,15 @@ def list_dependencies( construct, cuppa_env, out=None ):
     if missing:
         missing_note = ', {} missing'.format( missing )
     scope = data.get( 'scope' ) or 'all'
-    if scope == 'referenced':
-        # Scoped view: total is the referenced section; omit a useless 0B unreferenced.
-        out.write( "{}{} entries, {} total, {} referenced{}{}\n".format(
+    if scope in ( 'referenced', 'compact' ):
+        # Scoped view: total is this section; omit a useless 0B unreferenced.
+        label = 'compact' if scope == 'compact' else 'referenced'
+        out.write( "{}{} entries, {} total, {} {}{}{}\n".format(
                 INDENT,
                 len( rows ),
                 total,
                 total,
+                label,
                 missing_note,
                 estimate_note,
         ) )
@@ -1180,7 +1236,10 @@ def list_dependencies( construct, cuppa_env, out=None ):
             "deleting only the dependency tree is not enough.\n"
         )
 
-    if any( row['state'] == 'unreferenced' for row in rows ):
+    if (
+            scope == 'all'
+            and any( row['state'] == 'unreferenced' for row in rows )
+    ):
         out.write( "\n" )
         out.write( "Review unreferenced trees, then clear them with:\n\n" )
         out.write( as_emphasised( "cuppa -Q -D --force-wipe-unreferenced-dependencies" ) + "\n" )
@@ -1262,12 +1321,14 @@ def list_downloads( construct, cuppa_env, out=None ):
     total = storage.human_size( data.get( 'total_bytes' ) or 0 )
     unref = storage.human_size( data.get( 'unreferenced_bytes' ) or 0 )
     scope = data.get( 'scope' ) or 'all'
-    if scope == 'referenced':
-        out.write( "{}{} archives, {} download total, {} referenced\n".format(
+    if scope in ( 'referenced', 'compact' ):
+        label = 'compact' if scope == 'compact' else 'referenced'
+        out.write( "{}{} archives, {} download total, {} {}\n".format(
                 INDENT,
                 archive_count,
                 total,
                 total,
+                label,
         ) )
     else:
         out.write( "{}{} archives, {} download total, {} unreferenced\n".format(
@@ -1288,7 +1349,13 @@ def list_downloads( construct, cuppa_env, out=None ):
             )
         )
 
-    if any( row.get( 'state' ) == 'unreferenced' and row.get( 'role' ) == 'archive' for row in rows ):
+    if (
+            ( data.get( 'scope' ) or 'all' ) == 'all'
+            and any(
+                    row.get( 'state' ) == 'unreferenced' and row.get( 'role' ) == 'archive'
+                    for row in rows
+            )
+    ):
         out.write( "\n" )
         out.write(
             "Review unreferenced downloads. Deleting only a dependency tree leaves the "

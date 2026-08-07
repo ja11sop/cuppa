@@ -153,8 +153,13 @@ Default dependencies: boost, boost_package
 | Referenced section, then unreferenced (current behaviour)
 
 | `referenced`
-| Only the referenced section (in use, missing, and other leaves under those identities).
-  Footer: `N entries, X total, X referenced` (no unreferenced size)
+| The referenced section only: identities this project resolves, **including unused
+  sibling leaves** under those identities (other Boost versions, other branches next to
+  `in use`). Footer: `N entries, X total, X referenced` (no unreferenced size)
+
+| `compact`
+| Resolve-selected leaves only (`in use` / `missing` / develop-shadowed) — no unused
+  siblings. Use this when you want a short “what this selection actually uses” view
 
 | `unreferenced`
 | Only leftover trees this project does not resolve
