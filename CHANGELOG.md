@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   builds from master tip, creates the GitHub Release and tag, then waits for `pypi` approval.
   Manual `v*` tag push remains as an escape hatch. Antora **Contributing** documents the flow
   with Mermaid diagrams (`contributing.adoc` and children). See `release.txt`.
+- Tracked maintainer process narrative under `design/process/` (agent workflow journey), with
+  `AGENTS.md` update rules and `.github/CODEOWNERS` review on that tree.
 
 ### Deprecated
 
