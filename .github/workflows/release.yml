@@ -1,23 +1,142 @@
 name: release
 
+# Tag push or manual dispatch publishes a cuppa release.
+#
+# Order of setup (once):
+# 1. Merge this workflow to master.
+# 2. Create a GitHub Environment named `pypi` with required reviewers
+#    (Settings → Environments).
+# 3. On PyPI → project cuppa → Publishing → Trusted publishers, add:
+#      Owner: ja11sop
+#      Repository: cuppa
+#      Workflow: release.yml
+#      Environment: pypi
+#
+# Cut a release:
+# 1. PR that runs `python -m scripts.finish_release` (VERSION + CHANGELOG), merge.
+# 2. Tag that merge commit `vX.Y.Z` and push the tag (or create the tag in the UI).
+# 3. This workflow gates, builds, creates the GitHub Release, then waits for
+#    approval on the `pypi` environment before uploading to PyPI.
+# 4. Re-run publish for an existing tag via workflow_dispatch with that tag.
+
 on:
   push:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag to publish (for example v1.4.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
 
 jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.set.outputs.tag }}
+      version: ${{ steps.set.outputs.version }}
+    steps:
+      - id: set
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            TAG="$INPUT_TAG"
+          else
+            TAG="$REF_NAME"
+          fi
+          case "$TAG" in
+            v[0-9]*) ;;
+            *)
+              echo "tag must look like v1.4.0, got: $TAG" >&2
+              exit 1
+              ;;
+          esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
   gate:
-    # A tag may only name a released version whose changelog section is written and dated.
+    needs: resolve
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - name: Install dependencies
         run: pip install packaging
       - name: Check release
+        run: python -m scripts.check_release --tag "${{ needs.resolve.outputs.tag }}"
+
+  build:
+    needs: [ resolve, gate ]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.tag }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install build tooling
+        run: pip install build packaging
+      - name: Build sdist and wheel
+        run: python -m build
+      - name: Write release notes
         run: |
-          python -m scripts.check_release \
-            --tag "${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}"
+          python -m scripts.release_notes \
+            --tag "${{ needs.resolve.outputs.tag }}" \
+            -o release-notes.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: |
+            dist/
+            release-notes.md
+
+  github-release:
+    needs: [ resolve, build ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.resolve.outputs.tag }}
+          name: cuppa ${{ needs.resolve.outputs.version }}
+          body_path: release-notes.md
+          files: dist/*
+          fail_on_unmatched_files: true
+          # Re-running workflow_dispatch on an existing release updates notes/assets.
+          make_latest: true
+
+  pypi:
+    needs: [ resolve, build, github-release ]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/cuppa/${{ needs.resolve.outputs.version }}/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: .
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/

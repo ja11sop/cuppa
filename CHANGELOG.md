@@ -183,6 +183,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The `release` workflow builds sdist and wheel, creates the GitHub Release from the CHANGELOG
+  section, and publishes to PyPI via Trusted Publishing after approval on the `pypi` environment.
+  Tag push and `workflow_dispatch` (existing tag) both drive it; see `release.txt`.
 - Real `BuildWith` / default-dependency resolves stamp inventory `last_used` and `used_by`
   (sconstruct directory). `--list-dependencies` and remove / purge still do not (#145).
 - Conan installs write `.cuppa_conan_meta.json` (fingerprint, name, `tool_variant`, settings)
