@@ -61,12 +61,15 @@ repository root and never in `docs/` (that tree is the published Antora site):
   the reasoning is still cited from code or docs, in which case move it to `design/archive/`.
 - `design/issues/` — text drafted for a GitHub issue. Delete it once the issue is filed.
 - `design/archive/` — shipped work whose rationale something still references.
+- `design/process/` — living maintainer process narrative (how this repo is operated with CI and
+  agents). Not a product plan. Today: [`design/process/agent-workflow-journey.md`](design/process/agent-workflow-journey.md).
 
 Filenames are kebab-case. Every document opens with a `Status` / `Related` / `Updated` header,
 and must be added to the Index table in `design/README.md`; `tests/unit/test_design_index.py`
-fails otherwise. Statuses are `proposal`, `in progress`, `issue draft`, or `shipped`. An issue
-draft also carries an `Impact` line — the release impact of the work, which becomes the pull
-request's `impact:` label and decides the version it targets.
+fails otherwise. Statuses are `proposal`, `in progress`, `issue draft`, `shipped`, or `living`
+(`living` only under `process/`). An issue draft also carries an `Impact` line — the release
+impact of the work, which becomes the pull request's `impact:` label and decides the version it
+targets.
 
 `ROADMAP.md` remains the canonical statement of what is planned — a design document explains the
 reasoning behind a roadmap entry and links back to it, rather than duplicating it.
@@ -76,6 +79,31 @@ implementation commit** (a short settled-decisions table beats rewiring CLI help
 When behaviour lands, **update that plan's progress snapshot in the same change** (or the same
 PR), not only in a late housekeeping sweep — stale “still a proposal” rows are how agents and
 people lose the plot.
+
+### Process journey (`design/process/`)
+
+[`agent-workflow-journey.md`](design/process/agent-workflow-journey.md) is maintainer context: why
+the release ritual, `AGENTS.md` rules, and helpers exist. Day-to-day “what do I run?” stays in
+`AGENTS.md` and Antora Contributing — do not duplicate those checklists into the journey.
+
+**Who edits it:** the primary maintainer owns it. Agents and other contributors **append by
+default** (new §5/§6 bullets, a timeline row, or a short case study). Do not rewrite the whole
+arc unless the maintainer asks. `.github/CODEOWNERS` requests review on `design/process/`.
+
+**When to update** (event-driven, not a fixed calendar):
+
+- A durable rule lands in `AGENTS.md`, Contributing, or `release.yml`.
+- A process incident (wrong tag, CI footgun, new helper invented under pressure).
+- A blueprint Stage proves necessary, or a multi-session product arc ends.
+- The merge-readiness or release ritual itself changes.
+
+**When not to:** routine feature PRs, typo-only docs, chat that did not change repo rules.
+
+**Periodic skim:** when opening a new cycle with `start_release`, re-read the journey once for
+drift against `AGENTS.md` / Contributing and bump `Updated:` if you fix anything.
+
+**Privacy:** the same private-projects rule as every tracked file. Never copy names from
+`INTERNAL_PROJECTS.local.md` into the journey. Gitignored `*.local.md` files remain local-only.
 
 ## Private projects — never name them here
 
@@ -278,6 +306,9 @@ treat merge readiness as “CI green alone”. In the same local batch (see batc
    index row. Mark shipped slices done; park deferred work explicitly; update `Updated:` dates.
    Prefer that these already moved with the behaviour commits; this pass is the safety net.
    Do not close umbrella issues in PR text unless the plan says that slice closes them.
+   If this PR changed agent/release *process* (`AGENTS.md`, `release.yml`, Contributing release
+   pages), append to [`design/process/agent-workflow-journey.md`](design/process/agent-workflow-journey.md)
+   per the Working documents rules — skip that file on ordinary feature PRs.
 
 After that batch is committed and pushed, watch CI as usual. If only docs/plan/CHANGELOG change
 after a green run, still prefer **one** push of the housekeeping batch rather than dripping

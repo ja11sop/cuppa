@@ -15,7 +15,7 @@ pytestmark = pytest.mark.unit
 DESIGN_DIR = Path(__file__).resolve().parents[2] / "design"
 INDEX_FILE = DESIGN_DIR / "README.md"
 
-STATUSES = ("proposal", "in progress", "issue draft", "shipped")
+STATUSES = ("proposal", "in progress", "issue draft", "shipped", "living")
 
 # A folder implies a status: an unfiled issue draft in plans/, or a shipped plan left in plans/,
 # means the lifecycle described in design/README.md has been skipped.
@@ -23,6 +23,7 @@ FOLDER_STATUSES = {
     "plans": ("proposal", "in progress"),
     "issues": ("issue draft",),
     "archive": ("shipped",),
+    "process": ("living",),
 }
 
 INDEX_ROW = re.compile(r"^\|\s*\[`(?P<label>[^`]+)`\]\((?P<path>[^)]+)\)\s*\|\s*(?P<status>[^|]+?)\s*\|")
