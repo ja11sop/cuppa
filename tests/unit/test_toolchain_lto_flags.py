@@ -128,6 +128,19 @@ def test_clang_resolve_versioned_tool_prefers_major_suffix(tmp_path):
     assert toolchain._resolve_versioned_tool("llvm-ar") == str(llvm_ar)
 
 
+def test_clang_resolve_versioned_tool_joins_where_is_directory(tmp_path):
+    """where_is() returns a directory; AR must be the tool path, not the dir."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    llvm_ar = bindir / "llvm-ar"
+    llvm_ar.write_text("", encoding="utf-8")
+    llvm_ar.chmod(0o755)
+    toolchain = _clang(24, name="clang24_profiles_x", cxx_path=str(tmp_path / "empty"))
+    (tmp_path / "empty").mkdir()
+    with patch("cuppa.build_platform.where_is", return_value=str(bindir)):
+        assert toolchain._resolve_versioned_tool("llvm-ar") == str(llvm_ar)
+
+
 def test_gcc_dialect_flags_no_longer_embed_lto():
     assert "-flto" not in _gcc(10)._Gcc__default_dialect_flags()
     assert "-flto=auto" not in _gcc(14)._Gcc__default_dialect_flags()

@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Clang `_resolve_versioned_tool` joins the tool name onto `where_is()`'s directory again, so
+  archive Clang (no in-tree `llvm-ar`) sets `AR` to `/usr/bin/llvm-ar` rather than `/usr/bin`
+  and static library archives no longer fail with `Permission denied: '/usr/bin'`.
+
 ### Security
 
 ## [1.4.0] - 2026-08-07
