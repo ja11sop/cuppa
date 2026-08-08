@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `scripts.github_helpers show-pr` (alias `fetch-pr`) prints an open pull request's title, labels,
+  head/base, and body via the public GitHub API (`--json` for a stable summary). Prefer this over
+  hand-rolled `GET /pulls/{n}` when agents need PR metadata.
 - `--toolchain-archive=` and `--clang-root=` / `--gcc-root=` fetch or point at Clang and GCC
   installs, cache them under the downloads / dependencies roots as toolchain dependencies, and
   register non-colliding names (`clang{major}_{tag}`, `gcc{major}_{stem}`, or

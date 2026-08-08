@@ -2,7 +2,7 @@
 
 - **Status:** living
 - **Related:** [`AGENTS.md`](../../AGENTS.md) (agent ops); Antora Contributing (human versioning/release)
-- **Updated:** 2026-08-07
+- **Updated:** 2026-08-09
 - **Maintainer:** primary author of this journey; others append only (see `AGENTS.md`)
 - **Privacy:** obey the private-projects rule; never copy names from `INTERNAL_PROJECTS.local.md`
 - **Source:** Cursor sessions spanning roughly mid-July → 2026-08-07 on cuppa
@@ -88,6 +88,7 @@ yourself repeating a correction in chat*.
 Whenever an agent mistook `GitHub.request`’s `(status, body)` tuple, or reinvented PR polling,
 we added a helper:
 
+- `show-pr` / `fetch-pr` (title, labels, body via the public API — not `gh`, not sealed token)
 - `pr-status` / `watch-pr` (sparse poll schedule to spare the API)
 - `fetch-ci-logs` (Actions logs need auth even on public repos; pass `--pr` or `--run-id`)
 - `create-pr` / `update-pr` (title/body/labels without hand-rolled PATCH)
@@ -292,6 +293,7 @@ These are recommendations for the next project, not self-flagellation.
 | `--list-format=json` for agent consumption | Text is for eyes; JSON is for scripts |
 | Housekeeping ritual before merge | Prevents “green CI, stale ROADMAP” |
 | Sealed token + public reads by default | Safer defaults for agents |
+| `show-pr` / `fetch-pr` for PR metadata | Prefer helpers over ad-hoc `GET /pulls/{n}` (and never `gh`) |
 | `*.local.md` for secrets of context | Public repo stays clean |
 | `check_release` before build/publish | Catches `.dev` / unreleased before PyPI |
 | prepare / publish `workflow_dispatch` | Removes hand-tag ordering mistakes |
