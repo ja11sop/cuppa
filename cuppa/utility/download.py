@@ -63,33 +63,80 @@ def format_duration( seconds ):
 _SIZE_WIDTH = 7   # e.g. "159.5M", "    0B"
 _RATE_WIDTH = 8   # e.g. "109.1M/s", "     0B/s"
 _ETA_WIDTH = 3    # e.g. "15s", " 9s", " --"
+_BAR_WIDTH = 20   # cells inside ``[`` ``]``
 
 
-def format_progress_line( label, bytes_so_far, total_size, elapsed_s, action='Downloading' ):
+def _as_emphasised_info( text ):
+    """Bright info colour (percent, bar fill, completed done size)."""
+    return as_emphasised( as_info( text ) )
+
+
+def format_progress_bar( percent, width=_BAR_WIDTH, started=True ):
+    """ASCII bar ``[…]``; fill is emphasised info colour, brackets are plain.
+
+    Not started: empty fill. Started at 0%: tip ``>``. In progress: ``=`` run
+    plus tip. Complete: solid ``=``.
+    """
+    if width < 1:
+        width = 1
+    if percent >= 100.0:
+        fill = '=' * width
+    elif not started:
+        fill = ' ' * width
+    else:
+        filled = int( round( percent * width / 100.0 ) )
+        if filled <= 0:
+            fill = '>' + ' ' * ( width - 1 )
+        else:
+            # Keep a tip cell until the transfer completes.
+            filled = min( filled, width - 1 )
+            fill = ( '=' * filled ) + '>' + ( ' ' * ( width - filled - 1 ) )
+    if fill.strip():
+        # Colour only the glyph run; trailing spaces stay plain so empty cells
+        # do not carry a lingering style into the closing bracket.
+        glyphs = fill.rstrip( ' ' )
+        spaces = ' ' * ( len( fill ) - len( glyphs ) )
+        return '[' + _as_emphasised_info( glyphs ) + spaces + ']'
+    return '[' + fill + ']'
+
+
+def format_progress_line(
+        label, bytes_so_far, total_size, elapsed_s, action='Downloading', started=True,
+):
     """One progress line (no trailing newline). Shared TTY and non-TTY shape.
 
-    Size and percent use info colour (percent also emphasised); rate is subdued.
-    Fields are padded to fixed widths before ANSI wraps so columns stay aligned.
+    Known size: ``percent [bar] done/total rate ETA``. Percent and bar fill use
+    emphasised info colour; target size is emphasised only (normal foreground);
+    transferred size is info (also emphasised at 100%); rate is subdued.
+    Fields are padded before ANSI wraps so columns stay aligned.
     """
     rate = ( float( bytes_so_far ) / elapsed_s ) if elapsed_s > 0 else 0.0
     rate_text = as_subdued( "{}/s".format( human_size( rate ) ).rjust( _RATE_WIDTH ) )
-    done = as_info( human_size( bytes_so_far ).rjust( _SIZE_WIDTH ) )
+    done_text = human_size( bytes_so_far ).rjust( _SIZE_WIDTH )
     verb = action or 'Downloading'
     if total_size and total_size > 0:
         percent = min( 100.0, 100.0 * float( bytes_so_far ) / float( total_size ) )
         remaining = max( 0.0, float( total_size ) - float( bytes_so_far ) )
         eta = ( remaining / rate ) if rate > 0 else None
-        percent_text = as_emphasised( as_info( "({:3.0f}%)".format( percent ) ) )
-        return "{} {}  {} / {}  {}  {}  ETA {}".format(
+        percent_text = _as_emphasised_info( "{:3.0f}%".format( percent ) )
+        if percent >= 100.0:
+            done = _as_emphasised_info( done_text )
+        else:
+            done = as_info( done_text )
+        total = as_emphasised( human_size( total_size ) )
+        return "{} {}  {} {}  {}/{}  {}  ETA {}".format(
                 verb,
                 label,
-                done,
-                human_size( total_size ),
                 percent_text,
+                format_progress_bar( percent, started=started ),
+                done,
+                total,
                 rate_text,
                 format_duration( eta ).rjust( _ETA_WIDTH ),
         )
-    return "{} {}  {} transferred  {}".format( verb, label, done, rate_text )
+    return "{} {}  {} transferred  {}".format(
+            verb, label, as_info( done_text ), rate_text,
+    )
 
 
 def open_progress_stream():
@@ -160,6 +207,7 @@ class ProgressReporter( object ):
         self._label = ''
         self._total = None
         self._started = None
+        self._bar_started = False
         self._last_emit = None
         self._next_line_percent = line_percent_step
         self._last_line = ''
@@ -175,6 +223,10 @@ class ProgressReporter( object ):
         self._next_line_percent = self._line_percent_step
         self._last_line = ''
         self._finished = False
+        # Empty bar (not started), then tip so the transfer looks armed at 0%.
+        self._bar_started = False
+        self.update( 0, force=True )
+        self._bar_started = True
         self.update( 0, force=True )
 
     def update( self, bytes_so_far, force=False ):
@@ -202,7 +254,12 @@ class ProgressReporter( object ):
                         self._next_line_percent += self._line_percent_step
 
         line = format_progress_line(
-                self._label, bytes_so_far, self._total, elapsed, action=self._action,
+                self._label,
+                bytes_so_far,
+                self._total,
+                elapsed,
+                action=self._action,
+                started=self._bar_started,
         )
         self._emit( line, newline=not self._is_tty )
         self._last_emit = now
@@ -234,7 +291,12 @@ class ProgressReporter( object ):
         now = self._clock()
         elapsed = max( 0.0, now - ( self._started or now ) )
         line = format_progress_line(
-                self._label, bytes_so_far, self._total, elapsed, action=self._action,
+                self._label,
+                bytes_so_far,
+                self._total,
+                elapsed,
+                action=self._action,
+                started=True,
         )
         self._emit( line, newline=True )
         self._last_line = line

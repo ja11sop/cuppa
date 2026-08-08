@@ -32,9 +32,18 @@ def test_format_duration():
     assert dl.format_duration( None ) == '--'
 
 
+def test_format_progress_bar_states():
+    assert dl.format_progress_bar( 0, started=False ) == '[' + ( ' ' * 20 ) + ']'
+    assert dl.format_progress_bar( 0, started=True ) == '[>' + ( ' ' * 19 ) + ']'
+    assert dl.format_progress_bar( 5 ) == '[=>' + ( ' ' * 18 ) + ']'
+    assert dl.format_progress_bar( 95 ) == '[' + ( '=' * 19 ) + '>]'
+    assert dl.format_progress_bar( 100 ) == '[' + ( '=' * 20 ) + ']'
+
+
 def test_format_progress_line_known_size():
     line = dl.format_progress_line( 'big.deb', 412 * 1024 * 1024, 1600 * 1024 * 1024, 10.0 )
     assert 'Downloading big.deb' in line
+    assert '[' in line and ']' in line
     assert '/' in line
     assert '%' in line
     assert '/s' in line
@@ -46,18 +55,19 @@ def test_format_progress_line_columns_stable():
 
     total = int( 1.6 * 1024 ** 3 )
     lines = [
-        dl.format_progress_line( 'file.deb', 0, total, 0.0 ),
+        dl.format_progress_line( 'file.deb', 0, total, 0.0, started=True ),
         dl.format_progress_line( 'file.deb', int( 0.05 * total ), total, 0.8 ),
         dl.format_progress_line( 'file.deb', int( 0.10 * total ), total, 1.5 ),
         dl.format_progress_line( 'file.deb', total, total, 15.0 ),
     ]
-    # Slash, percent paren, and ETA stay in fixed columns across updates.
-    for marker in ( ' / ', '%)  ', '  ETA ' ):
+    for marker in ( ']  ', '  ETA ' ):
         columns = [ line.index( marker ) for line in lines ]
         assert len( set( columns ) ) == 1, ( marker, columns, lines )
-    assert '(  0%)' in lines[0]
-    assert '(100%)' in lines[-1]
-    assert len( set( visible_len( line ) for line in lines[1:] ) ) == 1
+    assert '  0%' in lines[0]
+    assert '100%' in lines[-1]
+    assert '[>' in lines[0]
+    assert '[' + ( '=' * 20 ) + ']' in lines[-1]
+    assert len( set( visible_len( line ) for line in lines ) ) == 1
 
 
 def test_format_progress_line_uses_colour_when_enabled():
@@ -66,9 +76,14 @@ def test_format_progress_line_uses_colour_when_enabled():
     was = colouriser.use_colour
     colouriser.enable()
     try:
-        line = dl.format_progress_line( 'file.deb', 50, 100, 1.0 )
-        assert '\x1b[' in line
-        assert '( 50%)' in line
+        mid = dl.format_progress_line( 'file.deb', 50, 100, 1.0 )
+        assert '\x1b[' in mid
+        assert ' 50%' in mid
+        # Brackets stay outside the emphasised info fill.
+        assert '[\x1b[' in mid
+        done = dl.format_progress_line( 'file.deb', 100, 100, 1.0 )
+        # Completed transferred size is emphasised; mid-transfer size is not.
+        assert done.count( '\x1b[1m' ) > mid.count( '\x1b[1m' )
     finally:
         colouriser.use_colour = was
 
