@@ -23,7 +23,7 @@ maintainer workflow evolved.
 | [`plans/boost-updates.md`](plans/boost-updates.md) | proposal | Boost source vs GitLab `boost_package` identity: patched default, version suffix, `use_libs` parity |
 | [`plans/colourised-doc-samples.md`](plans/colourised-doc-samples.md) | proposal | Capture cuppa report output as semantic HTML for Antora samples and local preview |
 | [`plans/coverage-performance.md`](plans/coverage-performance.md) | proposal | Where `--cov --test` time actually goes, what the A/B measurement ruled out, and the remaining suspects |
-| [`plans/download-progress.md`](plans/download-progress.md) | in progress | Shared transfer progress (bar / bytes / % / rate / ETA); phase 1 + extract + GitLab fetch (#165); next zip → Conan → git |
+| [`plans/download-progress.md`](plans/download-progress.md) | in progress | Shared transfer progress (bar / bytes / % / rate / ETA); through zip extract (#165); next Conan → git |
 | [`plans/modules-activation.md`](plans/modules-activation.md) | proposal | Whether C++ modules should stay opt-in behind `--modules` or become opt-out, and what must land first |
 | [`plans/removal-options.md`](plans/removal-options.md) | in progress | Phases 1–5 + wipe + §3.7/§3.8 shipped ([#154](https://github.com/ja11sop/cuppa/pull/154)); Phase 6 artefacts [#135](https://github.com/ja11sop/cuppa/issues/135) open; next focus artefacts when that design starts |
 | [`plans/scons-tool-wrapper.md`](plans/scons-tool-wrapper.md) | proposal | Wrapping an SCons Tool as a cuppa dependency instead of hand-writing a dependency class |

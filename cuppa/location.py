@@ -36,7 +36,12 @@ import cuppa.core.storage_options
 from cuppa.colourise import as_notice, as_info, as_warning, as_error, as_info_label
 from cuppa.log import logger, register_secret
 from cuppa.path import split_common
-from cuppa.utility.download import DownloadError, extract_tar_archive, format_duration
+from cuppa.utility.download import (
+    DownloadError,
+    extract_tar_archive,
+    extract_zip_archive,
+    format_duration,
+)
 from cuppa.utility.python2to3 import as_str, as_byte_str
 from cuppa.utility.storage import human_size
 
@@ -257,9 +262,32 @@ class Location(object):
             )
 
         if zipfile.is_zipfile( filename ):
-            logger.debug( "Extracting [{}] into [{}]".format( as_info( filename ), as_info( target_dir ) ) )
-            with zipfile.ZipFile( filename ) as zf:
-                zf.extractall( target_dir )
+            try:
+                size_text = human_size( os.path.getsize( filename ) )
+            except OSError:
+                size_text = '?'
+            logger.info(
+                    "Extracting [{}] ({}) into [{}]...".format(
+                            as_info( filename ),
+                            as_info( size_text ),
+                            as_info( target_dir ),
+                    )
+            )
+            started = time.time()
+            try:
+                extract_zip_archive( filename, target_dir )
+            except DownloadError as error:
+                raise LocationException(
+                    "Could not unzip downloaded file from [{}]: {}".format(
+                            filename, error.parameter
+                    )
+                )
+            logger.info(
+                    "Extracted [{}] in {}".format(
+                            as_info( os.path.basename( filename ) ),
+                            as_info( format_duration( time.time() - started ) ),
+                    )
+            )
 
         while cls.remove_common_top_directory_under( target_dir ):
             pass

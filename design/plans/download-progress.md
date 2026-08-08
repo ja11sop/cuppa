@@ -24,7 +24,7 @@ toolchain `.deb` extract progress.
 | Docs / CHANGELOG (phase 1) | Done (#165) |
 | `dl-prog-extract` — shared tar extract helper for `Location.extract` + GitLab package tars | Done (this branch / #165) |
 | `dl-prog-gitlab` — GitLab HTTPS via `download_file` + auth headers (replace `wget`) | Done (this branch / #165) |
-| `dl-prog-zip` — zip extract progress (`Location.extract` / package zips) | After GitLab download |
+| `dl-prog-zip` — zip extract progress (`Location.extract` / package zips) | Done (this branch / #165) |
 | `dl-prog-conan` — stream Conan install output instead of capturing | Later |
 | `dl-prog-git` — stream git clone/fetch `--progress` | Later |
 | `dl-prog-curl` — optional curl/wget resume backend | Optional / later |
@@ -81,6 +81,7 @@ Phase 2+ extensions (when each slice lands):
   (falls back to `tarfile` when `tar` is missing).
 - GitLab: `registry_auth_headers` / `download_registry_package` (token registered for masking;
   never logged on the progress line).
+- `extract_zip_archive` — per-member extract with progress over uncompressed sizes.
 
 ## Call sites (phase 1)
 
@@ -92,6 +93,7 @@ Phase 2+ extensions (when each slice lands):
 | `cuppa/toolchains/toolchain_archive.py` download | `download_file` |
 | `cuppa/toolchains/toolchain_archive.py` `.deb` / non-`.deb` extract | `extract_tar_archive` / `Location.extract` |
 | `cuppa/package_managers/gitlab.py` package download | `download_registry_package` → `download_file` + headers |
+| `cuppa/location.py` / GitLab zip extract | `extract_zip_archive` |
 
 ## Phases (ordered)
 
@@ -100,7 +102,7 @@ Phase 2+ extensions (when each slice lands):
 | Phase 1 | Location + toolchain HTTP download; `.deb` extract; settled line/colour | `download_file` / `transfer_file` | Done on #165 |
 | `dl-prog-extract` | `Location.extract` tar path; GitLab `extract_package_archive` tar path; toolchain non-`.deb` via `Location.extract` | Shared tar helper + `transfer_file` | Done on #165 |
 | `dl-prog-gitlab` | `GitlabPackageDependency` + `GitlabPackageInstaller` download | `download_file` + headers; drop `wget` for the fetch | Done on #165 |
-| `dl-prog-zip` | Zip extract in `Location.extract` / package zips | Per-member or external `unzip` with progress | Harder than tar; after GitLab download |
+| `dl-prog-zip` | Zip extract in `Location.extract` / package zips | `extract_zip_archive` per-member + uncompressed-byte progress | Done on #165 |
 | `dl-prog-conan` | Conan consumer install | Stream subprocess (no `capture_output`) or parse live | Not a `ProgressReporter` byte bar |
 | `dl-prog-git` | Git clone/fetch (location, develop) | Stream git with `--progress` via existing subprocess helpers | Not a fake byte bar |
 | `dl-prog-curl` | Optional resume backend | curl/wget under `download_file` | Only if partial/resume becomes a real need |
@@ -112,7 +114,7 @@ Phase 2+ extensions (when each slice lands):
 | Order | extract → GitLab download → zip → Conan → git (curl optional) |
 | Extract helper | One shared tar-from-path helper used by location, GitLab packages, and toolchain non-`.deb`; mirror the `.deb` `transfer_file` → `tar -x*f -` pattern |
 | Compression flags | Choose `tar` stdin flags from the archive suffix (same idea as `_tar_stdin_command` for `.deb`) |
-| Zip | Explicit later slice (`dl-prog-zip`); do not block tar extract on zip |
+| Zip | `extract_zip_archive`: per-member `ZipFile.extract`, progress by sum of `file_size` |
 | GitLab auth | Extend `download_file` with optional headers; do not put tokens on the progress line; launcher masking unchanged |
 | Conan / git | Stream tool output; refuse inventing cuppa percent bars over opaque subprocess work |
 | Out of scope | Tiny HTTP probes (Boost version HTML, PyPI check), publish/upload paths, local `copytree`, b2 (already streams) |
@@ -123,7 +125,7 @@ Phase 2+ extensions (when each slice lands):
 - Do not replace Conan or git with a cuppa byte bar that guesses progress.
 - Do not leave secrets in progress labels or logger lines.
 - Do not require `wget`/`curl` on PATH for the GitLab fetch once `dl-prog-gitlab` lands (stdlib HTTP + headers).
-- Do not expand zip progress into the first extract PR.
+- Prefer `ZipFile.extract` per member (stdlib path checks) over a custom unzip path.
 
 ## Tests / docs
 

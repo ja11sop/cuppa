@@ -22,6 +22,7 @@ import subprocess
 import sys
 import tarfile
 import time
+import zipfile
 
 try:
     from urllib.request import urlopen, Request
@@ -440,6 +441,67 @@ def extract_tar_archive(
     if proc.wait() != 0:
         raise DownloadError(
             "tar failed to extract [{}] into [{}]".format( archive_path, extract_root )
+        )
+    return extract_root
+
+
+def _zip_member_is_dir( member ):
+    is_dir = getattr( member, 'is_dir', None )
+    if callable( is_dir ):
+        return is_dir()
+    name = member.filename
+    return bool( name ) and name[-1] in '/\\'
+
+
+def extract_zip_archive(
+        archive_path,
+        extract_root,
+        *,
+        label=None,
+        show_progress=None,
+        reporter=None,
+):
+    """Extract a zip archive into ``extract_root`` with uncompressed-byte progress.
+
+    Walks members with ``ZipFile.extract`` (path sanitisation from zipfile) and
+    advances the shared reporter by each member's ``file_size``.
+    """
+    if not os.path.isdir( extract_root ):
+        os.makedirs( extract_root )
+
+    progress = _maybe_reporter( show_progress, reporter, 'Extracting' )
+    display = label or os.path.basename( archive_path ) or archive_path
+    bytes_so_far = 0
+    try:
+        with zipfile.ZipFile( archive_path ) as handle:
+            members = handle.infolist()
+            total = sum( member.file_size for member in members )
+            if progress:
+                progress.begin(
+                        display,
+                        total if total > 0 else None,
+                        action='Extracting',
+                )
+            for member in members:
+                handle.extract( member, extract_root )
+                if not _zip_member_is_dir( member ):
+                    bytes_so_far += member.file_size
+                    if progress:
+                        progress.update( bytes_so_far )
+            if progress:
+                progress.done( bytes_so_far )
+    except DownloadError:
+        raise
+    except Exception as error:
+        if progress is not None:
+            try:
+                progress.done( bytes_so_far )
+            except Exception:
+                pass
+        raise DownloadError(
+            "zip failed to extract [{}] into [{}]: {}".format(
+                    archive_path, extract_root, error
+            )
         )
     return extract_root
 

@@ -307,3 +307,27 @@ def test_extract_tar_archive_with_progress( tmp_path ):
     )
     assert ( target / 'hello.txt' ).read_text( encoding='utf-8' ) == 'hi'
     assert 'Extracting pkg.tar.gz' in stream.getvalue()
+
+
+def test_extract_zip_archive_with_progress( tmp_path ):
+    import zipfile
+
+    archive = tmp_path / 'pkg.zip'
+    target = tmp_path / 'out'
+    with zipfile.ZipFile( archive, 'w' ) as handle:
+        handle.writestr( 'dir/a.txt', 'aaa' * 1000 )
+        handle.writestr( 'dir/b.txt', 'bbb' * 1000 )
+
+    stream = io.StringIO()
+    reporter = dl.ProgressReporter(
+            stream=stream, is_tty=False, line_interval_s=0, action='Extracting',
+    )
+    dl.extract_zip_archive(
+            str( archive ),
+            str( target ),
+            show_progress=True,
+            reporter=reporter,
+    )
+    assert ( target / 'dir' / 'a.txt' ).read_text( encoding='utf-8' ) == 'aaa' * 1000
+    assert ( target / 'dir' / 'b.txt' ).read_text( encoding='utf-8' ) == 'bbb' * 1000
+    assert 'Extracting pkg.zip' in stream.getvalue()

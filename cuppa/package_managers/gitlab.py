@@ -137,13 +137,16 @@ def create_package_archive( archive_path, working_dir, source_dir ):
 
 def extract_package_archive( archive_path, extraction_dir ):
     """Extract a GitLab package archive into ``extraction_dir`` (preserves ``package/version/…``)."""
-    if archive_path.endswith( '.zip' ):
-        with zipfile.ZipFile( archive_path ) as archive:
-            archive.extractall( extraction_dir )
-        return 0
-    from cuppa.utility.download import DownloadError, extract_tar_archive
+    from cuppa.utility.download import (
+        DownloadError,
+        extract_tar_archive,
+        extract_zip_archive,
+    )
     try:
-        extract_tar_archive( archive_path, extraction_dir )
+        if archive_path.endswith( '.zip' ):
+            extract_zip_archive( archive_path, extraction_dir )
+        else:
+            extract_tar_archive( archive_path, extraction_dir )
         return 0
     except DownloadError as error:
         logger.error( "Failed to extract package archive [{}]: {}".format(
