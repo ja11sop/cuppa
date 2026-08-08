@@ -12,6 +12,7 @@ import subprocess
 import shlex
 import os
 import re
+import sys
 
 from collections import namedtuple
 
@@ -70,6 +71,91 @@ class Git:
                     git=as_warning(cls.binary())
             ) )
             raise cls.Error("Binary [{git}] is not available".format(  git=cls.binary() ) )
+
+
+    @classmethod
+    def _run_with_progress( cls, args_list, path=None ):
+        """Run a long network git command, streaming progress when possible.
+
+        Prefer the controlling terminal for stderr so git's ``\\r`` progress works
+        under the ``cuppa`` launcher (piped scons stdio). Without a tty, stream
+        line-by-line with ``--progress``. Not a cuppa byte bar.
+        """
+        from cuppa.output_processor import IncrementalSubProcess
+        from cuppa.utility.download import open_progress_stream
+
+        try:
+            command = shlex.join( args_list )
+        except AttributeError:
+            command = " ".join( shlex.quote( part ) for part in args_list )
+
+        logger.trace( "Executing command [{command}] with progress...".format(
+                command=as_info( command )
+        ) )
+
+        progress_stream, is_tty, owns_stream = open_progress_stream()
+        try:
+            if owns_stream and is_tty:
+                process = subprocess.Popen(
+                        args_list,
+                        stdout=subprocess.PIPE,
+                        stderr=progress_stream,
+                        cwd=path,
+                        universal_newlines=True,
+                )
+                stdout_data = process.stdout.read() if process.stdout else ''
+                returncode = process.wait()
+                if returncode != 0:
+                    raise cls.Error(
+                        "Command [{command}] failed".format( command=command )
+                    )
+                return as_str( stdout_data ).strip()
+
+            output_lines = []
+
+            def _stdout_line( line ):
+                output_lines.append( line )
+                sys.stdout.write( line + '\n' )
+                try:
+                    sys.stdout.flush()
+                except Exception:
+                    pass
+
+            def _stderr_line( line ):
+                output_lines.append( line )
+                sys.stderr.write( line + '\n' )
+                try:
+                    sys.stderr.flush()
+                except Exception:
+                    pass
+
+            returncode = IncrementalSubProcess.Popen2(
+                    _stdout_line,
+                    _stderr_line,
+                    args_list,
+                    cwd=path,
+                    suppress_output=True,
+            )
+            if returncode != 0:
+                raise cls.Error(
+                    "Command [{command}] failed".format( command=command )
+                )
+            return '\n'.join( output_lines ).strip()
+        except cls.Error:
+            raise
+        except OSError:
+            logger.trace( "Binary [{git}] is not available".format(
+                    git=as_warning( cls.binary() )
+            ) )
+            raise cls.Error(
+                "Binary [{git}] is not available".format( git=cls.binary() )
+            )
+        finally:
+            if owns_stream:
+                try:
+                    progress_stream.close()
+                except Exception:
+                    pass
 
 
     @classmethod
@@ -320,7 +406,10 @@ class Git:
     @classmethod
     def fetch( cls, path ):
         """Update the remote-tracking refs. The one command in this family that uses the network."""
-        return cls.execute_command( "{git} fetch".format( git=cls.binary() ), path )
+        return cls._run_with_progress(
+                [ cls.binary(), "fetch", "--progress" ],
+                path,
+        )
 
 
     @classmethod
@@ -338,18 +427,13 @@ class Git:
         parent = os.path.dirname( path.rstrip( os.sep ) ) or '.'
         if parent and not os.path.exists( parent ):
             os.makedirs( parent )
-        parts = [ cls.binary(), "clone" ]
+        parts = [ cls.binary(), "clone", "--progress" ]
         if branch:
             parts.extend( [ "--branch", branch ] )
         if recurse_submodules:
             parts.append( "--recurse-submodules" )
         parts.extend( [ repository, path ] )
-        # Quote via shlex.join when available; fall back for older Pythons.
-        try:
-            command = shlex.join( parts )
-        except AttributeError:
-            command = " ".join( shlex.quote( part ) for part in parts )
-        return cls.execute_command( command )
+        return cls._run_with_progress( parts )
 
 
     @classmethod
