@@ -25,9 +25,10 @@ try:
 except ImportError:
     from urllib2 import urlopen, Request
 
+from cuppa.colourise import as_emphasised, as_info, as_subdued
 from cuppa.log import logger
 from cuppa.utility.python2to3 import Exception as CuppaException
-from cuppa.utility.storage import human_size
+from cuppa.utility.storage import human_size, pad_visible, visible_len
 
 
 class DownloadError( CuppaException ):
@@ -65,21 +66,26 @@ _ETA_WIDTH = 3    # e.g. "15s", " 9s", " --"
 
 
 def format_progress_line( label, bytes_so_far, total_size, elapsed_s, action='Downloading' ):
-    """One progress line (no trailing newline). Shared TTY and non-TTY shape."""
+    """One progress line (no trailing newline). Shared TTY and non-TTY shape.
+
+    Size and percent use info colour (percent also emphasised); rate is subdued.
+    Fields are padded to fixed widths before ANSI wraps so columns stay aligned.
+    """
     rate = ( float( bytes_so_far ) / elapsed_s ) if elapsed_s > 0 else 0.0
-    rate_text = "{}/s".format( human_size( rate ) ).rjust( _RATE_WIDTH )
-    done = human_size( bytes_so_far ).rjust( _SIZE_WIDTH )
+    rate_text = as_subdued( "{}/s".format( human_size( rate ) ).rjust( _RATE_WIDTH ) )
+    done = as_info( human_size( bytes_so_far ).rjust( _SIZE_WIDTH ) )
     verb = action or 'Downloading'
     if total_size and total_size > 0:
         percent = min( 100.0, 100.0 * float( bytes_so_far ) / float( total_size ) )
         remaining = max( 0.0, float( total_size ) - float( bytes_so_far ) )
         eta = ( remaining / rate ) if rate > 0 else None
-        return "{} {}  {} / {}  ({:3.0f}%)  {}  ETA {}".format(
+        percent_text = as_emphasised( as_info( "({:3.0f}%)".format( percent ) ) )
+        return "{} {}  {} / {}  {}  {}  ETA {}".format(
                 verb,
                 label,
                 done,
                 human_size( total_size ),
-                percent,
+                percent_text,
                 rate_text,
                 format_duration( eta ).rjust( _ETA_WIDTH ),
         )
@@ -205,9 +211,10 @@ class ProgressReporter( object ):
     def _emit( self, line, newline ):
         if self._is_tty:
             # Always return to column 0 so done() replaces the last rewrite
-            # instead of appending after it.
-            width = max( len( self._last_line ), len( line ) )
-            self._stream.write( '\r' + line.ljust( width ) )
+            # instead of appending after it. Pad by visible width so ANSI
+            # colour codes do not leave trailing glyphs from a longer line.
+            width = max( visible_len( self._last_line ), visible_len( line ) )
+            self._stream.write( '\r' + pad_visible( line, width ) )
             if newline:
                 self._stream.write( '\n' )
         else:

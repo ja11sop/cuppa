@@ -46,7 +46,8 @@ stderr inside scons is never a TTY and `\r` updates would never appear if we wro
 there. The old location `|=` bar avoided mid-transfer newlines by appending without
 `\n`; under the same pipe it still could stall until a newline or buffer flush.
 
-Example (fixed-width size / percent / rate / ETA columns):
+Example (fixed-width size / percent / rate / ETA columns; size and percent use
+info colour with percent emphasised, rate subdued when colour output is on):
 `Downloading gcc-snapshot_….deb   412M / 1.6G  ( 26%)   3.1M/s  ETA 6m20s`
 
 **Non-TTY / CI:** same fields on stderr, new line every ~5% or every few seconds.

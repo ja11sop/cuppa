@@ -42,6 +42,8 @@ def test_format_progress_line_known_size():
 
 
 def test_format_progress_line_columns_stable():
+    from cuppa.utility.storage import visible_len
+
     total = int( 1.6 * 1024 ** 3 )
     lines = [
         dl.format_progress_line( 'file.deb', 0, total, 0.0 ),
@@ -55,6 +57,20 @@ def test_format_progress_line_columns_stable():
         assert len( set( columns ) ) == 1, ( marker, columns, lines )
     assert '(  0%)' in lines[0]
     assert '(100%)' in lines[-1]
+    assert len( set( visible_len( line ) for line in lines[1:] ) ) == 1
+
+
+def test_format_progress_line_uses_colour_when_enabled():
+    from cuppa.colourise import colouriser
+
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        line = dl.format_progress_line( 'file.deb', 50, 100, 1.0 )
+        assert '\x1b[' in line
+        assert '( 50%)' in line
+    finally:
+        colouriser.use_colour = was
 
 
 def test_format_progress_line_extract_action():
