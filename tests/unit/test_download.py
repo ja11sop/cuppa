@@ -1,0 +1,142 @@
+#          Copyright Jamie Allsop 2026-2026
+# Distributed under the Boost Software License, Version 1.0.
+#    (See accompanying file LICENSE_1_0.txt or copy at
+#          http://www.boost.org/LICENSE_1_0.txt)
+
+import io
+import os
+
+import pytest
+
+from cuppa.utility import download as dl
+
+
+pytestmark = pytest.mark.unit
+
+
+class FakeClock( object ):
+    def __init__( self, start=1000.0 ):
+        self.now = start
+
+    def __call__( self ):
+        return self.now
+
+    def advance( self, seconds ):
+        self.now += seconds
+
+
+def test_format_duration():
+    assert dl.format_duration( 45 ) == '45s'
+    assert dl.format_duration( 80 ) == '1m20s'
+    assert dl.format_duration( 3725 ) == '1h02m'
+    assert dl.format_duration( None ) == '--'
+
+
+def test_format_progress_line_known_size():
+    line = dl.format_progress_line( 'big.deb', 412 * 1024 * 1024, 1600 * 1024 * 1024, 10.0 )
+    assert 'Downloading big.deb' in line
+    assert '/' in line
+    assert '%' in line
+    assert '/s' in line
+    assert 'ETA' in line
+
+
+def test_format_progress_line_unknown_size():
+    line = dl.format_progress_line( 'mystery.bin', 50 * 1024 * 1024, None, 5.0 )
+    assert 'downloaded' in line
+    assert 'ETA' not in line
+
+
+def test_reporter_tty_rewrites_same_line():
+    stream = io.StringIO()
+    clock = FakeClock()
+    reporter = dl.ProgressReporter(
+            stream=stream, is_tty=True, clock=clock, tty_interval_s=0.1,
+    )
+    reporter.begin( 'file.tgz', total_size=1000 )
+    clock.advance( 0.2 )
+    reporter.update( 500 )
+    clock.advance( 0.2 )
+    reporter.done( 1000 )
+    text = stream.getvalue()
+    assert text.count( '\r' ) >= 1
+    assert text.endswith( '\n' )
+    assert 'file.tgz' in text
+
+
+def test_reporter_non_tty_emits_newlines_on_percent_steps():
+    stream = io.StringIO()
+    clock = FakeClock()
+    reporter = dl.ProgressReporter(
+            stream=stream,
+            is_tty=False,
+            clock=clock,
+            line_interval_s=100,
+            line_percent_step=25,
+    )
+    reporter.begin( 'file.tgz', total_size=100 )
+    clock.advance( 1 )
+    reporter.update( 25 )
+    clock.advance( 1 )
+    reporter.update( 50 )
+    clock.advance( 1 )
+    reporter.done( 100 )
+    lines = [ line for line in stream.getvalue().splitlines() if line.strip() ]
+    assert len( lines ) >= 3
+    assert all( 'Downloading file.tgz' in line for line in lines )
+
+
+def test_download_file_http_server( tmp_path ):
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    import threading
+
+    payload = b'abcdefghijklmnopqrstuvwxyz' * 1024
+
+    class Handler( BaseHTTPRequestHandler ):
+        def do_GET( self ):
+            self.send_response( 200 )
+            self.send_header( 'Content-Length', str( len( payload ) ) )
+            self.end_headers()
+            self.wfile.write( payload )
+
+        def log_message( self, format, *args ):
+            return
+
+    server = HTTPServer( ( '127.0.0.1', 0 ), Handler )
+    thread = threading.Thread( target=server.serve_forever )
+    thread.daemon = True
+    thread.start()
+    try:
+        url = 'http://127.0.0.1:{}/blob.bin'.format( server.server_address[1] )
+        dest = tmp_path / 'blob.bin'
+        stream = io.StringIO()
+        reporter = dl.ProgressReporter( stream=stream, is_tty=False, line_interval_s=0 )
+        path = dl.download_file(
+                url, str( dest ), label='blob.bin', show_progress=True, reporter=reporter,
+        )
+        assert path == str( dest )
+        assert dest.read_bytes() == payload
+        assert not os.path.isfile( str( dest ) + '.partial' )
+        assert 'Downloading blob.bin' in stream.getvalue()
+    finally:
+        server.shutdown()
+        thread.join( timeout=5 )
+
+
+def test_download_file_cleans_partial_on_failure( tmp_path, monkeypatch ):
+    dest = tmp_path / 'broken.bin'
+
+    class Boom( object ):
+        headers = { 'Content-Length': '100' }
+
+        def read( self, size=-1 ):
+            raise IOError( 'connection reset' )
+
+        def close( self ):
+            return
+
+    monkeypatch.setattr( dl, 'urlopen', lambda request: Boom() )
+    with pytest.raises( dl.DownloadError ):
+        dl.download_file( 'http://example.com/broken.bin', str( dest ), show_progress=False )
+    assert not dest.exists()
+    assert not os.path.isfile( str( dest ) + '.partial' )

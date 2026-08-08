@@ -22,10 +22,9 @@ import subprocess
 import tempfile
 
 try:
-    from urllib.request import urlretrieve
     from urllib.parse import urlparse, unquote
 except ImportError:
-    from urllib import urlretrieve, unquote
+    from urllib import unquote
     from urlparse import urlparse
 
 from cuppa.colourise import as_info, as_notice
@@ -362,16 +361,11 @@ def _download_archive( url, dest_path, cuppa_env ):
     if not os.path.isdir( parent ):
         os.makedirs( parent )
     logger.info( "Downloading toolchain archive [{}]...".format( as_info( url ) ) )
-    tmp_path = dest_path + '.partial'
+    from cuppa.utility.download import DownloadError, download_file
     try:
-        urlretrieve( url, tmp_path )
-        os.rename( tmp_path, dest_path )
-    except Exception as error:
-        if os.path.isfile( tmp_path ):
-            os.remove( tmp_path )
-        raise ToolchainArchiveException(
-            "failed to download toolchain archive [{}]: {}".format( url, error )
-        )
+        download_file( url, dest_path, label=os.path.basename( dest_path ) or url )
+    except DownloadError as error:
+        raise ToolchainArchiveException( str( error.parameter ) )
     return dest_path
 
 

@@ -50,6 +50,7 @@ What happens:
 * Names avoid colliding with distro `clang24` / `gcc15`.
 * If you omit `--toolchains=`, toolchains prepared in **this** session are selected automatically.
 * `--offline` requires the archive (or extract) to be present already.
+* Large HTTP fetches show **transfer progress** at INFO (bytes, percent when known, rate, ETA) on a rewriting TTY line or periodic CI lines — the same reporter used for location/Boost archive downloads.
 
 Debian package index: https://packages.debian.org/sid/gcc-snapshot — pool files live under `pool/main/g/gcc-snapshot/` on any Debian mirror.
 
