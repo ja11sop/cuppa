@@ -291,7 +291,7 @@ def test_removal_reason_highlights_only_bracketed_values():
     assert 'XErrno 13X' in coloured or coloured.count( 'X' ) >= 2
 
 
-def test_removal_error_lines_wrap_long_reasons():
+def test_judgement_tree_lines_wrap_long_reasons():
     long_path = '_build/' + '/'.join( [ 'seg' ] * 40 )
     failures = [ {
         'label': 'lib/gcc15/dbg/x86_64/cxx2c',
@@ -299,13 +299,13 @@ def test_removal_error_lines_wrap_long_reasons():
         'path': '/tmp/x',
         'severity': 'error',
     } ]
-    lines = storage_actions._removal_error_lines( failures, width=60 )
+    lines = storage_actions._judgement_tree_lines( failures, width=60 )
     # Stem carried across wrapped reason lines.
     reason_lines = [ line for line in lines if 'Permission denied' in line or 'seg/' in line ]
     assert len( reason_lines ) >= 2
 
 
-def test_removal_error_lines_summary_brackets_and_notes():
+def test_judgement_tree_lines_summary_brackets_and_notes():
     from cuppa.colourise import as_error, as_info, as_subdued, as_warning
 
     failures = [
@@ -326,16 +326,17 @@ def test_removal_error_lines_summary_brackets_and_notes():
             },
     ]
     intro = 'Wiping ' + storage.emphasised_count_phrase( 3, 'tree' )
-    lines = storage_actions._removal_error_lines( failures, intro=intro )
+    lines = storage_actions._judgement_tree_lines( failures, intro=intro, width=110 )
     assert lines[1].startswith( 'Wiping ' )
     assert storage.emphasised_count_phrase( 3, 'tree' ) in lines[1]
     assert as_error( '[1 error]' ) in lines[1]
     assert as_warning( '[1 warning]' ) in lines[1]
     assert as_info( '[1 note]' ) in lines[1]
 
-    zeroed = storage_actions._removal_error_lines(
+    zeroed = storage_actions._judgement_tree_lines(
             [ failures[1] ],
             intro='Wiping ' + storage.emphasised_count_phrase( 1, 'tree' ),
+            width=110,
     )
     assert as_subdued( '[0 errors]' ) in zeroed[1]
     assert as_warning( '[1 warning]' ) in zeroed[1]

@@ -37,7 +37,7 @@ from cuppa.core.storage_actions import (
     dry_run,
     _already_gone_note_reason,
     _is_already_gone_error,
-    _removal_error_lines,
+    _judgement_tree_lines,
 )
 from cuppa.log import logger
 from cuppa.utility import storage
@@ -2843,7 +2843,9 @@ def remove_dependencies( construct, cuppa_env, out=None ):
                 verb,
                 storage.emphasised_count_phrase( tree_count, 'tree' ),
         )
-        for line in _removal_error_lines( items, intro=intro ):
+        for line in _judgement_tree_lines(
+                items, intro=intro, width=storage.WIDEST_PROSE
+        ):
             out.write( line + "\n" )
 
     out.write( "\n" )
@@ -3105,7 +3107,9 @@ def _write_wipe_notice_tree(
             "Wiping" if planning else "Wiped",
             storage.emphasised_count_phrase( tree_count, 'tree' ),
     )
-    for line in _removal_error_lines( items, intro=intro ):
+    for line in _judgement_tree_lines(
+            items, intro=intro, width=storage.WIDEST_PROSE
+    ):
         out.write( line + "\n" )
 
 

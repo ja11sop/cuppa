@@ -23,11 +23,8 @@ are kept out of them so the rules can be tested without a repository, and so the
 never judge the same copy differently.
 """
 
-import locale
 import os
 import re
-import sys
-import textwrap
 
 from collections import namedtuple
 
@@ -39,13 +36,17 @@ from cuppa.colourise import (
     as_subdued,
     as_warning,
 )
+from cuppa.core.storage_actions import _judgement_tree_lines
 from cuppa.location import develop_location
 from cuppa.log import logger
 from cuppa.scms import scms
 from cuppa.scms.git import Git
 from cuppa.utility.storage import (
+    WIDEST_PROSE,
     emphasised_count_phrase,
     format_severity_count_brackets,
+    highlight_values,
+    wrapped,
 )
 
 
@@ -464,24 +465,8 @@ COLOUR_FOR = { OK: uncoloured, NOTE: as_info, WARNING: as_warning, ERROR: as_err
 # Severity has to survive --raw-output, so it is a column rather than a colour or a log prefix.
 STATUS_FOR = { OK: "ok", NOTE: "note", WARNING: "warn", ERROR: "error" }
 
-# The column abbreviates to keep the table narrow; a heading has the room to say it in full.
-HEADING_FOR = { OK: "ok", NOTE: "note", WARNING: "warning", ERROR: "error" }
-
 INDENT = "  "
 RULE = "-"
-
-# Prose is wrapped to the table's right edge so the report has one, but a wide table comes from a
-# long path rather than from anything worth reading across, so the text stops at a readable width.
-WIDEST_PROSE = 110
-NARROWEST_PROSE = 40
-
-# The values a note is about. Colouring these and leaving the prose plain is what lets a name be
-# found in a page of text; colouring both leaves nothing to find.
-VALUES = re.compile( r'\[([^\[\]]+)\]' )
-
-# tee, elbow, and the two continuations that sit under them, each the same width.
-GLYPHS = ( "\u251c\u2500\u2500 ", "\u2514\u2500\u2500 ", "\u2502   ", "    " )
-ASCII_GLYPHS = ( "+-- ", "`-- ", "|   ", "    " )
 
 
 Entry = namedtuple( 'Entry', [ 'copy', 'severity', 'notes' ] )
@@ -489,10 +474,6 @@ Entry = namedtuple( 'Entry', [ 'copy', 'severity', 'notes' ] )
 
 def write( text="" ):
     print( text )
-
-
-def highlight_values( text, colour ):
-    return VALUES.sub( lambda match: "[" + colour( match.group(1) ) + "]", text )
 
 
 def action_line( text, colour=as_info ):
@@ -558,27 +539,6 @@ def render_table( entries ):
     return lines
 
 
-def glyphs( encoding=None ):
-    """Box drawing where the console can encode it, ASCII where it cannot."""
-    encoding = ( encoding
-                 or getattr( sys.stdout, 'encoding', None )
-                 or locale.getpreferredencoding()
-                 or 'ascii' )
-    try:
-        "".join( GLYPHS ).encode( encoding )
-    except ( UnicodeError, LookupError ):
-        return ASCII_GLYPHS
-    return GLYPHS
-
-
-def wrapped( text, width ):
-    """The text as lines that fit, keeping bracketed values whole so they can still be coloured."""
-    if not width:
-        return [ text ]
-    return textwrap.wrap( text, max( width, NARROWEST_PROSE ),
-                          break_long_words=False, break_on_hyphens=False ) or [ text ]
-
-
 def render_judgements( entries, width=None, encoding=None ):
     """Every judgement in one tree that hangs from the summary line: severity, then dependency,
     then reason, worst first.
@@ -587,43 +547,24 @@ def render_judgements( entries, width=None, encoding=None ):
     at the top, and what is only worth knowing is at the bottom, each dependency named once.
 
     A reason long enough to run past `width` is wrapped and the stem is carried down through the
-    wrapped lines, so the tree stays a tree and the report keeps one right edge.
+    wrapped lines, so the tree stays a tree and the report keeps one right edge. Body rendering
+    is shared with wipe/remove via ``_judgement_tree_lines`` (intro stays in ``summary``).
     """
-    tee, elbow, pipe, gap = glyphs( encoding )
-    stub = pipe.rstrip()
-    lines = []
-
-    groups = [ ( severity, [ entry for entry in entries
-                             if entry.severity == severity and entry.notes ] )
-               for severity in ( ERROR, WARNING, NOTE ) ]
-    groups = [ group for group in groups if group[1] ]
-
-    for index, ( severity, group ) in enumerate( groups ):
-        last_group = index == len( groups ) - 1
-        colour = COLOUR_FOR[severity]
-        # A gap on the stem above each name, so a dependency and its reasons read as one block
-        # rather than as a wall of branches.
-        lines.append( as_subdued( stub ) )
-        lines.append( as_subdued( last_group and elbow or tee )
-                      + colour( plural( len( group ), HEADING_FOR[severity] ) ) )
-
-        under_severity = last_group and gap or pipe
-        for position, entry in enumerate( group ):
-            last_entry = position == len( group ) - 1
-            lines.append( as_subdued( under_severity + stub ) )
-            lines.append( as_subdued( under_severity + ( last_entry and elbow or tee ) )
-                          + colour( entry.copy.name ) )
-
-            under_entry = under_severity + ( last_entry and gap or pipe )
-            for note_index, note in enumerate( entry.notes ):
-                last_note = note_index == len( entry.notes ) - 1
-                branch = under_entry + ( last_note and elbow or tee )
-                carried = under_entry + ( last_note and gap or pipe )
-                for piece in wrapped( note, width and width - len( branch ) ):
-                    lines.append( as_subdued( branch ) + highlight_values( piece, colour ) )
-                    branch = carried
-
-    return lines
+    items = [
+            {
+                'severity': entry.severity,
+                'label': entry.copy.name,
+                'notes': list( entry.notes ),
+            }
+            for entry in entries
+            if entry.severity in ( ERROR, WARNING, NOTE ) and entry.notes
+    ]
+    return _judgement_tree_lines(
+            items,
+            width=width,
+            encoding=encoding,
+            include_intro=False,
+    )
 
 
 def summary( entries, without_develop ):
