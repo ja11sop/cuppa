@@ -12,7 +12,7 @@ import subprocess
 import shlex
 import os
 import re
-import sys
+import threading
 
 from collections import namedtuple
 
@@ -74,14 +74,65 @@ class Git:
 
 
     @classmethod
-    def _run_with_progress( cls, args_list, path=None ):
-        """Run a long network git command, streaming progress when possible.
+    def _pump_git_progress( cls, src, dest, collected, rewrite=True ):
+        """Copy git stderr to ``dest``, subduing each fragment; honour ``\\r`` on a tty."""
+        from cuppa.colourise import as_subdued
 
-        Prefer the controlling terminal for stderr so git's ``\\r`` progress works
-        under the ``cuppa`` launcher (piped scons stdio). Without a tty, stream
-        line-by-line with ``--progress``. Not a cuppa byte bar.
+        buf = b''
+        while True:
+            chunk = src.read( 256 )
+            if not chunk:
+                break
+            buf += chunk
+            while True:
+                cr = buf.find( b'\r' )
+                lf = buf.find( b'\n' )
+                if cr < 0 and lf < 0:
+                    break
+                if cr < 0:
+                    idx, end = lf, b'\n'
+                elif lf < 0:
+                    idx, end = cr, b'\r'
+                elif cr < lf:
+                    idx, end = cr, b'\r'
+                else:
+                    idx, end = lf, b'\n'
+                piece = buf[:idx]
+                buf = buf[idx + 1:]
+                if end == b'\r' and buf.startswith( b'\n' ):
+                    buf = buf[1:]
+                    end = b'\n'
+                text = as_str( piece )
+                if text:
+                    collected.append( text )
+                styled = as_subdued( text ) if text else ''
+                if end == b'\r' and rewrite:
+                    dest.write( '\r' + styled )
+                else:
+                    dest.write( styled + '\n' )
+                try:
+                    dest.flush()
+                except Exception:
+                    pass
+        if buf:
+            text = as_str( buf )
+            if text:
+                collected.append( text )
+                dest.write( as_subdued( text ) )
+                try:
+                    dest.flush()
+                except Exception:
+                    pass
+
+
+    @classmethod
+    def _run_with_progress( cls, args_list, path=None ):
+        """Run a long network git command, streaming subdued progress when possible.
+
+        Stderr is piped and replayed onto the controlling terminal (or stderr in CI)
+        so ``--progress`` ``\\r`` updates still work under the ``cuppa`` launcher, and
+        so fragments can be wrapped with subdued colour. Not a cuppa byte bar.
         """
-        from cuppa.output_processor import IncrementalSubProcess
         from cuppa.utility.download import open_progress_stream
 
         try:
@@ -94,53 +145,34 @@ class Git:
         ) )
 
         progress_stream, is_tty, owns_stream = open_progress_stream()
+        stderr_lines = []
         try:
-            if owns_stream and is_tty:
-                process = subprocess.Popen(
-                        args_list,
-                        stdout=subprocess.PIPE,
-                        stderr=progress_stream,
-                        cwd=path,
-                        universal_newlines=True,
-                )
-                stdout_data = process.stdout.read() if process.stdout else ''
-                returncode = process.wait()
-                if returncode != 0:
-                    raise cls.Error(
-                        "Command [{command}] failed".format( command=command )
-                    )
-                return as_str( stdout_data ).strip()
-
-            output_lines = []
-
-            def _stdout_line( line ):
-                output_lines.append( line )
-                sys.stdout.write( line + '\n' )
-                try:
-                    sys.stdout.flush()
-                except Exception:
-                    pass
-
-            def _stderr_line( line ):
-                output_lines.append( line )
-                sys.stderr.write( line + '\n' )
-                try:
-                    sys.stderr.flush()
-                except Exception:
-                    pass
-
-            returncode = IncrementalSubProcess.Popen2(
-                    _stdout_line,
-                    _stderr_line,
+            process = subprocess.Popen(
                     args_list,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                     cwd=path,
-                    suppress_output=True,
+                    bufsize=0,
             )
+            pump = threading.Thread(
+                    target=cls._pump_git_progress,
+                    args=(
+                        process.stderr,
+                        progress_stream,
+                        stderr_lines,
+                        bool( is_tty ),
+                    ),
+            )
+            pump.daemon = True
+            pump.start()
+            stdout_data = process.stdout.read() if process.stdout else b''
+            pump.join()
+            returncode = process.wait()
             if returncode != 0:
                 raise cls.Error(
                     "Command [{command}] failed".format( command=command )
                 )
-            return '\n'.join( output_lines ).strip()
+            return as_str( stdout_data ).strip()
         except cls.Error:
             raise
         except OSError:

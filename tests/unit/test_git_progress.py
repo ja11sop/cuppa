@@ -3,8 +3,11 @@
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
+import io
+
 import pytest
 
+from cuppa.colourise import colouriser
 from cuppa.scms.git import Git
 
 
@@ -42,21 +45,56 @@ def test_fetch_uses_progress_runner( monkeypatch, tmp_path ):
     assert seen['path'] == str( tmp_path )
 
 
-def test_run_with_progress_tty_uses_controlling_terminal( monkeypatch ):
-    import io
+def test_pump_git_progress_subdues_and_rewrites():
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        src = io.BytesIO( b'Receiving objects:  50% (1/2)\rReceiving objects: 100% (2/2)\n' )
+        dest = io.StringIO()
+        collected = []
+        Git._pump_git_progress( src, dest, collected, rewrite=True )
+        text = dest.getvalue()
+        assert text.count( '\r' ) >= 1
+        assert '\x1b[' in text  # subdued / dim sequence when colour is on
+        assert 'Receiving objects:  50%' in collected[0]
+        assert 'Receiving objects: 100%' in collected[1]
+    finally:
+        colouriser.use_colour = was
 
+
+def test_pump_git_progress_ci_uses_newlines():
+    src = io.BytesIO( b'Receiving objects:  50% (1/2)\rReceiving objects: 100% (2/2)\n' )
+    dest = io.StringIO()
+    collected = []
+    Git._pump_git_progress( src, dest, collected, rewrite=False )
+    text = dest.getvalue()
+    assert '\r' not in text
+    assert text.count( '\n' ) >= 2
+
+
+def test_run_with_progress_pipes_stderr( monkeypatch ):
     calls = {}
     tty = io.StringIO()
 
+    class FakeStdout( object ):
+        def read( self ):
+            return b'ok\n'
+
+    class FakeStderr( object ):
+        def read( self, size=-1 ):
+            return b''
+
     class FakeProcess( object ):
         def __init__( self ):
-            self.stdout = io.StringIO( 'ok\n' )
+            self.stdout = FakeStdout()
+            self.stderr = FakeStderr()
 
         def wait( self ):
             return 0
 
     def fake_popen( args_list, **kwargs ):
         calls['args'] = list( args_list )
+        calls['stdout'] = kwargs.get( 'stdout' )
         calls['stderr'] = kwargs.get( 'stderr' )
         return FakeProcess()
 
@@ -67,5 +105,6 @@ def test_run_with_progress_tty_uses_controlling_terminal( monkeypatch ):
     monkeypatch.setattr( 'cuppa.scms.git.subprocess.Popen', fake_popen )
     result = Git._run_with_progress( [ 'git', 'fetch', '--progress' ], path='/tmp/repo' )
     assert result == 'ok'
-    assert calls['stderr'] is tty
+    assert calls['stdout'] is not None
+    assert calls['stderr'] is not None
     assert calls['args'] == [ 'git', 'fetch', '--progress' ]

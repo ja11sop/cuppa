@@ -106,7 +106,7 @@ Phase 2+ extensions (when each slice lands):
 | `dl-prog-gitlab` | `GitlabPackageDependency` + `GitlabPackageInstaller` download | `download_file` + headers; drop `wget` for the fetch | Done on #165 |
 | `dl-prog-zip` | Zip extract in `Location.extract` / package zips | `extract_zip_archive` per-member + uncompressed-byte progress | Done on #165 |
 | `dl-prog-conan` | Conan consumer install | `IncrementalSubProcess` stream; keep lines for StopError | Done on #165 |
-| `dl-prog-git` | Git `clone` / `fetch` (develop update/clone) | `--progress`; stderr on controlling tty when available | Done on #165 |
+| `dl-prog-git` | Git `clone` / `fetch` (develop update/clone) | `--progress`; subdued stderr pumped to controlling tty / CI | Done on #165 |
 | `dl-prog-curl` | Optional resume backend | curl/wget under `download_file` | Only if partial/resume becomes a real need |
 
 ## Settled decisions (phase 2+)
