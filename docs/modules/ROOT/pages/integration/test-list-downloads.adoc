@@ -13,7 +13,9 @@ downloads and dependencies roots.
 A GitLab `boost_package` declaration plus a planted selection-scoped package archive is
 `referenced`; a leftover archive for another toolchain stays `unreferenced`. HTTP and GitLab
 extracts appear as `[E]` children of their download file, not as siblings.
-`--list-scope=referenced` / `unreferenced` filter those sections (including JSON `scope`).
+`--list-scope=referenced` / `compact` / `unreferenced` filter those parts of the listing
+(including JSON `scope`). `compact` is a refinement of `referenced` (`compact` implies the
+referenced side of the partition; no unused sibling archives and no unreferenced section).
 
 == Generated files
 
@@ -27,6 +29,7 @@ matching trees under `<storage>/dependencies/`.
 ----
 cuppa -D --offline --list-downloads --storage-root=<storage>
 cuppa -D --offline --list-downloads --list-scope=referenced --storage-root=<storage>
+cuppa -D --offline --list-downloads --list-scope=compact --storage-root=<storage>
 cuppa -D --offline --list-downloads --list-format=verbose --storage-root=<storage>
 cuppa -D --offline --list-downloads --list-format=json --storage-root=<storage>
 ----

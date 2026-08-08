@@ -18,7 +18,10 @@ import platform
 import re
 from urllib.parse import urlparse, unquote
 
-from cuppa.core.dependency_storage import split_location_folder_name
+from cuppa.core.dependency_storage import (
+    looks_like_tool_variant_dir,
+    split_location_folder_name,
+)
 from cuppa.scms import git as git_scm
 
 
@@ -179,7 +182,7 @@ def github_archive_from_folder( folder ):
 
 def display_qualifier( qualifier, storage_type='repository' ):
     """Normalise a qualifier for the tree: unspecified location → ``@``."""
-    if storage_type in ( 'gitlab', 'conan', 'archive' ):
+    if storage_type in ( 'gitlab', 'conan', 'archive', 'toolchain' ):
         if not qualifier or qualifier == '-':
             return '-'
         return str( qualifier )
@@ -194,13 +197,21 @@ def display_qualifier( qualifier, storage_type='repository' ):
 _VCS_FOLDER_PREFIXES = ( 'git_', 'svn_', 'hg_', 'bzr_' )
 
 
-def unqualified_default_branch_label( folder, default_branch, storage_type='repository' ):
-    """Label an unqualified VCS stem as ``@<default> (unqualified)``, or ``None``."""
+def unqualified_default_branch_label(
+        folder, default_branch, storage_type='repository', *,
+        has_canonical_sibling=False,
+):
+    """Label an unqualified stem as ``@<default> (unqualified)``, or ``None``.
+
+    Encoded VCS folder names (``git_…``) always qualify. On Windows, ``Location``
+    hashes those names for MAX_PATH, so the stem loses the ``git_`` prefix; pass
+    ``has_canonical_sibling=True`` when ``stem@<default>`` exists beside it.
+    """
     if storage_type not in ( 'repository', 'location', 'unknown' ):
         return None
     if not folder or not default_branch:
         return None
-    if not folder.startswith( _VCS_FOLDER_PREFIXES ):
+    if not folder.startswith( _VCS_FOLDER_PREFIXES ) and not has_canonical_sibling:
         return None
     _stem, folder_qualifier = split_location_folder_name( folder )
     if folder_qualifier:
@@ -229,6 +240,11 @@ def enrich_described( path, described ):
         return described
 
     if storage_type == 'conan':
+        described['short_name'] = dependency
+        described['stem'] = dependency
+        return described
+
+    if storage_type == 'toolchain':
         described['short_name'] = dependency
         described['stem'] = dependency
         return described
@@ -359,6 +375,47 @@ def gitlab_package_from_path( path ):
     return parts[-2], parts[-1]
 
 
+def gitlab_family_name( row ):
+    """Return the on-disk GitLab package folder that groups registry aliases.
+
+    ``boost_package`` (registry) and ``…/<tool>/boost/<version>`` (folder) share
+    family ``boost``, so unused sibling versions stay under one list identity.
+    """
+    folder = row.get( 'package_folder' )
+    if folder:
+        return folder
+    path = row.get( 'path' ) or ''
+    parts = [ p for p in str( path ).replace( '\\', '/' ).split( '/' ) if p ]
+    # Extract: <tool_variant>/<package>/<version>
+    if len( parts ) >= 3 and looks_like_tool_variant_dir( parts[-3] ):
+        return parts[-2]
+    # Download archive: packages/<package>/<version>/<archive>
+    if len( parts ) >= 4 and parts[-4] == 'packages':
+        return parts[-3]
+    package, _version = gitlab_package_from_remote(
+            row.get( 'remote_location' ) or row.get( 'source_url' ) or ''
+    )
+    if package:
+        return package
+    return None
+
+
+def list_identity_key( row ):
+    """Stable ``(type, family)`` key for list tree / ``--list-scope`` grouping."""
+    storage_type = row.get( 'type' ) or row.get( 'kind' ) or 'unknown'
+    if storage_type == 'gitlab':
+        family = gitlab_family_name( row )
+        if family:
+            return ( storage_type, family )
+    short = (
+            row.get( 'short_name' )
+            or row.get( 'stem' )
+            or row.get( 'dependency' )
+            or '-'
+    )
+    return ( storage_type, short )
+
+
 def gitlab_remote_for_version( remote_location, version ):
     """Replace the version segment of a ``registry/package/version`` URL."""
     if not remote_location or version in ( None, '', '-' ):
@@ -446,6 +503,7 @@ def find_cached_download(
 
     Archive / HTTP extracts use ``<downloads_root>/<encoded folder>``. GitLab packages
     use ``<downloads_root>/packages/<package>/<version>/<archive>.{zip,tar.gz}``.
+    Toolchain archives use ``<downloads_root>/toolchains/<identity>/<qualifier>/<asset>``.
     """
     if inventory_downloads:
         for candidate in inventory_downloads:
@@ -512,6 +570,35 @@ def find_cached_download(
                 if tool_variant and tool_variant not in name:
                     continue
                 return candidate
+        except OSError:
+            return None
+        return None
+
+    if storage_type == 'toolchain':
+        # downloads_root/toolchains/<identity>/<qualifier>/<asset>
+        identity = package
+        qualifier = version
+        if ( not identity or not qualifier or qualifier == '-' ) and path:
+            parts = [
+                    part for part in str( path ).replace( '\\', '/' ).split( '/' ) if part
+            ]
+            try:
+                idx = parts.index( 'toolchains' )
+            except ValueError:
+                idx = -1
+            if idx >= 0 and len( parts ) >= idx + 3:
+                identity = identity or parts[idx + 1]
+                qualifier = qualifier if qualifier not in ( None, '', '-' ) else parts[idx + 2]
+        if not identity or not qualifier or qualifier == '-':
+            return None
+        cache_dir = os.path.join( downloads_root, 'toolchains', identity, str( qualifier ) )
+        if not os.path.isdir( cache_dir ):
+            return None
+        try:
+            for name in sorted( os.listdir( cache_dir ) ):
+                candidate = os.path.join( cache_dir, name )
+                if os.path.isfile( candidate ):
+                    return candidate
         except OSError:
             return None
         return None

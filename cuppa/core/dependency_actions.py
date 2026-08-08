@@ -15,7 +15,14 @@ Listings and removals run instead of a build. Report body goes to stdout (mode b
 import os
 import sys
 
-from cuppa.colourise import as_emphasised, as_error, as_info, as_info_label, as_subdued
+from cuppa.colourise import (
+    as_emphasised,
+    as_error,
+    as_info,
+    as_info_label,
+    as_remove_notice,
+    as_subdued,
+)
 from cuppa.core import (
     dependency_downloads,
     dependency_identity,
@@ -34,13 +41,122 @@ RULE = '-'
 # Leaf states that belong in the remove-name hint (project trees for the current selection).
 _REMOVAL_HINT_STATES = frozenset( ( 'referenced', 'missing', 'cached' ) )
 
-_LIST_SCOPES = frozenset( ( 'all', 'referenced', 'unreferenced' ) )
+_LIST_SCOPES = frozenset( ( 'all', 'referenced', 'unreferenced', 'compact' ) )
 
 _LIST_SCOPE_STATES = {
     'all': None,
-    'referenced': dependency_tree.REFERENCED_STATES,
+    # compact: only resolve-selected / missing / develop-shadowed leaves (no unused siblings).
+    'compact': dependency_tree.REFERENCED_STATES,
     'unreferenced': frozenset( ( 'unreferenced', ) ),
 }
+
+_UNQUALIFIED_MARKER = ' (unqualified)'
+
+
+def _is_unqualified_qualifier( qualifier ):
+    return _UNQUALIFIED_MARKER in ( qualifier or '' ).lower()
+
+
+def _unqualified_wipe_name( row ):
+    """Prefer a registry-style name for ``name/@`` wipe tokens, or ``None``."""
+    for key in ( 'dependency', 'short_name', 'stem' ):
+        name = ( row.get( key ) or '' ).strip()
+        if not name:
+            continue
+        if name.startswith( ( 'git_', 'https_', 'svn_', 'hg_', 'bzr_', 'http_' ) ):
+            continue
+        return name
+    return None
+
+
+def _unqualified_peer_key( row ):
+    """Group stem and ``stem@branch`` siblings even when ``short_name`` differs.
+
+    Listing may give the resolve-selected leaf a registry ``short_name`` (``widget``)
+    while the unused unqualified stem still carries the encoded folder identity. On
+    Windows that split is common; grouping only by ``list_identity_key`` then misses
+    the duplicate and yields no ``name/@`` wipe token.
+    """
+    storage_type = row.get( 'type' ) or row.get( 'kind' ) or 'unknown'
+    path = row.get( 'path' ) or ''
+    folder = os.path.basename( str( path ).rstrip( '\\/' ) )
+    stem, _qualifier = dependency_storage.split_location_folder_name( folder )
+    if stem and storage_type in ( 'repository', 'unknown' ):
+        return ( 'repository', stem )
+    return dependency_identity.list_identity_key( row )
+
+
+def mark_unqualified_duplicate_rows( rows, cuppa_env=None, dependencies_root=None ):
+    """Flag unused ``@… (unqualified)`` siblings and return ``name/@`` wipe tokens.
+
+    Marks leaves that sit beside a resolve-selected peer under the same folder
+    stem, or beside a branch-qualified folder sibling (the location “both folders
+    exist” case — including when resolve has not marked either leaf referenced).
+
+    When ``--offline``, tokens whose inventory ``used_by`` names another project are
+    omitted from the recommended wipe list (re-fetch may be unavailable).
+    """
+    by_key = {}
+    for row in rows:
+        by_key.setdefault( _unqualified_peer_key( row ), [] ).append( row )
+
+    offline = bool( cuppa_env and cuppa_env.get( 'offline' ) )
+    this_project = cuppa_env.get( 'sconstruct_dir' ) if cuppa_env else None
+    inventory_by_path = {}
+    if offline and dependencies_root:
+        for entry in dependency_inventory.load_all_entries( dependencies_root ):
+            path = entry.get( 'path' )
+            if path:
+                inventory_by_path[storage.real_path( path )] = entry
+
+    tokens = []
+    seen = set()
+    for peers in by_key.values():
+        has_selected = any(
+                peer.get( 'state' ) in dependency_tree.REFERENCED_STATES
+                for peer in peers
+        )
+        has_branch_sibling = any(
+                not _is_unqualified_qualifier( peer.get( 'qualifier' ) )
+                for peer in peers
+        )
+        if not ( has_selected or has_branch_sibling ):
+            continue
+        wipe_name = None
+        ordered = sorted(
+                peers,
+                key=lambda peer: (
+                        0 if peer.get( 'state' ) in dependency_tree.REFERENCED_STATES else 1
+                ),
+        )
+        for peer in ordered:
+            wipe_name = _unqualified_wipe_name( peer )
+            if wipe_name:
+                break
+        for row in peers:
+            if row.get( 'state' ) in dependency_tree.REFERENCED_STATES:
+                continue
+            if not _is_unqualified_qualifier( row.get( 'qualifier' ) ):
+                continue
+            row['removal_candidate'] = 'unqualified_duplicate'
+            if offline:
+                path = row.get( 'path' )
+                real = storage.real_path( path ) if path and os.path.lexists( path ) else path
+                entry = inventory_by_path.get( real ) or {}
+                others = dependency_removal._other_project_used_by( entry, this_project )
+                if others:
+                    continue
+            name = wipe_name or _unqualified_wipe_name( row )
+            if not name:
+                folder = os.path.basename( ( row.get( 'path' ) or '' ).rstrip( '\\/' ) )
+                stem, _qual = dependency_storage.split_location_folder_name( folder )
+                name = stem or folder or '-'
+            if name in seen:
+                continue
+            seen.add( name )
+            tokens.append( '{}/@'.format( name ) )
+    tokens.sort( key=lambda token: token.lower() )
+    return tokens
 
 
 def normalise_list_scope( scope ):
@@ -53,20 +169,63 @@ def normalise_list_scope( scope ):
     return scope
 
 
+def _list_identity_key( row ):
+    """Group key matching ``dependency_tree.build_tree`` / downloads identity grouping."""
+    return dependency_identity.list_identity_key( row )
+
+
+def _referenced_identity_keys( rows ):
+    keys = set()
+    for row in rows:
+        if row.get( 'state' ) in dependency_tree.REFERENCED_STATES:
+            keys.add( _list_identity_key( row ) )
+    return keys
+
+
+def _filter_rows_for_scope( rows, scope ):
+    """Return rows for a list scope.
+
+    ``referenced`` keeps every leaf under an identity that has at least one
+    resolve-selected / missing / cached leaf (unused siblings stay visible).
+    ``compact`` is a refinement of ``referenced``: only those selected states
+    (never the unreferenced section). ``unreferenced`` keeps identities with
+    no selected leaf.
+    """
+    if scope == 'all':
+        return list( rows )
+    if scope == 'compact':
+        states = _LIST_SCOPE_STATES['compact']
+        return [ row for row in rows if row.get( 'state' ) in states ]
+    referenced_keys = _referenced_identity_keys( rows )
+    if scope == 'referenced':
+        return [
+                row for row in rows
+                if _list_identity_key( row ) in referenced_keys
+        ]
+    if scope == 'unreferenced':
+        return [
+                row for row in rows
+                if _list_identity_key( row ) not in referenced_keys
+        ]
+    return list( rows )
+
+
 def apply_list_scope( data, scope, tree_builder=None ):
-    """Filter listing data to ``all``, ``referenced``, or ``unreferenced``.
+    """Filter listing data to ``all``, ``referenced``, ``unreferenced``, or ``compact``.
 
     Used by ``--list-dependencies`` and ``--list-downloads``. Rebuilds the hierarchical
     tree and size rollups so text and JSON stay consistent.
     """
     scope = normalise_list_scope( scope )
-    states = _LIST_SCOPE_STATES.get( scope )
-    rows = list( data.get( 'rows' ) or [] )
-    if states is not None:
-        rows = [ row for row in rows if row.get( 'state' ) in states ]
+    rows = _filter_rows_for_scope( data.get( 'rows' ) or [], scope )
     filtered = dict( data )
     filtered['rows'] = rows
     filtered['scope'] = scope
+    # Compute before scope filter; compact must still advertise wipe candidates.
+    if 'unqualified_duplicate_tokens' in data:
+        filtered['unqualified_duplicate_tokens'] = list(
+                data.get( 'unqualified_duplicate_tokens' ) or []
+        )
 
     downloads_listing = (
             'archive_count' in data
@@ -84,10 +243,12 @@ def apply_list_scope( data, scope, tree_builder=None ):
 
     tree = tree_builder( rows )
     if scope != 'all':
+        # compact lands in the referenced section; keep that label for the tree.
+        section_label = 'referenced' if scope == 'compact' else scope
         tree = {
             'sections': [
                 section for section in ( tree.get( 'sections' ) or [] )
-                if section.get( 'label' ) == scope and section.get( 'children' )
+                if section.get( 'label' ) == section_label and section.get( 'children' )
             ],
         }
     filtered['tree'] = tree
@@ -100,18 +261,24 @@ def apply_list_scope( data, scope, tree_builder=None ):
                 int( row.get( 'size_bytes' ) or 0 )
                 for row in rows if row.get( 'role' ) == 'archive'
         )
-        filtered['unreferenced_bytes'] = sum(
-                int( row.get( 'size_bytes' ) or 0 )
-                for row in rows
-                if row.get( 'role' ) == 'archive' and row.get( 'state' ) == 'unreferenced'
-        )
+        if scope in ( 'referenced', 'compact' ):
+            filtered['unreferenced_bytes'] = 0
+        else:
+            filtered['unreferenced_bytes'] = sum(
+                    int( row.get( 'size_bytes' ) or 0 )
+                    for row in rows
+                    if row.get( 'role' ) == 'archive' and row.get( 'state' ) == 'unreferenced'
+            )
         return filtered
 
     filtered['total_bytes'] = sum( int( row.get( 'size_bytes' ) or 0 ) for row in rows )
-    filtered['unreferenced_bytes'] = sum(
-            int( row.get( 'size_bytes' ) or 0 )
-            for row in rows if row.get( 'state' ) == 'unreferenced'
-    )
+    if scope in ( 'referenced', 'compact' ):
+        filtered['unreferenced_bytes'] = 0
+    else:
+        filtered['unreferenced_bytes'] = sum(
+                int( row.get( 'size_bytes' ) or 0 )
+                for row in rows if row.get( 'state' ) == 'unreferenced'
+        )
     filtered['missing_count'] = sum( 1 for row in rows if row.get( 'state' ) == 'missing' )
     filtered['has_download_marks'] = any( row.get( 'has_download' ) for row in rows )
     return filtered
@@ -184,15 +351,17 @@ def add_dependency_action_options( add_option ):
     )
     add_option(
         '--list-scope', dest='list_scope',
-        choices=( 'all', 'referenced', 'unreferenced' ),
+        choices=( 'all', 'referenced', 'unreferenced', 'compact' ),
         nargs=1, action='store',
-        help="Which sections --list-dependencies and --list-downloads show: all (default), "
-             "referenced only, or unreferenced only. Orthogonal to --list-format. "
+        help="Which part --list-dependencies and --list-downloads show: all (default); "
+             "referenced (resolved identities, including unused siblings); "
+             "compact (refinement of referenced: resolve-selected leaves only); "
+             "or unreferenced. Orthogonal to --list-format. "
              "Ignored by --list-builds and --list-develop",
     )
     add_option(
         '--list-dependencies-scope', dest='list_dependencies_scope',
-        choices=( 'all', 'referenced', 'unreferenced' ),
+        choices=( 'all', 'referenced', 'unreferenced', 'compact' ),
         nargs=1, action='store',
         help="Deprecated alias of --list-scope (kept for ~/.cuppaconfig compatibility)",
     )
@@ -234,8 +403,9 @@ def add_dependency_action_options( add_option ):
         '--force-wipe-dependencies', dest='force_wipe_dependencies', type='string', nargs=1,
         action='store',
         help="Power tool: clear-down list-tree leaves by [selector]name/qualifier "
-             "(e.g. [source]boost/1.8*, fmt/@11.1.1) and matching downloads, regardless of "
-             "referenced/unreferenced/in use, then exit",
+             "(e.g. [source]boost/1.8*, [toolchain]clang/profiles_*, "
+             "[toolchain]clang24_profiles_2026_08_07_27, fmt/@11.1.1) and matching "
+             "downloads, regardless of referenced/unreferenced/in use, then exit",
     )
     add_option(
         '--force-wipe-all-dependencies', dest='force_wipe_all_dependencies',
@@ -328,6 +498,7 @@ def _walk_dependency_trees( dependencies_root ):
 
     - ``<tool_variant>/<package>/<version>/`` — GitLab / Boost package extracts
     - ``conan/<name>/<fingerprint>/`` — Conan consumer installs
+    - ``toolchains/<identity>/<qualifier>/`` — fetched compiler installs
     - anything else at the top level (``git_*``, archive folders, …) — one row per
       top-level directory; do not recurse into VCS trees
     """
@@ -352,6 +523,18 @@ def _walk_dependency_trees( dependencies_root ):
                     finger_dir = os.path.join( dep_dir, fingerprint )
                     if _isdir( finger_dir ):
                         yield finger_dir
+            continue
+
+        if name == 'toolchains':
+            # toolchains/<identity>/<qualifier>/ (e.g. toolchains/clang/profiles_…)
+            for identity in sorted( os.listdir( top ) ):
+                identity_dir = os.path.join( top, identity )
+                if not _isdir( identity_dir ):
+                    continue
+                for qualifier in sorted( os.listdir( identity_dir ) ):
+                    extract_dir = os.path.join( identity_dir, qualifier )
+                    if _isdir( extract_dir ):
+                        yield extract_dir
             continue
 
         if dependency_storage.looks_like_tool_variant_dir( name ):
@@ -485,6 +668,9 @@ def _collect_rows( construct, cuppa_env, names=None, out=None ):
         elif item.category == 'cached':
             cached.add( storage.real_path( item.path ) )
 
+    # Selected --toolchains= extracts under toolchains/ count as referenced for listing.
+    referenced.update( dependency_storage.active_toolchain_extract_paths( cuppa_env ) )
+
     # Touch inventory for active dependency trees and develop-shadowed cached stems.
     for item in owned:
         if item.category not in ( 'dependencies', 'cached' ) or item.develop:
@@ -534,10 +720,20 @@ def _collect_rows( construct, cuppa_env, names=None, out=None ):
         if not path:
             continue
         real = storage.real_path( path ) if os.path.exists( path ) else path
-        # Refresh type if an older entry lacks it.
-        if not entry.get( 'type' ):
-            entry['type'] = dependency_storage.classify_storage_type( real, dependencies_root )
-            entry['kind'] = entry['type']
+        # Drop pre-layout inventory for toolchains/ or toolchains/<id> (not ownership units).
+        if dependency_storage.is_stale_toolchain_inventory_path( path, dependencies_root ):
+            try:
+                dependency_inventory.delete_entry_for_path( dependencies_root, path )
+            except storage.StorageError:
+                pass
+            continue
+        # Refresh type if an older entry lacks it, or still says archive under toolchains/.
+        classified = dependency_storage.classify_storage_type( real, dependencies_root )
+        if not entry.get( 'type' ) or (
+                classified == 'toolchain' and entry.get( 'type' ) != 'toolchain'
+        ):
+            entry['type'] = classified
+            entry['kind'] = classified
         by_path[real] = entry
 
     for path in _walk_dependency_trees( dependencies_root ):
@@ -549,10 +745,25 @@ def _collect_rows( construct, cuppa_env, names=None, out=None ):
         if real in by_path:
             # Ensure walked trees keep a current type classification and identity.
             existing = by_path[real]
-            if existing.get( 'type' ) in ( None, '', 'unknown' ):
+            changed = False
+            if existing.get( 'type' ) in ( None, '', 'unknown' ) or (
+                    described.get( 'type' ) == 'toolchain'
+                    and existing.get( 'type' ) != 'toolchain'
+            ):
                 existing['type'] = described['type']
                 existing['kind'] = described['type']
-            changed = False
+                changed = True
+            if described.get( 'type' ) == 'toolchain':
+                if described.get( 'dependency' ):
+                    existing['dependency'] = described['dependency']
+                    changed = True
+                if described.get( 'short_name' ):
+                    existing['short_name'] = described['short_name']
+                    existing['stem'] = described.get( 'stem' ) or described['short_name']
+                    changed = True
+                if described.get( 'qualifier' ):
+                    existing['qualifier'] = described['qualifier']
+                    changed = True
             old_short = existing.get( 'short_name' )
             new_short = described.get( 'short_name' )
             # Refresh when missing, or when an archive still carries the encoded folder.
@@ -883,13 +1094,25 @@ def _collect_rows( construct, cuppa_env, names=None, out=None ):
 
     default_branch = cuppa_env.get( 'location_default_branch' )
     for row in rows:
+        path = ( row.get( 'path' ) or '' ).rstrip( '\\/' )
+        folder = os.path.basename( path )
+        parent = os.path.dirname( path )
+        has_canonical_sibling = False
+        if default_branch and folder and parent:
+            sibling = os.path.join( parent, '{}@{}'.format( folder, default_branch ) )
+            has_canonical_sibling = os.path.isdir( sibling )
         labelled = dependency_identity.unqualified_default_branch_label(
-                os.path.basename( ( row.get( 'path' ) or '' ).rstrip( '\\/' ) ),
+                folder,
                 default_branch,
                 storage_type=row.get( 'type' ),
+                has_canonical_sibling=has_canonical_sibling,
         )
         if labelled:
             row['qualifier'] = labelled
+
+    unqualified_duplicate_tokens = mark_unqualified_duplicate_rows(
+            rows, cuppa_env=cuppa_env, dependencies_root=dependencies_root,
+    )
 
     rows.sort( key=lambda row: (
             row.get( 'dependency' ) or '',
@@ -912,6 +1135,7 @@ def _collect_rows( construct, cuppa_env, names=None, out=None ):
         'estimated': estimated,
         'referenced_paths': referenced,
         'has_download_marks': any( row.get( 'has_download' ) for row in rows ),
+        'unqualified_duplicate_tokens': unqualified_duplicate_tokens,
     }
 
 
@@ -1068,6 +1292,7 @@ def list_dependencies( construct, cuppa_env, out=None ):
             'total_bytes': data['total_bytes'],
             'unreferenced_bytes': data['unreferenced_bytes'],
             'missing_count': data.get( 'missing_count' ) or 0,
+            'unqualified_duplicate_tokens': data.get( 'unqualified_duplicate_tokens' ) or [],
             'skips': [
                 { 'dependency': s.dependency, 'reason': s.reason } for s in data['skips']
             ],
@@ -1097,13 +1322,15 @@ def list_dependencies( construct, cuppa_env, out=None ):
     if missing:
         missing_note = ', {} missing'.format( missing )
     scope = data.get( 'scope' ) or 'all'
-    if scope == 'referenced':
-        # Scoped view: total is the referenced section; omit a useless 0B unreferenced.
-        out.write( "{}{} entries, {} total, {} referenced{}{}\n".format(
+    if scope in ( 'referenced', 'compact' ):
+        # Scoped view: total is this section; omit a useless 0B unreferenced.
+        label = 'compact' if scope == 'compact' else 'referenced'
+        out.write( "{}{} entries, {} total, {} {}{}{}\n".format(
                 INDENT,
                 len( rows ),
                 total,
                 total,
+                label,
                 missing_note,
                 estimate_note,
         ) )
@@ -1138,10 +1365,32 @@ def list_dependencies( construct, cuppa_env, out=None ):
             "deleting only the dependency tree is not enough.\n"
         )
 
-    if any( row['state'] == 'unreferenced' for row in rows ):
+    if (
+            scope in ( 'all', 'unreferenced' )
+            and any( row['state'] == 'unreferenced' for row in rows )
+    ):
         out.write( "\n" )
         out.write( "Review unreferenced trees, then clear them with:\n\n" )
         out.write( as_emphasised( "cuppa -Q -D --force-wipe-unreferenced-dependencies" ) + "\n" )
+
+    tokens = data.get( 'unqualified_duplicate_tokens' ) or []
+    if tokens:
+        out.write( "\n" )
+        out.write(
+                as_remove_notice( "Unqualified stem duplicates" )
+                + " are "
+                + as_remove_notice( "removal candidates" )
+                + " (shown as "
+                + as_remove_notice( "@<default> (unqualified)" )
+                + "; "
+                + as_remove_notice( "name/@" )
+                + " is the wipe shorthand for that stem). Dry-run:\n\n"
+        )
+        command = "cuppa -Q -D -n --force-wipe-dependencies={}".format(
+                ','.join( tokens )
+        )
+        out.write( as_emphasised( command ) + "\n\n" )
+        out.write( "Drop -n and re-run after confirming.\n" )
 
     if any( row.get( 'state' ) == 'cached' for row in rows ):
         out.write( "\n" )
@@ -1220,12 +1469,14 @@ def list_downloads( construct, cuppa_env, out=None ):
     total = storage.human_size( data.get( 'total_bytes' ) or 0 )
     unref = storage.human_size( data.get( 'unreferenced_bytes' ) or 0 )
     scope = data.get( 'scope' ) or 'all'
-    if scope == 'referenced':
-        out.write( "{}{} archives, {} download total, {} referenced\n".format(
+    if scope in ( 'referenced', 'compact' ):
+        label = 'compact' if scope == 'compact' else 'referenced'
+        out.write( "{}{} archives, {} download total, {} {}\n".format(
                 INDENT,
                 archive_count,
                 total,
                 total,
+                label,
         ) )
     else:
         out.write( "{}{} archives, {} download total, {} unreferenced\n".format(
@@ -1246,7 +1497,13 @@ def list_downloads( construct, cuppa_env, out=None ):
             )
         )
 
-    if any( row.get( 'state' ) == 'unreferenced' and row.get( 'role' ) == 'archive' for row in rows ):
+    if (
+            ( data.get( 'scope' ) or 'all' ) in ( 'all', 'unreferenced' )
+            and any(
+                    row.get( 'state' ) == 'unreferenced' and row.get( 'role' ) == 'archive'
+                    for row in rows
+            )
+    ):
         out.write( "\n" )
         out.write(
             "Review unreferenced downloads. Deleting only a dependency tree leaves the "

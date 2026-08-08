@@ -35,12 +35,21 @@ SELECTOR_ALIASES = {
     'conan': (
         'conan', 'conan_package', 'cn',
     ),
+    'toolchain': (
+        'toolchain', 'toolchains', 'tc', 'compiler',
+    ),
 }
 
 # Reserved for a future GitHub generic package kind — must not map to gitlab.
 RESERVED_SELECTORS = frozenset( { 'gh', 'github', 'github_package', 'github-package' } )
 
 _SELECTOR_RE = re.compile( r'^\[([^\]]+)\](.+)$' )
+
+# Session toolchain id: clang24_profiles_2026_08_07_27 → family + qualifier.
+_REGISTERED_TOOLCHAIN_NAME = re.compile(
+    r'^(?P<family>clang|gcc|vc)(?P<major>\d+)_(?P<qualifier>.+)$',
+    re.IGNORECASE,
+)
 
 
 def _build_selector_lookup():
@@ -93,6 +102,7 @@ def format_token( storage_type, name, qualifier ):
         'gitlab': 'gl',
         'repository': 'repo',
         'conan': 'conan',
+        'toolchain': 'toolchain',
     }.get( storage_type, storage_type )
     return "[{}]{}".format( short, body )
 
@@ -185,19 +195,48 @@ def row_storage_type( row ):
     return normalise_storage_type( value ) or value
 
 
+def parse_registered_toolchain_name( name ):
+    """Split ``clang24_profiles_…`` into ``(family, qualifier)``, or ``None``.
+
+    Accepts the same string users pass to ``--toolchains=`` after an archive fetch.
+    Wildcards in the qualifier portion are preserved (``clang24_profiles*``).
+    """
+    text = ( name or '' ).strip()
+    if not text or '/' in text:
+        return None
+    match = _REGISTERED_TOOLCHAIN_NAME.match( text )
+    if not match:
+        return None
+    return match.group( 'family' ).lower(), match.group( 'qualifier' )
+
+
 def row_matches_token( row, storage_type, name, qualifier, require_qualifier=False ):
     """Whether a list/download row matches a parsed token."""
-    if storage_type:
-        row_type = row_storage_type( row )
-        if row_type != storage_type:
-            return False
-    if qualifier is not None:
+    row_type = row_storage_type( row )
+    if storage_type and row_type != storage_type:
+        return False
+
+    effective_name = name
+    effective_qualifier = qualifier
+    # Paste-friendly session ids: [toolchain]clang24_profiles_2026_08_07_27
+    if effective_qualifier is None:
+        registered = parse_registered_toolchain_name( name )
+        if registered and ( storage_type == 'toolchain' or row_type == 'toolchain' ):
+            if storage_type and storage_type != 'toolchain':
+                return False
+            if row_type != 'toolchain':
+                return False
+            effective_name, effective_qualifier = registered
+
+    if effective_qualifier is not None:
         from cuppa.core import dependency_removal
-        return dependency_removal._row_matches_force_token( row, name, qualifier )
+        return dependency_removal._row_matches_force_token(
+                row, effective_name, effective_qualifier
+        )
     if require_qualifier:
         return False
     return name_matches(
-            name,
+            effective_name,
             row.get( 'short_name' ),
             row.get( 'dependency' ),
             row.get( 'stem' ),

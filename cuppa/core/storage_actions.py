@@ -916,14 +916,34 @@ def _removal_announce_line(
 
 def _removal_result_line( planning, removed_count, removed_bytes ):
     unit = "entry" if removed_count == 1 else "entries"
-    size = storage.human_size( removed_bytes )
+    size = as_emphasised( storage.human_size( removed_bytes ) )
+    count = as_emphasised( str( removed_count ) )
     if planning:
         return "Would remove {} {} freeing up {} of disk space.".format(
-            removed_count, unit, size
+            count, unit, size
         )
     return "Removed {} {} freeing up {} of disk space.".format(
-        removed_count, unit, size
+        count, unit, size
     )
+
+
+def _is_already_gone_error( error ):
+    """True when removal failed only because the path was already absent."""
+    text = str( error ).lower()
+    return (
+            'already gone' in text
+            or 'already deleted' in text
+            or 'not found' in text
+    )
+
+
+def _already_gone_note_reason( path, project_dir=None ):
+    """Past-tense judgement reason for a benign miss after a real removal attempt."""
+    if project_dir is not None:
+        short = storage.short_path( path, project_dir=project_dir )
+    else:
+        short = storage.display_path( path )
+    return "was already gone: [{}]".format( short )
 
 
 def _plural( count, noun, plural_noun=None ):
@@ -953,72 +973,111 @@ def _format_removal_reason( error, project_dir, path=None ):
     )
 
 
-def _removal_failure_summary( failures ):
-    errors = sum( 1 for item in failures if item['severity'] == 'error' )
-    warnings = sum( 1 for item in failures if item['severity'] == 'warning' )
-    parts = []
-    if errors:
-        parts.append( _plural( errors, 'error' ) )
-    if warnings:
-        parts.append( _plural( warnings, 'warning' ) )
-    return ", ".join( parts )
+def _severity_counts( failures ):
+    counts = { 'error': 0, 'warning': 0, 'note': 0 }
+    for item in failures:
+        severity = item.get( 'severity' )
+        if severity in counts:
+            counts[severity] += 1
+    return counts
 
 
 def _removal_error_lines(
         failures, width=None,
         intro="Not all requested build entries could be removed"
 ):
-    """Judgement tree for paths that could not be removed, matching --list-develop shape."""
+    """Judgement tree for removal/wipe notices, matching --list-develop shape.
+
+    Hangs from ``intro: [N errors][N warnings][N notes]`` (zeros muted; non-zeros coloured
+    as error / warning / info). Each item needs ``severity`` (``error``, ``warning``, or
+    ``note``), ``label``, and either ``reason`` (wrapped prose) or ``blocks`` — a list of
+    ``{'kind':'prose','text':...}`` and/or ``{'kind':'list','intro':...,'items':[...]}``.
+    """
     if not failures:
         return []
 
     tee, elbow, pipe, gap = storage.glyphs()
     stub = pipe.rstrip()
-    colour_for = { 'error': as_error, 'warning': as_warning }
-    heading_for = { 'error': 'error', 'warning': 'warning' }
+    colour_for = { 'error': as_error, 'warning': as_warning, 'note': as_info }
+    heading_for = { 'error': 'error', 'warning': 'warning', 'note': 'note' }
     prose_width = width if width is not None else storage.WIDEST_PROSE
 
-    summary = _removal_failure_summary( failures )
-    summary_colour = as_error if any(
-        item['severity'] == 'error' for item in failures
-    ) else as_warning
+    counts = _severity_counts( failures )
     lines = [
         "",
         "{}: {}".format(
-            intro,
-            storage.highlight_values( "[{}]".format( summary ), summary_colour ),
+                intro,
+                storage.format_severity_count_brackets(
+                        errors=counts['error'],
+                        warnings=counts['warning'],
+                        notes=counts['note'],
+                ),
         ),
-        "",
     ]
 
     groups = []
-    for severity in ( 'error', 'warning' ):
+    for severity in ( 'error', 'warning', 'note' ):
         group = [ item for item in failures if item['severity'] == severity ]
         if group:
             groups.append( ( severity, group ) )
 
+    def append_prose( text, colour, first_branch, carried_branch ):
+        wrap_width = max( prose_width - len( first_branch ), storage.NARROWEST_PROSE )
+        branch = first_branch
+        for piece in storage.wrapped( text, wrap_width ):
+            lines.append(
+                    as_subdued( branch )
+                    + storage.highlight_values( piece, colour )
+            )
+            branch = carried_branch
+
     for group_index, ( severity, group ) in enumerate( groups ):
-        if group_index:
-            lines.append( "" )
+        last_group = group_index == len( groups ) - 1
         colour = colour_for[severity]
-        lines.append( INDENT + colour( _plural( len( group ), heading_for[severity] ) ) )
-        lines.append( as_subdued( INDENT + stub ) )
+        lines.append( as_subdued( stub ) )
+        lines.append(
+                as_subdued( elbow if last_group else tee )
+                + colour( _plural( len( group ), heading_for[severity] ) )
+        )
+        under_severity = gap if last_group else pipe
         for index, failure in enumerate( group ):
             last = index == len( group ) - 1
-            branch = elbow if last else tee
-            lines.append( as_subdued( INDENT + branch ) + colour( failure['label'] ) )
-            note_under = gap if last else pipe
-            note_branch = INDENT + note_under + elbow
-            note_carried = INDENT + note_under + gap
-            wrap_width = prose_width - len( note_branch )
-            for piece in storage.wrapped( failure['reason'], wrap_width ):
-                lines.append(
-                    as_subdued( note_branch )
-                    + storage.highlight_values( piece, colour )
+            lines.append( as_subdued( under_severity + stub ) )
+            lines.append(
+                    as_subdued( under_severity + ( elbow if last else tee ) )
+                    + colour( failure['label'] )
+            )
+            note_under = under_severity + ( gap if last else pipe )
+            note_first = note_under + elbow
+            note_carried = note_under + gap
+            blocks = failure.get( 'blocks' )
+            if blocks:
+                first_detail = True
+                for block in blocks:
+                    kind = block.get( 'kind' )
+                    if kind == 'prose':
+                        first = note_first if first_detail else note_carried
+                        append_prose( block.get( 'text' ) or '', colour, first, note_carried )
+                        first_detail = False
+                    elif kind == 'list':
+                        intro_text = block.get( 'intro' ) or ''
+                        items = list( block.get( 'items' ) or [] )
+                        first = note_first if first_detail else note_carried
+                        append_prose( intro_text, colour, first, note_carried )
+                        first_detail = False
+                        list_under = note_carried
+                        for item_index, entry in enumerate( items ):
+                            item_last = item_index == len( items ) - 1
+                            item_branch = list_under + ( elbow if item_last else tee )
+                            lines.append(
+                                    as_subdued( item_branch )
+                                    + storage.highlight_values( entry, colour )
+                            )
+            else:
+                append_prose(
+                        failure.get( 'reason' ) or '',
+                        colour, note_first, note_carried,
                 )
-                note_branch = note_carried
-            if not last:
-                lines.append( as_subdued( INDENT + pipe.rstrip() ) )
     return lines
 
 
@@ -1187,10 +1246,12 @@ def remove_builds( construct, cuppa_env, out=None ):
             outcomes_by_path[path] = { 'result': 'removed' }
         except storage.StorageError as error:
             reason = _format_removal_reason( error, project_dir, path=path )
-            already_gone = "already deleted" in str( error ).lower() or (
-                "not found" in str( error ).lower()
-            )
-            severity = 'warning' if already_gone else 'error'
+            already_gone = _is_already_gone_error( error )
+            if already_gone:
+                severity = 'note'
+                reason = _already_gone_note_reason( path, project_dir=project_dir )
+            else:
+                severity = 'error'
             outcomes_by_path[path] = { 'result': 'failed', 'reason': reason }
             failures.append( {
                 'label': label,
@@ -1361,10 +1422,7 @@ def remove_all_builds( cuppa_env, out=None ):
     except storage.StorageError as caught:
         succeeded = False
         error = caught
-        already_gone = (
-            "already deleted" in str( caught ).lower()
-            or "not found" in str( caught ).lower()
-        )
+        already_gone = _is_already_gone_error( caught )
     except OSError as caught:
         succeeded = False
         error = caught
@@ -1373,10 +1431,14 @@ def remove_all_builds( cuppa_env, out=None ):
 
     failures = []
     if not succeeded:
-        severity = 'warning' if already_gone else 'error'
         fail_path = getattr( error, 'filename', None ) or abs_build_root
         label = _failure_label_for_path( fail_path, abs_build_root, project_dir )
-        reason = _format_removal_reason( error, project_dir, path=fail_path )
+        if already_gone:
+            severity = 'note'
+            reason = _already_gone_note_reason( fail_path, project_dir=project_dir )
+        else:
+            severity = 'error'
+            reason = _format_removal_reason( error, project_dir, path=fail_path )
         failures.append( {
             'label': label,
             'reason': reason,

@@ -1,8 +1,11 @@
 import json
 import re
+from urllib.parse import urlparse
 
 import pytest
 
+from cuppa.core.dependency_storage import split_location_folder_name
+from cuppa.location import Location
 from tests.helpers.cuppa_runner import assert_success, run_cuppa
 from tests.helpers.project import copy_dummy_project, write_sconstruct
 
@@ -18,6 +21,25 @@ def own_home(tmp_path):
 
 def strip_ansi(text):
     return re.sub(r"\x1b\[[0-9;]*m", "", text)
+
+
+def vcs_duplicate_folder_pair( location_url, default_branch="master" ):
+    """Return ``(unqualified_stem, canonical_folder)`` as ``Location`` would name them.
+
+    On Linux the encoded URL keeps ``@branch`` visible. On Windows, ``Location``
+    hashes the folder for MAX_PATH and ``_select_repository_directory`` then
+    appends ``@<default_branch>`` when the hash has no qualifier.
+    """
+    class _Namer:
+        url_replacement_char = Location.url_replacement_char
+        _name_hint = None
+        _cuppa_env = {}
+
+    local = Location.folder_name_from_path( _Namer(), urlparse( location_url ) )
+    stem, qualifier = split_location_folder_name( local )
+    if qualifier:
+        return stem, local
+    return local, "{}@{}".format( local, default_branch )
 
 
 def plant_realistic_dependencies_root(storage):
@@ -255,10 +277,16 @@ cuppa.run(
 
 
 def test_list_dependencies_scope_referenced_hides_unreferenced(tmp_path):
-    """--list-scope=referenced omits the unreferenced section."""
+    """--list-scope=referenced omits the unreferenced section but keeps unused siblings."""
     project = copy_dummy_project(tmp_path)
     storage = tmp_path / "storage"
     plant_archives_and_downloads(storage)
+    # Unused sibling under the same GitLab boost identity as the selected 1.91.
+    tool_variant = "gcc153_rel_x86_64_cxx2c"
+    sibling = storage / "dependencies" / tool_variant / "boost" / "1.90"
+    sibling.mkdir(parents=True)
+    (sibling / "include" / "boost").mkdir(parents=True)
+
     write_sconstruct(
         project,
         body="""\
@@ -291,10 +319,13 @@ cuppa.run(
     assert_success(listed)
     plain = strip_ansi(listed.stdout)
     assert "boost_package" in plain or "boost" in plain
+    assert "1.91" in plain
+    assert "1.90" in plain
     assert "referenced" in plain
     assert "Review unreferenced trees" not in plain
     assert re.search( r"\bentries, .* referenced\b", plain )
-    assert "unreferenced" not in plain
+    # Section label absent; unused siblings may still have leaf state unreferenced.
+    assert not re.search( r"(?m)^\s*unreferenced\s*$", plain )
 
     as_json = run_cuppa(
         project,
@@ -310,13 +341,85 @@ cuppa.run(
     assert match, as_json.stdout
     payload = json.loads(match.group(0))
     assert payload.get("scope") == "referenced"
-    assert all(entry["state"] != "unreferenced" for entry in payload["entries"])
+    qualifiers = { entry.get("qualifier") for entry in payload["entries"] }
+    assert "1.91" in qualifiers
+    assert "1.90" in qualifiers
     section_labels = [
             section.get("label")
             for section in (payload.get("tree") or {}).get("sections") or []
     ]
     assert "unreferenced" not in section_labels
     assert "referenced" in section_labels
+
+
+def test_list_dependencies_scope_compact_is_referenced_without_siblings(tmp_path):
+    """--list-scope=compact is a refinement of referenced (selected leaves only)."""
+    project = copy_dummy_project(tmp_path)
+    storage = tmp_path / "storage"
+    plant_archives_and_downloads(storage)
+    tool_variant = "gcc153_rel_x86_64_cxx2c"
+    sibling = storage / "dependencies" / tool_variant / "boost" / "1.90"
+    sibling.mkdir(parents=True)
+    (sibling / "include" / "boost").mkdir(parents=True)
+
+    write_sconstruct(
+        project,
+        body="""\
+import cuppa
+
+Boost = cuppa.package_dependency(
+    'boost_package',
+    package_manager='gitlab',
+    registry='https://gitlab.example/api/v4/projects/1',
+    package='boost',
+    version='1.91',
+)
+
+cuppa.run(
+    default_variants=['dbg'],
+    dependencies=[Boost],
+    default_dependencies=['boost_package'],
+)
+""",
+    )
+
+    listed = run_cuppa(
+        project,
+        "--offline",
+        "--list-dependencies",
+        "--list-scope=compact",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(listed)
+    plain = strip_ansi(listed.stdout)
+    assert "1.91" in plain
+    assert "1.90" not in plain
+    assert re.search( r"\bentries, .* compact\b", plain )
+    assert "Review unreferenced trees" not in plain
+    assert not re.search( r"(?m)^\s*unreferenced\s*$", plain )
+
+    as_json = run_cuppa(
+        project,
+        "--offline",
+        "--list-dependencies",
+        "--list-scope=compact",
+        "--list-format=json",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(as_json)
+    match = re.search(r"\{.*\}", as_json.stdout, re.DOTALL)
+    assert match, as_json.stdout
+    payload = json.loads(match.group(0))
+    assert payload.get("scope") == "compact"
+    assert all(entry.get("state") in ("referenced", "missing", "cached") for entry in payload["entries"])
+    assert all(entry.get("qualifier") != "1.90" for entry in payload["entries"])
+    section_labels = [
+            section.get("label")
+            for section in (payload.get("tree") or {}).get("sections") or []
+    ]
+    assert section_labels == ["referenced"]
 
 
 def test_list_dependencies_scope_unreferenced_hides_referenced(tmp_path):
@@ -566,12 +669,16 @@ def test_list_dependencies_labels_unqualified_default_branch_duplicate(tmp_path)
     project = copy_dummy_project(tmp_path)
     storage = tmp_path / "storage"
     deps = storage / "dependencies"
-    stem = "git_https_example.com__org_widget.git"
+    location_url = "git+https://example.com/org/widget.git@master"
+    stem, canonical_name = vcs_duplicate_folder_pair( location_url )
     unqualified = deps / stem
-    canonical = deps / (stem + "@master")
+    canonical = deps / canonical_name
     for tree in (unqualified, canonical):
         (tree / "include").mkdir(parents=True)
         (tree / "include" / "w.hpp").write_text("//\n", encoding="utf-8")
+        # Windows hashed stems lose the git_ prefix; a .git dir keeps classify as
+        # repository so listing can label the unqualified duplicate.
+        (tree / ".git").mkdir()
 
     write_sconstruct(
         project,
@@ -580,7 +687,7 @@ import cuppa
 
 Widget = cuppa.location_dependency(
     'widget',
-    location='git+https://example.com/org/widget.git@master',
+    location={!r},
 )
 
 cuppa.run(
@@ -588,7 +695,7 @@ cuppa.run(
     dependencies=[Widget],
     default_dependencies=['widget'],
 )
-""",
+""".format( location_url ),
     )
 
     listed = run_cuppa(
@@ -603,19 +710,14 @@ cuppa.run(
     match = re.search(r"\{.*\}", listed.stdout, re.DOTALL)
     assert match, listed.stdout
     payload = json.loads(match.group(0))
-    widget_rows = [
+    repo_entries = [
             entry for entry in payload["entries"]
-            if "widget" in (entry.get("dependency") or "")
-            or "widget" in (entry.get("short_name") or "")
-            or (entry.get("path") or "").endswith(stem)
-            or (entry.get("path") or "").endswith(stem + "@master")
-    ]
-    qualifiers = {
-            entry.get( "qualifier" ) for entry in payload["entries"]
             if entry.get( "type" ) == "repository"
-    }
-    assert "@master (unqualified)" in qualifiers
-    assert "@master" in qualifiers
+    ]
+    qualifiers = { entry.get( "qualifier" ) for entry in repo_entries }
+    assert "@master (unqualified)" in qualifiers, repo_entries
+    assert "@master" in qualifiers, repo_entries
+    assert payload.get("unqualified_duplicate_tokens") == ["widget/@"], repo_entries
 
     text = run_cuppa(
         project,
@@ -627,5 +729,20 @@ cuppa.run(
     assert_success(text)
     plain = strip_ansi(text.stdout)
     assert "@master (unqualified)" in plain
+    assert "force-wipe-dependencies=widget/@" in plain
+    assert "Drop -n and re-run after confirming" in plain
     err = (text.stderr or "") + (listed.stderr or "")
     assert "removal candidate" in err or "unqualified" in plain
+
+    compact = run_cuppa(
+        project,
+        "--offline",
+        "--list-dependencies",
+        "--list-scope=compact",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(compact)
+    compact_plain = strip_ansi(compact.stdout)
+    assert "force-wipe-dependencies=widget/@" in compact_plain
+    assert "@master (unqualified)" not in compact_plain

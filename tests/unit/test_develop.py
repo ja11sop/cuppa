@@ -33,6 +33,7 @@ from cuppa.develop import (
     row_for,
     state_summary,
     suggestion,
+    summary,
     survey,
     table,
     update_action,
@@ -207,6 +208,33 @@ def test_the_branch_being_built_is_unknown_outside_a_working_copy():
 ] )
 def test_state_summary( observed, expected ):
     assert state_summary( copy( **observed ) ) == expected
+
+
+def test_summary_matches_removal_judgement_intro_shape():
+    """Subject count emphasised; severity brackets always present like wipe/removal."""
+    from cuppa.colourise import as_emphasised, as_error, as_info, as_subdued, as_warning
+    from cuppa.utility.storage import emphasised_count_phrase, format_severity_count_brackets
+
+    found = entries( [ copy( name="widget" ),
+                       copy( name="flange", ahead=2 ),
+                       copy( name="doodad", detached=True, branch=None ),
+                       copy( name="gizmo", exists=False ) ], BUILT, DEFAULT )
+    line = summary( found, without_develop=[ 'boostish' ] )
+    assert line.startswith( emphasised_count_phrase( 4, 'develop location' ) + ': ' )
+    assert format_severity_count_brackets( errors=1, warnings=1, notes=1 ) in line
+    assert as_error( '[1 error]' ) in line
+    assert as_warning( '[1 warning]' ) in line
+    assert as_info( '[1 note]' ) in line
+    assert '1 ok' in line
+    assert '1 dependency not using develop' in line
+
+    quiet = summary( entries( [ copy( name="widget" ) ], BUILT, DEFAULT ), [] )
+    assert as_subdued( '[0 errors]' ) in quiet
+    assert as_subdued( '[0 warnings]' ) in quiet
+    assert as_subdued( '[0 notes]' ) in quiet
+    assert as_emphasised( '1' ) in quiet
+    assert '1 ok' in quiet
+    assert '0 dependencies not using develop' in quiet
 
 
 def test_the_table_has_a_header_row_and_aligned_columns():

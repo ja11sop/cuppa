@@ -59,6 +59,8 @@ repository root and never in `docs/` (that tree is the published Antora site):
 
 - `design/plans/` — proposals that have not shipped. Delete a plan when its work ships, unless
   the reasoning is still cited from code or docs, in which case move it to `design/archive/`.
+  Console judgement-tree / severity-timing rules:
+  [`design/plans/console-report-patterns.md`](design/plans/console-report-patterns.md).
 - `design/issues/` — text drafted for a GitHub issue. Delete it once the issue is filed.
 - `design/archive/` — shipped work whose rationale something still references.
 - `design/process/` — living maintainer process narrative (how this repo is operated with CI and
@@ -524,6 +526,7 @@ When docs and code disagree, **code is authoritative** (especially storage defau
 | Vocabulary (methods, deps, variants) | `concepts.adoc` |
 | Build / test / library APIs + examples | `methods.adoc` |
 | Compiler defaults and flags | `toolchains.adoc` |
+| Fetched Clang archives (`--toolchain-archive`) | `toolchains.adoc` § Fetched Clang |
 | C++20 modules intro, tutorial, papers, reference | `cxx-modules.adoc` |
 | CLI flags | `cli-reference.adoc` |
 | Dependencies overview (kinds, declare, `BuildWith`) | `dependencies.adoc` (hub) |

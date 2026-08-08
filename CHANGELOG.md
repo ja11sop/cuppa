@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `--toolchain-archive=` and `--clang-root=` fetch or point at a Clang install, cache it under
+  the downloads / dependencies roots as a toolchain dependency, and register
+  `clang{major}_{release_tag}` (or `clang{major}_local_{hash}`) so Profiles / experimental
+  Release builds do not collide with distro `clang24`. Omitting `--toolchains=` selects the
+  registered archive toolchain for that session. Later runs discover extracts under
+  `dependencies_root/toolchains/clang/` so you can select them with
+  `--toolchains=clang24_profiles_…` without re-passing the archive URL; a cached name that
+  already exists in the pre-registered list is skipped. After a successful archive/root
+  session, cuppa logs the reuse `--toolchains=` flag at sconstruct end. List/downloads
+  classify these trees as type `toolchain` (stale parent-folder inventory rows are dropped).
+  An extract selected via `--toolchains=` / archive auto-select is listed as referenced;
+  verbose LOCATION shows `[D]` when the download archive is present. Force-wipe accepts
+  `[toolchain]clang/profiles_…` or the session name `[toolchain]clang24_profiles_…`.
+  Clear unused ones with those tokens or `--force-wipe-unreferenced-dependencies`.
+  Project-scoped `--remove-` / `--purge-` / `--wipe-dependencies` do not apply. See
+  `design/plans/toolchains-as-dependencies.md` and [#160](https://github.com/ja11sop/cuppa/issues/160).
+  ([#127](https://github.com/ja11sop/cuppa/issues/127) `--profiles` remains a follow-on.)
+- `--list-scope=compact` is a refinement of `referenced`: resolve-selected leaves only (no
+  unused siblings, no unreferenced section).
+- `--list-dependencies` colours unused `@<default> (unqualified)` stem duplicates (the same
+  cases the location “both folders” warning calls out) with the remove accent, and prints a
+  dry-run `--force-wipe-dependencies=` hint listing every such candidate. Force-wipe accepts
+  `name/@` as shorthand for that unqualified stem (not `@master`). Under `--offline`, hint
+  tokens whose inventory `used_by` names another project are omitted. Force-wipe `used_by`
+  warnings colour only paths, nest every using project under `by N project(s):`, and explain
+  when wiping an unused unqualified stem beside the canonical folder is safe. On dry-run those
+  used-by notices stay warnings; after a real wipe they become past-tense notes (`wiped…`,
+  `removing the copy was safe`). Paths that were already gone on a real remove/wipe become
+  past-tense **notes** (`was already gone`) rather than warnings. Dependency remove/purge/wipe
+  failures use the same judgement tree as builds and force-wipe (`Removed`/`Wiped N trees:` with
+  severity brackets). Wipe/build judgement trees hang from a generic intro with an emphasised
+  subject count and muted-or-coloured `[N errors][N warnings][N notes]` brackets (notes use info
+  colour); `--list-develop` uses the same bracket shape. Repository branch rows in wipe reports
+  use a single-slot mark (`✔` / `-`) rather than a triple rollup. See
+  `design/plans/console-report-patterns.md` and [#161](https://github.com/ja11sop/cuppa/issues/161).
+
 ### Changed
 
 - Release workflow Actions buttons: **prepare** opens the `finish_release` PR; **publish**
@@ -23,6 +59,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+
+- Clang `_resolve_versioned_tool` joins the tool name onto `where_is()`'s directory again, so
+  archive Clang (no in-tree `llvm-ar`) sets `AR` to `/usr/bin/llvm-ar` rather than `/usr/bin`
+  and static library archives no longer fail with `Permission denied: '/usr/bin'`.
+- `--list-scope=referenced` keeps unused sibling leaves under resolved identities (other Boost
+  versions, other branches next to `in use`), matching the documented referenced section.
+  GitLab extracts group by on-disk package folder so a registry alias such as `boost_package`
+  still keeps unused `boost/<version>` siblings. `--list-scope=compact` is the short
+  refinement of that view (resolve-selected leaves only). Groundwork for
+  [#161](https://github.com/ja11sop/cuppa/issues/161).
+- Unqualified-stem duplicate wipe tokens are recommended when a branch-qualified sibling folder
+  exists even if resolve has not marked either leaf referenced. Listing also labels Windows
+  MAX_PATH-hashed location stems (no `git_` prefix) as `@<default> (unqualified)` when
+  `stem@<default>` sits beside them, and the integration fixture plants those hashed pairs
+  with a `.git` dir so classify stays `repository`.
 
 ### Security
 

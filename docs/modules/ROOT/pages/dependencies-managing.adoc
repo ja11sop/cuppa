@@ -71,16 +71,29 @@ scenario.
 ----
 cuppa -Q -D --list-dependencies
 cuppa -Q -D --list-dependencies --list-scope=referenced
+cuppa -Q -D --list-dependencies --list-scope=compact
 cuppa -Q -D --list-dependencies --list-format=verbose
 cuppa -Q -D --list-dependencies --list-format=json
 cuppa -Q -D --list-dependencies --exact-sizes
 ----
 
-`--list-scope` selects which sections appear (`all`, `referenced`, or `unreferenced`).
-It is independent of `--list-format` (so you can combine `referenced` with `verbose` or
-`json`) and is shared with `--list-downloads`. Persist a preference in `~/.cuppaconfig`
-or `configure.conf` as `list_scope = 'referenced'`. `--list-dependencies-scope` remains
-as a deprecated alias.
+`--list-scope` selects which part of the listing to show. The values nest:
+
+* `all` (default) — referenced section, then unreferenced
+* `referenced` — resolved identities only, **including** unused siblings under those
+  identities (other versions / branches next to `in use`). For GitLab packages the identity
+  is the registry name (for example `boost_package`); siblings share the on-disk package
+  folder (`boost/<version>`), so an unused version stays in this section rather than under
+  `unreferenced`
+* `compact` — a refinement of `referenced`: resolve-selected leaves only
+  (`in use` / `missing` / develop-shadowed). No unused siblings, and never the
+  unreferenced section
+* `unreferenced` — leftover identities this project does not resolve
+
+`compact` therefore implies `referenced`; it is not an orthogonal axis from
+`--list-format`. You can still combine any scope with `verbose` or `json`. Persist a
+preference in `~/.cuppaconfig` or `configure.conf` as `list_scope = 'referenced'`.
+`--list-dependencies-scope` remains as a deprecated alias.
 
 [#list-downloads]
 == Listing downloads
@@ -94,10 +107,10 @@ under `--downloads-root`; an `[E]` child shows the matching tree under
 Parent `SIZE` values roll up **archive** bytes only so the footer answers how much download
 cache would be reclaimed. Extract sizes stay on the `[E]` leaf for impact.
 
-`--list-scope` filters the referenced / unreferenced sections the same way as
-`--list-dependencies`. `--list-format=verbose` adds LOCATION (archive path and extract
-path). `--list-format=json` includes `tree`, flat `entries` with `kind` `archive` or
-`product`, `archive_count`, `scope`, and archive-only `total_bytes` /
+`--list-scope` filters the same nested way as `--list-dependencies`
+(`all` / `referenced` / `compact` / `unreferenced`). `--list-format=verbose` adds LOCATION
+(archive path and extract path). `--list-format=json` includes `tree`, flat `entries` with
+`kind` `archive` or `product`, `archive_count`, `scope`, and archive-only `total_bytes` /
 `unreferenced_bytes`. See
 xref:integration/test-list-downloads.adoc[`test_list_downloads`].
 
@@ -105,6 +118,7 @@ xref:integration/test-list-downloads.adoc[`test_list_downloads`].
 ----
 cuppa -Q -D --list-downloads
 cuppa -Q -D --list-downloads --list-scope=referenced
+cuppa -Q -D --list-downloads --list-scope=compact
 cuppa -Q -D --list-downloads --list-format=verbose
 cuppa -Q -D --list-downloads --list-format=json
 ----
@@ -150,15 +164,25 @@ Default dependencies: boost, boost_package
 | Scope | Effect
 
 | `all` (default)
-| Referenced section, then unreferenced (current behaviour)
+| Referenced section, then unreferenced
 
 | `referenced`
-| Only the referenced section (in use, missing, and other leaves under those identities).
-  Footer: `N entries, X total, X referenced` (no unreferenced size)
+| Resolved identities only, **including unused sibling leaves** under those identities
+  (other Boost versions, other branches next to `in use`). Footer:
+  `N entries, X total, X referenced`
+
+| `compact`
+| Refinement of `referenced`: resolve-selected leaves only (`in use` / `missing` /
+  develop-shadowed) — no unused siblings and no unreferenced section. Footer:
+  `N entries, X total, X compact`
 
 | `unreferenced`
-| Only leftover trees this project does not resolve
+| Only leftover identities this project does not resolve
 |===
+
+`compact` always implies the referenced side of the partition; choose `referenced` when you
+want to see stale siblings you might force-wipe by name, and `compact` for a short “what this
+selection uses” view.
 
 Example shape (sizes and names vary; glyphs may be ASCII on some consoles). Every horizontal
 rule — including the one between `referenced` and `unreferenced` — spans the full table width
@@ -540,10 +564,22 @@ cuppa -Q -D --force-wipe-dependencies=boost/1.86.0,boost/1.87.0
 
 Tokens are `[selector]name` or `[selector]name/qualifier` (selector optional) as shown in the
 tree — see xref:#dependency-tokens[Dependency tokens]. Examples: `boost/1.86.0`,
-`[source]boost/1.8*`, `fmt/@11.1.1`. Bare project-used identity names belong on
+`[source]boost/1.8*`, `fmt/@11.1.1`, `widget/@` (unqualified stem — listed as
+`@master (unqualified)`). Bare project-used identity names belong on
 `--wipe-dependencies`. Matching downloads are wiped too. Referenced /
 unreferenced / `in use` do **not** block the wipe — the long flag name is the acknowledgement.
 Inventory `used_by` naming another project prints a warning and still proceeds.
+
+When both an unqualified stem and `stem@<default>` exist, `--list-dependencies` colours the
+unused `@<default> (unqualified)` leaf with the remove accent and ends with a dry-run command
+listing every such candidate as `name/@` tokens (including under `--list-scope=compact`, where
+those rows are hidden). Under `--offline`, candidates with inventory `used_by` from another
+project are omitted from that hint. Confirm with `-n`, then drop `-n` to wipe. If inventory
+still records another project's use of the unqualified path, force-wipe reports it after the
+report table (judgement tree, like other removal notices). On a dry-run (`-n`) that notice is a
+warning in the present tense so you can still abort; after a real wipe it becomes a past-tense
+note (`wiped…`, `removing the copy was safe`) and explains that proceeding was safe when the
+canonical folder is present.
 
 Exact tokens must resolve to exactly one leaf (zero or multiple → error with candidates).
 Shell / `fnmatch` wildcards (`*`, `?`, `[…]`) on either side wipe **all** matching leaves —
@@ -568,6 +604,14 @@ Location example (unused `@11.1.1`, keep `@master` in use):
 [source,shell]
 ----
 cuppa -Q -D --force-wipe-dependencies=fmt/@11.1.1
+----
+
+Unqualified stem duplicate (listed as `@master (unqualified)`; `@` is the wipe shorthand):
+
+[source,shell]
+----
+cuppa -Q -D -n --force-wipe-dependencies=widget/@
+cuppa -Q -D --force-wipe-dependencies=widget/@
 ----
 
 Mixed archive + location tokens:
@@ -639,7 +683,7 @@ Building on branch [feature_orders] with default branch [master]; --develop is n
   note    widget      feature_orders  -                   modified, no upstream  ~/coding/widget
   ----------------------------------------------------------------------------------------------
 
-4 develop locations: 1 ok, 1 note, 1 warning, 1 error; 1 dependency not using develop
+4 develop locations: [1 error][1 warning][1 note]; 1 ok; 1 dependency not using develop
 │
 ├── 1 error
 │   │
@@ -666,6 +710,7 @@ first, so it may find more
 
 The table is the inventory of what you are building against.
 Every judgement then hangs from the summary line as one tree, grouped by severity with the worst first, so reading down the tree is reading a work list: what stops the build, then what needs a decision, then what is only worth knowing.
+The summary line matches the removal/wipe judgement intro: an emphasised location count, then always `[N errors][N warnings][N notes]` (zeros muted; non-zeros coloured), then the ok count and how many dependencies are not using develop.
 Each severity heading counts the dependencies beneath it, and each dependency is named once, with a gap on the stem above each name so that a dependency and its reasons read as one block.
 A reason too long for the line is wrapped to the table's right edge and the stem is carried down through the wrapped lines, so the report keeps one right edge and the tree stays a tree.
 Paths are shown the way the table shows them, with `..` segments resolved and your home directory written as `~`, because a develop location written relative to the `sconstruct` resolves to a path that is hard to recognise.

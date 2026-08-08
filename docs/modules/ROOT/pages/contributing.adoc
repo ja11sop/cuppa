@@ -30,6 +30,8 @@ and how to cut a release from GitHub Actions without hand-pushing tags.
 |===
 
 Long-form design notes live under `design/` in the repository (not on this site).
+Settled console-report choices (judgement trees, warn-before / note-after) are recorded in
+`design/plans/console-report-patterns.md` until a Contributing topic page exists.
 Agent-oriented checklists and GitHub helper scripts live in `AGENTS.md`.
 
 == Pull requests

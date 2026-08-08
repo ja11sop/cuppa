@@ -266,13 +266,14 @@ def test_describe_tree_path_vcs_with_branch( tmp_path ):
     assert described['type'] == 'repository'
 
 
-def test_classify_storage_type_four_kinds( tmp_path ):
+def test_classify_storage_type_kinds( tmp_path ):
     root = tmp_path / 'dependencies'
     gitlab = root / 'gcc153_rel_x86_64_cxx2c' / 'capy' / '1.0'
     conan = root / 'conan' / 'fmt' / 'abc123'
     location = root / 'git_https_github.com__fmtlib_fmt.git'
     archive = root / 'https_archives.example.com__boost_1_88_0.tar.gz'
-    for path in ( gitlab, conan, location, archive ):
+    toolchain = root / 'toolchains' / 'clang' / 'profiles_2026_08_07_27'
+    for path in ( gitlab, conan, location, archive, toolchain ):
         path.mkdir( parents=True )
     ( location / '.git' ).mkdir()
 
@@ -280,6 +281,46 @@ def test_classify_storage_type_four_kinds( tmp_path ):
     assert dependency_storage.classify_storage_type( str( conan ), str( root ) ) == 'conan'
     assert dependency_storage.classify_storage_type( str( location ), str( root ) ) == 'repository'
     assert dependency_storage.classify_storage_type( str( archive ), str( root ) ) == 'archive'
+    assert dependency_storage.classify_storage_type( str( toolchain ), str( root ) ) == 'toolchain'
+
+
+def test_describe_tree_path_toolchain( tmp_path ):
+    root = tmp_path / 'dependencies'
+    extract = root / 'toolchains' / 'clang' / 'profiles_2026_08_07_27'
+    extract.mkdir( parents=True )
+    described = dependency_storage.describe_tree_path( str( extract ), str( root ) )
+    assert described['type'] == 'toolchain'
+    assert described['dependency'] == 'clang'
+    assert described['qualifier'] == 'profiles_2026_08_07_27'
+
+
+def test_stale_toolchain_inventory_paths( tmp_path ):
+    root = tmp_path / 'dependencies'
+    parent = root / 'toolchains'
+    identity = parent / 'clang'
+    extract = identity / 'profiles_2026_08_07_27'
+    extract.mkdir( parents=True )
+
+    assert dependency_storage.is_stale_toolchain_inventory_path( str( parent ), str( root ) )
+    assert dependency_storage.is_stale_toolchain_inventory_path( str( identity ), str( root ) )
+    assert not dependency_storage.is_stale_toolchain_inventory_path( str( extract ), str( root ) )
+    assert dependency_storage.is_toolchain_ownership_unit( str( extract ), str( root ) )
+
+
+def test_active_toolchain_extract_paths( tmp_path ):
+    root = tmp_path / 'dependencies'
+    extract = root / 'toolchains' / 'clang' / 'profiles_2026_08_07_27'
+    bindir = extract / 'bin'
+    bindir.mkdir( parents=True )
+
+    class FakeToolchain( object ):
+        _cxx_path = str( bindir )
+
+    paths = dependency_storage.active_toolchain_extract_paths( {
+        'dependencies_root': str( root ),
+        'active_toolchains': [ FakeToolchain() ],
+    } )
+    assert paths == { os.path.realpath( str( extract ) ) }
 
 
 def test_classify_storage_type_on_legacy_download_root():

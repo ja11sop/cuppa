@@ -200,6 +200,21 @@ def outcome_triple( selection, result, encoding=None ):
     return ok + '-' + bad
 
 
+def outcome_binary( result, encoding=None ):
+    """Single-slot mark when a parent has only one actionable child (e.g. a VCS branch)."""
+    if result in ( None, 'none' ):
+        return '-'
+    ok = selected_mark( encoding )
+    bad = failed_mark( encoding )
+    if result == 'removed':
+        return ok
+    if result == 'failed':
+        return bad
+    if result == 'mixed':
+        return ok + bad
+    return '-'
+
+
 def short_path( path, project_dir=None ):
     """Prefer a project-relative path, otherwise ``~``, for report text."""
     if not path:
@@ -248,6 +263,35 @@ NARROWEST_PROSE = 40
 def highlight_values( text, colour ):
     """Colour only ``[placeholder]`` spans in otherwise plain report prose."""
     return _VALUES.sub( lambda match: "[" + colour( match.group( 1 ) ) + "]", text )
+
+
+def format_severity_count_brackets( errors=0, warnings=0, notes=0 ):
+    """Always ``[N errors][N warnings][N notes]``; mute zeros, colour non-zeros.
+
+    Non-zero brackets use error / warning / info colour so removal and ``--list-develop``
+    judgement intros share one look.
+    """
+    from cuppa.colourise import as_error, as_info, as_subdued, as_warning
+
+    specs = (
+            ( errors, 'error', 'errors', as_error ),
+            ( warnings, 'warning', 'warnings', as_warning ),
+            ( notes, 'note', 'notes', as_info ),
+    )
+    parts = []
+    for count, singular, plural_noun, colour in specs:
+        label = '{} {}'.format( count, singular if count == 1 else plural_noun )
+        text = '[{}]'.format( label )
+        parts.append( colour( text ) if count else as_subdued( text ) )
+    return ''.join( parts )
+
+
+def emphasised_count_phrase( count, noun, plural_noun=None ):
+    """``{emphasised N} {noun}`` / plural — shared subject count for judgement intros."""
+    from cuppa.colourise import as_emphasised
+
+    word = noun if count == 1 else ( plural_noun or noun + 's' )
+    return "{} {}".format( as_emphasised( str( count ) ), word )
 
 
 def wrapped( text, width ):

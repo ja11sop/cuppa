@@ -11,7 +11,7 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-08-05
+**As of:** 2026-08-07
 
 ---
 
@@ -287,7 +287,7 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 | `--clone-develop` / `--checkout-develop-branch` / `--reset-develop-branch` / `--location-base-branch` | Yes — [#154](https://github.com/ja11sop/cuppa/pull/154) (closes [#138](https://github.com/ja11sop/cuppa/issues/138) / [#153](https://github.com/ja11sop/cuppa/issues/153)) |
 | Shared storage under `~/.cuppa`, named `--dependencies-root` / `--downloads-root`, with `--storage-root` to move both | Yes — [#133](https://github.com/ja11sop/cuppa/issues/133) / [#139](https://github.com/ja11sop/cuppa/pull/139) |
 | Remove a whole build tree, a dependency, or a stale download | Builds: `--remove-builds` / `--remove-all-builds` ([#134](https://github.com/ja11sop/cuppa/issues/134) / [#140](https://github.com/ja11sop/cuppa/pull/140)); dependencies: `--remove-dependencies` / `--remove-all-dependencies` ([#142](https://github.com/ja11sop/cuppa/pull/142)), with selection-scoped archive product clean via `storage_clean` ([#143](https://github.com/ja11sop/cuppa/pull/143)); downloads: `--purge-dependencies` / `--purge-all-dependencies` ([#144](https://github.com/ja11sop/cuppa/pull/144)); clear-down: `--wipe-dependencies` / `--force-wipe-dependencies` / `--force-wipe-all-dependencies` / `--force-wipe-unreferenced-dependencies` ([#146](https://github.com/ja11sop/cuppa/issues/146) / [#150](https://github.com/ja11sop/cuppa/pull/150)) |
-| See what is stored, where, and how large it is | Builds: `--list-builds` ([#140](https://github.com/ja11sop/cuppa/pull/140)); dependencies: `--list-dependencies` ([#141](https://github.com/ja11sop/cuppa/pull/141)), with lazy exact size upgrade ([#143](https://github.com/ja11sop/cuppa/pull/143)); downloads: `--list-downloads` ([#144](https://github.com/ja11sop/cuppa/pull/144)), filterable with `--list-scope` |
+| See what is stored, where, and how large it is | Builds: `--list-builds` ([#140](https://github.com/ja11sop/cuppa/pull/140)); dependencies: `--list-dependencies` ([#141](https://github.com/ja11sop/cuppa/pull/141)), with lazy exact size upgrade ([#143](https://github.com/ja11sop/cuppa/pull/143)); downloads: `--list-downloads` ([#144](https://github.com/ja11sop/cuppa/pull/144)), filterable with `--list-scope` (`compact` + referenced sibling rules on [#161](https://github.com/ja11sop/cuppa/issues/161)) |
 
 ### Planned / potential
 
@@ -295,6 +295,7 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 |----|------|----------|-------|
 | `storage-listing-removal` | `--list-*`, `--remove-*`, `--purge-*`, `--wipe-*` for builds, dependencies, and downloads | Medium | Umbrella [#134](https://github.com/ja11sop/cuppa/issues/134) closed by [#144](https://github.com/ja11sop/cuppa/pull/144). Builds #140; list-deps #141; remove #142; archive clean #143; Phase 4 list-downloads + purge #144. Phase 3 polish [#145](https://github.com/ja11sop/cuppa/issues/145). Wipe [#146](https://github.com/ja11sop/cuppa/issues/146) closed by [#150](https://github.com/ja11sop/cuppa/pull/150). Remaining from this family: [#135](https://github.com/ja11sop/cuppa/issues/135) (artefacts). |
 | `artefact-removal` | Decide how to remove artefacts written outside the build root | Low | Design pass first; `--remove-builds` deliberately stops at `_build`. GitHub [#135](https://github.com/ja11sop/cuppa/issues/135) |
+| `console-report-patterns` | Document and keep judgement-tree / severity-timing rules for contributors and agents | Low | Issue [#161](https://github.com/ja11sop/cuppa/issues/161); working reference [`design/plans/console-report-patterns.md`](design/plans/console-report-patterns.md); Antora Contributing page later |
 
 ### Out of scope (storage)
 
@@ -302,6 +303,44 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 |----|------|--------|
 | `storage-gc` | Automatic eviction of unused downloads | Deleting without being asked is the wrong default; listing plus explicit removal first |
 | `storage-build-root` | Moving `build_root` under `--storage-root` | Build outputs stay project-relative and reviewable beside the sources |
+
+---
+
+## Toolchains as dependencies
+
+Goal: fetched compilers behave like other cuppa dependencies — download once, extract under the
+storage roots, register a stable non-colliding name for `--toolchains=` / `_build`, and list /
+force-wipe with the same grammar as location and package trees.
+
+Design: [`design/plans/toolchains-as-dependencies.md`](design/plans/toolchains-as-dependencies.md).
+Umbrella: [#160](https://github.com/ja11sop/cuppa/issues/160). Opt-in C++ Profiles (`-fprofiles`)
+remains [#127](https://github.com/ja11sop/cuppa/issues/127) and is not this section.
+
+### Today
+
+| Capability | Status |
+|------------|--------|
+| `--toolchain-archive=` / `--clang-root=` for Clang | Yes — on branch / PR for [#160](https://github.com/ja11sop/cuppa/issues/160) |
+| Register `clang{major}_{tag}` (or `_local_{hash}`); auto-select when `--toolchains=` omitted | Yes |
+| Discover cached extracts under `dependencies_root/toolchains/clang/` | Yes |
+| List as type `toolchain`; force-wipe `[toolchain]…`; project remove/purge/wipe N/A | Yes |
+
+### Planned / potential
+
+| ID | Work | Priority | Notes |
+|----|------|----------|-------|
+| `tc-dep-url-sugar` | Optional URL token in `--toolchains=` | Low | Keep `--toolchain-archive=` as explicit supply |
+| `tc-dep-gcc-root` | `--gcc-root=` for local / Debian gcc-snapshot prefixes | Medium | Same shape as `--clang-root=`; manual `.deb` extract documented in the plan |
+| `tc-dep-gcc-deb` | Optional `.deb` as `--toolchain-archive=` for gcc-snapshot | Low | After `--gcc-root=` works |
+| `tc-dep-profiles` | [#127](https://github.com/ja11sop/cuppa/issues/127) `--profiles` / `-fprofiles` | Medium | Needs a Profiles-capable Clang via [#160](https://github.com/ja11sop/cuppa/issues/160) |
+| `tc-dep-actions` | Authenticated Actions artifact URLs | Low | After public HTTPS / file path is solid |
+| `tc-dep-msvc` | MSVC archive / layout as toolchain dep | Low | Separate driver; not gcc-snapshot |
+
+### Out of scope (toolchains-as-deps)
+
+| ID | Item | Reason |
+|----|------|--------|
+| `tc-dep-latest` | Auto “latest Profiles release” | Pinning and reviewability matter more than chasing HEAD |
 
 ---
 

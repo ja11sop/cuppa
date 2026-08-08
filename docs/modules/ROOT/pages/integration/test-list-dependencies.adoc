@@ -10,15 +10,20 @@ hierarchical table (including an `unreferenced` section) without removing anythi
 upgrades missing inventory sizes to exact (with a notice that measuring may take a while); a
 second listing reuses the cache. A default location dependency whose tree is absent appears
 as `missing` (including in JSON `missing_count` / entries) without aborting the listing.
-`--list-scope=referenced` and `unreferenced` filter which sections appear (including
-in JSON `scope` / `entries` / `tree`). The deprecated `--list-dependencies-scope` alias still
-works.
+`--list-scope=referenced`, `compact`, and `unreferenced` filter which part of the listing
+appears (including in JSON `scope` / `entries` / `tree`). `referenced` keeps unused siblings
+under resolved identities (including GitLab `boost/<other-version>` next to a selected
+`boost_package`); `compact` is a refinement of `referenced` (resolve-selected leaves only —
+`compact` implies the referenced side of the partition). The deprecated
+`--list-dependencies-scope` alias still works.
 
 A local location tree under `--storage-root` is listed without stamping `used_by`. A subsequent
 `--dbg` build records `last_used_source=resolve` and the project path in `used_by`.
 
 Planted unqualified and `stem@master` copies of the same VCS identity list as one family: the
-unqualified row is labelled `@master (unqualified)`.
+unqualified row is labelled `@master (unqualified)` (remove-coloured when unused beside an
+`in use` peer). The listing footer recommends a dry-run
+`--force-wipe-dependencies=…/@` command (including under `--list-scope=compact`).
 
 A second fixture plants GitHub release extracts, a Boost source archive, a GitLab package tree,
 and matching files under `downloads/`. Verbose listing then checks:
@@ -45,6 +50,7 @@ files and `packages/<package>/<version>/*.{tar.gz,zip}`) and a `sconstruct` that
 ----
 cuppa -D --offline --list-dependencies --storage-root=<storage>
 cuppa -D --offline --list-dependencies --list-scope=referenced --storage-root=<storage>
+cuppa -D --offline --list-dependencies --list-scope=compact --storage-root=<storage>
 cuppa -D --offline --list-dependencies --list-scope=unreferenced --storage-root=<storage>
 cuppa -D --offline --list-dependencies --list-format=json --storage-root=<storage>
 cuppa -D --offline --list-dependencies --list-format=verbose --storage-root=<storage>

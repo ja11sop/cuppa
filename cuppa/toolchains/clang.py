@@ -292,6 +292,9 @@ class Clang(object):
                     cls( version, clang['cxx_version'], clang['version'], clang['path'], stdlib, suppress_debug_for_auto )
             )
 
+        from cuppa.toolchains import toolchain_archive
+        toolchain_archive.register_prepared( env, add_toolchain, add_to_supported, cls )
+
 
     @classmethod
     def default_variants( cls ):
@@ -414,7 +417,11 @@ class Clang(object):
 
 
     def _resolve_versioned_tool( self, base_name ):
-        """Prefer a major-versioned sibling of this Clang (e.g. llvm-ar-21), else base_name."""
+        """Prefer a major-versioned sibling of this Clang (e.g. llvm-ar-21), else base_name.
+
+        ``cuppa.build_platform.where_is`` returns the *directory* containing the
+        program (SCons WhereIs + dirname). Join the tool name back on before use.
+        """
         major = self._reported_version['major']
         names = [
             "{}-{}".format( base_name, major ),
@@ -422,11 +429,13 @@ class Clang(object):
         ]
         for name in names:
             resolved = self._resolve_driver( name )
-            if os.path.isabs( resolved ) and os.path.exists( resolved ):
+            if os.path.isabs( resolved ) and os.path.isfile( resolved ):
                 return resolved
-            found = cuppa.build_platform.where_is( name )
-            if found:
-                return found
+            found_dir = cuppa.build_platform.where_is( name )
+            if found_dir:
+                candidate = os.path.join( found_dir, name )
+                if os.path.isfile( candidate ):
+                    return candidate
         return None
 
 

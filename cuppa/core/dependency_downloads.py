@@ -21,7 +21,7 @@ from cuppa.utility import storage
 
 
 def walk_download_files( downloads_root ):
-    """Yield archive file paths under ``downloads_root`` (top-level + GitLab packages)."""
+    """Yield archive file paths under ``downloads_root`` (top-level + GitLab + toolchains)."""
     if not downloads_root or not os.path.isdir( downloads_root ):
         return
     try:
@@ -34,6 +34,32 @@ def walk_download_files( downloads_root ):
         path = os.path.join( downloads_root, name )
         if os.path.isfile( path ):
             yield path
+            continue
+        if name == 'toolchains' and os.path.isdir( path ):
+            try:
+                identities = sorted( os.listdir( path ) )
+            except OSError:
+                continue
+            for identity in identities:
+                identity_dir = os.path.join( path, identity )
+                if not os.path.isdir( identity_dir ):
+                    continue
+                try:
+                    qualifiers = sorted( os.listdir( identity_dir ) )
+                except OSError:
+                    continue
+                for qualifier in qualifiers:
+                    qualifier_dir = os.path.join( identity_dir, qualifier )
+                    if not os.path.isdir( qualifier_dir ):
+                        continue
+                    try:
+                        archives = sorted( os.listdir( qualifier_dir ) )
+                    except OSError:
+                        continue
+                    for archive in archives:
+                        archive_path = os.path.join( qualifier_dir, archive )
+                        if os.path.isfile( archive_path ):
+                            yield archive_path
             continue
         if name != 'packages' or not os.path.isdir( path ):
             continue
@@ -85,6 +111,21 @@ def describe_download_file( path, downloads_root ):
             'source_url': None,
             'remote_location': None,
         }
+    if len( parts ) >= 4 and parts[0] == 'toolchains':
+        identity = parts[1]
+        qualifier = parts[2]
+        return {
+            'type': 'toolchain',
+            'dependency': identity,
+            'short_name': identity,
+            'package_folder': identity,
+            'stem': identity,
+            'qualifier': qualifier,
+            'tool_variant': None,
+            'archive': basename,
+            'source_url': None,
+            'remote_location': None,
+        }
     described = dependency_identity.enrich_described(
             basename,
             {
@@ -105,7 +146,7 @@ def describe_download_file( path, downloads_root ):
             'archive': basename,
             'source_url': described.get( 'source_url' ),
             'remote_location': described.get( 'source_url' ),
-        }
+    }
 
 
 def tool_variant_from_gitlab_archive( package, archive_name ):
@@ -161,6 +202,23 @@ def matching_products( meta, products ):
                 continue
             if meta.get( 'tool_variant' ) and product.get( 'tool_variant' ) not in (
                     None, '', '-', meta.get( 'tool_variant' )
+            ):
+                continue
+            matches.append( product )
+            continue
+        if storage_type == 'toolchain':
+            if product.get( 'type' ) != 'toolchain':
+                continue
+            meta_names = { meta.get( 'short_name' ), meta.get( 'dependency' ) }
+            product_names = { product.get( 'short_name' ), product.get( 'dependency' ) }
+            meta_names.discard( None )
+            meta_names.discard( '' )
+            product_names.discard( None )
+            product_names.discard( '' )
+            if meta_names.isdisjoint( product_names ):
+                continue
+            if meta.get( 'qualifier' ) and str( product.get( 'qualifier' ) or '' ) not in (
+                    '', '-', str( meta.get( 'qualifier' ) )
             ):
                 continue
             matches.append( product )
@@ -525,14 +583,13 @@ def build_downloads_tree( rows ):
     """Group archive/product rows into section → type → identity → leaves."""
     groups = {}
     for row in rows:
-        storage_type = row.get( 'type' ) or 'unknown'
-        short = row.get( 'short_name' ) or row.get( 'dependency' ) or '-'
-        key = ( storage_type, short )
+        storage_type, group_key = dependency_identity.list_identity_key( row )
+        key = ( storage_type, group_key )
         group = groups.get( key )
         if group is None:
             group = {
                 'type': storage_type,
-                'short_name': short,
+                'short_name': group_key,
                 'registry_name': None,
                 'remote_location': None,
                 'rows': [],
@@ -540,10 +597,14 @@ def build_downloads_tree( rows ):
             groups[key] = group
         if row.get( 'state' ) in dependency_tree.REFERENCED_STATES and row.get( 'dependency' ):
             name = row['dependency']
-            if name and name != short and not str( name ).startswith( ( 'git_', 'https_' ) ):
+            if name and name != group_key and not str( name ).startswith( ( 'git_', 'https_' ) ):
                 group['registry_name'] = name
+                if storage_type == 'gitlab':
+                    group['short_name'] = name
             elif group['registry_name'] is None and name and not str( name ).startswith( ( 'git_', 'https_' ) ):
                 group['registry_name'] = name
+                if storage_type == 'gitlab':
+                    group['short_name'] = name
         if row.get( 'remote_location' ) and not group.get( 'remote_location' ):
             group['remote_location'] = row['remote_location']
         group['rows'].append( row )
@@ -551,29 +612,26 @@ def build_downloads_tree( rows ):
     referenced_idents = []
     unreferenced_idents = []
     for group in groups.values():
-        referenced_rows = [
-                row for row in group['rows']
-                if row.get( 'state' ) in dependency_tree.REFERENCED_STATES
-        ]
-        unreferenced_rows = [
-                row for row in group['rows']
-                if row.get( 'state' ) not in dependency_tree.REFERENCED_STATES
-        ]
-        if referenced_rows:
-            referenced_idents.append( _build_downloads_identity(
-                    dict( group, rows=referenced_rows ), 'referenced',
-            ) )
-        if unreferenced_rows:
-            unreferenced_idents.append( _build_downloads_identity(
-                    dict( group, rows=unreferenced_rows ), 'unreferenced',
-            ) )
+        # Match dependency listing: any selected leaf pulls the whole identity
+        # (including unused sibling archives) into the referenced section.
+        pulls_referenced = any(
+                row.get( 'state' ) in dependency_tree.REFERENCED_STATES
+                for row in group['rows']
+        )
+        section = 'referenced' if pulls_referenced else 'unreferenced'
+        identity = _build_downloads_identity( group, section )
+        if section == 'referenced':
+            referenced_idents.append( identity )
+        else:
+            unreferenced_idents.append( identity )
 
     def sort_idents( items ):
         return sorted( items, key=lambda node: (
                 0 if node['type'] == 'repository' else
                 1 if node['type'] == 'gitlab' else
                 2 if node['type'] == 'conan' else
-                3 if node['type'] == 'archive' else 4,
+                3 if node['type'] == 'archive' else
+                4 if node['type'] == 'toolchain' else 5,
                 ( node.get( 'registry_name' ) or node.get( 'short_name' ) or '' ).lower(),
         ) )
 

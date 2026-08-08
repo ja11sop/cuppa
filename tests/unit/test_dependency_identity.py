@@ -164,6 +164,21 @@ def test_with_download_mark_and_find_cached_download( tmp_path ):
     )
     assert found == str( pkg_dir / archive )
 
+    tc_dir = downloads / 'toolchains' / 'clang' / 'profiles_2026_08_07_27'
+    tc_dir.mkdir( parents=True )
+    tc_archive = 'clang-profiles-linux-x86_64.tar.gz'
+    ( tc_dir / tc_archive ).write_text( 'z' )
+    found = find_cached_download(
+            str( downloads ),
+            storage_type='toolchain',
+            path=str(
+                tmp_path / 'deps' / 'toolchains' / 'clang' / 'profiles_2026_08_07_27'
+            ),
+            package='clang',
+            version='profiles_2026_08_07_27',
+    )
+    assert found == str( tc_dir / tc_archive )
+
 
 def test_archive_tree_marks_download_on_location():
     leaves = [
@@ -239,6 +254,14 @@ def test_unqualified_default_branch_label():
     ) is None
     assert unqualified_default_branch_label(
             'git_https_example.com__org_widget.git', None
+    ) is None
+    # Windows MAX_PATH hash loses the git_ prefix; sibling makes it a duplicate.
+    assert unqualified_default_branch_label( '_org_wid09f20908', 'master' ) is None
+    assert unqualified_default_branch_label(
+            '_org_wid09f20908', 'master', has_canonical_sibling=True
+    ) == '@master (unqualified)'
+    assert unqualified_default_branch_label(
+            '_org_wid09f20908@master', 'master', has_canonical_sibling=True
     ) is None
 
 
@@ -541,6 +564,42 @@ def test_render_referenced_colours_identity_and_mutes_sibling_leaves():
     assert 'potentially stale dependencies' in joined
 
 
+def test_render_unqualified_duplicate_uses_remove_notice():
+    from cuppa.colourise import as_remove_notice
+
+    leaves = [
+        {
+            'type': 'repository',
+            'dependency': 'widget',
+            'short_name': 'github.com/org/widget',
+            'qualifier': '@master',
+            'tool_variant': '-',
+            'state': 'referenced',
+            'size_bytes': 100,
+            'last_used_epoch': 1000.0,
+            'path': '/deps/widget@master',
+            'location': 'loc-master',
+        },
+        {
+            'type': 'repository',
+            'dependency': 'widget',
+            'short_name': 'github.com/org/widget',
+            'qualifier': '@master (unqualified)',
+            'tool_variant': '-',
+            'state': 'unreferenced',
+            'size_bytes': 50,
+            'last_used_epoch': 900.0,
+            'path': '/deps/widget',
+            'location': 'loc-unqualified',
+            'removal_candidate': 'unqualified_duplicate',
+        },
+    ]
+    tree = dependency_tree.build_tree( leaves )
+    lines, _ = dependency_tree.render_tree_lines( tree )
+    joined = '\n'.join( lines )
+    assert as_remove_notice( '@master (unqualified)' ) in joined
+
+
 def test_render_partitions_sections_and_keeps_unreferenced_names_normal():
     from cuppa.colourise import as_emphasised, as_info
 
@@ -587,6 +646,7 @@ def test_render_partitions_sections_and_keeps_unreferenced_names_normal():
             for type_node in section['children'] if type_node.get( 'kind' ) == 'type'
             for child in type_node['children'] if child.get( 'kind' ) == 'identity'
     )
+    assert 'orphan' in ( unref_identity.get( 'label' ) or '' )
     assert 'git.clearpool.io/cplx_core/orphan' in plain
     joined = '\n'.join( lines )
     # Unreferenced names are emphasised but not info/blue.

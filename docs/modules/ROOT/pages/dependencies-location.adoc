@@ -33,8 +33,14 @@ default branch (`--location-default-branch`, usually `master`). An older unquali
 kept if it is the only copy on disk (cuppa does not move or delete it). When both exist, resolve
 uses the canonical folder and warns that the unqualified duplicate is unused by this selection.
 `--list-dependencies` labels that row `@master (unqualified)` (or `@main (unqualified)`, …)
-so the doubling is obvious; remove it yourself when you no longer need it.
-See xref:dependencies-managing.adoc#list-dependencies[Managing dependencies].
+in remove colour when it is an unused sibling, and prints a dry-run
+`--force-wipe-dependencies=` hint using the `name/@` shorthand (bare `@` means the unqualified
+stem, not `@master`). The label uses `--location-default-branch` (default `master`); it does
+not inspect HEAD inside the unqualified clone. Drop `-n` after confirming. Under `--offline`,
+candidates whose inventory `used_by` names another project are omitted from that hint.
+When you force-wipe such a stem and inventory still records another project's use, cuppa
+warns but explains that proceeding is safe when the canonical `stem@<default>` folder is also
+present. See xref:dependencies-managing.adoc#force-wipe-dependencies[Force-wiping named leaves].
 
 With `--develop`, location dependencies that define a develop path use the local tree instead of fetching.
 Check those copies with xref:dependencies-managing.adoc#checking-your-develop-copies[`--list-develop`].

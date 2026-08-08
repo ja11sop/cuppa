@@ -7,7 +7,7 @@
 
 import pytest
 
-from cuppa.core import dependency_actions, dependency_downloads
+from cuppa.core import dependency_actions, dependency_downloads, dependency_identity
 
 
 pytestmark = pytest.mark.unit
@@ -121,6 +121,167 @@ def test_scope_referenced_drops_unreferenced_section():
     assert labels == [ 'referenced' ]
 
 
+def test_scope_referenced_keeps_unused_siblings_under_identity():
+    """referenced = whole identities that resolve, including unused sibling leaves."""
+    rows = [
+            {
+                **_row( 'boost', 'referenced', 100 ),
+                'qualifier': '1.91.0',
+                'type': 'archive',
+                'kind': 'archive',
+                'short_name': 'boost',
+                'path': '/tmp/boost_1_91_0',
+            },
+            {
+                **_row( 'boost', 'unreferenced', 80 ),
+                'qualifier': '1.90.0',
+                'type': 'archive',
+                'kind': 'archive',
+                'short_name': 'boost',
+                'path': '/tmp/boost_1_90_0',
+            },
+            _row( 'orphan', 'unreferenced', 20 ),
+    ]
+    filtered = dependency_actions.apply_list_scope( _data( rows ), 'referenced' )
+    assert filtered['scope'] == 'referenced'
+    assert len( filtered['rows'] ) == 2
+    assert { row['path'] for row in filtered['rows'] } == {
+            '/tmp/boost_1_91_0', '/tmp/boost_1_90_0',
+    }
+    assert filtered['total_bytes'] == 180
+    assert filtered['unreferenced_bytes'] == 0
+
+
+def test_scope_referenced_keeps_gitlab_siblings_despite_registry_alias():
+    """Registry name boost_package and folder boost share one gitlab identity."""
+    rows = [
+            {
+                **_row( 'boost_package', 'referenced', 100 ),
+                'qualifier': '1.91',
+                'type': 'gitlab',
+                'kind': 'gitlab',
+                'short_name': 'boost_package',
+                'tool_variant': 'gcc153_rel_x86_64_cxx2c',
+                'path': '/deps/gcc153_rel_x86_64_cxx2c/boost/1.91',
+                'remote_location': 'https://gitlab.example/api/v4/projects/1/boost/1.91',
+            },
+            {
+                **_row( 'boost', 'unreferenced', 80 ),
+                'qualifier': '1.90',
+                'type': 'gitlab',
+                'kind': 'gitlab',
+                'short_name': 'boost',
+                'tool_variant': 'gcc153_rel_x86_64_cxx2c',
+                'path': '/deps/gcc153_rel_x86_64_cxx2c/boost/1.90',
+            },
+            _row( 'orphan', 'unreferenced', 20 ),
+    ]
+    filtered = dependency_actions.apply_list_scope( _data( rows ), 'referenced' )
+    assert filtered['scope'] == 'referenced'
+    assert { row['qualifier'] for row in filtered['rows'] } == { '1.91', '1.90' }
+    compact = dependency_actions.apply_list_scope( _data( rows ), 'compact' )
+    assert { row['qualifier'] for row in compact['rows'] } == { '1.91' }
+    tree = filtered['tree']
+    ref = next( section for section in tree['sections'] if section['label'] == 'referenced' )
+    labels = []
+    for type_node in ref.get( 'children' ) or []:
+        for child in type_node.get( 'children' ) or []:
+            if child.get( 'kind' ) == 'identity':
+                labels.append( child.get( 'label' ) )
+    assert any( 'boost_package' in ( label or '' ) for label in labels )
+
+
+def test_scope_compact_keeps_only_selected_leaves():
+    rows = [
+            {
+                **_row( 'boost', 'referenced', 100 ),
+                'qualifier': '1.91.0',
+                'type': 'archive',
+                'kind': 'archive',
+                'short_name': 'boost',
+                'path': '/tmp/boost_1_91_0',
+            },
+            {
+                **_row( 'boost', 'unreferenced', 80 ),
+                'qualifier': '1.90.0',
+                'type': 'archive',
+                'kind': 'archive',
+                'short_name': 'boost',
+                'path': '/tmp/boost_1_90_0',
+            },
+            _row( 'orphan', 'unreferenced', 20 ),
+    ]
+    filtered = dependency_actions.apply_list_scope( _data( rows ), 'compact' )
+    assert filtered['scope'] == 'compact'
+    assert len( filtered['rows'] ) == 1
+    assert filtered['rows'][0]['path'] == '/tmp/boost_1_91_0'
+    assert filtered['total_bytes'] == 100
+    assert filtered['unreferenced_bytes'] == 0
+    # compact ⊆ referenced: tree stays on the referenced section label.
+    labels = [
+            section['label']
+            for section in filtered['tree']['sections']
+            if section.get( 'children' )
+    ]
+    assert labels == [ 'referenced' ]
+    assert all( row['state'] != 'unreferenced' for row in filtered['rows'] )
+
+
+def test_downloads_scope_compact_drops_unused_sibling_archives():
+    rows = [
+            {
+                **_download_row( 'boost_1_91.tar.gz', 'referenced', 100 ),
+                'short_name': 'boost',
+                'dependency': 'boost',
+                'qualifier': '1.91.0',
+            },
+            {
+                **_download_row( 'boost_1_90.tar.gz', 'unreferenced', 80 ),
+                'short_name': 'boost',
+                'dependency': 'boost',
+                'qualifier': '1.90.0',
+            },
+            _download_row( 'orphan.tar.gz', 'unreferenced', 50 ),
+    ]
+    filtered = dependency_actions.apply_list_scope(
+            _download_data( rows ), 'compact',
+            tree_builder=dependency_downloads.build_downloads_tree,
+    )
+    assert filtered['scope'] == 'compact'
+    assert [ row['label'] for row in filtered['rows'] ] == [ 'boost_1_91.tar.gz' ]
+    assert filtered['archive_count'] == 1
+    assert filtered['total_bytes'] == 100
+    assert filtered['unreferenced_bytes'] == 0
+
+
+def test_downloads_scope_referenced_keeps_unused_sibling_archives():
+    rows = [
+            {
+                **_download_row( 'boost_1_91.tar.gz', 'referenced', 100 ),
+                'short_name': 'boost',
+                'dependency': 'boost',
+                'qualifier': '1.91.0',
+            },
+            {
+                **_download_row( 'boost_1_90.tar.gz', 'unreferenced', 80 ),
+                'short_name': 'boost',
+                'dependency': 'boost',
+                'qualifier': '1.90.0',
+            },
+            _download_row( 'orphan.tar.gz', 'unreferenced', 50 ),
+    ]
+    filtered = dependency_actions.apply_list_scope(
+            _download_data( rows ), 'referenced',
+            tree_builder=dependency_downloads.build_downloads_tree,
+    )
+    assert { row['label'] for row in filtered['rows'] } == {
+            'boost_1_91.tar.gz', 'boost_1_90.tar.gz',
+    }
+    assert filtered['archive_count'] == 2
+    assert filtered['total_bytes'] == 180
+    assert filtered['unreferenced_bytes'] == 0
+
+
 def test_scope_unreferenced_keeps_only_orphans():
     rows = [
             _row( 'widget', 'referenced', 50 ),
@@ -202,3 +363,113 @@ def test_normalise_list_scope_prefers_known_values():
     assert dependency_actions.normalise_list_scope( None ) == 'all'
     assert dependency_actions.normalise_list_scope( [ 'referenced' ] ) == 'referenced'
     assert dependency_actions.normalise_list_scope( 'UNREFERENCED' ) == 'unreferenced'
+    assert dependency_actions.normalise_list_scope( 'compact' ) == 'compact'
+
+
+def test_mark_unqualified_duplicate_rows_only_unused_siblings():
+    rows = [
+            {
+                **_row( 'widget', 'referenced', 100 ),
+                'qualifier': '@master',
+                'path': '/tmp/git_https_example.com__org_widget.git@master',
+                'type': 'repository',
+                'kind': 'repository',
+                'short_name': 'github.com/org/widget',
+            },
+            {
+                **_row( 'widget', 'unreferenced', 80 ),
+                'qualifier': '@master (unqualified)',
+                'path': '/tmp/git_https_example.com__org_widget.git',
+                'type': 'repository',
+                'kind': 'repository',
+                'short_name': 'github.com/org/widget',
+            },
+            {
+                **_row( 'solo', 'referenced', 50 ),
+                'qualifier': '@master (unqualified)',
+                'path': '/tmp/git_https_example.com__org_solo.git',
+                'type': 'repository',
+                'kind': 'repository',
+                'short_name': 'github.com/org/solo',
+            },
+    ]
+    tokens = dependency_actions.mark_unqualified_duplicate_rows( rows )
+    assert tokens == [ 'widget/@' ]
+    assert rows[1].get( 'removal_candidate' ) == 'unqualified_duplicate'
+    assert 'removal_candidate' not in rows[0]
+    assert 'removal_candidate' not in rows[2]
+
+
+def test_mark_unqualified_duplicate_rows_groups_by_folder_stem():
+    """Resolve may label the selected leaf ``widget`` while the stem stays encoded."""
+    rows = [
+            {
+                **_row( 'widget', 'referenced', 100 ),
+                'qualifier': '@master',
+                'path': r'C:\deps\git_https_example.com__org_widget.git@master',
+                'type': 'repository',
+                'kind': 'repository',
+                'short_name': 'widget',
+                'dependency': 'widget',
+            },
+            {
+                **_row( 'git_https_example.com__org_widget.git', 'unreferenced', 80 ),
+                'qualifier': '@master (unqualified)',
+                'path': r'C:\deps\git_https_example.com__org_widget.git',
+                'type': 'repository',
+                'kind': 'repository',
+                'short_name': 'git_https_example.com__org_widget.git',
+                'dependency': 'git_https_example.com__org_widget.git',
+            },
+    ]
+    assert dependency_identity.list_identity_key( rows[0] ) != \
+            dependency_identity.list_identity_key( rows[1] )
+    tokens = dependency_actions.mark_unqualified_duplicate_rows( rows )
+    assert tokens == [ 'widget/@' ]
+    assert rows[1].get( 'removal_candidate' ) == 'unqualified_duplicate'
+
+
+def test_mark_unqualified_duplicate_rows_with_unreferenced_branch_sibling():
+    """Branch-qualified sibling is enough even when resolve marks neither referenced."""
+    rows = [
+            {
+                **_row( 'widget', 'unreferenced', 100 ),
+                'qualifier': '@master',
+                'path': r'C:\deps\_org_wid09f20908@master',
+                'type': 'repository',
+                'kind': 'repository',
+                'short_name': 'widget',
+                'dependency': 'widget',
+            },
+            {
+                **_row( '_org_wid09f20908', 'unreferenced', 80 ),
+                'qualifier': '@master (unqualified)',
+                'path': r'C:\deps\_org_wid09f20908',
+                'type': 'repository',
+                'kind': 'repository',
+                'short_name': '_org_wid09f20908',
+                'dependency': '_org_wid09f20908',
+            },
+    ]
+    tokens = dependency_actions.mark_unqualified_duplicate_rows( rows )
+    assert tokens == [ 'widget/@' ]
+    assert rows[1].get( 'removal_candidate' ) == 'unqualified_duplicate'
+
+
+def test_apply_list_scope_preserves_unqualified_duplicate_tokens():
+    rows = [
+            {
+                **_row( 'widget', 'referenced', 100 ),
+                'qualifier': '@master',
+            },
+            {
+                **_row( 'widget', 'unreferenced', 80 ),
+                'qualifier': '@master (unqualified)',
+                'removal_candidate': 'unqualified_duplicate',
+            },
+    ]
+    data = _data( rows )
+    data['unqualified_duplicate_tokens'] = [ 'widget/@' ]
+    compact = dependency_actions.apply_list_scope( data, 'compact' )
+    assert compact['unqualified_duplicate_tokens'] == [ 'widget/@' ]
+    assert len( compact['rows'] ) == 1

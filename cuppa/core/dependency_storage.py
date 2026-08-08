@@ -34,7 +34,7 @@ RESOLVE_ONLY_REASON = "storage action"
 # Stable storage types for inventory and a future namespaced layout migration.
 # Discriminated from path shape (+ cheap .git check) on today's flat root.
 # ``location`` remains a read alias of ``repository`` (pre-rename inventory / branch caches).
-STORAGE_TYPES = ( 'gitlab', 'conan', 'repository', 'archive' )
+STORAGE_TYPES = ( 'gitlab', 'conan', 'repository', 'archive', 'toolchain' )
 STORAGE_TYPE_ALIASES = {
     'location': 'repository',
 }
@@ -51,7 +51,7 @@ OwnedPath = namedtuple(
     'OwnedPath',
     [
         'dependency',       # sconstruct / registry name
-        'storage_type',     # gitlab | conan | repository | archive
+        'storage_type',     # gitlab | conan | repository | archive | toolchain
         'category',         # dependencies | downloads | build | develop | cached
         'path',
         'qualifier',        # @branch, version, fingerprint prefix, …
@@ -114,6 +114,62 @@ def normalise_storage_paths( paths ):
 
 def looks_like_tool_variant_dir( name ):
     return bool( name and _TOOL_VARIANT_DIR.match( name ) )
+
+
+def toolchain_ownership_rel_parts( path, dependencies_root ):
+    """Return ``('toolchains', identity, qualifier, …)`` when ``path`` is under that layout."""
+    if not path or not dependencies_root:
+        return None
+    root = os.path.realpath( os.path.expanduser( dependencies_root ) )
+    real = os.path.realpath( os.path.expanduser( path ) )
+    try:
+        relative = os.path.relpath( real, root )
+    except ValueError:
+        return None
+    if relative.startswith( '..' ):
+        return None
+    parts = [ p for p in relative.split( os.sep ) if p and p != '.' ]
+    if not parts or parts[0] != 'toolchains':
+        return None
+    return parts
+
+
+def is_toolchain_ownership_unit( path, dependencies_root ):
+    """True for ``toolchains/<identity>/<qualifier>/`` extract roots (list ownership units)."""
+    parts = toolchain_ownership_rel_parts( path, dependencies_root )
+    return bool( parts and len( parts ) >= 3 )
+
+
+def is_stale_toolchain_inventory_path( path, dependencies_root ):
+    """True for ``toolchains`` or ``toolchains/<id>`` ancestors wrongly treated as ownership units."""
+    parts = toolchain_ownership_rel_parts( path, dependencies_root )
+    return bool( parts and len( parts ) < 3 )
+
+
+def toolchain_ownership_unit_for_bin( bin_dir, dependencies_root ):
+    """Return the extract ownership path containing ``bin_dir``, or None."""
+    parts = toolchain_ownership_rel_parts( bin_dir, dependencies_root )
+    if not parts or len( parts ) < 3:
+        return None
+    root = os.path.realpath( os.path.expanduser( dependencies_root ) )
+    return os.path.join( root, parts[0], parts[1], parts[2] )
+
+
+def active_toolchain_extract_paths( cuppa_env ):
+    """Ownership-unit paths for active toolchains that live under ``toolchains/``."""
+    dependencies_root = cuppa_env.get( 'dependencies_root' )
+    if not dependencies_root:
+        return set()
+    found = set()
+    for toolchain in cuppa_env.get( 'active_toolchains' ) or []:
+        bin_dir = getattr( toolchain, '_cxx_path', None )
+        if not bin_dir:
+            continue
+        unit = toolchain_ownership_unit_for_bin( bin_dir, dependencies_root )
+        if unit and os.path.isdir( unit ):
+            from cuppa.utility import storage as storage_util
+            found.add( storage_util.real_path( unit ) )
+    return found
 
 
 # Keys location / package factories read from the env during resolve-only. SConscript
@@ -204,6 +260,8 @@ def classify_storage_type( path, dependencies_root ):
 
     if parts[0] == 'conan':
         return 'conan'
+    if parts[0] == 'toolchains':
+        return 'toolchain'
     if looks_like_tool_variant_dir( parts[0] ):
         return 'gitlab'
 
@@ -467,6 +525,14 @@ def describe_tree_path( path, dependencies_root ):
             'qualifier': parts[2],
             'tool_variant': _conan_meta_tool_variant( install_dir ),
             'type': 'conan',
+        }
+
+    if parts[0] == 'toolchains' and len( parts ) >= 3:
+        return {
+            'dependency': parts[1],
+            'qualifier': parts[2],
+            'tool_variant': None,
+            'type': 'toolchain',
         }
 
     if looks_like_tool_variant_dir( parts[0] ) and len( parts ) >= 3:
