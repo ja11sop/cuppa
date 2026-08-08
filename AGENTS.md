@@ -60,7 +60,7 @@ repository root and never in `docs/` (that tree is the published Antora site):
 - `design/plans/` — proposals that have not shipped. Delete a plan when its work ships, unless
   the reasoning is still cited from code or docs, in which case move it to `design/archive/`.
   Console judgement-tree / severity-timing rules:
-  [`design/plans/console-report-patterns.md`](design/plans/console-report-patterns.md).
+  [`design/archive/console-report-patterns.md`](design/archive/console-report-patterns.md).
 - `design/issues/` — text drafted for a GitHub issue. Delete it once the issue is filed.
 - `design/archive/` — shipped work whose rationale something still references.
 - `design/process/` — living maintainer process narrative (how this repo is operated with CI and

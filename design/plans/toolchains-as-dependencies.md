@@ -202,4 +202,4 @@ cuppa -D --dbg --toolchains=gcc16_local_a1b2c3d4
 - Type selectors for cross-type name clashes (`[gitlab]boost` vs `[archive]boost`) — see
   [`boost-updates.md`](boost-updates.md); not required for the first Clang archive PR.
 - Report / judgement-tree polish that landed beside this work:
-  [`console-report-patterns.md`](console-report-patterns.md) / [#161](https://github.com/ja11sop/cuppa/issues/161).
+  [`console-report-patterns.md`](../archive/console-report-patterns.md) / [#161](https://github.com/ja11sop/cuppa/issues/161).

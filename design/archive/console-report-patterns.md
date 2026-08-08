@@ -1,18 +1,17 @@
 # Console report patterns (judgement trees and severity timing)
 
-- **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `console-report-patterns`; umbrella [#161](https://github.com/ja11sop/cuppa/issues/161); [`removal-options.md`](removal-options.md); toolchains [#160](https://github.com/ja11sop/cuppa/issues/160); `--list-develop` report shape
-- **Updated:** 2026-08-07
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `console-report-patterns`; umbrella [#161](https://github.com/ja11sop/cuppa/issues/161); [`removal-options.md`](../plans/removal-options.md); toolchains [#160](https://github.com/ja11sop/cuppa/issues/160); `--list-develop` report shape; Antora [`contributing-report-patterns.adoc`](../../docs/modules/ROOT/pages/contributing-report-patterns.adoc)
+- **Updated:** 2026-08-08
 
 Cuppa’s storage and develop reports now share a recognisable **judgement tree**: a one-line intro
 with severity brackets, then a tree grouped error → warning → note. Several wording and severity
 choices were settled while shipping wipe / remove polish. This document records those choices so
-later work (and agents) do not re-litigate them casually — and sketches what a longer
-contributor-facing “report patterns” guide might grow into.
+later work (and agents) do not re-litigate them casually.
 
-This is **not** yet Antora product documentation. Until a curated page exists under Contributing,
-treat this plan as the working reference and keep shipped behaviour honest in the topic pages
-(`build-layout.adoc`, `dependencies-managing.adoc`).
+Contributor-facing summary: Antora **Contributing → Report patterns**
+(`docs/modules/ROOT/pages/contributing-report-patterns.adoc`). Keep shipped behaviour honest in the
+topic pages (`build-layout.adoc`, `dependencies-managing.adoc`) as well.
 
 ---
 
@@ -33,8 +32,9 @@ treat this plan as the working reference and keep shipped behaviour honest in th
 
 | Scenario | Dry-run / before | After real action |
 |----------|------------------|-------------------|
-| Force-wipe `used_by` (incl. safe unqualified duplicate) | `warning`: `wiping…`, `removing this copy is safe`, `would be re-fetched` | `note`: `wiped…`, `removing the copy was safe`, `will be re-fetched` |
+| Force-wipe / wipe `used_by` (incl. safe unqualified duplicate) | `warning`: `wiping…`, `removing this copy is safe`, `would be re-fetched` | `note`: `wiped…`, `removing the copy was safe`, `will be re-fetched` |
 | Path already gone on remove/wipe/builds | (does not fire on dry-run) | `note`: `was already gone: [path]` — never leave as warning |
+| Force-wipe no inventory record | `note`: `no inventory record for [path]` | `note`: `had no inventory record for [path]` |
 
 ### 1.2 Shared helpers (prefer these)
 
@@ -43,6 +43,8 @@ treat this plan as the working reference and keep shipped behaviour honest in th
 | `format_severity_count_brackets` | `cuppa.utility.storage` | Intro suffix |
 | `emphasised_count_phrase` | `cuppa.utility.storage` | `N trees` / `N develop locations` |
 | `_removal_error_lines` | `cuppa.core.storage_actions` | Judgement tree body (builds, deps, wipe) |
+| `_write_wipe_notice_tree` | `cuppa.core.dependency_removal` | Wipe failures, `used_by`, inventory-missing notes |
+| `_collect_used_by_wipe_notices` | `cuppa.core.dependency_removal` | Shared wipe / force-wipe `used_by` collection |
 | `_is_already_gone_error` / `_already_gone_note_reason` | `cuppa.core.storage_actions` | Benign miss classification |
 
 Do **not** invent a second flat `as_warning("Not all…")` + indented list for dependency failures.
@@ -69,10 +71,10 @@ If the same fact appears on dry-run and on live run, write **two wordings** (or 
 | A | Keep this file updated as new report notices ship | Agents have one place for severity timing |
 | B | Extract a short “Report patterns” subsection into Antora Contributing (link here for depth) | Human contributors see the rules without reading the whole removal plan |
 | C | Optional: fold develop `summary()` further toward shared helpers only (already uses brackets) | Less drift |
-| D | Optional: promote force-wipe subdued `no inventory record` lines into judgement notes with past tense after wipe | Consistency, low urgency |
-| E | Optional: regular `--wipe-dependencies` emitting `used_by` notices like force-wipe | Product gap, not tense |
+| D | Promote force-wipe subdued `no inventory record` lines into judgement notes with past tense after wipe | Consistency |
+| E | Regular `--wipe-dependencies` emitting `used_by` notices like force-wipe | Product parity |
 
-Phase B is the main “contributor docs” deliverable; do not expand Antora until a few more notices have proven the rules stable.
+Phase C remains optional polish; B / D / E shipped with [#161](https://github.com/ja11sop/cuppa/issues/161).
 
 ---
 
@@ -84,10 +86,11 @@ Phase B is the main “contributor docs” deliverable; do not expand Antora unt
 | Force-wipe `used_by` warn→note | Done |
 | Already-gone → note (builds + deps + force-wipe) | Done |
 | `remove_dependencies` failures → `_removal_error_lines` | Done |
-| `--list-scope=compact` / `referenced` sibling fix / unqualified stem wipe UX | Done (this workstream) |
+| `--list-scope=compact` / `referenced` sibling fix / unqualified stem wipe UX | Done |
 | Design plan + issue [#161](https://github.com/ja11sop/cuppa/issues/161) | Done |
-| Antora Contributing “Report patterns” page | Not started (Phase B) |
-| `--wipe-dependencies` `used_by` parity with force-wipe | Not started (Phase E) |
+| Antora Contributing “Report patterns” page | Done (Phase B) |
+| Force-wipe inventory-missing → judgement notes | Done (Phase D) |
+| `--wipe-dependencies` `used_by` parity with force-wipe | Done (Phase E) |
 
 ---
 

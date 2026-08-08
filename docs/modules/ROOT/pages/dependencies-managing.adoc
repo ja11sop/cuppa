@@ -535,6 +535,9 @@ identity), use xref:#force-wipe-dependencies[`--force-wipe-dependencies`].
 Do not combine any wipe / force-wipe flag with `--remove-*` or `--purge-*`, or with another wipe
 mode, in one invocation. Develop working copies are never deleted. SCons `-n` is a dry run.
 Missing trees / downloads are not a failure.
+When inventory `used_by` names another project, `--wipe-dependencies` emits the same judgement-tree
+notices as force-wipe (warning on dry-run, past-tense note after a real wipe). See
+xref:contributing-report-patterns.adoc[Report patterns].
 
 [source,shell]
 ----

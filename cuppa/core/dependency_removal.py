@@ -2688,6 +2688,15 @@ def remove_dependencies( construct, cuppa_env, out=None ):
         out.write( as_subdued( "(dry run; pass without -n to {})".format( hint ) ) + "\n" )
     out.write( "\n" )
 
+    used_by_warnings = []
+    if wipe:
+        used_by_warnings = _collect_used_by_wipe_notices(
+                targets,
+                _inventory_by_path( root ),
+                cuppa_env.get( 'sconstruct_dir' ),
+                cuppa_env.get( 'location_default_branch' ) or 'master',
+        )
+
     outcomes_by_path = {}
     failures = []
     removed_bytes = 0
@@ -2810,7 +2819,16 @@ def remove_dependencies( construct, cuppa_env, out=None ):
     _write_leftovers_summary( out, leftovers, download_leftovers )
     _write_develop_skips( out, develop_skips )
 
-    if failures:
+    if wipe:
+        _write_wipe_notice_tree(
+                out,
+                failures=failures,
+                used_by_warnings=used_by_warnings,
+                default_branch=cuppa_env.get( 'location_default_branch' ) or 'master',
+                tree_count=len( targets ) + len( actionable_downloads ),
+                planning=planning,
+        )
+    elif failures:
         items = [
                 {
                     'severity': item['severity'],
@@ -2820,10 +2838,7 @@ def remove_dependencies( construct, cuppa_env, out=None ):
                 for item in failures
         ]
         tree_count = len( targets ) + len( actionable_downloads )
-        if wipe:
-            verb = "Would wipe" if planning else "Wiped"
-        else:
-            verb = "Would remove" if planning else "Removed"
+        verb = "Would remove" if planning else "Removed"
         intro = "{} {}".format(
                 verb,
                 storage.emphasised_count_phrase( tree_count, 'tree' ),
@@ -2880,6 +2895,76 @@ def _is_safe_unqualified_duplicate_wipe( path, default_branch ):
     """True when wiping an unused unqualified stem beside the canonical default folder."""
     sibling = _canonical_default_branch_sibling( path, default_branch )
     return bool( sibling and os.path.isdir( sibling ) )
+
+
+def _collect_used_by_wipe_notices( targets, by_path, this_project, default_branch ):
+    """Collect force-/wipe ``used_by`` notices for extract targets.
+
+    Shared by ``--force-wipe-*`` and ``--wipe-dependencies`` so both emit the same
+    judgement-tree notices when inventory records another project's use.
+    """
+    notices = []
+    for target in targets or []:
+        path = target.path
+        if not path:
+            continue
+        real = storage.real_path( path ) if os.path.lexists( path ) else path
+        entry = ( by_path or {} ).get( real ) or {}
+        others = _other_project_used_by( entry, this_project )
+        if not others:
+            continue
+        notices.append( {
+            'dependency': target.dependency,
+            'short_name': getattr( target, 'label', None ),
+            'path': path,
+            'used_by': others,
+            'safe_unqualified_duplicate': _is_safe_unqualified_duplicate_wipe(
+                    path, default_branch
+            ),
+        } )
+    return notices
+
+
+def _collect_inventory_missing_notices( targets, by_path ):
+    """Collect structured notices for wipe targets with no inventory entry."""
+    notices = []
+    for target in targets or []:
+        path = target.path
+        if not path:
+            continue
+        real = storage.real_path( path ) if os.path.lexists( path ) else path
+        entry = ( by_path or {} ).get( real ) or {}
+        if entry:
+            continue
+        notices.append( {
+            'dependency': target.dependency,
+            'path': path,
+        } )
+    return notices
+
+
+def _inventory_missing_notice_items( inventory_missing, planning=True ):
+    """Turn missing-inventory wipe notices into judgement notes.
+
+    Dry-run / planning uses present tense; after a real wipe uses past tense.
+    """
+    items = []
+    for item in inventory_missing or []:
+        name = (
+                ( item.get( 'dependency' ) or '' ).strip()
+                or '-'
+        )
+        path_text = storage.display_path( item['path'] )
+        if planning:
+            reason = "no inventory record for [{}]".format( path_text )
+        else:
+            reason = "had no inventory record for [{}]".format( path_text )
+        items.append( {
+            'severity': 'note',
+            'label': name,
+            'reason': reason,
+        } )
+    return items
 
 
 def _used_by_wipe_notice_items( used_by_warnings, default_branch='master', planning=True ):
@@ -2953,18 +3038,22 @@ def _used_by_wipe_notice_items( used_by_warnings, default_branch='master', plann
 
 
 def _write_wipe_notice_tree(
-        out, failures=None, used_by_warnings=None, default_branch='master',
-        tree_count=0, planning=True,
+        out, failures=None, used_by_warnings=None, inventory_missing=None,
+        default_branch='master', tree_count=0, planning=True,
 ):
     """Emit the post-table judgement tree for wipe failures and used_by notices.
 
     Intro is generic (``Wiping`` / ``Wiped N trees`` with ``N`` emphasised); severity counts
     and message bodies carry the detail. Used-by notices are warnings on dry-run and notes
-    after a real wipe.
+    after a real wipe. Missing inventory records are always notes (present tense while
+    planning, past tense after a real wipe).
     """
     failures = failures or []
     used_items = _used_by_wipe_notice_items(
             used_by_warnings, default_branch=default_branch, planning=planning,
+    )
+    inventory_items = _inventory_missing_notice_items(
+            inventory_missing, planning=planning,
     )
     failure_items = [
             {
@@ -2974,7 +3063,7 @@ def _write_wipe_notice_tree(
             }
             for item in failures
     ]
-    items = failure_items + used_items
+    items = failure_items + used_items + inventory_items
     if not items:
         return
     intro = "{} {}".format(
@@ -3232,12 +3321,12 @@ def _collect_force_wipe_context( rows, dl_rows, targets, download_targets ):
 
 def _execute_force_wipe(
         out, root, downloads_root, targets, download_targets, planning,
-        notes=None, used_by_warnings=None, unreferenced=False,
+        inventory_missing=None, used_by_warnings=None, unreferenced=False,
         leftovers=None, download_leftovers=None, summary_label=None,
         default_branch='master',
 ):
     """Announce, delete, and report a force-wipe plan."""
-    notes = notes or []
+    inventory_missing = inventory_missing or []
     used_by_warnings = used_by_warnings or []
     leftovers = list( leftovers or [] )
     download_leftovers = list( download_leftovers or [] )
@@ -3258,7 +3347,9 @@ def _execute_force_wipe(
                     action_label='wiped',
             )
         _write_wipe_notice_tree(
-                out, used_by_warnings=used_by_warnings, default_branch=default_branch,
+                out, used_by_warnings=used_by_warnings,
+                inventory_missing=inventory_missing,
+                default_branch=default_branch,
                 tree_count=0, planning=planning,
         )
         _write_verify( out, wipe=True, unreferenced=unreferenced )
@@ -3288,10 +3379,6 @@ def _execute_force_wipe(
     if planning:
         out.write( as_subdued( "(dry run; pass without -n to wipe)" ) + "\n" )
     out.write( "\n" )
-    for note in notes:
-        out.write( as_subdued( note ) + "\n" )
-    if notes:
-        out.write( "\n" )
 
     outcomes_by_path = {}
     failures = []
@@ -3389,6 +3476,7 @@ def _execute_force_wipe(
 
     _write_wipe_notice_tree(
             out, failures=failures, used_by_warnings=used_by_warnings,
+            inventory_missing=inventory_missing,
             default_branch=default_branch,
             tree_count=len( targets ) + len( actionable_downloads ),
             planning=planning,
@@ -3437,8 +3525,6 @@ def force_wipe_dependencies( construct, cuppa_env, out=None ):
 
     targets = []
     seen = set()
-    notes = []
-    used_by_warnings = []
     matched_reals = set()
 
     for storage_type, name, qualifier in tokens:
@@ -3483,20 +3569,6 @@ def force_wipe_dependencies( construct, cuppa_env, out=None ):
                 raise storage.StorageError(
                     "refusing to remove through symlink [{}]".format( path )
                 )
-            entry = by_path.get( real ) or {}
-            others = _other_project_used_by( entry, this_project )
-            if others:
-                used_by_warnings.append( {
-                    'dependency': row.get( 'dependency' ) or row.get( 'short_name' ) or path,
-                    'short_name': row.get( 'short_name' ),
-                    'path': path,
-                    'used_by': others,
-                    'safe_unqualified_duplicate': _is_safe_unqualified_duplicate_wipe(
-                            path, default_branch
-                    ),
-                } )
-            if not entry:
-                notes.append( "no inventory record for {}".format( storage.display_path( path ) ) )
             seen.add( real )
             matched_reals.add( real )
             targets.append( _target_from_row( row ) )
@@ -3601,9 +3673,14 @@ def force_wipe_dependencies( construct, cuppa_env, out=None ):
     summary_label = "related dependencies for {}".format(
             str( raw_spec ).strip() or 'selection'
     )
+    used_by_warnings = _collect_used_by_wipe_notices(
+            targets, by_path, this_project, default_branch,
+    )
+    inventory_missing = _collect_inventory_missing_notices( targets, by_path )
     return _execute_force_wipe(
             out, root, downloads_root, targets, download_targets, planning,
-            notes=notes, used_by_warnings=used_by_warnings, unreferenced=False,
+            inventory_missing=inventory_missing, used_by_warnings=used_by_warnings,
+            unreferenced=False,
             leftovers=leftovers, download_leftovers=download_leftovers,
             summary_label=summary_label,
             default_branch=default_branch,
@@ -3640,8 +3717,6 @@ def force_wipe_unreferenced_dependencies( construct, cuppa_env, out=None ):
 
     targets = []
     seen = set()
-    notes = []
-    used_by_warnings = []
 
     for row in dep_data.get( 'rows' ) or []:
         if row.get( 'state' ) != 'unreferenced':
@@ -3657,20 +3732,6 @@ def force_wipe_unreferenced_dependencies( construct, cuppa_env, out=None ):
             raise storage.StorageError(
                 "refusing to remove through symlink [{}]".format( path )
             )
-        entry = by_path.get( real ) or {}
-        others = _other_project_used_by( entry, this_project )
-        if others:
-            used_by_warnings.append( {
-                'dependency': row.get( 'dependency' ) or row.get( 'short_name' ) or path,
-                'short_name': row.get( 'short_name' ),
-                'path': path,
-                'used_by': others,
-                'safe_unqualified_duplicate': _is_safe_unqualified_duplicate_wipe(
-                        path, cuppa_env.get( 'location_default_branch' ) or 'master'
-                ),
-            } )
-        if not entry:
-            notes.append( "no inventory record for {}".format( storage.display_path( path ) ) )
         seen.add( real )
         targets.append( _target_from_row( row ) )
 
@@ -3695,9 +3756,15 @@ def force_wipe_unreferenced_dependencies( construct, cuppa_env, out=None ):
             )
         download_targets.append( _download_from_row( row, missing=False ) )
 
+    default_branch = cuppa_env.get( 'location_default_branch' ) or 'master'
+    used_by_warnings = _collect_used_by_wipe_notices(
+            targets, by_path, this_project, default_branch,
+    )
+    inventory_missing = _collect_inventory_missing_notices( targets, by_path )
     return _execute_force_wipe(
             out, root, downloads_root, targets, download_targets, planning,
-            notes=notes, used_by_warnings=used_by_warnings, unreferenced=True,
+            inventory_missing=inventory_missing, used_by_warnings=used_by_warnings,
+            unreferenced=True,
             summary_label='unreferenced dependencies',
-            default_branch=cuppa_env.get( 'location_default_branch' ) or 'master',
+            default_branch=default_branch,
     )

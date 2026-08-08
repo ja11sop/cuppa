@@ -26,6 +26,7 @@
 * xref:contributing.adoc[Contributing]
 ** xref:contributing.adoc[Overview]
 ** xref:contributing-versioning.adoc[Versioning and changelog]
+** xref:contributing-report-patterns.adoc[Report patterns]
 ** xref:contributing-release.adoc[Cutting a release]
 * xref:linting.adoc[Linting]
 * xref:integration-tests.adoc[Integration tests]

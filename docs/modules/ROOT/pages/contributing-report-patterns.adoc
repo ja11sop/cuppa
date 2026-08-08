@@ -1,0 +1,112 @@
+= Report patterns
+:description: Judgement-tree shape and severity timing for cuppa console reports
+
+Cuppa storage and develop reports share a recognisable **judgement tree**: a one-line intro with
+severity brackets, then a tree grouped error → warning → note.
+This page records the settled rules so new notices stay consistent.
+Longer design notes live in the repository at `design/archive/console-report-patterns.md`
+(umbrella https://github.com/ja11sop/cuppa/issues/161[issue #161]).
+
+== Judgement intro
+
+The intro line uses this shape:
+
+----
+{Verb} {emphasised N} {subject}: [N errors][N warnings][N notes]
+----
+
+Examples: `Wiping **9** trees: …`, `Removed **2** trees: …`, and `--list-develop` (which also
+appends ok / not-using-develop counts).
+
+Always show all three brackets. Mute zeros; colour non-zeros as error / warning / info so readers
+can scan the line without hunting for a missing severity.
+
+The tree hangs from the intro (`│` / `└──`). Severity headings come first, then labels, then prose
+or nested lists. Reading down is a work list, worst first.
+
+Emphasise the numeric count in the intro **and** in freed-space footers — the same pattern as
+announce lines such as `Wiping **9** trees`.
+
+In prose, colour only bracketed `[placeholders]`; leave surrounding words plain.
+
+== Warn before, note after
+
+If an outcome is “proceed anyway / already done / cannot abort”:
+
+* On dry-run (or before the action), prefer a **warning** in present or future tense so the user
+  can still abort.
+* After a real action, demote the same fact to a **note** and use **past tense**.
+  Warnings after the fact train users to ignore them.
+
+|===
+| Scenario | Dry-run / before | After real action
+
+| Force-wipe or wipe `used_by` (including a safe unqualified stem duplicate)
+| `warning`: `wiping…`, `removing this copy is safe`, `would be re-fetched`
+| `note`: `wiped…`, `removing the copy was safe`, `will be re-fetched`
+
+| Path already gone on remove / wipe / builds
+| (does not fire on dry-run)
+| `note`: `was already gone: [path]` — never leave as warning
+
+| Force-wipe target with no inventory record
+| `note`: `no inventory record for [path]`
+| `note`: `had no inventory record for [path]`
+|===
+
+True failures stay **errors**: permission denied, refusals, ambiguous tokens, missing required
+targets. Exit non-zero; the path is still wrong or still on disk.
+
+Routing and bookkeeping messages (`logger.warn` for CLI precedence or inventory refresh failures)
+are not judgement-tree items.
+
+== When adding a notice
+
+Ask, in order:
+
+. **Can the user still abort?** If yes and proceeding is surprising → **warning** (present /
+  future tense).
+. **Has the action already completed?** If the message only records what happened and needs no
+  further action → **note** (past tense).
+. **Is something still wrong on disk or in the request?** → **error** (exit non-zero).
+. **Is it routing or log commentary?** → `logger.warn` / a subdued line, not a judgement item.
+
+If the same fact appears on dry-run and on a live run, write **two wordings** (or switch tense on
+`planning`) rather than one eternal warning.
+
+== Shared helpers
+
+Prefer these instead of inventing a second flat warning list:
+
+|===
+| Helper | Module | Use for
+
+| `format_severity_count_brackets`
+| `cuppa.utility.storage`
+| Intro suffix
+
+| `emphasised_count_phrase`
+| `cuppa.utility.storage`
+| `N trees` / `N develop locations`
+
+| `_removal_error_lines`
+| `cuppa.core.storage_actions`
+| Judgement tree body (builds, deps, wipe)
+
+| `_write_wipe_notice_tree`
+| `cuppa.core.dependency_removal`
+| Wipe failures, `used_by`, and inventory-missing notes
+
+| `_is_already_gone_error` / `_already_gone_note_reason`
+| `cuppa.core.storage_actions`
+| Benign miss classification
+|===
+
+Do not invent a second flat `as_warning("Not all…")` plus an indented list for dependency
+failures.
+
+== Where to go next
+
+* Managing wipe / remove flags → xref:dependencies-managing.adoc[Managing dependencies]
+* Versioning and changelog → xref:contributing-versioning.adoc[Versioning and changelog]
+* Repository design plan → `design/archive/console-report-patterns.md`
