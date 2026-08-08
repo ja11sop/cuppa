@@ -209,6 +209,9 @@ class Gcc(object):
             )
             add_toolchain( version, cls( version, gcc['cxx_version'], gcc['version'], gcc['path'] ) )
 
+        from cuppa.toolchains import toolchain_archive
+        toolchain_archive.register_prepared_gcc( env, add_toolchain, add_to_supported, cls )
+
 
     @classmethod
     def default_variants( cls ):
@@ -250,8 +253,12 @@ class Gcc(object):
 
         self._initialise_toolchain( self._reported_version )
 
-        self.values['CXX'] = "g++{}".format( self._cxx_version and "-" +  self._cxx_version or "" )
-        self.values['CC']  = "gcc{}".format( self._cxx_version and "-" +  self._cxx_version or "" )
+        cxx_name = "g++{}".format( self._cxx_version and "-" +  self._cxx_version or "" )
+        cc_name  = "gcc{}".format( self._cxx_version and "-" +  self._cxx_version or "" )
+        # Prefer absolute drivers for registered prefixes (snapshot / --gcc-root) so PATH
+        # cannot silently pick up the distro g++ after configure saw the snapshot tree.
+        self.values['CXX'] = self._resolve_driver( cxx_name )
+        self.values['CC']  = self._resolve_driver( cc_name )
 
         env = SCons.Script.DefaultEnvironment()
         if platform.system() == "Windows":
@@ -311,6 +318,21 @@ class Gcc(object):
         return self.values['CXX']
 
 
+    def _resolve_driver( self, name ):
+        """Return an absolute path to a gcc driver when its install dir is known."""
+        if self._cxx_path:
+            candidate = os.path.join( self._cxx_path, name )
+            if os.path.exists( candidate ):
+                return candidate
+            # Unversioned g++ / gcc in a snapshot bin dir.
+            bare = 'g++' if name.startswith( 'g++' ) else 'gcc'
+            if bare != name:
+                candidate = os.path.join( self._cxx_path, bare )
+                if os.path.exists( candidate ):
+                    return candidate
+        return name
+
+
     def make_env( self, cuppa_env, variant, target_arch ):
 
         env = None
@@ -323,6 +345,12 @@ class Gcc(object):
             env['ENV']['PATH'] = ";".join( [ env['ENV']['PATH'], self._cxx_path ] )
         else:
             env = cuppa_env.create_env( tools = ['g++'] )
+            if self._cxx_path:
+                default_path = env['ENV'].get( 'PATH', '' )
+                parts = [ self._cxx_path ]
+                if default_path:
+                    parts.extend( default_path.split( os.pathsep ) )
+                env['ENV']['PATH'] = os.pathsep.join( parts )
 
         env['CXX']          = self.values['CXX']
         env['CC']           = self.values['CC']
