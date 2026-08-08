@@ -114,7 +114,7 @@ cuppa -D --dbg --toolchains=gcc15,gcc16_gcc_snapshot_20260725_1_amd64,clang24_pr
 | `tc-dep-url-sugar` | Optional URL token in `--toolchains=` | later |
 | `tc-dep-profiles` | [#127](https://github.com/ja11sop/cuppa/issues/127) `--profiles` | later |
 | `tc-dep-actions` | Authenticated Actions artifact URLs | later |
-| `dl-prog` | Shared HTTP download progress for large archives | later — [`download-progress.md`](download-progress.md) |
+| `dl-prog` | Shared HTTP download progress for large archives | later — [`download-progress.md`](../archive/download-progress.md) |
 
 ## Related
 

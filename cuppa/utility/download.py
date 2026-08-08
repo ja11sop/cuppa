@@ -6,7 +6,7 @@
 """HTTP file downloads with a shared transfer-progress reporter.
 
 Used by location archive fetches and toolchain archives. See
-``design/plans/download-progress.md``.
+``design/archive/download-progress.md``.
 
 Progress prefers the controlling terminal (``/dev/tty`` / ``CONOUT$``) so a
 rewriting line still works when the ``cuppa`` launcher pipes scons stdout/stderr
