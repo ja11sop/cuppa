@@ -1,8 +1,8 @@
 # Shared HTTP download progress
 
-- **Status:** in progress
+- **Status:** shipped
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) (follow-on polish after toolchains-as-deps); location archive downloads (Boost etc.); toolchain archives ([#160](https://github.com/ja11sop/cuppa/issues/160) / [#164](https://github.com/ja11sop/cuppa/pull/164)); GitLab package `wget` path; [#165](https://github.com/ja11sop/cuppa/pull/165)
-- **Updated:** 2026-08-08
+- **Updated:** 2026-08-09
 - **Impact:** patch (UX / internal helper; no new public CLI flags)
 
 Large toolchain archives (for example a ~1.6 GiB Debian `gcc-snapshot` `.deb`) used to download
@@ -26,8 +26,8 @@ toolchain `.deb` extract progress.
 | `dl-prog-gitlab` — GitLab HTTPS via `download_file` + auth headers (replace `wget`) | Done (this branch / #165) |
 | `dl-prog-zip` — zip extract progress (`Location.extract` / package zips) | Done (this branch / #165) |
 | `dl-prog-conan` — stream Conan install output instead of capturing | Done (this branch / #165) |
-| `dl-prog-git` — stream git clone/fetch `--progress` | Done (this branch / #165) |
-| `dl-prog-curl` — optional curl/wget resume backend | Optional / later |
+| `dl-prog-git` — stream git clone/fetch `--progress` | Done (#165) |
+| `dl-prog-curl` — optional curl/wget resume backend | Deferred (not needed; downloads use stdlib `download_file`) |
 
 ## Why
 
@@ -107,7 +107,7 @@ Phase 2+ extensions (when each slice lands):
 | `dl-prog-zip` | Zip extract in `Location.extract` / package zips | `extract_zip_archive` per-member + uncompressed-byte progress | Done on #165 |
 | `dl-prog-conan` | Conan consumer install | `IncrementalSubProcess` stream; keep lines for StopError | Done on #165 |
 | `dl-prog-git` | Git `clone` / `fetch` (develop update/clone) | `--progress` + subdued stderr pump at INFO+; plain `fetch`/`clone` when quieter | Done on #165 |
-| `dl-prog-curl` | Optional resume backend | curl/wget under `download_file` | Only if partial/resume becomes a real need |
+| `dl-prog-curl` | Optional resume backend | curl/wget under `download_file` | Deferred — no fetch path needs curl/wget; publish still uses curl upload |
 
 ## Settled decisions (phase 2+)
 

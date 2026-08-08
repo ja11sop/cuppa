@@ -326,6 +326,7 @@ remains [#127](https://github.com/ja11sop/cuppa/issues/127) and is not this sect
 | Discover cached installs under `dependencies_root/toolchains/{clang,gcc}/`; multi-select compare | Yes |
 | External `--*-root=` persists registration (`cuppa-toolchain.json`) | Yes |
 | List as type `toolchain`; force-wipe `[toolchain]…`; project remove/purge/wipe N/A | Yes |
+| Shared transfer progress (HTTP download, extract, Conan stream, git `--progress`) | Yes ([#165](https://github.com/ja11sop/cuppa/pull/165); plan [`download-progress.md`](design/plans/download-progress.md)) |
 
 ### Planned / potential
 
