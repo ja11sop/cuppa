@@ -19,6 +19,9 @@ and how to cut a release from GitHub Actions without hand-pushing tags.
 | SemVer, `cuppa/VERSION`, Keep a Changelog, `start_release` / `finish_release`
 | xref:contributing-versioning.adoc[Versioning and changelog]
 
+| Judgement trees, warn-before / note-after, shared helpers
+| xref:contributing-report-patterns.adoc[Report patterns]
+
 | Prepare / publish Actions, Trusted Publishing, git history shapes
 | xref:contributing-release.adoc[Cutting a release]
 
@@ -30,8 +33,9 @@ and how to cut a release from GitHub Actions without hand-pushing tags.
 |===
 
 Long-form design notes live under `design/` in the repository (not on this site).
-Settled console-report choices (judgement trees, warn-before / note-after) are recorded in
-`design/plans/console-report-patterns.md` until a Contributing topic page exists.
+Settled console-report choices are summarised in
+xref:contributing-report-patterns.adoc[Report patterns]; the design plan at
+`design/archive/console-report-patterns.md` holds deeper rationale.
 Agent-oriented checklists and GitHub helper scripts live in `AGENTS.md`.
 
 == Pull requests

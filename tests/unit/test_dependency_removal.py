@@ -543,6 +543,183 @@ def test_write_used_by_wipe_warning_colours_paths_and_explains_safe( tmp_path ):
             as_emphasised( 'removing the copy was safe' ) in done_text
 
 
+
+def test_inventory_missing_notice_items_tense():
+    notice = {
+            'dependency': 'widget',
+            'path': '/home/user/_cuppa/dependencies/widget@master',
+    }
+    planning = dependency_removal._inventory_missing_notice_items(
+            [ notice ], planning=True,
+    )
+    assert len( planning ) == 1
+    assert planning[0]['severity'] == 'note'
+    assert planning[0]['label'] == 'widget'
+    assert planning[0]['reason'].startswith( 'no inventory record for [' )
+    assert 'had no inventory record' not in planning[0]['reason']
+
+    done = dependency_removal._inventory_missing_notice_items(
+            [ notice ], planning=False,
+    )
+    assert done[0]['severity'] == 'note'
+    assert done[0]['reason'].startswith( 'had no inventory record for [' )
+
+
+def test_write_wipe_notice_tree_includes_inventory_missing_notes():
+    import io
+
+    notice = {
+            'dependency': 'widget',
+            'path': '/home/user/_cuppa/dependencies/widget@master',
+    }
+    out = io.StringIO()
+    dependency_removal._write_wipe_notice_tree(
+            out,
+            inventory_missing=[ notice ],
+            tree_count=1,
+            planning=True,
+    )
+    text = out.getvalue()
+    assert 'Wiping ' in text
+    assert '[0 errors]' in text
+    assert '[0 warnings]' in text
+    assert '[1 note]' in text
+    assert 'no inventory record for [' in text
+    assert 'widget' in text
+
+    done = io.StringIO()
+    dependency_removal._write_wipe_notice_tree(
+            out=done,
+            inventory_missing=[ notice ],
+            tree_count=1,
+            planning=False,
+    )
+    done_text = done.getvalue()
+    assert 'Wiped ' in done_text
+    assert 'had no inventory record for [' in done_text
+
+
+def test_collect_used_by_wipe_notices_shared_by_wipe_and_force( tmp_path ):
+    stem = tmp_path / 'git_https_example.com__org_widget.git'
+    stem.mkdir()
+    ( tmp_path / 'git_https_example.com__org_widget.git@master' ).mkdir()
+    real = storage.real_path( str( stem ) )
+    by_path = {
+            real: {
+                'path': str( stem ),
+                'used_by': {
+                    '/proj/a': 't',
+                    '/other/project': 't',
+                },
+            },
+    }
+    target = dependency_removal.RemovalTarget(
+            dependency='widget',
+            path=str( stem ),
+            qualifier=None,
+            tool_variant=None,
+            storage_type='repository',
+            size_bytes=1,
+            label=None,
+            extra_paths=(),
+    )
+    notices = dependency_removal._collect_used_by_wipe_notices(
+            [ target ], by_path, '/proj/a', 'master',
+    )
+    assert len( notices ) == 1
+    assert notices[0]['dependency'] == 'widget'
+    assert notices[0]['used_by'] == [ '/other/project' ]
+    assert notices[0]['safe_unqualified_duplicate'] is True
+
+    items = dependency_removal._used_by_wipe_notice_items(
+            notices, default_branch='master', planning=True,
+    )
+    assert items[0]['severity'] == 'warning'
+    after = dependency_removal._used_by_wipe_notice_items(
+            notices, default_branch='master', planning=False,
+    )
+    assert after[0]['severity'] == 'note'
+    assert after[0]['blocks'][0]['text'].startswith( 'wiped [' )
+
+
+def test_collect_inventory_missing_notices( tmp_path ):
+    path = tmp_path / 'widget@master'
+    path.mkdir()
+    target = dependency_removal.RemovalTarget(
+            dependency='widget',
+            path=str( path ),
+            qualifier='@master',
+            tool_variant=None,
+            storage_type='repository',
+            size_bytes=1,
+            label=None,
+            extra_paths=(),
+    )
+    missing = dependency_removal._collect_inventory_missing_notices( [ target ], {} )
+    assert missing == [ { 'dependency': 'widget', 'path': str( path ) } ]
+    present = dependency_removal._collect_inventory_missing_notices(
+            [ target ],
+            { storage.real_path( str( path ) ): { 'path': str( path ) } },
+    )
+    assert present == []
+
+
+def test_unmatched_force_wipe_notice_items_warn_then_note():
+    unmatched = [
+            { 'token': 'moo/@', 'kind': 'no_match' },
+            {
+                'token': 'widget/@',
+                'kind': 'missing_path',
+                'path': '/home/user/_cuppa/dependencies/widget',
+            },
+    ]
+    planning = dependency_removal._unmatched_force_wipe_notice_items(
+            unmatched, planning=True,
+    )
+    assert [ item['severity'] for item in planning ] == [ 'warning', 'warning' ]
+    assert planning[0]['label'] == 'moo/@'
+    assert planning[0]['reason'] == 'no leaf matches [moo/@]'
+    assert planning[1]['reason'].startswith( 'matched leaf [widget/@] path does not exist:' )
+
+    done = dependency_removal._unmatched_force_wipe_notice_items(
+            unmatched, planning=False,
+    )
+    assert [ item['severity'] for item in done ] == [ 'note', 'note' ]
+    assert done[0]['reason'] == 'no leaf matched [moo/@]'
+    assert done[1]['reason'].startswith( 'matched leaf [widget/@] path was already gone:' )
+
+
+def test_write_wipe_notice_tree_includes_unmatched_tokens():
+    import io
+    from cuppa.colourise import as_emphasised
+
+    out = io.StringIO()
+    dependency_removal._write_wipe_notice_tree(
+            out,
+            unmatched_tokens=[ { 'token': 'moo/@', 'kind': 'no_match' } ],
+            tree_count=3,
+            planning=True,
+    )
+    text = out.getvalue()
+    assert 'Wiping ' in text
+    assert as_emphasised( '3' ) in text
+    assert '[1 warning]' in text
+    assert 'no leaf matches [moo/@]' in text
+    assert 'moo/@' in text
+
+    done = io.StringIO()
+    dependency_removal._write_wipe_notice_tree(
+            out=done,
+            unmatched_tokens=[ { 'token': 'moo/@', 'kind': 'no_match' } ],
+            tree_count=3,
+            planning=False,
+    )
+    done_text = done.getvalue()
+    assert 'Wiped ' in done_text
+    assert '[1 note]' in done_text
+    assert 'no leaf matched [moo/@]' in done_text
+
+
 def test_dependency_already_gone_is_a_note_in_judgement_tree():
     """Benign misses after a real remove use notes + shared judgement intro, not flat warnings."""
     from cuppa.core.storage_actions import (

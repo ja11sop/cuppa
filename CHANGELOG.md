@@ -43,10 +43,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   subject count and muted-or-coloured `[N errors][N warnings][N notes]` brackets (notes use info
   colour); `--list-develop` uses the same bracket shape. Repository branch rows in wipe reports
   use a single-slot mark (`✔` / `-`) rather than a triple rollup. See
-  `design/plans/console-report-patterns.md` and [#161](https://github.com/ja11sop/cuppa/issues/161).
+  `design/archive/console-report-patterns.md` and [#161](https://github.com/ja11sop/cuppa/issues/161).
+- Antora **Contributing → Report patterns** documents judgement-tree shape, warn-before /
+  note-after, and shared helpers (`docs/modules/ROOT/pages/contributing-report-patterns.adoc`).
 
 ### Changed
 
+- `--wipe-dependencies` emits inventory `used_by` judgement notices like force-wipe (warning on
+  dry-run, past-tense note after a real wipe). Force-wipe “no inventory record” lines move into
+  the judgement tree as notes (`no inventory record…` / `had no inventory record…`) instead of
+  subdued pre-table text. Unmatched force-wipe tokens (and matched paths already gone) no longer
+  hard-stop the whole list: other tokens still wipe, and each miss is a judgement warning on
+  dry-run / note after a real wipe. Completes [#161](https://github.com/ja11sop/cuppa/issues/161)
+  phases B / D / E.
 - Release workflow Actions buttons: **prepare** opens the `finish_release` PR; **publish**
   builds from master tip, creates the GitHub Release and tag, then waits for `pypi` approval.
   Manual `v*` tag push remains as an escape hatch. Antora **Contributing** documents the flow
