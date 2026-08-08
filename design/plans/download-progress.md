@@ -22,10 +22,10 @@ toolchain `.deb` extract progress.
 | Settled line shape: percent, ASCII bar, `done/total`, rate, ETA + colour rules | Done (#165) |
 | Toolchain `.deb` extract: INFO start/elapsed + `transfer_file` into `tar` | Done (#165) |
 | Docs / CHANGELOG (phase 1) | Done (#165) |
-| `dl-prog-extract` — shared tar extract helper for `Location.extract` + GitLab package tars | Done (this branch / #165) |
-| `dl-prog-gitlab` — GitLab HTTPS via `download_file` + auth headers (replace `wget`) | Done (this branch / #165) |
-| `dl-prog-zip` — zip extract progress (`Location.extract` / package zips) | Done (this branch / #165) |
-| `dl-prog-conan` — stream Conan install output instead of capturing | Done (this branch / #165) |
+| `dl-prog-extract` — shared tar extract helper for `Location.extract` + GitLab package tars | Done (#165) |
+| `dl-prog-gitlab` — GitLab HTTPS via `download_file` + auth headers (replace `wget`) | Done (#165) |
+| `dl-prog-zip` — zip extract progress (`Location.extract` / package zips) | Done (#165) |
+| `dl-prog-conan` — stream Conan install output instead of capturing | Done (#165) |
 | `dl-prog-git` — stream git clone/fetch `--progress` | Done (#165) |
 | `dl-prog-curl` — optional curl/wget resume backend | Deferred (not needed; downloads use stdlib `download_file`) |
 
