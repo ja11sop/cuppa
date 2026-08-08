@@ -20,12 +20,12 @@ import json
 import os
 import re
 import shutil
-import subprocess
 import sys
 from contextlib import contextmanager
 
 from cuppa.colourise import as_error, as_notice
 from cuppa.log import logger
+from cuppa.output_processor import IncrementalSubProcess
 
 
 _MERGE_SKIP_KEYS = frozenset( {'BINPATH'} )
@@ -859,20 +859,40 @@ class base( object ):
             cmd.append( '--no-remote' )
 
         logger.info( "Running [{}]".format( as_notice( ' '.join( cmd ) ) ) )
+        # Stream Conan output live (downloads/builds can take minutes). Keep a
+        # copy for StopError detail; do not invent a cuppa byte progress bar.
+        output_lines = []
+
+        def _stdout_line( line ):
+            output_lines.append( line )
+            sys.stdout.write( line + '\n' )
+            try:
+                sys.stdout.flush()
+            except Exception:
+                pass
+
+        def _stderr_line( line ):
+            output_lines.append( line )
+            sys.stderr.write( line + '\n' )
+            try:
+                sys.stderr.flush()
+            except Exception:
+                pass
+
         try:
-            completed = subprocess.run(
+            returncode = IncrementalSubProcess.Popen2(
+                    _stdout_line,
+                    _stderr_line,
                     cmd,
-                    check=False,
-                    capture_output=True,
-                    text=True,
+                    suppress_output=True,
             )
         except OSError as exc:
             raise SCons.Errors.StopError(
                 "Failed to execute conan for [{}]: {}".format( self._name, exc )
             ) from exc
 
-        if completed.returncode != 0:
-            detail = ( completed.stderr or completed.stdout or '' ).strip()
+        if returncode != 0:
+            detail = '\n'.join( output_lines ).strip()
             if offline:
                 raise SCons.Errors.StopError(
                     "Conan install for [{}] failed in offline mode (no remotes). "
@@ -882,7 +902,7 @@ class base( object ):
                 )
             raise SCons.Errors.StopError(
                 "Conan install for [{}] failed (exit {}):\n{}".format(
-                        self._name, completed.returncode, detail
+                        self._name, returncode, detail
                 )
             )
 

@@ -314,6 +314,82 @@ def test_offline_install_fails_without_conan( tmp_path, monkeypatch ):
         dep( env, FakeToolchain(), 'dbg' )
 
 
+def test_run_conan_install_streams_via_incremental_subprocess( tmp_path, monkeypatch, capsys ):
+    conanfile = tmp_path / 'conanfile.txt'
+    conanfile.write_text( '[requires]\nfmt/[*]\n\n[generators]\nSConsDeps\n', encoding='utf-8' )
+    install_dir = tmp_path / 'install'
+    install_dir.mkdir()
+    calls = {}
+
+    def fake_popen2( stdout_processor, stderr_processor, args_list, **kwargs ):
+        calls['args'] = list( args_list )
+        calls['suppress_output'] = kwargs.get( 'suppress_output' )
+        stdout_processor( 'Downloading fmt/11.1.4' )
+        stderr_processor( 'WARN: demo' )
+        ( install_dir / 'SConscript_conandeps' ).write_text( SCONSDEPS_FIXTURE, encoding='utf-8' )
+        return 0
+
+    monkeypatch.setattr( build_with_conan, '_find_conan_executable', lambda: 'conan' )
+    monkeypatch.setattr( build_with_conan.IncrementalSubProcess, 'Popen2', fake_popen2 )
+
+    Dep = conan_deps( name='conan', conanfile=str( conanfile ) )
+    env = RecordingEnv(
+            sconstruct_dir=str( tmp_path ),
+            dependencies_root=str( tmp_path / 'dl' ),
+            offline=False,
+            stdcpp='c++20',
+            target_arch='x86_64',
+    )
+    dep = Dep.create( env )
+    dep._run_conan_install(
+            env,
+            str( install_dir ),
+            str( conanfile ),
+            { 'os': 'Linux', 'arch': 'x86_64' },
+            'fingerprint',
+            FakeToolchain(),
+    )
+    assert calls['suppress_output'] is True
+    assert calls['args'][:2] == [ 'conan', 'install' ]
+    captured = capsys.readouterr()
+    assert 'Downloading fmt/11.1.4' in captured.out
+    assert 'WARN: demo' in captured.err
+    assert ( install_dir / build_with_conan._DONE_MARKER ).is_file()
+
+
+def test_run_conan_install_failure_includes_streamed_detail( tmp_path, monkeypatch ):
+    conanfile = tmp_path / 'conanfile.txt'
+    conanfile.write_text( '[requires]\nfmt/[*]\n\n[generators]\nSConsDeps\n', encoding='utf-8' )
+    install_dir = tmp_path / 'install'
+    install_dir.mkdir()
+
+    def fake_popen2( stdout_processor, stderr_processor, args_list, **kwargs ):
+        stderr_processor( 'ERROR: package not found' )
+        return 1
+
+    monkeypatch.setattr( build_with_conan, '_find_conan_executable', lambda: 'conan' )
+    monkeypatch.setattr( build_with_conan.IncrementalSubProcess, 'Popen2', fake_popen2 )
+
+    Dep = conan_deps( name='conan', conanfile=str( conanfile ) )
+    env = RecordingEnv(
+            sconstruct_dir=str( tmp_path ),
+            dependencies_root=str( tmp_path / 'dl' ),
+            offline=False,
+            stdcpp='c++20',
+            target_arch='x86_64',
+    )
+    dep = Dep.create( env )
+    with pytest.raises( SCons.Errors.StopError, match='package not found' ):
+        dep._run_conan_install(
+                env,
+                str( install_dir ),
+                str( conanfile ),
+                { 'os': 'Linux', 'arch': 'x86_64' },
+                'fingerprint',
+                FakeToolchain(),
+        )
+
+
 def test_load_sconsdeps_direct( tmp_path ):
     install = tmp_path / 'inst'
     install.mkdir()

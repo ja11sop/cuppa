@@ -60,7 +60,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   subdued. Tar and zip extracts (location/Boost, GitLab package archives, toolchain archives)
   reuse the same reporter via `extract_tar_archive` / `extract_zip_archive`. GitLab generic
   package downloads use `download_file` with registry auth headers (no `wget` on PATH for the
-  fetch). Replaces the old location-only `|=` bar. See `design/plans/download-progress.md`.
+  fetch). Conan consumer `conan install` streams stdout/stderr live instead of capturing until
+  exit. Replaces the old location-only `|=` bar. See `design/plans/download-progress.md`.
 - Rename `_removal_error_lines` to `_judgement_tree_lines` and route `--list-develop` judgement
   bodies through it (same stem glyphs, severity headings, wrap, and value highlighting as wipe /
   remove). No intentional user-visible change; completes Phase C of the console report-patterns

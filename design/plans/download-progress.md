@@ -25,7 +25,7 @@ toolchain `.deb` extract progress.
 | `dl-prog-extract` — shared tar extract helper for `Location.extract` + GitLab package tars | Done (this branch / #165) |
 | `dl-prog-gitlab` — GitLab HTTPS via `download_file` + auth headers (replace `wget`) | Done (this branch / #165) |
 | `dl-prog-zip` — zip extract progress (`Location.extract` / package zips) | Done (this branch / #165) |
-| `dl-prog-conan` — stream Conan install output instead of capturing | Later |
+| `dl-prog-conan` — stream Conan install output instead of capturing | Done (this branch / #165) |
 | `dl-prog-git` — stream git clone/fetch `--progress` | Later |
 | `dl-prog-curl` — optional curl/wget resume backend | Optional / later |
 
@@ -94,6 +94,7 @@ Phase 2+ extensions (when each slice lands):
 | `cuppa/toolchains/toolchain_archive.py` `.deb` / non-`.deb` extract | `extract_tar_archive` / `Location.extract` |
 | `cuppa/package_managers/gitlab.py` package download | `download_registry_package` → `download_file` + headers |
 | `cuppa/location.py` / GitLab zip extract | `extract_zip_archive` |
+| `cuppa/build_with_conan.py` `_run_conan_install` | `IncrementalSubProcess` (streamed) |
 
 ## Phases (ordered)
 
@@ -103,7 +104,7 @@ Phase 2+ extensions (when each slice lands):
 | `dl-prog-extract` | `Location.extract` tar path; GitLab `extract_package_archive` tar path; toolchain non-`.deb` via `Location.extract` | Shared tar helper + `transfer_file` | Done on #165 |
 | `dl-prog-gitlab` | `GitlabPackageDependency` + `GitlabPackageInstaller` download | `download_file` + headers; drop `wget` for the fetch | Done on #165 |
 | `dl-prog-zip` | Zip extract in `Location.extract` / package zips | `extract_zip_archive` per-member + uncompressed-byte progress | Done on #165 |
-| `dl-prog-conan` | Conan consumer install | Stream subprocess (no `capture_output`) or parse live | Not a `ProgressReporter` byte bar |
+| `dl-prog-conan` | Conan consumer install | `IncrementalSubProcess` stream; keep lines for StopError | Done on #165 |
 | `dl-prog-git` | Git clone/fetch (location, develop) | Stream git with `--progress` via existing subprocess helpers | Not a fake byte bar |
 | `dl-prog-curl` | Optional resume backend | curl/wget under `download_file` | Only if partial/resume becomes a real need |
 
