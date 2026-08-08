@@ -8,6 +8,7 @@
 #   Git Source Control Management System
 #-------------------------------------------------------------------------------
 
+import logging
 import subprocess
 import shlex
 import os
@@ -126,19 +127,31 @@ class Git:
 
 
     @classmethod
+    def _progress_enabled( cls ):
+        """Match HTTP/extract progress: show git ``--progress`` only at INFO or finer."""
+        return logger.isEnabledFor( logging.INFO )
+
+
+    @classmethod
+    def _args_to_command( cls, args_list ):
+        try:
+            return shlex.join( args_list )
+        except AttributeError:
+            return " ".join( shlex.quote( part ) for part in args_list )
+
+
+    @classmethod
     def _run_with_progress( cls, args_list, path=None ):
         """Run a long network git command, streaming subdued progress when possible.
 
         Stderr is piped and replayed onto the controlling terminal (or stderr in CI)
         so ``--progress`` ``\\r`` updates still work under the ``cuppa`` launcher, and
         so fragments can be wrapped with subdued colour. Not a cuppa byte bar.
+        Callers should only use this when :meth:`_progress_enabled` is true.
         """
         from cuppa.utility.download import open_progress_stream
 
-        try:
-            command = shlex.join( args_list )
-        except AttributeError:
-            command = " ".join( shlex.quote( part ) for part in args_list )
+        command = cls._args_to_command( args_list )
 
         logger.trace( "Executing command [{command}] with progress...".format(
                 command=as_info( command )
@@ -438,8 +451,13 @@ class Git:
     @classmethod
     def fetch( cls, path ):
         """Update the remote-tracking refs. The one command in this family that uses the network."""
-        return cls._run_with_progress(
-                [ cls.binary(), "fetch", "--progress" ],
+        if cls._progress_enabled():
+            return cls._run_with_progress(
+                    [ cls.binary(), "fetch", "--progress" ],
+                    path,
+            )
+        return cls.execute_command(
+                "{git} fetch".format( git=cls.binary() ),
                 path,
         )
 
@@ -459,13 +477,17 @@ class Git:
         parent = os.path.dirname( path.rstrip( os.sep ) ) or '.'
         if parent and not os.path.exists( parent ):
             os.makedirs( parent )
-        parts = [ cls.binary(), "clone", "--progress" ]
+        parts = [ cls.binary(), "clone" ]
+        if cls._progress_enabled():
+            parts.append( "--progress" )
         if branch:
             parts.extend( [ "--branch", branch ] )
         if recurse_submodules:
             parts.append( "--recurse-submodules" )
         parts.extend( [ repository, path ] )
-        return cls._run_with_progress( parts )
+        if cls._progress_enabled():
+            return cls._run_with_progress( parts )
+        return cls.execute_command( cls._args_to_command( parts ) )
 
 
     @classmethod

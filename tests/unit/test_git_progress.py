@@ -4,10 +4,12 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 import io
+import logging
 
 import pytest
 
 from cuppa.colourise import colouriser
+from cuppa.log import logger
 from cuppa.scms.git import Git
 
 
@@ -22,6 +24,7 @@ def test_clone_uses_progress_runner( monkeypatch, tmp_path ):
         seen['path'] = path
         return ''
 
+    monkeypatch.setattr( Git, '_progress_enabled', classmethod( lambda cls: True ) )
     monkeypatch.setattr( Git, '_run_with_progress', fake_run )
     dest = tmp_path / 'repo'
     Git.clone( 'https://example.com/org/widget.git', str( dest ), branch='main' )
@@ -39,10 +42,63 @@ def test_fetch_uses_progress_runner( monkeypatch, tmp_path ):
         seen['path'] = path
         return ''
 
+    monkeypatch.setattr( Git, '_progress_enabled', classmethod( lambda cls: True ) )
     monkeypatch.setattr( Git, '_run_with_progress', fake_run )
     Git.fetch( str( tmp_path ) )
     assert seen['args'] == [ 'git', 'fetch', '--progress' ]
     assert seen['path'] == str( tmp_path )
+
+
+def test_clone_skips_progress_when_quiet( monkeypatch, tmp_path ):
+    seen = {}
+
+    def fake_execute( command, path=None ):
+        seen['command'] = command
+        seen['path'] = path
+        return ''
+
+    def boom( *args, **kwargs ):
+        raise AssertionError( '_run_with_progress should not run when quiet' )
+
+    monkeypatch.setattr( Git, '_progress_enabled', classmethod( lambda cls: False ) )
+    monkeypatch.setattr( Git, 'execute_command', fake_execute )
+    monkeypatch.setattr( Git, '_run_with_progress', boom )
+    dest = tmp_path / 'repo'
+    Git.clone( 'https://example.com/org/widget.git', str( dest ), branch='main' )
+    assert seen['command'].startswith( 'git clone' )
+    assert '--progress' not in seen['command']
+    assert '--branch' in seen['command']
+    assert 'main' in seen['command']
+
+
+def test_fetch_skips_progress_when_quiet( monkeypatch, tmp_path ):
+    seen = {}
+
+    def fake_execute( command, path=None ):
+        seen['command'] = command
+        seen['path'] = path
+        return ''
+
+    def boom( *args, **kwargs ):
+        raise AssertionError( '_run_with_progress should not run when quiet' )
+
+    monkeypatch.setattr( Git, '_progress_enabled', classmethod( lambda cls: False ) )
+    monkeypatch.setattr( Git, 'execute_command', fake_execute )
+    monkeypatch.setattr( Git, '_run_with_progress', boom )
+    Git.fetch( str( tmp_path ) )
+    assert seen['command'] == 'git fetch'
+    assert seen['path'] == str( tmp_path )
+
+
+def test_progress_enabled_follows_logger_level():
+    was = logger.level
+    try:
+        logger.setLevel( logging.INFO )
+        assert Git._progress_enabled()
+        logger.setLevel( logging.WARNING )
+        assert not Git._progress_enabled()
+    finally:
+        logger.setLevel( was )
 
 
 def test_pump_git_progress_subdues_and_rewrites():

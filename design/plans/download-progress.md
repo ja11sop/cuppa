@@ -95,7 +95,7 @@ Phase 2+ extensions (when each slice lands):
 | `cuppa/package_managers/gitlab.py` package download | `download_registry_package` → `download_file` + headers |
 | `cuppa/location.py` / GitLab zip extract | `extract_zip_archive` |
 | `cuppa/build_with_conan.py` `_run_conan_install` | `IncrementalSubProcess` (streamed) |
-| `cuppa/scms/git.py` `clone` / `fetch` | `_run_with_progress` + `--progress` |
+| `cuppa/scms/git.py` `clone` / `fetch` | `_run_with_progress` + `--progress` at INFO+; quiet otherwise |
 
 ## Phases (ordered)
 
@@ -106,7 +106,7 @@ Phase 2+ extensions (when each slice lands):
 | `dl-prog-gitlab` | `GitlabPackageDependency` + `GitlabPackageInstaller` download | `download_file` + headers; drop `wget` for the fetch | Done on #165 |
 | `dl-prog-zip` | Zip extract in `Location.extract` / package zips | `extract_zip_archive` per-member + uncompressed-byte progress | Done on #165 |
 | `dl-prog-conan` | Conan consumer install | `IncrementalSubProcess` stream; keep lines for StopError | Done on #165 |
-| `dl-prog-git` | Git `clone` / `fetch` (develop update/clone) | `--progress`; subdued stderr pumped to controlling tty / CI | Done on #165 |
+| `dl-prog-git` | Git `clone` / `fetch` (develop update/clone) | `--progress` + subdued stderr pump at INFO+; plain `fetch`/`clone` when quieter | Done on #165 |
 | `dl-prog-curl` | Optional resume backend | curl/wget under `download_file` | Only if partial/resume becomes a real need |
 
 ## Settled decisions (phase 2+)
@@ -119,6 +119,7 @@ Phase 2+ extensions (when each slice lands):
 | Zip | `extract_zip_archive`: per-member `ZipFile.extract`, progress by sum of `file_size` |
 | GitLab auth | Extend `download_file` with optional headers; do not put tokens on the progress line; launcher masking unchanged |
 | Conan / git | Stream tool output; refuse inventing cuppa percent bars over opaque subprocess work |
+| Git progress vs verbosity | Same gate as byte progress: `--progress` / stderr pump only when the cuppa logger is INFO or finer |
 | Out of scope | Tiny HTTP probes (Boost version HTML, PyPI check), publish/upload paths, local `copytree`, b2 (already streams) |
 | Impact | Stay **patch** while there are no new public CLI flags |
 
