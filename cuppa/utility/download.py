@@ -58,24 +58,30 @@ def format_duration( seconds ):
     return "{}h{:02d}m".format( hours, minutes )
 
 
+# Fixed field widths so rewriting TTY lines do not shift columns as values grow.
+_SIZE_WIDTH = 7   # e.g. "159.5M", "    0B"
+_RATE_WIDTH = 8   # e.g. "109.1M/s", "     0B/s"
+_ETA_WIDTH = 3    # e.g. "15s", " 9s", " --"
+
+
 def format_progress_line( label, bytes_so_far, total_size, elapsed_s, action='Downloading' ):
     """One progress line (no trailing newline). Shared TTY and non-TTY shape."""
     rate = ( float( bytes_so_far ) / elapsed_s ) if elapsed_s > 0 else 0.0
-    rate_text = "{}/s".format( human_size( rate ) )
-    done = human_size( bytes_so_far )
+    rate_text = "{}/s".format( human_size( rate ) ).rjust( _RATE_WIDTH )
+    done = human_size( bytes_so_far ).rjust( _SIZE_WIDTH )
     verb = action or 'Downloading'
     if total_size and total_size > 0:
         percent = min( 100.0, 100.0 * float( bytes_so_far ) / float( total_size ) )
         remaining = max( 0.0, float( total_size ) - float( bytes_so_far ) )
         eta = ( remaining / rate ) if rate > 0 else None
-        return "{} {}  {} / {}  ({:.0f}%)  {}  ETA {}".format(
+        return "{} {}  {} / {}  ({:3.0f}%)  {}  ETA {}".format(
                 verb,
                 label,
                 done,
                 human_size( total_size ),
                 percent,
                 rate_text,
-                format_duration( eta ),
+                format_duration( eta ).rjust( _ETA_WIDTH ),
         )
     return "{} {}  {} transferred  {}".format( verb, label, done, rate_text )
 
@@ -197,9 +203,13 @@ class ProgressReporter( object ):
         self._last_line = line
 
     def _emit( self, line, newline ):
-        if self._is_tty and not newline:
+        if self._is_tty:
+            # Always return to column 0 so done() replaces the last rewrite
+            # instead of appending after it.
             width = max( len( self._last_line ), len( line ) )
             self._stream.write( '\r' + line.ljust( width ) )
+            if newline:
+                self._stream.write( '\n' )
         else:
             self._stream.write( line )
             self._stream.write( '\n' )

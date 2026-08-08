@@ -41,6 +41,22 @@ def test_format_progress_line_known_size():
     assert 'ETA' in line
 
 
+def test_format_progress_line_columns_stable():
+    total = int( 1.6 * 1024 ** 3 )
+    lines = [
+        dl.format_progress_line( 'file.deb', 0, total, 0.0 ),
+        dl.format_progress_line( 'file.deb', int( 0.05 * total ), total, 0.8 ),
+        dl.format_progress_line( 'file.deb', int( 0.10 * total ), total, 1.5 ),
+        dl.format_progress_line( 'file.deb', total, total, 15.0 ),
+    ]
+    # Slash, percent paren, and ETA stay in fixed columns across updates.
+    for marker in ( ' / ', '%)  ', '  ETA ' ):
+        columns = [ line.index( marker ) for line in lines ]
+        assert len( set( columns ) ) == 1, ( marker, columns, lines )
+    assert '(  0%)' in lines[0]
+    assert '(100%)' in lines[-1]
+
+
 def test_format_progress_line_extract_action():
     line = dl.format_progress_line(
             'data.tar.xz', 100, 200, 1.0, action='Extracting',
@@ -86,6 +102,9 @@ def test_reporter_tty_rewrites_same_line():
     assert text.count( '\r' ) >= 1
     assert text.endswith( '\n' )
     assert 'file.tgz' in text
+    # done() must \\r-replace the last mid-transfer line, not append after it.
+    assert 'ETA 0sDownloading' not in text.replace( ' ', '' )
+    assert text.count( '\n' ) == 1
 
 
 def test_reporter_non_tty_emits_newlines_on_percent_steps():
