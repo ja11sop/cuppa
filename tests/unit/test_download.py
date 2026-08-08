@@ -236,3 +236,36 @@ def test_transfer_file_reports_extract_progress( tmp_path ):
     assert total == len( payload )
     assert sink.getvalue() == payload
     assert 'Extracting payload.bin' in stream.getvalue()
+
+
+def test_tar_stdin_argv_compression_flags( tmp_path ):
+    root = str( tmp_path / 'out' )
+    assert dl.tar_stdin_argv( '/tmp/a.tar.gz', root ) == [ 'tar', '-xzf', '-', '-C', root ]
+    assert dl.tar_stdin_argv( '/tmp/a.tgz', root ) == [ 'tar', '-xzf', '-', '-C', root ]
+    assert dl.tar_stdin_argv( '/tmp/a.tar.xz', root ) == [ 'tar', '-xJf', '-', '-C', root ]
+    assert dl.tar_stdin_argv( '/tmp/a.tar', root ) == [ 'tar', '-xf', '-', '-C', root ]
+
+
+def test_extract_tar_archive_with_progress( tmp_path ):
+    import tarfile
+
+    source = tmp_path / 'tree'
+    source.mkdir()
+    ( source / 'hello.txt' ).write_text( 'hi', encoding='utf-8' )
+    archive = tmp_path / 'pkg.tar.gz'
+    target = tmp_path / 'out'
+    with tarfile.open( archive, 'w:gz' ) as handle:
+        handle.add( str( source / 'hello.txt' ), arcname='hello.txt' )
+
+    stream = io.StringIO()
+    reporter = dl.ProgressReporter(
+            stream=stream, is_tty=False, line_interval_s=0, action='Extracting',
+    )
+    dl.extract_tar_archive(
+            str( archive ),
+            str( target ),
+            show_progress=True,
+            reporter=reporter,
+    )
+    assert ( target / 'hello.txt' ).read_text( encoding='utf-8' ) == 'hi'
+    assert 'Extracting pkg.tar.gz' in stream.getvalue()

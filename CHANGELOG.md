@@ -57,9 +57,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Layout is `percent [=====>              ] done/total rate ETA` with fixed-width columns; with
   colour output, percent and bar glyphs are emphasised info, target size is emphasised (normal
   foreground), transferred size is info (emphasised at 100%), brackets are plain, and rate is
-  subdued. Large toolchain `.deb`
-  extracts log start/elapsed and reuse the same reporter while feeding `data.tar*` to tar.
-  Replaces the old location-only `|=` bar. See `design/plans/download-progress.md`.
+  subdued. Tar extracts (location/Boost, GitLab package archives, toolchain `.deb` / tarballs)
+  reuse the same reporter via `extract_tar_archive`. Replaces the old location-only `|=` bar.
+  See `design/plans/download-progress.md`.
 - Rename `_removal_error_lines` to `_judgement_tree_lines` and route `--list-develop` judgement
   bodies through it (same stem glyphs, severity headings, wrap, and value highlighting as wipe /
   remove). No intentional user-visible change; completes Phase C of the console report-patterns

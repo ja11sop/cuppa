@@ -141,12 +141,15 @@ def extract_package_archive( archive_path, extraction_dir ):
         with zipfile.ZipFile( archive_path ) as archive:
             archive.extractall( extraction_dir )
         return 0
-    command = 'tar -C {working_dir} -xzf {package}'.format(
-            working_dir = extraction_dir,
-            package = archive_path,
-    )
-    completion = subprocess.run( shlex.split( command ) )
-    return completion.returncode
+    from cuppa.utility.download import DownloadError, extract_tar_archive
+    try:
+        extract_tar_archive( archive_path, extraction_dir )
+        return 0
+    except DownloadError as error:
+        logger.error( "Failed to extract package archive [{}]: {}".format(
+                archive_path, error.parameter
+        ) )
+        return 1
 
 
 def package_url( env, registry=None, package=None, version=None, variant=None ):

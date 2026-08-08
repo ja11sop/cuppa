@@ -23,12 +23,11 @@ import zipfile
 import tarfile
 import shutil
 import re
-import shlex
-import subprocess
 import ntpath
 import fnmatch
 import hashlib
 import platform
+import time
 
 from .scms import scms, subversion, git, mercurial, bazaar
 
@@ -37,7 +36,9 @@ import cuppa.core.storage_options
 from cuppa.colourise import as_notice, as_info, as_warning, as_error, as_info_label
 from cuppa.log import logger, register_secret
 from cuppa.path import split_common
+from cuppa.utility.download import DownloadError, extract_tar_archive, format_duration
 from cuppa.utility.python2to3 import as_str, as_byte_str
+from cuppa.utility.storage import human_size
 
 from cuppa.utility.pip_imports import pip_vcs, pip_download, pip_exceptions, pip_is_url, pip_is_archive_file, get_url_rev, obtain, update, make_rev_options
 
@@ -228,14 +229,32 @@ class Location(object):
     def extract( cls, filename, target_dir ):
         os.makedirs( target_dir )
         if tarfile.is_tarfile( filename ):
-            logger.debug( "Extracting [{}] into [{}]".format( as_info( filename ), as_info( target_dir ) ) )
             try:
-                with tarfile.TarFile( filename ) as tf:
-                    tf.extractall( target_dir )
-            except tarfile.ReadError:
-                command = "tar -xf {filename}".format( filename=filename )
-                if subprocess.call( shlex.split( command ), cwd=target_dir ) != 0:
-                    raise LocationException( "Could not untar downloaded file from [{}]".format( filename ) )
+                size_text = human_size( os.path.getsize( filename ) )
+            except OSError:
+                size_text = '?'
+            logger.info(
+                    "Extracting [{}] ({}) into [{}]...".format(
+                            as_info( filename ),
+                            as_info( size_text ),
+                            as_info( target_dir ),
+                    )
+            )
+            started = time.time()
+            try:
+                extract_tar_archive( filename, target_dir )
+            except DownloadError as error:
+                raise LocationException(
+                    "Could not untar downloaded file from [{}]: {}".format(
+                            filename, error.parameter
+                    )
+                )
+            logger.info(
+                    "Extracted [{}] in {}".format(
+                            as_info( os.path.basename( filename ) ),
+                            as_info( format_duration( time.time() - started ) ),
+                    )
+            )
 
         if zipfile.is_zipfile( filename ):
             logger.debug( "Extracting [{}] into [{}]".format( as_info( filename ), as_info( target_dir ) ) )

@@ -381,22 +381,6 @@ def _require_command( name ):
     )
 
 
-def _tar_stdin_command( data_tar, extract_root ):
-    """``tar`` argv to extract a ``data.tar*`` member from stdin into ``extract_root``."""
-    name = os.path.basename( data_tar ).lower()
-    if name.endswith( '.tar.xz' ) or name.endswith( '.txz' ):
-        return [ 'tar', '-xJf', '-', '-C', extract_root ]
-    if name.endswith( '.tar.gz' ) or name.endswith( '.tgz' ):
-        return [ 'tar', '-xzf', '-', '-C', extract_root ]
-    if name.endswith( '.tar.bz2' ) or name.endswith( '.tbz2' ) or name.endswith( '.tbz' ):
-        return [ 'tar', '-xjf', '-', '-C', extract_root ]
-    if name.endswith( '.tar.zst' ) or name.endswith( '.tzst' ):
-        return [ 'tar', '--zstd', '-xf', '-', '-C', extract_root ]
-    if name.endswith( '.tar.lzma' ):
-        return [ 'tar', '--lzma', '-xf', '-', '-C', extract_root ]
-    return [ 'tar', '-xf', '-', '-C', extract_root ]
-
-
 def _extract_deb( archive_path, extract_root ):
     """Extract a Debian binary package into ``extract_root`` (data.tar payload)."""
     _require_command( 'ar' )
@@ -419,26 +403,18 @@ def _extract_deb( archive_path, extract_root ):
                 "[{}] has no data.tar.* member".format( archive_path )
             )
         data_tar = data_members[0]
-        from cuppa.utility.download import transfer_file
-        proc = subprocess.Popen(
-                _tar_stdin_command( data_tar, extract_root ),
-                stdin=subprocess.PIPE,
-        )
+        from cuppa.utility.download import DownloadError, extract_tar_archive
         try:
-            transfer_file(
+            extract_tar_archive(
                     data_tar,
-                    proc.stdin.write,
+                    extract_root,
                     label=os.path.basename( data_tar ),
-                    action='Extracting',
             )
-            proc.stdin.close()
-        except Exception:
-            proc.kill()
-            proc.wait()
-            raise
-        if proc.wait() != 0:
+        except DownloadError as error:
             raise ToolchainArchiveException(
-                "tar failed to extract [{}] from [{}]".format( data_tar, archive_path )
+                "tar failed to extract [{}] from [{}]: {}".format(
+                        data_tar, archive_path, error.parameter
+                )
             )
     finally:
         shutil.rmtree( staging, ignore_errors=True )
@@ -452,28 +428,29 @@ def _ensure_extracted( archive_path, extract_root, cuppa_env, family ):
         shutil.rmtree( extract_root )
     if cuppa_env.get( 'dump' ) or cuppa_env.get( 'clean' ):
         return None
-    try:
-        size_text = human_size( os.path.getsize( archive_path ) )
-    except OSError:
-        size_text = '?'
-    logger.info(
-            "Extracting toolchain archive [{}] ({}) into [{}]...".format(
-                    as_info( archive_path ),
-                    as_info( size_text ),
-                    as_info( extract_root ),
-            )
-    )
-    started = time.time()
     if archive_path.lower().endswith( '.deb' ):
+        try:
+            size_text = human_size( os.path.getsize( archive_path ) )
+        except OSError:
+            size_text = '?'
+        logger.info(
+                "Extracting toolchain archive [{}] ({}) into [{}]...".format(
+                        as_info( archive_path ),
+                        as_info( size_text ),
+                        as_info( extract_root ),
+                )
+        )
+        started = time.time()
         _extract_deb( archive_path, extract_root )
+        logger.info(
+                "Extracted toolchain archive [{}] in {}".format(
+                        as_info( os.path.basename( archive_path ) ),
+                        as_info( format_duration( time.time() - started ) ),
+                )
+        )
     else:
+        # Location.extract logs start/elapsed and drives shared tar progress.
         Location.extract( archive_path, extract_root )
-    logger.info(
-            "Extracted toolchain archive [{}] in {}".format(
-                    as_info( os.path.basename( archive_path ) ),
-                    as_info( format_duration( time.time() - started ) ),
-            )
-    )
     bin_dir = find_bin_dir( extract_root, family )
     if not bin_dir:
         driver = CXX_NAMES[family][0]

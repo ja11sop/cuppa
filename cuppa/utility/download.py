@@ -17,7 +17,10 @@ from __future__ import print_function
 
 import logging
 import os
+import shutil
+import subprocess
 import sys
+import tarfile
 import time
 
 try:
@@ -369,6 +372,76 @@ def transfer_file( path, consumer, *, label=None, action='Extracting', show_prog
             except Exception:
                 pass
         raise
+
+
+def tar_stdin_argv( archive_path, extract_root ):
+    """``tar`` argv to extract ``archive_path`` from stdin into ``extract_root``."""
+    name = os.path.basename( archive_path ).lower()
+    if name.endswith( '.tar.xz' ) or name.endswith( '.txz' ):
+        return [ 'tar', '-xJf', '-', '-C', extract_root ]
+    if name.endswith( '.tar.gz' ) or name.endswith( '.tgz' ):
+        return [ 'tar', '-xzf', '-', '-C', extract_root ]
+    if name.endswith( '.tar.bz2' ) or name.endswith( '.tbz2' ) or name.endswith( '.tbz' ):
+        return [ 'tar', '-xjf', '-', '-C', extract_root ]
+    if name.endswith( '.tar.zst' ) or name.endswith( '.tzst' ):
+        return [ 'tar', '--zstd', '-xf', '-', '-C', extract_root ]
+    if name.endswith( '.tar.lzma' ):
+        return [ 'tar', '--lzma', '-xf', '-', '-C', extract_root ]
+    return [ 'tar', '-xf', '-', '-C', extract_root ]
+
+
+def _extract_tar_via_tarfile( archive_path, extract_root ):
+    with tarfile.open( archive_path, 'r:*' ) as handle:
+        handle.extractall( extract_root )
+
+
+def extract_tar_archive(
+        archive_path,
+        extract_root,
+        *,
+        label=None,
+        show_progress=None,
+        reporter=None,
+):
+    """Extract a tar archive into ``extract_root`` with byte progress when possible.
+
+    Streams the archive into ``tar`` on stdin (same reporter shape as downloads).
+    Falls back to ``tarfile`` without progress when ``tar`` is not on PATH.
+    """
+    if not os.path.isdir( extract_root ):
+        os.makedirs( extract_root )
+
+    which = getattr( shutil, 'which', None )
+    if which is not None and which( 'tar' ) is None:
+        _extract_tar_via_tarfile( archive_path, extract_root )
+        return extract_root
+
+    proc = subprocess.Popen(
+            tar_stdin_argv( archive_path, extract_root ),
+            stdin=subprocess.PIPE,
+    )
+    try:
+        transfer_file(
+                archive_path,
+                proc.stdin.write,
+                label=label or os.path.basename( archive_path ) or archive_path,
+                action='Extracting',
+                show_progress=show_progress,
+                reporter=reporter,
+        )
+        proc.stdin.close()
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+        proc.wait()
+        raise
+    if proc.wait() != 0:
+        raise DownloadError(
+            "tar failed to extract [{}] into [{}]".format( archive_path, extract_root )
+        )
+    return extract_root
 
 
 def download_file( url, dest_path, *, label=None, show_progress=None, reporter=None ):
