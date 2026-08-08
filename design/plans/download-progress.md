@@ -23,7 +23,7 @@ toolchain `.deb` extract progress.
 | Toolchain `.deb` extract: INFO start/elapsed + `transfer_file` into `tar` | Done (#165) |
 | Docs / CHANGELOG (phase 1) | Done (#165) |
 | `dl-prog-extract` — shared tar extract helper for `Location.extract` + GitLab package tars | Done (this branch / #165) |
-| `dl-prog-gitlab` — GitLab HTTPS via `download_file` + auth headers (replace `wget`) | After extract |
+| `dl-prog-gitlab` — GitLab HTTPS via `download_file` + auth headers (replace `wget`) | Done (this branch / #165) |
 | `dl-prog-zip` — zip extract progress (`Location.extract` / package zips) | After GitLab download |
 | `dl-prog-conan` — stream Conan install output instead of capturing | Later |
 | `dl-prog-git` — stream git clone/fetch `--progress` | Later |
@@ -34,7 +34,8 @@ toolchain `.deb` extract progress.
 - Toolchain downloads had **no** live progress.
 - Location / Boost used a location-branded `|=` bar that was weak for multi-gigabyte transfers.
 - After a progressed download, **extraction** is often still silent (Boost tarballs, GitLab package archives, non-`.deb` toolchains).
-- GitLab packages use `wget -nv` (tool-native; not on every platform; no shared bar).
+- GitLab package fetch used `wget -nv` (not on every platform; no shared bar) — now
+  `download_file` + auth headers.
 - Conan install captures subprocess output — not a byte-transfer problem.
 - Git clone/fetch buffers subprocess output — git’s own progress is enough if streamed.
 
@@ -78,6 +79,8 @@ Phase 2+ extensions (when each slice lands):
 - `download_file(..., headers=None)` for GitLab `PRIVATE-TOKEN` / `JOB-TOKEN`.
 - `extract_tar_archive` / `tar_stdin_argv` — stream archive bytes into `tar -x*f -`
   (falls back to `tarfile` when `tar` is missing).
+- GitLab: `registry_auth_headers` / `download_registry_package` (token registered for masking;
+  never logged on the progress line).
 
 ## Call sites (phase 1)
 
@@ -88,6 +91,7 @@ Phase 2+ extensions (when each slice lands):
 | `cuppa/package_managers/gitlab.py` `extract_package_archive` (tar) | `extract_tar_archive` |
 | `cuppa/toolchains/toolchain_archive.py` download | `download_file` |
 | `cuppa/toolchains/toolchain_archive.py` `.deb` / non-`.deb` extract | `extract_tar_archive` / `Location.extract` |
+| `cuppa/package_managers/gitlab.py` package download | `download_registry_package` → `download_file` + headers |
 
 ## Phases (ordered)
 
@@ -95,7 +99,7 @@ Phase 2+ extensions (when each slice lands):
 |----|------|-----------|-------|
 | Phase 1 | Location + toolchain HTTP download; `.deb` extract; settled line/colour | `download_file` / `transfer_file` | Done on #165 |
 | `dl-prog-extract` | `Location.extract` tar path; GitLab `extract_package_archive` tar path; toolchain non-`.deb` via `Location.extract` | Shared tar helper + `transfer_file` | Done on #165 |
-| `dl-prog-gitlab` | `GitlabPackageDependency` + `GitlabPackageInstaller` download | `download_file` + headers; drop `wget` for the fetch | Needs header API; keep token masking |
+| `dl-prog-gitlab` | `GitlabPackageDependency` + `GitlabPackageInstaller` download | `download_file` + headers; drop `wget` for the fetch | Done on #165 |
 | `dl-prog-zip` | Zip extract in `Location.extract` / package zips | Per-member or external `unzip` with progress | Harder than tar; after GitLab download |
 | `dl-prog-conan` | Conan consumer install | Stream subprocess (no `capture_output`) or parse live | Not a `ProgressReporter` byte bar |
 | `dl-prog-git` | Git clone/fetch (location, develop) | Stream git with `--progress` via existing subprocess helpers | Not a fake byte bar |

@@ -197,6 +197,44 @@ def test_download_file_http_server( tmp_path ):
         thread.join( timeout=5 )
 
 
+def test_download_file_sends_headers( tmp_path ):
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    import threading
+
+    seen = {}
+
+    class Handler( BaseHTTPRequestHandler ):
+        def do_GET( self ):
+            seen['private'] = self.headers.get( 'Private-Token' )
+            body = b'ok'
+            self.send_response( 200 )
+            self.send_header( 'Content-Length', str( len( body ) ) )
+            self.end_headers()
+            self.wfile.write( body )
+
+        def log_message( self, format, *args ):
+            return
+
+    server = HTTPServer( ( '127.0.0.1', 0 ), Handler )
+    thread = threading.Thread( target=server.serve_forever )
+    thread.daemon = True
+    thread.start()
+    try:
+        url = 'http://127.0.0.1:{}/pkg.bin'.format( server.server_address[1] )
+        dest = tmp_path / 'pkg.bin'
+        dl.download_file(
+                url,
+                str( dest ),
+                show_progress=False,
+                headers={ 'PRIVATE-TOKEN': 'secret-token' },
+        )
+        assert dest.read_bytes() == b'ok'
+        assert seen.get( 'private' ) == 'secret-token'
+    finally:
+        server.shutdown()
+        thread.join( timeout=5 )
+
+
 def test_download_file_cleans_partial_on_failure( tmp_path, monkeypatch ):
     dest = tmp_path / 'broken.bin'
 

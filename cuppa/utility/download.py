@@ -444,12 +444,24 @@ def extract_tar_archive(
     return extract_root
 
 
-def download_file( url, dest_path, *, label=None, show_progress=None, reporter=None ):
+def download_file(
+        url,
+        dest_path,
+        *,
+        label=None,
+        show_progress=None,
+        reporter=None,
+        headers=None,
+):
     """Download ``url`` to ``dest_path`` via a ``.partial`` file then rename.
 
     ``show_progress`` defaults to True when the cuppa logger is at INFO or finer.
     Pass an existing ``ProgressReporter`` for tests; otherwise one is created on the
     progress stream (controlling tty when available).
+
+    ``headers`` is an optional mapping of HTTP header name to value (for example
+    GitLab ``PRIVATE-TOKEN`` / ``JOB-TOKEN``). Header values must not appear in
+    ``label`` or other logged progress text.
     """
     progress = _maybe_reporter( show_progress, reporter, 'Downloading' )
 
@@ -463,6 +475,11 @@ def download_file( url, dest_path, *, label=None, show_progress=None, reporter=N
     bytes_so_far = 0
     try:
         request = Request( url )
+        if headers:
+            for name, value in headers.items():
+                if name is None or value is None:
+                    continue
+                request.add_header( str( name ), str( value ) )
         response = urlopen( request )
         try:
             total = _content_length( response )
