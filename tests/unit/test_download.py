@@ -41,10 +41,34 @@ def test_format_progress_line_known_size():
     assert 'ETA' in line
 
 
+def test_format_progress_line_extract_action():
+    line = dl.format_progress_line(
+            'data.tar.xz', 100, 200, 1.0, action='Extracting',
+    )
+    assert line.startswith( 'Extracting data.tar.xz' )
+
+
 def test_format_progress_line_unknown_size():
     line = dl.format_progress_line( 'mystery.bin', 50 * 1024 * 1024, None, 5.0 )
-    assert 'downloaded' in line
+    assert 'transferred' in line
     assert 'ETA' not in line
+
+
+def test_open_progress_stream_falls_back_without_tty( monkeypatch ):
+    import builtins
+
+    real_open = builtins.open
+
+    def fake_open( path, *args, **kwargs ):
+        if path in ( '/dev/tty', 'CONOUT$' ):
+            raise OSError( 'no tty' )
+        return real_open( path, *args, **kwargs )
+
+    monkeypatch.setattr( builtins, 'open', fake_open )
+    stream, is_tty, owns = dl.open_progress_stream()
+    assert stream is __import__( 'sys' ).stderr
+    assert owns is False
+    assert is_tty in ( True, False )
 
 
 def test_reporter_tty_rewrites_same_line():
@@ -140,3 +164,25 @@ def test_download_file_cleans_partial_on_failure( tmp_path, monkeypatch ):
         dl.download_file( 'http://example.com/broken.bin', str( dest ), show_progress=False )
     assert not dest.exists()
     assert not os.path.isfile( str( dest ) + '.partial' )
+
+
+def test_transfer_file_reports_extract_progress( tmp_path ):
+    src = tmp_path / 'payload.bin'
+    payload = b'xyz' * 10000
+    src.write_bytes( payload )
+    sink = io.BytesIO()
+    stream = io.StringIO()
+    reporter = dl.ProgressReporter(
+            stream=stream, is_tty=False, line_interval_s=0, action='Extracting',
+    )
+    total = dl.transfer_file(
+            str( src ),
+            sink.write,
+            label='payload.bin',
+            action='Extracting',
+            show_progress=True,
+            reporter=reporter,
+    )
+    assert total == len( payload )
+    assert sink.getvalue() == payload
+    assert 'Extracting payload.bin' in stream.getvalue()

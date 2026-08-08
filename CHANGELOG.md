@@ -51,8 +51,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - HTTP archive downloads (location/Boost and toolchain archives) share one transfer-progress
-  reporter (`cuppa.utility.download`): bytes, total when known, percent, rate, and ETA on a
-  rewriting TTY line or periodic CI lines at INFO. Replaces the old location-only `|=` bar.
+  reporter (`cuppa.utility.download`): bytes, total when known, percent, rate, and ETA.
+  Progress prefers the controlling terminal so a rewriting line still works when the `cuppa`
+  launcher pipes scons stdio for secret masking; CI without a tty keeps periodic newlines.
+  Large toolchain `.deb` extracts log start/elapsed and reuse the same reporter while feeding
+  `data.tar*` to tar. Replaces the old location-only `|=` bar.
   See `design/plans/download-progress.md`.
 - Rename `_removal_error_lines` to `_judgement_tree_lines` and route `--list-develop` judgement
   bodies through it (same stem glyphs, severity headings, wrap, and value highlighting as wipe /

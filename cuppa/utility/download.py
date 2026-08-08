@@ -7,6 +7,10 @@
 
 Used by location archive fetches and toolchain archives. See
 ``design/plans/download-progress.md``.
+
+Progress prefers the controlling terminal (``/dev/tty`` / ``CONOUT$``) so a
+rewriting line still works when the ``cuppa`` launcher pipes scons stdout/stderr
+for secret masking — those pipes are not TTYs and are consumed line-by-line.
 """
 
 from __future__ import print_function
@@ -54,16 +58,18 @@ def format_duration( seconds ):
     return "{}h{:02d}m".format( hours, minutes )
 
 
-def format_progress_line( label, bytes_so_far, total_size, elapsed_s ):
+def format_progress_line( label, bytes_so_far, total_size, elapsed_s, action='Downloading' ):
     """One progress line (no trailing newline). Shared TTY and non-TTY shape."""
     rate = ( float( bytes_so_far ) / elapsed_s ) if elapsed_s > 0 else 0.0
     rate_text = "{}/s".format( human_size( rate ) )
     done = human_size( bytes_so_far )
+    verb = action or 'Downloading'
     if total_size and total_size > 0:
         percent = min( 100.0, 100.0 * float( bytes_so_far ) / float( total_size ) )
         remaining = max( 0.0, float( total_size ) - float( bytes_so_far ) )
         eta = ( remaining / rate ) if rate > 0 else None
-        return "Downloading {}  {} / {}  ({:.0f}%)  {}  ETA {}".format(
+        return "{} {}  {} / {}  ({:.0f}%)  {}  ETA {}".format(
+                verb,
                 label,
                 done,
                 human_size( total_size ),
@@ -71,11 +77,48 @@ def format_progress_line( label, bytes_so_far, total_size, elapsed_s ):
                 rate_text,
                 format_duration( eta ),
         )
-    return "Downloading {}  {} downloaded  {}".format( label, done, rate_text )
+    return "{} {}  {} transferred  {}".format( verb, label, done, rate_text )
+
+
+def open_progress_stream():
+    """Return ``(stream, is_tty, owns_stream)`` for progress output.
+
+    Prefer the controlling terminal so rewriting works under the ``cuppa``
+    launcher (piped scons stdio). Fall back to ``sys.stderr`` with newline mode
+    when there is no tty (CI).
+    """
+    candidates = ( 'CONOUT$', ) if sys.platform == 'win32' else ( '/dev/tty', )
+    for path in candidates:
+        try:
+            stream = open( path, 'w' )
+        except ( OSError, IOError ):
+            continue
+        try:
+            if stream.isatty():
+                return stream, True, True
+        except Exception:
+            pass
+        try:
+            stream.close()
+        except Exception:
+            pass
+
+    stream = sys.stderr
+    is_tty = False
+    try:
+        is_tty = bool( stream.isatty() )
+    except Exception:
+        is_tty = False
+    if not is_tty:
+        try:
+            is_tty = os.isatty( 2 )
+        except Exception:
+            is_tty = False
+    return stream, is_tty, False
 
 
 class ProgressReporter( object ):
-    """Throttle and render download progress on a stream (stderr by default)."""
+    """Throttle and render transfer progress on a stream (tty or stderr)."""
 
     def __init__(
             self,
@@ -85,8 +128,15 @@ class ProgressReporter( object ):
             tty_interval_s=_TTY_INTERVAL_S,
             line_interval_s=_LINE_INTERVAL_S,
             line_percent_step=_LINE_PERCENT_STEP,
+            action='Downloading',
+            owns_stream=False,
     ):
-        self._stream = stream if stream is not None else sys.stderr
+        if stream is None:
+            stream, detected_tty, owns_stream = open_progress_stream()
+            if is_tty is None:
+                is_tty = detected_tty
+        self._stream = stream
+        self._owns_stream = owns_stream
         self._clock = clock if clock is not None else time.time
         if is_tty is None:
             is_tty = bool( getattr( self._stream, 'isatty', lambda: False )() )
@@ -94,6 +144,7 @@ class ProgressReporter( object ):
         self._tty_interval_s = tty_interval_s
         self._line_interval_s = line_interval_s
         self._line_percent_step = line_percent_step
+        self._action = action or 'Downloading'
         self._label = ''
         self._total = None
         self._started = None
@@ -102,8 +153,10 @@ class ProgressReporter( object ):
         self._last_line = ''
         self._finished = False
 
-    def begin( self, label, total_size=None ):
-        self._label = label or 'download'
+    def begin( self, label, total_size=None, action=None ):
+        self._label = label or 'transfer'
+        if action is not None:
+            self._action = action
         self._total = total_size if total_size and total_size > 0 else None
         self._started = self._clock()
         self._last_emit = None
@@ -136,7 +189,9 @@ class ProgressReporter( object ):
                     ):
                         self._next_line_percent += self._line_percent_step
 
-        line = format_progress_line( self._label, bytes_so_far, self._total, elapsed )
+        line = format_progress_line(
+                self._label, bytes_so_far, self._total, elapsed, action=self._action,
+        )
         self._emit( line, newline=not self._is_tty )
         self._last_emit = now
         self._last_line = line
@@ -161,9 +216,17 @@ class ProgressReporter( object ):
             bytes_so_far = 0
         now = self._clock()
         elapsed = max( 0.0, now - ( self._started or now ) )
-        line = format_progress_line( self._label, bytes_so_far, self._total, elapsed )
+        line = format_progress_line(
+                self._label, bytes_so_far, self._total, elapsed, action=self._action,
+        )
         self._emit( line, newline=True )
         self._last_line = line
+        if self._owns_stream:
+            try:
+                self._stream.close()
+            except Exception:
+                pass
+            self._owns_stream = False
 
 
 def _content_length( response ):
@@ -181,14 +244,62 @@ def _content_length( response ):
     return length if length > 0 else None
 
 
+def _maybe_reporter( show_progress, reporter, action ):
+    if show_progress is None:
+        show_progress = logger.isEnabledFor( logging.INFO )
+    if not show_progress:
+        return None
+    if reporter is not None:
+        return reporter
+    return ProgressReporter( action=action )
+
+
+def transfer_file( path, consumer, *, label=None, action='Extracting', show_progress=None, reporter=None ):
+    """Read ``path`` in chunks, pass each to ``consumer(chunk)``, report progress.
+
+    ``consumer`` should write/process the bytes (for example ``proc.stdin.write``).
+    Returns the number of bytes read.
+    """
+    progress = _maybe_reporter( show_progress, reporter, action )
+    display = label or os.path.basename( path ) or path
+    total = None
+    try:
+        total = os.path.getsize( path )
+    except OSError:
+        total = None
+    bytes_so_far = 0
+    if progress:
+        progress.begin( display, total, action=action )
+    try:
+        with open( path, 'rb' ) as handle:
+            while True:
+                chunk = handle.read( _CHUNK_SIZE )
+                if not chunk:
+                    break
+                consumer( chunk )
+                bytes_so_far += len( chunk )
+                if progress:
+                    progress.update( bytes_so_far )
+        if progress:
+            progress.done( bytes_so_far )
+        return bytes_so_far
+    except Exception:
+        if progress is not None:
+            try:
+                progress.done( bytes_so_far )
+            except Exception:
+                pass
+        raise
+
+
 def download_file( url, dest_path, *, label=None, show_progress=None, reporter=None ):
     """Download ``url`` to ``dest_path`` via a ``.partial`` file then rename.
 
     ``show_progress`` defaults to True when the cuppa logger is at INFO or finer.
-    Pass an existing ``ProgressReporter`` for tests; otherwise one is created on stderr.
+    Pass an existing ``ProgressReporter`` for tests; otherwise one is created on the
+    progress stream (controlling tty when available).
     """
-    if show_progress is None:
-        show_progress = logger.isEnabledFor( logging.INFO )
+    progress = _maybe_reporter( show_progress, reporter, 'Downloading' )
 
     parent = os.path.dirname( dest_path )
     if parent and not os.path.isdir( parent ):
@@ -196,9 +307,6 @@ def download_file( url, dest_path, *, label=None, show_progress=None, reporter=N
 
     tmp_path = dest_path + '.partial'
     display = label or os.path.basename( dest_path ) or url
-    progress = None
-    if show_progress:
-        progress = reporter if reporter is not None else ProgressReporter()
 
     bytes_so_far = 0
     try:
@@ -207,7 +315,7 @@ def download_file( url, dest_path, *, label=None, show_progress=None, reporter=N
         try:
             total = _content_length( response )
             if progress:
-                progress.begin( display, total )
+                progress.begin( display, total, action='Downloading' )
             with open( tmp_path, 'wb' ) as handle:
                 while True:
                     chunk = response.read( _CHUNK_SIZE )

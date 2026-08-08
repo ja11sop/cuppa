@@ -17,6 +17,8 @@ fetches (`cuppa.utility.download`).
 | `cuppa.utility.download` (`download_file` + `ProgressReporter`) | Done (this branch) |
 | Toolchain `_download_archive` uses shared helper | Done |
 | Location archive download uses shared helper; remove `ReportDownloadProgress` | Done |
+| Progress on controlling tty (`/dev/tty`) so `cuppa` pipe + line masking does not force newlines | Done (this branch) |
+| Toolchain extract: INFO start/elapsed + byte progress while feeding `data.tar*` to tar | Done (this branch) |
 | Docs / CHANGELOG | Done |
 | GitLab / Conan / curl backends | Later (`dl-prog-gitlab`, …) |
 
@@ -37,16 +39,28 @@ fetches (`cuppa.utility.download`).
 
 ## Settled progress shape
 
-**TTY:** rewriting line (throttled), e.g.
+**Interactive (controlling tty):** rewriting line (throttled), written to `/dev/tty`
+(or `CONOUT$` on Windows) when available — not to piped scons stderr. The `cuppa`
+launcher always pipes stdio for secret masking and consumes it with `readline`, so
+stderr inside scons is never a TTY and `\r` updates would never appear if we wrote
+there. The old location `|=` bar avoided mid-transfer newlines by appending without
+`\n`; under the same pipe it still could stall until a newline or buffer flush.
+
+Example:
 `Downloading gcc-snapshot_….deb  412M / 1.6G  (26%)  3.1M/s  ETA 6m20s`
 
-**Non-TTY / CI:** same fields, new line every ~5–10% or every few seconds.
+**Non-TTY / CI:** same fields on stderr, new line every ~5% or every few seconds.
 
-**Unknown size:** bytes + rate only (`412M downloaded  3.1M/s`).
+**Unknown size:** bytes + rate only (`412M transferred  3.1M/s`).
+
+**Extract (toolchain `.deb`):** INFO line with archive size, then the same reporter
+shape with action `Extracting` while streaming `data.tar*` into `tar -xf -`, then
+INFO with elapsed time.
 
 ## API
 
-Module: `cuppa/utility/download.py` — `download_file(url, dest_path, *, label=None, show_progress=None)` plus `ProgressReporter` on stderr.
+Module: `cuppa/utility/download.py` — `download_file`, `transfer_file`, and `ProgressReporter`
+(controlling tty when available; stderr otherwise).
 
 ## Call sites (phase 1)
 
