@@ -317,6 +317,10 @@ def test_pull_request_status_summarises_checks( monkeypatch ):
 
 def test_watch_pull_request_returns_when_checks_finish( monkeypatch ):
     monkeypatch.setattr( github_helpers, 'current_branch', lambda: 'feature' )
+    monkeypatch.setattr(
+        github_helpers, 'repository',
+        lambda owner=None, repo=None: ( 'ja11sop', 'cuppa' ),
+    )
     pending = github_helpers.PullRequestStatus(
         number=139,
         url='https://example.com/pr/139',
@@ -332,9 +336,16 @@ def test_watch_pull_request_returns_when_checks_finish( monkeypatch ):
         mergeable_state='clean',
     )
     states = [ pending, success ]
+    seen_numbers = []
+
+    def fake_status( **kwargs ):
+        seen_numbers.append( kwargs.get( 'number' ) )
+        return states.pop( 0 )
+
+    monkeypatch.setattr( github_helpers, 'pull_request_status', fake_status )
     monkeypatch.setattr(
-        github_helpers, 'pull_request_status',
-        lambda **kwargs: states.pop( 0 ),
+        github_helpers, 'resolve_pull_request',
+        lambda **kwargs: { 'number': 139 },
     )
 
     sleeps = []
@@ -351,11 +362,58 @@ def test_watch_pull_request_returns_when_checks_finish( monkeypatch ):
     assert last.outcome == 'success'
     # Sleep before each poll (fixed --interval): pending then success.
     assert sleeps == [ 1, 1 ]
+    assert seen_numbers == [ 139, 139 ]
     assert 'outcome=pending' in out.getvalue()
     assert 'outcome=success' in out.getvalue()
 
 
+def test_watch_pull_request_pins_number_despite_branch_change( monkeypatch ):
+    monkeypatch.setattr(
+        github_helpers, 'repository',
+        lambda owner=None, repo=None: ( 'ja11sop', 'cuppa' ),
+    )
+    branches = [ 'show_pr_helper', 'download_progress' ]
+    monkeypatch.setattr( github_helpers, 'current_branch', lambda: branches[0] )
+    monkeypatch.setattr(
+        github_helpers, 'resolve_pull_request',
+        lambda **kwargs: { 'number': 166 },
+    )
+
+    polls = []
+
+    def fake_status( **kwargs ):
+        polls.append( kwargs.get( 'number' ) )
+        # Simulate another agent checking out a different PR branch mid-watch.
+        branches[0] = 'download_progress'
+        return github_helpers.PullRequestStatus(
+            number=kwargs['number'],
+            url='https://example.com/pr/{}'.format( kwargs['number'] ),
+            head_sha='abcdef01',
+            state='open',
+            mergeable_state='clean',
+            checks=[ github_helpers.CheckRun( 'unit', 'completed', 'success', '' ) ],
+            outcome='success',
+        )
+
+    monkeypatch.setattr( github_helpers, 'pull_request_status', fake_status )
+    out = io.StringIO()
+    code, last = github_helpers.watch_pull_request(
+        interval=1,
+        timeout=60,
+        out=out,
+        sleep=lambda seconds: None,
+        clock=lambda: 0,
+    )
+    assert code == github_helpers.EXIT_SUCCESS
+    assert last.number == 166
+    assert polls == [ 166 ]
+
+
 def test_watch_pull_request_times_out( monkeypatch ):
+    monkeypatch.setattr(
+        github_helpers, 'repository',
+        lambda owner=None, repo=None: ( 'ja11sop', 'cuppa' ),
+    )
     monkeypatch.setattr(
         github_helpers, 'pull_request_status',
         lambda **kwargs: github_helpers.PullRequestStatus(

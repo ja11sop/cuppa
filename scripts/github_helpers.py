@@ -532,11 +532,35 @@ def watch_pull_request(
     Sleeps *before* each poll. Default schedule: 2 minutes, then 8 minutes, then every
     2 minutes. Pass ``interval`` for a fixed delay instead. On public rate limits, falls back
     to the sealed credential and keeps that client for later polls.
+
+    When ``number`` is omitted, the open PR for ``head`` (or the current branch) is resolved
+    **once** up front. Later polls keep that number so a concurrent checkout of another branch
+    cannot retarget the watch.
     """
     out = out or sys.stdout
+    owner, repo = repository( owner, repo )
+    client = public_github( github )
+    if number is None:
+        try:
+            pull = resolve_pull_request(
+                number=None, head=head, owner=owner, repo=repo, github=client
+            )
+        except RateLimited:
+            if not is_anonymous_client( client ):
+                raise
+            out.write(
+                "public API rate-limited; retrying with sealed credential "
+                "(same poll schedule)\n"
+            )
+            out.flush()
+            client = GitHub()
+            pull = resolve_pull_request(
+                number=None, head=head, owner=owner, repo=repo, github=client
+            )
+        number = pull['number']
+
     deadline = clock() + timeout
     last = None
-    client = github
     delays = iter_poll_delays( schedule=schedule, interval=interval )
 
     while True:

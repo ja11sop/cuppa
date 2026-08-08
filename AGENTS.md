@@ -343,10 +343,14 @@ checks complete, then report the outcome and be ready to decide next steps — m
 green, diagnosis and a fix if red.
 
 ```sh
-python -m scripts.github_helpers watch-pr          # current branch's open PR
+python -m scripts.github_helpers watch-pr          # pins current branch's open PR at start
 python -m scripts.github_helpers watch-pr --pr 139
 python -m scripts.github_helpers pr-status --pr 139   # one snapshot; no wait
 ```
+
+`watch-pr` without `--pr` resolves the open PR once, then keeps that number for every poll — so
+checking out another branch while it runs will not silently switch targets. Prefer `--pr` after
+`create-pr` when the number is already known.
 
 These status helpers read the public API anonymously by default — they do **not** unseal the token
 unless you pass `--auth` or the public API rate-limits (then they fall back to the sealed
