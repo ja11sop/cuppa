@@ -447,7 +447,7 @@ def test_safe_unqualified_duplicate_wipe_requires_canonical_sibling( tmp_path ):
 def test_write_used_by_wipe_warning_colours_paths_and_explains_safe( tmp_path ):
     import io
     from cuppa.colourise import as_emphasised
-    from cuppa.core.storage_actions import _removal_error_lines
+    from cuppa.core.storage_actions import _judgement_tree_lines
 
     stem = tmp_path / 'git_https_example.com__org_widget.git'
     canonical = tmp_path / 'git_https_example.com__org_widget.git@master'
@@ -523,7 +523,7 @@ def test_write_used_by_wipe_warning_colours_paths_and_explains_safe( tmp_path ):
     assert 'by 2 projects:' in text
     assert storage.display_path( '/other/project' ) in text
     assert storage.display_path( '/second/project' ) in text
-    assert _removal_error_lines( items, intro='probe' )
+    assert _judgement_tree_lines( items, intro='probe', width=storage.WIDEST_PROSE )
 
     done_out = io.StringIO()
     dependency_removal._write_wipe_notice_tree(
@@ -724,7 +724,7 @@ def test_dependency_already_gone_is_a_note_in_judgement_tree():
     """Benign misses after a real remove use notes + shared judgement intro, not flat warnings."""
     from cuppa.core.storage_actions import (
         _already_gone_note_reason,
-        _removal_error_lines,
+        _judgement_tree_lines,
     )
 
     items = [
@@ -743,7 +743,7 @@ def test_dependency_already_gone_is_a_note_in_judgement_tree():
     ]
     # Simulate remove_dependencies failure reporting.
     intro = "Removed " + storage.emphasised_count_phrase( 2, 'tree' )
-    lines = _removal_error_lines( items, intro=intro )
+    lines = _judgement_tree_lines( items, intro=intro, width=storage.WIDEST_PROSE )
     text = "\n".join( lines )
     assert 'Removed ' in text
     assert '[1 error]' in text

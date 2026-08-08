@@ -93,9 +93,9 @@ Prefer these instead of inventing a second flat warning list:
 | `cuppa.utility.storage`
 | `N trees` / `N develop locations`
 
-| `_removal_error_lines`
+| `_judgement_tree_lines`
 | `cuppa.core.storage_actions`
-| Judgement tree body (builds, deps, wipe)
+| Judgement tree body (builds, deps, wipe, `--list-develop`)
 
 | `_write_wipe_notice_tree`
 | `cuppa.core.dependency_removal`

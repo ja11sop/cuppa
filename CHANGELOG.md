@@ -49,6 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Rename `_removal_error_lines` to `_judgement_tree_lines` and route `--list-develop` judgement
+  bodies through it (same stem glyphs, severity headings, wrap, and value highlighting as wipe /
+  remove). No intentional user-visible change; completes Phase C of the console report-patterns
+  work.
 - `--wipe-dependencies` emits inventory `used_by` judgement notices like force-wipe (warning on
   dry-run, past-tense note after a real wipe). Force-wipe “no inventory record” lines move into
   the judgement tree as notes (`no inventory record…` / `had no inventory record…`) instead of

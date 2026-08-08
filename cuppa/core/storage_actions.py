@@ -982,38 +982,47 @@ def _severity_counts( failures ):
     return counts
 
 
-def _removal_error_lines(
+def _judgement_tree_lines(
         failures, width=None,
-        intro="Not all requested build entries could be removed"
+        intro="Not all requested build entries could be removed",
+        encoding=None,
+        include_intro=True,
 ):
-    """Judgement tree for removal/wipe notices, matching --list-develop shape.
+    """Judgement tree body (and optional intro) for wipe, remove, builds, and develop.
 
-    Hangs from ``intro: [N errors][N warnings][N notes]`` (zeros muted; non-zeros coloured
-    as error / warning / info). Each item needs ``severity`` (``error``, ``warning``, or
-    ``note``), ``label``, and either ``reason`` (wrapped prose) or ``blocks`` — a list of
-    ``{'kind':'prose','text':...}`` and/or ``{'kind':'list','intro':...,'items':[...]}``.
+    When ``include_intro`` is true, hangs from
+    ``intro: [N errors][N warnings][N notes]`` (zeros muted; non-zeros coloured as error /
+    warning / info). Each item needs ``severity`` (``error``, ``warning``, or ``note``),
+    ``label``, and one of: ``notes`` (sibling prose strings), ``reason`` (single prose), or
+    ``blocks`` — a list of ``{'kind':'prose','text':...}`` and/or
+    ``{'kind':'list','intro':...,'items':[...]}``.
+
+    ``width=None`` leaves prose unwrapped (``--list-develop``). Pass an explicit width
+    (typically ``storage.WIDEST_PROSE``) for wipe/remove/build notices.
     """
     if not failures:
         return []
 
-    tee, elbow, pipe, gap = storage.glyphs()
+    tee, elbow, pipe, gap = storage.glyphs( encoding )
     stub = pipe.rstrip()
     colour_for = { 'error': as_error, 'warning': as_warning, 'note': as_info }
     heading_for = { 'error': 'error', 'warning': 'warning', 'note': 'note' }
-    prose_width = width if width is not None else storage.WIDEST_PROSE
+    prose_width = width
 
     counts = _severity_counts( failures )
-    lines = [
-        "",
-        "{}: {}".format(
-                intro,
-                storage.format_severity_count_brackets(
-                        errors=counts['error'],
-                        warnings=counts['warning'],
-                        notes=counts['note'],
-                ),
-        ),
-    ]
+    lines = []
+    if include_intro:
+        lines.extend( [
+            "",
+            "{}: {}".format(
+                    intro,
+                    storage.format_severity_count_brackets(
+                            errors=counts['error'],
+                            warnings=counts['warning'],
+                            notes=counts['note'],
+                    ),
+            ),
+        ] )
 
     groups = []
     for severity in ( 'error', 'warning', 'note' ):
@@ -1022,7 +1031,10 @@ def _removal_error_lines(
             groups.append( ( severity, group ) )
 
     def append_prose( text, colour, first_branch, carried_branch ):
-        wrap_width = max( prose_width - len( first_branch ), storage.NARROWEST_PROSE )
+        if prose_width is None:
+            wrap_width = None
+        else:
+            wrap_width = max( prose_width - len( first_branch ), storage.NARROWEST_PROSE )
         branch = first_branch
         for piece in storage.wrapped( text, wrap_width ):
             lines.append(
@@ -1050,8 +1062,15 @@ def _removal_error_lines(
             note_under = under_severity + ( gap if last else pipe )
             note_first = note_under + elbow
             note_carried = note_under + gap
+            notes = failure.get( 'notes' )
             blocks = failure.get( 'blocks' )
-            if blocks:
+            if notes is not None:
+                for note_index, note in enumerate( notes ):
+                    last_note = note_index == len( notes ) - 1
+                    first = note_under + ( elbow if last_note else tee )
+                    carried = note_under + ( gap if last_note else pipe )
+                    append_prose( note or '', colour, first, carried )
+            elif blocks:
                 first_detail = True
                 for block in blocks:
                     kind = block.get( 'kind' )
@@ -1293,7 +1312,7 @@ def remove_builds( construct, cuppa_env, out=None ):
         accent=folder_accent, middle_heading='REMOVED', hang='removed', mode='outcome',
     )
 
-    for line in _removal_error_lines( failures ):
+    for line in _judgement_tree_lines( failures, width=storage.WIDEST_PROSE ):
         out.write( line + "\n" )
 
     out.write( "\n" )
@@ -1330,10 +1349,10 @@ def _emit_outcome_tables( out, folder, rows, failures=None, intro=None ):
         accent=folder_accent, middle_heading='REMOVED', hang='removed', mode='outcome',
     )
     if failures:
-        kwargs = {}
+        kwargs = { 'width': storage.WIDEST_PROSE }
         if intro:
             kwargs['intro'] = intro
-        for line in _removal_error_lines( failures, **kwargs ):
+        for line in _judgement_tree_lines( failures, **kwargs ):
             out.write( line + "\n" )
     return removed_rows, removed_bytes, has_errors
 

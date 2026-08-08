@@ -43,7 +43,7 @@ topic pages (`build-layout.adoc`, `dependencies-managing.adoc`) as well.
 |--------|--------|---------|
 | `format_severity_count_brackets` | `cuppa.utility.storage` | Intro suffix |
 | `emphasised_count_phrase` | `cuppa.utility.storage` | `N trees` / `N develop locations` |
-| `_removal_error_lines` | `cuppa.core.storage_actions` | Judgement tree body (builds, deps, wipe) |
+| `_judgement_tree_lines` | `cuppa.core.storage_actions` | Judgement tree body (builds, deps, wipe, develop) |
 | `_write_wipe_notice_tree` | `cuppa.core.dependency_removal` | Wipe failures, `used_by`, inventory-missing notes |
 | `_collect_used_by_wipe_notices` | `cuppa.core.dependency_removal` | Shared wipe / force-wipe `used_by` collection |
 | `_is_already_gone_error` / `_already_gone_note_reason` | `cuppa.core.storage_actions` | Benign miss classification |
@@ -71,11 +71,11 @@ If the same fact appears on dry-run and on live run, write **two wordings** (or 
 |-------|------|---------|
 | A | Keep this file updated as new report notices ship | Agents have one place for severity timing |
 | B | Extract a short “Report patterns” subsection into Antora Contributing (link here for depth) | Human contributors see the rules without reading the whole removal plan |
-| C | Optional: fold develop `summary()` further toward shared helpers only (already uses brackets) | Less drift |
+| C | Fold develop `render_judgements()` through `_judgement_tree_lines` (summary already uses brackets) | Less drift |
 | D | Promote force-wipe subdued `no inventory record` lines into judgement notes with past tense after wipe | Consistency |
 | E | Regular `--wipe-dependencies` emitting `used_by` notices like force-wipe | Product parity |
 
-Phase C remains optional polish; B / D / E shipped with [#161](https://github.com/ja11sop/cuppa/issues/161).
+Phases B / D / E shipped with [#161](https://github.com/ja11sop/cuppa/issues/161); Phase C shares the tree body renderer with `--list-develop`.
 
 ---
 
@@ -86,12 +86,13 @@ Phase C remains optional polish; B / D / E shipped with [#161](https://github.co
 | Shared severity brackets + emphasised counts | Done (1.5.0.dev) |
 | Force-wipe `used_by` warn→note | Done |
 | Already-gone → note (builds + deps + force-wipe) | Done |
-| `remove_dependencies` failures → `_removal_error_lines` | Done |
+| `remove_dependencies` failures → `_judgement_tree_lines` | Done |
 | `--list-scope=compact` / `referenced` sibling fix / unqualified stem wipe UX | Done |
 | Design plan + issue [#161](https://github.com/ja11sop/cuppa/issues/161) | Done |
 | Antora Contributing “Report patterns” page | Done (Phase B) |
 | Force-wipe inventory-missing → judgement notes | Done (Phase D) |
 | `--wipe-dependencies` `used_by` parity with force-wipe | Done (Phase E) |
+| `--list-develop` tree body → `_judgement_tree_lines` | Done (Phase C) |
 
 ---
 
