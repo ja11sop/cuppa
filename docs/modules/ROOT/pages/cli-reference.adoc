@@ -17,8 +17,9 @@ Standard SCons flags (`-D`, `-j`, `-c`, `-Q`, …) still apply.
 | `--benchmark` / `--force-benchmark` | Run benchmark targets
 | `--run` / `--force-run` | Run `Run()` targets
 | `--toolchains=LIST` | Comma-separated toolchain names; supports fnmatch wildcards (`gcc*`, `clang21`)
-| `--toolchain-archive=URL` | Public Clang archive URL or local path; cached as a toolchain dependency and registered as `clang{major}_{tag}` (later runs reuse the extract via `--toolchains=` alone)
-| `--clang-root=PATH` | Existing Clang install prefix (`bin/clang++`); registered as `clang{major}_local_{hash}`
+| `--toolchain-archive=URL` | Clang or GCC archive URL/path (tarball/zip/`.deb`). Family from `clang`/`gcc` in the basename, else content probe, else `.deb`→gcc. Cached under `toolchains/{clang,gcc}/` and registered as `clang{major}_{tag}` or `gcc{major}_{stem}` (later runs reuse via `--toolchains=` alone)
+| `--clang-root=PATH` | Existing Clang prefix (`bin/clang++`); registers `clang{major}_local_{hash}` and persists a link under `dependencies_root/toolchains/clang/`
+| `--gcc-root=PATH` | Existing GCC prefix (`bin/g++`); registers `gcc{major}_local_{hash}` and persists a link under `dependencies_root/toolchains/gcc/`
 | `--scripts=LIST` / `--projects=LIST` | Limit which sconscripts run
 | `--parallel` | Parallel build (`-j` sized to the machine; `cuppa` may restrict CPU affinity)
 | `--offline` | Skip PyPI version check and remote repository updates

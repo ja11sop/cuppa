@@ -323,6 +323,25 @@ def test_active_toolchain_extract_paths( tmp_path ):
     assert paths == { os.path.realpath( str( extract ) ) }
 
 
+def test_active_toolchain_extract_paths_uses_dep_root_for_external( tmp_path ):
+    """External --*-root registrations store bin_dir outside dependencies_root."""
+    root = tmp_path / 'dependencies'
+    reg = root / 'toolchains' / 'gcc' / 'local_abcd1234'
+    reg.mkdir( parents=True )
+    outside = tmp_path / 'outside' / 'bin'
+    outside.mkdir( parents=True )
+
+    class FakeToolchain( object ):
+        _cxx_path = str( outside )
+        _toolchain_dep_root = str( reg )
+
+    paths = dependency_storage.active_toolchain_extract_paths( {
+        'dependencies_root': str( root ),
+        'active_toolchains': [ FakeToolchain() ],
+    } )
+    assert paths == { os.path.realpath( str( reg ) ) }
+
+
 def test_classify_storage_type_on_legacy_download_root():
     """Optional smoke against a real mixed root (~/_cuppa/_download)."""
     root = os.path.expanduser( '~/_cuppa/_download' )

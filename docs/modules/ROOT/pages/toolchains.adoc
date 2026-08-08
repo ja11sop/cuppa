@@ -22,61 +22,83 @@ Prefer a family alias (`gcc`, `clang`, `vc`) for everyday builds; pin versioned 
 
 When debugging detection, use `--verbosity=debug` and `--dump`.
 
-[#fetched-clang]
-== Fetched Clang archives (toolchain dependencies)
+[#fetched-toolchains]
+== Fetched toolchain archives (Clang and GCC)
 
-Cuppa can download or point at a Clang install and register it as a **toolchain dependency** for the session — the same idea as other dependencies (cached under the downloads / dependencies roots), without putting URLs in `--toolchains=`.
+Cuppa can download or point at compiler installs and register them as **toolchain dependencies** — the same idea as other dependencies (cached under the downloads / dependencies roots), without putting URLs in `--toolchains=`.
+
+You can keep **several Clang and several GCC** installs registered at once and compare them in one run with a multi-toolchain selection, for example `--toolchains=gcc15,gcc16_gcc_snapshot_20260725_1_amd64,clang24_profiles_2026_08_07_27`.
+
+=== Managed archives (`--toolchain-archive=`)
+
+Clang Release tarballs / zips and Debian **gcc-snapshot** `.deb` packages:
 
 [source,sh]
 ----
 cuppa -D --dbg \
   --toolchain-archive=https://github.com/cppalliance/clang/releases/download/profiles-2026-08-07-27/clang-profiles-linux-x86_64.tar.gz
+
+cuppa -D --dbg \
+  --toolchain-archive=https://deb.debian.org/debian/pool/main/g/gcc-snapshot/gcc-snapshot_20260725-1_amd64.deb
 ----
 
 What happens:
 
-* The archive is cached under `downloads_root/toolchains/clang/<release_tag>/` and extracted under `dependencies_root/toolchains/clang/<release_tag>/`.
-* Cuppa probes `bin/clang++`, then registers a name `clang{major}_{sanitised_tag}` (for example `clang24_profiles_2026_08_07_27`) so it does not collide with a distro `clang24`.
-* If you omit `--toolchains=`, that registered toolchain is selected automatically.
+* **Family detection:** basename tokens `clang` / `gcc` when present; otherwise cuppa lists archive members (or peeks a `.deb` `data.tar.*`) for `bin/clang++` / `bin/g++`; extension is only a last resort (`.deb` → gcc, other → clang). Ambiguous URL downloads land under `downloads_root/toolchains/_staging/` until the family is known, then move to `toolchains/{clang,gcc}/`.
+* **Clang** installs: cached under `downloads_root/toolchains/clang/<qualifier>/`, extracted under `dependencies_root/toolchains/clang/<qualifier>/`, probed for `bin/clang++`, registered as `clang{major}_{sanitised_tag}` (for example `clang24_profiles_2026_08_07_27`).
+* **GCC** installs: cached under `downloads_root/toolchains/gcc/<qualifier>/`, extracted with `ar` + `data.tar.*` for `.deb` (or normal unpack for tarballs), probed for nested `bin/g++`, registered as `gcc{major}_{sanitised_stem}` (for example `gcc16_gcc_snapshot_20260725_1_amd64`).
+* Names avoid colliding with distro `clang24` / `gcc15`.
+* If you omit `--toolchains=`, toolchains prepared in **this** session are selected automatically.
 * `--offline` requires the archive (or extract) to be present already.
 
+Debian package index: https://packages.debian.org/sid/gcc-snapshot — pool files live under `pool/main/g/gcc-snapshot/` on any Debian mirror.
+
 On later runs you do not need to pass `--toolchain-archive=` again.
-Cuppa scans `dependencies_root/toolchains/clang/*/`, registers each extract that still has `bin/clang++`, and skips a derived name that is already in the pre-registered toolchain list (for example a PATH `clang24`).
-Select the cached toolchain by name:
+Cuppa scans `dependencies_root/toolchains/{clang,gcc}/*/`, registers each install that still has a usable driver, and skips a derived name that is already in the pre-registered toolchain list.
+Select cached toolchains by name (or wildcard):
 
 [source,sh]
 ----
-cuppa -D --dbg --test --toolchains=clang24_profiles_2026_08_07_27
+cuppa -D --dbg --test --toolchains=clang24_profiles_2026_08_07_27,gcc16_gcc_snapshot_*
 ----
 
-Cached discovery only makes the toolchain *available*; it does not auto-select it.
-Auto-select still applies only when you pass `--toolchain-archive=` or `--clang-root=` in the current session and omit `--toolchains=`.
+Cached discovery only makes toolchains *available*; it does not auto-select them.
+Auto-select still applies only when you pass `--toolchain-archive=` / `--clang-root=` / `--gcc-root=` in the current session and omit `--toolchains=`.
 
-For an already-unpacked prefix:
+=== External prefixes (`--clang-root=` / `--gcc-root=`)
+
+For an install cuppa did not download (for example a hand-extracted snapshot tree):
 
 [source,sh]
 ----
-cuppa -D --dbg --clang-root=/path/to/install --toolchains=clang24_local_*
+cuppa -D --dbg --clang-root=/path/to/clang/install
+cuppa -D --dbg --gcc-root=/path/to/gcc/prefix
 ----
 
-`--clang-root` names are `clang{major}_local_{hash}`. Use `--clang-stdlib=libstdc++` (the Linux default) with slim Profiles Release tarballs that do not ship libc++.
+Cuppa probes `bin/clang++` or `bin/g++`, registers `clang{major}_local_{hash}` or `gcc{major}_local_{hash}`, and **persists a small registration** under `dependencies_root/toolchains/{clang,gcc}/local_…/` (`cuppa-toolchain.json` pointing at the external prefix). Later sessions discover that registration and reuse the short name without re-passing `--*-root=`.
 
-After a successful build that used `--toolchain-archive=` or `--clang-root=` in the session, cuppa logs the shorthand reuse flag near the end of the output, for example `--toolchains=clang24_profiles_2026_08_07_27`, so you do not need to scroll back to the registration line.
+Force-wipe of an external registration removes the **link under cuppa storage**, not the external prefix itself.
+Owned archive extracts (downloaded by cuppa) are removed fully on force-wipe.
 
-[#fetched-clang-storage]
+Use `--clang-stdlib=libstdc++` (the Linux default) with slim Profiles Release tarballs that do not ship libc++.
+
+After a successful session that prepared an archive or root, cuppa logs the shorthand reuse flag near the end of the output, for example `--toolchains=gcc16_gcc_snapshot_20260725_1_amd64`.
+
+[#fetched-toolchain-storage]
 === Listing and clearing toolchain archives
 
-Fetched Clang extracts appear under `--list-dependencies` / `--list-downloads` as storage type **toolchain** (`toolchains/clang/<qualifier>/`), not as a mistaken top-level source archive named `toolchains`.
+Toolchain installs appear under `--list-dependencies` / `--list-downloads` as storage type **toolchain** (`toolchains/<family>/<qualifier>/`), not as a mistaken top-level source archive named `toolchains`.
 
 Which management flags apply:
 
-* `--list-dependencies` / `--list-downloads` — yes. When you pass `--toolchains=clang24_profiles_…` (or auto-select via `--toolchain-archive=`), that extract is marked **referenced** / `in use`. Other cached extracts stay unreferenced. Verbose LOCATION shows `[D]` when the matching archive still exists under `downloads_root/toolchains/…`.
-* `--force-wipe-dependencies=[toolchain]clang/profiles_*` or
-  `--force-wipe-dependencies=[toolchain]clang24_profiles_2026_08_07_27` — yes (storage path or session toolchain name).
-* `--force-wipe-unreferenced-dependencies` — yes for extracts that are not the active selection.
+* `--list-dependencies` / `--list-downloads` — yes. When you pass `--toolchains=…` (or auto-select via archive/root flags), that extract or registration is marked **referenced** / `in use`. Other cached installs stay unreferenced. Verbose LOCATION shows `[D]` when the matching archive still exists under `downloads_root/toolchains/…`.
+* `--force-wipe-dependencies=[toolchain]clang/profiles_*`,
+  `--force-wipe-dependencies=[toolchain]gcc/gcc_snapshot_*`, or the session name
+  (`[toolchain]clang24_profiles_…` / `[toolchain]gcc16_…`) — yes.
+* `--force-wipe-unreferenced-dependencies` — yes for installs that are not the active selection.
 * `--remove-dependencies` / `--purge-dependencies` / `--wipe-dependencies` (and the `*-all-*` forms) — no; those only target **project-used** dependency names from the current selection (`default_dependencies` / `BuildWith`), not compiler installs.
 
-List / remove polish for type `toolchain` continues in `design/plans/toolchains-as-dependencies.md`.
+Design notes: `design/plans/toolchains-as-dependencies.md`.
 
 [#c-language-level]
 == C++ language level

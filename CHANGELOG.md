@@ -9,20 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `--toolchain-archive=` and `--clang-root=` fetch or point at a Clang install, cache it under
-  the downloads / dependencies roots as a toolchain dependency, and register
-  `clang{major}_{release_tag}` (or `clang{major}_local_{hash}`) so Profiles / experimental
-  Release builds do not collide with distro `clang24`. Omitting `--toolchains=` selects the
-  registered archive toolchain for that session. Later runs discover extracts under
-  `dependencies_root/toolchains/clang/` so you can select them with
-  `--toolchains=clang24_profiles_…` without re-passing the archive URL; a cached name that
-  already exists in the pre-registered list is skipped. After a successful archive/root
-  session, cuppa logs the reuse `--toolchains=` flag at sconstruct end. List/downloads
-  classify these trees as type `toolchain` (stale parent-folder inventory rows are dropped).
-  An extract selected via `--toolchains=` / archive auto-select is listed as referenced;
-  verbose LOCATION shows `[D]` when the download archive is present. Force-wipe accepts
-  `[toolchain]clang/profiles_…` or the session name `[toolchain]clang24_profiles_…`.
-  Clear unused ones with those tokens or `--force-wipe-unreferenced-dependencies`.
+- `--toolchain-archive=` and `--clang-root=` / `--gcc-root=` fetch or point at Clang and GCC
+  installs, cache them under the downloads / dependencies roots as toolchain dependencies, and
+  register non-colliding names (`clang{major}_{tag}`, `gcc{major}_{stem}`, or
+  `{family}{major}_local_{hash}`) so experimental builds do not collide with distro `clang24` /
+  `gcc15`. `--toolchain-archive=` accepts Clang tarballs/zips and Debian **gcc-snapshot** `.deb`
+  URLs/paths (extracted with `ar` + `data.tar.*`). Archive family is taken from `clang`/`gcc` in
+  the basename when present; otherwise cuppa probes archive members (staging the download under
+  `toolchains/_staging/` if needed), then falls back to `.deb`→gcc / other→clang. Omitting
+  `--toolchains=` selects toolchains prepared in that session. Later runs discover installs under
+  `dependencies_root/toolchains/{clang,gcc}/` so you can select several at once
+  (`--toolchains=gcc16_…,clang24_profiles_…`) without re-passing supply flags. External
+  `--*-root=` prefixes persist a `cuppa-toolchain.json` registration (force-wipe removes the
+  registration, not the external tree). After a successful archive/root session, cuppa logs the
+  reuse `--toolchains=` flag at sconstruct end. List/downloads classify these as type
+  `toolchain`; force-wipe accepts `[toolchain]clang/…`, `[toolchain]gcc/…`, or the session name.
   Project-scoped `--remove-` / `--purge-` / `--wipe-dependencies` do not apply. See
   `design/plans/toolchains-as-dependencies.md` and [#160](https://github.com/ja11sop/cuppa/issues/160).
   ([#127](https://github.com/ja11sop/cuppa/issues/127) `--profiles` remains a follow-on.)

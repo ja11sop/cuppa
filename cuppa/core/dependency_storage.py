@@ -160,14 +160,19 @@ def active_toolchain_extract_paths( cuppa_env ):
     dependencies_root = cuppa_env.get( 'dependencies_root' )
     if not dependencies_root:
         return set()
+    from cuppa.utility import storage as storage_util
     found = set()
     for toolchain in cuppa_env.get( 'active_toolchains' ) or []:
+        dep_root = getattr( toolchain, '_toolchain_dep_root', None )
+        if dep_root and os.path.isdir( dep_root ):
+            if is_toolchain_ownership_unit( dep_root, dependencies_root ):
+                found.add( storage_util.real_path( dep_root ) )
+                continue
         bin_dir = getattr( toolchain, '_cxx_path', None )
         if not bin_dir:
             continue
         unit = toolchain_ownership_unit_for_bin( bin_dir, dependencies_root )
         if unit and os.path.isdir( unit ):
-            from cuppa.utility import storage as storage_util
             found.add( storage_util.real_path( unit ) )
     return found
 

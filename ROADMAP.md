@@ -320,9 +320,11 @@ remains [#127](https://github.com/ja11sop/cuppa/issues/127) and is not this sect
 
 | Capability | Status |
 |------------|--------|
-| `--toolchain-archive=` / `--clang-root=` for Clang | Yes — on branch / PR for [#160](https://github.com/ja11sop/cuppa/issues/160) |
-| Register `clang{major}_{tag}` (or `_local_{hash}`); auto-select when `--toolchains=` omitted | Yes |
-| Discover cached extracts under `dependencies_root/toolchains/clang/` | Yes |
+| `--toolchain-archive=` / `--clang-root=` for Clang | Yes ([#160](https://github.com/ja11sop/cuppa/issues/160)) |
+| `--gcc-root=` + `--toolchain-archive=` `.deb` for gcc-snapshot | Yes ([#160](https://github.com/ja11sop/cuppa/issues/160)) |
+| Register `clang{major}_{tag}` / `gcc{major}_{stem}` (or `_local_{hash}`); auto-select when `--toolchains=` omitted | Yes |
+| Discover cached installs under `dependencies_root/toolchains/{clang,gcc}/`; multi-select compare | Yes |
+| External `--*-root=` persists registration (`cuppa-toolchain.json`) | Yes |
 | List as type `toolchain`; force-wipe `[toolchain]…`; project remove/purge/wipe N/A | Yes |
 
 ### Planned / potential
@@ -330,8 +332,6 @@ remains [#127](https://github.com/ja11sop/cuppa/issues/127) and is not this sect
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
 | `tc-dep-url-sugar` | Optional URL token in `--toolchains=` | Low | Keep `--toolchain-archive=` as explicit supply |
-| `tc-dep-gcc-root` | `--gcc-root=` for local / Debian gcc-snapshot prefixes | Medium | Same shape as `--clang-root=`; manual `.deb` extract documented in the plan |
-| `tc-dep-gcc-deb` | Optional `.deb` as `--toolchain-archive=` for gcc-snapshot | Low | After `--gcc-root=` works |
 | `tc-dep-profiles` | [#127](https://github.com/ja11sop/cuppa/issues/127) `--profiles` / `-fprofiles` | Medium | Needs a Profiles-capable Clang via [#160](https://github.com/ja11sop/cuppa/issues/160) |
 | `tc-dep-actions` | Authenticated Actions artifact URLs | Low | After public HTTPS / file path is solid |
 | `tc-dep-msvc` | MSVC archive / layout as toolchain dep | Low | Separate driver; not gcc-snapshot |
