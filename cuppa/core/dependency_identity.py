@@ -197,13 +197,21 @@ def display_qualifier( qualifier, storage_type='repository' ):
 _VCS_FOLDER_PREFIXES = ( 'git_', 'svn_', 'hg_', 'bzr_' )
 
 
-def unqualified_default_branch_label( folder, default_branch, storage_type='repository' ):
-    """Label an unqualified VCS stem as ``@<default> (unqualified)``, or ``None``."""
+def unqualified_default_branch_label(
+        folder, default_branch, storage_type='repository', *,
+        has_canonical_sibling=False,
+):
+    """Label an unqualified stem as ``@<default> (unqualified)``, or ``None``.
+
+    Encoded VCS folder names (``git_…``) always qualify. On Windows, ``Location``
+    hashes those names for MAX_PATH, so the stem loses the ``git_`` prefix; pass
+    ``has_canonical_sibling=True`` when ``stem@<default>`` exists beside it.
+    """
     if storage_type not in ( 'repository', 'location', 'unknown' ):
         return None
     if not folder or not default_branch:
         return None
-    if not folder.startswith( _VCS_FOLDER_PREFIXES ):
+    if not folder.startswith( _VCS_FOLDER_PREFIXES ) and not has_canonical_sibling:
         return None
     _stem, folder_qualifier = split_location_folder_name( folder )
     if folder_qualifier:

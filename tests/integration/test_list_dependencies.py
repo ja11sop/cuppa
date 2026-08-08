@@ -676,6 +676,9 @@ def test_list_dependencies_labels_unqualified_default_branch_duplicate(tmp_path)
     for tree in (unqualified, canonical):
         (tree / "include").mkdir(parents=True)
         (tree / "include" / "w.hpp").write_text("//\n", encoding="utf-8")
+        # Windows hashed stems lose the git_ prefix; a .git dir keeps classify as
+        # repository so listing can label the unqualified duplicate.
+        (tree / ".git").mkdir()
 
     write_sconstruct(
         project,

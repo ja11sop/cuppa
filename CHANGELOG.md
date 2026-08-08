@@ -70,10 +70,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   refinement of that view (resolve-selected leaves only). Groundwork for
   [#161](https://github.com/ja11sop/cuppa/issues/161).
 - Unqualified-stem duplicate wipe tokens are recommended when a branch-qualified sibling folder
-  exists even if resolve has not marked either leaf referenced, and the integration fixture
-  plants Windows MAX_PATH-hashed location folder names so
-  `test_list_dependencies_labels_unqualified_default_branch_duplicate` matches real
-  `Location` layout on Windows.
+  exists even if resolve has not marked either leaf referenced. Listing also labels Windows
+  MAX_PATH-hashed location stems (no `git_` prefix) as `@<default> (unqualified)` when
+  `stem@<default>` sits beside them, and the integration fixture plants those hashed pairs
+  with a `.git` dir so classify stays `repository`.
 
 ### Security
 

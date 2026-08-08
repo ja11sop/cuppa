@@ -1094,10 +1094,18 @@ def _collect_rows( construct, cuppa_env, names=None, out=None ):
 
     default_branch = cuppa_env.get( 'location_default_branch' )
     for row in rows:
+        path = ( row.get( 'path' ) or '' ).rstrip( '\\/' )
+        folder = os.path.basename( path )
+        parent = os.path.dirname( path )
+        has_canonical_sibling = False
+        if default_branch and folder and parent:
+            sibling = os.path.join( parent, '{}@{}'.format( folder, default_branch ) )
+            has_canonical_sibling = os.path.isdir( sibling )
         labelled = dependency_identity.unqualified_default_branch_label(
-                os.path.basename( ( row.get( 'path' ) or '' ).rstrip( '\\/' ) ),
+                folder,
                 default_branch,
                 storage_type=row.get( 'type' ),
+                has_canonical_sibling=has_canonical_sibling,
         )
         if labelled:
             row['qualifier'] = labelled

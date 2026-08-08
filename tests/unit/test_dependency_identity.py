@@ -255,6 +255,14 @@ def test_unqualified_default_branch_label():
     assert unqualified_default_branch_label(
             'git_https_example.com__org_widget.git', None
     ) is None
+    # Windows MAX_PATH hash loses the git_ prefix; sibling makes it a duplicate.
+    assert unqualified_default_branch_label( '_org_wid09f20908', 'master' ) is None
+    assert unqualified_default_branch_label(
+            '_org_wid09f20908', 'master', has_canonical_sibling=True
+    ) == '@master (unqualified)'
+    assert unqualified_default_branch_label(
+            '_org_wid09f20908@master', 'master', has_canonical_sibling=True
+    ) is None
 
 
 def test_tree_groups_referenced_siblings():
