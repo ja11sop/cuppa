@@ -52,6 +52,10 @@ If an outcome is “proceed anyway / already done / cannot abort”:
 | Force-wipe target with no inventory record
 | `note`: `no inventory record for [path]`
 | `note`: `had no inventory record for [path]`
+
+| Force-wipe token with no matching leaf (or matched path already gone)
+| `warning`: `no leaf matches [token]`
+| `note`: `no leaf matched [token]` — other tokens still wipe; exit stays 0
 |===
 
 True failures stay **errors**: permission denied, refusals, ambiguous tokens, missing required

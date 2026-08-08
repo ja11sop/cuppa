@@ -35,6 +35,7 @@ topic pages (`build-layout.adoc`, `dependencies-managing.adoc`) as well.
 | Force-wipe / wipe `used_by` (incl. safe unqualified duplicate) | `warning`: `wiping…`, `removing this copy is safe`, `would be re-fetched` | `note`: `wiped…`, `removing the copy was safe`, `will be re-fetched` |
 | Path already gone on remove/wipe/builds | (does not fire on dry-run) | `note`: `was already gone: [path]` — never leave as warning |
 | Force-wipe no inventory record | `note`: `no inventory record for [path]` | `note`: `had no inventory record for [path]` |
+| Force-wipe unmatched token / gone path | `warning`: `no leaf matches [token]` | `note`: `no leaf matched [token]` — continue other tokens; exit 0 |
 
 ### 1.2 Shared helpers (prefer these)
 

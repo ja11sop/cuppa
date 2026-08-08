@@ -572,6 +572,9 @@ tree — see xref:#dependency-tokens[Dependency tokens]. Examples: `boost/1.86.0
 `--wipe-dependencies`. Matching downloads are wiped too. Referenced /
 unreferenced / `in use` do **not** block the wipe — the long flag name is the acknowledgement.
 Inventory `used_by` naming another project prints a warning and still proceeds.
+A token with no matching leaf (or a matched path that is already gone) does **not** abort the
+rest of the list: other tokens still wipe, and each miss appears in the judgement tree (warning
+on dry-run, past-tense note after a real wipe). Ambiguous non-wildcard tokens still fail hard.
 
 When both an unqualified stem and `stem@<default>` exist, `--list-dependencies` colours the
 unused `@<default> (unqualified)` leaf with the remove accent and ends with a dry-run command

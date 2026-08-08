@@ -2967,6 +2967,38 @@ def _inventory_missing_notice_items( inventory_missing, planning=True ):
     return items
 
 
+def _unmatched_force_wipe_notice_items( unmatched_tokens, planning=True ):
+    """Turn unmatched / already-gone force-wipe tokens into judgement items.
+
+    Dry-run keeps these as warnings (the token list may still be edited). After a
+    real wipe they become notes — nothing was left to clear for that token.
+    """
+    items = []
+    for item in unmatched_tokens or []:
+        token = ( item.get( 'token' ) or '' ).strip() or '-'
+        kind = item.get( 'kind' ) or 'no_match'
+        if kind == 'missing_path':
+            path_text = storage.display_path( item.get( 'path' ) or '' )
+            if planning:
+                reason = "matched leaf [{}] path does not exist: {}".format(
+                        token, path_text
+                )
+            else:
+                reason = "matched leaf [{}] path was already gone: {}".format(
+                        token, path_text
+                )
+        elif planning:
+            reason = "no leaf matches [{}]".format( token )
+        else:
+            reason = "no leaf matched [{}]".format( token )
+        items.append( {
+            'severity': 'warning' if planning else 'note',
+            'label': token,
+            'reason': reason,
+        } )
+    return items
+
+
 def _used_by_wipe_notice_items( used_by_warnings, default_branch='master', planning=True ):
     """Turn used_by wipe notices into judgement items.
 
@@ -3039,14 +3071,14 @@ def _used_by_wipe_notice_items( used_by_warnings, default_branch='master', plann
 
 def _write_wipe_notice_tree(
         out, failures=None, used_by_warnings=None, inventory_missing=None,
-        default_branch='master', tree_count=0, planning=True,
+        unmatched_tokens=None, default_branch='master', tree_count=0, planning=True,
 ):
     """Emit the post-table judgement tree for wipe failures and used_by notices.
 
     Intro is generic (``Wiping`` / ``Wiped N trees`` with ``N`` emphasised); severity counts
-    and message bodies carry the detail. Used-by notices are warnings on dry-run and notes
-    after a real wipe. Missing inventory records are always notes (present tense while
-    planning, past tense after a real wipe).
+    and message bodies carry the detail. Used-by and unmatched-token notices are warnings on
+    dry-run and notes after a real wipe. Missing inventory records are always notes (present
+    tense while planning, past tense after a real wipe).
     """
     failures = failures or []
     used_items = _used_by_wipe_notice_items(
@@ -3054,6 +3086,9 @@ def _write_wipe_notice_tree(
     )
     inventory_items = _inventory_missing_notice_items(
             inventory_missing, planning=planning,
+    )
+    unmatched_items = _unmatched_force_wipe_notice_items(
+            unmatched_tokens, planning=planning,
     )
     failure_items = [
             {
@@ -3063,7 +3098,7 @@ def _write_wipe_notice_tree(
             }
             for item in failures
     ]
-    items = failure_items + used_items + inventory_items
+    items = failure_items + used_items + unmatched_items + inventory_items
     if not items:
         return
     intro = "{} {}".format(
@@ -3321,13 +3356,14 @@ def _collect_force_wipe_context( rows, dl_rows, targets, download_targets ):
 
 def _execute_force_wipe(
         out, root, downloads_root, targets, download_targets, planning,
-        inventory_missing=None, used_by_warnings=None, unreferenced=False,
-        leftovers=None, download_leftovers=None, summary_label=None,
-        default_branch='master',
+        inventory_missing=None, used_by_warnings=None, unmatched_tokens=None,
+        unreferenced=False, leftovers=None, download_leftovers=None,
+        summary_label=None, default_branch='master',
 ):
     """Announce, delete, and report a force-wipe plan."""
     inventory_missing = inventory_missing or []
     used_by_warnings = used_by_warnings or []
+    unmatched_tokens = unmatched_tokens or []
     leftovers = list( leftovers or [] )
     download_leftovers = list( download_leftovers or [] )
     if not summary_label:
@@ -3349,6 +3385,7 @@ def _execute_force_wipe(
         _write_wipe_notice_tree(
                 out, used_by_warnings=used_by_warnings,
                 inventory_missing=inventory_missing,
+                unmatched_tokens=unmatched_tokens,
                 default_branch=default_branch,
                 tree_count=0, planning=planning,
         )
@@ -3477,6 +3514,7 @@ def _execute_force_wipe(
     _write_wipe_notice_tree(
             out, failures=failures, used_by_warnings=used_by_warnings,
             inventory_missing=inventory_missing,
+            unmatched_tokens=unmatched_tokens,
             default_branch=default_branch,
             tree_count=len( targets ) + len( actionable_downloads ),
             planning=planning,
@@ -3526,6 +3564,7 @@ def force_wipe_dependencies( construct, cuppa_env, out=None ):
     targets = []
     seen = set()
     matched_reals = set()
+    unmatched_tokens = []
 
     for storage_type, name, qualifier in tokens:
         token_label = dependency_tokens.format_token( storage_type, name, qualifier )
@@ -3541,8 +3580,9 @@ def force_wipe_dependencies( construct, cuppa_env, out=None ):
             real = storage.real_path( row['path'] ) if os.path.lexists( row['path'] ) else row['path']
             by_real.setdefault( real, row )
         if not by_real:
-            out.write( "error: no dependency leaf matches [{}]\n".format( token_label ) )
-            return 1
+            # Soft: continue other tokens; report in the judgement tree.
+            unmatched_tokens.append( { 'token': token_label, 'kind': 'no_match' } )
+            continue
         wildcard = force_token_is_wildcard( name, qualifier )
         if not wildcard and len( by_real ) > 1:
             out.write( "error: ambiguous force-wipe token [{}]; candidates:\n".format(
@@ -3557,10 +3597,12 @@ def force_wipe_dependencies( construct, cuppa_env, out=None ):
         for row in sorted( by_real.values(), key=lambda item: item.get( 'path' ) or '' ):
             path = row['path']
             if not os.path.lexists( path ):
-                out.write( "error: matched leaf [{}] path does not exist: {}\n".format(
-                        token_label, path
-                ) )
-                return 1
+                unmatched_tokens.append( {
+                    'token': token_label,
+                    'kind': 'missing_path',
+                    'path': path,
+                } )
+                continue
             real = storage.real_path( path )
             if real in seen:
                 continue
@@ -3680,6 +3722,7 @@ def force_wipe_dependencies( construct, cuppa_env, out=None ):
     return _execute_force_wipe(
             out, root, downloads_root, targets, download_targets, planning,
             inventory_missing=inventory_missing, used_by_warnings=used_by_warnings,
+            unmatched_tokens=unmatched_tokens,
             unreferenced=False,
             leftovers=leftovers, download_leftovers=download_leftovers,
             summary_label=summary_label,

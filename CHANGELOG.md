@@ -52,8 +52,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--wipe-dependencies` emits inventory `used_by` judgement notices like force-wipe (warning on
   dry-run, past-tense note after a real wipe). Force-wipe “no inventory record” lines move into
   the judgement tree as notes (`no inventory record…` / `had no inventory record…`) instead of
-  subdued pre-table text. Completes [#161](https://github.com/ja11sop/cuppa/issues/161) phases
-  B / D / E.
+  subdued pre-table text. Unmatched force-wipe tokens (and matched paths already gone) no longer
+  hard-stop the whole list: other tokens still wipe, and each miss is a judgement warning on
+  dry-run / note after a real wipe. Completes [#161](https://github.com/ja11sop/cuppa/issues/161)
+  phases B / D / E.
 - Release workflow Actions buttons: **prepare** opens the `finish_release` PR; **publish**
   builds from master tip, creates the GitHub Release and tag, then waits for `pypi` approval.
   Manual `v*` tag push remains as an escape hatch. Antora **Contributing** documents the flow

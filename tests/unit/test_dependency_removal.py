@@ -664,6 +664,62 @@ def test_collect_inventory_missing_notices( tmp_path ):
     assert present == []
 
 
+def test_unmatched_force_wipe_notice_items_warn_then_note():
+    unmatched = [
+            { 'token': 'moo/@', 'kind': 'no_match' },
+            {
+                'token': 'widget/@',
+                'kind': 'missing_path',
+                'path': '/home/user/_cuppa/dependencies/widget',
+            },
+    ]
+    planning = dependency_removal._unmatched_force_wipe_notice_items(
+            unmatched, planning=True,
+    )
+    assert [ item['severity'] for item in planning ] == [ 'warning', 'warning' ]
+    assert planning[0]['label'] == 'moo/@'
+    assert planning[0]['reason'] == 'no leaf matches [moo/@]'
+    assert planning[1]['reason'].startswith( 'matched leaf [widget/@] path does not exist:' )
+
+    done = dependency_removal._unmatched_force_wipe_notice_items(
+            unmatched, planning=False,
+    )
+    assert [ item['severity'] for item in done ] == [ 'note', 'note' ]
+    assert done[0]['reason'] == 'no leaf matched [moo/@]'
+    assert done[1]['reason'].startswith( 'matched leaf [widget/@] path was already gone:' )
+
+
+def test_write_wipe_notice_tree_includes_unmatched_tokens():
+    import io
+    from cuppa.colourise import as_emphasised
+
+    out = io.StringIO()
+    dependency_removal._write_wipe_notice_tree(
+            out,
+            unmatched_tokens=[ { 'token': 'moo/@', 'kind': 'no_match' } ],
+            tree_count=3,
+            planning=True,
+    )
+    text = out.getvalue()
+    assert 'Wiping ' in text
+    assert as_emphasised( '3' ) in text
+    assert '[1 warning]' in text
+    assert 'no leaf matches [moo/@]' in text
+    assert 'moo/@' in text
+
+    done = io.StringIO()
+    dependency_removal._write_wipe_notice_tree(
+            out=done,
+            unmatched_tokens=[ { 'token': 'moo/@', 'kind': 'no_match' } ],
+            tree_count=3,
+            planning=False,
+    )
+    done_text = done.getvalue()
+    assert 'Wiped ' in done_text
+    assert '[1 note]' in done_text
+    assert 'no leaf matched [moo/@]' in done_text
+
+
 def test_dependency_already_gone_is_a_note_in_judgement_tree():
     """Benign misses after a real remove use notes + shared judgement intro, not flat warnings."""
     from cuppa.core.storage_actions import (
