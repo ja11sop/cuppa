@@ -1,12 +1,12 @@
 # Plan: `--list-toolchains`
 
-- **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Toolchains as dependencies; shipped design
-  [`archive/toolchains-as-dependencies.md`](../archive/toolchains-as-dependencies.md); [#160](https://github.com/ja11sop/cuppa/issues/160); [`list-toolchains-verbose.md`](list-toolchains-verbose.md); [`ideas/scratchpad.md`](../ideas/scratchpad.md) (graduated); console patterns
-  [`archive/console-report-patterns.md`](../archive/console-report-patterns.md)
+- **Status:** shipped
+- **Related:** [#172](https://github.com/ja11sop/cuppa/issues/172); [#170](https://github.com/ja11sop/cuppa/pull/170);
+  [`ROADMAP.md`](../../ROADMAP.md) — Toolchains as dependencies; shipped design
+  [`toolchains-as-dependencies.md`](toolchains-as-dependencies.md); [#160](https://github.com/ja11sop/cuppa/issues/160); [`list-toolchains-verbose.md`](../plans/list-toolchains-verbose.md); [`ideas/scratchpad.md`](../ideas/scratchpad.md) (graduated); console patterns
+  [`console-report-patterns.md`](console-report-patterns.md)
 - **Updated:** 2026-08-09
 - **Impact:** minor — inventory CLI + list-deps leaf label alignment for toolchain session names
-  (verbose / family docs land on the same [#170](https://github.com/ja11sop/cuppa/pull/170) branch)
 
 ## Why
 
@@ -91,8 +91,9 @@ ruled hierarchical reports instead.
 
 ## Suggested next PR
 
-`list-tc-tree-model` + `list-tc-tree-render` + `list-tc-json-nested` + `list-tc-deps-leaf` + docs/tests
-on the open 1.6.0 branch (follow-on to #170).
+None for the inventory tree — shipped in [#172](https://github.com/ja11sop/cuppa/issues/172) /
+[#170](https://github.com/ja11sop/cuppa/pull/170). Verbose / deferred flag tables:
+[`list-toolchains-verbose.md`](../plans/list-toolchains-verbose.md).
 
 ## Progress
 
@@ -109,9 +110,10 @@ on the open 1.6.0 branch (follow-on to #170).
 | `list-tc-deps-leaf` | done |
 | `list-tc-docs` (tree) | done |
 | `list-tc-follow-inventory` | deferred |
-| `list-tc-verbose` | See [`list-toolchains-verbose.md`](list-toolchains-verbose.md) |
+| `list-tc-verbose` | See [`list-toolchains-verbose.md`](../plans/list-toolchains-verbose.md) |
 
 ## Open decisions
 
-None for the inventory tree — proceed / polish on #170.
-Verbose dialects/flags: open in [`list-toolchains-verbose.md`](list-toolchains-verbose.md).
+None for the inventory tree.
+Verbose dialects/flags and deferred `list-tc-flag-tables`:
+[`list-toolchains-verbose.md`](../plans/list-toolchains-verbose.md).

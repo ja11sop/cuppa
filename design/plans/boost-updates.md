@@ -1,7 +1,7 @@
 # Plan: Boost source and package updates
 
 - **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Boost source and packages; storage listing/removal stays in [`removal-options.md`](removal-options.md); offline “latest” persistence is [`boost-latest-persistence.md`](boost-latest-persistence.md) (separate)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Boost source and packages; storage listing/removal stays in [`removal-options.md`](removal-options.md); offline “latest” persistence is [`boost-latest-persistence.md`](../archive/boost-latest-persistence.md) (separate)
 - **Updated:** 2026-08-09
 
 Source `boost` (b2 / extract homes) and GitLab `boost_package` share Boost.Test patch semantics

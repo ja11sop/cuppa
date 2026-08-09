@@ -1,13 +1,15 @@
 # Plan: `--list-toolchains --list-format=verbose`
 
 - **Status:** in progress
-- **Related:** [`list-toolchains.md`](list-toolchains.md) (inventory tree on [#170](https://github.com/ja11sop/cuppa/pull/170));
+- **Related:** [#172](https://github.com/ja11sop/cuppa/issues/172); [#170](https://github.com/ja11sop/cuppa/pull/170);
+  [`list-toolchains.md`](../archive/list-toolchains.md) (inventory tree shipped);
   [`ROADMAP.md`](../../ROADMAP.md) — Toolchains; family pages
   (`toolchain-gcc.adoc` / `toolchain-clang.adoc` / `toolchain-msvc.adoc`);
   GCC link options / GNU ld `-Bstatic`/`-Bdynamic` (language-agnostic driver/linker flags)
 - **Updated:** 2026-08-09
-- **Next focus:** deferred `list-tc-flag-tables` (table-driven init); otherwise verbose + docs
-  are on [#170](https://github.com/ja11sop/cuppa/pull/170)
+- **Next focus:** deferred `list-tc-flag-tables` (table-driven init). Verbose render, `describe()`,
+  and family docs shipped with [#172](https://github.com/ja11sop/cuppa/issues/172) /
+  [#170](https://github.com/ja11sop/cuppa/pull/170).
 - **Impact:** minor — verbose list surface + `describe()` API; dialect defaults owned by
   toolchain classes; no intentional change to build flag behaviour
 

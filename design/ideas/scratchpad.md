@@ -16,8 +16,8 @@ Do not put private project names here; use anonymised labels and
 
 ### Graduated (removed from this file)
 
-- Boost `latest` persistence → [`plans/boost-latest-persistence.md`](../plans/boost-latest-persistence.md)
-- `--list-toolchains` → [`plans/list-toolchains.md`](../plans/list-toolchains.md)
+- Boost `latest` persistence → [`archive/boost-latest-persistence.md`](../archive/boost-latest-persistence.md)
+- `--list-toolchains` → [`archive/list-toolchains.md`](../archive/list-toolchains.md)
 
 ## Update: plans/boost-updates.md (related — dependency selection)
 
