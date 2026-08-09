@@ -28,13 +28,15 @@ from cuppa.log import logger
 from cuppa.utility import storage
 
 
-SECTION_DISCOVERED = 'Discovered'
-SECTION_REGISTERED = 'Registered'
+SECTION_DISCOVERED = 'discovered'
+SECTION_REGISTERED = 'registered'
 
 SIZE_WIDTH = 8
 MIDDLE_WIDTH = 12
 RULE = '-'
 INDENT = '  '
+HEADING_TITLE = 'TOOLCHAIN'
+HEADING_HINT = 'family-version-driver-name(s)'
 
 
 def add_toolchain_action_options( add_option ):
@@ -116,6 +118,103 @@ def _default_toolchain_name( cuppa_env ):
     return None
 
 
+def _last_used_epoch_from_iso( iso_stamp ):
+    if not iso_stamp:
+        return None
+    from datetime import datetime, timezone
+    try:
+        when = datetime.strptime(
+                iso_stamp.replace( 'Z', '' ), '%Y-%m-%dT%H:%M:%S'
+        ).replace( tzinfo=timezone.utc )
+    except ValueError:
+        return None
+    return when.timestamp()
+
+
+def _age_epoch_for_inventory_entry( entry, path ):
+    """Match ``--list-dependencies``: prefer resolve-stamped last_used, else mtime."""
+    if entry and entry.get( 'last_used_source' ) == 'resolve':
+        epoch = _last_used_epoch_from_iso( entry.get( 'last_used' ) )
+        if epoch is not None:
+            return epoch
+    try:
+        return os.path.getmtime( path )
+    except OSError:
+        return None
+
+
+def _inventory_by_path( cuppa_env ):
+    """Realpath → inventory entry under dependencies_root (empty if unavailable)."""
+    dependencies_root = None
+    try:
+        dependencies_root = cuppa_env.get( 'dependencies_root' )
+    except Exception:
+        dependencies_root = None
+    if not dependencies_root:
+        return {}
+    try:
+        from cuppa.core import dependency_inventory
+    except Exception:
+        return {}
+    mapping = {}
+    try:
+        for entry in dependency_inventory.load_all_entries( dependencies_root ):
+            path = entry.get( 'path' )
+            if not path:
+                continue
+            try:
+                real = storage.real_path( path )
+            except Exception:
+                real = os.path.normpath( path )
+            mapping[real] = entry
+    except Exception:
+        return {}
+    return mapping
+
+
+def _stats_for_storage_path( storage_path, inventory_by_path ):
+    """Return ``(size_bytes, last_used_epoch)`` for a registered extract.
+
+    Prefer the dependency inventory (same source as ``--list-dependencies``), then
+    fall back to measuring the directory.
+    """
+    if not storage_path:
+        return None, None
+    try:
+        real = storage.real_path( storage_path )
+    except Exception:
+        real = os.path.normpath( storage_path )
+
+    entry = ( inventory_by_path or {} ).get( real )
+    size_bytes = None
+    last_used_epoch = None
+    if entry:
+        size_info = entry.get( 'size' ) or {}
+        if size_info.get( 'bytes' ) is not None:
+            size_bytes = int( size_info['bytes'] )
+        last_used_epoch = _age_epoch_for_inventory_entry( entry, real )
+
+    if size_bytes is None and os.path.isdir( storage_path ):
+        try:
+            from cuppa.core import dependency_inventory
+            measured = dependency_inventory.measure_size( storage_path, exact=False )
+            if measured and measured.get( 'bytes' ) is not None:
+                size_bytes = int( measured['bytes'] )
+        except Exception:
+            try:
+                size_bytes = storage.directory_stats( storage_path ).bytes
+            except Exception:
+                size_bytes = None
+
+    if last_used_epoch is None and os.path.exists( storage_path ):
+        try:
+            last_used_epoch = os.path.getmtime( storage_path )
+        except OSError:
+            last_used_epoch = None
+
+    return size_bytes, last_used_epoch
+
+
 def _version_sort_key( version ):
     text = str( version or '' )
     parts = []
@@ -128,7 +227,7 @@ def _version_sort_key( version ):
     return tuple( parts )
 
 
-def row_from_toolchain( name, toolchain, default_name=None ):
+def row_from_toolchain( name, toolchain, default_name=None, inventory_by_path=None ):
     """Build one flat inventory row from a toolchain object."""
     storage_path = getattr( toolchain, '_toolchain_dep_root', None ) or None
     section = SECTION_REGISTERED if storage_path else SECTION_DISCOVERED
@@ -143,21 +242,19 @@ def row_from_toolchain( name, toolchain, default_name=None ):
     except Exception:
         version = None
     kind = _registration_kind( storage_path ) if storage_path else None
-    is_default = bool( default_name and name == default_name )
+    family = family or 'unknown'
+    # Per-family default name is the bare family token (``gcc``, ``clang``, …).
+    is_default = ( name == family )
     size_bytes = None
     last_used_epoch = None
-    if storage_path and os.path.isdir( storage_path ):
-        try:
-            stats = storage.directory_stats( storage_path )
-            size_bytes = stats.bytes
-            last_used_epoch = stats.newest
-        except Exception:
-            size_bytes = None
-            last_used_epoch = None
+    if storage_path:
+        size_bytes, last_used_epoch = _stats_for_storage_path(
+                storage_path, inventory_by_path or {}
+        )
     return {
         'section': section,
         'name': name,
-        'family': family or 'unknown',
+        'family': family,
         'version': str( version ) if version is not None else 'unknown',
         'driver_path': _driver_path( toolchain ),
         'storage_path': storage_path,
@@ -172,10 +269,15 @@ def collect_toolchain_rows( cuppa_env ):
     """Return flat rows grouped by section, sorted by name within each section."""
     toolchains = cuppa_env.get( 'toolchains' ) or {}
     default_name = _default_toolchain_name( cuppa_env )
+    inventory_by_path = _inventory_by_path( cuppa_env )
     discovered = []
     registered = []
     for name, toolchain in toolchains.items():
-        row = row_from_toolchain( name, toolchain, default_name=default_name )
+        row = row_from_toolchain(
+                name, toolchain,
+                default_name=default_name,
+                inventory_by_path=inventory_by_path,
+        )
         if row['section'] == SECTION_REGISTERED:
             registered.append( row )
         else:
@@ -185,8 +287,8 @@ def collect_toolchain_rows( cuppa_env ):
     return {
         SECTION_DISCOVERED: discovered,
         SECTION_REGISTERED: registered,
+        '_platform_default_name': default_name,
     }
-
 
 def session_name_by_extract_path( cuppa_env ):
     """Map real extract path → Cuppa ``--toolchains=`` session name."""
@@ -223,7 +325,7 @@ def attach_toolchain_session_names( rows, cuppa_env ):
     return rows
 
 
-def build_toolchain_tree( rows ):
+def build_toolchain_tree( rows, platform_default_name=None ):
     """Nest flat rows into family → version → driver → names."""
     by_family = defaultdict( list )
     for row in rows:
@@ -282,8 +384,16 @@ def build_toolchain_tree( rows ):
                 'last_used_epoch': _rollup_epoch( drivers ),
             } )
 
+        # Platform-default family label only when this section actually contains the
+        # platform default *name* (e.g. bare ``gcc``), not merely the same family.
+        has_platform_default_name = bool(
+                platform_default_name
+                and any( row['name'] == platform_default_name for row in family_rows )
+        )
+
         families.append( {
             'family': family,
+            'is_platform_default': has_platform_default_name,
             'versions': versions,
             'size_bytes': _rollup_size( versions ),
             'last_used_epoch': _rollup_epoch( versions ),
@@ -299,9 +409,13 @@ def build_toolchain_tree( rows ):
 def build_toolchain_sections( cuppa_env ):
     """Return ordered section dicts ready for text or JSON rendering."""
     flat = collect_toolchain_rows( cuppa_env )
+    platform_default_name = flat.pop( '_platform_default_name', None )
     sections = []
     for name in ( SECTION_DISCOVERED, SECTION_REGISTERED ):
-        tree = build_toolchain_tree( flat.get( name ) or [] )
+        tree = build_toolchain_tree(
+                flat.get( name ) or [],
+                platform_default_name=platform_default_name,
+        )
         sections.append( {
             'name': name,
             'families': tree['families'],
@@ -353,7 +467,9 @@ def _ruled_line( width ):
     return as_subdued( RULE * width )
 
 
-def _colour_family( text ):
+def _colour_family( text, is_platform_default=False ):
+    if is_platform_default:
+        return _emphasised_info( text )
     return as_emphasised( text )
 
 
@@ -400,12 +516,17 @@ def _render_section_tree( section, out, tee, elbow, pipe, gap ):
         family_last = family_index == len( families ) - 1
         family_branch = elbow if family_last else tee
         family_prefix = gap if family_last else pipe
+        family_label = family['family']
+        if family.get( 'is_platform_default' ):
+            family_label = '{} (default)'.format( family_label )
         out.write( "{size}  {age}{indent}{branch} {label}\n".format(
                 size=_size_cell( family.get( 'size_bytes' ) ),
                 age=_age_cell( family.get( 'last_used_epoch' ) ),
                 indent=INDENT,
                 branch=as_subdued( family_branch ),
-                label=_colour_family( family['family'] ),
+                label=_colour_family(
+                        family_label, family.get( 'is_platform_default' )
+                ),
         ) )
         versions = family.get( 'versions' ) or []
         if versions:
@@ -464,25 +585,38 @@ def _render_section_tree( section, out, tee, elbow, pipe, gap ):
                     ) )
 
 
+def _count_names( sections ):
+    count = 0
+    for section in sections:
+        for family in section.get( 'families' ) or []:
+            for version in family.get( 'versions' ) or []:
+                for driver in version.get( 'drivers' ) or []:
+                    count += len( driver.get( 'names' ) or [] )
+    return count
+
+
+def _section_size_bytes( section ):
+    return section.get( 'size_bytes' )
+
+
 def _render_text( sections, out ):
     tee, elbow, pipe, gap = storage.glyphs()
-    header = "{size}  {age}{indent}{title}".format(
+    heading = "{size}  {age}{indent}{title} {hint}".format(
             size='SIZE'.rjust( SIZE_WIDTH ),
             age=storage.pad_visible( 'LAST USED', MIDDLE_WIDTH ),
             indent=INDENT,
-            title='TOOLCHAIN family-version-driver-name(s)',
+            title=HEADING_TITLE,
+            hint=as_subdued( HEADING_HINT ),
     )
-    # Approximate rule width from a representative line length
-    width = max( storage.visible_len( header ), 80 )
+    width = max( storage.visible_len( heading ), 80 )
 
     out.write( INDENT + _ruled_line( width ) + "\n" )
-    out.write( INDENT + header + "\n" )
+    out.write( INDENT + heading + "\n" )
     out.write( INDENT + _ruled_line( width ) + "\n" )
 
     for index, section in enumerate( sections ):
         if index > 0:
             out.write( INDENT + _ruled_line( width ) + "\n" )
-        # Indent the whole section tree to match the header
         buffer = []
 
         class _Capture( object ):
@@ -492,18 +626,45 @@ def _render_text( sections, out ):
         _render_section_tree( section, _Capture(), tee, elbow, pipe, gap )
         for chunk in buffer:
             for line in chunk.splitlines( True ):
-                if line.endswith( '\n' ):
-                    out.write( INDENT + line )
-                else:
-                    out.write( INDENT + line )
-        out.write( "\n" )
+                out.write( INDENT + line )
 
     out.write( INDENT + _ruled_line( width ) + "\n" )
-    out.write( as_subdued(
-            "Force-wipe / removal of toolchain dependencies applies only to Registered "
-            "rows (managed installs under dependencies_root/toolchains/). "
-            "Discovered PATH compilers are not Cuppa-owned.\n"
+
+    by_name = { section['name']: section for section in sections }
+    discovered = by_name.get( SECTION_DISCOVERED ) or {}
+    registered = by_name.get( SECTION_REGISTERED ) or {}
+    name_count = _count_names( sections )
+    discovered_bytes = _section_size_bytes( discovered )
+    registered_bytes = _section_size_bytes( registered )
+    total_bytes = None
+    for value in ( discovered_bytes, registered_bytes ):
+        if value is None:
+            continue
+        total_bytes = value if total_bytes is None else total_bytes + value
+
+    def _size_or_none( value ):
+        if value is None:
+            return 'none'
+        return storage.human_size( value ) or 'none'
+
+    out.write( "{}{} toolchains, {} total ({} discovered, {} registered)\n".format(
+            INDENT,
+            name_count,
+            _size_or_none( total_bytes ),
+            _size_or_none( discovered_bytes ),
+            _size_or_none( registered_bytes ),
     ) )
+
+    out.write( "\n" )
+    out.write( "To remove registered toolchains review with:\n\n" )
+    out.write( as_emphasised(
+            "cuppa -Q -D -n --force-wipe-dependencies=[toolchain]*"
+    ) + "\n\n" )
+    out.write( "Drop -n and re-run after confirming.\n\n" )
+    out.write(
+            "Force-wipe removal of toolchains applies only to registered toolchains. "
+            "Discovered toolchains are not Cuppa-owned.\n"
+    )
 
 
 def _section_to_json( section ):
@@ -539,6 +700,7 @@ def _section_to_json( section ):
             } )
         families.append( {
             'family': family['family'],
+            'is_platform_default': bool( family.get( 'is_platform_default' ) ),
             'size_bytes': family.get( 'size_bytes' ),
             'last_used_epoch': family.get( 'last_used_epoch' ),
             'versions': versions,

@@ -76,7 +76,7 @@ xref:build-layout.adoc#remove-all-builds-example[`--remove-all-builds`]).
 | Option | Effect
 
 | `--list-builds` | List the build root as folder summary, toolchain → variant tree, and sconscript tree; print an explicit command for the selected builds
-| `--list-toolchains` | List **Discovered** (PATH) and **Registered** (managed) toolchains as a ruled family → version → driver → name(s) tree; then exit. Force-wipe applies only to Registered rows. Use `--list-format=json` for a nested agent payload. See xref:toolchains.adoc#list-toolchains[Listing toolchains]
+| `--list-toolchains` | List **discovered** (PATH) and **registered** (managed) toolchains as a ruled family → version → driver → name(s) tree; then exit. Force-wipe applies only to Registered rows. Use `--list-format=json` for a nested agent payload. See xref:toolchains.adoc#list-toolchains[Listing toolchains]
 | `--remove-builds` | Remove variant subtrees matching the current `--toolchains` / `--dbg` / `--rel` / `--cov` selection
 | `--remove-all-builds` | Remove the entire build root
 | `--list-dependencies` | List dependency trees under the dependencies root as a hierarchical table (referenced then unreferenced; short-name groups; REMARK) and exit. Omit `--develop` for normal storage inspection; see xref:dependencies-managing.adoc#which-listing[Which listing for which question]

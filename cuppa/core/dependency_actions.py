@@ -1375,7 +1375,10 @@ def list_dependencies( construct, cuppa_env, out=None ):
     ):
         out.write( "\n" )
         out.write( "Review unreferenced trees, then clear them with:\n\n" )
-        out.write( as_emphasised( "cuppa -Q -D --force-wipe-unreferenced-dependencies" ) + "\n" )
+        out.write( as_emphasised(
+                "cuppa -Q -D -n --force-wipe-unreferenced-dependencies"
+        ) + "\n" )
+        out.write( "\nDrop -n and re-run after confirming.\n" )
 
     tokens = data.get( 'unqualified_duplicate_tokens' ) or []
     if tokens:

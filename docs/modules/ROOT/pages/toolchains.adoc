@@ -91,8 +91,8 @@ After a successful session that prepared an archive or root, cuppa logs the shor
 `--list-toolchains` prints an inventory of compilers Cuppa can offer on this machine, then exits
 (no build). Output is a ruled tree with two sections (normal typeface labels):
 
-* **Discovered** — PATH / distro probes (`gcc15`, `clang18`, …).
-* **Registered** — managed installs from `--toolchain-archive=` / `--clang-root=` / `--gcc-root=`
+* **discovered** — PATH / distro probes (`gcc15`, `clang18`, …).
+* **registered** — managed installs from `--toolchain-archive=` / `--clang-root=` / `--gcc-root=`
   (and cached rediscovery under `dependencies_root/toolchains/{clang,gcc}/`), with non-colliding
   session names such as `gcc17_gcc_snapshot_…` or `clang24_profiles_…`.
 
@@ -103,7 +103,7 @@ can share one driver (for example `gcc153`, `gcc15`, and `gcc`). The platform de
 `SIZE` / `LAST USED` show `--` for Discovered compilers in this release (PATH installs are not
 inventoried yet). Registered rows use on-disk size / newest mtime under the extract when available.
 
-Force-wipe of toolchain dependencies applies only to **Registered** rows. Discovered PATH compilers
+Force-wipe of toolchain dependencies applies only to **registered** rows. Discovered PATH compilers
 are not Cuppa-owned.
 
 Use `--list-format=json` for a nested payload (`sections` → `families` → `versions` → `drivers` →

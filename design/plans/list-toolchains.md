@@ -24,7 +24,7 @@ ruled hierarchical reports instead.
 ## Goals
 
 1. `--list-toolchains` exits without building (same family as other `--list-*` actions).
-2. Two sections: **Discovered** and **Registered** (normal typeface section labels).
+2. Two sections: **discovered** and **registered** (normal typeface section labels).
 3. Hierarchical tree: family → version → driver → one or more Cuppa names.
 4. Styling follows established tree principles (glyphs, subdued stems/paths, emphasised family /
    version, info+emphasised default).
@@ -57,7 +57,7 @@ ruled hierarchical reports instead.
 | Topic | Decision |
 |-------|----------|
 | Flag | `--list-toolchains` |
-| Section titles | **Discovered** and **Registered** (terse; normal typeface) |
+| Section titles | **discovered** and **registered** (terse; normal typeface) |
 | Tree shape | section → family → version → driver → name(s). A driver has one or more names. |
 | Dual listing | PATH `gcc15` and managed `gcc15_…` appear in **both** sections when both exist |
 | Default mark | Name equal to `platform.default_toolchain()` gets ` (default)`; that name and its parent **version** row use info+emphasised |

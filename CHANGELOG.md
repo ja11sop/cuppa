@@ -19,10 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   resolve prefers that stored value, then the compiled-in default, and does not scrape boost.org
   unless `--boost-latest` is passed. The key updates only when a higher version’s archive is present
   under downloads-root.
-- `--list-toolchains`: ruled **Discovered** / **Registered** tree
-  (family → version → driver → name(s)), with shared-driver grouping, `(default)` marking,
-  `~/` driver paths, and nested `--list-format=json`. Force-wipe messaging applies only to
-  Registered rows. `--list-dependencies` toolchain leaves show the Cuppa session name
+- `--list-toolchains`: ruled **discovered** / **registered** tree
+  (family → version → driver → name(s)), with shared-driver grouping, per-family and
+  platform-default marking (platform family `(default)` only when the bare default name is
+  present), inventory-backed registered SIZE/LAST USED, summary line, and dry-run wipe hint.
+  Nested `--list-format=json`. `--list-dependencies` toolchain leaves show the Cuppa session name
   (`gcc17_gcc_snapshot_…`) aligned with `--toolchains=`.
 
 ### Changed
@@ -36,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+
+- `--list-dependencies` unreferenced wipe hint now includes `-n` (dry-run) in the suggested
+  command, matching other destructive review hints.
 
 ### Security
 

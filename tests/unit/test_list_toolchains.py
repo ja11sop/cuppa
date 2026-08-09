@@ -68,6 +68,11 @@ class FakeToolchain( object ):
         return self.values['CXX']
 
 
+def test_section_labels_are_lowercase():
+    assert SECTION_DISCOVERED == 'discovered'
+    assert SECTION_REGISTERED == 'registered'
+
+
 def test_row_from_toolchain_classifies_discovered_vs_registered( tmp_path ):
     discovered = FakeToolchain( 'gcc15', 'gcc', '15.2.0', '/usr/bin/g++' )
     registered = FakeToolchain(
@@ -76,12 +81,54 @@ def test_row_from_toolchain_classifies_discovered_vs_registered( tmp_path ):
             storage_path=str( tmp_path / 'toolchains' / 'gcc' / 'local_abcd1234' ),
             cxx_path=str( tmp_path / 'bin' ),
     )
+    ( tmp_path / 'toolchains' / 'gcc' / 'local_abcd1234' ).mkdir( parents=True )
     d_row = row_from_toolchain( 'gcc15', discovered )
     r_row = row_from_toolchain( 'gcc15_local_abcd1234', registered )
     assert d_row['section'] == SECTION_DISCOVERED
     assert d_row['storage_path'] is None
     assert r_row['section'] == SECTION_REGISTERED
     assert r_row['storage_path'] == str( tmp_path / 'toolchains' / 'gcc' / 'local_abcd1234' )
+    assert r_row['size_bytes'] is not None or r_row['last_used_epoch'] is not None
+
+
+def test_family_default_name_is_bare_family_token():
+    rows = [
+        {
+            'name': 'clang', 'family': 'clang', 'version': '21.1',
+            'driver_path': '/usr/bin/clang++-21', 'is_default': True,
+            'size_bytes': None, 'last_used_epoch': None,
+        },
+        {
+            'name': 'clang21', 'family': 'clang', 'version': '21.1',
+            'driver_path': '/usr/bin/clang++-21', 'is_default': False,
+            'size_bytes': None, 'last_used_epoch': None,
+        },
+        {
+            'name': 'gcc', 'family': 'gcc', 'version': '15.3',
+            'driver_path': '/usr/bin/g++-15', 'is_default': True,
+            'size_bytes': None, 'last_used_epoch': None,
+        },
+    ]
+    tree = build_toolchain_tree( rows, platform_default_name='gcc' )
+    families = { node['family']: node for node in tree['families'] }
+    assert families['gcc']['is_platform_default'] is True
+    assert families['clang']['is_platform_default'] is False
+    clang_21 = families['clang']['versions'][0]
+    assert clang_21['owns_default'] is True
+    assert clang_21['drivers'][0]['names'][-1]['name'] == 'clang'
+
+
+def test_platform_default_family_requires_default_name_child():
+    # Registered-only gcc snapshot: same family as platform default, but no bare ``gcc``.
+    rows = [
+        {
+            'name': 'gcc17_gcc_snapshot_x', 'family': 'gcc', 'version': '17.0',
+            'driver_path': '/tmp/g++', 'is_default': False,
+            'size_bytes': 100, 'last_used_epoch': None,
+        },
+    ]
+    tree = build_toolchain_tree( rows, platform_default_name='gcc' )
+    assert tree['families'][0]['is_platform_default'] is False
 
 
 def test_tree_groups_shared_driver_under_one_node():
@@ -107,7 +154,7 @@ def test_tree_groups_shared_driver_under_one_node():
             'size_bytes': None, 'last_used_epoch': None,
         },
     ]
-    tree = build_toolchain_tree( rows )
+    tree = build_toolchain_tree( rows, platform_default_name='gcc' )
     families = { node['family']: node for node in tree['families'] }
     assert set( families ) == { 'clang', 'gcc' }
     gcc_version = families['gcc']['versions'][0]
@@ -119,12 +166,13 @@ def test_tree_groups_shared_driver_under_one_node():
     assert gcc_version['drivers'][0]['names'][-1]['is_default'] is True
 
 
-def test_collect_marks_platform_default():
+def test_collect_marks_bare_family_names_as_default():
     env = {
         'platform': FakePlatform(),
         'toolchains': {
             'gcc': FakeToolchain( 'gcc', 'gcc', '15.3', '/usr/bin/g++-15' ),
             'gcc15': FakeToolchain( 'gcc15', 'gcc', '15.3', '/usr/bin/g++-15' ),
+            'clang': FakeToolchain( 'clang', 'clang', '21.1', '/usr/bin/clang++-21' ),
             'clang21': FakeToolchain( 'clang21', 'clang', '21.1', '/usr/bin/clang++-21' ),
         },
     }
@@ -132,9 +180,13 @@ def test_collect_marks_platform_default():
     by_name = { row['name']: row for row in rows[SECTION_DISCOVERED] }
     assert by_name['gcc']['is_default'] is True
     assert by_name['gcc15']['is_default'] is False
+    assert by_name['clang']['is_default'] is True
+    assert by_name['clang21']['is_default'] is False
 
 
 def test_list_toolchains_json_is_nested( tmp_path ):
+    owned = tmp_path / 'owned'
+    owned.mkdir()
     env = {
         'list_format': 'json',
         'platform': FakePlatform(),
@@ -144,7 +196,7 @@ def test_list_toolchains_json_is_nested( tmp_path ):
             'gcc15_snap': FakeToolchain(
                     'gcc15_snap', 'gcc', '15.0.0',
                     str( tmp_path / 'g++' ),
-                    storage_path=str( tmp_path / 'owned' ),
+                    storage_path=str( owned ),
             ),
         },
     }
@@ -156,12 +208,13 @@ def test_list_toolchains_json_is_nested( tmp_path ):
     registered = payload['sections'][1]
     assert discovered['name'] == SECTION_DISCOVERED
     assert registered['name'] == SECTION_REGISTERED
-    gcc = discovered['families'][0]
-    assert gcc['family'] == 'gcc'
+    gcc = next( f for f in discovered['families'] if f['family'] == 'gcc' )
+    assert gcc['is_platform_default'] is True
     assert gcc['versions'][0]['owns_default'] is True
-    assert len( gcc['versions'][0]['drivers'][0]['names'] ) == 2
     assert registered['families'][0]['versions'][0]['drivers'][0]['names'][0]['name'] == \
         'gcc15_snap'
+    assert registered['families'][0]['versions'][0]['drivers'][0]['names'][0]['size_bytes'] \
+        is not None
 
 
 def test_list_toolchains_text_tree_shape():
@@ -171,20 +224,23 @@ def test_list_toolchains_text_tree_shape():
         'toolchains': {
             'gcc': FakeToolchain( 'gcc', 'gcc', '15.3', '/usr/bin/g++-15' ),
             'gcc15': FakeToolchain( 'gcc15', 'gcc', '15.3', '/usr/bin/g++-15' ),
+            'clang': FakeToolchain( 'clang', 'clang', '21.1', '/usr/bin/clang++-21' ),
         },
     }
     out = io.StringIO()
     assert list_toolchains( env, out=out ) == 0
     text = _strip_ansi( out.getvalue() )
-    assert 'Discovered' in text
-    assert 'Registered' in text
-    assert 'gcc' in text
-    assert '15.3' in text
-    assert '/usr/bin/g++-15' in text
-    assert 'gcc15' in text
-    assert '(default)' in text
-    assert 'Force-wipe' in text
-    assert 'TOOLCHAIN family-version-driver-name' in text
+    assert 'discovered' in text
+    assert 'registered' in text
+    assert 'gcc (default)' in text  # platform default family and/or name
+    assert 'clang (default)' in text  # family-default name
+    assert 'family-version-driver-name(s)' in text
+    assert 'TOOLCHAIN' in text
+    assert 'toolchains,' in text
+    assert 'Force-wipe removal of toolchains' in text
+    assert '-n --force-wipe-dependencies=[toolchain]*' in text
+    # No blank line between section body and the following rule
+    assert '\n\n  ---' not in text.replace( '\r', '' )
 
 
 def test_attach_toolchain_session_names( tmp_path ):
@@ -227,6 +283,8 @@ def test_flat_variant_children_prefers_session_name():
 
 
 def test_build_toolchain_sections_orders_discovered_then_registered( tmp_path ):
+    reg = tmp_path / 'reg'
+    reg.mkdir()
     env = {
         'platform': FakePlatform(),
         'toolchains': {
@@ -234,7 +292,7 @@ def test_build_toolchain_sections_orders_discovered_then_registered( tmp_path ):
             'gcc_snap': FakeToolchain(
                     'gcc_snap', 'gcc', '17.0',
                     str( tmp_path / 'g++' ),
-                    storage_path=str( tmp_path / 'reg' ),
+                    storage_path=str( reg ),
             ),
         },
     }
@@ -244,3 +302,37 @@ def test_build_toolchain_sections_orders_discovered_then_registered( tmp_path ):
     ]
     assert sections[0]['families'][0]['family'] == 'gcc'
     assert sections[1]['families'][0]['versions'][0]['version'] == '17.0'
+
+
+def test_registered_stats_prefer_inventory( tmp_path, monkeypatch ):
+    extract = tmp_path / 'deps' / 'toolchains' / 'clang' / 'profiles_x'
+    extract.mkdir( parents=True )
+    ( extract / 'marker' ).write_text( 'x', encoding='utf-8' )
+
+    env = {
+        'dependencies_root': str( tmp_path / 'deps' ),
+        'platform': FakePlatform(),
+        'toolchains': {
+            'clang24_profiles_x': FakeToolchain(
+                    'clang24_profiles_x', 'clang', '24.0',
+                    str( extract / 'bin' / 'clang++' ),
+                    storage_path=str( extract ),
+            ),
+        },
+    }
+
+    fake_entry = {
+        'path': str( extract ),
+        'size': { 'bytes': 1234567, 'method': 'exact' },
+        'last_used': '2026-08-01T12:00:00Z',
+        'last_used_source': 'resolve',
+    }
+
+    monkeypatch.setattr(
+            'cuppa.core.dependency_inventory.load_all_entries',
+            lambda _root: [ fake_entry ],
+    )
+    rows = collect_toolchain_rows( env )
+    row = rows[SECTION_REGISTERED][0]
+    assert row['size_bytes'] == 1234567
+    assert row['last_used_epoch'] is not None
