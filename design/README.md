@@ -29,7 +29,7 @@ maintainer workflow evolved.
 | [`archive/list-toolchains.md`](archive/list-toolchains.md) | shipped | `--list-toolchains` ruled tree (family→version→driver→names); list-deps leaf = Cuppa session name — [#172](https://github.com/ja11sop/cuppa/issues/172) / [#170](https://github.com/ja11sop/cuppa/pull/170) |
 | [`archive/download-progress.md`](archive/download-progress.md) | shipped | Shared HTTP/transfer progress (download, extract, Conan, git) — [#165](https://github.com/ja11sop/cuppa/pull/165) |
 | [`plans/modules-activation.md`](plans/modules-activation.md) | proposal | Whether C++ modules should stay opt-in behind `--modules` or become opt-out, and what must land first |
-| [`plans/cxx-profiles.md`](plans/cxx-profiles.md) | proposal | Opt-in C++ Profiles (`--profiles` / `--profiles-enforce=`); BuildProfile naming kept; [#127](https://github.com/ja11sop/cuppa/issues/127) |
+| [`plans/cxx-profiles.md`](plans/cxx-profiles.md) | proposal | Opt-in C++ Profiles (`--profiles` / enforce; require/suppress discussed); BuildProfile naming kept; [#127](https://github.com/ja11sop/cuppa/issues/127) / [#176](https://github.com/ja11sop/cuppa/pull/176) |
 | [`plans/removal-options.md`](plans/removal-options.md) | in progress | Phases 1–5 + wipe + §3.7/§3.8 shipped ([#154](https://github.com/ja11sop/cuppa/pull/154)); Phase 6 artefacts [#135](https://github.com/ja11sop/cuppa/issues/135) open; next focus artefacts when that design starts |
 | [`plans/scons-tool-wrapper.md`](plans/scons-tool-wrapper.md) | proposal | Wrapping an SCons Tool as a cuppa dependency instead of hand-writing a dependency class |
 | [`ideas/scratchpad.md`](ideas/scratchpad.md) | living | Pre-plan product ideas; graduate to `plans/` + ROADMAP, then remove the note |
