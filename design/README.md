@@ -11,6 +11,7 @@ maintainer workflow evolved.
 
 | Folder | Holds | Lifecycle |
 |--------|-------|-----------|
+| `ideas/` | Pre-plan scratch notes (not yet proposals) | Graduate into `plans/` + [`ROADMAP.md`](../ROADMAP.md), then delete the note from the scratchpad |
 | `plans/` | Proposals and design work that has not shipped | Delete when the work ships, unless the reasoning still answers questions later — then move to `archive/` |
 | `issues/` | Text drafted for a GitHub issue that has not been filed yet | Delete it once the issue is filed; the issue becomes the record, and the folder is empty until the next draft |
 | `archive/` | Shipped work whose design rationale is still cited from code or documentation | Keep while something references it |
@@ -20,13 +21,16 @@ maintainer workflow evolved.
 
 | Document | Status | Subject |
 |----------|--------|---------|
+| [`plans/boost-latest-persistence.md`](plans/boost-latest-persistence.md) | proposal | Persist scraped Boost `latest` so offline CI reuses the version from the online pass |
 | [`plans/boost-updates.md`](plans/boost-updates.md) | proposal | Boost source vs GitLab `boost_package` identity: patched default, version suffix, `use_libs` parity |
 | [`plans/colourised-doc-samples.md`](plans/colourised-doc-samples.md) | proposal | Capture cuppa report output as semantic HTML for Antora samples and local preview |
 | [`plans/coverage-performance.md`](plans/coverage-performance.md) | proposal | Where `--cov --test` time actually goes, what the A/B measurement ruled out, and the remaining suspects |
+| [`plans/list-toolchains.md`](plans/list-toolchains.md) | proposal | `--list-toolchains`: discovered vs registered compilers, driver paths, wipe messaging |
 | [`archive/download-progress.md`](archive/download-progress.md) | shipped | Shared HTTP/transfer progress (download, extract, Conan, git) — [#165](https://github.com/ja11sop/cuppa/pull/165) |
 | [`plans/modules-activation.md`](plans/modules-activation.md) | proposal | Whether C++ modules should stay opt-in behind `--modules` or become opt-out, and what must land first |
 | [`plans/removal-options.md`](plans/removal-options.md) | in progress | Phases 1–5 + wipe + §3.7/§3.8 shipped ([#154](https://github.com/ja11sop/cuppa/pull/154)); Phase 6 artefacts [#135](https://github.com/ja11sop/cuppa/issues/135) open; next focus artefacts when that design starts |
 | [`plans/scons-tool-wrapper.md`](plans/scons-tool-wrapper.md) | proposal | Wrapping an SCons Tool as a cuppa dependency instead of hand-writing a dependency class |
+| [`ideas/scratchpad.md`](ideas/scratchpad.md) | living | Pre-plan product ideas; graduate to `plans/` + ROADMAP, then remove the note |
 | [`process/agent-workflow-journey.md`](process/agent-workflow-journey.md) | living | How cuppa’s maintainer workflow was hardened for humans and agents (blueprint + case studies) |
 | [`archive/console-report-patterns.md`](archive/console-report-patterns.md) | shipped | Judgement-tree shape, severity timing (warn before / note after), shared helpers for console reports ([#161](https://github.com/ja11sop/cuppa/issues/161)); Antora Report patterns page |
 | [`archive/toolchains-as-dependencies.md`](archive/toolchains-as-dependencies.md) | shipped | Fetched compilers as toolchain deps (Clang archives, GCC `.deb` / `--gcc-root=`, multi-select compare; list/force-wipe) — umbrella [#160](https://github.com/ja11sop/cuppa/issues/160); Clang [#159](https://github.com/ja11sop/cuppa/pull/159), GCC [#164](https://github.com/ja11sop/cuppa/pull/164) |
@@ -46,7 +50,7 @@ Filenames are kebab-case. Each document opens with a title and a three-item head
 ```
 
 `Status` is one of `proposal`, `in progress`, `issue draft`, `shipped`, or `living`
-(`living` is only for documents under `process/`).
+(`living` is only for documents under `process/` or `ideas/`).
 
 A document in `issues/` adds an `Impact` line naming the release impact of the work — `none`,
 `patch`, `minor`, or `major`, followed by the reason:

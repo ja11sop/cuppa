@@ -112,6 +112,9 @@ archive names, PYTHONPATH) rather than skip the platform.
 
 `design/plans/removal-options.md` became the spine for months of work: progress snapshot,
 settled decisions table, deferred items, next focus. Index enforced by unit test.
+Pre-plan seeds live in [`design/ideas/scratchpad.md`](../ideas/scratchpad.md) (living;
+graduate to `plans/` + ROADMAP, then delete the note) — not in `*.local.md`, which stays for
+private project maps only.
 
 **Teaching point:** chat summaries evaporate; a dated progress table in a plan does not.
 

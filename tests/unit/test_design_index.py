@@ -20,6 +20,7 @@ STATUSES = ("proposal", "in progress", "issue draft", "shipped", "living")
 # A folder implies a status: an unfiled issue draft in plans/, or a shipped plan left in plans/,
 # means the lifecycle described in design/README.md has been skipped.
 FOLDER_STATUSES = {
+    "ideas": ("living",),
     "plans": ("proposal", "in progress"),
     "issues": ("issue draft",),
     "archive": ("shipped",),

@@ -57,6 +57,10 @@ mid-cycle (a `major` arrives) is a `start_release` call on that branch.
 Long-form plans, measurements, and unfiled issue text live under `design/`, never in the
 repository root and never in `docs/` (that tree is the published Antora site):
 
+- `design/ideas/` — pre-plan scratch notes (not proposals yet). Today:
+  [`design/ideas/scratchpad.md`](design/ideas/scratchpad.md). Graduate a note into `plans/` and
+  [`ROADMAP.md`](ROADMAP.md), then remove it from the scratchpad. Do not use scrum “backlog”
+  naming for this tree.
 - `design/plans/` — proposals that have not shipped. Delete a plan when its work ships, unless
   the reasoning is still cited from code or docs, in which case move it to `design/archive/`.
   Console judgement-tree / severity-timing rules:
@@ -69,9 +73,10 @@ repository root and never in `docs/` (that tree is the published Antora site):
 Filenames are kebab-case. Every document opens with a `Status` / `Related` / `Updated` header,
 and must be added to the Index table in `design/README.md`; `tests/unit/test_design_index.py`
 fails otherwise. Statuses are `proposal`, `in progress`, `issue draft`, `shipped`, or `living`
-(`living` only under `process/`). An issue draft also carries an `Impact` line — the release
-impact of the work, which becomes the pull request's `impact:` label and decides the version it
-targets.
+(`living` only under `process/` or `ideas/`). An issue draft also carries an `Impact` line —
+the release impact of the work, which becomes the pull request's `impact:` label and decides
+the version it targets. Gitignored `*.local.md` stays for private maps only
+(`INTERNAL_PROJECTS.local.md`), not for public product ideation.
 
 `ROADMAP.md` remains the canonical statement of what is planned — a design document explains the
 reasoning behind a roadmap entry and links back to it, rather than duplicating it.
