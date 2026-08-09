@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.6.0] - unreleased
+## [1.6.0] - 2026-08-10
 
 ### Added
 
@@ -66,10 +66,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--list-format=json` pretty-prints with 4-space indent and Allman braces (opening `[` / `{`
   on the next line for multi-line values), matching the doc samples.
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 
 - `--list-dependencies` unreferenced wipe hint now includes `-n` (dry-run) in the suggested
@@ -78,8 +74,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   print the shared dry-run `--force-wipe-dependencies=name/@` recommendation (visible under
   `-Q`). `--list-dependencies` still owns that hint in its footer and merges Location-warned
   tokens with inventory-derived ones.
-
-### Security
 
 ## [1.5.0] - 2026-08-09
 
@@ -607,7 +601,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Baseline release on `master` before the modules work landed.
 Detailed notes for 1.1.x and earlier were not maintained in this file; start recording notable changes here from 1.2.0 onward.
 
-[1.6.0]: https://github.com/ja11sop/cuppa/compare/v1.5.0...HEAD
+[1.6.0]: https://github.com/ja11sop/cuppa/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/ja11sop/cuppa/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/ja11sop/cuppa/compare/v1.3.2...v1.4.0
 [1.2.0]: https://github.com/ja11sop/cuppa/compare/v1.1.3...v1.2.0
