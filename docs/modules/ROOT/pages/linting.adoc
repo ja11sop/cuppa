@@ -4,6 +4,12 @@
 Cuppa's CI lint step (and the commands in `AGENTS.md` / `release.txt`) stay **error-focused**.
 The goal is to catch unused names, undefined names, and real import/member mistakes — not to enforce a style guide.
 
+Run the tools from a **Python virtualenv** that has Cuppa’s `requirements.txt` installed (an
+existing checkout `venv/` is fine; otherwise `python3 -m venv venv && source venv/bin/activate &&
+pip install -r requirements.txt`). Host or `~/.local/bin` shims are often broken or incomplete —
+prefer `venv/bin/flake8` / `venv/bin/pylint` over guessing the system interpreter. See `AGENTS.md`
+(Before pushing a pull request branch) for the full local gate.
+
 [source,sh]
 ----
 flake8 cuppa

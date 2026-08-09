@@ -283,6 +283,12 @@ These are recommendations for the next project, not self-flagellation.
     Buttons without diagrams still confuse. Contributing Antora (versioning + cutting a release)
     landed in the same workstream as prepare/publish for a reason.
 
+15. **Pin the local Python gate to a virtualenv.**  
+    Host / `~/.local/bin` `flake8` and `pylint` shims can look present and still fail
+    (`ModuleNotFoundError`), and system Python often lacks test extras from
+    `requirements.txt` (for example `grip`). Prefer an existing checkout `venv/` or create one;
+    encoded in `AGENTS.md` / Contributing / Linting so agents do not skip lint as “unavailable.”
+
 ---
 
 ## 6. Patterns worth stealing (short list)
@@ -303,6 +309,7 @@ These are recommendations for the next project, not self-flagellation.
 | Tag via GitHub API from publish job | Avoids double-firing `push: tags` when softprops creates the tag |
 | Environment approval on `pypi` | Human gate without long-lived Twine tokens |
 | Contributing Antora + `release.txt` + `AGENTS.md` | Humans get diagrams; agents get ops; checklist stays short |
+| Local gate via checkout `venv/` + `requirements.txt` | Avoids broken host flake8/pylint shims and missing test extras |
 
 ---
 
