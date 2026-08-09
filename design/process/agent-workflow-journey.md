@@ -283,6 +283,21 @@ These are recommendations for the next project, not self-flagellation.
     Buttons without diagrams still confuse. Contributing Antora (versioning + cutting a release)
     landed in the same workstream as prepare/publish for a reason.
 
+15. **Pin the local Python gate to a virtualenv.**  
+    Host / `~/.local/bin` `flake8` and `pylint` shims can look present and still fail
+    (`ModuleNotFoundError`), and system Python often lacks test extras from
+    `requirements.txt` (for example `grip`). Prefer an existing checkout `venv/` or create one;
+    encoded in `AGENTS.md` / Contributing / Linting so agents do not skip lint as “unavailable.”
+
+16. **Generate listing doc samples from the real formatters.**  
+    Hand-indented trees and JSON in AsciiDoc drift the moment the CLI changes (stem spacers,
+    Allman braces, wipe footers). Prefer `python -m scripts.generate_doc_samples` writing
+    `docs/modules/ROOT/partials/samples/`, unit tests on nesting/shape, shortened fixtures for
+    readable pages, and collapsible Antora blocks for JSON. Keep one pretty-printer
+    (`storage.render_json_payload`) for CLI and samples. Hub + family pages for toolchains
+    (like Dependencies) belong in `AGENTS.md`’s topic map so agents stop stuffing flag tables
+    into the hub.
+
 ---
 
 ## 6. Patterns worth stealing (short list)
@@ -303,6 +318,9 @@ These are recommendations for the next project, not self-flagellation.
 | Tag via GitHub API from publish job | Avoids double-firing `push: tags` when softprops creates the tag |
 | Environment approval on `pypi` | Human gate without long-lived Twine tokens |
 | Contributing Antora + `release.txt` + `AGENTS.md` | Humans get diagrams; agents get ops; checklist stays short |
+| Local gate via checkout `venv/` + `requirements.txt` | Avoids broken host flake8/pylint shims and missing test extras |
+| `generate_doc_samples` + partial includes | Listing docs cannot drift from CLI trees / JSON |
+| Hub + family topic pages (Dependencies, Toolchains) | Agents know which AsciiDoc file owns defaults vs inventory |
 
 ---
 
@@ -373,6 +391,7 @@ then:                delete bad tag → publish from master (preferred)
 | [`scripts/github_api.py`](../../scripts/github_api.py) | Sealed credential transport |
 | Antora `docs/` | Published truth for users |
 | Integration pages under `docs/.../integration/` | Executable scenarios as docs |
+| [`scripts/generate_doc_samples.py`](../../scripts/generate_doc_samples.py) | Regenerates listing/remove sample trees and JSON for Antora partials |
 
 Private name map (gitignored, this machine only): `design/INTERNAL_PROJECTS.local.md`.
 

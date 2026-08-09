@@ -1,0 +1,28 @@
+Would remove 1 dependency tree (166M) under ~/.cuppa/dependencies
+(dry run; pass without -n to remove)
+
+  ------------------------------------------------------------------------------------------
+      SIZE  LAST USED      REMARK     DEPENDENCY
+  ------------------------------------------------------------------------------------------
+    757.8M  yesterday                 related dependencies for boost_package
+                                      │
+      166M  yesterday                 ├── removing
+    591.8M  11 days ago               ├── remaining
+                                      │
+    757.8M  yesterday                 └── gitlab packages
+                                          │
+    757.8M  yesterday                     └── -✔- boost_package
+                                              │
+    757.8M  yesterday                         └── -✔- 1.91
+      294M  11 days ago                           ├── - clang211_rel_x86_64_cxx2c/boost/1.91
+    297.8M  2 months ago                          ├── - gcc152_rel_x86_64_cxx2c/boost/1.91
+      166M  yesterday      would rm               └── ✔ gcc153_rel_x86_64_cxx2c/boost/1.91
+  ------------------------------------------------------------------------------------------
+
+Leaving 2 trees (591.8M) for other selections as shown.
+
+Would remove 1 tree freeing up 166M of disk space.
+
+Verify with:
+
+cuppa -Q -D --list-dependencies

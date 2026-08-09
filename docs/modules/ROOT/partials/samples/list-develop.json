@@ -1,0 +1,61 @@
+{
+    "base_branch": "master",
+    "current_branch": "feature_orders",
+    "default_branch": "master",
+    "develop_active": false,
+    "entries":
+    [
+        {
+            "ahead": 0,
+            "behind": 2,
+            "branch": "spike_cache",
+            "detached": false,
+            "display_path": "~/coding/flange",
+            "exists": true,
+            "is_working_copy": true,
+            "modified": false,
+            "name": "flange",
+            "notes":
+            [
+                "is on [spike_cache], which is neither [feature_orders] nor the default branch [master]",
+                "is 2 commits behind [origin/spike_cache] as of your last fetch"
+            ],
+            "path": "/home/user/coding/flange",
+            "scm": "git",
+            "severity": "warning",
+            "state": "clean, 2 behind",
+            "status": "warn",
+            "upstream": "origin/spike_cache"
+        },
+        {
+            "ahead": 0,
+            "behind": 0,
+            "branch": null,
+            "detached": false,
+            "display_path": "~/coding/gizmo",
+            "exists": false,
+            "is_working_copy": true,
+            "modified": false,
+            "name": "gizmo",
+            "notes":
+            [
+                "has a develop path [~/coding/gizmo] that does not exist, so this build cannot succeed"
+            ],
+            "path": "/home/user/coding/gizmo",
+            "scm": "git",
+            "severity": "error",
+            "state": "path does not exist",
+            "status": "error",
+            "upstream": null
+        }
+    ],
+    "without_develop":
+    [
+        "boost"
+    ],
+    "worst_severity": "error",
+    "would_update":
+    [
+        "flange"
+    ]
+}

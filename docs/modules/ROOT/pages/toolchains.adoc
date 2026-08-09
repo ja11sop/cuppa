@@ -1,10 +1,31 @@
 = Toolchains
-:description: GCC, Clang, and MSVC selection and default compile/link flags
+:description: Selecting, listing, and fetching compilers; links to GCC, Clang, and MSVC defaults
 
 Cuppa discovers installed compilers at configure time and registers matching toolchain names.
-When you call `env.Build` / `env.Compile`, the active toolchain applies a documented set of default flags for the selected *variant* (`--dbg`, `--rel`, `--cov`).
+When you call `env.Build` / `env.Compile`, the active toolchain applies a documented set of
+default flags for the selected *variant* (`--dbg`, `--rel`, `--cov`).
 
-This page tells you exactly what those defaults are so you can predict compile lines and override them deliberately (`StdCpp`, `ReplaceFlags`, `RemoveFlags`, or raw `env.AppendUnique`).
+This hub covers selection, inventory, fetched archives, and the shared {cpp} language-level
+rules. Per-family defaults, dialects, and flag explanations live on the child pages:
+
+|===
+| Family | Cuppa names | Platforms | Page
+
+| GCC
+| `gcc`, `gcc15`, …
+| Linux, macOS
+| xref:toolchain-gcc.adoc[GCC]
+
+| Clang (LLVM)
+| `clang`, `clang21`, …
+| Linux, macOS
+| xref:toolchain-clang.adoc[Clang]
+
+| MSVC
+| `vc`, `vc145`, …
+| Windows
+| xref:toolchain-msvc.adoc[MSVC]
+|===
 
 == Selecting toolchains
 
@@ -21,6 +42,91 @@ If you omit `--toolchains`, cuppa uses the platform default toolchain.
 Prefer a family alias (`gcc`, `clang`, `vc`) for everyday builds; pin versioned aliases in CI for reproducibility.
 
 When debugging detection, use `--verbosity=debug` and `--dump`.
+
+[#list-toolchains]
+== Listing toolchains
+
+`--list-toolchains` prints an inventory of compilers Cuppa can offer on this machine, then exits
+(no build). Output is a ruled tree with two sections (normal typeface labels):
+
+* **discovered** — PATH / distro probes (`gcc15`, `clang18`, …).
+* **registered** — managed installs from `--toolchain-archive=` / `--clang-root=` / `--gcc-root=`
+  (and cached rediscovery under `dependencies_root/toolchains/{clang,gcc}/`), with non-colliding
+  session names such as `gcc17_gcc_snapshot_…` or `clang24_profiles_…`.
+
+Within each section the hierarchy is **family → version → driver → name(s)**. Several Cuppa names
+can share one driver (for example `gcc153`, `gcc15`, and `gcc`). The platform default name is marked
+`(default)`. Driver paths use `~/…` when under the home directory.
+
+`SIZE` / `LAST USED` show `--` for **discovered** compilers in this release (PATH installs are not
+inventoried yet). Registered rows use on-disk size / newest mtime under the extract when available.
+
+Force-wipe of toolchain dependencies applies only to **registered** rows. Discovered PATH compilers
+are not Cuppa-owned.
+
+[source,sh]
+----
+cuppa -Q -D --list-toolchains
+cuppa -Q -D --list-toolchains --list-format=verbose
+cuppa -Q -D --list-toolchains --list-format=json
+----
+
+With `--list-format=verbose`, each driver also shows `available dialects:` (every `-std=` name
+available for that compiler version — working-draft name first within each generation, e.g.
+`c{plus}{plus}2c` before `c{plus}{plus}26`, then older generations; Cuppa default marked),
+`usable features:` (dialect-inclusive shorthand such as `all c{plus}{plus}2c`, plus any
+still-gated extras like `coroutines`, plus opt-in `modules (experimental)` when Cuppa can
+enable modules for that tool), Clang `stdlib choices:` when applicable, and
+`default invocations:` for `dbg` / `cov` / `rel` (`c{plus}{plus}`, `c`, `link` templates with
+`<sources>` / `<objects>` / `<static_libs>` / `<dynamic_libs>` placeholders). Each template is
+shown as a quoted string (`c{plus}{plus}: "-Wall … <sources>"`); the surrounding quotes are
+subdued like placeholders. Cuppa default link libraries (for example `-lpthread -lrt`, and Clang
+`libc{plus}{plus}` extras) appear as normal `-l` tokens before the matching placeholder — see
+xref:toolchain-gcc.adoc#gcc-default-linux-libraries[GCC] and
+xref:toolchain-clang.adoc#clang-default-linux-libraries[Clang] for why those defaults exist.
+Label keys use notice/yellow colour; variant names (`dbg` / `cov` / `rel`) and flag values
+are normal text; commas, `(default)` / `(experimental)` qualifiers, quotes, and placeholders are
+subdued. Horizontal rules span the full width of the widest content line (verbose dialect /
+invocation rows included).
+
+`--list-format=json` emits a nested payload (`sections` → `families` → `versions` → `drivers` →
+`names`, plus `wipe_applies_to`). Verbose fields appear under each driver’s `describe` object.
+
+`--list-dependencies` toolchain leaves show the same Cuppa session name you pass to `--toolchains=`
+(for example `clang24_profiles_…`), while the on-disk folder remains
+`toolchains/<family>/<qualifier>/`.
+
+Example text output (sizes, versions, and which family is `(default)` vary by machine):
+
+[source,text]
+----
+include::partial$samples/list-toolchains.txt[]
+----
+
+The footer’s `(none discovered, … registered)` refers to **sized** inventory: discovered PATH
+rows still list compilers, but their `SIZE` is `--` until PATH installs are inventoried.
+
+Example `--list-format=verbose` output with a single discovered toolchain (rules widen to the
+longest dialect / invocation line):
+
+[source,text]
+----
+include::partial$samples/list-toolchains-verbose.txt[]
+----
+
+Example `--list-format=json` output (shortened fixture: one driver with a compact `describe`).
+JSON samples are rendered by `python -m scripts.generate_doc_samples` through
+`storage.render_json_payload` (4-space indent, Allman braces for multi-line values, sorted
+keys), matching the CLI:
+
+.Example `--list-toolchains --list-format=json` (click to expand)
+[%collapsible]
+====
+[source,json]
+----
+include::partial$samples/list-toolchains.json[]
+----
+====
 
 [#fetched-toolchains]
 == Fetched toolchain archives (Clang and GCC)
@@ -44,9 +150,9 @@ cuppa -D --dbg \
 
 What happens:
 
-* **Family detection:** basename tokens `clang` / `gcc` when present; otherwise cuppa lists archive members (or peeks a `.deb` `data.tar.*`) for `bin/clang++` / `bin/g++`; extension is only a last resort (`.deb` → gcc, other → clang). Ambiguous URL downloads land under `downloads_root/toolchains/_staging/` until the family is known, then move to `toolchains/{clang,gcc}/`.
-* **Clang** installs: cached under `downloads_root/toolchains/clang/<qualifier>/`, extracted under `dependencies_root/toolchains/clang/<qualifier>/`, probed for `bin/clang++`, registered as `clang{major}_{sanitised_tag}` (for example `clang24_profiles_2026_08_07_27`).
-* **GCC** installs: cached under `downloads_root/toolchains/gcc/<qualifier>/`, extracted with `ar` + `data.tar.*` for `.deb` (or normal unpack for tarballs), probed for nested `bin/g++`, registered as `gcc{major}_{sanitised_stem}` (for example `gcc16_gcc_snapshot_20260725_1_amd64`).
+* **Family detection:** basename tokens `clang` / `gcc` when present; otherwise cuppa lists archive members (or peeks a `.deb` `data.tar.*`) for `bin/clang{plus}{plus}` / `bin/g{plus}{plus}`; extension is only a last resort (`.deb` → gcc, other → clang). Ambiguous URL downloads land under `downloads_root/toolchains/_staging/` until the family is known, then move to `toolchains/{clang,gcc}/`.
+* **Clang** installs: cached under `downloads_root/toolchains/clang/<qualifier>/`, extracted under `dependencies_root/toolchains/clang/<qualifier>/`, probed for `bin/clang{plus}{plus}`, registered as `clang\{major}_\{sanitised_tag}` (for example `clang24_profiles_2026_08_07_27`).
+* **GCC** installs: cached under `downloads_root/toolchains/gcc/<qualifier>/`, extracted with `ar` + `data.tar.*` for `.deb` (or normal unpack for tarballs), probed for nested `bin/g{plus}{plus}`, registered as `gcc\{major}_\{sanitised_stem}` (for example `gcc16_gcc_snapshot_20260725_1_amd64`).
 * Names avoid colliding with distro `clang24` / `gcc15`.
 * If you omit `--toolchains=`, toolchains prepared in **this** session are selected automatically.
 * `--offline` requires the archive (or extract) to be present already.
@@ -76,12 +182,12 @@ cuppa -D --dbg --clang-root=/path/to/clang/install
 cuppa -D --dbg --gcc-root=/path/to/gcc/prefix
 ----
 
-Cuppa probes `bin/clang++` or `bin/g++`, registers `clang{major}_local_{hash}` or `gcc{major}_local_{hash}`, and **persists a small registration** under `dependencies_root/toolchains/{clang,gcc}/local_…/` (`cuppa-toolchain.json` pointing at the external prefix). Later sessions discover that registration and reuse the short name without re-passing `--*-root=`.
+Cuppa probes `bin/clang{plus}{plus}` or `bin/g{plus}{plus}`, registers `clang\{major}_local_\{hash}` or `gcc\{major}_local_\{hash}`, and **persists a small registration** under `dependencies_root/toolchains/{clang,gcc}/local_…/` (`cuppa-toolchain.json` pointing at the external prefix). Later sessions discover that registration and reuse the short name without re-passing `--*-root=`.
 
 Force-wipe of an external registration removes the **link under cuppa storage**, not the external prefix itself.
 Owned archive extracts (downloaded by cuppa) are removed fully on force-wipe.
 
-Use `--clang-stdlib=libstdc++` (the Linux default) with slim Profiles Release tarballs that do not ship libc++.
+Use `--clang-stdlib=libstdc{plus}{plus}` (the Linux default) with slim Profiles Release tarballs that do not ship libc{plus}{plus}.
 
 After a successful session that prepared an archive or root, cuppa logs the shorthand reuse flag near the end of the output, for example `--toolchains=gcc16_gcc_snapshot_20260725_1_amd64`.
 
@@ -89,6 +195,9 @@ After a successful session that prepared an archive or root, cuppa logs the shor
 === Listing and clearing toolchain archives
 
 Toolchain installs appear under `--list-dependencies` / `--list-downloads` as storage type **toolchain** (`toolchains/<family>/<qualifier>/`), not as a mistaken top-level source archive named `toolchains`.
+The list-dependencies **leaf label** is the Cuppa session name (`gcc17_gcc_snapshot_…`), aligned with
+`--toolchains=` / `--list-toolchains`. For a compiler-oriented inventory (including PATH drivers),
+prefer xref:toolchains.adoc#list-toolchains[`--list-toolchains`].
 
 Which management flags apply:
 
@@ -102,341 +211,105 @@ Which management flags apply:
 Design notes: `design/archive/toolchains-as-dependencies.md`.
 
 [#c-language-level]
-== C++ language level
+== {cpp} language level
 
-Each toolchain picks a high-compliance default dialect for its compiler version (tables below).
-Override globally with `--stdcpp=…` or per env with `env.StdCpp('c++20')`.
+Each toolchain picks a high-compliance default dialect for its compiler version
+(see xref:toolchain-gcc.adoc[GCC], xref:toolchain-clang.adoc[Clang], and
+xref:toolchain-msvc.adoc[MSVC]): the newest `-std=` / `-std:` Cuppa supports for
+that tool, with language features that dialect already enables. Cuppa does **not**
+add redundant feature gates (for example GCC `-fconcepts` / `-fcoroutines`) once
+the chosen dialect includes them. {cpp}20 modules remain opt-in via `--modules`
+because they change the compile model rather than only unlocking syntax inside
+the same dialect.
+
+Verbose listing summarises that policy under `usable features:`:
+
+* Older compilers where a feature is only behind a Cuppa `-f*` gate list the name
+  directly (for example `concepts` on GCC 8–9).
+* Newer compilers use dialect-inclusive shorthand (`all c{plus}{plus}2a, coroutines`,
+  `all c{plus}{plus}2c`).
+* When Cuppa can enable modules for the tool, append `modules (experimental)`
+  (still requires `--modules` to turn on).
+
+Override globally with `--stdcpp=…` or per env with `env.StdCpp('c{plus}{plus}20')`.
+
+When you omit `--stdcpp` / `StdCpp`, Cuppa’s default is effectively **`c{plus}{plus}latest`**:
+each toolchain selects the newest `-std=` / `-std:` Cuppa supports for that compiler version
+(preferring the working-draft name, such as `c{plus}{plus}2c` on modern GCC/Clang). You do not
+need to pass `--stdcpp=c{plus}{plus}latest` to get that behaviour. MSVC is the exception among
+the built-in families: its Cuppa default is `-std:c{plus}{plus}20` unless you override it (see
+below).
 
 Allowed `--stdcpp` / `StdCpp` choices:
 
-`c++98`, `c++03`, `c++0x`, `c++11`, `c++1y`, `c++14`, `c++1z`, `c++17`, `c++2a`, `c++20`, `c++2b`, `c++23`, `c++2c`, `c++26`, `c++latest`.
+|===
+| Choice | Meaning
 
-With `--modules`, cuppa raises the dialect to at least C++20 when the dialect the build would
+| `c{plus}{plus}latest`
+| Explicit “newest the tool accepts” request. On MSVC this is `-std:c{plus}{plus}latest`.
+  On GCC/Clang Cuppa passes `-std=c{plus}{plus}latest` when you ask for it; omitting
+  `--stdcpp` already picks Cuppa’s highest known dialect for that tool, which is the usual
+  practical equivalent.
+
+| `c{plus}{plus}2c`
+| Working-draft spelling for {cpp}26; Cuppa’s preferred default on modern GCC/Clang
+
+| `c{plus}{plus}26`
+| ISO {cpp}26 once the compiler treats that token as the frozen standard
+
+| `c{plus}{plus}2b`
+| Working-draft spelling for {cpp}23
+
+| `c{plus}{plus}23`
+| ISO {cpp}23 (on MSVC, Cuppa maps this to `-std:c{plus}{plus}latest` — see below)
+
+| `c{plus}{plus}2a`
+| Working-draft spelling for {cpp}20
+
+| `c{plus}{plus}20`
+| ISO {cpp}20 (MSVC Cuppa default)
+
+| `c{plus}{plus}1z`
+| Working-draft spelling for {cpp}17 on older GCC/Clang
+
+| `c{plus}{plus}17`
+| ISO {cpp}17
+
+| `c{plus}{plus}1y`
+| Working-draft spelling for {cpp}14 on older GCC/Clang
+
+| `c{plus}{plus}14`
+| ISO {cpp}14
+
+| `c{plus}{plus}0x`
+| Working-draft spelling for {cpp}11 on older GCC/Clang
+
+| `c{plus}{plus}11`
+| ISO {cpp}11
+
+| `c{plus}{plus}03`
+| ISO {cpp}03 (same core language as {cpp}98, with library and defect-report updates)
+
+| `c{plus}{plus}98`
+| ISO {cpp}98
+|===
+
+With `--modules`, cuppa raises the dialect to at least {cpp}20 when the dialect the build would
 otherwise use is lower, and only for a compile that actually builds, declares, or imports a
-module. The toolchain default counts towards that floor, so a compiler defaulting to `c++2c`
-keeps `c++2c`; `--modules` never lowers a dialect. When you have asked for a lower dialect
-explicitly (`--stdcpp=c++17 --modules`), cuppa raises it to C++20 and warns, because the
-variant path still names the dialect you requested -- pass `--stdcpp=c++20` or later to keep the
+module. The toolchain default counts towards that floor, so a compiler defaulting to `c{plus}{plus}2c`
+keeps `c{plus}{plus}2c`; `--modules` never lowers a dialect. When you have asked for a lower dialect
+explicitly (`--stdcpp=c{plus}{plus}17 --modules`), cuppa raises it to {cpp}20 and warns, because the
+variant path still names the dialect you requested -- pass `--stdcpp=c{plus}{plus}20` or later to keep the
 two consistent.
 
-On MSVC, pre-C++14 aliases map to `-std:c++14` with a warning (MSVC has no matching `-std:` for those dialects).
-`c++23` / `c++2b` map to `-std:c++latest` (many MSVC toolsets ignore unknown `-std:c++23`, which breaks `import std`).
-Cuppa passes MSVC standard flags in *hyphen* form (`-std:c++20`) so SCons on Windows does not treat `/std:…` as a filesystem path.
-
-[#gcc-toolchain]
-== GCC
-
-Supported aliases include the generic `gcc` (whatever `g++` on `PATH` reports) plus versioned names through **gcc16** (for example `gcc15`, `gcc151`, `gcc14`, …).
-Only toolchains actually present on the machine become available.
-
-=== Default compile flags (all GCC versions)
-
-Common C++ flags always include:
-
-* `-Wall` -- enable common warnings
-* `-fexceptions` -- enable exception handling
-* `-g` -- debug information (kept for release as well; optimisation differs by variant)
-
-Common C flags: `-Wall`, `-g`.
-
-Variant-specific additions:
-
-|===
-| Variant | Extra CXX flags | Extra C flags | Extra link flags (Linux)
-
-| `--dbg`
-| _(none beyond common + dialect)_
-| _(none)_
-| see linker defaults below
-
-| `--rel`
-| `-O3`, `-DNDEBUG`, plus LTO when supported (see below)
-| `-O3`, `-DNDEBUG`
-| linker defaults plus the same LTO flags
-
-| `--cov`
-| `--coverage`
-| `--coverage`
-| `--coverage` in addition to linker defaults (no LTO)
-|===
-
-On Linux, link lines also receive `-rdynamic` and `-Wl,-rpath=.` so dynamic symbols remain visible for backtraces/plugins and colocated shared objects resolve at run time.
-
-=== Default dialect by GCC version
-
-Cuppa selects dialect (and related language flags) from the *reported* GCC major/minor:
-
-|===
-| GCC version | Default dialect-related flags
-
-| 4.3–4.6
-| `-std=c++0x`
-
-| 4.7
-| `-std=c++11`
-
-| 4.8–5.1
-| `-std=c++1y`
-
-| 5.2–7.x
-| `-std=c++1z`
-
-| 8–9
-| `-std=c++2a`, `-fconcepts`
-
-| 10
-| `-std=c++2a`, `-fconcepts`, `-fcoroutines`
-
-| 11–13
-| `-std=c++2b`, `-fconcepts`, `-fcoroutines`
-
-| 14+
-| `-std=c++2c`, `-fconcepts`, `-fcoroutines`
-
-| fallback
-| `-std=c++03`
-|===
-
-=== LTO (release only)
-
-Link-time optimisation is applied on the **`--rel`** variant only (compile and link).
-It is not enabled for `--dbg` or `--cov`: LTO raises peak link memory and slows those builds, while the runtime benefit belongs on release.
-
-|===
-| GCC version | `--rel` LTO flags
-
-| before 8
-| _(none)_
-
-| 8–11
-| `-flto`
-
-| 12+
-| `-flto=auto`
-|===
-
-=== Stdlib
-
-GCC uses the system **libstdc++**.
-Cuppa does not pass `-stdlib=` for GCC.
-
-=== Modules (opt-in)
-
-* Floor: GCC **14+** on Linux / macOS
-* Enablement: `-fmodules` plus `-fmodule-mapper=<path>` pointing at cuppa's mapper file under the variant `modules/` directory
-* BMI extension: `.gcm`
-
-See xref:cxx-modules.adoc[C++ modules].
-
-[#clang-toolchain]
-== Clang
-
-Supported aliases include `clang` plus versioned names through **clang22** (for example `clang21`, `clang211`, `clang20`, …).
-
-=== Default compile flags
-
-Common C++ flags:
-
-* `-Wall`
-* `-fexceptions`
-* `-g` (omitted only for Clang 3.2–3.5 when `--clang-disable-debug-for-auto` is set)
-* `-stdlib=<lib>` when a stdlib is selected (see below)
-* dialect flags from the version table
-
-Common C flags: `-Wall`, and `-g` under the same debug rule.
-
-Variant-specific additions:
-
-|===
-| Variant | Extra CXX flags | Extra C flags | Extra link flags (Linux)
-
-| `--dbg`
-| _(none beyond common + dialect)_
-| _(none)_
-| `-rdynamic`, `-Wl,-rpath=.`, optional `-stdlib=`
-
-| `--rel`
-| `-O3`, `-DNDEBUG`, plus LTO when supported (see below)
-| `-O3`, `-DNDEBUG`
-| same linker defaults plus the same LTO flags
-
-| `--cov`
-| `--coverage` (plus older Clang gcov format `-Xclang` tweaks when needed)
-| _(coverage driven primarily via CXX)_
-| `--coverage` (no LTO)
-|===
-
-=== Default dialect by Clang version
-
-|===
-| Clang version | Default dialect flags
-
-| 3.2–3.3
-| `-std=c++11`
-
-| 3.4–3.8
-| `-std=c++1y`
-
-| 3.9–5.x
-| `-std=c++1z`
-
-| 6–12
-| `-std=c++2a`
-
-| 13–16
-| `-std=c++2b`
-
-| 17+
-| `-std=c++2c`
-
-| fallback
-| `-std=c++03`
-|===
-
-=== LTO (release only)
-
-Same policy as GCC: LTO is applied on **`--rel`** only (compile and link), not on `--dbg` or `--cov`.
-
-|===
-| Clang version | `--rel` LTO flags
-
-| before 8
-| _(none)_
-
-| 8–16
-| `-flto`, `-ffat-lto-objects`
-
-| 17+
-| `-flto=auto`, `-ffat-lto-objects`
-|===
-
-When LTO is enabled, cuppa also:
-
-* Prefers a version-matched `llvm-ar` / `llvm-ranlib` (for example `llvm-ar-21`) so static archives keep Clang bitcode correctly
-* Adds `-fuse-ld=lld` on the release link line when `lld` / `ld.lld` is available, avoiding binutils `LLVMgold` version mismatches
-
-`-ffat-lto-objects` keeps archives usable even if the system archiver falls back to binutils `ar`.
-
-=== Stdlib selection
-
-* `--clang-stdlib={libstdc++,libc++}`
-* On **Linux**, the default is `libstdc++` so Boost b2 and the rest of the stack see an explicit `-stdlib=` when needed
-* On other platforms the default may be unset (system default)
-* When `libc++` is selected on Linux, cuppa also links `c++abi`, `c++`, `m`, `c`, `gcc_s`, and `gcc` as required by typical libc++ deployments
-* **Build identity:** `toolchain.name()` (and therefore `_build/.../<toolchain>/...`) includes a non-default stdlib tag, for example `clang21-libc++`. The Linux default (`libstdc++`) keeps the plain name (`clang21`). `package_name()` matches `name()`. Compile commands still use `toolchain.binary()` / `CXX` (`clang++…`), not the tagged folder name.
-* `--toolchains=clang` / versioned aliases remain the registry keys used on the CLI; they do not embed the stdlib tag
-
-=== Modules (opt-in)
-
-* Floor: **LLVM** Clang **16+** on Linux / macOS (**Apple Clang is rejected** -- see xref:cxx-modules.adoc#macos-apple-clang[macOS notes])
-* `modules_enable_flags` is intentionally **empty**: cuppa does *not* pass Clang's `-fmodules` (that flag enables *Clang header modules*, which conflict with C++20 header units / `std.cppm`)
-* Interface units: `-x c++-module` and `-fmodule-output=<bmi>`
-* BMI extension: `.pcm`
-* `import std`: Clang **18+** with **libc++**
-
-[#msvc-toolchain]
-== MSVC (`vc` / `cl`)
-
-On Windows, the `cl` toolchain integrates with SCons Visual C++ detection.
-Names are the generic alias `vc` (SCons default install) plus versioned aliases derived from the SCons MSVC **toolset** id:
-
-|===
-| SCons / VS toolset | Cuppa `--toolchains=` | Notes
-
-| `14.5`
-| `vc145`
-| VS 2026+ platform toolset *v145*
-
-| `14.3`
-| `vc143`
-| VS 2022 *v143*
-
-| `14.2` / `14.2Exp`
-| `vc142` / `vc142e`
-| VS 2019 *v142*
-
-| `14.1`
-| `vc141`
-| VS 2017 *v141*
-|===
-
-The alias drops the dot so CLI names stay short and match the familiar `v145`-style label (same digit style as `gcc15` / `clang21`).
-Capability floors use this toolset `(major, minor)` -- not compiler marketing strings such as `14.29` / `19.51`.
-
-[source,sh]
-----
-cuppa -D --dbg --toolchains=vc
-cuppa -D --dbg --toolchains=vc145
-cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=vc143
-----
-
-=== Default compile and link flags
-
-Common C++ flags on every MSVC build:
-
-|===
-| Flag | Purpose
-
-| `-W4`
-| High warning level
-
-| `-EHsc`
-| Synchronous exception model with C++ extern "C" defaults
-
-| `-nologo`
-| Suppress banner noise on every invocation
-
-| `-GR`
-| Enable RTTI
-
-| `-permissive-`
-| Stricter standards conformance mode
-
-| `-Zc:__cplusplus`
-| Make `__cplusplus` report the selected standard correctly
-
-| `-utf-8`
-| Source and execution charset UTF-8
-|===
-
-Variant-specific additions:
-
-|===
-| Variant | Extra CXX flags | Link flags
-
-| `--dbg`
-| `-Zi` (debug info), `-MDd` (debug DLL CRT)
-| `-OPT:REF`
-
-| `--rel`
-| `-Ox` (full optimisation), `-MD` (release DLL CRT)
-| `-OPT:REF`
-
-| `--cov`
-| _(not supported -- no instrumentation)_
-| _(not supported)_
-|===
-
-Default dialect flag: `-std:c++20` (overridable via `--stdcpp` / `StdCpp`).
-
-=== Modules (opt-in)
-
-* Floor: toolset **14.2+** (`vc142` and newer)
-* Exported interface units: `-interface`, `-TP`, space-separated `-ifcOutput PATH`
-* Non-exported partitions (`module M:part;`): `-internalPartition`, `-TP`, `-ifcOutput PATH`
-* Consumers: space-separated `-reference name=PATH` (colon-attached forms break on absolute `C:\…` paths)
-* BMI extension: `.ifc`
-* Header units: `-exportHeader` (+ `-headerName:angle` for system headers); consumers use `-headerUnit` / `-headerUnit:angle`
-* `import std`: toolset **14.3+** when STL `modules/std.ixx` is present (compiled with `-interface` / `-ifcOutput`)
-
-=== Limitations
-
-* Coverage is not supported for MSVC
-* Shared libraries that export module symbols still need `__declspec(dllexport)` (or a `.def`) so the linker produces an import library — cuppa does not invent DLL exports from `export` alone
+On MSVC, pre-{cpp}14 aliases map to `-std:c{plus}{plus}14` with a warning (MSVC has no matching `-std:` for those dialects).
+`c{plus}{plus}23` / `c{plus}{plus}2b` map to `-std:c{plus}{plus}latest` (many MSVC toolsets ignore unknown `-std:c{plus}{plus}23`, which breaks `import std`).
+Cuppa passes MSVC standard flags in *hyphen* form (`-std:c{plus}{plus}20`) so SCons on Windows does not treat `/std:…` as a filesystem path.
 
 == Tips
 
 * Prefer naming a family (`gcc`, `clang`, `vc`) in everyday builds; pin versions in CI for reproducibility.
 * Coverage and test grids should run gcc and clang as separate invocations (or clearly separated report trees), not as one blended instrumentation set.
-* Override defaults with `env.StdCpp`, `env.ReplaceFlags` / `RemoveFlags`, or `env.AppendUnique(CXXFLAGS=…)` after you understand the baseline above.
+* Override defaults with `env.StdCpp`, `env.ReplaceFlags` / `RemoveFlags`, or `env.AppendUnique(CXXFLAGS=…)` after you understand the family baseline pages.
 * When debugging toolchain detection, use `--verbosity=debug` and `--dump`.
+* For per-flag explanations and upstream option links, open the family page for your compiler.

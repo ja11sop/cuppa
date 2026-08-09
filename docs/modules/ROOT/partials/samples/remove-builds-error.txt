@@ -1,0 +1,36 @@
+Removing 1 entry (19.5K) under _build
+
+  -------------------------------------------------------------------------
+      SIZE  LAST BUILD    BUILD FOLDER
+  -------------------------------------------------------------------------
+     19.5K  3 days ago    _build
+        0B  3 days ago    └── removed (0 of 1 entry)
+  -------------------------------------------------------------------------
+
+  -------------------------------------------------------------------------
+      SIZE  LAST BUILD    BY TOOLCHAIN VARIANT
+  -------------------------------------------------------------------------
+     19.5K  3 days ago    └── ✘✘✘ gcc15
+     19.5K  3 days ago            └── ✗✗✗ dbg/x86_64/cxx2c
+  -------------------------------------------------------------------------
+
+  -------------------------------------------------------------------------
+      SIZE  REMOVED       BY SCONSCRIPT
+  -------------------------------------------------------------------------
+     19.5K     ✘✘✘        └── lib
+     19.5K     ✗✗✗            └── gcc15
+     19.5K      ✗                 └── dbg/x86_64/cxx2c
+  -------------------------------------------------------------------------
+
+Not all requested build entries could be removed: [1 error][0 warnings][0 notes]
+│
+└── 1 error
+    │
+    └── lib/gcc15/dbg/x86_64/cxx2c
+        └── [Errno 13] Permission denied: [_build/lib/gcc15/dbg/x86_64/cxx2c/working]
+
+Removed 0 entries freeing up 0B of disk space.
+
+Verify the removal with the same selection by adding --list-builds:
+
+cuppa -D --dbg --toolchains=gcc15 --list-builds

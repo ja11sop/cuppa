@@ -5,24 +5,77 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.5.1] - unreleased
+## [1.6.0] - unreleased
 
 ### Added
 
 - `design/ideas/scratchpad.md` holds pre-plan product ideas (living). Notes graduate into
   `design/plans/` and `ROADMAP.md`, then leave the scratchpad. `*.local.md` remains for private
   project maps only.
-- Design proposals: [`boost-latest-persistence.md`](design/plans/boost-latest-persistence.md)
-  (persist scraped Boost `latest` for offline CI) and
-  [`list-toolchains.md`](design/plans/list-toolchains.md) (`--list-toolchains` inventory).
+- Design plans: [`boost-latest-persistence.md`](design/plans/boost-latest-persistence.md) and
+  [`list-toolchains.md`](design/plans/list-toolchains.md) (opened under the 1.6.0 cycle).
+- Boost latest persistence: remember `boost_latest_version` in project `configure.conf` or
+  `~/.cuppaconfig` according to whether `--downloads-root` sits under the project. Default Boost
+  resolve prefers that stored value, then the compiled-in default, and does not scrape boost.org
+  unless `--boost-latest` is passed. The key updates only when a higher version’s archive is present
+  under downloads-root.
+- `--list-toolchains`: ruled **discovered** / **registered** tree
+  (family → version → driver → name(s)), with shared-driver grouping, per-family and
+  platform-default marking (platform family `(default)` only when the bare default name is
+  present), inventory-backed registered SIZE/LAST USED, summary line, and dry-run wipe hint.
+  Nested `--list-format=json`. `--list-dependencies` toolchain leaves show the Cuppa session name
+  (`gcc17_gcc_snapshot_…`) aligned with `--toolchains=`.
 
 ### Changed
+
+- GCC default dialect flags no longer pass `-fconcepts` / `-fcoroutines` once the chosen
+  `-std=` already enables those features (GCC 11+). Extras remain only where still required:
+  `-fconcepts` on GCC 8–9, `-fcoroutines` on GCC 10. Clang and MSVC were already dialect-only.
+- `--list-dependencies` toolchain leaf labels use the Cuppa `--toolchains=` session name when the
+  install is registered in the current session (on-disk `toolchains/<family>/<qualifier>/` layout
+  unchanged).
+- `--list-toolchains --list-format=verbose` hangs an info subtree under each driver: notice/yellow
+  keys (`available dialects:`, `usable features:`, `stdlib choices:`, `default invocations:`,
+  `c++`/`c`/`link`), normal variant names (`dbg`/`cov`/`rel`) and flag values, subdued commas
+  and `<…>` placeholders. Dialects list every `-std=` name for that compiler generation
+  (working-draft token before ISO alias, e.g. `c++2c` then `c++26`; Cuppa default marked).
+  Usable features use dialect-inclusive shorthand (`all c++2c`, `all c++2a, coroutines`) or a
+  bare gated name on older tools (`concepts`), and append `modules (experimental)` when Cuppa
+  can enable modules. Qualifiers `(default)` / `(experimental)` are subdued. Invocation
+  templates include `<sources>` / `<objects>` / `<static_libs>` / `<dynamic_libs>`; Cuppa
+  default libraries (e.g. `-lpthread -lrt`) are listed normally before the matching
+  placeholder. JSON includes the same `describe` payload on driver nodes. Horizontal rules
+  span the full width of the widest content line (including verbose dialect / invocation
+  rows). Toolchain classes expose `describe()` / `default_dialect()` / `usable_features()`.
+- Toolchains documentation is a hub plus family pages (`toolchain-gcc.adoc`,
+  `toolchain-clang.adoc`, `toolchain-msvc.adoc`) with short introductions, upstream homepage
+  links, and per-flag default-invocation explanations. Hub pages include `--list-toolchains`
+  text / verbose / JSON samples, a `--stdcpp` choice table (default behaviour is effectively
+  `c++latest` on GCC/Clang), and JSON samples for the other `--list-format=json` list actions.
+  AsciiDoc `++` / `C++` escapes so Antora no longer eats `libstdc++`, `clang++`, or dialect
+  tokens.
+- Listing / remove / purge doc samples (dependencies, downloads, develop, toolchains, builds —
+  text and shortened `--list-format=json`) are rendered through the real CLI formatters
+  (`python -m scripts.generate_doc_samples` → `docs/modules/ROOT/partials/samples/`), so tree
+  stems and JSON shape stay aligned with live output. JSON examples use collapsible blocks in
+  the Antora pages.
+- Verbose `--list-toolchains` quotes each default-invocation template
+  (`c++: "-Wall … <sources>"`); the surrounding quotes are subdued like placeholders.
+- `--list-format=json` pretty-prints with 4-space indent and Allman braces (opening `[` / `{`
+  on the next line for multi-line values), matching the doc samples.
 
 ### Deprecated
 
 ### Removed
 
 ### Fixed
+
+- `--list-dependencies` unreferenced wipe hint now includes `-n` (dry-run) in the suggested
+  command, matching other destructive review hints.
+- Commands that warn about unused unqualified VCS stems (`stem` beside `stem@<branch>`) now also
+  print the shared dry-run `--force-wipe-dependencies=name/@` recommendation (visible under
+  `-Q`). `--list-dependencies` still owns that hint in its footer and merges Location-warned
+  tokens with inventory-derived ones.
 
 ### Security
 
@@ -552,7 +605,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Baseline release on `master` before the modules work landed.
 Detailed notes for 1.1.x and earlier were not maintained in this file; start recording notable changes here from 1.2.0 onward.
 
-[1.5.1]: https://github.com/ja11sop/cuppa/compare/v1.5.0...HEAD
+[1.6.0]: https://github.com/ja11sop/cuppa/compare/v1.5.0...HEAD
 [1.5.0]: https://github.com/ja11sop/cuppa/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/ja11sop/cuppa/compare/v1.3.2...v1.4.0
 [1.2.0]: https://github.com/ja11sop/cuppa/compare/v1.1.3...v1.2.0

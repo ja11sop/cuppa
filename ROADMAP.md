@@ -120,13 +120,13 @@ Design: [`design/plans/boost-updates.md`](design/plans/boost-updates.md).
 | `boost_package.define(..., patched=True)` default | Yes — compile define + `patched_test()` only |
 | Package archive / extract / version distinguish patched vs clean | No — same `boost` + `1.91` + tool variant |
 | Package `use_libs` passes `patched_test=` into library deps | No |
-| Persist scraped Boost `latest` for offline reuse | No — offline falls back to compiled-in `current_boost_release()` |
+| Persist Boost latest for offline reuse (`boost_latest_version`, downloads-root–scoped) | Yes — on branch; lazy scrape (`--boost-latest` only); see design plan |
 
 ### Planned / potential
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `boost-latest-persist` | Persist successful online `latest` scrape; offline reads it before compiled-in default | High | Design: [`boost-latest-persistence.md`](design/plans/boost-latest-persistence.md); online then `--offline` CI |
+| `boost-latest-persist` | Persist higher downloaded latest; offline reads stored then compiled-in; scrape only with `--boost-latest` | High | Design: [`boost-latest-persistence.md`](design/plans/boost-latest-persistence.md); shipping in 1.6.0 |
 | `boost-pkg-version` | Canonical version `{base}-patched` / `{base}-clean`; publisher + resolve + `package_id` | High | Visible qualifier; avoids extract collision |
 | `boost-pkg-compat` | Patched resolve falls back to unadorned `{base}`; clean does not | High | Existing registry tarballs are patched and unnamed |
 | `boost-pkg-use-libs` | Package `use_libs` passes `patched_test=` | High | Parity with source Boost |
@@ -330,13 +330,16 @@ this section.
 | External `--*-root=` persists registration (`cuppa-toolchain.json`) | Yes |
 | List as type `toolchain`; force-wipe `[toolchain]…`; project remove/purge/wipe N/A | Yes |
 | Shared transfer progress (HTTP download, extract, Conan stream, git `--progress`) | Yes ([#165](https://github.com/ja11sop/cuppa/pull/165); plan [`download-progress.md`](design/archive/download-progress.md)) |
-| `--list-toolchains` (discovered vs registered, driver paths) | No |
+| `--list-toolchains` (Discovered vs Registered, driver paths, JSON) | Yes — on [#170](https://github.com/ja11sop/cuppa/pull/170); design [`list-toolchains.md`](design/plans/list-toolchains.md) |
+| `--list-toolchains --list-format=verbose` + `describe()` | Yes — on [#170](https://github.com/ja11sop/cuppa/pull/170); design [`list-toolchains-verbose.md`](design/plans/list-toolchains-verbose.md) |
+| Toolchains hub + GCC / Clang / MSVC family pages | Yes — on [#170](https://github.com/ja11sop/cuppa/pull/170) |
 
 ### Planned / potential
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `list-toolchains` | `--list-toolchains` inventory; discovered vs registered; driver + storage paths | High | Design: [`list-toolchains.md`](design/plans/list-toolchains.md) |
+| `list-toolchains` | `--list-toolchains` inventory; Discovered vs Registered; driver + storage paths; JSON; verbose `describe()` | High | Landing in [#170](https://github.com/ja11sop/cuppa/pull/170) / 1.6.0 |
+| `list-tc-flag-tables` | Table-driven GCC/Clang/Cl init shared with `describe()` | Low | Deferred; see [`list-toolchains-verbose.md`](design/plans/list-toolchains-verbose.md) |
 | `tc-dep-url-sugar` | Optional URL token in `--toolchains=` | Low | Keep `--toolchain-archive=` as explicit supply |
 | `tc-dep-profiles` | [#127](https://github.com/ja11sop/cuppa/issues/127) `--profiles` / `-fprofiles` | Medium | Needs a Profiles-capable Clang (supply path from [#160](https://github.com/ja11sop/cuppa/issues/160) is done) |
 | `tc-dep-actions` | Authenticated Actions artifact URLs | Low | After public HTTPS / file path is solid |

@@ -3,6 +3,7 @@
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
+import io
 import os
 import tarfile
 import zipfile
@@ -312,6 +313,69 @@ def test_select_repository_directory_both_prefers_canonical_and_warns(tmp_path, 
     with caplog.at_level("WARNING"):
         assert location._select_repository_directory(stem) == stem + "@master"
     assert "removal candidate" not in caplog.text
+
+
+def test_take_unqualified_duplicate_wipe_tokens_consumes_pending(tmp_path):
+    from cuppa.location import Location
+
+    location, stem = _select_location(tmp_path)
+    os.mkdir(stem)
+    os.mkdir(stem + "@master")
+    Location._unqualified_duplicate_warned = set()
+    location._select_repository_directory(stem)
+    tokens = Location.take_unqualified_duplicate_wipe_tokens()
+    assert len(tokens) == 1
+    assert tokens[0].endswith("/@")
+    assert Location.take_unqualified_duplicate_wipe_tokens() == []
+
+
+def test_emit_location_unqualified_duplicate_hints_writes_once(tmp_path):
+    from cuppa.core import dependency_actions
+    from cuppa.location import Location
+
+    location, stem = _select_location(tmp_path)
+    os.mkdir(stem)
+    os.mkdir(stem + "@master")
+    Location._unqualified_duplicate_warned = set()
+    location._select_repository_directory(stem)
+    out = io.StringIO()
+    dependency_actions.emit_location_unqualified_duplicate_hints(out=out)
+    text = out.getvalue()
+    assert "force-wipe-dependencies=" in text
+    assert "/@" in text
+    assert "see earlier warnings" in text
+    assert "Drop -n" in text
+    out2 = io.StringIO()
+    dependency_actions.emit_location_unqualified_duplicate_hints(out=out2)
+    assert out2.getvalue() == ""
+
+
+def test_force_wipe_emits_unqualified_hint_after_report(tmp_path):
+    """Hints flush after the wipe report footer, like --list-dependencies."""
+    from cuppa.core import dependency_removal
+    from cuppa.location import Location
+
+    location, stem = _select_location(tmp_path)
+    os.mkdir(stem)
+    os.mkdir(stem + "@master")
+    Location._unqualified_duplicate_warned = set()
+    location._select_repository_directory(stem)
+    out = io.StringIO()
+    # Empty wipe selection still goes through _execute_force_wipe.
+    status = dependency_removal._execute_force_wipe(
+            out,
+            str( tmp_path ),
+            None,
+            [],
+            [],
+            planning=True,
+    )
+    assert status == 0
+    text = out.getvalue()
+    assert "force-wipe-dependencies=" in text
+    assert text.index( "nothing to wipe" ) < text.index( "force-wipe-dependencies=" )
+    assert text.index( "Verify with:" ) < text.index( "force-wipe-dependencies=" )
+    assert Location.take_unqualified_duplicate_wipe_tokens() == []
 
 
 def test_select_repository_directory_url_already_qualified_is_not_double_suffixed(tmp_path, caplog):

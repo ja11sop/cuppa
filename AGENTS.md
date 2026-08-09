@@ -275,15 +275,34 @@ update_pull_request( number=154, title='…', body='…' )
 ### Before pushing a pull request branch
 
 **Always run the full local Python test gate before `git push`.** Waiting for CI to report a unit
-or integration failure wastes a long Actions cycle and rate-limited status polls. From the repo
-root (with cuppa importable — e.g. `pip install -e .` or `PYTHONPATH=.`):
+or integration failure wastes a long Actions cycle and rate-limited status polls.
+
+**Use a Python virtualenv for the gate.** Distro / user-site `flake8` / `pylint` shims are often
+broken (for example `ModuleNotFoundError: No module named 'flake8'` when a `~/.local/bin` wrapper
+points at a missing install), and system Python may lack Cuppa’s test extras (`grip`, and so on).
+Prefer an existing repo venv if present (commonly `venv/` at the repository root — gitignored as
+`venv*/`); otherwise create one and install from `requirements.txt`:
 
 ```sh
+# Prefer an existing checkout venv when it already has the tools:
+source venv/bin/activate          # Windows: venv\Scripts\activate
+
+# Or create one (once per machine / checkout):
+python3 -m venv venv
+source venv/bin/activate
+pip install -U pip
+pip install -r requirements.txt
+pip install -e .                  # so `import cuppa` works without PYTHONPATH=
+
 flake8 cuppa
 pylint -E cuppa
 pytest -m unit
 pytest -m integration
 ```
+
+If you cannot activate the venv in the current shell, call the venv binaries by path
+(`venv/bin/flake8 cuppa`, `venv/bin/pylint -E cuppa`, `venv/bin/pytest -m unit`). Do **not**
+treat a broken host `flake8` / `pylint` as “lint skipped” — fix the environment first.
 
 Do not skip `pytest -m unit` or `pytest -m integration` because only a helper script or docs
 changed — those suites are fast relative to CI and catch import / CLI regressions. Use
@@ -486,6 +505,9 @@ Run this **before every push** to a pull-request branch (see
 [Before pushing a pull request branch](#before-pushing-a-pull-request-branch)). It is much cheaper
 than learning about a failed unit or integration test from CI.
 
+Activate the checkout’s Python virtualenv first (existing `venv/`, or create one and
+`pip install -r requirements.txt` plus `pip install -e .` — details in that section). Then:
+
 ```sh
 flake8 cuppa
 pylint -E cuppa
@@ -541,7 +563,8 @@ When docs and code disagree, **code is authoritative** (especially storage defau
 | Install / first project | `install.adoc`, `quickstart.adoc` |
 | Vocabulary (methods, deps, variants) | `concepts.adoc` |
 | Build / test / library APIs + examples | `methods.adoc` |
-| Compiler defaults and flags | `toolchains.adoc` |
+| Toolchains hub (select / list / archives / `--stdcpp`) | `toolchains.adoc` |
+| GCC / Clang / MSVC defaults and flags | `toolchain-gcc.adoc` / `toolchain-clang.adoc` / `toolchain-msvc.adoc` |
 | Fetched toolchain archives (`--toolchain-archive`, `--*-root`) | `toolchains.adoc` § Fetched toolchain archives |
 | C++20 modules intro, tutorial, papers, reference | `cxx-modules.adoc` |
 | CLI flags | `cli-reference.adoc` |
@@ -563,7 +586,7 @@ When docs and code disagree, **code is authoritative** (especially storage defau
 
 The Phase 3 documentation split in [`design/plans/removal-options.md`](design/plans/removal-options.md) §7.1 has landed. Prefer the child page above rather than growing the hub.
 
-Update `docs/modules/ROOT/nav.adoc` when adding a new top-level page or nesting children under Dependencies.
+Update `docs/modules/ROOT/nav.adoc` when adding a new top-level page or nesting children under Dependencies or Toolchains.
 
 ### Documentation partitioning (rules of thumb)
 
@@ -624,7 +647,7 @@ Don't provide blocks of code and ask readers to trust it works. Every command sh
 
 When asking the reader to execute a command or modify code, first explain what it does and why. These details help readers grow their skills.
 
-Quote **real** toolchain defaults and CLI behaviour from `cuppa/toolchains/*.py` and `cuppa/methods/*.py`. If a flag list changes in code, update `toolchains.adoc` in the same change.
+Quote **real** toolchain defaults and CLI behaviour from `cuppa/toolchains/*.py` and `cuppa/methods/*.py`. If a flag list changes in code, update the matching family page (`toolchain-gcc.adoc` / `toolchain-clang.adoc` / `toolchain-msvc.adoc`) in the same change.
 
 ## Practical and Self-Contained
 

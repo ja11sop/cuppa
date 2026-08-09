@@ -1,0 +1,218 @@
+= Clang
+:description: Cuppa Clang toolchain — platforms, aliases, default flags, stdlib, LTO, modules
+
+[#clang-toolchain]
+== Introduction
+
+https://clang.llvm.org/[Clang] is the LLVM C and {cpp} compiler. Cuppa supports **LLVM Clang**
+on **Linux** and **macOS** (PATH installs, xref:toolchains.adoc#fetched-toolchains[fetched
+archives], and `--clang-root=`). Apple/Xcode Clang is detected in some flows but is **not**
+modules-capable in Cuppa — see xref:cxx-modules.adoc#macos-apple-clang[macOS notes].
+
+Upstream project: https://clang.llvm.org/[clang.llvm.org] ·
+Command-line reference: https://clang.llvm.org/docs/ClangCommandLineReference.html[Clang Command Line Reference].
+
+In Cuppa, supported aliases include `clang` plus versioned names through **clang22**
+(for example `clang21`, `clang211`, `clang20`, …).
+
+[source,sh]
+----
+cuppa -D --dbg --toolchains=clang
+cuppa -D --dbg --toolchains=clang21 --clang-stdlib=libstdc++
+----
+
+For selection, listing, and archive workflows shared with GCC, see
+xref:toolchains.adoc[Toolchains]. Inspect the live default invocation strings with
+`--list-toolchains --list-format=verbose`.
+
+Cuppa’s Clang default is the newest `-std=` for that version alone — concepts and
+coroutines come with {cpp}20+ dialects, so Cuppa does not pass separate
+`-fconcepts` / `-fcoroutines` flags. Modules stay opt-in via `--modules`.
+
+== Default compile flags
+
+These are the flags that appear under `default invocations:` in verbose listing.
+
+Common {cpp} flags:
+
+|===
+| Flag | Purpose | Docs
+
+| `-Wall`
+| Enable a common set of warning diagnostics
+| https://clang.llvm.org/docs/DiagnosticsReference.html[Diagnostics Reference]
+
+| `-fexceptions`
+| Enable exception handling
+| https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-fexceptions[Command Line Reference]
+
+| `-g`
+| Emit debug information (omitted only for Clang 3.2–3.5 when `--clang-disable-debug-for-auto` is set)
+| https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-g[Command Line Reference]
+
+| `-stdlib=<lib>`
+| Select the {cpp} standard library when Cuppa has chosen one (see Stdlib selection)
+| https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-stdlib[Command Line Reference]
+
+| `-std=<dialect>`
+| Select the {cpp} language dialect (see default dialect table)
+| https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-std[Command Line Reference]
+|===
+
+Common C flags: `-Wall`, and `-g` under the same debug rule.
+
+Variant-specific additions:
+
+|===
+| Variant | Extra CXX flags | Extra C flags | Extra link flags (Linux)
+
+| `--dbg`
+| _(none beyond common + dialect)_
+| _(none)_
+| `-rdynamic`, `-Wl,-rpath=.`, optional `-stdlib=`
+
+| `--rel`
+| `-O3`, `-DNDEBUG`, plus LTO when supported (see below)
+| `-O3`, `-DNDEBUG`
+| same linker defaults plus the same LTO flags
+
+| `--cov`
+| `--coverage` (plus older Clang gcov format `-Xclang` tweaks when needed)
+| _(coverage driven primarily via CXX)_
+| `--coverage` (no LTO)
+|===
+
+|===
+| Flag | Purpose | Docs
+
+| `-O3`
+| Aggressive optimisation suitable for release builds
+| https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-O3[Command Line Reference]
+
+| `-DNDEBUG`
+| Define `NDEBUG` so `<cassert>` assertions compile out
+| ISO C / {cpp} `NDEBUG` (preprocessor)
+
+| `--coverage`
+| Instrument for gcov-compatible coverage (compile and link)
+| https://clang.llvm.org/docs/SourceBasedCodeCoverage.html[Source-based Code Coverage] (related); gcov-compatible mode via `--coverage`
+
+| `-flto` / `-flto=auto`
+| Link-time optimisation on `--rel` only (see LTO table)
+| https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-flto[Command Line Reference]
+
+| `-ffat-lto-objects`
+| Emit fat LTO objects so archives stay usable with binutils `ar`
+| https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-ffat-lto-objects[Command Line Reference]
+
+| `-fuse-ld=lld`
+| Prefer lld for Clang LTO links when available
+| https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-fuse-ld[Command Line Reference]
+
+| `-rdynamic` / `-Wl,-rpath=.`
+| Same Linux linker defaults as GCC (export symbols; colocated rpath)
+| https://clang.llvm.org/docs/ClangCommandLineReference.html[Command Line Reference]
+|===
+
+== Default dialect by Clang version
+
+Override with `--stdcpp` / `env.StdCpp` — see xref:toolchains.adoc#c-language-level[{cpp} language level].
+
+|===
+| Clang version | Default dialect flags
+
+| 3.2–3.3
+| `-std=c{plus}{plus}11`
+
+| 3.4–3.8
+| `-std=c{plus}{plus}1y`
+
+| 3.9–5.x
+| `-std=c{plus}{plus}1z`
+
+| 6–12
+| `-std=c{plus}{plus}2a`
+
+| 13–16
+| `-std=c{plus}{plus}2b`
+
+| 17+
+| `-std=c{plus}{plus}2c` (Cuppa’s default; Clang also accepts `-std=c{plus}{plus}26`. Same draft-vs-ISO
+  preference as GCC)
+
+| fallback
+| `-std=c{plus}{plus}03`
+|===
+
+== LTO (release only)
+
+Same policy as GCC: LTO is applied on **`--rel`** only (compile and link), not on `--dbg` or `--cov`.
+
+|===
+| Clang version | `--rel` LTO flags
+
+| before 8
+| _(none)_
+
+| 8–16
+| `-flto`, `-ffat-lto-objects`
+
+| 17+
+| `-flto=auto`, `-ffat-lto-objects`
+|===
+
+When LTO is enabled, cuppa also:
+
+* Prefers a version-matched `llvm-ar` / `llvm-ranlib` (for example `llvm-ar-21`) so static archives keep Clang bitcode correctly
+* Adds `-fuse-ld=lld` on the release link line when `lld` / `ld.lld` is available, avoiding binutils `LLVMgold` version mismatches
+
+`-ffat-lto-objects` keeps archives usable even if the system archiver falls back to binutils `ar`.
+
+[#clang-default-linux-libraries]
+== Default Linux libraries
+
+On **Linux**, Cuppa seeds `DYNAMICLIBS` the same way as GCC for baseline portability, then
+adds more when using `libc{plus}{plus}`. Verbose listing shows them as normal `-l…` tokens before
+`<dynamic_libs>`.
+
+|===
+| Library | When | Why Cuppa adds it | Still needed?
+
+| `pthread`, `rt`
+| Always (Linux)
+| Same rationale as xref:toolchain-gcc.adoc#gcc-default-linux-libraries[GCC]: historical
+  separate DSOs for threads and realtime clocks; Cuppa’s link sandwich puts them in the
+  dynamic half of the line.
+| Keep for older glibc / portable defaults. On current glibc they are compatibility
+  stubs and remain harmless.
+
+| `c{plus}{plus}abi`, `c{plus}{plus}` (abi listed twice), `m`, `c`, `gcc_s`, `gcc`
+| `--clang-stdlib=libc{plus}{plus}` on Linux
+| Early libc{plus}{plus} support needed an explicit ABI runtime and companion libs so links succeeded
+  on typical Linux libc{plus}{plus} installs. The duplicated `c{plus}{plus}abi` entry is deliberate **link-order
+  hardening** (abi around `c{plus}{plus}`) from that work.
+| `clang{plus}{plus} -stdlib=libc{plus}{plus}` often pulls `-lc{plus}{plus}` / `-lm` / `-lgcc*` itself, and `libc{plus}{plus}.so`
+  may `DT_NEEDED` `libc{plus}{plus}abi`. Cuppa still lists them because it replaces `_LIBFLAGS` with a
+  `STATICLIBS` / `DYNAMICLIBS` sandwich — keeping the set in `DYNAMICLIBS` avoids missing
+  ABI/runtime deps when the driver defaults are not enough or ordering would otherwise drop
+  them.
+|===
+
+== Stdlib selection
+
+* `--clang-stdlib=libstdc{plus}{plus}` or `--clang-stdlib=libc{plus}{plus}`
+* On **Linux**, the default is `libstdc{plus}{plus}` so Boost b2 and the rest of the stack see an explicit `-stdlib=` when needed
+* On other platforms the default may be unset (system default)
+* When `libc{plus}{plus}` is selected on Linux, see the library table above for the extra `DYNAMICLIBS`
+* **Build identity:** `toolchain.name()` (and therefore `_build/.../<toolchain>/...`) includes a non-default stdlib tag, for example `clang21-libc{plus}{plus}`. The Linux default (`libstdc{plus}{plus}`) keeps the plain name (`clang21`). `package_name()` matches `name()`. Compile commands still use `toolchain.binary()` / `CXX` (`clang{plus}{plus}…`), not the tagged folder name.
+* `--toolchains=clang` / versioned aliases remain the registry keys used on the CLI; they do not embed the stdlib tag
+
+== Modules (opt-in)
+
+* Floor: **LLVM** Clang **16+** on Linux / macOS (**Apple Clang is rejected** -- see xref:cxx-modules.adoc#macos-apple-clang[macOS notes])
+* `modules_enable_flags` is intentionally **empty**: cuppa does *not* pass Clang's `-fmodules` (that flag enables *Clang header modules*, which conflict with {cpp}20 header units / `std.cppm`)
+* Interface units: `-x c{plus}{plus}-module` and `-fmodule-output=<bmi>`
+* BMI extension: `.pcm`
+* `import std`: Clang **18+** with **libc{plus}{plus}**
+
+See xref:cxx-modules.adoc[{cpp} modules].

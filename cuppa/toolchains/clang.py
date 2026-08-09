@@ -41,18 +41,24 @@ class ClangException(Exception):
 
 class Clang(object):
 
+    # Single source for CLI choices and ``describe()`` / verbose listing.
+    _stdlib_choices = ( 'libstdc++', 'libc++' )
+
     @classmethod
     def add_options( cls, add_option ):
 
-        std_lib_choices = ("libstdc++", "libc++")
-
-        add_option( '--clang-stdlib', dest='clang-stdlib', choices=std_lib_choices, nargs=1, action='store',
+        add_option( '--clang-stdlib', dest='clang-stdlib', choices=cls._stdlib_choices, nargs=1, action='store',
                     help="Specify the C++ standard library to build against ({}). "
-                         "On Linux defaults to libstdc++.".format( str(std_lib_choices) ) )
-
+                         "On Linux defaults to libstdc++.".format( str(cls._stdlib_choices) ) )
 
         add_option( '--clang-disable-debug-for-auto', dest='clang-disable-debug-for-auto', action='store_true',
                     help="For clang versions before 3.6 this disables the -g flag so auto can compile" )
+
+
+    @classmethod
+    def stdlib_choices( cls ):
+        """Supported ``--clang-stdlib`` values (order: preferred listing order)."""
+        return cls._stdlib_choices
 
 
     @classmethod
@@ -387,6 +393,11 @@ class Clang(object):
         return "clang"
 
 
+    def describe( self ):
+        from cuppa.toolchains.describe import describe_toolchain
+        return describe_toolchain( self )
+
+
     def toolset_name( self ):
         return "clang"
 
@@ -644,6 +655,13 @@ class Clang(object):
         self.values['release_link_cxx_flags'] = release_link_flags
         self.values['coverage_link_flags']    = CommonLinkCxxFlags + [ '--coverage' ]
 
+        # Linux DYNAMICLIBS defaults (see toolchain-clang.adoc § Default Linux libraries).
+        # pthread/rt: same portability rationale as GCC. libc++ extras: typical Linux
+        # libc++ deployments need the ABI runtime and companion libs; the duplicated
+        # c++abi entry is deliberate link-order hardening from early libc++ support.
+        # clang++ often pulls -lc++/-lm/-lgcc* itself, but Cuppa's _LIBFLAGS sandwich
+        # routes project libs through DYNAMICLIBS, so keeping the set explicit here
+        # avoids missing ABI/runtime deps on thinner installs.
         DynamicLibraries = []
         if cuppa.build_platform.name() == "Linux":
             DynamicLibraries = [ 'pthread', 'rt' ]
@@ -661,25 +679,45 @@ class Clang(object):
                + source + ' > ' + source + '_summary.gcov'
 
 
-    def __default_dialect_flags( self ):
+    def default_dialect( self ):
+        """Cuppa default ``-std=`` token for this reported Clang version."""
         major_ver = self._reported_version['major']
         minor_ver = self._reported_version['minor']
         if major_ver == 3:
-            if minor_ver >= 2 and minor_ver <= 3:
-                return ['-std=c++11']
-            elif minor_ver >= 4 and minor_ver <= 8:
-                return ['-std=c++1y']
-            elif minor_ver >= 9:
-                return ['-std=c++1z']
-        elif major_ver >= 4 and major_ver <= 5:
-            return ['-std=c++1z']
-        elif major_ver >= 6 and major_ver <= 12:
-            return ['-std=c++2a']
-        elif major_ver >= 13 and major_ver <= 16:
-            return ['-std=c++2b']
-        elif major_ver >= 17:
-            return ['-std=c++2c']
-        return ['-std=c++03']
+            if 2 <= minor_ver <= 3:
+                return 'c++11'
+            if 4 <= minor_ver <= 8:
+                return 'c++1y'
+            if minor_ver >= 9:
+                return 'c++1z'
+        if 4 <= major_ver <= 5:
+            return 'c++1z'
+        if 6 <= major_ver <= 12:
+            return 'c++2a'
+        if 13 <= major_ver <= 16:
+            return 'c++2b'
+        if major_ver >= 17:
+            return 'c++2c'
+        return 'c++03'
+
+
+    def usable_features( self ):
+        """Display items for verbose ``usable features:`` (see ``describe``)."""
+        from cuppa.toolchains.describe import format_usable_feature_items
+
+        experimental = []
+        try:
+            if self.supports_modules( None ):
+                experimental.append( 'modules (experimental)' )
+        except Exception:
+            pass
+        return format_usable_feature_items(
+                self.default_dialect(), experimental=experimental,
+        )
+
+
+    def __default_dialect_flags( self ):
+        return [ '-std={}'.format( self.default_dialect() ) ]
 
 
     def __lto_flags( self ):

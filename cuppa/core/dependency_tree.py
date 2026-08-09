@@ -446,12 +446,19 @@ def _archive_children( leaves_in ):
 def _flat_variant_children( leaves_in, label_key='qualifier' ):
     children = []
     for leaf in sorted( leaves_in, key=lambda item: (
-            str( item.get( label_key ) or '' ),
+            str(
+                item.get( 'toolchain_session_name' )
+                or item.get( label_key )
+                or ''
+            ),
             item.get( 'path' ) or '',
     ) ):
-        label = display_qualifier( leaf.get( label_key ), leaf.get( 'type' ) or 'archive' )
-        if leaf.get( 'type' ) == 'conan':
+        if leaf.get( 'type' ) == 'toolchain' and leaf.get( 'toolchain_session_name' ):
+            label = leaf['toolchain_session_name']
+        elif leaf.get( 'type' ) == 'conan':
             label = leaf.get( 'qualifier' ) or '-'
+        else:
+            label = display_qualifier( leaf.get( label_key ), leaf.get( 'type' ) or 'archive' )
         children.append( _leaf_node( leaf, label=label ) )
     return children
 

@@ -1,0 +1,225 @@
+= GCC
+:description: Cuppa GCC toolchain — platforms, aliases, default flags, dialects, LTO, modules
+
+[#gcc-toolchain]
+== Introduction
+
+https://gcc.gnu.org/[GCC] (the GNU Compiler Collection) is Cuppa’s primary open-source
+C and {cpp} toolchain on **Linux** and **macOS**. Cuppa drives the `g{plus}{plus}` / `gcc` binaries
+it discovers on `PATH`, or installs registered from
+xref:toolchains.adoc#fetched-toolchains[fetched archives] and `--gcc-root=`.
+
+Upstream project: https://gcc.gnu.org/[gcc.gnu.org] ·
+Option index: https://gcc.gnu.org/onlinedocs/gcc/Option-Summary.html[GCC Option Summary].
+
+In Cuppa, supported aliases include the generic `gcc` (whatever `g{plus}{plus}` on `PATH` reports)
+plus versioned names through **gcc16** (for example `gcc15`, `gcc151`, `gcc14`, …).
+Only toolchains actually present on the machine become available.
+
+[source,sh]
+----
+cuppa -D --dbg --toolchains=gcc
+cuppa -D --dbg --toolchains=gcc15
+----
+
+For selection, listing, and archive workflows shared with Clang, see
+xref:toolchains.adoc[Toolchains]. Inspect the live default invocation strings with
+`--list-toolchains --list-format=verbose`.
+
+== Default compile flags
+
+These are the flags that appear under `default invocations:` in verbose listing
+(plus dialect flags from the version table below). Cuppa’s default is the newest
+dialect that GCC supports for that version, with every language feature that
+dialect already enables. Extra gates such as `-fconcepts` / `-fcoroutines` are
+added **only** when the chosen `-std=` does not turn the feature on yet.
+
+Common {cpp} flags on every GCC build:
+
+|===
+| Flag | Purpose | Docs
+
+| `-Wall`
+| Enable a common set of warning diagnostics
+| https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html#index-Wall[Warning Options]
+
+| `-fexceptions`
+| Enable exception handling (needed for {cpp} `try` / `throw`)
+| https://gcc.gnu.org/onlinedocs/gcc/Code-Gen-Options.html#index-fexceptions[Code Gen Options]
+
+| `-g`
+| Emit debug information (kept for release as well; optimisation differs by variant)
+| https://gcc.gnu.org/onlinedocs/gcc/Debugging-Options.html#index-g[Debugging Options]
+
+| `-std=<dialect>`
+| Select the {cpp} language dialect (see default dialect table)
+| https://gcc.gnu.org/onlinedocs/gcc/C-Dialect-Options.html#index-std-1[C Dialect Options]
+|===
+
+Common C flags: `-Wall`, `-g` (same meanings as above).
+
+Variant-specific additions:
+
+|===
+| Variant | Extra CXX flags | Extra C flags | Extra link flags (Linux)
+
+| `--dbg`
+| _(none beyond common + dialect)_
+| _(none)_
+| see linker defaults below
+
+| `--rel`
+| `-O3`, `-DNDEBUG`, plus LTO when supported (see below)
+| `-O3`, `-DNDEBUG`
+| linker defaults plus the same LTO flags
+
+| `--cov`
+| `--coverage`
+| `--coverage`
+| `--coverage` in addition to linker defaults (no LTO)
+|===
+
+|===
+| Flag | Purpose | Docs
+
+| `-O3`
+| Aggressive optimisation suitable for release builds
+| https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html#index-O[Optimize Options]
+
+| `-DNDEBUG`
+| Define `NDEBUG` so `<cassert>` assertions compile out
+| ISO C / {cpp} `NDEBUG` (preprocessor)
+
+| `--coverage`
+| Instrument for gcov-style coverage (compile and link)
+| https://gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html#index-coverage[Instrumentation Options]
+
+| `-fconcepts`
+| Concepts TS gate on **GCC 8–9 only** (not passed once ISO concepts are in the dialect)
+| https://gcc.gnu.org/onlinedocs/gcc/C_002b_002b-Dialect-Options.html[{cpp} Dialect Options]
+
+| `-fcoroutines`
+| Coroutine gate on **GCC 10 only** (GCC 11+ enables coroutines via `-std=c{plus}{plus}20` / later)
+| https://gcc.gnu.org/onlinedocs/gcc/C_002b_002b-Dialect-Options.html[{cpp} Dialect Options]
+
+| `-flto` / `-flto=auto`
+| Link-time optimisation on `--rel` only (see LTO table)
+| https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html#index-flto[Optimize Options]
+|===
+
+On Linux, link lines also receive:
+
+|===
+| Flag | Purpose | Docs
+
+| `-rdynamic`
+| Export dynamic symbols so backtraces and plugins can resolve names
+| https://gcc.gnu.org/onlinedocs/gcc/Link-Options.html#index-rdynamic[Link Options]
+
+| `-Wl,-rpath=.`
+| Pass `-rpath=.` to the linker so colocated shared objects resolve at run time
+| https://gcc.gnu.org/onlinedocs/gcc/Link-Options.html#index-Wl[Link Options] / GNU ld `-rpath`
+
+| `-Xlinker -Bstatic` / `-Bdynamic`
+| Sandwich around Cuppa’s `<static_libs>` / `<dynamic_libs>` placeholders
+| https://sourceware.org/binutils/docs/ld/Options.html#index-Bstatic[GNU ld Options]
+|===
+
+[#gcc-default-linux-libraries]
+== Default Linux libraries
+
+On **Linux**, Cuppa seeds `DYNAMICLIBS` with `pthread` and `rt` (shown in verbose listing as
+`-lpthread -lrt` before the `<dynamic_libs>` placeholder). They sit in the *dynamic* half of
+the `-Bstatic` / `-Bdynamic` sandwich so project static archives can still be forced static
+while these system libs remain dynamic.
+
+|===
+| Library | Why Cuppa adds it | Still needed?
+
+| `pthread`
+| {cpp}11 threads, Boost.Thread, and many libraries historically required an explicit
+  `-lpthread`. Before **glibc 2.34**, `libpthread` was a separate DSO.
+| On glibc 2.34+ the symbols live in `libc` and `-lpthread` is effectively a compatibility
+  stub. Cuppa keeps it so the same defaults work on older distributions and so thread-using
+  code does not depend on each dependency remembering `-pthread` / `-lpthread`.
+
+| `rt`
+| POSIX.1b realtime APIs such as `clock_gettime` historically lived in `librt`.
+| Modern glibc folded most of `librt` into `libc` (often from glibc 2.17 onward for
+  `clock_gettime`). `-lrt` remains for older targets and is harmless on current glibc.
+|===
+
+Cuppa does **not** add these on macOS or Windows for GCC/MinGW (empty `dynamic_libraries`).
+Verbose `--list-toolchains` shows the defaults explicitly so the link template matches what
+builds receive.
+
+== Default dialect by GCC version
+
+Cuppa selects the newest dialect the *reported* GCC major/minor can usefully default to,
+and adds a feature flag only when that dialect does not already enable the feature.
+Override with `--stdcpp` / `env.StdCpp` — see xref:toolchains.adoc#c-language-level[{cpp} language level].
+
+|===
+| GCC version | Default dialect-related flags
+
+| 4.3–4.6
+| `-std=c{plus}{plus}0x`
+
+| 4.7
+| `-std=c{plus}{plus}11`
+
+| 4.8–5.1
+| `-std=c{plus}{plus}1y`
+
+| 5.2–7.x
+| `-std=c{plus}{plus}1z`
+
+| 8–9
+| `-std=c{plus}{plus}2a`, `-fconcepts` (Concepts TS; ISO {cpp}20 concepts land in GCC 10)
+
+| 10
+| `-std=c{plus}{plus}2a`, `-fcoroutines` (concepts already in the dialect; libstdc{plus}{plus} still
+  requires `-fcoroutines` for `<coroutine>`)
+
+| 11–13
+| `-std=c{plus}{plus}2b` (concepts and coroutines included — no extra `-f*` flags)
+
+| 14+
+| `-std=c{plus}{plus}2c` (Cuppa’s default; GCC also accepts `-std=c{plus}{plus}26`. Cuppa prefers the
+  working-draft name so builds are not limited to the frozen {cpp}26 feature set)
+
+| fallback
+| `-std=c{plus}{plus}03`
+|===
+
+== LTO (release only)
+
+Link-time optimisation is applied on the **`--rel`** variant only (compile and link).
+It is not enabled for `--dbg` or `--cov`: LTO raises peak link memory and slows those builds, while the runtime benefit belongs on release.
+
+|===
+| GCC version | `--rel` LTO flags
+
+| before 8
+| _(none)_
+
+| 8–11
+| `-flto`
+
+| 12+
+| `-flto=auto`
+|===
+
+== Stdlib
+
+GCC uses the system **libstdc{plus}{plus}**.
+Cuppa does not pass `-stdlib=` for GCC.
+(The Linux `pthread` / `rt` defaults above are independent of the {cpp} standard library.)
+
+== Modules (opt-in)
+
+* Floor: GCC **14+** on Linux / macOS
+* Enablement: `-fmodules` plus `-fmodule-mapper=<path>` pointing at cuppa's mapper file under the variant `modules/` directory
+* BMI extension: `.gcm`
+
+See xref:cxx-modules.adoc[{cpp} modules].

@@ -1,0 +1,176 @@
+{
+    "dependencies_root": "/home/user/.cuppa/dependencies",
+    "entries":
+    [
+        {
+            "dependency": "boost_package",
+            "download_path": null,
+            "has_download": true,
+            "kind": "gitlab",
+            "last_used": "today",
+            "location": "https://gitlab.example/api/v4/projects/1/boost/1.91",
+            "path": "/home/user/.cuppa/dependencies/boost/1.91/gcc153_rel_x86_64_cxx2c",
+            "qualifier": "1.91",
+            "remote_location": "https://gitlab.example/api/v4/projects/1/boost/1.91",
+            "short_name": "boost_package",
+            "size": "299.3M",
+            "size_bytes": 313838796,
+            "source_url": null,
+            "state": "referenced",
+            "stem": null,
+            "tool_variant": "gcc153_rel_x86_64_cxx2c",
+            "toolchain_session_name": null,
+            "type": "gitlab"
+        },
+        {
+            "dependency": "boost",
+            "download_path": null,
+            "has_download": true,
+            "kind": "archive",
+            "last_used": "today",
+            "location": "https://archives.boost.io/release/1.91.0/source/boost_1_91_0.tar.gz",
+            "path": "/home/user/.cuppa/dependencies/boost/1.91.0",
+            "qualifier": "1.91.0",
+            "remote_location": null,
+            "short_name": "boost",
+            "size": "2.9M",
+            "size_bytes": 3040870,
+            "source_url": "https://archives.boost.io/release/1.91.0/source/boost_1_91_0.tar.gz",
+            "state": "unreferenced",
+            "stem": null,
+            "tool_variant": "",
+            "toolchain_session_name": null,
+            "type": "archive"
+        }
+    ],
+    "missing_count": 0,
+    "scope": "all",
+    "skips": [],
+    "total_bytes": 316879666,
+    "tree":
+    {
+        "sections":
+        [
+            {
+                "children":
+                [
+                    {
+                        "kind": "summary",
+                        "label": "dependencies in use",
+                        "last_used": "today",
+                        "location": "",
+                        "remark": "1 used",
+                        "size": "299.3M",
+                        "size_bytes": 313838796
+                    },
+                    {
+                        "children":
+                        [
+                            {
+                                "children":
+                                [
+                                    {
+                                        "children":
+                                        [
+                                            {
+                                                "kind": "leaf",
+                                                "label": "gcc153_rel_x86_64_cxx2c",
+                                                "last_used": "today",
+                                                "location": "[D] boost_debian_gcc153_rel_x86_64_cxx2c.tar.gz",
+                                                "path": "/home/user/.cuppa/dependencies/boost/1.91/gcc153_rel_x86_64_cxx2c",
+                                                "remark": "in use",
+                                                "size": "299.3M",
+                                                "size_bytes": 313838796,
+                                                "state": "referenced"
+                                            }
+                                        ],
+                                        "kind": "version",
+                                        "label": "1.91",
+                                        "last_used": "today",
+                                        "location": "https://gitlab.example/api/v4/projects/1/boost/1.91",
+                                        "remark": "",
+                                        "size": "299.3M",
+                                        "size_bytes": 313838796
+                                    }
+                                ],
+                                "kind": "identity",
+                                "label": "boost_package",
+                                "last_used": "today",
+                                "location": "",
+                                "registry_name": "boost_package",
+                                "remark": "",
+                                "short_name": "boost_package",
+                                "size": "299.3M",
+                                "size_bytes": 313838796
+                            }
+                        ],
+                        "kind": "type",
+                        "label": "gitlab packages",
+                        "last_used": "today",
+                        "location": "",
+                        "remark": "1 used",
+                        "size": "299.3M",
+                        "size_bytes": 313838796
+                    }
+                ],
+                "kind": "section",
+                "label": "referenced",
+                "last_used": "today",
+                "location": "",
+                "remark": "1 total",
+                "size": "299.3M",
+                "size_bytes": 313838796
+            },
+            {
+                "children":
+                [
+                    {
+                        "children":
+                        [
+                            {
+                                "children":
+                                [
+                                    {
+                                        "kind": "leaf",
+                                        "label": "1.91.0",
+                                        "last_used": "today",
+                                        "location": "[D] https://archives.boost.io/release/1.91.0/source/boost_1_91_0.tar.gz",
+                                        "path": "/home/user/.cuppa/dependencies/boost/1.91.0",
+                                        "remark": "",
+                                        "size": "2.9M",
+                                        "size_bytes": 3040870,
+                                        "state": "unreferenced"
+                                    }
+                                ],
+                                "kind": "identity",
+                                "label": "boost",
+                                "last_used": "today",
+                                "location": "",
+                                "remark": "",
+                                "short_name": "boost",
+                                "size": "2.9M",
+                                "size_bytes": 3040870
+                            }
+                        ],
+                        "kind": "type",
+                        "label": "source archives",
+                        "last_used": "today",
+                        "location": "",
+                        "remark": "",
+                        "size": "2.9M",
+                        "size_bytes": 3040870
+                    }
+                ],
+                "kind": "section",
+                "label": "unreferenced",
+                "last_used": "today",
+                "location": "",
+                "remark": "",
+                "size": "2.9M",
+                "size_bytes": 3040870
+            }
+        ]
+    },
+    "unqualified_duplicate_tokens": [],
+    "unreferenced_bytes": 3040870
+}

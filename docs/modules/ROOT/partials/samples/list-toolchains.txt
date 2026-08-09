@@ -1,0 +1,58 @@
+  ----------------------------------------------------------------------------------------------------------------------------------------------------
+      SIZE  LAST USED     TOOLCHAIN family-version-driver-name(s)
+  ----------------------------------------------------------------------------------------------------------------------------------------------------
+        --  --            discovered
+                          │
+        --  --            ├── clang
+                          │   │
+        --  --            │   ├── 22.1
+        --  --            │   │   └── /usr/bin/clang++-22
+        --  --            │   │       ├── clang22
+        --  --            │   │       └── clang221
+        --  --            │   ├── 21.1
+        --  --            │   │   └── /usr/bin/clang++-21
+        --  --            │   │       ├── clang21
+        --  --            │   │       ├── clang211
+        --  --            │   │       └── clang (default)
+        --  --            │   └── 10.0
+        --  --            │       └── /usr/bin/clang++-10
+        --  --            │           ├── clang10
+        --  --            │           └── clang100
+        --  --            └── gcc (default)
+                              │
+        --  --                ├── 16.1
+        --  --                │   └── /usr/bin/g++-16
+        --  --                │       ├── gcc16
+        --  --                │       └── gcc161
+        --  --                ├── 15.3
+        --  --                │   └── /usr/bin/g++-15
+        --  --                │       ├── gcc15
+        --  --                │       ├── gcc153
+        --  --                │       └── gcc (default)
+        --  --                └── 9.5
+        --  --                    └── /usr/bin/g++-9
+        --  --                        ├── gcc9
+        --  --                        └── gcc95
+  ----------------------------------------------------------------------------------------------------------------------------------------------------
+       10M  today         registered
+                          │
+        2M  today         ├── clang
+                          │   │
+        2M  today         │   └── 24.0
+        2M  today         │       └── ~/_cuppa/_download/toolchains/clang/profiles_2026_08_07_27/bin/clang++
+        2M  today         │           └── clang24_profiles_2026_08_07_27
+        8M  today         └── gcc
+                              │
+        8M  today             └── 17.0
+        8M  today                 └── ~/_cuppa/_download/toolchains/gcc/gcc_snapshot_20260725_1_amd64/usr/lib/gcc-snapshot/bin/g++
+        8M  today                     └── gcc17_gcc_snapshot_20260725_1_amd64
+  ----------------------------------------------------------------------------------------------------------------------------------------------------
+  16 toolchains, 10M total (none discovered, 10M registered)
+
+To remove registered toolchains review with:
+
+cuppa -Q -D -n --force-wipe-dependencies=[toolchain]*
+
+Drop -n and re-run after confirming.
+
+Force-wipe removal of toolchains applies only to registered toolchains. Discovered toolchains are not Cuppa-owned.

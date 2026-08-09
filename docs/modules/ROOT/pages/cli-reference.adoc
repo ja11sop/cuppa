@@ -17,14 +17,14 @@ Standard SCons flags (`-D`, `-j`, `-c`, `-Q`, …) still apply.
 | `--benchmark` / `--force-benchmark` | Run benchmark targets
 | `--run` / `--force-run` | Run `Run()` targets
 | `--toolchains=LIST` | Comma-separated toolchain names; supports fnmatch wildcards (`gcc*`, `clang21`)
-| `--toolchain-archive=URL` | Clang or GCC archive URL/path (tarball/zip/`.deb`). Family from `clang`/`gcc` in the basename, else content probe, else `.deb`→gcc. Cached under `toolchains/{clang,gcc}/` and registered as `clang{major}_{tag}` or `gcc{major}_{stem}` (later runs reuse via `--toolchains=` alone)
-| `--clang-root=PATH` | Existing Clang prefix (`bin/clang++`); registers `clang{major}_local_{hash}` and persists a link under `dependencies_root/toolchains/clang/`
-| `--gcc-root=PATH` | Existing GCC prefix (`bin/g++`); registers `gcc{major}_local_{hash}` and persists a link under `dependencies_root/toolchains/gcc/`
+| `--toolchain-archive=URL` | Clang or GCC archive URL/path (tarball/zip/`.deb`). Family from `clang`/`gcc` in the basename, else content probe, else `.deb`→gcc. Cached under `toolchains/{clang,gcc}/` and registered as `clang\{major}_\{tag}` or `gcc\{major}_\{stem}` (later runs reuse via `--toolchains=` alone)
+| `--clang-root=PATH` | Existing Clang prefix (`bin/clang{plus}{plus}`); registers `clang\{major}_local_\{hash}` and persists a link under `dependencies_root/toolchains/clang/`
+| `--gcc-root=PATH` | Existing GCC prefix (`bin/g{plus}{plus}`); registers `gcc\{major}_local_\{hash}` and persists a link under `dependencies_root/toolchains/gcc/`
 | `--scripts=LIST` / `--projects=LIST` | Limit which sconscripts run
 | `--parallel` | Parallel build (`-j` sized to the machine; `cuppa` may restrict CPU affinity)
 | `--offline` | Skip PyPI version check and remote repository updates
 | `--develop` | Prefer develop locations / develop package paths where configured
-| `--stdcpp=STD` | Override C++ dialect (`c++98`, `c++03`, `c++0x`, `c++11`, `c++1y`, `c++14`, `c++1z`)
+| `--stdcpp=STD` | Override {cpp} dialect (`c{plus}{plus}98` … `c{plus}{plus}26`, `c{plus}{plus}latest`). Omitting it is effectively `c{plus}{plus}latest` on GCC/Clang (newest Cuppa-known dialect for that tool). See xref:toolchains.adoc#c-language-level[C++ language level]
 |===
 
 == Output and diagnostics
@@ -76,6 +76,7 @@ xref:build-layout.adoc#remove-all-builds-example[`--remove-all-builds`]).
 | Option | Effect
 
 | `--list-builds` | List the build root as folder summary, toolchain → variant tree, and sconscript tree; print an explicit command for the selected builds
+| `--list-toolchains` | List **discovered** (PATH) and **registered** (managed) toolchains as a ruled family → version → driver → name(s) tree; then exit. Force-wipe applies only to registered rows. `--list-format=verbose` adds dialects / features / default invocations; `--list-format=json` emits the nested agent payload (with `describe` on drivers). See xref:toolchains.adoc#list-toolchains[Listing toolchains]
 | `--remove-builds` | Remove variant subtrees matching the current `--toolchains` / `--dbg` / `--rel` / `--cov` selection
 | `--remove-all-builds` | Remove the entire build root
 | `--list-dependencies` | List dependency trees under the dependencies root as a hierarchical table (referenced then unreferenced; short-name groups; REMARK) and exit. Omit `--develop` for normal storage inspection; see xref:dependencies-managing.adoc#which-listing[Which listing for which question]
@@ -90,7 +91,7 @@ xref:build-layout.adoc#remove-all-builds-example[`--remove-all-builds`]).
 | `--force-wipe-all-dependencies` | Power tool: clear-down every project-used dependency extract and matching downloads for the current selection (not unreferenced leftovers)
 | `--force-wipe-unreferenced-dependencies` | Power tool: clear-down every dependency tree and matching download this resolve marks as `unreferenced` (orphans). Rare blunt sweep — prefer leaf tokens for old Boost versions under a referenced identity
 | `--exact-sizes` | Force a full remeasure of every dependency tree size (updates the inventory). Without this flag, `--list-dependencies` still upgrades missing or estimated (`~`) inventory sizes to exact the first time it encounters them
-| `--list-format=text\|verbose\|json` | Format for `--list-*` output (default `text`). On `--list-dependencies`, `verbose` adds LOCATION (remotes, registry URLs, archive names) and prefixes regenerating downloads with `[D]`. On `--list-downloads`, `verbose` adds archive and extract paths. On `--list-develop`, `json` emits structured copy state for agents / scripts (`verbose` is the same as `text`)
+| `--list-format=text\|verbose\|json` | Format for `--list-*` output (default `text`). On `--list-dependencies`, `verbose` adds LOCATION (remotes, registry URLs, archive names) and prefixes regenerating downloads with `[D]`. On `--list-downloads`, `verbose` adds archive and extract paths. On `--list-toolchains`, `verbose` adds available dialects / stdlib choices / default invocations under each driver; `json` includes the same `describe` payload on driver nodes. On `--list-develop`, `json` emits structured state (`verbose` is the same as `text`)
 |===
 
 SCons `-n` / `--no-exec` turns build or dependency removal into a dry run: the same report, nothing deleted.
@@ -157,7 +158,7 @@ Dependencies that install their own shared libraries (for example the optional x
 
 Clang:
 
-* `--clang-stdlib={libstdc++,libc++}` (Linux default: `libstdc++`; non-default values tag `toolchain.name()` / `_build` paths, e.g. `clang21-libc++`)
+* `--clang-stdlib=libstdc{plus}{plus}` or `--clang-stdlib=libc{plus}{plus}` (Linux default: `libstdc{plus}{plus}`; non-default values tag `toolchain.name()` / `_build` paths, e.g. `clang21-libc{plus}{plus}`)
 * `--clang-disable-debug-for-auto`
 
 Modules (opt-in; GCC 14+ / LLVM Clang 16+ / MSVC toolset 14.2+):

@@ -1,0 +1,88 @@
+{
+    "sections":
+    [
+        {
+            "families":
+            [
+                {
+                    "family": "gcc",
+                    "is_platform_default": true,
+                    "last_used_epoch": null,
+                    "size_bytes": null,
+                    "versions":
+                    [
+                        {
+                            "drivers":
+                            [
+                                {
+                                    "describe":
+                                    {
+                                        "default_dialect": "c++2c",
+                                        "dialects":
+                                        [
+                                            "c++2c",
+                                            "c++26",
+                                            "c++2b",
+                                            "c++23"
+                                        ],
+                                        "usable_features":
+                                        [
+                                            "all c++2c",
+                                            "modules (experimental)"
+                                        ],
+                                        "variants":
+                                        {
+                                            "dbg":
+                                            {
+                                                "c": "-Wall -g <sources>",
+                                                "c++": "-Wall -fexceptions -g -std=c++2c <sources>",
+                                                "link": "<objects> -rdynamic -Wl,-rpath=. -Xlinker -Bstatic <static_libs> -Xlinker -Bdynamic -lpthread -lrt <dynamic_libs>"
+                                            }
+                                        }
+                                    },
+                                    "display_path": "/usr/bin/g++-15",
+                                    "driver_path": "/usr/bin/g++-15",
+                                    "last_used_epoch": null,
+                                    "names":
+                                    [
+                                        {
+                                            "is_default": false,
+                                            "kind": null,
+                                            "last_used_epoch": null,
+                                            "name": "gcc15",
+                                            "size_bytes": null,
+                                            "storage_path": null
+                                        },
+                                        {
+                                            "is_default": true,
+                                            "kind": null,
+                                            "last_used_epoch": null,
+                                            "name": "gcc",
+                                            "size_bytes": null,
+                                            "storage_path": null
+                                        }
+                                    ],
+                                    "size_bytes": null
+                                }
+                            ],
+                            "last_used_epoch": null,
+                            "owns_default": true,
+                            "size_bytes": null,
+                            "version": "15.3"
+                        }
+                    ]
+                }
+            ],
+            "last_used_epoch": null,
+            "name": "discovered",
+            "size_bytes": null
+        },
+        {
+            "families": [],
+            "last_used_epoch": null,
+            "name": "registered",
+            "size_bytes": null
+        }
+    ],
+    "wipe_applies_to": "registered"
+}

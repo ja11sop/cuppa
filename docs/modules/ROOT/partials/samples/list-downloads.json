@@ -1,0 +1,126 @@
+{
+    "archive_count": 1,
+    "dependencies_root": "/home/user/.cuppa/dependencies",
+    "downloads_root": "/home/user/.cuppa/downloads",
+    "entries":
+    [
+        {
+            "dependency": "boost",
+            "kind": "archive",
+            "label": "boost_1_91_0.tar.bz2",
+            "location": null,
+            "path": "/home/user/.cuppa/downloads/boost_1_91_0.tar.bz2",
+            "qualifier": "1.91.0",
+            "remote_location": null,
+            "short_name": "boost",
+            "size": "142M",
+            "size_bytes": 148897792,
+            "source_url": null,
+            "state": "referenced",
+            "tool_variant": null,
+            "type": "archive"
+        },
+        {
+            "dependency": "boost",
+            "kind": "product",
+            "label": "[E] boost/1.91.0",
+            "location": null,
+            "path": "/home/user/.cuppa/dependencies/boost_1_91_0.tar.bz2",
+            "qualifier": "1.91.0",
+            "remote_location": null,
+            "short_name": "boost",
+            "size": "2.1G",
+            "size_bytes": 2254857830,
+            "source_url": null,
+            "state": "referenced",
+            "tool_variant": null,
+            "type": "archive"
+        }
+    ],
+    "scope": "all",
+    "skips": [],
+    "total_bytes": 148897792,
+    "tree":
+    {
+        "sections":
+        [
+            {
+                "children":
+                [
+                    {
+                        "children":
+                        [
+                            {
+                                "children":
+                                [
+                                    {
+                                        "children":
+                                        [
+                                            {
+                                                "kind": "leaf",
+                                                "label": "[E] boost/1.91.0",
+                                                "last_used": "today",
+                                                "location": "",
+                                                "path": "/home/user/.cuppa/dependencies/boost_1_91_0.tar.bz2",
+                                                "remark": "in use",
+                                                "role": "product",
+                                                "size": "2.1G",
+                                                "size_bytes": 2254857830,
+                                                "state": "referenced"
+                                            }
+                                        ],
+                                        "kind": "leaf",
+                                        "label": "boost_1_91_0.tar.bz2",
+                                        "last_used": "today",
+                                        "location": "",
+                                        "path": "/home/user/.cuppa/downloads/boost_1_91_0.tar.bz2",
+                                        "remark": "in use",
+                                        "role": "archive",
+                                        "size": "142M",
+                                        "size_bytes": 148897792,
+                                        "state": "referenced"
+                                    }
+                                ],
+                                "kind": "identity",
+                                "label": "boost",
+                                "last_used": "today",
+                                "location": "",
+                                "registry_name": "boost",
+                                "remark": "",
+                                "short_name": "boost",
+                                "size": "142M",
+                                "size_bytes": 148897792
+                            }
+                        ],
+                        "kind": "type",
+                        "label": "source archives",
+                        "last_used": "today",
+                        "location": "",
+                        "remark": "1 used",
+                        "size": "142M",
+                        "size_bytes": 148897792
+                    }
+                ],
+                "display_label": "referenced from downloads",
+                "kind": "section",
+                "label": "referenced",
+                "last_used": "today",
+                "location": "",
+                "remark": "1 total",
+                "size": "142M",
+                "size_bytes": 148897792
+            },
+            {
+                "display_label": "unreferenced downloads",
+                "kind": "section",
+                "label": "unreferenced",
+                "last_used": "",
+                "location": "",
+                "remark": "",
+                "size": "-",
+                "size_bytes": null
+            }
+        ]
+    },
+    "unreferenced_bytes": 0
+}

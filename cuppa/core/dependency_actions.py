@@ -159,6 +159,46 @@ def mark_unqualified_duplicate_rows( rows, cuppa_env=None, dependencies_root=Non
     return tokens
 
 
+def write_unqualified_duplicate_wipe_hint( out, tokens, see_earlier_warnings=False ):
+    """Print dry-run wipe advice for unused unqualified VCS stems (stdout)."""
+    if not tokens:
+        return
+    out.write( "\n" )
+    earlier = " (see earlier warnings)" if see_earlier_warnings else ""
+    out.write(
+            as_remove_notice( "Unqualified stem duplicates" )
+            + earlier
+            + " are "
+            + as_remove_notice( "removal candidates" )
+            + " (shown as "
+            + as_remove_notice( "@<default> (unqualified)" )
+            + "; "
+            + as_remove_notice( "name/@" )
+            + " is the wipe shorthand for that stem). Dry-run:\n\n"
+    )
+    command = "cuppa -Q -D -n --force-wipe-dependencies={}".format(
+            ','.join( tokens )
+    )
+    out.write( as_emphasised( command ) + "\n\n" )
+    out.write( "Drop -n and re-run after confirming.\n" )
+
+
+def emit_location_unqualified_duplicate_hints( out=None ):
+    """If Location warned about stem/@branch pairs, print the wipe dry-run once.
+
+    Call after the command's main report/footer (same placement as
+    ``--list-dependencies``), once resolve has already fired any Location warnings.
+    Writes to stdout so the advice remains visible under SCons ``-Q``.
+    ``--list-dependencies`` merges and prints the same hint itself.
+    """
+    from cuppa.location import Location
+    out = out or sys.stdout
+    tokens = Location.take_unqualified_duplicate_wipe_tokens()
+    write_unqualified_duplicate_wipe_hint(
+            out, tokens, see_earlier_warnings=bool( tokens )
+    )
+
+
 def normalise_list_scope( scope ):
     scope = ( scope or 'all' )
     if isinstance( scope, ( list, tuple ) ):
@@ -1114,9 +1154,12 @@ def _collect_rows( construct, cuppa_env, names=None, out=None ):
             rows, cuppa_env=cuppa_env, dependencies_root=dependencies_root,
     )
 
+    from cuppa.core import toolchain_actions
+    toolchain_actions.attach_toolchain_session_names( rows, cuppa_env )
+
     rows.sort( key=lambda row: (
             row.get( 'dependency' ) or '',
-            row.get( 'qualifier' ) or '',
+            row.get( 'toolchain_session_name' ) or row.get( 'qualifier' ) or '',
             row.get( 'tool_variant' ) or '',
             row.get( 'path' ) or '',
     ) )
@@ -1242,6 +1285,7 @@ def write_unknown_remove_names_error( construct, cuppa_env, error, out=None ):
     }
     if not _write_ruled_tree( out, tree ):
         out.write( "  {}\n".format( ', '.join( project_used ) ) )
+    emit_location_unqualified_duplicate_hints( out=out )
 
 
 def list_dependencies( construct, cuppa_env, out=None ):
@@ -1286,6 +1330,7 @@ def list_dependencies( construct, cuppa_env, out=None ):
                     'location': row.get( 'location' ),
                     'has_download': bool( row.get( 'has_download' ) ),
                     'download_path': row.get( 'download_path' ),
+                    'toolchain_session_name': row.get( 'toolchain_session_name' ),
                 }
                 for row in rows
             ],
@@ -1371,26 +1416,21 @@ def list_dependencies( construct, cuppa_env, out=None ):
     ):
         out.write( "\n" )
         out.write( "Review unreferenced trees, then clear them with:\n\n" )
-        out.write( as_emphasised( "cuppa -Q -D --force-wipe-unreferenced-dependencies" ) + "\n" )
+        out.write( as_emphasised(
+                "cuppa -Q -D -n --force-wipe-unreferenced-dependencies"
+        ) + "\n" )
+        out.write( "\nDrop -n and re-run after confirming.\n" )
 
-    tokens = data.get( 'unqualified_duplicate_tokens' ) or []
-    if tokens:
-        out.write( "\n" )
-        out.write(
-                as_remove_notice( "Unqualified stem duplicates" )
-                + " are "
-                + as_remove_notice( "removal candidates" )
-                + " (shown as "
-                + as_remove_notice( "@<default> (unqualified)" )
-                + "; "
-                + as_remove_notice( "name/@" )
-                + " is the wipe shorthand for that stem). Dry-run:\n\n"
-        )
-        command = "cuppa -Q -D -n --force-wipe-dependencies={}".format(
-                ','.join( tokens )
-        )
-        out.write( as_emphasised( command ) + "\n\n" )
-        out.write( "Drop -n and re-run after confirming.\n" )
+    tokens = list( data.get( 'unqualified_duplicate_tokens' ) or [] )
+    from cuppa.location import Location
+    location_tokens = Location.take_unqualified_duplicate_wipe_tokens()
+    for token in location_tokens:
+        if token not in tokens:
+            tokens.append( token )
+    tokens.sort( key=lambda token: token.lower() )
+    write_unqualified_duplicate_wipe_hint(
+            out, tokens, see_earlier_warnings=bool( location_tokens )
+    )
 
     if any( row.get( 'state' ) == 'cached' for row in rows ):
         out.write( "\n" )
@@ -1510,6 +1550,7 @@ def list_downloads( construct, cuppa_env, out=None ):
             "download in place.\n"
         )
 
+    emit_location_unqualified_duplicate_hints( out=out )
     return 0
 
 

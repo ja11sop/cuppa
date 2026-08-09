@@ -77,6 +77,20 @@ cuppa -Q -D --list-dependencies --list-format=json
 cuppa -Q -D --list-dependencies --exact-sizes
 ----
 
+Example `--list-format=json` output (shortened fixture: one referenced leaf and one
+unreferenced leftover; `tree` mirrors the text hierarchy and `entries` is a flat list of
+leaves). JSON samples use `storage.render_json_payload` (4-space Allman braces), matching the
+CLI:
+
+.Example `--list-dependencies --list-format=json` (click to expand)
+[%collapsible]
+====
+[source,json]
+----
+include::partial$samples/list-dependencies.json[]
+----
+====
+
 `--list-scope` selects which part of the listing to show. The values nest:
 
 * `all` (default) — referenced section, then unreferenced
@@ -123,41 +137,28 @@ cuppa -Q -D --list-downloads --list-format=verbose
 cuppa -Q -D --list-downloads --list-format=json
 ----
 
-Example shape (sizes and names vary):
+Example `--list-format=json` output (shortened: one archive and its extract; footer totals
+count **archive** bytes only):
+
+.Example `--list-downloads --list-format=json` (click to expand)
+[%collapsible]
+====
+[source,json]
+----
+include::partial$samples/list-downloads.json[]
+----
+====
+
+Example text shape (sizes and names vary):
+
+Type groups follow the same order as `--list-dependencies` (gitlab packages before source
+archives). Under each type row a hanging `│` connects to the first identity.
+Listing samples below are rendered by `python -m scripts.generate_doc_samples` through the
+same formatters the CLI uses:
 
 [source,text]
 ----
-Downloads in ~/.cuppa/downloads
-Default dependencies: boost, boost_package
-  ---------------------------------------------------------------------------------
-      SIZE  LAST USED  REMARK   DEPENDENCY / DOWNLOAD
-  ---------------------------------------------------------------------------------
-    180.0M  today      2 total  referenced from downloads
-                                │
-    142.0M  today      1 used   ├── source archives
-                                │
-    142.0M  today               │   └── boost
-    142.0M  today      in use   │       └── boost_1_91_0.tar.bz2
-       2.1G  today      in use   │           └── [E] boost/1.91.0
-                                │
-     38.0M  today      1 used   └── gitlab packages
-                                │
-     38.0M  today               └── boost_package
-     38.0M  today                   └── 1.91
-     38.0M  today      in use           └── boost_…_gcc153_rel_….tar.gz
-    299.3M  today      in use               └── [E] gcc153_rel_x86_64_cxx2c
-  ---------------------------------------------------------------------------------
-     36.0M  today               unreferenced downloads
-                                │
-     36.0M  today               └── gitlab packages
-                                    │
-     36.0M  today                   └── boost_package
-     36.0M  today                       └── 1.91
-     36.0M  today                           └── boost_…_clang211_rel_….tar.gz
-  ---------------------------------------------------------------------------------
-  3 archives, 216.0M download total, 36.0M unreferenced
-
-[E] = dependency extracted from the download above
+include::partial$samples/list-downloads.txt[]
 ----
 
 |===
@@ -190,33 +191,7 @@ rule — including the one between `referenced` and `unreferenced` — spans the
 
 [source,text]
 ----
-Dependencies in ~/.cuppa/dependencies
-Default dependencies: boost_package
-  ---------------------------------------------------------------------
-      SIZE  LAST USED  REMARK   DEPENDENCY
-  ---------------------------------------------------------------------
-    299.3M  today      1 total  referenced
-                                │
-    299.3M  today      1 used   ├── dependencies in use
-                                │
-    299.3M  today      1 used   └── gitlab packages
-                                    │
-    299.3M  today                   └── boost_package
-    299.3M  today                       └── 1.91
-    299.3M  today      in use               └── gcc153_rel_x86_64_cxx2c
-  ---------------------------------------------------------------------
-      5.8M  today               unreferenced
-                                │
-      5.8M  today               └── source archives
-                                    │
-      2.9M  today                   ├── boost
-      2.9M  today                   │   └── 1.91.0
-                                    │
-      2.9M  today                   └── github.com/fmtlib/fmt
-      1.4M  today                       ├── 11.1.4
-      1.5M  today                       └── 12.2.0
-  ---------------------------------------------------------------------
-  3 entries, 305.1M total, 5.8M unreferenced
+include::partial$samples/list-dependencies.txt[]
 ----
 
 `SIZE` is right-aligned in a fixed eight-character field. Blank rows that carry only a tree
@@ -242,36 +217,7 @@ archive under downloads; deleting only the dependency tree is not enough.
 
 [source,text]
 ----
-Dependencies in ~/.cuppa/dependencies
-Default dependencies: boost_package
-  ----------------------------------------------------------------------------------------------------------------------------------------------
-      SIZE  LAST USED  REMARK   DEPENDENCY                               LOCATION
-  ----------------------------------------------------------------------------------------------------------------------------------------------
-    299.3M  today      1 total  referenced
-                                │
-    299.3M  today      1 used   ├── dependencies in use
-                                │
-    299.3M  today      1 used   └── gitlab packages
-                                    │
-    299.3M  today                   └── boost_package
-    299.3M  today                       └── 1.91                         https://gitlab.example/api/v4/projects/1/boost/1.91
-    299.3M  today      in use               └── gcc153_rel_x86_64_cxx2c  [D] boost_debian_gcc153_rel_x86_64_cxx2c.tar.gz
-  ----------------------------------------------------------------------------------------------------------------------------------------------
-      5.8M  today               unreferenced
-                                │
-      5.8M  today               └── source archives
-                                    │
-      2.9M  today                   ├── boost
-      2.9M  today                   │   └── 1.91.0                       [D] https://archives.boost.io/release/1.91.0/source/boost_1_91_0.tar.gz
-                                    │
-      2.9M  today                   └── github.com/fmtlib/fmt
-      1.4M  today                       ├── 11.1.4                       [D] https://github.com/fmtlib/fmt/archive/refs/tags/11.1.4.zip
-      1.5M  today                       └── 12.2.0                       https://github.com/fmtlib/fmt/archive/refs/tags/12.2.0.zip
-  ----------------------------------------------------------------------------------------------------------------------------------------------
-  3 entries, 305.1M total, 5.8M unreferenced
-
-[D] = archive present under downloads (~/.cuppa/downloads).
-If re-extracting a dependency fails, remove the corrupt archive there - deleting only the dependency tree is not enough.
+include::partial$samples/list-dependencies-verbose.txt[]
 ----
 
 The inventory under `<dependencies_root>/.cuppa-inventory/` records sizes (exact after listing
@@ -384,32 +330,7 @@ The version nests under the identity; `[E]` is partial because source assets sta
 
 [source,text]
 ----
-Removed 2 dependency trees (412.3M) under ~/.cuppa/dependencies
-
-  ------------------------------------------------------------------------------------
-       SIZE  LAST USED      REMARK     DEPENDENCY
-  ------------------------------------------------------------------------------------
-       2.1G                             related dependencies for boost
-                                        │
-     412.3M                             ├── removing
-       1.7G                             ├── remaining
-                                        │
-       2.1G                             └── source archives
-                                            │
-       2.1G                                 └── -✔- boost
-                                                │
-       2.1G                                        └── -✔- 1.91.0
-       2.1G   yesterday                               └── -✔- [E] boost_1_91_0
-       1.7G   yesterday                                      ├── - source assets
-    298.4M   yesterday      removed                          ├── ✔ clean/build.c++2c [gcc153/debug/x86_64]
-    113.9M   yesterday      removed                          └── ✔ clean/bin.c++2c [gcc-15*/debug]
-  ------------------------------------------------------------------------------------
-
-Removed 2 trees freeing up 412.3M of disk space, leaving a final archive size of 1.7G.
-
-Verify with:
-
-cuppa -Q -D --list-dependencies
+include::partial$samples/remove-boost-product-clean.txt[]
 ----
 
 Example shape after removing the selected GitLab toolchain tree while other toolchains remain
@@ -417,34 +338,7 @@ Example shape after removing the selected GitLab toolchain tree while other tool
 
 [source,text]
 ----
-Would remove 1 dependency tree (166M) under ~/.cuppa/dependencies
-(dry run; pass without -n to remove)
-
-  ------------------------------------------------------------------------------------
-       SIZE  LAST USED      REMARK     DEPENDENCY
-  ------------------------------------------------------------------------------------
-    757.8M                             related dependencies for boost_package
-                                       │
-      166M                             ├── removing
-    591.8M                             ├── remaining
-                                       │
-    757.8M                             └── gitlab packages
-                                           │
-    757.8M                                 └── -✔- boost_package
-                                               │
-    757.8M                                        └── -✔- 1.91
-      294M   11 days ago                             ├── - clang211_rel_x86_64_cxx2c/boost/1.91
-    297.8M   2 months ago                            ├── - gcc152_rel_x86_64_cxx2c/boost/1.91
-      166M   yesterday      would rm                 └── ✔ gcc153_rel_x86_64_cxx2c/boost/1.91
-  ------------------------------------------------------------------------------------
-
-Leaving 2 trees (591.8M) for other selections as shown.
-
-Would remove 1 tree freeing up 166M of disk space.
-
-Verify with:
-
-cuppa -Q -D --list-dependencies
+include::partial$samples/remove-gitlab-dry-run.txt[]
 ----
 
 The identity row rolls up size (muted) and emphasises the dependency name and package version.
@@ -492,29 +386,12 @@ cuppa -Q -D --purge-all-dependencies
 ----
 
 Example shape after purging the selected GitLab toolchain tree and tarball while another
-toolchain remains (sizes and ids vary):
+toolchain remains (sizes and ids vary). The report uses the same summary → type → identity →
+version tree as remove; archive files and extract leaves hang under the version:
 
 [source,text]
 ----
-Removed 1 dependency tree and 1 download (166M) under ~/.cuppa/dependencies / ~/.cuppa/downloads
-
-  ------------------------------------------------------------------------------------
-       SIZE  LAST USED      REMARK     DEPENDENCY
-  ------------------------------------------------------------------------------------
-    757.8M                             boost_package  1.91
-      1.2M   yesterday      removed    ├── ✔ boost_debian_gcc153_rel_x86_64_cxx2c.tar.gz
-      166M   yesterday      removed    │       └── ✔ [E] gcc153_rel_x86_64_cxx2c/boost/1.91
-      1.1M   11 days ago               └── - boost_debian_clang211_rel_x86_64_cxx2c.tar.gz
-      294M   11 days ago                       └── - [E] clang211_rel_x86_64_cxx2c/boost/1.91
-  ------------------------------------------------------------------------------------
-
-Leaving 1 tree and 1 download (295.1M) for other selections as shown.
-
-Removed 1 tree and 1 download freeing up 167.2M of disk space.
-
-Verify with:
-
-cuppa -Q -D --list-downloads
+include::partial$samples/purge-gitlab.txt[]
 ----
 
 See xref:integration/test-purge-dependencies.adoc[`test_purge_dependencies`].
@@ -576,10 +453,11 @@ A token with no matching leaf (or a matched path that is already gone) does **no
 rest of the list: other tokens still wipe, and each miss appears in the judgement tree (warning
 on dry-run, past-tense note after a real wipe). Ambiguous non-wildcard tokens still fail hard.
 
-When both an unqualified stem and `stem@<default>` exist, `--list-dependencies` colours the
-unused `@<default> (unqualified)` leaf with the remove accent and ends with a dry-run command
-listing every such candidate as `name/@` tokens (including under `--list-scope=compact`, where
-those rows are hidden). Under `--offline`, candidates with inventory `used_by` from another
+When both an unqualified stem and `stem@<default>` exist, Location warns and (for every command
+except `--list-dependencies`) prints the same dry-run `--force-wipe-dependencies=` hint with
+`name/@` tokens after that command's report footer. `--list-dependencies` colours the unused `@<default> (unqualified)` leaf with
+the remove accent and ends with that hint in its footer (including under `--list-scope=compact`,
+where those rows are hidden). Under `--offline`, candidates with inventory `used_by` from another
 project are omitted from that hint. Confirm with `-n`, then drop `-n` to wipe. If inventory
 still records another project's use of the unqualified path, force-wipe reports it after the
 report table (judgement tree, like other removal notices). On a dry-run (`-n`) that notice is a
@@ -672,46 +550,24 @@ fast-forward as of the last fetch), `worst_severity`, and `entries` for each dev
 (observed state, `severity` / `status`, `state` summary, and `notes`). Exit status is still
 non-zero when a develop path does not exist.
 
-Example output from a project with several develop locations (integration scenario
+Example `--list-format=json` output (shortened: warn + error develop rows):
+
+.Example `--list-develop --list-format=json` (click to expand)
+[%collapsible]
+====
+[source,json]
+----
+include::partial$samples/list-develop.json[]
+----
+====
+
+Example text output from a project with several develop locations (integration scenario
 xref:integration/test-list-develop.adoc[`test_list_develop`]). Your branch names and paths will
 differ; the shape of the report does not. Colour is described in the commentary below.
 
 [source,text]
 ----
-Building on branch [feature_orders] with default branch [master]; --develop is not active
-
-  ----------------------------------------------------------------------------------------------
-  STATUS  DEPENDENCY  BRANCH          UPSTREAM            STATE                  PATH
-  ----------------------------------------------------------------------------------------------
-  warn    flange      spike_cache     origin/spike_cache  clean, 2 behind        ~/coding/flange
-  ok      gadget      master          origin/master       clean                  ~/coding/gadget
-  error   gizmo       -               -                   path does not exist    ~/coding/gizmo
-  note    widget      feature_orders  -                   modified, no upstream  ~/coding/widget
-  ----------------------------------------------------------------------------------------------
-
-4 develop locations: [1 error][1 warning][1 note]; 1 ok; 1 dependency not using develop
-│
-├── 1 error
-│   │
-│   └── gizmo
-│       └── has a develop path [~/coding/gizmo] that does not exist, so this build cannot
-│           succeed
-│
-├── 1 warning
-│   │
-│   └── flange
-│       ├── is on [spike_cache], which is neither [feature_orders] nor the default branch [master]
-│       └── is 2 commits behind [origin/spike_cache] as of your last fetch
-│
-└── 1 note
-    │
-    └── widget
-        ├── has no upstream branch, so ahead and behind cannot be answered
-        └── has uncommitted changes on [feature_orders]
-
-Ahead and behind are relative to your last fetch; no remote was contacted
-Of these, --update-develop would fast-forward 1 ([flange]) as of your last fetch; it fetches
-first, so it may find more
+include::partial$samples/list-develop.txt[]
 ----
 
 The table is the inventory of what you are building against.

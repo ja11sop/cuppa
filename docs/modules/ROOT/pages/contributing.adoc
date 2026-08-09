@@ -67,11 +67,14 @@ relate to `start_release`.
 
 == Validating changes locally
 
-Before you push a pull-request branch, run the same gate CI expects (from a checkout where cuppa
-is importable — for example `pip install -e .` or `PYTHONPATH=.`):
+Before you push a pull-request branch, run the same gate CI expects.
+Use a Python virtualenv with Cuppa’s dependencies installed (existing checkout `venv/`, or create
+one with `python3 -m venv venv`, then `pip install -r requirements.txt` and `pip install -e .`).
+`AGENTS.md` spells out why host `flake8` / `pylint` shims are unreliable.
 
 [source,sh]
 ----
+source venv/bin/activate
 flake8 cuppa
 pylint -E cuppa
 pytest -m unit
