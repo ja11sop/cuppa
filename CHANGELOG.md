@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `design/ideas/scratchpad.md` holds pre-plan product ideas (living). Notes graduate into
+  `design/plans/` and `ROADMAP.md`, then leave the scratchpad. `*.local.md` remains for private
+  project maps only.
+
 ### Changed
 
 ### Deprecated
