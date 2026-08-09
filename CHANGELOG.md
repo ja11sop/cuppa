@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reuse `--toolchains=` flag at sconstruct end. List/downloads classify these as type
   `toolchain`; force-wipe accepts `[toolchain]clang/…`, `[toolchain]gcc/…`, or the session name.
   Project-scoped `--remove-` / `--purge-` / `--wipe-dependencies` do not apply. See
-  `design/plans/toolchains-as-dependencies.md` and [#160](https://github.com/ja11sop/cuppa/issues/160).
+  `design/archive/toolchains-as-dependencies.md` and [#160](https://github.com/ja11sop/cuppa/issues/160).
   ([#127](https://github.com/ja11sop/cuppa/issues/127) `--profiles` remains a follow-on.)
 - `--list-scope=compact` is a refinement of `referenced`: resolve-selected leaves only (no
   unused siblings, no unreferenced section).
@@ -288,6 +288,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Archive the shipped toolchains-as-dependencies design plan under `design/archive/` (umbrella
+  [#160](https://github.com/ja11sop/cuppa/issues/160)); update ROADMAP, toolchains docs, and code
+  citations to the new path.
 - The `release` workflow builds sdist and wheel, creates the GitHub Release from the CHANGELOG
   section, and publishes to PyPI via Trusted Publishing after approval on the `pypi` environment.
   Tag push and `workflow_dispatch` (existing tag) both drive it; see `release.txt`.

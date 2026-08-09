@@ -1,14 +1,14 @@
 # Plan: Toolchains as dependencies
 
-- **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md); umbrella [#160](https://github.com/ja11sop/cuppa/issues/160); Profiles follow-on [#127](https://github.com/ja11sop/cuppa/issues/127); type-selector note in [`boost-updates.md`](boost-updates.md); report polish [#161](https://github.com/ja11sop/cuppa/issues/161)
-- **Updated:** 2026-08-08
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md); umbrella [#160](https://github.com/ja11sop/cuppa/issues/160) (Clang [#159](https://github.com/ja11sop/cuppa/pull/159) / GCC [#164](https://github.com/ja11sop/cuppa/pull/164)); Profiles follow-on [#127](https://github.com/ja11sop/cuppa/issues/127); type-selector note in [`boost-updates.md`](../plans/boost-updates.md); report polish [#161](https://github.com/ja11sop/cuppa/issues/161); download progress [#165](https://github.com/ja11sop/cuppa/pull/165)
+- **Updated:** 2026-08-09
 
-Fetched compilers should behave like other cuppa dependencies: download once, extract under
+Fetched compilers behave like other cuppa dependencies: download once, extract under
 storage roots, list / remove / wipe later, and register a **stable toolchain name** for
 `--toolchains=` and `_build` folders. **Clang** (public archive URLs) and **GCC**
 (`gcc-snapshot` `.deb` + `--gcc-root=`) are the shipped families. MSVC and authenticated
-Actions artifacts come later.
+Actions artifacts remain follow-ons (see ROADMAP).
 
 **Product goal — multiple concurrent copies:** users must be able to keep several Clang and
 several GCC installs registered at once and **select more than one in a single cuppa run**
@@ -108,16 +108,16 @@ cuppa -D --dbg --toolchains=gcc15,gcc16_gcc_snapshot_20260725_1_amd64,clang24_pr
 | `tc-dep-list` | list/downloads type `toolchain` | done |
 | `tc-dep-remove` | force-wipe `[toolchain]…` | done |
 | `tc-dep-pr` | First Clang slice land | done |
-| `tc-dep-gcc-root` | `--gcc-root=` + persist external + discover gcc | done (this PR) |
-| `tc-dep-gcc-deb` | `.deb` as `--toolchain-archive=` for gcc-snapshot | done (this PR) |
-| `tc-dep-external-persist` | Persist `--clang-root=` / `--gcc-root=` registrations | done (this PR) |
-| `tc-dep-url-sugar` | Optional URL token in `--toolchains=` | later |
-| `tc-dep-profiles` | [#127](https://github.com/ja11sop/cuppa/issues/127) `--profiles` | later |
-| `tc-dep-actions` | Authenticated Actions artifact URLs | later |
-| `dl-prog` | Shared HTTP download progress for large archives | later — [`download-progress.md`](../archive/download-progress.md) |
+| `tc-dep-gcc-root` | `--gcc-root=` + persist external + discover gcc | done (#164) |
+| `tc-dep-gcc-deb` | `.deb` as `--toolchain-archive=` for gcc-snapshot | done (#164) |
+| `tc-dep-external-persist` | Persist `--clang-root=` / `--gcc-root=` registrations | done (#164) |
+| `tc-dep-url-sugar` | Optional URL token in `--toolchains=` | later (ROADMAP) |
+| `tc-dep-profiles` | [#127](https://github.com/ja11sop/cuppa/issues/127) `--profiles` | later (separate issue) |
+| `tc-dep-actions` | Authenticated Actions artifact URLs | later (ROADMAP) |
+| `dl-prog` | Shared HTTP download progress for large archives | done (#165) — [`download-progress.md`](download-progress.md) |
 
 ## Related
 
-- Type selectors for cross-type name clashes — see [`boost-updates.md`](boost-updates.md).
+- Type selectors for cross-type name clashes — see [`boost-updates.md`](../plans/boost-updates.md).
 - Report / judgement-tree polish:
-  [`console-report-patterns.md`](../archive/console-report-patterns.md) / [#161](https://github.com/ja11sop/cuppa/issues/161).
+  [`console-report-patterns.md`](console-report-patterns.md) / [#161](https://github.com/ja11sop/cuppa/issues/161).
