@@ -99,7 +99,7 @@ Which management flags apply:
 * `--force-wipe-unreferenced-dependencies` — yes for installs that are not the active selection.
 * `--remove-dependencies` / `--purge-dependencies` / `--wipe-dependencies` (and the `*-all-*` forms) — no; those only target **project-used** dependency names from the current selection (`default_dependencies` / `BuildWith`), not compiler installs.
 
-Design notes: `design/plans/toolchains-as-dependencies.md`.
+Design notes: `design/archive/toolchains-as-dependencies.md`.
 
 [#c-language-level]
 == C++ language level

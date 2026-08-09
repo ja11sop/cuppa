@@ -312,9 +312,10 @@ Goal: fetched compilers behave like other cuppa dependencies — download once, 
 storage roots, register a stable non-colliding name for `--toolchains=` / `_build`, and list /
 force-wipe with the same grammar as location and package trees.
 
-Design: [`design/plans/toolchains-as-dependencies.md`](design/plans/toolchains-as-dependencies.md).
-Umbrella: [#160](https://github.com/ja11sop/cuppa/issues/160). Opt-in C++ Profiles (`-fprofiles`)
-remains [#127](https://github.com/ja11sop/cuppa/issues/127) and is not this section.
+Design (shipped): [`design/archive/toolchains-as-dependencies.md`](design/archive/toolchains-as-dependencies.md).
+Umbrella: [#160](https://github.com/ja11sop/cuppa/issues/160) (Clang [#159](https://github.com/ja11sop/cuppa/pull/159), GCC [#164](https://github.com/ja11sop/cuppa/pull/164)).
+Opt-in C++ Profiles (`-fprofiles`) remains [#127](https://github.com/ja11sop/cuppa/issues/127) and is not
+this section.
 
 ### Today
 
@@ -333,7 +334,7 @@ remains [#127](https://github.com/ja11sop/cuppa/issues/127) and is not this sect
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
 | `tc-dep-url-sugar` | Optional URL token in `--toolchains=` | Low | Keep `--toolchain-archive=` as explicit supply |
-| `tc-dep-profiles` | [#127](https://github.com/ja11sop/cuppa/issues/127) `--profiles` / `-fprofiles` | Medium | Needs a Profiles-capable Clang via [#160](https://github.com/ja11sop/cuppa/issues/160) |
+| `tc-dep-profiles` | [#127](https://github.com/ja11sop/cuppa/issues/127) `--profiles` / `-fprofiles` | Medium | Needs a Profiles-capable Clang (supply path from [#160](https://github.com/ja11sop/cuppa/issues/160) is done) |
 | `tc-dep-actions` | Authenticated Actions artifact URLs | Low | After public HTTPS / file path is solid |
 | `tc-dep-msvc` | MSVC archive / layout as toolchain dep | Low | Separate driver; not gcc-snapshot |
 

@@ -7,7 +7,7 @@
 
 Public HTTPS / file archives (Clang tarballs, Debian ``gcc-snapshot`` ``.deb`` files)
 and local ``--clang-root`` / ``--gcc-root`` prefixes. See
-``design/plans/toolchains-as-dependencies.md``.
+``design/archive/toolchains-as-dependencies.md``.
 """
 
 from __future__ import print_function
