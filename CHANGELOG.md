@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `design/ideas/scratchpad.md` holds pre-plan product ideas (living). Notes graduate into
   `design/plans/` and `ROADMAP.md`, then leave the scratchpad. `*.local.md` remains for private
   project maps only.
+- Design proposals: [`boost-latest-persistence.md`](design/plans/boost-latest-persistence.md)
+  (persist scraped Boost `latest` for offline CI) and
+  [`list-toolchains.md`](design/plans/list-toolchains.md) (`--list-toolchains` inventory).
 
 ### Changed
 

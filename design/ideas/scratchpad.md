@@ -14,36 +14,12 @@ Priority is decided at that graduation step — not here.
 Do not put private project names here; use anonymised labels and
 `INTERNAL_PROJECTS.local.md` for the map.
 
-## Update: plans/boost-updates.md
+### Graduated (removed from this file)
 
-### Latest boost version
+- Boost `latest` persistence → [`plans/boost-latest-persistence.md`](../plans/boost-latest-persistence.md)
+- `--list-toolchains` → [`plans/list-toolchains.md`](../plans/list-toolchains.md)
 
-If we do not already have a `--boost-latest-version` config setting we should add one. When Cuppa
-checks the Boost website for the latest version it should write that value into `.cuppaconfig`
-*if* it differs from the default version in the Boost dependency. That setting might eventually
-replace the hard-coded default entirely.
-
-Typical CI shape that motivates this:
-
-1. Online, parallel: clone or download dependencies and build quickly (including Boost), for
-   example:
-
-```shell
-cuppa --dbg --rel --cov --parallel
-```
-
-2. Offline, serial tests (everything already downloaded):
-
-```shell
-cuppa --dbg --rel --cov --test --offline
-```
-
-If Cuppa’s declared “latest” Boost is older than the version fetched online in step 1 (common
-around a Boost release), step 2 offline will honour the older declared version, find that older
-archive under `--downloads-root`, and build/use it instead of the newer tree from step 1.
-
-A persisted `--boost-latest-version` (or equivalent) would make step 2 reuse the version
-discovered online in step 1.
+## Update: plans/boost-updates.md (related — dependency selection)
 
 ### Boost name clashes and built-in dependencies (possibly a separate plan)
 
@@ -105,19 +81,10 @@ behaviour before changing anything.
 
 ## New plan(s): Toolchains
 
-### Coverage for MSVC / `cl`
+### Coverage for MSVC / `cl` (deferred)
 
 Assess what is involved and write a plan. Should integrate with the existing GCC/Clang coverage
-reporting path.
-
-### Add `--list-toolchains`
-
-List both automatically discovered toolchains and manually registered ones (wording TBD:
-“automatically discovered” vs “automatically registered”, and the matching manual term), similar
-in spirit to `--list-dependencies`. Only manually registered toolchains would be wipeable.
-
-Also show the full path to the driver (`clang++`, `g++`, …) so callers that need the binary
-directly know where it is.
+reporting path. Deferred while Boost latest persistence and `--list-toolchains` are in flight.
 
 ## New plan(s): Dependencies
 
