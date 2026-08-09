@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.5.0] - unreleased
+## [1.5.0] - 2026-08-09
 
 ### Added
 
@@ -87,10 +87,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tracked maintainer process narrative under `design/process/` (agent workflow journey), with
   `AGENTS.md` update rules and `.github/CODEOWNERS` review on that tree.
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 
 - Clang `_resolve_versioned_tool` joins the tool name onto `where_is()`'s directory again, so
@@ -107,8 +103,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   MAX_PATH-hashed location stems (no `git_` prefix) as `@<default> (unqualified)` when
   `stem@<default>` sits beside them, and the integration fixture plants those hashed pairs
   with a `.git` dir so classify stays `repository`.
-
-### Security
 
 ## [1.4.0] - 2026-08-07
 
@@ -537,7 +531,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Baseline release on `master` before the modules work landed.
 Detailed notes for 1.1.x and earlier were not maintained in this file; start recording notable changes here from 1.2.0 onward.
 
-[1.5.0]: https://github.com/ja11sop/cuppa/compare/v1.4.0...HEAD
+[1.5.0]: https://github.com/ja11sop/cuppa/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/ja11sop/cuppa/compare/v1.3.2...v1.4.0
 [1.2.0]: https://github.com/ja11sop/cuppa/compare/v1.1.3...v1.2.0
 [1.1.3]: https://github.com/ja11sop/cuppa/releases/tag/v1.1.3
