@@ -159,7 +159,7 @@ anonymous reads use the public GitHub HTTP API, `curl`, or `urllib` — still no
 
 Cuppa is a public repository, so anything that only reads *metadata* — issue lists, issue bodies,
 pull request state, check-run conclusions — needs no credential at all. Use the public API
-anonymously (`GitHub.public()` / `pr-status` / `watch-pr`) and do not ask for a token.
+anonymously (`GitHub.public()` / `show-pr` / `pr-status` / `watch-pr`) and do not ask for a token.
 
 **Exception — Actions log archives:** even on a public repository, GitHub's
 `/actions/runs/{id}/logs` and `/actions/jobs/{id}/logs` endpoints return **403** to anonymous
@@ -214,20 +214,27 @@ work on a machine with no TPM.
 ### Using it
 
 **Reads** go through the public API — no sealed token. Prefer `scripts.github_helpers`
-(`pr-status` / `watch-pr`) for pull-request CI, or an anonymous client for ad-hoc GETs:
+(`show-pr` / `pr-status` / `watch-pr`) for pull-request metadata and CI, or an anonymous client
+for other ad-hoc GETs:
 
 ```sh
-python -m scripts.github_api GET /repos/ja11sop/cuppa/issues/132
+python -m scripts.github_helpers show-pr --pr 165          # title, labels, body (alias: fetch-pr)
+python -m scripts.github_helpers show-pr --pr 165 --json
 python -m scripts.github_helpers pr-status --pr 140
+python -m scripts.github_api GET /repos/ja11sop/cuppa/issues/132
 ```
 
 ```python
+from scripts.github_helpers import show_pull_request
+show_pull_request( number=165 )
+
 from scripts.github_api import GitHub
 GitHub.public().request( 'GET', '/repos/ja11sop/cuppa/pulls/140' )
 ```
 
 The CLI uses the anonymous client for `GET` / `HEAD` by default. Pass `--auth` only when a read
-truly needs the sealed credential (private resources). Do not unseal just to poll CI.
+truly needs the sealed credential (private resources). Do not unseal just to poll CI or to read
+a public pull request's title and body.
 
 **Writes** use the sealed credential. `scripts.github_api` reads the token into the calling
 process only — never into the environment:
@@ -336,10 +343,14 @@ checks complete, then report the outcome and be ready to decide next steps — m
 green, diagnosis and a fix if red.
 
 ```sh
-python -m scripts.github_helpers watch-pr          # current branch's open PR
+python -m scripts.github_helpers watch-pr          # pins current branch's open PR at start
 python -m scripts.github_helpers watch-pr --pr 139
 python -m scripts.github_helpers pr-status --pr 139   # one snapshot; no wait
 ```
+
+`watch-pr` without `--pr` resolves the open PR once, then keeps that number for every poll — so
+checking out another branch while it runs will not silently switch targets. Prefer `--pr` after
+`create-pr` when the number is already known.
 
 These status helpers read the public API anonymously by default — they do **not** unseal the token
 unless you pass `--auth` or the public API rate-limits (then they fall back to the sealed

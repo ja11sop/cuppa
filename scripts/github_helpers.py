@@ -9,11 +9,16 @@ Owner and repository always come from the local ``origin`` remote (or explicit `
 ``--repo``). There is no baked-in default, so a checkout of a fork cannot silently talk to the
 wrong repository.
 
-Reads on a public repository use the anonymous API. ``pr-status`` and ``watch-pr`` do not unseal
-the token. Writes (``create-pr``, ``update-pr``, labelling) and CI log downloads (``fetch-ci-logs``) still go
-through the sealed credential.
+Reads on a public repository use the anonymous API. ``show-pr`` (alias ``fetch-pr``),
+``pr-status``, and ``watch-pr`` do not unseal the token. Writes (``create-pr``, ``update-pr``,
+labelling) and CI log downloads (``fetch-ci-logs``) still go through the sealed credential.
 
 Pushing a branch is still ``git push -u origin HEAD``.
+
+Show pull request metadata (title, labels, body) without unsealing:
+
+    python -m scripts.github_helpers show-pr --pr 165
+    python -m scripts.github_helpers fetch-pr --pr 165 --json
 
 Create a pull request from the current branch:
 
@@ -43,8 +48,11 @@ public even on a public repository):
 
     Or from Python:
 
-    from scripts.github_helpers import create_pull_request, update_pull_request, watch_pull_request
+    from scripts.github_helpers import (
+        create_pull_request, show_pull_request, update_pull_request, watch_pull_request,
+    )
     create_pull_request( title='…', body='…', labels=['impact:minor'] )
+    show_pull_request( number=165 )
     update_pull_request( number=154, title='…', body='…' )
     watch_pull_request( number=139 )
 """
@@ -343,6 +351,92 @@ def resolve_pull_request( number=None, head=None, owner=None, repo=None, github=
     return pull
 
 
+def summarize_pull_request( pull ):
+    """Stable fields agents need from a GitHub pull-request payload."""
+    labels = [
+        label.get( 'name' )
+        for label in ( pull.get( 'labels' ) or [] )
+        if label.get( 'name' )
+    ]
+    head = pull.get( 'head' ) or {}
+    base = pull.get( 'base' ) or {}
+    return {
+        'number': pull.get( 'number' ),
+        'url': pull.get( 'html_url' ) or '',
+        'title': pull.get( 'title' ) or '',
+        'state': pull.get( 'state' ) or '',
+        'draft': bool( pull.get( 'draft' ) ),
+        'mergeable_state': pull.get( 'mergeable_state' ) or '',
+        'labels': labels,
+        'head': {
+            'ref': head.get( 'ref' ) or '',
+            'sha': head.get( 'sha' ) or '',
+        },
+        'base': {
+            'ref': base.get( 'ref' ) or '',
+        },
+        'body': pull.get( 'body' ) or '',
+    }
+
+
+def format_pull_request( summary ):
+    """Human-readable ``show-pr`` output from :func:`summarize_pull_request`."""
+    head = summary.get( 'head' ) or {}
+    base = summary.get( 'base' ) or {}
+    sha = head.get( 'sha' ) or ''
+    short_sha = sha[:8] if sha else '-'
+    labels = summary.get( 'labels' ) or []
+    label_text = ', '.join( labels ) if labels else '-'
+    lines = [
+        "PR #{} {}".format( summary.get( 'number' ), summary.get( 'url' ) or '' ).rstrip(),
+        "title: {}".format( summary.get( 'title' ) or '' ),
+        "state={}  draft={}  mergeable_state={}".format(
+            summary.get( 'state' ) or '-',
+            'true' if summary.get( 'draft' ) else 'false',
+            summary.get( 'mergeable_state' ) or '-',
+        ),
+        "labels: {}".format( label_text ),
+        "head: {} @ {}".format( head.get( 'ref' ) or '-', short_sha ),
+        "base: {}".format( base.get( 'ref' ) or '-' ),
+    ]
+    body = summary.get( 'body' ) or ''
+    if body:
+        lines.append( '---' )
+        lines.append( body.rstrip( '\n' ) )
+    return "\n".join( lines )
+
+
+def show_pull_request( number=None, head=None, owner=None, repo=None, github=None ):
+    """Pull request metadata (public API by default). Returns a summary dict."""
+    owner, repo = repository( owner, repo )
+    client = public_github( github )
+    pull = resolve_pull_request(
+        number=number, head=head, owner=owner, repo=repo, github=client
+    )
+    return summarize_pull_request( pull )
+
+
+def _pull_with_auth_fallback( number=None, head=None, owner=None, repo=None, github=None, out=None ):
+    """Return ``(summary, client)``, switching to the sealed token on rate limit."""
+    out = out or sys.stdout
+    client = public_github( github )
+    try:
+        return show_pull_request(
+            number=number, head=head, owner=owner, repo=repo, github=client
+        ), client
+    except RateLimited:
+        if not is_anonymous_client( client ):
+            raise
+        out.write(
+            "public API rate-limited; retrying with sealed credential\n"
+        )
+        out.flush()
+        client = GitHub()
+        return show_pull_request(
+            number=number, head=head, owner=owner, repo=repo, github=client
+        ), client
+
+
 def _check_runs_for( sha, owner, repo, github ):
     status, payload = github.request(
         'GET',
@@ -438,11 +532,35 @@ def watch_pull_request(
     Sleeps *before* each poll. Default schedule: 2 minutes, then 8 minutes, then every
     2 minutes. Pass ``interval`` for a fixed delay instead. On public rate limits, falls back
     to the sealed credential and keeps that client for later polls.
+
+    When ``number`` is omitted, the open PR for ``head`` (or the current branch) is resolved
+    **once** up front. Later polls keep that number so a concurrent checkout of another branch
+    cannot retarget the watch.
     """
     out = out or sys.stdout
+    owner, repo = repository( owner, repo )
+    client = public_github( github )
+    if number is None:
+        try:
+            pull = resolve_pull_request(
+                number=None, head=head, owner=owner, repo=repo, github=client
+            )
+        except RateLimited:
+            if not is_anonymous_client( client ):
+                raise
+            out.write(
+                "public API rate-limited; retrying with sealed credential "
+                "(same poll schedule)\n"
+            )
+            out.flush()
+            client = GitHub()
+            pull = resolve_pull_request(
+                number=None, head=head, owner=owner, repo=repo, github=client
+            )
+        number = pull['number']
+
     deadline = clock() + timeout
     last = None
-    client = github
     delays = iter_poll_delays( schedule=schedule, interval=interval )
 
     while True:
@@ -721,6 +839,22 @@ def pr_status_command( arguments ):
     return exit_code_for( status.outcome )
 
 
+def show_pr_command( arguments ):
+    github = GitHub() if arguments.auth else None
+    summary, _client = _pull_with_auth_fallback(
+        number = arguments.pr,
+        head = arguments.head,
+        owner = arguments.owner,
+        repo = arguments.repo,
+        github = github,
+    )
+    if arguments.json:
+        print( json.dumps( summary, indent=2, sort_keys=True ) )
+    else:
+        print( format_pull_request( summary ) )
+    return 0
+
+
 def watch_pr_command( arguments ):
     github = GitHub() if arguments.auth else None
     code, _ = watch_pull_request(
@@ -796,6 +930,17 @@ def main( argv=None ):
     status = commands.add_parser( 'pr-status', help="show check status once and exit" )
     _add_pr_selection_arguments( status )
 
+    show = commands.add_parser(
+        'show-pr',
+        aliases=[ 'fetch-pr' ],
+        help="show pull request title, labels, and body (public API)",
+    )
+    _add_pr_selection_arguments( show )
+    show.add_argument(
+        '--json', action='store_true',
+        help="print a JSON summary instead of the human-readable form",
+    )
+
     watch = commands.add_parser(
         'watch-pr',
         help="poll check status until the pull request finishes (or times out)",
@@ -841,6 +986,8 @@ def main( argv=None ):
             return update_pr_command( arguments )
         if arguments.command == 'pr-status':
             return pr_status_command( arguments )
+        if arguments.command in ( 'show-pr', 'fetch-pr' ):
+            return show_pr_command( arguments )
         if arguments.command == 'watch-pr':
             return watch_pr_command( arguments )
         if arguments.command == 'fetch-ci-logs':

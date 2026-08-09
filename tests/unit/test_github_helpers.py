@@ -81,6 +81,95 @@ def test_pull_request_status_uses_a_public_client_by_default( monkeypatch ):
     assert created, "status helpers must use GitHub.public(), not the sealed client"
 
 
+def test_show_pull_request_uses_public_api_and_summarises( monkeypatch ):
+    created = []
+
+    class CapturingPublic( object ):
+        @classmethod
+        def public( cls ):
+            client = FakeGitHub( responses=[
+                ( 200, {
+                    'number': 165,
+                    'html_url': 'https://example.com/pr/165',
+                    'title': 'Share download progress',
+                    'body': '## Summary\n\nProgress bars.\n',
+                    'state': 'open',
+                    'draft': False,
+                    'mergeable_state': 'unstable',
+                    'labels': [ { 'name': 'impact:patch' } ],
+                    'head': { 'ref': 'download_progress', 'sha': 'f8a68cb8deadbeef' },
+                    'base': { 'ref': 'master' },
+                } ),
+            ] )
+            created.append( client )
+            return client
+
+    monkeypatch.setattr( github_helpers, 'GitHub', CapturingPublic )
+    monkeypatch.setattr(
+        github_helpers, 'repository',
+        lambda owner=None, repo=None: ( 'ja11sop', 'cuppa' ),
+    )
+
+    summary = github_helpers.show_pull_request( number=165 )
+    assert created, "show-pr must use GitHub.public(), not the sealed client"
+    assert summary['number'] == 165
+    assert summary['labels'] == [ 'impact:patch' ]
+    assert summary['head']['ref'] == 'download_progress'
+    assert summary['head']['sha'].startswith( 'f8a68cb8' )
+    assert 'Progress bars' in summary['body']
+
+    rendered = github_helpers.format_pull_request( summary )
+    assert 'PR #165' in rendered
+    assert 'title: Share download progress' in rendered
+    assert 'labels: impact:patch' in rendered
+    assert 'head: download_progress @ f8a68cb8' in rendered
+    assert 'Progress bars' in rendered
+
+
+def test_show_pr_command_json( monkeypatch, capsys ):
+    monkeypatch.setattr(
+        github_helpers, 'show_pull_request',
+        lambda **kwargs: {
+            'number': 165,
+            'url': 'https://example.com/pr/165',
+            'title': 'Share download progress',
+            'state': 'open',
+            'draft': False,
+            'mergeable_state': 'clean',
+            'labels': [ 'impact:patch' ],
+            'head': { 'ref': 'download_progress', 'sha': 'abc12345' },
+            'base': { 'ref': 'master' },
+            'body': 'body text',
+        },
+    )
+    code = github_helpers.main( [ 'show-pr', '--pr', '165', '--json' ] )
+    assert code == 0
+    payload = __import__( 'json' ).loads( capsys.readouterr().out )
+    assert payload['number'] == 165
+    assert payload['labels'] == [ 'impact:patch' ]
+
+
+def test_fetch_pr_alias_dispatches( monkeypatch, capsys ):
+    monkeypatch.setattr(
+        github_helpers, '_pull_with_auth_fallback',
+        lambda **kwargs: ( {
+            'number': 1,
+            'url': 'https://example.com/pr/1',
+            'title': 'T',
+            'state': 'open',
+            'draft': False,
+            'mergeable_state': 'clean',
+            'labels': [],
+            'head': { 'ref': 'b', 'sha': 'deadbeef' },
+            'base': { 'ref': 'master' },
+            'body': '',
+        }, object() ),
+    )
+    code = github_helpers.main( [ 'fetch-pr', '--pr', '1' ] )
+    assert code == 0
+    assert 'PR #1' in capsys.readouterr().out
+
+
 def test_create_pull_request_opens_and_labels( monkeypatch ):
     monkeypatch.setattr( github_helpers, 'current_branch', lambda: 'feature' )
     client = FakeGitHub()
@@ -228,6 +317,10 @@ def test_pull_request_status_summarises_checks( monkeypatch ):
 
 def test_watch_pull_request_returns_when_checks_finish( monkeypatch ):
     monkeypatch.setattr( github_helpers, 'current_branch', lambda: 'feature' )
+    monkeypatch.setattr(
+        github_helpers, 'repository',
+        lambda owner=None, repo=None: ( 'ja11sop', 'cuppa' ),
+    )
     pending = github_helpers.PullRequestStatus(
         number=139,
         url='https://example.com/pr/139',
@@ -243,9 +336,16 @@ def test_watch_pull_request_returns_when_checks_finish( monkeypatch ):
         mergeable_state='clean',
     )
     states = [ pending, success ]
+    seen_numbers = []
+
+    def fake_status( **kwargs ):
+        seen_numbers.append( kwargs.get( 'number' ) )
+        return states.pop( 0 )
+
+    monkeypatch.setattr( github_helpers, 'pull_request_status', fake_status )
     monkeypatch.setattr(
-        github_helpers, 'pull_request_status',
-        lambda **kwargs: states.pop( 0 ),
+        github_helpers, 'resolve_pull_request',
+        lambda **kwargs: { 'number': 139 },
     )
 
     sleeps = []
@@ -262,11 +362,58 @@ def test_watch_pull_request_returns_when_checks_finish( monkeypatch ):
     assert last.outcome == 'success'
     # Sleep before each poll (fixed --interval): pending then success.
     assert sleeps == [ 1, 1 ]
+    assert seen_numbers == [ 139, 139 ]
     assert 'outcome=pending' in out.getvalue()
     assert 'outcome=success' in out.getvalue()
 
 
+def test_watch_pull_request_pins_number_despite_branch_change( monkeypatch ):
+    monkeypatch.setattr(
+        github_helpers, 'repository',
+        lambda owner=None, repo=None: ( 'ja11sop', 'cuppa' ),
+    )
+    branches = [ 'show_pr_helper', 'download_progress' ]
+    monkeypatch.setattr( github_helpers, 'current_branch', lambda: branches[0] )
+    monkeypatch.setattr(
+        github_helpers, 'resolve_pull_request',
+        lambda **kwargs: { 'number': 166 },
+    )
+
+    polls = []
+
+    def fake_status( **kwargs ):
+        polls.append( kwargs.get( 'number' ) )
+        # Simulate another agent checking out a different PR branch mid-watch.
+        branches[0] = 'download_progress'
+        return github_helpers.PullRequestStatus(
+            number=kwargs['number'],
+            url='https://example.com/pr/{}'.format( kwargs['number'] ),
+            head_sha='abcdef01',
+            state='open',
+            mergeable_state='clean',
+            checks=[ github_helpers.CheckRun( 'unit', 'completed', 'success', '' ) ],
+            outcome='success',
+        )
+
+    monkeypatch.setattr( github_helpers, 'pull_request_status', fake_status )
+    out = io.StringIO()
+    code, last = github_helpers.watch_pull_request(
+        interval=1,
+        timeout=60,
+        out=out,
+        sleep=lambda seconds: None,
+        clock=lambda: 0,
+    )
+    assert code == github_helpers.EXIT_SUCCESS
+    assert last.number == 166
+    assert polls == [ 166 ]
+
+
 def test_watch_pull_request_times_out( monkeypatch ):
+    monkeypatch.setattr(
+        github_helpers, 'repository',
+        lambda owner=None, repo=None: ( 'ja11sop', 'cuppa' ),
+    )
     monkeypatch.setattr(
         github_helpers, 'pull_request_status',
         lambda **kwargs: github_helpers.PullRequestStatus(
