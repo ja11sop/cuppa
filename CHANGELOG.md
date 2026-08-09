@@ -12,19 +12,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `design/ideas/scratchpad.md` holds pre-plan product ideas (living). Notes graduate into
   `design/plans/` and `ROADMAP.md`, then leave the scratchpad. `*.local.md` remains for private
   project maps only.
-- Design plans: [`boost-latest-persistence.md`](design/plans/boost-latest-persistence.md) and
-  [`list-toolchains.md`](design/plans/list-toolchains.md) (opened under the 1.6.0 cycle).
-- Boost latest persistence: remember `boost_latest_version` in project `configure.conf` or
-  `~/.cuppaconfig` according to whether `--downloads-root` sits under the project. Default Boost
-  resolve prefers that stored value, then the compiled-in default, and does not scrape boost.org
-  unless `--boost-latest` is passed. The key updates only when a higher version’s archive is present
-  under downloads-root.
-- `--list-toolchains`: ruled **discovered** / **registered** tree
-  (family → version → driver → name(s)), with shared-driver grouping, per-family and
-  platform-default marking (platform family `(default)` only when the bare default name is
-  present), inventory-backed registered SIZE/LAST USED, summary line, and dry-run wipe hint.
-  Nested `--list-format=json`. `--list-dependencies` toolchain leaves show the Cuppa session name
-  (`gcc17_gcc_snapshot_…`) aligned with `--toolchains=`.
+- Design plans: [`boost-latest-persistence.md`](design/archive/boost-latest-persistence.md) and
+  [`list-toolchains.md`](design/archive/list-toolchains.md) (1.6.0 cycle; tracked as
+  [#171](https://github.com/ja11sop/cuppa/issues/171) /
+  [#172](https://github.com/ja11sop/cuppa/issues/172)).
+- Boost latest persistence ([#171](https://github.com/ja11sop/cuppa/issues/171)): remember
+  `boost_latest_version` in project `configure.conf` or `~/.cuppaconfig` according to whether
+  `--downloads-root` sits under the project. Default Boost resolve prefers that stored value,
+  then the compiled-in default, and does not scrape boost.org unless `--boost-latest` is passed.
+  The key updates only when a higher version’s archive is present under downloads-root.
+- `--list-toolchains` ([#172](https://github.com/ja11sop/cuppa/issues/172)): ruled
+  **discovered** / **registered** tree (family → version → driver → name(s)), with shared-driver
+  grouping, per-family and platform-default marking (platform family `(default)` only when the
+  bare default name is present), inventory-backed registered SIZE/LAST USED, summary line, and
+  dry-run wipe hint. Nested `--list-format=json`. `--list-dependencies` toolchain leaves show the
+  Cuppa session name (`gcc17_gcc_snapshot_…`) aligned with `--toolchains=`.
 
 ### Changed
 

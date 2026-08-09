@@ -1,7 +1,8 @@
 # Plan: Persist resolved Boost “latest” across offline runs
 
-- **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Boost source and packages; [`boost-updates.md`](boost-updates.md) (patched/clean package identity — separate); [`ideas/scratchpad.md`](../ideas/scratchpad.md) (graduated)
+- **Status:** shipped
+- **Related:** [#171](https://github.com/ja11sop/cuppa/issues/171); [#170](https://github.com/ja11sop/cuppa/pull/170);
+  [`ROADMAP.md`](../../ROADMAP.md) — Boost source and packages; [`boost-updates.md`](../plans/boost-updates.md) (patched/clean package identity — separate); [`ideas/scratchpad.md`](../ideas/scratchpad.md) (graduated)
 - **Updated:** 2026-08-09
 - **Impact:** minor — persisted latest version scoped with downloads-root; lazy network check; existing `--boost-latest` kept as an explicit “force latest” switch
 
@@ -24,7 +25,7 @@ A common CI shape breaks around Boost releases:
 **remembering a higher version that was actually downloaded**, scoped like the download cache,
 and **not** scraping Boost when the project never uses Boost.
 
-This is **not** the patched/clean GitLab package identity work in [`boost-updates.md`](boost-updates.md).
+This is **not** the patched/clean GitLab package identity work in [`boost-updates.md`](../plans/boost-updates.md).
 
 ## Goals
 
@@ -108,4 +109,4 @@ This is **not** the patched/clean GitLab package identity work in [`boost-update
 
 ## Open decisions
 
-None — implementation on the 1.6.0 branch.
+None — shipped in [#171](https://github.com/ja11sop/cuppa/issues/171) / [#170](https://github.com/ja11sop/cuppa/pull/170).
