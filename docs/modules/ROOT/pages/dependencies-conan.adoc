@@ -43,7 +43,7 @@ cuppa.run(
 )
 ----
 
-Cuppa maps the active toolchain and variant into Conan settings (`compiler`, `compiler.version`, `compiler.cppstd`, `compiler.libcxx`, `build_type`, `os`, `arch`), runs `conan install` once per settings fingerprint (cached under the dependencies root), and merges the resulting flags.
+Cuppa maps the active toolchain and variant into Conan settings (`compiler`, `compiler.version`, `compiler.cppstd`, `compiler.libcxx`, `build_type`, `os`, `arch`), runs `conan install` once per settings fingerprint (cached under the dependencies root), and merges the resulting flags. Install output is streamed live to the console (downloads and builds are not held until the process exits).
 Each successful install (and the next reuse of an older tree) writes `.cuppa_conan_meta.json` beside `.cuppa_conan_ok` so `--list-dependencies` can show the Cuppa toolchain variant. Installs without a sidecar still list as fingerprint-only.
 
 Cuppa also passes Conan conf `tools.build:compiler_executables` from the active toolchain's C/C++ drivers.

@@ -8,10 +8,12 @@
 #   Git Source Control Management System
 #-------------------------------------------------------------------------------
 
+import logging
 import subprocess
 import shlex
 import os
 import re
+import threading
 
 from collections import namedtuple
 
@@ -70,6 +72,135 @@ class Git:
                     git=as_warning(cls.binary())
             ) )
             raise cls.Error("Binary [{git}] is not available".format(  git=cls.binary() ) )
+
+
+    @classmethod
+    def _pump_git_progress( cls, src, dest, collected, rewrite=True ):
+        """Copy git stderr to ``dest``, subduing each fragment; honour ``\\r`` on a tty."""
+        from cuppa.colourise import as_subdued
+
+        buf = b''
+        while True:
+            chunk = src.read( 256 )
+            if not chunk:
+                break
+            buf += chunk
+            while True:
+                cr = buf.find( b'\r' )
+                lf = buf.find( b'\n' )
+                if cr < 0 and lf < 0:
+                    break
+                if cr < 0:
+                    idx, end = lf, b'\n'
+                elif lf < 0:
+                    idx, end = cr, b'\r'
+                elif cr < lf:
+                    idx, end = cr, b'\r'
+                else:
+                    idx, end = lf, b'\n'
+                piece = buf[:idx]
+                buf = buf[idx + 1:]
+                if end == b'\r' and buf.startswith( b'\n' ):
+                    buf = buf[1:]
+                    end = b'\n'
+                text = as_str( piece )
+                if text:
+                    collected.append( text )
+                styled = as_subdued( text ) if text else ''
+                if end == b'\r' and rewrite:
+                    dest.write( '\r' + styled )
+                else:
+                    dest.write( styled + '\n' )
+                try:
+                    dest.flush()
+                except Exception:
+                    pass
+        if buf:
+            text = as_str( buf )
+            if text:
+                collected.append( text )
+                dest.write( as_subdued( text ) )
+                try:
+                    dest.flush()
+                except Exception:
+                    pass
+
+
+    @classmethod
+    def _progress_enabled( cls ):
+        """Match HTTP/extract progress: show git ``--progress`` only at INFO or finer."""
+        return logger.isEnabledFor( logging.INFO )
+
+
+    @classmethod
+    def _args_to_command( cls, args_list ):
+        try:
+            return shlex.join( args_list )
+        except AttributeError:
+            return " ".join( shlex.quote( part ) for part in args_list )
+
+
+    @classmethod
+    def _run_with_progress( cls, args_list, path=None ):
+        """Run a long network git command, streaming subdued progress when possible.
+
+        Stderr is piped and replayed onto the controlling terminal (or stderr in CI)
+        so ``--progress`` ``\\r`` updates still work under the ``cuppa`` launcher, and
+        so fragments can be wrapped with subdued colour. Not a cuppa byte bar.
+        Callers should only use this when :meth:`_progress_enabled` is true.
+        """
+        from cuppa.utility.download import open_progress_stream
+
+        command = cls._args_to_command( args_list )
+
+        logger.trace( "Executing command [{command}] with progress...".format(
+                command=as_info( command )
+        ) )
+
+        progress_stream, is_tty, owns_stream = open_progress_stream()
+        stderr_lines = []
+        try:
+            process = subprocess.Popen(
+                    args_list,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    cwd=path,
+                    bufsize=0,
+            )
+            pump = threading.Thread(
+                    target=cls._pump_git_progress,
+                    args=(
+                        process.stderr,
+                        progress_stream,
+                        stderr_lines,
+                        bool( is_tty ),
+                    ),
+            )
+            pump.daemon = True
+            pump.start()
+            stdout_data = process.stdout.read() if process.stdout else b''
+            pump.join()
+            returncode = process.wait()
+            if returncode != 0:
+                raise cls.Error(
+                    "Command [{command}] failed".format( command=command )
+                )
+            return as_str( stdout_data ).strip()
+        except cls.Error:
+            raise
+        except OSError:
+            logger.trace( "Binary [{git}] is not available".format(
+                    git=as_warning( cls.binary() )
+            ) )
+            raise cls.Error(
+                "Binary [{git}] is not available".format( git=cls.binary() )
+            )
+        finally:
+            if owns_stream:
+                try:
+                    progress_stream.close()
+                except Exception:
+                    pass
 
 
     @classmethod
@@ -320,7 +451,15 @@ class Git:
     @classmethod
     def fetch( cls, path ):
         """Update the remote-tracking refs. The one command in this family that uses the network."""
-        return cls.execute_command( "{git} fetch".format( git=cls.binary() ), path )
+        if cls._progress_enabled():
+            return cls._run_with_progress(
+                    [ cls.binary(), "fetch", "--progress" ],
+                    path,
+            )
+        return cls.execute_command(
+                "{git} fetch".format( git=cls.binary() ),
+                path,
+        )
 
 
     @classmethod
@@ -339,17 +478,16 @@ class Git:
         if parent and not os.path.exists( parent ):
             os.makedirs( parent )
         parts = [ cls.binary(), "clone" ]
+        if cls._progress_enabled():
+            parts.append( "--progress" )
         if branch:
             parts.extend( [ "--branch", branch ] )
         if recurse_submodules:
             parts.append( "--recurse-submodules" )
         parts.extend( [ repository, path ] )
-        # Quote via shlex.join when available; fall back for older Pythons.
-        try:
-            command = shlex.join( parts )
-        except AttributeError:
-            command = " ".join( shlex.quote( part ) for part in parts )
-        return cls.execute_command( command )
+        if cls._progress_enabled():
+            return cls._run_with_progress( parts )
+        return cls.execute_command( cls._args_to_command( parts ) )
 
 
     @classmethod

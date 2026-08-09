@@ -50,6 +50,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- HTTP archive downloads (location/Boost and toolchain archives) share one transfer-progress
+  reporter (`cuppa.utility.download`): bytes, total when known, percent, rate, and ETA.
+  Progress prefers the controlling terminal so a rewriting line still works when the `cuppa`
+  launcher pipes scons stdio for secret masking; CI without a tty keeps periodic newlines.
+  Layout is `percent [=====>              ] done/total rate ETA` with fixed-width columns; with
+  colour output, percent and bar glyphs are emphasised info, target size is emphasised (normal
+  foreground), transferred size is info (emphasised at 100%), brackets are plain, and rate is
+  subdued. Tar and zip extracts (location/Boost, GitLab package archives, toolchain archives)
+  reuse the same reporter via `extract_tar_archive` / `extract_zip_archive`. GitLab generic
+  package downloads use `download_file` with registry auth headers (no `wget` on PATH for the
+  fetch). Conan consumer `conan install` streams stdout/stderr live instead of capturing until
+  exit. Git `clone` / `fetch` (develop workflows) pass `--progress` and stream subdued progress
+  to the controlling terminal when available, gated like HTTP progress to INFO or finer
+  (`--verbosity=warn` and quieter stay silent). Replaces the old location-only `|=` bar. See
+  `design/archive/download-progress.md`.
 - Rename `_removal_error_lines` to `_judgement_tree_lines` and route `--list-develop` judgement
   bodies through it (same stem glyphs, severity headings, wrap, and value highlighting as wipe /
   remove). No intentional user-visible change; completes Phase C of the console report-patterns

@@ -20,18 +20,20 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 
 try:
-    from urllib.request import urlretrieve
     from urllib.parse import urlparse, unquote
 except ImportError:
-    from urllib import urlretrieve, unquote
+    from urllib import unquote
     from urlparse import urlparse
 
 from cuppa.colourise import as_info, as_notice
 from cuppa.log import logger
 from cuppa.location import Location
+from cuppa.utility.download import format_duration
 from cuppa.utility.python2to3 import Exception as CuppaException
+from cuppa.utility.storage import human_size
 
 
 class ToolchainArchiveException( CuppaException ):
@@ -362,16 +364,11 @@ def _download_archive( url, dest_path, cuppa_env ):
     if not os.path.isdir( parent ):
         os.makedirs( parent )
     logger.info( "Downloading toolchain archive [{}]...".format( as_info( url ) ) )
-    tmp_path = dest_path + '.partial'
+    from cuppa.utility.download import DownloadError, download_file
     try:
-        urlretrieve( url, tmp_path )
-        os.rename( tmp_path, dest_path )
-    except Exception as error:
-        if os.path.isfile( tmp_path ):
-            os.remove( tmp_path )
-        raise ToolchainArchiveException(
-            "failed to download toolchain archive [{}]: {}".format( url, error )
-        )
+        download_file( url, dest_path, label=os.path.basename( dest_path ) or url )
+    except DownloadError as error:
+        raise ToolchainArchiveException( str( error.parameter ) )
     return dest_path
 
 
@@ -406,11 +403,18 @@ def _extract_deb( archive_path, extract_root ):
                 "[{}] has no data.tar.* member".format( archive_path )
             )
         data_tar = data_members[0]
-        if subprocess.call(
-                [ 'tar', '-xf', data_tar, '-C', extract_root ]
-        ) != 0:
+        from cuppa.utility.download import DownloadError, extract_tar_archive
+        try:
+            extract_tar_archive(
+                    data_tar,
+                    extract_root,
+                    label=os.path.basename( data_tar ),
+            )
+        except DownloadError as error:
             raise ToolchainArchiveException(
-                "tar failed to extract [{}] from [{}]".format( data_tar, archive_path )
+                "tar failed to extract [{}] from [{}]: {}".format(
+                        data_tar, archive_path, error.parameter
+                )
             )
     finally:
         shutil.rmtree( staging, ignore_errors=True )
@@ -425,8 +429,27 @@ def _ensure_extracted( archive_path, extract_root, cuppa_env, family ):
     if cuppa_env.get( 'dump' ) or cuppa_env.get( 'clean' ):
         return None
     if archive_path.lower().endswith( '.deb' ):
+        try:
+            size_text = human_size( os.path.getsize( archive_path ) )
+        except OSError:
+            size_text = '?'
+        logger.info(
+                "Extracting toolchain archive [{}] ({}) into [{}]...".format(
+                        as_info( archive_path ),
+                        as_info( size_text ),
+                        as_info( extract_root ),
+                )
+        )
+        started = time.time()
         _extract_deb( archive_path, extract_root )
+        logger.info(
+                "Extracted toolchain archive [{}] in {}".format(
+                        as_info( os.path.basename( archive_path ) ),
+                        as_info( format_duration( time.time() - started ) ),
+                )
+        )
     else:
+        # Location.extract logs start/elapsed and drives shared tar progress.
         Location.extract( archive_path, extract_root )
     bin_dir = find_bin_dir( extract_root, family )
     if not bin_dir:

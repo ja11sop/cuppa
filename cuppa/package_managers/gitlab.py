@@ -19,7 +19,7 @@ import zipfile
 # cuppa imports
 import cuppa.core.storage_options
 
-from cuppa.log import logger
+from cuppa.log import logger, register_secret
 from cuppa.colourise import as_error, as_info, as_notice, as_info_label
 
 
@@ -137,16 +137,22 @@ def create_package_archive( archive_path, working_dir, source_dir ):
 
 def extract_package_archive( archive_path, extraction_dir ):
     """Extract a GitLab package archive into ``extraction_dir`` (preserves ``package/version/…``)."""
-    if archive_path.endswith( '.zip' ):
-        with zipfile.ZipFile( archive_path ) as archive:
-            archive.extractall( extraction_dir )
-        return 0
-    command = 'tar -C {working_dir} -xzf {package}'.format(
-            working_dir = extraction_dir,
-            package = archive_path,
+    from cuppa.utility.download import (
+        DownloadError,
+        extract_tar_archive,
+        extract_zip_archive,
     )
-    completion = subprocess.run( shlex.split( command ) )
-    return completion.returncode
+    try:
+        if archive_path.endswith( '.zip' ):
+            extract_zip_archive( archive_path, extraction_dir )
+        else:
+            extract_tar_archive( archive_path, extraction_dir )
+        return 0
+    except DownloadError as error:
+        logger.error( "Failed to extract package archive [{}]: {}".format(
+                archive_path, error.parameter
+        ) )
+        return 1
 
 
 def package_url( env, registry=None, package=None, version=None, variant=None ):
@@ -159,6 +165,7 @@ def package_url( env, registry=None, package=None, version=None, variant=None ):
 
 
 def get_header_token( custom_token=None ):
+    """Return a ``Name: value`` header string for curl/wget-style tools."""
     if custom_token and custom_token in os.environ:
         return "PRIVATE-TOKEN: {}".format( os.environ[custom_token] )
     elif 'GITLAB_REGISTRY_TOKEN' in os.environ:
@@ -167,6 +174,31 @@ def get_header_token( custom_token=None ):
         return "JOB-TOKEN: {}".format( os.environ['CI_JOB_TOKEN'] )
     logger.error( "Could not find token for package registry" )
     return str(None)
+
+
+def registry_auth_headers( custom_token=None ):
+    """Return a header mapping for ``download_file``, with the token registered for masking."""
+    raw = get_header_token( custom_token )
+    if not raw or raw == 'None' or ': ' not in raw:
+        return {}
+    name, value = raw.split( ': ', 1 )
+    if value:
+        register_secret( value )
+    return { name: value }
+
+
+def download_registry_package( url, dest_path, custom_token=None, label=None ):
+    """Fetch a GitLab generic package archive via ``download_file`` (progress + auth headers).
+
+    Raises ``DownloadError`` on failure (callers map that to their own exception types).
+    """
+    from cuppa.utility.download import download_file
+    return download_file(
+            url,
+            dest_path,
+            label=label or os.path.basename( dest_path ) or url,
+            headers=registry_auth_headers( custom_token ),
+    )
 
 
 class GitlabPackagePublisher:
@@ -358,24 +390,33 @@ class GitlabPackageInstaller:
         if not os.path.exists( self._extraction_dir ):
             os.makedirs( self._extraction_dir )
 
-        self._wget_command = 'wget --header="{token}" -P {target_dir} -nv {package_location}'.format(
-                token = get_header_token( custom_token ),
-                target_dir = self._target_dir,
-                package_location = package_url( env, registry=registry, package=package, version=version, variant=variant )
+        self._package_url = package_url(
+                env, registry=registry, package=package, version=version, variant=variant
         )
+        self._custom_token = custom_token
+        self._package_file = package_file
 
 
     def __call__( self, target, source, env ):
 
         if not os.path.exists( self._download_target ):
-            logger.info( "Executing [{}]".format( as_info(self._wget_command) ) )
-            completion = subprocess.run( shlex.split( self._wget_command ) )
-            if completion.returncode != 0:
-                logger.error( "Executing [{}] failed with return code [{}]".format(
-                        as_error( self._wget_command ),
-                        as_error( str(completion.returncode) ) )
+            from cuppa.utility.download import DownloadError
+            logger.info( "Downloading package archive [{}] from registry...".format(
+                    as_info( self._package_file )
+            ) )
+            try:
+                download_registry_package(
+                        self._package_url,
+                        self._download_target,
+                        custom_token=self._custom_token,
+                        label=self._package_file,
                 )
-                return completion.returncode
+            except DownloadError as error:
+                logger.error( "Failed to download [{}]: {}".format(
+                        as_error( self._package_file ),
+                        as_error( str( error.parameter ) ),
+                ) )
+                return 1
 
         if not os.path.exists( str(target[0]) ):
             logger.info( "Extracting [{}] into [{}]".format(
@@ -667,10 +708,12 @@ class GitlabPackageDependency:
             self._download_target = existing
             package_file = os.path.basename( existing )
 
-        self._wget_command = 'wget --header="{token}" -P {cache_dir} -nv {package_location}'.format(
-                token = get_header_token( custom_token ),
-                cache_dir = cache_dir,
-                package_location = package_url( cuppa_env, registry=registry, package=package, version=self.version(), variant=variant )
+        package_location = package_url(
+                cuppa_env,
+                registry=registry,
+                package=package,
+                version=self.version(),
+                variant=variant,
         )
 
         # The package file doesn't exist so lets attempt to download it
@@ -679,20 +722,28 @@ class GitlabPackageDependency:
                 # Download the preferred platform name into cache_dir.
                 self._download_target = preferred_target
                 package_file = os.path.basename( preferred_target )
-                logger.debug( "Downloading package [{}] by executing [{}]".format( as_info(package_file), as_info(self._wget_command) ) )
+                if not os.path.isdir( cache_dir ):
+                    os.makedirs( cache_dir )
+                from cuppa.utility.download import DownloadError
                 logger.info( "Downloading package [{}] from [{}] as archive [{}]...".format(
                         as_info( self._package_id ),
                         as_notice( registry ),
                         as_info( package_file )
                 ) )
-                completion = subprocess.run( shlex.split( self._wget_command ) )
-                if completion.returncode != 0:
-                    logger.error( "Executing [{}] failed with return code [{}]".format(
-                            as_error( self._wget_command ),
-                            as_error( str(completion.returncode) ) )
+                try:
+                    download_registry_package(
+                            package_location,
+                            self._download_target,
+                            custom_token=custom_token,
+                            label=package_file,
                     )
+                except DownloadError as error:
+                    logger.error( "Downloading package archive [{}] failed: {}".format(
+                            as_error( package_file ),
+                            as_error( str( error.parameter ) ),
+                    ) )
                     raise GitlabPackageDependencyException(
-                        "Executing [{}] failed with return code [{}]".format( self._wget_command, str(completion.returncode) )
+                        "Failed to download [{}]: {}".format( package_file, error.parameter )
                     )
                 logger.info( "Package archive [{}] downloaded successfully for package [{}] from [{}]".format(
                         as_info( package_file ),

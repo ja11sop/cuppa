@@ -5,6 +5,9 @@ Cuppa consumes GitLab **generic** package archives through `cuppa.package_depend
 `package_manager = 'gitlab'`. See xref:dependencies-packages.adoc[Package dependencies] for the
 factory overview.
 
+Package archive downloads use the shared transfer-progress reporter (percent, bar, rate, ETA)
+over HTTPS with registry auth headers — `wget` is not required on `PATH` for the fetch.
+
 == Authentication
 
 |===

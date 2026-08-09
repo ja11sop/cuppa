@@ -770,6 +770,7 @@ The exit status is zero for a report, and non-zero when a develop path does not 
 
 `--clone-develop` creates configured develop paths that are missing or empty.
 It clones from the dependency's **unexpanded** git URL (so tokens never land in `.git/config`), checks out a branch that `--list-develop` will call ok, and recurses submodules.
+Git clone progress is streamed at INFO or finer (`--progress`, on the controlling terminal when available; quieter verbosity levels suppress it).
 It refuses non-empty destinations and locations that pin a tag or revision (develop copies must not be detached).
 `--offline` is an error; `-n` prints the plan.
 
@@ -905,7 +906,7 @@ flowchart LR
 === Updating develop copies
 
 `--update-develop` answers the next question after `--list-develop` tells you a copy is behind.
-It fetches each git working copy, then fast-forwards only those that are clean and strictly behind their upstream.
+It fetches each git working copy (with streamed `--progress` at INFO or finer when the network is used), then fast-forwards only those that are clean and strictly behind their upstream.
 Everything else is skipped and reported with the reason: ahead, diverged, modified, detached, no upstream, not a working copy, or path missing.
 
 [source,shell]

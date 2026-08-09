@@ -13,28 +13,21 @@ try:
     from urlparse import urlunparse
     from urlparse import ParseResult
     from urllib import unquote
-    from urllib import urlretrieve
-    from urllib import ContentTooShortError
 except ImportError:
     from urllib.parse import urlparse
     from urllib.parse import urlunparse
     from urllib.parse import ParseResult
     from urllib.parse import unquote
-    from urllib.request import urlretrieve
-    from urllib.error import ContentTooShortError
 
 import zipfile
 import tarfile
 import shutil
 import re
-import shlex
-import subprocess
 import ntpath
 import fnmatch
 import hashlib
 import platform
-import sys
-import logging
+import time
 
 from .scms import scms, subversion, git, mercurial, bazaar
 
@@ -43,7 +36,14 @@ import cuppa.core.storage_options
 from cuppa.colourise import as_notice, as_info, as_warning, as_error, as_info_label
 from cuppa.log import logger, register_secret
 from cuppa.path import split_common
+from cuppa.utility.download import (
+    DownloadError,
+    extract_tar_archive,
+    extract_zip_archive,
+    format_duration,
+)
 from cuppa.utility.python2to3 import as_str, as_byte_str
+from cuppa.utility.storage import human_size
 
 from cuppa.utility.pip_imports import pip_vcs, pip_download, pip_exceptions, pip_is_url, pip_is_archive_file, get_url_rev, obtain, update, make_rev_options
 
@@ -91,31 +91,6 @@ def develop_location( sconstruct_dir, develop ):
     if not os.path.isabs( develop ) and not develop.startswith( "#" ):
         develop = '#' + develop
     return replace_sconstruct_anchor( sconstruct_dir, develop )
-
-class ReportDownloadProgress(object):
-
-    def __init__( self ):
-        self._step = 2.5
-        self._percent_step = 10
-        self._report_percent = self._percent_step
-        self._expected = self._step
-        sys.stdout.write( "cuppa: location: [info] Download progress {}".format( as_info("|") ) )
-        sys.stdout.flush()
-
-    def __call__( self, blocks_transferred, block_size, total_size ):
-        percent = 100.0 * float(blocks_transferred) * float(block_size) / float(total_size)
-        if percent >= self._expected:
-            if percent >= 100.0:
-                sys.stdout.write( "={} Complete\n".format( as_info("|") ) )
-                sys.stdout.flush()
-            else:
-                sys.stdout.write( "=" )
-                if percent >= float(self._report_percent):
-                    sys.stdout.write( as_info( str(self._report_percent) + "%" ) )
-                    self._report_percent += self._percent_step
-                sys.stdout.flush()
-                self._expected += self._step
-
 
 class Location(object):
 
@@ -259,19 +234,60 @@ class Location(object):
     def extract( cls, filename, target_dir ):
         os.makedirs( target_dir )
         if tarfile.is_tarfile( filename ):
-            logger.debug( "Extracting [{}] into [{}]".format( as_info( filename ), as_info( target_dir ) ) )
             try:
-                with tarfile.TarFile( filename ) as tf:
-                    tf.extractall( target_dir )
-            except tarfile.ReadError:
-                command = "tar -xf {filename}".format( filename=filename )
-                if subprocess.call( shlex.split( command ), cwd=target_dir ) != 0:
-                    raise LocationException( "Could not untar downloaded file from [{}]".format( filename ) )
+                size_text = human_size( os.path.getsize( filename ) )
+            except OSError:
+                size_text = '?'
+            logger.info(
+                    "Extracting [{}] ({}) into [{}]...".format(
+                            as_info( filename ),
+                            as_info( size_text ),
+                            as_info( target_dir ),
+                    )
+            )
+            started = time.time()
+            try:
+                extract_tar_archive( filename, target_dir )
+            except DownloadError as error:
+                raise LocationException(
+                    "Could not untar downloaded file from [{}]: {}".format(
+                            filename, error.parameter
+                    )
+                )
+            logger.info(
+                    "Extracted [{}] in {}".format(
+                            as_info( os.path.basename( filename ) ),
+                            as_info( format_duration( time.time() - started ) ),
+                    )
+            )
 
         if zipfile.is_zipfile( filename ):
-            logger.debug( "Extracting [{}] into [{}]".format( as_info( filename ), as_info( target_dir ) ) )
-            with zipfile.ZipFile( filename ) as zf:
-                zf.extractall( target_dir )
+            try:
+                size_text = human_size( os.path.getsize( filename ) )
+            except OSError:
+                size_text = '?'
+            logger.info(
+                    "Extracting [{}] ({}) into [{}]...".format(
+                            as_info( filename ),
+                            as_info( size_text ),
+                            as_info( target_dir ),
+                    )
+            )
+            started = time.time()
+            try:
+                extract_zip_archive( filename, target_dir )
+            except DownloadError as error:
+                raise LocationException(
+                    "Could not unzip downloaded file from [{}]: {}".format(
+                            filename, error.parameter
+                    )
+                )
+            logger.info(
+                    "Extracted [{}] in {}".format(
+                            as_info( os.path.basename( filename ) ),
+                            as_info( format_duration( time.time() - started ) ),
+                    )
+            )
 
         while cls.remove_common_top_directory_under( target_dir ):
             pass
@@ -414,26 +430,45 @@ class Location(object):
         else:
             logger.info( "Downloading [{}]...".format( as_info( location ) ) )
             try:
-                report_hook = None
-                if logger.isEnabledFor( logging.INFO ):
-                    report_hook = ReportDownloadProgress()
-                filename, headers = urlretrieve( location, reporthook=report_hook )
-                name, extension = os.path.splitext( filename )
-                logger.info( "[{}] successfully downloaded to [{}]".format(
-                        as_info( location ),
-                        as_info( filename )
-                ) )
-                self.extract( filename, local_dir_with_sub_dir )
+                from cuppa.utility.download import DownloadError, download_file
+                import tempfile
                 if self._cuppa_env['downloads_root']:
-                    cached_archive = os.path.join( self._cuppa_env['downloads_root'], self._local_folder )
-                    logger.debug( "Caching downloaded file as [{}]".format( as_info( cached_archive ) ) )
-                    shutil.copyfile( filename, cached_archive )
-            except ContentTooShortError as error:
+                    cached_archive = os.path.join(
+                            self._cuppa_env['downloads_root'], self._local_folder
+                    )
+                    download_file(
+                            location,
+                            cached_archive,
+                            label=os.path.basename( cached_archive ) or location,
+                    )
+                    logger.info( "[{}] successfully downloaded to [{}]".format(
+                            as_info( location ),
+                            as_info( cached_archive )
+                    ) )
+                    self.extract( cached_archive, local_dir_with_sub_dir )
+                else:
+                    handle, filename = tempfile.mkstemp( prefix='cuppa-download-' )
+                    os.close( handle )
+                    try:
+                        download_file(
+                                location,
+                                filename,
+                                label=os.path.basename( self._local_folder ) or location,
+                        )
+                        logger.info( "[{}] successfully downloaded to [{}]".format(
+                                as_info( location ),
+                                as_info( filename )
+                        ) )
+                        self.extract( filename, local_dir_with_sub_dir )
+                    finally:
+                        if os.path.isfile( filename ):
+                            os.remove( filename )
+            except DownloadError as error:
                 logger.error( "Download of [{}] failed with error [{}]".format(
                         as_error( location ),
-                        as_error( str(error) )
+                        as_error( str( error.parameter ) )
                 ) )
-                raise LocationException( error )
+                raise LocationException( error.parameter )
 
         return local_directory
 
