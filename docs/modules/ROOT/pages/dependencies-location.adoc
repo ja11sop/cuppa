@@ -32,10 +32,13 @@ VCS folders use a canonical `stem@<branch>` spelling once the branch is known �
 default branch (`--location-default-branch`, usually `master`). An older unqualified stem is
 kept if it is the only copy on disk (cuppa does not move or delete it). When both exist, resolve
 uses the canonical folder and warns that the unqualified duplicate is unused by this selection.
-`--list-dependencies` labels that row `@master (unqualified)` (or `@main (unqualified)`, …)
-in remove colour when it is an unused sibling, and prints a dry-run
+Any command that triggers that warning also prints a dry-run
 `--force-wipe-dependencies=` hint using the `name/@` shorthand (bare `@` means the unqualified
-stem, not `@master`). The label uses `--location-default-branch` (default `master`); it does
+stem, not `@master`) after that command's report footer, unless you are already on
+`--list-dependencies` — that mode labels the
+unused sibling `@master (unqualified)` (or `@main (unqualified)`, …) in remove colour and prints
+the same hint in its footer (merging inventory tokens with any Location warnings). The label uses
+`--location-default-branch` (default `master`); it does
 not inspect HEAD inside the unqualified clone. Drop `-n` after confirming. Under `--offline`,
 candidates whose inventory `used_by` names another project are omitted from that hint.
 When you force-wipe such a stem and inventory still records another project's use, cuppa

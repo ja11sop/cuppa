@@ -2602,6 +2602,7 @@ def remove_dependencies( construct, cuppa_env, out=None ):
                 )
             )
     plan = collect_removal_plan( construct, cuppa_env, names, wipe=wipe )
+    from cuppa.core import dependency_actions
     targets = plan['targets']
     leftovers = plan['leftovers']
     archives = plan.get( 'archives' ) or []
@@ -2654,6 +2655,7 @@ def remove_dependencies( construct, cuppa_env, out=None ):
         _write_develop_skips( out, develop_skips )
         if leftovers or develop_skips or archives or download_targets or download_leftovers:
             _write_verify( out, archives=archives or None, purge=purge, wipe=wipe )
+        dependency_actions.emit_location_unqualified_duplicate_hints( out=out )
         return 0
 
     planned_bytes = sum( item.size_bytes for item in targets ) + sum(
@@ -2860,6 +2862,7 @@ def remove_dependencies( construct, cuppa_env, out=None ):
     if not planning and archives and not wipe:
         _refresh_archive_inventory_sizes( root, archives, targets, outcomes_by_path )
     _write_verify( out, archives=archives or None, purge=purge, wipe=wipe )
+    dependency_actions.emit_location_unqualified_duplicate_hints( out=out )
 
     hard_errors = [ item for item in failures if item['severity'] == 'error' ]
     return 1 if hard_errors else 0
@@ -3365,6 +3368,8 @@ def _execute_force_wipe(
         summary_label=None, default_branch='master',
 ):
     """Announce, delete, and report a force-wipe plan."""
+    from cuppa.core import dependency_actions
+
     inventory_missing = inventory_missing or []
     used_by_warnings = used_by_warnings or []
     unmatched_tokens = unmatched_tokens or []
@@ -3394,6 +3399,8 @@ def _execute_force_wipe(
                 tree_count=0, planning=planning,
         )
         _write_verify( out, wipe=True, unreferenced=unreferenced )
+        # After the report footer (same placement as --list-dependencies).
+        dependency_actions.emit_location_unqualified_duplicate_hints( out=out )
         return 0
 
     planned_bytes = sum( item.size_bytes for item in targets ) + sum(
@@ -3534,6 +3541,8 @@ def _execute_force_wipe(
             download_count=download_removed_count,
     )
     _write_verify( out, wipe=True, unreferenced=unreferenced )
+    # After the report footer (same placement as --list-dependencies).
+    dependency_actions.emit_location_unqualified_duplicate_hints( out=out )
     hard_errors = [ item for item in failures if item['severity'] == 'error' ]
     return 1 if hard_errors else 0
 

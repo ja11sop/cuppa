@@ -175,6 +175,48 @@ class Location(object):
         )
 
 
+    @staticmethod
+    def _unqualified_wipe_name( path ):
+        """Prefer a short registry-style name for ``name/@`` wipe tokens."""
+        from cuppa.core.dependency_identity import short_name_from_git_tree
+        from cuppa.core.dependency_storage import split_location_folder_name
+
+        short = None
+        try:
+            short, _repository = short_name_from_git_tree( path )
+        except ( TypeError, ValueError, OSError ):
+            short = None
+        if short and not str( short ).startswith(
+                ( 'git_', 'https_', 'svn_', 'hg_', 'bzr_', 'http_' )
+        ):
+            return short
+        folder = os.path.basename( str( path ).rstrip( '\\/' ) )
+        stem, _qualifier = split_location_folder_name( folder )
+        return stem or folder or '-'
+
+
+    @classmethod
+    def take_unqualified_duplicate_wipe_tokens( cls ):
+        """Return ``name/@`` tokens for warned stem pairs and clear the pending set.
+
+        Callers that print the shared dry-run wipe hint should consume these so the
+        advice appears once per invocation.
+        """
+        warned = getattr( cls, '_unqualified_duplicate_warned', None )
+        if not warned:
+            return []
+        tokens = []
+        seen = set()
+        for unqualified, _canonical in sorted( warned, key=lambda pair: pair[0] ):
+            token = '{}/@'.format( cls._unqualified_wipe_name( unqualified ) )
+            if token in seen:
+                continue
+            seen.add( token )
+            tokens.append( token )
+        cls._unqualified_duplicate_warned = set()
+        return tokens
+
+
     def _select_repository_directory( self, local_directory ):
         """Choose ``stem`` vs ``stem@branch``.
 

@@ -576,10 +576,11 @@ A token with no matching leaf (or a matched path that is already gone) does **no
 rest of the list: other tokens still wipe, and each miss appears in the judgement tree (warning
 on dry-run, past-tense note after a real wipe). Ambiguous non-wildcard tokens still fail hard.
 
-When both an unqualified stem and `stem@<default>` exist, `--list-dependencies` colours the
-unused `@<default> (unqualified)` leaf with the remove accent and ends with a dry-run command
-listing every such candidate as `name/@` tokens (including under `--list-scope=compact`, where
-those rows are hidden). Under `--offline`, candidates with inventory `used_by` from another
+When both an unqualified stem and `stem@<default>` exist, Location warns and (for every command
+except `--list-dependencies`) prints the same dry-run `--force-wipe-dependencies=` hint with
+`name/@` tokens after that command's report footer. `--list-dependencies` colours the unused `@<default> (unqualified)` leaf with
+the remove accent and ends with that hint in its footer (including under `--list-scope=compact`,
+where those rows are hidden). Under `--offline`, candidates with inventory `used_by` from another
 project are omitted from that hint. Confirm with `-n`, then drop `-n` to wipe. If inventory
 still records another project's use of the unqualified path, force-wipe reports it after the
 report table (judgement tree, like other removal notices). On a dry-run (`-n`) that notice is a

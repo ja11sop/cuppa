@@ -40,6 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `--list-dependencies` unreferenced wipe hint now includes `-n` (dry-run) in the suggested
   command, matching other destructive review hints.
+- Commands that warn about unused unqualified VCS stems (`stem` beside `stem@<branch>`) now also
+  print the shared dry-run `--force-wipe-dependencies=name/@` recommendation (visible under
+  `-Q`). `--list-dependencies` still owns that hint in its footer and merges Location-warned
+  tokens with inventory-derived ones.
 
 ### Security
 

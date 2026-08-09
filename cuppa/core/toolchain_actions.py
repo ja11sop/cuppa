@@ -521,7 +521,7 @@ def _render_section_tree( section, out, tee, elbow, pipe, gap ):
         family_label = family['family']
         if family.get( 'is_platform_default' ):
             family_label = '{} (default)'.format( family_label )
-        out.write( "{size}  {age}{indent}{branch} {label}\n".format(
+        out.write( "{size}  {age}{indent}{branch}{label}\n".format(
                 size=_size_cell( family.get( 'size_bytes' ), muted=False ),
                 age=_age_cell( family.get( 'last_used_epoch' ), muted=False ),
                 indent=INDENT,
@@ -544,7 +544,7 @@ def _render_section_tree( section, out, tee, elbow, pipe, gap ):
             version_last = version_index == len( versions ) - 1
             version_branch = elbow if version_last else tee
             version_prefix = gap if version_last else pipe
-            out.write( "{size}  {age}{indent}{prefix}{branch} {label}\n".format(
+            out.write( "{size}  {age}{indent}{prefix}{branch}{label}\n".format(
                     size=_size_cell( version.get( 'size_bytes' ), muted=True ),
                     age=_age_cell( version.get( 'last_used_epoch' ), muted=True ),
                     indent=INDENT,
@@ -558,7 +558,7 @@ def _render_section_tree( section, out, tee, elbow, pipe, gap ):
                 driver_last = driver_index == len( drivers ) - 1
                 driver_branch = elbow if driver_last else tee
                 driver_prefix = gap if driver_last else pipe
-                out.write( "{size}  {age}{indent}{prefix}{vprefix}{branch} {label}\n".format(
+                out.write( "{size}  {age}{indent}{prefix}{vprefix}{branch}{label}\n".format(
                         size=_size_cell( driver.get( 'size_bytes' ), muted=False ),
                         age=_age_cell( driver.get( 'last_used_epoch' ), muted=False ),
                         indent=INDENT,
@@ -575,7 +575,7 @@ def _render_section_tree( section, out, tee, elbow, pipe, gap ):
                     label = name['name']
                     if name.get( 'is_default' ):
                         label = '{} (default)'.format( label )
-                    out.write( "{size}  {age}{indent}{prefix}{vprefix}{dprefix}{branch} {label}\n".format(
+                    out.write( "{size}  {age}{indent}{prefix}{vprefix}{dprefix}{branch}{label}\n".format(
                             size=_size_cell( name.get( 'size_bytes' ), muted=True ),
                             age=_age_cell( name.get( 'last_used_epoch' ), muted=True ),
                             indent=INDENT,
