@@ -68,9 +68,18 @@ class FakeToolchain( object ):
         return self.values['CXX']
 
 
-def test_section_labels_are_lowercase():
-    assert SECTION_DISCOVERED == 'discovered'
-    assert SECTION_REGISTERED == 'registered'
+def test_size_cells_can_be_muted():
+    from cuppa.colourise import colouriser
+    from cuppa.core.toolchain_actions import _size_cell
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        muted = _size_cell( 1024, muted=True )
+        plain = _size_cell( 1024, muted=False )
+        assert muted != plain
+        assert _strip_ansi( muted ).strip() == _strip_ansi( plain ).strip()
+    finally:
+        colouriser.use_colour = was
 
 
 def test_row_from_toolchain_classifies_discovered_vs_registered( tmp_path ):

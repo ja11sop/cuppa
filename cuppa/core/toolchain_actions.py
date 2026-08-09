@@ -447,20 +447,22 @@ def _rollup_epoch( items ):
     return newest
 
 
-def _size_cell( size_bytes ):
+def _size_cell( size_bytes, muted=False ):
     if size_bytes is None:
         text = '--'
     else:
         text = storage.human_size( size_bytes ) or '--'
-    return text.rjust( SIZE_WIDTH )
+    text = text.rjust( SIZE_WIDTH )
+    return as_subdued( text ) if muted else text
 
 
-def _age_cell( epoch ):
+def _age_cell( epoch, muted=False ):
     if epoch is None:
         text = '--'
     else:
         text = storage.relative_age( epoch ) or '--'
-    return storage.pad_visible( text, MIDDLE_WIDTH )
+    text = storage.pad_visible( text, MIDDLE_WIDTH )
+    return as_subdued( text ) if muted else text
 
 
 def _ruled_line( width ):
@@ -482,18 +484,18 @@ def _colour_version( text, owns_default ):
 def _colour_name( text, is_default ):
     if is_default:
         return _emphasised_info( text )
-    return text
+    return as_info( text )
 
 
 def _colour_driver( path ):
-    return as_subdued( storage.display_path( path ) if path else path )
+    return storage.display_path( path ) if path else path
 
 
 def _render_section_tree( section, out, tee, elbow, pipe, gap ):
     families = section.get( 'families' ) or []
     out.write( "{size}  {age}{indent}{label}\n".format(
-            size=_size_cell( section.get( 'size_bytes' ) ),
-            age=_age_cell( section.get( 'last_used_epoch' ) ),
+            size=_size_cell( section.get( 'size_bytes' ), muted=False ),
+            age=_age_cell( section.get( 'last_used_epoch' ), muted=False ),
             indent=INDENT,
             label=section['name'],
     ) )
@@ -520,8 +522,8 @@ def _render_section_tree( section, out, tee, elbow, pipe, gap ):
         if family.get( 'is_platform_default' ):
             family_label = '{} (default)'.format( family_label )
         out.write( "{size}  {age}{indent}{branch} {label}\n".format(
-                size=_size_cell( family.get( 'size_bytes' ) ),
-                age=_age_cell( family.get( 'last_used_epoch' ) ),
+                size=_size_cell( family.get( 'size_bytes' ), muted=False ),
+                age=_age_cell( family.get( 'last_used_epoch' ), muted=False ),
                 indent=INDENT,
                 branch=as_subdued( family_branch ),
                 label=_colour_family(
@@ -543,8 +545,8 @@ def _render_section_tree( section, out, tee, elbow, pipe, gap ):
             version_branch = elbow if version_last else tee
             version_prefix = gap if version_last else pipe
             out.write( "{size}  {age}{indent}{prefix}{branch} {label}\n".format(
-                    size=_size_cell( version.get( 'size_bytes' ) ),
-                    age=_age_cell( version.get( 'last_used_epoch' ) ),
+                    size=_size_cell( version.get( 'size_bytes' ), muted=True ),
+                    age=_age_cell( version.get( 'last_used_epoch' ), muted=True ),
                     indent=INDENT,
                     prefix=as_subdued( family_prefix ),
                     branch=as_subdued( version_branch ),
@@ -557,8 +559,8 @@ def _render_section_tree( section, out, tee, elbow, pipe, gap ):
                 driver_branch = elbow if driver_last else tee
                 driver_prefix = gap if driver_last else pipe
                 out.write( "{size}  {age}{indent}{prefix}{vprefix}{branch} {label}\n".format(
-                        size=_size_cell( driver.get( 'size_bytes' ) ),
-                        age=_age_cell( driver.get( 'last_used_epoch' ) ),
+                        size=_size_cell( driver.get( 'size_bytes' ), muted=False ),
+                        age=_age_cell( driver.get( 'last_used_epoch' ), muted=False ),
                         indent=INDENT,
                         prefix=as_subdued( family_prefix ),
                         vprefix=as_subdued( version_prefix ),
@@ -574,8 +576,8 @@ def _render_section_tree( section, out, tee, elbow, pipe, gap ):
                     if name.get( 'is_default' ):
                         label = '{} (default)'.format( label )
                     out.write( "{size}  {age}{indent}{prefix}{vprefix}{dprefix}{branch} {label}\n".format(
-                            size=_size_cell( name.get( 'size_bytes' ) ),
-                            age=_age_cell( name.get( 'last_used_epoch' ) ),
+                            size=_size_cell( name.get( 'size_bytes' ), muted=True ),
+                            age=_age_cell( name.get( 'last_used_epoch' ), muted=True ),
                             indent=INDENT,
                             prefix=as_subdued( family_prefix ),
                             vprefix=as_subdued( version_prefix ),
