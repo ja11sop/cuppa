@@ -5,16 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.5.1] - unreleased
+## [1.6.0] - unreleased
 
 ### Added
 
 - `design/ideas/scratchpad.md` holds pre-plan product ideas (living). Notes graduate into
   `design/plans/` and `ROADMAP.md`, then leave the scratchpad. `*.local.md` remains for private
   project maps only.
-- Design proposals: [`boost-latest-persistence.md`](design/plans/boost-latest-persistence.md)
-  (persist scraped Boost `latest` for offline CI) and
-  [`list-toolchains.md`](design/plans/list-toolchains.md) (`--list-toolchains` inventory).
+- Design plans: [`boost-latest-persistence.md`](design/plans/boost-latest-persistence.md) and
+  [`list-toolchains.md`](design/plans/list-toolchains.md) (opened under the 1.6.0 cycle).
+- Boost latest persistence: remember `boost_latest_version` in project `configure.conf` or
+  `~/.cuppaconfig` according to whether `--downloads-root` sits under the project. Default Boost
+  resolve prefers that stored value, then the compiled-in default, and does not scrape boost.org
+  unless `--boost-latest` is passed. The key updates only when a higher version’s archive is present
+  under downloads-root.
+- `--list-toolchains`: inventory of **Discovered** (PATH) and **Registered** (managed) compilers
+  with absolute driver paths; `--list-format=json` supported. Force-wipe messaging applies only to
+  Registered rows.
 
 ### Changed
 
@@ -552,7 +559,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Baseline release on `master` before the modules work landed.
 Detailed notes for 1.1.x and earlier were not maintained in this file; start recording notable changes here from 1.2.0 onward.
 
-[1.5.1]: https://github.com/ja11sop/cuppa/compare/v1.5.0...HEAD
+[1.6.0]: https://github.com/ja11sop/cuppa/compare/v1.5.0...HEAD
 [1.5.0]: https://github.com/ja11sop/cuppa/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/ja11sop/cuppa/compare/v1.3.2...v1.4.0
 [1.2.0]: https://github.com/ja11sop/cuppa/compare/v1.1.3...v1.2.0

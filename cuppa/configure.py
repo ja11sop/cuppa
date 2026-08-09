@@ -307,4 +307,43 @@ class Configure(object):
         logger.info( "{}".format( as_notice( "Update complete" ) ) )
 
 
+def global_config_path():
+    return os.path.join( os.path.expanduser( "~" ), ".cuppaconfig" )
+
+
+def load_settings_file( conf_path ):
+    """Load ``key = value`` settings from a configure file (empty dict if missing)."""
+    settings = {}
+    if not conf_path or not os.path.exists( conf_path ):
+        return settings
+    with open( conf_path ) as conf_file:
+        for line in conf_file.readlines():
+            line = line.strip()
+            if not line or line.startswith( '#' ):
+                continue
+            name, value = tuple( word.strip() for word in line.split( '=', 1 ) )
+            try:
+                value = ast.literal_eval( str( value ) )
+            except Exception:
+                pass
+            settings[name] = value
+    return settings
+
+
+def upsert_setting( conf_path, key, value ):
+    """Insert or replace one key in a configure file, preserving other keys."""
+    settings = load_settings_file( conf_path )
+    settings[key] = value
+    directory = os.path.dirname( conf_path )
+    if directory and not os.path.isdir( directory ):
+        os.makedirs( directory )
+    with open( conf_path, "w" ) as config_file:
+        for name, stored in settings.items():
+            config_file.write( "{} = {}\n".format( name, stored ) )
+    return settings
+
+
+def read_setting( conf_path, key, default=None ):
+    return load_settings_file( conf_path ).get( key, default )
+
 

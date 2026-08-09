@@ -29,7 +29,9 @@ class Boost(object):
     @classmethod
     def add_options( cls, add_option ):
         add_option( '--boost-latest', dest='boost-latest', action='store_true',
-                    help='Specify that you want to use boost. The latest version will be downloaded and used.' )
+                    help='Use the latest Boost release (checks boost.org when online). '
+                         'Without this flag, Cuppa prefers a stored boost_latest_version, '
+                         'then the compiled-in default — it does not scrape by default.' )
 
         add_option( '--boost-version', dest='boost-version', type='string', nargs=1, action='store',
                     help='Boost Version to build against' )

@@ -85,10 +85,32 @@ Use `--clang-stdlib=libstdc++` (the Linux default) with slim Profiles Release ta
 
 After a successful session that prepared an archive or root, cuppa logs the shorthand reuse flag near the end of the output, for example `--toolchains=gcc16_gcc_snapshot_20260725_1_amd64`.
 
+[#list-toolchains]
+=== Listing toolchains
+
+`--list-toolchains` prints an inventory of compilers Cuppa can offer on this machine, then exits
+(no build). Output has two sections:
+
+* **Discovered** — PATH / distro probes (`gcc15`, `clang18`, …).
+* **Registered** — managed installs from `--toolchain-archive=` / `--clang-root=` / `--gcc-root=`
+  (and cached rediscovery under `dependencies_root/toolchains/{clang,gcc}/`), with non-colliding
+  names such as `gcc15_local_…` or `clang24_profiles_…`.
+
+Each row shows the Cuppa name (for `--toolchains=`), family, version, absolute C++ driver path, and
+storage path when Registered. A PATH `gcc15` and a managed `gcc15_…` snapshot appear in **both**
+sections when both exist — different names and paths.
+
+Force-wipe of toolchain dependencies applies only to **Registered** rows. Discovered PATH compilers
+are not Cuppa-owned.
+
+Use `--list-format=json` for a stable payload (`sections`, `wipe_applies_to`, per-row
+`name` / `family` / `version` / `driver_path` / `storage_path` / `kind`).
+
 [#fetched-toolchain-storage]
 === Listing and clearing toolchain archives
 
 Toolchain installs appear under `--list-dependencies` / `--list-downloads` as storage type **toolchain** (`toolchains/<family>/<qualifier>/`), not as a mistaken top-level source archive named `toolchains`.
+For a compiler-oriented inventory (including PATH drivers), prefer xref:toolchains.adoc#list-toolchains[`--list-toolchains`].
 
 Which management flags apply:
 

@@ -1,6 +1,6 @@
 # Plan: `--list-toolchains`
 
-- **Status:** proposal
+- **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Toolchains as dependencies; shipped design
   [`archive/toolchains-as-dependencies.md`](../archive/toolchains-as-dependencies.md); [#160](https://github.com/ja11sop/cuppa/issues/160); [`ideas/scratchpad.md`](../ideas/scratchpad.md) (graduated)
 - **Updated:** 2026-08-09
@@ -52,18 +52,19 @@ Operators who manage `dependencies_root/toolchains/` need a list before wipe.
 `--list-dependencies` is not enough: it does not surface PATH-discovered compilers or emphasise
 driver paths for day-to-day toolchain ops.
 
-## Settled decisions (propose)
+## Settled decisions
 
 | Topic | Decision |
 |-------|----------|
 | Flag | `--list-toolchains` (parallel naming to `--list-dependencies` / `--list-builds`) |
-| Section names | Prefer **discovered** vs **registered** (or **managed**) in the first draft; avoid vague “automatic” alone. Final strings in CLI help + docs in the same PR as behaviour |
+| Section names | Exact headings: **Discovered** and **Registered** |
+| Dual listing | PATH `gcc15` and a managed `gcc15_…` snapshot appear in **both** sections (different Cuppa names and paths) |
 | Row identity | Cuppa toolchain name as the primary key (what you pass to `--toolchains=`) |
 | Driver path | Absolute path to the C++ driver Cuppa would use (`g++` / `clang++` / …) |
 | Sort | Group by section; within section sort by name |
-| JSON | `--list-format=json` emits sections + rows; stable field names for agents |
+| JSON | Include `--list-format=json` in the first list PR (sections + rows; stable field names) |
 | Interaction with build | Listing only; mutually exclusive with build like other list actions |
-| Wipe messaging | Footer or column note: managed rows may be force-wiped with `[toolchain]…`; discovered PATH rows are not Cuppa-owned |
+| Wipe messaging | Registered section only: force-wipe applies to managed/registered rows; Discovered PATH rows are not Cuppa-owned |
 
 ## Refusal rules
 
@@ -83,10 +84,18 @@ driver paths for day-to-day toolchain ops.
 
 ## Suggested first PR
 
-`list-tc-model` + `list-tc-cli` + docs; JSON in the same PR if the table shape is stable.
+`list-tc-model` + `list-tc-cli` + `list-tc-json` + docs/tests.
 
-## Open decisions (confirm before coding)
+## Progress
 
-1. Exact section titles (“Discovered” / “Registered” vs longer phrases).
-2. Whether distro `gcc15` that also has a managed `gcc15_…` snapshot appears in **both**
-   sections (yes — different Cuppa names and paths) or is coalesced (no — keep both rows).
+| ID | Status |
+|----|--------|
+| `list-tc-model` | done |
+| `list-tc-cli` | done |
+| `list-tc-json` | done |
+| `list-tc-docs` | done |
+| `list-tc-tests` | done |
+
+## Open decisions
+
+None — implementation on the 1.6.0 branch.
