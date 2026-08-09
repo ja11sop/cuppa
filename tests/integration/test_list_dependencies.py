@@ -729,7 +729,10 @@ cuppa.run(
     assert_success(text)
     plain = strip_ansi(text.stdout)
     assert "@master (unqualified)" in plain
-    assert "force-wipe-dependencies=widget/@" in plain
+    # Footer may merge Location stem tokens with list tokens (sorted); require the
+    # wipe shorthand for this fixture rather than an exact single-token command.
+    assert "--force-wipe-dependencies=" in plain
+    assert "widget/@" in plain
     assert "Drop -n and re-run after confirming" in plain
     err = (text.stderr or "") + (listed.stderr or "")
     assert "removal candidate" in err or "unqualified" in plain
@@ -744,5 +747,6 @@ cuppa.run(
     )
     assert_success(compact)
     compact_plain = strip_ansi(compact.stdout)
-    assert "force-wipe-dependencies=widget/@" in compact_plain
+    assert "--force-wipe-dependencies=" in compact_plain
+    assert "widget/@" in compact_plain
     assert "@master (unqualified)" not in compact_plain

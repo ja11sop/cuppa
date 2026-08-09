@@ -22,6 +22,7 @@ from cuppa.colourise import (
     as_emphasised,
     as_info,
     as_info_label,
+    as_notice,
     as_subdued,
 )
 from cuppa.log import logger
@@ -251,6 +252,13 @@ def row_from_toolchain( name, toolchain, default_name=None, inventory_by_path=No
         size_bytes, last_used_epoch = _stats_for_storage_path(
                 storage_path, inventory_by_path or {}
         )
+    describe = None
+    describe_fn = getattr( toolchain, 'describe', None )
+    if callable( describe_fn ):
+        try:
+            describe = describe_fn()
+        except Exception:
+            describe = None
     return {
         'section': section,
         'name': name,
@@ -262,6 +270,7 @@ def row_from_toolchain( name, toolchain, default_name=None, inventory_by_path=No
         'is_default': is_default,
         'size_bytes': size_bytes,
         'last_used_epoch': last_used_epoch,
+        'describe': describe,
     }
 
 
@@ -369,9 +378,15 @@ def build_toolchain_tree( rows, platform_default_name=None ):
                         other_names.append( entry )
                 names.extend( other_names )
                 names.extend( default_names )
+                describe = None
+                for row in name_rows:
+                    if row.get( 'describe' ):
+                        describe = row['describe']
+                        break
                 drivers.append( {
                     'driver_path': driver,
                     'names': names,
+                    'describe': describe,
                     'size_bytes': _rollup_size( names ),
                     'last_used_epoch': _rollup_epoch( names ),
                 } )
@@ -491,7 +506,148 @@ def _colour_driver( path ):
     return storage.display_path( path ) if path else path
 
 
-def _render_section_tree( section, out, tee, elbow, pipe, gap ):
+def _blank_metric_cells():
+    return ' ' * SIZE_WIDTH, ' ' * MIDDLE_WIDTH
+
+
+_PLACEHOLDER_RE = re.compile( r'<[^>\s]+>' )
+_QUALIFIER_RE = re.compile( r'(\s*\((?:default|experimental)\))\s*$' )
+
+
+def _colour_qualified_item( item ):
+    """Keep the stem normal; mute trailing ``(default)`` / ``(experimental)``."""
+    if not item:
+        return ''
+    match = _QUALIFIER_RE.search( item )
+    if not match:
+        return item
+    return '{}{}'.format( item[:match.start()], as_subdued( match.group( 1 ) ) )
+
+
+def _colour_comma_separated( items ):
+    """Normal list items with subdued ``, `` separators and muted qualifiers."""
+    if not items:
+        return ''
+    parts = [ _colour_qualified_item( items[0] ) ]
+    for item in items[1:]:
+        parts.append( as_subdued( ', ' ) )
+        parts.append( _colour_qualified_item( item ) )
+    return ''.join( parts )
+
+
+def _colour_invocation( text ):
+    """Quote an invocation string; quotes and placeholders are subdued."""
+    quote = as_subdued( '"' )
+    if not text:
+        return quote + quote
+    parts = [ quote ]
+    position = 0
+    for match in _PLACEHOLDER_RE.finditer( text ):
+        if match.start() > position:
+            parts.append( text[position:match.start()] )
+        parts.append( as_subdued( match.group( 0 ) ) )
+        position = match.end()
+    if position < len( text ):
+        parts.append( text[position:] )
+    parts.append( quote )
+    return ''.join( parts )
+
+
+def _write_info_line( out, indent, prefix, branch, key, value=None, notice=True ):
+    """Info row: stem subdued; ``key`` notice/yellow unless ``notice=False``; value pre-coloured."""
+    size, age = _blank_metric_cells()
+    coloured_key = as_notice( key ) if notice else key
+    if value is None:
+        label = coloured_key
+    else:
+        label = '{}{}'.format( coloured_key, value )
+    out.write( "{size}  {age}{indent}{prefix}{branch}{label}\n".format(
+            size=size,
+            age=age,
+            indent=indent,
+            prefix=prefix,
+            branch=as_subdued( branch ),
+            label=label,
+    ) )
+
+
+def _render_driver_describe(
+        describe, out, indent, family_prefix, version_prefix, driver_prefix,
+        tee, elbow, pipe, gap,
+):
+    """Info under a driver: notice keys, normal values/variants, muted commas/placeholders."""
+    from cuppa.toolchains.describe import dialect_display_items, stdlib_display_items
+
+    if not describe:
+        return
+
+    info_rows = []
+    dialects = describe.get( 'dialects' ) or []
+    if dialects:
+        info_rows.append( (
+                'available dialects: ',
+                _colour_comma_separated( dialect_display_items(
+                        dialects, describe.get( 'default_dialect' )
+                ) ),
+                None,
+        ) )
+    usable_features = describe.get( 'usable_features' ) or []
+    if usable_features:
+        info_rows.append( (
+                'usable features: ',
+                _colour_comma_separated( usable_features ),
+                None,
+        ) )
+    stdlib_choices = describe.get( 'stdlib_choices' )
+    if stdlib_choices:
+        info_rows.append( (
+                'stdlib choices: ',
+                _colour_comma_separated( stdlib_display_items(
+                        stdlib_choices, describe.get( 'default_stdlib' )
+                ) ),
+                None,
+        ) )
+    variants = describe.get( 'variants' ) or {}
+    variant_order = [ name for name in ( 'dbg', 'cov', 'rel' ) if name in variants ]
+    if variant_order:
+        info_rows.append( ( 'default invocations:', None, variant_order ) )
+
+    base = family_prefix + version_prefix + driver_prefix
+    for info_index, ( key, value, variant_names ) in enumerate( info_rows ):
+        info_last = info_index == len( info_rows ) - 1
+        info_branch = elbow if info_last else tee
+        info_prefix = gap if info_last else pipe
+        _write_info_line(
+                out, indent, as_subdued( base ), info_branch, key, value=value
+        )
+        if not variant_names:
+            continue
+        for variant_index, variant_name in enumerate( variant_names ):
+            variant_last = variant_index == len( variant_names ) - 1
+            variant_branch = elbow if variant_last else tee
+            variant_prefix = gap if variant_last else pipe
+            _write_info_line(
+                    out, indent,
+                    as_subdued( base + info_prefix ),
+                    variant_branch,
+                    variant_name,
+                    notice=False,
+            )
+            block = variants.get( variant_name ) or {}
+            flag_keys = [ name for name in ( 'c++', 'c', 'link' ) if name in block ]
+            for flag_index, flag_key in enumerate( flag_keys ):
+                flag_last = flag_index == len( flag_keys ) - 1
+                flag_branch = elbow if flag_last else tee
+                _write_info_line(
+                        out, indent,
+                        as_subdued( base + info_prefix + variant_prefix ),
+                        flag_branch,
+                        '{}: '.format( flag_key ),
+                        value=_colour_invocation( block[flag_key] ),
+                )
+
+
+def _render_section_tree( section, out, tee, elbow, pipe, gap, verbose=False ):
     families = section.get( 'families' ) or []
     out.write( "{size}  {age}{indent}{label}\n".format(
             size=_size_cell( section.get( 'size_bytes' ), muted=False ),
@@ -569,8 +725,10 @@ def _render_section_tree( section, out, tee, elbow, pipe, gap ):
                 ) )
 
                 names = driver.get( 'names' ) or []
+                describe = driver.get( 'describe' ) if verbose else None
+                has_info = bool( describe )
                 for name_index, name in enumerate( names ):
-                    name_last = name_index == len( names ) - 1
+                    name_last = ( name_index == len( names ) - 1 ) and not has_info
                     name_branch = elbow if name_last else tee
                     label = name['name']
                     if name.get( 'is_default' ):
@@ -585,6 +743,12 @@ def _render_section_tree( section, out, tee, elbow, pipe, gap ):
                             branch=as_subdued( name_branch ),
                             label=_colour_name( label, name.get( 'is_default' ) ),
                     ) )
+                if has_info:
+                    _render_driver_describe(
+                            describe, out, INDENT,
+                            family_prefix, version_prefix, driver_prefix,
+                            tee, elbow, pipe, gap,
+                    )
 
 
 def _count_names( sections ):
@@ -601,7 +765,7 @@ def _section_size_bytes( section ):
     return section.get( 'size_bytes' )
 
 
-def _render_text( sections, out ):
+def _render_text( sections, out, verbose=False ):
     tee, elbow, pipe, gap = storage.glyphs()
     heading = "{size}  {age}{indent}{title} {hint}".format(
             size='SIZE'.rjust( SIZE_WIDTH ),
@@ -610,22 +774,36 @@ def _render_text( sections, out ):
             title=HEADING_TITLE,
             hint=as_subdued( HEADING_HINT ),
     )
-    width = max( storage.visible_len( heading ), 80 )
 
-    out.write( INDENT + _ruled_line( width ) + "\n" )
-    out.write( INDENT + heading + "\n" )
-    out.write( INDENT + _ruled_line( width ) + "\n" )
-
-    for index, section in enumerate( sections ):
-        if index > 0:
-            out.write( INDENT + _ruled_line( width ) + "\n" )
+    # Render section bodies first so rule width spans the widest content line
+    # (verbose dialect / invocation rows are often much wider than the heading).
+    section_buffers = []
+    for section in sections:
         buffer = []
 
         class _Capture( object ):
             def write( self, text ):
                 buffer.append( text )
 
-        _render_section_tree( section, _Capture(), tee, elbow, pipe, gap )
+        _render_section_tree(
+                section, _Capture(), tee, elbow, pipe, gap, verbose=verbose
+        )
+        section_buffers.append( buffer )
+
+    content_widths = [ storage.visible_len( heading ) ]
+    for buffer in section_buffers:
+        for chunk in buffer:
+            for line in chunk.splitlines():
+                content_widths.append( storage.visible_len( line ) )
+    width = max( max( content_widths ), 80 )
+
+    out.write( INDENT + _ruled_line( width ) + "\n" )
+    out.write( INDENT + heading + "\n" )
+    out.write( INDENT + _ruled_line( width ) + "\n" )
+
+    for index, buffer in enumerate( section_buffers ):
+        if index > 0:
+            out.write( INDENT + _ruled_line( width ) + "\n" )
         for chunk in buffer:
             for line in chunk.splitlines( True ):
                 out.write( INDENT + line )
@@ -676,7 +854,7 @@ def _section_to_json( section ):
         for version in family.get( 'versions' ) or []:
             drivers = []
             for driver in version.get( 'drivers' ) or []:
-                drivers.append( {
+                driver_payload = {
                     'driver_path': driver['driver_path'],
                     'display_path': storage.display_path( driver['driver_path'] ),
                     'size_bytes': driver.get( 'size_bytes' ),
@@ -692,7 +870,10 @@ def _section_to_json( section ):
                         }
                         for name in driver.get( 'names' ) or []
                     ],
-                } )
+                }
+                if driver.get( 'describe' ):
+                    driver_payload['describe'] = driver['describe']
+                drivers.append( driver_payload )
             versions.append( {
                 'version': version['version'],
                 'owns_default': bool( version.get( 'owns_default' ) ),
@@ -719,8 +900,9 @@ def list_toolchains( cuppa_env, out=None ):
     """Print discovered and registered toolchains. Returns an exit status."""
     out = out or sys.stdout
     sections = build_toolchain_sections( cuppa_env )
+    list_format = cuppa_env.get( 'list_format' ) or 'text'
 
-    if cuppa_env.get( 'list_format' ) == 'json':
+    if list_format == 'json':
         payload = {
             'sections': [ _section_to_json( section ) for section in sections ],
             'wipe_applies_to': SECTION_REGISTERED,
@@ -729,7 +911,7 @@ def list_toolchains( cuppa_env, out=None ):
         out.write( "\n" )
         return 0
 
-    _render_text( sections, out )
+    _render_text( sections, out, verbose=( list_format == 'verbose' ) )
     return 0
 
 

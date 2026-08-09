@@ -1,0 +1,157 @@
+{
+    "build_root": "_build",
+    "by_sconscript":
+    [
+        {
+            "children":
+            [
+                {
+                    "children":
+                    [
+                        {
+                            "last_build": "3 days ago",
+                            "mtime": 1786014000.0,
+                            "name": "dbg/x86_64/cxx2c",
+                            "result": "none",
+                            "sconscript_name": false,
+                            "selected": true,
+                            "selection": "full",
+                            "size": "48.8K",
+                            "size_bytes": 50000,
+                            "toolchain": false
+                        },
+                        {
+                            "last_build": "3 days ago",
+                            "mtime": 1786014000.0,
+                            "name": "rel/x86_64/cxx2c",
+                            "result": "none",
+                            "sconscript_name": false,
+                            "selected": false,
+                            "selection": "none",
+                            "size": "78.1K",
+                            "size_bytes": 80000,
+                            "toolchain": false
+                        }
+                    ],
+                    "last_build": "3 days ago",
+                    "mtime": 1786014000.0,
+                    "name": "gcc15",
+                    "result": "none",
+                    "sconscript_name": false,
+                    "selected": false,
+                    "selection": "partial",
+                    "size": "127K",
+                    "size_bytes": 130000,
+                    "toolchain": true
+                }
+            ],
+            "last_build": "3 days ago",
+            "mtime": 1786014000.0,
+            "name": "test",
+            "result": "none",
+            "sconscript_name": true,
+            "selected": false,
+            "selection": "partial",
+            "size": "127K",
+            "size_bytes": 130000,
+            "toolchain": false
+        }
+    ],
+    "by_toolchain_variant":
+    [
+        {
+            "children":
+            [
+                {
+                    "last_build": "3 days ago",
+                    "mtime": 1786014000.0,
+                    "name": "dbg/x86_64/cxx2c",
+                    "result": "none",
+                    "selected": true,
+                    "selection": "full",
+                    "size": "48.8K",
+                    "size_bytes": 50000,
+                    "tool_variant": "gcc15/dbg/x86_64/cxx2c"
+                },
+                {
+                    "last_build": "3 days ago",
+                    "mtime": 1786014000.0,
+                    "name": "rel/x86_64/cxx2c",
+                    "result": "none",
+                    "selected": false,
+                    "selection": "none",
+                    "size": "78.1K",
+                    "size_bytes": 80000,
+                    "tool_variant": "gcc15/rel/x86_64/cxx2c"
+                }
+            ],
+            "last_build": "3 days ago",
+            "mtime": 1786014000.0,
+            "name": "gcc15",
+            "result": "none",
+            "selected": false,
+            "selection": "partial",
+            "size": "127K",
+            "size_bytes": 130000,
+            "tool_variant": "gcc15"
+        }
+    ],
+    "entries":
+    [
+        {
+            "last_build": "3 days ago",
+            "mtime": 1786014000.0,
+            "path": "_build/test/gcc15/dbg/x86_64/cxx2c",
+            "sconscript": "test",
+            "selected": true,
+            "size": "48.8K",
+            "size_bytes": 50000,
+            "tool_variant": "gcc15/dbg/x86_64/cxx2c"
+        },
+        {
+            "last_build": "3 days ago",
+            "mtime": 1786014000.0,
+            "path": "_build/test/gcc15/rel/x86_64/cxx2c",
+            "sconscript": "test",
+            "selected": false,
+            "size": "78.1K",
+            "size_bytes": 80000,
+            "tool_variant": "gcc15/rel/x86_64/cxx2c"
+        }
+    ],
+    "folder":
+    {
+        "display_path": "_build",
+        "entries": 2,
+        "last_build": "3 days ago",
+        "mtime": 1786014000.0,
+        "path": "_build",
+        "selected_bytes": 50000,
+        "selected_entries": 1,
+        "selected_last_build": "3 days ago",
+        "selected_mtime": 1786014000.0,
+        "selected_size": "48.8K",
+        "size": "127K",
+        "size_bytes": 130000
+    },
+    "summary":
+    {
+        "entries": 2,
+        "equivalent_command": "cuppa -D --dbg --toolchains=gcc15",
+        "selected_bytes": 50000,
+        "selected_entries": 1,
+        "selected_size": "48.8K",
+        "settings":
+        {
+            "dbg": true,
+            "toolchains":
+            [
+                "gcc15"
+            ]
+        },
+        "total_bytes": 130000,
+        "total_size": "127K"
+    },
+    "total": "127K",
+    "total_bytes": 130000
+}

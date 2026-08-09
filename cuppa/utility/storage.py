@@ -452,6 +452,62 @@ def render_json( columns, rows, total_bytes=None, extra=None ):
     return render_json_payload( payload )
 
 
+def _json_is_multiline( value ):
+    """Non-empty objects and arrays get Allman bracing; scalars and empties stay inline."""
+    if isinstance( value, dict ):
+        return bool( value )
+    if isinstance( value, list ):
+        return bool( value )
+    return False
+
+
+def _dumps_allman( value, indent=4, level=0 ):
+    """Serialize JSON with 4-space indent and braces/brackets on the next line."""
+    pad = ' ' * ( indent * level )
+    child = ' ' * ( indent * ( level + 1 ) )
+
+    if isinstance( value, dict ):
+        if not value:
+            return '{}'
+        lines = [ '{' ]
+        items = sorted( value.items() )
+        for index, ( key, item ) in enumerate( items ):
+            comma = ',' if index < len( items ) - 1 else ''
+            key_text = json.dumps( key )
+            if _json_is_multiline( item ):
+                rendered = _dumps_allman( item, indent=indent, level=level + 1 )
+                lines.append( '{}{}:\n{}{}{}'.format(
+                        child, key_text, child, rendered, comma
+                ) )
+            else:
+                lines.append( '{}{}: {}{}'.format(
+                        child, key_text, _dumps_allman( item, indent=indent, level=level + 1 ),
+                        comma
+                ) )
+        lines.append( '{}{}'.format( pad, '}' ) )
+        return '\n'.join( lines )
+
+    if isinstance( value, list ):
+        if not value:
+            return '[]'
+        lines = [ '[' ]
+        for index, item in enumerate( value ):
+            comma = ',' if index < len( value ) - 1 else ''
+            if _json_is_multiline( item ):
+                rendered = _dumps_allman( item, indent=indent, level=level + 1 )
+                lines.append( '{}{}{}'.format( child, rendered, comma ) )
+            else:
+                lines.append( '{}{}{}'.format(
+                        child,
+                        _dumps_allman( item, indent=indent, level=level + 1 ),
+                        comma
+                ) )
+        lines.append( '{}{}'.format( pad, ']' ) )
+        return '\n'.join( lines )
+
+    return json.dumps( value )
+
+
 def render_json_payload( payload ):
-    """Pretty-print a JSON object for ``--list-format=json``."""
-    return json.dumps( payload, indent=2, sort_keys=True )
+    """Pretty-print JSON for ``--list-format=json`` (4-space Allman braces)."""
+    return _dumps_allman( payload )

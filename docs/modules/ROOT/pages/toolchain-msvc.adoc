@@ -1,0 +1,156 @@
+= MSVC (`vc` / `cl`)
+:description: Cuppa MSVC toolchain — Windows platforms, aliases, default flags, modules
+
+[#msvc-toolchain]
+== Introduction
+
+https://learn.microsoft.com/en-us/cpp/[Microsoft Visual {cpp}] (MSVC) is Cuppa’s Windows
+{cpp} toolchain. Cuppa integrates with SCons Visual {cpp} detection and drives `cl.exe`
+under the `vc` / `cl` family names. Coverage instrumentation (`--cov`) is **not**
+supported for MSVC.
+
+Upstream documentation: https://learn.microsoft.com/en-us/cpp/[{cpp} in Visual Studio] ·
+Compiler options:
+https://learn.microsoft.com/en-us/cpp/build/reference/compiler-options-listed-alphabetically[MSVC compiler options].
+
+Names are the generic alias `vc` (SCons default install) plus versioned aliases derived
+from the SCons MSVC **toolset** id:
+
+|===
+| SCons / VS toolset | Cuppa `--toolchains=` | Notes
+
+| `14.5`
+| `vc145`
+| VS 2026+ platform toolset *v145*
+
+| `14.3`
+| `vc143`
+| VS 2022 *v143*
+
+| `14.2` / `14.2Exp`
+| `vc142` / `vc142e`
+| VS 2019 *v142*
+
+| `14.1`
+| `vc141`
+| VS 2017 *v141*
+|===
+
+The alias drops the dot so CLI names stay short and match the familiar `v145`-style label
+(same digit style as `gcc15` / `clang21`).
+Capability floors use this toolset `(major, minor)` -- not compiler marketing strings such
+as `14.29` / `19.51`.
+
+[source,sh]
+----
+cuppa -D --dbg --toolchains=vc
+cuppa -D --dbg --toolchains=vc145
+cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=vc143
+----
+
+For selection and listing shared with other families, see xref:toolchains.adoc[Toolchains].
+Inspect the live default invocation strings with `--list-toolchains --list-format=verbose`.
+
+Cuppa’s MSVC default is `-std:c{plus}{plus}20`, which already includes concepts and coroutines.
+There are no extra MSVC feature switches for those. Modules stay opt-in via `--modules`.
+
+== Default compile and link flags
+
+These are the flags that appear under `default invocations:` in verbose listing
+(MSVC has no `c` / `cov` lines).
+
+Common {cpp} flags on every MSVC build:
+
+|===
+| Flag | Purpose | Docs
+
+| `-W4`
+| High warning level
+| https://learn.microsoft.com/en-us/cpp/build/reference/compiler-option-warning-level[Warning level]
+
+| `-EHsc`
+| Synchronous exception model with {cpp} `extern "C"` defaults
+| https://learn.microsoft.com/en-us/cpp/build/reference/eh-exception-handling-model[Exception handling]
+
+| `-nologo`
+| Suppress banner noise on every invocation
+| https://learn.microsoft.com/en-us/cpp/build/reference/nologo-suppress-startup-banner-c-cl[nologo]
+
+| `-GR`
+| Enable RTTI
+| https://learn.microsoft.com/en-us/cpp/build/reference/gr-enable-run-time-type-information[RTTI]
+
+| `-permissive-`
+| Stricter standards conformance mode
+| https://learn.microsoft.com/en-us/cpp/build/reference/permissive-standards-conformance[/permissive-]
+
+| `-Zc:__cplusplus`
+| Make `__cplusplus` report the selected standard correctly
+| https://learn.microsoft.com/en-us/cpp/build/reference/zc-cplusplus[Zc:__cplusplus]
+
+| `-utf-8`
+| Source and execution charset UTF-8
+| https://learn.microsoft.com/en-us/cpp/build/reference/utf-8-set-source-and-executable-character-sets-to-utf-8[utf-8]
+|===
+
+Variant-specific additions:
+
+|===
+| Variant | Extra CXX flags | Link flags
+
+| `--dbg`
+| `-Zi` (debug info), `-MDd` (debug DLL CRT)
+| `-OPT:REF`
+
+| `--rel`
+| `-Ox` (full optimisation), `-MD` (release DLL CRT)
+| `-OPT:REF`
+
+| `--cov`
+| _(not supported -- no instrumentation)_
+| _(not supported)_
+|===
+
+|===
+| Flag | Purpose | Docs
+
+| `-Zi`
+| Produce debug information in a PDB
+| https://learn.microsoft.com/en-us/cpp/build/reference/z7-zi-zi-debug-information-format[Debug information format]
+
+| `-MDd` / `-MD`
+| Debug / release multithreaded DLL CRT
+| https://learn.microsoft.com/en-us/cpp/build/reference/md-mt-ld-use-run-time-library[Runtime library]
+
+| `-Ox`
+| Full optimisation
+| https://learn.microsoft.com/en-us/cpp/build/reference/ox-full-optimization[Full optimization]
+
+| `-OPT:REF`
+| Eliminate unreferenced functions/data at link time
+| https://learn.microsoft.com/en-us/cpp/build/reference/opt-optimizations[OPT]
+
+| `-std:c{plus}{plus}20` (default)
+| Select the {cpp} language dialect (overridable via `--stdcpp` / `StdCpp`)
+| https://learn.microsoft.com/en-us/cpp/build/reference/std-specify-language-standard-version[std]
+|===
+
+Dialect mapping notes for `--stdcpp` (pre-{cpp}14 aliases, `c{plus}{plus}23` → `c{plus}{plus}latest`, hyphen form)
+are on the hub under xref:toolchains.adoc#c-language-level[{cpp} language level].
+
+== Modules (opt-in)
+
+* Floor: toolset **14.2+** (`vc142` and newer)
+* Exported interface units: `-interface`, `-TP`, space-separated `-ifcOutput PATH`
+* Non-exported partitions (`module M:part;`): `-internalPartition`, `-TP`, `-ifcOutput PATH`
+* Consumers: space-separated `-reference name=PATH` (colon-attached forms break on absolute `C:\…` paths)
+* BMI extension: `.ifc`
+* Header units: `-exportHeader` (+ `-headerName:angle` for system headers); consumers use `-headerUnit` / `-headerUnit:angle`
+* `import std`: toolset **14.3+** when STL `modules/std.ixx` is present (compiled with `-interface` / `-ifcOutput`)
+
+See xref:cxx-modules.adoc[{cpp} modules].
+
+== Limitations
+
+* Coverage is not supported for MSVC
+* Shared libraries that export module symbols still need `__declspec(dllexport)` (or a `.def`) so the linker produces an import library — cuppa does not invent DLL exports from `export` alone

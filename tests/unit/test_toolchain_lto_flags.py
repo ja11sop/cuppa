@@ -83,8 +83,18 @@ def test_gcc_lto_is_release_only():
     assert "-flto=auto" not in toolchain.values["debug_link_cxx_flags"]
     assert "-flto=auto" not in toolchain.values["coverage_link_cxx_flags"]
     assert "-flto=auto" in toolchain.values["release_link_cxx_flags"]
-    assert "-fconcepts" in toolchain.values["debug_cxx_flags"]
     assert "-std=c++2c" in toolchain.values["debug_cxx_flags"]
+    # GCC 11+: concepts/coroutines are in the dialect — no redundant -f* gates.
+    assert "-fconcepts" not in toolchain.values["debug_cxx_flags"]
+    assert "-fcoroutines" not in toolchain.values["debug_cxx_flags"]
+
+
+def test_gcc_feature_flags_only_when_dialect_lacks_them():
+    """Match __default_dialect_flags policy: gate only where -std= is not enough."""
+    assert _gcc(9)._Gcc__default_dialect_flags() == [ "-std=c++2a", "-fconcepts" ]
+    assert _gcc(10)._Gcc__default_dialect_flags() == [ "-std=c++2a", "-fcoroutines" ]
+    assert _gcc(11)._Gcc__default_dialect_flags() == [ "-std=c++2b" ]
+    assert _gcc(15)._Gcc__default_dialect_flags() == [ "-std=c++2c" ]
 
 
 def test_clang_lto_is_release_only():

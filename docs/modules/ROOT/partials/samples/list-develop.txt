@@ -1,0 +1,35 @@
+Building on branch [feature_orders] with default branch [master]; --develop is not active
+
+  ----------------------------------------------------------------------------------------------
+  STATUS  DEPENDENCY  BRANCH          UPSTREAM            STATE                  PATH
+  ----------------------------------------------------------------------------------------------
+  warn    flange      spike_cache     origin/spike_cache  clean, 2 behind        ~/coding/flange
+  ok      gadget      master          origin/master       clean                  ~/coding/gadget
+  error   gizmo       -               -                   path does not exist    ~/coding/gizmo
+  note    widget      feature_orders  -                   modified, no upstream  ~/coding/widget
+  ----------------------------------------------------------------------------------------------
+
+4 develop locations: [1 error][1 warning][1 note]; 1 ok; 1 dependency not using develop
+│
+├── 1 error
+│   │
+│   └── gizmo
+│       └── has a develop path [~/coding/gizmo] that does not exist, so this build cannot
+│           succeed
+│
+├── 1 warning
+│   │
+│   └── flange
+│       ├── is on [spike_cache], which is neither [feature_orders] nor the default branch
+│       │   [master]
+│       └── is 2 commits behind [origin/spike_cache] as of your last fetch
+│
+└── 1 note
+    │
+    └── widget
+        ├── has no upstream branch, so ahead and behind cannot be answered
+        └── has uncommitted changes on [feature_orders]
+
+Ahead and behind are relative to your last fetch; no remote was contacted
+Of these, --update-develop would fast-forward 1 ([flange]) as of your last fetch; it fetches
+first, so it may find more

@@ -294,6 +294,11 @@ class Gcc(object):
         return "gcc"
 
 
+    def describe( self ):
+        from cuppa.toolchains.describe import describe_toolchain
+        return describe_toolchain( self )
+
+
     def toolset_name( self ):
         return "gcc"
 
@@ -471,6 +476,12 @@ class Gcc(object):
         self.values['release_link_cxx_flags']  = CommonLinkCxxFlags + lto_flags
         self.values['coverage_link_cxx_flags'] = CommonLinkCxxFlags + [ '--coverage' ]
 
+        # Linux DYNAMICLIBS defaults (see toolchain-gcc.adoc § Default Linux libraries).
+        # pthread: C++ threads / many libraries historically needed an explicit -lpthread
+        # (glibc < 2.34). rt: clock_gettime and related APIs historically lived in librt
+        # (integrated into libc on modern glibc). Both remain for older targets and are
+        # harmless stubs/filters on current glibc; Cuppa's STATICLIBS/DYNAMICLIBS sandwich
+        # places them in the dynamic half of the link line.
         DynamicLibraries = []
         if cuppa.build_platform.name() == "Linux":
             DynamicLibraries = [ 'pthread', 'rt' ]
@@ -486,31 +497,81 @@ class Gcc(object):
                + source + ' > ' + source + '_summary.gcov'
 
 
-    def __default_dialect_flags( self ):
+    def default_dialect( self ):
+        """Cuppa default ``-std=`` token for this reported GCC version."""
         major_ver = self._reported_version['major']
         minor_ver = self._reported_version['minor']
         if major_ver == 4:
-            if minor_ver >= 3 and minor_ver <= 6:
-                return ['-std=c++0x']
-            elif minor_ver == 7:
-                return ['-std=c++11']
-            else:
-                return ['-std=c++1y']
-        elif major_ver == 5 and minor_ver <= 1:
-            return ['-std=c++1y']
-        elif major_ver >= 5 and major_ver < 8:
-            return ['-std=c++1z']
-        elif major_ver >= 8 and major_ver < 10:
-            return ['-std=c++2a', '-fconcepts']
-        elif major_ver >= 10 and major_ver < 11:
-            return ['-std=c++2a', '-fconcepts', '-fcoroutines']
-        elif major_ver >= 11 and major_ver < 12:
-            return ['-std=c++2b', '-fconcepts', '-fcoroutines']
-        elif major_ver >= 12 and major_ver < 14:
-            return ['-std=c++2b', '-fconcepts', '-fcoroutines']
-        elif major_ver >= 14:
-            return ['-std=c++2c', '-fconcepts', '-fcoroutines']
-        return ['-std=c++03']
+            if 3 <= minor_ver <= 6:
+                return 'c++0x'
+            if minor_ver == 7:
+                return 'c++11'
+            return 'c++1y'
+        if major_ver == 5 and minor_ver <= 1:
+            return 'c++1y'
+        if 5 <= major_ver < 8:
+            return 'c++1z'
+        if 8 <= major_ver < 11:
+            return 'c++2a'
+        if 11 <= major_ver < 14:
+            return 'c++2b'
+        if major_ver >= 14:
+            return 'c++2c'
+        return 'c++03'
+
+
+    def usable_features( self ):
+        """Display items for verbose ``usable features:`` (see ``describe``)."""
+        from cuppa.toolchains.describe import format_usable_feature_items
+
+        major_ver = self._reported_version['major']
+        dialect = self.default_dialect()
+        gated = []
+        dialect_inclusive = True
+        if major_ver in ( 8, 9 ):
+            # Concepts TS via -fconcepts — not ISO "all c++2a".
+            gated.append( 'concepts' )
+            dialect_inclusive = False
+        elif major_ver == 10:
+            gated.append( 'coroutines' )
+        experimental = []
+        try:
+            if self.supports_modules( None ):
+                experimental.append( 'modules (experimental)' )
+        except Exception:
+            pass
+        return format_usable_feature_items(
+                dialect,
+                gated=gated,
+                experimental=experimental,
+                dialect_inclusive=dialect_inclusive,
+        )
+
+
+    def __default_dialect_flags( self ):
+        """Default dialect ``-std=`` plus feature flags only when the dialect lacks them.
+
+        Policy: latest dialect Cuppa selects for this GCC, with every language
+        feature that dialect already enables — do **not** pass ``-fconcepts`` /
+        ``-fcoroutines`` once they are part of the chosen ``-std=``. Extras are
+        only for older GCC where the default dialect still needs a gate:
+
+        * GCC 8–9 (``c++2a``): Concepts TS via ``-fconcepts`` (ISO C++20 concepts
+          arrive in GCC 10).
+        * GCC 10 (``c++2a``): coroutines still require ``-fcoroutines`` even with
+          ``-std=c++2a`` / ``c++20`` (libstdc++ ``<coroutine>`` asserts this).
+        * GCC 11+: concepts and coroutines come with the C++20+ dialects — ``-std=``
+          alone.
+
+        Modules stay opt-in via ``--modules`` (see ``modules_enable_flags``).
+        """
+        flags = [ '-std={}'.format( self.default_dialect() ) ]
+        major_ver = self._reported_version['major']
+        if major_ver in ( 8, 9 ):
+            flags.append( '-fconcepts' )
+        elif major_ver == 10:
+            flags.append( '-fcoroutines' )
+        return flags
 
 
     def __lto_flags( self ):

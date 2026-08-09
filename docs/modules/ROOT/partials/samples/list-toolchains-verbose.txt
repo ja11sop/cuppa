@@ -1,0 +1,40 @@
+  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+      SIZE  LAST USED     TOOLCHAIN family-version-driver-name(s)
+  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        --  --            discovered
+                          │
+        --  --            └── gcc (default)
+                              │
+        --  --                └── 15.3
+        --  --                    └── /usr/bin/g++-15
+        --  --                        ├── gcc15
+        --  --                        ├── gcc153
+        --  --                        ├── gcc (default)
+                                      ├── available dialects: c++2c (default), c++26, c++2b, c++23, c++2a, c++20, c++1z, c++17, c++1y, c++14, c++11, c++0x, c++03, c++98
+                                      ├── usable features: all c++2c, modules (experimental)
+                                      └── default invocations:
+                                          ├── dbg
+                                          │   ├── c++: "-Wall -fexceptions -g -std=c++2c <sources>"
+                                          │   ├── c: "-Wall -g <sources>"
+                                          │   └── link: "<objects> -rdynamic -Wl,-rpath=. -Xlinker -Bstatic <static_libs> -Xlinker -Bdynamic -lpthread -lrt <dynamic_libs>"
+                                          ├── cov
+                                          │   ├── c++: "-Wall -fexceptions -g -std=c++2c --coverage <sources>"
+                                          │   ├── c: "-Wall -g --coverage <sources>"
+                                          │   └── link: "<objects> -rdynamic -Wl,-rpath=. --coverage -Xlinker -Bstatic <static_libs> -Xlinker -Bdynamic -lpthread -lrt <dynamic_libs>"
+                                          └── rel
+                                              ├── c++: "-Wall -fexceptions -g -std=c++2c -O3 -DNDEBUG -flto=auto <sources>"
+                                              ├── c: "-Wall -g -O3 -DNDEBUG <sources>"
+                                              └── link: "<objects> -rdynamic -Wl,-rpath=. -flto=auto -Xlinker -Bstatic <static_libs> -Xlinker -Bdynamic -lpthread -lrt <dynamic_libs>"
+  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        --  --            registered
+                          (none)
+  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  3 toolchains, none total (none discovered, none registered)
+
+To remove registered toolchains review with:
+
+cuppa -Q -D -n --force-wipe-dependencies=[toolchain]*
+
+Drop -n and re-run after confirming.
+
+Force-wipe removal of toolchains applies only to registered toolchains. Discovered toolchains are not Cuppa-owned.

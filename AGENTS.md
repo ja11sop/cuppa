@@ -563,7 +563,8 @@ When docs and code disagree, **code is authoritative** (especially storage defau
 | Install / first project | `install.adoc`, `quickstart.adoc` |
 | Vocabulary (methods, deps, variants) | `concepts.adoc` |
 | Build / test / library APIs + examples | `methods.adoc` |
-| Compiler defaults and flags | `toolchains.adoc` |
+| Toolchains hub (select / list / archives / `--stdcpp`) | `toolchains.adoc` |
+| GCC / Clang / MSVC defaults and flags | `toolchain-gcc.adoc` / `toolchain-clang.adoc` / `toolchain-msvc.adoc` |
 | Fetched toolchain archives (`--toolchain-archive`, `--*-root`) | `toolchains.adoc` § Fetched toolchain archives |
 | C++20 modules intro, tutorial, papers, reference | `cxx-modules.adoc` |
 | CLI flags | `cli-reference.adoc` |
@@ -585,7 +586,7 @@ When docs and code disagree, **code is authoritative** (especially storage defau
 
 The Phase 3 documentation split in [`design/plans/removal-options.md`](design/plans/removal-options.md) §7.1 has landed. Prefer the child page above rather than growing the hub.
 
-Update `docs/modules/ROOT/nav.adoc` when adding a new top-level page or nesting children under Dependencies.
+Update `docs/modules/ROOT/nav.adoc` when adding a new top-level page or nesting children under Dependencies or Toolchains.
 
 ### Documentation partitioning (rules of thumb)
 
@@ -646,7 +647,7 @@ Don't provide blocks of code and ask readers to trust it works. Every command sh
 
 When asking the reader to execute a command or modify code, first explain what it does and why. These details help readers grow their skills.
 
-Quote **real** toolchain defaults and CLI behaviour from `cuppa/toolchains/*.py` and `cuppa/methods/*.py`. If a flag list changes in code, update `toolchains.adoc` in the same change.
+Quote **real** toolchain defaults and CLI behaviour from `cuppa/toolchains/*.py` and `cuppa/methods/*.py`. If a flag list changes in code, update the matching family page (`toolchain-gcc.adoc` / `toolchain-clang.adoc` / `toolchain-msvc.adoc`) in the same change.
 
 ## Practical and Self-Contained
 

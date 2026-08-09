@@ -2,10 +2,11 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Toolchains as dependencies; shipped design
-  [`archive/toolchains-as-dependencies.md`](../archive/toolchains-as-dependencies.md); [#160](https://github.com/ja11sop/cuppa/issues/160); [`ideas/scratchpad.md`](../ideas/scratchpad.md) (graduated); console patterns
+  [`archive/toolchains-as-dependencies.md`](../archive/toolchains-as-dependencies.md); [#160](https://github.com/ja11sop/cuppa/issues/160); [`list-toolchains-verbose.md`](list-toolchains-verbose.md); [`ideas/scratchpad.md`](../ideas/scratchpad.md) (graduated); console patterns
   [`archive/console-report-patterns.md`](../archive/console-report-patterns.md)
 - **Updated:** 2026-08-09
 - **Impact:** minor — inventory CLI + list-deps leaf label alignment for toolchain session names
+  (verbose / family docs land on the same [#170](https://github.com/ja11sop/cuppa/pull/170) branch)
 
 ## Why
 
@@ -108,7 +109,9 @@ on the open 1.6.0 branch (follow-on to #170).
 | `list-tc-deps-leaf` | done |
 | `list-tc-docs` (tree) | done |
 | `list-tc-follow-inventory` | deferred |
+| `list-tc-verbose` | See [`list-toolchains-verbose.md`](list-toolchains-verbose.md) |
 
 ## Open decisions
 
-None — proceed to implementation when ready.
+None for the inventory tree — proceed / polish on #170.
+Verbose dialects/flags: open in [`list-toolchains-verbose.md`](list-toolchains-verbose.md).

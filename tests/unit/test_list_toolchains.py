@@ -46,12 +46,14 @@ class FakeToolchain( object ):
             binary,
             storage_path=None,
             cxx_path=None,
+            describe=None,
     ):
         self._name = name
         self._family = family
         self._version = version
         self.values = { 'CXX': binary }
         self._cxx_path = cxx_path
+        self._describe = describe
         if storage_path:
             self._toolchain_dep_root = storage_path
 
@@ -66,6 +68,9 @@ class FakeToolchain( object ):
 
     def binary( self ):
         return self.values['CXX']
+
+    def describe( self ):
+        return self._describe
 
 
 def test_size_cells_can_be_muted():
@@ -345,3 +350,208 @@ def test_registered_stats_prefer_inventory( tmp_path, monkeypatch ):
     row = rows[SECTION_REGISTERED][0]
     assert row['size_bytes'] == 1234567
     assert row['last_used_epoch'] is not None
+
+
+def test_verbose_render_rules_span_widest_content_line():
+    from cuppa.core.toolchain_actions import _render_text
+    from cuppa.utility import storage
+
+    long_link = (
+            '<objects> -rdynamic -Wl,-rpath=. -Xlinker -Bstatic <static_libs> '
+            '-Xlinker -Bdynamic -lpthread -lrt <dynamic_libs>'
+    )
+    describe = {
+        'dialects': [ 'c++2c', 'c++26', 'c++2b', 'c++23', 'c++2a', 'c++20', 'c++98' ],
+        'default_dialect': 'c++2c',
+        'usable_features': [ 'all c++2c', 'modules (experimental)' ],
+        'variants': {
+            'dbg': {
+                'c++': '-Wall -fexceptions -g -std=c++2c <sources>',
+                'c': '-Wall -g <sources>',
+                'link': long_link,
+            },
+        },
+    }
+    sections = [ {
+        'name': SECTION_DISCOVERED,
+        'size_bytes': None,
+        'last_used_epoch': None,
+        'families': [ {
+            'family': 'gcc',
+            'is_platform_default': True,
+            'size_bytes': None,
+            'last_used_epoch': None,
+            'versions': [ {
+                'version': '15.3',
+                'owns_default': True,
+                'size_bytes': None,
+                'last_used_epoch': None,
+                'drivers': [ {
+                    'driver_path': '/usr/bin/g++-15',
+                    'names': [ {
+                        'name': 'gcc15',
+                        'is_default': False,
+                        'size_bytes': None,
+                        'last_used_epoch': None,
+                    } ],
+                    'describe': describe,
+                    'size_bytes': None,
+                    'last_used_epoch': None,
+                } ],
+            } ],
+        } ],
+    } ]
+    out = io.StringIO()
+    _render_text( sections, out, verbose=True )
+    plain_lines = [
+            line for line in _strip_ansi( out.getvalue() ).splitlines() if line.strip()
+    ]
+    ruled = [ line for line in plain_lines if set( line.strip() ) == { '-' } ]
+    assert len( ruled ) >= 3
+    content_width = max( storage.visible_len( line ) for line in plain_lines )
+    for rule in ruled:
+        assert storage.visible_len( rule ) == content_width
+        assert content_width > 80
+
+
+def test_verbose_render_shows_describe_after_names():
+    from cuppa.core.toolchain_actions import _render_text
+
+    describe = {
+        'dialects': [ 'c++2c', 'c++26', 'c++2b', 'c++98' ],
+        'default_dialect': 'c++2c',
+        'usable_features': [ 'all c++2c', 'modules (experimental)' ],
+        'variants': {
+            'dbg': {
+                'c++': '-Wall -std=c++2c <sources>',
+                'c': '-Wall <sources>',
+                'link': (
+                    '<objects> -rdynamic -Xlinker -Bstatic <static_libs> '
+                    '-Xlinker -Bdynamic -lpthread -lrt <dynamic_libs>'
+                ),
+            },
+        },
+    }
+    sections = [ {
+        'name': SECTION_REGISTERED,
+        'size_bytes': None,
+        'last_used_epoch': None,
+        'families': [ {
+            'family': 'gcc',
+            'is_platform_default': False,
+            'size_bytes': None,
+            'last_used_epoch': None,
+            'versions': [ {
+                'version': '15.0',
+                'owns_default': False,
+                'size_bytes': None,
+                'last_used_epoch': None,
+                'drivers': [ {
+                    'driver_path': '/usr/bin/g++',
+                    'names': [ {
+                        'name': 'gcc15',
+                        'is_default': False,
+                        'size_bytes': None,
+                        'last_used_epoch': None,
+                    } ],
+                    'describe': describe,
+                    'size_bytes': None,
+                    'last_used_epoch': None,
+                } ],
+            } ],
+        } ],
+    } ]
+    out = io.StringIO()
+    _render_text( sections, out, verbose=True )
+    plain = _strip_ansi( out.getvalue() )
+    assert 'available dialects: c++2c (default), c++26, c++2b, c++98' in plain
+    assert 'usable features: all c++2c, modules (experimental)' in plain
+    assert 'default invocations:' in plain
+    assert 'dbg' in plain
+    assert 'c++: "-Wall -std=c++2c <sources>"' in plain
+    assert '<static_libs>' in plain
+    assert plain.index( 'gcc15' ) < plain.index( 'available dialects:' )
+    assert plain.index( 'available dialects:' ) < plain.index( 'usable features:' )
+
+
+def test_verbose_info_colours_keys_notice_placeholders_muted():
+    from cuppa.colourise import as_notice, as_subdued, colouriser
+    from cuppa.core.toolchain_actions import (
+        _colour_comma_separated,
+        _colour_invocation,
+        _write_info_line,
+    )
+
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        joined = _colour_comma_separated( [ 'c++2c (default)', 'c++26' ] )
+        assert joined.startswith( 'c++2c' )
+        assert as_subdued( ' (default)' ) in joined
+        assert as_subdued( ', ' ) in joined
+        assert joined.endswith( 'c++26' )
+        features = _colour_comma_separated(
+                [ 'all c++2c', 'modules (experimental)' ]
+        )
+        assert 'modules' in features
+        assert as_subdued( ' (experimental)' ) in features
+        invocation = _colour_invocation(
+                '-Xlinker -Bdynamic -lpthread -lrt <dynamic_libs>'
+        )
+        quote = as_subdued( '"' )
+        assert invocation.startswith( quote )
+        assert invocation.endswith( quote )
+        assert '-lpthread -lrt ' in invocation
+        assert as_subdued( '<dynamic_libs>' ) in invocation
+        assert as_subdued( '-lpthread' ) not in invocation
+        out = io.StringIO()
+        _write_info_line( out, '  ', '', '└── ', 'available dialects: ' )
+        assert as_notice( 'available dialects: ' ) in out.getvalue()
+        out = io.StringIO()
+        _write_info_line( out, '  ', '', '└── ', 'dbg', notice=False )
+        assert 'dbg' in out.getvalue()
+        assert as_notice( 'dbg' ) not in out.getvalue()
+    finally:
+        colouriser.use_colour = was
+
+
+def test_text_render_omits_describe():
+    from cuppa.core.toolchain_actions import _render_text
+
+    sections = [ {
+        'name': SECTION_DISCOVERED,
+        'size_bytes': None,
+        'last_used_epoch': None,
+        'families': [ {
+            'family': 'gcc',
+            'is_platform_default': False,
+            'size_bytes': None,
+            'last_used_epoch': None,
+            'versions': [ {
+                'version': '15.0',
+                'owns_default': False,
+                'size_bytes': None,
+                'last_used_epoch': None,
+                'drivers': [ {
+                    'driver_path': '/usr/bin/g++',
+                    'names': [ {
+                        'name': 'gcc15',
+                        'is_default': False,
+                        'size_bytes': None,
+                        'last_used_epoch': None,
+                    } ],
+                    'describe': {
+                        'dialects': [ 'c++2c' ],
+                        'default_dialect': 'c++2c',
+                        'variants': {},
+                    },
+                    'size_bytes': None,
+                    'last_used_epoch': None,
+                } ],
+            } ],
+        } ],
+    } ]
+    out = io.StringIO()
+    _render_text( sections, out, verbose=False )
+    plain = _strip_ansi( out.getvalue() )
+    assert 'available dialects:' not in plain

@@ -1,0 +1,30 @@
+Downloads in ~/.cuppa/downloads
+Default dependencies: boost, boost_package
+  -----------------------------------------------------------------------------
+      SIZE  LAST USED  REMARK   DEPENDENCY / DOWNLOAD
+  -----------------------------------------------------------------------------
+      180M  today      2 total  referenced from downloads
+                                │
+       38M  today      1 used   ├── gitlab packages
+                                │   │
+       38M  today               │   └── boost_package
+       38M  today               │       └── 1.91
+       38M  today      in use   │           └── boost_…_gcc153_rel_….tar.gz
+    299.3M  today      in use   │               └── [E] gcc153_rel_x86_64_cxx2c
+      142M  today      1 used   └── source archives
+                                    │
+      142M  today                   └── boost
+      142M  today      in use           └── boost_1_91_0.tar.bz2
+      2.1G  today      in use               └── [E] boost/1.91.0
+  -----------------------------------------------------------------------------
+       36M  today               unreferenced downloads
+                                │
+       36M  today               └── gitlab packages
+                                    │
+       36M  today                   └── fmt_package
+       36M  today                       └── 11.1.4
+       36M  today                           └── fmt_…_clang211_rel_….tar.gz
+  -----------------------------------------------------------------------------
+3 archives, 216M download total, 36M unreferenced
+
+[E] = dependency extracted from the download above

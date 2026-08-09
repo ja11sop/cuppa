@@ -28,9 +28,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- GCC default dialect flags no longer pass `-fconcepts` / `-fcoroutines` once the chosen
+  `-std=` already enables those features (GCC 11+). Extras remain only where still required:
+  `-fconcepts` on GCC 8–9, `-fcoroutines` on GCC 10. Clang and MSVC were already dialect-only.
 - `--list-dependencies` toolchain leaf labels use the Cuppa `--toolchains=` session name when the
   install is registered in the current session (on-disk `toolchains/<family>/<qualifier>/` layout
   unchanged).
+- `--list-toolchains --list-format=verbose` hangs an info subtree under each driver: notice/yellow
+  keys (`available dialects:`, `usable features:`, `stdlib choices:`, `default invocations:`,
+  `c++`/`c`/`link`), normal variant names (`dbg`/`cov`/`rel`) and flag values, subdued commas
+  and `<…>` placeholders. Dialects list every `-std=` name for that compiler generation
+  (working-draft token before ISO alias, e.g. `c++2c` then `c++26`; Cuppa default marked).
+  Usable features use dialect-inclusive shorthand (`all c++2c`, `all c++2a, coroutines`) or a
+  bare gated name on older tools (`concepts`), and append `modules (experimental)` when Cuppa
+  can enable modules. Qualifiers `(default)` / `(experimental)` are subdued. Invocation
+  templates include `<sources>` / `<objects>` / `<static_libs>` / `<dynamic_libs>`; Cuppa
+  default libraries (e.g. `-lpthread -lrt`) are listed normally before the matching
+  placeholder. JSON includes the same `describe` payload on driver nodes. Horizontal rules
+  span the full width of the widest content line (including verbose dialect / invocation
+  rows). Toolchain classes expose `describe()` / `default_dialect()` / `usable_features()`.
+- Toolchains documentation is a hub plus family pages (`toolchain-gcc.adoc`,
+  `toolchain-clang.adoc`, `toolchain-msvc.adoc`) with short introductions, upstream homepage
+  links, and per-flag default-invocation explanations. Hub pages include `--list-toolchains`
+  text / verbose / JSON samples, a `--stdcpp` choice table (default behaviour is effectively
+  `c++latest` on GCC/Clang), and JSON samples for the other `--list-format=json` list actions.
+  AsciiDoc `++` / `C++` escapes so Antora no longer eats `libstdc++`, `clang++`, or dialect
+  tokens.
+- Listing / remove / purge doc samples (dependencies, downloads, develop, toolchains, builds —
+  text and shortened `--list-format=json`) are rendered through the real CLI formatters
+  (`python -m scripts.generate_doc_samples` → `docs/modules/ROOT/partials/samples/`), so tree
+  stems and JSON shape stay aligned with live output. JSON examples use collapsible blocks in
+  the Antora pages.
+- Verbose `--list-toolchains` quotes each default-invocation template
+  (`c++: "-Wall … <sources>"`); the surrounding quotes are subdued like placeholders.
+- `--list-format=json` pretty-prints with 4-space indent and Allman braces (opening `[` / `{`
+  on the next line for multi-line values), matching the doc samples.
 
 ### Deprecated
 

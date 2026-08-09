@@ -89,7 +89,9 @@ Use it as a quick compatibility checklist before adopting modules in a new proje
 == Prerequisites
 
 * xref:install.adoc[Cuppa installed] and a working xref:quickstart.adoc[quickstart] project
-* A modules-capable toolchain (see floors above and xref:toolchains.adoc[Toolchains])
+* A modules-capable toolchain (see floors above and
+  xref:toolchain-gcc.adoc[GCC] / xref:toolchain-clang.adoc[Clang] /
+  xref:toolchain-msvc.adoc[MSVC])
 * Willingness to use C++20 or newer (`--stdcpp=c++20` or higher; cuppa raises the floor when `--modules` is set)
 
 == Why modules exist
@@ -525,7 +527,9 @@ _build/<toolchain>/<variant>/<arch>/<abi>/working/modules/
   (also installed under final/modules/ for libraries)
 ----
 
-Toolchain flag details for modules are listed under each compiler in xref:toolchains.adoc[Toolchains].
+Toolchain flag details for modules are listed on
+xref:toolchain-gcc.adoc[GCC], xref:toolchain-clang.adoc[Clang], and
+xref:toolchain-msvc.adoc[MSVC].
 
 == Limits
 

@@ -330,13 +330,16 @@ this section.
 | External `--*-root=` persists registration (`cuppa-toolchain.json`) | Yes |
 | List as type `toolchain`; force-wipe `[toolchain]…`; project remove/purge/wipe N/A | Yes |
 | Shared transfer progress (HTTP download, extract, Conan stream, git `--progress`) | Yes ([#165](https://github.com/ja11sop/cuppa/pull/165); plan [`download-progress.md`](design/archive/download-progress.md)) |
-| `--list-toolchains` (Discovered vs Registered, driver paths, JSON) | Yes — on branch; design [`list-toolchains.md`](design/plans/list-toolchains.md) |
+| `--list-toolchains` (Discovered vs Registered, driver paths, JSON) | Yes — on [#170](https://github.com/ja11sop/cuppa/pull/170); design [`list-toolchains.md`](design/plans/list-toolchains.md) |
+| `--list-toolchains --list-format=verbose` + `describe()` | Yes — on [#170](https://github.com/ja11sop/cuppa/pull/170); design [`list-toolchains-verbose.md`](design/plans/list-toolchains-verbose.md) |
+| Toolchains hub + GCC / Clang / MSVC family pages | Yes — on [#170](https://github.com/ja11sop/cuppa/pull/170) |
 
 ### Planned / potential
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `list-toolchains` | `--list-toolchains` inventory; Discovered vs Registered; driver + storage paths; JSON | High | Shipping in 1.6.0 |
+| `list-toolchains` | `--list-toolchains` inventory; Discovered vs Registered; driver + storage paths; JSON; verbose `describe()` | High | Landing in [#170](https://github.com/ja11sop/cuppa/pull/170) / 1.6.0 |
+| `list-tc-flag-tables` | Table-driven GCC/Clang/Cl init shared with `describe()` | Low | Deferred; see [`list-toolchains-verbose.md`](design/plans/list-toolchains-verbose.md) |
 | `tc-dep-url-sugar` | Optional URL token in `--toolchains=` | Low | Keep `--toolchain-archive=` as explicit supply |
 | `tc-dep-profiles` | [#127](https://github.com/ja11sop/cuppa/issues/127) `--profiles` / `-fprofiles` | Medium | Needs a Profiles-capable Clang (supply path from [#160](https://github.com/ja11sop/cuppa/issues/160) is done) |
 | `tc-dep-actions` | Authenticated Actions artifact URLs | Low | After public HTTPS / file path is solid |

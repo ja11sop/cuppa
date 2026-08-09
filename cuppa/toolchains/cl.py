@@ -139,7 +139,18 @@ def _modules_dir_from_cl_path( cl_path ):
 
 class Cl(object):
 
-    _default_dialect_flag = '-std:c++20'
+    # Cuppa default dialect token; flag is derived so the two cannot drift.
+    _default_dialect = 'c++20'
+    _default_dialect_flag = '-std:{}'.format( _default_dialect )
+
+    # Real MSVC ``-std:`` dialects Cuppa lists (newest first). Distinct from the
+    # ``--stdcpp`` alias map below, which may collapse several names onto one flag.
+    _available_dialects = (
+        'c++latest',
+        'c++20',
+        'c++17',
+        'c++14',
+    )
 
     # Map cuppa --stdcpp / StdCpp names onto MSVC -std: flags.
     # Use '-' not '/' so SCons/Windows do not treat the flag as a filesystem path
@@ -397,6 +408,11 @@ class Cl(object):
         return "cl"
 
 
+    def describe( self ):
+        from cuppa.toolchains.describe import describe_toolchain
+        return describe_toolchain( self )
+
+
     def toolset_name( self ):
         return "msvc"
 
@@ -542,6 +558,32 @@ class Cl(object):
 
         self.values['dbg_link_flags'] = CommonLinkFlags + []
         self.values['rel_link_flags'] = CommonLinkFlags + []
+
+
+    def default_dialect( self ):
+        """Cuppa default MSVC dialect token (without the ``-std:`` prefix)."""
+        return self._default_dialect
+
+
+    @classmethod
+    def available_dialects( cls ):
+        """MSVC ``-std:`` dialects Cuppa lists for verbose describe (newest first)."""
+        return cls._available_dialects
+
+
+    def usable_features( self ):
+        """Display items for verbose ``usable features:`` (see ``describe``)."""
+        from cuppa.toolchains.describe import format_usable_feature_items
+
+        experimental = []
+        try:
+            if self.supports_modules( None ):
+                experimental.append( 'modules (experimental)' )
+        except Exception:
+            pass
+        return format_usable_feature_items(
+                self.default_dialect(), experimental=experimental,
+        )
 
 
     def abi_flag( self, env ):

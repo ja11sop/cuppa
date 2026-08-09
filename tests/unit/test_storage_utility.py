@@ -116,3 +116,18 @@ def test_render_table_pads_columns():
     name_col = lines[0].index( 'NAME' )
     assert lines[1][name_col:].startswith( 'short' )
     assert lines[2][name_col:].startswith( 'longer_name' )
+
+
+def test_render_json_payload_uses_allman_four_space_indent():
+    import json
+
+    text = storage.render_json_payload( {
+        'wipe_applies_to': 'registered',
+        'sections': [ { 'name': 'discovered', 'families': [] } ],
+        'empty': [],
+    } )
+    assert '"sections":\n    [' in text
+    assert '"families": []' in text
+    assert '    "name": "discovered"' in text
+    # Round-trip: formatting is presentation only.
+    assert json.loads( text )['wipe_applies_to'] == 'registered'

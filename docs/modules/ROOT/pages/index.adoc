@@ -44,7 +44,8 @@ Cuppa solves a different design problem: keep the *project description* short an
 | `find_package`, FetchContent, ExternalProject, vendor scripts
 
 | Flag visibility
-| Documented toolchain defaults (see xref:toolchains.adoc[Toolchains]); override with methods
+| Documented toolchain defaults (xref:toolchains.adoc[Toolchains] hub and family pages);
+  override with methods
 | Implicit defaults plus directory/target property inheritance that is hard to audit
 
 | C++20 modules
@@ -75,7 +76,9 @@ TIP: When docs and code disagree, *code is authoritative* -- especially storage 
 * xref:quickstart.adoc[Quickstart] -- minimal `sconstruct` / `sconscript`
 * xref:concepts.adoc[Concepts] -- methods, dependencies, profiles, variants, toolchains
 * xref:methods.adoc[Methods] -- build, test, library, and helper APIs with examples
-* xref:toolchains.adoc[Toolchains] -- selection and *default flags* for GCC, Clang, and MSVC
+* xref:toolchains.adoc[Toolchains] -- selection and inventory; family defaults on
+  xref:toolchain-gcc.adoc[GCC], xref:toolchain-clang.adoc[Clang], and
+  xref:toolchain-msvc.adoc[MSVC]
 * xref:cxx-modules.adoc[C++ modules] -- introduction, tutorial, reference, and an up-to-date capability matrix by toolchain family
 * xref:cli-reference.adoc[CLI reference] -- flags you will use every day
 * xref:integration-tests.adoc[Integration tests] -- pytest scenarios with generated build scripts

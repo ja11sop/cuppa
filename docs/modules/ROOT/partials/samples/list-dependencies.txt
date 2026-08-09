@@ -1,0 +1,27 @@
+Dependencies in ~/.cuppa/dependencies
+Default dependencies: boost_package
+  ---------------------------------------------------------------------
+      SIZE  LAST USED  REMARK   DEPENDENCY
+  ---------------------------------------------------------------------
+    299.3M  today      1 total  referenced
+                                │
+    299.3M  today      1 used   ├── dependencies in use
+                                │
+    299.3M  today      1 used   └── gitlab packages
+                                    │
+    299.3M  today                   └── boost_package
+    299.3M  today                       └── 1.91
+    299.3M  today      in use               └── gcc153_rel_x86_64_cxx2c
+  ---------------------------------------------------------------------
+      5.8M  today               unreferenced
+                                │
+      5.8M  today               └── source archives
+                                    │
+      2.9M  today                   ├── boost
+      2.9M  today                   │   └── 1.91.0
+                                    │
+      2.9M  today                   └── github.com/fmtlib/fmt
+      1.4M  today                       ├── 11.1.4
+      1.5M  today                       └── 12.2.0
+  ---------------------------------------------------------------------
+3 entries, 305.1M total, 5.8M unreferenced
