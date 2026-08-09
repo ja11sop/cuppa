@@ -19,11 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   resolve prefers that stored value, then the compiled-in default, and does not scrape boost.org
   unless `--boost-latest` is passed. The key updates only when a higher version’s archive is present
   under downloads-root.
-- `--list-toolchains`: inventory of **Discovered** (PATH) and **Registered** (managed) compilers
-  with absolute driver paths; `--list-format=json` supported. Force-wipe messaging applies only to
-  Registered rows.
+- `--list-toolchains`: ruled **Discovered** / **Registered** tree
+  (family → version → driver → name(s)), with shared-driver grouping, `(default)` marking,
+  `~/` driver paths, and nested `--list-format=json`. Force-wipe messaging applies only to
+  Registered rows. `--list-dependencies` toolchain leaves show the Cuppa session name
+  (`gcc17_gcc_snapshot_…`) aligned with `--toolchains=`.
 
 ### Changed
+
+- `--list-dependencies` toolchain leaf labels use the Cuppa `--toolchains=` session name when the
+  install is registered in the current session (on-disk `toolchains/<family>/<qualifier>/` layout
+  unchanged).
 
 ### Deprecated
 

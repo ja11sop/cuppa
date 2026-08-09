@@ -1114,9 +1114,12 @@ def _collect_rows( construct, cuppa_env, names=None, out=None ):
             rows, cuppa_env=cuppa_env, dependencies_root=dependencies_root,
     )
 
+    from cuppa.core import toolchain_actions
+    toolchain_actions.attach_toolchain_session_names( rows, cuppa_env )
+
     rows.sort( key=lambda row: (
             row.get( 'dependency' ) or '',
-            row.get( 'qualifier' ) or '',
+            row.get( 'toolchain_session_name' ) or row.get( 'qualifier' ) or '',
             row.get( 'tool_variant' ) or '',
             row.get( 'path' ) or '',
     ) )
@@ -1286,6 +1289,7 @@ def list_dependencies( construct, cuppa_env, out=None ):
                     'location': row.get( 'location' ),
                     'has_download': bool( row.get( 'has_download' ) ),
                     'download_path': row.get( 'download_path' ),
+                    'toolchain_session_name': row.get( 'toolchain_session_name' ),
                 }
                 for row in rows
             ],

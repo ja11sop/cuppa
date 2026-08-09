@@ -89,28 +89,37 @@ After a successful session that prepared an archive or root, cuppa logs the shor
 === Listing toolchains
 
 `--list-toolchains` prints an inventory of compilers Cuppa can offer on this machine, then exits
-(no build). Output has two sections:
+(no build). Output is a ruled tree with two sections (normal typeface labels):
 
 * **Discovered** — PATH / distro probes (`gcc15`, `clang18`, …).
 * **Registered** — managed installs from `--toolchain-archive=` / `--clang-root=` / `--gcc-root=`
   (and cached rediscovery under `dependencies_root/toolchains/{clang,gcc}/`), with non-colliding
-  names such as `gcc15_local_…` or `clang24_profiles_…`.
+  session names such as `gcc17_gcc_snapshot_…` or `clang24_profiles_…`.
 
-Each row shows the Cuppa name (for `--toolchains=`), family, version, absolute C++ driver path, and
-storage path when Registered. A PATH `gcc15` and a managed `gcc15_…` snapshot appear in **both**
-sections when both exist — different names and paths.
+Within each section the hierarchy is **family → version → driver → name(s)**. Several Cuppa names
+can share one driver (for example `gcc153`, `gcc15`, and `gcc`). The platform default name is marked
+`(default)`. Driver paths use `~/…` when under the home directory.
+
+`SIZE` / `LAST USED` show `--` for Discovered compilers in this release (PATH installs are not
+inventoried yet). Registered rows use on-disk size / newest mtime under the extract when available.
 
 Force-wipe of toolchain dependencies applies only to **Registered** rows. Discovered PATH compilers
 are not Cuppa-owned.
 
-Use `--list-format=json` for a stable payload (`sections`, `wipe_applies_to`, per-row
-`name` / `family` / `version` / `driver_path` / `storage_path` / `kind`).
+Use `--list-format=json` for a nested payload (`sections` → `families` → `versions` → `drivers` →
+`names`, plus `wipe_applies_to`).
+
+`--list-dependencies` toolchain leaves show the same Cuppa session name you pass to `--toolchains=`
+(for example `clang24_profiles_…`), while the on-disk folder remains
+`toolchains/<family>/<qualifier>/`.
 
 [#fetched-toolchain-storage]
 === Listing and clearing toolchain archives
 
 Toolchain installs appear under `--list-dependencies` / `--list-downloads` as storage type **toolchain** (`toolchains/<family>/<qualifier>/`), not as a mistaken top-level source archive named `toolchains`.
-For a compiler-oriented inventory (including PATH drivers), prefer xref:toolchains.adoc#list-toolchains[`--list-toolchains`].
+The list-dependencies **leaf label** is the Cuppa session name (`gcc17_gcc_snapshot_…`), aligned with
+`--toolchains=` / `--list-toolchains`. For a compiler-oriented inventory (including PATH drivers),
+prefer xref:toolchains.adoc#list-toolchains[`--list-toolchains`].
 
 Which management flags apply:
 
