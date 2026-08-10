@@ -33,7 +33,7 @@ def activate_profiles_for_env( env ):
         message = (
             "--cxx-profiles requested but toolchain [{}] does not support C++ Profiles "
             "(use a Profiles-capable Clang archive via --toolchain-archive= / "
-            "--clang-root=; see design/plans/cxx-profiles.md)"
+            "--clang-root=; see design/archive/cxx-profiles.md)"
             .format( toolchain.name() )
         )
         logger.error(
