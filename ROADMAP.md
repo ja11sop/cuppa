@@ -316,8 +316,9 @@ force-wipe with the same grammar as location and package trees.
 
 Design (shipped): [`design/archive/toolchains-as-dependencies.md`](design/archive/toolchains-as-dependencies.md).
 Umbrella: [#160](https://github.com/ja11sop/cuppa/issues/160) (Clang [#159](https://github.com/ja11sop/cuppa/pull/159), GCC [#164](https://github.com/ja11sop/cuppa/pull/164)).
-Opt-in C++ Profiles (`-fprofiles`) remains [#127](https://github.com/ja11sop/cuppa/issues/127) and is not
-this section.
+Opt-in C++ Profiles (`--profiles` / `-fprofiles`, plus `--profiles-enforce=`) remains
+[#127](https://github.com/ja11sop/cuppa/issues/127) /
+[`design/plans/cxx-profiles.md`](design/plans/cxx-profiles.md) and is not this section.
 
 ### Today
 
@@ -341,7 +342,7 @@ this section.
 | `list-toolchains` | `--list-toolchains` inventory; Discovered vs Registered; driver + storage paths; JSON; verbose `describe()` | High | Done — [#172](https://github.com/ja11sop/cuppa/issues/172) / [#170](https://github.com/ja11sop/cuppa/pull/170) |
 | `list-tc-flag-tables` | Table-driven GCC/Clang/Cl init shared with `describe()` | Low | Deferred; see [`list-toolchains-verbose.md`](design/plans/list-toolchains-verbose.md) |
 | `tc-dep-url-sugar` | Optional URL token in `--toolchains=` | Low | Keep `--toolchain-archive=` as explicit supply |
-| `tc-dep-profiles` | [#127](https://github.com/ja11sop/cuppa/issues/127) `--profiles` / `-fprofiles` | Medium | Needs a Profiles-capable Clang (supply path from [#160](https://github.com/ja11sop/cuppa/issues/160) is done) |
+| `tc-dep-profiles` | [#127](https://github.com/ja11sop/cuppa/issues/127) `--profiles` / `--profiles-enforce=` / `-fprofiles` | Medium | Design [`cxx-profiles.md`](design/plans/cxx-profiles.md); supply path from [#160](https://github.com/ja11sop/cuppa/issues/160) is done; target **1.7.0** |
 | `tc-dep-actions` | Authenticated Actions artifact URLs | Low | After public HTTPS / file path is solid |
 | `tc-dep-msvc` | MSVC archive / layout as toolchain dep | Low | Separate driver; not gcc-snapshot |
 
