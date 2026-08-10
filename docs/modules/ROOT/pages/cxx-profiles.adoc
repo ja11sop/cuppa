@@ -155,110 +155,132 @@ by parsing the session name alone.
 [#papers]
 == Selected WG21 papers
 
-Paper revisions move quickly; prefer link:https://wg21.link/[wg21.link] for the
-latest. The table below matches the overview maintained on
-link:https://github.com/ja11sop/cuppa/issues/127[#127].
+Paper numbers link to the **current** revision via link:https://wg21.link/[wg21.link]
+(for example `https://wg21.link/P4222`). The **Rev** column records the revision
+known when this page was last updated; bump Rev when you notice a newer draft,
+even if you forget the link stays correct. The overview on
+link:https://github.com/ja11sop/cuppa/issues/127[#127] should stay aligned.
 
-[cols="1,3,2,1"]
+[cols="1,1,3,2,1"]
 |===
-| Paper | Title | Authors (short) | Date
+| Paper | Rev | Title | Authors (short) | Date
 
-| link:https://wg21.link/p2410r0[P2410R0]
+| link:https://wg21.link/P2410[P2410]
+| R0
 | Type-and-resource safety in modern C++
 | Stroustrup
 | 2021-07
 
-| link:https://wg21.link/p2687r0[P2687R0]
+| link:https://wg21.link/P2687[P2687]
+| R0
 | Design Alternatives for Type-and-Resource Safe C++
 | Stroustrup, Dos Reis
 | 2022-10
 
-| link:https://wg21.link/p2816r0[P2816R0]
+| link:https://wg21.link/P2816[P2816]
+| R0
 | Safety Profiles: Type-and-resource Safe programming in ISO Standard C++
 | Stroustrup, Dos Reis
 | 2023-02
 
-| link:https://wg21.link/p3038r0[P3038R0]
+| link:https://wg21.link/P3038[P3038]
+| R0
 | Concrete suggestions for initial Profiles
 | Stroustrup
 | 2023-12
 
-| link:https://wg21.link/p3274r0[P3274R0]
+| link:https://wg21.link/P3274[P3274]
+| R0
 | A framework for Profiles development
 | Stroustrup
 | 2024-05
 
-| link:https://wg21.link/p3446r0[P3446R0]
+| link:https://wg21.link/P3446[P3446]
+| R0
 | Profile invalidation – eliminating dangling pointers
 | Stroustrup
 | 2024-10
 
-| link:https://wg21.link/p3447r0[P3447R0]
+| link:https://wg21.link/P3447[P3447]
+| R0
 | Profiles syntax
 | Stroustrup
 | 2024-10
 
-| link:https://wg21.link/p3543r0[P3543R0]
+| link:https://wg21.link/P3543[P3543]
+| R0
 | Response to Core Safety Profiles (P3081)
 | Gill, Jabot, Lakos, Berne, Doumler
 | 2024-12
 
-| link:https://wg21.link/p3608r0[P3608R0]
+| link:https://wg21.link/P3608[P3608]
+| R0
 | Contracts and profiles: what can we reasonably ship in C++26
 | Voutilainen, Wakely, Dos Reis
 | 2025-01
 
-| link:https://wg21.link/p3081r2[P3081R2]
+| link:https://wg21.link/P3081[P3081]
+| R2
 | Core safety profiles for C++26
 | Sutter
 | 2025-02
 
-| link:https://wg21.link/p3586r0[P3586R0]
+| link:https://wg21.link/P3586[P3586]
+| R0
 | The Plethora of Problems With Profiles
 | Jabot
 | 2025-01
 
-| link:https://wg21.link/p3589r2[P3589R2]
+| link:https://wg21.link/P3589[P3589]
+| R2
 | C++ Profiles: The Framework
 | Dos Reis
 | 2025-05
 
-| link:https://wg21.link/p3611r0[P3611R0]
+| link:https://wg21.link/P3611[P3611]
+| R0
 | Dealing with pointer errors: Separating static and dynamic checking
 | Stroustrup
 | 2025-02
 
-| link:https://wg21.link/p3402r3[P3402R3]
+| link:https://wg21.link/P3402[P3402]
+| R3
 | A Safety Profile Verifying Initialization
 | Morin et al.
 | 2025-05
 
-| link:https://wg21.link/p3700r0[P3700R0]
+| link:https://wg21.link/P3700[P3700]
+| R0
 | Making Safe C++ Happen
 | Bindels
 | 2025-05
 
-| link:https://wg21.link/p3704r0[P3704R0]
+| link:https://wg21.link/P3704[P3704]
+| R0
 | What are profiles?
 | Stroustrup
 | 2025-05
 
-| link:https://wg21.link/p3970r0[P3970R0]
+| link:https://wg21.link/P3970[P3970]
+| R0
 | Profiles and Safety: a call to action
 | Vandevoorde et al.
 | 2026-01
 
-| link:https://wg21.link/p3984r0[P3984R0]
+| link:https://wg21.link/P3984[P3984]
+| R0
 | A type-safety profile
 | Stroustrup
 | 2026-02
 
-| link:https://wg21.link/p4186r0[P4186R0]
+| link:https://wg21.link/P4186[P4186]
+| R0
 | A proposed plan for profiles in C++
 | Bindels
 | 2026-04
 
-| link:https://wg21.link/p4222r1[P4222R1]
+| link:https://wg21.link/P4222[P4222]
+| R1
 | An initialization profile
 | Stroustrup
 | 2026-07
