@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.7.0] - unreleased
+## [1.7.0] - 2026-08-10
 
 ### Added
 
@@ -31,8 +31,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--modules` and `env.Modules()` — use `--cxx-modules` / `env.CxxModules()`; removed in
   cuppa 2.0.
 
-### Removed
-
 ### Fixed
 
 - Force-wipe unqualified-stem hints emit matching ``name/@`` tokens instead of
@@ -42,8 +40,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   only for list / remove / purge / wipe (debug log, not warn); ordinary builds
   stay quiet. ``--list-scope=compact`` omits those notices and wipe candidates
   so the tree does not advertise hidden leaves.
-
-### Security
 
 ## [1.6.0] - 2026-08-10
 
@@ -641,7 +637,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Baseline release on `master` before the modules work landed.
 Detailed notes for 1.1.x and earlier were not maintained in this file; start recording notable changes here from 1.2.0 onward.
 
-[1.7.0]: https://github.com/ja11sop/cuppa/compare/v1.6.0...HEAD
+[1.7.0]: https://github.com/ja11sop/cuppa/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/ja11sop/cuppa/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/ja11sop/cuppa/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/ja11sop/cuppa/compare/v1.3.2...v1.4.0
