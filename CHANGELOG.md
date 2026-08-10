@@ -9,17 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Opt-in C++ Profiles ([#127](https://github.com/ja11sop/cuppa/issues/127)): `--profiles`
+- Opt-in C++ Profiles ([#127](https://github.com/ja11sop/cuppa/issues/127)): `--cxx-profiles`
   enables `-fprofiles` on Profiles-capable Clang (probed; StopError otherwise).
-  `--profiles-enforce=<designators>` implies `--profiles` and either uses toolchain
+  `--cxx-profiles-enforce=<designators>` implies `--cxx-profiles` and either uses toolchain
   native enforce flags when present or injects `[[profiles::enforce(…)]];` via
-  `-include`. First smoke target: `std::init`. Design:
+  `-include`. `--cxx-disable-error-limit` removes the compiler diagnostic cap
+  (Clang/GCC; MSVC `cl` has no supported equivalent) for full error inventories —
+  useful with enforce. When a TU already has `[[profiles::enforce(…)]];`, cuppa
+  merges CLI designators into that attribute in a build-tree compiler view (slice H). First smoke
+  target: `std::init`. Design:
   [`design/plans/cxx-profiles.md`](design/plans/cxx-profiles.md). Antora guide:
   [`cxx-profiles.adoc`](docs/modules/ROOT/pages/cxx-profiles.adoc).
 
 ### Changed
 
+- C++ modules CLI and methods use the `cxx-` vocabulary: `--cxx-modules` and
+  `env.CxxModules()` are canonical in documentation.
+
 ### Deprecated
+
+- `--modules` and `env.Modules()` — use `--cxx-modules` / `env.CxxModules()`; removed in
+  cuppa 2.0.
 
 ### Removed
 

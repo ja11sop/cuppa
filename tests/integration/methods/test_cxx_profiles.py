@@ -20,7 +20,7 @@ pytestmark = pytest.mark.integration
 
 
 def test_profiles_enforce_std_init_smoke( tmp_path ):
-    """Build a TU with --profiles --profiles-enforce=std::init when capable."""
+    """Build a TU with --cxx-profiles --cxx-profiles-enforce=std::init when capable."""
     _, toolchain_flag = require_profiles_capable_toolchain()
     write_sconstruct( tmp_path )
     write_sconscript(
@@ -34,15 +34,38 @@ def test_profiles_enforce_std_init_smoke( tmp_path ):
     result = run_cuppa(
         tmp_path,
         '--dbg',
-        '--profiles',
-        '--profiles-enforce=std::init',
+        '--cxx-profiles',
+        '--cxx-profiles-enforce=std::init',
+        toolchain_flag,
+    )
+    assert_success( result )
+
+
+def test_profiles_enforce_composes_with_source_attribute( tmp_path ):
+    """Merge CLI enforce designators into an existing source enforce attribute."""
+    _, toolchain_flag = require_profiles_capable_toolchain()
+    write_sconstruct( tmp_path )
+    write_sconscript(
+        tmp_path,
+        "Import('env')\n"
+        "env.Build( 'app', [ 'main.cpp' ] )\n",
+    )
+    ( tmp_path / 'main.cpp' ).write_text(
+        '[[profiles::enforce()]];\n'
+        'int main() { int x = 0; return x; }\n'
+    )
+    result = run_cuppa(
+        tmp_path,
+        '--dbg',
+        '--cxx-profiles',
+        '--cxx-profiles-enforce=std::init',
         toolchain_flag,
     )
     assert_success( result )
 
 
 def test_profiles_unsupported_toolchain_fails( tmp_path ):
-    """--profiles on a non-Profiles toolchain should StopError clearly."""
+    """--cxx-profiles on a non-Profiles toolchain should StopError clearly."""
     # Prefer an explicit gcc (or default) that cannot support -fprofiles.
     flags = default_toolchain_flags()
     # Force gcc when available so we do not accidentally hit a Profiles clang default.
@@ -57,7 +80,7 @@ def test_profiles_unsupported_toolchain_fails( tmp_path ):
         "env.Build( 'app', [ 'main.cpp' ] )\n",
     )
     ( tmp_path / 'main.cpp' ).write_text( 'int main() { return 0; }\n' )
-    result = run_cuppa( tmp_path, '--dbg', '--profiles', *flags )
+    result = run_cuppa( tmp_path, '--dbg', '--cxx-profiles', *flags )
     assert_failure( result )
     combined = ( result.stdout or '' ) + ( result.stderr or '' )
     assert 'does not support C++ Profiles' in combined or 'StopError' in combined

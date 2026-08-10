@@ -1,7 +1,7 @@
-# Opt-in C++ Profiles (`--profiles` / attribute CLI)
+# Opt-in C++ Profiles (`--cxx-profiles*` / attribute CLI)
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `tc-dep-profiles`; [#127](https://github.com/ja11sop/cuppa/issues/127); toolchain supply [#160](https://github.com/ja11sop/cuppa/issues/160) (done); plan PR [#176](https://github.com/ja11sop/cuppa/pull/176)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `tc-dep-profiles`; [#127](https://github.com/ja11sop/cuppa/issues/127); toolchain supply [#160](https://github.com/ja11sop/cuppa/issues/160) (done); design [#176](https://github.com/ja11sop/cuppa/pull/176)
 - **Updated:** 2026-08-10
 
 Ship opt-in WG21 / experimental-Clang **C++ Profiles** support in the **1.7.0** cycle.
@@ -21,7 +21,7 @@ smoke tests and docs until the fork advertises more. Do not invent `type_safety`
 
 ---
 
-## 1. Naming review (BuildProfile vs C++ Profiles)
+## 1. Naming review (BuildProfile vs C++ Profiles vs C++ vocabulary)
 
 Cuppa already uses the word *profile* for a different, long-standing concept:
 
@@ -37,6 +37,10 @@ Cuppa already uses the word *profile* for a different, long-standing concept:
 (`[[profiles::enforce(…)]];`, experimental `-fprofiles`). They are unrelated to
 `BuildProfile`.
 
+Most cuppa methods are **language- and toolchain-agnostic** (`Build`, `Test`,
+`Coverage`, …). C++ modules and C++ Profiles are not — they should use an explicit
+**`cxx-` public vocabulary** (CLI flags and env methods), parallel to each other.
+
 ### Settled: keep `BuildProfile` names
 
 Renaming Cuppa’s build profiles is **out of scope** for #127:
@@ -50,29 +54,45 @@ Renaming Cuppa’s build profiles is **out of scope** for #127:
 
 The only hard collision is the **environment key**, not the method name.
 
-`--modules` stores a bool in `env['modules']`. A naïve `--profiles` with
-`dest='profiles'` would overwrite or fight the BuildProfile factory map in
-`env['profiles']`.
+A naïve `--profiles` with `dest='profiles'` would overwrite or fight the BuildProfile
+factory map in `env['profiles']`. Implementation keys stay `cxx_*` (see §1.1).
 
-| User-facing | Implementation key |
-|-------------|-------------------|
-| `--profiles` | `env['cxx_profiles']` (bool) |
-| `--profiles-enforce=a,b` | `env['cxx_profiles_enforce']` (list of strings) |
-| Optional `env.Profiles()` / `env.ProfilesEnforce(…)` | Same keys; mirror `env.Modules()` |
+### Settled: `--cxx-profiles*` and `--cxx-modules*` public vocabulary
 
-CLI flag names stay short and parallel to `--modules`. Docs and help text always say
-**C++ Profiles** when referring to this feature. Profile designators are opaque strings
-passed through to attributes/flags (e.g. `std::init`); Cuppa does not rename them.
+C++-specific features use an explicit **`cxx-` prefix** on CLI flags and env methods.
+Most cuppa methods stay language-agnostic (`Build`, `Test`, `Coverage`, …).
 
-There is **no** `--profiles-require=` or `--profiles-suppress=` — see §2.4.
+| Canonical (docs + code) | Deprecated alias (modules only → remove v2) | Implementation key |
+|-------------------------|---------------------------------------------|--------------------|
+| `--cxx-modules` | `--modules` | `env['modules']` (unchanged internal key) |
+| `env.CxxModules()` | `env.Modules()` | same |
+| `--cxx-profiles` | *(none — never released under short name)* | `env['cxx_profiles']` |
+| `--cxx-profiles-enforce=a,b` | *(none)* | `env['cxx_profiles_enforce']` |
+| `env.CxxProfiles()` | *(none)* | same |
+| `env.CxxProfilesEnforce(…)` | *(none)* | same |
+| `--cxx-disable-error-limit` | *(new)* | `env['cxx_disable_error_limit']` |
+
+Rules:
+
+- **Product docs** use only the `cxx-` forms (plus a short “deprecated aliases” note
+  for `--modules` / `env.Modules()` only).
+- **Deprecation:** when `--modules` or `env.Modules()` is used, emit one clear
+  `logger.warn` naming `--cxx-modules` / `env.CxxModules()` and “removed in cuppa 2.0”.
+- **Profiles:** no `--profiles` / `env.Profiles()` compatibility — #177 landed on
+  master but 1.7.0 is not released; rename in place before release.
+
+Profile designators passed to `--cxx-profiles-enforce=` remain opaque compiler strings
+(e.g. `std::init`); cuppa does not rename them.
+
+There is **no** `--cxx-profiles-require=` / `--cxx-profiles-suppress=` — see §2.4.
 
 ---
 
 ## 2. Settled CLI and behaviour
 
-### 2.1 `--profiles`
+### 2.1 `--cxx-profiles`
 
-Opt-in, like `--modules`:
+Opt-in, like `--cxx-modules`:
 
 - When set, activate C++ Profiles for the session (per variant env).
 - Ask the toolchain for enable flags (expected: `-fprofiles` on Profiles-capable Clang).
@@ -88,12 +108,12 @@ Capability detection (first cut):
   Session names / qualifiers such as `clang24_profiles_…` are a useful heuristic but
   the flag API is the source of truth.
 
-### 2.2 `--profiles-enforce=<profile1>,<profile2>,…`
+### 2.2 `--cxx-profiles-enforce=<profile1>,<profile2>,…`
 
 Comma-separated profile designators to enforce for every compiled C++ translation unit
 in the activated session (unless a later per-env override exists).
 
-Implies `--profiles` (enable the framework if enforce is set alone).
+Implies `--cxx-profiles` (enable the framework if enforce is set alone).
 
 Resolution order per toolchain:
 
@@ -119,43 +139,89 @@ Resolution order per toolchain:
 
    - Do not mutate the user’s source tree.
    - Diagnostics should still point at the user’s file when practical.
-   - **Today:** skip `-include` when the unit already contains
+   - **Shipped (1.7.0):** skip `-include` when the unit already contains
      `[[profiles::enforce(…)]];` in the preamble (avoids two enforce
      empty-declarations).
-   - **Next (composition):** when a first-line enforce already exists, rewrite
-     that attribute in the compiler-facing view to **merge** CLI designators
-     into its list (still without mutating the source tree). That enables
-     CLI + source composition and, later, empty
-     `[[profiles::enforce()]];` placeholders in every TU as an experimentation
-     hook. Not implemented in the first B+C slice.
+   - **Shipped (1.7.0, slice H):** when a first-line enforce already exists, rewrite
+     that attribute in the compiler-facing view to **merge** CLI designators into
+     its list (still without mutating the source tree).
    - Module interface units: inject before any declaration, respecting the
      `module;` preamble pattern from P3589 (implementation must follow the
      framework’s “first empty-declaration” rule).
 
-`--profiles` alone enables the framework without injecting enforce attributes;
+`--cxx-profiles` alone enables the framework without injecting enforce attributes;
 projects can put `[[profiles::enforce(std::init)]];` (etc.) in source themselves.
 
 Product docs: Antora [`cxx-profiles.adoc`](../../docs/modules/ROOT/pages/cxx-profiles.adoc).
 
-### 2.3 Optional method surface
+### 2.3 `--cxx-disable-error-limit`
 
-Mirror modules if useful in the same PR or a tiny follow-up:
+When **Profiles enforce** (or other strict checking) is active, compilers often emit
+only the first *N* diagnostics then stop (`clang` default error limit, `gcc`
+`-fmax-errors` default, MSVC has its own cap). For Profiles work you frequently want
+**the full violation list** (dedupe, report, fix in batch).
 
-- `env.Profiles(enabled=True)` — force on/off for that env.
-- `env.ProfilesEnforce(['std::init', …])` — set enforce list for that env.
+| Toolchain | Expected flag(s) |
+|-----------|------------------|
+| Clang | `-ferror-limit=0` |
+| GCC | `-fmax-errors=0` |
+| MSVC | No supported `cl.exe` flag (fatal C1003 cap is fixed; `/ERRORLIMIT` is lld-link, not `cl`) |
 
-Not required for MVP if CLI covers CI and local use.
+Behaviour:
 
-### 2.4 Out of scope: `require` and `suppress` (no Cuppa CLI)
+- Opt-in CLI `--cxx-disable-error-limit` (no legacy alias).
+- Toolchain API, e.g. `disable_error_limit_flags(env) → […]`, appended to `CXXFLAGS`
+  when the option is set (same activation pattern as Profiles/modules enable flags).
+- Docs: recommend pairing with `--cxx-profiles-enforce=` when building a Profiles
+  violation inventory; flag is not Profiles-specific (usable for any large error sweep).
+
+Optional method mirror: `env.CxxDisableErrorLimit(True)`.
+
+### 2.4 Method surface
+
+| Canonical | Deprecated alias (v2 removal) |
+|-----------|-------------------------------|
+| `env.CxxProfiles(enabled=True)` | `env.Profiles()` |
+| `env.CxxProfilesEnforce(['std::init', …])` | `env.ProfilesEnforce(…)` |
+| `env.CxxModules(enabled=True)` | `env.Modules()` |
+
+### 2.5 Compose with existing `[[profiles::enforce(…)]];` (shipped)
+
+**Goal:** support **composition** without a second enforce empty-declaration
+at the top of a translation unit.
+
+| Scenario | Desired compiler-facing behaviour |
+|----------|-----------------------------------|
+| TU has no enforce attribute | Today: `-include` generated header with `[[profiles::enforce(…)]);` |
+| TU opens with `[[profiles::enforce(foo)]];` and CLI passes `--cxx-profiles-enforce=std::init` | Rewrite (view-only) to `[[profiles::enforce(foo, std::init)]];` before compile |
+| Project standardises on `[[profiles::enforce()]];` in every TU | Merge CLI designators into the empty list as experimentation hook |
+
+Constraints carry forward: **do not mutate the user’s source tree**; preserve `#line` /
+diagnostics where practical; respect `module;` preamble on module interface units.
+
+Implementation sketch for the follow-on:
+
+- Preamble scan (reuse / extend `source_has_profiles_enforce` in `cuppa/cpp/cxx_profiles.py`).
+- When enforce is present, emit a **per-TU compiler-facing wrapper** or patched view
+  (same family as `-include`, or a thin compile wrapper) that replaces only the first
+  matching enforce attribute line — not a second `-include` enforce block.
+- Unit tests: merge lists, no double-enforce, skip inject when merge succeeds.
+- Integration: Alliance Clang + `std::init` with source + CLI both set.
+
+**Not in 1.7.0 MVP** ([#177](https://github.com/ja11sop/cuppa/pull/177) skips inject when
+enforce already exists). This section is the explicit design anchor for the next slice.
+
+### 2.6 Out of scope: `require` and `suppress` (no Cuppa CLI)
 
 P3589 also defines `profiles::require` and `profiles::suppress`. They are **source/module
 attributes with different loci** from `enforce`. Cuppa does **not** expose
-`--profiles-require=` or `--profiles-suppress=` — those flags would either mis-teach the
-model (if implemented like enforce) or need machinery that is not a small opt-in flag.
+`--cxx-profiles-require=` or `--cxx-profiles-suppress=` — those flags would either
+mis-teach the model (if implemented like enforce) or need machinery that is not a small
+opt-in flag.
 
 | Attribute | Locus (P3589) | Why not a session CLI |
 |-----------|---------------|------------------------|
-| `enforce` | First empty-declaration of a TU | Session-wide policy **does** map → `--profiles-enforce=` |
+| `enforce` | First empty-declaration of a TU | Session-wide policy **does** map → `--cxx-profiles-enforce=` |
 | `require` | On a **module-import-declaration** only | Needs import-site / modules graph awareness; not a TU prefix |
 | `suppress` | On a **statement or declaration** (local opt-out) | Authors write it in source; Cuppa will not rewrite bodies |
 
@@ -167,8 +233,8 @@ If a later need appears for “skip enforce injection on these paths”, that is
 build carve-out (e.g. exclude globs), not `profiles::suppress`, and would be a separate
 design note.
 
-Smoke / docs: `--profiles --profiles-enforce=std::init` (or source
-`[[profiles::enforce(std::init)]];` with `--profiles`). Extend designators only when the
+Smoke / docs: `--cxx-profiles --cxx-profiles-enforce=std::init` (or source
+`[[profiles::enforce(std::init)]];` with `--cxx-profiles`). Extend designators only when the
 toolchain actually supports them.
 
 ---
@@ -179,13 +245,16 @@ toolchain actually supports them.
 |---------|----------|
 | Rename `BuildProfile` / `cuppa.profiles` as part of #127 | Refuse; separate major if ever wanted |
 | Use `env['profiles']` for the C++ Profiles bool | Refuse; keep BuildProfile map |
+| Keep `--modules` / `--profiles` as the only documented names after cxx rename lands | Refuse; docs canonical = `cxx-*`; aliases deprecated only |
+| Remove `--modules` / `--profiles` before cuppa 2.0 without deprecation period | Refuse; warn first, remove in v2 |
 | Auto-enable Profiles on every Clang 24 | Refuse; only capable toolchains |
 | Auto “latest Profiles” toolchain | Refuse; `tc-dep-latest` already out of scope |
 | Invent non-existent `-fprofile-enforce` as required | Refuse; map when real, else inject |
-| Make Profiles the default for all builds | Refuse; opt-in only for 1.7.0 |
+| Make Profiles the default for all builds | Refuse; opt-in only |
 | Close #127 without enforce path | Refuse; enforce is in the ticket goal |
-| Add `--profiles-require=` / `--profiles-suppress=` | Refuse; wrong locus for a session CLI (§2.4) |
+| Add `--cxx-profiles-require=` / `--cxx-profiles-suppress=` | Refuse; wrong locus for a session CLI (§2.6) |
 | Claim multi-profile support on Alliance Clang beyond `std::init` without evidence | Refuse; smoke and docs stay on verified names |
+| Hard-code `-ferror-limit=0` only in Profiles code with no `--cxx-disable-error-limit` | Refuse; use shared flag + toolchain map |
 
 ---
 
@@ -193,11 +262,12 @@ toolchain actually supports them.
 
 | Area | Likely touch |
 |------|----------------|
-| New method module | `cuppa/methods/cxx_profiles.py` (or `profiles_lang.py`) — `add_options` / `get_options` / activate |
-| Toolchain API | `profiles_enable_flags`, `profiles_supported`, `profiles_enforce_flags` on Clang (and stubs returning `[]` / unsupported elsewhere) |
-| Compile path | Wrapper / emitter / `-include` generator under `cuppa/cpp/` for **enforce** injection |
-| CLI docs | `cli-reference.adoc`, Clang family page note, short hub blurb under toolchains; examples use `std::init` |
-| Tests | Unit: option parsing, env key isolation from BuildProfile, enforce flag vs inject choice. Integration: Profiles Clang archive + `--profiles --profiles-enforce=std::init` smoke (skip when archive absent) |
+| Profiles method | `cuppa/methods/cxx_profiles.py` — options, aliases, activate |
+| Modules method | `cuppa/methods/modules.py` — add `--cxx-modules` / deprecate `--modules` |
+| Toolchain API | `profiles_enable_flags`, `profiles_enforce_flags`, `disable_error_limit_flags` |
+| Compile path | `cuppa/cpp/cxx_profiles.py` — enforce inject; §2.5 composition follow-on |
+| CLI docs | `cli-reference.adoc`, `cxx-profiles.adoc`, `cxx-modules.adoc`; **no** primary use of deprecated names |
+| Tests | Unit: alias deprecation, env keys, error-limit flags per toolchain. Integration: Profiles smoke + optional full-error-limit build |
 
 Registration follows the modules pattern (`add_options` / `add_to_env` /
 `init_env_for_variant`).
@@ -212,10 +282,13 @@ Registration follows the modules pattern (`add_options` / `add_to_env` /
 | B | `--profiles` → `-fprofiles` | Toolchain API + StopError when unsupported |
 | C | `--profiles-enforce=` | Native map hook + inject fallback; smoke with `std::init` |
 | D | Docs + samples | CLI reference; toolchain page; `std::init` example |
-| E | Integration smoke | Against a pinned Profiles Clang archive already used in docs |
+| E | Integration smoke | Against a pinned Profiles Clang archive |
+| **F** | **`--cxx-*` vocabulary** | Shipped on branch: `--cxx-profiles*` (no legacy); `--cxx-modules` + deprecate `--modules` / `env.Modules()` |
+| **G** | **`--cxx-disable-error-limit`** | Shipped on branch: toolchain `disable_error_limit_flags` |
+| **H** | **Enforce composition (§2.5)** | Shipped: merge into existing `[[profiles::enforce(…)]];` in compiler view |
 
-Slice A is in [#176](https://github.com/ja11sop/cuppa/pull/176). B can merge without C if
-enforce is the immediate next PR; prefer B+C together if the inject path stays small.
+Slices A–E shipped ([#176](https://github.com/ja11sop/cuppa/pull/176), [#177](https://github.com/ja11sop/cuppa/pull/177)).
+Slices F–H shipped on PR branch for 1.7.0.
 
 ---
 
@@ -241,10 +314,13 @@ product docs. Framework and syntax anchors for implementers:
 |------|-------|
 | Profiles Clang supply (`--toolchain-archive=` / session names) | Done (#160) |
 | Naming: keep BuildProfile; `env['cxx_profiles']` for language feature | Settled |
-| CLI `--profiles` / `--profiles-enforce=` | Settled |
-| No `--profiles-require=` / `--profiles-suppress=` | Settled (§2.4) |
-| Alliance Clang smoke profile name `std::init` | Empirically verified (manual) |
-| Toolchain flag + **enforce** inject paths | Implemented (probe `-fprofiles`; `-include` fallback) |
-| Docs / tests | In progress (unit + skip-if-absent integration) |
+| MVP CLI `--cxx-profiles` / `--cxx-profiles-enforce=` | Shipped (#177); renamed before 1.7.0 release (no `--profiles` alias) |
+| Canonical `--cxx-modules` + deprecate `--modules` / `env.Modules()` | Shipped (slice **F**) |
+| `--cxx-disable-error-limit` | Shipped (slice **G**) |
+| Enforce composition with existing source attribute (§2.5) | Shipped (slice **H**) |
+| No `--cxx-profiles-require=` / `--cxx-profiles-suppress=` | Settled (§2.6) |
+| Alliance Clang smoke profile name `std::init` | Empirically verified |
+| Toolchain flag + enforce `-include` inject | Shipped (#177) |
+| Docs / tests (MVP) | Shipped (#177) |
 
-**Next focus:** land B+C implementation PR; extend designators when Alliance Clang does.
+**Next focus:** merge PR for 1.7.0; close #127 when F–H land.

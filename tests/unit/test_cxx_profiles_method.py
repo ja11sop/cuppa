@@ -57,6 +57,38 @@ def test_format_enforce_attribute():
     assert format_enforce_attribute( [] ) == ''
 
 
+def test_parse_and_merge_enforce_designators():
+    from cuppa.cpp.cxx_profiles import (
+        merge_enforce_designators,
+        parse_enforce_designators,
+    )
+
+    assert parse_enforce_designators( '[[profiles::enforce()]];\n' ) == []
+    assert parse_enforce_designators(
+        'module;\n[[profiles::enforce(foo)]];\n'
+    ) == ['foo']
+    assert merge_enforce_designators( ['foo'], ['std::init'] ) == [
+        'foo', 'std::init',
+    ]
+    assert merge_enforce_designators( ['std::init'], ['std::init'] ) == ['std::init']
+
+
+def test_write_merged_enforce_view(tmp_path):
+    from cuppa.cpp.cxx_profiles import _write_merged_enforce_view
+
+    source = tmp_path / 'tu.cpp'
+    source.write_text(
+        '[[profiles::enforce(foo)]];\n'
+        'int main() { return 0; }\n'
+    )
+    merged = tmp_path / 'merged.cpp'
+    _write_merged_enforce_view( str( source ), str( merged ), ['foo', 'std::init'] )
+    text = merged.read_text()
+    assert text.startswith( '#line 1 "' )
+    assert '[[profiles::enforce(foo, std::init)]];' in text
+    assert 'int main()' in text
+
+
 def test_source_has_profiles_enforce(tmp_path):
     from cuppa.cpp.cxx_profiles import source_has_profiles_enforce
 
@@ -110,8 +142,9 @@ def test_activate_profiles_stoperror_unsupported():
             return False
 
     env = { 'toolchain': FakeToolchain(), 'cxx_profiles': True }
-    with pytest.raises( SCons.Errors.StopError ):
+    with pytest.raises( SCons.Errors.StopError ) as exc:
         activate_profiles_for_env( env )
+    assert '--cxx-profiles' in str( exc.value )
     assert env['cxx_profiles'] is False
 
 
@@ -205,10 +238,12 @@ def test_gcc_and_cl_profiles_unsupported():
     assert gcc.profiles_supported( None ) is False
     assert gcc.profiles_enable_flags( None ) == []
     assert gcc.profiles_enforce_flags( None, ['std::init'] ) == []
+    assert gcc.disable_error_limit_flags( None ) == [ '-fmax-errors=0' ]
 
     cl = Cl.__new__( Cl )
     assert cl.profiles_supported( None ) is False
     assert cl.profiles_enable_flags( None ) == []
+    assert cl.disable_error_limit_flags( None ) == []
 
 
 def test_clang_profiles_probe_cached(monkeypatch):
@@ -235,4 +270,5 @@ def test_clang_profiles_probe_cached(monkeypatch):
     assert clang.profiles_enable_flags( None ) == [ '-fprofiles' ]
     assert clang.profiles_supported( None ) is True
     assert clang.profiles_enable_flags( None ) == [ '-fprofiles' ]
+    assert clang.disable_error_limit_flags( None ) == [ '-ferror-limit=0' ]
     assert len( calls ) == 1

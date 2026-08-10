@@ -118,7 +118,7 @@ env.AppendUnique(LIBPATH=[env['abs_final_dir']])
 env.Build('app', ['main.cpp'], LIBS=['mathlib'])
 ----
 
-With `--modules` enabled, library builds that contain named module interfaces also install BMIs under `final/modules/` and write `module-map.json` for consumers (see xref:cxx-modules.adoc#packaged-modules[Packaged modules]).
+With `--cxx-modules` enabled, library builds that contain named module interfaces also install BMIs under `final/modules/` and write `module-map.json` for consumers (see xref:cxx-modules.adoc#packaged-modules[Packaged modules]).
 
 NOTE: On Windows, MSVC *module* export is not the same as *DLL* export.
 A shared library may need `__declspec(dllexport)` (or a module-definition file) before the linker produces an import `.lib`.
@@ -430,7 +430,7 @@ env.Build(env.TargetFrom('src/apps/server.cpp'), sources)
 | `env.StdCpp(standard)`
 | Set the C++ dialect for this env (for example `'c++20'`, `'c++23'`)
 
-| `env.Modules()` / `--modules`
+| `env.CxxModules()` / `--cxx-modules`
 | Enable C++20 modules for this env / all variants
 
 | `env.HeaderUnit(path)`
@@ -455,7 +455,7 @@ A full modules walkthrough is in xref:cxx-modules.adoc[C++ modules].
 Import('env')
 
 env.StdCpp('c++20')
-env.Modules()
+env.CxxModules()
 env.Module('math', interface='math.cppm', implementation=['math.cpp'])
 env.Build('app', ['main.cpp'])
 ----

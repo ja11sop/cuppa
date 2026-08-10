@@ -342,7 +342,7 @@ Opt-in C++ Profiles (`--profiles` / `-fprofiles`, plus `--profiles-enforce=`) re
 | `list-toolchains` | `--list-toolchains` inventory; Discovered vs Registered; driver + storage paths; JSON; verbose `describe()` | High | Done — [#172](https://github.com/ja11sop/cuppa/issues/172) / [#170](https://github.com/ja11sop/cuppa/pull/170) |
 | `list-tc-flag-tables` | Table-driven GCC/Clang/Cl init shared with `describe()` | Low | Deferred; see [`list-toolchains-verbose.md`](design/plans/list-toolchains-verbose.md) |
 | `tc-dep-url-sugar` | Optional URL token in `--toolchains=` | Low | Keep `--toolchain-archive=` as explicit supply |
-| `tc-dep-profiles` | [#127](https://github.com/ja11sop/cuppa/issues/127) `--profiles` / `--profiles-enforce=` / `-fprofiles` | Medium | Design [`cxx-profiles.md`](design/plans/cxx-profiles.md); B+C implementation in progress (**1.7.0**); supply path from [#160](https://github.com/ja11sop/cuppa/issues/160) done |
+| `tc-dep-profiles` | [#127](https://github.com/ja11sop/cuppa/issues/127) `--cxx-profiles*` / `-fprofiles` (MVP [#177](https://github.com/ja11sop/cuppa/pull/177); F–H on PR branch) | Medium | Design [`cxx-profiles.md`](design/plans/cxx-profiles.md); supply [#160](https://github.com/ja11sop/cuppa/issues/160) done |
 | `tc-dep-actions` | Authenticated Actions artifact URLs | Low | After public HTTPS / file path is solid |
 | `tc-dep-msvc` | MSVC archive / layout as toolchain dep | Low | Separate driver; not gcc-snapshot |
 

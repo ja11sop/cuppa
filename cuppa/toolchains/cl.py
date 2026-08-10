@@ -639,6 +639,12 @@ class Cl(object):
         return []
 
 
+    def disable_error_limit_flags( self, env ):
+        # MSVC cl.exe stops with fatal C1003 after an internal cap (~100 errors).
+        # There is no documented /errorlimit switch on cl (that spelling is lld-link).
+        return []
+
+
     def module_bmi_path( self, env, module_name ):
         from cuppa.toolchains.cxx_modules_support import named_bmi_path
         return named_bmi_path( env, module_name, '.ifc' )

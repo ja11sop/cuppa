@@ -163,12 +163,14 @@ Clang:
 
 Modules (opt-in; GCC 14+ / LLVM Clang 16+ / MSVC toolset 14.2+):
 
-* `--modules` -- enable named modules, partitions, header units, and `import std` when the toolchain supports it (see xref:cxx-modules.adoc[C++ modules])
+* `--cxx-modules` -- enable named modules, partitions, header units, and `import std` when the toolchain supports it (see xref:cxx-modules.adoc[C++ modules])
+* `--modules` -- deprecated alias for `--cxx-modules` (removed in cuppa 2.0)
 
 C++ Profiles (opt-in; Profiles-capable Clang only):
 
-* `--profiles` -- enable the C++ Profiles framework (`-fprofiles`) when the toolchain supports it (StopError otherwise; use a C++ Alliance Profiles Clang archive via `--toolchain-archive=` / `--clang-root=`)
-* `--profiles-enforce=<designators>` -- comma-separated profile designators to enforce on every C++ translation unit (implies `--profiles`). Example: `--profiles-enforce=std::init`. When the toolchain has no native enforce flag, cuppa injects `[[profiles::enforce(…)]];` via `-include`
+* `--cxx-profiles` -- enable the C++ Profiles framework (`-fprofiles`) when the toolchain supports it (StopError otherwise; use a C++ Alliance Profiles Clang archive via `--toolchain-archive=` / `--clang-root=`)
+* `--cxx-profiles-enforce=<designators>` -- comma-separated profile designators to enforce on every C++ translation unit (implies `--cxx-profiles`). Example: `--cxx-profiles-enforce=std::init`. When the toolchain has no native enforce flag, cuppa injects `[[profiles::enforce(…)]];` via `-include`, or merges CLI designators into an existing source `[[profiles::enforce(…)]];` in a build-tree view
+* `--cxx-disable-error-limit` -- disable the compiler diagnostic cap (Clang `-ferror-limit=0`, GCC `-fmax-errors=0`) so every error is reported; useful with enforce for a full violation list
 
 See xref:cxx-profiles.adoc[C++ Profiles].
 
