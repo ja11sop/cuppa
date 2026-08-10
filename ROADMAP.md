@@ -11,7 +11,7 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-08-10
+**As of:** 2026-08-11
 
 ---
 
@@ -408,6 +408,44 @@ Each new section should follow the same shape: **Today** → **Planned / potenti
 
 ---
 
+---
+
+## Build console output
+
+Cuppa wraps SCons spawn to colour and classify toolchain diagnostics (`ToolchainProcessor` in
+`cuppa/output_processor.py`). Progress ordering uses `cuppa.progress.NotifyProgress`. Related docs: [`methods.adoc`](docs/modules/ROOT/pages/methods.adoc) (custom commands section).
+
+Design: [`native-toolchain-output.md`](design/plans/native-toolchain-output.md),
+[`terse-build-output.md`](design/plans/terse-build-output.md).
+
+### Today
+
+| Capability | Status |
+|------------|--------|
+| Default colourised spawn + per-toolchain `output_interpretors()` | Yes |
+| `--raw-output` (no cuppa spawn processing) | Yes |
+| `--standard-output` (processing without log colour) | Yes |
+| `--minimal-output` (errors/warnings only after classification) | Yes |
+| `--ignore-duplicates` | Yes |
+| `NotifyProgress` begin/start/finish/end chain | Yes |
+
+### Planned / potential
+
+| ID | Work | Priority | Notes |
+|----|------|----------|-------|
+| `console-native-output` | `--native-output`: enable toolchain native colour; passthrough spawn | Medium | [`native-toolchain-output.md`](design/plans/native-toolchain-output.md); **1.8.0 candidate** |
+| `console-terse-output` | `--terse-output`: coloured one-line success; commands on failure/warning | Medium | [`terse-build-output.md`](design/plans/terse-build-output.md); **1.8.0 candidate** |
+| `console-stream-split` | Logging → stderr vs tool primary → stdout | Low | Validate current behaviour first (scratchpad note) |
+
+### Out of scope (console output)
+
+| ID | Item | Reason |
+|----|------|--------|
+| `console-cmake-clone` | Pixel-perfect Ninja/CMake transcript | Cuppa keeps SCons progress semantics |
+| `console-list-terse` | Terse mode for `--list-*` / wipe judgement trees | Reports are the product |
+
+---
+
 ## Documentation tooling
 
 ### Today
@@ -422,7 +460,11 @@ Each new section should follow the same shape: **Today** → **Planned / potenti
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `doc-output-samples` | Capture report output as semantic HTML for Antora and local preview | Low | Prefer meaning→CSS over ANSI scrape. [`design/plans/colourised-doc-samples.md`](design/plans/colourised-doc-samples.md) |
+| `doc-methods-split` | Hub + per-method Antora pages; optional SCons companions | Medium | [`methods-pages-split.md`](design/plans/methods-pages-split.md); **1.8.0 candidate** (docs-only) |
+| `doc-antora-ui` | Custom UI bundle + supplemental CSS | Low | [`antora-ui-bundle.md`](design/plans/antora-ui-bundle.md); **1.8.0 optional** |
+| `doc-output-samples` | Capture report output as semantic HTML for Antora and local preview | Low | [`colourised-doc-samples.md`](design/plans/colourised-doc-samples.md) |
+| `doc-folder-layout` | Page folders mirroring nav (methods/, dependencies/, …) | Low | Align with methods split |
+| `doc-mermaid-theme` | Custom Mermaid theme matching site CSS | Low | After or with UI bundle |
 
 ### Out of scope (docs tooling)
 
