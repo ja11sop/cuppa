@@ -574,25 +574,9 @@ class Construct(object):
                 logger.info( as_info_label( "Running in DUMP mode, no building will be attempted" ) )
                 cuppa_env.dump()
 
-            # Location warns about unused unqualified stems when factories create Location
-            # objects (often during storage resolve / BuildWith), not at registration.
-            # Storage actions flush the wipe hint after resolve; builds flush at sconstruct end.
-            if (
-                    not cuppa_env.get( 'list_dependencies' )
-                    and not cuppa.core.storage_actions.wants_storage_action( cuppa_env )
-            ):
-                from cuppa.core import dependency_actions
-                from cuppa.progress import NotifyProgress
-
-                def _flush_unqualified_duplicate_hints(
-                        event, sconscript, variant, env, target, source
-                ):
-                    if event == 'sconstruct_end':
-                        dependency_actions.emit_location_unqualified_duplicate_hints()
-
-                NotifyProgress.register_callback( None, _flush_unqualified_duplicate_hints )
-
-            # Develop-family actions report on dependencies, so they run once those are
+            # Unqualified stem notices belong to dependency-management commands
+            # (list / remove / purge / wipe); those flush their own wipe hints.
+            # Ordinary builds only prefer the canonical folder — no console spam.
             # registered, and none of them builds. Several may be combined (e.g. clone then
             # update); each runs in turn and the worst exit status wins.
             develop_actions = []

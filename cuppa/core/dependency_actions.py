@@ -161,7 +161,7 @@ def write_unqualified_duplicate_wipe_hint( out, tokens, see_earlier_warnings=Fal
     if not tokens:
         return
     out.write( "\n" )
-    earlier = " (see earlier warnings)" if see_earlier_warnings else ""
+    earlier = " (noted during resolve)" if see_earlier_warnings else ""
     out.write(
             as_remove_notice( "Unqualified stem duplicates" )
             + earlier
@@ -258,11 +258,15 @@ def apply_list_scope( data, scope, tree_builder=None ):
     filtered = dict( data )
     filtered['rows'] = rows
     filtered['scope'] = scope
-    # Compute before scope filter; compact must still advertise wipe candidates.
+    # Tokens are computed before the scope filter. Compact hides unused siblings,
+    # so do not advertise wipe candidates the tree cannot show.
     if 'unqualified_duplicate_tokens' in data:
-        filtered['unqualified_duplicate_tokens'] = list(
-                data.get( 'unqualified_duplicate_tokens' ) or []
-        )
+        if scope == 'compact':
+            filtered['unqualified_duplicate_tokens'] = []
+        else:
+            filtered['unqualified_duplicate_tokens'] = list(
+                    data.get( 'unqualified_duplicate_tokens' ) or []
+            )
 
     downloads_listing = (
             'archive_count' in data

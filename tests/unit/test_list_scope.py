@@ -482,7 +482,7 @@ def test_mark_unqualified_duplicate_rows_with_unreferenced_branch_sibling():
     assert rows[1].get( 'removal_candidate' ) == 'unqualified_duplicate'
 
 
-def test_apply_list_scope_preserves_unqualified_duplicate_tokens():
+def test_apply_list_scope_drops_unqualified_tokens_for_compact():
     rows = [
             {
                 **_row( 'widget', 'referenced', 100 ),
@@ -497,5 +497,7 @@ def test_apply_list_scope_preserves_unqualified_duplicate_tokens():
     data = _data( rows )
     data['unqualified_duplicate_tokens'] = [ 'widget/@' ]
     compact = dependency_actions.apply_list_scope( data, 'compact' )
-    assert compact['unqualified_duplicate_tokens'] == [ 'widget/@' ]
+    assert compact['unqualified_duplicate_tokens'] == []
     assert len( compact['rows'] ) == 1
+    referenced = dependency_actions.apply_list_scope( data, 'referenced' )
+    assert referenced['unqualified_duplicate_tokens'] == [ 'widget/@' ]

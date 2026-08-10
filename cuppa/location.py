@@ -158,7 +158,30 @@ class Location(object):
         return getattr( self, '_default_branch', None )
 
 
+    def _should_notice_unqualified_duplicate( self ):
+        """True when unused stem pairs should be logged / queued for wipe hints.
+
+        Ordinary builds still prefer the canonical folder; notices are for
+        ``--list-dependencies`` / remove / purge / wipe only. Compact list
+        scope hides the sibling leaf, so notices there would be invisible.
+        """
+        cuppa_env = getattr( self, '_cuppa_env', None ) or {}
+        from cuppa.core import dependency_actions
+        if not dependency_actions.wants_dependency_action( cuppa_env ):
+            return False
+        if cuppa_env.get( 'list_dependencies' ):
+            scope = dependency_actions.normalise_list_scope(
+                    cuppa_env.get( 'list_scope' )
+                    or cuppa_env.get( 'list_dependencies_scope' )
+            )
+            if scope == 'compact':
+                return False
+        return True
+
+
     def _warn_unqualified_duplicate( self, unqualified, canonical ):
+        if not self._should_notice_unqualified_duplicate():
+            return
         warned = getattr( Location, '_unqualified_duplicate_warned', None )
         if warned is None:
             Location._unqualified_duplicate_warned = set()
@@ -167,10 +190,11 @@ class Location(object):
         if key in warned:
             return
         warned.add( key )
-        logger.warn(
+        # Disk-space cleanup hint only — trees carry the user-facing notice.
+        logger.debug(
             "Location has both [{}] and [{}]; using the canonical branch folder. "
             "The unqualified copy is unused by this selection and is a removal candidate.".format(
-                    as_warning( unqualified ), as_info( canonical )
+                    unqualified, canonical
             )
         )
 
