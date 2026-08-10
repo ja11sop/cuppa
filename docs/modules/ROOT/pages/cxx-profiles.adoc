@@ -135,7 +135,7 @@ the feature:
 * **Carve-outs** for paths that should not receive session enforce (build policy).
 * **Modules + `profiles::require`** once import-site wiring is worth the complexity.
 
-Design detail and refusal rules: link:https://github.com/ja11sop/cuppa/blob/master/design/plans/cxx-profiles.md[`design/plans/cxx-profiles.md`]
+Design detail and refusal rules: link:https://github.com/ja11sop/cuppa/blob/master/design/archive/cxx-profiles.md[`design/archive/cxx-profiles.md`]
 and issue link:https://github.com/ja11sop/cuppa/issues/127[#127].
 
 == Toolchain references (Clang / C++ Alliance)

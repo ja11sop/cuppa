@@ -11,7 +11,7 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-08-07
+**As of:** 2026-08-10
 
 ---
 
@@ -30,8 +30,8 @@ Add new top-level `##` sections when starting other large efforts (for example p
 
 ## C++20 modules
 
-Opt-in via `--modules` / `env.Modules()`.
-Whether activation should become automatic (with `--modules` / `--no-modules` as overrides) is
+Opt-in via `--cxx-modules` / `env.CxxModules()` (`--modules` / `env.Modules()` deprecated until cuppa 2.0).
+Whether activation should become automatic (with `--cxx-modules` / `--no-modules` as overrides) is
 worked out in [`design/plans/modules-activation.md`](design/plans/modules-activation.md).
 User guide and Limits: `docs/modules/ROOT/pages/cxx-modules.adoc`.
 Integration scenarios: `docs/modules/ROOT/pages/integration/test-modules.adoc`.
@@ -54,6 +54,7 @@ Companion canvas (optional): Cursor canvas `cxx-modules-status`.
 | `env.Module` convenience method | Yes | Yes | Yes | No | Delegates to `Compile` / modules compile path |
 | C++20 dialect floor | Yes | Yes | Yes | n/a | Honours the toolchain default (never lowers a dialect) and applies at the compile that uses modules |
 | Product label | Opt-in | Opt-in | Opt-in | Rejected | Graduated from “experimental” in CLI help |
+| CLI / methods | `--cxx-modules` / `env.CxxModules()` canonical; `--modules` / `env.Modules()` deprecated (2.0) | Yes | Yes | Yes | n/a | [#180](https://github.com/ja11sop/cuppa/pull/180) |
 
 **CI coverage**
 
@@ -100,6 +101,52 @@ Companion canvas (optional): Cursor canvas `cxx-modules-status`.
 
 Boost / package-registry packaging work is tracked separately from modules — see
 [Boost source and packages](#boost-source-and-packages).
+
+---
+
+## C++ Profiles
+
+Opt-in WG21 / experimental-Clang **Profiles** via `--cxx-profiles` / `--cxx-profiles-enforce=`
+and `env.CxxProfiles()` / `env.CxxProfilesEnforce()`. Requires a Profiles-capable Clang archive
+(`--toolchain-archive=` / `--clang-root=`). User guide:
+[`docs/modules/ROOT/pages/cxx-profiles.adoc`](docs/modules/ROOT/pages/cxx-profiles.adoc).
+Design (shipped): [`design/archive/cxx-profiles.md`](design/archive/cxx-profiles.md).
+Umbrella: [#127](https://github.com/ja11sop/cuppa/issues/127) ([#177](https://github.com/ja11sop/cuppa/pull/177), [#180](https://github.com/ja11sop/cuppa/pull/180)).
+
+### Today
+
+| Capability | Status |
+|------------|--------|
+| `--cxx-profiles` → `-fprofiles` (probed; StopError when unsupported) | Yes |
+| `--cxx-profiles-enforce=` (native flags or `-include` inject; source composition) | Yes |
+| `--cxx-disable-error-limit` (Clang/GCC; MSVC `cl` has no supported flag) | Yes |
+| Smoke designator `std::init` on Alliance Clang | Yes |
+| Integration smoke + unsupported-toolchain failure | Yes |
+
+**Key implementation files**
+
+- `cuppa/methods/cxx_profiles.py`, `cuppa/methods/cxx_disable_error_limit.py`
+- `cuppa/cpp/cxx_profiles.py`
+- `cuppa/toolchains/{clang,gcc,cl}.py` — `profiles_*` and `disable_error_limit_flags`
+- `tests/unit/test_cxx_profiles_method.py`, `tests/unit/test_cxx_vocabulary.py`
+- `tests/integration/methods/test_cxx_profiles.py`
+
+### Planned / potential
+
+| ID | Work | Priority | Notes |
+|----|------|----------|-------|
+| `profiles-designators` | Additional profile names as Alliance Clang / WG21 stabilise | Medium | Cuppa passes opaque strings through |
+| `profiles-native-enforce` | Wire `profiles_enforce_flags` when a compiler adds native enforce flags | Low | Hook exists; `-include` fallback remains |
+| `profiles-carve-outs` | Build policy to skip session enforce on selected paths | Low | Separate from source attributes |
+| `profiles-modules-require` | Import-site `profiles::require` with the modules graph | Later | No session-wide CLI |
+
+### Out of scope (C++ Profiles)
+
+| ID | Item | Reason |
+|----|------|--------|
+| `profiles-default` | Auto-enable Profiles on every Clang | Opt-in only |
+| `profiles-require-cli` | Session `--cxx-profiles-require=` / `--cxx-profiles-suppress=` | Wrong locus for a cuppa CLI |
+| `profiles-invent-flags` | Required native `-fprofile-enforce` before it exists | Map when real; inject until then |
 
 ---
 
@@ -316,9 +363,7 @@ force-wipe with the same grammar as location and package trees.
 
 Design (shipped): [`design/archive/toolchains-as-dependencies.md`](design/archive/toolchains-as-dependencies.md).
 Umbrella: [#160](https://github.com/ja11sop/cuppa/issues/160) (Clang [#159](https://github.com/ja11sop/cuppa/pull/159), GCC [#164](https://github.com/ja11sop/cuppa/pull/164)).
-Opt-in C++ Profiles (`--profiles` / `-fprofiles`, plus `--profiles-enforce=`) remains
-[#127](https://github.com/ja11sop/cuppa/issues/127) /
-[`design/plans/cxx-profiles.md`](design/plans/cxx-profiles.md) and is not this section.
+C++ Profiles are a separate roadmap section — see [C++ Profiles](#c-profiles).
 
 ### Today
 
@@ -342,7 +387,6 @@ Opt-in C++ Profiles (`--profiles` / `-fprofiles`, plus `--profiles-enforce=`) re
 | `list-toolchains` | `--list-toolchains` inventory; Discovered vs Registered; driver + storage paths; JSON; verbose `describe()` | High | Done — [#172](https://github.com/ja11sop/cuppa/issues/172) / [#170](https://github.com/ja11sop/cuppa/pull/170) |
 | `list-tc-flag-tables` | Table-driven GCC/Clang/Cl init shared with `describe()` | Low | Deferred; see [`list-toolchains-verbose.md`](design/plans/list-toolchains-verbose.md) |
 | `tc-dep-url-sugar` | Optional URL token in `--toolchains=` | Low | Keep `--toolchain-archive=` as explicit supply |
-| `tc-dep-profiles` | [#127](https://github.com/ja11sop/cuppa/issues/127) `--cxx-profiles*` / `-fprofiles` (MVP [#177](https://github.com/ja11sop/cuppa/pull/177); F–H on PR branch) | Medium | Design [`cxx-profiles.md`](design/plans/cxx-profiles.md); supply [#160](https://github.com/ja11sop/cuppa/issues/160) done |
 | `tc-dep-actions` | Authenticated Actions artifact URLs | Low | After public HTTPS / file path is solid |
 | `tc-dep-msvc` | MSVC archive / layout as toolchain dep | Low | Separate driver; not gcc-snapshot |
 

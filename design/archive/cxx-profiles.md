@@ -1,8 +1,9 @@
 # Opt-in C++ Profiles (`--cxx-profiles*` / attribute CLI)
 
-- **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `tc-dep-profiles`; [#127](https://github.com/ja11sop/cuppa/issues/127); toolchain supply [#160](https://github.com/ja11sop/cuppa/issues/160) (done); design [#176](https://github.com/ja11sop/cuppa/pull/176)
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — C++ Profiles; [#127](https://github.com/ja11sop/cuppa/issues/127); toolchain supply [#160](https://github.com/ja11sop/cuppa/issues/160); [#176](https://github.com/ja11sop/cuppa/pull/176), [#177](https://github.com/ja11sop/cuppa/pull/177), [#180](https://github.com/ja11sop/cuppa/pull/180)
 - **Updated:** 2026-08-10
+- **Impact:** minor — `--cxx-profiles*`, enforce composition, `--cxx-disable-error-limit`, `--cxx-modules` vocabulary
 
 Ship opt-in WG21 / experimental-Clang **C++ Profiles** support in the **1.7.0** cycle.
 Profiles-capable Clang archives are already fetchable via `--toolchain-archive=` /
@@ -283,12 +284,12 @@ Registration follows the modules pattern (`add_options` / `add_to_env` /
 | C | `--profiles-enforce=` | Native map hook + inject fallback; smoke with `std::init` |
 | D | Docs + samples | CLI reference; toolchain page; `std::init` example |
 | E | Integration smoke | Against a pinned Profiles Clang archive |
-| **F** | **`--cxx-*` vocabulary** | Shipped on branch: `--cxx-profiles*` (no legacy); `--cxx-modules` + deprecate `--modules` / `env.Modules()` |
-| **G** | **`--cxx-disable-error-limit`** | Shipped on branch: toolchain `disable_error_limit_flags` |
-| **H** | **Enforce composition (§2.5)** | Shipped: merge into existing `[[profiles::enforce(…)]];` in compiler view |
+| **F** | **`--cxx-*` vocabulary** | Shipped ([#180](https://github.com/ja11sop/cuppa/pull/180)): `--cxx-profiles*` (no legacy); `--cxx-modules` + deprecate `--modules` / `env.Modules()` |
+| **G** | **`--cxx-disable-error-limit`** | Shipped ([#180](https://github.com/ja11sop/cuppa/pull/180)): toolchain `disable_error_limit_flags` |
+| **H** | **Enforce composition (§2.5)** | Shipped ([#180](https://github.com/ja11sop/cuppa/pull/180)): merge into existing `[[profiles::enforce(…)]];` in compiler view |
 
 Slices A–E shipped ([#176](https://github.com/ja11sop/cuppa/pull/176), [#177](https://github.com/ja11sop/cuppa/pull/177)).
-Slices F–H shipped on PR branch for 1.7.0.
+Slices F–H shipped in **1.7.0** ([#180](https://github.com/ja11sop/cuppa/pull/180)).
 
 ---
 
@@ -321,6 +322,8 @@ product docs. Framework and syntax anchors for implementers:
 | No `--cxx-profiles-require=` / `--cxx-profiles-suppress=` | Settled (§2.6) |
 | Alliance Clang smoke profile name `std::init` | Empirically verified |
 | Toolchain flag + enforce `-include` inject | Shipped (#177) |
-| Docs / tests (MVP) | Shipped (#177) |
+| Docs / tests | Shipped ([#177](https://github.com/ja11sop/cuppa/pull/177), [#180](https://github.com/ja11sop/cuppa/pull/180)) |
 
-**Next focus:** merge PR for 1.7.0; close #127 when F–H land.
+**Follow-ons (post-1.7.0):** more designators as compilers add them; native enforce flags when
+available; path carve-outs; modules + `profiles::require` import-site wiring. See
+[`ROADMAP.md`](../../ROADMAP.md) — C++ Profiles.

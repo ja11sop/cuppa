@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   useful with enforce. When a TU already has `[[profiles::enforce(…)]];`, cuppa
   merges CLI designators into that attribute in a build-tree compiler view (slice H). First smoke
   target: `std::init`. Design:
-  [`design/plans/cxx-profiles.md`](design/plans/cxx-profiles.md). Antora guide:
+  [`design/archive/cxx-profiles.md`](design/archive/cxx-profiles.md). Antora guide:
   [`cxx-profiles.adoc`](docs/modules/ROOT/pages/cxx-profiles.adoc).
 
 ### Changed
