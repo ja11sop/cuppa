@@ -81,19 +81,13 @@ class CompileMethod:
 
                 build_kwargs = dict( kwargs )
                 if env.get( '_cuppa_profiles_enforce_header' ):
-                    from cuppa.cpp.cxx_profiles import append_profiles_enforce_include
-                    source_path = str( source )
-                    try:
-                        source_path = str( source.srcnode() )
-                    except Exception:
-                        pass
-                    if not os.path.isfile( source_path ):
-                        source_path = str( source )
-                    build_kwargs['CXXFLAGS'] = append_profiles_enforce_include(
+                    from cuppa.cpp.cxx_profiles import apply_profiles_enforce_compile
+                    source, cxx_flags = apply_profiles_enforce_compile(
                         env,
+                        source,
                         list( build_kwargs.get( 'CXXFLAGS', env.get( 'CXXFLAGS', [] ) ) ),
-                        source_path=source_path,
                     )
+                    build_kwargs['CXXFLAGS'] = cxx_flags
 
                 objects.append(
                     obj_builder(

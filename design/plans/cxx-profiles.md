@@ -142,10 +142,9 @@ Resolution order per toolchain:
    - **Shipped (1.7.0):** skip `-include` when the unit already contains
      `[[profiles::enforce(…)]];` in the preamble (avoids two enforce
      empty-declarations).
-   - **Desired follow-on — compose with existing enforce (§2.5):** when a first-line
-     enforce already exists, rewrite that attribute in the compiler-facing view to
-     **merge** CLI designators into its list (still without mutating the source tree).
-     Not required for the 1.7.0 MVP; tracked as the next Profiles compile-path slice.
+   - **Shipped (1.7.0, slice H):** when a first-line enforce already exists, rewrite
+     that attribute in the compiler-facing view to **merge** CLI designators into
+     its list (still without mutating the source tree).
    - Module interface units: inject before any declaration, respecting the
      `module;` preamble pattern from P3589 (implementation must follow the
      framework’s “first empty-declaration” rule).
@@ -166,7 +165,7 @@ only the first *N* diagnostics then stop (`clang` default error limit, `gcc`
 |-----------|------------------|
 | Clang | `-ferror-limit=0` |
 | GCC | `-fmax-errors=0` |
-| MSVC | Map when implemented (e.g. `/errorlimit:0` — confirm against supported `cl` versions) |
+| MSVC | No supported `cl.exe` flag (fatal C1003 cap is fixed; `/ERRORLIMIT` is lld-link, not `cl`) |
 
 Behaviour:
 
@@ -186,9 +185,9 @@ Optional method mirror: `env.CxxDisableErrorLimit(True)`.
 | `env.CxxProfilesEnforce(['std::init', …])` | `env.ProfilesEnforce(…)` |
 | `env.CxxModules(enabled=True)` | `env.Modules()` |
 
-### 2.5 Follow-on: modify / inject into existing `[[profiles::enforce(…)]];`
+### 2.5 Compose with existing `[[profiles::enforce(…)]];` (shipped)
 
-**Goal (post-MVP):** support **composition** without a second enforce empty-declaration
+**Goal:** support **composition** without a second enforce empty-declaration
 at the top of a translation unit.
 
 | Scenario | Desired compiler-facing behaviour |
@@ -286,10 +285,10 @@ Registration follows the modules pattern (`add_options` / `add_to_env` /
 | E | Integration smoke | Against a pinned Profiles Clang archive |
 | **F** | **`--cxx-*` vocabulary** | Shipped on branch: `--cxx-profiles*` (no legacy); `--cxx-modules` + deprecate `--modules` / `env.Modules()` |
 | **G** | **`--cxx-disable-error-limit`** | Shipped on branch: toolchain `disable_error_limit_flags` |
-| **H** | **Enforce composition (§2.5)** | Merge into existing `[[profiles::enforce(…)]];` in compiler view |
+| **H** | **Enforce composition (§2.5)** | Shipped: merge into existing `[[profiles::enforce(…)]];` in compiler view |
 
 Slices A–E shipped ([#176](https://github.com/ja11sop/cuppa/pull/176), [#177](https://github.com/ja11sop/cuppa/pull/177)).
-**Next focus:** F + G (can land together); H when Alliance Clang workflow needs CLI + source merge.
+Slices F–H shipped on PR branch for 1.7.0.
 
 ---
 
@@ -318,10 +317,10 @@ product docs. Framework and syntax anchors for implementers:
 | MVP CLI `--cxx-profiles` / `--cxx-profiles-enforce=` | Shipped (#177); renamed before 1.7.0 release (no `--profiles` alias) |
 | Canonical `--cxx-modules` + deprecate `--modules` / `env.Modules()` | Shipped (slice **F**) |
 | `--cxx-disable-error-limit` | Shipped (slice **G**) |
-| Enforce composition with existing source attribute (§2.5) | Settled goal; slice **H** open |
+| Enforce composition with existing source attribute (§2.5) | Shipped (slice **H**) |
 | No `--cxx-profiles-require=` / `--cxx-profiles-suppress=` | Settled (§2.6) |
 | Alliance Clang smoke profile name `std::init` | Empirically verified |
 | Toolchain flag + enforce `-include` inject | Shipped (#177) |
 | Docs / tests (MVP) | Shipped (#177) |
 
-**Next focus:** slice **H** (enforce composition with existing source attribute).
+**Next focus:** merge PR for 1.7.0; close #127 when F–H land.

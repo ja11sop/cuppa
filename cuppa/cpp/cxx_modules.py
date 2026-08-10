@@ -416,17 +416,17 @@ def compile_with_modules( env, sources, obj_builder, obj_prefix, obj_suffix, dep
             # detach the payload that follows it.
             cxx_flags.extend( toolchain.consume_module_flags( env, scan ) )
             if env.get( '_cuppa_profiles_enforce_header' ):
-                from cuppa.cpp.cxx_profiles import append_profiles_enforce_include
-                cxx_flags = append_profiles_enforce_include(
-                    env, cxx_flags, source_path=str( source )
+                from cuppa.cpp.cxx_profiles import apply_profiles_enforce_compile
+                source, cxx_flags = apply_profiles_enforce_compile(
+                    env, source, cxx_flags
                 )
             build_kwargs['CXXFLAGS'] = cxx_flags
         else:
             cxx_flags = list( env.get( 'CXXFLAGS', [] ) ) + list( extra_flags )
             if env.get( '_cuppa_profiles_enforce_header' ):
-                from cuppa.cpp.cxx_profiles import append_profiles_enforce_include
-                cxx_flags = append_profiles_enforce_include(
-                    env, cxx_flags, source_path=str( source )
+                from cuppa.cpp.cxx_profiles import apply_profiles_enforce_compile
+                source, cxx_flags = apply_profiles_enforce_compile(
+                    env, source, cxx_flags
                 )
             build_kwargs['CXXFLAGS'] = cxx_flags
 

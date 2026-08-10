@@ -41,6 +41,29 @@ def test_profiles_enforce_std_init_smoke( tmp_path ):
     assert_success( result )
 
 
+def test_profiles_enforce_composes_with_source_attribute( tmp_path ):
+    """Merge CLI enforce designators into an existing source enforce attribute."""
+    _, toolchain_flag = require_profiles_capable_toolchain()
+    write_sconstruct( tmp_path )
+    write_sconscript(
+        tmp_path,
+        "Import('env')\n"
+        "env.Build( 'app', [ 'main.cpp' ] )\n",
+    )
+    ( tmp_path / 'main.cpp' ).write_text(
+        '[[profiles::enforce()]];\n'
+        'int main() { int x = 0; return x; }\n'
+    )
+    result = run_cuppa(
+        tmp_path,
+        '--dbg',
+        '--cxx-profiles',
+        '--cxx-profiles-enforce=std::init',
+        toolchain_flag,
+    )
+    assert_success( result )
+
+
 def test_profiles_unsupported_toolchain_fails( tmp_path ):
     """--cxx-profiles on a non-Profiles toolchain should StopError clearly."""
     # Prefer an explicit gcc (or default) that cannot support -fprofiles.

@@ -30,9 +30,6 @@ flags are unchanged.
 
 | Verified designator
 | **`std::init`** (initialization profile; related papers P3402 / P4222). Do not assume other names work on Alliance Clang until you have tried them.
-
-| Not in the Cuppa CLI
-| Session flags for `profiles::require` or `profiles::suppress`. Those attributes stay in source (and, for `require`, on module imports) per the framework papers.
 |===
 
 == Enabling Profiles
@@ -64,10 +61,6 @@ int main() {
     return x;
 }
 ```
-
-Local opt-out remains an in-source concern, for example
-`[[profiles::suppress(std::init)]]` on a declaration or statement when the
-implementation supports it.
 
 [#how-cuppa-enables]
 == How cuppa enables Profiles today
@@ -104,8 +97,15 @@ your `.cpp` keep their original line numbers. Cuppa does **not** rewrite files i
 your source tree.
 
 If a translation unit already contains a `[[profiles::enforce(…)]]` attribute in
-its preamble, cuppa **skips** `-include` for that file so the compiler does not see
-two enforce empty-declarations.
+its preamble, cuppa **does not** add a second enforce via `-include`. Instead it
+writes a compiler-facing merged view under the build tree (still without touching
+your sources): CLI designators are appended to the attribute's list. For example
+`[[profiles::enforce(foo)]];` with `--cxx-profiles-enforce=std::init` becomes
+`[[profiles::enforce(foo, std::init)]];` in that view. An empty placeholder
+`[[profiles::enforce()]];` in source receives the CLI designators the same way.
+The merged view is prefixed with `#line` so diagnostics still cite your original
+file. When the source attribute already lists every CLI designator, cuppa compiles
+the original file unchanged.
 
 Optional methods (same env keys as the CLI):
 
@@ -116,35 +116,24 @@ Optional methods (same env keys as the CLI):
 
 Profile enforce checks can emit many diagnostics; compilers stop after a default cap.
 Pass `--cxx-disable-error-limit` to append toolchain-specific unlimited flags
-(Clang `-ferror-limit=0`, GCC `-fmax-errors=0`, MSVC `/errorlimit:0`). Pair with
+(Clang `-ferror-limit=0`, GCC `-fmax-errors=0`). MSVC `cl.exe` has no supported
+equivalent (it stops with fatal C1003 after an internal cap). Pair with
 `--cxx-profiles-enforce=` when you need the complete violation set for reporting or
 batch fixing. Optional method: `env.CxxDisableErrorLimit()`.
 
 [#future]
 == What may come next
 
-These items are intentional follow-ons, not commitments for the first release of
+These items are intentional follow-ons, not commitments for the next release of
 the feature:
 
-* **Compose CLI enforce with an existing source attribute.** Today a TU that already
-  opens with `[[profiles::enforce(foo)]];` skips injection. A later step may rewrite
-  that first attribute (in a compiler-facing view, still without mutating the tree)
-  to merge CLI designators into the list—for example turning
-  `[[profiles::enforce(foo)]];` plus `--cxx-profiles-enforce=std::init` into
-  `[[profiles::enforce(foo, std::init)]];`. That would allow composition without a
-  second enforce declaration. Projects could also adopt an empty
-  `[[profiles::enforce()]];` placeholder in every TU as an experimentation hook once
-  composition exists.
 * **More designators** as Alliance Clang (and eventually other compilers) implement
   them; cuppa passes designator strings through unchanged.
 * **Native enforce command-line flags** when a compiler provides them; the
   `profiles_enforce_flags` hook is already reserved so `-include` can give way to
   the driver's mapping.
-* **Carve-outs** for paths that should not receive session enforce (build policy,
-  not `profiles::suppress`).
-* **Modules + `profiles::require`** once import-site wiring is worth the complexity;
-  there will still be no session `--cxx-profiles-require=` that pretends to be TU-wide
-  enforce.
+* **Carve-outs** for paths that should not receive session enforce (build policy).
+* **Modules + `profiles::require`** once import-site wiring is worth the complexity.
 
 Design detail and refusal rules: link:https://github.com/ja11sop/cuppa/blob/master/design/plans/cxx-profiles.md[`design/plans/cxx-profiles.md`]
 and issue link:https://github.com/ja11sop/cuppa/issues/127[#127].
@@ -294,8 +283,8 @@ link:https://github.com/ja11sop/cuppa/issues/127[#127] should stay aligned.
 | 2026-07
 |===
 
-Framework syntax anchors for implementers: **P3589** (`enforce` / `require` /
-`suppress`). Initialization profile direction for Alliance Clang's `std::init`:
+Framework syntax anchor for implementers: **P3589** (`profiles::enforce`).
+Initialization profile direction for Alliance Clang's `std::init`:
 **P4222** (with earlier P3402).
 
 == Related cuppa pages
@@ -304,6 +293,5 @@ Framework syntax anchors for implementers: **P3589** (`enforce` / `require` /
 * xref:toolchain-clang.adoc[Clang] — Profiles-capable archives
 * xref:toolchains.adoc[Toolchains] — `--toolchain-archive=` / `--clang-root=`
 * xref:integration/test-cxx-profiles.adoc[Integration: C++ Profiles]
-* xref:cxx-modules.adoc[C++ modules] — separate opt-in; `profiles::require` may
-  interact with modules later
+* xref:cxx-modules.adoc[C++ modules] — separate opt-in; may interact with Profiles later
 * xref:methods.adoc[Methods] — `BuildProfile` (build-time profiles, not this feature)

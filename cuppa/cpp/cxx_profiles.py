@@ -7,6 +7,7 @@
 #   C++ Profiles enforce header generation and compile-time -include helpers
 #-------------------------------------------------------------------------------
 
+import hashlib
 import os
 import re
 
@@ -15,6 +16,11 @@ from cuppa.toolchains.cxx_modules_support import effective_build_dir
 
 _ENFORCE_ATTR_RE = re.compile(
     r'\[\s*\[\s*profiles\s*::\s*enforce\s*\(',
+    re.MULTILINE,
+)
+
+_ENFORCE_ATTR_FULL_RE = re.compile(
+    r'\[\[\s*profiles\s*::\s*enforce\s*\(\s*([^)]*)\s*\)\s*\]\]\s*;',
     re.MULTILINE,
 )
 
@@ -38,6 +44,29 @@ def format_enforce_attribute( names ):
     return '[[profiles::enforce({})]];'.format( ', '.join( designators ) )
 
 
+def parse_enforce_designators( text ):
+    """Return designators from the first ``profiles::enforce`` attribute in *text*."""
+    match = find_first_enforce_attribute( text )
+    if not match:
+        return []
+    return _split_designators( match.group( 1 ) )
+
+
+def find_first_enforce_attribute( text ):
+    """Return a match for the first ``[[profiles::enforce(…)]];`` in *text*."""
+    return _ENFORCE_ATTR_FULL_RE.search( text )
+
+
+def merge_enforce_designators( existing, cli_names ):
+    """Merge CLI designators after existing ones, skipping duplicates."""
+    merged = list( existing )
+    for name in cli_names:
+        stripped = name.strip()
+        if stripped and stripped not in merged:
+            merged.append( stripped )
+    return merged
+
+
 def enforce_header_path( env, names ):
     designators = [ name.strip() for name in names if name and name.strip() ]
     if not designators:
@@ -48,6 +77,22 @@ def enforce_header_path( env, names ):
         for name in designators
     )
     return os.path.join( profiles_build_dir( env ), 'enforce_{}.hpp'.format( safe ) )
+
+
+def merged_enforce_source_path( env, source_path, cli_names ):
+    """Stable generated path for a merged enforce view of *source_path*."""
+    base = os.path.splitext( os.path.basename( source_path ) )[0]
+    base = re.sub( r'[^A-Za-z0-9]+', '_', base ).strip( '_' ) or 'tu'
+    ext = os.path.splitext( source_path )[1] or '.cpp'
+    path_key = hashlib.sha256( os.path.abspath( source_path ).encode() ).hexdigest()[:8]
+    cli_key = '_'.join(
+        re.sub( r'[^A-Za-z0-9]+', '_', name ).strip( '_' ) or 'profile'
+        for name in cli_names
+    ) or 'none'
+    return os.path.join(
+        profiles_build_dir( env ),
+        'merged_{}_{}_{}{}'.format( base, path_key, cli_key, ext ),
+    )
 
 
 def ensure_enforce_header( env, names ):
@@ -86,6 +131,93 @@ def source_has_profiles_enforce( source_path ):
     except OSError:
         return False
     return bool( _ENFORCE_ATTR_RE.search( text ) )
+
+
+def _split_designators( raw ):
+    return [ part.strip() for part in raw.split( ',' ) if part.strip() ]
+
+
+def _node_source_path( source_node ):
+    source_path = str( source_node )
+    try:
+        source_path = str( source_node.srcnode() )
+    except Exception:
+        pass
+    return source_path
+
+
+def _write_merged_enforce_view( source_path, target_path, merged_names ):
+    with open( source_path, 'r', errors='replace' ) as handle:
+        content = handle.read()
+    match = find_first_enforce_attribute( content )
+    if not match:
+        raise ValueError(
+            'profiles::enforce attribute not found in {}'.format( source_path )
+        )
+    replacement = format_enforce_attribute( merged_names )
+    merged_body = content[:match.start()] + replacement + content[match.end():]
+    abs_source = os.path.abspath( source_path ).replace( '\\', '\\\\' )
+    merged_content = '#line 1 "{}"\n{}'.format( abs_source, merged_body )
+    with open( target_path, 'w' ) as handle:
+        handle.write( merged_content )
+
+
+def profiles_enforce_compile_source_node( env, source_node ):
+    """Return the SCons source node to compile (original or merged enforce view)."""
+    header = env.get( '_cuppa_profiles_enforce_header' )
+    if not header:
+        return source_node
+
+    source_path = _node_source_path( source_node )
+    if not source_has_profiles_enforce( source_path ):
+        return source_node
+
+    cli_names = list( env.get( 'cxx_profiles_enforce' ) or [] )
+    if not cli_names:
+        return source_node
+
+    try:
+        with open( source_path, 'r', errors='replace' ) as handle:
+            content = handle.read()
+    except OSError:
+        return source_node
+
+    existing = parse_enforce_designators( content )
+    merged_names = merge_enforce_designators( existing, cli_names )
+    if merged_names == existing:
+        return source_node
+
+    merged_path = merged_enforce_source_path( env, source_path, cli_names )
+    merged_names = list( merged_names )
+
+    def merge_action( target, source, env ):
+        _write_merged_enforce_view(
+            str( source[0] ),
+            str( target[0] ),
+            merged_names,
+        )
+
+    merged = env.Command( merged_path, source_node, merge_action )
+    try:
+        env.Clean( env.Dir( env['build_dir'] ), merged_path )
+    except Exception:
+        pass
+    return merged[0]
+
+
+def apply_profiles_enforce_compile( env, source_node, cxx_flags ):
+    """Return ``(source_node, cxx_flags)`` after enforce inject or composition."""
+    if not env.get( '_cuppa_profiles_enforce_header' ):
+        return source_node, list( cxx_flags )
+    source_path = _node_source_path( source_node )
+    compile_source = profiles_enforce_compile_source_node( env, source_node )
+    if compile_source is not source_node:
+        return compile_source, list( cxx_flags )
+    return source_node, append_profiles_enforce_include(
+        env,
+        list( cxx_flags ),
+        source_path=source_path,
+    )
 
 
 def profiles_enforce_include_flags( env, source_path=None ):

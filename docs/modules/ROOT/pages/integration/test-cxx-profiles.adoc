@@ -18,6 +18,10 @@ clear failure with a normal gcc/clang that lacks Profiles.
 | `--cxx-profiles --cxx-profiles-enforce=std::init` build
 | Skips without Profiles Clang
 
+| `test_profiles_enforce_composes_with_source_attribute`
+| Source `[[profiles::enforce()]];` plus CLI `--cxx-profiles-enforce=std::init`
+| Skips without Profiles Clang
+
 | `test_profiles_unsupported_toolchain_fails`
 | `--cxx-profiles` on a non-Profiles toolchain
 | Expects StopError / clear message
