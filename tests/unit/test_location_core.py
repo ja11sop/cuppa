@@ -329,6 +329,21 @@ def test_take_unqualified_duplicate_wipe_tokens_consumes_pending(tmp_path):
     assert Location.take_unqualified_duplicate_wipe_tokens() == []
 
 
+def test_unqualified_wipe_name_reduces_host_path(monkeypatch, tmp_path):
+    """Location hints must emit ``widget/@``, not ``host/org/widget/@`` (#178)."""
+    from cuppa.location import Location
+
+    def fake_git_tree( path ):
+        return 'gitlab.example/org/widget', 'ssh://git@gitlab.example/org/widget.git'
+
+    monkeypatch.setattr(
+            'cuppa.core.dependency_identity.short_name_from_git_tree',
+            fake_git_tree,
+    )
+    stem = str( tmp_path / 'git_https_gitlab.example__org_widget.git' )
+    assert Location._unqualified_wipe_name( stem ) == 'widget'
+
+
 def test_emit_location_unqualified_duplicate_hints_writes_once(tmp_path):
     from cuppa.core import dependency_actions
     from cuppa.location import Location

@@ -400,6 +400,32 @@ def test_mark_unqualified_duplicate_rows_only_unused_siblings():
     assert 'removal_candidate' not in rows[2]
 
 
+def test_mark_unqualified_duplicate_rows_host_path_only_short_name():
+    """When only host/path short names exist, still emit leaf ``name/@`` (#178)."""
+    rows = [
+            {
+                **_row( 'gitlab.example/org/widget', 'referenced', 100 ),
+                'qualifier': '@master',
+                'path': '/tmp/git_https_example.com__org_widget.git@master',
+                'type': 'repository',
+                'kind': 'repository',
+                'short_name': 'gitlab.example/org/widget',
+                'dependency': 'gitlab.example/org/widget',
+            },
+            {
+                **_row( 'gitlab.example/org/widget', 'unreferenced', 80 ),
+                'qualifier': '@master (unqualified)',
+                'path': '/tmp/git_https_example.com__org_widget.git',
+                'type': 'repository',
+                'kind': 'repository',
+                'short_name': 'gitlab.example/org/widget',
+                'dependency': 'gitlab.example/org/widget',
+            },
+    ]
+    tokens = dependency_actions.mark_unqualified_duplicate_rows( rows )
+    assert tokens == [ 'widget/@' ]
+
+
 def test_mark_unqualified_duplicate_rows_groups_by_folder_stem():
     """Resolve may label the selected leaf ``widget`` while the stem stays encoded."""
     rows = [

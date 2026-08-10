@@ -3196,13 +3196,22 @@ def _matches_unqualified_stem( candidates ):
 
 
 def _row_name_candidates( row ):
-    return {
+    """Names a force-wipe token may match, including host/path → leaf forms."""
+    from cuppa.core.dependency_identity import wipe_token_leaf_name
+
+    raw = {
             item for item in (
                     ( row.get( 'short_name' ) or '' ).strip(),
                     ( row.get( 'dependency' ) or '' ).strip(),
                     ( row.get( 'stem' ) or '' ).strip(),
             ) if item
     }
+    candidates = set( raw )
+    for item in raw:
+        leaf = wipe_token_leaf_name( item )
+        if leaf:
+            candidates.add( leaf )
+    return candidates
 
 
 def _fnmatch_any( candidates, patterns ):
@@ -3223,8 +3232,14 @@ def _row_matches_force_token( row, name, qualifier ):
             return False
     else:
         want = _normalise_wipe_name( name )
-        if want not in { _normalise_wipe_name( item ) for item in name_candidates }:
-            return False
+        normalised = { _normalise_wipe_name( item ) for item in name_candidates }
+        if want not in normalised:
+            # Accept host/path tokens (``gitlab.example/org/widget``) against
+            # registry-style leaves (``widget``) and the reverse.
+            from cuppa.core.dependency_identity import wipe_token_leaf_name
+            leaf = wipe_token_leaf_name( name )
+            if not leaf or _normalise_wipe_name( leaf ) not in normalised:
+                return False
 
     row_qual = row.get( 'qualifier' )
     # Prefer an explicit display label on the row when present.
@@ -3722,12 +3737,17 @@ def force_wipe_dependencies( construct, cuppa_env, out=None ):
     leftovers, download_leftovers = _collect_force_wipe_context(
             rows, dl_rows, targets, download_targets,
     )
-    raw_spec = cuppa_env.get( 'force_wipe_dependencies' )
-    if isinstance( raw_spec, ( list, tuple ) ):
-        raw_spec = raw_spec[0] if raw_spec else ''
-    summary_label = "related dependencies for {}".format(
-            str( raw_spec ).strip() or 'selection'
-    )
+    # Prefer matched identity names — never the raw comma-separated selector.
+    if targets:
+        matched_names = sorted( {
+                ( item.dependency or '' ).strip()
+                for item in targets if ( item.dependency or '' ).strip()
+        } )
+        summary_label = "related dependencies for {}".format(
+                ', '.join( matched_names ) if matched_names else 'selection'
+        )
+    else:
+        summary_label = None
     used_by_warnings = _collect_used_by_wipe_notices(
             targets, by_path, this_project, default_branch,
     )

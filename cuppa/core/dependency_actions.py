@@ -60,12 +60,9 @@ def _is_unqualified_qualifier( qualifier ):
 def _unqualified_wipe_name( row ):
     """Prefer a registry-style name for ``name/@`` wipe tokens, or ``None``."""
     for key in ( 'dependency', 'short_name', 'stem' ):
-        name = ( row.get( key ) or '' ).strip()
-        if not name:
-            continue
-        if name.startswith( ( 'git_', 'https_', 'svn_', 'hg_', 'bzr_', 'http_' ) ):
-            continue
-        return name
+        leaf = dependency_identity.wipe_token_leaf_name( row.get( key ) )
+        if leaf:
+            return leaf
     return None
 
 

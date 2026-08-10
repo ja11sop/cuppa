@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Force-wipe unqualified-stem hints emit matching ``name/@`` tokens instead of
+  host/path forms that reported ``no leaf matches`` ([#178](https://github.com/ja11sop/cuppa/issues/178)).
+  Dry-run report parents summarise matched identities, not the raw selector string.
+
 ### Security
 
 ## [1.6.0] - 2026-08-10

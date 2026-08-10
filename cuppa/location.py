@@ -177,8 +177,16 @@ class Location(object):
 
     @staticmethod
     def _unqualified_wipe_name( path ):
-        """Prefer a short registry-style name for ``name/@`` wipe tokens."""
-        from cuppa.core.dependency_identity import short_name_from_git_tree
+        """Prefer a short registry-style name for ``name/@`` wipe tokens.
+
+        Git remotes yield host/path display names (``gitlab.example/org/widget``);
+        force-wipe matching uses registry-style leaves (``widget``), so reduce to
+        the final path segment before emitting a hint.
+        """
+        from cuppa.core.dependency_identity import (
+            short_name_from_git_tree,
+            wipe_token_leaf_name,
+        )
         from cuppa.core.dependency_storage import split_location_folder_name
 
         short = None
@@ -186,12 +194,14 @@ class Location(object):
             short, _repository = short_name_from_git_tree( path )
         except ( TypeError, ValueError, OSError ):
             short = None
-        if short and not str( short ).startswith(
-                ( 'git_', 'https_', 'svn_', 'hg_', 'bzr_', 'http_' )
-        ):
-            return short
+        leaf = wipe_token_leaf_name( short )
+        if leaf:
+            return leaf
         folder = os.path.basename( str( path ).rstrip( '\\/' ) )
         stem, _qualifier = split_location_folder_name( folder )
+        leaf = wipe_token_leaf_name( stem ) or wipe_token_leaf_name( folder )
+        if leaf:
+            return leaf
         return stem or folder or '-'
 
 

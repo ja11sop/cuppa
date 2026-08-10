@@ -291,6 +291,81 @@ def test_row_matches_force_token_bare_at_is_unqualified_stem():
     assert not dependency_removal._row_matches_force_token( archive, 'boost', '@' )
 
 
+def test_row_matches_force_token_host_path_equals_leaf():
+    """Host/path wipe tokens match registry-style leaves and the reverse (#178)."""
+    unqualified = {
+        'short_name': 'widget',
+        'dependency': 'widget',
+        'qualifier': '@master (unqualified)',
+        'type': 'repository',
+        'path': '/tmp/git_https_example.com__org_widget.git',
+    }
+    assert dependency_removal._row_matches_force_token(
+            unqualified, 'gitlab.example/org/widget', '@'
+    )
+    host_path_row = {
+        'short_name': 'gitlab.example/org/widget',
+        'dependency': 'gitlab.example/org/widget',
+        'qualifier': '@master (unqualified)',
+        'type': 'repository',
+        'path': '/tmp/git_https_example.com__org_widget.git',
+    }
+    assert dependency_removal._row_matches_force_token( host_path_row, 'widget', '@' )
+
+
+def test_force_wipe_summary_label_uses_matched_names( tmp_path, monkeypatch ):
+    """Report parent must not echo the raw comma-separated selector (#178)."""
+    import io
+    from cuppa.core import dependency_actions, dependency_downloads
+
+    root = tmp_path / 'deps'
+    downloads = tmp_path / 'downloads'
+    root.mkdir()
+    downloads.mkdir()
+    leaf = root / 'boost_1_86_0'
+    leaf.mkdir()
+    ( leaf / 'x' ).write_text( 'old' )
+
+    rows = [
+            {
+                'short_name': 'boost',
+                'dependency': 'boost',
+                'qualifier': '1.86.0',
+                'type': 'archive',
+                'kind': 'archive',
+                'path': str( leaf ),
+                'size_bytes': 1,
+                'state': 'unreferenced',
+            },
+    ]
+    monkeypatch.setattr(
+            dependency_actions, '_collect_rows',
+            lambda *a, **k: { 'rows': rows },
+    )
+    monkeypatch.setattr(
+            dependency_downloads, 'collect_download_rows',
+            lambda *a, **k: { 'rows': [] },
+    )
+    monkeypatch.setattr( dependency_removal, '_inventory_by_path', lambda _root: {} )
+
+    raw = 'boost/1.86.0,gitlab.example/org/widget/@'
+    cuppa_env = {
+            'force_wipe_dependencies': raw,
+            'dependencies_root': str( root ),
+            'downloads_root': str( downloads ),
+            'sconstruct_dir': str( tmp_path / 'proj' ),
+            'dry_run': True,
+            'location_default_branch': 'master',
+    }
+    ( tmp_path / 'proj' ).mkdir()
+    out = io.StringIO()
+    status = dependency_removal.force_wipe_dependencies( None, cuppa_env, out=out )
+    assert status == 0
+    text = out.getvalue()
+    assert raw not in text
+    assert 'related dependencies for boost' in text
+
+
 def test_force_token_is_wildcard():
     assert not dependency_removal.force_token_is_wildcard( 'boost', '1.86.0' )
     assert dependency_removal.force_token_is_wildcard( 'boost', '1.8*' )
