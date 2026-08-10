@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Opt-in C++ Profiles ([#127](https://github.com/ja11sop/cuppa/issues/127)): `--profiles`
+  enables `-fprofiles` on Profiles-capable Clang (probed; StopError otherwise).
+  `--profiles-enforce=<designators>` implies `--profiles` and either uses toolchain
+  native enforce flags when present or injects `[[profiles::enforce(…)]];` via
+  `-include`. First smoke target: `std::init`. Design:
+  [`design/plans/cxx-profiles.md`](design/plans/cxx-profiles.md).
+
 ### Changed
 
 ### Deprecated

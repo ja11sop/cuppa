@@ -216,3 +216,12 @@ adds more when using `libc{plus}{plus}`. Verbose listing shows them as normal `-
 * `import std`: Clang **18+** with **libc{plus}{plus}**
 
 See xref:cxx-modules.adoc[{cpp} modules].
+
+== Profiles (opt-in)
+
+* Requires a **Profiles-capable** Clang (for example a C++ Alliance Profiles archive registered as `clang24_profiles_…`). Distro `clang24` is not enough; cuppa probes `-fprofiles`.
+* `--profiles` adds `-fprofiles` when the probe succeeds; otherwise the build stops with a clear error.
+* `--profiles-enforce=std::init` (comma-separated designators) implies `--profiles` and either maps to native enforce flags (none known today) or injects `[[profiles::enforce(…)]];` via `-include`.
+* Smoke-tested designator on Alliance Clang today: **`std::init`**.
+
+See design plan `design/plans/cxx-profiles.md` and issue https://github.com/ja11sop/cuppa/issues/127[#127].

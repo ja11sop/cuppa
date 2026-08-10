@@ -1,6 +1,6 @@
 # Opt-in C++ Profiles (`--profiles` / attribute CLI)
 
-- **Status:** proposal
+- **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `tc-dep-profiles`; [#127](https://github.com/ja11sop/cuppa/issues/127); toolchain supply [#160](https://github.com/ja11sop/cuppa/issues/160) (done); plan PR [#176](https://github.com/ja11sop/cuppa/pull/176)
 - **Updated:** 2026-08-10
 
@@ -232,11 +232,10 @@ product docs. Framework and syntax anchors for implementers:
 |------|-------|
 | Profiles Clang supply (`--toolchain-archive=` / session names) | Done (#160) |
 | Naming: keep BuildProfile; `env['cxx_profiles']` for language feature | Settled |
-| CLI `--profiles` / `--profiles-enforce=` | Settled (not implemented) |
+| CLI `--profiles` / `--profiles-enforce=` | Settled |
 | No `--profiles-require=` / `--profiles-suppress=` | Settled (§2.4) |
 | Alliance Clang smoke profile name `std::init` | Empirically verified (manual) |
-| Toolchain flag + **enforce** inject paths | Proposed |
-| Docs / tests | Not started |
+| Toolchain flag + **enforce** inject paths | Implemented (probe `-fprofiles`; `-include` fallback) |
+| Docs / tests | In progress (unit + skip-if-absent integration) |
 
-**Next focus:** implement slices B+C (`--profiles` + `--profiles-enforce=std::init`) on a
-Profiles-capable Clang under **1.7.0.dev**.
+**Next focus:** land B+C implementation PR; extend designators when Alliance Clang does.

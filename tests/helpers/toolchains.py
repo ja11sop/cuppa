@@ -482,3 +482,76 @@ def clang_stdlib_matrix_params():
     usable = [stdlib for stdlib in CLANG_STDLIB_VARIANTS if clang_stdlib_usable(stdlib)]
     # Keep one id so collection succeeds when clang/libc++ are absent; the test skips.
     return usable or [CLANG_STDLIB_LIBSTDCXX]
+
+
+def _clang_accepts_fprofiles(driver):
+    """Return True when ``driver`` accepts ``-fprofiles``."""
+    try:
+        result = subprocess.run(
+            [driver, "-fprofiles", "-fsyntax-only", "-x", "c++", "-"],
+            input="int x;\n",
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def find_profiles_capable_toolchain():
+    """
+    Find a Clang that accepts ``-fprofiles`` (C++ Alliance Profiles builds).
+
+    Returns ``(cuppa_alias_or_None, driver_path)`` or ``None``.
+    Prefers ``CUPPA_TEST_PROFILES_TOOLCHAIN`` when set, then versioned / default
+    clang++ on PATH. Distro Clang typically fails the probe and is skipped.
+    """
+    forced = os.environ.get("CUPPA_TEST_PROFILES_TOOLCHAIN", "").strip()
+    if forced:
+        path = shutil.which(forced) or forced
+        if path and _clang_accepts_fprofiles(path):
+            # Prefer a cuppa alias when the forced name looks like one.
+            alias = forced if not os.path.isabs(forced) and "/" not in forced else "clang"
+            return alias, path
+        return None
+
+    candidates = []
+    for name in ("clang++", "clang"):
+        path = shutil.which(name)
+        if path:
+            candidates.append((name if name == "clang++" else "clang", path))
+    for major in range(30, 15, -1):
+        for prefix in ("clang++-{}", "clang-{}"):
+            name = prefix.format(major)
+            path = shutil.which(name)
+            if path:
+                alias = "clang{}".format(major) if "++" in name else "clang{}".format(major)
+                candidates.append((alias, path))
+
+    seen = set()
+    for alias, path in candidates:
+        if path in seen:
+            continue
+        seen.add(path)
+        if is_apple_clang(path):
+            continue
+        if _clang_accepts_fprofiles(path):
+            return alias, path
+    return None
+
+
+def require_profiles_capable_toolchain():
+    """Return ``(alias, --toolchains=… flag)`` or skip when no Profiles Clang."""
+    found = find_profiles_capable_toolchain()
+    if found is None:
+        pytest.skip(
+            "C++ Profiles tests require a Profiles-capable Clang "
+            "(-fprofiles). Install a C++ Alliance Profiles archive and register "
+            "it with --toolchain-archive= / --clang-root=, or set "
+            "CUPPA_TEST_PROFILES_TOOLCHAIN to its clang++."
+        )
+    alias, path = found
+    logger.info("C++ Profiles tests using %s (%s)", alias, path)
+    return alias, "--toolchains={}".format(alias)

@@ -56,6 +56,7 @@
 ** xref:integration/test-custom-commands.adoc[Custom commands and working directories]
 ** xref:integration/test-flags.adoc[Flags]
 ** xref:integration/test-modules.adoc[C++ modules]
+** xref:integration/test-cxx-profiles.adoc[C++ Profiles]
 ** xref:integration/test-copy-and-target.adoc[CopyFiles and TargetFrom]
 ** xref:integration/test-copy-files-as.adoc[CopyFilesAs]
 ** xref:integration/test-templates.adoc[Templates]
