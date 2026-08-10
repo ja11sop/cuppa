@@ -1,0 +1,24 @@
+= Integration: C++ Profiles
+:description: Opt-in --profiles / --profiles-enforce against a Profiles-capable Clang
+
+Covered by `tests/integration/methods/test_cxx_profiles.py`.
+
+Requires a Clang that accepts `-fprofiles` (C++ Alliance Profiles archives). When none
+is on `PATH`, the smoke test **skips**. Set `CUPPA_TEST_PROFILES_TOOLCHAIN` to a
+Profiles `clang++` to force selection. The unsupported-toolchain case expects a
+clear failure with a normal gcc/clang that lacks Profiles.
+
+== Cases
+
+[cols="1,2,1"]
+|===
+| Test | What it exercises | Notes
+
+| `test_profiles_enforce_std_init_smoke`
+| `--profiles --profiles-enforce=std::init` build
+| Skips without Profiles Clang
+
+| `test_profiles_unsupported_toolchain_fails`
+| `--profiles` on a non-Profiles toolchain
+| Expects StopError / clear message
+|===

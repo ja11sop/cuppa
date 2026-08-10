@@ -79,12 +79,28 @@ class CompileMethod:
 
                 logger.trace( "Object target = [{}]/[{}]".format( as_notice(str(target)), as_notice(target.path) ) )
 
+                build_kwargs = dict( kwargs )
+                if env.get( '_cuppa_profiles_enforce_header' ):
+                    from cuppa.cpp.cxx_profiles import append_profiles_enforce_include
+                    source_path = str( source )
+                    try:
+                        source_path = str( source.srcnode() )
+                    except Exception:
+                        pass
+                    if not os.path.isfile( source_path ):
+                        source_path = str( source )
+                    build_kwargs['CXXFLAGS'] = append_profiles_enforce_include(
+                        env,
+                        list( build_kwargs.get( 'CXXFLAGS', env.get( 'CXXFLAGS', [] ) ) ),
+                        source_path=source_path,
+                    )
+
                 objects.append(
                     obj_builder(
                         target = target,
                         source = source,
                         CPPPATH = env['SYSINCPATH'] + env['INCPATH'],
-                        **kwargs ) )
+                        **build_kwargs ) )
 
         cuppa.progress.NotifyProgress.add( env, objects )
 

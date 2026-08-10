@@ -165,6 +165,13 @@ Modules (opt-in; GCC 14+ / LLVM Clang 16+ / MSVC toolset 14.2+):
 
 * `--modules` -- enable named modules, partitions, header units, and `import std` when the toolchain supports it (see xref:cxx-modules.adoc[C++ modules])
 
+C++ Profiles (opt-in; Profiles-capable Clang only):
+
+* `--profiles` -- enable the C++ Profiles framework (`-fprofiles`) when the toolchain supports it (StopError otherwise; use a C++ Alliance Profiles Clang archive via `--toolchain-archive=` / `--clang-root=`)
+* `--profiles-enforce=<designators>` -- comma-separated profile designators to enforce on every C++ translation unit (implies `--profiles`). Example: `--profiles-enforce=std::init`. When the toolchain has no native enforce flag, cuppa injects `[[profiles::enforce(…)]];` via `-include`
+
+See xref:cxx-profiles.adoc[C++ Profiles].
+
 Boost (source dependency) includes `--boost-home`, `--boost-location`, `--boost-version`, `--boost-latest`, `--boost-build-always`, `--boost-verbose-build`, `--boost-verbose-config`, `--boost-patched` (alias `--boost-patch-boost-test`: select the `patched/` home instead of `clean/`).
 
 == Packages

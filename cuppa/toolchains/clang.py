@@ -711,6 +711,11 @@ class Clang(object):
                 experimental.append( 'modules (experimental)' )
         except Exception:
             pass
+        try:
+            if self.profiles_supported( None ):
+                experimental.append( 'profiles (experimental)' )
+        except Exception:
+            pass
         return format_usable_feature_items(
                 self.default_dialect(), experimental=experimental,
         )
@@ -773,6 +778,55 @@ class Clang(object):
     def modules_enable_flags( self, env ):
         # Avoid -fmodules here: that enables Clang *header* modules and breaks
         # C++20 header-unit imports (import <span>;) and libc++ std.cppm.
+        return []
+
+
+    def profiles_supported( self, env ):
+        """True when this Clang accepts ``-fprofiles`` (Profiles framework)."""
+        return bool( self.profiles_enable_flags( env ) )
+
+
+    def profiles_enable_flags( self, env ):
+        """Return ``['-fprofiles']`` when the driver supports the framework.
+
+        Distro Clang 24 is not Profiles-capable; C++ Alliance Profiles archives
+        are. Probe and cache — do not assume major version alone.
+        """
+        import cuppa.build_platform
+        import subprocess
+
+        cached = getattr( self, '_profiles_enable_flags', None )
+        if cached is not None:
+            return list( cached )
+
+        flags = []
+        if (
+            cuppa.build_platform.name() in ( "Linux", "Darwin" )
+            and not self._reported_version.get( 'apple' )
+        ):
+            try:
+                result = subprocess.run(
+                    [ self.binary(), '-fprofiles', '-fsyntax-only', '-x', 'c++', '-' ],
+                    input='int x;\n',
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                if result.returncode == 0:
+                    flags = [ '-fprofiles' ]
+            except Exception:
+                flags = []
+
+        self._profiles_enable_flags = flags
+        return list( flags )
+
+
+    def profiles_enforce_flags( self, env, names ):
+        """Native enforce flags when the driver provides them; else ``[]``.
+
+        Cuppa falls back to injecting ``[[profiles::enforce(…)]];`` via
+        ``-include`` when this returns empty (see ``cuppa.cpp.cxx_profiles``).
+        """
         return []
 
 

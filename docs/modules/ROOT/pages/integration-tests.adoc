@@ -85,6 +85,9 @@ cuppa.run(default_variants=['dbg'])
 | `--modules`, partitions, `HeaderUnit`, `import std` (GCC 14+ / Clang 16+; std needs GCC 15+ / Clang+libc++)
 | xref:integration/test-modules.adoc[]
 
+| `--profiles` / `--profiles-enforce=` (Profiles-capable Clang; smoke skips if absent)
+| xref:integration/test-cxx-profiles.adoc[]
+
 | `CopyFiles`, `TargetFrom`
 | xref:integration/test-copy-and-target.adoc[]
 

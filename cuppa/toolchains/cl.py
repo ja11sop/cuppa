@@ -627,6 +627,18 @@ class Cl(object):
         return []
 
 
+    def profiles_supported( self, env ):
+        return False
+
+
+    def profiles_enable_flags( self, env ):
+        return []
+
+
+    def profiles_enforce_flags( self, env, names ):
+        return []
+
+
     def module_bmi_path( self, env, module_name ):
         from cuppa.toolchains.cxx_modules_support import named_bmi_path
         return named_bmi_path( env, module_name, '.ifc' )

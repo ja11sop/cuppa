@@ -415,9 +415,20 @@ def compile_with_modules( env, sources, obj_builder, obj_prefix, obj_suffix, dep
             # (`-reference`, `name=path`), so dropping a repeated token would
             # detach the payload that follows it.
             cxx_flags.extend( toolchain.consume_module_flags( env, scan ) )
+            if env.get( '_cuppa_profiles_enforce_header' ):
+                from cuppa.cpp.cxx_profiles import append_profiles_enforce_include
+                cxx_flags = append_profiles_enforce_include(
+                    env, cxx_flags, source_path=str( source )
+                )
             build_kwargs['CXXFLAGS'] = cxx_flags
         else:
-            build_kwargs['CXXFLAGS'] = list( env.get( 'CXXFLAGS', [] ) ) + list( extra_flags )
+            cxx_flags = list( env.get( 'CXXFLAGS', [] ) ) + list( extra_flags )
+            if env.get( '_cuppa_profiles_enforce_header' ):
+                from cuppa.cpp.cxx_profiles import append_profiles_enforce_include
+                cxx_flags = append_profiles_enforce_include(
+                    env, cxx_flags, source_path=str( source )
+                )
+            build_kwargs['CXXFLAGS'] = cxx_flags
 
         obj = obj_builder( target=target, source=source, **build_kwargs )
         obj_nodes = Flatten( [ obj ] )

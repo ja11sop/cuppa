@@ -109,6 +109,12 @@ related plan once that exists.
 
 ## New or updated plan(s): Documentation
 
+### Structure pages folder under docs to match nav structure
+
+For example, copy how integration pages are under the "integration" folder. We should do the same
+for dependencie and other multi-page sections to make it wasier to navigate the folder as a human
+to find documentation that needs to be edited.
+
 ### Split methods into their own pages
 
 Build methods are core `sconscript` vocabulary; each Cuppa method deserves its own page and
