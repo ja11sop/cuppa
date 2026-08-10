@@ -639,6 +639,10 @@ class Cl(object):
         return []
 
 
+    def disable_error_limit_flags( self, env ):
+        return [ '/errorlimit:0' ]
+
+
     def module_bmi_path( self, env, module_name ):
         from cuppa.toolchains.cxx_modules_support import named_bmi_path
         return named_bmi_path( env, module_name, '.ifc' )

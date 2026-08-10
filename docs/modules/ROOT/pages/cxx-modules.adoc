@@ -3,8 +3,11 @@
 
 In this guide you will learn what C++20 modules are for, how cuppa builds them, and how to adopt named modules, partitions, header units, and `import std` in a cuppa project.
 
-Cuppa treats modules as an **opt-in** feature (`--modules` or `env.Modules()`).
+Cuppa treats modules as an **opt-in** feature (`--cxx-modules` or `env.CxxModules()`).
 Existing projects stay on the classic translation-unit path until you enable modules deliberately.
+
+NOTE: `--modules` and `env.Modules()` remain as **deprecated aliases** (removed in cuppa 2.0).
+Use `--cxx-modules` / `env.CxxModules()` in new scripts and documentation.
 
 Supported platforms / floors:
 
@@ -27,7 +30,7 @@ Use it as a quick compatibility checklist before adopting modules in a new proje
 | Yes
 | Yes
 | No
-| Apple Clang is treated as unsupported under `--modules`; use Homebrew LLVM Clang on macOS.
+| Apple Clang is treated as unsupported under `--cxx-modules`; use Homebrew LLVM Clang on macOS.
 
 | Interface / implementation partitions
 | Yes
@@ -78,7 +81,7 @@ Use it as a quick compatibility checklist before adopting modules in a new proje
 | No
 | BMIs are toolchain-family specific (`.gcm` / `.pcm` / `.ifc`) and are not cross-compatible.
 
-| `--cov --modules`
+| `--cov --cxx-modules`
 | Yes
 | Yes
 | No
@@ -92,7 +95,7 @@ Use it as a quick compatibility checklist before adopting modules in a new proje
 * A modules-capable toolchain (see floors above and
   xref:toolchain-gcc.adoc[GCC] / xref:toolchain-clang.adoc[Clang] /
   xref:toolchain-msvc.adoc[MSVC])
-* Willingness to use C++20 or newer (`--stdcpp=c++20` or higher; cuppa raises the floor when `--modules` is set)
+* Willingness to use C++20 or newer (`--stdcpp=c++20` or higher; cuppa raises the floor when `--cxx-modules` is set)
 
 == Why modules exist
 
@@ -143,7 +146,7 @@ The design of C++ modules spans many proposals. These documents are useful landm
 |===
 
 Compiler support still differs by vendor and version.
-Cuppa encodes those differences as explicit floors and fails clearly when `--modules` cannot be honoured.
+Cuppa encodes those differences as explicit floors and fails clearly when `--cxx-modules` cannot be honoured.
 
 [#tutorial]
 == Tutorial: your first named module with cuppa
@@ -156,12 +159,12 @@ You will turn on modules and select a capable toolchain.
 
 [source,sh]
 ----
-cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=gcc
+cuppa -D --dbg --cxx-modules --stdcpp=c++20 --toolchains=gcc
 ----
 
-`--modules` sets `env['modules']=True` for each variant env.
+`--cxx-modules` sets `env['modules']=True` for each variant env.
 If the selected dialect is below C++20, cuppa raises it to `c++20`.
-You can also call `env.Modules()` from a sconscript.
+You can also call `env.CxxModules()` from a sconscript.
 On an unsupported toolchain, cuppa stops with a clear error (no silent fallback).
 
 === Step 2 — Writing the interface and consumer
@@ -223,7 +226,7 @@ env.Build('math_app', ['main.cpp'])
 
 [source,sh]
 ----
-cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=gcc
+cuppa -D --dbg --cxx-modules --stdcpp=c++20 --toolchains=gcc
 ----
 
 Look under `_build/<toolchain>/dbg/.../working/modules/` for `math.gcm` (GCC), `math.pcm` (Clang), or `math.ifc` (MSVC), and under `final/` for `math_app`.
@@ -235,9 +238,9 @@ The sections below cover libraries, partitions, header units, and `import std`.
 
 [source,sh]
 ----
-cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=gcc
-cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=clang
-cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=vc   # Windows
+cuppa -D --dbg --cxx-modules --stdcpp=c++20 --toolchains=gcc
+cuppa -D --dbg --cxx-modules --stdcpp=c++20 --toolchains=clang
+cuppa -D --dbg --cxx-modules --stdcpp=c++20 --toolchains=vc   # Windows
 ----
 
 The `--stdcpp=c++20` above is explicit for clarity, not a requirement.
@@ -316,7 +319,7 @@ flowchart TD
     IMP --> CBUILD[Consumer Build / Test imports producer modules]
 ....
 
-When `--modules` is enabled, `BuildLib` / `BuildStaticLib` / `BuildSharedLib` install named-module
+When `--cxx-modules` is enabled, `BuildLib` / `BuildStaticLib` / `BuildSharedLib` install named-module
 BMIs under `final/modules/` and write `module-map.json`. Consumers in another project (or after
 extracting a cuppa package) load that map:
 
@@ -494,7 +497,7 @@ When a scanned source contains `import std;` or `import std.compat;`, cuppa:
 
 Requirements:
 
-* `--modules`
+* `--cxx-modules`
 * **GCC 15+** with `bits/std.cc` (and optionally `bits/std.compat.cc`)
 * **Clang 18+** with **libc++** (`--clang-stdlib=libc++`) and installed module interfaces
   (typically `/usr/lib/llvm-<N>/share/libc++/v1/std.cppm`, or Homebrew LLVM paths on macOS)
@@ -508,9 +511,9 @@ env.Build('std_app', ['apps/std_main.cpp'])  # import std;
 
 [source,sh]
 ----
-cuppa -D --dbg --modules --toolchains=gcc
-cuppa -D --dbg --modules --toolchains=clang22 --clang-stdlib=libc++
-cuppa -D --dbg --modules --toolchains=vc
+cuppa -D --dbg --cxx-modules --toolchains=gcc
+cuppa -D --dbg --cxx-modules --toolchains=clang22 --clang-stdlib=libc++
+cuppa -D --dbg --cxx-modules --toolchains=vc
 ----
 
 == Artifact layout
@@ -540,7 +543,7 @@ xref:toolchain-msvc.adoc[MSVC].
 * Private module fragments: Clang only (GCC unimplemented)
 * Packaged BMIs are toolchain-family specific (`.gcm` / `.pcm` / `.ifc`)
 * Toolchain quirks remain — prefer the floors above and fail clearly rather than guess
-* `--modules` on an unsupported toolchain stops the build with a clear error
+* `--cxx-modules` on an unsupported toolchain stops the build with a clear error
 * Integration tests require a modules-capable compiler and **fail** if GCC/Clang is too old
 
 [#macos-apple-clang]
@@ -563,7 +566,7 @@ Without it, build systems that rely on compiler-provided module scanning cannot 
 The same gap shows up with CMake’s `CXX_MODULES` support (configure fails with “compiler does not provide a way to discover the import graph dependencies”); see for example
 https://stackoverflow.com/questions/79143467/using-c-20-modules-with-cmake-using-appleclang-16-with-macos[this Stack Overflow discussion].
 
-Cuppa’s own scanner is line-oriented and does not call `clang-scan-deps`, but Apple Clang still lacks a complete, reliable C++20 modules story for the flags and BMI workflow cuppa expects from LLVM Clang 16+. Cuppa therefore **fails clearly** under `--modules` rather than attempting a half-supported path.
+Cuppa’s own scanner is line-oriented and does not call `clang-scan-deps`, but Apple Clang still lacks a complete, reliable C++20 modules story for the flags and BMI workflow cuppa expects from LLVM Clang 16+. Cuppa therefore **fails clearly** under `--cxx-modules` rather than attempting a half-supported path.
 
 === What to use on macOS
 
@@ -574,7 +577,7 @@ Install upstream LLVM Clang (Homebrew is the usual route) and put it ahead of `/
 brew install llvm
 export PATH="$(brew --prefix llvm)/bin:$PATH"
 clang++ --version   # should NOT say "Apple clang"
-cuppa -D --dbg --modules --stdcpp=c++20 --toolchains=clang --clang-stdlib=libc++
+cuppa -D --dbg --cxx-modules --stdcpp=c++20 --toolchains=clang --clang-stdlib=libc++
 ----
 
 Typical Homebrew locations: `/opt/homebrew/opt/llvm/bin` (Apple Silicon) or `/usr/local/opt/llvm/bin` (Intel).

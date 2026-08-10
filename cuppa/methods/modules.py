@@ -4,11 +4,19 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   C++ modules enablement (--modules) and C++20 floor
+#   C++ modules enablement (--cxx-modules) and C++20 floor
 #-------------------------------------------------------------------------------
 
 from cuppa.colourise import as_info, as_notice, as_warning
 from cuppa.log import logger
+
+
+_MODULES_DEPRECATED_CLI = (
+        '[{}] is deprecated; use [{}] (removed in cuppa 2.0)'
+)
+_MODULES_DEPRECATED_METHOD = (
+        'env.{}() is deprecated; use env.{}() (removed in cuppa 2.0)'
+)
 
 
 # Ordinal dialect ranks: a later standard always ranks higher. Aliases share a
@@ -118,7 +126,7 @@ def ensure_modules_dialect_floor( env, floor='c++20' ):
     """When modules are enabled, require at least the given dialect floor.
 
     The toolchain default counts towards the floor: a toolchain that already
-    defaults to the floor or later is left alone, so `--modules` never lowers
+    defaults to the floor or later is left alone, so ``--cxx-modules`` never lowers
     the dialect a build would otherwise have used.
     """
     current, requested = effective_dialect( env )
@@ -163,13 +171,13 @@ def activate_modules_for_env( env ):
         from cuppa.colourise import as_error
         import SCons.Errors
         message = (
-            "--modules requested but toolchain [{}] does not support C++ modules "
+            "--cxx-modules requested but toolchain [{}] does not support C++ modules "
             "(Linux/macOS GCC 14+ / Clang 16+, or Windows MSVC toolset 14.2+ "
             "[--toolchains=vc142 / vc143 / vc145 / …] in this cuppa release)"
             .format( toolchain.name() )
         )
         logger.error(
-            "--modules requested but toolchain [{}] does not support C++ modules "
+            "--cxx-modules requested but toolchain [{}] does not support C++ modules "
             "(Linux/macOS GCC 14+ / Clang 16+, or Windows MSVC toolset 14.2+ "
             "[--toolchains=vc142 / vc143 / vc145 / …] in this cuppa release)"
             .format( as_error( toolchain.name() ) )
@@ -196,35 +204,64 @@ def activate_modules_for_env( env ):
     return True
 
 
-class ModulesMethod:
-    """Optional explicit env.Modules() toggle; primarily driven by --modules."""
-
-    @classmethod
-    def add_options( cls, add_option ):
-        add_option(
-            '--modules',
-            dest='modules',
-            action='store_true',
-            help='Enable C++20 named modules, header units, and import std '
-                 'when the toolchain supports them '
-                 '(GCC 14+ / LLVM Clang 16+ / MSVC toolset 14.2+)',
-        )
-
-    @classmethod
-    def get_options( cls, env ):
-        env['modules'] = bool( env.get_option( 'modules' ) )
+class _CxxModulesCallable:
+    """Primary ``env.CxxModules()`` toggle."""
 
     def __call__( self, env, enabled=True ):
-        # Module-mode toggle/configuration only. NotifyProgress for build
-        # actions is added later by Compile/cxx_modules when they emit nodes.
         env['modules'] = bool( enabled )
         if enabled:
             activate_modules_for_env( env )
         return None
 
+
+class _ModulesDeprecatedCallable:
+    """Deprecated alias for ``env.Modules()``."""
+
+    def __call__( self, env, enabled=True ):
+        logger.warn(
+                _MODULES_DEPRECATED_METHOD.format( 'Modules', 'CxxModules' )
+        )
+        return _CxxModulesCallable()( env, enabled )
+
+
+class ModulesMethod:
+    """Opt-in C++ modules; primarily driven by ``--cxx-modules``."""
+
+    @classmethod
+    def add_options( cls, add_option ):
+        add_option(
+            '--cxx-modules',
+            dest='cxx_modules',
+            action='store_true',
+            help='Enable C++20 named modules, header units, and import std '
+                 'when the toolchain supports them '
+                 '(GCC 14+ / LLVM Clang 16+ / MSVC toolset 14.2+)',
+        )
+        add_option(
+            '--modules',
+            dest='modules_legacy',
+            action='store_true',
+            help='(deprecated) same as --cxx-modules; removed in cuppa 2.0',
+        )
+
+    @classmethod
+    def get_options( cls, env ):
+        canonical = bool( env.get_option( 'cxx_modules' ) )
+        legacy = bool( env.get_option( 'modules_legacy' ) )
+        if legacy:
+            from cuppa.colourise import as_info as _as_info
+            logger.warn(
+                    _MODULES_DEPRECATED_CLI.format(
+                            _as_info( '--modules' ),
+                            _as_info( '--cxx-modules' ),
+                    )
+            )
+        env['modules'] = canonical or legacy
+
     @classmethod
     def add_to_env( cls, cuppa_env ):
-        cuppa_env.add_method( 'Modules', cls() )
+        cuppa_env.add_method( 'CxxModules', _CxxModulesCallable() )
+        cuppa_env.add_method( 'Modules', _ModulesDeprecatedCallable() )
 
     @classmethod
     def init_env_for_variant( cls, sconscript_exports ):

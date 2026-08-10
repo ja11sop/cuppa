@@ -110,8 +110,9 @@ def test_activate_profiles_stoperror_unsupported():
             return False
 
     env = { 'toolchain': FakeToolchain(), 'cxx_profiles': True }
-    with pytest.raises( SCons.Errors.StopError ):
+    with pytest.raises( SCons.Errors.StopError ) as exc:
         activate_profiles_for_env( env )
+    assert '--cxx-profiles' in str( exc.value )
     assert env['cxx_profiles'] is False
 
 
@@ -205,10 +206,12 @@ def test_gcc_and_cl_profiles_unsupported():
     assert gcc.profiles_supported( None ) is False
     assert gcc.profiles_enable_flags( None ) == []
     assert gcc.profiles_enforce_flags( None, ['std::init'] ) == []
+    assert gcc.disable_error_limit_flags( None ) == [ '-fmax-errors=0' ]
 
     cl = Cl.__new__( Cl )
     assert cl.profiles_supported( None ) is False
     assert cl.profiles_enable_flags( None ) == []
+    assert cl.disable_error_limit_flags( None ) == [ '/errorlimit:0' ]
 
 
 def test_clang_profiles_probe_cached(monkeypatch):
@@ -235,4 +238,5 @@ def test_clang_profiles_probe_cached(monkeypatch):
     assert clang.profiles_enable_flags( None ) == [ '-fprofiles' ]
     assert clang.profiles_supported( None ) is True
     assert clang.profiles_enable_flags( None ) == [ '-fprofiles' ]
+    assert clang.disable_error_limit_flags( None ) == [ '-ferror-limit=0' ]
     assert len( calls ) == 1

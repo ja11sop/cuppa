@@ -50,7 +50,7 @@ Cuppa solves a different design problem: keep the *project description* short an
 | Implicit defaults plus directory/target property inheritance that is hard to audit
 
 | C++20 modules
-| Opt-in `--modules` with BMI registry, packaging, and clear unsupported-toolchain errors
+| Opt-in `--cxx-modules` with BMI registry, packaging, and clear unsupported-toolchain errors
 | Evolving `FILE_SET CXX_MODULES` support; compiler/scanner gaps (for example Apple Clang)
 
 | Extensibility
@@ -81,7 +81,7 @@ TIP: When docs and code disagree, *code is authoritative* -- especially storage 
   xref:toolchain-gcc.adoc[GCC], xref:toolchain-clang.adoc[Clang], and
   xref:toolchain-msvc.adoc[MSVC]
 * xref:cxx-modules.adoc[C++ modules] -- introduction, tutorial, reference, and an up-to-date capability matrix by toolchain family
-* xref:cxx-profiles.adoc[C++ Profiles] -- opt-in `--profiles` / `--profiles-enforce=`, Alliance Clang, paper overview
+* xref:cxx-profiles.adoc[C++ Profiles] -- opt-in `--cxx-profiles` / `--cxx-profiles-enforce=`, Alliance Clang, paper overview
 * xref:cli-reference.adoc[CLI reference] -- flags you will use every day
 * xref:integration-tests.adoc[Integration tests] -- pytest scenarios with generated build scripts
 
@@ -98,7 +98,7 @@ Cuppa aims to:
 * keep `sconscript` files declarative and free of build-system logic
 * give experts a place to encapsulate dependency and toolchain knowledge once
 * codify SCons best practices so callers express *intent* (`Build`, `BuildTest`, `BuildWith`) rather than low-level flag plumbing
-* fail clearly when a feature (for example `--modules` on an unsupported toolchain) cannot be honoured -- no silent fallback
+* fail clearly when a feature (for example `--cxx-modules` on an unsupported toolchain) cannot be honoured -- no silent fallback
 
 TIP: Artefacts live under `_build/` (not a hidden `.build` directory). A guaranteed clean rebuild is `rm -rf _build`.
 

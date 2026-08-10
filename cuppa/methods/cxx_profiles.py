@@ -4,7 +4,7 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   C++ Profiles enablement (--profiles / --profiles-enforce)
+#   C++ Profiles enablement (--cxx-profiles / --cxx-profiles-enforce)
 #-------------------------------------------------------------------------------
 
 from cuppa.colourise import as_error, as_notice
@@ -31,13 +31,13 @@ def activate_profiles_for_env( env ):
     if not supported:
         import SCons.Errors
         message = (
-            "--profiles requested but toolchain [{}] does not support C++ Profiles "
+            "--cxx-profiles requested but toolchain [{}] does not support C++ Profiles "
             "(use a Profiles-capable Clang archive via --toolchain-archive= / "
             "--clang-root=; see design/plans/cxx-profiles.md)"
             .format( toolchain.name() )
         )
         logger.error(
-            "--profiles requested but toolchain [{}] does not support C++ Profiles "
+            "--cxx-profiles requested but toolchain [{}] does not support C++ Profiles "
             "(use a Profiles-capable Clang archive via --toolchain-archive= / "
             "--clang-root=)"
             .format( as_error( toolchain.name() ) )
@@ -75,21 +75,21 @@ class CxxProfilesMethod:
     @classmethod
     def add_options( cls, add_option ):
         add_option(
-            '--profiles',
+            '--cxx-profiles',
             dest='cxx_profiles',
             action='store_true',
             help='Enable the C++ Profiles framework (-fprofiles) when the '
                  'toolchain supports it (Profiles-capable Clang archives)',
         )
         add_option(
-            '--profiles-enforce',
+            '--cxx-profiles-enforce',
             dest='cxx_profiles_enforce',
             type='string',
             nargs=1,
             action='store',
             help='Comma-separated profile designators to enforce on every C++ '
-                 'translation unit (implies --profiles). Example: '
-                 '--profiles-enforce=std::init',
+                 'translation unit (implies --cxx-profiles). Example: '
+                 '--cxx-profiles-enforce=std::init',
         )
 
     @classmethod
@@ -121,8 +121,8 @@ class CxxProfilesMethod:
     @classmethod
     def add_to_env( cls, cuppa_env ):
         method = cls()
-        cuppa_env.add_method( 'Profiles', method )
-        cuppa_env.add_method( 'ProfilesEnforce', method.enforce )
+        cuppa_env.add_method( 'CxxProfiles', method )
+        cuppa_env.add_method( 'CxxProfilesEnforce', method.enforce )
 
     @classmethod
     def init_env_for_variant( cls, sconscript_exports ):

@@ -1,5 +1,5 @@
 = Integration: C++ Profiles
-:description: Opt-in --profiles / --profiles-enforce against a Profiles-capable Clang
+:description: Opt-in --cxx-profiles / --cxx-profiles-enforce against a Profiles-capable Clang
 
 Covered by `tests/integration/methods/test_cxx_profiles.py`.
 
@@ -15,10 +15,10 @@ clear failure with a normal gcc/clang that lacks Profiles.
 | Test | What it exercises | Notes
 
 | `test_profiles_enforce_std_init_smoke`
-| `--profiles --profiles-enforce=std::init` build
+| `--cxx-profiles --cxx-profiles-enforce=std::init` build
 | Skips without Profiles Clang
 
 | `test_profiles_unsupported_toolchain_fails`
-| `--profiles` on a non-Profiles toolchain
+| `--cxx-profiles` on a non-Profiles toolchain
 | Expects StopError / clear message
 |===

@@ -1,5 +1,5 @@
 = C++ Profiles
-:description: Opt-in C++ Profiles with cuppa (--profiles / --profiles-enforce)
+:description: Opt-in C++ Profiles with cuppa (--cxx-profiles / --cxx-profiles-enforce)
 
 In this guide you will learn what ISO C++ **Profiles** are aiming at, what cuppa
 supports today, how to enable them with a Profiles-capable Clang, and where the
@@ -9,8 +9,8 @@ Cuppa's **BuildProfile** (`env.BuildProfile(…)`) is a different concept: named
 build-time env tweaks. This page is only about the **language** Profiles
 framework (`[[profiles::…]]`, experimental `-fprofiles`).
 
-Profiles are **opt-in** (`--profiles` / `--profiles-enforce=` or
-`env.Profiles()` / `env.ProfilesEnforce(…)`). Builds that do not pass those
+Profiles are **opt-in** (`--cxx-profiles` / `--cxx-profiles-enforce=` or
+`env.CxxProfiles()` / `env.CxxProfilesEnforce(…)`). Builds that do not pass those
 flags are unchanged.
 
 == State of play (today)
@@ -26,7 +26,7 @@ flags are unchanged.
 | **C++ Alliance** experimental Clang (Profiles archive) accepts `-fprofiles` and has been smoke-tested with `[[profiles::enforce(std::init)]];`. Distro / upstream Clang and GCC/MSVC do **not** implement this surface in cuppa.
 
 | Cuppa CLI
-| `--profiles` enables the framework when the selected toolchain probes successfully for `-fprofiles`; otherwise the build stops with a clear error. `--profiles-enforce=<designators>` implies `--profiles` and applies those designators to every C++ translation unit (see <<how-cuppa-enables>>).
+| `--cxx-profiles` enables the framework when the selected toolchain probes successfully for `-fprofiles`; otherwise the build stops with a clear error. `--cxx-profiles-enforce=<designators>` implies `--cxx-profiles` and applies those designators to every C++ translation unit (see <<how-cuppa-enables>>).
 
 | Verified designator
 | **`std::init`** (initialization profile; related papers P3402 / P4222). Do not assume other names work on Alliance Clang until you have tried them.
@@ -48,11 +48,11 @@ Session names look like `clang24_profiles_2026_08_07_27`. See xref:toolchains.ad
 . Build with the framework and (optionally) session-wide enforce:
 
 ```
-cuppa -D --dbg --toolchains=clang24_profiles_2026_08_07_27 --profiles --profiles-enforce=std::init
+cuppa -D --dbg --toolchains=clang24_profiles_2026_08_07_27 --cxx-profiles --cxx-profiles-enforce=std::init
 ```
 
-`--profiles` alone turns on `-fprofiles` so attributes in your sources are recognised.
-`--profiles-enforce=std::init` also asks cuppa to enforce that designator on every C++ TU.
+`--cxx-profiles` alone turns on `-fprofiles` so attributes in your sources are recognised.
+`--cxx-profiles-enforce=std::init` also asks cuppa to enforce that designator on every C++ TU.
 
 You can put enforce in source yourself instead of (or as well as) the CLI:
 
@@ -74,7 +74,7 @@ implementation supports it.
 
 === Framework flag
 
-When `--profiles` is set, cuppa asks the toolchain for enable flags. On Clang that
+When `--cxx-profiles` is set, cuppa asks the toolchain for enable flags. On Clang that
 means probing the driver with `-fprofiles` and caching the result. A successful
 probe appends `-fprofiles` to `CXXFLAGS`. An unsuccessful probe raises
 `StopError` (no silent no-op). GCC and MSVC report unsupported.
@@ -84,7 +84,7 @@ archive succeeds.
 
 === Enforce: native flags or `-include`
 
-For `--profiles-enforce=a,b`:
+For `--cxx-profiles-enforce=a,b`:
 
 1. If the toolchain returns native enforce flags from
    `profiles_enforce_flags` (none known on Alliance Clang today), those flags are
@@ -109,8 +109,16 @@ two enforce empty-declarations.
 
 Optional methods (same env keys as the CLI):
 
-* `env.Profiles()` — force the framework on for that env
-* `env.ProfilesEnforce('std::init')` — set enforce designators and activate
+* `env.CxxProfiles()` — force the framework on for that env
+* `env.CxxProfilesEnforce('std::init')` — set enforce designators and activate
+
+=== Full diagnostic lists (`--cxx-disable-error-limit`)
+
+Profile enforce checks can emit many diagnostics; compilers stop after a default cap.
+Pass `--cxx-disable-error-limit` to append toolchain-specific unlimited flags
+(Clang `-ferror-limit=0`, GCC `-fmax-errors=0`, MSVC `/errorlimit:0`). Pair with
+`--cxx-profiles-enforce=` when you need the complete violation set for reporting or
+batch fixing. Optional method: `env.CxxDisableErrorLimit()`.
 
 [#future]
 == What may come next
@@ -122,7 +130,7 @@ the feature:
   opens with `[[profiles::enforce(foo)]];` skips injection. A later step may rewrite
   that first attribute (in a compiler-facing view, still without mutating the tree)
   to merge CLI designators into the list—for example turning
-  `[[profiles::enforce(foo)]];` plus `--profiles-enforce=std::init` into
+  `[[profiles::enforce(foo)]];` plus `--cxx-profiles-enforce=std::init` into
   `[[profiles::enforce(foo, std::init)]];`. That would allow composition without a
   second enforce declaration. Projects could also adopt an empty
   `[[profiles::enforce()]];` placeholder in every TU as an experimentation hook once
@@ -135,7 +143,7 @@ the feature:
 * **Carve-outs** for paths that should not receive session enforce (build policy,
   not `profiles::suppress`).
 * **Modules + `profiles::require`** once import-site wiring is worth the complexity;
-  there will still be no session `--profiles-require=` that pretends to be TU-wide
+  there will still be no session `--cxx-profiles-require=` that pretends to be TU-wide
   enforce.
 
 Design detail and refusal rules: link:https://github.com/ja11sop/cuppa/blob/master/design/plans/cxx-profiles.md[`design/plans/cxx-profiles.md`]
@@ -292,7 +300,7 @@ Framework syntax anchors for implementers: **P3589** (`enforce` / `require` /
 
 == Related cuppa pages
 
-* xref:cli-reference.adoc[CLI reference] — `--profiles`, `--profiles-enforce=`
+* xref:cli-reference.adoc[CLI reference] — `--cxx-profiles`, `--cxx-profiles-enforce=`, `--cxx-disable-error-limit`
 * xref:toolchain-clang.adoc[Clang] — Profiles-capable archives
 * xref:toolchains.adoc[Toolchains] — `--toolchain-archive=` / `--clang-root=`
 * xref:integration/test-cxx-profiles.adoc[Integration: C++ Profiles]

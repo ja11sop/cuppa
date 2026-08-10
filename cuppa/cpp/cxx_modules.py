@@ -226,7 +226,7 @@ def ensure_modules_enabled( env ):
     if not env.get( 'modules' ):
         logger.error(
             "C++ modules support requires {} (or env['modules']=True)"
-            .format( as_error( '--modules' ) )
+            .format( as_error( '--cxx-modules' ) )
         )
         return False
     toolchain = env['toolchain']
@@ -618,7 +618,7 @@ def load_packaged_modules( env, modules_dir ):
         return False
     if not env.get( 'modules' ):
         logger.warn(
-            "Found packaged modules at [{}] but --modules is not enabled; ignoring"
+            "Found packaged modules at [{}] but --cxx-modules is not enabled; ignoring"
             .format( as_warning( map_path ) )
         )
         return False
