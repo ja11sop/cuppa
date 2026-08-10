@@ -26,6 +26,7 @@
 ** xref:toolchain-clang.adoc[Clang]
 ** xref:toolchain-msvc.adoc[MSVC]
 * xref:cxx-modules.adoc[C++ modules]
+* xref:cxx-profiles.adoc[C++ Profiles]
 * xref:extending.adoc[Extending cuppa]
 * xref:contributing.adoc[Contributing]
 ** xref:contributing.adoc[Overview]

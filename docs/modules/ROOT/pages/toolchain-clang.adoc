@@ -224,4 +224,4 @@ See xref:cxx-modules.adoc[{cpp} modules].
 * `--profiles-enforce=std::init` (comma-separated designators) implies `--profiles` and either maps to native enforce flags (none known today) or injects `[[profiles::enforce(…)]];` via `-include`.
 * Smoke-tested designator on Alliance Clang today: **`std::init`**.
 
-See design plan `design/plans/cxx-profiles.md` and issue https://github.com/ja11sop/cuppa/issues/127[#127].
+See xref:cxx-profiles.adoc[C++ Profiles] for the full guide, paper list, and design notes.

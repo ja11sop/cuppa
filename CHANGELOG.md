@@ -14,7 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--profiles-enforce=<designators>` implies `--profiles` and either uses toolchain
   native enforce flags when present or injects `[[profiles::enforce(…)]];` via
   `-include`. First smoke target: `std::init`. Design:
-  [`design/plans/cxx-profiles.md`](design/plans/cxx-profiles.md).
+  [`design/plans/cxx-profiles.md`](design/plans/cxx-profiles.md). Antora guide:
+  [`cxx-profiles.adoc`](docs/modules/ROOT/pages/cxx-profiles.adoc).
 
 ### Changed
 

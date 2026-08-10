@@ -1,0 +1,279 @@
+= C++ Profiles
+:description: Opt-in C++ Profiles with cuppa (--profiles / --profiles-enforce)
+
+In this guide you will learn what ISO C++ **Profiles** are aiming at, what cuppa
+supports today, how to enable them with a Profiles-capable Clang, and where the
+feature may go next.
+
+Cuppa's **BuildProfile** (`env.BuildProfile(…)`) is a different concept: named
+build-time env tweaks. This page is only about the **language** Profiles
+framework (`[[profiles::…]]`, experimental `-fprofiles`).
+
+Profiles are **opt-in** (`--profiles` / `--profiles-enforce=` or
+`env.Profiles()` / `env.ProfilesEnforce(…)`). Builds that do not pass those
+flags are unchanged.
+
+== State of play (today)
+
+[cols="2,3"]
+|===
+| Area | Status
+
+| Standardisation
+| Framework and specific profiles are under active WG21 / SG23 discussion (see <<papers>>). Designators and wording are still evolving; treat paper names as directional.
+
+| Compilers
+| **C++ Alliance** experimental Clang (Profiles archive) accepts `-fprofiles` and has been smoke-tested with `[[profiles::enforce(std::init)]];`. Distro / upstream Clang and GCC/MSVC do **not** implement this surface in cuppa.
+
+| Cuppa CLI
+| `--profiles` enables the framework when the selected toolchain probes successfully for `-fprofiles`; otherwise the build stops with a clear error. `--profiles-enforce=<designators>` implies `--profiles` and applies those designators to every C++ translation unit (see <<how-cuppa-enables>>).
+
+| Verified designator
+| **`std::init`** (initialization profile; related papers P3402 / P4222). Do not assume other names work on Alliance Clang until you have tried them.
+
+| Not in the Cuppa CLI
+| Session flags for `profiles::require` or `profiles::suppress`. Those attributes stay in source (and, for `require`, on module imports) per the framework papers.
+|===
+
+== Enabling Profiles
+
+. Obtain a Profiles-capable Clang (C++ Alliance release archive) and register it with cuppa, for example:
+
+```
+cuppa -D --toolchain-archive=https://github.com/cppalliance/clang/releases/download/profiles-2026-08-07-27/clang-profiles-linux-x86_64.tar.gz
+```
+
+Session names look like `clang24_profiles_2026_08_07_27`. See xref:toolchains.adoc[Toolchains] and xref:toolchain-clang.adoc[Clang].
+
+. Build with the framework and (optionally) session-wide enforce:
+
+```
+cuppa -D --dbg --toolchains=clang24_profiles_2026_08_07_27 --profiles --profiles-enforce=std::init
+```
+
+`--profiles` alone turns on `-fprofiles` so attributes in your sources are recognised.
+`--profiles-enforce=std::init` also asks cuppa to enforce that designator on every C++ TU.
+
+You can put enforce in source yourself instead of (or as well as) the CLI:
+
+```cpp
+[[profiles::enforce(std::init)]];
+
+int main() {
+    int x = 0;
+    return x;
+}
+```
+
+Local opt-out remains an in-source concern, for example
+`[[profiles::suppress(std::init)]]` on a declaration or statement when the
+implementation supports it.
+
+[#how-cuppa-enables]
+== How cuppa enables Profiles today
+
+=== Framework flag
+
+When `--profiles` is set, cuppa asks the toolchain for enable flags. On Clang that
+means probing the driver with `-fprofiles` and caching the result. A successful
+probe appends `-fprofiles` to `CXXFLAGS`. An unsuccessful probe raises
+`StopError` (no silent no-op). GCC and MSVC report unsupported.
+
+Major version alone is not enough: ordinary `clang24` fails the probe; a Profiles
+archive succeeds.
+
+=== Enforce: native flags or `-include`
+
+For `--profiles-enforce=a,b`:
+
+1. If the toolchain returns native enforce flags from
+   `profiles_enforce_flags` (none known on Alliance Clang today), those flags are
+   appended.
+2. Otherwise cuppa writes a small generated header under the build tree, for example
+   `_build/.../profiles/enforce_std_init.hpp`, containing:
+
+```cpp
+[[profiles::enforce(std::init)]];
+```
+
+and compiles each C++ translation unit with `-include <that header>`.
+
+`-include` is processed like a leading `#include`: the preprocessor tracks file and
+line with linemarkers, then resumes your primary source at line 1. Diagnostics in
+your `.cpp` keep their original line numbers. Cuppa does **not** rewrite files in
+your source tree.
+
+If a translation unit already contains a `[[profiles::enforce(…)]]` attribute in
+its preamble, cuppa **skips** `-include` for that file so the compiler does not see
+two enforce empty-declarations.
+
+Optional methods (same env keys as the CLI):
+
+* `env.Profiles()` — force the framework on for that env
+* `env.ProfilesEnforce('std::init')` — set enforce designators and activate
+
+[#future]
+== What may come next
+
+These items are intentional follow-ons, not commitments for the first release of
+the feature:
+
+* **Compose CLI enforce with an existing source attribute.** Today a TU that already
+  opens with `[[profiles::enforce(foo)]];` skips injection. A later step may rewrite
+  that first attribute (in a compiler-facing view, still without mutating the tree)
+  to merge CLI designators into the list—for example turning
+  `[[profiles::enforce(foo)]];` plus `--profiles-enforce=std::init` into
+  `[[profiles::enforce(foo, std::init)]];`. That would allow composition without a
+  second enforce declaration. Projects could also adopt an empty
+  `[[profiles::enforce()]];` placeholder in every TU as an experimentation hook once
+  composition exists.
+* **More designators** as Alliance Clang (and eventually other compilers) implement
+  them; cuppa passes designator strings through unchanged.
+* **Native enforce command-line flags** when a compiler provides them; the
+  `profiles_enforce_flags` hook is already reserved so `-include` can give way to
+  the driver's mapping.
+* **Carve-outs** for paths that should not receive session enforce (build policy,
+  not `profiles::suppress`).
+* **Modules + `profiles::require`** once import-site wiring is worth the complexity;
+  there will still be no session `--profiles-require=` that pretends to be TU-wide
+  enforce.
+
+Design detail and refusal rules: link:https://github.com/ja11sop/cuppa/blob/master/design/plans/cxx-profiles.md[`design/plans/cxx-profiles.md`]
+and issue link:https://github.com/ja11sop/cuppa/issues/127[#127].
+
+== Toolchain references (Clang / C++ Alliance)
+
+* Fork and branch: link:https://github.com/cppalliance/clang/tree/profiles-framework[cppalliance/clang `profiles-framework`]
+* Framework notes in-tree:
+  link:https://github.com/cppalliance/clang/blob/profiles-framework/clang/docs/ProfilesFramework.rst[`clang/docs/ProfilesFramework.rst`]
+* Example release tag used in cuppa docs: `profiles-2026-08-07-27` → archive
+  `clang-profiles-linux-x86_64.tar.gz`, session name `clang24_profiles_2026_08_07_27`
+
+Cuppa discovers capability by probing `-fprofiles` on the selected Clang binary, not
+by parsing the session name alone.
+
+[#papers]
+== Selected WG21 papers
+
+Paper revisions move quickly; prefer link:https://wg21.link/[wg21.link] for the
+latest. The table below matches the overview maintained on
+link:https://github.com/ja11sop/cuppa/issues/127[#127].
+
+[cols="1,3,2,1"]
+|===
+| Paper | Title | Authors (short) | Date
+
+| link:https://wg21.link/p2410r0[P2410R0]
+| Type-and-resource safety in modern C++
+| Stroustrup
+| 2021-07
+
+| link:https://wg21.link/p2687r0[P2687R0]
+| Design Alternatives for Type-and-Resource Safe C++
+| Stroustrup, Dos Reis
+| 2022-10
+
+| link:https://wg21.link/p2816r0[P2816R0]
+| Safety Profiles: Type-and-resource Safe programming in ISO Standard C++
+| Stroustrup, Dos Reis
+| 2023-02
+
+| link:https://wg21.link/p3038r0[P3038R0]
+| Concrete suggestions for initial Profiles
+| Stroustrup
+| 2023-12
+
+| link:https://wg21.link/p3274r0[P3274R0]
+| A framework for Profiles development
+| Stroustrup
+| 2024-05
+
+| link:https://wg21.link/p3446r0[P3446R0]
+| Profile invalidation – eliminating dangling pointers
+| Stroustrup
+| 2024-10
+
+| link:https://wg21.link/p3447r0[P3447R0]
+| Profiles syntax
+| Stroustrup
+| 2024-10
+
+| link:https://wg21.link/p3543r0[P3543R0]
+| Response to Core Safety Profiles (P3081)
+| Gill, Jabot, Lakos, Berne, Doumler
+| 2024-12
+
+| link:https://wg21.link/p3608r0[P3608R0]
+| Contracts and profiles: what can we reasonably ship in C++26
+| Voutilainen, Wakely, Dos Reis
+| 2025-01
+
+| link:https://wg21.link/p3081r2[P3081R2]
+| Core safety profiles for C++26
+| Sutter
+| 2025-02
+
+| link:https://wg21.link/p3586r0[P3586R0]
+| The Plethora of Problems With Profiles
+| Jabot
+| 2025-01
+
+| link:https://wg21.link/p3589r2[P3589R2]
+| C++ Profiles: The Framework
+| Dos Reis
+| 2025-05
+
+| link:https://wg21.link/p3611r0[P3611R0]
+| Dealing with pointer errors: Separating static and dynamic checking
+| Stroustrup
+| 2025-02
+
+| link:https://wg21.link/p3402r3[P3402R3]
+| A Safety Profile Verifying Initialization
+| Morin et al.
+| 2025-05
+
+| link:https://wg21.link/p3700r0[P3700R0]
+| Making Safe C++ Happen
+| Bindels
+| 2025-05
+
+| link:https://wg21.link/p3704r0[P3704R0]
+| What are profiles?
+| Stroustrup
+| 2025-05
+
+| link:https://wg21.link/p3970r0[P3970R0]
+| Profiles and Safety: a call to action
+| Vandevoorde et al.
+| 2026-01
+
+| link:https://wg21.link/p3984r0[P3984R0]
+| A type-safety profile
+| Stroustrup
+| 2026-02
+
+| link:https://wg21.link/p4186r0[P4186R0]
+| A proposed plan for profiles in C++
+| Bindels
+| 2026-04
+
+| link:https://wg21.link/p4222r1[P4222R1]
+| An initialization profile
+| Stroustrup
+| 2026-07
+|===
+
+Framework syntax anchors for implementers: **P3589** (`enforce` / `require` /
+`suppress`). Initialization profile direction for Alliance Clang's `std::init`:
+**P4222** (with earlier P3402).
+
+== Related cuppa pages
+
+* xref:cli-reference.adoc[CLI reference] — `--profiles`, `--profiles-enforce=`
+* xref:toolchain-clang.adoc[Clang] — Profiles-capable archives
+* xref:toolchains.adoc[Toolchains] — `--toolchain-archive=` / `--clang-root=`
+* xref:integration/test-cxx-profiles.adoc[Integration: C++ Profiles]
+* xref:cxx-modules.adoc[C++ modules] — separate opt-in; `profiles::require` may
+  interact with modules later
+* xref:methods.adoc[Methods] — `BuildProfile` (build-time profiles, not this feature)

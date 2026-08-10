@@ -119,14 +119,23 @@ Resolution order per toolchain:
 
    - Do not mutate the user’s source tree.
    - Diagnostics should still point at the user’s file when practical.
-   - Skip or no-op injection when the unit already opens with a matching
-     `[[profiles::enforce(…)]];` (idempotent).
+   - **Today:** skip `-include` when the unit already contains
+     `[[profiles::enforce(…)]];` in the preamble (avoids two enforce
+     empty-declarations).
+   - **Next (composition):** when a first-line enforce already exists, rewrite
+     that attribute in the compiler-facing view to **merge** CLI designators
+     into its list (still without mutating the source tree). That enables
+     CLI + source composition and, later, empty
+     `[[profiles::enforce()]];` placeholders in every TU as an experimentation
+     hook. Not implemented in the first B+C slice.
    - Module interface units: inject before any declaration, respecting the
      `module;` preamble pattern from P3589 (implementation must follow the
      framework’s “first empty-declaration” rule).
 
 `--profiles` alone enables the framework without injecting enforce attributes;
 projects can put `[[profiles::enforce(std::init)]];` (etc.) in source themselves.
+
+Product docs: Antora [`cxx-profiles.adoc`](../../docs/modules/ROOT/pages/cxx-profiles.adoc).
 
 ### 2.3 Optional method surface
 
