@@ -31,6 +31,17 @@ def test_short_name_from_https_strips_git_suffix():
         'github.com/fmtlib/fmt'
 
 
+def test_wipe_token_leaf_name_reduces_host_path():
+    from cuppa.core.dependency_identity import wipe_token_leaf_name
+
+    assert wipe_token_leaf_name( 'gitlab.example/org/widget' ) == 'widget'
+    assert wipe_token_leaf_name( 'github.com/fmtlib/fmt.git' ) == 'fmt'
+    assert wipe_token_leaf_name( 'widget' ) == 'widget'
+    assert wipe_token_leaf_name( 'git_https_example.com__org_widget.git' ) is None
+    assert wipe_token_leaf_name( '' ) is None
+    assert wipe_token_leaf_name( None ) is None
+
+
 def test_boost_archive_from_underscored_folder():
     name, version = boost_archive_from_folder(
             'https_boostorg.jfrog.io__artifactory_main_release_1.86.0_source_boost_1_86_0.tar.gz'

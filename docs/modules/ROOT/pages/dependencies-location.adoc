@@ -31,13 +31,16 @@ xref:build-layout.adoc[Build layout] for the defaults and for how to move them.
 VCS folders use a canonical `stem@<branch>` spelling once the branch is known — including the
 default branch (`--location-default-branch`, usually `master`). An older unqualified stem is
 kept if it is the only copy on disk (cuppa does not move or delete it). When both exist, resolve
-uses the canonical folder and warns that the unqualified duplicate is unused by this selection.
-Any command that triggers that warning also prints a dry-run
+uses the canonical folder. Dependency-management commands
+(`--list-dependencies`, `--remove-dependencies`, `--purge-dependencies`, wipe / force-wipe)
+record that pair at **debug** log level and surface it in their trees: remove-coloured
+`@master (unqualified)` (or `@main (unqualified)`, …) leaves and a dry-run
 `--force-wipe-dependencies=` hint using the `name/@` shorthand (bare `@` means the unqualified
-stem, not `@master`) after that command's report footer, unless you are already on
-`--list-dependencies` — that mode labels the
-unused sibling `@master (unqualified)` (or `@main (unqualified)`, …) in remove colour and prints
-the same hint in its footer (merging inventory tokens with any Location warnings). The label uses
+stem, not `@master`) after the report footer. Ordinary builds prefer the canonical folder
+quietly — they do not print Location warnings or wipe hints for this case.
+`--list-dependencies` merges inventory tokens with any Location notices unless
+`--list-scope=compact` (compact hides unused siblings, so notices and wipe candidates for
+those leaves are omitted). The label uses
 `--location-default-branch` (default `master`); it does
 not inspect HEAD inside the unqualified clone. Drop `-n` after confirming. Under `--offline`,
 candidates whose inventory `used_by` names another project are omitted from that hint.

@@ -60,12 +60,9 @@ def _is_unqualified_qualifier( qualifier ):
 def _unqualified_wipe_name( row ):
     """Prefer a registry-style name for ``name/@`` wipe tokens, or ``None``."""
     for key in ( 'dependency', 'short_name', 'stem' ):
-        name = ( row.get( key ) or '' ).strip()
-        if not name:
-            continue
-        if name.startswith( ( 'git_', 'https_', 'svn_', 'hg_', 'bzr_', 'http_' ) ):
-            continue
-        return name
+        leaf = dependency_identity.wipe_token_leaf_name( row.get( key ) )
+        if leaf:
+            return leaf
     return None
 
 
@@ -164,7 +161,7 @@ def write_unqualified_duplicate_wipe_hint( out, tokens, see_earlier_warnings=Fal
     if not tokens:
         return
     out.write( "\n" )
-    earlier = " (see earlier warnings)" if see_earlier_warnings else ""
+    earlier = " (noted during resolve)" if see_earlier_warnings else ""
     out.write(
             as_remove_notice( "Unqualified stem duplicates" )
             + earlier
@@ -261,11 +258,15 @@ def apply_list_scope( data, scope, tree_builder=None ):
     filtered = dict( data )
     filtered['rows'] = rows
     filtered['scope'] = scope
-    # Compute before scope filter; compact must still advertise wipe candidates.
+    # Tokens are computed before the scope filter. Compact hides unused siblings,
+    # so do not advertise wipe candidates the tree cannot show.
     if 'unqualified_duplicate_tokens' in data:
-        filtered['unqualified_duplicate_tokens'] = list(
-                data.get( 'unqualified_duplicate_tokens' ) or []
-        )
+        if scope == 'compact':
+            filtered['unqualified_duplicate_tokens'] = []
+        else:
+            filtered['unqualified_duplicate_tokens'] = list(
+                    data.get( 'unqualified_duplicate_tokens' ) or []
+            )
 
     downloads_listing = (
             'archive_count' in data

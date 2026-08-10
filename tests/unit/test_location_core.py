@@ -266,7 +266,8 @@ def test_extract_zip_strips_top_directory(tmp_path):
     assert not (target / "pkg-1.0").exists()
 
 
-def _select_location(tmp_path, default_branch="master", relative=True, match_branch=None):
+def _select_location(tmp_path, default_branch="master", relative=True, match_branch=None,
+                     list_dependencies=False, list_scope=None):
     location = Location.__new__(Location)
     location._cuppa_env = {
         "clean": False,
@@ -274,6 +275,8 @@ def _select_location(tmp_path, default_branch="master", relative=True, match_bra
         "location_match_current_branch": False,
         "location_match_branch": match_branch,
         "location_match_tag": None,
+        "list_dependencies": list_dependencies,
+        "list_scope": list_scope,
     }
     location._supports_relative_versioning = relative
     location._default_branch = default_branch
@@ -300,25 +303,54 @@ def test_select_repository_directory_canonical_only(tmp_path):
     assert location._select_repository_directory(stem) == stem + "@master"
 
 
-def test_select_repository_directory_both_prefers_canonical_and_warns(tmp_path, caplog):
+def test_select_repository_directory_both_prefers_canonical_quietly_on_build(tmp_path, caplog):
+    """Ordinary builds prefer canonical without logging or wipe-token bookkeeping."""
     location, stem = _select_location(tmp_path)
     os.mkdir(stem)
     os.mkdir(stem + "@master")
-    with caplog.at_level("WARNING"):
+    with caplog.at_level("DEBUG"):
+        chosen = location._select_repository_directory(stem)
+    assert chosen == stem + "@master"
+    assert "removal candidate" not in caplog.text
+    assert Location.take_unqualified_duplicate_wipe_tokens() == []
+
+
+def test_select_repository_directory_both_notices_on_list_dependencies(tmp_path, caplog):
+    location, stem = _select_location(tmp_path, list_dependencies=True)
+    os.mkdir(stem)
+    os.mkdir(stem + "@master")
+    with caplog.at_level("DEBUG"):
         chosen = location._select_repository_directory(stem)
     assert chosen == stem + "@master"
     assert "removal candidate" in caplog.text
-    # Second call does not warn again.
+    # Debug, not warn — no WARNING records for this notice.
+    assert not any(
+            record.levelname == "WARNING" and "removal candidate" in record.getMessage()
+            for record in caplog.records
+    )
+    # Second call does not notice again.
     caplog.clear()
-    with caplog.at_level("WARNING"):
+    with caplog.at_level("DEBUG"):
         assert location._select_repository_directory(stem) == stem + "@master"
     assert "removal candidate" not in caplog.text
+
+
+def test_select_repository_directory_both_skips_notice_for_compact(tmp_path, caplog):
+    location, stem = _select_location(
+            tmp_path, list_dependencies=True, list_scope='compact',
+    )
+    os.mkdir(stem)
+    os.mkdir(stem + "@master")
+    with caplog.at_level("DEBUG"):
+        assert location._select_repository_directory(stem) == stem + "@master"
+    assert "removal candidate" not in caplog.text
+    assert Location.take_unqualified_duplicate_wipe_tokens() == []
 
 
 def test_take_unqualified_duplicate_wipe_tokens_consumes_pending(tmp_path):
     from cuppa.location import Location
 
-    location, stem = _select_location(tmp_path)
+    location, stem = _select_location(tmp_path, list_dependencies=True)
     os.mkdir(stem)
     os.mkdir(stem + "@master")
     Location._unqualified_duplicate_warned = set()
@@ -329,11 +361,26 @@ def test_take_unqualified_duplicate_wipe_tokens_consumes_pending(tmp_path):
     assert Location.take_unqualified_duplicate_wipe_tokens() == []
 
 
+def test_unqualified_wipe_name_reduces_host_path(monkeypatch, tmp_path):
+    """Location hints must emit ``widget/@``, not ``host/org/widget/@`` (#178)."""
+    from cuppa.location import Location
+
+    def fake_git_tree( path ):
+        return 'gitlab.example/org/widget', 'ssh://git@gitlab.example/org/widget.git'
+
+    monkeypatch.setattr(
+            'cuppa.core.dependency_identity.short_name_from_git_tree',
+            fake_git_tree,
+    )
+    stem = str( tmp_path / 'git_https_gitlab.example__org_widget.git' )
+    assert Location._unqualified_wipe_name( stem ) == 'widget'
+
+
 def test_emit_location_unqualified_duplicate_hints_writes_once(tmp_path):
     from cuppa.core import dependency_actions
     from cuppa.location import Location
 
-    location, stem = _select_location(tmp_path)
+    location, stem = _select_location(tmp_path, list_dependencies=True)
     os.mkdir(stem)
     os.mkdir(stem + "@master")
     Location._unqualified_duplicate_warned = set()
@@ -343,7 +390,7 @@ def test_emit_location_unqualified_duplicate_hints_writes_once(tmp_path):
     text = out.getvalue()
     assert "force-wipe-dependencies=" in text
     assert "/@" in text
-    assert "see earlier warnings" in text
+    assert "noted during resolve" in text
     assert "Drop -n" in text
     out2 = io.StringIO()
     dependency_actions.emit_location_unqualified_duplicate_hints(out=out2)
@@ -355,7 +402,7 @@ def test_force_wipe_emits_unqualified_hint_after_report(tmp_path):
     from cuppa.core import dependency_removal
     from cuppa.location import Location
 
-    location, stem = _select_location(tmp_path)
+    location, stem = _select_location(tmp_path, list_dependencies=True)
     os.mkdir(stem)
     os.mkdir(stem + "@master")
     Location._unqualified_duplicate_warned = set()
@@ -379,11 +426,11 @@ def test_force_wipe_emits_unqualified_hint_after_report(tmp_path):
 
 
 def test_select_repository_directory_url_already_qualified_is_not_double_suffixed(tmp_path, caplog):
-    location, stem = _select_location(tmp_path)
+    location, stem = _select_location(tmp_path, list_dependencies=True)
     qualified = stem + "@master"
     os.mkdir(stem)
     os.mkdir(qualified)
-    with caplog.at_level("WARNING"):
+    with caplog.at_level("DEBUG"):
         chosen = location._select_repository_directory(qualified)
     assert chosen == qualified
     assert "removal candidate" in caplog.text

@@ -400,6 +400,32 @@ def test_mark_unqualified_duplicate_rows_only_unused_siblings():
     assert 'removal_candidate' not in rows[2]
 
 
+def test_mark_unqualified_duplicate_rows_host_path_only_short_name():
+    """When only host/path short names exist, still emit leaf ``name/@`` (#178)."""
+    rows = [
+            {
+                **_row( 'gitlab.example/org/widget', 'referenced', 100 ),
+                'qualifier': '@master',
+                'path': '/tmp/git_https_example.com__org_widget.git@master',
+                'type': 'repository',
+                'kind': 'repository',
+                'short_name': 'gitlab.example/org/widget',
+                'dependency': 'gitlab.example/org/widget',
+            },
+            {
+                **_row( 'gitlab.example/org/widget', 'unreferenced', 80 ),
+                'qualifier': '@master (unqualified)',
+                'path': '/tmp/git_https_example.com__org_widget.git',
+                'type': 'repository',
+                'kind': 'repository',
+                'short_name': 'gitlab.example/org/widget',
+                'dependency': 'gitlab.example/org/widget',
+            },
+    ]
+    tokens = dependency_actions.mark_unqualified_duplicate_rows( rows )
+    assert tokens == [ 'widget/@' ]
+
+
 def test_mark_unqualified_duplicate_rows_groups_by_folder_stem():
     """Resolve may label the selected leaf ``widget`` while the stem stays encoded."""
     rows = [
@@ -456,7 +482,7 @@ def test_mark_unqualified_duplicate_rows_with_unreferenced_branch_sibling():
     assert rows[1].get( 'removal_candidate' ) == 'unqualified_duplicate'
 
 
-def test_apply_list_scope_preserves_unqualified_duplicate_tokens():
+def test_apply_list_scope_drops_unqualified_tokens_for_compact():
     rows = [
             {
                 **_row( 'widget', 'referenced', 100 ),
@@ -471,5 +497,7 @@ def test_apply_list_scope_preserves_unqualified_duplicate_tokens():
     data = _data( rows )
     data['unqualified_duplicate_tokens'] = [ 'widget/@' ]
     compact = dependency_actions.apply_list_scope( data, 'compact' )
-    assert compact['unqualified_duplicate_tokens'] == [ 'widget/@' ]
+    assert compact['unqualified_duplicate_tokens'] == []
     assert len( compact['rows'] ) == 1
+    referenced = dependency_actions.apply_list_scope( data, 'referenced' )
+    assert referenced['unqualified_duplicate_tokens'] == [ 'widget/@' ]

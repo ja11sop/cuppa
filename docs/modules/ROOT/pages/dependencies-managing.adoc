@@ -453,17 +453,19 @@ A token with no matching leaf (or a matched path that is already gone) does **no
 rest of the list: other tokens still wipe, and each miss appears in the judgement tree (warning
 on dry-run, past-tense note after a real wipe). Ambiguous non-wildcard tokens still fail hard.
 
-When both an unqualified stem and `stem@<default>` exist, Location warns and (for every command
-except `--list-dependencies`) prints the same dry-run `--force-wipe-dependencies=` hint with
-`name/@` tokens after that command's report footer. `--list-dependencies` colours the unused `@<default> (unqualified)` leaf with
-the remove accent and ends with that hint in its footer (including under `--list-scope=compact`,
-where those rows are hidden). Under `--offline`, candidates with inventory `used_by` from another
-project are omitted from that hint. Confirm with `-n`, then drop `-n` to wipe. If inventory
-still records another project's use of the unqualified path, force-wipe reports it after the
-report table (judgement tree, like other removal notices). On a dry-run (`-n`) that notice is a
-warning in the present tense so you can still abort; after a real wipe it becomes a past-tense
-note (`wiped…`, `removing the copy was safe`) and explains that proceeding was safe when the
-canonical folder is present.
+When both an unqualified stem and `stem@<default>` exist, dependency-management commands
+(list / remove / purge / wipe) note the pair at debug log level. Those commands also print a
+dry-run `--force-wipe-dependencies=` hint with `name/@` tokens after the report footer
+(except `--list-dependencies`, which colours the unused `@<default> (unqualified)` leaf with
+the remove accent and ends with that hint in its footer). Under `--list-scope=compact` the
+sibling is hidden, so Location notices and wipe candidates for it are omitted — use
+`referenced` or `all` to inspect them. Under `--offline`, candidates with inventory `used_by`
+from another project are omitted from that hint. Confirm with `-n`, then drop `-n` to wipe. If
+inventory still records another project's use of the unqualified path, force-wipe reports it
+after the report table (judgement tree, like other removal notices). On a dry-run (`-n`) that
+notice is a warning in the present tense so you can still abort; after a real wipe it becomes a
+past-tense note (`wiped…`, `removing the copy was safe`) and explains that proceeding was safe
+when the canonical folder is present.
 
 Exact tokens must resolve to exactly one leaf (zero or multiple → error with candidates).
 Shell / `fnmatch` wildcards (`*`, `?`, `[…]`) on either side wipe **all** matching leaves —

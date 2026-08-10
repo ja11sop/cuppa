@@ -734,8 +734,7 @@ cuppa.run(
     assert "--force-wipe-dependencies=" in plain
     assert "widget/@" in plain
     assert "Drop -n and re-run after confirming" in plain
-    err = (text.stderr or "") + (listed.stderr or "")
-    assert "removal candidate" in err or "unqualified" in plain
+    # Location notice is debug; the tree / wipe hint is the user-facing signal.
 
     compact = run_cuppa(
         project,
@@ -747,6 +746,8 @@ cuppa.run(
     )
     assert_success(compact)
     compact_plain = strip_ansi(compact.stdout)
-    assert "--force-wipe-dependencies=" in compact_plain
-    assert "widget/@" in compact_plain
+    # Compact hides the sibling — do not advertise a wipe you cannot inspect.
+    assert "--force-wipe-dependencies=" not in compact_plain
     assert "@master (unqualified)" not in compact_plain
+    compact_err = compact.stderr or ""
+    assert "removal candidate" not in compact_err

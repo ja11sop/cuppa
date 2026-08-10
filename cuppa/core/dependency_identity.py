@@ -77,6 +77,28 @@ def short_name_from_git_tree( path ):
     return short_name_from_git_url( repository ), repository
 
 
+def wipe_token_leaf_name( name ):
+    """Reduce a display/identity name to a ``name/@`` force-wipe leaf.
+
+    Host/path short names (``gitlab.example/org/widget``) become the repo
+    segment (``widget``) so Location hints match registry-style
+    ``dependency`` / ``short_name`` candidates. Encoded folder stems
+    (``git_https_…``) return ``None`` so callers can fall through.
+    """
+    text = ( name or '' ).strip()
+    if not text:
+        return None
+    if '/' in text:
+        text = text.rstrip( '/' ).rsplit( '/', 1 )[-1]
+    if text.endswith( '.git' ):
+        text = text[:-4]
+    if not text or text.startswith(
+            ( 'git_', 'https_', 'svn_', 'hg_', 'bzr_', 'http_' )
+    ):
+        return None
+    return text
+
+
 def boost_archive_from_folder( folder ):
     """Return ``(short_name, version)`` for a Boost source archive folder, or ``(None, None)``."""
     if not folder or 'boost' not in folder.lower():
