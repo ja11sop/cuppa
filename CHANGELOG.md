@@ -27,10 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Force-wipe unqualified-stem hints emit matching ``name/@`` tokens instead of
   host/path forms that reported ``no leaf matches`` ([#178](https://github.com/ja11sop/cuppa/issues/178)).
-  Dry-run report parents summarise matched identities, not the raw selector string.
-  Location stem-duplicate notices run only for list / remove / purge / wipe (debug
-  log, not warn); ordinary builds stay quiet. ``--list-scope=compact`` omits those
-  notices and wipe candidates so the tree does not advertise hidden leaves.
+  Dry-run report parents use a neutral ``related dependencies`` label (not the
+  raw selector or a dumped identity list). Location stem-duplicate notices run
+  only for list / remove / purge / wipe (debug log, not warn); ordinary builds
+  stay quiet. ``--list-scope=compact`` omits those notices and wipe candidates
+  so the tree does not advertise hidden leaves.
 
 ### Security
 

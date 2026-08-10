@@ -3393,7 +3393,7 @@ def _execute_force_wipe(
     if not summary_label:
         summary_label = (
                 'unreferenced dependencies' if unreferenced
-                else 'related dependencies for selection'
+                else 'related dependencies'
         )
     actionable_downloads = [ item for item in download_targets if not item.missing ]
     if not targets and not actionable_downloads:
@@ -3737,17 +3737,9 @@ def force_wipe_dependencies( construct, cuppa_env, out=None ):
     leftovers, download_leftovers = _collect_force_wipe_context(
             rows, dl_rows, targets, download_targets,
     )
-    # Prefer matched identity names — never the raw comma-separated selector.
-    if targets:
-        matched_names = sorted( {
-                ( item.dependency or '' ).strip()
-                for item in targets if ( item.dependency or '' ).strip()
-        } )
-        summary_label = "related dependencies for {}".format(
-                ', '.join( matched_names ) if matched_names else 'selection'
-        )
-    else:
-        summary_label = None
+    # Neutral section root — do not list token / identity names (noisy and often
+    # still encoded folder stems). Leaves under wiped / remaining carry identity.
+    summary_label = 'related dependencies'
     used_by_warnings = _collect_used_by_wipe_notices(
             targets, by_path, this_project, default_branch,
     )

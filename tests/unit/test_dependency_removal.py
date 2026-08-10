@@ -313,8 +313,8 @@ def test_row_matches_force_token_host_path_equals_leaf():
     assert dependency_removal._row_matches_force_token( host_path_row, 'widget', '@' )
 
 
-def test_force_wipe_summary_label_uses_matched_names( tmp_path, monkeypatch ):
-    """Report parent must not echo the raw comma-separated selector (#178)."""
+def test_force_wipe_summary_label_is_neutral( tmp_path, monkeypatch ):
+    """Report parent is ``related dependencies``, not a token / name dump (#178)."""
     import io
     from cuppa.core import dependency_actions, dependency_downloads
 
@@ -363,7 +363,8 @@ def test_force_wipe_summary_label_uses_matched_names( tmp_path, monkeypatch ):
     assert status == 0
     text = out.getvalue()
     assert raw not in text
-    assert 'related dependencies for boost' in text
+    assert 'related dependencies for' not in text
+    assert 'related dependencies' in text
 
 
 def test_force_token_is_wildcard():
