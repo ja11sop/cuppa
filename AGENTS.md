@@ -272,6 +272,20 @@ create_pull_request( title='…', body='…', labels=['impact:minor'] )
 update_pull_request( number=154, title='…', body='…' )
 ```
 
+### Pull request bodies
+
+When **opening** or updating an open PR (before it is merge-ready), the description should carry
+only what reviewers and CI need up front:
+
+- **Summary** — what the PR does and why; link umbrella issues and design plans when relevant.
+- **Test plan** — checklist of verification steps (local gate, focused tests, CI matrix).
+
+Do **not** put a **squash commit message** (or “suggested squash message”) in the PR body at
+open time. Squash title and body are chosen **once the PR is green and merge-ready**, from the
+**actual diff** against the base branch plus context from related issues and plans — not from what
+was intended when the PR was opened. Late fixes, scope trims, and housekeeping commits often change
+that story.
+
 ### Before pushing a pull request branch
 
 **Always run the full local Python test gate before `git push`.** Waiting for CI to report a unit
@@ -354,10 +368,13 @@ commits.
    checklist is
    stale — do not treat an unchecked “CI green” box as unknown when `watch-pr` already
    succeeded.
-6. **Squash commit message** — when the person will squash-merge, draft a single commit message
-   that matches this repo’s style (imperative subject, blank line, why/what prose, no trailers;
-   reference umbrella issues in prose, not `Fixes`/`Closes` unless that slice should close them).
-   Offer it in the chat (and optionally paste into the GitHub squash UI) before merge.
+6. **Squash commit message** — when the person will squash-merge, read the PR diff against base
+   (for example `git diff origin/master...HEAD`), the linked issue, and any design plan progress
+   snapshot, then draft a single commit message that matches what **actually landed** and this
+   repo’s style (imperative subject, blank line, why/what prose, no trailers; reference umbrella
+   issues in prose, not `Fixes`/`Closes` unless that slice should close them). Offer it in the
+   chat (and optionally paste into the GitHub squash UI) before merge — do not add it to the PR
+   body when opening the pull request (see [Pull request bodies](#pull-request-bodies)).
 
 ### After pushing a pull request branch
 

@@ -2,7 +2,7 @@
 
 - **Status:** living
 - **Related:** [`AGENTS.md`](../../AGENTS.md) (agent ops); Antora Contributing (human versioning/release)
-- **Updated:** 2026-08-09
+- **Updated:** 2026-08-11
 - **Maintainer:** primary author of this journey; others append only (see `AGENTS.md`)
 - **Privacy:** obey the private-projects rule; never copy names from `INTERNAL_PROJECTS.local.md`
 - **Source:** Cursor sessions spanning roughly mid-July → 2026-08-07 on cuppa
@@ -209,6 +209,7 @@ Use this as an ordered checklist. Cuppa did not follow it perfectly (see §5); t
 - [ ] Ship vertical slices (list → remove → purge → wipe; or clone → checkout → reset).
 - [ ] Settle vocabulary in the plan before coding (`base` vs `default`, selectors, …).
 - [ ] Housekeeping pass on every merge-ready PR: docs, changelog, roadmap, plan, test plan, squash message.
+- [ ] Squash commit drafts belong at **merge readiness** (from the landed diff + issue/plan context), not in the PR body at open time.
 
 ### Stage 7 — Encode repeated pain
 
