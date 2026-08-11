@@ -1,0 +1,7 @@
+{
+  "uninit_decl": "/tmp/uninit_decl.cpp:10:5: error: variable 'uninit_global' must be initialized or marked '[[uninit]]' under profile 'std::init'",
+  "static_runtime_init": "/tmp/static_runtime_init.cpp:12:1: error: non-local variable 'runtime_value' requires constant initialization under profile 'std::init'",
+  "ctor_uninit_member": "/tmp/ctor_uninit_member.cpp:20:5: error: constructor does not initialize member 'value_' under profile 'std::init'",
+  "ctor_uninit_member_base": "/tmp/ctor_uninit_member.cpp:32:5: error: constructor does not initialize base class 'Base' under profile 'std::init'",
+  "ref_to_uninit": "/tmp/ref_to_uninit.cpp:40:9: error: pointer to uninitialized memory must be marked '[[ref_to_uninit]]' under profile 'std::init'"
+}

@@ -115,7 +115,7 @@ def test_normalise_message_collapses_quoted_identifiers():
     ],
 )
 def test_classify_rule( message, rule_id ):
-    assert classify_rule( message ) == rule_id
+    assert classify_rule( 'std::init', message ) == rule_id
 
 
 def test_parse_profiles_diagnostic_extracts_fields():
