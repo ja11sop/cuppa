@@ -557,18 +557,22 @@ Registry records: `kind`, default subdir, CLI flag, manifest kind string. Enable
 
 ## Work slices
 
-| Slice | Deliverable | Notes |
-|-------|-------------|-------|
-| **A — Parser + unit tests** | `cuppa/cpp/cxx_profiles_report.py` — parse, normalise, classify; `ProfilesScope` type | Fixture strings from samples; scope-aware dedupe keys |
-| **B — Collector + parallel spawn scope** | Progress callback **and** per-action `env` → `SpawnedProcessor`; thread-safe session store | Includes former slice F; do not ship collector without spawn scope |
-| **C — HTML + JSON** | Jinja templates + `CxxProfilesReportBuilder` at `sconstruct_end` | By rule / By file / Roll-up tabs; `link_style`; incomplete scope banner |
-| **D — Manifest + clean** | `.cuppa-reports` schema v1; matched `--clean` / `--remove-builds` | `invocation_key`, `partial`, path union |
-| **E — Method (optional)** | `env.CxxProfilesReport()` + collate | Deferred past A–D if cycle is tight |
-| **F — Phase 6 hook** | `artefact_roots` / `--set-artefacts-folder` when #135 lands | Supersedes manifest hack for declared trees |
+Slice **letters** (A–F) are shorthand in tables; **`prof-report-*` ids** are the stable names for
+issues, PR titles, and ROADMAP cross-links (same pattern as `list-tc-*` in
+[`list-toolchains-verbose.md`](list-toolchains-verbose.md)).
 
-Target cycle: **1.8.0** for slices **A–D** (B **must** include parallel spawn scope); E–F optional / blocked.
+| Letter | Id | Deliverable | Notes |
+|--------|-----|-------------|-------|
+| **A** | `prof-report-parser` | `cuppa/cpp/cxx_profiles_report.py` — parse, normalise, classify; `ProfilesScope` type | Fixture strings from samples; scope-aware dedupe keys |
+| **B** | `prof-report-collector` | Progress callback **and** per-action `env` → `SpawnedProcessor`; thread-safe session store | Includes former slice F; do not ship collector without spawn scope |
+| **C** | `prof-report-html` | Jinja templates + `CxxProfilesReportBuilder` at `sconstruct_end` | By rule / By file / Roll-up tabs; `link_style`; incomplete scope banner |
+| **D** | `prof-report-manifest` | `.cuppa-reports` schema v1; matched `--clean` / `--remove-builds` | `invocation_key`, `partial`, path union |
+| **E** | `prof-report-method` | `env.CxxProfilesReport()` + collate | Deferred past A–D if cycle is tight |
+| **F** | `prof-report-artefacts` | `artefact_roots` / `--set-artefacts-folder` when #135 lands | Supersedes manifest hack for declared trees |
 
-**Tracking:** [#184](https://github.com/ja11sop/cuppa/issues/184) — one issue; land slices as **multiple PRs** against `cxx-profiles-report` (checklist on the issue).
+Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** (slice A–D; **`prof-report-collector` must** include parallel spawn scope); E–F optional / blocked.
+
+**Tracking:** [#184](https://github.com/ja11sop/cuppa/issues/184) — one issue; land slices as **multiple PRs** (checklist on the issue; cite letter and/or `prof-report-*` id).
 
 ## Refusal rules
 
@@ -577,7 +581,7 @@ Target cycle: **1.8.0** for slices **A–D** (B **must** include parallel spawn 
 | Auto-fix sources from the report | Out of scope — report is read-only |
 | `--cxx-profiles-report` without Profiles enabled | StopError |
 | Invent rule ids not in Clang docs | Use `_unclassified`; file issue to extend table |
-| Silent mis-attribution under `-j` | Refuse — ship spawn scope in slice B |
+| Silent mis-attribution under `-j` | Refuse — ship spawn scope in **`prof-report-collector`** (slice B) |
 | Assign diagnostics to wrong variant without `_unscoped` fallback | Refuse |
 | MSVC Profiles diagnostics in v1 | StopError or empty report with notice until interpretor exists |
 
@@ -606,13 +610,13 @@ Target cycle: **1.8.0** for slices **A–D** (B **must** include parallel spawn 
 
 | Slice | Status |
 |-------|--------|
-| Plan | **This document** (parallel spawn scope in slice B) |
-| A — Parser | **In progress** — `cuppa/cpp/cxx_profiles_report.py` + unit tests on branch |
-| B — Collector + parallel spawn scope | Not started |
-| C — HTML/JSON | Not started |
-| D — Manifest | Not started |
-| E — Method | Deferred |
-| F — Phase 6 | Blocked on #135 |
+| Plan | **This document** (`prof-report-collector` spawn scope settled) |
+| A — `prof-report-parser` | **In progress** — `cuppa/cpp/cxx_profiles_report.py` + unit tests ([#190](https://github.com/ja11sop/cuppa/pull/190)) |
+| B — `prof-report-collector` | Not started |
+| C — `prof-report-html` | Not started |
+| D — `prof-report-manifest` | Not started |
+| E — `prof-report-method` | Deferred |
+| F — `prof-report-artefacts` | Blocked on #135 |
 
 ## Open questions (resolve in first PR)
 
