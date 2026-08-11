@@ -135,6 +135,7 @@ Umbrella: [#127](https://github.com/ja11sop/cuppa/issues/127) ([#177](https://gi
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
+| `profiles-violation-report` | `--cxx-profiles-report`: capture, classify, dedupe, HTML+JSON inventory | High | [`design/plans/cxx-profiles-report.md`](design/plans/cxx-profiles-report.md); CLI-first (no sconscript edit); pairs with `--cxx-disable-error-limit` |
 | `profiles-designators` | Additional profile names as Alliance Clang / WG21 stabilise | Medium | Cuppa passes opaque strings through |
 | `profiles-native-enforce` | Wire `profiles_enforce_flags` when a compiler adds native enforce flags | Low | Hook exists; `-include` fallback remains |
 | `profiles-carve-outs` | Build policy to skip session enforce on selected paths | Low | Separate from source attributes |
