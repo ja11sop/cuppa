@@ -2,7 +2,7 @@
 
 - **Status:** living
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md); [`design/README.md`](../README.md) (graduate notes into `plans/` then ROADMAP)
-- **Updated:** 2026-08-09
+- **Updated:** 2026-08-11
 
 Scratchpad for suggestions that may become new plans or updates to existing ones.
 The goal is to turn these notes into actionable, well-understood plan elements.
@@ -18,6 +18,13 @@ Do not put private project names here; use anonymised labels and
 
 - Boost `latest` persistence → [`archive/boost-latest-persistence.md`](../archive/boost-latest-persistence.md)
 - `--list-toolchains` → [`archive/list-toolchains.md`](../archive/list-toolchains.md)
+- Native coloured toolchain output → [`plans/native-toolchain-output.md`](../plans/native-toolchain-output.md)
+- Terse / minimal progress output → [`plans/terse-build-output.md`](../plans/terse-build-output.md)
+- Configure-time log hygiene (toolchain spam, variant log fix) → [`plans/build-log-hygiene.md`](../plans/build-log-hygiene.md)
+- `cuppa --info` (version without build) → [`plans/cuppa-info.md`](../plans/cuppa-info.md)
+- C++ Profiles violation report → [`plans/cxx-profiles-report.md`](../plans/cxx-profiles-report.md)
+- Split methods into own pages → [`plans/methods-pages-split.md`](../plans/methods-pages-split.md)
+- Better Antora UI bundle → [`plans/antora-ui-bundle.md`](../plans/antora-ui-bundle.md)
 
 ## Update: plans/boost-updates.md (related — dependency selection)
 
@@ -52,32 +59,13 @@ may be too general.
 
 This may need a broader dependency-selection plan; it surfaces here because of Boost.
 
-## New plan(s): Output processing
-
-### Supporting native coloured toolchain output
-
-Early Cuppa colourised toolchain output itself because compilers did not. Cuppa still parses
-build output for diagnostics and normalises formatting across toolchains.
-
-Modern toolchains ship their own coloured, formatted diagnostics. A flag such as
-`--native-output` (alongside existing `--raw-output` and related options) would allow preferring
-that native presentation.
-
-### Minimal / terse output with coloured progress
-
-`--minimal-output` still shows toolchain command lines; otherwise it focuses on errors and
-warnings.
-
-A closer analogue to familiar CMake-style progress — perhaps `--terse-output` or
-`--simple-output` — would print a short coloured status line per action (success emphasised)
-and keep command lines for failures/warnings only. The goal is less console noise for readers
-who only care about the invocation when something goes wrong — not a CMake clone.
+## Output processing (follow-on)
 
 ### stderr vs stdout
 
 Today logging and build output largely share stdout. A clearer split may be: logging → stderr,
 primary tool output → stdout, with a normal interactive run still showing both. Validate current
-behaviour before changing anything.
+behaviour before changing anything. Tracked on ROADMAP as `console-stream-split` when validated.
 
 ## New plan(s): Toolchains
 
@@ -112,43 +100,15 @@ related plan once that exists.
 ### Structure pages folder under docs to match nav structure
 
 For example, copy how integration pages are under the "integration" folder. We should do the same
-for dependencie and other multi-page sections to make it wasier to navigate the folder as a human
-to find documentation that needs to be edited.
-
-### Split methods into their own pages
-
-Build methods are core `sconscript` vocabulary; each Cuppa method deserves its own page and
-examples. Also cover a small set of canonical SCons methods (for example `env.Install()`) that
-are commonly used with Cuppa progress helpers, so the methods section is comprehensive enough
-for most projects — possibly grouped for navigation.
-
-Why not only link to SCons docs?
-
-1. SCons documentation is hard to navigate, version-fragmented, and often too simplistic for
-   real projects.
-2. Readers should learn Cuppa without depending on off-site docs that may be stale or misleading
-   in a Cuppa context.
-
-Phased approach:
-
-- Phase 1: one page per Cuppa method
-- Phase 2: key SCons methods, then subgrouping
-
-### Better Antora UI bundle
-
-Default Antora styling is adequate; something closer to the Boost Antora UI bundle or MkDocs
-would read better. Boost bundle (reference only — not drop-in):
-
-https://github.com/boostorg/website-v2-docs/releases/download/ui-develop/ui-bundle.zip
-
-It breaks some structural elements as-is; extracting primary styling into a custom bundle may
-still be viable.
+for dependencies and other multi-page sections to make it easier to navigate the folder as a human
+to find documentation that needs to be edited. ROADMAP: `doc-folder-layout`; aligns with
+[`methods-pages-split.md`](../plans/methods-pages-split.md).
 
 ### Better Mermaid styling
 
 Adopt a custom Mermaid theme that fits the docs. Candidate: Material theme from
 https://github.com/gotoailab/modern_mermaid (live example:
-https://modern-mermaid.live/?theme=material).
+https://modern-mermaid.live/?theme=material). ROADMAP: `doc-mermaid-theme`.
 
 ### Broader diagram support
 

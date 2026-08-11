@@ -11,7 +11,24 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-08-10
+**As of:** 2026-08-11
+
+---
+
+## 1.8.0 cycle focus (in progress)
+
+Open development cycle: `cuppa/VERSION` = `1.8.0.dev` ([#183](https://github.com/ja11sop/cuppa/pull/183)).
+
+Maintainer **target bundle** for the release (plans landed; implementation follows):
+
+| ID | Work | Plan |
+|----|------|------|
+| `console-terse-output` | `--terse-output` Phase 1 (one-line success; failures verbose) | [`terse-build-output.md`](design/plans/terse-build-output.md) |
+| `profiles-violation-report` | `--cxx-profiles-report` slices A–D (scope stack, HTML/JSON, manifest) | [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) |
+| `console-log-hygiene` | Demote toolchain registration spam; fix variant default log text | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md) |
+| `cli-info` | `cuppa --info` — version without loading sconstruct | [`cuppa-info.md`](design/plans/cuppa-info.md) |
+
+**Deferred / optional for 1.8.0:** [`native-toolchain-output.md`](design/plans/native-toolchain-output.md) (`--native-output`); terse Phase 2 percentages; docs-only Antora UI / methods split.
 
 ---
 
@@ -135,6 +152,7 @@ Umbrella: [#127](https://github.com/ja11sop/cuppa/issues/127) ([#177](https://gi
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
+| `profiles-violation-report` | `--cxx-profiles-report`: capture, classify, dedupe, HTML+JSON inventory | High | [`design/plans/cxx-profiles-report.md`](design/plans/cxx-profiles-report.md); **1.8.0 target** |
 | `profiles-designators` | Additional profile names as Alliance Clang / WG21 stabilise | Medium | Cuppa passes opaque strings through |
 | `profiles-native-enforce` | Wire `profiles_enforce_flags` when a compiler adds native enforce flags | Low | Hook exists; `-include` fallback remains |
 | `profiles-carve-outs` | Build policy to skip session enforce on selected paths | Low | Separate from source attributes |
@@ -408,6 +426,46 @@ Each new section should follow the same shape: **Today** → **Planned / potenti
 
 ---
 
+---
+
+## Build console output
+
+Cuppa wraps SCons spawn to colour and classify toolchain diagnostics (`ToolchainProcessor` in
+`cuppa/output_processor.py`). Progress ordering uses `cuppa.progress.NotifyProgress`. Related docs: [`methods.adoc`](docs/modules/ROOT/pages/methods.adoc) (custom commands section).
+
+Design: [`native-toolchain-output.md`](design/plans/native-toolchain-output.md),
+[`terse-build-output.md`](design/plans/terse-build-output.md).
+
+### Today
+
+| Capability | Status |
+|------------|--------|
+| Default colourised spawn + per-toolchain `output_interpretors()` | Yes |
+| `--raw-output` (no cuppa spawn processing) | Yes |
+| `--standard-output` (processing without log colour) | Yes |
+| `--minimal-output` (errors/warnings only after classification) | Yes |
+| `--ignore-duplicates` | Yes |
+| `NotifyProgress` begin/start/finish/end chain | Yes |
+
+### Planned / potential
+
+| ID | Work | Priority | Notes |
+|----|------|----------|-------|
+| `console-terse-output` | `--terse-output`: coloured one-line success; commands on failure/warning | High | [`terse-build-output.md`](design/plans/terse-build-output.md); **1.8.0 target** |
+| `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md); **1.8.0 target** |
+| `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | [`cuppa-info.md`](design/plans/cuppa-info.md); **1.8.0 target** |
+| `console-native-output` | `--native-output`: enable toolchain native colour; passthrough spawn | Medium | [`native-toolchain-output.md`](design/plans/native-toolchain-output.md); optional 1.8.0 |
+| `console-stream-split` | Logging → stderr vs tool primary → stdout | Low | Validate current behaviour first (scratchpad note) |
+
+### Out of scope (console output)
+
+| ID | Item | Reason |
+|----|------|--------|
+| `console-cmake-clone` | Pixel-perfect Ninja/CMake transcript | Cuppa keeps SCons progress semantics |
+| `console-list-terse` | Terse mode for `--list-*` / wipe judgement trees | Reports are the product |
+
+---
+
 ## Documentation tooling
 
 ### Today
@@ -422,7 +480,11 @@ Each new section should follow the same shape: **Today** → **Planned / potenti
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `doc-output-samples` | Capture report output as semantic HTML for Antora and local preview | Low | Prefer meaning→CSS over ANSI scrape. [`design/plans/colourised-doc-samples.md`](design/plans/colourised-doc-samples.md) |
+| `doc-methods-split` | Hub + per-method Antora pages; optional SCons companions | Medium | [`methods-pages-split.md`](design/plans/methods-pages-split.md); **1.8.0 candidate** (docs-only) |
+| `doc-antora-ui` | Custom UI bundle + supplemental CSS | Low | [`antora-ui-bundle.md`](design/plans/antora-ui-bundle.md); **1.8.0 optional** |
+| `doc-output-samples` | Capture report output as semantic HTML for Antora and local preview | Low | [`colourised-doc-samples.md`](design/plans/colourised-doc-samples.md) |
+| `doc-folder-layout` | Page folders mirroring nav (methods/, dependencies/, …) | Low | Align with methods split |
+| `doc-mermaid-theme` | Custom Mermaid theme matching site CSS | Low | After or with UI bundle |
 
 ### Out of scope (docs tooling)
 

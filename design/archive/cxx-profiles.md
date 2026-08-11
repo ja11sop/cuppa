@@ -324,6 +324,8 @@ product docs. Framework and syntax anchors for implementers:
 | Toolchain flag + enforce `-include` inject | Shipped (#177) |
 | Docs / tests | Shipped ([#177](https://github.com/ja11sop/cuppa/pull/177), [#180](https://github.com/ja11sop/cuppa/pull/180)) |
 
-**Follow-ons (post-1.7.0):** more designators as compilers add them; native enforce flags when
-available; path carve-outs; modules + `profiles::require` import-site wiring. See
+**Follow-ons (post-1.7.0):** violation inventory report (`--cxx-profiles-report` — classify, dedupe,
+HTML under `_artifacts/`; [`plans/cxx-profiles-report.md`](../plans/cxx-profiles-report.md));
+more designators as compilers add them; native enforce flags when available; path carve-outs;
+modules + `profiles::require` import-site wiring. See
 [`ROADMAP.md`](../../ROADMAP.md) — C++ Profiles.
