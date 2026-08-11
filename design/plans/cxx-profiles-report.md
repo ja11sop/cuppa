@@ -362,7 +362,9 @@ Extend with an optional **`ProfilesDiagnosticCollector`** registered when
 
 **Scope stack:** maintained by a **`NotifyProgress.register_callback`** handler (same extension
 point as `CoverageIndexBuilder.on_progress` and test suites), not by guessing from the
-processor's install-time env.
+processor's install-time env. Spawn scope uses **`NotifyProgress.scope_from_env`** (same
+``variant`` / ``sconscript`` rules as Progress markers); per-sconscript ``SPAWN`` rebinding
+uses **`NotifyProgress.register_sconscript_env_hook``** so ``construct`` stays feature-agnostic.
 
 **Why not only scrape log files:** post-hoc grep can reconstruct scope **only for serial builds**
 (as the sample demonstrates). In-process capture stays correct for the same reason and avoids
@@ -611,8 +613,9 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 | Slice | Status |
 |-------|--------|
 | Plan | **This document** (`prof-report-collector` spawn scope settled) |
-| A — `prof-report-parser` | **In progress** — `cuppa/cpp/cxx_profiles_report.py` + unit tests ([#190](https://github.com/ja11sop/cuppa/pull/190)) |
-| B — `prof-report-collector` | Not started |
+| A — `prof-report-parser` | **Done** — merged [#190](https://github.com/ja11sop/cuppa/pull/190) |
+| B — `prof-report-collector` | **On branch** — PR after slice B lands ([#184](https://github.com/ja11sop/cuppa/issues/184)) |
+| B½ — `prof-report-parser-layers` | **Planned** — see §Parser layering follow-on (before slice C) |
 | C — `prof-report-html` | Not started |
 | D — `prof-report-manifest` | Not started |
 | E — `prof-report-method` | Deferred |
@@ -626,3 +629,47 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 4. **Cross-variant roll-up:** union adds counts across scopes — confirm product choice when comparing `dbg` vs `rel` (settled above; note in Antora).
 5. **GitHub `link_style`:** extend shared helper vs duplicate URL template in Profiles module only?
 6. **`_unscoped` bucket:** when spawn scope cannot be derived, record under session `_unscoped` with warning in HTML — never guess variant.
+
+## Parser layering follow-on (`prof-report-parser-layers`)
+
+Slice A shipped a deliberate v1 shortcut: Alliance Clang line shape parsing and a flat
+``std::init`` message→rule table live together in ``cuppa/cpp/cxx_profiles_report.py``.
+Slice B smoke (serial and ``--parallel``) validates capture and scope; rule attribution still
+assumes ``std::init`` prose even though the **profile name** is parsed from
+`` under profile '…'`` and grouped correctly in the inventory.
+
+Land **before slice C HTML** so doc links and rule sections live in profile modules, not in the
+generic report builder.
+
+### Target layout
+
+| Module | Responsibility |
+|--------|----------------|
+| ``cxx_profiles_report.py`` (or ``profiles_report/inventory.py``) | Scope, dedupe, ``ProfilesInventory``, replay, JSON view model — **no rule tables** |
+| ``profiles_report/parse_clang.py`` | Clang ``: error: … under profile '…'`` line detector → path, message, **profile** |
+| ``profiles_report/profiles/std_init.py`` | ``std::init`` classifiers, P4222 / ProfilesFramework.rst doc anchors |
+| *(future)* ``parse_gcc.py``, ``profiles/std_type.py``, … | New compiler shapes and profile rule sets |
+
+**Dispatch:** ``parse_profiles_diagnostic(line, compiler='clang')`` then
+``classify_rule(profile, normalised_message)`` — classifiers are keyed by profile, not one
+global tuple.
+
+### Spec-driven fixtures (not smoke-only)
+
+Add ``examples/profiles-std-init-violations/`` (name illustrative): minimal C++ that deliberately
+violates each documented ``std::init`` rule (including rows not seen in consumer smoke, e.g.
+``uninit_read``, ``destroy_uninit``). Workflow:
+
+1. Build with Profiles-capable Clang + ``--cxx-profiles-enforce=std::init``.
+2. Capture diagnostic lines into ``tests/fixtures/profiles_capture/`` (one snippet or golden file
+   per rule id).
+3. Unit tests assert each golden line → expected ``(profile, rule_id)``.
+
+Automation (CI integration test comparing live build to golden) can follow; manual capture once
+is enough to expand the classifier table beyond observed production trees.
+
+### Refusal rules (unchanged)
+
+- Unknown message under a known profile → ``_unclassified`` with raw text preserved.
+- Unknown compiler line shape → ignore (or empty bucket + notice until a parser exists).
+- Do not map ``std::init`` patterns onto other profile names without an explicit classifier module.

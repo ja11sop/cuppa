@@ -18,6 +18,7 @@ from cuppa.cpp.cxx_profiles_report import (
     parse_progress_line,
     parse_profiles_diagnostic,
     parse_variant_scope_fields,
+    profiles_scope_from_construction_env,
     replay_profiles_capture,
     unscoped_profiles_scope,
 )
@@ -212,6 +213,21 @@ def test_parse_variant_scope_fields():
     assert parse_variant_scope_fields(
         '_build/test/matching_engine/clang24_profiles_2026_08_07_27/dbg/x86_64/cxx2c',
     ) == ( 'clang24_profiles_2026_08_07_27', 'dbg' )
+
+
+def test_profiles_scope_from_construction_env_matches_notify_progress_variant():
+    class FakeToolchain(object):
+        def name( self ):
+            return 'clang24_profiles'
+
+    env = {
+        'sconscript_file': './widget/sconscript',
+        'build_dir': '_build/widget/clang24_profiles/dbg/x86_64/cxx2c/working',
+        'toolchain': FakeToolchain(),
+    }
+    scope = profiles_scope_from_construction_env( env )
+    assert scope.variant_dir == '_build/widget/clang24_profiles/dbg/x86_64/cxx2c'
+    assert scope == _SAMPLE_SCOPE
 
 
 @pytest.mark.parametrize(

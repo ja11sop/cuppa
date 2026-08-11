@@ -10,6 +10,7 @@
 
 import logging
 import os.path
+import threading
 
 from cuppa.colourise import as_notice, as_info
 from cuppa.log import logger
@@ -20,6 +21,7 @@ from SCons.Script import Action
 class NotifyProgress(object):
 
     _callbacks = set()
+    _sconscript_env_hooks = set()
 
     _sconstruct_begin = None
     _sconstruct_end   = None
@@ -39,6 +41,25 @@ class NotifyProgress(object):
 
 
     @classmethod
+    def register_sconscript_env_hook( cls, hook ):
+        """Register a callback invoked once each sconscript env is ready to build.
+
+        Hooks receive the cloned sconscript construction ``env`` (after
+        ``build_dir`` / ``sconscript_file`` are set). Intended for rebinding
+        per-sconscript services such as ``SPAWN`` without coupling ``construct``
+        to individual features.
+        """
+        cls._sconscript_env_hooks.add( hook )
+
+
+    @classmethod
+    def notify_sconscript_env_ready( cls, env ):
+        """Invoke registered sconscript-env hooks; errors propagate to the build."""
+        for hook in cls._sconscript_env_hooks:
+            hook( env )
+
+
+    @classmethod
     def call_callbacks( cls, event, sconscript, variant, env, target, source ):
         if 'cuppa_progress_callbacks' in env:
             for callback in env['cuppa_progress_callbacks']:
@@ -50,6 +71,25 @@ class NotifyProgress(object):
     @classmethod
     def variant( cls, env ):
         return os.path.split(env['build_dir'])[0]
+
+
+    @classmethod
+    def scope_from_env( cls, env ):
+        """Return ``(sconscript, variant_dir)`` for a construction env, or ``None``."""
+        try:
+            if not env.get( 'build_dir' ) or not env.get( 'sconscript_file' ):
+                return None
+            return ( cls.sconscript( env ), cls.variant( env ) )
+        except ( AttributeError, KeyError, TypeError ):
+            return None
+
+
+    @classmethod
+    def toolchain_name( cls, env ):
+        try:
+            return env[ 'toolchain' ].name()
+        except ( AttributeError, KeyError, TypeError ):
+            return None
 
 
     @classmethod
@@ -107,6 +147,29 @@ class NotifyProgress(object):
             cls._sconstruct_end = progress( '#SconstructEnd', 'sconstruct_end', None, None, empty_env )
 
         env.Requires( cls._sconstruct_end, end )
+
+
+class VariantCompletionTracker(object):
+    """Track Progress variant paths that started but have not yet finished."""
+
+    def __init__( self ):
+        self._lock = threading.Lock()
+        self._open_variants = set()
+        self._complete_variants = set()
+
+    def note_progress( self, event, variant ):
+        if event == 'started' and variant:
+            with self._lock:
+                self._open_variants.add( variant )
+                self._complete_variants.discard( variant )
+        elif event == 'finished' and variant:
+            with self._lock:
+                self._open_variants.discard( variant )
+                self._complete_variants.add( variant )
+
+    def incomplete_variants( self ):
+        with self._lock:
+            return self._open_variants - self._complete_variants
 
 
 def progress( label, event, sconscript, variant, env ):
