@@ -1,7 +1,7 @@
 # Plan: C++ Profiles violation report (`--cxx-profiles-report`)
 
 - **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — C++ Profiles (`profiles-violation-report`); shipped enablement [`archive/cxx-profiles.md`](../archive/cxx-profiles.md); [`removal-options.md`](removal-options.md) §4.6 Phase 6 artefacts [#135](https://github.com/ja11sop/cuppa/issues/135); test/coverage report patterns (`cuppa/test_report/`, `cuppa/cpp/run_gcov_coverage.py`)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — C++ Profiles (`profiles-violation-report`); [#184](https://github.com/ja11sop/cuppa/issues/184) (umbrella); shipped enablement [`archive/cxx-profiles.md`](../archive/cxx-profiles.md); [`removal-options.md`](removal-options.md) §4.6 Phase 6 artefacts [#135](https://github.com/ja11sop/cuppa/issues/135); test/coverage report patterns (`cuppa/test_report/`, `cuppa/cpp/run_gcov_coverage.py`)
 - **Updated:** 2026-08-11
 - **Impact:** minor — new opt-in CLI flag and HTML artefacts; no change to default builds
 
@@ -567,6 +567,8 @@ Registry records: `kind`, default subdir, CLI flag, manifest kind string. Enable
 | **F — Phase 6 hook** | `artefact_roots` / `--set-artefacts-folder` when #135 lands | Supersedes manifest hack for declared trees |
 
 Target cycle: **1.8.0** for slices **A–D** (B **must** include parallel spawn scope); E–F optional / blocked.
+
+**Tracking:** [#184](https://github.com/ja11sop/cuppa/issues/184) — one issue; land slices as **multiple PRs** against `cxx-profiles-report` (checklist on the issue).
 
 ## Refusal rules
 
