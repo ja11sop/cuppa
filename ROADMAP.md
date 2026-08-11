@@ -24,7 +24,7 @@ Maintainer **target bundle** for the release (plans landed; implementation follo
 | ID | Work | Plan |
 |----|------|------|
 | `console-terse-output` | `--terse-output` Phase 1 (one-line success; failures verbose) | [`terse-build-output.md`](design/plans/terse-build-output.md) |
-| `profiles-violation-report` | `--cxx-profiles-report` slices A–D (scope stack, HTML/JSON, manifest) | [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) |
+| `profiles-violation-report` | `--cxx-profiles-report` slices A–D (parser, **parallel-safe spawn scope**, HTML/JSON, manifest) | [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) |
 | `console-log-hygiene` | Demote toolchain registration spam; fix variant default log text | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md) |
 | `cli-info` | `cuppa --info` — version without loading sconstruct | [`cuppa-info.md`](design/plans/cuppa-info.md) |
 
@@ -152,7 +152,7 @@ Umbrella: [#127](https://github.com/ja11sop/cuppa/issues/127) ([#177](https://gi
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `profiles-violation-report` | `--cxx-profiles-report`: capture, classify, dedupe, HTML+JSON inventory | High | [`design/plans/cxx-profiles-report.md`](design/plans/cxx-profiles-report.md); **1.8.0 target** |
+| `profiles-violation-report` | `--cxx-profiles-report`: capture, classify, dedupe, HTML+JSON inventory | High | [`design/plans/cxx-profiles-report.md`](design/plans/cxx-profiles-report.md); **1.8.0 target** — [#184](https://github.com/ja11sop/cuppa/issues/184) |
 | `profiles-designators` | Additional profile names as Alliance Clang / WG21 stabilise | Medium | Cuppa passes opaque strings through |
 | `profiles-native-enforce` | Wire `profiles_enforce_flags` when a compiler adds native enforce flags | Low | Hook exists; `-include` fallback remains |
 | `profiles-carve-outs` | Build policy to skip session enforce on selected paths | Low | Separate from source attributes |
