@@ -165,11 +165,15 @@ def parse_profiles_diagnostic( line ):
 
 
 def parse_variant_scope_fields( variant_dir ):
-    """Derive toolchain and variant label from a cuppa variant directory path."""
+    """Derive toolchain and variant label from a cuppa variant directory path.
+
+    Variant dirs end with ``<toolchain>/<variant>/<arch>/<abi>`` under ``_build/…`` —
+    see ``cuppa.core.build_layout.tool_variant_dir``.
+    """
     parts = variant_dir.strip( '/' ).split( '/' )
-    if len( parts ) >= 4 and parts[0] == '_build':
-        return parts[ 2 ], parts[ 3 ]
-    return '_unknown', '_unknown'
+    if len( parts ) < 6 or parts[ 0 ] != '_build':
+        return '_unknown', '_unknown'
+    return parts[ -4 ], parts[ -3 ]
 
 
 def parse_progress_line( line ):

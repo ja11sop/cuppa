@@ -209,6 +209,9 @@ def test_parse_variant_scope_fields():
     assert parse_variant_scope_fields(
         '_build/widget/clang24_profiles/dbg/x86_64/cxx2c',
     ) == ( 'clang24_profiles', 'dbg' )
+    assert parse_variant_scope_fields(
+        '_build/test/matching_engine/clang24_profiles_2026_08_07_27/dbg/x86_64/cxx2c',
+    ) == ( 'clang24_profiles_2026_08_07_27', 'dbg' )
 
 
 @pytest.mark.parametrize(
