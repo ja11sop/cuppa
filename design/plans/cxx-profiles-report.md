@@ -607,7 +607,7 @@ Target cycle: **1.8.0** for slices **A–D** (B **must** include parallel spawn 
 | Slice | Status |
 |-------|--------|
 | Plan | **This document** (parallel spawn scope in slice B) |
-| A — Parser | Not started |
+| A — Parser | **In progress** — `cuppa/cpp/cxx_profiles_report.py` + unit tests on branch |
 | B — Collector + parallel spawn scope | Not started |
 | C — HTML/JSON | Not started |
 | D — Manifest | Not started |

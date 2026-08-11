@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Profiles violation report parser groundwork ([#184](https://github.com/ja11sop/cuppa/issues/184)):
+  `cuppa/cpp/cxx_profiles_report.py` parses Clang Profiles diagnostics, classifies rule
+  ids, and dedupes violations per scope (slice A; CLI and HTML in later slices).
+
 ### Changed
 
 ### Deprecated
