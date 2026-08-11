@@ -5,18 +5,31 @@
 
 import pytest
 
+from pathlib import Path
+
 from cuppa.cpp.cxx_profiles_report import (
     ProfilesInventory,
     ProfilesScope,
     UNCLASSIFIED_RULE_ID,
     classify_rule,
+    format_capture_summary,
     location_dedupe_key,
     normalise_message,
+    parse_progress_line,
     parse_profiles_diagnostic,
+    parse_variant_scope_fields,
+    replay_profiles_capture,
     unscoped_profiles_scope,
 )
 
 pytestmark = pytest.mark.unit
+
+_FIXTURE_CAPTURE = (
+    Path( __file__ ).resolve().parents[ 1 ]
+    / 'fixtures'
+    / 'profiles_capture'
+    / 'sample_capture.txt'
+)
 
 
 _SAMPLE_SCOPE = ProfilesScope(
@@ -190,3 +203,60 @@ def test_inventory_report_model_shape():
 
 def test_unscoped_profiles_scope_is_stable():
     assert unscoped_profiles_scope().sconscript == '_unscoped'
+
+
+def test_parse_variant_scope_fields():
+    assert parse_variant_scope_fields(
+        '_build/widget/clang24_profiles/dbg/x86_64/cxx2c',
+    ) == ( 'clang24_profiles', 'dbg' )
+
+
+@pytest.mark.parametrize(
+    'line, expected',
+    [
+        (
+            'Progress( SconstructBegin )',
+            ( 'sconstruct_begin', None, None ),
+        ),
+        (
+            'Progress( Begin sconscript: [./widget/sconscript] )',
+            ( 'begin', './widget/sconscript', None ),
+        ),
+        (
+            'Progress( Starting variant: [_build/widget/clang24_profiles/dbg/x86_64/cxx2c] )',
+            ( 'started', None, '_build/widget/clang24_profiles/dbg/x86_64/cxx2c' ),
+        ),
+        (
+            'Progress( Finished variant: [_build/widget/clang24_profiles/dbg/x86_64/cxx2c] )',
+            ( 'finished', None, '_build/widget/clang24_profiles/dbg/x86_64/cxx2c' ),
+        ),
+    ],
+)
+def test_parse_progress_line( line, expected ):
+    assert parse_progress_line( line ) == expected
+
+
+def test_replay_profiles_capture_builds_scope_from_progress_markers():
+    inventory, unscoped = replay_profiles_capture( _FIXTURE_CAPTURE.read_text().splitlines() )
+    assert unscoped == 0
+    assert inventory.total_references() == 3
+    assert inventory.unique_locations() == 3
+    scope = inventory.locations()[ 0 ].scope
+    assert scope.sconscript == './widget/sconscript'
+    assert scope.variant_dir == '_build/widget/clang24_profiles/dbg/x86_64/cxx2c'
+    assert scope.toolchain == 'clang24_profiles'
+    assert scope.variant_label == 'dbg'
+
+
+def test_replay_profiles_capture_records_unscoped_without_progress():
+    inventory, unscoped = replay_profiles_capture( [ _UNINIT_LINE ] )
+    assert unscoped == 1
+    assert inventory.locations()[ 0 ].scope.sconscript == '_unscoped'
+
+
+def test_format_capture_summary_lists_rules():
+    inventory, _unscoped = replay_profiles_capture( _FIXTURE_CAPTURE.read_text().splitlines() )
+    summary = format_capture_summary( inventory )
+    assert 'total_references: 3' in summary
+    assert 'static_runtime_init' in summary
+    assert './widget/sconscript' in summary

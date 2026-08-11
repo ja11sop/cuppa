@@ -1,0 +1,6 @@
+Progress( SconstructBegin )
+Progress( Begin sconscript: [./widget/sconscript] )
+Progress( Starting variant: [_build/widget/clang24_profiles/dbg/x86_64/cxx2c] )
+/home/user/include/widget/nonce.hpp:35:39: error: variable 'RandomValues' must be initialized or marked '[[uninit]]' under profile 'std::init'
+/home/user/include/widget/number.hpp:79:25: error: non-local variable 'decimal_places_1' requires constant initialization under profile 'std::init'
+/home/user/include/widget/table.hpp:120:5: error: constructor does not initialize member 'Buffer_' under profile 'std::init'

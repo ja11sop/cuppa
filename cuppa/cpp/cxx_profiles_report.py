@@ -53,6 +53,7 @@ _UNSCOPED = ProfilesScope(
 
 _PROFILE_SUFFIX = " under profile '"
 _QUOTED_FRAGMENT_RE = re.compile( r"'[^']*'" )
+_PROGRESS_LINE_RE = re.compile( r'^Progress\(\s*(.+)\s*\)\s*$' )
 
 _RULE_CLASSIFIERS = (
     (
@@ -161,6 +162,133 @@ def parse_profiles_diagnostic( line ):
         normalised_message=normalised,
         rule_id=classify_rule( normalised ),
     )
+
+
+def parse_variant_scope_fields( variant_dir ):
+    """Derive toolchain and variant label from a cuppa variant directory path."""
+    parts = variant_dir.strip( '/' ).split( '/' )
+    if len( parts ) >= 4 and parts[0] == '_build':
+        return parts[ 2 ], parts[ 3 ]
+    return '_unknown', '_unknown'
+
+
+def parse_progress_line( line ):
+    """Parse one ``Progress( … )`` console line, or return ``None`` if it does not match."""
+    match = _PROGRESS_LINE_RE.match( line.rstrip( '\r\n' ) )
+    if not match:
+        return None
+
+    inner = match.group( 1 ).strip()
+    if inner == 'SconstructBegin':
+        return 'sconstruct_begin', None, None
+    if inner == 'SconstructEnd':
+        return 'sconstruct_end', None, None
+    if inner.startswith( 'Begin sconscript: [' ) and inner.endswith( ']' ):
+        return 'begin', inner[ len( 'Begin sconscript: [' ): -1 ], None
+    if inner.startswith( 'End sconscript: [' ) and inner.endswith( ']' ):
+        return 'end', inner[ len( 'End sconscript: [' ): -1 ], None
+    if inner.startswith( 'Starting variant: [' ) and inner.endswith( ']' ):
+        return 'started', None, inner[ len( 'Starting variant: [' ): -1 ]
+    if inner.startswith( 'Finished variant: [' ) and inner.endswith( ']' ):
+        return 'finished', None, inner[ len( 'Finished variant: [' ): -1 ]
+    return None
+
+
+class ProfilesScopeStack:
+    """Track the open Progress scope while replaying a serial capture file."""
+
+    def __init__( self ):
+        self._sconscript = None
+        self._variant_dir = None
+
+    def apply_progress( self, event, sconscript, variant_dir ):
+        if event == 'begin':
+            self._sconscript = sconscript
+        elif event == 'started':
+            self._variant_dir = variant_dir
+        elif event == 'finished':
+            if self._variant_dir == variant_dir:
+                self._variant_dir = None
+        elif event == 'end':
+            if self._sconscript == sconscript:
+                self._sconscript = None
+                self._variant_dir = None
+        elif event == 'sconstruct_end':
+            self._sconscript = None
+            self._variant_dir = None
+
+    def current_scope( self ):
+        if self._sconscript and self._variant_dir:
+            toolchain, variant_label = parse_variant_scope_fields( self._variant_dir )
+            return ProfilesScope(
+                sconscript=self._sconscript,
+                variant_dir=self._variant_dir,
+                toolchain=toolchain,
+                variant_label=variant_label,
+            )
+        return unscoped_profiles_scope()
+
+
+def replay_profiles_capture( lines ):
+    """Replay saved build output lines into a scoped ``ProfilesInventory``."""
+    inventory = ProfilesInventory()
+    stack = ProfilesScopeStack()
+    unscoped_diagnostics = 0
+
+    for line in lines:
+        progress = parse_progress_line( line )
+        if progress is not None:
+            stack.apply_progress( *progress )
+            continue
+
+        diagnostic = parse_profiles_diagnostic( line )
+        if diagnostic is None:
+            continue
+
+        scope = stack.current_scope()
+        if scope.sconscript == '_unscoped':
+            unscoped_diagnostics += 1
+        inventory.record( scope, diagnostic )
+
+    return inventory, unscoped_diagnostics
+
+
+def format_capture_summary( inventory, unscoped_diagnostics=0 ):
+    """Return a human-readable summary of a replayed capture."""
+    lines = [
+        'total_references: {}'.format( inventory.total_references() ),
+        'unique_locations: {}'.format( inventory.unique_locations() ),
+    ]
+    if unscoped_diagnostics:
+        lines.append( 'unscoped_diagnostics: {}'.format( unscoped_diagnostics ) )
+
+    model = inventory.as_report_model()
+    for scope in model[ 'scopes' ]:
+        lines.append( '' )
+        lines.append(
+            'scope: {}  {}'.format( scope[ 'sconscript' ], scope[ 'variant_dir' ] )
+        )
+        lines.append(
+            '  toolchain: {}  variant: {}'.format(
+                scope[ 'toolchain' ],
+                scope[ 'variant_label' ],
+            )
+        )
+        for profile in scope[ 'profiles' ]:
+            lines.append( '  profile: {}'.format( profile[ 'profile' ] ) )
+            for rule in sorted(
+                profile[ 'rules' ],
+                key=lambda entry: ( -entry[ 'total_references' ], entry[ 'rule_id' ] ),
+            ):
+                lines.append(
+                    '    {}  {} refs  {} files'.format(
+                        rule[ 'rule_id' ],
+                        rule[ 'total_references' ],
+                        rule[ 'unique_files' ],
+                    )
+                )
+
+    return '\n'.join( lines )
 
 
 def location_dedupe_key( scope, diagnostic ):
