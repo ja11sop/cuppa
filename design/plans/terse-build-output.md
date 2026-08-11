@@ -28,6 +28,11 @@ Readers familiar with CMake/Ninja-style summaries want:
 This is **not** a CMake clone: cuppa keeps SCons graph semantics, variant scoping, and existing
 `NotifyProgress` dependency chains.
 
+**Related (separate plans):** configure-time log noise
+([`build-log-hygiene.md`](build-log-hygiene.md)); version without a build
+([`cuppa-info.md`](cuppa-info.md)). Those are **1.8.0** targets alongside terse Phase 1 — not
+slices of this document.
+
 ## Goals
 
 1. Add **`--terse-output`** (name settled here; not `--simple-output` — too vague).
@@ -199,10 +204,9 @@ Optional later: `--progress-format=nested|flat|overall-only`.
 | Size | Phase 1 medium; Phase 2 medium+ |
 | Depends on | None strictly; cleaner alongside native output plan |
 
-**Suggested:** **1.8.0** — ship **Phase 1 (slices A–E)** in 1.8.0 if console work fits the cycle.
-**Phase 2 (F–I)** can be 1.8.0 follow-on or 1.9.0 depending on ledger/spawn hook effort. If only
-one console item fits 1.8.0, prefer terse Phase 1 over native output for breadth; percentages
-without Phase 1 terse lines are less useful anyway.
+**Suggested:** **1.8.0 target** — ship **Phase 1 (slices A–E)** in the 1.8.0 bundle (see ROADMAP
+§1.8.0 cycle focus). **Phase 2 (F–I)** can be 1.8.0 follow-on or 1.9.0 depending on ledger/spawn
+hook effort. Prefer terse Phase 1 over native output if scope is tight.
 
 ## Related
 

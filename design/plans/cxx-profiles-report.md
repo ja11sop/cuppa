@@ -29,8 +29,9 @@ of analysis.
    / [`ProfilesFrameworkInternals.rst`](https://github.com/cppalliance/clang/blob/profiles-framework/clang/docs/ProfilesFrameworkInternals.rst)).
 2. **Dedupe** repeated identical `(file, line, col, message)` locations while retaining **per-file
    reference counts** and **totals per rule**.
-3. Emit an **HTML report** (and machine-readable JSON sibling) styled like existing test/coverage
-   indexes — suitable for CI artefacts and local review.
+3. Emit an **HTML report** (and machine-readable JSON sibling) with **Coverage-like tabs** — **By
+   rule**, **By file**, and session **Roll-up**, grouped by profile — suitable for CI artefacts
+   and local review.
 4. Enable analysis **without editing the project source tree** — opt-in CLI only for the first
    slices; optional `env.CxxProfilesReport()` method later once findings justify sconscript wiring.
 5. Record generated paths in a **`.cuppa-reports` manifest** so `--clean` / `--remove-builds` can
@@ -75,7 +76,8 @@ the CLI flag.
 | Clang `ProfilesFramework.rst` § *The std::init Profile* | Canonical **rule names** (`uninit_decl`, `static_runtime_init`, …) and diagnostic intent |
 | Clang `ProfilesFrameworkInternals.rst` | `ProfileRuleError` diagnostic class; rule ids are opaque strings in suppress attributes |
 | Live sample (consumer project) | `profile_output.txt` — ~1310 `std::init` errors; message patterns below |
-| Live sample + Progress markers | `profile_output_2.txt` — same run filtered with `grep -E 'under profile\|Progress\('`; shows **scope hierarchy** before the diagnostic block |
+| Live sample + Progress markers | `profile_output_2.txt` — serial `dbg` run; scope hierarchy before diagnostic block |
+| Multi-variant invocation sample | `profile_output_3.txt` — `cuppa --dbg --rel …` (build failed during first variant; only `dbg` scope appears in capture — illustrates partial multi-variant session) |
 
 ### Observed console shape (serial build)
 
@@ -200,26 +202,102 @@ numbers differ (same rule, same file → one row with *N* total refs and expanda
 
 ### HTML layout (align with test / coverage)
 
-Follow existing Bootstrap + Jinja patterns (`cuppa/test_report/templates/`, coverage
-`coverage-index.html`):
+Follow existing Bootstrap + Jinja patterns (`cuppa/test_report/templates/`,
+`cuppa/cpp/templates/coverage_index.html`). Coverage already splits **By sconscript** vs **By source
+file** tabs on the master index; Profiles reporting needs a similar **multi-view** model, grouped
+first by **language profile** (`std::init` today; `std::type`, … as compilers add them).
 
-1. **Master index** — `_artifacts/cxx-profiles/cxx-profiles-index.html` (path TBD; see §Artefacts).
-   - Summary table: **sconscript × variant × toolchain** rows (when multiple scopes ran).
-   - Links into per-scope reports.
-2. **Per-scope report** — e.g.
-   `cxx-profiles--<sconscript_slug>--<variant_label>--<toolchain_key>.html`.
-   - Header: sconscript path, variant dir, toolchain, git branch/revision if available.
-   - Sortable table: rule → unique files → total references → link to rule doc.
-   - Expandable sections: files under each rule with `file://` or relative `href` to source
-     (paths normalised for display; optional `--cxx-profiles-report-root=` to rebase links into
-     the project tree).
-3. **JSON sibling** — same directory, matching `.json` for scripting / CI gates.
-4. **Session roll-up (optional):** when multiple scopes exist, master index totals are the **sum
-   of scope reports**, not a dedupe across variants (the same header path violated in `dbg` and
-   `rel` counts twice — that is intentional).
+#### Navigation levels
+
+```text
+cxx-profiles-index.html          ← session master (all scopes that ran)
+  ├─ scope summary rows          ← sconscript × variant × toolchain (incomplete scopes flagged)
+  └─ per-scope detail pages      ← cxx-profiles--<script>--<variant>--<tc>.html
+       └─ tabs (see below)       ← filtered to that scope’s captured diagnostics
+```
+
+When the invocation builds multiple variants (e.g. `--dbg --rel`) and more than one scope
+completes or partially runs, the master index lists **each scope separately** — as in
+`profile_output_3.txt`, a failed `dbg` pass may be the only scope captured even though `rel` was
+requested.
+
+#### Tabs on master index and per-scope pages
+
+| Tab | Primary sort (default) | Expandable rows | Purpose |
+|-----|------------------------|-----------------|---------|
+| **By rule** | Rule / violation class — **most total references first** | File **entries**: linkable path, references in this rule, unique line count | “What hurts most?” — fix the highest-impact rule classes first |
+| **By file** | Source file — **most total references first** (any rule) | Rule **entries** under each file: rule id, references, sample message | “Which files are worst?” — concentrate edits in hot files |
+| **Roll-up** | Same two sub-views, but **union across all profiles and all scopes** in the session | Entries show **scope breakdown** on expand (variant label, per-scope ref count) | One-page inventory when multiple profiles or variants ran |
+
+Within a **profile** section (e.g. `std::init`), repeat the By rule / By file tables. When only one
+profile fired, omit the profile heading or collapse it. Future multi-profile enforce lists produce
+multiple profile sections plus the roll-up tab.
+
+**Entry row shape (both views):** display path (linked — see §Source links), **reference count**,
+**unique locations** (distinct line/col after dedupe), optional **affected scopes** badge when
+viewing roll-up. Expanded detail lists `(line, col)` anchors and raw message (first seen).
+
+**Sorting:** ship with the defaults above baked into Jinja iteration order. Add **client-side
+re-sort** (column header clicks or a small `<select>` — same Bootstrap/JS approach as other cuppa
+reports) for at least: references desc/asc, path A–Z, rule id A–Z. Server-side `--cxx-profiles-report-sort=` is **not** required for v1 if the HTML toggles suffice.
+
+#### Master index summary table
+
+- Rows: `(sconscript, variant_label, variant_dir, toolchain, profile names seen, total refs, unique files, complete?)`
+- Links into per-scope detail pages (each page opens on **By rule** tab by default).
+- When only one scope exists, master index may redirect or embed the detail page (open question §8).
+
+#### JSON sibling
+
+Same directory, matching `.json` — include both view models pre-sorted plus unsorted arrays so CI
+can gate on rule/file counts without parsing HTML:
+
+```text
+profiles[] → rules[] → { rule_id, total_references, unique_files, files[] }
+profiles[] → files[]  → { path, total_references, rules[] }
+rollup → { rules[], files[] }   // cross-profile, cross-scope union with scope attribution
+scopes[] → { … per-scope slices of the same shape … }
+```
+
+**Roll-up dedupe policy (settled):** union **adds reference counts** across scopes for the same
+`(profile, rule, normalised_path, line, col, message)`. The same header violated in `dbg` and
+`rel` contributes **twice** to roll-up totals unless the user filters to one scope — mirrors
+coverage union semantics (counts reflect all runs, not “unique issues across variants”).
 
 Optional later: `--cxx-profiles-report-threshold=` to fail CI when a rule exceeds *N* files (not
 slice A).
+
+### Source links (`link_style`)
+
+Reuse the test-report linking helper in `cuppa/test_report/html_report.py`:
+
+- `initialise_test_linking(env, link_style=…)` — resolves `file://` + `sconstruct_dir` for
+  **local** builds, or Git remote **blob** URLs for CI artefacts.
+- `_create_uri(test_case)` pattern: append repo-relative path and `#L{line}` (GitLab) or equivalent
+  line anchor.
+
+| `link_style` | Href shape | When to use |
+|--------------|------------|---------------|
+| `local` (default) | `file://{sconstruct_dir}/{relpath}#L{line}` | Developer machine; opens editor/IDE handler |
+| `gitlab` | `{remote}/blob/{branch}/{relpath}#L{line}` | GitLab CI published artefacts |
+| `github` | `{remote}/blob/{branch}/{relpath}#L{line}` | GitHub Actions published artefacts (same helper pattern; extend `initialise_test_linking` or share a small `cuppa/report_links.py`) |
+
+**Path rebasing:** map absolute diagnostic paths (including dependency trees under
+`~/_cuppa/_download/…`) to a **repo-relative** path when under `sconstruct_dir` or
+`--cxx-profiles-report-root=`; otherwise show absolute path with `local` link only (no remote blob —
+same caveat as test report: *“Might need VCS detection per file”* for dependency sources).
+
+**CLI / method surface (settled for v1 CLI):**
+
+| Flag / arg | Meaning |
+|------------|---------|
+| `--cxx-profiles-report-link-style=local` | Default |
+| `--cxx-profiles-report-link-style=gitlab` | Blob links from `vcs_info_from_location` |
+| `--cxx-profiles-report-link-style=github` | GitHub blob links (add alongside test report) |
+
+Slice **E** (`env.CxxProfilesReport(…, link_style=…)`) mirrors `GenerateHtmlTestReport` kwargs.
+Collated master index passes `link_style="raw"` VCS metadata into the template header (same as test
+suite index).
 
 ## Settled CLI (proposal)
 
@@ -227,7 +305,8 @@ slice A).
 |------|---------|
 | `--cxx-profiles-report` | Enable capture + emit default report paths under artefacts root |
 | `--cxx-profiles-report=` *path* | Explicit report **directory** or index **file** stem (directory if ends with `/` or exists as dir) |
-| `--cxx-profiles-report-root=` *dir* | Rebase file links in HTML to project-relative paths (default: infer from sconstruct cwd) |
+| `--cxx-profiles-report-root=` *dir* | Rebase project-owned paths for display and remote links (default: infer from sconstruct cwd) |
+| `--cxx-profiles-report-link-style=` *local\|gitlab\|github* | Source link targets in HTML (default `local`; see §Source links) |
 
 **Activation gate:** flag is a no-op unless Profiles are active for the build
 (`--cxx-profiles` or env already has `cxx_profiles` / enforce inject). Otherwise **StopError** with
@@ -331,48 +410,84 @@ can find files not registered as SCons targets.
 
 **Location:** `<project_root>/.cuppa-reports` (gitignored by convention; document in Antora).
 
-**Entry shape (JSON lines, one object per report run):**
+**One JSON object per line** — appended once per cuppa invocation that wrote Profiles report
+artefacts (at `sconstruct_end`, or on early abort with `partial: true`). The manifest records
+**paths to delete** and **matching metadata**; it does **not** embed the diagnostic inventory
+(that lives in the per-scope `.json` siblings described in §JSON sibling).
+
+**Entry shape:**
 
 ```json
 {
   "kind": "cxx-profiles",
+  "schema": 1,
   "created": "2026-08-11T00:07:00Z",
+  "partial": false,
   "invocation_key": "sha256:…",
-  "argv": ["cuppa", "-D", "--dbg", "…"],
+  "argv": ["cuppa", "-D", "--dbg", "--rel", "…"],
+  "cwd": "/path/to/project/matching_facility",
+  "options": {
+    "destination": "_artifacts/cxx-profiles",
+    "link_style": "local",
+    "report_root": null,
+    "enforce": ["std::init"],
+    "cxx_profiles": true
+  },
+  "session_paths": [
+    "_artifacts/cxx-profiles/cxx-profiles-index.html"
+  ],
   "scopes": [
     {
       "sconscript": "./matcher/sconscript",
       "variant_dir": "_build/matcher/clang24_profiles_2026_08_07_27/dbg/x86_64/cxx2c",
       "variant_label": "dbg",
       "toolchain": "clang24_profiles_2026_08_07_27",
+      "complete": false,
+      "profiles": ["std::init"],
       "paths": [
-        "_artifacts/cxx-profiles/cxx-profiles--matcher--dbg--clang24_profiles….html",
-        "_artifacts/cxx-profiles/cxx-profiles--matcher--dbg--clang24_profiles….json"
+        "_artifacts/cxx-profiles/cxx-profiles--matcher--dbg--clang24_profiles_2026_08_07_27.html",
+        "_artifacts/cxx-profiles/cxx-profiles--matcher--dbg--clang24_profiles_2026_08_07_27.json"
       ]
     }
-  ],
-  "paths": [
-    "_artifacts/cxx-profiles/cxx-profiles-index.html"
   ]
 }
 ```
 
 | Field | Purpose |
 |-------|---------|
-| `invocation_key` | Hash of normalised argv + cwd + key options (`cxx_profiles_report` destination) |
-| `paths` | Files/dirs to delete on matched clean |
-| `kind` | Extensible for other CLI reports (future terse summaries, etc.) |
+| `kind` | `"cxx-profiles"` — extensible for other CLI report types later |
+| `schema` | Manifest format version (increment when fields change) |
+| `partial` | `true` when the build aborted before `sconstruct_end` or any scope lacks `Finished variant` (see `profile_output_3.txt`) |
+| `invocation_key` | Hash of normalised `argv`, `cwd`, and `options` (`destination`, `link_style`, `report_root`, `enforce`) — must match for clean removal |
+| `argv` | Echo for human audit; not used alone for matching |
+| `cwd` | Project / sconstruct working directory at report time |
+| `options` | Report flags that affect output location and link behaviour (see §Settled CLI) |
+| `session_paths` | Master index HTML (includes **Roll-up** tab — no separate roll-up file in v1) |
+| `scopes[]` | One object per captured Progress scope (sconscript × variant × toolchain) |
+| `scopes[].complete` | `false` when diagnostics were captured under `Starting variant` but `Finished variant` never ran |
+| `scopes[].profiles` | Profile names seen in that scope (usually one; multi-enforce lists may yield several) |
+| `scopes[].paths` | Per-scope detail **HTML + JSON** (JSON carries `profiles[]`, `rollup`, by-rule / by-file views) |
+
+**Paths to delete:** union of `session_paths` and every `scopes[].paths` entry (implementation may
+also store a denormalised `all_paths[]` for convenience — not required in the schema).
+
+**Relationship to report JSON:** the `.json` artefact named in `scopes[].paths` follows the §JSON
+ sibling tree (`profiles[]`, `rollup`, etc.). The manifest only points at those files so
+`--clean` can remove them; it does not duplicate violation data.
+
+**Example — partial multi-variant invocation** (`profile_output_3.txt`): one scope with
+`complete: false`, `variant_label: "dbg"`, no `rel` scope row (that variant never started).
 
 **Removal behaviour (proposal):**
 
-- When `--clean` or `--remove-builds` runs **and** the same `--cxx-profiles-report` destination
-  (or default) is present on the command line, remove manifest entries whose `invocation_key`
-  matches and delete listed `paths`.
+- When `--clean` or `--remove-builds` runs **and** the same `--cxx-profiles-report` destination,
+  `link_style`, and `report_root` (or defaults) are present on the command line, remove manifest
+  entries whose `invocation_key` matches and delete `session_paths` ∪ `scopes[].paths`.
 - `--remove-builds` alone does **not** delete reports (artefacts live outside `_build/`).
 - Document as **interim** — superseded by Phase 6 artefact roots + optional graph discovery.
 
-**Honest limitation:** manifest matching is hacky; wrong argv → stale files remain. Phase 6 should
-subsume this for declared `_artifacts/` trees.
+**Honest limitation:** manifest matching is hacky; wrong argv or changed defaults → stale files
+remain. Phase 6 should subsume this for declared `_artifacts/` trees.
 
 ## Artefacts layout and Phase 6 alignment
 
@@ -416,13 +531,13 @@ Registry records: `kind`, default subdir, CLI flag, manifest kind string. Enable
 |-------|-------------|-------|
 | **A — Parser + unit tests** | `cuppa/cpp/cxx_profiles_report.py` — parse lines, normalise, classify; `ProfilesScope` type | Fixture strings from samples; scope-aware dedupe keys |
 | **B — Scope stack + collector** | `NotifyProgress` callback + `ToolchainProcessor` hook | Stack push/pop on progress events; unit tests simulate `profile_output_2.txt` event sequence |
-| **C — HTML + JSON** | Jinja templates + `CxxProfilesReportBuilder` at `sconstruct_end` | Per-scope pages + master index; incomplete scope banner |
-| **D — Manifest + clean** | Append `.cuppa-reports`; delete on matched `--clean` / `--remove-builds` | Integration test with tmp project root |
+| **C — HTML + JSON** | Jinja templates (`cxx_profiles_index.html`, detail page) + `CxxProfilesReportBuilder` | Coverage-style tabs: **By rule**, **By file**, **Roll-up**; profile sections; `link_style`; client re-sort; incomplete scope banner |
+| **D — Manifest + clean** | Append `.cuppa-reports` (schema v1); delete on matched `--clean` / `--remove-builds` | `invocation_key` over `options`; `partial` / `scopes[].complete`; union `session_paths` + scope paths |
 | **E — Method (optional)** | `env.CxxProfilesReport()` + `CollateCxxProfilesReportIndex` | `NotifyProgress.add`, SCons `Clean()` on outputs |
 | **F — Parallel-safe spawn scope** | Per-action env on `SpawnedProcessor` | Lift serial-only restriction |
 | **G — Phase 6 hook** | Honour `artefact_roots` / `--set-artefacts-folder` when #135 lands | Delete manifest hack or narrow to unmatched paths only |
 
-Target cycle: **1.8.0** for slices A–D; E–G can spill to 1.9.0.
+Target cycle: **1.8.0** for slices A–D (**1.8.0 target** in ROADMAP §1.8.0 cycle focus); E–G can spill to 1.9.0.
 
 ## Refusal rules
 
@@ -439,8 +554,9 @@ Target cycle: **1.8.0** for slices A–D; E–G can spill to 1.9.0.
 | Layer | Cases |
 |-------|-------|
 | Unit | Parser regex; normalisation; pattern→rule map; **scope-aware** dedupe counts; JSON schema |
-| Unit | Progress stack push/pop; replay `profile_output_2.txt` scope sequence |
-| Unit | Manifest read/write; `invocation_key` stability |
+| Unit | Progress stack push/pop; replay `profile_output_2.txt` / partial multi-variant `profile_output_3.txt` sequences |
+| Unit | JSON view models (by rule / by file / roll-up); link URI generation for `local` and `gitlab` |
+| Unit | Manifest read/write; `invocation_key` includes `options`; `partial` + `complete` flags; path union for delete |
 | Integration | Tiny sconscript + Alliance Clang fixture (or mocked collector feed) produces HTML + JSON |
 | Integration | `--clean` with matching flag removes manifest paths |
 | Docs | Antora page section under [`cxx-profiles.adoc`](../../docs/modules/ROOT/pages/cxx-profiles.adoc); CHANGELOG under open `[1.8.0]` |
@@ -457,7 +573,7 @@ Target cycle: **1.8.0** for slices A–D; E–G can spill to 1.9.0.
 
 | Slice | Status |
 |-------|--------|
-| Plan | **This document** |
+| Plan | **This document** (views, link_style, profile_output_3 sample) |
 | A — Parser | Not started |
 | B — Scope stack + collector | Not started |
 | C — HTML/JSON | Not started |
@@ -468,9 +584,8 @@ Target cycle: **1.8.0** for slices A–D; E–G can spill to 1.9.0.
 
 ## Open questions (resolve in first PR)
 
-1. **Partial builds:** if only one scope ran, omit master index or still write a single-scope index?
-2. **Dependency paths:** default HTML links — absolute path vs rebased under `--cxx-profiles-report-root=`?
-3. **Report-only exit code:** should `--cxx-profiles-report` imply `-k` / allow success for inventory
-   runs? Default **no** (stay honest); optional `--cxx-profiles-report-allow-errors` if demanded.
-4. **Cross-variant dedupe:** session roll-up never merges identical file paths across variants —
-   confirm that remains the product choice when comparing `dbg` vs `rel` inventories.
+1. **Partial builds:** if only one scope ran, omit master index or embed detail inline?
+2. **Dependency paths:** `--cxx-profiles-report-root=` vs absolute-only links for `_cuppa/_download/…` trees?
+3. **Report-only exit code:** optional `--cxx-profiles-report-allow-errors` if inventory runs should succeed?
+4. **Cross-variant roll-up:** union adds counts across scopes — confirm product choice when comparing `dbg` vs `rel` (settled above; note in Antora).
+5. **GitHub `link_style`:** extend shared helper vs duplicate URL template in Profiles module only?

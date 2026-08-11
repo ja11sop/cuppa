@@ -15,6 +15,23 @@ When code and this roadmap disagree on *current* behaviour, **code and the Antor
 
 ---
 
+## 1.8.0 cycle focus (in progress)
+
+Open development cycle: `cuppa/VERSION` = `1.8.0.dev` ([#183](https://github.com/ja11sop/cuppa/pull/183)).
+
+Maintainer **target bundle** for the release (plans landed; implementation follows):
+
+| ID | Work | Plan |
+|----|------|------|
+| `console-terse-output` | `--terse-output` Phase 1 (one-line success; failures verbose) | [`terse-build-output.md`](design/plans/terse-build-output.md) |
+| `profiles-violation-report` | `--cxx-profiles-report` slices A–D (scope stack, HTML/JSON, manifest) | [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) |
+| `console-log-hygiene` | Demote toolchain registration spam; fix variant default log text | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md) |
+| `cli-info` | `cuppa --info` — version without loading sconstruct | [`cuppa-info.md`](design/plans/cuppa-info.md) |
+
+**Deferred / optional for 1.8.0:** [`native-toolchain-output.md`](design/plans/native-toolchain-output.md) (`--native-output`); terse Phase 2 percentages; docs-only Antora UI / methods split.
+
+---
+
 ## How to use this document
 
 | Section | Purpose |
@@ -135,7 +152,7 @@ Umbrella: [#127](https://github.com/ja11sop/cuppa/issues/127) ([#177](https://gi
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `profiles-violation-report` | `--cxx-profiles-report`: capture, classify, dedupe, HTML+JSON inventory | High | [`design/plans/cxx-profiles-report.md`](design/plans/cxx-profiles-report.md); CLI-first (no sconscript edit); pairs with `--cxx-disable-error-limit` |
+| `profiles-violation-report` | `--cxx-profiles-report`: capture, classify, dedupe, HTML+JSON inventory | High | [`design/plans/cxx-profiles-report.md`](design/plans/cxx-profiles-report.md); **1.8.0 target** |
 | `profiles-designators` | Additional profile names as Alliance Clang / WG21 stabilise | Medium | Cuppa passes opaque strings through |
 | `profiles-native-enforce` | Wire `profiles_enforce_flags` when a compiler adds native enforce flags | Low | Hook exists; `-include` fallback remains |
 | `profiles-carve-outs` | Build policy to skip session enforce on selected paths | Low | Separate from source attributes |
@@ -434,8 +451,10 @@ Design: [`native-toolchain-output.md`](design/plans/native-toolchain-output.md),
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `console-native-output` | `--native-output`: enable toolchain native colour; passthrough spawn | Medium | [`native-toolchain-output.md`](design/plans/native-toolchain-output.md); **1.8.0 candidate** |
-| `console-terse-output` | `--terse-output`: coloured one-line success; commands on failure/warning | Medium | [`terse-build-output.md`](design/plans/terse-build-output.md); **1.8.0 candidate** |
+| `console-terse-output` | `--terse-output`: coloured one-line success; commands on failure/warning | High | [`terse-build-output.md`](design/plans/terse-build-output.md); **1.8.0 target** |
+| `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md); **1.8.0 target** |
+| `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | [`cuppa-info.md`](design/plans/cuppa-info.md); **1.8.0 target** |
+| `console-native-output` | `--native-output`: enable toolchain native colour; passthrough spawn | Medium | [`native-toolchain-output.md`](design/plans/native-toolchain-output.md); optional 1.8.0 |
 | `console-stream-split` | Logging → stderr vs tool primary → stdout | Low | Validate current behaviour first (scratchpad note) |
 
 ### Out of scope (console output)

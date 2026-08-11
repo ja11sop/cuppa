@@ -20,6 +20,9 @@ Do not put private project names here; use anonymised labels and
 - `--list-toolchains` → [`archive/list-toolchains.md`](../archive/list-toolchains.md)
 - Native coloured toolchain output → [`plans/native-toolchain-output.md`](../plans/native-toolchain-output.md)
 - Terse / minimal progress output → [`plans/terse-build-output.md`](../plans/terse-build-output.md)
+- Configure-time log hygiene (toolchain spam, variant log fix) → [`plans/build-log-hygiene.md`](../plans/build-log-hygiene.md)
+- `cuppa --info` (version without build) → [`plans/cuppa-info.md`](../plans/cuppa-info.md)
+- C++ Profiles violation report → [`plans/cxx-profiles-report.md`](../plans/cxx-profiles-report.md)
 - Split methods into own pages → [`plans/methods-pages-split.md`](../plans/methods-pages-split.md)
 - Better Antora UI bundle → [`plans/antora-ui-bundle.md`](../plans/antora-ui-bundle.md)
 
