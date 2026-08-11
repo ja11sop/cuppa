@@ -24,7 +24,7 @@ Maintainer **target bundle** for the release (plans landed; implementation follo
 | ID | Work | Plan |
 |----|------|------|
 | `console-terse-output` | `--terse-output` Phase 1 (one-line success; failures verbose) | [`terse-build-output.md`](design/plans/terse-build-output.md) |
-| `profiles-violation-report` | `--cxx-profiles-report` slices A–D (scope stack, HTML/JSON, manifest) | [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) |
+| `profiles-violation-report` | `--cxx-profiles-report` slices A–D (parser, **parallel-safe spawn scope**, HTML/JSON, manifest) | [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) |
 | `console-log-hygiene` | Demote toolchain registration spam; fix variant default log text | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md) |
 | `cli-info` | `cuppa --info` — version without loading sconstruct | [`cuppa-info.md`](design/plans/cuppa-info.md) |
 

@@ -43,7 +43,7 @@ of analysis.
 - Fixing violations, rewriting sources, or auto-inserting suppressions.
 - Session-wide `--cxx-profiles-require=` / `--cxx-profiles-suppress=` (see
   [`archive/cxx-profiles.md`](../archive/cxx-profiles.md) §2.6).
-- Parallel-build-safe capture (document **serial builds only** for v1; scoped stack — see §Capture).
+- Parallel-build-safe capture without per-spawn scope (deferring spawn wiring makes a later retrofit invasive — see §Spawn-attributed scope).
 - GCC Profiles diagnostics (Clang Alliance fork first; parser should fail closed on unknown shapes).
 - Replacing compiler exit status — a Profiles inventory build is still expected to **fail** when
   violations exist unless the project explicitly treats the run as report-only (future knob).
@@ -357,7 +357,7 @@ Extend with an optional **`ProfilesDiagnosticCollector`** registered when
         ├─ existing interpret / colour / console dedupe
         │
         └─ if collector active and line matches Profiles diagnostic regex
-               → collector.record( scope_stack.top(), parsed fields )
+               → collector.record( spawn_scope or stack_scope, parsed fields )
 ```
 
 **Scope stack:** maintained by a **`NotifyProgress.register_callback`** handler (same extension
@@ -368,27 +368,57 @@ processor's install-time env.
 (as the sample demonstrates). In-process capture stays correct for the same reason and avoids
 requiring users to pipe through `grep`.
 
-### Serial builds (v1)
+### Spawn-attributed scope (settled for 1.8.0)
 
-When actions for variant *A* complete before variant *B* starts, the Progress stack and stdout
-order agree — as in `profile_output_2.txt` (one `Starting variant`, then all diagnostics).
+A **Progress scope stack alone is not enough** under `--parallel`: compiler stdout from
+concurrent actions interleaves, so lines cannot be assigned from “whatever variant started last”.
 
-v1 docs state:
+**Settled:** capture uses **two mechanisms together**:
 
-> Use `--cxx-profiles-report` without `--parallel` (or `-j1`) so Progress markers and compiler
-> output stay nested.
+| Mechanism | Role | When it applies |
+|-----------|------|-----------------|
+| **`NotifyProgress` stack** | Bookkeeping for scope boundaries, `complete` flags, flush at `sconstruct_end` | Always |
+| **Per-spawn scope on `SpawnedProcessor`** | Authoritative `(sconscript, variant_dir, toolchain, …)` for each diagnostic line | Every spawn when `--cxx-profiles-report` is active |
 
-**Partial failure:** if the build stops mid-variant (no `Finished variant`), diagnostics recorded
-under that scope are still flushed; the HTML banner marks the scope **incomplete**.
+Implement spawn attribution **in the same workstream as the collector** (former “slice F”) —
+retrofitting after HTML/manifest land would touch `posix_spawn` / `windows_spawn` again and risk
+reports that silently mis-attribute under `-j`.
 
-### Parallel builds (explicit non-goal for v1)
+#### Per-spawn wiring (proposal)
 
-**Parallel `-j` interleaves spawn output** from different variants (and sconscripts). A single
-global scope stack then mis-attributes lines unless each `SPAWN` passes its action env into the
-collector. Do not silently merge interleaved output into one scope.
+Today `Processor.posix_spawn` / `windows_spawn` construct `SpawnedProcessor( self.scons_env )`
+using the **install-time** env, not the per-action construction `env` SCons passes to `SPAWN`.
 
-Future slice: attach `(sconscript, variant_dir, target)` to `SpawnedProcessor` from the
-per-action `env` argument in `posix_spawn` / `windows_spawn` (ties to terse-output spawn hooks).
+```text
+  posix_spawn( …, action_env )
+        │
+        ├─ derive ProfilesScope from action_env:
+        │     build_dir → variant_dir (NotifyProgress.variant pattern)
+        │     sconscript_file, toolchain name from cuppa env snapshot
+        │
+        v
+  SpawnedProcessor( install_env, profiles_scope=… )
+        │
+        └─ ToolchainProcessor line → collector.record( profiles_scope, … )
+```
+
+**Thread safety:** each spawn owns its processor instance; the collector aggregates into a
+**lock-protected** session store keyed by scope (same pattern as parallel compile processes today
+— no shared mutable `SpawnedProcessor` across threads).
+
+**Progress stack:** still push/pop on `begin` / `started` / `finished` / `end` for incomplete-scope
+detection and manifest metadata; diagnostics **must not** use `stack.top()` alone when
+`profiles_scope` is available on the processor.
+
+**Partial failure:** if the build stops mid-variant (no `Finished variant`), diagnostics already
+recorded under that spawn scope are still flushed; HTML/manifest mark the scope **incomplete**.
+
+**Docs:** do **not** tell users to avoid `--parallel` for Profiles reporting in 1.8.0 once slice B
+ships; retain an honest note if spawn scope derivation fails for a builder path (log + bucket under
+`_unscoped` rather than silent wrong variant).
+
+Optional cross-link: [`terse-build-output.md`](terse-build-output.md) Phase 2 may reuse the same
+spawn exit hooks later — Profiles report should not block on terse landing first.
 
 ### End-of-build collation
 
@@ -529,15 +559,14 @@ Registry records: `kind`, default subdir, CLI flag, manifest kind string. Enable
 
 | Slice | Deliverable | Notes |
 |-------|-------------|-------|
-| **A — Parser + unit tests** | `cuppa/cpp/cxx_profiles_report.py` — parse lines, normalise, classify; `ProfilesScope` type | Fixture strings from samples; scope-aware dedupe keys |
-| **B — Scope stack + collector** | `NotifyProgress` callback + `ToolchainProcessor` hook | Stack push/pop on progress events; unit tests simulate `profile_output_2.txt` event sequence |
-| **C — HTML + JSON** | Jinja templates (`cxx_profiles_index.html`, detail page) + `CxxProfilesReportBuilder` | Coverage-style tabs: **By rule**, **By file**, **Roll-up**; profile sections; `link_style`; client re-sort; incomplete scope banner |
-| **D — Manifest + clean** | Append `.cuppa-reports` (schema v1); delete on matched `--clean` / `--remove-builds` | `invocation_key` over `options`; `partial` / `scopes[].complete`; union `session_paths` + scope paths |
-| **E — Method (optional)** | `env.CxxProfilesReport()` + `CollateCxxProfilesReportIndex` | `NotifyProgress.add`, SCons `Clean()` on outputs |
-| **F — Parallel-safe spawn scope** | Per-action env on `SpawnedProcessor` | Lift serial-only restriction |
-| **G — Phase 6 hook** | Honour `artefact_roots` / `--set-artefacts-folder` when #135 lands | Delete manifest hack or narrow to unmatched paths only |
+| **A — Parser + unit tests** | `cuppa/cpp/cxx_profiles_report.py` — parse, normalise, classify; `ProfilesScope` type | Fixture strings from samples; scope-aware dedupe keys |
+| **B — Collector + parallel spawn scope** | Progress callback **and** per-action `env` → `SpawnedProcessor`; thread-safe session store | Includes former slice F; do not ship collector without spawn scope |
+| **C — HTML + JSON** | Jinja templates + `CxxProfilesReportBuilder` at `sconstruct_end` | By rule / By file / Roll-up tabs; `link_style`; incomplete scope banner |
+| **D — Manifest + clean** | `.cuppa-reports` schema v1; matched `--clean` / `--remove-builds` | `invocation_key`, `partial`, path union |
+| **E — Method (optional)** | `env.CxxProfilesReport()` + collate | Deferred past A–D if cycle is tight |
+| **F — Phase 6 hook** | `artefact_roots` / `--set-artefacts-folder` when #135 lands | Supersedes manifest hack for declared trees |
 
-Target cycle: **1.8.0** for slices A–D (**1.8.0 target** in ROADMAP §1.8.0 cycle focus); E–G can spill to 1.9.0.
+Target cycle: **1.8.0** for slices **A–D** (B **must** include parallel spawn scope); E–F optional / blocked.
 
 ## Refusal rules
 
@@ -546,7 +575,8 @@ Target cycle: **1.8.0** for slices A–D (**1.8.0 target** in ROADMAP §1.8.0 cy
 | Auto-fix sources from the report | Out of scope — report is read-only |
 | `--cxx-profiles-report` without Profiles enabled | StopError |
 | Invent rule ids not in Clang docs | Use `_unclassified`; file issue to extend table |
-| Parallel `-j` accuracy guarantee in v1 | Document limitation; do not silently merge wrong scopes |
+| Silent mis-attribution under `-j` | Refuse — ship spawn scope in slice B |
+| Assign diagnostics to wrong variant without `_unscoped` fallback | Refuse |
 | MSVC Profiles diagnostics in v1 | StopError or empty report with notice until interpretor exists |
 
 ## Testing
@@ -557,13 +587,14 @@ Target cycle: **1.8.0** for slices A–D (**1.8.0 target** in ROADMAP §1.8.0 cy
 | Unit | Progress stack push/pop; replay `profile_output_2.txt` / partial multi-variant `profile_output_3.txt` sequences |
 | Unit | JSON view models (by rule / by file / roll-up); link URI generation for `local` and `gitlab` |
 | Unit | Manifest read/write; `invocation_key` includes `options`; `partial` + `complete` flags; path union for delete |
-| Integration | Tiny sconscript + Alliance Clang fixture (or mocked collector feed) produces HTML + JSON |
+| Unit | Spawn scope derivation from mock action `env`; thread-safe collector merge |
+| Integration | Profiles report under `--parallel` with two variants (or mocked interleaved spawns) |
 | Integration | `--clean` with matching flag removes manifest paths |
 | Docs | Antora page section under [`cxx-profiles.adoc`](../../docs/modules/ROOT/pages/cxx-profiles.adoc); CHANGELOG under open `[1.8.0]` |
 
 ## Documentation updates (when implemented)
 
-- Antora: workflow “inventory before fix”, flag table, serial-build note, sample HTML screenshot
+- Antora: workflow “inventory before fix”, flag table, parallel builds supported, sample HTML screenshot
   (optional via colourised-doc-samples pipeline).
 - [`archive/cxx-profiles.md`](../archive/cxx-profiles.md): link this plan in follow-ons (already
   cites dedupe/report in §2.3).
@@ -573,14 +604,13 @@ Target cycle: **1.8.0** for slices A–D (**1.8.0 target** in ROADMAP §1.8.0 cy
 
 | Slice | Status |
 |-------|--------|
-| Plan | **This document** (views, link_style, profile_output_3 sample) |
+| Plan | **This document** (parallel spawn scope in slice B) |
 | A — Parser | Not started |
-| B — Scope stack + collector | Not started |
+| B — Collector + parallel spawn scope | Not started |
 | C — HTML/JSON | Not started |
 | D — Manifest | Not started |
 | E — Method | Deferred |
-| F — Parallel spawn scope | Deferred |
-| G — Phase 6 | Blocked on #135 |
+| F — Phase 6 | Blocked on #135 |
 
 ## Open questions (resolve in first PR)
 
@@ -589,3 +619,4 @@ Target cycle: **1.8.0** for slices A–D (**1.8.0 target** in ROADMAP §1.8.0 cy
 3. **Report-only exit code:** optional `--cxx-profiles-report-allow-errors` if inventory runs should succeed?
 4. **Cross-variant roll-up:** union adds counts across scopes — confirm product choice when comparing `dbg` vs `rel` (settled above; note in Antora).
 5. **GitHub `link_style`:** extend shared helper vs duplicate URL template in Profiles module only?
+6. **`_unscoped` bucket:** when spawn scope cannot be derived, record under session `_unscoped` with warning in HTML — never guess variant.
