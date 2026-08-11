@@ -21,6 +21,7 @@ import logging
 
 import cuppa.timer
 from cuppa.colourise import as_colour, as_emphasised, as_highlighted, as_notice
+from cuppa.cpp.profiles_report_collector import ProfilesDiagnosticCollector
 from cuppa.log import logger
 from cuppa.utility.python2to3 import as_str, errno, Queue
 
@@ -320,10 +321,14 @@ class Processor:
 class SpawnedProcessor(object):
 
     def __init__( self, scons_env ):
+        from cuppa.cpp.cxx_profiles_report import profiles_scope_from_construction_env
+
+        self._profiles_scope = profiles_scope_from_construction_env( scons_env )
         self._processor = ToolchainProcessor(
                 scons_env['toolchain'],
                 scons_env['minimal_output'],
-                scons_env['ignore_duplicates'] )
+                scons_env['ignore_duplicates'],
+                self._profiles_scope )
 
     def __call__( self, line ):
         return self._processor( line )
@@ -335,10 +340,11 @@ class SpawnedProcessor(object):
 
 class ToolchainProcessor:
 
-    def __init__( self, toolchain, minimal_output, ignore_duplicates ):
+    def __init__( self, toolchain, minimal_output, ignore_duplicates, profiles_scope=None ):
         self.toolchain              = toolchain
         self.minimal_output         = minimal_output
         self.ignore_duplicates      = ignore_duplicates
+        self._profiles_scope        = profiles_scope
         self.errors                 = 0
         self.warnings               = 0
         self.start_time             = time.time()
@@ -372,6 +378,9 @@ class ToolchainProcessor:
 
 
     def __call__( self, line ):
+
+        if self._profiles_scope is not None:
+            ProfilesDiagnosticCollector.record_line( self._profiles_scope, line )
 
         ( matches, interpretor, error_id, warning_id ) = self.interpret( line )
 

@@ -31,6 +31,7 @@ import cuppa.core.build_layout
 import cuppa.modules.registration
 import cuppa.build_platform
 import cuppa.output_processor
+import cuppa.progress
 import cuppa.recursive_glob
 import cuppa.configure
 import cuppa.version
@@ -1044,6 +1045,8 @@ class Construct(object):
             ] )
 
             cuppa.core.environment.EnvironmentMethods.add_progress_tracking( sconscript_env )
+
+            cuppa.progress.NotifyProgress.notify_sconscript_env_ready( sconscript_env )
 
             sconscript_exports = {
                 'env'                     : sconscript_env,

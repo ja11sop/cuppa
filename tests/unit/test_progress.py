@@ -6,7 +6,7 @@
 import pytest
 
 import cuppa.progress as progress_module
-from cuppa.progress import NotifyProgress
+from cuppa.progress import NotifyProgress, VariantCompletionTracker
 
 
 pytestmark = pytest.mark.unit
@@ -51,6 +51,7 @@ def _make_env(sconscript_file, build_dir):
 @pytest.fixture(autouse=True)
 def _reset_notifyprogress_state(monkeypatch):
     NotifyProgress._callbacks = set()
+    NotifyProgress._sconscript_env_hooks = set()
     NotifyProgress._sconstruct_begin = None
     NotifyProgress._sconstruct_end = None
     NotifyProgress._begin = {}
@@ -158,3 +159,38 @@ def test_register_callback_routes_env_specific_and_global_callbacks():
 
     assert ("local", "finished", "a/sconscript", "_build/a/dbg", env) in events
     assert ("global", "finished", "a/sconscript", "_build/a/dbg", env) in events
+
+
+def test_scope_from_env_matches_variant_and_sconscript():
+    env = _make_env("test/sconscript", "_build/test/gcc15/dbg/x86_64/c++20/working")
+    assert NotifyProgress.scope_from_env(env) == (
+        "test/sconscript",
+        "_build/test/gcc15/dbg/x86_64/c++20",
+    )
+
+
+def test_scope_from_env_returns_none_when_fields_missing():
+    assert NotifyProgress.scope_from_env({}) is None
+    assert NotifyProgress.scope_from_env({"build_dir": "_build/x/working"}) is None
+
+
+def test_notify_sconscript_env_ready_invokes_registered_hooks():
+    calls = []
+    env = _make_env("a/sconscript", "_build/a/dbg/working")
+
+    NotifyProgress.register_sconscript_env_hook(lambda e: calls.append(e))
+
+    NotifyProgress.notify_sconscript_env_ready(env)
+
+    assert calls == [env]
+
+
+def test_variant_completion_tracker_notes_started_and_finished():
+    tracker = VariantCompletionTracker()
+    variant = "_build/test/dbg/x86_64/c++20"
+
+    tracker.note_progress("started", variant)
+    assert tracker.incomplete_variants() == {variant}
+
+    tracker.note_progress("finished", variant)
+    assert tracker.incomplete_variants() == set()

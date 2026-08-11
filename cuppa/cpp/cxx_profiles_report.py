@@ -164,6 +164,28 @@ def parse_profiles_diagnostic( line ):
     )
 
 
+def profiles_scope_from_construction_env( env ):
+    """Build a ``ProfilesScope`` from a sconscript construction ``env``."""
+    from cuppa.progress import NotifyProgress
+
+    scope = NotifyProgress.scope_from_env( env )
+    if scope is None:
+        return unscoped_profiles_scope()
+
+    sconscript, variant_dir = scope
+    toolchain = NotifyProgress.toolchain_name( env )
+    if not toolchain:
+        return unscoped_profiles_scope()
+
+    _toolchain_from_path, variant_label = parse_variant_scope_fields( variant_dir )
+    return ProfilesScope(
+        sconscript=sconscript,
+        variant_dir=variant_dir,
+        toolchain=toolchain,
+        variant_label=variant_label,
+    )
+
+
 def parse_variant_scope_fields( variant_dir ):
     """Derive toolchain and variant label from a cuppa variant directory path.
 
