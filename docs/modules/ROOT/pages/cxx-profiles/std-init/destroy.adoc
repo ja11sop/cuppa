@@ -26,9 +26,9 @@ template<typename T> [[now_uninit]] void destroy_at( T* Pointer );
 
 void destroy_twice()
 {
-    int storage = 5;
-    destroy_at( &storage );
-    destroy_at( &storage ); // double_destroy
+    int Storage = 5;
+    destroy_at( &Storage );
+    destroy_at( &Storage ); // double_destroy
 }
 ----
 

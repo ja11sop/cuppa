@@ -14,13 +14,13 @@ namespace ctor_uninit_member {
 // n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n
 
 struct with_member {
-    int value_;
-    // Violation: member 'value_' is not initialized in the member-initializer list.
+    int value;
+    // Violation: member 'value' is not initialized in the member-initializer list.
     with_member() {}
 };
 
 struct base {
-    int base_;
+    int value;
 };
 
 struct with_base : base {

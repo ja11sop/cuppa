@@ -24,8 +24,8 @@ namespace marker_rules {
 void pointer_marker_violation()
 {
     // Violation: [[uninit]] on a pointer (use nullptr initialization instead).
-    int* pointer [[uninit]];
-    (void)pointer;
+    int* Pointer [[uninit]];
+    (void)Pointer;
 }
 
 union scalar_union {
@@ -36,25 +36,25 @@ union scalar_union {
 void union_marker_violation()
 {
     // Violation: [[uninit]] on a union object.
-    scalar_union value [[uninit]];
-    (void)value;
+    scalar_union Value [[uninit]];
+    (void)Value;
 }
 
 // Violation: static storage is zero-initialized; [[uninit]] is not allowed.
-int static_storage [[uninit]];
+int StaticStorage [[uninit]];
 
 void written_initializer_with_marker()
 {
     // Violation: [[uninit]] combined with a written initializer.
-    int value [[uninit]] = 4;
-    (void)value;
+    int Value [[uninit]] = 4;
+    (void)Value;
 }
 
 void default_init_contradicts_marker()
 {
     // Violation: default construction of std::string contradicts [[uninit]].
-    std::string value [[uninit]];
-    (void)value;
+    std::string Value [[uninit]];
+    (void)Value;
 }
 
 // n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n

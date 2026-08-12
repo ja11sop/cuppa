@@ -21,7 +21,7 @@ the Antora pages under `docs/modules/ROOT/pages/cxx-profiles/std-init/`.
 | `destroy_rules.cpp` | `destroy_uninit`, `double_destroy` |
 
 Each file uses the **Readable style** layout described in `AGENTS.md`: section markers,
-snake_case types, spaces inside call parentheses.
+snake_case types and functions, PascalCase variables, spaces inside call parentheses.
 
 ## Prerequisites
 

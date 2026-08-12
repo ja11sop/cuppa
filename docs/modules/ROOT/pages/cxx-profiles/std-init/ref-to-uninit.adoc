@@ -20,14 +20,14 @@ From `examples/profiles/std-init-violations/ref_to_uninit.cpp`:
 ----
 void bind_unmarked_pointer_to_uninit()
 {
-    int storage [[uninit]];
-    int* pointer = &storage; // needs [[ref_to_uninit]]
+    int Storage [[uninit]];
+    int* Pointer = &Storage; // needs [[ref_to_uninit]]
 }
 
 void bind_marked_pointer_to_initialized()
 {
-    int initialized = 7;
-    int* pointer [[ref_to_uninit]] = &initialized; // must not be marked
+    int Initialized = 7;
+    int* Pointer [[ref_to_uninit]] = &Initialized; // must not be marked
 }
 ----
 

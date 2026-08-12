@@ -17,8 +17,8 @@ From `examples/profiles/std-init-violations/uninit_read.cpp`:
 ----
 void read_uninit_local()
 {
-    int value [[uninit]];
-    int copy = value; // read before write
+    int Value [[uninit]];
+    int Copy = Value; // read before write
 }
 
 int read_through_ref( int* Pointer [[ref_to_uninit]] )
@@ -33,7 +33,7 @@ Local or member read:
 
 [source]
 ----
-error: variable 'value' is read before initialization under profile 'std::init'
+error: variable 'Value' is read before initialization under profile 'std::init'
 error: member 'n' is read before initialization under profile 'std::init'
 ----
 

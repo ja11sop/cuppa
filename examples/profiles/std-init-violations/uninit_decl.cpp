@@ -25,22 +25,22 @@ union scalar_union {
 void automatic_uninitialized()
 {
     // Violation: automatic int with no initializer and no [[uninit]] marker.
-    int automatic;
-    (void)automatic;
+    int Automatic;
+    (void)Automatic;
 }
 
 void aggregate_member_uninitialized()
 {
     // Violation: aggregate member 'x' has indeterminate value.
-    aggregate_s object;
-    (void)object;
+    aggregate_s Object;
+    (void)Object;
 }
 
 void union_uninitialized()
 {
     // Violation: union objects must be initialized (active member not set).
-    scalar_union object;
-    (void)object;
+    scalar_union Object;
+    (void)Object;
 }
 
 // n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n

@@ -526,12 +526,28 @@ listings, and classifier fixtures:
 |------------|------|
 | File banner | Short `// ---` header stating purpose and which profile rule is exercised |
 | Section markers | Optional `// I I I …` (includes) and `// n n n …` (namespaces) blocks in larger files |
-| Naming | **snake_case** types, functions, and data members; **PascalCase** template parameters and function parameters (`void foo( int Value )`) |
-| Members | Trailing underscore for class data members (`value_`) |
+| Naming — types, functions | **snake_case** |
+| Naming — variables | **PascalCase** for locals, function parameters, and private data members |
+| Naming — template parameters | **PascalCase** |
+| Public data members | **snake_case** when a struct or class exposes fields that read like properties (same spirit as method names) |
+| Private data members | **PascalCase** with trailing underscore (`Name_`) |
 | Namespaces | Nested `namespace profiles { namespace std_init_violations { … } }` with `// end namespace …` comments |
 | Braces | Opening brace on the same line as the declaration |
 | Spacing | Spaces inside call parentheses; **no** space after `if` / `for` / `while` (`if( condition )`) |
 | Attributes | `[[nodiscard]]` before return type; profile markers (`[[uninit]]`, `[[ref_to_uninit]]`, …) on the same declarator |
+
+PascalCase variables let you reuse the natural name when the type already takes the
+snake_case form:
+
+```cpp
+int main()
+{
+    name Name = "My name";
+    return 0;
+}
+```
+
+Here `name` is the type and `Name` is the local.
 
 See `examples/profiles/std-init-violations/` for a multi-file reference. Do not invent a
 parallel style for cuppa examples.

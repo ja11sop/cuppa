@@ -59,8 +59,8 @@ You can put enforce in source yourself instead of (or as well as) the CLI:
 [[profiles::enforce(std::init)]];
 
 int main() {
-    int x = 0;
-    return x;
+    int Value = 0;
+    return Value;
 }
 ```
 

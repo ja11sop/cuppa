@@ -32,11 +32,11 @@ From `examples/profiles/std-init-violations/marker_rules.cpp`:
 
 [source,cpp]
 ----
-int* pointer [[uninit]];              // pointer_marker
-union u { int i; float f; } value [[uninit]]; // union_marker
-int static_storage [[uninit]];        // static_marker (namespace scope)
-int value [[uninit]] = 4;             // uninit_with_initializer
-std::string text [[uninit]];          // uninit_with_initializer (default init)
+int* Pointer [[uninit]];              // pointer_marker
+union u { int i; float f; } Value [[uninit]]; // union_marker
+int StaticStorage [[uninit]];        // static_marker (namespace scope)
+int Value [[uninit]] = 4;             // uninit_with_initializer
+std::string Text [[uninit]];          // uninit_with_initializer (default init)
 ----
 
 == Expected Clang diagnostics
@@ -45,13 +45,13 @@ std::string text [[uninit]];          // uninit_with_initializer (default init)
 ----
 error: '[[uninit]]' cannot be applied to a pointer under profile 'std::init'; initialize the pointer (for example to 'nullptr')
 error: '[[uninit]]' cannot be applied to a variable of union type under profile 'std::init'
-error: '[[uninit]]' cannot be applied to variable 'static_storage' with static storage duration under profile 'std::init'; it is zero-initialized
-error: variable 'value' cannot be both '[[uninit]]' and have an initializer under profile 'std::init'
+error: '[[uninit]]' cannot be applied to variable 'StaticStorage' with static storage duration under profile 'std::init'; it is zero-initialized
+error: variable 'Value' cannot be both '[[uninit]]' and have an initializer under profile 'std::init'
 ----
 
 == Resolutions
 
-* **Pointers** — use `int* pointer = nullptr;` or a valid target, not `{cxx-a-uninit}`.
+* **Pointers** — use `int* Pointer = nullptr;` or a valid target, not `{cxx-a-uninit}`.
 * **Unions** — initialize the active member or use a discriminated wrapper type.
 * **Static / thread storage** — rely on zero initialization or explicit constant init; use
   function-local statics when you need lazy runtime init.
