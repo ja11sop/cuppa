@@ -69,7 +69,7 @@ Write changelog entries under that section as each change lands — not in a swe
 
 == Closing a cycle
 
-Closing is part of xref:contributing-release.adoc[Cutting a release].
+Closing is part of xref:contributing/release.adoc[Cutting a release].
 The supported path is the Actions **prepare** button, which runs:
 
 [source,sh]
@@ -109,4 +109,4 @@ gitGraph
   merge feature_branch id: "merge PR"
 ....
 
-The release-specific branches and tags are on xref:contributing-release.adoc[Cutting a release].
+The release-specific branches and tags are on xref:contributing/release.adoc[Cutting a release].

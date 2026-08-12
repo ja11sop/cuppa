@@ -51,7 +51,6 @@ Shipped on branch `doc-folder-layout` after [#192](https://github.com/ja11sop/cu
 - Moving **`integration/`** pages (already folder-aligned).
 - **`methods/`** split — stays on [`methods-pages-split.md`](../plans/methods-pages-split.md); optional
   to land methods folders in the same cycle or immediately after.
-- Moving **`contributing/`** children (lower churn; can follow the same rule later).
 
 ## Target layout
 
@@ -85,13 +84,13 @@ docs/modules/ROOT/pages/
     std-init.adoc
     std-init/
       uninit-decl.adoc
-      uninit-read.adoc
-      uninit-write.adoc
-      ref-to-uninit.adoc
-      destroy.adoc
-      constructors.adoc
-      static-init.adoc
-      markers.adoc
+      ...
+
+  contributing.adoc
+  contributing/
+    versioning.adoc
+    report-patterns.adoc
+    release.adoc
 
 docs/modules/ROOT/partials/
   cxx-profiles/
@@ -120,6 +119,8 @@ docs/modules/ROOT/partials/
 | Profiles hub | `/cxx-profiles.html` | unchanged |
 | std::init hub | `/cxx-profiles-std-init.html` | `/cxx-profiles/std-init.html` |
 | Rule family | `/cxx-profiles-std-init-uninit-decl.html` | `/cxx-profiles/std-init/uninit-decl.html` |
+| Contributing hub | `/contributing.html` | unchanged |
+| Versioning | `/contributing-versioning.html` | `/contributing/versioning.html` |
 
 External bookmarks to **child** pages will break unless we add a redirect mechanism later.
 Call that out in the PR; do not block the move on redirects.
@@ -132,6 +133,7 @@ Call that out in the PR; do not block the move on redirects.
 | B | Xref migration | Repo-wide replace `xref:dependencies/location.adoc` → `xref:dependencies/location.adoc`, etc. |
 | C | Partial includes | `include::partial$cxx-profiles/attribute-markers.adoc[]` on std::init pages |
 | D | Toolchains + dependencies | Same mechanical pass as profiles |
+| D½ | Contributing children | `contributing/versioning.adoc`, `report-patterns.adoc`, `release.adoc` |
 | E | Verification | `npm run build`; `rg` for stale paths; optional link check in built `_docs_build/site` |
 | F | Housekeeping | Update AGENTS.md hub table, CHANGELOG (patch, docs), this plan status → shipped |
 
@@ -146,10 +148,14 @@ Mechanical grep targets before merge:
 xref:dependencies-
 xref:toolchain-
 xref:cxx-profiles-std-init
+xref:contributing-
 include::partial$cxx-profile-attribute-markers
 dependencies/location.adoc
 toolchains/gcc.adoc
 cxx-profiles-std-init-
+contributing-versioning.adoc
+contributing-report-patterns.adoc
+contributing-release.adoc
 ```
 
 Also scan:

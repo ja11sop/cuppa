@@ -414,7 +414,7 @@ mode, in one invocation. Develop working copies are never deleted. SCons `-n` is
 Missing trees / downloads are not a failure.
 When inventory `used_by` names another project, `--wipe-dependencies` emits the same judgement-tree
 notices as force-wipe (warning on dry-run, past-tense note after a real wipe). See
-xref:contributing-report-patterns.adoc[Report patterns].
+xref:contributing/report-patterns.adoc[Report patterns].
 
 [source,shell]
 ----

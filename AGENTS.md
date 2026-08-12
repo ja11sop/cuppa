@@ -619,8 +619,8 @@ When docs and code disagree, **code is authoritative** (especially storage defau
 | Writing your own dependencies | `dependencies/extending.adoc` (also `extending.adoc` for plugins) |
 | Publishing packages (GitLab / Conan) | `packages.adoc` (publish focus; not consume tutorials) |
 | Contributing to cuppa itself (hub) | `contributing.adoc` |
-| Versioning / changelog / start_release | `contributing-versioning.adoc` |
-| Cutting a release (prepare / publish) | `contributing-release.adoc` |
+| Versioning / changelog / start_release | `contributing/versioning.adoc` |
+| Cutting a release (prepare / publish) | `contributing/release.adoc` |
 | Pytest scenarios | `integration-tests.adoc` + `integration/*.adoc` |
 
 The Phase 3 documentation split in [`design/plans/removal-options.md`](design/plans/removal-options.md) §7.1 has landed. Prefer the child page above rather than growing the hub.

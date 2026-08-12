@@ -28,8 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Antora: move dependency, toolchain, and C++ Profiles child pages into folders mirroring
-  navigation (`dependencies/`, `toolchains/`, `cxx-profiles/std-init/`); hub URLs unchanged.
+- Antora: move dependency, toolchain, C++ Profiles, and Contributing child pages into folders
+  mirroring navigation (`dependencies/`, `toolchains/`, `cxx-profiles/std-init/`, `contributing/`);
+  hub URLs unchanged.
 
 ### Deprecated
 
@@ -190,7 +191,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   use a single-slot mark (`✔` / `-`) rather than a triple rollup. See
   `design/archive/console-report-patterns.md` and [#161](https://github.com/ja11sop/cuppa/issues/161).
 - Antora **Contributing → Report patterns** documents judgement-tree shape, warn-before /
-  note-after, and shared helpers (`docs/modules/ROOT/pages/contributing-report-patterns.adoc`).
+  note-after, and shared helpers (`docs/modules/ROOT/pages/contributing/report-patterns.adoc`).
 
 ### Changed
 

@@ -9,7 +9,7 @@ when the workflow changes.
 
 * You can merge pull requests to `master` and approve the `pypi` GitHub Environment.
 * An open release cycle is on `master`: `cuppa/VERSION` is `X.Y.Z.dev` and `CHANGELOG.md` has
-  entries under `## [X.Y.Z] - unreleased`. See xref:contributing-versioning.adoc[Versioning and changelog].
+  entries under `## [X.Y.Z] - unreleased`. See xref:contributing/versioning.adoc[Versioning and changelog].
 * Trusted Publishing is configured once (see <<trusted-publishing>> below).
 
 == Happy path
