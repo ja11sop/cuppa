@@ -34,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Readable style: document PascalCase variables in `AGENTS.md`; align std::init example sources,
   Antora listings, and golden diagnostics with snake_case types/functions and property-like
   public struct members.
+- Antora: apply Readable C++ style to all `[source,cpp]` listings (including
+  xref:cxx-modules.adoc[C++ Modules] tutorials).
 
 ### Deprecated
 

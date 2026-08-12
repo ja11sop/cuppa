@@ -176,9 +176,9 @@ Create an interface unit and a consumer:
 // math.cppm
 export module math;
 
-export int add(int a, int b)
+export int add( int A, int B )
 {
-    return a + b;
+    return A + B;
 }
 ----
 
@@ -190,7 +190,7 @@ import math;
 
 int main()
 {
-    std::printf("%d\n", add(2, 3));
+    std::printf( "%d\n", add( 2, 3 ) );
 }
 ----
 
@@ -350,11 +350,11 @@ Keep declarations in the interface and definitions in a separate TU:
 ----
 // math_decl.cppm
 export module math_impl;
-export int add(int a, int b);
+export int add( int A, int B );
 
 // math_impl.cpp
 module math_impl;
-int add(int a, int b) { return a + b; }
+int add( int A, int B ) { return A + B; }
 ----
 
 [source,python]
@@ -370,13 +370,13 @@ Split a large interface across partition units and re-export them from the prima
 ----
 // geo/point.cppm
 export module geo:point;
-export struct Point { int x; int y; };
-export int manhattan(Point p);
+export struct point { int x; int y; };
+export int manhattan( point Point );
 
 // geo/geo.cppm
 export module geo;
 export import :point;          // relative partition import
-export int origin_distance(Point p);
+export int origin_distance( point Point );
 ----
 
 [source,python]
@@ -401,16 +401,16 @@ partition holds helpers, and an implementation unit wires them together:
 ----
 // calc/calc.cppm
 export module calc;
-export int add(int a, int b);
+export int add( int A, int B );
 
 // calc/core.cpp
 module calc:core;              // implementation partition → its own BMI
-int core_add(int a, int b);
+int core_add( int A, int B );
 
 // calc/calc.cpp
 module calc;
 import :core;
-int add(int a, int b) { return core_add(a, b); }
+int add( int A, int B ) { return core_add( A, B ); }
 ----
 
 [source,python]
@@ -434,8 +434,8 @@ Hide implementation details inside the primary interface unit with `module :priv
 export module secrets;
 export int public_answer();
 module :private;
-static int hidden = 7;
-int public_answer() { return hidden; }
+static int Hidden = 7;
+int public_answer() { return Hidden; }
 ----
 
 [NOTE]

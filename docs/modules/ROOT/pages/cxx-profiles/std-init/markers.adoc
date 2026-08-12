@@ -33,7 +33,7 @@ From `examples/profiles/std-init-violations/marker_rules.cpp`:
 [source,cpp]
 ----
 int* Pointer [[uninit]];              // pointer_marker
-union u { int i; float f; } Value [[uninit]]; // union_marker
+union scalar_union { int i; float f; } Value [[uninit]]; // union_marker
 int StaticStorage [[uninit]];        // static_marker (namespace scope)
 int Value [[uninit]] = 4;             // uninit_with_initializer
 std::string Text [[uninit]];          // uninit_with_initializer (default init)

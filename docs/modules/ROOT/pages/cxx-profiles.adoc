@@ -58,7 +58,8 @@ You can put enforce in source yourself instead of (or as well as) the CLI:
 ```cpp
 [[profiles::enforce(std::init)]];
 
-int main() {
+int main()
+{
     int Value = 0;
     return Value;
 }

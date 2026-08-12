@@ -518,9 +518,9 @@ Plugins (setuptools): `cuppa.method.plugins`, `cuppa.profile.plugins`, `cuppa.de
 
 ## C++ example style (Readable style)
 
-C++ sources under `examples/` (especially `examples/profiles/`) use a consistent **Readable
-style** for layout and naming. Match these when adding or editing example code, Antora
-listings, and classifier fixtures:
+C++ sources under `examples/` and all Antora C++ listings use a consistent **Readable
+style** for layout and naming. Match these when adding or editing example code,
+classifier fixtures, and documentation:
 
 | Convention | Rule |
 |------------|------|
