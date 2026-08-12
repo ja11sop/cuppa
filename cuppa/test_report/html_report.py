@@ -91,7 +91,7 @@ def initialise_test_linking( env, link_style=None ):
     else:
         url, repository, branch, remote, revision = vcs_info_from_location( env['sconstruct_dir'], env['current_branch'], env['current_revision'] )
 
-        if link_style == "gitlab" and url and branch:
+        if link_style in ( "gitlab", "github" ) and url and branch:
             # NOTE: Might need to do VCS detection per test file
             base_uri = os.path.join( os.path.splitext(url)[0], "blob", branch )
         elif link_style == "raw":
@@ -404,7 +404,7 @@ class GenerateHtmlReportBuilder(object):
             if filepath:
                 link += "/" + filepath
             return link
-        elif self._link_style == "gitlab":
+        elif self._link_style in ( "gitlab", "github" ):
             link = self._base_uri
             if filepath:
                 link += "/" + filepath

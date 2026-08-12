@@ -22,6 +22,10 @@ clear failure with a normal gcc/clang that lacks Profiles.
 | Source `[[profiles::enforce()]];` plus CLI `--cxx-profiles-enforce=std::init`
 | Skips without Profiles Clang
 
+| `test_profiles_report_emits_html_and_json`
+| `--cxx-profiles-report` with enforce + error-limit disabled
+| Writes `_artifacts/cxx-profiles/` HTML + JSON; skips without Profiles Clang
+
 | `test_profiles_unsupported_toolchain_fails`
 | `--cxx-profiles` on a non-Profiles toolchain
 | Expects StopError / clear message

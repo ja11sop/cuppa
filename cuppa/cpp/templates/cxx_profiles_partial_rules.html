@@ -1,0 +1,76 @@
+<table class="table table-sm">
+  <thead>
+    <tr>
+      {% if rules and rules[0].profile is defined %}
+      <th>Profile</th>
+      {% endif %}
+      <th>Rule</th>
+      <th class="text-right">References</th>
+      <th class="text-right">Files</th>
+      <th class="text-right">Locations</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for rule in rules %}
+    {% set row_id = (id_prefix | default('rule')) ~ '-' ~ loop.index %}
+    <tr>
+      {% if rule.profile is defined %}
+      <td>{{ rule.profile }}</td>
+      {% endif %}
+      <td><code>{{ rule.rule_id }}</code></td>
+      <td class="text-right">{{ rule.total_references }}</td>
+      <td class="text-right">{{ rule.unique_files }}</td>
+      <td class="text-right">{{ rule.unique_locations | default(rule.total_references) }}</td>
+      <td class="text-right">
+        {% if rule.files or rule.scopes %}
+        <a class="badge badge-pill badge-secondary" data-toggle="collapse" href="#{{ row_id }}-detail" role="button" aria-expanded="false">detail</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% if rule.files or rule.scopes %}
+    <tr class="p-0 border-0">
+      <td colspan="6" class="p-0 border-0">
+        <div class="collapse" id="{{ row_id }}-detail">
+          <div class="px-3 py-2 bg-light">
+            {% if rule.reference %}
+            <p class="prof-muted mb-2 small">{{ rule.reference.p4222 | default('') }}{% if rule.reference.clang_doc %} — {{ rule.reference.clang_doc }}{% endif %}</p>
+            {% endif %}
+            {% if rule.files %}
+            <p class="mb-1 small font-weight-bold">Files</p>
+            <ul class="small mb-2">
+              {% for file in rule.files %}
+              <li>
+                {% if file.href %}<a href="{{ file.href }}">{% endif %}{{ file.display_path | default(file.path) }}{% if file.href %}</a>{% endif %}
+                — {{ file.total_references }} ref(s)
+                {% if file.locations %}
+                <ul class="mb-0">
+                  {% for location in file.locations %}
+                  <li>
+                    {% if location.href %}<a href="{{ location.href }}">{% endif %}line {{ location.line }}, col {{ location.column }}{% if location.href %}</a>{% endif %}
+                    {% if location.references and location.references > 1 %} (×{{ location.references }}){% endif %}
+                    <span class="text-muted d-block">{{ location.message }}</span>
+                  </li>
+                  {% endfor %}
+                </ul>
+                {% endif %}
+              </li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+            {% if rule.scopes %}
+            <p class="mb-1 small font-weight-bold">Scopes</p>
+            <ul class="small mb-0">
+              {% for scope in rule.scopes %}
+              <li>{{ scope.scope }} — {{ scope.references }} ref(s)</li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+          </div>
+        </div>
+      </td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+  </tbody>
+</table>

@@ -666,6 +666,8 @@ cuppa -D --dbg --develop --offline --test
 cuppa -D --list-develop
 cuppa -D --update-develop
 cuppa -D --cov --test --toolchains=gcc
+cuppa -D --dbg --cxx-profiles --cxx-profiles-enforce=std::init \
+  --cxx-disable-error-limit --cxx-profiles-report
 ```
 
 `--list-develop` reports the branch and cleanliness of each configured develop working copy; `--update-develop` fast-forwards the clean ones that are behind. See `dependencies.adoc` § Checking your develop copies.

@@ -1,0 +1,57 @@
+<table class="table table-sm">
+  <thead>
+    <tr>
+      {% if files and files[0].profile is defined %}
+      <th>Profile</th>
+      {% endif %}
+      <th>File</th>
+      <th class="text-right">References</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for file in files %}
+    {% set row_id = (id_prefix | default('file')) ~ '-' ~ loop.index %}
+    <tr>
+      {% if file.profile is defined %}
+      <td>{{ file.profile }}</td>
+      {% endif %}
+      <td class="text-monospace">
+        {% if file.href %}<a href="{{ file.href }}">{% endif %}{{ file.display_path | default(file.path) }}{% if file.href %}</a>{% endif %}
+      </td>
+      <td class="text-right">{{ file.total_references }}</td>
+      <td class="text-right">
+        {% if file.rules or file.scopes %}
+        <a class="badge badge-pill badge-secondary" data-toggle="collapse" href="#{{ row_id }}-detail" role="button" aria-expanded="false">detail</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% if file.rules or file.scopes %}
+    <tr class="p-0 border-0">
+      <td colspan="4" class="p-0 border-0">
+        <div class="collapse" id="{{ row_id }}-detail">
+          <div class="px-3 py-2 bg-light">
+            {% if file.rules %}
+            <p class="mb-1 small font-weight-bold">Rules</p>
+            <ul class="small mb-2">
+              {% for rule in file.rules %}
+              <li><code>{{ rule.rule_id }}</code> — {{ rule.total_references }} ref(s){% if rule.sample_message %}<span class="text-muted d-block">{{ rule.sample_message }}</span>{% endif %}</li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+            {% if file.scopes %}
+            <p class="mb-1 small font-weight-bold">Scopes</p>
+            <ul class="small mb-0">
+              {% for scope in file.scopes %}
+              <li>{{ scope.scope }} — {{ scope.references }} ref(s)</li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+          </div>
+        </div>
+      </td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+  </tbody>
+</table>

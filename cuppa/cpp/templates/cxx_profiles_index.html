@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+    <title>C++ Profiles violation report</title>
+    <style>
+      .prof-muted { color: #6c757d; font-size: 0.875rem; }
+    </style>
+  </head>
+  <body>
+    <div class="container-fluid py-4">
+      <h2>C++ Profiles violation report</h2>
+      <p class="prof-muted">Session roll-up — {{ model.rollup.total_references }} references, {{ model.rollup.unique_locations }} unique locations</p>
+
+      {% if incomplete_scopes %}
+      <div class="alert alert-warning" role="alert">
+        Incomplete scope(s): {{ incomplete_scopes | join(', ') }}
+      </div>
+      {% endif %}
+
+      <ul class="nav nav-tabs mt-3" role="tablist">
+        <li class="nav-item">
+          <a class="nav-link active" data-toggle="tab" href="#scopes" role="tab">Scopes</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" data-toggle="tab" href="#rollup-rules" role="tab">Roll-up by rule</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" data-toggle="tab" href="#rollup-files" role="tab">Roll-up by file</a>
+        </li>
+      </ul>
+
+      <div class="tab-content border border-top-0 p-3">
+        <div class="tab-pane fade show active" id="scopes" role="tabpanel">
+          <table class="table table-sm table-hover">
+            <thead>
+              <tr>
+                <th>Sconscript</th>
+                <th>Variant</th>
+                <th>Toolchain</th>
+                <th class="text-right">References</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for page in scope_pages %}
+              <tr>
+                <td class="text-monospace">{{ page.scope.sconscript }}</td>
+                <td>{{ page.scope.variant_label }}</td>
+                <td class="text-monospace">{{ page.scope.toolchain }}</td>
+                <td class="text-right">{{ page.scope.total_references }}</td>
+                <td><a href="{{ page.html }}">Detail</a></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="tab-pane fade" id="rollup-rules" role="tabpanel">
+          {% with rules=model.rollup.rules, id_prefix='rollup-rule' %}
+          {% include 'cxx_profiles_partial_rules.html' %}
+          {% endwith %}
+        </div>
+
+        <div class="tab-pane fade" id="rollup-files" role="tabpanel">
+          {% with files=model.rollup.files, id_prefix='rollup-file' %}
+          {% include 'cxx_profiles_partial_files.html' %}
+          {% endwith %}
+        </div>
+      </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+  </body>
+</html>

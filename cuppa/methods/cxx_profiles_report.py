@@ -20,16 +20,37 @@ class CxxProfilesReportMethod:
         add_option(
             '--cxx-profiles-report',
             dest='cxx_profiles_report',
-            action='store_true',
-            help='Capture Profiles diagnostics during the build for a violation '
-                 'report (requires --cxx-profiles or --cxx-profiles-enforce=; '
-                 'HTML output is a follow-on slice)',
+            nargs='?',
+            const=True,
+            default=False,
+            help='Capture Profiles diagnostics and emit HTML + JSON under '
+                 '_artifacts/cxx-profiles/ (requires --cxx-profiles or '
+                 '--cxx-profiles-enforce=; optional directory path after =)',
+        )
+        add_option(
+            '--cxx-profiles-report-root',
+            dest='cxx_profiles_report_root',
+            default=None,
+            help='Rebase project-owned source paths in Profiles reports '
+                 '(default: sconstruct directory)',
+        )
+        add_option(
+            '--cxx-profiles-report-link-style',
+            dest='cxx_profiles_report_link_style',
+            default='local',
+            choices=[ 'local', 'gitlab', 'github' ],
+            help='Source link targets in Profiles HTML reports (default: local)',
         )
 
     @classmethod
     def get_options( cls, env ):
-        enabled = bool( env.get_option( 'cxx_profiles_report' ) )
+        raw = env.get_option( 'cxx_profiles_report' )
+        enabled = False if raw in ( None, False ) else raw
         env[ 'cxx_profiles_report' ] = enabled
+        env[ 'cxx_profiles_report_root' ] = env.get_option( 'cxx_profiles_report_root' )
+        env[ 'cxx_profiles_report_link_style' ] = env.get_option(
+            'cxx_profiles_report_link_style',
+        )
         if not enabled:
             return
 

@@ -185,6 +185,122 @@ def location_dedupe_key( scope, diagnostic ):
     )
 
 
+def _sort_rules( rules ):
+    return sorted(
+        rules,
+        key=lambda entry: ( -entry[ 'total_references' ], entry[ 'rule_id' ] ),
+    )
+
+
+def _sort_files( files ):
+    return sorted(
+        files,
+        key=lambda entry: ( -entry[ 'total_references' ], entry[ 'path' ] ),
+    )
+
+
+def _scope_report_stem( scope_entry ):
+    """Filename stem for a per-scope HTML detail page."""
+    raw = '--'.join(
+        (
+            scope_entry[ 'sconscript' ].strip( './' ).replace( '/', '--' ),
+            scope_entry[ 'variant_label' ],
+            scope_entry[ 'toolchain' ],
+        ),
+    )
+    safe = ''.join(
+        ch if ch.isalnum() or ch in '-_.' else '-'
+        for ch in raw
+    )
+    while '--' in safe:
+        safe = safe.replace( '--', '-' )
+    return 'cxx-profiles--{}'.format( safe.strip( '-' ) )
+
+
+def _build_session_rollup( locations ):
+    """Cross-scope roll-up keyed without scope (reference counts add across variants)."""
+    rules = {}
+    files = {}
+    for location in locations:
+        rule_key = ( location.profile, location.rule_id )
+        rule_entry = rules.setdefault(
+            rule_key,
+            {
+                'profile': location.profile,
+                'rule_id': location.rule_id,
+                'total_references': 0,
+                'unique_files': set(),
+                'scopes': {},
+            },
+        )
+        rule_entry[ 'total_references' ] += location.reference_count
+        rule_entry[ 'unique_files' ].add( location.path )
+        scope_key = '{} / {}'.format(
+            location.scope.sconscript,
+            location.scope.variant_label,
+        )
+        rule_entry[ 'scopes' ][ scope_key ] = (
+            rule_entry[ 'scopes' ].get( scope_key, 0 ) + location.reference_count
+        )
+
+        file_key = ( location.profile, location.path )
+        file_entry = files.setdefault(
+            file_key,
+            {
+                'profile': location.profile,
+                'path': location.path,
+                'total_references': 0,
+                'rules': {},
+                'scopes': {},
+            },
+        )
+        file_entry[ 'total_references' ] += location.reference_count
+        file_entry[ 'rules' ][ location.rule_id ] = (
+            file_entry[ 'rules' ].get( location.rule_id, 0 ) + location.reference_count
+        )
+        file_entry[ 'scopes' ][ scope_key ] = (
+            file_entry[ 'scopes' ].get( scope_key, 0 ) + location.reference_count
+        )
+
+    rollup_rules = []
+    for entry in rules.values():
+        rollup_rules.append(
+            {
+                'profile': entry[ 'profile' ],
+                'rule_id': entry[ 'rule_id' ],
+                'total_references': entry[ 'total_references' ],
+                'unique_files': len( entry[ 'unique_files' ] ),
+                'scopes': [
+                    { 'scope': scope, 'references': count }
+                    for scope, count in sorted( entry[ 'scopes' ].items() )
+                ],
+            },
+        )
+
+    rollup_files = []
+    for entry in files.values():
+        rollup_files.append(
+            {
+                'profile': entry[ 'profile' ],
+                'path': entry[ 'path' ],
+                'total_references': entry[ 'total_references' ],
+                'rules': [
+                    { 'rule_id': rule_id, 'total_references': count }
+                    for rule_id, count in sorted( entry[ 'rules' ].items() )
+                ],
+                'scopes': [
+                    { 'scope': scope, 'references': count }
+                    for scope, count in sorted( entry[ 'scopes' ].items() )
+                ],
+            },
+        )
+
+    return {
+        'rules': _sort_rules( rollup_rules ),
+        'files': _sort_files( rollup_files ),
+    }
+
+
 class ProfilesInventory:
     """In-memory Profiles violation inventory with scope-aware dedupe."""
 
@@ -275,7 +391,7 @@ class ProfilesInventory:
             file_roll[ 'total_references' ] += location.reference_count
             file_rule = file_roll[ 'rules' ].setdefault(
                 location.rule_id,
-                { 'total_references': 0 },
+                { 'total_references': 0, 'sample_message': location.raw_message },
             )
             file_rule[ 'total_references' ] += location.reference_count
 
@@ -299,15 +415,21 @@ class ProfilesInventory:
                             'rule_id': rule_id,
                             'total_references': rule_data[ 'total_references' ],
                             'unique_files': len( rule_data[ 'unique_files' ] ),
+                            'unique_locations': sum(
+                                len( file_data[ 'locations' ] )
+                                for file_data in rule_data[ 'files' ].values()
+                            ),
                             'files': files,
                         },
                     )
+                rules = _sort_rules( rules )
                 files_view = []
                 for path, file_data in sorted( profile_data[ 'files' ].items() ):
                     rules_on_file = [
                         {
                             'rule_id': rule_id,
                             'total_references': rule_entry[ 'total_references' ],
+                            'sample_message': rule_entry.get( 'sample_message' ),
                         }
                         for rule_id, rule_entry in sorted( file_data[ 'rules' ].items() )
                     ]
@@ -318,6 +440,7 @@ class ProfilesInventory:
                             'rules': rules_on_file,
                         },
                     )
+                files_view = _sort_files( files_view )
                 profiles.append(
                     {
                         'profile': profile_name,
@@ -325,20 +448,34 @@ class ProfilesInventory:
                         'files': files_view,
                     },
                 )
+            scope_total = sum(
+                rule[ 'total_references' ]
+                for profile in profiles
+                for rule in profile[ 'rules' ]
+            )
             serialised_scopes.append(
                 {
                     'sconscript': scope_entry[ 'sconscript' ],
                     'variant_dir': scope_entry[ 'variant_dir' ],
                     'toolchain': scope_entry[ 'toolchain' ],
                     'variant_label': scope_entry[ 'variant_label' ],
+                    'report_stem': _scope_report_stem( scope_entry ),
+                    'total_references': scope_total,
                     'profiles': profiles,
                 },
             )
+
+        serialised_scopes.sort(
+            key=lambda entry: ( -entry[ 'total_references' ], entry[ 'sconscript' ] ),
+        )
+        session_rollup = _build_session_rollup( self._locations.values() )
 
         return {
             'scopes': serialised_scopes,
             'rollup': {
                 'total_references': self.total_references(),
                 'unique_locations': self.unique_locations(),
+                'rules': session_rollup[ 'rules' ],
+                'files': session_rollup[ 'files' ],
             },
         }

@@ -115,6 +115,35 @@ Optional methods (same env keys as the CLI):
 * `env.CxxProfiles()` — force the framework on for that env
 * `env.CxxProfilesEnforce('std::init')` — set enforce designators and activate
 
+=== Violation inventory report (`--cxx-profiles-report`)
+
+When you need a browsable inventory of Profiles diagnostics before fixing sources,
+pass `--cxx-profiles-report` together with `--cxx-profiles` or `--cxx-profiles-enforce=`.
+Cuppa captures diagnostics during the build and writes HTML plus JSON under
+`_artifacts/cxx-profiles/` at the end of the session (`sconstruct_end`).
+
+Pair with `--cxx-disable-error-limit` so the compiler does not stop after its
+default diagnostic cap. The report is read-only — it does not rewrite sources.
+
+[source,bash]
+----
+cuppa -D --dbg --toolchains=clang24_profiles_2026_08_07_27 \
+  --cxx-profiles --cxx-profiles-enforce=std::init \
+  --cxx-disable-error-limit --cxx-profiles-report
+----
+
+The session index lists each scope (sconscript × variant × toolchain) with
+roll-up tabs across the whole build. Per-scope pages provide **By rule** and
+**By file** views with expandable line detail. Roll-up totals **add reference
+counts** across variants — the same violation in `dbg` and `rel` contributes twice
+unless you filter to one scope.
+
+Optional flags:
+
+* `--cxx-profiles-report=` *path* — explicit report directory (or index file stem)
+* `--cxx-profiles-report-root=` *dir* — rebase project-owned paths for display and links
+* `--cxx-profiles-report-link-style=local|gitlab|github` — source link targets (default `local`)
+
 === Full diagnostic lists (`--cxx-disable-error-limit`)
 
 Profile enforce checks can emit many diagnostics; compilers stop after a default cap.
@@ -292,7 +321,7 @@ Initialization profile direction for Alliance Clang's `std::init`:
 
 == Related cuppa pages
 
-* xref:cli-reference.adoc[CLI reference] — `--cxx-profiles`, `--cxx-profiles-enforce=`, `--cxx-disable-error-limit`
+* xref:cli-reference.adoc[CLI reference] — `--cxx-profiles`, `--cxx-profiles-enforce=`, `--cxx-disable-error-limit`, `--cxx-profiles-report`
 * xref:toolchains/clang.adoc[Clang] — Profiles-capable archives
 * xref:toolchains.adoc[Toolchains] — `--toolchain-archive=` / `--clang-root=`
 * xref:integration/test-cxx-profiles.adoc[Integration: {cpp} Profiles]

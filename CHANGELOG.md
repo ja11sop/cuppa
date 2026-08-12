@@ -9,15 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Profiles violation report HTML + JSON (slice C, `prof-report-html`): emit
+  `cxx-profiles-index.html`, per-scope detail pages, and `cxx-profiles-index.json`
+  under `_artifacts/cxx-profiles/` at `sconstruct_end` when `--cxx-profiles-report`
+  is set; `--cxx-profiles-report-link-style=` and `--cxx-profiles-report-root=`.
 - Profiles violation report parser groundwork ([#184](https://github.com/ja11sop/cuppa/issues/184)):
   `cuppa/cpp/cxx_profiles_report.py` parses Clang Profiles diagnostics, classifies rule
-  ids, and dedupes violations per scope (slice A; CLI and HTML in later slices).
+  ids, and dedupes violations per scope (slice A).
   `python -m scripts.replay_profiles_capture` replays saved build captures using
   ``Progress( … )`` scope markers.
 - Profiles violation capture during builds (slice B, `prof-report-collector`):
   ``--cxx-profiles-report`` activates an in-process collector wired through
-  ``ToolchainProcessor`` with per-sconscript spawn scope; session summary logs at
-  ``sconstruct_end`` (HTML/JSON in slice C).
+  ``ToolchainProcessor`` with per-sconscript spawn scope; session summary and HTML/JSON
+  at ``sconstruct_end``.
 - Profiles parser layering (B½, `prof-report-parser-layers`): split inventory,
   Clang line parsing, and profile-keyed classifiers under ``cuppa/cpp/profiles_report/``;
   ``examples/profiles/std-init-violations/`` and ``std_init_golden.json`` fixtures for

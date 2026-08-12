@@ -62,6 +62,10 @@ setup(
             os.path.join( 'dependencies','boost','boost_test_patch_1.71.0.diff' ),
             os.path.join( 'dependencies','boost','boost_test_patch_1.72.0.diff' ),
             os.path.join( 'cpp','templates','coverage_index.html' ),
+            os.path.join( 'cpp','templates','cxx_profiles_index.html' ),
+            os.path.join( 'cpp','templates','cxx_profiles_partial_files.html' ),
+            os.path.join( 'cpp','templates','cxx_profiles_partial_rules.html' ),
+            os.path.join( 'cpp','templates','cxx_profiles_scope.html' ),
             os.path.join( 'test_report','templates','test_report_index.html' ),
             os.path.join( 'test_report','templates','test_suite_index.html' ),
         ]

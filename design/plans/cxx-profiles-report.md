@@ -615,8 +615,8 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 | Plan | **This document** (`prof-report-collector` spawn scope settled) |
 | A — `prof-report-parser` | **Done** — merged [#190](https://github.com/ja11sop/cuppa/pull/190) |
 | B — `prof-report-collector` | **Done** — merged [#191](https://github.com/ja11sop/cuppa/pull/191) |
-| B½ — `prof-report-parser-layers` | **Done** — merged [#192](https://github.com/ja11sop/cuppa/pull/192) |
-| C — `prof-report-html` | Not started |
+| B½-doc — `doc-folder-layout` | **Done** — merged [#193](https://github.com/ja11sop/cuppa/pull/193) |
+| C — `prof-report-html` | **Ready for PR** — branch `prof-report-html` |
 | D — `prof-report-manifest` | Not started |
 | E — `prof-report-method` | Deferred |
 | F — `prof-report-artefacts` | Blocked on #135 |
