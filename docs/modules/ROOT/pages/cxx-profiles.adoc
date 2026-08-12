@@ -120,7 +120,9 @@ Optional methods (same env keys as the CLI):
 When you need a browsable inventory of Profiles diagnostics before fixing sources,
 pass `--cxx-profiles-report` together with `--cxx-profiles` or `--cxx-profiles-enforce=`.
 Cuppa captures diagnostics during the build and writes HTML plus JSON under
-`_artifacts/cxx-profiles/` at the end of the session (`sconstruct_end`).
+`<artifacts-root>/cxx-profiles/` (default `_artifacts/cxx-profiles/`) at the end of the
+session (`sconstruct_end`). The construction `env` exposes `artifacts_root` and
+`abs_artifacts_root` (set via `--artifacts-root=` alongside `--build-root=`).
 
 Pair with `--cxx-disable-error-limit` so the compiler does not stop after its
 default diagnostic cap. The report is read-only — it does not rewrite sources.
@@ -327,7 +329,7 @@ Initialization profile direction for Alliance Clang's `std::init`:
 
 == Related cuppa pages
 
-* xref:cli-reference.adoc[CLI reference] — `--cxx-profiles`, `--cxx-profiles-enforce=`, `--cxx-disable-error-limit`, `--cxx-profiles-report`
+* xref:cli-reference.adoc[CLI reference] — `--cxx-profiles`, `--cxx-profiles-enforce=`, `--cxx-disable-error-limit`, `--cxx-profiles-report`, `--artifacts-root`
 * xref:toolchains/clang.adoc[Clang] — Profiles-capable archives
 * xref:toolchains.adoc[Toolchains] — `--toolchain-archive=` / `--clang-root=`
 * xref:integration/test-cxx-profiles.adoc[Integration: {cpp} Profiles]

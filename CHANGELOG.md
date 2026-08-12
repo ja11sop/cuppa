@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `--artifacts-root` (default `_artifacts`): project-relative root for generated reports and
+  other artefacts outside `_build/`; exposed on the construction `env` as `artifacts_root` /
+  `abs_artifacts_root`. C++ Profiles reports honour it (`<artifacts-root>/cxx-profiles/`).
+  Coverage and test HTML still use the conventional tree until a follow-on wires them through.
 - `.cuppa-reports` manifest for C++ Profiles reports (slice D, `prof-report-manifest`): append
   JSONL entries at `sconstruct_end`; matched removal when `--clean` or `--remove-builds` runs with
   the same `--cxx-profiles-report` destination and link options.

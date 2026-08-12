@@ -51,6 +51,7 @@ TIP: If cuppa fails early while reading sconscripts, re-run with `--verbosity=ex
 | Option | Default
 
 | `--build-root` | `_build`
+| `--artifacts-root` | `_artifacts` -- generated reports and other project artefacts outside the build tree
 | `--storage-root` | `~/.cuppa` -- the parent of the two roots below
 | `--dependencies-root` | `<storage-root>/dependencies` -- retrieved trees, ready to build against
 | `--downloads-root` | `<storage-root>/downloads` -- the archives they came from

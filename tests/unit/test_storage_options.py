@@ -54,6 +54,26 @@ def test_the_build_root_stays_with_the_project(elsewhere):
     assert env["abs_build_root"] == os.path.join(str(project), default.build_root)
 
 
+def test_the_artifacts_root_stays_with_the_project(elsewhere):
+    home, project = elsewhere
+    env = env_for(project)
+
+    storage_options.process_storage_options(env)
+
+    assert env["artifacts_root"] == default.artifacts_root
+    assert env["abs_artifacts_root"] == os.path.join(str(project), default.artifacts_root)
+
+
+def test_a_custom_artifacts_root_is_honoured(elsewhere):
+    home, project = elsewhere
+    env = env_for(project, artifacts_root="out/reports")
+
+    storage_options.process_storage_options(env)
+
+    assert env["artifacts_root"] == os.path.join("out", "reports")
+    assert env["abs_artifacts_root"] == str(project / "out" / "reports")
+
+
 def test_the_storage_root_moves_both_roots_together(elsewhere):
     home, project = elsewhere
     env = env_for(project, storage_root=str(project / "_cuppa"))

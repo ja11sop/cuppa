@@ -70,17 +70,30 @@ def test_source_href_gitlab_blob():
     assert href == 'https://gitlab.example.com/org/widget/-/blob/main/src/widget.cpp#L10'
 
 
+def test_default_report_directory_uses_artifacts_root( tmp_path ):
+    env = {
+        'sconstruct_dir': str( tmp_path ),
+        'artifacts_root': 'out/artefacts',
+        'abs_artifacts_root': str( tmp_path / 'out' / 'artefacts' ),
+    }
+    assert default_report_directory( env ) == str(
+        tmp_path / 'out' / 'artefacts' / 'cxx-profiles'
+    )
+
+
 def test_write_profiles_reports_emits_html_and_json( tmp_path ):
     inventory = _sample_inventory()
     env = {
         'sconstruct_dir': str( tmp_path ),
+        'artifacts_root': '_artifacts',
+        'abs_artifacts_root': str( tmp_path / '_artifacts' ),
         'cxx_profiles_report': True,
         'cxx_profiles_report_link_style': 'local',
         'cxx_profiles_report_root': str( tmp_path ),
     }
-    index_path = write_profiles_reports( inventory, env )
-    report_dir = default_report_directory( str( tmp_path ) )
-    assert index_path[ 'index_path' ] == os.path.join( report_dir, INDEX_BASENAME )
+    result = write_profiles_reports( inventory, env )
+    report_dir = default_report_directory( env )
+    assert result[ 'index_path' ] == os.path.join( report_dir, INDEX_BASENAME )
     assert os.path.isfile( os.path.join( report_dir, INDEX_BASENAME ) )
     assert os.path.isfile( os.path.join( report_dir, JSON_BASENAME ) )
     scope_stem = inventory.as_report_model()[ 'scopes' ][ 0 ][ 'report_stem' ]

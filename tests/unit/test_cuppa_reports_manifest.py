@@ -173,9 +173,27 @@ def test_write_profiles_reports_appends_manifest_via_helper( tmp_path, monkeypat
     assert paths_from_entry( entries[ 0 ] )
 
 
+def test_cxx_profiles_report_options_uses_custom_artifacts_root( tmp_path ):
+    env = {
+        'sconstruct_dir': str( tmp_path ),
+        'artifacts_root': 'out/artefacts',
+        'abs_artifacts_root': str( tmp_path / 'out' / 'artefacts' ),
+        'cxx_profiles_report': True,
+        'cxx_profiles_report_link_style': 'gitlab',
+        'cxx_profiles_enforce': [ 'std::init', 'std::type' ],
+        'cxx_profiles': True,
+    }
+    options = cxx_profiles_report_options( env )
+    assert options[ 'destination' ] == 'out/artefacts/cxx-profiles'
+    assert options[ 'link_style' ] == 'gitlab'
+    assert options[ 'enforce' ] == [ 'std::init', 'std::type' ]
+
+
 def test_cxx_profiles_report_options_normalises_destination( tmp_path ):
     env = {
         'sconstruct_dir': str( tmp_path ),
+        'artifacts_root': '_artifacts',
+        'abs_artifacts_root': str( tmp_path / '_artifacts' ),
         'cxx_profiles_report': True,
         'cxx_profiles_report_link_style': 'gitlab',
         'cxx_profiles_enforce': [ 'std::init', 'std::type' ],

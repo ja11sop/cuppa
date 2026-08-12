@@ -24,8 +24,9 @@ class CxxProfilesReportMethod:
             const=True,
             default=False,
             help='Capture Profiles diagnostics and emit HTML + JSON under '
-                 '_artifacts/cxx-profiles/ (requires --cxx-profiles or '
-                 '--cxx-profiles-enforce=; optional directory path after =)',
+                 '<artifacts-root>/cxx-profiles/ (default _artifacts/cxx-profiles/; '
+                 'requires --cxx-profiles or --cxx-profiles-enforce=; optional '
+                 'directory path after =)',
         )
         add_option(
             '--cxx-profiles-report-root',

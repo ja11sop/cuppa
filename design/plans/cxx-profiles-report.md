@@ -542,7 +542,8 @@ names; it assumes:
 3. Built-in report types (test, coverage, cxx-profiles) register under a shared
    **`cuppa.reports`** registry so artefact listing can mention them consistently.
 
-Until Phase 6 ships, hard-code `_artifacts/cxx-profiles/` as coverage does for `_artifacts/coverage/`.
+Until Phase 6 ships, default Profiles output is `{artifacts_root}/cxx-profiles/` (default
+`_artifacts/cxx-profiles/`), matching coverage’s conventional tree today.
 
 ## Built-in “reports” registration (sketch)
 
@@ -619,7 +620,7 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 | C — `prof-report-html` | **Ready for PR** — branch `prof-report-html` ([#194](https://github.com/ja11sop/cuppa/pull/194)) |
 | D — `prof-report-manifest` | **In progress** — same branch after C review |
 | E — `prof-report-method` | Deferred |
-| F — `prof-report-artefacts` | Blocked on #135 |
+| F — `prof-report-artefacts` | Partial — `--artifacts-root` landed; full registry + `--remove-artifacts` blocked on #135 |
 
 ## Open questions (resolve in first PR)
 

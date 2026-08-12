@@ -34,22 +34,28 @@ def jinja2_templates():
     return _jinja2_env
 
 
-def default_report_directory( sconstruct_dir ):
-    return os.path.join( sconstruct_dir, '_artifacts', 'cxx-profiles' )
+def default_report_directory( env ):
+    """Return the default Profiles report directory under ``artifacts_root``."""
+    if env.get( 'abs_artifacts_root' ):
+        return os.path.join( env[ 'abs_artifacts_root' ], 'cxx-profiles' )
+    sconstruct_dir = env.get( 'sconstruct_dir' ) or os.getcwd()
+    artifacts_root = env.get( 'artifacts_root', '_artifacts' )
+    if os.path.isabs( artifacts_root ):
+        return os.path.join( artifacts_root, 'cxx-profiles' )
+    return os.path.join( sconstruct_dir, artifacts_root, 'cxx-profiles' )
 
 
 def resolve_report_directory( env ):
     """Return the output directory for Profiles HTML/JSON reports."""
     option = env.get( 'cxx_profiles_report' )
-    sconstruct_dir = env.get( 'sconstruct_dir' ) or os.getcwd()
     if option is True or option is None:
-        return default_report_directory( sconstruct_dir )
+        return default_report_directory( env )
     if isinstance( option, str ):
         path = option
         if path.endswith( os.sep ) or os.path.isdir( path ):
             return path
-        return os.path.dirname( path ) or default_report_directory( sconstruct_dir )
-    return default_report_directory( sconstruct_dir )
+        return os.path.dirname( path ) or default_report_directory( env )
+    return default_report_directory( env )
 
 
 def display_path( path, report_root, sconstruct_dir ):
