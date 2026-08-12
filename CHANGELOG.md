@@ -36,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   public struct members.
 - Antora: apply Readable C++ style to all `[source,cpp]` listings (including
   xref:cxx-modules.adoc[C++ Modules] tutorials).
+- Integration fixtures: Readable C++ naming in `tests/fixtures/modules_project/` and
+  generated test sources that mirror example style.
 
 ### Deprecated
 

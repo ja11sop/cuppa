@@ -29,7 +29,11 @@ def test_profiles_enforce_std_init_smoke( tmp_path ):
         "env.Build( 'app', [ 'main.cpp' ] )\n",
     )
     ( tmp_path / 'main.cpp' ).write_text(
-        'int main() { int x = 0; return x; }\n'
+        'int main()\n'
+        '{\n'
+        '    int Value = 0;\n'
+        '    return Value;\n'
+        '}\n'
     )
     result = run_cuppa(
         tmp_path,
@@ -52,7 +56,11 @@ def test_profiles_enforce_composes_with_source_attribute( tmp_path ):
     )
     ( tmp_path / 'main.cpp' ).write_text(
         '[[profiles::enforce()]];\n'
-        'int main() { int x = 0; return x; }\n'
+        'int main()\n'
+        '{\n'
+        '    int Value = 0;\n'
+        '    return Value;\n'
+        '}\n'
     )
     result = run_cuppa(
         tmp_path,

@@ -1,14 +1,14 @@
 export module geo:point;
 
-export struct Point
+export struct point
 {
     int x;
     int y;
 };
 
-export int manhattan( Point p )
+export int manhattan( point Point )
 {
-    int ax = p.x < 0 ? -p.x : p.x;
-    int ay = p.y < 0 ? -p.y : p.y;
-    return ax + ay;
+    int Ax = Point.x < 0 ? -Point.x : Point.x;
+    int Ay = Point.y < 0 ? -Point.y : Point.y;
+    return Ax + Ay;
 }

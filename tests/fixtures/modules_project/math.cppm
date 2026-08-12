@@ -9,7 +9,7 @@ export module math;
 #define MATH_API
 #endif
 
-export MATH_API int add( int a, int b )
+export MATH_API int add( int A, int B )
 {
-    return a + b;
+    return A + B;
 }

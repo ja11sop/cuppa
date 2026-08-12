@@ -1,6 +1,6 @@
 module calc:core;
 
-int core_add( int a, int b )
+int core_add( int A, int B )
 {
-    return a + b;
+    return A + B;
 }

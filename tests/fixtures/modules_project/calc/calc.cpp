@@ -2,7 +2,7 @@ module calc;
 
 import :core;
 
-int add( int a, int b )
+int add( int A, int B )
 {
-    return core_add( a, b );
+    return core_add( A, B );
 }

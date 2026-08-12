@@ -1,6 +1,6 @@
 module math_impl;
 
-int add( int a, int b )
+int add( int A, int B )
 {
-    return a + b;
+    return A + B;
 }
