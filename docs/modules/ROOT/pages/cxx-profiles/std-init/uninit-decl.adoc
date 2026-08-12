@@ -1,7 +1,7 @@
 = std::init: uninitialized declarations (`uninit_decl`)
 :description: std::init rule uninit_decl — variables left uninitialized without the uninit marker
 
-include::partial$cxx-profile-attribute-markers.adoc[]
+include::partial$cxx-profiles/attribute-markers.adoc[]
 
 == What this rule checks
 
@@ -17,8 +17,8 @@ From `examples/profiles/std-init-violations/uninit_decl.cpp`:
 ----
 void automatic_uninitialized()
 {
-    int automatic; // no initializer, no [[uninit]]
-    (void)automatic;
+    int Automatic; // no initializer, no [[uninit]]
+    (void)Automatic;
 }
 ----
 
@@ -26,7 +26,7 @@ void automatic_uninitialized()
 
 [source]
 ----
-uninit_decl.cpp:…: error: variable 'automatic' must be initialized or marked '[[uninit]]' under profile 'std::init'
+uninit_decl.cpp:…: error: variable 'Automatic' must be initialized or marked '[[uninit]]' under profile 'std::init'
 ----
 
 Union objects use a dedicated message shape:
@@ -38,15 +38,15 @@ error: variable '…' of union type must be initialized under profile 'std::init
 
 == Resolutions
 
-* **Initialize** the object: `int value = 0;` or aggregate initialization `{ … }`.
+* **Initialize** the object: `int Value = 0;` or aggregate initialization `{ … }`.
 * **Mark intentional indeterminate storage**: `{cxx-a-int-buffer-uninit}` and ensure later
-  writes precede reads (see xref:cxx-profiles-std-init-uninit-read.adoc[reads before
+  writes precede reads (see xref:cxx-profiles/std-init/uninit-read.adoc[reads before
   initialization]).
 * **Suppress** locally when an external API fills the storage before any read (document why
   in the `justification:` string).
 
 == Related rules
 
-* xref:cxx-profiles-std-init-markers.adoc[Markers and initializers] — when `{cxx-a-uninit}` is
+* xref:cxx-profiles/std-init/markers.adoc[Markers and initializers] — when `{cxx-a-uninit}` is
   not allowed
-* xref:cxx-profiles-std-init.adoc[std::init profile hub]
+* xref:cxx-profiles/std-init.adoc[std::init profile hub]

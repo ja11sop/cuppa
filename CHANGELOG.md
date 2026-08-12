@@ -22,11 +22,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Clang line parsing, and profile-keyed classifiers under ``cuppa/cpp/profiles_report/``;
   ``examples/profiles/std-init-violations/`` and ``std_init_golden.json`` fixtures for
   spec-driven rule capture.
-- Antora: xref:cxx-profiles-std-init.adoc[std::init profile] rule-family pages with Clang
+- Antora: xref:cxx-profiles/std-init.adoc[std::init profile] rule-family pages with Clang
   examples; navigation under xref:cxx-profiles.adoc[C++ Profiles]. Fix ``C++ Modules`` title
   capitalisation across the site.
 
 ### Changed
+
+- Antora: move dependency, toolchain, C++ Profiles, and Contributing child pages into folders
+  mirroring navigation (`dependencies/`, `toolchains/`, `cxx-profiles/std-init/`, `contributing/`);
+  hub URLs unchanged.
+- Readable style: document PascalCase variables in `AGENTS.md`; align std::init example sources,
+  Antora listings, and golden diagnostics with snake_case types/functions and property-like
+  public struct members.
+- Antora: apply Readable C++ style to all `[source,cpp]` listings (including
+  xref:cxx-modules.adoc[C++ Modules] tutorials).
+- Integration fixtures: Readable C++ naming in `tests/fixtures/modules_project/` and
+  generated test sources that mirror example style.
 
 ### Deprecated
 
@@ -116,8 +127,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   placeholder. JSON includes the same `describe` payload on driver nodes. Horizontal rules
   span the full width of the widest content line (including verbose dialect / invocation
   rows). Toolchain classes expose `describe()` / `default_dialect()` / `usable_features()`.
-- Toolchains documentation is a hub plus family pages (`toolchain-gcc.adoc`,
-  `toolchain-clang.adoc`, `toolchain-msvc.adoc`) with short introductions, upstream homepage
+- Toolchains documentation is a hub plus family pages (`toolchains/gcc.adoc`,
+  `toolchains/clang.adoc`, `toolchains/msvc.adoc`) with short introductions, upstream homepage
   links, and per-flag default-invocation explanations. Hub pages include `--list-toolchains`
   text / verbose / JSON samples, a `--stdcpp` choice table (default behaviour is effectively
   `c++latest` on GCC/Clang), and JSON samples for the other `--list-format=json` list actions.
@@ -187,7 +198,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   use a single-slot mark (`✔` / `-`) rather than a triple rollup. See
   `design/archive/console-report-patterns.md` and [#161](https://github.com/ja11sop/cuppa/issues/161).
 - Antora **Contributing → Report patterns** documents judgement-tree shape, warn-before /
-  note-after, and shared helpers (`docs/modules/ROOT/pages/contributing-report-patterns.adoc`).
+  note-after, and shared helpers (`docs/modules/ROOT/pages/contributing/report-patterns.adoc`).
 
 ### Changed
 

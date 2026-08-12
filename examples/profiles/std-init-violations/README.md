@@ -5,7 +5,7 @@ violates each documented `std::init` rule from
 [P4222](https://wg21.link/P4222) and
 [ProfilesFramework.rst](https://github.com/cppalliance/clang/blob/profiles-framework/clang/docs/ProfilesFramework.rst).
 Use it to capture Alliance Clang diagnostic text for classifier tables, golden tests, and
-the Antora pages under `docs/modules/ROOT/pages/cxx-profiles-std-init*.adoc`.
+the Antora pages under `docs/modules/ROOT/pages/cxx-profiles/std-init/`.
 
 ## Layout
 
@@ -21,12 +21,12 @@ the Antora pages under `docs/modules/ROOT/pages/cxx-profiles-std-init*.adoc`.
 | `destroy_rules.cpp` | `destroy_uninit`, `double_destroy` |
 
 Each file uses the **Readable style** layout described in `AGENTS.md`: section markers,
-snake_case types, spaces inside call parentheses.
+snake_case types and functions, PascalCase variables, spaces inside call parentheses.
 
 ## Prerequisites
 
 - A Profiles-capable Clang toolchain archive registered with cuppa (see
-  xref:toolchain-clang.adoc[Clang] and `design/archive/cxx-profiles.md`).
+  xref:toolchains/clang.adoc[Clang] and `design/archive/cxx-profiles.md`).
 - Cuppa with `--cxx-profiles`, `--cxx-profiles-enforce=std::init`, and
   `--cxx-disable-error-limit`.
 

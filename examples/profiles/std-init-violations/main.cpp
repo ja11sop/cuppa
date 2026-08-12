@@ -18,7 +18,7 @@ void union_uninitialized();
 }
 
 namespace static_runtime_init {
-extern int runtime_global;
+extern int RuntimeGlobal;
 }
 
 namespace ctor_uninit_member {
@@ -46,7 +46,7 @@ void write_member_through_ref_at_call_site();
 namespace marker_rules {
 void pointer_marker_violation();
 void union_marker_violation();
-extern int static_storage;
+extern int StaticStorage;
 void written_initializer_with_marker();
 void default_init_contradicts_marker();
 }
@@ -67,12 +67,12 @@ int main()
     uninit_decl::automatic_uninitialized();
     uninit_decl::aggregate_member_uninitialized();
     uninit_decl::union_uninitialized();
-    (void)static_runtime_init::runtime_global;
+    (void)static_runtime_init::RuntimeGlobal;
 
-    ctor_uninit_member::with_member member;
-    (void)member;
-    ctor_uninit_member::with_base derived;
-    (void)derived;
+    ctor_uninit_member::with_member Member;
+    (void)Member;
+    ctor_uninit_member::with_base Derived;
+    (void)Derived;
 
     ref_to_uninit::bind_unmarked_pointer_to_uninit();
     ref_to_uninit::bind_marked_pointer_to_initialized();
@@ -86,7 +86,7 @@ int main()
 
     marker_rules::pointer_marker_violation();
     marker_rules::union_marker_violation();
-    (void)marker_rules::static_storage;
+    (void)marker_rules::StaticStorage;
     marker_rules::written_initializer_with_marker();
     marker_rules::default_init_contradicts_marker();
 

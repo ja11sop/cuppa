@@ -1,6 +1,6 @@
 export module math_ixx;
 
-export int add_ixx( int a, int b )
+export int add_ixx( int A, int B )
 {
-    return a + b;
+    return A + B;
 }

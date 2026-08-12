@@ -16,7 +16,7 @@ namespace static_runtime_init {
 int seed();
 
 // Violation: runtime call in a non-local initializer.
-int runtime_global = seed();
+int RuntimeGlobal = seed();
 
 } // end namespace static_runtime_init
 } // end namespace std_init_violations

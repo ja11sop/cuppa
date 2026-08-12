@@ -6,4 +6,4 @@ Enable via `default_dependencies = ['qt5']` (or `qt4`) when Qt is installed on t
 
 This page is a stub. The modules live under `cuppa/dependencies/` (`qt4`, `qt5`). Expand it
 when real usage — required packages, typical flags, and failure modes — is documented.
-See xref:dependencies-builtins.adoc[Built-in dependencies].
+See xref:dependencies/builtins.adoc[Built-in dependencies].

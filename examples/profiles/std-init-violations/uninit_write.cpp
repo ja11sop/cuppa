@@ -26,16 +26,16 @@ void write_member_through_ref( point* Pointer [[ref_to_uninit]] )
 
 void write_member_of_uninit_object()
 {
-    point object [[uninit]];
+    point Object [[uninit]];
     // Violation: member assignment does not initialize the whole struct.
-    object.x = 1;
+    Object.x = 1;
 }
 
 void write_member_through_ref_at_call_site()
 {
-    point object [[uninit]];
-    point* pointer [[ref_to_uninit]] = &object;
-    write_member_through_ref( pointer );
+    point Object [[uninit]];
+    point* Pointer [[ref_to_uninit]] = &Object;
+    write_member_through_ref( Pointer );
 }
 
 // n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n

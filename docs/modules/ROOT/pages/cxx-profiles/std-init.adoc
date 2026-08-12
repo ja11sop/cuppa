@@ -1,7 +1,7 @@
 = std::init profile
 :description: Initialization profile rules (std::init) with Clang examples and diagnostics
 
-include::partial$cxx-profile-attribute-markers.adoc[]
+include::partial$cxx-profiles/attribute-markers.adoc[]
 
 The **std::init** profile is the initialization slice of ISO {cpp} Profiles described in link:https://wg21.link/P4222[P4222] — _An initialization profile_. Alliance Clang implements an experimental subset; cuppa passes `--cxx-profiles-enforce=std::init` through to every {cpp} translation unit (see xref:cxx-profiles.adoc#how-cuppa-enables[How cuppa enables Profiles]).
 
@@ -36,28 +36,28 @@ from an installed package versus a checkout.
 | Rule id(s) | Page
 
 | `uninit_decl`
-| xref:cxx-profiles-std-init-uninit-decl.adoc[Uninitialized declarations]
+| xref:cxx-profiles/std-init/uninit-decl.adoc[Uninitialized declarations]
 
 | `uninit_read`
-| xref:cxx-profiles-std-init-uninit-read.adoc[Reads before initialization]
+| xref:cxx-profiles/std-init/uninit-read.adoc[Reads before initialization]
 
 | `uninit_write`
-| xref:cxx-profiles-std-init-uninit-write.adoc[Subobject writes]
+| xref:cxx-profiles/std-init/uninit-write.adoc[Subobject writes]
 
 | `ref_to_uninit`
-| xref:cxx-profiles-std-init-ref-to-uninit.adoc[Pointer and reference marking]
+| xref:cxx-profiles/std-init/ref-to-uninit.adoc[Pointer and reference marking]
 
 | `destroy_uninit`, `double_destroy`
-| xref:cxx-profiles-std-init-destroy.adoc[Destroy lifecycle]
+| xref:cxx-profiles/std-init/destroy.adoc[Destroy lifecycle]
 
 | `ctor_uninit_member`
-| xref:cxx-profiles-std-init-constructors.adoc[Constructor initialization]
+| xref:cxx-profiles/std-init/constructors.adoc[Constructor initialization]
 
 | `static_runtime_init`
-| xref:cxx-profiles-std-init-static-init.adoc[Static and constant initialization]
+| xref:cxx-profiles/std-init/static-init.adoc[Static and constant initialization]
 
 | `pointer_marker`, `union_marker`, `static_marker`, `uninit_with_initializer`
-| xref:cxx-profiles-std-init-markers.adoc[Markers and initializers]
+| xref:cxx-profiles/std-init/markers.adoc[Markers and initializers]
 |===
 
 == Suppressing a rule

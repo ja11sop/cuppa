@@ -518,20 +518,36 @@ Plugins (setuptools): `cuppa.method.plugins`, `cuppa.profile.plugins`, `cuppa.de
 
 ## C++ example style (Readable style)
 
-C++ sources under `examples/` (especially `examples/profiles/`) use a consistent **Readable
-style** for layout and naming. Match these when adding or editing example code, Antora
-listings, and classifier fixtures:
+C++ sources under `examples/`, `tests/fixtures/`, and all Antora C++ listings use a consistent **Readable
+style** for layout and naming. Match these when adding or editing example code, integration
+fixtures, classifier fixtures, and documentation:
 
 | Convention | Rule |
 |------------|------|
 | File banner | Short `// ---` header stating purpose and which profile rule is exercised |
 | Section markers | Optional `// I I I …` (includes) and `// n n n …` (namespaces) blocks in larger files |
-| Naming | **snake_case** types, functions, and data members; **PascalCase** template parameters and function parameters (`void foo( int Value )`) |
-| Members | Trailing underscore for class data members (`value_`) |
+| Naming — types, functions | **snake_case** |
+| Naming — variables | **PascalCase** for locals, function parameters, and private data members |
+| Naming — template parameters | **PascalCase** |
+| Public data members | **snake_case** when a struct or class exposes fields that read like properties (same spirit as method names) |
+| Private data members | **PascalCase** with trailing underscore (`Name_`) |
 | Namespaces | Nested `namespace profiles { namespace std_init_violations { … } }` with `// end namespace …` comments |
 | Braces | Opening brace on the same line as the declaration |
 | Spacing | Spaces inside call parentheses; **no** space after `if` / `for` / `while` (`if( condition )`) |
 | Attributes | `[[nodiscard]]` before return type; profile markers (`[[uninit]]`, `[[ref_to_uninit]]`, …) on the same declarator |
+
+PascalCase variables let you reuse the natural name when the type already takes the
+snake_case form:
+
+```cpp
+int main()
+{
+    name Name = "My name";
+    return 0;
+}
+```
+
+Here `name` is the type and `Name` is the local.
 
 See `examples/profiles/std-init-violations/` for a multi-file reference. Do not invent a
 parallel style for cuppa examples.
@@ -601,26 +617,26 @@ When docs and code disagree, **code is authoritative** (especially storage defau
 | Vocabulary (methods, deps, variants) | `concepts.adoc` |
 | Build / test / library APIs + examples | `methods.adoc` |
 | Toolchains hub (select / list / archives / `--stdcpp`) | `toolchains.adoc` |
-| GCC / Clang / MSVC defaults and flags | `toolchain-gcc.adoc` / `toolchain-clang.adoc` / `toolchain-msvc.adoc` |
+| GCC / Clang / MSVC defaults and flags | `toolchains/gcc.adoc` / `toolchains/clang.adoc` / `toolchains/msvc.adoc` |
 | Fetched toolchain archives (`--toolchain-archive`, `--*-root`) | `toolchains.adoc` § Fetched toolchain archives |
 | C++20 modules intro, tutorial, papers, reference | `cxx-modules.adoc` |
 | C++ Profiles hub | `cxx-profiles.adoc` |
-| `std::init` profile rules (examples + Clang diagnostics) | `cxx-profiles-std-init.adoc` and `cxx-profiles-std-init-*.adoc` children |
+| `std::init` profile rules (examples + Clang diagnostics) | `cxx-profiles/std-init.adoc` and `cxx-profiles/std-init/*.adoc` children |
 | CLI flags | `cli-reference.adoc` |
 | Dependencies overview (kinds, declare, `BuildWith`) | `dependencies.adoc` (hub) |
-| Location / header libraries | `dependencies-location.adoc` |
-| Package consume overview | `dependencies-packages.adoc` |
-| GitLab packages (consume) | `dependencies-gitlab.adoc` |
-| Conan packages (consume) | `dependencies-conan.adoc` |
-| Built-in deps index | `dependencies-builtins.adoc` |
-| Boost (source / b2; contrast `boost_package`) | `dependencies-boost.adoc` |
-| Qt / Quince | `dependencies-qt.adoc` / `dependencies-quince.adoc` (thin stubs) |
-| Managing deps (list / update / remove) | `dependencies-managing.adoc` |
-| Writing your own dependencies | `dependencies-extending.adoc` (also `extending.adoc` for plugins) |
+| Location / header libraries | `dependencies/location.adoc` |
+| Package consume overview | `dependencies/packages.adoc` |
+| GitLab packages (consume) | `dependencies/gitlab.adoc` |
+| Conan packages (consume) | `dependencies/conan.adoc` |
+| Built-in deps index | `dependencies/builtins.adoc` |
+| Boost (source / b2; contrast `boost_package`) | `dependencies/builtins/boost.adoc` |
+| Qt / Quince | `dependencies/builtins/qt.adoc` / `dependencies/builtins/quince.adoc` (thin stubs) |
+| Managing deps (list / update / remove) | `dependencies/managing.adoc` |
+| Writing your own dependencies | `dependencies/extending.adoc` (also `extending.adoc` for plugins) |
 | Publishing packages (GitLab / Conan) | `packages.adoc` (publish focus; not consume tutorials) |
 | Contributing to cuppa itself (hub) | `contributing.adoc` |
-| Versioning / changelog / start_release | `contributing-versioning.adoc` |
-| Cutting a release (prepare / publish) | `contributing-release.adoc` |
+| Versioning / changelog / start_release | `contributing/versioning.adoc` |
+| Cutting a release (prepare / publish) | `contributing/release.adoc` |
 | Pytest scenarios | `integration-tests.adoc` + `integration/*.adoc` |
 
 The Phase 3 documentation split in [`design/plans/removal-options.md`](design/plans/removal-options.md) §7.1 has landed. Prefer the child page above rather than growing the hub.
@@ -686,7 +702,7 @@ Don't provide blocks of code and ask readers to trust it works. Every command sh
 
 When asking the reader to execute a command or modify code, first explain what it does and why. These details help readers grow their skills.
 
-Quote **real** toolchain defaults and CLI behaviour from `cuppa/toolchains/*.py` and `cuppa/methods/*.py`. If a flag list changes in code, update the matching family page (`toolchain-gcc.adoc` / `toolchain-clang.adoc` / `toolchain-msvc.adoc`) in the same change.
+Quote **real** toolchain defaults and CLI behaviour from `cuppa/toolchains/*.py` and `cuppa/methods/*.py`. If a flag list changes in code, update the matching family page (`toolchains/gcc.adoc` / `toolchains/clang.adoc` / `toolchains/msvc.adoc`) in the same change.
 
 ## Practical and Self-Contained
 

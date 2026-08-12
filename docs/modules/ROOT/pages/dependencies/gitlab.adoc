@@ -2,7 +2,7 @@
 :description: Consume GitLab generic registry packages, including boost_package
 
 Cuppa consumes GitLab **generic** package archives through `cuppa.package_dependency()` with
-`package_manager = 'gitlab'`. See xref:dependencies-packages.adoc[Package dependencies] for the
+`package_manager = 'gitlab'`. See xref:dependencies/packages.adoc[Package dependencies] for the
 factory overview.
 
 Package archive downloads use the shared transfer-progress reporter (percent, bar, rate, ETA)
@@ -46,6 +46,6 @@ cuppa.run(
 Use `package.use_libs([...])` helpers where provided to append the correct static library files
 for the active toolchain/variant. The built-in source `boost` dependency accepts the same call
 shape — `env.BuildWith('boost').use_libs([...])` — so switching supply chains does not require
-rewriting sconscripts beyond the dependency name. See xref:dependencies-boost.adoc[Boost (source)].
+rewriting sconscripts beyond the dependency name. See xref:dependencies/builtins/boost.adoc[Boost (source)].
 
 Integration coverage: xref:integration/test-packages.adoc[].

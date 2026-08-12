@@ -1,7 +1,7 @@
 = std::init: reads before initialization (`uninit_read`)
 :description: std::init rule uninit_read — using storage before it is initialized
 
-include::partial$cxx-profile-attribute-markers.adoc[]
+include::partial$cxx-profiles/attribute-markers.adoc[]
 
 == What this rule checks
 
@@ -17,8 +17,8 @@ From `examples/profiles/std-init-violations/uninit_read.cpp`:
 ----
 void read_uninit_local()
 {
-    int value [[uninit]];
-    int copy = value; // read before write
+    int Value [[uninit]];
+    int Copy = Value; // read before write
 }
 
 int read_through_ref( int* Pointer [[ref_to_uninit]] )
@@ -33,7 +33,7 @@ Local or member read:
 
 [source]
 ----
-error: variable 'value' is read before initialization under profile 'std::init'
+error: variable 'Value' is read before initialization under profile 'std::init'
 error: member 'n' is read before initialization under profile 'std::init'
 ----
 
@@ -50,12 +50,12 @@ error: read through a '[[ref_to_uninit]]' pointer or reference accesses uninitia
 * **Initialize** at declaration when the value is known.
 * For out-parameters filled by callees, pass through `{cxx-a-ref-to-uninit}` only when the callee
   documents uninitialized acceptance, and ensure the callee writes before any read in the
-  caller (see xref:cxx-profiles-std-init-ref-to-uninit.adoc[pointer marking]).
+  caller (see xref:cxx-profiles/std-init/ref-to-uninit.adoc[pointer marking]).
 * **Suppress** when flow analysis cannot see your initialization protocol (prefer narrowing
   the suppression to the specific statement).
 
 == Related rules
 
-* xref:cxx-profiles-std-init-uninit-write.adoc[Subobject writes] — writes that do not count
+* xref:cxx-profiles/std-init/uninit-write.adoc[Subobject writes] — writes that do not count
   as initialization
-* xref:cxx-profiles-std-init-ref-to-uninit.adoc[Pointer and reference marking]
+* xref:cxx-profiles/std-init/ref-to-uninit.adoc[Pointer and reference marking]

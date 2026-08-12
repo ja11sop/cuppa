@@ -17,13 +17,13 @@ and how to cut a release from GitHub Actions without hand-pushing tags.
 | This page (below)
 
 | SemVer, `cuppa/VERSION`, Keep a Changelog, `start_release` / `finish_release`
-| xref:contributing-versioning.adoc[Versioning and changelog]
+| xref:contributing/versioning.adoc[Versioning and changelog]
 
 | Judgement trees, warn-before / note-after, shared helpers
-| xref:contributing-report-patterns.adoc[Report patterns]
+| xref:contributing/report-patterns.adoc[Report patterns]
 
 | Prepare / publish Actions, Trusted Publishing, git history shapes
-| xref:contributing-release.adoc[Cutting a release]
+| xref:contributing/release.adoc[Cutting a release]
 
 | flake8 / pylint gate
 | xref:linting.adoc[Linting]
@@ -34,7 +34,7 @@ and how to cut a release from GitHub Actions without hand-pushing tags.
 
 Long-form design notes live under `design/` in the repository (not on this site).
 Settled console-report choices are summarised in
-xref:contributing-report-patterns.adoc[Report patterns]; the design plan at
+xref:contributing/report-patterns.adoc[Report patterns]; the design plan at
 `design/archive/console-report-patterns.md` holds deeper rationale.
 Agent-oriented checklists and GitHub helper scripts live in `AGENTS.md`.
 
@@ -62,7 +62,7 @@ the intent of the change:
 |===
 
 The public surface means CLI flags, `env.*` methods, `cuppa.run()` arguments, and configuration
-file keys. See xref:contributing-versioning.adoc[Versioning and changelog] for how those labels
+file keys. See xref:contributing/versioning.adoc[Versioning and changelog] for how those labels
 relate to `start_release`.
 
 == Validating changes locally
@@ -90,6 +90,6 @@ xref:integration-tests.adoc[Integration tests] documents the generated `sconstru
 
 == Where to go next
 
-* Opening or closing a version cycle → xref:contributing-versioning.adoc[Versioning and changelog]
-* Publishing to PyPI → xref:contributing-release.adoc[Cutting a release]
+* Opening or closing a version cycle → xref:contributing/versioning.adoc[Versioning and changelog]
+* Publishing to PyPI → xref:contributing/release.adoc[Cutting a release]
 * Writing a dependency or method plugin for *your* project → xref:extending.adoc[Extending cuppa]

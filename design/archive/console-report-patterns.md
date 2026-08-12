@@ -1,7 +1,7 @@
 # Console report patterns (judgement trees and severity timing)
 
 - **Status:** shipped
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `console-report-patterns`; umbrella [#161](https://github.com/ja11sop/cuppa/issues/161); [`removal-options.md`](../plans/removal-options.md); toolchains [#160](https://github.com/ja11sop/cuppa/issues/160); `--list-develop` report shape; Antora [`contributing-report-patterns.adoc`](../../docs/modules/ROOT/pages/contributing-report-patterns.adoc)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `console-report-patterns`; umbrella [#161](https://github.com/ja11sop/cuppa/issues/161); [`removal-options.md`](../plans/removal-options.md); toolchains [#160](https://github.com/ja11sop/cuppa/issues/160); `--list-develop` report shape; Antora [`contributing/report-patterns.adoc`](../../docs/modules/ROOT/pages/contributing/report-patterns.adoc)
 - **Updated:** 2026-08-08
 
 Cuppa’s storage and develop reports now share a recognisable **judgement tree**: a one-line intro
@@ -10,8 +10,8 @@ choices were settled while shipping wipe / remove polish. This document records 
 later work (and agents) do not re-litigate them casually.
 
 Contributor-facing summary: Antora **Contributing → Report patterns**
-(`docs/modules/ROOT/pages/contributing-report-patterns.adoc`). Keep shipped behaviour honest in the
-topic pages (`build-layout.adoc`, `dependencies-managing.adoc`) as well.
+(`docs/modules/ROOT/pages/contributing/report-patterns.adoc`). Keep shipped behaviour honest in the
+topic pages (`build-layout.adoc`, `dependencies/managing.adoc`) as well.
 
 ---
 

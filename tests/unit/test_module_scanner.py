@@ -73,7 +73,7 @@ def test_scan_implementation_partition_bmi():
 
 @pytest.mark.unit
 def test_scan_implementation_unit_has_no_bmi():
-    scan = scan_source_text( "module math;\nint add(int a, int b) { return a + b; }\n" )
+    scan = scan_source_text( "module math;\nint add( int A, int B ) { return A + B; }\n" )
     assert scan.module_declaration == "math"
     assert module_bmi_name( scan ) is None
 

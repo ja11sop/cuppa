@@ -1,7 +1,7 @@
 = std::init: static and constant initialization (`static_runtime_init`)
 :description: std::init rule static_runtime_init — non-local runtime initializers
 
-include::partial$cxx-profile-attribute-markers.adoc[]
+include::partial$cxx-profiles/attribute-markers.adoc[]
 
 == What this rule checks
 
@@ -10,7 +10,7 @@ when they have initializers. Runtime calls (functions, non-constexpr expressions
 initializers are rejected.
 
 Static storage is zero-initialized by default; marking it `{cxx-a-uninit}` is handled under
-xref:cxx-profiles-std-init-markers.adoc[Markers and initializers] instead.
+xref:cxx-profiles/std-init/markers.adoc[Markers and initializers] instead.
 
 == Example violation
 
@@ -19,14 +19,14 @@ From `examples/profiles/std-init-violations/static_runtime_init.cpp`:
 [source,cpp]
 ----
 int seed();
-int runtime_global = seed(); // runtime call at namespace scope
+int RuntimeGlobal = seed(); // runtime call at namespace scope
 ----
 
 == Expected Clang diagnostic
 
 [source]
 ----
-error: non-local variable 'runtime_global' requires constant initialization under profile 'std::init'
+error: non-local variable 'RuntimeGlobal' requires constant initialization under profile 'std::init'
 ----
 
 == Resolutions
@@ -39,5 +39,5 @@ error: non-local variable 'runtime_global' requires constant initialization unde
 
 == Related rules
 
-* xref:cxx-profiles-std-init-markers.adoc[Markers and initializers] — `static_marker`
-* xref:cxx-profiles-std-init-uninit-decl.adoc[Uninitialized declarations]
+* xref:cxx-profiles/std-init/markers.adoc[Markers and initializers] — `static_marker`
+* xref:cxx-profiles/std-init/uninit-decl.adoc[Uninitialized declarations]

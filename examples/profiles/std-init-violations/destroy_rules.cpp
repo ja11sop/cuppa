@@ -37,26 +37,26 @@ void fill( int* Pointer [[ref_to_uninit]] )
 
 void destroy_through_ref_never_stored()
 {
-    int storage [[uninit]];
-    int* pointer [[ref_to_uninit]] = &storage;
+    int Storage [[uninit]];
+    int* Pointer [[ref_to_uninit]] = &Storage;
     // Expected (documented): destroy_uninit — destroy without prior store through marker.
-    destroy_at( pointer );
+    destroy_at( Pointer );
 }
 
 void destroy_after_uncredited_fill()
 {
-    int storage [[uninit]];
-    fill( &storage );
+    int Storage [[uninit]];
+    fill( &Storage );
     // Expected (documented): destroy_uninit — ordinary [[ref_to_uninit]] callee earns no credit.
-    destroy_at( &storage );
+    destroy_at( &Storage );
 }
 
 void destroy_twice()
 {
-    int storage = 5;
-    destroy_at( &storage );
+    int Storage = 5;
+    destroy_at( &Storage );
     // Expected (documented): double_destroy — second [[now_uninit]] on same storage.
-    destroy_at( &storage );
+    destroy_at( &Storage );
 }
 
 // n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n

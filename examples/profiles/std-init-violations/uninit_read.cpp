@@ -19,18 +19,18 @@ struct buf {
 
 void read_uninit_local()
 {
-    int value [[uninit]];
+    int Value [[uninit]];
     // Violation: read of [[uninit]] local before any initialization.
-    int copy = value;
-    (void)copy;
+    int Copy = Value;
+    (void)Copy;
 }
 
 void read_uninit_member()
 {
-    buf object;
+    buf Object;
     // Violation: read of member marked [[uninit]] before assignment.
-    int copy = object.n;
-    (void)copy;
+    int Copy = Object.n;
+    (void)Copy;
 }
 
 int read_through_ref( int* Pointer [[ref_to_uninit]] )

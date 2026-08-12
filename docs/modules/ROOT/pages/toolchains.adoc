@@ -14,17 +14,17 @@ rules. Per-family defaults, dialects, and flag explanations live on the child pa
 | GCC
 | `gcc`, `gcc15`, …
 | Linux, macOS
-| xref:toolchain-gcc.adoc[GCC]
+| xref:toolchains/gcc.adoc[GCC]
 
 | Clang (LLVM)
 | `clang`, `clang21`, …
 | Linux, macOS
-| xref:toolchain-clang.adoc[Clang]
+| xref:toolchains/clang.adoc[Clang]
 
 | MSVC
 | `vc`, `vc145`, …
 | Windows
-| xref:toolchain-msvc.adoc[MSVC]
+| xref:toolchains/msvc.adoc[MSVC]
 |===
 
 == Selecting toolchains
@@ -82,8 +82,8 @@ enable modules for that tool), Clang `stdlib choices:` when applicable, and
 shown as a quoted string (`c{plus}{plus}: "-Wall … <sources>"`); the surrounding quotes are
 subdued like placeholders. Cuppa default link libraries (for example `-lpthread -lrt`, and Clang
 `libc{plus}{plus}` extras) appear as normal `-l` tokens before the matching placeholder — see
-xref:toolchain-gcc.adoc#gcc-default-linux-libraries[GCC] and
-xref:toolchain-clang.adoc#clang-default-linux-libraries[Clang] for why those defaults exist.
+xref:toolchains/gcc.adoc#gcc-default-linux-libraries[GCC] and
+xref:toolchains/clang.adoc#clang-default-linux-libraries[Clang] for why those defaults exist.
 Label keys use notice/yellow colour; variant names (`dbg` / `cov` / `rel`) and flag values
 are normal text; commas, `(default)` / `(experimental)` qualifiers, quotes, and placeholders are
 subdued. Horizontal rules span the full width of the widest content line (verbose dialect /
@@ -214,8 +214,8 @@ Design notes: `design/archive/toolchains-as-dependencies.md`.
 == {cpp} language level
 
 Each toolchain picks a high-compliance default dialect for its compiler version
-(see xref:toolchain-gcc.adoc[GCC], xref:toolchain-clang.adoc[Clang], and
-xref:toolchain-msvc.adoc[MSVC]): the newest `-std=` / `-std:` Cuppa supports for
+(see xref:toolchains/gcc.adoc[GCC], xref:toolchains/clang.adoc[Clang], and
+xref:toolchains/msvc.adoc[MSVC]): the newest `-std=` / `-std:` Cuppa supports for
 that tool, with language features that dialect already enables. Cuppa does **not**
 add redundant feature gates (for example GCC `-fconcepts` / `-fcoroutines`) once
 the chosen dialect includes them. {cpp}20 modules remain opt-in via `--modules`

@@ -1,7 +1,7 @@
 = std::init: subobject writes (`uninit_write`)
 :description: std::init rule uninit_write — member writes on uninit storage
 
-include::partial$cxx-profile-attribute-markers.adoc[]
+include::partial$cxx-profiles/attribute-markers.adoc[]
 
 == What this rule checks
 
@@ -20,8 +20,8 @@ struct point { int x; int y; };
 
 void write_member_of_uninit_object()
 {
-    point object [[uninit]];
-    object.x = 1; // subobject write only
+    point Object [[uninit]];
+    Object.x = 1; // subobject write only
 }
 ----
 
@@ -39,11 +39,11 @@ A related shape covers writes through `{cxx-a-ref-to-uninit}` pointers to uninit
 * **Initialize the whole object** — brace initialization `{ 1, 2 }`, assignment to the entire
   object, or `construct_at` / `{cxx-a-now-init}` helpers where modeled.
 * For scalars reached through pointers, assign through the pointer in one whole-object write
-  (`*pointer = 42;`) rather than member-wise steps when the pointee is a class.
+  (`*Pointer = 42;`) rather than member-wise steps when the pointee is a class.
 * **Suppress** only when you rely on a protocol the analyzer cannot see (prefer whole-object
   initialization instead).
 
 == Related rules
 
-* xref:cxx-profiles-std-init-uninit-read.adoc[Reads before initialization]
-* xref:cxx-profiles-std-init-constructors.adoc[Constructor initialization]
+* xref:cxx-profiles/std-init/uninit-read.adoc[Reads before initialization]
+* xref:cxx-profiles/std-init/constructors.adoc[Constructor initialization]

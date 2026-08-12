@@ -1,3 +1,3 @@
 export module calc;
 
-export int add( int a, int b );
+export int add( int A, int B );

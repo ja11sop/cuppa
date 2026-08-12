@@ -19,4 +19,4 @@ Non-empty develop destinations are refused without cloning.
 
 == See also
 
-xref:dependencies-managing.adoc#checking-your-develop-copies[Checking your develop copies]
+xref:dependencies/managing.adoc#checking-your-develop-copies[Checking your develop copies]

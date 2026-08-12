@@ -1,7 +1,7 @@
 = std::init: constructor initialization (`ctor_uninit_member`)
 :description: std::init rule ctor_uninit_member — constructors must initialize members and bases
 
-include::partial$cxx-profile-attribute-markers.adoc[]
+include::partial$cxx-profiles/attribute-markers.adoc[]
 
 == What this rule checks
 
@@ -20,8 +20,8 @@ From `examples/profiles/std-init-violations/ctor_uninit_member.cpp`:
 [source,cpp]
 ----
 struct with_member {
-    int value_;
-    with_member() {} // 'value_' not initialized
+    int value;
+    with_member() {} // 'value' not initialized
 };
 
 struct with_base : base {
@@ -33,13 +33,13 @@ struct with_base : base {
 
 [source]
 ----
-error: constructor does not initialize member 'value_' under profile 'std::init'
+error: constructor does not initialize member 'value' under profile 'std::init'
 error: constructor does not initialize base class 'base' under profile 'std::init'
 ----
 
 == Resolutions
 
-* Add **member-initializers**: `with_member() : value_( 0 ) {}`.
+* Add **member-initializers**: `with_member() : value( 0 ) {}`.
 * Provide **default member initializers** on members that always start with a known value.
 * Mark rarely-used members `{cxx-a-uninit}` when indeterminate startup is intentional, and
   ensure no read precedes your first write.
@@ -48,5 +48,5 @@ error: constructor does not initialize base class 'base' under profile 'std::ini
 
 == Related rules
 
-* xref:cxx-profiles-std-init-uninit-read.adoc[Reads before initialization]
-* xref:cxx-profiles-std-init-markers.adoc[Markers and initializers]
+* xref:cxx-profiles/std-init/uninit-read.adoc[Reads before initialization]
+* xref:cxx-profiles/std-init/markers.adoc[Markers and initializers]

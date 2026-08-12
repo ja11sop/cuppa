@@ -21,26 +21,26 @@ void take_initialized( int* Pointer )
 
 void bind_unmarked_pointer_to_uninit()
 {
-    int storage [[uninit]];
+    int Storage [[uninit]];
     // Violation: unmarked pointer binds to uninitialized storage.
-    int* pointer = &storage;
-    (void)pointer;
+    int* Pointer = &Storage;
+    (void)Pointer;
 }
 
 void bind_marked_pointer_to_initialized()
 {
-    int initialized = 7;
+    int Initialized = 7;
     // Violation: [[ref_to_uninit]] pointer binds to initialized storage.
-    int* pointer [[ref_to_uninit]] = &initialized;
-    (void)pointer;
+    int* Pointer [[ref_to_uninit]] = &Initialized;
+    (void)Pointer;
 }
 
 void call_with_unmarked_from_uninit()
 {
-    int storage [[uninit]];
-    int* pointer [[ref_to_uninit]] = &storage;
+    int Storage [[uninit]];
+    int* Pointer [[ref_to_uninit]] = &Storage;
     // Violation: passing marked pointer to unmarked parameter.
-    take_initialized( pointer );
+    take_initialized( Pointer );
 }
 
 // n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n n

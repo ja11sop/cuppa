@@ -3,7 +3,7 @@
 
 The built-in `boost` dependency builds or uses a Boost tree via Boost.Build (`b2`).
 It is registered as the name `boost`. For prebuilt Boost from a GitLab registry, use
-xref:dependencies-gitlab.adoc#boost-package[`boost_package`] instead — same `use_libs([...])`
+xref:dependencies/gitlab.adoc#boost-package[`boost_package`] instead — same `use_libs([...])`
 call shape, different supply chain.
 
 == Options
@@ -87,4 +87,4 @@ flag (or omit it) to clean that home too.
 
 `--remove-dependencies=boost` uses `storage_clean` to delete only the selected b2 **stage** and
 matching Boost.Build toolset directories — not the whole extract. Details and sample output:
-xref:dependencies-managing.adoc#remove-dependencies[Removing dependency trees].
+xref:dependencies/managing.adoc#remove-dependencies[Removing dependency trees].

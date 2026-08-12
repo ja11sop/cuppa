@@ -1,7 +1,7 @@
 = {cpp} Profiles
 :description: Opt-in {cpp} Profiles with cuppa (--cxx-profiles / --cxx-profiles-enforce)
 
-include::partial$cxx-profile-attribute-markers.adoc[]
+include::partial$cxx-profiles/attribute-markers.adoc[]
 
 In this guide you will learn what ISO {cpp} **Profiles** are aiming at, what cuppa
 supports today, how to enable them with a Profiles-capable Clang, and where the
@@ -42,7 +42,7 @@ flags are unchanged.
 cuppa -D --toolchain-archive=https://github.com/cppalliance/clang/releases/download/profiles-2026-08-07-27/clang-profiles-linux-x86_64.tar.gz
 ```
 
-Session names look like `clang24_profiles_2026_08_07_27`. See xref:toolchains.adoc[Toolchains] and xref:toolchain-clang.adoc[Clang].
+Session names look like `clang24_profiles_2026_08_07_27`. See xref:toolchains.adoc[Toolchains] and xref:toolchains/clang.adoc[Clang].
 
 . Build with the framework and (optionally) session-wide enforce:
 
@@ -58,9 +58,10 @@ You can put enforce in source yourself instead of (or as well as) the CLI:
 ```cpp
 [[profiles::enforce(std::init)]];
 
-int main() {
-    int x = 0;
-    return x;
+int main()
+{
+    int Value = 0;
+    return Value;
 }
 ```
 
@@ -292,7 +293,7 @@ Initialization profile direction for Alliance Clang's `std::init`:
 == Related cuppa pages
 
 * xref:cli-reference.adoc[CLI reference] — `--cxx-profiles`, `--cxx-profiles-enforce=`, `--cxx-disable-error-limit`
-* xref:toolchain-clang.adoc[Clang] — Profiles-capable archives
+* xref:toolchains/clang.adoc[Clang] — Profiles-capable archives
 * xref:toolchains.adoc[Toolchains] — `--toolchain-archive=` / `--clang-root=`
 * xref:integration/test-cxx-profiles.adoc[Integration: {cpp} Profiles]
 * xref:cxx-modules.adoc[{cpp} modules] — separate opt-in; may interact with Profiles later

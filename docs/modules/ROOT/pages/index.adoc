@@ -78,8 +78,8 @@ TIP: When docs and code disagree, *code is authoritative* -- especially storage 
 * xref:concepts.adoc[Concepts] -- methods, dependencies, profiles, variants, toolchains
 * xref:methods.adoc[Methods] -- build, test, library, and helper APIs with examples
 * xref:toolchains.adoc[Toolchains] -- selection and inventory; family defaults on
-  xref:toolchain-gcc.adoc[GCC], xref:toolchain-clang.adoc[Clang], and
-  xref:toolchain-msvc.adoc[MSVC]
+  xref:toolchains/gcc.adoc[GCC], xref:toolchains/clang.adoc[Clang], and
+  xref:toolchains/msvc.adoc[MSVC]
 * xref:cxx-modules.adoc[C++ Modules] -- introduction, tutorial, reference, and an up-to-date capability matrix by toolchain family
 * xref:cxx-profiles.adoc[C++ Profiles] -- opt-in `--cxx-profiles` / `--cxx-profiles-enforce=`, Alliance Clang, paper overview
 * xref:cli-reference.adoc[CLI reference] -- flags you will use every day

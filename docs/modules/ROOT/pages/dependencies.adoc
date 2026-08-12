@@ -35,24 +35,24 @@ env.BuildWith('boost')
 | Kind | Start here
 
 | Location / header / VCS / archive
-| xref:dependencies-location.adoc[Location dependencies]
+| xref:dependencies/location.adoc[Location dependencies]
 
 | Registry package (consume)
-| xref:dependencies-packages.adoc[Package dependencies] ·
-  xref:dependencies-gitlab.adoc[GitLab]
+| xref:dependencies/packages.adoc[Package dependencies] ·
+  xref:dependencies/gitlab.adoc[GitLab]
 
 | Conan 2 (consume)
-| xref:dependencies-conan.adoc[Conan packages]
+| xref:dependencies/conan.adoc[Conan packages]
 
 | Built-ins (`boost`, `qt4`/`qt5`, `quince`, …)
-| xref:dependencies-builtins.adoc[Built-in dependencies] ·
-  xref:dependencies-boost.adoc[Boost]
+| xref:dependencies/builtins.adoc[Built-in dependencies] ·
+  xref:dependencies/builtins/boost.adoc[Boost]
 
 | List, remove, purge, develop copies
-| xref:dependencies-managing.adoc[Managing dependencies]
+| xref:dependencies/managing.adoc[Managing dependencies]
 
 | Author a new dependency
-| xref:dependencies-extending.adoc[Writing your own]
+| xref:dependencies/extending.adoc[Writing your own]
 
 | Publish a Cuppa-built library
 | xref:packages.adoc[Publishing packages]

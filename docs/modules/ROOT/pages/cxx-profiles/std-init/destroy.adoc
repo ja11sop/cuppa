@@ -1,7 +1,7 @@
 = std::init: destroy lifecycle (`destroy_uninit`, `double_destroy`)
 :description: std::init destroy rules — now_uninit on uninitialized or already-destroyed storage
 
-include::partial$cxx-profile-attribute-markers.adoc[]
+include::partial$cxx-profiles/attribute-markers.adoc[]
 
 == What these rules check
 
@@ -26,9 +26,9 @@ template<typename T> [[now_uninit]] void destroy_at( T* Pointer );
 
 void destroy_twice()
 {
-    int storage = 5;
-    destroy_at( &storage );
-    destroy_at( &storage ); // double_destroy
+    int Storage = 5;
+    destroy_at( &Storage );
+    destroy_at( &Storage ); // double_destroy
 }
 ----
 
@@ -41,7 +41,7 @@ error: storage already destroyed by a '[[now_uninit]]' function is destroyed aga
 ----
 
 NOTE: Alliance Clang snapshots before destroy analysis is complete may still report
-xref:cxx-profiles-std-init-ref-to-uninit.adoc[`ref_to_uninit`] at these call sites. Cuppa's
+xref:cxx-profiles/std-init/ref-to-uninit.adoc[`ref_to_uninit`] at these call sites. Cuppa's
 classifier table includes the documented messages so reports stay stable when toolchains catch
 up.
 
@@ -57,5 +57,5 @@ up.
 
 == Related rules
 
-* xref:cxx-profiles-std-init-ref-to-uninit.adoc[Pointer and reference marking]
-* xref:cxx-profiles-std-init-uninit-read.adoc[Reads before initialization]
+* xref:cxx-profiles/std-init/ref-to-uninit.adoc[Pointer and reference marking]
+* xref:cxx-profiles/std-init/uninit-read.adoc[Reads before initialization]

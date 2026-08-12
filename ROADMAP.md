@@ -362,7 +362,7 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 |----|------|----------|-------|
 | `storage-listing-removal` | `--list-*`, `--remove-*`, `--purge-*`, `--wipe-*` for builds, dependencies, and downloads | Medium | Umbrella [#134](https://github.com/ja11sop/cuppa/issues/134) closed by [#144](https://github.com/ja11sop/cuppa/pull/144). Builds #140; list-deps #141; remove #142; archive clean #143; Phase 4 list-downloads + purge #144. Phase 3 polish [#145](https://github.com/ja11sop/cuppa/issues/145). Wipe [#146](https://github.com/ja11sop/cuppa/issues/146) closed by [#150](https://github.com/ja11sop/cuppa/pull/150). Remaining from this family: [#135](https://github.com/ja11sop/cuppa/issues/135) (artefacts). |
 | `artefact-removal` | Decide how to remove artefacts written outside the build root | Low | Design pass first; `--remove-builds` deliberately stops at `_build`. GitHub [#135](https://github.com/ja11sop/cuppa/issues/135) |
-| `console-report-patterns` | Document and keep judgement-tree / severity-timing rules for contributors and agents | Low | Issue [#161](https://github.com/ja11sop/cuppa/issues/161) closed by B/D/E follow-on; Antora [`contributing-report-patterns.adoc`](docs/modules/ROOT/pages/contributing-report-patterns.adoc); design [`console-report-patterns.md`](design/archive/console-report-patterns.md) |
+| `console-report-patterns` | Document and keep judgement-tree / severity-timing rules for contributors and agents | Low | Issue [#161](https://github.com/ja11sop/cuppa/issues/161) closed by B/D/E follow-on; Antora [`contributing/report-patterns.adoc`](docs/modules/ROOT/pages/contributing/report-patterns.adoc); design [`console-report-patterns.md`](design/archive/console-report-patterns.md) |
 
 ### Out of scope (storage)
 
@@ -483,7 +483,7 @@ Design: [`native-toolchain-output.md`](design/plans/native-toolchain-output.md),
 | `doc-methods-split` | Hub + per-method Antora pages; optional SCons companions | Medium | [`methods-pages-split.md`](design/plans/methods-pages-split.md); **1.8.0 candidate** (docs-only) |
 | `doc-antora-ui` | Custom UI bundle + supplemental CSS | Low | [`antora-ui-bundle.md`](design/plans/antora-ui-bundle.md); **1.8.0 optional** |
 | `doc-output-samples` | Capture report output as semantic HTML for Antora and local preview | Low | [`colourised-doc-samples.md`](design/plans/colourised-doc-samples.md) |
-| `doc-folder-layout` | Page folders mirroring nav (dependencies/, cxx-profiles/, toolchains/) | Low | [`doc-folder-layout.md`](design/plans/doc-folder-layout.md); after [#192](https://github.com/ja11sop/cuppa/pull/192); aligns with methods split |
+| `doc-folder-layout` | Page folders mirroring nav (dependencies/, cxx-profiles/, toolchains/) | Low | **Shipped** — [`doc-folder-layout.md`](design/archive/doc-folder-layout.md) |
 | `doc-mermaid-theme` | Custom Mermaid theme matching site CSS | Low | After or with UI bundle |
 
 ### Out of scope (docs tooling)

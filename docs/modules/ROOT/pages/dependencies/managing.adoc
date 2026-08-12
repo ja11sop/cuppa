@@ -275,7 +275,7 @@ estimated inventory sizes to exact on encounter).
 Dependencies without `storage_clean` still remove their
 whole owned tree under the dependencies root (for example GitLab `boost_package` removes the
 selected package variant folder). Dependency authors declare those trees with `storage_paths()`
-and optional `storage_clean()` — see xref:dependencies-extending.adoc[Writing your own dependencies].
+and optional `storage_clean()` — see xref:dependencies/extending.adoc[Writing your own dependencies].
 
 [source,shell]
 ----
@@ -414,7 +414,7 @@ mode, in one invocation. Develop working copies are never deleted. SCons `-n` is
 Missing trees / downloads are not a failure.
 When inventory `used_by` names another project, `--wipe-dependencies` emits the same judgement-tree
 notices as force-wipe (warning on dry-run, past-tense note after a real wipe). See
-xref:contributing-report-patterns.adoc[Report patterns].
+xref:contributing/report-patterns.adoc[Report patterns].
 
 [source,shell]
 ----

@@ -5,5 +5,5 @@ The `quince` dependency (and related Quince backends such as PostgreSQL/SQLite h
 Quince as location dependencies for ORM-style C++ projects.
 
 This page is a stub. The modules live under `cuppa/dependencies/`. Expand it when real usage
-is documented. See xref:dependencies-builtins.adoc[Built-in dependencies] and
-xref:dependencies-location.adoc[Location dependencies].
+is documented. See xref:dependencies/builtins.adoc[Built-in dependencies] and
+xref:dependencies/location.adoc[Location dependencies].

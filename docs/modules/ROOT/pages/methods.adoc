@@ -7,8 +7,8 @@ They differ from raw SCons builders (`Program`, `Object`, `StaticLibrary`) by un
 This page focuses on the build surface you use every day.
 For the vocabulary behind methods, see xref:concepts.adoc[Concepts].
 For compiler defaults applied underneath these calls, see xref:toolchains.adoc[Toolchains]
-and the family pages (xref:toolchain-gcc.adoc[GCC], xref:toolchain-clang.adoc[Clang],
-xref:toolchain-msvc.adoc[MSVC]).
+and the family pages (xref:toolchains/gcc.adoc[GCC], xref:toolchains/clang.adoc[Clang],
+xref:toolchains/msvc.adoc[MSVC]).
 
 == Prerequisites
 

@@ -476,7 +476,7 @@ class Gcc(object):
         self.values['release_link_cxx_flags']  = CommonLinkCxxFlags + lto_flags
         self.values['coverage_link_cxx_flags'] = CommonLinkCxxFlags + [ '--coverage' ]
 
-        # Linux DYNAMICLIBS defaults (see toolchain-gcc.adoc § Default Linux libraries).
+        # Linux DYNAMICLIBS defaults (see toolchains/gcc.adoc § Default Linux libraries).
         # pthread: C++ threads / many libraries historically needed an explicit -lpthread
         # (glibc < 2.34). rt: clock_gettime and related APIs historically lived in librt
         # (integrated into libc on modern glibc). Both remain for older targets and are

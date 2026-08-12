@@ -615,7 +615,7 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 | Plan | **This document** (`prof-report-collector` spawn scope settled) |
 | A — `prof-report-parser` | **Done** — merged [#190](https://github.com/ja11sop/cuppa/pull/190) |
 | B — `prof-report-collector` | **Done** — merged [#191](https://github.com/ja11sop/cuppa/pull/191) |
-| B½ — `prof-report-parser-layers` | **In progress** — branch `prof-report-parser-layers` |
+| B½ — `prof-report-parser-layers` | **Done** — merged [#192](https://github.com/ja11sop/cuppa/pull/192) |
 | C — `prof-report-html` | Not started |
 | D — `prof-report-manifest` | Not started |
 | E — `prof-report-method` | Deferred |
@@ -641,7 +641,7 @@ assumes ``std::init`` prose even though the **profile name** is parsed from
 Land **before slice C HTML** so doc links and rule sections live in profile modules, not in the
 generic report builder.
 
-**Status (2026-08-11):** on branch `prof-report-parser-layers` (PR #192) — package layout below,
+**Status (2026-08-12):** merged [#192](https://github.com/ja11sop/cuppa/pull/192) — package layout below,
 profile-keyed ``classify_rule``, multi-file ``examples/profiles/std-init-violations/`` covering
 all twelve documented ``std::init`` rules, ``std_init_golden.json`` refreshed from Alliance Clang
 capture (``destroy_uninit`` / ``double_destroy`` golden lines use documented wording until the
