@@ -4,70 +4,114 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.2.0/css/all.css" integrity="sha384-hWVjflwFxL6sNzntih27bfxkr27PmbbK/iSvJ+a4+0owXq79v+lsFkW54bOGbiDQ" crossorigin="anonymous">
     <title>C++ Profiles violation report</title>
     <style>
-      .prof-muted { color: #6c757d; font-size: 0.875rem; }
+      .prof-group-header { background: #f8f9fa; }
+      .prof-variant-row .prof-indent { padding-left: 1.25rem; }
+      .prof-sconscript-label { font-weight: 600; }
+      [data-toggle="collapse"].prof-scope-group i:before { content: "\f07c"; }
+      [data-toggle="collapse"].collapsed.prof-scope-group i:before { content: "\f07b"; }
+      .prof-summary-small { font-size: 0.875rem; }
     </style>
   </head>
   <body>
-    <div class="container-fluid py-4">
-      <h2>C++ Profiles violation report</h2>
-      <p class="prof-muted">Session roll-up — {{ model.rollup.total_references }} references, {{ model.rollup.unique_locations }} unique locations</p>
+    <div class="container">
+      <div class="card mt-4">
+        <ul class="list-group">
+          <li class="list-group-item text-center pt-4">
+            <h3>C++ Profiles Reports for <span class="text-monospace font-weight-bolder">{{ report_project }}</span></h3>
+            <h5 class="text-secondary font-weight-light">{{ session_summary }}</h5>
+            {% if report_uri != 'Local' %}
+            <h6 class="text-secondary font-weight-light mb-0">
+              <a href="{{ report_uri }}">{{ report_uri }}</a>
+              {% if report_branch %}<span class="text-monospace"> — {{ report_branch }}</span>{% endif %}
+              {% if report_revision %}<span class="text-monospace"> @ {{ report_revision }}</span>{% endif %}
+            </h6>
+            {% endif %}
+          </li>
 
-      {% if incomplete_scopes %}
-      <div class="alert alert-warning" role="alert">
-        Incomplete scope(s): {{ incomplete_scopes | join(', ') }}
-      </div>
-      {% endif %}
+          {% if incomplete_scopes %}
+          <li class="list-group-item py-2">
+            <div class="alert alert-warning mb-0" role="alert">
+              Incomplete scope(s): {{ incomplete_scopes | join(', ') }}
+            </div>
+          </li>
+          {% endif %}
 
-      <ul class="nav nav-tabs mt-3" role="tablist">
-        <li class="nav-item">
-          <a class="nav-link active" data-toggle="tab" href="#scopes" role="tab">Scopes</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" data-toggle="tab" href="#rollup-rules" role="tab">Roll-up by rule</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" data-toggle="tab" href="#rollup-files" role="tab">Roll-up by file</a>
-        </li>
-      </ul>
+          <li class="list-group-item pb-0">
+            <ul class="nav nav-tabs" id="profilesTabs" role="tablist">
+              <li class="nav-item">
+                <a class="nav-link active" id="scopes-tab" data-toggle="tab" href="#scopes" role="tab" aria-selected="true">Scopes</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" id="rollup-rules-tab" data-toggle="tab" href="#rollup-rules" role="tab" aria-selected="false">Roll-up by rule</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" id="rollup-files-tab" data-toggle="tab" href="#rollup-files" role="tab" aria-selected="false">Roll-up by file</a>
+              </li>
+            </ul>
+          </li>
+        </ul>
 
-      <div class="tab-content border border-top-0 p-3">
-        <div class="tab-pane fade show active" id="scopes" role="tabpanel">
-          <table class="table table-sm table-hover">
-            <thead>
-              <tr>
-                <th>Sconscript</th>
-                <th>Variant</th>
-                <th>Toolchain</th>
-                <th class="text-right">References</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for page in scope_pages %}
-              <tr>
-                <td class="text-monospace">{{ page.scope.sconscript }}</td>
-                <td>{{ page.scope.variant_label }}</td>
-                <td class="text-monospace">{{ page.scope.toolchain }}</td>
-                <td class="text-right">{{ page.scope.total_references }}</td>
-                <td><a href="{{ page.html }}">Detail</a></td>
-              </tr>
+        <div class="tab-content">
+          <div class="tab-pane fade show active" id="scopes" role="tabpanel" aria-labelledby="scopes-tab">
+            <ul class="list-group list-group-flush">
+              <li class="list-group-item d-none d-md-block">
+                <div class="row align-items-center alert-secondary mx-0">
+                  <div class="col-md-2 prof-sconscript-label">Sconscript</div>
+                  <div class="col-md-2">Variant</div>
+                  <div class="col-md-2">Toolchain</div>
+                  <div class="col-md-1 text-right">Violations</div>
+                  <div class="col-md-2">Profiles</div>
+                  <div class="col-md-3">Rules</div>
+                </div>
+              </li>
+
+              {% for group in sconscript_groups %}
+              <li class="list-group-item prof-group-header py-2">
+                <a href="#{{ group.selector }}" data-toggle="collapse" class="prof-scope-group collapsed text-dark" aria-expanded="false">
+                  <i class="far fa-folder fa-fw"></i>
+                  <span class="prof-sconscript-label text-monospace">{{ group.sconscript }}</span>
+                </a>
+              </li>
+              <li class="list-group-item p-0 border-0">
+                <ul class="list-group list-group-flush collapse" id="{{ group.selector }}">
+                  {% for page in group.entries %}
+                  <li class="list-group-item prof-variant-row">
+                    <div class="row align-items-start">
+                      <div class="col-md-2 d-none d-md-block"></div>
+                      <div class="col-md-2 prof-indent">
+                        <a href="{{ page.html }}" class="card-link text-monospace">{{ page.scope.variant_display }}</a>
+                      </div>
+                      <div class="col-md-2 text-monospace small">{{ page.scope.toolchain }}</div>
+                      <div class="col-md-1 text-right font-weight-bold">{{ page.scope.total_references }}</div>
+                      <div class="col-md-2 prof-summary-small">{{ page.scope.profiles_summary }}</div>
+                      <div class="col-md-3 prof-summary-small">{{ page.scope.rules_summary }}</div>
+                    </div>
+                  </li>
+                  {% endfor %}
+                </ul>
+              </li>
               {% endfor %}
-            </tbody>
-          </table>
-        </div>
+            </ul>
+          </div>
 
-        <div class="tab-pane fade" id="rollup-rules" role="tabpanel">
-          {% with rules=model.rollup.rules, id_prefix='rollup-rule' %}
-          {% include 'cxx_profiles_partial_rules.html' %}
-          {% endwith %}
-        </div>
+          <div class="tab-pane fade" id="rollup-rules" role="tabpanel" aria-labelledby="rollup-rules-tab">
+            <div class="p-3">
+              {% with rules=model.rollup.rules, id_prefix='rollup-rule' %}
+              {% include 'cxx_profiles_partial_rules.html' %}
+              {% endwith %}
+            </div>
+          </div>
 
-        <div class="tab-pane fade" id="rollup-files" role="tabpanel">
-          {% with files=model.rollup.files, id_prefix='rollup-file' %}
-          {% include 'cxx_profiles_partial_files.html' %}
-          {% endwith %}
+          <div class="tab-pane fade" id="rollup-files" role="tabpanel" aria-labelledby="rollup-files-tab">
+            <div class="p-3">
+              {% with files=model.rollup.files, id_prefix='rollup-file' %}
+              {% include 'cxx_profiles_partial_files.html' %}
+              {% endwith %}
+            </div>
+          </div>
         </div>
       </div>
     </div>

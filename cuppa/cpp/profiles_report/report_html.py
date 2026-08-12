@@ -94,6 +94,107 @@ def rule_reference( profile, rule_id ):
     return {}
 
 
+def variant_display_from_dir( variant_dir ):
+    """Return ``variant/arch/abi`` from a cuppa variant directory path."""
+    parts = variant_dir.strip( '/' ).split( '/' )
+    if len( parts ) >= 3:
+        return '/'.join( parts[ -3: ] )
+    if parts:
+        return parts[ -1 ]
+    return '_unknown'
+
+
+def _format_count_list( entries, limit=5 ):
+    parts = []
+    for label, count in entries[ :limit ]:
+        parts.append( '{} ({})'.format( label, count ) )
+    text = ', '.join( parts )
+    if len( entries ) > limit:
+        text = '{}, ...'.format( text )
+    return text
+
+
+def scope_profile_summaries( scope ):
+    items = []
+    for profile in scope.get( 'profiles', [] ):
+        total = sum( rule[ 'total_references' ] for rule in profile.get( 'rules', [] ) )
+        items.append( ( profile[ 'profile' ], total ) )
+    items.sort( key=lambda entry: ( -entry[ 1 ], entry[ 0 ] ) )
+    return _format_count_list( items )
+
+
+def scope_rule_summaries( scope ):
+    items = []
+    for profile in scope.get( 'profiles', [] ):
+        for rule in profile.get( 'rules', [] ):
+            items.append(
+                (
+                    '{}::{}'.format( profile[ 'profile' ], rule[ 'rule_id' ] ),
+                    rule[ 'total_references' ],
+                ),
+            )
+    items.sort( key=lambda entry: ( -entry[ 1 ], entry[ 0 ] ) )
+    return _format_count_list( items )
+
+
+def enrich_scope_view( scope ):
+    scope[ 'variant_display' ] = variant_display_from_dir( scope[ 'variant_dir' ] )
+    scope[ 'profiles_summary' ] = scope_profile_summaries( scope )
+    scope[ 'rules_summary' ] = scope_rule_summaries( scope )
+    return scope
+
+
+def _safe_selector( label, prefix ):
+    safe = ''.join(
+        ch if ch.isalnum() else '-'
+        for ch in label
+    ).strip( '-' )
+    while '--' in safe:
+        safe = safe.replace( '--', '-' )
+    return '{}-{}'.format( prefix, safe or 'group' )
+
+
+def build_sconscript_groups( scope_pages ):
+    grouped = {}
+    for page in scope_pages:
+        sconscript = page[ 'scope' ][ 'sconscript' ]
+        grouped.setdefault( sconscript, [] ).append( page )
+
+    groups = []
+    for sconscript in sorted( grouped.keys() ):
+        entries = sorted(
+            grouped[ sconscript ],
+            key=lambda page: page[ 'scope' ][ 'variant_dir' ],
+        )
+        groups.append(
+            {
+                'sconscript': sconscript,
+                'selector': _safe_selector( sconscript, 'sconscript' ),
+                'entries': entries,
+            },
+        )
+    return groups
+
+
+def report_header_context( env ):
+    sconstruct_dir = env.get( 'sconstruct_dir' ) or os.getcwd()
+    project_name = os.path.basename( sconstruct_dir.rstrip( os.sep ) ) or sconstruct_dir
+    link_env = dict( env )
+    link_env.setdefault( 'current_branch', '' )
+    link_env.setdefault( 'current_revision', '' )
+    vcs = initialise_test_linking( link_env, link_style='raw' )
+    if isinstance( vcs, tuple ):
+        url, _repository, branch, _remote, revision = vcs
+    else:
+        url, branch, revision = vcs, '', ''
+    return {
+        'report_project': project_name,
+        'report_uri': url or 'Local',
+        'report_branch': branch or '',
+        'report_revision': revision or '',
+    }
+
+
 def enrich_model_for_html( model, link_style, link_base, report_root, sconstruct_dir ):
     """Attach display paths and hrefs for template rendering."""
 
@@ -127,6 +228,7 @@ def enrich_model_for_html( model, link_style, link_base, report_root, sconstruct
         return profile
 
     for scope in model.get( 'scopes', [] ):
+        enrich_scope_view( scope )
         for profile in scope.get( 'profiles', [] ):
             enrich_profile( profile )
 
@@ -165,6 +267,13 @@ def write_profiles_reports(
         'sconstruct_dir': sconstruct_dir,
         'incomplete_scopes': sorted( incomplete_scopes or [] ),
     }
+    header_context = report_header_context( env )
+    header_context[ 'session_summary' ] = (
+        '{} references, {} unique locations'.format(
+            model[ 'rollup' ][ 'total_references' ],
+            model[ 'rollup' ][ 'unique_locations' ],
+        )
+    )
 
     index_template = jinja2_templates().get_template( 'cxx_profiles_index.html' )
     scope_template = jinja2_templates().get_template( 'cxx_profiles_scope.html' )
@@ -187,16 +296,20 @@ def write_profiles_reports(
                 scope_template.render(
                     scope=scope,
                     index_name=INDEX_BASENAME,
+                    **header_context,
                     **context_base
                 )
             )
 
     index_path = os.path.join( destination, INDEX_BASENAME )
+    sconscript_groups = build_sconscript_groups( scope_pages )
     with open( index_path, 'w', encoding='utf-8' ) as handle:
         handle.write(
             index_template.render(
                 model=model,
                 scope_pages=scope_pages,
+                sconscript_groups=sconscript_groups,
+                **header_context,
                 **context_base
             )
         )

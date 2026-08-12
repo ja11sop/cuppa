@@ -4,47 +4,61 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
-    <title>C++ Profiles — session report</title>
+    <title>C++ Profiles — {{ scope.variant_display }}</title>
     <style>
       .prof-muted { color: #6c757d; font-size: 0.875rem; }
     </style>
   </head>
   <body>
-    <div class="container-fluid py-4">
-      <p><a href="{{ index_name }}">&larr; Session index</a></p>
-      <h2>C++ Profiles violations</h2>
-      <p class="prof-muted">
-        {{ scope.sconscript }} — {{ scope.variant_label }} ({{ scope.toolchain }}) —
-        {{ scope.total_references }} references
-      </p>
+    <div class="container">
+      <div class="card mt-4">
+        <ul class="list-group">
+          <li class="list-group-item text-center pt-4">
+            <p class="mb-2 text-left"><a href="{{ index_name }}">&larr; Session index</a></p>
+            <h3>C++ Profiles Reports for <span class="text-monospace font-weight-bolder">{{ report_project }}</span></h3>
+            <h5 class="text-secondary font-weight-light">
+              <span class="text-monospace">{{ scope.sconscript }}</span> —
+              <span class="text-monospace">{{ scope.variant_display }}</span> —
+              <span class="text-monospace">{{ scope.toolchain }}</span>
+            </h5>
+            <p class="prof-muted mb-0">{{ scope.total_references }} references — {{ scope.profiles_summary }}</p>
+          </li>
 
-      {% if incomplete_scopes and scope.variant_dir in incomplete_scopes %}
-      <div class="alert alert-warning" role="alert">This scope did not finish cleanly.</div>
-      {% endif %}
+          {% if incomplete_scopes and scope.variant_dir in incomplete_scopes %}
+          <li class="list-group-item py-2">
+            <div class="alert alert-warning mb-0" role="alert">This scope did not finish cleanly.</div>
+          </li>
+          {% endif %}
 
-      {% for profile in scope.profiles %}
-      <h4 class="mt-4">{{ profile.profile }}</h4>
-      <ul class="nav nav-tabs" role="tablist">
-        <li class="nav-item">
-          <a class="nav-link active" data-toggle="tab" href="#rules-{{ loop.index }}" role="tab">By rule</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" data-toggle="tab" href="#files-{{ loop.index }}" role="tab">By file</a>
-        </li>
-      </ul>
-      <div class="tab-content border border-top-0 p-3 mb-4">
-        <div class="tab-pane fade show active" id="rules-{{ loop.index }}" role="tabpanel">
-          {% with rules=profile.rules, id_prefix='scope-' ~ loop.index ~ '-rule' %}
-          {% include 'cxx_profiles_partial_rules.html' %}
-          {% endwith %}
-        </div>
-        <div class="tab-pane fade" id="files-{{ loop.index }}" role="tabpanel">
-          {% with files=profile.files, id_prefix='scope-' ~ loop.index ~ '-file' %}
-          {% include 'cxx_profiles_partial_files.html' %}
-          {% endwith %}
-        </div>
+          {% for profile in scope.profiles %}
+          <li class="list-group-item pb-0">
+            <h5 class="mb-2">{{ profile.profile }}</h5>
+            <ul class="nav nav-tabs" role="tablist">
+              <li class="nav-item">
+                <a class="nav-link active" data-toggle="tab" href="#rules-{{ loop.index }}" role="tab">By rule</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" data-toggle="tab" href="#files-{{ loop.index }}" role="tab">By file</a>
+              </li>
+            </ul>
+          </li>
+          <li class="list-group-item border-top-0 pt-0">
+            <div class="tab-content pt-3 mb-2">
+              <div class="tab-pane fade show active" id="rules-{{ loop.index }}" role="tabpanel">
+                {% with rules=profile.rules, id_prefix='scope-' ~ loop.index ~ '-rule' %}
+                {% include 'cxx_profiles_partial_rules.html' %}
+                {% endwith %}
+              </div>
+              <div class="tab-pane fade" id="files-{{ loop.index }}" role="tabpanel">
+                {% with files=profile.files, id_prefix='scope-' ~ loop.index ~ '-file' %}
+                {% include 'cxx_profiles_partial_files.html' %}
+                {% endwith %}
+              </div>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
       </div>
-      {% endfor %}
     </div>
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" crossorigin="anonymous"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
