@@ -12,7 +12,7 @@ still prints the banner and a zero-count summary (or an empty `entries` list in 
 status is non-zero when a develop path does not exist.
 
 The scenario is the source of the realistic example on
-xref:dependencies-managing.adoc#checking-your-develop-copies[Dependencies — Checking your develop copies].
+xref:dependencies/managing.adoc#checking-your-develop-copies[Dependencies — Checking your develop copies].
 
 == Generated files
 

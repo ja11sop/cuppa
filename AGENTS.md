@@ -601,22 +601,22 @@ When docs and code disagree, **code is authoritative** (especially storage defau
 | Vocabulary (methods, deps, variants) | `concepts.adoc` |
 | Build / test / library APIs + examples | `methods.adoc` |
 | Toolchains hub (select / list / archives / `--stdcpp`) | `toolchains.adoc` |
-| GCC / Clang / MSVC defaults and flags | `toolchain-gcc.adoc` / `toolchain-clang.adoc` / `toolchain-msvc.adoc` |
+| GCC / Clang / MSVC defaults and flags | `toolchains/gcc.adoc` / `toolchains/clang.adoc` / `toolchains/msvc.adoc` |
 | Fetched toolchain archives (`--toolchain-archive`, `--*-root`) | `toolchains.adoc` § Fetched toolchain archives |
 | C++20 modules intro, tutorial, papers, reference | `cxx-modules.adoc` |
 | C++ Profiles hub | `cxx-profiles.adoc` |
-| `std::init` profile rules (examples + Clang diagnostics) | `cxx-profiles-std-init.adoc` and `cxx-profiles-std-init-*.adoc` children |
+| `std::init` profile rules (examples + Clang diagnostics) | `cxx-profiles/std-init.adoc` and `cxx-profiles/std-init/*.adoc` children |
 | CLI flags | `cli-reference.adoc` |
 | Dependencies overview (kinds, declare, `BuildWith`) | `dependencies.adoc` (hub) |
-| Location / header libraries | `dependencies-location.adoc` |
-| Package consume overview | `dependencies-packages.adoc` |
-| GitLab packages (consume) | `dependencies-gitlab.adoc` |
-| Conan packages (consume) | `dependencies-conan.adoc` |
-| Built-in deps index | `dependencies-builtins.adoc` |
-| Boost (source / b2; contrast `boost_package`) | `dependencies-boost.adoc` |
-| Qt / Quince | `dependencies-qt.adoc` / `dependencies-quince.adoc` (thin stubs) |
-| Managing deps (list / update / remove) | `dependencies-managing.adoc` |
-| Writing your own dependencies | `dependencies-extending.adoc` (also `extending.adoc` for plugins) |
+| Location / header libraries | `dependencies/location.adoc` |
+| Package consume overview | `dependencies/packages.adoc` |
+| GitLab packages (consume) | `dependencies/gitlab.adoc` |
+| Conan packages (consume) | `dependencies/conan.adoc` |
+| Built-in deps index | `dependencies/builtins.adoc` |
+| Boost (source / b2; contrast `boost_package`) | `dependencies/builtins/boost.adoc` |
+| Qt / Quince | `dependencies/builtins/qt.adoc` / `dependencies/builtins/quince.adoc` (thin stubs) |
+| Managing deps (list / update / remove) | `dependencies/managing.adoc` |
+| Writing your own dependencies | `dependencies/extending.adoc` (also `extending.adoc` for plugins) |
 | Publishing packages (GitLab / Conan) | `packages.adoc` (publish focus; not consume tutorials) |
 | Contributing to cuppa itself (hub) | `contributing.adoc` |
 | Versioning / changelog / start_release | `contributing-versioning.adoc` |
@@ -686,7 +686,7 @@ Don't provide blocks of code and ask readers to trust it works. Every command sh
 
 When asking the reader to execute a command or modify code, first explain what it does and why. These details help readers grow their skills.
 
-Quote **real** toolchain defaults and CLI behaviour from `cuppa/toolchains/*.py` and `cuppa/methods/*.py`. If a flag list changes in code, update the matching family page (`toolchain-gcc.adoc` / `toolchain-clang.adoc` / `toolchain-msvc.adoc`) in the same change.
+Quote **real** toolchain defaults and CLI behaviour from `cuppa/toolchains/*.py` and `cuppa/methods/*.py`. If a flag list changes in code, update the matching family page (`toolchains/gcc.adoc` / `toolchains/clang.adoc` / `toolchains/msvc.adoc`) in the same change.
 
 ## Practical and Self-Contained
 

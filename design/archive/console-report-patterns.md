@@ -11,7 +11,7 @@ later work (and agents) do not re-litigate them casually.
 
 Contributor-facing summary: Antora **Contributing → Report patterns**
 (`docs/modules/ROOT/pages/contributing-report-patterns.adoc`). Keep shipped behaviour honest in the
-topic pages (`build-layout.adoc`, `dependencies-managing.adoc`) as well.
+topic pages (`build-layout.adoc`, `dependencies/managing.adoc`) as well.
 
 ---
 

@@ -4,7 +4,7 @@
 - **Related:** [#172](https://github.com/ja11sop/cuppa/issues/172); [#170](https://github.com/ja11sop/cuppa/pull/170);
   [`list-toolchains.md`](../archive/list-toolchains.md) (inventory tree shipped);
   [`ROADMAP.md`](../../ROADMAP.md) — Toolchains; family pages
-  (`toolchain-gcc.adoc` / `toolchain-clang.adoc` / `toolchain-msvc.adoc`);
+  (`toolchains/gcc.adoc` / `toolchains/clang.adoc` / `toolchains/msvc.adoc`);
   GCC link options / GNU ld `-Bstatic`/`-Bdynamic` (language-agnostic driver/linker flags)
 - **Updated:** 2026-08-09
 - **Next focus:** deferred `list-tc-flag-tables` (table-driven init). Verbose render, `describe()`,

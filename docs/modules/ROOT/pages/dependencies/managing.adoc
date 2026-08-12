@@ -275,7 +275,7 @@ estimated inventory sizes to exact on encounter).
 Dependencies without `storage_clean` still remove their
 whole owned tree under the dependencies root (for example GitLab `boost_package` removes the
 selected package variant folder). Dependency authors declare those trees with `storage_paths()`
-and optional `storage_clean()` — see xref:dependencies-extending.adoc[Writing your own dependencies].
+and optional `storage_clean()` — see xref:dependencies/extending.adoc[Writing your own dependencies].
 
 [source,shell]
 ----

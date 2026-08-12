@@ -25,7 +25,7 @@ cuppa.run(
 A missing package surfaces as a registry HTTP error (often `404`) during configure, before compile.
 
 Today the supported `package_manager` is GitLab generic packages — see
-xref:dependencies-gitlab.adoc[GitLab packages]. Publishing Cuppa-built libraries is a different
+xref:dependencies/gitlab.adoc[GitLab packages]. Publishing Cuppa-built libraries is a different
 workflow: xref:packages.adoc[Publishing packages].
 
 == Develop vs package downloads

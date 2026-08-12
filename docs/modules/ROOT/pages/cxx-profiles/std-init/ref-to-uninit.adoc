@@ -1,7 +1,7 @@
 = std::init: pointer and reference marking (`ref_to_uninit`)
 :description: std::init rule ref_to_uninit — ref_to_uninit binding consistency
 
-include::partial$cxx-profile-attribute-markers.adoc[]
+include::partial$cxx-profiles/attribute-markers.adoc[]
 
 == What this rule checks
 
@@ -50,5 +50,5 @@ error: pointer marked '[[ref_to_uninit]]' must refer to uninitialized memory und
 
 == Related rules
 
-* xref:cxx-profiles-std-init-uninit-read.adoc[Reads before initialization]
-* xref:cxx-profiles-std-init-destroy.adoc[Destroy lifecycle]
+* xref:cxx-profiles/std-init/uninit-read.adoc[Reads before initialization]
+* xref:cxx-profiles/std-init/destroy.adoc[Destroy lifecycle]

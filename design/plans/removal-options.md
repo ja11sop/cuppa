@@ -2265,24 +2265,24 @@ trees" have to hunt across sections that grew with the code rather than with a m
 ```
 dependencies.adoc                 Hub — what a dependency is, kinds table, declare + BuildWith,
                                   where trees live (link build-layout), which page next
-dependencies-location.adoc       Location dependencies — URLs/archives/paths, folder naming,
+dependencies/location.adoc       Location dependencies — URLs/archives/paths, folder naming,
                                   relative `@`, --location-match-*, develop swap, storage_paths
-dependencies-packages.adoc       Package dependencies (consume) — package_dependency overview,
+dependencies/packages.adoc       Package dependencies (consume) — package_dependency overview,
                                   toolchain-variant layout, develop vs download, auth pointer
-dependencies-gitlab.adoc         GitLab generic packages — consume detail; link to publish page
-dependencies-conan.adoc          Conan 2 — consume (SConsDeps, offline, limitations); link publish
-dependencies-builtins.adoc       Built-ins **index** — registered names table, when to use a
+dependencies/gitlab.adoc         GitLab generic packages — consume detail; link to publish page
+dependencies/conan.adoc          Conan 2 — consume (SConsDeps, offline, limitations); link publish
+dependencies/builtins.adoc       Built-ins **index** — registered names table, when to use a
                                   built-in vs location/package/Conan, links to child pages
-dependencies-boost.adoc          Boost (source / b2) — flags, BoostStaticLibs / SharedLibs,
+dependencies/builtins/boost.adoc          Boost (source / b2) — flags, BoostStaticLibs / SharedLibs,
                                   patches, location overrides; contrast with boost_package
                                   (link packages / GitLab consume); decide which way to get Boost
-dependencies-qt.adoc             Qt4 / Qt5 — MOC/UIC/RCC; thin until surface grows
-dependencies-quince.adoc         Quince + backends — ORM location wiring; thin until surface grows
-dependencies-managing.adoc      Managing — which listing for which question, --list-dependencies,
+dependencies/builtins/qt.adoc             Qt4 / Qt5 — MOC/UIC/RCC; thin until surface grows
+dependencies/builtins/quince.adoc         Quince + backends — ORM location wiring; thin until surface grows
+dependencies/managing.adoc      Managing — which listing for which question, --list-dependencies,
                                   --list-develop / --update-develop, --remove-* / purge when they
                                   ship, inventory sizing (lazy exact upgrade; --exact-sizes
                                   forces remasure) at user level
-dependencies-extending.adoc     Writing your own — location/package/Conan factories,
+dependencies/extending.adoc     Writing your own — location/package/Conan factories,
                                   storage_paths / optional storage_clean contract, pip plugins
                                   (move or deeply link from extending.adoc)
 packages.adoc                    Retitle focus to **Publishing** (GitLab generic + Conan export-pkg),

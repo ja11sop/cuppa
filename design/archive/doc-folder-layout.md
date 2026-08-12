@@ -1,7 +1,7 @@
 # Plan: Antora page folders mirroring navigation
 
-- **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-folder-layout`); hub split [`removal-options.md`](removal-options.md) §7.1 (shipped); [`methods-pages-split.md`](methods-pages-split.md) (`doc-methods-split`); std::init docs on PR [#192](https://github.com/ja11sop/cuppa/pull/192)
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-folder-layout`); hub split [`removal-options.md`](../plans/removal-options.md) §7.1 (shipped); [`methods-pages-split.md`](../plans/methods-pages-split.md) (`doc-methods-split`); std::init docs merged [#192](https://github.com/ja11sop/cuppa/pull/192)
 - **Updated:** 2026-08-12
 - **Impact:** none — documentation paths and xrefs only; no product behaviour
 
@@ -9,8 +9,8 @@
 
 The Antora **navigation tree** already groups Dependencies, Toolchains, and C++ Profiles into
 hubs with nested children. On disk, most of those children still live as **flat, prefixed files**
-next to every other page (`dependencies-location.adoc`, `cxx-profiles-std-init-uninit-decl.adoc`,
-`toolchain-gcc.adoc`).
+next to every other page (`dependencies/location.adoc`, `cxx-profiles/std-init/uninit-decl.adoc`,
+`toolchains/gcc.adoc`).
 
 Integration test pages already follow a better pattern: `pages/integration/*.adoc` matches
 nav nesting and stays readable in the editor.
@@ -28,9 +28,8 @@ This plan moves **child pages into folders** while keeping **hub URLs stable** w
 
 ## Timing
 
-Land **after** [#192](https://github.com/ja11sop/cuppa/pull/192) (`prof-report-parser-layers`) merges.
-That PR introduces the std::init doc set; this work is a **follow-on docs-only PR** (or short
-series) so review stays mechanical rather than mixed with parser/example changes.
+Shipped on branch `doc-folder-layout` after [#192](https://github.com/ja11sop/cuppa/pull/192) merged
+(2026-08-12).
 
 ## Goals
 
@@ -50,7 +49,7 @@ series) so review stays mechanical rather than mixed with parser/example changes
 - Antora **redirects** for old child URLs (no redirect extension today; accept URL churn on
   child pages — see below).
 - Moving **`integration/`** pages (already folder-aligned).
-- **`methods/`** split — stays on [`methods-pages-split.md`](methods-pages-split.md); optional
+- **`methods/`** split — stays on [`methods-pages-split.md`](../plans/methods-pages-split.md); optional
   to land methods folders in the same cycle or immediately after.
 - Moving **`contributing/`** children (lower churn; can follow the same rule later).
 
@@ -105,7 +104,7 @@ docs/modules/ROOT/partials/
 |------|---------|
 | Hub at `pages/<name>.adoc` | `dependencies.adoc`, `cxx-profiles.adoc` |
 | Child path mirrors nav segment | `dependencies/location.adoc` |
-| Drop redundant prefix in filename | `toolchain-gcc.adoc` → `toolchains/gcc.adoc` |
+| Drop redundant prefix in filename | `toolchains/gcc.adoc` → `toolchains/gcc.adoc` |
 | Profile designator folder | `cxx-profiles/std-init/` |
 | Rule id as leaf name | `uninit-decl.adoc` (not `std-init-uninit-decl.adoc`) |
 | Built-in deps optional third level | `dependencies/builtins/boost.adoc` matches nav depth |
@@ -130,7 +129,7 @@ Call that out in the PR; do not block the move on redirects.
 | Slice | Deliverable | Notes |
 |-------|-------------|-------|
 | A | File moves + `nav.adoc` | `git mv`; no prose edits yet |
-| B | Xref migration | Repo-wide replace `xref:dependencies-location.adoc` → `xref:dependencies/location.adoc`, etc. |
+| B | Xref migration | Repo-wide replace `xref:dependencies/location.adoc` → `xref:dependencies/location.adoc`, etc. |
 | C | Partial includes | `include::partial$cxx-profiles/attribute-markers.adoc[]` on std::init pages |
 | D | Toolchains + dependencies | Same mechanical pass as profiles |
 | E | Verification | `npm run build`; `rg` for stale paths; optional link check in built `_docs_build/site` |
@@ -148,8 +147,8 @@ xref:dependencies-
 xref:toolchain-
 xref:cxx-profiles-std-init
 include::partial$cxx-profile-attribute-markers
-dependencies-location.adoc
-toolchain-gcc.adoc
+dependencies/location.adoc
+toolchains/gcc.adoc
 cxx-profiles-std-init-
 ```
 
@@ -169,7 +168,7 @@ After moves, every std::init page should still:
 
 | Workstream | Interaction |
 |------------|-------------|
-| [`methods-pages-split.md`](methods-pages-split.md) | When methods children appear, place them under `pages/methods/` using the same hub-at-root rule |
+| [`methods-pages-split.md`](../plans/methods-pages-split.md) | When methods children appear, place them under `pages/methods/` using the same hub-at-root rule |
 | [`doc-antora-ui`](../../ROADMAP.md) | Independent; can land before or after folder layout |
 | std::init content ([#192](https://github.com/ja11sop/cuppa/pull/192)) | Must merge first; this plan only relocates files |
 
@@ -199,6 +198,6 @@ No Python product tests required (`impact:none`).
 | Slice | Status |
 |-------|--------|
 | Plan drafted | done |
-| Wait for #192 merge | pending |
-| Slice A–E (folder move PR) | not started |
-| Plan → shipped | not started |
+| Wait for #192 merge | done |
+| Slice A–E (folder move PR) | done — branch `doc-folder-layout` |
+| Plan → shipped | done |

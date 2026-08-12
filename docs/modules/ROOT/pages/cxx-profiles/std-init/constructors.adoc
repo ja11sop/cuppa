@@ -1,7 +1,7 @@
 = std::init: constructor initialization (`ctor_uninit_member`)
 :description: std::init rule ctor_uninit_member — constructors must initialize members and bases
 
-include::partial$cxx-profile-attribute-markers.adoc[]
+include::partial$cxx-profiles/attribute-markers.adoc[]
 
 == What this rule checks
 
@@ -48,5 +48,5 @@ error: constructor does not initialize base class 'base' under profile 'std::ini
 
 == Related rules
 
-* xref:cxx-profiles-std-init-uninit-read.adoc[Reads before initialization]
-* xref:cxx-profiles-std-init-markers.adoc[Markers and initializers]
+* xref:cxx-profiles/std-init/uninit-read.adoc[Reads before initialization]
+* xref:cxx-profiles/std-init/markers.adoc[Markers and initializers]

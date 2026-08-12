@@ -1,7 +1,7 @@
 = std::init: subobject writes (`uninit_write`)
 :description: std::init rule uninit_write — member writes on uninit storage
 
-include::partial$cxx-profile-attribute-markers.adoc[]
+include::partial$cxx-profiles/attribute-markers.adoc[]
 
 == What this rule checks
 
@@ -45,5 +45,5 @@ A related shape covers writes through `{cxx-a-ref-to-uninit}` pointers to uninit
 
 == Related rules
 
-* xref:cxx-profiles-std-init-uninit-read.adoc[Reads before initialization]
-* xref:cxx-profiles-std-init-constructors.adoc[Constructor initialization]
+* xref:cxx-profiles/std-init/uninit-read.adoc[Reads before initialization]
+* xref:cxx-profiles/std-init/constructors.adoc[Constructor initialization]

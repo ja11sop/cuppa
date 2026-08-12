@@ -23,7 +23,7 @@ Optional hooks so listing and removal can find (and clean) what you own:
   Boost uses this for b2 stage / `bin.<abi>` cleans.
 
 User-facing remove / purge behaviour:
-xref:dependencies-managing.adoc#remove-dependencies[Removing dependency trees].
+xref:dependencies/managing.adoc#remove-dependencies[Removing dependency trees].
 
 == Plugins and methods
 

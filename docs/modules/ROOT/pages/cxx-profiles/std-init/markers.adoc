@@ -1,7 +1,7 @@
 = std::init: markers and initializers
 :description: std::init marker rules — pointer_marker, union_marker, static_marker, uninit_with_initializer
 
-include::partial$cxx-profile-attribute-markers.adoc[]
+include::partial$cxx-profiles/attribute-markers.adoc[]
 
 == What these rules check
 
@@ -61,5 +61,5 @@ error: variable 'value' cannot be both '[[uninit]]' and have an initializer unde
 
 == Related rules
 
-* xref:cxx-profiles-std-init-uninit-decl.adoc[Uninitialized declarations]
-* xref:cxx-profiles-std-init-static-init.adoc[Static and constant initialization]
+* xref:cxx-profiles/std-init/uninit-decl.adoc[Uninitialized declarations]
+* xref:cxx-profiles/std-init/static-init.adoc[Static and constant initialization]

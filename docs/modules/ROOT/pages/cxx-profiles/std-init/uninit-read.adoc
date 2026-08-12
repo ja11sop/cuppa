@@ -1,7 +1,7 @@
 = std::init: reads before initialization (`uninit_read`)
 :description: std::init rule uninit_read — using storage before it is initialized
 
-include::partial$cxx-profile-attribute-markers.adoc[]
+include::partial$cxx-profiles/attribute-markers.adoc[]
 
 == What this rule checks
 
@@ -50,12 +50,12 @@ error: read through a '[[ref_to_uninit]]' pointer or reference accesses uninitia
 * **Initialize** at declaration when the value is known.
 * For out-parameters filled by callees, pass through `{cxx-a-ref-to-uninit}` only when the callee
   documents uninitialized acceptance, and ensure the callee writes before any read in the
-  caller (see xref:cxx-profiles-std-init-ref-to-uninit.adoc[pointer marking]).
+  caller (see xref:cxx-profiles/std-init/ref-to-uninit.adoc[pointer marking]).
 * **Suppress** when flow analysis cannot see your initialization protocol (prefer narrowing
   the suppression to the specific statement).
 
 == Related rules
 
-* xref:cxx-profiles-std-init-uninit-write.adoc[Subobject writes] — writes that do not count
+* xref:cxx-profiles/std-init/uninit-write.adoc[Subobject writes] — writes that do not count
   as initialization
-* xref:cxx-profiles-std-init-ref-to-uninit.adoc[Pointer and reference marking]
+* xref:cxx-profiles/std-init/ref-to-uninit.adoc[Pointer and reference marking]

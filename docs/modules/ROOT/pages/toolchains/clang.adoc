@@ -180,7 +180,7 @@ adds more when using `libc{plus}{plus}`. Verbose listing shows them as normal `-
 
 | `pthread`, `rt`
 | Always (Linux)
-| Same rationale as xref:toolchain-gcc.adoc#gcc-default-linux-libraries[GCC]: historical
+| Same rationale as xref:toolchains/gcc.adoc#gcc-default-linux-libraries[GCC]: historical
   separate DSOs for threads and realtime clocks; Cuppa’s link sandwich puts them in the
   dynamic half of the line.
 | Keep for older glibc / portable defaults. On current glibc they are compatibility

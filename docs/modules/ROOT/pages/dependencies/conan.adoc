@@ -92,7 +92,7 @@ Cuppa discovers plugins through the `cuppa.dependency.plugins` entry point.
 
 A Conan example lives at `examples/conan_fmt_plugin/` (registers `fmt` via `cuppa.conan_dependency`).
 For the same `fmt` name built from a GitHub archive with `location_dependency` instead, see `examples/cuppa_fmt_plugin/`.
-Walkthrough for both: xref:dependencies-extending.adoc[Writing your own dependencies] and xref:extending.adoc#pip-dependency-plugins[Extending cuppa — Pip dependency plugins].
+Walkthrough for both: xref:dependencies/extending.adoc[Writing your own dependencies] and xref:extending.adoc#pip-dependency-plugins[Extending cuppa — Pip dependency plugins].
 
 === Offline mode
 

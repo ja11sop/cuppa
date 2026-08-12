@@ -77,4 +77,4 @@ The `cuppa` wrapper masks environment values whose names match `*TOKEN*` in buil
 
 == Related location options
 
-See also `--develop` and the `--location-*` flags documented in xref:cli-reference.adoc[CLI reference] and xref:dependencies-location.adoc[Location dependencies].
+See also `--develop` and the `--location-*` flags documented in xref:cli-reference.adoc[CLI reference] and xref:dependencies/location.adoc[Location dependencies].

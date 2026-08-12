@@ -111,6 +111,6 @@ failures.
 
 == Where to go next
 
-* Managing wipe / remove flags → xref:dependencies-managing.adoc[Managing dependencies]
+* Managing wipe / remove flags → xref:dependencies/managing.adoc[Managing dependencies]
 * Versioning and changelog → xref:contributing-versioning.adoc[Versioning and changelog]
 * Repository design plan → `design/archive/console-report-patterns.md`
