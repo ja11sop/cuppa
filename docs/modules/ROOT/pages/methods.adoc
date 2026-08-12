@@ -103,7 +103,7 @@ objs = env.Compile(['a.cpp', 'b.cpp'])
 env.Build('app', objs)
 ----
 
-When `env['modules']` is true (see xref:cxx-modules.adoc[C++ modules]), `Compile` delegates to the modules compile path so interface units produce BMIs and consumers receive the right consume flags.
+When `env['modules']` is true (see xref:cxx-modules.adoc[C++ Modules]), `Compile` delegates to the modules compile path so interface units produce BMIs and consumers receive the right consume flags.
 
 === Building libraries with `BuildLib`
 
@@ -448,7 +448,7 @@ env.Build(env.TargetFrom('src/apps/server.cpp'), sources)
 
 Dialect and modules interact with toolchain defaults documented under
 xref:toolchains.adoc#c-language-level[C++ language level] and the family pages.
-A full modules walkthrough is in xref:cxx-modules.adoc[C++ modules].
+A full modules walkthrough is in xref:cxx-modules.adoc[C++ Modules].
 
 [source,python]
 ----
@@ -534,5 +534,5 @@ These activate in concert with `--test`.
 
 You can now express programs, libraries, tests, and module-aware builds using cuppa methods instead of assembling SCons builders by hand.
 Next, inspect xref:toolchains.adoc[Toolchains] and the family pages so you know which flags
-each compiler receives by default, and xref:cxx-modules.adoc[C++ modules] if you are adopting
+each compiler receives by default, and xref:cxx-modules.adoc[C++ Modules] if you are adopting
 `import` / `export module`.

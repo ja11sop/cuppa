@@ -25,17 +25,24 @@ _GOLDEN = (
     / 'std_init_golden.json'
 )
 
-
-@pytest.mark.parametrize(
-    'rule_id',
-    [
-        'uninit_decl',
-        'static_runtime_init',
-        'ctor_uninit_member',
-        'ref_to_uninit',
-    ],
+_ALL_RULE_IDS = (
+    'uninit_decl',
+    'uninit_read',
+    'uninit_write',
+    'ref_to_uninit',
+    'double_destroy',
+    'destroy_uninit',
+    'ctor_uninit_member',
+    'static_runtime_init',
+    'uninit_with_initializer',
+    'pointer_marker',
+    'union_marker',
+    'static_marker',
 )
-def test_std_init_golden_lines_classify( rule_id ):
+
+
+@pytest.mark.parametrize( 'rule_id', _ALL_RULE_IDS )
+def test_std_init_golden_primary_lines_classify( rule_id ):
     golden = json.loads( _GOLDEN.read_text( encoding='utf-8' ) )
     line = golden[ rule_id ]
     diagnostic = parse_profiles_diagnostic( line )
@@ -44,11 +51,21 @@ def test_std_init_golden_lines_classify( rule_id ):
     assert diagnostic.rule_id == rule_id
 
 
-def test_std_init_golden_base_class_line():
+@pytest.mark.parametrize(
+    'fixture_key, rule_id',
+    [
+        ( 'uninit_decl_union', 'uninit_decl' ),
+        ( 'uninit_read_member', 'uninit_read' ),
+        ( 'uninit_read_through_ref', 'uninit_read' ),
+        ( 'ref_to_uninit_marked_direction', 'ref_to_uninit' ),
+        ( 'ctor_uninit_member_base', 'ctor_uninit_member' ),
+    ],
+)
+def test_std_init_golden_alternate_lines_classify( fixture_key, rule_id ):
     golden = json.loads( _GOLDEN.read_text( encoding='utf-8' ) )
-    diagnostic = parse_profiles_diagnostic( golden[ 'ctor_uninit_member_base' ] )
+    diagnostic = parse_profiles_diagnostic( golden[ fixture_key ] )
     assert diagnostic is not None
-    assert diagnostic.rule_id == 'ctor_uninit_member'
+    assert diagnostic.rule_id == rule_id
 
 
 def test_classify_rule_is_profile_keyed():
@@ -65,6 +82,7 @@ def test_unknown_compiler_returns_none():
     assert parse_profiles_diagnostic( line, compiler='gcc' ) is None
 
 
-def test_std_init_documents_rules_awaiting_golden_capture():
-    assert 'uninit_read' in std_init.DOCUMENTED_RULE_IDS
+def test_destroy_rules_documented_before_live_capture():
+    assert 'destroy_uninit' in std_init.DOCUMENTED_RULE_IDS_AWAITING_LIVE_CAPTURE
+    assert 'double_destroy' in std_init.DOCUMENTED_RULE_IDS_AWAITING_LIVE_CAPTURE
     assert 'uninit_decl' in std_init.RULE_DOC_REFERENCES

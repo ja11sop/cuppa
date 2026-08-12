@@ -163,7 +163,7 @@ Clang:
 
 Modules (opt-in; GCC 14+ / LLVM Clang 16+ / MSVC toolset 14.2+):
 
-* `--cxx-modules` -- enable named modules, partitions, header units, and `import std` when the toolchain supports it (see xref:cxx-modules.adoc[C++ modules])
+* `--cxx-modules` -- enable named modules, partitions, header units, and `import std` when the toolchain supports it (see xref:cxx-modules.adoc[C++ Modules])
 * `--modules` -- deprecated alias for `--cxx-modules` (removed in cuppa 2.0)
 
 C++ Profiles (opt-in; Profiles-capable Clang only):

@@ -1,13 +1,15 @@
-= C++ Profiles
-:description: Opt-in C++ Profiles with cuppa (--cxx-profiles / --cxx-profiles-enforce)
+= {cpp} Profiles
+:description: Opt-in {cpp} Profiles with cuppa (--cxx-profiles / --cxx-profiles-enforce)
 
-In this guide you will learn what ISO C++ **Profiles** are aiming at, what cuppa
+include::partial$cxx-profile-attribute-markers.adoc[]
+
+In this guide you will learn what ISO {cpp} **Profiles** are aiming at, what cuppa
 supports today, how to enable them with a Profiles-capable Clang, and where the
 feature may go next.
 
 Cuppa's **BuildProfile** (`env.BuildProfile(…)`) is a different concept: named
 build-time env tweaks. This page is only about the **language** Profiles
-framework (`[[profiles::…]]`, experimental `-fprofiles`).
+framework (`{cxx-a-profiles-ellipsis}`, experimental `-fprofiles`).
 
 Profiles are **opt-in** (`--cxx-profiles` / `--cxx-profiles-enforce=` or
 `env.CxxProfiles()` / `env.CxxProfilesEnforce(…)`). Builds that do not pass those
@@ -23,10 +25,10 @@ flags are unchanged.
 | Framework and specific profiles are under active WG21 / SG23 discussion (see <<papers>>). Designators and wording are still evolving; treat paper names as directional.
 
 | Compilers
-| **C++ Alliance** experimental Clang (Profiles archive) accepts `-fprofiles` and has been smoke-tested with `[[profiles::enforce(std::init)]];`. Distro / upstream Clang and GCC/MSVC do **not** implement this surface in cuppa.
+| **{cpp} Alliance** experimental Clang (Profiles archive) accepts `-fprofiles` and has been smoke-tested with `{cxx-a-profiles-enforce-std-init}`. Distro / upstream Clang and GCC/MSVC do **not** implement this surface in cuppa.
 
 | Cuppa CLI
-| `--cxx-profiles` enables the framework when the selected toolchain probes successfully for `-fprofiles`; otherwise the build stops with a clear error. `--cxx-profiles-enforce=<designators>` implies `--cxx-profiles` and applies those designators to every C++ translation unit (see <<how-cuppa-enables>>).
+| `--cxx-profiles` enables the framework when the selected toolchain probes successfully for `-fprofiles`; otherwise the build stops with a clear error. `--cxx-profiles-enforce=<designators>` implies `--cxx-profiles` and applies those designators to every {cpp} translation unit (see <<how-cuppa-enables>>).
 
 | Verified designator
 | **`std::init`** (initialization profile; related papers P3402 / P4222). Do not assume other names work on Alliance Clang until you have tried them.
@@ -34,7 +36,7 @@ flags are unchanged.
 
 == Enabling Profiles
 
-. Obtain a Profiles-capable Clang (C++ Alliance release archive) and register it with cuppa, for example:
+. Obtain a Profiles-capable Clang ({cpp} Alliance release archive) and register it with cuppa, for example:
 
 ```
 cuppa -D --toolchain-archive=https://github.com/cppalliance/clang/releases/download/profiles-2026-08-07-27/clang-profiles-linux-x86_64.tar.gz
@@ -49,7 +51,7 @@ cuppa -D --dbg --toolchains=clang24_profiles_2026_08_07_27 --cxx-profiles --cxx-
 ```
 
 `--cxx-profiles` alone turns on `-fprofiles` so attributes in your sources are recognised.
-`--cxx-profiles-enforce=std::init` also asks cuppa to enforce that designator on every C++ TU.
+`--cxx-profiles-enforce=std::init` also asks cuppa to enforce that designator on every {cpp} TU.
 
 You can put enforce in source yourself instead of (or as well as) the CLI:
 
@@ -89,20 +91,20 @@ For `--cxx-profiles-enforce=a,b`:
 [[profiles::enforce(std::init)]];
 ```
 
-and compiles each C++ translation unit with `-include <that header>`.
+and compiles each {cpp} translation unit with `-include <that header>`.
 
 `-include` is processed like a leading `#include`: the preprocessor tracks file and
 line with linemarkers, then resumes your primary source at line 1. Diagnostics in
 your `.cpp` keep their original line numbers. Cuppa does **not** rewrite files in
 your source tree.
 
-If a translation unit already contains a `[[profiles::enforce(…)]]` attribute in
+If a translation unit already contains a `{cxx-a-profiles-enforce-ellipsis}` attribute in
 its preamble, cuppa **does not** add a second enforce via `-include`. Instead it
 writes a compiler-facing merged view under the build tree (still without touching
 your sources): CLI designators are appended to the attribute's list. For example
-`[[profiles::enforce(foo)]];` with `--cxx-profiles-enforce=std::init` becomes
-`[[profiles::enforce(foo, std::init)]];` in that view. An empty placeholder
-`[[profiles::enforce()]];` in source receives the CLI designators the same way.
+`{cxx-a-profiles-enforce-foo}` with `--cxx-profiles-enforce=std::init` becomes
+`{cxx-a-profiles-enforce-foo-std-init}` in that view. An empty placeholder
+`{cxx-a-profiles-enforce-empty}` in source receives the CLI designators the same way.
 The merged view is prefixed with `#line` so diagnostics still cite your original
 file. When the source attribute already lists every CLI designator, cuppa compiles
 the original file unchanged.
@@ -138,7 +140,7 @@ the feature:
 Design detail and refusal rules: link:https://github.com/ja11sop/cuppa/blob/master/design/archive/cxx-profiles.md[`design/archive/cxx-profiles.md`]
 and issue link:https://github.com/ja11sop/cuppa/issues/127[#127].
 
-== Toolchain references (Clang / C++ Alliance)
+== Toolchain references (Clang / {cpp} Alliance)
 
 * Fork and branch: link:https://github.com/cppalliance/clang/tree/profiles-framework[cppalliance/clang `profiles-framework`]
 * Framework notes in-tree:
@@ -164,19 +166,19 @@ link:https://github.com/ja11sop/cuppa/issues/127[#127] should stay aligned.
 
 | link:https://wg21.link/P2410[P2410]
 | R0
-| Type-and-resource safety in modern C++
+| Type-and-resource safety in modern {cpp}
 | Stroustrup
 | 2021-07
 
 | link:https://wg21.link/P2687[P2687]
 | R0
-| Design Alternatives for Type-and-Resource Safe C++
+| Design Alternatives for Type-and-Resource Safe {cpp}
 | Stroustrup, Dos Reis
 | 2022-10
 
 | link:https://wg21.link/P2816[P2816]
 | R0
-| Safety Profiles: Type-and-resource Safe programming in ISO Standard C++
+| Safety Profiles: Type-and-resource Safe programming in ISO Standard {cpp}
 | Stroustrup, Dos Reis
 | 2023-02
 
@@ -212,13 +214,13 @@ link:https://github.com/ja11sop/cuppa/issues/127[#127] should stay aligned.
 
 | link:https://wg21.link/P3608[P3608]
 | R0
-| Contracts and profiles: what can we reasonably ship in C++26
+| Contracts and profiles: what can we reasonably ship in {cpp}26
 | Voutilainen, Wakely, Dos Reis
 | 2025-01
 
 | link:https://wg21.link/P3081[P3081]
 | R2
-| Core safety profiles for C++26
+| Core safety profiles for {cpp}26
 | Sutter
 | 2025-02
 
@@ -230,7 +232,7 @@ link:https://github.com/ja11sop/cuppa/issues/127[#127] should stay aligned.
 
 | link:https://wg21.link/P3589[P3589]
 | R2
-| C++ Profiles: The Framework
+| {cpp} Profiles: The Framework
 | Dos Reis
 | 2025-05
 
@@ -248,7 +250,7 @@ link:https://github.com/ja11sop/cuppa/issues/127[#127] should stay aligned.
 
 | link:https://wg21.link/P3700[P3700]
 | R0
-| Making Safe C++ Happen
+| Making Safe {cpp} Happen
 | Bindels
 | 2025-05
 
@@ -272,7 +274,7 @@ link:https://github.com/ja11sop/cuppa/issues/127[#127] should stay aligned.
 
 | link:https://wg21.link/P4186[P4186]
 | R0
-| A proposed plan for profiles in C++
+| A proposed plan for profiles in {cpp}
 | Bindels
 | 2026-04
 
@@ -292,6 +294,6 @@ Initialization profile direction for Alliance Clang's `std::init`:
 * xref:cli-reference.adoc[CLI reference] — `--cxx-profiles`, `--cxx-profiles-enforce=`, `--cxx-disable-error-limit`
 * xref:toolchain-clang.adoc[Clang] — Profiles-capable archives
 * xref:toolchains.adoc[Toolchains] — `--toolchain-archive=` / `--clang-root=`
-* xref:integration/test-cxx-profiles.adoc[Integration: C++ Profiles]
-* xref:cxx-modules.adoc[C++ modules] — separate opt-in; may interact with Profiles later
+* xref:integration/test-cxx-profiles.adoc[Integration: {cpp} Profiles]
+* xref:cxx-modules.adoc[{cpp} modules] — separate opt-in; may interact with Profiles later
 * xref:methods.adoc[Methods] — `BuildProfile` (build-time profiles, not this feature)

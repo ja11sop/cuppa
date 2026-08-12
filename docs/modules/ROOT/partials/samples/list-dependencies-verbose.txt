@@ -1,29 +1,29 @@
 Dependencies in ~/.cuppa/dependencies
 Default dependencies: boost_package
-  ----------------------------------------------------------------------------------------------------------------------------------------------
-      SIZE  LAST USED  REMARK   DEPENDENCY                               LOCATION
-  ----------------------------------------------------------------------------------------------------------------------------------------------
-    299.3M  yesterday  1 total  referenced
-                                │
-    299.3M  yesterday  1 used   ├── dependencies in use
-                                │
-    299.3M  yesterday  1 used   └── gitlab packages
-                                    │
-    299.3M  yesterday               └── boost_package
-    299.3M  yesterday                   └── 1.91                         https://gitlab.example/api/v4/projects/1/boost/1.91
-    299.3M  yesterday  in use               └── gcc153_rel_x86_64_cxx2c  [D] boost_debian_gcc153_rel_x86_64_cxx2c.tar.gz
-  ----------------------------------------------------------------------------------------------------------------------------------------------
-      5.8M  yesterday           unreferenced
-                                │
-      5.8M  yesterday           └── source archives
-                                    │
-      2.9M  yesterday               ├── boost
-      2.9M  yesterday               │   └── 1.91.0                       [D] https://archives.boost.io/release/1.91.0/source/boost_1_91_0.tar.gz
-                                    │
-      2.9M  yesterday               └── github.com/fmtlib/fmt
-      1.4M  yesterday                   ├── 11.1.4                       [D] https://github.com/fmtlib/fmt/archive/refs/tags/11.1.4.zip
-      1.5M  yesterday                   └── 12.2.0                       https://github.com/fmtlib/fmt/archive/refs/tags/12.2.0.zip
-  ----------------------------------------------------------------------------------------------------------------------------------------------
+  -----------------------------------------------------------------------------------------------------------------------------------------------
+      SIZE  LAST USED   REMARK   DEPENDENCY                               LOCATION
+  -----------------------------------------------------------------------------------------------------------------------------------------------
+    299.3M  2 days ago  1 total  referenced
+                                 │
+    299.3M  2 days ago  1 used   ├── dependencies in use
+                                 │
+    299.3M  2 days ago  1 used   └── gitlab packages
+                                     │
+    299.3M  2 days ago               └── boost_package
+    299.3M  2 days ago                   └── 1.91                         https://gitlab.example/api/v4/projects/1/boost/1.91
+    299.3M  2 days ago  in use               └── gcc153_rel_x86_64_cxx2c  [D] boost_debian_gcc153_rel_x86_64_cxx2c.tar.gz
+  -----------------------------------------------------------------------------------------------------------------------------------------------
+      5.8M  2 days ago           unreferenced
+                                 │
+      5.8M  2 days ago           └── source archives
+                                     │
+      2.9M  2 days ago               ├── boost
+      2.9M  2 days ago               │   └── 1.91.0                       [D] https://archives.boost.io/release/1.91.0/source/boost_1_91_0.tar.gz
+                                     │
+      2.9M  2 days ago               └── github.com/fmtlib/fmt
+      1.4M  2 days ago                   ├── 11.1.4                       [D] https://github.com/fmtlib/fmt/archive/refs/tags/11.1.4.zip
+      1.5M  2 days ago                   └── 12.2.0                       https://github.com/fmtlib/fmt/archive/refs/tags/12.2.0.zip
+  -----------------------------------------------------------------------------------------------------------------------------------------------
 3 entries, 305.1M total, 5.8M unreferenced
 
 [D] = archive present under downloads (~/.cuppa/downloads)

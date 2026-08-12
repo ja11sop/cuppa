@@ -1,0 +1,15 @@
+Import( 'env' )
+
+sources = [
+    'uninit_decl.cpp',
+    'static_runtime_init.cpp',
+    'ctor_uninit_member.cpp',
+    'ref_to_uninit.cpp',
+    'uninit_read.cpp',
+    'uninit_write.cpp',
+    'marker_rules.cpp',
+    'destroy_rules.cpp',
+    'main.cpp',
+]
+
+env.Build( 'profiles_std_init_violations', sources )

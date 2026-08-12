@@ -1,30 +1,30 @@
 Downloads in ~/.cuppa/downloads
 Default dependencies: boost, boost_package
-  -----------------------------------------------------------------------------
-      SIZE  LAST USED  REMARK   DEPENDENCY / DOWNLOAD
-  -----------------------------------------------------------------------------
-      180M  yesterday  2 total  referenced from downloads
-                                │
-       38M  yesterday  1 used   ├── gitlab packages
-                                │   │
-       38M  yesterday           │   └── boost_package
-       38M  yesterday           │       └── 1.91
-       38M  yesterday  in use   │           └── boost_…_gcc153_rel_….tar.gz
-    299.3M  yesterday  in use   │               └── [E] gcc153_rel_x86_64_cxx2c
-      142M  yesterday  1 used   └── source archives
-                                    │
-      142M  yesterday               └── boost
-      142M  yesterday  in use           └── boost_1_91_0.tar.bz2
-      2.1G  yesterday  in use               └── [E] boost/1.91.0
-  -----------------------------------------------------------------------------
-       36M  yesterday           unreferenced downloads
-                                │
-       36M  yesterday           └── gitlab packages
-                                    │
-       36M  yesterday               └── fmt_package
-       36M  yesterday                   └── 11.1.4
-       36M  yesterday                       └── fmt_…_clang211_rel_….tar.gz
-  -----------------------------------------------------------------------------
+  ------------------------------------------------------------------------------
+      SIZE  LAST USED   REMARK   DEPENDENCY / DOWNLOAD
+  ------------------------------------------------------------------------------
+      180M  2 days ago  2 total  referenced from downloads
+                                 │
+       38M  2 days ago  1 used   ├── gitlab packages
+                                 │   │
+       38M  2 days ago           │   └── boost_package
+       38M  2 days ago           │       └── 1.91
+       38M  2 days ago  in use   │           └── boost_…_gcc153_rel_….tar.gz
+    299.3M  2 days ago  in use   │               └── [E] gcc153_rel_x86_64_cxx2c
+      142M  2 days ago  1 used   └── source archives
+                                     │
+      142M  2 days ago               └── boost
+      142M  2 days ago  in use           └── boost_1_91_0.tar.bz2
+      2.1G  2 days ago  in use               └── [E] boost/1.91.0
+  ------------------------------------------------------------------------------
+       36M  2 days ago           unreferenced downloads
+                                 │
+       36M  2 days ago           └── gitlab packages
+                                     │
+       36M  2 days ago               └── fmt_package
+       36M  2 days ago                   └── 11.1.4
+       36M  2 days ago                       └── fmt_…_clang211_rel_….tar.gz
+  ------------------------------------------------------------------------------
 3 archives, 216M download total, 36M unreferenced
 
 [E] = dependency extracted from the download above

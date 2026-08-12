@@ -509,12 +509,32 @@ Equivalent: `scons -D …` when the project's `sconstruct` already imports cuppa
 | Dependencies | `cuppa/dependencies/`, `cuppa/build_with_location.py` |
 | Packages | `cuppa/build_with_package.py`, `cuppa/package_managers/`, `cuppa/packages/` |
 | Coverage | `cuppa/cpp/run_gcov_coverage.py`, `cuppa/methods/coverage.py` |
-| C++ modules | `cuppa/cpp/module_scanner.py`, `cuppa/cpp/cxx_modules.py`, `cuppa/methods/modules.py`, `cuppa/methods/header_unit.py`, toolchain helpers in `gcc.py` / `clang.py` / `cl.py` (named modules, partitions, header units, `import std` where supported; see `docs/modules/ROOT/pages/cxx-modules.adoc`) |
+| C++ Modules | `cuppa/cpp/module_scanner.py`, `cuppa/cpp/cxx_modules.py`, `cuppa/methods/modules.py`, `cuppa/methods/header_unit.py`, toolchain helpers in `gcc.py` / `clang.py` / `cl.py` (named modules, partitions, header units, `import std` where supported; see `docs/modules/ROOT/pages/cxx-modules.adoc`) |
 | Console entry | `cuppa/__main__.py` |
 
 Module auto-registration: `cuppa/modules/registration.py` loads classes exposing `add_options` / `add_to_env` under methods, dependencies, profiles, variants, toolchains, project_generators.
 
 Plugins (setuptools): `cuppa.method.plugins`, `cuppa.profile.plugins`, `cuppa.dependency.plugins`.
+
+## C++ example style (Readable style)
+
+C++ sources under `examples/` (especially `examples/profiles/`) use a consistent **Readable
+style** for layout and naming. Match these when adding or editing example code, Antora
+listings, and classifier fixtures:
+
+| Convention | Rule |
+|------------|------|
+| File banner | Short `// ---` header stating purpose and which profile rule is exercised |
+| Section markers | Optional `// I I I …` (includes) and `// n n n …` (namespaces) blocks in larger files |
+| Naming | **snake_case** types, functions, and data members; **PascalCase** template parameters and function parameters (`void foo( int Value )`) |
+| Members | Trailing underscore for class data members (`value_`) |
+| Namespaces | Nested `namespace profiles { namespace std_init_violations { … } }` with `// end namespace …` comments |
+| Braces | Opening brace on the same line as the declaration |
+| Spacing | Spaces inside call parentheses; **no** space after `if` / `for` / `while` (`if( condition )`) |
+| Attributes | `[[nodiscard]]` before return type; profile markers (`[[uninit]]`, `[[ref_to_uninit]]`, …) on the same declarator |
+
+See `examples/profiles/std-init-violations/` for a multi-file reference. Do not invent a
+parallel style for cuppa examples.
 
 ## Validating changes to cuppa
 
@@ -584,6 +604,8 @@ When docs and code disagree, **code is authoritative** (especially storage defau
 | GCC / Clang / MSVC defaults and flags | `toolchain-gcc.adoc` / `toolchain-clang.adoc` / `toolchain-msvc.adoc` |
 | Fetched toolchain archives (`--toolchain-archive`, `--*-root`) | `toolchains.adoc` § Fetched toolchain archives |
 | C++20 modules intro, tutorial, papers, reference | `cxx-modules.adoc` |
+| C++ Profiles hub | `cxx-profiles.adoc` |
+| `std::init` profile rules (examples + Clang diagnostics) | `cxx-profiles-std-init.adoc` and `cxx-profiles-std-init-*.adoc` children |
 | CLI flags | `cli-reference.adoc` |
 | Dependencies overview (kinds, declare, `BuildWith`) | `dependencies.adoc` (hub) |
 | Location / header libraries | `dependencies-location.adoc` |

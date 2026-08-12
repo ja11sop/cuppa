@@ -7,6 +7,8 @@
 #   Alliance Clang Profiles diagnostic line shape
 #-------------------------------------------------------------------------------
 
+import re
+
 from collections import namedtuple
 
 from cuppa.cpp.profiles_report.normalise import normalise_message
@@ -23,30 +25,32 @@ ClangProfilesLine = namedtuple(
     ],
 )
 
-_PROFILE_SUFFIX = " under profile '"
+# Profile name appears either as a line suffix or inside the message (before ';').
+_PROFILE_IN_MESSAGE = re.compile(
+    r" under profile '([^']+)'(?:$|;)",
+)
 
 
 def parse_clang_profiles_line( line ):
     """Parse one Clang ``: error: … under profile '…'`` line, or return ``None``."""
     text = line.rstrip( '\r\n' )
-    suffix_index = text.rfind( _PROFILE_SUFFIX )
-    if suffix_index == -1:
-        return None
-
-    profile_end = text.rfind( "'", len( text ) - 1 )
-    if profile_end <= suffix_index:
-        return None
-
-    profile = text[ suffix_index + len( _PROFILE_SUFFIX ):profile_end ]
-    before_profile = text[ :suffix_index ]
 
     error_marker = ': error: '
-    error_index = before_profile.find( error_marker )
+    error_index = text.find( error_marker )
     if error_index == -1:
         return None
 
-    message = before_profile[ error_index + len( error_marker ):]
-    location_part = before_profile[ :error_index ]
+    message = text[ error_index + len( error_marker ):]
+    location_part = text[ :error_index ]
+
+    profile_matches = list( _PROFILE_IN_MESSAGE.finditer( message ) )
+    if not profile_matches:
+        return None
+
+    profile_match = profile_matches[ -1 ]
+    profile = profile_match.group( 1 )
+    if profile_match.end() == len( message ):
+        message = message[ :profile_match.start() ].rstrip()
 
     column_index = location_part.rfind( ':' )
     if column_index == -1:

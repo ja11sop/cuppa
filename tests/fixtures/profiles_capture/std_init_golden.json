@@ -1,7 +1,19 @@
 {
-  "uninit_decl": "/tmp/uninit_decl.cpp:10:5: error: variable 'uninit_global' must be initialized or marked '[[uninit]]' under profile 'std::init'",
-  "static_runtime_init": "/tmp/static_runtime_init.cpp:12:1: error: non-local variable 'runtime_value' requires constant initialization under profile 'std::init'",
-  "ctor_uninit_member": "/tmp/ctor_uninit_member.cpp:20:5: error: constructor does not initialize member 'value_' under profile 'std::init'",
-  "ctor_uninit_member_base": "/tmp/ctor_uninit_member.cpp:32:5: error: constructor does not initialize base class 'Base' under profile 'std::init'",
-  "ref_to_uninit": "/tmp/ref_to_uninit.cpp:40:9: error: pointer to uninitialized memory must be marked '[[ref_to_uninit]]' under profile 'std::init'"
+  "ctor_uninit_member": "ctor_uninit_member.cpp:19:5: error: constructor does not initialize member 'value_' under profile 'std::init'",
+  "ctor_uninit_member_base": "ctor_uninit_member.cpp:28:5: error: constructor does not initialize base class 'base' under profile 'std::init'",
+  "destroy_uninit": "destroy_rules.cpp:43:17: error: uninitialized storage is destroyed by a '[[now_uninit]]' function under profile 'std::init'",
+  "double_destroy": "destroy_rules.cpp:57:17: error: storage already destroyed by a '[[now_uninit]]' function is destroyed again under profile 'std::init'",
+  "pointer_marker": "marker_rules.cpp:27:20: error: '[[uninit]]' cannot be applied to a pointer under profile 'std::init'; initialize the pointer (for example to 'nullptr')",
+  "ref_to_uninit": "ref_to_uninit.cpp:26:10: error: pointer to uninitialized memory must be marked '[[ref_to_uninit]]' under profile 'std::init'",
+  "ref_to_uninit_marked_direction": "ref_to_uninit.cpp:34:10: error: pointer marked '[[ref_to_uninit]]' must refer to uninitialized memory under profile 'std::init'",
+  "static_marker": "marker_rules.cpp:44:5: error: '[[uninit]]' cannot be applied to variable 'static_storage' with static storage duration under profile 'std::init'; it is zero-initialized",
+  "static_runtime_init": "static_runtime_init.cpp:19:5: error: non-local variable 'runtime_global' requires constant initialization under profile 'std::init'",
+  "uninit_decl": "uninit_decl.cpp:28:9: error: variable 'automatic' must be initialized or marked '[[uninit]]' under profile 'std::init'",
+  "uninit_decl_union": "uninit_decl.cpp:42:18: error: variable 'object' of union type must be initialized under profile 'std::init'",
+  "uninit_read": "uninit_read.cpp:24:16: error: variable 'value' is read before initialization under profile 'std::init'",
+  "uninit_read_member": "uninit_read.cpp:32:16: error: member 'n' is read before initialization under profile 'std::init'",
+  "uninit_read_through_ref": "uninit_read.cpp:39:12: error: read through a '[[ref_to_uninit]]' pointer or reference accesses uninitialized memory under profile 'std::init'",
+  "uninit_with_initializer": "marker_rules.cpp:49:9: error: variable 'value' cannot be both '[[uninit]]' and have an initializer under profile 'std::init'",
+  "uninit_write": "uninit_write.cpp:31:14: error: writing a member of an '[[uninit]]' object does not initialize it under profile 'std::init'; initialize the whole object",
+  "union_marker": "marker_rules.cpp:39:26: error: '[[uninit]]' cannot be applied to a variable of union type under profile 'std::init'"
 }

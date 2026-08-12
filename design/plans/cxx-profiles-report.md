@@ -641,9 +641,12 @@ assumes ``std::init`` prose even though the **profile name** is parsed from
 Land **before slice C HTML** so doc links and rule sections live in profile modules, not in the
 generic report builder.
 
-**Status (2026-08-11):** landed on branch `prof-report-parser-layers` — package layout below,
-profile-keyed ``classify_rule``, golden fixtures, and ``examples/profiles-std-init-violations/``.
-Extend classifiers when new Clang message shapes are captured from the example or live trees.
+**Status (2026-08-11):** on branch `prof-report-parser-layers` (PR #192) — package layout below,
+profile-keyed ``classify_rule``, multi-file ``examples/profiles/std-init-violations/`` covering
+all twelve documented ``std::init`` rules, ``std_init_golden.json`` refreshed from Alliance Clang
+capture (``destroy_uninit`` / ``double_destroy`` golden lines use documented wording until the
+snapshot emits them live), and ``parse_clang`` handles messages that embed ``under profile '…'``
+before a trailing clause.
 
 ### Target layout
 
@@ -660,7 +663,7 @@ global tuple.
 
 ### Spec-driven fixtures (not smoke-only)
 
-Add ``examples/profiles-std-init-violations/`` (name illustrative): minimal C++ that deliberately
+Add ``examples/profiles/std-init-violations/`` (name illustrative): minimal C++ that deliberately
 violates each documented ``std::init`` rule (including rows not seen in consumer smoke, e.g.
 ``uninit_read``, ``destroy_uninit``). Workflow:
 
