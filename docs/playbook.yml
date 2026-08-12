@@ -30,6 +30,8 @@ asciidoc:
     idprefix: ''
     idseparator: '-'
     page-pagination: ''
+    cpp: C++
+    plus: +
 output:
   dir: ./../_docs_build/site
 runtime:

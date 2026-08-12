@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``--cxx-profiles-report`` activates an in-process collector wired through
   ``ToolchainProcessor`` with per-sconscript spawn scope; session summary logs at
   ``sconstruct_end`` (HTML/JSON in slice C).
+- Profiles parser layering (B½, `prof-report-parser-layers`): split inventory,
+  Clang line parsing, and profile-keyed classifiers under ``cuppa/cpp/profiles_report/``;
+  ``examples/profiles/std-init-violations/`` and ``std_init_golden.json`` fixtures for
+  spec-driven rule capture.
+- Antora: xref:cxx-profiles-std-init.adoc[std::init profile] rule-family pages with Clang
+  examples; navigation under xref:cxx-profiles.adoc[C++ Profiles]. Fix ``C++ Modules`` title
+  capitalisation across the site.
 
 ### Changed
 

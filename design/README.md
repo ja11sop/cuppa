@@ -32,6 +32,7 @@ maintainer workflow evolved.
 | [`plans/build-log-hygiene.md`](plans/build-log-hygiene.md) | proposal | Configure-time log demotion + variant default message fix — ROADMAP `console-log-hygiene` |
 | [`plans/cuppa-info.md`](plans/cuppa-info.md) | proposal | `cuppa --info`: version without sconstruct — ROADMAP `cli-info` |
 | [`plans/cxx-profiles-report.md`](plans/cxx-profiles-report.md) | proposal | `--cxx-profiles-report`: classify/dedupe Profiles diagnostics — ROADMAP `profiles-violation-report` / **1.8.0 target** |
+| [`plans/doc-folder-layout.md`](plans/doc-folder-layout.md) | proposal | Antora child pages under `dependencies/`, `cxx-profiles/`, `toolchains/` — ROADMAP `doc-folder-layout` |
 | [`archive/boost-latest-persistence.md`](archive/boost-latest-persistence.md) | shipped | Persist Boost latest (downloads-root–scoped conf); lazy scrape; offline reuse — [#171](https://github.com/ja11sop/cuppa/issues/171) / [#170](https://github.com/ja11sop/cuppa/pull/170) |
 | [`archive/list-toolchains.md`](archive/list-toolchains.md) | shipped | `--list-toolchains` ruled tree (family→version→driver→names); list-deps leaf = Cuppa session name — [#172](https://github.com/ja11sop/cuppa/issues/172) / [#170](https://github.com/ja11sop/cuppa/pull/170) |
 | [`archive/download-progress.md`](archive/download-progress.md) | shipped | Shared HTTP/transfer progress (download, extract, Conan, git) — [#165](https://github.com/ja11sop/cuppa/pull/165) |

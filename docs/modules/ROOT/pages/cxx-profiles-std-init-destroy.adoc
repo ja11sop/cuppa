@@ -1,0 +1,61 @@
+= std::init: destroy lifecycle (`destroy_uninit`, `double_destroy`)
+:description: std::init destroy rules — now_uninit on uninitialized or already-destroyed storage
+
+include::partial$cxx-profile-attribute-markers.adoc[]
+
+== What these rules check
+
+Functions annotated `{cxx-a-now-uninit}` (for example a project-local `destroy_at`) end the
+lifetime of storage passed in. Two errors are definite:
+
+* **`destroy_uninit`** — destroying storage that is still affirmatively uninitialized.
+* **`double_destroy`** — a second unconditional `{cxx-a-now-uninit}` destroy of the same
+  storage in one function.
+
+Standard release functions such as `free` follow related but distinct credit rules; see
+link:https://github.com/cppalliance/clang/blob/profiles-framework/clang/docs/ProfilesFramework.rst[ProfilesFramework.rst]
+§4.4.
+
+== Example violations
+
+From `examples/profiles/std-init-violations/destroy_rules.cpp`:
+
+[source,cpp]
+----
+template<typename T> [[now_uninit]] void destroy_at( T* Pointer );
+
+void destroy_twice()
+{
+    int storage = 5;
+    destroy_at( &storage );
+    destroy_at( &storage ); // double_destroy
+}
+----
+
+== Expected Clang diagnostics (documented)
+
+[source]
+----
+error: uninitialized storage is destroyed by a '[[now_uninit]]' function under profile 'std::init'
+error: storage already destroyed by a '[[now_uninit]]' function is destroyed again under profile 'std::init'
+----
+
+NOTE: Alliance Clang snapshots before destroy analysis is complete may still report
+xref:cxx-profiles-std-init-ref-to-uninit.adoc[`ref_to_uninit`] at these call sites. Cuppa's
+classifier table includes the documented messages so reports stay stable when toolchains catch
+up.
+
+== Resolutions
+
+* Ensure storage is **constructed** (or credited by `{cxx-a-now-init}` / whole-object write)
+  before the first `{cxx-a-now-uninit}` destroy.
+* Do not call `destroy_at` twice on the same live object; reconstruct between destroys when
+  using the documented destroy-then-construct pattern.
+* Mark helpers `{cxx-a-now-init}` when they initialize storage passed through `{cxx-a-ref-to-uninit}`
+  parameters before a destroy runs.
+* **Suppress** only for opaque lifecycle wrappers the analyzer cannot see.
+
+== Related rules
+
+* xref:cxx-profiles-std-init-ref-to-uninit.adoc[Pointer and reference marking]
+* xref:cxx-profiles-std-init-uninit-read.adoc[Reads before initialization]

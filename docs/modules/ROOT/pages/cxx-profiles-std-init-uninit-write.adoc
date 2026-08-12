@@ -1,0 +1,49 @@
+= std::init: subobject writes (`uninit_write`)
+:description: std::init rule uninit_write — member writes on uninit storage
+
+include::partial$cxx-profile-attribute-markers.adoc[]
+
+== What this rule checks
+
+Writing a **proper subobject** (member or element) of storage classified as uninitialized —
+including whole objects marked `{cxx-a-uninit}` and pointees reached through
+`{cxx-a-ref-to-uninit}` — does **not** initialize the whole object. Only whole-object
+initialization counts.
+
+== Example violations
+
+From `examples/profiles/std-init-violations/uninit_write.cpp`:
+
+[source,cpp]
+----
+struct point { int x; int y; };
+
+void write_member_of_uninit_object()
+{
+    point object [[uninit]];
+    object.x = 1; // subobject write only
+}
+----
+
+== Expected Clang diagnostic
+
+[source]
+----
+error: writing a member of an '[[uninit]]' object does not initialize it under profile 'std::init'; initialize the whole object
+----
+
+A related shape covers writes through `{cxx-a-ref-to-uninit}` pointers to uninitialized storage.
+
+== Resolutions
+
+* **Initialize the whole object** — brace initialization `{ 1, 2 }`, assignment to the entire
+  object, or `construct_at` / `{cxx-a-now-init}` helpers where modeled.
+* For scalars reached through pointers, assign through the pointer in one whole-object write
+  (`*pointer = 42;`) rather than member-wise steps when the pointee is a class.
+* **Suppress** only when you rely on a protocol the analyzer cannot see (prefer whole-object
+  initialization instead).
+
+== Related rules
+
+* xref:cxx-profiles-std-init-uninit-read.adoc[Reads before initialization]
+* xref:cxx-profiles-std-init-constructors.adoc[Constructor initialization]

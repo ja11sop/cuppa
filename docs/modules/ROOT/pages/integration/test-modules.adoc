@@ -1,7 +1,7 @@
-= Integration: C++ modules
+= Integration: C++ Modules
 :description: Named modules, partitions, private fragments, header units, import std, packaging
 
-See xref:cxx-modules.adoc[C++ modules].
+See xref:cxx-modules.adoc[C++ Modules].
 
 Covered by `tests/integration/methods/test_modules.py` using
 `tests/fixtures/modules_project/`.

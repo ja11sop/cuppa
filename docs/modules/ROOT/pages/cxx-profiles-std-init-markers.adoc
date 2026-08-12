@@ -1,0 +1,65 @@
+= std::init: markers and initializers
+:description: std::init marker rules — pointer_marker, union_marker, static_marker, uninit_with_initializer
+
+include::partial$cxx-profile-attribute-markers.adoc[]
+
+== What these rules check
+
+Several rules govern **where** `{cxx-a-uninit}` **may appear** and whether it contradicts an
+initializer:
+
+[cols="1,3"]
+|===
+| Rule id | Meaning
+
+| `pointer_marker`
+| `{cxx-a-uninit}` on pointer types — initialize to `nullptr` instead.
+
+| `union_marker`
+| `{cxx-a-uninit}` on union objects or members — initialize the union or active member.
+
+| `static_marker`
+| `{cxx-a-uninit}` on static or thread storage — zero-initialization already applies.
+
+| `uninit_with_initializer`
+| `{cxx-a-uninit}` combined with a written initializer, or with default initialization that leaves
+  the object initialized (for example `std::string`).
+|===
+
+== Example violations
+
+From `examples/profiles/std-init-violations/marker_rules.cpp`:
+
+[source,cpp]
+----
+int* pointer [[uninit]];              // pointer_marker
+union u { int i; float f; } value [[uninit]]; // union_marker
+int static_storage [[uninit]];        // static_marker (namespace scope)
+int value [[uninit]] = 4;             // uninit_with_initializer
+std::string text [[uninit]];          // uninit_with_initializer (default init)
+----
+
+== Expected Clang diagnostics
+
+[source]
+----
+error: '[[uninit]]' cannot be applied to a pointer under profile 'std::init'; initialize the pointer (for example to 'nullptr')
+error: '[[uninit]]' cannot be applied to a variable of union type under profile 'std::init'
+error: '[[uninit]]' cannot be applied to variable 'static_storage' with static storage duration under profile 'std::init'; it is zero-initialized
+error: variable 'value' cannot be both '[[uninit]]' and have an initializer under profile 'std::init'
+----
+
+== Resolutions
+
+* **Pointers** — use `int* pointer = nullptr;` or a valid target, not `{cxx-a-uninit}`.
+* **Unions** — initialize the active member or use a discriminated wrapper type.
+* **Static / thread storage** — rely on zero initialization or explicit constant init; use
+  function-local statics when you need lazy runtime init.
+* **Contradictory markers** — pick either acknowledged indeterminate storage (`{cxx-a-uninit}`
+  alone) or a real initializer, not both.
+* **Suppress** when migrating legacy globals with unusual init protocols.
+
+== Related rules
+
+* xref:cxx-profiles-std-init-uninit-decl.adoc[Uninitialized declarations]
+* xref:cxx-profiles-std-init-static-init.adoc[Static and constant initialization]

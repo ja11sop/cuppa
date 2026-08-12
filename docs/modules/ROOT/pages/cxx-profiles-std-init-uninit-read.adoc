@@ -1,0 +1,61 @@
+= std::init: reads before initialization (`uninit_read`)
+:description: std::init rule uninit_read — using storage before it is initialized
+
+include::partial$cxx-profile-attribute-markers.adoc[]
+
+== What this rule checks
+
+An object marked `{cxx-a-uninit}`, or storage still classified as uninitialized, must not be
+**read** until it is initialized. The check includes member reads and dereferences through
+`{cxx-a-ref-to-uninit}` parameters (reads through that marker are always treated as unsafe).
+
+== Example violations
+
+From `examples/profiles/std-init-violations/uninit_read.cpp`:
+
+[source,cpp]
+----
+void read_uninit_local()
+{
+    int value [[uninit]];
+    int copy = value; // read before write
+}
+
+int read_through_ref( int* Pointer [[ref_to_uninit]] )
+{
+    return *Pointer; // always checked
+}
+----
+
+== Expected Clang diagnostics
+
+Local or member read:
+
+[source]
+----
+error: variable 'value' is read before initialization under profile 'std::init'
+error: member 'n' is read before initialization under profile 'std::init'
+----
+
+Read through `{cxx-a-ref-to-uninit}`:
+
+[source]
+----
+error: read through a '[[ref_to_uninit]]' pointer or reference accesses uninitialized memory under profile 'std::init'
+----
+
+== Resolutions
+
+* **Assign before read** on every path that reaches the use.
+* **Initialize** at declaration when the value is known.
+* For out-parameters filled by callees, pass through `{cxx-a-ref-to-uninit}` only when the callee
+  documents uninitialized acceptance, and ensure the callee writes before any read in the
+  caller (see xref:cxx-profiles-std-init-ref-to-uninit.adoc[pointer marking]).
+* **Suppress** when flow analysis cannot see your initialization protocol (prefer narrowing
+  the suppression to the specific statement).
+
+== Related rules
+
+* xref:cxx-profiles-std-init-uninit-write.adoc[Subobject writes] — writes that do not count
+  as initialization
+* xref:cxx-profiles-std-init-ref-to-uninit.adoc[Pointer and reference marking]

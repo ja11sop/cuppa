@@ -15,15 +15,21 @@ from cuppa.core import dependency_tree
 
 pytestmark = pytest.mark.unit
 
+# Generic GitLab / location fixtures (no private host or project names).
+_GITLAB_WIDGET_SSH = 'ssh://git@gitlab.example/org/widget'
+_GITLAB_WIDGET_SCP = 'git@gitlab.example:org/widget'
+_GITLAB_WIDGET_SHORT = 'gitlab.example/org/widget'
+_GITLAB_WIDGET_STEM = 'git_ssh_git@gitlab.example__org_widget'
+_GITLAB_WIDGET_GITPLUS = 'git+ssh://git@gitlab.example/org/widget'
+_GITLAB_REGISTRY = 'https://gitlab.example/api/v4/projects/1'
+
 
 def test_short_name_from_ssh_url():
-    assert short_name_from_git_url( 'ssh://git@git.clearpool.io/cplx_core/baa' ) == \
-        'git.clearpool.io/cplx_core/baa'
+    assert short_name_from_git_url( _GITLAB_WIDGET_SSH ) == _GITLAB_WIDGET_SHORT
 
 
 def test_short_name_from_scp_style():
-    assert short_name_from_git_url( 'git@git.clearpool.io:cplx_core/baa' ) == \
-        'git.clearpool.io/cplx_core/baa'
+    assert short_name_from_git_url( _GITLAB_WIDGET_SCP ) == _GITLAB_WIDGET_SHORT
 
 
 def test_short_name_from_https_strips_git_suffix():
@@ -160,15 +166,15 @@ def test_with_download_mark_and_find_cached_download( tmp_path ):
     )
     assert found == str( downloads / archive_name )
 
-    pkg_dir = downloads / 'packages' / 'capy' / 'develop'
+    pkg_dir = downloads / 'packages' / 'sample_pkg' / 'develop'
     pkg_dir.mkdir( parents=True )
-    archive = 'capy_debian_gcc153_rel_x86_64_cxx2c.tar.gz'
+    archive = 'sample_pkg_debian_gcc153_rel_x86_64_cxx2c.tar.gz'
     ( pkg_dir / archive ).write_text( 'y' )
     found = find_cached_download(
             str( downloads ),
             storage_type='gitlab',
-            path=str( tmp_path / 'deps' / 'gcc153_rel_x86_64_cxx2c' / 'capy' / 'develop' ),
-            package='capy',
+            path=str( tmp_path / 'deps' / 'gcc153_rel_x86_64_cxx2c' / 'sample_pkg' / 'develop' ),
+            package='sample_pkg',
             version='develop',
             tool_variant='gcc153_rel_x86_64_cxx2c',
             package_archive=archive,
@@ -280,31 +286,31 @@ def test_tree_groups_referenced_siblings():
     leaves = [
         {
             'type': 'repository',
-            'dependency': 'baa',
-            'short_name': 'git.clearpool.io/cplx_core/baa',
-            'stem': 'git_ssh_git@git.clearpool.io__cplx_core_baa',
+            'dependency': 'widget',
+            'short_name': 'gitlab.example/org/widget',
+            'stem': 'git_ssh_git@gitlab.example__org_widget',
             'qualifier': '@master',
             'tool_variant': '-',
             'state': 'referenced',
             'size_bytes': 100,
             'last_used_epoch': 1000.0,
-            'path': '/deps/baa@master',
+            'path': '/deps/widget@master',
             'location': 'git_ssh...@master',
-            'source_url': 'ssh://git@git.clearpool.io/cplx_core/baa',
+            'source_url': 'ssh://git@gitlab.example/org/widget',
         },
         {
             'type': 'repository',
-            'dependency': 'git_ssh_git@git.clearpool.io__cplx_core_baa',
-            'short_name': 'git.clearpool.io/cplx_core/baa',
-            'stem': 'git_ssh_git@git.clearpool.io__cplx_core_baa',
+            'dependency': 'git_ssh_git@gitlab.example__org_widget',
+            'short_name': 'gitlab.example/org/widget',
+            'stem': 'git_ssh_git@gitlab.example__org_widget',
             'qualifier': '@feature',
             'tool_variant': '-',
             'state': 'unreferenced',
             'size_bytes': 50,
             'last_used_epoch': 900.0,
-            'path': '/deps/baa@feature',
+            'path': '/deps/widget@feature',
             'location': 'git_ssh...@feature',
-            'source_url': 'ssh://git@git.clearpool.io/cplx_core/baa',
+            'source_url': 'ssh://git@gitlab.example/org/widget',
         },
     ]
     tree = dependency_tree.build_tree( leaves )
@@ -332,7 +338,7 @@ def test_tree_groups_referenced_siblings():
             child for child in location_type['children']
             if child.get( 'kind' ) == 'identity'
     )
-    assert 'baa' in identity['label']
+    assert 'widget' in identity['label']
     assert identity['size_bytes'] == 150
     labels = [
             child['label'] for child in identity['children']
@@ -349,9 +355,9 @@ def test_tree_missing_identity_prefers_remote_location():
     leaves = [
         {
             'type': 'repository',
-            'dependency': 'matching_facility',
-            'short_name': 'git.clearpool.io/cplx_core/matching_facility',
-            'stem': 'git_ssh_git@git.clearpool.io__cplx_core_matching_facility',
+            'dependency': 'gizmo',
+            'short_name': 'gitlab.example/org/gizmo',
+            'stem': 'git_ssh_git@gitlab.example__org_gizmo',
             'qualifier': '@',
             'tool_variant': '-',
             'state': 'missing',
@@ -359,7 +365,7 @@ def test_tree_missing_identity_prefers_remote_location():
             'last_used_epoch': None,
             'path': '/deps/missing',
             'location': 'git_ssh...',
-            'remote_location': 'git+ssh://git@git.clearpool.io/cplx_core/matching_facility@',
+            'remote_location': 'git+ssh://git@gitlab.example/org/gizmo@',
             'source_url': None,
         },
     ]
@@ -380,12 +386,12 @@ def test_tree_missing_identity_prefers_remote_location():
     )
     assert leaf['remark'] == 'missing'
     assert identity.get( 'missing' ) is True
-    assert 'matching_facility' in identity['label']
-    assert 'git+ssh://git@git.clearpool.io/cplx_core/matching_facility@' in identity['label']
-    assert identity['label'].startswith( 'matching_facility [' )
+    assert 'gizmo' in identity['label']
+    assert 'git+ssh://git@gitlab.example/org/gizmo@' in identity['label']
+    assert identity['label'].startswith( 'gizmo [' )
     # Bracket detail is the configured URL, not the derived short name alone.
     assert identity['label'] != \
-        'matching_facility [git.clearpool.io/cplx_core/matching_facility]'
+        'gizmo [gitlab.example/org/gizmo]'
 
 
 def test_tree_missing_gitlab_version_and_dashes():
@@ -401,7 +407,7 @@ def test_tree_missing_gitlab_version_and_dashes():
             'last_used_epoch': None,
             'path': '/deps/missing/gcc.../google-cloud-cpp/2.28.0',
             'remote_location': (
-                'https://git.clearpool.io/api/v4/projects/cplx_core%2Fregistry'
+                'https://gitlab.example/api/v4/projects/1'
                 '/google-cloud-cpp/2.28.0'
             ),
         },
@@ -443,22 +449,22 @@ def test_render_missing_dependency_emphasises_name_errors_children():
     leaves = [
         {
             'type': 'repository',
-            'dependency': 'matching_facility',
-            'short_name': 'git.clearpool.io/cplx_core/matching_facility',
+            'dependency': 'gizmo',
+            'short_name': 'gitlab.example/org/gizmo',
             'qualifier': '@',
             'tool_variant': '-',
             'state': 'missing',
             'size_bytes': 0,
             'last_used_epoch': None,
             'path': '/deps/missing',
-            'remote_location': 'git+ssh://git@git.clearpool.io/cplx_core/matching_facility@',
+            'remote_location': 'git+ssh://git@gitlab.example/org/gizmo@',
         },
     ]
     tree = dependency_tree.build_tree( leaves )
     lines, _ = dependency_tree.render_tree_lines( tree )
     joined = '\n'.join( lines )
-    assert as_emphasised( as_error( 'matching_facility' ) ) in joined or \
-        as_error( 'matching_facility' ) in joined
+    assert as_emphasised( as_error( 'gizmo' ) ) in joined or \
+        as_error( 'gizmo' ) in joined
     # Leaf is error-coloured (and present); emphasis is reserved for the name.
     assert as_error( '@' ) in joined or '└── @' in joined or 'missing' in joined
     from cuppa.colourise import colouriser
@@ -539,26 +545,26 @@ def test_render_referenced_colours_identity_and_mutes_sibling_leaves():
     leaves = [
         {
             'type': 'repository',
-            'dependency': 'baa',
-            'short_name': 'git.clearpool.io/cplx_core/baa',
+            'dependency': 'widget',
+            'short_name': 'gitlab.example/org/widget',
             'qualifier': '@master',
             'tool_variant': '-',
             'state': 'referenced',
             'size_bytes': 100,
             'last_used_epoch': 1000.0,
-            'path': '/deps/baa@master',
+            'path': '/deps/widget@master',
             'location': 'loc-master',
         },
         {
             'type': 'repository',
-            'dependency': 'baa',
-            'short_name': 'git.clearpool.io/cplx_core/baa',
+            'dependency': 'widget',
+            'short_name': 'gitlab.example/org/widget',
             'qualifier': '@feature',
             'tool_variant': '-',
             'state': 'unreferenced',
             'size_bytes': 50,
             'last_used_epoch': 900.0,
-            'path': '/deps/baa@feature',
+            'path': '/deps/widget@feature',
             'location': 'loc-feature',
         },
     ]
@@ -566,8 +572,8 @@ def test_render_referenced_colours_identity_and_mutes_sibling_leaves():
     lines, _ = dependency_tree.render_tree_lines( tree )
     joined = '\n'.join( lines )
     # Emphasised info on the registry name; bracketed short name muted.
-    assert as_emphasised( as_info( 'baa' ) ) in joined or as_info( 'baa' ) in joined
-    assert as_subdued( ' [git.clearpool.io/cplx_core/baa]' ) in joined
+    assert as_emphasised( as_info( 'widget' ) ) in joined or as_info( 'widget' ) in joined
+    assert as_subdued( ' [gitlab.example/org/widget]' ) in joined
     assert as_info( '@master' ) in joined or 'in use' in joined
     # Sibling leaf is muted (not info).
     assert as_subdued( '@feature' ) in joined
@@ -617,20 +623,20 @@ def test_render_partitions_sections_and_keeps_unreferenced_names_normal():
     leaves = [
         {
             'type': 'repository',
-            'dependency': 'baa',
-            'short_name': 'git.clearpool.io/cplx_core/baa',
+            'dependency': 'widget',
+            'short_name': 'gitlab.example/org/widget',
             'qualifier': '@master',
             'tool_variant': '-',
             'state': 'referenced',
             'size_bytes': 100,
             'last_used_epoch': 1000.0,
-            'path': '/deps/baa@master',
+            'path': '/deps/widget@master',
             'location': 'loc-master',
         },
         {
             'type': 'repository',
             'dependency': 'orphan',
-            'short_name': 'git.clearpool.io/cplx_core/orphan',
+            'short_name': 'gitlab.example/org/orphan',
             'qualifier': '@main',
             'tool_variant': '-',
             'state': 'unreferenced',
@@ -658,40 +664,40 @@ def test_render_partitions_sections_and_keeps_unreferenced_names_normal():
             for child in type_node['children'] if child.get( 'kind' ) == 'identity'
     )
     assert 'orphan' in ( unref_identity.get( 'label' ) or '' )
-    assert 'git.clearpool.io/cplx_core/orphan' in plain
+    assert 'gitlab.example/org/orphan' in plain
     joined = '\n'.join( lines )
     # Unreferenced names are emphasised but not info/blue.
     from cuppa.colourise import colouriser
     if colouriser.use_colour:
-        assert as_info( 'git.clearpool.io/cplx_core/orphan' ) not in joined
-        assert as_emphasised( 'git.clearpool.io/cplx_core/orphan' ) in joined
+        assert as_info( 'gitlab.example/org/orphan' ) not in joined
+        assert as_emphasised( 'gitlab.example/org/orphan' ) in joined
     else:
-        assert as_emphasised( 'git.clearpool.io/cplx_core/orphan' ) in joined
+        assert as_emphasised( 'gitlab.example/org/orphan' ) in joined
 
 
 def test_develop_remark_on_identity_not_on_branches():
     leaves = [
         {
             'type': 'repository',
-            'dependency': 'baa',
-            'short_name': 'git.clearpool.io/cplx_core/baa',
+            'dependency': 'widget',
+            'short_name': 'gitlab.example/org/widget',
             'qualifier': '@master',
             'tool_variant': '-',
             'state': 'cached',
             'size_bytes': 100,
             'last_used_epoch': 1000.0,
-            'path': '/deps/baa@master',
+            'path': '/deps/widget@master',
         },
         {
             'type': 'repository',
-            'dependency': 'baa',
-            'short_name': 'git.clearpool.io/cplx_core/baa',
+            'dependency': 'widget',
+            'short_name': 'gitlab.example/org/widget',
             'qualifier': '@feature',
             'tool_variant': '-',
             'state': 'cached',
             'size_bytes': 50,
             'last_used_epoch': 900.0,
-            'path': '/deps/baa@feature',
+            'path': '/deps/widget@feature',
         },
     ]
     tree = dependency_tree.build_tree( leaves )
@@ -719,16 +725,16 @@ def test_develop_remark_on_identity_not_on_branches():
 
 def test_with_vcs_qualifier_appends_branch():
     assert with_vcs_qualifier(
-            'git+ssh://git@git.clearpool.io/cplx_core/baa', '@master'
-    ) == 'git+ssh://git@git.clearpool.io/cplx_core/baa@master'
+            'git+ssh://git@gitlab.example/org/widget', '@master'
+    ) == 'git+ssh://git@gitlab.example/org/widget@master'
     assert with_vcs_qualifier(
-            'git+ssh://git@git.clearpool.io/cplx_core/baa@', '@master'
-    ) == 'git+ssh://git@git.clearpool.io/cplx_core/baa@master'
+            'git+ssh://git@gitlab.example/org/widget@', '@master'
+    ) == 'git+ssh://git@gitlab.example/org/widget@master'
     assert with_vcs_qualifier(
-            'git+ssh://git@git.clearpool.io/cplx_core/baa@feature', '@master'
-    ) == 'git+ssh://git@git.clearpool.io/cplx_core/baa@master'
+            'git+ssh://git@gitlab.example/org/widget@feature', '@master'
+    ) == 'git+ssh://git@gitlab.example/org/widget@master'
     assert with_vcs_qualifier(
-            'git+ssh://git@git.clearpool.io/cplx_core/baa', None
+            'git+ssh://git@gitlab.example/org/widget', None
     ).endswith( '@' )
 
 
@@ -782,8 +788,8 @@ def test_backfill_gitlab_remote_from_shared_registry():
     )
     base = 'https://git.example/api/v4/projects/1'
     assert gitlab_registry_base( base + '/google-cloud-cpp/2.28.0' ) == base
-    assert gitlab_remote_for_package_version( base, 'capy', 'develop' ) == \
-        base + '/capy/develop'
+    assert gitlab_remote_for_package_version( base, 'sample_pkg', 'develop' ) == \
+        base + '/sample_pkg/develop'
     rows = [
         {
             'type': 'gitlab',
@@ -795,24 +801,24 @@ def test_backfill_gitlab_remote_from_shared_registry():
         },
         {
             'type': 'gitlab',
-            'short_name': 'capy',
+            'short_name': 'sample_pkg',
             'qualifier': 'develop',
             'state': 'unreferenced',
-            'path': '/deps/gcc153_rel_x86_64_cxx2c/capy/develop',
+            'path': '/deps/gcc153_rel_x86_64_cxx2c/sample_pkg/develop',
             'remote_location': None,
         },
         {
             'type': 'gitlab',
-            'short_name': 'corosio',
+            'short_name': 'other_pkg',
             'qualifier': 'develop',
             'state': 'unreferenced',
-            'path': '/deps/gcc153_rel_x86_64_cxx2c/corosio/develop',
+            'path': '/deps/gcc153_rel_x86_64_cxx2c/other_pkg/develop',
             'remote_location': None,
         },
     ]
     _backfill_gitlab_remote_locations( rows, '/deps', by_path={} )
-    assert rows[1]['remote_location'] == base + '/capy/develop'
-    assert rows[2]['remote_location'] == base + '/corosio/develop'
+    assert rows[1]['remote_location'] == base + '/sample_pkg/develop'
+    assert rows[2]['remote_location'] == base + '/other_pkg/develop'
 
 
 def test_backfill_gitlab_skips_when_multiple_registries():
@@ -834,9 +840,9 @@ def test_backfill_gitlab_skips_when_multiple_registries():
         },
         {
             'type': 'gitlab',
-            'short_name': 'capy',
+            'short_name': 'sample_pkg',
             'qualifier': 'develop',
-            'path': '/deps/tv/capy/develop',
+            'path': '/deps/tv/sample_pkg/develop',
             'remote_location': None,
         },
     ]
@@ -885,29 +891,29 @@ def test_location_leaf_location_includes_branch():
     leaves = [
         {
             'type': 'repository',
-            'dependency': 'baa',
-            'short_name': 'git.clearpool.io/cplx_core/baa',
+            'dependency': 'widget',
+            'short_name': 'gitlab.example/org/widget',
             'qualifier': '@master',
             'tool_variant': '-',
             'state': 'referenced',
             'size_bytes': 10,
             'last_used_epoch': 1000.0,
-            'path': '/deps/baa@master',
-            'remote_location': 'git+ssh://git@git.clearpool.io/cplx_core/baa@',
-            'source_url': 'ssh://git@git.clearpool.io/cplx_core/baa',
+            'path': '/deps/widget@master',
+            'remote_location': 'git+ssh://git@gitlab.example/org/widget@',
+            'source_url': 'ssh://git@gitlab.example/org/widget',
         },
         {
             'type': 'repository',
-            'dependency': 'baa',
-            'short_name': 'git.clearpool.io/cplx_core/baa',
+            'dependency': 'widget',
+            'short_name': 'gitlab.example/org/widget',
             'qualifier': '@feature',
             'tool_variant': '-',
             'state': 'unreferenced',
             'size_bytes': 5,
             'last_used_epoch': 900.0,
-            'path': '/deps/baa@feature',
-            'remote_location': 'git+ssh://git@git.clearpool.io/cplx_core/baa@',
-            'source_url': 'ssh://git@git.clearpool.io/cplx_core/baa',
+            'path': '/deps/widget@feature',
+            'remote_location': 'git+ssh://git@gitlab.example/org/widget@',
+            'source_url': 'ssh://git@gitlab.example/org/widget',
         },
     ]
     tree = dependency_tree.build_tree( leaves )
@@ -920,8 +926,8 @@ def test_location_leaf_location_includes_branch():
     )
     # Identity LOCATION is the bare repo URL; leaves carry URL@branch.
     assert identity.get( 'location' ) in (
-            'git+ssh://git@git.clearpool.io/cplx_core/baa',
-            'ssh://git@git.clearpool.io/cplx_core/baa',
+            'git+ssh://git@gitlab.example/org/widget',
+            'ssh://git@gitlab.example/org/widget',
     )
     by_label = {
             child['label']: child['location']

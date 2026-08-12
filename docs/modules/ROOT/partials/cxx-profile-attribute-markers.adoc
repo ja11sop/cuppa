@@ -1,0 +1,16 @@
+// Inline C++ profile attribute markers for prose (HTML entities avoid AsciiDoc xref parsing).
+ifndef::cxx-profile-attribute-markers-loaded[]
+:cxx-profile-attribute-markers-loaded:
+:cxx-a-uninit: &#91;&#91;uninit&#93;&#93;
+:cxx-a-ref-to-uninit: &#91;&#91;ref_to_uninit&#93;&#93;
+:cxx-a-now-uninit: &#91;&#91;now_uninit&#93;&#93;
+:cxx-a-now-init: &#91;&#91;now_init&#93;&#93;
+:cxx-a-int-buffer-uninit: int buffer &#91;&#91;uninit&#93;&#93;;
+:cxx-a-profiles-ellipsis: &#91;&#91;profiles::&hellip;&#93;&#93;
+:cxx-a-profiles-enforce-ellipsis: &#91;&#91;profiles::enforce(&hellip;)&#93;&#93;
+:cxx-a-profiles-enforce-std-init: &#91;&#91;profiles::enforce(std::init)&#93;&#93;;
+:cxx-a-profiles-enforce-foo: &#91;&#91;profiles::enforce(foo)&#93;&#93;;
+:cxx-a-profiles-enforce-foo-std-init: &#91;&#91;profiles::enforce(foo, std::init)&#93;&#93;;
+:cxx-a-profiles-enforce-empty: &#91;&#91;profiles::enforce()&#93;&#93;;
+:cxx-a-profiles-suppress: &#91;&#91;profiles::suppress(std::init, rule: &quot;rule_id&quot;, justification: &quot;&hellip;&quot;)&#93;&#93;
+endif::[]

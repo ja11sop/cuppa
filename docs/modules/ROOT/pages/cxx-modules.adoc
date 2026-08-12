@@ -1,4 +1,4 @@
-= C++ modules
+= C++ Modules
 :description: Introduction, tutorial, and reference for C++20 modules with cuppa
 
 In this guide you will learn what C++20 modules are for, how cuppa builds them, and how to adopt named modules, partitions, header units, and `import std` in a cuppa project.

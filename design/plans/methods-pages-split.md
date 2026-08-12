@@ -27,7 +27,7 @@ Methods are the core **`sconscript` vocabulary**. Each deserves:
    `methods-scons.adoc` or nested nav.
 4. Update **`nav.adoc`** to mirror the dependency/toolchain nesting pattern.
 5. Optional: **`docs/modules/ROOT/pages/methods/`** folder aligned with nav (same idea as
-   `integration/` pages — see scratchpad structure note).
+   `integration/` pages — see [`doc-folder-layout.md`](doc-folder-layout.md)).
 
 ## Non-goals
 

@@ -483,7 +483,7 @@ Design: [`native-toolchain-output.md`](design/plans/native-toolchain-output.md),
 | `doc-methods-split` | Hub + per-method Antora pages; optional SCons companions | Medium | [`methods-pages-split.md`](design/plans/methods-pages-split.md); **1.8.0 candidate** (docs-only) |
 | `doc-antora-ui` | Custom UI bundle + supplemental CSS | Low | [`antora-ui-bundle.md`](design/plans/antora-ui-bundle.md); **1.8.0 optional** |
 | `doc-output-samples` | Capture report output as semantic HTML for Antora and local preview | Low | [`colourised-doc-samples.md`](design/plans/colourised-doc-samples.md) |
-| `doc-folder-layout` | Page folders mirroring nav (methods/, dependencies/, …) | Low | Align with methods split |
+| `doc-folder-layout` | Page folders mirroring nav (dependencies/, cxx-profiles/, toolchains/) | Low | [`doc-folder-layout.md`](design/plans/doc-folder-layout.md); after [#192](https://github.com/ja11sop/cuppa/pull/192); aligns with methods split |
 | `doc-mermaid-theme` | Custom Mermaid theme matching site CSS | Low | After or with UI bundle |
 
 ### Out of scope (docs tooling)

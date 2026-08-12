@@ -16,7 +16,7 @@ Artefacts land under a visible `_build/` tree (not a hidden directory), so a gua
 * *Multi-toolchain, multi-variant* -- build debug, release, and coverage variants against GCC and Clang (and debug/release against MSVC on Windows) in one invocation.
 * *Dependencies as vocabulary* -- Boost, Qt, location-based header libraries, and GitLab package registry packages are first-class names, not ad-hoc `find_package` scripts.
 * *Tests and coverage* -- `BuildTest`, pluggable runners, gcovr HTML/JSON reports (GCC/Clang), and coverage index collation.
-* *C++20 modules when you opt in* -- named modules, partitions, header units, and `import std` where the toolchain supports it; see xref:cxx-modules.adoc[C++ modules]
+* *C++20 modules when you opt in* -- named modules, partitions, header units, and `import std` where the toolchain supports it; see xref:cxx-modules.adoc[C++ Modules]
 * *C++ Profiles when you opt in* -- experimental safety-profile framework on Profiles-capable Clang; see xref:cxx-profiles.adoc[C++ Profiles]
 * *Python as the extension language* -- the same language you already use for tooling, packaging, and CI, rather than a parallel proprietary language.
 
@@ -80,7 +80,7 @@ TIP: When docs and code disagree, *code is authoritative* -- especially storage 
 * xref:toolchains.adoc[Toolchains] -- selection and inventory; family defaults on
   xref:toolchain-gcc.adoc[GCC], xref:toolchain-clang.adoc[Clang], and
   xref:toolchain-msvc.adoc[MSVC]
-* xref:cxx-modules.adoc[C++ modules] -- introduction, tutorial, reference, and an up-to-date capability matrix by toolchain family
+* xref:cxx-modules.adoc[C++ Modules] -- introduction, tutorial, reference, and an up-to-date capability matrix by toolchain family
 * xref:cxx-profiles.adoc[C++ Profiles] -- opt-in `--cxx-profiles` / `--cxx-profiles-enforce=`, Alliance Clang, paper overview
 * xref:cli-reference.adoc[CLI reference] -- flags you will use every day
 * xref:integration-tests.adoc[Integration tests] -- pytest scenarios with generated build scripts
