@@ -80,7 +80,7 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
     }
     index_path = write_profiles_reports( inventory, env )
     report_dir = default_report_directory( str( tmp_path ) )
-    assert index_path == os.path.join( report_dir, INDEX_BASENAME )
+    assert index_path[ 'index_path' ] == os.path.join( report_dir, INDEX_BASENAME )
     assert os.path.isfile( os.path.join( report_dir, INDEX_BASENAME ) )
     assert os.path.isfile( os.path.join( report_dir, JSON_BASENAME ) )
     scope_stem = inventory.as_report_model()[ 'scopes' ][ 0 ][ 'report_stem' ]

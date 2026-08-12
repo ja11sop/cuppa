@@ -72,6 +72,9 @@ class CxxProfilesReportMethod:
             )
             raise SCons.Errors.StopError( message )
 
+        from cuppa.reports.manifest import maybe_remove_cxx_profiles_on_clean
+        maybe_remove_cxx_profiles_on_clean( env )
+
         ProfilesDiagnosticCollector.activate()
         logger.debug( "C++ Profiles violation capture enabled" )
 

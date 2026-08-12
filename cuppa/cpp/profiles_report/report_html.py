@@ -164,6 +164,7 @@ def write_profiles_reports(
     scope_template = jinja2_templates().get_template( 'cxx_profiles_scope.html' )
 
     scope_pages = []
+    scope_paths = {}
     for scope in model[ 'scopes' ]:
         scope_html = '{}.html'.format( scope[ 'report_stem' ] )
         scope_pages.append(
@@ -174,6 +175,7 @@ def write_profiles_reports(
             },
         )
         scope_path = os.path.join( destination, scope_html )
+        scope_paths[ scope[ 'report_stem' ] ] = [ scope_path ]
         with open( scope_path, 'w', encoding='utf-8' ) as handle:
             handle.write(
                 scope_template.render(
@@ -205,4 +207,9 @@ def write_profiles_reports(
             model[ 'rollup' ][ 'total_references' ],
         )
     )
-    return index_path
+    return {
+        'index_path': index_path,
+        'session_paths': [ index_path, json_path ],
+        'scope_paths': scope_paths,
+        'model': model,
+    }

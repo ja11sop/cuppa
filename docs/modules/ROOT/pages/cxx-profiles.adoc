@@ -144,6 +144,12 @@ Optional flags:
 * `--cxx-profiles-report-root=` *dir* — rebase project-owned paths for display and links
 * `--cxx-profiles-report-link-style=local|gitlab|github` — source link targets (default `local`)
 
+Generated report paths are recorded in a project-local ``.cuppa-reports`` manifest (JSONL, one
+entry per invocation). When you run ``--clean`` or ``--remove-builds`` with the same report
+destination and link options on the command line, cuppa removes matching manifest entries and
+deletes the listed files. ``--remove-builds`` alone does not remove reports under
+``_artifacts/``.
+
 === Full diagnostic lists (`--cxx-disable-error-limit`)
 
 Profile enforce checks can emit many diagnostics; compilers stop after a default cap.

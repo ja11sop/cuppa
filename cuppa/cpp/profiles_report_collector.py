@@ -42,6 +42,7 @@ class ProfilesReportSession(object):
 
     def _emit_session_summary( self, env ):
         from cuppa.cpp.profiles_report.report_html import write_profiles_reports
+        from cuppa.reports.manifest import append_cxx_profiles_entry
 
         with self._lock:
             if self._inventory.total_references() == 0:
@@ -61,11 +62,20 @@ class ProfilesReportSession(object):
                     format_capture_summary( self._inventory )
                 )
             )
-            write_profiles_reports(
+            result = write_profiles_reports(
                 self._inventory,
                 env,
                 incomplete_scopes=incomplete,
             )
+            if result:
+                append_cxx_profiles_entry(
+                    env,
+                    result[ 'model' ],
+                    result[ 'session_paths' ],
+                    result[ 'scope_paths' ],
+                    incomplete_scopes=incomplete,
+                    partial=bool( incomplete ),
+                )
 
 
 class ProfilesDiagnosticCollector(object):

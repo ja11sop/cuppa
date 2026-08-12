@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `.cuppa-reports` manifest for C++ Profiles reports (slice D, `prof-report-manifest`): append
+  JSONL entries at `sconstruct_end`; matched removal when `--clean` or `--remove-builds` runs with
+  the same `--cxx-profiles-report` destination and link options.
 - Profiles violation report HTML + JSON (slice C, `prof-report-html`): emit
   `cxx-profiles-index.html`, per-scope detail pages, and `cxx-profiles-index.json`
   under `_artifacts/cxx-profiles/` at `sconstruct_end` when `--cxx-profiles-report`
