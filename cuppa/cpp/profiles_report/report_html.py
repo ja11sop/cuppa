@@ -9,18 +9,125 @@
 
 import json
 import os
+import re
+
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from cuppa.colourise import as_notice
+from cuppa.core.dependency_identity import short_name_from_git_url
 from cuppa.cpp.profiles_report.profiles import std_init
 from cuppa.log import logger
+from cuppa.cpp.profiles_report.breadcrumbs import scope_breadcrumbs
+from cuppa.cpp.profiles_report.source_pages import format_rule_label_html
+from cuppa.cpp.profiles_report.source_pages import format_violation_message_html
+from cuppa.cpp.profiles_report.source_pages import write_source_pages
 from cuppa.test_report.html_report import initialise_test_linking
 
 _jinja2_env = None
 
 INDEX_BASENAME = 'cxx-profiles-index.html'
 JSON_BASENAME = 'cxx-profiles-index.json'
+
+_GIT_DESCRIBE = re.compile(
+    r'^(?P<label>.+)-(?P<distance>\d+)-g(?P<commit>[0-9a-f]+)$',
+    re.IGNORECASE,
+)
+_GIT_HASH = re.compile( r'^[0-9a-f]{7,40}$', re.IGNORECASE )
+
+
+def _parse_revision_labels( revision ):
+    if not revision:
+        return None, None
+    text = str( revision ).strip()
+    match = _GIT_DESCRIBE.match( text )
+    if match:
+        return match.group( 'label' ), match.group( 'commit' )
+    if _GIT_HASH.match( text ):
+        return None, text[ :12 ]
+    return text, None
+
+
+def _repo_browse_href( repository ):
+    if not repository:
+        return None
+    if '://' in str( repository ):
+        parsed = urlparse( str( repository ) )
+        if parsed.scheme in ( 'http', 'https' ):
+            path = ( parsed.path or '' ).rstrip( '/' )
+            if path.endswith( '.git' ):
+                path = path[:-4]
+            return '{}{}'.format(
+                '{}://{}'.format( parsed.scheme, parsed.netloc.split( '@' )[-1] ),
+                path,
+            )
+    short = short_name_from_git_url( repository )
+    if not short or '/' not in short:
+        return None
+    host, path = short.split( '/', 1 )
+    return 'https://{}/{}'.format( host, path )
+
+
+def _hosting_style( repo_href ):
+    if repo_href and 'github.com' in repo_href.lower():
+        return 'github'
+    return 'gitlab'
+
+
+def _tag_href( repo_href, tag ):
+    if not repo_href or not tag:
+        return None
+    base = repo_href.rstrip( '/' )
+    if _hosting_style( repo_href ) == 'github':
+        return '{}/releases/tag/{}'.format( base, tag )
+    return '{}/-/tags/{}'.format( base, tag )
+
+
+def _commit_href( repo_href, commit ):
+    if not repo_href or not commit:
+        return None
+    base = repo_href.rstrip( '/' )
+    if _hosting_style( repo_href ) == 'github':
+        return '{}/commit/{}'.format( base, commit )
+    return '{}/-/commit/{}'.format( base, commit )
+
+
+def _location_dependency_label( repository, branch ):
+    if not repository:
+        return ''
+    text = str( repository ).strip()
+    scp = re.match( r'^git@([^:]+):(.+)$', text )
+    if scp:
+        host, path = scp.group( 1 ), scp.group( 2 )
+        if path.endswith( '.git' ):
+            path = path[:-4]
+        base = '{}:{}'.format( host, path )
+    else:
+        base = short_name_from_git_url( repository ) or text
+        if base.endswith( '.git' ):
+            base = base[:-4]
+    if branch:
+        return '{}@{}'.format( base, branch )
+    return base
+
+
+def build_vcs_provenance( repository, branch, revision ):
+    """Build location-dependency-style VCS labels and browse links for report headers."""
+    location_label = _location_dependency_label( repository, branch )
+    tag, commit = _parse_revision_labels( revision )
+    repo_href = _repo_browse_href( repository )
+    return {
+        'location_label': location_label,
+        'repo_href': repo_href,
+        'tag': tag,
+        'tag_href': _tag_href( repo_href, tag ),
+        'commit': commit,
+        'commit_href': _commit_href( repo_href, commit ),
+    }
 
 
 def jinja2_templates():
@@ -114,31 +221,67 @@ def _format_count_list( entries, limit=5 ):
     return text
 
 
-def scope_profile_summaries( scope ):
+def scope_profile_summary_items( scope ):
     items = []
     for profile in scope.get( 'profiles', [] ):
-        total = sum( rule[ 'total_references' ] for rule in profile.get( 'rules', [] ) )
-        items.append( ( profile[ 'profile' ], total ) )
+        items.append(
+            (
+                profile[ 'profile' ],
+                profile.get( 'unique_line_count', 0 ),
+            ),
+        )
     items.sort( key=lambda entry: ( -entry[ 1 ], entry[ 0 ] ) )
-    return _format_count_list( items )
+    return items
 
 
-def scope_rule_summaries( scope ):
+def scope_rule_summary_items( scope ):
     items = []
     for profile in scope.get( 'profiles', [] ):
         for rule in profile.get( 'rules', [] ):
             items.append(
-                (
-                    '{}::{}'.format( profile[ 'profile' ], rule[ 'rule_id' ] ),
-                    rule[ 'total_references' ],
-                ),
+                {
+                    'profile': profile[ 'profile' ],
+                    'rule_id': rule[ 'rule_id' ],
+                    'count': rule.get( 'unique_line_count', 0 ),
+                    'label_html': format_rule_label_html(
+                        profile[ 'profile' ],
+                        rule[ 'rule_id' ],
+                    ),
+                },
             )
-    items.sort( key=lambda entry: ( -entry[ 1 ], entry[ 0 ] ) )
-    return _format_count_list( items )
+    items.sort(
+        key=lambda entry: ( -entry[ 'count' ], entry[ 'rule_id' ] ),
+    )
+    return items
+
+
+def scope_profile_summaries( scope ):
+    return _format_count_list( scope_profile_summary_items( scope ) )
+
+
+def scope_rule_summaries( scope ):
+    return _format_count_list(
+        [
+            (
+                '{}::{}'.format( entry[ 'profile' ], entry[ 'rule_id' ] ),
+                entry[ 'count' ],
+            )
+            for entry in scope_rule_summary_items( scope )
+        ],
+    )
 
 
 def enrich_scope_view( scope ):
-    scope[ 'variant_display' ] = variant_display_from_dir( scope[ 'variant_dir' ] )
+    variant_display = variant_display_from_dir( scope[ 'variant_dir' ] )
+    scope[ 'variant_display' ] = variant_display
+    parts = variant_display.split( '/', 1 )
+    scope[ 'variant_display_tail' ] = parts[ 1 ] if len( parts ) > 1 else ''
+    scope.setdefault(
+        'unique_rule_count',
+        sum( len( profile.get( 'rules', [] ) ) for profile in scope.get( 'profiles', [] ) ),
+    )
+    scope[ 'profiles_summary_items' ] = scope_profile_summary_items( scope )
+    scope[ 'rules_summary_items' ] = scope_rule_summary_items( scope )
     scope[ 'profiles_summary' ] = scope_profile_summaries( scope )
     scope[ 'rules_summary' ] = scope_rule_summaries( scope )
     return scope
@@ -184,46 +327,173 @@ def report_header_context( env ):
     link_env.setdefault( 'current_revision', '' )
     vcs = initialise_test_linking( link_env, link_style='raw' )
     if isinstance( vcs, tuple ):
-        url, _repository, branch, _remote, revision = vcs
+        url, repository, branch, _remote, revision = vcs
     else:
-        url, branch, revision = vcs, '', ''
+        url, repository, branch, revision = vcs, '', '', ''
+    provenance = build_vcs_provenance( repository or url, branch, revision )
     return {
         'report_project': project_name,
         'report_uri': url or 'Local',
         'report_branch': branch or '',
         'report_revision': revision or '',
+        'vcs_provenance': provenance,
     }
 
 
-def enrich_model_for_html( model, link_style, link_base, report_root, sconstruct_dir ):
+def build_file_rule_variant_counts( file_entry ):
+    """Build per-build-type violated-rule breakdown for the by-file table."""
+    rules = file_entry.get( 'rules', [] )
+    if not rules:
+        return []
+
+    variant_rule_refs = file_entry.get( 'variant_rule_refs', {} )
+    labels = sorted( variant_rule_refs.keys() ) if variant_rule_refs else []
+    if not labels:
+        variant_counts = file_entry.get( 'variant_counts', [] )
+        labels = [ item[ 'variant_label' ] for item in variant_counts ]
+
+    result = []
+    for label in labels:
+        refs_by_rule = variant_rule_refs.get( label, {} )
+        variant_rules = []
+        for rule in rules:
+            count = refs_by_rule.get( rule[ 'rule_id' ], 0 )
+            if not count:
+                continue
+            variant_rules.append(
+                {
+                    'rule_index': rule[ 'rule_index' ],
+                    'total_references': count,
+                    'rule_tooltip': rule[ 'rule_tooltip' ],
+                    'href': file_entry.get( 'href' ),
+                },
+            )
+        if variant_rules:
+            result.append(
+                {
+                    'variant_label': label,
+                    'rule_count': len( variant_rules ),
+                    'rules': variant_rules,
+                },
+            )
+    return result
+
+
+def enrich_file_rules( file_entry ):
+    """Attach rule indices, labels, and per-variant roll-ups for by-file tables."""
+    profile_name = file_entry.get( 'profile' ) or std_init.PROFILE_NAME
+    rules = file_entry.get( 'rules', [] )
+    if not rules:
+        file_entry[ 'rule_variant_counts' ] = []
+        file_entry.setdefault( 'unique_rule_count', 0 )
+        return file_entry
+
+    rules = sorted(
+        rules,
+        key=lambda entry: ( -entry[ 'total_references' ], entry[ 'rule_id' ] ),
+    )
+    file_entry[ 'rules' ] = rules
+    file_entry[ 'unique_rule_count' ] = len( rules )
+    for index, rule in enumerate( rules, start=1 ):
+        rule[ 'rule_index' ] = index
+        rule[ 'rule_reference' ] = rule_reference( profile_name, rule[ 'rule_id' ] )
+        rule[ 'rule_tooltip' ] = rule[ 'rule_reference' ]
+        rule[ 'rule_label_html' ] = format_rule_label_html(
+            profile_name,
+            rule[ 'rule_id' ],
+        )
+        rule[ 'violation_message_html' ] = format_violation_message_html(
+            rule.get( 'sample_normalised_message' ),
+            profile=profile_name,
+            rule_id=rule[ 'rule_id' ],
+        )
+    file_entry[ 'rule_variant_counts' ] = build_file_rule_variant_counts( file_entry )
+    return file_entry
+
+
+def file_path_tooltip_text( file_entry ):
+    """Plain-text path for HTML ``title`` tooltips on file links."""
+    if file_entry.get( 'title_split' ):
+        prefix = file_entry.get( 'title_prefix', '' )
+        if file_entry.get( 'title_include_split' ):
+            return '{}{}{}'.format(
+                prefix,
+                file_entry.get( 'title_include_prefix', '' ),
+                file_entry.get( 'title_include_path', '' ),
+            )
+        suffix = file_entry.get( 'title_suffix', '' )
+        return '{} {}'.format( prefix, suffix ).strip()
+    return file_entry.get( 'display_path' ) or file_entry.get( 'path', '' )
+
+
+def enrich_model_for_html(
+    model,
+    env,
+    link_style,
+    link_base,
+    report_root,
+    sconstruct_dir,
+    source_page_map=None,
+):
     """Attach display paths and hrefs for template rendering."""
+    from cuppa.cpp.profiles_report.source_pages import (
+        annotate_file_links,
+        build_source_page_title,
+        display_path_for_report,
+    )
+
+    source_page_map = source_page_map or {}
 
     def enrich_file( file_entry ):
-        display = display_path( file_entry[ 'path' ], report_root, sconstruct_dir )
+        display = display_path_for_report( file_entry[ 'path' ], env )
+        if display == file_entry[ 'path' ]:
+            display = display_path( file_entry[ 'path' ], report_root, sconstruct_dir )
         file_entry[ 'display_path' ] = display
-        file_entry[ 'href' ] = source_href(
-            file_entry[ 'path' ],
-            None,
+        file_entry.update( build_source_page_title( display, file_entry[ 'path' ], env ) )
+        annotate_file_links(
+            file_entry,
+            source_page_map,
             link_style,
             link_base,
             display,
         )
-        for location in file_entry.get( 'locations', [] ):
-            location[ 'href' ] = source_href(
-                file_entry[ 'path' ],
-                location.get( 'line' ),
-                link_style,
-                link_base,
-                display,
-            )
+        file_entry[ 'path_tooltip' ] = file_path_tooltip_text( file_entry )
+        enrich_file_rules( file_entry )
         return file_entry
+
+    def enrich_rule_variant_files( rule ):
+        for variant in rule.get( 'variant_counts', [] ):
+            for file_entry in variant.get( 'files', [] ):
+                enrich_file( file_entry )
+
+    def assign_rule_file_indices( rule ):
+        index_by_path = {}
+        for index, file_entry in enumerate( rule.get( 'files', [] ), start=1 ):
+            file_entry[ 'file_index' ] = index
+            index_by_path[ file_entry[ 'path' ] ] = index
+        for variant in rule.get( 'variant_counts', [] ):
+            for file_entry in variant.get( 'files', [] ):
+                file_entry[ 'file_index' ] = index_by_path.get(
+                    file_entry[ 'path' ],
+                )
+
+    def enrich_rule( rule, profile_name ):
+        rule[ 'reference' ] = rule_reference( profile_name, rule[ 'rule_id' ] )
+        rule[ 'violation_message_html' ] = format_violation_message_html(
+            rule.get( 'sample_normalised_message' ),
+            profile=profile_name,
+            rule_id=rule[ 'rule_id' ],
+        )
+        enrich_rule_variant_files( rule )
+        for file_entry in rule.get( 'files', [] ):
+            enrich_file( file_entry )
+        assign_rule_file_indices( rule )
 
     def enrich_profile( profile ):
         for rule in profile.get( 'rules', [] ):
-            rule[ 'reference' ] = rule_reference( profile[ 'profile' ], rule[ 'rule_id' ] )
-            for file_entry in rule.get( 'files', [] ):
-                enrich_file( file_entry )
+            enrich_rule( rule, profile[ 'profile' ] )
         for file_entry in profile.get( 'files', [] ):
+            file_entry.setdefault( 'profile', profile[ 'profile' ] )
             enrich_file( file_entry )
         return profile
 
@@ -235,7 +505,7 @@ def enrich_model_for_html( model, link_style, link_base, report_root, sconstruct
     for file_entry in model.get( 'rollup', {} ).get( 'files', [] ):
         enrich_file( file_entry )
     for rule in model.get( 'rollup', {} ).get( 'rules', [] ):
-        rule[ 'reference' ] = rule_reference( rule[ 'profile' ], rule[ 'rule_id' ] )
+        enrich_rule( rule, rule[ 'profile' ] )
 
     return model
 
@@ -259,7 +529,26 @@ def write_profiles_reports(
     model = inventory.as_report_model()
     link_base = initialise_test_linking( env, link_style=link_style )
 
-    enrich_model_for_html( model, link_style, link_base, report_root, sconstruct_dir )
+    templates = jinja2_templates()
+    source_page_map, source_written = write_source_pages(
+        inventory,
+        destination,
+        env,
+        link_style,
+        link_base,
+        INDEX_BASENAME,
+        lambda: templates.get_template( 'cxx_profiles_source_file.html' ),
+    )
+
+    enrich_model_for_html(
+        model,
+        env,
+        link_style,
+        link_base,
+        report_root,
+        sconstruct_dir,
+        source_page_map=source_page_map,
+    )
 
     context_base = {
         'link_style': link_style,
@@ -268,15 +557,15 @@ def write_profiles_reports(
         'incomplete_scopes': sorted( incomplete_scopes or [] ),
     }
     header_context = report_header_context( env )
-    header_context[ 'session_summary' ] = (
-        '{} references, {} unique locations'.format(
-            model[ 'rollup' ][ 'total_references' ],
-            model[ 'rollup' ][ 'unique_locations' ],
-        )
-    )
+    rollup = model[ 'rollup' ]
+    header_context[ 'session_stats' ] = {
+        'unique_violation_count': rollup[ 'unique_violation_count' ],
+        'total_references': rollup[ 'total_references' ],
+        'variant_count': rollup[ 'variant_count' ],
+    }
 
-    index_template = jinja2_templates().get_template( 'cxx_profiles_index.html' )
-    scope_template = jinja2_templates().get_template( 'cxx_profiles_scope.html' )
+    index_template = templates.get_template( 'cxx_profiles_index.html' )
+    scope_template = templates.get_template( 'cxx_profiles_scope.html' )
 
     scope_pages = []
     scope_paths = {}
@@ -296,6 +585,7 @@ def write_profiles_reports(
                 scope_template.render(
                     scope=scope,
                     index_name=INDEX_BASENAME,
+                    breadcrumbs=scope_breadcrumbs( INDEX_BASENAME, scope ),
                     **header_context,
                     **context_base
                 )
@@ -328,7 +618,8 @@ def write_profiles_reports(
     )
     return {
         'index_path': index_path,
-        'session_paths': [ index_path, json_path ],
+        'session_paths': [ index_path, json_path ] + source_written,
         'scope_paths': scope_paths,
+        'source_paths': source_written,
         'model': model,
     }

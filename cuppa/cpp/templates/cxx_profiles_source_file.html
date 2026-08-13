@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Profiles: {{ display_path }}</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" crossorigin="anonymous">
+    {% include 'cxx_profiles_table_styles.html' %}
+    <style>
+      body { background: #f6f8fa; }
+      .prof-editor {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 12px;
+        line-height: 1.25;
+        background: #ffffff;
+        border-top: 1px solid #e1e4e8;
+        overflow-x: auto;
+      }
+      .prof-row {
+        display: flex;
+        align-items: stretch;
+        min-height: 1.2em;
+        white-space: normal;
+      }
+      .prof-row:hover { filter: brightness(0.98); }
+      .prof-lineno {
+        flex: 0 0 3.25rem;
+        text-align: right;
+        padding: 0 0.6rem 0 0.4rem;
+        color: #6a737d;
+        background: #f6f8fa;
+        border-right: 1px solid #e1e4e8;
+        user-select: none;
+        line-height: 1.25;
+      }
+      .prof-gutter {
+        flex: 0 0 {{ gutter_width_ch }}ch;
+        width: {{ gutter_width_ch }}ch;
+        max-width: {{ gutter_width_ch }}ch;
+        padding: 0 0.35rem;
+        font-size: 12px;
+        line-height: 1.25;
+        border-right: 1px solid #e1e4e8;
+        background: #fafbfc;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+      .prof-row.prof-violation .prof-gutter {
+        background-color: rgba(220, 53, 69, 0.18);
+        color: inherit;
+      }
+      .prof-code {
+        flex: 1 1 auto;
+        display: block;
+        padding: 0 0.75rem !important;
+        margin: 0 !important;
+        background: transparent !important;
+        font: inherit !important;
+        font-size: 12px !important;
+        line-height: 1.25 !important;
+        white-space: pre;
+        overflow: visible;
+      }
+      .prof-violation { background-color: rgba(220, 53, 69, 0.10); }
+      .prof-col-underline {
+        text-decoration: underline;
+        text-decoration-color: #dc3545;
+        text-decoration-thickness: 2px;
+        text-underline-offset: 2px;
+      }
+      .prof-title-prefix {
+        color: #6a737d;
+        font-size: 0.95rem;
+        font-weight: normal;
+      }
+      .prof-section-inset {
+        padding-left: 1.25rem;
+        padding-right: 1.25rem;
+      }
+      .prof-source-heading {
+        display: flex;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-bottom: 0.5rem;
+      }
+      .prof-source-heading .prof-section-heading {
+        margin-bottom: 0;
+      }
+      .prof-section-heading {
+        font-size: 1rem;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+      }
+      .prof-stat-value {
+        font-weight: 700;
+      }
+      .prof-stat-value--alert {
+        color: #dc3545;
+      }
+      .prof-stat-value--ok {
+        color: #28a745;
+      }
+      .prof-title-suffix {
+        font-size: 1.35rem;
+        font-weight: 600;
+      }
+      .prof-summary-table tbody tr:nth-child(even) {
+        background-color: rgba(27, 31, 35, 0.03);
+      }
+      .prof-rule-profile {
+        font-weight: 400;
+      }
+      .prof-rule-id {
+        font-weight: 700;
+      }
+      .prof-message-name {
+        color: #6a737d;
+        font-weight: 400;
+      }
+      /* cuppa console warning / Fore.MAGENTA — suppress-attribute literals only */
+      .prof-attr-literal {
+        color: #c026d3;
+        font-weight: 600;
+      }
+      .prof-violation-message {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: inherit;
+      }
+      .prof-breadcrumb {
+        font-size: 0.875rem;
+        background: transparent;
+        padding-left: 0;
+        padding-right: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container-fluid px-4">
+      <div class="card mt-3 mb-4 shadow-sm">
+        <ul class="list-group list-group-flush">
+          <li class="list-group-item py-2">
+            {% include 'cxx_profiles_breadcrumb.html' %}
+          </li>
+          <li class="list-group-item text-center py-3">
+            <h4 class="mb-1">Profiles violations in</h4>
+            {% if title_split %}
+            <div class="text-monospace prof-title-prefix">{{ title_prefix }}</div>
+            <div class="text-monospace prof-title-suffix">{{ title_suffix }}</div>
+            {% else %}
+            <div class="text-monospace font-weight-bolder">{{ title_single }}</div>
+            {% endif %}
+            {% set v_count = file_entry.unique_line_count %}
+            {% set r_count = file_entry.total_references %}
+            {% set has_violations = v_count > 0 or r_count > 0 %}
+            {% set stat_tone = 'alert' if has_violations else 'ok' %}
+            <h6 class="prof-section-heading mb-0 mt-2">
+              <span class="prof-stat-value prof-stat-value--{{ stat_tone }}">{{ v_count }}</span>
+              {{ 'violation' if v_count == 1 else 'violations' }} detected through
+              <span class="prof-stat-value">{{ r_count }}</span>
+              {{ 'reference' if r_count == 1 else 'references' }}
+            </h6>
+          </li>
+          <li class="list-group-item py-3">
+            <h6 class="prof-section-heading">Violation summary</h6>
+            <table class="table table-sm prof-summary-table mb-0">
+              <thead>
+                <tr>
+                  <th class="prof-summary-col-rule">Profile::Rule</th>
+                  <th class="prof-summary-col-metric text-center">{% include 'cxx_profiles_partial_heading_violations_distinct_unique.html' %}</th>
+                  <th class="prof-summary-col-metric text-center">Refs</th>
+                  <th class="prof-summary-col-message">Violation Message</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in file_entry.rule_summary %}
+                <tr>
+                  <td class="prof-summary-detail prof-summary-col-rule"><span class="prof-mono">{{ item.rule_label_html | safe }}</span></td>
+                  <td class="prof-summary-detail prof-summary-col-metric text-center"><span class="prof-mono">1/{{ item.line_count }}</span></td>
+                  <td class="prof-summary-detail prof-summary-col-metric text-center"><span class="prof-mono">{{ item.count }}</span></td>
+                  <td class="prof-summary-detail prof-summary-col-message"><div class="prof-violation-message">{{ item.violation_message_html | safe }}</div></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </li>
+          <li class="list-group-item py-3 px-0">
+            <div class="prof-section-inset prof-source-heading">
+              <h6 class="prof-section-heading">Source code</h6>
+              {% if original_href %}
+              <a href="{{ original_href }}" class="small text-monospace">{{ source_path_display }}</a>
+              {% else %}
+              <span class="small text-monospace text-secondary">{{ source_path_display }}</span>
+              {% endif %}
+            </div>
+            <div class="prof-editor" id="prof-editor">
+              {% for line in source_lines -%}
+              <div class="prof-row prof-{{ line.kind }}" id="L{{ line.lineno }}" title="{{ line.title }}"><span class="prof-lineno">{{ line.lineno }}</span><span class="prof-gutter">{{ line.gutter }}</span><code class="prof-code language-{{ source_language }}"{% if line.column %} data-column="{{ line.column }}"{% endif %}>{{ line.text }}</code></div>
+              {% endfor %}
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/c.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/cpp.min.js" crossorigin="anonymous"></script>
+    <script>
+      (function () {
+        if (!window.hljs) { return; }
+
+        function underlineFromColumn(root, column) {
+          if (!column || column < 1) { return; }
+          var target = column - 1;
+          var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+          var node = null;
+          var offset = 0;
+          while (walker.nextNode()) {
+            node = walker.currentNode;
+            var length = node.textContent.length;
+            if (offset + length > target) {
+              break;
+            }
+            offset += length;
+            node = null;
+          }
+          if (!node) { return; }
+
+          var range = document.createRange();
+          range.setStart(node, target - offset);
+          var endWalker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+          var endNode = node;
+          while (endWalker.nextNode()) {
+            endNode = endWalker.currentNode;
+          }
+          range.setEnd(endNode, endNode.textContent.length);
+
+          var span = document.createElement('span');
+          span.className = 'prof-col-underline';
+          try {
+            range.surroundContents(span);
+          } catch (e) {
+            var contents = range.extractContents();
+            span.appendChild(contents);
+            range.insertNode(span);
+          }
+        }
+
+        var nodes = document.querySelectorAll('#prof-editor .prof-code');
+        for (var i = 0; i < nodes.length; i++) {
+          var code = nodes[i];
+          hljs.highlightElement(code);
+          var column = parseInt(code.getAttribute('data-column'), 10);
+          if (column) {
+            underlineFromColumn(code, column);
+          }
+        }
+      })();
+    </script>
+  </body>
+</html>

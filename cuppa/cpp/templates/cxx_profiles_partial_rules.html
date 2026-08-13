@@ -1,71 +1,105 @@
-<table class="table table-sm">
+<table class="table table-sm prof-summary-table prof-rules-table mb-0">
   <thead>
     <tr>
-      {% if rules and rules[0].profile is defined %}
-      <th>Profile</th>
-      {% endif %}
-      <th>Rule</th>
-      <th class="text-right">References</th>
-      <th class="text-right">Files</th>
-      <th class="text-right">Locations</th>
-      <th></th>
+      <th class="prof-summary-col-detail"></th>
+      <th class="prof-summary-col-rule">Profile</th>
+      <th class="prof-summary-col-rule">Rule</th>
+      <th class="prof-summary-col-metric text-center">{% include 'cxx_profiles_partial_heading_violations_distinct_unique.html' %}</th>
+      <th class="prof-summary-col-metric text-center">Refs</th>
+      <th class="prof-summary-col-violating-files">Violating Files</th>
+      <th class="prof-summary-col-violation-message">Violation Message</th>
     </tr>
   </thead>
   <tbody>
     {% for rule in rules %}
     {% set row_id = (id_prefix | default('rule')) ~ '-' ~ loop.index %}
-    <tr>
-      {% if rule.profile is defined %}
-      <td>{{ rule.profile }}</td>
-      {% endif %}
-      <td><code>{{ rule.rule_id }}</code></td>
-      <td class="text-right">{{ rule.total_references }}</td>
-      <td class="text-right">{{ rule.unique_files }}</td>
-      <td class="text-right">{{ rule.unique_locations | default(rule.total_references) }}</td>
-      <td class="text-right">
-        {% if rule.files or rule.scopes %}
-        <a class="badge badge-pill badge-secondary" data-toggle="collapse" href="#{{ row_id }}-detail" role="button" aria-expanded="false">detail</a>
+    <tr class="prof-rule-row{% if loop.index0 % 2 == 1 %} prof-file-row-striped{% endif %}">
+      <td class="prof-summary-col-detail text-center">
+        {% if rule.files %}
+        <a class="prof-detail-toggle text-secondary" data-toggle="collapse" href="#{{ row_id }}-detail" role="button" aria-expanded="false" aria-label="Show rule detail">
+          <i class="far fa-eye prof-detail-icon prof-detail-icon--show" aria-hidden="true"></i>
+          <i class="far fa-eye-slash prof-detail-icon prof-detail-icon--hide" aria-hidden="true"></i>
+        </a>
+        {% endif %}
+      </td>
+      <td class="prof-summary-detail prof-summary-col-rule"><span class="prof-mono">{{ rule.profile | default(rule_profile) }}</span></td>
+      <td class="prof-summary-detail prof-summary-col-rule"><span class="prof-mono font-weight-bold">{{ rule.rule_id }}</span></td>
+      <td class="prof-summary-detail prof-summary-col-metric text-center">
+        {% if rule.variant_counts %}
+        {% for item in rule.variant_counts %}
+        <span class="prof-rule-variant-line prof-mono">1/{{ item.unique_line_count }} ({{ item.variant_label }})</span>
+        {% endfor %}
+        {% else %}
+        <span class="prof-mono">1/{{ rule.unique_line_count | default(0) }}</span>
+        {% endif %}
+      </td>
+      <td class="prof-summary-detail prof-summary-col-metric text-center">
+        {% if rule.variant_counts %}
+        {% for item in rule.variant_counts %}
+        <span class="prof-rule-variant-line prof-mono">{{ item.total_references }} ({{ item.variant_label }})</span>
+        {% endfor %}
+        {% else %}
+        <span class="prof-mono">{{ rule.total_references }}</span>
+        {% endif %}
+      </td>
+      <td class="prof-summary-detail prof-summary-col-violating-files">
+        {% if rule.variant_counts %}
+        {% for variant in rule.variant_counts %}
+        <span class="prof-rule-variant-line prof-mono"><span class="font-weight-bold">{{ variant.file_count | default(0) }}</span> ({{ variant.variant_label }}) [ {% for file in variant.files %}{% if not loop.first %}, {% endif %}{% if file.href %}<a href="{{ file.href }}" class="prof-violating-file-link" title="{{ file.path_tooltip | e }}">{% endif %}{{ file.file_index }}:<span class="prof-violating-file-count">{{ file.total_references | default(0) }}</span>{% if file.href %}</a>{% endif %}{% endfor %} ]</span>
+        {% endfor %}
+        {% elif rule.files %}
+        <span class="prof-rule-variant-line prof-mono"><span class="font-weight-bold">{{ rule.files | length }}</span> [ {% for file in rule.files %}{% if not loop.first %}, {% endif %}{% if file.href %}<a href="{{ file.href }}" class="prof-violating-file-link" title="{{ file.path_tooltip | e }}">{% endif %}{{ file.file_index | default(loop.index) }}:<span class="prof-violating-file-count">{{ file.total_references | default(0) }}</span>{% if file.href %}</a>{% endif %}{% endfor %} ]</span>
+        {% endif %}
+      </td>
+      <td class="prof-summary-detail prof-summary-col-violation-message">
+        {% if rule.violation_message_html %}
+        <div class="prof-violation-message">{{ rule.violation_message_html | safe }}</div>
         {% endif %}
       </td>
     </tr>
-    {% if rule.files or rule.scopes %}
-    <tr class="p-0 border-0">
-      <td colspan="6" class="p-0 border-0">
+    {% if rule.files %}
+    <tr class="prof-rule-detail-row p-0 border-0">
+      <td colspan="7" class="p-0 border-0">
         <div class="collapse" id="{{ row_id }}-detail">
           <div class="px-3 py-2 bg-light">
-            {% if rule.reference %}
-            <p class="prof-muted mb-2 small">{{ rule.reference.p4222 | default('') }}{% if rule.reference.clang_doc %} — {{ rule.reference.clang_doc }}{% endif %}</p>
-            {% endif %}
-            {% if rule.files %}
-            <p class="mb-1 small font-weight-bold">Files</p>
-            <ul class="small mb-2">
-              {% for file in rule.files %}
-              <li>
-                {% if file.href %}<a href="{{ file.href }}">{% endif %}{{ file.display_path | default(file.path) }}{% if file.href %}</a>{% endif %}
-                — {{ file.total_references }} ref(s)
-                {% if file.locations %}
-                <ul class="mb-0">
-                  {% for location in file.locations %}
-                  <li>
-                    {% if location.href %}<a href="{{ location.href }}">{% endif %}line {{ location.line }}, col {{ location.column }}{% if location.href %}</a>{% endif %}
-                    {% if location.references and location.references > 1 %} (×{{ location.references }}){% endif %}
-                    <span class="text-muted d-block">{{ location.message }}</span>
-                  </li>
-                  {% endfor %}
-                </ul>
-                {% endif %}
-              </li>
-              {% endfor %}
-            </ul>
-            {% endif %}
-            {% if rule.scopes %}
-            <p class="mb-1 small font-weight-bold">Scopes</p>
-            <ul class="small mb-0">
-              {% for scope in rule.scopes %}
-              <li>{{ scope.scope }} — {{ scope.references }} ref(s)</li>
-              {% endfor %}
-            </ul>
-            {% endif %}
+            <table class="table table-sm prof-summary-table prof-rule-detail-table mb-0">
+              <thead>
+                <tr>
+                  <th class="prof-summary-col-index"></th>
+                  <th class="prof-summary-col-metric text-center">{% include 'cxx_profiles_partial_heading_violations_distinct_unique.html' %}</th>
+                  <th class="prof-summary-col-metric text-center">Refs</th>
+                  <th class="prof-summary-col-message">File</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for file in rule.files %}
+                <tr>
+                  <td class="prof-summary-detail prof-summary-col-index text-center"><span class="prof-mono font-weight-bold">{{ file.file_index }}</span></td>
+                  <td class="prof-summary-detail prof-summary-col-metric text-center">
+                    {% if file.variant_counts %}
+                    {% for item in file.variant_counts %}
+                    <span class="prof-rule-variant-line prof-mono">1/{{ item.unique_line_count }} ({{ item.variant_label }})</span>
+                    {% endfor %}
+                    {% else %}
+                    <span class="prof-mono">1/{{ file.unique_line_count | default(0) }}</span>
+                    {% endif %}
+                  </td>
+                  <td class="prof-summary-detail prof-summary-col-metric text-center">
+                    {% if file.variant_counts %}
+                    {% for item in file.variant_counts %}
+                    <span class="prof-rule-variant-line prof-mono">{{ item.total_references }} ({{ item.variant_label }})</span>
+                    {% endfor %}
+                    {% else %}
+                    <span class="prof-mono">{{ file.total_references }}</span>
+                    {% endif %}
+                  </td>
+                  <td class="prof-summary-detail prof-summary-col-message">
+                    {% include 'cxx_profiles_partial_file_path_twoline.html' %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
           </div>
         </div>
       </td>

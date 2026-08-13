@@ -4,17 +4,44 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.2.0/css/all.css" integrity="sha384-hWVjflwFxL6sNzntih27bfxkr27PmbbK/iSvJ+a4+0owXq79v+lsFkW54bOGbiDQ" crossorigin="anonymous">
     <title>C++ Profiles — {{ scope.variant_display }}</title>
+    {% include 'cxx_profiles_table_styles.html' %}
     <style>
       .prof-muted { color: #6c757d; font-size: 0.875rem; }
+      .prof-breadcrumb {
+        font-size: 0.875rem;
+        background: transparent;
+        padding-left: 0;
+        padding-right: 0;
+      }
+      .prof-file-prefix {
+        display: block;
+        color: #6a737d;
+      }
+      .prof-file-suffix {
+        display: block;
+        font-weight: 600;
+      }
+      .prof-file-link:hover {
+        text-decoration: none;
+      }
+      .prof-detail-toggle[aria-expanded="true"] .prof-detail-icon--show {
+        display: none;
+      }
+      .prof-detail-toggle[aria-expanded="false"] .prof-detail-icon--hide {
+        display: none;
+      }
     </style>
   </head>
   <body>
     <div class="container">
       <div class="card mt-4">
         <ul class="list-group">
+          <li class="list-group-item py-2">
+            {% include 'cxx_profiles_breadcrumb.html' %}
+          </li>
           <li class="list-group-item text-center pt-4">
-            <p class="mb-2 text-left"><a href="{{ index_name }}">&larr; Session index</a></p>
             <h3>C++ Profiles Reports for <span class="text-monospace font-weight-bolder">{{ report_project }}</span></h3>
             <h5 class="text-secondary font-weight-light">
               <span class="text-monospace">{{ scope.sconscript }}</span> —
@@ -45,7 +72,7 @@
           <li class="list-group-item border-top-0 pt-0">
             <div class="tab-content pt-3 mb-2">
               <div class="tab-pane fade show active" id="rules-{{ loop.index }}" role="tabpanel">
-                {% with rules=profile.rules, id_prefix='scope-' ~ loop.index ~ '-rule' %}
+                {% with rules=profile.rules, id_prefix='scope-' ~ loop.index ~ '-rule', rule_profile=profile.profile %}
                 {% include 'cxx_profiles_partial_rules.html' %}
                 {% endwith %}
               </div>

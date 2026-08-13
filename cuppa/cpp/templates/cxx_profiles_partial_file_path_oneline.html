@@ -1,0 +1,9 @@
+{% if file.href %}<a href="{{ file.href }}" class="prof-file-link">{% endif %}
+<span class="prof-file-path-oneline prof-mono">
+{% if file.title_split %}
+<span class="prof-file-inline-muted">{{ file.title_prefix }} </span>{% if file.title_include_split %}<span class="prof-file-inline-muted">{{ file.title_include_prefix }}</span><span class="prof-file-include-path">{{ file.title_include_path }}</span>{% else %}<span class="prof-file-suffix">{{ file.title_suffix }}</span>{% endif %}
+{% else %}
+{{ file.display_path | default(file.path) }}
+{% endif %}
+</span>
+{% if file.href %}</a>{% endif %}

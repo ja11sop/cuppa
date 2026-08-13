@@ -2,7 +2,7 @@
 
 - **Status:** proposal
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — C++ Profiles (`profiles-violation-report`); [#184](https://github.com/ja11sop/cuppa/issues/184) (umbrella); shipped enablement [`archive/cxx-profiles.md`](../archive/cxx-profiles.md); [`removal-options.md`](removal-options.md) §4.6 Phase 6 artefacts [#135](https://github.com/ja11sop/cuppa/issues/135); test/coverage report patterns (`cuppa/test_report/`, `cuppa/cpp/run_gcov_coverage.py`)
-- **Updated:** 2026-08-11
+- **Updated:** 2026-08-12
 - **Impact:** minor — new opt-in CLI flag and HTML artefacts; no change to default builds
 
 ## Why
@@ -286,6 +286,24 @@ Reuse the test-report linking helper in `cuppa/test_report/html_report.py`:
 `~/_cuppa/_download/…`) to a **repo-relative** path when under `sconstruct_dir` or
 `--cxx-profiles-report-root=`; otherwise show absolute path with `local` link only (no remote blob —
 same caveat as test report: *“Might need VCS detection per file”* for dependency sources).
+
+**Dependency display paths (shipped heuristic; metadata gap):** for location-dependency sources,
+the by-file / by-rule tables use a **two-line** title:
+
+1. **Repo line** — `host/org/repo@branch` (muted), from `describe_tree_path` / git short name.
+2. **Local line** — path under the dependency checkout on one line: the configured **include root**
+   prefix (muted, e.g. `include/`) immediately followed by the **#include-relative** tail (bold,
+   link-coloured when href is set), e.g. `include/cplx/common_types/number.hpp` reads as
+   `include/` + `cplx/common_types/number.hpp` on a single second row.
+
+Today slice D infers the include root as the **first path segment** when it matches a known folder
+name (`include`, `inc`, `src`, …). That matches the common `location_dependency(..., include="include")`
+case but is **wrong** when `sys_include` / `include` spans multiple segments (e.g.
+`include/cplx` on the compile line — the muted prefix should be `include/cplx/`, not `include/`
+alone). **Follow-up:** persist the resolved include/sys-include directory(s) per dependency tree
+(e.g. in `.cuppa-inventory/` entry JSON or a small sidecar written at `BuildWith` time) and read
+that in `source_pages._split_location_include_remainder()` instead of the first-segment heuristic.
+Until then, document the limitation in report help text if users hit mis-split paths.
 
 **CLI / method surface (settled for v1 CLI):**
 

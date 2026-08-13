@@ -6,27 +6,83 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
     <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.2.0/css/all.css" integrity="sha384-hWVjflwFxL6sNzntih27bfxkr27PmbbK/iSvJ+a4+0owXq79v+lsFkW54bOGbiDQ" crossorigin="anonymous">
     <title>C++ Profiles violation report</title>
+    {% include 'cxx_profiles_table_styles.html' %}
     <style>
-      .prof-group-header { background: #f8f9fa; }
-      .prof-variant-row .prof-indent { padding-left: 1.25rem; }
       .prof-sconscript-label { font-weight: 600; }
-      [data-toggle="collapse"].prof-scope-group i:before { content: "\f07c"; }
-      [data-toggle="collapse"].collapsed.prof-scope-group i:before { content: "\f07b"; }
-      .prof-summary-small { font-size: 0.875rem; }
+      .prof-session-summary {
+        font-size: 1rem;
+        font-weight: 400;
+      }
+      .prof-stat-value {
+        font-weight: 700;
+      }
+      .prof-stat-value--alert {
+        color: #dc3545;
+      }
+      .prof-stat-value--ok {
+        color: #28a745;
+      }
+      .prof-file-prefix {
+        display: block;
+        color: #6a737d;
+      }
+      .prof-file-suffix {
+        display: block;
+        font-weight: 600;
+      }
+      .prof-file-link:hover {
+        text-decoration: none;
+      }
+      .prof-detail-toggle[aria-expanded="true"] .prof-detail-icon--show {
+        display: none;
+      }
+      .prof-detail-toggle[aria-expanded="false"] .prof-detail-icon--hide {
+        display: none;
+      }
     </style>
   </head>
   <body>
-    <div class="container">
+    <div class="container-fluid px-4">
       <div class="card mt-4">
         <ul class="list-group">
           <li class="list-group-item text-center pt-4">
             <h3>C++ Profiles Reports for <span class="text-monospace font-weight-bolder">{{ report_project }}</span></h3>
-            <h5 class="text-secondary font-weight-light">{{ session_summary }}</h5>
-            {% if report_uri != 'Local' %}
-            <h6 class="text-secondary font-weight-light mb-0">
-              <a href="{{ report_uri }}">{{ report_uri }}</a>
-              {% if report_branch %}<span class="text-monospace"> — {{ report_branch }}</span>{% endif %}
-              {% if report_revision %}<span class="text-monospace"> @ {{ report_revision }}</span>{% endif %}
+            {% set stat_tone = 'alert' if session_stats.unique_violation_count > 0 else 'ok' %}
+            <h6 class="prof-session-summary text-secondary mb-0 mt-2">
+              <span class="prof-stat-value prof-stat-value--{{ stat_tone }}">{{ session_stats.unique_violation_count }}</span>
+              {{ 'violation' if session_stats.unique_violation_count == 1 else 'violations' }} detected through
+              <span class="prof-stat-value">{{ session_stats.total_references }}</span>
+              {{ 'reference' if session_stats.total_references == 1 else 'references' }}, across
+              <span class="prof-stat-value">{{ session_stats.variant_count }}</span>
+              {{ 'build variant' if session_stats.variant_count == 1 else 'build variants' }}
+            </h6>
+            {% if vcs_provenance.location_label %}
+            <h6 class="prof-vcs-provenance text-secondary font-weight-light mb-0 mt-2">
+              {% if vcs_provenance.repo_href %}
+              <a href="{{ vcs_provenance.repo_href }}" class="text-secondary"><span class="prof-mono">{{ vcs_provenance.location_label }}</span></a>
+              {% else %}
+              <span class="prof-mono">{{ vcs_provenance.location_label }}</span>
+              {% endif %}
+              {% if vcs_provenance.tag %}
+              <span class="prof-vcs-meta ml-2">
+                <i class="fas fa-tag fa-fw prof-vcs-icon" aria-hidden="true" title="Tag"></i>
+                {% if vcs_provenance.tag_href %}
+                <a href="{{ vcs_provenance.tag_href }}" class="text-secondary"><span class="prof-mono">{{ vcs_provenance.tag }}</span></a>
+                {% else %}
+                <span class="prof-mono">{{ vcs_provenance.tag }}</span>
+                {% endif %}
+              </span>
+              {% endif %}
+              {% if vcs_provenance.commit %}
+              <span class="prof-vcs-meta ml-2">
+                <i class="fas fa-hashtag fa-fw prof-vcs-icon" aria-hidden="true" title="Commit"></i>
+                {% if vcs_provenance.commit_href %}
+                <a href="{{ vcs_provenance.commit_href }}" class="text-secondary"><span class="prof-mono">{{ vcs_provenance.commit }}</span></a>
+                {% else %}
+                <span class="prof-mono">{{ vcs_provenance.commit }}</span>
+                {% endif %}
+              </span>
+              {% endif %}
             </h6>
             {% endif %}
           </li>
@@ -56,45 +112,62 @@
 
         <div class="tab-content">
           <div class="tab-pane fade show active" id="scopes" role="tabpanel" aria-labelledby="scopes-tab">
-            <ul class="list-group list-group-flush">
-              <li class="list-group-item d-none d-md-block">
-                <div class="row align-items-center alert-secondary mx-0">
-                  <div class="col-md-2 prof-sconscript-label">Sconscript</div>
-                  <div class="col-md-2">Variant</div>
-                  <div class="col-md-2">Toolchain</div>
-                  <div class="col-md-1 text-right">Violations</div>
-                  <div class="col-md-2">Profiles</div>
-                  <div class="col-md-3">Rules</div>
-                </div>
-              </li>
-
-              {% for group in sconscript_groups %}
-              <li class="list-group-item prof-group-header py-2">
-                <a href="#{{ group.selector }}" data-toggle="collapse" class="prof-scope-group collapsed text-dark" aria-expanded="false">
-                  <i class="far fa-folder fa-fw"></i>
-                  <span class="prof-sconscript-label text-monospace">{{ group.sconscript }}</span>
-                </a>
-              </li>
-              <li class="list-group-item p-0 border-0">
-                <ul class="list-group list-group-flush collapse" id="{{ group.selector }}">
-                  {% for page in group.entries %}
-                  <li class="list-group-item prof-variant-row">
-                    <div class="row align-items-start">
-                      <div class="col-md-2 d-none d-md-block"></div>
-                      <div class="col-md-2 prof-indent">
-                        <a href="{{ page.html }}" class="card-link text-monospace">{{ page.scope.variant_display }}</a>
-                      </div>
-                      <div class="col-md-2 text-monospace small">{{ page.scope.toolchain }}</div>
-                      <div class="col-md-1 text-right font-weight-bold">{{ page.scope.total_references }}</div>
-                      <div class="col-md-2 prof-summary-small">{{ page.scope.profiles_summary }}</div>
-                      <div class="col-md-3 prof-summary-small">{{ page.scope.rules_summary }}</div>
-                    </div>
-                  </li>
-                  {% endfor %}
-                </ul>
-              </li>
-              {% endfor %}
-            </ul>
+            <div class="p-3">
+            <table class="table table-sm prof-scopes-table mb-0">
+              <colgroup>
+                <col class="prof-scopes-col-sconscript-col">
+                <col class="prof-scopes-col-toolchain-col">
+                <col class="prof-scopes-col-metric-col">
+                <col class="prof-scopes-col-metric-col">
+                <col class="prof-scopes-col-profiles-col">
+                <col class="prof-scopes-col-rules-col">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th class="prof-scopes-col-sconscript">Sconscript / Variant</th>
+                  <th class="prof-scopes-col-toolchain">Toolchain</th>
+                  <th class="prof-scopes-col-metric">{% include 'cxx_profiles_partial_heading_violations_distinct_unique.html' %}</th>
+                  <th class="prof-scopes-col-metric">Refs</th>
+                  <th class="prof-scopes-col-profiles">Profiles</th>
+                  <th class="prof-scopes-col-rules">Rule Violations</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for group in sconscript_groups %}
+                <tr class="prof-scopes-group-row">
+                  <td class="prof-scopes-col-sconscript">
+                    <span class="prof-sconscript-label prof-mono">{{ group.sconscript }}</span>
+                  </td>
+                  <td class="prof-scopes-col-toolchain"></td>
+                  <td class="prof-scopes-col-metric"></td>
+                  <td class="prof-scopes-col-metric"></td>
+                  <td class="prof-scopes-col-profiles"></td>
+                  <td class="prof-scopes-col-rules"></td>
+                </tr>
+                {% for page in group.entries %}
+                <tr class="prof-scopes-variant-row">
+                  <td class="prof-scopes-col-sconscript prof-scopes-variant-indent">
+                    <a href="{{ page.html }}" class="card-link"><span class="prof-mono"><span class="font-weight-bold">{{ page.scope.variant_label }}</span>{% if page.scope.variant_display_tail %}<span class="prof-variant-tail">/{{ page.scope.variant_display_tail }}</span>{% endif %}</span></a>
+                  </td>
+                  <td class="prof-scopes-col-toolchain"><span class="prof-mono">{{ page.scope.toolchain }}</span></td>
+                  <td class="prof-scopes-col-metric"><span class="prof-mono">{{ page.scope.unique_rule_count | default(0) }}/{{ page.scope.unique_line_count | default(0) }}</span></td>
+                  <td class="prof-scopes-col-metric"><span class="prof-mono">{{ page.scope.total_references }}</span></td>
+                  <td class="prof-scopes-col-profiles">
+                    {% for label, count in page.scope.profiles_summary_items %}
+                    <span class="prof-scopes-profile-line prof-mono">{{ label }} ({{ count }})</span>
+                    {% endfor %}
+                  </td>
+                  <td class="prof-scopes-col-rules">
+                    {% for entry in page.scope.rules_summary_items %}
+                    <span class="prof-scopes-rule-entry prof-mono">{{ entry.label_html | safe }} ({{ entry.count }})</span>{% if not loop.last %}, {% endif %}
+                    {% endfor %}
+                  </td>
+                </tr>
+                {% endfor %}
+                {% endfor %}
+              </tbody>
+            </table>
+            </div>
           </div>
 
           <div class="tab-pane fade" id="rollup-rules" role="tabpanel" aria-labelledby="rollup-rules-tab">
@@ -117,5 +190,15 @@
     </div>
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" crossorigin="anonymous"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+    <script>
+      (function () {
+        var hash = window.location.hash;
+        if (!hash) { return; }
+        var tabLink = document.querySelector('#profilesTabs a[href="' + hash + '"]');
+        if (tabLink && window.jQuery) {
+          jQuery(tabLink).tab('show');
+        }
+      })();
+    </script>
   </body>
 </html>

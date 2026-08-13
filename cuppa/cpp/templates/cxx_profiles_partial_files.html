@@ -1,52 +1,89 @@
-<table class="table table-sm">
+<table class="table table-sm prof-summary-table prof-files-table mb-0">
   <thead>
     <tr>
-      {% if files and files[0].profile is defined %}
-      <th>Profile</th>
-      {% endif %}
-      <th>File</th>
-      <th class="text-right">References</th>
-      <th></th>
+      <th class="prof-summary-col-detail"></th>
+      <th class="prof-summary-col-rule">Profile</th>
+      <th class="prof-summary-col-metric text-center">{% include 'cxx_profiles_partial_heading_violations_distinct_unique.html' %}</th>
+      <th class="prof-summary-col-metric text-center">Refs</th>
+      <th class="prof-summary-col-violated-rules">Violated Rules</th>
+      <th class="prof-summary-col-message">File</th>
     </tr>
   </thead>
   <tbody>
     {% for file in files %}
     {% set row_id = (id_prefix | default('file')) ~ '-' ~ loop.index %}
-    <tr>
-      {% if file.profile is defined %}
-      <td>{{ file.profile }}</td>
-      {% endif %}
-      <td class="text-monospace">
-        {% if file.href %}<a href="{{ file.href }}">{% endif %}{{ file.display_path | default(file.path) }}{% if file.href %}</a>{% endif %}
-      </td>
-      <td class="text-right">{{ file.total_references }}</td>
-      <td class="text-right">
-        {% if file.rules or file.scopes %}
-        <a class="badge badge-pill badge-secondary" data-toggle="collapse" href="#{{ row_id }}-detail" role="button" aria-expanded="false">detail</a>
+    <tr class="prof-file-row{% if loop.index0 % 2 == 1 %} prof-file-row-striped{% endif %}">
+      <td class="prof-summary-col-detail text-center">
+        {% if file.rules %}
+        <a class="prof-detail-toggle text-secondary" data-toggle="collapse" href="#{{ row_id }}-detail" role="button" aria-expanded="false" aria-label="Show file detail">
+          <i class="far fa-eye prof-detail-icon prof-detail-icon--show" aria-hidden="true"></i>
+          <i class="far fa-eye-slash prof-detail-icon prof-detail-icon--hide" aria-hidden="true"></i>
+        </a>
         {% endif %}
       </td>
+      <td class="prof-summary-detail prof-summary-col-rule"><span class="prof-mono">{{ file.profile | default(file_profile) }}</span></td>
+      <td class="prof-summary-detail prof-summary-col-metric text-center">
+        {% if file.variant_counts %}
+        {% for item in file.variant_counts %}
+        <span class="prof-rule-variant-line prof-mono">{{ item.unique_rule_count | default(0) }}/{{ item.unique_line_count | default(0) }} ({{ item.variant_label }})</span>
+        {% endfor %}
+        {% else %}
+        <span class="prof-mono">{{ file.unique_rule_count | default(0) }}/{{ file.unique_line_count | default(0) }}</span>
+        {% endif %}
+      </td>
+      <td class="prof-summary-detail prof-summary-col-metric text-center">
+        {% if file.variant_counts %}
+        {% for item in file.variant_counts %}
+        <span class="prof-rule-variant-line prof-mono">{{ item.total_references }} ({{ item.variant_label }})</span>
+        {% endfor %}
+        {% else %}
+        <span class="prof-mono">{{ file.total_references }}</span>
+        {% endif %}
+      </td>
+      <td class="prof-summary-detail prof-summary-col-violated-rules">
+        {% if file.rule_variant_counts %}
+        {% for variant in file.rule_variant_counts %}
+        <span class="prof-rule-variant-line prof-mono"><span class="font-weight-bold">{{ variant.rule_count | default(0) }}</span> ({{ variant.variant_label }}) [ {% for rule in variant.rules %}{% if not loop.first %}, {% endif %}{% if rule.href %}<a href="{{ rule.href }}" class="prof-violated-rule-link" title="{{ rule.rule_tooltip | e }}">{% endif %}{{ rule.rule_index }}:<span class="prof-violated-rule-count">{{ rule.total_references | default(0) }}</span>{% if rule.href %}</a>{% endif %}{% endfor %} ]</span>
+        {% endfor %}
+        {% elif file.rules %}
+        <span class="prof-rule-variant-line prof-mono"><span class="font-weight-bold">{{ file.rules | length }}</span> [ {% for rule in file.rules %}{% if not loop.first %}, {% endif %}{% if file.href %}<a href="{{ file.href }}" class="prof-violated-rule-link" title="{{ rule.rule_tooltip | e }}">{% endif %}{{ rule.rule_index }}:<span class="prof-violated-rule-count">{{ rule.total_references | default(0) }}</span>{% if file.href %}</a>{% endif %}{% endfor %} ]</span>
+        {% endif %}
+      </td>
+      <td class="prof-summary-detail prof-summary-col-message">
+        {% include 'cxx_profiles_partial_file_path_twoline.html' %}
+      </td>
     </tr>
-    {% if file.rules or file.scopes %}
-    <tr class="p-0 border-0">
-      <td colspan="4" class="p-0 border-0">
+    {% if file.rules %}
+    <tr class="prof-file-detail-row p-0 border-0">
+      <td colspan="6" class="p-0 border-0">
         <div class="collapse" id="{{ row_id }}-detail">
           <div class="px-3 py-2 bg-light">
-            {% if file.rules %}
-            <p class="mb-1 small font-weight-bold">Rules</p>
-            <ul class="small mb-2">
-              {% for rule in file.rules %}
-              <li><code>{{ rule.rule_id }}</code> — {{ rule.total_references }} ref(s){% if rule.sample_message %}<span class="text-muted d-block">{{ rule.sample_message }}</span>{% endif %}</li>
-              {% endfor %}
-            </ul>
-            {% endif %}
-            {% if file.scopes %}
-            <p class="mb-1 small font-weight-bold">Scopes</p>
-            <ul class="small mb-0">
-              {% for scope in file.scopes %}
-              <li>{{ scope.scope }} — {{ scope.references }} ref(s)</li>
-              {% endfor %}
-            </ul>
-            {% endif %}
+            <table class="table table-sm prof-summary-table prof-file-detail-table mb-0">
+              <thead>
+                <tr>
+                  <th class="prof-summary-col-index"></th>
+                  <th class="prof-summary-col-metric text-center">{% include 'cxx_profiles_partial_heading_violations_distinct_unique.html' %}</th>
+                  <th class="prof-summary-col-metric text-center">Refs</th>
+                  <th class="prof-summary-col-rule">Rule</th>
+                  <th class="prof-summary-col-violation-message">Violation Message</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for rule in file.rules %}
+                <tr>
+                  <td class="prof-summary-detail prof-summary-col-index text-center"><span class="prof-mono font-weight-bold">{{ rule.rule_index }}</span></td>
+                  <td class="prof-summary-detail prof-summary-col-metric text-center"><span class="prof-mono">1/{{ rule.unique_line_count | default(0) }}</span></td>
+                  <td class="prof-summary-detail prof-summary-col-metric text-center"><span class="prof-mono">{{ rule.total_references }}</span></td>
+                  <td class="prof-summary-detail prof-summary-col-rule"><span class="prof-mono">{{ rule.rule_label_html | safe }}</span></td>
+                  <td class="prof-summary-detail prof-summary-col-violation-message">
+                    {% if rule.violation_message_html %}
+                    <div class="prof-violation-message">{{ rule.violation_message_html | safe }}</div>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
           </div>
         </div>
       </td>
