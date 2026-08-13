@@ -30,7 +30,6 @@ def test_scope_breadcrumbs():
     assert crumbs[ 1 ][ 'href' ] == 'cxx-profiles-index.html{}'.format(
         INDEX_SCOPES_FRAGMENT,
     )
-    assert crumbs[ 1 ][ 'monospace' ] is True
     assert crumbs[ 2 ][ 'active' ] is True
     assert 'dbg/x86_64/cxx2c' in crumbs[ 2 ][ 'label' ]
 

@@ -8,12 +8,6 @@
     <title>C++ Profiles — {{ scope.scope_path_suffix }}</title>
     {% include 'cxx_profiles_table_styles.html' %}
     <style>
-      .prof-breadcrumb {
-        font-size: 0.875rem;
-        background: transparent;
-        padding-left: 0;
-        padding-right: 0;
-      }
       .prof-file-prefix {
         display: block;
         color: #6a737d;
@@ -73,7 +67,9 @@
             {% set stat_tone = 'alert' if scope.unique_line_count > 0 else 'ok' %}
             <h6 class="prof-session-summary text-secondary mb-0 mt-2">
               <span class="prof-stat-value prof-stat-value--{{ stat_tone }}">{{ scope.unique_line_count }}</span>
-              {{ 'violation' if scope.unique_line_count == 1 else 'violations' }} detected through
+              {{ 'violation' if scope.unique_line_count == 1 else 'violations' }} of
+              <span class="prof-stat-value">{{ scope.unique_rule_count }}</span>
+              distinct {{ 'rule' if scope.unique_rule_count == 1 else 'rules' }} through
               <span class="prof-stat-value">{{ scope.total_references }}</span>
               {{ 'reference' if scope.total_references == 1 else 'references' }}
             </h6>

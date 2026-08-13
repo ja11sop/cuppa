@@ -201,6 +201,20 @@ def rule_reference( profile, rule_id ):
     return {}
 
 
+def rule_doc_href( profile, rule_id ):
+    if profile == std_init.PROFILE_NAME:
+        return std_init.rule_doc_href( rule_id )
+    return None
+
+
+def rule_link_tooltip( profile, rule_id, sample_message=None ):
+    """Plain-text tooltip for violated-rule index links."""
+    text = '{}::{}'.format( profile, rule_id )
+    if sample_message:
+        return '{} — {}'.format( text, sample_message )
+    return text
+
+
 def variant_display_from_dir( variant_dir ):
     """Return ``variant/arch/abi`` from a cuppa variant directory path."""
     parts = variant_dir.strip( '/' ).split( '/' )
@@ -366,7 +380,7 @@ def build_file_rule_variant_counts( file_entry ):
                     'rule_index': rule[ 'rule_index' ],
                     'total_references': count,
                     'rule_tooltip': rule[ 'rule_tooltip' ],
-                    'href': file_entry.get( 'href' ),
+                    'doc_href': rule.get( 'doc_href' ),
                 },
             )
         if variant_rules:
@@ -398,7 +412,12 @@ def enrich_file_rules( file_entry ):
     for index, rule in enumerate( rules, start=1 ):
         rule[ 'rule_index' ] = index
         rule[ 'rule_reference' ] = rule_reference( profile_name, rule[ 'rule_id' ] )
-        rule[ 'rule_tooltip' ] = rule[ 'rule_reference' ]
+        rule[ 'doc_href' ] = rule_doc_href( profile_name, rule[ 'rule_id' ] )
+        rule[ 'rule_tooltip' ] = rule_link_tooltip(
+            profile_name,
+            rule[ 'rule_id' ],
+            rule.get( 'sample_normalised_message' ),
+        )
         rule[ 'rule_label_html' ] = format_rule_label_html(
             profile_name,
             rule[ 'rule_id' ],
@@ -415,15 +434,25 @@ def enrich_file_rules( file_entry ):
 def file_path_tooltip_text( file_entry ):
     """Plain-text path for HTML ``title`` tooltips on file links."""
     if file_entry.get( 'title_split' ):
-        prefix = file_entry.get( 'title_prefix', '' )
         if file_entry.get( 'title_include_split' ):
             return '{}{}{}'.format(
-                prefix,
+                file_entry.get( 'title_prefix', '' ),
                 file_entry.get( 'title_include_prefix', '' ),
                 file_entry.get( 'title_include_path', '' ),
             )
+        if file_entry.get( 'title_suffix_only' ):
+            return (
+                file_entry.get( 'title_suffix' )
+                or file_entry.get( 'display_path' )
+                or file_entry.get( 'path', '' )
+            )
+        prefix = file_entry.get( 'title_prefix', '' )
         suffix = file_entry.get( 'title_suffix', '' )
-        return '{} {}'.format( prefix, suffix ).strip()
+        if prefix and suffix:
+            if prefix.endswith( '/' ):
+                return '{}{}'.format( prefix, suffix )
+            return '{}/{}'.format( prefix, suffix )
+        return prefix or suffix
     return file_entry.get( 'display_path' ) or file_entry.get( 'path', '' )
 
 
@@ -561,8 +590,8 @@ def write_profiles_reports(
     rollup = model[ 'rollup' ]
     header_context[ 'session_stats' ] = {
         'unique_violation_count': rollup[ 'unique_violation_count' ],
+        'unique_rule_count': rollup[ 'unique_rule_count' ],
         'total_references': rollup[ 'total_references' ],
-        'variant_count': rollup[ 'variant_count' ],
     }
 
     index_template = templates.get_template( 'cxx_profiles_index.html' )

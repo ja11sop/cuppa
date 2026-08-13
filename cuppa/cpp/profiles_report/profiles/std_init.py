@@ -315,6 +315,34 @@ RULE_DOC_REFERENCES = {
     },
 }
 
+CUPPA_STD_INIT_DOCS_BASE = (
+    'https://ja11sop.github.io/cuppa/cuppa/cxx-profiles/std-init'
+)
+
+# Antora page slug per rule id (see docs/.../cxx-profiles/std-init.adoc).
+RULE_DOC_PAGES = {
+    'uninit_decl': 'uninit-decl',
+    'uninit_read': 'uninit-read',
+    'uninit_write': 'uninit-write',
+    'ref_to_uninit': 'ref-to-uninit',
+    'destroy_uninit': 'destroy',
+    'double_destroy': 'destroy',
+    'ctor_uninit_member': 'constructors',
+    'static_runtime_init': 'static-init',
+    'uninit_with_initializer': 'markers',
+    'pointer_marker': 'markers',
+    'union_marker': 'markers',
+    'static_marker': 'markers',
+}
+
+
+def rule_doc_href( rule_id ):
+    """Return the published cuppa docs URL for a ``std::init`` rule, if known."""
+    page = RULE_DOC_PAGES.get( rule_id )
+    if not page:
+        return None
+    return '{}/{}.html'.format( CUPPA_STD_INIT_DOCS_BASE, page )
+
 
 def summary_display_template( normalised_message ):
     """Return the rule summary display template for a normalised message, if known."""

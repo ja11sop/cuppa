@@ -789,6 +789,7 @@ class ProfilesInventory:
                 'total_references': self.total_references(),
                 'unique_locations': self.unique_locations(),
                 'unique_violation_count': self.unique_violation_count(),
+                'unique_rule_count': len( session_rollup[ 'rules' ] ),
                 'variant_count': len( serialised_scopes ),
                 'rules': session_rollup[ 'rules' ],
                 'files': session_rollup[ 'files' ],

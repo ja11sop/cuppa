@@ -21,6 +21,8 @@ from cuppa.cpp.profiles_report.report_html import (
     default_report_directory,
     display_path,
     enrich_scope_view,
+    rule_doc_href,
+    rule_link_tooltip,
     source_href,
     variant_display_from_dir,
     write_profiles_reports,
@@ -46,6 +48,23 @@ def _sample_inventory():
     inventory = ProfilesInventory()
     inventory.record( _SAMPLE_SCOPE, parse_profiles_diagnostic( _LINE ) )
     return inventory
+
+
+def test_rule_link_tooltip_includes_rule_name_and_message():
+    tooltip = rule_link_tooltip(
+        'std::init',
+        'ref_to_uninit',
+        "pointer to uninitialized memory must be marked '…'",
+    )
+    assert tooltip.startswith( 'std::init::ref_to_uninit — ' )
+    assert 'uninitialized memory' in tooltip
+
+
+def test_rule_doc_href_for_std_init():
+    assert rule_doc_href( 'std::init', 'uninit_decl' ).endswith(
+        '/cxx-profiles/std-init/uninit-decl.html',
+    )
+    assert rule_doc_href( 'std::future', 'uninit_decl' ) is None
 
 
 def test_report_model_includes_rollup_views():
@@ -94,6 +113,7 @@ def test_unique_violation_count_dedupes_across_variants():
     model = inventory.as_report_model()
     assert model[ 'rollup' ][ 'total_references' ] == 2
     assert model[ 'rollup' ][ 'unique_violation_count' ] == 1
+    assert model[ 'rollup' ][ 'unique_rule_count' ] == 1
     assert model[ 'rollup' ][ 'variant_count' ] == 2
     rollup_rule = model[ 'rollup' ][ 'rules' ][ 0 ]
     assert rollup_rule[ 'variant_counts' ][ 0 ][ 'variant_label' ] == 'dbg'
@@ -272,9 +292,14 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
     assert index_html.index( 'Distinct/Unique', rules_tab ) < index_html.index( 'Violating Files</th>', rules_tab )
     assert index_html.index( 'Violating Files</th>', rules_tab ) < index_html.index( 'Violation Message</th>', rules_tab )
     assert 'prof-distinct-unique-distinct' in index_html
-    assert 'violation detected through' in index_html
-    assert 'reference, across' in index_html
-    assert 'build variant' in index_html
+    assert 'prof-distinct-unique-unique' in index_html
+    assert 'violation of' in index_html
+    assert 'distinct rule' in index_html
+    assert 'reference' in index_html
+    assert 'build variant' not in index_html
+    assert 'prof-index-project' in index_html
+    assert 'prof-report-project-name' not in index_html
+    assert 'C++ Profiles Reports for</h3>' in index_html
     assert 'Sconscript / Variant' in index_html
     assert 'Rule Violations' in index_html
     assert 'prof-scopes-table' in index_html
@@ -290,23 +315,29 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
     assert 'Violating Files</th>' in scope_html
     assert 'Violated Rules</th>' in scope_html
     assert 'prof-violated-rule-link' in scope_html
+    assert 'cxx-profiles/std-init/ref-to-uninit.html' in scope_html
+    assert 'std::init::ref_to_uninit' in scope_html
     assert 'prof-file-detail-table' in scope_html
     assert 'Violation Message</th>' in scope_html
     assert 'prof-summary-col-index' in scope_html
     assert '[[ref_to_uninit]]' in scope_html
     assert 'prof-attr-literal' in scope_html
     assert 'prof-violation-message' in scope_html
-    assert 'prof-file-prefix' in scope_html
+    assert 'prof-file-include-prefix' in scope_html
     assert 'Violations By-Rule' in scope_html
     assert 'Violations By-File' in scope_html
     assert 'prof-report-project-name' in scope_html
     assert 'prof-session-summary' in scope_html
-    assert 'violation detected through' in scope_html
+    assert 'violation of' in scope_html
+    assert 'distinct rule' in scope_html
+    assert 'violation detected through' not in scope_html
     assert 'prof-profile-scope-heading' in scope_html
     assert '>File</th>' in scope_html
     assert 'fa-eye' in scope_html
 
     source_html = open( source_page, encoding='utf-8' ).read()
-    assert 'violation detected through' in source_html
+    assert 'violation of' in source_html
+    assert 'distinct rule' in source_html
     assert 'reference' in source_html
+    assert 'violation detected through' not in source_html
     assert 'violations detected through' not in source_html

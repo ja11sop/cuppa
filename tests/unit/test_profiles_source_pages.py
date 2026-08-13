@@ -248,6 +248,74 @@ def test_build_source_page_title_splits_include_prefix_from_nested_path(
     assert title[ 'title_include_path' ] == 'cplx/common_types/number.hpp'
 
 
+def test_build_source_page_title_splits_local_include_path( tmp_path ):
+    project = tmp_path / 'project'
+    source = project / 'include' / 'cplx' / 'matching_facility' / 'engine.hpp'
+    source.parent.mkdir( parents=True )
+    source.write_text( 'struct engine {};\n', encoding='utf-8' )
+
+    env = { 'sconstruct_dir': str( project ) }
+    title = build_source_page_title(
+        'include/cplx/matching_facility/engine.hpp',
+        str( source ),
+        env,
+    )
+    assert title[ 'title_split' ] is True
+    assert title[ 'title_prefix' ] == ''
+    assert title[ 'title_include_split' ] is True
+    assert title[ 'title_include_prefix' ] == 'include/'
+    assert title[ 'title_include_path' ] == 'cplx/matching_facility/engine.hpp'
+
+
+def test_build_source_page_title_splits_build_working_path( tmp_path ):
+    project = tmp_path / 'project'
+    source = (
+        project
+        / '_build'
+        / 'matcher'
+        / 'clang24_profiles_2026_08_07_27'
+        / 'dbg'
+        / 'x86_64'
+        / 'cxx2c'
+        / 'working'
+        / 'matcher'
+        / 'version.cpp'
+    )
+    source.parent.mkdir( parents=True )
+    source.write_text( 'const char* version = "1";\n', encoding='utf-8' )
+
+    env = { 'sconstruct_dir': str( project ) }
+    title = build_source_page_title(
+        '_build/matcher/clang24_profiles_2026_08_07_27/dbg/x86_64/cxx2c/working/matcher/version.cpp',
+        str( source ),
+        env,
+    )
+    assert title[ 'title_split' ] is True
+    assert title[ 'title_prefix' ] == (
+        '_build/matcher/clang24_profiles_2026_08_07_27/dbg/x86_64/cxx2c/working/'
+    )
+    assert title[ 'title_suffix' ] == 'matcher/version.cpp'
+    assert title[ 'title_include_split' ] is False
+    assert title[ 'title_suffix_only' ] is False
+
+
+def test_build_source_page_title_bolds_plain_local_path( tmp_path ):
+    project = tmp_path / 'project'
+    source = project / 'test' / 'instruments' / 'management.cpp'
+    source.parent.mkdir( parents=True )
+    source.write_text( 'void manage() {}\n', encoding='utf-8' )
+
+    env = { 'sconstruct_dir': str( project ) }
+    title = build_source_page_title(
+        'test/instruments/management.cpp',
+        str( source ),
+        env,
+    )
+    assert title[ 'title_split' ] is True
+    assert title[ 'title_suffix_only' ] is True
+    assert title[ 'title_suffix' ] == 'test/instruments/management.cpp'
+
+
 def test_display_path_on_disk_uses_home_tilde( tmp_path, monkeypatch ):
     home = tmp_path / 'home'
     home.mkdir()
@@ -302,7 +370,9 @@ def test_write_source_pages_emits_markup( tmp_path ):
     assert 'ref_to_uninit' in html
     assert 'prof-summary-table' in html
     assert 'Violation Message' in html
-    assert 'violation detected through' in html
+    assert 'violation of' in html
+    assert 'distinct rule' in html
+    assert 'violation detected through' not in html
     assert 'violations detected through' not in html
     assert 'Source code' in html
     assert 'breadcrumb' in html

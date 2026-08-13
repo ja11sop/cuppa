@@ -55,10 +55,10 @@
       <td class="prof-summary-detail prof-summary-col-violated-rules">
         {% if file.rule_variant_counts %}
         {% for variant in file.rule_variant_counts %}
-        <span class="prof-rule-variant-line prof-rule-variant-line--wrap prof-mono"><span class="font-weight-bold">{{ variant.rule_count | default(0) }}</span> ({{ variant.variant_label }}) [ {% for rule in variant.rules %}{% if not loop.first %}, {% endif %}{% if rule.href %}<a href="{{ rule.href }}" class="prof-violated-rule-link" title="{{ rule.rule_tooltip | e }}">{% endif %}{{ rule.rule_index }}:<span class="prof-violated-rule-count">{{ rule.total_references | default(0) }}</span>{% if rule.href %}</a>{% endif %}{% endfor %} ]</span>
+        <span class="prof-rule-variant-line prof-rule-variant-line--wrap prof-mono"><span class="font-weight-bold">{{ variant.rule_count | default(0) }}</span> ({{ variant.variant_label }}) [ {% for rule in variant.rules %}{% if not loop.first %}, {% endif %}{% if rule.doc_href %}<a href="{{ rule.doc_href }}" class="prof-violated-rule-link" title="{{ rule.rule_tooltip | e }}" target="_blank" rel="noopener noreferrer">{% endif %}{{ rule.rule_index }}:<span class="prof-violated-rule-count">{{ rule.total_references | default(0) }}</span>{% if rule.doc_href %}</a>{% endif %}{% endfor %} ]</span>
         {% endfor %}
         {% elif file.rules %}
-        <span class="prof-rule-variant-line prof-rule-variant-line--wrap prof-mono"><span class="font-weight-bold">{{ file.rules | length }}</span> [ {% for rule in file.rules %}{% if not loop.first %}, {% endif %}{% if file.href %}<a href="{{ file.href }}" class="prof-violated-rule-link" title="{{ rule.rule_tooltip | e }}">{% endif %}{{ rule.rule_index }}:<span class="prof-violated-rule-count">{{ rule.total_references | default(0) }}</span>{% if file.href %}</a>{% endif %}{% endfor %} ]</span>
+        <span class="prof-rule-variant-line prof-rule-variant-line--wrap prof-mono"><span class="font-weight-bold">{{ file.rules | length }}</span> [ {% for rule in file.rules %}{% if not loop.first %}, {% endif %}{% if rule.doc_href %}<a href="{{ rule.doc_href }}" class="prof-violated-rule-link" title="{{ rule.rule_tooltip | e }}" target="_blank" rel="noopener noreferrer">{% endif %}{{ rule.rule_index }}:<span class="prof-violated-rule-count">{{ rule.total_references | default(0) }}</span>{% if rule.doc_href %}</a>{% endif %}{% endfor %} ]</span>
         {% endif %}
       </td>
       <td class="prof-summary-detail prof-summary-col-message">

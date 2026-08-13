@@ -128,12 +128,6 @@
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
         font-size: inherit;
       }
-      .prof-breadcrumb {
-        font-size: 0.875rem;
-        background: transparent;
-        padding-left: 0;
-        padding-right: 0;
-      }
     </style>
   </head>
   <body>
@@ -146,18 +140,31 @@
           <li class="list-group-item text-center py-3">
             <h4 class="mb-1">Profiles violations in</h4>
             {% if title_split %}
+            {% if title_prefix %}
             <div class="text-monospace prof-title-prefix">{{ title_prefix }}</div>
-            <div class="text-monospace prof-title-suffix">{{ title_suffix }}</div>
+            {% endif %}
+            <div class="text-monospace prof-title-suffix">
+            {% if title_include_split %}
+            <span class="prof-file-include-prefix">{{ title_include_prefix }}</span><span class="prof-file-include-path">{{ title_include_path }}</span>
+            {% elif title_suffix_only %}
+            <span class="prof-file-suffix">{{ title_suffix | default(display_path) }}</span>
+            {% else %}
+            {{ title_suffix }}
+            {% endif %}
+            </div>
             {% else %}
             <div class="text-monospace font-weight-bolder">{{ title_single }}</div>
             {% endif %}
             {% set v_count = file_entry.unique_line_count %}
+            {% set rule_count = file_entry.unique_rule_count %}
             {% set r_count = file_entry.total_references %}
             {% set has_violations = v_count > 0 or r_count > 0 %}
             {% set stat_tone = 'alert' if has_violations else 'ok' %}
             <h6 class="prof-section-heading mb-0 mt-2">
               <span class="prof-stat-value prof-stat-value--{{ stat_tone }}">{{ v_count }}</span>
-              {{ 'violation' if v_count == 1 else 'violations' }} detected through
+              {{ 'violation' if v_count == 1 else 'violations' }} of
+              <span class="prof-stat-value">{{ rule_count }}</span>
+              distinct {{ 'rule' if rule_count == 1 else 'rules' }} through
               <span class="prof-stat-value">{{ r_count }}</span>
               {{ 'reference' if r_count == 1 else 'references' }}
             </h6>

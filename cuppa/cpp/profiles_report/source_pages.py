@@ -33,6 +33,7 @@ _COMMON_INCLUDE_DIR_NAMES = frozenset(
         'interface',
     },
 )
+_WORKING_DIR_MARKER = '/working/'
 # Visible display placeholder for normalised ``'…'`` name fragments in summary messages.
 VIOLATION_MESSAGE_PLACEHOLDER = '<name>'
 VIOLATION_TYPE_PLACEHOLDER = '<type>'
@@ -178,6 +179,80 @@ def _split_location_include_remainder( dependency_root, remainder ):
     return '{}/'.format( include_dir ), include_path
 
 
+def _project_relative_path( path, env ):
+    """Return a project-relative ``/`` path when ``path`` sits under the sconstruct."""
+    if not path:
+        return None
+    for root in ( env.get( 'sconstruct_dir' ), env.get( 'cxx_profiles_report_root' ) ):
+        rel = _try_relpath( path, root )
+        if rel:
+            return rel
+    return None
+
+
+def _normalised_relative_display( display_path ):
+    if not display_path:
+        return None
+    normalised = display_path.replace( '\\', '/' )
+    if os.path.isabs( normalised ):
+        return None
+    if normalised.startswith( '../' ):
+        return None
+    return normalised
+
+
+def _build_working_dir_title( rel ):
+    """Split a cuppa variant ``.../working/...`` path for display."""
+    if _WORKING_DIR_MARKER not in rel:
+        return None
+    head, tail = rel.split( _WORKING_DIR_MARKER, 1 )
+    if not tail:
+        return None
+    return {
+        'title_split': True,
+        'title_prefix': '{}/working/'.format( head ),
+        'title_suffix': tail,
+        'title_include_split': False,
+        'title_suffix_only': False,
+    }
+
+
+def _local_project_title( display_path, source_path, env ):
+    """Build title fields for paths under the project tree (non-download deps)."""
+    rel = _project_relative_path( source_path, env )
+    if rel is None:
+        rel = _normalised_relative_display( display_path )
+    if rel is None:
+        return None
+
+    working = _build_working_dir_title( rel )
+    if working:
+        return working
+
+    sconstruct_dir = env.get( 'sconstruct_dir' )
+    if sconstruct_dir:
+        include_parts = _split_location_include_remainder( sconstruct_dir, rel )
+        if include_parts:
+            include_prefix, include_path = include_parts
+            return {
+                'title_split': True,
+                'title_prefix': '',
+                'title_suffix': rel,
+                'title_include_split': True,
+                'title_include_prefix': include_prefix,
+                'title_include_path': include_path,
+                'title_suffix_only': False,
+            }
+
+    return {
+        'title_split': True,
+        'title_prefix': '',
+        'title_suffix': rel,
+        'title_include_split': False,
+        'title_suffix_only': True,
+    }
+
+
 def _dependency_title_parts( source_path, env ):
     """Return ``(repo_prefix, local_remainder, dependency_root)`` or ``None``."""
     storage_root = _storage_root_for_path( source_path, env )
@@ -222,6 +297,7 @@ def build_source_page_title( display_path, source_path, env ):
             'title_prefix': prefix,
             'title_suffix': suffix,
             'title_include_split': False,
+            'title_suffix_only': False,
         }
         include_parts = _split_location_include_remainder(
             dependency_root,
@@ -233,10 +309,16 @@ def build_source_page_title( display_path, source_path, env ):
             title[ 'title_include_prefix' ] = include_prefix
             title[ 'title_include_path' ] = include_path
         return title
+
+    local = _local_project_title( display_path, source_path, env )
+    if local:
+        return local
+
     return {
         'title_split': False,
         'title_single': display_path,
         'title_include_split': False,
+        'title_suffix_only': False,
     }
 
 
@@ -380,6 +462,7 @@ def collect_file_violations( inventory ):
             )
         file_entry[ 'rule_summary' ] = summary
         file_entry[ 'unique_line_count' ] = len( file_entry[ 'lines' ] )
+        file_entry[ 'unique_rule_count' ] = len( file_entry[ 'rules' ] )
     return files
 
 

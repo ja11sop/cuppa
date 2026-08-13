@@ -13,6 +13,11 @@
         font-size: 1rem;
         font-weight: 400;
       }
+      .prof-index-project {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: inherit;
+      }
       .prof-stat-value {
         font-weight: 700;
       }
@@ -46,15 +51,16 @@
       <div class="card mt-4">
         <ul class="list-group">
           <li class="list-group-item text-center pt-4">
-            <h3>C++ Profiles Reports for <span class="text-monospace font-weight-bolder">{{ report_project }}</span></h3>
+            <h3 class="mb-2">C++ Profiles Reports for</h3>
+            <div class="prof-index-project text-monospace mb-0">{{ report_project }}</div>
             {% set stat_tone = 'alert' if session_stats.unique_violation_count > 0 else 'ok' %}
             <h6 class="prof-session-summary text-secondary mb-0 mt-2">
               <span class="prof-stat-value prof-stat-value--{{ stat_tone }}">{{ session_stats.unique_violation_count }}</span>
-              {{ 'violation' if session_stats.unique_violation_count == 1 else 'violations' }} detected through
+              {{ 'violation' if session_stats.unique_violation_count == 1 else 'violations' }} of
+              <span class="prof-stat-value">{{ session_stats.unique_rule_count }}</span>
+              distinct {{ 'rule' if session_stats.unique_rule_count == 1 else 'rules' }} through
               <span class="prof-stat-value">{{ session_stats.total_references }}</span>
-              {{ 'reference' if session_stats.total_references == 1 else 'references' }}, across
-              <span class="prof-stat-value">{{ session_stats.variant_count }}</span>
-              {{ 'build variant' if session_stats.variant_count == 1 else 'build variants' }}
+              {{ 'reference' if session_stats.total_references == 1 else 'references' }}
             </h6>
             {% if vcs_provenance.location_label %}
             <h6 class="prof-vcs-provenance text-secondary font-weight-light mb-0 mt-2">

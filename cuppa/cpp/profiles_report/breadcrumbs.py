@@ -11,11 +11,10 @@ INDEX_SCOPES_FRAGMENT = '#scopes'
 INDEX_ROLLUP_FILES_FRAGMENT = '#rollup-files'
 
 
-def _crumb( label, href=None, *, monospace=False, active=False ):
+def _crumb( label, href=None, *, active=False ):
     return {
         'label': label,
         'href': href,
-        'monospace': monospace,
         'active': active,
     }
 
@@ -31,9 +30,8 @@ def scope_breadcrumbs( index_name, scope ):
         _crumb(
             scope[ 'sconscript' ],
             href='{}{}'.format( index_name, INDEX_SCOPES_FRAGMENT ),
-            monospace=True,
         ),
-        _crumb( variant_label, monospace=True, active=True ),
+        _crumb( variant_label, active=True ),
     ]
 
 
@@ -51,8 +49,8 @@ def source_breadcrumbs(
         _crumb( 'By source', href=rollup_href ),
     ]
     if title_split:
-        crumbs.append( _crumb( title_prefix, monospace=True ) )
-        crumbs.append( _crumb( title_suffix, monospace=True, active=True ) )
+        crumbs.append( _crumb( title_prefix ) )
+        crumbs.append( _crumb( title_suffix, active=True ) )
     else:
-        crumbs.append( _crumb( display_path, monospace=True, active=True ) )
+        crumbs.append( _crumb( display_path, active=True ) )
     return crumbs
