@@ -266,10 +266,12 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
     assert 'prof-rules-table' in index_html
     assert 'fa-eye' in index_html
     assert index_html.index( 'prof-summary-col-detail' ) < index_html.index( 'Profile</th>' )
+    assert index_html.index( 'Violations By-Scope' ) < index_html.index( 'Violations By-Rule' )
     rules_tab = index_html.index( 'id="rollup-rules"')
     assert index_html.index( 'prof-rules-table', rules_tab ) < index_html.index( 'Rule</th>', rules_tab )
-    assert index_html.index( 'Violations<br>Distinct/Unique', rules_tab ) < index_html.index( 'Violating Files</th>', rules_tab )
+    assert index_html.index( 'Distinct/Unique', rules_tab ) < index_html.index( 'Violating Files</th>', rules_tab )
     assert index_html.index( 'Violating Files</th>', rules_tab ) < index_html.index( 'Violation Message</th>', rules_tab )
+    assert 'prof-distinct-unique-distinct' in index_html
     assert 'violation detected through' in index_html
     assert 'reference, across' in index_html
     assert 'build variant' in index_html
@@ -295,6 +297,12 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
     assert 'prof-attr-literal' in scope_html
     assert 'prof-violation-message' in scope_html
     assert 'prof-file-prefix' in scope_html
+    assert 'Violations By-Rule' in scope_html
+    assert 'Violations By-File' in scope_html
+    assert 'prof-report-project-name' in scope_html
+    assert 'prof-session-summary' in scope_html
+    assert 'violation detected through' in scope_html
+    assert 'prof-profile-scope-heading' in scope_html
     assert '>File</th>' in scope_html
     assert 'fa-eye' in scope_html
 

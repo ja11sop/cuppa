@@ -14,7 +14,9 @@
     vertical-align: middle;
   }
   .prof-summary-table,
-  .prof-scopes-table {
+  .prof-scopes-table,
+  table.prof-rules-table,
+  table.prof-files-table {
     table-layout: auto;
     width: 100%;
   }
@@ -50,6 +52,14 @@
   .prof-rule-variant-line {
     display: block;
     white-space: nowrap;
+  }
+  .prof-rule-variant-line--wrap {
+    white-space: normal;
+    word-break: break-word;
+  }
+  .prof-distinct-unique-distinct {
+    color: #6a737d;
+    font-weight: 400;
   }
   .prof-file-prefix {
     display: block;
@@ -163,36 +173,53 @@
     white-space: normal;
   }
   .prof-summary-col-rule {
-    width: 1%;
+    width: 1px;
     white-space: nowrap;
   }
   .prof-summary-col-metric {
-    width: 1%;
+    width: 1px;
     white-space: nowrap;
     text-align: center;
   }
   .prof-summary-col-message {
-    width: auto;
+    width: 60%;
     white-space: normal;
     word-break: break-word;
   }
   .prof-summary-col-violating-files,
-  .prof-summary-col-violated-rules,
-  .prof-summary-col-violation-message {
-    width: auto;
+  .prof-summary-col-violated-rules {
+    width: 40%;
     white-space: normal;
     word-break: break-word;
-    min-width: 10rem;
+  }
+  .prof-summary-col-violation-message {
+    width: 60%;
+    white-space: normal;
+    word-break: break-word;
   }
   .prof-summary-col-index {
-    width: 1%;
+    width: 1px;
     white-space: nowrap;
     text-align: center;
   }
   .prof-summary-col-detail {
-    width: 1%;
+    width: 1px;
     white-space: nowrap;
     text-align: center;
+  }
+  col.prof-summary-col-detail-col,
+  col.prof-summary-col-rule-col,
+  col.prof-summary-col-metric-col,
+  col.prof-summary-col-index-col {
+    width: 1px;
+  }
+  col.prof-summary-col-violating-files-col,
+  col.prof-summary-col-violated-rules-col {
+    width: 40%;
+  }
+  col.prof-summary-col-message-col,
+  col.prof-summary-col-violation-message-col {
+    width: 60%;
   }
   .prof-vcs-provenance {
     font-size: 0.875rem;
@@ -272,6 +299,11 @@
   .prof-scopes-profile-line {
     display: block;
     white-space: nowrap;
+  }
+  .prof-scopes-rule-line {
+    display: block;
+    white-space: normal;
+    word-break: break-word;
   }
   .prof-message-name {
     color: #6a737d;

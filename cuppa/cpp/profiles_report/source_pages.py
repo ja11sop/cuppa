@@ -8,6 +8,7 @@
 #-------------------------------------------------------------------------------
 
 import html
+import hashlib
 import os
 import re
 from collections import defaultdict
@@ -39,8 +40,19 @@ _NORMALISED_PLACEHOLDER_RE = re.compile( r"'…'" )
 _ATTR_LITERAL_RE = re.compile( r'\[\[[^\]]+\]\]' )
 
 
+_MAX_SOURCE_FILENAME_LEN = 240
+
+
 def sanitized_source_filename( source_path ):
-    return source_path.replace( '\\', '/' ).replace( '/', '--' ) + '.html'
+    stem = source_path.replace( '\\', '/' ).replace( '/', '--' )
+    candidate = stem + '.html'
+    if len( candidate ) <= _MAX_SOURCE_FILENAME_LEN:
+        return candidate
+
+    digest = hashlib.sha256( source_path.encode( 'utf-8' ) ).hexdigest()[:16]
+    base = os.path.basename( source_path ).replace( os.sep, '--' )
+    base = re.sub( r'[^A-Za-z0-9._-]+', '_', base )[:80].strip( '_.' ) or 'source'
+    return '{}--{}.html'.format( base, digest )
 
 
 def source_page_relpath( source_path ):

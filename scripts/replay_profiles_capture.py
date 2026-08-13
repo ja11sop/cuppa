@@ -5,6 +5,9 @@
 The capture file should contain cuppa ``Progress( … )`` scope markers and Clang
 Profiles diagnostics (``under profile '…'`` suffix). Scope is inferred from the
 Progress lines; only the capture file path needs to be supplied.
+
+To regenerate HTML and JSON from a capture without recompiling, use
+``python -m scripts.regenerate_profiles_report``.
 """
 
 import argparse

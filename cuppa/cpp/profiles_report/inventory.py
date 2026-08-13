@@ -15,6 +15,7 @@ from cuppa.cpp.profiles_report.types import (
     ProfilesScope,
     unscoped_profiles_scope,
 )
+from cuppa.utility.preprocess import AnsiEscape
 
 _PROGRESS_LINE_RE = re.compile( r'^Progress\(\s*(.+)\s*\)\s*$' )
 
@@ -76,38 +77,83 @@ def parse_progress_line( line ):
 
 
 class ProfilesScopeStack:
-    """Track the open Progress scope while replaying a serial capture file."""
+    """Track open Progress scopes while replaying a capture file.
+
+    Supports interleaved ``--parallel`` output: nested sconscripts, multiple
+    active variants, and resolution by most-recent ``Starting variant`` among
+    those still open.
+    """
 
     def __init__( self ):
-        self._sconscript = None
-        self._variant_dir = None
+        self._sconscript_stack = []
+        self._active_variants = set()
+        self._start_order = []
 
     def apply_progress( self, event, sconscript, variant_dir ):
         if event == 'begin':
-            self._sconscript = sconscript
+            self._sconscript_stack.append( sconscript )
         elif event == 'started':
-            self._variant_dir = variant_dir
+            current_sconscript = self._current_sconscript()
+            if current_sconscript:
+                scope_pair = ( current_sconscript, variant_dir )
+                self._active_variants.add( scope_pair )
+                self._start_order.append( scope_pair )
         elif event == 'finished':
-            if self._variant_dir == variant_dir:
-                self._variant_dir = None
+            for scope_pair in list( self._active_variants ):
+                if scope_pair[ 1 ] == variant_dir:
+                    self._active_variants.discard( scope_pair )
         elif event == 'end':
-            if self._sconscript == sconscript:
-                self._sconscript = None
-                self._variant_dir = None
+            while self._sconscript_stack and self._sconscript_stack[ -1 ] == sconscript:
+                self._sconscript_stack.pop()
+            self._active_variants = {
+                scope_pair
+                for scope_pair in self._active_variants
+                if scope_pair[ 0 ] != sconscript
+            }
+            self._prune_start_order()
         elif event == 'sconstruct_end':
-            self._sconscript = None
-            self._variant_dir = None
+            self._sconscript_stack = []
+            self._active_variants = set()
+            self._start_order = []
+
+    def _current_sconscript( self ):
+        return self._sconscript_stack[ -1 ] if self._sconscript_stack else None
+
+    def _prune_start_order( self ):
+        self._start_order = [
+            scope_pair
+            for scope_pair in self._start_order
+            if scope_pair in self._active_variants
+        ]
 
     def current_scope( self ):
-        if self._sconscript and self._variant_dir:
-            toolchain, variant_label = parse_variant_scope_fields( self._variant_dir )
-            return ProfilesScope(
-                sconscript=self._sconscript,
-                variant_dir=self._variant_dir,
-                toolchain=toolchain,
-                variant_label=variant_label,
-            )
-        return unscoped_profiles_scope()
+        if not self._active_variants:
+            return unscoped_profiles_scope()
+
+        if len( self._active_variants ) == 1:
+            sconscript, variant_dir = next( iter( self._active_variants ) )
+        else:
+            sconscript = None
+            variant_dir = None
+            for scope_pair in reversed( self._start_order ):
+                if scope_pair in self._active_variants:
+                    sconscript, variant_dir = scope_pair
+                    break
+            if sconscript is None:
+                return unscoped_profiles_scope()
+
+        toolchain, variant_label = parse_variant_scope_fields( variant_dir )
+        return ProfilesScope(
+            sconscript=sconscript,
+            variant_dir=variant_dir,
+            toolchain=toolchain,
+            variant_label=variant_label,
+        )
+
+
+def _strip_capture_line( line ):
+    """Remove ANSI colour sequences from a saved capture line."""
+    return AnsiEscape.strip( line )
 
 
 def replay_profiles_capture( lines ):
@@ -115,20 +161,28 @@ def replay_profiles_capture( lines ):
     inventory = ProfilesInventory()
     stack = ProfilesScopeStack()
     unscoped_diagnostics = 0
+    seen_scoped_lines = set()
 
     for line in lines:
-        progress = parse_progress_line( line )
+        capture_line = _strip_capture_line( line )
+        progress = parse_progress_line( capture_line )
         if progress is not None:
             stack.apply_progress( *progress )
             continue
 
-        diagnostic = parse_profiles_diagnostic( line )
+        diagnostic = parse_profiles_diagnostic( capture_line, from_capture=True )
         if diagnostic is None:
             continue
 
+        line_key = capture_line.rstrip( '\r\n' )
         scope = stack.current_scope()
         if scope.sconscript == '_unscoped':
+            if line_key in seen_scoped_lines:
+                continue
             unscoped_diagnostics += 1
+        else:
+            seen_scoped_lines.add( line_key )
+
         inventory.record( scope, diagnostic )
 
     return inventory, unscoped_diagnostics

@@ -27,7 +27,10 @@ from cuppa.cpp.profiles_report.types import (
 )
 from cuppa.cpp.profiles_report.normalise import normalise_message
 from cuppa.cpp.profiles_report.parse import parse_profiles_diagnostic
-from cuppa.cpp.profiles_report.parse_clang import parse_clang_profiles_line
+from cuppa.cpp.profiles_report.parse_clang import (
+    parse_clang_profiles_line,
+    parse_clang_profiles_line_from_capture,
+)
 
 __all__ = [
     'DEFAULT_COMPILER',
@@ -42,6 +45,7 @@ __all__ = [
     'location_dedupe_key',
     'normalise_message',
     'parse_clang_profiles_line',
+    'parse_clang_profiles_line_from_capture',
     'parse_profiles_diagnostic',
     'parse_progress_line',
     'parse_variant_scope_fields',

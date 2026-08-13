@@ -584,7 +584,7 @@ issues, PR titles, and ROADMAP cross-links (same pattern as `list-tc-*` in
 
 | Letter | Id | Deliverable | Notes |
 |--------|-----|-------------|-------|
-| **A** | `prof-report-parser` | `cuppa/cpp/cxx_profiles_report.py` — parse, normalise, classify; `ProfilesScope` type; `scripts/replay_profiles_capture.py` | Fixture strings from samples; scope-aware dedupe keys; Progress replay smoke |
+| **A** | `prof-report-parser` | `cuppa/cpp/cxx_profiles_report.py` — parse, normalise, classify; `ProfilesScope` type; `scripts/replay_profiles_capture.py`; `scripts/regenerate_profiles_report.py` (capture → HTML/JSON without rebuild) | Fixture strings from samples; scope-aware dedupe keys; Progress replay smoke |
 | **B** | `prof-report-collector` | Progress callback **and** per-action `env` → `SpawnedProcessor`; thread-safe session store | Includes former slice F; do not ship collector without spawn scope |
 | **C** | `prof-report-html` | Jinja templates + `CxxProfilesReportBuilder` at `sconstruct_end` | By rule / By file / Roll-up tabs; `link_style`; incomplete scope banner |
 | **D** | `prof-report-manifest` | `.cuppa-reports` schema v1; matched `--clean` / `--remove-builds` | `invocation_key`, `partial`, path union |

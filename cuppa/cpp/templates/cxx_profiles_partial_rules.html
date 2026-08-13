@@ -1,10 +1,19 @@
 <table class="table table-sm prof-summary-table prof-rules-table mb-0">
+  <colgroup>
+    <col class="prof-summary-col-detail-col">
+    <col class="prof-summary-col-rule-col">
+    <col class="prof-summary-col-rule-col">
+    <col class="prof-summary-col-metric-col">
+    <col class="prof-summary-col-metric-col">
+    <col class="prof-summary-col-violating-files-col">
+    <col class="prof-summary-col-violation-message-col">
+  </colgroup>
   <thead>
     <tr>
       <th class="prof-summary-col-detail"></th>
       <th class="prof-summary-col-rule">Profile</th>
       <th class="prof-summary-col-rule">Rule</th>
-      <th class="prof-summary-col-metric text-center">{% include 'cxx_profiles_partial_heading_violations_distinct_unique.html' %}</th>
+      <th class="prof-summary-col-metric text-center">{% include 'cxx_profiles_partial_heading_distinct_unique.html' %}</th>
       <th class="prof-summary-col-metric text-center">Refs</th>
       <th class="prof-summary-col-violating-files">Violating Files</th>
       <th class="prof-summary-col-violation-message">Violation Message</th>
@@ -27,10 +36,14 @@
       <td class="prof-summary-detail prof-summary-col-metric text-center">
         {% if rule.variant_counts %}
         {% for item in rule.variant_counts %}
-        <span class="prof-rule-variant-line prof-mono">1/{{ item.unique_line_count }} ({{ item.variant_label }})</span>
+        {% set distinct = 1 %}
+        {% set unique = item.unique_line_count %}
+        <span class="prof-rule-variant-line prof-mono">{% include 'cxx_profiles_partial_distinct_unique_value.html' %} ({{ item.variant_label }})</span>
         {% endfor %}
         {% else %}
-        <span class="prof-mono">1/{{ rule.unique_line_count | default(0) }}</span>
+        {% set distinct = 1 %}
+        {% set unique = rule.unique_line_count | default(0) %}
+        <span class="prof-mono">{% include 'cxx_profiles_partial_distinct_unique_value.html' %}</span>
         {% endif %}
       </td>
       <td class="prof-summary-detail prof-summary-col-metric text-center">
@@ -45,10 +58,10 @@
       <td class="prof-summary-detail prof-summary-col-violating-files">
         {% if rule.variant_counts %}
         {% for variant in rule.variant_counts %}
-        <span class="prof-rule-variant-line prof-mono"><span class="font-weight-bold">{{ variant.file_count | default(0) }}</span> ({{ variant.variant_label }}) [ {% for file in variant.files %}{% if not loop.first %}, {% endif %}{% if file.href %}<a href="{{ file.href }}" class="prof-violating-file-link" title="{{ file.path_tooltip | e }}">{% endif %}{{ file.file_index }}:<span class="prof-violating-file-count">{{ file.total_references | default(0) }}</span>{% if file.href %}</a>{% endif %}{% endfor %} ]</span>
+        <span class="prof-rule-variant-line prof-rule-variant-line--wrap prof-mono"><span class="font-weight-bold">{{ variant.file_count | default(0) }}</span> ({{ variant.variant_label }}) [ {% for file in variant.files %}{% if not loop.first %}, {% endif %}{% if file.href %}<a href="{{ file.href }}" class="prof-violating-file-link" title="{{ file.path_tooltip | e }}">{% endif %}{{ file.file_index }}:<span class="prof-violating-file-count">{{ file.total_references | default(0) }}</span>{% if file.href %}</a>{% endif %}{% endfor %} ]</span>
         {% endfor %}
         {% elif rule.files %}
-        <span class="prof-rule-variant-line prof-mono"><span class="font-weight-bold">{{ rule.files | length }}</span> [ {% for file in rule.files %}{% if not loop.first %}, {% endif %}{% if file.href %}<a href="{{ file.href }}" class="prof-violating-file-link" title="{{ file.path_tooltip | e }}">{% endif %}{{ file.file_index | default(loop.index) }}:<span class="prof-violating-file-count">{{ file.total_references | default(0) }}</span>{% if file.href %}</a>{% endif %}{% endfor %} ]</span>
+        <span class="prof-rule-variant-line prof-rule-variant-line--wrap prof-mono"><span class="font-weight-bold">{{ rule.files | length }}</span> [ {% for file in rule.files %}{% if not loop.first %}, {% endif %}{% if file.href %}<a href="{{ file.href }}" class="prof-violating-file-link" title="{{ file.path_tooltip | e }}">{% endif %}{{ file.file_index | default(loop.index) }}:<span class="prof-violating-file-count">{{ file.total_references | default(0) }}</span>{% if file.href %}</a>{% endif %}{% endfor %} ]</span>
         {% endif %}
       </td>
       <td class="prof-summary-detail prof-summary-col-violation-message">
@@ -66,7 +79,7 @@
               <thead>
                 <tr>
                   <th class="prof-summary-col-index"></th>
-                  <th class="prof-summary-col-metric text-center">{% include 'cxx_profiles_partial_heading_violations_distinct_unique.html' %}</th>
+                  <th class="prof-summary-col-metric text-center">{% include 'cxx_profiles_partial_heading_distinct_unique.html' %}</th>
                   <th class="prof-summary-col-metric text-center">Refs</th>
                   <th class="prof-summary-col-message">File</th>
                 </tr>
@@ -78,10 +91,14 @@
                   <td class="prof-summary-detail prof-summary-col-metric text-center">
                     {% if file.variant_counts %}
                     {% for item in file.variant_counts %}
-                    <span class="prof-rule-variant-line prof-mono">1/{{ item.unique_line_count }} ({{ item.variant_label }})</span>
+                    {% set distinct = 1 %}
+                    {% set unique = item.unique_line_count %}
+                    <span class="prof-rule-variant-line prof-mono">{% include 'cxx_profiles_partial_distinct_unique_value.html' %} ({{ item.variant_label }})</span>
                     {% endfor %}
                     {% else %}
-                    <span class="prof-mono">1/{{ file.unique_line_count | default(0) }}</span>
+                    {% set distinct = 1 %}
+                    {% set unique = file.unique_line_count | default(0) %}
+                    <span class="prof-mono">{% include 'cxx_profiles_partial_distinct_unique_value.html' %}</span>
                     {% endif %}
                   </td>
                   <td class="prof-summary-detail prof-summary-col-metric text-center">

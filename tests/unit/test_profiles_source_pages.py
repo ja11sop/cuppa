@@ -52,6 +52,14 @@ def test_sanitized_source_filename():
     )
 
 
+def test_sanitized_source_filename_hashes_overlong_paths():
+    long_path = '/home/user/' + 'very-long-segment/' * 40 + 'file.hpp'
+    name = sanitized_source_filename( long_path )
+    assert len( name ) <= 240
+    assert name.endswith( '.html' )
+    assert '--' in name
+
+
 def test_display_path_rebases_project_source( tmp_path ):
     source = tmp_path / 'src' / 'widget.cpp'
     source.parent.mkdir()

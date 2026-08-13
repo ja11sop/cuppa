@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ids, and dedupes violations per scope (slice A).
   `python -m scripts.replay_profiles_capture` replays saved build captures using
   ``Progress( … )`` scope markers.
+  `python -m scripts.regenerate_profiles_report` replays a capture and rewrites HTML/JSON
+  without recompiling (for template iteration). Capture replay strips ANSI colour sequences
+  from ``tee`` output; the live collector hot path does not.
 - Profiles violation capture during builds (slice B, `prof-report-collector`):
   ``--cxx-profiles-report`` activates an in-process collector wired through
   ``ToolchainProcessor`` with per-sconscript spawn scope; session summary and HTML/JSON

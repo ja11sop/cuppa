@@ -276,6 +276,7 @@ def enrich_scope_view( scope ):
     scope[ 'variant_display' ] = variant_display
     parts = variant_display.split( '/', 1 )
     scope[ 'variant_display_tail' ] = parts[ 1 ] if len( parts ) > 1 else ''
+    scope[ 'scope_path_suffix' ] = scope.get( 'sconscript', '' ).lstrip( './' )
     scope.setdefault(
         'unique_rule_count',
         sum( len( profile.get( 'rules', [] ) ) for profile in scope.get( 'profiles', [] ) ),
