@@ -226,37 +226,37 @@ def test_build_source_page_title_splits_include_prefix_from_nested_path(
     tmp_path, monkeypatch,
 ):
     deps_root = tmp_path / '_download'
-    folder = 'git_ssh_git@git.clearpool.io__cplx_core_common_types@master'
+    folder = 'git_ssh_git@gitlab.example__org_common_types@master'
     dep_root = deps_root / folder
     dep_root.mkdir( parents=True )
     ( dep_root / '.git' ).mkdir()
-    source = dep_root / 'include' / 'cplx' / 'common_types' / 'number.hpp'
+    source = dep_root / 'include' / 'widget' / 'common_types' / 'number.hpp'
     source.parent.mkdir( parents=True )
     source.write_text( 'struct number {};\n', encoding='utf-8' )
 
     monkeypatch.setattr(
         'cuppa.core.dependency_identity.short_name_from_git_tree',
         lambda path: (
-            'git.clearpool.io/cplx_core/common_types',
-            'ssh://git@git.clearpool.io/cplx_core/common_types',
+            'gitlab.example/org/common_types',
+            'ssh://git@gitlab.example/org/common_types',
         ),
     )
 
     env = { 'downloads_root': str( deps_root ) }
     title = build_source_page_title( '', str( source ), env )
     assert title[ 'title_include_prefix' ] == 'include/'
-    assert title[ 'title_include_path' ] == 'cplx/common_types/number.hpp'
+    assert title[ 'title_include_path' ] == 'widget/common_types/number.hpp'
 
 
 def test_build_source_page_title_splits_local_include_path( tmp_path ):
     project = tmp_path / 'project'
-    source = project / 'include' / 'cplx' / 'matching_facility' / 'engine.hpp'
+    source = project / 'include' / 'widget' / 'engine' / 'engine.hpp'
     source.parent.mkdir( parents=True )
     source.write_text( 'struct engine {};\n', encoding='utf-8' )
 
     env = { 'sconstruct_dir': str( project ) }
     title = build_source_page_title(
-        'include/cplx/matching_facility/engine.hpp',
+        'include/widget/engine/engine.hpp',
         str( source ),
         env,
     )
@@ -264,7 +264,7 @@ def test_build_source_page_title_splits_local_include_path( tmp_path ):
     assert title[ 'title_prefix' ] == ''
     assert title[ 'title_include_split' ] is True
     assert title[ 'title_include_prefix' ] == 'include/'
-    assert title[ 'title_include_path' ] == 'cplx/matching_facility/engine.hpp'
+    assert title[ 'title_include_path' ] == 'widget/engine/engine.hpp'
 
 
 def test_build_source_page_title_splits_build_working_path( tmp_path ):
@@ -272,13 +272,13 @@ def test_build_source_page_title_splits_build_working_path( tmp_path ):
     source = (
         project
         / '_build'
-        / 'matcher'
+        / 'widget'
         / 'clang24_profiles_2026_08_07_27'
         / 'dbg'
         / 'x86_64'
         / 'cxx2c'
         / 'working'
-        / 'matcher'
+        / 'widget'
         / 'version.cpp'
     )
     source.parent.mkdir( parents=True )
@@ -286,15 +286,15 @@ def test_build_source_page_title_splits_build_working_path( tmp_path ):
 
     env = { 'sconstruct_dir': str( project ) }
     title = build_source_page_title(
-        '_build/matcher/clang24_profiles_2026_08_07_27/dbg/x86_64/cxx2c/working/matcher/version.cpp',
+        '_build/widget/clang24_profiles_2026_08_07_27/dbg/x86_64/cxx2c/working/widget/version.cpp',
         str( source ),
         env,
     )
     assert title[ 'title_split' ] is True
     assert title[ 'title_prefix' ] == (
-        '_build/matcher/clang24_profiles_2026_08_07_27/dbg/x86_64/cxx2c/working/'
+        '_build/widget/clang24_profiles_2026_08_07_27/dbg/x86_64/cxx2c/working/'
     )
-    assert title[ 'title_suffix' ] == 'matcher/version.cpp'
+    assert title[ 'title_suffix' ] == 'widget/version.cpp'
     assert title[ 'title_include_split' ] is False
     assert title[ 'title_suffix_only' ] is False
 

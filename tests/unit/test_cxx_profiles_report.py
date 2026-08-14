@@ -211,7 +211,7 @@ def test_parse_variant_scope_fields():
         '_build/widget/clang24_profiles/dbg/x86_64/cxx2c',
     ) == ( 'clang24_profiles', 'dbg' )
     assert parse_variant_scope_fields(
-        '_build/test/matching_engine/clang24_profiles_2026_08_07_27/dbg/x86_64/cxx2c',
+        '_build/test/sample_app/clang24_profiles_2026_08_07_27/dbg/x86_64/cxx2c',
     ) == ( 'clang24_profiles_2026_08_07_27', 'dbg' )
 
 
@@ -287,8 +287,8 @@ def test_parse_profiles_diagnostic_does_not_strip_ansi_on_hot_path():
 _INTERLEAVED_PARALLEL_LINE = (
     '   63 |                                 ? ( ( call_process )( Processor, '
     'Message.template as<MessageTs>(), NextBus ), tr'
-    '/home/jamie/_cuppa/_download/git_ssh_git@git.clearpool.io__cplx_core_common_types@master'
-    '/include/cplx/common_types/numeric.hpp:99:26: error: non-local variable '
+    '/home/user/_cuppa/_download/git_ssh_git@gitlab.example__org_common_types@master'
+    '/include/widget/common_types/numeric.hpp:99:26: error: non-local variable '
     "'numeric_decimal_places_22' requires constant initialization under profile 'std::init'"
 )
 
@@ -300,7 +300,7 @@ def test_parse_profiles_diagnostic_extracts_embedded_location_from_interleaved_l
         from_capture=True,
     )
     assert diagnostic is not None
-    assert diagnostic.path.endswith( 'cplx/common_types/numeric.hpp' )
+    assert diagnostic.path.endswith( 'widget/common_types/numeric.hpp' )
     assert diagnostic.line == 99
     assert diagnostic.column == 26
     assert ' | ' not in diagnostic.path

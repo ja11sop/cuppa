@@ -562,7 +562,7 @@ artefacts (at `sconstruct_end`, or on early abort with `partial: true`). The man
   "partial": false,
   "invocation_key": "sha256:…",
   "argv": ["cuppa", "-D", "--dbg", "--rel", "…"],
-  "cwd": "/path/to/project/matching_facility",
+  "cwd": "/home/user/project/widget",
   "options": {
     "destination": "_artifacts/cxx-profiles",
     "link_style": "local",
@@ -575,14 +575,14 @@ artefacts (at `sconstruct_end`, or on early abort with `partial: true`). The man
   ],
   "scopes": [
     {
-      "sconscript": "./matcher/sconscript",
-      "variant_dir": "_build/matcher/clang24_profiles_2026_08_07_27/dbg/x86_64/cxx2c",
+      "sconscript": "./widget/sconscript",
+      "variant_dir": "_build/widget/clang24_profiles/dbg/x86_64/cxx2c",
       "variant_label": "dbg",
-      "toolchain": "clang24_profiles_2026_08_07_27",
+      "toolchain": "clang24_profiles",
       "complete": false,
       "profiles": ["std::init"],
       "paths": [
-        "_artifacts/cxx-profiles/cxx-profiles--matcher--dbg--clang24_profiles_2026_08_07_27.html"
+        "_artifacts/cxx-profiles/cxx-profiles--widget--dbg--clang24_profiles.html"
       ]
     }
   ]
