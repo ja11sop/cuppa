@@ -60,6 +60,18 @@ TIP: If cuppa fails early while reading sconscripts, re-run with `--verbosity=ex
 | `--thirdparty=DIR` | Third-party directory hint
 |===
 
+[[reports-link-style]]
+== HTML report source links
+
+|===
+| Option | Description
+
+| `--reports-link-style=local|gitlab|github` | Session-wide source link targets for HTML reports this run emits (test suite HTML, C++ Profiles reports, and future coverage source links). Overrides `link_style=` method kwargs when the sconscript leaves the default unset; per-report flags below override this session flag.
+| `--cxx-profiles-report-link-style=local|gitlab|github` | Profiles-only override of `--reports-link-style` for `--cxx-profiles-report` output and `.cuppa-reports` manifest matching
+|===
+
+Test reports: `env.GenerateHtmlTestReport(…, link_style=…)` still sets a per-target default; `--reports-link-style=` wins when you need CI-published blob links without editing sconscripts. See xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[C++ Profiles violation report] for Profiles-specific flags and offline regen.
+
 The dependencies and downloads roots are shared between projects. Set `--storage-root` to move
 both, or name one of them to move only that half. See xref:build-layout.adoc[Build layout] for
 what goes where and for how cuppa treats storage left by an earlier version.
@@ -174,7 +186,7 @@ C++ Profiles (opt-in; Profiles-capable Clang only):
 * `--cxx-disable-error-limit` -- disable the compiler diagnostic cap (Clang `-ferror-limit=0`, GCC `-fmax-errors=0`) so every error is reported; useful with enforce for a full violation list
 * `--cxx-profiles-report` -- capture Profiles diagnostics during the build and emit HTML + JSON under `_artifacts/cxx-profiles/` at session end (requires `--cxx-profiles` or `--cxx-profiles-enforce=`; optional directory path after `=`)
 * `--cxx-profiles-report-root=<dir>` -- rebase project-owned source paths in Profiles reports (default: sconstruct directory)
-* `--cxx-profiles-report-link-style=local|gitlab|github` -- source link targets in Profiles HTML (default `local`)
+* `--cxx-profiles-report-link-style=local|gitlab|github` — Profiles-only override of `--reports-link-style`
 
 See xref:cxx-profiles.adoc[C++ Profiles].
 

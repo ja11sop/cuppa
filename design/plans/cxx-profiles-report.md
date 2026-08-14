@@ -1,8 +1,8 @@
 # Plan: C++ Profiles violation report (`--cxx-profiles-report`)
 
-- **Status:** proposal
+- **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — C++ Profiles (`profiles-violation-report`); [#184](https://github.com/ja11sop/cuppa/issues/184) (umbrella); shipped enablement [`archive/cxx-profiles.md`](../archive/cxx-profiles.md); [`removal-options.md`](removal-options.md) §4.6 Phase 6 artefacts [#135](https://github.com/ja11sop/cuppa/issues/135); test/coverage report patterns (`cuppa/test_report/`, `cuppa/cpp/run_gcov_coverage.py`)
-- **Updated:** 2026-08-12
+- **Updated:** 2026-08-14
 - **Impact:** minor — new opt-in CLI flag and HTML artefacts; no change to default builds
 
 ## Why
@@ -247,40 +247,126 @@ reports) for at least: references desc/asc, path A–Z, rule id A–Z. Server-si
 - Links into per-scope detail pages (each page opens on **By rule** tab by default).
 - When only one scope exists, master index may redirect or embed the detail page (open question §8).
 
-#### JSON sibling
+#### JSON sibling (`cxx-profiles-index.json`)
 
-Same directory, matching `.json` — include both view models pre-sorted plus unsorted arrays so CI
-can gate on rule/file counts without parsing HTML:
+**File:** `{artifacts_root}/cxx-profiles/cxx-profiles-index.json` — one **session-level** document.
+Per-scope detail is **HTML only** (`{report_stem}.html`); the `.cuppa-reports` manifest lists those
+HTML paths under `scopes[].paths`, not separate per-scope JSON files.
+
+##### Versioned envelope (schema v1)
+
+Writers emit `schema_version: 1` (`cuppa/cpp/profiles_report/report_json.py`,
+`REPORT_JSON_SCHEMA_VERSION`). This is the **first shipped** report JSON format — there is no
+earlier public envelope to migrate from. Loaders also accept legacy bare `{ scopes, rollup }`
+objects (pre-envelope captures used in tests).
+
+```json
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-14T00:35:00+00:00",
+  "metadata": { },
+  "summary": { },
+  "locations": [ ],
+  "report": {
+    "scopes": [ ],
+    "rollup": { "rules": [ ], "files": [ ] }
+  }
+}
+```
+
+| Top-level field | Purpose |
+|-----------------|---------|
+| `schema_version` | Report JSON format version (writers emit `1`) |
+| `generated_at` | UTC ISO-8601 timestamp |
+| `metadata` | Session fields needed to re-render HTML without a rebuild |
+| `summary` | Compact counts for CI/agents — no nested tree walk |
+| `locations` | Flat, sorted violation rows for machine analysis |
+| `report` | Nested view model consumed by Jinja templates |
+
+**`metadata`:** `sconstruct_dir`, `report_project`, `link_style`, `cxx_profiles_report_root`, VCS
+header fields (`report_uri`, `report_branch`, `report_revision`), `profiles_enforce`,
+`variant_labels`, `incomplete_scopes`, and `partial` (true when any scope did not finish its
+variant).
+
+**`summary`:** `total_references`, `unique_violation_count`, `unique_rule_count`,
+`unique_locations`, `scope_count`, and `by_rule` (map of `rule_id` → reference count).
+
+**`locations[]` row:** `location_key` (SHA-256 of the scope-aware dedupe tuple from
+`location_dedupe_key()`), scope fields (`sconscript`, `variant_dir`, `variant_label`, `toolchain`),
+`profile`, `rule_id`, `path`, `line`, `column`, `references`, `normalised_message`, `message`.
+
+##### Nested `report` model
+
+Same directory as the HTML index. Pre-sorted view models for HTML plus machine-readable roll-up:
 
 ```text
-profiles[] → rules[] → { rule_id, total_references, unique_files, files[] }
-profiles[] → files[]  → { path, total_references, rules[] }
+scopes[] → profiles[] → rules[] → { rule_id, total_references, files[] }
+scopes[] → profiles[] → files[]  → { path, total_references, rules[] }
 rollup → { rules[], files[] }   // cross-profile, cross-scope union with scope attribution
-scopes[] → { … per-scope slices of the same shape … }
 ```
+
+Rule entries under `scopes[].profiles[].rules[]`, `rollup.rules[]`, and nested
+**`files[].rules[]`** include **`doc_href`** (published Antora std::init rule pages).
 
 **Roll-up dedupe policy (settled):** union **adds reference counts** across scopes for the same
 `(profile, rule, normalised_path, line, col, message)`. The same header violated in `dbg` and
 `rel` contributes **twice** to roll-up totals unless the user filters to one scope — mirrors
 coverage union semantics (counts reflect all runs, not “unique issues across variants”).
 
+##### Template iteration / JSON regen
+
+For HTML template work without recompiling, prefer **JSON regen** over capture replay:
+
+```text
+python -m scripts.regenerate_profiles_report \
+  --from-json _artifacts/cxx-profiles/cxx-profiles-index.json
+```
+
+Omit `--sconstruct-dir` to take `sconstruct_dir`, `link_style`, and related fields from JSON
+``metadata`` (`env_from_report_metadata` in `report_json.py`).
+
+| Flag | Meaning |
+|------|---------|
+| `--skip-source-pages` | Omit `by-source/` marked-up pages (sources must exist on disk otherwise) |
+| `--write-json` | Rewrite `cxx-profiles-index.json` at the current schema after re-render |
+
+When `locations[]` is present, regen rebuilds inventory from the flat array (faster and more
+ reliable than walking nested `report`). Otherwise it falls back to nested `report` reconstruction.
+Capture replay (`capture.txt` without `--from-json`) remains a legacy path — parallel or
+interleaved `tee` output can mis-attribute scope; use only when no JSON exists.
+
+**Regen script CLI scoping (settled):** flags on `scripts/regenerate_profiles_report.py` live in
+that script's `argparse` namespace, not cuppa `AddOption`. Reuse cuppa vocabulary where values map
+to the same `env` keys (`--artifacts-root`, `--sconstruct-dir`). Profiles-specific behaviour uses
+descriptive names (`--skip-source-pages`, `--write-json`); mode switch `--from-json` is
+script-local (mutually exclusive input interpretation, not a global cuppa flag).
+
 Optional later: `--cxx-profiles-report-threshold=` to fail CI when a rule exceeds *N* files (not
 slice A).
 
 ### Source links (`link_style`)
 
-Reuse the test-report linking helper in `cuppa/test_report/html_report.py`:
+Shared module `cuppa/reports/link_style.py` (shipped with slice C):
 
-- `initialise_test_linking(env, link_style=…)` — resolves `file://` + `sconstruct_dir` for
-  **local** builds, or Git remote **blob** URLs for CI artefacts.
-- `_create_uri(test_case)` pattern: append repo-relative path and `#L{line}` (GitLab) or equivalent
-  line anchor.
+- `REPORT_LINK_STYLES` — `local`, `gitlab`, `github`
+- `resolve_report_link_style(env, …)` — precedence: per-report CLI → `--reports-link-style=` →
+  method kwarg → `local`
+- `initialise_report_linking(env, link_style)` — blob base URI (GitHub `/blob/`, GitLab `/-/blob/`)
+- `source_file_href(…)` — repo-relative path + `#L{line}` for test and Profiles tables
+
+Session override: **`--reports-link-style=`** applies to every report kind the invocation emits
+(test HTML via `GenerateHtmlTestReport`, Profiles via `--cxx-profiles-report`). Profiles-only
+**`--cxx-profiles-report-link-style=`** overrides the session flag for Profiles output and manifest
+clean matching.
+
+Test reports previously accepted `link_style=` only as a method kwarg; the session flag overrides
+the method default when CI publishes artefacts.
 
 | `link_style` | Href shape | When to use |
 |--------------|------------|---------------|
 | `local` (default) | `file://{sconstruct_dir}/{relpath}#L{line}` | Developer machine; opens editor/IDE handler |
-| `gitlab` | `{remote}/blob/{branch}/{relpath}#L{line}` | GitLab CI published artefacts |
-| `github` | `{remote}/blob/{branch}/{relpath}#L{line}` | GitHub Actions published artefacts (same helper pattern; extend `initialise_test_linking` or share a small `cuppa/report_links.py`) |
+| `gitlab` | `{remote}/-/blob/{branch}/{relpath}#L{line}` | GitLab CI published artefacts |
+| `github` | `{remote}/blob/{branch}/{relpath}#L{line}` | GitHub Actions published artefacts |
 
 **Path rebasing:** map absolute diagnostic paths (including dependency trees under
 `~/_cuppa/_download/…`) to a **repo-relative** path when under `sconstruct_dir` or
@@ -324,7 +410,8 @@ suite index).
 | `--cxx-profiles-report` | Enable capture + emit default report paths under artefacts root |
 | `--cxx-profiles-report=` *path* | Explicit report **directory** or index **file** stem (directory if ends with `/` or exists as dir) |
 | `--cxx-profiles-report-root=` *dir* | Rebase project-owned paths for display and remote links (default: infer from sconstruct cwd) |
-| `--cxx-profiles-report-link-style=` *local\|gitlab\|github* | Source link targets in HTML (default `local`; see §Source links) |
+| `--cxx-profiles-report-link-style=` *local\|gitlab\|github* | Profiles-only source link override (overrides `--reports-link-style=`; see §Source links) |
+| `--reports-link-style=` *local\|gitlab\|github* | Session-wide source links for all HTML reports this run emits (test, Profiles, …) |
 
 **Activation gate:** flag is a no-op unless Profiles are active for the build
 (`--cxx-profiles` or env already has `cxx_profiles` / enforce inject). Otherwise **StopError** with
@@ -495,8 +582,7 @@ artefacts (at `sconstruct_end`, or on early abort with `partial: true`). The man
       "complete": false,
       "profiles": ["std::init"],
       "paths": [
-        "_artifacts/cxx-profiles/cxx-profiles--matcher--dbg--clang24_profiles_2026_08_07_27.html",
-        "_artifacts/cxx-profiles/cxx-profiles--matcher--dbg--clang24_profiles_2026_08_07_27.json"
+        "_artifacts/cxx-profiles/cxx-profiles--matcher--dbg--clang24_profiles_2026_08_07_27.html"
       ]
     }
   ]
@@ -516,14 +602,22 @@ artefacts (at `sconstruct_end`, or on early abort with `partial: true`). The man
 | `scopes[]` | One object per captured Progress scope (sconscript × variant × toolchain) |
 | `scopes[].complete` | `false` when diagnostics were captured under `Starting variant` but `Finished variant` never ran |
 | `scopes[].profiles` | Profile names seen in that scope (usually one; multi-enforce lists may yield several) |
-| `scopes[].paths` | Per-scope detail **HTML + JSON** (JSON carries `profiles[]`, `rollup`, by-rule / by-file views) |
+| `scopes[].paths` | Per-scope detail **HTML** only (`{report_stem}.html`) |
 
 **Paths to delete:** union of `session_paths` and every `scopes[].paths` entry (implementation may
 also store a denormalised `all_paths[]` for convenience — not required in the schema).
 
-**Relationship to report JSON:** the `.json` artefact named in `scopes[].paths` follows the §JSON
- sibling tree (`profiles[]`, `rollup`, etc.). The manifest only points at those files so
-`--clean` can remove them; it does not duplicate violation data.
+**Relationship to report JSON:** violation data lives in session-level
+`cxx-profiles-index.json` (see §JSON sibling). The manifest records **paths to delete**
+(`session_paths`, `scopes[].paths`, optional `all_paths[]`); it does not embed the inventory.
+
+<a id="json-follow-ups"></a>
+
+**JSON follow-ups (not blocking slice C merge):**
+
+| Gap | Notes |
+|-----|-------|
+| CI threshold flag | `--cxx-profiles-report-threshold=` deferred |
 
 **Example — partial multi-variant invocation** (`profile_output_3.txt`): one scope with
 `complete: false`, `variant_label: "dbg"`, no `rel` scope row (that variant never started).
@@ -631,14 +725,21 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 
 | Slice | Status |
 |-------|--------|
-| Plan | **This document** (`prof-report-collector` spawn scope settled) |
+| Plan | **This document** |
 | A — `prof-report-parser` | **Done** — merged [#190](https://github.com/ja11sop/cuppa/pull/190) |
 | B — `prof-report-collector` | **Done** — merged [#191](https://github.com/ja11sop/cuppa/pull/191) |
+| B½ — `prof-report-parser-layers` | **Done** — merged [#192](https://github.com/ja11sop/cuppa/pull/192) |
 | B½-doc — `doc-folder-layout` | **Done** — merged [#193](https://github.com/ja11sop/cuppa/pull/193) |
-| C — `prof-report-html` | **Ready for PR** — branch `prof-report-html` ([#194](https://github.com/ja11sop/cuppa/pull/194)) |
-| D — `prof-report-manifest` | **In progress** — same branch after C review |
+| C — `prof-report-html` | **In progress** — branch `prof-report-html` ([#194](https://github.com/ja11sop/cuppa/pull/194)): HTML index/scope/source pages, presentation polish, rule `doc_href` links, JSON regen (`--from-json`), **schema v1** envelope (`summary`, `locations[]`, `location_key`, extended `metadata`) |
+| D — `prof-report-manifest` | **Done** (core) — merged `be0c10b`; `--artifacts-root` in `e4d5318`; manifest + matched clean on same branch as C |
 | E — `prof-report-method` | Deferred |
 | F — `prof-report-artefacts` | Partial — `--artifacts-root` landed; full registry + `--remove-artifacts` blocked on #135 |
+
+**Branch `prof-report-html` (not yet merged):** presentation tables (distinct/unique counts,
+violation summary wording, monospaced breadcrumbs, dependency path display), reliable
+`write_profiles_reports_from_json` / `scripts/regenerate_profiles_report --from-json`, schema v1
+JSON (`REPORT_JSON_SCHEMA_VERSION = 1`), legacy bare-model load compatibility, 118+
+profiles-related unit tests green.
 
 ## Open questions (resolve in first PR)
 
