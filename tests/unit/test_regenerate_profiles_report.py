@@ -40,7 +40,7 @@ def test_regenerate_profiles_report_writes_html_and_json( tmp_path, monkeypatch 
     assert ( report_dir / JSON_BASENAME ).is_file()
     index_html = ( report_dir / INDEX_BASENAME ).read_text( encoding='utf-8' )
     assert 'Violations By-Rule' in index_html
-    assert 'table-layout: fixed' not in index_html
+    assert 'prof-overview-table' in index_html
 
 
 def test_regenerate_profiles_report_from_json( tmp_path ):

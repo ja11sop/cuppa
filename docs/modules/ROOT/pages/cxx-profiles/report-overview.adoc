@@ -1,0 +1,245 @@
+= Violation report — Overview tab
+:description: How to read the Overview tab on cxx-profiles-index.html — inventory, codebase reach, violation density, and rule matrices
+
+When you pass xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[`--cxx-profiles-report`],
+cuppa writes `cxx-profiles-index.html` with an **Overview** tab (when context capture is enabled).
+The Overview tab summarises the whole Profiles inventory session before you drill into
+xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[By-Rule], **By-File**, or
+**Violations By-Sconscript** views.
+
+This page explains what each Overview block measures, how the numbers relate, and what they do
+*not* mean. Pair report builds with `--cxx-disable-error-limit` so the inventory and parsed-file
+denominators are as complete as the compiler allows.
+
+[#overview-tab]
+== Overview tab layout
+
+The Overview tab contains:
+
+* Three summary **cards** — violation totals, codebase reach, and violation density
+* **Build inventory load** — per-variant compile inventory summed across sconscripts, contrasted with the session union row
+* **Rule concentration — All profiles** — top rules across the session with the same columns as the profile matrices
+* **Profile matrices** — one tab per enforced profile, with a zero-filled rule checklist
+
+The same structure is stored under the top-level `context` object in `cxx-profiles-index.json`
+so you can regenerate HTML offline or share anonymised JSON later without losing summary metrics.
+
+[[violation-totals,inventory]]
+== Violation totals card
+
+The Violation totals card answers: *how much did Profiles fire in this session?*
+
+[cols="1,3"]
+|===
+| Metric | Meaning
+
+| **Violations**
+| Distinct rule violations unioned across variants and toolchains.
+Identity is `(sconscript, file, line, column, profile, rule_id)` — the same rule on the same
+line at different columns counts separately; the same violation in **dbg** and **rel** counts once.
+Use this when comparing progress over time or across branches.
+
+| **References**
+| Diagnostic **reference** count unioned with the same identity as violations.
+For each distinct violation, cuppa takes the **maximum** reference count seen in any single build
+(not the sum across dbg+rel). Within one build, repeated template/instantiation noise still
+increments references on that build's inventory entry.
+
+| **Distinct rules**
+| How many different `(profile, rule_id)` pairs appeared at least once (union across builds).
+|===
+
+The index page headline repeats these union totals and adds **files with violations** (orange in
+HTML): ``N violations of M distinct rules in F files through R references``.
+
+**Per-build workload:** JSON `rollup.raw_total_references` retains the summed reference count
+across all variant inventory entries (diagnostic volume from compiling every build). The headline
+`total_references` uses the union described above. See <<build-breakdown>>.
+
+**Files with references:** every reference attaches to a file path in the inventory.
+The set of files that contributed references is the same as **files with violations**
+(see <<codebase-reach-tier-1>>) — references tell you *how noisy* those files are, not how many
+additional files were touched.
+
+Useful derived ratios (not shown on the card, but easy from JSON `summary` / `context`):
+
+* `total_references / violations` — average reference amplification per distinct violation
+* `total_references / files_with_violations` — average references per hot file
+
+[#build-breakdown]
+== Build inventory load
+
+When the session compiled more than one variant/toolchain combination,
+the **Build inventory load** table lists each combination's per-scope totals **summed across all
+sconscripts**, plus muted **Aggregate (all builds)** and **Session total (union)** rows.
+
+Each variant row has a short **ID** (for example `d1` for the first **dbg** row, `r1` for **rel**)
+so charts and later visualisations can label builds without repeating the full
+`variant/arch/abi — toolchain` string.
+
+Per-row **Hits** columns measure compile-time inventory *load* — how much diagnostic material each
+build contributed before cuppa unioned the session. The bottom **Session total (union)** row is the
+deduplicated codebase picture (matching the <<violation-totals>> card and index headline).
+
+[cols="1,3"]
+|===
+| Column | Meaning
+
+| **ID**
+| First letter of the variant label plus a per-letter sequence number (`d1`, `d2`, `r1`, …).
+Empty on aggregate and union rows.
+
+| **Build**
+| `variant/arch/abi — toolchain` — one row per variant and toolchain, not per sconscript.
+Per-sconscript detail stays on **Violations By-Sconscript**.
+
+| **Violation Hits / Rule Hits / File Hits / References**
+| Sum of that variant's per-scope totals across every sconscript compiled in the session.
+**Hits** columns count per-scope inventory rows (summed), not session-union distinct counts —
+compare the **Session total (union)** row for distinct violation, rule, and file totals.
+
+| **Aggregate (all builds)**
+| Shown when there is more than one variant row. Muted sum of the variant rows — total compile-time
+inventory volume without deduplication.
+
+| **Session total (union)**
+| Same semantics as the <<violation-totals>> card: violations (red) and distinct rules (warn styling
+in HTML) unioned across the whole session; **files** uses the hot-file count (orange); references
+unioned per violation identity (max per build, then summed).
+|===
+
+Use this table to answer *how much inventory work each build performed* (Hits columns and aggregate
+row) versus *how many distinct issues exist in the codebase* (union row).
+
+[#codebase-reach-tier-1]
+== Codebase reach (tier 1)
+
+Codebase reach answers: *among files the compiler actually parsed, how widely do violations appear?*
+
+[cols="1,3"]
+|===
+| Field | Meaning
+
+| **`files_with_violations / files_parsed`**
+| Percentage of **parsed files** that had at least one Profiles violation.
+This is **file-based**, not translation-unit-based: headers included from many TUs count once
+in the denominator.
+
+| **`files_parsed`**
+| Union of primary translation-unit sources compiled in the session **plus** every path recorded
+from `-H` include-stack lines during Profiles report builds.
+Reflects what the front-end read, not a whole-tree header glob.
+
+| **`translation_units_compiled`**
+| Companion count of primary sources compiled (optional).
+Useful for “how many compiles ran”; not the tier 1 percentage denominator.
+
+| **Impacted files**
+| `<hot> files out of <parsed> files impacted` — the hot count (shown in orange on the card) is
+`files_with_violations`, the session set of parsed files that had at least one violation.
+This is the denominator for **Files (of N)** percentages in the rule tables.
+|===
+
+**Requirements:** tier 1 metrics need parsed-file capture (`-H` on report builds) and readable
+source paths. Partial builds, missing headers, or `--cxx-profiles-report-context=off` can omit
+this card.
+
+**Do not multiply tier 1 × tier 2** and treat the product as “overall codebase impact.” Tier 1 uses
+all parsed files as its denominator; tier 2 uses **violating files only**. A combined product mixes
+those scopes and tends to under-state impact when violations concentrate in large headers.
+For a single session-wide line rate you would need `source_lines_v1` summed over **all**
+`files_parsed` — not shipped on the Overview card today.
+
+[#violation-density-tier-2]
+== Violation density (tier 2)
+
+Violation density answers: *when a file does violate, how concentrated are the issues in that file?*
+
+The Overview card shows, top to bottom: **percentage** of counted source lines in violating files;
+a muted **lines per 1k** companion line; then **`unique_violation_lines` of
+`source_lines_in_violating_files` counted lines** (bold numbers, normal prose).
+
+[cols="1,3"]
+|===
+| Field | Meaning
+
+| **`unique_violation_lines / source_lines_in_violating_files`**
+| Percentage of counted source lines in **violating files only** that are unique violation lines.
+A small header with two bad lines out of ten counted lines shows ~20% here even if tier 1 breadth
+is low.
+
+| **Counted source lines**
+| Lexical `source_lines_v1`: non-blank lines excluding `//` comments, block comments, and `#`
+preprocessor directives (see JSON `context.methodology.loc_count`).
+Not preprocessor-expanded LOC.
+
+| **Lines per 1k source lines (affected files)**
+| Same ratio expressed per thousand counted lines in violating files — convenient for reports.
+|===
+
+Tier 2 does **not** measure cleanliness of files that had zero violations. A project can show
+low tier 1 breadth (few parsed files violated) but high tier 2 density (those files are badly
+affected).
+
+[#rule-concentration]
+== Rule concentration — All profiles
+
+This table lists the rules that contributed the most **references** in the session (top rows).
+Columns match the profile matrices:
+
+[cols="1,3"]
+|===
+| Column | Meaning
+
+| **Rule**
+| `profile::rule_id` across all enforced profiles.
+
+| **Files (of N) / %**
+| Distinct violating files for that rule. **N** is `files_with_violations` from <<codebase-reach-tier-1>>
+(the impacted / hot file count). **%** = that rule's file count ÷ **N**.
+File percentages are **not a partition** — one file can violate several rules, so row percentages
+may sum to more than 100%. The footnote under **Rule concentration** repeats this on the Overview tab.
+
+| **Violations / %**
+| Distinct violation identities for that rule (primary metric — bold and red in HTML when
+non-zero). Percentage is that count over session union violations (see <<violation-totals>>).
+These shares are closer to a partition because each violation identity maps to one rule.
+
+| **References / %**
+| Union reference total for the rule and its share of session union references.
+
+| **Docs**
+| Link to cuppa rule documentation when available.
+|===
+
+Zero-observed documented rules appear only in per-profile matrix tabs, not in the concentration
+table (concentration skips rules with no references).
+
+[#profile-matrices]
+== Profile matrices
+
+Each tab shows **every documented rule id** for that profile, including rows with zero
+references, so the Overview acts as a checklist against the profile definition.
+
+Read **Violations** as the main per-rule severity column; use **References** when you
+care about diagnostic repetition (for example template-heavy code).
+
+File percentages use the same denominator and overlap note as <<rule-concentration>> — the footnote
+under each matrix table on the Overview tab repeats it.
+
+[#combined-metrics]
+== What the Overview does not show
+
+The Overview deliberately avoids a single composite “impact index” (such as multiplying codebase
+reach by violation density). Those tiers answer different questions; combining them without a
+shared denominator is easy to misread in cross-project comparisons.
+
+Future work may add an optional **parsed-codebase violation line rate**
+(`unique_violation_lines` over `source_lines_v1` on all `files_parsed`) as a separate headline
+metric. That would complement — not replace — tier 1 breadth and tier 2 concentration.
+
+== Related
+
+* xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[Violation inventory report] — flags, artefacts, offline regen
+* xref:cli-reference.adoc[CLI reference] — `--cxx-profiles-report-context=full|rules-only|off`
+* xref:cxx-profiles/std-init.adoc[std::init profile] — rule documentation linked from matrix **Docs** cells

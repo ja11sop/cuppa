@@ -1,0 +1,40 @@
+<table class="table table-sm table-striped mb-0 prof-overview-table">
+  <thead>
+    <tr>
+      <th>Rule</th>
+      <th class="text-right">{% if files_hot_count is defined and files_hot_count %}Files (of {{ files_hot_count }}){% else %}Files{% endif %}</th>
+      <th class="text-right prof-overview-pct-col">%</th>
+      <th class="text-right prof-overview-primary-metric">Violations</th>
+      <th class="text-right prof-overview-pct-col">%</th>
+      <th class="text-right">References</th>
+      <th class="text-right prof-overview-pct-col">%</th>
+      <th class="text-center prof-overview-docs-col">Docs</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for rule in rules %}
+    <tr{% if rule.observed is defined and not rule.observed %} class="text-muted"{% endif %}>
+      <td class="prof-mono">
+        {% if '::' in (rule.rule_label | default('')) %}
+        <span class="prof-overview-profile-prefix" data-profile="{{ rule.profile }}">{{ rule.profile }}::</span><span class="prof-overview-rule-id">{{ rule.rule_id }}</span>
+        {% else %}
+        <span class="prof-overview-rule-id">{{ rule.rule_label | default(rule.rule_id) }}</span>
+        {% endif %}
+      </td>
+      <td class="text-right prof-mono">{{ rule.unique_files }}</td>
+      <td class="text-right prof-mono prof-overview-pct-col">{{ '%.1f'|format(rule.pct_of_session_files) }}</td>
+      <td class="text-right prof-mono prof-overview-primary-metric{% if rule.unique_lines > 0 and not (rule.observed is defined and not rule.observed) %} prof-overview-violation-active{% endif %}">{{ rule.unique_lines }}</td>
+      <td class="text-right prof-mono prof-overview-pct-col">{{ '%.1f'|format(rule.pct_of_session_lines) }}</td>
+      <td class="text-right prof-mono">{{ rule.total_references }}</td>
+      <td class="text-right prof-mono prof-overview-pct-col">{{ '%.1f'|format(rule.pct_of_session_refs) }}</td>
+      <td class="text-center prof-overview-docs-col">
+        {% if rule.doc_href %}
+        <a href="{{ rule.doc_href }}" class="badge badge-light border prof-overview-doc-badge">rule</a>
+        {% else %}
+        —
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>

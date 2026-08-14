@@ -626,15 +626,15 @@ also store a denormalised `all_paths[]` for convenience — not required in the 
 | Gap | Notes |
 |-----|-------|
 | CI threshold flag | `--cxx-profiles-report-threshold=` deferred |
-| **Anonymized sharing** | See [§Anonymized report sharing](#prof-report-anonymize) — likely next PR after #194 |
-| **Context summary** | See [§Context summary](#prof-report-context-summary) — Overview tab + `context` JSON |
+| **Anonymized sharing** | See [§Anonymized report sharing](#prof-report-anonymize) — after slice H |
+| **Context summary** | See [§Context summary](#prof-report-context-summary) — **next** (slice H): Overview tab + `context` JSON |
 
 <a id="prof-report-anonymize"></a>
 
 ## Anonymized report sharing (sketch)
 
-**Id:** `prof-report-anonymize` · **Status:** proposal · **Target:** PR after
-[#194](https://github.com/ja11sop/cuppa/pull/194) (same 1.8.0 cycle if scope stays small)
+**Id:** `prof-report-anonymize` · **Status:** proposal · **Target:** PR after slice H
+(`prof-report-context-summary`)
 
 ### Goal
 
@@ -809,9 +809,7 @@ cxx-profiles-index.json
 
 ## Context summary — violations relative to codebase size (sketch)
 
-**Id:** `prof-report-context-summary` · **Status:** proposal · **Target:** PR after
-[#194](https://github.com/ja11sop/cuppa/pull/194) (may ship together with
-[§Anonymized report sharing](#prof-report-anonymize) for WG21 / external sharing)
+**Id:** `prof-report-context-summary` · **Status:** **next** · **Target:** PR on [#184](https://github.com/ja11sop/cuppa/issues/184) after merged [#194](https://github.com/ja11sop/cuppa/pull/194) / [#195](https://github.com/ja11sop/cuppa/pull/195); slice G may follow
 
 ### Why
 
@@ -883,7 +881,7 @@ inventory build already performs) — or accept a weaker static approximation.
 
 | Option | How | Accuracy | Cost / trade-offs |
 |--------|-----|----------|-------------------|
-| **A — `-H` include stack (recommended v1)** | Add `-H` to `CXXFLAGS` when `--cxx-profiles-report` is active. Clang/GCC print one line per included file to **stderr** (e.g. `. /path/to/header`). Parse lines in the existing Profiles spawn output processor; union paths per compile, then per session. | **Matches compiler** — only files parsed for that TU; respects `#if` / skipped includes. | Verbose compiler output (report builds only). Must normalise paths. Form differs slightly GCC vs Clang — small parser. Failed compiles may still emit partial `-H` before error. |
+| **A — `-H` include stack (recommended v1)** | Add `-H` to `CXXFLAGS` when `--cxx-profiles-report` is active. Clang/GCC print one line per included file to **stderr** (e.g. `. /path/to/header`). Parse lines in the existing Profiles spawn output processor; union paths per compile, then per session. | **Matches compiler** — only files parsed for that TU; respects `#if` / skipped includes. | Captured lines are **not echoed** to the console (spawn processor swallows them after recording). Must normalise paths. Form differs slightly GCC vs Clang — small parser. Failed compiles may still emit partial `-H` before error. |
 | **B — `-MMD` dependency files** | Add `-MMD -MP` (or `-MD`) on report builds; after each compile, read the `.d` Makefile next to the `.o` and union listed prerequisites. | **Matches compiler** for included headers. | Cuppa does **not** emit `.d` today — new flags + locate `.d` beside object in `_build/…`. Module / BMI builds need checking. Slightly less live noise than `-H`. |
 | **C — SCons implicit dependencies** | At `sconstruct_end`, walk compiled `Object` nodes and union SCons-scanned `#include` deps. | **Approximate** — scanner may differ from real compile (macros, `-include`, modules). | No extra compiler flags; harder to wire from report collator to SCons node graph; may miss system headers. |
 | **D — Lexical `#include` closure** | For each compiled TU path, recursively resolve `#include "…"` / `<…>` using compile `CPPPATH` / `SYSINCPATH`. | **Over- and under-includes** — ignores `#if`, may pull headers never compiled, may miss generated paths. | No compiler help; still need TU list from compile hook; **not recommended** for tier 1 %. |
@@ -1299,18 +1297,14 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 | B — `prof-report-collector` | **Done** — merged [#191](https://github.com/ja11sop/cuppa/pull/191) |
 | B½ — `prof-report-parser-layers` | **Done** — merged [#192](https://github.com/ja11sop/cuppa/pull/192) |
 | B½-doc — `doc-folder-layout` | **Done** — merged [#193](https://github.com/ja11sop/cuppa/pull/193) |
-| C — `prof-report-html` | **In progress** — branch `prof-report-html` ([#194](https://github.com/ja11sop/cuppa/pull/194)): HTML index/scope/source pages, presentation polish, rule `doc_href` links, JSON regen (`--from-json`), **schema v1** envelope (`summary`, `locations[]`, `location_key`, extended `metadata`) |
-| D — `prof-report-manifest` | **Done** (core) — merged `be0c10b`; `--artifacts-root` in `e4d5318`; manifest + matched clean on same branch as C |
-| G — `prof-report-anonymize` | **Proposal** — anonymize saved JSON for sharing; regen HTML without sources ([§Anonymized report sharing](#prof-report-anonymize)); likely next PR after #194 |
-| H — `prof-report-context-summary` | **Proposal** — Overview tab + `context` JSON for violations vs codebase size ([§Context summary](#prof-report-context-summary)); phase 1 (rule matrix) shippable before compile-unit hook |
+| C — `prof-report-html` | **Done** — merged [#194](https://github.com/ja11sop/cuppa/pull/194): HTML index/scope/source pages, By rule / By file / Roll-up tabs, presentation polish, rule `doc_href` links, JSON regen (`--from-json`), **schema v1** envelope (`summary`, `locations[]`, `location_key`, extended `metadata`) |
+| D — `prof-report-manifest` | **Done** — core in [#194](https://github.com/ja11sop/cuppa/pull/194); clean/`invocation_key` fix in [#195](https://github.com/ja11sop/cuppa/pull/195); `--artifacts-root` in `e4d5318` |
+| H — `prof-report-context-summary` | **In progress** — branch `prof-report-context-summary`: Overview tab, `context` JSON, `-H` parsed files, `source_lines_v1`, tier metrics ([#184](https://github.com/ja11sop/cuppa/issues/184)) |
+| G — `prof-report-anonymize` | **Proposal** — anonymize saved JSON for sharing; regen HTML without sources ([§Anonymized report sharing](#prof-report-anonymize)); after H |
 | E — `prof-report-method` | Deferred |
 | F — `prof-report-artefacts` | Partial — `--artifacts-root` landed; full registry + `--remove-artifacts` blocked on #135 |
 
-**Branch `prof-report-html` (not yet merged):** presentation tables (distinct/unique counts,
-violation summary wording, monospaced breadcrumbs, dependency path display), reliable
-`write_profiles_reports_from_json` / `scripts/regenerate_profiles_report --from-json`, schema v1
-JSON (`REPORT_JSON_SCHEMA_VERSION = 1`), legacy bare-model load compatibility, 118+
-profiles-related unit tests green.
+**Next focus:** slice **H** (`prof-report-context-summary`) — track on [#184](https://github.com/ja11sop/cuppa/issues/184).
 
 ## Open questions (resolve in first PR)
 

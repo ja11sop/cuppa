@@ -336,6 +336,11 @@ RULE_DOC_PAGES = {
 }
 
 
+def documented_rule_ids():
+    """Return sorted documented ``std::init`` rule ids for zero-filled report matrices."""
+    return sorted( RULE_DOC_REFERENCES.keys() )
+
+
 def rule_doc_href( rule_id ):
     """Return the published cuppa docs URL for a ``std::init`` rule, if known."""
     page = RULE_DOC_PAGES.get( rule_id )

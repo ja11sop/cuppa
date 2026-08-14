@@ -32,6 +32,10 @@ _jinja2_env = None
 INDEX_BASENAME = 'cxx-profiles-index.html'
 JSON_BASENAME = 'cxx-profiles-index.json'
 
+CUPPA_PROFILES_REPORT_DOCS_BASE = (
+    'https://ja11sop.github.io/cuppa/cuppa/cxx-profiles/report-overview.html'
+)
+
 _GIT_DESCRIBE = re.compile(
     r'^(?P<label>.+)-(?P<distance>\d+)-g(?P<commit>[0-9a-f]+)$',
     re.IGNORECASE,
@@ -198,6 +202,26 @@ def rule_doc_href( profile, rule_id ):
     if profile == std_init.PROFILE_NAME:
         return std_init.rule_doc_href( rule_id )
     return None
+
+
+def overview_doc_href( anchor=None ):
+    """Return the published cuppa docs URL for Overview tab interpretation."""
+    if anchor:
+        return '{}#{}'.format( CUPPA_PROFILES_REPORT_DOCS_BASE, anchor )
+    return CUPPA_PROFILES_REPORT_DOCS_BASE
+
+
+def overview_doc_hrefs():
+    """Return Overview guide links keyed for Jinja templates."""
+    return {
+        'inventory': overview_doc_href( 'violation-totals' ),
+        'codebase_reach': overview_doc_href( 'codebase-reach-tier-1' ),
+        'violation_density': overview_doc_href( 'violation-density-tier-2' ),
+        'rule_concentration': overview_doc_href( 'rule-concentration' ),
+        'profile_matrices': overview_doc_href( 'profile-matrices' ),
+        'build_breakdown': overview_doc_href( 'build-breakdown' ),
+        'guide': overview_doc_href(),
+    }
 
 
 def rule_link_tooltip( profile, rule_id, sample_message=None ):
@@ -540,6 +564,9 @@ def render_profiles_reports(
     inventory=None,
     skip_source_pages=False,
     write_json=True,
+    parsed_files=None,
+    translation_units=None,
+    context=None,
 ):
     """Render HTML (and optionally JSON) from a serialised report view model."""
     rollup = model.get( 'rollup', {} )
@@ -591,13 +618,33 @@ def render_profiles_reports(
         'report_root': report_root,
         'sconstruct_dir': sconstruct_dir,
         'incomplete_scopes': sorted( incomplete_scopes or [] ),
+        'overview_doc_inventory': overview_doc_href( 'violation-totals' ),
+        'overview_doc_codebase_reach': overview_doc_href( 'codebase-reach-tier-1' ),
+        'overview_doc_violation_density': overview_doc_href( 'violation-density-tier-2' ),
+        'overview_doc_rule_concentration': overview_doc_href( 'rule-concentration' ),
+        'overview_doc_profile_matrices': overview_doc_href( 'profile-matrices' ),
+        'overview_doc_build_breakdown': overview_doc_href( 'build-breakdown' ),
     }
     header_context = report_header_context( env )
     header_context[ 'session_stats' ] = {
         'unique_violation_count': rollup[ 'unique_violation_count' ],
         'unique_rule_count': rollup[ 'unique_rule_count' ],
         'total_references': rollup[ 'total_references' ],
+        'files_with_violations': len( rollup.get( 'files', [] ) ),
     }
+
+    if context is None:
+        from cuppa.cpp.profiles_report.context_summary import (
+            build_report_context,
+            resolve_context_mode,
+        )
+        context = build_report_context(
+            model,
+            env,
+            parsed_files=parsed_files,
+            translation_units=translation_units,
+            context_mode=resolve_context_mode( env ),
+        )
 
     index_template = templates.get_template( 'cxx_profiles_index.html' )
     scope_template = templates.get_template( 'cxx_profiles_scope.html' )
@@ -634,6 +681,7 @@ def render_profiles_reports(
                 model=model,
                 scope_pages=scope_pages,
                 sconscript_groups=sconscript_groups,
+                context=context,
                 **header_context,
                 **context_base
             )
@@ -649,6 +697,9 @@ def render_profiles_reports(
                 env,
                 inventory=inventory,
                 incomplete_scopes=incomplete_scopes,
+                context=context,
+                parsed_files=parsed_files,
+                translation_units=translation_units,
             )
 
     logger.info(
@@ -709,6 +760,7 @@ def write_profiles_reports_from_json(
         inventory=inventory,
         skip_source_pages=skip_source_pages,
         write_json=write_json,
+        context=extras.get( 'context' ),
     )
 
 
@@ -716,6 +768,8 @@ def write_profiles_reports(
     inventory,
     env,
     incomplete_scopes=None,
+    parsed_files=None,
+    translation_units=None,
 ):
     """Write session HTML index, per-scope pages, and JSON under the report directory."""
     if inventory.total_references() == 0:
@@ -729,4 +783,6 @@ def write_profiles_reports(
         inventory=inventory,
         skip_source_pages=False,
         write_json=True,
+        parsed_files=parsed_files,
+        translation_units=translation_units,
     )

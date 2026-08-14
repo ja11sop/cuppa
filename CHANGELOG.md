@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `cxx-profiles-index.html`, per-scope detail pages, and `cxx-profiles-index.json`
   under `_artifacts/cxx-profiles/` at `sconstruct_end` when `--cxx-profiles-report`
   is set; `--cxx-profiles-report-link-style=` (Profiles override) and `--reports-link-style=`.
+- Profiles report Overview context (slice H, `prof-report-context-summary`): master-index
+  **Overview** tab and top-level `context` JSON with rule concentration, zero-filled profile
+  rule matrix, tier-1/tier-2 codebase metrics, `-H` parsed-file capture on report builds, and
+  `--cxx-profiles-report-context=full|rules-only|off`
 - Profiles violation report parser groundwork ([#184](https://github.com/ja11sop/cuppa/issues/184)):
   `cuppa/cpp/cxx_profiles_report.py` parses Clang Profiles diagnostics, classifies rule
   ids, and dedupes violations per scope (slice A).
@@ -70,6 +74,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- C++ Profiles report compile hook: TU capture wrapper accepts the SCons environment as its
+  first argument (fixes `TypeError` when `--cxx-profiles-report` wraps `Compile` methods).
+- C++ Profiles report builds: ``-H`` include-stack lines are captured for Overview metrics but
+  no longer echoed to the console.
 - C++ Profiles `.cuppa-reports` clean matching: `invocation_key` now ignores `--clean` and
   `--remove-builds` in `sys.argv` so a clean run can match the report invocation. A
   `--clean --cxx-profiles-report` configure pass removes matching manifest entries without

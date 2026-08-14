@@ -239,6 +239,49 @@ def location_dedupe_key( scope, diagnostic ):
     )
 
 
+def session_union_violation_key( location ):
+    """Cross-variant identity for one rule violation (session union denominator)."""
+    return (
+        location.scope.sconscript,
+        location.path,
+        location.line,
+        location.column,
+        location.profile,
+        location.rule_id,
+    )
+
+
+def _union_violation_count( locations ):
+    return len( { session_union_violation_key( loc ) for loc in locations } )
+
+
+def _union_reference_total( locations ):
+    groups = {}
+    for location in locations:
+        key = session_union_violation_key( location )
+        groups.setdefault( key, [] ).append( location.reference_count )
+    return sum( max( counts ) for counts in groups.values() )
+
+
+def _union_groups_for_rule( locations ):
+    groups = {}
+    for location in locations:
+        rule_key = ( location.profile, location.rule_id )
+        union_key = session_union_violation_key( location )
+        rule_groups = groups.setdefault( rule_key, {} )
+        rule_groups.setdefault( union_key, [] ).append( location.reference_count )
+    return groups
+
+
+def _union_rule_metrics( rule_groups ):
+    if not rule_groups:
+        return 0, 0
+    return (
+        len( rule_groups ),
+        sum( max( counts ) for counts in rule_groups.values() ),
+    )
+
+
 def _sort_rules( rules ):
     return sorted(
         rules,
@@ -375,11 +418,14 @@ def _scope_report_stem( scope_entry ):
 
 
 def _build_session_rollup( locations ):
-    """Cross-scope roll-up keyed without scope (reference counts add across variants)."""
+    """Cross-scope roll-up keyed without scope (union across variants where noted)."""
+    locations = tuple( locations )
+    rule_union_groups = _union_groups_for_rule( locations )
     rules = {}
     files = {}
     for location in locations:
         rule_key = ( location.profile, location.rule_id )
+        union_key = session_union_violation_key( location )
         rule_entry = rules.setdefault(
             rule_key,
             {
@@ -394,16 +440,15 @@ def _build_session_rollup( locations ):
                 'sample_normalised_message': None,
             },
         )
-        rule_entry[ 'total_references' ] += location.reference_count
         if rule_entry[ 'sample_normalised_message' ] is None:
             rule_entry[ 'sample_normalised_message' ] = location.normalised_message
-        rule_entry[ 'violation_lines' ].add( ( location.path, location.line ) )
+        rule_entry[ 'violation_lines' ].add( union_key )
         rule_entry[ 'unique_files' ].add( location.path )
         variant_entry = rule_entry[ 'variants' ].setdefault(
             location.scope.variant_label,
             { 'violation_lines': set(), 'references': 0, 'files': {} },
         )
-        variant_entry[ 'violation_lines' ].add( ( location.path, location.line ) )
+        variant_entry[ 'violation_lines' ].add( union_key )
         variant_entry[ 'references' ] += location.reference_count
         variant_file = variant_entry[ 'files' ].setdefault(
             location.path,
@@ -433,18 +478,19 @@ def _build_session_rollup( locations ):
                 'path': location.path,
                 'total_references': 0,
                 'lines': set(),
+                'violation_identities': set(),
                 'variants': {},
                 'rules': {},
                 'scopes': {},
             },
         )
-        file_entry[ 'total_references' ] += location.reference_count
+        file_entry[ 'violation_identities' ].add( union_key )
         file_entry[ 'lines' ].add( location.line )
         file_variant = file_entry[ 'variants' ].setdefault(
             location.scope.variant_label,
             { 'violation_lines': set(), 'references': 0, 'rules': {} },
         )
-        file_variant[ 'violation_lines' ].add( ( location.path, location.line ) )
+        file_variant[ 'violation_lines' ].add( union_key )
         file_variant[ 'references' ] += location.reference_count
         file_variant[ 'rules' ][ location.rule_id ] = (
             file_variant[ 'rules' ].get( location.rule_id, 0 )
@@ -467,7 +513,9 @@ def _build_session_rollup( locations ):
         )
 
     rollup_rules = []
-    for entry in rules.values():
+    for rule_key, entry in rules.items():
+        union_groups = rule_union_groups.get( rule_key, {} )
+        union_violations, union_references = _union_rule_metrics( union_groups )
         rule_files = []
         for path, file_data in entry[ 'files' ].items():
             rule_files.append(
@@ -486,8 +534,8 @@ def _build_session_rollup( locations ):
             {
                 'profile': entry[ 'profile' ],
                 'rule_id': entry[ 'rule_id' ],
-                'total_references': entry[ 'total_references' ],
-                'unique_line_count': len( entry[ 'violation_lines' ] ),
+                'total_references': union_references,
+                'unique_line_count': union_violations,
                 'unique_files': len( entry[ 'unique_files' ] ),
                 'variant_counts': _serialise_variant_counts(
                     entry[ 'variants' ],
@@ -508,12 +556,21 @@ def _build_session_rollup( locations ):
             entry[ 'rules' ],
             entry[ 'variants' ],
         )
+        file_union_groups = {}
+        for location in locations:
+            if location.profile != entry[ 'profile' ] or location.path != entry[ 'path' ]:
+                continue
+            union_key = session_union_violation_key( location )
+            file_union_groups.setdefault( union_key, [] ).append(
+                location.reference_count,
+            )
+        _, file_union_references = _union_rule_metrics( file_union_groups )
         rollup_files.append(
             {
                 'profile': entry[ 'profile' ],
                 'path': entry[ 'path' ],
-                'total_references': entry[ 'total_references' ],
-                'unique_line_count': len( entry[ 'lines' ] ),
+                'total_references': file_union_references,
+                'unique_line_count': len( entry[ 'violation_identities' ] ),
                 'unique_rule_count': len( entry[ 'rules' ] ),
                 'variant_counts': _serialise_file_variant_counts( entry[ 'variants' ] ),
                 'variant_rule_refs': variant_rule_refs,
@@ -567,17 +624,15 @@ class ProfilesInventory:
     def total_references( self ):
         return sum( location.reference_count for location in self._locations.values() )
 
+    def session_union_references( self ):
+        return _union_reference_total( self._locations.values() )
+
     def unique_locations( self ):
         return len( self._locations )
 
     def unique_violation_count( self ):
-        """Count distinct source lines with violations (path + line), across all scopes."""
-        return len(
-            {
-                ( location.path, location.line )
-                for location in self._locations.values()
-            },
-        )
+        """Count distinct rule violations unioned across variants and toolchains."""
+        return _union_violation_count( self._locations.values() )
 
     def as_report_model( self ):
         """Return a minimal JSON-serialisable view model for tests and later HTML."""
@@ -596,30 +651,36 @@ class ProfilesInventory:
                     'toolchain': location.scope.toolchain,
                     'variant_label': location.scope.variant_label,
                     'profiles': {},
-                    'violation_lines': set(),
+                    'violation_identities': set(),
                 },
             )
-            scope_entry[ 'violation_lines' ].add( ( location.path, location.line ) )
+            scope_entry[ 'violation_identities' ].add(
+                session_union_violation_key( location ),
+            )
             profile_entry = scope_entry[ 'profiles' ].setdefault(
                 location.profile,
-                { 'rules': {}, 'files': {}, 'violation_lines': set() },
+                { 'rules': {}, 'files': {}, 'violation_identities': set() },
             )
-            profile_entry[ 'violation_lines' ].add( ( location.path, location.line ) )
+            profile_entry[ 'violation_identities' ].add(
+                session_union_violation_key( location ),
+            )
             rule_entry = profile_entry[ 'rules' ].setdefault(
                 location.rule_id,
                 {
                     'total_references': 0,
                     'unique_files': set(),
                     'files': {},
-                    'violation_lines': set(),
+                    'violation_identities': set(),
                     'sample_normalised_message': None,
                 },
             )
-            rule_entry[ 'total_references' ] += location.reference_count
             if rule_entry[ 'sample_normalised_message' ] is None:
                 rule_entry[ 'sample_normalised_message' ] = location.normalised_message
+            rule_entry[ 'total_references' ] += location.reference_count
             rule_entry[ 'unique_files' ].add( location.path )
-            rule_entry[ 'violation_lines' ].add( ( location.path, location.line ) )
+            rule_entry[ 'violation_identities' ].add(
+                session_union_violation_key( location ),
+            )
             file_entry = rule_entry[ 'files' ].setdefault(
                 location.path,
                 { 'total_references': 0, 'lines': set(), 'locations': [] },
@@ -688,7 +749,7 @@ class ProfilesInventory:
                         {
                             'rule_id': rule_id,
                             'total_references': rule_data[ 'total_references' ],
-                            'unique_line_count': len( rule_data[ 'violation_lines' ] ),
+                            'unique_line_count': len( rule_data[ 'violation_identities' ] ),
                             'unique_files': len( rule_data[ 'unique_files' ] ),
                             'unique_locations': sum(
                                 len( file_data[ 'locations' ] )
@@ -698,7 +759,7 @@ class ProfilesInventory:
                                 {
                                     'variant_label': scope_entry[ 'variant_label' ],
                                     'unique_line_count': len(
-                                        rule_data[ 'violation_lines' ],
+                                        rule_data[ 'violation_identities' ],
                                     ),
                                     'total_references': rule_data[ 'total_references' ],
                                     'file_count': len( files ),
@@ -750,7 +811,7 @@ class ProfilesInventory:
                 profiles.append(
                     {
                         'profile': profile_name,
-                        'unique_line_count': len( profile_data[ 'violation_lines' ] ),
+                        'unique_line_count': len( profile_data[ 'violation_identities' ] ),
                         'rules': rules,
                         'files': files_view,
                     },
@@ -764,6 +825,9 @@ class ProfilesInventory:
                 len( profile[ 'rules' ] )
                 for profile in profiles
             )
+            scope_file_paths = set()
+            for profile_data in scope_entry[ 'profiles' ].values():
+                scope_file_paths.update( profile_data[ 'files' ].keys() )
             serialised_scopes.append(
                 {
                     'sconscript': scope_entry[ 'sconscript' ],
@@ -772,8 +836,9 @@ class ProfilesInventory:
                     'variant_label': scope_entry[ 'variant_label' ],
                     'report_stem': _scope_report_stem( scope_entry ),
                     'total_references': scope_total,
-                    'unique_line_count': len( scope_entry[ 'violation_lines' ] ),
+                    'unique_line_count': len( scope_entry[ 'violation_identities' ] ),
                     'unique_rule_count': scope_rule_count,
+                    'unique_file_count': len( scope_file_paths ),
                     'profiles': profiles,
                 },
             )
@@ -786,7 +851,8 @@ class ProfilesInventory:
         return {
             'scopes': serialised_scopes,
             'rollup': {
-                'total_references': self.total_references(),
+                'total_references': self.session_union_references(),
+                'raw_total_references': self.total_references(),
                 'unique_locations': self.unique_locations(),
                 'unique_violation_count': self.unique_violation_count(),
                 'unique_rule_count': len( session_rollup[ 'rules' ] ),

@@ -82,9 +82,11 @@ def build_report_summary( model ):
         by_rule[ rule[ 'rule_id' ] ] = rule.get( 'total_references', 0 )
     return {
         'total_references': rollup.get( 'total_references', 0 ),
+        'raw_total_references': rollup.get( 'raw_total_references', 0 ),
         'unique_violation_count': rollup.get( 'unique_violation_count', 0 ),
         'unique_rule_count': rollup.get( 'unique_rule_count', 0 ),
         'unique_locations': rollup.get( 'unique_locations', 0 ),
+        'files_with_violations': len( rollup.get( 'files', [] ) ),
         'scope_count': len( model.get( 'scopes', [] ) ),
         'by_rule': by_rule,
     }
@@ -159,9 +161,21 @@ def build_report_metadata( env, header_context=None, model=None, incomplete_scop
     }
 
 
-def wrap_report_payload( model, env, inventory=None, incomplete_scopes=None ):
+def wrap_report_payload( model, env, inventory=None, incomplete_scopes=None, context=None ):
     """Wrap a view model with schema version, metadata, summary, and locations."""
     attach_rule_doc_hrefs( model )
+    if context is None:
+        from cuppa.cpp.profiles_report.context_summary import (
+            build_report_context,
+            resolve_context_mode,
+        )
+        context = build_report_context(
+            model,
+            env,
+            parsed_files=getattr( env, '_cxx_profiles_parsed_files', None ),
+            translation_units=getattr( env, '_cxx_profiles_translation_units', None ),
+            context_mode=resolve_context_mode( env ),
+        )
     payload = {
         'schema_version': REPORT_JSON_SCHEMA_VERSION,
         'generated_at': _utc_timestamp(),
@@ -173,6 +187,8 @@ def wrap_report_payload( model, env, inventory=None, incomplete_scopes=None ):
         'summary': build_report_summary( model ),
         'report': model,
     }
+    if context is not None:
+        payload[ 'context' ] = context
     if inventory is not None:
         payload[ 'locations' ] = build_flat_locations( inventory )
     return payload
@@ -186,6 +202,7 @@ def unwrap_report_payload( data ):
     extras = {
         'summary': data.get( 'summary' ) or {},
         'locations': data.get( 'locations' ) or [],
+        'context': data.get( 'context' ) or None,
     }
 
     if 'report' in data and 'schema_version' in data:
@@ -328,15 +345,30 @@ def env_from_report_metadata( metadata, arguments ):
     return env
 
 
-def dump_report_json( handle, model, env, inventory=None, incomplete_scopes=None ):
+def dump_report_json(
+    handle,
+    model,
+    env,
+    inventory=None,
+    incomplete_scopes=None,
+    context=None,
+    parsed_files=None,
+    translation_units=None,
+):
     """Write a versioned Profiles report JSON document."""
     if inventory is None:
         inventory = inventory_from_report_model( model )
+    merged_env = dict( env )
+    if parsed_files is not None:
+        merged_env[ '_cxx_profiles_parsed_files' ] = parsed_files
+    if translation_units is not None:
+        merged_env[ '_cxx_profiles_translation_units' ] = translation_units
     payload = wrap_report_payload(
         model,
-        env,
+        merged_env,
         inventory=inventory,
         incomplete_scopes=incomplete_scopes,
+        context=context,
     )
     json.dump( payload, handle, indent=2, sort_keys=True )
     handle.write( '\n' )

@@ -27,6 +27,7 @@
 ** xref:toolchains/msvc.adoc[MSVC]
 * xref:cxx-modules.adoc[C++ Modules]
 * xref:cxx-profiles.adoc[C++ Profiles]
+** xref:cxx-profiles/report-overview.adoc[Violation report overview]
 ** xref:cxx-profiles/std-init.adoc[std::init profile]
 *** xref:cxx-profiles/std-init/uninit-decl.adoc[Uninitialized declarations]
 *** xref:cxx-profiles/std-init/uninit-read.adoc[Reads before initialization]

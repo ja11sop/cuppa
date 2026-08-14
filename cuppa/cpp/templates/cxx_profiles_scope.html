@@ -25,19 +25,6 @@
       .prof-detail-toggle[aria-expanded="false"] .prof-detail-icon--hide {
         display: none;
       }
-      .prof-session-summary {
-        font-size: 1rem;
-        font-weight: 400;
-      }
-      .prof-stat-value {
-        font-weight: 700;
-      }
-      .prof-stat-value--alert {
-        color: #dc3545;
-      }
-      .prof-stat-value--ok {
-        color: #28a745;
-      }
       .prof-scope-title {
         font-size: 1.25rem;
         font-weight: 700;
@@ -65,13 +52,11 @@
               <span class="prof-report-project-name">{{ report_project }}</span>/{{ scope.scope_path_suffix }}
             </div>
             {% set stat_tone = 'alert' if scope.unique_line_count > 0 else 'ok' %}
+            {% set v_count = scope.unique_line_count %}
+            {% set rule_count = scope.unique_rule_count %}
+            {% set r_count = scope.total_references %}
             <h6 class="prof-session-summary text-secondary mb-0 mt-2">
-              <span class="prof-stat-value prof-stat-value--{{ stat_tone }}">{{ scope.unique_line_count }}</span>
-              {{ 'violation' if scope.unique_line_count == 1 else 'violations' }} of
-              <span class="prof-stat-value">{{ scope.unique_rule_count }}</span>
-              distinct {{ 'rule' if scope.unique_rule_count == 1 else 'rules' }} through
-              <span class="prof-stat-value">{{ scope.total_references }}</span>
-              {{ 'reference' if scope.total_references == 1 else 'references' }}
+              {% include 'cxx_profiles_partial_violation_counts.html' %}
             </h6>
           </li>
 
@@ -84,7 +69,7 @@
           {% for profile in scope.profiles %}
           <li class="list-group-item pb-0">
             <h5 class="prof-profile-scope-heading text-monospace mb-2">
-              {{ profile.profile }} —
+              <span class="prof-profile-scope-name">{{ profile.profile }}</span> —
               <span class="font-weight-bold">{{ scope.variant_label }}</span>{% if scope.variant_display_tail %}<span class="prof-variant-tail">/{{ scope.variant_display_tail }}</span>{% endif %} —
               {{ scope.toolchain }}
             </h5>

@@ -67,6 +67,19 @@ def test_rule_doc_href_for_std_init():
     assert rule_doc_href( 'std::future', 'uninit_decl' ) is None
 
 
+def test_overview_doc_hrefs():
+    from cuppa.cpp.profiles_report.report_html import overview_doc_href, overview_doc_hrefs
+
+    assert overview_doc_href().endswith( '/cxx-profiles/report-overview.html' )
+    assert overview_doc_href( 'violation-totals' ).endswith( '#violation-totals' )
+    hrefs = overview_doc_hrefs()
+    assert hrefs[ 'codebase_reach' ].endswith( '#codebase-reach-tier-1' )
+    assert hrefs[ 'violation_density' ].endswith( '#violation-density-tier-2' )
+    assert hrefs[ 'rule_concentration' ].endswith( '#rule-concentration' )
+    assert hrefs[ 'profile_matrices' ].endswith( '#profile-matrices' )
+    assert hrefs[ 'build_breakdown' ].endswith( '#build-breakdown' )
+
+
 def test_report_model_includes_rollup_views():
     model = _sample_inventory().as_report_model()
     assert model[ 'rollup' ][ 'rules' ]
@@ -111,7 +124,8 @@ def test_unique_violation_count_dedupes_across_variants():
     inventory.record( dbg_scope, diagnostic )
     inventory.record( rel_scope, diagnostic )
     model = inventory.as_report_model()
-    assert model[ 'rollup' ][ 'total_references' ] == 2
+    assert model[ 'rollup' ][ 'total_references' ] == 1
+    assert model[ 'rollup' ][ 'raw_total_references' ] == 2
     assert model[ 'rollup' ][ 'unique_violation_count' ] == 1
     assert model[ 'rollup' ][ 'unique_rule_count' ] == 1
     assert model[ 'rollup' ][ 'variant_count' ] == 2
@@ -248,6 +262,7 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
         'cxx_profiles_report': True,
         'cxx_profiles_report_link_style': 'local',
         'cxx_profiles_report_root': str( tmp_path ),
+        'cxx_profiles_enforce': [ 'std::init' ],
     }
     result = write_profiles_reports( inventory, env )
     report_dir = default_report_directory( env )
@@ -291,7 +306,48 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
     assert 'prof-rules-table' in index_html
     assert 'fa-eye' in index_html
     assert index_html.index( 'prof-summary-col-detail' ) < index_html.index( 'Profile</th>' )
-    assert index_html.index( 'Violations By-Scope' ) < index_html.index( 'Violations By-Rule' )
+    assert index_html.index( 'Violations By-Rule' ) < index_html.index( 'Violations By-File' )
+    assert index_html.index( 'Violations By-File' ) < index_html.index( 'Violations By-Sconscript' )
+    assert 'Overview' in index_html
+    assert 'id="overview"' in index_html
+    assert 'Profile matrix — std::init' not in index_html
+    assert 'Profile matrices' in index_html
+    assert 'Rule concentration — All profiles' in index_html
+    assert 'profile-matrix-pane-1' in index_html
+    assert 'profileMatrixTabs' in index_html
+    assert 'prof-overview-primary-metric' in index_html
+    assert 'prof-overview-profile-prefix' in index_html
+    assert 'prof-overview-rule-id' in index_html
+    assert 'prof-profile-matrix-tab-name' in index_html
+    assert 'data-profile="std::init"' in index_html
+    assert 'prof-rule-concentration' in index_html
+    assert 'prof-stat-value--warn' in index_html
+    assert 'prof-stat-value--neutral' in index_html
+    assert 'prof-warn-accent' in index_html
+    assert 'Violation totals' in index_html
+    assert 'Unique Violations' not in index_html
+    assert 'report-overview.html#violation-totals' in index_html
+    assert 'report-overview.html#codebase-reach-tier-1' in index_html
+    assert 'report-overview.html#violation-density-tier-2' in index_html
+    assert 'report-overview.html#rule-concentration' in index_html
+    assert 'report-overview.html#profile-matrices' in index_html
+    assert 'file impacted' in index_html or 'files impacted' in index_html or 'files out of' in index_html
+    assert 'Files (of' in index_html
+    assert 'prof-stat-value--hot-files' in index_html
+    assert 'prof-overview-matrix-footnote' in index_html
+    assert 'prof-overview-violation-active' in index_html
+    assert 'Violation Hits' in index_html
+    assert 'Rule Hits' in index_html
+    assert index_html.index( 'Build inventory load' ) < index_html.index( 'Profile matrices' )
+    assert 'prof-overview-builds-table' in index_html
+    assert 'File Hits' in index_html
+    assert 'prof-overview-builds-id-col' in index_html
+    assert '>d1<' in index_html or '>d1</' in index_html
+    assert 'Session total (union)' in index_html
+    assert 'report-overview.html#build-breakdown' in index_html
+    assert 'std::init::' in index_html
+    assert 'Copyright Jamie Allsop' not in index_html
+    assert payload[ 'context' ][ 'profiles' ]
     rules_tab = index_html.index( 'id="rollup-rules"')
     assert index_html.index( 'prof-rules-table', rules_tab ) < index_html.index( 'Rule</th>', rules_tab )
     assert index_html.index( 'Distinct/Unique', rules_tab ) < index_html.index( 'Violating Files</th>', rules_tab )
@@ -299,6 +355,12 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
     assert 'prof-distinct-unique-distinct' in index_html
     assert 'prof-distinct-unique-unique' in index_html
     assert 'violation of' in index_html
+    assert 'prof-stat-value--hot-files' in index_html
+    summary_start = index_html.index( '<h6 class="prof-session-summary' )
+    summary_end = index_html.index( '</h6>', summary_start )
+    summary_html = index_html[ summary_start:summary_end ]
+    assert 'prof-stat-value--hot-files' in summary_html
+    assert 'file through' in summary_html.replace( '\n', ' ' )
     assert 'distinct rule' in index_html
     assert 'reference' in index_html
     assert 'build variant' not in index_html
@@ -333,6 +395,9 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
     assert 'Violations By-File' in scope_html
     assert 'prof-report-project-name' in scope_html
     assert 'prof-session-summary' in scope_html
+    assert 'prof-stat-value--warn' in scope_html
+    assert 'prof-stat-value--neutral' in scope_html
+    assert 'prof-profile-scope-name' in scope_html
     assert 'violation of' in scope_html
     assert 'distinct rule' in scope_html
     assert 'violation detected through' not in scope_html

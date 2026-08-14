@@ -169,7 +169,25 @@ def test_inventory_keeps_same_file_in_two_scopes_separate():
     inventory.record( rel_scope, diagnostic )
 
     assert inventory.total_references() == 2
+    assert inventory.session_union_references() == 1
     assert inventory.unique_locations() == 2
+    assert inventory.unique_violation_count() == 1
+
+
+def test_unique_violation_count_counts_distinct_columns_on_same_line():
+    inventory = ProfilesInventory()
+    line_a = (
+        "/tmp/foo.cpp:10:12: error: pointer to uninitialized memory must be "
+        "marked '[[ref_to_uninit]]' under profile 'std::init'"
+    )
+    line_b = (
+        "/tmp/foo.cpp:10:40: error: variable 'x' must be initialized or marked "
+        "'[[uninit]]' under profile 'std::init'"
+    )
+    inventory.record( _SAMPLE_SCOPE, parse_profiles_diagnostic( line_a ) )
+    inventory.record( _SAMPLE_SCOPE, parse_profiles_diagnostic( line_b ) )
+
+    assert inventory.unique_violation_count() == 2
 
 
 def test_inventory_report_model_shape():

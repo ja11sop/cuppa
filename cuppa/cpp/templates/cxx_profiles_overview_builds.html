@@ -1,0 +1,44 @@
+<table class="table table-sm table-striped mb-0 prof-overview-table prof-overview-builds-table">
+  <thead>
+    <tr>
+      <th class="prof-overview-builds-id-col">ID</th>
+      <th>Build</th>
+      <th class="text-right">Violation Hits</th>
+      <th class="text-right">Rule Hits</th>
+      <th class="text-right">File Hits</th>
+      <th class="text-right">References</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in context.builds.rows %}
+    <tr>
+      <td class="prof-mono prof-overview-builds-id-col text-muted">{{ row.row_id }}</td>
+      <td class="prof-mono">
+        <span class="font-weight-bold">{{ row.variant_label }}</span>{% if row.variant_display_tail %}<span class="prof-variant-tail">/{{ row.variant_display_tail }}</span>{% endif %}<span class="prof-overview-build-separator"> — </span>{{ row.toolchain }}
+      </td>
+      <td class="text-right prof-mono">{{ row.violations }}</td>
+      <td class="text-right prof-mono">{{ row.rules }}</td>
+      <td class="text-right prof-mono">{{ row.files }}</td>
+      <td class="text-right prof-mono">{{ row.references }}</td>
+    </tr>
+    {% endfor %}
+    {% if context.builds.rows|length > 1 %}
+    <tr class="prof-overview-builds-aggregate text-muted">
+      <td class="prof-overview-builds-id-col"></td>
+      <td>Aggregate (all builds)</td>
+      <td class="text-right prof-mono">{{ context.builds.aggregate.violations }}</td>
+      <td class="text-right prof-mono">{{ context.builds.aggregate.rules }}</td>
+      <td class="text-right prof-mono">{{ context.builds.aggregate.files }}</td>
+      <td class="text-right prof-mono">{{ context.builds.aggregate.references }}</td>
+    </tr>
+    {% endif %}
+    <tr class="prof-overview-builds-total">
+      <td class="prof-overview-builds-id-col"></td>
+      <td class="font-weight-bold">Session total (union)</td>
+      <td class="text-right prof-mono prof-overview-primary-metric font-weight-bold{% if context.builds.session.violations > 0 %} prof-overview-violation-active{% endif %}">{{ context.builds.session.violations }}</td>
+      <td class="text-right prof-mono font-weight-bold"><span class="prof-stat-value prof-stat-value--warn">{{ context.builds.session.rules }}</span></td>
+      <td class="text-right prof-mono font-weight-bold"><span class="prof-stat-value prof-stat-value--hot-files">{{ context.builds.session.files }}</span></td>
+      <td class="text-right prof-mono font-weight-bold">{{ context.builds.session.references }}</td>
+    </tr>
+  </tbody>
+</table>

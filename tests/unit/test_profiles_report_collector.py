@@ -65,6 +65,17 @@ def test_collector_records_profiles_lines():
     assert session.inventory.unique_locations() == 1
 
 
+def test_collector_records_include_stack_lines():
+    session = ProfilesDiagnosticCollector.activate()
+    suppressed = ProfilesDiagnosticCollector.record_line(
+        _SAMPLE_SCOPE,
+        '. /tmp/include/widget/table.hpp',
+    )
+    assert suppressed is True
+    assert '/tmp/include/widget/table.hpp' in session.parsed_files()
+    assert session.inventory.total_references() == 0
+
+
 def test_collector_ignores_non_profiles_lines():
     session = ProfilesDiagnosticCollector.activate()
     ProfilesDiagnosticCollector.record_line( _SAMPLE_SCOPE, 'ordinary compiler noise' )
@@ -126,6 +137,39 @@ def test_cxx_profiles_report_requires_profiles_active():
 def test_collector_registers_spawn_processor_rebind_hook():
     ProfilesDiagnosticCollector.activate()
     assert ProfilesDiagnosticCollector._rebind_spawn_processor in NotifyProgress._sconscript_env_hooks
+
+
+def test_compile_wrapper_accepts_scons_env_first_argument():
+    ProfilesDiagnosticCollector.activate()
+    session = ProfilesDiagnosticCollector.active()
+    recorded = []
+
+    class FakeSource(object):
+        path = '/tmp/widget.cpp'
+
+    class FakeEnv(dict):
+        sconscript_file = './widget/sconscript'
+        build_dir = '_build/widget/clang24_profiles/dbg/x86_64/cxx2c/working'
+        toolchain = _FakeToolchain()
+
+        def get( self, key, default=None ):
+            return super().get( key, default )
+
+        def AddMethod( self, method, name ):
+            def bound( *args, **kwargs ):
+                return method( self, *args, **kwargs )
+            setattr( self, name, bound )
+
+    def original_compile( source, **kwargs ):
+        recorded.append( ( 'compile', source ) )
+        return [ 'object-node' ]
+
+    env = FakeEnv( { 'cxx_profiles_report': True } )
+    env.Compile = original_compile
+    ProfilesDiagnosticCollector._wrap_compile_method( env, 'Compile' )
+    result = env.Compile( FakeSource() )
+    assert result == [ 'object-node' ]
+    assert '/tmp/widget.cpp' in session.translation_units()
 
 
 def test_spawn_processor_hook_skips_raw_output(monkeypatch):

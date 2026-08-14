@@ -72,6 +72,8 @@ def test_wrap_report_payload_includes_schema_summary_and_locations( tmp_path ):
     assert payload[ 'metadata' ][ 'partial' ] is True
     assert payload[ 'summary' ][ 'total_references' ] == 1
     assert payload[ 'summary' ][ 'by_rule' ]
+    assert payload[ 'context' ][ 'profiles' ]
+    assert payload[ 'context' ][ 'concentration' ][ 'top_rules' ]
     assert len( payload[ 'locations' ] ) == 1
     assert payload[ 'locations' ][ 0 ][ 'location_key' ]
     assert payload[ 'locations' ][ 0 ][ 'rule_id' ] == 'ref_to_uninit'

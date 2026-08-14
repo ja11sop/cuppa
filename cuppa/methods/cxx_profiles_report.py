@@ -43,6 +43,14 @@ class CxxProfilesReportMethod:
             help='Profiles-only source link override (overrides --reports-link-style for '
                  'Profiles HTML; default: --reports-link-style or local)',
         )
+        add_option(
+            '--cxx-profiles-report-context',
+            dest='cxx_profiles_report_context',
+            default='full',
+            choices=[ 'full', 'rules-only', 'off' ],
+            help='Overview context in Profiles JSON/HTML: full (default), rules-only '
+                 '(matrix and concentration without tier metrics), or off',
+        )
 
     @classmethod
     def get_options( cls, env ):
@@ -53,6 +61,9 @@ class CxxProfilesReportMethod:
         link_style = env.get_option( 'cxx_profiles_report_link_style' )
         if link_style:
             env[ 'cxx_profiles_report_link_style' ] = link_style
+        context_mode = env.get_option( 'cxx_profiles_report_context' )
+        if context_mode:
+            env[ 'cxx_profiles_report_context' ] = context_mode
         if not enabled:
             return
 

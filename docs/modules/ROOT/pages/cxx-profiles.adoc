@@ -115,6 +115,7 @@ Optional methods (same env keys as the CLI):
 * `env.CxxProfiles()` — force the framework on for that env
 * `env.CxxProfilesEnforce('std::init')` — set enforce designators and activate
 
+[#violation-inventory-report-cxx-profiles-report]
 === Violation inventory report (`--cxx-profiles-report`)
 
 When you need a browsable inventory of Profiles diagnostics before fixing sources,
@@ -134,17 +135,22 @@ cuppa -D --dbg --toolchains=clang24_profiles_2026_08_07_27 \
   --cxx-disable-error-limit --cxx-profiles-report
 ----
 
-The session index lists each scope (sconscript × variant × toolchain) with
-roll-up tabs across the whole build. Per-scope pages provide **By rule** and
-**By file** views with expandable line detail. Roll-up totals **add reference
-counts** across variants — the same violation in `dbg` and `rel` contributes twice
-unless you filter to one scope.
+The session index opens on an **Overview** tab when context capture is enabled (`--cxx-profiles-report-context=full`, the default). That tab summarises inventory, codebase reach, violation density, rule concentration, and per-profile rule matrices. See xref:cxx-profiles/report-overview.adoc[Violation report — Overview tab] for how to interpret each card and table.
+
+Other index tabs list roll-ups **By-Rule** and **By-File**, and per-sconscript scope rows under **Violations By-Sconscript**. Per-scope HTML pages provide expandable line detail. Roll-up totals **add reference counts** across variants — the same violation in `dbg` and `rel` contributes twice unless you filter to one scope.
 
 Optional flags:
 
 * `--cxx-profiles-report=` *path* — explicit report directory (or index file stem)
 * `--cxx-profiles-report-root=` *dir* — rebase project-owned paths for display and links
 * `--cxx-profiles-report-link-style=local|gitlab|github` — Profiles-only source link override (see link-style precedence below)
+* `--cxx-profiles-report-context=full|rules-only|off` — Overview `context` in JSON/HTML (`full` default; `rules-only` omits tier 1/2 denominators; `off` hides Overview context)
+
+==== Interpreting the Overview tab
+
+xref:cxx-profiles/report-overview.adoc[Violation report — Overview tab] explains the Violation totals,
+Codebase reach, and Violation density cards, the rule concentration table, and profile matrices.
+Each Overview summary card and section heading links to the matching section on that page.
 
 ==== Source link styles
 
@@ -370,6 +376,7 @@ Initialization profile direction for Alliance Clang's `std::init`:
 
 == Related cuppa pages
 
+* xref:cxx-profiles/report-overview.adoc[Violation report — Overview tab] — reading `cxx-profiles-index.html` summary cards and matrices
 * xref:cli-reference.adoc[CLI reference] — `--cxx-profiles`, `--cxx-profiles-enforce=`, `--cxx-disable-error-limit`, `--cxx-profiles-report`, `--artifacts-root`
 * xref:toolchains/clang.adoc[Clang] — Profiles-capable archives
 * xref:toolchains.adoc[Toolchains] — `--toolchain-archive=` / `--clang-root=`
