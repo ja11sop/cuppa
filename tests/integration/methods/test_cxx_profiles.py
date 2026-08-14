@@ -104,6 +104,51 @@ def test_profiles_report_emits_html_and_json( tmp_path ):
     assert 'C++ Profiles report:' in combined or report_dir.exists()
 
 
+def test_profiles_report_clean_removes_manifest_artefacts( tmp_path ):
+    """--clean with matching --cxx-profiles-report flags removes listed report files."""
+    _, toolchain_flag = require_profiles_capable_toolchain()
+    write_sconstruct( tmp_path )
+    write_sconscript(
+        tmp_path,
+        "Import('env')\n"
+        "env.Build( 'app', [ 'main.cpp' ] )\n",
+    )
+    ( tmp_path / 'main.cpp' ).write_text(
+        'int main()\n'
+        '{\n'
+        '    int Value [[uninit]];\n'
+        '    return Value;\n'
+        '}\n'
+    )
+    report_flags = [
+        '--dbg',
+        '--cxx-profiles',
+        '--cxx-profiles-enforce=std::init',
+        '--cxx-disable-error-limit',
+        '--cxx-profiles-report',
+        toolchain_flag,
+    ]
+    run_cuppa( tmp_path, *report_flags )
+
+    report_dir = tmp_path / '_artifacts' / 'cxx-profiles'
+    index_html = report_dir / 'cxx-profiles-index.html'
+    index_json = report_dir / 'cxx-profiles-index.json'
+    manifest = tmp_path / '.cuppa-reports'
+
+    assert index_html.is_file()
+    assert index_json.is_file()
+    assert manifest.is_file()
+
+    clean_result = run_cuppa( tmp_path, *report_flags, '--clean' )
+    assert_success( clean_result )
+
+    assert not index_html.is_file()
+    assert not index_json.is_file()
+    assert not manifest.is_file()
+    combined = ( clean_result.stdout or '' ) + ( clean_result.stderr or '' )
+    assert 'C++ Profiles report clean:' in combined
+
+
 def test_profiles_unsupported_toolchain_fails( tmp_path ):
     """--cxx-profiles on a non-Profiles toolchain should StopError clearly."""
     # Prefer an explicit gcc (or default) that cannot support -fprofiles.

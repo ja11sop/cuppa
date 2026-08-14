@@ -70,7 +70,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-### Security
+- C++ Profiles `.cuppa-reports` clean matching: `invocation_key` now ignores `--clean` and
+  `--remove-builds` in `sys.argv` so a clean run can match the report invocation. A
+  `--clean --cxx-profiles-report` configure pass removes matching manifest entries without
+  activating the Profiles collector when Profiles flags are omitted (report options on the clean
+  command must still match those used when the report was generated).
 
 ## [1.7.0] - 2026-08-10
 

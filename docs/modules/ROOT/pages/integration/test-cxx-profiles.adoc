@@ -26,6 +26,10 @@ clear failure with a normal gcc/clang that lacks Profiles.
 | `--cxx-profiles-report` with enforce + error-limit disabled
 | Writes `_artifacts/cxx-profiles/` HTML + JSON; skips without Profiles Clang
 
+| `test_profiles_report_clean_removes_manifest_artefacts`
+| Same report flags plus `--clean` on a second invocation
+| Removes `.cuppa-reports` entries and listed HTML/JSON; skips without Profiles Clang
+
 | `test_profiles_unsupported_toolchain_fails`
 | `--cxx-profiles` on a non-Profiles toolchain
 | Expects StopError / clear message

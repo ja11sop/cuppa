@@ -22,6 +22,7 @@ from cuppa.reports.manifest import (
     cxx_profiles_report_options,
     manifest_path,
     maybe_remove_cxx_profiles_on_clean,
+    normalize_invocation_argv,
     paths_from_entry,
     read_entries,
     remove_matching_entries,
@@ -60,6 +61,29 @@ def test_compute_invocation_key_is_stable():
     key_b = compute_invocation_key( '/tmp/project', [ 'cuppa', '-D' ], options )
     assert key_a == key_b
     assert key_a.startswith( 'sha256:' )
+
+
+def test_compute_invocation_key_ignores_clean_and_remove_builds_flags():
+    options = {
+        'destination': '_artifacts/cxx-profiles',
+        'link_style': 'local',
+        'report_root': None,
+        'enforce': [ 'std::init' ],
+        'cxx_profiles': True,
+    }
+    report_argv = [
+        'cuppa',
+        '-D',
+        '--dbg',
+        '--cxx-profiles',
+        '--cxx-profiles-enforce=std::init',
+        '--cxx-profiles-report',
+    ]
+    clean_argv = report_argv + [ '--clean' ]
+    key_report = compute_invocation_key( '/tmp/project', report_argv, options )
+    key_clean = compute_invocation_key( '/tmp/project', clean_argv, options )
+    assert key_report == key_clean
+    assert normalize_invocation_argv( clean_argv ) == normalize_invocation_argv( report_argv )
 
 
 def test_paths_from_entry_unions_session_and_scope_paths():
