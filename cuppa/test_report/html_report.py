@@ -84,21 +84,8 @@ def vcs_info_from_location( location, default_branch, default_revision ):
 
 
 def initialise_test_linking( env, link_style=None ):
-    base_uri = ""
-    if link_style == "local":
-        # TODO: escape properly and make sure this works on Windows
-        base_uri = "file://" + env['sconstruct_dir']
-    else:
-        url, repository, branch, remote, revision = vcs_info_from_location( env['sconstruct_dir'], env['current_branch'], env['current_revision'] )
-
-        if link_style in ( "gitlab", "github" ) and url and branch:
-            # NOTE: Might need to do VCS detection per test file
-            base_uri = os.path.join( os.path.splitext(url)[0], "blob", branch )
-        elif link_style == "raw":
-            base_uri = url, repository, branch, remote, revision
-        elif url:
-            base_uri = url
-    return base_uri
+    from cuppa.reports.link_style import initialise_report_linking
+    return initialise_report_linking( env, link_style=link_style )
 
 
 class GenerateHtmlReportBuilder(object):
@@ -394,23 +381,20 @@ class GenerateHtmlReportBuilder(object):
 
 
     def _create_uri( self, test_case ):
-        filepath = 'file' in test_case and test_case['file'] or None
-        lineno   = 'line' in test_case and test_case['line'] or None
+        filepath = 'file' in test_case and test_case[ 'file' ] or None
+        lineno = 'line' in test_case and test_case[ 'line' ] or None
 
         if not self._auto_link_tests:
             return None
-        if self._link_style == "local":
-            link = self._base_uri
-            if filepath:
-                link += "/" + filepath
-            return link
-        elif self._link_style in ( "gitlab", "github" ):
-            link = self._base_uri
-            if filepath:
-                link += "/" + filepath
-                if lineno:
-                    link += "#L" + str(lineno)
-            return link
+
+        from cuppa.reports.link_style import source_file_href
+        return source_file_href(
+            filepath,
+            lineno,
+            self._link_style,
+            self._base_uri,
+            filepath,
+        )
 
 
     @classmethod
@@ -476,10 +460,20 @@ class GenerateHtmlReportBuilder(object):
 
 class GenerateHtmlReportMethod(object):
 
-    def __call__( self, env, source, final_dir=None, sort_test_cases=False, auto_link_tests=True, link_style="local" ):
-        if 'test' not in env['variant_actions'].keys():
+    def __call__( self, env, source, final_dir=None, sort_test_cases=False, auto_link_tests=True, link_style=None ):
+        if 'test' not in env[ 'variant_actions' ].keys():
             return []
-        builder = GenerateHtmlReportBuilder( final_dir, sort_test_cases=sort_test_cases, auto_link_tests=auto_link_tests, link_style=link_style )
+        from cuppa.reports.link_style import resolve_report_link_style
+        effective_link_style = resolve_report_link_style(
+            env,
+            method_link_style=link_style,
+        )
+        builder = GenerateHtmlReportBuilder(
+            final_dir,
+            sort_test_cases=sort_test_cases,
+            auto_link_tests=auto_link_tests,
+            link_style=effective_link_style,
+        )
         env['BUILDERS']['GenerateHtmlReport'] = env.Builder( action=builder.GenerateHtmlTestReport, emitter=builder.emitter )
         report = env.GenerateHtmlReport( [], source )
         NotifyProgress.add( env, report )

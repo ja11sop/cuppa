@@ -16,9 +16,10 @@ Clang Profiles diagnostics. Parallel or interleaved console output can mis-parse
 paths; prefer ``--from-json`` when a report was produced by a live build.
 
 ``--from-json`` reads the versioned ``cxx-profiles-index.json`` written by
-``--cxx-profiles-report`` and re-renders HTML deterministically. Source files
-must still exist on disk for ``by-source/`` pages unless ``--skip-source-pages``
-is set.
+``--cxx-profiles-report`` and re-renders HTML deterministically. When
+``--sconstruct-dir`` is omitted, session fields are taken from JSON ``metadata``.
+Source files must still exist on disk for ``by-source/`` pages unless
+``--skip-source-pages`` is set.
 """
 
 from __future__ import print_function
@@ -29,27 +30,7 @@ import sys
 
 from cuppa.cpp.cxx_profiles_report import format_capture_summary, replay_profiles_capture
 from cuppa.cpp.profiles_report.report_html import write_profiles_reports, write_profiles_reports_from_json
-
-
-def _build_env( arguments ):
-    sconstruct_dir = os.path.abspath( arguments.sconstruct_dir )
-    artifacts_root = arguments.artifacts_root
-    if os.path.isabs( artifacts_root ):
-        abs_artifacts_root = os.path.abspath( artifacts_root )
-    else:
-        abs_artifacts_root = os.path.join( sconstruct_dir, artifacts_root )
-
-    env = {
-        'sconstruct_dir': sconstruct_dir,
-        'artifacts_root': artifacts_root,
-        'abs_artifacts_root': abs_artifacts_root,
-        'cxx_profiles_report': True,
-        'cxx_profiles_report_link_style': arguments.link_style,
-        'cxx_profiles_report_root': sconstruct_dir,
-    }
-    if arguments.report_dir:
-        env[ 'cxx_profiles_report' ] = os.path.abspath( arguments.report_dir )
-    return env
+from cuppa.cpp.profiles_report.report_json import env_from_report_metadata, load_report_model
 
 
 def _regenerate_from_capture( arguments ):
@@ -73,7 +54,7 @@ def _regenerate_from_capture( arguments ):
         if unscoped:
             print( 'warning: {} unscoped diagnostic(s)'.format( unscoped ), file=sys.stderr )
 
-    env = _build_env( arguments )
+    env = env_from_report_metadata( {}, arguments )
     return write_profiles_reports( inventory, env )
 
 
@@ -84,7 +65,8 @@ def _regenerate_from_json( arguments ):
             'report JSON not found: {}'.format( json_path ),
         )
 
-    env = _build_env( arguments )
+    _model, metadata, _extras = load_report_model( json_path )
+    env = env_from_report_metadata( metadata, arguments )
     return write_profiles_reports_from_json(
         json_path,
         env,
@@ -106,8 +88,8 @@ def main( argv=None ):
     )
     parser.add_argument(
         '--sconstruct-dir',
-        default=os.getcwd(),
-        help='Project root (directory containing sconstruct); default: cwd',
+        default=None,
+        help='Project root (directory containing sconstruct); default: cwd, or JSON metadata with --from-json',
     )
     parser.add_argument(
         '--artifacts-root',
@@ -120,10 +102,22 @@ def main( argv=None ):
         help='Optional output directory (default: <artifacts-root>/cxx-profiles/)',
     )
     parser.add_argument(
-        '--link-style',
-        default='local',
+        '--reports-link-style',
+        default=None,
         choices=( 'local', 'gitlab', 'github' ),
-        help='Source link style (default: local)',
+        help='Source link style for this regen run (default: JSON metadata or local)',
+    )
+    parser.add_argument(
+        '--link-style',
+        default=None,
+        choices=( 'local', 'gitlab', 'github' ),
+        help='Deprecated alias for --reports-link-style',
+    )
+    parser.add_argument(
+        '--cxx-profiles-report-link-style',
+        default=None,
+        choices=( 'local', 'gitlab', 'github' ),
+        help='Profiles-only link style override for this regen run',
     )
     parser.add_argument(
         '--skip-source-pages',

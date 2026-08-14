@@ -184,16 +184,8 @@ def display_path( path, report_root, sconstruct_dir ):
 
 def source_href( path, line, link_style, link_base, display ):
     """Build a clickable href for a diagnostic location."""
-    if not path or link_style not in ( 'local', 'gitlab', 'github' ):
-        return None
-    if link_style == 'local':
-        if link_base:
-            joined = os.path.join( link_base, display )
-            return '{}#L{}'.format( joined, line ) if line else joined
-        return None
-    if link_style in ( 'gitlab', 'github' ) and link_base:
-        return '{}/{}#L{}'.format( link_base.rstrip( '/' ), display, line )
-    return None
+    from cuppa.reports.link_style import source_file_href
+    return source_file_href( path, line, link_style, link_base, display )
 
 
 def rule_reference( profile, rule_id ):
@@ -557,11 +549,15 @@ def render_profiles_reports(
     destination = resolve_report_directory( env )
     os.makedirs( destination, exist_ok=True )
 
-    link_style = env.get( 'cxx_profiles_report_link_style' ) or 'local'
+    from cuppa.reports.link_style import initialise_report_linking, resolve_report_link_style
+    link_style = resolve_report_link_style(
+        env,
+        per_report_env_key='cxx_profiles_report_link_style',
+    )
     report_root = env.get( 'cxx_profiles_report_root' ) or env.get( 'sconstruct_dir' )
     sconstruct_dir = env.get( 'sconstruct_dir' ) or os.getcwd()
 
-    link_base = initialise_test_linking( env, link_style=link_style )
+    link_base = initialise_report_linking( env, link_style=link_style )
 
     templates = jinja2_templates()
     source_page_map = {}
@@ -647,7 +643,13 @@ def render_profiles_reports(
     if write_json:
         from cuppa.cpp.profiles_report.report_json import dump_report_json
         with open( json_path, 'w', encoding='utf-8' ) as handle:
-            dump_report_json( handle, model, env )
+            dump_report_json(
+                handle,
+                model,
+                env,
+                inventory=inventory,
+                incomplete_scopes=incomplete_scopes,
+            )
 
     logger.info(
         "C++ Profiles report: {} ({} scope(s), {} references)".format(
@@ -676,8 +678,8 @@ def write_profiles_reports_from_json(
     write_json=False,
 ):
     """Re-render HTML from a saved ``cxx-profiles-index.json``."""
-    from cuppa.cpp.profiles_report.report_json import load_report_model
-    model, metadata = load_report_model( json_path )
+    from cuppa.cpp.profiles_report.report_json import inventory_from_report_model, load_report_model
+    model, metadata, extras = load_report_model( json_path )
     merged_env = dict( env )
     if metadata.get( 'sconstruct_dir' ) and not merged_env.get( 'sconstruct_dir' ):
         merged_env[ 'sconstruct_dir' ] = metadata[ 'sconstruct_dir' ]
@@ -687,13 +689,24 @@ def write_profiles_reports_from_json(
             metadata[ 'cxx_profiles_report_root' ],
         )
     if metadata.get( 'link_style' ):
+        merged_env.setdefault( 'reports_link_style', metadata[ 'link_style' ] )
+    if metadata.get( 'profiles_enforce' ):
         merged_env.setdefault(
-            'cxx_profiles_report_link_style',
-            metadata[ 'link_style' ],
+            'cxx_profiles_enforce',
+            list( metadata[ 'profiles_enforce' ] ),
+        )
+    inventory = None
+    if not skip_source_pages:
+        flat_locations = extras.get( 'locations' ) or None
+        inventory = inventory_from_report_model(
+            model,
+            flat_locations=flat_locations,
         )
     return render_profiles_reports(
         model,
         merged_env,
+        incomplete_scopes=metadata.get( 'incomplete_scopes' ),
+        inventory=inventory,
         skip_source_pages=skip_source_pages,
         write_json=write_json,
     )

@@ -40,6 +40,7 @@ def relpath_from_project( path, project_root ):
 def cxx_profiles_report_options( env ):
     """Normalised report options used for ``invocation_key`` matching."""
     from cuppa.cpp.profiles_report.report_html import resolve_report_directory
+    from cuppa.reports.link_style import resolve_report_link_style
 
     sconstruct_dir = env.get( 'sconstruct_dir' ) or os.getcwd()
     destination = resolve_report_directory( env )
@@ -48,7 +49,10 @@ def cxx_profiles_report_options( env ):
         report_root = relpath_from_project( report_root, sconstruct_dir )
     return {
         'destination': relpath_from_project( destination, sconstruct_dir ),
-        'link_style': env.get( 'cxx_profiles_report_link_style' ) or 'local',
+        'link_style': resolve_report_link_style(
+            env,
+            per_report_env_key='cxx_profiles_report_link_style',
+        ),
         'report_root': report_root,
         'enforce': sorted( env.get( 'cxx_profiles_enforce' ) or [] ),
         'cxx_profiles': bool( env.get( 'cxx_profiles' ) ),

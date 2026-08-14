@@ -273,6 +273,8 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
         open( os.path.join( report_dir, JSON_BASENAME ), encoding='utf-8' ).read()
     )
     assert payload[ 'schema_version' ] == 1
+    assert payload[ 'summary' ][ 'total_references' ] == 1
+    assert payload[ 'locations' ]
     assert payload[ 'metadata' ][ 'report_project' ]
     report = payload[ 'report' ]
     assert report[ 'rollup' ][ 'total_references' ] == 1

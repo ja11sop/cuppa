@@ -19,15 +19,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Profiles violation report HTML + JSON (slice C, `prof-report-html`): emit
   `cxx-profiles-index.html`, per-scope detail pages, and `cxx-profiles-index.json`
   under `_artifacts/cxx-profiles/` at `sconstruct_end` when `--cxx-profiles-report`
-  is set; `--cxx-profiles-report-link-style=` and `--cxx-profiles-report-root=`.
+  is set; `--cxx-profiles-report-link-style=` (Profiles override) and `--reports-link-style=`.
 - Profiles violation report parser groundwork ([#184](https://github.com/ja11sop/cuppa/issues/184)):
   `cuppa/cpp/cxx_profiles_report.py` parses Clang Profiles diagnostics, classifies rule
   ids, and dedupes violations per scope (slice A).
   `python -m scripts.replay_profiles_capture` replays saved build captures using
   ``Progress( … )`` scope markers.
   `python -m scripts.regenerate_profiles_report` replays a capture and rewrites HTML/JSON
-  without recompiling (for template iteration). Capture replay strips ANSI colour sequences
-  from ``tee`` output; the live collector hot path does not.
+  without recompiling (for template iteration). Prefer ``--from-json`` on saved
+  ``cxx-profiles-index.json`` (``summary``, ``locations[]``, extended ``metadata``,
+  ``schema_version: 1``).
+  Capture replay strips ANSI colour sequences from ``tee`` output; the live collector hot path
+  does not.
 - Profiles violation capture during builds (slice B, `prof-report-collector`):
   ``--cxx-profiles-report`` activates an in-process collector wired through
   ``ToolchainProcessor`` with per-sconscript spawn scope; session summary and HTML/JSON
@@ -42,6 +45,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `--reports-link-style=` session flag for HTML report source links (test + Profiles); shared
+  helpers in ``cuppa/reports/link_style.py`` (GitHub ``/blob/``, GitLab ``/-/blob/``). Profiles
+  ``--cxx-profiles-report-link-style=`` overrides the session flag.
+- C++ Profiles report JSON envelope (`schema_version: 1`): top-level ``summary`` (counts +
+  ``by_rule`` map), flat ``locations[]`` with stable ``location_key``, extended ``metadata``
+  (``profiles_enforce``, ``variant_labels``, ``incomplete_scopes``, ``partial``), and ``doc_href``
+  on rule entries (scope, rollup, and file views). Legacy bare ``scopes``/``rollup`` objects still
+  load for tests and early captures.
 - Antora: move dependency, toolchain, C++ Profiles, and Contributing child pages into folders
   mirroring navigation (`dependencies/`, `toolchains/`, `cxx-profiles/std-init/`, `contributing/`);
   hub URLs unchanged.

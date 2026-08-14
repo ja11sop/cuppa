@@ -38,9 +38,10 @@ class CxxProfilesReportMethod:
         add_option(
             '--cxx-profiles-report-link-style',
             dest='cxx_profiles_report_link_style',
-            default='local',
+            default=None,
             choices=[ 'local', 'gitlab', 'github' ],
-            help='Source link targets in Profiles HTML reports (default: local)',
+            help='Profiles-only source link override (overrides --reports-link-style for '
+                 'Profiles HTML; default: --reports-link-style or local)',
         )
 
     @classmethod
@@ -49,9 +50,9 @@ class CxxProfilesReportMethod:
         enabled = False if raw in ( None, False ) else raw
         env[ 'cxx_profiles_report' ] = enabled
         env[ 'cxx_profiles_report_root' ] = env.get_option( 'cxx_profiles_report_root' )
-        env[ 'cxx_profiles_report_link_style' ] = env.get_option(
-            'cxx_profiles_report_link_style',
-        )
+        link_style = env.get_option( 'cxx_profiles_report_link_style' )
+        if link_style:
+            env[ 'cxx_profiles_report_link_style' ] = link_style
         if not enabled:
             return
 
