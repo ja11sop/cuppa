@@ -894,6 +894,46 @@ inventory build already performs) — or accept a weaker static approximation.
 no new artefact files, accurate for Alliance Clang Profiles workflows. **B (`.d`)** as fallback if
 `-H` proves too noisy or MSVC parity is needed later (MSVC `/showIncludes` analogue).
 
+**`-H` on failed compiles (rationale):** Profiles inventory builds **expect** non-zero compile exit
+status — violations are `error:` diagnostics. That does **not** block include capture:
+
+1. **stderr is drained before spawn returns** — `IncrementalSubProcess` reads every stderr line
+   until the compiler process exits, then returns the failure code. `-H` lines are not discarded
+   because the compile failed.
+2. **`-H` precedes most Profiles errors** — the compiler prints each included file as the front-end
+   opens it; Profiles rule checks run later on the parsed translation unit. For a typical TU,
+   includes are logged before semantic violations in those headers.
+3. **Pair with `--cxx-disable-error-limit`** — without `-ferror-limit=0` / `-fmax-errors=0`, the
+   compiler may stop mid-TU after the default cap and **skip later includes** in that file. Report
+   builds that populate `files_parsed` should treat unlimited diagnostics as **recommended**
+   (same pairing already documented for a complete violation inventory).
+4. **Numerator is independent** — `files_with_violations` comes from Profiles diagnostic paths,
+   not from `-H`; both streams share stderr but serve different fields.
+
+**Honest limits:** fatal errors before an include is reached (missing header, `#error`) yield
+**partial** `-H` for that TU; partial sessions only include TUs that started; GCC vs Clang differ
+on error-recovery after a bad first `#include`. Acceptable for inventory runs on trees that
+otherwise compile; document `partial` / incomplete scope in Overview.
+
+**`record_parsed_file()` (include collector sketch):** extend `ProfilesReportSession` (or sibling
+store on `ProfilesDiagnosticCollector`) with a **set per session** (and optionally per Progress
+scope) of normalised absolute paths:
+
+```python
+def record_parsed_file( scope, path ):
+    """Record one path seen via -H (or .d); idempotent — no double count."""
+```
+
+| Concern | Approach |
+|---------|----------|
+| **Double counting** | Store **`files_parsed` as a set** — the same header included from many TUs is counted **once** in the session denominator (union, not sum of per-compile lines). |
+| **`-H` repeat lines** | One TU may print the same path at multiple stack depths (`.` vs `..` prefix); normalise to path only before insert. |
+| **Separate from diagnostics** | Parse `-H` with a dedicated regex (e.g. `^\.+ \S+`) — do not route through `parse_profiles_diagnostic`; call `record_parsed_file` only on match. |
+| **Path normalisation** | Reuse the same absolute-path normalisation as diagnostic capture (`realpath` / consistent separators) so one file on disk → one set entry. |
+| **TU primary sources** | Also call `record_parsed_file(scope, tu_path)` from the compile hook so the TU itself is in the set even if `-H` formatting differs by toolchain. |
+| **Thread safety** | Same lock as `ProfilesInventory.record` under `--parallel`. |
+| **At report time** | `files_parsed = len(session.parsed_files)`; optional per-scope subsets for phase 3. |
+
 **Cannot avoid TU compiles:** there is no reliable way to know which dependency headers were
 **processed for Profiles** without either the compiler reporting includes (A/B) or a full
 preprocessor (out of scope). Static parsing (D) without compiles does not know which includes
@@ -1103,7 +1143,7 @@ required (aligns with anonymized sharing).
 | **Partial builds** | `files_parsed` reflects only compiles that **ran** before abort — banner must stay prominent. |
 | **Tier 1** | **`files_with_violations / files_parsed`** — physical files (TUs + included headers), not TU-only. |
 | **Tier 2 scope** | Denominator is **violating files only** — concentration in hot files (headers + sources). |
-| **Include capture** | `-H` on report builds only; disable → omit tier 1 % or show “not captured” (do not fall back to TU-only % without labelling). |
+| **Include capture** | `-H` on report builds only; pair with **`--cxx-disable-error-limit`** for complete per-TU include logs; disable context capture → omit tier 1 % or show “not captured”. |
 | **Dependencies** | Violations under `_cuppa/_download/…` inflate “files affected”; optional **`context.include_dependencies`** boolean (default true) with subtotals for project-only paths when `report_root` / include roots allow classification. |
 | **Source line counting** | Lexical `source_lines_v1`: excludes blanks, comments, and `#` directives — denominator aligned with where violations attach; mis-counts rare string/comment edge cases; still no `#include` body attribution. |
 | **Zero-filled rules** | Tied to **documented** rule ids in cuppa classifiers, not every possible future Clang rule — `_unclassified` row when observed but unknown. |
@@ -1118,7 +1158,7 @@ required (aligns with anonymized sharing).
 | Rule catalog | `documented_rule_ids(profile)` on each `profiles_report/profiles/*.py` module |
 | Context builder | `build_report_context(inventory, env, *, compiled_sources=None)` in `report_json.py` or `context_summary.py` |
 | TU collector | Compile hook records primary TU path per object build |
-| Include collector | Parse `-H` lines (or `.d` prereqs) in spawn processor; `record_parsed_file(scope, path)` |
+| Include collector | Parse `-H` lines (or `.d` prereqs) in spawn processor → `record_parsed_file(scope, path)` into a **session set** (dedupe by normalised path; separate parser from diagnostics) |
 | LOC helper | `source_line_count(path, method='source_lines_v1') -> int` in `context_summary.py` |
 | Writer | `wrap_report_payload(…)` adds `context` when enabled |
 | CLI | Optional `--cxx-profiles-report-context=full|rules-only|off` (default `full` when flag lands) |
@@ -1129,7 +1169,7 @@ required (aligns with anonymized sharing).
 |-------|-------|
 | Unit | Phase 1: golden inventory → `context.profiles[].rules` includes zero rows for unobserved documented rules |
 | Unit | Phase 1: `concentration.top_rules` percentages sum ≤ 100; stable ordering |
-| Unit | Phase 2: mock compiled source set → TU % math; header-only file detection |
+| Unit | Phase 2: mock `-H` stderr lines → `record_parsed_file` dedupes repeated paths across compiles |
 | Unit | Phase 2: `source_lines_v1` fixtures (comments, blanks, strings-with-//, block comments) |
 | Unit | Phase 2: missing file → omit from denominator + `methodology` note |
 | Unit | HTML: Overview tab renders with `context` only (no `locations`) |
