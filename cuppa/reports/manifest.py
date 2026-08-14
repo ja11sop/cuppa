@@ -20,6 +20,27 @@ MANIFEST_BASENAME = '.cuppa-reports'
 SCHEMA_VERSION = 1
 KIND_CXX_PROFILES = 'cxx-profiles'
 
+# Flags that do not affect report output location or matching; omit from invocation_key.
+_INVOCATION_ARGV_IGNORE = frozenset(
+    [
+        '--clean',
+        '--remove-builds',
+        '-c',
+        '-R',
+    ],
+)
+
+
+def normalize_invocation_argv( argv ):
+    """Drop clean/remove-build flags so report and clean invocations share a key."""
+    normalized = []
+    for arg in argv:
+        key = arg.split( '=', 1 )[ 0 ]
+        if key in _INVOCATION_ARGV_IGNORE:
+            continue
+        normalized.append( arg )
+    return normalized
+
 
 def manifest_path( project_root ):
     return os.path.join( project_root, MANIFEST_BASENAME )
@@ -62,7 +83,7 @@ def cxx_profiles_report_options( env ):
 def compute_invocation_key( cwd, argv, options ):
     payload = {
         'cwd': os.path.abspath( cwd ),
-        'argv': list( argv ),
+        'argv': normalize_invocation_argv( argv ),
         'options': options,
     }
     digest = hashlib.sha256(

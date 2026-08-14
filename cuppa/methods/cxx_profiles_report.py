@@ -56,10 +56,15 @@ class CxxProfilesReportMethod:
         if not enabled:
             return
 
+        from cuppa.reports.manifest import maybe_remove_cxx_profiles_on_clean
+        maybe_remove_cxx_profiles_on_clean( env )
+
         profiles_active = bool( env.get( 'cxx_profiles' ) ) or bool(
             env.get( 'cxx_profiles_enforce' )
         )
         if not profiles_active:
+            if env.get( 'clean' ) or env.get( 'remove_builds' ):
+                return
             import SCons.Errors
             message = (
                 "--cxx-profiles-report requires C++ Profiles to be active "
@@ -73,9 +78,6 @@ class CxxProfilesReportMethod:
                 )
             )
             raise SCons.Errors.StopError( message )
-
-        from cuppa.reports.manifest import maybe_remove_cxx_profiles_on_clean
-        maybe_remove_cxx_profiles_on_clean( env )
 
         ProfilesDiagnosticCollector.activate()
         logger.debug( "C++ Profiles violation capture enabled" )
