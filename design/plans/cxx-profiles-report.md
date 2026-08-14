@@ -1,8 +1,8 @@
 # Plan: C++ Profiles violation report (`--cxx-profiles-report`)
 
-- **Status:** proposal
+- **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — C++ Profiles (`profiles-violation-report`); [#184](https://github.com/ja11sop/cuppa/issues/184) (umbrella); shipped enablement [`archive/cxx-profiles.md`](../archive/cxx-profiles.md); [`removal-options.md`](removal-options.md) §4.6 Phase 6 artefacts [#135](https://github.com/ja11sop/cuppa/issues/135); test/coverage report patterns (`cuppa/test_report/`, `cuppa/cpp/run_gcov_coverage.py`)
-- **Updated:** 2026-08-11
+- **Updated:** 2026-08-14
 - **Impact:** minor — new opt-in CLI flag and HTML artefacts; no change to default builds
 
 ## Why
@@ -29,9 +29,10 @@ of analysis.
    / [`ProfilesFrameworkInternals.rst`](https://github.com/cppalliance/clang/blob/profiles-framework/clang/docs/ProfilesFrameworkInternals.rst)).
 2. **Dedupe** repeated identical `(file, line, col, message)` locations while retaining **per-file
    reference counts** and **totals per rule**.
-3. Emit an **HTML report** (and machine-readable JSON sibling) with **Coverage-like tabs** — **By
-   rule**, **By file**, and session **Roll-up**, grouped by profile — suitable for CI artefacts
-   and local review.
+3. Emit an **HTML report** (and machine-readable JSON sibling) with **Coverage-like tabs** — an
+   **Overview** of violations in codebase context, **By rule**, **By file**, and session roll-up
+   views grouped by profile — suitable for CI artefacts, local review, and external sharing
+   (e.g. WG21 papers).
 4. Enable analysis **without editing the project source tree** — opt-in CLI only for the first
    slices; optional `env.CxxProfilesReport()` method later once findings justify sconscript wiring.
 5. Record generated paths in a **`.cuppa-reports` manifest** so `--clean` / `--remove-builds` can
@@ -86,17 +87,17 @@ during compile) looks like:
 
 ```text
 Progress( SconstructBegin )
-Progress( Begin sconscript: [./matcher/sconscript] )
-Progress( Starting variant: [_build/matcher/clang24_profiles_2026_08_07_27/dbg/x86_64/cxx2c] )
+Progress( Begin sconscript: [./widget/sconscript] )
+Progress( Starting variant: [_build/widget/clang24_profiles/dbg/x86_64/cxx2c] )
 … ~1310 lines: path:line:col: error: … under profile 'std::init'
 ```
 
 Important properties:
 
 1. **Diagnostics are not a session-wide flat list.** Every Profiles line belongs inside the
-   **innermost open Progress scope** — here, `./matcher/sconscript` ×
-   `_build/matcher/clang24_profiles_2026_08_07_27/dbg/x86_64/cxx2c` × toolchain
-   `clang24_profiles_2026_08_07_27`.
+   **innermost open Progress scope** — here, `./widget/sconscript` ×
+   `_build/widget/clang24_profiles/dbg/x86_64/cxx2c` × toolchain
+   `clang24_profiles`.
 2. **`Progress( … )` lines are scope boundaries**, not noise to strip. They correspond to
    `NotifyProgress` events (`sconstruct_begin`, `begin`, `started`, `finished`, `end`,
    `sconstruct_end`) in `cuppa/progress.py`.
@@ -155,7 +156,7 @@ Capture and aggregation treat compiler output as a **scoped stream**, not a line
 
 ```text
 sconstruct
-  └─ sconscript (e.g. ./matcher/sconscript)
+  └─ sconscript (e.g. ./widget/sconscript)
        └─ variant (e.g. _build/…/dbg/x86_64/cxx2c)
             └─ compile/link spawns (many; no extra Progress wrapper per violation)
                  └─ Profiles diagnostics
@@ -163,10 +164,10 @@ sconstruct
 
 | Scope field | Source | Example from sample |
 |-------------|--------|---------------------|
-| `sconscript` | `NotifyProgress` `begin` / `started` events | `./matcher/sconscript` |
-| `variant_dir` | `NotifyProgress.variant(env)` / `Starting variant: […]` | `_build/matcher/clang24_profiles_2026_08_07_27/dbg/x86_64/cxx2c` |
+| `sconscript` | `NotifyProgress` `begin` / `started` events | `./widget/sconscript` |
+| `variant_dir` | `NotifyProgress.variant(env)` / `Starting variant: […]` | `_build/widget/clang24_profiles/dbg/x86_64/cxx2c` |
 | `variant_label` | Parsed from variant path (e.g. `dbg`) | `dbg` |
-| `toolchain` | Env at scope entry / cuppa session name | `clang24_profiles_2026_08_07_27` |
+| `toolchain` | Env at scope entry / cuppa session name | `clang24_profiles` |
 | `compile_target` | Optional: SCons target node when spawn env is wired (future) | e.g. `foo.cpp` object |
 
 **Scope stack maintenance (v1):** register a `NotifyProgress` callback that pushes/pops on
@@ -225,13 +226,17 @@ requested.
 
 | Tab | Primary sort (default) | Expandable rows | Purpose |
 |-----|------------------------|-----------------|---------|
+| **Overview** | Fixed layout — headline metrics and tables | Per-profile **full rule matrix** (including zero counts); optional scope breakdown | “How bad is it relative to the codebase?” — shareable executive summary ([§Context summary](#prof-report-context-summary)) |
+| **By scope** | Sconscript × variant rows | Links to per-scope detail pages | Navigate multi-variant / multi-sconscript sessions |
 | **By rule** | Rule / violation class — **most total references first** | File **entries**: linkable path, references in this rule, unique line count | “What hurts most?” — fix the highest-impact rule classes first |
 | **By file** | Source file — **most total references first** (any rule) | Rule **entries** under each file: rule id, references, sample message | “Which files are worst?” — concentrate edits in hot files |
-| **Roll-up** | Same two sub-views, but **union across all profiles and all scopes** in the session | Entries show **scope breakdown** on expand (variant label, per-scope ref count) | One-page inventory when multiple profiles or variants ran |
+
+The master index **Overview** tab should be the **default landing view** when present (paper /
+external sharing). Per-scope detail pages may omit Overview or show a scope-filtered subset.
 
 Within a **profile** section (e.g. `std::init`), repeat the By rule / By file tables. When only one
 profile fired, omit the profile heading or collapse it. Future multi-profile enforce lists produce
-multiple profile sections plus the roll-up tab.
+multiple profile sections plus the roll-up views on By rule / By file tabs.
 
 **Entry row shape (both views):** display path (linked — see §Source links), **reference count**,
 **unique locations** (distinct line/col after dedupe), optional **affected scopes** badge when
@@ -247,45 +252,152 @@ reports) for at least: references desc/asc, path A–Z, rule id A–Z. Server-si
 - Links into per-scope detail pages (each page opens on **By rule** tab by default).
 - When only one scope exists, master index may redirect or embed the detail page (open question §8).
 
-#### JSON sibling
+#### JSON sibling (`cxx-profiles-index.json`)
 
-Same directory, matching `.json` — include both view models pre-sorted plus unsorted arrays so CI
-can gate on rule/file counts without parsing HTML:
+**File:** `{artifacts_root}/cxx-profiles/cxx-profiles-index.json` — one **session-level** document.
+Per-scope detail is **HTML only** (`{report_stem}.html`); the `.cuppa-reports` manifest lists those
+HTML paths under `scopes[].paths`, not separate per-scope JSON files.
+
+##### Versioned envelope (schema v1)
+
+Writers emit `schema_version: 1` (`cuppa/cpp/profiles_report/report_json.py`,
+`REPORT_JSON_SCHEMA_VERSION`). This is the **first shipped** report JSON format — there is no
+earlier public envelope to migrate from. Loaders also accept legacy bare `{ scopes, rollup }`
+objects (pre-envelope captures used in tests).
+
+```json
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-14T00:35:00+00:00",
+  "metadata": { },
+  "summary": { },
+  "context": { },
+  "locations": [ ],
+  "report": {
+    "scopes": [ ],
+    "rollup": { "rules": [ ], "files": [ ] }
+  }
+}
+```
+
+| Top-level field | Purpose |
+|-----------------|---------|
+| `schema_version` | Report JSON format version (writers emit `1`) |
+| `generated_at` | UTC ISO-8601 timestamp |
+| `metadata` | Session fields needed to re-render HTML without a rebuild |
+| `summary` | Compact violation counts for CI/agents — no nested tree walk |
+| `context` | Optional — codebase-relative metrics and full per-profile rule matrix ([§Context summary](#prof-report-context-summary)); omit in legacy loads |
+| `locations` | Flat, sorted violation rows for machine analysis |
+| `report` | Nested view model consumed by Jinja templates |
+
+**`metadata`:** `sconstruct_dir`, `report_project`, `link_style`, `cxx_profiles_report_root`, VCS
+header fields (`report_uri`, `report_branch`, `report_revision`), `profiles_enforce`,
+`variant_labels`, `incomplete_scopes`, and `partial` (true when any scope did not finish its
+variant).
+
+**`summary`:** `total_references`, `unique_violation_count`, `unique_rule_count`,
+`unique_locations`, `scope_count`, and `by_rule` (map of `rule_id` → reference count). Stays
+small for CI gates; **`context`** carries the richer narrative metrics (see below).
+
+**`locations[]` row:** `location_key` (SHA-256 of the scope-aware dedupe tuple from
+`location_dedupe_key()`), scope fields (`sconscript`, `variant_dir`, `variant_label`, `toolchain`),
+`profile`, `rule_id`, `path`, `line`, `column`, `references`, `normalised_message`, `message`.
+
+##### Nested `report` model
+
+Same directory as the HTML index. Pre-sorted view models for HTML plus machine-readable roll-up:
 
 ```text
-profiles[] → rules[] → { rule_id, total_references, unique_files, files[] }
-profiles[] → files[]  → { path, total_references, rules[] }
+scopes[] → profiles[] → rules[] → { rule_id, total_references, files[] }
+scopes[] → profiles[] → files[]  → { path, total_references, rules[] }
 rollup → { rules[], files[] }   // cross-profile, cross-scope union with scope attribution
-scopes[] → { … per-scope slices of the same shape … }
 ```
+
+Rule entries under `scopes[].profiles[].rules[]`, `rollup.rules[]`, and nested
+**`files[].rules[]`** include **`doc_href`** (published Antora std::init rule pages).
 
 **Roll-up dedupe policy (settled):** union **adds reference counts** across scopes for the same
 `(profile, rule, normalised_path, line, col, message)`. The same header violated in `dbg` and
 `rel` contributes **twice** to roll-up totals unless the user filters to one scope — mirrors
 coverage union semantics (counts reflect all runs, not “unique issues across variants”).
 
+##### Template iteration / JSON regen
+
+For HTML template work without recompiling, prefer **JSON regen** over capture replay:
+
+```text
+python -m scripts.regenerate_profiles_report \
+  --from-json _artifacts/cxx-profiles/cxx-profiles-index.json
+```
+
+Omit `--sconstruct-dir` to take `sconstruct_dir`, `link_style`, and related fields from JSON
+``metadata`` (`env_from_report_metadata` in `report_json.py`).
+
+| Flag | Meaning |
+|------|---------|
+| `--skip-source-pages` | Omit `by-source/` marked-up pages (sources must exist on disk otherwise) |
+| `--write-json` | Rewrite `cxx-profiles-index.json` at the current schema after re-render |
+
+When `locations[]` is present, regen rebuilds inventory from the flat array (faster and more
+ reliable than walking nested `report`). Otherwise it falls back to nested `report` reconstruction.
+Capture replay (`capture.txt` without `--from-json`) remains a legacy path — parallel or
+interleaved `tee` output can mis-attribute scope; use only when no JSON exists.
+
+**Regen script CLI scoping (settled):** flags on `scripts/regenerate_profiles_report.py` live in
+that script's `argparse` namespace, not cuppa `AddOption`. Reuse cuppa vocabulary where values map
+to the same `env` keys (`--artifacts-root`, `--sconstruct-dir`). Profiles-specific behaviour uses
+descriptive names (`--skip-source-pages`, `--write-json`); mode switch `--from-json` is
+script-local (mutually exclusive input interpretation, not a global cuppa flag).
+
 Optional later: `--cxx-profiles-report-threshold=` to fail CI when a rule exceeds *N* files (not
 slice A).
 
 ### Source links (`link_style`)
 
-Reuse the test-report linking helper in `cuppa/test_report/html_report.py`:
+Shared module `cuppa/reports/link_style.py` (shipped with slice C):
 
-- `initialise_test_linking(env, link_style=…)` — resolves `file://` + `sconstruct_dir` for
-  **local** builds, or Git remote **blob** URLs for CI artefacts.
-- `_create_uri(test_case)` pattern: append repo-relative path and `#L{line}` (GitLab) or equivalent
-  line anchor.
+- `REPORT_LINK_STYLES` — `local`, `gitlab`, `github`
+- `resolve_report_link_style(env, …)` — precedence: per-report CLI → `--reports-link-style=` →
+  method kwarg → `local`
+- `initialise_report_linking(env, link_style)` — blob base URI (GitHub `/blob/`, GitLab `/-/blob/`)
+- `source_file_href(…)` — repo-relative path + `#L{line}` for test and Profiles tables
+
+Session override: **`--reports-link-style=`** applies to every report kind the invocation emits
+(test HTML via `GenerateHtmlTestReport`, Profiles via `--cxx-profiles-report`). Profiles-only
+**`--cxx-profiles-report-link-style=`** overrides the session flag for Profiles output and manifest
+clean matching.
+
+Test reports previously accepted `link_style=` only as a method kwarg; the session flag overrides
+the method default when CI publishes artefacts.
 
 | `link_style` | Href shape | When to use |
 |--------------|------------|---------------|
 | `local` (default) | `file://{sconstruct_dir}/{relpath}#L{line}` | Developer machine; opens editor/IDE handler |
-| `gitlab` | `{remote}/blob/{branch}/{relpath}#L{line}` | GitLab CI published artefacts |
-| `github` | `{remote}/blob/{branch}/{relpath}#L{line}` | GitHub Actions published artefacts (same helper pattern; extend `initialise_test_linking` or share a small `cuppa/report_links.py`) |
+| `gitlab` | `{remote}/-/blob/{branch}/{relpath}#L{line}` | GitLab CI published artefacts |
+| `github` | `{remote}/blob/{branch}/{relpath}#L{line}` | GitHub Actions published artefacts |
 
 **Path rebasing:** map absolute diagnostic paths (including dependency trees under
 `~/_cuppa/_download/…`) to a **repo-relative** path when under `sconstruct_dir` or
 `--cxx-profiles-report-root=`; otherwise show absolute path with `local` link only (no remote blob —
 same caveat as test report: *“Might need VCS detection per file”* for dependency sources).
+
+**Dependency display paths (shipped heuristic; metadata gap):** for location-dependency sources,
+the by-file / by-rule tables use a **two-line** title:
+
+1. **Repo line** — `host/org/repo@branch` (muted), from `describe_tree_path` / git short name.
+2. **Local line** — path under the dependency checkout on one line: the configured **include root**
+   prefix (muted, e.g. `include/`) immediately followed by the **#include-relative** tail (bold,
+   link-coloured when href is set), e.g. `include/widget/common_types/number.hpp` reads as
+   `include/` + `widget/common_types/number.hpp` on a single second row.
+
+Today slice D infers the include root as the **first path segment** when it matches a known folder
+name (`include`, `inc`, `src`, …). That matches the common `location_dependency(..., include="include")`
+case but is **wrong** when `sys_include` / `include` spans multiple segments (e.g.
+`include/widget/extra` on the compile line — the muted prefix should be `include/widget/`, not
+`include/` alone). **Follow-up:** persist the resolved include/sys-include directory(s) per dependency tree
+(e.g. in `.cuppa-inventory/` entry JSON or a small sidecar written at `BuildWith` time) and read
+that in `source_pages._split_location_include_remainder()` instead of the first-segment heuristic.
+Until then, document the limitation in report help text if users hit mis-split paths.
 
 **CLI / method surface (settled for v1 CLI):**
 
@@ -306,7 +418,8 @@ suite index).
 | `--cxx-profiles-report` | Enable capture + emit default report paths under artefacts root |
 | `--cxx-profiles-report=` *path* | Explicit report **directory** or index **file** stem (directory if ends with `/` or exists as dir) |
 | `--cxx-profiles-report-root=` *dir* | Rebase project-owned paths for display and remote links (default: infer from sconstruct cwd) |
-| `--cxx-profiles-report-link-style=` *local\|gitlab\|github* | Source link targets in HTML (default `local`; see §Source links) |
+| `--cxx-profiles-report-link-style=` *local\|gitlab\|github* | Profiles-only source link override (overrides `--reports-link-style=`; see §Source links) |
+| `--reports-link-style=` *local\|gitlab\|github* | Session-wide source links for all HTML reports this run emits (test, Profiles, …) |
 
 **Activation gate:** flag is a no-op unless Profiles are active for the build
 (`--cxx-profiles` or env already has `cxx_profiles` / enforce inject). Otherwise **StopError** with
@@ -457,7 +570,7 @@ artefacts (at `sconstruct_end`, or on early abort with `partial: true`). The man
   "partial": false,
   "invocation_key": "sha256:…",
   "argv": ["cuppa", "-D", "--dbg", "--rel", "…"],
-  "cwd": "/path/to/project/matching_facility",
+  "cwd": "/home/user/project/widget",
   "options": {
     "destination": "_artifacts/cxx-profiles",
     "link_style": "local",
@@ -470,15 +583,14 @@ artefacts (at `sconstruct_end`, or on early abort with `partial: true`). The man
   ],
   "scopes": [
     {
-      "sconscript": "./matcher/sconscript",
-      "variant_dir": "_build/matcher/clang24_profiles_2026_08_07_27/dbg/x86_64/cxx2c",
+      "sconscript": "./widget/sconscript",
+      "variant_dir": "_build/widget/clang24_profiles/dbg/x86_64/cxx2c",
       "variant_label": "dbg",
-      "toolchain": "clang24_profiles_2026_08_07_27",
+      "toolchain": "clang24_profiles",
       "complete": false,
       "profiles": ["std::init"],
       "paths": [
-        "_artifacts/cxx-profiles/cxx-profiles--matcher--dbg--clang24_profiles_2026_08_07_27.html",
-        "_artifacts/cxx-profiles/cxx-profiles--matcher--dbg--clang24_profiles_2026_08_07_27.json"
+        "_artifacts/cxx-profiles/cxx-profiles--widget--dbg--clang24_profiles.html"
       ]
     }
   ]
@@ -498,14 +610,580 @@ artefacts (at `sconstruct_end`, or on early abort with `partial: true`). The man
 | `scopes[]` | One object per captured Progress scope (sconscript × variant × toolchain) |
 | `scopes[].complete` | `false` when diagnostics were captured under `Starting variant` but `Finished variant` never ran |
 | `scopes[].profiles` | Profile names seen in that scope (usually one; multi-enforce lists may yield several) |
-| `scopes[].paths` | Per-scope detail **HTML + JSON** (JSON carries `profiles[]`, `rollup`, by-rule / by-file views) |
+| `scopes[].paths` | Per-scope detail **HTML** only (`{report_stem}.html`) |
 
 **Paths to delete:** union of `session_paths` and every `scopes[].paths` entry (implementation may
 also store a denormalised `all_paths[]` for convenience — not required in the schema).
 
-**Relationship to report JSON:** the `.json` artefact named in `scopes[].paths` follows the §JSON
- sibling tree (`profiles[]`, `rollup`, etc.). The manifest only points at those files so
-`--clean` can remove them; it does not duplicate violation data.
+**Relationship to report JSON:** violation data lives in session-level
+`cxx-profiles-index.json` (see §JSON sibling). The manifest records **paths to delete**
+(`session_paths`, `scopes[].paths`, optional `all_paths[]`); it does not embed the inventory.
+
+<a id="json-follow-ups"></a>
+
+**JSON follow-ups (not blocking slice C merge):**
+
+| Gap | Notes |
+|-----|-------|
+| CI threshold flag | `--cxx-profiles-report-threshold=` deferred |
+| **Anonymized sharing** | See [§Anonymized report sharing](#prof-report-anonymize) — likely next PR after #194 |
+| **Context summary** | See [§Context summary](#prof-report-context-summary) — Overview tab + `context` JSON |
+
+<a id="prof-report-anonymize"></a>
+
+## Anonymized report sharing (sketch)
+
+**Id:** `prof-report-anonymize` · **Status:** proposal · **Target:** PR after
+[#194](https://github.com/ja11sop/cuppa/pull/194) (same 1.8.0 cycle if scope stays small)
+
+### Goal
+
+Take a **saved** `cxx-profiles-index.json` from a real Profiles run (consumer project or local
+tree), produce a **shareable anonymized JSON** artefact, then regenerate **HTML** from that JSON
+**without source files** and **without** links that re-identify the project.
+
+**Settled:** anonymized sharing is **JSON + summary HTML only**. Source file contents cannot be
+anonymized in place (snippets would still leak identifiers and structure), so an anonymized
+artefact **never** ships with `by-source/` pages, local file hrefs, or a source tree on disk.
+Regeneration must use `--skip-source-pages` (or equivalent) and suppress file/repo links when
+`metadata.anonymized` is set.
+
+Typical workflow:
+
+1. Build with `--cxx-profiles-report` (or copy the JSON sibling from CI artefacts).
+2. Run an anonymizer CLI on the JSON → `cxx-profiles-index.anonymized.json`.
+3. Share the anonymized JSON (issue attachment, public fixture, doc sample).
+4. Recipient (or doc pipeline) runs `scripts/regenerate_profiles_report --from-json …
+   --skip-source-pages` → browsable HTML with counts, rules, and **semi-readable** path labels.
+
+The JSON envelope already separates **inventory** (`report`, `summary`, `locations[]`) from
+**session metadata** (`metadata`). Anonymization is a **pure transform** on disk — no rebuild,
+no compiler, no access to the original tree (except optionally a local sidecar mapping file kept
+out of the shared artefact).
+
+### Settled anonymization policy
+
+| Topic | Decision |
+|-------|----------|
+| **Variant shape** | **Keep** variant information as-is: `variant_label` (`dbg`, `rel`, …) and the variant path tail (`…/dbg/x86_64/cxx2c`, toolchain folder name under `_build/`, etc.). These are build-shape metadata, not project identity. |
+| **Readability** | Paths should stay **semi-readable** — plausible software tree names, not `file-001.hpp` serials. Reports should look like a generic project, not the original. |
+| **Path segments** | Replace **most** path components using a curated synonym dictionary (~200 common software terms). Very common segments (e.g. `include`, `src`, `test`, `lib`, `util`) may pass through unchanged. |
+| **Multi-part names** | For `snake_case` directory or file stems (`common_types`, `order_manager`), **always** replace at least one `_`-delimited segment, preferably with a dictionary synonym (`common_types` → `core_elements`). |
+| **Tree shape** | Preserve **multiple roots** and relative depth — project include root vs dependency download root vs generated paths — under anonymized top-level labels, e.g. `include/acme/widget/core_elements/number.hpp` and `_cuppa/_download/vendor/widget/core_elements/number.hpp`. |
+| **Fingerprinting** | **Out of scope** — structural similarity (counts, line numbers, directory depth) is acceptable; goal is deniability of *identity*, not statistical anonymity. |
+| **Source files** | **Not shipped** — anonymized bundle = JSON (+ optional HTML regen). No source pages, no snippets, no links to paths on disk. |
+
+### What must change in the JSON
+
+| Area | Today | Anonymized |
+|------|-------|------------|
+| `metadata.sconstruct_dir`, `cxx_profiles_report_root` | Absolute project path | Generic placeholder root, e.g. `/home/user/project/widget` |
+| `metadata.report_project`, `report_uri`, `report_branch`, `report_revision` | VCS / hosting identity | Empty or placeholders (`example-project`, no URI) |
+| `metadata.link_style` | May be `gitlab` / `github` with real repo | `local`; HTML must not emit repo browse links when `metadata.anonymized` |
+| `metadata.anonymized` | — | `true` (+ optional `anonymization_version: 1`) |
+| `locations[].path`, nested `report.*.files[].path`, rule file refs | Absolute or real dependency paths | Same **relative shape** under anonymized roots; segments rewritten via dictionary (see below) |
+| `locations[].message`, nested sample / raw messages | May contain identifiers | Drop or replace with `normalised_message` only (classifier output already collapses identifiers) |
+| `locations[].sconscript` | Real module path | Anonymized module slug (e.g. `./widget/sconscript`) — not the original name |
+| `locations[].variant_dir`, `variant_label`, `toolchain` | Real scope strings | **Keep variant tail and labels** (`dbg`, `x86_64`, `cxx2c`, …); anonymize only the **project-specific prefix** inside `variant_dir` (and `sconscript` stem) so `_build/<real>/…/dbg/x86_64/cxx2c` becomes `_build/<anon>/…/dbg/x86_64/cxx2c` |
+| `location_key` | SHA-256 of scope + path + line + col + normalised message | **Recompute** after path/scope/message transforms |
+| `generated_at` | Real timestamp | Keep or round to date — low priority |
+
+**Manifest (`.cuppa-reports`):** out of scope for the shared artefact; anonymizer operates on
+report JSON only.
+
+### Path anonymization (multi-root, semi-readable)
+
+**Algorithm sketch:**
+
+1. **Detect roots** — split each absolute path into one or more logical roots (project
+   `sconstruct_dir` / include tree, `_cuppa/_download/…` dependency tree, `_build/…` generated
+   tree, etc.). Each root maps to a stable anonymized top-level label (`include`, `src`,
+   `_cuppa/_download/vendor`, `_build/module`, …).
+2. **Walk relative path** — for each directory and file stem (extension preserved):
+   - If stem is in the **pass-through allowlist** (`include`, `src`, `test`, …) and is a single
+     common segment, leave unchanged.
+   - If stem contains `_`, replace **≥1** segment using the synonym dictionary; deterministic
+     pick (e.g. hash of original segment mod dict size) so reruns match.
+   - Otherwise replace the whole stem with a dictionary synonym when one exists; fall back to a
+     generic stem (`module`, `component`, `item`) only when no match.
+3. **Uniqueness** — if two files collide after rewrite, disambiguate with a numeric suffix on the
+   **last** segment only (`handler.cpp` vs `handler_2.cpp`), not a flat serial tree.
+4. **Determinism** — same input JSON → same anonymized paths (CI fixtures, doc samples).
+5. **Optional sidecar** (`--mapping-out`, gitignored): `{original_path: anonymized_path}` for
+   internal debugging — **never** ship with the public JSON.
+
+**Synonym dictionary:**
+
+- Ship a **built-in offline** map (~200 entries): `common_types→core_elements`, `order→trade`,
+  `matcher→router`, `handler→processor`, … — enough for typical C++ tree vocabulary.
+- **Default:** no network. Optional `--online-synonyms` (or similar) may call a third-party
+  library if installed; document that CI and air-gapped use should rely on the built-in dict only.
+  Online enrichment is a nice-to-have, not a requirement.
+
+**Example** (illustrative):
+
+```text
+/home/acme/matcher/include/matcher/common_types/number.hpp
+  → include/acme/widget/core_elements/number.hpp
+
+/home/acme/_cuppa/_download/git_…/matcher/include/matcher/common_types/number.hpp
+  → _cuppa/_download/vendor/widget/core_elements/number.hpp
+
+_build/matcher/clang24/dbg/x86_64/cxx2c/…   # variant tail unchanged
+  → _build/widget/clang24/dbg/x86_64/cxx2c/…
+```
+
+### HTML regeneration behaviour
+
+Existing pieces:
+
+- `scripts/regenerate_profiles_report --from-json` + `env_from_report_metadata()` — session
+  fields from JSON `metadata`.
+- `--skip-source-pages` — skips `by-source/` HTML generation.
+
+Gaps for anonymized sharing:
+
+1. **`metadata.anonymized: true`** (and optional `anonymization_version: 1`) — regen **must**
+   treat this as “no source artefacts”: `--skip-source-pages`, no `by-source/`, no file hrefs.
+2. **Suppress source / repo hrefs** in `enrich_model_for_html` / `annotate_file_links` when
+   anonymized — even if source files exist locally on the recipient machine, do not link to them.
+   Rule `doc_href` (P4222 / ProfilesFramework.rst) stays — public documentation, not project
+   identity.
+3. **Regen CLI sugar:** `--anonymized` implies `--skip-source-pages` and honours
+   `metadata.anonymized` (fail or warn if flag/json disagree).
+4. **Dependency path display** (slice D): anonymized segment names should read naturally under
+   muted-prefix rows without a real `report_root` on disk.
+
+### API / CLI sketch
+
+| Piece | Location |
+|-------|----------|
+| Core transform | `anonymize_report_payload(payload, *, dictionary=None, mapping=None) -> payload` in `cuppa/cpp/profiles_report/anonymize.py`; bundled `synonym_dictionary.json` (~200 terms) |
+| CLI | `python -m scripts.anonymize_profiles_report --in index.json --out index.anonymized.json [--mapping-out mapping.local.json] [--online-synonyms]` |
+| Tests | `tests/unit/test_profiles_report_anonymize.py` — golden input → no original path segments / hostnames / VCS URIs; `common_types` absent when present in input; counts unchanged; multi-root shape preserved |
+| Public fixture | Optional: commit anonymized JSON derived from `examples/profiles/std-init-violations/` for docs / regen smoke |
+
+Regen chain:
+
+```text
+cxx-profiles-index.json
+  → anonymize_profiles_report
+  → cxx-profiles-index.anonymized.json
+  → regenerate_profiles_report --from-json --skip-source-pages
+  → cxx-profiles-index.html (no by-source/, no file hrefs)
+```
+
+### Issues and limits (honest)
+
+| Issue | Mitigation / note |
+|-------|-------------------|
+| **Identifier leakage in messages** | Raw `message` may survive if classifier missed a pattern | Prefer `normalised_message` only in output; unit test scans anonymized JSON for `@`, `::`, common identifier regex |
+| **Dictionary gaps** | Unusual domain jargon may pass through unchanged | Extend built-in dict over time; optional online synonyms behind flag; sidecar mapping for internal review only |
+| **Collision after rewrite** | Two distinct paths map to same anonymized path | Numeric suffix on last segment only (`_2`) |
+| **`location_key` drift** | Must recompute after every path/message change | Single helper reused by writer and anonymizer tests |
+| **Schema version** | Same `schema_version: 1` + `metadata.anonymized` | No envelope bump unless shape changes |
+| **Partial / incomplete scopes** | `incomplete_scopes`, `partial` are behavioural | Keep as-is (including real `dbg` / variant labels) |
+| **Reverse mapping** | Sidecar only on producer machine | Never upload mapping with shared JSON |
+| **Source snippets** | Cannot redact file contents safely | **Settled:** anonymized share never includes source pages or files — inventory tables only |
+| **Capture replay path** | Anonymizer targets **JSON**, not raw console capture | Document that sharing should start from JSON |
+
+### Testing (when implemented)
+
+| Layer | Cases |
+|-------|-------|
+| Unit | Anonymize golden v1 JSON; grep serialized output for forbidden substrings |
+| Unit | `location_key` stable across anonymize → reload → regen |
+| Unit | `summary` / roll-up counts unchanged; scope count unchanged |
+| Unit | HTML regen from anonymized JSON: no `href` to `by-source/`, no `file://`, no repo browse links when `metadata.anonymized` |
+| Unit | Anonymize preserves numeric `context` fields unchanged |
+| Docs | Antora subsection under cxx-profiles: “Sharing an inventory (anonymized JSON)” |
+
+### Open choices (resolve in implementation PR)
+
+1. Exact **pass-through allowlist** for ultra-common segments (`include`, `src`, `test`, …).
+2. Whether anonymizer **requires** `--force` when input already has `metadata.anonymized`.
+3. Single command `regenerate_profiles_report --anonymize-out` vs separate script only.
+4. Which optional online synonym backend (if any) — defer unless built-in dict proves insufficient.
+
+<a id="prof-report-context-summary"></a>
+
+## Context summary — violations relative to codebase size (sketch)
+
+**Id:** `prof-report-context-summary` · **Status:** proposal · **Target:** PR after
+[#194](https://github.com/ja11sop/cuppa/pull/194) (may ship together with
+[§Anonymized report sharing](#prof-report-anonymize) for WG21 / external sharing)
+
+### Why
+
+Raw violation counts (“1310 references across 78 files”) are hard to interpret without **denominator
+context**. External audiences — standards papers, conference posts, cross-project comparisons — need
+answers like:
+
+- What **fraction of the compiled codebase** showed at least one violation?
+- Among files that violated, how **concentrated** are violations (two bad lines in a ten-line header
+  vs scattered refs across a large translation unit)?
+- Which **rules dominate** the inventory, including rules that did **not** fire (a complete profile
+  checklist)?
+- Was the run **partial** (one variant only) and does the summary say so?
+
+Today the master index headline (`N violations of M rules through R references`) and compact
+`summary.by_rule` answer “what fired” but not “how big was the haystack”. Slice C ships the
+drill-down tabs; this slice adds a dedicated **Overview** tab and a JSON `context` object.
+
+### Goals (Overview tab + JSON)
+
+Single master-index page section (default tab when present) showing:
+
+| Block | Content |
+|-------|---------|
+| **Session headline** | Profiles enforced; scope count; partial/incomplete banner; existing ref / rule / location totals |
+| **Codebase reach (tier 1)** | `files_parsed` (TUs + includes seen via `-H` or `.d`); `files_with_violations`; **file violation rate %** |
+| **Violation density (tier 2)** | Unique violation lines; `source_lines_v1` in violating files only; **violation line % in affected files** |
+| **Rule concentration** | Top rules by reference share (% of session total); bar or sorted table |
+| **Full profile matrix** | For each enforced profile, **every documented rule id** with reference count, unique files, unique lines — **zero-filled** when not observed |
+| **Scope footnote** | When multiple scopes ran, small table of per-scope file/TU counts (optional phase 2) |
+
+The same structure is serialized under top-level **`context`** in `cxx-profiles-index.json` so
+anonymized JSON ([§Anonymized report sharing](#prof-report-anonymize)) can be shared **with
+denominators intact** — counts do not reveal identity; compute `context` **before** path
+anonymization and store in JSON (do not re-scan disk on anonymized regen).
+
+### Two-tier exposure model (settled)
+
+Overview answers **overall Profiles exposure** with two complementary measures plus existing
+inventory metrics (references, rules, locations, rule matrix):
+
+| Tier | Question | Metric | Doable? |
+|------|----------|--------|---------|
+| **1 — Breadth** | How **extensive** are issues across the code that was **actually parsed**? | **`files_with_violations / files_parsed`** (%) — distinct inventory paths vs distinct **physical source files** (TUs **plus** headers and other includes the compiler pulled in during Profiles compiles). Also report absolute counts and optional TU companion stats. | **Yes** — requires recording the **parsed-file union** per session (see [§Parsed file universe](#prof-report-parsed-files)); not TU-only. |
+| **2 — Severity in hot files** | When files **do** violate, are issues **sparse or dense**? | **`unique_violation_lines / source_lines_v1`** summed over **violating files only** — physical files (headers + sources), same path set as tier 1 numerator. | **Yes** — at report write from inventory + `source_lines_v1` on violating paths. |
+
+**Tier 1 is file-based, not TU-based:** translation units are how the build runs, but Profiles
+diagnostics attach to **paths** (often headers). The useful breadth question is “what fraction of
+**parsed files** had at least one violation?” — not “what fraction of `.cpp` primary sources had
+a diagnostic somewhere in their include tree?” (TU-only % undercounts header-heavy codebases).
+
+**Tier 2 denominator scope:** only files that **appear in the violation inventory** — measures
+concentration in hot files (e.g. 2 violation lines in a 10-line header ≈ 20%).
+
+**Existing metrics (unchanged):** `total_references`, `unique_violation_count`,
+`unique_rule_count`, `summary.by_rule`, roll-up tables, zero-filled profile rule matrix.
+
+<a id="prof-report-parsed-files"></a>
+
+#### Parsed file universe (tier 1 denominator)
+
+**Goal:** `files_parsed` = every distinct source file whose contents the compiler front-end
+**actually read** while compiling Profiles-enforced TUs in this session (project sources **and**
+dependency headers under `_cuppa/_download/…`, etc.).
+
+You do **not** need to compile headers as separate TUs, and you do **not** need a whole-project
+header glob. You **do** need to learn includes from **real TU compiles** (which a Profiles
+inventory build already performs) — or accept a weaker static approximation.
+
+| Option | How | Accuracy | Cost / trade-offs |
+|--------|-----|----------|-------------------|
+| **A — `-H` include stack (recommended v1)** | Add `-H` to `CXXFLAGS` when `--cxx-profiles-report` is active. Clang/GCC print one line per included file to **stderr** (e.g. `. /path/to/header`). Parse lines in the existing Profiles spawn output processor; union paths per compile, then per session. | **Matches compiler** — only files parsed for that TU; respects `#if` / skipped includes. | Verbose compiler output (report builds only). Must normalise paths. Form differs slightly GCC vs Clang — small parser. Failed compiles may still emit partial `-H` before error. |
+| **B — `-MMD` dependency files** | Add `-MMD -MP` (or `-MD`) on report builds; after each compile, read the `.d` Makefile next to the `.o` and union listed prerequisites. | **Matches compiler** for included headers. | Cuppa does **not** emit `.d` today — new flags + locate `.d` beside object in `_build/…`. Module / BMI builds need checking. Slightly less live noise than `-H`. |
+| **C — SCons implicit dependencies** | At `sconstruct_end`, walk compiled `Object` nodes and union SCons-scanned `#include` deps. | **Approximate** — scanner may differ from real compile (macros, `-include`, modules). | No extra compiler flags; harder to wire from report collator to SCons node graph; may miss system headers. |
+| **D — Lexical `#include` closure** | For each compiled TU path, recursively resolve `#include "…"` / `<…>` using compile `CPPPATH` / `SYSINCPATH`. | **Over- and under-includes** — ignores `#if`, may pull headers never compiled, may miss generated paths. | No compiler help; still need TU list from compile hook; **not recommended** for tier 1 %. |
+| **E — Dependency tree glob** | Glob all headers under location deps + project. | **Very wrong** — vast overcount. | Simple but unsuitable for “files parsed”. |
+| **F — Violations-only set** | Denominator = violating files only. | **Circular** for breadth (100% by definition). | Useful only for tier 2, not tier 1. |
+
+**Settled direction:** implement **A (`-H`)** first — reuses the Profiles diagnostic capture pipe,
+no new artefact files, accurate for Alliance Clang Profiles workflows. **B (`.d`)** as fallback if
+`-H` proves too noisy or MSVC parity is needed later (MSVC `/showIncludes` analogue).
+
+**`-H` on failed compiles (rationale):** Profiles inventory builds **expect** non-zero compile exit
+status — violations are `error:` diagnostics. That does **not** block include capture:
+
+1. **stderr is drained before spawn returns** — `IncrementalSubProcess` reads every stderr line
+   until the compiler process exits, then returns the failure code. `-H` lines are not discarded
+   because the compile failed.
+2. **`-H` precedes most Profiles errors** — the compiler prints each included file as the front-end
+   opens it; Profiles rule checks run later on the parsed translation unit. For a typical TU,
+   includes are logged before semantic violations in those headers.
+3. **Pair with `--cxx-disable-error-limit`** — without `-ferror-limit=0` / `-fmax-errors=0`, the
+   compiler may stop mid-TU after the default cap and **skip later includes** in that file. Report
+   builds that populate `files_parsed` should treat unlimited diagnostics as **recommended**
+   (same pairing already documented for a complete violation inventory).
+4. **Numerator is independent** — `files_with_violations` comes from Profiles diagnostic paths,
+   not from `-H`; both streams share stderr but serve different fields.
+
+**Honest limits:** fatal errors before an include is reached (missing header, `#error`) yield
+**partial** `-H` for that TU; partial sessions only include TUs that started; GCC vs Clang differ
+on error-recovery after a bad first `#include`. Acceptable for inventory runs on trees that
+otherwise compile; document `partial` / incomplete scope in Overview.
+
+**`record_parsed_file()` (include collector sketch):** extend `ProfilesReportSession` (or sibling
+store on `ProfilesDiagnosticCollector`) with a **set per session** (and optionally per Progress
+scope) of normalised absolute paths:
+
+```python
+def record_parsed_file( scope, path ):
+    """Record one path seen via -H (or .d); idempotent — no double count."""
+```
+
+| Concern | Approach |
+|---------|----------|
+| **Double counting** | Store **`files_parsed` as a set** — the same header included from many TUs is counted **once** in the session denominator (union, not sum of per-compile lines). |
+| **`-H` repeat lines** | One TU may print the same path at multiple stack depths (`.` vs `..` prefix); normalise to path only before insert. |
+| **Separate from diagnostics** | Parse `-H` with a dedicated regex (e.g. `^\.+ \S+`) — do not route through `parse_profiles_diagnostic`; call `record_parsed_file` only on match. |
+| **Path normalisation** | Reuse the same absolute-path normalisation as diagnostic capture (`realpath` / consistent separators) so one file on disk → one set entry. |
+| **TU primary sources** | Also call `record_parsed_file(scope, tu_path)` from the compile hook so the TU itself is in the set even if `-H` formatting differs by toolchain. |
+| **Thread safety** | Same lock as `ProfilesInventory.record` under `--parallel`. |
+| **At report time** | `files_parsed = len(session.parsed_files)`; optional per-scope subsets for phase 3. |
+
+**Cannot avoid TU compiles:** there is no reliable way to know which dependency headers were
+**processed for Profiles** without either the compiler reporting includes (A/B) or a full
+preprocessor (out of scope). Static parsing (D) without compiles does not know which includes
+reached the front-end.
+
+**Session aggregation:**
+
+```text
+files_parsed = ⋃ ( TU primary sources compiled in session )
+             ∪ ⋃ ( headers/includes recorded for each of those compiles )
+
+files_with_violations = distinct paths in inventory (already have)
+
+tier1_pct = 100 * files_with_violations / files_parsed   (cap at 100%; subset check in tests)
+```
+
+**Optional companion stats** (not the primary tier 1 %): `translation_units_compiled`,
+`translation_units_with_violations` — still useful for “how many compiles failed Profiles” but
+secondary to file breadth.
+
+Store in JSON: `files_parsed`, `files_with_violations`, `files_with_violations_pct`, methodology
+`parsed_files: "include_stack_h_v1"` (or `"compiler_deps_mmd_v1"` if B lands).
+
+**Partial builds:** `files_parsed` reflects only TUs that **ran** before abort — same honesty
+banner as today’s `partial` metadata.
+
+**Anonymization:** counts in `context.codebase` stay numeric; path lists inside optional debug
+fields are stripped — not required for Overview percentages.
+
+### What we already have (no new capture)
+
+From the existing inventory / roll-up model:
+
+| Metric | Source today |
+|--------|----------------|
+| Files with ≥1 violation | `len(rollup.files)` or distinct paths in `locations[]` |
+| Unique violation lines | `rollup.unique_violation_count` / per-file `unique_line_count` |
+| Per-rule references, files, lines | `rollup.rules[]` |
+| Enforced profiles | `metadata.profiles_enforce` |
+| Scope / partial status | `metadata.partial`, `incomplete_scopes`, `scope_count` |
+
+**Phase 1 (violation-only context)** can ship these plus a **zero-filled rule matrix** from profile
+classifier modules (`std_init.RULE_DOC_REFERENCES` keys today; generalize via
+`profile_module.documented_rule_ids()`).
+
+### What requires new capture or measurement
+
+| Metric | Feasibility | Approach |
+|--------|-------------|----------|
+| **Files parsed (tier 1 denominator)** | **Doable — `-H` or `.d`** | Union of compiled TU paths and all includes the compiler reported for those compiles ([§Parsed file universe](#prof-report-parsed-files)). |
+| **Files with violations (tier 1 numerator)** | **Have today** | Distinct paths in `rollup.files` / `locations[]`. |
+| **Tier 1 ratio** | **Doable** | `files_with_violations_pct` = 100 × files_with_violations / files_parsed. |
+| **Translation units compiled** | **Doable — compile hook** | Optional companion stat; not the primary breadth %. |
+| **Source lines in violating files only** | **Doable — at report write** | `source_lines_v1` summed over violating paths — tier 2 denominator. |
+| **Unique violation lines in violating files** | **Have today** | `rollup.unique_violation_count` (same set as tier 2 numerator). |
+| **Tier 2 ratio** | **Doable** | `violation_line_pct_in_affected_files` = unique violation lines ÷ source lines in violating files. |
+| **Source lines (all compiled TUs)** | **Optional / secondary** | Sum `source_lines_v1` over compiled TUs — session-wide density; **not** the primary tier 2 metric. |
+| **Object file size as size proxy** | **Weak** — optional | Sum `.o` sizes in variant dir correlates loosely with code size but varies with debug info, LTO, platform — **not** recommended for papers; mention as fallback when sources unavailable. |
+| **Logical / PP LOC** | **Impractical v1** | Needs external tools or full preprocessor — out of scope. |
+
+### Recommended phasing
+
+| Phase | Deliverable | Depends on |
+|-------|-------------|------------|
+| **1 — Rule matrix + concentration** | Overview tab (partial): headline stats, `by_rule` % share, full `std::init` rule table with zeros, link to By rule / By file | #194 merged only |
+| **2 — Parsed-file denominators** | `-H` (or `.d`) include capture + compile TU hook + tier 1/2 metrics in Overview + `context.codebase` | Collector + Profiles-report-only `CXXFLAGS` |
+| **3 — Per-scope context** | Scope rows on Overview when multi-variant; optional scope-level `context` in nested model | Phase 2 |
+
+Ship **phase 1** quickly for paper drafts; phase 2 before claiming “X% of the codebase violated”
+with confidence.
+
+<a id="prof-report-loc-method"></a>
+
+#### Source line counting (`source_lines_v1`)
+
+**Default for phase 2 denominators:** a fast **lexical** line scan — not a C++ parser, not the
+preprocessor. Goal: a stable denominator for **“how much C++-ish source could have violated?”**
+— aligned with where Profiles diagnostics actually point (declarations, statements, initializers),
+not build scaffolding.
+
+**Counted (one per line, after trimming leading whitespace for classification only):**
+
+- Non-blank lines that are not wholly comment and not preprocessor directives
+- Lines with code **and** a trailing `//` comment (code portion counts as one line)
+
+**Excluded:**
+
+- Blank lines (empty or whitespace only)
+- Whole-line `//` comments
+- Lines inside `/* … */` block comments (multi-line state machine)
+- **Preprocessor directive lines** — after skipping strings/comments, the first token is `#`
+  (`#include`, `#define`, `#if` / `#ifdef` / `#ifndef`, `#else`, `#elif`, `#endif`, `#pragma`,
+  `#line`, …). These rarely carry Profiles violations; including them inflates the denominator
+  (especially include guards and header include stacks) and weakens “violations per 1k lines” /
+  “2 bad lines in 10 lines of code” intuition.
+- Lines that contain only `{` or `}` (optional refinement — reduces brace-only noise in dense
+  formatting; document if enabled as part of v1)
+
+**Scanner behaviour (single pass, no external tools):**
+
+1. Track `in_block_comment` across lines.
+2. On each line, skip string/char literal regions before looking for `//`, `/*`, or `#` so
+   `const char* s = "http://example.com";` and `"#include <fake>"` do not mis-classify.
+3. Classify `#` only when it starts a directive at line start (after whitespace) — not `#` in
+   the middle of code (`int n = 1 # 2` is exotic; still count if `#` is not first token).
+4. Support C++11 raw string prefixes `R"delim(… )delim"` at best effort; if ambiguous, prefer
+   **over-counting** to crashing.
+5. Do **not** strip `#if 0` / `#ifdef` dead branches — that requires a preprocessor; excluded
+   `#if` lines still disappear from the count, but dead *code* lines inside disabled blocks remain
+   (honest limit below).
+
+**Methodology id:** store `"loc_count": "source_lines_v1"` in `context.methodology` so JSON
+consumers and papers cite the exact rule. If the algorithm changes (e.g. brace-only exclusion,
+`#if 0` body stripping), bump to `source_lines_v2` rather than silently changing numbers.
+
+**Why not raw physical lines?** Blank and comment-heavy headers (license blocks, Doxygen) skew
+metrics downward; excluding comments and `#` lines matches violation locality better without
+calling cloc or Clang.
+
+**Why not smarter still?** Macro-expanded LOC or attributing `#include`d body lines needs
+preprocessor/frontend integration — impractical for a report collator at `sconstruct_end`.
+Optional future **`source_lines_v2`** could omit lines inside `#if 0` blocks when a lightweight
+PP pass is justified; not required for v1.
+
+**Testing:** fixture pairs under `tests/fixtures/profiles_loc/` — block comments, trailing
+comments, strings with `//`, blank lines, `#include` / include-guard blocks (excluded),
+`#define`, raw strings — golden expected counts.
+
+### JSON shape (additive to schema v1)
+
+Optional top-level **`context`** — omit when not computed (legacy regen); no schema version bump
+if field is optional.
+
+```json
+{
+  "context": {
+    "methodology": {
+      "loc_count": "source_lines_v1",
+      "loc_count_note": "Non-blank C++ lines; excludes //, block comments, and # directives (lexical; see plan)",
+      "parsed_files": "include_stack_h_v1",
+      "compile_units": "notify_progress_hook_v1"
+    },
+    "codebase": {
+      "files_parsed": 412,
+      "files_with_violations": 78,
+      "files_with_violations_pct": 18.9,
+      "translation_units_compiled": 240,
+      "unique_violation_lines": 312,
+      "source_lines_in_violating_files": 11800,
+      "violation_line_pct_in_affected_files": 2.6,
+      "violation_lines_per_1000_source_lines_affected": 26.4
+    },
+    "concentration": {
+      "top_rules": [
+        { "profile": "std::init", "rule_id": "ref_to_uninit", "total_references": 520, "pct_of_session_refs": 39.7 }
+      ]
+    },
+    "profiles": [
+      {
+        "profile": "std::init",
+        "documented_rule_count": 12,
+        "observed_rule_count": 8,
+        "rules": [
+          {
+            "rule_id": "ref_to_uninit",
+            "total_references": 520,
+            "unique_files": 34,
+            "unique_lines": 89,
+            "observed": true,
+            "doc_href": "…"
+          },
+          {
+            "rule_id": "uninit_read",
+            "total_references": 0,
+            "unique_files": 0,
+            "unique_lines": 0,
+            "observed": false,
+            "doc_href": "…"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**`summary`** remains the small CI-facing slice; agents can read `summary.by_rule` without
+walking `context.profiles[]`.
+
+### HTML / template sketch
+
+- New template fragment `cxx_profiles_overview.html`; include from `cxx_profiles_index.html` as
+  **first tab** (`#overview`), `show active` when `context` present.
+- Stat cards (Bootstrap grid): **tier 1** file violation % (`files_with_violations / files_parsed`)
+  plus absolute counts; **tier 2** violation line % in affected files; existing ref/rule totals.
+- **Full rule matrix** table per profile: columns rule id, references, unique files, unique lines,
+  % of session refs, doc link — sort by references desc, zeros visible (muted row).
+- Reuse existing partials / CSS from scope stat blocks (`prof-stat-value`, monospaced paths).
+
+Regen from JSON: rebuild Overview from `context` + `summary` + `metadata` only — no source tree
+required (aligns with anonymized sharing).
+
+### Trade-offs and honest limits
+
+| Topic | Trade-off |
+|-------|-----------|
+| **Partial builds** | `files_parsed` reflects only compiles that **ran** before abort — banner must stay prominent. |
+| **Tier 1** | **`files_with_violations / files_parsed`** — physical files (TUs + included headers), not TU-only. |
+| **Tier 2 scope** | Denominator is **violating files only** — concentration in hot files (headers + sources). |
+| **Include capture** | `-H` on report builds only; pair with **`--cxx-disable-error-limit`** for complete per-TU include logs; disable context capture → omit tier 1 % or show “not captured”. |
+| **Dependencies** | Violations under `_cuppa/_download/…` inflate “files affected”; optional **`context.include_dependencies`** boolean (default true) with subtotals for project-only paths when `report_root` / include roots allow classification. |
+| **Source line counting** | Lexical `source_lines_v1`: excludes blanks, comments, and `#` directives — denominator aligned with where violations attach; mis-counts rare string/comment edge cases; still no `#include` body attribution. |
+| **Zero-filled rules** | Tied to **documented** rule ids in cuppa classifiers, not every possible future Clang rule — `_unclassified` row when observed but unknown. |
+| **Multi-profile enforce** | Matrix repeats per profile; roll-up totals stay in `summary`. |
+| **Anonymization** | Replace path lists inside `context` if any are added later; **numeric** `context.codebase` and `context.profiles[]` counts survive anonymization unchanged. |
+| **Performance** | LOC scan at `sconstruct_end` reads each TU once — acceptable for typical projects; skip with `--cxx-profiles-report-context=off` if needed (open choice). |
+
+### API sketch
+
+| Piece | Location |
+|-------|----------|
+| Rule catalog | `documented_rule_ids(profile)` on each `profiles_report/profiles/*.py` module |
+| Context builder | `build_report_context(inventory, env, *, compiled_sources=None)` in `report_json.py` or `context_summary.py` |
+| TU collector | Compile hook records primary TU path per object build |
+| Include collector | Parse `-H` lines (or `.d` prereqs) in spawn processor → `record_parsed_file(scope, path)` into a **session set** (dedupe by normalised path; separate parser from diagnostics) |
+| LOC helper | `source_line_count(path, method='source_lines_v1') -> int` in `context_summary.py` |
+| Writer | `wrap_report_payload(…)` adds `context` when enabled |
+| CLI | Optional `--cxx-profiles-report-context=full|rules-only|off` (default `full` when flag lands) |
+
+### Testing (when implemented)
+
+| Layer | Cases |
+|-------|-------|
+| Unit | Phase 1: golden inventory → `context.profiles[].rules` includes zero rows for unobserved documented rules |
+| Unit | Phase 1: `concentration.top_rules` percentages sum ≤ 100; stable ordering |
+| Unit | Phase 2: mock `-H` stderr lines → `record_parsed_file` dedupes repeated paths across compiles |
+| Unit | Phase 2: `source_lines_v1` fixtures (comments, blanks, strings-with-//, block comments) |
+| Unit | Phase 2: missing file → omit from denominator + `methodology` note |
+| Unit | HTML: Overview tab renders with `context` only (no `locations`) |
+| Unit | Anonymize: `context.codebase` counts unchanged; no original path substrings in serialized JSON |
+| Integration | `std-init-violations` example → non-zero TU count matches compile count |
+| Docs | Antora: Overview tab / `context` JSON for papers and external summaries |
+
+### Relationship to other slices
+
+| Slice | Interaction |
+|-------|-------------|
+| **C (#194)** | Overview tab is new master-index UI; By rule / By file tabs unchanged |
+| **G (anonymize)** | Compute and store `context` before anonymizing paths; Overview regen works from JSON alone |
+| **E (method)** | Same context when report triggered via `env.CxxProfilesReport()` |
 
 **Example — partial multi-variant invocation** (`profile_output_3.txt`): one scope with
 `complete: false`, `variant_label: "dbg"`, no `rel` scope row (that variant never started).
@@ -542,7 +1220,8 @@ names; it assumes:
 3. Built-in report types (test, coverage, cxx-profiles) register under a shared
    **`cuppa.reports`** registry so artefact listing can mention them consistently.
 
-Until Phase 6 ships, hard-code `_artifacts/cxx-profiles/` as coverage does for `_artifacts/coverage/`.
+Until Phase 6 ships, default Profiles output is `{artifacts_root}/cxx-profiles/` (default
+`_artifacts/cxx-profiles/`), matching coverage’s conventional tree today.
 
 ## Built-in “reports” registration (sketch)
 
@@ -559,20 +1238,22 @@ Registry records: `kind`, default subdir, CLI flag, manifest kind string. Enable
 
 ## Work slices
 
-Slice **letters** (A–F) are shorthand in tables; **`prof-report-*` ids** are the stable names for
+Slice **letters** (A–H) are shorthand in tables; **`prof-report-*` ids** are the stable names for
 issues, PR titles, and ROADMAP cross-links (same pattern as `list-tc-*` in
 [`list-toolchains-verbose.md`](list-toolchains-verbose.md)).
 
 | Letter | Id | Deliverable | Notes |
 |--------|-----|-------------|-------|
-| **A** | `prof-report-parser` | `cuppa/cpp/cxx_profiles_report.py` — parse, normalise, classify; `ProfilesScope` type; `scripts/replay_profiles_capture.py` | Fixture strings from samples; scope-aware dedupe keys; Progress replay smoke |
+| **A** | `prof-report-parser` | `cuppa/cpp/cxx_profiles_report.py` — parse, normalise, classify; `ProfilesScope` type; `scripts/replay_profiles_capture.py`; `scripts/regenerate_profiles_report.py` (capture → HTML/JSON without rebuild) | Fixture strings from samples; scope-aware dedupe keys; Progress replay smoke |
 | **B** | `prof-report-collector` | Progress callback **and** per-action `env` → `SpawnedProcessor`; thread-safe session store | Includes former slice F; do not ship collector without spawn scope |
 | **C** | `prof-report-html` | Jinja templates + `CxxProfilesReportBuilder` at `sconstruct_end` | By rule / By file / Roll-up tabs; `link_style`; incomplete scope banner |
 | **D** | `prof-report-manifest` | `.cuppa-reports` schema v1; matched `--clean` / `--remove-builds` | `invocation_key`, `partial`, path union |
 | **E** | `prof-report-method` | `env.CxxProfilesReport()` + collate | Deferred past A–D if cycle is tight |
 | **F** | `prof-report-artefacts` | `artefact_roots` / `--set-artefacts-folder` when #135 lands | Supersedes manifest hack for declared trees |
+| **G** | `prof-report-anonymize` | Anonymize saved report JSON; shareable artefact + HTML regen without sources | After C; see [§Anonymized report sharing](#prof-report-anonymize) |
+| **H** | `prof-report-context-summary` | Overview tab + `context` JSON — violations vs codebase size, full rule matrix | After C; see [§Context summary](#prof-report-context-summary); phase 1 can ship before compile hook |
 
-Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** (slice A–D; **`prof-report-collector` must** include parallel spawn scope); E–F optional / blocked.
+Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** (slice A–D; **`prof-report-collector` must** include parallel spawn scope); E–F optional / blocked; **G–H** optional follow-ons after C (WG21 / sharing).
 
 **Tracking:** [#184](https://github.com/ja11sop/cuppa/issues/184) — one issue; land slices as **multiple PRs** (checklist on the issue; cite letter and/or `prof-report-*` id).
 
@@ -596,6 +1277,7 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 | Unit | JSON view models (by rule / by file / roll-up); link URI generation for `local` and `gitlab` |
 | Unit | Manifest read/write; `invocation_key` includes `options`; `partial` + `complete` flags; path union for delete |
 | Unit | Spawn scope derivation from mock action `env`; thread-safe collector merge |
+| Unit | Context summary: zero-filled rule matrix; TU/LOC denominators when compile hook present |
 | Integration | Profiles report under `--parallel` with two variants (or mocked interleaved spawns) |
 | Integration | `--clean` with matching flag removes manifest paths |
 | Docs | Antora page section under [`cxx-profiles.adoc`](../../docs/modules/ROOT/pages/cxx-profiles.adoc); CHANGELOG under open `[1.8.0]` |
@@ -612,14 +1294,23 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 
 | Slice | Status |
 |-------|--------|
-| Plan | **This document** (`prof-report-collector` spawn scope settled) |
+| Plan | **This document** |
 | A — `prof-report-parser` | **Done** — merged [#190](https://github.com/ja11sop/cuppa/pull/190) |
 | B — `prof-report-collector` | **Done** — merged [#191](https://github.com/ja11sop/cuppa/pull/191) |
 | B½ — `prof-report-parser-layers` | **Done** — merged [#192](https://github.com/ja11sop/cuppa/pull/192) |
-| C — `prof-report-html` | Not started |
-| D — `prof-report-manifest` | Not started |
+| B½-doc — `doc-folder-layout` | **Done** — merged [#193](https://github.com/ja11sop/cuppa/pull/193) |
+| C — `prof-report-html` | **In progress** — branch `prof-report-html` ([#194](https://github.com/ja11sop/cuppa/pull/194)): HTML index/scope/source pages, presentation polish, rule `doc_href` links, JSON regen (`--from-json`), **schema v1** envelope (`summary`, `locations[]`, `location_key`, extended `metadata`) |
+| D — `prof-report-manifest` | **Done** (core) — merged `be0c10b`; `--artifacts-root` in `e4d5318`; manifest + matched clean on same branch as C |
+| G — `prof-report-anonymize` | **Proposal** — anonymize saved JSON for sharing; regen HTML without sources ([§Anonymized report sharing](#prof-report-anonymize)); likely next PR after #194 |
+| H — `prof-report-context-summary` | **Proposal** — Overview tab + `context` JSON for violations vs codebase size ([§Context summary](#prof-report-context-summary)); phase 1 (rule matrix) shippable before compile-unit hook |
 | E — `prof-report-method` | Deferred |
-| F — `prof-report-artefacts` | Blocked on #135 |
+| F — `prof-report-artefacts` | Partial — `--artifacts-root` landed; full registry + `--remove-artifacts` blocked on #135 |
+
+**Branch `prof-report-html` (not yet merged):** presentation tables (distinct/unique counts,
+violation summary wording, monospaced breadcrumbs, dependency path display), reliable
+`write_profiles_reports_from_json` / `scripts/regenerate_profiles_report --from-json`, schema v1
+JSON (`REPORT_JSON_SCHEMA_VERSION = 1`), legacy bare-model load compatibility, 118+
+profiles-related unit tests green.
 
 ## Open questions (resolve in first PR)
 

@@ -14,18 +14,21 @@ from cuppa.cpp.profiles_report.constants import UNCLASSIFIED_RULE_ID
 PROFILE_NAME = 'std::init'
 
 # P4222 / ProfilesFramework.rst — order most-specific patterns first.
-_RULE_CLASSIFIERS = (
+# Third tuple field: summary display template ({name}/{type} → muted placeholders).
+_RULE_DEFINITIONS = (
     (
         re.compile(
             r"^storage already destroyed by a '…' function is destroyed again$"
         ),
         'double_destroy',
+        "storage already destroyed by a '[[now_uninit]]' function is destroyed again",
     ),
     (
         re.compile(
             r"^uninitialized storage is destroyed by a '…' function$"
         ),
         'destroy_uninit',
+        "uninitialized storage is destroyed by a '[[now_uninit]]' function",
     ),
     (
         re.compile(
@@ -33,6 +36,8 @@ _RULE_CLASSIFIERS = (
             r"under profile '…'; it is zero-initialized$"
         ),
         'static_marker',
+        "'[[uninit]]' cannot be applied to variable '{name}' with static storage "
+        "duration; it is zero-initialized",
     ),
     (
         re.compile(
@@ -40,6 +45,8 @@ _RULE_CLASSIFIERS = (
             r"under profile '…'; it is zero-initialized$"
         ),
         'static_marker',
+        "'[[uninit]]' cannot be applied to variable '{name}' with thread storage "
+        "duration; it is zero-initialized",
     ),
     (
         re.compile(
@@ -47,36 +54,43 @@ _RULE_CLASSIFIERS = (
             r"initialize the pointer \(for example to '…'\)$"
         ),
         'pointer_marker',
+        "'[[uninit]]' cannot be applied to a pointer; initialize the pointer "
+        "(for example to 'nullptr')",
     ),
     (
         re.compile(
             r"^'…' cannot be applied to a variable of union type$"
         ),
         'union_marker',
+        "'[[uninit]]' cannot be applied to a variable of union type",
     ),
     (
         re.compile(
             r"^'…' cannot be applied to a union member$"
         ),
         'union_marker',
+        "'[[uninit]]' cannot be applied to a union member",
     ),
     (
         re.compile(
             r"^'…' cannot be applied to a data member of union type$"
         ),
         'union_marker',
+        "'[[uninit]]' cannot be applied to a data member of union type",
     ),
     (
         re.compile(
             r"^variable '…' cannot be both '…' and have an initializer$"
         ),
         'uninit_with_initializer',
+        "variable '{name}' cannot be both '[[uninit]]' and have an initializer",
     ),
     (
         re.compile(
             r"^member '…' cannot be both '…' and have an initializer$"
         ),
         'uninit_with_initializer',
+        "member '{name}' cannot be both '[[uninit]]' and have an initializer",
     ),
     (
         re.compile(
@@ -84,6 +98,8 @@ _RULE_CLASSIFIERS = (
             r"default-initialization of its type '…' does not leave it uninitialized$"
         ),
         'uninit_with_initializer',
+        "variable '{name}' cannot be marked '[[uninit]]'; default-initialization of "
+        "its type '{type}' does not leave it uninitialized",
     ),
     (
         re.compile(
@@ -91,6 +107,8 @@ _RULE_CLASSIFIERS = (
             r"default-initialization of its type '…' does not leave it uninitialized$"
         ),
         'uninit_with_initializer',
+        "member '{name}' cannot be marked '[[uninit]]'; default-initialization of "
+        "its type '{type}' does not leave it uninitialized",
     ),
     (
         re.compile(
@@ -98,6 +116,8 @@ _RULE_CLASSIFIERS = (
             r"initialize the whole object$"
         ),
         'uninit_write',
+        "writing a member of an '[[uninit]]' object does not initialize it; "
+        "initialize the whole object",
     ),
     (
         re.compile(
@@ -105,6 +125,8 @@ _RULE_CLASSIFIERS = (
             r"initialize the whole object$"
         ),
         'uninit_write',
+        "writing an element of an '[[uninit]]' object does not initialize it; "
+        "initialize the whole object",
     ),
     (
         re.compile(
@@ -112,6 +134,9 @@ _RULE_CLASSIFIERS = (
             r"reference does not initialize it under profile '…'; initialize the whole object$"
         ),
         'uninit_write',
+        "writing a member of uninitialized storage reached through a "
+        "'[[ref_to_uninit]]' pointer or reference does not initialize it; "
+        "initialize the whole object",
     ),
     (
         re.compile(
@@ -119,98 +144,119 @@ _RULE_CLASSIFIERS = (
             r"reference does not initialize it under profile '…'; initialize the whole object$"
         ),
         'uninit_write',
+        "writing an element of uninitialized storage reached through a "
+        "'[[ref_to_uninit]]' pointer or reference does not initialize it; "
+        "initialize the whole object",
     ),
     (
         re.compile(
             r"^read through a '…' pointer or reference accesses uninitialized memory$"
         ),
         'uninit_read',
+        "read through a '[[ref_to_uninit]]' pointer or reference accesses "
+        "uninitialized memory",
     ),
     (
         re.compile(
             r"^read of a subobject of an '…' object accesses uninitialized memory$"
         ),
         'uninit_read',
+        "read of a subobject of an '[[uninit]]' object accesses uninitialized memory",
     ),
     (
         re.compile(
             r"^variable '…' is read before initialization$"
         ),
         'uninit_read',
+        "variable '{name}' is read before initialization",
     ),
     (
         re.compile(
             r"^member '…' is read before initialization$"
         ),
         'uninit_read',
+        "member '{name}' is read before initialization",
     ),
     (
         re.compile(
             r"^pointer marked '…' must refer to uninitialized memory$"
         ),
         'ref_to_uninit',
+        "pointer marked '[[ref_to_uninit]]' must refer to uninitialized memory",
     ),
     (
         re.compile(
             r"^reference marked '…' must refer to uninitialized memory$"
         ),
         'ref_to_uninit',
+        "reference marked '[[ref_to_uninit]]' must refer to uninitialized memory",
     ),
     (
         re.compile(
             r"^pointer to uninitialized memory must be marked '…'$"
         ),
         'ref_to_uninit',
+        "pointer to uninitialized memory must be marked '[[ref_to_uninit]]'",
     ),
     (
         re.compile(
             r"^reference to uninitialized memory must be marked '…'$"
         ),
         'ref_to_uninit',
+        "reference to uninitialized memory must be marked '[[ref_to_uninit]]'",
     ),
     (
         re.compile(
             r"^constructor does not initialize base class '…'$"
         ),
         'ctor_uninit_member',
+        "constructor does not initialize base class '{name}'",
     ),
     (
         re.compile(
             r"^constructor does not initialize member '…'$"
         ),
         'ctor_uninit_member',
+        "constructor does not initialize member '{name}'",
     ),
     (
         re.compile(
             r"^constructor does not initialize any member of the anonymous union$"
         ),
         'ctor_uninit_member',
+        "constructor does not initialize any member of the anonymous union",
     ),
     (
         re.compile(
             r"^non-local variable '…' requires constant initialization$"
         ),
         'static_runtime_init',
+        "non-local variable '{name}' requires constant initialization",
     ),
     (
         re.compile(
             r"^variable '…' of union type must be initialized$"
         ),
         'uninit_decl',
+        "variable '{name}' of union type must be initialized",
     ),
     (
         re.compile(
             r"^anonymous union must be initialized; give one member a default member initializer$"
         ),
         'uninit_decl',
+        "anonymous union must be initialized; give one member a default member initializer",
     ),
     (
         re.compile(
             r"^variable '…' must be initialized or marked '…'$"
         ),
         'uninit_decl',
+        "variable '{name}' must be initialized or marked '[[uninit]]'",
     ),
 )
+
+_RULE_CLASSIFIERS = _RULE_DEFINITIONS
 
 # Documented rules whose example patterns are not yet emitted by every Profiles Clang snapshot.
 DOCUMENTED_RULE_IDS_AWAITING_LIVE_CAPTURE = (
@@ -269,10 +315,46 @@ RULE_DOC_REFERENCES = {
     },
 }
 
+CUPPA_STD_INIT_DOCS_BASE = (
+    'https://ja11sop.github.io/cuppa/cuppa/cxx-profiles/std-init'
+)
+
+# Antora page slug per rule id (see docs/.../cxx-profiles/std-init.adoc).
+RULE_DOC_PAGES = {
+    'uninit_decl': 'uninit-decl',
+    'uninit_read': 'uninit-read',
+    'uninit_write': 'uninit-write',
+    'ref_to_uninit': 'ref-to-uninit',
+    'destroy_uninit': 'destroy',
+    'double_destroy': 'destroy',
+    'ctor_uninit_member': 'constructors',
+    'static_runtime_init': 'static-init',
+    'uninit_with_initializer': 'markers',
+    'pointer_marker': 'markers',
+    'union_marker': 'markers',
+    'static_marker': 'markers',
+}
+
+
+def rule_doc_href( rule_id ):
+    """Return the published cuppa docs URL for a ``std::init`` rule, if known."""
+    page = RULE_DOC_PAGES.get( rule_id )
+    if not page:
+        return None
+    return '{}/{}.html'.format( CUPPA_STD_INIT_DOCS_BASE, page )
+
+
+def summary_display_template( normalised_message ):
+    """Return the rule summary display template for a normalised message, if known."""
+    for pattern, _rule_id, display in _RULE_DEFINITIONS:
+        if pattern.match( normalised_message ):
+            return display
+    return None
+
 
 def classify( normalised_message ):
     """Map a normalised ``std::init`` diagnostic message to a rule id."""
-    for pattern, rule_id in _RULE_CLASSIFIERS:
+    for pattern, rule_id, _display in _RULE_DEFINITIONS:
         if pattern.match( normalised_message ):
             return rule_id
     return UNCLASSIFIED_RULE_ID

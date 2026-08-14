@@ -1,0 +1,334 @@
+<style>
+  .prof-mono,
+  .prof-summary-table code,
+  .prof-scopes-table .prof-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: inherit;
+    color: inherit;
+    background: transparent;
+    padding: 0;
+  }
+  .prof-breadcrumb {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.875rem;
+    background: transparent;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .prof-summary-detail {
+    font-size: 0.8125rem;
+    color: inherit;
+    vertical-align: middle;
+  }
+  .prof-summary-table,
+  .prof-scopes-table,
+  table.prof-rules-table,
+  table.prof-files-table {
+    table-layout: auto;
+    width: 100%;
+  }
+  table.prof-summary-table th,
+  table.prof-summary-table td,
+  table.prof-scopes-table th,
+  table.prof-scopes-table td {
+    padding: 0.55rem 1.1rem;
+  }
+  table.prof-summary-table thead th,
+  table.prof-scopes-table thead th {
+    background-color: #e2e3e5;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    vertical-align: bottom;
+    color: inherit;
+    border-bottom: 1px solid #dee2e6;
+    border-top: none;
+  }
+  table.prof-summary-table tbody td,
+  table.prof-scopes-table tbody td {
+    font-size: 0.8125rem;
+    vertical-align: middle;
+  }
+  .prof-file-row-striped > td,
+  .prof-rule-row.prof-file-row-striped > td {
+    background-color: rgba(27, 31, 35, 0.03);
+  }
+  .prof-rule-file-line {
+    display: block;
+    white-space: nowrap;
+  }
+  .prof-rule-variant-line {
+    display: block;
+    white-space: nowrap;
+  }
+  .prof-rule-variant-line--wrap {
+    white-space: normal;
+    word-break: break-word;
+  }
+  .prof-distinct-unique-distinct {
+    color: #6a737d;
+    font-weight: 400;
+  }
+  .prof-distinct-unique-unique {
+    font-weight: 700;
+  }
+  .prof-file-prefix {
+    display: block;
+    color: #6a737d;
+  }
+  .prof-file-local-path {
+    display: block;
+  }
+  .prof-file-include-prefix {
+    color: #6a737d;
+  }
+  .prof-file-include-path {
+    font-weight: 600;
+  }
+  .prof-file-suffix {
+    font-weight: 600;
+  }
+  a.prof-file-link {
+    color: inherit;
+    text-decoration: none;
+  }
+  a.prof-file-link:hover,
+  a.prof-file-link:focus {
+    color: inherit;
+    text-decoration: none;
+  }
+  a.prof-file-link .prof-file-include-path,
+  a.prof-file-link .prof-file-suffix {
+    color: #007bff;
+  }
+  a.prof-file-link:hover .prof-file-include-path,
+  a.prof-file-link:focus .prof-file-include-path,
+  a.prof-file-link:hover .prof-file-suffix,
+  a.prof-file-link:focus .prof-file-suffix {
+    color: #0056b3;
+    text-decoration: none;
+  }
+  a.prof-file-link:hover .prof-file-prefix,
+  a.prof-file-link:focus .prof-file-prefix,
+  a.prof-file-link:hover .prof-file-include-prefix,
+  a.prof-file-link:focus .prof-file-include-prefix,
+  a.prof-file-link:hover .prof-file-inline-muted,
+  a.prof-file-link:focus .prof-file-inline-muted {
+    color: #495057;
+  }
+  a.card-link .prof-variant-tail {
+    color: #6a737d;
+    font-weight: 400;
+  }
+  a.card-link:hover .prof-variant-tail,
+  a.card-link:focus .prof-variant-tail {
+    color: #495057;
+  }
+  .prof-rule-profile {
+    color: #6a737d;
+  }
+  .prof-rule-id {
+    font-weight: 600;
+  }
+  .prof-file-path-oneline {
+    white-space: nowrap;
+  }
+  .prof-file-inline-muted {
+    color: #6a737d;
+  }
+  .prof-file-path-oneline .prof-file-suffix {
+    font-weight: 600;
+  }
+  .prof-rule-detail-table {
+    margin-top: 0.25rem;
+  }
+  a.prof-violating-file-link {
+    color: inherit;
+    text-decoration: none;
+    font-weight: 400;
+  }
+  a.prof-violating-file-link .prof-violating-file-count {
+    color: #007bff;
+    font-weight: 600;
+  }
+  a.prof-violating-file-link:hover,
+  a.prof-violating-file-link:focus {
+    color: inherit;
+    text-decoration: none;
+  }
+  a.prof-violating-file-link:hover .prof-violating-file-count,
+  a.prof-violating-file-link:focus .prof-violating-file-count {
+    color: #0056b3;
+  }
+  a.prof-violated-rule-link {
+    color: inherit;
+    text-decoration: none;
+    font-weight: 400;
+  }
+  a.prof-violated-rule-link .prof-violated-rule-count {
+    color: #007bff;
+    font-weight: 600;
+  }
+  a.prof-violated-rule-link:hover,
+  a.prof-violated-rule-link:focus {
+    color: inherit;
+    text-decoration: none;
+  }
+  a.prof-violated-rule-link:hover .prof-violated-rule-count,
+  a.prof-violated-rule-link:focus .prof-violated-rule-count {
+    color: #0056b3;
+  }
+  .prof-file-detail-table {
+    margin-top: 0.25rem;
+  }
+  .prof-metric-heading {
+    display: inline-block;
+    line-height: 1.2;
+    white-space: normal;
+  }
+  .prof-summary-col-rule {
+    width: 1px;
+    white-space: nowrap;
+  }
+  .prof-summary-col-metric {
+    width: 1px;
+    white-space: nowrap;
+    text-align: center;
+  }
+  .prof-summary-col-message {
+    width: 70%;
+    white-space: normal;
+    word-break: break-word;
+  }
+  .prof-summary-col-violating-files,
+  .prof-summary-col-violated-rules {
+    width: 30%;
+    white-space: normal;
+    word-break: break-word;
+  }
+  .prof-summary-col-violation-message {
+    width: 70%;
+    white-space: normal;
+    word-break: break-word;
+  }
+  .prof-summary-col-index {
+    width: 1px;
+    white-space: nowrap;
+    text-align: center;
+  }
+  .prof-summary-col-detail {
+    width: 1px;
+    white-space: nowrap;
+    text-align: center;
+  }
+  col.prof-summary-col-detail-col,
+  col.prof-summary-col-rule-col,
+  col.prof-summary-col-metric-col,
+  col.prof-summary-col-index-col {
+    width: 1px;
+  }
+  col.prof-summary-col-violating-files-col,
+  col.prof-summary-col-violated-rules-col {
+    width: 30%;
+  }
+  col.prof-summary-col-message-col,
+  col.prof-summary-col-violation-message-col {
+    width: 70%;
+  }
+  .prof-vcs-provenance {
+    font-size: 0.875rem;
+  }
+  .prof-vcs-meta {
+    white-space: nowrap;
+  }
+  .prof-vcs-icon {
+    font-size: 0.75rem;
+    margin-right: 0.2rem;
+    opacity: 0.75;
+  }
+  .prof-scopes-col-rules-col {
+    width: 100%;
+  }
+  table.prof-scopes-table thead th.prof-scopes-col-sconscript {
+    white-space: normal;
+    width: 1%;
+  }
+  table.prof-scopes-table thead th.prof-scopes-col-toolchain,
+  table.prof-scopes-table thead th.prof-scopes-col-metric,
+  table.prof-scopes-table thead th.prof-scopes-col-profiles {
+    width: 1%;
+    white-space: nowrap;
+  }
+  table.prof-scopes-table thead th.prof-scopes-col-rules {
+    width: 100%;
+  }
+  .prof-scopes-group-row td {
+    background-color: #f8f9fa;
+  }
+  .prof-scopes-group-row td.prof-scopes-col-sconscript {
+    width: 1px;
+    max-width: 0;
+    overflow: visible;
+    white-space: nowrap;
+    padding-right: 0;
+  }
+  .prof-scopes-group-row td:not(.prof-scopes-col-sconscript) {
+    width: 1px;
+    max-width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    overflow: visible;
+  }
+  .prof-scopes-variant-row td.prof-scopes-col-sconscript,
+  .prof-scopes-variant-row td.prof-scopes-col-toolchain,
+  .prof-scopes-variant-row td.prof-scopes-col-metric,
+  .prof-scopes-variant-row td.prof-scopes-col-profiles {
+    width: 1%;
+  }
+  .prof-scopes-variant-row td.prof-scopes-variant-indent {
+    padding-left: 2.1rem;
+  }
+  .prof-scopes-col-sconscript {
+    text-align: left;
+    white-space: nowrap;
+  }
+  .prof-scopes-col-toolchain {
+    text-align: left;
+    white-space: nowrap;
+  }
+  .prof-scopes-col-metric {
+    text-align: center;
+    white-space: nowrap;
+  }
+  .prof-scopes-col-profiles {
+    text-align: left;
+    white-space: normal;
+  }
+  .prof-scopes-col-rules {
+    text-align: left;
+    white-space: normal;
+    word-break: break-word;
+    width: 100%;
+  }
+  .prof-scopes-profile-line {
+    display: block;
+    white-space: nowrap;
+  }
+  .prof-scopes-rule-line {
+    display: block;
+    white-space: normal;
+    word-break: break-word;
+  }
+  .prof-message-name {
+    color: #6a737d;
+    font-weight: 400;
+  }
+  /* cuppa console warning / Fore.MAGENTA — suppress-attribute literals only */
+  .prof-attr-literal {
+    color: #c026d3;
+    font-weight: 600;
+  }
+  .prof-violation-message {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: inherit;
+  }
+</style>

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.2.0/css/all.css" integrity="sha384-hWVjflwFxL6sNzntih27bfxkr27PmbbK/iSvJ+a4+0owXq79v+lsFkW54bOGbiDQ" crossorigin="anonymous">
+    <title>C++ Profiles — {{ scope.scope_path_suffix }}</title>
+    {% include 'cxx_profiles_table_styles.html' %}
+    <style>
+      .prof-file-prefix {
+        display: block;
+        color: #6a737d;
+      }
+      .prof-file-suffix {
+        display: block;
+        font-weight: 600;
+      }
+      .prof-file-link:hover {
+        text-decoration: none;
+      }
+      .prof-detail-toggle[aria-expanded="true"] .prof-detail-icon--show {
+        display: none;
+      }
+      .prof-detail-toggle[aria-expanded="false"] .prof-detail-icon--hide {
+        display: none;
+      }
+      .prof-session-summary {
+        font-size: 1rem;
+        font-weight: 400;
+      }
+      .prof-stat-value {
+        font-weight: 700;
+      }
+      .prof-stat-value--alert {
+        color: #dc3545;
+      }
+      .prof-stat-value--ok {
+        color: #28a745;
+      }
+      .prof-scope-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+      }
+      .prof-report-project-name {
+        color: #6a737d;
+        font-weight: 700;
+      }
+      .prof-profile-scope-heading {
+        font-size: 1rem;
+        font-weight: 400;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container-fluid px-4">
+      <div class="card mt-4">
+        <ul class="list-group">
+          <li class="list-group-item py-2">
+            {% include 'cxx_profiles_breadcrumb.html' %}
+          </li>
+          <li class="list-group-item text-center pt-4">
+            <h3 class="mb-2">C++ Profiles Reports for</h3>
+            <div class="prof-scope-title text-monospace mb-0">
+              <span class="prof-report-project-name">{{ report_project }}</span>/{{ scope.scope_path_suffix }}
+            </div>
+            {% set stat_tone = 'alert' if scope.unique_line_count > 0 else 'ok' %}
+            <h6 class="prof-session-summary text-secondary mb-0 mt-2">
+              <span class="prof-stat-value prof-stat-value--{{ stat_tone }}">{{ scope.unique_line_count }}</span>
+              {{ 'violation' if scope.unique_line_count == 1 else 'violations' }} of
+              <span class="prof-stat-value">{{ scope.unique_rule_count }}</span>
+              distinct {{ 'rule' if scope.unique_rule_count == 1 else 'rules' }} through
+              <span class="prof-stat-value">{{ scope.total_references }}</span>
+              {{ 'reference' if scope.total_references == 1 else 'references' }}
+            </h6>
+          </li>
+
+          {% if incomplete_scopes and scope.variant_dir in incomplete_scopes %}
+          <li class="list-group-item py-2">
+            <div class="alert alert-warning mb-0" role="alert">This scope did not finish cleanly.</div>
+          </li>
+          {% endif %}
+
+          {% for profile in scope.profiles %}
+          <li class="list-group-item pb-0">
+            <h5 class="prof-profile-scope-heading text-monospace mb-2">
+              {{ profile.profile }} —
+              <span class="font-weight-bold">{{ scope.variant_label }}</span>{% if scope.variant_display_tail %}<span class="prof-variant-tail">/{{ scope.variant_display_tail }}</span>{% endif %} —
+              {{ scope.toolchain }}
+            </h5>
+            <ul class="nav nav-tabs" role="tablist">
+              <li class="nav-item">
+                <a class="nav-link active" data-toggle="tab" href="#rules-{{ loop.index }}" role="tab">Violations By-Rule</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" data-toggle="tab" href="#files-{{ loop.index }}" role="tab">Violations By-File</a>
+              </li>
+            </ul>
+          </li>
+          <li class="list-group-item border-top-0 pt-0">
+            <div class="tab-content pt-3 mb-2">
+              <div class="tab-pane fade show active" id="rules-{{ loop.index }}" role="tabpanel">
+                {% with rules=profile.rules, id_prefix='scope-' ~ loop.index ~ '-rule', rule_profile=profile.profile %}
+                {% include 'cxx_profiles_partial_rules.html' %}
+                {% endwith %}
+              </div>
+              <div class="tab-pane fade" id="files-{{ loop.index }}" role="tabpanel">
+                {% with files=profile.files, id_prefix='scope-' ~ loop.index ~ '-file', file_profile=profile.profile %}
+                {% include 'cxx_profiles_partial_files.html' %}
+                {% endwith %}
+              </div>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+  </body>
+</html>

@@ -38,14 +38,16 @@ class ProfilesReportSession(object):
     def on_progress( self, progress, sconscript, variant, env, target, source ):
         self._variant_completion.note_progress( progress, variant )
         if progress == 'sconstruct_end':
-            self._emit_session_summary()
+            self._emit_session_summary( env )
 
-    def _emit_session_summary( self ):
+    def _emit_session_summary( self, env ):
+        from cuppa.cpp.profiles_report.report_html import write_profiles_reports
+        from cuppa.reports.manifest import append_cxx_profiles_entry
+
         with self._lock:
             if self._inventory.total_references() == 0:
                 logger.info(
-                    "C++ Profiles report: no violations captured "
-                    "(see --cxx-profiles-report; HTML output lands in a later slice)"
+                    "C++ Profiles report: no violations captured"
                 )
                 return
             incomplete = self._variant_completion.incomplete_variants()
@@ -60,6 +62,20 @@ class ProfilesReportSession(object):
                     format_capture_summary( self._inventory )
                 )
             )
+            result = write_profiles_reports(
+                self._inventory,
+                env,
+                incomplete_scopes=incomplete,
+            )
+            if result:
+                append_cxx_profiles_entry(
+                    env,
+                    result[ 'model' ],
+                    result[ 'session_paths' ],
+                    result[ 'scope_paths' ],
+                    incomplete_scopes=incomplete,
+                    partial=bool( incomplete ),
+                )
 
 
 class ProfilesDiagnosticCollector(object):

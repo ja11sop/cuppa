@@ -7,6 +7,7 @@
 | Purpose | Default | Override
 
 | Build output | `_build` | `--build-root`
+| Generated reports and other artefacts outside the build tree | `_artifacts` | `--artifacts-root`
 | Dependency trees, ready to build against | `~/.cuppa/dependencies` | `--dependencies-root`
 | Downloaded archives | `~/.cuppa/downloads` | `--downloads-root`
 |===

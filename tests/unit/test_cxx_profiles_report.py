@@ -211,7 +211,7 @@ def test_parse_variant_scope_fields():
         '_build/widget/clang24_profiles/dbg/x86_64/cxx2c',
     ) == ( 'clang24_profiles', 'dbg' )
     assert parse_variant_scope_fields(
-        '_build/test/matching_engine/clang24_profiles_2026_08_07_27/dbg/x86_64/cxx2c',
+        '_build/test/sample_app/clang24_profiles_2026_08_07_27/dbg/x86_64/cxx2c',
     ) == ( 'clang24_profiles_2026_08_07_27', 'dbg' )
 
 
@@ -253,6 +253,116 @@ def test_profiles_scope_from_construction_env_matches_notify_progress_variant():
 )
 def test_parse_progress_line( line, expected ):
     assert parse_progress_line( line ) == expected
+
+
+_COLOURED_PROGRESS = (
+    'Progress( \x1b[33mBegin\x1b[0m sconscript: '
+    '[\x1b[33m./widget/sconscript\x1b[0m] )'
+)
+
+_RELATIVE_COLOURED_DIAG = (
+    '\x1b[1m\x1b[31m../../../../_cuppa/_download/example.org/widget/nonce.hpp'
+    '\x1b[0m\x1b[0m\x1b[1m\x1b[31m:35:39\x1b[0m\x1b[0m\x1b[31m: error: '
+    "variable 'RandomValues' must be initialized or marked '[[uninit]]' "
+    "under profile 'std::init'\x1b[0m"
+)
+
+
+def test_parse_progress_line_strips_ansi_colour_via_replay():
+    lines = [
+        _COLOURED_PROGRESS,
+        'Progress( Starting variant: [_build/widget/clang24_profiles/dbg/x86_64/cxx2c] )',
+        _RELATIVE_COLOURED_DIAG,
+    ]
+    inventory, unscoped = replay_profiles_capture( lines )
+    assert unscoped == 0
+    assert inventory.total_references() == 1
+    assert inventory.locations()[ 0 ].path.endswith( 'widget/nonce.hpp' )
+
+
+def test_parse_profiles_diagnostic_does_not_strip_ansi_on_hot_path():
+    assert parse_profiles_diagnostic( _RELATIVE_COLOURED_DIAG ) is None
+
+
+_INTERLEAVED_PARALLEL_LINE = (
+    '   63 |                                 ? ( ( call_process )( Processor, '
+    'Message.template as<MessageTs>(), NextBus ), tr'
+    '/home/user/_cuppa/_download/git_ssh_git@gitlab.example__org_common_types@master'
+    '/include/widget/common_types/numeric.hpp:99:26: error: non-local variable '
+    "'numeric_decimal_places_22' requires constant initialization under profile 'std::init'"
+)
+
+
+def test_parse_profiles_diagnostic_extracts_embedded_location_from_interleaved_line():
+    assert parse_profiles_diagnostic( _INTERLEAVED_PARALLEL_LINE ) is None
+    diagnostic = parse_profiles_diagnostic(
+        _INTERLEAVED_PARALLEL_LINE,
+        from_capture=True,
+    )
+    assert diagnostic is not None
+    assert diagnostic.path.endswith( 'widget/common_types/numeric.hpp' )
+    assert diagnostic.line == 99
+    assert diagnostic.column == 26
+    assert ' | ' not in diagnostic.path
+
+
+def test_replay_profiles_capture_strips_ansi_colour():
+    lines = [
+        _COLOURED_PROGRESS,
+        'Progress( Starting variant: [_build/widget/clang24_profiles/dbg/x86_64/cxx2c] )',
+        _RELATIVE_COLOURED_DIAG,
+    ]
+    inventory, unscoped = replay_profiles_capture( lines )
+    assert unscoped == 0
+    assert inventory.total_references() == 1
+
+
+_PARALLEL_REPLAY_LINES = [
+    'Progress( Begin sconscript: [./orders/sconscript] )',
+    'Progress( Starting variant: [_build/orders/tool/dbg/x86_64/cxx2c] )',
+    (
+        '../../../../include/widget/dbg.hpp:1:2: error: variable '
+        "'X' must be initialized or marked '[[uninit]]' under profile 'std::init'"
+    ),
+    'Progress( Starting variant: [_build/orders/tool/rel/x86_64/cxx2c] )',
+    (
+        '../../../../include/widget/rel.hpp:1:2: error: variable '
+        "'X' must be initialized or marked '[[uninit]]' under profile 'std::init'"
+    ),
+    'Progress( Finished variant: [_build/orders/tool/dbg/x86_64/cxx2c] )',
+    'Progress( Finished variant: [_build/orders/tool/rel/x86_64/cxx2c] )',
+]
+
+
+def test_replay_profiles_capture_tracks_parallel_variants():
+    inventory, unscoped = replay_profiles_capture( _PARALLEL_REPLAY_LINES )
+    assert unscoped == 0
+    assert inventory.total_references() == 2
+    variant_labels = {
+        location.scope.variant_label for location in inventory.locations()
+    }
+    assert variant_labels == { 'dbg', 'rel' }
+
+
+def test_replay_profiles_capture_skips_late_unscoped_duplicate_lines():
+    lines = [
+        'Progress( Begin sconscript: [./orders/sconscript] )',
+        'Progress( Starting variant: [_build/orders/tool/rel/x86_64/cxx2c] )',
+        (
+            '../../../../include/widget/nonce.hpp:1:2: error: variable '
+            "'X' must be initialized or marked '[[uninit]]' under profile 'std::init'"
+        ),
+        'Progress( Finished variant: [_build/orders/tool/rel/x86_64/cxx2c] )',
+        'Progress( End sconscript: [./orders/sconscript] )',
+        (
+            '../../../../include/widget/nonce.hpp:1:2: error: variable '
+            "'X' must be initialized or marked '[[uninit]]' under profile 'std::init'"
+        ),
+    ]
+    inventory, unscoped = replay_profiles_capture( lines )
+    assert unscoped == 0
+    assert inventory.total_references() == 1
+    assert inventory.locations()[ 0 ].scope.sconscript == './orders/sconscript'
 
 
 def test_replay_profiles_capture_builds_scope_from_progress_markers():

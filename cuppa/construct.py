@@ -245,6 +245,7 @@ class Construct(object):
                 'downloads_root',
                 'thirdparty',
                 'build_root',
+                'artifacts_root',
                 'default_dependencies',
                 'BUILD_WITH',
                 'dependencies',
@@ -908,7 +909,7 @@ class Construct(object):
             if not projects or not cuppa_env['run_from_launch_dir']:
                 sub_sconscripts = self.get_sub_sconscripts(
                         cuppa_env['launch_dir'],
-                        [ cuppa_env['build_root'], cuppa_env['dependencies_root'] ]
+                        [ cuppa_env['build_root'], cuppa_env['artifacts_root'], cuppa_env['dependencies_root'] ]
                 )
                 if sub_sconscripts:
                     projects = sub_sconscripts
@@ -932,7 +933,7 @@ class Construct(object):
                         if os.path.isdir( path ):
                             sub_sconscripts = self.get_sub_sconscripts(
                                 project,
-                                [ cuppa_env['build_root'], cuppa_env['dependencies_root'] ]
+                                [ cuppa_env['build_root'], cuppa_env['artifacts_root'], cuppa_env['dependencies_root'] ]
                             )
                             if sub_sconscripts:
                                 logger.info( "Reading project folder [{}] and using sub-sconscripts [{}]".format(
@@ -945,7 +946,7 @@ class Construct(object):
                 elif os.path.exists( project ) and os.path.isdir( project ):
                     sub_sconscripts = self.get_sub_sconscripts(
                             project,
-                            [ cuppa_env['build_root'], cuppa_env['dependencies_root'] ]
+                            [ cuppa_env['build_root'], cuppa_env['artifacts_root'], cuppa_env['dependencies_root'] ]
                     )
                     if sub_sconscripts:
                         logger.info( "Reading project folder [{}] and using sub-sconscripts [{}]".format(
@@ -1000,6 +1001,7 @@ class Construct(object):
             sconscript_env['sconscript_file'] = sconscript_file
 
             build_root = sconscript_env['build_root']
+            artifacts_root = sconscript_env['artifacts_root']
             working_folder = 'working'
 
             sconscript_env = sconscript_env.Clone()
@@ -1052,6 +1054,8 @@ class Construct(object):
                 'env'                     : sconscript_env,
                 'sconscript_env'          : sconscript_env,
                 'build_root'              : build_root,
+                'artifacts_root'          : artifacts_root,
+                'abs_artifacts_root'      : sconscript_env['abs_artifacts_root'],
                 'build_dir'               : sconscript_env['build_dir'],
                 'abs_build_dir'           : sconscript_env['abs_build_dir'],
                 'final_dir'               : sconscript_env['final_dir'],

@@ -20,16 +20,39 @@ class CxxProfilesReportMethod:
         add_option(
             '--cxx-profiles-report',
             dest='cxx_profiles_report',
-            action='store_true',
-            help='Capture Profiles diagnostics during the build for a violation '
-                 'report (requires --cxx-profiles or --cxx-profiles-enforce=; '
-                 'HTML output is a follow-on slice)',
+            nargs='?',
+            const=True,
+            default=False,
+            help='Capture Profiles diagnostics and emit HTML + JSON under '
+                 '<artifacts-root>/cxx-profiles/ (default _artifacts/cxx-profiles/; '
+                 'requires --cxx-profiles or --cxx-profiles-enforce=; optional '
+                 'directory path after =)',
+        )
+        add_option(
+            '--cxx-profiles-report-root',
+            dest='cxx_profiles_report_root',
+            default=None,
+            help='Rebase project-owned source paths in Profiles reports '
+                 '(default: sconstruct directory)',
+        )
+        add_option(
+            '--cxx-profiles-report-link-style',
+            dest='cxx_profiles_report_link_style',
+            default=None,
+            choices=[ 'local', 'gitlab', 'github' ],
+            help='Profiles-only source link override (overrides --reports-link-style for '
+                 'Profiles HTML; default: --reports-link-style or local)',
         )
 
     @classmethod
     def get_options( cls, env ):
-        enabled = bool( env.get_option( 'cxx_profiles_report' ) )
+        raw = env.get_option( 'cxx_profiles_report' )
+        enabled = False if raw in ( None, False ) else raw
         env[ 'cxx_profiles_report' ] = enabled
+        env[ 'cxx_profiles_report_root' ] = env.get_option( 'cxx_profiles_report_root' )
+        link_style = env.get_option( 'cxx_profiles_report_link_style' )
+        if link_style:
+            env[ 'cxx_profiles_report_link_style' ] = link_style
         if not enabled:
             return
 
@@ -50,6 +73,9 @@ class CxxProfilesReportMethod:
                 )
             )
             raise SCons.Errors.StopError( message )
+
+        from cuppa.reports.manifest import maybe_remove_cxx_profiles_on_clean
+        maybe_remove_cxx_profiles_on_clean( env )
 
         ProfilesDiagnosticCollector.activate()
         logger.debug( "C++ Profiles violation capture enabled" )

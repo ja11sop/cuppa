@@ -9,10 +9,10 @@
 
 """Where cuppa keeps what it builds, retrieves, and downloads.
 
-Three roots, decided in one place. `build_root` is the project's own output and stays
-project-relative. `dependencies_root` holds ready-to-use dependency trees and `downloads_root`
-holds the archives they came from; both are shared between projects by default and both derive
-from `storage_root` unless set individually.
+Four project-local / shared roots, decided in one place. `build_root` and
+`artifacts_root` stay project-relative. `dependencies_root` holds ready-to-use
+dependency trees and `downloads_root` holds the archives they came from; both
+derive from `storage_root` unless set individually.
 
 `resolve_root()` is the whole rule, so no subsystem re-implements the precedence and a report can
 never describe a path a build then ignores. It is a pure function of the values it is handed,
@@ -33,8 +33,9 @@ from cuppa.log import logger
 
 class default(object):
 
-    build_root   = '_build'
-    storage_root = '~/.cuppa'
+    build_root     = '_build'
+    artifacts_root = '_artifacts'
+    storage_root   = '~/.cuppa'
     dependencies = 'dependencies'
     downloads    = 'downloads'
 
@@ -58,6 +59,12 @@ def add_storage_options( add_option ):
                             dest='build_root',
                             help="The root directory for build output. If not specified"
                                  " then " +  default.build_root + " is used" )
+
+    add_option( '--artifacts-root', type='string', nargs=1, action='store',
+                            dest='artifacts_root',
+                            help="The root directory for generated reports and other"
+                                 " project artefacts outside the build tree. If not"
+                                 " specified then " + default.artifacts_root + " is used" )
 
     add_option( '--storage-root', type='string', nargs=1, action='store',
                             dest='storage_root',
@@ -153,9 +160,14 @@ def report( resolved, name, deprecated_option, replaced_by ):
 def process_storage_options( cuppa_env ):
 
     build_root = cuppa_env.get_option( 'build_root', default=default.build_root )
+    artifacts_root = cuppa_env.get_option(
+        'artifacts_root', default=default.artifacts_root,
+    )
 
     cuppa_env['build_root']     = normal_path( build_root )
     cuppa_env['abs_build_root'] = os.path.abspath( cuppa_env['build_root'] )
+    cuppa_env['artifacts_root'] = normal_path( artifacts_root )
+    cuppa_env['abs_artifacts_root'] = os.path.abspath( cuppa_env['artifacts_root'] )
 
     storage_root = normal_path(
             cuppa_env.get_option( 'storage_root', default=default.storage_root ) )

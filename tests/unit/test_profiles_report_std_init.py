@@ -86,3 +86,18 @@ def test_destroy_rules_documented_before_live_capture():
     assert 'destroy_uninit' in std_init.DOCUMENTED_RULE_IDS_AWAITING_LIVE_CAPTURE
     assert 'double_destroy' in std_init.DOCUMENTED_RULE_IDS_AWAITING_LIVE_CAPTURE
     assert 'uninit_decl' in std_init.RULE_DOC_REFERENCES
+
+
+@pytest.mark.parametrize( 'rule_id, page_slug', sorted( std_init.RULE_DOC_PAGES.items() ) )
+def test_std_init_rule_doc_hrefs( rule_id, page_slug ):
+    href = std_init.rule_doc_href( rule_id )
+    assert href == (
+        'https://ja11sop.github.io/cuppa/cuppa/cxx-profiles/std-init/{}.html'.format(
+            page_slug,
+        )
+    )
+    assert rule_id in std_init.RULE_DOC_REFERENCES
+
+
+def test_std_init_rule_doc_href_unknown():
+    assert std_init.rule_doc_href( '_unclassified' ) is None
