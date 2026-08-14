@@ -272,12 +272,15 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
     payload = json.loads(
         open( os.path.join( report_dir, JSON_BASENAME ), encoding='utf-8' ).read()
     )
-    assert payload[ 'rollup' ][ 'total_references' ] == 1
-    rollup_file = payload[ 'rollup' ][ 'files' ][ 0 ]
+    assert payload[ 'schema_version' ] == 1
+    assert payload[ 'metadata' ][ 'report_project' ]
+    report = payload[ 'report' ]
+    assert report[ 'rollup' ][ 'total_references' ] == 1
+    rollup_file = report[ 'rollup' ][ 'files' ][ 0 ]
     assert rollup_file[ 'display_path' ] == 'src/widget.cpp'
     assert rollup_file[ 'href' ].startswith( 'by-source/' )
     assert rollup_file[ 'unique_line_count' ] == 1
-    rollup_rule = payload[ 'rollup' ][ 'rules' ][ 0 ]
+    rollup_rule = report[ 'rollup' ][ 'rules' ][ 0 ]
     assert rollup_rule[ 'files' ][ 0 ][ 'display_path' ] == 'src/widget.cpp'
     assert rollup_rule[ 'files' ][ 0 ][ 'unique_line_count' ] == 1
 

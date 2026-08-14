@@ -1,16 +1,24 @@
-"""Regenerate C++ Profiles HTML and JSON from a saved build capture.
+"""Regenerate C++ Profiles HTML from a saved capture or report JSON.
+
+From a build capture (legacy, best-effort under parallel ``tee``)::
 
     python -m scripts.regenerate_profiles_report path/to/capture.txt \\
         --sconstruct-dir /path/to/project
 
-The capture file should contain cuppa ``Progress( … )`` scope markers and Clang
-Profiles diagnostics (``under profile '…'`` suffix), as written during a normal
-``--cxx-profiles-report`` build. Scope is inferred from the Progress lines.
-ANSI colour sequences (from ``tee`` on a colour terminal) are stripped automatically.
+From a saved report JSON (recommended for template iteration)::
 
-Use this to iterate on report templates without re-running a full compile.
-Source files must still exist at the paths recorded in the capture so
-``by-source/`` pages can be rendered.
+    python -m scripts.regenerate_profiles_report \\
+        --from-json _artifacts/cxx-profiles/cxx-profiles-index.json \\
+        --sconstruct-dir /path/to/project
+
+Capture replay infers scope from cuppa ``Progress( … )`` markers and parses
+Clang Profiles diagnostics. Parallel or interleaved console output can mis-parse
+paths; prefer ``--from-json`` when a report was produced by a live build.
+
+``--from-json`` reads the versioned ``cxx-profiles-index.json`` written by
+``--cxx-profiles-report`` and re-renders HTML deterministically. Source files
+must still exist on disk for ``by-source/`` pages unless ``--skip-source-pages``
+is set.
 """
 
 from __future__ import print_function
@@ -20,7 +28,7 @@ import os
 import sys
 
 from cuppa.cpp.cxx_profiles_report import format_capture_summary, replay_profiles_capture
-from cuppa.cpp.profiles_report.report_html import write_profiles_reports
+from cuppa.cpp.profiles_report.report_html import write_profiles_reports, write_profiles_reports_from_json
 
 
 def _build_env( arguments ):
@@ -44,11 +52,57 @@ def _build_env( arguments ):
     return env
 
 
+def _regenerate_from_capture( arguments ):
+    capture_path = os.path.abspath( arguments.input_file )
+    if not os.path.isfile( capture_path ):
+        raise argparse.ArgumentTypeError(
+            'capture file not found: {}'.format( capture_path ),
+        )
+
+    with open( capture_path, encoding='utf-8', errors='replace' ) as handle:
+        inventory, unscoped = replay_profiles_capture( handle )
+
+    if inventory.total_references() == 0:
+        print( 'No Profiles violations found in capture.', file=sys.stderr )
+        if unscoped:
+            print( 'Unscoped diagnostics: {}'.format( unscoped ), file=sys.stderr )
+        return 1
+
+    if arguments.summary or unscoped:
+        print( format_capture_summary( inventory, unscoped ) )
+        if unscoped:
+            print( 'warning: {} unscoped diagnostic(s)'.format( unscoped ), file=sys.stderr )
+
+    env = _build_env( arguments )
+    return write_profiles_reports( inventory, env )
+
+
+def _regenerate_from_json( arguments ):
+    json_path = os.path.abspath( arguments.input_file )
+    if not os.path.isfile( json_path ):
+        raise argparse.ArgumentTypeError(
+            'report JSON not found: {}'.format( json_path ),
+        )
+
+    env = _build_env( arguments )
+    return write_profiles_reports_from_json(
+        json_path,
+        env,
+        skip_source_pages=arguments.skip_source_pages,
+        write_json=arguments.write_json,
+    )
+
+
 def main( argv=None ):
     parser = argparse.ArgumentParser( description=__doc__ )
     parser.add_argument(
-        'capture_file',
-        help='Saved build output with Progress() markers and Profiles diagnostics',
+        'input_file',
+        help='Saved build capture, or cxx-profiles-index.json with --from-json',
+    )
+    parser.add_argument(
+        '--from-json',
+        action='store_true',
+        help='Re-render from a saved cxx-profiles-index.json (recommended)',
     )
     parser.add_argument(
         '--sconstruct-dir',
@@ -72,32 +126,31 @@ def main( argv=None ):
         help='Source link style (default: local)',
     )
     parser.add_argument(
+        '--skip-source-pages',
+        action='store_true',
+        help='Omit by-source/ marked-up source pages (JSON regen only)',
+    )
+    parser.add_argument(
+        '--write-json',
+        action='store_true',
+        help='Rewrite cxx-profiles-index.json with current schema (JSON regen only)',
+    )
+    parser.add_argument(
         '--summary',
         action='store_true',
-        help='Print the replayed capture summary before rendering',
+        help='Print the replayed capture summary before rendering (capture only)',
     )
     arguments = parser.parse_args( argv )
 
-    capture_path = os.path.abspath( arguments.capture_file )
-    if not os.path.isfile( capture_path ):
-        parser.error( 'capture file not found: {}'.format( capture_path ) )
-
-    with open( capture_path, encoding='utf-8', errors='replace' ) as handle:
-        inventory, unscoped = replay_profiles_capture( handle )
-
-    if inventory.total_references() == 0:
-        print( 'No Profiles violations found in capture.', file=sys.stderr )
-        if unscoped:
-            print( 'Unscoped diagnostics: {}'.format( unscoped ), file=sys.stderr )
+    try:
+        if arguments.from_json:
+            result = _regenerate_from_json( arguments )
+        else:
+            result = _regenerate_from_capture( arguments )
+    except ValueError as error:
+        print( error, file=sys.stderr )
         return 1
 
-    if arguments.summary or unscoped:
-        print( format_capture_summary( inventory, unscoped ) )
-        if unscoped:
-            print( 'warning: {} unscoped diagnostic(s)'.format( unscoped ), file=sys.stderr )
-
-    env = _build_env( arguments )
-    result = write_profiles_reports( inventory, env )
     if result is None:
         print( 'Report generation returned no output.', file=sys.stderr )
         return 1

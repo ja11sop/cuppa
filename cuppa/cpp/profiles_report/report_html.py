@@ -7,7 +7,6 @@
 #   C++ Profiles violation report — HTML + JSON emission (prof-report-html)
 #-------------------------------------------------------------------------------
 
-import json
 import os
 import re
 
@@ -160,6 +159,8 @@ def resolve_report_directory( env ):
     if isinstance( option, str ):
         path = option
         if path.endswith( os.sep ) or os.path.isdir( path ):
+            return path
+        if not os.path.exists( path ) and not path.endswith( '.html' ):
             return path
         return os.path.dirname( path ) or default_report_directory( env )
     return default_report_directory( env )
@@ -540,13 +541,17 @@ def enrich_model_for_html(
     return model
 
 
-def write_profiles_reports(
-    inventory,
+def render_profiles_reports(
+    model,
     env,
     incomplete_scopes=None,
+    inventory=None,
+    skip_source_pages=False,
+    write_json=True,
 ):
-    """Write session HTML index, per-scope pages, and JSON under the report directory."""
-    if inventory.total_references() == 0:
+    """Render HTML (and optionally JSON) from a serialised report view model."""
+    rollup = model.get( 'rollup', {} )
+    if rollup.get( 'total_references', 0 ) == 0:
         return None
 
     destination = resolve_report_directory( env )
@@ -556,19 +561,24 @@ def write_profiles_reports(
     report_root = env.get( 'cxx_profiles_report_root' ) or env.get( 'sconstruct_dir' )
     sconstruct_dir = env.get( 'sconstruct_dir' ) or os.getcwd()
 
-    model = inventory.as_report_model()
     link_base = initialise_test_linking( env, link_style=link_style )
 
     templates = jinja2_templates()
-    source_page_map, source_written = write_source_pages(
-        inventory,
-        destination,
-        env,
-        link_style,
-        link_base,
-        INDEX_BASENAME,
-        lambda: templates.get_template( 'cxx_profiles_source_file.html' ),
-    )
+    source_page_map = {}
+    source_written = []
+    if not skip_source_pages:
+        if inventory is None:
+            from cuppa.cpp.profiles_report.report_json import inventory_from_report_model
+            inventory = inventory_from_report_model( model )
+        source_page_map, source_written = write_source_pages(
+            inventory,
+            destination,
+            env,
+            link_style,
+            link_base,
+            INDEX_BASENAME,
+            lambda: templates.get_template( 'cxx_profiles_source_file.html' ),
+        )
 
     enrich_model_for_html(
         model,
@@ -587,7 +597,6 @@ def write_profiles_reports(
         'incomplete_scopes': sorted( incomplete_scopes or [] ),
     }
     header_context = report_header_context( env )
-    rollup = model[ 'rollup' ]
     header_context[ 'session_stats' ] = {
         'unique_violation_count': rollup[ 'unique_violation_count' ],
         'unique_rule_count': rollup[ 'unique_rule_count' ],
@@ -635,21 +644,76 @@ def write_profiles_reports(
         )
 
     json_path = os.path.join( destination, JSON_BASENAME )
-    with open( json_path, 'w', encoding='utf-8' ) as handle:
-        json.dump( model, handle, indent=2, sort_keys=True )
-        handle.write( '\n' )
+    if write_json:
+        from cuppa.cpp.profiles_report.report_json import dump_report_json
+        with open( json_path, 'w', encoding='utf-8' ) as handle:
+            dump_report_json( handle, model, env )
 
     logger.info(
         "C++ Profiles report: {} ({} scope(s), {} references)".format(
             as_notice( index_path ),
             len( model[ 'scopes' ] ),
-            model[ 'rollup' ][ 'total_references' ],
+            rollup[ 'total_references' ],
         )
     )
+    session_paths = [ index_path ]
+    if write_json:
+        session_paths.append( json_path )
+    session_paths.extend( source_written )
     return {
         'index_path': index_path,
-        'session_paths': [ index_path, json_path ] + source_written,
+        'session_paths': session_paths,
         'scope_paths': scope_paths,
         'source_paths': source_written,
         'model': model,
     }
+
+
+def write_profiles_reports_from_json(
+    json_path,
+    env,
+    skip_source_pages=False,
+    write_json=False,
+):
+    """Re-render HTML from a saved ``cxx-profiles-index.json``."""
+    from cuppa.cpp.profiles_report.report_json import load_report_model
+    model, metadata = load_report_model( json_path )
+    merged_env = dict( env )
+    if metadata.get( 'sconstruct_dir' ) and not merged_env.get( 'sconstruct_dir' ):
+        merged_env[ 'sconstruct_dir' ] = metadata[ 'sconstruct_dir' ]
+    if metadata.get( 'cxx_profiles_report_root' ):
+        merged_env.setdefault(
+            'cxx_profiles_report_root',
+            metadata[ 'cxx_profiles_report_root' ],
+        )
+    if metadata.get( 'link_style' ):
+        merged_env.setdefault(
+            'cxx_profiles_report_link_style',
+            metadata[ 'link_style' ],
+        )
+    return render_profiles_reports(
+        model,
+        merged_env,
+        skip_source_pages=skip_source_pages,
+        write_json=write_json,
+    )
+
+
+def write_profiles_reports(
+    inventory,
+    env,
+    incomplete_scopes=None,
+):
+    """Write session HTML index, per-scope pages, and JSON under the report directory."""
+    if inventory.total_references() == 0:
+        return None
+
+    model = inventory.as_report_model()
+    return render_profiles_reports(
+        model,
+        env,
+        incomplete_scopes=incomplete_scopes,
+        inventory=inventory,
+        skip_source_pages=False,
+        write_json=True,
+    )
