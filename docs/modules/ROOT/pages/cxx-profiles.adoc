@@ -221,6 +221,10 @@ must exist on disk for ``by-source/`` pages unless ``--skip-source-pages`` is se
 | `--skip-source-pages`
 | Omit `by-source/` marked-up pages
 
+| `--anonymized`
+| Regenerate from anonymized JSON; implies `--skip-source-pages` and suppresses file/repo hrefs
+  when `metadata.anonymized` is set
+
 | `--write-json`
 | Rewrite `cxx-profiles-index.json` after re-render
 
@@ -228,8 +232,9 @@ must exist on disk for ``by-source/`` pages unless ``--skip-source-pages`` is se
 | Print capture replay summary (capture replay only)
 |===
 
-Full regen workflow and JSON-for-CI notes:
-xref:cxx-profiles/report-introduction.adoc#offline-regeneration[Introduction — offline regeneration].
+Full regen workflow, JSON-for-CI notes, and anonymized sharing:
+xref:cxx-profiles/report-introduction.adoc#offline-regeneration[Introduction — offline regeneration]
+and xref:cxx-profiles/report-introduction.adoc#sharing-anonymized[Sharing an inventory (anonymized JSON)].
 
 Capture replay (`capture.txt` without `--from-json`) remains legacy — parallel `tee` output can
 mis-attribute scope; prefer JSON when a live build already wrote `cxx-profiles-index.json`.

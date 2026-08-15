@@ -69,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Violation report documentation: xref:cxx-profiles/report-introduction.adoc#sharing-anonymized[Sharing an inventory (anonymized JSON)] on Introduction; regen tables document ``--anonymized``.
 - Violation report documentation: xref:cxx-profiles/report-introduction.adoc[Introduction] replaces
   shared concepts as the feature entry point (build command, ``regenerate_profiles_report``,
   JSON for CI/agents); tab guides aligned to a common structure; Overview page scoped to the

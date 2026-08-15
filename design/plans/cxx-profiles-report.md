@@ -1311,6 +1311,7 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 ## Documentation updates (when implemented)
 
 - Antora: **done** on [#196](https://github.com/ja11sop/cuppa/pull/196) — `report-introduction.adoc` (feature entry), tab guides (`report-overview`, `report-by-rule`, `report-by-file`, `report-by-build`, `report-by-sconscript`, `report.adoc` index), hub updates in `cxx-profiles.adoc`; **Union Refs** / **Peak Refs** / **Build Refs** vocabulary aligned with UI.
+- Antora: **done** on [#197](https://github.com/ja11sop/cuppa/pull/197) — `report-introduction.adoc#sharing-anonymized` (*Sharing an inventory (anonymized JSON)*); hub regen table documents `--anonymized`.
 - Optional: sample HTML screenshot via [`colourised-doc-samples.md`](colourised-doc-samples.md) pipeline.
 - [`archive/cxx-profiles.md`](../archive/cxx-profiles.md): link this plan in follow-ons (already
   cites dedupe/report in §2.3).
@@ -1328,7 +1329,7 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 | C — `prof-report-html` | **Done** — merged [#194](https://github.com/ja11sop/cuppa/pull/194): HTML index/scope/source pages, By rule / By file / Roll-up tabs, presentation polish, rule `doc_href` links, JSON regen (`--from-json`), **schema v1** envelope (`summary`, `locations[]`, `location_key`, extended `metadata`) |
 | D — `prof-report-manifest` | **Done** — core in [#194](https://github.com/ja11sop/cuppa/pull/194); clean/`invocation_key` fix in [#195](https://github.com/ja11sop/cuppa/pull/195); `--artifacts-root` in `e4d5318` |
 | H — `prof-report-context-summary` | **Done** — merged [#196](https://github.com/ja11sop/cuppa/pull/196): Overview tab, `context` JSON, `-H`, tier metrics, Build inventory load, [variant roll-up display](#prof-report-variant-roll-up-display) (**Union Refs**, **Peak Refs**, common + deltas, `build_key` grain), **Violations By-Build** tab, unified scope detail (**Profile** column), Antora doc split |
-| G — `prof-report-anonymize` | **In progress** — branch `prof-report-anonymize`; anonymize saved JSON for sharing; regen HTML without sources ([§Anonymized report sharing](#prof-report-anonymize)) |
+| G — `prof-report-anonymize` | **In progress** — [#197](https://github.com/ja11sop/cuppa/pull/197): anonymizer + `--anonymized` regen shipped; Antora *Sharing an inventory (anonymized JSON)* on Introduction |
 | E — `prof-report-method` | Deferred |
 | F — `prof-report-artefacts` | Partial — `--artifacts-root` landed; full registry + `--remove-artifacts` blocked on #135 |
 
