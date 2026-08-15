@@ -5,7 +5,7 @@ This page lists every **Violations** view on `cxx-profiles-index.html` and links
 guides at a similar level of detail.
 
 For **how to generate the report**, **offline regeneration**, **JSON export**, and shared
-vocabulary (**Refs**, **Peak Refs**, **Build Refs**), read
+vocabulary (**Union Refs**, **Peak Refs**, **Build Refs**), read
 xref:cxx-profiles/report-introduction.adoc[Introduction] first. That page is the feature entry
 point — not xref:cxx-profiles/report-overview.adoc[Overview tab], which documents only the
 Overview tab's summary cards and matrices.

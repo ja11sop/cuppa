@@ -227,7 +227,7 @@ requested.
 | Tab | Primary sort (default) | Expandable rows | Purpose |
 |-----|------------------------|-----------------|---------|
 | **Overview** | Fixed layout — headline metrics and tables | Per-profile **full rule matrix** (including zero counts); **Build inventory load** | “How bad is it relative to the codebase?” — shareable executive summary ([§Context summary](#prof-report-context-summary)) |
-| **Violations By-Rule** | `(profile, rule_id)` — references / violations | File detail subtable (**Refs**, **Peak Refs**, **Build Refs**) | Session roll-up by rule; multi-build **common + delta** notation |
+| **Violations By-Rule** | `(profile, rule_id)` — references / violations | File detail subtable (**Union Refs**, **Peak Refs**, **Build Refs**) | Session roll-up by rule; multi-build **common + delta** notation |
 | **Violations By-File** | Source file | Rule detail subtable (symmetric to By-Rule) | Session roll-up by file |
 | **Violations By-Build** | Build id (`dbg1`, …) | **By-Rule** / **By-File** pair per build (all sconscripts) | One compile inventory row at a time — **Profile** column; **Build Refs** only |
 | **Violations By-Sconscript** | Sconscript × variant rows | Links to per-scope detail pages | Navigate multi-variant / multi-sconscript sessions |
@@ -931,12 +931,12 @@ vs **session union**. The same PR extends slice H to align roll-up tables with b
 | **Common set** | **Strict intersection** across **every** session build bucket (empty bucket → common = 0). Example: d1=7, r1=8, d2=0, r2=2 → `0, +7d1, +8r1, +2r2`. |
 | **Violation deltas** | `\|keys(build) − common\|` per build; omit zero deltas. |
 | **Reference deltas** | **Exclusive keys only** — refs from violations in `keys(build) \ common` (R1 union semantics on the common line only). |
-| **By-Rule columns** | **Profile**, **Rule**, **Violations**, **Refs**, **Peak Refs**, **Violating Files** — multi-build cells use bold total = common + deltas. |
-| **By-File columns** | **Profile**, **Rules**, **Violations**, **Refs**, **Peak Refs**, **Violated Rules** — same partition logic as By-Rule with file/rule roles swapped. |
+| **By-Rule columns** | **Profile**, **Rule**, **Violations**, **Union Refs**, **Peak Refs**, **Violating Files** — multi-build cells use bold total = common + deltas. |
+| **By-File columns** | **Profile**, **Rules**, **Violations**, **Union Refs**, **Peak Refs**, **Violated Rules** — same partition logic as By-Rule with file/rule roles swapped. |
 | **File / rule lists** | Common bracket when identity **and** ref count match in **all** builds; delta lines (`+1 rel2 [ 5:3 ]`) for build-specific entries. Subtable **Build Refs** column repeats `(index, refs)` partition for one file row. |
 | **By-Build index tab** | One sub-tab per **build id** (`dbg1`, …); **Build inventory load** table at top; **By-Rule** / **By-File** pair per build across all sconscripts and profiles (**Profile** column; **Build Refs**, no **Peak Refs**). |
 | **Scope detail pages** | Same layout as By-Build detail for one `(sconscript, variant, toolchain)` row — one tab pair, **Profile** column, no per-profile subheadings. |
-| **Docs** | Antora hub + `report-introduction.adoc` (generate, regen, JSON, vocabulary); tab guides (`report-by-rule`, `report-by-file`, `report-by-build`, `report-by-sconscript`, `report-overview`, `report.adoc` index). Worked example on By-Rule for **Violating Files** vs **Build Refs** vs **Refs** / **Peak Refs**. |
+| **Docs** | Antora hub + `report-introduction.adoc` (generate, regen, JSON, vocabulary); tab guides (`report-by-rule`, `report-by-file`, `report-by-build`, `report-by-sconscript`, `report-overview`, `report.adoc` index). Worked example on By-Rule for **Violating Files** vs **Build Refs** vs **Union Refs** / **Peak Refs**. Violation totals card: distinct violations / distinct rules / union references with `(Violations)` / `(Rules)` / `(Union Refs)` column labels. |
 | **JSON** | Attach structured `variant_display` / `peak_refs_display` / `build_refs_display` (`common`, `deltas[]`, `build_order`) on roll-up rows for HTML regen and agents. |
 | **Scope** | Index By-Rule / By-File + subtables; index **Violations By-Build**; unified per-scope pages; Overview matrices retain **Peak Refs / %**. |
 
@@ -1311,7 +1311,7 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 
 ## Documentation updates (when implemented)
 
-- Antora: **done** on [#196](https://github.com/ja11sop/cuppa/pull/196) — `report-introduction.adoc` (feature entry), tab guides (`report-overview`, `report-by-rule`, `report-by-file`, `report-by-build`, `report-by-sconscript`, `report.adoc` index), hub updates in `cxx-profiles.adoc`; **Refs** / **Peak Refs** / **Build Refs** vocabulary aligned with UI.
+- Antora: **done** on [#196](https://github.com/ja11sop/cuppa/pull/196) — `report-introduction.adoc` (feature entry), tab guides (`report-overview`, `report-by-rule`, `report-by-file`, `report-by-build`, `report-by-sconscript`, `report.adoc` index), hub updates in `cxx-profiles.adoc`; **Union Refs** / **Peak Refs** / **Build Refs** vocabulary aligned with UI.
 - Optional: sample HTML screenshot via [`colourised-doc-samples.md`](colourised-doc-samples.md) pipeline.
 - [`archive/cxx-profiles.md`](../archive/cxx-profiles.md): link this plan in follow-ons (already
   cites dedupe/report in §2.3).

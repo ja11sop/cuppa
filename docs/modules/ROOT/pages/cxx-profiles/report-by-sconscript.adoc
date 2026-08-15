@@ -33,8 +33,8 @@ xref:cxx-profiles/report.adoc[Violation report reading guide] for other tabs.
 | **Violations**
 | Distinct violation identities in this scope.
 
-| **Refs**
-| Union **Refs** for this scope (summed across rules).
+| **Union Refs**
+| **Union Refs** for this scope (summed across rules).
 
 | **Build Refs**
 | Compile inventory total for this scope. Correlates with Overview
@@ -76,8 +76,8 @@ added later.
 | **Violations**
 | Distinct identities for this rule in this scope.
 
-| **Refs**
-| Union **Refs** for this rule in this scope.
+| **Union Refs**
+| **Union Refs** for this rule in this scope.
 
 | **Build Refs**
 | Compile inventory for this rule in this scope (matches **Violating Files** `[ index:refs ]`
@@ -90,7 +90,7 @@ lists).
 | Sample diagnostic text.
 |===
 
-File subtable: **Index**, **Violations**, **Refs**, **Build Refs**, **File** — no **Peak Refs**
+File subtable: **Index**, **Violations**, **Union Refs**, **Build Refs**, **File** — no **Peak Refs**
 column (degenerate for one build).
 
 === By-File (scope)
@@ -102,7 +102,7 @@ column (degenerate for one build).
 | **Profile**
 | Enforced profile for this file row.
 
-| **Rules** / **Violations** / **Refs** / **Build Refs**
+| **Rules** / **Violations** / **Union Refs** / **Build Refs**
 | Same semantics as index By-File, scoped to one build (plain numbers).
 
 | **Violated Rules**
@@ -112,7 +112,7 @@ column (degenerate for one build).
 | Display path and source link.
 |===
 
-Rule subtable: **Index**, **Violations**, **Refs**, **Build Refs**, **Rule**, **Violation Message**.
+Rule subtable: **Index**, **Violations**, **Union Refs**, **Build Refs**, **Rule**, **Violation Message**.
 
 [#scope-vs-index]
 == Comparing scope totals to the index

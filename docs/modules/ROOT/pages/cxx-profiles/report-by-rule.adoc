@@ -1,5 +1,5 @@
 = Violation report — Violations By-Rule tab
-:description: How to read the Violations By-Rule tab on cxx-profiles-index.html — multi-build roll-ups, Refs vs Peak Refs, Violating Files lists, and the file detail subtable
+:description: How to read the Violations By-Rule tab on cxx-profiles-index.html — multi-build roll-ups, Union Refs vs Peak Refs, Violating Files lists, and the file detail subtable
 
 The index **Violations By-Rule** tab rolls up the session inventory by `(profile, rule_id)`.
 When a session compiles more than one build inventory row (for example **dbg1** and **rel1** on the
@@ -31,23 +31,23 @@ Each rule row shows:
 | **Violations**
 | Distinct violation identities for this rule. Multi-build cells show a **bold union total**,
 then `= common` plus `+N build_id` deltas (strict key intersection across every catalog build).
-The parts add up to the total — the same partition logic as union **Refs**.
+The parts add up to the total — the same partition logic as Union Refs.
 
-| **Refs**
-| Union **Refs** for this rule (matches Overview rule concentration). For each violation identity,
+| **Union Refs**
+| **Union Refs** for this rule (matches Overview rule concentration). For each violation identity,
 the **maximum** ref count among individual captured diagnostic rows, summed across identities.
-Bold total = common + deltas. See xref:cxx-profiles/report-introduction.adoc#reference-metrics[Reference metrics — Refs].
+Bold total = common + deltas. See xref:cxx-profiles/report-introduction.adoc#reference-metrics[Reference metrics — Union Refs].
 
 | **Peak Refs**
 | **Peak Refs** for this rule. For each identity, the **maximum per-build inventory total** for
-that identity, summed across identities. Bold total = common + deltas. Often equals **Refs**;
+that identity, summed across identities. Bold total = common + deltas. Often equals **Union Refs**;
 diverges when a build stacks multiple diagnostic rows at the same identity. See
 xref:cxx-profiles/report-introduction.adoc#reference-metrics[Reference metrics — Peak Refs].
 
 | **Violating Files**
 | How many files this rule hits, split into a common `(index:build_refs)` bracket plus per-build
 delta lists. Numbers after `:` are **Build Refs** (compile inventory for that file and rule in
-that build), not union **Refs**. **File indices** use orange normal-weight type (`prof-file-index`).
+that build), not Union Refs. **File indices** use orange normal-weight type (`prof-file-index`).
 
 | **Violation Message**
 | Sample normalised diagnostic text for the rule.
@@ -65,8 +65,8 @@ Expand a row to open the **file detail subtable** (one row per violating file in
 | **Violations**
 | Distinct violation identities for this rule on this file (key-based common + delta with bold total).
 
-| **Refs**
-| Union **Refs** for this rule on this file (same semantics as the rule-row **Refs** column).
+| **Union Refs**
+| **Union Refs** for this rule on this file (same semantics as the rule-row **Union Refs** column).
 
 | **Peak Refs**
 | **Peak Refs** for this rule on this file (same semantics as the rule-row **Peak Refs** column).
@@ -85,7 +85,7 @@ Single-build sessions show plain numbers (no common/delta notation).
 == Three ways to read the same file
 
 Multi-build roll-ups answer different questions. The same file index can legitimately show
-different numbers in **Violating Files**, **Build Refs**, and **Refs** because the aggregation
+different numbers in **Violating Files**, **Build Refs**, and **Union Refs** because the aggregation
 grain differs.
 
 [mermaid]
@@ -97,8 +97,8 @@ flowchart TB
   subgraph subbuild["Subtable — Build Refs"]
     TR["Same tuple partition<br/>scoped to one index"]
   end
-  subgraph subrefs["Subtable — Refs / Peak Refs"]
-    RF["Violation-key partition<br/>union Refs vs Peak Refs"]
+  subgraph subrefs["Subtable — Union Refs / Peak Refs"]
+    RF["Violation-key partition<br/>Union Refs vs Peak Refs"]
   end
   VF -->|"decode [ i:r ] for file i"| TR
   VF -.->|"different question"| RF
@@ -106,7 +106,7 @@ flowchart TB
 
 * **Violating Files** — which files, and how many **Build Refs** for this rule in each build?
 * **Build Refs** — for one file row, what are the **`index:build_refs`** numbers in the parent list?
-* **Refs / Peak Refs** — for one file row, how are reference paths split across **shared violation
+* **Union Refs / Peak Refs** — for one file row, how are reference paths split across **shared violation
 keys** vs build-only keys under union vs build-peak semantics?
 
 [#worked-example]
@@ -128,7 +128,7 @@ Rule: `static_runtime_init` (`std::init` profile).
 | **748**
 | 420 common identities in both builds + 156 dbg1-only + 172 rel1-only
 
-| **Refs**
+| **Union Refs**
 | **3359**
 | Matches Overview rule concentration; 2322 common + 561 dbg1 + 476 rel1
 
@@ -142,13 +142,13 @@ rows within one build
 | No cross-build dedup; see Overview Build inventory load
 |===
 
-On this rule, **Refs** and **Peak Refs** differ by **579** refs: **76** violation identities have
+On this rule, **Union Refs** and **Peak Refs** differ by **579** refs: **76** violation identities have
 more than one captured diagnostic row in at least one build, so per-build inventory **sums** those
-rows but union **Refs** takes the **max single row** per identity.
+rows but Union Refs takes the **max single row** per identity.
 
 === Multi-build cell notation
 
-Rule-row **Violations** (same partition for **Refs** and **Peak Refs**):
+Rule-row **Violations** (same partition for **Union Refs** and **Peak Refs**):
 
 [source]
 ----
@@ -158,7 +158,7 @@ Rule-row **Violations** (same partition for **Refs** and **Peak Refs**):
 +172 rel1
 ----
 
-Rule-row **Refs**:
+Rule-row **Union Refs**:
 
 [source]
 ----
@@ -217,7 +217,7 @@ build's partition. Use **Build Refs** in the subtable to decode a specific index
 | **748**
 
 | Union reference load — matches Overview concentration?
-| **Refs** (bold total)
+| **Union Refs** (bold total)
 | **3359**
 
 | Heaviest per-build inventory per site, still deduplicated across builds?
@@ -238,7 +238,7 @@ build's partition. Use **Build Refs** in the subtable to decode a specific index
 
 Roll-up rows in `cxx-profiles-index.json` attach structured displays for offline regen:
 
-* `variant_display` — key-based common/delta for violations, union **Refs**, and **Peak Refs**
+* `variant_display` — key-based common/delta for violations, **Union Refs**, and **Peak Refs**
   (`totals`, `common`, `deltas[]`)
 * `refs_display` / `peak_refs_display` — same structure; templates read `refs` vs `peak_refs` metrics
 * `violation_refs[]` on `variant_counts` — per-build `refs` (build sum) and `row_peak` (max
@@ -254,10 +254,10 @@ Each includes `build_order` and per-delta `build_id` / `build_label` when `multi
 The **Violations By-File** tab uses the same metric columns on its rule detail subtable as
 **Violations By-Rule** uses on file rows:
 
-Index → **Violations** → **Refs** → **Peak Refs** → **Build Refs** → **Rule** → **Violation Message**.
+Index → **Violations** → **Union Refs** → **Peak Refs** → **Build Refs** → **Rule** → **Violation Message**.
 
 Parent-row **Violated Rules** lists carry **Build Refs** at `(rule index, rule)` grain — decode them
-with the subtable **Build Refs** column, not **Refs**. Parent-row **Refs** / **Peak Refs** use the
+with the subtable **Build Refs** column, not **Union Refs**. Parent-row **Union Refs** / **Peak Refs** use the
 same union and build-peak roll-ups as the by-rule parent row, scoped to the whole file.
 
 When every build agrees (no deltas), metric cells show a single total line — for example `76` —

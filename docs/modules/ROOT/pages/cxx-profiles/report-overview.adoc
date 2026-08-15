@@ -31,9 +31,18 @@ so you can regenerate HTML offline or share anonymised JSON later without losing
 
 The Violation totals card answers: *how much did Profiles fire in this session?*
 
+Each line shows a plain-language total, then the matching table column name in parentheses:
+
+[source]
+----
+1,058 distinct violations (Violations)
+5 distinct rules (Rules)
+6,238 union references (Union Refs)
+----
+
 [cols="1,3"]
 |===
-| Metric | Meaning
+| Column | Meaning
 
 | **Violations**
 | Distinct rule violations unioned across variants and toolchains.
@@ -41,19 +50,20 @@ Identity is `(sconscript, file, line, column, profile, rule_id)` — the same ru
 line at different columns counts separately; the same violation in **dbg** and **rel** counts once.
 Use this when comparing progress over time or across branches.
 
-| **Refs**
-| Session-union reference total — the same **Refs** column on By-Rule / By-File roll-ups and in
+| **Union Refs**
+| Session-union reference total — the **Union Refs** column on By-Rule / By-File roll-ups and in
 rule concentration matrices. For each violation identity, cuppa takes the **maximum** reference
 count among individual captured diagnostic rows (after within-build dedupe), then sums across
 identities. Pairs with **Violations**: common + build deltas add up to the bold total and match
-Overview concentration. See xref:cxx-profiles/report-introduction.adoc#reference-metrics[Reference metrics].
+Overview concentration. JSON field: `summary.total_references`. See
+xref:cxx-profiles/report-introduction.adoc#reference-metrics[Reference metrics].
 
-| **Distinct rules**
+| **Rules** (card label: distinct rules)
 | How many different `(profile, rule_id)` pairs appeared at least once (union across builds).
 |===
 
 The index page headline repeats these union totals and adds **files with violations** (orange in
-HTML): ``N violations of M distinct rules in F files through R refs`` (union **Refs**).
+HTML): ``N distinct violations of M distinct rules in F files through R union references``.
 
 **Build Refs:** JSON `rollup.raw_total_references` and the Overview <<build-breakdown>> table
 retain summed reference counts per build (compile-time inventory load). See
@@ -66,8 +76,8 @@ additional files were touched.
 
 Useful derived ratios (not shown on the card, but easy from JSON `summary` / `context`):
 
-* `total_references / violations` — average ref amplification per distinct violation (union **Refs**)
-* `total_references / files_with_violations` — average union refs per hot file
+* `total_references / violations` — average ref amplification per distinct violation (**Union Refs**)
+* `total_references / files_with_violations` — average **Union Refs** per hot file
 
 [#build-breakdown]
 == Build inventory load
@@ -210,8 +220,8 @@ may sum to more than 100%. The footnote under **Rule concentration** repeats thi
 non-zero). Percentage is that count over session union violations (see <<violation-totals>>).
 These shares are closer to a partition because each violation identity maps to one rule.
 
-| **Refs / %**
-| Union **Refs** for the rule and its share of session union refs (see
+| **Union Refs / %**
+| **Union Refs** for the rule and its share of session union reference totals (see
 xref:cxx-profiles/report-introduction.adoc#reference-metrics[Reference metrics]).
 
 | **Peak Refs / %**
@@ -231,7 +241,7 @@ table (concentration skips rules with no references).
 Each tab shows **every documented rule id** for that profile, including rows with zero
 references, so the Overview acts as a checklist against the profile definition.
 
-Read **Violations** as the main per-rule severity column; use **Refs** and **Peak Refs** when you
+Read **Violations** as the main per-rule severity column; use **Union Refs** and **Peak Refs** when you
 care about reference load (for example template-heavy code). See
 xref:cxx-profiles/report-introduction.adoc#reference-metrics[Reference metrics].
 

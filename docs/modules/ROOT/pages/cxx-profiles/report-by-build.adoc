@@ -59,8 +59,8 @@ compiled with that variant and toolchain, whereas a scope page is limited to one
 | **Violations**
 | Distinct violation identities for this rule in this build (plain count).
 
-| **Refs**
-| Union **Refs** for this rule in this build.
+| **Union Refs**
+| **Union Refs** for this rule in this build.
 
 | **Build Refs**
 | Compile inventory for this rule in this build (matches **Violating Files** `[ index:refs ]`
@@ -73,7 +73,7 @@ lists).
 | Sample diagnostic text.
 |===
 
-File subtable: **Index**, **Violations**, **Refs**, **Build Refs**, **File** — no **Peak Refs**
+File subtable: **Index**, **Violations**, **Union Refs**, **Build Refs**, **File** — no **Peak Refs**
 column.
 
 [#by-file-layout]
@@ -86,7 +86,7 @@ column.
 | **Profile**
 | Enforced profile for this file row.
 
-| **Rules** / **Violations** / **Refs** / **Build Refs**
+| **Rules** / **Violations** / **Union Refs** / **Build Refs**
 | Same semantics as index By-File, scoped to one build (plain numbers).
 
 | **Violated Rules**
@@ -96,7 +96,7 @@ column.
 | Display path and source link.
 |===
 
-Rule subtable: **Index**, **Violations**, **Refs**, **Build Refs**, **Rule**, **Violation Message**.
+Rule subtable: **Index**, **Violations**, **Union Refs**, **Build Refs**, **Rule**, **Violation Message**.
 
 [#vs-other-views]
 == Comparing By-Build to other views

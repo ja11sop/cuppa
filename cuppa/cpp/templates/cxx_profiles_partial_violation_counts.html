@@ -1,8 +1,8 @@
 <span class="prof-stat-value prof-stat-value--{{ stat_tone }}">{{ v_count }}</span>
-{{ 'violation' if v_count == 1 else 'violations' }} of
+distinct {{ 'violation' if v_count == 1 else 'violations' }} of
 <span class="prof-stat-value prof-stat-value--warn">{{ rule_count }}</span>
 distinct {{ 'rule' if rule_count == 1 else 'rules' }}{% if file_count is defined %} in
 <span class="prof-stat-value prof-stat-value--hot-files">{{ file_count }}</span>
 {{ 'file' if file_count == 1 else 'files' }}{% endif %} through
 <span class="prof-stat-value prof-stat-value--neutral">{{ r_count }}</span>
-{{ 'ref' if r_count == 1 else 'refs' }}
+union {{ 'reference' if r_count == 1 else 'references' }}

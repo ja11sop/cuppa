@@ -269,33 +269,33 @@ You will see reference totals at several grains:
 Reference **types** (next section) answer different questions from the same underlying captures.
 
 [#reference-metrics]
-== Reference types — Refs, Peak Refs, and Build Refs
+== Reference types — Union Refs, Peak Refs, and Build Refs
 
 [cols="1,1,3"]
 |===
-| Column name | Also called | Meaning
+| Column name | JSON field | Meaning
 
-| **Refs**
-| Union refs
+| **Union Refs**
+| `summary.total_references` / `rollup.total_references`
 | For each violation **identity**, take the **maximum** ref count among individual captured
 diagnostic rows, then **sum** across identities. Aligns with **Violations** union semantics.
 Multi-build index cells show a **bold total**, then `= common` plus `+N build_id` deltas.
+Overview prose may say *union references*; table columns use **Union Refs**.
 
 | **Peak Refs**
-| Build-peak refs
+| (derived in roll-ups)
 | For each identity, take the **maximum per-build inventory total** for that identity (max of dbg
 summed refs vs rel summed refs), then sum. Index By-Rule / By-File parent rows and Overview
 **Rule concentration** / **Profile matrices** include this column so you can correlate with
-By-Rule without opening every row. Often equals **Refs**; diverges when one build stacks
+By-Rule without opening every row. Often equals **Union Refs**; diverges when one build stacks
 multiple diagnostic rows at the same identity.
 
 | **Build Refs**
-| Compile-time inventory
+| `rollup.raw_total_references` (session aggregate)
 | **Summed** reference counts from compiling **one build** — no cross-build deduplication.
 Overview xref:cxx-profiles/report-overview.adoc#build-breakdown[Build inventory load] variant
 rows, **Violating Files** / **Violated Rules** `[ index:refs ]` lists, and per-scope compile
-totals use this grain. JSON `rollup.raw_total_references` is the session aggregate of compile
-inventory.
+totals use this grain.
 |===
 
 [mermaid]
@@ -305,10 +305,10 @@ flowchart LR
     I1[Identity A]
     I2[Identity B]
   end
-  subgraph refs [Refs — union]
+  subgraph refs [Union Refs]
     I1 --> R1[max row peak per identity]
     I2 --> R2[max row peak per identity]
-    R1 --> SU[Sum = Refs]
+    R1 --> SU[Sum = Union Refs]
     R2 --> SU
   end
   subgraph peak [Peak Refs — multi-build]
@@ -326,8 +326,8 @@ flowchart LR
 ----
 
 **Violating Files** and **Violated Rules** lists show **Build Refs** at `(index, refs)` grain
-(`[ 21:2950 ]`), not union **Refs**. Use the subtable **Build Refs** column (or the scope-page
-equivalent) to decode those lists — not the **Refs** column.
+(`[ 21:2950 ]`), not **Union Refs**. Use the subtable **Build Refs** column (or the scope-page
+equivalent) to decode those lists — not the **Union Refs** column.
 
 [#multi-build-notation]
 == Multi-build roll-up notation (index tabs)
@@ -371,12 +371,12 @@ inventory row: one `sconscript`, one variant/toolchain combination.
 | **Violations**
 | Distinct violation identities in this scope (union count within the scope).
 
-| **Refs**
-| Union **Refs** summed across rules in this scope.
+| **Union Refs**
+| **Union Refs** summed across rules in this scope.
 
 | **Build Refs**
 | Compile inventory total for this scope (sum of every captured diagnostic ref in this build).
-Equals **Peak Refs** for the same scope — both are single-build totals. Shown alongside **Refs**
+Equals **Peak Refs** for the same scope — both are single-build totals. Shown alongside **Union Refs**
 so you can compare union vs compile load and correlate with Overview **Build inventory load**.
 
 | **Profiles** / **Rule Violations**
@@ -386,16 +386,16 @@ so you can compare union vs compile load and correlate with Overview **Build inv
 === Scope detail pages (By-Rule / By-File tabs)
 
 Scope detail tables omit the index **Peak Refs** column — **Build Refs** already carries the
-single-build compile total. Subtables show **Violations**, **Refs**, and **Build Refs** only.
+single-build compile total. Subtables show **Violations**, **Union Refs**, and **Build Refs** only.
 One tab pair covers all profiles; **Profile** is a column on the main tables (same layout as
 xref:cxx-profiles/report-by-build.adoc[Violations By-Build] detail).
 
-=== When Refs differs from Build Refs in one scope
+=== When Union Refs differs from Build Refs in one scope
 
-**Refs** can be **lower** when several captured diagnostics share one union identity (same line,
-column, and rule, but different normalised messages in the capture dedupe key). **Refs** uses the
+**Union Refs** can be **lower** when several captured diagnostics share one union identity (same line,
+column, and rule, but different normalised messages in the capture dedupe key). **Union Refs** uses the
 row peak per identity; **Build Refs** sums every captured row. When each identity comes from at
-most one diagnostic row, **Refs** and **Build Refs** match.
+most one diagnostic row, **Union Refs** and **Build Refs** match.
 
 == Related
 

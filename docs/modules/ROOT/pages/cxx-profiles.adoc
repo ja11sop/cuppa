@@ -138,7 +138,7 @@ cuppa -D --dbg --toolchains=clang24_profiles_2026_08_07_27 \
 The session index opens on an **Overview** tab when context capture is enabled
 (`--cxx-profiles-report-context=full`, the default). Start with
 xref:cxx-profiles/report-introduction.adoc[Introduction] for generating the report, offline regen,
-JSON export, and shared vocabulary (**Refs**, **Peak Refs**, **Build Refs**). Use
+JSON export, and shared vocabulary (**Union Refs**, **Peak Refs**, **Build Refs**). Use
 xref:cxx-profiles/report.adoc[Violation report reading guide] for tab-specific guides.
 The Overview tab summarises inventory, codebase reach, violation density, rule
 concentration, and per-profile rule matrices — see
@@ -152,7 +152,7 @@ Other index tabs list roll-ups **By-Rule**, **By-File**, and **By-Build**, plus 
 scope rows under **Violations By-Sconscript**. Per-scope HTML pages show that build's inventory
 only (plain numbers; **Build Refs** replaces **Peak Refs** — see
 xref:cxx-profiles/report-introduction.adoc#scope-metrics[scope metrics]). Session union totals on
-the index deduplicate violation identities across builds; union **Refs** uses row peaks per
+the index deduplicate violation identities across builds; **Union Refs** uses row peaks per
 identity, not a naive sum of every variant's compile inventory.
 
 Optional flags:

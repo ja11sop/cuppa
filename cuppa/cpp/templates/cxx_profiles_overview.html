@@ -16,15 +16,18 @@
         </h6>
         <p class="mb-1">
           <span class="prof-stat-value prof-stat-value--{{ stat_tone }}">{{ session_stats.unique_violation_count }}</span>
-          {{ 'violation' if session_stats.unique_violation_count == 1 else 'violations' }}
+          distinct {{ 'violation' if session_stats.unique_violation_count == 1 else 'violations' }}
+          <span class="prof-metric-column-label text-muted">(Violations)</span>
         </p>
         <p class="mb-1">
           <span class="prof-stat-value prof-stat-value--warn">{{ session_stats.unique_rule_count }}</span>
           distinct {{ 'rule' if session_stats.unique_rule_count == 1 else 'rules' }}
+          <span class="prof-metric-column-label text-muted">(Rules)</span>
         </p>
         <p class="mb-0">
           <span class="prof-stat-value prof-stat-value--neutral">{{ session_stats.total_references }}</span>
-          union {{ 'ref' if session_stats.total_references == 1 else 'refs' }}
+          union {{ 'reference' if session_stats.total_references == 1 else 'references' }}
+          <span class="prof-metric-column-label text-muted">(Union Refs)</span>
         </p>
       </div>
     </div>

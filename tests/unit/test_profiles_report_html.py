@@ -382,11 +382,17 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
     concentration_start = index_html.index( 'prof-rule-concentration' )
     concentration_end = index_html.index( 'Profile matrices', concentration_start )
     concentration_html = index_html[ concentration_start:concentration_end ]
+    assert 'Union Refs</th>' in concentration_html
     assert 'Peak Refs</th>' in concentration_html
     assert 'prof-stat-value--warn' in index_html
     assert 'prof-stat-value--neutral' in index_html
     assert 'prof-warn-accent' in index_html
     assert 'Violation totals' in index_html
+    assert 'distinct violation' in index_html or 'distinct violations' in index_html
+    assert 'union reference' in index_html or 'union references' in index_html
+    assert '(Union Refs)' in index_html
+    assert '(Violations)' in index_html
+    assert '(Rules)' in index_html
     assert 'Unique Violations' not in index_html
     assert 'report-overview.html#violation-totals' in index_html
     assert 'report-overview.html#codebase-reach-tier-1' in index_html
@@ -413,8 +419,8 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
     assert payload[ 'context' ][ 'profiles' ]
     rules_tab = index_html.index( 'id="rollup-rules"')
     assert index_html.index( 'prof-rules-table', rules_tab ) < index_html.index( 'Rule</th>', rules_tab )
-    assert index_html.index( 'Violations</th>', rules_tab ) < index_html.index( 'Refs</th>', rules_tab )
-    assert index_html.index( 'Refs</th>', rules_tab ) < index_html.index( 'Peak Refs</th>', rules_tab )
+    assert index_html.index( 'Violations</th>', rules_tab ) < index_html.index( 'Union Refs</th>', rules_tab )
+    assert index_html.index( 'Union Refs</th>', rules_tab ) < index_html.index( 'Peak Refs</th>', rules_tab )
     assert index_html.index( 'Peak Refs</th>', rules_tab ) < index_html.index( 'Violating Files</th>', rules_tab )
     assert 'violation of' in index_html
     assert 'prof-stat-value--hot-files' in index_html
@@ -479,7 +485,7 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
     source_html = open( source_page, encoding='utf-8' ).read()
     assert 'violation of' in source_html
     assert 'distinct rule' in source_html
-    assert 'Refs</th>' in source_html
+    assert 'Union Refs</th>' in source_html
     assert 'violation detected through' not in source_html
     assert 'violations detected through' not in source_html
 
