@@ -24,7 +24,7 @@ Maintainer **target bundle** for the release (plans landed; implementation follo
 | ID | Work | Plan |
 |----|------|------|
 | `console-terse-output` | `--terse-output` Phase 1 (one-line success; failures verbose) | [`terse-build-output.md`](design/plans/terse-build-output.md) |
-| `profiles-violation-report` | `--cxx-profiles-report` A–D (`prof-report-parser`, `prof-report-collector`, `prof-report-html`, `prof-report-manifest`) | [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) |
+| `profiles-violation-report` | `--cxx-profiles-report` slices A–H shipped ([#196](https://github.com/ja11sop/cuppa/pull/196)); **G** (`prof-report-anonymize`) in progress on [#184](https://github.com/ja11sop/cuppa/issues/184) | [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) |
 | `console-log-hygiene` | Demote toolchain registration spam; fix variant default log text | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md) |
 | `cli-info` | `cuppa --info` — version without loading sconstruct | [`cuppa-info.md`](design/plans/cuppa-info.md) |
 
@@ -137,6 +137,7 @@ Umbrella: [#127](https://github.com/ja11sop/cuppa/issues/127) ([#177](https://gi
 | `--cxx-profiles` → `-fprofiles` (probed; StopError when unsupported) | Yes |
 | `--cxx-profiles-enforce=` (native flags or `-include` inject; source composition) | Yes |
 | `--cxx-disable-error-limit` (Clang/GCC; MSVC `cl` has no supported flag) | Yes |
+| `--cxx-profiles-report` — HTML + JSON inventory, Overview context, variant roll-ups ([#196](https://github.com/ja11sop/cuppa/pull/196)) | Yes |
 | Smoke designator `std::init` on Alliance Clang | Yes |
 | Integration smoke + unsupported-toolchain failure | Yes |
 
@@ -152,7 +153,7 @@ Umbrella: [#127](https://github.com/ja11sop/cuppa/issues/127) ([#177](https://gi
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `profiles-violation-report` | `--cxx-profiles-report`: capture, classify, dedupe, HTML+JSON inventory | High | [`design/plans/cxx-profiles-report.md`](design/plans/cxx-profiles-report.md); **1.8.0 target** — [#184](https://github.com/ja11sop/cuppa/issues/184); slices `prof-report-parser` … `prof-report-manifest` |
+| `profiles-violation-report` | `prof-report-anonymize` — shareable anonymized JSON + HTML regen without sources | High | [#184](https://github.com/ja11sop/cuppa/issues/184) slice **G** only — A–H merged; see [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) §Anonymized report sharing |
 | `profiles-designators` | Additional profile names as Alliance Clang / WG21 stabilise | Medium | Cuppa passes opaque strings through |
 | `profiles-native-enforce` | Wire `profiles_enforce_flags` when a compiler adds native enforce flags | Low | Hook exists; `-include` fallback remains |
 | `profiles-carve-outs` | Build policy to skip session enforce on selected paths | Low | Separate from source attributes |

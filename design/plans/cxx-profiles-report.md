@@ -632,8 +632,7 @@ also store a denormalised `all_paths[]` for convenience — not required in the 
 
 ## Anonymized report sharing (sketch)
 
-**Id:** `prof-report-anonymize` · **Status:** proposal · **Target:** PR after slice H
-(`prof-report-context-summary`)
+**Id:** `prof-report-anonymize` · **Status:** **in progress** — branch `prof-report-anonymize` on [#184](https://github.com/ja11sop/cuppa/issues/184); slice H merged [#196](https://github.com/ja11sop/cuppa/pull/196)
 
 ### Goal
 
@@ -808,7 +807,7 @@ cxx-profiles-index.json
 
 ## Context summary — violations relative to codebase size (sketch)
 
-**Id:** `prof-report-context-summary` · **Status:** **in progress** — feature-complete on [#196](https://github.com/ja11sop/cuppa/pull/196); pending merge on [#184](https://github.com/ja11sop/cuppa/issues/184); slice G may follow
+**Id:** `prof-report-context-summary` · **Status:** **shipped** — merged [#196](https://github.com/ja11sop/cuppa/pull/196) on [#184](https://github.com/ja11sop/cuppa/issues/184); slice G follows
 
 ### Why
 
@@ -940,7 +939,7 @@ vs **session union**. The same PR extends slice H to align roll-up tables with b
 | **JSON** | Attach structured `variant_display` / `peak_refs_display` / `build_refs_display` (`common`, `deltas[]`, `build_order`) on roll-up rows for HTML regen and agents. |
 | **Scope** | Index By-Rule / By-File + subtables; index **Violations By-Build**; unified per-scope pages; Overview matrices retain **Peak Refs / %**. |
 
-**Status on [#196](https://github.com/ja11sop/cuppa/pull/196):** Overview + Build inventory load, index By-Rule / By-File variant roll-up (`variant_display`, **Peak Refs**, **Build Refs**, `dbg1`-style build IDs), **Violations By-Build** tab, unified scope detail pages, Antora doc split, and unit tests **landed** on the branch — pending merge.
+**Status on [#196](https://github.com/ja11sop/cuppa/pull/196):** **Merged** — Overview + Build inventory load, index By-Rule / By-File variant roll-up (`variant_display`, **Union Refs**, **Peak Refs**, **Build Refs**, `dbg1`-style build IDs), **Violations By-Build** tab, unified scope detail pages, Antora doc split.
 
 **`record_parsed_file()` (include collector sketch):** extend `ProfilesReportSession` (or sibling
 store on `ProfilesDiagnosticCollector`) with a **set per session** (and optionally per Progress
@@ -1328,12 +1327,12 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 | B½-doc — `doc-folder-layout` | **Done** — merged [#193](https://github.com/ja11sop/cuppa/pull/193) |
 | C — `prof-report-html` | **Done** — merged [#194](https://github.com/ja11sop/cuppa/pull/194): HTML index/scope/source pages, By rule / By file / Roll-up tabs, presentation polish, rule `doc_href` links, JSON regen (`--from-json`), **schema v1** envelope (`summary`, `locations[]`, `location_key`, extended `metadata`) |
 | D — `prof-report-manifest` | **Done** — core in [#194](https://github.com/ja11sop/cuppa/pull/194); clean/`invocation_key` fix in [#195](https://github.com/ja11sop/cuppa/pull/195); `--artifacts-root` in `e4d5318` |
-| H — `prof-report-context-summary` | **Done on branch** — [#196](https://github.com/ja11sop/cuppa/pull/196): Overview tab, `context` JSON, `-H`, tier metrics, Build inventory load, [variant roll-up display](#prof-report-variant-roll-up-display) (**Peak Refs**, common + deltas, `build_key` grain), **Violations By-Build** tab, unified scope detail (**Profile** column), Antora doc split — **pending merge** ([#184](https://github.com/ja11sop/cuppa/issues/184)) |
-| G — `prof-report-anonymize` | **Proposal** — anonymize saved JSON for sharing; regen HTML without sources ([§Anonymized report sharing](#prof-report-anonymize)); after H merges |
+| H — `prof-report-context-summary` | **Done** — merged [#196](https://github.com/ja11sop/cuppa/pull/196): Overview tab, `context` JSON, `-H`, tier metrics, Build inventory load, [variant roll-up display](#prof-report-variant-roll-up-display) (**Union Refs**, **Peak Refs**, common + deltas, `build_key` grain), **Violations By-Build** tab, unified scope detail (**Profile** column), Antora doc split |
+| G — `prof-report-anonymize` | **In progress** — branch `prof-report-anonymize`; anonymize saved JSON for sharing; regen HTML without sources ([§Anonymized report sharing](#prof-report-anonymize)) |
 | E — `prof-report-method` | Deferred |
 | F — `prof-report-artefacts` | Partial — `--artifacts-root` landed; full registry + `--remove-artifacts` blocked on #135 |
 
-**Next focus:** merge slice **H** ([#196](https://github.com/ja11sop/cuppa/pull/196)); then slice **G** (anonymize).
+**Next focus:** slice **G** (`prof-report-anonymize`) — last planned slice on [#184](https://github.com/ja11sop/cuppa/issues/184) before closing the umbrella issue.
 
 ## Open questions (resolve in first PR)
 
