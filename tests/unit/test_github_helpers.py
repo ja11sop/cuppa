@@ -1,3 +1,4 @@
+import argparse
 import io
 
 import pytest
@@ -188,6 +189,21 @@ def test_create_pull_request_opens_and_labels( monkeypatch ):
     assert client.calls[0][2]['base'] == 'master'
     assert client.calls[1][1].endswith( '/issues/42/labels' )
     assert client.calls[1][2] == { 'labels': [ 'impact:minor' ] }
+
+
+def test_create_pr_command_requires_impact_label():
+    arguments = argparse.Namespace(
+        title = 'A change',
+        body = None,
+        body_file = None,
+        head = None,
+        base = 'master',
+        label = [],
+        owner = None,
+        repo = None,
+    )
+    with pytest.raises( github_helpers.GitHubHelperError, match='impact: label' ):
+        github_helpers.create_pr_command( arguments )
 
 
 def test_create_pull_request_reports_api_failure():

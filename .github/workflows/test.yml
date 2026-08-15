@@ -10,7 +10,8 @@ on:
 
 jobs:
   version:
-    # The target version must match the impact:<none|patch|minor|major> label on the pull request.
+    # Requires exactly one impact:<none|patch|minor|major> label on the pull request.
+    # Apply it when opening the PR (create-pr --label impact:…) — not after the first CI failure.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
@@ -24,7 +25,7 @@ jobs:
         run: pip install packaging
       - name: Fetch base branch
         run: git fetch --no-tags origin ${{ github.base_ref }}
-      - name: Check version and changelog
+      - name: Check version and changelog (needs impact label on PR)
         run: |
           python -m scripts.check_version_bump \
             --base-ref "origin/${{ github.base_ref }}" \

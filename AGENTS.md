@@ -255,8 +255,8 @@ GitHub().request( 'POST', '/repos/ja11sop/cuppa/issues/132/labels', { 'labels': 
 
 Repeated write workflows live in `scripts.github_helpers` so agents do not rewrite the same API
 sequence each time. Add to that module when the same sequence appears twice; do not invent helpers
-for a one-off. Opening a pull request for the current branch (and applying labels such as
-`impact:minor`) is already there:
+for a one-off. Opening a pull request for the current branch **must** include exactly one
+`impact:` label — `create-pr` rejects the call otherwise:
 
 ```sh
 python -m scripts.github_helpers create-pr \
@@ -265,6 +265,10 @@ python -m scripts.github_helpers create-pr \
 python -m scripts.github_helpers update-pr \
   --pr 154 --title "…" --body-file /tmp/pr.md
 ```
+
+The **version** job on every pull request reads that label before the rest of the matrix runs.
+Open the PR with `--label impact:…` in the same command as `create-pr` immediately after the
+first `git push`. Adding the label only after a red version check wastes a full CI cycle.
 
 ```python
 from scripts.github_helpers import create_pull_request, update_pull_request
@@ -378,10 +382,9 @@ commits.
 
 ### After pushing a pull request branch
 
-After `git push -u origin HEAD` (or any later push to an open PR), **do not stop without knowing
-how CI finished**. The person should not be the first to discover a red check. Poll until the
-checks complete, then report the outcome and be ready to decide next steps — merge discussion if
-green, diagnosis and a fix if red.
+After `git push -u origin HEAD`, **open the pull request before anything else** if one does not
+exist yet — with `create-pr --label impact:<none|patch|minor|major>` so the version job passes on
+the first CI run. Then poll until checks finish; do not stop without knowing the outcome.
 
 ```sh
 python -m scripts.github_helpers watch-pr          # pins current branch's open PR at start
