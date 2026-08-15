@@ -93,15 +93,6 @@
         font-weight: 500;
         margin-bottom: 0.5rem;
       }
-      .prof-stat-value {
-        font-weight: 700;
-      }
-      .prof-stat-value--alert {
-        color: #dc3545;
-      }
-      .prof-stat-value--ok {
-        color: #28a745;
-      }
       .prof-title-suffix {
         font-size: 1.35rem;
         font-weight: 600;
@@ -161,12 +152,7 @@
             {% set has_violations = v_count > 0 or r_count > 0 %}
             {% set stat_tone = 'alert' if has_violations else 'ok' %}
             <h6 class="prof-section-heading mb-0 mt-2">
-              <span class="prof-stat-value prof-stat-value--{{ stat_tone }}">{{ v_count }}</span>
-              {{ 'violation' if v_count == 1 else 'violations' }} of
-              <span class="prof-stat-value">{{ rule_count }}</span>
-              distinct {{ 'rule' if rule_count == 1 else 'rules' }} through
-              <span class="prof-stat-value">{{ r_count }}</span>
-              {{ 'reference' if r_count == 1 else 'references' }}
+              {% include 'cxx_profiles_partial_violation_counts.html' %}
             </h6>
           </li>
           <li class="list-group-item py-3">
@@ -176,7 +162,7 @@
                 <tr>
                   <th class="prof-summary-col-rule">Profile::Rule</th>
                   <th class="prof-summary-col-metric text-center">{% include 'cxx_profiles_partial_heading_distinct_unique.html' %}</th>
-                  <th class="prof-summary-col-metric text-center">Refs</th>
+                  <th class="prof-summary-col-metric text-center">Union Refs</th>
                   <th class="prof-summary-col-message">Violation Message</th>
                 </tr>
               </thead>

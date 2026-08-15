@@ -1,0 +1,114 @@
+= Violation report — Violations By-File tab
+:description: How to read the Violations By-File tab on cxx-profiles-index.html — file rows, Violated Rules lists, and the rule detail subtable
+
+The index **Violations By-File** tab rolls up the session inventory by source file. Column
+semantics mirror **Violations By-Rule** with file and rule roles swapped.
+
+This page documents the **By-File tab only**. Read
+xref:cxx-profiles/report-introduction.adoc[Introduction] for generating the report, JSON export,
+xref:cxx-profiles/report-introduction.adoc#reference-metrics[reference metrics], and
+xref:cxx-profiles/report-introduction.adoc#multi-build-notation[multi-build notation]. Use
+xref:cxx-profiles/report.adoc[Violation report reading guide] for other tabs.
+
+For the symmetric rule-centric view and a worked multi-build example, see
+xref:cxx-profiles/report-by-rule.adoc[By-Rule tab] (especially
+xref:cxx-profiles/report-by-rule.adoc#three-views[three ways to read the same file]).
+
+[#by-file-layout]
+== Tab layout
+
+Each file row shows:
+
+[cols="1,3"]
+|===
+| Column | Meaning
+
+| **Profile**
+| Enforced profile for this file row (when multiple profiles appear in the session).
+
+| **Rules**
+| Distinct rules on this file. Multi-build cells use bold total = common + deltas (rule count
+partition).
+
+| **Violations**
+| Distinct violation identities on this file (key-based common + delta with bold total).
+
+| **Union Refs**
+| **Union Refs** on this file (same partition logic as **Violations By-Rule** **Union Refs**).
+
+| **Peak Refs**
+| **Peak Refs** on this file (index tabs only; omitted on per-scope pages — see
+xref:cxx-profiles/report-introduction.adoc#scope-metrics[scope metrics]).
+
+| **Violated Rules**
+| How many rules hit this file, with `[ index:build_refs ]` lists (common + delta when
+multi-build). Numbers after `:` are **Build Refs**, not **Union Refs**.
+
+| **File**
+| Display path and source link.
+|===
+
+Expand a row for the **rule detail subtable** (one row per violated rule index).
+
+[cols="1,3"]
+|===
+| Column | Meaning
+
+| **Index**
+| Stable rule index within this file row (matches **Violated Rules** lists).
+
+| **Violations**
+| Distinct identities for this rule on this file.
+
+| **Union Refs**
+| **Union Refs** for this rule on this file.
+
+| **Peak Refs**
+| **Peak Refs** for this rule on this file (index only).
+
+| **Build Refs**
+| **Build Refs** for this rule on this file — decode `[ index:refs ]` in **Violated Rules**.
+
+| **Rule**
+| Profile rule label and documentation link.
+
+| **Violation Message**
+| Sample normalised diagnostic.
+|===
+
+Single-build sessions show plain numbers. Per-scope pages use **Build Refs** instead of **Peak Refs**
+on parent and subtable rows (xref:cxx-profiles/report-introduction.adoc#scope-metrics[scope metrics]).
+
+[#by-rule-alignment]
+== Violations By-Rule subtable
+
+The **Violations By-Rule** tab uses the same metric columns on its file detail subtable as
+**Violations By-File** uses on rule rows:
+
+Index → **Violations** → **Union Refs** → **Peak Refs** → **Build Refs** → **File** → **Violation Message**.
+
+Parent-row **Violating Files** lists on By-Rule carry **Build Refs** at `(file index, rule)` grain —
+decode them with the subtable **Build Refs** column, not **Union Refs**.
+
+[#json-fields]
+== JSON fields
+
+Roll-up file rows in `cxx-profiles-index.json` attach the same structured displays as By-Rule rows,
+with file/rule roles swapped:
+
+* `variant_display` — key-based common/delta for violations, **Union Refs**, and **Peak Refs**
+* `refs_display` / `peak_refs_display` — same structure; templates read `refs` vs `peak_refs` metrics
+* `rules_display` — distinct rule count partition for the **Rules** column
+* `violated_rules_display` — `(index, build_refs)` partition for **Violated Rules**
+* `rule_build_refs_display` — per-rule **Build Refs** partition matching **Violated Rules** lists
+
+Each includes `build_order` and per-delta `build_id` / `build_label` when `multi_build` is true.
+See xref:cxx-profiles/report-by-rule.adoc#json-fields[By-Rule JSON fields] for field naming detail.
+
+== Related
+
+* xref:cxx-profiles/report-introduction.adoc[Introduction]
+* xref:cxx-profiles/report.adoc[Violation report reading guide]
+* xref:cxx-profiles/report-by-rule.adoc[Violations By-Rule tab] — symmetric view by rule
+* xref:cxx-profiles/report-by-build.adoc[Violations By-Build tab]
+* xref:cxx-profiles/report-by-sconscript.adoc[Violations By-Sconscript]

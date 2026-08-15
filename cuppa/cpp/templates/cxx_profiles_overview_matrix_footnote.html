@@ -1,0 +1,8 @@
+{% if files_hot_count %}
+<p class="text-secondary small mb-4 prof-overview-matrix-footnote">
+  File percentages are each rule's share of the
+  <span class="prof-stat-value prof-stat-value--hot-files">{{ files_hot_count }}</span>
+  impacted {{ 'file' if files_hot_count == 1 else 'files' }}.
+  One file can match several rules, so row percentages may sum to more than 100%.
+</p>
+{% endif %}

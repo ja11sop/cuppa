@@ -1,0 +1,125 @@
+= Violation report — Violations By-Build tab
+:description: Index By-Build tab — per-build roll-up across all sconscripts and profiles
+
+The index **Violations By-Build** tab groups violations by compile inventory row
+`(variant, toolchain)` — the same **build id** used in Overview
+xref:cxx-profiles/report-overview.adoc#build-breakdown[Build inventory load] and in multi-build
+notation on the session By-Rule / By-File tabs.
+
+This page documents the **By-Build tab only**. Read
+xref:cxx-profiles/report-introduction.adoc[Introduction] for generating the report, JSON export, and
+xref:cxx-profiles/report-introduction.adoc#reference-metrics[reference metrics]. Use
+xref:cxx-profiles/report.adoc[Violation report reading guide] for other tabs.
+
+[#index-by-build]
+== Index By-Build tab
+
+When the session contains at least one build inventory row, the index adds **Violations
+By-Build** before **Violations By-Sconscript**.
+
+=== Build inventory load
+
+The tab opens with the same **Build inventory load** table as the Overview tab so build ids and
+compile totals are visible before selecting a build sub-tab.
+
+=== Build tabs
+
+Each catalogued build gets a sub-tab labelled with its **build id** (`dbg1`, `rel1`, …).
+The tab title uses the full build label as a tooltip, for example
+`dbg/x86_64/cxx2c — clang24_profiles`.
+
+=== Build heading
+
+Inside each build tab, a single heading shows the variant tail and toolchain (for example
+`dbg/x86_64/cxx2c — clang24_profiles`). There is no per-profile subheading — **Profile** appears
+as a table column instead.
+
+=== By-Rule and By-File
+
+Each build tab has one **Violations By-Rule** and **Violations By-File** pair covering all
+profiles in that build. Tables use the single-build layout documented in
+xref:cxx-profiles/report-introduction.adoc#scope-metrics[scope metrics] (**Build Refs**, no **Peak Refs**; red violation counts).
+
+The difference from a per-scope page is aggregation: each build tab rolls up **all sconscripts**
+compiled with that variant and toolchain, whereas a scope page is limited to one sconscript row.
+
+[#by-rule-layout]
+== Violations By-Rule (within a build tab)
+
+[cols="1,3"]
+|===
+| Column | Meaning
+
+| **Profile**
+| Enforced profile for this rule row.
+
+| **Rule**
+| Rule id within the profile (documentation link when available).
+
+| **Violations**
+| Distinct violation identities for this rule in this build (plain count).
+
+| **Union Refs**
+| **Union Refs** for this rule in this build.
+
+| **Build Refs**
+| Compile inventory for this rule in this build (matches **Violating Files** `[ index:refs ]`
+lists).
+
+| **Violating Files**
+| File count and index lists (plain notation).
+
+| **Violation Message**
+| Sample diagnostic text.
+|===
+
+File subtable: **Index**, **Violations**, **Union Refs**, **Build Refs**, **File** — no **Peak Refs**
+column.
+
+[#by-file-layout]
+== Violations By-File (within a build tab)
+
+[cols="1,3"]
+|===
+| Column | Meaning
+
+| **Profile**
+| Enforced profile for this file row.
+
+| **Rules** / **Violations** / **Union Refs** / **Build Refs**
+| Same semantics as index By-File, scoped to one build (plain numbers).
+
+| **Violated Rules**
+| Rule index lists using **Build Refs** grain.
+
+| **File**
+| Display path and source link.
+|===
+
+Rule subtable: **Index**, **Violations**, **Union Refs**, **Build Refs**, **Rule**, **Violation Message**.
+
+[#vs-other-views]
+== Comparing By-Build to other views
+
+[cols="1,3"]
+|===
+| View | Scope
+
+| **By-Build** (this tab)
+| One build inventory row, **all sconscripts**, all profiles
+
+| **By-Sconscript** detail
+| One `(sconscript, build, toolchain)` row, all profiles — same table columns
+
+| **By-Rule / By-File** (index)
+| Session union across builds; multi-build common + delta notation
+|===
+
+== Related
+
+* xref:cxx-profiles/report-introduction.adoc[Introduction]
+* xref:cxx-profiles/report.adoc[Violation report reading guide]
+* xref:cxx-profiles/report-overview.adoc[Overview tab] — build inventory load source table
+* xref:cxx-profiles/report-by-sconscript.adoc[Violations By-Sconscript]
+* xref:cxx-profiles/report-by-rule.adoc[Violations By-Rule] — session roll-up across builds
+* xref:cxx-profiles/report-by-file.adoc[Violations By-File] — session roll-up across builds

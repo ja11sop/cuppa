@@ -380,7 +380,8 @@ class ToolchainProcessor:
     def __call__( self, line ):
 
         if self._profiles_scope is not None:
-            ProfilesDiagnosticCollector.record_line( self._profiles_scope, line )
+            if ProfilesDiagnosticCollector.record_line( self._profiles_scope, line ):
+                return None
 
         ( matches, interpretor, error_id, warning_id ) = self.interpret( line )
 

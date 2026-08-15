@@ -1,0 +1,11 @@
+{% if display.multi_build %}
+{% set list_index_kind = index_kind | default('file') %}
+<span class="prof-variant-index-list prof-mono">
+{% if display.common['count'] %}
+<span class="prof-variant-index-list-line">
+<span class="prof-variant-index-list-count font-weight-bold">{{ display.common['count'] }}</span> [ {% for item in display.common['items'] %}{% if not loop.first %}, {% endif %}{% if item.href %}<a href="{{ item.href }}" class="prof-violating-file-link" title="{{ item.path_tooltip | e }}">{% elif item.doc_href %}<a href="{{ item.doc_href }}" class="prof-violated-rule-link" title="{{ item.rule_tooltip | e }}" target="_blank" rel="noopener noreferrer">{% endif %}{% if list_index_kind == 'rule' %}<span class="prof-rule-index">{{ item.index }}</span>{% else %}<span class="prof-file-index">{{ item.index }}</span>{% endif %}:{% if list_index_kind == 'rule' %}<span class="prof-violated-rule-count">{{ item.refs }}</span>{% else %}<span class="prof-violating-file-count">{{ item.refs }}</span>{% endif %}{% if item.href or item.doc_href %}</a>{% endif %}{% endfor %} ]
+</span>
+{% endif %}{% for delta in display.deltas %}
+<span class="prof-variant-index-list-line prof-variant-index-list-delta" title="{{ delta.build_label | e }}">+<span class="font-weight-bold">{{ delta['items'] | length }}</span> <span class="prof-variant-metric-build-id text-muted">{{ delta.build_id }}</span> [ {% for item in delta['items'] %}{% if not loop.first %}, {% endif %}{% if item.href %}<a href="{{ item.href }}" class="prof-violating-file-link" title="{{ item.path_tooltip | e }}">{% elif item.doc_href %}<a href="{{ item.doc_href }}" class="prof-violated-rule-link" title="{{ item.rule_tooltip | e }}" target="_blank" rel="noopener noreferrer">{% endif %}{% if list_index_kind == 'rule' %}<span class="prof-rule-index">{{ item.index }}</span>{% else %}<span class="prof-file-index">{{ item.index }}</span>{% endif %}:{% if list_index_kind == 'rule' %}<span class="prof-violated-rule-count">{{ item.refs }}</span>{% else %}<span class="prof-violating-file-count">{{ item.refs }}</span>{% endif %}{% if item.href or item.doc_href %}</a>{% endif %}{% endfor %} ]</span>{% endfor %}
+</span>
+{% endif %}

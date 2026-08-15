@@ -169,7 +169,25 @@ def test_inventory_keeps_same_file_in_two_scopes_separate():
     inventory.record( rel_scope, diagnostic )
 
     assert inventory.total_references() == 2
+    assert inventory.session_union_references() == 1
     assert inventory.unique_locations() == 2
+    assert inventory.unique_violation_count() == 1
+
+
+def test_unique_violation_count_counts_distinct_columns_on_same_line():
+    inventory = ProfilesInventory()
+    line_a = (
+        "/tmp/foo.cpp:10:12: error: pointer to uninitialized memory must be "
+        "marked '[[ref_to_uninit]]' under profile 'std::init'"
+    )
+    line_b = (
+        "/tmp/foo.cpp:10:40: error: variable 'x' must be initialized or marked "
+        "'[[uninit]]' under profile 'std::init'"
+    )
+    inventory.record( _SAMPLE_SCOPE, parse_profiles_diagnostic( line_a ) )
+    inventory.record( _SAMPLE_SCOPE, parse_profiles_diagnostic( line_b ) )
+
+    assert inventory.unique_violation_count() == 2
 
 
 def test_inventory_report_model_shape():
@@ -200,6 +218,13 @@ def test_inventory_report_model_shape():
         'ref_to_uninit',
         UNCLASSIFIED_RULE_ID,
     }
+    scope_rule = profile[ 'rules' ][ 0 ]
+    assert scope_rule[ 'variant_counts' ][ 0 ][ 'build_key' ]
+    assert 'union_references' in scope_rule[ 'variant_counts' ][ 0 ]
+    assert 'peak_references' in scope_rule[ 'variant_counts' ][ 0 ]
+    scope = model[ 'scopes' ][ 0 ]
+    assert scope[ 'build_references' ] == 6
+    assert scope[ 'total_references' ] == 6
 
 
 def test_unscoped_profiles_scope_is_stable():

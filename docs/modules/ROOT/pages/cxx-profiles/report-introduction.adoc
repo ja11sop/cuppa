@@ -1,0 +1,406 @@
+= Violation report — Introduction
+:description: Generate cxx-profiles-index.html, offline regen, JSON export, and core report vocabulary
+
+The **C++ Profiles violation report** is a read-only HTML and JSON inventory of Profiles
+diagnostics captured during a cuppa build. It helps you triage rule violations before fixing
+sources — it does not rewrite code.
+
+This page is the starting point for the report feature: how to produce artefacts, regenerate
+them offline, and read shared vocabulary. It is **not** the guide for the **Overview** tab on
+`cxx-profiles-index.html` — that tab has its own page,
+xref:cxx-profiles/report-overview.adoc[Overview tab].
+
+Use xref:cxx-profiles/report.adoc[Violation report reading guide] as the index of tab-specific
+guides (By-Rule, By-File, By-Build, By-Sconscript).
+
+[#prerequisites]
+== Prerequisites
+
+Before generating a report you will need:
+
+* xref:cxx-profiles.adoc#how-cuppa-enables[Profiles enabled] on a Profiles-capable Clang
+  (`--cxx-profiles` and usually `--cxx-profiles-enforce=`)
+* A build that compiles translation units under enforce — pair with
+  `--cxx-disable-error-limit` when you need the compiler's full diagnostic list rather than its
+  default cap (see xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[Violation inventory report])
+* `--cxx-profiles-report` on the same cuppa invocation (same section)
+
+[#generating-during-build]
+== Generating the report during a build
+
+Pass `--cxx-profiles-report` together with `--cxx-profiles` or `--cxx-profiles-enforce=`. Cuppa
+captures diagnostics while the build runs and writes output at `sconstruct_end` under
+`<artifacts-root>/cxx-profiles/` (default `_artifacts/cxx-profiles/`). The construction `env`
+exposes `artifacts_root` and `abs_artifacts_root` (see `--artifacts-root=` in
+xref:cli-reference.adoc[CLI reference]).
+
+[source,bash]
+----
+cuppa -D --dbg --toolchains=clang24_profiles_2026_08_07_27 \
+  --cxx-profiles --cxx-profiles-enforce=std::init \
+  --cxx-disable-error-limit --cxx-profiles-report
+----
+
+Optional flags that affect report shape (full list on xref:cxx-profiles.adoc[C++ Profiles]):
+
+* `--cxx-profiles-report=` *path* — explicit report directory (or index file stem)
+* `--cxx-profiles-report-root=` *dir* — rebase project-owned paths for display and links
+* `--cxx-profiles-report-link-style=local|gitlab|github` — Profiles-only source link override
+* `--cxx-profiles-report-context=full|rules-only|off` — Overview `context` in JSON/HTML
+  (`full` default; `rules-only` omits tier 1/2 parsed-file denominators; `off` hides the
+  Overview tab content)
+
+When context capture is enabled, the session index opens on the **Overview** tab. Other tabs —
+**Violations By-Rule**, **By-File**, **By-Build**, and **By-Sconscript** — are always present
+when the inventory is non-empty.
+
+[#artefacts]
+== Report artefacts
+
+After a successful report build you will find at least:
+
+[cols="1,3"]
+|===
+| File / directory | Role
+
+| `cxx-profiles-index.html`
+| Session index — Overview (when enabled), roll-up tabs, links to scope pages
+
+| `cxx-profiles-index.json`
+| Versioned machine-readable session (`schema_version`, `summary`, `report`, optional
+  `locations[]`, `context`) — see <<json-export>>
+
+| `cxx-profiles--*.html`
+| Per-scope detail pages — one `(sconscript, variant, toolchain)` compile row each
+
+| `by-source/`
+| Marked-up source pages with violation anchors (omitted when regen uses
+  `--skip-source-pages`)
+|===
+
+Generated paths are appended to a project-local `.cuppa-reports` manifest (JSONL). Matching
+entries are removed when you run `--clean` or `--remove-builds` with the same report destination
+and link options on the command line.
+
+[#offline-regeneration]
+== Offline regeneration
+
+Re-render HTML (and optionally rewrite JSON) **without recompiling** using the maintainer script
+`scripts/regenerate_profiles_report.py`. This is the usual workflow for template or documentation
+iteration, and for CI jobs that only publish HTML from a saved JSON artefact.
+
+**Recommended — from saved JSON:**
+
+[source,bash]
+----
+python -m scripts.regenerate_profiles_report \
+  --from-json _artifacts/cxx-profiles/cxx-profiles-index.json
+----
+
+Omit `--sconstruct-dir` to take project paths and link style from JSON `metadata`. Source files
+must exist on disk for `by-source/` pages unless `--skip-source-pages` is set.
+
+[cols="1,3"]
+|===
+| Script flag | Meaning
+
+| `--from-json`
+| Positional argument is `cxx-profiles-index.json` (recommended)
+
+| `--sconstruct-dir`
+| Project root; default: cwd, or JSON metadata with `--from-json`
+
+| `--artifacts-root`
+| Same meaning as cuppa `--artifacts-root` (default `_artifacts`)
+
+| `--report-dir`
+| Output directory (default: `<artifacts-root>/cxx-profiles/`)
+
+| `--link-style` / `--reports-link-style`
+| Source links for this regen run
+
+| `--cxx-profiles-report-link-style`
+| Profiles-only override for this regen run
+
+| `--skip-source-pages`
+| Omit `by-source/` marked-up pages
+
+| `--write-json`
+| Rewrite `cxx-profiles-index.json` after re-render
+
+| `--summary`
+| Print capture replay summary (capture replay only; not used with `--from-json`)
+|===
+
+Capture replay (`capture.txt` without `--from-json`) remains legacy — parallel `tee` output can
+mis-attribute scope. Prefer JSON when a live build already wrote `cxx-profiles-index.json`.
+
+More detail: xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[Violation inventory report]
+on the C++ Profiles hub.
+
+[#json-export]
+== JSON export (agents and CI)
+
+`cxx-profiles-index.json` is written alongside the HTML index on every live report build. It is
+the stable contract for automation:
+
+* **CI** — archive JSON from the build job; a follow-up job can run
+  `regenerate_profiles_report --from-json` to publish HTML without a compiler
+* **Agents and tooling** — read `summary`, `report.rollup`, `locations[]`, and `context`
+  without parsing HTML; roll-up rows include structured `variant_display` objects for multi-build
+  metrics (documented on xref:cxx-profiles/report-by-rule.adoc#json-fields[By-Rule JSON fields])
+* **Sharing** — strip or anonymise JSON for out-of-tree review; regen HTML with adjusted
+  `metadata` when paths differ
+
+Top-level fields (non-exhaustive):
+
+* `schema_version` — report JSON version
+* `summary` — session union totals (`unique_violation_count`, `total_references`, …)
+* `report` — serialised scopes, roll-up rules/files, `build_catalog`
+* `locations[]` — flat diagnostic inventory when captured (enables full source regen)
+* `context` — Overview metrics when context mode is not `off`
+* `metadata` — `sconstruct_dir`, link style, enforce list, incomplete scopes
+
+[#reading-the-index]
+== Reading the index
+
+`cxx-profiles-index.html` is organised as tabs. Each tab has a dedicated Antora page at a
+similar level of detail:
+
+[cols="1,3"]
+|===
+| Tab | Guide
+
+| **Overview**
+| xref:cxx-profiles/report-overview.adoc[Overview tab] — summary cards, build inventory load,
+  rule concentration, profile matrices (when context capture is enabled)
+
+| **Violations By-Rule**
+| xref:cxx-profiles/report-by-rule.adoc[By-Rule tab] — session roll-up by rule
+
+| **Violations By-File**
+| xref:cxx-profiles/report-by-file.adoc[By-File tab] — session roll-up by file
+
+| **Violations By-Build**
+| xref:cxx-profiles/report-by-build.adoc[By-Build tab] — one build inventory row at a time
+
+| **Violations By-Sconscript**
+| xref:cxx-profiles/report-by-sconscript.adoc[By-Sconscript tab] — scope index and detail pages
+|===
+
+Per-scope HTML pages use the same single-build table layout as **By-Build** detail (**Build
+Refs**, no **Peak Refs**; **Profile** column when multiple profiles appear in one scope).
+
+The sections below define vocabulary and reference metrics used on every tab.
+
+[#profile]
+== Profile
+
+A **profile** is a named safety or style contract enforced on your {cpp} translation units —
+for example `std::init` (initialization rules from link:https://wg21.link/P4222[P4222]). Cuppa
+passes enforced designators through `--cxx-profiles-enforce=` (see
+xref:cxx-profiles.adoc#how-cuppa-enables[How cuppa enables Profiles]).
+
+The violation report groups every diagnostic under its **profile** name. Overview **Profile
+matrices** list all documented rules for each enforced profile. Roll-up tables include a
+**Profile** column when a view spans more than one profile (for example By-Build detail and
+per-scope pages).
+
+[#rule]
+== Rule
+
+A **rule** is one check inside a profile, identified by `rule_id` (for example
+`static_runtime_init`, `ref_to_uninit`). Rules appear in the report as `profile::rule_id` and
+link to cuppa rule documentation when available.
+
+Session totals count **distinct rules** — how many `(profile, rule_id)` pairs fired at least once
+after unioning builds. Rule rows on By-Rule tables, Overview **Rule concentration**, and profile
+matrices are all keyed by rule.
+
+[#violation]
+== Violation
+
+A **violation** is one distinct issue site in the codebase, not one printed diagnostic line.
+
+Cuppa assigns each captured diagnostic a **violation identity**:
+
+[source]
+----
+(sconscript, file, line, column, profile, rule_id)
+----
+
+* The same rule on the same line at **different columns** counts as separate violations.
+* The same site in **dbg** and **rel** counts as **one** violation in session union totals
+  (identity ignores variant).
+* **Violations** columns and the index headline use this union count.
+
+A single violation can produce **many diagnostics** during compilation (templates, instantiation
+paths, repeated analyser passes). Those repetitions feed **references**, below — they do not
+multiply the violation count unless they represent genuinely distinct sites (different line or
+column).
+
+[mermaid]
+----
+flowchart TB
+  subgraph session [Session inventory]
+    P[Profile e.g. std::init]
+    R[Rule e.g. static_runtime_init]
+    V[Violation identity<br/>sconscript + file + line + column]
+    D[Captured diagnostics<br/>many lines, many refs]
+  end
+  P --> R
+  R --> V
+  V --> D
+----
+
+[#references]
+== References
+
+Each time the analyser attributes another code path to the same diagnostic site, the report
+records a **reference**. References measure *how much diagnostic material* the compiler emitted,
+not how many distinct bugs exist.
+
+You will see reference totals at several grains:
+
+* Per **scope** (one sconscript + variant compile)
+* Per **rule** or **file** row on roll-up tables
+* Per **session** in the index headline and Overview cards
+
+Reference **types** (next section) answer different questions from the same underlying captures.
+
+[#reference-metrics]
+== Reference types — Union Refs, Peak Refs, and Build Refs
+
+[cols="1,1,3"]
+|===
+| Column name | JSON field | Meaning
+
+| **Union Refs**
+| `summary.total_references` / `rollup.total_references`
+| For each violation **identity**, take the **maximum** ref count among individual captured
+diagnostic rows, then **sum** across identities. Aligns with **Violations** union semantics.
+Multi-build index cells show a **bold total**, then `= common` plus `+N build_id` deltas.
+Overview prose may say *union references*; table columns use **Union Refs**.
+
+| **Peak Refs**
+| (derived in roll-ups)
+| For each identity, take the **maximum per-build inventory total** for that identity (max of dbg
+summed refs vs rel summed refs), then sum. Index By-Rule / By-File parent rows and Overview
+**Rule concentration** / **Profile matrices** include this column so you can correlate with
+By-Rule without opening every row. Often equals **Union Refs**; diverges when one build stacks
+multiple diagnostic rows at the same identity.
+
+| **Build Refs**
+| `rollup.raw_total_references` (session aggregate)
+| **Summed** reference counts from compiling **one build** — no cross-build deduplication.
+Overview xref:cxx-profiles/report-overview.adoc#build-breakdown[Build inventory load] variant
+rows, **Violating Files** / **Violated Rules** `[ index:refs ]` lists, and per-scope compile
+totals use this grain.
+|===
+
+[mermaid]
+----
+flowchart LR
+  subgraph identities [Violation identities]
+    I1[Identity A]
+    I2[Identity B]
+  end
+  subgraph refs [Union Refs]
+    I1 --> R1[max row peak per identity]
+    I2 --> R2[max row peak per identity]
+    R1 --> SU[Sum = Union Refs]
+    R2 --> SU
+  end
+  subgraph peak [Peak Refs — multi-build]
+    I1 --> P1[max per-build sum]
+    I2 --> P2[max per-build sum]
+    P1 --> SP[Sum = Peak Refs]
+    P2 --> SP
+  end
+  subgraph build [Build Refs — one compile]
+    I1 --> B1[sum all rows in build]
+    I2 --> B2[sum all rows in build]
+    B1 --> SB[Sum = Build Refs]
+    B2 --> SB
+  end
+----
+
+**Violating Files** and **Violated Rules** lists show **Build Refs** at `(index, refs)` grain
+(`[ 21:2950 ]`), not **Union Refs**. Use the subtable **Build Refs** column (or the scope-page
+equivalent) to decode those lists — not the **Union Refs** column.
+
+[#multi-build-notation]
+== Multi-build roll-up notation (index tabs)
+
+When the session catalog lists more than one build (`dbg1`, `rel1`, …), metric cells on the
+index **Violations By-Rule** and **By-File** tabs show:
+
+[source]
+----
+748
+= 420
++156 rel1
++172 rel2
+----
+
+* The **bold first line** is the session union total (common + all deltas).
+* **`= common`** is the strict intersection across every catalog build.
+* **`+N build_id`** lines are build-exclusive or build-differing contributions.
+
+Single-build sessions and per-scope detail pages show **plain numbers** instead (see
+<<scope-metrics>>).
+
+**Build Refs** list partitions use `total =` + `+N build_id` when builds differ; they never show
+a non-zero common **and** non-zero deltas for the same indexed entry.
+
+[#scope-metrics]
+== Single-build scope pages and the By-Sconscript index tab
+
+Each **Violations By-Sconscript** row (and each linked detail page) covers **one build**
+inventory row: one `sconscript`, one variant/toolchain combination.
+
+=== Index By-Sconscript table
+
+[cols="1,3"]
+|===
+| Column | Meaning
+
+| **Rules**
+| Distinct `(profile, rule_id)` pairs observed in this scope.
+
+| **Violations**
+| Distinct violation identities in this scope (union count within the scope).
+
+| **Union Refs**
+| **Union Refs** summed across rules in this scope.
+
+| **Build Refs**
+| Compile inventory total for this scope (sum of every captured diagnostic ref in this build).
+Equals **Peak Refs** for the same scope — both are single-build totals. Shown alongside **Union Refs**
+so you can compare union vs compile load and correlate with Overview **Build inventory load**.
+
+| **Profiles** / **Rule Violations**
+| Summary lists (unchanged).
+|===
+
+=== Scope detail pages (By-Rule / By-File tabs)
+
+Scope detail tables omit the index **Peak Refs** column — **Build Refs** already carries the
+single-build compile total. Subtables show **Violations**, **Union Refs**, and **Build Refs** only.
+One tab pair covers all profiles; **Profile** is a column on the main tables (same layout as
+xref:cxx-profiles/report-by-build.adoc[Violations By-Build] detail).
+
+=== When Union Refs differs from Build Refs in one scope
+
+**Union Refs** can be **lower** when several captured diagnostics share one union identity (same line,
+column, and rule, but different normalised messages in the capture dedupe key). **Union Refs** uses the
+row peak per identity; **Build Refs** sums every captured row. When each identity comes from at
+most one diagnostic row, **Union Refs** and **Build Refs** match.
+
+== Related
+
+* xref:cxx-profiles/report.adoc[Violation report reading guide] — tab index
+* xref:cxx-profiles/report-overview.adoc[Overview tab]
+* xref:cxx-profiles/report-by-sconscript.adoc[Violations By-Sconscript]
+* xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[Violation inventory report] — flags on the C++ Profiles hub
+* xref:cli-reference.adoc[CLI reference] — `--cxx-profiles-report`, `--cxx-profiles-report-context=`

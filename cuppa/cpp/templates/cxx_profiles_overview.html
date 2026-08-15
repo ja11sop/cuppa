@@ -1,0 +1,180 @@
+<div class="p-3 prof-overview">
+  {% set codebase = context.codebase %}
+  {% set methodology = context.methodology %}
+  {% set stat_tone = 'alert' if session_stats.unique_violation_count > 0 else 'ok' %}
+
+  {% set files_hot_count = codebase.files_with_violations | default(0) %}
+
+  <div class="row mb-4">
+    <div class="col-md-4 mb-3">
+      <div class="border rounded p-3 h-100">
+        <h6 class="text-secondary text-uppercase small mb-2 prof-overview-card-heading">
+          <span>Violation totals</span>
+          <a href="{{ overview_doc_inventory }}" class="prof-overview-card-guide" title="How to interpret the Violation totals card">
+            <i class="fas fa-info-circle fa-fw" aria-hidden="true"></i><span class="sr-only">Guide</span>
+          </a>
+        </h6>
+        <p class="mb-1">
+          <span class="prof-stat-value prof-stat-value--{{ stat_tone }}">{{ session_stats.unique_violation_count }}</span>
+          distinct {{ 'violation' if session_stats.unique_violation_count == 1 else 'violations' }}
+          <span class="prof-metric-column-label text-muted">(Violations)</span>
+        </p>
+        <p class="mb-1">
+          <span class="prof-stat-value prof-stat-value--warn">{{ session_stats.unique_rule_count }}</span>
+          distinct {{ 'rule' if session_stats.unique_rule_count == 1 else 'rules' }}
+          <span class="prof-metric-column-label text-muted">(Rules)</span>
+        </p>
+        <p class="mb-0">
+          <span class="prof-stat-value prof-stat-value--neutral">{{ session_stats.total_references }}</span>
+          union {{ 'reference' if session_stats.total_references == 1 else 'references' }}
+          <span class="prof-metric-column-label text-muted">(Union Refs)</span>
+        </p>
+      </div>
+    </div>
+
+    <div class="col-md-4 mb-3">
+      <div class="border rounded p-3 h-100">
+        <h6 class="text-secondary text-uppercase small mb-2 prof-overview-card-heading">
+          <span>Codebase reach</span>
+          <a href="{{ overview_doc_codebase_reach }}" class="prof-overview-card-guide" title="How to interpret the Codebase reach card">
+            <i class="fas fa-info-circle fa-fw" aria-hidden="true"></i><span class="sr-only">Guide</span>
+          </a>
+        </h6>
+        {% if codebase.files_parsed is defined %}
+        <p class="mb-1">
+          <span class="prof-stat-value">{{ '%.4f'|format(codebase.files_with_violations_pct) }}%</span>
+          of parsed files violated
+        </p>
+        {% if codebase.translation_units_compiled is defined %}
+        <p class="mb-1 text-secondary small">
+          {{ codebase.translation_units_compiled }} translation {{ 'unit' if codebase.translation_units_compiled == 1 else 'units' }} compiled
+        </p>
+        {% endif %}
+        <p class="mb-0">
+          <span class="prof-stat-value prof-stat-value--hot-files">{{ codebase.files_with_violations }}</span>
+          {{ 'file' if codebase.files_with_violations == 1 else 'files' }} out of
+          <span class="prof-stat-value">{{ codebase.files_parsed }}</span>
+          files impacted
+        </p>
+        {% elif codebase.files_with_violations is defined %}
+        <p class="mb-0">
+          <span class="prof-stat-value prof-stat-value--hot-files">{{ codebase.files_with_violations }}</span>
+          {{ 'file' if codebase.files_with_violations == 1 else 'files' }} impacted
+        </p>
+        <p class="mb-0 text-secondary small">Parsed-file denominators were not captured for this run.</p>
+        {% else %}
+        <p class="mb-0 text-secondary">Parsed-file denominators were not captured for this run.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="col-md-4 mb-3">
+      <div class="border rounded p-3 h-100">
+        <h6 class="text-secondary text-uppercase small mb-2 prof-overview-card-heading">
+          <span>Violation density</span>
+          <a href="{{ overview_doc_violation_density }}" class="prof-overview-card-guide" title="How to interpret the Violation density card">
+            <i class="fas fa-info-circle fa-fw" aria-hidden="true"></i><span class="sr-only">Guide</span>
+          </a>
+        </h6>
+        {% if codebase.violation_line_pct_in_affected_files is defined %}
+        <p class="mb-1">
+          <span class="prof-stat-value">{{ '%.2f'|format(codebase.violation_line_pct_in_affected_files) }}%</span>
+          of source lines in violating files
+        </p>
+        {% if codebase.violation_lines_per_1000_source_lines_affected is defined %}
+        <p class="mb-1 text-secondary small">
+          {{ codebase.violation_lines_per_1000_source_lines_affected }} lines per 1k source lines (affected files)
+        </p>
+        {% endif %}
+        <p class="mb-0">
+          <span class="prof-stat-value">{{ codebase.unique_violation_lines }}</span>
+          unique {{ 'line' if codebase.unique_violation_lines == 1 else 'lines' }} of
+          <span class="prof-stat-value">{{ codebase.source_lines_in_violating_files }}</span>
+          counted {{ 'line' if codebase.source_lines_in_violating_files == 1 else 'lines' }}
+        </p>
+        {% else %}
+        <p class="mb-0 text-secondary">Source line denominators unavailable (missing files or rules-only context).</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% if context.builds and context.builds.rows %}
+  <h5 class="mt-2 mb-3 prof-overview-section-heading">
+    Build inventory load
+    <a href="{{ overview_doc_build_breakdown }}" class="prof-overview-card-guide" title="How to interpret the Build inventory load table">
+      <i class="fas fa-info-circle fa-fw" aria-hidden="true"></i><span class="sr-only">Guide</span>
+    </a>
+  </h5>
+  <div class="mb-4">
+    {% include 'cxx_profiles_overview_builds.html' %}
+  </div>
+  {% endif %}
+
+  {% if context.concentration.top_rules %}
+  <h5 class="mt-2 mb-3 prof-overview-section-heading">
+    Rule concentration — All profiles
+    <a href="{{ overview_doc_rule_concentration }}" class="prof-overview-card-guide" title="How to interpret the Rule concentration table">
+      <i class="fas fa-info-circle fa-fw" aria-hidden="true"></i><span class="sr-only">Guide</span>
+    </a>
+  </h5>
+  <div class="mb-2 prof-rule-concentration">
+  {% with rules=context.concentration.top_rules, files_hot_count=files_hot_count %}
+  {% include 'cxx_profiles_overview_matrix.html' %}
+  {% endwith %}
+  </div>
+  {% with files_hot_count=files_hot_count %}
+  {% include 'cxx_profiles_overview_matrix_footnote.html' %}
+  {% endwith %}
+  {% endif %}
+
+  {% if context.profiles %}
+  <h5 class="mt-4 mb-3 prof-overview-section-heading">
+    Profile matrices
+    <a href="{{ overview_doc_profile_matrices }}" class="prof-overview-card-guide" title="How to interpret the Profile matrices">
+      <i class="fas fa-info-circle fa-fw" aria-hidden="true"></i><span class="sr-only">Guide</span>
+    </a>
+  </h5>
+  <ul class="nav nav-tabs prof-profile-matrix-tabs" id="profileMatrixTabs" role="tablist">
+    {% for profile in context.profiles %}
+    <li class="nav-item">
+      <a class="nav-link{% if loop.first %} active{% endif %}"
+         id="profile-matrix-tab-{{ loop.index }}"
+         data-toggle="tab"
+         href="#profile-matrix-pane-{{ loop.index }}"
+         role="tab"
+         aria-selected="{{ 'true' if loop.first else 'false' }}">
+        <span class="prof-mono prof-profile-matrix-tab-name" data-profile="{{ profile.profile }}">{{ profile.profile }}</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  <div class="tab-content border border-top-0 rounded-bottom mb-2 prof-profile-matrix-panes">
+    {% for profile in context.profiles %}
+    <div class="tab-pane fade{% if loop.first %} show active{% endif %}"
+         id="profile-matrix-pane-{{ loop.index }}"
+         role="tabpanel"
+         aria-labelledby="profile-matrix-tab-{{ loop.index }}">
+      <div class="p-3">
+        <p class="text-secondary small mb-3">
+          {{ profile.observed_rule_count }} of {{ profile.documented_rule_count }} documented rules observed
+        </p>
+        {% with rules=profile.rules, files_hot_count=files_hot_count %}
+        {% include 'cxx_profiles_overview_matrix.html' %}
+        {% endwith %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% with files_hot_count=files_hot_count %}
+  {% include 'cxx_profiles_overview_matrix_footnote.html' %}
+  {% endwith %}
+  {% endif %}
+
+  <p class="text-secondary small mb-0">
+    Line counting: {{ methodology.loc_count }}.
+    {% if methodology.parsed_files is defined %}
+    Parsed files: {{ methodology.parsed_files }}.
+    {% endif %}
+  </p>
+</div>

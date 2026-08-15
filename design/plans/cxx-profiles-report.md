@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — C++ Profiles (`profiles-violation-report`); [#184](https://github.com/ja11sop/cuppa/issues/184) (umbrella); shipped enablement [`archive/cxx-profiles.md`](../archive/cxx-profiles.md); [`removal-options.md`](removal-options.md) §4.6 Phase 6 artefacts [#135](https://github.com/ja11sop/cuppa/issues/135); test/coverage report patterns (`cuppa/test_report/`, `cuppa/cpp/run_gcov_coverage.py`)
-- **Updated:** 2026-08-14
+- **Updated:** 2026-08-15
 - **Impact:** minor — new opt-in CLI flag and HTML artefacts; no change to default builds
 
 ## Why
@@ -226,17 +226,16 @@ requested.
 
 | Tab | Primary sort (default) | Expandable rows | Purpose |
 |-----|------------------------|-----------------|---------|
-| **Overview** | Fixed layout — headline metrics and tables | Per-profile **full rule matrix** (including zero counts); optional scope breakdown | “How bad is it relative to the codebase?” — shareable executive summary ([§Context summary](#prof-report-context-summary)) |
-| **By scope** | Sconscript × variant rows | Links to per-scope detail pages | Navigate multi-variant / multi-sconscript sessions |
-| **By rule** | Rule / violation class — **most total references first** | File **entries**: linkable path, references in this rule, unique line count | “What hurts most?” — fix the highest-impact rule classes first |
-| **By file** | Source file — **most total references first** (any rule) | Rule **entries** under each file: rule id, references, sample message | “Which files are worst?” — concentrate edits in hot files |
+| **Overview** | Fixed layout — headline metrics and tables | Per-profile **full rule matrix** (including zero counts); **Build inventory load** | “How bad is it relative to the codebase?” — shareable executive summary ([§Context summary](#prof-report-context-summary)) |
+| **Violations By-Rule** | `(profile, rule_id)` — references / violations | File detail subtable (**Union Refs**, **Peak Refs**, **Build Refs**) | Session roll-up by rule; multi-build **common + delta** notation |
+| **Violations By-File** | Source file | Rule detail subtable (symmetric to By-Rule) | Session roll-up by file |
+| **Violations By-Build** | Build id (`dbg1`, …) | **By-Rule** / **By-File** pair per build (all sconscripts) | One compile inventory row at a time — **Profile** column; **Build Refs** only |
+| **Violations By-Sconscript** | Sconscript × variant rows | Links to per-scope detail pages | Navigate multi-variant / multi-sconscript sessions |
 
-The master index **Overview** tab should be the **default landing view** when present (paper /
-external sharing). Per-scope detail pages may omit Overview or show a scope-filtered subset.
-
-Within a **profile** section (e.g. `std::init`), repeat the By rule / By file tables. When only one
-profile fired, omit the profile heading or collapse it. Future multi-profile enforce lists produce
-multiple profile sections plus the roll-up views on By rule / By file tabs.
+The master index **Overview** tab is the **default landing view** when context capture is enabled.
+Per-scope detail pages use the same **By-Rule** / **By-File** layout as **Violations By-Build**
+detail (**Profile** column, **Build Refs**, no **Peak Refs**) — not a separate per-profile tab
+pair per scope.
 
 **Entry row shape (both views):** display path (linked — see §Source links), **reference count**,
 **unique locations** (distinct line/col after dedupe), optional **affected scopes** badge when
@@ -626,15 +625,15 @@ also store a denormalised `all_paths[]` for convenience — not required in the 
 | Gap | Notes |
 |-----|-------|
 | CI threshold flag | `--cxx-profiles-report-threshold=` deferred |
-| **Anonymized sharing** | See [§Anonymized report sharing](#prof-report-anonymize) — likely next PR after #194 |
-| **Context summary** | See [§Context summary](#prof-report-context-summary) — Overview tab + `context` JSON |
+| **Anonymized sharing** | See [§Anonymized report sharing](#prof-report-anonymize) — after slice H |
+| **Context summary** | See [§Context summary](#prof-report-context-summary) — slice H on [#196](https://github.com/ja11sop/cuppa/pull/196) |
 
 <a id="prof-report-anonymize"></a>
 
 ## Anonymized report sharing (sketch)
 
-**Id:** `prof-report-anonymize` · **Status:** proposal · **Target:** PR after
-[#194](https://github.com/ja11sop/cuppa/pull/194) (same 1.8.0 cycle if scope stays small)
+**Id:** `prof-report-anonymize` · **Status:** proposal · **Target:** PR after slice H
+(`prof-report-context-summary`)
 
 ### Goal
 
@@ -809,9 +808,7 @@ cxx-profiles-index.json
 
 ## Context summary — violations relative to codebase size (sketch)
 
-**Id:** `prof-report-context-summary` · **Status:** proposal · **Target:** PR after
-[#194](https://github.com/ja11sop/cuppa/pull/194) (may ship together with
-[§Anonymized report sharing](#prof-report-anonymize) for WG21 / external sharing)
+**Id:** `prof-report-context-summary` · **Status:** **in progress** — feature-complete on [#196](https://github.com/ja11sop/cuppa/pull/196); pending merge on [#184](https://github.com/ja11sop/cuppa/issues/184); slice G may follow
 
 ### Why
 
@@ -841,6 +838,7 @@ Single master-index page section (default tab when present) showing:
 | **Violation density (tier 2)** | Unique violation lines; `source_lines_v1` in violating files only; **violation line % in affected files** |
 | **Rule concentration** | Top rules by reference share (% of session total); bar or sorted table |
 | **Full profile matrix** | For each enforced profile, **every documented rule id** with reference count, unique files, unique lines — **zero-filled** when not observed |
+| **Build inventory load** | Per-build **Hits** (violation / rule / file / reference) summed across sconscripts; **Session total (union)** row with distinct violation, rule, and file styling; short **build ids** (`dbg1`, `rel1`, …) for chart labelling |
 | **Scope footnote** | When multiple scopes ran, small table of per-scope file/TU counts (optional phase 2) |
 
 The same structure is serialized under top-level **`context`** in `cxx-profiles-index.json` so
@@ -883,7 +881,7 @@ inventory build already performs) — or accept a weaker static approximation.
 
 | Option | How | Accuracy | Cost / trade-offs |
 |--------|-----|----------|-------------------|
-| **A — `-H` include stack (recommended v1)** | Add `-H` to `CXXFLAGS` when `--cxx-profiles-report` is active. Clang/GCC print one line per included file to **stderr** (e.g. `. /path/to/header`). Parse lines in the existing Profiles spawn output processor; union paths per compile, then per session. | **Matches compiler** — only files parsed for that TU; respects `#if` / skipped includes. | Verbose compiler output (report builds only). Must normalise paths. Form differs slightly GCC vs Clang — small parser. Failed compiles may still emit partial `-H` before error. |
+| **A — `-H` include stack (recommended v1)** | Add `-H` to `CXXFLAGS` when `--cxx-profiles-report` is active. Clang/GCC print one line per included file to **stderr** (e.g. `. /path/to/header`). Parse lines in the existing Profiles spawn output processor; union paths per compile, then per session. | **Matches compiler** — only files parsed for that TU; respects `#if` / skipped includes. | Captured lines are **not echoed** to the console (spawn processor swallows them after recording). Must normalise paths. Form differs slightly GCC vs Clang — small parser. Failed compiles may still emit partial `-H` before error. |
 | **B — `-MMD` dependency files** | Add `-MMD -MP` (or `-MD`) on report builds; after each compile, read the `.d` Makefile next to the `.o` and union listed prerequisites. | **Matches compiler** for included headers. | Cuppa does **not** emit `.d` today — new flags + locate `.d` beside object in `_build/…`. Module / BMI builds need checking. Slightly less live noise than `-H`. |
 | **C — SCons implicit dependencies** | At `sconstruct_end`, walk compiled `Object` nodes and union SCons-scanned `#include` deps. | **Approximate** — scanner may differ from real compile (macros, `-include`, modules). | No extra compiler flags; harder to wire from report collator to SCons node graph; may miss system headers. |
 | **D — Lexical `#include` closure** | For each compiled TU path, recursively resolve `#include "…"` / `<…>` using compile `CPPPATH` / `SYSINCPATH`. | **Over- and under-includes** — ignores `#if`, may pull headers never compiled, may miss generated paths. | No compiler help; still need TU list from compile hook; **not recommended** for tier 1 %. |
@@ -914,6 +912,35 @@ status — violations are `error:` diagnostics. That does **not** block include 
 **partial** `-H` for that TU; partial sessions only include TUs that started; GCC vs Clang differ
 on error-recovery after a bad first `#include`. Acceptable for inventory runs on trees that
 otherwise compile; document `partial` / incomplete scope in Overview.
+
+<a id="prof-report-variant-roll-up-display"></a>
+
+### Variant roll-up display (slice H, same PR)
+
+Pre-context **By-Rule** / **By-File** tabs repeat per-variant lines (`1/77 (dbg)`, `1/76 (rel)`, …).
+That duplicates information now expressed on the Overview tab as **Build inventory load** (Hits)
+vs **session union**. The same PR extends slice H to align roll-up tables with build ids and
+**common + delta** notation.
+
+**Settled (2026-08-15):**
+
+| Topic | Decision |
+|-------|----------|
+| **Roll-up grain** | One bucket per **Build inventory load** row (`build_key`: variant + arch/abi tail + toolchain) — **not** merged by `variant_label` alone (supports dbg/rel × two toolchains → four ids). |
+| **Display ids** | Short tokens (`dbg1`, `rel1`, `dbg2`, `rel2`) assigned in inventory-load sort order; stable `build_key` in the model; tooltip carries full `variant/arch/abi — toolchain`. Display scheme may evolve (e.g. `Da` / `Ra`). |
+| **Common set** | **Strict intersection** across **every** session build bucket (empty bucket → common = 0). Example: d1=7, r1=8, d2=0, r2=2 → `0, +7d1, +8r1, +2r2`. |
+| **Violation deltas** | `\|keys(build) − common\|` per build; omit zero deltas. |
+| **Reference deltas** | **Exclusive keys only** — refs from violations in `keys(build) \ common` (R1 union semantics on the common line only). |
+| **By-Rule columns** | **Profile**, **Rule**, **Violations**, **Union Refs**, **Peak Refs**, **Violating Files** — multi-build cells use bold total = common + deltas. |
+| **By-File columns** | **Profile**, **Rules**, **Violations**, **Union Refs**, **Peak Refs**, **Violated Rules** — same partition logic as By-Rule with file/rule roles swapped. |
+| **File / rule lists** | Common bracket when identity **and** ref count match in **all** builds; delta lines (`+1 rel2 [ 5:3 ]`) for build-specific entries. Subtable **Build Refs** column repeats `(index, refs)` partition for one file row. |
+| **By-Build index tab** | One sub-tab per **build id** (`dbg1`, …); **Build inventory load** table at top; **By-Rule** / **By-File** pair per build across all sconscripts and profiles (**Profile** column; **Build Refs**, no **Peak Refs**). |
+| **Scope detail pages** | Same layout as By-Build detail for one `(sconscript, variant, toolchain)` row — one tab pair, **Profile** column, no per-profile subheadings. |
+| **Docs** | Antora hub + `report-introduction.adoc` (generate, regen, JSON, vocabulary); tab guides (`report-by-rule`, `report-by-file`, `report-by-build`, `report-by-sconscript`, `report-overview`, `report.adoc` index). Worked example on By-Rule for **Violating Files** vs **Build Refs** vs **Union Refs** / **Peak Refs**. Violation totals card: distinct violations / distinct rules / union references with `(Violations)` / `(Rules)` / `(Union Refs)` column labels. |
+| **JSON** | Attach structured `variant_display` / `peak_refs_display` / `build_refs_display` (`common`, `deltas[]`, `build_order`) on roll-up rows for HTML regen and agents. |
+| **Scope** | Index By-Rule / By-File + subtables; index **Violations By-Build**; unified per-scope pages; Overview matrices retain **Peak Refs / %**. |
+
+**Status on [#196](https://github.com/ja11sop/cuppa/pull/196):** Overview + Build inventory load, index By-Rule / By-File variant roll-up (`variant_display`, **Peak Refs**, **Build Refs**, `dbg1`-style build IDs), **Violations By-Build** tab, unified scope detail pages, Antora doc split, and unit tests **landed** on the branch — pending merge.
 
 **`record_parsed_file()` (include collector sketch):** extend `ProfilesReportSession` (or sibling
 store on `ProfilesDiagnosticCollector`) with a **set per session** (and optionally per Progress
@@ -1251,7 +1278,7 @@ issues, PR titles, and ROADMAP cross-links (same pattern as `list-tc-*` in
 | **E** | `prof-report-method` | `env.CxxProfilesReport()` + collate | Deferred past A–D if cycle is tight |
 | **F** | `prof-report-artefacts` | `artefact_roots` / `--set-artefacts-folder` when #135 lands | Supersedes manifest hack for declared trees |
 | **G** | `prof-report-anonymize` | Anonymize saved report JSON; shareable artefact + HTML regen without sources | After C; see [§Anonymized report sharing](#prof-report-anonymize) |
-| **H** | `prof-report-context-summary` | Overview tab + `context` JSON — violations vs codebase size, full rule matrix | After C; see [§Context summary](#prof-report-context-summary); phase 1 can ship before compile hook |
+| **H** | `prof-report-context-summary` | Overview tab + `context` JSON — violations vs codebase size, full rule matrix; variant roll-up; By-Build tab; unified scope detail | After C; see [§Context summary](#prof-report-context-summary); landed on [#196](https://github.com/ja11sop/cuppa/pull/196) |
 
 Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** (slice A–D; **`prof-report-collector` must** include parallel spawn scope); E–F optional / blocked; **G–H** optional follow-ons after C (WG21 / sharing).
 
@@ -1284,8 +1311,8 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 
 ## Documentation updates (when implemented)
 
-- Antora: workflow “inventory before fix”, flag table, parallel builds supported, sample HTML screenshot
-  (optional via colourised-doc-samples pipeline).
+- Antora: **done** on [#196](https://github.com/ja11sop/cuppa/pull/196) — `report-introduction.adoc` (feature entry), tab guides (`report-overview`, `report-by-rule`, `report-by-file`, `report-by-build`, `report-by-sconscript`, `report.adoc` index), hub updates in `cxx-profiles.adoc`; **Union Refs** / **Peak Refs** / **Build Refs** vocabulary aligned with UI.
+- Optional: sample HTML screenshot via [`colourised-doc-samples.md`](colourised-doc-samples.md) pipeline.
 - [`archive/cxx-profiles.md`](../archive/cxx-profiles.md): link this plan in follow-ons (already
   cites dedupe/report in §2.3).
 - AGENTS.md consumer tip: `--cxx-profiles-report` one-liner next to coverage commands.
@@ -1299,25 +1326,21 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 | B — `prof-report-collector` | **Done** — merged [#191](https://github.com/ja11sop/cuppa/pull/191) |
 | B½ — `prof-report-parser-layers` | **Done** — merged [#192](https://github.com/ja11sop/cuppa/pull/192) |
 | B½-doc — `doc-folder-layout` | **Done** — merged [#193](https://github.com/ja11sop/cuppa/pull/193) |
-| C — `prof-report-html` | **In progress** — branch `prof-report-html` ([#194](https://github.com/ja11sop/cuppa/pull/194)): HTML index/scope/source pages, presentation polish, rule `doc_href` links, JSON regen (`--from-json`), **schema v1** envelope (`summary`, `locations[]`, `location_key`, extended `metadata`) |
-| D — `prof-report-manifest` | **Done** (core) — merged `be0c10b`; `--artifacts-root` in `e4d5318`; manifest + matched clean on same branch as C |
-| G — `prof-report-anonymize` | **Proposal** — anonymize saved JSON for sharing; regen HTML without sources ([§Anonymized report sharing](#prof-report-anonymize)); likely next PR after #194 |
-| H — `prof-report-context-summary` | **Proposal** — Overview tab + `context` JSON for violations vs codebase size ([§Context summary](#prof-report-context-summary)); phase 1 (rule matrix) shippable before compile-unit hook |
+| C — `prof-report-html` | **Done** — merged [#194](https://github.com/ja11sop/cuppa/pull/194): HTML index/scope/source pages, By rule / By file / Roll-up tabs, presentation polish, rule `doc_href` links, JSON regen (`--from-json`), **schema v1** envelope (`summary`, `locations[]`, `location_key`, extended `metadata`) |
+| D — `prof-report-manifest` | **Done** — core in [#194](https://github.com/ja11sop/cuppa/pull/194); clean/`invocation_key` fix in [#195](https://github.com/ja11sop/cuppa/pull/195); `--artifacts-root` in `e4d5318` |
+| H — `prof-report-context-summary` | **Done on branch** — [#196](https://github.com/ja11sop/cuppa/pull/196): Overview tab, `context` JSON, `-H`, tier metrics, Build inventory load, [variant roll-up display](#prof-report-variant-roll-up-display) (**Peak Refs**, common + deltas, `build_key` grain), **Violations By-Build** tab, unified scope detail (**Profile** column), Antora doc split — **pending merge** ([#184](https://github.com/ja11sop/cuppa/issues/184)) |
+| G — `prof-report-anonymize` | **Proposal** — anonymize saved JSON for sharing; regen HTML without sources ([§Anonymized report sharing](#prof-report-anonymize)); after H merges |
 | E — `prof-report-method` | Deferred |
 | F — `prof-report-artefacts` | Partial — `--artifacts-root` landed; full registry + `--remove-artifacts` blocked on #135 |
 
-**Branch `prof-report-html` (not yet merged):** presentation tables (distinct/unique counts,
-violation summary wording, monospaced breadcrumbs, dependency path display), reliable
-`write_profiles_reports_from_json` / `scripts/regenerate_profiles_report --from-json`, schema v1
-JSON (`REPORT_JSON_SCHEMA_VERSION = 1`), legacy bare-model load compatibility, 118+
-profiles-related unit tests green.
+**Next focus:** merge slice **H** ([#196](https://github.com/ja11sop/cuppa/pull/196)); then slice **G** (anonymize).
 
 ## Open questions (resolve in first PR)
 
 1. **Partial builds:** if only one scope ran, omit master index or embed detail inline?
 2. **Dependency paths:** `--cxx-profiles-report-root=` vs absolute-only links for `_cuppa/_download/…` trees?
 3. **Report-only exit code:** optional `--cxx-profiles-report-allow-errors` if inventory runs should succeed?
-4. **Cross-variant roll-up:** union adds counts across scopes — confirm product choice when comparing `dbg` vs `rel` (settled above; note in Antora).
+4. **Cross-variant roll-up:** session **union** for headline / Overview (settled); By-Rule / By-File show **per-build Hits + common/delta** display ([§Variant roll-up display](#prof-report-variant-roll-up-display)) — Antora documents both.
 5. **GitHub `link_style`:** extend shared helper vs duplicate URL template in Profiles module only?
 6. **`_unscoped` bucket:** when spawn scope cannot be derived, record under session `_unscoped` with warning in HTML — never guess variant.
 

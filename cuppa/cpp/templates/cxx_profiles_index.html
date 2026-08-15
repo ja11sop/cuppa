@@ -9,23 +9,10 @@
     {% include 'cxx_profiles_table_styles.html' %}
     <style>
       .prof-sconscript-label { font-weight: 600; }
-      .prof-session-summary {
-        font-size: 1rem;
-        font-weight: 400;
-      }
       .prof-index-project {
         font-size: 1.25rem;
         font-weight: 700;
         color: inherit;
-      }
-      .prof-stat-value {
-        font-weight: 700;
-      }
-      .prof-stat-value--alert {
-        color: #dc3545;
-      }
-      .prof-stat-value--ok {
-        color: #28a745;
       }
       .prof-file-prefix {
         display: block;
@@ -44,6 +31,47 @@
       .prof-detail-toggle[aria-expanded="false"] .prof-detail-icon--hide {
         display: none;
       }
+      .prof-overview-doc-badge {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        color: #495057;
+      }
+      .prof-build-views-picker {
+        background: #fff;
+      }
+      .prof-build-tabs .nav-link {
+        font-size: 0.875rem;
+      }
+      .prof-profile-matrix-tabs .nav-link {
+        font-size: 0.875rem;
+      }
+      .prof-profile-matrix-panes {
+        background: #fff;
+      }
+      .prof-overview-card-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+      }
+      .prof-overview-section-heading {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 0.35rem;
+        margin-right: 0;
+      }
+      .prof-overview-card-guide {
+        color: #6c757d;
+        font-size: 0.875rem;
+        line-height: 1;
+        flex-shrink: 0;
+      }
+      .prof-overview-card-guide:hover {
+        color: #495057;
+        text-decoration: none;
+      }
     </style>
   </head>
   <body>
@@ -54,13 +82,12 @@
             <h3 class="mb-2">C++ Profiles Reports for</h3>
             <div class="prof-index-project text-monospace mb-0">{{ report_project }}</div>
             {% set stat_tone = 'alert' if session_stats.unique_violation_count > 0 else 'ok' %}
+            {% set v_count = session_stats.unique_violation_count %}
+            {% set rule_count = session_stats.unique_rule_count %}
+            {% set r_count = session_stats.total_references %}
+            {% set file_count = session_stats.files_with_violations %}
             <h6 class="prof-session-summary text-secondary mb-0 mt-2">
-              <span class="prof-stat-value prof-stat-value--{{ stat_tone }}">{{ session_stats.unique_violation_count }}</span>
-              {{ 'violation' if session_stats.unique_violation_count == 1 else 'violations' }} of
-              <span class="prof-stat-value">{{ session_stats.unique_rule_count }}</span>
-              distinct {{ 'rule' if session_stats.unique_rule_count == 1 else 'rules' }} through
-              <span class="prof-stat-value">{{ session_stats.total_references }}</span>
-              {{ 'reference' if session_stats.total_references == 1 else 'references' }}
+              {% include 'cxx_profiles_partial_violation_counts.html' %}
             </h6>
             {% if vcs_provenance.location_label %}
             <h6 class="prof-vcs-provenance text-secondary font-weight-light mb-0 mt-2">
@@ -103,26 +130,66 @@
 
           <li class="list-group-item pb-0">
             <ul class="nav nav-tabs" id="profilesTabs" role="tablist">
+              {% if context %}
               <li class="nav-item">
-                <a class="nav-link active" id="scopes-tab" data-toggle="tab" href="#scopes" role="tab" aria-selected="true">Violations By-Scope</a>
+                <a class="nav-link active" id="overview-tab" data-toggle="tab" href="#overview" role="tab" aria-selected="true">Overview</a>
               </li>
+              {% endif %}
               <li class="nav-item">
-                <a class="nav-link" id="rollup-rules-tab" data-toggle="tab" href="#rollup-rules" role="tab" aria-selected="false">Violations By-Rule</a>
+                <a class="nav-link{% if not context %} active{% endif %}" id="rollup-rules-tab" data-toggle="tab" href="#rollup-rules" role="tab" aria-selected="{{ 'true' if not context else 'false' }}">Violations By-Rule</a>
               </li>
               <li class="nav-item">
                 <a class="nav-link" id="rollup-files-tab" data-toggle="tab" href="#rollup-files" role="tab" aria-selected="false">Violations By-File</a>
+              </li>
+              {% if build_views %}
+              <li class="nav-item">
+                <a class="nav-link" id="builds-tab" data-toggle="tab" href="#builds" role="tab" aria-selected="false">Violations By-Build</a>
+              </li>
+              {% endif %}
+              <li class="nav-item">
+                <a class="nav-link" id="scopes-tab" data-toggle="tab" href="#scopes" role="tab" aria-selected="false">Violations By-Sconscript</a>
               </li>
             </ul>
           </li>
         </ul>
 
         <div class="tab-content">
-          <div class="tab-pane fade show active" id="scopes" role="tabpanel" aria-labelledby="scopes-tab">
+          {% if context %}
+          <div class="tab-pane fade show active" id="overview" role="tabpanel" aria-labelledby="overview-tab">
+            {% include 'cxx_profiles_overview.html' %}
+          </div>
+          {% endif %}
+
+          <div class="tab-pane fade{% if not context %} show active{% endif %}" id="rollup-rules" role="tabpanel" aria-labelledby="rollup-rules-tab">
+            <div class="p-3">
+              {% with rules=model.rollup.rules, id_prefix='rollup-rule' %}
+              {% include 'cxx_profiles_partial_rules.html' %}
+              {% endwith %}
+            </div>
+          </div>
+
+          <div class="tab-pane fade" id="rollup-files" role="tabpanel" aria-labelledby="rollup-files-tab">
+            <div class="p-3">
+              {% with files=model.rollup.files, id_prefix='rollup-file' %}
+              {% include 'cxx_profiles_partial_files.html' %}
+              {% endwith %}
+            </div>
+          </div>
+
+          {% if build_views %}
+          <div class="tab-pane fade" id="builds" role="tabpanel" aria-labelledby="builds-tab">
+            {% include 'cxx_profiles_partial_build_views.html' %}
+          </div>
+          {% endif %}
+
+          <div class="tab-pane fade" id="scopes" role="tabpanel" aria-labelledby="scopes-tab">
             <div class="p-3">
             <table class="table table-sm prof-scopes-table mb-0">
               <colgroup>
                 <col class="prof-scopes-col-sconscript-col">
                 <col class="prof-scopes-col-toolchain-col">
+                <col class="prof-scopes-col-metric-col">
+                <col class="prof-scopes-col-metric-col">
                 <col class="prof-scopes-col-metric-col">
                 <col class="prof-scopes-col-metric-col">
                 <col class="prof-scopes-col-profiles-col">
@@ -132,8 +199,10 @@
                 <tr>
                   <th class="prof-scopes-col-sconscript">Sconscript / Variant</th>
                   <th class="prof-scopes-col-toolchain">Toolchain</th>
-                  <th class="prof-scopes-col-metric">{% include 'cxx_profiles_partial_heading_distinct_unique.html' %}</th>
-                  <th class="prof-scopes-col-metric">Refs</th>
+                  <th class="prof-scopes-col-metric text-center">Rules</th>
+                  <th class="prof-scopes-col-metric text-center">Violations</th>
+                  <th class="prof-scopes-col-metric text-center">Union Refs</th>
+                  <th class="prof-scopes-col-metric text-center">Build Refs</th>
                   <th class="prof-scopes-col-profiles">Profiles</th>
                   <th class="prof-scopes-col-rules">Rule Violations</th>
                 </tr>
@@ -147,6 +216,8 @@
                   <td class="prof-scopes-col-toolchain"></td>
                   <td class="prof-scopes-col-metric"></td>
                   <td class="prof-scopes-col-metric"></td>
+                  <td class="prof-scopes-col-metric"></td>
+                  <td class="prof-scopes-col-metric"></td>
                   <td class="prof-scopes-col-profiles"></td>
                   <td class="prof-scopes-col-rules"></td>
                 </tr>
@@ -156,12 +227,10 @@
                     <a href="{{ page.html }}" class="card-link"><span class="prof-mono"><span class="font-weight-bold">{{ page.scope.variant_label }}</span>{% if page.scope.variant_display_tail %}<span class="prof-variant-tail">/{{ page.scope.variant_display_tail }}</span>{% endif %}</span></a>
                   </td>
                   <td class="prof-scopes-col-toolchain"><span class="prof-mono">{{ page.scope.toolchain }}</span></td>
-                  <td class="prof-scopes-col-metric">
-                    {% set distinct = page.scope.unique_rule_count | default(0) %}
-                    {% set unique = page.scope.unique_line_count | default(0) %}
-                    <span class="prof-mono">{% include 'cxx_profiles_partial_distinct_unique_value.html' %}</span>
-                  </td>
-                  <td class="prof-scopes-col-metric"><span class="prof-mono">{{ page.scope.total_references }}</span></td>
+                  <td class="prof-scopes-col-metric text-center"><span class="prof-mono">{{ page.scope.unique_rule_count | default(0) }}</span></td>
+                  <td class="prof-scopes-col-metric text-center">{% set value = page.scope.unique_line_count | default(0) %}{% include 'cxx_profiles_partial_violation_count.html' %}</td>
+                  <td class="prof-scopes-col-metric text-center"><span class="prof-mono">{{ page.scope.total_references }}</span></td>
+                  <td class="prof-scopes-col-metric text-center"><span class="prof-mono">{{ page.scope.build_references | default(page.scope.total_references) }}</span></td>
                   <td class="prof-scopes-col-profiles">
                     {% for label, count in page.scope.profiles_summary_items %}
                     <span class="prof-scopes-profile-line prof-mono">{{ label }} ({{ count }})</span>
@@ -179,22 +248,6 @@
             </table>
             </div>
           </div>
-
-          <div class="tab-pane fade" id="rollup-rules" role="tabpanel" aria-labelledby="rollup-rules-tab">
-            <div class="p-3">
-              {% with rules=model.rollup.rules, id_prefix='rollup-rule' %}
-              {% include 'cxx_profiles_partial_rules.html' %}
-              {% endwith %}
-            </div>
-          </div>
-
-          <div class="tab-pane fade" id="rollup-files" role="tabpanel" aria-labelledby="rollup-files-tab">
-            <div class="p-3">
-              {% with files=model.rollup.files, id_prefix='rollup-file' %}
-              {% include 'cxx_profiles_partial_files.html' %}
-              {% endwith %}
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -207,6 +260,36 @@
         var tabLink = document.querySelector('#profilesTabs a[href="' + hash + '"]');
         if (tabLink && window.jQuery) {
           jQuery(tabLink).tab('show');
+        }
+      })();
+
+      (function () {
+        var tabs = document.getElementById('profileMatrixTabs');
+        if (!tabs || !window.jQuery) { return; }
+
+        function activeProfileFromTab(tabLink) {
+          var nameEl = tabLink.querySelector('[data-profile]');
+          return nameEl ? nameEl.getAttribute('data-profile') : null;
+        }
+
+        function setActiveProfile(profileName) {
+          tabs.querySelectorAll('[data-profile]').forEach(function (el) {
+            el.classList.toggle('prof-warn-accent', el.getAttribute('data-profile') === profileName);
+          });
+          var concentration = document.querySelector('.prof-rule-concentration');
+          if (!concentration) { return; }
+          concentration.querySelectorAll('.prof-overview-profile-prefix[data-profile]').forEach(function (el) {
+            el.classList.toggle('prof-warn-accent', el.getAttribute('data-profile') === profileName);
+          });
+        }
+
+        jQuery(tabs).on('shown.bs.tab', 'a[data-toggle="tab"]', function (e) {
+          setActiveProfile(activeProfileFromTab(e.target));
+        });
+
+        var initial = tabs.querySelector('a.nav-link.active');
+        if (initial) {
+          setActiveProfile(activeProfileFromTab(initial));
         }
       })();
     </script>

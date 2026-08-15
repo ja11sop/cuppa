@@ -1,0 +1,52 @@
+= Violation report — reading guide
+:description: Index to tab guides for cxx-profiles-index.html — not the feature introduction
+
+This page lists every **Violations** view on `cxx-profiles-index.html` and links to tab-specific
+guides at a similar level of detail.
+
+For **how to generate the report**, **offline regeneration**, **JSON export**, and shared
+vocabulary (**Union Refs**, **Peak Refs**, **Build Refs**), read
+xref:cxx-profiles/report-introduction.adoc[Introduction] first. That page is the feature entry
+point — not xref:cxx-profiles/report-overview.adoc[Overview tab], which documents only the
+Overview tab's summary cards and matrices.
+
+== Index tabs
+
+[cols="1,3"]
+|===
+| Tab | Guide
+
+| **Overview**
+| xref:cxx-profiles/report-overview.adoc[Overview tab] — summary cards, build inventory load,
+  rule concentration, profile matrices (when context capture is enabled).
+
+| **Violations By-Rule**
+| xref:cxx-profiles/report-by-rule.adoc[By-Rule tab] — session roll-up by rule; **Violating Files**
+  lists and file detail subtable.
+
+| **Violations By-File**
+| xref:cxx-profiles/report-by-file.adoc[By-File tab] — session roll-up by file; **Violated Rules**
+  lists and rule detail subtable.
+
+| **Violations By-Build**
+| xref:cxx-profiles/report-by-build.adoc[By-Build tab] — one sub-tab per build id; **By-Rule** and
+  **By-File** tables for that build across all sconscripts and profiles.
+
+| **Violations By-Sconscript**
+| xref:cxx-profiles/report-by-sconscript.adoc[By-Sconscript tab] — scope index table and per-scope
+  detail pages.
+|===
+
+== Per-scope detail pages
+
+Each compiled `(sconscript, variant, toolchain)` scope gets its own HTML page with **Violations
+By-Rule** and **By-File** tabs for that build across all profiles. Layout matches
+xref:cxx-profiles/report-by-build.adoc[By-Build] detail — see
+xref:cxx-profiles/report-by-sconscript.adoc[By-Sconscript] for the index table and
+xref:cxx-profiles/report-introduction.adoc#scope-metrics[scope metrics].
+
+== Related
+
+* xref:cxx-profiles/report-introduction.adoc[Introduction] — generate, regen, JSON, vocabulary
+* xref:cxx-profiles.adoc[C++ Profiles] — enabling Profiles and report flags
+* xref:cli-reference.adoc[CLI reference] — `--cxx-profiles-report`, `--cxx-profiles-report-context=`
