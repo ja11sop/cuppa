@@ -39,6 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Per-scope detail pages: one **Violations By-Rule** / **By-File** tab pair with **Profile** column
   (all profiles in the same tables); build heading `variant/tail — toolchain` matches By-Build.
   Antora: xref:cxx-profiles/report-by-sconscript.adoc[Violations By-Sconscript].
+- Profiles report JSON anonymization (slice G, `prof-report-anonymize`):
+  ``python -m scripts.anonymize_profiles_report`` transforms saved
+  ``cxx-profiles-index.json`` into a shareable artefact (``metadata.anonymized``,
+  path rewrites, recomputed ``location_key``); ``regenerate_profiles_report --anonymized``
+  skips ``by-source/`` pages and suppresses file/repo hrefs.
 - Profiles violation report parser groundwork ([#184](https://github.com/ja11sop/cuppa/issues/184)):
   `cuppa/cpp/cxx_profiles_report.py` parses Clang Profiles diagnostics, classifies rule
   ids, and dedupes violations per scope (slice A).

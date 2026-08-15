@@ -488,6 +488,7 @@ def enrich_model_for_html(
     report_root,
     sconstruct_dir,
     source_page_map=None,
+    suppress_source_links=False,
 ):
     """Attach display paths and hrefs for template rendering."""
     from cuppa.cpp.profiles_report.build_catalog import build_catalog_from_scopes
@@ -513,6 +514,7 @@ def enrich_model_for_html(
             link_style,
             link_base,
             display,
+            suppress_source_links=suppress_source_links,
         )
         file_entry[ 'path_tooltip' ] = file_path_tooltip_text( file_entry )
         enrich_file_rules( file_entry )
@@ -609,11 +611,12 @@ def render_profiles_reports(
     sconstruct_dir = env.get( 'sconstruct_dir' ) or os.getcwd()
 
     link_base = initialise_report_linking( env, link_style=link_style )
+    suppress_source_links = bool( env.get( 'cxx_profiles_report_anonymized' ) )
 
     templates = jinja2_templates()
     source_page_map = {}
     source_written = []
-    if not skip_source_pages:
+    if not skip_source_pages and not suppress_source_links:
         if inventory is None:
             from cuppa.cpp.profiles_report.report_json import inventory_from_report_model
             inventory = inventory_from_report_model( model )
@@ -635,6 +638,7 @@ def render_profiles_reports(
         report_root,
         sconstruct_dir,
         source_page_map=source_page_map,
+        suppress_source_links=suppress_source_links,
     )
 
     context_base = {
@@ -772,6 +776,9 @@ def write_profiles_reports_from_json(
             'cxx_profiles_enforce',
             list( metadata[ 'profiles_enforce' ] ),
         )
+    if metadata.get( 'anonymized' ):
+        merged_env[ 'cxx_profiles_report_anonymized' ] = True
+        skip_source_pages = True
     inventory = None
     if not skip_source_pages:
         flat_locations = extras.get( 'locations' ) or None

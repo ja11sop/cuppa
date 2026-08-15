@@ -340,6 +340,8 @@ def env_from_report_metadata( metadata, arguments ):
         env[ 'reports_link_style' ] = metadata[ 'link_style' ]
     if metadata.get( 'profiles_enforce' ):
         env[ 'cxx_profiles_enforce' ] = list( metadata[ 'profiles_enforce' ] )
+    if metadata.get( 'anonymized' ):
+        env[ 'cxx_profiles_report_anonymized' ] = True
     if arguments.report_dir:
         env[ 'cxx_profiles_report' ] = os.path.abspath( arguments.report_dir )
     return env

@@ -67,10 +67,18 @@ def _regenerate_from_json( arguments ):
 
     _model, metadata, _extras = load_report_model( json_path )
     env = env_from_report_metadata( metadata, arguments )
+    if arguments.anonymized:
+        env[ 'cxx_profiles_report_anonymized' ] = True
+    skip_source_pages = arguments.skip_source_pages or arguments.anonymized
+    if arguments.anonymized and not metadata.get( 'anonymized' ):
+        print(
+            'warning: --anonymized set but JSON metadata.anonymized is false',
+            file=sys.stderr,
+        )
     return write_profiles_reports_from_json(
         json_path,
         env,
-        skip_source_pages=arguments.skip_source_pages,
+        skip_source_pages=skip_source_pages,
         write_json=arguments.write_json,
     )
 
@@ -123,6 +131,11 @@ def main( argv=None ):
         '--skip-source-pages',
         action='store_true',
         help='Omit by-source/ marked-up source pages (JSON regen only)',
+    )
+    parser.add_argument(
+        '--anonymized',
+        action='store_true',
+        help='Regenerate from anonymized JSON (implies --skip-source-pages; suppresses file hrefs)',
     )
     parser.add_argument(
         '--write-json',

@@ -607,9 +607,23 @@ def write_source_pages(
     return page_map, written
 
 
-def annotate_file_links( file_entry, source_page_map, link_style, link_base, display ):
+def annotate_file_links(
+    file_entry,
+    source_page_map,
+    link_style,
+    link_base,
+    display,
+    suppress_source_links=False,
+):
     """Attach report page hrefs for templates and JSON."""
     from cuppa.cpp.profiles_report.report_html import source_href
+
+    if suppress_source_links:
+        file_entry.pop( 'page_href', None )
+        file_entry.pop( 'href', None )
+        for location in file_entry.get( 'locations', [] ):
+            location.pop( 'href', None )
+        return
 
     page_rel = source_page_map.get( file_entry[ 'path' ] )
     if page_rel:
