@@ -147,21 +147,37 @@ def test_anonymized_json_regen_omits_source_pages_and_file_hrefs( tmp_path ):
 
     from scripts import regenerate_profiles_report
 
-    out_dir = tmp_path / 'html'
     argv = [
         str( json_path ),
         '--from-json',
         '--anonymized',
-        '--report-dir',
-        str( out_dir ),
     ]
     assert regenerate_profiles_report.main( argv ) == 0
-    assert ( out_dir / 'cxx-profiles-index.html' ).is_file()
-    assert not ( out_dir / 'by-source' ).exists()
+    assert ( tmp_path / 'cxx-profiles-index.html' ).is_file()
+    assert not ( tmp_path / 'by-source' ).exists()
 
-    html = ( out_dir / 'cxx-profiles-index.html' ).read_text( encoding='utf-8' )
+    html = ( tmp_path / 'cxx-profiles-index.html' ).read_text( encoding='utf-8' )
     assert 'file://' not in html
     assert 'by-source/' not in html
+
+
+def test_anonymized_json_regen_defaults_output_next_to_json( tmp_path ):
+    payload, _originals = _sample_payload( tmp_path )
+    anonymized = anonymize_report_payload( payload )
+
+    json_dir = tmp_path / 'shared'
+    json_dir.mkdir()
+    json_path = json_dir / 'index.anonymized.json'
+    json_path.write_text( json.dumps( anonymized ), encoding='utf-8' )
+
+    from scripts import regenerate_profiles_report
+
+    argv = [
+        str( json_path ),
+        '--from-json',
+    ]
+    assert regenerate_profiles_report.main( argv ) == 0
+    assert ( json_dir / 'cxx-profiles-index.html' ).is_file()
 
 
 def test_anonymize_profiles_report_cli( tmp_path ):

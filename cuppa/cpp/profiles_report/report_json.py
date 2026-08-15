@@ -299,8 +299,11 @@ def inventory_from_report_model( model, flat_locations=None ):
 
 def env_from_report_metadata( metadata, arguments ):
     """Merge CLI arguments with metadata saved in a report JSON file."""
+    anonymized = bool( metadata.get( 'anonymized' ) )
     if getattr( arguments, 'sconstruct_dir', None ):
         sconstruct_dir = os.path.abspath( arguments.sconstruct_dir )
+    elif anonymized:
+        sconstruct_dir = os.path.abspath( os.getcwd() )
     elif metadata.get( 'sconstruct_dir' ):
         sconstruct_dir = metadata[ 'sconstruct_dir' ]
     else:
@@ -323,7 +326,10 @@ def env_from_report_metadata( metadata, arguments ):
         getattr( arguments, 'reports_link_style', None ),
     ) or _normalise_style( getattr( arguments, 'link_style', None ) )
 
-    report_root = metadata.get( 'cxx_profiles_report_root' ) or sconstruct_dir
+    if anonymized and not getattr( arguments, 'sconstruct_dir', None ):
+        report_root = sconstruct_dir
+    else:
+        report_root = metadata.get( 'cxx_profiles_report_root' ) or sconstruct_dir
 
     env = {
         'sconstruct_dir': sconstruct_dir,

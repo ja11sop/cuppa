@@ -200,8 +200,8 @@ python -m scripts.regenerate_profiles_report \
 ----
 
 The regen step writes `cxx-profiles-index.html` with the same roll-up tabs as a live build, but
-without source pages or file hrefs. Pass `--report-dir=` when you want output outside the default
-`<artifacts-root>/cxx-profiles/` tree.
+without source pages or file hrefs. When `metadata.anonymized` is set, output defaults to the
+**same directory as the input JSON** (unless you pass `--report-dir=`).
 
 === What the anonymizer changes
 

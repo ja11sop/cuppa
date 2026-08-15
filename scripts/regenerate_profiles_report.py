@@ -67,9 +67,12 @@ def _regenerate_from_json( arguments ):
 
     _model, metadata, _extras = load_report_model( json_path )
     env = env_from_report_metadata( metadata, arguments )
-    if arguments.anonymized:
+    if arguments.anonymized or metadata.get( 'anonymized' ):
         env[ 'cxx_profiles_report_anonymized' ] = True
-    skip_source_pages = arguments.skip_source_pages or arguments.anonymized
+    if ( arguments.anonymized or metadata.get( 'anonymized' ) ) and not arguments.report_dir:
+        json_dir = os.path.dirname( json_path )
+        env[ 'cxx_profiles_report' ] = json_dir or os.path.abspath( os.getcwd() )
+    skip_source_pages = arguments.skip_source_pages or arguments.anonymized or metadata.get( 'anonymized' )
     if arguments.anonymized and not metadata.get( 'anonymized' ):
         print(
             'warning: --anonymized set but JSON metadata.anonymized is false',

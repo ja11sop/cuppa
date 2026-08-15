@@ -762,9 +762,10 @@ def write_profiles_reports_from_json(
     from cuppa.cpp.profiles_report.report_json import inventory_from_report_model, load_report_model
     model, metadata, extras = load_report_model( json_path )
     merged_env = dict( env )
-    if metadata.get( 'sconstruct_dir' ) and not merged_env.get( 'sconstruct_dir' ):
+    anonymized = bool( metadata.get( 'anonymized' ) )
+    if not anonymized and metadata.get( 'sconstruct_dir' ) and not merged_env.get( 'sconstruct_dir' ):
         merged_env[ 'sconstruct_dir' ] = metadata[ 'sconstruct_dir' ]
-    if metadata.get( 'cxx_profiles_report_root' ):
+    if metadata.get( 'cxx_profiles_report_root' ) and not anonymized:
         merged_env.setdefault(
             'cxx_profiles_report_root',
             metadata[ 'cxx_profiles_report_root' ],

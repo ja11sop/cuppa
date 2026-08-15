@@ -121,6 +121,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Anonymized Profiles report regen no longer treats placeholder `metadata.sconstruct_dir`
+  (`/home/user/project/widget`) as a writable path; output defaults to the input JSON directory
+  unless `--report-dir=` is set.
 - C++ Profiles report compile hook: TU capture wrapper accepts the SCons environment as its
   first argument (fixes `TypeError` when `--cxx-profiles-report` wraps `Compile` methods).
 - C++ Profiles report builds: ``-H`` include-stack lines are captured for Overview metrics but
