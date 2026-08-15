@@ -373,20 +373,25 @@ def report_header_context( env ):
 
 
 def build_file_rule_variant_counts( file_entry ):
-    """Build per-build-type violated-rule breakdown for the by-file table."""
+    """Build per-build inventory violated-rule breakdown for the by-file table."""
     rules = file_entry.get( 'rules', [] )
     if not rules:
         return []
 
-    variant_rule_refs = file_entry.get( 'variant_rule_refs', {} )
-    labels = sorted( variant_rule_refs.keys() ) if variant_rule_refs else []
-    if not labels:
-        variant_counts = file_entry.get( 'variant_counts', [] )
-        labels = [ item[ 'variant_label' ] for item in variant_counts ]
+    variant_rule_refs = file_entry.get( 'variant_rule_refs', [] )
+    if isinstance( variant_rule_refs, dict ):
+        variant_rule_refs = [
+            {
+                'variant_label': label,
+                'build_key': [ label, '', '' ],
+                'rules': refs_by_rule,
+            }
+            for label, refs_by_rule in sorted( variant_rule_refs.items() )
+        ]
 
     result = []
-    for label in labels:
-        refs_by_rule = variant_rule_refs.get( label, {} )
+    for variant in variant_rule_refs:
+        refs_by_rule = variant.get( 'rules', {} )
         variant_rules = []
         for rule in rules:
             count = refs_by_rule.get( rule[ 'rule_id' ], 0 )
@@ -403,8 +408,10 @@ def build_file_rule_variant_counts( file_entry ):
         if variant_rules:
             result.append(
                 {
-                    'variant_label': label,
+                    'build_key': variant.get( 'build_key' ),
+                    'variant_label': variant.get( 'variant_label' ),
                     'rule_count': len( variant_rules ),
+                    'rule_ids': sorted( refs_by_rule.keys() ),
                     'rules': variant_rules,
                 },
             )
@@ -483,13 +490,16 @@ def enrich_model_for_html(
     source_page_map=None,
 ):
     """Attach display paths and hrefs for template rendering."""
+    from cuppa.cpp.profiles_report.build_catalog import build_catalog_from_scopes
     from cuppa.cpp.profiles_report.source_pages import (
         annotate_file_links,
         build_source_page_title,
         display_path_for_report,
     )
+    from cuppa.cpp.profiles_report.variant_roll_up_display import attach_roll_up_displays
 
     source_page_map = source_page_map or {}
+    model[ 'build_catalog' ] = build_catalog_from_scopes( model.get( 'scopes', [] ) )
 
     def enrich_file( file_entry ):
         display = display_path_for_report( file_entry[ 'path' ], env )
@@ -548,11 +558,25 @@ def enrich_model_for_html(
         enrich_scope_view( scope )
         for profile in scope.get( 'profiles', [] ):
             enrich_profile( profile )
+        from cuppa.cpp.profiles_report.build_rollups import scope_detail_tables
+
+        scope[ 'rules' ], scope[ 'files' ] = scope_detail_tables( scope )
 
     for file_entry in model.get( 'rollup', {} ).get( 'files', [] ):
         enrich_file( file_entry )
     for rule in model.get( 'rollup', {} ).get( 'rules', [] ):
         enrich_rule( rule, rule[ 'profile' ] )
+
+    attach_roll_up_displays( model )
+
+    from cuppa.cpp.profiles_report.build_rollups import build_views_from_model
+    from cuppa.cpp.profiles_report.context_summary import _build_scope_breakdown
+
+    model[ 'build_views' ] = build_views_from_model( model )
+    model[ 'build_inventory' ] = _build_scope_breakdown(
+        model,
+        model.get( 'rollup', {} ),
+    )
 
     return model
 
@@ -679,6 +703,8 @@ def render_profiles_reports(
         handle.write(
             index_template.render(
                 model=model,
+                build_views=model.get( 'build_views', [] ),
+                build_inventory=model.get( 'build_inventory' ),
                 scope_pages=scope_pages,
                 sconscript_groups=sconscript_groups,
                 context=context,

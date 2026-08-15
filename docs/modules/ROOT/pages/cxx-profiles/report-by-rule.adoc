@@ -1,0 +1,275 @@
+= Violation report — Violations By-Rule tab
+:description: How to read the Violations By-Rule tab on cxx-profiles-index.html — multi-build roll-ups, Refs vs Peak Refs, Violating Files lists, and the file detail subtable
+
+The index **Violations By-Rule** tab rolls up the session inventory by `(profile, rule_id)`.
+When a session compiles more than one build inventory row (for example **dbg1** and **rel1** on the
+xref:cxx-profiles/report-overview.adoc#build-breakdown[Build inventory load] table), each rule row
+shows session-union totals plus **common + delta** breakdowns per build id.
+
+This page documents the **By-Rule tab only**. Read
+xref:cxx-profiles/report-introduction.adoc[Introduction] for generating the report, JSON export,
+and xref:cxx-profiles/report-introduction.adoc#reference-metrics[reference metrics]. Use
+xref:cxx-profiles/report.adoc[Violation report reading guide] for other tabs.
+
+Pair report builds with `--cxx-disable-error-limit` when you need a complete inventory.
+
+[#by-rule-layout]
+== Tab layout
+
+Each rule row shows:
+
+[cols="1,3"]
+|===
+| Column | Meaning
+
+| **Profile**
+| Enforced profile for this rule row.
+
+| **Rule**
+| Rule id within the profile (documentation link when available).
+
+| **Violations**
+| Distinct violation identities for this rule. Multi-build cells show a **bold union total**,
+then `= common` plus `+N build_id` deltas (strict key intersection across every catalog build).
+The parts add up to the total — the same partition logic as union **Refs**.
+
+| **Refs**
+| Union **Refs** for this rule (matches Overview rule concentration). For each violation identity,
+the **maximum** ref count among individual captured diagnostic rows, summed across identities.
+Bold total = common + deltas. See xref:cxx-profiles/report-introduction.adoc#reference-metrics[Reference metrics — Refs].
+
+| **Peak Refs**
+| **Peak Refs** for this rule. For each identity, the **maximum per-build inventory total** for
+that identity, summed across identities. Bold total = common + deltas. Often equals **Refs**;
+diverges when a build stacks multiple diagnostic rows at the same identity. See
+xref:cxx-profiles/report-introduction.adoc#reference-metrics[Reference metrics — Peak Refs].
+
+| **Violating Files**
+| How many files this rule hits, split into a common `(index:build_refs)` bracket plus per-build
+delta lists. Numbers after `:` are **Build Refs** (compile inventory for that file and rule in
+that build), not union **Refs**. **File indices** use orange normal-weight type (`prof-file-index`).
+
+| **Violation Message**
+| Sample normalised diagnostic text for the rule.
+|===
+
+Expand a row to open the **file detail subtable** (one row per violating file index).
+
+[cols="1,3"]
+|===
+| Column | Meaning
+
+| **Index**
+| Stable file index within this rule row (orange — matches indices in **Violating Files** lists).
+
+| **Violations**
+| Distinct violation identities for this rule on this file (key-based common + delta with bold total).
+
+| **Refs**
+| Union **Refs** for this rule on this file (same semantics as the rule-row **Refs** column).
+
+| **Peak Refs**
+| **Peak Refs** for this rule on this file (same semantics as the rule-row **Peak Refs** column).
+
+| **Build Refs**
+| **Build Refs** for **this rule on this file only**, using the same `(index, refs)` partition as
+the parent **Violating Files** column — read this to decode `[ index:refs ]` entries.
+
+| **File**
+| Display path and source link.
+|===
+
+Single-build sessions show plain numbers (no common/delta notation).
+
+[#three-views]
+== Three ways to read the same file
+
+Multi-build roll-ups answer different questions. The same file index can legitimately show
+different numbers in **Violating Files**, **Build Refs**, and **Refs** because the aggregation
+grain differs.
+
+[mermaid]
+----
+flowchart TB
+  subgraph parent["Rule row — Violating Files"]
+    VF["Per-build file totals<br/>tuple: (index, build_refs)"]
+  end
+  subgraph subbuild["Subtable — Build Refs"]
+    TR["Same tuple partition<br/>scoped to one index"]
+  end
+  subgraph subrefs["Subtable — Refs / Peak Refs"]
+    RF["Violation-key partition<br/>union Refs vs Peak Refs"]
+  end
+  VF -->|"decode [ i:r ] for file i"| TR
+  VF -.->|"different question"| RF
+----
+
+* **Violating Files** — which files, and how many **Build Refs** for this rule in each build?
+* **Build Refs** — for one file row, what are the **`index:build_refs`** numbers in the parent list?
+* **Refs / Peak Refs** — for one file row, how are reference paths split across **shared violation
+keys** vs build-only keys under union vs build-peak semantics?
+
+[#worked-example]
+== Worked example (anonymised two-build session)
+
+The following numbers come from a real multi-build capture ( **dbg1** + **rel1** , same toolchain)
+regenerated offline. Paths and sconscript names are abbreviated; rule id and arithmetic are
+unchanged.
+
+Rule: `static_runtime_init` (`std::init` profile).
+
+=== Session totals for this rule
+
+[cols="1,1,3"]
+|===
+| Metric | Total | Notes
+
+| **Violations**
+| **748**
+| 420 common identities in both builds + 156 dbg1-only + 172 rel1-only
+
+| **Refs**
+| **3359**
+| Matches Overview rule concentration; 2322 common + 561 dbg1 + 476 rel1
+
+| **Peak Refs**
+| **3938**
+| 2901 common + 561 dbg1 + 476 rel1 — higher because some identities stack multiple diagnostic
+rows within one build
+
+| **Build Refs**
+| **2950** (dbg1) + **2154** (rel1) = **5104** aggregate
+| No cross-build dedup; see Overview Build inventory load
+|===
+
+On this rule, **Refs** and **Peak Refs** differ by **579** refs: **76** violation identities have
+more than one captured diagnostic row in at least one build, so per-build inventory **sums** those
+rows but union **Refs** takes the **max single row** per identity.
+
+=== Multi-build cell notation
+
+Rule-row **Violations** (same partition for **Refs** and **Peak Refs**):
+
+[source]
+----
+748
+= 420
++156 dbg1
++172 rel1
+----
+
+Rule-row **Refs**:
+
+[source]
+----
+3359
+= 2322
++561 dbg1
++476 rel1
+----
+
+Rule-row **Peak Refs**:
+
+[source]
+----
+3938
+= 2901
++561 dbg1
++476 rel1
+----
+
+The bold first line is the session total for that metric. When at least one build has exclusive
+identities, the `=` line shows the **common** bucket (present in every catalog build) and each
+`+N build_id` line is build-exclusive only. When all builds agree, the cell shows the total alone
+(for example `76`) without a redundant `= 76` line.
+
+=== Per-build Build Refs (Violating Files grain)
+
+Per-build inventory for this rule (summed diagnostic refs, not unioned):
+
+[cols="1,1,1,1"]
+|===
+| Build | Violation identities | Build Refs | Role
+
+| **dbg1**
+| 576
+| 2950
+| Compile inventory for dbg variant
+
+| **rel1**
+| 592
+| 2154
+| Compile inventory for rel variant
+|===
+
+**Violating Files** lists use this **Build Refs** grain at `(file index, rule)` level — for
+example `[ 3:412 ]` means file index **3** carried 412 **Build Refs** for this rule in that
+build's partition. Use **Build Refs** in the subtable to decode a specific index.
+
+=== When to use which column
+
+[cols="1,2,2"]
+|===
+| Question | Column | This example
+
+| How many distinct violation sites for this rule in the codebase picture?
+| **Violations** (bold total)
+| **748**
+
+| Union reference load — matches Overview concentration?
+| **Refs** (bold total)
+| **3359**
+
+| Heaviest per-build inventory per site, still deduplicated across builds?
+| **Peak Refs** (bold total)
+| **3938**
+
+| How many refs did dbg1's compile emit for this rule on one file?
+| **Violating Files** / **Build Refs**
+| Per-file **Build Refs** (e.g. a file's dbg1 line in the list)
+
+| How many violation lines on this file for this rule?
+| **Violations** (subtable)
+| Key counts — often far smaller than ref totals when templates amplify refs
+|===
+
+[#json-fields]
+== JSON fields
+
+Roll-up rows in `cxx-profiles-index.json` attach structured displays for offline regen:
+
+* `variant_display` — key-based common/delta for violations, union **Refs**, and **Peak Refs**
+  (`totals`, `common`, `deltas[]`)
+* `refs_display` / `peak_refs_display` — same structure; templates read `refs` vs `peak_refs` metrics
+* `violation_refs[]` on `variant_counts` — per-build `refs` (build sum) and `row_peak` (max
+  diagnostic row per identity in that build)
+* `violating_files_display` — `(index, build_refs)` partition for **Violating Files**
+* `build_refs_display` — per-file **Build Refs** partition matching the parent **Violating Files** list (by-rule subtable) or **Violated Rules** list (by-file subtable)
+
+Each includes `build_order` and per-delta `build_id` / `build_label` when `multi_build` is true.
+
+[#by-file-alignment]
+== Violations By-File subtable
+
+The **Violations By-File** tab uses the same metric columns on its rule detail subtable as
+**Violations By-Rule** uses on file rows:
+
+Index → **Violations** → **Refs** → **Peak Refs** → **Build Refs** → **Rule** → **Violation Message**.
+
+Parent-row **Violated Rules** lists carry **Build Refs** at `(rule index, rule)` grain — decode them
+with the subtable **Build Refs** column, not **Refs**. Parent-row **Refs** / **Peak Refs** use the
+same union and build-peak roll-ups as the by-rule parent row, scoped to the whole file.
+
+When every build agrees (no deltas), metric cells show a single total line — for example `76` —
+without a redundant `= 76` common line.
+
+== Related
+
+* xref:cxx-profiles/report-introduction.adoc[Introduction] — vocabulary, multi-build notation, JSON overview
+* xref:cxx-profiles/report.adoc[Violation report reading guide]
+* xref:cxx-profiles/report-overview.adoc[Overview tab] — Build inventory load, matrices
+* xref:cxx-profiles/report-by-file.adoc[Violations By-File tab]
+* xref:cxx-profiles/report-by-build.adoc[Violations By-Build tab]
+* xref:cxx-profiles/report-by-sconscript.adoc[Violations By-Sconscript]
+* xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[Violation inventory report] — flags, artefacts, offline regen
+* xref:cli-reference.adoc[CLI reference] — `--cxx-profiles-report-context=full|rules-only|off`

@@ -37,6 +37,12 @@
         font-weight: 600;
         color: #495057;
       }
+      .prof-build-views-picker {
+        background: #fff;
+      }
+      .prof-build-tabs .nav-link {
+        font-size: 0.875rem;
+      }
       .prof-profile-matrix-tabs .nav-link {
         font-size: 0.875rem;
       }
@@ -135,6 +141,11 @@
               <li class="nav-item">
                 <a class="nav-link" id="rollup-files-tab" data-toggle="tab" href="#rollup-files" role="tab" aria-selected="false">Violations By-File</a>
               </li>
+              {% if build_views %}
+              <li class="nav-item">
+                <a class="nav-link" id="builds-tab" data-toggle="tab" href="#builds" role="tab" aria-selected="false">Violations By-Build</a>
+              </li>
+              {% endif %}
               <li class="nav-item">
                 <a class="nav-link" id="scopes-tab" data-toggle="tab" href="#scopes" role="tab" aria-selected="false">Violations By-Sconscript</a>
               </li>
@@ -165,12 +176,20 @@
             </div>
           </div>
 
+          {% if build_views %}
+          <div class="tab-pane fade" id="builds" role="tabpanel" aria-labelledby="builds-tab">
+            {% include 'cxx_profiles_partial_build_views.html' %}
+          </div>
+          {% endif %}
+
           <div class="tab-pane fade" id="scopes" role="tabpanel" aria-labelledby="scopes-tab">
             <div class="p-3">
             <table class="table table-sm prof-scopes-table mb-0">
               <colgroup>
                 <col class="prof-scopes-col-sconscript-col">
                 <col class="prof-scopes-col-toolchain-col">
+                <col class="prof-scopes-col-metric-col">
+                <col class="prof-scopes-col-metric-col">
                 <col class="prof-scopes-col-metric-col">
                 <col class="prof-scopes-col-metric-col">
                 <col class="prof-scopes-col-profiles-col">
@@ -180,8 +199,10 @@
                 <tr>
                   <th class="prof-scopes-col-sconscript">Sconscript / Variant</th>
                   <th class="prof-scopes-col-toolchain">Toolchain</th>
-                  <th class="prof-scopes-col-metric">{% include 'cxx_profiles_partial_heading_distinct_unique.html' %}</th>
-                  <th class="prof-scopes-col-metric">Refs</th>
+                  <th class="prof-scopes-col-metric text-center">Rules</th>
+                  <th class="prof-scopes-col-metric text-center">Violations</th>
+                  <th class="prof-scopes-col-metric text-center">Refs</th>
+                  <th class="prof-scopes-col-metric text-center">Build Refs</th>
                   <th class="prof-scopes-col-profiles">Profiles</th>
                   <th class="prof-scopes-col-rules">Rule Violations</th>
                 </tr>
@@ -195,6 +216,8 @@
                   <td class="prof-scopes-col-toolchain"></td>
                   <td class="prof-scopes-col-metric"></td>
                   <td class="prof-scopes-col-metric"></td>
+                  <td class="prof-scopes-col-metric"></td>
+                  <td class="prof-scopes-col-metric"></td>
                   <td class="prof-scopes-col-profiles"></td>
                   <td class="prof-scopes-col-rules"></td>
                 </tr>
@@ -204,12 +227,10 @@
                     <a href="{{ page.html }}" class="card-link"><span class="prof-mono"><span class="font-weight-bold">{{ page.scope.variant_label }}</span>{% if page.scope.variant_display_tail %}<span class="prof-variant-tail">/{{ page.scope.variant_display_tail }}</span>{% endif %}</span></a>
                   </td>
                   <td class="prof-scopes-col-toolchain"><span class="prof-mono">{{ page.scope.toolchain }}</span></td>
-                  <td class="prof-scopes-col-metric">
-                    {% set distinct = page.scope.unique_rule_count | default(0) %}
-                    {% set unique = page.scope.unique_line_count | default(0) %}
-                    <span class="prof-mono">{% include 'cxx_profiles_partial_distinct_unique_value.html' %}</span>
-                  </td>
-                  <td class="prof-scopes-col-metric"><span class="prof-mono">{{ page.scope.total_references }}</span></td>
+                  <td class="prof-scopes-col-metric text-center"><span class="prof-mono">{{ page.scope.unique_rule_count | default(0) }}</span></td>
+                  <td class="prof-scopes-col-metric text-center">{% set value = page.scope.unique_line_count | default(0) %}{% include 'cxx_profiles_partial_violation_count.html' %}</td>
+                  <td class="prof-scopes-col-metric text-center"><span class="prof-mono">{{ page.scope.total_references }}</span></td>
+                  <td class="prof-scopes-col-metric text-center"><span class="prof-mono">{{ page.scope.build_references | default(page.scope.total_references) }}</span></td>
                   <td class="prof-scopes-col-profiles">
                     {% for label, count in page.scope.profiles_summary_items %}
                     <span class="prof-scopes-profile-line prof-mono">{{ label }} ({{ count }})</span>

@@ -24,6 +24,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   **Overview** tab and top-level `context` JSON with rule concentration, zero-filled profile
   rule matrix, tier-1/tier-2 codebase metrics, `-H` parsed-file capture on report builds, and
   `--cxx-profiles-report-context=full|rules-only|off`
+- Profiles report index roll-up tables expose structured `variant_display` (`common`, per-build
+  `deltas[]`, `build_order`, `totals`) on by-rule and by-file rows for multi-build sessions;
+  separate **Refs** (union) and **Peak Refs** (build-peak) columns with bold total = common + deltas.
+  Overview and matrices label union refs **Refs**; Build inventory load uses **Build Refs**.
+  Antora pages xref:cxx-profiles/report-introduction.adoc#reference-metrics[Report — reference metrics] and
+  xref:cxx-profiles/report-by-rule.adoc[Violations By-Rule] document each aggregate.
+- Profiles report index **Violations By-Build** tab: build inventory load table, sub-tabs per build id,
+  and unified **By-Rule** / **By-File** tables ( **Profile** column) aggregated across all
+  sconscripts for that compile inventory row. Antora:
+  xref:cxx-profiles/report-by-build.adoc[Violations By-Build].
+- Per-scope detail pages: one **Violations By-Rule** / **By-File** tab pair with **Profile** column
+  (all profiles in the same tables); build heading `variant/tail — toolchain` matches By-Build.
+  Antora: xref:cxx-profiles/report-by-sconscript.adoc[Violations By-Sconscript].
 - Profiles violation report parser groundwork ([#184](https://github.com/ja11sop/cuppa/issues/184)):
   `cuppa/cpp/cxx_profiles_report.py` parses Clang Profiles diagnostics, classifies rule
   ids, and dedupes violations per scope (slice A).
@@ -49,6 +62,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Violation report documentation: xref:cxx-profiles/report-introduction.adoc[Introduction] replaces
+  shared concepts as the feature entry point (build command, ``regenerate_profiles_report``,
+  JSON for CI/agents); tab guides aligned to a common structure; Overview page scoped to the
+  Overview tab only.
+- Profiles report index by-rule / by-file roll-ups key per-build buckets by
+  `(variant_label, variant_display_tail, toolchain)` instead of variant label alone; multi-build
+  rows render bold union totals with `= common` plus `+N dbg1`-style deltas when builds diverge,
+  or a single total when all builds agree. By-Rule adds **Peak Refs** alongside union **Refs**; inventory serialises per-key `row_peak` for correct union ref roll-ups.
+  By-Rule file subtable adds **Build Refs** aligned with **Violating Files** lists;
+  Antora pages xref:cxx-profiles/report-introduction.adoc#reference-metrics[Report — reference metrics] and
+  xref:cxx-profiles/report-by-rule.adoc[Violations By-Rule] document Refs, Peak Refs, and Build Refs.
+- Per-scope Profiles report pages omit the **Peak Refs** column (single-build view): parent and
+  subtables show **Build Refs** only alongside union **Refs**; scope inventory uses the same
+  variant buckets as session roll-ups. Antora:
+  xref:cxx-profiles/report-introduction.adoc#scope-metrics[scope metrics],
+  xref:cxx-profiles/report-by-sconscript.adoc[By-Sconscript], and report hub
+  xref:cxx-profiles/report.adoc[Violation report reading guide].
+- Overview **Rule concentration** and **Profile matrices** add **Peak Refs** (with %) alongside **Refs**
+  for correlation with index By-Rule rows. **Build inventory load** uses the **Build Refs** column label; variant
+  rows sum per-scope compile inventory (`build_references`).
+- Index **Violations By-Sconscript** table: separate **Rules** and **Violations** columns (replacing
+  Distinct/Unique), plus **Build Refs** alongside union **Refs**.
+- Violation report Antora split: xref:cxx-profiles/report-introduction.adoc[Introduction] (generate,
+  regen, JSON, Profiles/rules/violations/reference types), xref:cxx-profiles/report-by-file.adoc[By-File],
+  xref:cxx-profiles/report-by-sconscript.adoc[By-Sconscript], xref:cxx-profiles/report.adoc[reading guide hub];
+  Overview reference-metrics section moved to Introduction.
 - `--reports-link-style=` session flag for HTML report source links (test + Profiles); shared
   helpers in ``cuppa/reports/link_style.py`` (GitHub ``/blob/``, GitLab ``/-/blob/``). Profiles
   ``--cxx-profiles-report-link-style=`` overrides the session flag.

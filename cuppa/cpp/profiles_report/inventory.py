@@ -9,6 +9,7 @@
 
 import re
 
+from cuppa.cpp.profiles_report.build_catalog import build_key_from_scope
 from cuppa.cpp.profiles_report.parse import parse_profiles_diagnostic
 from cuppa.cpp.profiles_report.types import (
     ProfilesLocation,
@@ -313,75 +314,330 @@ def _sort_file_rules( rules ):
     )
 
 
+def _violation_key_to_json( key ):
+    return list( key )
+
+
+def _record_violation_ref( violation_refs, violation_ref_peaks, union_key, reference_count ):
+    """Accumulate build-sum and per-row-peak refs for one violation identity."""
+    violation_refs[ union_key ] = (
+        violation_refs.get( union_key, 0 ) + reference_count
+    )
+    violation_ref_peaks[ union_key ] = max(
+        violation_ref_peaks.get( union_key, 0 ),
+        reference_count,
+    )
+
+
+def _empty_variant_bucket():
+    return {
+        'violation_lines': set(),
+        'violation_refs': {},
+        'violation_ref_peaks': {},
+        'references': 0,
+        'files': {},
+        'rules': {},
+    }
+
+
+def _variant_reference_metrics( variant_data ):
+    """Return union refs, peak refs, and raw compile refs for one build bucket."""
+    lines = variant_data.get( 'violation_lines', set() )
+    ref_sums = variant_data.get( 'violation_refs', {} )
+    ref_peaks = variant_data.get( 'violation_ref_peaks', {} )
+    union_refs = sum(
+        ref_peaks.get( key, ref_sums.get( key, 0 ) )
+        for key in lines
+    )
+    peak_refs = sum( ref_sums.get( key, 0 ) for key in lines )
+    raw_refs = variant_data.get( 'references', 0 )
+    return union_refs, peak_refs, raw_refs
+
+
+def _accumulate_location_variants(
+    location,
+    rule_entry,
+    session_file_entry=None,
+    profile_file_entry=None,
+):
+    """Track per-build violation keys and reference metrics for roll-up tables."""
+    union_key = session_union_violation_key( location )
+    build_key = build_key_from_scope( location.scope )
+    variant_entry = rule_entry.setdefault( 'variants', {} ).setdefault(
+        build_key,
+        _empty_variant_bucket(),
+    )
+    variant_entry[ 'violation_lines' ].add( union_key )
+    _record_violation_ref(
+        variant_entry[ 'violation_refs' ],
+        variant_entry[ 'violation_ref_peaks' ],
+        union_key,
+        location.reference_count,
+    )
+    variant_entry[ 'references' ] += location.reference_count
+    rule_file = variant_entry[ 'files' ].setdefault(
+        location.path,
+        { 'lines': set(), 'references': 0, 'violation_keys': set() },
+    )
+    rule_file[ 'lines' ].add( location.line )
+    rule_file[ 'references' ] += location.reference_count
+    rule_file[ 'violation_keys' ].add( union_key )
+
+    if session_file_entry is not None:
+        file_variant = session_file_entry.setdefault( 'variants', {} ).setdefault(
+            build_key,
+            _empty_variant_bucket(),
+        )
+        file_variant[ 'violation_lines' ].add( union_key )
+        _record_violation_ref(
+            file_variant[ 'violation_refs' ],
+            file_variant[ 'violation_ref_peaks' ],
+            union_key,
+            location.reference_count,
+        )
+        file_variant[ 'references' ] += location.reference_count
+        file_variant[ 'rules' ][ location.rule_id ] = (
+            file_variant[ 'rules' ].get( location.rule_id, 0 )
+            + location.reference_count
+        )
+
+    if profile_file_entry is not None:
+        profile_variant = profile_file_entry.setdefault( 'variants', {} ).setdefault(
+            build_key,
+            _empty_variant_bucket(),
+        )
+        profile_variant[ 'violation_lines' ].add( union_key )
+        _record_violation_ref(
+            profile_variant[ 'violation_refs' ],
+            profile_variant[ 'violation_ref_peaks' ],
+            union_key,
+            location.reference_count,
+        )
+        profile_variant[ 'references' ] += location.reference_count
+        profile_variant[ 'rules' ][ location.rule_id ] = (
+            profile_variant[ 'rules' ].get( location.rule_id, 0 )
+            + location.reference_count
+        )
+
+
+def _serialise_violation_refs( violation_refs, violation_ref_peaks=None ):
+    serialised = []
+    for key, refs in sorted( violation_refs.items() ):
+        entry = {
+            'key': _violation_key_to_json( key ),
+            'refs': refs,
+        }
+        if violation_ref_peaks is not None:
+            entry[ 'row_peak' ] = violation_ref_peaks.get( key, refs )
+        serialised.append( entry )
+    return serialised
+
+
+def _build_key_fields( build_key ):
+    variant_label, variant_display_tail, toolchain = build_key
+    return {
+        'build_key': list( build_key ),
+        'variant_label': variant_label,
+        'variant_display_tail': variant_display_tail,
+        'toolchain': toolchain,
+    }
+
+
 def _serialise_file_variant_counts( variants ):
-    """Per-build-type rule-type and reference counts for by-file roll-up rows."""
+    """Per-build inventory rule-type and reference counts for by-file roll-up rows."""
     result = []
-    for label, data in sorted(
+    for build_key, data in sorted(
         variants.items(),
         key=lambda item: item[ 0 ],
     ):
-        result.append(
+        entry = _build_key_fields( build_key )
+        union_refs, peak_refs, raw_refs = _variant_reference_metrics( data )
+        entry.update(
             {
-                'variant_label': label,
+                'rule_ids': sorted( data.get( 'rules', {} ).keys() ),
                 'unique_rule_count': len( data.get( 'rules', {} ) ),
                 'unique_line_count': len( data.get( 'violation_lines', set() ) ),
-                'total_references': data[ 'references' ],
+                'total_references': raw_refs,
+                'union_references': union_refs,
+                'peak_references': peak_refs,
+                'violation_identity_keys': [
+                    _violation_key_to_json( key )
+                    for key in sorted( data.get( 'violation_lines', set() ) )
+                ],
+                'violation_refs': _serialise_violation_refs(
+                    data.get( 'violation_refs', {} ),
+                    data.get( 'violation_ref_peaks' ),
+                ),
             },
         )
+        result.append( entry )
     return result
+
+
+def _serialise_file_rule_variant_counts( variants, rule_id ):
+    """Per-build violation and reference counts for one rule on one file roll-up row."""
+    counts = []
+    for build_key, data in sorted(
+        variants.items(),
+        key=lambda item: item[ 0 ],
+    ):
+        matching_keys = {
+            key
+            for key in data.get( 'violation_lines', set() )
+            if key[ -1 ] == rule_id
+        }
+        if not matching_keys:
+            continue
+        rule_refs = {
+            key: data.get( 'violation_refs', {} ).get( key, 0 )
+            for key in matching_keys
+        }
+        rule_ref_peaks = {
+            key: data.get( 'violation_ref_peaks', {} ).get(
+                key,
+                rule_refs.get( key, 0 ),
+            )
+            for key in matching_keys
+        }
+        union_refs = sum( rule_ref_peaks.get( key, rule_refs.get( key, 0 ) ) for key in matching_keys )
+        peak_refs = sum( rule_refs.values() )
+        entry = _build_key_fields( build_key )
+        entry.update(
+            {
+                'unique_line_count': len( matching_keys ),
+                'total_references': peak_refs,
+                'union_references': union_refs,
+                'peak_references': peak_refs,
+                'violation_identity_keys': [
+                    _violation_key_to_json( key )
+                    for key in sorted( matching_keys )
+                ],
+                'violation_refs': _serialise_violation_refs(
+                    rule_refs,
+                    rule_ref_peaks,
+                ),
+            },
+        )
+        counts.append( entry )
+    return counts
 
 
 def _serialise_file_rules( rules, variants ):
     """Return sorted per-rule violation detail for one file roll-up row."""
     serialised = []
     for rule_id, rule_data in rules.items():
+        variant_counts = _serialise_file_rule_variant_counts(
+            variants,
+            rule_id,
+        )
+        if variant_counts:
+            metrics = variant_counts[ 0 ]
+            union_refs = metrics.get(
+                'union_references',
+                metrics[ 'total_references' ],
+            )
+            peak_refs = metrics.get(
+                'peak_references',
+                metrics[ 'total_references' ],
+            )
+            build_refs = metrics[ 'total_references' ]
+        else:
+            union_refs = peak_refs = build_refs = rule_data[ 'total_references' ]
         serialised.append(
             {
                 'rule_id': rule_id,
-                'total_references': rule_data[ 'total_references' ],
+                'total_references': union_refs,
+                'peak_references': peak_refs,
+                'build_references': build_refs,
                 'unique_line_count': len( rule_data[ 'lines' ] ),
                 'sample_normalised_message': rule_data.get( 'sample_normalised_message' ),
+                'variant_counts': variant_counts,
             },
         )
     serialised = _sort_file_rules( serialised )
-    variant_rule_refs = {}
-    for label, data in variants.items():
-        variant_rule_refs[ label ] = dict( data.get( 'rules', {} ) )
+    variant_rule_refs = []
+    for build_key, data in sorted(
+        variants.items(),
+        key=lambda item: item[ 0 ],
+    ):
+        entry = _build_key_fields( build_key )
+        entry[ 'rules' ] = dict( data.get( 'rules', {} ) )
+        variant_rule_refs.append( entry )
     return serialised, variant_rule_refs
 
 
 def _file_variant_counts_for_rule( variants, path ):
-    """Per-build-type violation and reference counts for one file under a rule."""
+    """Per-build violation and reference counts for one file under a rule."""
     counts = []
-    for label, data in sorted(
+    for build_key, data in sorted(
         variants.items(),
         key=lambda item: item[ 0 ],
     ):
         file_data = data.get( 'files', {} ).get( path )
         if file_data is None:
             continue
-        counts.append(
+        entry = _build_key_fields( build_key )
+        file_refs = {
+            key: data.get( 'violation_refs', {} ).get( key, 0 )
+            for key in file_data.get( 'violation_keys', set() )
+        }
+        file_ref_peaks = {
+            key: data.get( 'violation_ref_peaks', {} ).get(
+                key,
+                file_refs.get( key, 0 ),
+            )
+            for key in file_data.get( 'violation_keys', set() )
+        }
+        union_refs = sum(
+            file_ref_peaks.get( key, file_refs.get( key, 0 ) )
+            for key in file_data.get( 'violation_keys', set() )
+        )
+        peak_refs = sum( file_refs.values() )
+        entry.update(
             {
-                'variant_label': label,
                 'unique_line_count': len( file_data[ 'lines' ] ),
                 'total_references': file_data[ 'references' ],
+                'union_references': union_refs,
+                'peak_references': peak_refs,
+                'violation_identity_keys': [
+                    _violation_key_to_json( key )
+                    for key in sorted( file_data.get( 'violation_keys', set() ) )
+                ],
+                'violation_refs': _serialise_violation_refs(
+                    file_refs,
+                    file_ref_peaks,
+                ),
             },
         )
+        counts.append( entry )
     return counts
 
 
 def _serialise_variant_counts( variants, include_files=False ):
-    """Return sorted per-build-type violation and reference counts for roll-up tables."""
+    """Return sorted per-build inventory violation and reference counts for roll-up tables."""
     result = []
-    for label, data in sorted(
+    for build_key, data in sorted(
         variants.items(),
         key=lambda item: item[ 0 ],
     ):
-        entry = {
-            'variant_label': label,
-            'unique_line_count': len( data[ 'violation_lines' ] ),
-            'total_references': data[ 'references' ],
-        }
+        union_refs, peak_refs, raw_refs = _variant_reference_metrics( data )
+        entry = _build_key_fields( build_key )
+        entry.update(
+            {
+                'unique_line_count': len( data[ 'violation_lines' ] ),
+                'total_references': raw_refs,
+                'union_references': union_refs,
+                'peak_references': peak_refs,
+                'violation_identity_keys': [
+                    _violation_key_to_json( key )
+                    for key in sorted( data[ 'violation_lines' ] )
+                ],
+                'violation_refs': _serialise_violation_refs(
+                    data.get( 'violation_refs', {} ),
+                    data.get( 'violation_ref_peaks' ),
+                ),
+            },
+        )
         if include_files:
             files = []
             for path, file_data in data.get( 'files', {} ).items():
@@ -444,31 +700,6 @@ def _build_session_rollup( locations ):
             rule_entry[ 'sample_normalised_message' ] = location.normalised_message
         rule_entry[ 'violation_lines' ].add( union_key )
         rule_entry[ 'unique_files' ].add( location.path )
-        variant_entry = rule_entry[ 'variants' ].setdefault(
-            location.scope.variant_label,
-            { 'violation_lines': set(), 'references': 0, 'files': {} },
-        )
-        variant_entry[ 'violation_lines' ].add( union_key )
-        variant_entry[ 'references' ] += location.reference_count
-        variant_file = variant_entry[ 'files' ].setdefault(
-            location.path,
-            { 'lines': set(), 'references': 0 },
-        )
-        variant_file[ 'lines' ].add( location.line )
-        variant_file[ 'references' ] += location.reference_count
-        rule_file = rule_entry[ 'files' ].setdefault(
-            location.path,
-            { 'total_references': 0, 'lines': set() },
-        )
-        rule_file[ 'total_references' ] += location.reference_count
-        rule_file[ 'lines' ].add( location.line )
-        scope_key = '{} / {}'.format(
-            location.scope.sconscript,
-            location.scope.variant_label,
-        )
-        rule_entry[ 'scopes' ][ scope_key ] = (
-            rule_entry[ 'scopes' ].get( scope_key, 0 ) + location.reference_count
-        )
 
         file_key = ( location.profile, location.path )
         file_entry = files.setdefault(
@@ -484,18 +715,27 @@ def _build_session_rollup( locations ):
                 'scopes': {},
             },
         )
+        _accumulate_location_variants(
+            location,
+            rule_entry,
+            session_file_entry=file_entry,
+        )
+        rule_file = rule_entry[ 'files' ].setdefault(
+            location.path,
+            { 'total_references': 0, 'lines': set() },
+        )
+        rule_file[ 'total_references' ] += location.reference_count
+        rule_file[ 'lines' ].add( location.line )
+        scope_key = '{} / {}'.format(
+            location.scope.sconscript,
+            location.scope.variant_label,
+        )
+        rule_entry[ 'scopes' ][ scope_key ] = (
+            rule_entry[ 'scopes' ].get( scope_key, 0 ) + location.reference_count
+        )
+
         file_entry[ 'violation_identities' ].add( union_key )
         file_entry[ 'lines' ].add( location.line )
-        file_variant = file_entry[ 'variants' ].setdefault(
-            location.scope.variant_label,
-            { 'violation_lines': set(), 'references': 0, 'rules': {} },
-        )
-        file_variant[ 'violation_lines' ].add( union_key )
-        file_variant[ 'references' ] += location.reference_count
-        file_variant[ 'rules' ][ location.rule_id ] = (
-            file_variant[ 'rules' ].get( location.rule_id, 0 )
-            + location.reference_count
-        )
         file_rule = file_entry[ 'rules' ].setdefault(
             location.rule_id,
             {
@@ -670,6 +910,7 @@ class ProfilesInventory:
                     'total_references': 0,
                     'unique_files': set(),
                     'files': {},
+                    'variants': {},
                     'violation_identities': set(),
                     'sample_normalised_message': None,
                 },
@@ -680,6 +921,21 @@ class ProfilesInventory:
             rule_entry[ 'unique_files' ].add( location.path )
             rule_entry[ 'violation_identities' ].add(
                 session_union_violation_key( location ),
+            )
+
+            file_roll = profile_entry[ 'files' ].setdefault(
+                location.path,
+                {
+                    'total_references': 0,
+                    'rules': {},
+                    'lines': set(),
+                    'variants': {},
+                },
+            )
+            _accumulate_location_variants(
+                location,
+                rule_entry,
+                profile_file_entry=file_roll,
             )
             file_entry = rule_entry[ 'files' ].setdefault(
                 location.path,
@@ -697,10 +953,6 @@ class ProfilesInventory:
                 },
             )
 
-            file_roll = profile_entry[ 'files' ].setdefault(
-                location.path,
-                { 'total_references': 0, 'rules': {}, 'lines': set() },
-            )
             file_roll[ 'total_references' ] += location.reference_count
             file_roll[ 'lines' ].add( location.line )
             file_rule = file_roll[ 'rules' ].setdefault(
@@ -723,24 +975,43 @@ class ProfilesInventory:
             for profile_name, profile_data in sorted( scope_entry[ 'profiles' ].items() ):
                 rules = []
                 for rule_id, rule_data in sorted( profile_data[ 'rules' ].items() ):
+                    variants = rule_data.get( 'variants', {} )
+                    if variants:
+                        variant_data = next( iter( variants.values() ) )
+                        union_refs, peak_refs, _raw_refs = _variant_reference_metrics(
+                            variant_data,
+                        )
+                    else:
+                        union_refs = peak_refs = rule_data[ 'total_references' ]
                     files = []
                     for path, file_data in rule_data[ 'files' ].items():
+                        file_variant_counts = _file_variant_counts_for_rule(
+                            variants,
+                            path,
+                        )
+                        if file_variant_counts:
+                            file_metrics = file_variant_counts[ 0 ]
+                            file_union = file_metrics.get(
+                                'union_references',
+                                file_metrics[ 'total_references' ],
+                            )
+                            file_peak = file_metrics.get(
+                                'peak_references',
+                                file_metrics[ 'total_references' ],
+                            )
+                            file_build = file_metrics[ 'total_references' ]
+                        else:
+                            file_union = file_peak = file_build = file_data[
+                                'total_references'
+                            ]
                         files.append(
                             {
                                 'path': path,
-                                'total_references': file_data[ 'total_references' ],
+                                'total_references': file_union,
+                                'peak_references': file_peak,
+                                'build_references': file_build,
                                 'unique_line_count': len( file_data[ 'lines' ] ),
-                                'variant_counts': [
-                                    {
-                                        'variant_label': scope_entry[ 'variant_label' ],
-                                        'unique_line_count': len(
-                                            file_data[ 'lines' ],
-                                        ),
-                                        'total_references': file_data[
-                                            'total_references'
-                                        ],
-                                    },
-                                ],
+                                'variant_counts': file_variant_counts,
                                 'locations': file_data[ 'locations' ],
                             },
                         )
@@ -748,24 +1019,20 @@ class ProfilesInventory:
                     rules.append(
                         {
                             'rule_id': rule_id,
-                            'total_references': rule_data[ 'total_references' ],
-                            'unique_line_count': len( rule_data[ 'violation_identities' ] ),
+                            'total_references': union_refs,
+                            'peak_references': peak_refs,
+                            'unique_line_count': len(
+                                rule_data[ 'violation_identities' ],
+                            ),
                             'unique_files': len( rule_data[ 'unique_files' ] ),
                             'unique_locations': sum(
                                 len( file_data[ 'locations' ] )
                                 for file_data in rule_data[ 'files' ].values()
                             ),
-                            'variant_counts': [
-                                {
-                                    'variant_label': scope_entry[ 'variant_label' ],
-                                    'unique_line_count': len(
-                                        rule_data[ 'violation_identities' ],
-                                    ),
-                                    'total_references': rule_data[ 'total_references' ],
-                                    'file_count': len( files ),
-                                    'files': files,
-                                },
-                            ],
+                            'variant_counts': _serialise_variant_counts(
+                                variants,
+                                include_files=True,
+                            ),
                             'sample_normalised_message': rule_data[
                                 'sample_normalised_message'
                             ],
@@ -775,34 +1042,29 @@ class ProfilesInventory:
                 rules = _sort_rules( rules )
                 files_view = []
                 for path, file_data in sorted( profile_data[ 'files' ].items() ):
+                    file_variants = file_data.get( 'variants', {} )
                     rules_on_file, variant_rule_refs = _serialise_file_rules(
                         file_data[ 'rules' ],
-                        {
-                            scope_entry[ 'variant_label' ]: {
-                                'rules': {
-                                    rule_id: rule_entry[ 'total_references' ]
-                                    for rule_id, rule_entry in file_data[
-                                        'rules'
-                                    ].items()
-                                },
-                            },
-                        },
+                        file_variants,
                     )
+                    if file_variants:
+                        file_variant_data = next( iter( file_variants.values() ) )
+                        file_union, file_peak, _file_raw = _variant_reference_metrics(
+                            file_variant_data,
+                        )
+                    else:
+                        file_union = file_peak = file_data[ 'total_references' ]
                     files_view.append(
                         {
                             'profile': profile_name,
                             'path': path,
-                            'total_references': file_data[ 'total_references' ],
+                            'total_references': file_union,
+                            'peak_references': file_peak,
                             'unique_line_count': len( file_data[ 'lines' ] ),
                             'unique_rule_count': len( file_data[ 'rules' ] ),
-                            'variant_counts': [
-                                {
-                                    'variant_label': scope_entry[ 'variant_label' ],
-                                    'unique_rule_count': len( file_data[ 'rules' ] ),
-                                    'unique_line_count': len( file_data[ 'lines' ] ),
-                                    'total_references': file_data[ 'total_references' ],
-                                },
-                            ],
+                            'variant_counts': _serialise_file_variant_counts(
+                                file_variants,
+                            ),
                             'variant_rule_refs': variant_rule_refs,
                             'rules': rules_on_file,
                         },
@@ -828,6 +1090,20 @@ class ProfilesInventory:
             scope_file_paths = set()
             for profile_data in scope_entry[ 'profiles' ].values():
                 scope_file_paths.update( profile_data[ 'files' ].keys() )
+            scope_key = (
+                scope_entry[ 'sconscript' ],
+                scope_entry[ 'variant_dir' ],
+                scope_entry[ 'toolchain' ],
+            )
+            scope_build_refs = sum(
+                location.reference_count
+                for location in self._locations.values()
+                if (
+                    location.scope.sconscript,
+                    location.scope.variant_dir,
+                    location.scope.toolchain,
+                ) == scope_key
+            )
             serialised_scopes.append(
                 {
                     'sconscript': scope_entry[ 'sconscript' ],
@@ -836,6 +1112,7 @@ class ProfilesInventory:
                     'variant_label': scope_entry[ 'variant_label' ],
                     'report_stem': _scope_report_stem( scope_entry ),
                     'total_references': scope_total,
+                    'build_references': scope_build_refs,
                     'unique_line_count': len( scope_entry[ 'violation_identities' ] ),
                     'unique_rule_count': scope_rule_count,
                     'unique_file_count': len( scope_file_paths ),

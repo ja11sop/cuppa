@@ -1,0 +1,9 @@
+{% if display.multi_build %}
+<span class="prof-variant-metric prof-mono">
+  {% if display.deltas %}
+  <span class="prof-variant-metric-line prof-variant-metric-total font-weight-bold">{{ display.totals['refs'] }}</span>
+  <span class="prof-variant-metric-line prof-variant-metric-common-equals"><span class="prof-variant-metric-equals text-muted">=</span></span>{% for delta in display.deltas %}
+  <span class="prof-variant-metric-line prof-variant-metric-delta" title="{{ delta.build_label | e }}">+{{ delta['refs'] }} <span class="prof-variant-metric-build-id text-muted">{{ delta.build_id }}</span></span>{% endfor %}{% else %}
+  <span class="prof-variant-metric-line prof-variant-metric-total font-weight-bold">{{ display.common['refs'] }}</span>{% endif %}
+</span>
+{% endif %}

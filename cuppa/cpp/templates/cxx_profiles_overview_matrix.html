@@ -6,7 +6,9 @@
       <th class="text-right prof-overview-pct-col">%</th>
       <th class="text-right prof-overview-primary-metric">Violations</th>
       <th class="text-right prof-overview-pct-col">%</th>
-      <th class="text-right">References</th>
+      <th class="text-right">Refs</th>
+      <th class="text-right prof-overview-pct-col">%</th>
+      <th class="text-right">Peak Refs</th>
       <th class="text-right prof-overview-pct-col">%</th>
       <th class="text-center prof-overview-docs-col">Docs</th>
     </tr>
@@ -27,6 +29,8 @@
       <td class="text-right prof-mono prof-overview-pct-col">{{ '%.1f'|format(rule.pct_of_session_lines) }}</td>
       <td class="text-right prof-mono">{{ rule.total_references }}</td>
       <td class="text-right prof-mono prof-overview-pct-col">{{ '%.1f'|format(rule.pct_of_session_refs) }}</td>
+      <td class="text-right prof-mono">{{ rule.peak_references | default(rule.total_references) }}</td>
+      <td class="text-right prof-mono prof-overview-pct-col">{{ '%.1f'|format(rule.pct_of_session_peak_refs | default(0)) }}</td>
       <td class="text-center prof-overview-docs-col">
         {% if rule.doc_href %}
         <a href="{{ rule.doc_href }}" class="badge badge-light border prof-overview-doc-badge">rule</a>

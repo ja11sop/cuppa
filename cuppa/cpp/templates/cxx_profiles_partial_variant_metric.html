@@ -1,0 +1,9 @@
+{% if display.multi_build %}
+<span class="prof-variant-metric prof-mono">
+  {% if display.totals is defined and metric in display.totals %}
+  <span class="prof-variant-metric-line prof-variant-metric-total font-weight-bold{% if metric == 'violations' %} prof-variant-metric-total--violations{% endif %}">{{ display.totals[metric] }}</span>{% if display.deltas %}
+  <span class="prof-variant-metric-line prof-variant-metric-common-equals"><span class="prof-variant-metric-equals text-muted">=</span> {{ display.common[metric] }}</span>{% endif %}{% else %}
+  <span class="prof-variant-metric-line prof-variant-metric-common font-weight-bold">{{ display.common[metric] }}</span>{% endif %}{% for delta in display.deltas %}
+  <span class="prof-variant-metric-line prof-variant-metric-delta" title="{{ delta.build_label | e }}">+{{ delta[metric] }} <span class="prof-variant-metric-build-id text-muted">{{ delta.build_id }}</span></span>{% endfor %}
+</span>
+{% endif %}

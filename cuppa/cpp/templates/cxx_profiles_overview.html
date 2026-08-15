@@ -24,7 +24,7 @@
         </p>
         <p class="mb-0">
           <span class="prof-stat-value prof-stat-value--neutral">{{ session_stats.total_references }}</span>
-          {{ 'reference' if session_stats.total_references == 1 else 'references' }}
+          union {{ 'ref' if session_stats.total_references == 1 else 'refs' }}
         </p>
       </div>
     </div>

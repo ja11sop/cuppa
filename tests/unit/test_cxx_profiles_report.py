@@ -218,6 +218,13 @@ def test_inventory_report_model_shape():
         'ref_to_uninit',
         UNCLASSIFIED_RULE_ID,
     }
+    scope_rule = profile[ 'rules' ][ 0 ]
+    assert scope_rule[ 'variant_counts' ][ 0 ][ 'build_key' ]
+    assert 'union_references' in scope_rule[ 'variant_counts' ][ 0 ]
+    assert 'peak_references' in scope_rule[ 'variant_counts' ][ 0 ]
+    scope = model[ 'scopes' ][ 0 ]
+    assert scope[ 'build_references' ] == 6
+    assert scope[ 'total_references' ] == 6
 
 
 def test_unscoped_profiles_scope_is_stable():

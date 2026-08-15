@@ -97,6 +97,25 @@ def test_build_report_context_includes_zero_filled_profile_matrix():
     assert zero_rule[ 'total_references' ] == 0
 
 
+def test_build_report_context_matrix_includes_peak_refs():
+    inventory = _sample_inventory()
+    model = inventory.as_report_model()
+    from cuppa.cpp.profiles_report.report_html import enrich_model_for_html
+
+    enrich_model_for_html( model, {}, 'local', '', '', '' )
+    context = build_report_context(
+        model,
+        { 'cxx_profiles_enforce': [ 'std::init' ] },
+        context_mode='rules-only',
+    )
+    observed = next(
+        rule for rule in context[ 'concentration' ][ 'top_rules' ]
+        if rule[ 'rule_id' ] == 'ref_to_uninit'
+    )
+    assert observed[ 'peak_references' ] == 1
+    assert observed[ 'pct_of_session_peak_refs' ] == 100.0
+
+
 def test_build_report_context_concentration_percentages():
     inventory = _sample_inventory()
     model = inventory.as_report_model()
@@ -145,7 +164,7 @@ def test_build_scope_breakdown_groups_variant_across_sconscripts():
     assert row[ 'variant_display_tail' ] == 'x86_64/cxx2c'
     assert row[ 'violations' ] == 2
     assert row[ 'references' ] == 2
-    assert row[ 'row_id' ] == 'd1'
+    assert row[ 'build_id' ] == 'dbg1'
     assert row[ 'files' ] == 2
     assert 'sconscript' not in row
 
@@ -175,8 +194,8 @@ def test_build_scope_breakdown_aggregate_sums_rows():
     )
     builds = context[ 'builds' ]
     assert len( builds[ 'rows' ] ) == 2
-    assert builds[ 'rows' ][ 0 ][ 'row_id' ] == 'd1'
-    assert builds[ 'rows' ][ 1 ][ 'row_id' ] == 'r1'
+    assert builds[ 'rows' ][ 0 ][ 'build_id' ] == 'dbg1'
+    assert builds[ 'rows' ][ 1 ][ 'build_id' ] == 'rel1'
     assert builds[ 'aggregate' ][ 'violations' ] == sum(
         row[ 'violations' ] for row in builds[ 'rows' ]
     )

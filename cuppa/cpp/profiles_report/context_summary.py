@@ -12,6 +12,7 @@ import re
 
 from cuppa.cpp.profiles_report.constants import UNCLASSIFIED_RULE_ID
 from cuppa.cpp.profiles_report.profiles import documented_rule_ids_for_profile
+from cuppa.cpp.profiles_report.build_catalog import assign_build_display_ids
 from cuppa.cpp.profiles_report.report_html import rule_doc_href, variant_display_from_dir
 
 _INCLUDE_STACK_LINE_RE = re.compile( r'^\.+\s+(\S+)\s*$' )
@@ -169,15 +170,26 @@ def _build_rule_matrix_row(
     total_references,
     *,
     rule_label=None,
+    catalog=None,
+    session_peak_refs=0,
 ):
+    from cuppa.cpp.profiles_report.variant_roll_up_display import (
+        peak_refs_total_for_row,
+    )
+
     refs = rule.get( 'total_references', 0 )
     unique_files = rule.get( 'unique_files', 0 )
     unique_lines = rule.get( 'unique_line_count', 0 )
+    peak_refs = peak_refs_total_for_row(
+        rule.get( 'variant_counts' ),
+        catalog or [],
+    )
     return {
         'profile': profile_name,
         'rule_id': rule_id,
         'rule_label': rule_label or rule_id,
         'total_references': refs,
+        'peak_references': peak_refs,
         'unique_files': unique_files,
         'unique_lines': unique_lines,
         'observed': refs > 0,
@@ -190,8 +202,26 @@ def _build_rule_matrix_row(
             unique_violation_count,
         ),
         'pct_of_session_refs': _pct_of_total( refs, total_references ),
+        'pct_of_session_peak_refs': _pct_of_total(
+            peak_refs,
+            session_peak_refs,
+        ),
         'doc_href': rule_doc_href( profile_name, rule_id ),
     }
+
+
+def _session_peak_refs( rollup_rules, catalog ):
+    from cuppa.cpp.profiles_report.variant_roll_up_display import (
+        peak_refs_total_for_row,
+    )
+
+    total = 0
+    for rule in rollup_rules:
+        total += peak_refs_total_for_row(
+            rule.get( 'variant_counts' ),
+            catalog,
+        )
+    return total
 
 
 def _build_concentration(
@@ -199,6 +229,8 @@ def _build_concentration(
     total_references,
     unique_violation_count,
     files_with_violations,
+    catalog,
+    session_peak_refs,
 ):
     rows = []
     for rule in rollup_rules:
@@ -216,6 +248,8 @@ def _build_concentration(
                 unique_violation_count,
                 total_references,
                 rule_label='{}::{}'.format( profile_name, rule_id ),
+                catalog=catalog,
+                session_peak_refs=session_peak_refs,
             ),
         )
     rows.sort(
@@ -234,6 +268,8 @@ def _build_profile_matrix(
     total_references,
     files_with_violations,
     unique_violation_count,
+    catalog,
+    session_peak_refs,
 ):
     profiles = []
     for profile_name in profiles_enforce:
@@ -263,6 +299,8 @@ def _build_profile_matrix(
                     files_with_violations,
                     unique_violation_count,
                     total_references,
+                    catalog=catalog,
+                    session_peak_refs=session_peak_refs,
                 ),
             )
         rows.sort(
@@ -282,16 +320,6 @@ def _build_profile_matrix(
     return profiles
 
 
-def _assign_build_row_ids( rows ):
-    """Assign compact row ids such as ``d1`` (dbg) and ``r1`` (rel) for chart labelling."""
-    counters = {}
-    for row in rows:
-        label = row.get( 'variant_label' ) or ''
-        prefix = label[ 0 ].lower() if label else '?'
-        counters[ prefix ] = counters.get( prefix, 0 ) + 1
-        row[ 'row_id' ] = '{}{}'.format( prefix, counters[ prefix ] )
-
-
 def _build_scope_breakdown( model, rollup ):
     """Per variant/toolchain totals (across sconscripts) plus aggregate and union rows."""
     groups = {}
@@ -305,6 +333,7 @@ def _build_scope_breakdown( model, rollup ):
         entry = groups.setdefault(
             key,
             {
+                'build_key': list( key ),
                 'variant_label': variant_label,
                 'variant_display_tail': variant_display_tail,
                 'toolchain': toolchain,
@@ -317,7 +346,10 @@ def _build_scope_breakdown( model, rollup ):
         entry[ 'violations' ] += scope.get( 'unique_line_count', 0 )
         entry[ 'rules' ] += scope.get( 'unique_rule_count', 0 )
         entry[ 'files' ] += scope.get( 'unique_file_count', 0 )
-        entry[ 'references' ] += scope.get( 'total_references', 0 )
+        entry[ 'references' ] += scope.get(
+            'build_references',
+            scope.get( 'total_references', 0 ),
+        )
 
     rows = sorted(
         groups.values(),
@@ -327,11 +359,11 @@ def _build_scope_breakdown( model, rollup ):
             entry[ 'toolchain' ],
         ),
     )
-    _assign_build_row_ids( rows )
+    assign_build_display_ids( rows )
     session_files = len( rollup.get( 'files', [] ) )
     aggregate_references = sum( row[ 'references' ] for row in rows )
     scope_references = sum(
-        scope.get( 'total_references', 0 )
+        scope.get( 'build_references', scope.get( 'total_references', 0 ) )
         for scope in model.get( 'scopes', [] )
     )
     return {
@@ -443,6 +475,9 @@ def build_report_context(
 
     rollup = model.get( 'rollup', {} )
     total_references = rollup.get( 'total_references', 0 )
+    rollup_rules = rollup.get( 'rules', [] )
+    catalog = model.get( 'build_catalog' ) or []
+    session_peak_refs = _session_peak_refs( rollup_rules, catalog )
     rule_map = _rollup_rule_map( model )
 
     profiles_enforce = list( env.get( 'cxx_profiles_enforce' ) or [] )
@@ -474,10 +509,12 @@ def build_report_context(
         'methodology': methodology,
         'codebase': codebase,
         'concentration': _build_concentration(
-            rollup.get( 'rules', [] ),
+            rollup_rules,
             total_references,
             unique_violation_count,
             files_with_violations,
+            catalog,
+            session_peak_refs,
         ),
         'profiles': _build_profile_matrix(
             profiles_enforce,
@@ -485,6 +522,8 @@ def build_report_context(
             total_references,
             files_with_violations,
             unique_violation_count,
+            catalog,
+            session_peak_refs,
         ),
         'builds': _build_scope_breakdown( model, rollup ),
     }

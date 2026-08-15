@@ -1,0 +1,74 @@
+{% if build_views %}
+<div class="p-3 prof-build-views">
+  {% set inventory = build_inventory | default(none) %}
+  {% if inventory and inventory.rows %}
+  <h5 class="mb-3 prof-overview-section-heading">
+    Build inventory load
+    {% if overview_doc_build_breakdown %}
+    <a href="{{ overview_doc_build_breakdown }}" class="prof-overview-card-guide" title="How to interpret the Build inventory load table">
+      <i class="fas fa-info-circle fa-fw" aria-hidden="true"></i><span class="sr-only">Guide</span>
+    </a>
+    {% endif %}
+  </h5>
+  <div class="mb-4">
+    {% with context={'builds': inventory} %}
+    {% include 'cxx_profiles_overview_builds.html' %}
+    {% endwith %}
+  </div>
+  {% endif %}
+
+  <div class="prof-build-views-picker border rounded">
+    <ul class="nav nav-tabs prof-build-tabs px-3 pt-2 mb-0" id="buildViewsTabs" role="tablist">
+      {% for build in build_views %}
+      <li class="nav-item">
+        <a class="nav-link{% if loop.first %} active{% endif %}"
+           id="build-view-tab-{{ loop.index }}"
+           data-toggle="tab"
+           href="#build-view-pane-{{ loop.index }}"
+           role="tab"
+           aria-selected="{{ 'true' if loop.first else 'false' }}"
+           title="{{ build.build_label }}">
+          <span class="prof-mono">{{ build.build_id }}</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    <div class="tab-content border-top prof-build-panes">
+      {% for build in build_views %}
+      {% set build_index = loop.index %}
+      <div class="tab-pane fade{% if loop.first %} show active{% endif %}"
+           id="build-view-pane-{{ build_index }}"
+           role="tabpanel"
+           aria-labelledby="build-view-tab-{{ build_index }}">
+        <div class="p-3">
+          <h6 class="prof-profile-scope-heading text-monospace mb-3">
+            <span class="font-weight-bold">{{ build.variant_label }}</span>{% if build.variant_display_tail %}<span class="prof-variant-tail">/{{ build.variant_display_tail }}</span>{% endif %} —
+            {{ build.toolchain }}
+          </h6>
+          <ul class="nav nav-tabs" role="tablist">
+            <li class="nav-item">
+              <a class="nav-link active" data-toggle="tab" href="#build-{{ build_index }}-rules" role="tab">Violations By-Rule</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" data-toggle="tab" href="#build-{{ build_index }}-files" role="tab">Violations By-File</a>
+            </li>
+          </ul>
+          <div class="tab-content pt-3 mb-0">
+            <div class="tab-pane fade show active" id="build-{{ build_index }}-rules" role="tabpanel">
+              {% with rules=build.rules, id_prefix='build-' ~ build_index ~ '-rule', single_build_view=true %}
+              {% include 'cxx_profiles_partial_rules.html' %}
+              {% endwith %}
+            </div>
+            <div class="tab-pane fade" id="build-{{ build_index }}-files" role="tabpanel">
+              {% with files=build.files, id_prefix='build-' ~ build_index ~ '-file', single_build_view=true %}
+              {% include 'cxx_profiles_partial_files.html' %}
+              {% endwith %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}

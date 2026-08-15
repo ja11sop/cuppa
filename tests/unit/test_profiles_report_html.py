@@ -135,6 +135,52 @@ def test_unique_violation_count_dedupes_across_variants():
     assert rollup_rule[ 'variant_counts' ][ 0 ][ 'files' ][ 0 ][ 'unique_line_count' ] == 1
     assert rollup_rule[ 'variant_counts' ][ 1 ][ 'variant_label' ] == 'rel'
     assert rollup_rule[ 'variant_counts' ][ 1 ][ 'file_count' ] == 1
+    assert rollup_rule[ 'variant_counts' ][ 0 ][ 'build_key' ][ 0 ] == 'dbg'
+    assert rollup_rule[ 'variant_counts' ][ 1 ][ 'build_key' ][ 0 ] == 'rel'
+
+
+def test_rollup_variant_display_uses_common_plus_delta():
+    from cuppa.cpp.profiles_report.report_html import enrich_model_for_html
+
+    inventory = ProfilesInventory()
+    diagnostic = parse_profiles_diagnostic( _LINE )
+    dbg_scope = ProfilesScope(
+        sconscript='./widget/sconscript',
+        variant_dir='_build/widget/clang24_profiles/dbg/x86_64/cxx2c',
+        toolchain='clang24_profiles',
+        variant_label='dbg',
+    )
+    rel_scope = ProfilesScope(
+        sconscript='./widget/sconscript',
+        variant_dir='_build/widget/clang24_profiles/rel/x86_64/cxx2c',
+        toolchain='clang24_profiles',
+        variant_label='rel',
+    )
+    inventory.record( dbg_scope, diagnostic )
+    inventory.record( rel_scope, diagnostic )
+    model = inventory.as_report_model()
+    enrich_model_for_html(
+        model,
+        {},
+        'raw',
+        '',
+        '/tmp/project',
+        '/tmp/project',
+    )
+    rollup_rule = model[ 'rollup' ][ 'rules' ][ 0 ]
+    display = rollup_rule[ 'variant_display' ]
+    assert display[ 'multi_build' ] is True
+    assert display[ 'common' ][ 'violations' ] == 1
+    assert display[ 'common' ][ 'refs' ] == 1
+    assert display[ 'common' ][ 'peak_refs' ] == 1
+    assert display[ 'totals' ][ 'violations' ] == 1
+    assert display[ 'totals' ][ 'refs' ] == 1
+    assert display[ 'totals' ][ 'peak_refs' ] == 1
+    assert display[ 'deltas' ] == []
+    assert rollup_rule[ 'peak_refs_display' ] is display
+    rollup_file = rollup_rule[ 'files' ][ 0 ]
+    assert rollup_file[ 'build_refs_display' ][ 'multi_build' ] is True
+    assert rollup_file[ 'build_refs_display' ][ 'common' ][ 'refs' ] == 1
 
 
 def test_build_vcs_provenance_location_dependency_style():
@@ -307,7 +353,19 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
     assert 'fa-eye' in index_html
     assert index_html.index( 'prof-summary-col-detail' ) < index_html.index( 'Profile</th>' )
     assert index_html.index( 'Violations By-Rule' ) < index_html.index( 'Violations By-File' )
-    assert index_html.index( 'Violations By-File' ) < index_html.index( 'Violations By-Sconscript' )
+    assert index_html.index( 'Violations By-File' ) < index_html.index( 'Violations By-Build' )
+    assert index_html.index( 'Violations By-Build' ) < index_html.index( 'Violations By-Sconscript' )
+    assert 'id="builds"' in index_html
+    assert 'buildViewsTabs' in index_html
+    assert 'prof-build-tabs' in index_html
+    assert 'prof-build-views' in index_html
+    assert 'prof-build-views-picker' in index_html
+    builds_tab_start = index_html.index( 'id="builds"' )
+    builds_tab_end = index_html.index( 'id="scopes"', builds_tab_start )
+    builds_html = index_html[ builds_tab_start:builds_tab_end ]
+    assert 'Build inventory load' in builds_html
+    assert 'prof-overview-builds-table' in builds_html
+    assert 'prof-profile-scope-name' not in builds_html
     assert 'Overview' in index_html
     assert 'id="overview"' in index_html
     assert 'Profile matrix — std::init' not in index_html
@@ -321,6 +379,10 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
     assert 'prof-profile-matrix-tab-name' in index_html
     assert 'data-profile="std::init"' in index_html
     assert 'prof-rule-concentration' in index_html
+    concentration_start = index_html.index( 'prof-rule-concentration' )
+    concentration_end = index_html.index( 'Profile matrices', concentration_start )
+    concentration_html = index_html[ concentration_start:concentration_end ]
+    assert 'Peak Refs</th>' in concentration_html
     assert 'prof-stat-value--warn' in index_html
     assert 'prof-stat-value--neutral' in index_html
     assert 'prof-warn-accent' in index_html
@@ -340,9 +402,10 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
     assert 'Rule Hits' in index_html
     assert index_html.index( 'Build inventory load' ) < index_html.index( 'Profile matrices' )
     assert 'prof-overview-builds-table' in index_html
+    assert 'Build Refs</th>' in index_html
     assert 'File Hits' in index_html
     assert 'prof-overview-builds-id-col' in index_html
-    assert '>d1<' in index_html or '>d1</' in index_html
+    assert '>dbg1<' in index_html or '>dbg1</' in index_html
     assert 'Session total (union)' in index_html
     assert 'report-overview.html#build-breakdown' in index_html
     assert 'std::init::' in index_html
@@ -350,10 +413,9 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
     assert payload[ 'context' ][ 'profiles' ]
     rules_tab = index_html.index( 'id="rollup-rules"')
     assert index_html.index( 'prof-rules-table', rules_tab ) < index_html.index( 'Rule</th>', rules_tab )
-    assert index_html.index( 'Distinct/Unique', rules_tab ) < index_html.index( 'Violating Files</th>', rules_tab )
-    assert index_html.index( 'Violating Files</th>', rules_tab ) < index_html.index( 'Violation Message</th>', rules_tab )
-    assert 'prof-distinct-unique-distinct' in index_html
-    assert 'prof-distinct-unique-unique' in index_html
+    assert index_html.index( 'Violations</th>', rules_tab ) < index_html.index( 'Refs</th>', rules_tab )
+    assert index_html.index( 'Refs</th>', rules_tab ) < index_html.index( 'Peak Refs</th>', rules_tab )
+    assert index_html.index( 'Peak Refs</th>', rules_tab ) < index_html.index( 'Violating Files</th>', rules_tab )
     assert 'violation of' in index_html
     assert 'prof-stat-value--hot-files' in index_html
     summary_start = index_html.index( '<h6 class="prof-session-summary' )
@@ -362,7 +424,8 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
     assert 'prof-stat-value--hot-files' in summary_html
     assert 'file through' in summary_html.replace( '\n', ' ' )
     assert 'distinct rule' in index_html
-    assert 'reference' in index_html
+    assert 'through' in index_html
+    assert 'Peak Refs</th>' in index_html
     assert 'build variant' not in index_html
     assert 'prof-index-project' in index_html
     assert 'prof-report-project-name' not in index_html
@@ -370,6 +433,7 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
     assert 'Sconscript / Variant' in index_html
     assert 'Rule Violations' in index_html
     assert 'prof-scopes-table' in index_html
+    assert 'prof-violation-count' in index_html
     assert 'prof-scopes-group-row' in index_html
     assert 'prof-scopes-variant-row' in index_html
     assert 'font-weight-bold">dbg</span><span class="prof-variant-tail">/x86_64/cxx2c</span>' in index_html
@@ -380,6 +444,12 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
     assert 'prof-violating-file-link' in scope_html
     assert 'prof-violating-file-count' in scope_html
     assert 'Violating Files</th>' in scope_html
+    assert 'Build Refs</th>' in scope_html
+    assert 'Peak Refs</th>' not in scope_html
+    assert 'prof-violation-count' in scope_html
+    assert '>Rules</th>' in scope_html
+    assert '>Violations</th>' in scope_html
+    assert 'Distinct/Unique' not in scope_html
     assert 'Violated Rules</th>' in scope_html
     assert 'prof-violated-rule-link' in scope_html
     assert 'cxx-profiles/std-init/ref-to-uninit.html' in scope_html
@@ -397,17 +467,121 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
     assert 'prof-session-summary' in scope_html
     assert 'prof-stat-value--warn' in scope_html
     assert 'prof-stat-value--neutral' in scope_html
-    assert 'prof-profile-scope-name' in scope_html
-    assert 'violation of' in scope_html
-    assert 'distinct rule' in scope_html
-    assert 'violation detected through' not in scope_html
-    assert 'prof-profile-scope-heading' in scope_html
+    assert '<span class="prof-profile-scope-name">' not in scope_html
+    assert scope_html.count( 'Violations By-Rule' ) == 1
+    assert scope_html.count( 'Violations By-File' ) == 1
+    assert 'id="scope-rules"' in scope_html
+    rules_table_start = scope_html.index( 'id="scope-rules"' )
+    assert scope_html.index( '>Profile</th>', rules_table_start ) < scope_html.index( '>Rule</th>', rules_table_start )
     assert '>File</th>' in scope_html
     assert 'fa-eye' in scope_html
 
     source_html = open( source_page, encoding='utf-8' ).read()
     assert 'violation of' in source_html
     assert 'distinct rule' in source_html
-    assert 'reference' in source_html
+    assert 'Refs</th>' in source_html
     assert 'violation detected through' not in source_html
     assert 'violations detected through' not in source_html
+
+
+def test_variant_index_list_partial_uses_dict_items_key():
+    import jinja2
+
+    environment = jinja2.Environment(
+        loader=jinja2.PackageLoader( 'cuppa', 'cpp/templates' ),
+        autoescape=jinja2.select_autoescape( [ 'html', 'xml' ] ),
+    )
+    template = environment.get_template( 'cxx_profiles_partial_variant_index_list.html' )
+    html = template.render(
+        display={
+            'multi_build': True,
+            'common': {
+                'count': 1,
+                'items': [ { 'index': 1, 'refs': 3 } ],
+            },
+            'deltas': [
+                {
+                    'build_id': 'rel1',
+                    'build_label': 'rel/x86_64/cxx2c — clang24',
+                    'items': [ { 'index': 2, 'refs': 5 } ],
+                },
+            ],
+        },
+    )
+    flattened = html.replace( '\n', ' ' )
+    assert 'prof-variant-metric-build-id text-muted">rel1</span>' in flattened
+    assert 'font-weight-bold">1</span> <span class="prof-variant-metric-build-id' in flattened
+    assert 'prof-file-index">1<' in flattened
+    assert 'prof-violating-file-count">3<' in flattened
+    assert 'prof-file-index">2<' in flattened
+    assert 'prof-violating-file-count">5<' in flattened
+
+
+def test_variant_index_list_uses_rule_index_colour_for_violated_rules():
+    import jinja2
+
+    environment = jinja2.Environment(
+        loader=jinja2.PackageLoader( 'cuppa', 'cpp/templates' ),
+        autoescape=jinja2.select_autoescape( [ 'html', 'xml' ] ),
+    )
+    template = environment.get_template( 'cxx_profiles_partial_variant_index_list.html' )
+    html = template.render(
+        display={
+            'multi_build': True,
+            'common': {
+                'count': 0,
+                'items': [],
+            },
+            'deltas': [
+                {
+                    'build_id': 'dbg1',
+                    'build_label': 'dbg — clang24',
+                    'items': [
+                        {
+                            'index': 3,
+                            'refs': 9,
+                            'doc_href': 'https://example.com/rule',
+                            'rule_tooltip': 'rule',
+                        },
+                    ],
+                },
+            ],
+        },
+        index_kind='rule',
+    )
+    assert 'prof-rule-index">3<' in html
+    assert 'prof-file-index' not in html
+    assert 'prof-violated-rule-count">9<' in html
+
+
+def test_variant_metric_partial_stacks_common_and_deltas():
+    import jinja2
+
+    environment = jinja2.Environment(
+        loader=jinja2.PackageLoader( 'cuppa', 'cpp/templates' ),
+        autoescape=jinja2.select_autoescape( [ 'html', 'xml' ] ),
+    )
+    template = environment.get_template( 'cxx_profiles_partial_variant_metric.html' )
+    html = template.render(
+        display={
+            'multi_build': True,
+            'common': { 'violations': 192 },
+            'deltas': [
+                {
+                    'build_id': 'dbg1',
+                    'build_label': 'dbg/x86_64/cxx2c — clang24',
+                    'violations': 74,
+                },
+                {
+                    'build_id': 'rel1',
+                    'build_label': 'rel/x86_64/cxx2c — clang24',
+                    'violations': 76,
+                },
+            ],
+        },
+        metric='violations',
+    )
+    assert 'prof-variant-metric-common font-weight-bold">192<' in html
+    assert '+74 <span class="prof-variant-metric-build-id text-muted">dbg1</span>' in html
+    assert '+76 <span class="prof-variant-metric-build-id text-muted">rel1</span>' in html
+    assert ', +' not in html

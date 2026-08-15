@@ -135,9 +135,25 @@ cuppa -D --dbg --toolchains=clang24_profiles_2026_08_07_27 \
   --cxx-disable-error-limit --cxx-profiles-report
 ----
 
-The session index opens on an **Overview** tab when context capture is enabled (`--cxx-profiles-report-context=full`, the default). That tab summarises inventory, codebase reach, violation density, rule concentration, and per-profile rule matrices. See xref:cxx-profiles/report-overview.adoc[Violation report — Overview tab] for how to interpret each card and table.
+The session index opens on an **Overview** tab when context capture is enabled
+(`--cxx-profiles-report-context=full`, the default). Start with
+xref:cxx-profiles/report-introduction.adoc[Introduction] for generating the report, offline regen,
+JSON export, and shared vocabulary (**Refs**, **Peak Refs**, **Build Refs**). Use
+xref:cxx-profiles/report.adoc[Violation report reading guide] for tab-specific guides.
+The Overview tab summarises inventory, codebase reach, violation density, rule
+concentration, and per-profile rule matrices — see
+xref:cxx-profiles/report-overview.adoc[Overview tab]. Multi-build roll-ups on **Violations
+By-Rule** and **By-File** are documented on xref:cxx-profiles/report-by-rule.adoc[By-Rule] and
+xref:cxx-profiles/report-by-file.adoc[By-File]; per-build slices on
+xref:cxx-profiles/report-by-build.adoc[By-Build]; per-scope pages on
+xref:cxx-profiles/report-by-sconscript.adoc[By-Sconscript].
 
-Other index tabs list roll-ups **By-Rule** and **By-File**, and per-sconscript scope rows under **Violations By-Sconscript**. Per-scope HTML pages provide expandable line detail. Roll-up totals **add reference counts** across variants — the same violation in `dbg` and `rel` contributes twice unless you filter to one scope.
+Other index tabs list roll-ups **By-Rule**, **By-File**, and **By-Build**, plus per-sconscript
+scope rows under **Violations By-Sconscript**. Per-scope HTML pages show that build's inventory
+only (plain numbers; **Build Refs** replaces **Peak Refs** — see
+xref:cxx-profiles/report-introduction.adoc#scope-metrics[scope metrics]). Session union totals on
+the index deduplicate violation identities across builds; union **Refs** uses row peaks per
+identity, not a naive sum of every variant's compile inventory.
 
 Optional flags:
 
@@ -177,18 +193,43 @@ python -m scripts.regenerate_profiles_report \
 Omit `--sconstruct-dir` to take project paths and link style from JSON ``metadata``. Source files
 must exist on disk for ``by-source/`` pages unless ``--skip-source-pages`` is set.
 
-| Script flag | Meaning |
-|-------------|---------|
-| `--from-json` | Interpret the positional argument as `cxx-profiles-index.json` (recommended) |
-| `--sconstruct-dir` | Project root; default: cwd, or JSON metadata with `--from-json` |
-| `--artifacts-root` | Same meaning as cuppa `--artifacts-root` (default `_artifacts`) |
-| `--report-dir` | Output directory (default: `<artifacts-root>/cxx-profiles/`) |
-| `--link-style` | Source links for this regen run; default: JSON metadata or `local` (alias: `--reports-link-style`) |
-| `--reports-link-style` | Same as `--link-style` |
-| `--cxx-profiles-report-link-style` | Profiles-only override for this regen run |
-| `--skip-source-pages` | Omit `by-source/` marked-up pages |
-| `--write-json` | Rewrite `cxx-profiles-index.json` after re-render |
-| `--summary` | Print capture replay summary (capture replay only) |
+[cols="1,3"]
+|===
+| Script flag | Meaning
+
+| `--from-json`
+| Interpret the positional argument as `cxx-profiles-index.json` (recommended)
+
+| `--sconstruct-dir`
+| Project root; default: cwd, or JSON metadata with `--from-json`
+
+| `--artifacts-root`
+| Same meaning as cuppa `--artifacts-root` (default `_artifacts`)
+
+| `--report-dir`
+| Output directory (default: `<artifacts-root>/cxx-profiles/`)
+
+| `--link-style`
+| Source links for this regen run; default: JSON metadata or `local` (alias: `--reports-link-style`)
+
+| `--reports-link-style`
+| Same as `--link-style`
+
+| `--cxx-profiles-report-link-style`
+| Profiles-only override for this regen run
+
+| `--skip-source-pages`
+| Omit `by-source/` marked-up pages
+
+| `--write-json`
+| Rewrite `cxx-profiles-index.json` after re-render
+
+| `--summary`
+| Print capture replay summary (capture replay only)
+|===
+
+Full regen workflow and JSON-for-CI notes:
+xref:cxx-profiles/report-introduction.adoc#offline-regeneration[Introduction — offline regeneration].
 
 Capture replay (`capture.txt` without `--from-json`) remains legacy — parallel `tee` output can
 mis-attribute scope; prefer JSON when a live build already wrote `cxx-profiles-index.json`.
@@ -376,7 +417,13 @@ Initialization profile direction for Alliance Clang's `std::init`:
 
 == Related cuppa pages
 
-* xref:cxx-profiles/report-overview.adoc[Violation report — Overview tab] — reading `cxx-profiles-index.html` summary cards and matrices
+* xref:cxx-profiles/report-introduction.adoc[Violation report — Introduction]
+* xref:cxx-profiles/report.adoc[Violation report — reading guide]
+* xref:cxx-profiles/report-overview.adoc[Violation report — Overview tab]
+* xref:cxx-profiles/report-by-rule.adoc[Violation report — By-Rule tab]
+* xref:cxx-profiles/report-by-file.adoc[Violation report — By-File tab]
+* xref:cxx-profiles/report-by-build.adoc[Violation report — By-Build tab]
+* xref:cxx-profiles/report-by-sconscript.adoc[Violation report — By-Sconscript]
 * xref:cli-reference.adoc[CLI reference] — `--cxx-profiles`, `--cxx-profiles-enforce=`, `--cxx-disable-error-limit`, `--cxx-profiles-report`, `--artifacts-root`
 * xref:toolchains/clang.adoc[Clang] — Profiles-capable archives
 * xref:toolchains.adoc[Toolchains] — `--toolchain-archive=` / `--clang-root=`

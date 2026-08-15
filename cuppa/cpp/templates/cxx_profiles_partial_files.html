@@ -4,6 +4,8 @@
     <col class="prof-summary-col-rule-col">
     <col class="prof-summary-col-metric-col">
     <col class="prof-summary-col-metric-col">
+    <col class="prof-summary-col-metric-col">
+    <col class="prof-summary-col-metric-col">
     <col class="prof-summary-col-violated-rules-col">
     <col class="prof-summary-col-message-col">
   </colgroup>
@@ -11,8 +13,14 @@
     <tr>
       <th class="prof-summary-col-detail"></th>
       <th class="prof-summary-col-rule">Profile</th>
-      <th class="prof-summary-col-metric text-center">{% include 'cxx_profiles_partial_heading_distinct_unique.html' %}</th>
+      <th class="prof-summary-col-metric text-center">Rules</th>
+      <th class="prof-summary-col-metric text-center">Violations</th>
       <th class="prof-summary-col-metric text-center">Refs</th>
+      {% if single_build_view %}
+      <th class="prof-summary-col-metric text-center">Build Refs</th>
+      {% else %}
+      <th class="prof-summary-col-metric text-center">Peak Refs</th>
+      {% endif %}
       <th class="prof-summary-col-violated-rules">Violated Rules</th>
       <th class="prof-summary-col-message">File</th>
     </tr>
@@ -31,34 +39,76 @@
       </td>
       <td class="prof-summary-detail prof-summary-col-rule"><span class="prof-mono">{{ file.profile | default(file_profile) }}</span></td>
       <td class="prof-summary-detail prof-summary-col-metric text-center">
-        {% if file.variant_counts %}
+        {% if file.rules_display is defined and file.rules_display.multi_build %}
+        {% set display = file.rules_display %}
+        {% set metric = 'rules' %}
+        {% include 'cxx_profiles_partial_variant_metric.html' %}
+        {% elif file.variant_counts %}
         {% for item in file.variant_counts %}
-        {% set distinct = item.unique_rule_count | default(0) %}
-        {% set unique = item.unique_line_count | default(0) %}
-        <span class="prof-rule-variant-line prof-mono">{% include 'cxx_profiles_partial_distinct_unique_value.html' %} ({{ item.variant_label }})</span>
+        <span class="prof-rule-variant-line prof-mono">{{ item.unique_rule_count | default(0) }}{% if file.variant_counts|length > 1 %} ({{ item.variant_label }}){% endif %}</span>
         {% endfor %}
         {% else %}
-        {% set distinct = file.unique_rule_count | default(0) %}
-        {% set unique = file.unique_line_count | default(0) %}
-        <span class="prof-mono">{% include 'cxx_profiles_partial_distinct_unique_value.html' %}</span>
+        <span class="prof-mono">{{ file.unique_rule_count | default(0) }}</span>
         {% endif %}
       </td>
       <td class="prof-summary-detail prof-summary-col-metric text-center">
-        {% if file.variant_counts %}
+        {% if file.variant_display is defined and file.variant_display.multi_build %}
+        {% set display = file.variant_display %}
+        {% set metric = 'violations' %}
+        {% include 'cxx_profiles_partial_variant_metric.html' %}
+        {% elif file.variant_counts %}
         {% for item in file.variant_counts %}
-        <span class="prof-rule-variant-line prof-mono">{{ item.total_references }} ({{ item.variant_label }})</span>
+        {% if single_build_view %}{% set value = item.unique_line_count | default(0) %}{% include 'cxx_profiles_partial_violation_count.html' %}{% else %}<span class="prof-rule-variant-line prof-mono">{{ item.unique_line_count | default(0) }}{% if file.variant_counts|length > 1 %} ({{ item.variant_label }}){% endif %}</span>{% endif %}
+        {% endfor %}
+        {% else %}
+        {% if single_build_view %}{% set value = file.unique_line_count | default(0) %}{% include 'cxx_profiles_partial_violation_count.html' %}{% else %}<span class="prof-mono">{{ file.unique_line_count | default(0) }}</span>{% endif %}
+        {% endif %}
+      </td>
+      <td class="prof-summary-detail prof-summary-col-metric text-center">
+        {% if file.refs_display is defined and file.refs_display.multi_build %}
+        {% set display = file.refs_display %}
+        {% set metric = 'refs' %}
+        {% include 'cxx_profiles_partial_variant_metric.html' %}
+        {% elif file.variant_counts %}
+        {% for item in file.variant_counts %}
+        <span class="prof-rule-variant-line prof-mono">{{ item.union_references | default(item.total_references) }}{% if file.variant_counts|length > 1 %} ({{ item.variant_label }}){% endif %}</span>
         {% endfor %}
         {% else %}
         <span class="prof-mono">{{ file.total_references }}</span>
         {% endif %}
       </td>
+      <td class="prof-summary-detail prof-summary-col-metric text-center">
+        {% if single_build_view %}
+        {% if file.variant_counts %}
+        {% for item in file.variant_counts %}
+        <span class="prof-rule-variant-line prof-mono font-weight-bold">{{ item.peak_references | default(item.total_references) }}{% if file.variant_counts|length > 1 %} ({{ item.variant_label }}){% endif %}</span>
+        {% endfor %}
+        {% else %}
+        <span class="prof-mono font-weight-bold">{{ file.peak_references | default(file.total_references) }}</span>
+        {% endif %}
+        {% elif file.peak_refs_display is defined and file.peak_refs_display.multi_build %}
+        {% set display = file.peak_refs_display %}
+        {% set metric = 'peak_refs' %}
+        {% include 'cxx_profiles_partial_variant_metric.html' %}
+        {% elif file.variant_counts %}
+        {% for item in file.variant_counts %}
+        <span class="prof-rule-variant-line prof-mono">{{ item.peak_references | default(item.total_references) }}{% if file.variant_counts|length > 1 %} ({{ item.variant_label }}){% endif %}</span>
+        {% endfor %}
+        {% else %}
+        <span class="prof-mono">{{ file.peak_references | default(file.total_references) }}</span>
+        {% endif %}
+      </td>
       <td class="prof-summary-detail prof-summary-col-violated-rules">
-        {% if file.rule_variant_counts %}
+        {% if file.violated_rules_display is defined and file.violated_rules_display.multi_build %}
+        {% set display = file.violated_rules_display %}
+        {% set index_kind = 'rule' %}
+        {% include 'cxx_profiles_partial_variant_index_list.html' %}
+        {% elif file.rule_variant_counts %}
         {% for variant in file.rule_variant_counts %}
-        <span class="prof-rule-variant-line prof-rule-variant-line--wrap prof-mono"><span class="font-weight-bold">{{ variant.rule_count | default(0) }}</span> ({{ variant.variant_label }}) [ {% for rule in variant.rules %}{% if not loop.first %}, {% endif %}{% if rule.doc_href %}<a href="{{ rule.doc_href }}" class="prof-violated-rule-link" title="{{ rule.rule_tooltip | e }}" target="_blank" rel="noopener noreferrer">{% endif %}{{ rule.rule_index }}:<span class="prof-violated-rule-count">{{ rule.total_references | default(0) }}</span>{% if rule.doc_href %}</a>{% endif %}{% endfor %} ]</span>
+        <span class="prof-rule-variant-line prof-rule-variant-line--wrap prof-mono"><span class="font-weight-bold">{{ variant.rule_count | default(0) }}</span>{% if file.rule_variant_counts|length > 1 %} ({{ variant.variant_label }}){% endif %} [ {% for rule in variant.rules %}{% if not loop.first %}, {% endif %}{% if rule.doc_href %}<a href="{{ rule.doc_href }}" class="prof-violated-rule-link" title="{{ rule.rule_tooltip | e }}" target="_blank" rel="noopener noreferrer">{% endif %}<span class="prof-rule-index">{{ rule.rule_index }}</span>:<span class="prof-violated-rule-count">{{ rule.total_references | default(0) }}</span>{% if rule.doc_href %}</a>{% endif %}{% endfor %} ]</span>
         {% endfor %}
         {% elif file.rules %}
-        <span class="prof-rule-variant-line prof-rule-variant-line--wrap prof-mono"><span class="font-weight-bold">{{ file.rules | length }}</span> [ {% for rule in file.rules %}{% if not loop.first %}, {% endif %}{% if rule.doc_href %}<a href="{{ rule.doc_href }}" class="prof-violated-rule-link" title="{{ rule.rule_tooltip | e }}" target="_blank" rel="noopener noreferrer">{% endif %}{{ rule.rule_index }}:<span class="prof-violated-rule-count">{{ rule.total_references | default(0) }}</span>{% if rule.doc_href %}</a>{% endif %}{% endfor %} ]</span>
+        <span class="prof-rule-variant-line prof-rule-variant-line--wrap prof-mono"><span class="font-weight-bold">{{ file.rules | length }}</span> [ {% for rule in file.rules %}{% if not loop.first %}, {% endif %}{% if rule.doc_href %}<a href="{{ rule.doc_href }}" class="prof-violated-rule-link" title="{{ rule.rule_tooltip | e }}" target="_blank" rel="noopener noreferrer">{% endif %}<span class="prof-rule-index">{{ rule.rule_index }}</span>:<span class="prof-violated-rule-count">{{ rule.total_references | default(0) }}</span>{% if rule.doc_href %}</a>{% endif %}{% endfor %} ]</span>
         {% endif %}
       </td>
       <td class="prof-summary-detail prof-summary-col-message">
@@ -67,15 +117,19 @@
     </tr>
     {% if file.rules %}
     <tr class="prof-file-detail-row p-0 border-0">
-      <td colspan="6" class="p-0 border-0">
+      <td colspan="8" class="p-0 border-0">
         <div class="collapse" id="{{ row_id }}-detail">
           <div class="px-3 py-2 bg-light">
             <table class="table table-sm prof-summary-table prof-file-detail-table mb-0">
               <thead>
                 <tr>
                   <th class="prof-summary-col-index"></th>
-                  <th class="prof-summary-col-metric text-center">{% include 'cxx_profiles_partial_heading_distinct_unique.html' %}</th>
+                  <th class="prof-summary-col-metric text-center">Violations</th>
                   <th class="prof-summary-col-metric text-center">Refs</th>
+                  {% if not single_build_view %}
+                  <th class="prof-summary-col-metric text-center">Peak Refs</th>
+                  {% endif %}
+                  <th class="prof-summary-col-metric text-center">Build Refs</th>
                   <th class="prof-summary-col-rule">Rule</th>
                   <th class="prof-summary-col-violation-message">Violation Message</th>
                 </tr>
@@ -83,13 +137,55 @@
               <tbody>
                 {% for rule in file.rules %}
                 <tr>
-                  <td class="prof-summary-detail prof-summary-col-index text-center"><span class="prof-mono font-weight-bold">{{ rule.rule_index }}</span></td>
+                  <td class="prof-summary-detail prof-summary-col-index text-center"><span class="prof-mono prof-rule-index">{{ rule.rule_index }}</span></td>
                   <td class="prof-summary-detail prof-summary-col-metric text-center">
-                    {% set distinct = 1 %}
-                    {% set unique = rule.unique_line_count | default(0) %}
-                    <span class="prof-mono">{% include 'cxx_profiles_partial_distinct_unique_value.html' %}</span>
+                    {% if rule.variant_display is defined and rule.variant_display.multi_build %}
+                    {% set display = rule.variant_display %}
+                    {% set metric = 'violations' %}
+                    {% include 'cxx_profiles_partial_variant_metric.html' %}
+                    {% elif single_build_view %}
+                    {% set value = rule.unique_line_count | default(0) %}
+                    {% include 'cxx_profiles_partial_violation_count.html' %}
+                    {% else %}
+                    <span class="prof-mono">{{ rule.unique_line_count | default(0) }}</span>
+                    {% endif %}
                   </td>
-                  <td class="prof-summary-detail prof-summary-col-metric text-center"><span class="prof-mono">{{ rule.total_references }}</span></td>
+                  <td class="prof-summary-detail prof-summary-col-metric text-center">
+                    {% if rule.refs_display is defined and rule.refs_display.multi_build %}
+                    {% set display = rule.refs_display %}
+                    {% set metric = 'refs' %}
+                    {% include 'cxx_profiles_partial_variant_metric.html' %}
+                    {% elif rule.variant_counts %}
+                    {% for item in rule.variant_counts %}
+                    <span class="prof-rule-variant-line prof-mono">{{ item.union_references | default(item.total_references) }}{% if rule.variant_counts|length > 1 %} ({{ item.variant_label }}){% endif %}</span>
+                    {% endfor %}
+                    {% else %}
+                    <span class="prof-mono">{{ rule.total_references }}</span>
+                    {% endif %}
+                  </td>
+                  {% if not single_build_view %}
+                  <td class="prof-summary-detail prof-summary-col-metric text-center">
+                    {% if rule.peak_refs_display is defined and rule.peak_refs_display.multi_build %}
+                    {% set display = rule.peak_refs_display %}
+                    {% set metric = 'peak_refs' %}
+                    {% include 'cxx_profiles_partial_variant_metric.html' %}
+                    {% elif rule.variant_counts %}
+                    {% for item in rule.variant_counts %}
+                    <span class="prof-rule-variant-line prof-mono">{{ item.peak_references | default(item.total_references) }}{% if rule.variant_counts|length > 1 %} ({{ item.variant_label }}){% endif %}</span>
+                    {% endfor %}
+                    {% else %}
+                    <span class="prof-mono">{{ rule.peak_references | default(rule.total_references) }}</span>
+                    {% endif %}
+                  </td>
+                  {% endif %}
+                  <td class="prof-summary-detail prof-summary-col-metric text-center">
+                    {% if rule.build_refs_display is defined and rule.build_refs_display.multi_build %}
+                    {% set display = rule.build_refs_display %}
+                    {% include 'cxx_profiles_partial_build_refs.html' %}
+                    {% else %}
+                    <span class="prof-mono font-weight-bold">{{ rule.build_references | default(rule.total_references) | default(0) }}</span>
+                    {% endif %}
+                  </td>
                   <td class="prof-summary-detail prof-summary-col-rule"><span class="prof-mono">{{ rule.rule_label_html | safe }}</span></td>
                   <td class="prof-summary-detail prof-summary-col-violation-message">
                     {% if rule.violation_message_html %}

@@ -1,0 +1,135 @@
+= Violation report — Violations By-Sconscript
+:description: Index By-Sconscript tab and per-scope HTML detail pages
+
+The index **Violations By-Sconscript** tab lists every compiled scope `(sconscript, variant,
+toolchain)` and links to one HTML detail page per row. Each scope aggregates **all profiles**
+observed in that compile — profile names appear in summary columns on the index and as a **Profile**
+column on detail tables.
+
+This page documents the **By-Sconscript tab and scope detail pages**. Read
+xref:cxx-profiles/report-introduction.adoc[Introduction] for generating the report, JSON export, and
+xref:cxx-profiles/report-introduction.adoc#profile[Profile],
+xref:cxx-profiles/report-introduction.adoc#rule[Rule],
+xref:cxx-profiles/report-introduction.adoc#violation[Violation], and
+xref:cxx-profiles/report-introduction.adoc#scope-metrics[scope metrics]. Use
+xref:cxx-profiles/report.adoc[Violation report reading guide] for other tabs.
+
+[#index-by-sconscript]
+== Index By-Sconscript table
+
+[cols="1,3"]
+|===
+| Column | Meaning
+
+| **Sconscript / Variant**
+| Group header per sconscript; variant link opens the scope detail page.
+
+| **Toolchain**
+| Toolchain key for this scope.
+
+| **Rules**
+| Distinct `(profile, rule_id)` pairs in this scope.
+
+| **Violations**
+| Distinct violation identities in this scope.
+
+| **Refs**
+| Union **Refs** for this scope (summed across rules).
+
+| **Build Refs**
+| Compile inventory total for this scope. Correlates with Overview
+xref:cxx-profiles/report-overview.adoc#build-breakdown[Build inventory load] variant rows.
+In a single scope, **Build Refs** equals what **Peak Refs** would show on the index By-Rule tab
+for that build alone.
+
+| **Profiles**
+| `(profile, violation count)` summary lines.
+
+| **Rule Violations**
+| `(profile::rule_id, violation count)` summary lines with documentation links.
+|===
+
+This tab replaces the older combined **Distinct/Unique** column with separate **Rules** and
+**Violations** columns aligned with the rest of the report.
+
+[#scope-detail]
+== Per-scope detail pages
+
+Each scope page opens with the sconscript path and violation headline counts, then a build heading
+(`dbg/x86_64/cxx2c — toolchain`, matching xref:cxx-profiles/report-by-build.adoc[Violations
+By-Build]), and one **Violations By-Rule** / **By-File** tab pair for the whole scope. All profiles
+appear in the same tables — **Profile** is a column on each row. Profile-specific filtering may be
+added later.
+
+=== By-Rule (scope)
+
+[cols="1,3"]
+|===
+| Column | Meaning
+
+| **Profile**
+| Enforced profile for this rule row.
+
+| **Rule**
+| Rule id within the profile (documentation link when available).
+
+| **Violations**
+| Distinct identities for this rule in this scope.
+
+| **Refs**
+| Union **Refs** for this rule in this scope.
+
+| **Build Refs**
+| Compile inventory for this rule in this scope (matches **Violating Files** `[ index:refs ]`
+lists).
+
+| **Violating Files**
+| File count and index lists (plain notation).
+
+| **Violation Message**
+| Sample diagnostic text.
+|===
+
+File subtable: **Index**, **Violations**, **Refs**, **Build Refs**, **File** — no **Peak Refs**
+column (degenerate for one build).
+
+=== By-File (scope)
+
+[cols="1,3"]
+|===
+| Column | Meaning
+
+| **Profile**
+| Enforced profile for this file row.
+
+| **Rules** / **Violations** / **Refs** / **Build Refs**
+| Same semantics as index By-File, scoped to one build (plain numbers).
+
+| **Violated Rules**
+| Rule index lists using **Build Refs** grain.
+
+| **File**
+| Display path and source link.
+|===
+
+Rule subtable: **Index**, **Violations**, **Refs**, **Build Refs**, **Rule**, **Violation Message**.
+
+[#scope-vs-index]
+== Comparing scope totals to the index
+
+Scope rows are **subsets** of the session. When dbg and rel both compiled, a dbg scope page shows
+dbg-only numbers; index By-Rule rows union across builds with common + delta notation.
+
+When only one variant was compiled, scope totals should match that build's contribution on the
+index.
+
+Per-scope pages mirror xref:cxx-profiles/report-by-build.adoc[By-Build] detail for a single build,
+but scoped to one sconscript instead of all sconscripts in that build.
+
+== Related
+
+* xref:cxx-profiles/report-introduction.adoc[Introduction]
+* xref:cxx-profiles/report.adoc[Violation report reading guide]
+* xref:cxx-profiles/report-by-build.adoc[Violations By-Build tab]
+* xref:cxx-profiles/report-by-rule.adoc[Index — Violations By-Rule]
+* xref:cxx-profiles/report-by-file.adoc[Index — Violations By-File]

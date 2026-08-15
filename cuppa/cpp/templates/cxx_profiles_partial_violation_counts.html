@@ -5,4 +5,4 @@ distinct {{ 'rule' if rule_count == 1 else 'rules' }}{% if file_count is defined
 <span class="prof-stat-value prof-stat-value--hot-files">{{ file_count }}</span>
 {{ 'file' if file_count == 1 else 'files' }}{% endif %} through
 <span class="prof-stat-value prof-stat-value--neutral">{{ r_count }}</span>
-{{ 'reference' if r_count == 1 else 'references' }}
+{{ 'ref' if r_count == 1 else 'refs' }}
