@@ -33,7 +33,7 @@ BOOST_LATEST_VERSION_KEY = 'boost_latest_version'
 
 
 def current_boost_release():
-    return "1.91.0"
+    return "1.92.0"
 
 
 def boost_patched_requested( env ):

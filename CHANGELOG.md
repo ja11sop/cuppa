@@ -77,6 +77,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Storage and report catalogue spelling: British `artefacts_root` / `--artefacts-root` are
   canonical; US `artifacts_root` / `--artifacts-root` remain accepted aliases on the same paths.
+- Boost latest resolve ([#201](https://github.com/ja11sop/cuppa/issues/201)): unpinned source Boost
+  checks boost.org when online (after any stored ``boost_latest_version``); ``--boost-latest`` is
+  an override for a pinned ``--boost-version=`` or a forced refresh. GitLab docs add Boost
+  publish/consume examples.
 - Profiles report anonymisation uses British spelling in module names, metadata fields
   (``metadata.anonymised``, ``anonymisation_version``), and CLI flags (``--anonymised``).
   US variants (``anonymize`` module alias, ``--anonymized``, legacy metadata keys) are still
