@@ -24,7 +24,7 @@ Maintainer **target bundle** for the release (plans landed; implementation follo
 | ID | Work | Plan |
 |----|------|------|
 | `console-terse-output` | `--terse-output` Phase 1 (one-line success; failures verbose) | [`terse-build-output.md`](design/plans/terse-build-output.md) |
-| `profiles-violation-report` | `--cxx-profiles-report` slices A–H + **G** + **E** + **F-min** shipped ([#198](https://github.com/ja11sop/cuppa/pull/198)); **`prof-report-method-semantics`** ([#199](https://github.com/ja11sop/cuppa/issues/199)) next | [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) |
+| `profiles-violation-report` | `--cxx-profiles-report` slices A–H + **G** + **E** + **F-min** shipped ([#198](https://github.com/ja11sop/cuppa/pull/198)); **`prof-report-method-semantics`** shipped ([#203](https://github.com/ja11sop/cuppa/pull/203)); **`prof-report-scope-filter`** next | [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) |
 | `console-log-hygiene` | Demote toolchain registration spam; fix variant default log text | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md) |
 | `cli-info` | `cuppa --info` — version without loading sconstruct | [`cuppa-info.md`](design/plans/cuppa-info.md) |
 
@@ -154,7 +154,8 @@ Umbrella: [#127](https://github.com/ja11sop/cuppa/issues/127) ([#177](https://gi
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `profiles-violation-report` | `prof-report-method-semantics` — implied `-i`, Progress decoupling, selective exit (scope filter deferred) | High | Plan settled — [#199](https://github.com/ja11sop/cuppa/issues/199); see [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) §Collate index semantics |
+| `profiles-violation-report` | `prof-report-method-semantics` — implied `-i`, Progress decoupling, selective exit | High | **Shipped** [#203](https://github.com/ja11sop/cuppa/pull/203) / [#199](https://github.com/ja11sop/cuppa/issues/199) |
+| `profiles-violation-report` | `prof-report-scope-filter` — method-only index filter (union of declaring sconscripts) | High | Proposal — [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) §Collate index scope filter |
 | `profiles-violation-report` | `prof-report-artefacts` — full `--remove-artefacts` / declared artefact trees | Medium | Blocked on [#135](https://github.com/ja11sop/cuppa/issues/135); F-min discovery shipped in [#198](https://github.com/ja11sop/cuppa/pull/198) |
 | `profiles-designators` | Additional profile names as Alliance Clang / WG21 stabilise | Medium | Cuppa passes opaque strings through |
 | `profiles-native-enforce` | Wire `profiles_enforce_flags` when a compiler adds native enforce flags | Low | Hook exists; `-include` fallback remains |

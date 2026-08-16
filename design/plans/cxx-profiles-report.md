@@ -1,7 +1,7 @@
 # Plan: C++ Profiles violation report (`--cxx-profiles-report`)
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — C++ Profiles (`profiles-violation-report`); umbrella [#184](https://github.com/ja11sop/cuppa/issues/184) (closed); semantics follow-on [#199](https://github.com/ja11sop/cuppa/issues/199); shipped enablement [`archive/cxx-profiles.md`](../archive/cxx-profiles.md); [`removal-options.md`](removal-options.md) §4.6 Phase 6 artefacts [#135](https://github.com/ja11sop/cuppa/issues/135); test/coverage report patterns (`cuppa/test_report/`, `cuppa/cpp/run_gcov_coverage.py`)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — C++ Profiles (`profiles-violation-report`); umbrella [#184](https://github.com/ja11sop/cuppa/issues/184) (closed); semantics [#199](https://github.com/ja11sop/cuppa/issues/199) shipped [#203](https://github.com/ja11sop/cuppa/pull/203); scope filter follow-on [§Collate index scope filter](#prof-report-scope-filter-slice); shipped enablement [`archive/cxx-profiles.md`](../archive/cxx-profiles.md); [`removal-options.md`](removal-options.md) §4.6 Phase 6 artefacts [#135](https://github.com/ja11sop/cuppa/issues/135); test/coverage report patterns (`cuppa/test_report/`, `cuppa/cpp/run_gcov_coverage.py`)
 - **Updated:** 2026-08-16
 - **Impact:** minor — new opt-in CLI flag and HTML artefacts; no change to default builds
 
@@ -716,22 +716,22 @@ env.CollateCxxProfilesIndex( reports, … )  # session: cxx-profiles-index.*
 3. **`env.CollateCxxProfilesIndex()`** — same collation, declared in sconscript (e.g. Profiles CI
    jobs that should always publish the index without remembering the CLI flag).
 
-That product story assumes **keep-going** behaviour under failed compiles. The std-init Antora
-example already passes **`-i`** manually; cuppa does **not** wire this automatically today.
+That product story assumes **keep-going** behaviour under failed compiles — shipped in
+[#203](https://github.com/ja11sop/cuppa/pull/203) (inventory mode prepends ``-i`` when needed).
 
-#### Current behaviour (audit vs intent)
+#### Behaviour audit (post-#203)
 
-| Topic | Shipped today | Gap vs intent |
-|-------|---------------|---------------|
-| **Session collation** | One `ProfilesReportSession` per process; one write at `sconstruct_end` | — |
+| Topic | Shipped | Remaining gap |
+|-------|---------|---------------|
+| **Session collation** | One `ProfilesReportSession` per process; one write at `sconstruct_end` (+ fallback flush) | — |
 | **CLI vs method activation** | CLI sets `cxx_profiles_report` on cuppa root env; method calls `ProfilesDiagnosticCollector.activate()` | — |
-| **Scope of capture** | Once active, **all** compiles record profile-shaped stderr (`parse_profiles_diagnostic`), keyed by `(sconscript × variant × toolchain)` — **not** limited to sconscripts that declared the method | Per-sconscript opt-in filter **not** implemented |
-| **Multiple method calls** | Idempotent `activate()`; one index | Per-sconscript `destination=` may not win for final write (uses Progress `empty_env` / root options) |
-| **`-H` / parsed files** | Appended only on envs with `cxx_profiles_report` set (CLI inherits; method sets on subtree) | Global capture without `-H` on non-declaring subtrees |
-| **Implied `-i`** | **No** — user must pass SCons `-i` when needed | Report often useless on real enforce failures without keep-going |
-| **Selective failure / StopError** | `StopError` only at **configure** (report without Profiles, unsupported toolchain) | No “continue on profile errors, fail on ordinary errors” policy |
-| **Report write hook** | `sconstruct_end` via `NotifyProgress`; requires Progress DAG completion | `finished` depends on **successful** build targets — failed compiles can block `sconstruct_end` even with `-i` |
-| **Partial sessions** | `VariantCompletionTracker` warns; manifest `partial: true` | Plan §End-of-build collation still says “flush partial on early abort” — **not fully wired** |
+| **Scope of capture** | Session-wide capture once inventory mode is active | Method-only **index filter** — [§Collate index scope filter](#prof-report-scope-filter-slice) |
+| **Multiple method calls** | Idempotent `activate()`; one index | Conflicting `destination=` / `link_style=` — first wins + warn in scope-filter slice |
+| **`-H` / parsed files** | On envs with `cxx_profiles_report` set | Per-sconscript `-H` without spawn gating — deferred with `CxxProfilesReport()` |
+| **Implied `-i`** | Cuppa CLI prepends `-i` when inventory mode active ([#203](https://github.com/ja11sop/cuppa/pull/203)) | — |
+| **Selective exit** | Non-profile tally; exit non-zero after index write ([#203](https://github.com/ja11sop/cuppa/pull/203)) | Optional `--cxx-profiles-report-allow-errors` deferred |
+| **Report write hook** | Progress decoupling + `finalize_inventory_session()` ([#203](https://github.com/ja11sop/cuppa/pull/203)) | — |
+| **Partial sessions** | `VariantCompletionTracker` warns; manifest `partial: true`; fallback flush | — |
 
 **Capture content:** only Clang lines matching the Profiles diagnostic shape enter the inventory.
 Ordinary compile errors are **not** classified as profile violations; they still fail the action
@@ -746,7 +746,7 @@ methods. **Settled decisions, work slices, and hooks:** [§Collate index semanti
 |----------|-----------|---------|
 | **`--cxx-profiles-report` implies `-i`** when the user did not pass `-i` explicitly | Inventory runs are report-first; stopping at the first failed TU defeats the feature | **Yes** |
 | **At end of invocation:** non-zero exit for **non-profile** compile failures while still writing the index | Keeps CI honest while allowing profile inventory to complete | **Yes (v1)** — profile-violation-only sessions exit 0 |
-| **Optional scope filter:** index lists only scopes under declaring sconscripts when activation was method-only | Matches “opt-in subtree” mental model — **conflicts with current global capture** | **Deferred** — session-wide for v1 |
+| **Optional scope filter:** index lists only scopes whose owning sconscript declared ``CollateCxxProfilesIndex()`` (union of declarers); CLI lists all scopes | Matches test/coverage collator opt-in; capture stays session-wide | **Follow-on** — [§Collate index scope filter](#prof-report-scope-filter-slice) |
 | **Decouple report write from `finished` → target success** | Ensure `sconstruct_end` collation runs when capture buffer is non-empty even if compiles failed | **Yes** — Progress fix + fallback flush |
 
 Track as slice **`prof-report-method-semantics`** — see [§Collate index semantics](#prof-report-method-semantics-slice). Do not rename or change failure policy in slice E / F-min without that dedicated follow-up.
@@ -755,7 +755,7 @@ Track as slice **`prof-report-method-semantics`** — see [§Collate index seman
 
 ## Collate index semantics (`prof-report-method-semantics`)
 
-**Id:** `prof-report-method-semantics` · **Status:** **proposal** (plan settled 2026-08-16) — [#199](https://github.com/ja11sop/cuppa/issues/199) · **Impact:** minor · **Target:** 1.8.0 follow-on after [#198](https://github.com/ja11sop/cuppa/pull/198)
+**Id:** `prof-report-method-semantics` · **Status:** **shipped** ([#203](https://github.com/ja11sop/cuppa/pull/203)) — [#199](https://github.com/ja11sop/cuppa/issues/199) · **Impact:** minor · **Target:** 1.8.0
 
 Align `--cxx-profiles-report` and `env.CollateCxxProfilesIndex()` with the [product intent](#prof-report-method-semantics). Slice **E** shipped method + CLI wiring with today’s capture and Progress behaviour; this slice closes the audit-table gaps without reopening E / F-min.
 
@@ -771,7 +771,7 @@ Real enforce inventories need **keep-going** compiles and a **session index at e
 | **Progress decoupling** | **Two layers.** (1) **Primary:** relax `NotifyProgress` so variant **`finished`** / sconscript **`end`** / `#SconstructEnd` still run after variant **started** even when compile targets failed (inventory mode only — gate on report activation). (2) **Fallback:** if the capture buffer is non-empty and the session index was not written, flush from `ProfilesDiagnosticCollector.finalize_inventory_session()` after `build()` (mark `metadata.partial`, reuse `incomplete_scopes`). |
 | **Non-profile errors under implied `-i`** | **Settled A+B.** Tally non-profile compile failures during inventory runs; after the session index write (or fallback flush), exit **non-zero** when the tally is non-zero. Console: profile-shaped diagnostics keep an **Error** label but use **warning** colours; ordinary errors stay red. Global `ignore_errors` remains required so profile violations do not abort early. |
 | **Selective exit (v1)** | Same as **Non-profile errors** row — tally + `finalize_inventory_session()` after `build()` in `construct.py` (`inventory_process_exit_status`). |
-| **Scope filter** | **Deferred** beyond #199 v1. Session-wide capture **and** session-wide index for both CLI and `CollateCxxProfilesIndex()` — matches “collate once for the whole tree”. Per-sconscript index filtering conflicts with global capture and waits for reserved per-scope **`env.CxxProfilesReport()`** (separate slice). |
+| **Scope filter** | **Follow-on** — [§Collate index scope filter](#prof-report-scope-filter-slice). Session-wide capture; method-only write-time filter (union of declaring sconscripts); CLI unchanged. Per-sconscript spawn semantics deferred with **`env.CxxProfilesReport()`**. |
 | **`--cxx-profiles-report-allow-errors`** | **Deferred.** v1 selective exit is fixed policy above; add an opt-out flag only if consumers need “report + always exit 0”. |
 | **Activation hook** | Single path: `activate_cxx_profiles_report()` in `cuppa/methods/cxx_profiles_report.py` (covers CLI + method). |
 | **Write hook** | `ProfilesReportSession._emit_session_summary()` → `write_profiles_reports()`; fallback flush shares the same emitter. |
@@ -784,7 +784,7 @@ Real enforce inventories need **keep-going** compiles and a **session index at e
 |----|--------|-------------|
 | `prof-report-semantics` | Inventory mode (#199) | Implied `-i` (CLI); Progress decoupling; fallback flush; non-profile tally + selective exit; console differentiation; docs + integration |
 
-**Suggested landing:** **one PR** on branch `prof-report-semantics-plan` ([#203](https://github.com/ja11sop/cuppa/pull/203)) — closes [#199](https://github.com/ja11sop/cuppa/issues/199) except deferred scope filter.
+**Suggested landing:** **Shipped** [#203](https://github.com/ja11sop/cuppa/pull/203) — closes [#199](https://github.com/ja11sop/cuppa/issues/199) except scope filter follow-on.
 
 Former sub-ids (`prof-report-semantics-i`, `-progress`, `-exit`, `-docs`) are bookkeeping only; all shipped together in #203.
 
@@ -792,7 +792,7 @@ Former sub-ids (`prof-report-semantics-i`, `-progress`, `-exit`, `-docs`) are bo
 
 - Do not enable implied `-i` when Profiles/report is not active.
 - Do not override an explicit user `-i` / `--ignore-errors`.
-- Do not filter the index by declaring sconscript in v1 (#199).
+- Do not filter the index by declaring sconscript until **`prof-report-scope-filter`** lands — see [§Collate index scope filter](#prof-report-scope-filter-slice).
 - Do not treat ordinary compile errors as Profiles violations for exit policy.
 - Do not skip writing the index when the capture buffer is non-empty and the build aborted early (fallback flush).
 - Do not change F-min catalogue, `--list-available-reports`, or Phase 6 artefact roots in this slice.
@@ -806,7 +806,7 @@ Former sub-ids (`prof-report-semantics-i`, `-progress`, `-exit`, `-docs`) are bo
 | Fallback flush + exit | `cuppa/construct.py`, `cuppa/cpp/profiles_report_collector.py` | `finalize_inventory_session()` after `build()`; `ProfilesReportSession.flush_pending()` |
 | Failure tally | `cuppa/output_processor.py` | `ToolchainProcessor` — count non-profile errors when report active |
 | Selective exit | `cuppa/cpp/profiles_report_collector.py` | `inventory_process_exit_status()` → `SCons.Script.Exit(1)` from `finalize_inventory_session()` |
-| Scope filter | — | **Deferred** |
+| Scope filter | `cuppa/cpp/profiles_report/inventory.py`, `cuppa/methods/cxx_profiles_report.py` | **Follow-on** — [§Collate index scope filter](#prof-report-scope-filter-slice) |
 
 ### Progress snapshot (#199)
 
@@ -814,7 +814,100 @@ Former sub-ids (`prof-report-semantics-i`, `-progress`, `-exit`, `-docs`) are bo
 |----|--------|
 | `prof-report-semantics` | **Shipped on [#203](https://github.com/ja11sop/cuppa/pull/203)** — implied `-i`, Progress decoupling, fallback flush, non-profile tally + selective exit, console differentiation, unit + integration tests, Antora + CHANGELOG |
 
-**Out of scope (deferred):** scope filter v1; F-min display; per-scope **`env.CxxProfilesReport()`**; full Phase 6 **`--remove-artefacts`** ([#135](https://github.com/ja11sop/cuppa/issues/135)); `--cxx-profiles-report-allow-errors`.
+**Out of scope (deferred):** scope filter → [§Collate index scope filter](#prof-report-scope-filter-slice); F-min display; per-scope **`env.CxxProfilesReport()`**; full Phase 6 **`--remove-artefacts`** ([#135](https://github.com/ja11sop/cuppa/issues/135)); `--cxx-profiles-report-allow-errors`.
+
+<a id="prof-report-scope-filter-slice"></a>
+
+## Collate index scope filter (`prof-report-scope-filter`)
+
+**Id:** `prof-report-scope-filter` · **Status:** **proposal** (settled decisions 2026-08-16) · **Impact:** minor · **Target:** 1.8.0 follow-on after [#203](https://github.com/ja11sop/cuppa/pull/203) / [#199](https://github.com/ja11sop/cuppa/issues/199)
+
+### Why
+
+[#203](https://github.com/ja11sop/cuppa/pull/203) ships session-wide inventory mode: capture and index list **every**
+`(sconscript × variant × toolchain)` scope once inventory mode is active. That matches ad-hoc
+``--cxx-profiles-report`` runs and root-level CI jobs.
+
+Authors who declare ``env.CollateCxxProfilesIndex()`` in a **specific** sconscript often want the
+session index to cover **only the scopes that sconscript owns** — the same opt-in shape as
+``CollateTestReportIndex`` / ``CollateCoverageIndex``, which collate explicit upstream sources into
+one master index. Today Profiles capture is global (one spawn processor) while the index is also
+global, so a declaration in ``test/orders/sconscript`` still lists ``test/trades/…`` scopes.
+
+We cannot realistically give each subtree different compile behaviour (keep-going, ``-H``, report
+env) without **isolated spawn semantics per sconscript** based on whether that sconscript declared
+``CollateCxxProfilesIndex()``. v1 scope filter is therefore a **write-time** subset of an
+otherwise session-wide capture buffer.
+
+### Product intent (author mental model)
+
+1. **Capture:** continue recording profile-shaped diagnostics for **every** scope the build
+   compiles (unchanged global collector).
+2. **Index (method-only):** include only scopes whose **owning sconscript** registered
+   ``CollateCxxProfilesIndex()`` during the session — **union** of all registering sconscripts,
+   parallel to test/coverage collators fed from multiple sconscripts.
+3. **Index (CLI):** ``--cxx-profiles-report`` bypasses the filter and lists **all** captured
+   scopes (today’s behaviour).
+4. **Metrics:** Overview ``context`` and session ``summary`` are computed on the **filtered**
+   inventory (the rows that appear in HTML/JSON), not on the full capture buffer.
+5. **Transparency:** when the filter omits scopes, log a warning naming how many scopes were
+   excluded and suggest ``--cxx-profiles-report`` (or declaring collation at the root) to see the
+   full session inventory.
+
+### Settled decisions (2026-08-16)
+
+| Topic | Decision |
+|-------|----------|
+| **Filter trigger** | Apply only when activation is **method-only** (one or more ``CollateCxxProfilesIndex()`` calls). **CLI** ``--cxx-profiles-report`` → **no filter** (full session index). |
+| **Declaring set** | **Union** of normalized sconscript paths that invoked ``CollateCxxProfilesIndex()`` (duplicate calls on the same path are idempotent). |
+| **Inclusion rule** | Include capture scope row **iff** ``scope.sconscript`` is **exactly** in the declaring set (same path normalization as ``NotifyProgress.scope_from_env`` / ``ProfilesScope``). No automatic subtree roll-up — a parent sconscript that declares collation does **not** include child sconscript scopes unless the child also declares. |
+| **Capture scope** | **Write-time filter only.** Do not gate spawn capture, ``-H``, or inventory mode per subtree in this slice. |
+| **Session summary / Overview context** | Recompute ``summary``, roll-ups, and ``context`` tier metrics on the **filtered** inventory before emit. |
+| **Omitted scopes notice** | After filter, if any captured scopes were dropped: ``logger.warn`` with omitted scope count (and optionally example paths); message suggests ``--cxx-profiles-report`` for the full tree. |
+| **``destination=`` / ``link_style=``** | **First declaration wins** for the session write env; if a later call disagrees, **warn** and ignore the conflicting values (same destination/link_style still allowed). |
+| **Multiple declaring sconscripts** | **Union** of scopes — same collator pattern as test/coverage index methods listing sources from several sconscripts. |
+| **JSON metadata** | Record ``metadata.scope_filter`` (declaring paths, omitted scope count) when filter active so regen/offline tools stay honest. |
+| **Per-scope ``CxxProfilesReport()``** | Remains a **separate** slice — explicit per-scope pages + ``CollateCxxProfilesIndex( sources )`` fed from upstream nodes; see [§Method naming](#prof-report-method-naming). |
+
+### Why not capture gating in v1
+
+Per-sconscript compile flags (keep-going, ``-H``, enforce pairing) would require spawn/processor
+behaviour that depends on whether **that** sconscript’s construction ``env`` declared collation.
+That is a larger architectural change than a write-time filter and is deferred with
+``env.CxxProfilesReport()``.
+
+### Work slice
+
+| Id | Slice | Deliverable |
+|----|--------|-------------|
+| `prof-report-scope-filter` | Method-only index filter | Declaring-set registry; write-time scope filter; filtered metrics; warnings; unit + integration tests; Antora + CHANGELOG |
+
+**Suggested landing:** one PR after [#203](https://github.com/ja11sop/cuppa/pull/203) merges; cite ``prof-report-scope-filter``.
+
+### Refusal rules
+
+- Do not filter when ``--cxx-profiles-report`` is active (CLI means full tree).
+- Do not silently drop scopes — always warn when filter excludes captured scopes.
+- Do not guess subtree inclusion from a parent declaration (exact sconscript path match only).
+- Do not recompute metrics from the unfiltered buffer while displaying a filtered index.
+- Do not implement per-sconscript spawn semantics in this slice.
+
+### Implementation hooks (code map)
+
+| Area | File | Hook |
+|------|------|------|
+| Declaring registry | `cuppa/methods/cxx_profiles_report.py` | Record normalized sconscript path on each ``CollateCxxProfilesIndex()`` call; first ``destination`` / ``link_style`` |
+| Session state | `cuppa/cpp/profiles_report_collector.py` | ``ProfilesReportSession.declaring_sconscripts``; ``activation_via_cli`` flag |
+| Filter + metrics | `cuppa/cpp/profiles_report/inventory.py`, `report_html.py`, `context_summary.py` | ``filter_inventory_for_index( inventory, declaring_set )``; rebuild model on filtered copy |
+| Notice | `cuppa/cpp/profiles_report_collector.py` | Warn after filter with omitted count + ``--cxx-profiles-report`` hint |
+| Tests | `tests/unit/`, `tests/integration/methods/test_cxx_profiles.py` | Two-sconscript project: one declarer → other scope captured but omitted from index + warning |
+| Docs | `cxx-profiles.adoc`, `report-introduction.adoc` | Method vs CLI scope; union of declarers; full-tree CLI escape hatch |
+
+### Progress snapshot
+
+| Id | Status |
+|----|--------|
+| `prof-report-scope-filter` | **Proposal** — settled decisions above; implementation after [#203](https://github.com/ja11sop/cuppa/pull/203) |
 
 <a id="prof-report-anonymize"></a>
 
@@ -1483,11 +1576,12 @@ issues, PR titles, and ROADMAP cross-links (same pattern as `list-tc-*` in
 | **F** | `prof-report-artefacts` | `artefact_roots` / `--remove-artefacts` when #135 lands | Supersedes manifest hack for declared trees; full wipe deferred to #135 |
 | **G** | `prof-report-anonymize` | Anonymize saved report JSON; shareable artefact + HTML regen without sources | After C; see [§Anonymized report sharing](#prof-report-anonymize) |
 | **H** | `prof-report-context-summary` | Overview tab + `context` JSON — violations vs codebase size, full rule matrix; variant roll-up; By-Build tab; unified scope detail | After C; see [§Context summary](#prof-report-context-summary); landed on [#196](https://github.com/ja11sop/cuppa/pull/196) |
-| **—** | `prof-report-method-semantics` | Implied `-i`, Progress decoupling, selective exit (scope filter deferred) | **Shipped [#203](https://github.com/ja11sop/cuppa/pull/203)** — [#199](https://github.com/ja11sop/cuppa/issues/199); see [§Collate index semantics](#prof-report-method-semantics-slice) |
+| **—** | `prof-report-method-semantics` | Implied `-i`, Progress decoupling, selective exit | **Shipped [#203](https://github.com/ja11sop/cuppa/pull/203)** — [#199](https://github.com/ja11sop/cuppa/issues/199); see [§Collate index semantics](#prof-report-method-semantics-slice) |
+| **—** | `prof-report-scope-filter` | Method-only index filter (union of declaring sconscripts) | **Proposal** — see [§Collate index scope filter](#prof-report-scope-filter-slice) |
 
-Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** (slice A–D; **`prof-report-collector` must** include parallel spawn scope); **E** + **F-min** merged [#198](https://github.com/ja11sop/cuppa/pull/198); full **F** blocked on #135; **G–H** shipped; **`prof-report-method-semantics`** shipped [#203](https://github.com/ja11sop/cuppa/pull/203).
+Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** (slice A–D; **`prof-report-collector` must** include parallel spawn scope); **E** + **F-min** merged [#198](https://github.com/ja11sop/cuppa/pull/198); full **F** blocked on #135; **G–H** shipped; **`prof-report-method-semantics`** shipped [#203](https://github.com/ja11sop/cuppa/pull/203); **`prof-report-scope-filter`** next follow-on.
 
-**Tracking:** Umbrella [#184](https://github.com/ja11sop/cuppa/issues/184) closed after **E** + **F-min** ([#198](https://github.com/ja11sop/cuppa/pull/198)). Follow-on collation semantics: [#199](https://github.com/ja11sop/cuppa/issues/199). Land slices as **multiple PRs** (cite letter and/or `prof-report-*` id).
+**Tracking:** Umbrella [#184](https://github.com/ja11sop/cuppa/issues/184) closed after **E** + **F-min** ([#198](https://github.com/ja11sop/cuppa/pull/198)). Collation semantics [#199](https://github.com/ja11sop/cuppa/issues/199) shipped [#203](https://github.com/ja11sop/cuppa/pull/203); scope filter follow-on [§Collate index scope filter](#prof-report-scope-filter-slice). Land slices as **multiple PRs** (cite letter and/or `prof-report-*` id).
 
 ## Refusal rules
 
@@ -1541,9 +1635,10 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 | E — `prof-report-method` | **Done** — merged [#198](https://github.com/ja11sop/cuppa/pull/198): `env.CollateCxxProfilesIndex()`, CLI parity, default `<artefacts-root>/cxx-profiles/` |
 | F-min — `prof-report-artefacts-min` | **Done** — merged [#198](https://github.com/ja11sop/cuppa/pull/198): registry, `--list-available-reports` judgement tree (`{artefacts_root}` / `{build_root}` in-tree), British `--artefacts-root`, default `_artefacts` |
 | F — `prof-report-artefacts` | **Blocked on #135** — full `artefact_roots` / `--remove-artefacts`; F-min covers discovery only |
-| `prof-report-method-semantics` | **In progress** — [#199](https://github.com/ja11sop/cuppa/issues/199): **i** + **progress** landed on [#203](https://github.com/ja11sop/cuppa/pull/203); exit + docs next |
+| `prof-report-method-semantics` | **Shipped** — [#203](https://github.com/ja11sop/cuppa/pull/203) / [#199](https://github.com/ja11sop/cuppa/issues/199) |
+| `prof-report-scope-filter` | **Proposal** — see [§Collate index scope filter](#prof-report-scope-filter-slice) |
 
-**Next focus:** finish **`prof-report-method-semantics`** ([#199](https://github.com/ja11sop/cuppa/issues/199)) — selective exit + docs; full **F** when [#135](https://github.com/ja11sop/cuppa/issues/135) Phase 6 starts.
+**Next focus:** **`prof-report-scope-filter`** (method-only write-time filter); full **F** when [#135](https://github.com/ja11sop/cuppa/issues/135) Phase 6 starts.
 
 ## Open questions (resolve in first PR)
 
@@ -1555,7 +1650,7 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 6. **`_unscoped` bucket:** when spawn scope cannot be derived, record under session `_unscoped` with warning in HTML — never guess variant.
 7. **Implied `-i`:** → **Settled yes** — [#199](https://github.com/ja11sop/cuppa/issues/199) / [§Collate index semantics](#prof-report-method-semantics-slice).
 8. **Progress vs failed compiles:** → **Settled yes** — Progress decoupling + fallback flush — [#199](https://github.com/ja11sop/cuppa/issues/199).
-9. **Method-only scope filter:** → **Deferred** beyond #199 v1 (session-wide index); revisit with per-scope `CxxProfilesReport()` — [#199](https://github.com/ja11sop/cuppa/issues/199).
+9. **Method-only scope filter:** → **Settled** — union of declaring sconscripts, write-time filter, filtered metrics, CLI full tree — [§Collate index scope filter](#prof-report-scope-filter-slice).
 10. **Per-scope `CxxProfilesReport()`:** when to introduce per-scope HTML/JSON and wire `CollateCxxProfilesIndex( sources )` — see [§Method naming](#prof-report-method-naming).
 
 ## Parser layering follow-on (`prof-report-parser-layers`)
