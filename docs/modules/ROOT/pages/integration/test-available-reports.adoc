@@ -5,9 +5,15 @@
 == What is tested
 
 * `--list-available-reports` (and `--list-format=json`) on a minimal generated project — configure-only, no compile.
-* A *canonical* sconscript that mirrors the judgement-tree catalogue: build a library/binary, run a test with HTML reports, collate test and coverage indexes under `#_artefacts/test/` and `#_artefacts/coverage/`, and declare `env.CollateCxxProfilesIndex()` for the default `_artefacts/cxx-profiles/` session index.
+* A *canonical* workflow that mirrors the judgement-tree catalogue, using **two separate cuppa invocations** on the same project tree:
++
+--
+**Test + coverage** — one run with `--cov --test`: three ``BuildTest`` programs in a loop, ``GenerateHtmlTestReport``, ``CollateTestReportIndex``, ``CollateCoverageFiles``, and ``CollateCoverageIndex`` under `#_artefacts/test/` and `#_artefacts/coverage/`.
 
-The combined build scenario skips (with log) when `gcov` / `gcovr` are missing, when `CUPPA_TEST_TOOLCHAIN` is MSVC, or when no Profiles-capable Clang (`-fprofiles`) is available — same gates as xref:integration/test-coverage.adoc[`test_coverage`] and xref:integration/test-cxx-profiles.adoc[`test_cxx_profiles`].
+**Profiles** — a second run with `--dbg --cxx-profiles --cxx-profiles-enforce=std::init --cxx-disable-error-limit -i` and a Profiles-capable Clang (local or the documented Alliance archive). The sconscript builds two violation probes and calls ``env.CollateCxxProfilesIndex()`` (no ``--cxx-profiles-report``).
+--
+
+The test/coverage step skips when `gcov` / `gcovr` are missing or when `CUPPA_TEST_TOOLCHAIN` is MSVC. The Profiles step skips when no Profiles Clang is available and the Alliance archive cannot be used (non-Linux x86_64).
 
 == Generated files
 
@@ -27,23 +33,52 @@ Minimal root `sconscript`:
 [source,python]
 ----
 Import('env')
-env.Build('main', 'apps/main.cpp')
 ----
 
-=== Canonical collated reports `sconscript`
+=== Test + coverage `sconscript`
 
-Uses `tests/fixtures/dummy_project/` (copied into a temp dir):
+Three clean test programs in a loop (sources under `tests/` on a copy of `tests/fixtures/dummy_project/`):
 
 [source,python]
 ----
 Import('env')
-env.Build('main', 'apps/main.cpp')
-prog = env.BuildTest('hello_test', 'tests/hello_test.cpp')
-reports = env.GenerateHtmlTestReport(prog)
-env.CollateTestReportIndex(reports, destination='#_artefacts/test/')
-cov = env.CollateCoverageFiles(prog, destination='#_artefacts/coverage/')
-env.CollateCoverageIndex(cov, destination='#_artefacts/coverage/')
+test_specs = (
+    ('smoke_test', 'tests/smoke_test.cpp'),
+    ('latency_test', 'tests/latency_test.cpp'),
+    ('throughput_test', 'tests/throughput_test.cpp'),
+)
+report_nodes = []
+coverage_nodes = []
+for Name, Source in test_specs:
+    prog = env.BuildTest(Name, Source)
+    report_nodes.extend(env.GenerateHtmlTestReport(prog))
+    coverage_nodes.append(
+        env.CollateCoverageFiles(prog, destination='#_artefacts/coverage/')
+    )
+env.CollateTestReportIndex(report_nodes, destination='#_artefacts/test/')
+env.CollateCoverageIndex(coverage_nodes, destination='#_artefacts/coverage/')
+----
+
+=== Profiles `sconscript`
+
+Violation probes only (same generated sources tree):
+
+[source,python]
+----
+Import('env')
+env.Build('inventory_violation', 'tests/inventory_violation.cpp')
+env.Build('metrics_violation', 'tests/metrics_violation.cpp')
 env.CollateCxxProfilesIndex()
+----
+
+`inventory_violation.cpp` and `metrics_violation.cpp` violate `std::init` so the Profiles index records real violations. `-i` lets the inventory run continue past compile errors on those probes.
+
+Profiles toolchain: prefer a local Profiles-capable Clang; otherwise fetch the documented Alliance archive (Linux x86_64 only):
+
+[source,sh]
+----
+--toolchain-archive=https://github.com/cppalliance/clang/releases/download/profiles-2026-08-07-27/clang-profiles-linux-x86_64.tar.gz
+--toolchains=clang24_profiles_2026_08_07_27
 ----
 
 == Commands
@@ -52,14 +87,18 @@ env.CollateCxxProfilesIndex()
 ----
 cuppa -D -Q --list-available-reports
 cuppa -D -Q --list-available-reports --list-format=json
-cuppa -D --dbg --test --cov --cxx-profiles --cxx-profiles-enforce=std::init \
-  --cxx-disable-error-limit -i --toolchains=<profiles-clang>
+cuppa -D --dbg --test --cov
+cuppa -D --dbg --cxx-profiles --cxx-profiles-enforce=std::init \
+  --cxx-disable-error-limit -i \
+  --toolchain-archive=https://github.com/cppalliance/clang/releases/download/profiles-2026-08-07-27/clang-profiles-linux-x86_64.tar.gz \
+  --toolchains=clang24_profiles_2026_08_07_27
 ----
 
 == Expectations
 
 * Listing: exit 0; tree contains `{artefacts_root}` / `{build_root}` branches and all three collated report kinds with method names from the registry catalogue.
-* Combined build: exit 0; `main` and `hello_test` under `_build/.../final/`; master indexes at `_artefacts/test/test-report-index.*`, `_artefacts/coverage/coverage-index--*.html`, and `_artefacts/cxx-profiles/cxx-profiles-index.*`.
+* Test + coverage: exit 0; three test binaries; `_artefacts/test/test-report-index.*` listing all three tests; `_artefacts/coverage/coverage-index--*.html` and per-test `coverage--*.html`.
+* Profiles: exit 0; `_artefacts/cxx-profiles/cxx-profiles-index.*` with at least two violation references from the probes.
 
 '''
 
