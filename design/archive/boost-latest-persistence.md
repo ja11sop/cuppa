@@ -1,9 +1,9 @@
 # Plan: Persist resolved Boost “latest” across offline runs
 
 - **Status:** shipped
-- **Related:** [#171](https://github.com/ja11sop/cuppa/issues/171); [#170](https://github.com/ja11sop/cuppa/pull/170);
+- **Related:** [#171](https://github.com/ja11sop/cuppa/issues/171); [#170](https://github.com/ja11sop/cuppa/pull/170); amended [#201](https://github.com/ja11sop/cuppa/issues/201);
   [`ROADMAP.md`](../../ROADMAP.md) — Boost source and packages; [`boost-updates.md`](../plans/boost-updates.md) (patched/clean package identity — separate); [`ideas/scratchpad.md`](../ideas/scratchpad.md) (graduated)
-- **Updated:** 2026-08-09
+- **Updated:** 2026-08-16
 - **Impact:** minor — persisted latest version scoped with downloads-root; lazy network check; existing `--boost-latest` kept as an explicit “force latest” switch
 
 ## Why
@@ -64,10 +64,10 @@ This is **not** the patched/clean GitLab package identity work in [`boost-update
 | Where to persist | If `abspath(downloads_root)` is under `abspath(sconstruct_dir)` → **project** `configure.conf`; else → **`~/.cuppaconfig`**. Rationale: shared downloads root ⇒ shared remembered latest; project-only cache ⇒ project-only memory. |
 | When to update | Only if the candidate version is **strictly higher** than the stored value (or none stored) **and** that version’s archive is present under `downloads_root` after this run’s resolve/fetch (fresh download **or** cache hit of the selected latest). |
 | Automatic | Yes — not gated on `--boost-latest`. |
-| `--boost-latest` | Explicit “use the latest, whatever that is”; **forces** a network check when online. Persistence still follows higher+present-under-downloads-root. |
-| When to scrape | (1) `--boost-latest`, or (2) Boost is **actually used** and the resolve path needs the Boost site / download. **Not** on mere dependency registration for unused Boost. |
-| Default without `--boost-latest` | Do **not** scrape. Prefer stored `boost_latest_version`, else `current_boost_release()`. |
-| Read / resolve order | (1) explicit version / location / home → (2) `--boost-latest` → scrape then use → (3) stored value → (4) `current_boost_release()` |
+| `--boost-latest` | **Override only:** force a network check when online (skips stored); overrides a pinned ``--boost-version=`` on the download path. Unpinned Boost does not need this flag — latest is implied ([#201](https://github.com/ja11sop/cuppa/issues/201)). Persistence still follows higher+present-under-downloads-root. |
+| When to scrape | (1) Unpinned Boost **used** on a download path when online and no stored value yet — or when ``--boost-latest`` forces a refresh ([#201](https://github.com/ja11sop/cuppa/issues/201)); (2) ``--boost-latest`` always checks boost.org first when online. **Not** on mere dependency registration for unused Boost. |
+| Default without `--boost-latest` | Unpinned: stored ``boost_latest_version``, then **online scrape** when not offline, then ``current_boost_release()`` ([#201](https://github.com/ja11sop/cuppa/issues/201)). Pinned ``--boost-version=``: no scrape. |
+| Read / resolve order | (1) explicit version / location / home (no scrape) → (2) unpinned latest: stored → online scrape → compiled-in → (3) ``--boost-latest``: scrape first (skip stored), override pin on download path |
 | Write mechanism | Upsert one key in the chosen conf file (preserve other keys). |
 
 ## Refusal rules

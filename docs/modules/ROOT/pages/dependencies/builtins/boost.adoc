@@ -13,21 +13,51 @@ call shape, different supply chain.
 * `--boost-build-always`, `--boost-verbose-build`, `--boost-verbose-config`
 * `--boost-patched` (deprecated alias: `--boost-patch-boost-test`)
 
+[#latest-version-and-offline-ci]
 == Latest version and offline CI
 
-When you use Boost without an explicit `--boost-version=`, `--boost-home=`, or
-`--boost-location=`, Cuppa resolves a version in this order:
+When Boost is fetched from the network (no ``--boost-home=`` or
+``--boost-location=``), Cuppa treats **latest as the default** unless you pin
+``--boost-version=``.
 
-1. `--boost-latest` — check https://www.boost.org/releases/latest/ when online, then use that
-   release (or fall back to the compiled-in default if the check fails).
-2. A stored `boost_latest_version` value (see below).
-3. The compiled-in default from Cuppa's `current_boost_release()`.
+=== Unpinned Boost (latest implied)
 
-Cuppa does **not** scrape boost.org on every Boost use. Without `--boost-latest`, a project that
-simply `BuildWith('boost')` prefers the stored value, then the compiled-in default.
+Typical packaging or CI layouts register source Boost without a version pin — for example
+``default_dependencies = ['boost']`` in the ``sconstruct``. You do **not** need
+``--boost-latest`` in that case; latest is implied.
+
+On each **online** build, resolution on the download path is:
+
+1. A stored ``boost_latest_version`` value (see below), when present.
+2. Otherwise, check https://www.boost.org/releases/latest/.
+3. The compiled-in default from Cuppa's ``current_boost_release()`` if the check fails.
+
+After the archive is present under ``--downloads-root``, Cuppa upserts the stored key when the
+selected version is strictly higher than any value already remembered (side effect of a normal
+unpinned online build — no extra flag).
+
+Offline runs skip the network check and use the stored value, then the compiled-in default.
+
+=== Pinned version (``--boost-version=``)
+
+An explicit ``--boost-version=`` (for example in ``default_options``) selects that release.
+Cuppa does **not** scrape boost.org and does not update ``boost_latest_version`` unless you
+also pass ``--boost-latest`` to override the pin.
+
+=== ``--boost-latest`` (override only)
+
+Pass ``--boost-latest`` when a version **is** pinned but you want to **override** that pin, or
+to **force** a fresh boost.org check when online (skipping any stored
+``boost_latest_version``). A side effect is updating the remembered key after download when
+the resolved version is higher.
+
+You do not need this flag for the usual unpinned ``default_dependencies = ['boost']`` workflow.
+
+The flag does not apply when ``--boost-home=`` or ``--boost-location=`` pins the source tree.
 
 === Remembered latest (`boost_latest_version`)
 
+[#remembered-latest]
 After a resolve that selects a latest/default version, if that version's archive is present under
 `--downloads-root` (fresh download or cache hit) and the version is **strictly higher** than any
 value already stored, Cuppa upserts:
@@ -49,7 +79,8 @@ do not update this key.
 
 A common layout is:
 
-1. Online, parallel: download and build (optionally with `--boost-latest` after a Boost release).
+1. Online, parallel: download and build (unpinned Boost checks boost.org when no stored key
+   exists; pass ``--boost-latest`` only to override a pin or force a refresh).
 2. Offline, serial: `cuppa … --offline --test` against the same `--downloads-root`.
 
 Persistence makes step 2 reuse the version from step 1 instead of falling back to an older

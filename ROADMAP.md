@@ -188,13 +188,13 @@ Design: [`design/plans/boost-updates.md`](design/plans/boost-updates.md).
 | `boost_package.define(..., patched=True)` default | Yes — compile define + `patched_test()` only |
 | Package archive / extract / version distinguish patched vs clean | No — same `boost` + `1.91` + tool variant |
 | Package `use_libs` passes `patched_test=` into library deps | No |
-| Persist Boost latest for offline reuse (`boost_latest_version`, downloads-root–scoped) | Yes — [#171](https://github.com/ja11sop/cuppa/issues/171) / [#170](https://github.com/ja11sop/cuppa/pull/170); design [`boost-latest-persistence.md`](design/archive/boost-latest-persistence.md) |
+| Persist Boost latest for offline reuse (`boost_latest_version`, downloads-root–scoped) | Yes — [#171](https://github.com/ja11sop/cuppa/issues/171) / [#170](https://github.com/ja11sop/cuppa/pull/170); unpinned online scrape fix [#201](https://github.com/ja11sop/cuppa/issues/201); design [`boost-latest-persistence.md`](design/archive/boost-latest-persistence.md) |
 
 ### Planned / potential
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `boost-latest-persist` | Persist higher downloaded latest; offline reads stored then compiled-in; scrape only with `--boost-latest` | High | Done — [#171](https://github.com/ja11sop/cuppa/issues/171) / [#170](https://github.com/ja11sop/cuppa/pull/170) |
+| `boost-latest-persist` | Persist higher downloaded latest; offline reads stored then compiled-in; unpinned online scrape ([#201](https://github.com/ja11sop/cuppa/issues/201)) | High | Done — [#171](https://github.com/ja11sop/cuppa/issues/171) / [#170](https://github.com/ja11sop/cuppa/pull/170) / [#201](https://github.com/ja11sop/cuppa/issues/201) |
 | `boost-pkg-version` | Canonical version `{base}-patched` / `{base}-clean`; publisher + resolve + `package_id` | High | Visible qualifier; avoids extract collision |
 | `boost-pkg-compat` | Patched resolve falls back to unadorned `{base}`; clean does not | High | Existing registry tarballs are patched and unnamed |
 | `boost-pkg-use-libs` | Package `use_libs` passes `patched_test=` | High | Parity with source Boost |

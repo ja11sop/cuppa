@@ -96,7 +96,7 @@ cuppa -D --dbg --cxx-profiles --cxx-profiles-enforce=std::init \
 
 == Expectations
 
-* Listing: exit 0; tree contains `{artefacts_root}` / `{build_root}` branches and all three collated report kinds with method names from the registry catalogue.
+* Listing: exit 0; tree contains `\{artefacts_root\}` / `\{build_root\}` branches and all three collated report kinds with method names from the registry catalogue.
 * Test + coverage: exit 0; three test binaries; `_artefacts/test/test-report-index.*` listing all three tests; `_artefacts/coverage/coverage-index--*.html` and per-test `coverage--*.html`.
 * Profiles: exit 0; `_artefacts/cxx-profiles/cxx-profiles-index.*` with at least two violation references from the probes.
 

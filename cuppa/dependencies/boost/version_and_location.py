@@ -33,7 +33,7 @@ BOOST_LATEST_VERSION_KEY = 'boost_latest_version'
 
 
 def current_boost_release():
-    return "1.91.0"
+    return "1.92.0"
 
 
 def boost_patched_requested( env ):
@@ -67,12 +67,14 @@ def boost_location_id( env ):
     elif version:
         base = None
 
-    elif latest:
+    # --boost-latest overrides --boost-version on the download path (not with
+    # --boost-home / --boost-location, where the tree is already pinned).
+    if latest and not location and not home:
         version = "latest"
 
     # Default (nothing specified): leave version unset. Resolve uses stored
-    # boost_latest_version then current_boost_release() — no scrape unless
-    # --boost-latest was passed (handled above).
+    # boost_latest_version, then an online scrape on Boost use, then
+    # current_boost_release(). --boost-latest forces a fresh scrape first.
 
     return ( location, version, base, patch_test )
 
@@ -173,6 +175,12 @@ def resolve_boost_latest_version( env, force_scrape=False ):
 
     Returns ``(version, source)`` where ``source`` is one of
     ``scraped``, ``stored``, ``compiled_in``, ``scrape_failed_fallback``.
+
+    When no explicit ``--boost-version=`` pins the download, latest resolution
+    is implied: stored value, then an online scrape when not offline, then the
+    compiled-in default. ``force_scrape`` (``--boost-latest``) skips the stored
+    value and checks boost.org first so you can override a pin or refresh the
+    remembered latest.
     """
     offline = bool( env['offline'] ) if 'offline' in env else False
 
@@ -197,6 +205,11 @@ def resolve_boost_latest_version( env, force_scrape=False ):
                 )
         )
         return str( stored ), 'stored'
+
+    if not offline:
+        scraped = scrape_latest_boost_version()
+        if scraped:
+            return scraped, 'scraped'
 
     if force_scrape and offline:
         logger.info(

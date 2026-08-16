@@ -77,6 +77,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Storage and report catalogue spelling: British `artefacts_root` / `--artefacts-root` are
   canonical; US `artifacts_root` / `--artifacts-root` remain accepted aliases on the same paths.
+- Boost latest resolve ([#201](https://github.com/ja11sop/cuppa/issues/201)): unpinned source Boost
+  checks boost.org when online (after any stored ``boost_latest_version``); ``--boost-latest`` is
+  an override for a pinned ``--boost-version=`` or a forced refresh. GitLab docs add Boost
+  publish/consume examples.
 - Profiles report anonymisation uses British spelling in module names, metadata fields
   (``metadata.anonymised``, ``anonymisation_version``), and CLI flags (``--anonymised``).
   US variants (``anonymize`` module alias, ``--anonymized``, legacy metadata keys) are still
@@ -135,6 +139,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Boost default version resolution: unpinned Boost (no ``--boost-version=``) checks boost.org when
+  online after any stored ``boost_latest_version`` before falling back to the compiled-in default;
+  persist after download when higher. ``--boost-latest`` overrides a pinned version or forces a
+  fresh scrape ([#201](https://github.com/ja11sop/cuppa/issues/201)). GitLab docs add publish/consume
+  Boost package examples.
 - Anonymised Profiles report regen no longer treats placeholder `metadata.sconstruct_dir`
   (`/home/user/project/widget`) as a writable path; output defaults to the input JSON directory
   unless `--report-dir=` is set.

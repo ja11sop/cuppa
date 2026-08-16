@@ -192,7 +192,7 @@ C++ Profiles (opt-in; Profiles-capable Clang only):
 
 See xref:cxx-profiles.adoc[C++ Profiles].
 
-Boost (source dependency) includes `--boost-home`, `--boost-location`, `--boost-version`, `--boost-latest`, `--boost-build-always`, `--boost-verbose-build`, `--boost-verbose-config`, `--boost-patched` (alias `--boost-patch-boost-test`: select the `patched/` home instead of `clean/`).
+Boost (source dependency) includes `--boost-home`, `--boost-location`, `--boost-version`, `--boost-latest` (override a pin or force refresh — unpinned Boost implies latest without this flag; see xref:dependencies/builtins/boost.adoc[Boost (source)]), `--boost-build-always`, `--boost-verbose-build`, `--boost-verbose-config`, `--boost-patched` (alias `--boost-patch-boost-test`: select the `patched/` home instead of `clean/`).
 
 == Packages
 

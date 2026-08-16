@@ -26,7 +26,138 @@ xref:packages.adoc[Publishing packages].
 [#boost-package]
 == Boost package
 
-`cuppa.packages.boost_package.define(...)` builds a `boost_package` dependency backed by the registry:
+`cuppa.packages.boost_package.define(...)` builds a `boost_package` dependency backed by the
+registry. Consuming and publishing workflows are documented below; see also
+xref:dependencies/builtins/boost.adoc[Boost (source)] for version resolution when building from
+source.
+
+=== Consuming in a project
+
+Declare the package in the ``sconstruct`` and list it in ``default_dependencies`` so every
+sconscript can ``BuildWith`` it. Set ``GITLAB_REGISTRY_TOKEN`` (or rely on ``CI_JOB_TOKEN`` in
+GitLab CI) for registry access.
+
+[source,python]
+----
+import cuppa
+
+# WidgetPrj = cuppa.location_dependency( 'widget', include='include', location='#' )
+
+BoostPackage = cuppa.packages.boost_package.define(
+    registry = 'https://gitlab.example.com/api/v4/projects/dependencies%2Fregistry',
+)
+
+cuppa.run(
+    dependencies = [
+        BoostPackage,
+    ],
+    default_dependencies = [
+        BoostPackage.name(),
+    ],
+    default_runner = 'boost',
+)
+----
+
+In a sconscript, link against selected libraries with the same ``use_libs`` shape as source Boost:
+
+[source,python]
+----
+Import('env')
+
+env.BuildWith('boost_package').use_libs([
+    'log',
+    'log_setup',
+    'program_options',
+    'system',
+    'unit_test_framework',
+])
+----
+
+=== Publishing Boost from source
+
+To populate the registry, build static libraries from the built-in **source** ``boost``
+dependency (unpinned — latest is implied when online; see
+xref:dependencies/builtins/boost.adoc#latest-version-and-offline-ci[Latest version and offline CI]),
+then publish headers and libs with ``GitlabPackagePublisher``. Run with ``--publish-package`` to
+upload.
+
+**``sconstruct``** — register source Boost (no ``--boost-version=`` pin; no ``--boost-latest``
+required):
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(
+    dependencies = [],
+    default_options = {
+        'boost-patch-boost-test': True,
+    },
+    default_dependencies = [
+        'boost',
+    ],
+    default_runner = 'boost',
+)
+----
+
+**``sconscript``** — build libraries, stage install paths, publish:
+
+[source,python]
+----
+Import('env')
+
+Boost = env.BuildWith('boost')
+
+BoostLibraries = env.BoostStaticLibs([
+    'chrono',
+    'context',
+    'filesystem',
+    'iostreams',
+    'locale',
+    'log',
+    'log_setup',
+    'program_options',
+    'regex',
+    'serialization',
+    'system',
+    'thread',
+    'timer',
+    'unit_test_framework',
+    'wave',
+])
+
+BoostVersion = Boost.version().replace('_', '.')
+BoostIncludePath = Boost.local_sub_path() + '/boost/'
+BoostLibPath = 'boost/{}/lib'.format(BoostVersion)
+
+Libraries = env.Install(BoostLibPath, BoostLibraries)
+
+from cuppa.package_managers.gitlab import GitlabPackagePublisher
+
+Publisher = GitlabPackagePublisher(
+    env,
+    source_include_dir = BoostIncludePath,
+    offset_include_dir = 'boost',
+    source_lib_dir     = BoostLibPath,
+    registry           = 'https://gitlab.example.com/api/v4/projects/dependencies%2Fregistry',
+    package            = 'boost',
+    version            = BoostVersion,
+)
+
+Published = env.PublishPackage(Libraries, publisher=Publisher)
+
+env.Clean(Published, Libraries)
+----
+
+``Boost.version()`` reflects the resolved release (for example after boost.org is checked on an
+online unpinned build). After download, Cuppa may upsert ``boost_latest_version`` in project
+``configure.conf`` or ``~/.cuppaconfig`` when the version is higher than any stored value — see
+xref:dependencies/builtins/boost.adoc#remembered-latest[Remembered latest].
+
+Upload with ``cuppa --rel --publish-package`` (add ``--parallel`` as needed). Consumers then
+use ``boost_package.define`` as in <<Consuming in a project>>.
+
+=== Minimal define (reference)
 
 [source,python]
 ----
@@ -43,9 +174,12 @@ cuppa.run(
 )
 ----
 
-Use `package.use_libs([...])` helpers where provided to append the correct static library files
-for the active toolchain/variant. The built-in source `boost` dependency accepts the same call
-shape — `env.BuildWith('boost').use_libs([...])` — so switching supply chains does not require
-rewriting sconscripts beyond the dependency name. See xref:dependencies/builtins/boost.adoc[Boost (source)].
+When ``version`` is omitted, the package helper selects a registry version according to its own
+rules; pinning ``version=`` in ``define`` is separate from source Boost's ``--boost-version=``.
+
+Use ``package.use_libs([...])`` helpers where provided to append the correct static library files
+for the active toolchain/variant. The built-in source ``boost`` dependency accepts the same call
+shape — ``env.BuildWith('boost').use_libs([...])`` — so switching supply chains does not require
+rewriting sconscripts beyond the dependency name.
 
 Integration coverage: xref:integration/test-packages.adoc[].
