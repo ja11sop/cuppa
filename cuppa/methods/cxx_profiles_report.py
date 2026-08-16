@@ -4,12 +4,65 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   C++ Profiles violation report (--cxx-profiles-report)
+#   C++ Profiles violation report (--cxx-profiles-report, env.CxxProfilesReport)
 #-------------------------------------------------------------------------------
 
 from cuppa.colourise import as_error
 from cuppa.cpp.profiles_report_collector import ProfilesDiagnosticCollector
 from cuppa.log import logger
+
+
+def _profiles_report_active( env ):
+    return bool( env.get( 'cxx_profiles' ) ) or bool( env.get( 'cxx_profiles_enforce' ) )
+
+
+def _require_profiles_for_report( env ):
+    if _profiles_report_active( env ):
+        return
+    if env.get( 'clean' ) or env.get( 'remove_builds' ):
+        return
+    import SCons.Errors
+    message = (
+        "C++ Profiles report requires Profiles to be active "
+        "(use --cxx-profiles or --cxx-profiles-enforce=)"
+    )
+    logger.error(
+        "C++ Profiles report requires Profiles to be active "
+        "(use {} or {} )".format(
+            as_error( '--cxx-profiles' ),
+            as_error( '--cxx-profiles-enforce=' ),
+        )
+    )
+    raise SCons.Errors.StopError( message )
+
+
+def activate_cxx_profiles_report( env, destination=None, link_style=None ):
+    """Enable Profiles capture for this env (CLI flag or ``env.CxxProfilesReport()``)."""
+    if destination is not None:
+        env[ 'cxx_profiles_report' ] = destination
+    elif not env.get( 'cxx_profiles_report' ):
+        env[ 'cxx_profiles_report' ] = True
+    if link_style:
+        env[ 'cxx_profiles_report_link_style' ] = link_style
+    from cuppa.reports.manifest import maybe_remove_cxx_profiles_on_clean
+    maybe_remove_cxx_profiles_on_clean( env )
+    _require_profiles_for_report( env )
+    if not env.get( 'cxx_profiles_report' ):
+        return
+    ProfilesDiagnosticCollector.activate()
+    logger.debug( "C++ Profiles violation capture enabled" )
+
+
+class CxxProfilesReportCallable(object):
+    """SCons method: declare Profiles HTML/JSON output for this sconscript tree."""
+
+    def __call__( self, env, destination=None, link_style=None ):
+        activate_cxx_profiles_report(
+            env,
+            destination=destination if destination is not None else True,
+            link_style=link_style,
+        )
+        return env.get( 'cxx_profiles_report' )
 
 
 class CxxProfilesReportMethod:
@@ -24,7 +77,7 @@ class CxxProfilesReportMethod:
             const=True,
             default=False,
             help='Capture Profiles diagnostics and emit HTML + JSON under '
-                 '<artifacts-root>/cxx-profiles/ (default _artifacts/cxx-profiles/; '
+                 '<artefacts-root>/cxx-profiles/ (default _artifacts/cxx-profiles/; '
                  'requires --cxx-profiles or --cxx-profiles-enforce=; optional '
                  'directory path after =)',
         )
@@ -66,33 +119,8 @@ class CxxProfilesReportMethod:
             env[ 'cxx_profiles_report_context' ] = context_mode
         if not enabled:
             return
-
-        from cuppa.reports.manifest import maybe_remove_cxx_profiles_on_clean
-        maybe_remove_cxx_profiles_on_clean( env )
-
-        profiles_active = bool( env.get( 'cxx_profiles' ) ) or bool(
-            env.get( 'cxx_profiles_enforce' )
-        )
-        if not profiles_active:
-            if env.get( 'clean' ) or env.get( 'remove_builds' ):
-                return
-            import SCons.Errors
-            message = (
-                "--cxx-profiles-report requires C++ Profiles to be active "
-                "(use --cxx-profiles or --cxx-profiles-enforce=)"
-            )
-            logger.error(
-                "--cxx-profiles-report requires C++ Profiles to be active "
-                "(use {} or {} )".format(
-                    as_error( '--cxx-profiles' ),
-                    as_error( '--cxx-profiles-enforce=' ),
-                )
-            )
-            raise SCons.Errors.StopError( message )
-
-        ProfilesDiagnosticCollector.activate()
-        logger.debug( "C++ Profiles violation capture enabled" )
+        activate_cxx_profiles_report( env )
 
     @classmethod
     def add_to_env( cls, cuppa_env ):
-        pass
+        cuppa_env.add_method( 'CxxProfilesReport', CxxProfilesReportCallable() )

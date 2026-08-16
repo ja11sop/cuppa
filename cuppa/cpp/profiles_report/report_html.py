@@ -145,14 +145,11 @@ def jinja2_templates():
 
 
 def default_report_directory( env ):
-    """Return the default Profiles report directory under ``artifacts_root``."""
-    if env.get( 'abs_artifacts_root' ):
-        return os.path.join( env[ 'abs_artifacts_root' ], 'cxx-profiles' )
-    sconstruct_dir = env.get( 'sconstruct_dir' ) or os.getcwd()
-    artifacts_root = env.get( 'artifacts_root', '_artifacts' )
-    if os.path.isabs( artifacts_root ):
-        return os.path.join( artifacts_root, 'cxx-profiles' )
-    return os.path.join( sconstruct_dir, artifacts_root, 'cxx-profiles' )
+    """Return the default Profiles report directory under ``artefacts_root``."""
+    from cuppa.reports.registry import abs_artefacts_root_from_env
+
+    abs_root = abs_artefacts_root_from_env( env )
+    return os.path.join( abs_root, 'cxx-profiles' )
 
 
 def resolve_report_directory( env ):

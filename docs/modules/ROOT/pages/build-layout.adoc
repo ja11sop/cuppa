@@ -7,7 +7,7 @@
 | Purpose | Default | Override
 
 | Build output | `_build` | `--build-root`
-| Generated reports and other artefacts outside the build tree | `_artifacts` | `--artifacts-root`
+| Generated reports and other artefacts outside the build tree | `_artifacts` | `--artefacts-root` (US alias: `--artifacts-root`)
 | Dependency trees, ready to build against | `~/.cuppa/dependencies` | `--dependencies-root`
 | Downloaded archives | `~/.cuppa/downloads` | `--downloads-root`
 |===
@@ -80,8 +80,27 @@ If the sconscript file is named exactly `sconscript`, that filename segment is o
 
 == Artifacts
 
+The construction `env` exposes `artefacts_root` and `abs_artefacts_root` (British spelling;
+US aliases `artifacts_root` / `abs_artifacts_root` mirror the same paths). Override the tree
+with `--artefacts-root=` (or `--artifacts-root=`).
+
 Consumer projects often collate coverage or test reports under a project-chosen directory such as `_artifacts/` (for example via `env.CollateCoverageIndex(destination='_artifacts/coverage')`).
 That path is a *project* convention; cuppa itself defaults to placing coverage next to the variant `final/` directory unless you pass a destination.
+
+C++ Profiles violation reports default to `<artefacts-root>/cxx-profiles/` when you pass
+`--cxx-profiles-report` or declare `env.CxxProfilesReport()` in a sconscript.
+
+To see built-in report kinds and their default directories without building:
+
+[source,sh]
+----
+cuppa -D --list-reports
+cuppa -D --list-reports --list-format=json
+----
+
+Full removal of artefact trees outside `_build/` (`--remove-artefacts`) is planned separately;
+until then Profiles reports record paths in `.cuppa-reports` for matched `--clean` /
+`--remove-builds`.
 
 == Cleaning
 

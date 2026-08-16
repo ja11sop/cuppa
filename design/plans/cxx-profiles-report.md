@@ -628,11 +628,38 @@ also store a denormalised `all_paths[]` for convenience — not required in the 
 | **Anonymized sharing** | See [§Anonymized report sharing](#prof-report-anonymize) — after slice H |
 | **Context summary** | See [§Context summary](#prof-report-context-summary) — slice H on [#196](https://github.com/ja11sop/cuppa/pull/196) |
 
+<a id="prof-report-artefacts-min"></a>
+
+## Report artefacts catalogue (F-min)
+
+**Id:** `prof-report-artefacts-min` · **Status:** **proposal** — pairs with slice E on [#184](https://github.com/ja11sop/cuppa/issues/184)
+
+| Piece | Behaviour |
+|-------|-----------|
+| Registry | `cuppa/reports/registry.py` — static rows for Profiles, coverage, test |
+| Discovery | `--list-reports` (+ `--list-format=json`) |
+| Artefacts root | British `--artefacts-root` / `env.artefacts_root`; US `--artifacts-root` / `env.artifacts_root` aliases |
+| Clean | Profiles still use `.cuppa-reports` manifest until #135 Phase 6 |
+
+**Deferred to #135:** `artefact_roots`, `--remove-artefacts`, registry-driven wipe of whole trees.
+
+<a id="prof-report-method"></a>
+
+## Scons method (slice E)
+
+**Id:** `prof-report-method` · **Status:** **proposal** — `env.CxxProfilesReport()` on [#184](https://github.com/ja11sop/cuppa/issues/184)
+
+| Piece | Behaviour |
+|-------|-----------|
+| API | `env.CxxProfilesReport(destination=None, link_style=None)` |
+| Activation | Same gate and collector path as `--cxx-profiles-report` |
+| Default path | `<artefacts-root>/cxx-profiles/` from registry helper |
+
 <a id="prof-report-anonymize"></a>
 
 ## Anonymized report sharing (sketch)
 
-**Id:** `prof-report-anonymize` · **Status:** **in progress** — open [#197](https://github.com/ja11sop/cuppa/pull/197) on [#184](https://github.com/ja11sop/cuppa/issues/184); slice H merged [#196](https://github.com/ja11sop/cuppa/pull/196)
+**Id:** `prof-report-anonymize` · **Status:** **shipped** — merged [#197](https://github.com/ja11sop/cuppa/pull/197) on [#184](https://github.com/ja11sop/cuppa/issues/184); slice H merged [#196](https://github.com/ja11sop/cuppa/pull/196)
 
 ### Shipped implementation (PR #197)
 
@@ -1345,11 +1372,11 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 | C — `prof-report-html` | **Done** — merged [#194](https://github.com/ja11sop/cuppa/pull/194): HTML index/scope/source pages, By rule / By file / Roll-up tabs, presentation polish, rule `doc_href` links, JSON regen (`--from-json`), **schema v1** envelope (`summary`, `locations[]`, `location_key`, extended `metadata`) |
 | D — `prof-report-manifest` | **Done** — core in [#194](https://github.com/ja11sop/cuppa/pull/194); clean/`invocation_key` fix in [#195](https://github.com/ja11sop/cuppa/pull/195); `--artifacts-root` in `e4d5318` |
 | H — `prof-report-context-summary` | **Done** — merged [#196](https://github.com/ja11sop/cuppa/pull/196): Overview tab, `context` JSON, `-H`, tier metrics, Build inventory load, [variant roll-up display](#prof-report-variant-roll-up-display) (**Union Refs**, **Peak Refs**, common + deltas, `build_key` grain), **Violations By-Build** tab, unified scope detail (**Profile** column), Antora doc split |
-| G — `prof-report-anonymize` | **In progress** — [#197](https://github.com/ja11sop/cuppa/pull/197): thematic anonymiser + verify + metadata-driven HTML headers; Antora *Sharing an inventory (anonymised JSON)* on Introduction |
-| E — `prof-report-method` | Deferred |
-| F — `prof-report-artefacts` | Partial — `--artifacts-root` landed; full registry + `--remove-artifacts` blocked on #135 |
+| G — `prof-report-anonymize` | **Done** — merged [#197](https://github.com/ja11sop/cuppa/pull/197): thematic anonymiser + verify + metadata-driven HTML headers |
+| E — `prof-report-method` | **Proposal** — `env.CxxProfilesReport()` |
+| F — `prof-report-artefacts` | **F-min proposal** — registry + `--list-reports`; British `--artefacts-root`; full `--remove-artefacts` deferred to #135 |
 
-**Next focus:** slice **G** (`prof-report-anonymize`) — last planned slice on [#184](https://github.com/ja11sop/cuppa/issues/184) before closing the umbrella issue.
+**Next focus:** land slices **E** + **F-min** on [#184](https://github.com/ja11sop/cuppa/issues/184), then close the umbrella issue.
 
 ## Open questions (resolve in first PR)
 

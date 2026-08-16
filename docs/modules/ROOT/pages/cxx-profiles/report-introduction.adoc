@@ -30,9 +30,19 @@ Before generating a report you will need:
 
 Pass `--cxx-profiles-report` together with `--cxx-profiles` or `--cxx-profiles-enforce=`. Cuppa
 captures diagnostics while the build runs and writes output at `sconstruct_end` under
-`<artifacts-root>/cxx-profiles/` (default `_artifacts/cxx-profiles/`). The construction `env`
-exposes `artifacts_root` and `abs_artifacts_root` (see `--artifacts-root=` in
-xref:cli-reference.adoc[CLI reference]).
+`<artefacts-root>/cxx-profiles/` (default `_artifacts/cxx-profiles/`). The construction `env`
+exposes `artefacts_root` and `abs_artefacts_root` (US aliases `artifacts_root` /
+`abs_artifacts_root`; see `--artefacts-root=` in xref:cli-reference.adoc[CLI reference]).
+
+Alternatively, declare the report in a sconscript so CI jobs do not need to remember the CLI
+flag:
+
+[source,python]
+----
+env.CxxProfilesReport()
+# optional: env.CxxProfilesReport( destination='#_artifacts/cxx-profiles/' )
+# optional: env.CxxProfilesReport( link_style='gitlab' )
+----
 
 [source,bash]
 ----

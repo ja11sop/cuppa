@@ -9,10 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `--artifacts-root` (default `_artifacts`): project-relative root for generated reports and
-  other artefacts outside `_build/`; exposed on the construction `env` as `artifacts_root` /
-  `abs_artifacts_root`. C++ Profiles reports honour it (`<artifacts-root>/cxx-profiles/`).
+- `--artefacts-root` (default `_artifacts`): project-relative root for generated reports and
+  other artefacts outside `_build/`; exposed on the construction `env` as `artefacts_root` /
+  `abs_artefacts_root` (US aliases `artifacts_root` / `abs_artifacts_root`). C++ Profiles
+  reports honour it (`<artefacts-root>/cxx-profiles/`).
   Coverage and test HTML still use the conventional tree until a follow-on wires them through.
+- `--list-reports` lists built-in HTML report kinds (Profiles, coverage, test) and default
+  directories under the artefacts root; supports `--list-format=json`.
+- `env.CxxProfilesReport()` declares Profiles violation capture from a sconscript (same output as
+  `--cxx-profiles-report`; optional `destination=` and `link_style=` kwargs).
 - `.cuppa-reports` manifest for C++ Profiles reports (slice D, `prof-report-manifest`): append
   JSONL entries at `sconstruct_end`; matched removal when `--clean` or `--remove-builds` runs with
   the same `--cxx-profiles-report` destination and link options.
@@ -69,6 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Storage and report catalogue spelling: British `artefacts_root` / `--artefacts-root` are
+  canonical; US `artifacts_root` / `--artifacts-root` remain accepted aliases on the same paths.
 - Profiles report anonymisation uses British spelling in module names, metadata fields
   (``metadata.anonymised``, ``anonymisation_version``), and CLI flags (``--anonymised``).
   US variants (``anonymize`` module alias, ``--anonymized``, legacy metadata keys) are still

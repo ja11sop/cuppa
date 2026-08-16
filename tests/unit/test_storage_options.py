@@ -60,18 +60,21 @@ def test_the_artifacts_root_stays_with_the_project(elsewhere):
 
     storage_options.process_storage_options(env)
 
-    assert env["artifacts_root"] == default.artifacts_root
-    assert env["abs_artifacts_root"] == os.path.join(str(project), default.artifacts_root)
+    assert env["artefacts_root"] == default.artefacts_root
+    assert env["artifacts_root"] == env["artefacts_root"]
+    assert env["abs_artefacts_root"] == os.path.join(str(project), default.artefacts_root)
+    assert env["abs_artifacts_root"] == env["abs_artefacts_root"]
 
 
 def test_a_custom_artifacts_root_is_honoured(elsewhere):
     home, project = elsewhere
-    env = env_for(project, artifacts_root="out/reports")
+    env = env_for(project, artefacts_root="out/reports")
 
     storage_options.process_storage_options(env)
 
-    assert env["artifacts_root"] == os.path.join("out", "reports")
-    assert env["abs_artifacts_root"] == str(project / "out" / "reports")
+    assert env["artefacts_root"] == os.path.join("out", "reports")
+    assert env["artifacts_root"] == env["artefacts_root"]
+    assert env["abs_artefacts_root"] == str(project / "out" / "reports")
 
 
 def test_the_storage_root_moves_both_roots_together(elsewhere):

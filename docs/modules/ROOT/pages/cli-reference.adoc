@@ -51,7 +51,8 @@ TIP: If cuppa fails early while reading sconscripts, re-run with `--verbosity=ex
 | Option | Default
 
 | `--build-root` | `_build`
-| `--artifacts-root` | `_artifacts` -- generated reports and other project artefacts outside the build tree
+| `--artefacts-root` | `_artifacts` -- generated reports and other project artefacts outside the build tree
+| `--artifacts-root` | US spelling alias for `--artefacts-root` (same `env` keys)
 | `--storage-root` | `~/.cuppa` -- the parent of the two roots below
 | `--dependencies-root` | `<storage-root>/dependencies` -- retrieved trees, ready to build against
 | `--downloads-root` | `<storage-root>/downloads` -- the archives they came from
@@ -89,6 +90,7 @@ xref:build-layout.adoc#remove-all-builds-example[`--remove-all-builds`]).
 | Option | Effect
 
 | `--list-builds` | List the build root as folder summary, toolchain → variant tree, and sconscript tree; print an explicit command for the selected builds
+| `--list-reports` | List built-in HTML report kinds (Profiles, coverage, test) and their default directories under the artefacts root; supports `--list-format=json`
 | `--list-toolchains` | List **discovered** (PATH) and **registered** (managed) toolchains as a ruled family → version → driver → name(s) tree; then exit. Force-wipe applies only to registered rows. `--list-format=verbose` adds dialects / features / default invocations; `--list-format=json` emits the nested agent payload (with `describe` on drivers). See xref:toolchains.adoc#list-toolchains[Listing toolchains]
 | `--remove-builds` | Remove variant subtrees matching the current `--toolchains` / `--dbg` / `--rel` / `--cov` selection
 | `--remove-all-builds` | Remove the entire build root

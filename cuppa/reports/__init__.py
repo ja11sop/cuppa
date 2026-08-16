@@ -4,5 +4,5 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   Cuppa CLI report manifest (interim cleanup until artefact_roots lands)
+#   Shared report helpers (link style, manifest, registry catalogue)
 #-------------------------------------------------------------------------------

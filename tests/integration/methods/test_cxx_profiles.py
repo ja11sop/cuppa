@@ -72,6 +72,38 @@ def test_profiles_enforce_composes_with_source_attribute( tmp_path ):
     assert_success( result )
 
 
+def test_profiles_report_emits_html_and_json_via_sconscript_method( tmp_path ):
+    """env.CxxProfilesReport() writes HTML + JSON without the CLI flag."""
+    _, toolchain_flag = require_profiles_capable_toolchain()
+    write_sconstruct( tmp_path )
+    write_sconscript(
+        tmp_path,
+        "Import('env')\n"
+        "env.CxxProfilesReport()\n"
+        "env.Build( 'app', [ 'main.cpp' ] )\n",
+    )
+    ( tmp_path / 'main.cpp' ).write_text(
+        'int main()\n'
+        '{\n'
+        '    int Value [[uninit]];\n'
+        '    return Value;\n'
+        '}\n'
+    )
+    result = run_cuppa(
+        tmp_path,
+        '--dbg',
+        '--cxx-profiles',
+        '--cxx-profiles-enforce=std::init',
+        '--cxx-disable-error-limit',
+        toolchain_flag,
+    )
+    report_dir = tmp_path / '_artifacts' / 'cxx-profiles'
+    assert ( report_dir / 'cxx-profiles-index.html' ).is_file()
+    assert ( report_dir / 'cxx-profiles-index.json' ).is_file()
+    combined = ( result.stdout or '' ) + ( result.stderr or '' )
+    assert 'C++ Profiles report:' in combined or report_dir.exists()
+
+
 def test_profiles_report_emits_html_and_json( tmp_path ):
     """--cxx-profiles-report writes HTML + JSON under _artifacts/cxx-profiles/."""
     _, toolchain_flag = require_profiles_capable_toolchain()
