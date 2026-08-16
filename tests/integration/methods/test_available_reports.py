@@ -157,7 +157,8 @@ def test_canonical_collated_reports_under_artefacts_root( tmp_path ):
     Test and coverage share one ``--cov --test`` invocation (three ``BuildTest``
     programs in a loop). Profiles uses a second invocation with Alliance Clang
     (local or ``--toolchain-archive=``), ``env.CollateCxxProfilesIndex()`` in
-    the sconscript (no ``--cxx-profiles-report``), and ``-i``.
+    the sconscript (no ``--cxx-profiles-report``); keep-going is implied by
+    inventory mode (no manual ``-i``).
     """
     _skip_if_no_gcov_coverage()
     profiles_flags, needs_network = profiles_toolchain_flags( allow_archive=True )
@@ -183,7 +184,6 @@ def test_canonical_collated_reports_under_artefacts_root( tmp_path ):
         '--cxx-profiles',
         '--cxx-profiles-enforce=std::init',
         '--cxx-disable-error-limit',
-        '-i',
         *profiles_flags,
         offline=not needs_network,
         timeout=900 if needs_network else 300,

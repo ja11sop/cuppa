@@ -7,9 +7,11 @@
 #   C++ Profiles violation report (--cxx-profiles-report, env.CollateCxxProfilesIndex)
 #-------------------------------------------------------------------------------
 
-from cuppa.colourise import as_error
+from cuppa.colourise import as_error, as_notice
 from cuppa.cpp.profiles_report_collector import ProfilesDiagnosticCollector
 from cuppa.log import logger
+
+_inventory_ignore_errors_set = False
 
 
 def _profiles_report_active( env ):
@@ -36,6 +38,33 @@ def _require_profiles_for_report( env ):
     raise SCons.Errors.StopError( message )
 
 
+def _enable_inventory_report_mode():
+    """Enable Progress collation hooks for Profiles inventory runs."""
+    from cuppa.progress import NotifyProgress
+    if NotifyProgress.inventory_report_mode():
+        return
+    NotifyProgress.set_inventory_report_mode( True )
+
+
+def _enable_inventory_keep_going():
+    """Record inventory keep-going (``-i`` is injected by the cuppa CLI when needed)."""
+    global _inventory_ignore_errors_set
+    if _inventory_ignore_errors_set:
+        return
+    import SCons.Script
+    _inventory_ignore_errors_set = True
+    if SCons.Script.GetOption( 'ignore_errors' ):
+        return
+    logger.warn(
+        "C++ Profiles report: keep-going ({}) was not set; inventory may stop at the first "
+        "failed compile. Pass {} explicitly or use {} on the cuppa command line.".format(
+            as_notice( '-i' ),
+            as_notice( '-i' ),
+            as_notice( '--cxx-profiles-report' ),
+        )
+    )
+
+
 def activate_cxx_profiles_report( env, destination=None, link_style=None ):
     """Enable Profiles capture for this env (CLI flag or ``env.CollateCxxProfilesIndex()``)."""
     if destination is not None:
@@ -49,8 +78,18 @@ def activate_cxx_profiles_report( env, destination=None, link_style=None ):
     _require_profiles_for_report( env )
     if not env.get( 'cxx_profiles_report' ):
         return
-    ProfilesDiagnosticCollector.activate()
+    _enable_inventory_report_mode()
+    _enable_inventory_keep_going()
+    ProfilesDiagnosticCollector.activate( report_env=env )
     logger.debug( "C++ Profiles violation capture enabled" )
+
+
+def reset_inventory_report_state_for_tests():
+    """Reset module globals (unit tests only)."""
+    global _inventory_ignore_errors_set
+    _inventory_ignore_errors_set = False
+    from cuppa.progress import NotifyProgress
+    NotifyProgress.set_inventory_report_mode( False )
 
 
 class CollateCxxProfilesIndexCallable(object):

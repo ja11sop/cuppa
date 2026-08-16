@@ -21,8 +21,10 @@ import logging
 
 import cuppa.timer
 from cuppa.colourise import as_colour, as_emphasised, as_highlighted, as_notice
+from cuppa.cpp.cxx_profiles_report import parse_profiles_diagnostic
 from cuppa.cpp.profiles_report_collector import ProfilesDiagnosticCollector
 from cuppa.log import logger
+from cuppa.progress import NotifyProgress
 from cuppa.utility.python2to3 import as_str, errno, Queue
 
 
@@ -351,6 +353,8 @@ class ToolchainProcessor:
         self.error_messages         = {}
         self.warning_messages       = {}
         self.ignore_current_message = False
+        self._profile_violation_lines_seen = False
+        self._non_profile_errors_tallied = 0
 
 
     def filtered_duplicate( self, line, existing_messages ):
@@ -377,11 +381,24 @@ class ToolchainProcessor:
             return line
 
 
+    def _inventory_report_mode( self ):
+        return (
+            self._profiles_scope is not None
+            and NotifyProgress.inventory_report_mode()
+            and ProfilesDiagnosticCollector.active() is not None
+        )
+
+
     def __call__( self, line ):
+
+        inventory_mode = self._inventory_report_mode()
+        profile_diagnostic = None
 
         if self._profiles_scope is not None:
             if ProfilesDiagnosticCollector.record_line( self._profiles_scope, line ):
                 return None
+            if inventory_mode:
+                profile_diagnostic = parse_profiles_diagnostic( line )
 
         ( matches, interpretor, error_id, warning_id ) = self.interpret( line )
 
@@ -391,6 +408,23 @@ class ToolchainProcessor:
             meaning     = interpretor['meaning']
             file        = interpretor['file']
             message     = ''
+            colour_meaning = meaning
+            profile_inventory_error = (
+                inventory_mode
+                and meaning == 'error'
+                and profile_diagnostic
+            )
+
+            if profile_inventory_error:
+                self._profile_violation_lines_seen = True
+                profile_error_id = ProfilesDiagnosticCollector.next_profile_display_error_id()
+                self.errors -= 1
+            elif inventory_mode and meaning == 'error':
+                ProfilesDiagnosticCollector.record_non_profile_error()
+                self._non_profile_errors_tallied += 1
+
+            if profile_inventory_error:
+                colour_meaning = 'warning'
 
             for match in display:
 
@@ -399,7 +433,7 @@ class ToolchainProcessor:
                 if match == file and ( meaning == 'error' or meaning == 'warning' ):
                     element = self.normalise_path( element )
 
-                element = as_colour( meaning, element )
+                element = as_colour( colour_meaning, element )
 
                 if match in highlights:
                     element = as_emphasised( element )
@@ -408,7 +442,17 @@ class ToolchainProcessor:
 
             message = self.filtered_line( message + "\n", meaning )
 
-            if meaning == 'error':
+            if profile_inventory_error:
+                if message:
+                    message = (
+                        as_highlighted(
+                            'warning',
+                            " = Error " + str( profile_error_id ) + " = ",
+                        )
+                        + "\n"
+                        + message
+                    )
+            elif meaning == 'error':
                 if message:
                     message = as_highlighted( meaning, " = Error " + str(error_id) + " = ") +  "\n" + message
                 else:
@@ -421,6 +465,10 @@ class ToolchainProcessor:
                     self.warnings -= 1
 
             return message
+        if inventory_mode and profile_diagnostic:
+            self._profile_violation_lines_seen = True
+            coloured = as_colour( 'warning', line ) + "\n"
+            return self.filtered_line( coloured, 'warning' )
         return self.filtered_line( line )
 
 
@@ -460,6 +508,16 @@ class ToolchainProcessor:
 
 
     def summary( self, returncode ):
+
+        inventory_mode = self._inventory_report_mode()
+        if (
+            inventory_mode
+            and returncode
+            and not self._profile_violation_lines_seen
+            and self._non_profile_errors_tallied == 0
+            and self.errors == 0
+        ):
+            ProfilesDiagnosticCollector.record_non_profile_error()
 
         elapsed_time = time.time() - self.start_time
         Summary = ''

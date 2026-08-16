@@ -12,6 +12,7 @@ import re
 import os
 import six
 import psutil
+from cuppa.core.profiles_inventory_cli import inject_inventory_ignore_errors
 from cuppa.utility.python2to3 import as_str, as_byte_str, Exception
 
 
@@ -75,6 +76,7 @@ def run_scons( args_list ):
     stderr_thread = None
 
     try:
+        args_list = inject_inventory_ignore_errors( args_list )
         args_list = ['scons'] + args_list + ['--cuppa-mode']
 
         if '--parallel' in args_list:

@@ -44,6 +44,12 @@ env.CollateCxxProfilesIndex()
 # optional: env.CollateCxxProfilesIndex( link_style='gitlab' )
 ----
 
+Both the CLI flag and ``CollateCxxProfilesIndex()`` enable *inventory mode*: cuppa prepends SCons
+keep-going (``-i``) when needed, writes the session index at ``sconstruct_end``, and exits
+**non-zero** only when ordinary (non-profile) compile errors occurred — see
+xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[Violation inventory report]
+for console behaviour and exit policy.
+
 [source,bash]
 ----
 cuppa -D --dbg --toolchains=clang24_profiles_2026_08_07_27 \

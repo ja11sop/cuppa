@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.0] - unreleased
 
+### Changed
+
+- `--cxx-profiles-report` and `env.CollateCxxProfilesIndex()` enable inventory mode: the cuppa CLI
+  prepends SCons keep-going (`-i`) when needed, Progress ordering still runs `#SconstructEnd` after
+  failed compiles, the session index flushes from a fallback hook when capture is non-empty,
+  non-profile compile failures are tallied for a non-zero exit after the index write, and
+  profile-shaped diagnostics keep an Error label with warning colours ([#199](https://github.com/ja11sop/cuppa/issues/199)).
+
 ### Added
 
 - `--artefacts-root` (default `_artefacts`; legacy `_artifacts/` kept when present): project-relative root for generated reports and

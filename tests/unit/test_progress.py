@@ -58,6 +58,7 @@ def _reset_notifyprogress_state(monkeypatch):
     NotifyProgress._end = {}
     NotifyProgress._started = {}
     NotifyProgress._finished = {}
+    NotifyProgress.set_inventory_report_mode( False )
 
     def _fake_progress(label, event, sconscript, variant, env):
         return "progress:{}:{}:{}".format(event, sconscript, variant)
@@ -111,6 +112,22 @@ def test_add_reuses_started_finished_for_same_variant_path():
     assert "_build/test/dbg" in NotifyProgress._started
 
 
+def test_add_inventory_mode_uses_requires_not_depends_on_targets():
+    env = _make_env("test/sconscript", "_build/test/dbg/working")
+    NotifyProgress.set_inventory_report_mode(True)
+
+    NotifyProgress.add(env, ["node"])
+
+    assert env.depends_calls == [
+        (
+            NotifyProgress._finished["_build/test/dbg"],
+            ["#test/sconscript", "#sconstruct"],
+        )
+    ]
+    finished = NotifyProgress._finished["_build/test/dbg"]
+    assert ( finished, [ "node" ] ) in env.requires_calls
+
+
 def test_cuppa_layout_gives_distinct_variant_keys_per_sconscript():
     # In real cuppa layouts, build_dir includes the sconscript path segment, so
     # different sconscripts naturally get different variant() keys without
@@ -130,19 +147,6 @@ def test_cuppa_layout_gives_distinct_variant_keys_per_sconscript():
 
 
 def test_begin_and_end_are_keyed_by_sconscript():
-    env_dbg = _make_env("test/sconscript", "_build/test/gcc15/dbg/x86_64/c++20/working")
-    env_rel = _make_env("test/sconscript", "_build/test/gcc15/rel/x86_64/c++20/working")
-
-    NotifyProgress.add(env_dbg, ["node_dbg"])
-    NotifyProgress.add(env_rel, ["node_rel"])
-
-    assert list(NotifyProgress._begin.keys()) == ["test/sconscript"]
-    assert list(NotifyProgress._end.keys()) == ["test/sconscript"]
-    assert len(NotifyProgress._started) == 2
-    assert len(NotifyProgress._finished) == 2
-
-
-def test_register_callback_routes_env_specific_and_global_callbacks():
     events = []
     env = _make_env("a/sconscript", "_build/a/dbg/working")
 

@@ -11,4 +11,4 @@ Related test module: `test_available_reports.py`
 Covers:
 
 - `--list-available-reports` judgement tree and JSON on a real `sconstruct` (no build)
-- Canonical `_artefacts/` wiring via **two** cuppa invocations: `--cov --test` for three-test collation, then `--cxx-profiles -i` with `env.CollateCxxProfilesIndex()` in the sconscript (Alliance archive when needed; no `--cxx-profiles-report`)
+- Canonical `_artefacts/` wiring via **two** cuppa invocations: `--cov --test` for three-test collation, then `--cxx-profiles` with `env.CollateCxxProfilesIndex()` in the sconscript (Alliance archive when needed; no `--cxx-profiles-report`; keep-going implied by inventory mode)
