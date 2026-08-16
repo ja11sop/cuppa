@@ -47,8 +47,9 @@ MIDDLE_WIDTH = 12
 def add_storage_action_options( add_option ):
 
     add_option(
-        '--list-report-kinds', dest='list_report_kinds', action='store_true',
-        help="List built-in HTML report kinds (not files on disk) under the artefacts root and exit",
+        '--list-available-reports', dest='list_available_reports', action='store_true',
+        help="List built-in HTML report kinds and which registered/discovered toolchains on "
+             "this system can produce each (not a scan of report files on disk) and exit",
     )
     add_option(
         '--list-builds', dest='list_builds', action='store_true',
@@ -68,7 +69,7 @@ def add_storage_action_options( add_option ):
         nargs=1, action='store', default='text',
         help="Output format for --list-* options: text (default), verbose (text plus "
              "LOCATION for --list-dependencies / --list-downloads), or json "
-             "(including --list-develop / --list-toolchains / --list-report-kinds). Section filtering for "
+             "(including --list-develop / --list-toolchains / --list-available-reports). Section filtering for "
              "dependency and download listings is --list-scope",
     )
     from cuppa.core import dependency_actions
@@ -78,7 +79,7 @@ def add_storage_action_options( add_option ):
 
 
 def process_storage_action_options( cuppa_env ):
-    cuppa_env['list_report_kinds'] = bool( cuppa_env.get_option( 'list_report_kinds' ) )
+    cuppa_env['list_available_reports'] = bool( cuppa_env.get_option( 'list_available_reports' ) )
     cuppa_env['list_builds'] = bool( cuppa_env.get_option( 'list_builds' ) )
     cuppa_env['remove_builds'] = bool( cuppa_env.get_option( 'remove_builds' ) )
     cuppa_env['remove_all_builds'] = bool( cuppa_env.get_option( 'remove_all_builds' ) )
@@ -96,7 +97,7 @@ def wants_storage_action( cuppa_env ):
     from cuppa.core import dependency_actions
     from cuppa.core import toolchain_actions
     return bool(
-        cuppa_env.get( 'list_report_kinds' )
+        cuppa_env.get( 'list_available_reports' )
         or cuppa_env.get( 'list_builds' )
         or cuppa_env.get( 'remove_builds' )
         or cuppa_env.get( 'remove_all_builds' )
@@ -1523,12 +1524,12 @@ def run( construct, cuppa_env, out=None ):
                     "Running in REMOVE BUILDS mode, no building will be attempted" ) )
             return remove_builds( construct, cuppa_env, out=out )
 
-        if cuppa_env.get( 'list_report_kinds' ):
+        if cuppa_env.get( 'list_available_reports' ):
             logger.info( as_info_label(
-                    "Running in LIST REPORT KINDS mode, no building will be attempted" ) )
-            from cuppa.reports.list_report_kinds import list_report_kinds
+                    "Running in LIST AVAILABLE REPORTS mode, no building will be attempted" ) )
+            from cuppa.reports.list_available_reports import list_available_reports
 
-            return list_report_kinds( cuppa_env, out=out )
+            return list_available_reports( cuppa_env, out=out )
 
         if cuppa_env.get( 'list_builds' ):
             logger.info( as_info_label(

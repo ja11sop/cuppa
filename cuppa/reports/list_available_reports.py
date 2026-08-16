@@ -4,7 +4,7 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   --list-report-kinds — catalogue built-in report kinds under the artefacts root
+#   --list-available-reports — report kinds × toolchains on this system
 #-------------------------------------------------------------------------------
 
 import json
@@ -15,15 +15,36 @@ from cuppa.reports.registry import (
     abs_artefacts_root_from_env,
     default_report_dir_for_kind,
     rel_artefacts_root_from_env,
-    serialise_report_kinds,
+    serialise_available_reports,
+    supporting_toolchain_rows_for_kind,
 )
 
 
-def list_report_kinds( cuppa_env, out ):
-    """Print registered report kinds and exit."""
+def _format_toolchain_names( rows ):
+    if not rows:
+        return '(none on this system)'
+    return ', '.join( row[ 'name' ] for row in rows )
+
+
+def _location_label_for_kind( kind ):
+    if kind.under_artefacts_root and kind.default_subdir:
+        return '{}/'.format( kind.default_subdir )
+    return '(varies)'
+
+
+def _path_label_for_kind( kind ):
+    if kind.kind == 'coverage':
+        return 'Conventional'
+    if kind.under_artefacts_root and kind.default_subdir:
+        return 'Default'
+    return None
+
+
+def list_available_reports( cuppa_env, out ):
+    """Print report kinds with supporting toolchains on this system and exit."""
     list_format = cuppa_env.get( 'list_format' ) or 'text'
     if list_format == 'json':
-        payload = serialise_report_kinds( cuppa_env )
+        payload = serialise_available_reports( cuppa_env )
         out.write( json.dumps( payload, indent=2, sort_keys=True ) )
         out.write( '\n' )
         return 0
@@ -36,28 +57,34 @@ def list_report_kinds( cuppa_env, out ):
             as_subdued( rel_root ),
         ),
     )
-    out.write( 'Report kinds (built-in; not a scan of files on disk):\n\n' )
+    out.write(
+        'Report kinds available with current toolchains '
+        '(not a scan of report files on disk):\n\n',
+    )
 
     for kind in REPORT_KINDS:
-        if kind.under_artefacts_root and kind.default_subdir:
-            location = '{}/'.format( kind.default_subdir )
+        location = _location_label_for_kind( kind )
+        out.write(
+            '  {}  {}\n'.format(
+                as_emphasised( location.ljust( 16 ) ),
+                kind.label,
+            ),
+        )
+        path_label = _path_label_for_kind( kind )
+        if path_label and kind.under_artefacts_root and kind.default_subdir:
             default_dir = default_report_dir_for_kind( cuppa_env, kind )
             out.write(
-                '  {}  {}\n'.format(
-                    as_emphasised( location.ljust( 16 ) ),
-                    kind.label,
+                '                 {}: {}\n'.format(
+                    path_label,
+                    as_subdued( default_dir ),
                 ),
             )
-            out.write(
-                '                 Default: {}\n'.format( as_subdued( default_dir ) ),
-            )
-        else:
-            out.write(
-                '  {}  {}\n'.format(
-                    as_emphasised( '(varies)'.ljust( 16 ) ),
-                    kind.label,
-                ),
-            )
+        supporting = supporting_toolchain_rows_for_kind( cuppa_env, kind.kind )
+        out.write(
+            '                 Toolchains: {}\n'.format(
+                as_subdued( _format_toolchain_names( supporting ) ),
+            ),
+        )
         if kind.cli_flags:
             out.write(
                 '                 CLI: {}\n'.format(

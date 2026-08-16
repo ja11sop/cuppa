@@ -4,7 +4,7 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   Built-in HTML report kinds (read-only catalogue for --list-report-kinds)
+#   Built-in HTML report kinds and toolchain availability for --list-available-reports
 #-------------------------------------------------------------------------------
 
 import os
@@ -39,7 +39,7 @@ REPORT_KINDS = (
         clean_via='{} manifest (matched on --clean / --remove-builds)'.format(
             MANIFEST_BASENAME,
         ),
-        notes='',
+        notes='Also requires --cxx-profiles or --cxx-profiles-enforce= with a Profiles-capable Clang',
     ),
     ReportKind(
         kind='coverage',
@@ -98,32 +98,85 @@ def report_kind_by_id( kind_id ):
     return None
 
 
-def serialise_report_kinds( env ):
-    """Build JSON-serialisable rows for ``--list-report-kinds --list-format=json``."""
+def toolchain_supports_report_kind( toolchain, kind_id, env=None ):
+    """Return whether ``toolchain`` can produce HTML for the given report kind."""
+    if kind_id == 'test':
+        runners = getattr( toolchain, 'test_runners', None )
+        if callable( runners ):
+            try:
+                return bool( runners() )
+            except Exception:
+                return False
+        return callable( getattr( toolchain, 'test_runner', None ) )
+    if kind_id == 'coverage':
+        supports = getattr( toolchain, 'supports_coverage', None )
+        if callable( supports ):
+            try:
+                return bool( supports() )
+            except Exception:
+                return False
+        return False
+    if kind_id == 'cxx-profiles':
+        profiles = getattr( toolchain, 'profiles_supported', None )
+        if callable( profiles ):
+            try:
+                return bool( profiles( env ) )
+            except Exception:
+                return False
+        return False
+    return False
+
+
+def supporting_toolchain_rows_for_kind( cuppa_env, kind_id ):
+    """Return sorted toolchain rows that support ``kind_id`` on this system."""
+    from cuppa.core.toolchain_actions import row_from_toolchain
+
+    toolchains = cuppa_env.get( 'toolchains' ) or {}
+    rows = []
+    for name in sorted( toolchains.keys() ):
+        toolchain = toolchains[ name ]
+        if not toolchain_supports_report_kind( toolchain, kind_id, cuppa_env ):
+            continue
+        row = row_from_toolchain( name, toolchain )
+        rows.append(
+            {
+                'name': row[ 'name' ],
+                'family': row[ 'family' ],
+                'version': row[ 'version' ],
+                'section': row[ 'section' ],
+                'driver_path': row[ 'driver_path' ],
+            },
+        )
+    return rows
+
+
+def serialise_report_kinds( env, include_toolchains=True ):
+    """Build JSON-serialisable rows for ``--list-available-reports --list-format=json``."""
     abs_root = abs_artefacts_root_from_env( env )
     rel_root = rel_artefacts_root_from_env( env )
     rows = []
     for kind in REPORT_KINDS:
         default_dir = default_report_dir_for_kind( env, kind )
-        rows.append(
-            {
-                'kind': kind.kind,
-                'label': kind.label,
-                'default_subdir': kind.default_subdir,
-                'under_artefacts_root': kind.under_artefacts_root,
-                'default_directory': default_dir,
-                'default_directory_relative': (
-                    '{}/{}'.format( rel_root, kind.default_subdir )
-                    if kind.default_subdir and kind.under_artefacts_root
-                    else None
-                ),
-                'cli_flags': list( kind.cli_flags ),
-                'env_method': kind.env_method,
-                'manifest_kind': kind.manifest_kind,
-                'clean_via': kind.clean_via,
-                'notes': kind.notes or None,
-            },
-        )
+        row = {
+            'kind': kind.kind,
+            'label': kind.label,
+            'default_subdir': kind.default_subdir,
+            'under_artefacts_root': kind.under_artefacts_root,
+            'default_directory': default_dir,
+            'default_directory_relative': (
+                '{}/{}'.format( rel_root, kind.default_subdir )
+                if kind.default_subdir and kind.under_artefacts_root
+                else None
+            ),
+            'cli_flags': list( kind.cli_flags ),
+            'env_method': kind.env_method,
+            'manifest_kind': kind.manifest_kind,
+            'clean_via': kind.clean_via,
+            'notes': kind.notes or None,
+        }
+        if include_toolchains:
+            row[ 'supporting_toolchains' ] = supporting_toolchain_rows_for_kind( env, kind.kind )
+        rows.append( row )
     return {
         'artefacts_root': rel_root,
         'abs_artefacts_root': abs_root,
@@ -131,3 +184,8 @@ def serialise_report_kinds( env ):
         'abs_artifacts_root': abs_root,
         'report_kinds': rows,
     }
+
+
+def serialise_available_reports( env ):
+    """Alias for :func:`serialise_report_kinds` with toolchain rows included."""
+    return serialise_report_kinds( env, include_toolchains=True )

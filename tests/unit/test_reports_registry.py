@@ -10,17 +10,65 @@ import pytest
 from cuppa.core import storage_actions
 from cuppa.core import storage_options
 from cuppa.core.storage_options import default
-from cuppa.reports.list_report_kinds import list_report_kinds
+from cuppa.reports.list_available_reports import list_available_reports
 from cuppa.reports.registry import (
     REPORT_KINDS,
     abs_artefacts_root_from_env,
     default_report_dir_for_kind,
     report_kind_by_id,
-    serialise_report_kinds,
+    serialise_available_reports,
+    supporting_toolchain_rows_for_kind,
+    toolchain_supports_report_kind,
 )
 from tests.helpers.fakes import FakeEnv
 
 pytestmark = pytest.mark.unit
+
+
+class FakeToolchain( object ):
+
+    def __init__(
+            self,
+            name,
+            family,
+            version='1.0',
+            coverage=False,
+            profiles=False,
+            test=True,
+    ):
+        self._name = name
+        self._family = family
+        self._version = version
+        self._coverage = coverage
+        self._profiles = profiles
+        self._test = test
+        self.values = { 'CXX': '/usr/bin/{}'.format( name ) }
+
+    def family( self ):
+        return self._family
+
+    def version( self ):
+        return self._version
+
+    def binary( self ):
+        return self.values[ 'CXX' ]
+
+    def supports_coverage( self ):
+        return self._coverage
+
+    def profiles_supported( self, env ):
+        return self._profiles
+
+    def test_runners( self ):
+        return [ 'process' ] if self._test else []
+
+
+def _env_with_toolchains( tmp_path, toolchains ):
+    env = FakeEnv( {} )
+    env[ 'sconstruct_dir' ] = str( tmp_path )
+    env[ 'toolchains' ] = toolchains
+    storage_options.process_storage_options( env )
+    return env
 
 
 def test_report_registry_includes_cxx_profiles():
@@ -54,34 +102,78 @@ def test_default_report_dir_for_cxx_profiles( tmp_path ):
     )
 
 
-def test_list_report_kinds_text_mentions_profiles_and_artefacts_root( tmp_path ):
-    env = FakeEnv( {} )
-    env[ 'sconstruct_dir' ] = str( tmp_path )
+def test_toolchain_supports_report_kind_matrix():
+    gcc = FakeToolchain( 'gcc', 'gcc', coverage=True, profiles=False )
+    clang_profiles = FakeToolchain( 'clang24_profiles', 'clang', coverage=True, profiles=True )
+    msvc = FakeToolchain( 'vc', 'msvc', coverage=False, profiles=False )
+
+    assert toolchain_supports_report_kind( gcc, 'test' )
+    assert toolchain_supports_report_kind( gcc, 'coverage' )
+    assert not toolchain_supports_report_kind( gcc, 'cxx-profiles' )
+
+    assert toolchain_supports_report_kind( clang_profiles, 'cxx-profiles' )
+
+    assert toolchain_supports_report_kind( msvc, 'test' )
+    assert not toolchain_supports_report_kind( msvc, 'coverage' )
+    assert not toolchain_supports_report_kind( msvc, 'cxx-profiles' )
+
+
+def test_supporting_toolchain_rows_for_coverage_excludes_msvc( tmp_path ):
+    toolchains = {
+        'gcc': FakeToolchain( 'gcc', 'gcc', coverage=True ),
+        'vc': FakeToolchain( 'vc', 'msvc', coverage=False ),
+        'clang24_profiles_2026_08_07_27': FakeToolchain(
+            'clang24_profiles_2026_08_07_27', 'clang', coverage=True, profiles=True,
+        ),
+    }
+    env = _env_with_toolchains( tmp_path, toolchains )
+    names = [ row[ 'name' ] for row in supporting_toolchain_rows_for_kind( env, 'coverage' ) ]
+    assert names == [ 'clang24_profiles_2026_08_07_27', 'gcc' ]
+
+    profile_names = [
+        row[ 'name' ] for row in supporting_toolchain_rows_for_kind( env, 'cxx-profiles' )
+    ]
+    assert profile_names == [ 'clang24_profiles_2026_08_07_27' ]
+
+
+def test_list_available_reports_text_mentions_toolchains_and_artefacts_root( tmp_path ):
+    env = _env_with_toolchains(
+        tmp_path,
+        {
+            'gcc': FakeToolchain( 'gcc', 'gcc', coverage=True ),
+            'clang24_profiles_2026_08_07_27': FakeToolchain(
+                'clang24_profiles_2026_08_07_27', 'clang', coverage=True, profiles=True,
+            ),
+        },
+    )
     env[ 'list_format' ] = 'text'
-    storage_options.process_storage_options( env )
     storage_actions.process_storage_action_options( env )
 
     from io import StringIO
     out = StringIO()
-    assert list_report_kinds( env, out ) == 0
+    assert list_available_reports( env, out ) == 0
     text = out.getvalue()
     assert 'Artefacts root:' in text
-    assert 'not a scan of files on disk' in text
-    assert 'cxx-profiles/' in text
+    assert 'not a scan of report files on disk' in text
+    assert 'Toolchains:' in text
+    assert 'clang24_profiles_2026_08_07_27' in text
+    assert 'Conventional:' in text
     assert 'env.CxxProfilesReport()' in text
     assert '--remove-artefacts' in text
 
 
-def test_list_report_kinds_json_includes_us_spelling_aliases( tmp_path ):
-    env = FakeEnv( {} )
-    env[ 'sconstruct_dir' ] = str( tmp_path )
-    storage_options.process_storage_options( env )
-    payload = serialise_report_kinds( env )
+def test_list_available_reports_json_includes_supporting_toolchains( tmp_path ):
+    env = _env_with_toolchains(
+        tmp_path,
+        { 'gcc': FakeToolchain( 'gcc', 'gcc', coverage=True ) },
+    )
+    payload = serialise_available_reports( env )
     assert payload[ 'artefacts_root' ] == default.artefacts_root
     assert payload[ 'artifacts_root' ] == payload[ 'artefacts_root' ]
-    assert payload[ 'abs_artifacts_root' ] == payload[ 'abs_artefacts_root' ]
-    kinds = { row[ 'kind' ] for row in payload[ 'report_kinds' ] }
-    assert kinds == { kind.kind for kind in REPORT_KINDS }
+    kinds = { row[ 'kind' ]: row for row in payload[ 'report_kinds' ] }
+    assert kinds.keys() == { kind.kind for kind in REPORT_KINDS }
+    assert kinds[ 'coverage' ][ 'supporting_toolchains' ][ 0 ][ 'name' ] == 'gcc'
+    assert kinds[ 'cxx-profiles' ][ 'supporting_toolchains' ] == []
 
 
 def test_artefacts_root_cli_sets_british_and_us_env_keys( tmp_path, monkeypatch ):

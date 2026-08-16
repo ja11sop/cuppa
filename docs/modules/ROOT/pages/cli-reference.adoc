@@ -90,7 +90,7 @@ xref:build-layout.adoc#remove-all-builds-example[`--remove-all-builds`]).
 | Option | Effect
 
 | `--list-builds` | List the build root as folder summary, toolchain → variant tree, and sconscript tree; print an explicit command for the selected builds
-| `--list-report-kinds` | List **built-in** HTML report kinds (Profiles, coverage, test)—not files on disk—their default directories under the artefacts root, CLI flags, sconscript methods, and how clean/removal works today; supports `--list-format=json`. Use when you need cuppa's report surface for this version without opening the docs.
+| `--list-available-reports` | List built-in HTML report kinds and which registered/discovered toolchains on this system can produce each (via coverage/profiles/test capability probes—not a scan of report files on disk); default artefact paths, CLI flags, sconscript methods, and clean behaviour; supports `--list-format=json`. Use `-Q` for readable output.
 | `--list-toolchains` | List **discovered** (PATH) and **registered** (managed) toolchains as a ruled family → version → driver → name(s) tree; then exit. Force-wipe applies only to registered rows. `--list-format=verbose` adds dialects / features / default invocations; `--list-format=json` emits the nested agent payload (with `describe` on drivers). See xref:toolchains.adoc#list-toolchains[Listing toolchains]
 | `--remove-builds` | Remove variant subtrees matching the current `--toolchains` / `--dbg` / `--rel` / `--cov` selection
 | `--remove-all-builds` | Remove the entire build root

@@ -90,24 +90,24 @@ That path is a *project* convention; cuppa itself defaults to placing coverage n
 C++ Profiles violation reports default to `<artefacts-root>/cxx-profiles/` when you pass
 `--cxx-profiles-report` or declare `env.CxxProfilesReport()` in a sconscript.
 
-=== Report kinds catalogue (`--list-report-kinds`)
+=== Available reports (`--list-available-reports`)
 
-Before you build — or when onboarding to a project — you may need to know **which HTML report
-*kinds* cuppa can emit**, **where they would land** under the artefacts root, and **how to enable or
-clean** each kind. `--list-report-kinds` answers that without running a compile. It lists **built-in
-report types from cuppa's registry**, not files already present on disk:
+Before you build, you may need to know **which HTML report kinds cuppa can emit**, **which
+toolchains on this system can produce each**, **where output would land** under the artefacts root,
+and **how to enable or clean** each kind. `--list-available-reports` crosses the built-in report
+registry with the same toolchain inventory as `--list-toolchains` (via ``supports_coverage()``,
+``profiles_supported()``, test runners, and similar probes). It does **not** scan `_artefacts/` for
+existing index files.
 
 [source,sh]
 ----
-cuppa -D --list-report-kinds
-cuppa -D --list-report-kinds --list-format=json
+cuppa -D -Q --list-available-reports
+cuppa -D -Q --list-available-reports --list-format=json
 ----
 
-The listing names each built-in kind (Profiles violation inventory, coverage HTML, test HTML),
-its default subdirectory when one exists, the CLI flags or `env.*()` method that produces it, and
-how removal works today (for example Profiles paths recorded in `.cuppa-reports` for matched
-`--clean`). It does **not** scan `_artefacts/` for existing index files, delete anything, or
-replace a future on-disk report listing or `--remove-artefacts` (Phase 6 / #135).
+Pass `-Q` to suppress configure noise. Each kind lists supporting `--toolchains=` names (or
+`(none on this system)`), CLI flags, sconscript methods, and clean behaviour today. It does **not**
+replace a future on-disk report inventory or `--remove-artefacts` (Phase 6 / #135).
 
 If your tree still uses the older `_artifacts/` folder name, cuppa keeps using it until you move
 the tree or pass `--artefacts-root=` explicitly.

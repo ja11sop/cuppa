@@ -638,13 +638,15 @@ also store a denormalised `all_paths[]` for convenience — not required in the 
 | Piece | Behaviour |
 |-------|-----------|
 | Registry | `cuppa/reports/registry.py` — static rows for Profiles, coverage, test |
-| Discovery | `--list-report-kinds` (+ `--list-format=json`) — registry of kinds, not on-disk scan |
+| Discovery | `--list-available-reports` (+ `--list-format=json`) — report kinds × toolchain capability on this system |
 | Artefacts root | British `--artefacts-root` / `env.artefacts_root`; US `--artifacts-root` / `env.artifacts_root` aliases |
 | Clean | Profiles still use `.cuppa-reports` manifest until #135 Phase 6 |
 
-**Deferred to #135:** `artefact_roots`, `--remove-artefacts`, on-disk report/artefact listing, registry-driven wipe of whole trees.
+**Naming:** `--list-available-reports` — crosses the static report registry with
+``cuppa_env['toolchains']`` (same inventory as ``--list-toolchains``). Lists **which toolchains on
+this system can produce each kind**; does not scan `_artefacts/` for existing index files (Phase 6).
 
-**Naming:** `--list-report-kinds` (not `--list-reports`) — F-min lists **kinds cuppa knows about**, not index files under `_artefacts/`. Scanning the tree for existing reports belongs with Phase 6 artefact roots / removal design.
+**Deferred to #135:** `artefact_roots`, `--remove-artefacts`, on-disk report inventory, registry-driven wipe of whole trees.
 
 <a id="prof-report-method"></a>
 
@@ -1306,7 +1308,7 @@ Silently register report producers when cuppa loads (no sconscript edit):
 | C++ Profiles | — | `--cxx-profiles-report` |
 
 Registry records: `kind`, default subdir, CLI flag, manifest kind string. Enables future
-`--list-report-kinds` / doc samples in [`colourised-doc-samples.md`](colourised-doc-samples.md).
+`--list-available-reports` / doc samples in [`colourised-doc-samples.md`](colourised-doc-samples.md).
 
 ## Work slices
 
@@ -1377,7 +1379,7 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 | H — `prof-report-context-summary` | **Done** — merged [#196](https://github.com/ja11sop/cuppa/pull/196): Overview tab, `context` JSON, `-H`, tier metrics, Build inventory load, [variant roll-up display](#prof-report-variant-roll-up-display) (**Union Refs**, **Peak Refs**, common + deltas, `build_key` grain), **Violations By-Build** tab, unified scope detail (**Profile** column), Antora doc split |
 | G — `prof-report-anonymize` | **Done** — merged [#197](https://github.com/ja11sop/cuppa/pull/197): thematic anonymiser + verify + metadata-driven HTML headers |
 | E — `prof-report-method` | **Proposal** — `env.CxxProfilesReport()` |
-| F — `prof-report-artefacts` | **F-min proposal** — registry + `--list-report-kinds`; British `--artefacts-root`; full `--remove-artefacts` deferred to #135 |
+| F — `prof-report-artefacts` | **F-min proposal** — registry + `--list-available-reports`; British `--artefacts-root`; full `--remove-artefacts` deferred to #135 |
 
 **Next focus:** land slices **E** + **F-min** on [#184](https://github.com/ja11sop/cuppa/issues/184), then close the umbrella issue.
 
