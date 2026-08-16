@@ -92,22 +92,17 @@ C++ Profiles violation reports default to `<artefacts-root>/cxx-profiles/` when 
 
 === Available reports (`--list-available-reports`)
 
-Before you build, you may need to know **which HTML report kinds cuppa can emit**, **which
-toolchains on this system can produce each**, **where output would land** under the artefacts root,
-and **how to enable or clean** each kind. `--list-available-reports` crosses the built-in report
-registry with the same toolchain inventory as `--list-toolchains` (via ``supports_coverage()``,
-``profiles_supported()``, test runners, and similar probes). It does **not** scan `_artefacts/` for
-existing index files.
+Crosses built-in report kinds with the toolchains on this system (same inventory as
+`--list-toolchains`, probed via coverage/profiles/test support). Output is a judgement tree:
+Methods (index, generation, capture), CLI enable/clean, and toolchains grouped by family
+(newest first; bare ``gcc`` / ``clang`` highlighted when present). Does **not** scan
+`_artefacts/` for existing report files.
 
 [source,sh]
 ----
 cuppa -D -Q --list-available-reports
 cuppa -D -Q --list-available-reports --list-format=json
 ----
-
-Pass `-Q` to suppress configure noise. Each kind lists supporting `--toolchains=` names (or
-`(none on this system)`), CLI flags, sconscript methods, and clean behaviour today. It does **not**
-replace a future on-disk report inventory or `--remove-artefacts` (Phase 6 / #135).
 
 If your tree still uses the older `_artifacts/` folder name, cuppa keeps using it until you move
 the tree or pass `--artefacts-root=` explicitly.

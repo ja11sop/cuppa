@@ -14,8 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `abs_artefacts_root` (US aliases `artifacts_root` / `abs_artifacts_root`). C++ Profiles
   reports honour it (`<artefacts-root>/cxx-profiles/`).
   Coverage and test HTML still use the conventional tree until a follow-on wires them through.
-- `--list-available-reports` lists built-in HTML report kinds and which toolchains on this system
-  can produce each (coverage/profiles/test probes—not a scan of files on disk); supports
+- `--list-available-reports` lists built-in HTML report kinds in a judgement tree (Methods, CLI,
+  toolchains by family) and which toolchains on this system can produce each; supports
   `--list-format=json`.
 - `env.CxxProfilesReport()` declares Profiles violation capture from a sconscript (same output as
   `--cxx-profiles-report`; optional `destination=` and `link_style=` kwargs).

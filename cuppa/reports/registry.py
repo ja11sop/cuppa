@@ -184,8 +184,3 @@ def serialise_report_kinds( env, include_toolchains=True ):
         'abs_artifacts_root': abs_root,
         'report_kinds': rows,
     }
-
-
-def serialise_available_reports( env ):
-    """Alias for :func:`serialise_report_kinds` with toolchain rows included."""
-    return serialise_report_kinds( env, include_toolchains=True )

@@ -10,13 +10,15 @@ import pytest
 from cuppa.core import storage_actions
 from cuppa.core import storage_options
 from cuppa.core.storage_options import default
-from cuppa.reports.list_available_reports import list_available_reports
+from cuppa.reports.list_available_reports import (
+    list_available_reports,
+    serialise_available_reports,
+)
 from cuppa.reports.registry import (
     REPORT_KINDS,
     abs_artefacts_root_from_env,
     default_report_dir_for_kind,
     report_kind_by_id,
-    serialise_available_reports,
     supporting_toolchain_rows_for_kind,
     toolchain_supports_report_kind,
 )
@@ -154,11 +156,15 @@ def test_list_available_reports_text_mentions_toolchains_and_artefacts_root( tmp
     assert list_available_reports( env, out ) == 0
     text = out.getvalue()
     assert 'Artefacts root:' in text
-    assert 'not a scan of report files on disk' in text
+    assert 'Report kinds available with current toolchains' in text
+    assert 'Collated Test Report' in text
+    assert 'Collated Coverage Report' in text
+    assert 'Collated C++ Profiles Report' in text
+    assert 'env.CollateTestReportIndex()' in text
+    assert 'env.CollateCoverageIndex()' in text
+    assert 'env.CxxProfilesReport()' in text
     assert 'Toolchains:' in text
     assert 'clang24_profiles_2026_08_07_27' in text
-    assert 'Conventional:' in text
-    assert 'env.CxxProfilesReport()' in text
     assert '--remove-artefacts' in text
 
 
@@ -172,7 +178,9 @@ def test_list_available_reports_json_includes_supporting_toolchains( tmp_path ):
     assert payload[ 'artifacts_root' ] == payload[ 'artefacts_root' ]
     kinds = { row[ 'kind' ]: row for row in payload[ 'report_kinds' ] }
     assert kinds.keys() == { kind.kind for kind in REPORT_KINDS }
-    assert kinds[ 'coverage' ][ 'supporting_toolchains' ][ 0 ][ 'name' ] == 'gcc'
+    assert kinds[ 'test' ][ 'title' ] == 'Collated Test Report'
+    assert kinds[ 'coverage' ][ 'toolchains_by_family' ][ 0 ][ 'preferred' ] == 'gcc'
+    assert kinds[ 'coverage' ][ 'supporting_toolchains' ] == [ 'gcc' ]
     assert kinds[ 'cxx-profiles' ][ 'supporting_toolchains' ] == []
 
 
