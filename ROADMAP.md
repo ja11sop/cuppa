@@ -11,7 +11,7 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-08-11
+**As of:** 2026-08-16
 
 ---
 
@@ -24,7 +24,7 @@ Maintainer **target bundle** for the release (plans landed; implementation follo
 | ID | Work | Plan |
 |----|------|------|
 | `console-terse-output` | `--terse-output` Phase 1 (one-line success; failures verbose) | [`terse-build-output.md`](design/plans/terse-build-output.md) |
-| `profiles-violation-report` | `--cxx-profiles-report` slices A–H + **G** shipped; **E** + **F-min** on branch `prof-report-method-artefacts-min`; **`prof-report-method-semantics`** next | [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) |
+| `profiles-violation-report` | `--cxx-profiles-report` slices A–H + **G** + **E** + **F-min** shipped ([#198](https://github.com/ja11sop/cuppa/pull/198)); **`prof-report-method-semantics`** ([#199](https://github.com/ja11sop/cuppa/issues/199)) next | [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) |
 | `console-log-hygiene` | Demote toolchain registration spam; fix variant default log text | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md) |
 | `cli-info` | `cuppa --info` — version without loading sconstruct | [`cuppa-info.md`](design/plans/cuppa-info.md) |
 
@@ -138,6 +138,7 @@ Umbrella: [#127](https://github.com/ja11sop/cuppa/issues/127) ([#177](https://gi
 | `--cxx-profiles-enforce=` (native flags or `-include` inject; source composition) | Yes |
 | `--cxx-disable-error-limit` (Clang/GCC; MSVC `cl` has no supported flag) | Yes |
 | `--cxx-profiles-report` — HTML + JSON inventory, Overview context, variant roll-ups ([#196](https://github.com/ja11sop/cuppa/pull/196)) | Yes |
+| `env.CollateCxxProfilesIndex()`, `--list-available-reports`, British `--artefacts-root` ([#198](https://github.com/ja11sop/cuppa/pull/198)) | Yes |
 | Smoke designator `std::init` on Alliance Clang | Yes |
 | Integration smoke + unsupported-toolchain failure | Yes |
 
@@ -153,8 +154,8 @@ Umbrella: [#127](https://github.com/ja11sop/cuppa/issues/127) ([#177](https://gi
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `profiles-violation-report` | `prof-report-method-semantics` — implied `-i`, selective exit, scope filter, Progress decoupling for inventory runs | High | [#184](https://github.com/ja11sop/cuppa/issues/184) after **E** merges; see [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) §Collate index semantics |
-| `profiles-violation-report` | `prof-report-artefacts` — full `--remove-artefacts` / declared artefact trees | Medium | Blocked on [#135](https://github.com/ja11sop/cuppa/issues/135); F-min discovery shipped with E |
+| `profiles-violation-report` | `prof-report-method-semantics` — implied `-i`, selective exit, scope filter, Progress decoupling for inventory runs | High | [#199](https://github.com/ja11sop/cuppa/issues/199); see [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) §Collate index semantics |
+| `profiles-violation-report` | `prof-report-artefacts` — full `--remove-artefacts` / declared artefact trees | Medium | Blocked on [#135](https://github.com/ja11sop/cuppa/issues/135); F-min discovery shipped in [#198](https://github.com/ja11sop/cuppa/pull/198) |
 | `profiles-designators` | Additional profile names as Alliance Clang / WG21 stabilise | Medium | Cuppa passes opaque strings through |
 | `profiles-native-enforce` | Wire `profiles_enforce_flags` when a compiler adds native enforce flags | Low | Hook exists; `-include` fallback remains |
 | `profiles-carve-outs` | Build policy to skip session enforce on selected paths | Low | Separate from source attributes |
