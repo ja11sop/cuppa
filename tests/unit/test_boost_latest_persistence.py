@@ -18,6 +18,7 @@ from cuppa.dependencies.boost.version_and_location import (
         maybe_persist_boost_latest,
         resolve_boost_latest_version,
         version_is_higher,
+        _concrete_boost_version,
 )
 
 
@@ -59,6 +60,38 @@ def test_boost_location_id_boost_latest_sets_latest_token():
             Env( { 'boost-latest': True }, { 'thirdparty': None } )
     )
     assert version == 'latest'
+
+
+def test_boost_location_id_boost_latest_overrides_boost_version():
+    _location, version, _base, _patched = boost_location_id(
+            Env(
+                    { 'boost-latest': True, 'boost-version': '1.90.0' },
+                    { 'thirdparty': None },
+            )
+    )
+    assert version == 'latest'
+
+
+def test_boost_location_id_boost_latest_does_not_override_boost_home():
+    _location, version, base, _patched = boost_location_id(
+            Env(
+                    {
+                        'boost-latest': True,
+                        'boost-version': '1.90.0',
+                        'boost-home': '/opt/boost',
+                    },
+                    { 'thirdparty': None },
+            )
+    )
+    assert base == os.path.abspath( '/opt/boost' )
+    assert version == '1.90.0'
+
+
+def test_concrete_boost_version_explicit_skips_resolve():
+    env = Env( values={ 'offline': False } )
+    version, source = _concrete_boost_version( env, '1.88.0', force_scrape=False )
+    assert version == '1.88.0'
+    assert source == 'explicit'
 
 
 def test_version_is_higher_compares_dotted_and_underscored():
@@ -193,6 +226,27 @@ def test_resolve_compiled_in_when_online_scrape_fails( tmp_path, monkeypatch ):
     version, source = resolve_boost_latest_version( env, force_scrape=False )
     assert version == current_boost_release()
     assert source == 'compiled_in'
+
+
+def test_resolve_force_scrape_skips_stored( tmp_path, monkeypatch ):
+    project = tmp_path / 'proj'
+    downloads = project / 'downloads'
+    downloads.mkdir( parents=True )
+    conf = project / 'configure.conf'
+    conf.write_text( "{} = 1.91.0\n".format( BOOST_LATEST_VERSION_KEY ), encoding='utf-8' )
+    monkeypatch.setattr(
+            'cuppa.dependencies.boost.version_and_location.scrape_latest_boost_version',
+            lambda: '1.93.0',
+    )
+    env = Env( values={
+        'offline': False,
+        'downloads_root': str( downloads ),
+        'sconstruct_dir': str( project ),
+        'abs_sconstruct_dir': str( project ),
+    } )
+    version, source = resolve_boost_latest_version( env, force_scrape=True )
+    assert version == '1.93.0'
+    assert source == 'scraped'
 
 
 def test_resolve_force_scrape_uses_network_result( tmp_path, monkeypatch ):

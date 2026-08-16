@@ -29,10 +29,10 @@ class Boost(object):
     @classmethod
     def add_options( cls, add_option ):
         add_option( '--boost-latest', dest='boost-latest', action='store_true',
-                    help='Use the latest Boost release (checks boost.org when online). '
-                         'Without this flag, Cuppa prefers a stored boost_latest_version, '
-                         'then checks boost.org when online on Boost use, then the compiled-in '
-                         'default.' )
+                    help='Override a pinned --boost-version= or force a fresh boost.org check '
+                         'when online (skips stored boost_latest_version). Unpinned Boost '
+                         '(default_dependencies boost with no version) already resolves latest '
+                         'on use — stored value, then online check, then compiled-in default.' )
 
         add_option( '--boost-version', dest='boost-version', type='string', nargs=1, action='store',
                     help='Boost Version to build against' )
