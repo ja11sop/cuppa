@@ -69,6 +69,7 @@ import zipfile
 from collections import namedtuple
 
 from scripts.github_api import CredentialError, GitHub
+from scripts.check_version_bump import impact_from_labels
 
 
 DEFAULT_BASE = 'master'
@@ -798,7 +799,22 @@ def _read_body( arguments, required=True ):
     return None
 
 
+def _require_impact_label( labels ):
+    """``create-pr`` must apply exactly one ``impact:`` label so the version job passes on the first CI run."""
+    if not labels:
+        raise GitHubHelperError(
+            "create-pr requires exactly one impact: label (for example --label impact:minor). "
+            "The version job on pull requests fails immediately without it, which wastes a full "
+            "CI matrix run."
+        )
+    try:
+        impact_from_labels( labels )
+    except ValueError as error:
+        raise GitHubHelperError( str( error ) )
+
+
 def create_pr_command( arguments ):
+    _require_impact_label( arguments.label )
     pull = create_pull_request(
         title = arguments.title,
         body = _read_body( arguments ),
@@ -906,7 +922,8 @@ def main( argv=None ):
     create.add_argument( '--base', default=DEFAULT_BASE )
     create.add_argument(
         '--label', action='append', default=[],
-        help="label to apply; repeat for more than one (for example --label impact:minor)",
+        help="label to apply; repeat for more than one. Required: exactly one impact: label "
+             "(impact:none, impact:patch, impact:minor, or impact:major) so the version job passes",
     )
     create.add_argument( '--owner' )
     create.add_argument( '--repo' )

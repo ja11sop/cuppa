@@ -2,7 +2,7 @@
 
 - **Status:** living
 - **Related:** [`AGENTS.md`](../../AGENTS.md) (agent ops); Antora Contributing (human versioning/release)
-- **Updated:** 2026-08-11
+- **Updated:** 2026-08-15
 - **Maintainer:** primary author of this journey; others append only (see `AGENTS.md`)
 - **Privacy:** obey the private-projects rule; never copy names from `INTERNAL_PROJECTS.local.md`
 - **Source:** Cursor sessions spanning roughly mid-July → 2026-08-07 on cuppa
@@ -322,6 +322,7 @@ These are recommendations for the next project, not self-flagellation.
 | Local gate via checkout `venv/` + `requirements.txt` | Avoids broken host flake8/pylint shims and missing test extras |
 | `generate_doc_samples` + partial includes | Listing docs cannot drift from CLI trees / JSON |
 | Hub + family topic pages (Dependencies, Toolchains) | Agents know which AsciiDoc file owns defaults vs inventory |
+| `create-pr` rejects missing `impact:` label | Version job runs before the matrix; label-at-open avoids a wasted CI cycle |
 
 ---
 

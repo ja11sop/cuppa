@@ -299,8 +299,19 @@ def inventory_from_report_model( model, flat_locations=None ):
 
 def env_from_report_metadata( metadata, arguments ):
     """Merge CLI arguments with metadata saved in a report JSON file."""
+    from cuppa.cpp.profiles_report.anonymise import (
+        ANON_PLACEHOLDER_ROOT,
+        metadata_is_anonymised,
+        set_env_anonymised,
+    )
+
+    anonymised = metadata_is_anonymised( metadata )
     if getattr( arguments, 'sconstruct_dir', None ):
         sconstruct_dir = os.path.abspath( arguments.sconstruct_dir )
+    elif anonymised:
+        sconstruct_dir = os.path.abspath(
+            metadata.get( 'sconstruct_dir' ) or ANON_PLACEHOLDER_ROOT,
+        )
     elif metadata.get( 'sconstruct_dir' ):
         sconstruct_dir = metadata[ 'sconstruct_dir' ]
     else:
@@ -323,7 +334,12 @@ def env_from_report_metadata( metadata, arguments ):
         getattr( arguments, 'reports_link_style', None ),
     ) or _normalise_style( getattr( arguments, 'link_style', None ) )
 
-    report_root = metadata.get( 'cxx_profiles_report_root' ) or sconstruct_dir
+    if anonymised and not getattr( arguments, 'sconstruct_dir', None ):
+        report_root = os.path.abspath(
+            metadata.get( 'cxx_profiles_report_root' ) or sconstruct_dir,
+        )
+    else:
+        report_root = metadata.get( 'cxx_profiles_report_root' ) or sconstruct_dir
 
     env = {
         'sconstruct_dir': sconstruct_dir,
@@ -340,6 +356,8 @@ def env_from_report_metadata( metadata, arguments ):
         env[ 'reports_link_style' ] = metadata[ 'link_style' ]
     if metadata.get( 'profiles_enforce' ):
         env[ 'cxx_profiles_enforce' ] = list( metadata[ 'profiles_enforce' ] )
+    if metadata_is_anonymised( metadata ):
+        set_env_anonymised( env )
     if arguments.report_dir:
         env[ 'cxx_profiles_report' ] = os.path.abspath( arguments.report_dir )
     return env

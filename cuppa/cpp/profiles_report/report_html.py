@@ -372,6 +372,22 @@ def report_header_context( env ):
     }
 
 
+def report_header_context_from_metadata( metadata ):
+    """Build report header fields from saved JSON metadata (anonymised regen)."""
+    metadata = metadata or {}
+    report_uri = metadata.get( 'report_uri' ) or ''
+    report_branch = metadata.get( 'report_branch' ) or ''
+    report_revision = metadata.get( 'report_revision' ) or ''
+    provenance = build_vcs_provenance( report_uri, report_branch, report_revision )
+    return {
+        'report_project': metadata.get( 'report_project' ) or '',
+        'report_uri': report_uri or 'Local',
+        'report_branch': report_branch,
+        'report_revision': report_revision,
+        'vcs_provenance': provenance,
+    }
+
+
 def build_file_rule_variant_counts( file_entry ):
     """Build per-build inventory violated-rule breakdown for the by-file table."""
     rules = file_entry.get( 'rules', [] )
@@ -488,6 +504,7 @@ def enrich_model_for_html(
     report_root,
     sconstruct_dir,
     source_page_map=None,
+    suppress_source_links=False,
 ):
     """Attach display paths and hrefs for template rendering."""
     from cuppa.cpp.profiles_report.build_catalog import build_catalog_from_scopes
@@ -496,6 +513,7 @@ def enrich_model_for_html(
         build_source_page_title,
         display_path_for_report,
     )
+    from cuppa.cpp.profiles_report.anonymise import env_is_anonymised
     from cuppa.cpp.profiles_report.variant_roll_up_display import attach_roll_up_displays
 
     source_page_map = source_page_map or {}
@@ -503,7 +521,7 @@ def enrich_model_for_html(
 
     def enrich_file( file_entry ):
         display = display_path_for_report( file_entry[ 'path' ], env )
-        if display == file_entry[ 'path' ]:
+        if not env_is_anonymised( env ) and display == file_entry[ 'path' ]:
             display = display_path( file_entry[ 'path' ], report_root, sconstruct_dir )
         file_entry[ 'display_path' ] = display
         file_entry.update( build_source_page_title( display, file_entry[ 'path' ], env ) )
@@ -513,6 +531,7 @@ def enrich_model_for_html(
             link_style,
             link_base,
             display,
+            suppress_source_links=suppress_source_links,
         )
         file_entry[ 'path_tooltip' ] = file_path_tooltip_text( file_entry )
         enrich_file_rules( file_entry )
@@ -591,6 +610,7 @@ def render_profiles_reports(
     parsed_files=None,
     translation_units=None,
     context=None,
+    metadata=None,
 ):
     """Render HTML (and optionally JSON) from a serialised report view model."""
     rollup = model.get( 'rollup', {} )
@@ -609,11 +629,13 @@ def render_profiles_reports(
     sconstruct_dir = env.get( 'sconstruct_dir' ) or os.getcwd()
 
     link_base = initialise_report_linking( env, link_style=link_style )
+    from cuppa.cpp.profiles_report.anonymise import env_is_anonymised
+    suppress_source_links = env_is_anonymised( env )
 
     templates = jinja2_templates()
     source_page_map = {}
     source_written = []
-    if not skip_source_pages:
+    if not skip_source_pages and not suppress_source_links:
         if inventory is None:
             from cuppa.cpp.profiles_report.report_json import inventory_from_report_model
             inventory = inventory_from_report_model( model )
@@ -635,6 +657,7 @@ def render_profiles_reports(
         report_root,
         sconstruct_dir,
         source_page_map=source_page_map,
+        suppress_source_links=suppress_source_links,
     )
 
     context_base = {
@@ -649,7 +672,12 @@ def render_profiles_reports(
         'overview_doc_profile_matrices': overview_doc_href( 'profile-matrices' ),
         'overview_doc_build_breakdown': overview_doc_href( 'build-breakdown' ),
     }
-    header_context = report_header_context( env )
+    from cuppa.cpp.profiles_report.anonymise import metadata_is_anonymised
+
+    if metadata_is_anonymised( metadata ):
+        header_context = report_header_context_from_metadata( metadata )
+    else:
+        header_context = report_header_context( env )
     header_context[ 'session_stats' ] = {
         'unique_violation_count': rollup[ 'unique_violation_count' ],
         'unique_rule_count': rollup[ 'unique_rule_count' ],
@@ -755,12 +783,14 @@ def write_profiles_reports_from_json(
     write_json=False,
 ):
     """Re-render HTML from a saved ``cxx-profiles-index.json``."""
+    from cuppa.cpp.profiles_report.anonymise import metadata_is_anonymised, set_env_anonymised
     from cuppa.cpp.profiles_report.report_json import inventory_from_report_model, load_report_model
     model, metadata, extras = load_report_model( json_path )
     merged_env = dict( env )
-    if metadata.get( 'sconstruct_dir' ) and not merged_env.get( 'sconstruct_dir' ):
+    anonymised = metadata_is_anonymised( metadata )
+    if not anonymised and metadata.get( 'sconstruct_dir' ) and not merged_env.get( 'sconstruct_dir' ):
         merged_env[ 'sconstruct_dir' ] = metadata[ 'sconstruct_dir' ]
-    if metadata.get( 'cxx_profiles_report_root' ):
+    if metadata.get( 'cxx_profiles_report_root' ) and not anonymised:
         merged_env.setdefault(
             'cxx_profiles_report_root',
             metadata[ 'cxx_profiles_report_root' ],
@@ -772,6 +802,9 @@ def write_profiles_reports_from_json(
             'cxx_profiles_enforce',
             list( metadata[ 'profiles_enforce' ] ),
         )
+    if anonymised:
+        set_env_anonymised( merged_env )
+        skip_source_pages = True
     inventory = None
     if not skip_source_pages:
         flat_locations = extras.get( 'locations' ) or None
@@ -787,6 +820,7 @@ def write_profiles_reports_from_json(
         skip_source_pages=skip_source_pages,
         write_json=write_json,
         context=extras.get( 'context' ),
+        metadata=metadata,
     )
 
 

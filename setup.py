@@ -35,6 +35,7 @@ setup(
         'cuppa',
         'cuppa.core',
         'cuppa.cpp',
+        'cuppa.cpp.profiles_report',
         'cuppa.cpp.templates',
         'cuppa.dependencies',
         'cuppa.dependencies.boost',
@@ -77,7 +78,10 @@ setup(
             os.path.join( 'cpp','templates','cxx_profiles_source_file.html' ),
             os.path.join( 'test_report','templates','test_report_index.html' ),
             os.path.join( 'test_report','templates','test_suite_index.html' ),
-        ]
+        ],
+        'cuppa.cpp.profiles_report': [
+            'thematic_names.json',
+        ],
     },
     install_requires = [
         'colorama',

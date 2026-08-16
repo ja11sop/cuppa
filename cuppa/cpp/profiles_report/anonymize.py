@@ -1,0 +1,8 @@
+#          Copyright Jamie Allsop 2026-2026
+# Distributed under the Boost Software License, Version 1.0.
+#    (See accompanying file LICENSE_1_0.txt or copy at
+#          http://www.boost.org/LICENSE_1_0.txt)
+
+# US spelling compatibility module — prefer ``cuppa.cpp.profiles_report.anonymise``.
+
+from cuppa.cpp.profiles_report.anonymise import *  # noqa: F401,F403

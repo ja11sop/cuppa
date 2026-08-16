@@ -39,6 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Per-scope detail pages: one **Violations By-Rule** / **By-File** tab pair with **Profile** column
   (all profiles in the same tables); build heading `variant/tail — toolchain` matches By-Build.
   Antora: xref:cxx-profiles/report-by-sconscript.adoc[Violations By-Sconscript].
+- Profiles report JSON anonymisation (slice G, `prof-report-anonymize`):
+  ``python -m scripts.anonymise_profiles_report`` transforms saved
+  ``cxx-profiles-index.json`` into a shareable artefact (``metadata.anonymised``,
+  path rewrites, recomputed ``location_key``); ``regenerate_profiles_report --anonymised``
+  skips ``by-source/`` pages and suppresses file/repo hrefs.
 - Profiles violation report parser groundwork ([#184](https://github.com/ja11sop/cuppa/issues/184)):
   `cuppa/cpp/cxx_profiles_report.py` parses Clang Profiles diagnostics, classifies rule
   ids, and dedupes violations per scope (slice A).
@@ -64,6 +69,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Profiles report anonymisation uses British spelling in module names, metadata fields
+  (``metadata.anonymised``, ``anonymisation_version``), and CLI flags (``--anonymised``).
+  US variants (``anonymize`` module alias, ``--anonymized``, legacy metadata keys) are still
+  accepted without appearing in help text.
+- Anonymised Profiles HTML regen reads index and scope headers from saved JSON ``metadata``
+  (``report_project``, cleared VCS fields) instead of live git or the regen working directory.
+- Violation report documentation: xref:cxx-profiles/report-introduction.adoc#sharing-anonymised[Sharing an inventory (anonymised JSON)] on Introduction; regen tables document ``--anonymised``.
 - Violation report documentation: xref:cxx-profiles/report-introduction.adoc[Introduction] replaces
   shared concepts as the feature entry point (build command, ``regenerate_profiles_report``,
   JSON for CI/agents); tab guides aligned to a common structure; Overview page scoped to the
@@ -115,6 +127,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Anonymised Profiles report regen no longer treats placeholder `metadata.sconstruct_dir`
+  (`/home/user/project/widget`) as a writable path; output defaults to the input JSON directory
+  unless `--report-dir=` is set.
 - C++ Profiles report compile hook: TU capture wrapper accepts the SCons environment as its
   first argument (fixes `TypeError` when `--cxx-profiles-report` wraps `Compile` methods).
 - C++ Profiles report builds: ``-H`` include-stack lines are captured for Overview metrics but
