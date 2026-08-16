@@ -1,0 +1,66 @@
+= `test_available_reports` — catalogue and canonical collated reports
+:description: Cuppa integration test for --list-available-reports and combined _artefacts/ indexes
+
+
+== What is tested
+
+* `--list-available-reports` (and `--list-format=json`) on a minimal generated project — configure-only, no compile.
+* A *canonical* sconscript that mirrors the judgement-tree catalogue: build a library/binary, run a test with HTML reports, collate test and coverage indexes under `#_artefacts/test/` and `#_artefacts/coverage/`, and declare `env.CollateCxxProfilesIndex()` for the default `_artefacts/cxx-profiles/` session index.
+
+The combined build scenario skips (with log) when `gcov` / `gcovr` are missing, when `CUPPA_TEST_TOOLCHAIN` is MSVC, or when no Profiles-capable Clang (`-fprofiles`) is available — same gates as xref:integration/test-coverage.adoc[`test_coverage`] and xref:integration/test-cxx-profiles.adoc[`test_cxx_profiles`].
+
+== Generated files
+
+=== Shared `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== Catalogue listing (no build)
+
+Minimal root `sconscript`:
+
+[source,python]
+----
+Import('env')
+env.Build('main', 'apps/main.cpp')
+----
+
+=== Canonical collated reports `sconscript`
+
+Uses `tests/fixtures/dummy_project/` (copied into a temp dir):
+
+[source,python]
+----
+Import('env')
+env.Build('main', 'apps/main.cpp')
+prog = env.BuildTest('hello_test', 'tests/hello_test.cpp')
+reports = env.GenerateHtmlTestReport(prog)
+env.CollateTestReportIndex(reports, destination='#_artefacts/test/')
+cov = env.CollateCoverageFiles(prog, destination='#_artefacts/coverage/')
+env.CollateCoverageIndex(cov, destination='#_artefacts/coverage/')
+env.CollateCxxProfilesIndex()
+----
+
+== Commands
+
+[source,sh]
+----
+cuppa -D -Q --list-available-reports
+cuppa -D -Q --list-available-reports --list-format=json
+cuppa -D --dbg --test --cov --cxx-profiles --cxx-profiles-enforce=std::init \
+  --cxx-disable-error-limit -i --toolchains=<profiles-clang>
+----
+
+== Expectations
+
+* Listing: exit 0; tree contains `{artefacts_root}` / `{build_root}` branches and all three collated report kinds with method names from the registry catalogue.
+* Combined build: exit 0; `main` and `hello_test` under `_build/.../final/`; master indexes at `_artefacts/test/test-report-index.*`, `_artefacts/coverage/coverage-index--*.html`, and `_artefacts/cxx-profiles/cxx-profiles-index.*`.
+
+'''
+
+Related test module: `tests/integration/methods/test_available_reports.py`.

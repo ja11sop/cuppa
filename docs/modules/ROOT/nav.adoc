@@ -85,6 +85,7 @@
 ** xref:integration/test-fmt-location-plugin.adoc[fmt location pip plugin]
 ** xref:integration/test-conan.adoc[Conan consumer and publish]
 ** xref:integration/test-build-profile.adoc[BuildProfile]
+** xref:integration/test-available-reports.adoc[Available reports]
 ** xref:integration/test-coverage.adoc[Coverage]
 ** xref:integration/test-packages.adoc[Packages]
 ** xref:integration/test-test-reports.adoc[Test reports]

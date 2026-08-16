@@ -124,6 +124,9 @@ cuppa.run(default_variants=['dbg'])
 | `Coverage`, `CollateCoverageFiles`, `CollateCoverageIndex`
 | xref:integration/test-coverage.adoc[]
 
+| `--list-available-reports`, canonical `_artefacts/` collate wiring
+| xref:integration/test-available-reports.adoc[]
+
 | `PublishPackage`, `InstallPackage` (registration only)
 | xref:integration/test-packages.adoc[]
 

@@ -1462,6 +1462,7 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 | Unit | Manifest read/write; `invocation_key` includes `options`; `partial` + `complete` flags; path union for delete |
 | Unit | Spawn scope derivation from mock action `env`; thread-safe collector merge |
 | Unit | Context summary: zero-filled rule matrix; TU/LOC denominators when compile hook present |
+| Integration | `--list-available-reports` on generated project; canonical `_artefacts/` collate wiring (`test_available_reports`) |
 | Integration | Profiles report under `--parallel` with two variants (or mocked interleaved spawns) |
 | Integration | `--clean` with matching flag removes manifest paths |
 | Docs | Antora page section under [`cxx-profiles.adoc`](../../docs/modules/ROOT/pages/cxx-profiles.adoc); CHANGELOG under open `[1.8.0]` |
