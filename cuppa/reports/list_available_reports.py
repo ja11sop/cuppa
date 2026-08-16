@@ -18,7 +18,6 @@ from cuppa.reports.available_reports_display import (
 from cuppa.reports.registry import (
     abs_artefacts_root_from_env,
     rel_artefacts_root_from_env,
-    report_kind_by_id,
     serialise_report_kinds,
 )
 
@@ -47,7 +46,6 @@ def serialise_available_reports( env ):
     rows = []
     for kind_id in REPORT_DISPLAY_ORDER:
         catalog = REPORT_CATALOG[ kind_id ]
-        kind = report_kind_by_id( kind_id )
         row = None
         for existing in payload[ 'report_kinds' ]:
             if existing[ 'kind' ] == kind_id:
