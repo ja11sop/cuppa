@@ -118,8 +118,12 @@ def _storage_root_for_path( path, env ):
 
 def display_path_for_report( path, env ):
     """Rebase project paths or shorten dependency download paths for display."""
+    from cuppa.cpp.profiles_report.anonymise import env_is_anonymised
+
     if not path:
         return path
+    if env_is_anonymised( env ):
+        return _normalise_display_path( path )
 
     storage_root = _storage_root_for_path( path, env )
     if storage_root:
@@ -287,8 +291,37 @@ def _dependency_title_parts( source_path, env ):
     return None
 
 
+def _normalise_display_path( path ):
+    return path.replace( '\\', '/' ) if path else path
+
+
+def _anonymised_source_page_title( display_path ):
+    normalised = _normalise_display_path( display_path )
+    marker = '/include/'
+    if marker in normalised:
+        prefix, suffix = normalised.split( marker, 1 )
+        return {
+            'title_split': True,
+            'title_prefix': prefix + marker,
+            'title_suffix': suffix,
+            'title_include_split': False,
+            'title_suffix_only': False,
+        }
+    return {
+        'title_split': False,
+        'title_single': normalised,
+        'title_include_split': False,
+        'title_suffix_only': False,
+    }
+
+
 def build_source_page_title( display_path, source_path, env ):
     """Build centred title fields for a source page."""
+    from cuppa.cpp.profiles_report.anonymise import env_is_anonymised
+
+    if env_is_anonymised( env ):
+        return _anonymised_source_page_title( display_path or source_path )
+
     parts = _dependency_title_parts( source_path, env )
     if parts:
         prefix, suffix, dependency_root = parts

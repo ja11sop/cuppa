@@ -80,7 +80,7 @@ setup(
             os.path.join( 'test_report','templates','test_suite_index.html' ),
         ],
         'cuppa.cpp.profiles_report': [
-            'synonym_dictionary.json',
+            'thematic_names.json',
         ],
     },
     install_requires = [

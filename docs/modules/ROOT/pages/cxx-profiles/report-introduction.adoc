@@ -125,9 +125,9 @@ must exist on disk for `by-source/` pages unless `--skip-source-pages` is set.
 | `--skip-source-pages`
 | Omit `by-source/` marked-up pages
 
-| `--anonymized`
-| Regenerate from anonymized JSON; implies `--skip-source-pages` and suppresses file/repo hrefs
-  when `metadata.anonymized` is set (see <<sharing-anonymized>>)
+| `--anonymised`
+| Regenerate from anonymised JSON; implies `--skip-source-pages` and suppresses file/repo hrefs
+  when `metadata.anonymised` is set (see <<sharing-anonymised>>)
 
 | `--write-json`
 | Rewrite `cxx-profiles-index.json` after re-render
@@ -153,7 +153,7 @@ the stable contract for automation:
 * **Agents and tooling** — read `summary`, `report.rollup`, `locations[]`, and `context`
   without parsing HTML; roll-up rows include structured `variant_display` objects for multi-build
   metrics (documented on xref:cxx-profiles/report-by-rule.adoc#json-fields[By-Rule JSON fields])
-* **Sharing** — anonymize JSON for out-of-tree review; see <<sharing-anonymized>>
+* **Sharing** — anonymise JSON for out-of-tree review; see <<sharing-anonymised>>
 
 Top-level fields (non-exhaustive):
 
@@ -162,21 +162,23 @@ Top-level fields (non-exhaustive):
 * `report` — serialised scopes, roll-up rules/files, `build_catalog`
 * `locations[]` — flat diagnostic inventory when captured (enables full source regen)
 * `context` — Overview metrics when context mode is not `off`
-* `metadata` — `sconstruct_dir`, link style, enforce list, incomplete scopes; `anonymized` when
-  produced by the anonymizer (see <<sharing-anonymized>>)
+* `metadata` — `sconstruct_dir`, link style, enforce list, incomplete scopes; `anonymised` when
+  produced by the anonymiser (see <<sharing-anonymised>>)
 
-[#sharing-anonymized]
-== Sharing an inventory (anonymized JSON)
+[#sharing-anonymised]
+== Sharing an inventory (anonymised JSON)
 
 When you need to share violation **counts and rule breakdowns** outside your organisation — issue
-attachments, public fixtures, conference posts — ship **anonymized JSON plus summary HTML**, not
+attachments, public fixtures, conference posts — ship **anonymised JSON plus summary HTML**, not
 raw project paths or marked-up source.
 
-An anonymized artefact **never** includes:
+An anonymised artefact **never** includes:
 
 * `by-source/` marked-up source pages
 * Links to files on disk (`file://`) or repository browse URLs
 * Raw diagnostic `message` text (only `normalised_message` remains in `locations[]`)
+* Live VCS provenance in HTML headers (project title comes from scrubbed `metadata.report_project`,
+  not from git or the regen working directory)
 
 Numeric Overview `context` fields (translation-unit counts, rule matrices, percentages) are
 **unchanged** — only identifying paths and VCS metadata are rewritten.
@@ -184,47 +186,49 @@ Numeric Overview `context` fields (translation-unit counts, rule matrices, perce
 === Typical workflow
 
 . Build with `--cxx-profiles-report` (or copy `cxx-profiles-index.json` from CI artefacts).
-. Run the anonymizer on the saved JSON.
-. Share the anonymized JSON (and optionally HTML regenerated from it).
+. Run the anonymiser on the saved JSON.
+. Share the anonymised JSON (and optionally HTML regenerated from it).
 . Recipients browse inventory tables without access to your tree.
 
 [source,bash]
 ----
-python -m scripts.anonymize_profiles_report \
+python -m scripts.anonymise_profiles_report \
   --in _artifacts/cxx-profiles/cxx-profiles-index.json \
-  --out _artifacts/cxx-profiles/cxx-profiles-index.anonymized.json
+  --out _artifacts/cxx-profiles/cxx-profiles-index.anonymised.json
 
 python -m scripts.regenerate_profiles_report \
-  --from-json _artifacts/cxx-profiles/cxx-profiles-index.anonymized.json \
-  --anonymized
+  --from-json _artifacts/cxx-profiles/cxx-profiles-index.anonymised.json \
+  --anonymised
 ----
 
 The regen step writes `cxx-profiles-index.html` with the same roll-up tabs as a live build, but
-without source pages or file hrefs. When `metadata.anonymized` is set, output defaults to the
+without source pages or file hrefs. Index and scope page titles use `metadata.report_project`
+(for example `example-project`), not the recipient's git remote or current working directory.
+When `metadata.anonymised` is set, output defaults to the
 **same directory as the input JSON** (unless you pass `--report-dir=`).
 
-=== What the anonymizer changes
+=== What the anonymiser changes
 
 [cols="1,3"]
 |===
-| Area | Anonymized output
+| Area | Anonymised output
 
 | `metadata.sconstruct_dir`, `cxx_profiles_report_root`
-| Generic placeholder root (for example `/home/user/project/widget`)
+| Generic placeholder root (`/anon/widget/root`)
 
 | `metadata.report_project`, `report_uri`, `report_branch`, `report_revision`
-| Empty or placeholders — no hosting identity
+| `example-project` when the input named a project; VCS fields cleared — no hosting identity in JSON or HTML headers
 
 | `metadata.link_style`
 | `local` (HTML regen does not emit repo browse links)
 
-| `metadata.anonymized`
-| `true` (plus `anonymization_version`)
+| `metadata.anonymised`
+| `true` (plus `anonymisation_version`)
 
 | Paths in `report`, `locations[]`, scope fields
-| Same relative **shape** (include trees, `_build/…`, `_cuppa/_download/…`) with directory and
-  file stems rewritten via a built-in synonym dictionary; variant tails such as `dbg/x86_64/cxx2c`
-  are preserved
+| Project sources under `project/<thematic-stems>/…`; package dependencies collapse to
+  `deps/lib-<slug>/include/…` (encoded `_cuppa/_download/git_ssh_…` folders are replaced entirely);
+  variant tails such as `dbg/x86_64/cxx2c` are preserved
 
 | `locations[].message`
 | Removed (classifier `normalised_message` only)
@@ -233,17 +237,19 @@ without source pages or file hrefs. When `metadata.anonymized` is set, output de
 | Recomputed after path and message transforms
 |===
 
-Path segments stay **semi-readable** — plausible software tree names, not opaque serials such as
-`file-001.hpp`. Multi-part stems (for example `common_types`) are rewritten using dictionary
-synonyms (for example `core_elements`).
+Path segments stay **semi-readable** — plausible software tree names chosen deterministically from
+built-in thematic pools (`thematic_names.json`): single-word stems, snake_case compounds such as
+`core_types` / `order_book`, and deterministic `slot-…` fallbacks when a pool is exhausted. Forbidden
+tokens are derived from the input JSON (hosts, repo paths, project names, download folder names) and
+verified before write — nothing is hardcoded to your organisation.
 
-=== Anonymizer CLI
+=== Anonymiser CLI
 
 [source,bash]
 ----
-python -m scripts.anonymize_profiles_report \
+python -m scripts.anonymise_profiles_report \
   --in _artifacts/cxx-profiles/cxx-profiles-index.json \
-  --out _artifacts/cxx-profiles/cxx-profiles-index.anonymized.json
+  --out _artifacts/cxx-profiles/cxx-profiles-index.anonymised.json
 ----
 
 [cols="1,3"]
@@ -254,44 +260,49 @@ python -m scripts.anonymize_profiles_report \
 | Input `cxx-profiles-index.json` from a real Profiles build
 
 | `--out`
-| Output anonymized JSON path
+| Output anonymised JSON path
 
 | `--mapping-out`
-| Optional sidecar `{original_path: anonymized_path}` for internal review — **never** upload with
+| Optional sidecar `{original_path: anonymised_path}` for internal review — **never** upload with
   the shared JSON
 
+| `--thematic-names`
+| Optional thematic name pools JSON (default: built-in offline pools shipped with cuppa)
+
 | `--dictionary`
-| Optional synonym map JSON (default: built-in offline dictionary shipped with cuppa)
+| Deprecated alias for `--thematic-names`
 
 | `--force`
-| Re-anonymize input that already has `metadata.anonymized`
+| Re-anonymise input that already has `metadata.anonymised`
 |===
 
-=== Regen flags for anonymized JSON
+=== Regen flags for anonymised JSON
 
-When JSON carries `metadata.anonymized: true`, regen automatically skips `by-source/` pages and
-suppresses file hrefs. You can also pass `--anonymized` explicitly (implies
+When JSON carries `metadata.anonymised: true`, regen automatically skips `by-source/` pages and
+suppresses file hrefs. You can also pass `--anonymised` explicitly (implies
 `--skip-source-pages`):
 
 [cols="1,3"]
 |===
 | Flag | Meaning
 
-| `--anonymized`
-| Regenerate from anonymized JSON; omit source pages and file/repo hrefs
+| `--anonymised`
+| Regenerate from anonymised JSON; omit source pages and file/repo hrefs
 
 | `--skip-source-pages`
-| Omit `by-source/` marked-up pages (also set automatically when `metadata.anonymized` is true)
+| Omit `by-source/` marked-up pages (also set automatically when `metadata.anonymised` is true)
 |===
+
+NOTE: US spellings (`--anonymized`, `metadata.anonymized`, `python -m scripts.anonymize_profiles_report`) remain accepted for compatibility; they are not listed in CLI help.
 
 Rule documentation links (`doc_href` to published cuppa Profiles pages) are kept — they point at
 public rule reference, not your project.
 
 === Limits (honest)
 
-Anonymization targets **identity**, not statistical anonymity: directory depth, line numbers, and
-counts may still resemble your codebase. Extend the built-in dictionary over time for unusual
-domain jargon. Start sharing from **JSON**, not raw console capture — the anonymizer operates on
+Anonymisation targets **identity**, not statistical anonymity: directory depth, line numbers, and
+counts may still resemble your codebase. Extend the built-in thematic pools over time for unusual
+domain jargon. Start sharing from **JSON**, not raw console capture — the anonymiser operates on
 the saved report envelope only.
 
 [#reading-the-index]

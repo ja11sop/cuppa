@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — C++ Profiles (`profiles-violation-report`); [#184](https://github.com/ja11sop/cuppa/issues/184) (umbrella); shipped enablement [`archive/cxx-profiles.md`](../archive/cxx-profiles.md); [`removal-options.md`](removal-options.md) §4.6 Phase 6 artefacts [#135](https://github.com/ja11sop/cuppa/issues/135); test/coverage report patterns (`cuppa/test_report/`, `cuppa/cpp/run_gcov_coverage.py`)
-- **Updated:** 2026-08-15
+- **Updated:** 2026-08-16
 - **Impact:** minor — new opt-in CLI flag and HTML artefacts; no change to default builds
 
 ## Why
@@ -632,7 +632,23 @@ also store a denormalised `all_paths[]` for convenience — not required in the 
 
 ## Anonymized report sharing (sketch)
 
-**Id:** `prof-report-anonymize` · **Status:** **in progress** — branch `prof-report-anonymize` on [#184](https://github.com/ja11sop/cuppa/issues/184); slice H merged [#196](https://github.com/ja11sop/cuppa/pull/196)
+**Id:** `prof-report-anonymize` · **Status:** **in progress** — open [#197](https://github.com/ja11sop/cuppa/pull/197) on [#184](https://github.com/ja11sop/cuppa/issues/184); slice H merged [#196](https://github.com/ja11sop/cuppa/pull/196)
+
+### Shipped implementation (PR #197)
+
+| Piece | Location / behaviour |
+|-------|----------------------|
+| Core transform | `anonymise_report_payload()` in `cuppa/cpp/profiles_report/anonymise.py`; US shim `anonymize.py` |
+| Thematic pools | `thematic_names.json` — dependency slugs, project slugs, path stems/compounds; deterministic hash pick + `slot-…` synthesis when exhausted |
+| Path policy | Project tree → `project/<slug>/…`; encoded download folders → `deps/lib-<slug>/…`; passthrough for common segments (`include`, `test`, …); variant tails preserved |
+| Verify | `collect_forbidden_tokens()` from input JSON; `verify_anonymised_output()` before write |
+| Metadata scrub | Placeholder roots `/anon/widget/root`; `report_project` → `example-project`; VCS fields cleared; `link_style` → `local` |
+| HTML enrichment | Strip display-only path copies (`scope_path_suffix`, `display_path`, …) from JSON; catch-all path scrub on regen-sensitive keys |
+| Regen headers | `report_header_context_from_metadata()` — index/scope titles and VCS line from JSON, not live git/cwd |
+| CLI | `python -m scripts.anonymise_profiles_report`; `regenerate_profiles_report --from-json` honours `metadata.anonymised` |
+| Tests | `tests/unit/test_profiles_report_anonymise.py` |
+
+British spelling is canonical (`anonymised`, `--anonymised`); US aliases accepted without CLI help.
 
 ### Goal
 
@@ -1329,7 +1345,7 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 | C — `prof-report-html` | **Done** — merged [#194](https://github.com/ja11sop/cuppa/pull/194): HTML index/scope/source pages, By rule / By file / Roll-up tabs, presentation polish, rule `doc_href` links, JSON regen (`--from-json`), **schema v1** envelope (`summary`, `locations[]`, `location_key`, extended `metadata`) |
 | D — `prof-report-manifest` | **Done** — core in [#194](https://github.com/ja11sop/cuppa/pull/194); clean/`invocation_key` fix in [#195](https://github.com/ja11sop/cuppa/pull/195); `--artifacts-root` in `e4d5318` |
 | H — `prof-report-context-summary` | **Done** — merged [#196](https://github.com/ja11sop/cuppa/pull/196): Overview tab, `context` JSON, `-H`, tier metrics, Build inventory load, [variant roll-up display](#prof-report-variant-roll-up-display) (**Union Refs**, **Peak Refs**, common + deltas, `build_key` grain), **Violations By-Build** tab, unified scope detail (**Profile** column), Antora doc split |
-| G — `prof-report-anonymize` | **In progress** — [#197](https://github.com/ja11sop/cuppa/pull/197): anonymizer + `--anonymized` regen shipped; Antora *Sharing an inventory (anonymized JSON)* on Introduction |
+| G — `prof-report-anonymize` | **In progress** — [#197](https://github.com/ja11sop/cuppa/pull/197): thematic anonymiser + verify + metadata-driven HTML headers; Antora *Sharing an inventory (anonymised JSON)* on Introduction |
 | E — `prof-report-method` | Deferred |
 | F — `prof-report-artefacts` | Partial — `--artifacts-root` landed; full registry + `--remove-artifacts` blocked on #135 |
 

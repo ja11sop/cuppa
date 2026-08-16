@@ -67,15 +67,18 @@ def _regenerate_from_json( arguments ):
 
     _model, metadata, _extras = load_report_model( json_path )
     env = env_from_report_metadata( metadata, arguments )
-    if arguments.anonymized or metadata.get( 'anonymized' ):
-        env[ 'cxx_profiles_report_anonymized' ] = True
-    if ( arguments.anonymized or metadata.get( 'anonymized' ) ) and not arguments.report_dir:
+    from cuppa.cpp.profiles_report.anonymise import metadata_is_anonymised, set_env_anonymised
+
+    anonymised = bool( getattr( arguments, 'anonymised', False ) ) or metadata_is_anonymised( metadata )
+    if anonymised:
+        set_env_anonymised( env )
+    if anonymised and not arguments.report_dir:
         json_dir = os.path.dirname( json_path )
         env[ 'cxx_profiles_report' ] = json_dir or os.path.abspath( os.getcwd() )
-    skip_source_pages = arguments.skip_source_pages or arguments.anonymized or metadata.get( 'anonymized' )
-    if arguments.anonymized and not metadata.get( 'anonymized' ):
+    skip_source_pages = arguments.skip_source_pages or anonymised
+    if getattr( arguments, 'anonymised', False ) and not metadata_is_anonymised( metadata ):
         print(
-            'warning: --anonymized set but JSON metadata.anonymized is false',
+            'warning: --anonymised set but JSON metadata.anonymised is false',
             file=sys.stderr,
         )
     return write_profiles_reports_from_json(
@@ -136,9 +139,16 @@ def main( argv=None ):
         help='Omit by-source/ marked-up source pages (JSON regen only)',
     )
     parser.add_argument(
+        '--anonymised',
+        action='store_true',
+        dest='anonymised',
+        help='Regenerate from anonymised JSON (implies --skip-source-pages; suppresses file hrefs)',
+    )
+    parser.add_argument(
         '--anonymized',
         action='store_true',
-        help='Regenerate from anonymized JSON (implies --skip-source-pages; suppresses file hrefs)',
+        dest='anonymised',
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         '--write-json',
