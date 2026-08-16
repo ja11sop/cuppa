@@ -1,7 +1,7 @@
 # Plan: C++ Profiles violation report (`--cxx-profiles-report`)
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — C++ Profiles (`profiles-violation-report`); [#184](https://github.com/ja11sop/cuppa/issues/184) (umbrella); shipped enablement [`archive/cxx-profiles.md`](../archive/cxx-profiles.md); [`removal-options.md`](removal-options.md) §4.6 Phase 6 artefacts [#135](https://github.com/ja11sop/cuppa/issues/135); test/coverage report patterns (`cuppa/test_report/`, `cuppa/cpp/run_gcov_coverage.py`)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — C++ Profiles (`profiles-violation-report`); umbrella [#184](https://github.com/ja11sop/cuppa/issues/184) (closed); semantics follow-on [#199](https://github.com/ja11sop/cuppa/issues/199); shipped enablement [`archive/cxx-profiles.md`](../archive/cxx-profiles.md); [`removal-options.md`](removal-options.md) §4.6 Phase 6 artefacts [#135](https://github.com/ja11sop/cuppa/issues/135); test/coverage report patterns (`cuppa/test_report/`, `cuppa/cpp/run_gcov_coverage.py`)
 - **Updated:** 2026-08-16
 - **Impact:** minor — new opt-in CLI flag and HTML artefacts; no change to default builds
 
@@ -35,8 +35,8 @@ of analysis.
    views grouped by profile — suitable for CI artefacts, local review, and external sharing
    (e.g. WG21 papers).
 4. Enable analysis **without editing the project source tree** — opt-in CLI for early slices; slice **E**
-   adds **`env.CollateCxxProfilesIndex()`** for sconscript-declared session indexes (landed on branch
-   `prof-report-method-artefacts-min`).
+   adds **`env.CollateCxxProfilesIndex()`** for sconscript-declared session indexes (merged
+   [#198](https://github.com/ja11sop/cuppa/pull/198)).
 5. Record generated paths in a **`.cuppa-reports` manifest** so `--clean` / `--remove-builds` can
    remove report files when invoked with matching report flags (until Phase 6 artefact removal is
    richer).
@@ -639,7 +639,7 @@ also store a denormalised `all_paths[]` for convenience — not required in the 
 
 ## Report artefacts catalogue (F-min)
 
-**Id:** `prof-report-artefacts-min` · **Status:** **shipped on branch** — `prof-report-method-artefacts-min` (slice E landing PR) · [#184](https://github.com/ja11sop/cuppa/issues/184)
+**Id:** `prof-report-artefacts-min` · **Status:** **shipped** — merged [#198](https://github.com/ja11sop/cuppa/pull/198) (umbrella [#184](https://github.com/ja11sop/cuppa/issues/184), closed)
 
 | Piece | Behaviour |
 |-------|-----------|
@@ -658,7 +658,7 @@ this system can produce each kind**; does not scan `_artefacts/` for existing in
 
 ## Scons method (slice E)
 
-**Id:** `prof-report-method` · **Status:** **shipped on branch** — `env.CollateCxxProfilesIndex()` on `prof-report-method-artefacts-min` · [#184](https://github.com/ja11sop/cuppa/issues/184)
+**Id:** `prof-report-method` · **Status:** **shipped** — `env.CollateCxxProfilesIndex()` merged [#198](https://github.com/ja11sop/cuppa/pull/198) (umbrella [#184](https://github.com/ja11sop/cuppa/issues/184), closed)
 
 | Piece | Behaviour |
 |-------|-----------|
@@ -755,7 +755,7 @@ Track as slice **`prof-report-method-semantics`** — see [§Collate index seman
 
 ## Collate index semantics (`prof-report-method-semantics`)
 
-**Id:** `prof-report-method-semantics` · **Status:** **proposal** — **future priority** after slice E · [#184](https://github.com/ja11sop/cuppa/issues/184)
+**Id:** `prof-report-method-semantics` · **Status:** **in progress** — [#199](https://github.com/ja11sop/cuppa/issues/199) (follow-on after [#198](https://github.com/ja11sop/cuppa/pull/198); umbrella [#184](https://github.com/ja11sop/cuppa/issues/184) closed)
 
 Align `--cxx-profiles-report` and `env.CollateCxxProfilesIndex()` with the [product intent](#prof-report-method-semantics) documented above. Slice **E** ships the method and CLI wiring with **today’s** capture and Progress behaviour; this slice closes the gaps in the audit table without mixing policy changes into the collate-method landing PR.
 
@@ -1430,16 +1430,16 @@ issues, PR titles, and ROADMAP cross-links (same pattern as `list-tc-*` in
 | **B** | `prof-report-collector` | Progress callback **and** per-action `env` → `SpawnedProcessor`; thread-safe session store | Includes former slice F; do not ship collector without spawn scope |
 | **C** | `prof-report-html` | Jinja templates + `CxxProfilesReportBuilder` at `sconstruct_end` | By rule / By file / Roll-up tabs; `link_style`; incomplete scope banner |
 | **D** | `prof-report-manifest` | `.cuppa-reports` schema v1; matched `--clean` / `--remove-builds` | `invocation_key`, `partial`, path union |
-| **E** | `prof-report-method` | `env.CollateCxxProfilesIndex()` + CLI parity | Shipped on branch `prof-report-method-artefacts-min`; see [§Method naming](#prof-report-method-naming) |
-| **F-min** | `prof-report-artefacts-min` | Registry + `--list-available-reports` + British `--artefacts-root` | Shipped on same branch as E; judgement tree lists methods / CLI / toolchains |
+| **E** | `prof-report-method` | `env.CollateCxxProfilesIndex()` + CLI parity | Merged [#198](https://github.com/ja11sop/cuppa/pull/198); see [§Method naming](#prof-report-method-naming) |
+| **F-min** | `prof-report-artefacts-min` | Registry + `--list-available-reports` + British `--artefacts-root` | Merged [#198](https://github.com/ja11sop/cuppa/pull/198); judgement tree lists methods / CLI / toolchains |
 | **F** | `prof-report-artefacts` | `artefact_roots` / `--remove-artefacts` when #135 lands | Supersedes manifest hack for declared trees; full wipe deferred to #135 |
 | **G** | `prof-report-anonymize` | Anonymize saved report JSON; shareable artefact + HTML regen without sources | After C; see [§Anonymized report sharing](#prof-report-anonymize) |
 | **H** | `prof-report-context-summary` | Overview tab + `context` JSON — violations vs codebase size, full rule matrix; variant roll-up; By-Build tab; unified scope detail | After C; see [§Context summary](#prof-report-context-summary); landed on [#196](https://github.com/ja11sop/cuppa/pull/196) |
-| **—** | `prof-report-method-semantics` | Implied `-i`, selective exit, optional scope filter, Progress decoupling for failed compiles | **Future priority** after E; see [§Collate index semantics](#prof-report-method-semantics-slice) |
+| **—** | `prof-report-method-semantics` | Implied `-i`, selective exit, optional scope filter, Progress decoupling for failed compiles | [#199](https://github.com/ja11sop/cuppa/issues/199); see [§Collate index semantics](#prof-report-method-semantics-slice) |
 
-Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** (slice A–D; **`prof-report-collector` must** include parallel spawn scope); **E** + **F-min** on branch `prof-report-method-artefacts-min`; full **F** blocked on #135; **G–H** shipped; **`prof-report-method-semantics`** optional follow-on.
+Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** (slice A–D; **`prof-report-collector` must** include parallel spawn scope); **E** + **F-min** merged [#198](https://github.com/ja11sop/cuppa/pull/198); full **F** blocked on #135; **G–H** shipped; **`prof-report-method-semantics`** ([#199](https://github.com/ja11sop/cuppa/issues/199)) in progress.
 
-**Tracking:** [#184](https://github.com/ja11sop/cuppa/issues/184) — one issue; land slices as **multiple PRs** (checklist on the issue; cite letter and/or `prof-report-*` id).
+**Tracking:** Umbrella [#184](https://github.com/ja11sop/cuppa/issues/184) closed after **E** + **F-min** ([#198](https://github.com/ja11sop/cuppa/pull/198)). Follow-on collation semantics: [#199](https://github.com/ja11sop/cuppa/issues/199). Land slices as **multiple PRs** (cite letter and/or `prof-report-*` id).
 
 ## Refusal rules
 
@@ -1489,12 +1489,12 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 | D — `prof-report-manifest` | **Done** — core in [#194](https://github.com/ja11sop/cuppa/pull/194); clean/`invocation_key` fix in [#195](https://github.com/ja11sop/cuppa/pull/195); `--artifacts-root` in `e4d5318` |
 | H — `prof-report-context-summary` | **Done** — merged [#196](https://github.com/ja11sop/cuppa/pull/196): Overview tab, `context` JSON, `-H`, tier metrics, Build inventory load, [variant roll-up display](#prof-report-variant-roll-up-display) (**Union Refs**, **Peak Refs**, common + deltas, `build_key` grain), **Violations By-Build** tab, unified scope detail (**Profile** column), Antora doc split |
 | G — `prof-report-anonymize` | **Done** — merged [#197](https://github.com/ja11sop/cuppa/pull/197): thematic anonymiser + verify + metadata-driven HTML headers |
-| E — `prof-report-method` | **Done on branch** — `prof-report-method-artefacts-min`: `env.CollateCxxProfilesIndex()`, CLI parity, default `<artefacts-root>/cxx-profiles/` |
-| F-min — `prof-report-artefacts-min` | **Done on branch** — same landing PR: registry, `--list-available-reports` judgement tree (`{artefacts_root}` / `{build_root}` in-tree), British `--artefacts-root`, default `_artefacts` |
+| E — `prof-report-method` | **Done** — merged [#198](https://github.com/ja11sop/cuppa/pull/198): `env.CollateCxxProfilesIndex()`, CLI parity, default `<artefacts-root>/cxx-profiles/` |
+| F-min — `prof-report-artefacts-min` | **Done** — merged [#198](https://github.com/ja11sop/cuppa/pull/198): registry, `--list-available-reports` judgement tree (`{artefacts_root}` / `{build_root}` in-tree), British `--artefacts-root`, default `_artefacts` |
 | F — `prof-report-artefacts` | **Blocked on #135** — full `artefact_roots` / `--remove-artefacts`; F-min covers discovery only |
-| `prof-report-method-semantics` | **Planned — future priority** — implied `-i`, selective exit, optional scope filter, Progress decoupling; see [§Collate index semantics](#prof-report-method-semantics-slice) |
+| `prof-report-method-semantics` | **In progress** — [#199](https://github.com/ja11sop/cuppa/issues/199): implied `-i`, selective exit, optional scope filter, Progress decoupling; see [§Collate index semantics](#prof-report-method-semantics-slice) |
 
-**Next focus:** open/merge landing PR from `prof-report-method-artefacts-min`, then **`prof-report-method-semantics`**; close [#184](https://github.com/ja11sop/cuppa/issues/184) when E + F-min are merged and semantics slice is filed or deferred with intent recorded.
+**Next focus:** **`prof-report-method-semantics`** ([#199](https://github.com/ja11sop/cuppa/issues/199)); full **F** when [#135](https://github.com/ja11sop/cuppa/issues/135) Phase 6 starts. Umbrella [#184](https://github.com/ja11sop/cuppa/issues/184) closed.
 
 ## Open questions (resolve in first PR)
 
@@ -1504,9 +1504,9 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 4. **Cross-variant roll-up:** session **union** for headline / Overview (settled); By-Rule / By-File show **per-build Hits + common/delta** display ([§Variant roll-up display](#prof-report-variant-roll-up-display)) — Antora documents both.
 5. **GitHub `link_style`:** extend shared helper vs duplicate URL template in Profiles module only?
 6. **`_unscoped` bucket:** when spawn scope cannot be derived, record under session `_unscoped` with warning in HTML — never guess variant.
-7. **Implied `-i`:** should `--cxx-profiles-report` (and `CollateCxxProfilesIndex()`) set SCons `ignore_errors` when the user did not pass `-i`? → **`prof-report-method-semantics`** — see [§Collate index semantics](#prof-report-method-semantics-slice).
-8. **Progress vs failed compiles:** should report write run at `sconstruct_end` whenever the capture buffer is non-empty, even when `finished` never ran for failed targets? → **`prof-report-method-semantics`**.
-9. **Method-only scope filter:** should method activation limit index rows to declaring sconscripts, or remain session-wide (current global capture)? → **`prof-report-method-semantics`**.
+7. **Implied `-i`:** should `--cxx-profiles-report` (and `CollateCxxProfilesIndex()`) set SCons `ignore_errors` when the user did not pass `-i`? → [#199](https://github.com/ja11sop/cuppa/issues/199) / [§Collate index semantics](#prof-report-method-semantics-slice).
+8. **Progress vs failed compiles:** should report write run at `sconstruct_end` whenever the capture buffer is non-empty, even when `finished` never ran for failed targets? → [#199](https://github.com/ja11sop/cuppa/issues/199).
+9. **Method-only scope filter:** should method activation limit index rows to declaring sconscripts, or remain session-wide (current global capture)? → [#199](https://github.com/ja11sop/cuppa/issues/199).
 10. **Per-scope `CxxProfilesReport()`:** when to introduce per-scope HTML/JSON and wire `CollateCxxProfilesIndex( sources )` — see [§Method naming](#prof-report-method-naming).
 
 ## Parser layering follow-on (`prof-report-parser-layers`)
