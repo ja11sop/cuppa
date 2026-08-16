@@ -34,7 +34,7 @@ REPORT_KINDS = (
         default_subdir='cxx-profiles',
         under_artefacts_root=True,
         cli_flags=( '--cxx-profiles-report', ),
-        env_method='CxxProfilesReport',
+        env_method='CollateCxxProfilesIndex',
         manifest_kind='cxx-profiles',
         clean_via='{} manifest (matched on --clean / --remove-builds)'.format(
             MANIFEST_BASENAME,

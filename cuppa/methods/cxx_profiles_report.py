@@ -4,7 +4,7 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   C++ Profiles violation report (--cxx-profiles-report, env.CxxProfilesReport)
+#   C++ Profiles violation report (--cxx-profiles-report, env.CollateCxxProfilesIndex)
 #-------------------------------------------------------------------------------
 
 from cuppa.colourise import as_error
@@ -37,7 +37,7 @@ def _require_profiles_for_report( env ):
 
 
 def activate_cxx_profiles_report( env, destination=None, link_style=None ):
-    """Enable Profiles capture for this env (CLI flag or ``env.CxxProfilesReport()``)."""
+    """Enable Profiles capture for this env (CLI flag or ``env.CollateCxxProfilesIndex()``)."""
     if destination is not None:
         env[ 'cxx_profiles_report' ] = destination
     elif not env.get( 'cxx_profiles_report' ):
@@ -53,8 +53,8 @@ def activate_cxx_profiles_report( env, destination=None, link_style=None ):
     logger.debug( "C++ Profiles violation capture enabled" )
 
 
-class CxxProfilesReportCallable(object):
-    """SCons method: declare Profiles HTML/JSON output for this sconscript tree."""
+class CollateCxxProfilesIndexCallable(object):
+    """SCons method: declare Profiles session index (HTML + JSON) for this sconscript tree."""
 
     def __call__( self, env, destination=None, link_style=None ):
         activate_cxx_profiles_report(
@@ -65,8 +65,8 @@ class CxxProfilesReportCallable(object):
         return env.get( 'cxx_profiles_report' )
 
 
-class CxxProfilesReportMethod:
-    """Opt-in capture of Profiles diagnostics during builds."""
+class CollateCxxProfilesIndexMethod:
+    """Opt-in capture of Profiles diagnostics; session index at ``sconstruct_end``."""
 
     @classmethod
     def add_options( cls, add_option ):
@@ -123,4 +123,4 @@ class CxxProfilesReportMethod:
 
     @classmethod
     def add_to_env( cls, cuppa_env ):
-        cuppa_env.add_method( 'CxxProfilesReport', CxxProfilesReportCallable() )
+        cuppa_env.add_method( 'CollateCxxProfilesIndex', CollateCxxProfilesIndexCallable() )

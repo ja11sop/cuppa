@@ -73,13 +73,13 @@ def test_profiles_enforce_composes_with_source_attribute( tmp_path ):
 
 
 def test_profiles_report_emits_html_and_json_via_sconscript_method( tmp_path ):
-    """env.CxxProfilesReport() writes HTML + JSON without the CLI flag."""
+    """env.CollateCxxProfilesIndex() writes HTML + JSON without the CLI flag."""
     _, toolchain_flag = require_profiles_capable_toolchain()
     write_sconstruct( tmp_path )
     write_sconscript(
         tmp_path,
         "Import('env')\n"
-        "env.CxxProfilesReport()\n"
+        "env.CollateCxxProfilesIndex()\n"
         "env.Build( 'app', [ 'main.cpp' ] )\n",
     )
     ( tmp_path / 'main.cpp' ).write_text(

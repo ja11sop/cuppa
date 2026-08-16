@@ -76,7 +76,7 @@ def _env_with_toolchains( tmp_path, toolchains ):
 def test_report_registry_includes_cxx_profiles():
     kind = report_kind_by_id( 'cxx-profiles' )
     assert kind is not None
-    assert kind.env_method == 'CxxProfilesReport'
+    assert kind.env_method == 'CollateCxxProfilesIndex'
     assert kind.manifest_kind == 'cxx-profiles'
     assert kind.default_subdir == 'cxx-profiles'
 
@@ -155,14 +155,27 @@ def test_list_available_reports_text_mentions_toolchains_and_artefacts_root( tmp
     out = StringIO()
     assert list_available_reports( env, out ) == 0
     text = out.getvalue()
-    assert 'Artefacts root:' in text
+    header_pos = text.index( 'Report kinds available with current toolchains' )
+    artefacts_pos = text.index( '{artefacts_root}:' )
+    build_pos = text.index( '{build_root}:' )
+    test_pos = text.index( 'Collated Test Report' )
+    assert header_pos < artefacts_pos < build_pos < test_pos
+    assert '{artefacts_root}:' in text
+    assert '{build_root}:' in text
     assert 'Report kinds available with current toolchains' in text
     assert 'Collated Test Report' in text
     assert 'Collated Coverage Report' in text
     assert 'Collated C++ Profiles Report' in text
     assert 'env.CollateTestReportIndex()' in text
     assert 'env.CollateCoverageIndex()' in text
-    assert 'env.CxxProfilesReport()' in text
+    assert 'env.CollateCxxProfilesIndex()' in text
+    assert '{artefacts_root}/test/' in text
+    assert 'specify destination, usually {artefacts_root}/test/' in text
+    assert 'specify destination, default {artefacts_root}/cxx-profiles/' in text
+    assert '{build_root}/' in text
+    assert 'sources:' in text
+    assert 'destination:' in text
+    assert 'Note: Often used with --cxx-profiles-enforce=' in text
     assert 'Toolchains:' in text
     assert 'clang24_profiles_2026_08_07_27' in text
     assert '--remove-artefacts' in text

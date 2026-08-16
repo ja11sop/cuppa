@@ -63,8 +63,15 @@ def serialise_available_reports( env ):
             for group in row[ 'toolchains_by_family' ]
             for name in group[ 'toolchains' ]
         ]
-        if catalog.get( 'note' ):
-            row[ 'note' ] = catalog[ 'note' ]
+        if catalog.get( 'cli', {} ).get( 'note' ):
+            note = catalog[ 'cli' ][ 'note' ]
+            if isinstance( note, dict ):
+                row[ 'note' ] = '{} {}'.format(
+                    note.get( 'text', '' ),
+                    note.get( 'emphasis', '' ),
+                ).strip()
+            else:
+                row[ 'note' ] = note
         rows.append( row )
     payload[ 'report_kinds' ] = rows
     return payload

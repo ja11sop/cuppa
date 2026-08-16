@@ -39,9 +39,9 @@ flag:
 
 [source,python]
 ----
-env.CxxProfilesReport()
-# optional: env.CxxProfilesReport( destination='#_artefacts/cxx-profiles/' )
-# optional: env.CxxProfilesReport( link_style='gitlab' )
+env.CollateCxxProfilesIndex()
+# optional: env.CollateCxxProfilesIndex( destination='#_artefacts/cxx-profiles/' )
+# optional: env.CollateCxxProfilesIndex( link_style='gitlab' )
 ----
 
 [source,bash]

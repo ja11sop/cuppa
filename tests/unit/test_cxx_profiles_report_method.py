@@ -7,8 +7,8 @@ import pytest
 
 from cuppa.cpp.profiles_report_collector import ProfilesDiagnosticCollector
 from cuppa.methods.cxx_profiles_report import (
-    CxxProfilesReportCallable,
-    CxxProfilesReportMethod,
+    CollateCxxProfilesIndexCallable,
+    CollateCxxProfilesIndexMethod,
     activate_cxx_profiles_report,
 )
 
@@ -31,7 +31,7 @@ class FakeEnv(dict):
         return self._options.get( name )
 
 
-def test_cxx_profiles_report_method_registers_callable():
+def test_collate_cxx_profiles_index_method_registers_callable():
     class CuppaEnv(object):
         def __init__( self ):
             self.methods = {}
@@ -40,8 +40,11 @@ def test_cxx_profiles_report_method_registers_callable():
             self.methods[ name ] = method
 
     cuppa_env = CuppaEnv()
-    CxxProfilesReportMethod.add_to_env( cuppa_env )
-    assert isinstance( cuppa_env.methods[ 'CxxProfilesReport' ], CxxProfilesReportCallable )
+    CollateCxxProfilesIndexMethod.add_to_env( cuppa_env )
+    assert isinstance(
+        cuppa_env.methods[ 'CollateCxxProfilesIndex' ],
+        CollateCxxProfilesIndexCallable,
+    )
 
 
 def test_activate_cxx_profiles_report_sets_env_and_enables_collector():
@@ -55,12 +58,12 @@ def test_activate_cxx_profiles_report_sets_env_and_enables_collector():
     assert ProfilesDiagnosticCollector._session is not None
 
 
-def test_cxx_profiles_report_callable_accepts_explicit_destination():
+def test_collate_cxx_profiles_index_callable_accepts_explicit_destination():
     env = {
         'cxx_profiles': True,
         'cxx_profiles_enforce': [ 'std::init' ],
     }
-    callable_method = CxxProfilesReportCallable()
+    callable_method = CollateCxxProfilesIndexCallable()
     result = callable_method( env, destination='#_artefacts/cxx-profiles/custom/' )
     assert result == '#_artefacts/cxx-profiles/custom/'
     assert env[ 'cxx_profiles_report' ] == '#_artefacts/cxx-profiles/custom/'
@@ -82,6 +85,6 @@ def test_cli_get_options_still_activates_collector():
         'cxx_profiles_report_root': None,
     } )
     env[ 'cxx_profiles' ] = True
-    CxxProfilesReportMethod.get_options( env )
+    CollateCxxProfilesIndexMethod.get_options( env )
     assert env[ 'cxx_profiles_report' ] is True
     assert ProfilesDiagnosticCollector._session is not None

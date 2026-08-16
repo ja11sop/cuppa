@@ -17,8 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--list-available-reports` lists built-in HTML report kinds in a judgement tree (Methods, CLI,
   toolchains by family) and which toolchains on this system can produce each; supports
   `--list-format=json`.
-- `env.CxxProfilesReport()` declares Profiles violation capture from a sconscript (same output as
-  `--cxx-profiles-report`; optional `destination=` and `link_style=` kwargs).
+- `env.CollateCxxProfilesIndex()` declares Profiles session index capture from a sconscript (same
+  output as `--cxx-profiles-report`; optional `destination=` and `link_style=` kwargs).
 - `.cuppa-reports` manifest for C++ Profiles reports (slice D, `prof-report-manifest`): append
   JSONL entries at `sconstruct_end`; matched removal when `--clean` or `--remove-builds` runs with
   the same `--cxx-profiles-report` destination and link options.

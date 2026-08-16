@@ -88,7 +88,7 @@ Consumer projects often collate coverage or test reports under a project-chosen 
 That path is a *project* convention; cuppa itself defaults to placing coverage next to the variant `final/` directory unless you pass a destination.
 
 C++ Profiles violation reports default to `<artefacts-root>/cxx-profiles/` when you pass
-`--cxx-profiles-report` or declare `env.CxxProfilesReport()` in a sconscript.
+`--cxx-profiles-report` or declare `env.CollateCxxProfilesIndex()` in a sconscript.
 
 === Available reports (`--list-available-reports`)
 
