@@ -24,7 +24,7 @@ Maintainer **target bundle** for the release (plans landed; implementation follo
 | ID | Work | Plan |
 |----|------|------|
 | `console-terse-output` | `--terse-output` Phase 1 (one-line success; failures verbose) | [`terse-build-output.md`](design/plans/terse-build-output.md) |
-| `profiles-violation-report` | `--cxx-profiles-report` slices A–H shipped ([#196](https://github.com/ja11sop/cuppa/pull/196)); **G** (`prof-report-anonymize`) in progress on [#184](https://github.com/ja11sop/cuppa/issues/184) | [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) |
+| `profiles-violation-report` | `--cxx-profiles-report` slices A–H + **G** shipped; **E** + **F-min** on branch `prof-report-method-artefacts-min`; **`prof-report-method-semantics`** next | [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) |
 | `console-log-hygiene` | Demote toolchain registration spam; fix variant default log text | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md) |
 | `cli-info` | `cuppa --info` — version without loading sconstruct | [`cuppa-info.md`](design/plans/cuppa-info.md) |
 
@@ -153,7 +153,8 @@ Umbrella: [#127](https://github.com/ja11sop/cuppa/issues/127) ([#177](https://gi
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `profiles-violation-report` | `prof-report-anonymize` — shareable anonymized JSON + HTML regen without sources | High | [#184](https://github.com/ja11sop/cuppa/issues/184) slice **G** only — A–H merged; see [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) §Anonymized report sharing |
+| `profiles-violation-report` | `prof-report-method-semantics` — implied `-i`, selective exit, scope filter, Progress decoupling for inventory runs | High | [#184](https://github.com/ja11sop/cuppa/issues/184) after **E** merges; see [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) §Collate index semantics |
+| `profiles-violation-report` | `prof-report-artefacts` — full `--remove-artefacts` / declared artefact trees | Medium | Blocked on [#135](https://github.com/ja11sop/cuppa/issues/135); F-min discovery shipped with E |
 | `profiles-designators` | Additional profile names as Alliance Clang / WG21 stabilise | Medium | Cuppa passes opaque strings through |
 | `profiles-native-enforce` | Wire `profiles_enforce_flags` when a compiler adds native enforce flags | Low | Hook exists; `-include` fallback remains |
 | `profiles-carve-outs` | Build policy to skip session enforce on selected paths | Low | Separate from source attributes |

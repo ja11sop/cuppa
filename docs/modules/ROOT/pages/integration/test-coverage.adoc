@@ -7,7 +7,7 @@
 With `--cov --test`:
 
 * `Coverage` runs gcov-based coverage for a `BuildTest` binary.
-* `CollateCoverageFiles` / `CollateCoverageIndex` collate per-test coverage into a shared `#_artifacts/coverage/` tree from two sibling sconscripts (regression for mid-action `Install` clashes on `by-source` pages).
+* `CollateCoverageFiles` / `CollateCoverageIndex` collate per-test coverage into a shared `#_artefacts/coverage/` tree from two sibling sconscripts (regression for mid-action `Install` clashes on `by-source` pages).
 
 Skipped (with log) if `gcov` / `gcovr` are not on PATH, or when `CUPPA_TEST_TOOLCHAIN` is MSVC (`vc` / `cl` / `msvc`).
 
@@ -41,8 +41,8 @@ Root `sconscript` is removed. Under `suite/`:
 ----
 Import('env')
 prog = env.BuildTest('alpha_test', 'alpha_test.cpp')
-cov = env.CollateCoverageFiles(prog, destination='#_artifacts/coverage/')
-env.CollateCoverageIndex(cov, destination='#_artifacts/coverage/')
+cov = env.CollateCoverageFiles(prog, destination='#_artefacts/coverage/')
+env.CollateCoverageIndex(cov, destination='#_artefacts/coverage/')
 ----
 
 == Command
@@ -55,7 +55,7 @@ cuppa -D --offline --toolchains=gcc --cov --test
 == Expectations
 
 * Exit 0; coverage artifacts under `_build` and/or `COVERAGE` in stdout for the `Coverage` scenario.
-* For the collate scenario: `coverage-index--*.html` under `_artifacts/coverage/`, with by-source pages namespaced as `by-source/<index-stem>/...html` so sibling sconscripts can share the destination safely.
+* For the collate scenario: `coverage-index--*.html` under `_artefacts/coverage/`, with by-source pages namespaced as `by-source/<index-stem>/...html` so sibling sconscripts can share the destination safely.
 
 '''
 

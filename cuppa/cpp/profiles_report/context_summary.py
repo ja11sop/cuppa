@@ -416,8 +416,7 @@ def _build_codebase_metrics(
         files_parsed = len( parsed_files )
         codebase[ 'files_parsed' ] = files_parsed
         pct = _pct( files_with_violations, files_parsed, places=4 )
-        if pct is not None:
-            codebase[ 'files_with_violations_pct' ] = pct
+        codebase[ 'files_with_violations_pct' ] = pct if pct is not None else 0.0
         methodology[ 'parsed_files' ] = PARSED_FILES_METHOD
 
     if translation_units is not None:

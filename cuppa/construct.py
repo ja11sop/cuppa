@@ -245,6 +245,7 @@ class Construct(object):
                 'downloads_root',
                 'thirdparty',
                 'build_root',
+                'artefacts_root',
                 'artifacts_root',
                 'default_dependencies',
                 'BUILD_WITH',
@@ -1002,6 +1003,7 @@ class Construct(object):
 
             build_root = sconscript_env['build_root']
             artifacts_root = sconscript_env['artifacts_root']
+            artefacts_root = sconscript_env.get( 'artefacts_root', artifacts_root )
             working_folder = 'working'
 
             sconscript_env = sconscript_env.Clone()
@@ -1054,6 +1056,11 @@ class Construct(object):
                 'env'                     : sconscript_env,
                 'sconscript_env'          : sconscript_env,
                 'build_root'              : build_root,
+                'artefacts_root'          : artefacts_root,
+                'abs_artefacts_root'      : sconscript_env.get(
+                    'abs_artefacts_root',
+                    sconscript_env['abs_artifacts_root'],
+                ),
                 'artifacts_root'          : artifacts_root,
                 'abs_artifacts_root'      : sconscript_env['abs_artifacts_root'],
                 'build_dir'               : sconscript_env['build_dir'],

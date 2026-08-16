@@ -163,7 +163,8 @@ def test_env_from_report_metadata_prefers_saved_sconstruct_dir():
         (),
         {
             'sconstruct_dir': None,
-            'artifacts_root': '_artifacts',
+            'artefacts_root': '_artefacts',
+            'artifacts_root': '_artefacts',
             'report_dir': '',
             'reports_link_style': 'gitlab',
             'link_style': None,

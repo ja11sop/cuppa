@@ -132,7 +132,7 @@ def resolve_source_path( repo_root, fname, source_roots ):
             rel = os.path.relpath( match_path, repo_root ).replace( "\\", "/" )
         except ValueError:
             continue
-        if any( part in ( "_build", "_artifacts", ".git", "node_modules" ) for part in rel.split( "/" ) ):
+        if any( part in ( "_build", "_artefacts", "_artifacts", ".git", "node_modules" ) for part in rel.split( "/" ) ):
             continue
         rels.append( rel )
 
@@ -302,7 +302,7 @@ def collect_union_coverage_from_json( search_roots, repo_root ):
                 resolved = resolve_source_path( repo_root, source_path, source_roots )
                 if resolved:
                     source_path = resolved
-            if any( part in ( "_build", "_artifacts", ".git", "node_modules" ) for part in source_path.split( "/" ) ):
+            if any( part in ( "_build", "_artefacts", "_artifacts", ".git", "node_modules" ) for part in source_path.split( "/" ) ):
                 continue
 
             json_counts[source_path] += 1

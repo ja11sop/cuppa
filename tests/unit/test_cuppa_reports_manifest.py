@@ -51,7 +51,7 @@ def _sample_model():
 
 def test_compute_invocation_key_is_stable():
     options = {
-        'destination': '_artifacts/cxx-profiles',
+        'destination': '_artefacts/cxx-profiles',
         'link_style': 'local',
         'report_root': None,
         'enforce': [ 'std::init' ],
@@ -65,7 +65,7 @@ def test_compute_invocation_key_is_stable():
 
 def test_compute_invocation_key_ignores_clean_and_remove_builds_flags():
     options = {
-        'destination': '_artifacts/cxx-profiles',
+        'destination': '_artefacts/cxx-profiles',
         'link_style': 'local',
         'report_root': None,
         'enforce': [ 'std::init' ],
@@ -98,13 +98,13 @@ def test_paths_from_entry_unions_session_and_scope_paths():
 
 def test_remove_matching_entries_deletes_files( tmp_path, monkeypatch ):
     monkeypatch.chdir( tmp_path )
-    report_dir = tmp_path / '_artifacts' / 'cxx-profiles'
+    report_dir = tmp_path / '_artefacts' / 'cxx-profiles'
     report_dir.mkdir( parents=True )
     index = report_dir / 'cxx-profiles-index.html'
     index.write_text( '<html></html>', encoding='utf-8' )
 
     options = {
-        'destination': '_artifacts/cxx-profiles',
+        'destination': '_artefacts/cxx-profiles',
         'link_style': 'local',
         'report_root': None,
         'enforce': [],
@@ -117,14 +117,14 @@ def test_remove_matching_entries_deletes_files( tmp_path, monkeypatch ):
             'kind': KIND_CXX_PROFILES,
             'schema': 1,
             'invocation_key': key,
-            'session_paths': [ '_artifacts/cxx-profiles/cxx-profiles-index.html' ],
+            'session_paths': [ '_artefacts/cxx-profiles/cxx-profiles-index.html' ],
             'scopes': [],
         },
     )
 
     removed, deleted = remove_matching_entries( str( tmp_path ), key )
     assert removed == 1
-    assert '_artifacts/cxx-profiles/cxx-profiles-index.html' in deleted
+    assert '_artefacts/cxx-profiles/cxx-profiles-index.html' in deleted
     assert not index.is_file()
     assert not os.path.isfile( manifest_path( str( tmp_path ) ) )
 
@@ -144,11 +144,11 @@ def test_build_cxx_profiles_entry_marks_incomplete_scope( tmp_path, monkeypatch 
         env,
         model,
         session_paths=[
-            str( tmp_path / '_artifacts/cxx-profiles/index.html' ),
+            str( tmp_path / '_artefacts/cxx-profiles/index.html' ),
         ],
         scope_paths={
             scope_stem: [
-                str( tmp_path / '_artifacts/cxx-profiles/scope.html' ),
+                str( tmp_path / '_artefacts/cxx-profiles/scope.html' ),
             ],
         },
         incomplete_scopes=[ _SAMPLE_SCOPE.variant_dir ],
@@ -200,6 +200,8 @@ def test_write_profiles_reports_appends_manifest_via_helper( tmp_path, monkeypat
 def test_cxx_profiles_report_options_uses_custom_artifacts_root( tmp_path ):
     env = {
         'sconstruct_dir': str( tmp_path ),
+        'artefacts_root': 'out/artefacts',
+        'abs_artefacts_root': str( tmp_path / 'out' / 'artefacts' ),
         'artifacts_root': 'out/artefacts',
         'abs_artifacts_root': str( tmp_path / 'out' / 'artefacts' ),
         'cxx_profiles_report': True,
@@ -216,14 +218,16 @@ def test_cxx_profiles_report_options_uses_custom_artifacts_root( tmp_path ):
 def test_cxx_profiles_report_options_normalises_destination( tmp_path ):
     env = {
         'sconstruct_dir': str( tmp_path ),
-        'artifacts_root': '_artifacts',
-        'abs_artifacts_root': str( tmp_path / '_artifacts' ),
+        'artefacts_root': '_artefacts',
+        'abs_artefacts_root': str( tmp_path / '_artefacts' ),
+        'artifacts_root': '_artefacts',
+        'abs_artifacts_root': str( tmp_path / '_artefacts' ),
         'cxx_profiles_report': True,
         'cxx_profiles_report_link_style': 'gitlab',
         'cxx_profiles_enforce': [ 'std::init', 'std::type' ],
         'cxx_profiles': True,
     }
     options = cxx_profiles_report_options( env )
-    assert options[ 'destination' ] == '_artifacts/cxx-profiles'
+    assert options[ 'destination' ] == '_artefacts/cxx-profiles'
     assert options[ 'link_style' ] == 'gitlab'
     assert options[ 'enforce' ] == [ 'std::init', 'std::type' ]

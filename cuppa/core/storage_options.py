@@ -10,7 +10,7 @@
 """Where cuppa keeps what it builds, retrieves, and downloads.
 
 Four project-local / shared roots, decided in one place. `build_root` and
-`artifacts_root` stay project-relative. `dependencies_root` holds ready-to-use
+`artefacts_root` stay project-relative (US alias `artifacts_root`). `dependencies_root` holds ready-to-use
 dependency trees and `downloads_root` holds the archives they came from; both
 derive from `storage_root` unless set individually.
 
@@ -34,7 +34,8 @@ from cuppa.log import logger
 class default(object):
 
     build_root     = '_build'
-    artifacts_root = '_artifacts'
+    artefacts_root = '_artefacts'
+    artifacts_root = artefacts_root
     storage_root   = '~/.cuppa'
     dependencies = 'dependencies'
     downloads    = 'downloads'
@@ -46,6 +47,7 @@ class default(object):
 # folder is listed first because that, not the shared one, is what the old default produced.
 LEGACY_DEPENDENCIES = ( '_cuppa', '~/_cuppa/_download' )
 LEGACY_DOWNLOADS    = ( '~/_cuppa/_cache', )
+LEGACY_ARTEFACTS    = ( '_artifacts', )
 
 
 # How a root was decided, so the caller can say so without repeating the rule. `origin` names the
@@ -60,11 +62,15 @@ def add_storage_options( add_option ):
                             help="The root directory for build output. If not specified"
                                  " then " +  default.build_root + " is used" )
 
-    add_option( '--artifacts-root', type='string', nargs=1, action='store',
-                            dest='artifacts_root',
+    add_option( '--artefacts-root', type='string', nargs=1, action='store',
+                            dest='artefacts_root',
                             help="The root directory for generated reports and other"
                                  " project artefacts outside the build tree. If not"
-                                 " specified then " + default.artifacts_root + " is used" )
+                                 " specified then " + default.artefacts_root + " is used" )
+
+    add_option( '--artifacts-root', type='string', nargs=1, action='store',
+                            dest='artifacts_root',
+                            help="US spelling alias for --artefacts-root" )
 
     add_option( '--storage-root', type='string', nargs=1, action='store',
                             dest='storage_root',
@@ -157,17 +163,53 @@ def report( resolved, name, deprecated_option, replaced_by ):
         ) )
 
 
+def resolve_artefacts_root( cuppa_env ):
+    """Resolve project artefacts root from British or US CLI spellings."""
+    british = cuppa_env.get_option( 'artefacts_root' )
+    us = cuppa_env.get_option( 'artifacts_root' )
+    if british and us and normal_path( british ) != normal_path( us ):
+        logger.warn(
+            "[{}] and [{}] disagree; using [{}]".format(
+                as_notice( '--artefacts-root' ),
+                as_notice( '--artifacts-root' ),
+                as_notice( normal_path( british ) ),
+            ),
+        )
+    if british or us:
+        return normal_path( british or us )
+    anchor = cuppa_env.get( 'sconstruct_dir' )
+    kept = existing_legacy_root( LEGACY_ARTEFACTS, anchor )
+    if kept:
+        return kept
+    return default.artefacts_root
+
+
 def process_storage_options( cuppa_env ):
 
     build_root = cuppa_env.get_option( 'build_root', default=default.build_root )
-    artifacts_root = cuppa_env.get_option(
-        'artifacts_root', default=default.artifacts_root,
-    )
+    anchor = cuppa_env.get( 'sconstruct_dir' )
+    artefacts_root = resolve_artefacts_root( cuppa_env )
 
     cuppa_env['build_root']     = normal_path( build_root )
     cuppa_env['abs_build_root'] = os.path.abspath( cuppa_env['build_root'] )
-    cuppa_env['artifacts_root'] = normal_path( artifacts_root )
-    cuppa_env['abs_artifacts_root'] = os.path.abspath( cuppa_env['artifacts_root'] )
+    cuppa_env['artefacts_root'] = artefacts_root
+    cuppa_env['abs_artefacts_root'] = os.path.abspath( cuppa_env['artefacts_root'] )
+    cuppa_env['artifacts_root'] = cuppa_env['artefacts_root']
+    cuppa_env['abs_artifacts_root'] = cuppa_env['abs_artefacts_root']
+
+    if (
+        not cuppa_env.get_option( 'artefacts_root' )
+        and not cuppa_env.get_option( 'artifacts_root' )
+    ):
+        kept = existing_legacy_root( LEGACY_ARTEFACTS, anchor )
+        if kept:
+            logger.info(
+                "Using the existing [{}] for artefacts rather than the new default. "
+                "Move it and set [{}] when you want the new location".format(
+                    as_notice( kept ),
+                    as_info( '--artefacts-root' ),
+                ),
+            )
 
     storage_root = normal_path(
             cuppa_env.get_option( 'storage_root', default=default.storage_root ) )

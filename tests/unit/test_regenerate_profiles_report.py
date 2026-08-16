@@ -30,12 +30,12 @@ def test_regenerate_profiles_report_writes_html_and_json( tmp_path, monkeypatch 
         str( _FIXTURE_CAPTURE ),
         '--sconstruct-dir',
         str( tmp_path ),
-        '--artifacts-root',
-        '_artifacts',
+        '--artefacts-root',
+        '_artefacts',
     ]
     assert regenerate_profiles_report.main( argv ) == 0
 
-    report_dir = tmp_path / '_artifacts' / 'cxx-profiles'
+    report_dir = tmp_path / '_artefacts' / 'cxx-profiles'
     assert ( report_dir / INDEX_BASENAME ).is_file()
     assert ( report_dir / JSON_BASENAME ).is_file()
     index_html = ( report_dir / INDEX_BASENAME ).read_text( encoding='utf-8' )
@@ -67,14 +67,16 @@ def test_regenerate_profiles_report_from_json( tmp_path ):
 
     env = {
         'sconstruct_dir': str( tmp_path ),
-        'artifacts_root': '_artifacts',
-        'abs_artifacts_root': str( tmp_path / '_artifacts' ),
+        'artefacts_root': '_artefacts',
+        'abs_artefacts_root': str( tmp_path / '_artefacts' ),
+        'artifacts_root': '_artefacts',
+        'abs_artifacts_root': str( tmp_path / '_artefacts' ),
         'cxx_profiles_report': True,
         'cxx_profiles_report_link_style': 'local',
         'cxx_profiles_report_root': str( tmp_path ),
     }
     first = write_profiles_reports( inventory, env )
-    json_path = tmp_path / '_artifacts' / 'cxx-profiles' / JSON_BASENAME
+    json_path = tmp_path / '_artefacts' / 'cxx-profiles' / JSON_BASENAME
     assert json_path.is_file()
 
     out_dir = tmp_path / 'regen'
@@ -118,14 +120,16 @@ def test_regenerate_profiles_report_from_json_uses_metadata_sconstruct_dir( tmp_
     inventory.record( scope, parse_profiles_diagnostic( line ) )
     env = {
         'sconstruct_dir': str( tmp_path ),
-        'artifacts_root': '_artifacts',
-        'abs_artifacts_root': str( tmp_path / '_artifacts' ),
+        'artefacts_root': '_artefacts',
+        'abs_artefacts_root': str( tmp_path / '_artefacts' ),
+        'artifacts_root': '_artefacts',
+        'abs_artifacts_root': str( tmp_path / '_artefacts' ),
         'cxx_profiles_report': True,
         'cxx_profiles_report_link_style': 'local',
         'cxx_profiles_report_root': str( tmp_path ),
     }
     write_profiles_reports( inventory, env )
-    json_path = tmp_path / '_artifacts' / 'cxx-profiles' / JSON_BASENAME
+    json_path = tmp_path / '_artefacts' / 'cxx-profiles' / JSON_BASENAME
 
     out_dir = tmp_path / 'metadata-regen'
     argv = [
@@ -162,14 +166,16 @@ def test_regenerate_profiles_report_from_json_skip_source_pages( tmp_path ):
     inventory.record( scope, parse_profiles_diagnostic( line ) )
     env = {
         'sconstruct_dir': str( tmp_path ),
-        'artifacts_root': '_artifacts',
-        'abs_artifacts_root': str( tmp_path / '_artifacts' ),
+        'artefacts_root': '_artefacts',
+        'abs_artefacts_root': str( tmp_path / '_artefacts' ),
+        'artifacts_root': '_artefacts',
+        'abs_artifacts_root': str( tmp_path / '_artefacts' ),
         'cxx_profiles_report': True,
         'cxx_profiles_report_link_style': 'local',
         'cxx_profiles_report_root': str( tmp_path ),
     }
     write_profiles_reports( inventory, env )
-    json_path = tmp_path / '_artifacts' / 'cxx-profiles' / JSON_BASENAME
+    json_path = tmp_path / '_artefacts' / 'cxx-profiles' / JSON_BASENAME
 
     out_dir = tmp_path / 'tables-only'
     argv = [

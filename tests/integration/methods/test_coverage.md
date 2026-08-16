@@ -11,4 +11,4 @@ Related test module: `test_coverage.py`
 Covers:
 
 - `Coverage` on a `BuildTest` binary
-- `CollateCoverageFiles` / `CollateCoverageIndex` with two sibling sconscripts sharing `#_artifacts/coverage/`
+- `CollateCoverageFiles` / `CollateCoverageIndex` with two sibling sconscripts sharing `#_artefacts/coverage/`

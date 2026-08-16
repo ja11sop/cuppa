@@ -112,7 +112,7 @@ def test_collector_progress_tracks_variant_completion():
 
 
 def test_cxx_profiles_report_requires_profiles_active():
-    from cuppa.methods.cxx_profiles_report import CxxProfilesReportMethod
+    from cuppa.methods.cxx_profiles_report import CollateCxxProfilesIndexMethod
     import SCons.Errors
 
     class FakeEnv(dict):
@@ -125,11 +125,11 @@ def test_cxx_profiles_report_requires_profiles_active():
 
     env = FakeEnv( { 'cxx_profiles_report': True } )
     with pytest.raises( SCons.Errors.StopError ):
-        CxxProfilesReportMethod.get_options( env )
+        CollateCxxProfilesIndexMethod.get_options( env )
 
     env = FakeEnv( { 'cxx_profiles_report': True } )
     env['cxx_profiles'] = True
-    CxxProfilesReportMethod.get_options( env )
+    CollateCxxProfilesIndexMethod.get_options( env )
     assert env['cxx_profiles_report'] is True
     assert ProfilesDiagnosticCollector.active() is not None
 
@@ -200,13 +200,13 @@ def test_spawn_processor_hook_skips_raw_output(monkeypatch):
 
 
 def test_cxx_profiles_report_disabled_does_not_activate():
-    from cuppa.methods.cxx_profiles_report import CxxProfilesReportMethod
+    from cuppa.methods.cxx_profiles_report import CollateCxxProfilesIndexMethod
 
     class FakeEnv(dict):
         def get_option( self, name ):
             return None
 
     env = FakeEnv()
-    CxxProfilesReportMethod.get_options( env )
+    CollateCxxProfilesIndexMethod.get_options( env )
     assert env['cxx_profiles_report'] is False
     assert ProfilesDiagnosticCollector.active() is None

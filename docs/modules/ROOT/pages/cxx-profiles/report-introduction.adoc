@@ -30,9 +30,19 @@ Before generating a report you will need:
 
 Pass `--cxx-profiles-report` together with `--cxx-profiles` or `--cxx-profiles-enforce=`. Cuppa
 captures diagnostics while the build runs and writes output at `sconstruct_end` under
-`<artifacts-root>/cxx-profiles/` (default `_artifacts/cxx-profiles/`). The construction `env`
-exposes `artifacts_root` and `abs_artifacts_root` (see `--artifacts-root=` in
-xref:cli-reference.adoc[CLI reference]).
+`<artefacts-root>/cxx-profiles/` (default `_artefacts/cxx-profiles/`). The construction `env`
+exposes `artefacts_root` and `abs_artefacts_root` (US aliases `artifacts_root` /
+`abs_artifacts_root`; see `--artefacts-root=` in xref:cli-reference.adoc[CLI reference]).
+
+Alternatively, declare the report in a sconscript so CI jobs do not need to remember the CLI
+flag:
+
+[source,python]
+----
+env.CollateCxxProfilesIndex()
+# optional: env.CollateCxxProfilesIndex( destination='#_artefacts/cxx-profiles/' )
+# optional: env.CollateCxxProfilesIndex( link_style='gitlab' )
+----
 
 [source,bash]
 ----
@@ -94,7 +104,7 @@ iteration, and for CI jobs that only publish HTML from a saved JSON artefact.
 [source,bash]
 ----
 python -m scripts.regenerate_profiles_report \
-  --from-json _artifacts/cxx-profiles/cxx-profiles-index.json
+  --from-json _artefacts/cxx-profiles/cxx-profiles-index.json
 ----
 
 Omit `--sconstruct-dir` to take project paths and link style from JSON `metadata`. Source files
@@ -110,11 +120,14 @@ must exist on disk for `by-source/` pages unless `--skip-source-pages` is set.
 | `--sconstruct-dir`
 | Project root; default: cwd, or JSON metadata with `--from-json`
 
+| `--artefacts-root`
+| Same meaning as cuppa `--artefacts-root` (default `_artefacts`)
+
 | `--artifacts-root`
-| Same meaning as cuppa `--artifacts-root` (default `_artifacts`)
+| US spelling alias for `--artefacts-root`
 
 | `--report-dir`
-| Output directory (default: `<artifacts-root>/cxx-profiles/`)
+| Output directory (default: `<artefacts-root>/cxx-profiles/`)
 
 | `--link-style` / `--reports-link-style`
 | Source links for this regen run
@@ -193,11 +206,11 @@ Numeric Overview `context` fields (translation-unit counts, rule matrices, perce
 [source,bash]
 ----
 python -m scripts.anonymise_profiles_report \
-  --in _artifacts/cxx-profiles/cxx-profiles-index.json \
-  --out _artifacts/cxx-profiles/cxx-profiles-index.anonymised.json
+  --in _artefacts/cxx-profiles/cxx-profiles-index.json \
+  --out _artefacts/cxx-profiles/cxx-profiles-index.anonymised.json
 
 python -m scripts.regenerate_profiles_report \
-  --from-json _artifacts/cxx-profiles/cxx-profiles-index.anonymised.json \
+  --from-json _artefacts/cxx-profiles/cxx-profiles-index.anonymised.json \
   --anonymised
 ----
 
@@ -248,8 +261,8 @@ verified before write — nothing is hardcoded to your organisation.
 [source,bash]
 ----
 python -m scripts.anonymise_profiles_report \
-  --in _artifacts/cxx-profiles/cxx-profiles-index.json \
-  --out _artifacts/cxx-profiles/cxx-profiles-index.anonymised.json
+  --in _artefacts/cxx-profiles/cxx-profiles-index.json \
+  --out _artefacts/cxx-profiles/cxx-profiles-index.anonymised.json
 ----
 
 [cols="1,3"]

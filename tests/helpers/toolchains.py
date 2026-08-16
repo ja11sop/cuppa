@@ -542,6 +542,55 @@ def find_profiles_capable_toolchain():
     return None
 
 
+PROFILES_CLANG_ARCHIVE_URL = (
+    'https://github.com/cppalliance/clang/releases/download/'
+    'profiles-2026-08-07-27/clang-profiles-linux-x86_64.tar.gz'
+)
+PROFILES_CLANG_ARCHIVE_TOOLCHAIN = 'clang24_profiles_2026_08_07_27'
+
+
+def profiles_toolchain_flags( allow_archive=True ):
+    """
+    Return ``(flags, needs_network)`` for Profiles integration tests.
+
+    Prefer a Profiles-capable Clang already on ``PATH`` (or
+    ``CUPPA_TEST_PROFILES_TOOLCHAIN``). When ``allow_archive`` is true and none
+    is available on Linux x86_64, fall back to the documented Alliance archive.
+    """
+    found = find_profiles_capable_toolchain()
+    if found:
+        alias, path = found
+        logger.info( 'Profiles integration using %s (%s)', alias, path )
+        return [ '--toolchains={}'.format( alias ) ], False
+
+    if not allow_archive:
+        pytest.skip(
+            'C++ Profiles tests require a Profiles-capable Clang '
+            '(-fprofiles). Install a C++ Alliance Profiles archive and register '
+            'it with --toolchain-archive= / --clang-root=, or set '
+            'CUPPA_TEST_PROFILES_TOOLCHAIN to its clang++.'
+        )
+
+    if os.name == 'nt':
+        pytest.skip( 'Profiles toolchain archive integration is Linux-only' )
+
+    import platform
+    machine = platform.machine().lower()
+    if machine not in ( 'x86_64', 'amd64' ):
+        pytest.skip(
+            'Profiles archive is x86_64-only; machine is {!r}'.format( machine ),
+        )
+
+    logger.info(
+        'Profiles integration fetching Alliance archive: %s',
+        PROFILES_CLANG_ARCHIVE_URL,
+    )
+    return [
+        '--toolchain-archive={}'.format( PROFILES_CLANG_ARCHIVE_URL ),
+        '--toolchains={}'.format( PROFILES_CLANG_ARCHIVE_TOOLCHAIN ),
+    ], True
+
+
 def require_profiles_capable_toolchain():
     """Return ``(alias, --toolchains=… flag)`` or skip when no Profiles Clang."""
     found = find_profiles_capable_toolchain()

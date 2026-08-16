@@ -8,7 +8,7 @@ From a build capture (legacy, best-effort under parallel ``tee``)::
 From a saved report JSON (recommended for template iteration)::
 
     python -m scripts.regenerate_profiles_report \\
-        --from-json _artifacts/cxx-profiles/cxx-profiles-index.json \\
+        --from-json _artefacts/cxx-profiles/cxx-profiles-index.json \\
         --sconstruct-dir /path/to/project
 
 Capture replay infers scope from cuppa ``Progress( … )`` markers and parses
@@ -106,14 +106,19 @@ def main( argv=None ):
         help='Project root (directory containing sconstruct); default: cwd, or JSON metadata with --from-json',
     )
     parser.add_argument(
+        '--artefacts-root',
+        default='_artefacts',
+        help='Project-relative artefacts root (default: _artefacts)',
+    )
+    parser.add_argument(
         '--artifacts-root',
-        default='_artifacts',
-        help='Project-relative artefacts root (default: _artifacts)',
+        default=None,
+        help='US spelling alias for --artefacts-root',
     )
     parser.add_argument(
         '--report-dir',
         default='',
-        help='Optional output directory (default: <artifacts-root>/cxx-profiles/)',
+        help='Optional output directory (default: <artefacts-root>/cxx-profiles/)',
     )
     parser.add_argument(
         '--reports-link-style',

@@ -3,13 +3,13 @@
 Typical workflow::
 
     python -m scripts.anonymise_profiles_report \\
-        --in _artifacts/cxx-profiles/cxx-profiles-index.json \\
-        --out _artifacts/cxx-profiles/cxx-profiles-index.anonymised.json
+        --in _artefacts/cxx-profiles/cxx-profiles-index.json \\
+        --out _artefacts/cxx-profiles/cxx-profiles-index.anonymised.json
 
 Then regenerate HTML without source pages::
 
     python -m scripts.regenerate_profiles_report \\
-        --from-json _artifacts/cxx-profiles/cxx-profiles-index.anonymised.json \\
+        --from-json _artefacts/cxx-profiles/cxx-profiles-index.anonymised.json \\
         --anonymised
 """
 
