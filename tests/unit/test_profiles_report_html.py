@@ -281,6 +281,8 @@ def test_scope_summaries_and_sconscript_groups():
 def test_default_report_directory_uses_artifacts_root( tmp_path ):
     env = {
         'sconstruct_dir': str( tmp_path ),
+        'artefacts_root': 'out/artefacts',
+        'abs_artefacts_root': str( tmp_path / 'out' / 'artefacts' ),
         'artifacts_root': 'out/artefacts',
         'abs_artifacts_root': str( tmp_path / 'out' / 'artefacts' ),
     }
@@ -303,8 +305,10 @@ def test_write_profiles_reports_emits_html_and_json( tmp_path ):
 
     env = {
         'sconstruct_dir': str( tmp_path ),
-        'artifacts_root': '_artifacts',
-        'abs_artifacts_root': str( tmp_path / '_artifacts' ),
+        'artefacts_root': '_artefacts',
+        'abs_artefacts_root': str( tmp_path / '_artefacts' ),
+        'artifacts_root': '_artefacts',
+        'abs_artifacts_root': str( tmp_path / '_artefacts' ),
         'cxx_profiles_report': True,
         'cxx_profiles_report_link_style': 'local',
         'cxx_profiles_report_root': str( tmp_path ),

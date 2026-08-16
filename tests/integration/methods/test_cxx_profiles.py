@@ -97,7 +97,7 @@ def test_profiles_report_emits_html_and_json_via_sconscript_method( tmp_path ):
         '--cxx-disable-error-limit',
         toolchain_flag,
     )
-    report_dir = tmp_path / '_artifacts' / 'cxx-profiles'
+    report_dir = tmp_path / '_artefacts' / 'cxx-profiles'
     assert ( report_dir / 'cxx-profiles-index.html' ).is_file()
     assert ( report_dir / 'cxx-profiles-index.json' ).is_file()
     combined = ( result.stdout or '' ) + ( result.stderr or '' )
@@ -105,7 +105,7 @@ def test_profiles_report_emits_html_and_json_via_sconscript_method( tmp_path ):
 
 
 def test_profiles_report_emits_html_and_json( tmp_path ):
-    """--cxx-profiles-report writes HTML + JSON under _artifacts/cxx-profiles/."""
+    """--cxx-profiles-report writes HTML + JSON under _artefacts/cxx-profiles/."""
     _, toolchain_flag = require_profiles_capable_toolchain()
     write_sconstruct( tmp_path )
     write_sconscript(
@@ -129,7 +129,7 @@ def test_profiles_report_emits_html_and_json( tmp_path ):
         '--cxx-profiles-report',
         toolchain_flag,
     )
-    report_dir = tmp_path / '_artifacts' / 'cxx-profiles'
+    report_dir = tmp_path / '_artefacts' / 'cxx-profiles'
     assert ( report_dir / 'cxx-profiles-index.html' ).is_file()
     assert ( report_dir / 'cxx-profiles-index.json' ).is_file()
     combined = ( result.stdout or '' ) + ( result.stderr or '' )
@@ -162,7 +162,7 @@ def test_profiles_report_clean_removes_manifest_artefacts( tmp_path ):
     ]
     run_cuppa( tmp_path, *report_flags )
 
-    report_dir = tmp_path / '_artifacts' / 'cxx-profiles'
+    report_dir = tmp_path / '_artefacts' / 'cxx-profiles'
     index_html = report_dir / 'cxx-profiles-index.html'
     index_json = report_dir / 'cxx-profiles-index.json'
     manifest = tmp_path / '.cuppa-reports'

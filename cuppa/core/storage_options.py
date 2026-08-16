@@ -34,7 +34,7 @@ from cuppa.log import logger
 class default(object):
 
     build_root     = '_build'
-    artefacts_root = '_artifacts'
+    artefacts_root = '_artefacts'
     artifacts_root = artefacts_root
     storage_root   = '~/.cuppa'
     dependencies = 'dependencies'
@@ -47,6 +47,7 @@ class default(object):
 # folder is listed first because that, not the shared one, is what the old default produced.
 LEGACY_DEPENDENCIES = ( '_cuppa', '~/_cuppa/_download' )
 LEGACY_DOWNLOADS    = ( '~/_cuppa/_cache', )
+LEGACY_ARTEFACTS    = ( '_artifacts', )
 
 
 # How a root was decided, so the caller can say so without repeating the rule. `origin` names the
@@ -174,13 +175,19 @@ def resolve_artefacts_root( cuppa_env ):
                 as_notice( normal_path( british ) ),
             ),
         )
-    chosen = british or us or default.artefacts_root
-    return normal_path( chosen )
+    if british or us:
+        return normal_path( british or us )
+    anchor = cuppa_env.get( 'sconstruct_dir' )
+    kept = existing_legacy_root( LEGACY_ARTEFACTS, anchor )
+    if kept:
+        return kept
+    return default.artefacts_root
 
 
 def process_storage_options( cuppa_env ):
 
     build_root = cuppa_env.get_option( 'build_root', default=default.build_root )
+    anchor = cuppa_env.get( 'sconstruct_dir' )
     artefacts_root = resolve_artefacts_root( cuppa_env )
 
     cuppa_env['build_root']     = normal_path( build_root )
@@ -189,6 +196,20 @@ def process_storage_options( cuppa_env ):
     cuppa_env['abs_artefacts_root'] = os.path.abspath( cuppa_env['artefacts_root'] )
     cuppa_env['artifacts_root'] = cuppa_env['artefacts_root']
     cuppa_env['abs_artifacts_root'] = cuppa_env['abs_artefacts_root']
+
+    if (
+        not cuppa_env.get_option( 'artefacts_root' )
+        and not cuppa_env.get_option( 'artifacts_root' )
+    ):
+        kept = existing_legacy_root( LEGACY_ARTEFACTS, anchor )
+        if kept:
+            logger.info(
+                "Using the existing [{}] for artefacts rather than the new default. "
+                "Move it and set [{}] when you want the new location".format(
+                    as_notice( kept ),
+                    as_info( '--artefacts-root' ),
+                ),
+            )
 
     storage_root = normal_path(
             cuppa_env.get_option( 'storage_root', default=default.storage_root ) )

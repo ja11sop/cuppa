@@ -61,9 +61,9 @@ def test_cxx_profiles_report_callable_accepts_explicit_destination():
         'cxx_profiles_enforce': [ 'std::init' ],
     }
     callable_method = CxxProfilesReportCallable()
-    result = callable_method( env, destination='#_artifacts/cxx-profiles/custom/' )
-    assert result == '#_artifacts/cxx-profiles/custom/'
-    assert env[ 'cxx_profiles_report' ] == '#_artifacts/cxx-profiles/custom/'
+    result = callable_method( env, destination='#_artefacts/cxx-profiles/custom/' )
+    assert result == '#_artefacts/cxx-profiles/custom/'
+    assert env[ 'cxx_profiles_report' ] == '#_artefacts/cxx-profiles/custom/'
 
 
 def test_cxx_profiles_report_requires_profiles_active():

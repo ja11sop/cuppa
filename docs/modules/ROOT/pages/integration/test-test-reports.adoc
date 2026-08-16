@@ -6,7 +6,7 @@
 
 1. *`GenerateHtmlTestReport`* — HTML + summary JSON from test report JSON after `--test` (HTML body includes the test name).
 2. *`GenerateHtmlTestReport` with `--cov`* — build succeeds with both `*.report.html` and `coverage--*.json` present (regression: coverage JSON must not break HTML report generation).
-3. *`CollateTestReportIndex`* — copies reports into `#_artifacts/test/` and writes `test-report-index.html` / `.json` at sconstruct end (including outside a VCS checkout).
+3. *`CollateTestReportIndex`* — copies reports into `#_artefacts/test/` and writes `test-report-index.html` / `.json` at sconstruct end (including outside a VCS checkout).
 4. *Shared-destination collate* — two sibling sconscripts collating into the same artifacts folder.
 5. *`GenerateBittenReport`* — Bitten XML from the same test run.
 
@@ -37,12 +37,12 @@ env.GenerateHtmlTestReport(prog)
 Import('env')
 prog = env.BuildTest('hello_test', 'tests/hello_test.cpp')
 reports = env.GenerateHtmlTestReport(prog)
-env.CollateTestReportIndex(reports, destination='#_artifacts/test/')
+env.CollateTestReportIndex(reports, destination='#_artefacts/test/')
 ----
 
 === Shared-destination collate
 
-Root `sconscript` removed. Under `suite/`, `alpha_test.sconscript` / `beta_test.sconscript` each call `GenerateHtmlTestReport` then `CollateTestReportIndex(..., destination='#_artifacts/test/')`.
+Root `sconscript` removed. Under `suite/`, `alpha_test.sconscript` / `beta_test.sconscript` each call `GenerateHtmlTestReport` then `CollateTestReportIndex(..., destination='#_artefacts/test/')`.
 
 === Bitten — `sconscript`
 
@@ -66,8 +66,8 @@ cuppa -D --offline --toolchains=gcc --cov --test
 
 * HTML: exit 0; `*.report.html` and `*.report-summary.json` under `_build`; report HTML mentions `hello_test`.
 * With `--cov`: exit 0; `*.report.html` and `coverage--*.json` both exist.
-* Collate (single): reports under `_artifacts/test/`, plus master `test-report-index.html` / `test-report-index.json` (index mentions `hello_test`).
-* Collate (shared destination): both `alpha_test` and `beta_test` report HTML under `_artifacts/test/` (Windows may use `*.exe.report.html`), plus master index mentioning both names.
+* Collate (single): reports under `_artefacts/test/`, plus master `test-report-index.html` / `test-report-index.json` (index mentions `hello_test`).
+* Collate (shared destination): both `alpha_test` and `beta_test` report HTML under `_artefacts/test/` (Windows may use `*.exe.report.html`), plus master index mentioning both names.
 * Bitten: `*bitten*.xml` under `_build`.
 
 '''

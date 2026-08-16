@@ -4,7 +4,7 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   --list-reports — catalogue built-in report kinds under the artefacts root
+#   --list-report-kinds — catalogue built-in report kinds under the artefacts root
 #-------------------------------------------------------------------------------
 
 import json
@@ -19,7 +19,7 @@ from cuppa.reports.registry import (
 )
 
 
-def list_reports( cuppa_env, out ):
+def list_report_kinds( cuppa_env, out ):
     """Print registered report kinds and exit."""
     list_format = cuppa_env.get( 'list_format' ) or 'text'
     if list_format == 'json':
@@ -36,7 +36,7 @@ def list_reports( cuppa_env, out ):
             as_subdued( rel_root ),
         ),
     )
-    out.write( 'Report kinds:\n\n' )
+    out.write( 'Report kinds (built-in; not a scan of files on disk):\n\n' )
 
     for kind in REPORT_KINDS:
         if kind.under_artefacts_root and kind.default_subdir:

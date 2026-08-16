@@ -75,17 +75,17 @@ def test_collate_test_report_index(tmp_path):
         "Import('env')\n"
         "prog = env.BuildTest('hello_test', 'tests/hello_test.cpp')\n"
         "reports = env.GenerateHtmlTestReport(prog)\n"
-        "env.CollateTestReportIndex(reports, destination='#_artifacts/test/')\n",
+        "env.CollateTestReportIndex(reports, destination='#_artefacts/test/')\n",
     )
     result = run_cuppa(project, "--dbg", "--test")
     assert_success(result)
 
-    artifacts = Path(project) / "_artifacts" / "test"
-    assert artifacts.is_dir()
-    assert list(artifacts.rglob("*.report.html")), "expected collated HTML reports under _artifacts/test"
-    assert list(artifacts.rglob("*.report-summary.json")), "expected collated summary JSON"
-    index_html = artifacts / "test-report-index.html"
-    index_json = artifacts / "test-report-index.json"
+    artefacts = Path(project) / "_artefacts" / "test"
+    assert artefacts.is_dir()
+    assert list(artefacts.rglob("*.report.html")), "expected collated HTML reports under _artefacts/test"
+    assert list(artefacts.rglob("*.report-summary.json")), "expected collated summary JSON"
+    index_html = artefacts / "test-report-index.html"
+    index_json = artefacts / "test-report-index.json"
     assert index_html.is_file(), "expected master test-report-index.html at sconstruct end"
     assert index_json.is_file(), "expected master test-report-index.json at sconstruct end"
     assert "hello_test" in index_html.read_text(encoding="utf-8")
@@ -105,7 +105,7 @@ def test_collate_test_report_index_shared_destination(tmp_path):
             "Import('env')\n"
             "prog = env.BuildTest('{name}', '{name}.cpp')\n"
             "reports = env.GenerateHtmlTestReport(prog)\n"
-            "env.CollateTestReportIndex(reports, destination='#_artifacts/test/')\n".format(
+            "env.CollateTestReportIndex(reports, destination='#_artefacts/test/')\n".format(
                 name=name
             ),
             encoding="utf-8",
@@ -114,8 +114,8 @@ def test_collate_test_report_index_shared_destination(tmp_path):
     result = run_cuppa(project, "--dbg", "--test", timeout=300)
     assert_success(result)
 
-    artifacts = Path(project) / "_artifacts" / "test"
-    report_names = {path.name for path in artifacts.rglob("*.report.html")}
+    artefacts = Path(project) / "_artefacts" / "test"
+    report_names = {path.name for path in artefacts.rglob("*.report.html")}
 
     def has_report(stem):
         return (
@@ -125,8 +125,8 @@ def test_collate_test_report_index_shared_destination(tmp_path):
 
     assert has_report("alpha_test")
     assert has_report("beta_test")
-    assert (artifacts / "test-report-index.html").is_file()
-    index_text = (artifacts / "test-report-index.html").read_text(encoding="utf-8")
+    assert (artefacts / "test-report-index.html").is_file()
+    index_text = (artefacts / "test-report-index.html").read_text(encoding="utf-8")
     assert "alpha_test" in index_text
     assert "beta_test" in index_text
 

@@ -10,7 +10,7 @@ import pytest
 from cuppa.core import storage_actions
 from cuppa.core import storage_options
 from cuppa.core.storage_options import default
-from cuppa.reports.list_reports import list_reports
+from cuppa.reports.list_report_kinds import list_report_kinds
 from cuppa.reports.registry import (
     REPORT_KINDS,
     abs_artefacts_root_from_env,
@@ -45,16 +45,16 @@ def test_abs_artefacts_root_prefers_british_env_keys( tmp_path ):
 def test_default_report_dir_for_cxx_profiles( tmp_path ):
     env = {
         'sconstruct_dir': str( tmp_path ),
-        'artefacts_root': '_artifacts',
-        'abs_artefacts_root': str( tmp_path / '_artifacts' ),
+        'artefacts_root': '_artefacts',
+        'abs_artefacts_root': str( tmp_path / '_artefacts' ),
     }
     kind = report_kind_by_id( 'cxx-profiles' )
     assert default_report_dir_for_kind( env, kind ) == str(
-        tmp_path / '_artifacts' / 'cxx-profiles',
+        tmp_path / '_artefacts' / 'cxx-profiles',
     )
 
 
-def test_list_reports_text_mentions_profiles_and_artefacts_root( tmp_path ):
+def test_list_report_kinds_text_mentions_profiles_and_artefacts_root( tmp_path ):
     env = FakeEnv( {} )
     env[ 'sconstruct_dir' ] = str( tmp_path )
     env[ 'list_format' ] = 'text'
@@ -63,15 +63,16 @@ def test_list_reports_text_mentions_profiles_and_artefacts_root( tmp_path ):
 
     from io import StringIO
     out = StringIO()
-    assert list_reports( env, out ) == 0
+    assert list_report_kinds( env, out ) == 0
     text = out.getvalue()
     assert 'Artefacts root:' in text
+    assert 'not a scan of files on disk' in text
     assert 'cxx-profiles/' in text
     assert 'env.CxxProfilesReport()' in text
     assert '--remove-artefacts' in text
 
 
-def test_list_reports_json_includes_us_spelling_aliases( tmp_path ):
+def test_list_report_kinds_json_includes_us_spelling_aliases( tmp_path ):
     env = FakeEnv( {} )
     env[ 'sconstruct_dir' ] = str( tmp_path )
     storage_options.process_storage_options( env )

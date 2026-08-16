@@ -70,8 +70,8 @@ def test_collate_coverage_index_shared_destination(tmp_path):
         (suite / "{}.sconscript".format(name)).write_text(
             "Import('env')\n"
             "prog = env.BuildTest('{name}', '{name}.cpp')\n"
-            "cov = env.CollateCoverageFiles(prog, destination='#_artifacts/coverage/')\n"
-            "env.CollateCoverageIndex(cov, destination='#_artifacts/coverage/')\n".format(
+            "cov = env.CollateCoverageFiles(prog, destination='#_artefacts/coverage/')\n"
+            "env.CollateCoverageIndex(cov, destination='#_artefacts/coverage/')\n".format(
                 name=name
             ),
             encoding="utf-8",
@@ -80,13 +80,13 @@ def test_collate_coverage_index_shared_destination(tmp_path):
     result = run_cuppa(project, "--cov", "--test", timeout=300)
     assert_success(result)
 
-    artifacts = Path(project) / "_artifacts" / "coverage"
-    indexes = sorted(artifacts.rglob("coverage-index--*.html"))
-    assert indexes, "expected collated coverage index HTML under _artifacts/coverage"
+    artefacts = Path(project) / "_artefacts" / "coverage"
+    indexes = sorted(artefacts.rglob("coverage-index--*.html"))
+    assert indexes, "expected collated coverage index HTML under _artefacts/coverage"
 
     namespaced = [
         path
-        for path in artifacts.rglob("*.html")
+        for path in artefacts.rglob("*.html")
         if "by-source" in path.parts and path.parent.name.startswith("coverage-index--")
     ]
     assert namespaced, (

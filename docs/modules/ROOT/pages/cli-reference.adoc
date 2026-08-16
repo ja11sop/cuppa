@@ -51,7 +51,7 @@ TIP: If cuppa fails early while reading sconscripts, re-run with `--verbosity=ex
 | Option | Default
 
 | `--build-root` | `_build`
-| `--artefacts-root` | `_artifacts` -- generated reports and other project artefacts outside the build tree
+| `--artefacts-root` | `_artefacts` — generated reports and other project artefacts outside the build tree
 | `--artifacts-root` | US spelling alias for `--artefacts-root` (same `env` keys)
 | `--storage-root` | `~/.cuppa` -- the parent of the two roots below
 | `--dependencies-root` | `<storage-root>/dependencies` -- retrieved trees, ready to build against
@@ -90,7 +90,7 @@ xref:build-layout.adoc#remove-all-builds-example[`--remove-all-builds`]).
 | Option | Effect
 
 | `--list-builds` | List the build root as folder summary, toolchain → variant tree, and sconscript tree; print an explicit command for the selected builds
-| `--list-reports` | List built-in HTML report kinds (Profiles, coverage, test) and their default directories under the artefacts root; supports `--list-format=json`
+| `--list-report-kinds` | List **built-in** HTML report kinds (Profiles, coverage, test)—not files on disk—their default directories under the artefacts root, CLI flags, sconscript methods, and how clean/removal works today; supports `--list-format=json`. Use when you need cuppa's report surface for this version without opening the docs.
 | `--list-toolchains` | List **discovered** (PATH) and **registered** (managed) toolchains as a ruled family → version → driver → name(s) tree; then exit. Force-wipe applies only to registered rows. `--list-format=verbose` adds dialects / features / default invocations; `--list-format=json` emits the nested agent payload (with `describe` on drivers). See xref:toolchains.adoc#list-toolchains[Listing toolchains]
 | `--remove-builds` | Remove variant subtrees matching the current `--toolchains` / `--dbg` / `--rel` / `--cov` selection
 | `--remove-all-builds` | Remove the entire build root
@@ -112,7 +112,7 @@ xref:build-layout.adoc#remove-all-builds-example[`--remove-all-builds`]).
 SCons `-n` / `--no-exec` turns build or dependency removal into a dry run: the same report, nothing deleted.
 Containment, symlink refusal, and refusal of home / filesystem / sconstruct-directory roots are
 described in xref:build-layout.adoc#removal-safety[Safety and scope].
-Artefact trees outside the build root (for example `_artifacts/`) are not removed.
+Artefact trees outside the build root (for example `_artefacts/`) are not removed.
 `--remove-dependencies` does not touch `--downloads-root`. Use `--list-downloads` to inspect
 cached archives, `--purge-dependencies` to delete matching ones while leaving archive extracts that
 `storage_clean` preserves, and `--wipe-dependencies` / `--force-wipe-dependencies` for a
@@ -186,7 +186,7 @@ C++ Profiles (opt-in; Profiles-capable Clang only):
 * `--cxx-profiles` -- enable the C++ Profiles framework (`-fprofiles`) when the toolchain supports it (StopError otherwise; use a C++ Alliance Profiles Clang archive via `--toolchain-archive=` / `--clang-root=`)
 * `--cxx-profiles-enforce=<designators>` -- comma-separated profile designators to enforce on every C++ translation unit (implies `--cxx-profiles`). Example: `--cxx-profiles-enforce=std::init`. When the toolchain has no native enforce flag, cuppa injects `[[profiles::enforce(…)]];` via `-include`, or merges CLI designators into an existing source `[[profiles::enforce(…)]];` in a build-tree view
 * `--cxx-disable-error-limit` -- disable the compiler diagnostic cap (Clang `-ferror-limit=0`, GCC `-fmax-errors=0`) so every error is reported; useful with enforce for a full violation list
-* `--cxx-profiles-report` -- capture Profiles diagnostics during the build and emit HTML + JSON under `_artifacts/cxx-profiles/` at session end (requires `--cxx-profiles` or `--cxx-profiles-enforce=`; optional directory path after `=`)
+* `--cxx-profiles-report` -- capture Profiles diagnostics during the build and emit HTML + JSON under `_artefacts/cxx-profiles/` at session end (requires `--cxx-profiles` or `--cxx-profiles-enforce=`; optional directory path after `=`; or declare `env.CxxProfilesReport()` in a sconscript)
 * `--cxx-profiles-report-root=<dir>` -- rebase project-owned source paths in Profiles reports (default: sconstruct directory)
 * `--cxx-profiles-report-link-style=local|gitlab|github` — Profiles-only override of `--reports-link-style`
 

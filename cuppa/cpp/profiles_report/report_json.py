@@ -317,11 +317,15 @@ def env_from_report_metadata( metadata, arguments ):
     else:
         sconstruct_dir = os.path.abspath( os.getcwd() )
 
-    artifacts_root = arguments.artifacts_root
-    abs_artifacts_root = (
-        os.path.abspath( artifacts_root )
-        if os.path.isabs( artifacts_root )
-        else os.path.join( sconstruct_dir, artifacts_root )
+    artefacts_root = (
+        getattr( arguments, 'artefacts_root', None )
+        or getattr( arguments, 'artifacts_root', None )
+        or '_artefacts'
+    )
+    abs_artefacts_root = (
+        os.path.abspath( artefacts_root )
+        if os.path.isabs( artefacts_root )
+        else os.path.join( sconstruct_dir, artefacts_root )
     )
 
     def _normalise_style( value ):
@@ -343,8 +347,10 @@ def env_from_report_metadata( metadata, arguments ):
 
     env = {
         'sconstruct_dir': sconstruct_dir,
-        'artifacts_root': artifacts_root,
-        'abs_artifacts_root': abs_artifacts_root,
+        'artefacts_root': artefacts_root,
+        'abs_artefacts_root': abs_artefacts_root,
+        'artifacts_root': artefacts_root,
+        'abs_artifacts_root': abs_artefacts_root,
         'cxx_profiles_report': True,
         'cxx_profiles_report_root': report_root,
     }

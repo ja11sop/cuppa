@@ -16,7 +16,8 @@ inventory, but the raw compiler stream is hard to triage:
 - Authors need a **classified summary** (rule → affected files → reference counts) before they
   edit code or add `[[profiles::suppress(…)]]` / `[[uninit]]` markers.
 
-Cuppa already ships HTML reports for **tests** and **coverage** under `_artifacts/`, collated at
+Cuppa already ships HTML reports for **tests** and **coverage** under `_artefacts/` (legacy
+`_artifacts/` when that folder already exists), collated at
 `sconstruct_end` via `NotifyProgress`. Profiles work should reuse that shape so reports can be
 published alongside other build output — without requiring sconscript changes for the first pass
 of analysis.
@@ -326,7 +327,7 @@ For HTML template work without recompiling, prefer **JSON regen** over capture r
 
 ```text
 python -m scripts.regenerate_profiles_report \
-  --from-json _artifacts/cxx-profiles/cxx-profiles-index.json
+  --from-json _artefacts/cxx-profiles/cxx-profiles-index.json
 ```
 
 Omit `--sconstruct-dir` to take `sconstruct_dir`, `link_style`, and related fields from JSON
@@ -571,14 +572,14 @@ artefacts (at `sconstruct_end`, or on early abort with `partial: true`). The man
   "argv": ["cuppa", "-D", "--dbg", "--rel", "…"],
   "cwd": "/home/user/project/widget",
   "options": {
-    "destination": "_artifacts/cxx-profiles",
+    "destination": "_artefacts/cxx-profiles",
     "link_style": "local",
     "report_root": null,
     "enforce": ["std::init"],
     "cxx_profiles": true
   },
   "session_paths": [
-    "_artifacts/cxx-profiles/cxx-profiles-index.html"
+    "_artefacts/cxx-profiles/cxx-profiles-index.html"
   ],
   "scopes": [
     {
@@ -589,7 +590,7 @@ artefacts (at `sconstruct_end`, or on early abort with `partial: true`). The man
       "complete": false,
       "profiles": ["std::init"],
       "paths": [
-        "_artifacts/cxx-profiles/cxx-profiles--widget--dbg--clang24_profiles.html"
+        "_artefacts/cxx-profiles/cxx-profiles--widget--dbg--clang24_profiles.html"
       ]
     }
   ]
@@ -637,11 +638,13 @@ also store a denormalised `all_paths[]` for convenience — not required in the 
 | Piece | Behaviour |
 |-------|-----------|
 | Registry | `cuppa/reports/registry.py` — static rows for Profiles, coverage, test |
-| Discovery | `--list-reports` (+ `--list-format=json`) |
+| Discovery | `--list-report-kinds` (+ `--list-format=json`) — registry of kinds, not on-disk scan |
 | Artefacts root | British `--artefacts-root` / `env.artefacts_root`; US `--artifacts-root` / `env.artifacts_root` aliases |
 | Clean | Profiles still use `.cuppa-reports` manifest until #135 Phase 6 |
 
-**Deferred to #135:** `artefact_roots`, `--remove-artefacts`, registry-driven wipe of whole trees.
+**Deferred to #135:** `artefact_roots`, `--remove-artefacts`, on-disk report/artefact listing, registry-driven wipe of whole trees.
+
+**Naming:** `--list-report-kinds` (not `--list-reports`) — F-min lists **kinds cuppa knows about**, not index files under `_artefacts/`. Scanning the tree for existing reports belongs with Phase 6 artefact roots / removal design.
 
 <a id="prof-report-method"></a>
 
@@ -1266,14 +1269,14 @@ required (aligns with anonymized sharing).
 - Document as **interim** — superseded by Phase 6 artefact roots + optional graph discovery.
 
 **Honest limitation:** manifest matching is hacky; wrong argv or changed defaults → stale files
-remain. Phase 6 should subsume this for declared `_artifacts/` trees.
+remain. Phase 6 should subsume this for declared `_artefacts/` trees (legacy `_artifacts/`).
 
 ## Artefacts layout and Phase 6 alignment
 
 Default output tree (matches today’s coverage/test convention):
 
 ```text
-_artifacts/cxx-profiles/
+_artefacts/cxx-profiles/
   cxx-profiles-index.html
   cxx-profiles--<sconscript_slug>--<variant>--<tc>.html
   cxx-profiles--<sconscript_slug>--<variant>--<tc>.json
@@ -1284,13 +1287,13 @@ and possibly **`--set-artefacts-folder`**. This plan **does not invent** the fin
 names; it assumes:
 
 1. A future **`--set-artefacts-folder=`** (or `artefact_roots` in `sconstruct`) redirects
-   `_artifacts/` (or subfolders) for all cuppa-generated reports.
+   `_artefacts/` (or subfolders; legacy `_artifacts/` when present) for all cuppa-generated reports.
 2. **`--cxx-profiles-report`** respects that root when set.
 3. Built-in report types (test, coverage, cxx-profiles) register under a shared
    **`cuppa.reports`** registry so artefact listing can mention them consistently.
 
-Until Phase 6 ships, default Profiles output is `{artifacts_root}/cxx-profiles/` (default
-`_artifacts/cxx-profiles/`), matching coverage’s conventional tree today.
+Until Phase 6 ships, default Profiles output is `{artefacts_root}/cxx-profiles/` (default
+`_artefacts/cxx-profiles/`), matching coverage’s conventional tree today.
 
 ## Built-in “reports” registration (sketch)
 
@@ -1303,7 +1306,7 @@ Silently register report producers when cuppa loads (no sconscript edit):
 | C++ Profiles | — | `--cxx-profiles-report` |
 
 Registry records: `kind`, default subdir, CLI flag, manifest kind string. Enables future
-`--list-reports` / doc samples in [`colourised-doc-samples.md`](colourised-doc-samples.md).
+`--list-report-kinds` / doc samples in [`colourised-doc-samples.md`](colourised-doc-samples.md).
 
 ## Work slices
 
@@ -1374,7 +1377,7 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 | H — `prof-report-context-summary` | **Done** — merged [#196](https://github.com/ja11sop/cuppa/pull/196): Overview tab, `context` JSON, `-H`, tier metrics, Build inventory load, [variant roll-up display](#prof-report-variant-roll-up-display) (**Union Refs**, **Peak Refs**, common + deltas, `build_key` grain), **Violations By-Build** tab, unified scope detail (**Profile** column), Antora doc split |
 | G — `prof-report-anonymize` | **Done** — merged [#197](https://github.com/ja11sop/cuppa/pull/197): thematic anonymiser + verify + metadata-driven HTML headers |
 | E — `prof-report-method` | **Proposal** — `env.CxxProfilesReport()` |
-| F — `prof-report-artefacts` | **F-min proposal** — registry + `--list-reports`; British `--artefacts-root`; full `--remove-artefacts` deferred to #135 |
+| F — `prof-report-artefacts` | **F-min proposal** — registry + `--list-report-kinds`; British `--artefacts-root`; full `--remove-artefacts` deferred to #135 |
 
 **Next focus:** land slices **E** + **F-min** on [#184](https://github.com/ja11sop/cuppa/issues/184), then close the umbrella issue.
 

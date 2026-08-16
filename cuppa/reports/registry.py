@@ -4,7 +4,7 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   Built-in HTML report kinds (read-only catalogue for --list-reports)
+#   Built-in HTML report kinds (read-only catalogue for --list-report-kinds)
 #-------------------------------------------------------------------------------
 
 import os
@@ -36,7 +36,7 @@ REPORT_KINDS = (
         cli_flags=( '--cxx-profiles-report', ),
         env_method='CxxProfilesReport',
         manifest_kind='cxx-profiles',
-        clean_via='{}. manifest (matched on --clean / --remove-builds)'.format(
+        clean_via='{} manifest (matched on --clean / --remove-builds)'.format(
             MANIFEST_BASENAME,
         ),
         notes='',
@@ -72,7 +72,7 @@ def abs_artefacts_root_from_env( env ):
     abs_root = env.get( 'abs_artefacts_root' ) or env.get( 'abs_artifacts_root' )
     if abs_root:
         return os.path.abspath( abs_root )
-    rel_root = env.get( 'artefacts_root' ) or env.get( 'artifacts_root' ) or '_artifacts'
+    rel_root = env.get( 'artefacts_root' ) or env.get( 'artifacts_root' ) or '_artefacts'
     sconstruct_dir = env.get( 'sconstruct_dir' ) or os.getcwd()
     if os.path.isabs( rel_root ):
         return os.path.abspath( rel_root )
@@ -81,7 +81,7 @@ def abs_artefacts_root_from_env( env ):
 
 def rel_artefacts_root_from_env( env ):
     """Return the project-relative artefacts root path."""
-    return env.get( 'artefacts_root' ) or env.get( 'artifacts_root' ) or '_artifacts'
+    return env.get( 'artefacts_root' ) or env.get( 'artifacts_root' ) or '_artefacts'
 
 
 def default_report_dir_for_kind( env, kind ):
@@ -99,7 +99,7 @@ def report_kind_by_id( kind_id ):
 
 
 def serialise_report_kinds( env ):
-    """Build JSON-serialisable rows for ``--list-reports --list-format=json``."""
+    """Build JSON-serialisable rows for ``--list-report-kinds --list-format=json``."""
     abs_root = abs_artefacts_root_from_env( env )
     rel_root = rel_artefacts_root_from_env( env )
     rows = []

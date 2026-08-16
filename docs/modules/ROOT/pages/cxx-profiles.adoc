@@ -121,9 +121,10 @@ Optional methods (same env keys as the CLI):
 When you need a browsable inventory of Profiles diagnostics before fixing sources,
 pass `--cxx-profiles-report` together with `--cxx-profiles` or `--cxx-profiles-enforce=`.
 Cuppa captures diagnostics during the build and writes HTML plus JSON under
-`<artifacts-root>/cxx-profiles/` (default `_artifacts/cxx-profiles/`) at the end of the
-session (`sconstruct_end`). The construction `env` exposes `artifacts_root` and
-`abs_artifacts_root` (set via `--artifacts-root=` alongside `--build-root=`).
+`<artefacts-root>/cxx-profiles/` (default `_artefacts/cxx-profiles/`) at the end of the
+session (`sconstruct_end`). The construction `env` exposes `artefacts_root` and
+`abs_artefacts_root` (US aliases `artifacts_root` / `abs_artifacts_root`; set via
+`--artefacts-root=` or `--artifacts-root=` alongside `--build-root=`).
 
 Pair with `--cxx-disable-error-limit` so the compiler does not stop after its
 default diagnostic cap. The report is read-only — it does not rewrite sources.
@@ -187,7 +188,7 @@ To re-render Profiles HTML without recompiling, use the maintainer script (not a
 [source,bash]
 ----
 python -m scripts.regenerate_profiles_report \
-  --from-json _artifacts/cxx-profiles/cxx-profiles-index.json
+  --from-json _artefacts/cxx-profiles/cxx-profiles-index.json
 ----
 
 Omit `--sconstruct-dir` to take project paths and link style from JSON ``metadata``. Source files
@@ -203,11 +204,14 @@ must exist on disk for ``by-source/`` pages unless ``--skip-source-pages`` is se
 | `--sconstruct-dir`
 | Project root; default: cwd, or JSON metadata with `--from-json`
 
+| `--artefacts-root`
+| Same meaning as cuppa `--artefacts-root` (default `_artefacts`; US alias `--artifacts-root`)
+
 | `--artifacts-root`
-| Same meaning as cuppa `--artifacts-root` (default `_artifacts`)
+| US spelling alias for `--artefacts-root`
 
 | `--report-dir`
-| Output directory (default: `<artifacts-root>/cxx-profiles/`)
+| Output directory (default: `<artefacts-root>/cxx-profiles/`)
 
 | `--link-style`
 | Source links for this regen run; default: JSON metadata or `local` (alias: `--reports-link-style`)
@@ -243,7 +247,7 @@ Generated report paths are recorded in a project-local ``.cuppa-reports`` manife
 entry per invocation). When you run ``--clean`` or ``--remove-builds`` with the same report
 destination and link options on the command line, cuppa removes matching manifest entries and
 deletes the listed files. ``--remove-builds`` alone does not remove reports under
-``_artifacts/``.
+``_artefacts/`` (or legacy ``_artifacts/`` when that tree is still in use).
 
 === Full diagnostic lists (`--cxx-disable-error-limit`)
 
@@ -429,7 +433,7 @@ Initialization profile direction for Alliance Clang's `std::init`:
 * xref:cxx-profiles/report-by-file.adoc[Violation report — By-File tab]
 * xref:cxx-profiles/report-by-build.adoc[Violation report — By-Build tab]
 * xref:cxx-profiles/report-by-sconscript.adoc[Violation report — By-Sconscript]
-* xref:cli-reference.adoc[CLI reference] — `--cxx-profiles`, `--cxx-profiles-enforce=`, `--cxx-disable-error-limit`, `--cxx-profiles-report`, `--artifacts-root`
+* xref:cli-reference.adoc[CLI reference] — `--cxx-profiles`, `--cxx-profiles-enforce=`, `--cxx-disable-error-limit`, `--cxx-profiles-report`, `--artefacts-root`
 * xref:toolchains/clang.adoc[Clang] — Profiles-capable archives
 * xref:toolchains.adoc[Toolchains] — `--toolchain-archive=` / `--clang-root=`
 * xref:integration/test-cxx-profiles.adoc[Integration: {cpp} Profiles]

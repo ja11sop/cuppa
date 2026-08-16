@@ -1120,7 +1120,7 @@ but it needs its own design pass, and this plan deliberately stops at a sketch r
 guessing.
 
 The name is `--remove-artefacts`, with `--remove-artifacts` accepted as a spelling alias, since
-cuppa's prose uses "artefacts" while the conventional folder is `_artifacts`.
+cuppa's prose uses "artefacts"; the default folder is `_artefacts` (legacy `_artifacts/` kept when present).
 
 Two candidate mechanisms, not yet chosen:
 

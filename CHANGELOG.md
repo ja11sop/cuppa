@@ -9,13 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `--artefacts-root` (default `_artifacts`): project-relative root for generated reports and
+- `--artefacts-root` (default `_artefacts`; legacy `_artifacts/` kept when present): project-relative root for generated reports and
   other artefacts outside `_build/`; exposed on the construction `env` as `artefacts_root` /
   `abs_artefacts_root` (US aliases `artifacts_root` / `abs_artifacts_root`). C++ Profiles
   reports honour it (`<artefacts-root>/cxx-profiles/`).
   Coverage and test HTML still use the conventional tree until a follow-on wires them through.
-- `--list-reports` lists built-in HTML report kinds (Profiles, coverage, test) and default
-  directories under the artefacts root; supports `--list-format=json`.
+- `--list-report-kinds` lists built-in HTML report kinds (Profiles, coverage, test)—not files
+  already on disk—and default directories under the artefacts root; supports `--list-format=json`.
 - `env.CxxProfilesReport()` declares Profiles violation capture from a sconscript (same output as
   `--cxx-profiles-report`; optional `destination=` and `link_style=` kwargs).
 - `.cuppa-reports` manifest for C++ Profiles reports (slice D, `prof-report-manifest`): append
@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the same `--cxx-profiles-report` destination and link options.
 - Profiles violation report HTML + JSON (slice C, `prof-report-html`): emit
   `cxx-profiles-index.html`, per-scope detail pages, and `cxx-profiles-index.json`
-  under `_artifacts/cxx-profiles/` at `sconstruct_end` when `--cxx-profiles-report`
+  under `_artefacts/cxx-profiles/` at `sconstruct_end` when `--cxx-profiles-report`
   is set; `--cxx-profiles-report-link-style=` (Profiles override) and `--reports-link-style=`.
 - Profiles report Overview context (slice H, `prof-report-context-summary`): master-index
   **Overview** tab and top-level `context` JSON with rule concentration, zero-filled profile
