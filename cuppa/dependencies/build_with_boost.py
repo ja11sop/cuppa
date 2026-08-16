@@ -31,7 +31,8 @@ class Boost(object):
         add_option( '--boost-latest', dest='boost-latest', action='store_true',
                     help='Use the latest Boost release (checks boost.org when online). '
                          'Without this flag, Cuppa prefers a stored boost_latest_version, '
-                         'then the compiled-in default — it does not scrape by default.' )
+                         'then checks boost.org when online on Boost use, then the compiled-in '
+                         'default.' )
 
         add_option( '--boost-version', dest='boost-version', type='string', nargs=1, action='store',
                     help='Boost Version to build against' )

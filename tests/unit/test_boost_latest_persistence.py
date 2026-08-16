@@ -134,7 +134,26 @@ def test_resolve_prefers_stored_without_scrape( tmp_path, monkeypatch ):
     assert source == 'stored'
 
 
-def test_resolve_compiled_in_when_nothing_stored( tmp_path, monkeypatch ):
+def test_resolve_scrapes_when_online_nothing_stored( tmp_path, monkeypatch ):
+    project = tmp_path / 'proj'
+    downloads = project / 'downloads'
+    downloads.mkdir( parents=True )
+    monkeypatch.setattr(
+            'cuppa.dependencies.boost.version_and_location.scrape_latest_boost_version',
+            lambda: '1.92.0',
+    )
+    env = Env( values={
+        'offline': False,
+        'downloads_root': str( downloads ),
+        'sconstruct_dir': str( project ),
+        'abs_sconstruct_dir': str( project ),
+    } )
+    version, source = resolve_boost_latest_version( env, force_scrape=False )
+    assert version == '1.92.0'
+    assert source == 'scraped'
+
+
+def test_resolve_compiled_in_when_offline_nothing_stored( tmp_path, monkeypatch ):
     project = tmp_path / 'proj'
     downloads = project / 'downloads'
     downloads.mkdir( parents=True )
@@ -145,6 +164,25 @@ def test_resolve_compiled_in_when_nothing_stored( tmp_path, monkeypatch ):
     monkeypatch.setattr(
             'cuppa.dependencies.boost.version_and_location.scrape_latest_boost_version',
             fail_scrape,
+    )
+    env = Env( values={
+        'offline': True,
+        'downloads_root': str( downloads ),
+        'sconstruct_dir': str( project ),
+        'abs_sconstruct_dir': str( project ),
+    } )
+    version, source = resolve_boost_latest_version( env, force_scrape=False )
+    assert version == current_boost_release()
+    assert source == 'compiled_in'
+
+
+def test_resolve_compiled_in_when_online_scrape_fails( tmp_path, monkeypatch ):
+    project = tmp_path / 'proj'
+    downloads = project / 'downloads'
+    downloads.mkdir( parents=True )
+    monkeypatch.setattr(
+            'cuppa.dependencies.boost.version_and_location.scrape_latest_boost_version',
+            lambda: None,
     )
     env = Env( values={
         'offline': False,

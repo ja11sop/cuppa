@@ -135,6 +135,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Boost default version resolution: when online with no stored `boost_latest_version`, check
+  boost.org on Boost use before falling back to the compiled-in default; persist after download
+  when the selected version is higher ([#201](https://github.com/ja11sop/cuppa/issues/201)).
 - Anonymised Profiles report regen no longer treats placeholder `metadata.sconstruct_dir`
   (`/home/user/project/widget`) as a writable path; output defaults to the input JSON directory
   unless `--report-dir=` is set.

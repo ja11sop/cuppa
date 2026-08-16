@@ -71,8 +71,8 @@ def boost_location_id( env ):
         version = "latest"
 
     # Default (nothing specified): leave version unset. Resolve uses stored
-    # boost_latest_version then current_boost_release() — no scrape unless
-    # --boost-latest was passed (handled above).
+    # boost_latest_version, then an online scrape on Boost use, then
+    # current_boost_release() — --boost-latest forces scrape even when stored.
 
     return ( location, version, base, patch_test )
 
@@ -197,6 +197,11 @@ def resolve_boost_latest_version( env, force_scrape=False ):
                 )
         )
         return str( stored ), 'stored'
+
+    if not offline:
+        scraped = scrape_latest_boost_version()
+        if scraped:
+            return scraped, 'scraped'
 
     if force_scrape and offline:
         logger.info(
