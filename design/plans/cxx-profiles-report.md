@@ -820,7 +820,7 @@ Former sub-ids (`prof-report-semantics-i`, `-progress`, `-exit`, `-docs`) are bo
 
 ## Collate index scope filter (`prof-report-scope-filter`)
 
-**Id:** `prof-report-scope-filter` · **Status:** **proposal** (settled decisions 2026-08-16) · **Impact:** minor · **Target:** 1.8.0 follow-on after [#203](https://github.com/ja11sop/cuppa/pull/203) / [#199](https://github.com/ja11sop/cuppa/issues/199)
+**Id:** `prof-report-scope-filter` · **Status:** **proposal** (settled decisions 2026-08-16) · **Impact:** minor · **Target:** 1.8.0 follow-on — [#205](https://github.com/ja11sop/cuppa/issues/205) after [#203](https://github.com/ja11sop/cuppa/pull/203) / [#199](https://github.com/ja11sop/cuppa/issues/199)
 
 ### Why
 
@@ -882,7 +882,7 @@ That is a larger architectural change than a write-time filter and is deferred w
 |----|--------|-------------|
 | `prof-report-scope-filter` | Method-only index filter | Declaring-set registry; write-time scope filter; filtered metrics; warnings; unit + integration tests; Antora + CHANGELOG |
 
-**Suggested landing:** one PR after [#203](https://github.com/ja11sop/cuppa/pull/203) merges; cite ``prof-report-scope-filter``.
+**Suggested landing:** one PR after [#203](https://github.com/ja11sop/cuppa/pull/203) merges; track [#205](https://github.com/ja11sop/cuppa/issues/205); cite ``prof-report-scope-filter``.
 
 ### Refusal rules
 
@@ -907,7 +907,7 @@ That is a larger architectural change than a write-time filter and is deferred w
 
 | Id | Status |
 |----|--------|
-| `prof-report-scope-filter` | **Proposal** — settled decisions above; implementation after [#203](https://github.com/ja11sop/cuppa/pull/203) |
+| `prof-report-scope-filter` | **Proposal** — [#205](https://github.com/ja11sop/cuppa/issues/205); implementation after [#203](https://github.com/ja11sop/cuppa/pull/203) |
 
 <a id="prof-report-anonymize"></a>
 
