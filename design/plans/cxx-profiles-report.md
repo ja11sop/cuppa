@@ -767,26 +767,26 @@ Real enforce inventories need **keep-going** compiles and a **session index at e
 
 | Topic | Decision |
 |-------|----------|
-| **Implied `-i`** | **Yes.** When `--cxx-profiles-report` or `env.CollateCxxProfilesIndex()` activates and the user did **not** pass SCons `-i` / `--ignore-errors`, Cuppa calls `SetOption('ignore_errors', 1)` once at activation and logs that inventory mode enabled keep-going. Never clears an explicit user `-i` choice. |
-| **Progress decoupling** | **Two layers.** (1) **Primary:** relax `NotifyProgress` so variant **`finished`** / sconscript **`end`** / `#SconstructEnd` still run after variant **started** even when compile targets failed (inventory mode only — gate on report activation). (2) **Fallback:** if the capture buffer is non-empty and the session index was not written, flush from `construct.run()` after `build()` (mark `metadata.partial`, reuse `incomplete_scopes`). |
-| **Selective exit (v1)** | After the session index write (or fallback flush), exit **non-zero** if any **non-profile compile failure** occurred (ordinary errors not classified as Profiles diagnostics). Exit **zero** when failures are Profiles violations only (inventory succeeded). Still pair with `--cxx-disable-error-limit` for full diagnostic volume. |
+| **Implied `-i`** | **Yes.** Cuppa CLI prepends SCons ``-i`` when ``--cxx-profiles-report`` is present or scanned sconscripts declare ``CollateCxxProfilesIndex()`` (and the user did not pass ``-i``). SCons forbids ``SetOption('ignore_errors')`` from SConscript files. Activation logs a warning if ``-i`` is still absent at report enable time. |
+| **Progress decoupling** | **Two layers.** (1) **Primary:** relax `NotifyProgress` so variant **`finished`** / sconscript **`end`** / `#SconstructEnd` still run after variant **started** even when compile targets failed (inventory mode only — gate on report activation). (2) **Fallback:** if the capture buffer is non-empty and the session index was not written, flush from `ProfilesDiagnosticCollector.finalize_inventory_session()` after `build()` (mark `metadata.partial`, reuse `incomplete_scopes`). |
+| **Non-profile errors under implied `-i`** | **Settled A+B.** Tally non-profile compile failures during inventory runs; after the session index write (or fallback flush), exit **non-zero** when the tally is non-zero. Console: profile-shaped diagnostics keep an **Error** label but use **warning** colours; ordinary errors stay red. Global `ignore_errors` remains required so profile violations do not abort early. |
+| **Selective exit (v1)** | Same as **Non-profile errors** row — tally + `finalize_inventory_session()` after `build()` in `construct.py` (`inventory_process_exit_status`). |
 | **Scope filter** | **Deferred** beyond #199 v1. Session-wide capture **and** session-wide index for both CLI and `CollateCxxProfilesIndex()` — matches “collate once for the whole tree”. Per-sconscript index filtering conflicts with global capture and waits for reserved per-scope **`env.CxxProfilesReport()`** (separate slice). |
 | **`--cxx-profiles-report-allow-errors`** | **Deferred.** v1 selective exit is fixed policy above; add an opt-out flag only if consumers need “report + always exit 0”. |
 | **Activation hook** | Single path: `activate_cxx_profiles_report()` in `cuppa/methods/cxx_profiles_report.py` (covers CLI + method). |
 | **Write hook** | `ProfilesReportSession._emit_session_summary()` → `write_profiles_reports()`; fallback flush shares the same emitter. |
-| **Exit hook** | After `build()` in `construct.run()` (or module-level status read in `cuppa/__main__.py`), apply selective exit when report mode was active. |
+| **Exit hook** | `ProfilesDiagnosticCollector.finalize_inventory_session()` after `build()` in `construct.py`; applies selective exit when report mode was active. |
 | **Tests / docs** | Drop manual `-i` from examples and integration tests where inventory mode now implies it; keep `-i` in docs only as “SCons keep-going (automatic in inventory mode)”. Extend `test_cxx_profiles`, `test_available_reports` for failed-TU inventory + exit policy. |
 
 ### Work slices
 
 | Id | Slice | Deliverable |
 |----|--------|-------------|
-| `prof-report-semantics-i` | Implied `-i` | `SetOption('ignore_errors')` at report activation; unit test; log line |
-| `prof-report-semantics-progress` | Progress + fallback flush | Inventory-gated Progress DAG fix in `NotifyProgress.add()`; `construct.run()` fallback flush when buffer non-empty |
-| `prof-report-semantics-exit` | Selective exit | Track non-profile compile failures; adjust process exit after index write |
-| `prof-report-semantics-docs` | Docs + integration | Antora + `test_cxx_profiles` / `test_available_reports`; CHANGELOG under 1.8.0 |
+| `prof-report-semantics` | Inventory mode (#199) | Implied `-i` (CLI); Progress decoupling; fallback flush; non-profile tally + selective exit; console differentiation; docs + integration |
 
-**Suggested landing:** **one PR** for **`prof-report-semantics-i` + `prof-report-semantics-progress`** (inventory actually writes); **one PR** for **`prof-report-semantics-exit` + `prof-report-semantics-docs`**.
+**Suggested landing:** **one PR** on branch `prof-report-semantics-plan` ([#203](https://github.com/ja11sop/cuppa/pull/203)) — closes [#199](https://github.com/ja11sop/cuppa/issues/199) except deferred scope filter.
+
+Former sub-ids (`prof-report-semantics-i`, `-progress`, `-exit`, `-docs`) are bookkeeping only; all shipped together in #203.
 
 ### Refusal rules
 
@@ -801,23 +801,20 @@ Real enforce inventories need **keep-going** compiles and a **session index at e
 
 | Area | File | Hook |
 |------|------|------|
-| Implied `-i` | `cuppa/methods/cxx_profiles_report.py` | `activate_cxx_profiles_report()` before `ProfilesDiagnosticCollector.activate()` |
+| Implied `-i` | `cuppa/core/profiles_inventory_cli.py`, `cuppa/__main__.py` | CLI prepends `-i` when report flag or scanned `CollateCxxProfilesIndex()` |
 | Progress DAG | `cuppa/progress.py` | `NotifyProgress.add()` — decouple `_finished[variant]` from failed targets when inventory active |
-| Fallback flush | `cuppa/construct.py`, `cuppa/cpp/profiles_report_collector.py` | After `build()`; `ProfilesReportSession.flush_pending()` |
+| Fallback flush + exit | `cuppa/construct.py`, `cuppa/cpp/profiles_report_collector.py` | `finalize_inventory_session()` after `build()`; `ProfilesReportSession.flush_pending()` |
 | Failure tally | `cuppa/output_processor.py` | `ToolchainProcessor` — count non-profile errors when report active |
-| Selective exit | `cuppa/construct.py` or `cuppa/__main__.py` | After build + write, apply exit status |
+| Selective exit | `cuppa/cpp/profiles_report_collector.py` | `inventory_process_exit_status()` → `SCons.Script.Exit(1)` from `finalize_inventory_session()` |
 | Scope filter | — | **Deferred** |
 
 ### Progress snapshot (#199)
 
 | Id | Status |
 |----|--------|
-| `prof-report-semantics-i` | not started |
-| `prof-report-semantics-progress` | not started |
-| `prof-report-semantics-exit` | not started |
-| `prof-report-semantics-docs` | not started |
+| `prof-report-semantics` | **Shipped on [#203](https://github.com/ja11sop/cuppa/pull/203)** — implied `-i`, Progress decoupling, fallback flush, non-profile tally + selective exit, console differentiation, unit + integration tests, Antora + CHANGELOG |
 
-**Out of scope:** F-min display; per-scope **`env.CxxProfilesReport()`**; full Phase 6 **`--remove-artefacts`** ([#135](https://github.com/ja11sop/cuppa/issues/135)); scope filter v1.
+**Out of scope (deferred):** scope filter v1; F-min display; per-scope **`env.CxxProfilesReport()`**; full Phase 6 **`--remove-artefacts`** ([#135](https://github.com/ja11sop/cuppa/issues/135)); `--cxx-profiles-report-allow-errors`.
 
 <a id="prof-report-anonymize"></a>
 
@@ -1486,9 +1483,9 @@ issues, PR titles, and ROADMAP cross-links (same pattern as `list-tc-*` in
 | **F** | `prof-report-artefacts` | `artefact_roots` / `--remove-artefacts` when #135 lands | Supersedes manifest hack for declared trees; full wipe deferred to #135 |
 | **G** | `prof-report-anonymize` | Anonymize saved report JSON; shareable artefact + HTML regen without sources | After C; see [§Anonymized report sharing](#prof-report-anonymize) |
 | **H** | `prof-report-context-summary` | Overview tab + `context` JSON — violations vs codebase size, full rule matrix; variant roll-up; By-Build tab; unified scope detail | After C; see [§Context summary](#prof-report-context-summary); landed on [#196](https://github.com/ja11sop/cuppa/pull/196) |
-| **—** | `prof-report-method-semantics` | Implied `-i`, Progress decoupling, selective exit (scope filter deferred) | Plan settled — [#199](https://github.com/ja11sop/cuppa/issues/199); see [§Collate index semantics](#prof-report-method-semantics-slice) |
+| **—** | `prof-report-method-semantics` | Implied `-i`, Progress decoupling, selective exit (scope filter deferred) | **Shipped [#203](https://github.com/ja11sop/cuppa/pull/203)** — [#199](https://github.com/ja11sop/cuppa/issues/199); see [§Collate index semantics](#prof-report-method-semantics-slice) |
 
-Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** (slice A–D; **`prof-report-collector` must** include parallel spawn scope); **E** + **F-min** merged [#198](https://github.com/ja11sop/cuppa/pull/198); full **F** blocked on #135; **G–H** shipped; **`prof-report-method-semantics`** plan settled ([#199](https://github.com/ja11sop/cuppa/issues/199)) — implementation next.
+Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** (slice A–D; **`prof-report-collector` must** include parallel spawn scope); **E** + **F-min** merged [#198](https://github.com/ja11sop/cuppa/pull/198); full **F** blocked on #135; **G–H** shipped; **`prof-report-method-semantics`** shipped [#203](https://github.com/ja11sop/cuppa/pull/203).
 
 **Tracking:** Umbrella [#184](https://github.com/ja11sop/cuppa/issues/184) closed after **E** + **F-min** ([#198](https://github.com/ja11sop/cuppa/pull/198)). Follow-on collation semantics: [#199](https://github.com/ja11sop/cuppa/issues/199). Land slices as **multiple PRs** (cite letter and/or `prof-report-*` id).
 
@@ -1522,6 +1519,7 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 
 - Antora: **done** on [#196](https://github.com/ja11sop/cuppa/pull/196) — `report-introduction.adoc` (feature entry), tab guides (`report-overview`, `report-by-rule`, `report-by-file`, `report-by-build`, `report-by-sconscript`, `report.adoc` index), hub updates in `cxx-profiles.adoc`; **Union Refs** / **Peak Refs** / **Build Refs** vocabulary aligned with UI.
 - Antora: **done** on [#197](https://github.com/ja11sop/cuppa/pull/197) — `report-introduction.adoc#sharing-anonymized` (*Sharing an inventory (anonymized JSON)*); hub regen table documents `--anonymized`.
+- Antora: **done** on [#203](https://github.com/ja11sop/cuppa/pull/203) — inventory mode on `cxx-profiles.adoc` and `report-introduction.adoc`; `integration/test-available-reports.adoc` drops manual `-i`.
 - Optional: sample HTML screenshot via [`colourised-doc-samples.md`](colourised-doc-samples.md) pipeline.
 - [`archive/cxx-profiles.md`](../archive/cxx-profiles.md): link this plan in follow-ons (already
   cites dedupe/report in §2.3).
@@ -1543,9 +1541,9 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 | E — `prof-report-method` | **Done** — merged [#198](https://github.com/ja11sop/cuppa/pull/198): `env.CollateCxxProfilesIndex()`, CLI parity, default `<artefacts-root>/cxx-profiles/` |
 | F-min — `prof-report-artefacts-min` | **Done** — merged [#198](https://github.com/ja11sop/cuppa/pull/198): registry, `--list-available-reports` judgement tree (`{artefacts_root}` / `{build_root}` in-tree), British `--artefacts-root`, default `_artefacts` |
 | F — `prof-report-artefacts` | **Blocked on #135** — full `artefact_roots` / `--remove-artefacts`; F-min covers discovery only |
-| `prof-report-method-semantics` | **Proposal settled** — [#199](https://github.com/ja11sop/cuppa/issues/199): implied `-i`, Progress decoupling, selective exit; scope filter deferred; see [§Collate index semantics](#prof-report-method-semantics-slice) |
+| `prof-report-method-semantics` | **In progress** — [#199](https://github.com/ja11sop/cuppa/issues/199): **i** + **progress** landed on [#203](https://github.com/ja11sop/cuppa/pull/203); exit + docs next |
 
-**Next focus:** implement **`prof-report-method-semantics`** ([#199](https://github.com/ja11sop/cuppa/issues/199)) — land `prof-report-semantics-i` + `prof-report-semantics-progress` first; full **F** when [#135](https://github.com/ja11sop/cuppa/issues/135) Phase 6 starts.
+**Next focus:** finish **`prof-report-method-semantics`** ([#199](https://github.com/ja11sop/cuppa/issues/199)) — selective exit + docs; full **F** when [#135](https://github.com/ja11sop/cuppa/issues/135) Phase 6 starts.
 
 ## Open questions (resolve in first PR)
 

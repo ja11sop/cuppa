@@ -33,6 +33,9 @@ class ProfilesReportSession(object):
         self._variant_completion = VariantCompletionTracker()
         self._parsed_files = set()
         self._translation_units = set()
+        self._written = False
+        self._non_profile_errors = 0
+        self._profile_display_error_count = 0
 
     @property
     def inventory( self ):
@@ -69,16 +72,42 @@ class ProfilesReportSession(object):
         with self._lock:
             return frozenset( self._translation_units )
 
+    def non_profile_error_count( self ):
+        with self._lock:
+            return self._non_profile_errors
+
+    def record_non_profile_error( self ):
+        with self._lock:
+            self._non_profile_errors += 1
+
+    def next_profile_display_error_id( self ):
+        """Monotonic Error N label for profile violations shown in inventory mode."""
+        with self._lock:
+            self._profile_display_error_count += 1
+            return self._profile_display_error_count
+
     def on_progress( self, progress, sconscript, variant, env, target, source ):
         self._variant_completion.note_progress( progress, variant )
         if progress == 'sconstruct_end':
             self._emit_session_summary( env )
 
-    def _emit_session_summary( self, env ):
+    def flush_pending( self, env, fallback_flush=False ):
+        """Write the session index when capture is non-empty and not yet emitted."""
+        with self._lock:
+            if self._written:
+                return False
+            if self._inventory.total_references() == 0:
+                return False
+        self._emit_session_summary( env, fallback_flush=fallback_flush )
+        return True
+
+    def _emit_session_summary( self, env, fallback_flush=False ):
         from cuppa.cpp.profiles_report.report_html import write_profiles_reports
         from cuppa.reports.manifest import append_cxx_profiles_entry
 
         with self._lock:
+            if self._written:
+                return
             if self._inventory.total_references() == 0:
                 logger.info(
                     "C++ Profiles report: no violations captured"
@@ -90,6 +119,10 @@ class ProfilesReportSession(object):
                     "C++ Profiles report: incomplete scope(s) [{}]".format(
                         as_notice( ', '.join( sorted( incomplete ) ) )
                     )
+                )
+            if fallback_flush:
+                logger.warn(
+                    "C++ Profiles report: flushing session index after early build abort"
                 )
             logger.info(
                 "C++ Profiles report capture summary:\n{}".format(
@@ -112,25 +145,81 @@ class ProfilesReportSession(object):
                 result[ 'session_paths' ],
                 result[ 'scope_paths' ],
                 incomplete_scopes=incomplete,
-                partial=bool( incomplete ),
+                partial=bool( incomplete ) or fallback_flush,
             )
+            with self._lock:
+                self._written = True
 
 
 class ProfilesDiagnosticCollector(object):
     """Process-wide collector activated by ``--cxx-profiles-report``."""
 
     _session = None
+    _report_env = None
     _register_lock = threading.Lock()
     _spawn_hook_registered = False
 
     @classmethod
-    def activate( cls ):
+    def activate( cls, report_env=None ):
         with cls._register_lock:
+            if report_env is not None:
+                cls._report_env = report_env
             if cls._session is None:
                 cls._session = ProfilesReportSession()
                 NotifyProgress.register_callback( None, cls._session.on_progress )
                 cls._register_spawn_processor_hook()
             return cls._session
+
+    @classmethod
+    def finalize_inventory_session( cls ):
+        """Fallback flush and selective exit after the build DAG completes."""
+        if not NotifyProgress.inventory_report_mode():
+            return
+        cls.flush_pending()
+        exit_status = cls.inventory_process_exit_status()
+        if exit_status:
+            import SCons.Script
+            SCons.Script.Exit( exit_status )
+
+    @classmethod
+    def inventory_process_exit_status( cls ):
+        """Return forced process exit code for inventory mode, or ``None`` to keep SCons status."""
+        if not NotifyProgress.inventory_report_mode():
+            return None
+        session = cls._session
+        if session is None:
+            return None
+        count = session.non_profile_error_count()
+        if count <= 0:
+            return None
+        logger.warn(
+            "C++ Profiles report: {} non-profile compile error(s); exiting non-zero".format(
+                as_notice( str( count ) ),
+            )
+        )
+        return 1
+
+    @classmethod
+    def record_non_profile_error( cls ):
+        session = cls._session
+        if session is not None:
+            session.record_non_profile_error()
+
+    @classmethod
+    def next_profile_display_error_id( cls ):
+        session = cls._session
+        if session is None:
+            return 0
+        return session.next_profile_display_error_id()
+
+    @classmethod
+    def flush_pending( cls ):
+        """Fallback session index write when ``sconstruct_end`` did not run."""
+        session = cls._session
+        env = cls._report_env
+        if session is None or env is None:
+            return False
+        return session.flush_pending( env, fallback_flush=True )
 
     @classmethod
     def _register_spawn_processor_hook( cls ):
@@ -201,3 +290,6 @@ class ProfilesDiagnosticCollector(object):
     def reset( cls ):
         """Clear the active session (unit tests only)."""
         cls._session = None
+        cls._report_env = None
+        cls._spawn_hook_registered = False
+        cls._flush_registered = False

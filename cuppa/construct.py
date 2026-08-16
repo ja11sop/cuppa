@@ -649,6 +649,8 @@ class Construct(object):
 
         if not help and not self._configure.handle_conf_only():
             self.build( cuppa_env )
+            from cuppa.cpp.profiles_report_collector import ProfilesDiagnosticCollector
+            ProfilesDiagnosticCollector.finalize_inventory_session()
 
         if self._configure.handle_conf_only():
             print( "cuppa: Handling configuration only, so no builds will be attempted." )

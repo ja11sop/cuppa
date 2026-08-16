@@ -10,7 +10,9 @@ from cuppa.methods.cxx_profiles_report import (
     CollateCxxProfilesIndexCallable,
     CollateCxxProfilesIndexMethod,
     activate_cxx_profiles_report,
+    reset_inventory_report_state_for_tests,
 )
+from cuppa.progress import NotifyProgress
 
 pytestmark = pytest.mark.unit
 
@@ -18,8 +20,10 @@ pytestmark = pytest.mark.unit
 @pytest.fixture(autouse=True)
 def _reset_collector():
     ProfilesDiagnosticCollector.reset()
+    reset_inventory_report_state_for_tests()
     yield
     ProfilesDiagnosticCollector.reset()
+    reset_inventory_report_state_for_tests()
 
 
 class FakeEnv(dict):
@@ -88,3 +92,32 @@ def test_cli_get_options_still_activates_collector():
     CollateCxxProfilesIndexMethod.get_options( env )
     assert env[ 'cxx_profiles_report' ] is True
     assert ProfilesDiagnosticCollector._session is not None
+
+
+def test_activate_cxx_profiles_report_enables_inventory_report_mode( monkeypatch ):
+    def fake_get_option( name ):
+        assert name == 'ignore_errors'
+        return False
+
+    monkeypatch.setattr( 'SCons.Script.GetOption', fake_get_option )
+
+    env = {
+        'cxx_profiles': True,
+        'cxx_profiles_enforce': [ 'std::init' ],
+    }
+    activate_cxx_profiles_report( env )
+    assert NotifyProgress.inventory_report_mode() is True
+
+
+def test_activate_cxx_profiles_report_skips_keep_going_when_user_passed_ignore_errors( monkeypatch ):
+    def fake_get_option( name ):
+        return name == 'ignore_errors'
+
+    monkeypatch.setattr( 'SCons.Script.GetOption', fake_get_option )
+
+    env = {
+        'cxx_profiles': True,
+        'cxx_profiles_enforce': [ 'std::init' ],
+    }
+    activate_cxx_profiles_report( env )
+    assert NotifyProgress.inventory_report_mode() is True

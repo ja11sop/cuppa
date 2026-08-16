@@ -29,6 +29,15 @@ class NotifyProgress(object):
     _end      = {}
     _started  = {}
     _finished = {}
+    _inventory_report_mode = False
+
+    @classmethod
+    def set_inventory_report_mode( cls, enabled ):
+        cls._inventory_report_mode = bool( enabled )
+
+    @classmethod
+    def inventory_report_mode( cls ):
+        return cls._inventory_report_mode
 
     @classmethod
     def register_callback( cls, env, callback ):
@@ -133,10 +142,15 @@ class NotifyProgress(object):
         if variant not in cls._finished:
             cls._finished[variant] = progress( 'Finished', 'finished', sconscript, variant, env )
 
-        finished = env.Depends(
-                cls._finished[variant],
-                [ target, '#' + env['sconscript_file'], '#' + env['sconstruct_file'] ]
-        )
+        if cls.inventory_report_mode():
+            file_deps = [ '#' + env['sconscript_file'], '#' + env['sconstruct_file'] ]
+            finished = env.Depends( cls._finished[variant], file_deps )
+            env.Requires( cls._finished[variant], target )
+        else:
+            finished = env.Depends(
+                    cls._finished[variant],
+                    [ target, '#' + env['sconscript_file'], '#' + env['sconstruct_file'] ]
+            )
 
         if not sconscript in cls._end:
             cls._end[sconscript] = progress( 'End', 'end', sconscript, None, sconscript_env )

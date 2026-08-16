@@ -80,10 +80,18 @@ def test_profiles_report_emits_html_and_json_via_sconscript_method( tmp_path ):
         tmp_path,
         "Import('env')\n"
         "env.CollateCxxProfilesIndex()\n"
-        "env.Build( 'app', [ 'main.cpp' ] )\n",
+        "env.Build( 'inventory_violation', 'inventory_violation.cpp' )\n"
+        "env.Build( 'metrics_violation', 'metrics_violation.cpp' )\n",
     )
-    ( tmp_path / 'main.cpp' ).write_text(
-        'int main()\n'
+    ( tmp_path / 'inventory_violation.cpp' ).write_text(
+        'int inventory_violation()\n'
+        '{\n'
+        '    int Value [[uninit]];\n'
+        '    return Value;\n'
+        '}\n'
+    )
+    ( tmp_path / 'metrics_violation.cpp' ).write_text(
+        'int metrics_violation()\n'
         '{\n'
         '    int Value [[uninit]];\n'
         '    return Value;\n'
@@ -102,6 +110,56 @@ def test_profiles_report_emits_html_and_json_via_sconscript_method( tmp_path ):
     assert ( report_dir / 'cxx-profiles-index.json' ).is_file()
     combined = ( result.stdout or '' ) + ( result.stderr or '' )
     assert 'C++ Profiles report:' in combined or report_dir.exists()
+    payload = __import__( 'json' ).loads(
+        ( report_dir / 'cxx-profiles-index.json' ).read_text( encoding='utf-8' )
+    )
+    total_references = ( payload.get( 'summary' ) or {} ).get( 'total_references' ) or 0
+    assert total_references >= 2
+
+
+def test_profiles_inventory_exits_non_zero_for_non_profile_errors( tmp_path ):
+    """Inventory writes the session index but exits non-zero for ordinary compile errors."""
+    _, toolchain_flag = require_profiles_capable_toolchain()
+    write_sconstruct( tmp_path )
+    write_sconscript(
+        tmp_path,
+        "Import('env')\n"
+        "env.CollateCxxProfilesIndex()\n"
+        "env.Build( 'profile_violation', 'profile_violation.cpp' )\n"
+        "env.Build( 'syntax_error', 'syntax_error.cpp' )\n",
+    )
+    ( tmp_path / 'profile_violation.cpp' ).write_text(
+        'int profile_violation()\n'
+        '{\n'
+        '    int Value [[uninit]];\n'
+        '    return Value;\n'
+        '}\n'
+    )
+    ( tmp_path / 'syntax_error.cpp' ).write_text(
+        'int syntax_error()\n'
+        '{\n'
+        '    return ;\n'
+        '}\n'
+    )
+    result = run_cuppa(
+        tmp_path,
+        '--dbg',
+        '--cxx-profiles',
+        '--cxx-profiles-enforce=std::init',
+        '--cxx-disable-error-limit',
+        toolchain_flag,
+    )
+    assert_failure( result )
+    report_dir = tmp_path / '_artefacts' / 'cxx-profiles'
+    assert ( report_dir / 'cxx-profiles-index.html' ).is_file()
+    assert ( report_dir / 'cxx-profiles-index.json' ).is_file()
+    payload = __import__( 'json' ).loads(
+        ( report_dir / 'cxx-profiles-index.json' ).read_text( encoding='utf-8' )
+    )
+    total_references = ( payload.get( 'summary' ) or {} ).get( 'total_references' ) or 0
+    assert total_references >= 1
+    combined = ( result.stdout or '' ) + ( result.stderr or '' )
+    assert 'non-profile compile error' in combined
 
 
 def test_profiles_report_emits_html_and_json( tmp_path ):

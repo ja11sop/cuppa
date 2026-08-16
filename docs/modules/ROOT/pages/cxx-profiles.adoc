@@ -129,6 +129,23 @@ session (`sconstruct_end`). The construction `env` exposes `artefacts_root` and
 Pair with `--cxx-disable-error-limit` so the compiler does not stop after its
 default diagnostic cap. The report is read-only — it does not rewrite sources.
 
+==== Inventory mode (keep-going builds)
+
+``--cxx-profiles-report`` and ``env.CollateCxxProfilesIndex()`` enable *inventory mode* for the
+session. Cuppa prepends SCons keep-going (``-i``) when you have not passed it already, so
+Profiles violations on one translation unit do not stop the rest of the tree from compiling.
+Progress ordering still reaches ``#SconstructEnd``, and the session index is written at the end
+of the build (with a fallback flush when capture is non-empty but the normal hook did not run).
+
+On the console, profile-shaped diagnostics keep an **Error** label but use warning colours so you
+can tell them apart from ordinary compile failures (which stay red). Inventory mode tallies
+*non-profile* compile errors separately: the session index is still written, but cuppa exits
+**non-zero** when that tally is non-zero so CI stays honest. A session with only Profiles
+violations exits **zero** once the index is written.
+
+You do not need to pass ``-i`` manually for inventory runs — cuppa adds it when inventory mode
+is active.
+
 [source,bash]
 ----
 cuppa -D --dbg --toolchains=clang24_profiles_2026_08_07_27 \

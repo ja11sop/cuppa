@@ -13,6 +13,7 @@ from cuppa.cpp.cxx_profiles_report import (
     unscoped_profiles_scope,
 )
 from cuppa.cpp.profiles_report_collector import ProfilesDiagnosticCollector
+from cuppa.methods.cxx_profiles_report import reset_inventory_report_state_for_tests
 from cuppa.progress import NotifyProgress
 
 pytestmark = pytest.mark.unit
@@ -34,8 +35,10 @@ _SAMPLE_SCOPE = ProfilesScope(
 @pytest.fixture(autouse=True)
 def _reset_collector():
     ProfilesDiagnosticCollector.reset()
+    reset_inventory_report_state_for_tests()
     yield
     ProfilesDiagnosticCollector.reset()
+    reset_inventory_report_state_for_tests()
 
 
 class _FakeToolchain(object):
@@ -109,6 +112,95 @@ def test_collector_progress_tracks_variant_completion():
 
     session.on_progress( 'finished', './widget/sconscript', variant, None, None, None )
     assert variant not in session._variant_completion.incomplete_variants()
+
+
+def test_flush_pending_writes_once_when_not_emitted( monkeypatch, tmp_path ):
+    env = {
+        'sconstruct_dir': str( tmp_path ),
+        'cxx_profiles_report': True,
+        'artefacts_root': '_artefacts',
+    }
+    session = ProfilesDiagnosticCollector.activate( report_env=env )
+    ProfilesDiagnosticCollector.record_line( _SAMPLE_SCOPE, _PROFILE_LINE )
+
+    writes = []
+
+    def fake_write( inventory, write_env, **kwargs ):
+        writes.append( ( inventory.total_references(), write_env, kwargs ) )
+        return {
+            'model': {},
+            'session_paths': [ 'index.html' ],
+            'scope_paths': [],
+        }
+
+    monkeypatch.setattr(
+        'cuppa.cpp.profiles_report.report_html.write_profiles_reports',
+        fake_write,
+    )
+    monkeypatch.setattr(
+        'cuppa.reports.manifest.append_cxx_profiles_entry',
+        lambda *args, **kwargs: None,
+    )
+
+    assert session.flush_pending( env, fallback_flush=True ) is True
+    assert session.flush_pending( env, fallback_flush=True ) is False
+    assert len( writes ) == 1
+    assert writes[ 0 ][ 2 ].get( 'incomplete_scopes' ) is not None or writes[ 0 ][ 1 ] == env
+
+
+def test_diagnostic_collector_flush_pending_uses_report_env( monkeypatch, tmp_path ):
+    env = {
+        'sconstruct_dir': str( tmp_path ),
+        'cxx_profiles_report': True,
+    }
+    ProfilesDiagnosticCollector.activate( report_env=env )
+    ProfilesDiagnosticCollector.record_line( _SAMPLE_SCOPE, _PROFILE_LINE )
+
+    calls = []
+
+    def fake_flush( write_env, fallback_flush=False ):
+        calls.append( ( write_env, fallback_flush ) )
+        return True
+
+    monkeypatch.setattr(
+        ProfilesDiagnosticCollector._session,
+        'flush_pending',
+        fake_flush,
+    )
+
+    assert ProfilesDiagnosticCollector.flush_pending() is True
+    assert calls == [ ( env, True ) ]
+
+
+def test_inventory_process_exit_status_after_non_profile_tally():
+    NotifyProgress.set_inventory_report_mode( True )
+    ProfilesDiagnosticCollector.activate()
+    ProfilesDiagnosticCollector.record_non_profile_error()
+    assert ProfilesDiagnosticCollector.inventory_process_exit_status() == 1
+
+
+def test_inventory_process_exit_status_none_when_no_non_profile_errors():
+    NotifyProgress.set_inventory_report_mode( True )
+    ProfilesDiagnosticCollector.activate()
+    assert ProfilesDiagnosticCollector.inventory_process_exit_status() is None
+
+
+def test_finalize_inventory_session_exits_after_non_profile_tally( monkeypatch ):
+    NotifyProgress.set_inventory_report_mode( True )
+    ProfilesDiagnosticCollector.activate()
+    ProfilesDiagnosticCollector.record_non_profile_error()
+    exits = []
+    monkeypatch.setattr(
+        'SCons.Script.Exit',
+        lambda status: exits.append( status ),
+    )
+    monkeypatch.setattr(
+        ProfilesDiagnosticCollector,
+        'flush_pending',
+        classmethod( lambda cls: False ),
+    )
+    ProfilesDiagnosticCollector.finalize_inventory_session()
+    assert exits == [ 1 ]
 
 
 def test_cxx_profiles_report_requires_profiles_active():

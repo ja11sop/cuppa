@@ -10,7 +10,7 @@
 --
 **Test + coverage** — one run with `--cov --test`: three ``BuildTest`` programs in a loop, ``GenerateHtmlTestReport``, ``CollateTestReportIndex``, ``CollateCoverageFiles``, and ``CollateCoverageIndex`` under `#_artefacts/test/` and `#_artefacts/coverage/`.
 
-**Profiles** — a second run with `--dbg --cxx-profiles --cxx-profiles-enforce=std::init --cxx-disable-error-limit -i` and a Profiles-capable Clang (local or the documented Alliance archive). The sconscript builds two violation probes and calls ``env.CollateCxxProfilesIndex()`` (no ``--cxx-profiles-report``).
+**Profiles** — a second run with `--dbg --cxx-profiles --cxx-profiles-enforce=std::init --cxx-disable-error-limit` and a Profiles-capable Clang (local or the documented Alliance archive). The sconscript builds two violation probes and calls ``env.CollateCxxProfilesIndex()`` (no ``--cxx-profiles-report``). Inventory mode prepends SCons keep-going (``-i``) automatically.
 --
 
 The test/coverage step skips when `gcov` / `gcovr` are missing or when `CUPPA_TEST_TOOLCHAIN` is MSVC. The Profiles step skips when no Profiles Clang is available and the Alliance archive cannot be used (non-Linux x86_64).
@@ -71,7 +71,7 @@ env.Build('metrics_violation', 'tests/metrics_violation.cpp')
 env.CollateCxxProfilesIndex()
 ----
 
-`inventory_violation.cpp` and `metrics_violation.cpp` violate `std::init` so the Profiles index records real violations. `-i` lets the inventory run continue past compile errors on those probes.
+`inventory_violation.cpp` and `metrics_violation.cpp` violate `std::init` so the Profiles index records real violations. Inventory mode keeps compiling past those profile failures so every probe is captured.
 
 Profiles toolchain: prefer a local Profiles-capable Clang; otherwise fetch the documented Alliance archive (Linux x86_64 only):
 
@@ -89,7 +89,7 @@ cuppa -D -Q --list-available-reports
 cuppa -D -Q --list-available-reports --list-format=json
 cuppa -D --dbg --test --cov
 cuppa -D --dbg --cxx-profiles --cxx-profiles-enforce=std::init \
-  --cxx-disable-error-limit -i \
+  --cxx-disable-error-limit \
   --toolchain-archive=https://github.com/cppalliance/clang/releases/download/profiles-2026-08-07-27/clang-profiles-linux-x86_64.tar.gz \
   --toolchains=clang24_profiles_2026_08_07_27
 ----
