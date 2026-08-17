@@ -426,8 +426,8 @@ hrefs still use the project repository until the follow-up slice below.
 
 ### Follow-up: per-repo `remote` link style (patch release)
 
-**Status:** proposal — file a patch issue after [#214](https://github.com/ja11sop/cuppa/pull/214)
-merges; implement on a fresh branch.
+**Status:** proposal — implement on a fresh branch after [#214](https://github.com/ja11sop/cuppa/pull/214)
+merges ([#216](https://github.com/ja11sop/cuppa/issues/216)).
 
 Add **`remote`** to `REPORT_LINK_STYLES` (and CLI choices). Keep **`github`** / **`gitlab`** as
 **force-all overrides** when the whole tree lives on one host.
@@ -1682,7 +1682,7 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 3. **Report-only exit code:** optional `--cxx-profiles-report-allow-errors` if inventory runs should succeed?
 4. **Cross-variant roll-up:** session **union** for headline / Overview (settled); By-Rule / By-File show **per-build Hits + common/delta** display ([§Variant roll-up display](#prof-report-variant-roll-up-display)) — Antora documents both.
 5. **GitHub `link_style`:** → **Settled** — shared helper in `link_style.py`; per-repo **`remote`**
-   style deferred to follow-up slice above (patch issue after #214).
+   style tracked in [#216](https://github.com/ja11sop/cuppa/issues/216).
 6. **`_unscoped` bucket:** when spawn scope cannot be derived, record under session `_unscoped` with warning in HTML — never guess variant.
 7. **Implied `-i`:** → **Settled yes** — [#199](https://github.com/ja11sop/cuppa/issues/199) / [§Collate index semantics](#prof-report-method-semantics-slice).
 8. **Progress vs failed compiles:** → **Settled yes** — Progress decoupling + fallback flush — [#199](https://github.com/ja11sop/cuppa/issues/199).
