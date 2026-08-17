@@ -12,7 +12,10 @@ You can publish to a GitLab generic package registry (`env.PublishPackage` +
 
 == Publishing (GitLab generic)
 
-From a sconscript, `env.PublishPackage(...)` with a `GitlabPackagePublisher` builds a toolchain-scoped tarball.
+From a sconscript, `env.PublishPackage(...)` with a `GitlabPackagePublisher` builds a toolchain-scoped tarball
+and writes a ``.packaged`` stamp beside it in ``final/``. When staged headers and libs are not newer than the
+existing archive, cuppa skips recreating the tarball — so a follow-up ``cuppa --rel --publish-package`` can
+upload without re-tarring multi-gigabyte trees.
 Add `--publish-package` to upload it to the GitLab generic registry.
 `env.InstallPackage(...)` installs a package into the local cuppa dependencies layout.
 

@@ -135,6 +135,44 @@ def create_package_archive( archive_path, working_dir, source_dir ):
     return completion.returncode
 
 
+def newest_mtime_under( root ):
+    """Return the newest file mtime under ``root``, or ``0.0`` when absent or empty."""
+    if not root or not os.path.exists( root ):
+        return 0.0
+    newest = 0.0
+    for dirpath, _dirnames, filenames in os.walk( root ):
+        for filename in filenames:
+            path = os.path.join( dirpath, filename )
+            try:
+                newest = max( newest, os.path.getmtime( path ) )
+            except OSError:
+                pass
+    return newest
+
+
+def package_archive_is_up_to_date( archive_path, staging_roots ):
+    """Return True when ``archive_path`` exists and is not older than staged package content."""
+    if not archive_path or not os.path.isfile( archive_path ):
+        return False
+    try:
+        archive_mtime = os.path.getmtime( archive_path )
+    except OSError:
+        return False
+    for root in staging_roots:
+        if newest_mtime_under( root ) > archive_mtime:
+            return False
+    return True
+
+
+def package_sidecar_id( package_file_path, suffix ):
+    """Sidecar stamp basename (``.packaged`` / ``.published``) for a package archive path."""
+    return (
+            strip_package_archive_extension(
+                    package_file_path.replace( "/", "_" )
+            ).replace( ".", "_" ) + suffix
+    )
+
+
 def extract_package_archive( archive_path, extraction_dir ):
     """Extract a GitLab package archive into ``extraction_dir`` (preserves ``package/version/…``)."""
     from cuppa.utility.download import (
@@ -229,7 +267,9 @@ class GitlabPackagePublisher:
         self._target_lib_dir    = env.Dir( os.path.join( env['final_dir'], self._package_folder, "lib" ) )
         self._package_variant   = tool_variant( env, variant=variant )
         self._package_file_name = package_file_name( env, package=package, variant=variant )
-        self._package_location  = env.File( os.path.join( env['abs_final_dir'], self._package_file_name ) )
+        self._package_archive = env.File(
+                os.path.join( env['abs_final_dir'], self._package_file_name )
+        )
         self._package_source_dir = package
 
         self._clean_targets = Flatten( [
@@ -239,20 +279,20 @@ class GitlabPackagePublisher:
 
         self._curl_command = 'curl --fail-with-body --header "{token}" --upload-file {package_file} "{package_location}"'.format(
                 token = get_header_token( custom_token ),
-                package_file = str( self._package_location ),
+                package_file = str( self._package_archive ),
                 package_location = package_url( env, registry=registry, package=package, version=version )
         )
 
         self._package_file_path = os.path.join( self._package_folder, self._package_file_name )
 
-        self._package_published_id = env.File(
-                strip_package_archive_extension(
-                        self._package_file_path.replace( "/", "_" )
-                ).replace( ".", "_" ) + ".published"
-        )
+        sidecar = package_sidecar_id( self._package_file_path, '' )
+        self._package_built_id = env.File( sidecar + '.packaged' )
+        self._package_published_id = env.File( sidecar + '.published' )
 
 
     def build_package( self, target, source, env ):
+
+        from SCons.Script import Touch
 
         if not os.path.exists( str(self._target_include_dir) ):
             logger.info( "For package [{}], include dir [{}] does not exist so copying include files from [{}]...".format(
@@ -284,19 +324,38 @@ class GitlabPackagePublisher:
             shutil.copytree( source_modules, target_modules )
 
         logger.info( "Creating package [{}]...".format( as_info( str(target[0]) ) ) )
+        archive_path = str( self._package_archive )
+        staging_roots = [
+                str( self._target_include_dir ),
+                str( self._target_lib_dir ),
+        ]
+        modules_dir = os.path.join( str( self._package_base_dir ), 'modules' )
+        if os.path.isdir( modules_dir ):
+            staging_roots.append( modules_dir )
+
+        if package_archive_is_up_to_date( archive_path, staging_roots ):
+            logger.info(
+                    "Package archive [{}] is up to date; skipping recreate".format(
+                            as_info( archive_path )
+                    )
+            )
+            env.Execute( Touch( target[0] ) )
+            return None
+
         returncode = create_package_archive(
-                str( self._package_location ),
+                archive_path,
                 env['abs_final_dir'],
                 self._package_source_dir,
         )
         if returncode != 0:
             logger.error( "Creating package archive [{}] failed with return code [{}]".format(
-                    as_error( str( self._package_location ) ),
+                    as_error( archive_path ),
                     as_error( str( returncode ) ) )
             )
             return returncode
 
-        logger.info( "Package [{}] created".format( as_info( str(target[0]) ) ) )
+        env.Execute( Touch( target[0] ) )
+        logger.info( "Package [{}] created".format( as_info( archive_path ) ) )
 
         return None
 
@@ -305,7 +364,7 @@ class GitlabPackagePublisher:
 
         from SCons.Script import Touch
 
-        logger.info( "Publishing package [{}]...".format( as_info( str(source[0]) ) ) )
+        logger.info( "Publishing package [{}]...".format( as_info( str(self._package_archive) ) ) )
         logger.info( "Using commnd [{}]".format( as_notice( self._curl_command ) ) )
 
         completion = subprocess.run( shlex.split( self._curl_command ) )
@@ -317,7 +376,7 @@ class GitlabPackagePublisher:
             return completion.returncode
 
         env.Execute( Touch( target[0] ) )
-        logger.info( "Package [{}] published".format( as_info( str(source[0]) ) ) )
+        logger.info( "Package [{}] published".format( as_info( str(self._package_archive) ) ) )
 
         return None
 
@@ -335,7 +394,11 @@ class GitlabPackagePublisher:
 
 
     def package( self ):
-        return self._package_location
+        return self._package_built_id
+
+
+    def package_archive( self ):
+        return self._package_archive
 
 
     def clean_targets( self ):

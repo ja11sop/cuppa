@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- GitLab `GitlabPackagePublisher` writes a ``.packaged`` stamp and skips recreating the tarball
+  when staged headers/libs are not newer than the existing archive, so ``--publish-package`` after
+  a release build does not re-tar large packages ([#204](https://github.com/ja11sop/cuppa/issues/204)).
 - `boost_package.use_libs()` no longer resolves the built-in source Boost dependency just to
   drop `system` on Boost ≥ 1.89; it uses the package version instead ([#206](https://github.com/ja11sop/cuppa/issues/206)).
 
