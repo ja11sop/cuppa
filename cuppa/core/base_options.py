@@ -103,6 +103,12 @@ def add_base_options():
                             help="Merge the current environment PATH (only) to all sub-processes when"
                                  " building" )
 
+    add_option( '--inherit-process-env', dest='inherit-process-env', action='store_true',
+                            help="When running tests or env.Run shell commands, merge the current"
+                                 " process environment into each child at spawn time (env['ENV'] wins"
+                                 " on clashes). Prefer export_for_subprocess or returning a dict from"
+                                 " Run callables." )
+
     add_option( '--use-shell', dest='use-shell', action='store_true',
                             help="Setting to true means all subprocess calls are called with Shell=True" )
 

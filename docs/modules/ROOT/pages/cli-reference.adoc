@@ -154,6 +154,7 @@ These flags control how much of your **shell** environment Cuppa passes into bui
 | `--propagate-env` | Pass the full parent environment to subprocesses
 | `--propagate-path` | Pass only the parent shell `PATH`
 | `--merge-path` | Merge the parent shell `PATH` with Cuppa’s managed path (parent entries kept, Cuppa defaults included)
+| `--inherit-process-env` | For `--test` / `--run` shell children only: merge the *current* process environment at each spawn (`env['ENV']` wins on clashes). Escape hatch when a setup step updates `os.environ` but not `env['ENV']`; prefer `export_for_subprocess` or returning a dict from Run callables
 | `--use-shell` | Escape hatch: run coloured `SPAWN` subprocesses with `shell=True` (joins the argv list into one shell command). Prefer `working_dir` / `cwd=` / Python actions instead of multi-part shell strings such as `cd … && …`. See xref:methods.adoc#custom-commands-and-working-directories[Custom commands and working directories].
 | `--decider=DECIDER` | SCons decider: `timestamp-newer`, `timestamp-match`, `MD5`, `MD5-timestamp` (default)
 | `--runner=NAME` | Test runner (default `process`)
@@ -163,6 +164,7 @@ These flags control how much of your **shell** environment Cuppa passes into bui
 
 * Use `--propagate-path` or `--merge-path` when tools you need (for example a Homebrew Clang, or extra utilities) are on your shell `PATH` but not on Cuppa’s default path.
 * Use `--propagate-env` when subprocesses need other shell variables as well (credentials, `PKG_CONFIG_PATH` customisations beyond what Cuppa already forwards, locale settings, and so on). Prefer the narrower path flags when only `PATH` matters.
+* `--propagate-env` copies the shell environment once when each variant build environment is created. It does **not** pick up variables written later via `os.environ` in a sconscript. For graph-time exports use `export_for_subprocess( env, ... )`, return a dict from a Run callable, or as a last resort `--inherit-process-env` / `inherit_process_env=True` on a specific Run/Test.
 * Without these flags, Cuppa still forwards host `PKG_CONFIG_PATH` when it is set, so system `.pc` discovery continues to work.
 
 **What they are not for**

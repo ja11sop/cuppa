@@ -31,7 +31,7 @@ class RunMethod(object):
         ]
 
 
-    def __call__( self, env, source=None, target=None, final_dir=None, data=None, depends_on=None, command=None, command_args=None, expected_exit_code=None, working_dir=None, retry_count=None ):
+    def __call__( self, env, source=None, target=None, final_dir=None, data=None, depends_on=None, command=None, command_args=None, expected_exit_code=None, working_dir=None, retry_count=None, inherit_process_env=None ):
 
         actions = env['variant_actions']
 
@@ -47,7 +47,8 @@ class RunMethod(object):
                 expected_exit_code=expected_exit_code,
                 target=target,
                 working_dir=working_dir,
-                retry_count=retry_count
+                retry_count=retry_count,
+                inherit_process_env=inherit_process_env,
             )
 
             env['BUILDERS']['RunBuilder'] = env.Builder( action=action, emitter=emitter )

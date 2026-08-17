@@ -36,6 +36,7 @@ class BuildTestMethod:
             cov_exclude_dependencies=False,
             cov_exclude_patterns=None,
             working_dir=None,
+            inherit_process_env=None,
             **kwargs
     ):
 
@@ -68,7 +69,8 @@ class BuildTestMethod:
                 expected=expected,
                 command=command,
                 expected_exit_code=expected_exit_code,
-                working_dir=working_dir
+                working_dir=working_dir,
+                inherit_process_env=inherit_process_env,
             )
 
             nodes.append( test )

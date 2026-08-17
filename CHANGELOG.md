@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] - unreleased
+
+### Added
+
+- `export_for_subprocess( env, **variables )` and Run-callable dict returns merge targeted
+  variables into `env['ENV']` for later `--test` / `--run` children
+  ([#211](https://github.com/ja11sop/cuppa/issues/211)).
+- `--inherit-process-env` and per-call `inherit_process_env=` on `env.Run`, `env.Test`,
+  `env.BuildTest`, and benchmark helpers: at spawn time only, merge the current process
+  environment into Run/Test subprocesses (`env['ENV']` wins on clashes). Logs a warning; prefer
+  targeted exports ([#211](https://github.com/ja11sop/cuppa/issues/211)).
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
 ## [1.8.0] - 2026-08-17
 
 ### Changed
@@ -801,6 +823,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Baseline release on `master` before the modules work landed.
 Detailed notes for 1.1.x and earlier were not maintained in this file; start recording notable changes here from 1.2.0 onward.
 
+[1.8.1]: https://github.com/ja11sop/cuppa/compare/v1.8.0...HEAD
 [1.8.0]: https://github.com/ja11sop/cuppa/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/ja11sop/cuppa/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/ja11sop/cuppa/compare/v1.5.0...v1.6.0

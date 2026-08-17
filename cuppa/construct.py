@@ -257,6 +257,7 @@ class Construct(object):
                 'parallel',
                 'show_test_output',
                 'propagate_env',
+                'inherit_process_env',
                 'propagate_path',
                 'decider'
         }
@@ -473,6 +474,7 @@ class Construct(object):
         cuppa_env['propagate_env']       = cuppa_env.get_option( 'propagate-env' )       and True or False
         cuppa_env['propagate_path']      = cuppa_env.get_option( 'propagate-path' )      and True or False
         cuppa_env['merge_path']          = cuppa_env.get_option( 'merge-path' )          and True or False
+        cuppa_env['inherit_process_env'] = cuppa_env.get_option( 'inherit-process-env' ) and True or False
         cuppa_env['show_test_output']    = cuppa_env.get_option( 'show-test-output' )    and True or False
         cuppa_env['suppress_process_output'] = cuppa_env.get_option( 'suppress-process-output' ) and True or False
         cuppa_env['dump']                = cuppa_env.get_option( 'dump' )                and True or False
