@@ -10,8 +10,11 @@ Run from the repository root:
     python -m scripts.generate_doc_samples
 
 Writes plain-text samples under ``docs/modules/ROOT/partials/samples/`` so AsciiDoc
-pages can ``include::partial$samples/….txt[]`` inside ``[source,text]`` blocks. Ages
-use fixed ``now`` so the files stay stable across regenerations.
+pages can ``include::partial$samples/….txt[]`` inside ``[source,text]`` blocks.
+
+Relative ages use a fixed reference instant (:data:`NOW`, 2026-08-09) via
+:class:`frozen_now`, including when unit tests call individual ``sample_*``
+generators — do not refresh partials from live ``cuppa --list-*`` output.
 """
 
 from __future__ import annotations
@@ -49,6 +52,29 @@ SAMPLES = ROOT / 'docs' / 'modules' / 'ROOT' / 'partials' / 'samples'
 # Freeze "today" / "yesterday" / "11 days ago" / "2 months ago" relative ages.
 NOW = time.mktime( time.strptime( '2026-08-09 12:00:00', '%Y-%m-%d %H:%M:%S' ) )
 DAY = 86400.0
+
+
+class frozen_now( object ):
+    """Context manager: pin ``time.time()`` to :data:`NOW` for stable LAST USED columns."""
+
+    def __enter__( self ):
+        self._real_time = time.time
+        time.time = lambda: NOW
+        return self
+
+    def __exit__( self, exc_type, exc, tb ):
+        time.time = self._real_time
+        return False
+
+
+def _frozen_now( fn ):
+    """Decorator: run a sample generator under :class:`frozen_now`."""
+    def wrapped( *args, **kwargs ):
+        with frozen_now():
+            return fn( *args, **kwargs )
+    wrapped.__name__ = fn.__name__
+    wrapped.__doc__ = fn.__doc__
+    return wrapped
 
 
 def _strip_ansi( text ):
@@ -1071,38 +1097,57 @@ def sample_list_builds_json():
     )
 
 
-GENERATORS = (
-    sample_list_downloads,
-    sample_list_downloads_json,
-    sample_list_dependencies,
-    sample_list_dependencies_verbose,
-    sample_list_dependencies_json,
-    sample_list_develop,
-    sample_list_develop_json,
-    sample_list_toolchains,
-    sample_list_toolchains_verbose,
-    sample_list_toolchains_json,
-    sample_list_builds,
-    sample_list_builds_json,
-    sample_remove_builds_dry_run,
-    sample_remove_builds_error,
-    sample_remove_all_builds_dry_run,
-    sample_remove_gitlab_dry_run,
-    sample_remove_boost_product_clean,
-    sample_purge_gitlab,
+GENERATORS = tuple(
+        _frozen_now( generator )
+        for generator in (
+                sample_list_downloads,
+                sample_list_downloads_json,
+                sample_list_dependencies,
+                sample_list_dependencies_verbose,
+                sample_list_dependencies_json,
+                sample_list_develop,
+                sample_list_develop_json,
+                sample_list_toolchains,
+                sample_list_toolchains_verbose,
+                sample_list_toolchains_json,
+                sample_list_builds,
+                sample_list_builds_json,
+                sample_remove_builds_dry_run,
+                sample_remove_builds_error,
+                sample_remove_all_builds_dry_run,
+                sample_remove_gitlab_dry_run,
+                sample_remove_boost_product_clean,
+                sample_purge_gitlab,
+        )
 )
+
+# Re-bind names so unit tests and ad-hoc calls cannot write wall-clock ages into partials.
+(
+        sample_list_downloads,
+        sample_list_downloads_json,
+        sample_list_dependencies,
+        sample_list_dependencies_verbose,
+        sample_list_dependencies_json,
+        sample_list_develop,
+        sample_list_develop_json,
+        sample_list_toolchains,
+        sample_list_toolchains_verbose,
+        sample_list_toolchains_json,
+        sample_list_builds,
+        sample_list_builds_json,
+        sample_remove_builds_dry_run,
+        sample_remove_builds_error,
+        sample_remove_all_builds_dry_run,
+        sample_remove_gitlab_dry_run,
+        sample_remove_boost_product_clean,
+        sample_purge_gitlab,
+) = GENERATORS
 
 
 def main( argv=None ):
     parser = argparse.ArgumentParser( description=__doc__ )
     parser.parse_args( argv )
-    # Freeze "now" so relative ages (today / yesterday / N days ago) stay stable.
-    real_time = time.time
-    time.time = lambda: NOW
-    try:
-        written = [ generator() for generator in GENERATORS ]
-    finally:
-        time.time = real_time
+    written = [ generator() for generator in GENERATORS ]
     for path in written:
         print( path.relative_to( ROOT ) )
     return 0
