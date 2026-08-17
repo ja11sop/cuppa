@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   non-profile compile failures are tallied for a non-zero exit after the index write, and
   profile-shaped diagnostics keep an Error label with warning colours ([#199](https://github.com/ja11sop/cuppa/issues/199)).
 
+### Fixed
+
+- `boost_package.use_libs()` no longer resolves the built-in source Boost dependency just to
+  drop `system` on Boost ≥ 1.89; it uses the package version instead ([#206](https://github.com/ja11sop/cuppa/issues/206)).
+
 ### Added
 
 - `--artefacts-root` (default `_artefacts`; legacy `_artifacts/` kept when present): project-relative root for generated reports and
