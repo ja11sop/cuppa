@@ -24,7 +24,7 @@ def use_libs( package, libraries ):
     env = package._env
     version = package._version
 
-    libraries = remove_system_static_lib( env, libraries )
+    libraries = remove_system_static_lib( env, libraries, boost_version=version )
     required_libs = add_dependent_libraries( float(version), "static", libraries )
 
     static_libs = []

@@ -19,8 +19,11 @@ from cuppa.log       import logger
 from cuppa.dependencies.boost.boost_builder import BoostLibraryBuilder
 
 
-def remove_system_static_lib( env, libraries ):
-    boost_version = env['dependencies']['boost']( env ).numeric_version()
+def remove_system_static_lib( env, libraries, boost_version=None ):
+    if boost_version is None:
+        boost_version = env['dependencies']['boost']( env ).numeric_version()
+    else:
+        boost_version = float( boost_version )
     if boost_version >= 1.89:
         try:
             libraries.remove( 'system' )
