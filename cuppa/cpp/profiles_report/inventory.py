@@ -47,10 +47,13 @@ def parse_variant_scope_fields( variant_dir ):
     """Derive toolchain and variant label from a cuppa variant directory path.
 
     Variant dirs end with ``<toolchain>/<variant>/<arch>/<abi>`` under ``_build/…`` —
-    see ``cuppa.core.build_layout.tool_variant_dir``.
+    see ``cuppa.core.build_layout.tool_variant_dir``. Root ``sconscript`` layouts omit a
+    project path segment between ``_build/`` and the toolchain folder.
     """
     parts = variant_dir.strip( '/' ).split( '/' )
-    if len( parts ) < 6 or parts[ 0 ] != '_build':
+    # ``_build/<optional-sconscript-path>/<toolchain>/<variant>/<arch>/<abi>`` — root
+    # sconscript has no middle segment (five parts); nested sconscripts have six or more.
+    if len( parts ) < 5 or parts[ 0 ] != '_build':
         return '_unknown', '_unknown'
     return parts[ -4 ], parts[ -3 ]
 

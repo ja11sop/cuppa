@@ -426,6 +426,7 @@ class RunProcessTest(object):
 
         except OSError as e:
             logger.error( "Execution of [{}] failed with error: {}".format( as_notice(test_command), as_notice(str(e)) ) )
+            test_suite.exit_test( test_case, 'aborted' )
             raise BuildError( e )
 
 

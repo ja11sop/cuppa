@@ -238,6 +238,9 @@ def test_parse_variant_scope_fields():
     assert parse_variant_scope_fields(
         '_build/test/sample_app/clang24_profiles_2026_08_07_27/dbg/x86_64/cxx2c',
     ) == ( 'clang24_profiles_2026_08_07_27', 'dbg' )
+    assert parse_variant_scope_fields(
+        '_build/clang24_profiles_2026_08_07_27/dbg/x86_64/cxx2c',
+    ) == ( 'clang24_profiles_2026_08_07_27', 'dbg' )
 
 
 def test_profiles_scope_from_construction_env_matches_notify_progress_variant():
