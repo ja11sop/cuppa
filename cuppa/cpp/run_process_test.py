@@ -121,9 +121,13 @@ class TestSuite(object):
 
 
     def _write_test_case( self, test_case ):
-        expected = test_case['expected'] == test_case['status']
-        passed   = test_case['status'] == 'passed'
-        meaning  = test_case['status']
+        status = test_case.get( 'status' )
+        if status is None:
+            return
+
+        expected = test_case['expected'] == status
+        passed   = status == 'passed'
+        meaning  = status
 
         if not expected and passed:
             meaning = 'unexpected_success'
@@ -169,6 +173,8 @@ class TestSuite(object):
         )
 
         for test in self._tests:
+            if 'status' not in test:
+                continue
             sys.stdout.write(
                 as_emphasised( "\nTest case [{}]".format( test['name'] ) ) + '\n'
             )
@@ -420,6 +426,7 @@ class RunProcessTest(object):
 
         except OSError as e:
             logger.error( "Execution of [{}] failed with error: {}".format( as_notice(test_command), as_notice(str(e)) ) )
+            test_suite.exit_test( test_case, 'aborted' )
             raise BuildError( e )
 
 

@@ -2,8 +2,24 @@
 
 - **Status:** proposal
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-methods-split`); hub [`methods.adoc`](../../docs/modules/ROOT/pages/methods.adoc); [`dependencies.adoc`](../../docs/modules/ROOT/pages/dependencies.adoc) hub pattern; Phase 3 doc split [`removal-options.md`](removal-options.md) §7.1
-- **Updated:** 2026-08-11
+- **Updated:** 2026-08-17
 - **Impact:** none — documentation and navigation only
+
+## Prerequisite — behaviour before pages
+
+Do **not** split Methods into child pages until [`method-behaviour-audit.md`](method-behaviour-audit.md)
+fixes and classifications are settled (or explicitly deferred with issue links). Otherwise each
+new page documents behaviour that is still wrong or inconsistent — especially **output path naming**
+and **static vs dynamic** source discovery.
+
+**Order:**
+
+```text
+method-behaviour-audit  →  static-glob-rename (optional)  →  methods-pages-split (this plan)
+```
+
+[#213](https://github.com/ja11sop/cuppa/issues/213) (compile object paths) is the first audit slice;
+doc/asset emitters with flat basenames are the next.
 
 ## Why
 
@@ -54,6 +70,30 @@ Group related registrations to avoid forty tiny pages:
 Each group page: signature, when to use, minimal example, progress/NotifyProgress note, xrefs to
 toolchains/modules/coverage as needed.
 
+## Behaviour fields (every child page)
+
+Import the classification from [`method-behaviour-audit.md`](method-behaviour-audit.md). Each method
+page (or group page subsection) should state:
+
+| Field | What to document |
+|-------|------------------|
+| **Returns** | Nodes, env, string, list, or side-effect only — and what callers can chain |
+| **Evaluation** | Immediate / static snapshot (configure) / SCons dynamic / build action / post-build |
+| **Output paths** | Mirror under `working/` or `final/`, flat basename, or caller explicit — collision notes |
+| **Progress** | Participates in NotifyProgress or not |
+
+**Examples by group:**
+
+| Nav group | Evaluation highlight | Path highlight |
+|-----------|---------------------|----------------|
+| Build | Build action via SCons | Objects mirror source tree under `working/` ([#213](https://github.com/ja11sop/cuppa/issues/213)) |
+| Files & templates | Mix: static glob, Filter immediate, Glob dynamic | StaticGlob vs `env.Glob('**')`; Filter after dynamic Glob |
+| Docs assets | Build action | Today: flat `{final}/{basename}` — **document fix when audit lands** |
+| C++ modules | Build action | Interface suffix in object stem (`.cppm.o` vs `.o`) + mirrored paths |
+
+Link to [`static-glob-rename.md`](static-glob-rename.md) from the Files group instead of duplicating
+the full static/dynamic essay.
+
 ## Phase 2 — SCons companions (proposal)
 
 | Page | Cover |
@@ -77,10 +117,11 @@ Leave on **`methods.adoc`**:
 
 | Slice | Deliverable | Notes |
 |-------|-------------|-------|
-| A | Hub trim + nav skeleton | Empty child stubs with `xref` |
-| B | Build + test groups | Highest traffic |
+| **0** | Behaviour audit fixes | [`method-behaviour-audit.md`](method-behaviour-audit.md) — **before A** |
+| A | Hub trim + nav skeleton | Empty child stubs with `xref` + behaviour field template |
+| B | Build + test groups | Highest traffic; #213 semantics |
 | C | Coverage + C++ groups | Link cxx-modules / cxx-profiles |
-| D | Remaining groups | Files, packages, flags |
+| D | Remaining groups | Files (StaticGlob), packages, flags |
 | E | Phase 2 SCons pages | Optional same cycle |
 | F | Redirect grep in repo | Fix internal links to `#anchors` that moved |
 
@@ -101,9 +142,9 @@ Leave on **`methods.adoc`**:
 | Size | Large editorial effort; can land incrementally (slice B–C enough for 1.8.0) |
 | Release impact | `none` |
 
-**Suggested:** **1.8.0** friendly as **incremental docs PRs** (slices A–C) even while 1.8.0.dev code
-work is elsewhere. Good pairing with [`antora-ui-bundle.md`](antora-ui-bundle.md) if docs cycle
-gets a visible refresh.
+**Suggested:** defer slices **A–F** until **slice 0** (behaviour audit) is largely complete. Then
+land docs as **incremental docs PRs** (`impact:none`). Good pairing with
+[`antora-ui-bundle.md`](antora-ui-bundle.md) if the docs cycle gets a visible refresh.
 
 ## Folder layout (optional polish)
 

@@ -101,10 +101,16 @@ class ProfilesReportSession(object):
         self._emit_session_summary( env, fallback_flush=fallback_flush )
         return True
 
+    def _write_env( self, progress_env ):
+        """Prefer the cuppa env captured at activate time over Progress ``empty_env``."""
+        report_env = ProfilesDiagnosticCollector._report_env
+        return report_env if report_env is not None else progress_env
+
     def _emit_session_summary( self, env, fallback_flush=False ):
         from cuppa.cpp.profiles_report.report_html import write_profiles_reports
         from cuppa.reports.manifest import append_cxx_profiles_entry
 
+        write_env = self._write_env( env )
         with self._lock:
             if self._written:
                 return
@@ -133,14 +139,14 @@ class ProfilesReportSession(object):
             translation_units = frozenset( self._translation_units )
         result = write_profiles_reports(
             self._inventory,
-            env,
+            write_env,
             incomplete_scopes=incomplete,
             parsed_files=parsed_files,
             translation_units=translation_units,
         )
         if result:
             append_cxx_profiles_entry(
-                env,
+                write_env,
                 result[ 'model' ],
                 result[ 'session_paths' ],
                 result[ 'scope_paths' ],

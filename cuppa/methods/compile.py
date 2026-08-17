@@ -15,6 +15,7 @@ from SCons.Node import Node
 
 from cuppa.colourise import as_notice
 from cuppa.log import logger
+from cuppa.utility.object_target import object_target_for
 
 
 class CompileMethod:
@@ -66,16 +67,7 @@ class CompileMethod:
             if os.path.splitext(str(source))[1] == obj_suffix:
                 objects.append( source )
             else:
-                target = None
-                target = os.path.splitext( os.path.split( str(source) )[1] )[0]
-                if not source.path.startswith( env['build_root'] ):
-                    if os.path.isabs( str(source) ):
-                        target = env.File( os.path.join( obj_prefix + target + obj_suffix ) )
-                    else:
-                        target = env.File( os.path.join( env['build_dir'], obj_prefix + target + obj_suffix ) )
-                else:
-                    offset_dir = os.path.relpath( os.path.split( source.path )[0], env['build_dir'] )
-                    target = env.File( os.path.join( offset_dir, obj_prefix + target + obj_suffix ) )
+                target = object_target_for( env, source, obj_prefix, obj_suffix )
 
                 logger.trace( "Object target = [{}]/[{}]".format( as_notice(str(target)), as_notice(target.path) ) )
 

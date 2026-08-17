@@ -17,10 +17,13 @@ from cuppa.cpp.profiles_report.source_pages import (
     display_path_on_disk,
     format_rule_label_html,
     format_violation_message_html,
+    remote_href_display_path,
     sanitized_source_filename,
     source_page_relpath,
+    source_path_link_label,
     write_source_pages,
 )
+from cuppa.reports.link_style import initialise_report_linking
 from cuppa.cpp.cxx_profiles_report import (
     ProfilesInventory,
     ProfilesScope,
@@ -370,6 +373,8 @@ def test_write_source_pages_emits_markup( tmp_path ):
     assert 'ref_to_uninit' in html
     assert 'prof-summary-table' in html
     assert 'Violation Message' in html
+    assert '>Violations</th>' in html
+    assert 'Distinct/Unique' not in html
     assert 'violation of' in html
     assert 'distinct rule' in html
     assert 'violation detected through' not in html
@@ -378,3 +383,87 @@ def test_write_source_pages_emits_markup( tmp_path ):
     assert 'breadcrumb' in html
     assert 'By source' in html
     assert 'prof-stat-value--alert' in html
+
+
+def test_remote_href_display_path_strips_working_dir( tmp_path ):
+    source = tmp_path / '_build' / 'clang' / 'dbg' / 'x86_64' / 'cxx2c' / 'working' / 'include' / 'widget.hpp'
+    source.parent.mkdir( parents=True )
+    env = { 'sconstruct_dir': str( tmp_path ) }
+    assert remote_href_display_path( str( source ), env ) == 'include/widget.hpp'
+
+
+def test_write_source_pages_github_source_link( tmp_path, monkeypatch ):
+    source = tmp_path / '_build' / 'clang' / 'dbg' / 'x86_64' / 'cxx2c' / 'working' / 'include' / 'widget.hpp'
+    source.parent.mkdir( parents=True )
+    source.write_text( 'int* p;\n', encoding='utf-8' )
+
+    inventory = ProfilesInventory()
+    _record_line( inventory, str( source ), line=1, column=6 )
+
+    monkeypatch.setattr(
+        'cuppa.test_report.html_report.vcs_info_from_location',
+        lambda *args: (
+            'git@github.com:cppalliance/capy.git',
+            'git@github.com:cppalliance/capy.git',
+            'develop',
+            'origin',
+            'abc123',
+        ),
+    )
+
+    env = {
+        'sconstruct_dir': str( tmp_path ),
+        'reports_link_style': 'github',
+        'current_branch': 'develop',
+    }
+    link_base = initialise_report_linking( env, link_style='github' )
+    destination = tmp_path / 'report'
+    page_map, written = write_source_pages(
+        inventory,
+        str( destination ),
+        env,
+        'github',
+        link_base,
+        'cxx-profiles-index.html',
+        lambda: __import__( 'jinja2' ).Environment(
+            loader=__import__( 'jinja2' ).PackageLoader( 'cuppa', 'cpp/templates' ),
+            autoescape=__import__( 'jinja2' ).select_autoescape( [ 'html', 'xml' ] ),
+        ).get_template( 'cxx_profiles_source_file.html' ),
+    )
+    html = open( written[ 0 ], encoding='utf-8' ).read()
+    expected = 'https://github.com/cppalliance/capy/blob/develop/include/widget.hpp'
+    assert link_base == 'https://github.com/cppalliance/capy/blob/develop'
+    assert expected in html
+    assert 'href="{}"'.format( expected ) in html
+    assert '>{0}</a>'.format( expected ) in html
+    assert 'file://' not in html
+    assert '~/' not in html
+
+
+def test_source_path_link_label_local_uses_disk_path( tmp_path ):
+    source = tmp_path / 'src' / 'widget.cpp'
+    source.parent.mkdir()
+    env = { 'sconstruct_dir': str( tmp_path ) }
+    label = source_path_link_label(
+        str( source ),
+        env,
+        'local',
+        'file://' + str( tmp_path ),
+        'src/widget.cpp',
+    )
+    assert label == display_path_on_disk( str( source ) )
+
+
+def test_source_path_link_label_github_matches_href( tmp_path ):
+    source = tmp_path / 'include' / 'widget.hpp'
+    source.parent.mkdir()
+    env = { 'sconstruct_dir': str( tmp_path ) }
+    link_base = 'https://github.com/org/repo/blob/main'
+    label = source_path_link_label(
+        str( source ),
+        env,
+        'github',
+        link_base,
+        'include/widget.hpp',
+    )
+    assert label == 'https://github.com/org/repo/blob/main/include/widget.hpp'

@@ -39,8 +39,8 @@ def test_object_target_keeps_interface_suffix(tmp_path):
     })
     cppm = object_target_for( env, _Src( "calc/calc.cppm" ), "", ".o" )
     cpp = object_target_for( env, _Src( "calc/calc.cpp" ), "", ".o" )
-    assert cppm.replace( "\\", "/" ).endswith( "calc.cppm.o" )
-    assert cpp.replace( "\\", "/" ).endswith( "calc.o" )
+    assert cppm.replace( "\\", "/" ).endswith( "calc/calc.cppm.o" )
+    assert cpp.replace( "\\", "/" ).endswith( "calc/calc.o" )
     assert cppm != cpp
 
 

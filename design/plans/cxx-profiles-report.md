@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — C++ Profiles (`profiles-violation-report`); umbrella [#184](https://github.com/ja11sop/cuppa/issues/184) (closed); semantics [#199](https://github.com/ja11sop/cuppa/issues/199) shipped [#203](https://github.com/ja11sop/cuppa/pull/203); scope filter follow-on [§Collate index scope filter](#prof-report-scope-filter-slice); shipped enablement [`archive/cxx-profiles.md`](../archive/cxx-profiles.md); [`removal-options.md`](removal-options.md) §4.6 Phase 6 artefacts [#135](https://github.com/ja11sop/cuppa/issues/135); test/coverage report patterns (`cuppa/test_report/`, `cuppa/cpp/run_gcov_coverage.py`)
-- **Updated:** 2026-08-16
+- **Updated:** 2026-08-17
 - **Impact:** minor — new opt-in CLI flag and HTML artefacts; no change to default builds
 
 ## Why
@@ -381,6 +381,9 @@ the method default when CI publishes artefacts.
 | `gitlab` | `{remote}/-/blob/{branch}/{relpath}#L{line}` | GitLab CI published artefacts |
 | `github` | `{remote}/blob/{branch}/{relpath}#L{line}` | GitHub Actions published artefacts |
 
+Source-page **link text** matches the active style: local paths for `local`, full blob URL for
+`github` / `gitlab` (same string as the href, without the line fragment).
+
 **Path rebasing:** map absolute diagnostic paths (including dependency trees under
 `~/_cuppa/_download/…`) to a **repo-relative** path when under `sconstruct_dir` or
 `--cxx-profiles-report-root=`; otherwise show absolute path with `local` link only (no remote blob —
@@ -416,6 +419,38 @@ Slice **E** (`env.CollateCxxProfilesIndex(…, link_style=…)`) mirrors `Collat
 `CollateTestReportIndex` kwargs (destination, link_style).
 Collated master index passes `link_style="raw"` VCS metadata into the template header (same as test
 suite index).
+
+**Known limitation (v1 `github` / `gitlab`):** one blob base from the **project** VCS applies to
+every href. Dependency sources get human-readable `host/org/repo@branch/…` display paths but remote
+hrefs still use the project repository until the follow-up slice below.
+
+### Follow-up: per-repo `remote` link style (patch release)
+
+**Status:** proposal — implement on a fresh branch after [#214](https://github.com/ja11sop/cuppa/pull/214)
+merges ([#216](https://github.com/ja11sop/cuppa/issues/216)).
+
+Add **`remote`** to `REPORT_LINK_STYLES` (and CLI choices). Keep **`github`** / **`gitlab`** as
+**force-all overrides** when the whole tree lives on one host.
+
+| `link_style` | Href shape | When to use |
+|--------------|------------|---------------|
+| `remote` (new) | Per path: infer GitHub vs GitLab from that file's repo URL; project files → project VCS; dependency files → `enrich_described` / `source_url` + qualifier | Mixed GitHub project + GitLab (or GitHub) dependencies; recommended for CI when deps are not all on the project host |
+| `github` / `gitlab` | Single blob base from project VCS for every path | Monorepo or single-host CI publish |
+
+**Implementation sketch:**
+
+- Shared `normalize_repository_browse_url()` + `_hosting_style()` in `cuppa/reports/link_style.py`
+  (dedupe from `report_html.py`).
+- `resolve_path_remote_link(path, env) → (hosting_style, blob_base, repo_relative_path) | None` —
+  reuse `describe_tree_path` / `enrich_described` / `remote_href_display_path()` (shipped in
+  [#214](https://github.com/ja11sop/cuppa/pull/214) for project + working-dir paths).
+- Extend `source_file_href` or call the resolver from Profiles `write_source_pages` /
+  `annotate_file_links` and test-report linking.
+- Default stays **`local`**; document **`remote`** for mixed-dependency Profiles runs in Antora +
+  `cli-reference.adoc`.
+
+**Settled:** name is **`remote`** (not `repo`) — contrasts with `local` and avoids confusion with
+“repository” as a noun.
 
 ## Settled CLI (proposal)
 
@@ -1646,7 +1681,8 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 2. **Dependency paths:** `--cxx-profiles-report-root=` vs absolute-only links for `_cuppa/_download/…` trees?
 3. **Report-only exit code:** optional `--cxx-profiles-report-allow-errors` if inventory runs should succeed?
 4. **Cross-variant roll-up:** session **union** for headline / Overview (settled); By-Rule / By-File show **per-build Hits + common/delta** display ([§Variant roll-up display](#prof-report-variant-roll-up-display)) — Antora documents both.
-5. **GitHub `link_style`:** extend shared helper vs duplicate URL template in Profiles module only?
+5. **GitHub `link_style`:** → **Settled** — shared helper in `link_style.py`; per-repo **`remote`**
+   style tracked in [#216](https://github.com/ja11sop/cuppa/issues/216).
 6. **`_unscoped` bucket:** when spawn scope cannot be derived, record under session `_unscoped` with warning in HTML — never guess variant.
 7. **Implied `-i`:** → **Settled yes** — [#199](https://github.com/ja11sop/cuppa/issues/199) / [§Collate index semantics](#prof-report-method-semantics-slice).
 8. **Progress vs failed compiles:** → **Settled yes** — Progress decoupling + fallback flush — [#199](https://github.com/ja11sop/cuppa/issues/199).

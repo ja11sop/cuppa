@@ -112,20 +112,21 @@ def test_add_reuses_started_finished_for_same_variant_path():
     assert "_build/test/dbg" in NotifyProgress._started
 
 
-def test_add_inventory_mode_uses_requires_not_depends_on_targets():
+def test_add_inventory_mode_depends_on_targets_and_sconscript_files():
     env = _make_env("test/sconscript", "_build/test/dbg/working")
     NotifyProgress.set_inventory_report_mode(True)
 
     NotifyProgress.add(env, ["node"])
 
-    assert env.depends_calls == [
-        (
-            NotifyProgress._finished["_build/test/dbg"],
-            ["#test/sconscript", "#sconstruct"],
-        )
-    ]
     finished = NotifyProgress._finished["_build/test/dbg"]
-    assert ( finished, [ "node" ] ) in env.requires_calls
+    assert env.depends_calls == [
+        ( finished, [ "#test/sconscript", "#sconstruct" ] ),
+        ( finished, [ "node" ] ),
+    ]
+    assert not any(
+        call[0] == finished and call[1] == [ "node" ]
+        for call in env.requires_calls
+    ), "Finished variant must depend on targets via Depends, not Requires"
 
 
 def test_cuppa_layout_gives_distinct_variant_keys_per_sconscript():

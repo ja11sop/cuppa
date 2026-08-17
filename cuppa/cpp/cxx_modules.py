@@ -51,27 +51,16 @@ def modules_dir( env ):
 
 
 def object_target_for( env, source, obj_prefix, obj_suffix ):
-    """
-    Map a source to its object node.
-
-    Module interface suffixes (.cppm / .cxxm / .ccm) keep the extension in the
-    object stem (e.g. calc.cppm → calc.cppm.o) so they do not collide with a
-    same-basename implementation unit (calc.cpp → calc.o).
-    """
     from cuppa.cpp.module_scanner import INTERFACE_SUFFIXES
+    from cuppa.utility.object_target import object_target_for as resolve_object_target
 
-    basename = os.path.split( str( source ) )[1]
-    stem, ext = os.path.splitext( basename )
-    if ext.lower() in INTERFACE_SUFFIXES:
-        target = basename  # keep "calc.cppm" so object is calc.cppm.o
-    else:
-        target = stem
-    if not source.path.startswith( env['build_root'] ):
-        if os.path.isabs( str( source ) ):
-            return env.File( os.path.join( obj_prefix + target + obj_suffix ) )
-        return env.File( os.path.join( env['build_dir'], obj_prefix + target + obj_suffix ) )
-    offset_dir = os.path.relpath( os.path.split( source.path )[0], env['build_dir'] )
-    return env.File( os.path.join( offset_dir, obj_prefix + target + obj_suffix ) )
+    return resolve_object_target(
+        env,
+        source,
+        obj_prefix,
+        obj_suffix,
+        interface_suffixes=INTERFACE_SUFFIXES,
+    )
 
 
 def _source_abspath( source ):

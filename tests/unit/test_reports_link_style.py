@@ -6,6 +6,7 @@
 import pytest
 
 from cuppa.reports.link_style import (
+    normalize_repository_browse_url,
     repository_blob_base,
     resolve_report_link_style,
     source_file_href,
@@ -21,6 +22,24 @@ def test_repository_blob_base_github():
         'github',
     )
     assert base == 'https://github.com/org/repo/blob/main'
+
+
+def test_repository_blob_base_github_git_ssh():
+    base = repository_blob_base(
+        'git@github.com:org/repo.git',
+        'main',
+        'github',
+    )
+    assert base == 'https://github.com/org/repo/blob/main'
+
+
+def test_normalize_repository_browse_url():
+    assert normalize_repository_browse_url(
+        'git@github.com:cppalliance/capy.git',
+    ) == 'https://github.com/cppalliance/capy'
+    assert normalize_repository_browse_url(
+        'https://gitlab.com/group/repo.git',
+    ) == 'https://gitlab.com/group/repo'
 
 
 def test_repository_blob_base_gitlab():
