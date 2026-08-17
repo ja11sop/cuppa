@@ -15,9 +15,21 @@ When code and this roadmap disagree on *current* behaviour, **code and the Antor
 
 ---
 
-## 1.8.0 cycle focus (release prep)
+## 1.8.1 cycle focus (release prep)
 
-Cycle opened ([#183](https://github.com/ja11sop/cuppa/pull/183)); **`1.8.0`** closes after the prepare PR merges and Actions **publish** runs.
+Cycle opened with [#212](https://github.com/ja11sop/cuppa/pull/212) / [#214](https://github.com/ja11sop/cuppa/pull/214); **`1.8.1`** closes after the prepare PR merges and Actions **publish** runs.
+
+| Area | Shipped in 1.8.1 |
+|------|------------------|
+| Subprocess env exports + `--inherit-process-env` | [#211](https://github.com/ja11sop/cuppa/issues/211) / [#212](https://github.com/ja11sop/cuppa/pull/212) |
+| Compile object paths under `working/` (nested basenames) | [#213](https://github.com/ja11sop/cuppa/issues/213) / [#214](https://github.com/ja11sop/cuppa/pull/214) |
+| Profiles report fixes (inventory Progress ordering, link style, source links) | [#214](https://github.com/ja11sop/cuppa/pull/214); [#215](https://github.com/ja11sop/cuppa/issues/215) |
+
+**Deferred to 1.8.2+:** console bundle (`--terse-output`, log hygiene, `cuppa --info` — see plans under Build console output); `prof-report-scope-filter` ([#205](https://github.com/ja11sop/cuppa/issues/205)); per-repo **`remote`** report link style ([#216](https://github.com/ja11sop/cuppa/issues/216)); Boost package identity slices ([`boost-updates.md`](design/plans/boost-updates.md)); GitLab CMake staging ([#209](https://github.com/ja11sop/cuppa/issues/209)); optional `--native-output`; docs-only Antora UI / methods split; **sconscript export/sharing** ([`sconscript-exports.md`](design/plans/sconscript-exports.md)); CMake migration guide ([`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md)).
+
+---
+
+## 1.8.0 cycle focus (shipped 2026-08-17)
 
 | Area | Shipped in 1.8.0 |
 |------|------------------|
@@ -26,8 +38,6 @@ Cycle opened ([#183](https://github.com/ja11sop/cuppa/pull/183)); **`1.8.0`** cl
 | Boost latest persistence + online scrape | [#201](https://github.com/ja11sop/cuppa/issues/201) / [#202](https://github.com/ja11sop/cuppa/pull/202) |
 | `boost_package.use_libs` no source Boost pull | [#206](https://github.com/ja11sop/cuppa/issues/206) / [#207](https://github.com/ja11sop/cuppa/pull/207) |
 | GitLab publish skip retar (``.packaged`` stamp) | [#204](https://github.com/ja11sop/cuppa/issues/204) / [#208](https://github.com/ja11sop/cuppa/pull/208) |
-
-**Deferred to 1.8.1+:** console bundle (`--terse-output`, log hygiene, `cuppa --info` — see plans under Build console output); `prof-report-scope-filter` ([#205](https://github.com/ja11sop/cuppa/issues/205)); Boost package identity slices ([`boost-updates.md`](design/plans/boost-updates.md)); GitLab CMake staging ([#209](https://github.com/ja11sop/cuppa/issues/209)); optional `--native-output`; docs-only Antora UI / methods split; **`compile-object-paths`** ([#213](https://github.com/ja11sop/cuppa/issues/213)); **sconscript export/sharing** ([`sconscript-exports.md`](design/plans/sconscript-exports.md)); CMake migration guide ([`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md)).
 
 ---
 
@@ -480,18 +490,18 @@ Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object path
 
 | Capability | Status |
 |------------|--------|
-| Single root `sconscript` + `env.Build*` / `RecursiveGlob` | Yes — when source basenames are unique per variant |
+| Single root `sconscript` + `env.Build*` / `RecursiveGlob` | Yes — nested same-basename sources supported via mirrored object paths ([#213](https://github.com/ja11sop/cuppa/issues/213)) |
 | Cuppa auto-discovers every `sconscript` under launch dir | Yes — each run gets standard `env` exports only |
 | Nested `SConscript(..., exports=...)` + discovery | **No** — child scripts cannot import parent build nodes; duplicate invocation risk |
-| CMake-equivalent `GLOB_RECURSE` into one static lib | **Broken** when two `.cpp` files share a basename |
+| CMake-equivalent `GLOB_RECURSE` into one static lib | Yes — when object paths mirror source tree under `working/` ([#213](https://github.com/ja11sop/cuppa/issues/213)) |
 
 ### Planned / potential
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `compile-object-paths` | Mirror source tree (or mangled names) under `working/` for `Compile` | High | [#213](https://github.com/ja11sop/cuppa/issues/213); unblock RecursiveGlob — **follow-on PR before migration doc** |
+| `compile-object-paths` | Mirror source tree under `working/` for `Compile` | — | **Shipped 1.8.1** — [#213](https://github.com/ja11sop/cuppa/issues/213) / [#214](https://github.com/ja11sop/cuppa/pull/214) |
 | `sconscript-exports` | Export registry or explicit tree; dedupe discovered paths | Medium | [`sconscript-exports.md`](design/plans/sconscript-exports.md) |
-| `cmake-to-cuppa-migration` | Antora matrix + phased tutorial + agent checklist | Medium | After compile fix for honest Glob story — [`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md) |
+| `cmake-to-cuppa-migration` | Antora matrix + phased tutorial + agent checklist | Medium | Compile-path fix shipped — [`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md) |
 | `static-glob` | `StaticGlob` + shared path vocabulary; deprecate `RecursiveGlob` / `GlobFiles`; Filter + dynamic Glob docs | Medium | [`static-glob-rename.md`](design/plans/static-glob-rename.md) |
 
 ### Out of scope (layout / migration)
