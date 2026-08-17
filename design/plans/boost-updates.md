@@ -224,7 +224,7 @@ Still in this plan if we touch source Boost again:
 
 | ID | Slice | Notes |
 |----|--------|-------|
-| `boost-use-libs-no-source` | `boost_package.use_libs` must not invoke source `boost` factory | **Shipped** — [#206](https://github.com/ja11sop/cuppa/issues/206) partial fix on branch `fix-boost-package-use-libs-206`: pass package version to `remove_system_static_lib` |
+| `boost-use-libs-no-source` | `boost_package.use_libs` must not invoke source `boost` factory | **Shipped** — [#206](https://github.com/ja11sop/cuppa/issues/206) / [#207](https://github.com/ja11sop/cuppa/pull/207): pass package version to `remove_system_static_lib` |
 | `boost-quince-package` | Quince uses session `boost_package` when declared | **Proposal** — see [§Quince and the selector gap](#boost-quince-selector-gap); file follow-on issue after #206 |
 | `boost-pkg-version` | Canonical `{base}-patched` / `{base}-clean`; strip suffix for numeric version; publisher + resolve + `package_id` | Core identity |
 | `boost-pkg-compat` | Patched resolve falls back to bare `{base}`; record actual version; no clean→bare fallback | Needed before flipping publishers |
