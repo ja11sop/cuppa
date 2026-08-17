@@ -9,7 +9,36 @@
 
 import os
 
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
+
 REPORT_LINK_STYLES = ( 'local', 'gitlab', 'github' )
+
+
+def normalize_repository_browse_url( repository_url ):
+    """Return ``https://host/org/repo`` for ``git@``, ``https://``, and scp-style remotes."""
+    if not repository_url:
+        return None
+    text = str( repository_url ).strip()
+    if not text:
+        return None
+    if '://' in text:
+        parsed = urlparse( text )
+        if parsed.scheme in ( 'http', 'https' ):
+            path = ( parsed.path or '' ).rstrip( '/' )
+            if path.endswith( '.git' ):
+                path = path[:-4]
+            netloc = parsed.netloc.split( '@' )[-1]
+            return 'https://{}{}'.format( netloc, path )
+    from cuppa.core.dependency_identity import short_name_from_git_url
+
+    short = short_name_from_git_url( text )
+    if not short or '/' not in short:
+        return None
+    host, path = short.split( '/', 1 )
+    return 'https://{}/{}'.format( host, path )
 
 
 def resolve_report_link_style(
@@ -35,12 +64,12 @@ def resolve_report_link_style(
 
 def repository_blob_base( repository_url, branch, link_style ):
     """Return the repository blob URL prefix for GitHub or GitLab."""
-    if not repository_url or not branch or link_style not in ( 'gitlab', 'github' ):
+    browse = normalize_repository_browse_url( repository_url )
+    if not browse or not branch or link_style not in ( 'gitlab', 'github' ):
         return ''
-    base = os.path.splitext( str( repository_url ).rstrip( '/' ) )[ 0 ]
     if link_style == 'github':
-        return '{}/blob/{}'.format( base, branch )
-    return '{}/-/blob/{}'.format( base, branch )
+        return '{}/blob/{}'.format( browse, branch )
+    return '{}/-/blob/{}'.format( browse, branch )
 
 
 def initialise_report_linking( env, link_style=None ):
@@ -63,10 +92,14 @@ def initialise_report_linking( env, link_style=None ):
         env.get( 'current_branch' ),
         env.get( 'current_revision' ),
     )
-    if link_style in ( 'gitlab', 'github' ) and url and branch:
-        return repository_blob_base( url, branch, link_style )
-    if url:
-        return url
+    repo_url = repository or url
+    if link_style in ( 'gitlab', 'github' ) and repo_url and branch:
+        blob_base = repository_blob_base( repo_url, branch, link_style )
+        if blob_base:
+            return blob_base
+    browse = normalize_repository_browse_url( repo_url )
+    if browse:
+        return browse
     return ''
 
 

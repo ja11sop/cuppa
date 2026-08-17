@@ -355,6 +355,61 @@ def build_source_page_title( display_path, source_path, env ):
     }
 
 
+def remote_href_display_path( path, env ):
+    """Repo-relative path for ``github`` / ``gitlab`` blob URLs (not human display)."""
+    if not path:
+        return path
+
+    normalized = os.path.normpath( path ).replace( '\\', '/' )
+    if _WORKING_DIR_MARKER in normalized:
+        return normalized.split( _WORKING_DIR_MARKER, 1 )[ 1 ]
+
+    storage_root = _storage_root_for_path( path, env )
+    if storage_root:
+        rel = _try_relpath( path, storage_root )
+        if rel:
+            parts = rel.split( '/', 1 )
+            remainder = parts[ 1 ] if len( parts ) > 1 else ''
+            if remainder:
+                return remainder
+            return rel
+
+    for root in ( env.get( 'sconstruct_dir' ), env.get( 'cxx_profiles_report_root' ) ):
+        rel = _try_relpath( path, root )
+        if rel:
+            if _WORKING_DIR_MARKER in rel:
+                return rel.split( _WORKING_DIR_MARKER, 1 )[ 1 ]
+            return rel
+
+    return path
+
+
+def href_display_path( path, env, link_style, display ):
+    """Choose the path segment appended to a remote blob base."""
+    if link_style in ( 'github', 'gitlab' ):
+        return remote_href_display_path( path, env )
+    return display
+
+
+def source_path_link_label( path, env, link_style, link_base, display ):
+    """Return visible link text that matches what the href opens."""
+    if link_style == 'local':
+        return display_path_on_disk( path )
+    if link_style in ( 'github', 'gitlab' ):
+        from cuppa.cpp.profiles_report.report_html import source_href
+
+        href = source_href(
+            path,
+            None,
+            link_style,
+            link_base,
+            href_display_path( path, env, link_style, display ),
+        )
+        if href:
+            return href
+    return display_path_on_disk( path )
+
+
 def display_path_on_disk( path ):
     """Shorten an on-disk path with a leading ``~/`` when under the home directory."""
     if not path:
@@ -607,12 +662,27 @@ def write_source_pages(
         title = build_source_page_title( display, source_path, env )
         gutter_width_ch = compute_gutter_width_ch( file_entry )
         index_href = '../{}'.format( index_basename )
+        href_path = href_display_path( source_path, env, link_style, display )
+        original_href = source_href(
+            source_path,
+            None,
+            link_style,
+            link_base,
+            href_path,
+        )
+        source_path_display = source_path_link_label(
+            source_path,
+            env,
+            link_style,
+            link_base,
+            display,
+        )
         with open( page_abs, 'w', encoding='utf-8' ) as handle:
             handle.write(
                 template.render(
                     file_entry=file_entry,
                     source_path=source_path,
-                    source_path_display=display_path_on_disk( source_path ),
+                    source_path_display=source_path_display,
                     display_path=display,
                     source_lines=source_lines,
                     source_language=language_for_source( source_path ),
@@ -625,13 +695,7 @@ def write_source_pages(
                         title_prefix=title.get( 'title_prefix', '' ),
                         title_suffix=title.get( 'title_suffix', '' ),
                     ),
-                    original_href=source_href(
-                        source_path,
-                        None,
-                        link_style,
-                        link_base,
-                        display,
-                    ),
+                    original_href=original_href,
                     **title,
                 )
             )
@@ -646,6 +710,7 @@ def annotate_file_links(
     link_style,
     link_base,
     display,
+    env,
     suppress_source_links=False,
 ):
     """Attach report page hrefs for templates and JSON."""
@@ -663,12 +728,13 @@ def annotate_file_links(
         file_entry[ 'page_href' ] = page_rel
         file_entry[ 'href' ] = page_rel
     else:
+        href_path = href_display_path( file_entry[ 'path' ], env, link_style, display )
         file_entry[ 'href' ] = source_href(
             file_entry[ 'path' ],
             None,
             link_style,
             link_base,
-            display,
+            href_path,
         )
     for location in file_entry.get( 'locations', [] ):
         page = source_page_map.get( file_entry[ 'path' ] )
@@ -680,5 +746,5 @@ def annotate_file_links(
                 location.get( 'line' ),
                 link_style,
                 link_base,
-                display,
+                href_display_path( file_entry[ 'path' ], env, link_style, display ),
             )

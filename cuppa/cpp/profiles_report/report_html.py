@@ -528,6 +528,7 @@ def enrich_model_for_html(
             link_style,
             link_base,
             display,
+            env,
             suppress_source_links=suppress_source_links,
         )
         file_entry[ 'path_tooltip' ] = file_path_tooltip_text( file_entry )

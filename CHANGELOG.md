@@ -36,6 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``empty_env``).
 - Profiles per-file violation summary table uses a **Violations** column (line count) instead of
   **Distinct/Unique**.
+- Profiles GitHub/GitLab source links normalise ``git@`` remotes to ``https://`` blob URLs, strip
+  ``…/working/`` compile paths when building repository hrefs, and show the blob URL as the
+  visible link text (local paths remain for ``local`` link style).
 
 ### Security
 
