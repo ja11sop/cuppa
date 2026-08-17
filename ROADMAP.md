@@ -517,7 +517,8 @@ Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object path
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `doc-methods-split` | Hub + per-method Antora pages; optional SCons companions | Medium | [`methods-pages-split.md`](design/plans/methods-pages-split.md); **1.8.0 candidate** (docs-only) |
+| `method-behaviour-audit` | Fix output-path naming + document evaluation/returns taxonomy | High | [#213](https://github.com/ja11sop/cuppa/issues/213) first; doc/asset emitters — [`method-behaviour-audit.md`](design/plans/method-behaviour-audit.md); **before** Methods doc split |
+| `doc-methods-split` | Hub + per-method Antora pages; optional SCons companions | Medium | [`methods-pages-split.md`](design/plans/methods-pages-split.md); **after behaviour audit** (docs-only) |
 | `doc-antora-ui` | Custom UI bundle + supplemental CSS | Low | [`antora-ui-bundle.md`](design/plans/antora-ui-bundle.md); **1.8.0 optional** |
 | `doc-output-samples` | Capture report output as semantic HTML for Antora and local preview | Low | [`colourised-doc-samples.md`](design/plans/colourised-doc-samples.md) |
 | `doc-folder-layout` | Page folders mirroring nav (dependencies/, cxx-profiles/, toolchains/) | Low | **Shipped** — [`doc-folder-layout.md`](design/archive/doc-folder-layout.md) |

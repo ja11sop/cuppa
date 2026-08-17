@@ -26,7 +26,8 @@ maintainer workflow evolved.
 | [`plans/coverage-performance.md`](plans/coverage-performance.md) | proposal | Where `--cov --test` time actually goes, what the A/B measurement ruled out, and the remaining suspects |
 | [`plans/list-toolchains-verbose.md`](plans/list-toolchains-verbose.md) | in progress | Verbose `describe()` shipped ([#172](https://github.com/ja11sop/cuppa/issues/172) / [#170](https://github.com/ja11sop/cuppa/pull/170)); deferred table-driven init |
 | [`plans/antora-ui-bundle.md`](plans/antora-ui-bundle.md) | proposal | Custom Antora UI bundle + supplemental CSS — ROADMAP `doc-antora-ui` |
-| [`plans/methods-pages-split.md`](plans/methods-pages-split.md) | proposal | Hub + per-method Antora pages; optional SCons companion pages — ROADMAP `doc-methods-split` |
+| [`plans/methods-pages-split.md`](plans/methods-pages-split.md) | proposal | Hub + per-method Antora pages; blocked on behaviour audit — ROADMAP `doc-methods-split` |
+| [`plans/method-behaviour-audit.md`](plans/method-behaviour-audit.md) | proposal | Method returns, evaluation time, output-path fixes before Methods doc split |
 | [`plans/native-toolchain-output.md`](plans/native-toolchain-output.md) | proposal | `--native-output`: passthrough native compiler colour — ROADMAP `console-native-output` |
 | [`plans/terse-build-output.md`](plans/terse-build-output.md) | proposal | `--terse-output`: coloured one-line progress — ROADMAP `console-terse-output` / **1.8.0 target** |
 | [`plans/build-log-hygiene.md`](plans/build-log-hygiene.md) | proposal | Configure-time log demotion + variant default message fix — ROADMAP `console-log-hygiene` |
