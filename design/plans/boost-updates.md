@@ -1,8 +1,8 @@
 # Plan: Boost source and package updates
 
 - **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Boost source and packages; storage listing/removal stays in [`removal-options.md`](removal-options.md); offline “latest” persistence is [`boost-latest-persistence.md`](../archive/boost-latest-persistence.md) (separate)
-- **Updated:** 2026-08-09
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Boost source and packages; [#206](https://github.com/ja11sop/cuppa/issues/206) (package-only builds must not pull source Boost); storage listing/removal stays in [`removal-options.md`](removal-options.md); offline “latest” persistence is [`boost-latest-persistence.md`](../archive/boost-latest-persistence.md) (separate)
+- **Updated:** 2026-08-17
 
 Source `boost` (b2 / extract homes) and GitLab `boost_package` share Boost.Test patch semantics
 but not storage identity. This plan is the home for those Boost-specific follow-ups. List /
@@ -21,6 +21,67 @@ hook, so listing, remove, purge, and a later wipe cannot tell them apart.
 
 We need the **package identity itself** (name and/or version) to carry patch status, so behaviour
 and storage stay aligned.
+
+### Immediate symptom ([#206](https://github.com/ja11sop/cuppa/issues/206))
+
+Projects that declare **only** GitLab `boost_package` still hit **built-in source Boost** during
+configure when something invokes the `boost` factory. The sharpest accidental trigger (fixed on
+branch `fix-boost-package-use-libs-206`) was `boost_package.use_libs()` calling
+`remove_system_static_lib()`, which invoked the built-in `boost` factory via
+`env['dependencies']['boost']` only to learn
+whether Boost ≥ 1.89 so `system` can be dropped from the static lib list. That downloaded or
+re-extracted the full `archives.boost.io` source tree (~224 MB) even though linking used prebuilt
+`.a` files from the GitLab package.
+
+**Quince** is the same class of problem deliberately: built-ins hardcode `env.BuildWith('boost')`
+and `env.BoostStaticLibs(…)` (see [§Quince and the selector gap](#boost-quince-selector-gap)).
+Any project using `boost_package` for its own tests **and** Quince for DB access pays **both**
+supply chains unless we teach Quince (or cuppa generally) which Boost flavour the session chose.
+
+That is why “name clash” is not only a **list/remove** UX issue — it is a **resolve** bug when
+two registered names (`boost` built-in vs `boost_package`) both mean “Boost” but only one was
+intended.
+
+<a id="boost-quince-selector-gap"></a>
+
+## Quince and the selector gap
+
+**Concrete example** for the cross-type selector conversation ([§Related observation](#boost-type-selectors)).
+
+Quince is a built-in location dependency (`cuppa/dependencies/build_with_quince.py`). It has **no**
+`boost_package` awareness:
+
+| Built-in | Hard-coded Boost use |
+|----------|----------------------|
+| `build_with_quince` | `update_env` → `env.BuildWith('boost')`; `__call__` → built-in `boost` factory + `env.BoostStaticLibs([…])` |
+| `quince_postgresql` | Same `BuildWith('boost')` in `update_env`; `BoostStaticLibs(['date_time'])` |
+| `quince_sqlite` | Same pattern |
+
+Effects when a sconstruct declares `boost_package` in `dependencies=[…]` and `default_dependencies`
+but also `BuildWith('quince')` (or quince in `default_dependencies`):
+
+1. **GitLab package** — headers/libs from the registry tarball (expected).
+2. **Source Boost** — tarball extract under `dependencies_root`, b2 bootstrap, and b2 build of
+   `filesystem`, `thread`, `system` (or subset), **duplicate** of libraries already in the package.
+3. **Version skew** — Quince reads numeric version from the **source** `boost` factory, not from
+   `boost_package._version`; unpinned/latest on either side can diverge silently.
+
+This matches [#206](https://github.com/ja11sop/cuppa/issues/206) comment: Quince should be able to
+use the session’s Boost package instead of always building source libs.
+
+**Not fixed by `use_libs` patch alone.** Follow-on slice (issue TBD after #206 lands):
+
+- Resolve “session Boost” once: prefer declared `boost_package` when present and compatible, else
+  fall back to built-in `boost`.
+- Quince `update_env` / `BoostStaticLibs` paths call that resolver instead of unconditional
+  `BuildWith('boost')`.
+- Optional: Quince links via `boost_package.use_libs()` for the small static set it needs, or a
+  shared helper both Quince and sconscripts use.
+
+Until then, projects needing Quince **and** `boost_package` should expect duplicate Boost work, or
+must stay on source Boost for everything.
+
+<a id="boost-type-selectors"></a>
 
 ## Today
 
@@ -45,7 +106,7 @@ and storage stay aligned.
 | Download cache | `downloads/packages/boost/<version>/…` — no patch token |
 | `package_id` | `(registry, package, version, variant, develop, tool_variant)` — no `_patched` |
 | Publisher / installer | Same naming helpers; `_patched` is never forwarded |
-| `use_libs` | Does **not** pass `patched_test=` into `add_dependent_libraries` |
+| `use_libs` | Passes package version into `remove_system_static_lib` (≥ 1.89 drops `system` without invoking source `boost`) — [#206](https://github.com/ja11sop/cuppa/issues/206); still does **not** pass `patched_test=` into `add_dependent_libraries` |
 
 Collision: last publish or extract wins. Listing shows `boost_package  1.91` either way.
 
@@ -163,6 +224,8 @@ Still in this plan if we touch source Boost again:
 
 | ID | Slice | Notes |
 |----|--------|-------|
+| `boost-use-libs-no-source` | `boost_package.use_libs` must not invoke source `boost` factory | **Shipped** — [#206](https://github.com/ja11sop/cuppa/issues/206) partial fix on branch `fix-boost-package-use-libs-206`: pass package version to `remove_system_static_lib` |
+| `boost-quince-package` | Quince uses session `boost_package` when declared | **Proposal** — see [§Quince and the selector gap](#boost-quince-selector-gap); file follow-on issue after #206 |
 | `boost-pkg-version` | Canonical `{base}-patched` / `{base}-clean`; strip suffix for numeric version; publisher + resolve + `package_id` | Core identity |
 | `boost-pkg-compat` | Patched resolve falls back to bare `{base}`; record actual version; no clean→bare fallback | Needed before flipping publishers |
 | `boost-pkg-use-libs` | Pass `patched_test=` from package `use_libs` | Small, can ship with identity or just before |
@@ -175,7 +238,8 @@ Still in this plan if we touch source Boost again:
 
 Boost is the sharpest case today (`boost` source / archive extract vs GitLab `boost_package`
 both reading as “boost” in human speech), but the same clash appears whenever two supply chains
-share a short name.
+share a short name. **Quince** is the built-in that most clearly forces source Boost today even
+when the project declared `boost_package` — see [§Quince and the selector gap](#boost-quince-selector-gap).
 
 **Idea (not in the first Boost identity PR):** allow an optional type prefix on dependency
 tokens, consistent with wipe/remove grammar already used for storage types:
@@ -192,7 +256,9 @@ CLIs when two types coexist on disk.
 
 Track implementation with removal-options / dependency listing work; Boost identity
 (`-patched` / `-clean` versions) remains the first fix for GitLab vs GitLab collisions.
-Type selectors address **cross-type** collisions.
+Type selectors address **cross-type** collisions. **Session resolve** (which Boost a built-in
+like Quince should use when `boost_package` is declared) may land before or with selectors — Quince
+is the motivating consumer.
 
 ## Suggested first PR
 
