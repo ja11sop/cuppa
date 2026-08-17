@@ -161,7 +161,7 @@
               <thead>
                 <tr>
                   <th class="prof-summary-col-rule">Profile::Rule</th>
-                  <th class="prof-summary-col-metric text-center">{% include 'cxx_profiles_partial_heading_distinct_unique.html' %}</th>
+                  <th class="prof-summary-col-metric text-center">Violations</th>
                   <th class="prof-summary-col-metric text-center">Union Refs</th>
                   <th class="prof-summary-col-message">Violation Message</th>
                 </tr>
@@ -171,9 +171,7 @@
                 <tr>
                   <td class="prof-summary-detail prof-summary-col-rule"><span class="prof-mono">{{ item.rule_label_html | safe }}</span></td>
                   <td class="prof-summary-detail prof-summary-col-metric text-center">
-                    {% set distinct = 1 %}
-                    {% set unique = item.line_count %}
-                    <span class="prof-mono">{% include 'cxx_profiles_partial_distinct_unique_value.html' %}</span>
+                    <span class="prof-mono">{{ item.line_count }}</span>
                   </td>
                   <td class="prof-summary-detail prof-summary-col-metric text-center"><span class="prof-mono">{{ item.count }}</span></td>
                   <td class="prof-summary-detail prof-summary-col-message"><div class="prof-violation-message">{{ item.violation_message_html | safe }}</div></td>

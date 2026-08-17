@@ -172,6 +172,43 @@ def test_diagnostic_collector_flush_pending_uses_report_env( monkeypatch, tmp_pa
     assert calls == [ ( env, True ) ]
 
 
+def test_sconstruct_end_uses_report_env_for_session_write( monkeypatch, tmp_path ):
+    report_env = {
+        'sconstruct_dir': str( tmp_path ),
+        'cxx_profiles_report': True,
+        'reports_link_style': 'github',
+        'artefacts_root': '_artefacts',
+    }
+    progress_env = { 'sconstruct_dir': str( tmp_path ) }
+    session = ProfilesDiagnosticCollector.activate( report_env=report_env )
+    ProfilesDiagnosticCollector.record_line( _SAMPLE_SCOPE, _PROFILE_LINE )
+
+    writes = []
+
+    def fake_write( inventory, write_env, **kwargs ):
+        writes.append( write_env )
+        return {
+            'model': {},
+            'session_paths': [ 'index.html' ],
+            'scope_paths': [],
+        }
+
+    monkeypatch.setattr(
+        'cuppa.cpp.profiles_report.report_html.write_profiles_reports',
+        fake_write,
+    )
+    monkeypatch.setattr(
+        'cuppa.reports.manifest.append_cxx_profiles_entry',
+        lambda *args, **kwargs: None,
+    )
+
+    session.on_progress( 'sconstruct_end', None, None, progress_env, None, None )
+
+    assert len( writes ) == 1
+    assert writes[ 0 ] is report_env
+    assert writes[ 0 ][ 'reports_link_style' ] == 'github'
+
+
 def test_inventory_process_exit_status_after_non_profile_tally():
     NotifyProgress.set_inventory_report_mode( True )
     ProfilesDiagnosticCollector.activate()

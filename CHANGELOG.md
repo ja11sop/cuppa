@@ -31,6 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   targets (not `Requires` alone), so process test suites finish before the suite summary runs
   ([#215](https://github.com/ja11sop/cuppa/issues/215)).
 - Profiles scope parsing labels root-``sconscript`` variant dirs correctly (`dbg`, not `_unknown`).
+- Profiles source pages honour ``--reports-link-style`` / ``--cxx-profiles-report-link-style`` when
+  writing the session index at ``sconstruct_end`` (use the cuppa env from activate, not Progress
+  ``empty_env``).
+- Profiles per-file violation summary table uses a **Violations** column (line count) instead of
+  **Distinct/Unique**.
 
 ### Security
 

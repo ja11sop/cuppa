@@ -370,6 +370,8 @@ def test_write_source_pages_emits_markup( tmp_path ):
     assert 'ref_to_uninit' in html
     assert 'prof-summary-table' in html
     assert 'Violation Message' in html
+    assert '>Violations</th>' in html
+    assert 'Distinct/Unique' not in html
     assert 'violation of' in html
     assert 'distinct rule' in html
     assert 'violation detected through' not in html
@@ -378,3 +380,45 @@ def test_write_source_pages_emits_markup( tmp_path ):
     assert 'breadcrumb' in html
     assert 'By source' in html
     assert 'prof-stat-value--alert' in html
+
+
+def test_write_source_pages_github_source_link( tmp_path, monkeypatch ):
+    source = tmp_path / 'include' / 'widget.hpp'
+    source.parent.mkdir( parents=True )
+    source.write_text( 'int* p;\n', encoding='utf-8' )
+
+    inventory = ProfilesInventory()
+    _record_line( inventory, str( source ), line=1, column=6 )
+
+    monkeypatch.setattr(
+        'cuppa.test_report.html_report.vcs_info_from_location',
+        lambda *args: (
+            'git@github.com:cppalliance/capy.git',
+            'https://github.com/cppalliance/capy',
+            'develop',
+            'origin',
+            'abc123',
+        ),
+    )
+
+    env = {
+        'sconstruct_dir': str( tmp_path ),
+        'reports_link_style': 'github',
+        'current_branch': 'develop',
+    }
+    destination = tmp_path / 'report'
+    page_map, written = write_source_pages(
+        inventory,
+        str( destination ),
+        env,
+        'github',
+        'https://github.com/cppalliance/capy/blob/develop',
+        'cxx-profiles-index.html',
+        lambda: __import__( 'jinja2' ).Environment(
+            loader=__import__( 'jinja2' ).PackageLoader( 'cuppa', 'cpp/templates' ),
+            autoescape=__import__( 'jinja2' ).select_autoescape( [ 'html', 'xml' ] ),
+        ).get_template( 'cxx_profiles_source_file.html' ),
+    )
+    html = open( written[ 0 ], encoding='utf-8' ).read()
+    assert 'https://github.com/cppalliance/capy/blob/develop/include/widget.hpp' in html
+    assert 'file://' not in html
