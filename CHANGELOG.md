@@ -28,7 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Compile()` mirrors nested source paths under `working/` so same-basename objects no longer
   collide ([#213](https://github.com/ja11sop/cuppa/issues/213)).
 - `--cxx-profiles-report` inventory Progress ordering: `Finished variant` now `Depends` on build
-  targets (not `Requires` alone), so process test suites finish before the suite summary runs.
+  targets (not `Requires` alone), so process test suites finish before the suite summary runs
+  ([#215](https://github.com/ja11sop/cuppa/issues/215)).
 
 ### Security
 

@@ -143,8 +143,8 @@ class NotifyProgress(object):
             cls._finished[variant] = progress( 'Finished', 'finished', sconscript, variant, env )
 
         file_deps = [ '#' + env['sconscript_file'], '#' + env['sconstruct_file'] ]
-        # Depends enforces build order. Requires alone does not — using only Requires in
-        # inventory mode let Finished run before long Run/Test actions completed.
+        # Depends enforces build order. Requires alone does not — inventory mode previously
+        # let Finished run before long Run/Test actions completed ([#215]).
         env.Depends( cls._finished[variant], file_deps )
         env.Depends( cls._finished[variant], target )
         finished = cls._finished[variant]
