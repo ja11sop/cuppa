@@ -46,6 +46,8 @@ maintainer workflow evolved.
 | [`archive/toolchains-as-dependencies.md`](archive/toolchains-as-dependencies.md) | shipped | Fetched compilers as toolchain deps (Clang archives, GCC `.deb` / `--gcc-root=`, multi-select compare; list/force-wipe) — umbrella [#160](https://github.com/ja11sop/cuppa/issues/160); Clang [#159](https://github.com/ja11sop/cuppa/pull/159), GCC [#164](https://github.com/ja11sop/cuppa/pull/164) |
 | [`archive/conan-consumer-plan.md`](archive/conan-consumer-plan.md) | shipped | Design of `conan_deps` / `conan_dependency` consumer support |
 | [`archive/conan-publish-plan.md`](archive/conan-publish-plan.md) | shipped | Design of `ConanPackagePublisher` and `--publish-package` |
+| [`plans/sconscript-exports.md`](plans/sconscript-exports.md) | proposal | Shared exports between discovered sconscripts; nested lib/test layout |
+| [`plans/cmake-to-cuppa-migration.md`](plans/cmake-to-cuppa-migration.md) | proposal | CMake ↔ Cuppa matrix and migration phases for humans and agents |
 
 ## Conventions
 

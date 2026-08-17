@@ -27,7 +27,7 @@ Cycle opened ([#183](https://github.com/ja11sop/cuppa/pull/183)); **`1.8.0`** cl
 | `boost_package.use_libs` no source Boost pull | [#206](https://github.com/ja11sop/cuppa/issues/206) / [#207](https://github.com/ja11sop/cuppa/pull/207) |
 | GitLab publish skip retar (``.packaged`` stamp) | [#204](https://github.com/ja11sop/cuppa/issues/204) / [#208](https://github.com/ja11sop/cuppa/pull/208) |
 
-**Deferred to 1.8.1+:** console bundle (`--terse-output`, log hygiene, `cuppa --info` — see plans under Build console output); `prof-report-scope-filter` ([#205](https://github.com/ja11sop/cuppa/issues/205)); Boost package identity slices ([`boost-updates.md`](design/plans/boost-updates.md)); GitLab CMake staging ([#209](https://github.com/ja11sop/cuppa/issues/209)); optional `--native-output`; docs-only Antora UI / methods split.
+**Deferred to 1.8.1+:** console bundle (`--terse-output`, log hygiene, `cuppa --info` — see plans under Build console output); `prof-report-scope-filter` ([#205](https://github.com/ja11sop/cuppa/issues/205)); Boost package identity slices ([`boost-updates.md`](design/plans/boost-updates.md)); GitLab CMake staging ([#209](https://github.com/ja11sop/cuppa/issues/209)); optional `--native-output`; docs-only Antora UI / methods split; **`compile-object-paths`** ([#213](https://github.com/ja11sop/cuppa/issues/213)); **sconscript export/sharing** ([`sconscript-exports.md`](design/plans/sconscript-exports.md)); CMake migration guide ([`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md)).
 
 ---
 
@@ -467,6 +467,38 @@ Design: [`native-toolchain-output.md`](design/plans/native-toolchain-output.md),
 |----|------|--------|
 | `console-cmake-clone` | Pixel-perfect Ninja/CMake transcript | Cuppa keeps SCons progress semantics |
 | `console-list-terse` | Terse mode for `--list-*` / wipe judgement trees | Reports are the product |
+
+---
+
+## SCons project layout and CMake migration
+
+Experimental Cuppa build of a public C++20 library (Boost.Capy, 2026-08-17) surfaced two platform gaps before a published migration tutorial is honest.
+
+Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object paths), [`sconscript-exports.md`](design/plans/sconscript-exports.md), [`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md).
+
+### Today
+
+| Capability | Status |
+|------------|--------|
+| Single root `sconscript` + `env.Build*` / `RecursiveGlob` | Yes — when source basenames are unique per variant |
+| Cuppa auto-discovers every `sconscript` under launch dir | Yes — each run gets standard `env` exports only |
+| Nested `SConscript(..., exports=...)` + discovery | **No** — child scripts cannot import parent build nodes; duplicate invocation risk |
+| CMake-equivalent `GLOB_RECURSE` into one static lib | **Broken** when two `.cpp` files share a basename |
+
+### Planned / potential
+
+| ID | Work | Priority | Notes |
+|----|------|----------|-------|
+| `compile-object-paths` | Mirror source tree (or mangled names) under `working/` for `Compile` | High | [#213](https://github.com/ja11sop/cuppa/issues/213); unblock RecursiveGlob — **follow-on PR before migration doc** |
+| `sconscript-exports` | Export registry or explicit tree; dedupe discovered paths | Medium | [`sconscript-exports.md`](design/plans/sconscript-exports.md) |
+| `cmake-to-cuppa-migration` | Antora matrix + phased tutorial + agent checklist | Medium | After compile fix for honest Glob story — [`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md) |
+
+### Out of scope (layout / migration)
+
+| ID | Item | Reason |
+|----|------|--------|
+| `migrate-autogen` | Automatic `CMakeLists.txt` → sconscript converter | Manual patterns first |
+| `migrate-superproject` | Boost-style monolithic meta-build | Different problem from standalone migration |
 
 ---
 
