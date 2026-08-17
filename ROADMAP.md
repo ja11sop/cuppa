@@ -11,24 +11,23 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-08-16
+**As of:** 2026-08-17
 
 ---
 
-## 1.8.0 cycle focus (in progress)
+## 1.8.0 cycle focus (release prep)
 
-Open development cycle: `cuppa/VERSION` = `1.8.0.dev` ([#183](https://github.com/ja11sop/cuppa/pull/183)).
+Cycle opened ([#183](https://github.com/ja11sop/cuppa/pull/183)); **`1.8.0`** closes after the prepare PR merges and Actions **publish** runs.
 
-Maintainer **target bundle** for the release (plans landed; implementation follows):
+| Area | Shipped in 1.8.0 |
+|------|------------------|
+| C++ Profiles violation report | Slices A–H, E, F-min ([#196](https://github.com/ja11sop/cuppa/pull/196), [#198](https://github.com/ja11sop/cuppa/pull/198)); inventory mode / Collate semantics ([#203](https://github.com/ja11sop/cuppa/pull/203) / [#199](https://github.com/ja11sop/cuppa/issues/199)) |
+| `--artefacts-root`, `--list-available-reports`, `env.CollateCxxProfilesIndex()` | [#198](https://github.com/ja11sop/cuppa/pull/198) |
+| Boost latest persistence + online scrape | [#201](https://github.com/ja11sop/cuppa/issues/201) / [#202](https://github.com/ja11sop/cuppa/pull/202) |
+| `boost_package.use_libs` no source Boost pull | [#206](https://github.com/ja11sop/cuppa/issues/206) / [#207](https://github.com/ja11sop/cuppa/pull/207) |
+| GitLab publish skip retar (``.packaged`` stamp) | [#204](https://github.com/ja11sop/cuppa/issues/204) / [#208](https://github.com/ja11sop/cuppa/pull/208) |
 
-| ID | Work | Plan |
-|----|------|------|
-| `console-terse-output` | `--terse-output` Phase 1 (one-line success; failures verbose) | [`terse-build-output.md`](design/plans/terse-build-output.md) |
-| `profiles-violation-report` | `--cxx-profiles-report` slices A–H + **G** + **E** + **F-min** shipped ([#198](https://github.com/ja11sop/cuppa/pull/198)); **`prof-report-method-semantics`** shipped ([#203](https://github.com/ja11sop/cuppa/pull/203)); **`prof-report-scope-filter`** next | [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) |
-| `console-log-hygiene` | Demote toolchain registration spam; fix variant default log text | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md) |
-| `cli-info` | `cuppa --info` — version without loading sconstruct | [`cuppa-info.md`](design/plans/cuppa-info.md) |
-
-**Deferred / optional for 1.8.0:** [`native-toolchain-output.md`](design/plans/native-toolchain-output.md) (`--native-output`); terse Phase 2 percentages; docs-only Antora UI / methods split.
+**Deferred to 1.8.1+:** console bundle (`--terse-output`, log hygiene, `cuppa --info` — see plans under Build console output); `prof-report-scope-filter` ([#205](https://github.com/ja11sop/cuppa/issues/205)); Boost package identity slices ([`boost-updates.md`](design/plans/boost-updates.md)); GitLab CMake staging ([#209](https://github.com/ja11sop/cuppa/issues/209)); optional `--native-output`; docs-only Antora UI / methods split.
 
 ---
 
@@ -189,6 +188,7 @@ Design: [`design/plans/boost-updates.md`](design/plans/boost-updates.md).
 | `boost_package.define(..., patched=True)` default | Yes — compile define + `patched_test()` only |
 | Package archive / extract / version distinguish patched vs clean | No — same `boost` + `1.91` + tool variant |
 | Package `use_libs` passes `patched_test=` into library deps | No |
+| `boost_package.use_libs` does not invoke built-in source `boost` for ≥ 1.89 `system` drop | Yes ([#206](https://github.com/ja11sop/cuppa/issues/206) / [#207](https://github.com/ja11sop/cuppa/pull/207)) |
 | Persist Boost latest for offline reuse (`boost_latest_version`, downloads-root–scoped) | Yes — [#171](https://github.com/ja11sop/cuppa/issues/171) / [#170](https://github.com/ja11sop/cuppa/pull/170); unpinned online scrape fix [#201](https://github.com/ja11sop/cuppa/issues/201); design [`boost-latest-persistence.md`](design/archive/boost-latest-persistence.md) |
 
 ### Planned / potential
