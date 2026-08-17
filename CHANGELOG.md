@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   non-profile compile failures are tallied for a non-zero exit after the index write, and
   profile-shaped diagnostics keep an Error label with warning colours ([#199](https://github.com/ja11sop/cuppa/issues/199)).
 
+### Fixed
+
+- GitLab `GitlabPackagePublisher` writes a ``.packaged`` stamp and skips recreating the tarball
+  when staged headers/libs are not newer than the existing archive, so ``--publish-package`` after
+  a release build does not re-tar large packages ([#204](https://github.com/ja11sop/cuppa/issues/204)).
+
 ### Added
 
 - `--artefacts-root` (default `_artefacts`; legacy `_artifacts/` kept when present): project-relative root for generated reports and
