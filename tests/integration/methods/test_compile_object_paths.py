@@ -45,13 +45,27 @@ def _objects_under_working(project):
     return by_working
 
 
+def _object_suffix(by_working):
+    for objects in by_working.values():
+        for path in objects:
+            if path.suffix in (".o", ".obj"):
+                return path.suffix
+    return None
+
+
 def _assert_working_layout(by_working):
     assert by_working, "expected object files under working/"
+    obj_suffix = _object_suffix(by_working)
+    assert obj_suffix is not None, "expected object files under working/"
+    expected = [
+        f"src/buffers/detail/except{obj_suffix}",
+        f"src/detail/except{obj_suffix}",
+        f"src/detail/router/test{obj_suffix}",
+    ]
     for working_rel, objects in by_working.items():
         rel_paths = [str(path).replace("\\", "/") for path in objects]
-        assert "src/buffers/detail/except.o" in rel_paths, working_rel
-        assert "src/detail/except.o" in rel_paths, working_rel
-        assert "src/detail/router/test.o" in rel_paths, working_rel
+        for expected_path in expected:
+            assert expected_path in rel_paths, working_rel
         for rel_posix in rel_paths:
             assert not rel_posix.startswith("_build/"), (
                 "object path must be relative to working/, not prefixed with build_root: "
@@ -60,8 +74,8 @@ def _assert_working_layout(by_working):
             assert "/working/" not in rel_posix, (
                 "working_dir must not repeat inside working/: " + rel_posix
             )
-            assert rel_posix != "except.o", "flat basename collision layout"
-            assert rel_posix != "test.o", "flat basename collision layout"
+            assert rel_posix != f"except{obj_suffix}", "flat basename collision layout"
+            assert rel_posix != f"test{obj_suffix}", "flat basename collision layout"
 
 
 def test_compile_nested_same_basename_sources_dbg_and_rel(tmp_path):
