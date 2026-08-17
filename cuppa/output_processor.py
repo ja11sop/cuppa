@@ -21,6 +21,7 @@ import logging
 
 import cuppa.timer
 from cuppa.colourise import as_colour, as_emphasised, as_highlighted, as_notice
+from cuppa.utility.env import build_subprocess_env
 from cuppa.cpp.cxx_profiles_report import parse_profiles_diagnostic
 from cuppa.cpp.profiles_report_collector import ProfilesDiagnosticCollector
 from cuppa.log import logger
@@ -64,22 +65,24 @@ class LineConsumer:
 class IncrementalSubProcess:
 
     @classmethod
-    def _subprocess_env( cls, construction_env ):
+    def _subprocess_env( cls, construction_env, scons_env=None, inherit_process_env=None ):
         """Copy SCons ``ENV`` into a dict suitable for ``subprocess.Popen``.
 
         SCons (and Cuppa) may store path-like values as lists; the child
         process environment requires string values only.
+
+        When ``inherit_process_env`` is enabled (globally on ``scons_env`` or
+        per spawn), the current ``os.environ`` is copied first and ``ENV`` wins
+        on key clashes.
         """
-        result = {}
-        for key, value in construction_env.items():
-            if value is None:
-                continue
-            if isinstance( value, ( list, tuple ) ):
-                value = os.pathsep.join( str( part ) for part in value if part is not None )
-            else:
-                value = str( value )
-            result[str( key )] = value
-        return result
+        if scons_env is not None:
+            return build_subprocess_env(
+                construction_env,
+                scons_env,
+                inherit_process_env=inherit_process_env,
+            )
+
+        return build_subprocess_env( construction_env, {}, inherit_process_env=False )
 
 
     @classmethod
@@ -96,6 +99,7 @@ class IncrementalSubProcess:
             del kwargs['suppress_output']
 
         use_shell = False
+        inherit_process_env = kwargs.pop( 'inherit_process_env', None )
         if 'scons_env' in kwargs:
             scons_env = kwargs.pop( 'scons_env' )
             use_shell = bool( scons_env.get_option( 'use-shell' ) ) if hasattr( scons_env, 'get_option' ) else False
@@ -105,7 +109,11 @@ class IncrementalSubProcess:
             if 'env' not in kwargs:
                 construction_env = scons_env.get( 'ENV' )
                 if construction_env is not None:
-                    kwargs['env'] = cls._subprocess_env( construction_env )
+                    kwargs['env'] = cls._subprocess_env(
+                        construction_env,
+                        scons_env=scons_env,
+                        inherit_process_env=inherit_process_env,
+                    )
 
         try:
             process = None

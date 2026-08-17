@@ -23,6 +23,7 @@ from cuppa.colourise import as_emphasised, as_highlighted, as_error, as_notice, 
 from cuppa.log import logger
 from cuppa.path import unique_short_filename
 from cuppa.utility.dict_tools import args_from_dict
+from cuppa.utility.env import merge_callable_exports
 
 
 class Monitor(object):
@@ -172,13 +173,14 @@ class ProcessStderr(object):
 
 class RunProcessAction(object):
 
-    def __init__( self, final_dir, command=None, command_args=None, expected_exit_code=None, working_dir=None, retry_count=None, **ignored_kwargs ):
+    def __init__( self, final_dir, command=None, command_args=None, expected_exit_code=None, working_dir=None, retry_count=None, inherit_process_env=None, **ignored_kwargs ):
         self._final_dir = final_dir
         self._command = command
         self._command_args = command_args
         self._expected_exit_code = expected_exit_code
         self._working_dir = working_dir
         self._retry_count = retry_count and retry_count or 0
+        self._inherit_process_env = inherit_process_env
 
 
     def _run_command( self, source, suppress_output, program_path, command, working_dir, env, retry ):
@@ -249,7 +251,11 @@ class RunProcessAction(object):
 
             result = self._command( target, source, env, **command_args )
 
-            if result==0 or result==None:
+            if isinstance( result, dict ):
+                merge_callable_exports( env, result )
+                self._write_success_file( success_file_name_from( program_path ) )
+                monitor.stop( 'success' )
+            elif result==0 or result==None:
                 self._write_success_file( success_file_name_from( program_path ) )
                 monitor.stop( 'success' )
             else:
@@ -319,7 +325,8 @@ class RunProcessAction(object):
                                                     process_stderr,
                                                     shlex.split( command ),
                                                     cwd=working_dir,
-                                                    scons_env=env)
+                                                    scons_env=env,
+                                                    inherit_process_env=self._inherit_process_env)
         return return_code
 
 

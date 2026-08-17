@@ -31,7 +31,8 @@ class BenchmarkMethod(object):
             expected='passed',
             command=None,
             expected_exit_code=None,
-            working_dir=None
+            working_dir=None,
+            inherit_process_env=None
     ):
 
         actions = env['variant_actions']
@@ -50,7 +51,8 @@ class BenchmarkMethod(object):
                 command=command,
                 expected_exit_code=expected_exit_code,
                 target=target,
-                working_dir=working_dir
+                working_dir=working_dir,
+                inherit_process_env=inherit_process_env,
             )
 
             env['BUILDERS']['BenchmarkBuilder'] = env.Builder( action=benchmark_builder, emitter=benchmark_emitter )

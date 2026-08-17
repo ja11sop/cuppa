@@ -688,10 +688,11 @@ class RunBoostTest:
     def default_preprocess( cls, line ):
         return line
 
-    def __init__( self, expected, final_dir,working_dir=None, **ignored_kwargs ):
+    def __init__( self, expected, final_dir,working_dir=None, inherit_process_env=None, **ignored_kwargs ):
         self._expected = expected
         self._final_dir = final_dir
         self._working_dir = working_dir
+        self._inherit_process_env = inherit_process_env
 
 
     def __call__( self, target, source, env ):
@@ -773,7 +774,8 @@ class RunBoostTest:
                                                     process_stderr,
                                                     shlex.split( test_command ),
                                                     cwd=working_dir,
-                                                    scons_env=env )
+                                                    scons_env=env,
+                                                    inherit_process_env=self._inherit_process_env )
 
         return return_code, process_stdout.tests()
 
