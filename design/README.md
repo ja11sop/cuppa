@@ -48,6 +48,7 @@ maintainer workflow evolved.
 | [`archive/conan-publish-plan.md`](archive/conan-publish-plan.md) | shipped | Design of `ConanPackagePublisher` and `--publish-package` |
 | [`plans/sconscript-exports.md`](plans/sconscript-exports.md) | proposal | Shared exports between discovered sconscripts; nested lib/test layout |
 | [`plans/cmake-to-cuppa-migration.md`](plans/cmake-to-cuppa-migration.md) | proposal | CMake ↔ Cuppa matrix and migration phases for humans and agents |
+| [`plans/static-glob-rename.md`](plans/static-glob-rename.md) | proposal | Rename RecursiveGlob/GlobFiles to StaticGlob; align path vocabulary with dynamic Glob + Filter |
 
 ## Conventions
 

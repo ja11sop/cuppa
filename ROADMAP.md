@@ -474,7 +474,7 @@ Design: [`native-toolchain-output.md`](design/plans/native-toolchain-output.md),
 
 Experimental Cuppa build of a public C++20 library (Boost.Capy, 2026-08-17) surfaced two platform gaps before a published migration tutorial is honest.
 
-Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object paths), [`sconscript-exports.md`](design/plans/sconscript-exports.md), [`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md).
+Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object paths), [`sconscript-exports.md`](design/plans/sconscript-exports.md), [`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md), [`static-glob-rename.md`](design/plans/static-glob-rename.md).
 
 ### Today
 
@@ -492,6 +492,7 @@ Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object path
 | `compile-object-paths` | Mirror source tree (or mangled names) under `working/` for `Compile` | High | [#213](https://github.com/ja11sop/cuppa/issues/213); unblock RecursiveGlob — **follow-on PR before migration doc** |
 | `sconscript-exports` | Export registry or explicit tree; dedupe discovered paths | Medium | [`sconscript-exports.md`](design/plans/sconscript-exports.md) |
 | `cmake-to-cuppa-migration` | Antora matrix + phased tutorial + agent checklist | Medium | After compile fix for honest Glob story — [`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md) |
+| `static-glob` | `StaticGlob` + shared path vocabulary; deprecate `RecursiveGlob` / `GlobFiles`; Filter + dynamic Glob docs | Medium | [`static-glob-rename.md`](design/plans/static-glob-rename.md) |
 
 ### Out of scope (layout / migration)
 
