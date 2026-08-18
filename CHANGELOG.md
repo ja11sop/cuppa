@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- PyPI wheels omitted ``cuppa.cpp.profiles_report.profiles`` and ``cuppa.reports``, which
+  broke ``import cuppa`` after ``pip install cuppa`` (``ModuleNotFoundError`` on
+  ``profiles_report.profiles``).
+
 ### Security
 
 ## [1.8.1] - 2026-08-17

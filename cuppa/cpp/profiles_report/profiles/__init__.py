@@ -3,7 +3,7 @@
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
-from cuppa.cpp.profiles_report.profiles import std_init
+from . import std_init
 
 _PROFILE_MODULES = {
     std_init.PROFILE_NAME: std_init,
