@@ -11,8 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - ``--reports-link-style=remote`` and matching Profiles override resolve HTML source links
   per file: project paths use the sconstruct VCS; dependency paths use each tree's
-  ``source_url`` and ref, inferring GitHub vs GitLab blob URLs from the remote
-  ([#216](https://github.com/ja11sop/cuppa/issues/216)).
+  ``source_url`` and ref ([#216](https://github.com/ja11sop/cuppa/issues/216)).
+- Recognised hosting providers for ``remote`` links: GitHub, GitLab, Bitbucket,
+  Gitea/Forgejo/Codeberg, and Azure DevOps, with configurable host suffix lists
+  (``--reports-github-hosts=``, ``--reports-gitlab-hosts=``, … and matching
+  ``configure.conf`` keys).
+- Unmapped hosts show a linked repository URL plus a plain repo-relative path suffix;
+  optional ``GH`` / ``GL`` / ``BB`` / ``GT`` / ``AD`` hint links try common provider
+  URL shapes (``--no-reports-remote-provider-hints`` to disable).
 
 ### Changed
 

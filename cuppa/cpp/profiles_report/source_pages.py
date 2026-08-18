@@ -371,22 +371,39 @@ def href_display_path( path, env, link_style, display ):
 
 def source_path_link_label( path, env, link_style, link_base, display ):
     """Return visible link text that matches what the href opens."""
-    if link_style == 'local':
-        return display_path_on_disk( path )
-    if link_style in ( 'github', 'gitlab', 'remote' ):
-        from cuppa.cpp.profiles_report.report_html import source_href
+    return _source_link_display_for_entry(
+        path,
+        None,
+        link_style,
+        link_base,
+        display,
+        env,
+    )[ 'label' ]
 
-        href = source_href(
-            path,
-            None,
-            link_style,
-            link_base,
-            href_display_path( path, env, link_style, display ),
-            env=env,
-        )
-        if href:
-            return href
-    return display_path_on_disk( path )
+
+def source_path_link_html( path, env, link_style, link_base, display, line=None ):
+    """Return optional HTML for remote links with partial repo hyperlinks."""
+    return _source_link_display_for_entry(
+        path,
+        line,
+        link_style,
+        link_base,
+        display,
+        env,
+    )[ 'label_html' ]
+
+
+def _source_link_display_for_entry( path, line, link_style, link_base, display, env ):
+    from cuppa.reports.link_style import source_link_display
+
+    return source_link_display(
+        path,
+        line,
+        link_style,
+        link_base,
+        display,
+        env=env,
+    )
 
 
 def display_path_on_disk( path ):
@@ -655,7 +672,14 @@ def write_source_pages(
             env,
             link_style,
             link_base,
-            display,
+            href_path,
+        )
+        source_path_display_html = source_path_link_html(
+            source_path,
+            env,
+            link_style,
+            link_base,
+            href_path,
         )
         with open( page_abs, 'w', encoding='utf-8' ) as handle:
             handle.write(
@@ -676,6 +700,7 @@ def write_source_pages(
                         title_suffix=title.get( 'title_suffix', '' ),
                     ),
                     original_href=original_href,
+                    source_path_display_html=source_path_display_html,
                     **title,
                 )
             )
@@ -694,13 +719,13 @@ def annotate_file_links(
     suppress_source_links=False,
 ):
     """Attach report page hrefs for templates and JSON."""
-    from cuppa.cpp.profiles_report.report_html import source_href
-
     if suppress_source_links:
         file_entry.pop( 'page_href', None )
         file_entry.pop( 'href', None )
+        file_entry.pop( 'path_link_html', None )
         for location in file_entry.get( 'locations', [] ):
             location.pop( 'href', None )
+            location.pop( 'path_link_html', None )
         return
 
     page_rel = source_page_map.get( file_entry[ 'path' ] )
@@ -709,24 +734,31 @@ def annotate_file_links(
         file_entry[ 'href' ] = page_rel
     else:
         href_path = href_display_path( file_entry[ 'path' ], env, link_style, display )
-        file_entry[ 'href' ] = source_href(
+        link_display = _source_link_display_for_entry(
             file_entry[ 'path' ],
             None,
             link_style,
             link_base,
             href_path,
-            env=env,
+            env,
         )
+        file_entry[ 'href' ] = link_display[ 'href' ]
+        if link_display[ 'label_html' ]:
+            file_entry[ 'path_link_html' ] = link_display[ 'label_html' ]
     for location in file_entry.get( 'locations', [] ):
         page = source_page_map.get( file_entry[ 'path' ] )
         if page:
             location[ 'href' ] = '{}#L{}'.format( page, location.get( 'line' ) )
         else:
-            location[ 'href' ] = source_href(
+            href_path = href_display_path( file_entry[ 'path' ], env, link_style, display )
+            link_display = _source_link_display_for_entry(
                 file_entry[ 'path' ],
                 location.get( 'line' ),
                 link_style,
                 link_base,
-                href_display_path( file_entry[ 'path' ], env, link_style, display ),
-                env=env,
+                href_path,
+                env,
             )
+            location[ 'href' ] = link_display[ 'href' ]
+            if link_display[ 'label_html' ]:
+                location[ 'path_link_html' ] = link_display[ 'label_html' ]

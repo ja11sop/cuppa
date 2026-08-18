@@ -7,17 +7,107 @@
 #   Shared source-link styles for HTML reports (test, Profiles, future coverage)
 #-------------------------------------------------------------------------------
 
+import html
 import os
+from collections import namedtuple
 
 try:
-    from urlparse import urlparse
+    from urlparse import urlparse, quote
 except ImportError:
-    from urllib.parse import urlparse
+    from urllib.parse import urlparse, quote
+
+from cuppa.log import logger
 
 REPORT_LINK_STYLES = ( 'local', 'gitlab', 'github', 'remote' )
 
+HOSTING_PROVIDERS = ( 'github', 'gitlab', 'bitbucket', 'gitea', 'azure_devops', 'unknown' )
+
+DEFAULT_GITHUB_HOSTS = ( 'github.com', )
+DEFAULT_GITLAB_HOSTS = ( 'gitlab.com', )
+DEFAULT_BITBUCKET_HOSTS = ( 'bitbucket.org', )
+DEFAULT_GITEA_HOSTS = ( 'codeberg.org', 'gitea.com', 'forgejo.org', )
+DEFAULT_AZURE_DEVOPS_HOSTS = ( 'dev.azure.com', 'visualstudio.com', )
+
+REPORTS_HOST_ENV_KEYS = {
+    'github': 'reports_github_hosts',
+    'gitlab': 'reports_gitlab_hosts',
+    'bitbucket': 'reports_bitbucket_hosts',
+    'gitea': 'reports_gitea_hosts',
+    'azure_devops': 'reports_azure_devops_hosts',
+}
+
+PROVIDER_HINTS = (
+    ( 'GH', 'github', 'GitHub' ),
+    ( 'GL', 'gitlab', 'GitLab' ),
+    ( 'BB', 'bitbucket', 'Bitbucket' ),
+    ( 'GT', 'gitea', 'Gitea / Forgejo / Codeberg' ),
+    ( 'AD', 'azure_devops', 'Azure DevOps' ),
+)
+
+RemoteLinkResolution = namedtuple(
+    'RemoteLinkResolution',
+    ( 'browse_url', 'ref', 'relpath', 'provider', 'source_url' ),
+)
+
 _WORKING_DIR_MARKER = '/working/'
 _UNQUALIFIED_SUFFIX = ' (unqualified)'
+
+
+def parse_host_list( raw ):
+    """Parse a comma-separated host suffix list or an existing sequence."""
+    if raw is None:
+        return None
+    if isinstance( raw, ( list, tuple ) ):
+        return [ str( item ).strip() for item in raw if str( item ).strip() ]
+    return [ part.strip() for part in str( raw ).split( ',' ) if part.strip() ]
+
+
+def reports_host_config( env=None ):
+    """Return effective host suffix lists for each recognised provider."""
+    env = env or {}
+    config = {}
+    defaults = {
+        'github': DEFAULT_GITHUB_HOSTS,
+        'gitlab': DEFAULT_GITLAB_HOSTS,
+        'bitbucket': DEFAULT_BITBUCKET_HOSTS,
+        'gitea': DEFAULT_GITEA_HOSTS,
+        'azure_devops': DEFAULT_AZURE_DEVOPS_HOSTS,
+    }
+    for provider, default_hosts in defaults.items():
+        key = REPORTS_HOST_ENV_KEYS[ provider ]
+        custom = parse_host_list( env.get( key ) )
+        config[ provider ] = tuple( custom ) if custom else default_hosts
+    return config
+
+
+def _hostname_from_browse_url( browse_url ):
+    if not browse_url:
+        return None
+    parsed = urlparse( browse_url )
+    if parsed.netloc:
+        return parsed.netloc.split( '@' )[-1 ].lower()
+    return None
+
+
+def _host_matches( hostname, pattern ):
+    if not hostname or not pattern:
+        return False
+    host = hostname.lower()
+    suffix = str( pattern ).lower().lstrip( '.' )
+    return host == suffix or host.endswith( '.{}'.format( suffix ) )
+
+
+def detect_hosting_provider( repository_url, env=None ):
+    """Return a recognised provider name, or ``unknown`` when unmapped."""
+    browse = normalize_repository_browse_url( repository_url )
+    hostname = _hostname_from_browse_url( browse )
+    if not hostname:
+        return 'unknown'
+    for provider, hosts in reports_host_config( env ).items():
+        for pattern in hosts:
+            if _host_matches( hostname, pattern ):
+                return provider
+    return 'unknown'
 
 
 def normalize_repository_browse_url( repository_url ):
@@ -49,11 +139,13 @@ def normalize_repository_browse_url( repository_url ):
     return 'https://{}/{}'.format( host, path )
 
 
-def hosting_style_from_url( repository_url ):
-    """Return ``github`` or ``gitlab`` blob URL shape for a repository URL."""
-    browse = normalize_repository_browse_url( repository_url )
-    if browse and 'github.com' in browse.lower():
+def hosting_style_from_url( repository_url, env=None ):
+    """Legacy helper: ``github`` or ``gitlab`` blob shape for tag/commit links."""
+    provider = detect_hosting_provider( repository_url, env )
+    if provider == 'github':
         return 'github'
+    if provider in ( 'gitlab', 'bitbucket', 'gitea', 'azure_devops' ):
+        return 'gitlab'
     return 'gitlab'
 
 
@@ -103,14 +195,135 @@ def resolve_report_link_style(
     return 'local'
 
 
-def repository_blob_base( repository_url, branch, link_style ):
-    """Return the repository blob URL prefix for GitHub or GitLab."""
+def remote_provider_hints_enabled( env ):
+    if env is None:
+        return True
+    value = env.get( 'reports_remote_provider_hints' )
+    if value is None:
+        return True
+    return bool( value )
+
+
+def repository_blob_base( repository_url, branch, link_style, env=None ):
+    """Return the repository blob URL prefix for a forced link style."""
     browse = normalize_repository_browse_url( repository_url )
-    if not browse or not branch or link_style not in ( 'gitlab', 'github' ):
+    if not browse or not branch:
         return ''
-    if link_style == 'github':
-        return '{}/blob/{}'.format( browse, branch )
-    return '{}/-/blob/{}'.format( browse, branch )
+    if link_style == 'remote':
+        provider = detect_hosting_provider( browse, env )
+        if provider == 'unknown':
+            return browse
+        return blob_base_for_provider( browse, branch, provider )
+    if link_style in ( 'gitlab', 'github', 'bitbucket', 'gitea', 'azure_devops' ):
+        return blob_base_for_provider( browse, branch, link_style )
+    return ''
+
+
+def blob_base_for_provider( browse_url, ref, provider ):
+    """Return the URL prefix before the repo-relative file path."""
+    browse = ( browse_url or '' ).rstrip( '/' )
+    if not browse or not ref:
+        return ''
+    if provider == 'github':
+        return '{}/blob/{}'.format( browse, ref )
+    if provider == 'gitlab':
+        return '{}/-/blob/{}'.format( browse, ref )
+    if provider == 'bitbucket':
+        return '{}/src/{}'.format( browse, ref )
+    if provider == 'gitea':
+        return '{}/src/branch/{}'.format( browse, ref )
+    if provider == 'azure_devops':
+        return browse
+    return browse
+
+
+def file_href_for_provider( browse_url, ref, relpath, line, provider ):
+    """Build a provider-specific file URL, or ``None`` when unsupported."""
+    browse = ( browse_url or '' ).rstrip( '/' )
+    path = str( relpath or '' ).lstrip( '/' ).replace( '\\', '/' )
+    if not browse or not ref or not path:
+        return None
+    if provider == 'github':
+        href = '{}/blob/{}/{}'.format( browse, ref, path )
+        if line:
+            href = '{}#L{}'.format( href, line )
+        return href
+    if provider == 'gitlab':
+        href = '{}/-/blob/{}/{}'.format( browse, ref, path )
+        if line:
+            href = '{}#L{}'.format( href, line )
+        return href
+    if provider == 'bitbucket':
+        href = '{}/src/{}/{}'.format( browse, ref, path )
+        if line:
+            href = '{}#lines-{}'.format( href, line )
+        return href
+    if provider == 'gitea':
+        href = '{}/src/branch/{}/{}'.format( browse, ref, path )
+        if line:
+            href = '{}#L{}'.format( href, line )
+        return href
+    if provider == 'azure_devops':
+        path_param = path if path.startswith( '/' ) else '/{}'.format( path )
+        href = '{}?path={}&version=GB{}'.format(
+            browse,
+            quote( path_param ),
+            ref,
+        )
+        if line:
+            href = '{}&line={}&lineEnd={}&lineStartColumn=1&lineEndColumn=1'.format(
+                href,
+                line,
+                line,
+            )
+        return href
+    return None
+
+
+def _path_suffix_for_display( relpath, line ):
+    path = str( relpath or '' ).lstrip( '/' ).replace( '\\', '/' )
+    suffix = '/{}'.format( path ) if path else ''
+    if line:
+        suffix = '{}#L{}'.format( suffix, line )
+    return suffix
+
+
+def build_unmapped_remote_link_html( resolution, line, env ):
+    """HTML display: linked repo root, plain path suffix, optional provider hints."""
+    browse = resolution.browse_url
+    if not browse:
+        return None
+    suffix = _path_suffix_for_display( resolution.relpath, line )
+    parts = [
+        '<a href="{}">{}</a>{}'.format(
+            html.escape( browse, quote=True ),
+            html.escape( browse ),
+            html.escape( suffix ),
+        )
+    ]
+    if remote_provider_hints_enabled( env ):
+        hints = []
+        for code, provider, title in PROVIDER_HINTS:
+            hint_href = file_href_for_provider(
+                browse,
+                resolution.ref,
+                resolution.relpath,
+                line,
+                provider,
+            )
+            if not hint_href:
+                continue
+            hints.append(
+                '<a href="{}" title="{}">{}</a>'.format(
+                    html.escape( hint_href, quote=True ),
+                    html.escape( title ),
+                    html.escape( code ),
+                )
+            )
+        if hints:
+            parts.append( ' ' )
+            parts.append( ', '.join( hints ) )
+    return ''.join( parts )
 
 
 def _try_relpath( path, root ):
@@ -179,6 +392,25 @@ def repo_relative_path_for_link( path, env ):
     return path.replace( '\\', '/' )
 
 
+def _resolve_remote_metadata( browse, ref, source_url, env ):
+    if not browse or not ref:
+        return None
+    provider = detect_hosting_provider( browse, env )
+    if provider == 'unknown':
+        hostname = _hostname_from_browse_url( browse ) or browse
+        logger.info(
+            'reports: unknown hosting for %s; using repository URL with provider hints',
+            hostname,
+        )
+    return RemoteLinkResolution(
+        browse_url=browse,
+        ref=ref,
+        relpath=None,
+        provider=provider,
+        source_url=source_url,
+    )
+
+
 def _dependency_remote_link( path, env ):
     from cuppa.core.dependency_identity import enrich_described, short_name_from_git_tree
     from cuppa.core.dependency_storage import describe_tree_path
@@ -211,6 +443,7 @@ def _dependency_remote_link( path, env ):
         _short, git_url = short_name_from_git_tree( dependency_root )
         if git_url and not browse:
             browse = normalize_repository_browse_url( git_url )
+            source_url = source_url or git_url
         if not ref:
             from cuppa.scms import git as git_scm
 
@@ -222,14 +455,10 @@ def _dependency_remote_link( path, env ):
             except ( git_scm.Git.Error, OSError, TypeError, ValueError ):
                 pass
 
-    if not browse or not ref:
+    resolution = _resolve_remote_metadata( browse, ref, source_url, env )
+    if not resolution:
         return None
-
-    style = hosting_style_from_url( browse )
-    blob_base = repository_blob_base( browse, ref, style )
-    if not blob_base:
-        return None
-    return blob_base, remainder
+    return resolution._replace( relpath=remainder )
 
 
 def _project_remote_link( path, env ):
@@ -248,24 +477,103 @@ def _project_remote_link( path, env ):
     if not repo_url or not branch:
         return None
 
-    style = hosting_style_from_url( repo_url )
-    blob_base = repository_blob_base( repo_url, branch, style )
-    if not blob_base:
+    browse = normalize_repository_browse_url( repo_url )
+    resolution = _resolve_remote_metadata( browse, branch, repo_url, env )
+    if not resolution:
         return None
 
     relpath = repo_relative_path_for_link( path, env )
     if not relpath:
         return None
-    return blob_base, relpath
+    return resolution._replace( relpath=relpath )
 
 
 def resolve_path_remote_link( path, env ):
-    """Return ``(blob_base, repo_relative_path)`` for one source file, or ``None``."""
+    """Return remote link metadata for one source file, or ``None``."""
     if not path or not env:
         return None
     if _storage_root_for_path( path, env ):
         return _dependency_remote_link( path, env )
     return _project_remote_link( path, env )
+
+
+def source_link_display( path, line, link_style, link_base, display_path, env=None ):
+    """Return ``href``, plain ``label``, and optional ``label_html`` for one source location."""
+    env = env or {}
+    display = display_path if display_path is not None else path
+    if link_style not in REPORT_LINK_STYLES:
+        return {
+            'href': None,
+            'label': display,
+            'label_html': None,
+        }
+    if link_style == 'local':
+        href = None
+        if link_base:
+            joined = os.path.join( link_base, display )
+            href = '{}#L{}'.format( joined, line ) if line else joined
+        return {
+            'href': href,
+            'label': display_path_on_disk( path ),
+            'label_html': None,
+        }
+    if link_style == 'remote':
+        resolution = resolve_path_remote_link( path, env )
+        if not resolution:
+            return {
+                'href': None,
+                'label': display,
+                'label_html': None,
+            }
+        if resolution.provider != 'unknown':
+            mapped_href = file_href_for_provider(
+                resolution.browse_url,
+                resolution.ref,
+                resolution.relpath,
+                line,
+                resolution.provider,
+            )
+            return {
+                'href': mapped_href,
+                'label': mapped_href,
+                'label_html': None,
+            }
+        browse = resolution.browse_url
+        suffix = _path_suffix_for_display( resolution.relpath, line )
+        label = '{}{}'.format( browse, suffix )
+        return {
+            'href': browse,
+            'label': label,
+            'label_html': build_unmapped_remote_link_html( resolution, line, env ),
+        }
+    if link_style in ( 'gitlab', 'github' ) and link_base:
+        href = '{}/{}'.format( link_base.rstrip( '/' ), display )
+        if line:
+            href = '{}#L{}'.format( href, line )
+        return {
+            'href': href,
+            'label': href,
+            'label_html': None,
+        }
+    return {
+        'href': None,
+        'label': display,
+        'label_html': None,
+    }
+
+
+def display_path_on_disk( path ):
+    """Shorten an on-disk path with a leading ``~/`` when under the home directory."""
+    if not path:
+        return path
+    try:
+        real_path = os.path.realpath( path )
+        home = os.path.realpath( os.path.expanduser( '~' ) )
+        if os.path.commonpath( [ real_path, home ] ) == home:
+            return '~' + real_path[ len( home ): ].replace( '\\', '/' )
+    except ( OSError, ValueError ):
+        pass
+    return path.replace( '\\', '/' )
 
 
 def initialise_report_linking( env, link_style=None ):
@@ -293,7 +601,7 @@ def initialise_report_linking( env, link_style=None ):
     )
     repo_url = repository or url
     if link_style in ( 'gitlab', 'github' ) and repo_url and branch:
-        blob_base = repository_blob_base( repo_url, branch, link_style )
+        blob_base = repository_blob_base( repo_url, branch, link_style, env )
         if blob_base:
             return blob_base
     browse = normalize_repository_browse_url( repo_url )
@@ -304,29 +612,12 @@ def initialise_report_linking( env, link_style=None ):
 
 def source_file_href( path, line, link_style, link_base, display_path, env=None ):
     """Build a clickable href for one source location in an HTML report."""
-    if not path or link_style not in REPORT_LINK_STYLES:
-        return None
-    display = display_path if display_path is not None else path
-    if link_style == 'local':
-        if link_base:
-            joined = os.path.join( link_base, display )
-            return '{}#L{}'.format( joined, line ) if line else joined
-        return None
-    if link_style == 'remote':
-        resolved = resolve_path_remote_link( path, env )
-        if not resolved:
-            return None
-        blob_base, relpath = resolved
-        href = '{}/{}'.format(
-            blob_base.rstrip( '/' ),
-            str( relpath ).lstrip( '/' ).replace( '\\', '/' ),
-        )
-        if line:
-            href = '{}#L{}'.format( href, line )
-        return href
-    if link_style in ( 'gitlab', 'github' ) and link_base:
-        href = '{}/{}'.format( link_base.rstrip( '/' ), display )
-        if line:
-            href = '{}#L{}'.format( href, line )
-        return href
-    return None
+    display = source_link_display(
+        path,
+        line,
+        link_style,
+        link_base,
+        display_path,
+        env=env,
+    )
+    return display.get( 'href' )

@@ -183,7 +183,9 @@
           <li class="list-group-item py-3 px-0">
             <div class="prof-section-inset prof-source-heading">
               <h6 class="prof-section-heading">Source code</h6>
-              {% if original_href %}
+              {% if source_path_display_html %}
+              <span class="small text-monospace">{{ source_path_display_html | safe }}</span>
+              {% elif original_href %}
               <a href="{{ original_href }}" class="small text-monospace">{{ source_path_display }}</a>
               {% else %}
               <span class="small text-monospace text-secondary">{{ source_path_display }}</span>

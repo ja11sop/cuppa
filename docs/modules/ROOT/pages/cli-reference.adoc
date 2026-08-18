@@ -69,9 +69,18 @@ TIP: If cuppa fails early while reading sconscripts, re-run with `--verbosity=ex
 
 | `--reports-link-style=local|gitlab|github|remote` | Session-wide source link targets for HTML reports this run emits (test suite HTML, C++ Profiles reports, and future coverage source links). Overrides `link_style=` method kwargs when the sconscript leaves the default unset; per-report flags below override this session flag. Use `remote` when dependency sources live on a different host than the project repository.
 | `--cxx-profiles-report-link-style=local|gitlab|github|remote` | Profiles-only override of `--reports-link-style` for `--cxx-profiles-report` output and `.cuppa-reports` manifest matching
+| `--reports-github-hosts=HOST[,HOST…]` | Extra GitHub host suffixes for ``remote`` link resolution (defaults include ``github.com``)
+| `--reports-gitlab-hosts=HOST[,HOST…]` | Extra GitLab host suffixes (defaults include ``gitlab.com``)
+| `--reports-bitbucket-hosts=HOST[,HOST…]` | Extra Bitbucket host suffixes (defaults include ``bitbucket.org``)
+| `--reports-gitea-hosts=HOST[,HOST…]` | Extra Gitea / Forgejo / Codeberg host suffixes
+| `--reports-azure-devops-hosts=HOST[,HOST…]` | Extra Azure DevOps host suffixes (defaults include ``dev.azure.com``)
+| `--reports-remote-provider-hints` | For unmapped ``remote`` hosts, append ``GH`` / ``GL`` / ``BB`` / ``GT`` / ``AD`` links that try common provider URL shapes (default on)
+| `--no-reports-remote-provider-hints` | Disable provider hint links for unmapped ``remote`` hosts
 |===
 
 Test reports: `env.GenerateHtmlTestReport(…, link_style=…)` still sets a per-target default; `--reports-link-style=` wins when you need CI-published blob links without editing sconscripts. See xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[C++ Profiles violation report] for Profiles-specific flags and offline regen.
+
+With ``remote``, cuppa maps each file's repository host to a blob URL shape when the host matches a recognised provider (GitHub, GitLab, Bitbucket, Gitea/Forgejo/Codeberg, or Azure DevOps). Extend the default host lists with the ``--reports-*-hosts=`` flags above (persisted in ``configure.conf`` under the same key names). Unmapped hosts link only the repository root in the visible path and append plain repo-relative text; optional provider hint links try alternate URL shapes.
 
 The dependencies and downloads roots are shared between projects. Set `--storage-root` to move
 both, or name one of them to move only that half. See xref:build-layout.adoc[Build layout] for

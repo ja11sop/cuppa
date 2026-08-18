@@ -1,4 +1,5 @@
-{% if file.href %}<a href="{{ file.href }}" class="prof-file-link">{% endif %}
+{% if file.path_link_html %}<span class="prof-file-path-oneline prof-mono">{{ file.path_link_html | safe }}</span>{% elif file.href %}<a href="{{ file.href }}" class="prof-file-link">{% endif %}
+{% if not file.path_link_html %}
 <span class="prof-file-path-oneline prof-mono">
 {% if file.title_split %}
 {% if file.title_prefix %}<span class="prof-file-inline-muted">{{ file.title_prefix }} </span>{% endif %}{% if file.title_include_split %}<span class="prof-file-inline-muted">{{ file.title_include_prefix }}</span><span class="prof-file-include-path">{{ file.title_include_path }}</span>{% elif file.title_suffix_only %}<span class="prof-file-suffix">{{ file.title_suffix | default(file.display_path | default(file.path)) }}</span>{% else %}<span class="prof-file-suffix">{{ file.title_suffix }}</span>{% endif %}
@@ -7,3 +8,4 @@
 {% endif %}
 </span>
 {% if file.href %}</a>{% endif %}
+{% endif %}

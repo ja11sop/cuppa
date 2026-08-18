@@ -70,6 +70,7 @@ _HTML_ENRICHMENT_KEYS = frozenset(
         'display_path',
         'file_index',
         'href',
+        'path_link_html',
         'page_href',
         'path_tooltip',
         'peak_refs_display',

@@ -1,4 +1,5 @@
-{% if file.href %}<a href="{{ file.href }}" class="prof-file-link">{% endif %}
+{% if file.path_link_html %}<span class="prof-mono">{{ file.path_link_html | safe }}</span>{% elif file.href %}<a href="{{ file.href }}" class="prof-file-link">{% endif %}
+{% if not file.path_link_html %}
 {% if file.title_split %}
 {% if file.title_prefix %}
 <span class="prof-file-prefix prof-mono">{{ file.title_prefix }}</span>
@@ -16,3 +17,4 @@
 <span class="prof-mono">{{ file.display_path | default(file.path) }}</span>
 {% endif %}
 {% if file.href %}</a>{% endif %}
+{% endif %}
