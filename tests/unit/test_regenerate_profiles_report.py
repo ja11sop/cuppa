@@ -190,3 +190,25 @@ def test_regenerate_profiles_report_from_json_skip_source_pages( tmp_path ):
     assert regenerate_profiles_report.main( argv ) == 0
     assert ( out_dir / INDEX_BASENAME ).is_file()
     assert not ( out_dir / 'by-source' ).exists()
+
+
+def test_regenerate_profiles_report_cli_accepts_remote_link_style():
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            '-m',
+            'scripts.regenerate_profiles_report',
+            '--reports-link-style=remote',
+            'missing.json',
+            '--from-json',
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    combined = ( result.stderr or '' ) + ( result.stdout or '' )
+    assert 'invalid choice' not in combined.lower()
+    assert 'report JSON not found' in combined

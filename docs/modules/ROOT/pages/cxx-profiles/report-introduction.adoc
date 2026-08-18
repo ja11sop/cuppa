@@ -61,7 +61,7 @@ Optional flags that affect report shape (full list on xref:cxx-profiles.adoc[C++
 
 * `--cxx-profiles-report=` *path* — explicit report directory (or index file stem)
 * `--cxx-profiles-report-root=` *dir* — rebase project-owned paths for display and links
-* `--cxx-profiles-report-link-style=local|gitlab|github` — Profiles-only source link override
+* `--cxx-profiles-report-link-style=local|gitlab|github|remote` — Profiles-only source link override
 * `--cxx-profiles-report-context=full|rules-only|off` — Overview `context` in JSON/HTML
   (`full` default; `rules-only` omits tier 1/2 parsed-file denominators; `off` hides the
   Overview tab content)

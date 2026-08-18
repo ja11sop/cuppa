@@ -76,9 +76,8 @@ def _repo_browse_href( repository ):
 
 
 def _hosting_style( repo_href ):
-    if repo_href and 'github.com' in repo_href.lower():
-        return 'github'
-    return 'gitlab'
+    from cuppa.reports.link_style import hosting_style_from_url
+    return hosting_style_from_url( repo_href )
 
 
 def _tag_href( repo_href, tag ):
@@ -183,10 +182,10 @@ def display_path( path, report_root, sconstruct_dir ):
     return path
 
 
-def source_href( path, line, link_style, link_base, display ):
+def source_href( path, line, link_style, link_base, display, env=None ):
     """Build a clickable href for a diagnostic location."""
     from cuppa.reports.link_style import source_file_href
-    return source_file_href( path, line, link_style, link_base, display )
+    return source_file_href( path, line, link_style, link_base, display, env=env )
 
 
 def rule_reference( profile, rule_id ):
@@ -618,11 +617,18 @@ def render_profiles_reports(
     destination = resolve_report_directory( env )
     os.makedirs( destination, exist_ok=True )
 
-    from cuppa.reports.link_style import initialise_report_linking, resolve_report_link_style
+    from cuppa.reports.link_style import (
+        initialise_report_linking,
+        log_unknown_hosting_summary,
+        reset_unknown_hosting_notes,
+        resolve_report_link_style,
+    )
     link_style = resolve_report_link_style(
         env,
         per_report_env_key='cxx_profiles_report_link_style',
     )
+    if link_style == 'remote':
+        reset_unknown_hosting_notes( env )
     report_root = env.get( 'cxx_profiles_report_root' ) or env.get( 'sconstruct_dir' )
     sconstruct_dir = env.get( 'sconstruct_dir' ) or os.getcwd()
 
@@ -761,6 +767,8 @@ def render_profiles_reports(
             rollup[ 'total_references' ],
         )
     )
+    if link_style == 'remote':
+        log_unknown_hosting_summary( env )
     session_paths = [ index_path ]
     if write_json:
         session_paths.append( json_path )

@@ -5,6 +5,45 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - unreleased
+
+### Added
+
+- ``--reports-link-style=remote`` and matching Profiles override resolve HTML source links
+  per file: project paths use the sconstruct VCS; dependency paths use each tree's
+  ``source_url`` and ref ([#216](https://github.com/ja11sop/cuppa/issues/216)).
+- Recognised hosting providers for ``remote`` links: GitHub, GitLab, Bitbucket,
+  Gitea/Forgejo/Codeberg, and Azure DevOps, with configurable host suffix lists
+  (``--reports-github-hosts=``, ``--reports-gitlab-hosts=``, … and matching
+  ``configure.conf`` keys).
+- Unmapped hosts show a linked repository URL plus a plain repo-relative path suffix;
+  optional ``GH`` / ``GL`` / ``BB`` / ``GT`` / ``AD`` hint links try common provider
+  URL shapes (``--no-reports-remote-provider-hints`` to disable).
+
+### Changed
+
+- Document persisting ``reports_link_style`` and ``reports_*_hosts`` via ``configure.conf`` or
+  ``cuppa.run(default_options=…)`` so CI pipelines need not repeat link-style flags.
+- ``regenerate_profiles_report`` accepts ``remote`` for ``--reports-link-style`` and related flags.
+
+### Fixed
+
+- Unmapped remote hosts log once per Profiles report (deduplicated host origins, not full
+  repository URLs); per-file detail stays at debug level. The summary uses info/blue hosts and
+  bold CLI flag examples.
+- ``--reports-*-hosts=`` flags register without a trailing ``=`` in the SCons option name so
+  ``--reports-gitlab-hosts=HOST`` parses correctly.
+- Host suffix lists accept bare hostnames or ``https://`` URLs; unmapped-host log lines list
+  hostnames only (no scheme).
+- Test HTML source links skip test cases with no ``file`` path instead of raising when building
+  ``local`` links.
+
+### Deprecated
+
+### Removed
+
+### Security
+
 ## [1.8.2] - 2026-08-18
 
 ### Fixed
@@ -838,6 +877,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Baseline release on `master` before the modules work landed.
 Detailed notes for 1.1.x and earlier were not maintained in this file; start recording notable changes here from 1.2.0 onward.
 
+[1.9.0]: https://github.com/ja11sop/cuppa/compare/v1.8.2...HEAD
 [1.8.2]: https://github.com/ja11sop/cuppa/compare/v1.8.1...v1.8.2
 [1.8.1]: https://github.com/ja11sop/cuppa/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/ja11sop/cuppa/compare/v1.7.0...v1.8.0

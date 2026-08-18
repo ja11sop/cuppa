@@ -31,6 +31,7 @@ import sys
 from cuppa.cpp.cxx_profiles_report import format_capture_summary, replay_profiles_capture
 from cuppa.cpp.profiles_report.report_html import write_profiles_reports, write_profiles_reports_from_json
 from cuppa.cpp.profiles_report.report_json import env_from_report_metadata, load_report_model
+from cuppa.reports.link_style import REPORT_LINK_STYLES
 
 
 def _regenerate_from_capture( arguments ):
@@ -123,19 +124,19 @@ def main( argv=None ):
     parser.add_argument(
         '--reports-link-style',
         default=None,
-        choices=( 'local', 'gitlab', 'github' ),
+        choices=list( REPORT_LINK_STYLES ),
         help='Source link style for this regen run (default: JSON metadata or local)',
     )
     parser.add_argument(
         '--link-style',
         default=None,
-        choices=( 'local', 'gitlab', 'github' ),
+        choices=list( REPORT_LINK_STYLES ),
         help='Deprecated alias for --reports-link-style',
     )
     parser.add_argument(
         '--cxx-profiles-report-link-style',
         default=None,
-        choices=( 'local', 'gitlab', 'github' ),
+        choices=list( REPORT_LINK_STYLES ),
         help='Profiles-only link style override for this regen run',
     )
     parser.add_argument(

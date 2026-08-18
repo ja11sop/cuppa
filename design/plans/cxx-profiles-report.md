@@ -378,8 +378,9 @@ the method default when CI publishes artefacts.
 | `link_style` | Href shape | When to use |
 |--------------|------------|---------------|
 | `local` (default) | `file://{sconstruct_dir}/{relpath}#L{line}` | Developer machine; opens editor/IDE handler |
-| `gitlab` | `{remote}/-/blob/{branch}/{relpath}#L{line}` | GitLab CI published artefacts |
-| `github` | `{remote}/blob/{branch}/{relpath}#L{line}` | GitHub Actions published artefacts |
+| `gitlab` | `{remote}/-/blob/{branch}/{relpath}#L{line}` | GitLab CI published artefacts (project VCS only) |
+| `github` | `{remote}/blob/{branch}/{relpath}#L{line}` | GitHub Actions published artefacts (project VCS only) |
+| `remote` | Per path: infer GitHub vs GitLab from that file's repo URL | Mixed project + dependency hosts ([#216](https://github.com/ja11sop/cuppa/issues/216)) |
 
 Source-page **link text** matches the active style: local paths for `local`, full blob URL for
 `github` / `gitlab` (same string as the href, without the line fragment).
@@ -424,28 +425,28 @@ suite index).
 every href. Dependency sources get human-readable `host/org/repo@branch/…` display paths but remote
 hrefs still use the project repository until the follow-up slice below.
 
-### Follow-up: per-repo `remote` link style (patch release)
+### Follow-up: per-repo `remote` link style (minor release)
 
-**Status:** proposal — implement on a fresh branch after [#214](https://github.com/ja11sop/cuppa/pull/214)
-merges ([#216](https://github.com/ja11sop/cuppa/issues/216)).
+**Status:** in progress — [#216](https://github.com/ja11sop/cuppa/issues/216); PR [#219](https://github.com/ja11sop/cuppa/pull/219); target **1.9.0**.
 
 Add **`remote`** to `REPORT_LINK_STYLES` (and CLI choices). Keep **`github`** / **`gitlab`** as
 **force-all overrides** when the whole tree lives on one host.
 
 | `link_style` | Href shape | When to use |
 |--------------|------------|---------------|
-| `remote` (new) | Per path: infer GitHub vs GitLab from that file's repo URL; project files → project VCS; dependency files → `enrich_described` / `source_url` + qualifier | Mixed GitHub project + GitLab (or GitHub) dependencies; recommended for CI when deps are not all on the project host |
+| `remote` (new) | Per path: detect provider from host (GitHub, GitLab, Bitbucket, Gitea/Forgejo/Codeberg, Azure DevOps); project files → project VCS; dependency files → `enrich_described` / `source_url` + qualifier | Mixed hosts; configurable host suffix lists; unmapped hosts show linked repo URL + plain path suffix with optional GH/GL/BB/GT/AD hint links |
 | `github` / `gitlab` | Single blob base from project VCS for every path | Monorepo or single-host CI publish |
 
 **Implementation sketch:**
 
-- Shared `normalize_repository_browse_url()` + `_hosting_style()` in `cuppa/reports/link_style.py`
-  (dedupe from `report_html.py`).
-- `resolve_path_remote_link(path, env) → (hosting_style, blob_base, repo_relative_path) | None` —
-  reuse `describe_tree_path` / `enrich_described` / `remote_href_display_path()` (shipped in
+- Shared provider detection + blob URL builders in `cuppa/reports/link_style.py`.
+- `resolve_path_remote_link(path, env) → RemoteLinkResolution` — reuse `describe_tree_path` /
+  `enrich_described` / `remote_href_display_path()` (shipped in
   [#214](https://github.com/ja11sop/cuppa/pull/214) for project + working-dir paths).
-- Extend `source_file_href` or call the resolver from Profiles `write_source_pages` /
-  `annotate_file_links` and test-report linking.
+- `source_link_display()` — mapped providers emit full blob hrefs; unmapped hosts emit partial
+  HTML (`<a href="repo">repo</a>/path#Ln` + optional hint links).
+- CLI / `configure.conf`: `--reports-{github,gitlab,bitbucket,gitea,azure_devops}-hosts=`,
+  `--reports-remote-provider-hints` / `--no-reports-remote-provider-hints`.
 - Default stays **`local`**; document **`remote`** for mixed-dependency Profiles runs in Antora +
   `cli-reference.adoc`.
 

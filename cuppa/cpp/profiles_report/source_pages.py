@@ -356,58 +356,54 @@ def build_source_page_title( display_path, source_path, env ):
 
 
 def remote_href_display_path( path, env ):
-    """Repo-relative path for ``github`` / ``gitlab`` blob URLs (not human display)."""
-    if not path:
-        return path
+    """Repo-relative path for remote blob URLs (not human display)."""
+    from cuppa.reports.link_style import repo_relative_path_for_link
 
-    normalized = os.path.normpath( path ).replace( '\\', '/' )
-    if _WORKING_DIR_MARKER in normalized:
-        return normalized.split( _WORKING_DIR_MARKER, 1 )[ 1 ]
-
-    storage_root = _storage_root_for_path( path, env )
-    if storage_root:
-        rel = _try_relpath( path, storage_root )
-        if rel:
-            parts = rel.split( '/', 1 )
-            remainder = parts[ 1 ] if len( parts ) > 1 else ''
-            if remainder:
-                return remainder
-            return rel
-
-    for root in ( env.get( 'sconstruct_dir' ), env.get( 'cxx_profiles_report_root' ) ):
-        rel = _try_relpath( path, root )
-        if rel:
-            if _WORKING_DIR_MARKER in rel:
-                return rel.split( _WORKING_DIR_MARKER, 1 )[ 1 ]
-            return rel
-
-    return path
+    return repo_relative_path_for_link( path, env )
 
 
 def href_display_path( path, env, link_style, display ):
     """Choose the path segment appended to a remote blob base."""
-    if link_style in ( 'github', 'gitlab' ):
+    if link_style in ( 'github', 'gitlab', 'remote' ):
         return remote_href_display_path( path, env )
     return display
 
 
 def source_path_link_label( path, env, link_style, link_base, display ):
     """Return visible link text that matches what the href opens."""
-    if link_style == 'local':
-        return display_path_on_disk( path )
-    if link_style in ( 'github', 'gitlab' ):
-        from cuppa.cpp.profiles_report.report_html import source_href
+    return _source_link_display_for_entry(
+        path,
+        None,
+        link_style,
+        link_base,
+        display,
+        env,
+    )[ 'label' ]
 
-        href = source_href(
-            path,
-            None,
-            link_style,
-            link_base,
-            href_display_path( path, env, link_style, display ),
-        )
-        if href:
-            return href
-    return display_path_on_disk( path )
+
+def source_path_link_html( path, env, link_style, link_base, display, line=None ):
+    """Return optional HTML for remote links with partial repo hyperlinks."""
+    return _source_link_display_for_entry(
+        path,
+        line,
+        link_style,
+        link_base,
+        display,
+        env,
+    )[ 'label_html' ]
+
+
+def _source_link_display_for_entry( path, line, link_style, link_base, display, env ):
+    from cuppa.reports.link_style import source_link_display
+
+    return source_link_display(
+        path,
+        line,
+        link_style,
+        link_base,
+        display,
+        env=env,
+    )
 
 
 def display_path_on_disk( path ):
@@ -669,13 +665,21 @@ def write_source_pages(
             link_style,
             link_base,
             href_path,
+            env=env,
         )
         source_path_display = source_path_link_label(
             source_path,
             env,
             link_style,
             link_base,
-            display,
+            href_path,
+        )
+        source_path_display_html = source_path_link_html(
+            source_path,
+            env,
+            link_style,
+            link_base,
+            href_path,
         )
         with open( page_abs, 'w', encoding='utf-8' ) as handle:
             handle.write(
@@ -696,6 +700,7 @@ def write_source_pages(
                         title_suffix=title.get( 'title_suffix', '' ),
                     ),
                     original_href=original_href,
+                    source_path_display_html=source_path_display_html,
                     **title,
                 )
             )
@@ -714,13 +719,13 @@ def annotate_file_links(
     suppress_source_links=False,
 ):
     """Attach report page hrefs for templates and JSON."""
-    from cuppa.cpp.profiles_report.report_html import source_href
-
     if suppress_source_links:
         file_entry.pop( 'page_href', None )
         file_entry.pop( 'href', None )
+        file_entry.pop( 'path_link_html', None )
         for location in file_entry.get( 'locations', [] ):
             location.pop( 'href', None )
+            location.pop( 'path_link_html', None )
         return
 
     page_rel = source_page_map.get( file_entry[ 'path' ] )
@@ -729,22 +734,31 @@ def annotate_file_links(
         file_entry[ 'href' ] = page_rel
     else:
         href_path = href_display_path( file_entry[ 'path' ], env, link_style, display )
-        file_entry[ 'href' ] = source_href(
+        link_display = _source_link_display_for_entry(
             file_entry[ 'path' ],
             None,
             link_style,
             link_base,
             href_path,
+            env,
         )
+        file_entry[ 'href' ] = link_display[ 'href' ]
+        if link_display[ 'label_html' ]:
+            file_entry[ 'path_link_html' ] = link_display[ 'label_html' ]
     for location in file_entry.get( 'locations', [] ):
         page = source_page_map.get( file_entry[ 'path' ] )
         if page:
             location[ 'href' ] = '{}#L{}'.format( page, location.get( 'line' ) )
         else:
-            location[ 'href' ] = source_href(
+            href_path = href_display_path( file_entry[ 'path' ], env, link_style, display )
+            link_display = _source_link_display_for_entry(
                 file_entry[ 'path' ],
                 location.get( 'line' ),
                 link_style,
                 link_base,
-                href_display_path( file_entry[ 'path' ], env, link_style, display ),
+                href_path,
+                env,
             )
+            location[ 'href' ] = link_display[ 'href' ]
+            if link_display[ 'label_html' ]:
+                location[ 'path_link_html' ] = link_display[ 'label_html' ]

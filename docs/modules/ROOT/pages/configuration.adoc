@@ -61,6 +61,60 @@ cuppa.run(
 )
 ----
 
+Keys in `configure.conf` and in `default_options` use the same names as each flag's internal
+option key (underscores, not dashes). Command-line flags still override saved or coded defaults
+when you pass them explicitly.
+
+=== HTML report source links without CI flags
+
+Projects that publish Profiles or test HTML from CI often need ``remote`` link resolution and
+extra host suffixes for self-hosted GitLab, GitHub Enterprise, or other corporately named git
+hosts. You do not need to repeat those flags on every pipeline job if you record them once in the
+project.
+
+**Option A — commit `configure.conf` beside the `sconstruct`:**
+
+[source,python]
+----
+reports_link_style = 'remote'
+reports_gitlab_hosts = ['git.corp.example']
+reports_github_hosts = ['github.corp.example']
+reports_remote_provider_hints = True
+----
+
+Create or update that file once from the command line:
+
+[source,sh]
+----
+cuppa -D --reports-link-style=remote \
+  --reports-gitlab-hosts=git.corp.example \
+  --save-conf
+----
+
+Then commit `configure.conf`. Later builds and CI jobs pick up the same settings with no extra
+flags. Inspect loaded values with `--show-conf`.
+
+**Option B — set defaults in the `sconstruct`:**
+
+[source,python]
+----
+cuppa.run(
+    default_options = {
+        'reports_link_style': 'remote',
+        'reports_gitlab_hosts': ['git.corp.example'],
+    },
+)
+----
+
+Use this when the project should always carry the policy in code rather than a separate conf
+file. Profiles-only overrides use the key ``cxx_profiles_report_link_style`` the same way.
+
+These settings are **session-wide** for HTML reports. They do not replace the host embedded in a
+``location_dependency(..., location=...)`` URL; they tell cuppa which **provider blob URL shape**
+to use when resolving ``remote`` links for a given hostname. See
+xref:cli-reference.adoc#reports-link-style[HTML report source links] for the full flag list and
+behaviour (mapped providers, unmapped partial links, and provider hint links).
+
 == Environment variables
 
 |===

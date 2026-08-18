@@ -10,6 +10,7 @@
 from cuppa.colourise import as_error, as_notice
 from cuppa.cpp.profiles_report_collector import ProfilesDiagnosticCollector
 from cuppa.log import logger
+from cuppa.reports.link_style import REPORT_LINK_STYLES
 
 _inventory_ignore_errors_set = False
 
@@ -131,7 +132,7 @@ class CollateCxxProfilesIndexMethod:
             '--cxx-profiles-report-link-style',
             dest='cxx_profiles_report_link_style',
             default=None,
-            choices=[ 'local', 'gitlab', 'github' ],
+            choices=list( REPORT_LINK_STYLES ),
             help='Profiles-only source link override (overrides --reports-link-style for '
                  'Profiles HTML; default: --reports-link-style or local)',
         )

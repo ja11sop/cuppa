@@ -67,11 +67,65 @@ TIP: If cuppa fails early while reading sconscripts, re-run with `--verbosity=ex
 |===
 | Option | Description
 
-| `--reports-link-style=local|gitlab|github` | Session-wide source link targets for HTML reports this run emits (test suite HTML, C++ Profiles reports, and future coverage source links). Overrides `link_style=` method kwargs when the sconscript leaves the default unset; per-report flags below override this session flag.
-| `--cxx-profiles-report-link-style=local|gitlab|github` | Profiles-only override of `--reports-link-style` for `--cxx-profiles-report` output and `.cuppa-reports` manifest matching
+| `--reports-link-style=local|gitlab|github|remote` | Session-wide source link targets for HTML reports this run emits (test suite HTML, C++ Profiles reports, and future coverage source links). Overrides `link_style=` method kwargs when the sconscript leaves the default unset; per-report flags below override this session flag. Use `remote` when dependency sources live on a different host than the project repository.
+| `--cxx-profiles-report-link-style=local|gitlab|github|remote` | Profiles-only override of `--reports-link-style` for `--cxx-profiles-report` output and `.cuppa-reports` manifest matching
+| `--reports-github-hosts=HOST[,HOST…]` | Extra GitHub host suffixes for ``remote`` link resolution (defaults include ``github.com``)
+| `--reports-gitlab-hosts=HOST[,HOST…]` | Extra GitLab host suffixes (defaults include ``gitlab.com``)
+| `--reports-bitbucket-hosts=HOST[,HOST…]` | Extra Bitbucket host suffixes (defaults include ``bitbucket.org``)
+| `--reports-gitea-hosts=HOST[,HOST…]` | Extra Gitea / Forgejo / Codeberg host suffixes
+| `--reports-azure-devops-hosts=HOST[,HOST…]` | Extra Azure DevOps host suffixes (defaults include ``dev.azure.com``)
+| `--reports-remote-provider-hints` | For unmapped ``remote`` hosts, append ``GH`` / ``GL`` / ``BB`` / ``GT`` / ``AD`` links that try common provider URL shapes (default on)
+| `--no-reports-remote-provider-hints` | Disable provider hint links for unmapped ``remote`` hosts
 |===
 
 Test reports: `env.GenerateHtmlTestReport(…, link_style=…)` still sets a per-target default; `--reports-link-style=` wins when you need CI-published blob links without editing sconscripts. See xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[C++ Profiles violation report] for Profiles-specific flags and offline regen.
+
+With ``remote``, cuppa maps each file's repository host to a blob URL shape when the host matches a recognised provider (GitHub, GitLab, Bitbucket, Gitea/Forgejo/Codeberg, or Azure DevOps). Extend the default host lists with the ``--reports-*-hosts=`` flags above; each entry may be a bare hostname (``git.corp.example``) or an ``https://`` URL — cuppa normalises to the hostname for matching. Unmapped hosts link only the repository root in the visible path and append plain repo-relative text; optional provider hint links try alternate URL shapes. One console info line lists unmapped hostnames per Profiles report run.
+
+==== Persisting link style and host lists
+
+You do not need to pass these flags on every CI invocation. The internal option keys
+(underscores) can live in project ``configure.conf`` or in ``cuppa.run(default_options=…)`` in
+the ``sconstruct`` — the same mechanism as ``develop`` and ``offline``. Command-line flags still
+win when present.
+
+[source,python]
+----
+# configure.conf (beside sconstruct)
+reports_link_style = 'remote'
+reports_gitlab_hosts = ['git.corp.example']
+----
+
+[source,python]
+----
+# sconstruct
+cuppa.run(
+    default_options={
+        'reports_link_style': 'remote',
+        'reports_gitlab_hosts': ['git.corp.example'],
+    },
+)
+----
+
+One-time capture from a local run: ``cuppa -D --reports-link-style=remote
+--reports-gitlab-hosts=git.corp.example --save-conf``. Full walk-through:
+xref:configuration.adoc#html-report-source-links-without-ci-flags[HTML report source links without CI flags].
+
+|===
+| Conf / `default_options` key | Matching CLI flag
+
+| `reports_link_style` | `--reports-link-style=`
+| `cxx_profiles_report_link_style` | `--cxx-profiles-report-link-style=`
+| `reports_github_hosts` | `--reports-github-hosts=`
+| `reports_gitlab_hosts` | `--reports-gitlab-hosts=`
+| `reports_bitbucket_hosts` | `--reports-bitbucket-hosts=`
+| `reports_gitea_hosts` | `--reports-gitea-hosts=`
+| `reports_azure_devops_hosts` | `--reports-azure-devops-hosts=`
+| `reports_remote_provider_hints` | `--reports-remote-provider-hints` / `--no-reports-remote-provider-hints`
+|===
+
+Host list values are Python lists (comma-separated on the CLI). Defaults for the major public
+providers still apply; configured hosts are **added** to those defaults, not replacements.
 
 The dependencies and downloads roots are shared between projects. Set `--storage-root` to move
 both, or name one of them to move only that half. See xref:build-layout.adoc[Build layout] for
@@ -190,7 +244,7 @@ C++ Profiles (opt-in; Profiles-capable Clang only):
 * `--cxx-disable-error-limit` -- disable the compiler diagnostic cap (Clang `-ferror-limit=0`, GCC `-fmax-errors=0`) so every error is reported; useful with enforce for a full violation list
 * `--cxx-profiles-report` -- capture Profiles diagnostics during the build and emit HTML + JSON under `_artefacts/cxx-profiles/` at session end (requires `--cxx-profiles` or `--cxx-profiles-enforce=`; optional directory path after `=`; or declare `env.CollateCxxProfilesIndex()` in a sconscript)
 * `--cxx-profiles-report-root=<dir>` -- rebase project-owned source paths in Profiles reports (default: sconstruct directory)
-* `--cxx-profiles-report-link-style=local|gitlab|github` — Profiles-only override of `--reports-link-style`
+* `--cxx-profiles-report-link-style=local|gitlab|github|remote` — Profiles-only override of `--reports-link-style`
 
 See xref:cxx-profiles.adoc[C++ Profiles].
 
