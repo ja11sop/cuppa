@@ -425,9 +425,9 @@ suite index).
 every href. Dependency sources get human-readable `host/org/repo@branch/…` display paths but remote
 hrefs still use the project repository until the follow-up slice below.
 
-### Follow-up: per-repo `remote` link style (patch release)
+### Follow-up: per-repo `remote` link style (minor release)
 
-**Status:** in progress — [#216](https://github.com/ja11sop/cuppa/issues/216); branch `issue/216-remote-link-style`.
+**Status:** in progress — [#216](https://github.com/ja11sop/cuppa/issues/216); PR [#219](https://github.com/ja11sop/cuppa/pull/219); target **1.9.0**.
 
 Add **`remote`** to `REPORT_LINK_STYLES` (and CLI choices). Keep **`github`** / **`gitlab`** as
 **force-all overrides** when the whole tree lives on one host.

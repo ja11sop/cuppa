@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - unreleased
+
+### Added
+
+- ``--reports-link-style=remote`` and matching Profiles override resolve HTML source links
+  per file: project paths use the sconstruct VCS; dependency paths use each tree's
+  ``source_url`` and ref, inferring GitHub vs GitLab blob URLs from the remote
+  ([#216](https://github.com/ja11sop/cuppa/issues/216)).
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
 ## [1.8.2] - 2026-08-18
 
 ### Fixed
@@ -838,6 +857,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Baseline release on `master` before the modules work landed.
 Detailed notes for 1.1.x and earlier were not maintained in this file; start recording notable changes here from 1.2.0 onward.
 
+[1.9.0]: https://github.com/ja11sop/cuppa/compare/v1.8.2...HEAD
 [1.8.2]: https://github.com/ja11sop/cuppa/compare/v1.8.1...v1.8.2
 [1.8.1]: https://github.com/ja11sop/cuppa/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/ja11sop/cuppa/compare/v1.7.0...v1.8.0
