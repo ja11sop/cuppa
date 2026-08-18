@@ -60,7 +60,7 @@ Group related registrations to avoid forty tiny pages:
 | Build | `Build`, `Compile`, `CompileStatic`, `CompileShared`, `BuildLib`, `BuildStaticLib`, `BuildSharedLib` | `build.py`, `compile.py`, `build_library.py` |
 | Test & run | `BuildTest`, `*Test`, `Test`, `BuildBenchmark`, `*Benchmark`, `Benchmark`, `Run` | `build_test.py`, `test.py`, `build_benchmark.py`, `benchmark.py`, `run.py` |
 | Coverage | `Coverage`, `CollateCoverageFiles`, `CollateCoverageIndex` | `coverage.py` |
-| C++ dialect & modules | `StdCpp`, `CxxModules`, `Modules` (deprecated), `Module`, `HeaderUnit`, `ImportModules`, `CxxProfiles`, `CxxProfilesEnforce`, `CxxDisableErrorLimit` | `stdcpp.py`, `modules.py`, `module.py`, `header_unit.py`, `import_modules.py`, `cxx_profiles.py`, `cxx_disable_error_limit.py` |
+| C++ dialect & modules | `StdCpp`, `CxxModules`, `Modules` (deprecated), `Module`, `HeaderUnit`, `ImportModules`, `CxxProfiles`, `CxxProfilesEnforce`, `CxxErrorLimit`, `CxxDefaultErrorLimit`, `CxxDisableErrorLimit` | `stdcpp.py`, `modules.py`, `module.py`, `header_unit.py`, `import_modules.py`, `cxx_profiles.py`, `cxx_error_limit.py` |
 | Dependencies & profiles | `BuildWith`, `Using`, `BuildProfile` | `build_with.py`, `using.py`, `build_profile.py` |
 | Flags & toolchain | `Toolchain`, `ReplaceFlags`, `RemoveFlags` | `toolchain.py`, `replace_flags.py`, `remove_flags.py` |
 | Files & templates | `CopyFiles`, `CopyFilesAs`, `TargetFrom`, `ExpandTemplateFile`, `RenderJinjaTemplate`, `RecursiveGlob`, `GlobFiles`, `Filter` | respective modules |

@@ -20,9 +20,10 @@ Before generating a report you will need:
 
 * xref:cxx-profiles.adoc#how-cuppa-enables[Profiles enabled] on a Profiles-capable Clang
   (`--cxx-profiles` and usually `--cxx-profiles-enforce=`)
-* A build that compiles translation units under enforce — pair with
-  `--cxx-disable-error-limit` when you need the compiler's full diagnostic list rather than its
-  default cap (see xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[Violation inventory report])
+* A build that compiles translation units under enforce — inventory mode implies unlimited
+  per-TU diagnostics; for enforce-only sweeps without a report, pass ``--cxx-disable-error-limit``
+  when you need the compiler's full diagnostic list rather than its default cap (see
+  xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[Violation inventory report])
 * `--cxx-profiles-report` on the same cuppa invocation (same section)
 
 [#generating-during-build]
@@ -54,7 +55,7 @@ for console behaviour and exit policy.
 ----
 cuppa -D --dbg --toolchains=clang24_profiles_2026_08_07_27 \
   --cxx-profiles --cxx-profiles-enforce=std::init \
-  --cxx-disable-error-limit --cxx-profiles-report
+  --cxx-profiles-report
 ----
 
 Optional flags that affect report shape (full list on xref:cxx-profiles.adoc[C++ Profiles]):

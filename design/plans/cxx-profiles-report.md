@@ -2,14 +2,16 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — C++ Profiles (`profiles-violation-report`); umbrella [#184](https://github.com/ja11sop/cuppa/issues/184) (closed); semantics [#199](https://github.com/ja11sop/cuppa/issues/199) shipped [#203](https://github.com/ja11sop/cuppa/pull/203); scope filter follow-on [§Collate index scope filter](#prof-report-scope-filter-slice); shipped enablement [`archive/cxx-profiles.md`](../archive/cxx-profiles.md); [`removal-options.md`](removal-options.md) §4.6 Phase 6 artefacts [#135](https://github.com/ja11sop/cuppa/issues/135); test/coverage report patterns (`cuppa/test_report/`, `cuppa/cpp/run_gcov_coverage.py`)
-- **Updated:** 2026-08-18
+- **Updated:** 2026-08-19
 - **Impact:** minor — new opt-in CLI flag and HTML artefacts; no change to default builds
 
 ## Why
 
 C++ Profiles enforcement (`--cxx-profiles` + `--cxx-profiles-enforce=`) can emit **thousands**
-of diagnostics across a large tree. Pairing with `--cxx-disable-error-limit` surfaces the full
-inventory, but the raw compiler stream is hard to triage:
+of diagnostics across a large tree. Profiles inventory mode implies unlimited per-TU diagnostics
+on Clang/GCC (see [§Implied diagnostic error limit](#prof-report-error-limit)); for enforce-only
+sweeps without a report, pass `--cxx-disable-error-limit` or `--cxx-error-limit=0`. The raw
+compiler stream is still hard to triage:
 
 - The same rule fires repeatedly on the same file (template instantiations, included headers).
 - Violations span project sources, dependencies, and generated paths.
@@ -781,7 +783,7 @@ methods. **Settled decisions, work slices, and hooks:** [§Collate index semanti
 | Proposal | Rationale | Settled |
 |----------|-----------|---------|
 | **`--cxx-profiles-report` implies `-i`** when the user did not pass `-i` explicitly | Inventory runs are report-first; stopping at the first failed TU defeats the feature | **Yes** |
-| **`--cxx-profiles-report` implies unlimited per-TU diagnostic cap** when not overridden | Without `-ferror-limit=0` / `-fmax-errors=0`, each TU can stop early and the inventory under-counts violations — a silent “better” report | **Follow-on** — [§Implied diagnostic error limit](#prof-report-error-limit); issue draft [`issues/profiles-report-implied-error-limit.md`](../issues/profiles-report-implied-error-limit.md) |
+| **`--cxx-profiles-report` implies unlimited per-TU diagnostic cap** when not overridden | Without `-ferror-limit=0` / `-fmax-errors=0`, each TU can stop early and the inventory under-counts violations — a silent “better” report | **Shipped** [#225](https://github.com/ja11sop/cuppa/pull/225) — [§Implied diagnostic error limit](#prof-report-error-limit) |
 | **At end of invocation:** non-zero exit for **non-profile** compile failures while still writing the index | Keeps CI honest while allowing profile inventory to complete | **Yes (v1)** — profile-violation-only sessions exit 0 |
 | **Optional scope filter:** index lists only scopes whose owning sconscript declared ``CollateCxxProfilesIndex()`` (union of declarers); CLI lists all scopes | Matches test/coverage collator opt-in; capture stays session-wide | **Follow-on** — [§Collate index scope filter](#prof-report-scope-filter-slice) |
 | **Decouple report write from `finished` → target success** | Ensure `sconstruct_end` collation runs when capture buffer is non-empty even if compiles failed | **Yes** — Progress fix + fallback flush |
@@ -857,9 +859,8 @@ Former sub-ids (`prof-report-semantics-i`, `-progress`, `-exit`, `-docs`) are bo
 
 ## Implied diagnostic error limit (`prof-report-error-limit`)
 
-**Id:** `prof-report-error-limit` · **Status:** **issue draft**
-([`issues/profiles-report-implied-error-limit.md`](../issues/profiles-report-implied-error-limit.md)) ·
-**Impact:** minor · **Target:** 1.9.0
+**Id:** `prof-report-error-limit` · **Status:** **shipped** ([#225](https://github.com/ja11sop/cuppa/pull/225) /
+[#224](https://github.com/ja11sop/cuppa/issues/224)) · **Impact:** minor · **Target:** 1.9.0
 
 ### Why
 
@@ -873,24 +874,32 @@ is easy to miss because the report still renders and looks authoritative.
 | Topic | Decision |
 |-------|----------|
 | **Inventory implies unlimited** | Same activation gate as implied `-i` (`--cxx-profiles-report` or `CollateCxxProfilesIndex()`), unless the user overrides |
-| **Override: compiler default** | `--cxx-default-error-limit` — append no cuppa error-limit flags even in inventory mode |
+| **Override: compiler default** | `--cxx-default-error-limit` — strip existing `-ferror-limit` / `-fmax-errors` flags; append no cuppa flag |
 | **Override: explicit cap** | `--cxx-error-limit=N` (`0` = unlimited); wins over inventory implication |
 | **Existing flag** | `--cxx-disable-error-limit` remains shorthand for unlimited on non-inventory enforce sweeps |
+| **Sconscript methods** | `env.CxxErrorLimit(N)`, `env.CxxDefaultErrorLimit()`, `env.CxxDisableErrorLimit()` mirror the CLI vocabulary |
 | **Toolchain API** | Generalise `disable_error_limit_flags` → `error_limit_flags(env, limit)`; MSVC warns when unsupported |
-| **`configure.conf`** | **No new loader** — keys are the usual internal option names (`cxx_error_limit`, `cxx_default_error_limit`, `cxx_disable_error_limit`). **Document** in Antora Configuration + C++ Profiles hub (today authors may not know Profiles flags are persistable). |
+| **`configure.conf`** | **No new loader** — keys are the usual internal option names (`cxx_error_limit`, `cxx_default_error_limit`, `cxx_disable_error_limit`). Documented in Antora Configuration + C++ Profiles hub. |
 
-Update examples that pair `--cxx-disable-error-limit` with `--cxx-profiles-report` once this ships:
-report mode will imply unlimited; keep the disable flag in docs for enforce-only builds and for
-explicit `configure.conf` defaults.
+Report mode implies unlimited; `--cxx-disable-error-limit` remains in docs for enforce-only builds
+and explicit `configure.conf` defaults.
 
-### Implementation hooks (sketch)
+### Progress snapshot (2026-08-19, [#225](https://github.com/ja11sop/cuppa/pull/225))
 
-| Area | File | Hook |
-|------|------|------|
-| Precedence / env | `cuppa/methods/cxx_disable_error_limit.py` (rename or extend) | Resolve effective `limit` from CLI + inventory activation |
-| Inventory activation | `cuppa/methods/cxx_profiles_report.py` | Set implied unlimited in `activate_cxx_profiles_report()` when not overridden |
-| Toolchains | `cuppa/toolchains/{clang,gcc,cl}.py` | `error_limit_flags(env, limit)` |
-| Docs | `configuration.adoc`, `cxx-profiles.adoc`, `cli-reference.adoc` | Keys table + behaviour; not a new conf format |
+| Area | Status |
+|------|--------|
+| `cuppa/methods/cxx_error_limit.py` | Resolve effective limit from CLI, `configure.conf`, inventory, and sconscript methods; strip before apply |
+| `init_env_for_variant` | Inventory implies unlimited when not overridden |
+| Toolchains `error_limit_flags(env, limit)` | Clang/GCC/MSVC |
+| Env methods | `CxxErrorLimit(N)`, `CxxDefaultErrorLimit()`, `CxxDisableErrorLimit()` |
+| Unit tests | Precedence, strip/default/disable, method surface, idempotent CLI registration |
+| Integration test | `test_profiles_report_implies_error_limit` (Profiles-capable Clang) |
+| Antora + CHANGELOG | CLI reference, cxx-profiles hub, configuration.adoc |
+| Bootstrap fixes | Early `configured_options` / `add_base_options` before verbosity; cuppa logger honours `--verbosity=exception` |
+
+| Id | Status |
+|----|--------|
+| `prof-report-error-limit` | **Shipped on [#225](https://github.com/ja11sop/cuppa/pull/225)** — implied unlimited per-TU cap with explicit overrides; generalised error-limit module and env methods |
 
 <a id="prof-report-scope-filter-slice"></a>
 

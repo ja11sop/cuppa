@@ -115,6 +115,30 @@ to use when resolving ``remote`` links for a given hostname. See
 xref:cli-reference.adoc#reports-link-style[HTML report source links] for the full flag list and
 behaviour (mapped providers, unmapped partial links, and provider hint links).
 
+=== C++ Profiles diagnostic cap without CI flags
+
+Profiles inventory runs (``--cxx-profiles-report`` or ``env.CollateCxxProfilesIndex()``) imply
+unlimited per-TU diagnostics on Clang/GCC unless you override them. For enforce-only builds that
+are not generating a report, record unlimited diagnostics once:
+
+[source,python]
+----
+cxx_disable_error_limit = True
+----
+
+Or set an explicit cap:
+
+[source,python]
+----
+cxx_error_limit = 20
+----
+
+When inventory mode is active but you want the compiler default cap, pass
+``--cxx-default-error-limit`` on the command line or set ``cxx_default_error_limit = True`` in
+``configure.conf``. Keys match the internal option names (underscores). See
+xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[Violation inventory report]
+and xref:cli-reference.adoc[CLI reference] for precedence.
+
 == Environment variables
 
 |===

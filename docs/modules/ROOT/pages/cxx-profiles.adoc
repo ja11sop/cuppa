@@ -127,7 +127,10 @@ session (`sconstruct_end`). The construction `env` exposes `artefacts_root` and
 `--artefacts-root=` or `--artifacts-root=` alongside `--build-root=`).
 
 Pair with `--cxx-disable-error-limit` so the compiler does not stop after its
-default diagnostic cap. The report is read-only — it does not rewrite sources.
+default diagnostic cap on **non-inventory** enforce sweeps. Profiles inventory mode
+(``--cxx-profiles-report`` or ``env.CollateCxxProfilesIndex()``) **implies** unlimited
+per-TU diagnostics unless you pass ``--cxx-default-error-limit`` or set an explicit
+``--cxx-error-limit=``. The report is read-only — it does not rewrite sources.
 
 ==== Inventory mode (keep-going builds)
 
@@ -150,8 +153,12 @@ is active.
 ----
 cuppa -D --dbg --toolchains=clang24_profiles_2026_08_07_27 \
   --cxx-profiles --cxx-profiles-enforce=std::init \
-  --cxx-disable-error-limit --cxx-profiles-report
+  --cxx-profiles-report
 ----
+
+Inventory mode also implies unlimited per-TU diagnostics (same activation as keep-going
+``-i``). Pass ``--cxx-default-error-limit`` when you intentionally want the compiler's
+default cap during a report run.
 
 The session index opens on an **Overview** tab when context capture is enabled
 (`--cxx-profiles-report-context=full`, the default). Start with
@@ -273,14 +280,19 @@ destination and link options on the command line, cuppa removes matching manifes
 deletes the listed files. ``--remove-builds`` alone does not remove reports under
 ``_artefacts/`` (or legacy ``_artifacts/`` when that tree is still in use).
 
-=== Full diagnostic lists (`--cxx-disable-error-limit`)
+=== Full diagnostic lists (error limit)
 
 Profile enforce checks can emit many diagnostics; compilers stop after a default cap.
-Pass `--cxx-disable-error-limit` to append toolchain-specific unlimited flags
-(Clang `-ferror-limit=0`, GCC `-fmax-errors=0`). MSVC `cl.exe` has no supported
-equivalent (it stops with fatal C1003 after an internal cap). Pair with
-`--cxx-profiles-enforce=` when you need the complete violation set for reporting or
-batch fixing. Optional method: `env.CxxDisableErrorLimit()`.
+Profiles inventory (``--cxx-profiles-report`` or ``CollateCxxProfilesIndex()``) implies
+unlimited per-TU diagnostics on Clang/GCC unless you pass ``--cxx-default-error-limit`` or set
+``--cxx-error-limit=``. For enforce-only sweeps without a report, pass
+``--cxx-disable-error-limit`` (or ``--cxx-error-limit=0``) to append toolchain-specific
+unlimited flags (Clang ``-ferror-limit=0``, GCC ``-fmax-errors=0``). MSVC ``cl.exe`` has no
+supported equivalent (it stops with fatal C1003 after an internal cap). Sconscript methods mirror
+the CLI vocabulary: ``env.CxxErrorLimit(N)`` (``0`` = unlimited), ``env.CxxDefaultErrorLimit()``,
+and ``env.CxxDisableErrorLimit()`` (optional ``enabled=False`` to drop a disable override). When
+cuppa applies a cap, it removes any existing ``-ferror-limit`` / ``-fmax-errors`` entries from
+``CXXFLAGS`` and ``CCFLAGS`` first so project defaults cannot override the resolved setting.
 
 [#future]
 == What may come next

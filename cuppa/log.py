@@ -140,15 +140,18 @@ def reset_logging_format():
 def set_logging_level( level ):
 
     if level == "trace":
-        root_logger.setLevel( logging.TRACE )
+        log_level = logging.TRACE
     elif level == "debug":
-        root_logger.setLevel( logging.DEBUG )
+        log_level = logging.DEBUG
     elif level == "exception":
-        root_logger.setLevel( logging.EXCEPTION )
+        log_level = logging.EXCEPTION
     elif level == "warn":
-        root_logger.setLevel( logging.WARN )
+        log_level = logging.WARN
     elif level == "error":
-        root_logger.setLevel( logging.ERROR )
+        log_level = logging.ERROR
     else:
-        root_logger.setLevel( logging.INFO )
+        log_level = logging.INFO
+
+    root_logger.setLevel( log_level )
+    logger.setLevel( log_level )
 

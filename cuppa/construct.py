@@ -191,7 +191,6 @@ class Construct(object):
     def initialise_options( self, options, default_options, profiles, dependencies ):
         options['default_options'] = default_options or {}
         # env.AddMethod( self.get_option, "get_option" )
-        cuppa.core.base_options.add_base_options()
         cuppa.modules.registration.add_options( self.toolchains_key )
         cuppa.modules.registration.add_options( self.dependencies_key )
         cuppa.modules.registration.add_options( self.profiles_key )
@@ -353,12 +352,14 @@ class Construct(object):
         dependencies, default_dependencies, dependencies_warning = self._normalise_with_defaults( dependencies, default_dependencies, "dependencies" )
         profiles, default_profiles, profiles_warning = self._normalise_with_defaults( profiles, default_profiles, "profiles" )
 
-        self.initialise_options( cuppa_env, default_options, profiles, dependencies )
+        cuppa_env['default_options'] = default_options or {}
         cuppa_env['configured_options'] = {}
+        cuppa.core.base_options.add_base_options()
+        self._set_verbosity_level( cuppa_env )
+        self.initialise_options( cuppa_env, default_options, profiles, dependencies )
         self._configure = cuppa.configure.Configure( cuppa_env, callback=configure_callback )
 
         enable_thirdparty_logging( cuppa_env.get_option( 'enable-thirdparty-logging' ) and True or False )
-        self._set_verbosity_level( cuppa_env )
 
         cuppa_env['sconstruct_path'] = sconstruct_path
         cuppa_env['sconstruct_dir'], cuppa_env['sconstruct_file'] = os.path.split(sconstruct_path)
