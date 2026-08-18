@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Document persisting ``reports_link_style`` and ``reports_*_hosts`` via ``configure.conf`` or
   ``cuppa.run(default_options=…)`` so CI pipelines need not repeat link-style flags.
+- ``regenerate_profiles_report`` accepts ``remote`` for ``--reports-link-style`` and related flags.
 
 ### Deprecated
 
