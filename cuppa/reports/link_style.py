@@ -49,6 +49,8 @@ RemoteLinkResolution = namedtuple(
     ( 'browse_url', 'ref', 'relpath', 'provider', 'source_url' ),
 )
 
+UNKNOWN_HOSTING_NOTES_KEY = '_reports_unknown_browse_urls'
+
 _WORKING_DIR_MARKER = '/working/'
 _UNQUALIFIED_SUFFIX = ' (unqualified)'
 
@@ -392,16 +394,51 @@ def repo_relative_path_for_link( path, env ):
     return path.replace( '\\', '/' )
 
 
+def reset_unknown_hosting_notes( env ):
+    """Clear accumulated unmapped repository hosts before one report emission."""
+    if env is not None:
+        env[ UNKNOWN_HOSTING_NOTES_KEY ] = set()
+
+
+def log_unknown_hosting_summary( env ):
+    """Emit one console note listing unmapped repository hosts for this report run."""
+    if not env:
+        return
+    unknown = env.get( UNKNOWN_HOSTING_NOTES_KEY ) or set()
+    if not unknown:
+        return
+    repos = sorted( unknown )
+    logger.info(
+        'Unmapped repository hosts for remote source links: %s. '
+        'The HTML report includes GH/GL/BB/GT/AD provider hint links for these sources. '
+        'Map a host to a provider blob URL shape with '
+        '--reports-github-hosts=HOST, --reports-gitlab-hosts=HOST, or the matching '
+        'bitbucket, gitea, or azure-devops host flags (same keys in configure.conf). '
+        'See the CLI reference and Configuration docs.',
+        ', '.join( repos ),
+    )
+
+
+def _record_unknown_hosting( browse, env ):
+    if not browse or not env:
+        return
+    notes = env.setdefault( UNKNOWN_HOSTING_NOTES_KEY, set() )
+    if browse in notes:
+        return
+    notes.add( browse )
+    hostname = _hostname_from_browse_url( browse ) or browse
+    logger.debug(
+        'reports: unknown hosting for %s; using repository URL with provider hints',
+        hostname,
+    )
+
+
 def _resolve_remote_metadata( browse, ref, source_url, env ):
     if not browse or not ref:
         return None
     provider = detect_hosting_provider( browse, env )
     if provider == 'unknown':
-        hostname = _hostname_from_browse_url( browse ) or browse
-        logger.info(
-            'reports: unknown hosting for %s; using repository URL with provider hints',
-            hostname,
-        )
+        _record_unknown_hosting( browse, env )
     return RemoteLinkResolution(
         browse_url=browse,
         ref=ref,

@@ -16,11 +16,13 @@ from cuppa.reports.link_style import (
     file_href_for_provider,
     hosting_style_from_url,
     initialise_report_linking,
+    log_unknown_hosting_summary,
     normalize_repository_browse_url,
     parse_host_list,
     repo_relative_path_for_link,
     reports_host_config,
     repository_blob_base,
+    reset_unknown_hosting_notes,
     resolve_path_remote_link,
     resolve_report_link_style,
     source_file_href,
@@ -270,7 +272,7 @@ def test_source_link_display_unmapped_partial_link( tmp_path, monkeypatch ):
     assert 'title="GitLab">GL</a>' in display[ 'label_html' ]
 
 
-def test_build_unmapped_remote_link_html_respects_hint_flag( tmp_path ):
+def test_build_unmapped_remote_link_html_respects_hint_flag():
     from cuppa.reports.link_style import RemoteLinkResolution
 
     resolution = RemoteLinkResolution(
@@ -293,6 +295,37 @@ def test_build_unmapped_remote_link_html_respects_hint_flag( tmp_path ):
     )
     assert 'GH</a>' not in html_without_hints
 
+
+def test_unknown_hosting_summary_dedupes_repos( caplog ):
+    import logging
+    from cuppa.reports.link_style import _record_unknown_hosting
+
+    caplog.set_level( logging.INFO, logger='cuppa' )
+    caplog.set_level( logging.DEBUG, logger='cuppa' )
+    env = {}
+    reset_unknown_hosting_notes( env )
+    browse = 'https://git.example.com/org/app'
+    _record_unknown_hosting( browse, env )
+    _record_unknown_hosting( browse, env )
+    _record_unknown_hosting( 'https://git.other.example/org/lib', env )
+    log_unknown_hosting_summary( env )
+    info_messages = [
+        record.getMessage()
+        for record in caplog.records
+        if record.levelno == logging.INFO
+    ]
+    assert len( info_messages ) == 1
+    assert 'https://git.example.com/org/app' in info_messages[ 0 ]
+    assert 'https://git.other.example/org/lib' in info_messages[ 0 ]
+    assert info_messages[ 0 ].count( 'https://git.example.com/org/app' ) == 1
+    assert 'GH/GL/BB/GT/AD provider hint links' in info_messages[ 0 ]
+    assert '--reports-gitlab-hosts=HOST' in info_messages[ 0 ]
+    debug_messages = [
+        record.getMessage()
+        for record in caplog.records
+        if record.levelno == logging.DEBUG
+    ]
+    assert len( debug_messages ) == 2
 
 def test_source_file_href_remote_style( tmp_path, monkeypatch ):
     source = tmp_path / 'include' / 'widget.hpp'

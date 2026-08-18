@@ -26,11 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``cuppa.run(default_options=…)`` so CI pipelines need not repeat link-style flags.
 - ``regenerate_profiles_report`` accepts ``remote`` for ``--reports-link-style`` and related flags.
 
+### Fixed
+
+- Unmapped remote hosts log once per Profiles report (deduplicated repository list) instead of
+  one info line per source file; per-file detail stays at debug level.
+
 ### Deprecated
 
 ### Removed
-
-### Fixed
 
 ### Security
 

@@ -617,11 +617,18 @@ def render_profiles_reports(
     destination = resolve_report_directory( env )
     os.makedirs( destination, exist_ok=True )
 
-    from cuppa.reports.link_style import initialise_report_linking, resolve_report_link_style
+    from cuppa.reports.link_style import (
+        initialise_report_linking,
+        log_unknown_hosting_summary,
+        reset_unknown_hosting_notes,
+        resolve_report_link_style,
+    )
     link_style = resolve_report_link_style(
         env,
         per_report_env_key='cxx_profiles_report_link_style',
     )
+    if link_style == 'remote':
+        reset_unknown_hosting_notes( env )
     report_root = env.get( 'cxx_profiles_report_root' ) or env.get( 'sconstruct_dir' )
     sconstruct_dir = env.get( 'sconstruct_dir' ) or os.getcwd()
 
@@ -760,6 +767,8 @@ def render_profiles_reports(
             rollup[ 'total_references' ],
         )
     )
+    if link_style == 'remote':
+        log_unknown_hosting_summary( env )
     session_paths = [ index_path ]
     if write_json:
         session_paths.append( json_path )
