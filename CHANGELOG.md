@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Document persisting ``reports_link_style`` and ``reports_*_hosts`` via ``configure.conf`` or
+  ``cuppa.run(default_options=…)`` so CI pipelines need not repeat link-style flags.
+
 ### Deprecated
 
 ### Removed

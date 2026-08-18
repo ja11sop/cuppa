@@ -195,6 +195,12 @@ coverage links). That lets one sconscript build on GitHub Actions or GitLab CI w
 `link_style=` in each method call. Use `remote` when violations span location dependencies on
 another host (GitHub project + GitLab dependency, or mixed GitHub orgs).
 
+To avoid repeating link-style and host-list flags in CI, persist them in project
+xref:configuration.adoc#html-report-source-links-without-ci-flags[`configure.conf`] or
+``cuppa.run(default_options=…)`` (keys such as ``reports_link_style`` and
+``reports_gitlab_hosts``). Self-hosted git hostnames are mapped there; the dependency still
+declares its git URL in ``location_dependency(..., location=…)``.
+
 When both are present, `--cxx-profiles-report-link-style=` overrides `--reports-link-style=` for
 Profiles output only (and for `.cuppa-reports` manifest matching on clean).
 
