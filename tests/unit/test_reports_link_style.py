@@ -101,6 +101,16 @@ def test_resolve_report_link_style_precedence():
     assert resolve_report_link_style( {}, method_link_style=None ) == 'local'
 
 
+def test_source_file_href_skips_missing_path():
+    assert source_file_href(
+        None,
+        10,
+        'local',
+        'file:///tmp/project',
+        None,
+    ) is None
+
+
 def test_source_file_href_remote():
     href = source_file_href(
         'src/widget.cpp',

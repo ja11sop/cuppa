@@ -580,16 +580,16 @@ def resolve_path_remote_link( path, env ):
 def source_link_display( path, line, link_style, link_base, display_path, env=None ):
     """Return ``href``, plain ``label``, and optional ``label_html`` for one source location."""
     env = env or {}
-    display = display_path if display_path is not None else path
-    if link_style not in REPORT_LINK_STYLES:
+    if not path or link_style not in REPORT_LINK_STYLES:
         return {
             'href': None,
-            'label': display,
+            'label': display_path if display_path is not None else path,
             'label_html': None,
         }
+    display = display_path if display_path is not None else path
     if link_style == 'local':
         href = None
-        if link_base:
+        if link_base and display:
             joined = os.path.join( link_base, display )
             href = '{}#L{}'.format( joined, line ) if line else joined
         return {

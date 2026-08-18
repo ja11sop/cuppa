@@ -35,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``--reports-gitlab-hosts=HOST`` parses correctly.
 - Host suffix lists accept bare hostnames or ``https://`` URLs; unmapped-host log lines list
   hostnames only (no scheme).
+- Test HTML source links skip test cases with no ``file`` path instead of raising when building
+  ``local`` links.
 
 ### Deprecated
 
