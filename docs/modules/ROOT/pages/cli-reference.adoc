@@ -67,8 +67,8 @@ TIP: If cuppa fails early while reading sconscripts, re-run with `--verbosity=ex
 |===
 | Option | Description
 
-| `--reports-link-style=local|gitlab|github` | Session-wide source link targets for HTML reports this run emits (test suite HTML, C++ Profiles reports, and future coverage source links). Overrides `link_style=` method kwargs when the sconscript leaves the default unset; per-report flags below override this session flag.
-| `--cxx-profiles-report-link-style=local|gitlab|github` | Profiles-only override of `--reports-link-style` for `--cxx-profiles-report` output and `.cuppa-reports` manifest matching
+| `--reports-link-style=local|gitlab|github|remote` | Session-wide source link targets for HTML reports this run emits (test suite HTML, C++ Profiles reports, and future coverage source links). Overrides `link_style=` method kwargs when the sconscript leaves the default unset; per-report flags below override this session flag. Use `remote` when dependency sources live on a different host than the project repository.
+| `--cxx-profiles-report-link-style=local|gitlab|github|remote` | Profiles-only override of `--reports-link-style` for `--cxx-profiles-report` output and `.cuppa-reports` manifest matching
 |===
 
 Test reports: `env.GenerateHtmlTestReport(…, link_style=…)` still sets a per-target default; `--reports-link-style=` wins when you need CI-published blob links without editing sconscripts. See xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[C++ Profiles violation report] for Profiles-specific flags and offline regen.
@@ -190,7 +190,7 @@ C++ Profiles (opt-in; Profiles-capable Clang only):
 * `--cxx-disable-error-limit` -- disable the compiler diagnostic cap (Clang `-ferror-limit=0`, GCC `-fmax-errors=0`) so every error is reported; useful with enforce for a full violation list
 * `--cxx-profiles-report` -- capture Profiles diagnostics during the build and emit HTML + JSON under `_artefacts/cxx-profiles/` at session end (requires `--cxx-profiles` or `--cxx-profiles-enforce=`; optional directory path after `=`; or declare `env.CollateCxxProfilesIndex()` in a sconscript)
 * `--cxx-profiles-report-root=<dir>` -- rebase project-owned source paths in Profiles reports (default: sconstruct directory)
-* `--cxx-profiles-report-link-style=local|gitlab|github` — Profiles-only override of `--reports-link-style`
+* `--cxx-profiles-report-link-style=local|gitlab|github|remote` — Profiles-only override of `--reports-link-style`
 
 See xref:cxx-profiles.adoc[C++ Profiles].
 

@@ -378,8 +378,9 @@ the method default when CI publishes artefacts.
 | `link_style` | Href shape | When to use |
 |--------------|------------|---------------|
 | `local` (default) | `file://{sconstruct_dir}/{relpath}#L{line}` | Developer machine; opens editor/IDE handler |
-| `gitlab` | `{remote}/-/blob/{branch}/{relpath}#L{line}` | GitLab CI published artefacts |
-| `github` | `{remote}/blob/{branch}/{relpath}#L{line}` | GitHub Actions published artefacts |
+| `gitlab` | `{remote}/-/blob/{branch}/{relpath}#L{line}` | GitLab CI published artefacts (project VCS only) |
+| `github` | `{remote}/blob/{branch}/{relpath}#L{line}` | GitHub Actions published artefacts (project VCS only) |
+| `remote` | Per path: infer GitHub vs GitLab from that file's repo URL | Mixed project + dependency hosts ([#216](https://github.com/ja11sop/cuppa/issues/216)) |
 
 Source-page **link text** matches the active style: local paths for `local`, full blob URL for
 `github` / `gitlab` (same string as the href, without the line fragment).
@@ -426,8 +427,7 @@ hrefs still use the project repository until the follow-up slice below.
 
 ### Follow-up: per-repo `remote` link style (patch release)
 
-**Status:** proposal — implement on a fresh branch after [#214](https://github.com/ja11sop/cuppa/pull/214)
-merges ([#216](https://github.com/ja11sop/cuppa/issues/216)).
+**Status:** in progress — [#216](https://github.com/ja11sop/cuppa/issues/216); branch `issue/216-remote-link-style`.
 
 Add **`remote`** to `REPORT_LINK_STYLES` (and CLI choices). Keep **`github`** / **`gitlab`** as
 **force-all overrides** when the whole tree lives on one host.

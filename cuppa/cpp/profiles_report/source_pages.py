@@ -356,37 +356,15 @@ def build_source_page_title( display_path, source_path, env ):
 
 
 def remote_href_display_path( path, env ):
-    """Repo-relative path for ``github`` / ``gitlab`` blob URLs (not human display)."""
-    if not path:
-        return path
+    """Repo-relative path for remote blob URLs (not human display)."""
+    from cuppa.reports.link_style import repo_relative_path_for_link
 
-    normalized = os.path.normpath( path ).replace( '\\', '/' )
-    if _WORKING_DIR_MARKER in normalized:
-        return normalized.split( _WORKING_DIR_MARKER, 1 )[ 1 ]
-
-    storage_root = _storage_root_for_path( path, env )
-    if storage_root:
-        rel = _try_relpath( path, storage_root )
-        if rel:
-            parts = rel.split( '/', 1 )
-            remainder = parts[ 1 ] if len( parts ) > 1 else ''
-            if remainder:
-                return remainder
-            return rel
-
-    for root in ( env.get( 'sconstruct_dir' ), env.get( 'cxx_profiles_report_root' ) ):
-        rel = _try_relpath( path, root )
-        if rel:
-            if _WORKING_DIR_MARKER in rel:
-                return rel.split( _WORKING_DIR_MARKER, 1 )[ 1 ]
-            return rel
-
-    return path
+    return repo_relative_path_for_link( path, env )
 
 
 def href_display_path( path, env, link_style, display ):
     """Choose the path segment appended to a remote blob base."""
-    if link_style in ( 'github', 'gitlab' ):
+    if link_style in ( 'github', 'gitlab', 'remote' ):
         return remote_href_display_path( path, env )
     return display
 
@@ -395,7 +373,7 @@ def source_path_link_label( path, env, link_style, link_base, display ):
     """Return visible link text that matches what the href opens."""
     if link_style == 'local':
         return display_path_on_disk( path )
-    if link_style in ( 'github', 'gitlab' ):
+    if link_style in ( 'github', 'gitlab', 'remote' ):
         from cuppa.cpp.profiles_report.report_html import source_href
 
         href = source_href(
@@ -404,6 +382,7 @@ def source_path_link_label( path, env, link_style, link_base, display ):
             link_style,
             link_base,
             href_display_path( path, env, link_style, display ),
+            env=env,
         )
         if href:
             return href
@@ -669,6 +648,7 @@ def write_source_pages(
             link_style,
             link_base,
             href_path,
+            env=env,
         )
         source_path_display = source_path_link_label(
             source_path,
@@ -735,6 +715,7 @@ def annotate_file_links(
             link_style,
             link_base,
             href_path,
+            env=env,
         )
     for location in file_entry.get( 'locations', [] ):
         page = source_page_map.get( file_entry[ 'path' ] )
@@ -747,4 +728,5 @@ def annotate_file_links(
                 link_style,
                 link_base,
                 href_display_path( file_entry[ 'path' ], env, link_style, display ),
+                env=env,
             )

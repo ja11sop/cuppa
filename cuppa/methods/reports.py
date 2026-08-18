@@ -21,7 +21,7 @@ class ReportsLinkStyleMethod:
             default=None,
             choices=list( REPORT_LINK_STYLES ),
             help='Source link targets for HTML reports this session emits '
-                 '(local, gitlab, or github; overridden per report where a '
+                 '(local, gitlab, github, or remote; overridden per report where a '
                  'report-specific link-style flag exists)',
         )
 

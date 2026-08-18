@@ -177,7 +177,7 @@ Optional flags:
 
 * `--cxx-profiles-report=` *path* — explicit report directory (or index file stem)
 * `--cxx-profiles-report-root=` *dir* — rebase project-owned paths for display and links
-* `--cxx-profiles-report-link-style=local|gitlab|github` — Profiles-only source link override (see link-style precedence below)
+* `--cxx-profiles-report-link-style=local|gitlab|github|remote` — Profiles-only source link override (see link-style precedence below)
 * `--cxx-profiles-report-context=full|rules-only|off` — Overview `context` in JSON/HTML (`full` default; `rules-only` omits tier 1/2 denominators; `off` hides Overview context)
 
 ==== Interpreting the Overview tab
@@ -188,11 +188,12 @@ Each Overview summary card and section heading links to the matching section on 
 
 ==== Source link styles
 
-Profiles HTML uses the same link-style vocabulary as test reports (`local`, `gitlab`, `github`).
+Profiles HTML uses the same link-style vocabulary as test reports (`local`, `gitlab`, `github`, `remote`).
 Pass xref:cli-reference.adoc#reports-link-style[`--reports-link-style=`] on the cuppa command line
 to set source links for every report kind the session emits (test HTML, Profiles HTML, and future
 coverage links). That lets one sconscript build on GitHub Actions or GitLab CI without editing
-`link_style=` in each method call.
+`link_style=` in each method call. Use `remote` when violations span location dependencies on
+another host (GitHub project + GitLab dependency, or mixed GitHub orgs).
 
 When both are present, `--cxx-profiles-report-link-style=` overrides `--reports-link-style=` for
 Profiles output only (and for `.cuppa-reports` manifest matching on clean).

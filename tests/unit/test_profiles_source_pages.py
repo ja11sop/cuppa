@@ -467,3 +467,57 @@ def test_source_path_link_label_github_matches_href( tmp_path ):
         'include/widget.hpp',
     )
     assert label == 'https://github.com/org/repo/blob/main/include/widget.hpp'
+
+
+def test_write_source_pages_remote_dependency_link( tmp_path, monkeypatch ):
+    deps_root = tmp_path / '_download'
+    folder = 'git_ssh_git@git.example.com__org_widget@master'
+    dep_root = deps_root / folder
+    dep_root.mkdir( parents=True )
+    ( dep_root / '.git' ).mkdir()
+    source = dep_root / 'include' / 'widget.hpp'
+    source.parent.mkdir( parents=True )
+    source.write_text( 'int* p;\n', encoding='utf-8' )
+
+    monkeypatch.setattr(
+        'cuppa.core.dependency_identity.short_name_from_git_tree',
+        lambda path: ( 'git.example.com/org/widget', 'ssh://git@git.example.com/org/widget' ),
+    )
+    monkeypatch.setattr(
+        'cuppa.test_report.html_report.vcs_info_from_location',
+        lambda *args: (
+            'git@github.com:org/app.git',
+            'git@github.com:org/app.git',
+            'main',
+            'origin',
+            'abc',
+        ),
+    )
+
+    inventory = ProfilesInventory()
+    _record_line( inventory, str( source ), line=1, column=6 )
+
+    env = {
+        'sconstruct_dir': str( tmp_path ),
+        'downloads_root': str( deps_root ),
+        'reports_link_style': 'remote',
+    }
+    destination = tmp_path / 'report'
+    page_map, written = write_source_pages(
+        inventory,
+        str( destination ),
+        env,
+        'remote',
+        '',
+        'cxx-profiles-index.html',
+        lambda: __import__( 'jinja2' ).Environment(
+            loader=__import__( 'jinja2' ).PackageLoader( 'cuppa', 'cpp/templates' ),
+            autoescape=__import__( 'jinja2' ).select_autoescape( [ 'html', 'xml' ] ),
+        ).get_template( 'cxx_profiles_source_file.html' ),
+    )
+    html = open( written[ 0 ], encoding='utf-8' ).read()
+    expected = 'https://git.example.com/org/widget/-/blob/master/include/widget.hpp'
+    assert expected in html
+    assert 'href="{}"'.format( expected ) in html
+    assert 'github.com/org/app' not in html
+

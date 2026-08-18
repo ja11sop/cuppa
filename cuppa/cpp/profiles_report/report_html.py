@@ -76,9 +76,8 @@ def _repo_browse_href( repository ):
 
 
 def _hosting_style( repo_href ):
-    if repo_href and 'github.com' in repo_href.lower():
-        return 'github'
-    return 'gitlab'
+    from cuppa.reports.link_style import hosting_style_from_url
+    return hosting_style_from_url( repo_href )
 
 
 def _tag_href( repo_href, tag ):
@@ -183,10 +182,10 @@ def display_path( path, report_root, sconstruct_dir ):
     return path
 
 
-def source_href( path, line, link_style, link_base, display ):
+def source_href( path, line, link_style, link_base, display, env=None ):
     """Build a clickable href for a diagnostic location."""
     from cuppa.reports.link_style import source_file_href
-    return source_file_href( path, line, link_style, link_base, display )
+    return source_file_href( path, line, link_style, link_base, display, env=env )
 
 
 def rule_reference( profile, rule_id ):
