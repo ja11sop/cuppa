@@ -80,7 +80,7 @@ TIP: If cuppa fails early while reading sconscripts, re-run with `--verbosity=ex
 
 Test reports: `env.GenerateHtmlTestReport(…, link_style=…)` still sets a per-target default; `--reports-link-style=` wins when you need CI-published blob links without editing sconscripts. See xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[C++ Profiles violation report] for Profiles-specific flags and offline regen.
 
-With ``remote``, cuppa maps each file's repository host to a blob URL shape when the host matches a recognised provider (GitHub, GitLab, Bitbucket, Gitea/Forgejo/Codeberg, or Azure DevOps). Extend the default host lists with the ``--reports-*-hosts=`` flags above. Unmapped hosts link only the repository root in the visible path and append plain repo-relative text; optional provider hint links try alternate URL shapes.
+With ``remote``, cuppa maps each file's repository host to a blob URL shape when the host matches a recognised provider (GitHub, GitLab, Bitbucket, Gitea/Forgejo/Codeberg, or Azure DevOps). Extend the default host lists with the ``--reports-*-hosts=`` flags above; each entry may be a bare hostname (``git.corp.example``) or an ``https://`` URL — cuppa normalises to the hostname for matching. Unmapped hosts link only the repository root in the visible path and append plain repo-relative text; optional provider hint links try alternate URL shapes. One console info line lists unmapped hostnames per Profiles report run.
 
 ==== Persisting link style and host lists
 

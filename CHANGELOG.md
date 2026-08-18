@@ -28,8 +28,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Unmapped remote hosts log once per Profiles report (deduplicated repository list) instead of
-  one info line per source file; per-file detail stays at debug level.
+- Unmapped remote hosts log once per Profiles report (deduplicated host origins, not full
+  repository URLs); per-file detail stays at debug level. The summary uses info/blue hosts and
+  bold CLI flag examples.
+- ``--reports-*-hosts=`` flags register without a trailing ``=`` in the SCons option name so
+  ``--reports-gitlab-hosts=HOST`` parses correctly.
+- Host suffix lists accept bare hostnames or ``https://`` URLs; unmapped-host log lines list
+  hostnames only (no scheme).
 
 ### Deprecated
 

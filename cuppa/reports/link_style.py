@@ -49,10 +49,33 @@ RemoteLinkResolution = namedtuple(
     ( 'browse_url', 'ref', 'relpath', 'provider', 'source_url' ),
 )
 
-UNKNOWN_HOSTING_NOTES_KEY = '_reports_unknown_browse_urls'
+UNKNOWN_HOSTING_NOTES_KEY = '_reports_unknown_hosts'
 
 _WORKING_DIR_MARKER = '/working/'
 _UNQUALIFIED_SUFFIX = ' (unqualified)'
+
+
+def normalize_host_suffix( raw ):
+    """Return a lower-case host suffix for matching and log display.
+
+    Accepts bare hostnames (``git.corp.example``) or URLs with a scheme
+    (``https://git.corp.example/``); strips userinfo, paths, and leading dots.
+    """
+    if raw is None:
+        return None
+    text = str( raw ).strip()
+    if not text:
+        return None
+    if '://' in text:
+        parsed = urlparse( text )
+        if parsed.netloc:
+            text = parsed.netloc.split( '@' )[-1 ]
+        elif parsed.path:
+            text = parsed.path.split( '/' )[ 0 ]
+    else:
+        text = text.split( '@' )[-1 ].split( '/' )[ 0 ]
+    text = text.lower().lstrip( '.' ).rstrip( '.' )
+    return text or None
 
 
 def parse_host_list( raw ):
@@ -60,8 +83,15 @@ def parse_host_list( raw ):
     if raw is None:
         return None
     if isinstance( raw, ( list, tuple ) ):
-        return [ str( item ).strip() for item in raw if str( item ).strip() ]
-    return [ part.strip() for part in str( raw ).split( ',' ) if part.strip() ]
+        items = raw
+    else:
+        items = str( raw ).split( ',' )
+    hosts = []
+    for item in items:
+        host = normalize_host_suffix( item )
+        if host:
+            hosts.append( host )
+    return hosts or None
 
 
 def reports_host_config( env=None ):
@@ -402,31 +432,44 @@ def reset_unknown_hosting_notes( env ):
 
 def log_unknown_hosting_summary( env ):
     """Emit one console note listing unmapped repository hosts for this report run."""
+    from cuppa.colourise import as_emphasised, as_info
+
     if not env:
         return
     unknown = env.get( UNKNOWN_HOSTING_NOTES_KEY ) or set()
     if not unknown:
         return
-    repos = sorted( unknown )
+    hostnames = sorted( unknown )
+    host_list = '[{}]'.format(
+        ', '.join( as_info( hostname ) for hostname in hostnames ),
+    )
     logger.info(
-        'Unmapped repository hosts for remote source links: %s. '
+        'Unmapped repository hosts for remotes: {}. '
         'The HTML report includes GH/GL/BB/GT/AD provider hint links for these sources. '
         'Map a host to a provider blob URL shape with '
-        '--reports-github-hosts=HOST, --reports-gitlab-hosts=HOST, or the matching '
-        'bitbucket, gitea, or azure-devops host flags (same keys in configure.conf). '
-        'See the CLI reference and Configuration docs.',
-        ', '.join( repos ),
+        '{}, {}, or the matching '
+        '{}, {}, or {} host flags (same keys in configure.conf). '
+        'See the CLI reference and Configuration docs.'.format(
+            host_list,
+            as_emphasised( '--reports-github-hosts=HOST' ),
+            as_emphasised( '--reports-gitlab-hosts=HOST' ),
+            as_emphasised( 'bitbucket' ),
+            as_emphasised( 'gitea' ),
+            as_emphasised( 'azure-devops' ),
+        ),
     )
 
 
 def _record_unknown_hosting( browse, env ):
     if not browse or not env:
         return
-    notes = env.setdefault( UNKNOWN_HOSTING_NOTES_KEY, set() )
-    if browse in notes:
+    hostname = _hostname_from_browse_url( browse )
+    if not hostname:
         return
-    notes.add( browse )
-    hostname = _hostname_from_browse_url( browse ) or browse
+    notes = env.setdefault( UNKNOWN_HOSTING_NOTES_KEY, set() )
+    if hostname in notes:
+        return
+    notes.add( hostname )
     logger.debug(
         'reports: unknown hosting for %s; using repository URL with provider hints',
         hostname,

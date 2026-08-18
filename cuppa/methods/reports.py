@@ -43,14 +43,14 @@ class ReportsLinkStyleMethod:
             help='Disable provider hint links for unmapped remote hosts',
         )
         for provider, env_key in REPORTS_HOST_ENV_KEYS.items():
-            flag = '--{}='.format( env_key.replace( '_', '-' ) )
+            flag = '--{}'.format( env_key.replace( '_', '-' ) )
             provider_label = provider.replace( '_', ' ' )
             add_option(
                 flag,
                 dest=env_key,
                 default=None,
                 help='Extra ' + provider_label + ' host suffixes for remote link_style '
-                     '(comma-separated; defaults still apply)',
+                     '(comma-separated hostname or https URL; defaults still apply)',
             )
 
     @classmethod

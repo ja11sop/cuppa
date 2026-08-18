@@ -118,6 +118,16 @@ def test_parse_host_list():
         'corp.example',
     ]
     assert parse_host_list( [ 'a.example', 'b.example' ] ) == [ 'a.example', 'b.example' ]
+    assert parse_host_list( 'https://git.corp.example/' ) == [ 'git.corp.example' ]
+    assert parse_host_list( ' HTTPS://Git.Corp.Example/ ' ) == [ 'git.corp.example' ]
+
+
+def test_detect_hosting_provider_accepts_url_host_config():
+    env = { 'reports_gitlab_hosts': [ 'https://git.corp.example/' ] }
+    assert detect_hosting_provider(
+        'ssh://git@git.corp.example/org/repo.git',
+        env,
+    ) == 'gitlab'
 
 
 def test_reports_host_config_defaults():
@@ -307,6 +317,7 @@ def test_unknown_hosting_summary_dedupes_repos( caplog ):
     browse = 'https://git.example.com/org/app'
     _record_unknown_hosting( browse, env )
     _record_unknown_hosting( browse, env )
+    _record_unknown_hosting( 'https://git.example.com/org/lib', env )
     _record_unknown_hosting( 'https://git.other.example/org/lib', env )
     log_unknown_hosting_summary( env )
     info_messages = [
@@ -315,9 +326,12 @@ def test_unknown_hosting_summary_dedupes_repos( caplog ):
         if record.levelno == logging.INFO
     ]
     assert len( info_messages ) == 1
-    assert 'https://git.example.com/org/app' in info_messages[ 0 ]
-    assert 'https://git.other.example/org/lib' in info_messages[ 0 ]
-    assert info_messages[ 0 ].count( 'https://git.example.com/org/app' ) == 1
+    assert 'Unmapped repository hosts for remotes:' in info_messages[ 0 ]
+    assert 'https://git.example.com/org/app' not in info_messages[ 0 ]
+    assert 'git.example.com' in info_messages[ 0 ]
+    assert 'git.other.example' in info_messages[ 0 ]
+    assert info_messages[ 0 ].count( 'git.example.com' ) == 1
+    assert 'https://git.example.com' not in info_messages[ 0 ]
     assert 'GH/GL/BB/GT/AD provider hint links' in info_messages[ 0 ]
     assert '--reports-gitlab-hosts=HOST' in info_messages[ 0 ]
     debug_messages = [
@@ -326,6 +340,25 @@ def test_unknown_hosting_summary_dedupes_repos( caplog ):
         if record.levelno == logging.DEBUG
     ]
     assert len( debug_messages ) == 2
+
+
+def test_reports_host_flags_register_without_trailing_equals():
+    from cuppa.methods.reports import ReportsLinkStyleMethod
+
+    registered = []
+
+    def capture_option( flag, **kwargs ):
+        registered.append( flag )
+
+    ReportsLinkStyleMethod.add_options( capture_option )
+    host_flags = [
+        flag for flag in registered
+        if flag.startswith( '--reports-' ) and flag.endswith( '-hosts' )
+    ]
+    assert host_flags
+    assert all( not flag.endswith( '=' ) for flag in host_flags )
+    assert '--reports-gitlab-hosts' in host_flags
+
 
 def test_source_file_href_remote_style( tmp_path, monkeypatch ):
     source = tmp_path / 'include' / 'widget.hpp'
