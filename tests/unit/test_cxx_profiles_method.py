@@ -239,6 +239,9 @@ def test_gcc_and_cl_profiles_unsupported():
     assert gcc.profiles_enable_flags( None ) == []
     assert gcc.profiles_enforce_flags( None, ['std::init'] ) == []
     assert gcc.disable_error_limit_flags( None ) == [ '-fmax-errors=0' ]
+    assert gcc.error_limit_flags( None, 0 ) == [ '-fmax-errors=0' ]
+    assert gcc.error_limit_flags( None, 5 ) == [ '-fmax-errors=5' ]
+    assert gcc.error_limit_flags( None, None ) == []
 
     cl = Cl.__new__( Cl )
     assert cl.profiles_supported( None ) is False
@@ -271,4 +274,6 @@ def test_clang_profiles_probe_cached(monkeypatch):
     assert clang.profiles_supported( None ) is True
     assert clang.profiles_enable_flags( None ) == [ '-fprofiles' ]
     assert clang.disable_error_limit_flags( None ) == [ '-ferror-limit=0' ]
+    assert clang.error_limit_flags( None, 0 ) == [ '-ferror-limit=0' ]
+    assert clang.error_limit_flags( None, 3 ) == [ '-ferror-limit=3' ]
     assert len( calls ) == 1

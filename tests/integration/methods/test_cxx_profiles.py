@@ -183,7 +183,6 @@ def test_profiles_report_emits_html_and_json( tmp_path ):
         '--dbg',
         '--cxx-profiles',
         '--cxx-profiles-enforce=std::init',
-        '--cxx-disable-error-limit',
         '--cxx-profiles-report',
         toolchain_flag,
     )
@@ -192,6 +191,35 @@ def test_profiles_report_emits_html_and_json( tmp_path ):
     assert ( report_dir / 'cxx-profiles-index.json' ).is_file()
     combined = ( result.stdout or '' ) + ( result.stderr or '' )
     assert 'C++ Profiles report:' in combined or report_dir.exists()
+
+
+def test_profiles_report_implies_error_limit( tmp_path ):
+    """Inventory mode appends unlimited error-limit flags without --cxx-disable-error-limit."""
+    _, toolchain_flag = require_profiles_capable_toolchain()
+    write_sconstruct( tmp_path )
+    write_sconscript(
+        tmp_path,
+        "Import('env')\n"
+        "env.Build( 'app', [ 'main.cpp' ] )\n",
+    )
+    ( tmp_path / 'main.cpp' ).write_text(
+        'int main()\n'
+        '{\n'
+        '    int Value [[uninit]];\n'
+        '    return Value;\n'
+        '}\n'
+    )
+    result = run_cuppa(
+        tmp_path,
+        '--dbg',
+        '--cxx-profiles',
+        '--cxx-profiles-enforce=std::init',
+        '--cxx-profiles-report',
+        toolchain_flag,
+    )
+    assert_success( result )
+    combined = ( result.stdout or '' ) + ( result.stderr or '' )
+    assert '-ferror-limit=0' in combined or '-fmax-errors=0' in combined
 
 
 def test_profiles_report_clean_removes_manifest_artefacts( tmp_path ):
@@ -214,7 +242,6 @@ def test_profiles_report_clean_removes_manifest_artefacts( tmp_path ):
         '--dbg',
         '--cxx-profiles',
         '--cxx-profiles-enforce=std::init',
-        '--cxx-disable-error-limit',
         '--cxx-profiles-report',
         toolchain_flag,
     ]

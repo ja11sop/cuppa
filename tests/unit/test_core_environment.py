@@ -42,6 +42,19 @@ def test_get_option_falls_back_to_default_arg(reset_cuppa_environment, monkeypat
     assert CuppaEnvironment.get_option("missing", default="fallback") == "fallback"
 
 
+def test_get_option_without_configured_options_key(reset_cuppa_environment, monkeypatch):
+    """Early construct bootstrap may call get_option before configured_options exists."""
+    CuppaEnvironment = reset_cuppa_environment
+    CuppaEnvironment._options["default_options"] = {}
+
+    monkeypatch.setattr(
+        SCons.Script,
+        "GetOption",
+        lambda option: "exception" if option == "verbosity" else None,
+    )
+    assert CuppaEnvironment.get_option("verbosity") == "exception"
+
+
 def test_get_option_configured_source_still_returns_cli_value(reset_cuppa_environment, monkeypatch):
     """configured_options only annotates source; CLI / defaults still supply the value."""
     CuppaEnvironment = reset_cuppa_environment

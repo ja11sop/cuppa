@@ -145,7 +145,7 @@ Umbrella: [#127](https://github.com/ja11sop/cuppa/issues/127) ([#177](https://gi
 |------------|--------|
 | `--cxx-profiles` → `-fprofiles` (probed; StopError when unsupported) | Yes |
 | `--cxx-profiles-enforce=` (native flags or `-include` inject; source composition) | Yes |
-| `--cxx-disable-error-limit` (Clang/GCC; MSVC `cl` has no supported flag) | Yes |
+| `--cxx-disable-error-limit` / `--cxx-error-limit=N` / `--cxx-default-error-limit` (Clang/GCC; MSVC `cl` has no supported flag) | Yes (inventory implies unlimited on [#225](https://github.com/ja11sop/cuppa/pull/225)) |
 | `--cxx-profiles-report` — HTML + JSON inventory, Overview context, variant roll-ups ([#196](https://github.com/ja11sop/cuppa/pull/196)) | Yes |
 | `env.CollateCxxProfilesIndex()`, `--list-available-reports`, British `--artefacts-root` ([#198](https://github.com/ja11sop/cuppa/pull/198)) | Yes |
 | Smoke designator `std::init` on Alliance Clang | Yes |
@@ -153,10 +153,10 @@ Umbrella: [#127](https://github.com/ja11sop/cuppa/issues/127) ([#177](https://gi
 
 **Key implementation files**
 
-- `cuppa/methods/cxx_profiles.py`, `cuppa/methods/cxx_disable_error_limit.py`
+- `cuppa/methods/cxx_profiles.py`, `cuppa/methods/cxx_error_limit.py`
 - `cuppa/cpp/cxx_profiles.py`
-- `cuppa/toolchains/{clang,gcc,cl}.py` — `profiles_*` and `disable_error_limit_flags`
-- `tests/unit/test_cxx_profiles_method.py`, `tests/unit/test_cxx_vocabulary.py`
+- `cuppa/toolchains/{clang,gcc,cl}.py` — `profiles_*` and `error_limit_flags`
+- `tests/unit/test_cxx_error_limit.py`, `tests/unit/test_cxx_profiles_method.py`
 - `tests/integration/methods/test_cxx_profiles.py`
 
 ### Planned / potential
@@ -164,6 +164,7 @@ Umbrella: [#127](https://github.com/ja11sop/cuppa/issues/127) ([#177](https://gi
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
 | `profiles-violation-report` | `prof-report-method-semantics` — implied `-i`, Progress decoupling, selective exit | High | **Shipped** [#203](https://github.com/ja11sop/cuppa/pull/203) / [#199](https://github.com/ja11sop/cuppa/issues/199) |
+| `profiles-violation-report` | `prof-report-error-limit` — inventory implies unlimited per-TU diagnostic cap | High | **On branch** [#225](https://github.com/ja11sop/cuppa/pull/225) / [#224](https://github.com/ja11sop/cuppa/issues/224); [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) §Implied diagnostic error limit; **1.9.0** |
 | `profiles-violation-report` | `prof-report-scope-filter` — method-only index filter (union of declaring sconscripts) | High | [#205](https://github.com/ja11sop/cuppa/issues/205); [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) §Collate index scope filter |
 | `profiles-violation-report` | `prof-report-artefacts` — full `--remove-artefacts` / declared artefact trees | Medium | Blocked on [#135](https://github.com/ja11sop/cuppa/issues/135); F-min discovery shipped in [#198](https://github.com/ja11sop/cuppa/pull/198) |
 | `profiles-designators` | Additional profile names as Alliance Clang / WG21 stabilise | Medium | Cuppa passes opaque strings through |

@@ -12,6 +12,7 @@ from cuppa.methods.cxx_profiles_report import (
     activate_cxx_profiles_report,
     reset_inventory_report_state_for_tests,
 )
+from cuppa.methods.cxx_error_limit import reset_error_limit_state_for_tests
 from cuppa.progress import NotifyProgress
 
 pytestmark = pytest.mark.unit
@@ -21,9 +22,11 @@ pytestmark = pytest.mark.unit
 def _reset_collector():
     ProfilesDiagnosticCollector.reset()
     reset_inventory_report_state_for_tests()
+    reset_error_limit_state_for_tests()
     yield
     ProfilesDiagnosticCollector.reset()
     reset_inventory_report_state_for_tests()
+    reset_error_limit_state_for_tests()
 
 
 class FakeEnv(dict):

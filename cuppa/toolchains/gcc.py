@@ -620,8 +620,19 @@ class Gcc(object):
         return []
 
 
+    def error_limit_flags( self, env, limit ):
+        if limit is None:
+            return []
+        limit = int( limit )
+        if limit == 0:
+            return [ '-fmax-errors=0' ]
+        if limit > 0:
+            return [ '-fmax-errors={}'.format( limit ) ]
+        return []
+
+
     def disable_error_limit_flags( self, env ):
-        return [ '-fmax-errors=0' ]
+        return self.error_limit_flags( env, 0 )
 
 
     def module_bmi_path( self, env, module_name ):

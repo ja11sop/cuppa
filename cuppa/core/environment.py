@@ -98,9 +98,10 @@ class CuppaEnvironment(MutableMapping):
 
         value = SCons.Script.GetOption( option )
         source = None
+        default_options = cls._options.get( 'default_options' ) or {}
         if value == None or value == '':
-            if cls._options['default_options'] and option in cls._options['default_options']:
-                value = cls._options['default_options'][ option ]
+            if default_options and option in default_options:
+                value = default_options[ option ]
                 source = "in the sconstruct file"
             elif default:
                 value = default
@@ -108,7 +109,8 @@ class CuppaEnvironment(MutableMapping):
         else:
             source = "on command-line"
 
-        if option in cls._options['configured_options']:
+        configured_options = cls._options.get( 'configured_options' ) or {}
+        if option in configured_options:
             source = "using configure"
 
         if value:

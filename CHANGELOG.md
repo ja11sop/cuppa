@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--cxx-error-limit=N`` and ``--cxx-default-error-limit`` control the C++ compiler diagnostic
+  cap; Profiles inventory (``--cxx-profiles-report`` or ``CollateCxxProfilesIndex()``) implies
+  unlimited per-TU diagnostics unless overridden ([#224](https://github.com/ja11sop/cuppa/issues/224)).
+  Sconscript methods ``env.CxxErrorLimit(N)``, ``env.CxxDefaultErrorLimit()``, and
+  ``env.CxxDisableErrorLimit()`` mirror the same vocabulary.
 - ``--reports-link-style=remote`` and matching Profiles override resolve HTML source links
   per file: project paths use the sconstruct VCS; dependency paths use each tree's
   ``source_url`` and ref ([#216](https://github.com/ja11sop/cuppa/issues/216)).
@@ -22,12 +27,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Profiles inventory no longer requires ``--cxx-disable-error-limit``; report mode implies
+  unlimited per-TU diagnostics (Clang ``-ferror-limit=0``, GCC ``-fmax-errors=0``) unless
+  ``--cxx-default-error-limit`` or ``--cxx-error-limit=`` is set. Cuppa strips any existing
+  ``-ferror-limit`` / ``-fmax-errors`` flags from ``CXXFLAGS`` / ``CCFLAGS`` before applying the
+  resolved cap; ``--cxx-default-error-limit`` strips them to restore the toolchain default.
 - Document persisting ``reports_link_style`` and ``reports_*_hosts`` via ``configure.conf`` or
   ``cuppa.run(default_options=…)`` so CI pipelines need not repeat link-style flags.
 - ``regenerate_profiles_report`` accepts ``remote`` for ``--reports-link-style`` and related flags.
 
 ### Fixed
 
+- ``--cxx-error-limit`` CLI options register once when the module exposes a backward-compatible
+  class alias (fixes ``OptionConflictError`` on configure).
+- ``--verbosity=exception`` applies to the cuppa logger and is honoured before method option
+  registration so configure-time failures print a stack trace (base options and
+  ``configured_options`` are initialised before early verbosity setup).
 - Unmapped remote hosts log once per Profiles report (deduplicated host origins, not full
   repository URLs); per-file detail stays at debug level. The summary uses info/blue hosts and
   bold CLI flag examples.

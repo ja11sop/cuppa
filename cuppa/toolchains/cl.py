@@ -639,10 +639,14 @@ class Cl(object):
         return []
 
 
-    def disable_error_limit_flags( self, env ):
+    def error_limit_flags( self, env, limit ):
         # MSVC cl.exe stops with fatal C1003 after an internal cap (~100 errors).
         # There is no documented /errorlimit switch on cl (that spelling is lld-link).
         return []
+
+
+    def disable_error_limit_flags( self, env ):
+        return self.error_limit_flags( env, 0 )
 
 
     def module_bmi_path( self, env, module_name ):
