@@ -25,7 +25,7 @@ Cycle opened with [#212](https://github.com/ja11sop/cuppa/pull/212) / [#214](htt
 | Compile object paths under `working/` (nested basenames) | [#213](https://github.com/ja11sop/cuppa/issues/213) / [#214](https://github.com/ja11sop/cuppa/pull/214) |
 | Profiles report fixes (inventory Progress ordering, link style, source links) | [#214](https://github.com/ja11sop/cuppa/pull/214); [#215](https://github.com/ja11sop/cuppa/issues/215) |
 
-**Deferred to 1.8.2+:** console bundle (`--terse-output`, log hygiene, `cuppa --info` — see plans under Build console output); `prof-report-scope-filter` ([#205](https://github.com/ja11sop/cuppa/issues/205)); per-repo **`remote`** report link style ([#216](https://github.com/ja11sop/cuppa/issues/216)); Boost package identity slices ([`boost-updates.md`](design/plans/boost-updates.md)); GitLab CMake staging ([#209](https://github.com/ja11sop/cuppa/issues/209)); optional `--native-output`; docs-only Antora UI / methods split; **sconscript export/sharing** ([`sconscript-exports.md`](design/plans/sconscript-exports.md)); CMake migration guide ([`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md)).
+**Deferred to 1.8.2+:** console bundle (`--terse-output`, log hygiene, `cuppa --info` — see plans under Build console output); `prof-report-scope-filter` ([#205](https://github.com/ja11sop/cuppa/issues/205)); Boost package identity slices ([`boost-updates.md`](design/plans/boost-updates.md)); GitLab CMake staging ([#209](https://github.com/ja11sop/cuppa/issues/209)); optional `--native-output`; docs-only Antora UI / methods split; **sconscript export/sharing** ([`sconscript-exports.md`](design/plans/sconscript-exports.md)); CMake migration guide ([`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md)).
 
 ---
 
@@ -147,6 +147,7 @@ Umbrella: [#127](https://github.com/ja11sop/cuppa/issues/127) ([#177](https://gi
 | `--cxx-profiles-enforce=` (native flags or `-include` inject; source composition) | Yes |
 | `--cxx-disable-error-limit` / `--cxx-error-limit=N` / `--cxx-default-error-limit` (Clang/GCC; MSVC `cl` has no supported flag) | Yes (inventory implies unlimited on [#225](https://github.com/ja11sop/cuppa/pull/225)) |
 | `--cxx-profiles-report` — HTML + JSON inventory, Overview context, variant roll-ups ([#196](https://github.com/ja11sop/cuppa/pull/196)) | Yes |
+| `--reports-link-style=remote` + per-provider host lists ([#219](https://github.com/ja11sop/cuppa/pull/219)) | Yes |
 | `env.CollateCxxProfilesIndex()`, `--list-available-reports`, British `--artefacts-root` ([#198](https://github.com/ja11sop/cuppa/pull/198)) | Yes |
 | Smoke designator `std::init` on Alliance Clang | Yes |
 | Integration smoke + unsupported-toolchain failure | Yes |
@@ -164,7 +165,8 @@ Umbrella: [#127](https://github.com/ja11sop/cuppa/issues/127) ([#177](https://gi
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
 | `profiles-violation-report` | `prof-report-method-semantics` — implied `-i`, Progress decoupling, selective exit | High | **Shipped** [#203](https://github.com/ja11sop/cuppa/pull/203) / [#199](https://github.com/ja11sop/cuppa/issues/199) |
-| `profiles-violation-report` | `prof-report-error-limit` — inventory implies unlimited per-TU diagnostic cap | High | **On branch** [#225](https://github.com/ja11sop/cuppa/pull/225) / [#224](https://github.com/ja11sop/cuppa/issues/224); [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) §Implied diagnostic error limit; **1.9.0** |
+| `profiles-violation-report` | `prof-report-error-limit` — inventory implies unlimited per-TU diagnostic cap | High | **Shipped** [#225](https://github.com/ja11sop/cuppa/pull/225) / [#224](https://github.com/ja11sop/cuppa/issues/224); **1.9.0** |
+| `profiles-violation-report` | `prof-report-remote-links` — per-repo `remote` HTML source links | High | **Shipped** [#219](https://github.com/ja11sop/cuppa/pull/219) / [#216](https://github.com/ja11sop/cuppa/issues/216); **1.9.0** |
 | `profiles-violation-report` | `prof-report-scope-filter` — method-only index filter (union of declaring sconscripts) | High | [#205](https://github.com/ja11sop/cuppa/issues/205); [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) §Collate index scope filter |
 | `profiles-violation-report` | `prof-report-artefacts` — full `--remove-artefacts` / declared artefact trees | Medium | Blocked on [#135](https://github.com/ja11sop/cuppa/issues/135); F-min discovery shipped in [#198](https://github.com/ja11sop/cuppa/pull/198) |
 | `profiles-designators` | Additional profile names as Alliance Clang / WG21 stabilise | Medium | Cuppa passes opaque strings through |
