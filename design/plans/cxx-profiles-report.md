@@ -1,7 +1,7 @@
 # Plan: C++ Profiles violation report (`--cxx-profiles-report`)
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — C++ Profiles (`profiles-violation-report`); umbrella [#184](https://github.com/ja11sop/cuppa/issues/184) (closed); semantics [#199](https://github.com/ja11sop/cuppa/issues/199) shipped [#203](https://github.com/ja11sop/cuppa/pull/203); scope filter follow-on [§Collate index scope filter](#prof-report-scope-filter-slice); shipped enablement [`archive/cxx-profiles.md`](../archive/cxx-profiles.md); [`removal-options.md`](removal-options.md) §4.6 Phase 6 artefacts [#135](https://github.com/ja11sop/cuppa/issues/135); test/coverage report patterns (`cuppa/test_report/`, `cuppa/cpp/run_gcov_coverage.py`)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — C++ Profiles (`profiles-violation-report`); umbrella [#184](https://github.com/ja11sop/cuppa/issues/184) (closed); semantics [#199](https://github.com/ja11sop/cuppa/issues/199) shipped [#203](https://github.com/ja11sop/cuppa/pull/203); **1.9.0:** per-repo **`remote`** link style [#216](https://github.com/ja11sop/cuppa/issues/216) shipped [#219](https://github.com/ja11sop/cuppa/pull/219); implied per-TU error limit [#224](https://github.com/ja11sop/cuppa/issues/224) shipped [#225](https://github.com/ja11sop/cuppa/pull/225); scope filter follow-on [§Collate index scope filter](#prof-report-scope-filter-slice); shipped enablement [`archive/cxx-profiles.md`](../archive/cxx-profiles.md); [`removal-options.md`](removal-options.md) §4.6 Phase 6 artefacts [#135](https://github.com/ja11sop/cuppa/issues/135); test/coverage report patterns (`cuppa/test_report/`, `cuppa/cpp/run_gcov_coverage.py`)
 - **Updated:** 2026-08-19
 - **Impact:** minor — new opt-in CLI flag and HTML artefacts; no change to default builds
 
@@ -65,9 +65,12 @@ It activates capture + collation whenever Profiles are enabled (or when enforce 
 exact gate in §Settled behaviour). Projects opt in per invocation:
 
 ```text
-cuppa -D --dbg --cxx-profiles --cxx-profiles-enforce=std::init \
-  --cxx-disable-error-limit --cxx-profiles-report
+cuppa -D --dbg --cxx-profiles --cxx-profiles-enforce=std::init --cxx-profiles-report
 ```
+
+Inventory mode implies unlimited per-TU diagnostics on Clang/GCC unless overridden — see
+[§Implied diagnostic error limit](#prof-report-error-limit). For enforce-only sweeps without a
+report, pass `--cxx-disable-error-limit` or `--cxx-error-limit=0`.
 
 An **`env.CollateCxxProfilesIndex(destination=…)`** method (slice **E**) provides the same
 HTML / JSON session index, integrated with `NotifyProgress.add()` and SCons `Clean()` like
@@ -361,13 +364,16 @@ slice A).
 
 ### Source links (`link_style`)
 
-Shared module `cuppa/reports/link_style.py` (shipped with slice C):
+Shared module `cuppa/reports/link_style.py` (shipped with slice C; **`remote`** in **1.9.0**
+[#219](https://github.com/ja11sop/cuppa/pull/219)):
 
-- `REPORT_LINK_STYLES` — `local`, `gitlab`, `github`
+- `REPORT_LINK_STYLES` — `local`, `gitlab`, `github`, `remote`
 - `resolve_report_link_style(env, …)` — precedence: per-report CLI → `--reports-link-style=` →
   method kwarg → `local`
-- `initialise_report_linking(env, link_style)` — blob base URI (GitHub `/blob/`, GitLab `/-/blob/`)
-- `source_file_href(…)` — repo-relative path + `#L{line}` for test and Profiles tables
+- `initialise_report_linking(env, link_style)` — blob base URI for mono-host `github` / `gitlab`
+- `resolve_path_remote_link(path, env)` — per-file provider detection when `link_style=remote`
+- `source_file_href(…)` / `source_link_display()` — repo-relative path + `#L{line}`; unmapped
+  hosts get linked repository URL + plain path suffix and optional provider hint links
 
 Session override: **`--reports-link-style=`** applies to every report kind the invocation emits
 (test HTML via `GenerateHtmlTestReport`, Profiles via `--cxx-profiles-report`). Profiles-only
@@ -380,17 +386,24 @@ the method default when CI publishes artefacts.
 | `link_style` | Href shape | When to use |
 |--------------|------------|---------------|
 | `local` (default) | `file://{sconstruct_dir}/{relpath}#L{line}` | Developer machine; opens editor/IDE handler |
-| `gitlab` | `{remote}/-/blob/{branch}/{relpath}#L{line}` | GitLab CI published artefacts (project VCS only) |
-| `github` | `{remote}/blob/{branch}/{relpath}#L{line}` | GitHub Actions published artefacts (project VCS only) |
-| `remote` | Per path: infer GitHub vs GitLab from that file's repo URL | Mixed project + dependency hosts ([#216](https://github.com/ja11sop/cuppa/issues/216)) |
+| `gitlab` | `{remote}/-/blob/{branch}/{relpath}#L{line}` | Single-host CI publish — **project** VCS for every path |
+| `github` | `{remote}/blob/{branch}/{relpath}#L{line}` | Single-host CI publish — **project** VCS for every path |
+| `remote` | Per path: detect provider from host; project → project VCS; dependency → `source_url` + ref | Mixed project + dependency hosts ([#216](https://github.com/ja11sop/cuppa/issues/216) / [#219](https://github.com/ja11sop/cuppa/pull/219)) |
+
+**Recognised providers (`remote`):** GitHub, GitLab, Bitbucket, Gitea/Forgejo/Codeberg, Azure
+DevOps — configurable host suffix lists (`--reports-github-hosts=`, `--reports-gitlab-hosts=`,
+`--reports-bitbucket-hosts=`, `--reports-gitea-hosts=`, `--reports-azure-devops-hosts=` and matching
+`configure.conf` keys). Unmapped hosts log once per report (hostnames only); per-file detail at
+debug. Optional `GH` / `GL` / `BB` / `GT` / `AD` hint links
+(`--reports-remote-provider-hints` / `--no-reports-remote-provider-hints`).
 
 Source-page **link text** matches the active style: local paths for `local`, full blob URL for
-`github` / `gitlab` (same string as the href, without the line fragment).
+mapped `remote` / `github` / `gitlab` providers.
 
 **Path rebasing:** map absolute diagnostic paths (including dependency trees under
 `~/_cuppa/_download/…`) to a **repo-relative** path when under `sconstruct_dir` or
-`--cxx-profiles-report-root=`; otherwise show absolute path with `local` link only (no remote blob —
-same caveat as test report: *“Might need VCS detection per file”* for dependency sources).
+`--cxx-profiles-report-root=`; with `local`, paths outside those roots stay absolute with no remote
+blob. With `remote`, dependency trees use each tree's `source_url` / git metadata when available.
 
 **Dependency display paths (shipped heuristic; metadata gap):** for location-dependency sources,
 the by-file / by-rule tables use a **two-line** title:
@@ -410,50 +423,43 @@ case but is **wrong** when `sys_include` / `include` spans multiple segments (e.
 that in `source_pages._split_location_include_remainder()` instead of the first-segment heuristic.
 Until then, document the limitation in report help text if users hit mis-split paths.
 
-**CLI / method surface (settled for v1 CLI):**
+**CLI / method surface (settled):**
 
 | Flag / arg | Meaning |
 |------------|---------|
-| `--cxx-profiles-report-link-style=local` | Default |
-| `--cxx-profiles-report-link-style=gitlab` | Blob links from `vcs_info_from_location` |
-| `--cxx-profiles-report-link-style=github` | GitHub blob links (add alongside test report) |
+| `--reports-link-style=local\|gitlab\|github\|remote` | Session-wide source links (test, Profiles, …) |
+| `--cxx-profiles-report-link-style=…` | Profiles-only override of `--reports-link-style` |
+| `--reports-{github,gitlab,bitbucket,gitea,azure_devops}-hosts=` | Host suffix lists for `remote` provider detection |
+| `--reports-remote-provider-hints` / `--no-reports-remote-provider-hints` | Optional hint links on unmapped hosts |
+| `env.CollateCxxProfilesIndex(…, link_style=…)` | Method kwarg; overridden by session / Profiles CLI flags |
 
 Slice **E** (`env.CollateCxxProfilesIndex(…, link_style=…)`) mirrors `CollateCoverageIndex` /
 `CollateTestReportIndex` kwargs (destination, link_style).
 Collated master index passes `link_style="raw"` VCS metadata into the template header (same as test
 suite index).
 
-**Known limitation (v1 `github` / `gitlab`):** one blob base from the **project** VCS applies to
-every href. Dependency sources get human-readable `host/org/repo@branch/…` display paths but remote
-hrefs still use the project repository until the follow-up slice below.
+**Known limitation (`github` / `gitlab` mono-host modes):** one blob base from the **project** VCS
+applies to every href. Dependency sources get human-readable `host/org/repo@branch/…` display paths
+but remote hrefs still use the project repository. Use **`remote`** when dependencies live on other
+hosts.
 
-### Follow-up: per-repo `remote` link style (minor release)
+<a id="prof-report-remote-links"></a>
 
-**Status:** in progress — [#216](https://github.com/ja11sop/cuppa/issues/216); PR [#219](https://github.com/ja11sop/cuppa/pull/219); target **1.9.0**.
+### Per-repo `remote` link style (`prof-report-remote-links`)
 
-Add **`remote`** to `REPORT_LINK_STYLES` (and CLI choices). Keep **`github`** / **`gitlab`** as
-**force-all overrides** when the whole tree lives on one host.
+**Id:** `prof-report-remote-links` · **Status:** **shipped** ([#219](https://github.com/ja11sop/cuppa/pull/219) /
+[#216](https://github.com/ja11sop/cuppa/issues/216)) · **Impact:** minor · **Target:** 1.9.0
 
-| `link_style` | Href shape | When to use |
-|--------------|------------|---------------|
-| `remote` (new) | Per path: detect provider from host (GitHub, GitLab, Bitbucket, Gitea/Forgejo/Codeberg, Azure DevOps); project files → project VCS; dependency files → `enrich_described` / `source_url` + qualifier | Mixed hosts; configurable host suffix lists; unmapped hosts show linked repo URL + plain path suffix with optional GH/GL/BB/GT/AD hint links |
-| `github` / `gitlab` | Single blob base from project VCS for every path | Monorepo or single-host CI publish |
+| Area | Status |
+|------|--------|
+| `cuppa/reports/link_style.py` | `remote` in `REPORT_LINK_STYLES`; `resolve_path_remote_link`, provider host maps, unmapped-host logging |
+| Profiles + test HTML | `source_file_href` / `source_link_display` per-file resolution |
+| CLI + `configure.conf` | `--reports-*-hosts=`, `reports_link_style`, `reports_remote_provider_hints` |
+| `regenerate_profiles_report` | Accepts `remote` and host-list flags |
+| Antora + CHANGELOG | CLI reference, configuration.adoc, cxx-profiles hub |
 
-**Implementation sketch:**
-
-- Shared provider detection + blob URL builders in `cuppa/reports/link_style.py`.
-- `resolve_path_remote_link(path, env) → RemoteLinkResolution` — reuse `describe_tree_path` /
-  `enrich_described` / `remote_href_display_path()` (shipped in
-  [#214](https://github.com/ja11sop/cuppa/pull/214) for project + working-dir paths).
-- `source_link_display()` — mapped providers emit full blob hrefs; unmapped hosts emit partial
-  HTML (`<a href="repo">repo</a>/path#Ln` + optional hint links).
-- CLI / `configure.conf`: `--reports-{github,gitlab,bitbucket,gitea,azure_devops}-hosts=`,
-  `--reports-remote-provider-hints` / `--no-reports-remote-provider-hints`.
-- Default stays **`local`**; document **`remote`** for mixed-dependency Profiles runs in Antora +
-  `cli-reference.adoc`.
-
-**Settled:** name is **`remote`** (not `repo`) — contrasts with `local` and avoids confusion with
-“repository” as a noun.
+**Settled:** name is **`remote`** (not `repo`) — contrasts with `local`. Default link style stays
+**`local`**; document **`remote`** for mixed-dependency Profiles runs in Antora and `cli-reference.adoc`.
 
 ## Settled CLI (proposal)
 
@@ -462,14 +468,19 @@ Add **`remote`** to `REPORT_LINK_STYLES` (and CLI choices). Keep **`github`** / 
 | `--cxx-profiles-report` | Enable capture + emit default report paths under artefacts root |
 | `--cxx-profiles-report=` *path* | Explicit report **directory** or index **file** stem (directory if ends with `/` or exists as dir) |
 | `--cxx-profiles-report-root=` *dir* | Rebase project-owned paths for display and remote links (default: infer from sconstruct cwd) |
-| `--cxx-profiles-report-link-style=` *local\|gitlab\|github* | Profiles-only source link override (overrides `--reports-link-style=`; see §Source links) |
-| `--reports-link-style=` *local\|gitlab\|github* | Session-wide source links for all HTML reports this run emits (test, Profiles, …) |
+| `--cxx-profiles-report-link-style=` *local\|gitlab\|github\|remote* | Profiles-only source link override (overrides `--reports-link-style=`; see §Source links) |
+| `--reports-link-style=` *local\|gitlab\|github\|remote* | Session-wide source links for all HTML reports this run emits (test, Profiles, …) |
+| `--reports-{github,gitlab,bitbucket,gitea,azure_devops}-hosts=` | Host suffix lists for `remote` provider detection (repeatable; `configure.conf` keys match) |
 
 **Activation gate:** flag is a no-op unless Profiles are active for the build
 (`--cxx-profiles` or env already has `cxx_profiles` / enforce inject). Otherwise **StopError** with
 a message pointing at `--cxx-profiles` — same fail-clear style as other `--cxx-*` flags.
 
-**Recommended pairing (docs only):** `--cxx-disable-error-limit` so the inventory is complete.
+**Recommended pairing:** inventory mode implies unlimited per-TU diagnostics on Clang/GCC (see
+[§Implied diagnostic error limit](#prof-report-error-limit)). For enforce-only sweeps without a
+report, pass `--cxx-disable-error-limit` or set `cxx_disable_error_limit = True` in
+`configure.conf`. For mixed-dependency CI publishes, pair `--reports-link-style=remote` with host
+suffix lists as needed (see [§Per-repo `remote` link style](#prof-report-remote-links)).
 
 No legacy alias. Implementation env key: `cxx_profiles_report` (parallel to `cxx_profiles`).
 
@@ -1282,10 +1293,11 @@ status — violations are `error:` diagnostics. That does **not** block include 
 2. **`-H` precedes most Profiles errors** — the compiler prints each included file as the front-end
    opens it; Profiles rule checks run later on the parsed translation unit. For a typical TU,
    includes are logged before semantic violations in those headers.
-3. **Pair with `--cxx-disable-error-limit`** — without `-ferror-limit=0` / `-fmax-errors=0`, the
-   compiler may stop mid-TU after the default cap and **skip later includes** in that file. Report
-   builds that populate `files_parsed` should treat unlimited diagnostics as **recommended**
-   (same pairing already documented for a complete violation inventory).
+3. **Inventory implies unlimited per-TU diagnostics** — report builds apply `-ferror-limit=0` /
+   `-fmax-errors=0` on Clang/GCC unless `--cxx-default-error-limit` or `--cxx-error-limit=` overrides
+   (shipped [#225](https://github.com/ja11sop/cuppa/pull/225)). Without that, the compiler may stop
+   mid-TU after the default cap and **skip later includes** in that file. Override with
+   `--cxx-default-error-limit` when a capped compile is intentional.
 4. **Numerator is independent** — `files_with_violations` comes from Profiles diagnostic paths,
    not from `-H`; both streams share stderr but serve different fields.
 
@@ -1551,7 +1563,7 @@ required (aligns with anonymized sharing).
 | **Partial builds** | `files_parsed` reflects only compiles that **ran** before abort — banner must stay prominent. |
 | **Tier 1** | **`files_with_violations / files_parsed`** — physical files (TUs + included headers), not TU-only. |
 | **Tier 2 scope** | Denominator is **violating files only** — concentration in hot files (headers + sources). |
-| **Include capture** | `-H` on report builds only; pair with **`--cxx-disable-error-limit`** for complete per-TU include logs; disable context capture → omit tier 1 % or show “not captured”. |
+| **Include capture** | `-H` on report builds only; inventory implies unlimited per-TU diagnostics unless overridden; disable context capture → omit tier 1 % or show “not captured”. |
 | **Dependencies** | Violations under `_cuppa/_download/…` inflate “files affected”; optional **`context.include_dependencies`** boolean (default true) with subtotals for project-only paths when `report_root` / include roots allow classification. |
 | **Source line counting** | Lexical `source_lines_v1`: excludes blanks, comments, and `#` directives — denominator aligned with where violations attach; mis-counts rare string/comment edge cases; still no `#include` body attribution. |
 | **Zero-filled rules** | Tied to **documented** rule ids in cuppa classifiers, not every possible future Clang rule — `_unclassified` row when observed but unknown. |
@@ -1721,6 +1733,8 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 | F-min — `prof-report-artefacts-min` | **Done** — merged [#198](https://github.com/ja11sop/cuppa/pull/198): registry, `--list-available-reports` judgement tree (`{artefacts_root}` / `{build_root}` in-tree), British `--artefacts-root`, default `_artefacts` |
 | F — `prof-report-artefacts` | **Blocked on #135** — full `artefact_roots` / `--remove-artefacts`; F-min covers discovery only |
 | `prof-report-method-semantics` | **Shipped** — [#203](https://github.com/ja11sop/cuppa/pull/203) / [#199](https://github.com/ja11sop/cuppa/issues/199) |
+| `prof-report-remote-links` | **Shipped** — [#219](https://github.com/ja11sop/cuppa/pull/219) / [#216](https://github.com/ja11sop/cuppa/issues/216) — `remote` link style, multi-provider host lists |
+| `prof-report-error-limit` | **Shipped** — [#225](https://github.com/ja11sop/cuppa/pull/225) / [#224](https://github.com/ja11sop/cuppa/issues/224) — inventory implies unlimited per-TU cap |
 | `prof-report-scope-filter` | **Proposal** — see [§Collate index scope filter](#prof-report-scope-filter-slice) |
 
 **Next focus:** **`prof-report-scope-filter`** (method-only write-time filter); full **F** when [#135](https://github.com/ja11sop/cuppa/issues/135) Phase 6 starts.
@@ -1732,7 +1746,7 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 3. **Report-only exit code:** optional `--cxx-profiles-report-allow-errors` if inventory runs should succeed?
 4. **Cross-variant roll-up:** session **union** for headline / Overview (settled); By-Rule / By-File show **per-build Hits + common/delta** display ([§Variant roll-up display](#prof-report-variant-roll-up-display)) — Antora documents both.
 5. **GitHub `link_style`:** → **Settled** — shared helper in `link_style.py`; per-repo **`remote`**
-   style tracked in [#216](https://github.com/ja11sop/cuppa/issues/216).
+   shipped [#219](https://github.com/ja11sop/cuppa/pull/219) — [§Per-repo `remote` link style](#prof-report-remote-links).
 6. **`_unscoped` bucket:** when spawn scope cannot be derived, record under session `_unscoped` with warning in HTML — never guess variant.
 7. **Implied `-i`:** → **Settled yes** — [#199](https://github.com/ja11sop/cuppa/issues/199) / [§Collate index semantics](#prof-report-method-semantics-slice).
 8. **Progress vs failed compiles:** → **Settled yes** — Progress decoupling + fallback flush — [#199](https://github.com/ja11sop/cuppa/issues/199).
