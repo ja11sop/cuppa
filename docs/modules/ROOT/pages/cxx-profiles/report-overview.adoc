@@ -265,6 +265,6 @@ metric. That would complement — not replace — tier 1 breadth and tier 2 conc
 * xref:cxx-profiles/report.adoc[Violation report reading guide] — other index tabs
 * xref:cxx-profiles/report-by-rule.adoc[By-Rule tab] — session roll-up detail
 * xref:cxx-profiles/report-by-build.adoc[By-Build tab] — repeats build inventory load table
-* xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[Violation inventory report] — flags on the C++ Profiles hub
+* xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[Violation inventory report] — flags on the {cpp} Profiles hub
 * xref:cli-reference.adoc[CLI reference] — `--cxx-profiles-report-context=full|rules-only|off`
 * xref:cxx-profiles/std-init.adoc[std::init profile] — rule documentation linked from matrix **Docs** cells

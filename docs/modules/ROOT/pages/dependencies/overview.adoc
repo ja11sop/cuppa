@@ -1,0 +1,56 @@
+= Dependencies overview
+:description: How Cuppa dependencies participate in a build and how to declare them
+
+A Cuppa dependency packages the build settings and preparation steps needed to use another
+library. It can contribute include paths, preprocessor definitions, libraries, and explicit
+build-order edges. Depending on its kind, it can also locate an existing installation, fetch
+source code, or consume a package from a registry.
+
+The xref:dependencies.adoc[Dependencies] landing page maps each dependency kind and workflow
+to its detailed guide. This overview explains the vocabulary shared by those guides.
+
+== Declaring default dependencies
+
+Pass `default_dependencies` to `cuppa.run()` when most targets in the project use the same
+dependency set:
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(
+    default_dependencies = ['boost'],
+    default_options = {
+        'boost-location': '/opt/boost',
+    },
+)
+----
+
+Cuppa resolves these dependencies while it configures each build environment. Their usage
+requirements are then available to methods such as `env.Build`, `env.BuildLib`, and
+`env.BuildTest`.
+
+== Adding a dependency in a sconscript
+
+Use `env.BuildWith()` when a dependency belongs to one sconscript or target group:
+
+[source,python]
+----
+Import('env')
+
+env.BuildWith('boost')
+----
+
+`BuildWith` applies the registered dependency to that environment. See
+xref:methods.adoc[Methods] for how build methods consume the resulting settings.
+
+== Choosing a dependency kind
+
+* Use xref:dependencies/location.adoc[Location dependencies] for source trees, repositories, archives, and
+  header-only libraries.
+* Use xref:dependencies/packages.adoc[Package dependencies] for prebuilt registry archives.
+* Use xref:dependencies/conan.adoc[Conan packages] when Conan 2 owns dependency resolution.
+* Use xref:dependencies/builtins.adoc[Built-in dependencies] for integrations registered with Cuppa.
+
+After declaring dependencies, use xref:dependencies/managing.adoc[Managing dependencies] to inspect cached
+trees, downloads, and local develop copies.

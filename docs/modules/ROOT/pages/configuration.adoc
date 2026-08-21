@@ -115,7 +115,7 @@ to use when resolving ``remote`` links for a given hostname. See
 xref:cli-reference.adoc#reports-link-style[HTML report source links] for the full flag list and
 behaviour (mapped providers, unmapped partial links, and provider hint links).
 
-=== C++ Profiles diagnostic cap without CI flags
+=== {cpp} Profiles diagnostic cap without CI flags
 
 Profiles inventory runs (``--cxx-profiles-report`` or ``env.CollateCxxProfilesIndex()``) imply
 unlimited per-TU diagnostics on Clang/GCC unless you override them. For enforce-only builds that

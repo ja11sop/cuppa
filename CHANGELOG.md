@@ -35,6 +35,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document persisting ``reports_link_style`` and ``reports_*_hosts`` via ``configure.conf`` or
   ``cuppa.run(default_options=…)`` so CI pipelines need not repeat link-style flags.
 - ``regenerate_profiles_report`` accepts ``remote`` for ``--reports-link-style`` and related flags.
+- The documentation site keeps Antora's default UI bundle but overlays a Cuppa stylesheet
+  for navigation and heading scale, tables that drop vertical rules for a tinted heading band
+  closed by a semantic rule, boxed semantic admonitions, animated expandable
+  examples, a smaller monospace scale, and prev/next buttons. Component rules consume a separate
+  semantic palette contract. Six named palettes are previewable by changing the stylesheet
+  link in ``head-styles.hbs``: cup-of-tea (currently selected), mint-tea, fine-bone-china,
+  harbour (renamed from ``cuppa-palette.css``), forest, and aubergine. Each file defines the
+  same token names for both light and ``prefers-color-scheme: dark``. The navbar GitHub and
+  PyPI links now carry inline SVG marks. The navbar clips its background to the padding box
+  so Chromium does not paint a band of navbar colour below the accent border.
+- Documentation subtree parents now have distinct landing and overview targets for Dependencies,
+  Toolchains, and Contributing. Visible C++ notation uses the shared AsciiDoc attribute,
+  tables are more compact, and the generated toolbar no longer offers an edit-page link.
 
 ### Fixed
 

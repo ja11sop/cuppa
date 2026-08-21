@@ -1,7 +1,7 @@
 = Violation report — Introduction
 :description: Generate cxx-profiles-index.html, offline regen, JSON export, and core report vocabulary
 
-The **C++ Profiles violation report** is a read-only HTML and JSON inventory of Profiles
+The **{cpp} Profiles violation report** is a read-only HTML and JSON inventory of Profiles
 diagnostics captured during a cuppa build. It helps you triage rule violations before fixing
 sources — it does not rewrite code.
 
@@ -58,7 +58,7 @@ cuppa -D --dbg --toolchains=clang24_profiles_2026_08_07_27 \
   --cxx-profiles-report
 ----
 
-Optional flags that affect report shape (full list on xref:cxx-profiles.adoc[C++ Profiles]):
+Optional flags that affect report shape (full list on xref:cxx-profiles.adoc[{cpp} Profiles]):
 
 * `--cxx-profiles-report=` *path* — explicit report directory (or index file stem)
 * `--cxx-profiles-report-root=` *dir* — rebase project-owned paths for display and links
@@ -160,7 +160,7 @@ Capture replay (`capture.txt` without `--from-json`) remains legacy — parallel
 mis-attribute scope. Prefer JSON when a live build already wrote `cxx-profiles-index.json`.
 
 More detail: xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[Violation inventory report]
-on the C++ Profiles hub.
+on the {cpp} Profiles hub.
 
 [#json-export]
 == JSON export (agents and CI)
@@ -566,5 +566,5 @@ most one diagnostic row, **Union Refs** and **Build Refs** match.
 * xref:cxx-profiles/report.adoc[Violation report reading guide] — tab index
 * xref:cxx-profiles/report-overview.adoc[Overview tab]
 * xref:cxx-profiles/report-by-sconscript.adoc[Violations By-Sconscript]
-* xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[Violation inventory report] — flags on the C++ Profiles hub
+* xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[Violation inventory report] — flags on the {cpp} Profiles hub
 * xref:cli-reference.adoc[CLI reference] — `--cxx-profiles-report`, `--cxx-profiles-report-context=`

@@ -1,7 +1,7 @@
-= C++ Modules
-:description: Introduction, tutorial, and reference for C++20 modules with cuppa
+= {cpp} Modules
+:description: Introduction, tutorial, and reference for {cpp}20 modules with cuppa
 
-In this guide you will learn what C++20 modules are for, how cuppa builds them, and how to adopt named modules, partitions, header units, and `import std` in a cuppa project.
+In this guide you will learn what {cpp}20 modules are for, how cuppa builds them, and how to adopt named modules, partitions, header units, and `import std` in a cuppa project.
 
 Cuppa treats modules as an **opt-in** feature (`--cxx-modules` or `env.CxxModules()`).
 Existing projects stay on the classic translation-unit path until you enable modules deliberately.
@@ -11,7 +11,7 @@ Use `--cxx-modules` / `env.CxxModules()` in new scripts and documentation.
 
 Supported platforms / floors:
 
-* **Linux / macOS:** GCC 14+ or **LLVM** Clang 16+ (`import std`: GCC 15+; Clang 18+ with libc++)
+* **Linux / macOS:** GCC 14+ or **LLVM** Clang 16+ (`import std`: GCC 15+; Clang 18+ with `libc{plus}{plus}`)
 * **Windows:** MSVC toolset **14.2+** (SCons `14.2` / cuppa `vc142` and newer — VS 2019+) for named modules, partitions, and header units; `import std` needs toolset **14.3+** with STL `modules/std.ixx` (VS 2022 17.5+)
 
 See <<macos-apple-clang>> for why Xcode’s Apple Clang is rejected on macOS.
@@ -55,10 +55,10 @@ Use it as a quick compatibility checklist before adopting modules in a new proje
 
 | `import std` / `import std.compat`
 | Yes (15+)
-| Yes (18+ + libc++)
+| Yes (18+ + `libc{plus}{plus}`)
 | Yes (14.3+ + `std.ixx`)
 | No
-| Cuppa builds `std` before `std.compat` and raises the dialect floor to C++23.
+| Cuppa builds `std` before `std.compat` and raises the dialect floor to {cpp}23.
 
 | Private module fragments (`module :private;`)
 | No
@@ -95,11 +95,11 @@ Use it as a quick compatibility checklist before adopting modules in a new proje
 * A modules-capable toolchain (see floors above and
   xref:toolchains/gcc.adoc[GCC] / xref:toolchains/clang.adoc[Clang] /
   xref:toolchains/msvc.adoc[MSVC])
-* Willingness to use C++20 or newer (`--stdcpp=c++20` or higher; cuppa raises the floor when `--cxx-modules` is set)
+* Willingness to use {cpp}20 or newer (`--stdcpp=c{plus}{plus}20` or higher; cuppa raises the floor when `--cxx-modules` is set)
 
 == Why modules exist
 
-For decades, C++ physical design relied on `#include`: textual inclusion of headers into every translation unit that needs them.
+For decades, {cpp} physical design relied on `#include`: textual inclusion of headers into every translation unit that needs them.
 That model scales poorly: repeated parsing, fragile include guards / `#pragma once`, leakage of macros, and slow incremental builds.
 
 *Modules* give the language a named, compiler-checked boundary.
@@ -115,13 +115,13 @@ Cuppa's job is to scan sources, build BMIs in dependency order, pass the right t
 
 == Papers and further reading
 
-The design of C++ modules spans many proposals. These documents are useful landmarks:
+The design of {cpp} modules spans many proposals. These documents are useful landmarks:
 
 |===
 | Paper / document | Topic
 
 | https://wg21.link/p1103r3[P1103R3] -- *Merging Modules*
-| The C++20 wording merge that brought modules into the working draft
+| The {cpp}20 wording merge that brought modules into the working draft
 
 | https://wg21.link/p1241r0[P1241R0] / related follow-ups
 | Module dependency discovery discussion that influenced tooling expectations
@@ -132,16 +132,16 @@ The design of C++ modules spans many proposals. These documents are useful landm
 | https://wg21.link/p2412r0[P2412R0] (and related)
 | Background on standard library module packaging concerns
 
-| https://eel.is/c++draft/module[C++ working draft -- `[module]`]
+| https://eel.is/c%2B%2Bdraft/module[{cpp} working draft -- `[module]`]
 | Normative reference for module units, partitions, and linkage
 
-| https://clang.llvm.org/docs/StandardCPlusPlusModules.html[Clang -- Standard C++ Modules]
+| https://clang.llvm.org/docs/StandardCPlusPlusModules.html[Clang -- Standard {cpp} Modules]
 | Clang's BMI / `std.cppm` practice
 
-| https://gcc.gnu.org/onlinedocs/gcc/C_002b_002b-Modules.html[GCC -- C++ Modules]
+| https://gcc.gnu.org/onlinedocs/gcc/C_002b_002b-Modules.html[GCC -- {cpp} Modules]
 | GCC mapper and GCM model
 
-| https://learn.microsoft.com/en-us/cpp/cpp/modules-cpp[MSVC -- Overview of modules in C++]
+| https://learn.microsoft.com/en-us/cpp/cpp/modules-cpp[MSVC -- Overview of modules in {cpp}]
 | MSVC IFC model, `/interface`, `/internalPartition`
 |===
 
@@ -163,7 +163,7 @@ cuppa -D --dbg --cxx-modules --stdcpp=c++20 --toolchains=gcc
 ----
 
 `--cxx-modules` sets `env['modules']=True` for each variant env.
-If the selected dialect is below C++20, cuppa raises it to `c++20`.
+If the selected dialect is below {cpp}20, cuppa raises it to `c{plus}{plus}20`.
 You can also call `env.CxxModules()` from a sconscript.
 On an unsupported toolchain, cuppa stops with a clear error (no silent fallback).
 
@@ -243,11 +243,11 @@ cuppa -D --dbg --cxx-modules --stdcpp=c++20 --toolchains=clang
 cuppa -D --dbg --cxx-modules --stdcpp=c++20 --toolchains=vc   # Windows
 ----
 
-The `--stdcpp=c++20` above is explicit for clarity, not a requirement.
-Every modules-capable toolchain already defaults to C++20 or later, and cuppa keeps that default:
-the C++20 floor is applied only when the dialect in force is lower, and only for compiles that
+The `--stdcpp=c{plus}{plus}20` above is explicit for clarity, not a requirement.
+Every modules-capable toolchain already defaults to {cpp}20 or later, and cuppa keeps that default:
+the {cpp}20 floor is applied only when the dialect in force is lower, and only for compiles that
 build, declare, or import a module.
-See xref:toolchains.adoc#c-language-level[C++ language level] for the exact rule.
+See xref:toolchains.adoc#c-language-level[{cpp} language level] for the exact rule.
 
 Unresolved `import` names after BMI pre-registration fail the build with `StopError`
 (list the missing named / header imports). Declare `HeaderUnit` or include the interface
@@ -490,7 +490,7 @@ Header units are supported for GCC, Clang, and MSVC in this release.
 
 When a scanned source contains `import std;` or `import std.compat;`, cuppa:
 
-* Raises the dialect floor to **C++23** (if lower)
+* Raises the dialect floor to **{cpp}23** (if lower)
 * Builds the standard library BMI once per env/variant under `modules/std.gcm`, `modules/std.pcm`, or `modules/std.ifc`
 * Registers it as a named module for consumers
 * Builds `std` before `std.compat` when both are required (`std.compat` imports `std`)
@@ -499,8 +499,9 @@ Requirements:
 
 * `--cxx-modules`
 * **GCC 15+** with `bits/std.cc` (and optionally `bits/std.compat.cc`)
-* **Clang 18+** with **libc++** (`--clang-stdlib=libc++`) and installed module interfaces
-  (typically `/usr/lib/llvm-<N>/share/libc++/v1/std.cppm`, or Homebrew LLVM paths on macOS)
+* **Clang 18+** with **`libc{plus}{plus}`**
+  (`--clang-stdlib=libc{plus}{plus}`) and installed module interfaces
+  (typically `/usr/lib/llvm-<N>/share/libc{plus}{plus}/v1/std.cppm`, or Homebrew LLVM paths on macOS)
 * **MSVC** toolset **14.3+** with STL `modules/std.ixx` (VS 2022 17.5+; cuppa locates `VCToolsInstallDir\modules`)
 
 [source,python]
@@ -536,7 +537,7 @@ xref:toolchains/msvc.adoc[MSVC].
 
 == Limits
 
-* Linux / macOS: GCC 14+ / LLVM Clang 16+ (`import std`: GCC 15+ / Clang 18+ with libc++; Apple Clang unsupported — see <<macos-apple-clang>>)
+* Linux / macOS: GCC 14+ / LLVM Clang 16+ (`import std`: GCC 15+ / Clang 18+ with `libc{plus}{plus}`; Apple Clang unsupported — see <<macos-apple-clang>>)
 * Windows: MSVC toolset 14.2+ (`vc142` / `vc143` / `vc145` / …) for named modules, partitions, header units, and shared libraries (export module symbols with `__declspec(dllexport)` when building DLLs); `import std` / `std.compat` require toolset 14.3+ with STL `modules/std.ixx` (VS 2022 17.5+)
 * Lightweight line-oriented import scanner (macros / `#if` that invent imports are unsupported; optional `clang-scan-deps` integration is not shipped yet)
 * Header-unit spelling in `import "..."` / `import <…>` must match `HeaderUnit` (GCC/Clang/MSVC)
@@ -549,7 +550,7 @@ xref:toolchains/msvc.adoc[MSVC].
 [#macos-apple-clang]
 == macOS: Apple Clang vs LLVM Clang
 
-**Apple Clang** (the `clang++` shipped with Xcode / Command Line Tools) is **not** the same product as upstream **LLVM Clang**, even when `--version` reports a high major:
+**Apple Clang** (the `clang{plus}{plus}` shipped with Xcode / Command Line Tools) is **not** the same product as upstream **LLVM Clang**, even when `--version` reports a high major:
 
 [source,text]
 ----
@@ -559,14 +560,14 @@ Target: arm64-apple-darwin25.4.0
 
 Cuppa detects the `Apple clang` / `Apple LLVM` banner, sets an `apple` flag on the toolchain version, and treats that driver as **not** modules-capable (`supports_modules` / `supports_import_std` are false). A marketing major such as 16 or 21 must not be mistaken for LLVM Clang 16 / 21.
 
-=== Why Apple Clang fails for C++20 modules
+=== Why Apple Clang fails for {cpp}20 modules
 
 Apple’s toolchain does **not** ship **`clang-scan-deps`**, the dependency scanner that discovers module import graphs.
-Without it, build systems that rely on compiler-provided module scanning cannot drive C++20 modules correctly.
+Without it, build systems that rely on compiler-provided module scanning cannot drive {cpp}20 modules correctly.
 The same gap shows up with CMake’s `CXX_MODULES` support (configure fails with “compiler does not provide a way to discover the import graph dependencies”); see for example
 https://stackoverflow.com/questions/79143467/using-c-20-modules-with-cmake-using-appleclang-16-with-macos[this Stack Overflow discussion].
 
-Cuppa’s own scanner is line-oriented and does not call `clang-scan-deps`, but Apple Clang still lacks a complete, reliable C++20 modules story for the flags and BMI workflow cuppa expects from LLVM Clang 16+. Cuppa therefore **fails clearly** under `--cxx-modules` rather than attempting a half-supported path.
+Cuppa’s own scanner is line-oriented and does not call `clang-scan-deps`, but Apple Clang still lacks a complete, reliable {cpp}20 modules story for the flags and BMI workflow cuppa expects from LLVM Clang 16+. Cuppa therefore **fails clearly** under `--cxx-modules` rather than attempting a half-supported path.
 
 === What to use on macOS
 
@@ -581,10 +582,10 @@ cuppa -D --dbg --cxx-modules --stdcpp=c++20 --toolchains=clang --clang-stdlib=li
 ----
 
 Typical Homebrew locations: `/opt/homebrew/opt/llvm/bin` (Apple Silicon) or `/usr/local/opt/llvm/bin` (Intel).
-Cuppa records the discovered Clang’s install directory and prefers an **absolute** `CXX` / `CC`, and prepends that directory to the SCons build `PATH`, so a configure-time Homebrew Clang is not silently replaced by `/usr/bin/clang++` at build time.
+Cuppa records the discovered Clang’s install directory and prefers an **absolute** `CXX` / `CC`, and prepends that directory to the SCons build `PATH`, so a configure-time Homebrew Clang is not silently replaced by `/usr/bin/clang{plus}{plus}` at build time.
 
 If you still see `export module` rejected with “expected template”, the build is almost certainly using Apple Clang.
-Pass `--propagate-path` (or `--merge-path`) so build and test subprocesses inherit your shell `PATH`, and confirm the compile line shows the Homebrew binary (not bare `clang++` resolving via `/usr/bin`). See xref:cli-reference.adoc#environment-propagation[Environment propagation].
+Pass `--propagate-path` (or `--merge-path`) so build and test subprocesses inherit your shell `PATH`, and confirm the compile line shows the Homebrew binary (not bare `clang{plus}{plus}` resolving via `/usr/bin`). See xref:cli-reference.adoc#environment-propagation[Environment propagation].
 
 Cuppa’s macOS CI modules slice installs Homebrew `llvm`, puts it on `PATH`, and passes `--propagate-path`.
 

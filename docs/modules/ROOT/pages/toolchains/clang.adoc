@@ -219,10 +219,10 @@ See xref:cxx-modules.adoc[{cpp} modules].
 
 == Profiles (opt-in)
 
-* Requires a **Profiles-capable** Clang (for example a C++ Alliance Profiles archive registered as `clang24_profiles_…`). Distro `clang24` is not enough; cuppa probes `-fprofiles`.
+* Requires a **Profiles-capable** Clang (for example a {cpp} Alliance Profiles archive registered as `clang24_profiles_…`). Distro `clang24` is not enough; cuppa probes `-fprofiles`.
 * `--cxx-profiles` adds `-fprofiles` when the probe succeeds; otherwise the build stops with a clear error.
 * `--cxx-profiles-enforce=std::init` (comma-separated designators) implies `--cxx-profiles` and either maps to native enforce flags (none known today) or injects `[[profiles::enforce(…)]];` via `-include`.
 * `--cxx-disable-error-limit` appends `-ferror-limit=0` (pair with enforce when you need every diagnostic).
 * Smoke-tested designator on Alliance Clang today: **`std::init`**.
 
-See xref:cxx-profiles.adoc[C++ Profiles] for the full guide, paper list, and design notes.
+See xref:cxx-profiles.adoc[{cpp} Profiles] for the full guide, paper list, and design notes.

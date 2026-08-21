@@ -48,5 +48,5 @@ xref:cxx-profiles/report-introduction.adoc#scope-metrics[scope metrics].
 == Related
 
 * xref:cxx-profiles/report-introduction.adoc[Introduction] — generate, regen, JSON, vocabulary
-* xref:cxx-profiles.adoc[C++ Profiles] — enabling Profiles and report flags
+* xref:cxx-profiles.adoc[{cpp} Profiles] — enabling Profiles and report flags
 * xref:cli-reference.adoc[CLI reference] — `--cxx-profiles-report`, `--cxx-profiles-report-context=`

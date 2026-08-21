@@ -1,7 +1,7 @@
-= Integration: C++ Modules
+= Integration: {cpp} Modules
 :description: Named modules, partitions, private fragments, header units, import std, packaging
 
-See xref:cxx-modules.adoc[C++ Modules].
+See xref:cxx-modules.adoc[{cpp} Modules].
 
 Covered by `tests/integration/methods/test_modules.py` using
 `tests/fixtures/modules_project/`.
@@ -54,7 +54,7 @@ Covered by `tests/integration/methods/test_modules.py` using
 
 | `test_import_std_build` / `test_import_std_compat_build`
 | `import std;` / `import std.compat;`
-| GCC 15+ / Clang+libc++ / MSVC with `std.ixx`
+| GCC 15+ / Clang + `libc{plus}{plus}` / MSVC with `std.ixx`
 
 | `test_modules_coverage_probe`
 | `--cov --modules` smoke
@@ -83,8 +83,9 @@ Covered by `tests/integration/methods/test_modules.py` using
 
 == CI notes
 
-* Linux CI: full suite × `gcc`, `clang`+libstdc++, `clang`+libc++
+* Linux CI: full suite × `gcc`, `clang` + `libstdc{plus}{plus}`,
+  `clang` + `libc{plus}{plus}`
 * Windows CI: full integration with `vc` (header units, `import std` when `std.ixx` present, shared libs with DLL exports)
-* macOS CI: Homebrew LLVM + libc++ — named, header, `Module` method, partitions, implementation units, `.ixx`, packaging, `import std`
+* macOS CI: Homebrew LLVM + `libc{plus}{plus}` — named, header, `Module` method, partitions, implementation units, `.ixx`, packaging, `import std`
 * `import std` on Clang may select a versioned toolchain that ships `std.cppm`
 * Too-old GCC/Clang on Linux **fail** rather than skip

@@ -27,7 +27,7 @@ SConsDeps
 VirtualRunEnv
 ----
 
-Prefer fmt 12.0+ when targeting Clang 21+ with libc++ (older releases hit undeclared `malloc`/`free`; fmtlib/fmt#4477). Examples use **12.1.0**, the latest 12.x on ConanCenter at the time of writing.
+Prefer fmt 12.0+ when targeting Clang 21+ with `libc{plus}{plus}` (older releases hit undeclared `malloc`/`free`; fmtlib/fmt#4477). Examples use **12.1.0**, the latest 12.x on ConanCenter at the time of writing.
 
 Wire it into Cuppa:
 
@@ -46,8 +46,8 @@ cuppa.run(
 Cuppa maps the active toolchain and variant into Conan settings (`compiler`, `compiler.version`, `compiler.cppstd`, `compiler.libcxx`, `build_type`, `os`, `arch`), runs `conan install` once per settings fingerprint (cached under the dependencies root), and merges the resulting flags. Install output is streamed live to the console (downloads and builds are not held until the process exits).
 Each successful install (and the next reuse of an older tree) writes `.cuppa_conan_meta.json` beside `.cuppa_conan_ok` so `--list-dependencies` can show the Cuppa toolchain variant. Installs without a sidecar still list as fingerprint-only.
 
-Cuppa also passes Conan conf `tools.build:compiler_executables` from the active toolchain's C/C++ drivers.
-Without that, host settings can say `compiler=clang` while CMake still picks `g++` from `PATH` when building missing packages — a common failure on Linux CI images that ship both compilers.
+Cuppa also passes Conan conf `tools.build:compiler_executables` from the active toolchain's C/{cpp} drivers.
+Without that, host settings can say `compiler=clang` while CMake still picks `g{plus}{plus}` from `PATH` when building missing packages — a common failure on Linux CI images that ship both compilers.
 
 Conan 2 still requires a **build** profile for the machine that runs `conan install` (even when Cuppa passes host settings with `-s`). On a fresh Conan home, create one once:
 
@@ -83,7 +83,10 @@ For publishing Cuppa-built libraries into Conan, see xref:packages.adoc#conan-pa
 
 === Dialect mapping note
 
-Cuppa's default dialect folder (`cxx2c` / `-std=c++2c`) maps to Conan `compiler.cppstd=26`. Packages may rebuild from source when no binary exists for that setting; pin `--stdcpp=c++20` (or similar) if you need broader binary compatibility from ConanCenter.
+Cuppa's default dialect folder (`cxx2c` / `-std=c{plus}{plus}2c`) maps to Conan
+`compiler.cppstd=26`. Packages may rebuild from source when no binary exists for that setting;
+pin `--stdcpp=c{plus}{plus}20` (or similar) if you need broader binary compatibility from
+ConanCenter.
 
 === Pip plugin packaging
 

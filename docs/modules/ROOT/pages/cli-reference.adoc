@@ -24,7 +24,7 @@ Standard SCons flags (`-D`, `-j`, `-c`, `-Q`, …) still apply.
 | `--parallel` | Parallel build (`-j` sized to the machine; `cuppa` may restrict CPU affinity)
 | `--offline` | Skip PyPI version check and remote repository updates
 | `--develop` | Prefer develop locations / develop package paths where configured
-| `--stdcpp=STD` | Override {cpp} dialect (`c{plus}{plus}98` … `c{plus}{plus}26`, `c{plus}{plus}latest`). Omitting it is effectively `c{plus}{plus}latest` on GCC/Clang (newest Cuppa-known dialect for that tool). See xref:toolchains.adoc#c-language-level[C++ language level]
+| `--stdcpp=STD` | Override {cpp} dialect (`c{plus}{plus}98` … `c{plus}{plus}26`, `c{plus}{plus}latest`). Omitting it is effectively `c{plus}{plus}latest` on GCC/Clang (newest Cuppa-known dialect for that tool). See xref:toolchains.adoc#c-language-level[{cpp} language level]
 |===
 
 == Output and diagnostics
@@ -67,7 +67,7 @@ TIP: If cuppa fails early while reading sconscripts, re-run with `--verbosity=ex
 |===
 | Option | Description
 
-| `--reports-link-style=local|gitlab|github|remote` | Session-wide source link targets for HTML reports this run emits (test suite HTML, C++ Profiles reports, and future coverage source links). Overrides `link_style=` method kwargs when the sconscript leaves the default unset; per-report flags below override this session flag. Use `remote` when dependency sources live on a different host than the project repository.
+| `--reports-link-style=local|gitlab|github|remote` | Session-wide source link targets for HTML reports this run emits (test suite HTML, {cpp} Profiles reports, and future coverage source links). Overrides `link_style=` method kwargs when the sconscript leaves the default unset; per-report flags below override this session flag. Use `remote` when dependency sources live on a different host than the project repository.
 | `--cxx-profiles-report-link-style=local|gitlab|github|remote` | Profiles-only override of `--reports-link-style` for `--cxx-profiles-report` output and `.cuppa-reports` manifest matching
 | `--reports-github-hosts=HOST[,HOST…]` | Extra GitHub host suffixes for ``remote`` link resolution (defaults include ``github.com``)
 | `--reports-gitlab-hosts=HOST[,HOST…]` | Extra GitLab host suffixes (defaults include ``gitlab.com``)
@@ -78,11 +78,11 @@ TIP: If cuppa fails early while reading sconscripts, re-run with `--verbosity=ex
 | `--no-reports-remote-provider-hints` | Disable provider hint links for unmapped ``remote`` hosts
 |===
 
-Test reports: `env.GenerateHtmlTestReport(…, link_style=…)` still sets a per-target default; `--reports-link-style=` wins when you need CI-published blob links without editing sconscripts. See xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[C++ Profiles violation report] for Profiles-specific flags and offline regen.
+Test reports: `env.GenerateHtmlTestReport(…, link_style=…)` still sets a per-target default; `--reports-link-style=` wins when you need CI-published blob links without editing sconscripts. See xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[{cpp} Profiles violation report] for Profiles-specific flags and offline regen.
 
 With ``remote``, cuppa maps each file's repository host to a blob URL shape when the host matches a recognised provider (GitHub, GitLab, Bitbucket, Gitea/Forgejo/Codeberg, or Azure DevOps). Extend the default host lists with the ``--reports-*-hosts=`` flags above; each entry may be a bare hostname (``git.corp.example``) or an ``https://`` URL — cuppa normalises to the hostname for matching. Unmapped hosts link only the repository root in the visible path and append plain repo-relative text; optional provider hint links try alternate URL shapes. One console info line lists unmapped hostnames per Profiles report run.
 
-==== Persisting link style and host lists
+=== Persisting link style and host lists
 
 You do not need to pass these flags on every CI invocation. The internal option keys
 (underscores) can live in project ``configure.conf`` or in ``cuppa.run(default_options=…)`` in
@@ -234,14 +234,14 @@ Clang:
 
 Modules (opt-in; GCC 14+ / LLVM Clang 16+ / MSVC toolset 14.2+):
 
-* `--cxx-modules` -- enable named modules, partitions, header units, and `import std` when the toolchain supports it (see xref:cxx-modules.adoc[C++ Modules])
+* `--cxx-modules` -- enable named modules, partitions, header units, and `import std` when the toolchain supports it (see xref:cxx-modules.adoc[{cpp} Modules])
 * `--modules` -- deprecated alias for `--cxx-modules` (removed in cuppa 2.0)
 
-C++ Profiles (opt-in; Profiles-capable Clang only):
+{cpp} Profiles (opt-in; Profiles-capable Clang only):
 
-* `--cxx-profiles` -- enable the C++ Profiles framework (`-fprofiles`) when the toolchain supports it (StopError otherwise; use a C++ Alliance Profiles Clang archive via `--toolchain-archive=` / `--clang-root=`)
-* `--cxx-profiles-enforce=<designators>` -- comma-separated profile designators to enforce on every C++ translation unit (implies `--cxx-profiles`). Example: `--cxx-profiles-enforce=std::init`. When the toolchain has no native enforce flag, cuppa injects `[[profiles::enforce(…)]];` via `-include`, or merges CLI designators into an existing source `[[profiles::enforce(…)]];` in a build-tree view
-* `--cxx-error-limit=<N>` -- set the C++ compiler diagnostic cap (`0` = unlimited; Clang `-ferror-limit=N`, GCC `-fmax-errors=N`). Overrides Profiles inventory implication and `--cxx-disable-error-limit`
+* `--cxx-profiles` -- enable the {cpp} Profiles framework (`-fprofiles`) when the toolchain supports it (StopError otherwise; use a {cpp} Alliance Profiles Clang archive via `--toolchain-archive=` / `--clang-root=`)
+* `--cxx-profiles-enforce=<designators>` -- comma-separated profile designators to enforce on every {cpp} translation unit (implies `--cxx-profiles`). Example: `--cxx-profiles-enforce=std::init`. When the toolchain has no native enforce flag, cuppa injects `[[profiles::enforce(…)]];` via `-include`, or merges CLI designators into an existing source `[[profiles::enforce(…)]];` in a build-tree view
+* `--cxx-error-limit=<N>` -- set the {cpp} compiler diagnostic cap (`0` = unlimited; Clang `-ferror-limit=N`, GCC `-fmax-errors=N`). Overrides Profiles inventory implication and `--cxx-disable-error-limit`
 * `--cxx-default-error-limit` -- restore the toolchain default diagnostic cap: strip any existing
   ``-ferror-limit`` / ``-fmax-errors`` flags from ``CXXFLAGS`` / ``CCFLAGS`` and do not append a
   cuppa flag. Overrides unlimited implied by `--cxx-profiles-report` / `CollateCxxProfilesIndex()`
@@ -250,7 +250,7 @@ C++ Profiles (opt-in; Profiles-capable Clang only):
 * `--cxx-profiles-report-root=<dir>` -- rebase project-owned source paths in Profiles reports (default: sconstruct directory)
 * `--cxx-profiles-report-link-style=local|gitlab|github|remote` — Profiles-only override of `--reports-link-style`
 
-See xref:cxx-profiles.adoc[C++ Profiles].
+See xref:cxx-profiles.adoc[{cpp} Profiles].
 
 Boost (source dependency) includes `--boost-home`, `--boost-location`, `--boost-version`, `--boost-latest` (override a pin or force refresh — unpinned Boost implies latest without this flag; see xref:dependencies/builtins/boost.adoc[Boost (source)]), `--boost-build-always`, `--boost-verbose-build`, `--boost-verbose-config`, `--boost-patched` (alias `--boost-patch-boost-test`: select the `patched/` home instead of `clean/`).
 

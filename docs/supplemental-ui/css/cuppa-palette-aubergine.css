@@ -1,0 +1,77 @@
+/*
+ * Cuppa documentation palette: aubergine
+ *
+ * Preview by selecting this file in partials/head-styles.hbs.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  --cuppa-brand: #76558f;
+  --cuppa-brand-dark: #4d365f;
+  --cuppa-brand-light: #f1ebf6;
+  --cuppa-accent: #3f9b8b;
+  --cuppa-accent-glow: rgba(63, 155, 139, 0.24);
+  --cuppa-on-brand: #fff;
+  --cuppa-on-brand-muted: rgba(255, 255, 255, 0.48);
+
+  --cuppa-text: #372f3d;
+  --cuppa-text-muted: #726979;
+  --cuppa-page: #fff;
+  --cuppa-surface: #faf8fb;
+  --cuppa-surface-strong: #f1edf3;
+  --cuppa-border: #dfd7e3;
+  --cuppa-code-surface: #f7f3f8;
+  --cuppa-shadow-tint: rgba(77, 54, 95, 0.1);
+
+  --cuppa-note: #557da6;
+  --cuppa-note-surface: #edf3f8;
+  --cuppa-tip: #408166;
+  --cuppa-tip-surface: #edf7f2;
+  --cuppa-warning: #bd7628;
+  --cuppa-warning-surface: #fff6ea;
+  --cuppa-important: #b64b62;
+  --cuppa-important-surface: #fff0f3;
+  --cuppa-caution: #80539a;
+  --cuppa-caution-surface: #f5eff8;
+  --cuppa-example: #3f8b83;
+  --cuppa-example-surface: #eaf6f4;
+  --cuppa-table: #8f79a6;
+  --cuppa-table-surface: #f0eaf5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cuppa-brand: #d4c0e0;
+    --cuppa-brand-dark: #f1ebf6;
+    --cuppa-brand-light: #2a2030;
+    --cuppa-accent: #5cbfb0;
+    --cuppa-accent-glow: rgba(92, 191, 176, 0.24);
+    --cuppa-on-brand: #161218;
+    --cuppa-on-brand-muted: rgba(22, 18, 24, 0.50);
+
+    --cuppa-text: #ece6f0;
+    --cuppa-text-muted: #a094aa;
+    --cuppa-page: #161218;
+    --cuppa-surface: #1e1824;
+    --cuppa-surface-strong: #282030;
+    --cuppa-border: #3a3044;
+    --cuppa-code-surface: #1a1620;
+    --cuppa-shadow-tint: rgba(0, 0, 0, 0.50);
+
+    --cuppa-note: #7aa4cc;
+    --cuppa-note-surface: #142432;
+    --cuppa-tip: #68c498;
+    --cuppa-tip-surface: #12281c;
+    --cuppa-warning: #e09a4a;
+    --cuppa-warning-surface: #2c1c0c;
+    --cuppa-important: #e07a90;
+    --cuppa-important-surface: #2c141c;
+    --cuppa-caution: #c090dc;
+    --cuppa-caution-surface: #241830;
+    --cuppa-example: #5cbfb0;
+    --cuppa-example-surface: #142824;
+    --cuppa-table: #b89ac8;
+    --cuppa-table-surface: #261e30;
+  }
+}

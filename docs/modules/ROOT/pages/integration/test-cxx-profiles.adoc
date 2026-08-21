@@ -1,11 +1,11 @@
-= Integration: C++ Profiles
+= Integration: {cpp} Profiles
 :description: Opt-in --cxx-profiles / --cxx-profiles-enforce against a Profiles-capable Clang
 
 Covered by `tests/integration/methods/test_cxx_profiles.py`.
 
-Requires a Clang that accepts `-fprofiles` (C++ Alliance Profiles archives). When none
+Requires a Clang that accepts `-fprofiles` ({cpp} Alliance Profiles archives). When none
 is on `PATH`, the smoke test **skips**. Set `CUPPA_TEST_PROFILES_TOOLCHAIN` to a
-Profiles `clang++` to force selection. The unsupported-toolchain case expects a
+Profiles `clang{plus}{plus}` to force selection. The unsupported-toolchain case expects a
 clear failure with a normal gcc/clang that lacks Profiles.
 
 == Cases

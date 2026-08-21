@@ -5,8 +5,10 @@ Cuppa discovers installed compilers at configure time and registers matching too
 When you call `env.Build` / `env.Compile`, the active toolchain applies a documented set of
 default flags for the selected *variant* (`--dbg`, `--rel`, `--cov`).
 
-This hub covers selection, inventory, fetched archives, and the shared {cpp} language-level
-rules. Per-family defaults, dialects, and flag explanations live on the child pages:
+Start with xref:toolchains/overview.adoc[Toolchains overview] for how discovery, selection,
+variants, and dialects fit together. This hub provides the detailed selection, inventory,
+fetched-archive, and shared {cpp} language-level reference. Per-family defaults, dialects, and
+flag explanations live on the child pages:
 
 |===
 | Family | Cuppa names | Platforms | Page

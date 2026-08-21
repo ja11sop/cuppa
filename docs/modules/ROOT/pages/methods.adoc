@@ -2,7 +2,7 @@
 :description: Cuppa environment methods for building, testing, libraries, and reporting
 
 Methods are registered on each cuppa environment and called from `sconscript` files after `Import('env')`.
-They differ from raw SCons builders (`Program`, `Object`, `StaticLibrary`) by understanding variants, toolchains, progress reporting, cuppa's `_build/` layout, and (when enabled) C++20 modules.
+They differ from raw SCons builders (`Program`, `Object`, `StaticLibrary`) by understanding variants, toolchains, progress reporting, cuppa's `_build/` layout, and (when enabled) {cpp}20 modules.
 
 This page focuses on the build surface you use every day.
 For the vocabulary behind methods, see xref:concepts.adoc[Concepts].
@@ -14,7 +14,7 @@ xref:toolchains/msvc.adoc[MSVC]).
 
 * Cuppa installed and a project with `cuppa.run()` in `sconstruct` (xref:quickstart.adoc[Quickstart])
 * Familiarity with `Import('env')` in a `sconscript`
-* A C++ toolchain available to cuppa (`gcc`, `clang`, or `vc` on Windows)
+* A {cpp} toolchain available to cuppa (`gcc`, `clang`, or `vc` on Windows)
 
 == Progress tracking and variant scoping
 
@@ -103,7 +103,7 @@ objs = env.Compile(['a.cpp', 'b.cpp'])
 env.Build('app', objs)
 ----
 
-When `env['modules']` is true (see xref:cxx-modules.adoc[C++ Modules]), `Compile` delegates to the modules compile path so interface units produce BMIs and consumers receive the right consume flags.
+When `env['modules']` is true (see xref:cxx-modules.adoc[{cpp} Modules]), `Compile` delegates to the modules compile path so interface units produce BMIs and consumers receive the right consume flags.
 
 === Building libraries with `BuildLib`
 
@@ -428,10 +428,10 @@ env.Build(env.TargetFrom('src/apps/server.cpp'), sources)
 | Method | Role
 
 | `env.StdCpp(standard)`
-| Set the C++ dialect for this env (for example `'c++20'`, `'c++23'`)
+| Set the {cpp} dialect for this env (for example `'c{plus}{plus}20'`, `'c{plus}{plus}23'`)
 
 | `env.CxxModules()` / `--cxx-modules`
-| Enable C++20 modules for this env / all variants
+| Enable {cpp}20 modules for this env / all variants
 
 | `env.HeaderUnit(path)`
 | Register a header for BMI compilation (`'include/h.hpp'` or `'<span>'`)
@@ -447,8 +447,8 @@ env.Build(env.TargetFrom('src/apps/server.cpp'), sources)
 |===
 
 Dialect and modules interact with toolchain defaults documented under
-xref:toolchains.adoc#c-language-level[C++ language level] and the family pages.
-A full modules walkthrough is in xref:cxx-modules.adoc[C++ Modules].
+xref:toolchains.adoc#c-language-level[{cpp} language level] and the family pages.
+A full modules walkthrough is in xref:cxx-modules.adoc[{cpp} Modules].
 
 [source,python]
 ----
@@ -517,7 +517,7 @@ See xref:packages.adoc[Publishing packages] for `GitlabPackagePublisher` and `Co
 | Capture subprocess stdout to a file
 
 | `env.Toolchain(name)`
-| Look up a registered toolchain by registry key (`clang`, `gcc15`, …) or by `toolchain.name()` (build/ABI identity, e.g. `clang-libc++`)
+| Look up a registered toolchain by registry key (`clang`, `gcc15`, …) or by `toolchain.name()` (build/ABI identity, e.g. `clang-libc{plus}{plus}`)
 |===
 
 == Test reporting plugins
@@ -534,5 +534,5 @@ These activate in concert with `--test`.
 
 You can now express programs, libraries, tests, and module-aware builds using cuppa methods instead of assembling SCons builders by hand.
 Next, inspect xref:toolchains.adoc[Toolchains] and the family pages so you know which flags
-each compiler receives by default, and xref:cxx-modules.adoc[C++ Modules] if you are adopting
+each compiler receives by default, and xref:cxx-modules.adoc[{cpp} Modules] if you are adopting
 `import` / `export module`.

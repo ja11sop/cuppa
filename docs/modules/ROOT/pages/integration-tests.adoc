@@ -11,15 +11,16 @@ Each scenario documented here shows the **`sconstruct` / `sconscript` the test g
 pytest -m integration
 ----
 
-Requires a C++ compiler (`g++` preferred).
+Requires a {cpp} compiler (`g{plus}{plus}` preferred).
 Optional tools (`clang`, `gcov`, AsciiDoc) cause individual tests to skip with a log line when absent.
 
 Every `run_cuppa()` call also passes `-D`, `--offline`, and a default `--toolchains=` selection.
 Override the default family with `CUPPA_TEST_TOOLCHAIN=gcc|clang|vc` (used by CI to smoke the suite per toolchain).
-For Clang, pin the standard library with `CUPPA_TEST_ARGS=--clang-stdlib=libstdc++` or
-`CUPPA_TEST_ARGS=--clang-stdlib=libc++` (explicit flags in a test override the env extras).
+For Clang, pin the standard library with `CUPPA_TEST_ARGS=--clang-stdlib=libstdc{plus}{plus}` or
+`CUPPA_TEST_ARGS=--clang-stdlib=libc{plus}{plus}` (explicit flags in a test override the env extras).
 
-Linux CI matrices three cells: `gcc`, `clang` + `libstdc++`, and `clang` + `libc++`.
+Linux CI matrices three cells: `gcc`, `clang` + `libstdc{plus}{plus}`, and
+`clang` + `libc{plus}{plus}`.
 Each Linux integration job also installs Conan 2 so xref:integration/test-conan.adoc[`test_conan`] runs (not skipped).
 Windows CI uses MSVC (`vc`) via `windows-latest` (Conan not installed there yet).
 
@@ -82,7 +83,7 @@ cuppa.run(default_variants=['dbg'])
 | `StdCpp`, `Filter`, `ReplaceFlags`, `RemoveFlags`
 | xref:integration/test-flags.adoc[]
 
-| `--cxx-modules`, partitions, `HeaderUnit`, `import std` (GCC 14+ / Clang 16+; std needs GCC 15+ / Clang+libc++)
+| `--cxx-modules`, partitions, `HeaderUnit`, `import std` (GCC 14+ / Clang 16+; std needs GCC 15+ / Clang + `libc{plus}{plus}`)
 | xref:integration/test-modules.adoc[]
 
 | `--cxx-profiles` / `--cxx-profiles-enforce=` (Profiles-capable Clang; smoke skips if absent)

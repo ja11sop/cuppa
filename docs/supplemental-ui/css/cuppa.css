@@ -1,0 +1,636 @@
+/*
+ * Cuppa documentation theme
+ *
+ * This stylesheet supplements Antora's default UI. Keep selectors scoped to
+ * the default UI markup so content remains portable and the base bundle can
+ * still supply layout, responsive behaviour, and accessibility.
+ *
+ * Colours are supplied by a cuppa-palette-*.css file. This file contains only
+ * component structure, typography, spacing, and references to palette tokens.
+ */
+
+:root {
+  /* Shape and scale */
+  --cuppa-radius: 0.3rem;
+  --cuppa-shadow: 0 0.15rem 0.5rem var(--cuppa-shadow-tint);
+  --cuppa-code-size: 0.8rem;
+  --cuppa-code-size-inline: 0.875em;
+}
+
+/* Brand and global chrome */
+
+body {
+  background: var(--cuppa-page);
+  color: var(--cuppa-text);
+}
+
+/*
+ * background-clip keeps the fill inside the padding box. The border is opaque,
+ * so this does not change the design, but it stops Chromium painting navbar
+ * colour into the accent rule's row when the fixed layer's height lands on a
+ * fractional device pixel.
+ */
+.navbar {
+  background: var(--cuppa-brand-dark);
+  background-clip: padding-box;
+  border-bottom: 3px solid var(--cuppa-accent);
+  color: var(--cuppa-on-brand);
+}
+
+.navbar-brand .navbar-item:first-child {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.navbar-end
+{
+  padding-right: 0.5rem;
+}
+
+.navbar-end .navbar-item.has-dropdown:hover .navbar-link,
+.navbar-end .navbar-link:hover,
+.navbar-end > a.navbar-item:hover {
+  background: var(--cuppa-brand);
+}
+
+/* Icon links (GitHub, PyPI) sit flush with the text items either side. */
+
+.navbar-end > a.navbar-item.is-icon {
+  padding-left: 0.7rem;
+  padding-right: 0.7rem;
+}
+
+.navbar-end > a.navbar-item.is-icon .icon {
+  height: 1.15rem;
+  width: 1.15rem;
+}
+
+@media screen and (max-width: 1023.5px) {
+  .navbar-end > a.navbar-item.is-icon {
+    align-items: center;
+    display: flex;
+    padding-left: 1rem;
+  }
+
+  .navbar-end > a.navbar-item.is-icon .icon + .icon-label {
+    margin-left: 0.6rem;
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .navbar-end > a.navbar-item.is-icon .icon-label {
+    display: none;
+  }
+}
+
+#search-input {
+  border: 1px solid var(--cuppa-on-brand-muted);
+  border-radius: var(--cuppa-radius);
+  padding: 0.15rem 0.5rem;
+}
+
+#search-input:focus {
+  border-color: var(--cuppa-accent);
+  box-shadow: 0 0 0 2px var(--cuppa-accent-glow);
+}
+
+.toolbar {
+  background: var(--cuppa-surface);
+  box-shadow: 0 1px 0 var(--cuppa-border);
+}
+
+/* Navigation */
+
+.nav {
+  background: var(--cuppa-surface);
+  border-right: 1px solid var(--cuppa-border);
+}
+
+.nav-menu {
+  padding-left: 1.2rem;
+  padding-right: 0.9rem;
+}
+
+.nav-menu h3.title {
+  color: var(--cuppa-brand-dark);
+  letter-spacing: 0.02em;
+  padding-bottom: 0.35rem;
+}
+
+.nav-item {
+  margin-top: 0;
+}
+
+.nav-item > .nav-link,
+.nav-item > .nav-text {
+  border-left: 2px solid var(--cuppa-border);
+  border-radius: 0 var(--cuppa-radius) var(--cuppa-radius) 0;
+  display: block;
+  margin-left: -0.55rem;
+  padding: 0.2rem 0.4rem 0.2rem 0.55rem;
+}
+
+/*
+ * Antora's data-depth is relative to the component nav tree. Depth 0 is the
+ * untitled wrapper whose title is "Cuppa". Visible first-level entries
+ * (Overview, Installation, Quickstart, …) are depth 1. Nested children start
+ * at depth 2. Use this hook to restyle those top-level items without
+ * touching the rest of the tree.
+ */
+.nav-item[data-depth="1"] > .nav-link,
+.nav-item[data-depth="1"] > .nav-text {
+    border-left-color: transparent;
+}
+
+/*
+ * Keep every label on the same baseline. Parent carets sit wholly outside the
+ * highlighted item and use a CSS triangle so they do not depend on SVG masks.
+ */
+.nav-item-toggle {
+  background: none;
+  margin-left: -1.80rem;
+  margin-top: 0.05rem;
+}
+
+.nav-item-toggle::before {
+  border-bottom: 0.32em solid transparent;
+  border-left: 0.48em solid var(--cuppa-accent);
+  border-top: 0.32em solid transparent;
+  content: "";
+  display: block;
+  margin: 0.35em auto 0;
+  width: 0;
+}
+
+.nav-item.is-active > .nav-item-toggle {
+  transform: none;
+}
+
+.nav-item.is-active > .nav-item-toggle::before {
+  transform: rotate(90deg);
+}
+
+.nav-item > .nav-link:hover {
+  background: var(--cuppa-brand-light);
+  color: var(--cuppa-brand-dark);
+  text-decoration: none;
+}
+
+.nav-item.is-current-page > .nav-link,
+.nav-item.is-current-page > .nav-text {
+  background: var(--cuppa-brand-light);
+  border-left-color: var(--cuppa-brand);
+  color: var(--cuppa-brand-dark);
+  font-weight: 600;
+}
+
+/*
+ * A parent item is preceded by its toggle button, so the caret already marks
+ * the current page. Keep the rule transparent there to preserve label
+ * alignment without a second marker.
+ */
+.nav-item.is-current-page > .nav-item-toggle + .nav-link,
+.nav-item.is-current-page > .nav-item-toggle + .nav-text {
+/*   border-left-color: transparent; */
+}
+
+
+/*.nav-item[data-depth="1"].is-current-page > .nav-link { }
+.nav-item[data-depth="1"] > .nav-item-toggle + .nav-link { }*/
+
+.toc .toc-menu a {
+  border-left-color: var(--cuppa-border);
+}
+
+.toc .toc-menu a:hover,
+.toc .toc-menu a.is-active {
+  border-left-color: var(--cuppa-brand);
+  color: var(--cuppa-brand-dark);
+}
+
+/* Article measure and typography */
+
+.doc {
+  color: var(--cuppa-text);
+  font-size: 0.94em;
+  line-height: 1.68;
+  max-width: 43rem;
+}
+
+@media screen and (min-width: 1024px) {
+  .doc {
+    max-width: 45rem;
+  }
+}
+
+.doc > h1.page:first-child {
+  color: var(--cuppa-brand-dark);
+  font-size: 2.25rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  margin-bottom: 1.75rem;
+}
+
+.doc h2:not(.discrete) {
+  border-bottom-color: var(--cuppa-border);
+  color: var(--cuppa-brand-dark);
+  font-size: 1.55rem;
+  font-weight: 500;
+  margin-top: 2.4rem;
+  padding-bottom: 0.25rem;
+}
+
+.doc h3:not(.discrete) {
+  color: var(--cuppa-text);
+  font-size: 1.22rem;
+  margin-top: 1.8rem;
+}
+
+.doc h4:not(.discrete) {
+  color: var(--cuppa-text-muted);
+  font-size: 1.05rem;
+  margin-top: 1.5rem;
+}
+
+.doc a {
+  color: var(--cuppa-brand);
+}
+
+.doc a:hover {
+  color: var(--cuppa-brand-dark);
+}
+
+.doc .paragraph.lead > p {
+  color: var(--cuppa-text-muted);
+  font-size: 1.12rem;
+}
+
+/* Tables: horizontal bands, tinted heading, semantic opening and closing rules */
+
+.doc .tablecontainer {
+  overflow-x: auto;
+}
+
+.doc .tablecontainer > table.tableblock {
+  margin-top: 0;
+}
+
+.doc table.tableblock {
+  background: var(--cuppa-page);
+}
+
+/*
+ * AsciiDoc emits frame-* and grid-* classes that the bundle turns into a full
+ * grid. Drop the outer frame and the vertical rules so rows read as bands, and
+ * let the heading and closing rules carry the structure instead.
+ */
+.doc table.tableblock {
+  border-width: 0;
+}
+
+.doc table.tableblock > * > tr > * {
+  border-color: var(--cuppa-border);
+  border-left-width: 0;
+  border-right-width: 0;
+  padding: 0.4rem 0.65rem;
+}
+
+.doc table.tableblock > thead > tr > th {
+  background: var(--cuppa-table-surface);
+  border-bottom: 2px solid var(--cuppa-table);
+  border-top-width: 0;
+  color: var(--cuppa-brand-dark);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.doc table.tableblock > tbody > tr:last-child > * {
+  border-bottom: 2px solid var(--cuppa-table);
+}
+
+.doc table.tableblock tbody > tr:nth-child(even) {
+  background: var(--cuppa-surface);
+}
+
+.doc table.tableblock tbody > tr:hover {
+  background: var(--cuppa-brand-light);
+}
+
+/* Admonitions */
+
+.doc .admonitionblock {
+  --cuppa-admonition: var(--cuppa-note);
+  --cuppa-admonition-surface: var(--cuppa-note-surface);
+  margin-top: 1.75rem;
+}
+
+.doc .admonitionblock.tip {
+  --cuppa-admonition: var(--cuppa-tip);
+  --cuppa-admonition-surface: var(--cuppa-tip-surface);
+}
+
+.doc .admonitionblock.warning {
+  --cuppa-admonition: var(--cuppa-warning);
+  --cuppa-admonition-surface: var(--cuppa-warning-surface);
+}
+
+.doc .admonitionblock.important {
+  --cuppa-admonition: var(--cuppa-important);
+  --cuppa-admonition-surface: var(--cuppa-important-surface);
+}
+
+.doc .admonitionblock.caution {
+  --cuppa-admonition: var(--cuppa-caution);
+  --cuppa-admonition-surface: var(--cuppa-caution-surface);
+}
+
+.doc .admonitionblock > table {
+  border: 1px solid var(--cuppa-admonition);
+  border-radius: var(--cuppa-radius);
+  box-shadow: 0 0 0 3px var(--cuppa-admonition-surface);
+  display: block;
+  overflow: hidden;
+}
+
+.doc .admonitionblock > table > tbody,
+.doc .admonitionblock > table > tbody > tr {
+  display: block;
+}
+
+.doc .admonitionblock td.content {
+  background: var(--cuppa-page);
+  display: block;
+  font-size: 0.875rem;
+  padding: 0.85rem 1rem;
+  width: auto;
+}
+
+.doc .admonitionblock td.icon {
+  background: var(--cuppa-admonition-surface);
+  color: var(--cuppa-admonition);
+  display: block;
+  height: auto;
+  inset: auto;
+  padding: 0 0.8rem;
+  position: static;
+  transform: none;
+  width: auto;
+}
+
+.doc .admonitionblock td.icon i {
+  background: transparent !important;
+  border-radius: 0;
+  color: var(--cuppa-admonition) !important;
+  gap: 0.5rem;
+  height: 2.25rem;
+  padding: 0;
+  width: 100%;
+}
+
+.doc .admonitionblock td.icon i::before {
+  align-items: center;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  content: "i";
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 600;
+  height: 1.15rem;
+  justify-content: center;
+  line-height: 1;
+  width: 1.15rem;
+}
+
+.doc .admonitionblock.tip td.icon i::before {
+  border: 0;
+  content: "✦";
+  font-size: 1.2rem;
+}
+
+.doc .admonitionblock.warning td.icon i::before {
+  content: "!";
+}
+
+.doc .admonitionblock.important td.icon i::before {
+  border-radius: 0.2rem;
+  content: "!";
+}
+
+.doc .admonitionblock.caution td.icon i::before {
+  border: 0;
+  content: "‼";
+  font-size: 1rem;
+}
+
+.doc .admonitionblock td.icon i::after {
+  color: var(--cuppa-text);
+  font-size: 0.86rem;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+/*
+ * Asciidoctor emits an explicit admonition title inside the content cell. Move
+ * it into the heading strip and suppress the generic label when one exists.
+ */
+.doc .admonitionblock > table:has(td.content > .title) td.icon i::after {
+  content: "";
+}
+
+.doc .admonitionblock td.content > .title {
+  color: var(--cuppa-text);
+  font-size: 0.86rem;
+  font-style: normal;
+  left: 2.65rem;
+  letter-spacing: 0.01em;
+  padding: 0;
+  position: absolute;
+  top: 0.68rem;
+  z-index: 1;
+}
+
+.doc .admonitionblock > table:has(td.content > .title) td.content {
+  padding-top: 0.85rem;
+}
+
+/* Expandable examples */
+
+.doc details {
+  border: 1px solid var(--cuppa-example);
+  border-radius: var(--cuppa-radius);
+  box-shadow: 0 0 0 3px var(--cuppa-example-surface);
+  interpolate-size: allow-keywords;
+  margin-left: 0;
+  overflow: hidden;
+}
+
+.doc details > summary {
+  background: var(--cuppa-example-surface);
+  color: var(--cuppa-text);
+  font-size: 0.9rem;
+  font-style: normal;
+  font-weight: 600;
+  margin: 0;
+  padding: 0.65rem 2.75rem 0.65rem 2.5rem;
+}
+
+.doc details > summary::before {
+  color: var(--cuppa-example);
+  content: "{ }";
+  font-family: "Roboto Mono", monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 0;
+  left: 0.85rem;
+  margin: 0;
+  top: 0.7rem;
+  transform: none;
+}
+
+.doc details > summary::after {
+  border-bottom: 2px solid var(--cuppa-example);
+  border-right: 2px solid var(--cuppa-example);
+  content: "";
+  display: block;
+  height: 0.55rem;
+  left: auto;
+  right: 1rem;
+  top: 0.75rem;
+  transform: rotate(45deg);
+  transition: transform 180ms ease, top 180ms ease;
+  width: 0.55rem;
+}
+
+.doc details[open] > summary::after {
+  top: 1rem;
+  transform: rotate(225deg);
+}
+
+.doc details > .content {
+  background: var(--cuppa-page);
+  border-top: 1px solid var(--cuppa-example);
+  padding: 0.85rem;
+}
+
+.doc details > .content > :first-child {
+  margin-top: 0;
+}
+
+/*
+ * Chromium can animate the native details content box. Other browsers retain
+ * fully functional disclosure behaviour and ignore this progressive layer.
+ */
+.doc details::details-content {
+  block-size: 0;
+  overflow: hidden;
+  transition:
+    block-size 240ms ease,
+    content-visibility 240ms allow-discrete;
+}
+
+.doc details[open]::details-content {
+  block-size: auto;
+}
+
+/* Code: quieter frames and a smaller monospace scale than the bundle default */
+
+.doc pre {
+  font-size: var(--cuppa-code-size);
+}
+
+.doc .admonitionblock td.content pre {
+  font-size: var(--cuppa-code-size);
+}
+
+.doc .listingblock pre:not(.highlight),
+.doc .literalblock pre,
+.doc pre.highlight > code {
+  background: var(--cuppa-code-surface);
+  border: 1px solid var(--cuppa-border);
+  border-radius: var(--cuppa-radius);
+  box-shadow: none;
+}
+
+/*
+ * The bundle tints inline code only in paragraphs, list items, and table
+ * headers, which leaves headings and other contexts bare. Treat every inline
+ * code span the same way, with no border so it reads as a tint, not a chip.
+ */
+.doc :not(pre) > code {
+  background: var(--cuppa-code-surface);
+  border: none;
+  border-radius: 0.25em;
+  color: inherit;
+  font-size: var(--cuppa-code-size-inline);
+  padding: 0.1em 0.25em;
+}
+
+.doc h1 code,
+.doc h2 code,
+.doc h3 code,
+.doc h4 code,
+.doc h5 code,
+.doc h6 code {
+  font-weight: inherit;
+}
+
+/* Page navigation */
+
+nav.pagination {
+  border-top-color: var(--cuppa-border);
+  gap: 1rem;
+  margin-top: 3rem;
+  padding-top: 1rem;
+}
+
+nav.pagination span {
+  background: var(--cuppa-surface);
+  border: 1px solid var(--cuppa-border);
+  border-radius: var(--cuppa-radius);
+  min-width: 0;
+  padding: 0.6rem 0.85rem;
+}
+
+/*
+ * The chevrons are absolutely positioned 1rem outside the link box, so the
+ * arrow side needs enough padding to keep them inside the button.
+ */
+nav.pagination .prev {
+  padding-left: 1.9rem;
+}
+
+nav.pagination .next {
+  padding-right: 1.9rem;
+}
+
+nav.pagination span:hover {
+  background: var(--cuppa-brand-light);
+  border-color: var(--cuppa-brand);
+}
+
+nav.pagination a {
+  color: var(--cuppa-brand);
+}
+
+footer.footer {
+  background: var(--cuppa-surface-strong);
+  border-top: 1px solid var(--cuppa-border);
+  color: var(--cuppa-text-muted);
+}
+
+.footer a {
+  color: var(--cuppa-brand-dark);
+}
+
+@media print {
+  .navbar {
+    border-bottom: none;
+  }
+
+  .doc .tablecontainer,
+  .doc .admonitionblock > table {
+    box-shadow: none;
+  }
+}

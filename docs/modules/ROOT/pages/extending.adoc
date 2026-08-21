@@ -209,7 +209,7 @@ pytest -m unit
 pytest -m integration
 ----
 
-`pytest -m integration` requires a C++ compiler (typically `g++`).
+`pytest -m integration` requires a {cpp} compiler (typically `g{plus}{plus}`).
 Smoke-test against `examples/minimal/` after installing your working tree (`pip install -e .` or `PYTHONPATH`).
 
 Lint settings live in xref:linting.adoc[Linting].

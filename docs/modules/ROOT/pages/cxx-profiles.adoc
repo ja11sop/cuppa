@@ -38,24 +38,27 @@ flags are unchanged.
 
 . Obtain a Profiles-capable Clang ({cpp} Alliance release archive) and register it with cuppa, for example:
 
-```
+[source,sh]
+----
 cuppa -D --toolchain-archive=https://github.com/cppalliance/clang/releases/download/profiles-2026-08-07-27/clang-profiles-linux-x86_64.tar.gz
-```
+----
 
 Session names look like `clang24_profiles_2026_08_07_27`. See xref:toolchains.adoc[Toolchains] and xref:toolchains/clang.adoc[Clang].
 
 . Build with the framework and (optionally) session-wide enforce:
 
-```
+[source,sh]
+----
 cuppa -D --dbg --toolchains=clang24_profiles_2026_08_07_27 --cxx-profiles --cxx-profiles-enforce=std::init
-```
+----
 
 `--cxx-profiles` alone turns on `-fprofiles` so attributes in your sources are recognised.
 `--cxx-profiles-enforce=std::init` also asks cuppa to enforce that designator on every {cpp} TU.
 
 You can put enforce in source yourself instead of (or as well as) the CLI:
 
-```cpp
+[source,cpp]
+----
 [[profiles::enforce(std::init)]];
 
 int main()
@@ -63,7 +66,7 @@ int main()
     int Value = 0;
     return Value;
 }
-```
+----
 
 [#how-cuppa-enables]
 == How cuppa enables Profiles today
@@ -88,9 +91,10 @@ For `--cxx-profiles-enforce=a,b`:
 2. Otherwise cuppa writes a small generated header under the build tree, for example
    `_build/.../profiles/enforce_std_init.hpp`, containing:
 
-```cpp
+[source,cpp]
+----
 [[profiles::enforce(std::init)]];
-```
+----
 
 and compiles each {cpp} translation unit with `-include <that header>`.
 
