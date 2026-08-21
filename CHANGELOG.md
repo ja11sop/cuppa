@@ -70,6 +70,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Cuppa's composable/inspect-before-remove CLI design. Child pages use summary tables and dedicated
   value/modifier tables for non-obvious choices such as list formats/scopes, removal tokens,
   develop branch targets, dialects, diagnostic caps, and report context/link styles.
+  Everyday use is framed as SCons/Cuppa options plus sconscript intent; ``VARIABLES`` / bare
+  ``TARGETS`` stay available but are not the encouraged path (see Concepts).
+- Docs search field shows a magnifying-glass icon inside the input.
 - The CLI reference also documents the stable SCons options Cuppa users need (project traversal,
   parallel/dry-run/clean/failure modes, quiet output, help, and graph diagnostics) and names every
   Cuppa option registered by the minimal project, checked against ``cuppa -D -h``. This includes

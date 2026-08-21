@@ -6,6 +6,7 @@ You keep short, declarative `sconscript` files that express *intent* (`Build`, `
 
 SCons remains the low-level DAG and make replacement.
 Cuppa captures common {cpp} build practice so experts can encapsulate toolchains and dependencies once, and the rest of the team works in a stable vocabulary instead of fighting proprietary DSL syntax or hand-written flag matrices.
+The command line selects variants, toolchains, and actions; it is not the place where everyday projects invent ad-hoc targets — see xref:concepts.adoc#command-line[Command line and project description].
 
 Location and package dependencies make revision- and branch-pinned library composition a first-class part of the build.
 Artefacts land under a visible `_build/` tree (not a hidden directory), so a guaranteed clean rebuild is `rm -rf _build`.

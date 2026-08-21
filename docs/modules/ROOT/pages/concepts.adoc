@@ -3,6 +3,39 @@
 
 Cuppa uses a small vocabulary so `sconstruct` / `sconscript` files stay declarative.
 
+[#command-line]
+== Command line and project description
+
+SCons is a general dependency-management framework: you can pass construction variables
+(`NAME=value`) and target names on the command line, and the DAG will honour them. That power is
+useful, but it also makes every project invent its own everyday build ritual — target names,
+variable knobs, and flag combinations that live in someone's shell history rather than in the
+repository.
+
+Cuppa sits on that foundation and deliberately narrows the everyday surface. It packages common
+{cpp} build practice into a shared vocabulary (methods, dependencies, variants, toolchains,
+actions) so experts encode the hard choices once, and everyone else selects from a small, named
+toolbox instead of composing an open-ended flag matrix.
+
+In a Cuppa project the *sconscript* describes *what* to build (`env.Build`, `env.BuildTest`,
+`env.BuildWith`). The command line selects *how* and *which slice*: variants (`--dbg`), toolchains
+(`--toolchains=`), actions (`--test`), and filters (`--scripts=`).
+
+That split is intentional:
+
+* *Reproducible workflows* — the same named Cuppa options appear in docs, CI, and local shells, so
+  a coverage run or a dual-toolchain check is a shared recipe rather than a one-off target list.
+* *Onboarding* — new contributors learn a short intent API and a handful of selectors; they do not
+  need to reverse-engineer which SCons targets or construction variables the team happens to use.
+* *Encapsulation* — toolchain defaults, dependency fetch/link rules, and output layout stay in
+  reusable Python modules; everyday command lines stay short and transferable across projects.
+* *Escape hatch when needed* — SCons `VARIABLES` and bare `TARGETS` still work because Cuppa does
+  not replace the parser. Prefer them for diagnosis or rare custom graphs, not as the normal way
+  to express product builds.
+
+See xref:cli-reference.adoc[CLI reference] for the full option map, and
+xref:methods.adoc[Methods] for the intent APIs used in sconscripts.
+
 [#methods]
 == Methods
 

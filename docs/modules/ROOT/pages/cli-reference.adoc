@@ -2,19 +2,29 @@
 :description: How Cuppa and SCons command-line options compose
 
 Cuppa presents one command line for selecting a build, running actions, inspecting state, and
-maintaining local storage. It extends SCons rather than replacing its parser, so a typical
-invocation has four kinds of input:
+maintaining local storage. It extends SCons rather than replacing its parser, so a full invocation
+can include four kinds of input:
 
 [source,sh]
 ----
 cuppa [SCons options] [Cuppa options] [VARIABLES] [TARGETS]
 ----
 
+In everyday Cuppa use you mostly pass SCons options such as `-D` and Cuppa options such as
+`--dbg`, `--toolchains=`, and `--test`. Projects normally express *what* to build in `sconscript`
+files (`env.Build`, `env.BuildTest`, …) and select slices with Cuppa's named options
+(`--scripts=`, variants, toolchains, actions). The design rationale is in
+xref:concepts.adoc#command-line[Concepts: Command line and project description].
+
+NOTE: `[VARIABLES]` and `[TARGETS]` in the anatomy above are SCons capabilities Cuppa inherits.
+They remain valid for advanced or diagnostic use, but they are **not** the encouraged everyday
+path. Prefer sconscript intent plus Cuppa selectors over ad-hoc construction variables and bare
+target names.
+
 SCons parses one combined option stream: its built-in options control graph traversal and
 execution, while options registered by Cuppa add variants, toolchains, dependencies, reports, and
-maintenance actions. Construction variables and target names select project-defined behaviour.
-The bracketed groups above describe ownership, not separate parser namespaces; options can be
-interleaved.
+maintenance actions. The bracketed groups above describe ownership, not separate parser namespaces;
+options can be interleaved.
 
 You can invoke an SConstruct file that imports `cuppa` using either `scons` or `cuppa`.
 The `cuppa` entry point is `scons` plus a small wrapper: it appends `--cuppa-mode` as a session
