@@ -12,6 +12,8 @@
   --cuppa-brand-light: #f1ebf6;
   --cuppa-accent: #3f9b8b;
   --cuppa-accent-glow: rgba(63, 155, 139, 0.24);
+  --cuppa-link: #76558f;                /* Aubergine brand purple */
+  --cuppa-link-hover: #4d365f;
   --cuppa-on-brand: #fff;
   --cuppa-on-brand-muted: rgba(255, 255, 255, 0.48);
 
@@ -48,6 +50,8 @@
     --cuppa-brand-light: #2a2030;
     --cuppa-accent: #5cbfb0;
     --cuppa-accent-glow: rgba(92, 191, 176, 0.24);
+    --cuppa-link: #b89ac8;
+    --cuppa-link-hover: #d4c0e0;
     --cuppa-on-brand: #161218;
     --cuppa-on-brand-muted: rgba(22, 18, 24, 0.50);
 

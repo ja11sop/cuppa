@@ -13,6 +13,8 @@
   --cuppa-brand-light: #edf5f2;         /* Pale porcelain-green tint */
   --cuppa-accent: #52c486;              /* Fresh Mint Green - vibrant but sophisticated */
   --cuppa-accent-glow: rgba(82, 196, 134, 0.22);
+  --cuppa-link: #265147;                /* Brand green: already distinct from body text */
+  --cuppa-link-hover: #193831;
   --cuppa-on-brand: #ffffff;
   --cuppa-on-brand-muted: rgba(255, 255, 255, 0.50);
 
@@ -59,6 +61,8 @@
     --cuppa-brand-light: #1a2824;
     --cuppa-accent: #6ed99a;
     --cuppa-accent-glow: rgba(110, 217, 154, 0.22);
+    --cuppa-link: #6ed99a;
+    --cuppa-link-hover: #8ee4b0;
     --cuppa-on-brand: #121816;
     --cuppa-on-brand-muted: rgba(18, 24, 22, 0.50);
 

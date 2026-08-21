@@ -277,12 +277,19 @@ body {
   margin-top: 1.5rem;
 }
 
-.doc a {
-  color: var(--cuppa-brand);
+/*
+ * Prose links use dedicated palette tokens. Brand is often near body text (cup-of-tea,
+ * mint-tea), so tying .doc a to --cuppa-brand made links look unstyled. Heading anchors
+ * keep the bundle's own treatment.
+ */
+.doc a:not(.anchor) {
+  color: var(--cuppa-link, var(--cuppa-accent));
+  text-decoration: none;
 }
 
-.doc a:hover {
-  color: var(--cuppa-brand-dark);
+.doc a:not(.anchor):hover {
+  color: var(--cuppa-link-hover, var(--cuppa-brand-dark));
+  text-decoration: underline;
 }
 
 .doc .paragraph.lead > p {

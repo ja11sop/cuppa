@@ -14,6 +14,8 @@
   --cuppa-brand-light: #eaf2fb;
   --cuppa-accent: #9fd948;
   --cuppa-accent-glow: rgba(159, 217, 72, 0.22);
+  --cuppa-link: #215a9a;                /* Harbour blue: brand is already a link hue */
+  --cuppa-link-hover: #183f70;
   --cuppa-on-brand: #fff;
   --cuppa-on-brand-muted: rgba(255, 255, 255, 0.45);
 
@@ -50,6 +52,8 @@
     --cuppa-brand-light: #1a2a40;
     --cuppa-accent: #b8e85c;
     --cuppa-accent-glow: rgba(184, 232, 92, 0.22);
+    --cuppa-link: #7aa8d4;
+    --cuppa-link-hover: #c5d8f0;
     --cuppa-on-brand: #121820;
     --cuppa-on-brand-muted: rgba(18, 24, 32, 0.50);
 

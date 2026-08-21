@@ -13,6 +13,8 @@
   --cuppa-brand-light: #eef3f1;         /* Very clean, tea-tinted light grey */
   --cuppa-accent: #6b9473;              /* Crisp Matcha - used strictly as an accent hint */
   --cuppa-accent-glow: rgba(107, 148, 115, 0.15);
+  --cuppa-link: #6b9473;                /* Matcha: brand is near body ink, so links use accent */
+  --cuppa-link-hover: #54785c;
   --cuppa-on-brand: #ffffff;
   --cuppa-on-brand-muted: rgba(255, 255, 255, 0.50);
 
@@ -59,6 +61,8 @@
     --cuppa-brand-light: #1a2522;
     --cuppa-accent: #8cb895;
     --cuppa-accent-glow: rgba(140, 184, 149, 0.20);
+    --cuppa-link: #8cb895;
+    --cuppa-link-hover: #a8ccb0;
     --cuppa-on-brand: #101816;
     --cuppa-on-brand-muted: rgba(16, 24, 22, 0.50);
 
