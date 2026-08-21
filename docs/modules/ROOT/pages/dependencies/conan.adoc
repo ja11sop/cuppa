@@ -107,7 +107,7 @@ When Conan packages install shared libraries, linking alone is not enough for `-
 
 Cuppa applies the package search paths from SConsDeps so test and run actions can locate them (`PATH` on Windows; `LD_LIBRARY_PATH` on Linux; `DYLD_LIBRARY_PATH` / `PATH` on macOS as appropriate).
 
-You do **not** need `--propagate-env` (or the path-propagation flags) for this. Those flags control whether your *shell* environment is visible to subprocesses; Conan runtime paths are applied by the Conan dependency itself. See xref:cli-reference.adoc#environment-propagation[Environment propagation] when you instead need tools from your shell `PATH`.
+You do **not** need `--propagate-env` (or the path-propagation flags) for this. Those flags control whether your *shell* environment is visible to subprocesses; Conan runtime paths are applied by the Conan dependency itself. See xref:cli/output-and-environment.adoc#environment-propagation[Environment propagation] when you instead need tools from your shell `PATH`.
 
 === Limitations (MVP)
 

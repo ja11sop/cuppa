@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-antora-ui`); [`docs/playbook.yml`](../../docs/playbook.yml); supplemental UI [`docs/supplemental-ui/`](../../docs/supplemental-ui/); companion [`colourised-doc-samples.md`](colourised-doc-samples.md)
-- **Updated:** 2026-08-19
+- **Updated:** 2026-08-21
 - **Impact:** none — site presentation only (unless a UI change breaks the docs CI build)
 
 ## Why
@@ -104,14 +104,14 @@ Sources are **look references**, not dependencies. Map each idea onto Antora cla
 | Type scale | Distinct H1–H3, quieter body | **Keep** | CSS variables on headings in `.doc` |
 | Colour tokens | One brand + semantic status | **Keep** | Complete semantic contract in a named `cuppa-palette-*.css` file; six palettes (cup-of-tea, mint-tea, fine-bone-china, harbour, forest, aubergine), each with a `prefers-color-scheme: dark` override; later `.cuppa-error` sample classes |
 | Sidebar current page | Stronger active marker | **Keep** | High value, small CSS |
-| Admonitions | Boxed MkDocs-style heading + quieter body | **Adapt** | Semantic border/glow; tinted heading with icon and label/title; page-colour body at a smaller type size; do not change AsciiDoc HTML |
-| Expandable examples | Tinted collapsed disclosure | **Adapt** | Separate example colour, code/example mark, right-aligned disclosure caret, and progressive native-details transition |
-| Tables | Header background, optional zebra | **Adapt** | Header + tighter cell padding first; no sticky columns in v1 |
+| Admonitions | Boxed MkDocs-style heading + quieter body | **Adapt** | Semantic border/glow; compact tinted heading with a masked Material icon and label/title; page-colour body at a smaller type size; do not change AsciiDoc HTML |
+| Expandable examples | Tinted collapsed disclosure | **Adapt** | Same callout chrome as admonitions (border, radius, glow, heading-strip height); flask mark, right-aligned plus/minus control, and progressive native-details transition |
+| Tables | Header background, optional zebra | **Adapt** | Header + tighter cell padding first; no sticky columns in v1. Column ratios are content, not CSS: the bundle sets `table-layout: fixed`, so every table declares `cols` sized from its own cells, with repeated families held to one ratio |
 | Pagination | Clear prev/next | **Adapt** | Style existing `.pagination` |
 | Navbar | Compact brand colour | **Adapt** | Tint/border only; keep overlay markup |
 | Navbar brand marks | Project / registry icons | **Adapt** | GitHub and PyPI links carry inline SVG marks (Simple Icons paths, CC0) that inherit `currentColor`; text labels stay for the mobile menu |
 | Code blocks | Title bar, quieter chrome | **Adapt** | Quieter frame and a smaller monospace scale (`--cuppa-code-size*`); highlight.js tokens untouched, no title bar yet |
-| Fonts / icon packs | Material icons, extra webfonts | **Skip** | Weight and self-hosting; CSS-drawn semantic/disclosure marks and two inline SVG navbar marks do not require a pack |
+| Fonts / icon packs | Material icons, extra webfonts | **Skip** | Weight and self-hosting. Cherry-picked Material paths (Apache 2.0) are embedded as `--cuppa-icon-*` data-URI masks in `cuppa.css`, so semantic and disclosure marks inherit palette colour without a pack or extra request; the two navbar marks stay inline in the header partial |
 | Dark mode | Material default | **Adapt** | Palette files follow `prefers-color-scheme`; a navbar toggle remains deferred |
 | Card / grid landing | Material cards | **Skip** | Needs content rewrite |
 | Search modal | Material overlay search | **Skip** | Lunr field stays in the navbar |
@@ -176,12 +176,12 @@ toolbar edit link. A playbook `edit_url: false` is not enough, because the bundl
 **First implementation PR:** `ui-css` (+ `ui-pin` in the same PR if small). `ui-audit` is this
 plan update.
 
-### Progress snapshot (2026-08-19)
+### Progress snapshot (2026-08-21)
 
 | Id | Status |
 |----|--------|
 | `ui-audit` | **Shipped** — catalogue and overlay rules in [#227](https://github.com/ja11sop/cuppa/pull/227) |
-| `ui-css` | **On branch `docs/antora-ui-css`** — navbar/nav; article type scale; compact tables; admonitions; disclosures; code scale; pagination; separate palette contract. Review passes: nav labels retain uniform alignment while brand-colour carets sit fully outside highlights; the current-page rule marks leaf items only, since a caret already marks a parent; tables drop vertical rules for a tinted heading band opened and closed by a `--cuppa-table` rule; GitHub/PyPI marks; smaller body and monospace scales; edit-page link removed; subtree parent/overview links are distinct; visible `C++` notation normalised through AsciiDoc attributes; chevrons inside pagination buttons; inline code tinted (no border) in every context; admonition table cells stack inside one semantic outer border/glow; independently coloured expandable examples with left example mark, right disclosure caret, and progressive transition; six palettes (cup-of-tea, mint-tea, fine-bone-china, harbour, forest, aubergine) each carry light and `prefers-color-scheme: dark`; navbar uses `background-clip: padding-box` so Chromium does not paint a band of navbar colour below the accent border |
+| `ui-css` | **On branch `docs/antora-ui-css`** — navbar/nav; article type scale; compact tables; admonitions; disclosures; code scale; pagination; separate palette contract. Review passes: nav labels retain uniform alignment while brand-colour carets sit fully outside highlights; the current-page rule marks leaf items only, since a caret already marks a parent; tables drop vertical rules for a tinted heading band opened and closed by a `--cuppa-table` rule; GitHub/PyPI marks; smaller body and monospace scales; edit-page link removed; subtree parent/overview links are distinct; visible `C++` notation normalised through AsciiDoc attributes; chevrons inside pagination buttons; inline code uses a translucent ink wash (`--cuppa-code-tint`, with an opaque fallback) in every context, so it darkens the surface behind it rather than laying grey over a tinted heading; admonition table cells stack inside one semantic outer border/glow, with compact headings, locally embedded Material SVG marks, and heading-strip tokens that shift mark and label independently (per type where a glyph needs it) so both the generic label and an explicit title share one alignment; independently coloured expandable examples share that callout chrome and pair a flask mark with a right-aligned plus/minus control and progressive transition; six palettes (cup-of-tea, mint-tea, fine-bone-china, harbour, forest, aubergine) each carry light and `prefers-color-scheme: dark`; navbar uses `background-clip: padding-box` so Chromium does not paint a band of navbar colour below the accent border; every table declares a `cols` ratio measured from its own content, because the bundle's `table-layout: fixed` applies Antora's equal split literally, and repeated families (toolchain flag tables, Methods reference tables) are held to one ratio across sibling pages; the dense CLI reference is split into an introductory hub and seven task pages, with option/value tables and a curated SCons subset |
 | `ui-pin` | **Next** — keep separate until a stable default-bundle artifact or vendoring route is selected |
 | `ui-ci` | Local Antora build passes; verify Pages CI on the CSS pull request |
 | `ui-fork-spike` | Deferred pending review of the supplemental pass |

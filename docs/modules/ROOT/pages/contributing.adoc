@@ -11,6 +11,7 @@ linting, integration tests, and releases.
 
 == Topics
 
+[cols="4,1"]
 |===
 | Topic | Page
 

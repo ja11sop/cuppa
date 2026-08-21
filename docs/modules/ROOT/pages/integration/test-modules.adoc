@@ -8,7 +8,7 @@ Covered by `tests/integration/methods/test_modules.py` using
 
 == Cases
 
-[cols="1,2,1"]
+[cols="2,2,1"]
 |===
 | Test | What it exercises | Notes
 

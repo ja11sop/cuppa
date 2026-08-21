@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unmapped hosts show a linked repository URL plus a plain repo-relative path suffix;
   optional ``GH`` / ``GL`` / ``BB`` / ``GT`` / ``AD`` hint links try common provider
   URL shapes (``--no-reports-remote-provider-hints`` to disable).
+- Recognised GCC toolchain aliases include ``gcc162``, ``gcc144``, ``gcc134``, and
+  ``gcc125`` (and the missing 12.3/12.4 and 13.3 point releases) so PATH installs of
+  current GNU releases can be selected by name.
 
 ### Changed
 
@@ -32,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``--cxx-default-error-limit`` or ``--cxx-error-limit=`` is set. Cuppa strips any existing
   ``-ferror-limit`` / ``-fmax-errors`` flags from ``CXXFLAGS`` / ``CCFLAGS`` before applying the
   resolved cap; ``--cxx-default-error-limit`` strips them to restore the toolchain default.
+- Dialect and LTO tables on the GCC and Clang toolchain pages list versions newest-first,
+  with the unmatched fallback dialect last.
 - Document persisting ``reports_link_style`` and ``reports_*_hosts`` via ``configure.conf`` or
   ``cuppa.run(default_options=…)`` so CI pipelines need not repeat link-style flags.
 - ``regenerate_profiles_report`` accepts ``remote`` for ``--reports-link-style`` and related flags.
@@ -39,7 +44,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for navigation and heading scale, tables that drop vertical rules for a tinted heading band
   closed by a semantic rule, boxed semantic admonitions, animated expandable
   examples, a smaller monospace scale, and prev/next buttons. Component rules consume a separate
-  semantic palette contract. Six named palettes are previewable by changing the stylesheet
+  semantic palette contract. Admonition headings use compact, locally embedded Material SVG
+  marks; expandable examples share that callout chrome (border width, radius,
+  glow, heading-strip height and padding) and pair a flask mark with a
+  plus/minus control that names the state; and inline code is tinted with a translucent ink wash
+  (``--cuppa-code-tint``) so it darkens the surface behind it and keeps that surface's hue on a
+  tinted heading instead of reading as a grey patch. Six named palettes are previewable by changing the stylesheet
   link in ``head-styles.hbs``: cup-of-tea (currently selected), mint-tea, fine-bone-china,
   harbour (renamed from ``cuppa-palette.css``), forest, and aubergine. Each file defines the
   same token names for both light and ``prefers-color-scheme: dark``. The navbar GitHub and
@@ -48,9 +58,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation subtree parents now have distinct landing and overview targets for Dependencies,
   Toolchains, and Contributing. Visible C++ notation uses the shared AsciiDoc attribute,
   tables are more compact, and the generated toolbar no longer offers an edit-page link.
+- Every documentation table now declares a ``cols`` ratio sized from its own content, rather
+  than relying on Antora's equal split, which the bundle's ``table-layout: fixed`` applies
+  literally. Columns of identifiers are given the width to stay on one line where that does not
+  starve the prose beside them. Repeated families are held to one ratio for consistency across
+  sibling pages: flag / purpose / documentation tables on the GCC, Clang, and MSVC pages, and the
+  method, parameter, and alias tables on the Methods page.
+- The CLI reference is now an introductory hub plus task pages for building, output/environment,
+  storage/configuration, inspection/maintenance, dependencies/develop, toolchains/features, and
+  reports. The hub explains command anatomy, output layers, option discovery, common commands, and
+  Cuppa's composable/inspect-before-remove CLI design. Child pages use summary tables and dedicated
+  value/modifier tables for non-obvious choices such as list formats/scopes, removal tokens,
+  develop branch targets, dialects, diagnostic caps, and report context/link styles.
+- The CLI reference also documents the stable SCons options Cuppa users need (project traversal,
+  parallel/dry-run/clean/failure modes, quiet output, help, and graph diagnostics) and names every
+  Cuppa option registered by the minimal project, checked against ``cuppa -D -h``. This includes
+  configuration ``-global-`` forms, Code::Blocks flags, ``--runner``, ``--cuppa-mode``, and complete
+  dynamic per-location and per-package option patterns. ``--cuppa-mode`` is documented as a session
+  marker appended by the ``cuppa`` wrapper: secret masking of SCons stdout/stderr, Profiles
+  ``-i`` injection, and ``--parallel`` affinity live in that wrapper, not in a SCons option
+  handler. Prefer ``cuppa`` over bare ``scons`` in CI.
 
 ### Fixed
 
+- The CLI reference table for HTML report source links renders again: the ``|`` separating the
+  accepted values of ``--reports-link-style`` and ``--cxx-profiles-report-link-style`` was read
+  by AsciiDoc as a cell separator and split those rows across the table.
+- The ``cuppa`` wrapper no longer treats an empty ``*TOKEN*`` environment value as a secret.
+  Replacing the empty string would have rewritten every captured output line.
+- ``--use-conf`` and ``--generate-cbs-place-with-sconscript`` describe themselves in ``-h`` output.
+  Both carried another option's help text, so they read as "Clear the configuration file" and
+  "Exclude branches outside of the working directory".
 - ``--cxx-error-limit`` CLI options register once when the module exposes a backward-compatible
   class alias (fixes ``OptionConflictError`` on configure).
 - ``--verbosity=exception`` applies to the cuppa logger and is honoured before method option

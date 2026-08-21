@@ -24,6 +24,7 @@
   --cuppa-surface-strong: #eff2f0;      /* Slightly darker structural grey for headers */
   --cuppa-border: #e2e8e5;              /* Very faint, thin organic border */
   --cuppa-code-surface: #fafbfa;        /* Clean, ultra-light grey for code blocks */
+  --cuppa-code-tint: rgba(15, 33, 30, 0.07);  /* Ink wash: darkens whatever it sits on */
   --cuppa-shadow-tint: rgba(26, 51, 46, 0.04);
 
   /* --- Admonitions (Brighter & More Vivid Pops against the Clean Page) --- */
@@ -68,6 +69,7 @@
     --cuppa-surface-strong: #222c28;
     --cuppa-border: #2c3a34;
     --cuppa-code-surface: #141c1a;
+    --cuppa-code-tint: rgba(0, 0, 0, 0.30);
     --cuppa-shadow-tint: rgba(0, 0, 0, 0.50);
 
     --cuppa-note: #38bdf8;

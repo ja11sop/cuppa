@@ -15,6 +15,30 @@
   --cuppa-shadow: 0 0.15rem 0.5rem var(--cuppa-shadow-tint);
   --cuppa-code-size: 0.8rem;
   --cuppa-code-size-inline: 0.875em;
+
+  /*
+   * Shared callout chrome. Admonitions and expandable examples both consume
+   * these so a heading-strip or border change stays in lockstep.
+   */
+  --cuppa-callout-border-width: 2px;
+  --cuppa-callout-glow-width: 3px;
+  --cuppa-callout-head-height: 2.05rem;
+  --cuppa-callout-pad-x: 0.75rem;
+  --cuppa-callout-gap: 0.45rem;
+  --cuppa-callout-mark-size: 1.05rem;
+  --cuppa-callout-label-size: 0.86rem;
+  --cuppa-callout-body-size: 0.875rem;
+  --cuppa-callout-body-pad: 0.85rem 1rem;
+
+  /* Material Design Icons, vendored as masks so they inherit semantic colour. */
+  --cuppa-icon-note: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M13,9H11V7H13M13,17H11V11H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z'/%3E%3C/svg%3E");
+  --cuppa-icon-tip: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12,6A6,6 0 0,1 18,12C18,14.22 16.79,16.16 15,17.2V19A1,1 0 0,1 14,20H10A1,1 0 0,1 9,19V17.2C7.21,16.16 6,14.22 6,12A6,6 0 0,1 12,6M14,21V22A1,1 0 0,1 13,23H11A1,1 0 0,1 10,22V21H14M20,11H23V13H20V11M1,11H4V13H1V11M13,1V4H11V1H13M4.92,3.5L7.05,5.64L5.63,7.05L3.5,4.93L4.92,3.5M16.95,5.63L19.07,3.5L20.5,4.93L18.37,7.05L16.95,5.63Z'/%3E%3C/svg%3E");
+  --cuppa-icon-warning: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M13 14H11V9H13M13 18H11V16H13M1 21H23L12 2L1 21Z'/%3E%3C/svg%3E");
+  --cuppa-icon-important: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M13,13H11V7H13M13,17H11V15H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z'/%3E%3C/svg%3E");
+  --cuppa-icon-caution: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M13 13H11V7H13M11 15H13V17H11M15.73 3H8.27L3 8.27V15.73L8.27 21H15.73L21 15.73V8.27L15.73 3Z'/%3E%3C/svg%3E");
+  --cuppa-icon-example: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6,22A3,3 0 0,1 3,19C3,18.4 3.18,17.84 3.5,17.37L9,7.81V6A1,1 0 0,1 8,5V4A2,2 0 0,1 10,2H14A2,2 0 0,1 16,4V5A1,1 0 0,1 15,6V7.81L20.5,17.37C20.82,17.84 21,18.4 21,19A3,3 0 0,1 18,22H6M5,19A1,1 0 0,0 6,20H18A1,1 0 0,0 19,19C19,18.79 18.93,18.59 18.82,18.43L16.53,14.47L14,17L8.93,11.93L5.18,18.43C5.07,18.59 5,18.79 5,19M13,10A1,1 0 0,0 12,11A1,1 0 0,0 13,12A1,1 0 0,0 14,11A1,1 0 0,0 13,10Z'/%3E%3C/svg%3E");
+  --cuppa-icon-expand: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M17,13H13V17H11V13H7V11H11V7H13V11H17M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z'/%3E%3C/svg%3E");
+  --cuppa-icon-collapse: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M17,13H7V11H17M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z'/%3E%3C/svg%3E");
 }
 
 /* Brand and global chrome */
@@ -319,36 +343,63 @@ body {
 
 /* Admonitions */
 
+/*
+ * Heading-strip geometry.
+ *
+ * The mark and the label are separate boxes in one flex row, so each takes its
+ * own vertical nudge: a glyph whose optical centre sits low (the warning
+ * triangle) can be raised without moving the text, and the text can be moved
+ * without disturbing the glyph. Both shifts are translations, so neither
+ * changes the strip height. An explicit title reads the same tokens, so a
+ * titled admonition lines up with a labelled one.
+ *
+ * Set a shift per type by redeclaring it on that type's rule below, in the
+ * units that suit the adjustment ( `em` tracks the label size, `rem` does not ).
+ */
 .doc .admonitionblock {
   --cuppa-admonition: var(--cuppa-note);
   --cuppa-admonition-surface: var(--cuppa-note-surface);
+  --cuppa-admonition-icon: var(--cuppa-icon-note);
+  --cuppa-admonition-head-height: var(--cuppa-callout-head-height);
+  --cuppa-admonition-pad-x: var(--cuppa-callout-pad-x);
+  --cuppa-admonition-gap: var(--cuppa-callout-gap);
+  --cuppa-admonition-mark-size: var(--cuppa-callout-mark-size);
+  --cuppa-admonition-mark-shift: 0rem;
+  --cuppa-admonition-label-size: var(--cuppa-callout-label-size);
+  --cuppa-admonition-label-shift: 0rem;
   margin-top: 1.75rem;
 }
 
 .doc .admonitionblock.tip {
   --cuppa-admonition: var(--cuppa-tip);
+  --cuppa-admonition-icon: var(--cuppa-icon-tip);
   --cuppa-admonition-surface: var(--cuppa-tip-surface);
 }
 
 .doc .admonitionblock.warning {
   --cuppa-admonition: var(--cuppa-warning);
+  --cuppa-admonition-icon: var(--cuppa-icon-warning);
   --cuppa-admonition-surface: var(--cuppa-warning-surface);
+  /* The triangle carries its mass low, so its box centre reads slightly high. */
+  --cuppa-admonition-mark-shift: 0.03rem;
 }
 
 .doc .admonitionblock.important {
   --cuppa-admonition: var(--cuppa-important);
+  --cuppa-admonition-icon: var(--cuppa-icon-important);
   --cuppa-admonition-surface: var(--cuppa-important-surface);
 }
 
 .doc .admonitionblock.caution {
   --cuppa-admonition: var(--cuppa-caution);
+  --cuppa-admonition-icon: var(--cuppa-icon-caution);
   --cuppa-admonition-surface: var(--cuppa-caution-surface);
 }
 
 .doc .admonitionblock > table {
-  border: 1px solid var(--cuppa-admonition);
+  border: var(--cuppa-callout-border-width) solid var(--cuppa-admonition);
   border-radius: var(--cuppa-radius);
-  box-shadow: 0 0 0 3px var(--cuppa-admonition-surface);
+  box-shadow: 0 0 0 var(--cuppa-callout-glow-width) var(--cuppa-admonition-surface);
   display: block;
   overflow: hidden;
 }
@@ -361,8 +412,8 @@ body {
 .doc .admonitionblock td.content {
   background: var(--cuppa-page);
   display: block;
-  font-size: 0.875rem;
-  padding: 0.85rem 1rem;
+  font-size: var(--cuppa-callout-body-size);
+  padding: var(--cuppa-callout-body-pad);
   width: auto;
 }
 
@@ -372,7 +423,7 @@ body {
   display: block;
   height: auto;
   inset: auto;
-  padding: 0 0.8rem;
+  padding: 0 var(--cuppa-admonition-pad-x);
   position: static;
   transform: none;
   width: auto;
@@ -382,53 +433,38 @@ body {
   background: transparent !important;
   border-radius: 0;
   color: var(--cuppa-admonition) !important;
-  gap: 0.5rem;
-  height: 2.25rem;
+  gap: var(--cuppa-admonition-gap);
+  height: var(--cuppa-admonition-head-height);
   padding: 0;
   width: 100%;
 }
 
+/* The mark. */
 .doc .admonitionblock td.icon i::before {
-  align-items: center;
-  border: 1.5px solid currentColor;
-  border-radius: 50%;
-  content: "i";
-  display: inline-flex;
-  font-size: 0.72rem;
-  font-style: normal;
-  font-weight: 600;
-  height: 1.15rem;
-  justify-content: center;
-  line-height: 1;
-  width: 1.15rem;
-}
-
-.doc .admonitionblock.tip td.icon i::before {
+  background-color: currentColor;
   border: 0;
-  content: "✦";
-  font-size: 1.2rem;
+  content: "";
+  display: inline-block;
+  flex: 0 0 auto;
+  height: var(--cuppa-admonition-mark-size);
+  mask: var(--cuppa-admonition-icon) center / contain no-repeat;
+  transform: translateY(var(--cuppa-admonition-mark-shift));
+  width: var(--cuppa-admonition-mark-size);
+  -webkit-mask: var(--cuppa-admonition-icon) center / contain no-repeat;
 }
 
-.doc .admonitionblock.warning td.icon i::before {
-  content: "!";
-}
-
-.doc .admonitionblock.important td.icon i::before {
-  border-radius: 0.2rem;
-  content: "!";
-}
-
-.doc .admonitionblock.caution td.icon i::before {
-  border: 0;
-  content: "‼";
-  font-size: 1rem;
-}
-
+/*
+ * The generic label, from the title attribute the AsciiDoc converter emits.
+ * line-height 1 trims the inherited leading, so the flex row centres the glyphs
+ * rather than the line box and the shift below starts from a known position.
+ */
 .doc .admonitionblock td.icon i::after {
   color: var(--cuppa-text);
-  font-size: 0.86rem;
+  font-size: var(--cuppa-admonition-label-size);
   letter-spacing: 0.01em;
+  line-height: 1;
   text-transform: none;
+  transform: translateY(var(--cuppa-admonition-label-shift));
 }
 
 /*
@@ -439,15 +475,24 @@ body {
   content: "";
 }
 
+/*
+ * The explicit title takes the generic label's place in the strip. The table is
+ * the positioned ancestor and absolute offsets start inside its border, so
+ * half the strip height is the strip's centre line, and the same tokens as the
+ * mark put the text where the label would have been.
+ */
 .doc .admonitionblock td.content > .title {
   color: var(--cuppa-text);
-  font-size: 0.86rem;
+  font-size: var(--cuppa-admonition-label-size);
   font-style: normal;
-  left: 2.65rem;
+  left: calc(var(--cuppa-admonition-pad-x) + var(--cuppa-admonition-mark-size) +
+    var(--cuppa-admonition-gap));
   letter-spacing: 0.01em;
+  line-height: 1;
   padding: 0;
   position: absolute;
-  top: 0.68rem;
+  top: calc(var(--cuppa-admonition-head-height) / 2);
+  transform: translateY(calc(-50% + var(--cuppa-admonition-label-shift)));
   z-index: 1;
 }
 
@@ -458,60 +503,84 @@ body {
 /* Expandable examples */
 
 .doc details {
-  border: 1px solid var(--cuppa-example);
+  --cuppa-example-mark-shift: 0rem;
+  border: var(--cuppa-callout-border-width) solid var(--cuppa-example);
   border-radius: var(--cuppa-radius);
-  box-shadow: 0 0 0 3px var(--cuppa-example-surface);
+  box-shadow: 0 0 0 var(--cuppa-callout-glow-width) var(--cuppa-example-surface);
   interpolate-size: allow-keywords;
   margin-left: 0;
+  margin-top: 1.75rem;
   overflow: hidden;
 }
 
 .doc details > summary {
+  align-items: center;
   background: var(--cuppa-example-surface);
+  box-sizing: border-box;
   color: var(--cuppa-text);
-  font-size: 0.9rem;
+  display: flex;
+  font-size: var(--cuppa-callout-label-size);
   font-style: normal;
   font-weight: 600;
+  height: var(--cuppa-callout-head-height);
+  letter-spacing: 0.01em;
+  line-height: 1;
   margin: 0;
-  padding: 0.65rem 2.75rem 0.65rem 2.5rem;
+  padding: 0 calc(var(--cuppa-callout-pad-x) + var(--cuppa-callout-mark-size) +
+    var(--cuppa-callout-gap));
 }
 
-.doc details > summary::before {
-  color: var(--cuppa-example);
-  content: "{ }";
-  font-family: "Roboto Mono", monospace;
-  font-size: 0.75rem;
-  font-weight: 600;
+/*
+ * The bundle draws a rotating triangle here and moves it when the block opens
+ * (`.doc details[open] > summary::before`). That selector's attribute counts in
+ * the class column, so the open state is matched here as well; otherwise the
+ * bundle's transform would win and the flask would drop as the panel expands.
+ */
+.doc details > summary::before,
+.doc details[open] > summary::before {
+  background-color: var(--cuppa-example);
   border: 0;
-  left: 0.85rem;
+  content: "";
+  height: var(--cuppa-callout-mark-size);
+  left: var(--cuppa-callout-pad-x);
+  mask: var(--cuppa-icon-example) center / contain no-repeat;
   margin: 0;
-  top: 0.7rem;
-  transform: none;
+  top: 50%;
+  transform: translateY(calc(-50% + var(--cuppa-example-mark-shift)));
+  width: var(--cuppa-callout-mark-size);
+  -webkit-mask: var(--cuppa-icon-example) center / contain no-repeat;
 }
 
+/*
+ * The left mark says what the block holds; this control says what activating it
+ * does. Plus and minus are separate glyphs rather than one rotated chevron, so
+ * the state reads without motion. mask-image is not an animatable property, so
+ * the swap is deliberately discrete while the panel itself still animates.
+ */
 .doc details > summary::after {
-  border-bottom: 2px solid var(--cuppa-example);
-  border-right: 2px solid var(--cuppa-example);
+  background-color: var(--cuppa-example);
+  border: 0;
   content: "";
   display: block;
-  height: 0.55rem;
+  height: var(--cuppa-callout-mark-size);
   left: auto;
-  right: 1rem;
-  top: 0.75rem;
-  transform: rotate(45deg);
-  transition: transform 180ms ease, top 180ms ease;
-  width: 0.55rem;
+  mask: var(--cuppa-icon-expand) center / contain no-repeat;
+  right: var(--cuppa-callout-pad-x);
+  top: 50%;
+  transform: translateY(-50%);
+  width: var(--cuppa-callout-mark-size);
+  -webkit-mask: var(--cuppa-icon-expand) center / contain no-repeat;
 }
 
 .doc details[open] > summary::after {
-  top: 1rem;
-  transform: rotate(225deg);
+  mask-image: var(--cuppa-icon-collapse);
+  -webkit-mask-image: var(--cuppa-icon-collapse);
 }
 
 .doc details > .content {
   background: var(--cuppa-page);
-  border-top: 1px solid var(--cuppa-example);
-  padding: 0.85rem;
+  font-size: var(--cuppa-callout-body-size);
+  padding: var(--cuppa-callout-body-pad);
 }
 
 .doc details > .content > :first-child {
@@ -557,9 +626,14 @@ body {
  * The bundle tints inline code only in paragraphs, list items, and table
  * headers, which leaves headings and other contexts bare. Treat every inline
  * code span the same way, with no border so it reads as a tint, not a chip.
+ *
+ * The tint is a translucent ink wash rather than an opaque grey, so it darkens
+ * whatever it sits on and keeps that surface's hue. A grey would read as a grey
+ * patch on the tinted heading of an admonition or an example. Block code keeps
+ * the opaque --cuppa-code-surface, since it always sits on the page.
  */
 .doc :not(pre) > code {
-  background: var(--cuppa-code-surface);
+  background: var(--cuppa-code-tint, var(--cuppa-code-surface));
   border: none;
   border-radius: 0.25em;
   color: inherit;
@@ -630,7 +704,8 @@ footer.footer {
   }
 
   .doc .tablecontainer,
-  .doc .admonitionblock > table {
+  .doc .admonitionblock > table,
+  .doc details {
     box-shadow: none;
   }
 }

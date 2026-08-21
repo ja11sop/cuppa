@@ -1,0 +1,194 @@
+= Inspect and maintain
+:description: Listing, cleaning, removal, scopes, formats, and dry runs
+
+Inspection and maintenance actions replace the normal build. They resolve the same project,
+toolchain, variant, and dependency selection, then report or change the corresponding on-disk
+state.
+
+Start with a listing and add `-Q` so SCons framing does not obscure the inventory:
+
+[source,sh]
+----
+cuppa -D -Q --list-dependencies
+----
+
+== Listing commands
+
+[cols="3,4,3"]
+|===
+| Option | Reports | Useful modifiers
+
+| `--list-builds`
+| Build-root summary, toolchain → variant tree, and sconscript tree
+| `--toolchains`, variant flags
+
+| `--list-dependencies`
+| Retrieved dependency identities and leaves under the dependencies root
+| `--list-format`, `--list-scope`, `--exact-sizes`; omit `--develop` for normal storage inspection
+
+| `--list-downloads`
+| Cached archives plus extract/package leaves under the downloads root
+| `--list-format`, `--list-scope`
+
+| `--list-toolchains`
+| Discovered PATH drivers and registered managed toolchains
+| `--list-format`; see xref:toolchains.adoc#list-toolchains[Listing toolchains]
+
+| `--list-available-reports`
+| Built-in report kinds and which discovered/registered toolchains can produce them
+| `--list-format`
+
+| `--list-develop`
+| Configured develop working-copy state without contacting remotes
+| `--list-format`; does not require `--develop`
+|===
+
+Annotated build-listing output is on
+xref:build-layout.adoc#listing-and-removing-builds[Build layout]. Dependency/download output and
+the distinction between resolve and storage are on
+xref:dependencies/managing.adoc#which-listing[Managing dependencies].
+
+=== List formats
+
+`--list-format=FORMAT` selects the presentation independently of `--list-scope`.
+
+[cols="2,3,5"]
+|===
+| Value | General meaning | Command-specific detail
+
+| `text`
+| Human-readable default
+| Compact ruled/tree output
+
+| `verbose`
+| Text with additional location or capability detail
+| Dependencies/downloads add LOCATION; toolchains add dialects, stdlib choices, and default invocations; develop is the same as text
+
+| `json`
+| Structured machine/agent payload
+| Supported by build, dependency, download, toolchain, develop, and available-report listings
+|===
+
+=== Dependency list scopes
+
+`--list-scope=SCOPE` applies to `--list-dependencies` and `--list-downloads`. It is ignored by
+build and develop listings. `--list-dependencies-scope` is a deprecated compatibility alias.
+
+[cols="2,8"]
+|===
+| Value | Meaning
+
+| `all` | Referenced and unreferenced storage (default)
+| `referenced` | Resolved identities, including unused sibling leaves
+| `compact` | Referenced identities narrowed to leaves selected by the current resolve
+| `unreferenced` | Orphaned storage not selected by the current resolve
+|===
+
+`--exact-sizes` forces a full dependency-tree remeasurement. Without it,
+`--list-dependencies` still upgrades missing or estimated (`~`) inventory sizes when encountered.
+
+[[clean-remove-purge-wipe]]
+== Clean, remove, purge, and wipe
+
+These verbs intentionally have different ownership and re-fetch consequences.
+
+[cols="2,3,5"]
+|===
+| Action | Scope | What remains
+
+| `-c` / `--clean`
+| Targets known to the selected SCons graph
+| Build directory structure and anything not represented by selected targets
+
+| `--remove-builds`
+| Build subtrees selected by toolchain, variant, and sconscript
+| Other build selections and the artefacts root
+
+| `--remove-all-builds`
+| Entire build root
+| Artefacts, dependencies, and downloads
+
+| `--remove-dependencies`
+| Selection-scoped products for named project-used dependencies
+| Matching downloads; source/archive extracts when `storage_clean` can retain them
+
+| `--purge-dependencies`
+| The corresponding remove operation plus matching downloads
+| Source/archive extracts that dependency `storage_clean` deliberately preserves
+
+| `--wipe-dependencies`
+| Named project-used extracts and matching downloads for the current selection
+| Other selections; the next build must re-fetch wiped material
+
+| `--force-wipe-dependencies`
+| Explicit list-tree leaves, including unreferenced versions/branches
+| Leaves that do not match the supplied tokens
+|===
+
+The dependency actions are:
+
+[cols="3,7"]
+|===
+| Option | Selection
+
+| `--remove-dependencies=LIST` | Comma-separated project-used names or dependency tokens
+| `--remove-all-dependencies` | Every dependency the project uses
+| `--purge-dependencies=LIST` | Named project-used dependencies plus matching downloads
+| `--purge-all-dependencies` | Every project-used dependency plus matching downloads
+| `--wipe-dependencies=LIST` | Named project-used extracts and matching downloads
+| `--force-wipe-dependencies=TOKEN,...` | Explicit list-tree leaf tokens, regardless of current use
+| `--force-wipe-all-dependencies` | Every project-used dependency extract/download for the selection
+| `--force-wipe-unreferenced-dependencies` | Every dependency tree/download marked unreferenced
+|===
+
+Do not combine remove, purge, and wipe modes in one command.
+
+=== Dependency tokens
+
+Removal tokens use `[selector]name[/qualifier]`. Selectors identify storage kinds; qualifiers
+select versions, branches, package stems, or toolchain archive leaves. They accept fnmatch
+patterns where the detailed workflow permits them.
+
+[cols="3,3,4"]
+|===
+| Example | Selects | Note
+
+| `boost/1.86.0`
+| A named Boost version leaf
+| Uses the identity inferred from `boost`
+
+| `[source]boost/1.8*`
+| Matching source Boost leaves
+| Explicit selector plus wildcard qualifier
+
+| `fmt/@11.1.1`
+| A package version/stem
+| `@` separates package stem qualification
+
+| `widget/@`
+| Unqualified package stem
+| Useful when the list tree displays an empty qualifier
+|===
+
+See xref:dependencies/managing.adoc#dependency-tokens[Dependency tokens] before using force-wipe;
+that page defines every selector and shows how tokens map to the inventory tree.
+
+== Previewing maintenance
+
+SCons `-n` / `--no-exec` turns build removal and dependency maintenance into dry runs. Cuppa
+performs selection and prints the same report, but does not delete or update anything.
+
+Preview a selected build removal as follows:
+
+[source,sh]
+----
+cuppa -D --dbg --toolchains=gcc --remove-builds -n
+----
+
+Containment checks refuse filesystem roots, home directories, sconstruct directories, and unsafe
+symlink traversal. See xref:build-layout.adoc#removal-safety[Safety and scope] for the full refusal
+rules.
+
+You have now separated inspection from mutation and can preview destructive work. Continue with
+xref:cli/dependencies-and-develop.adoc[Dependencies and develop] for the commands that manage
+develop working copies rather than Cuppa-owned storage.

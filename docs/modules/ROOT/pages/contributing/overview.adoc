@@ -38,6 +38,7 @@ but they do not replace the full gate before a push.
 Every pull request needs **exactly one** impact label so CI can check that `cuppa/VERSION` matches
 the intent of the change:
 
+[cols="1,4"]
 |===
 | Label | Use when
 

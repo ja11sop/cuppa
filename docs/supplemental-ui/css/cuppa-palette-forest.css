@@ -22,6 +22,7 @@
   --cuppa-surface-strong: #ebf2ef;
   --cuppa-border: #d3dfda;
   --cuppa-code-surface: #f2f7f5;
+  --cuppa-code-tint: rgba(35, 79, 71, 0.07);
   --cuppa-shadow-tint: rgba(35, 79, 71, 0.09);
 
   --cuppa-note: #367e8c;
@@ -57,6 +58,7 @@
     --cuppa-surface-strong: #232e2a;
     --cuppa-border: #2c3c36;
     --cuppa-code-surface: #161e1b;
+    --cuppa-code-tint: rgba(0, 0, 0, 0.30);
     --cuppa-shadow-tint: rgba(0, 0, 0, 0.50);
 
     --cuppa-note: #5aa8b6;

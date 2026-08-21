@@ -1,0 +1,160 @@
+= Toolchains and features
+:description: Toolchain selection, dialects, standard libraries, modules, and Profiles
+
+Toolchain options select discovered compilers or register additional compiler installations.
+Feature options then request a dialect or capability from every selected toolchain. Cuppa stops
+with a clear reason when an explicitly requested feature cannot be honoured.
+
+== Selecting toolchains
+
+[cols="3,7"]
+|===
+| Option | Effect
+
+| `--toolchains=LIST` | Select comma-separated registered names or fnmatch patterns such as `gcc*`
+| `--list-toolchains` | Report discovered PATH drivers and managed registrations, then exit
+| `--toolchain-archive=URL_OR_PATH` | Fetch/register a Clang or GCC archive (`tar`, zip, or `.deb`)
+| `--clang-root=PATH` | Register an existing prefix containing `bin/clang{plus}{plus}`
+| `--gcc-root=PATH` | Register an existing prefix containing `bin/g{plus}{plus}`
+|===
+
+Archive family comes from `clang` or `gcc` in the basename when present, then from a content probe;
+an otherwise-unidentified `.deb` is treated as GCC. Managed registrations persist under the
+dependencies root and can be selected by name on later runs.
+
+`--clang-root` and `--gcc-root` create stable local registrations such as
+`clang<major>_local_<hash>`. See
+xref:toolchains.adoc#fetched-toolchains[Fetched toolchain archives] for archive layout,
+validation, and reuse.
+
+== Selecting the {cpp} dialect
+
+`--stdcpp=STD` overrides Cuppa's default language compliance. Omitting it is effectively
+`c{plus}{plus}latest` on GCC and Clang: the newest dialect Cuppa knows that the selected compiler
+can accept.
+
+[cols="3,3,4"]
+|===
+| Accepted value | Standard family | Note
+
+| `c{plus}{plus}98`, `c{plus}{plus}03`
+| {cpp}98 / {cpp}03
+| Legacy standards
+
+| `c{plus}{plus}0x`, `c{plus}{plus}11`
+| {cpp}11
+| Draft and published spellings
+
+| `c{plus}{plus}1y`, `c{plus}{plus}14`
+| {cpp}14
+| Draft and published spellings
+
+| `c{plus}{plus}1z`, `c{plus}{plus}17`
+| {cpp}17
+| Draft and published spellings
+
+| `c{plus}{plus}2a`, `c{plus}{plus}20`
+| {cpp}20
+| Draft and published spellings
+
+| `c{plus}{plus}2b`, `c{plus}{plus}23`
+| {cpp}23
+| Draft and published spellings
+
+| `c{plus}{plus}2c`, `c{plus}{plus}26`
+| {cpp}26
+| Draft and published spellings
+
+| `c{plus}{plus}latest`
+| Toolchain-dependent
+| Newest Cuppa-known dialect supported by the selected compiler
+|===
+
+See xref:toolchains.adoc#c-language-level[{cpp} language level] and the
+xref:toolchains/gcc.adoc[GCC], xref:toolchains/clang.adoc[Clang], and
+xref:toolchains/msvc.adoc[MSVC] family pages for exact emitted flags.
+
+== Clang standard library
+
+[cols="3,3,4"]
+|===
+| Option/value | Selects | Identity effect
+
+| `--clang-stdlib=libstdc{plus}{plus}`
+| GNU standard library
+| Linux default; keeps the plain toolchain name
+
+| `--clang-stdlib=libc{plus}{plus}`
+| LLVM standard library
+| A non-default choice tags `toolchain.name()` and build/package paths
+
+| `--clang-disable-debug-for-auto`
+| No stdlib change
+| Compatibility option for old Clang versions whose `auto` support failed with debug information
+|===
+
+For library/link details and platform defaults, see xref:toolchains/clang.adoc[Clang].
+
+== {cpp} modules
+
+[cols="3,7"]
+|===
+| Option | Effect
+
+| `--cxx-modules` | Enable named modules, partitions, header units, and `import std` where supported
+| `--modules` | Deprecated alias for `--cxx-modules`; removed in Cuppa 2.0
+|===
+
+Module support depends on the compiler version and standard library. Cuppa does not silently
+degrade an explicit module request. See xref:cxx-modules.adoc[{cpp} Modules] for the current
+capability matrix and tutorial.
+
+== {cpp} Profiles
+
+Profiles require a Profiles-capable Clang. The Alliance Profiles toolchain can be supplied through
+`--toolchain-archive` or `--clang-root`.
+
+[cols="3,7"]
+|===
+| Option | Effect
+
+| `--cxx-profiles` | Enable the Profiles framework (`-fprofiles`) when supported
+| `--cxx-profiles-enforce=LIST` | Enforce comma-separated profile designators on every translation unit; implies `--cxx-profiles`
+| `--cxx-profiles-report[=DIR]` | Capture diagnostics and emit HTML/JSON, under the artefacts root or optional directory
+| `--cxx-profiles-report-root=DIR` | Rebase project-owned source paths in report output
+| `--cxx-profiles-report-context=MODE` | Select `full`, `rules-only`, or `off` overview context
+| `--cxx-profiles-report-link-style=STYLE` | Override source-link style for Profiles HTML
+|===
+
+Report context and source-link values are tabulated on xref:cli/reports.adoc[Reports]. Profiles
+activation, source injection, and report interpretation are documented on
+xref:cxx-profiles.adoc[{cpp} Profiles].
+
+=== Diagnostic error-limit policy
+
+The three choices are mutually exclusive. An explicit command-line choice overrides the unlimited
+diagnostics implied by Profiles inventory.
+
+[cols="3,3,4"]
+|===
+| Choice | Compiler result | Precedence
+
+| `--cxx-error-limit=N`
+| Clang `-ferror-limit=N`; GCC `-fmax-errors=N`
+| Explicit cap; `0` means unlimited
+
+| `--cxx-default-error-limit`
+| Strip project `-ferror-limit` / `-fmax-errors` flags and append no Cuppa cap
+| Restores compiler default, including during inventory
+
+| `--cxx-disable-error-limit`
+| Clang `-ferror-limit=0`; GCC `-fmax-errors=0`
+| Explicit unlimited shorthand
+
+| Profiles inventory implication
+| Unlimited diagnostics
+| Applies only when none of the explicit policies above is selected
+|===
+
+You have now selected the compiler surface and language capabilities. Use
+xref:cli/reports.adoc[Reports] for report presentation and source-link policy.

@@ -43,11 +43,11 @@ class Gcc(object):
     def supported_versions( cls ):
         return [
             "gcc",
-            "gcc16", "gcc161",
-            "gcc15", "gcc151", "gcc152", "gcc153",
-            "gcc14", "gcc141", "gcc142", "gcc143",
-            "gcc13", "gcc131", "gcc132",
-            "gcc12", "gcc121", "gcc122",
+            "gcc16", "gcc162", "gcc161",
+            "gcc15", "gcc153", "gcc152", "gcc151",
+            "gcc14", "gcc144", "gcc143", "gcc142", "gcc141",
+            "gcc13", "gcc134", "gcc133", "gcc132", "gcc131",
+            "gcc12", "gcc125", "gcc124", "gcc123", "gcc122", "gcc121",
             "gcc11", "gcc111", "gcc112", "gcc113",
             "gcc10", "gcc102", "gcc101",
             "gcc9", "gcc93", "gcc92", "gcc91",

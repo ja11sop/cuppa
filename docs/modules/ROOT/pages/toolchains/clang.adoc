@@ -13,7 +13,7 @@ Upstream project: https://clang.llvm.org/[clang.llvm.org] ·
 Command-line reference: https://clang.llvm.org/docs/ClangCommandLineReference.html[Clang Command Line Reference].
 
 In Cuppa, supported aliases include `clang` plus versioned names through **clang22**
-(for example `clang21`, `clang211`, `clang20`, …).
+(for example `clang22`, `clang221`, `clang21`, …).
 
 [source,sh]
 ----
@@ -35,6 +35,7 @@ These are the flags that appear under `default invocations:` in verbose listing.
 
 Common {cpp} flags:
 
+[cols="1,2,1"]
 |===
 | Flag | Purpose | Docs
 
@@ -63,6 +64,7 @@ Common C flags: `-Wall`, and `-g` under the same debug rule.
 
 Variant-specific additions:
 
+[cols="1,4,2,3"]
 |===
 | Variant | Extra CXX flags | Extra C flags | Extra link flags (Linux)
 
@@ -82,6 +84,7 @@ Variant-specific additions:
 | `--coverage` (no LTO)
 |===
 
+[cols="1,2,1"]
 |===
 | Flag | Purpose | Docs
 
@@ -118,27 +121,28 @@ Variant-specific additions:
 
 Override with `--stdcpp` / `env.StdCpp` — see xref:toolchains.adoc#c-language-level[{cpp} language level].
 
+[cols="1,4"]
 |===
 | Clang version | Default dialect flags
-
-| 3.2–3.3
-| `-std=c{plus}{plus}11`
-
-| 3.4–3.8
-| `-std=c{plus}{plus}1y`
-
-| 3.9–5.x
-| `-std=c{plus}{plus}1z`
-
-| 6–12
-| `-std=c{plus}{plus}2a`
-
-| 13–16
-| `-std=c{plus}{plus}2b`
 
 | 17+
 | `-std=c{plus}{plus}2c` (Cuppa’s default; Clang also accepts `-std=c{plus}{plus}26`. Same draft-vs-ISO
   preference as GCC)
+
+| 13–16
+| `-std=c{plus}{plus}2b`
+
+| 6–12
+| `-std=c{plus}{plus}2a`
+
+| 3.9–5.x
+| `-std=c{plus}{plus}1z`
+
+| 3.4–3.8
+| `-std=c{plus}{plus}1y`
+
+| 3.2–3.3
+| `-std=c{plus}{plus}11`
 
 | fallback
 | `-std=c{plus}{plus}03`
@@ -148,17 +152,18 @@ Override with `--stdcpp` / `env.StdCpp` — see xref:toolchains.adoc#c-language-
 
 Same policy as GCC: LTO is applied on **`--rel`** only (compile and link), not on `--dbg` or `--cov`.
 
+[cols="2,3"]
 |===
 | Clang version | `--rel` LTO flags
 
-| before 8
-| _(none)_
+| 17+
+| `-flto=auto`, `-ffat-lto-objects`
 
 | 8–16
 | `-flto`, `-ffat-lto-objects`
 
-| 17+
-| `-flto=auto`, `-ffat-lto-objects`
+| before 8
+| _(none)_
 |===
 
 When LTO is enabled, cuppa also:
@@ -175,6 +180,7 @@ On **Linux**, Cuppa seeds `DYNAMICLIBS` the same way as GCC for baseline portabi
 adds more when using `libc{plus}{plus}`. Verbose listing shows them as normal `-l…` tokens before
 `<dynamic_libs>`.
 
+[cols="3,2,2,3"]
 |===
 | Library | When | Why Cuppa adds it | Still needed?
 

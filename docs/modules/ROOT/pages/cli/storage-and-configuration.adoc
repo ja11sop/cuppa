@@ -1,0 +1,122 @@
+= Storage and configuration
+:description: Build roots, shared storage, and persisted command-line options
+
+Cuppa separates generated build targets, generated reports, retrieved dependency trees, and cached
+downloads. You can move each root independently or move the shared dependency/download pair with
+one option.
+
+== Storage roots
+
+[cols="3,3,4"]
+|===
+| Option | Default | Holds
+
+| `--build-root=PATH`
+| `_build`
+| Variant/toolchain build trees and their targets
+
+| `--artefacts-root=PATH`
+| `_artefacts`
+| Reports and other project artefacts outside the build tree
+
+| `--artifacts-root=PATH`
+| `_artefacts`
+| US spelling alias for `--artefacts-root`; both feed the same environment keys
+
+| `--storage-root=PATH`
+| `~/.cuppa`
+| Parent used to derive the dependencies and downloads roots
+
+| `--dependencies-root=PATH`
+| `<storage-root>/dependencies`
+| Retrieved or extracted trees ready to build against
+
+| `--downloads-root=PATH`
+| `<storage-root>/downloads`
+| Cached archives from which dependency trees are created
+
+| `--download-root=PATH`
+| —
+| Deprecated alias for `--dependencies-root`
+
+| `--cache-root=PATH`
+| —
+| Deprecated alias for `--downloads-root`
+
+| `--thirdparty=DIR`
+| Project-defined
+| Third-party directory hint used by dependency and project-generator logic
+|===
+
+`--storage-root` changes the defaults of the two shared roots. An explicit
+`--dependencies-root` or `--downloads-root` moves only that half. See
+xref:build-layout.adoc[Build layout] for the resulting directory tree and migration notes.
+
+== Configuration sources and precedence
+
+Cuppa can read values from four places. A command-line option is the most immediate choice;
+project configuration and `default_options` let a project carry policy without repeating flags.
+
+[cols="3,2,4"]
+|===
+| Source (highest first) | Typical scope | Notes
+
+| Command line
+| One invocation
+| Explicit options override persisted/default values
+
+| `configure.conf`
+| One checkout/project
+| Python-literal `key = value` entries beside the `sconstruct`, or at `--use-conf`; overrides global configuration and `default_options`
+
+| `~/.cuppaconfig`
+| All projects for one user
+| Loaded first; project configuration overrides matching keys
+
+| `cuppa.run(default_options=...)`
+| Project source
+| Initial project defaults; loaded configuration overrides matching keys
+|===
+
+See xref:configuration.adoc[Configuration] for the file format, precedence examples, and options
+that should be committed as project policy rather than saved as workstation state.
+
+== Inspecting and changing configuration
+
+These actions update configuration and exit instead of running a build.
+
+[cols="3,7"]
+|===
+| Option | Effect
+
+| `--show-conf` | Print the settings loaded from the global and project files
+| `--save-conf` | Replace the project configuration with values from the current command line
+| `--save-global-conf` | Replace `~/.cuppaconfig` with values from the current command line
+| `--update-conf` | Merge current command-line values into the project configuration
+| `--update-global-conf` | Merge current command-line values into `~/.cuppaconfig`
+| `--remove-settings=LIST` | Remove comma-separated internal keys from the project configuration
+| `--remove-global-settings=LIST` | Remove comma-separated internal keys from `~/.cuppaconfig`
+| `--clear-conf` | Delete the project configuration
+| `--clear-global-conf` | Delete `~/.cuppaconfig`
+| `--use-conf=PATH` | Read and write `PATH` instead of the project's `configure.conf`
+|===
+
+Configuration uses each option's internal SCons destination key rather than its CLI spelling.
+Those keys are not mechanically predictable: `reports_link_style` uses underscores, while
+`show-test-output` and `propagate-env` retain hyphens. Before writing a less common key manually,
+capture it with `--save-conf`, inspect it with `--show-conf`, or use an explicit mapping on the
+relevant CLI child page.
+
+To record local develop and offline choices in the project configuration, run:
+
+[source,sh]
+----
+cuppa -D --develop --offline --save-conf
+----
+
+This command stores the current command-line values. Later builds load them without requiring the
+flags again. Review the resulting file before sharing it: machine-specific paths generally belong
+in local configuration rather than version-controlled project defaults.
+
+You have now located Cuppa's persistent state and the controls that move it. Use
+xref:cli/inspect-and-maintain.adoc[Inspect and maintain] to list or remove what those roots contain.

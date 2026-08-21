@@ -25,6 +25,7 @@ Artefacts land under a visible `_build/` tree (not a hidden directory), so a gua
 Many {cpp} teams meet CMake first.
 Cuppa solves a different design problem: keep the *project description* short and intentional, and keep the *build expertise* in reusable Python modules.
 
+[cols="1,2,2"]
 |===
 | Concern | Cuppa | CMake
 

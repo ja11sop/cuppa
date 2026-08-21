@@ -46,7 +46,7 @@ compiled with that variant and toolchain, whereas a scope page is limited to one
 [#by-rule-layout]
 == Violations By-Rule (within a build tab)
 
-[cols="1,3"]
+[cols="1,4"]
 |===
 | Column | Meaning
 
@@ -79,7 +79,7 @@ column.
 [#by-file-layout]
 == Violations By-File (within a build tab)
 
-[cols="1,3"]
+[cols="2,3"]
 |===
 | Column | Meaning
 
@@ -101,7 +101,7 @@ Rule subtable: **Index**, **Violations**, **Union Refs**, **Build Refs**, **Rule
 [#vs-other-views]
 == Comparing By-Build to other views
 
-[cols="1,3"]
+[cols="3,7"]
 |===
 | View | Scope
 

@@ -27,6 +27,7 @@
   --cuppa-surface-strong: #f1f3f5;      /* Slightly darker structural grey for headers */
   --cuppa-border: #e9ecef;              /* Very faint, thin neutral border */
   --cuppa-code-surface: #fafafa;        /* Clean, ultra-light grey for code blocks */
+  --cuppa-code-tint: rgba(27, 34, 38, 0.07);  /* Ink wash: darkens whatever it sits on */
   --cuppa-shadow-tint: rgba(27, 34, 38, 0.04);
 
   /* --- Admonitions (Brighter & More Vivid Pops) --- */
@@ -75,6 +76,7 @@
     --cuppa-surface-strong: #232930;    /* Distinct dark tone for table headers / sidebars */
     --cuppa-border: #2c343c;            /* Crisp, thin borders that don't glow */
     --cuppa-code-surface: #161b20;      /* Darker recess for clean code containment */
+    --cuppa-code-tint: rgba(0, 0, 0, 0.30);  /* Recess against dark surfaces */
     --cuppa-shadow-tint: rgba(0, 0, 0, 0.50);
 
     /* --- Admonitions (Vibrant Glows against Dark Canvas) --- */

@@ -10,7 +10,7 @@ clear failure with a normal gcc/clang that lacks Profiles.
 
 == Cases
 
-[cols="1,2,1"]
+[cols="3,4,3"]
 |===
 | Test | What it exercises | Notes
 

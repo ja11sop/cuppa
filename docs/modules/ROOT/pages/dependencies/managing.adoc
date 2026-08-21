@@ -7,6 +7,7 @@
 Cuppa has several read-only reports that answer different questions. `--develop` is a *build*
 switch; `--list-develop` is a *report* about working copies. They are easy to mix up.
 
+[cols="3,3,4"]
 |===
 | You want to know… | Use | Looks at
 
@@ -161,6 +162,7 @@ same formatters the CLI uses:
 include::partial$samples/list-downloads.txt[]
 ----
 
+[cols="1,4"]
 |===
 | Scope | Effect
 
@@ -603,6 +605,7 @@ cuppa -Q -D --list-develop --raw-output > develop.txt
 Severity appears in the `STATUS` column as well as in colour, so it survives `--raw-output` and can be searched for.
 It is the value of the option:
 
+[cols="1,1"]
 |===
 | Situation | Severity
 
@@ -647,6 +650,7 @@ When a feature spans the consumer project and several local develop dependencies
 Git does not record which branch a feature was created from, so cuppa does not guess a parent.
 Two settings describe home:
 
+[cols="2,3,5"]
 |===
 | Notion | Option | Role
 

@@ -13,7 +13,7 @@ Upstream project: https://gcc.gnu.org/[gcc.gnu.org] ·
 Option index: https://gcc.gnu.org/onlinedocs/gcc/Option-Summary.html[GCC Option Summary].
 
 In Cuppa, supported aliases include the generic `gcc` (whatever `g{plus}{plus}` on `PATH` reports)
-plus versioned names through **gcc16** (for example `gcc15`, `gcc151`, `gcc14`, …).
+plus versioned names through **gcc16** (for example `gcc16`, `gcc162`, `gcc15`, …).
 Only toolchains actually present on the machine become available.
 
 [source,sh]
@@ -36,6 +36,7 @@ added **only** when the chosen `-std=` does not turn the feature on yet.
 
 Common {cpp} flags on every GCC build:
 
+[cols="1,2,1"]
 |===
 | Flag | Purpose | Docs
 
@@ -60,6 +61,7 @@ Common C flags: `-Wall`, `-g` (same meanings as above).
 
 Variant-specific additions:
 
+[cols="1,4,2,3"]
 |===
 | Variant | Extra CXX flags | Extra C flags | Extra link flags (Linux)
 
@@ -79,6 +81,7 @@ Variant-specific additions:
 | `--coverage` in addition to linker defaults (no LTO)
 |===
 
+[cols="1,2,1"]
 |===
 | Flag | Purpose | Docs
 
@@ -109,6 +112,7 @@ Variant-specific additions:
 
 On Linux, link lines also receive:
 
+[cols="1,2,1"]
 |===
 | Flag | Purpose | Docs
 
@@ -133,6 +137,7 @@ On **Linux**, Cuppa seeds `DYNAMICLIBS` with `pthread` and `rt` (shown in verbos
 the `-Bstatic` / `-Bdynamic` sandwich so project static archives can still be forced static
 while these system libs remain dynamic.
 
+[cols="1,4,5"]
 |===
 | Library | Why Cuppa adds it | Still needed?
 
@@ -159,34 +164,35 @@ Cuppa selects the newest dialect the *reported* GCC major/minor can usefully def
 and adds a feature flag only when that dialect does not already enable the feature.
 Override with `--stdcpp` / `env.StdCpp` — see xref:toolchains.adoc#c-language-level[{cpp} language level].
 
+[cols="1,4"]
 |===
 | GCC version | Default dialect-related flags
 
-| 4.3–4.6
-| `-std=c{plus}{plus}0x`
+| 14+
+| `-std=c{plus}{plus}2c` (Cuppa’s default; GCC also accepts `-std=c{plus}{plus}26`. Cuppa prefers the
+  working-draft name so builds are not limited to the frozen {cpp}26 feature set)
 
-| 4.7
-| `-std=c{plus}{plus}11`
-
-| 4.8–5.1
-| `-std=c{plus}{plus}1y`
-
-| 5.2–7.x
-| `-std=c{plus}{plus}1z`
-
-| 8–9
-| `-std=c{plus}{plus}2a`, `-fconcepts` (Concepts TS; ISO {cpp}20 concepts land in GCC 10)
+| 11–13
+| `-std=c{plus}{plus}2b` (concepts and coroutines included — no extra `-f*` flags)
 
 | 10
 | `-std=c{plus}{plus}2a`, `-fcoroutines` (concepts already in the dialect; libstdc{plus}{plus} still
   requires `-fcoroutines` for `<coroutine>`)
 
-| 11–13
-| `-std=c{plus}{plus}2b` (concepts and coroutines included — no extra `-f*` flags)
+| 8–9
+| `-std=c{plus}{plus}2a`, `-fconcepts` (Concepts TS; ISO {cpp}20 concepts land in GCC 10)
 
-| 14+
-| `-std=c{plus}{plus}2c` (Cuppa’s default; GCC also accepts `-std=c{plus}{plus}26`. Cuppa prefers the
-  working-draft name so builds are not limited to the frozen {cpp}26 feature set)
+| 5.2–7.x
+| `-std=c{plus}{plus}1z`
+
+| 4.8–5.1
+| `-std=c{plus}{plus}1y`
+
+| 4.7
+| `-std=c{plus}{plus}11`
+
+| 4.3–4.6
+| `-std=c{plus}{plus}0x`
 
 | fallback
 | `-std=c{plus}{plus}03`
@@ -197,17 +203,18 @@ Override with `--stdcpp` / `env.StdCpp` — see xref:toolchains.adoc#c-language-
 Link-time optimisation is applied on the **`--rel`** variant only (compile and link).
 It is not enabled for `--dbg` or `--cov`: LTO raises peak link memory and slows those builds, while the runtime benefit belongs on release.
 
+[cols="2,3"]
 |===
 | GCC version | `--rel` LTO flags
 
-| before 8
-| _(none)_
+| 12+
+| `-flto=auto`
 
 | 8–11
 | `-flto`
 
-| 12+
-| `-flto=auto`
+| before 8
+| _(none)_
 |===
 
 == Stdlib

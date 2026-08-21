@@ -10,6 +10,7 @@ model, then choose the detailed page for the dependency kind or workflow you nee
 
 == Kinds
 
+[cols="1,1"]
 |===
 | Kind | Start here
 

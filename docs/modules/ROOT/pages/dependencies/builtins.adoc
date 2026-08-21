@@ -6,6 +6,7 @@ integration; use a xref:dependencies/location.adoc[location],
 xref:dependencies/packages.adoc[package], or xref:dependencies/conan.adoc[Conan] dependency
 when you are wiring an external tree yourself.
 
+[cols="3,5,2"]
 |===
 | Name | Purpose | Page
 

@@ -145,6 +145,7 @@ cuppa -D --dbg --test --show-test-output
 
 Preferred parameters:
 
+[cols="2,3"]
 |===
 | Parameter | Role
 
@@ -179,6 +180,7 @@ Use `command` (or a wrapper) when the program must receive paths on argv.
 
 Deprecated aliases (still accepted; prefer the names above):
 
+[cols="2,3"]
 |===
 | Alias | Prefer instead
 
@@ -207,6 +209,7 @@ env.Test(prog, depends_on=['fixtures/input.txt'])
 
 Preferred parameters:
 
+[cols="2,3"]
 |===
 | Parameter | Role
 
@@ -219,6 +222,7 @@ Preferred parameters:
 
 Deprecated aliases:
 
+[cols="2,3"]
 |===
 | Alias | Prefer instead
 
@@ -237,6 +241,7 @@ Toolchain-specific aliases such as `BoostTest` appear when the toolchain adverti
 
 Preferred parameters mirror `BuildTest`, with explicit Depends names:
 
+[cols="2,3"]
 |===
 | Parameter | Role
 
@@ -370,7 +375,8 @@ Windows colourised `SPAWN` may still accept those strings because it reuses `PSP
 * **Windows + colourised output (default):** `windows_spawn` wraps native `PSPAWN` — shell-style strings may succeed; prefer `working_dir` / `cwd=` anyway.
 ====
 
-See xref:cli-reference.adoc[CLI reference] for the flag.
+See xref:cli/output-and-environment.adoc#environment-propagation[Output and environment] for the
+`--use-shell` flag and subprocess environment controls.
 
 Integration coverage for these examples: xref:integration/test-custom-commands.adoc[].
 
@@ -396,6 +402,7 @@ See xref:dependencies.adoc[Dependencies] and xref:packages.adoc[Publishing packa
 
 == Versioning and sources
 
+[cols="2,3"]
 |===
 | Method | Role
 
@@ -424,6 +431,7 @@ env.Build(env.TargetFrom('src/apps/server.cpp'), sources)
 
 == Dialect, modules, and flags
 
+[cols="2,3"]
 |===
 | Method | Role
 
@@ -462,6 +470,7 @@ env.Build('app', ['main.cpp'])
 
 == Coverage
 
+[cols="2,3"]
 |===
 | Method | Role
 
@@ -487,6 +496,7 @@ Coverage instrumentation is supported for GCC and Clang; MSVC does not participa
 
 == Packages
 
+[cols="2,3"]
 |===
 | Method | Role
 
@@ -501,6 +511,7 @@ See xref:packages.adoc[Publishing packages] for `GitlabPackagePublisher` and `Co
 
 == Templates and documentation helpers
 
+[cols="2,3"]
 |===
 | Method | Role
 

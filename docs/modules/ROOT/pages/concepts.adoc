@@ -31,6 +31,7 @@ Apply with `default_profiles` or `env.BuildProfile(...)`.
 
 *Variants* select how binaries are compiled:
 
+[cols="1,4"]
 |===
 | Flag | Meaning
 
@@ -41,6 +42,7 @@ Apply with `default_profiles` or `env.BuildProfile(...)`.
 
 *Actions* run additional work after (or as part of) the build:
 
+[cols="1,1"]
 |===
 | Flag | Meaning
 
@@ -69,6 +71,7 @@ The *target architecture* (for example `x86_64`) is tracked so multiple arch bui
 
 Common keyword arguments to `cuppa.run()`:
 
+[cols="3,7"]
 |===
 | Parameter | Purpose
 

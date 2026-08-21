@@ -5,6 +5,7 @@ Cuppa can remember command-line choices so you do not re-type local paths and de
 
 == Configuration files
 
+[cols="3,2"]
 |===
 | File | Scope
 
@@ -16,6 +17,7 @@ Format is `key = value` lines; values are parsed with `ast.literal_eval`.
 
 == Managing configuration
 
+[cols="2,3"]
 |===
 | Option | Effect
 
@@ -61,9 +63,11 @@ cuppa.run(
 )
 ----
 
-Keys in `configure.conf` and in `default_options` use the same names as each flag's internal
-option key (underscores, not dashes). Command-line flags still override saved or coded defaults
-when you pass them explicitly.
+Keys in `configure.conf` and in `default_options` use each flag's internal SCons destination name.
+Those names are mixed: some use underscores (`reports_link_style`), while others retain hyphens
+(`show-test-output`). Capture unfamiliar keys with `--save-conf` rather than converting the CLI
+spelling mechanically. Command-line flags still override saved or coded defaults when passed
+explicitly.
 
 === HTML report source links without CI flags
 
@@ -112,7 +116,7 @@ file. Profiles-only overrides use the key ``cxx_profiles_report_link_style`` the
 These settings are **session-wide** for HTML reports. They do not replace the host embedded in a
 ``location_dependency(..., location=...)`` URL; they tell cuppa which **provider blob URL shape**
 to use when resolving ``remote`` links for a given hostname. See
-xref:cli-reference.adoc#reports-link-style[HTML report source links] for the full flag list and
+xref:cli/reports.adoc#reports-link-style[HTML report source links] for the full flag list and
 behaviour (mapped providers, unmapped partial links, and provider hint links).
 
 === {cpp} Profiles diagnostic cap without CI flags
@@ -137,22 +141,28 @@ When inventory mode is active but you want the compiler default cap, pass
 ``--cxx-default-error-limit`` on the command line or set ``cxx_default_error_limit = True`` in
 ``configure.conf``. Keys match the internal option names (underscores). See
 xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[Violation inventory report]
-and xref:cli-reference.adoc[CLI reference] for precedence.
+and xref:cli/toolchains-and-features.adoc#diagnostic-error-limit-policy[Diagnostic error-limit
+policy] for precedence.
 
 == Environment variables
 
+[cols="3,7"]
 |===
 | Variable | Use
 
 | `GITLAB_REGISTRY_TOKEN` | Authenticate to a GitLab package registry
 | `CI_JOB_TOKEN` | GitLab CI job token for registry access
 | Per-package custom token | Via `--<name>-gitlab-custom-token` (option names a token-bearing setting)
-| `PATH` / `PKG_CONFIG_PATH` | How much of your shell environment reaches build/test/run subprocesses depends on `--propagate-env`, `--propagate-path`, and `--merge-path` (see xref:cli-reference.adoc#environment-propagation[Environment propagation]). Host `PKG_CONFIG_PATH` is forwarded even when those flags are off.
+| `PATH` / `PKG_CONFIG_PATH` | How much of your shell environment reaches build/test/run subprocesses depends on `--propagate-env`, `--propagate-path`, and `--merge-path` (see xref:cli/output-and-environment.adoc#environment-propagation[Environment propagation]). Host `PKG_CONFIG_PATH` is forwarded even when those flags are off.
 | `CUPPA_CONSOLE_BACKGROUND` | `light` or `dark`. Tells cuppa which way to make text recede: reduced intensity on a dark console, grey on a light one. Set it when your console is light, because most terminals report nothing and reduced intensity applied to black text on white can look untouched. Where a terminal does set `COLORFGBG`, cuppa reads it, and this variable overrides it.
 |===
 
-The `cuppa` wrapper masks environment values whose names match `*TOKEN*` in build output.
+The `cuppa` wrapper masks environment values whose names match `*TOKEN*` in captured SCons
+stdout/stderr. That intercept is the wrapper, not the `--cuppa-mode` marker; see
+xref:cli/output-and-environment.adoc#cuppa-mode[The `cuppa` wrapper and `--cuppa-mode`].
 
 == Related location options
 
-See also `--develop` and the `--location-*` flags documented in xref:cli-reference.adoc[CLI reference] and xref:dependencies/location.adoc[Location dependencies].
+See also `--develop` and the `--location-*` flags documented in
+xref:cli/dependencies-and-develop.adoc[Dependencies and develop] and
+xref:dependencies/location.adoc[Location dependencies].

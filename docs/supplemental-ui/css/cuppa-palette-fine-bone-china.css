@@ -24,6 +24,7 @@
   --cuppa-surface-strong: #edf1ef;      /* Soft silver spoon grey */
   --cuppa-border: #d4deda;              /* Light, clean border tint */
   --cuppa-code-surface: #f1f5f3;        /* Subtle green-tinted grey for code blocks */
+  --cuppa-code-tint: rgba(25, 56, 49, 0.07);  /* Ink wash: darkens whatever it sits on */
   --cuppa-shadow-tint: rgba(38, 81, 71, 0.06);
 
   /* --- Admonitions (Brighter & More Vivid) --- */
@@ -68,6 +69,7 @@
     --cuppa-surface-strong: #242e2a;
     --cuppa-border: #2e3c36;
     --cuppa-code-surface: #161e1c;
+    --cuppa-code-tint: rgba(0, 0, 0, 0.30);
     --cuppa-shadow-tint: rgba(0, 0, 0, 0.50);
 
     --cuppa-note: #5ba8f0;

@@ -1,0 +1,175 @@
+= Building
+:description: Build selection, execution, and useful SCons options
+
+Cuppa build options select variants, toolchains, sconscripts, and post-build actions. SCons options
+then control how the selected graph is found and executed. This page keeps both sets together so
+you can see which layer owns each decision.
+
+== Selecting what Cuppa builds
+
+[cols="3,7"]
+|===
+| Option | Effect
+
+| `--dbg` | Build the debug variant
+| `--rel` | Build the optimised release variant
+| `--cov` | Build the coverage-instrumented variant; does not imply `--test`
+| `--test` | Execute outputs created by `BuildTest()`
+| `--force-test` | Execute `Test()` and `BuildTest()` outputs even when SCons considers them current
+| `--run` | Execute outputs created by `Run()`
+| `--force-run` | Execute `Run()` outputs even when they are current
+| `--benchmark` | Execute outputs created by `BuildBenchmark()`
+| `--force-benchmark` | Execute `Benchmark()` and `BuildBenchmark()` outputs even when current
+| `--toolchains=LIST` | Select comma-separated toolchain names or fnmatch patterns such as `gcc*`
+| `--scripts=LIST` | Limit graph construction to the named, comma-separated sconscripts
+| `--projects=LIST` | Alias for `--scripts`
+| `--parallel` | Set SCons' job count from available hardware; the wrapper may also restrict CPU affinity
+| `--offline` | Skip the PyPI version check and remote location updates
+| `--develop` | Prefer configured local develop paths for dependencies
+|===
+
+Variant and action options compose. For example, `--dbg --rel --test` builds and tests both
+variants. Coverage is deliberately explicit: use `--cov --test` when you want measurements rather
+than an instrumented binary that has not run.
+
+See xref:testing-coverage.adoc[Testing and coverage] for test and coverage behaviour, and
+xref:toolchains.adoc[Toolchains] for selecting and inspecting compilers.
+
+== Finding the project and targets
+
+These stable SCons options are useful in Cuppa projects. `scons -H` remains authoritative for the
+installed SCons release.
+
+[cols="2,3,5"]
+|===
+| Option | Meaning | Cuppa use
+
+| `-D`
+| Search upward for `SConstruct`; build all top-level default targets
+| The normal Cuppa invocation from anywhere below a project
+
+| `-u` / `--up`
+| Search upward; build targets at or below the current directory
+| Narrow a large project by where you invoke the command
+
+| `-U`
+| Search upward; build default targets from the local `SConscript`
+| Use local defaults instead of every top-level default
+
+| `-C DIR`
+| Change to `DIR` before reading the project
+| Run a project command without first changing the shell's directory
+
+| `-f FILE`
+| Read `FILE` as the top-level SConstruct
+| Use a non-standard entry filename
+
+| `TARGET ...`
+| Build the named SCons targets
+| Narrow the graph after Cuppa has created its variant/toolchain targets
+
+| `NAME=VALUE`
+| Set a SCons construction variable
+| Project-specific; do not confuse it with a Cuppa `--option`
+|===
+
+`-D`, `-u`, and `-U` are not synonyms. Most Cuppa documentation uses `-D` because it gives the
+same top-level default selection regardless of the directory from which you invoke it.
+
+== Controlling execution and failure
+
+[cols="2,3,5"]
+|===
+| Option | SCons behaviour | Cuppa interaction
+
+| `-j N` / `--jobs=N`
+| Execute up to `N` jobs concurrently
+| Manual alternative to `--parallel`; an explicit SCons job count is the precise choice
+
+| `-n` / `--no-exec`
+| Print actions without executing them
+| Also previews Cuppa build removal and dependency maintenance actions
+
+| `-c` / `--clean`
+| Remove targets known to the selected graph
+| Removes objects, BMIs, and other targets; unlike `--remove-builds`, it does not remove a whole selected build subtree
+
+| `-k` / `--keep-going`
+| Continue independent targets after a target fails
+| Useful for gathering failures without treating a failed action as successful
+
+| `-i` / `--ignore-errors`
+| Continue as though failed build actions succeeded
+| Riskier than `-k`; Cuppa injects it for Profiles inventory so later translation units still report diagnostics
+
+| `-q` / `--question`
+| Execute nothing; exit status reports whether targets are current
+| Suitable for scripts that only need the up-to-date result
+|===
+
+WARNING: Do not use `-i` as a routine build option. It can leave dependent actions running after a
+prerequisite failed. Prefer `-k` unless the workflow is explicitly collecting independent
+diagnostics, as the Profiles inventory does.
+
+The differences between SCons cleaning, Cuppa build removal, and dependency cleanup are tabulated
+on xref:cli/inspect-and-maintain.adoc#clean-remove-purge-wipe[Inspect and maintain].
+
+== Help, output, and graph diagnostics
+
+[cols="2,3,5"]
+|===
+| Option | Effect | When to use it
+
+| `-h` / `--help`
+| Print help registered by the loaded project
+| `cuppa -D -h` (or `scons -D -h` once the project has loaded) shows Cuppa, dependency, plugin, and consumer-project options
+
+| `-H` / `--help-options`
+| Print SCons' own option list without loading project help
+| Check the exact SCons version installed locally
+
+| `--cuppa-mode`
+| Session marker appended by the `cuppa` wrapper
+| Not a substitute for running `cuppa`; see xref:cli/output-and-environment.adoc#cuppa-mode[The `cuppa` wrapper and `--cuppa-mode`]
+
+| `-Q`
+| Suppress SCons reading/building progress messages
+| Keep commands and Cuppa output while making inventories easier to read
+
+| `-s` / `--silent`
+| Suppress command lines as well as SCons progress
+| Use only when native commands are unnecessary; it hides more than `-Q`
+
+| `--debug=explain`
+| Explain why SCons rebuilds each target
+| Diagnose signatures, dependency changes, and unexpectedly repeated builds
+
+| `--tree=OPTIONS`
+| Print the SCons dependency tree
+| Inspect graph relationships; run `scons -H` for the installed tree-format values
+|===
+
+For Cuppa's own filtering, verbosity, and process streams, see
+xref:cli/output-and-environment.adoc[Output and environment].
+
+== Generating Code::Blocks projects
+
+Code::Blocks export describes the sources and search paths Cuppa resolved so the IDE can offer code
+completion over the same tree the build sees.
+
+[cols="3,7"]
+|===
+| Option | Effect
+
+| `--generate-cbs` | Generate Code::Blocks projects
+| `--generate-cbs-include-thirdparty` | Include dependencies under the thirdparty directory and downloaded libraries
+| `--generate-cbs-exclude-relative-branches` | Exclude branches outside the working directory
+| `--generate-cbs-exclude-paths-starting=LIST` | Exclude dependencies whose paths begin with a listed prefix
+| `--generate-cbs-exclude-cc-search-paths` | Add no dependency include or sys-include paths to code completion
+| `--generate-cbs-exclude-cc-sys-search-paths` | Add no dependency sys-include paths to code completion
+| `--generate-cbs-place-with-sconscript` | Put each project in a `cbs/` folder beside its sconscript instead of under the working directory
+|===
+
+You have now selected the project graph and controlled how SCons executes it. Continue with
+xref:cli/output-and-environment.adoc[Output and environment] when you need to change what the
+command prints or what its child processes inherit.

@@ -56,6 +56,7 @@ cuppa.run(default_variants=['dbg'])
 
 == Method tests
 
+[cols="1,1"]
 |===
 | Method(s) | Documentation
 

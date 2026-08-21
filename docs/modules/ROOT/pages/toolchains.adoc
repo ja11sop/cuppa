@@ -10,6 +10,7 @@ variants, and dialects fit together. This hub provides the detailed selection, i
 fetched-archive, and shared {cpp} language-level reference. Per-family defaults, dialects, and
 flag explanations live on the child pages:
 
+[cols="3,3,3,1"]
 |===
 | Family | Cuppa names | Platforms | Page
 
@@ -244,6 +245,7 @@ below).
 
 Allowed `--stdcpp` / `StdCpp` choices:
 
+[cols="1,4"]
 |===
 | Choice | Meaning
 

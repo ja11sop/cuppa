@@ -97,6 +97,7 @@ If several `PublishPackage` nodes appear in the graph, each publisher runs when 
 Cuppa does not store Conan credentials.
 Configure remotes and login before the Cuppa job (or in CI):
 
+[cols="2,3"]
 |===
 | Mechanism | Notes
 
