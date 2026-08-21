@@ -16,6 +16,7 @@ https://learn.microsoft.com/en-us/cpp/build/reference/compiler-options-listed-al
 Names are the generic alias `vc` (SCons default install) plus versioned aliases derived
 from the SCons MSVC **toolset** id:
 
+[cols="3,3,4"]
 |===
 | SCons / VS toolset | Cuppa `--toolchains=` | Notes
 
@@ -61,6 +62,7 @@ These are the flags that appear under `default invocations:` in verbose listing
 
 Common {cpp} flags on every MSVC build:
 
+[cols="1,2,1"]
 |===
 | Flag | Purpose | Docs
 
@@ -95,6 +97,7 @@ Common {cpp} flags on every MSVC build:
 
 Variant-specific additions:
 
+[cols="1,6,3"]
 |===
 | Variant | Extra CXX flags | Link flags
 
@@ -111,6 +114,7 @@ Variant-specific additions:
 | _(not supported)_
 |===
 
+[cols="1,2,1"]
 |===
 | Flag | Purpose | Docs
 

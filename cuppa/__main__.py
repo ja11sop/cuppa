@@ -43,7 +43,11 @@ class MaskSecrets(object):
         self.secrets = {}
         for key, val in six.iteritems(os.environ):
             if re.match( secret_regex, key ):
-                self.secrets[as_str(val)] = key
+                value = as_str( val )
+                # An empty value would make str.replace insert the key between every
+                # character of the line. Unset variables are simply absent from os.environ.
+                if value:
+                    self.secrets[value] = key
 
     def mask( self, message ):
         for secret, mask in six.iteritems(self.secrets):
@@ -77,6 +81,8 @@ def run_scons( args_list ):
 
     try:
         args_list = inject_inventory_ignore_errors( args_list )
+        # --cuppa-mode is a session marker for the inner SCons process (not persisted).
+        # Token masking of this process's stdout/stderr is the pipe below, not that flag.
         args_list = ['scons'] + args_list + ['--cuppa-mode']
 
         if '--parallel' in args_list:

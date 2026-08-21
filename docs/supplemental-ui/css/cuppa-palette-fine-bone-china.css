@@ -1,0 +1,94 @@
+/*
+ * Cuppa documentation palette: fine bone china
+ *
+ * Preview by selecting this file in partials/head-styles.hbs.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* --- Brand Identity (Fine Bone China & Steeped Mint) --- */
+  --cuppa-brand: #265147;               /* Deep British Tea Green - rich & modern */
+  --cuppa-brand-dark: #193831;          /* Darker steeped teal-green */
+  --cuppa-brand-light: #edf5f2;         /* Pale porcelain-green tint */
+  --cuppa-accent: #52c486;              /* Fresh Mint Green - vibrant but sophisticated */
+  --cuppa-accent-glow: rgba(82, 196, 134, 0.22);
+  --cuppa-link: #265147;                /* Brand green: already distinct from body text */
+  --cuppa-link-hover: #193831;
+  --cuppa-on-brand: #ffffff;
+  --cuppa-on-brand-muted: rgba(255, 255, 255, 0.50);
+
+  /* --- Core Typography & UI Surfaces --- */
+  --cuppa-text: #1d252a;                /* Deep Earl Grey - less harsh than pure black */
+  --cuppa-text-muted: #5e6d75;          /* Soft slate-grey for secondary text */
+  --cuppa-page: #ffffff;
+  --cuppa-surface: #f6f8f7;             /* Clean porcelain white/grey */
+  --cuppa-surface-strong: #edf1ef;      /* Soft silver spoon grey */
+  --cuppa-border: #d4deda;              /* Light, clean border tint */
+  --cuppa-code-surface: #f1f5f3;        /* Subtle green-tinted grey for code blocks */
+  --cuppa-code-tint: rgba(25, 56, 49, 0.07);  /* Ink wash: darkens whatever it sits on */
+  --cuppa-shadow-tint: rgba(38, 81, 71, 0.06);
+
+  /* --- Admonitions (Brighter & More Vivid) --- */
+  --cuppa-note: #1a73e8;                 /* Brighter corporate blue */
+  --cuppa-note-surface: #f0f6ff;
+
+  --cuppa-tip: #13a14e;                  /* Vibrant emerald green */
+  --cuppa-tip-surface: #ecfdf3;
+
+  --cuppa-warning: #ea580c;              /* Crisp, vivid orange reserved ONLY here */
+  --cuppa-warning-surface: #fff7ed;
+
+  --cuppa-important: #e11d48;            /* Bright crimson red */
+  --cuppa-important-surface: #fff1f2;
+
+  --cuppa-caution: #9333ea;              /* Rich electric purple */
+  --cuppa-caution-surface: #faf5ff;
+
+  --cuppa-example: #6366f1;              /* Modern indigo */
+  --cuppa-example-surface: #eef2ff;
+
+  /* --- Tables (Steeped mint rules over a porcelain heading) --- */
+  --cuppa-table: #489a76;                /* Sits between the brand green and the mint accent */
+  --cuppa-table-surface: #ecf4f0;        /* Pale porcelain-green heading band */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* --- Brand Identity (Night porcelain & glowing mint) --- */
+    --cuppa-brand: #c5ddd6;
+    --cuppa-brand-dark: #edf5f2;
+    --cuppa-brand-light: #1a2824;
+    --cuppa-accent: #6ed99a;
+    --cuppa-accent-glow: rgba(110, 217, 154, 0.22);
+    --cuppa-link: #6ed99a;
+    --cuppa-link-hover: #8ee4b0;
+    --cuppa-on-brand: #121816;
+    --cuppa-on-brand-muted: rgba(18, 24, 22, 0.50);
+
+    --cuppa-text: #e4ece8;
+    --cuppa-text-muted: #8a9892;
+    --cuppa-page: #121816;
+    --cuppa-surface: #1a2220;
+    --cuppa-surface-strong: #242e2a;
+    --cuppa-border: #2e3c36;
+    --cuppa-code-surface: #161e1c;
+    --cuppa-code-tint: rgba(0, 0, 0, 0.30);
+    --cuppa-shadow-tint: rgba(0, 0, 0, 0.50);
+
+    --cuppa-note: #5ba8f0;
+    --cuppa-note-surface: #0e2438;
+    --cuppa-tip: #4ade80;
+    --cuppa-tip-surface: #102818;
+    --cuppa-warning: #fb923c;
+    --cuppa-warning-surface: #2c1a0e;
+    --cuppa-important: #fb7185;
+    --cuppa-important-surface: #2e1218;
+    --cuppa-caution: #c084fc;
+    --cuppa-caution-surface: #221235;
+    --cuppa-example: #818cf8;
+    --cuppa-example-surface: #16143c;
+    --cuppa-table: #62b890;
+    --cuppa-table-surface: #1a2c26;
+  }
+}

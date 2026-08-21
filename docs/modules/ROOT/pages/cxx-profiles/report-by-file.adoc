@@ -19,7 +19,7 @@ xref:cxx-profiles/report-by-rule.adoc#three-views[three ways to read the same fi
 
 Each file row shows:
 
-[cols="1,3"]
+[cols="1,4"]
 |===
 | Column | Meaning
 
@@ -50,7 +50,7 @@ multi-build). Numbers after `:` are **Build Refs**, not **Union Refs**.
 
 Expand a row for the **rule detail subtable** (one row per violated rule index).
 
-[cols="1,3"]
+[cols="1,4"]
 |===
 | Column | Meaning
 

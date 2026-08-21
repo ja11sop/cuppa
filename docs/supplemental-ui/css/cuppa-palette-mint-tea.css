@@ -1,0 +1,94 @@
+/*
+ * Cuppa documentation palette: mint tea
+ *
+ * Preview by selecting this file in partials/head-styles.hbs.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* --- Brand Identity (Clean Teal-Infused Earl Grey & Crisp Matcha) --- */
+  --cuppa-brand: #1a332e;               /* Deep Tea-Leaf Black - subtle rich green/blue undertone */
+  --cuppa-brand-dark: #0f211e;          /* Deeper steeped tone for high contrast elements */
+  --cuppa-brand-light: #eef3f1;         /* Very clean, tea-tinted light grey */
+  --cuppa-accent: #6b9473;              /* Crisp Matcha - used strictly as an accent hint */
+  --cuppa-accent-glow: rgba(107, 148, 115, 0.15);
+  --cuppa-link: #6b9473;                /* Matcha: brand is near body ink, so links use accent */
+  --cuppa-link-hover: #54785c;
+  --cuppa-on-brand: #ffffff;
+  --cuppa-on-brand-muted: rgba(255, 255, 255, 0.50);
+
+  /* --- Core Typography & Clean UI Surfaces --- */
+  --cuppa-text: #202b28;                /* Off-black with a matching hint of tea-green */
+  --cuppa-text-muted: #61706b;          /* Soft slate-grey with an organic undertone */
+  --cuppa-page: #ffffff;                 /* Pure, crisp canvas */
+  --cuppa-surface: #f7f9f8;              /* Subtle tint: perfect for striped table rows */
+  --cuppa-surface-strong: #eff2f0;      /* Slightly darker structural grey for headers */
+  --cuppa-border: #e2e8e5;              /* Very faint, thin organic border */
+  --cuppa-code-surface: #fafbfa;        /* Clean, ultra-light grey for code blocks */
+  --cuppa-code-tint: rgba(15, 33, 30, 0.07);  /* Ink wash: darkens whatever it sits on */
+  --cuppa-shadow-tint: rgba(26, 51, 46, 0.04);
+
+  /* --- Admonitions (Brighter & More Vivid Pops against the Clean Page) --- */
+  --cuppa-note: #0284c7;                 /* Vivid sky blue */
+  --cuppa-note-surface: #f0f9ff;
+
+  --cuppa-tip: #16a34a;                  /* Vivid emerald green */
+  --cuppa-tip-surface: #f0fdf4;
+
+  --cuppa-warning: #f97316;              /* Vivid safety orange (high visibility alert) */
+  --cuppa-warning-surface: #fff7ed;
+
+  --cuppa-important: #dc2626;            /* Vivid alert red */
+  --cuppa-important-surface: #fef2f2;
+
+  --cuppa-caution: #9333ea;              /* Rich electric purple */
+  --cuppa-caution-surface: #faf5ff;
+
+  --cuppa-example: #4f46e5;              /* Modern indigo */
+  --cuppa-example-surface: #eef2ff;
+
+  /* --- Tables (Matcha rules over a tea-tinted heading) --- */
+  --cuppa-table: #6b9473;                /* Accent matcha, opening and closing the table */
+  --cuppa-table-surface: #f0f4f2;        /* Faint tea-green heading band */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* --- Brand Identity (Night tea-leaf & glowing matcha) --- */
+    --cuppa-brand: #dce6e2;
+    --cuppa-brand-dark: #eef3f1;
+    --cuppa-brand-light: #1a2522;
+    --cuppa-accent: #8cb895;
+    --cuppa-accent-glow: rgba(140, 184, 149, 0.20);
+    --cuppa-link: #8cb895;
+    --cuppa-link-hover: #a8ccb0;
+    --cuppa-on-brand: #101816;
+    --cuppa-on-brand-muted: rgba(16, 24, 22, 0.50);
+
+    --cuppa-text: #e4ece8;
+    --cuppa-text-muted: #8a9892;
+    --cuppa-page: #101816;
+    --cuppa-surface: #17201e;
+    --cuppa-surface-strong: #222c28;
+    --cuppa-border: #2c3a34;
+    --cuppa-code-surface: #141c1a;
+    --cuppa-code-tint: rgba(0, 0, 0, 0.30);
+    --cuppa-shadow-tint: rgba(0, 0, 0, 0.50);
+
+    --cuppa-note: #38bdf8;
+    --cuppa-note-surface: #0c2333;
+    --cuppa-tip: #4ade80;
+    --cuppa-tip-surface: #0f2919;
+    --cuppa-warning: #fb923c;
+    --cuppa-warning-surface: #2c1a0e;
+    --cuppa-important: #f87171;
+    --cuppa-important-surface: #301313;
+    --cuppa-caution: #c084fc;
+    --cuppa-caution-surface: #221235;
+    --cuppa-example: #818cf8;
+    --cuppa-example-surface: #16143c;
+    --cuppa-table: #8cb895;
+    --cuppa-table-surface: #1a2622;
+  }
+}

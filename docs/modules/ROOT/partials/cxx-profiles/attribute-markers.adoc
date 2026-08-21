@@ -1,4 +1,4 @@
-// Inline C++ profile attribute markers for prose (HTML entities avoid AsciiDoc xref parsing).
+// Inline {cpp} profile attribute markers for prose (HTML entities avoid AsciiDoc xref parsing).
 ifndef::cxx-profiles-attribute-markers-loaded[]
 :cxx-profiles-attribute-markers-loaded:
 :cxx-a-uninit: &#91;&#91;uninit&#93;&#93;

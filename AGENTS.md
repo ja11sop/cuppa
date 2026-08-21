@@ -471,13 +471,20 @@ cuppa -D --list-develop
 cuppa -D --update-develop
 cuppa -D --list-builds
 cuppa -D --dbg --remove-builds -n
+cuppa -D -h
 ```
 
-`cuppa` wraps `scons`, appends `--cuppa-mode`, masks `*TOKEN*` env values in output, and may restrict CPU affinity with `--parallel`.
+`cuppa` wraps `scons`: it appends `--cuppa-mode` as a session marker, intercepts stdout/stderr to mask `*TOKEN*` env values, may inject `-i` for Profiles inventory, and may restrict CPU affinity with `--parallel`. `--cuppa-mode` itself is not the intercept; prefer the `cuppa` entry point in CI. See `docs/modules/ROOT/pages/cli/output-and-environment.adoc`.
 
 Equivalent: `scons -D …` when the project's `sconstruct` already imports cuppa.
 
-**Important:** standalone `cuppa --help` shows SCons help only. Cuppa options are SCons `AddOption` flags registered when `cuppa.run()` runs. Inspect options from a real project, or read `docs/modules/ROOT/pages/cli-reference.adoc` / [CLI reference](https://ja11sop.github.io/cuppa/cuppa/cli-reference.html).
+**Important:** Cuppa options are SCons `AddOption` flags registered when `cuppa.run()` runs, so
+help is project-specific. `cuppa -h` / `cuppa --help` without a loaded `SConstruct` shows SCons
+help only — that includes running outside a project tree, or from a nested directory **without**
+`-D`. Inspect a project's options with `cuppa -D -h` (from anywhere under the tree). `scons -D -h`
+lists the same registered flags once the project has loaded; `scons -H` is SCons' own option list
+for the installed version. Task pages live under `docs/modules/ROOT/pages/cli/` /
+[CLI reference](https://ja11sop.github.io/cuppa/cuppa/cli-reference.html).
 
 ## Defaults (do not invent older paths)
 
@@ -605,6 +612,7 @@ Release checklist: see `release.txt` (Actions **prepare** → merge → **publis
 - Further reading (talks / Clearpool posts): `docs/modules/ROOT/pages/index.adoc` (Further reading) and https://clearpool.io/tag/cuppa
 - Lint settings / ignore rationale: `docs/modules/ROOT/pages/linting.adoc`
 - Preview docs: `cd docs && npm ci && npm run build` → `_docs_build/site/` (Lunr search via `@antora/lunr-extension`; Mermaid via `@sntke/antora-mermaid-extension`)
+- **Docs visual review:** capturing a PNG (for example Chromium `--screenshot`) is cheap; **reading the image into the agent context is expensive.** Build Antora, tell the human what to check in the local preview, and iterate from CSS/HTML plus their notes. Capture or scan screenshots only when they ask, or when they cannot check locally. Prefer one targeted crop over a full-page dump.
 - Integration test scenarios: Antora **Integration tests** section (`docs/modules/ROOT/pages/integration/`)
 
 **Diagrams:** Antora 3 uses Asciidoctor.js, so the Ruby gem `asciidoctor-diagram` cannot be registered as an Antora AsciiDoc extension. Use `@sntke/antora-mermaid-extension` (`docs/playbook.yml`) so `[mermaid]` listing blocks render client-side with Mermaid.js (no Kroki network fetch at build time).
@@ -625,7 +633,8 @@ When docs and code disagree, **code is authoritative** (especially storage defau
 | C++20 modules intro, tutorial, papers, reference | `cxx-modules.adoc` |
 | C++ Profiles hub | `cxx-profiles.adoc` |
 | `std::init` profile rules (examples + Clang diagnostics) | `cxx-profiles/std-init.adoc` and `cxx-profiles/std-init/*.adoc` children |
-| CLI flags | `cli-reference.adoc` |
+| CLI overview, command anatomy, common use cases | `cli-reference.adoc` |
+| CLI flags by task (build, output, storage, maintenance, dependencies, toolchains, reports) | `cli/*.adoc` |
 | Dependencies overview (kinds, declare, `BuildWith`) | `dependencies.adoc` (hub) |
 | Location / header libraries | `dependencies/location.adoc` |
 | Package consume overview | `dependencies/packages.adoc` |

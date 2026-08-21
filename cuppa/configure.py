@@ -52,7 +52,8 @@ cuppa.core.options.add_option( '--clear-global-conf', dest='clear_global_conf', 
 
 cuppa.core.options.add_option( '--use-conf', dest='use_conf', action='store',
                                type='string', nargs=1,
-                               help='Clear the configuration file' )
+                               help='Read and write this configuration file path instead of the '
+                                    'project configure.conf' )
 
 
 class never_save(object):

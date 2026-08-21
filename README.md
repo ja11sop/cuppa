@@ -29,7 +29,7 @@ Full reference documentation: **[https://ja11sop.github.io/cuppa/](https://ja11s
 pip install cuppa
 ```
 
-The `cuppa` console script wraps `scons`, enables `--cuppa-mode`, and masks environment values whose names contain `TOKEN`.
+The `cuppa` console script wraps `scons`: it appends `--cuppa-mode`, intercepts stdout/stderr to mask environment values whose names contain `TOKEN`, and may adjust CPU affinity when `--parallel` is used. Prefer `cuppa` over bare `scons` in CI.
 
 Other install options (local `pip install cuppa -t .`, `site_scons`, bootstrap from `sconstruct`) are covered in the [install guide](https://ja11sop.github.io/cuppa/cuppa/install.html).
 
@@ -153,7 +153,7 @@ If the script file is named `sconscript`, that filename segment is omitted.
 | **Variants / actions** | How to compile (`dbg`/`rel`/`cov`) vs extra work (`test`/`benchmark`/`run`) |
 | **Toolchains** | Concrete compilers discovered at configure time (`gcc`, `gcc15`, `clang`, `clang21`, …) |
 
-Toolchains are discovered from the machine; supported aliases currently extend through **gcc16** and **clang22**, plus MSVC `vc` / `vc*` on Windows (coverage is GCC/Clang only). Details: [toolchains](https://ja11sop.github.io/cuppa/cuppa/toolchains.html).
+Toolchains are discovered from the machine; supported aliases currently extend through **gcc16** (including `gcc162`) and **clang22**, plus MSVC `vc` / `vc*` on Windows (coverage is GCC/Clang only). Details: [toolchains](https://ja11sop.github.io/cuppa/cuppa/toolchains.html).
 
 ## Configuration
 

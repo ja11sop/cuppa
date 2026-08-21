@@ -61,7 +61,8 @@ class Codeblocks(object):
 
         add_option( '--generate-cbs-place-with-sconscript', dest='generate_cbs_place_with_sconscript',
                     action='store_true',
-                    help='Exclude branches outside of the working directory',
+                    help='Place each generated project in a cbs folder beside its sconscript '
+                         'instead of under the working directory',
                     default=False )
 
         add_option( '--generate-cbs-exclude-paths-starting', type='string', nargs=1,

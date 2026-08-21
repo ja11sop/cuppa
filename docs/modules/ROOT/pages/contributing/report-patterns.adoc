@@ -38,6 +38,7 @@ If an outcome is “proceed anyway / already done / cannot abort”:
 * After a real action, demote the same fact to a **note** and use **past tense**.
   Warnings after the fact train users to ignore them.
 
+[cols="1,2,2"]
 |===
 | Scenario | Dry-run / before | After real action
 
@@ -82,6 +83,7 @@ If the same fact appears on dry-run and on a live run, write **two wordings** (o
 
 Prefer these instead of inventing a second flat warning list:
 
+[cols="3,3,4"]
 |===
 | Helper | Module | Use for
 

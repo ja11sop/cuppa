@@ -10,6 +10,7 @@ over HTTPS with registry auth headers — `wget` is not required on `PATH` for t
 
 == Authentication
 
+[cols="3,7"]
 |===
 | Mechanism | Notes
 

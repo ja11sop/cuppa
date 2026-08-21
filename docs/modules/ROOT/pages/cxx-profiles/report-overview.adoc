@@ -40,7 +40,7 @@ Each line shows a plain-language total, then the matching table column name in p
 6,238 union references (Union Refs)
 ----
 
-[cols="1,3"]
+[cols="1,4"]
 |===
 | Column | Meaning
 
@@ -94,7 +94,7 @@ Per-row **Hits** columns measure compile-time inventory *load* — how much diag
 build contributed before cuppa unioned the session. The bottom **Session total (union)** row is the
 deduplicated codebase picture (matching the <<violation-totals>> card and index headline).
 
-[cols="1,3"]
+[cols="3,7"]
 |===
 | Column | Meaning
 
@@ -131,7 +131,7 @@ at the top of xref:cxx-profiles/report-by-build.adoc[Violations By-Build].
 
 Codebase reach answers: *among files the compiler actually parsed, how widely do violations appear?*
 
-[cols="1,3"]
+[cols="3,7"]
 |===
 | Field | Meaning
 
@@ -174,7 +174,7 @@ The Overview card shows, top to bottom: **percentage** of counted source lines i
 a muted **lines per 1k** companion line; then **`unique_violation_lines` of
 `source_lines_in_violating_files` counted lines** (bold numbers, normal prose).
 
-[cols="1,3"]
+[cols="3,7"]
 |===
 | Field | Meaning
 
@@ -202,7 +202,7 @@ affected).
 This table lists the rules that contributed the most **references** in the session (top rows).
 Columns match the profile matrices:
 
-[cols="1,3"]
+[cols="1,4"]
 |===
 | Column | Meaning
 
@@ -265,6 +265,6 @@ metric. That would complement — not replace — tier 1 breadth and tier 2 conc
 * xref:cxx-profiles/report.adoc[Violation report reading guide] — other index tabs
 * xref:cxx-profiles/report-by-rule.adoc[By-Rule tab] — session roll-up detail
 * xref:cxx-profiles/report-by-build.adoc[By-Build tab] — repeats build inventory load table
-* xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[Violation inventory report] — flags on the C++ Profiles hub
-* xref:cli-reference.adoc[CLI reference] — `--cxx-profiles-report-context=full|rules-only|off`
+* xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[Violation inventory report] — flags on the {cpp} Profiles hub
+* xref:cli/reports.adoc#profiles-overview-context[Reports] — `--cxx-profiles-report-context=full|rules-only|off`
 * xref:cxx-profiles/std-init.adoc[std::init profile] — rule documentation linked from matrix **Docs** cells

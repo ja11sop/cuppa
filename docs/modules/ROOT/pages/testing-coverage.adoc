@@ -20,12 +20,13 @@ cuppa -D --dbg --test --scripts=test/sconscript
 
 Test and run actions use the same process environment Cuppa builds for the variant.
 If a dependency provides shared libraries (for example xref:dependencies/conan.adoc#conan-2-consumer-optional[Conan]), those library search paths are applied automatically.
-Separately, `--propagate-env` / `--propagate-path` / `--merge-path` control whether your *shell* environment is visible to those processes — see xref:cli-reference.adoc#environment-propagation[Environment propagation].
+Separately, `--propagate-env` / `--propagate-path` / `--merge-path` control whether your *shell* environment is visible to those processes — see xref:cli/output-and-environment.adoc#environment-propagation[Environment propagation].
 
 == Runners
 
 Select with `--runner` or `cuppa.run(default_runner=...)`.
 
+[cols="3,7"]
 |===
 | Runner | Behaviour
 
@@ -56,7 +57,12 @@ flowchart TD
     F --> G["_artefacts/coverage index"]
 ....
 
-IMPORTANT: `--cov` alone does not run tests. Always combine `--cov` with `--test` (or `--force-test`) when you want executed coverage data from `BuildTest` targets.
+[IMPORTANT]
+====
+`--cov` alone does not run tests. Always combine `--cov` with `--test` (or `--force-test`) when you want executed coverage data from `BuildTest` targets.
+
+The reason for this is to allow you to run a build using `--parallel` to create the instrumented binaries, and then allow you to separately run the tests and collect the coverage data without using `--parallel`. Typically the build time for large projects is much longer than the test run time.
+====
 
 Cuppa uses toolchain gcov support plus https://gcovr.com/[gcovr] to emit HTML/JSON beside the variant output (and optionally collated destinations).
 

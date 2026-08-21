@@ -113,6 +113,7 @@ Delete the bad tag (`git push origin :refs/tags/vX.Y.Z`) and run publish again.
 
 == Escape hatches
 
+[cols="3,7"]
 |===
 | Situation | What to do
 

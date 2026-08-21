@@ -33,7 +33,10 @@ def add_base_options():
     add_option = cuppa.core.options.add_option
 
     add_option( '--cuppa-mode', dest='cuppa-mode', action='store_true',
-                            help="Runs scons as if called through cuppa. Implicitly set when ran from cuppa" )
+                            help="Marker that this SCons process was launched by the cuppa wrapper "
+                                 "(appended automatically). Does not install the wrapper's stdout "
+                                 "intercept; prefer the cuppa entry point when secrets may appear "
+                                 "in build output" )
 
     add_option( '--raw-output', dest='raw_output', action='store_true',
                             help="Disable output processing like colourisation of output" )

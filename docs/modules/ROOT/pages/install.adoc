@@ -52,5 +52,11 @@ cuppa -D --dbg --test
 scons -D --dbg --test
 ----
 
-The `cuppa` entry point invokes `scons` with `--cuppa-mode`, masks environment values whose names contain `TOKEN`, and may adjust CPU affinity when `--parallel` is used.
-Standalone `cuppa --help` shows *SCons* help; cuppa-specific options appear when you run from a project that has loaded cuppa.
+The `cuppa` entry point invokes `scons` with `--cuppa-mode`, intercepts stdout/stderr to mask
+environment values whose names contain `TOKEN`, may inject `-i` for a Profiles inventory run, and
+may adjust CPU affinity when `--parallel` is used.
+Standalone `cuppa --help` (or `cuppa -h` without `-D`) shows *SCons* help; cuppa-specific options
+appear when you run `cuppa -D -h` from a project tree.
+Prefer `cuppa` over `scons` in CI; `--cuppa-mode` on a direct `scons` invocation does not install
+the log intercept. See xref:cli/output-and-environment.adoc#cuppa-mode[The `cuppa` wrapper and
+`--cuppa-mode`].

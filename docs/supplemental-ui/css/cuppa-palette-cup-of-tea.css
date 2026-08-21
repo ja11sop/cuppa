@@ -1,0 +1,109 @@
+/*
+ * Cuppa documentation palette: cup of tea
+ *
+ * Preview by selecting this file in partials/head-styles.hbs.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* ========================================================================
+     ☀️ LIGHT MODE (Clean Editorial Earl Grey & Crisp Matcha)
+     ======================================================================== */
+  /* --- Brand Identity --- */
+  --cuppa-brand: #1b2226;               /* Minimalist Deep Earl Grey - sharp and modern */
+  --cuppa-brand-dark: #0f1417;          /* Near black for maximum text contrast */
+  --cuppa-brand-light: #f1f3f5;         /* Very clean, neutral light grey */
+  --cuppa-accent: #769f7e;              /* Crisp Matcha - used strictly as an accent hint */
+  --cuppa-accent-glow: rgba(118, 159, 126, 0.15);
+  --cuppa-link: #769f7e;                /* Matcha: brand is near body ink, so links use accent */
+  --cuppa-link-hover: #5a7f62;          /* Darker matcha on hover */
+  --cuppa-on-brand: #ffffff;
+  --cuppa-on-brand-muted: rgba(255, 255, 255, 0.50);
+
+  /* --- Core Typography & Clean UI Surfaces --- */
+  --cuppa-text: #212529;                /* Clean off-black for long-form reading */
+  --cuppa-text-muted: #6c757d;          /* Standard, clean neutral grey */
+  --cuppa-page: #ffffff;                 /* Pure, crisp canvas */
+  --cuppa-surface: #f8f9fa;              /* Subtle tint: perfect for striped table rows */
+  --cuppa-surface-strong: #f1f3f5;      /* Slightly darker structural grey for headers */
+  --cuppa-border: #e9ecef;              /* Very faint, thin neutral border */
+  --cuppa-code-surface: #fafafa;        /* Clean, ultra-light grey for code blocks */
+  --cuppa-code-tint: rgba(27, 34, 38, 0.07);  /* Ink wash: darkens whatever it sits on */
+  --cuppa-shadow-tint: rgba(27, 34, 38, 0.04);
+
+  /* --- Admonitions (Brighter & More Vivid Pops) --- */
+  --cuppa-note: #0284c7;                 /* Vivid sky blue */
+  --cuppa-note-surface: #f0f9ff;
+
+  --cuppa-tip: #16a34a;                  /* Vivid emerald green */
+  --cuppa-tip-surface: #f0fdf4;
+
+  --cuppa-warning: #f97316;              /* Vivid safety orange (high visibility alert) */
+  --cuppa-warning-surface: #fff7ed;
+
+  --cuppa-important: #dc2626;            /* Vivid alert red */
+  --cuppa-important-surface: #fef2f2;
+
+  --cuppa-caution: #9333ea;              /* Rich electric purple */
+  --cuppa-caution-surface: #faf5ff;
+
+  --cuppa-example: #4f46e5;              /* Modern indigo */
+  --cuppa-example-surface: #eef2ff;
+
+  /* --- Tables (Matcha rules over a porcelain heading) --- */
+  --cuppa-table: #769f7e;                /* Matcha rule opening and closing the table */
+  --cuppa-table-surface: #f2f6f3;        /* Faint matcha-tinted heading band */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* ========================================================================
+       🌙 DARK MODE (Crisp Night Earl Grey & Glowing Matcha)
+       ======================================================================== */
+    /* --- Brand Identity --- */
+    --cuppa-brand: #f1f3f5;             /* Crisp light grey for headers to mirror light mode ink */
+    --cuppa-brand-dark: #ffffff;
+    --cuppa-brand-light: #1e252b;        /* Dark slate block background */
+    --cuppa-accent: #8cb895;            /* Boosted Matcha green for high dark-mode readability */
+    --cuppa-accent-glow: rgba(140, 184, 149, 0.20);
+    --cuppa-link: #8cb895;
+    --cuppa-link-hover: #a8ccb0;        /* Lighter matcha on hover against the dark page */
+    --cuppa-on-brand: #12161a;
+    --cuppa-on-brand-muted: rgba(18, 22, 26, 0.50);
+
+    /* --- Core Typography & Clean UI Surfaces --- */
+    --cuppa-text: #e9ecef;              /* Clear, soft white for long reading without glare */
+    --cuppa-text-muted: #adb5bd;        /* Legible mid-grey for secondary text */
+    --cuppa-page: #12161a;               /* Deep, clean Earl Grey canvas */
+    --cuppa-surface: #1a1f24;            /* Dark table row stripe: distinct but subtle offset */
+    --cuppa-surface-strong: #232930;    /* Distinct dark tone for table headers / sidebars */
+    --cuppa-border: #2c343c;            /* Crisp, thin borders that don't glow */
+    --cuppa-code-surface: #161b20;      /* Darker recess for clean code containment */
+    --cuppa-code-tint: rgba(0, 0, 0, 0.30);  /* Recess against dark surfaces */
+    --cuppa-shadow-tint: rgba(0, 0, 0, 0.50);
+
+    /* --- Admonitions (Vibrant Glows against Dark Canvas) --- */
+    --cuppa-note: #38bdf8;               /* Electric sky blue */
+    --cuppa-note-surface: #0c2333;       /* Deep, high-contrast dark blue background */
+
+    --cuppa-tip: #4ade80;                /* Radiant minty green */
+    --cuppa-tip-surface: #0f2919;
+
+    --cuppa-warning: #fb923c;            /* Safety orange pop */
+    --cuppa-warning-surface: #2c1a0e;
+
+    --cuppa-important: #f87171;          /* Warning red pop */
+    --cuppa-important-surface: #301313;
+
+    --cuppa-caution: #c084fc;            /* Bright purple pop */
+    --cuppa-caution-surface: #221235;
+
+    --cuppa-example: #818cf8;            /* Bright indigo pop */
+    --cuppa-example-surface: #16143c;
+
+    /* --- Tables (Glowing matcha rules over a deep heading band) --- */
+    --cuppa-table: #8cb895;
+    --cuppa-table-surface: #1e2622;
+  }
+}

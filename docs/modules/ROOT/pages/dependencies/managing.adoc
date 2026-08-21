@@ -7,6 +7,7 @@
 Cuppa has several read-only reports that answer different questions. `--develop` is a *build*
 switch; `--list-develop` is a *report* about working copies. They are easy to mix up.
 
+[cols="3,3,4"]
 |===
 | You want to know… | Use | Looks at
 
@@ -161,6 +162,7 @@ same formatters the CLI uses:
 include::partial$samples/list-downloads.txt[]
 ----
 
+[cols="1,4"]
 |===
 | Scope | Effect
 
@@ -260,8 +262,8 @@ toolchain / variant / arch selection — not the whole `bin.<abi>` tree. The ext
 headers, and the `b2` binary stay in place so a later build does not need to re-download the
 tarball. Other stage trees and other toolsets' intermediates under the same extract are reported
 as left behind. Removal leaves use honest scopes: cuppa-precise for stage
-(`clean/build.c++2c [clang211/debug/x86_64]`) and Boost.Build toolset **family** for bin
-(`clean/bin.c++2c [clang-linux-21*/debug]` — major family ± patch dirs such as `clang-linux-21.1`,
+(`clean/build.c{plus}{plus}2c [clang211/debug/x86_64]`) and Boost.Build toolset **family** for bin
+(`clean/bin.c{plus}{plus}2c [clang-linux-21*/debug]` — major family ± patch dirs such as `clang-linux-21.1`,
 not a cuppa minor like `clang211`). The identity SIZE is the full extract (same basis as
 `--list-dependencies`). Products and a muted `source assets` leaf hang under an `[E]` extract
 row (`---` nothing going, `-✔-` partial, `✔✔✔` everything under it going). Empty `bin.<abi>`
@@ -603,6 +605,7 @@ cuppa -Q -D --list-develop --raw-output > develop.txt
 Severity appears in the `STATUS` column as well as in colour, so it survives `--raw-output` and can be searched for.
 It is the value of the option:
 
+[cols="1,1"]
 |===
 | Situation | Severity
 
@@ -647,6 +650,7 @@ When a feature spans the consumer project and several local develop dependencies
 Git does not record which branch a feature was created from, so cuppa does not guess a parent.
 Two settings describe home:
 
+[cols="2,3,5"]
 |===
 | Notion | Option | Role
 

@@ -2,7 +2,7 @@
 :description: Built-in quince ORM dependencies — honest stub
 
 The `quince` dependency (and related Quince backends such as PostgreSQL/SQLite helpers) pulls
-Quince as location dependencies for ORM-style C++ projects.
+Quince as location dependencies for ORM-style {cpp} projects.
 
 This page is a stub. The modules live under `cuppa/dependencies/`. Expand it when real usage
 is documented. See xref:dependencies/builtins.adoc[Built-in dependencies] and

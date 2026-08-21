@@ -1,0 +1,83 @@
+/*
+ * Cuppa documentation palette: forest
+ *
+ * Preview by selecting this file in partials/head-styles.hbs.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  --cuppa-brand: #2f6f62;
+  --cuppa-brand-dark: #234f47;
+  --cuppa-brand-light: #e9f4f0;
+  --cuppa-accent: #c47832;
+  --cuppa-accent-glow: rgba(196, 120, 50, 0.22);
+  --cuppa-link: #2f6f62;                /* Forest brand green */
+  --cuppa-link-hover: #234f47;
+  --cuppa-on-brand: #fff;
+  --cuppa-on-brand-muted: rgba(255, 255, 255, 0.48);
+
+  --cuppa-text: #293834;
+  --cuppa-text-muted: #64736e;
+  --cuppa-page: #fff;
+  --cuppa-surface: #f7faf8;
+  --cuppa-surface-strong: #ebf2ef;
+  --cuppa-border: #d3dfda;
+  --cuppa-code-surface: #f2f7f5;
+  --cuppa-code-tint: rgba(35, 79, 71, 0.07);
+  --cuppa-shadow-tint: rgba(35, 79, 71, 0.09);
+
+  --cuppa-note: #367e8c;
+  --cuppa-note-surface: #e9f4f6;
+  --cuppa-tip: #3b7b55;
+  --cuppa-tip-surface: #edf7f0;
+  --cuppa-warning: #b96d25;
+  --cuppa-warning-surface: #fff5e9;
+  --cuppa-important: #b34d4d;
+  --cuppa-important-surface: #fff0f0;
+  --cuppa-caution: #7b5d91;
+  --cuppa-caution-surface: #f5f0f8;
+  --cuppa-example: #677b45;
+  --cuppa-example-surface: #f0f5e8;
+  --cuppa-table: #4f8d80;
+  --cuppa-table-surface: #e8f1ee;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cuppa-brand: #c5e0d8;
+    --cuppa-brand-dark: #e9f4f0;
+    --cuppa-brand-light: #1a2a26;
+    --cuppa-accent: #e09a52;
+    --cuppa-accent-glow: rgba(224, 154, 82, 0.24);
+    --cuppa-link: #6ab0a0;
+    --cuppa-link-hover: #c5e0d8;
+    --cuppa-on-brand: #121916;
+    --cuppa-on-brand-muted: rgba(18, 25, 22, 0.50);
+
+    --cuppa-text: #e2ebe6;
+    --cuppa-text-muted: #8a9892;
+    --cuppa-page: #121916;
+    --cuppa-surface: #1a2420;
+    --cuppa-surface-strong: #232e2a;
+    --cuppa-border: #2c3c36;
+    --cuppa-code-surface: #161e1b;
+    --cuppa-code-tint: rgba(0, 0, 0, 0.30);
+    --cuppa-shadow-tint: rgba(0, 0, 0, 0.50);
+
+    --cuppa-note: #5aa8b6;
+    --cuppa-note-surface: #0e272c;
+    --cuppa-tip: #6bc48a;
+    --cuppa-tip-surface: #12281a;
+    --cuppa-warning: #e09a52;
+    --cuppa-warning-surface: #2c1c0c;
+    --cuppa-important: #e07a7a;
+    --cuppa-important-surface: #2c1414;
+    --cuppa-caution: #b08ac8;
+    --cuppa-caution-surface: #24182c;
+    --cuppa-example: #a0b86a;
+    --cuppa-example-surface: #1c2414;
+    --cuppa-table: #6ab0a0;
+    --cuppa-table-surface: #1a2c28;
+  }
+}
