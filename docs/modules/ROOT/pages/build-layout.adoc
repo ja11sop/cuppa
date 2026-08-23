@@ -3,7 +3,7 @@
 
 == Default roots
 
-[cols="2,1,2"]
+[cols="1,1,1"]
 |===
 | Purpose | Default | Override
 

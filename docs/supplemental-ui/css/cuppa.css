@@ -67,6 +67,51 @@ body {
   letter-spacing: 0.01em;
 }
 
+/* Home brand: mark + wordmark replace the word “Cuppa”; title text is Documentation.
+   Logos are inline SVGs with fill=currentColor (CSS masks were unreliable across browsers). */
+.navbar-brand .navbar-home,
+.navbar-brand .navbar-home:hover {
+  align-items: center;
+  background: transparent;
+  color: var(--cuppa-on-brand);
+  display: inline-flex;
+  gap: 0.55rem;
+  line-height: 1;
+  min-width: 0;
+}
+
+.navbar-brand-mark,
+.navbar-brand-wordmark {
+  display: block;
+  flex: none;
+}
+
+.navbar-brand .navbar-home path {
+  fill: currentColor;
+}
+
+.navbar-brand-mark {
+  height: 1.9rem;
+}
+
+.navbar-brand-wordmark {
+  height: 1.05rem;
+  margin-bottom: -0.4rem;
+}
+
+.navbar-brand-text {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 768.5px) {
+  /* Keep the mark + Documentation; drop the wordmark when the bar is tight. */
+  .navbar-brand-wordmark {
+    display: none;
+  }
+}
+
 .navbar-end
 {
   padding-right: 0.5rem;
@@ -133,7 +178,7 @@ body {
   border: 1px solid var(--cuppa-on-brand-muted);
   border-radius: var(--cuppa-radius);
   /* Beat Antora UI's `#search-input { padding: 0 .25em }` so text clears the icon. */
-  padding: 0.2rem 0.55rem 0.2rem 2.35rem;
+  padding: 0.2rem 0.55rem 0.2rem 2.0rem;
 }
 
 .navbar-item.search #search-input:focus {
@@ -665,10 +710,10 @@ body {
 .doc :not(pre) > code {
   background: var(--cuppa-code-tint, var(--cuppa-code-surface));
   border: none;
-  border-radius: 0.25em;
+  border-radius: 0.3em;
   color: inherit;
   font-size: var(--cuppa-code-size-inline);
-  padding: 0.1em 0.25em;
+  padding: 0.06em 0.24em;
 }
 
 .doc h1 code,
