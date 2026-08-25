@@ -1,8 +1,8 @@
 # Plan: custom Antora UI bundle
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-antora-ui`); [`docs/playbook.yml`](../../docs/playbook.yml); supplemental UI [`docs/supplemental-ui/`](../../docs/supplemental-ui/); companion [`colourised-doc-samples.md`](colourised-doc-samples.md)
-- **Updated:** 2026-08-21
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-antora-ui`); [`docs/playbook.yml`](../../docs/playbook.yml); supplemental UI [`docs/supplemental-ui/`](../../docs/supplemental-ui/); companions [`colourised-doc-samples.md`](colourised-doc-samples.md), [`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md)
+- **Updated:** 2026-08-25
 - **Impact:** none — site presentation only (unless a UI change breaks the docs CI build)
 
 ## Why
@@ -110,7 +110,7 @@ Sources are **look references**, not dependencies. Map each idea onto Antora cla
 | Pagination | Clear prev/next | **Adapt** | Style existing `.pagination` |
 | Navbar | Compact brand colour | **Adapt** | Tint/border only; keep overlay markup |
 | Navbar brand marks | Project / registry icons | **Adapt** | GitHub and PyPI links carry inline SVG marks (Simple Icons paths, CC0) that inherit `currentColor`; text labels stay for the mobile menu |
-| Code blocks | Title bar, quieter chrome | **Adapt** | Quieter frame and a smaller monospace scale (`--cuppa-code-size*`); highlight.js tokens untouched, no title bar yet |
+| Code blocks | Title bar, quieter chrome | **Adapt** | Quieter frame and a smaller monospace scale (`--cuppa-code-size*`); highlight.js tokens untouched in this UI pass; token theming and line numbers are [`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md) (`doc-shiki`) |
 | Fonts / icon packs | Material icons, extra webfonts | **Skip** | Weight and self-hosting. Cherry-picked Material paths (Apache 2.0) are embedded as `--cuppa-icon-*` data-URI masks in `cuppa.css`, so semantic and disclosure marks inherit palette colour without a pack or extra request; the two navbar marks stay inline in the header partial |
 | Dark mode | Material default | **Adapt** | Palette files follow `prefers-color-scheme`; a navbar toggle remains deferred |
 | Card / grid landing | Material cards | **Skip** | Needs content rewrite |

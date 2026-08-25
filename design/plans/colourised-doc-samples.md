@@ -1,8 +1,8 @@
 # Plan: colourised sample output for documentation and preview
 
 - **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-output-samples`); follows build-report work in [`removal-options.md`](removal-options.md) Phase 2
-- **Updated:** 2026-08-02
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-output-samples`); follows build-report work in [`removal-options.md`](removal-options.md) Phase 2; syntax highlighting [`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md)
+- **Updated:** 2026-08-25
 
 Cuppa already produces rich, colour-coded reports (`--list-builds`, `--list-develop`,
 `--remove-builds`, coverage summaries, and more). The Antora docs currently show those reports as
@@ -57,6 +57,12 @@ ANSI and feeding it to `ansi2html` (or similar) is attractive for “what the te
 
 ANSI conversion remains useful as an **optional preview mode** (“show me exactly this run”). The
 **canonical docs path** should be semantic HTML from the same `as_*` meanings the terminal uses.
+
+Do not fold that canonical path into Shiki's `ansi` language (see
+[`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md)). Shiki is the right highlighter for
+`[source,cpp]` / `[source,python]` and a convenient **renderer** for pinned ANSI previews; it does
+not know Cuppa's `as_error` / `as_info` vocabulary, and unpinned SGR still drifts with
+`CUPPA_CONSOLE_BACKGROUND` (ROADMAP `doc-ansi-only`).
 
 ---
 
@@ -173,9 +179,10 @@ python -m scripts.sample_output list-builds --format=ansi-html
 ```
 
 Force `TERM=xterm-256color`, `CUPPA_CONSOLE_BACKGROUND=dark` (or `light`), enable colour, capture
-stdout, convert with a pinned dependency or a minimal SGR→span mapper. Document that this mode is
-for preview parity checks, not for committed docs samples, unless the env is fully pinned in the
-recipe.
+stdout, convert with a pinned dependency, a minimal SGR→span mapper, or — once
+[`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md) Phase E exists — Shiki's `ansi`
+language. Document that this mode is for preview parity checks, not for committed docs samples,
+unless the env is fully pinned in the recipe.
 
 ---
 
@@ -242,7 +249,7 @@ shapes from `#134` so samples do not churn.
 | Screenshots / SVG exports | Heavy to regenerate; inaccessible to search; poor for copy-paste |
 | Kroki / server-side render | Network at doc build; avoided for Mermaid already |
 | Only ANSI→HTML | Environment-dependent; weak on light doc backgrounds |
-| Asciidoctor syntax highlighter themes | Highlights “language”, not cuppa meanings |
+| Asciidoctor / Shiki language themes | Highlights “language” (or raw ANSI), not cuppa meanings — use the Shiki plan for source listings instead |
 
 ---
 
