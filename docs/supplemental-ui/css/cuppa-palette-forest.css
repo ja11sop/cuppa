@@ -15,7 +15,10 @@
   --cuppa-link: #2f6f62;                /* Forest brand green */
   --cuppa-link-hover: #234f47;
   --cuppa-on-brand: #fff;
-  --cuppa-on-brand-muted: rgba(255, 255, 255, 0.48);
+  --cuppa-on-brand-muted: rgba(255, 255, 255, 0.55);
+  /* Recess on the dark navbar; focus opens to --cuppa-page (see cuppa.css). */
+  --cuppa-on-brand-field: #3a6f64;
+  --cuppa-on-brand-field-text: #e9f4f0;
 
   --cuppa-text: #293834;
   --cuppa-text-muted: #64736e;
@@ -53,7 +56,10 @@
     --cuppa-link: #6ab0a0;
     --cuppa-link-hover: #c5e0d8;
     --cuppa-on-brand: #121916;
-    --cuppa-on-brand-muted: rgba(18, 25, 22, 0.50);
+    --cuppa-on-brand-muted: rgba(18, 25, 22, 0.55);
+    /* Navbar is light in dark mode; field is a soft grey recess on that bar. */
+    --cuppa-on-brand-field: #d5e0db;
+    --cuppa-on-brand-field-text: #121916;
 
     --cuppa-text: #e2ebe6;
     --cuppa-text-muted: #8a9892;

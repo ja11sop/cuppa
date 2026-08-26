@@ -19,7 +19,14 @@
   --cuppa-link: #769f7e;                /* Matcha: brand is near body ink, so links use accent */
   --cuppa-link-hover: #5a7f62;          /* Darker matcha on hover */
   --cuppa-on-brand: #ffffff;
-  --cuppa-on-brand-muted: rgba(255, 255, 255, 0.50);
+  --cuppa-on-brand-muted: rgba(255, 255, 255, 0.55);
+  /*
+   * Recess on the dark navbar (brand-dark). Lifted slate so the search field
+   * reads as part of the bar, not a light hole punched in it. Focus flips the
+   * field to --cuppa-page (see cuppa.css).
+   */
+  --cuppa-on-brand-field: #2f383f;
+  --cuppa-on-brand-field-text: #e8ecef;
 
   /* --- Core Typography & Clean UI Surfaces --- */
   --cuppa-text: #212529;                /* Clean off-black for long-form reading */
@@ -70,7 +77,10 @@
     --cuppa-link: #8cb895;
     --cuppa-link-hover: #a8ccb0;        /* Lighter matcha on hover against the dark page */
     --cuppa-on-brand: #12161a;
-    --cuppa-on-brand-muted: rgba(18, 22, 26, 0.50);
+    --cuppa-on-brand-muted: rgba(18, 22, 26, 0.55);
+    /* Navbar is light in dark mode; field is a soft grey recess on that bar. */
+    --cuppa-on-brand-field: #d8dce0;
+    --cuppa-on-brand-field-text: #12161a;
 
     /* --- Core Typography & Clean UI Surfaces --- */
     --cuppa-text: #e9ecef;              /* Clear, soft white for long reading without glare */

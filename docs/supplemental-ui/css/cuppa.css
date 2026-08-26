@@ -158,13 +158,18 @@ body {
 }
 
 /* Search: icon sits inside the field, left of the placeholder / typed text.
-   Colour matches Antora's placeholder (input colour #333 at 50% opacity). */
+ *
+ * Idle field uses --cuppa-on-brand-field (a recess related to the navbar), not
+ * a light page chip — that fought the near-black bar and made focus too subtle.
+ * Accent fill was rejected for the same reason. Focus opens to --cuppa-page.
+ * Every palette defines --cuppa-on-brand-field / -field-text (light + dark).
+ */
 #search-field {
   position: relative;
 }
 
 #search-field::before {
-  background-color: rgba(51, 51, 51, 0.5);
+  background-color: var(--cuppa-on-brand-muted);
   content: "";
   height: 1.15rem;
   left: 0.55rem;
@@ -178,16 +183,52 @@ body {
   z-index: 1;
 }
 
+#search-field:focus-within::before {
+  background-color: var(--cuppa-text-muted);
+}
+
 .navbar-item.search #search-input {
-  border: 1px solid var(--cuppa-on-brand-muted);
+  background: var(--cuppa-on-brand-field, var(--cuppa-surface-strong));
+  border: 1px solid color-mix(in srgb, var(--cuppa-on-brand) 22%, transparent);
   border-radius: var(--cuppa-radius);
+  color: var(--cuppa-on-brand-field-text, var(--cuppa-on-brand));
   /* Beat Antora UI's `#search-input { padding: 0 .25em }` so text clears the icon. */
   padding: 0.2rem 0.55rem 0.2rem 2.0rem;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    color 120ms ease;
+}
+
+.navbar-item.search #search-input::placeholder {
+  color: var(--cuppa-on-brand-muted);
+  opacity: 1;
+}
+
+/*
+ * Soft accent ring on hover; stronger layered glow on focus. A 1px accent border
+ * alone is easy to miss when accent sits close to the page (cup-of-tea matcha).
+ */
+.navbar-item.search #search-input:hover {
+  border-color: color-mix(in srgb, var(--cuppa-accent) 70%, var(--cuppa-on-brand));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--cuppa-accent) 45%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--cuppa-accent) 18%, transparent);
 }
 
 .navbar-item.search #search-input:focus {
+  background: var(--cuppa-page);
   border-color: var(--cuppa-accent);
-  box-shadow: 0 0 0 2px var(--cuppa-accent-glow);
+  box-shadow:
+    0 0 0 1px var(--cuppa-accent),
+    0 0 0 4px color-mix(in srgb, var(--cuppa-accent) 35%, transparent),
+    0 0 12px color-mix(in srgb, var(--cuppa-accent) 40%, transparent);
+  color: var(--cuppa-text);
+}
+
+.navbar-item.search #search-input:focus::placeholder {
+  color: var(--cuppa-text-muted);
 }
 
 .toolbar {

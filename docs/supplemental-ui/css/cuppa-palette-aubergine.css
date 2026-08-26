@@ -15,7 +15,10 @@
   --cuppa-link: #76558f;                /* Aubergine brand purple */
   --cuppa-link-hover: #4d365f;
   --cuppa-on-brand: #fff;
-  --cuppa-on-brand-muted: rgba(255, 255, 255, 0.48);
+  --cuppa-on-brand-muted: rgba(255, 255, 255, 0.55);
+  /* Recess on the dark navbar; focus opens to --cuppa-page (see cuppa.css). */
+  --cuppa-on-brand-field: #654a7a;
+  --cuppa-on-brand-field-text: #f3eef7;
 
   --cuppa-text: #372f3d;
   --cuppa-text-muted: #726979;
@@ -53,7 +56,10 @@
     --cuppa-link: #b89ac8;
     --cuppa-link-hover: #d4c0e0;
     --cuppa-on-brand: #161218;
-    --cuppa-on-brand-muted: rgba(22, 18, 24, 0.50);
+    --cuppa-on-brand-muted: rgba(22, 18, 24, 0.55);
+    /* Navbar is light in dark mode; field is a soft grey recess on that bar. */
+    --cuppa-on-brand-field: #ddd6e3;
+    --cuppa-on-brand-field-text: #161218;
 
     --cuppa-text: #ece6f0;
     --cuppa-text-muted: #a094aa;

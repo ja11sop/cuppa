@@ -16,7 +16,10 @@
   --cuppa-link: #6b9473;                /* Matcha: brand is near body ink, so links use accent */
   --cuppa-link-hover: #54785c;
   --cuppa-on-brand: #ffffff;
-  --cuppa-on-brand-muted: rgba(255, 255, 255, 0.50);
+  --cuppa-on-brand-muted: rgba(255, 255, 255, 0.55);
+  /* Recess on the dark navbar; focus opens to --cuppa-page (see cuppa.css). */
+  --cuppa-on-brand-field: #2d403c;
+  --cuppa-on-brand-field-text: #e8eeec;
 
   /* --- Core Typography & Clean UI Surfaces --- */
   --cuppa-text: #202b28;                /* Off-black with a matching hint of tea-green */
@@ -64,7 +67,10 @@
     --cuppa-link: #8cb895;
     --cuppa-link-hover: #a8ccb0;
     --cuppa-on-brand: #101816;
-    --cuppa-on-brand-muted: rgba(16, 24, 22, 0.50);
+    --cuppa-on-brand-muted: rgba(16, 24, 22, 0.55);
+    /* Navbar is light in dark mode; field is a soft grey recess on that bar. */
+    --cuppa-on-brand-field: #d5ddd9;
+    --cuppa-on-brand-field-text: #101816;
 
     --cuppa-text: #e4ece8;
     --cuppa-text-muted: #8a9892;

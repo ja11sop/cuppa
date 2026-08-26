@@ -17,7 +17,10 @@
   --cuppa-link: #215a9a;                /* Harbour blue: brand is already a link hue */
   --cuppa-link-hover: #183f70;
   --cuppa-on-brand: #fff;
-  --cuppa-on-brand-muted: rgba(255, 255, 255, 0.45);
+  --cuppa-on-brand-muted: rgba(255, 255, 255, 0.55);
+  /* Recess on the dark navbar; focus opens to --cuppa-page (see cuppa.css). */
+  --cuppa-on-brand-field: #2d5a90;
+  --cuppa-on-brand-field-text: #eaf2fb;
 
   --cuppa-text: #253044;
   --cuppa-text-muted: #647084;
@@ -55,7 +58,10 @@
     --cuppa-link: #7aa8d4;
     --cuppa-link-hover: #c5d8f0;
     --cuppa-on-brand: #121820;
-    --cuppa-on-brand-muted: rgba(18, 24, 32, 0.50);
+    --cuppa-on-brand-muted: rgba(18, 24, 32, 0.55);
+    /* Navbar is light in dark mode; field is a soft grey recess on that bar. */
+    --cuppa-on-brand-field: #d5dde8;
+    --cuppa-on-brand-field-text: #121820;
 
     --cuppa-text: #e3e9f2;
     --cuppa-text-muted: #8a96a8;

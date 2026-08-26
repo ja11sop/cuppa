@@ -16,7 +16,10 @@
   --cuppa-link: #265147;                /* Brand green: already distinct from body text */
   --cuppa-link-hover: #193831;
   --cuppa-on-brand: #ffffff;
-  --cuppa-on-brand-muted: rgba(255, 255, 255, 0.50);
+  --cuppa-on-brand-muted: rgba(255, 255, 255, 0.55);
+  /* Recess on the dark navbar; focus opens to --cuppa-page (see cuppa.css). */
+  --cuppa-on-brand-field: #345248;
+  --cuppa-on-brand-field-text: #eaf4f0;
 
   /* --- Core Typography & UI Surfaces --- */
   --cuppa-text: #1d252a;                /* Deep Earl Grey - less harsh than pure black */
@@ -64,7 +67,10 @@
     --cuppa-link: #6ed99a;
     --cuppa-link-hover: #8ee4b0;
     --cuppa-on-brand: #121816;
-    --cuppa-on-brand-muted: rgba(18, 24, 22, 0.50);
+    --cuppa-on-brand-muted: rgba(18, 24, 22, 0.55);
+    /* Navbar is light in dark mode; field is a soft grey recess on that bar. */
+    --cuppa-on-brand-field: #d5e0db;
+    --cuppa-on-brand-field-text: #121816;
 
     --cuppa-text: #e4ece8;
     --cuppa-text-muted: #8a9892;
