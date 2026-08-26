@@ -100,7 +100,7 @@ Sources are **look references**, not dependencies. Map each idea onto Antora cla
 
 | Element | Cue (Boost-like / Material) | Decision | Notes |
 |---------|-----------------------------|----------|--------|
-| Page measure / line length | Constrained content column | **Keep** | `max-width` on `.doc`; do not shrink the sidebar |
+| Page measure / line length | Constrained content column | **Adapt** | Toolbar cycles default (~46rem) → wide (56rem) → full (fills article column); `localStorage`; do not shrink the sidebar |
 | Type scale | Distinct H1–H3, quieter body | **Keep** | CSS variables on headings in `.doc` |
 | Colour tokens | One brand + semantic status | **Keep** | Complete semantic contract in a named `cuppa-palette-*.css` file; six palettes (cup-of-tea, mint-tea, fine-bone-china, harbour, forest, aubergine), each with a `prefers-color-scheme: dark` override; later `.cuppa-error` sample classes |
 | Sidebar current page | Stronger active marker | **Keep** | High value, small CSS |
@@ -157,9 +157,10 @@ Header/footer overlays already in tree:
 - `docs/supplemental-ui/partials/footer-content.hbs`
 
 Removing a piece of bundle chrome works the same way: overlay the partial that renders it with
-one that renders nothing. `docs/supplemental-ui/partials/edit-this-page.hbs` does that for the
-toolbar edit link. A playbook `edit_url: false` is not enough, because the bundle partial links
-`page.fileUri` for a worktree build before it considers `page.editUrl`.
+one that renders something else (or nothing). `docs/supplemental-ui/partials/edit-this-page.hbs`
+replaces the toolbar edit link with the article-width toggle. A playbook `edit_url: false` is not
+enough on its own, because the bundle partial links `page.fileUri` for a worktree build before it
+considers `page.editUrl`.
 
 ## Work slices
 
@@ -195,9 +196,10 @@ plan update.
 | `docs/supplemental-ui/css/cuppa.css` | Colour-independent component overrides |
 | `docs/supplemental-ui/partials/head-styles.hbs` | Base, selected-palette, and component stylesheet links |
 | `docs/supplemental-ui/partials/header-content.hbs` | Navbar overlay, including the inline GitHub / PyPI marks |
-| `docs/supplemental-ui/partials/footer-content.hbs` | Footer overlay (existing) |
+| `docs/supplemental-ui/partials/footer-content.hbs` | Footer overlay; loads supplemental JS |
+| `docs/supplemental-ui/partials/edit-this-page.hbs` | Article width toggle (replaces Edit this Page) |
+| `docs/supplemental-ui/js/cuppa-doc-width.js` | Article width cycle (default / wide / full) + localStorage |
 | `docs/supplemental-ui/js/cuppa-scroll-panels.js` | Wide listing scroll affordances and click-drag pan |
-| `docs/supplemental-ui/partials/edit-this-page.hbs` | Empty overlay that removes the toolbar edit link |
 | `docs/modules/ROOT/pages/contributing.adoc` | Pin + preview notes when `ui-pin` lands |
 | `design/plans/colourised-doc-samples.md` | Sample classes follow `--cuppa-*` tokens |
 

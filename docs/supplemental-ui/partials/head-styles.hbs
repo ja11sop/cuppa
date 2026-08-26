@@ -11,3 +11,16 @@
     cuppa-palette-aubergine.css
 --}}
 <link rel="stylesheet" href="{{{uiRootPath}}}/css/cuppa.css">
+{{!-- Apply stored article-width preference before paint to avoid a measure flash. --}}
+<script>
+(function () {
+  try {
+    var mode = localStorage.getItem('cuppa-doc-width');
+    if (mode === 'wide') {
+      document.documentElement.classList.add('cuppa-doc-wide');
+    } else if (mode === 'full') {
+      document.documentElement.classList.add('cuppa-doc-full');
+    }
+  } catch (e) {}
+})();
+</script>
