@@ -110,7 +110,7 @@ Sources are **look references**, not dependencies. Map each idea onto Antora cla
 | Pagination | Clear prev/next | **Adapt** | Style existing `.pagination` |
 | Navbar | Compact brand colour | **Adapt** | Tint/border only; keep overlay markup |
 | Navbar brand marks | Project / registry icons | **Adapt** | GitHub and PyPI links carry inline SVG marks (Simple Icons paths, CC0) that inherit `currentColor`; text labels stay for the mobile menu |
-| Code blocks | Title bar, quieter chrome | **Adapt** | Quieter frame and a smaller monospace scale (`--cuppa-code-size*`); highlight.js tokens untouched in this UI pass; token theming and line numbers are [`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md) (`doc-shiki`) |
+| Code blocks | Title bar, quieter chrome | **Adapt** | Quieter frame and a smaller monospace scale (`--cuppa-code-size*`); highlight.js tokens untouched in this UI pass; token theming and line numbers are [`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md) (`doc-shiki`). Wide listing/console samples: horizontal scroll only, inset edge fades + shadows inside the frame border, click-drag pan with clamp + edge pulse at limits |
 | Fonts / icon packs | Material icons, extra webfonts | **Skip** | Weight and self-hosting. Cherry-picked Material paths (Apache 2.0) are embedded as `--cuppa-icon-*` data-URI masks in `cuppa.css`, so semantic and disclosure marks inherit palette colour without a pack or extra request; the two navbar marks stay inline in the header partial |
 | Dark mode | Material default | **Adapt** | Palette files follow `prefers-color-scheme`; a navbar toggle remains deferred |
 | Card / grid landing | Material cards | **Skip** | Needs content rewrite |
@@ -196,6 +196,7 @@ plan update.
 | `docs/supplemental-ui/partials/head-styles.hbs` | Base, selected-palette, and component stylesheet links |
 | `docs/supplemental-ui/partials/header-content.hbs` | Navbar overlay, including the inline GitHub / PyPI marks |
 | `docs/supplemental-ui/partials/footer-content.hbs` | Footer overlay (existing) |
+| `docs/supplemental-ui/js/cuppa-scroll-panels.js` | Wide listing scroll affordances and click-drag pan |
 | `docs/supplemental-ui/partials/edit-this-page.hbs` | Empty overlay that removes the toolbar edit link |
 | `docs/modules/ROOT/pages/contributing.adoc` | Pin + preview notes when `ui-pin` lands |
 | `design/plans/colourised-doc-samples.md` | Sample classes follow `--cuppa-*` tokens |
