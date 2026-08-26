@@ -1,17 +1,17 @@
 <link rel="stylesheet" href="{{{uiRootPath}}}/css/site.css">
-{{!-- Swap this filename to preview another palette; component CSS is unchanged. --}}
-<link rel="stylesheet" href="{{{uiRootPath}}}/css/cuppa-palette-cup-of-tea.css">
 {{!--
-  Palettes (each file carries light and prefers-color-scheme: dark):
-    cuppa-palette-cup-of-tea.css
-    cuppa-palette-mint-tea.css
-    cuppa-palette-fine-bone-china.css
-    cuppa-palette-harbour.css
-    cuppa-palette-forest.css
-    cuppa-palette-aubergine.css
+  All palettes are linked; only one is enabled. Cold-start default is cup-of-tea.
+  Runtime cycling (toolbar) and localStorage restore enable/disable these links.
+  Each file carries light and prefers-color-scheme: dark tokens.
 --}}
+<link rel="stylesheet" href="{{{uiRootPath}}}/css/cuppa-palette-cup-of-tea.css" data-cuppa-palette="cup-of-tea">
+<link rel="stylesheet" href="{{{uiRootPath}}}/css/cuppa-palette-mint-tea.css" data-cuppa-palette="mint-tea" disabled>
+<link rel="stylesheet" href="{{{uiRootPath}}}/css/cuppa-palette-fine-bone-china.css" data-cuppa-palette="fine-bone-china" disabled>
+<link rel="stylesheet" href="{{{uiRootPath}}}/css/cuppa-palette-harbour.css" data-cuppa-palette="harbour" disabled>
+<link rel="stylesheet" href="{{{uiRootPath}}}/css/cuppa-palette-forest.css" data-cuppa-palette="forest" disabled>
+<link rel="stylesheet" href="{{{uiRootPath}}}/css/cuppa-palette-aubergine.css" data-cuppa-palette="aubergine" disabled>
 <link rel="stylesheet" href="{{{uiRootPath}}}/css/cuppa.css">
-{{!-- Apply stored article-width preference before paint to avoid a measure flash. --}}
+{{!-- Apply stored width and palette before paint to avoid a flash. --}}
 <script>
 (function () {
   try {
@@ -20,6 +20,24 @@
       document.documentElement.classList.add('cuppa-doc-wide');
     } else if (mode === 'full') {
       document.documentElement.classList.add('cuppa-doc-full');
+    }
+  } catch (e) {}
+  try {
+    var order = [
+      'cup-of-tea',
+      'mint-tea',
+      'fine-bone-china',
+      'harbour',
+      'forest',
+      'aubergine',
+    ];
+    var id = localStorage.getItem('cuppa-doc-palette');
+    if (order.indexOf(id) < 0) {
+      id = 'cup-of-tea';
+    }
+    var links = document.querySelectorAll('link[data-cuppa-palette]');
+    for (var i = 0; i < links.length; i++) {
+      links[i].disabled = links[i].getAttribute('data-cuppa-palette') !== id;
     }
   } catch (e) {}
 })();

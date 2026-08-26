@@ -1,11 +1,11 @@
 {{!--
-  Toolbar trailing control: article width toggle.
+  Toolbar trailing controls: article width + colour palette.
 
   Replaces the bundle "Edit this Page" link (already suppressed). The
   .edit-this-page wrapper keeps the bundle's ≥1024px visibility rule and sits
   at the right end of the toolbar after breadcrumbs.
 --}}
-<div class="edit-this-page cuppa-doc-width">
+<div class="edit-this-page cuppa-toolbar-actions">
   <button
     type="button"
     class="cuppa-doc-width-toggle"
@@ -14,5 +14,13 @@
     aria-label="Widen article"
   >
     <span class="cuppa-doc-width-toggle__icon" aria-hidden="true"></span>
+  </button>
+  <button
+    type="button"
+    class="cuppa-doc-palette-toggle"
+    title="Use Mint tea palette"
+    aria-label="Use Mint tea palette"
+  >
+    <span class="cuppa-doc-palette-toggle__icon" aria-hidden="true"></span>
   </button>
 </div>

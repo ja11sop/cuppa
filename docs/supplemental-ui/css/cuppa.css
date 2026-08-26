@@ -44,6 +44,8 @@
   --cuppa-icon-widen: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M9,13H15V16L20,11.5L15,7V10H9V7L4,11.5L9,16V13M4,4H20V6H4V4M4,18H20V20H4V18Z'/%3E%3C/svg%3E");
   --cuppa-icon-full-width: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5,5H10V7H7V10H5V5M14,5H19V10H17V7H14V5M17,14H19V19H14V17H17V14M10,17V19H5V14H7V17H10Z'/%3E%3C/svg%3E");
   --cuppa-icon-narrow: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10,17V14H14V17L19,12L14,7V10H10V7L5,12L10,17M4,2H20V4H4V2M4,20H20V22H4V20Z'/%3E%3C/svg%3E");
+  /* Material Design Icons "palette" path (Apache 2.0), masked like the other chrome icons. */
+  --cuppa-icon-palette: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M17.5,12A1.5,1.5 0 0,1 16,10.5A1.5,1.5 0 0,1 17.5,9A1.5,1.5 0 0,1 19,10.5A1.5,1.5 0 0,1 17.5,12M14.5,8A1.5,1.5 0 0,1 13,6.5A1.5,1.5 0 0,1 14.5,5A1.5,1.5 0 0,1 16,6.5A1.5,1.5 0 0,1 14.5,8M9.5,8A1.5,1.5 0 0,1 8,6.5A1.5,1.5 0 0,1 9.5,5A1.5,1.5 0 0,1 11,6.5A1.5,1.5 0 0,1 9.5,8M6.5,12A1.5,1.5 0 0,1 5,10.5A1.5,1.5 0 0,1 6.5,9A1.5,1.5 0 0,1 8,10.5A1.5,1.5 0 0,1 6.5,12M12,3A9,9 0 0,0 3,12A9,9 0 0,0 12,21A1.5,1.5 0 0,0 13.5,19.5C13.5,18.94 13.24,18.44 12.83,18.1C12.42,17.76 12.17,17.26 12.17,16.7A3.83,3.83 0 0,1 16,12.87H16.5A4.5,4.5 0 0,0 21,8.37C21,5.43 16.97,3 12,3Z'/%3E%3C/svg%3E");
 }
 
 /* Brand and global chrome */
@@ -237,15 +239,26 @@ body {
 }
 
 /*
- * Width toggle lives in the edit-this-page toolbar slot (right of breadcrumbs).
- * margin-left: auto pins it when page-versions is absent.
+ * Width + palette toggles live in the edit-this-page toolbar slot (right of
+ * breadcrumbs). The bundle hides .edit-this-page below 1024px; keep that, and
+ * only force inline-flex once the slot is shown (do not set display below that).
+ * margin-left: auto pins the group when page-versions is absent.
  */
-.toolbar .edit-this-page.cuppa-doc-width {
+.toolbar .edit-this-page.cuppa-toolbar-actions {
+  align-items: center;
+  gap: 0.15rem;
   margin-left: auto;
   padding-right: 0.65rem;
 }
 
-.cuppa-doc-width-toggle {
+@media screen and (min-width: 1024px) {
+  .toolbar .edit-this-page.cuppa-toolbar-actions {
+    display: inline-flex;
+  }
+}
+
+.cuppa-doc-width-toggle,
+.cuppa-doc-palette-toggle {
   align-items: center;
   background: transparent;
   border: 1px solid transparent;
@@ -260,7 +273,9 @@ body {
 }
 
 .cuppa-doc-width-toggle:hover,
-.cuppa-doc-width-toggle:focus-visible {
+.cuppa-doc-width-toggle:focus-visible,
+.cuppa-doc-palette-toggle:hover,
+.cuppa-doc-palette-toggle:focus-visible {
   background: var(--cuppa-brand-light);
   border-color: var(--cuppa-border);
   color: var(--cuppa-brand);
@@ -271,13 +286,22 @@ body {
   color: var(--cuppa-accent);
 }
 
-.cuppa-doc-width-toggle__icon {
+.cuppa-doc-width-toggle__icon,
+.cuppa-doc-palette-toggle__icon {
   background-color: currentColor;
   display: block;
   height: 1.15rem;
-  mask: var(--cuppa-icon-widen) center / contain no-repeat;
   width: 1.15rem;
+}
+
+.cuppa-doc-width-toggle__icon {
+  mask: var(--cuppa-icon-widen) center / contain no-repeat;
   -webkit-mask: var(--cuppa-icon-widen) center / contain no-repeat;
+}
+
+.cuppa-doc-palette-toggle__icon {
+  mask: var(--cuppa-icon-palette) center / contain no-repeat;
+  -webkit-mask: var(--cuppa-icon-palette) center / contain no-repeat;
 }
 
 /* Icon shows the *next* action in the default → wide → full cycle. */
@@ -532,6 +556,12 @@ html.cuppa-doc-full .cuppa-doc-width-toggle__icon {
   color: var(--cuppa-brand-dark);
   font-weight: 600;
   letter-spacing: 0.02em;
+  /* AsciiDoc emits .valign-top on cells by default; headings read better on the baseline. */
+  vertical-align: bottom;
+}
+
+.doc table.tableblock > thead > tr > th.valign-top {
+  vertical-align: bottom;
 }
 
 .doc table.tableblock > tbody > tr:last-child > * {

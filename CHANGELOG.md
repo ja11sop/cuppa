@@ -49,15 +49,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   glow, heading-strip height and padding) and pair a flask mark with a
   plus/minus control that names the state; and inline code is tinted with a translucent ink wash
   (``--cuppa-code-tint``) so it darkens the surface behind it and keeps that surface's hue on a
-  tinted heading instead of reading as a grey patch. Six named palettes are previewable by changing the stylesheet
-  link in ``head-styles.hbs``: cup-of-tea (currently selected), mint-tea, fine-bone-china,
-  harbour (renamed from ``cuppa-palette.css``), forest, and aubergine. Each file defines the
-  same token names for both light and ``prefers-color-scheme: dark``. The navbar GitHub and
+  tinted heading instead of reading as a grey patch. Six named palettes ship linked in
+  ``head-styles.hbs`` (cup-of-tea cold-start default, mint-tea, fine-bone-china, harbour,
+  forest, aubergine); a toolbar control cycles them at runtime with ``localStorage``
+  persistence. Each file defines the same token names for both light and
+  ``prefers-color-scheme: dark``. The navbar GitHub and
   PyPI links now carry inline SVG marks. The navbar clips its background to the padding box
   so Chromium does not paint a band of navbar colour below the accent border.
 - Documentation subtree parents now have distinct landing and overview targets for Dependencies,
   Toolchains, and Contributing. Visible C++ notation uses the shared AsciiDoc attribute,
-  tables are more compact, and the generated toolbar no longer offers an edit-page link.
+  tables are more compact, and the generated toolbar no longer offers an edit-page link —
+  width (default / wide / full) and palette cycle controls sit there instead (``localStorage``,
+  restored before paint). Wide listings get inset edge fades and click-drag pan.
 - Every documentation table now declares a ``cols`` ratio sized from its own content, rather
   than relying on Antora's equal split, which the bundle's ``table-layout: fixed`` applies
   literally. Columns of identifiers are given the width to stay on one line where that does not
