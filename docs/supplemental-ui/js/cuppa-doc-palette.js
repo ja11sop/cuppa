@@ -1,11 +1,12 @@
 /*
  * Colour-palette preference (docs supplemental UI).
  *
- * Cycles the six cuppa-palette-*.css stylesheets linked from head-styles.hbs.
+ * Cycles the cuppa-palette-*.css stylesheets linked from head-styles.hbs.
  * Only one <link data-cuppa-palette> is enabled at a time.
  *
  * Preference: localStorage STORAGE_KEY = palette id (absent = cup-of-tea).
  * An early script in head-styles.hbs enables the stored sheet before paint.
+ * Legacy id "mint-tea" (removed as near-duplicate of cup-of-tea) maps to default.
  */
 (function () {
   'use strict';
@@ -14,7 +15,6 @@
   var DEFAULT = 'cup-of-tea';
   var ORDER = [
     'cup-of-tea',
-    'mint-tea',
     'fine-bone-china',
     'harbour',
     'forest',
@@ -22,7 +22,6 @@
   ];
   var LABELS = {
     'cup-of-tea': 'Cup of tea',
-    'mint-tea': 'Mint tea',
     'fine-bone-china': 'Fine bone china',
     'harbour': 'Harbour',
     'forest': 'Forest',
@@ -37,9 +36,16 @@
     return ORDER.indexOf( id ) >= 0;
   }
 
+  function normalizeId( id ) {
+    if( id === 'mint-tea' ){
+      return DEFAULT;
+    }
+    return id;
+  }
+
   function readPreference() {
     try {
-      var value = localStorage.getItem( STORAGE_KEY );
+      var value = normalizeId( localStorage.getItem( STORAGE_KEY ) );
       if( isValid( value ) ){
         return value;
       }
