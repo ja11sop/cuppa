@@ -112,8 +112,8 @@ body {
 }
 
 @media screen and (max-width: 768.5px) {
-  /* Keep the mark + Documentation; drop the wordmark when the bar is tight. */
-  .navbar-brand-wordmark {
+  /* Prefer Cuppa mark + wordmark; the title word wraps beside search + burger. */
+  .navbar-brand-text {
     display: none;
   }
 }
