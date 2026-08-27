@@ -59,8 +59,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation subtree parents now have distinct landing and overview targets for Dependencies,
   Toolchains, and Contributing. Visible C++ notation uses the shared AsciiDoc attribute,
   tables are more compact, and the generated toolbar no longer offers an edit-page link —
-  width (default / wide / full) and palette cycle controls sit there instead (``localStorage``,
-  restored before paint). Wide listings get inset edge fades and click-drag pan.
+  width (default / wide / full, desktop) and palette cycle controls sit there instead
+  (``localStorage``, restored before paint; palette remains available on mobile). Wide
+  listings get inset edge fades and click-drag pan.
 - Every documentation table now declares a ``cols`` ratio sized from its own content, rather
   than relying on Antora's equal split, which the bundle's ``table-layout: fixed`` applies
   literally. Columns of identifiers are given the width to stay on one line where that does not

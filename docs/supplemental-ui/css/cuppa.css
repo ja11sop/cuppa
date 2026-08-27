@@ -240,20 +240,22 @@ body {
 
 /*
  * Width + palette toggles live in the edit-this-page toolbar slot (right of
- * breadcrumbs). The bundle hides .edit-this-page below 1024px; keep that, and
- * only force inline-flex once the slot is shown (do not set display below that).
+ * breadcrumbs when those are shown). Override the bundle's ≥1024-only rule so
+ * the palette control stays available on mobile/tablet; hide width below 1024
+ * (article measure only matters once the desktop column has headroom).
  * margin-left: auto pins the group when page-versions is absent.
  */
 .toolbar .edit-this-page.cuppa-toolbar-actions {
   align-items: center;
+  display: inline-flex;
   gap: 0.15rem;
   margin-left: auto;
   padding-right: 0.65rem;
 }
 
-@media screen and (min-width: 1024px) {
-  .toolbar .edit-this-page.cuppa-toolbar-actions {
-    display: inline-flex;
+@media screen and (max-width: 1023.5px) {
+  .toolbar .cuppa-doc-width-toggle {
+    display: none;
   }
 }
 
