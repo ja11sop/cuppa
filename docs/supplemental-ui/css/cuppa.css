@@ -149,36 +149,63 @@ body {
     color: var(--cuppa-on-brand);
   }
 
+  /*
+   * Dropdown panel: page-surface fill (not bar-coloured) with a clearer drop
+   * shadow and item hover matched to the left nav tree.
+   */
   .navbar-dropdown {
     background: var(--cuppa-surface);
-    border-color: var(--cuppa-border);
+    border: 1px solid var(--cuppa-border);
+    border-top: none;
+    border-radius: 0 0 var(--cuppa-radius) var(--cuppa-radius);
+    box-shadow:
+      0 0.45rem 1rem var(--cuppa-shadow-tint),
+      0 0.15rem 0.4rem color-mix(in srgb, var(--cuppa-shadow-tint) 85%, transparent);
   }
 
   .navbar-dropdown .navbar-item {
+    border-left: 2px solid transparent;
+    border-radius: 0 var(--cuppa-radius) var(--cuppa-radius) 0;
     color: var(--cuppa-text);
+    margin: 0.08rem 0.4rem;
+    text-decoration: none;
   }
 
-  .navbar-dropdown a.navbar-item:hover {
+  .navbar-dropdown a.navbar-item:hover,
+  .navbar-dropdown a.navbar-item:focus-visible {
     background: var(--cuppa-brand-light);
+    border-left-color: var(--cuppa-brand);
     color: var(--cuppa-brand-dark);
+    text-decoration: none;
   }
 }
 
 @media screen and (max-width: 1023.5px) {
   .navbar-menu {
     background: var(--cuppa-surface);
-    box-shadow: 0 8px 16px var(--cuppa-shadow-tint);
+    border-top: 1px solid var(--cuppa-border);
+    box-shadow:
+      0 0.5rem 1.25rem var(--cuppa-shadow-tint),
+      0 0.25rem 0.5rem color-mix(in srgb, var(--cuppa-shadow-tint) 75%, transparent);
   }
 
   .navbar-menu .navbar-link,
   .navbar-menu a.navbar-item {
+    border-left: 2px solid transparent;
+    border-radius: 0 var(--cuppa-radius) var(--cuppa-radius) 0;
     color: var(--cuppa-text);
+    margin: 0.05rem 0.5rem;
+    text-decoration: none;
   }
 
   .navbar-menu .navbar-link:hover,
-  .navbar-menu a.navbar-item:hover {
+  .navbar-menu a.navbar-item:hover,
+  .navbar-menu .navbar-link:focus-visible,
+  .navbar-menu a.navbar-item:focus-visible {
     background: var(--cuppa-brand-light);
+    border-left-color: var(--cuppa-brand);
     color: var(--cuppa-brand-dark);
+    text-decoration: none;
   }
 }
 
