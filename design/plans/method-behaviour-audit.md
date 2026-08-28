@@ -117,8 +117,8 @@ No flat intermediate target bug; document evaluation only:
 | `mba-cov-check` | Coverage integration pass after mirrored `.o` paths | `mba-213` | patch |
 | `mba-artifact-paths` | Shared helper + fix Markdown/AsciiDoc/RunAndRedirect emitters | `mba-213` | patch |
 | `mba-scss` | Decide SCSS output root (`working/` mirror vs beside source) | optional | patch |
-| `mba-static-glob` | StaticGlob rename + path vocabulary | [`static-glob-rename.md`](static-glob-rename.md) | minor |
-| `mba-filter` | Filter matching parity for Glob + StaticGlob nodes | `mba-static-glob` | patch |
+| `mba-static-glob` | RecursiveGlob path vocabulary + Glob semantics | [`static-glob-rename.md`](static-glob-rename.md) | minor |
+| `mba-filter` | Filter matching parity for Glob + RecursiveGlob nodes | `mba-static-glob` | patch |
 | `mba-doc` | Export classification tables into Methods hub + child pages | [`methods-pages-split.md`](methods-pages-split.md) | none |
 
 ## Acceptance criteria (audit complete)
@@ -127,7 +127,7 @@ No flat intermediate target bug; document evaluation only:
    explicitly documented as intentional.
 2. Classification table (this plan) reflected in Methods hub index — per [`methods-pages-split.md`](methods-pages-split.md).
 3. Integration tests for at least one doc/asset emitter with duplicate basenames in different dirs.
-4. Static vs dynamic discovery documented; StaticGlob rename landed or explicitly deferred with
+4. Snapshot vs directory Glob documented; RecursiveGlob path roots landed;
    issue link.
 
 ## Progress snapshot

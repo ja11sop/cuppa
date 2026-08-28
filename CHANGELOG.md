@@ -29,11 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   current GNU releases can be selected by name
   ([#230](https://github.com/ja11sop/cuppa/issues/230)).
 - Shared ``#/`` / sconscript-relative path vocabulary for source discovery
-  (``cuppa.utility.glob_roots``). ``env.RecursiveGlob`` remains the recursive
-  configure-time tree walk (Cuppa's stand-in for a recursive Glob); ``env.GlobFiles``
-  remains the flat listing. ``env.StaticGlob`` is a deprecated umbrella over the
-  same snapshot engine. SCons ``env.Glob`` is a non-recursive directory Glob
-  (``**`` is one path segment) — prefer ``RecursiveGlob`` for nested trees.
+  (``cuppa.utility.glob_roots``). ``env.RecursiveGlob`` is the recursive
+  configure-time tree walk (Cuppa's stand-in for a recursive Glob);
+  ``env.GlobFiles`` is the flat listing. SCons ``env.Glob`` is a non-recursive
+  directory Glob (``**`` is one path segment) — prefer ``RecursiveGlob`` for
+  nested trees.
 - ``env.Filter`` matches and excludes against both project-relative ``node.path``
   and absolute ``str`` / ``abspath`` forms, so the same patterns work for nodes
   from Cuppa snapshot discovery and from SCons ``Glob``.

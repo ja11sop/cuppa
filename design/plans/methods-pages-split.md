@@ -87,7 +87,7 @@ page (or group page subsection) should state:
 | Nav group | Evaluation highlight | Path highlight |
 |-----------|---------------------|----------------|
 | Build | Build action via SCons | Objects mirror source tree under `working/` ([#213](https://github.com/ja11sop/cuppa/issues/213)) |
-| Files & templates | Mix: static glob, Filter immediate, Glob dynamic | StaticGlob vs `env.Glob('**')`; Filter after dynamic Glob |
+| Files & templates | Mix: static glob, Filter immediate, Glob dynamic | RecursiveGlob vs SCons Glob; Filter after Glob |
 | Docs assets | Build action | Today: flat `{final}/{basename}` — **document fix when audit lands** |
 | C++ modules | Build action | Interface suffix in object stem (`.cppm.o` vs `.o`) + mirrored paths |
 
@@ -121,7 +121,7 @@ Leave on **`methods.adoc`**:
 | A | Hub trim + nav skeleton | Empty child stubs with `xref` + behaviour field template |
 | B | Build + test groups | Highest traffic; #213 semantics |
 | C | Coverage + C++ groups | Link cxx-modules / cxx-profiles |
-| D | Remaining groups | Files (StaticGlob), packages, flags |
+| D | Remaining groups | Files (RecursiveGlob), packages, flags |
 | E | Phase 2 SCons pages | Optional same cycle |
 | F | Redirect grep in repo | Fix internal links to `#anchors` that moved |
 

@@ -9,7 +9,7 @@
 - SCons `Glob('#/src/**/*.cpp')` is one path segment only; `RecursiveGlob` covers the tree.
 - `Filter` works on RecursiveGlob and Glob nodes (relative patterns, `*/detail/*` excludes, build from filtered node).
 - Snapshot vs directory Glob: both see a new top-level file on the next Cuppa invocation.
-- Deprecated `StaticGlob` umbrella warns toward RecursiveGlob / GlobFiles; those two do not warn.
+- Flat `GlobFiles` and SCons `Glob` agree on basenames for the same directory.
 - Discovered sources can be built (`BuildTest`, `Compile`).
 
 == Command

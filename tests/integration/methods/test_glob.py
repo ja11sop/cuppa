@@ -1,5 +1,3 @@
-import re
-
 import pytest
 
 from tests.helpers.cuppa_runner import assert_success, find_final_binaries, find_under_build, run_cuppa
@@ -140,47 +138,27 @@ def test_snapshot_vs_directory_glob_both_see_new_file_next_invocation(tmp_path):
     assert "added_later.cpp" in flat_part
 
 
-def test_static_glob_alias_warns_toward_recursive_or_glob_files(tmp_path):
+def test_glob_files_and_scons_glob_same_flat_basenames(tmp_path):
+    """Apples-to-apples flat match: same files, different node path forms / machinery."""
     project = copy_dummy_project(tmp_path)
     write_sconstruct(project)
     write_sconscript(
         project,
         "Import('env')\n"
+        "import os\n"
         "env.AppendUnique(CPPPATH=['#/include'])\n"
-        "tree = env.StaticGlob('*.cpp', start='src')\n"
-        "assert any('deep.cpp' in str(n).replace('\\\\\\\\', '/') for n in tree)\n"
-        "flat = env.StaticGlob('*_test.cpp', start='tests', recursive=False)\n"
-        "assert len(flat) >= 2\n"
+        "cuppa_nodes = env.GlobFiles('*.cpp', start='src')\n"
+        "scons_nodes = env.Glob('#/src/*.cpp')\n"
+        "def basenames(nodes):\n"
+        "    return sorted(os.path.basename(str(n).replace('\\\\', '/')) for n in nodes)\n"
+        "assert basenames(cuppa_nodes) == basenames(scons_nodes)\n"
+        "assert basenames(cuppa_nodes) == ['hello.cpp']\n"
+        "# Path forms often differ even when the file set matches:\n"
+        "cuppa_strs = [str(n).replace('\\\\', '/') for n in cuppa_nodes]\n"
+        "scons_strs = [str(n).replace('\\\\', '/') for n in scons_nodes]\n"
+        "assert any(s.endswith('hello.cpp') for s in cuppa_strs)\n"
+        "assert any(s.endswith('hello.cpp') for s in scons_strs)\n"
         "env.BuildTest('hello_test', 'tests/hello_test.cpp')\n",
     )
     result = run_cuppa(project, "--dbg", "--test")
     assert_success(result)
-    combined = re.sub(
-        r'\x1b\[[0-9;]*m',
-        '',
-        (result.stdout or "") + (result.stderr or ""),
-    )
-    assert "env.StaticGlob() is deprecated" in combined
-    assert "RecursiveGlob" in combined or "GlobFiles" in combined
-
-
-def test_recursive_glob_and_glob_files_do_not_warn(tmp_path):
-    project = copy_dummy_project(tmp_path)
-    write_sconstruct(project)
-    write_sconscript(
-        project,
-        "Import('env')\n"
-        "env.AppendUnique(CPPPATH=['#/include'])\n"
-        "env.RecursiveGlob('*.cpp', start='src')\n"
-        "env.GlobFiles('*_test.cpp', start='tests')\n"
-        "env.BuildTest('hello_test', 'tests/hello_test.cpp')\n",
-    )
-    result = run_cuppa(project, "--dbg", "--test")
-    assert_success(result)
-    combined = re.sub(
-        r'\x1b\[[0-9;]*m',
-        '',
-        (result.stdout or "") + (result.stderr or ""),
-    )
-    assert "RecursiveGlob() is deprecated" not in combined
-    assert "GlobFiles() is deprecated" not in combined

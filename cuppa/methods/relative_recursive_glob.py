@@ -20,7 +20,7 @@ import re
 
 import cuppa.recursive_glob
 from cuppa.log import logger
-from cuppa.colourise import as_notice, as_warning, colour_items
+from cuppa.colourise import as_notice, colour_items
 from cuppa.utility.glob_roots import (
         DEFAULT_START,
         relative_glob_start,
@@ -36,19 +36,6 @@ def clean_start( env, start, default ):
 
 def relative_start( env, start, default ):
     return relative_glob_start( env, start, default )
-
-
-_deprecated_glob_aliases = set()
-
-
-def _warn_glob_alias_once( old_name, hint ):
-    if old_name in _deprecated_glob_aliases:
-        return
-    _deprecated_glob_aliases.add( old_name )
-    logger.warn(
-            "env.{}() is deprecated; use {} (removed in cuppa 2.0)"
-            .format( as_warning( old_name ), as_notice( hint ) )
-    )
 
 
 def _exclude_dirs_regex( env, exclude_dirs, default ):
@@ -95,7 +82,7 @@ def snapshot_glob(
         exclude_dirs=DEFAULT_START,
         discard_pattern=None,
 ):
-    """Configure-time snapshot discovery shared by RecursiveGlob / GlobFiles / StaticGlob."""
+    """Configure-time snapshot discovery shared by RecursiveGlob and GlobFiles."""
     absolute_start, rel_start, sconscript_dir = relative_glob_start(
             env, start, DEFAULT_START
     )
@@ -162,35 +149,3 @@ class GlobFilesMethod:
     @classmethod
     def add_to_env( cls, cuppa_env ):
         cuppa_env.add_method( "GlobFiles", cls() )
-
-
-class StaticGlobMethod:
-    """Deprecated umbrella name for snapshot discovery (prefer RecursiveGlob / GlobFiles)."""
-
-    default = DEFAULT_START
-
-    def __call__(
-            self,
-            env,
-            pattern,
-            start=default,
-            recursive=True,
-            exclude_dirs=default,
-            discard_pattern=None,
-    ):
-        _warn_glob_alias_once(
-                "StaticGlob",
-                "env.RecursiveGlob(...) for trees or env.GlobFiles(...) for one directory",
-        )
-        return snapshot_glob(
-                env,
-                pattern,
-                start=start,
-                recursive=recursive,
-                exclude_dirs=exclude_dirs,
-                discard_pattern=discard_pattern,
-        )
-
-    @classmethod
-    def add_to_env( cls, cuppa_env ):
-        cuppa_env.add_method( "StaticGlob", cls() )

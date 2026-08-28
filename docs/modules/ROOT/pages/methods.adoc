@@ -418,9 +418,6 @@ See xref:dependencies.adoc[Dependencies] and xref:packages.adoc[Publishing packa
 | `env.Glob(…)` (SCons)
 | Single-directory (or one path segment per `*` / `**`) discovery; matches do **not** recurse through `/`
 
-| `env.StaticGlob(…)`
-| Deprecated umbrella for the same snapshot engine (`recursive=`); prefer `RecursiveGlob` / `GlobFiles`
-
 | `env.TargetFrom(path)`
 | Derive a target basename from a path
 

@@ -493,7 +493,7 @@ Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object path
 
 | Capability | Status |
 |------------|--------|
-| Single root `sconscript` + `env.Build*` / `RecursiveGlob` | Yes — nested same-basename sources supported via mirrored object paths ([#213](https://github.com/ja11sop/cuppa/issues/213)); shared path roots + Filter path parity; `StaticGlob` deprecated umbrella |
+| Single root `sconscript` + `env.Build*` / `RecursiveGlob` | Yes — nested same-basename sources supported via mirrored object paths ([#213](https://github.com/ja11sop/cuppa/issues/213)); shared path roots + Filter path parity |
 | Cuppa auto-discovers every `sconscript` under launch dir | Yes — each run gets standard `env` exports only |
 | Nested `SConscript(..., exports=...)` + discovery | **No** — child scripts cannot import parent build nodes; duplicate invocation risk |
 | CMake-equivalent `GLOB_RECURSE` into one static lib | Yes — when object paths mirror source tree under `working/` ([#213](https://github.com/ja11sop/cuppa/issues/213)) |

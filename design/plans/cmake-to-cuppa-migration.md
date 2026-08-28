@@ -71,7 +71,7 @@ Matches [`examples/minimal/`](../../examples/minimal/).
 Short rules for agents (expand in Antora later):
 
 1. **Do not assume** `SConscript('child', exports=...)` works with Cuppa discovery — read [`sconscript-exports.md`](sconscript-exports.md).
-2. **Do not assume** `RecursiveGlob` / `StaticGlob` equals CMake `GLOB_RECURSE` evaluation semantics — static until re-configure; see [`static-glob-rename.md`](static-glob-rename.md). Check duplicate basenames (`find … -name '*.cpp' | xargs -n1 basename | sort | uniq -d`) — [#213](https://github.com/ja11sop/cuppa/issues/213).
+2. **Do not assume** `RecursiveGlob` equals CMake `GLOB_RECURSE` evaluation semantics — static until re-configure; see [`static-glob-rename.md`](static-glob-rename.md). Check duplicate basenames (`find … -name '*.cpp' | xargs -n1 basename | sort | uniq -d`) — [#213](https://github.com/ja11sop/cuppa/issues/213).
 3. **Prefer** `location_dependency` / `package_dependency` over re-declaring third-party compile flags when a cuppa dep exists.
 4. **Keep CMake** as canonical until the Cuppa graph runs the same test binaries — document “experimental Cuppa” in a sidecar note (see Boost.Capy `CUPPA-NOTES.md` pattern).
 5. **Profiles report** requires Profiles-capable Clang; absence of violations means no HTML index — not a failed capture.
