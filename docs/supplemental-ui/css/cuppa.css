@@ -68,6 +68,15 @@ body {
   color: var(--cuppa-on-brand);
 }
 
+/* Bundle hardcodes #fff / #222 for several navbar roles; keep them on-token. */
+.navbar-brand .navbar-item {
+  color: var(--cuppa-on-brand);
+}
+
+.navbar-burger span {
+  background-color: var(--cuppa-on-brand);
+}
+
 .navbar-brand .navbar-item:first-child {
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -118,15 +127,59 @@ body {
   }
 }
 
-.navbar-end
-{
+.navbar-end {
   padding-right: 0.5rem;
 }
 
-.navbar-end .navbar-item.has-dropdown:hover .navbar-link,
-.navbar-end .navbar-link:hover,
-.navbar-end > a.navbar-item:hover {
-  background: var(--cuppa-brand);
+/*
+ * Desktop end links: bundle forces color:#fff (fine on a dark bar, invisible when
+ * dark-mode palettes flip the bar to a light surface). Hover uses a wash of the
+ * on-brand ink so it works on both dark and light bars.
+ */
+@media screen and (min-width: 1024px) {
+  .navbar-end .navbar-link,
+  .navbar-end > .navbar-item {
+    color: var(--cuppa-on-brand);
+  }
+
+  .navbar-end .navbar-item.has-dropdown:hover .navbar-link,
+  .navbar-end .navbar-link:hover,
+  .navbar-end > a.navbar-item:hover {
+    background: color-mix(in srgb, var(--cuppa-on-brand) 12%, transparent);
+    color: var(--cuppa-on-brand);
+  }
+
+  .navbar-dropdown {
+    background: var(--cuppa-surface);
+    border-color: var(--cuppa-border);
+  }
+
+  .navbar-dropdown .navbar-item {
+    color: var(--cuppa-text);
+  }
+
+  .navbar-dropdown a.navbar-item:hover {
+    background: var(--cuppa-brand-light);
+    color: var(--cuppa-brand-dark);
+  }
+}
+
+@media screen and (max-width: 1023.5px) {
+  .navbar-menu {
+    background: var(--cuppa-surface);
+    box-shadow: 0 8px 16px var(--cuppa-shadow-tint);
+  }
+
+  .navbar-menu .navbar-link,
+  .navbar-menu a.navbar-item {
+    color: var(--cuppa-text);
+  }
+
+  .navbar-menu .navbar-link:hover,
+  .navbar-menu a.navbar-item:hover {
+    background: var(--cuppa-brand-light);
+    color: var(--cuppa-brand-dark);
+  }
 }
 
 /* Icon links (GitHub, PyPI) sit flush with the text items either side. */
@@ -236,6 +289,15 @@ body {
 .toolbar {
   background: var(--cuppa-surface);
   box-shadow: 0 1px 0 var(--cuppa-border);
+  color: var(--cuppa-text-muted);
+}
+
+.breadcrumbs {
+  color: var(--cuppa-text-muted);
+}
+
+.breadcrumbs a:hover {
+  color: var(--cuppa-brand-dark);
 }
 
 /*
@@ -460,6 +522,14 @@ html.cuppa-doc-full .cuppa-doc-width-toggle__icon {
 
 /*.nav-item[data-depth="1"].is-current-page > .nav-link { }
 .nav-item[data-depth="1"] > .nav-item-toggle + .nav-link { }*/
+
+.toc-menu {
+  color: var(--cuppa-text-muted);
+}
+
+.toc .toc-menu h3 {
+  color: var(--cuppa-brand-dark);
+}
 
 .toc .toc-menu a {
   border-left-color: var(--cuppa-border);
@@ -1164,8 +1234,49 @@ nav.pagination span:hover {
   border-color: var(--cuppa-brand);
 }
 
+nav.pagination span::before,
+nav.pagination a::after,
+nav.pagination a::before {
+  color: var(--cuppa-text-muted);
+}
+
 nav.pagination a {
   color: var(--cuppa-brand);
+}
+
+.nav-panel-explore {
+  background: var(--cuppa-surface);
+}
+
+.nav-panel-explore .context {
+  color: var(--cuppa-text-muted);
+  box-shadow: 0 -1px 0 var(--cuppa-border);
+}
+
+.nav-panel-explore .components {
+  background: var(--cuppa-surface-strong);
+  box-shadow: inset 0 1px 5px var(--cuppa-shadow-tint);
+}
+
+.nav-panel-explore .component .version a {
+  background: var(--cuppa-border);
+  color: var(--cuppa-text);
+}
+
+.nav-panel-explore .component .is-current a {
+  background: var(--cuppa-brand);
+  color: var(--cuppa-on-brand);
+}
+
+/*
+ * Bundle menu.svg / chevron glyphs are dark-on-transparent. Invert them when the
+ * page is in dark scheme so the toolbar nav toggle stays visible on --cuppa-surface.
+ */
+@media (prefers-color-scheme: dark) {
+  .nav-toggle,
+  .page-versions .version-menu-toggle {
+    filter: invert(1) brightness(1.35);
+  }
 }
 
 footer.footer {
