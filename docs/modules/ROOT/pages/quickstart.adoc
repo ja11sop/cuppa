@@ -20,14 +20,14 @@ In a directory of `.cpp` files:
 ----
 Import('env')
 
-for source in env.StaticGlob('*.cpp', recursive=False):
+for source in env.GlobFiles('*.cpp'):
     env.Build(str(source)[:-4], source)
 ----
 
 `env.Build()` is toolchain- and variant-aware (unlike a bare `env.Program()`).
-`StaticGlob` walks matching files when the sconscript runs; use
-`recursive=False` for a single directory. SCons `env.Glob` is also
-single-directory only — it does not recurse with `**`.
+`GlobFiles` lists one directory when the sconscript runs. For nested
+trees use `env.RecursiveGlob`. SCons `env.Glob` is also single-directory
+only — it does not recurse with `**`.
 
 == Building
 
@@ -56,7 +56,7 @@ Treat sources as test binaries:
 ----
 Import('env')
 
-for source in env.StaticGlob('*.cpp', recursive=False):
+for source in env.GlobFiles('*.cpp'):
     env.BuildTest(str(source)[:-4], source)
 ----
 

@@ -5,8 +5,15 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   StaticGlob (configure-time source discovery) and deprecated aliases
+#   RecursiveGlob / GlobFiles — configure-time (snapshot) source discovery
 #-------------------------------------------------------------------------------
+#
+#   Cuppa discovery is a *configure-time snapshot*: the file list is fixed when
+#   the sconscript line runs. SCons env.Glob is a *directory Glob*: one path
+#   segment per pattern, SCons-native File nodes, still not a tree walk.
+#   Under Cuppa both re-run when the sconscript is re-read (every normal build),
+#   so the recursion axis matters more than snapshot-vs-Glob for day-to-day use.
+#
 import os
 import fnmatch
 import re
@@ -80,7 +87,85 @@ def _file_nodes_for_matches( env, matches, rel_start, sconscript_dir ):
     return nodes
 
 
+def snapshot_glob(
+        env,
+        pattern,
+        start=DEFAULT_START,
+        recursive=True,
+        exclude_dirs=DEFAULT_START,
+        discard_pattern=None,
+):
+    """Configure-time snapshot discovery shared by RecursiveGlob / GlobFiles / StaticGlob."""
+    absolute_start, rel_start, sconscript_dir = relative_glob_start(
+            env, start, DEFAULT_START
+    )
+
+    if recursive:
+        exclude_dirs_regex = _exclude_dirs_regex( env, exclude_dirs, DEFAULT_START )
+        matches = cuppa.recursive_glob.glob(
+                absolute_start,
+                pattern,
+                exclude_dirs_pattern=exclude_dirs_regex,
+                discard_pattern=discard_pattern,
+        )
+    else:
+        matches = []
+        for filename in os.listdir( absolute_start ):
+            if fnmatch.fnmatch( filename, pattern ):
+                matches.append( os.path.join( absolute_start, filename ) )
+
+    logger.trace(
+            "matches = [{}]."
+            .format( colour_items( [ str( match ) for match in matches ] ) )
+    )
+
+    return _file_nodes_for_matches( env, matches, rel_start, sconscript_dir )
+
+
+class RecursiveGlobMethod:
+    """Recursive configure-time tree walk — Cuppa's stand-in for a recursive Glob."""
+
+    default = DEFAULT_START
+
+    def __call__(
+            self,
+            env,
+            pattern,
+            start=default,
+            exclude_dirs=default,
+            discard_pattern=None,
+    ):
+        # Discovery helper only: returns file nodes selected from the tree.
+        # No build commands are emitted, so NotifyProgress is not applicable.
+        return snapshot_glob(
+                env,
+                pattern,
+                start=start,
+                recursive=True,
+                exclude_dirs=exclude_dirs,
+                discard_pattern=discard_pattern,
+        )
+
+    @classmethod
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "RecursiveGlob", cls() )
+
+
+class GlobFilesMethod:
+    """Flat configure-time directory listing (one directory, no walk)."""
+
+    default = DEFAULT_START
+
+    def __call__( self, env, pattern, start=default ):
+        return snapshot_glob( env, pattern, start=start, recursive=False )
+
+    @classmethod
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "GlobFiles", cls() )
+
+
 class StaticGlobMethod:
+    """Deprecated umbrella name for snapshot discovery (prefer RecursiveGlob / GlobFiles)."""
 
     default = DEFAULT_START
 
@@ -93,66 +178,19 @@ class StaticGlobMethod:
             exclude_dirs=default,
             discard_pattern=None,
     ):
-        # Discovery helper only: returns file nodes selected from the tree.
-        # No build commands are emitted, so NotifyProgress is not applicable.
-
-        absolute_start, rel_start, sconscript_dir = relative_glob_start(
-                env, start, self.default
+        _warn_glob_alias_once(
+                "StaticGlob",
+                "env.RecursiveGlob(...) for trees or env.GlobFiles(...) for one directory",
         )
-
-        if recursive:
-            exclude_dirs_regex = _exclude_dirs_regex( env, exclude_dirs, self.default )
-            matches = cuppa.recursive_glob.glob(
-                    absolute_start,
-                    pattern,
-                    exclude_dirs_pattern=exclude_dirs_regex,
-                    discard_pattern=discard_pattern,
-            )
-        else:
-            matches = []
-            for filename in os.listdir( absolute_start ):
-                if fnmatch.fnmatch( filename, pattern ):
-                    matches.append( os.path.join( absolute_start, filename ) )
-
-        logger.trace(
-                "matches = [{}]."
-                .format( colour_items( [ str( match ) for match in matches ] ) )
+        return snapshot_glob(
+                env,
+                pattern,
+                start=start,
+                recursive=recursive,
+                exclude_dirs=exclude_dirs,
+                discard_pattern=discard_pattern,
         )
-
-        return _file_nodes_for_matches( env, matches, rel_start, sconscript_dir )
 
     @classmethod
     def add_to_env( cls, cuppa_env ):
         cuppa_env.add_method( "StaticGlob", cls() )
-
-
-class RecursiveGlobMethod:
-
-    default = DEFAULT_START
-
-    def __call__( self, env, pattern, start=default, exclude_dirs=default ):
-        _warn_glob_alias_once(
-                "RecursiveGlob",
-                "env.StaticGlob(...) (recursive=True is the default)",
-        )
-        return env.StaticGlob( pattern, start=start, exclude_dirs=exclude_dirs )
-
-    @classmethod
-    def add_to_env( cls, cuppa_env ):
-        cuppa_env.add_method( "RecursiveGlob", cls() )
-
-
-class GlobFilesMethod:
-
-    default = DEFAULT_START
-
-    def __call__( self, env, pattern, start=default ):
-        _warn_glob_alias_once(
-                "GlobFiles",
-                "env.StaticGlob(..., recursive=False)",
-        )
-        return env.StaticGlob( pattern, start=start, recursive=False )
-
-    @classmethod
-    def add_to_env( cls, cuppa_env ):
-        cuppa_env.add_method( "GlobFiles", cls() )

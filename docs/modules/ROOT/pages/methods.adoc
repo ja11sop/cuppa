@@ -21,7 +21,7 @@ xref:toolchains/msvc.adoc[MSVC]).
 Cuppa wires build progress through `cuppa.progress.NotifyProgress` so each build variant reports begin/start/finish/end in a predictable order.
 
 `NotifyProgress` is attached to methods that emit build action nodes (`Build`, `Compile`, `Test`, coverage collation, doc builders, and so on).
-Methods that only mutate env state or select nodes (`StdCpp`, `BuildWith`, `Filter`, `StaticGlob`, `ImportModules`, etc.) do **not** call it directly.
+Methods that only mutate env state or select nodes (`StdCpp`, `BuildWith`, `Filter`, `RecursiveGlob`, `ImportModules`, etc.) do **not** call it directly.
 
 Progress nodes form a dependency chain that constrains when targets may run:
 
@@ -409,11 +409,17 @@ See xref:dependencies.adoc[Dependencies] and xref:packages.adoc[Publishing packa
 | `env.CreateVersion(…)`
 | SCM-aware generated version sources
 
-| `env.StaticGlob(…)`
-| Recursive (default) or flat (`recursive=False`) configure-time discovery with cuppa `exclude_dirs` / `discard_pattern`. Deprecated aliases: `RecursiveGlob`, `GlobFiles`
+| `env.RecursiveGlob(…)`
+| Recursive configure-time tree walk (Cuppa's stand-in for a recursive Glob); `exclude_dirs` / `discard_pattern`
+
+| `env.GlobFiles(…)`
+| Flat configure-time listing of one directory
 
 | `env.Glob(…)` (SCons)
 | Single-directory (or one path segment per `*` / `**`) discovery; matches do **not** recurse through `/`
+
+| `env.StaticGlob(…)`
+| Deprecated umbrella for the same snapshot engine (`recursive=`); prefer `RecursiveGlob` / `GlobFiles`
 
 | `env.TargetFrom(path)`
 | Derive a target basename from a path
@@ -422,23 +428,28 @@ See xref:dependencies.adoc[Dependencies] and xref:packages.adoc[Publishing packa
 | Filtered install/copy helpers
 |===
 
-=== Choosing StaticGlob, Glob, and Filter
+=== Choosing RecursiveGlob, GlobFiles, Glob, and Filter
 
-For most nested source trees, prefer ``env.StaticGlob`` — it walks the tree once when the sconscript runs and supports cuppa-only exclusions. SCons ``env.Glob`` is useful for a **single directory** (or one known nesting level). It is not a recursive ``**`` glob: SCons patterns do not span directory separators, and ``**`` is only one path segment (the same class of match as ``*`` for directory names). A recursive native SCons Glob remains an upstream discussion, not shipping behaviour.
+Name the two axes separately:
 
-Both helpers re-run whenever Cuppa re-reads the sconscript (every normal build), so new files appear on the next invocation either way. The practical differences are **recursion**, **exclude/discard knobs**, and **path vocabulary** (`start=` / ``#/`` on StaticGlob).
+* **Recursion** — does discovery walk nested directories?
+* **Evaluation** — *configure-time snapshot* (Cuppa `RecursiveGlob` / `GlobFiles`) vs *SCons directory Glob* (`env.Glob`)
+
+Cuppa's recursive walk **is** the practical answer to “recursive Glob” in SCons today: upstream `Glob` still does not span `/`, and `**` is only one path segment. Prefer ``env.RecursiveGlob`` for nested trees. Use ``env.GlobFiles`` or SCons ``env.Glob`` for a single directory; use ``env.Filter`` to narrow either source.
+
+Both Cuppa snapshot helpers and SCons ``Glob`` re-run whenever Cuppa re-reads the sconscript (every normal build). New files appear on the next invocation either way — the day-to-day impact of snapshot-vs-directory-Glob is low. Recursion, ``exclude_dirs`` / ``discard_pattern``, and ``start=`` / ``#/`` vocabulary are the differences that matter.
 
 [cols="2,3,3"]
 |===
 | API | What it finds | Typical use
 
-| `env.StaticGlob('*.cpp', start='src')`
-| All matching files under `src/` (recursive)
-| Libraries and apps with nested sources; skip `_build` / dependencies via `exclude_dirs`
+| `env.RecursiveGlob('*.cpp', start='src')`
+| All matching files under `src/` (recursive snapshot)
+| Nested libraries/apps; skip `_build` / dependencies via `exclude_dirs`
 
-| `env.StaticGlob('*_test.cpp', start='tests', recursive=False)`
+| `env.GlobFiles('*_test.cpp', start='tests')`
 | Only files directly in `tests/`
-| Flat test or app folders (was `GlobFiles`)
+| Flat test or app folders
 
 | SCons `env.Glob('#/tests/*.cpp')`
 | Only files directly in `tests/`
@@ -450,26 +461,24 @@ Both helpers re-run whenever Cuppa re-reads the sconscript (every normal build),
 
 | `env.Filter(nodes, match=…, exclude=…)`
 | Subset of an existing node list
-| Narrow Glob or StaticGlob results (for example keep `*_test.cpp`, drop `*/detail/*`)
+| Narrow RecursiveGlob or Glob results
 |===
 
 `Filter` matches against both the node's project-relative path and its absolute
-string form, so the same pattern works for `StaticGlob` and SCons `Glob` nodes:
+string form:
 
 [source,python]
 ----
-# Preferred for nested trees:
-candidates = env.StaticGlob('*.cpp', start='#/src')
+candidates = env.RecursiveGlob('*.cpp', start='#/src')
 tests = env.Filter(candidates, match='*_test.cpp', exclude='*/detail/*')
 
-# Flat directory — SCons Glob + Filter is fine:
 candidates = env.Glob('#/tests/*.cpp')
 tests = env.Filter(candidates, match='*_test.cpp')
 ----
 
-Do **not** write `env.Glob('#/src/**/*.cpp')` expecting every nested `.cpp` under `src/`. That pattern only matches one intermediate directory level (and misses files directly in `src/`). Use `StaticGlob` for the full tree instead.
+Do **not** write `env.Glob('#/src/**/*.cpp')` expecting every nested `.cpp` under `src/`. Use `RecursiveGlob` for the full tree.
 
-Path vocabulary for `StaticGlob` (and any future cuppa Glob wrapper):
+Path vocabulary for Cuppa snapshot discovery (`start=`):
 
 * `#/…` or `#…` — from the project / sconstruct root
 * `start='src'` — directory relative to the calling sconscript
@@ -481,7 +490,7 @@ Example -- collect sources and name the binary from a path:
 ----
 Import('env')
 
-sources = env.StaticGlob('*.cpp', start='src')
+sources = env.RecursiveGlob('*.cpp', start='src')
 env.Build(env.TargetFrom('src/apps/server.cpp'), sources)
 ----
 

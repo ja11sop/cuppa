@@ -321,9 +321,9 @@ class base(object):
             lib_builder = env.BuildSharedLib
 
         if not sources:
-            sources = env.StaticGlob( "*.cpp", start=self._source_path, exclude_dirs=[ env['build_dir'] ] )
-            sources.extend( env.StaticGlob( "*.cc", start=self._source_path, exclude_dirs=[ env['build_dir'] ] ) )
-            sources.extend( env.StaticGlob( "*.c", start=self._source_path, exclude_dirs=[ env['build_dir'] ] ) )
+            sources = env.RecursiveGlob( "*.cpp", start=self._source_path, exclude_dirs=[ env['build_dir'] ] )
+            sources.extend( env.RecursiveGlob( "*.cc", start=self._source_path, exclude_dirs=[ env['build_dir'] ] ) )
+            sources.extend( env.RecursiveGlob( "*.c", start=self._source_path, exclude_dirs=[ env['build_dir'] ] ) )
 
         objects = []
         for source in Flatten( [sources] ):

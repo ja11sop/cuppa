@@ -48,7 +48,7 @@ cuppa.run()
 ```python
 Import('env')
 
-for source in env.StaticGlob('*.cpp', recursive=False):
+for source in env.GlobFiles('*.cpp'):
     env.Build(str(source)[:-4], source)
 ```
 
@@ -65,7 +65,7 @@ Treat sources as tests and run them:
 ```python
 Import('env')
 
-for source in env.StaticGlob('*.cpp', recursive=False):
+for source in env.GlobFiles('*.cpp'):
     env.BuildTest(str(source)[:-4], source)
 ```
 

@@ -9,19 +9,20 @@ from tests.helpers.project import copy_dummy_project, write_sconstruct, write_sc
 pytestmark = pytest.mark.integration
 
 
-def test_static_glob_flat_and_recursive(tmp_path):
+def test_recursive_glob_walks_tree_and_hash_start(tmp_path):
     project = copy_dummy_project(tmp_path)
     write_sconstruct(project)
     write_sconscript(
         project,
         "Import('env')\n"
         "env.AppendUnique(CPPPATH=['#/include'])\n"
-        "tests = env.StaticGlob('*_test.cpp', start='tests', recursive=False)\n"
-        "assert len(tests) >= 2\n"
-        "deep = env.StaticGlob('*.cpp', start='src')\n"
-        "assert any('deep.cpp' in str(n).replace('\\\\\\\\','/') for n in deep)\n"
-        "anchored = env.StaticGlob('*.cpp', start='#/src')\n"
-        "assert any('deep.cpp' in str(n).replace('\\\\\\\\','/') for n in anchored)\n"
+        "deep = env.RecursiveGlob('*.cpp', start='src')\n"
+        "paths = [str(n).replace('\\\\\\\\', '/') for n in deep]\n"
+        "assert any('hello.cpp' in p for p in paths), paths\n"
+        "assert any('nested/deep.cpp' in p or p.endswith('deep.cpp') for p in paths), paths\n"
+        "anchored = env.RecursiveGlob('*.cpp', start='#/src')\n"
+        "apaths = [str(n).replace('\\\\\\\\', '/') for n in anchored]\n"
+        "assert any('deep.cpp' in p for p in apaths), apaths\n"
         "env.BuildTest('hello_test', 'tests/hello_test.cpp')\n"
         "env.Compile('src/nested/deep.cpp')\n",
     )
@@ -31,99 +32,52 @@ def test_static_glob_flat_and_recursive(tmp_path):
     assert find_under_build(project, "deep.*")
 
 
-def test_deprecated_glob_aliases_still_work(tmp_path):
+def test_glob_files_is_flat_only(tmp_path):
     project = copy_dummy_project(tmp_path)
     write_sconstruct(project)
     write_sconscript(
         project,
         "Import('env')\n"
         "env.AppendUnique(CPPPATH=['#/include'])\n"
+        "flat = env.GlobFiles('*.cpp', start='src')\n"
+        "paths = [str(n).replace('\\\\\\\\', '/') for n in flat]\n"
+        "assert any(p.endswith('hello.cpp') for p in paths), paths\n"
+        "assert not any('deep.cpp' in p for p in paths), paths\n"
         "tests = env.GlobFiles('*_test.cpp', start='tests')\n"
         "assert len(tests) >= 2\n"
-        "deep = env.RecursiveGlob('*.cpp', start='src')\n"
-        "assert any('deep.cpp' in str(n).replace('\\\\\\\\','/') for n in deep)\n"
         "env.BuildTest('hello_test', 'tests/hello_test.cpp')\n",
     )
     result = run_cuppa(project, "--dbg", "--test")
     assert_success(result)
-    assert find_final_binaries(project, "hello_test")
-    combined = re.sub(
-        r'\x1b\[[0-9;]*m',
-        '',
-        (result.stdout or "") + (result.stderr or ""),
-    )
-    assert "env.GlobFiles() is deprecated" in combined
-    assert "env.RecursiveGlob() is deprecated" in combined
 
 
-def test_filter_path_parity_with_static_glob(tmp_path):
+def test_scons_glob_matrix_vs_recursive_glob(tmp_path):
+    """Name the mismatch: directory Glob vs recursive snapshot walk."""
     project = copy_dummy_project(tmp_path)
     write_sconstruct(project)
     write_sconscript(
         project,
         "Import('env')\n"
         "env.AppendUnique(CPPPATH=['#/include'])\n"
-        "candidates = env.StaticGlob('*.cpp', start='src')\n"
-        "deep = env.Filter(candidates, match='src/nested/*.cpp')\n"
-        "assert any('deep.cpp' in str(n).replace('\\\\\\\\','/') for n in deep)\n"
-        "tests = env.StaticGlob('*.cpp', start='tests', recursive=False)\n"
-        "hello = env.Filter(tests, match='tests/*_test.cpp')\n"
-        "assert len(hello) >= 1\n"
-        "env.BuildTest('hello_test', 'tests/hello_test.cpp')\n",
-    )
-    result = run_cuppa(project, "--dbg", "--test")
-    assert_success(result)
-    assert find_final_binaries(project, "hello_test")
-
-
-def test_scons_glob_is_not_recursive(tmp_path):
-    """SCons Glob matches do not span '/'; '**' is one path segment, not a tree walk."""
-    project = copy_dummy_project(tmp_path)
-    write_sconstruct(project)
-    write_sconscript(
-        project,
-        "Import('env')\n"
-        "env.AppendUnique(CPPPATH=['#/include'])\n"
-        "starstar = env.Glob('#/src/**/*.cpp')\n"
-        "paths = [str(n).replace('\\\\\\\\', '/') for n in starstar]\n"
-        "assert any('nested/deep.cpp' in p for p in paths), paths\n"
-        # Files directly in src/ are outside one '**' segment.
-        "assert not any(p.rstrip('/').endswith('src/hello.cpp') for p in paths), paths\n"
         "top = env.Glob('#/src/*.cpp')\n"
-        "top_paths = [str(n).replace('\\\\\\\\', '/') for n in top]\n"
-        "assert any(p.endswith('hello.cpp') for p in top_paths), top_paths\n"
-        "walked = env.StaticGlob('*.cpp', start='#/src')\n"
-        "walked_paths = [str(n).replace('\\\\\\\\', '/') for n in walked]\n"
-        "assert any('hello.cpp' in p for p in walked_paths), walked_paths\n"
-        "assert any('deep.cpp' in p for p in walked_paths), walked_paths\n"
+        "one = env.Glob('#/src/**/*.cpp')\n"  # one segment only — not a tree walk
+        "walked = env.RecursiveGlob('*.cpp', start='#/src')\n"
+        "def norm(nodes):\n"
+        "    return sorted(str(n).replace('\\\\\\\\', '/') for n in nodes)\n"
+        "top_p, one_p, walk_p = norm(top), norm(one), norm(walked)\n"
+        "assert any(p.endswith('hello.cpp') for p in top_p), top_p\n"
+        "assert not any('deep.cpp' in p for p in top_p), top_p\n"
+        "assert any('nested/deep.cpp' in p for p in one_p), one_p\n"
+        "assert not any(p.rstrip('/').endswith('src/hello.cpp') for p in one_p), one_p\n"
+        "assert any('hello.cpp' in p for p in walk_p), walk_p\n"
+        "assert any('deep.cpp' in p for p in walk_p), walk_p\n"
         "env.BuildTest('hello_test', 'tests/hello_test.cpp')\n",
     )
     result = run_cuppa(project, "--dbg", "--test")
     assert_success(result)
 
 
-def test_scons_glob_plus_filter_flat_directory(tmp_path):
-    """Documented flat-dir recipe: Glob one directory, then Filter."""
-    project = copy_dummy_project(tmp_path)
-    write_sconstruct(project)
-    write_sconscript(
-        project,
-        "Import('env')\n"
-        "env.AppendUnique(CPPPATH=['#/include'])\n"
-        "candidates = env.Glob('#/tests/*.cpp')\n"
-        "assert len(candidates) >= 2\n"
-        "tests = env.Filter(candidates, match='*_test.cpp')\n"
-        "assert len(tests) >= 2\n"
-        "rel = env.Filter(candidates, match='tests/hello_test.cpp')\n"
-        "assert len(rel) == 1\n"
-        "env.BuildTest('hello_test', rel[0])\n",
-    )
-    result = run_cuppa(project, "--dbg", "--test")
-    assert_success(result)
-    assert find_final_binaries(project, "hello_test")
-
-
-def test_static_glob_plus_filter_exclude_detail(tmp_path):
+def test_filter_on_recursive_glob_and_scons_glob(tmp_path):
     project = copy_dummy_project(tmp_path)
     detail = project / "src" / "nested" / "detail"
     detail.mkdir(parents=True)
@@ -133,13 +87,100 @@ def test_static_glob_plus_filter_exclude_detail(tmp_path):
         project,
         "Import('env')\n"
         "env.AppendUnique(CPPPATH=['#/include'])\n"
-        "candidates = env.StaticGlob('*.cpp', start='#/src')\n"
-        "kept = env.Filter(candidates, match='*.cpp', exclude='*/detail/*')\n"
-        "paths = [str(n).replace('\\\\\\\\', '/') for n in kept]\n"
-        "assert any('deep.cpp' in p for p in paths), paths\n"
-        "assert any('hello.cpp' in p for p in paths), paths\n"
-        "assert not any('hidden.cpp' in p for p in paths), paths\n"
+        "tree = env.RecursiveGlob('*.cpp', start='#/src')\n"
+        "kept = env.Filter(tree, match='*.cpp', exclude='*/detail/*')\n"
+        "kpaths = [str(n).replace('\\\\\\\\', '/') for n in kept]\n"
+        "assert any('deep.cpp' in p for p in kpaths), kpaths\n"
+        "assert any('hello.cpp' in p for p in kpaths), kpaths\n"
+        "assert not any('hidden.cpp' in p for p in kpaths), kpaths\n"
+        "nested = env.Filter(tree, match='src/nested/*.cpp')\n"
+        "assert any('deep.cpp' in str(n).replace('\\\\\\\\', '/') for n in nested)\n"
+        "flat = env.Glob('#/tests/*.cpp')\n"
+        "tests = env.Filter(flat, match='*_test.cpp')\n"
+        "assert len(tests) >= 2\n"
+        "rel = env.Filter(flat, match='tests/hello_test.cpp')\n"
+        "assert len(rel) == 1\n"
+        "env.BuildTest('hello_test', rel[0])\n",
+    )
+    result = run_cuppa(project, "--dbg", "--test")
+    assert_success(result)
+    assert find_final_binaries(project, "hello_test")
+
+
+def test_snapshot_vs_directory_glob_both_see_new_file_next_invocation(tmp_path):
+    """Low-impact check: both APIs re-read with the sconscript each cuppa run."""
+    project = copy_dummy_project(tmp_path)
+    write_sconstruct(project)
+    marker = project / "src" / "added_later.cpp"
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "import os\n"
+        "env.AppendUnique(CPPPATH=['#/include'])\n"
+        "walked = env.RecursiveGlob('*.cpp', start='src')\n"
+        "flat = env.Glob('#/src/*.cpp')\n"
+        "w = [str(n).replace('\\\\\\\\', '/') for n in walked]\n"
+        "f = [str(n).replace('\\\\\\\\', '/') for n in flat]\n"
+        "report = os.path.join(env['sconstruct_dir'], 'glob_report.txt')\n"
+        "open(report, 'w').write('\\n'.join(w) + '\\n--\\n' + '\\n'.join(f))\n"
+        "env.BuildTest('hello_test', 'tests/hello_test.cpp')\n",
+    )
+    result1 = run_cuppa(project, "--dbg", "--test")
+    assert_success(result1)
+    report1 = (project / "glob_report.txt").read_text()
+    assert "added_later.cpp" not in report1
+
+    marker.write_text("int added_later() { return 0; }\n")
+    assert marker.exists()
+    result2 = run_cuppa(project, "--dbg", "--test")
+    assert_success(result2)
+    report2 = (project / "glob_report.txt").read_text()
+    walked_part, flat_part = report2.split("--\n", 1)
+    assert "added_later.cpp" in walked_part
+    assert "added_later.cpp" in flat_part
+
+
+def test_static_glob_alias_warns_toward_recursive_or_glob_files(tmp_path):
+    project = copy_dummy_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.AppendUnique(CPPPATH=['#/include'])\n"
+        "tree = env.StaticGlob('*.cpp', start='src')\n"
+        "assert any('deep.cpp' in str(n).replace('\\\\\\\\', '/') for n in tree)\n"
+        "flat = env.StaticGlob('*_test.cpp', start='tests', recursive=False)\n"
+        "assert len(flat) >= 2\n"
         "env.BuildTest('hello_test', 'tests/hello_test.cpp')\n",
     )
     result = run_cuppa(project, "--dbg", "--test")
     assert_success(result)
+    combined = re.sub(
+        r'\x1b\[[0-9;]*m',
+        '',
+        (result.stdout or "") + (result.stderr or ""),
+    )
+    assert "env.StaticGlob() is deprecated" in combined
+    assert "RecursiveGlob" in combined or "GlobFiles" in combined
+
+
+def test_recursive_glob_and_glob_files_do_not_warn(tmp_path):
+    project = copy_dummy_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.AppendUnique(CPPPATH=['#/include'])\n"
+        "env.RecursiveGlob('*.cpp', start='src')\n"
+        "env.GlobFiles('*_test.cpp', start='tests')\n"
+        "env.BuildTest('hello_test', 'tests/hello_test.cpp')\n",
+    )
+    result = run_cuppa(project, "--dbg", "--test")
+    assert_success(result)
+    combined = re.sub(
+        r'\x1b\[[0-9;]*m',
+        '',
+        (result.stdout or "") + (result.stderr or ""),
+    )
+    assert "RecursiveGlob() is deprecated" not in combined
+    assert "GlobFiles() is deprecated" not in combined

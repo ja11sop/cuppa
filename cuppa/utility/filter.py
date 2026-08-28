@@ -23,9 +23,9 @@ from SCons.Script import Flatten
 def _node_path_forms( node ):
     """Path strings worth matching against for Filter patterns.
 
-    StaticGlob often yields sconscript-relative ``node.path`` while SCons
-    ``Glob`` / absolute ``File`` nodes stringify as absolute paths. Patterns
-    written in either style should work for both sources.
+    Static discovery (RecursiveGlob / GlobFiles) often yields sconscript-relative
+    ``node.path`` while SCons ``Glob`` / absolute ``File`` nodes stringify as
+    absolute paths. Patterns written in either style should work for both sources.
     """
     seen = set()
     forms = []

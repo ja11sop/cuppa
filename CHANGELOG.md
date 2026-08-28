@@ -28,15 +28,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``gcc125`` (and the missing 12.3/12.4 and 13.3 point releases) so PATH installs of
   current GNU releases can be selected by name
   ([#230](https://github.com/ja11sop/cuppa/issues/230)).
-- ``env.StaticGlob`` is the configure-time source discovery API (optional
-  ``recursive=False``). ``env.RecursiveGlob`` and ``env.GlobFiles`` remain as
-  deprecated aliases that warn once per process. Shared ``#/`` / sconscript-relative
-  path vocabulary lives in ``cuppa.utility.glob_roots``.
+- Shared ``#/`` / sconscript-relative path vocabulary for source discovery
+  (``cuppa.utility.glob_roots``). ``env.RecursiveGlob`` remains the recursive
+  configure-time tree walk (Cuppa's stand-in for a recursive Glob); ``env.GlobFiles``
+  remains the flat listing. ``env.StaticGlob`` is a deprecated umbrella over the
+  same snapshot engine. SCons ``env.Glob`` is a non-recursive directory Glob
+  (``**`` is one path segment) — prefer ``RecursiveGlob`` for nested trees.
 - ``env.Filter`` matches and excludes against both project-relative ``node.path``
   and absolute ``str`` / ``abspath`` forms, so the same patterns work for nodes
-  from ``StaticGlob`` and from SCons ``Glob``. Methods docs recommend
-  ``StaticGlob`` for nested trees: SCons ``Glob`` is not recursive (``**`` is one
-  path segment), so ``Glob('#/src/**/*.cpp')`` is the wrong default recipe.
+  from Cuppa snapshot discovery and from SCons ``Glob``.
 
 ### Changed
 

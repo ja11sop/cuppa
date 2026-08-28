@@ -72,7 +72,7 @@ cuppa.run(default_variants=['dbg'])
 | `CompileStatic`, `CompileShared`
 | xref:integration/test-compile.adoc[]
 
-| `StaticGlob` (also `Compile`; deprecated `GlobFiles` / `RecursiveGlob` aliases)
+| `RecursiveGlob`, `GlobFiles`, SCons `Glob` + `Filter` (also `Compile`; deprecated `StaticGlob` umbrella)
 | xref:integration/test-glob.adoc[]
 
 | `Run`, `Benchmark`, `BuildBenchmark`

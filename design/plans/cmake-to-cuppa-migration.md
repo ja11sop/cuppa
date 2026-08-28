@@ -26,7 +26,7 @@ Canonical product docs stay on the Antora site; this plan defines the **content 
 | `add_executable` + `target_link_libraries` | `env.Build` / `env.BuildTest` | `BuildTest` adds `--test` run via process/boost runner |
 | `target_include_directories` PUBLIC | `env.AppendUnique(CPPPATH=[...])` + package/location deps | |
 | `target_compile_definitions` | `env.AppendUnique(CPPDEFINES=[...])` | Use `Clone()` for private defs (e.g. `*_SOURCE`) |
-| `GLOB_RECURSE` sources | `env.StaticGlob` (not SCons `env.Glob('**…')` — SCons Glob is not recursive) | StaticGlob walks the tree; see [`static-glob-rename.md`](static-glob-rename.md) |
+| `GLOB_RECURSE` sources | `env.RecursiveGlob` (not SCons `env.Glob('**…')` — SCons Glob is not recursive) | Recursive snapshot walk; see [`static-glob-rename.md`](static-glob-rename.md) |
 | `add_subdirectory` + target alias | **No export chain** between discovered sconscripts | [`sconscript-exports.md`](sconscript-exports.md) |
 | `CTest` / `add_test` | `--test` + `env.BuildTest` | Custom harnesses (non–Boost.Test) use `default_runner='process'` |
 | `find_package(Boost)` | `boost_package` / built-in Boost | Version/registry-specific |

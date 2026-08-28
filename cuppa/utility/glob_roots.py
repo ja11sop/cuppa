@@ -5,7 +5,7 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   Shared path vocabulary for StaticGlob (and optional future Glob wrapper)
+#   Shared path vocabulary for RecursiveGlob / GlobFiles (and SCons Glob #/ roots)
 #-------------------------------------------------------------------------------
 #
 #   Input styles (same meaning for static and dynamic discovery):
@@ -34,7 +34,7 @@ def _strip_sconstruct_anchor( path ):
 
 
 def resolve_glob_start( env, start=DEFAULT_START, default=DEFAULT_START ):
-    """Resolve a StaticGlob / Glob ``start`` to an absolute directory.
+    """Resolve a RecursiveGlob / GlobFiles / Glob ``start`` to an absolute directory.
 
     Returns ``(absolute_start, sconscript_dir)`` where ``sconscript_dir`` is the
     real path of the calling sconscript (used as the ``env.File`` base for
