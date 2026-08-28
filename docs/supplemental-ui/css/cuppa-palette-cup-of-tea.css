@@ -12,7 +12,7 @@
      ======================================================================== */
   /* --- Brand Identity --- */
   --cuppa-brand: #1b2226;               /* Minimalist Deep Earl Grey - sharp and modern */
-  --cuppa-brand-dark: #0f1417;          /* Near black for maximum text contrast */
+  --cuppa-brand-dark: #252c33;          /* Charcoal navbar — lifted from near-black */
   --cuppa-brand-light: #f1f3f5;         /* Very clean, neutral light grey */
   --cuppa-accent: #769f7e;              /* Crisp Matcha - used strictly as an accent hint */
   --cuppa-accent-glow: rgba(118, 159, 126, 0.15);
@@ -21,11 +21,11 @@
   --cuppa-on-brand: #ffffff;
   --cuppa-on-brand-muted: rgba(255, 255, 255, 0.55);
   /*
-   * Recess on the dark navbar (brand-dark). Lifted slate so the search field
+   * Recess on the charcoal navbar (brand-dark). Lifted slate so the search field
    * reads as part of the bar, not a light hole punched in it. Focus flips the
    * field to --cuppa-page (see cuppa.css).
    */
-  --cuppa-on-brand-field: #2f383f;
+  --cuppa-on-brand-field: #3a444d;
   --cuppa-on-brand-field-text: #e8ecef;
 
   /* --- Core Typography & Clean UI Surfaces --- */
@@ -70,7 +70,7 @@
        ======================================================================== */
     /* --- Brand Identity --- */
     --cuppa-brand: #f1f3f5;             /* Crisp light grey for headers to mirror light mode ink */
-    --cuppa-brand-dark: #ffffff;
+    --cuppa-brand-dark: #e8ecef;        /* Soft pearl bar — charcoal grey, not pure white */
     --cuppa-brand-light: #1e252b;        /* Dark slate block background */
     --cuppa-accent: #8cb895;            /* Boosted Matcha green for high dark-mode readability */
     --cuppa-accent-glow: rgba(140, 184, 149, 0.20);
@@ -78,8 +78,8 @@
     --cuppa-link-hover: #a8ccb0;        /* Lighter matcha on hover against the dark page */
     --cuppa-on-brand: #12161a;
     --cuppa-on-brand-muted: rgba(18, 22, 26, 0.55);
-    /* Navbar is light in dark mode; field is a soft grey recess on that bar. */
-    --cuppa-on-brand-field: #d8dce0;
+    /* Navbar is light pearl in dark mode; field is a soft grey recess on that bar. */
+    --cuppa-on-brand-field: #d0d5da;
     --cuppa-on-brand-field-text: #12161a;
 
     /* --- Core Typography & Clean UI Surfaces --- */
