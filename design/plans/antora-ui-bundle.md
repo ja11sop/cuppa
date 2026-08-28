@@ -1,8 +1,8 @@
 # Plan: custom Antora UI bundle
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-antora-ui`); [`docs/playbook.yml`](../../docs/playbook.yml); supplemental UI [`docs/supplemental-ui/`](../../docs/supplemental-ui/); companion [`colourised-doc-samples.md`](colourised-doc-samples.md)
-- **Updated:** 2026-08-19
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-antora-ui`); [#229](https://github.com/ja11sop/cuppa/issues/229); PR [#228](https://github.com/ja11sop/cuppa/pull/228); [`docs/playbook.yml`](../../docs/playbook.yml); supplemental UI [`docs/supplemental-ui/`](../../docs/supplemental-ui/); companions [`colourised-doc-samples.md`](colourised-doc-samples.md), [`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md)
+- **Updated:** 2026-08-26
 - **Impact:** none — site presentation only (unless a UI change breaks the docs CI build)
 
 ## Why
@@ -47,7 +47,7 @@ or table layout.
 ## Non-goals
 
 - Rewriting Antora content architecture.
-- Dark mode in v1 (optional later).
+- A dark-mode *toggle* in v1 (palettes already follow `prefers-color-scheme`).
 - Kroki / PlantUML at site build time.
 - Custom Mermaid theme ([`doc-mermaid-theme`](../../ROADMAP.md) is a follow-on row).
 - Copying Boost or Material CSS wholesale.
@@ -62,8 +62,8 @@ or table layout.
 | `approach-fork` | Fork `antora-ui-default` | **Not yet** — spike only if nav/tables still fail after one CSS pass |
 | `approach-third-party` | Material-inspired Antora port | **No** for v1 — license + upgrade path |
 
-Header and footer Handlebars already overlay the bundle. There is **no** supplemental CSS file
-yet.
+Header and footer Handlebars already overlay the bundle. Supplemental CSS and JS live under
+`docs/supplemental-ui/`.
 
 ## Current pain (default UI + this site)
 
@@ -100,17 +100,19 @@ Sources are **look references**, not dependencies. Map each idea onto Antora cla
 
 | Element | Cue (Boost-like / Material) | Decision | Notes |
 |---------|-----------------------------|----------|--------|
-| Page measure / line length | Constrained content column | **Keep** | `max-width` on `.doc`; do not shrink the sidebar |
+| Page measure / line length | Constrained content column | **Adapt** | Toolbar cycles default (~46rem) → wide (56rem) → full (fills article column); `localStorage`; do not shrink the sidebar |
 | Type scale | Distinct H1–H3, quieter body | **Keep** | CSS variables on headings in `.doc` |
-| Colour tokens | One brand + semantic status | **Keep** | Light-theme `--cuppa-*`; later `.cuppa-error` etc. for samples |
+| Colour tokens | One brand + semantic status | **Keep** | Complete semantic contract in a named `cuppa-palette-*.css` file; four palettes (cup-of-tea, harbour, forest, aubergine), each with a `prefers-color-scheme: dark` override; toolbar cycles them at runtime (`localStorage`); later `.cuppa-error` sample classes |
 | Sidebar current page | Stronger active marker | **Keep** | High value, small CSS |
-| Admonitions | Left accent bar, muted fill | **Adapt** | Style `.admonitionblock` / `.title`; do not change AsciiDoc HTML |
-| Tables | Header background, optional zebra | **Adapt** | Header + tighter cell padding first; no sticky columns in v1 |
+| Admonitions | Boxed MkDocs-style heading + quieter body | **Adapt** | Semantic border/glow; compact tinted heading with a masked Material icon and label/title; page-colour body at a smaller type size; do not change AsciiDoc HTML |
+| Expandable examples | Tinted collapsed disclosure | **Adapt** | Same callout chrome as admonitions (border, radius, glow, heading-strip height); flask mark, right-aligned plus/minus control, and progressive native-details transition |
+| Tables | Header background, optional zebra | **Adapt** | Header + tighter cell padding first; no sticky columns in v1. Column ratios are content, not CSS: the bundle sets `table-layout: fixed`, so every table declares `cols` sized from its own cells, with repeated families held to one ratio |
 | Pagination | Clear prev/next | **Adapt** | Style existing `.pagination` |
 | Navbar | Compact brand colour | **Adapt** | Tint/border only; keep overlay markup |
-| Code blocks | Title bar, quieter chrome | **Defer** | After type/nav; do not fight highlight.js yet |
-| Fonts / icon packs | Material icons, extra webfonts | **Skip** | Weight and self-hosting; system / bundle fonts |
-| Dark mode | Material default | **Skip** | Plan non-goal |
+| Navbar brand marks | Project / registry icons | **Adapt** | GitHub and PyPI links carry inline SVG marks (Simple Icons paths, CC0) that inherit `currentColor`; text labels stay for the mobile menu |
+| Code blocks | Title bar, quieter chrome | **Adapt** | Quieter frame and a smaller monospace scale (`--cuppa-code-size*`); highlight.js tokens untouched in this UI pass; token theming and line numbers are [`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md) (`doc-shiki`). Wide listing/console samples: horizontal scroll only, inset edge fades + shadows inside the frame border, click-drag pan with clamp + edge pulse at limits |
+| Fonts / icon packs | Material icons, extra webfonts | **Skip** | Weight and self-hosting. Cherry-picked Material paths (Apache 2.0) are embedded as `--cuppa-icon-*` data-URI masks in `cuppa.css`, so semantic and disclosure marks inherit palette colour without a pack or extra request; the two navbar marks stay inline in the header partial |
+| Dark mode | Material default | **Adapt** | Palette files follow `prefers-color-scheme`; a navbar toggle remains deferred |
 | Card / grid landing | Material cards | **Skip** | Needs content rewrite |
 | Search modal | Material overlay search | **Skip** | Lunr field stays in the navbar |
 | Sticky table first column | Dense comparison tables | **Skip** for v1 | Easy to break overflow |
@@ -123,21 +125,42 @@ Supplemental files **replace** a bundle file when the relative path matches
 **Do not** add `docs/supplemental-ui/css/site.css`. That path is the default bundle stylesheet;
 replacing it drops all Antora layout CSS.
 
-Add a **new** path and a second `<link>`:
+Add **new** paths and two links after the bundle stylesheet:
 
 | Path | Role |
 |------|------|
-| `docs/supplemental-ui/css/cuppa.css` | Cuppa tokens + overrides (new path → added) |
-| `docs/supplemental-ui/partials/head-styles.hbs` | Overlay: keep `{{{uiRootPath}}}/css/site.css`, then link `cuppa.css` |
+| `docs/supplemental-ui/css/cuppa-palette-*.css` | Semantic colour contracts (all four linked; one enabled) |
+| `docs/supplemental-ui/css/cuppa.css` | Colour-independent component overrides |
+| `docs/supplemental-ui/partials/head-styles.hbs` | Overlay: keep `site.css`, link every palette + `cuppa.css`, early preference script |
 
 `head-styles.hbs` **does** replace the bundle partial, so the overlay must still load `site.css`.
 Do not add a supplemental `ui.yml` unless you copy the bundle descriptor in full — it also
 replaces.
 
+Cold-start default is `cuppa-palette-cup-of-tea.css` (enabled; the other four links start
+`disabled`). The toolbar palette control and an early head script enable exactly one sheet from
+`localStorage` (`cuppa-doc-palette`). Ids:
+
+- `cup-of-tea` — cup of tea (default)
+- `harbour` — harbour
+- `forest` — forest
+- `aubergine` — aubergine
+
+Each file defines the same token names, including page/text/surface colours,
+`--cuppa-table` / `--cuppa-table-surface`, and `color-scheme: light dark`. Dark values
+live in a `prefers-color-scheme: dark` block in the same file, so a future toggle can
+flip scheme without rewriting component selectors.
+
 Header/footer overlays already in tree:
 
 - `docs/supplemental-ui/partials/header-content.hbs`
 - `docs/supplemental-ui/partials/footer-content.hbs`
+
+Removing a piece of bundle chrome works the same way: overlay the partial that renders it with
+one that renders something else (or nothing). `docs/supplemental-ui/partials/edit-this-page.hbs`
+replaces the toolbar edit link with article-width and palette toggles. A playbook
+`edit_url: false` is not enough on its own, because the bundle partial links `page.fileUri` for a
+worktree build before it considers `page.editUrl`.
 
 ## Work slices
 
@@ -154,14 +177,30 @@ Header/footer overlays already in tree:
 **First implementation PR:** `ui-css` (+ `ui-pin` in the same PR if small). `ui-audit` is this
 plan update.
 
+### Progress snapshot (2026-08-26)
+
+| Id | Status |
+|----|--------|
+| `ui-audit` | **Shipped** — catalogue and overlay rules in [#227](https://github.com/ja11sop/cuppa/pull/227) |
+| `ui-css` | **Landing in PR [#228](https://github.com/ja11sop/cuppa/pull/228)** (closes [#229](https://github.com/ja11sop/cuppa/issues/229)) — navbar/nav (Cuppa mark+wordmark); article type scale; compact tables (thead baseline align); admonitions; disclosures; code scale; pagination; four palettes with toolbar cycle + `localStorage` (mint-tea and fine-bone-china dropped as near-duplicates of cup-of-tea); search field recess/glow tokens; three-step article width; grab-pan + edge fades on wide listings. Review passes: nav labels retain uniform alignment while brand-colour carets sit fully outside highlights; the current-page rule marks leaf items only, since a caret already marks a parent; tables drop vertical rules for a tinted heading band opened and closed by a `--cuppa-table` rule; GitHub/PyPI marks; smaller body and monospace scales; edit-page link replaced by width (≥1024) + palette (all widths) controls; subtree parent/overview links are distinct; visible `C++` notation normalised through AsciiDoc attributes; chevrons inside pagination buttons; inline code uses a translucent ink wash (`--cuppa-code-tint`, with an opaque fallback) in every context, so it darkens the surface behind it rather than laying grey over a tinted heading; admonition table cells stack inside one semantic outer border/glow, with compact headings, locally embedded Material SVG marks, and heading-strip tokens that shift mark and label independently (per type where a glyph needs it) so both the generic label and an explicit title share one alignment; independently coloured expandable examples share that callout chrome and pair a flask mark with a right-aligned plus/minus control and progressive transition; four palettes (cup-of-tea, harbour, forest, aubergine) each carry light and `prefers-color-scheme: dark`; navbar uses `background-clip: padding-box` so Chromium does not paint a band of navbar colour below the accent border; every table declares a `cols` ratio measured from its own content, because the bundle's `table-layout: fixed` applies Antora's equal split literally, and repeated families (toolchain flag tables, Methods reference tables) are held to one ratio across sibling pages; the dense CLI reference is split into an introductory hub and seven task pages, with option/value tables and a curated SCons subset |
+| `ui-pin` | **Next** — keep separate until a stable default-bundle artifact or vendoring route is selected |
+| `ui-ci` | Local Antora build passes; verify Pages CI on [#228](https://github.com/ja11sop/cuppa/pull/228) |
+| `ui-fork-spike` | Deferred — supplemental pass reaches nav/tables without a fork |
+
 ## Files
 
 | Path | Role |
 |------|------|
 | `docs/playbook.yml` | `ui.bundle.url` / `snapshot`; `supplemental_files` |
-| `docs/supplemental-ui/css/cuppa.css` | Overrides (to add) |
-| `docs/supplemental-ui/partials/head-styles.hbs` | Extra stylesheet link (to add) |
-| `docs/supplemental-ui/partials/*.hbs` | Header/footer (existing) |
+| `docs/supplemental-ui/css/cuppa-palette-*.css` | Named palettes: cup-of-tea, harbour, forest, aubergine; each file is the full light+dark token contract |
+| `docs/supplemental-ui/css/cuppa.css` | Colour-independent component overrides |
+| `docs/supplemental-ui/partials/head-styles.hbs` | Base, all palettes (one enabled), component CSS, early preference script |
+| `docs/supplemental-ui/partials/header-content.hbs` | Navbar overlay, including the inline GitHub / PyPI marks |
+| `docs/supplemental-ui/partials/footer-content.hbs` | Footer overlay; loads supplemental JS |
+| `docs/supplemental-ui/partials/edit-this-page.hbs` | Article width + palette toggles (replaces Edit this Page) |
+| `docs/supplemental-ui/js/cuppa-doc-width.js` | Article width cycle (default / wide / full) + localStorage |
+| `docs/supplemental-ui/js/cuppa-doc-palette.js` | Palette cycle across the four sheets + localStorage |
+| `docs/supplemental-ui/js/cuppa-scroll-panels.js` | Wide listing scroll affordances and click-drag pan |
 | `docs/modules/ROOT/pages/contributing.adoc` | Pin + preview notes when `ui-pin` lands |
 | `design/plans/colourised-doc-samples.md` | Sample classes follow `--cuppa-*` tokens |
 
@@ -173,7 +212,7 @@ plan update.
 | Break Lunr/Mermaid for aesthetics | Refuse |
 | Copy Boost bundle or Material CSS wholesale | Refuse |
 | Replace `css/site.css` or `ui.yml` without copying bundle contents | Refuse |
-| Dark mode / search modal / webfonts in v1 | Refuse; catalogue **Skip** |
+| Dark-mode toggle / search modal / webfonts in v1 | Refuse; palettes already follow `prefers-color-scheme` |
 
 ## Release
 

@@ -31,7 +31,7 @@ from an installed package versus a checkout.
 
 == Rule families
 
-[cols="2,4"]
+[cols="1,1"]
 |===
 | Rule id(s) | Page
 

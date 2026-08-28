@@ -5,16 +5,18 @@ This section is for people changing **cuppa itself** (the public repository), no
 only *consume* cuppa as a build tool.
 Consumer documentation starts at xref:install.adoc[Installation] and xref:quickstart.adoc[Quickstart].
 
-You will learn how pull requests relate to version numbers, how a release cycle opens and closes,
-and how to cut a release from GitHub Actions without hand-pushing tags.
+Start with xref:contributing/overview.adoc[Contributing overview] for the development workflow.
+This hub provides the detailed pull-request rules and routes you to versioning, report patterns,
+linting, integration tests, and releases.
 
 == Topics
 
+[cols="4,1"]
 |===
 | Topic | Page
 
-| Pull requests, local validation, where agent notes live
-| This page (below)
+| Pull requests and local validation
+| xref:contributing/overview.adoc[Overview]
 
 | SemVer, `cuppa/VERSION`, Keep a Changelog, `start_release` / `finish_release`
 | xref:contributing/versioning.adoc[Versioning and changelog]
@@ -37,59 +39,3 @@ Settled console-report choices are summarised in
 xref:contributing/report-patterns.adoc[Report patterns]; the design plan at
 `design/archive/console-report-patterns.md` holds deeper rationale.
 Agent-oriented checklists and GitHub helper scripts live in `AGENTS.md`.
-
-== Pull requests
-
-`master` is protected: every change that alters the tree lands through a pull request.
-
-Every pull request needs **exactly one** impact label so CI can check that `cuppa/VERSION` matches
-the intent of the change:
-
-|===
-| Label | Use when
-
-| `impact:none`
-| CI, documentation, design notes, or other work with no release impact
-
-| `impact:patch`
-| Fix, message, tests, or internal refactor that does not change the public surface
-
-| `impact:minor`
-| New option, method, or behaviour a project can opt into
-
-| `impact:major`
-| Removed or repurposed option, or a changed default a project depends on
-|===
-
-The public surface means CLI flags, `env.*` methods, `cuppa.run()` arguments, and configuration
-file keys. See xref:contributing/versioning.adoc[Versioning and changelog] for how those labels
-relate to `start_release`.
-
-== Validating changes locally
-
-Before you push a pull-request branch, run the same gate CI expects.
-Use a Python virtualenv with Cuppa’s dependencies installed (existing checkout `venv/`, or create
-one with `python3 -m venv venv`, then `pip install -r requirements.txt` and `pip install -e .`).
-`AGENTS.md` spells out why host `flake8` / `pylint` shims are unreliable.
-
-[source,sh]
-----
-source venv/bin/activate
-flake8 cuppa
-pylint -E cuppa
-pytest -m unit
-pytest -m integration
-----
-
-`pytest -m integration` needs a C++ compiler (typically `g++`).
-Smoke-test against `examples/minimal/` after installing your working tree.
-
-xref:linting.adoc[Linting] explains why the flake8/pylint gate stays error-focused.
-xref:integration-tests.adoc[Integration tests] documents the generated `sconstruct` /
-`sconscript` scenarios under `tests/integration/`.
-
-== Where to go next
-
-* Opening or closing a version cycle → xref:contributing/versioning.adoc[Versioning and changelog]
-* Publishing to PyPI → xref:contributing/release.adoc[Cutting a release]
-* Writing a dependency or method plugin for *your* project → xref:extending.adoc[Extending cuppa]

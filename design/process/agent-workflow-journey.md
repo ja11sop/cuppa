@@ -2,7 +2,7 @@
 
 - **Status:** living
 - **Related:** [`AGENTS.md`](../../AGENTS.md) (agent ops); Antora Contributing (human versioning/release)
-- **Updated:** 2026-08-15
+- **Updated:** 2026-08-21
 - **Maintainer:** primary author of this journey; others append only (see `AGENTS.md`)
 - **Privacy:** obey the private-projects rule; never copy names from `INTERNAL_PROJECTS.local.md`
 - **Source:** Cursor sessions spanning roughly mid-July → 2026-08-07 on cuppa
@@ -53,6 +53,7 @@ Rough phases, not strict calendar days:
 | **H. Storage / develop product arc** | list/remove/purge/wipe, develop report/update/clone/branch helpers | Large features need a living plan + PR-sized slices + live-output feedback loops |
 | **I. Merge readiness ritual** | Local full gate before push; watch-pr schedule; fetch-ci-logs; docs/ROADMAP/CHANGELOG housekeeping; update-pr; squash draft | “CI green” alone is not merge-ready |
 | **J. Release automation + first cut** | Trusted Publishing, `pypi` env, prepare/publish `workflow_dispatch`, 1.4.0, Contributing Antora | Manual tag push is a footgun; buttons + gate + diagrams beat checklist prose alone |
+| **K. Docs UI visual loop** | Supplemental Antora CSS, palettes, admonitions; local preview vs agent-scanned screenshots | Capturing a PNG is cheap; **reading it into chat is expensive** — humans preview; agents scan only on request |
 
 Late in the arc, develop-branch design (base vs default, no parent guessing) and Mermaid
 diagram choices showed the same maturity: **decide vocabulary in the plan**, illustrate with
@@ -299,6 +300,14 @@ These are recommendations for the next project, not self-flagellation.
     (like Dependencies) belong in `AGENTS.md`’s topic map so agents stop stuffing flag tables
     into the hub.
 
+17. **Do not scan browser screenshots into the agent context by default.**
+    During the Antora UI CSS pass, headless Chromium `--screenshot` was a useful capture, but
+    each PNG (or a long description of it) burned context. Settled: capture to disk if needed;
+    tell the human what to look at in the local preview (`docs` → `_docs_build/site/`); iterate
+    from CSS/HTML and their notes. Scan or process a screenshot only when they ask, or when they
+    cannot check locally. Prefer one targeted crop over a full-page dump. Encoded in `AGENTS.md`
+    under Documentation.
+
 ---
 
 ## 6. Patterns worth stealing (short list)
@@ -323,6 +332,7 @@ These are recommendations for the next project, not self-flagellation.
 | `generate_doc_samples` + partial includes | Listing docs cannot drift from CLI trees / JSON |
 | Hub + family topic pages (Dependencies, Toolchains) | Agents know which AsciiDoc file owns defaults vs inventory |
 | `create-pr` rejects missing `impact:` label | Version job runs before the matrix; label-at-open avoids a wasted CI cycle |
+| Local docs preview; scan screenshots only on request | UI CSS review stays in the browser; PNG-in-context is a token tax, not a default loop |
 
 ---
 
@@ -372,6 +382,27 @@ finish PR merged?    must be on master before publish
 then:                delete bad tag → publish from master (preferred)
                      or retag the finish merge SHA and push
 ```
+
+---
+
+## 8b. Case study: docs screenshots stay out of context (2026-08-21)
+
+The Antora UI work needed visual judgement (admonition icons, navbar bleed, inline-code tint).
+The first instinct was headless Chromium screenshots fed back into the agent. Capture itself is
+a short shell result. **Opening the PNG in chat is the expensive step** — the image lands in
+context, and repeating it for every CSS tweak multiplies the cost.
+
+**Settled loop:**
+
+1. Agent builds Antora (`cd docs && npm run build`) and names what to inspect (page, element,
+   expected change).
+2. Human previews `_docs_build/site/` locally and reports what looks wrong in words.
+3. Agent iterates from CSS, HTML, and those notes.
+4. Screenshot capture *or* scan happens only when the human asks, or cannot check locally.
+   Prefer a crop over a full-page dump.
+
+This is a process rule, not a product plan. Day-to-day wording lives in `AGENTS.md`
+(Documentation → visual review); this section is why it exists.
 
 ---
 

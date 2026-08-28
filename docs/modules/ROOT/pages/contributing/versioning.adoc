@@ -28,6 +28,7 @@ Use the scripts so CI, the changelog, and the release workflow stay aligned.
 Choose the target when a workstream starts, from what it does to the **public surface**
 (CLI flags, `env.*` methods, `cuppa.run()` arguments, configuration keys):
 
+[cols="3,2,5"]
 |===
 | Change | Impact label | Version step
 

@@ -26,7 +26,7 @@ Windows CI does not install Conan yet (see Out of scope).
 * Conan 2 on `PATH` (`conan version` succeeds) — installed on Linux CI; install locally for developers
 * A Conan default profile (`conan profile detect` once on a fresh Conan home) — Linux CI runs `conan profile detect --force`
 * Network (or a warm Conan cache) for install / plugin scenarios
-* C++ compiler (suite default toolchain)
+* {cpp} compiler (suite default toolchain)
 
 == Generated files (shared pattern)
 
@@ -42,7 +42,7 @@ SConsDeps
 VirtualRunEnv
 ----
 
-Pinned to fmt 12.1.0 (latest on ConanCenter with the Clang 21+ / libc++ fix; fmtlib/fmt#4477). The location-based `cuppa_fmt_plugin` may pin a newer GitHub tag independently.
+Pinned to fmt 12.1.0 (latest on ConanCenter with the Clang 21+ / `libc{plus}{plus}` fix; fmtlib/fmt#4477). The location-based `cuppa_fmt_plugin` may pin a newer GitHub tag independently.
 
 Shared-library scenario adds:
 

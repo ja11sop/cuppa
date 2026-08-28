@@ -1,0 +1,170 @@
+= Reports
+:description: Report generation, source-link styles, remote providers, and persisted policy
+
+Cuppa report options control two related decisions: which report artefacts to emit, and where
+source links in those reports should point. The source-link policy is session-wide unless a
+report-specific override is set.
+
+[[reports-link-style]]
+== Source-link styles
+
+Select the session policy with `--reports-link-style=STYLE`.
+
+[cols="2,3,5"]
+|===
+| Value | Link target | Use
+
+| `local`
+| Local source paths/pages
+| Default for reports consumed from the build machine
+
+| `gitlab`
+| GitLab blob URLs
+| Project sources hosted in GitLab
+
+| `github`
+| GitHub blob URLs
+| Project sources hosted in GitHub
+
+| `remote`
+| Provider chosen from each source repository's host
+| Mixed project/dependency reports whose sources span providers or hosts
+|===
+
+The session option applies to test-suite HTML, Profiles reports, and report types that adopt the
+same policy. Precedence is: a report-specific CLI override, then `--reports-link-style`, then a
+method's `link_style=` value, then `local`. Profiles provide the report-specific
+`--cxx-profiles-report-link-style=STYLE`.
+
+== Remote provider resolution
+
+With `remote`, Cuppa maps each repository host to a provider URL shape. Default host lists include
+the major public services. A non-empty configured host list replaces that provider's defaults, so
+include any public hosts that the same invocation still needs.
+
+[cols="3,3,4"]
+|===
+| Option | Built-in host | Provider shape
+
+| `--reports-github-hosts=LIST`
+| `github.com`
+| GitHub
+
+| `--reports-gitlab-hosts=LIST`
+| `gitlab.com`
+| GitLab
+
+| `--reports-bitbucket-hosts=LIST`
+| `bitbucket.org`
+| Bitbucket
+
+| `--reports-gitea-hosts=LIST`
+| `codeberg.org`, `gitea.com`, `forgejo.org`
+| Gitea, Forgejo, and Codeberg-compatible hosts
+
+| `--reports-azure-devops-hosts=LIST`
+| `dev.azure.com`, `visualstudio.com`
+| Azure DevOps
+|===
+
+Each list is comma-separated and accepts bare hostnames or `https://` URLs; Cuppa normalises values
+to hostnames for suffix matching.
+
+[cols="3,7"]
+|===
+| Option | Unmapped-host behaviour
+
+| `--reports-remote-provider-hints` | Append `GH`, `GL`, `BB`, `GT`, and `AD` links that try common provider URL shapes (default)
+| `--no-reports-remote-provider-hints` | Leave provider hints out
+|===
+
+An unmapped host still links the visible repository root where possible and leaves the
+repo-relative source path as text. Profiles report generation logs one informational summary of
+unmapped hostnames rather than repeating one warning per file.
+
+== Profiles report output
+
+[cols="3,7"]
+|===
+| Option | Effect
+
+| `--cxx-profiles-report[=DIR]` | Capture Profiles diagnostics and emit HTML/JSON under `<artefacts-root>/cxx-profiles/` or `DIR`
+| `--cxx-profiles-report-root=DIR` | Rebase project-owned source paths (default: sconstruct directory)
+| `--cxx-profiles-report-context=MODE` | Select overview context in generated HTML and JSON
+| `--cxx-profiles-report-link-style=STYLE` | Profiles-only override of the session source-link style
+|===
+
+Profiles reporting requires `--cxx-profiles` or `--cxx-profiles-enforce=...`. It implies unlimited
+per-translation-unit diagnostics unless an explicit error-limit policy is selected; see
+xref:cli/toolchains-and-features.adoc#diagnostic-error-limit-policy[Diagnostic error-limit policy].
+
+=== Profiles overview context
+
+[cols="2,3,5"]
+|===
+| Value | Includes | Omits
+
+| `full`
+| Complete overview, matrix, concentration, and tier metrics
+| Nothing (default)
+
+| `rules-only`
+| Rule matrix and concentration context
+| Tier metrics
+
+| `off`
+| Core report tables and source detail
+| Overview context payload
+|===
+
+See xref:cxx-profiles/report.adoc[Violation report] for the generated views and offline
+regeneration.
+
+== Persisting report policy
+
+Report policy can live in `configure.conf` or `cuppa.run(default_options=...)` so a CI invocation
+does not repeat the same host list. The report options mapped below have underscore-form internal
+keys; other Cuppa options may retain hyphens in their SCons destination keys.
+
+[cols="1,1"]
+|===
+| Configuration / `default_options` key | Matching CLI option
+
+| `reports_link_style` | `--reports-link-style=`
+| `cxx_profiles_report_link_style` | `--cxx-profiles-report-link-style=`
+| `cxx_profiles_report_context` | `--cxx-profiles-report-context=`
+| `reports_github_hosts` | `--reports-github-hosts=`
+| `reports_gitlab_hosts` | `--reports-gitlab-hosts=`
+| `reports_bitbucket_hosts` | `--reports-bitbucket-hosts=`
+| `reports_gitea_hosts` | `--reports-gitea-hosts=`
+| `reports_azure_devops_hosts` | `--reports-azure-devops-hosts=`
+| `reports_remote_provider_hints` | `--reports-remote-provider-hints` / `--no-reports-remote-provider-hints`
+|===
+
+To persist a GitLab host for remote source links, add these values to the project
+`configure.conf`:
+
+[source,python]
+----
+reports_link_style = 'remote'
+reports_gitlab_hosts = ['git.corp.example']
+----
+
+The equivalent project policy can be carried in the `sconstruct`:
+
+[source,python]
+----
+cuppa.run(
+    default_options={
+        'reports_link_style': 'remote',
+        'reports_gitlab_hosts': ['git.corp.example'],
+    },
+)
+----
+
+The CLI remains the highest-precedence choice. See
+xref:configuration.adoc#html-report-source-links-without-ci-flags[HTML report source links without
+CI flags] for the full configuration walkthrough.
+
+You have now selected both the report payload and the source-link destination. Return to
+xref:cli-reference.adoc[CLI reference] for common command combinations.

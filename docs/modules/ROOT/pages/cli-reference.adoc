@@ -1,266 +1,199 @@
 = CLI reference
-:description: Cuppa command-line options grouped by concern
+:description: How Cuppa and SCons command-line options compose
 
-Cuppa registers options through SCons `AddOption`.
-They appear when you run `cuppa` or `scons` against a project whose `sconstruct` calls `cuppa.run()`.
-Standard SCons flags (`-D`, `-j`, `-c`, `-Q`, …) still apply.
+Cuppa presents one command line for selecting a build, running actions, inspecting state, and
+maintaining local storage. It extends SCons rather than replacing its parser, so a full invocation
+can include four kinds of input:
 
-== Everyday build control
+[source,sh]
+----
+cuppa [SCons options] [Cuppa options] [VARIABLES] [TARGETS]
+----
 
+In everyday Cuppa use you mostly pass SCons options such as `-D` and Cuppa options such as
+`--dbg`, `--toolchains=`, and `--test`. Projects normally express *what* to build in `sconscript`
+files (`env.Build`, `env.BuildTest`, …) and select slices with Cuppa's named options
+(`--scripts=`, variants, toolchains, actions). The design rationale is in
+xref:concepts.adoc#command-line[Concepts: Command line and project description].
+
+NOTE: `[VARIABLES]` and `[TARGETS]` in the anatomy above are SCons capabilities Cuppa inherits.
+They remain valid for advanced or diagnostic use, but they are **not** the encouraged everyday
+path. Prefer sconscript intent plus Cuppa selectors over ad-hoc construction variables and bare
+target names.
+
+SCons parses one combined option stream: its built-in options control graph traversal and
+execution, while options registered by Cuppa add variants, toolchains, dependencies, reports, and
+maintenance actions. The bracketed groups above describe ownership, not separate parser namespaces;
+options can be interleaved.
+
+You can invoke an SConstruct file that imports `cuppa` using either `scons` or `cuppa`.
+The `cuppa` entry point is `scons` plus a small wrapper: it appends `--cuppa-mode` as a session
+marker, intercepts stdout and stderr to mask environment values whose names contain `TOKEN`,
+injects `-i` when a Profiles inventory run needs it, and may restrict CPU affinity when
+`--parallel` is set.
+
+Calling `scons` directly against the same project still builds the same graph. It does **not**
+install that intercept. Passing `--cuppa-mode` to `scons` yourself only sets the marker; it is
+not a substitute for running `cuppa`. Cuppa's own logger still redacts secrets registered
+in-process (GitLab package tokens, expanded location URLs) either way.
+
+TIP: Prefer `cuppa` over `scons` in CI and anywhere registry or job tokens may appear in
+command lines or logs. See xref:cli/output-and-environment.adoc#cuppa-mode[The `cuppa` wrapper
+and `--cuppa-mode`].
+
+== Discovering the available options
+
+Cuppa registers options while the project's `SConstruct` loads. Dependencies and plugins can add
+their own options, so the authoritative list is project-specific. Running `cuppa -h` or
+`cuppa --help` outside a project tree, or from a nested directory without `-D`, shows only
+SCons-native options.
+
+Running the following command from anywhere in a Cuppa project tree will correctly load the project
+and print its Cuppa options:
+
+[source,sh]
+----
+cuppa -D -h
+----
+
+The `-D` option finds the top-level `SConstruct` and evaluates the project before `-h` prints its
+registered help.
+
+== Common use cases
+
+These commands show the combinations used most often. Cuppa options compose: adding `--offline`
+does not change the selected variant, and adding `-Q` changes presentation rather than what is
+built.
+
+[TIP]
+====
+In general you want be able to run Cuppa from anywhere in the project tree so it makes sense
+to start all commands as:
+
+[source,sh]
+----
+cuppa -D [Options] ...
+----
+
+In the examples that follow we use this convention.
+====
+
+[cols="3,4,3"]
 |===
-| Option | Description
+| Goal | Command | Why these options
 
-| `--dbg` | Debug variant
-| `--rel` | Release variant
-| `--cov` | Coverage-instrumented variant (does *not* imply `--test`)
-| `--test` / `--force-test` | Run test targets
-| `--benchmark` / `--force-benchmark` | Run benchmark targets
-| `--run` / `--force-run` | Run `Run()` targets
-| `--toolchains=LIST` | Comma-separated toolchain names; supports fnmatch wildcards (`gcc*`, `clang21`)
-| `--toolchain-archive=URL` | Clang or GCC archive URL/path (tarball/zip/`.deb`). Family from `clang`/`gcc` in the basename, else content probe, else `.deb`→gcc. Cached under `toolchains/{clang,gcc}/` and registered as `clang\{major}_\{tag}` or `gcc\{major}_\{stem}` (later runs reuse via `--toolchains=` alone)
-| `--clang-root=PATH` | Existing Clang prefix (`bin/clang{plus}{plus}`); registers `clang\{major}_local_\{hash}` and persists a link under `dependencies_root/toolchains/clang/`
-| `--gcc-root=PATH` | Existing GCC prefix (`bin/g{plus}{plus}`); registers `gcc\{major}_local_\{hash}` and persists a link under `dependencies_root/toolchains/gcc/`
-| `--scripts=LIST` / `--projects=LIST` | Limit which sconscripts run
-| `--parallel` | Parallel build (`-j` sized to the machine; `cuppa` may restrict CPU affinity)
-| `--offline` | Skip PyPI version check and remote repository updates
-| `--develop` | Prefer develop locations / develop package paths where configured
-| `--stdcpp=STD` | Override {cpp} dialect (`c{plus}{plus}98` … `c{plus}{plus}26`, `c{plus}{plus}latest`). Omitting it is effectively `c{plus}{plus}latest` on GCC/Clang (newest Cuppa-known dialect for that tool). See xref:toolchains.adoc#c-language-level[C++ language level]
+| Build debug
+| `cuppa -D --dbg`
+| Find the project and select the debug variant
+
+| Build release
+| `cuppa -D --rel`
+| Select the optimised release variant
+
+| Build and run tests
+| `cuppa -D --dbg --test`
+| Build debug test targets, then execute them
+
+| Measure coverage
+| `cuppa -D --cov --test`
+| Instrument the build and run the tests; `--cov` alone does not execute them
+
+| Build a toolchain matrix
+| `cuppa -D --dbg --toolchains=gcc,clang`
+| Select more than one discovered toolchain
+
+| Use local dependency copies
+| `cuppa -D --dbg --develop --offline`
+| Prefer configured develop paths without contacting remotes
+
+| Preview work
+| `cuppa -D --dbg -n`
+| Construct the graph and print actions without executing them
+
+| Reduce wrapper noise
+| `cuppa -D --dbg -Q`
+| Suppress SCons reading/building messages while retaining commands and Cuppa output
+
+| Inspect storage
+| `cuppa -D -Q --list-dependencies`
+| Print dependency inventory instead of building
 |===
 
-== Output and diagnostics
+== Everyday options
 
+[cols="3,7"]
 |===
-| Option | Description
+| Option | Purpose
 
-| `--raw-output` | Disable cuppa output processing / colour
-| `--standard-output` | Processed output without colour
-| `--minimal-output` | Errors and warnings only
-| `--ignore-duplicates` | Suppress repeated diagnostics
-| `--verbosity=LEVEL` | `trace`, `debug`, `exception`, `info`, `warn`, `error`
-| `--show-test-output` | Show test process stdout/stderr
-| `--suppress-process-output` | Suppress subprocess stdout/stderr
-| `--enable-thirdparty-logging` | Allow logs from third-party modules (for example pip)
-| `--dump` | Dump the default environment and exit
+| `-D` | Find the top-level `SConstruct` and build its default targets
+| `--dbg` / `--rel` / `--cov` | Select one or more build variants
+| `--toolchains=LIST` | Select discovered toolchains by comma-separated name or wildcard
+| `--test` / `--run` / `--benchmark` | Execute the corresponding targets after building
+| `--scripts=LIST` | Limit which sconscripts contribute targets
+| `--parallel` | Choose a hardware-sized SCons job count
+| `--develop` | Prefer configured local dependency copies
+| `--offline` | Avoid PyPI checks and remote location updates
+| `-n` / `--no-exec` | Preview build or maintenance actions
+| `-Q` | Suppress SCons progress messages without hiding build commands
 |===
 
-TIP: If cuppa fails early while reading sconscripts, re-run with `--verbosity=exception` or `--verbosity=debug`.
+== Command output
 
-== Storage
+Output comes from three layers: SCons reports graph progress and build actions, Cuppa reports
+selection and structured status, and the invoked compiler, test, or process writes native output.
+The controls are deliberately separate. For example, `-Q` quiets SCons without hiding compiler
+commands, while `--minimal-output` filters Cuppa's processed diagnostics and
+`--show-test-output` exposes test-process streams.
 
+Use `--verbosity=exception` when an exception occurs while reading the project; use
+`--verbosity=debug` when the selection or configuration leading to it is unclear. The detailed
+output-mode and environment-propagation tables are on
+xref:cli/output-and-environment.adoc[Output and environment].
+
+== Detailed reference
+
+[cols="2,3,4"]
 |===
-| Option | Default
+| Concern | Page | Covers
 
-| `--build-root` | `_build`
-| `--artefacts-root` | `_artefacts` — generated reports and other project artefacts outside the build tree
-| `--artifacts-root` | US spelling alias for `--artefacts-root` (same `env` keys)
-| `--storage-root` | `~/.cuppa` -- the parent of the two roots below
-| `--dependencies-root` | `<storage-root>/dependencies` -- retrieved trees, ready to build against
-| `--downloads-root` | `<storage-root>/downloads` -- the archives they came from
-| `--download-root` | Deprecated alias for `--dependencies-root`
-| `--cache-root` | Deprecated alias for `--downloads-root`
-| `--thirdparty=DIR` | Third-party directory hint
+| Building
+| xref:cli/building.adoc[Building]
+| Cuppa build selectors, useful SCons options, test/run actions, and project generation
+
+| Output and subprocesses
+| xref:cli/output-and-environment.adoc[Output and environment]
+| Console modes, verbosity, the ``cuppa`` wrapper / ``--cuppa-mode``, test runners, deciders, shell environment, and process execution
+
+| Roots and persistence
+| xref:cli/storage-and-configuration.adoc[Storage and configuration]
+| Build/artefact/storage roots, aliases, configuration precedence, and save/update operations
+
+| Inspection and removal
+| xref:cli/inspect-and-maintain.adoc[Inspect and maintain]
+| Listings, formats, scopes, clean/remove/purge/wipe distinctions, selectors, and dry runs
+
+| Dependencies
+| xref:cli/dependencies-and-develop.adoc[Dependencies and develop]
+| Develop working copies, branch matching, dynamic location/package flags, Boost, and publishing
+
+| Toolchains and language features
+| xref:cli/toolchains-and-features.adoc[Toolchains and features]
+| Selection, fetched toolchains, dialects, Clang stdlib, modules, Profiles, and error limits
+
+| Reports
+| xref:cli/reports.adoc[Reports]
+| HTML source links, remote providers, Profiles report output/context, and persistence keys
 |===
 
 [[reports-link-style]]
-== HTML report source links
+=== HTML report source links
 
-|===
-| Option | Description
+The source-link options moved to xref:cli/reports.adoc#reports-link-style[Reports: source-link
+styles]. This anchored pointer preserves links to the former section on this page.
 
-| `--reports-link-style=local|gitlab|github|remote` | Session-wide source link targets for HTML reports this run emits (test suite HTML, C++ Profiles reports, and future coverage source links). Overrides `link_style=` method kwargs when the sconscript leaves the default unset; per-report flags below override this session flag. Use `remote` when dependency sources live on a different host than the project repository.
-| `--cxx-profiles-report-link-style=local|gitlab|github|remote` | Profiles-only override of `--reports-link-style` for `--cxx-profiles-report` output and `.cuppa-reports` manifest matching
-| `--reports-github-hosts=HOST[,HOST…]` | Extra GitHub host suffixes for ``remote`` link resolution (defaults include ``github.com``)
-| `--reports-gitlab-hosts=HOST[,HOST…]` | Extra GitLab host suffixes (defaults include ``gitlab.com``)
-| `--reports-bitbucket-hosts=HOST[,HOST…]` | Extra Bitbucket host suffixes (defaults include ``bitbucket.org``)
-| `--reports-gitea-hosts=HOST[,HOST…]` | Extra Gitea / Forgejo / Codeberg host suffixes
-| `--reports-azure-devops-hosts=HOST[,HOST…]` | Extra Azure DevOps host suffixes (defaults include ``dev.azure.com``)
-| `--reports-remote-provider-hints` | For unmapped ``remote`` hosts, append ``GH`` / ``GL`` / ``BB`` / ``GT`` / ``AD`` links that try common provider URL shapes (default on)
-| `--no-reports-remote-provider-hints` | Disable provider hint links for unmapped ``remote`` hosts
-|===
+[[environment-propagation]]
+=== Environment propagation
 
-Test reports: `env.GenerateHtmlTestReport(…, link_style=…)` still sets a per-target default; `--reports-link-style=` wins when you need CI-published blob links without editing sconscripts. See xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[C++ Profiles violation report] for Profiles-specific flags and offline regen.
-
-With ``remote``, cuppa maps each file's repository host to a blob URL shape when the host matches a recognised provider (GitHub, GitLab, Bitbucket, Gitea/Forgejo/Codeberg, or Azure DevOps). Extend the default host lists with the ``--reports-*-hosts=`` flags above; each entry may be a bare hostname (``git.corp.example``) or an ``https://`` URL — cuppa normalises to the hostname for matching. Unmapped hosts link only the repository root in the visible path and append plain repo-relative text; optional provider hint links try alternate URL shapes. One console info line lists unmapped hostnames per Profiles report run.
-
-==== Persisting link style and host lists
-
-You do not need to pass these flags on every CI invocation. The internal option keys
-(underscores) can live in project ``configure.conf`` or in ``cuppa.run(default_options=…)`` in
-the ``sconstruct`` — the same mechanism as ``develop`` and ``offline``. Command-line flags still
-win when present.
-
-[source,python]
-----
-# configure.conf (beside sconstruct)
-reports_link_style = 'remote'
-reports_gitlab_hosts = ['git.corp.example']
-----
-
-[source,python]
-----
-# sconstruct
-cuppa.run(
-    default_options={
-        'reports_link_style': 'remote',
-        'reports_gitlab_hosts': ['git.corp.example'],
-    },
-)
-----
-
-One-time capture from a local run: ``cuppa -D --reports-link-style=remote
---reports-gitlab-hosts=git.corp.example --save-conf``. Full walk-through:
-xref:configuration.adoc#html-report-source-links-without-ci-flags[HTML report source links without CI flags].
-
-|===
-| Conf / `default_options` key | Matching CLI flag
-
-| `reports_link_style` | `--reports-link-style=`
-| `cxx_profiles_report_link_style` | `--cxx-profiles-report-link-style=`
-| `reports_github_hosts` | `--reports-github-hosts=`
-| `reports_gitlab_hosts` | `--reports-gitlab-hosts=`
-| `reports_bitbucket_hosts` | `--reports-bitbucket-hosts=`
-| `reports_gitea_hosts` | `--reports-gitea-hosts=`
-| `reports_azure_devops_hosts` | `--reports-azure-devops-hosts=`
-| `reports_remote_provider_hints` | `--reports-remote-provider-hints` / `--no-reports-remote-provider-hints`
-|===
-
-Host list values are Python lists (comma-separated on the CLI). Defaults for the major public
-providers still apply; configured hosts are **added** to those defaults, not replacements.
-
-The dependencies and downloads roots are shared between projects. Set `--storage-root` to move
-both, or name one of them to move only that half. See xref:build-layout.adoc[Build layout] for
-what goes where and for how cuppa treats storage left by an earlier version.
-
-== Build listing and removal
-
-These run instead of a build: cuppa resolves the same toolchain and variant selection the build
-would use, reports or removes, and exits. Annotated example output for each command is in
-xref:build-layout.adoc#listing-and-removing-builds[Listing and removing builds]
-(xref:build-layout.adoc#list-builds-example[`--list-builds`],
-xref:build-layout.adoc#remove-builds-example[`--remove-builds`],
-xref:build-layout.adoc#remove-all-builds-example[`--remove-all-builds`]).
-
-|===
-| Option | Effect
-
-| `--list-builds` | List the build root as folder summary, toolchain → variant tree, and sconscript tree; print an explicit command for the selected builds
-| `--list-available-reports` | List built-in HTML report kinds and which registered/discovered toolchains on this system can produce each (via coverage/profiles/test capability probes—not a scan of report files on disk); default artefact paths, CLI flags, sconscript methods, and clean behaviour; supports `--list-format=json`. Use `-Q` for readable output.
-| `--list-toolchains` | List **discovered** (PATH) and **registered** (managed) toolchains as a ruled family → version → driver → name(s) tree; then exit. Force-wipe applies only to registered rows. `--list-format=verbose` adds dialects / features / default invocations; `--list-format=json` emits the nested agent payload (with `describe` on drivers). See xref:toolchains.adoc#list-toolchains[Listing toolchains]
-| `--remove-builds` | Remove variant subtrees matching the current `--toolchains` / `--dbg` / `--rel` / `--cov` selection
-| `--remove-all-builds` | Remove the entire build root
-| `--list-dependencies` | List dependency trees under the dependencies root as a hierarchical table (referenced then unreferenced; short-name groups; REMARK) and exit. Omit `--develop` for normal storage inspection; see xref:dependencies/managing.adoc#which-listing[Which listing for which question]
-| `--list-downloads` | List cached archives under the downloads root as a hierarchical table (archive + extract/package leaves; referenced then unreferenced) and exit. Footer totals are archive bytes only. See xref:dependencies/managing.adoc#list-downloads[Listing downloads]
-| `--list-scope=all\|referenced\|compact\|unreferenced` | Which part of `--list-dependencies` / `--list-downloads` to show (default `all`). `referenced` keeps unused siblings under resolved identities; `compact` is a refinement of `referenced` (resolve-selected leaves only). Orthogonal to `--list-format`. Ignored by `--list-builds` / `--list-develop`. Persist as `list_scope` in `~/.cuppaconfig`. `--list-dependencies-scope` is a deprecated alias
-| `--remove-dependencies=LIST` | Remove named dependencies (comma-separated project-used keys, optional `[selector]name[/qualifier]` tokens — see xref:dependencies/managing.adoc#dependency-tokens[Dependency tokens]) for the current toolchain / variant / location-match selection, then exit. When a dependency supports `storage_clean` (source Boost), only selection-scoped build products are removed and the extract stays; otherwise the owned tree under the dependencies root is removed. Reports leftovers for other selections; never deletes develop working copies or downloads. Built-in factories not named by the project are rejected
-| `--remove-all-dependencies` | As `--remove-dependencies` for every dependency this project uses (defaults ∪ declared)
-| `--purge-dependencies=LIST` | As `--remove-dependencies` plus matching archives under `--downloads-root` for the same names and selection (same token grammar). `--purge-all-*` means every **project-used** name, not leftover toolchain tarballs on disk. Missing downloads are not a failure. Do not combine with `--remove-*` or `--wipe-*`. See xref:dependencies/managing.adoc#purge-dependencies[Purging dependencies and downloads]
-| `--purge-all-dependencies` | As `--purge-dependencies` for every dependency this project uses (defaults ∪ declared)
-| `--wipe-dependencies=LIST` | Clear-down named **project-used** dependency extracts and matching downloads for the current selection (same token grammar). Unlike purge, archive / source Boost extracts are deleted too so the next build re-fetches. For specific versions or branches from the list tree, use `--force-wipe-dependencies`. Do not combine with `--remove-*`, `--purge-*`, or other wipe modes. See xref:dependencies/managing.adoc#wipe-dependencies[Wiping dependencies]
-| `--force-wipe-dependencies=TOKEN,…` | Power tool: clear-down list-tree leaves by `[selector]name[/qualifier]` (e.g. `boost/1.86.0`, `[source]boost/1.8*`, `fmt/@11.1.1`, `widget/@` for an unqualified stem) and matching downloads, regardless of referenced / unreferenced / in use. See xref:dependencies/managing.adoc#force-wipe-dependencies[Force-wiping named leaves]
-| `--force-wipe-all-dependencies` | Power tool: clear-down every project-used dependency extract and matching downloads for the current selection (not unreferenced leftovers)
-| `--force-wipe-unreferenced-dependencies` | Power tool: clear-down every dependency tree and matching download this resolve marks as `unreferenced` (orphans). Rare blunt sweep — prefer leaf tokens for old Boost versions under a referenced identity
-| `--exact-sizes` | Force a full remeasure of every dependency tree size (updates the inventory). Without this flag, `--list-dependencies` still upgrades missing or estimated (`~`) inventory sizes to exact the first time it encounters them
-| `--list-format=text\|verbose\|json` | Format for `--list-*` output (default `text`). On `--list-dependencies`, `verbose` adds LOCATION (remotes, registry URLs, archive names) and prefixes regenerating downloads with `[D]`. On `--list-downloads`, `verbose` adds archive and extract paths. On `--list-toolchains`, `verbose` adds available dialects / stdlib choices / default invocations under each driver; `json` includes the same `describe` payload on driver nodes. On `--list-develop`, `json` emits structured state (`verbose` is the same as `text`)
-|===
-
-SCons `-n` / `--no-exec` turns build or dependency removal into a dry run: the same report, nothing deleted.
-Containment, symlink refusal, and refusal of home / filesystem / sconstruct-directory roots are
-described in xref:build-layout.adoc#removal-safety[Safety and scope].
-Artefact trees outside the build root (for example `_artefacts/`) are not removed.
-`--remove-dependencies` does not touch `--downloads-root`. Use `--list-downloads` to inspect
-cached archives, `--purge-dependencies` to delete matching ones while leaving archive extracts that
-`storage_clean` preserves, and `--wipe-dependencies` / `--force-wipe-dependencies` for a
-full clear-down.
-
-== Configuration persistence
-
-See xref:configuration.adoc[Configuration] for `--show-conf`, `--save-conf`, `--update-conf`, `--clear-conf`, `--remove-settings`, global variants, and `--use-conf`.
-
-== Location / develop workflow
-
-|===
-| Option | Description
-
-| `--develop` | Use develop locations for location/package dependencies that define them
-| `--list-develop` | Report the state of each configured develop working copy and exit (no network access). Does not require `--develop`; use `--list-format=json` for a machine-readable report. See xref:dependencies/managing.adoc#checking-your-develop-copies[Checking your develop copies]
-| `--clone-develop` | Clone missing or empty configured develop paths from the dependency's unexpanded git URL and exit. Recurses submodules; refuses non-empty destinations and tag/revision pins. Not available with `--offline`. See xref:dependencies/managing.adoc#checking-your-develop-copies[Checking your develop copies]
-| `--checkout-develop-branch=NAME` | Switch each develop git working copy to branch `NAME` (`current` = consumer project branch). Creates via the develop base + pull when needed; refuses dirty/unpushed copies. Not available with `--offline`
-| `--reset-develop-branch[=NAME]` | Return each develop git working copy to a branch, then fetch and fast-forward where safe. Bare / `base` → develop base; `default` → published default; `current` / `NAME` as named. Does not delete leftover feature branches. Not available with `--offline`
-| `--update-develop` | Fetch each git develop working copy and fast-forward those that are clean and behind; refuse under `--offline`
-| `--location-default-branch` | Published default branch name (default `master`) used in offline / relative location logic and by `--list-develop`
-| `--location-base-branch` | Develop home: create-from and bare `--reset-develop-branch` target. When unset, equals `--location-default-branch`
-| `--location-match-current-branch` | For relative locations (`path@`), try the current branch
-| `--location-explicit-default-branch` | Record the default branch explicitly in local checkouts
-| `--location-match-branch` / `--location-match-tag` | Pin relative locations to a branch or tag
-|===
-
-Per-dependency location options follow the pattern `--<name>-location`, `--<name>-develop`, `--<name>-include`, `--<name>-sys-include`, `--<name>-branch-path`, and related flags.
-
-See xref:dependencies/managing.adoc#checking-your-develop-copies[Checking your develop copies] for what each state means and what `--update-develop` changes.
-
-== Environment propagation
-
-These flags control how much of your **shell** environment Cuppa passes into build, test, and run subprocesses (compilers, linkers, `BuildTest` / `Run` binaries, and similar).
-
-|===
-| Option | Description
-
-| `--propagate-env` | Pass the full parent environment to subprocesses
-| `--propagate-path` | Pass only the parent shell `PATH`
-| `--merge-path` | Merge the parent shell `PATH` with Cuppa’s managed path (parent entries kept, Cuppa defaults included)
-| `--inherit-process-env` | For `--test` / `--run` shell children only: merge the *current* process environment at each spawn (`env['ENV']` wins on clashes). Escape hatch when a setup step updates `os.environ` but not `env['ENV']`; prefer `export_for_subprocess` or returning a dict from Run callables
-| `--use-shell` | Escape hatch: run coloured `SPAWN` subprocesses with `shell=True` (joins the argv list into one shell command). Prefer `working_dir` / `cwd=` / Python actions instead of multi-part shell strings such as `cd … && …`. See xref:methods.adoc#custom-commands-and-working-directories[Custom commands and working directories].
-| `--decider=DECIDER` | SCons decider: `timestamp-newer`, `timestamp-match`, `MD5`, `MD5-timestamp` (default)
-| `--runner=NAME` | Test runner (default `process`)
-|===
-
-**When to use them**
-
-* Use `--propagate-path` or `--merge-path` when tools you need (for example a Homebrew Clang, or extra utilities) are on your shell `PATH` but not on Cuppa’s default path.
-* Use `--propagate-env` when subprocesses need other shell variables as well (credentials, `PKG_CONFIG_PATH` customisations beyond what Cuppa already forwards, locale settings, and so on). Prefer the narrower path flags when only `PATH` matters.
-* `--propagate-env` copies the shell environment once when each variant build environment is created. It does **not** pick up variables written later via `os.environ` in a sconscript. For graph-time exports use `export_for_subprocess( env, ... )`, return a dict from a Run callable, or as a last resort `--inherit-process-env` / `inherit_process_env=True` on a specific Run/Test.
-* Without these flags, Cuppa still forwards host `PKG_CONFIG_PATH` when it is set, so system `.pc` discovery continues to work.
-
-**What they are not for**
-
-Dependencies that install their own shared libraries (for example the optional xref:dependencies/conan.adoc#conan-2-consumer-optional[Conan consumer]) add library search paths for `--test` / `--run` themselves. You do **not** need `--propagate-env` for those packages to load at test time.
-
-== Toolchain-specific
-
-Clang:
-
-* `--clang-stdlib=libstdc{plus}{plus}` or `--clang-stdlib=libc{plus}{plus}` (Linux default: `libstdc{plus}{plus}`; non-default values tag `toolchain.name()` / `_build` paths, e.g. `clang21-libc{plus}{plus}`)
-* `--clang-disable-debug-for-auto`
-
-Modules (opt-in; GCC 14+ / LLVM Clang 16+ / MSVC toolset 14.2+):
-
-* `--cxx-modules` -- enable named modules, partitions, header units, and `import std` when the toolchain supports it (see xref:cxx-modules.adoc[C++ Modules])
-* `--modules` -- deprecated alias for `--cxx-modules` (removed in cuppa 2.0)
-
-C++ Profiles (opt-in; Profiles-capable Clang only):
-
-* `--cxx-profiles` -- enable the C++ Profiles framework (`-fprofiles`) when the toolchain supports it (StopError otherwise; use a C++ Alliance Profiles Clang archive via `--toolchain-archive=` / `--clang-root=`)
-* `--cxx-profiles-enforce=<designators>` -- comma-separated profile designators to enforce on every C++ translation unit (implies `--cxx-profiles`). Example: `--cxx-profiles-enforce=std::init`. When the toolchain has no native enforce flag, cuppa injects `[[profiles::enforce(…)]];` via `-include`, or merges CLI designators into an existing source `[[profiles::enforce(…)]];` in a build-tree view
-* `--cxx-error-limit=<N>` -- set the C++ compiler diagnostic cap (`0` = unlimited; Clang `-ferror-limit=N`, GCC `-fmax-errors=N`). Overrides Profiles inventory implication and `--cxx-disable-error-limit`
-* `--cxx-default-error-limit` -- restore the toolchain default diagnostic cap: strip any existing
-  ``-ferror-limit`` / ``-fmax-errors`` flags from ``CXXFLAGS`` / ``CCFLAGS`` and do not append a
-  cuppa flag. Overrides unlimited implied by `--cxx-profiles-report` / `CollateCxxProfilesIndex()`
-* `--cxx-disable-error-limit` -- disable the compiler diagnostic cap (Clang `-ferror-limit=0`, GCC `-fmax-errors=0`); shorthand for `--cxx-error-limit=0` on non-inventory enforce sweeps
-* `--cxx-profiles-report` -- capture Profiles diagnostics during the build and emit HTML + JSON under `_artefacts/cxx-profiles/` at session end (requires `--cxx-profiles` or `--cxx-profiles-enforce=`; implies unlimited per-TU diagnostics unless `--cxx-default-error-limit` or `--cxx-error-limit=` is set; optional directory path after `=`; or declare `env.CollateCxxProfilesIndex()` in a sconscript)
-* `--cxx-profiles-report-root=<dir>` -- rebase project-owned source paths in Profiles reports (default: sconstruct directory)
-* `--cxx-profiles-report-link-style=local|gitlab|github|remote` — Profiles-only override of `--reports-link-style`
-
-See xref:cxx-profiles.adoc[C++ Profiles].
-
-Boost (source dependency) includes `--boost-home`, `--boost-location`, `--boost-version`, `--boost-latest` (override a pin or force refresh — unpinned Boost implies latest without this flag; see xref:dependencies/builtins/boost.adoc[Boost (source)]), `--boost-build-always`, `--boost-verbose-build`, `--boost-verbose-config`, `--boost-patched` (alias `--boost-patch-boost-test`: select the `patched/` home instead of `clean/`).
-
-== Packages
-
-* `--publish-package` -- enable publish actions from `env.PublishPackage(...)`
-* Per-package GitLab options: `--<name>-package-manager`, `--<name>-gitlab-registry`, `--<name>-gitlab-package`, `--<name>-gitlab-version`, `--<name>-gitlab-variant`, `--<name>-gitlab-develop`, `--<name>-gitlab-custom-token`, and related flags
-
-See xref:packages.adoc[Publishing packages].
-
-== Project generators
-
-Code::Blocks export: `--generate-cbs` plus related include/exclude path filters.
+The subprocess environment options moved to
+xref:cli/output-and-environment.adoc#environment-propagation[Output and environment: environment
+propagation]. This anchored pointer preserves links to the former section on this page.

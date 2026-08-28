@@ -51,7 +51,8 @@ present. See xref:dependencies/managing.adoc#force-wipe-dependencies[Force-wipin
 With `--develop`, location dependencies that define a develop path use the local tree instead of fetching.
 Check those copies with xref:dependencies/managing.adoc#checking-your-develop-copies[`--list-develop`].
 
-Relative locations ending in `@` participate in `--location-match-*` branch/tag behaviour (see xref:cli-reference.adoc[CLI reference]).
+Relative locations ending in `@` participate in `--location-match-*` branch/tag behaviour (see
+xref:cli/dependencies-and-develop.adoc[Dependencies and develop]).
 
 Location factories can declare `storage_paths()` so listing and removal see the owned tree without
 retrieving it. See xref:dependencies/extending.adoc[Writing your own dependencies].

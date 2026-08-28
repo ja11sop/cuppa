@@ -20,6 +20,7 @@ Optional: `init_env_for_variant(sconscript_exports)` for per-variant setup.
 
 Third-party packages can register plugins without forking cuppa:
 
+[cols="3,7"]
 |===
 | Group | Purpose
 
@@ -30,6 +31,7 @@ Third-party packages can register plugins without forking cuppa:
 
 == Factories
 
+[cols="1,1"]
 |===
 | Factory | Module
 
@@ -52,6 +54,7 @@ After `pip install`, consumers list the dependency **by name** in `default_depen
 
 Two complete examples live under `examples/`. Both register the dependency name `fmt`; install **one** of them in a given environment (they are alternative supply chains for the same name).
 
+[cols="3,5,2"]
 |===
 | Example | Supply chain | Package
 
@@ -209,7 +212,7 @@ pytest -m unit
 pytest -m integration
 ----
 
-`pytest -m integration` requires a C++ compiler (typically `g++`).
+`pytest -m integration` requires a {cpp} compiler (typically `g{plus}{plus}`).
 Smoke-test against `examples/minimal/` after installing your working tree (`pip install -e .` or `PYTHONPATH`).
 
 Lint settings live in xref:linting.adoc[Linting].

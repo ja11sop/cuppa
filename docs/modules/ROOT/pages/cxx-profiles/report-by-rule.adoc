@@ -18,7 +18,7 @@ Pair report builds with `--cxx-disable-error-limit` when you need a complete inv
 
 Each rule row shows:
 
-[cols="1,3"]
+[cols="1,4"]
 |===
 | Column | Meaning
 
@@ -55,7 +55,7 @@ that build), not Union Refs. **File indices** use orange normal-weight type (`pr
 
 Expand a row to open the **file detail subtable** (one row per violating file index).
 
-[cols="1,3"]
+[cols="1,4"]
 |===
 | Column | Meaning
 
@@ -120,7 +120,7 @@ Rule: `static_runtime_init` (`std::init` profile).
 
 === Session totals for this rule
 
-[cols="1,1,3"]
+[cols="1,3,6"]
 |===
 | Metric | Total | Notes
 
@@ -187,7 +187,7 @@ identities, the `=` line shows the **common** bucket (present in every catalog b
 
 Per-build inventory for this rule (summed diagnostic refs, not unioned):
 
-[cols="1,1,1,1"]
+[cols="1,3,2,4"]
 |===
 | Build | Violation identities | Build Refs | Role
 
@@ -208,7 +208,7 @@ build's partition. Use **Build Refs** in the subtable to decode a specific index
 
 === When to use which column
 
-[cols="1,2,2"]
+[cols="4,3,3"]
 |===
 | Question | Column | This example
 
@@ -272,4 +272,4 @@ without a redundant `= 76` common line.
 * xref:cxx-profiles/report-by-build.adoc[Violations By-Build tab]
 * xref:cxx-profiles/report-by-sconscript.adoc[Violations By-Sconscript]
 * xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[Violation inventory report] — flags, artefacts, offline regen
-* xref:cli-reference.adoc[CLI reference] — `--cxx-profiles-report-context=full|rules-only|off`
+* xref:cli/reports.adoc#profiles-overview-context[Reports] — `--cxx-profiles-report-context=full|rules-only|off`

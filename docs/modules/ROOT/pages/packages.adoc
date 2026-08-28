@@ -97,6 +97,7 @@ If several `PublishPackage` nodes appear in the graph, each publisher runs when 
 Cuppa does not store Conan credentials.
 Configure remotes and login before the Cuppa job (or in CI):
 
+[cols="2,3"]
 |===
 | Mechanism | Notes
 
@@ -114,7 +115,7 @@ Recipes with `requires` still need those packages already cached locally under `
 === Consumer round-trip
 
 A second Cuppa project can require the published reference through existing `cuppa.conan_deps` / `conan_dependency` (see xref:dependencies/conan.adoc#conan-2-consumer-optional[Conan packages]).
-Settings fidelity matters: consume with the same toolchain, variant, arch, and C++ dialect that produced the package.
+Settings fidelity matters: consume with the same toolchain, variant, arch, and {cpp} dialect that produced the package.
 
 [WARNING]
 ====

@@ -1,0 +1,195 @@
+= Output and environment
+:description: Console modes, diagnostics, subprocess environments, and test runners
+
+A Cuppa command combines SCons progress, Cuppa status, native build commands, and child-process
+output. These options let you change one layer without accidentally hiding another.
+
+== Output modes
+
+[cols="3,7"]
+|===
+| Option | Effect
+
+| `--raw-output` | Disable Cuppa processing and colourisation; native text passes through
+| `--standard-output` | Keep Cuppa processing but disable colour
+| `--minimal-output` | Reduce processed output to errors and warnings
+| `--ignore-duplicates` | Suppress repeated diagnostics recognised by the output processor
+| `--show-test-output` | Show stdout and stderr from test processes
+| `--suppress-process-output` | Suppress stdout and stderr from invoked processes
+| `--enable-thirdparty-logging` | Allow logs from third-party modules such as pip
+| `--dump` | Dump the default construction environment and exit
+| `-Q` | Suppress SCons reading/building progress, but keep commands and Cuppa output
+| `-s` / `--silent` | Suppress SCons progress and command lines
+|===
+
+`-Q` is usually the right companion for `--list-*`: it removes SCons framing while leaving the
+inventory intact. `--minimal-output` serves a different purpose; it filters Cuppa's processed
+messages.
+
+[[cuppa-mode]]
+== The `cuppa` wrapper and `--cuppa-mode`
+
+`cuppa` is not a second build engine. It launches `scons` with your arguments and appends
+`--cuppa-mode`. The behaviours that differ from a bare `scons` invocation live in that wrapper,
+not in a SCons option handler.
+
+[cols="3,7"]
+|===
+| Behaviour | Where it runs
+
+| Append `--cuppa-mode`
+| Wrapper; session marker on the inner SCons process. Excluded from `--save-conf`. Not read to
+  switch colour, verbosity, or masking inside `cuppa.run()`
+
+| Mask `*TOKEN*` environment values on SCons stdout/stderr
+| Wrapper pipe. Replaces each matching variable's *value* with its *name* so
+  `CI_JOB_TOKEN`, `GITLAB_REGISTRY_TOKEN`, and similar secrets do not land in captured logs
+
+| Inject `-i` / `--ignore-errors` for Profiles inventory
+| Wrapper, when `--cxx-profiles-report` or `CollateCxxProfilesIndex()` implies an inventory run
+  and you did not already pass `-i`
+
+| Restrict CPU affinity with `--parallel`
+| Wrapper (`psutil`), so a hardware-sized `-j` does not saturate the machine
+
+| Colour, output modes, `register_secret` / logger masking
+| Inside `cuppa.run()`, whether you started `cuppa` or `scons`
+|===
+
+The stdout intercept exists because SCons, compilers, `curl`, and similar tools can echo URLs or
+headers that contain a token. Older GitLab CI versions in particular would place that text into
+failure logs without redacting `CI_JOB_TOKEN`. Current GitLab and GitHub Actions mask *known*
+secrets in the collected job log; that is complementary, not a replacement:
+
+* The wrapper redacts at the process boundary, so local files, piped logs, and CI systems that
+  do not mask a given variable still omit the value.
+* Host masking only applies to secrets the CI system knows about. A custom `*TOKEN*` variable
+  that is not marked masked still needs the wrapper.
+* Only environment variable *names* matching `TOKEN` (case-sensitive) are intercepted this way.
+  `PASSWORD`, `SECRET`, or `API_KEY` names are not. Empty values are ignored so they cannot
+  rewrite every line.
+* Direct `scons` still benefits from in-process `register_secret` (package headers, expanded
+  location URLs) on Cuppa log lines and exception text. Native SCons and compiler output is
+  not piped through `MaskSecrets` unless you used `cuppa`.
+
+Use `cuppa` in CI and on shared machines whenever those tokens may appear. Use `scons` when you
+are debugging the SCons process itself and need unfiltered child output. Do not persist
+`--cuppa-mode`; it is a session flag, not project policy.
+
+== Verbosity levels
+
+`--verbosity=LEVEL` controls Cuppa's logger threshold. Each level includes the levels below it in
+this table.
+
+[cols="2,3,5"]
+|===
+| Level | Includes | Use
+
+| `trace`
+| Trace, debug, exception, info, warning, error
+| Maximum internal detail, including source paths and line numbers
+
+| `debug`
+| Debug, exception, info, warning, error
+| Option resolution, registration, and selection details
+
+| `exception`
+| Exception, info, warning, error
+| Stack traces for caught exceptions without all debug traffic
+
+| `info`
+| Info, warning, error
+| Normal default output
+
+| `warn`
+| Warning and error
+| Problems only
+
+| `error`
+| Error and critical
+| Failures only
+|===
+
+TIP: If Cuppa fails while reading sconscripts, re-run with `--verbosity=exception`. Use
+`--verbosity=debug` when the option or registration path leading to the exception is unclear.
+
+[[environment-propagation]]
+== Environment propagation
+
+These options control how much of the parent shell environment reaches compiler, linker, test, and
+`Run()` child processes.
+
+[cols="3,7"]
+|===
+| Option | Effect
+
+| `--propagate-env` | Copy the complete parent environment, including `PATH`, into each variant environment
+| `--propagate-path` | Copy only the parent shell's `PATH`
+| `--merge-path` | Merge parent `PATH` entries with Cuppa's managed path
+| `--inherit-process-env` | At each test or `Run()` spawn, merge the current `os.environ`; `env['ENV']` wins on clashes
+| `--use-shell` | Run coloured `SPAWN` subprocesses with `shell=True`, joining the argument list into one shell command
+|===
+
+Use `--propagate-path` or `--merge-path` when a compiler or utility is available through the shell
+but not Cuppa's managed path. Use `--propagate-env` only when subprocesses need additional values
+such as credentials, locale settings, or custom package configuration.
+
+`--propagate-env` copies the environment when a variant build environment is created. It does not
+see values written to `os.environ` later in a sconscript. Prefer `export_for_subprocess()`, return
+an environment dictionary from a `Run()` callable, or use the narrower `--inherit-process-env`
+escape hatch.
+
+Cuppa forwards host `PKG_CONFIG_PATH` when it is set even without these options. Dependencies that
+install shared libraries, such as the optional
+xref:dependencies/conan.adoc#conan-2-consumer-optional[Conan consumer], configure their own runtime
+search paths; they do not require `--propagate-env`.
+
+`--use-shell` is also an escape hatch. Prefer `working_dir`, `cwd=`, or Python actions over shell
+strings such as `cd ... && ...`; see
+xref:methods.adoc#custom-commands-and-working-directories[Custom commands and working directories].
+
+== Dependency deciders
+
+Cuppa sets SCons' default decider to `MD5-timestamp`. Override it with `--decider=MODE`.
+
+[cols="2,3,5"]
+|===
+| Mode | Basis | Trade-off
+
+| `timestamp-newer`
+| Whether a dependency is newer than its target
+| Fastest and least precise; clock and restored-file timestamps matter
+
+| `timestamp-match`
+| Whether a dependency timestamp differs from the recorded value
+| Detects timestamp changes even when the dependency is not newer
+
+| `MD5`
+| File content signature
+| Precise content comparison with more hashing work
+
+| `MD5-timestamp`
+| Timestamp shortcut backed by content signatures
+| Cuppa default; avoids hashing unchanged timestamps while retaining content checks when needed
+|===
+
+== Test runners
+
+Select a runner with `--runner=NAME` or `cuppa.run(default_runner=...)`.
+
+[cols="3,7"]
+|===
+| Runner | Behaviour
+
+| `process` | Default; success follows the child process exit status
+| `boost` | Understands Boost.Test output
+| `patched_boost` | Boost.Test runner with Cuppa's command-line patches where enabled
+|===
+
+Toolchain modules advertise the runners they support. See
+xref:testing-coverage.adoc#runners[Testing and coverage: runners] before selecting a non-default
+runner.
+
+You have now separated console filtering from child-process behaviour. Continue with
+xref:cli/inspect-and-maintain.adoc[Inspect and maintain] for command output formats intended for
+people, scripts, and agents.

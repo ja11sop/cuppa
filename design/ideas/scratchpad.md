@@ -2,7 +2,7 @@
 
 - **Status:** living
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md); [`design/README.md`](../README.md) (graduate notes into `plans/` then ROADMAP)
-- **Updated:** 2026-08-11
+- **Updated:** 2026-08-25
 
 Scratchpad for suggestions that may become new plans or updates to existing ones.
 The goal is to turn these notes into actionable, well-understood plan elements.
@@ -25,6 +25,7 @@ Do not put private project names here; use anonymised labels and
 - C++ Profiles violation report → [`plans/cxx-profiles-report.md`](../plans/cxx-profiles-report.md)
 - Split methods into own pages → [`plans/methods-pages-split.md`](../plans/methods-pages-split.md)
 - Better Antora UI bundle → [`plans/antora-ui-bundle.md`](../plans/antora-ui-bundle.md)
+- Shiki syntax highlighting → [`plans/shiki-syntax-highlighting.md`](../plans/shiki-syntax-highlighting.md)
 
 ## Update: plans/boost-updates.md (related — dependency selection)
 

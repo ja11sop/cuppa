@@ -5,34 +5,17 @@ Dependencies encapsulate include paths, defines, library linkage, and optional d
 steps. Trees live under `--dependencies-root` (and archives under `--downloads-root`) — see
 xref:build-layout.adoc[Build layout].
 
-== Declaring dependencies
-
-In `sconstruct`:
-
-[source,python]
-----
-import cuppa
-
-cuppa.run(
-    default_dependencies = ['boost'],
-    default_options = {
-        'boost-location': '/opt/boost',
-    },
-)
-----
-
-Or per sconscript:
-
-[source,python]
-----
-Import('env')
-env.BuildWith('boost')
-----
+Start with xref:dependencies/overview.adoc[Dependencies overview] for the shared declaration
+model, then choose the detailed page for the dependency kind or workflow you need.
 
 == Kinds
 
+[cols="1,1"]
 |===
 | Kind | Start here
+
+| Vocabulary and declaration
+| xref:dependencies/overview.adoc[Overview]
 
 | Location / header / VCS / archive
 | xref:dependencies/location.adoc[Location dependencies]

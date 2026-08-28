@@ -3,7 +3,7 @@
 
 == What is tested
 
-The example package `examples/cuppa_fmt_plugin` registers `fmt` through `cuppa.dependency.plugins` by subclassing `cuppa.location_dependency`, downloading a pinned fmt archive (12.2.0+, required for Clang + libc++), compiling `src/format.cc` and `src/os.cc`, and linking a static library.
+The example package `examples/cuppa_fmt_plugin` registers `fmt` through `cuppa.dependency.plugins` by subclassing `cuppa.location_dependency`, downloading a pinned fmt archive (12.2.0+, required for Clang + `libc{plus}{plus}`), compiling `src/format.cc` and `src/os.cc`, and linking a static library.
 
 * Plugin install via `pip install --target --no-deps`
 * Consumer uses only `default_dependencies=['fmt']` (no `dependencies=[…]`)
@@ -13,7 +13,7 @@ The example package `examples/cuppa_fmt_plugin` registers `fmt` through `cuppa.d
 == Prerequisites
 
 * Network (or warm Cuppa dependencies / downloads roots) for the first fmt archive fetch
-* C++ compiler (suite default toolchain)
+* {cpp} compiler (suite default toolchain)
 
 == Generated consumer files
 

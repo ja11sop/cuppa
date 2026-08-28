@@ -1,0 +1,78 @@
+= Contributing overview
+:description: The development workflow for proposing, validating, and landing Cuppa changes
+
+Contributions to Cuppa move through a protected-branch workflow: make one coherent change on a
+branch, validate it locally, open a pull request with the correct release-impact label, and let
+the full CI matrix verify supported platforms and toolchains.
+
+The xref:contributing.adoc[Contributing] landing page collects the detailed repository rules
+and links to versioning, report conventions, releases, linting, and integration scenarios.
+
+== Preparing a change
+
+. Read `AGENTS.md` and the relevant design plan before changing behaviour.
+. Keep the change focused and update tests, documentation, the changelog, and roadmap or plan
+  state alongside the implementation.
+. Use the repository virtual environment so lint and test dependencies are consistent.
+
+== Running the local gate
+
+Run the complete Python gate before pushing:
+
+[source,sh]
+----
+source venv/bin/activate
+flake8 cuppa
+pylint -E cuppa
+pytest -m unit
+pytest -m integration
+----
+
+Integration tests require a {cpp} compiler. Focused test commands are useful while developing,
+but they do not replace the full gate before a push.
+
+== Opening a pull request
+
+`master` is protected: every change that alters the tree lands through a pull request.
+
+Every pull request needs **exactly one** impact label so CI can check that `cuppa/VERSION` matches
+the intent of the change:
+
+[cols="1,4"]
+|===
+| Label | Use when
+
+| `impact:none`
+| CI, documentation, design notes, or other work with no release impact
+
+| `impact:patch`
+| Fix, message, tests, or internal refactor that does not change the public surface
+
+| `impact:minor`
+| New option, method, or behaviour a project can opt into
+
+| `impact:major`
+| Removed or repurposed option, or a changed default a project depends on
+|===
+
+The public surface means CLI flags, `env.*` methods, `cuppa.run()` arguments, and configuration
+file keys. See xref:contributing/versioning.adoc[Versioning and changelog] for how those labels
+relate to `start_release`.
+
+== Validating the result
+
+`pytest -m integration` needs a {cpp} compiler (typically `g{plus}{plus}`).
+Smoke-test against `examples/minimal/` after installing your working tree.
+
+xref:linting.adoc[Linting] explains why the flake8/pylint gate stays error-focused.
+xref:integration-tests.adoc[Integration tests] documents the generated `sconstruct` /
+`sconscript` scenarios under `tests/integration/`.
+
+== Where to go next
+
+Continue with:
+
+* Opening or closing a version cycle → xref:contributing/versioning.adoc[Versioning and changelog]
+* Console report conventions → xref:contributing/report-patterns.adoc[Report patterns]
+* Publishing to PyPI → xref:contributing/release.adoc[Cutting a release]
+* Writing a dependency or method plugin for *your* project → xref:extending.adoc[Extending cuppa]

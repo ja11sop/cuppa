@@ -17,7 +17,7 @@ flags are unchanged.
 
 == State of play (today)
 
-[cols="2,3"]
+[cols="1,4"]
 |===
 | Area | Status
 
@@ -38,24 +38,27 @@ flags are unchanged.
 
 . Obtain a Profiles-capable Clang ({cpp} Alliance release archive) and register it with cuppa, for example:
 
-```
+[source,sh]
+----
 cuppa -D --toolchain-archive=https://github.com/cppalliance/clang/releases/download/profiles-2026-08-07-27/clang-profiles-linux-x86_64.tar.gz
-```
+----
 
 Session names look like `clang24_profiles_2026_08_07_27`. See xref:toolchains.adoc[Toolchains] and xref:toolchains/clang.adoc[Clang].
 
 . Build with the framework and (optionally) session-wide enforce:
 
-```
+[source,sh]
+----
 cuppa -D --dbg --toolchains=clang24_profiles_2026_08_07_27 --cxx-profiles --cxx-profiles-enforce=std::init
-```
+----
 
 `--cxx-profiles` alone turns on `-fprofiles` so attributes in your sources are recognised.
 `--cxx-profiles-enforce=std::init` also asks cuppa to enforce that designator on every {cpp} TU.
 
 You can put enforce in source yourself instead of (or as well as) the CLI:
 
-```cpp
+[source,cpp]
+----
 [[profiles::enforce(std::init)]];
 
 int main()
@@ -63,7 +66,7 @@ int main()
     int Value = 0;
     return Value;
 }
-```
+----
 
 [#how-cuppa-enables]
 == How cuppa enables Profiles today
@@ -88,9 +91,10 @@ For `--cxx-profiles-enforce=a,b`:
 2. Otherwise cuppa writes a small generated header under the build tree, for example
    `_build/.../profiles/enforce_std_init.hpp`, containing:
 
-```cpp
+[source,cpp]
+----
 [[profiles::enforce(std::init)]];
-```
+----
 
 and compiles each {cpp} translation unit with `-include <that header>`.
 
@@ -196,7 +200,7 @@ Each Overview summary card and section heading links to the matching section on 
 ==== Source link styles
 
 Profiles HTML uses the same link-style vocabulary as test reports (`local`, `gitlab`, `github`, `remote`).
-Pass xref:cli-reference.adoc#reports-link-style[`--reports-link-style=`] on the cuppa command line
+Pass xref:cli/reports.adoc#reports-link-style[`--reports-link-style=`] on the cuppa command line
 to set source links for every report kind the session emits (test HTML, Profiles HTML, and future
 coverage links). That lets one sconscript build on GitHub Actions or GitLab CI without editing
 `link_style=` in each method call. Use `remote` when violations span location dependencies on
@@ -225,7 +229,7 @@ python -m scripts.regenerate_profiles_report \
 Omit `--sconstruct-dir` to take project paths and link style from JSON ``metadata``. Source files
 must exist on disk for ``by-source/`` pages unless ``--skip-source-pages`` is set.
 
-[cols="1,3"]
+[cols="3,7"]
 |===
 | Script flag | Meaning
 
@@ -331,7 +335,7 @@ known when this page was last updated; bump Rev when you notice a newer draft,
 even if you forget the link stays correct. The overview on
 link:https://github.com/ja11sop/cuppa/issues/127[#127] should stay aligned.
 
-[cols="1,1,3,2,1"]
+[cols="1,1,5,2,1"]
 |===
 | Paper | Rev | Title | Authors (short) | Date
 
@@ -469,7 +473,10 @@ Initialization profile direction for Alliance Clang's `std::init`:
 * xref:cxx-profiles/report-by-file.adoc[Violation report — By-File tab]
 * xref:cxx-profiles/report-by-build.adoc[Violation report — By-Build tab]
 * xref:cxx-profiles/report-by-sconscript.adoc[Violation report — By-Sconscript]
-* xref:cli-reference.adoc[CLI reference] — `--cxx-profiles`, `--cxx-profiles-enforce=`, `--cxx-disable-error-limit`, `--cxx-profiles-report`, `--artefacts-root`
+* xref:cli/toolchains-and-features.adoc[Toolchains and features] — `--cxx-profiles`,
+  `--cxx-profiles-enforce=`, and diagnostic error-limit policy
+* xref:cli/reports.adoc[Reports] — `--cxx-profiles-report`, report context, source links, and
+  persisted report policy
 * xref:toolchains/clang.adoc[Clang] — Profiles-capable archives
 * xref:toolchains.adoc[Toolchains] — `--toolchain-archive=` / `--clang-root=`
 * xref:integration/test-cxx-profiles.adoc[Integration: {cpp} Profiles]

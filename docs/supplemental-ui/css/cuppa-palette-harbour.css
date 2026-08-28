@@ -1,0 +1,91 @@
+/*
+ * Cuppa documentation palette: harbour
+ *
+ * Component rules live in cuppa.css and consume only these semantic tokens.
+ * To preview another palette, change the palette href in head-styles.hbs and
+ * rebuild.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  --cuppa-brand: #215a9a;
+  --cuppa-brand-dark: #183f70;
+  --cuppa-brand-light: #eaf2fb;
+  --cuppa-accent: #9fd948;
+  --cuppa-accent-glow: rgba(159, 217, 72, 0.22);
+  --cuppa-link: #215a9a;                /* Harbour blue: brand is already a link hue */
+  --cuppa-link-hover: #183f70;
+  --cuppa-on-brand: #fff;
+  --cuppa-on-brand-muted: rgba(255, 255, 255, 0.55);
+  /* Recess on the dark navbar; focus opens to --cuppa-page (see cuppa.css). */
+  --cuppa-on-brand-field: #2d5a90;
+  --cuppa-on-brand-field-text: #eaf2fb;
+
+  --cuppa-text: #253044;
+  --cuppa-text-muted: #647084;
+  --cuppa-page: #fff;
+  --cuppa-surface: #f7f9fc;
+  --cuppa-surface-strong: #edf2f8;
+  --cuppa-border: #d7dee8;
+  --cuppa-code-surface: #f4f7fa;
+  --cuppa-code-tint: rgba(24, 63, 112, 0.07);
+  --cuppa-shadow-tint: rgba(24, 63, 112, 0.08);
+
+  --cuppa-note: #2b84cc;
+  --cuppa-note-surface: #eaf2fb;
+  --cuppa-tip: #2d9e3a;
+  --cuppa-tip-surface: #edf8f2;
+  --cuppa-warning: #da7d14;
+  --cuppa-warning-surface: #fff7e9;
+  --cuppa-important: #d04a45;
+  --cuppa-important-surface: #fff0f1;
+  --cuppa-caution: #985aac;
+  --cuppa-caution-surface: #f8f1fa;
+  --cuppa-example: #806bc2;
+  --cuppa-example-surface: #f2effa;
+  --cuppa-table: #4f81b0;
+  --cuppa-table-surface: #e9f0f8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cuppa-brand: #c5d8f0;
+    --cuppa-brand-dark: #eaf2fb;
+    --cuppa-brand-light: #1a2a40;
+    --cuppa-accent: #b8e85c;
+    --cuppa-accent-glow: rgba(184, 232, 92, 0.22);
+    --cuppa-link: #7aa8d4;
+    --cuppa-link-hover: #c5d8f0;
+    --cuppa-on-brand: #121820;
+    --cuppa-on-brand-muted: rgba(18, 24, 32, 0.55);
+    /* Navbar is light in dark mode; field is a soft grey recess on that bar. */
+    --cuppa-on-brand-field: #d5dde8;
+    --cuppa-on-brand-field-text: #121820;
+
+    --cuppa-text: #e3e9f2;
+    --cuppa-text-muted: #8a96a8;
+    --cuppa-page: #121820;
+    --cuppa-surface: #1a2330;
+    --cuppa-surface-strong: #232e3d;
+    --cuppa-border: #2c3a4d;
+    --cuppa-code-surface: #161d28;
+    --cuppa-code-tint: rgba(0, 0, 0, 0.30);
+    --cuppa-shadow-tint: rgba(0, 0, 0, 0.50);
+
+    --cuppa-note: #5ba3e0;
+    --cuppa-note-surface: #0d2438;
+    --cuppa-tip: #5dce6a;
+    --cuppa-tip-surface: #102818;
+    --cuppa-warning: #e9a03a;
+    --cuppa-warning-surface: #2c1d0c;
+    --cuppa-important: #e87370;
+    --cuppa-important-surface: #2e1416;
+    --cuppa-caution: #c084d4;
+    --cuppa-caution-surface: #24162e;
+    --cuppa-example: #a99ae0;
+    --cuppa-example-surface: #1c1830;
+    --cuppa-table: #7aa8d4;
+    --cuppa-table-surface: #1a2838;
+  }
+}

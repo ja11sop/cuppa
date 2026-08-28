@@ -462,7 +462,7 @@ def _json_is_multiline( value ):
 
 
 def _dumps_allman( value, indent=4, level=0 ):
-    """Serialize JSON with 4-space indent and braces/brackets on the next line."""
+    """Serialize JSON with Allman braces; ``indent`` is spaces per nesting level."""
     pad = ' ' * ( indent * level )
     child = ' ' * ( indent * ( level + 1 ) )
 
@@ -508,6 +508,6 @@ def _dumps_allman( value, indent=4, level=0 ):
     return json.dumps( value )
 
 
-def render_json_payload( payload ):
-    """Pretty-print JSON for ``--list-format=json`` (4-space Allman braces)."""
-    return _dumps_allman( payload )
+def render_json_payload( payload, indent=4 ):
+    """Pretty-print JSON for ``--list-format=json`` (Allman braces; default 4-space indent)."""
+    return _dumps_allman( payload, indent=indent )

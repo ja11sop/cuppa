@@ -8,7 +8,7 @@ include::partial$cxx-profiles/attribute-markers.adoc[]
 Several rules govern **where** `{cxx-a-uninit}` **may appear** and whether it contradicts an
 initializer:
 
-[cols="1,3"]
+[cols="3,7"]
 |===
 | Rule id | Meaning
 

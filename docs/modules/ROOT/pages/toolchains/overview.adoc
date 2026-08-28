@@ -1,0 +1,49 @@
+= Toolchains overview
+:description: How Cuppa discovers, selects, and applies compiler toolchains
+
+A *toolchain* tells Cuppa how to compile and link for one compiler family and version. Cuppa
+discovers installed compilers during configuration and can also register compiler archives or
+external prefixes managed through its dependency storage.
+
+The xref:toolchains.adoc[Toolchains] landing page is the reference hub for selection,
+inventory, fetched archives, and language-level policy. This overview explains how those pieces
+fit into a build.
+
+== Discovery and names
+
+Cuppa registers family aliases such as `gcc`, `clang`, and `vc`, plus versioned names such as
+`gcc15` or `clang21` when matching drivers are available. Family aliases are convenient for
+local development; versioned names make CI compiler selection reproducible.
+
+Run `--list-toolchains` to see discovered and registered drivers:
+
+[source,sh]
+----
+cuppa -Q -D --list-toolchains
+----
+
+The detailed output formats and storage distinctions are documented under
+xref:toolchains.adoc#list-toolchains[Listing toolchains].
+
+== Selection and build variants
+
+Select one or more names with `--toolchains`:
+
+[source,sh]
+----
+cuppa -D --toolchains=gcc,clang
+----
+
+Each selected toolchain combines with the requested variants (`--dbg`, `--rel`, or `--cov`) to
+produce separate build environments and artefact paths. Toolchain family pages document the
+warning, optimisation, standard-library, runtime, and module flags applied to those variants.
+
+== Language levels and features
+
+Cuppa chooses the newest supported {cpp} dialect it knows for GCC and Clang; MSVC defaults to
+{cpp}20. Override that choice with `--stdcpp` or `env.StdCpp()`. Enabling modules raises a lower
+effective dialect to at least {cpp}20 only for compilations that participate in the module graph.
+
+See xref:toolchains.adoc#c-language-level[{cpp} language level] for the complete policy, then
+open xref:toolchains/gcc.adoc[GCC], xref:toolchains/clang.adoc[Clang], or
+xref:toolchains/msvc.adoc[MSVC] for family-specific defaults.

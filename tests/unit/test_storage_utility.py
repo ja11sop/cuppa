@@ -131,3 +131,9 @@ def test_render_json_payload_uses_allman_four_space_indent():
     assert '    "name": "discovered"' in text
     # Round-trip: formatting is presentation only.
     assert json.loads( text )['wipe_applies_to'] == 'registered'
+
+
+def test_render_json_payload_accepts_custom_indent():
+    text = storage.render_json_payload( { 'sections': [ { 'name': 'x' } ] }, indent=2 )
+    assert '"sections":\n  [' in text
+    assert '    "name": "x"' in text

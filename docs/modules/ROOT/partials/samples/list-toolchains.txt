@@ -20,9 +20,12 @@
         --  --            │           └── clang100
         --  --            └── gcc (default)
                               │
-        --  --                ├── 16.1
+        --  --                ├── 16.2
         --  --                │   └── /usr/bin/g++-16
         --  --                │       ├── gcc16
+        --  --                │       └── gcc162
+        --  --                ├── 16.1
+        --  --                │   └── /usr/bin/g++-16
         --  --                │       └── gcc161
         --  --                ├── 15.3
         --  --                │   └── /usr/bin/g++-15
@@ -47,7 +50,7 @@
         8M  today                 └── ~/_cuppa/_download/toolchains/gcc/gcc_snapshot_20260725_1_amd64/usr/lib/gcc-snapshot/bin/g++
         8M  today                     └── gcc17_gcc_snapshot_20260725_1_amd64
   ----------------------------------------------------------------------------------------------------------------------------------------------------
-  16 toolchains, 10M total (none discovered, 10M registered)
+  17 toolchains, 10M total (none discovered, 10M registered)
 
 To remove registered toolchains review with:
 

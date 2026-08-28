@@ -5,7 +5,8 @@
 == What is tested
 
 Looking up the active toolchain by `toolchain.name()` (build/ABI identity) or by registry key returns the same toolchain object.
-For Clang with `--clang-stdlib=libc++`, `name()` may be `clang-libc++` while the registry key remains `clang`; both forms resolve.
+For Clang with `--clang-stdlib=libc{plus}{plus}`, `name()` may be
+`clang-libc{plus}{plus}` while the registry key remains `clang`; both forms resolve.
 
 == Generated files
 

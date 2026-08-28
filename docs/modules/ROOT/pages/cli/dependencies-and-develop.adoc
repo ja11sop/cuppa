@@ -1,0 +1,148 @@
+= Dependencies and develop
+:description: Develop working copies and dynamic dependency/package options
+
+Dependency options come from two sources. Cuppa registers global develop/location policy, while
+each dependency declared by the project can register options under its own name. Therefore this
+page documents the patterns; `cuppa -D -h` shows the concrete names available in your project.
+
+== Selecting develop copies
+
+[cols="3,4"]
+|===
+| Option | Effect
+
+| `--develop` | Prefer each dependency's configured local develop path
+| `--offline` | Refuse remote updates; compatible with building existing develop copies
+| `--location-default-branch=NAME` | Set the published default branch used by offline/relative logic (default `master`)
+| `--location-base-branch=NAME` | Set the develop home branch used to create/reset feature branches; defaults to the published branch
+| `--location-match-current-branch` | For relative locations ending in `@`, try the consumer project's current branch
+| `--location-match-branch=NAME` | Match relative locations to the explicitly named branch
+| `--location-match-tag=NAME` | Match relative locations to the explicitly named tag
+| `--location-explicit-default-branch` | Record the resolved default branch explicitly in local checkouts
+|===
+
+Relative location syntax and fallback order are explained on
+xref:dependencies/location.adoc[Location dependencies]. These options select revisions for a
+build; the commands below maintain local working copies.
+
+== Inspecting and maintaining develop copies
+
+[cols="3,4"]
+|===
+| Option | Action
+
+| `--list-develop` | Report branch, upstream, dirty, ahead/behind, diverged, and detached state without contacting remotes
+| `--clone-develop` | Clone configured missing/empty develop paths, including submodules; refuse non-empty destinations and tag/revision pins
+| `--checkout-develop-branch=NAME` | Switch clean copies to `NAME`, creating it through the develop base when needed
+| `--reset-develop-branch[=NAME]` | Return clean copies to a resolved branch, then fetch and fast-forward where safe
+| `--update-develop` | Fetch and fast-forward clean copies that are behind; leave modified, ahead, diverged, or detached copies unchanged
+|===
+
+Clone, checkout, reset, and update refuse `--offline`. None of them stashes, hard-resets, deletes
+feature branches, or overwrites dirty/unpushed work. SCons `-n` previews actions.
+
+=== Checkout and reset branch values
+
+[cols="2,3,5"]
+|===
+| Value | Used by | Resolves to
+
+| `current`
+| Checkout and reset
+| The consumer project's current branch
+
+| bare flag
+| Reset
+| `--location-base-branch`, or the published default when no base is configured
+
+| `base`
+| Reset
+| Same target as a bare reset
+
+| `default`
+| Reset
+| `--location-default-branch`
+
+| any other `NAME`
+| Checkout and reset
+| The literal named branch
+|===
+
+See xref:dependencies/managing.adoc#checking-your-develop-copies[Checking your develop copies] for
+the state model and examples.
+
+== Per-location dependency options
+
+Each location dependency named `<name>` registers the following pattern.
+
+[cols="3,7"]
+|===
+| Option | Meaning
+
+| `--<name>-location=VALUE` | Repository, archive, or path to build against
+| `--<name>-develop=PATH` | Local path selected when `--develop` is active
+| `--<name>-branch-path=PATH` | Optional path-based branch component
+| `--<name>-include=PATH` | Include subdirectory
+| `--<name>-sys-include=PATH` | System-include subdirectory
+| `--<name>-extra_sub_path=PATH` | Additional relative path used to locate the dependency
+| `--<name>-source-path=PATH` | Source-file path within the dependency
+| `--<name>-linktype=TYPE` | `static` (default) or `shared`
+|===
+
+The underscore in `extra_sub_path` is part of the registered CLI name. Consumer code and plugins
+can register additional options; do not infer that this pattern is the complete output of
+`cuppa -D -h`.
+
+== Per-package options
+
+Every package dependency registers `--<name>-package-manager=MANAGER`. A GitLab package dependency
+also registers this family:
+
+[cols="3,4"]
+|===
+| Option | Meaning
+
+| `--<name>-gitlab-registry=URL` | Registry to use
+| `--<name>-gitlab-package=NAME` | Package name in that registry
+| `--<name>-gitlab-version=VERSION` | Package version
+| `--<name>-gitlab-variant=VARIANT` | Published build variant
+| `--<name>-gitlab-library-prefix=PREFIX` | Optional library prefix accepted when resolving libraries
+| `--<name>-gitlab-pkg-config-dir=PATH` | Package directory containing pkg-config files
+| `--<name>-gitlab-develop=PATH` | Local package path used in develop mode
+| `--<name>-gitlab-custom-token=TOKEN` | Package-specific registry credential
+|===
+
+Prefer `GITLAB_REGISTRY_TOKEN` or `CI_JOB_TOKEN` when one credential serves the registry. The
+wrapper masks environment values whose names contain `TOKEN`, but credentials should never be
+written to tracked configuration.
+
+`--publish-package` enables actions declared through `env.PublishPackage(...)`. See
+xref:packages.adoc[Publishing packages] for GitLab and Conan publishing; consuming packages is
+covered by xref:dependencies/packages.adoc[Package dependencies].
+
+== Built-in Boost options
+
+Source Boost has a stable option family rather than a project-generated `<name>` prefix.
+
+[cols="3,7"]
+|===
+| Option | Effect
+
+| `--boost-version=VERSION` | Select a Boost version
+| `--boost-latest` | Override a pin or force an online latest-version refresh
+| `--boost-home=PATH` | Use a source home
+| `--boost-location=VALUE` | Override the source location
+| `--boost-build-always` | Re-run Boost.Build whenever a Boost library is requested
+| `--boost-verbose-build` | Show Boost.Build command output
+| `--boost-verbose-config` | Show Boost.Build configuration output
+| `--boost-patched` | Select the `patched/` source tree instead of `clean/`
+| `--boost-patch-boost-test` | Deprecated alias for `--boost-patched`
+|===
+
+Unpinned Boost already resolves the latest known version; `--boost-latest` is an explicit override
+or refresh request. See xref:dependencies/builtins/boost.adoc[Boost] for source layout and build
+behaviour.
+
+You have now covered both global develop policy and project-generated dependency flags. Continue
+with xref:cli/toolchains-and-features.adoc[Toolchains and features] for compiler and language
+selection.

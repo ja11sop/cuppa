@@ -1,11 +1,12 @@
 = Cuppa
-:description: Extensible C++ build system built on SCons
+:description: Extensible {cpp} build system built on SCons
 
-Cuppa is an extensible build system for C++ projects that sits on top of https://www.scons.org/[SCons].
-You keep short, declarative `sconscript` files that express *intent* (`Build`, `BuildTest`, `BuildWith`), while cuppa owns toolchains, build variants, dependencies, tests, coverage, and (optionally) C++20 modules.
+Cuppa is an extensible build system for {cpp} projects that sits on top of https://www.scons.org/[SCons].
+You keep short, declarative `sconscript` files that express *intent* (`Build`, `BuildTest`, `BuildWith`), while cuppa owns toolchains, build variants, dependencies, tests, coverage, and (optionally) {cpp}20 modules.
 
 SCons remains the low-level DAG and make replacement.
-Cuppa captures common C++ build practice so experts can encapsulate toolchains and dependencies once, and the rest of the team works in a stable vocabulary instead of fighting proprietary DSL syntax or hand-written flag matrices.
+Cuppa captures common {cpp} build practice so experts can encapsulate toolchains and dependencies once, and the rest of the team works in a stable vocabulary instead of fighting proprietary DSL syntax or hand-written flag matrices.
+The command line selects variants, toolchains, and actions; it is not the place where everyday projects invent ad-hoc targets — see xref:concepts.adoc#command-line[Command line and project description].
 
 Location and package dependencies make revision- and branch-pinned library composition a first-class part of the build.
 Artefacts land under a visible `_build/` tree (not a hidden directory), so a guaranteed clean rebuild is `rm -rf _build`.
@@ -16,15 +17,16 @@ Artefacts land under a visible `_build/` tree (not a hidden directory), so a gua
 * *Multi-toolchain, multi-variant* -- build debug, release, and coverage variants against GCC and Clang (and debug/release against MSVC on Windows) in one invocation.
 * *Dependencies as vocabulary* -- Boost, Qt, location-based header libraries, and GitLab package registry packages are first-class names, not ad-hoc `find_package` scripts.
 * *Tests and coverage* -- `BuildTest`, pluggable runners, gcovr HTML/JSON reports (GCC/Clang), and coverage index collation.
-* *C++20 modules when you opt in* -- named modules, partitions, header units, and `import std` where the toolchain supports it; see xref:cxx-modules.adoc[C++ Modules]
-* *C++ Profiles when you opt in* -- experimental safety-profile framework on Profiles-capable Clang; see xref:cxx-profiles.adoc[C++ Profiles]
+* *{cpp}20 modules when you opt in* -- named modules, partitions, header units, and `import std` where the toolchain supports it; see xref:cxx-modules.adoc[{cpp} Modules]
+* *{cpp} Profiles when you opt in* -- experimental safety-profile framework on Profiles-capable Clang; see xref:cxx-profiles.adoc[{cpp} Profiles]
 * *Python as the extension language* -- the same language you already use for tooling, packaging, and CI, rather than a parallel proprietary language.
 
 == Cuppa and CMake
 
-Many C++ teams meet CMake first.
+Many {cpp} teams meet CMake first.
 Cuppa solves a different design problem: keep the *project description* short and intentional, and keep the *build expertise* in reusable Python modules.
 
+[cols="1,2,2"]
 |===
 | Concern | Cuppa | CMake
 
@@ -49,7 +51,7 @@ Cuppa solves a different design problem: keep the *project description* short an
   override with methods
 | Implicit defaults plus directory/target property inheritance that is hard to audit
 
-| C++20 modules
+| {cpp}20 modules
 | Opt-in `--cxx-modules` with BMI registry, packaging, and clear unsupported-toolchain errors
 | Evolving `FILE_SET CXX_MODULES` support; compiler/scanner gaps (for example Apple Clang)
 
@@ -80,8 +82,8 @@ TIP: When docs and code disagree, *code is authoritative* -- especially storage 
 * xref:toolchains.adoc[Toolchains] -- selection and inventory; family defaults on
   xref:toolchains/gcc.adoc[GCC], xref:toolchains/clang.adoc[Clang], and
   xref:toolchains/msvc.adoc[MSVC]
-* xref:cxx-modules.adoc[C++ Modules] -- introduction, tutorial, reference, and an up-to-date capability matrix by toolchain family
-* xref:cxx-profiles.adoc[C++ Profiles] -- opt-in `--cxx-profiles` / `--cxx-profiles-enforce=`, Alliance Clang, paper overview
+* xref:cxx-modules.adoc[{cpp} Modules] -- introduction, tutorial, reference, and an up-to-date capability matrix by toolchain family
+* xref:cxx-profiles.adoc[{cpp} Profiles] -- opt-in `--cxx-profiles` / `--cxx-profiles-enforce=`, Alliance Clang, paper overview
 * xref:cli-reference.adoc[CLI reference] -- flags you will use every day
 * xref:integration-tests.adoc[Integration tests] -- pytest scenarios with generated build scripts
 
@@ -107,9 +109,9 @@ TIP: Artefacts live under `_build/` (not a hidden `.build` directory). A guarant
 Talks and write-ups that motivated or explained cuppa (historical; always prefer this site and the code when details disagree):
 
 * https://clearpool.io/tag/cuppa[clearpool.io -- posts tagged cuppa] -- index of related articles
-* https://clearpool.io/pulse/posts/2016/May/06/managing-c-build-complexity-using-cuppa/[Managing C++ Build Complexity using Cuppa] (ACCU 2016, *A Quick Cuppa*) -- intro, location model, Boost/Qt dependencies, plus bonus material on version files and Boost library dependents
-* https://clearpool.io/pulse/posts/2019/Jul/25/modern-c-builds-and-accu-autumn-preview/[Modern C++ Builds and ACCU Autumn Preview] -- updated *Another Quick Cuppa* slides; revision-based library composition from repositories
-* https://clearpool.io/pulse/posts/2019/Jul/30/c20-cuppa-and-the-three-asios/[C++20, Cuppa and the ¡Three Asios!] -- meetup notes including Brian Peters' *Building Codes* talk on SCons/Cuppa practice
+* https://clearpool.io/pulse/posts/2016/May/06/managing-c-build-complexity-using-cuppa/[Managing {cpp} Build Complexity using Cuppa] (ACCU 2016, *A Quick Cuppa*) -- intro, location model, Boost/Qt dependencies, plus bonus material on version files and Boost library dependents
+* https://clearpool.io/pulse/posts/2019/Jul/25/modern-c-builds-and-accu-autumn-preview/[Modern {cpp} Builds and ACCU Autumn Preview] -- updated *Another Quick Cuppa* slides; revision-based library composition from repositories
+* https://clearpool.io/pulse/posts/2019/Jul/30/c20-cuppa-and-the-three-asios/[{cpp}20, Cuppa and the ¡Three Asios!] -- meetup notes including Brian Peters' *Building Codes* talk on SCons/Cuppa practice
 
 NOTE: *Building Codes* discusses project-local Python contexts (`SContext`) and related bootstrapping ideas used alongside cuppa in some organisations.
 That pattern is **not** part of upstream cuppa today; treat it as related practice, not shipped behaviour.

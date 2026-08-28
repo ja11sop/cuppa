@@ -1,0 +1,25 @@
+{{!--
+  Toolbar trailing controls: article width + colour palette.
+
+  Replaces the bundle "Edit this Page" link (already suppressed). Palette is
+  always available; width stays desktop-only (≥1024) with the breadcrumbs.
+--}}
+<div class="edit-this-page cuppa-toolbar-actions">
+  <button
+    type="button"
+    class="cuppa-doc-width-toggle"
+    aria-pressed="false"
+    title="Widen article"
+    aria-label="Widen article"
+  >
+    <span class="cuppa-doc-width-toggle__icon" aria-hidden="true"></span>
+  </button>
+  <button
+    type="button"
+    class="cuppa-doc-palette-toggle"
+    title="Use Harbour palette"
+    aria-label="Use Harbour palette"
+  >
+    <span class="cuppa-doc-palette-toggle__icon" aria-hidden="true"></span>
+  </button>
+</div>
