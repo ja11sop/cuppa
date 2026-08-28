@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `static-glob`; [#213](https://github.com/ja11sop/cuppa/issues/213); [`cmake-to-cuppa-migration.md`](cmake-to-cuppa-migration.md)
-- **Updated:** 2026-08-28
+- **Updated:** 2026-08-28 (Glob semantics correction)
 - **Impact:** minor — new names; existing `RecursiveGlob` / `GlobFiles` remain as deprecated aliases for at least one cycle
 
 ## Problem
@@ -16,9 +16,11 @@ Cuppa today exposes two **eager** Python helpers whose names describe **shape**,
 
 Both snapshot the filesystem **once**, when the sconscript line runs during the initial read phase. New files under the tree do not appear until configure re-runs.
 
-SCons **`env.Glob`** (including `**` since SCons 4) is **lazy**: directory-aware nodes that can be re-evaluated with the build graph. That is a different contract — but the current cuppa names do not help users choose.
+SCons **`env.Glob`** is **not** recursive: matches do not span directory separators, and `**` is only one path segment (upstream still discussing real recursive Glob). It returns SCons `File` nodes for a single directory (or one known nesting level).
 
-`RecursiveGlob` originally filled a hard gap (no `**`, need to skip `_build` / dependency trees). The gap is narrower now; the **evaluation-model** distinction matters more than “recursive vs not”.
+`RecursiveGlob` / `StaticGlob` fill the hard gap — walk a tree and skip `_build` / dependency roots. The names should teach **recursion + cuppa exclusions**, not a false “SCons Glob with `**`” story.
+
+Both re-run when Cuppa re-reads the sconscript (every normal build), so “lazy vs static” is a weaker distinction in practice than recursion.
 
 ## Proposal
 
@@ -26,7 +28,7 @@ Introduce a pair of documented discovery options:
 
 | API | Evaluation | Implementation direction |
 |-----|------------|---------------------------|
-| **`env.Glob(...)`** | Dynamic (SCons) | Document native SCons `env.Glob` / optional thin cuppa wrapper with shared path rules and default exclusions for `**` |
+| **`env.Glob(...)`** | SCons single-directory | Document honest non-recursive semantics; optional cuppa wrapper only if we add true recursive Glob later |
 | **`env.StaticGlob(...)`** | Static (configure-time snapshot) | Rename/refactor today’s `RecursiveGlob` + `GlobFiles`; one method, `recursive=` (or `depth=`) instead of two names |
 
 **Do not** silently change `RecursiveGlob` to delegate to SCons `**` — that alters when new sources appear (subtle breaking change).
@@ -47,7 +49,7 @@ Keep cuppa-only knobs on the static side only:
 - `exclude_dirs=` — directory **name** regex (default skips `_build`, dependencies root)
 - `discard_pattern=` — skip subtree when marker file present
 
-Dynamic side gets `**` and SCons directory dependencies; not `discard_pattern`.
+SCons `Glob` stays single-directory (no tree walk, no `discard_pattern`); use `Filter` to narrow either source.
 
 ## Path vocabulary
 
@@ -69,7 +71,7 @@ Shared helper in [`cuppa/utility/glob_roots.py`](../../cuppa/utility/glob_roots.
 | Relative file/dir | Relative to sconscript (same as today’s `env.File('src/foo.cpp')`) | `'src/detail/a.cpp'` |
 | Absolute | Allowed; documented as last resort | package / generated paths |
 
-**Acceptance:** for a fixture tree, the **same path string** in `env.Glob('#/src/**/*.cpp')` and `env.StaticGlob('*.cpp', start='#/src')` (or equivalent) yields the same set of project-relative `File` node paths (modulo evaluation time).
+**Acceptance (revised):** `StaticGlob('*.cpp', start='#/src')` finds the full tree; `env.Glob('#/src/*.cpp')` finds only the top level; `env.Glob('#/src/**/*.cpp')` finds one intermediate level only. Filter patterns work on both node sources (relative and absolute forms).
 
 Document the mapping in Antora (Methods hub + migration guide).
 
@@ -110,7 +112,7 @@ Internal call sites ([`build_with_location.py`](../../cuppa/build_with_location.
 |----------|---------|--------------|
 | Static API name | `StaticGlob` / `SnapshotGlob` / `GlobAtConfigure` | **`StaticGlob`** — pairs naturally with dynamic `Glob` |
 | Flat vs recursive | Two methods vs one flag | **One method** + `recursive=False` (replaces `GlobFiles`) |
-| Dynamic API | Document SCons only vs cuppa wrapper | **Document SCons first**; add wrapper if `#/` + exclusions need one home |
+| Dynamic API | Document SCons only vs cuppa wrapper | **Document SCons honestly (non-recursive)**; wrapper only if we add real recursion |
 | Aliases | Keep forever vs deprecate | **Deprecated aliases** ≥1 minor, remove on major |
 | Path helper location | New module vs extend existing | **`cuppa/utility/glob_roots.py`** consumed by StaticGlob + optional Glob wrapper |
 
@@ -123,7 +125,7 @@ Internal call sites ([`build_with_location.py`](../../cuppa/build_with_location.
 | `StaticGlob` | **done** — `recursive=`, `exclude_dirs=`, `discard_pattern=` |
 | Deprecated aliases | **done** — once-per-process warn; internal call sites migrated |
 | Filter parity | **done** — match/exclude against relative `node.path` and absolute `str`/`abspath` |
-| Antora evaluation + path vocabulary | **done** on Methods hub / quickstart / integration `test_glob`; Filter recipe on Methods hub |
+| Antora evaluation + path vocabulary | **done** — Methods hub corrected: prefer StaticGlob for trees; Glob+Filter for flat dirs; SCons `**` is not recursive |
 | Optional cuppa `Glob` wrapper | not started |
 | Alias removal | deferred to major |
 

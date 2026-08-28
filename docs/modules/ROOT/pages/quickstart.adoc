@@ -25,8 +25,9 @@ for source in env.StaticGlob('*.cpp', recursive=False):
 ----
 
 `env.Build()` is toolchain- and variant-aware (unlike a bare `env.Program()`).
-`StaticGlob` snapshots the filesystem when the sconscript runs (configure-time);
-use SCons `env.Glob('**/*.cpp')` when you want build-graph-aware discovery instead.
+`StaticGlob` walks matching files when the sconscript runs; use
+`recursive=False` for a single directory. SCons `env.Glob` is also
+single-directory only — it does not recurse with `**`.
 
 == Building
 

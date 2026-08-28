@@ -410,10 +410,10 @@ See xref:dependencies.adoc[Dependencies] and xref:packages.adoc[Publishing packa
 | SCM-aware generated version sources
 
 | `env.StaticGlob(…)`
-| Configure-time (static) source discovery; `recursive=False` is the non-recursive form. Deprecated aliases: `RecursiveGlob`, `GlobFiles`
+| Recursive (default) or flat (`recursive=False`) configure-time discovery with cuppa `exclude_dirs` / `discard_pattern`. Deprecated aliases: `RecursiveGlob`, `GlobFiles`
 
 | `env.Glob(…)` (SCons)
-| Dynamic discovery with directory nodes; use `**` when you want the build graph to notice new files
+| Single-directory (or one path segment per `*` / `**`) discovery; matches do **not** recurse through `/`
 
 | `env.TargetFrom(path)`
 | Derive a target basename from a path
@@ -422,44 +422,54 @@ See xref:dependencies.adoc[Dependencies] and xref:packages.adoc[Publishing packa
 | Filtered install/copy helpers
 |===
 
-Source discovery differs by **when** the file list is fixed:
+=== Choosing StaticGlob, Glob, and Filter
+
+For most nested source trees, prefer ``env.StaticGlob`` — it walks the tree once when the sconscript runs and supports cuppa-only exclusions. SCons ``env.Glob`` is useful for a **single directory** (or one known nesting level). It is not a recursive ``**`` glob: SCons patterns do not span directory separators, and ``**`` is only one path segment (the same class of match as ``*`` for directory names). A recursive native SCons Glob remains an upstream discussion, not shipping behaviour.
+
+Both helpers re-run whenever Cuppa re-reads the sconscript (every normal build), so new files appear on the next invocation either way. The practical differences are **recursion**, **exclude/discard knobs**, and **path vocabulary** (`start=` / ``#/`` on StaticGlob).
 
 [cols="2,3,3"]
 |===
-| API | Evaluation | Typical use
+| API | What it finds | Typical use
 
 | `env.StaticGlob('*.cpp', start='src')`
-| Snapshot when the sconscript runs
-| Stable source lists; cuppa `exclude_dirs` / `discard_pattern`
+| All matching files under `src/` (recursive)
+| Libraries and apps with nested sources; skip `_build` / dependencies via `exclude_dirs`
 
 | `env.StaticGlob('*_test.cpp', start='tests', recursive=False)`
-| Snapshot of one directory (was `GlobFiles`)
-| Flat test or app folders
+| Only files directly in `tests/`
+| Flat test or app folders (was `GlobFiles`)
 
-| SCons `env.Glob('#/src/**/*.cpp')`
-| Lazy / build-graph aware
-| Trees that gain files between configures
+| SCons `env.Glob('#/tests/*.cpp')`
+| Only files directly in `tests/`
+| Flat dirs when you want SCons-native `File` nodes
+
+| SCons `env.Glob('#/src/*/*.cpp')`
+| Exactly one directory level under `src/`
+| Shallow layouts; **not** a full tree walk
 
 | `env.Filter(nodes, match=…, exclude=…)`
-| Post-select among existing nodes
-| Narrow a dynamic `Glob` without re-walking
+| Subset of an existing node list
+| Narrow Glob or StaticGlob results (for example keep `*_test.cpp`, drop `*/detail/*`)
 |===
 
 `Filter` matches against both the node's project-relative path and its absolute
-string form, so the same pattern works whether the nodes came from
-`StaticGlob` or SCons `Glob`:
+string form, so the same pattern works for `StaticGlob` and SCons `Glob` nodes:
 
 [source,python]
 ----
-candidates = env.Glob('#/src/**/*.cpp')
-tests = env.Filter(candidates, match='*_test.cpp', exclude='**/detail/**')
-
-# Same patterns after a configure-time snapshot:
+# Preferred for nested trees:
 candidates = env.StaticGlob('*.cpp', start='#/src')
-tests = env.Filter(candidates, match='*_test.cpp', exclude='**/detail/**')
+tests = env.Filter(candidates, match='*_test.cpp', exclude='*/detail/*')
+
+# Flat directory — SCons Glob + Filter is fine:
+candidates = env.Glob('#/tests/*.cpp')
+tests = env.Filter(candidates, match='*_test.cpp')
 ----
 
-Path vocabulary shared by `StaticGlob` (and intended for any future cuppa `Glob` wrapper):
+Do **not** write `env.Glob('#/src/**/*.cpp')` expecting every nested `.cpp` under `src/`. That pattern only matches one intermediate directory level (and misses files directly in `src/`). Use `StaticGlob` for the full tree instead.
+
+Path vocabulary for `StaticGlob` (and any future cuppa Glob wrapper):
 
 * `#/…` or `#…` — from the project / sconstruct root
 * `start='src'` — directory relative to the calling sconscript

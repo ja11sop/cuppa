@@ -1,4 +1,4 @@
-= `test_glob` — `StaticGlob` (and deprecated aliases)
+= `test_glob` — `StaticGlob`, SCons `Glob`, and `Filter`
 :description: Cuppa integration test documentation for test_glob
 
 
@@ -7,6 +7,9 @@
 - `StaticGlob(..., recursive=False)` lists `*_test.cpp` under `tests/` (at least two files).
 - `StaticGlob` finds nested `src/nested/deep.cpp`, including with `start='#/src'`.
 - Deprecated `GlobFiles` / `RecursiveGlob` aliases still work and emit one warning each.
+- `Filter` works on `StaticGlob` nodes with project-relative patterns and `*/detail/*` excludes.
+- SCons `Glob('#/src/**/*.cpp')` is **not** a full tree walk (one path segment only); `StaticGlob` covers the tree.
+- Flat-dir recipe: `Glob('#/tests/*.cpp')` then `Filter` (including building from a filtered node).
 - Discovered sources can be built (`BuildTest`, `Compile`).
 
 == Generated files
@@ -20,7 +23,7 @@ import cuppa
 cuppa.run(default_variants=['dbg'])
 ----
 
-=== `sconscript`
+=== `sconscript` (representative)
 
 [source,python]
 ----
@@ -45,7 +48,7 @@ cuppa -D --offline --toolchains=gcc --dbg --test
 
 == Expectations
 
-Exit 0; `hello_test` under `final/`; `deep.*` object under `_build`.
+Exit 0; `hello_test` under `final/`; `deep.*` object under `_build` where compiled.
 
 '''
 
