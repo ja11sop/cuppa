@@ -413,7 +413,7 @@ See xref:dependencies.adoc[Dependencies] and xref:packages.adoc[Publishing packa
 | Recursive configure-time tree walk (Cuppa's stand-in for a recursive Glob); `exclude_dirs` / `discard_pattern`
 
 | `env.GlobFiles(…)`
-| Flat configure-time listing of one directory
+| Single-directory discovery via SCons `Glob` after resolving Cuppa `start=` / `#/` (includes declared `File` nodes)
 
 | `env.Glob(…)` (SCons)
 | Single-directory (or one path segment per `*` / `**`) discovery; matches do **not** recurse through `/`
@@ -430,9 +430,9 @@ See xref:dependencies.adoc[Dependencies] and xref:packages.adoc[Publishing packa
 Name the two axes separately:
 
 * **Recursion** — does discovery walk nested directories?
-* **Evaluation** — *configure-time snapshot* (Cuppa `RecursiveGlob` / `GlobFiles`) vs *SCons directory Glob* (`env.Glob`)
+* **Evaluation** — *disk walk snapshot* (`RecursiveGlob`) vs *SCons directory Glob* (`env.Glob` / `env.GlobFiles`)
 
-Cuppa's recursive walk **is** the practical answer to “recursive Glob” in SCons today: upstream `Glob` still does not span `/`, and `**` is only one path segment. Prefer ``env.RecursiveGlob`` for nested trees. Use ``env.GlobFiles`` or SCons ``env.Glob`` for a single directory; use ``env.Filter`` to narrow either source.
+Cuppa's recursive walk **is** the practical answer to “recursive Glob” in SCons today: upstream `Glob` still does not span `/`, and `**` is only one path segment. Prefer ``env.RecursiveGlob`` for nested trees. Use ``env.GlobFiles`` (Cuppa `start=` / `#/` vocabulary over SCons directory Glob) or SCons ``env.Glob`` for a single directory; use ``env.Filter`` to narrow either source.
 
 Both Cuppa snapshot helpers and SCons ``Glob`` re-run whenever Cuppa re-reads the sconscript (every normal build). New files appear on the next invocation either way — the day-to-day impact of snapshot-vs-directory-Glob is low. Recursion, ``exclude_dirs`` / ``discard_pattern``, and ``start=`` / ``#/`` vocabulary are the differences that matter.
 
@@ -445,8 +445,8 @@ Both Cuppa snapshot helpers and SCons ``Glob`` re-run whenever Cuppa re-reads th
 | Nested libraries/apps; skip `_build` / dependencies via `exclude_dirs`
 
 | `env.GlobFiles('*_test.cpp', start='tests')`
-| Only files directly in `tests/`
-| Flat test or app folders
+| Only files directly in `tests/` (disk + declared `File` nodes)
+| Flat test or app folders; same SCons FS rules as `Glob`
 
 | SCons `env.Glob('#/tests/*.cpp')`
 | Only files directly in `tests/`
@@ -476,19 +476,22 @@ tests = env.Filter(candidates, match='*_test.cpp')
 Do **not** write `env.Glob('#/src/**/*.cpp')` expecting every nested `.cpp` under `src/`. Use `RecursiveGlob` for the full tree.
 
 For ordinary on-disk trees the file sets from `GlobFiles` and `Glob` on the same
-directory match. SCons `Glob` can still return nodes Cuppa snapshot discovery will
-not, because it searches the SCons filesystem (Repositories, already-declared
-`File` entries), not only `os.listdir` / `os.walk`:
+directory match. `GlobFiles` is implemented with SCons `Glob` after resolving
+Cuppa `start=` / `#/`, so it also sees declared `File` nodes and Repository
+entries. `RecursiveGlob` remains a disk walk only (until a later merge of
+`Dir.entries` per directory):
 
 [source,python]
 ----
 Repository('#/../repo')               # repo/src/from_repo.cpp; project/src/local.cpp
 env.Glob('src/*.cpp')                 # local.cpp + from_repo.cpp
-env.GlobFiles('*.cpp', start='src')   # local.cpp only
+env.GlobFiles('*.cpp', start='src')   # local.cpp + from_repo.cpp
+env.RecursiveGlob('*.cpp', start='src')  # local.cpp only
 
 env.File('src/ghost.cpp')             # declared, not on disk
 env.Glob('src/*.cpp')                 # includes ghost.cpp
-env.GlobFiles('*.cpp', start='src')   # on-disk names only
+env.GlobFiles('*.cpp', start='src')   # includes ghost.cpp
+env.RecursiveGlob('*.cpp', start='src')  # on-disk names only
 ----
 
 Path vocabulary for Cuppa snapshot discovery (`start=`):

@@ -164,8 +164,8 @@ def test_glob_files_and_scons_glob_same_flat_basenames(tmp_path):
     assert_success(result)
 
 
-def test_scons_glob_sees_repository_files_cuppa_snapshot_does_not(tmp_path):
-    """SCons Repository: Glob finds repo files; GlobFiles / RecursiveGlob only see local disk."""
+def test_scons_glob_sees_repository_files_recursive_glob_does_not(tmp_path):
+    """SCons Repository: Glob and GlobFiles see repo files; RecursiveGlob is disk-only."""
     project = tmp_path / "project"
     repo = tmp_path / "repo"
     (project / "src").mkdir(parents=True)
@@ -182,7 +182,7 @@ def test_scons_glob_sees_repository_files_cuppa_snapshot_does_not(tmp_path):
         "assert scons_names == ['from_repo.cpp', 'local.cpp'], scons_names\n"
         "cuppa_flat = env.GlobFiles('*.cpp', start='src')\n"
         "flat_names = sorted(str(n).replace('\\\\\\\\', '/').split('/')[-1] for n in cuppa_flat)\n"
-        "assert flat_names == ['local.cpp'], flat_names\n"
+        "assert flat_names == ['from_repo.cpp', 'local.cpp'], flat_names\n"
         "cuppa_walk = env.RecursiveGlob('*.cpp', start='src')\n"
         "walk_names = sorted(str(n).replace('\\\\\\\\', '/').split('/')[-1] for n in cuppa_walk)\n"
         "assert walk_names == ['local.cpp'], walk_names\n",
@@ -191,8 +191,8 @@ def test_scons_glob_sees_repository_files_cuppa_snapshot_does_not(tmp_path):
     assert_success(result)
 
 
-def test_scons_glob_sees_declared_file_nodes_not_on_disk(tmp_path):
-    """Declared env.File nodes appear in Glob; GlobFiles only lists real directory entries."""
+def test_glob_files_sees_declared_file_nodes_not_on_disk(tmp_path):
+    """GlobFiles (via SCons Glob) sees declared File nodes; RecursiveGlob stays disk-only."""
     project = tmp_path / "project"
     (project / "src").mkdir(parents=True)
     (project / "src" / "on_disk.cpp").write_text("int on_disk() { return 1; }\n")
@@ -210,7 +210,7 @@ def test_scons_glob_sees_declared_file_nodes_not_on_disk(tmp_path):
         "assert scons_names == ['ghost.cpp', 'on_disk.cpp'], scons_names\n"
         "cuppa_flat = env.GlobFiles('*.cpp', start='src')\n"
         "flat_names = sorted(str(n).replace('\\\\\\\\', '/').split('/')[-1] for n in cuppa_flat)\n"
-        "assert flat_names == ['on_disk.cpp'], flat_names\n"
+        "assert flat_names == ['ghost.cpp', 'on_disk.cpp'], flat_names\n"
         "cuppa_walk = env.RecursiveGlob('*.cpp', start='src')\n"
         "walk_names = sorted(str(n).replace('\\\\\\\\', '/').split('/')[-1] for n in cuppa_walk)\n"
         "assert walk_names == ['on_disk.cpp'], walk_names\n",

@@ -5,17 +5,17 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   RecursiveGlob / GlobFiles — configure-time (snapshot) source discovery
+#   RecursiveGlob / GlobFiles — source discovery
 #-------------------------------------------------------------------------------
 #
-#   Cuppa discovery is a *configure-time snapshot*: the file list is fixed when
-#   the sconscript line runs. SCons env.Glob is a *directory Glob*: one path
-#   segment per pattern, SCons-native File nodes, still not a tree walk.
-#   Under Cuppa both re-run when the sconscript is re-read (every normal build),
-#   so the recursion axis matters more than snapshot-vs-Glob for day-to-day use.
+#   RecursiveGlob: configure-time os.walk snapshot (disk only), with cuppa
+#   exclude_dirs / discard_pattern — stand-in for a recursive Glob.
+#
+#   GlobFiles: single-directory discovery via SCons env.Glob after resolving
+#   start= / #/ — same file set as Glob for that directory, including declared
+#   File nodes that are not on disk yet (and Repository entries when used).
 #
 import os
-import fnmatch
 import re
 
 import cuppa.recursive_glob
@@ -74,39 +74,25 @@ def _file_nodes_for_matches( env, matches, rel_start, sconscript_dir ):
     return nodes
 
 
-def snapshot_glob(
-        env,
-        pattern,
-        start=DEFAULT_START,
-        recursive=True,
-        exclude_dirs=DEFAULT_START,
-        discard_pattern=None,
-):
-    """Configure-time snapshot discovery shared by RecursiveGlob and GlobFiles."""
-    absolute_start, rel_start, sconscript_dir = relative_glob_start(
-            env, start, DEFAULT_START
-    )
+def _directory_glob_pattern( absolute_start, sconscript_dir, rel_start, pattern ):
+    """Build a SCons Glob pattern for one directory after resolving Cuppa start=."""
+    pattern = pattern.replace( '\\', '/' )
+    if os.path.normpath( absolute_start ) == os.path.normpath( sconscript_dir ):
+        return pattern
+    if not rel_start.startswith( os.pardir ):
+        rel = os.path.relpath( absolute_start, sconscript_dir ).replace( '\\', '/' )
+        return rel + '/' + pattern
+    return os.path.join( absolute_start, pattern ).replace( '\\', '/' )
 
-    if recursive:
-        exclude_dirs_regex = _exclude_dirs_regex( env, exclude_dirs, DEFAULT_START )
-        matches = cuppa.recursive_glob.glob(
-                absolute_start,
-                pattern,
-                exclude_dirs_pattern=exclude_dirs_regex,
-                discard_pattern=discard_pattern,
-        )
-    else:
-        matches = []
-        for filename in os.listdir( absolute_start ):
-            if fnmatch.fnmatch( filename, pattern ):
-                matches.append( os.path.join( absolute_start, filename ) )
 
-    logger.trace(
-            "matches = [{}]."
-            .format( colour_items( [ str( match ) for match in matches ] ) )
-    )
-
-    return _file_nodes_for_matches( env, matches, rel_start, sconscript_dir )
+def _file_nodes_only( nodes ):
+    files = []
+    for node in nodes:
+        is_dir = getattr( node, 'isdir', None )
+        if callable( is_dir ) and is_dir():
+            continue
+        files.append( node )
+    return files
 
 
 class RecursiveGlobMethod:
@@ -124,14 +110,21 @@ class RecursiveGlobMethod:
     ):
         # Discovery helper only: returns file nodes selected from the tree.
         # No build commands are emitted, so NotifyProgress is not applicable.
-        return snapshot_glob(
-                env,
+        absolute_start, rel_start, sconscript_dir = relative_glob_start(
+                env, start, self.default
+        )
+        exclude_dirs_regex = _exclude_dirs_regex( env, exclude_dirs, self.default )
+        matches = cuppa.recursive_glob.glob(
+                absolute_start,
                 pattern,
-                start=start,
-                recursive=True,
-                exclude_dirs=exclude_dirs,
+                exclude_dirs_pattern=exclude_dirs_regex,
                 discard_pattern=discard_pattern,
         )
+        logger.trace(
+                "matches = [{}]."
+                .format( colour_items( [ str( match ) for match in matches ] ) )
+        )
+        return _file_nodes_for_matches( env, matches, rel_start, sconscript_dir )
 
     @classmethod
     def add_to_env( cls, cuppa_env ):
@@ -139,12 +132,21 @@ class RecursiveGlobMethod:
 
 
 class GlobFilesMethod:
-    """Flat configure-time directory listing (one directory, no walk)."""
+    """Single-directory discovery (SCons Glob + Cuppa start= / #/ vocabulary)."""
 
     default = DEFAULT_START
 
     def __call__( self, env, pattern, start=default ):
-        return snapshot_glob( env, pattern, start=start, recursive=False )
+        # Uses SCons Glob so declared File nodes (and Repository entries) under
+        # the resolved directory are visible — not only os.listdir.
+        absolute_start, rel_start, sconscript_dir = relative_glob_start(
+                env, start, self.default
+        )
+        glob_pat = _directory_glob_pattern(
+                absolute_start, sconscript_dir, rel_start, pattern
+        )
+        logger.trace( "GlobFiles -> env.Glob([{}])".format( as_notice( glob_pat ) ) )
+        return _file_nodes_only( env.Glob( glob_pat ) )
 
     @classmethod
     def add_to_env( cls, cuppa_env ):

@@ -16,7 +16,7 @@ SCons **`env.Glob`** is a **directory Glob**: matches do not span `/`, and `**` 
 | API | Role |
 |-----|------|
 | **`env.RecursiveGlob`** | Recursive configure-time tree walk — Cuppa’s stand-in for “recursive Glob” |
-| **`env.GlobFiles`** | Flat configure-time listing of one directory |
+| **`env.GlobFiles`** | Single-directory discovery via SCons `Glob` after Cuppa `start=` / `#/` (declared `File`s, Repositories) |
 | **`env.Glob`** (SCons) | Directory Glob (non-recursive) |
 | **`env.Filter`** | Narrow any node list (path forms: relative + absolute) |
 
@@ -57,7 +57,8 @@ shallow = env.Glob('#/src/*/*.cpp')  # one nesting level only
 | Unified snapshot engine | **done** (`snapshot_glob`) |
 | Filter path parity | **done** |
 | Semantic integration matrix | **done** |
-| Optional true recursive SCons Glob wrapper | not started |
+| GlobFiles via SCons Glob (declared Files) | **done** |
+| RecursiveGlob merge of `Dir.entries` | not started (try after live-testing GlobFiles) |
 
 ## Non-goals
 
