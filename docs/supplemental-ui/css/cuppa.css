@@ -44,6 +44,8 @@
   --cuppa-icon-widen: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M9,13H15V16L20,11.5L15,7V10H9V7L4,11.5L9,16V13M4,4H20V6H4V4M4,18H20V20H4V18Z'/%3E%3C/svg%3E");
   --cuppa-icon-full-width: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5,5H10V7H7V10H5V5M14,5H19V10H17V7H14V5M17,14H19V19H14V17H17V14M10,17V19H5V14H7V17H10Z'/%3E%3C/svg%3E");
   --cuppa-icon-narrow: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10,17V14H14V17L19,12L14,7V10H10V7L5,12L10,17M4,2H20V4H4V2M4,20H20V22H4V20Z'/%3E%3C/svg%3E");
+  /* Material Design Icons "home" path (Apache 2.0), masked like the other chrome icons. */
+  --cuppa-icon-home: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10,20V14H14V20H19V12H22L12,3L2,12H5V19H10Z'/%3E%3C/svg%3E");
   /* Material Design Icons "palette" path (Apache 2.0), masked like the other chrome icons. */
   --cuppa-icon-palette: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M17.5,12A1.5,1.5 0 0,1 16,10.5A1.5,1.5 0 0,1 17.5,9A1.5,1.5 0 0,1 19,10.5A1.5,1.5 0 0,1 17.5,12M14.5,8A1.5,1.5 0 0,1 13,6.5A1.5,1.5 0 0,1 14.5,5A1.5,1.5 0 0,1 16,6.5A1.5,1.5 0 0,1 14.5,8M9.5,8A1.5,1.5 0 0,1 8,6.5A1.5,1.5 0 0,1 9.5,5A1.5,1.5 0 0,1 11,6.5A1.5,1.5 0 0,1 9.5,8M6.5,12A1.5,1.5 0 0,1 5,10.5A1.5,1.5 0 0,1 6.5,9A1.5,1.5 0 0,1 8,10.5A1.5,1.5 0 0,1 6.5,12M12,3A9,9 0 0,0 3,12A9,9 0 0,0 12,21A1.5,1.5 0 0,0 13.5,19.5C13.5,18.94 13.24,18.44 12.83,18.1C12.42,17.76 12.17,17.26 12.17,16.7A3.83,3.83 0 0,1 16,12.87H16.5A4.5,4.5 0 0,0 21,8.37C21,5.43 16.97,3 12,3Z'/%3E%3C/svg%3E");
 }
@@ -319,12 +321,56 @@ body {
   color: var(--cuppa-text-muted);
 }
 
+/*
+ * Toolbar home: replace the bundle's dark SVG backgrounds with a masked
+ * Material home icon that inherits palette colour (works in dark mode).
+ */
+.toolbar .home-link {
+  background: none;
+  background-image: none;
+  color: var(--cuppa-text-muted);
+  display: block;
+  height: 1.25rem;
+  margin: 0.625rem;
+  position: relative;
+  width: 1.25rem;
+}
+
+.toolbar .home-link::before {
+  background-color: currentColor;
+  content: "";
+  display: block;
+  height: 100%;
+  mask: var(--cuppa-icon-home) center / contain no-repeat;
+  width: 100%;
+  -webkit-mask: var(--cuppa-icon-home) center / contain no-repeat;
+}
+
+.toolbar .home-link:hover,
+.toolbar .home-link.is-current,
+.toolbar .home-link:focus-visible {
+  background-image: none;
+  color: var(--cuppa-brand-dark);
+}
+
 .breadcrumbs {
   color: var(--cuppa-text-muted);
 }
 
-.breadcrumbs a:hover {
+.breadcrumbs a {
+  color: var(--cuppa-text-muted);
+  text-decoration: none;
+}
+
+.breadcrumbs a:hover,
+.breadcrumbs a:focus-visible {
   color: var(--cuppa-brand-dark);
+  text-decoration: underline;
+}
+
+.breadcrumbs li:last-child a {
+  color: var(--cuppa-text);
+  font-weight: 600;
 }
 
 /*
