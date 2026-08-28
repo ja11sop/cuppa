@@ -102,7 +102,7 @@ Sources are **look references**, not dependencies. Map each idea onto Antora cla
 |---------|-----------------------------|----------|--------|
 | Page measure / line length | Constrained content column | **Adapt** | Toolbar cycles default (~46rem) → wide (56rem) → full (fills article column); `localStorage`; do not shrink the sidebar |
 | Type scale | Distinct H1–H3, quieter body | **Keep** | CSS variables on headings in `.doc` |
-| Colour tokens | One brand + semantic status | **Keep** | Complete semantic contract in a named `cuppa-palette-*.css` file; five palettes (cup-of-tea, fine-bone-china, harbour, forest, aubergine), each with a `prefers-color-scheme: dark` override; toolbar cycles them at runtime (`localStorage`); later `.cuppa-error` sample classes |
+| Colour tokens | One brand + semantic status | **Keep** | Complete semantic contract in a named `cuppa-palette-*.css` file; four palettes (cup-of-tea, harbour, forest, aubergine), each with a `prefers-color-scheme: dark` override; toolbar cycles them at runtime (`localStorage`); later `.cuppa-error` sample classes |
 | Sidebar current page | Stronger active marker | **Keep** | High value, small CSS |
 | Admonitions | Boxed MkDocs-style heading + quieter body | **Adapt** | Semantic border/glow; compact tinted heading with a masked Material icon and label/title; page-colour body at a smaller type size; do not change AsciiDoc HTML |
 | Expandable examples | Tinted collapsed disclosure | **Adapt** | Same callout chrome as admonitions (border, radius, glow, heading-strip height); flask mark, right-aligned plus/minus control, and progressive native-details transition |
@@ -129,7 +129,7 @@ Add **new** paths and two links after the bundle stylesheet:
 
 | Path | Role |
 |------|------|
-| `docs/supplemental-ui/css/cuppa-palette-*.css` | Semantic colour contracts (all five linked; one enabled) |
+| `docs/supplemental-ui/css/cuppa-palette-*.css` | Semantic colour contracts (all four linked; one enabled) |
 | `docs/supplemental-ui/css/cuppa.css` | Colour-independent component overrides |
 | `docs/supplemental-ui/partials/head-styles.hbs` | Overlay: keep `site.css`, link every palette + `cuppa.css`, early preference script |
 
@@ -142,7 +142,6 @@ Cold-start default is `cuppa-palette-cup-of-tea.css` (enabled; the other four li
 `localStorage` (`cuppa-doc-palette`). Ids:
 
 - `cup-of-tea` — cup of tea (default)
-- `fine-bone-china` — fine bone china
 - `harbour` — harbour
 - `forest` — forest
 - `aubergine` — aubergine
@@ -183,7 +182,7 @@ plan update.
 | Id | Status |
 |----|--------|
 | `ui-audit` | **Shipped** — catalogue and overlay rules in [#227](https://github.com/ja11sop/cuppa/pull/227) |
-| `ui-css` | **Landing in PR [#228](https://github.com/ja11sop/cuppa/pull/228)** (closes [#229](https://github.com/ja11sop/cuppa/issues/229)) — navbar/nav (Cuppa mark+wordmark); article type scale; compact tables (thead baseline align); admonitions; disclosures; code scale; pagination; five palettes with toolbar cycle + `localStorage` (mint-tea dropped as near-duplicate of cup-of-tea); search field recess/glow tokens; three-step article width; grab-pan + edge fades on wide listings. Review passes: nav labels retain uniform alignment while brand-colour carets sit fully outside highlights; the current-page rule marks leaf items only, since a caret already marks a parent; tables drop vertical rules for a tinted heading band opened and closed by a `--cuppa-table` rule; GitHub/PyPI marks; smaller body and monospace scales; edit-page link replaced by width (≥1024) + palette (all widths) controls; subtree parent/overview links are distinct; visible `C++` notation normalised through AsciiDoc attributes; chevrons inside pagination buttons; inline code uses a translucent ink wash (`--cuppa-code-tint`, with an opaque fallback) in every context, so it darkens the surface behind it rather than laying grey over a tinted heading; admonition table cells stack inside one semantic outer border/glow, with compact headings, locally embedded Material SVG marks, and heading-strip tokens that shift mark and label independently (per type where a glyph needs it) so both the generic label and an explicit title share one alignment; independently coloured expandable examples share that callout chrome and pair a flask mark with a right-aligned plus/minus control and progressive transition; five palettes (cup-of-tea, fine-bone-china, harbour, forest, aubergine) each carry light and `prefers-color-scheme: dark`; navbar uses `background-clip: padding-box` so Chromium does not paint a band of navbar colour below the accent border; every table declares a `cols` ratio measured from its own content, because the bundle's `table-layout: fixed` applies Antora's equal split literally, and repeated families (toolchain flag tables, Methods reference tables) are held to one ratio across sibling pages; the dense CLI reference is split into an introductory hub and seven task pages, with option/value tables and a curated SCons subset |
+| `ui-css` | **Landing in PR [#228](https://github.com/ja11sop/cuppa/pull/228)** (closes [#229](https://github.com/ja11sop/cuppa/issues/229)) — navbar/nav (Cuppa mark+wordmark); article type scale; compact tables (thead baseline align); admonitions; disclosures; code scale; pagination; four palettes with toolbar cycle + `localStorage` (mint-tea and fine-bone-china dropped as near-duplicates of cup-of-tea); search field recess/glow tokens; three-step article width; grab-pan + edge fades on wide listings. Review passes: nav labels retain uniform alignment while brand-colour carets sit fully outside highlights; the current-page rule marks leaf items only, since a caret already marks a parent; tables drop vertical rules for a tinted heading band opened and closed by a `--cuppa-table` rule; GitHub/PyPI marks; smaller body and monospace scales; edit-page link replaced by width (≥1024) + palette (all widths) controls; subtree parent/overview links are distinct; visible `C++` notation normalised through AsciiDoc attributes; chevrons inside pagination buttons; inline code uses a translucent ink wash (`--cuppa-code-tint`, with an opaque fallback) in every context, so it darkens the surface behind it rather than laying grey over a tinted heading; admonition table cells stack inside one semantic outer border/glow, with compact headings, locally embedded Material SVG marks, and heading-strip tokens that shift mark and label independently (per type where a glyph needs it) so both the generic label and an explicit title share one alignment; independently coloured expandable examples share that callout chrome and pair a flask mark with a right-aligned plus/minus control and progressive transition; four palettes (cup-of-tea, harbour, forest, aubergine) each carry light and `prefers-color-scheme: dark`; navbar uses `background-clip: padding-box` so Chromium does not paint a band of navbar colour below the accent border; every table declares a `cols` ratio measured from its own content, because the bundle's `table-layout: fixed` applies Antora's equal split literally, and repeated families (toolchain flag tables, Methods reference tables) are held to one ratio across sibling pages; the dense CLI reference is split into an introductory hub and seven task pages, with option/value tables and a curated SCons subset |
 | `ui-pin` | **Next** — keep separate until a stable default-bundle artifact or vendoring route is selected |
 | `ui-ci` | Local Antora build passes; verify Pages CI on [#228](https://github.com/ja11sop/cuppa/pull/228) |
 | `ui-fork-spike` | Deferred — supplemental pass reaches nav/tables without a fork |
@@ -193,14 +192,14 @@ plan update.
 | Path | Role |
 |------|------|
 | `docs/playbook.yml` | `ui.bundle.url` / `snapshot`; `supplemental_files` |
-| `docs/supplemental-ui/css/cuppa-palette-*.css` | Named palettes: cup-of-tea, fine-bone-china, harbour, forest, aubergine; each file is the full light+dark token contract |
+| `docs/supplemental-ui/css/cuppa-palette-*.css` | Named palettes: cup-of-tea, harbour, forest, aubergine; each file is the full light+dark token contract |
 | `docs/supplemental-ui/css/cuppa.css` | Colour-independent component overrides |
 | `docs/supplemental-ui/partials/head-styles.hbs` | Base, all palettes (one enabled), component CSS, early preference script |
 | `docs/supplemental-ui/partials/header-content.hbs` | Navbar overlay, including the inline GitHub / PyPI marks |
 | `docs/supplemental-ui/partials/footer-content.hbs` | Footer overlay; loads supplemental JS |
 | `docs/supplemental-ui/partials/edit-this-page.hbs` | Article width + palette toggles (replaces Edit this Page) |
 | `docs/supplemental-ui/js/cuppa-doc-width.js` | Article width cycle (default / wide / full) + localStorage |
-| `docs/supplemental-ui/js/cuppa-doc-palette.js` | Palette cycle across the five sheets + localStorage |
+| `docs/supplemental-ui/js/cuppa-doc-palette.js` | Palette cycle across the four sheets + localStorage |
 | `docs/supplemental-ui/js/cuppa-scroll-panels.js` | Wide listing scroll affordances and click-drag pan |
 | `docs/modules/ROOT/pages/contributing.adoc` | Pin + preview notes when `ui-pin` lands |
 | `design/plans/colourised-doc-samples.md` | Sample classes follow `--cuppa-*` tokens |

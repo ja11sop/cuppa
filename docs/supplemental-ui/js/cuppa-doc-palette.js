@@ -6,7 +6,8 @@
  *
  * Preference: localStorage STORAGE_KEY = palette id (absent = cup-of-tea).
  * An early script in head-styles.hbs enables the stored sheet before paint.
- * Legacy id "mint-tea" (removed as near-duplicate of cup-of-tea) maps to default.
+ * Legacy ids "mint-tea" and "fine-bone-china" (removed as near-duplicates of
+ * cup-of-tea) map to default.
  */
 (function () {
   'use strict';
@@ -15,14 +16,12 @@
   var DEFAULT = 'cup-of-tea';
   var ORDER = [
     'cup-of-tea',
-    'fine-bone-china',
     'harbour',
     'forest',
     'aubergine',
   ];
   var LABELS = {
     'cup-of-tea': 'Cup of tea',
-    'fine-bone-china': 'Fine bone china',
     'harbour': 'Harbour',
     'forest': 'Forest',
     'aubergine': 'Aubergine',
@@ -37,7 +36,7 @@
   }
 
   function normalizeId( id ) {
-    if( id === 'mint-tea' ){
+    if( id === 'mint-tea' || id === 'fine-bone-china' ){
       return DEFAULT;
     }
     return id;

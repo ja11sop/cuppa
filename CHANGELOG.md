@@ -49,8 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   glow, heading-strip height and padding) and pair a flask mark with a
   plus/minus control that names the state; and inline code is tinted with a translucent ink wash
   (``--cuppa-code-tint``) so it darkens the surface behind it and keeps that surface's hue on a
-  tinted heading instead of reading as a grey patch. Five named palettes ship linked in
-  ``head-styles.hbs`` (cup-of-tea cold-start default, fine-bone-china, harbour, forest,
+  tinted heading instead of reading as a grey patch. Four named palettes ship linked in
+  ``head-styles.hbs`` (cup-of-tea cold-start default, harbour, forest,
   aubergine); a toolbar control cycles them at runtime with ``localStorage``
   persistence. Each file defines the same token names for both light and
   ``prefers-color-scheme: dark``. The navbar GitHub and

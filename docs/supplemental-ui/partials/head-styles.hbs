@@ -5,7 +5,6 @@
   Each file carries light and prefers-color-scheme: dark tokens.
 --}}
 <link rel="stylesheet" href="{{{uiRootPath}}}/css/cuppa-palette-cup-of-tea.css" data-cuppa-palette="cup-of-tea">
-<link rel="stylesheet" href="{{{uiRootPath}}}/css/cuppa-palette-fine-bone-china.css" data-cuppa-palette="fine-bone-china" disabled>
 <link rel="stylesheet" href="{{{uiRootPath}}}/css/cuppa-palette-harbour.css" data-cuppa-palette="harbour" disabled>
 <link rel="stylesheet" href="{{{uiRootPath}}}/css/cuppa-palette-forest.css" data-cuppa-palette="forest" disabled>
 <link rel="stylesheet" href="{{{uiRootPath}}}/css/cuppa-palette-aubergine.css" data-cuppa-palette="aubergine" disabled>
@@ -24,13 +23,12 @@
   try {
     var order = [
       'cup-of-tea',
-      'fine-bone-china',
       'harbour',
       'forest',
       'aubergine',
     ];
     var id = localStorage.getItem('cuppa-doc-palette');
-    if (id === 'mint-tea') {
+    if (id === 'mint-tea' || id === 'fine-bone-china') {
       id = 'cup-of-tea';
     }
     if (order.indexOf(id) < 0) {
