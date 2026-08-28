@@ -2,7 +2,7 @@
 
 - **Status:** living
 - **Related:** [`AGENTS.md`](../../AGENTS.md) (agent ops); Antora Contributing (human versioning/release)
-- **Updated:** 2026-08-21
+- **Updated:** 2026-08-28
 - **Maintainer:** primary author of this journey; others append only (see `AGENTS.md`)
 - **Privacy:** obey the private-projects rule; never copy names from `INTERNAL_PROJECTS.local.md`
 - **Source:** Cursor sessions spanning roughly mid-July → 2026-08-07 on cuppa
@@ -333,6 +333,7 @@ These are recommendations for the next project, not self-flagellation.
 | Hub + family topic pages (Dependencies, Toolchains) | Agents know which AsciiDoc file owns defaults vs inventory |
 | `create-pr` rejects missing `impact:` label | Version job runs before the matrix; label-at-open avoids a wasted CI cycle |
 | Local docs preview; scan screenshots only on request | UI CSS review stays in the browser; PNG-in-context is a token tax, not a default loop |
+| Propose commit message; wait for go-ahead before commit/push | Maintainer skims the diff and steers before history moves (`AGENTS.md` Commit messages) |
 
 ---
 
