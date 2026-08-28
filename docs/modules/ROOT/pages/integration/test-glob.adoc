@@ -10,6 +10,8 @@
 - `Filter` works on RecursiveGlob and Glob nodes (relative patterns, `*/detail/*` excludes, build from filtered node).
 - Snapshot vs directory Glob: both see a new top-level file on the next Cuppa invocation.
 - Flat `GlobFiles` and SCons `Glob` agree on basenames for the same directory.
+- SCons `Repository`: `Glob` sees repo files; `GlobFiles` / `RecursiveGlob` see local disk only.
+- Declared `env.File` not on disk: `Glob` includes it; Cuppa snapshot APIs do not.
 - Discovered sources can be built (`BuildTest`, `Compile`).
 
 == Command

@@ -150,15 +150,70 @@ def test_glob_files_and_scons_glob_same_flat_basenames(tmp_path):
         "cuppa_nodes = env.GlobFiles('*.cpp', start='src')\n"
         "scons_nodes = env.Glob('#/src/*.cpp')\n"
         "def basenames(nodes):\n"
-        "    return sorted(os.path.basename(str(n).replace('\\\\', '/')) for n in nodes)\n"
+        "    return sorted(os.path.basename(str(n).replace('\\\\\\\\', '/')) for n in nodes)\n"
         "assert basenames(cuppa_nodes) == basenames(scons_nodes)\n"
         "assert basenames(cuppa_nodes) == ['hello.cpp']\n"
         "# Path forms often differ even when the file set matches:\n"
-        "cuppa_strs = [str(n).replace('\\\\', '/') for n in cuppa_nodes]\n"
-        "scons_strs = [str(n).replace('\\\\', '/') for n in scons_nodes]\n"
+        "cuppa_strs = [str(n).replace('\\\\\\\\', '/') for n in cuppa_nodes]\n"
+        "scons_strs = [str(n).replace('\\\\\\\\', '/') for n in scons_nodes]\n"
         "assert any(s.endswith('hello.cpp') for s in cuppa_strs)\n"
         "assert any(s.endswith('hello.cpp') for s in scons_strs)\n"
         "env.BuildTest('hello_test', 'tests/hello_test.cpp')\n",
     )
     result = run_cuppa(project, "--dbg", "--test")
+    assert_success(result)
+
+
+def test_scons_glob_sees_repository_files_cuppa_snapshot_does_not(tmp_path):
+    """SCons Repository: Glob finds repo files; GlobFiles / RecursiveGlob only see local disk."""
+    project = tmp_path / "project"
+    repo = tmp_path / "repo"
+    (project / "src").mkdir(parents=True)
+    (repo / "src").mkdir(parents=True)
+    (project / "src" / "local.cpp").write_text("int local_fn() { return 1; }\n")
+    (repo / "src" / "from_repo.cpp").write_text("int from_repo() { return 2; }\n")
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "Repository('#/../repo')\n"
+        "scons_nodes = env.Glob('src/*.cpp')\n"
+        "scons_names = sorted(str(n).replace('\\\\\\\\', '/').split('/')[-1] for n in scons_nodes)\n"
+        "assert scons_names == ['from_repo.cpp', 'local.cpp'], scons_names\n"
+        "cuppa_flat = env.GlobFiles('*.cpp', start='src')\n"
+        "flat_names = sorted(str(n).replace('\\\\\\\\', '/').split('/')[-1] for n in cuppa_flat)\n"
+        "assert flat_names == ['local.cpp'], flat_names\n"
+        "cuppa_walk = env.RecursiveGlob('*.cpp', start='src')\n"
+        "walk_names = sorted(str(n).replace('\\\\\\\\', '/').split('/')[-1] for n in cuppa_walk)\n"
+        "assert walk_names == ['local.cpp'], walk_names\n",
+    )
+    result = run_cuppa(project, "--dbg")
+    assert_success(result)
+
+
+def test_scons_glob_sees_declared_file_nodes_not_on_disk(tmp_path):
+    """Declared env.File nodes appear in Glob; GlobFiles only lists real directory entries."""
+    project = tmp_path / "project"
+    (project / "src").mkdir(parents=True)
+    (project / "src" / "on_disk.cpp").write_text("int on_disk() { return 1; }\n")
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "import os\n"
+        "# Declare a source node that does not exist on disk yet.\n"
+        "ghost = env.File('src/ghost.cpp')\n"
+        "assert not ghost.exists()\n"
+        "assert 'ghost.cpp' not in os.listdir('src')\n"
+        "scons_nodes = env.Glob('src/*.cpp')\n"
+        "scons_names = sorted(str(n).replace('\\\\\\\\', '/').split('/')[-1] for n in scons_nodes)\n"
+        "assert scons_names == ['ghost.cpp', 'on_disk.cpp'], scons_names\n"
+        "cuppa_flat = env.GlobFiles('*.cpp', start='src')\n"
+        "flat_names = sorted(str(n).replace('\\\\\\\\', '/').split('/')[-1] for n in cuppa_flat)\n"
+        "assert flat_names == ['on_disk.cpp'], flat_names\n"
+        "cuppa_walk = env.RecursiveGlob('*.cpp', start='src')\n"
+        "walk_names = sorted(str(n).replace('\\\\\\\\', '/').split('/')[-1] for n in cuppa_walk)\n"
+        "assert walk_names == ['on_disk.cpp'], walk_names\n",
+    )
+    result = run_cuppa(project, "--dbg")
     assert_success(result)

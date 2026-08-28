@@ -475,6 +475,22 @@ tests = env.Filter(candidates, match='*_test.cpp')
 
 Do **not** write `env.Glob('#/src/**/*.cpp')` expecting every nested `.cpp` under `src/`. Use `RecursiveGlob` for the full tree.
 
+For ordinary on-disk trees the file sets from `GlobFiles` and `Glob` on the same
+directory match. SCons `Glob` can still return nodes Cuppa snapshot discovery will
+not, because it searches the SCons filesystem (Repositories, already-declared
+`File` entries), not only `os.listdir` / `os.walk`:
+
+[source,python]
+----
+Repository('#/../repo')               # repo/src/from_repo.cpp; project/src/local.cpp
+env.Glob('src/*.cpp')                 # local.cpp + from_repo.cpp
+env.GlobFiles('*.cpp', start='src')   # local.cpp only
+
+env.File('src/ghost.cpp')             # declared, not on disk
+env.Glob('src/*.cpp')                 # includes ghost.cpp
+env.GlobFiles('*.cpp', start='src')   # on-disk names only
+----
+
 Path vocabulary for Cuppa snapshot discovery (`start=`):
 
 * `#/…` or `#…` — from the project / sconstruct root

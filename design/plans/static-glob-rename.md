@@ -29,7 +29,7 @@ Shared implementation: `snapshot_glob()` in [`relative_recursive_glob.py`](../..
 | **Configure-time snapshot** | Cuppa `RecursiveGlob` / `GlobFiles` — Python walk/listdir when the sconscript line runs |
 | **SCons directory Glob** | `env.Glob` — SCons-native `File` nodes for one directory / one segment per pattern |
 
-**Real impact (assessed):** low for typical Cuppa workflows. Both see new files on the next `cuppa` invocation because the sconscript is re-read. Differences that still matter: recursion, `exclude_dirs` / `discard_pattern`, `start=` / `#/` vocabulary, **node path forms** (absolute vs project-relative), and VariantDir/Repository edge cases.
+**Real impact (assessed):** low for typical Cuppa workflows. Both see new files on the next `cuppa` invocation because the sconscript is re-read. Differences that still matter: recursion, `exclude_dirs` / `discard_pattern`, `start=` / `#/` vocabulary, **node path forms** (absolute vs project-relative), and SCons FS edge cases — **Repositories** and **declared `File` nodes not on disk** (integration tests in `test_glob.py`).
 
 **Do not** implement RecursiveGlob by delegating to SCons `**` — that is not a tree walk.
 
