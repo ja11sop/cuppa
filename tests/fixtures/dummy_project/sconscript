@@ -2,6 +2,6 @@ Import('env')
 
 env.AppendUnique(CPPPATH=['#/include'])
 
-for source in env.GlobFiles('*_test.cpp', start='tests'):
+for source in env.StaticGlob('*_test.cpp', start='tests', recursive=False):
     name = str(source)[:-4].replace('\\', '/').split('/')[-1]
     env.BuildTest(name, source)

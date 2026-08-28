@@ -21,7 +21,7 @@ xref:toolchains/msvc.adoc[MSVC]).
 Cuppa wires build progress through `cuppa.progress.NotifyProgress` so each build variant reports begin/start/finish/end in a predictable order.
 
 `NotifyProgress` is attached to methods that emit build action nodes (`Build`, `Compile`, `Test`, coverage collation, doc builders, and so on).
-Methods that only mutate env state or select nodes (`StdCpp`, `BuildWith`, `Filter`, `RecursiveGlob`, `ImportModules`, etc.) do **not** call it directly.
+Methods that only mutate env state or select nodes (`StdCpp`, `BuildWith`, `Filter`, `StaticGlob`, `ImportModules`, etc.) do **not** call it directly.
 
 Progress nodes form a dependency chain that constrains when targets may run:
 
@@ -409,8 +409,11 @@ See xref:dependencies.adoc[Dependencies] and xref:packages.adoc[Publishing packa
 | `env.CreateVersion(…)`
 | SCM-aware generated version sources
 
-| `env.GlobFiles` / `env.RecursiveGlob`
-| Source discovery relative to the sconscript
+| `env.StaticGlob(…)`
+| Configure-time (static) source discovery; `recursive=False` is the non-recursive form. Deprecated aliases: `RecursiveGlob`, `GlobFiles`
+
+| `env.Glob(…)` (SCons)
+| Dynamic discovery with directory nodes; use `**` when you want the build graph to notice new files
 
 | `env.TargetFrom(path)`
 | Derive a target basename from a path
@@ -419,13 +422,42 @@ See xref:dependencies.adoc[Dependencies] and xref:packages.adoc[Publishing packa
 | Filtered install/copy helpers
 |===
 
+Source discovery differs by **when** the file list is fixed:
+
+[cols="2,3,3"]
+|===
+| API | Evaluation | Typical use
+
+| `env.StaticGlob('*.cpp', start='src')`
+| Snapshot when the sconscript runs
+| Stable source lists; cuppa `exclude_dirs` / `discard_pattern`
+
+| `env.StaticGlob('*_test.cpp', start='tests', recursive=False)`
+| Snapshot of one directory (was `GlobFiles`)
+| Flat test or app folders
+
+| SCons `env.Glob('#/src/**/*.cpp')`
+| Lazy / build-graph aware
+| Trees that gain files between configures
+
+| `env.Filter(nodes, match=…, exclude=…)`
+| Post-select among existing nodes
+| Narrow a dynamic `Glob` without re-walking
+|===
+
+Path vocabulary shared by `StaticGlob` (and intended for any future cuppa `Glob` wrapper):
+
+* `#/…` or `#…` — from the project / sconstruct root
+* `start='src'` — directory relative to the calling sconscript
+* Absolute paths — last resort (packages / generated trees)
+
 Example -- collect sources and name the binary from a path:
 
 [source,python]
 ----
 Import('env')
 
-sources = env.RecursiveGlob('*.cpp', start='src')
+sources = env.StaticGlob('*.cpp', start='src')
 env.Build(env.TargetFrom('src/apps/server.cpp'), sources)
 ----
 

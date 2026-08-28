@@ -1,11 +1,12 @@
-= `test_glob` — `GlobFiles` and `RecursiveGlob`
+= `test_glob` — `StaticGlob` (and deprecated aliases)
 :description: Cuppa integration test documentation for test_glob
 
 
 == What is tested
 
-- `GlobFiles` lists `*_test.cpp` under `tests/` (at least two files).
-- `RecursiveGlob` finds nested `src/nested/deep.cpp`.
+- `StaticGlob(..., recursive=False)` lists `*_test.cpp` under `tests/` (at least two files).
+- `StaticGlob` finds nested `src/nested/deep.cpp`, including with `start='#/src'`.
+- Deprecated `GlobFiles` / `RecursiveGlob` aliases still work and emit one warning each.
 - Discovered sources can be built (`BuildTest`, `Compile`).
 
 == Generated files
@@ -25,10 +26,12 @@ cuppa.run(default_variants=['dbg'])
 ----
 Import('env')
 env.AppendUnique(CPPPATH=['#/include'])
-tests = env.GlobFiles('*_test.cpp', start='tests')
+tests = env.StaticGlob('*_test.cpp', start='tests', recursive=False)
 assert len(tests) >= 2
-deep = env.RecursiveGlob('*.cpp', start='src')
+deep = env.StaticGlob('*.cpp', start='src')
 assert any('deep.cpp' in str(n).replace('\\','/') for n in deep)
+anchored = env.StaticGlob('*.cpp', start='#/src')
+assert any('deep.cpp' in str(n).replace('\\','/') for n in anchored)
 env.BuildTest('hello_test', 'tests/hello_test.cpp')
 env.Compile('src/nested/deep.cpp')
 ----

@@ -26,7 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   URL shapes (``--no-reports-remote-provider-hints`` to disable).
 - Recognised GCC toolchain aliases include ``gcc162``, ``gcc144``, ``gcc134``, and
   ``gcc125`` (and the missing 12.3/12.4 and 13.3 point releases) so PATH installs of
-  current GNU releases can be selected by name.
+  current GNU releases can be selected by name
+  ([#230](https://github.com/ja11sop/cuppa/issues/230)).
+- ``env.StaticGlob`` is the configure-time source discovery API (optional
+  ``recursive=False``). ``env.RecursiveGlob`` and ``env.GlobFiles`` remain as
+  deprecated aliases that warn once per process. Shared ``#/`` / sconscript-relative
+  path vocabulary lives in ``cuppa.utility.glob_roots``.
 
 ### Changed
 

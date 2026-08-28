@@ -1,9 +1,9 @@
 # Plan: StaticGlob — rename source discovery by evaluation model
 
-- **Status:** proposal
+- **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `static-glob`; [#213](https://github.com/ja11sop/cuppa/issues/213); [`cmake-to-cuppa-migration.md`](cmake-to-cuppa-migration.md)
-- **Updated:** 2026-08-17
-- **Impact:** minor — new names and optional cuppa `Glob` wrapper; existing `RecursiveGlob` / `GlobFiles` remain as deprecated aliases for at least one cycle
+- **Updated:** 2026-08-28
+- **Impact:** minor — new names; existing `RecursiveGlob` / `GlobFiles` remain as deprecated aliases for at least one cycle
 
 ## Problem
 
@@ -55,12 +55,12 @@ Users must be able to switch between dynamic and static **without rewriting path
 
 Today path handling is split:
 
-- **Static:** `clean_start()` / `relative_start()` in [`relative_recursive_glob.py`](../../cuppa/methods/relative_recursive_glob.py) — `start=` relative to `sconscript_dir`, optional absolutes, relpath back to `base_path` for `env.File` nodes
-- **Dynamic:** SCons `#/` project-root paths, paths relative to the calling sconscript, and `env.Glob` rules — not centralized with StaticGlob
+- **Static:** `cuppa.utility.glob_roots` (`resolve_glob_start` / `relative_glob_start`) — `start=` relative to `sconscript_dir`, `#/` / `#` from `sconstruct_dir`, optional absolutes, relpath back for `env.File` nodes
+- **Dynamic:** SCons `#/` project-root paths, paths relative to the calling sconscript, and `env.Glob` rules — path styles now documented alongside StaticGlob; cuppa wrapper still optional
 
 ### Settled direction (proposal)
 
-Extract a shared helper (e.g. `cuppa/paths/glob_roots.py` or extend `cuppa/utility/path.py`) used by **both** StaticGlob and any cuppa Glob wrapper:
+Shared helper in [`cuppa/utility/glob_roots.py`](../../cuppa/utility/glob_roots.py) used by StaticGlob (and any future cuppa Glob wrapper):
 
 | Input style | Meaning | Example |
 |-------------|---------|---------|
@@ -112,18 +112,20 @@ Internal call sites ([`build_with_location.py`](../../cuppa/build_with_location.
 | Flat vs recursive | Two methods vs one flag | **One method** + `recursive=False` (replaces `GlobFiles`) |
 | Dynamic API | Document SCons only vs cuppa wrapper | **Document SCons first**; add wrapper if `#/` + exclusions need one home |
 | Aliases | Keep forever vs deprecate | **Deprecated aliases** ≥1 minor, remove on major |
-| Path helper location | New module vs extend existing | **Shared module** consumed by StaticGlob + optional Glob wrapper |
+| Path helper location | New module vs extend existing | **`cuppa/utility/glob_roots.py`** consumed by StaticGlob + optional Glob wrapper |
 
 ## Progress snapshot
 
 | Slice | Status |
 |-------|--------|
 | Plan | this document |
-| Shared path resolver | not started |
-| `StaticGlob` | not started |
-| Deprecated aliases | not started |
-| Filter parity | not started |
-| Antora / migration matrix update | not started |
+| Shared path resolver | **done** — `cuppa/utility/glob_roots.py` + unit tests |
+| `StaticGlob` | **done** — `recursive=`, `exclude_dirs=`, `discard_pattern=` |
+| Deprecated aliases | **done** — once-per-process warn; internal call sites migrated |
+| Filter parity | not started (follow-on) |
+| Antora evaluation + path vocabulary | **done** on Methods hub / quickstart / integration `test_glob`; Filter recipe depth still follow-on |
+| Optional cuppa `Glob` wrapper | not started |
+| Alias removal | deferred to major |
 
 ## Non-goals
 
@@ -134,6 +136,7 @@ Internal call sites ([`build_with_location.py`](../../cuppa/build_with_location.
 ## References
 
 - [`cuppa/methods/relative_recursive_glob.py`](../../cuppa/methods/relative_recursive_glob.py)
+- [`cuppa/utility/glob_roots.py`](../../cuppa/utility/glob_roots.py)
 - [`cuppa/recursive_glob.py`](../../cuppa/recursive_glob.py)
 - [`cuppa/methods/filter.py`](../../cuppa/methods/filter.py)
 - Integration: [`test_glob.py`](../../tests/integration/methods/test_glob.py), [`test_flags.py`](../../tests/integration/methods/test_flags.py)

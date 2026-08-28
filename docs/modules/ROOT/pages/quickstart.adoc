@@ -20,11 +20,13 @@ In a directory of `.cpp` files:
 ----
 Import('env')
 
-for source in env.GlobFiles('*.cpp'):
+for source in env.StaticGlob('*.cpp', recursive=False):
     env.Build(str(source)[:-4], source)
 ----
 
 `env.Build()` is toolchain- and variant-aware (unlike a bare `env.Program()`).
+`StaticGlob` snapshots the filesystem when the sconscript runs (configure-time);
+use SCons `env.Glob('**/*.cpp')` when you want build-graph-aware discovery instead.
 
 == Building
 
@@ -53,7 +55,7 @@ Treat sources as test binaries:
 ----
 Import('env')
 
-for source in env.GlobFiles('*.cpp'):
+for source in env.StaticGlob('*.cpp', recursive=False):
     env.BuildTest(str(source)[:-4], source)
 ----
 

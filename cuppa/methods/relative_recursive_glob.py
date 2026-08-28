@@ -1,11 +1,11 @@
 
-#          Copyright Jamie Allsop 2012-2015
+#          Copyright Jamie Allsop 2012-2026
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   RelativeRecursiveGlob
+#   StaticGlob (configure-time source discovery) and deprecated aliases
 #-------------------------------------------------------------------------------
 import os
 import fnmatch
@@ -13,117 +13,146 @@ import re
 
 import cuppa.recursive_glob
 from cuppa.log import logger
-from cuppa.colourise import as_notice, colour_items
+from cuppa.colourise import as_notice, as_warning, colour_items
+from cuppa.utility.glob_roots import (
+        DEFAULT_START,
+        relative_glob_start,
+        resolve_glob_start,
+)
 
 
-
+# Kept for callers that imported the old helpers from this module.
 def clean_start( env, start, default ):
-
-    base_path = os.path.realpath( env['sconscript_dir'] )
-
-    if start == default:
-        start = base_path
-
-    start = os.path.expanduser( start )
-
-    if not os.path.isabs( start ):
-        start = os.path.join( base_path, start )
-
-    return start, base_path
-
+    absolute, sconscript_dir = resolve_glob_start( env, start, default )
+    return absolute, sconscript_dir
 
 
 def relative_start( env, start, default ):
+    return relative_glob_start( env, start, default )
 
-    start, base_path = clean_start( env, start, default )
 
-    rel_start = os.path.relpath( base_path, start )
+_deprecated_glob_aliases = set()
 
+
+def _warn_glob_alias_once( old_name, hint ):
+    if old_name in _deprecated_glob_aliases:
+        return
+    _deprecated_glob_aliases.add( old_name )
+    logger.warn(
+            "env.{}() is deprecated; use {} (removed in cuppa 2.0)"
+            .format( as_warning( old_name ), as_notice( hint ) )
+    )
+
+
+def _exclude_dirs_regex( env, exclude_dirs, default ):
+    if exclude_dirs == default:
+        exclude_dirs = [ env['dependencies_root'], env['build_root'] ]
+
+    if not exclude_dirs:
+        return None
+
+    def up_dir( path ):
+        element = next( e for e in path.split( os.path.sep ) if e )
+        return element == ".."
+
+    escaped = [
+            re.escape( d ) for d in exclude_dirs
+            if d and not os.path.isabs( d ) and not up_dir( d )
+    ]
+    # An empty alternation matches every folder. Absolute roots are already skipped above,
+    # which is the common case now that dependencies live outside the project by default.
+    return escaped and re.compile( "|".join( escaped ) ) or None
+
+
+def _file_nodes_for_matches( env, matches, rel_start, sconscript_dir ):
+    make_relative = not rel_start.startswith( os.pardir )
+    logger.trace( "make_relative = [{}].".format( as_notice( str( make_relative ) ) ) )
+    nodes = [
+            env.File(
+                    make_relative and os.path.relpath( match, sconscript_dir ) or match
+            )
+            for match in matches
+    ]
     logger.trace(
-            "paths: start = [{}], base_path = [{}], rel_start = [{}]"
-            .format( as_notice( start ), as_notice( base_path ), as_notice( rel_start ) )
+            "nodes = [{}]."
+            .format( colour_items( [ str( node ) for node in nodes ] ) )
+    )
+    return nodes
+
+
+class StaticGlobMethod:
+
+    default = DEFAULT_START
+
+    def __call__(
+            self,
+            env,
+            pattern,
+            start=default,
+            recursive=True,
+            exclude_dirs=default,
+            discard_pattern=None,
+    ):
+        # Discovery helper only: returns file nodes selected from the tree.
+        # No build commands are emitted, so NotifyProgress is not applicable.
+
+        absolute_start, rel_start, sconscript_dir = relative_glob_start(
+                env, start, self.default
         )
 
-    if not os.path.isabs( start ):
-        start = rel_start
+        if recursive:
+            exclude_dirs_regex = _exclude_dirs_regex( env, exclude_dirs, self.default )
+            matches = cuppa.recursive_glob.glob(
+                    absolute_start,
+                    pattern,
+                    exclude_dirs_pattern=exclude_dirs_regex,
+                    discard_pattern=discard_pattern,
+            )
+        else:
+            matches = []
+            for filename in os.listdir( absolute_start ):
+                if fnmatch.fnmatch( filename, pattern ):
+                    matches.append( os.path.join( absolute_start, filename ) )
 
-    return start, rel_start, base_path
+        logger.trace(
+                "matches = [{}]."
+                .format( colour_items( [ str( match ) for match in matches ] ) )
+        )
+
+        return _file_nodes_for_matches( env, matches, rel_start, sconscript_dir )
+
+    @classmethod
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( "StaticGlob", cls() )
 
 
 class RecursiveGlobMethod:
 
-    default = ()
+    default = DEFAULT_START
 
     def __call__( self, env, pattern, start=default, exclude_dirs=default ):
-        # Discovery helper only: returns file nodes selected from the tree.
-        # No build commands are emitted, so NotifyProgress is not applicable.
-
-        start, rel_start, base_path = relative_start( env, start, self.default )
-
-        if exclude_dirs == self.default:
-            exclude_dirs = [ env['dependencies_root'], env['build_root' ] ]
-
-        exclude_dirs_regex = None
-
-        if exclude_dirs:
-            def up_dir( path ):
-                element = next( e for e in path.split(os.path.sep) if e )
-                return element == ".."
-            exclude_dirs = [ re.escape(d) for d in exclude_dirs if d and not os.path.isabs(d) and not up_dir(d) ]
-            # An empty alternation matches every folder. Absolute roots are already skipped above,
-            # which is the common case now that dependencies live outside the project by default.
-            exclude_dirs_regex = exclude_dirs and re.compile( "|".join( exclude_dirs ) ) or None
-
-        matches = cuppa.recursive_glob.glob( start, pattern, exclude_dirs_pattern=exclude_dirs_regex )
-
-        logger.trace(
-            "matches = [{}]."
-            .format( colour_items( [ str(match) for match in matches ] ) )
+        _warn_glob_alias_once(
+                "RecursiveGlob",
+                "env.StaticGlob(...) (recursive=True is the default)",
         )
-
-        make_relative = True
-        if rel_start.startswith( os.pardir ):
-            make_relative = False
-
-        logger.trace( "make_relative = [{}].".format( as_notice( str(make_relative) ) ) )
-
-        nodes = [ env.File( make_relative and os.path.relpath( match, base_path ) or match ) for match in matches ]
-
-        logger.trace(
-            "nodes = [{}]."
-            .format( colour_items( [ str(node) for node in nodes ] ) )
-        )
-
-        return nodes
+        return env.StaticGlob( pattern, start=start, exclude_dirs=exclude_dirs )
 
     @classmethod
     def add_to_env( cls, cuppa_env ):
         cuppa_env.add_method( "RecursiveGlob", cls() )
 
 
-
 class GlobFilesMethod:
 
-    default = ()
+    default = DEFAULT_START
 
     def __call__( self, env, pattern, start=default ):
-        # Discovery helper only: lists files and wraps them as nodes.
-        # No build commands are emitted, so NotifyProgress is not applicable.
-
-        start, rel_start, base_path = relative_start( env, start, self.default )
-        # base = os.path.relpath( start, base_path )
-        filenames = []
-        for filename in os.listdir(start):
-            if fnmatch.fnmatch( filename, pattern):
-                filenames.append( os.path.join( start, filename ) )
-
-        nodes = [ env.File(f) for f in filenames ]
-        return nodes
-
+        _warn_glob_alias_once(
+                "GlobFiles",
+                "env.StaticGlob(..., recursive=False)",
+        )
+        return env.StaticGlob( pattern, start=start, recursive=False )
 
     @classmethod
     def add_to_env( cls, cuppa_env ):
         cuppa_env.add_method( "GlobFiles", cls() )
-
-
-

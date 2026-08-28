@@ -26,7 +26,7 @@ def _write_collision_fixture(project):
     write_sconscript(
         project,
         "Import('env')\n"
-        "sources = env.RecursiveGlob('except.cpp', start='src')\n"
+        "sources = env.StaticGlob('except.cpp', start='src')\n"
         "assert len(sources) == 2\n"
         "env.BuildStaticLib('excepts', sources)\n"
         "env.Compile('src/detail/router/test.cpp')\n",

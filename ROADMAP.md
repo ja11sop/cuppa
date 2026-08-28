@@ -493,7 +493,7 @@ Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object path
 
 | Capability | Status |
 |------------|--------|
-| Single root `sconscript` + `env.Build*` / `RecursiveGlob` | Yes — nested same-basename sources supported via mirrored object paths ([#213](https://github.com/ja11sop/cuppa/issues/213)) |
+| Single root `sconscript` + `env.Build*` / `StaticGlob` | Yes — nested same-basename sources supported via mirrored object paths ([#213](https://github.com/ja11sop/cuppa/issues/213)); `RecursiveGlob` / `GlobFiles` deprecated aliases |
 | Cuppa auto-discovers every `sconscript` under launch dir | Yes — each run gets standard `env` exports only |
 | Nested `SConscript(..., exports=...)` + discovery | **No** — child scripts cannot import parent build nodes; duplicate invocation risk |
 | CMake-equivalent `GLOB_RECURSE` into one static lib | Yes — when object paths mirror source tree under `working/` ([#213](https://github.com/ja11sop/cuppa/issues/213)) |
@@ -505,7 +505,7 @@ Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object path
 | `compile-object-paths` | Mirror source tree under `working/` for `Compile` | — | **Shipped 1.8.1** — [#213](https://github.com/ja11sop/cuppa/issues/213) / [#214](https://github.com/ja11sop/cuppa/pull/214) |
 | `sconscript-exports` | Export registry or explicit tree; dedupe discovered paths | Medium | [`sconscript-exports.md`](design/plans/sconscript-exports.md) |
 | `cmake-to-cuppa-migration` | Antora matrix + phased tutorial + agent checklist | Medium | Compile-path fix shipped — [`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md) |
-| `static-glob` | `StaticGlob` + shared path vocabulary; deprecate `RecursiveGlob` / `GlobFiles`; Filter + dynamic Glob docs | Medium | [`static-glob-rename.md`](design/plans/static-glob-rename.md) |
+| `static-glob` | `StaticGlob` + shared path vocabulary; deprecate `RecursiveGlob` / `GlobFiles`; Filter + dynamic Glob docs | Medium | **Landing** — core API + aliases + Methods docs; Filter parity / optional Glob wrapper remain — [`static-glob-rename.md`](design/plans/static-glob-rename.md) |
 
 ### Out of scope (layout / migration)
 
