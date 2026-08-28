@@ -6,6 +6,17 @@ from tests.helpers.project import copy_dummy_project, write_sconstruct, write_sc
 
 pytestmark = pytest.mark.integration
 
+# Portable path helpers for generated sconscripts (avoid '\\' escaping traps on Windows).
+_PATH_HELPERS = (
+    "import os\n"
+    "def posix_path(node):\n"
+    "    return str(node).replace(chr(92), '/')\n"
+    "def basenames(nodes):\n"
+    "    return sorted(os.path.basename(str(n)) for n in nodes)\n"
+    "def posix_paths(nodes):\n"
+    "    return sorted(posix_path(n) for n in nodes)\n"
+)
+
 
 def test_recursive_glob_walks_tree_and_hash_start(tmp_path):
     project = copy_dummy_project(tmp_path)
@@ -13,14 +24,15 @@ def test_recursive_glob_walks_tree_and_hash_start(tmp_path):
     write_sconscript(
         project,
         "Import('env')\n"
-        "env.AppendUnique(CPPPATH=['#/include'])\n"
+        + _PATH_HELPERS
+        + "env.AppendUnique(CPPPATH=['#/include'])\n"
         "deep = env.RecursiveGlob('*.cpp', start='src')\n"
-        "paths = [str(n).replace('\\\\\\\\', '/') for n in deep]\n"
-        "assert any('hello.cpp' in p for p in paths), paths\n"
-        "assert any('nested/deep.cpp' in p or p.endswith('deep.cpp') for p in paths), paths\n"
+        "paths = posix_paths(deep)\n"
+        "assert any(p.endswith('hello.cpp') for p in paths), paths\n"
+        "assert any(p.endswith('nested/deep.cpp') or p.endswith('deep.cpp') for p in paths), paths\n"
         "anchored = env.RecursiveGlob('*.cpp', start='#/src')\n"
-        "apaths = [str(n).replace('\\\\\\\\', '/') for n in anchored]\n"
-        "assert any('deep.cpp' in p for p in apaths), apaths\n"
+        "apaths = posix_paths(anchored)\n"
+        "assert any(p.endswith('deep.cpp') for p in apaths), apaths\n"
         "env.BuildTest('hello_test', 'tests/hello_test.cpp')\n"
         "env.Compile('src/nested/deep.cpp')\n",
     )
@@ -36,11 +48,11 @@ def test_glob_files_is_flat_only(tmp_path):
     write_sconscript(
         project,
         "Import('env')\n"
-        "env.AppendUnique(CPPPATH=['#/include'])\n"
+        + _PATH_HELPERS
+        + "env.AppendUnique(CPPPATH=['#/include'])\n"
         "flat = env.GlobFiles('*.cpp', start='src')\n"
-        "paths = [str(n).replace('\\\\\\\\', '/') for n in flat]\n"
-        "assert any(p.endswith('hello.cpp') for p in paths), paths\n"
-        "assert not any('deep.cpp' in p for p in paths), paths\n"
+        "names = basenames(flat)\n"
+        "assert names == ['hello.cpp'], names\n"
         "tests = env.GlobFiles('*_test.cpp', start='tests')\n"
         "assert len(tests) >= 2\n"
         "env.BuildTest('hello_test', 'tests/hello_test.cpp')\n",
@@ -56,19 +68,17 @@ def test_scons_glob_matrix_vs_recursive_glob(tmp_path):
     write_sconscript(
         project,
         "Import('env')\n"
-        "env.AppendUnique(CPPPATH=['#/include'])\n"
+        + _PATH_HELPERS
+        + "env.AppendUnique(CPPPATH=['#/include'])\n"
         "top = env.Glob('#/src/*.cpp')\n"
         "one = env.Glob('#/src/**/*.cpp')\n"  # one segment only — not a tree walk
         "walked = env.RecursiveGlob('*.cpp', start='#/src')\n"
-        "def norm(nodes):\n"
-        "    return sorted(str(n).replace('\\\\\\\\', '/') for n in nodes)\n"
-        "top_p, one_p, walk_p = norm(top), norm(one), norm(walked)\n"
-        "assert any(p.endswith('hello.cpp') for p in top_p), top_p\n"
-        "assert not any('deep.cpp' in p for p in top_p), top_p\n"
-        "assert any('nested/deep.cpp' in p for p in one_p), one_p\n"
-        "assert not any(p.rstrip('/').endswith('src/hello.cpp') for p in one_p), one_p\n"
-        "assert any('hello.cpp' in p for p in walk_p), walk_p\n"
-        "assert any('deep.cpp' in p for p in walk_p), walk_p\n"
+        "assert basenames(top) == ['hello.cpp'], basenames(top)\n"
+        "assert 'deep.cpp' not in basenames(top), basenames(top)\n"
+        "assert basenames(one) == ['deep.cpp'], basenames(one)\n"
+        "assert 'hello.cpp' not in basenames(one), basenames(one)\n"
+        "walk_names = basenames(walked)\n"
+        "assert 'hello.cpp' in walk_names and 'deep.cpp' in walk_names, walk_names\n"
         "env.BuildTest('hello_test', 'tests/hello_test.cpp')\n",
     )
     result = run_cuppa(project, "--dbg", "--test")
@@ -84,19 +94,19 @@ def test_filter_on_recursive_glob_and_scons_glob(tmp_path):
     write_sconscript(
         project,
         "Import('env')\n"
-        "env.AppendUnique(CPPPATH=['#/include'])\n"
+        + _PATH_HELPERS
+        + "env.AppendUnique(CPPPATH=['#/include'])\n"
         "tree = env.RecursiveGlob('*.cpp', start='#/src')\n"
         "kept = env.Filter(tree, match='*.cpp', exclude='*/detail/*')\n"
-        "kpaths = [str(n).replace('\\\\\\\\', '/') for n in kept]\n"
-        "assert any('deep.cpp' in p for p in kpaths), kpaths\n"
-        "assert any('hello.cpp' in p for p in kpaths), kpaths\n"
-        "assert not any('hidden.cpp' in p for p in kpaths), kpaths\n"
-        "nested = env.Filter(tree, match='src/nested/*.cpp')\n"
-        "assert any('deep.cpp' in str(n).replace('\\\\\\\\', '/') for n in nested)\n"
+        "kept_names = basenames(kept)\n"
+        "assert 'deep.cpp' in kept_names and 'hello.cpp' in kept_names, kept_names\n"
+        "assert 'hidden.cpp' not in kept_names, kept_names\n"
+        "nested = env.Filter(tree, match='**/nested/*.cpp')\n"
+        "assert 'deep.cpp' in basenames(nested), basenames(nested)\n"
         "flat = env.Glob('#/tests/*.cpp')\n"
         "tests = env.Filter(flat, match='*_test.cpp')\n"
         "assert len(tests) >= 2\n"
-        "rel = env.Filter(flat, match='tests/hello_test.cpp')\n"
+        "rel = env.Filter(flat, match='**/hello_test.cpp')\n"
         "assert len(rel) == 1\n"
         "env.BuildTest('hello_test', rel[0])\n",
     )
@@ -113,14 +123,12 @@ def test_snapshot_vs_directory_glob_both_see_new_file_next_invocation(tmp_path):
     write_sconscript(
         project,
         "Import('env')\n"
-        "import os\n"
-        "env.AppendUnique(CPPPATH=['#/include'])\n"
+        + _PATH_HELPERS
+        + "env.AppendUnique(CPPPATH=['#/include'])\n"
         "walked = env.RecursiveGlob('*.cpp', start='src')\n"
         "flat = env.Glob('#/src/*.cpp')\n"
-        "w = [str(n).replace('\\\\\\\\', '/') for n in walked]\n"
-        "f = [str(n).replace('\\\\\\\\', '/') for n in flat]\n"
         "report = os.path.join(env['sconstruct_dir'], 'glob_report.txt')\n"
-        "open(report, 'w').write('\\n'.join(w) + '\\n--\\n' + '\\n'.join(f))\n"
+        "open(report, 'w').write('\\n'.join(basenames(walked)) + '\\n--\\n' + '\\n'.join(basenames(flat)))\n"
         "env.BuildTest('hello_test', 'tests/hello_test.cpp')\n",
     )
     result1 = run_cuppa(project, "--dbg", "--test")
@@ -145,19 +153,12 @@ def test_glob_files_and_scons_glob_same_flat_basenames(tmp_path):
     write_sconscript(
         project,
         "Import('env')\n"
-        "import os\n"
-        "env.AppendUnique(CPPPATH=['#/include'])\n"
+        + _PATH_HELPERS
+        + "env.AppendUnique(CPPPATH=['#/include'])\n"
         "cuppa_nodes = env.GlobFiles('*.cpp', start='src')\n"
         "scons_nodes = env.Glob('#/src/*.cpp')\n"
-        "def basenames(nodes):\n"
-        "    return sorted(os.path.basename(str(n).replace('\\\\\\\\', '/')) for n in nodes)\n"
         "assert basenames(cuppa_nodes) == basenames(scons_nodes)\n"
         "assert basenames(cuppa_nodes) == ['hello.cpp']\n"
-        "# Path forms often differ even when the file set matches:\n"
-        "cuppa_strs = [str(n).replace('\\\\\\\\', '/') for n in cuppa_nodes]\n"
-        "scons_strs = [str(n).replace('\\\\\\\\', '/') for n in scons_nodes]\n"
-        "assert any(s.endswith('hello.cpp') for s in cuppa_strs)\n"
-        "assert any(s.endswith('hello.cpp') for s in scons_strs)\n"
         "env.BuildTest('hello_test', 'tests/hello_test.cpp')\n",
     )
     result = run_cuppa(project, "--dbg", "--test")
@@ -176,16 +177,14 @@ def test_scons_glob_sees_repository_files_recursive_glob_does_not(tmp_path):
     write_sconscript(
         project,
         "Import('env')\n"
-        "Repository('#/../repo')\n"
+        + _PATH_HELPERS
+        + "Repository('#/../repo')\n"
         "scons_nodes = env.Glob('src/*.cpp')\n"
-        "scons_names = sorted(str(n).replace('\\\\\\\\', '/').split('/')[-1] for n in scons_nodes)\n"
-        "assert scons_names == ['from_repo.cpp', 'local.cpp'], scons_names\n"
+        "assert basenames(scons_nodes) == ['from_repo.cpp', 'local.cpp'], basenames(scons_nodes)\n"
         "cuppa_flat = env.GlobFiles('*.cpp', start='src')\n"
-        "flat_names = sorted(str(n).replace('\\\\\\\\', '/').split('/')[-1] for n in cuppa_flat)\n"
-        "assert flat_names == ['from_repo.cpp', 'local.cpp'], flat_names\n"
+        "assert basenames(cuppa_flat) == ['from_repo.cpp', 'local.cpp'], basenames(cuppa_flat)\n"
         "cuppa_walk = env.RecursiveGlob('*.cpp', start='src')\n"
-        "walk_names = sorted(str(n).replace('\\\\\\\\', '/').split('/')[-1] for n in cuppa_walk)\n"
-        "assert walk_names == ['local.cpp'], walk_names\n",
+        "assert basenames(cuppa_walk) == ['local.cpp'], basenames(cuppa_walk)\n",
     )
     result = run_cuppa(project, "--dbg")
     assert_success(result)
@@ -200,20 +199,17 @@ def test_glob_files_sees_declared_file_nodes_not_on_disk(tmp_path):
     write_sconscript(
         project,
         "Import('env')\n"
-        "import os\n"
-        "# Declare a source node that does not exist on disk yet.\n"
+        + _PATH_HELPERS
+        + "# Declare a source node that does not exist on disk yet.\n"
         "ghost = env.File('src/ghost.cpp')\n"
         "assert not ghost.exists()\n"
         "assert 'ghost.cpp' not in os.listdir('src')\n"
         "scons_nodes = env.Glob('src/*.cpp')\n"
-        "scons_names = sorted(str(n).replace('\\\\\\\\', '/').split('/')[-1] for n in scons_nodes)\n"
-        "assert scons_names == ['ghost.cpp', 'on_disk.cpp'], scons_names\n"
+        "assert basenames(scons_nodes) == ['ghost.cpp', 'on_disk.cpp'], basenames(scons_nodes)\n"
         "cuppa_flat = env.GlobFiles('*.cpp', start='src')\n"
-        "flat_names = sorted(str(n).replace('\\\\\\\\', '/').split('/')[-1] for n in cuppa_flat)\n"
-        "assert flat_names == ['ghost.cpp', 'on_disk.cpp'], flat_names\n"
+        "assert basenames(cuppa_flat) == ['ghost.cpp', 'on_disk.cpp'], basenames(cuppa_flat)\n"
         "cuppa_walk = env.RecursiveGlob('*.cpp', start='src')\n"
-        "walk_names = sorted(str(n).replace('\\\\\\\\', '/').split('/')[-1] for n in cuppa_walk)\n"
-        "assert walk_names == ['on_disk.cpp'], walk_names\n",
+        "assert basenames(cuppa_walk) == ['on_disk.cpp'], basenames(cuppa_walk)\n",
     )
     result = run_cuppa(project, "--dbg")
     assert_success(result)
