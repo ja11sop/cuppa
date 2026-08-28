@@ -122,8 +122,8 @@ Internal call sites ([`build_with_location.py`](../../cuppa/build_with_location.
 | Shared path resolver | **done** — `cuppa/utility/glob_roots.py` + unit tests |
 | `StaticGlob` | **done** — `recursive=`, `exclude_dirs=`, `discard_pattern=` |
 | Deprecated aliases | **done** — once-per-process warn; internal call sites migrated |
-| Filter parity | not started (follow-on) |
-| Antora evaluation + path vocabulary | **done** on Methods hub / quickstart / integration `test_glob`; Filter recipe depth still follow-on |
+| Filter parity | **done** — match/exclude against relative `node.path` and absolute `str`/`abspath` |
+| Antora evaluation + path vocabulary | **done** on Methods hub / quickstart / integration `test_glob`; Filter recipe on Methods hub |
 | Optional cuppa `Glob` wrapper | not started |
 | Alias removal | deferred to major |
 

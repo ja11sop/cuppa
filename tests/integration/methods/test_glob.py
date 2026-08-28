@@ -54,3 +54,23 @@ def test_deprecated_glob_aliases_still_work(tmp_path):
     )
     assert "env.GlobFiles() is deprecated" in combined
     assert "env.RecursiveGlob() is deprecated" in combined
+
+
+def test_filter_path_parity_with_static_glob(tmp_path):
+    project = copy_dummy_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.AppendUnique(CPPPATH=['#/include'])\n"
+        "candidates = env.StaticGlob('*.cpp', start='src')\n"
+        "deep = env.Filter(candidates, match='src/nested/*.cpp')\n"
+        "assert any('deep.cpp' in str(n).replace('\\\\\\\\','/') for n in deep)\n"
+        "tests = env.StaticGlob('*.cpp', start='tests', recursive=False)\n"
+        "hello = env.Filter(tests, match='tests/*_test.cpp')\n"
+        "assert len(hello) >= 1\n"
+        "env.BuildTest('hello_test', 'tests/hello_test.cpp')\n",
+    )
+    result = run_cuppa(project, "--dbg", "--test")
+    assert_success(result)
+    assert find_final_binaries(project, "hello_test")

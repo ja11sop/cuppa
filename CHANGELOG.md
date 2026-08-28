@@ -32,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``recursive=False``). ``env.RecursiveGlob`` and ``env.GlobFiles`` remain as
   deprecated aliases that warn once per process. Shared ``#/`` / sconscript-relative
   path vocabulary lives in ``cuppa.utility.glob_roots``.
+- ``env.Filter`` matches and excludes against both project-relative ``node.path``
+  and absolute ``str`` / ``abspath`` forms, so the same patterns work for nodes
+  from ``StaticGlob`` and from SCons ``Glob``.
 
 ### Changed
 

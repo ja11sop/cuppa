@@ -445,6 +445,20 @@ Source discovery differs by **when** the file list is fixed:
 | Narrow a dynamic `Glob` without re-walking
 |===
 
+`Filter` matches against both the node's project-relative path and its absolute
+string form, so the same pattern works whether the nodes came from
+`StaticGlob` or SCons `Glob`:
+
+[source,python]
+----
+candidates = env.Glob('#/src/**/*.cpp')
+tests = env.Filter(candidates, match='*_test.cpp', exclude='**/detail/**')
+
+# Same patterns after a configure-time snapshot:
+candidates = env.StaticGlob('*.cpp', start='#/src')
+tests = env.Filter(candidates, match='*_test.cpp', exclude='**/detail/**')
+----
+
 Path vocabulary shared by `StaticGlob` (and intended for any future cuppa `Glob` wrapper):
 
 * `#/…` or `#…` — from the project / sconstruct root
