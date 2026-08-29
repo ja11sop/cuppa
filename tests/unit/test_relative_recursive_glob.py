@@ -19,6 +19,7 @@ from cuppa.methods.relative_recursive_glob import (
         _exclude_dirs_regex,
         _file_nodes_only,
         _files_from_dir_entries,
+        _files_from_local_repository_globs,
         _is_dir_node,
         _is_mergeable_declared_file,
         _merge_unique_nodes,
@@ -383,6 +384,67 @@ def test_recursive_glob_method_merges_declared_with_disk( tmp_path, monkeypatch 
     )
     names = sorted( node.name for node in nodes )
     assert names == [ 'ghost.ebs', 'on_disk.ebs' ]
+
+
+def test_files_from_local_repository_globs_calls_dir_glob_per_local_dir( tmp_path ):
+    root = tmp_path / 'src'
+    nested = root / 'nested'
+    nested.mkdir( parents=True )
+    ( root / 'local.cpp' ).write_text( 'l' )
+    ( nested / 'deep.cpp' ).write_text( 'd' )
+
+    calls = []
+
+    class GlobDir:
+        def __init__( self, label ):
+            self.label = label
+
+        def Dir( self, rel ):
+            return GlobDir( self.label + '/' + rel.replace( '\\', '/' ) )
+
+        def glob( self, pattern ):
+            calls.append( ( self.label, pattern ) )
+            if self.label.endswith( 'nested' ):
+                return [ _FakeNode( 'deep.cpp', is_dir=False ) ]
+            return [
+                    _FakeNode( 'local.cpp', is_dir=False ),
+                    _FakeNode( 'from_repo.cpp', is_dir=False ),
+            ]
+
+    found = _files_from_local_repository_globs(
+            GlobDir( 'src' ),
+            str( root ),
+            '*.cpp',
+    )
+    assert sorted( node.name for node in found ) == [
+            'deep.cpp', 'from_repo.cpp', 'local.cpp',
+    ]
+    assert ( 'src', '*.cpp' ) in calls
+    assert any( label.endswith( 'nested' ) and pattern == '*.cpp' for label, pattern in calls )
+
+
+def test_files_from_local_repository_globs_honours_discard( tmp_path ):
+    root = tmp_path / 'src'
+    bad = root / 'bad'
+    bad.mkdir( parents=True )
+    ( root / 'ok.cpp' ).write_text( 'o' )
+    ( bad / 'CMakeLists.txt' ).write_text( 'c' )
+    ( bad / 'hidden.cpp' ).write_text( 'h' )
+
+    class GlobDir:
+        def Dir( self, rel ):
+            return self
+
+        def glob( self, pattern ):
+            return [ _FakeNode( 'ok.cpp', is_dir=False ) ]
+
+    found = _files_from_local_repository_globs(
+            GlobDir(),
+            str( root ),
+            '*.cpp',
+            discard_pattern='CMakeLists.txt',
+    )
+    assert [ node.name for node in found ] == [ 'ok.cpp' ]
 
 
 def test_glob_files_method_filters_dirs_from_glob( tmp_path ):

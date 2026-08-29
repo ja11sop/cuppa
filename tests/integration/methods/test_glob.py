@@ -165,8 +165,8 @@ def test_glob_files_and_scons_glob_same_flat_basenames(tmp_path):
     assert_success(result)
 
 
-def test_scons_glob_sees_repository_files_recursive_glob_does_not(tmp_path):
-    """SCons Repository: Glob and GlobFiles see repo files; RecursiveGlob is disk-only."""
+def test_scons_glob_and_recursive_glob_see_repository_files_in_local_dirs(tmp_path):
+    """SCons Repository: Glob, GlobFiles, and RecursiveGlob see repo files in local dirs."""
     project = tmp_path / "project"
     repo = tmp_path / "repo"
     (project / "src").mkdir(parents=True)
@@ -184,7 +184,34 @@ def test_scons_glob_sees_repository_files_recursive_glob_does_not(tmp_path):
         "cuppa_flat = env.GlobFiles('*.cpp', start='src')\n"
         "assert basenames(cuppa_flat) == ['from_repo.cpp', 'local.cpp'], basenames(cuppa_flat)\n"
         "cuppa_walk = env.RecursiveGlob('*.cpp', start='src')\n"
-        "assert basenames(cuppa_walk) == ['local.cpp'], basenames(cuppa_walk)\n",
+        "assert basenames(cuppa_walk) == ['from_repo.cpp', 'local.cpp'], basenames(cuppa_walk)\n"
+        "# Repo-only subdirs are still out of scope for RecursiveGlob (shallow only).\n"
+        "assert 'deep.cpp' not in basenames(cuppa_walk), basenames(cuppa_walk)\n",
+    )
+    result = run_cuppa(project, "--dbg")
+    assert_success(result)
+
+
+def test_recursive_glob_shallow_repository_skips_repo_only_subdir(tmp_path):
+    """RecursiveGlob does not descend into subdirectory trees that exist only in a Repository."""
+    project = tmp_path / "project"
+    repo = tmp_path / "repo"
+    (project / "src").mkdir(parents=True)
+    (repo / "src" / "nested").mkdir(parents=True)
+    (project / "src" / "local.cpp").write_text("int local_fn() { return 1; }\n")
+    (repo / "src" / "from_repo.cpp").write_text("int from_repo() { return 2; }\n")
+    (repo / "src" / "nested" / "deep.cpp").write_text("int deep() { return 3; }\n")
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        + _PATH_HELPERS
+        + "Repository('#/../repo')\n"
+        "cuppa_walk = env.RecursiveGlob('*.cpp', start='src')\n"
+        "assert basenames(cuppa_walk) == ['from_repo.cpp', 'local.cpp'], basenames(cuppa_walk)\n"
+        "assert not any(p.endswith('nested/deep.cpp') for p in posix_paths(cuppa_walk)), "
+        "posix_paths(cuppa_walk)\n"
+        "assert basenames(env.Glob('src/nested/*.cpp')) == ['deep.cpp']\n",
     )
     result = run_cuppa(project, "--dbg")
     assert_success(result)

@@ -505,7 +505,7 @@ Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object path
 | `compile-object-paths` | Mirror source tree under `working/` for `Compile` | — | **Shipped 1.8.1** — [#213](https://github.com/ja11sop/cuppa/issues/213) / [#214](https://github.com/ja11sop/cuppa/pull/214) |
 | `sconscript-exports` | Export registry or explicit tree; dedupe discovered paths | Medium | [`sconscript-exports.md`](design/plans/sconscript-exports.md) |
 | `cmake-to-cuppa-migration` | Antora matrix + phased tutorial + agent checklist | Medium | Compile-path fix shipped — [`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md) |
-| `static-glob` | RecursiveGlob (disk + `Dir.entries`); GlobFiles via SCons Glob; shared path vocabulary; Filter path parity | Medium | **Landing** — [#231](https://github.com/ja11sop/cuppa/pull/231), [`static-glob-rename.md`](design/plans/static-glob-rename.md) |
+| `static-glob` | RecursiveGlob (disk + `Dir.entries` + shallow Repository); GlobFiles; Filter path parity; full repo-only trees open | Medium | **Landing** — [#231](https://github.com/ja11sop/cuppa/pull/231), [`static-glob-rename.md`](design/plans/static-glob-rename.md) |
 
 ### Out of scope (layout / migration)
 

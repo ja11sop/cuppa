@@ -10,8 +10,11 @@
 #
 #   RecursiveGlob: configure-time os.walk snapshot plus matching File nodes from
 #   each visited directory's SCons Dir.entries (declared Files not on disk yet,
-#   including nested declared paths). exclude_dirs / discard_pattern apply.
-#   Repository-only files stay invisible — this does not delegate to Glob.
+#   including nested declared paths). For each local directory visited, also
+#   merges SCons Dir.glob matches so Repository files in those directories are
+#   visible (shallow Repository parity with Glob). Repo-only subdirectory trees
+#   are not walked — see design/plans/static-glob-rename.md.
+#   exclude_dirs / discard_pattern apply to the local walk.
 #
 #   GlobFiles: single-directory discovery via SCons env.Glob after resolving
 #   start= / #/ — same file set as Glob for that directory, including declared
@@ -239,6 +242,64 @@ def _merge_unique_nodes( primary, extra ):
     return merged
 
 
+def _dir_child( dir_node, rel ):
+    """Return ``dir_node`` or a child Dir for ``rel`` (``.`` means self)."""
+    if not rel or rel == os.curdir:
+        return dir_node
+    child = getattr( dir_node, 'Dir', None )
+    if callable( child ):
+        return child( rel.replace( '\\', '/' ) )
+    return dir_node
+
+
+def _files_from_local_repository_globs(
+        start_dir,
+        absolute_start,
+        pattern,
+        exclude_dirs_regex=None,
+        discard_pattern=None,
+):
+    """Shallow Repository parity: ``Dir.glob`` per *local* directory visited.
+
+    Walks the same local tree as ``recursive_glob.glob`` (honouring exclude /
+    discard). For each kept directory, calls SCons ``Dir.glob(pattern)``, which
+    searches Repositories for that directory only. Does **not** descend into
+    subdirectory trees that exist only in a Repository.
+    """
+    if not hasattr( start_dir, 'glob' ):
+        return []
+
+    # Top directory may exist only as a SCons node with Repository children.
+    if not os.path.isdir( absolute_start ):
+        return _file_nodes_only( start_dir.glob( pattern ) )
+
+    discard = _as_regex( discard_pattern )
+    found = []
+    subdir = False
+
+    for root, dirnames, filenames in os.walk( absolute_start ):
+        if exclude_dirs_regex:
+            dirnames[:] = [
+                    name for name in dirnames
+                    if not exclude_dirs_regex.match( name )
+            ]
+
+        if subdir and discard:
+            if any( discard.match( name ) for name in filenames ):
+                dirnames[:] = []
+                continue
+
+        rel = os.path.relpath( root, absolute_start )
+        dir_node = _dir_child( start_dir, rel )
+        globber = getattr( dir_node, 'glob', None )
+        if callable( globber ):
+            found.extend( _file_nodes_only( globber( pattern ) ) )
+
+        subdir = True
+
+    return found
+
+
 class RecursiveGlobMethod:
     """Recursive configure-time tree walk — Cuppa's stand-in for a recursive Glob."""
 
@@ -282,6 +343,19 @@ class RecursiveGlobMethod:
                     .format( colour_items( [ str( node ) for node in declared ] ) )
             )
             nodes = _merge_unique_nodes( nodes, declared )
+        from_repos = _files_from_local_repository_globs(
+                start_dir,
+                absolute_start,
+                pattern,
+                exclude_dirs_regex=exclude_dirs_regex,
+                discard_pattern=discard_pattern,
+        )
+        if from_repos:
+            logger.trace(
+                    "Repository Dir.glob matches = [{}]."
+                    .format( colour_items( [ str( node ) for node in from_repos ] ) )
+            )
+            nodes = _merge_unique_nodes( nodes, from_repos )
         return nodes
 
     @classmethod
