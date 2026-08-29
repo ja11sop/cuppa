@@ -1,7 +1,7 @@
 # Plan: Cuppa env method behaviour audit (paths, evaluation, returns)
 
 - **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `method-behaviour-audit`; [#213](https://github.com/ja11sop/cuppa/issues/213); [`methods-pages-split.md`](methods-pages-split.md); [`static-glob-rename.md`](static-glob-rename.md)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `method-behaviour-audit`; [#213](https://github.com/ja11sop/cuppa/issues/213); [`methods-pages-split.md`](methods-pages-split.md); [`recursive-glob-parity.md`](recursive-glob-parity.md)
 - **Updated:** 2026-08-17
 - **Impact:** patch — behaviour fixes and shared helpers; documentation split follows in a separate docs-only stream
 
@@ -21,7 +21,7 @@ This plan is the **behaviour and fix** track. [`methods-pages-split.md`](methods
 ## Prerequisite ordering
 
 ```text
-method-behaviour-audit (fixes)  →  static-glob-rename (optional API)  →  methods-pages-split (docs)
+method-behaviour-audit (fixes)  →  recursive-glob-parity (optional API)  →  methods-pages-split (docs)
 ```
 
 Ship [#213](https://github.com/ja11sop/cuppa/issues/213) compile object paths first (branch
@@ -77,11 +77,11 @@ source subdirs under the chosen root unless the caller passes an explicit target
 | API | Evaluation | Notes |
 |-----|------------|-------|
 | SCons `env.Glob` (`**`) | **Dynamic** | Build-graph aware; new files may appear without editing sconscript |
-| `RecursiveGlob`, `GlobFiles` | **Static** | Python walk/listdir at sconscript load |
+| `RecursiveGlob`, `GlobFiles` | **Static** | Disk walk + `Dir.entries` + Repository `Dir.glob` (RecursiveGlob); SCons Glob (GlobFiles) at sconscript load |
 | `Filter` | **Immediate** | Subset of existing nodes; pairs with dynamic Glob |
 
 **Risk:** readers treat `RecursiveGlob` like CMake `GLOB_RECURSE` + Ninja rebuild semantics — it is
-not. Rename and docs: [`static-glob-rename.md`](static-glob-rename.md).
+not. Rename and docs: [`recursive-glob-parity.md`](recursive-glob-parity.md).
 
 **Filter follow-on:** ensure match patterns work consistently for nodes from static vs dynamic
 discovery (`str(node)` vs `node.path` — see [`filter.py`](../../cuppa/utility/filter.py)).
@@ -117,7 +117,7 @@ No flat intermediate target bug; document evaluation only:
 | `mba-cov-check` | Coverage integration pass after mirrored `.o` paths | `mba-213` | patch |
 | `mba-artifact-paths` | Shared helper + fix Markdown/AsciiDoc/RunAndRedirect emitters | `mba-213` | patch |
 | `mba-scss` | Decide SCSS output root (`working/` mirror vs beside source) | optional | patch |
-| `mba-static-glob` | RecursiveGlob path vocabulary + Glob semantics | [`static-glob-rename.md`](static-glob-rename.md) | minor |
+| `mba-static-glob` | RecursiveGlob path vocabulary + Glob semantics | [`recursive-glob-parity.md`](recursive-glob-parity.md) | minor |
 | `mba-filter` | Filter matching parity for Glob + RecursiveGlob nodes | `mba-static-glob` | patch |
 | `mba-doc` | Export classification tables into Methods hub + child pages | [`methods-pages-split.md`](methods-pages-split.md) | none |
 

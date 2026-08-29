@@ -15,7 +15,7 @@ and **static vs dynamic** source discovery.
 **Order:**
 
 ```text
-method-behaviour-audit  →  static-glob-rename (optional)  →  methods-pages-split (this plan)
+method-behaviour-audit  →  recursive-glob-parity (optional)  →  methods-pages-split (this plan)
 ```
 
 [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object paths) is the first audit slice;
@@ -91,7 +91,7 @@ page (or group page subsection) should state:
 | Docs assets | Build action | Today: flat `{final}/{basename}` — **document fix when audit lands** |
 | C++ modules | Build action | Interface suffix in object stem (`.cppm.o` vs `.o`) + mirrored paths |
 
-Link to [`static-glob-rename.md`](static-glob-rename.md) from the Files group instead of duplicating
+Link to [`recursive-glob-parity.md`](recursive-glob-parity.md) from the Files group instead of duplicating
 the full static/dynamic essay.
 
 ## Phase 2 — SCons companions (proposal)
