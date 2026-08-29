@@ -409,8 +409,14 @@ See xref:dependencies.adoc[Dependencies] and xref:packages.adoc[Publishing packa
 | `env.CreateVersion(…)`
 | SCM-aware generated version sources
 
-| `env.GlobFiles` / `env.RecursiveGlob`
-| Source discovery relative to the sconscript
+| `env.RecursiveGlob(…)`
+| Recursive configure-time tree walk (Cuppa's stand-in for a recursive Glob); disk + `Dir.entries` + Repositories; `exclude_dirs` / `discard_pattern`
+
+| `env.GlobFiles(…)`
+| Single-directory discovery via SCons `Glob` after resolving Cuppa `start=` / `#/` (includes declared `File` nodes)
+
+| `env.Glob(…)` (SCons)
+| Single-directory (or one path segment per `*` / `**`) discovery; matches do **not** recurse through `/`
 
 | `env.TargetFrom(path)`
 | Derive a target basename from a path
@@ -418,6 +424,88 @@ See xref:dependencies.adoc[Dependencies] and xref:packages.adoc[Publishing packa
 | `env.CopyFiles` / `env.CopyFilesAs`
 | Filtered install/copy helpers
 |===
+
+=== Choosing RecursiveGlob, GlobFiles, Glob, and Filter
+
+Name the two axes separately:
+
+* **Recursion** — does discovery walk nested directories?
+* **Evaluation** — *disk walk + local `Dir.entries` + Repositories* (`RecursiveGlob`) vs *SCons directory Glob* (`env.Glob` / `env.GlobFiles`)
+
+Cuppa's recursive walk **is** the practical answer to “recursive Glob” in SCons today: upstream `Glob` still does not span `/`, and `**` is only one path segment. Prefer ``env.RecursiveGlob`` for nested trees. Use ``env.GlobFiles`` (Cuppa `start=` / `#/` vocabulary over SCons directory Glob) or SCons ``env.Glob`` for a single directory; use ``env.Filter`` to narrow either source.
+
+Both Cuppa snapshot helpers and SCons ``Glob`` re-run whenever Cuppa re-reads the sconscript (every normal build). New files appear on the next invocation either way — the day-to-day impact of snapshot-vs-directory-Glob is low. Recursion, ``exclude_dirs`` / ``discard_pattern``, and ``start=`` / ``#/`` vocabulary are the differences that matter.
+
+[cols="2,3,3"]
+|===
+| API | What it finds | Typical use
+
+| `env.RecursiveGlob('*.cpp', start='src')`
+| All matching files under `src/` (disk + declared `File`s + Repository trees)
+| Nested libraries/apps; skip `_build` / dependencies via `exclude_dirs`
+
+| `env.GlobFiles('*_test.cpp', start='tests')`
+| Only files directly in `tests/` (disk + declared `File` nodes)
+| Flat test or app folders; same SCons FS rules as `Glob`
+
+| SCons `env.Glob('#/tests/*.cpp')`
+| Only files directly in `tests/`
+| Flat dirs when you want SCons-native `File` nodes
+
+| SCons `env.Glob('#/src/*/*.cpp')`
+| Exactly one directory level under `src/`
+| Shallow layouts; **not** a full tree walk
+
+| `env.Filter(nodes, match=…, exclude=…)`
+| Subset of an existing node list
+| Narrow RecursiveGlob or Glob results
+|===
+
+`Filter` matches against both the node's project-relative path and its absolute
+string form:
+
+[source,python]
+----
+candidates = env.RecursiveGlob('*.cpp', start='#/src')
+tests = env.Filter(candidates, match='*_test.cpp', exclude='*/detail/*')
+
+candidates = env.Glob('#/tests/*.cpp')
+tests = env.Filter(candidates, match='*_test.cpp')
+----
+
+Do **not** write `env.Glob('#/src/**/*.cpp')` expecting every nested `.cpp` under `src/`. Use `RecursiveGlob` for the full tree.
+
+For ordinary on-disk trees the file sets from `GlobFiles` and `Glob` on the same
+directory match. `GlobFiles` is implemented with SCons `Glob` after resolving
+Cuppa `start=` / `#/`, so it also sees declared `File` nodes and Repository
+entries. `RecursiveGlob` walks the disk, merges matching nodes from each
+visited directory's SCons `Dir.entries` (declared `File`s not on disk yet,
+including nested declared paths), and walks the union of local and Repository
+subdirectory names — calling SCons `Dir.glob` at each logical directory so
+Repository files are visible even under repo-only subdirectory trees:
+
+[source,python]
+----
+Repository('#/../repo')               # repo/src/from_repo.cpp; project/src/local.cpp
+env.Glob('src/*.cpp')                 # local.cpp + from_repo.cpp
+env.GlobFiles('*.cpp', start='src')   # local.cpp + from_repo.cpp
+env.RecursiveGlob('*.cpp', start='src')  # local.cpp + from_repo.cpp
+
+# repo/src/nested/deep.cpp with no project/src/nested/ on disk:
+env.Glob('src/nested/*.cpp')             # deep.cpp
+env.RecursiveGlob('*.cpp', start='src')  # includes nested/deep.cpp
+
+env.File('src/ghost.cpp')             # declared, not on disk
+env.Glob('src/*.cpp')                 # includes ghost.cpp
+env.GlobFiles('*.cpp', start='src')   # includes ghost.cpp
+env.RecursiveGlob('*.cpp', start='src')  # includes ghost.cpp
+----
+
+Path vocabulary for Cuppa snapshot discovery (`start=`):
+
+* `#/…` or `#…` — from the project / sconstruct root
+* `start='src'` — directory relative to the calling sconscript
+* Absolute paths — last resort (packages / generated trees)
 
 Example -- collect sources and name the binary from a path:
 

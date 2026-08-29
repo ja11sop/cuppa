@@ -26,7 +26,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   URL shapes (``--no-reports-remote-provider-hints`` to disable).
 - Recognised GCC toolchain aliases include ``gcc162``, ``gcc144``, ``gcc134``, and
   ``gcc125`` (and the missing 12.3/12.4 and 13.3 point releases) so PATH installs of
-  current GNU releases can be selected by name.
+  current GNU releases can be selected by name
+  ([#230](https://github.com/ja11sop/cuppa/issues/230)).
+- Shared ``#/`` / sconscript-relative path vocabulary for source discovery
+  (``cuppa.utility.glob_roots``). ``env.RecursiveGlob`` is the recursive
+  configure-time disk walk plus matching ``File`` nodes from each directory's
+  SCons ``Dir.entries`` (declared Files not on disk yet, including nested
+  declared paths) and full Repository parity (``Dir.glob`` over the union of
+  local and Repository subdirectory trees).
+  ``env.GlobFiles`` resolves Cuppa ``start=`` / ``#/`` then uses SCons ``Glob``,
+  so it sees declared ``File`` nodes (and Repository entries) like ``Glob``.
+  SCons ``env.Glob`` remains non-recursive (``**`` is one path segment)
+  ([#232](https://github.com/ja11sop/cuppa/issues/232)).
+- ``env.Filter`` matches and excludes against both project-relative ``node.path``
+  and absolute ``str`` / ``abspath`` forms, so the same patterns work for nodes
+  from Cuppa snapshot discovery and from SCons ``Glob``.
 
 ### Changed
 

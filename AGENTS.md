@@ -134,6 +134,13 @@ tracked file.
 
 ## Commit messages
 
+**Do not commit or push until asked.** After finishing a slice of work, leave the
+diff unstaged or uncommitted, summarise what changed, and propose a commit message
+(subject + body). Wait for an explicit go-ahead before `git commit` or `git push`.
+That pause lets the maintainer skim the diff and steer before history moves. “Commit
+this”, “go ahead and commit”, or “commit and push” are go-aheads; finishing a task is
+not.
+
 **`master` is protected.** Never push commits directly to `master` (or force-push it). Land every
 change — including release tagging prep, ROADMAP/CHANGELOG housekeeping, and `AGENTS.md` edits —
 through a pull request branch: create a branch, `git push -u origin HEAD`, open or update the PR,

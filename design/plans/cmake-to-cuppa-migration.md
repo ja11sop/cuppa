@@ -26,7 +26,7 @@ Canonical product docs stay on the Antora site; this plan defines the **content 
 | `add_executable` + `target_link_libraries` | `env.Build` / `env.BuildTest` | `BuildTest` adds `--test` run via process/boost runner |
 | `target_include_directories` PUBLIC | `env.AppendUnique(CPPPATH=[...])` + package/location deps | |
 | `target_compile_definitions` | `env.AppendUnique(CPPDEFINES=[...])` | Use `Clone()` for private defs (e.g. `*_SOURCE`) |
-| `GLOB_RECURSE` sources | `env.StaticGlob` (today `RecursiveGlob`) or SCons `env.Glob('**/*.cpp', …)` | Static = configure snapshot; dynamic = build-graph aware — [`static-glob-rename.md`](static-glob-rename.md) |
+| `GLOB_RECURSE` sources | `env.RecursiveGlob` (not SCons `env.Glob('**…')` — SCons Glob is not recursive) | Recursive snapshot walk; see [`recursive-glob-parity.md`](recursive-glob-parity.md) |
 | `add_subdirectory` + target alias | **No export chain** between discovered sconscripts | [`sconscript-exports.md`](sconscript-exports.md) |
 | `CTest` / `add_test` | `--test` + `env.BuildTest` | Custom harnesses (non–Boost.Test) use `default_runner='process'` |
 | `find_package(Boost)` | `boost_package` / built-in Boost | Version/registry-specific |
@@ -71,7 +71,7 @@ Matches [`examples/minimal/`](../../examples/minimal/).
 Short rules for agents (expand in Antora later):
 
 1. **Do not assume** `SConscript('child', exports=...)` works with Cuppa discovery — read [`sconscript-exports.md`](sconscript-exports.md).
-2. **Do not assume** `RecursiveGlob` / `StaticGlob` equals CMake `GLOB_RECURSE` evaluation semantics — static until re-configure; see [`static-glob-rename.md`](static-glob-rename.md). Check duplicate basenames (`find … -name '*.cpp' | xargs -n1 basename | sort | uniq -d`) — [#213](https://github.com/ja11sop/cuppa/issues/213).
+2. **Do not assume** `RecursiveGlob` equals CMake `GLOB_RECURSE` evaluation semantics — static until re-configure; see [`recursive-glob-parity.md`](recursive-glob-parity.md). Check duplicate basenames (`find … -name '*.cpp' | xargs -n1 basename | sort | uniq -d`) — [#213](https://github.com/ja11sop/cuppa/issues/213).
 3. **Prefer** `location_dependency` / `package_dependency` over re-declaring third-party compile flags when a cuppa dep exists.
 4. **Keep CMake** as canonical until the Cuppa graph runs the same test binaries — document “experimental Cuppa” in a sidecar note (see Boost.Capy `CUPPA-NOTES.md` pattern).
 5. **Profiles report** requires Profiles-capable Clang; absence of violations means no HTML index — not a failed capture.

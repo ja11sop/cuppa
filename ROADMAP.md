@@ -487,13 +487,13 @@ Design: [`native-toolchain-output.md`](design/plans/native-toolchain-output.md),
 
 Experimental Cuppa build of a public C++20 library (Boost.Capy, 2026-08-17) surfaced two platform gaps before a published migration tutorial is honest.
 
-Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object paths), [`sconscript-exports.md`](design/plans/sconscript-exports.md), [`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md), [`static-glob-rename.md`](design/plans/static-glob-rename.md).
+Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object paths), [`sconscript-exports.md`](design/plans/sconscript-exports.md), [`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md), [`recursive-glob-parity.md`](design/plans/recursive-glob-parity.md).
 
 ### Today
 
 | Capability | Status |
 |------------|--------|
-| Single root `sconscript` + `env.Build*` / `RecursiveGlob` | Yes — nested same-basename sources supported via mirrored object paths ([#213](https://github.com/ja11sop/cuppa/issues/213)) |
+| Single root `sconscript` + `env.Build*` / `RecursiveGlob` | Yes — nested same-basename sources ([#213](https://github.com/ja11sop/cuppa/issues/213)); path roots + Filter parity; RecursiveGlob merges declared Files + full Repository trees ([#231](https://github.com/ja11sop/cuppa/pull/231)) |
 | Cuppa auto-discovers every `sconscript` under launch dir | Yes — each run gets standard `env` exports only |
 | Nested `SConscript(..., exports=...)` + discovery | **No** — child scripts cannot import parent build nodes; duplicate invocation risk |
 | CMake-equivalent `GLOB_RECURSE` into one static lib | Yes — when object paths mirror source tree under `working/` ([#213](https://github.com/ja11sop/cuppa/issues/213)) |
@@ -505,7 +505,7 @@ Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object path
 | `compile-object-paths` | Mirror source tree under `working/` for `Compile` | — | **Shipped 1.8.1** — [#213](https://github.com/ja11sop/cuppa/issues/213) / [#214](https://github.com/ja11sop/cuppa/pull/214) |
 | `sconscript-exports` | Export registry or explicit tree; dedupe discovered paths | Medium | [`sconscript-exports.md`](design/plans/sconscript-exports.md) |
 | `cmake-to-cuppa-migration` | Antora matrix + phased tutorial + agent checklist | Medium | Compile-path fix shipped — [`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md) |
-| `static-glob` | `StaticGlob` + shared path vocabulary; deprecate `RecursiveGlob` / `GlobFiles`; Filter + dynamic Glob docs | Medium | [`static-glob-rename.md`](design/plans/static-glob-rename.md) |
+| `static-glob` | RecursiveGlob (disk + `Dir.entries` + full Repository); GlobFiles; Filter path parity | Medium | **Landing** — [#232](https://github.com/ja11sop/cuppa/issues/232) / [#231](https://github.com/ja11sop/cuppa/pull/231), [`recursive-glob-parity.md`](design/plans/recursive-glob-parity.md); follow-on path/node helper reuse [`path-vocabulary-and-scons-nodes.md`](design/plans/path-vocabulary-and-scons-nodes.md) |
 
 ### Out of scope (layout / migration)
 
