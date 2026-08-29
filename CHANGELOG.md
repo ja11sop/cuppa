@@ -36,7 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   local and Repository subdirectory trees).
   ``env.GlobFiles`` resolves Cuppa ``start=`` / ``#/`` then uses SCons ``Glob``,
   so it sees declared ``File`` nodes (and Repository entries) like ``Glob``.
-  SCons ``env.Glob`` remains non-recursive (``**`` is one path segment).
+  SCons ``env.Glob`` remains non-recursive (``**`` is one path segment)
+  ([#232](https://github.com/ja11sop/cuppa/issues/232)).
 - ``env.Filter`` matches and excludes against both project-relative ``node.path``
   and absolute ``str`` / ``abspath`` forms, so the same patterns work for nodes
   from Cuppa snapshot discovery and from SCons ``Glob``.

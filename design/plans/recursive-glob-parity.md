@@ -1,7 +1,7 @@
 # Plan: Glob / RecursiveGlob parity
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `static-glob`; [#213](https://github.com/ja11sop/cuppa/issues/213); [`cmake-to-cuppa-migration.md`](cmake-to-cuppa-migration.md); follow-on [`path-vocabulary-and-scons-nodes.md`](path-vocabulary-and-scons-nodes.md); landing [#231](https://github.com/ja11sop/cuppa/pull/231)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `static-glob`; [#232](https://github.com/ja11sop/cuppa/issues/232); [#213](https://github.com/ja11sop/cuppa/issues/213); [`cmake-to-cuppa-migration.md`](cmake-to-cuppa-migration.md); follow-on [`path-vocabulary-and-scons-nodes.md`](path-vocabulary-and-scons-nodes.md); landing [#231](https://github.com/ja11sop/cuppa/pull/231)
 - **Updated:** 2026-08-29
 - **Impact:** minor — shared path roots + Filter path parity; RecursiveGlob merges `Dir.entries` + full Repository trees
 

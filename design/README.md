@@ -50,7 +50,7 @@ maintainer workflow evolved.
 | [`archive/conan-publish-plan.md`](archive/conan-publish-plan.md) | shipped | Design of `ConanPackagePublisher` and `--publish-package` |
 | [`plans/sconscript-exports.md`](plans/sconscript-exports.md) | proposal | Shared exports between discovered sconscripts; nested lib/test layout |
 | [`plans/cmake-to-cuppa-migration.md`](plans/cmake-to-cuppa-migration.md) | proposal | CMake ↔ Cuppa matrix and migration phases for humans and agents |
-| [`plans/recursive-glob-parity.md`](plans/recursive-glob-parity.md) | in progress | RecursiveGlob (disk + `Dir.entries` + full Repository); GlobFiles; Filter — ROADMAP `static-glob`; landing [#231](https://github.com/ja11sop/cuppa/pull/231) |
+| [`plans/recursive-glob-parity.md`](plans/recursive-glob-parity.md) | in progress | RecursiveGlob (disk + `Dir.entries` + full Repository); GlobFiles; Filter — ROADMAP `static-glob`; [#232](https://github.com/ja11sop/cuppa/issues/232) / [#231](https://github.com/ja11sop/cuppa/pull/231) |
 | [`plans/path-vocabulary-and-scons-nodes.md`](plans/path-vocabulary-and-scons-nodes.md) | proposal | Reuse `#/` path roots + VariantDir node helpers outside discovery — follow-on to `static-glob` |
 
 ## Conventions

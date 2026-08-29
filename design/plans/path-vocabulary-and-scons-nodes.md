@@ -1,7 +1,7 @@
 # Plan: Shared path vocabulary and SCons node helpers
 
 - **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — follow-on to `static-glob`; [`recursive-glob-parity.md`](recursive-glob-parity.md); [#231](https://github.com/ja11sop/cuppa/pull/231)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — follow-on to `static-glob`; [`recursive-glob-parity.md`](recursive-glob-parity.md); [#232](https://github.com/ja11sop/cuppa/issues/232); [#231](https://github.com/ja11sop/cuppa/pull/231)
 - **Updated:** 2026-08-29
 - **Impact:** patch — internal reuse / small call-site cleanups; no new discovery API
 

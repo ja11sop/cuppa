@@ -505,7 +505,7 @@ Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object path
 | `compile-object-paths` | Mirror source tree under `working/` for `Compile` | — | **Shipped 1.8.1** — [#213](https://github.com/ja11sop/cuppa/issues/213) / [#214](https://github.com/ja11sop/cuppa/pull/214) |
 | `sconscript-exports` | Export registry or explicit tree; dedupe discovered paths | Medium | [`sconscript-exports.md`](design/plans/sconscript-exports.md) |
 | `cmake-to-cuppa-migration` | Antora matrix + phased tutorial + agent checklist | Medium | Compile-path fix shipped — [`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md) |
-| `static-glob` | RecursiveGlob (disk + `Dir.entries` + full Repository); GlobFiles; Filter path parity | Medium | **Landing** — [#231](https://github.com/ja11sop/cuppa/pull/231), [`recursive-glob-parity.md`](design/plans/recursive-glob-parity.md); follow-on path/node helper reuse [`path-vocabulary-and-scons-nodes.md`](design/plans/path-vocabulary-and-scons-nodes.md) |
+| `static-glob` | RecursiveGlob (disk + `Dir.entries` + full Repository); GlobFiles; Filter path parity | Medium | **Landing** — [#232](https://github.com/ja11sop/cuppa/issues/232) / [#231](https://github.com/ja11sop/cuppa/pull/231), [`recursive-glob-parity.md`](design/plans/recursive-glob-parity.md); follow-on path/node helper reuse [`path-vocabulary-and-scons-nodes.md`](design/plans/path-vocabulary-and-scons-nodes.md) |
 
 ### Out of scope (layout / migration)
 
