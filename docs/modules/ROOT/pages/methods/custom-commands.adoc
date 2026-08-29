@@ -1,0 +1,18 @@
+= Custom commands and working directories
+:description: cwd, spawn, and --use-shell notes for Run / Test
+
+This page will hold the full tutorial for Working-directory and shell spawn behaviour for `Run` / `Test` / related actions.
+
+Until the Methods split finishes migrating prose, use xref:methods.adoc#custom-commands-and-working-directories[Methods — Custom commands and working directories].
+
+== Behaviour (draft)
+
+[cols="1,3"]
+|===
+| Returns | N/A (behaviour notes)
+| Evaluation | Build-time spawn
+| Output paths | Caller / `cwd` controlled
+| Progress | N/A
+|===
+
+See also the hub xref:methods.adoc[Methods] and the behaviour track in the repository design plans (`method-behaviour-audit`).

@@ -1,0 +1,18 @@
+= C++ dialect, modules, and Profiles methods
+:description: StdCpp, modules helpers, and Profiles / error-limit controls
+
+This page will hold the full tutorial for `StdCpp`, `CxxModules`, `Modules` (deprecated), `Module`, `HeaderUnit`, `ImportModules`, `CxxProfiles`, `CxxProfilesEnforce`, `CxxErrorLimit`, `CxxDefaultErrorLimit`, `CxxDisableErrorLimit`.
+
+Until the Methods split finishes migrating prose, use xref:methods.adoc#dialect-modules-and-flags[Methods — Dialect, modules, and flags].
+
+== Behaviour (draft)
+
+[cols="1,3"]
+|===
+| Returns | Env mutators return env; `Module` / `HeaderUnit` return nodes
+| Evaluation | Immediate (flags) or build action (modules compile)
+| Output paths | TU objects mirror sources; BMIs under `modules/`
+| Progress | Compile-path emitters yes; flag mutators no
+|===
+
+See also the hub xref:methods.adoc[Methods] and the behaviour track in the repository design plans (`method-behaviour-audit`).

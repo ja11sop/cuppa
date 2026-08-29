@@ -1,0 +1,18 @@
+= Test and run methods
+:description: BuildTest, Test, Benchmark, and Run
+
+This page will hold the full tutorial for `BuildTest`, `*Test`, `Test`, `BuildBenchmark`, `*Benchmark`, `Benchmark`, `Run`.
+
+Until the Methods split finishes migrating prose, use xref:methods.adoc#testing-with-buildtest[Methods — Testing with BuildTest] (and following Test / Benchmark / Run sections).
+
+== Behaviour (draft)
+
+[cols="1,3"]
+|===
+| Returns | Nodes for built test/benchmark binaries; run helpers are side-effect oriented
+| Evaluation | Build action / post-build runners
+| Output paths | Binaries under `final/`; object paths follow Compile mirroring
+| Progress | Yes for build emitters; runners participate through attached actions
+|===
+
+See also the hub xref:methods.adoc[Methods] and the behaviour track in the repository design plans (`method-behaviour-audit`).

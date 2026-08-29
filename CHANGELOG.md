@@ -44,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Methods documentation starts a hub + child-page layout under ``methods/`` (nav stubs and
+  topic map; full tutorials still on the Methods hub until each group migrates). SCons
+  companion stubs (``Install``, ``Depends``, env vars) are included early in that split.
 - Profiles inventory no longer requires ``--cxx-disable-error-limit``; report mode implies
   unlimited per-TU diagnostics (Clang ``-ferror-limit=0``, GCC ``-fmax-errors=0``) unless
   ``--cxx-default-error-limit`` or ``--cxx-error-limit=`` is set. Cuppa strips any existing

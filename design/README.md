@@ -27,8 +27,8 @@ maintainer workflow evolved.
 | [`plans/coverage-performance.md`](plans/coverage-performance.md) | proposal | Where `--cov --test` time actually goes, what the A/B measurement ruled out, and the remaining suspects |
 | [`plans/list-toolchains-verbose.md`](plans/list-toolchains-verbose.md) | in progress | Verbose `describe()` shipped ([#172](https://github.com/ja11sop/cuppa/issues/172) / [#170](https://github.com/ja11sop/cuppa/pull/170)); deferred table-driven init |
 | [`plans/antora-ui-bundle.md`](plans/antora-ui-bundle.md) | in progress | Supplemental CSS + Boost/Material look catalogue; default bundle kept — ROADMAP `doc-antora-ui`; [#229](https://github.com/ja11sop/cuppa/issues/229) / [#228](https://github.com/ja11sop/cuppa/pull/228) |
-| [`plans/methods-pages-split.md`](plans/methods-pages-split.md) | proposal | Hub + per-method Antora pages; blocked on behaviour audit — ROADMAP `doc-methods-split` |
-| [`plans/method-behaviour-audit.md`](plans/method-behaviour-audit.md) | proposal | Method returns, evaluation time, output-path fixes before Methods doc split |
+| [`plans/methods-pages-split.md`](plans/methods-pages-split.md) | in progress | Hub + `methods/*` child pages; SCons companions early after stubs — ROADMAP `doc-methods-split` |
+| [`plans/method-behaviour-audit.md`](plans/method-behaviour-audit.md) | in progress | Method returns, evaluation, paths; #213 + glob parity done; `mba-artifact-paths` deferred |
 | [`plans/native-toolchain-output.md`](plans/native-toolchain-output.md) | proposal | `--native-output`: passthrough native compiler colour — ROADMAP `console-native-output` |
 | [`plans/terse-build-output.md`](plans/terse-build-output.md) | proposal | `--terse-output`: coloured one-line progress — ROADMAP `console-terse-output` / **1.8.0 target** |
 | [`plans/build-log-hygiene.md`](plans/build-log-hygiene.md) | proposal | Configure-time log demotion + variant default message fix — ROADMAP `console-log-hygiene` |
@@ -50,7 +50,7 @@ maintainer workflow evolved.
 | [`archive/conan-publish-plan.md`](archive/conan-publish-plan.md) | shipped | Design of `ConanPackagePublisher` and `--publish-package` |
 | [`plans/sconscript-exports.md`](plans/sconscript-exports.md) | proposal | Shared exports between discovered sconscripts; nested lib/test layout |
 | [`plans/cmake-to-cuppa-migration.md`](plans/cmake-to-cuppa-migration.md) | proposal | CMake ↔ Cuppa matrix and migration phases for humans and agents |
-| [`plans/recursive-glob-parity.md`](plans/recursive-glob-parity.md) | in progress | RecursiveGlob (disk + `Dir.entries` + full Repository); GlobFiles; Filter — ROADMAP `static-glob`; [#232](https://github.com/ja11sop/cuppa/issues/232) / [#231](https://github.com/ja11sop/cuppa/pull/231) |
+| [`archive/recursive-glob-parity.md`](archive/recursive-glob-parity.md) | shipped | RecursiveGlob / GlobFiles / Filter parity — ROADMAP `static-glob`; [#232](https://github.com/ja11sop/cuppa/issues/232) / [#231](https://github.com/ja11sop/cuppa/pull/231) |
 | [`plans/path-vocabulary-and-scons-nodes.md`](plans/path-vocabulary-and-scons-nodes.md) | proposal | Reuse `#/` path roots + VariantDir node helpers outside discovery — follow-on to `static-glob` |
 
 ## Conventions

@@ -1,34 +1,41 @@
 # Plan: split Methods into per-method Antora pages
 
-- **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-methods-split`); hub [`methods.adoc`](../../docs/modules/ROOT/pages/methods.adoc); [`dependencies.adoc`](../../docs/modules/ROOT/pages/dependencies.adoc) hub pattern; Phase 3 doc split [`removal-options.md`](removal-options.md) §7.1
-- **Updated:** 2026-08-17
+- **Status:** in progress
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-methods-split`); hub [`methods.adoc`](../../docs/modules/ROOT/pages/methods.adoc); [`dependencies.adoc`](../../docs/modules/ROOT/pages/dependencies.adoc) hub pattern; Phase 3 doc split [`removal-options.md`](removal-options.md) §7.1; behaviour track [`method-behaviour-audit.md`](method-behaviour-audit.md)
+- **Updated:** 2026-08-29
 - **Impact:** none — documentation and navigation only
 
 ## Prerequisite — behaviour before pages
 
-Do **not** split Methods into child pages until [`method-behaviour-audit.md`](method-behaviour-audit.md)
-fixes and classifications are settled (or explicitly deferred with issue links). Otherwise each
-new page documents behaviour that is still wrong or inconsistent — especially **output path naming**
-and **static vs dynamic** source discovery.
+Do **not** move detailed behaviour prose onto child pages until
+[`method-behaviour-audit.md`](method-behaviour-audit.md) fixes and classifications are settled
+**or** explicitly deferred with issue links. Hub + nav skeleton (slice **A**) may land once
+blocking audit slices are fixed or deferred.
+
+**Settled / deferred (2026-08-29):**
+
+| Item | State |
+|------|--------|
+| [#213](https://github.com/ja11sop/cuppa/issues/213) compile object paths | **Shipped** |
+| `mba-static-glob` / `mba-filter` | **Shipped** — [`recursive-glob-parity.md`](../archive/recursive-glob-parity.md) / [#232](https://github.com/ja11sop/cuppa/issues/232) |
+| `mba-artifact-paths` (flat `{final}/{basename}` for Markdown/AsciiDoc/RunAndRedirect) | **Deferred** — [#233](https://github.com/ja11sop/cuppa/issues/233); Docs assets pages call out collisions until fixed |
+| `path-vocabulary-and-scons-nodes` | Optional parallel; not a Methods-split blocker |
 
 **Order:**
 
 ```text
-method-behaviour-audit  →  recursive-glob-parity (optional)  →  methods-pages-split (this plan)
+method-behaviour-audit (fixed or deferred)  →  methods-pages-split (this plan)
 ```
 
-[#213](https://github.com/ja11sop/cuppa/issues/213) (compile object paths) is the first audit slice;
-doc/asset emitters with flat basenames are the next.
+`recursive-glob-parity` is shipped; cite the archive plan from the Files group.
 
 ## Why
 
-[`methods.adoc`](../../docs/modules/ROOT/pages/methods.adoc) is a single long page (~540 lines)
-covering progress, build, test, coverage, custom commands, modules, and packages. Dependencies
-and toolchains already use a **hub + child pages** model (`dependencies.adoc` →
-`dependencies-*.adoc`, `toolchains.adoc` → `toolchain-*.adoc`).
+[`methods.adoc`](../../docs/modules/ROOT/pages/methods.adoc) is a single long page covering
+progress, build, test, coverage, custom commands, modules, and packages. Dependencies and
+toolchains already use a **hub + child pages** model.
 
-Methods are the core **`sconscript` vocabulary**. Each deserves:
+Methods are the core **`sconscript` vocabulary**. Each group deserves:
 
 - Its own URL for linking from integration tests and error messages.
 - Room for parameters, examples, progress behaviour, and toolchain notes without scrolling.
@@ -39,11 +46,10 @@ Methods are the core **`sconscript` vocabulary**. Each deserves:
 
 1. Turn **`methods.adoc` into a hub** — prerequisites, progress overview, method index table.
 2. **Phase 1:** one Antora page per **cuppa-registered method family** (see inventory below).
-3. **Phase 2:** short pages for **selected SCons methods** cuppa projects use daily, grouped under
-   `methods-scons.adoc` or nested nav.
+3. **Phase 2:** short pages for **selected SCons methods** cuppa projects use daily, under
+   `methods/scons-*.adoc`.
 4. Update **`nav.adoc`** to mirror the dependency/toolchain nesting pattern.
-5. Optional: **`docs/modules/ROOT/pages/methods/`** folder aligned with nav (same idea as
-   `integration/` pages — see [`doc-folder-layout.md`](../archive/doc-folder-layout.md)).
+5. Child pages live under **`docs/modules/ROOT/pages/methods/`** (same idea as `integration/`).
 
 ## Non-goals
 
@@ -55,20 +61,18 @@ Methods are the core **`sconscript` vocabulary**. Each deserves:
 
 Group related registrations to avoid forty tiny pages:
 
-| Nav group | Cuppa methods | Source module(s) |
-|-----------|---------------|------------------|
-| Build | `Build`, `Compile`, `CompileStatic`, `CompileShared`, `BuildLib`, `BuildStaticLib`, `BuildSharedLib` | `build.py`, `compile.py`, `build_library.py` |
-| Test & run | `BuildTest`, `*Test`, `Test`, `BuildBenchmark`, `*Benchmark`, `Benchmark`, `Run` | `build_test.py`, `test.py`, `build_benchmark.py`, `benchmark.py`, `run.py` |
-| Coverage | `Coverage`, `CollateCoverageFiles`, `CollateCoverageIndex` | `coverage.py` |
-| C++ dialect & modules | `StdCpp`, `CxxModules`, `Modules` (deprecated), `Module`, `HeaderUnit`, `ImportModules`, `CxxProfiles`, `CxxProfilesEnforce`, `CxxErrorLimit`, `CxxDefaultErrorLimit`, `CxxDisableErrorLimit` | `stdcpp.py`, `modules.py`, `module.py`, `header_unit.py`, `import_modules.py`, `cxx_profiles.py`, `cxx_error_limit.py` |
-| Dependencies & profiles | `BuildWith`, `Using`, `BuildProfile` | `build_with.py`, `using.py`, `build_profile.py` |
-| Flags & toolchain | `Toolchain`, `ReplaceFlags`, `RemoveFlags` | `toolchain.py`, `replace_flags.py`, `remove_flags.py` |
-| Files & templates | `CopyFiles`, `CopyFilesAs`, `TargetFrom`, `ExpandTemplateFile`, `RenderJinjaTemplate`, `RecursiveGlob`, `GlobFiles`, `Filter` | respective modules |
-| Docs assets | `AsciidocToHtml`, `MarkdownToHtml`, `CompileScss`, `CreateVersion`, `RunAndRedirectToFile` | respective modules |
-| Packages | `PublishPackage`, `InstallPackage` | `manage_packages.py` |
-
-Each group page: signature, when to use, minimal example, progress/NotifyProgress note, xrefs to
-toolchains/modules/coverage as needed.
+| Nav group | Cuppa methods | Page |
+|-----------|---------------|------|
+| Build | `Build`, `Compile`, `CompileStatic`, `CompileShared`, `BuildLib`, `BuildStaticLib`, `BuildSharedLib` | `methods/build.adoc` |
+| Test & run | `BuildTest`, `*Test`, `Test`, `BuildBenchmark`, `*Benchmark`, `Benchmark`, `Run` | `methods/test-run.adoc` |
+| Coverage | `Coverage`, `CollateCoverageFiles`, `CollateCoverageIndex` | `methods/coverage.adoc` |
+| C++ dialect & modules | `StdCpp`, `CxxModules`, `Modules` (deprecated), `Module`, `HeaderUnit`, `ImportModules`, `CxxProfiles`, `CxxProfilesEnforce`, `CxxErrorLimit`, … | `methods/cxx-dialect-and-modules.adoc` |
+| Dependencies & profiles | `BuildWith`, `Using`, `BuildProfile` | `methods/dependencies-and-profiles.adoc` |
+| Flags & toolchain | `Toolchain`, `ReplaceFlags`, `RemoveFlags` | `methods/flags-and-toolchain.adoc` |
+| Files & templates | `CopyFiles`, `CopyFilesAs`, `TargetFrom`, `ExpandTemplateFile`, `RenderJinjaTemplate`, `RecursiveGlob`, `GlobFiles`, `Filter` | `methods/files-and-templates.adoc` |
+| Docs assets | `AsciidocToHtml`, `MarkdownToHtml`, `CompileScss`, `CreateVersion`, `RunAndRedirectToFile` | `methods/docs-assets.adoc` |
+| Packages | `PublishPackage`, `InstallPackage` | `methods/packages.adoc` |
+| Custom commands | `cwd` / `--use-shell` spawn notes (method-adjacent) | `methods/custom-commands.adoc` |
 
 ## Behaviour fields (every child page)
 
@@ -82,48 +86,52 @@ page (or group page subsection) should state:
 | **Output paths** | Mirror under `working/` or `final/`, flat basename, or caller explicit — collision notes |
 | **Progress** | Participates in NotifyProgress or not |
 
-**Examples by group:**
+Link to [`recursive-glob-parity.md`](../archive/recursive-glob-parity.md) from the Files group
+instead of duplicating the full static/dynamic essay.
 
-| Nav group | Evaluation highlight | Path highlight |
-|-----------|---------------------|----------------|
-| Build | Build action via SCons | Objects mirror source tree under `working/` ([#213](https://github.com/ja11sop/cuppa/issues/213)) |
-| Files & templates | Mix: static glob, Filter immediate, Glob dynamic | RecursiveGlob vs SCons Glob; Filter after Glob |
-| Docs assets | Build action | Today: flat `{final}/{basename}` — **document fix when audit lands** |
-| C++ modules | Build action | Interface suffix in object stem (`.cppm.o` vs `.o`) + mirrored paths |
-
-Link to [`recursive-glob-parity.md`](recursive-glob-parity.md) from the Files group instead of duplicating
-the full static/dynamic essay.
-
-## Phase 2 — SCons companions (proposal)
+## Phase 2 — SCons companions
 
 | Page | Cover |
 |------|--------|
-| `methods-scons-install.adoc` | `env.Install`, `env.InstallAs`, cuppa layout under `_build/` / `final/` |
-| `methods-scons-depends.adoc` | `Depends`, `Requires`, `Alias` in cuppa projects |
-| `methods-scons-env.adoc` | `CPPPATH`, `LIBPATH`, when to prefer cuppa methods |
+| `methods/scons-install.adoc` | `env.Install`, `env.InstallAs`, cuppa layout under `_build/` / `final/` |
+| `methods/scons-depends.adoc` | `Depends`, `Requires`, `Alias` in cuppa projects |
+| `methods/scons-env.adoc` | `CPPPATH`, `LIBPATH`, when to prefer cuppa methods |
 
 Keep each page short; link to SCons upstream for exhaustive API.
 
+**Preference (2026-08-29):** fold Phase 2 into the cycle **earlier** — once slice **A** (hub +
+nav + stubs) exists, draft SCons companion stubs/content **before or alongside** remaining Phase 1
+group migrations (not only after Files/Docs). Revisit concrete ordering after groundwork lands.
+
 ## Hub page retention
 
-Leave on **`methods.adoc`**:
+Leave on **`methods.adoc`** (target end state):
 
 - Prerequisites
 - Progress tracking and variant scoping (mermaid diagram)
-- Custom commands / `--use-shell` / POSIX vs Windows spawn (or move to `methods-custom-commands.adoc` if hub stays short)
 - Index table linking every child page
+
+Custom commands may stay on the hub briefly, then move to `methods/custom-commands.adoc`.
 
 ## Work slices
 
 | Slice | Deliverable | Notes |
 |-------|-------------|-------|
-| **0** | Behaviour audit fixes | [`method-behaviour-audit.md`](method-behaviour-audit.md) — **before A** |
-| A | Hub trim + nav skeleton | Empty child stubs with `xref` + behaviour field template |
-| B | Build + test groups | Highest traffic; #213 semantics |
-| C | Coverage + C++ groups | Link cxx-modules / cxx-profiles |
-| D | Remaining groups | Files (RecursiveGlob), packages, flags |
-| E | Phase 2 SCons pages | Optional same cycle |
-| F | Redirect grep in repo | Fix internal links to `#anchors` that moved |
+| **0** | Behaviour audit fixed or deferred | [#213](https://github.com/ja11sop/cuppa/issues/213) + glob parity **done**; `mba-artifact-paths` **deferred** ([#233](https://github.com/ja11sop/cuppa/issues/233)) |
+| **A** | Hub map + nav skeleton + stubs | Behaviour field template on each stub; full tutorial text may still live on hub until B–D; SCons companion stubs included early |
+| **B** | Build + test groups | Highest traffic; #213 semantics |
+| **E′** | Phase 2 SCons companions | **Prefer early** after A (stubs first, then short prose) |
+| **C** | Coverage + C++ groups | Link cxx-modules / cxx-profiles |
+| **D** | Remaining groups | Files (RecursiveGlob), packages, flags, docs assets (call out flat-basename until issue fixed) |
+| **F** | Redirect grep in repo | Fix internal links to `#anchors` that moved |
+
+## Progress snapshot
+
+| Slice | Status |
+|-------|--------|
+| 0 | Largely done — artifact-path emitters deferred with issue |
+| A | **Done** (this groundwork) — hub topic map + `methods/*` stubs + nav; SCons companion stubs present |
+| B–D, E′, F | Not started |
 
 ## Refusal rules
 
@@ -133,27 +141,25 @@ Leave on **`methods.adoc`**:
 | Generated docs without examples | Refuse |
 | Rename methods in docs only | Refuse; match code |
 
-## 1.8.0 candidacy
+## 1.9.0 / docs candidacy
 
 | Factor | Assessment |
 |--------|------------|
 | User value | Medium — discoverability and deep links |
 | Risk | Low |
-| Size | Large editorial effort; can land incrementally (slice B–C enough for 1.8.0) |
+| Size | Large editorial effort; land incrementally |
 | Release impact | `none` |
 
-**Suggested:** defer slices **A–F** until **slice 0** (behaviour audit) is largely complete. Then
-land docs as **incremental docs PRs** (`impact:none`). Good pairing with
+Land as **incremental docs PRs** (`impact:none`). Good pairing with
 [`antora-ui-bundle.md`](antora-ui-bundle.md) if the docs cycle gets a visible refresh.
 
-## Folder layout (optional polish)
-
-Mirror integration tests:
+## Folder layout
 
 ```text
 docs/modules/ROOT/pages/methods/build.adoc
 docs/modules/ROOT/pages/methods/test-run.adoc
 …
+docs/modules/ROOT/pages/methods/scons-install.adoc
 ```
 
-Update hub xrefs to `xref:methods/build.adoc[Build methods]` when files move.
+Update hub xrefs to `xref:methods/build.adoc[Build methods]` when files exist.

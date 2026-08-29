@@ -1,0 +1,18 @@
+= Flags and toolchain methods
+:description: Toolchain lookup and flag mutation
+
+This page will hold the full tutorial for `Toolchain`, `ReplaceFlags`, `RemoveFlags`.
+
+Until the Methods split finishes migrating prose, use xref:methods.adoc#dialect-modules-and-flags[Methods — Dialect, modules, and flags] and Templates table (`Toolchain`).
+
+== Behaviour (draft)
+
+[cols="1,3"]
+|===
+| Returns | `Toolchain` returns a toolchain object; flag helpers mutate env
+| Evaluation | Immediate
+| Output paths | N/A
+| Progress | No
+|===
+
+See also the hub xref:methods.adoc[Methods] and the behaviour track in the repository design plans (`method-behaviour-audit`).

@@ -1,0 +1,18 @@
+= Package methods
+:description: PublishPackage and InstallPackage
+
+This page will hold the full tutorial for `PublishPackage`, `InstallPackage`.
+
+Until the Methods split finishes migrating prose, use xref:methods.adoc#packages[Methods — Packages].
+
+== Behaviour (draft)
+
+[cols="1,3"]
+|===
+| Returns | Package-related nodes
+| Evaluation | Configure / build
+| Output paths | Package layout under cuppa package roots
+| Progress | As wired by package publishers
+|===
+
+See also the hub xref:methods.adoc[Methods] and the behaviour track in the repository design plans (`method-behaviour-audit`).

@@ -1,0 +1,18 @@
+= Documentation and asset methods
+:description: AsciiDoc, Markdown, SCSS, version headers, and redirect capture
+
+This page will hold the full tutorial for `AsciidocToHtml`, `MarkdownToHtml`, `CompileScss`, `CreateVersion`, `RunAndRedirectToFile`.
+
+Until the Methods split finishes migrating prose, use xref:methods.adoc#templates-and-documentation-helpers[Methods — Templates and documentation helpers].
+
+== Behaviour (draft)
+
+[cols="1,3"]
+|===
+| Returns | Build nodes for generated artefacts
+| Evaluation | Build action
+| Output paths | Today: several emitters use flat `{final}/{basename}` — nested same-basename sources can collide (https://github.com/ja11sop/cuppa/issues/233[#233]). `CreateVersion` uses offset paths under `working/`.
+| Progress | Yes where emitters create action nodes
+|===
+
+See also the hub xref:methods.adoc[Methods] and the behaviour track in the repository design plans (`method-behaviour-audit`).

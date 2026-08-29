@@ -1,0 +1,18 @@
+= Build methods
+:description: env.Build, Compile, and BuildLib families
+
+This page will hold the full tutorial for `Build`, `Compile`, `CompileStatic`, `CompileShared`, `BuildLib`, `BuildStaticLib`, `BuildSharedLib`.
+
+Until the Methods split finishes migrating prose, use xref:methods.adoc#core-build-methods[Methods — Core build methods].
+
+== Behaviour (draft)
+
+[cols="1,3"]
+|===
+| Returns | SCons nodes (objects, programs, libraries)
+| Evaluation | Build action (configure wires graph; build executes)
+| Output paths | Object outputs mirror the source tree under `working/` (https://github.com/ja11sop/cuppa/issues/213[#213])
+| Progress | Yes — via `NotifyProgress` on emitted targets
+|===
+
+See also the hub xref:methods.adoc[Methods] and the behaviour track in the repository design plans (`method-behaviour-audit`).

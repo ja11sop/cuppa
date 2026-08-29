@@ -1,7 +1,7 @@
 # Plan: Glob / RecursiveGlob parity
 
-- **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `static-glob`; [#232](https://github.com/ja11sop/cuppa/issues/232); [#213](https://github.com/ja11sop/cuppa/issues/213); [`cmake-to-cuppa-migration.md`](cmake-to-cuppa-migration.md); follow-on [`path-vocabulary-and-scons-nodes.md`](path-vocabulary-and-scons-nodes.md); landing [#231](https://github.com/ja11sop/cuppa/pull/231)
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `static-glob`; [#232](https://github.com/ja11sop/cuppa/issues/232); [#213](https://github.com/ja11sop/cuppa/issues/213); [`cmake-to-cuppa-migration.md`](../plans/cmake-to-cuppa-migration.md); follow-on [`path-vocabulary-and-scons-nodes.md`](../plans/path-vocabulary-and-scons-nodes.md); landed [#231](https://github.com/ja11sop/cuppa/pull/231)
 - **Updated:** 2026-08-29
 - **Impact:** minor — shared path roots + Filter path parity; RecursiveGlob merges `Dir.entries` + full Repository trees
 
@@ -62,7 +62,7 @@ shallow = env.Glob('#/src/*/*.cpp')  # one nesting level only
 | RecursiveGlob **shallow** Repository (`Dir.glob` per local dir) | **done** (superseded by full walk) |
 | RecursiveGlob **full** Repository (repo-only subdirectory trees) | **done** |
 
-**Follow-on (not this plan):** reuse `#/` path vocabulary and VariantDir node helpers outside discovery — [`path-vocabulary-and-scons-nodes.md`](path-vocabulary-and-scons-nodes.md). Do **not** share the Repository / `Dir.entries` tree walk with other methods.
+**Follow-on (not this plan):** reuse `#/` path vocabulary and VariantDir node helpers outside discovery — [`path-vocabulary-and-scons-nodes.md`](../plans/path-vocabulary-and-scons-nodes.md). Do **not** share the Repository / `Dir.entries` tree walk with other methods.
 
 ## Repository support
 

@@ -633,7 +633,7 @@ When docs and code disagree, **code is authoritative** (especially storage defau
 | Overview, benefits, CMake contrast | `docs/modules/ROOT/pages/index.adoc` |
 | Install / first project | `install.adoc`, `quickstart.adoc` |
 | Vocabulary (methods, deps, variants) | `concepts.adoc` |
-| Build / test / library APIs + examples | `methods.adoc` |
+| Build / test / library APIs + examples | `methods.adoc` hub + `methods/*.adoc` children (split in progress) |
 | Toolchains hub (select / list / archives / `--stdcpp`) | `toolchains.adoc` |
 | GCC / Clang / MSVC defaults and flags | `toolchains/gcc.adoc` / `toolchains/clang.adoc` / `toolchains/msvc.adoc` |
 | Fetched toolchain archives (`--toolchain-archive`, `--*-root`) | `toolchains.adoc` § Fetched toolchain archives |
@@ -660,7 +660,7 @@ When docs and code disagree, **code is authoritative** (especially storage defau
 
 The Phase 3 documentation split in [`design/plans/removal-options.md`](design/plans/removal-options.md) §7.1 has landed. Prefer the child page above rather than growing the hub.
 
-Update `docs/modules/ROOT/nav.adoc` when adding a new top-level page or nesting children under Dependencies or Toolchains.
+Update `docs/modules/ROOT/nav.adoc` when adding a new top-level page or nesting children under Dependencies, Toolchains, or Methods.
 
 ### Documentation partitioning (rules of thumb)
 

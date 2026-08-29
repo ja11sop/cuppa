@@ -1,0 +1,18 @@
+= Files, discovery, and templates
+:description: CopyFiles, Glob helpers, Filter, and templates
+
+This page will hold the full tutorial for `CopyFiles`, `CopyFilesAs`, `TargetFrom`, `ExpandTemplateFile`, `RenderJinjaTemplate`, `RecursiveGlob`, `GlobFiles`, `Filter`.
+
+Until the Methods split finishes migrating prose, use xref:methods.adoc#versioning-and-sources[Methods — Versioning and sources].
+
+== Behaviour (draft)
+
+[cols="1,3"]
+|===
+| Returns | Node lists (discovery / copy); strings (`TargetFrom`); template nodes
+| Evaluation | Configure-time snapshot (`RecursiveGlob` / `GlobFiles`); SCons dynamic (`Glob`); immediate (`Filter`); build action (copy / templates)
+| Output paths | Copy via Install; Jinja mirrors under `final/`; discovery returns existing nodes
+| Progress | Copy / template emitters yes; discovery / Filter no
+|===
+
+See also the hub xref:methods.adoc[Methods] and the behaviour track in the repository design plans (`method-behaviour-audit`).

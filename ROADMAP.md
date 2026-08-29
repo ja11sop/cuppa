@@ -487,7 +487,7 @@ Design: [`native-toolchain-output.md`](design/plans/native-toolchain-output.md),
 
 Experimental Cuppa build of a public C++20 library (Boost.Capy, 2026-08-17) surfaced two platform gaps before a published migration tutorial is honest.
 
-Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object paths), [`sconscript-exports.md`](design/plans/sconscript-exports.md), [`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md), [`recursive-glob-parity.md`](design/plans/recursive-glob-parity.md).
+Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object paths), [`sconscript-exports.md`](design/plans/sconscript-exports.md), [`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md), [`recursive-glob-parity.md`](design/archive/recursive-glob-parity.md).
 
 ### Today
 
@@ -505,7 +505,7 @@ Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object path
 | `compile-object-paths` | Mirror source tree under `working/` for `Compile` | — | **Shipped 1.8.1** — [#213](https://github.com/ja11sop/cuppa/issues/213) / [#214](https://github.com/ja11sop/cuppa/pull/214) |
 | `sconscript-exports` | Export registry or explicit tree; dedupe discovered paths | Medium | [`sconscript-exports.md`](design/plans/sconscript-exports.md) |
 | `cmake-to-cuppa-migration` | Antora matrix + phased tutorial + agent checklist | Medium | Compile-path fix shipped — [`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md) |
-| `static-glob` | RecursiveGlob (disk + `Dir.entries` + full Repository); GlobFiles; Filter path parity | Medium | **Landing** — [#232](https://github.com/ja11sop/cuppa/issues/232) / [#231](https://github.com/ja11sop/cuppa/pull/231), [`recursive-glob-parity.md`](design/plans/recursive-glob-parity.md); follow-on path/node helper reuse [`path-vocabulary-and-scons-nodes.md`](design/plans/path-vocabulary-and-scons-nodes.md) |
+| `static-glob` | RecursiveGlob (disk + `Dir.entries` + full Repository); GlobFiles; Filter path parity | — | **Shipped** — [#232](https://github.com/ja11sop/cuppa/issues/232) / [#231](https://github.com/ja11sop/cuppa/pull/231), [`recursive-glob-parity.md`](design/archive/recursive-glob-parity.md); follow-on [`path-vocabulary-and-scons-nodes.md`](design/plans/path-vocabulary-and-scons-nodes.md) |
 
 ### Out of scope (layout / migration)
 
@@ -530,8 +530,8 @@ Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object path
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `method-behaviour-audit` | Fix output-path naming + document evaluation/returns taxonomy | High | [#213](https://github.com/ja11sop/cuppa/issues/213) first; doc/asset emitters — [`method-behaviour-audit.md`](design/plans/method-behaviour-audit.md); **before** Methods doc split |
-| `doc-methods-split` | Hub + per-method Antora pages; optional SCons companions | Medium | [`methods-pages-split.md`](design/plans/methods-pages-split.md); **after behaviour audit** (docs-only) |
+| `method-behaviour-audit` | Fix output-path naming + document evaluation/returns taxonomy | High | [#213](https://github.com/ja11sop/cuppa/issues/213) + glob parity shipped; remaining: [#233](https://github.com/ja11sop/cuppa/issues/233) (`mba-artifact-paths`) — [`method-behaviour-audit.md`](design/plans/method-behaviour-audit.md) |
+| `doc-methods-split` | Hub + per-method Antora pages; SCons companions early after hub stubs | Medium | [`methods-pages-split.md`](design/plans/methods-pages-split.md); hub/nav groundwork in progress (docs-only) |
 | `doc-antora-ui` | Supplemental CSS polish (keep default Antora bundle) | Low | [`antora-ui-bundle.md`](design/plans/antora-ui-bundle.md); [#229](https://github.com/ja11sop/cuppa/issues/229); CSS pass in [#228](https://github.com/ja11sop/cuppa/pull/228); `ui-pin` still open; **1.9.0** docs-only |
 | `doc-output-samples` | Capture report output as semantic HTML for Antora and local preview | Low | [`colourised-doc-samples.md`](design/plans/colourised-doc-samples.md); not Shiki `ansi` |
 | `doc-shiki` | Build-time Shiki for `[source,…]` listings; optional ANSI preview | Low | [`shiki-syntax-highlighting.md`](design/plans/shiki-syntax-highlighting.md); **deferred past 1.9.0** — Phase A spike after UI chrome stable |
