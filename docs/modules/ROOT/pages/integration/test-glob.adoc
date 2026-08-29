@@ -10,7 +10,7 @@
 - `Filter` works on RecursiveGlob and Glob nodes (relative patterns, `*/detail/*` excludes, build from filtered node).
 - Snapshot vs directory Glob: both see a new top-level file on the next Cuppa invocation.
 - Flat `GlobFiles` and SCons `Glob` agree on basenames for the same directory.
-- SCons `Repository`: `Glob`, `GlobFiles`, and `RecursiveGlob` see repo files in directories that also exist locally; `RecursiveGlob` does not descend into repo-only subdirectory trees.
+- SCons `Repository`: `Glob`, `GlobFiles`, and `RecursiveGlob` see repo files; `RecursiveGlob` also walks repo-only subdirectory trees, with `exclude_dirs` / `discard_pattern` applied to the union of local and remote names.
 - Declared `env.File` not on disk: `Glob`, `GlobFiles`, and `RecursiveGlob` include it (including nested declared paths).
 - Absolute `start=` under `sconscript_dir` (matching_engine-style nested `*.ebs`), basename skip lists, `Filter` on extension lists, and an empty/missing output-dir RecursiveGlob.
 - Discovered sources can be built (`BuildTest`, `Compile`).

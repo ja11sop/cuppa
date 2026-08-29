@@ -184,16 +184,14 @@ def test_scons_glob_and_recursive_glob_see_repository_files_in_local_dirs(tmp_pa
         "cuppa_flat = env.GlobFiles('*.cpp', start='src')\n"
         "assert basenames(cuppa_flat) == ['from_repo.cpp', 'local.cpp'], basenames(cuppa_flat)\n"
         "cuppa_walk = env.RecursiveGlob('*.cpp', start='src')\n"
-        "assert basenames(cuppa_walk) == ['from_repo.cpp', 'local.cpp'], basenames(cuppa_walk)\n"
-        "# Repo-only subdirs are still out of scope for RecursiveGlob (shallow only).\n"
-        "assert 'deep.cpp' not in basenames(cuppa_walk), basenames(cuppa_walk)\n",
+        "assert basenames(cuppa_walk) == ['from_repo.cpp', 'local.cpp'], basenames(cuppa_walk)\n",
     )
     result = run_cuppa(project, "--dbg")
     assert_success(result)
 
 
-def test_recursive_glob_shallow_repository_skips_repo_only_subdir(tmp_path):
-    """RecursiveGlob does not descend into subdirectory trees that exist only in a Repository."""
+def test_recursive_glob_walks_repository_only_subdirs(tmp_path):
+    """RecursiveGlob descends into subdirectory trees that exist only in a Repository."""
     project = tmp_path / "project"
     repo = tmp_path / "repo"
     (project / "src").mkdir(parents=True)
@@ -208,10 +206,60 @@ def test_recursive_glob_shallow_repository_skips_repo_only_subdir(tmp_path):
         + _PATH_HELPERS
         + "Repository('#/../repo')\n"
         "cuppa_walk = env.RecursiveGlob('*.cpp', start='src')\n"
-        "assert basenames(cuppa_walk) == ['from_repo.cpp', 'local.cpp'], basenames(cuppa_walk)\n"
-        "assert not any(p.endswith('nested/deep.cpp') for p in posix_paths(cuppa_walk)), "
+        "assert basenames(cuppa_walk) == ['deep.cpp', 'from_repo.cpp', 'local.cpp'], "
+        "basenames(cuppa_walk)\n"
+        "assert any(p.endswith('nested/deep.cpp') for p in posix_paths(cuppa_walk)), "
         "posix_paths(cuppa_walk)\n"
         "assert basenames(env.Glob('src/nested/*.cpp')) == ['deep.cpp']\n",
+    )
+    result = run_cuppa(project, "--dbg")
+    assert_success(result)
+
+
+def test_recursive_glob_repository_local_file_shadows_repo(tmp_path):
+    """Same basename on disk wins once — no duplicate nodes from the Repository copy."""
+    project = tmp_path / "project"
+    repo = tmp_path / "repo"
+    (project / "src").mkdir(parents=True)
+    (repo / "src").mkdir(parents=True)
+    (project / "src" / "shared.cpp").write_text("int shared() { return 1; }\n")
+    (repo / "src" / "shared.cpp").write_text("int shared() { return 99; }\n")
+    (repo / "src" / "only_repo.cpp").write_text("int only_repo() { return 2; }\n")
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        + _PATH_HELPERS
+        + "Repository('#/../repo')\n"
+        "cuppa_walk = env.RecursiveGlob('*.cpp', start='src')\n"
+        "assert basenames(cuppa_walk) == ['only_repo.cpp', 'shared.cpp'], basenames(cuppa_walk)\n",
+    )
+    result = run_cuppa(project, "--dbg")
+    assert_success(result)
+
+
+def test_recursive_glob_repository_honours_exclude_and_discard(tmp_path):
+    """exclude_dirs / discard_pattern apply to Repository-only subdirectory names."""
+    project = tmp_path / "project"
+    repo = tmp_path / "repo"
+    (project / "src").mkdir(parents=True)
+    (repo / "src" / "keep").mkdir(parents=True)
+    (repo / "src" / "build").mkdir(parents=True)
+    (repo / "src" / "vendor").mkdir(parents=True)
+    (project / "src" / "local.cpp").write_text("int local_fn() { return 1; }\n")
+    (repo / "src" / "keep" / "kept.cpp").write_text("int kept() { return 2; }\n")
+    (repo / "src" / "build" / "skip.cpp").write_text("int skip() { return 3; }\n")
+    (repo / "src" / "vendor" / "CMakeLists.txt").write_text("cmake\n")
+    (repo / "src" / "vendor" / "hidden.cpp").write_text("int hidden() { return 4; }\n")
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        + _PATH_HELPERS
+        + "Repository('#/../repo')\n"
+        "cuppa_walk = env.RecursiveGlob(\n"
+        "    '*.cpp', start='src', exclude_dirs=['build'], discard_pattern='CMakeLists.txt')\n"
+        "assert basenames(cuppa_walk) == ['kept.cpp', 'local.cpp'], basenames(cuppa_walk)\n",
     )
     result = run_cuppa(project, "--dbg")
     assert_success(result)

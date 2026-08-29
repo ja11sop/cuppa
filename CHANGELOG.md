@@ -32,8 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (``cuppa.utility.glob_roots``). ``env.RecursiveGlob`` is the recursive
   configure-time disk walk plus matching ``File`` nodes from each directory's
   SCons ``Dir.entries`` (declared Files not on disk yet, including nested
-  declared paths) and shallow Repository parity (``Dir.glob`` per local
-  directory; repo-only subdirectory trees are not walked).
+  declared paths) and full Repository parity (``Dir.glob`` over the union of
+  local and Repository subdirectory trees).
   ``env.GlobFiles`` resolves Cuppa ``start=`` / ``#/`` then uses SCons ``Glob``,
   so it sees declared ``File`` nodes (and Repository entries) like ``Glob``.
   SCons ``env.Glob`` remains non-recursive (``**`` is one path segment).

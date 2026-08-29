@@ -10,11 +10,10 @@
 #
 #   RecursiveGlob: configure-time os.walk snapshot plus matching File nodes from
 #   each visited directory's SCons Dir.entries (declared Files not on disk yet,
-#   including nested declared paths). For each local directory visited, also
-#   merges SCons Dir.glob matches so Repository files in those directories are
-#   visible (shallow Repository parity with Glob). Repo-only subdirectory trees
-#   are not walked — see design/plans/static-glob-rename.md.
-#   exclude_dirs / discard_pattern apply to the local walk.
+#   including nested declared paths). Also walks logical directories that exist
+#   locally and/or in SCons Repositories (Dir.glob per logical dir, including
+#   repo-only subdirectory trees). exclude_dirs / discard_pattern apply across
+#   the union of local and remote names.
 #
 #   GlobFiles: single-directory discovery via SCons env.Glob after resolving
 #   start= / #/ — same file set as Glob for that directory, including declared
@@ -252,51 +251,117 @@ def _dir_child( dir_node, rel ):
     return dir_node
 
 
-def _files_from_local_repository_globs(
+def _listdir_dirs_and_files( abspath ):
+    """Return ``(dir_names, file_names)`` for an on-disk directory, or empty sets."""
+    dirs = set()
+    files = set()
+    if not abspath or not os.path.isdir( abspath ):
+        return dirs, files
+    try:
+        for name in os.listdir( abspath ):
+            path = os.path.join( abspath, name )
+            if os.path.isdir( path ):
+                dirs.add( name )
+            elif os.path.isfile( path ):
+                files.add( name )
+    except OSError:
+        pass
+    return dirs, files
+
+
+def _entry_dir_names( dir_node ):
+    names = set()
+    entries = getattr( dir_node, 'entries', None ) or {}
+    for name, entry in entries.items():
+        if name in ( '.', '..' ):
+            continue
+        if _is_dir_node( entry ):
+            names.add( name )
+    return names
+
+
+def _repository_peer_dirs( dir_node ):
+    """Peer directories from ``get_all_rdirs()`` excluding ``dir_node`` itself."""
+    get_all = getattr( dir_node, 'get_all_rdirs', None )
+    if not callable( get_all ):
+        return []
+    peers = []
+    for rdir in get_all():
+        if rdir is dir_node:
+            continue
+        peers.append( rdir )
+    return peers
+
+
+def _logical_child_dir_names( dir_node, local_abs ):
+    """Union of subdirectory basenames from local disk, entries, and Repositories."""
+    names, _files = _listdir_dirs_and_files( local_abs )
+    names |= _entry_dir_names( dir_node )
+    for rdir in _repository_peer_dirs( dir_node ):
+        r_abs = getattr( rdir, 'abspath', None )
+        r_dirs, _r_files = _listdir_dirs_and_files( r_abs )
+        names |= r_dirs
+        names |= _entry_dir_names( rdir )
+    return names
+
+
+def _logical_file_names( dir_node, local_abs ):
+    """Union of file basenames from local disk and Repository peers (for discard)."""
+    _dirs, names = _listdir_dirs_and_files( local_abs )
+    for rdir in _repository_peer_dirs( dir_node ):
+        r_abs = getattr( rdir, 'abspath', None )
+        _r_dirs, r_files = _listdir_dirs_and_files( r_abs )
+        names |= r_files
+    return names
+
+
+def _files_from_repository_tree(
         start_dir,
         absolute_start,
         pattern,
         exclude_dirs_regex=None,
         discard_pattern=None,
 ):
-    """Shallow Repository parity: ``Dir.glob`` per *local* directory visited.
+    """Full Repository parity: ``Dir.glob`` at each logical directory.
 
-    Walks the same local tree as ``recursive_glob.glob`` (honouring exclude /
-    discard). For each kept directory, calls SCons ``Dir.glob(pattern)``, which
-    searches Repositories for that directory only. Does **not** descend into
-    subdirectory trees that exist only in a Repository.
+    Walks the union of local and Repository subdirectory names under
+    ``start_dir``, so repo-only trees (no local ``nested/``) are included.
+    ``exclude_dirs`` / ``discard_pattern`` use the union of local and remote
+    basenames at each logical path. Local on-disk files are also returned by
+    ``Dir.glob`` and are deduped by the caller against the disk-walk merge.
     """
     if not hasattr( start_dir, 'glob' ):
         return []
 
-    # Top directory may exist only as a SCons node with Repository children.
-    if not os.path.isdir( absolute_start ):
-        return _file_nodes_only( start_dir.glob( pattern ) )
-
     discard = _as_regex( discard_pattern )
     found = []
-    subdir = False
+    visited = set()
 
-    for root, dirnames, filenames in os.walk( absolute_start ):
-        if exclude_dirs_regex:
-            dirnames[:] = [
-                    name for name in dirnames
-                    if not exclude_dirs_regex.match( name )
-            ]
+    def walk( dir_node, local_abs, rel, is_subdir ):
+        rel_key = ( rel or os.curdir ).replace( '\\', '/' )
+        if rel_key in visited:
+            return
+        visited.add( rel_key )
 
-        if subdir and discard:
-            if any( discard.match( name ) for name in filenames ):
-                dirnames[:] = []
-                continue
+        if is_subdir and discard:
+            if any( discard.match( name ) for name in _logical_file_names( dir_node, local_abs ) ):
+                return
 
-        rel = os.path.relpath( root, absolute_start )
-        dir_node = _dir_child( start_dir, rel )
         globber = getattr( dir_node, 'glob', None )
         if callable( globber ):
             found.extend( _file_nodes_only( globber( pattern ) ) )
 
-        subdir = True
+        for name in sorted( _logical_child_dir_names( dir_node, local_abs ) ):
+            if exclude_dirs_regex and exclude_dirs_regex.match( name ):
+                continue
+            child_rel = name if rel_key in ( os.curdir, '.' ) else os.path.join( rel, name )
+            child_local = (
+                    os.path.join( local_abs, name ) if local_abs is not None else None
+            )
+            walk( _dir_child( dir_node, name ), child_local, child_rel, True )
 
+    local_abs = absolute_start if os.path.isdir( absolute_start ) else None
+    walk( start_dir, local_abs, os.curdir, False )
     return found
 
 
@@ -343,7 +408,7 @@ class RecursiveGlobMethod:
                     .format( colour_items( [ str( node ) for node in declared ] ) )
             )
             nodes = _merge_unique_nodes( nodes, declared )
-        from_repos = _files_from_local_repository_globs(
+        from_repos = _files_from_repository_tree(
                 start_dir,
                 absolute_start,
                 pattern,
@@ -352,7 +417,7 @@ class RecursiveGlobMethod:
         )
         if from_repos:
             logger.trace(
-                    "Repository Dir.glob matches = [{}]."
+                    "Repository tree Dir.glob matches = [{}]."
                     .format( colour_items( [ str( node ) for node in from_repos ] ) )
             )
             nodes = _merge_unique_nodes( nodes, from_repos )

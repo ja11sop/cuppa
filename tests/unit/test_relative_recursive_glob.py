@@ -19,7 +19,7 @@ from cuppa.methods.relative_recursive_glob import (
         _exclude_dirs_regex,
         _file_nodes_only,
         _files_from_dir_entries,
-        _files_from_local_repository_globs,
+        _files_from_repository_tree,
         _is_dir_node,
         _is_mergeable_declared_file,
         _merge_unique_nodes,
@@ -386,44 +386,66 @@ def test_recursive_glob_method_merges_declared_with_disk( tmp_path, monkeypatch 
     assert names == [ 'ghost.ebs', 'on_disk.ebs' ]
 
 
-def test_files_from_local_repository_globs_calls_dir_glob_per_local_dir( tmp_path ):
+def test_files_from_repository_tree_walks_local_and_repo_only_dirs( tmp_path ):
     root = tmp_path / 'src'
     nested = root / 'nested'
     nested.mkdir( parents=True )
     ( root / 'local.cpp' ).write_text( 'l' )
     ( nested / 'deep.cpp' ).write_text( 'd' )
+    # Repo-only peer directory name supplied via get_all_rdirs listing
+    repo_only = tmp_path / 'repo' / 'src' / 'only_repo'
+    repo_only.mkdir( parents=True )
+    ( repo_only / 'remote.cpp' ).write_text( 'r' )
 
     calls = []
 
+    class PeerDir:
+        def __init__( self, abspath ):
+            self.abspath = abspath
+            self.entries = { '.': self, '..': None }
+
     class GlobDir:
-        def __init__( self, label ):
+        def __init__( self, label, abspath ):
             self.label = label
+            self.abspath = abspath
+            self.entries = { '.': self, '..': None }
 
         def Dir( self, rel ):
-            return GlobDir( self.label + '/' + rel.replace( '\\', '/' ) )
+            child_abs = os.path.join( self.abspath, rel ) if self.abspath else None
+            return GlobDir( self.label + '/' + rel.replace( '\\', '/' ), child_abs )
+
+        def get_all_rdirs( self ):
+            if self.label == 'src':
+                return [ self, PeerDir( str( tmp_path / 'repo' / 'src' ) ) ]
+            if self.label.endswith( 'only_repo' ):
+                return [ self, PeerDir( str( repo_only ) ) ]
+            return [ self ]
 
         def glob( self, pattern ):
             calls.append( ( self.label, pattern ) )
             if self.label.endswith( 'nested' ):
                 return [ _FakeNode( 'deep.cpp', is_dir=False ) ]
+            if self.label.endswith( 'only_repo' ):
+                return [ _FakeNode( 'remote.cpp', is_dir=False ) ]
             return [
                     _FakeNode( 'local.cpp', is_dir=False ),
                     _FakeNode( 'from_repo.cpp', is_dir=False ),
             ]
 
-    found = _files_from_local_repository_globs(
-            GlobDir( 'src' ),
+    found = _files_from_repository_tree(
+            GlobDir( 'src', str( root ) ),
             str( root ),
             '*.cpp',
     )
     assert sorted( node.name for node in found ) == [
-            'deep.cpp', 'from_repo.cpp', 'local.cpp',
+            'deep.cpp', 'from_repo.cpp', 'local.cpp', 'remote.cpp',
     ]
     assert ( 'src', '*.cpp' ) in calls
-    assert any( label.endswith( 'nested' ) and pattern == '*.cpp' for label, pattern in calls )
+    assert any( label.endswith( 'nested' ) for label, _ in calls )
+    assert any( label.endswith( 'only_repo' ) for label, _ in calls )
 
 
-def test_files_from_local_repository_globs_honours_discard( tmp_path ):
+def test_files_from_repository_tree_honours_discard( tmp_path ):
     root = tmp_path / 'src'
     bad = root / 'bad'
     bad.mkdir( parents=True )
@@ -432,14 +454,21 @@ def test_files_from_local_repository_globs_honours_discard( tmp_path ):
     ( bad / 'hidden.cpp' ).write_text( 'h' )
 
     class GlobDir:
+        def __init__( self, abspath ):
+            self.abspath = abspath
+            self.entries = { '.': self, '..': None }
+
         def Dir( self, rel ):
-            return self
+            return GlobDir( os.path.join( self.abspath, rel ) )
+
+        def get_all_rdirs( self ):
+            return [ self ]
 
         def glob( self, pattern ):
             return [ _FakeNode( 'ok.cpp', is_dir=False ) ]
 
-    found = _files_from_local_repository_globs(
-            GlobDir(),
+    found = _files_from_repository_tree(
+            GlobDir( str( root ) ),
             str( root ),
             '*.cpp',
             discard_pattern='CMakeLists.txt',

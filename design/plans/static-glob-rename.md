@@ -3,7 +3,7 @@
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `static-glob`; [#213](https://github.com/ja11sop/cuppa/issues/213); [`cmake-to-cuppa-migration.md`](cmake-to-cuppa-migration.md)
 - **Updated:** 2026-08-29
-- **Impact:** minor — shared path roots + Filter path parity; RecursiveGlob merges `Dir.entries` + shallow Repository
+- **Impact:** minor — shared path roots + Filter path parity; RecursiveGlob merges `Dir.entries` + full Repository trees
 
 ## Problem
 
@@ -26,10 +26,10 @@ Shared implementation: disk walk + merges in [`relative_recursive_glob.py`](../.
 
 | Term | Meaning |
 |------|---------|
-| **Configure-time snapshot** | Cuppa `RecursiveGlob` / `GlobFiles` — walk/listdir (plus local `Dir.entries` and shallow Repository `Dir.glob` for RecursiveGlob) when the sconscript line runs |
+| **Configure-time snapshot** | Cuppa `RecursiveGlob` / `GlobFiles` — walk/listdir (plus local `Dir.entries` and Repository `Dir.glob` for RecursiveGlob) when the sconscript line runs |
 | **SCons directory Glob** | `env.Glob` — SCons-native `File` nodes for one directory / one segment per pattern |
 
-**Real impact (assessed):** low for typical Cuppa workflows. Both see new files on the next `cuppa` invocation because the sconscript is re-read. Differences that still matter: recursion, `exclude_dirs` / `discard_pattern`, `start=` / `#/` vocabulary, **node path forms**, and SCons FS edge cases — **Repositories** (shallow done; full recursive open) and **declared `File` nodes not on disk**.
+**Real impact (assessed):** low for typical Cuppa workflows. Both see new files on the next `cuppa` invocation because the sconscript is re-read. Differences that still matter: recursion, `exclude_dirs` / `discard_pattern`, `start=` / `#/` vocabulary, **node path forms**, and SCons FS edge cases — **Repositories** and **declared `File` nodes not on disk**.
 
 **Do not** implement RecursiveGlob by delegating to SCons `**` — that is not a tree walk.
 
@@ -59,43 +59,47 @@ shallow = env.Glob('#/src/*/*.cpp')  # one nesting level only
 | Semantic integration matrix | **done** |
 | GlobFiles via SCons Glob (declared Files) | **done** |
 | RecursiveGlob merge of `Dir.entries` | **done** |
-| RecursiveGlob **shallow** Repository (`Dir.glob` per local dir) | **done** |
-| RecursiveGlob **full** Repository (repo-only subdirectory trees) | **not started** — see below |
+| RecursiveGlob **shallow** Repository (`Dir.glob` per local dir) | **done** (superseded by full walk) |
+| RecursiveGlob **full** Repository (repo-only subdirectory trees) | **done** |
 
 ## Repository support
 
-### Shallow (shipped)
+### Shipped behaviour
 
-For each directory that exists on the **local** disk under `start=`, RecursiveGlob calls SCons `Dir.glob(pattern)` on the corresponding node. That is the same per-directory Repository search `env.Glob` / `GlobFiles` use, so files such as `repo/src/from_repo.cpp` appear when `project/src/` exists locally.
+RecursiveGlob merges three sources, then dedupes by source abspath:
 
-`exclude_dirs` / `discard_pattern` still follow the local `os.walk`. Declared `File` merge (`Dir.entries`) stays separate and continues to skip Repository-backed names via `rfile()` so ghosts and repo lookups do not double-count oddly.
+1. Local disk walk (`cuppa.recursive_glob`) with `exclude_dirs` / `discard_pattern`
+2. Declared `File` nodes from `Dir.entries` (including nested declared-only dirs; skips Repository-backed names via `rfile()`)
+3. **Repository tree walk** — at each logical directory (union of local disk, local `entries`, and `get_all_rdirs()` peers), call SCons `Dir.glob(pattern)` and recurse into child directory basenames from that union
 
-**Intentionally out of scope for shallow:** a subdirectory that exists **only** in a Repository (e.g. `repo/src/nested/deep.cpp` with no `project/src/nested/`) is not visited — there is no local directory for the walk to enter.
+So `repo/src/from_repo.cpp` appears when `project/src/` exists locally, and `repo/src/nested/deep.cpp` appears even when `project/src/nested/` does not.
 
-### Full recursive Repository (follow-on)
+`exclude_dirs` / `discard_pattern` for the Repository walk use the **union** of local and remote basenames at each logical path (so a `CMakeLists.txt` only in the repo still discards that logical subdirectory).
 
-**Goal:** RecursiveGlob finds matching files under Repository-only subdirectory trees, with the same `exclude_dirs` / `discard_pattern` semantics as the local walk, returning local `File` nodes (VariantDir-safe), deduped against disk and declared merges.
+Local basename shadows a Repository copy once (no duplicate nodes).
 
-**Why it is separate work:** SCons `Dir.glob` does not recurse across `/`. Shallow reuse stops at local directory names. Full parity must **union directory listings** from the local tree and each entry of `Dir.get_all_rdirs()`, recurse into names that appear only remotely, and map matches back onto the project-side node tree.
+### Corner cases considered (full walk)
 
-**Suggested approach:**
+| Case | Handling |
+|------|----------|
+| Repo-only nested dirs | Union child names from `get_all_rdirs()` peers; `Dir(name)` maps to local node tree; `Dir.glob` finds remotes |
+| Local file shadows repo same basename | `_merge_unique_nodes` / `_node_key` via `srcnode()` |
+| `exclude_dirs` / `discard` on repo-only dirs | Applied to unioned basenames before descend / before glob |
+| VariantDir dual nodes | Prefer sconscript-relative `Dir`; dedupe on source abspath |
+| Multiple Repositories | `get_all_rdirs()` + `Dir.glob` already search all peers |
+| Cycles / revisit | `visited` set of logical relative paths |
+| Local `start=` missing | Walk still starts from `start_dir`; remote listdir via peers (optional stretch kept) |
+| Declared ghosts vs repo | Separate `Dir.entries` merge; `rfile()` filter avoids treating repo lookups as ghosts |
 
-1. Start from `_start_dir_node` / `absolute_start`.
-2. BFS/DFS of logical relative paths. At each relative path, obtain the local `Dir` (creating intermediate Dir nodes as needed for mapping) and every corresponding `get_all_rdirs()` peer.
-3. Union child **directory** names from local `os.listdir` / `entries` and from each rdir’s on-disk listing (and optionally rdir `entries`).
-4. Apply `exclude_dirs` to basenames; apply `discard_pattern` using the union of file names in that logical directory (local + remotes) before descending.
-5. Collect matching **files** from local disk, local `entries` (declared), and each rdir (via `listdir` + `env.File` / `Dir.File`, or `rdir.glob(pattern)` at that level).
-6. Dedupe with existing `_node_key` / `_source_node` / `rfile()` awareness so VariantDir build-tree nodes and Repository remotes do not inflate the list.
-7. Integration fixtures: (a) shallow still green; (b) repo-only nested tree included; (c) local file shadows repo same basename; (d) `exclude_dirs` / `discard_pattern` applied to repo-only dirs; (e) Windows path forms.
+### Historical note
 
-**Sizing:** about one careful PR after shallow — not a redesign; builds on `get_all_rdirs`, `_merge_unique_nodes`, and the existing Repository tests. Main risk is VariantDir + dual node identity, already exercised by the declared-File work.
-
-**Non-goals for that slice:** changing GlobFiles; teaching SCons `**` as recursive; walking Repositories when the local `start=` directory itself is missing (optional stretch — document if added).
+An earlier **shallow** slice only called `Dir.glob` for directories that existed on local disk. The full walk replaces that helper; shallow behaviour remains as a subset of the same tests.
 
 ## Non-goals
 
 - Teaching SCons `**` as recursive.
 - A released-then-removed `StaticGlob` name (never shipped).
+- Changing GlobFiles (already Repository-complete via SCons `Glob`).
 
 ## References
 
