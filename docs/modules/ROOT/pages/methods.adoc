@@ -34,11 +34,17 @@ xref:toolchains/msvc.adoc[MSVC]).
 | Dependencies and profiles (`BuildWith`, `Using`, …)
 | xref:methods/dependencies-and-profiles.adoc[Dependencies and profiles]
 
-| Flags and toolchain
+| Flags and toolchain (`ReplaceFlags`, `AppendUnique`, `MergeFlags`, …)
 | xref:methods/flags-and-toolchain.adoc[Flags and toolchain]
 
 | Files, discovery, templates
 | xref:methods/files-and-templates.adoc[Files and templates]
+
+| Install (`Install`, `InstallAs`)
+| xref:methods/install.adoc[Install]
+
+| Depends (`Depends`, `Requires`, `Alias`)
+| xref:methods/depends.adoc[Depends]
 
 | Docs and assets
 | xref:methods/docs-assets.adoc[Docs and assets]
@@ -48,11 +54,6 @@ xref:toolchains/msvc.adoc[MSVC]).
 
 | Custom commands / `cwd` / `--use-shell`
 | xref:methods/custom-commands.adoc[Custom commands]
-
-| SCons companions (`Install`, `Depends`, env vars)
-| xref:methods/scons-install.adoc[Install] ·
-  xref:methods/scons-depends.adoc[Depends] ·
-  xref:methods/scons-env.adoc[Env vars]
 |===
 
 == Prerequisites

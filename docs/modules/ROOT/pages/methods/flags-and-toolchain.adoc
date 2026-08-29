@@ -1,9 +1,13 @@
 = Flags and toolchain methods
-:description: Toolchain lookup and flag mutation
+:description: Toolchain lookup and mutating compile/link flags
 
-This page will hold the full tutorial for `Toolchain`, `ReplaceFlags`, `RemoveFlags`.
+This page will hold the full tutorial for `Toolchain`, `ReplaceFlags`, `RemoveFlags`, and the
+everyday flag helpers `AppendUnique`, `MergeFlags`, and `Append` — one coherent “how do I set
+flags?” story.
 
-Until the Methods split finishes migrating prose, use xref:methods.adoc#dialect-modules-and-flags[Methods — Dialect, modules, and flags] and Templates table (`Toolchain`).
+Until the Methods split finishes migrating prose, use
+xref:methods.adoc#dialect-modules-and-flags[Methods — Dialect, modules, and flags]
+and the Templates table (`Toolchain`) on the hub.
 
 == Behaviour (draft)
 
@@ -15,4 +19,5 @@ Until the Methods split finishes migrating prose, use xref:methods.adoc#dialect-
 | Progress | No
 |===
 
-See also the hub xref:methods.adoc[Methods] and the behaviour track in the repository design plans (`method-behaviour-audit`).
+Related: xref:methods/dependencies-and-profiles.adoc[Dependencies and profiles] (`BuildWith`),
+xref:toolchains.adoc[Toolchains].

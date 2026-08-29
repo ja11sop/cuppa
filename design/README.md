@@ -27,7 +27,7 @@ maintainer workflow evolved.
 | [`plans/coverage-performance.md`](plans/coverage-performance.md) | proposal | Where `--cov --test` time actually goes, what the A/B measurement ruled out, and the remaining suspects |
 | [`plans/list-toolchains-verbose.md`](plans/list-toolchains-verbose.md) | in progress | Verbose `describe()` shipped ([#172](https://github.com/ja11sop/cuppa/issues/172) / [#170](https://github.com/ja11sop/cuppa/pull/170)); deferred table-driven init |
 | [`plans/antora-ui-bundle.md`](plans/antora-ui-bundle.md) | in progress | Supplemental CSS + Boost/Material look catalogue; default bundle kept — ROADMAP `doc-antora-ui`; [#229](https://github.com/ja11sop/cuppa/issues/229) / [#228](https://github.com/ja11sop/cuppa/pull/228) |
-| [`plans/methods-pages-split.md`](plans/methods-pages-split.md) | in progress | Hub + `methods/*` child pages; SCons companions early after stubs — ROADMAP `doc-methods-split` |
+| [`plans/methods-pages-split.md`](plans/methods-pages-split.md) | in progress | Hub + job-named `methods/*` pages; engine methods grouped with Cuppa by task — ROADMAP `doc-methods-split` |
 | [`plans/method-behaviour-audit.md`](plans/method-behaviour-audit.md) | in progress | Method returns, evaluation, paths; #213 + glob parity done; `mba-artifact-paths` deferred |
 | [`plans/native-toolchain-output.md`](plans/native-toolchain-output.md) | proposal | `--native-output`: passthrough native compiler colour — ROADMAP `console-native-output` |
 | [`plans/terse-build-output.md`](plans/terse-build-output.md) | proposal | `--terse-output`: coloured one-line progress — ROADMAP `console-terse-output` / **1.8.0 target** |

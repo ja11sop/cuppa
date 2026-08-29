@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-methods-split`); hub [`methods.adoc`](../../docs/modules/ROOT/pages/methods.adoc); [`dependencies.adoc`](../../docs/modules/ROOT/pages/dependencies.adoc) hub pattern; Phase 3 doc split [`removal-options.md`](removal-options.md) §7.1; behaviour track [`method-behaviour-audit.md`](method-behaviour-audit.md)
-- **Updated:** 2026-08-29
+- **Updated:** 2026-08-30
 - **Impact:** none — documentation and navigation only
 
 ## Prerequisite — behaviour before pages
@@ -39,40 +39,61 @@ Methods are the core **`sconscript` vocabulary**. Each group deserves:
 
 - Its own URL for linking from integration tests and error messages.
 - Room for parameters, examples, progress behaviour, and toolchain notes without scrolling.
-- A path to document **canonical SCons helpers** used with cuppa (`env.Install`, etc.) without
-  sending readers to fragmented upstream SCons docs.
+- Realistic teaching for everyday `env.*` calls — whether Cuppa registered them or the build
+  engine provides them — without making provenance the navigation model.
 
 ## Goals
 
-1. Turn **`methods.adoc` into a hub** — prerequisites, progress overview, method index table.
-2. **Phase 1:** one Antora page per **cuppa-registered method family** (see inventory below).
-3. **Phase 2:** short pages for **selected SCons methods** cuppa projects use daily, under
-   `methods/scons-*.adoc`.
+1. Turn **`methods.adoc` into a hub** — prerequisites, progress overview, topic map, and a
+   **comprehensive method index** (grouped sensibly; every name links to the Cuppa page that
+   covers it when we have one, else a careful upstream link).
+2. **Topic pages** by *reader job* (build, test, flags, files/install, depends, …) — not by
+   whether a call is implemented in Cuppa or in SCons.
+3. Document everyday engine methods Cuppa projects actually use (`Install`, `Depends`,
+   `AppendUnique`, …) with the **same depth** as Cuppa-registered methods: realistic examples,
+   Related methods, behaviour fields — not terse “see SCons” stubs.
 4. Update **`nav.adoc`** to mirror the dependency/toolchain nesting pattern.
 5. Child pages live under **`docs/modules/ROOT/pages/methods/`** (same idea as `integration/`).
 
+## Settled — navigation and naming (2026-08-30)
+
+| Decision | Choice |
+|----------|--------|
+| Page filenames | Job names only: `install.adoc`, `depends.adoc`, `flags-and-toolchain.adoc` — **no** `scons-` prefix |
+| Grouping axis | What the reader is trying to do, not Cuppa vs SCons provenance |
+| Flags set | `ReplaceFlags`, `RemoveFlags`, `AppendUnique`, `MergeFlags`, `Append`, … on **one** flags page with `Toolchain` |
+| Install / copy | `Install` / `InstallAs` with `CopyFiles` / `CopyFilesAs` (files + install story; `install.adoc` may be the install-focused chapter or a section — prefer one coherent narrative) |
+| Graph edges | `Depends`, `Requires`, `Alias` on `depends.adoc` |
+| Upstream links | Optional deep links to SCons docs for completeness; **never** versioned doc URLs (they rot and confuse). Prefer Cuppa xrefs whenever we cover the method |
+| Depth | Engine methods get full tutorials and realistic examples — SCons upstream is notoriously thin/contrived; we do not outsource teaching to it |
+
+Readers who have never heard of SCons should still find “how do I set flags?” and “how do I install files?” without a provenance taxonomy.
+
 ## Non-goals
 
-- Duplicating full SCons reference documentation.
+- Duplicating the entire SCons reference.
 - Auto-generating pages from `add_method` registration (manual prose stays authoritative).
 - Moving integration test pages (already under `integration/`).
+- Nav labels or filenames that say “SCons companions”.
 
-## Method inventory (Phase 1 grouping)
+## Method inventory (topic grouping)
 
-Group related registrations to avoid forty tiny pages:
+Group related calls to avoid forty tiny pages. Cuppa-registered and engine methods share a row when
+they form one job:
 
-| Nav group | Cuppa methods | Page |
-|-----------|---------------|------|
+| Nav group | Methods (Cuppa and/or engine) | Page |
+|-----------|-------------------------------|------|
 | Build | `Build`, `Compile`, `CompileStatic`, `CompileShared`, `BuildLib`, `BuildStaticLib`, `BuildSharedLib` | `methods/build.adoc` |
 | Test & run | `BuildTest`, `*Test`, `Test`, `BuildBenchmark`, `*Benchmark`, `Benchmark`, `Run` | `methods/test-run.adoc` |
 | Coverage | `Coverage`, `CollateCoverageFiles`, `CollateCoverageIndex` | `methods/coverage.adoc` |
-| C++ dialect & modules | `StdCpp`, `CxxModules`, `Modules` (deprecated), `Module`, `HeaderUnit`, `ImportModules`, `CxxProfiles`, `CxxProfilesEnforce`, `CxxErrorLimit`, … | `methods/cxx-dialect-and-modules.adoc` |
+| C++ dialect & modules | `StdCpp`, `CxxModules`, `Modules` (deprecated), `Module`, `HeaderUnit`, `ImportModules`, `CxxProfiles`, … | `methods/cxx-dialect-and-modules.adoc` |
 | Dependencies & profiles | `BuildWith`, `Using`, `BuildProfile` | `methods/dependencies-and-profiles.adoc` |
-| Flags & toolchain | `Toolchain`, `ReplaceFlags`, `RemoveFlags` | `methods/flags-and-toolchain.adoc` |
-| Files & templates | `CopyFiles`, `CopyFilesAs`, `TargetFrom`, `ExpandTemplateFile`, `RenderJinjaTemplate`, `RecursiveGlob`, `GlobFiles`, `Filter` | `methods/files-and-templates.adoc` |
+| Flags & toolchain | `Toolchain`, `ReplaceFlags`, `RemoveFlags`, **`AppendUnique`**, **`MergeFlags`**, `Append`, … | `methods/flags-and-toolchain.adoc` |
+| Files, templates, install | `CopyFiles`, `CopyFilesAs`, `TargetFrom`, templates, `RecursiveGlob`, `GlobFiles`, `Filter`, **`Install`**, **`InstallAs`**, **`Glob`**, **`File`** | `methods/files-and-templates.adoc` and/or `methods/install.adoc` (split only if the page grows too large) |
+| Depends | **`Depends`**, **`Requires`**, **`Alias`** | `methods/depends.adoc` |
 | Docs assets | `AsciidocToHtml`, `MarkdownToHtml`, `CompileScss`, `CreateVersion`, `RunAndRedirectToFile` | `methods/docs-assets.adoc` |
-| Packages | `PublishPackage`, `InstallPackage` | `methods/packages.adoc` |
-| Custom commands | `cwd` / `--use-shell` spawn notes (method-adjacent) | `methods/custom-commands.adoc` |
+| Packages | `PublishPackage`, `InstallPackage`, plus **`Command`** where publishers wrap external builds | `methods/packages.adoc` (cross-link `Command` from custom-commands if needed) |
+| Custom commands | `cwd` / `--use-shell`; **`Command`** for custom actions | `methods/custom-commands.adoc` |
 
 ## Behaviour fields (every child page)
 
@@ -89,19 +110,72 @@ page (or group page subsection) should state:
 Link to [`recursive-glob-parity.md`](../archive/recursive-glob-parity.md) from the Files group
 instead of duplicating the full static/dynamic essay.
 
-## Phase 2 — SCons companions
+## Comprehensive method index
 
-| Page | Cover |
-|------|--------|
-| `methods/scons-install.adoc` | `env.Install`, `env.InstallAs`, cuppa layout under `_build/` / `final/` |
-| `methods/scons-depends.adoc` | `Depends`, `Requires`, `Alias` in cuppa projects |
-| `methods/scons-env.adoc` | `CPPPATH`, `LIBPATH`, when to prefer cuppa methods |
+Somewhere on the hub (or a dedicated `methods/index.adoc` linked from the hub) maintain a
+**complete** grouped list of methods readers might call — Cuppa registrations plus the engine
+methods we teach. Each entry:
 
-Keep each page short; link to SCons upstream for exhaustive API.
+- Links to the Cuppa topic page when we cover it.
+- Otherwise links to **unversioned** upstream documentation (no `/doc/4.x/`-style paths).
+- Notes Related methods so hot paths (test → Filter → CopyFiles → coverage) stay discoverable.
 
-**Preference (2026-08-29):** fold Phase 2 into the cycle **earlier** — once slice **A** (hub +
-nav + stubs) exists, draft SCons companion stubs/content **before or alongside** remaining Phase 1
-group migrations (not only after Files/Docs). Revisit concrete ordering after groundwork lands.
+## Consumer usage survey (2026-08-30)
+
+Scanned Cuppa `sconstruct` / `sconscript` / nested `*.sconscript` files across four private
+consumer trees (shape only — see local `INTERNAL_PROJECTS.local.md` for the map): a **large
+multi-service Cuppa tree** (~279 scripts; includes **project A** and **project C**), a **smaller
+sibling product tree** (~43; includes **project B**), a **packages / publisher tree** (~10), and
+one **tree with no Cuppa sconscripts**. Counts below are call sites across that corpus (not unique
+products). Use this for **Related methods**, example priority, and which engine methods to teach
+first — not as a public claim about any named organisation.
+
+### Dominant test idiom
+
+Nearly every test sconscript repeats the same spine:
+
+1. `BuildWith(…)` (+ often `AppendUnique` / `MergeFlags` for defines / libs)
+2. `BuildTest(…)` (explicit source list; rarely recursive discovery)
+3. `CopyFiles(artifacts_dir, Filter(test, ["*.log", "*.json"]))`
+4. `CollateCoverageFiles` → `GenerateHtmlTestReport` → `CollateTestReportIndex` /
+   `CollateCoverageIndex`
+
+So **Related methods** on Test / Files / Coverage pages should cross-link that chain first.
+`Filter` is overwhelmingly used on **test output nodes**, not on `Glob` results.
+
+### Cuppa methods — high / medium / rare in this corpus
+
+| Band | Methods (approx. call volume) | Doc implication |
+|------|-------------------------------|-----------------|
+| Hot | `CopyFiles`, `BuildWith`, `Filter`, `BuildTest`, coverage collate pair, HTML test report + index | Lead examples; hub “everyday” path |
+| Common | `Build`, `Compile`, `CreateVersion`, `ExpandTemplateFile`, `Run`, `BuildBenchmark` | Binary / service scripts; keep real |
+| Present | `PublishPackage` (publisher tree), `AsciidocToHtml`, `CompileScss`, `RenderJinjaTemplate`, `RemoveFlags` | Docs/assets + packages pages |
+| Rare | `RecursiveGlob` (nested scenario data under one product include-tree only) | Still document; do not imply fleet-wide use |
+| Absent here | `GlobFiles`, `Using`, `BuildLib` / `BuildStaticLib` / `BuildSharedLib`, standalone `Test` / `Benchmark`, `CopyFilesAs`, `TargetFrom`, `InstallPackage`, modules / Profiles method surface, `MarkdownToHtml`, `InstallAs`, `Alias` | Still document from product design + cuppa tests; invent fewer “fleet-style” examples |
+
+`env.Glob` appears mostly in **`sconstruct`** customisation (pinning single third-party sources via
+`local_sub_path`) and in a few doc/asset scripts — not as the primary test source discovery tool.
+
+### Engine methods to teach early (same depth as Cuppa)
+
+| Priority | API | Observed role | Lives with |
+|----------|-----|---------------|------------|
+| 1 | `AppendUnique`, `MergeFlags` | Everywhere beside `BuildWith` | Flags page |
+| 2 | `Requires` | Order packaging copies after `Build` / `CreateVersion` | Depends page |
+| 3 | `Depends` | Test graph edges (DB scripts, wait/update nodes) | Depends page |
+| 4 | `Install` | Package staging; occasional `final/` assets | Install / files narrative |
+| 5 | `Command` | Publisher tree: wrap external CMake steps | Packages / custom commands |
+| 6 | `Glob`, `File` | Dep sources; `#/` assets; templates | Files page |
+| 7 | `AlwaysBuild`, `Clean` | Force regenerate / clean staged dirs | Brief sections on depends or packages |
+| Low | `InstallAs`, `Alias`, … | Unused in corpus | Short “when you need it” on the job page |
+
+### Example / Related-methods checklist (when migrating pages)
+
+- Test page: Related → `Filter`, `CopyFiles`, coverage collate, HTML reports, `BuildWith`
+- Files page: Related → `Filter` on test outputs; `RecursiveGlob`; `Glob` / `File`; `Install`
+- Build page: Related → `Compile`, `CreateVersion`, `Requires` + `CopyFiles` for packaging
+- Flags page: Related → `BuildWith`, `ReplaceFlags` / `RemoveFlags` / `AppendUnique` / `MergeFlags`
+- Packages page: Related → `Install`, `Command`, `Depends` / `Requires`, `PublishPackage`
 
 ## Hub page retention
 
@@ -109,7 +183,8 @@ Leave on **`methods.adoc`** (target end state):
 
 - Prerequisites
 - Progress tracking and variant scoping (mermaid diagram)
-- Index table linking every child page
+- Topic map + **comprehensive method index**
+- Optional short “how Cuppa relates to the build engine” without making engine provenance the nav axis
 
 Custom commands may stay on the hub briefly, then move to `methods/custom-commands.adoc`.
 
@@ -118,19 +193,21 @@ Custom commands may stay on the hub briefly, then move to `methods/custom-comman
 | Slice | Deliverable | Notes |
 |-------|-------------|-------|
 | **0** | Behaviour audit fixed or deferred | [#213](https://github.com/ja11sop/cuppa/issues/213) + glob parity **done**; `mba-artifact-paths` **deferred** ([#233](https://github.com/ja11sop/cuppa/issues/233)) |
-| **A** | Hub map + nav skeleton + stubs | Behaviour field template on each stub; full tutorial text may still live on hub until B–D; SCons companion stubs included early |
+| **A** | Hub map + nav skeleton + stubs | Job-named pages; no `scons-*` filenames |
 | **B** | Build + test groups | Highest traffic; #213 semantics |
-| **E′** | Phase 2 SCons companions | **Prefer early** after A (stubs first, then short prose) |
+| **E′** | Flags / depends / install depth | Full tutorials for engine methods used in the survey; early after A |
 | **C** | Coverage + C++ groups | Link cxx-modules / cxx-profiles |
-| **D** | Remaining groups | Files (RecursiveGlob), packages, flags, docs assets (call out flat-basename until issue fixed) |
-| **F** | Redirect grep in repo | Fix internal links to `#anchors` that moved |
+| **D** | Remaining groups | Files, packages, docs assets (call out flat-basename until #233 fixed) |
+| **F** | Redirect grep + method index | Fix moved anchors; land comprehensive index |
 
 ## Progress snapshot
 
 | Slice | Status |
 |-------|--------|
 | 0 | Largely done — artifact-path emitters deferred with issue |
-| A | **Done** (this groundwork) — hub topic map + `methods/*` stubs + nav; SCons companion stubs present |
+| A | **Done** — hub topic map + job-named stubs (no `scons-*`); flags page owns AppendUnique/MergeFlags |
+| Consumer survey | **Done** (2026-08-30) |
+| Naming / grouping settled | **Done** — job pages, flags coalesce, full engine depth |
 | B–D, E′, F | Not started |
 
 ## Refusal rules
@@ -140,6 +217,8 @@ Custom commands may stay on the hub briefly, then move to `methods/custom-comman
 | One mega-page only | Refuse; hub exists for overview |
 | Generated docs without examples | Refuse |
 | Rename methods in docs only | Refuse; match code |
+| Terse “see SCons docs” for engine methods we teach | Refuse; teach with realistic Cuppa-project examples |
+| Versioned upstream SCons doc URLs | Refuse; unversioned links only |
 
 ## 1.9.0 / docs candidacy
 
@@ -158,8 +237,10 @@ Land as **incremental docs PRs** (`impact:none`). Good pairing with
 ```text
 docs/modules/ROOT/pages/methods/build.adoc
 docs/modules/ROOT/pages/methods/test-run.adoc
+docs/modules/ROOT/pages/methods/flags-and-toolchain.adoc
+docs/modules/ROOT/pages/methods/install.adoc
+docs/modules/ROOT/pages/methods/depends.adoc
 …
-docs/modules/ROOT/pages/methods/scons-install.adoc
 ```
 
 Update hub xrefs to `xref:methods/build.adoc[Build methods]` when files exist.

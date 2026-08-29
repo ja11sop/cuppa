@@ -531,7 +531,7 @@ Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object path
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
 | `method-behaviour-audit` | Fix output-path naming + document evaluation/returns taxonomy | High | [#213](https://github.com/ja11sop/cuppa/issues/213) + glob parity shipped; remaining: [#233](https://github.com/ja11sop/cuppa/issues/233) (`mba-artifact-paths`) — [`method-behaviour-audit.md`](design/plans/method-behaviour-audit.md) |
-| `doc-methods-split` | Hub + per-method Antora pages; SCons companions early after hub stubs | Medium | [`methods-pages-split.md`](design/plans/methods-pages-split.md); hub/nav groundwork in progress (docs-only) |
+| `doc-methods-split` | Hub + job-named method pages; engine APIs taught with Cuppa (not `scons-*` nav) | Medium | [`methods-pages-split.md`](design/plans/methods-pages-split.md); hub/nav groundwork in progress (docs-only) |
 | `doc-antora-ui` | Supplemental CSS polish (keep default Antora bundle) | Low | [`antora-ui-bundle.md`](design/plans/antora-ui-bundle.md); [#229](https://github.com/ja11sop/cuppa/issues/229); CSS pass in [#228](https://github.com/ja11sop/cuppa/pull/228); `ui-pin` still open; **1.9.0** docs-only |
 | `doc-output-samples` | Capture report output as semantic HTML for Antora and local preview | Low | [`colourised-doc-samples.md`](design/plans/colourised-doc-samples.md); not Shiki `ansi` |
 | `doc-shiki` | Build-time Shiki for `[source,…]` listings; optional ANSI preview | Low | [`shiki-syntax-highlighting.md`](design/plans/shiki-syntax-highlighting.md); **deferred past 1.9.0** — Phase A spike after UI chrome stable |

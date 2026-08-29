@@ -1,0 +1,20 @@
+= Depends, Requires, and Alias
+:description: Ordering build and test actions with Depends, Requires, and Alias
+
+This page will hold the full tutorial for `Depends`, `Requires`, and `Alias` — graph edges used
+with Cuppa `Build`, `BuildTest`, `CopyFiles`, and packaging flows.
+
+Until the Methods split finishes migrating prose, see also the hub xref:methods.adoc[Methods].
+
+== Behaviour (draft)
+
+[cols="1,3"]
+|===
+| Returns | Side effects on the DAG / named aliases
+| Evaluation | Configure-time graph wiring
+| Output paths | N/A
+| Progress | No
+|===
+
+Related: xref:methods/build.adoc[Build], xref:methods/test-run.adoc[Test and run],
+xref:methods/install.adoc[Install], xref:methods/files-and-templates.adoc[Files and templates].
