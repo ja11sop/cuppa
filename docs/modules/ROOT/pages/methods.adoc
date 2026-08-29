@@ -5,8 +5,10 @@ Methods are registered on each cuppa environment and called from `sconscript` fi
 They differ from raw SCons builders (`Program`, `Object`, `StaticLibrary`) by understanding variants, toolchains, progress reporting, cuppa's `_build/` layout, and (when enabled) {cpp}20 modules.
 
 This hub is the entry point for that surface.
-Child pages under xref:methods/build.adoc[methods/] are taking the detailed tutorials;
-until each migration finishes, the sections below remain the full reference.
+Child pages under xref:methods/build.adoc[methods/] hold the detailed tutorials for each topic;
+the hub keeps progress overview, a topic map, and summaries that point onward.
+A comprehensive method index (every name → Cuppa page or careful upstream link) lands as the
+split progresses.
 
 For the vocabulary behind methods, see xref:concepts.adoc[Concepts].
 For compiler defaults applied underneath these calls, see xref:toolchains.adoc[Toolchains]
@@ -94,12 +96,13 @@ Practical rules when adding or changing methods:
 
 == Core build methods
 
-=== Building a program with `Build`
+Detailed tutorials for `Build`, `Compile`, and `BuildLib` live on
+xref:methods/build.adoc[Build methods].
 
-`env.Build(target, source, …)` produces a variant-aware executable.
-Cuppa compiles sources (via `Compile`), links a `Program`, and installs it under the variant's `final/` directory.
-
-In this tutorial you will declare a small program and build the debug variant.
+`env.Build` produces a variant-aware executable under `final/`.
+`env.Compile` (and `CompileStatic` / `CompileShared`) emit objects that mirror the source tree
+under `working/`.
+`env.BuildStaticLib` / `BuildSharedLib` / `BuildLib` install libraries into `final/`.
 
 [source,python]
 ----
@@ -108,70 +111,19 @@ Import('env')
 env.Build('hello', ['hello.cpp'])
 ----
 
-`target` is the logical program name (cuppa may append a variant suffix depending on options).
-`source` is a file, list of files, or nodes from `Compile` / `Module`.
-Additional keyword arguments are forwarded to SCons `Program` (for example `LIBS`, `LIBPATH`).
-
-Build it:
-
 [source,sh]
 ----
 cuppa -D --dbg
 ----
 
-`--dbg` selects the debug variant.
-`-D` walks upward until cuppa finds the `sconstruct`, then builds the active `sconscript` files.
+== Test and run methods
 
-You can also pass library and dependency-related kwargs that cuppa understands when composing programs:
+Detailed tutorials for `BuildTest`, `Test`, `BuildBenchmark`, `Benchmark`, and `Run` live on
+xref:methods/test-run.adoc[Test and run].
 
-[source,python]
-----
-Import('env')
-
-env.Build(
-    'app',
-    ['main.cpp', 'util.cpp'],
-    LIBS=['m'],
-    depends_on=[other_nodes],   # optional extra SCons Depends edges
-)
-----
-
-=== Compiling objects with `Compile`
-
-`env.Compile(source, …)` (and `CompileStatic` / `CompileShared`) turns sources into object files without linking.
-Use this when you need objects for custom link steps, or when you want to share objects across targets.
-
-[source,python]
-----
-Import('env')
-
-objs = env.Compile(['a.cpp', 'b.cpp'])
-env.Build('app', objs)
-----
-
-When `env['modules']` is true (see xref:cxx-modules.adoc[{cpp} Modules]), `Compile` delegates to the modules compile path so interface units produce BMIs and consumers receive the right consume flags.
-
-=== Building libraries with `BuildLib`
-
-`env.BuildLib`, `BuildStaticLib`, and `BuildSharedLib` build libraries into `final/`.
-
-[source,python]
-----
-Import('env')
-
-env.BuildStaticLib('mathlib', ['math.cpp'])
-env.AppendUnique(LIBPATH=[env['abs_final_dir']])
-env.Build('app', ['main.cpp'], LIBS=['mathlib'])
-----
-
-With `--cxx-modules` enabled, library builds that contain named module interfaces also install BMIs under `final/modules/` and write `module-map.json` for consumers (see xref:cxx-modules.adoc#packaged-modules[Packaged modules]).
-
-NOTE: On Windows, MSVC *module* export is not the same as *DLL* export.
-A shared library may need `__declspec(dllexport)` (or a module-definition file) before the linker produces an import `.lib`.
-
-=== Testing with `BuildTest`
-
-`env.BuildTest(target, source, …)` builds a program and, when `--test` or `--force-test` is active, runs it through the configured runner.
+A typical test sconscript builds each case with `BuildTest`, copies filtered outputs with
+`CopyFiles` + `Filter`, then collates coverage and HTML reports (see the Test and run page for
+the full pattern).
 
 [source,python]
 ----
@@ -180,147 +132,10 @@ Import('env')
 env.BuildTest('unit_tests', ['tests.cpp'])
 ----
 
-Run tests:
-
 [source,sh]
 ----
 cuppa -D --dbg --test --show-test-output
 ----
-
-`--show-test-output` prints runner output instead of only the pass/fail summary.
-
-Preferred parameters:
-
-[cols="2,3"]
-|===
-| Parameter | Role
-
-| `runner`
-| Runner name (default from `cuppa.run(default_runner=…)`; often `process`, `boost`, or `patched_boost`)
-
-| `expected`
-| Expected outcome string (default `'passed'`)
-
-| `expected_exit_code`
-| Override the expected process exit code
-
-| `build_depends_on`
-| Extra SCons Depends for the *build* (compile/link)
-
-| `test_depends_on`
-| Extra files/nodes associated with the *test run* (rebuild/re-run when they change)
-
-| `working_dir`
-| Directory in which to run the test
-
-| `command`
-| Override the command used to invoke the test binary (use this for CLI arguments)
-
-| `cov_include_patterns` / `cov_exclude_patterns`
-| Narrow coverage instrumentation when combined with `--cov`
-|===
-
-IMPORTANT: `test_depends_on` adds nodes to the test builder's source list so SCons re-runs the test when those files change.
-It is *not* passed as command-line arguments to the test program.
-Use `command` (or a wrapper) when the program must receive paths on argv.
-
-Deprecated aliases (still accepted; prefer the names above):
-
-[cols="2,3"]
-|===
-| Alias | Prefer instead
-
-| `depends_on`
-| `build_depends_on`
-
-| `data`
-| `test_depends_on`
-|===
-
-When both a preferred name and its alias are supplied, the lists are merged.
-
-Toolchain-specific aliases such as `BuildBoostTest` appear when the toolchain advertises those runners.
-
-=== Testing with `Test`
-
-`env.Test(program, …)` attaches a test action to an *existing* binary (for example one produced by `Build`).
-
-[source,python]
-----
-Import('env')
-
-prog = env.Build('unit_tests', ['tests.cpp'])
-env.Test(prog, depends_on=['fixtures/input.txt'])
-----
-
-Preferred parameters:
-
-[cols="2,3"]
-|===
-| Parameter | Role
-
-| `depends_on`
-| Extra files/nodes associated with the test run (rebuild/re-run when they change)
-
-| `runner` / `expected` / `expected_exit_code` / `command` / `working_dir`
-| Same meaning as on `BuildTest`
-|===
-
-Deprecated aliases:
-
-[cols="2,3"]
-|===
-| Alias | Prefer instead
-
-| `data`
-| `depends_on`
-|===
-
-When both `depends_on` and `data` are supplied, the lists are merged.
-`depends_on` / `data` are *not* program argv — use `command` for that.
-
-Toolchain-specific aliases such as `BoostTest` appear when the toolchain advertises those runners.
-
-=== Benchmarks with `BuildBenchmark`
-
-`env.BuildBenchmark(target, source, …)` builds a program and, when `--benchmark` or `--force-benchmark` is active, runs it through the configured runner.
-
-Preferred parameters mirror `BuildTest`, with explicit Depends names:
-
-[cols="2,3"]
-|===
-| Parameter | Role
-
-| `build_depends_on`
-| Extra SCons Depends for the *build* (compile/link)
-
-| `benchmark_depends_on`
-| Extra files/nodes associated with the *benchmark run*
-|===
-
-Deprecated aliases: `depends_on` → `build_depends_on`; `data` → `benchmark_depends_on`.
-
-=== Benchmarks with `Benchmark`
-
-`env.Benchmark(program, …)` attaches a benchmark action to an existing binary.
-
-Preferred: `depends_on` for run-side Depends.
-Deprecated alias: `data`.
-
-=== Generic runs with `Run`
-
-`env.Run` is a generic process runner activated by `--run` / `--force-run` (and also available alongside test/benchmark actions).
-
-[source,python]
-----
-Import('env')
-
-env.Build('tool', ['tool.cpp'])
-env.Run('tool', command_args=['--self-check'], depends_on=['config.json'])
-----
-
-Preferred: `depends_on` for run-side Depends; `command_args` for argv.
-Deprecated alias: `data`.
 
 == Custom commands and working directories
 

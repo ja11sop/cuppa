@@ -1,18 +1,107 @@
 = Build methods
 :description: env.Build, Compile, and BuildLib families
 
-This page will hold the full tutorial for `Build`, `Compile`, `CompileStatic`, `CompileShared`, `BuildLib`, `BuildStaticLib`, `BuildSharedLib`.
+Cuppa's build methods produce variant-aware programs, object files, and libraries under the
+active toolchain and `_build/` layout. They participate in progress reporting when they emit
+action nodes (see xref:methods.adoc#progress-tracking-and-variant-scoping[Progress tracking]).
 
-Until the Methods split finishes migrating prose, use xref:methods.adoc#core-build-methods[Methods — Core build methods].
-
-== Behaviour (draft)
+== Behaviour summary
 
 [cols="1,3"]
 |===
 | Returns | SCons nodes (objects, programs, libraries)
-| Evaluation | Build action (configure wires graph; build executes)
-| Output paths | Object outputs mirror the source tree under `working/` (https://github.com/ja11sop/cuppa/issues/213[#213])
+| Evaluation | Build action (configure wires the graph; the build executes it)
+| Output paths | Object outputs mirror the source tree under `working/` (https://github.com/ja11sop/cuppa/issues/213[#213]); linked binaries and libraries land under `final/`
 | Progress | Yes — via `NotifyProgress` on emitted targets
 |===
 
-See also the hub xref:methods.adoc[Methods] and the behaviour track in the repository design plans (`method-behaviour-audit`).
+== Building a program with `Build`
+
+`env.Build(target, source, …)` produces a variant-aware executable.
+Cuppa compiles sources (via `Compile`), links a `Program`, and installs it under the variant's `final/` directory.
+
+[source,python]
+----
+Import('env')
+
+env.Build('hello', ['hello.cpp'])
+----
+
+`target` is the logical program name (cuppa may append a variant suffix depending on options).
+`source` is a file, list of files, or nodes from `Compile` / `Module`.
+Additional keyword arguments are forwarded to SCons `Program` (for example `LIBS`, `LIBPATH`).
+
+Build it:
+
+[source,sh]
+----
+cuppa -D --dbg
+----
+
+`--dbg` selects the debug variant.
+`-D` walks upward until cuppa finds the `sconstruct`, then builds the active `sconscript` files.
+
+You can also pass library and dependency-related kwargs that cuppa understands when composing programs:
+
+[source,python]
+----
+Import('env')
+
+env.Build(
+    'app',
+    ['main.cpp', 'util.cpp'],
+    LIBS=['m'],
+    depends_on=[other_nodes],   # optional extra Depends edges
+)
+----
+
+For packaging order after the binary exists (copy into a docker or artefacts tree), see
+xref:methods/depends.adoc[`Requires`] with xref:methods/files-and-templates.adoc[`CopyFiles`].
+
+== Compiling objects with `Compile`
+
+`env.Compile(source, …)` (and `CompileStatic` / `CompileShared`) turns sources into object files without linking.
+Use this when you need objects for custom link steps, or when you want to share objects across targets.
+
+[source,python]
+----
+Import('env')
+
+objs = env.Compile(['a.cpp', 'b.cpp'])
+env.Build('app', objs)
+----
+
+Object paths mirror nested sources under `working/` so two `detail/foo.cpp` files in different
+trees do not collide.
+
+When `env['modules']` is true (see xref:cxx-modules.adoc[{cpp} Modules]), `Compile` delegates to the modules compile path so interface units produce BMIs and consumers receive the right consume flags.
+
+== Building libraries with `BuildLib`
+
+`env.BuildLib`, `BuildStaticLib`, and `BuildSharedLib` build libraries into `final/`.
+
+[source,python]
+----
+Import('env')
+
+env.BuildStaticLib('mathlib', ['math.cpp'])
+env.AppendUnique(LIBPATH=[env['abs_final_dir']])
+env.Build('app', ['main.cpp'], LIBS=['mathlib'])
+----
+
+`AppendUnique` for `LIBPATH` / `LIBS` belongs with the rest of the flag story on
+xref:methods/flags-and-toolchain.adoc[Flags and toolchain].
+
+With `--cxx-modules` enabled, library builds that contain named module interfaces also install BMIs under `final/modules/` and write `module-map.json` for consumers (see xref:cxx-modules.adoc#packaged-modules[Packaged modules]).
+
+NOTE: On Windows, MSVC *module* export is not the same as *DLL* export.
+A shared library may need `__declspec(dllexport)` (or a module-definition file) before the linker produces an import `.lib`.
+
+== Related methods
+
+* xref:methods/test-run.adoc[Test and run] — `BuildTest` / `Test` / `Run`
+* xref:methods/dependencies-and-profiles.adoc[Dependencies and profiles] — `BuildWith`
+* xref:methods/flags-and-toolchain.adoc[Flags and toolchain] — `AppendUnique`, `MergeFlags`, `ReplaceFlags`
+* xref:methods/depends.adoc[Depends] — ordering packaging and extra graph edges
+* xref:methods/files-and-templates.adoc[Files and templates] — `CopyFiles`, `CreateVersion` (often paired with service binaries)
+* xref:integration/test-build.adoc[Integration: Build] · xref:integration/test-build-library.adoc[Libraries] · xref:integration/test-compile.adoc[Compile]
