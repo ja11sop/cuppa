@@ -8,13 +8,16 @@
 #   RecursiveGlob / GlobFiles — source discovery
 #-------------------------------------------------------------------------------
 #
-#   RecursiveGlob: configure-time os.walk snapshot (disk only), with cuppa
-#   exclude_dirs / discard_pattern — stand-in for a recursive Glob.
+#   RecursiveGlob: configure-time os.walk snapshot plus matching File nodes from
+#   each visited directory's SCons Dir.entries (declared Files not on disk yet,
+#   including nested declared paths). exclude_dirs / discard_pattern apply.
+#   Repository-only files stay invisible — this does not delegate to Glob.
 #
 #   GlobFiles: single-directory discovery via SCons env.Glob after resolving
 #   start= / #/ — same file set as Glob for that directory, including declared
 #   File nodes that are not on disk yet (and Repository entries when used).
 #
+import fnmatch
 import os
 import re
 
@@ -26,6 +29,7 @@ from cuppa.utility.glob_roots import (
         relative_glob_start,
         resolve_glob_start,
 )
+from cuppa.utility.types import is_string
 
 
 # Kept for callers that imported the old helpers from this module.
@@ -95,6 +99,146 @@ def _file_nodes_only( nodes ):
     return files
 
 
+def _as_regex( pattern ):
+    if pattern is None:
+        return None
+    if is_string( pattern ):
+        return re.compile( fnmatch.translate( pattern ) )
+    return pattern
+
+
+def _start_dir_node( env, absolute_start, sconscript_dir ):
+    """Dir node for ``absolute_start`` in the same FS tree as sconscript ``File`` decls.
+
+    Prefer a path relative to ``sconscript_dir`` so VariantDir layouts share the
+    node tree with ``env.File('src/…')``. Absolute ``env.Dir`` can resolve to a
+    parallel node without those entries.
+    """
+    if os.path.normpath( absolute_start ) == os.path.normpath( sconscript_dir ):
+        return env.Dir( '.' )
+    rel = os.path.relpath( absolute_start, sconscript_dir )
+    if rel == os.pardir or rel.startswith( os.pardir + os.sep ):
+        return env.Dir( absolute_start )
+    return env.Dir( rel )
+
+
+def _is_dir_node( node ):
+    # Dir.isdir() is False for directories that exist only as declared SCons nodes
+    # (no disk path yet). Class check is required so we still recurse into them.
+    try:
+        from SCons.Node.FS import Dir, File
+        if isinstance( node, Dir ):
+            return True
+        if isinstance( node, File ):
+            return False
+    except ImportError:
+        pass
+    is_dir = getattr( node, 'isdir', None )
+    return callable( is_dir ) and is_dir()
+
+
+def _source_node( node ):
+    srcnode = getattr( node, 'srcnode', None )
+    if callable( srcnode ):
+        return srcnode()
+    return node
+
+
+def _node_exists( node ):
+    exists = getattr( node, 'exists', None )
+    return callable( exists ) and exists()
+
+
+def _node_key( node ):
+    src = _source_node( node )
+    return getattr( src, 'abspath', None ) or str( src )
+
+
+def _is_mergeable_declared_file( entry ):
+    """True for declared Files not on disk and not Repository-backed.
+
+    Under VariantDir, ``Dir.entries`` holds build-tree nodes whose ``exists()``
+    is often False even when the source file is on disk — use ``srcnode()``.
+    Repository lookups set ``rfile()`` to a path outside the source tree.
+    """
+    src = _source_node( entry )
+    if _node_exists( src ):
+        return False
+    src_abs = getattr( src, 'abspath', None )
+    if src_abs and os.path.isfile( src_abs ):
+        return False
+    rfile = getattr( entry, 'rfile', None )
+    if callable( rfile ):
+        remote = rfile()
+        remote_abs = getattr( remote, 'abspath', None )
+        if (
+                remote_abs
+                and remote_abs != src_abs
+                and os.path.isfile( remote_abs )
+        ):
+            return False
+    return True
+
+
+def _files_from_dir_entries(
+        dir_node,
+        file_pattern,
+        exclude_dirs_regex=None,
+        discard_pattern=None,
+        is_subdir=False,
+):
+    """Collect matching declared File nodes from Dir.entries, recursing into dirs.
+
+    Includes Files that do not yet exist (intermediary / generated sources),
+    including under declared-only directories. Skips on-disk sources and
+    Repository-backed names — those are either found by the disk walk or
+    intentionally invisible to RecursiveGlob.
+    """
+    entries = getattr( dir_node, 'entries', None )
+    if not entries:
+        return []
+
+    names = [ name for name in entries if name not in ( '.', '..' ) ]
+    if is_subdir and discard_pattern:
+        # Same rule as os.walk: a matching *file* discards the whole subdirectory.
+        for name in names:
+            entry = entries[name]
+            if _is_dir_node( entry ):
+                continue
+            if discard_pattern.match( name ):
+                return []
+
+    found = []
+    for name in names:
+        entry = entries[name]
+        if _is_dir_node( entry ):
+            if exclude_dirs_regex and exclude_dirs_regex.match( name ):
+                continue
+            found.extend(
+                    _files_from_dir_entries(
+                            entry,
+                            file_pattern,
+                            exclude_dirs_regex=exclude_dirs_regex,
+                            discard_pattern=discard_pattern,
+                            is_subdir=True,
+                    )
+            )
+        elif file_pattern.match( name ) and _is_mergeable_declared_file( entry ):
+            found.append( _source_node( entry ) )
+    return found
+
+
+def _merge_unique_nodes( primary, extra ):
+    seen = { _node_key( node ) for node in primary }
+    merged = list( primary )
+    for node in extra:
+        key = _node_key( node )
+        if key not in seen:
+            seen.add( key )
+            merged.append( node )
+    return merged
+
+
 class RecursiveGlobMethod:
     """Recursive configure-time tree walk — Cuppa's stand-in for a recursive Glob."""
 
@@ -124,7 +268,21 @@ class RecursiveGlobMethod:
                 "matches = [{}]."
                 .format( colour_items( [ str( match ) for match in matches ] ) )
         )
-        return _file_nodes_for_matches( env, matches, rel_start, sconscript_dir )
+        nodes = _file_nodes_for_matches( env, matches, rel_start, sconscript_dir )
+        start_dir = _start_dir_node( env, absolute_start, sconscript_dir )
+        declared = _files_from_dir_entries(
+                start_dir,
+                _as_regex( pattern ),
+                exclude_dirs_regex=exclude_dirs_regex,
+                discard_pattern=_as_regex( discard_pattern ),
+        )
+        if declared:
+            logger.trace(
+                    "Dir.entries matches = [{}]."
+                    .format( colour_items( [ str( node ) for node in declared ] ) )
+            )
+            nodes = _merge_unique_nodes( nodes, declared )
+        return nodes
 
     @classmethod
     def add_to_env( cls, cuppa_env ):

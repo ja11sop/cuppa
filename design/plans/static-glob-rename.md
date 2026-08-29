@@ -2,8 +2,8 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `static-glob`; [#213](https://github.com/ja11sop/cuppa/issues/213); [`cmake-to-cuppa-migration.md`](cmake-to-cuppa-migration.md)
-- **Updated:** 2026-08-28
-- **Impact:** minor — shared path roots + Filter path parity; honest SCons Glob docs (no new public name)
+- **Updated:** 2026-08-29
+- **Impact:** minor — shared path roots + Filter path parity; RecursiveGlob merges `Dir.entries`
 
 ## Problem
 
@@ -26,7 +26,7 @@ Shared implementation: `snapshot_glob()` in [`relative_recursive_glob.py`](../..
 
 | Term | Meaning |
 |------|---------|
-| **Configure-time snapshot** | Cuppa `RecursiveGlob` / `GlobFiles` — Python walk/listdir when the sconscript line runs |
+| **Configure-time snapshot** | Cuppa `RecursiveGlob` / `GlobFiles` — walk/listdir (plus local `Dir.entries` for RecursiveGlob) when the sconscript line runs |
 | **SCons directory Glob** | `env.Glob` — SCons-native `File` nodes for one directory / one segment per pattern |
 
 **Real impact (assessed):** low for typical Cuppa workflows. Both see new files on the next `cuppa` invocation because the sconscript is re-read. Differences that still matter: recursion, `exclude_dirs` / `discard_pattern`, `start=` / `#/` vocabulary, **node path forms** (absolute vs project-relative), and SCons FS edge cases — **Repositories** and **declared `File` nodes not on disk** (integration tests in `test_glob.py`).
@@ -58,7 +58,7 @@ shallow = env.Glob('#/src/*/*.cpp')  # one nesting level only
 | Filter path parity | **done** |
 | Semantic integration matrix | **done** |
 | GlobFiles via SCons Glob (declared Files) | **done** |
-| RecursiveGlob merge of `Dir.entries` | not started (try after live-testing GlobFiles) |
+| RecursiveGlob merge of `Dir.entries` | **done** (disk walk + local entries; not Repositories) |
 
 ## Non-goals
 

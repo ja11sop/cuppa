@@ -6,6 +6,8 @@
 
 # Python files
 *.py[cod]
+.coverage
+htmlcov/
 build/
 dist/
 *.egg-info/

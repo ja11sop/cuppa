@@ -191,7 +191,7 @@ def test_scons_glob_sees_repository_files_recursive_glob_does_not(tmp_path):
 
 
 def test_glob_files_sees_declared_file_nodes_not_on_disk(tmp_path):
-    """GlobFiles (via SCons Glob) sees declared File nodes; RecursiveGlob stays disk-only."""
+    """GlobFiles and RecursiveGlob see declared File nodes; Repository stays separate."""
     project = tmp_path / "project"
     (project / "src").mkdir(parents=True)
     (project / "src" / "on_disk.cpp").write_text("int on_disk() { return 1; }\n")
@@ -209,7 +209,60 @@ def test_glob_files_sees_declared_file_nodes_not_on_disk(tmp_path):
         "cuppa_flat = env.GlobFiles('*.cpp', start='src')\n"
         "assert basenames(cuppa_flat) == ['ghost.cpp', 'on_disk.cpp'], basenames(cuppa_flat)\n"
         "cuppa_walk = env.RecursiveGlob('*.cpp', start='src')\n"
-        "assert basenames(cuppa_walk) == ['on_disk.cpp'], basenames(cuppa_walk)\n",
+        "assert basenames(cuppa_walk) == ['ghost.cpp', 'on_disk.cpp'], basenames(cuppa_walk)\n",
+    )
+    result = run_cuppa(project, "--dbg")
+    assert_success(result)
+
+
+def test_recursive_glob_sees_nested_declared_file_nodes(tmp_path):
+    """RecursiveGlob merges Dir.entries under nested declared paths with no disk dirs."""
+    project = tmp_path / "project"
+    (project / "src").mkdir(parents=True)
+    (project / "src" / "on_disk.cpp").write_text("int on_disk() { return 1; }\n")
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        + _PATH_HELPERS
+        + "ghost = env.File('src/nested/ghost.cpp')\n"
+        "assert not ghost.exists()\n"
+        "assert not os.path.isdir('src/nested')\n"
+        "cuppa_walk = env.RecursiveGlob('*.cpp', start='src')\n"
+        "assert basenames(cuppa_walk) == ['ghost.cpp', 'on_disk.cpp'], basenames(cuppa_walk)\n"
+        "assert any(p.endswith('nested/ghost.cpp') for p in posix_paths(cuppa_walk)), "
+        "posix_paths(cuppa_walk)\n",
+    )
+    result = run_cuppa(project, "--dbg")
+    assert_success(result)
+
+
+def test_recursive_glob_absolute_start_scenarios_and_filter(tmp_path):
+    """Mirror matching_engine: absolute sconscript_dir start, nested *.ebs, Filter, empty out dir."""
+    project = tmp_path / "project"
+    scenarios = project / "test" / "scenarios"
+    (scenarios / "deep").mkdir(parents=True)
+    (scenarios / "alpha.ebs").write_text("alpha\n")
+    (scenarios / "deep" / "beta.ebs").write_text("beta\n")
+    (scenarios / "notes.txt").write_text("ignore\n")
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "import os.path\n"
+        + _PATH_HELPERS
+        + "scenario_root = os.path.join(env['sconscript_dir'], 'test', 'scenarios')\n"
+        "found = env.RecursiveGlob('*.ebs', start=scenario_root)\n"
+        "assert basenames(found) == ['alpha.ebs', 'beta.ebs'], basenames(found)\n"
+        "skip_list = ['alpha.ebs']\n"
+        "kept = [n for n in found if os.path.basename(n.path) not in skip_list]\n"
+        "assert basenames(kept) == ['beta.ebs'], basenames(kept)\n"
+        "# matching_engine also globs an output dir that may not exist yet\n"
+        "out_dir = os.path.join(env['abs_final_dir'], 'scenarios_output')\n"
+        "outputs = env.RecursiveGlob('*.ebs', start=out_dir)\n"
+        "assert outputs == [], outputs\n"
+        "filtered = env.Filter(found, ['*.ebs', '*.log'])\n"
+        "assert basenames(filtered) == ['alpha.ebs', 'beta.ebs'], basenames(filtered)\n",
     )
     result = run_cuppa(project, "--dbg")
     assert_success(result)
