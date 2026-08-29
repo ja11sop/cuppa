@@ -52,6 +52,7 @@ maintainer workflow evolved.
 | [`plans/cmake-to-cuppa-migration.md`](plans/cmake-to-cuppa-migration.md) | proposal | CMake ↔ Cuppa matrix and migration phases for humans and agents |
 | [`archive/recursive-glob-parity.md`](archive/recursive-glob-parity.md) | shipped | RecursiveGlob / GlobFiles / Filter parity — ROADMAP `static-glob`; [#232](https://github.com/ja11sop/cuppa/issues/232) / [#231](https://github.com/ja11sop/cuppa/pull/231) |
 | [`plans/path-vocabulary-and-scons-nodes.md`](plans/path-vocabulary-and-scons-nodes.md) | proposal | Reuse `#/` path roots + VariantDir node helpers outside discovery — follow-on to `static-glob` |
+| [`plans/ignore-toolchain-point-release.md`](plans/ignore-toolchain-point-release.md) | proposal | Opt-in coarse toolchain identity for `_build` / package stems (drop point-release digits) — ROADMAP `tc-identity-coarsen` |
 
 ## Conventions
 
