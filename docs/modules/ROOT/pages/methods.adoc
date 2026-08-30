@@ -157,7 +157,7 @@ See xref:packages.adoc[Publishing packages].
 
 Detailed tutorials: xref:methods/docs-assets.adoc[Docs and assets].
 
-NOTE: Flat `{final}/{basename}` collisions for some emitters — https://github.com/ja11sop/cuppa/issues/233[#233].
+NOTE: Flat `\{final}/\{basename}` collisions for some emitters — https://github.com/ja11sop/cuppa/issues/233[#233].
 
 [#test-reporting-plugins]
 == Test reporting plugins

@@ -11,7 +11,7 @@ xref:methods/files-and-templates.adoc[Files and templates].
 |===
 | Returns | Build nodes for generated artefacts
 | Evaluation | Build action
-| Output paths | Several emitters still use flat `{final}/{basename}` — nested same-basename sources can collide (https://github.com/ja11sop/cuppa/issues/233[#233]). `CreateVersion` uses offset paths under `working/`. `RenderJinjaTemplate` often mirrors path offsets under `final/`.
+| Output paths | Several emitters still use flat `\{final}/\{basename}` — nested same-basename sources can collide (https://github.com/ja11sop/cuppa/issues/233[#233]). `CreateVersion` uses offset paths under `working/`. `RenderJinjaTemplate` often mirrors path offsets under `final/`.
 | Progress | Yes where emitters create action nodes
 |===
 
@@ -39,7 +39,7 @@ xref:methods/files-and-templates.adoc[Files and templates].
 
 Until https://github.com/ja11sop/cuppa/issues/233[#233] lands, avoid feeding two
 `readme.md` files from different directories into `MarkdownToHtml` without explicit distinct
-targets — they can collide on `{final}/readme.html`.
+targets — they can collide on `\{final}/readme.html`.
 
 == Related methods
 
