@@ -29,7 +29,29 @@ env.Build('hello', ['hello.cpp'])
 
 `target` is the logical program name (cuppa may append a variant suffix depending on options).
 `source` is a file, list of files, or nodes from `Compile` / `Module`.
-Additional keyword arguments are forwarded to SCons `Program` (for example `LIBS`, `LIBPATH`).
+Additional keyword arguments are forwarded to the underlying link step (for example `LIBS`, `LIBPATH`).
+
+[WARNING]
+====
+Prefer `env.Build` over calling the engine's
+https://scons.org/doc/production/HTML/scons-man.html[Program] builder directly.
+
+A bare `env.Program(...)` is **not** Cuppa variant-aware: it does not follow Cuppa's
+`_build/…/<toolchain>/<variant>/…/final/` layout, does not participate in Cuppa progress
+reporting the same way, and does not pick up the multi-variant / multi-toolchain grid
+(`--dbg` / `--rel` / `--cov`, `--toolchains=…`) the way `Build` does.
+
+[source,python]
+----
+# Avoid in Cuppa projects:
+# env.Program('hello', ['hello.cpp'])
+
+# Prefer:
+env.Build('hello', ['hello.cpp'])
+----
+
+The same idea appears in xref:quickstart.adoc[Quickstart] and xref:concepts.adoc[Concepts].
+====
 
 Build it:
 
@@ -73,6 +95,25 @@ env.Build('app', objs)
 
 Object paths mirror nested sources under `working/` so two `detail/foo.cpp` files in different
 trees do not collide.
+
+[WARNING]
+====
+Prefer `env.Compile` (or `CompileStatic` / `CompileShared`) over calling the engine's
+https://scons.org/doc/production/HTML/scons-man.html[Object] builder directly.
+
+A bare `env.Object(...)` is **not** Cuppa variant-aware: object outputs will not reliably land
+under the variant `working/` tree with Cuppa's mirrored nested paths, and they will not share
+the same toolchain / modules / progress behaviour as `Compile`.
+
+[source,python]
+----
+# Avoid in Cuppa projects:
+# objs = env.Object(['a.cpp', 'b.cpp'])
+
+# Prefer:
+objs = env.Compile(['a.cpp', 'b.cpp'])
+----
+====
 
 When `env['modules']` is true (see xref:cxx-modules.adoc[{cpp} Modules]), `Compile` delegates to the modules compile path so interface units produce BMIs and consumers receive the right consume flags.
 
