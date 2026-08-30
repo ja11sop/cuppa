@@ -119,7 +119,10 @@ When `env['modules']` is true (see xref:cxx-modules.adoc[{cpp} Modules]), `Compi
 
 == Building libraries with `BuildLib`
 
-`env.BuildLib`, `BuildStaticLib`, and `BuildSharedLib` build libraries into `final/`.
+`env.BuildLib` and `env.BuildStaticLib` produce a static archive under `final/`
+(via `CompileStatic` then the engine's `StaticLibrary`).
+`env.BuildSharedLib` produces a shared library there (via `CompileShared` then
+`SharedLibrary`), so object PIC and link mode stay matched.
 
 [source,python]
 ----
@@ -130,8 +133,49 @@ env.AppendUnique(LIBPATH=[env['abs_final_dir']])
 env.Build('app', ['main.cpp'], LIBS=['mathlib'])
 ----
 
-`AppendUnique` for `LIBPATH` / `LIBS` belongs with the rest of the flag story on
-xref:methods/flags-and-toolchain.adoc[Flags and toolchain].
+`AppendUnique` for `LIBPATH` / `LIBS` / `STATICLIBS` / `DYNAMICLIBS` belongs with the
+rest of the flag story on xref:methods/flags-and-toolchain.adoc[Flags and toolchain].
+
+[WARNING]
+====
+Prefer `env.BuildLib` / `BuildStaticLib` / `BuildSharedLib` over calling the engine's
+https://scons.org/doc/production/HTML/scons-man.html[Library],
+https://scons.org/doc/production/HTML/scons-man.html[StaticLibrary], or
+https://scons.org/doc/production/HTML/scons-man.html[SharedLibrary] builders directly.
+
+Those builders are **not** Cuppa variant-aware: outputs will not land under the variant
+`final/` layout the way Cuppa's methods do, and they will not share the same progress /
+modules packaging behaviour.
+
+In SCons, `Library` is only a synonym for `StaticLibrary` — it does **not** choose
+between static and shared. Shared libraries need `SharedLibrary` (and objects built for
+shared use). Cuppa makes that choice explicit with `BuildStaticLib` vs `BuildSharedLib`.
+
+The split also matters when you *consume* libraries. On Linux, GCC and Clang toolchains
+rewrite the link line into a `-Xlinker -Bstatic` / `-Xlinker -Bdynamic` sandwich around
+Cuppa's `STATICLIBS` and `DYNAMICLIBS` slots (see
+xref:toolchains/gcc.adoc[GCC] and xref:toolchains/clang.adoc[Clang]).
+`env.Build(...)` routes `STATICLIBS` / `DYNAMICLIBS` (and `SHAREDLIBS` as an alias into
+the dynamic half) into that sandwich so you can force some archives static while leaving
+others dynamic — something that is awkward to control with a flat `LIBS` list and a bare
+`Library` / `Program` graph.
+
+[source,python]
+----
+# Avoid in Cuppa projects:
+# env.Library('mathlib', ['math.cpp'])          # == StaticLibrary; not variant-aware
+# env.SharedLibrary('mathlib', ['math.cpp'])
+
+# Prefer — produce the right kind under final/:
+env.BuildStaticLib('mathlib', ['math.cpp'])
+# or: env.BuildSharedLib('mathlib', ['math.cpp'])
+
+# Prefer — mix static and dynamic at link time (Linux GCC/Clang sandwich):
+env.AppendUnique(STATICLIBS=['mathlib'])
+env.AppendUnique(DYNAMICLIBS=['pthread'])
+env.Build('app', ['main.cpp'])
+----
+====
 
 With `--cxx-modules` enabled, library builds that contain named module interfaces also install BMIs under `final/modules/` and write `module-map.json` for consumers (see xref:cxx-modules.adoc#packaged-modules[Packaged modules]).
 
