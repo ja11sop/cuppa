@@ -1,14 +1,14 @@
 = Custom commands and working directories
 :description: Command, cwd, spawn, and --use-shell notes for Run / Test
 
-Cuppa colours compiler and tool output by replacing the engine `SPAWN` with a processor that
+Cuppa colours compiler and tool output by replacing `SPAWN` with a processor that
 runs each command as an *argv list* (not through a shell). That is the right default for
 parallel builds, quoting, and safety — but it means **multi-part shell strings do not work**.
 
 [#when-to-use-command]
 == When to use `Command()`
 
-`Command()` is the build engine's **swiss-army** builder: given targets, sources, and an action,
+`Command()` is the **swiss-army** builder: given targets, sources, and an action,
 it adds an arbitrary step to the graph. Cuppa wraps it with `MethodWithProgress` on sconscript
 envs, so user `Command()` calls participate in variant progress.
 

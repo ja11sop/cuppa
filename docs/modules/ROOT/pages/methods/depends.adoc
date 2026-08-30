@@ -1,12 +1,12 @@
 = Depends, Requires, and Alias
 :description: Ordering build and test actions with Depends, Requires, and Alias
 
-Cuppa `Build()`, `BuildTest()`, and `CopyFiles()` already wire many edges for you.
+`Build()`, `BuildTest()`, and `CopyFiles()` already wire many edges for you.
 `Depends()`, `Requires()`, and `Alias()` are the explicit graph tools you reach for when the default
 edges are not enough — packaging order, database fixtures, “always regenerate this node”, or a
 named group of targets.
 
-Upstream reference (optional, unversioned):
+Optional reference (unversioned):
 https://scons.org/doc/production/HTML/scons-user/apd.html[SCons user guide — Functions and Environment Methods].
 
 == Behaviour summary

@@ -39,19 +39,20 @@ Methods are the core **`sconscript` vocabulary**. Each group deserves:
 
 - Its own URL for linking from integration tests and error messages.
 - Room for parameters, examples, progress behaviour, and toolchain notes without scrolling.
-- Realistic teaching for everyday `env.*` calls — whether Cuppa registered them or the build
-  engine provides them — without making provenance the navigation model.
+- Realistic teaching for everyday `env.*` calls — whether Cuppa registered them or SCons
+  provided them — without making provenance the navigation model.
 
 ## Goals
 
 1. Turn **`methods.adoc` into a hub** — prerequisites, progress overview, topic map, and a
    **comprehensive method index** (grouped sensibly; every name links to the Cuppa page that
-   covers it when we have one, else a careful upstream link).
+   covers it when we have one, else a careful SCons man / guide link).
 2. **Topic pages** by *reader job* (build, test, flags, files/install, depends, …) — not by
    whether a call is implemented in Cuppa or in SCons.
-3. Document everyday engine methods Cuppa projects actually use (`Install`, `Depends`,
-   `AppendUnique`, …) with the **same depth** as Cuppa-registered methods: realistic examples,
-   Related methods, behaviour fields — not terse “see SCons” stubs.
+3. Document everyday methods Cuppa projects actually use (`Install`, `Depends`,
+   `AppendUnique`, …) with the **same depth** whether Cuppa registered them or SCons
+   provided them: realistic examples, Related methods, behaviour fields — not terse
+   “see SCons” stubs.
 4. Update **`nav.adoc`** to mirror the dependency/toolchain nesting pattern.
 5. Child pages live under **`docs/modules/ROOT/pages/methods/`** (same idea as `integration/`).
 
@@ -64,10 +65,13 @@ Methods are the core **`sconscript` vocabulary**. Each group deserves:
 | Flags set | `ReplaceFlags`, `RemoveFlags`, `AppendUnique`, `MergeFlags`, `Append`, … on **one** flags page with `Toolchain` |
 | Install / copy | Unified as **Staging files** — `CopyFiles()` / `CopyFilesAs()` / `Install()` / `InstallAs()` on `staging-files.adoc` (thin wrappers + destination defaults; one decision table) |
 | Graph edges | `Depends`, `Requires`, `Alias` on `depends.adoc` |
-| Upstream links | Optional deep links to SCons docs for completeness; **never** versioned doc URLs (they rot and confuse). Prefer Cuppa xrefs whenever we cover the method |
-| Depth | Engine methods get full tutorials and realistic examples — SCons upstream is notoriously thin/contrived; we do not outsource teaching to it |
-| Method names in prose | Monospace with empty parens: `` `Build()` `` — signals a method without stealing bold. Full calls (`env.Build('hello', …)`) stay in code blocks. Contrast engine builders as “vanilla SCons `Program()`” |
-| Progress vs variant | Do **not** claim vanilla SCons builders lack progress on a Cuppa env — `EnvironmentMethods.add_progress_tracking` wraps them. Prefer Cuppa methods for **variant / layout / toolchain / modules**; say “vanilla `X()` will break your Cuppa builds” for that footgun |
+| Man / guide links | Optional deep links to unversioned SCons docs for completeness; **never** versioned doc URLs. Prefer Cuppa xrefs whenever we cover the method |
+| Depth | Everyday methods Cuppa projects use (`Install`, `Depends`, `AppendUnique`, …) get full tutorials — do not outsource teaching to thin SCons examples |
+| Method names in prose | Monospace with empty parens: `` `Build()` `` / `` `Depends()` `` — **no** “Cuppa” / “SCons” / “engine” qualifier unless contrasting. Full calls (`env.Build('hello', …)`) stay in code blocks |
+| Footguns | **vanilla SCons** `` `Program()` `` / `` `Object()` `` / `` `Library()` `` (and kin) — *Not recommended*; prefer `` `Build()` `` / `` `Compile()` `` / `` `Build*Lib()` ``. Do **not** call taught APIs such as `` `Install()` `` “vanilla” |
+| Cuppa ↔ SCons stance | Cuppa enhances SCons (one environment, one surface). Docs should not read like a mash-up of two toolkits |
+| Progress vs variant | Do **not** claim vanilla SCons builders lack progress on a Cuppa env — `EnvironmentMethods.add_progress_tracking` wraps them. Prefer Cuppa helpers for **variant / layout / toolchain / modules**; say “vanilla SCons `X()` will break your Cuppa builds” for that footgun |
+| Avoid in reader prose | “engine methods”, “engine builders”, “raw SCons”, “upstream” (for SCons docs — use “SCons man page” / “optional reference”) |
 
 Readers who have never heard of SCons should still find “how do I set flags?” and “how do I install files?” without a provenance taxonomy.
 
@@ -80,11 +84,11 @@ Readers who have never heard of SCons should still find “how do I set flags?�
 
 ## Method inventory (topic grouping)
 
-Group related calls to avoid forty tiny pages. Cuppa-registered and engine methods share a row when
+Group related calls to avoid forty tiny pages. Related methods share a row when
 they form one job:
 
-| Nav group | Methods (Cuppa and/or engine) | Page |
-|-----------|-------------------------------|------|
+| Nav group | Methods | Page |
+|-----------|---------|------|
 | Build | `Build`, `Compile`, `CompileStatic`, `CompileShared`, `BuildLib`, `BuildStaticLib`, `BuildSharedLib` | `methods/build.adoc` |
 | Test & run | `BuildTest`, `*Test`, `Test`, `BuildBenchmark`, `*Benchmark`, `Benchmark`, `Run` | `methods/test-run.adoc` |
 | Coverage | `Coverage`, `CollateCoverageFiles`, `CollateCoverageIndex` | `methods/coverage.adoc` |
@@ -117,13 +121,19 @@ instead of duplicating the full static/dynamic essay.
 
 ## Comprehensive method index
 
-Somewhere on the hub (or a dedicated `methods/index.adoc` linked from the hub) maintain a
-**complete** grouped list of methods readers might call — Cuppa registrations plus the engine
+Somewhere on the hub (or a dedicated `methods/method-index.adoc` linked from the hub) maintain a
+**complete** grouped list of methods readers might call — Cuppa registrations plus the SCons
 methods we teach. Each entry:
 
 - Links to the Cuppa topic page when we cover it.
 - Otherwise links to **unversioned** upstream documentation (no `/doc/4.x/`-style paths).
 - Notes Related methods so hot paths (test → Filter → CopyFiles → coverage) stay discoverable.
+- Marks **vanilla SCons** builders that are **not recommended** for Cuppa {cpp} builds (prefer `Build()` /
+  `Compile()` / `Build*Lib()`). Do not label taught APIs such as `Install()` as vanilla.
+
+**Landed:** `docs/modules/ROOT/pages/methods/method-index.adoc` (hub keeps a short group → page
+shortcut). Progress-wrap inventory lives in `cuppa.core.environment.EnvironmentMethods` and is
+guarded by `tests/unit/test_scons_progress_wrap_list.py`.
 
 ## Consumer usage survey (2026-08-30)
 
@@ -132,7 +142,7 @@ consumer trees (shape only — see local `INTERNAL_PROJECTS.local.md` for the ma
 multi-service Cuppa tree** (~279 scripts; includes **project A** and **project C**), a **smaller
 sibling product tree** (~43; includes **project B**), a **packages / publisher tree** (~10), and
 one **tree with no Cuppa sconscripts**. Counts below are call sites across that corpus (not unique
-products). Use this for **Related methods**, example priority, and which engine methods to teach
+products). Use this for **Related methods**, example priority, and which SCons-provided methods to teach
 first — not as a public claim about any named organisation.
 
 ### Dominant test idiom
@@ -161,7 +171,7 @@ So **Related methods** on Test / Files / Coverage pages should cross-link that c
 `env.Glob` appears mostly in **`sconstruct`** customisation (pinning single third-party sources via
 `local_sub_path`) and in a few doc/asset scripts — not as the primary test source discovery tool.
 
-### Engine methods to teach early (same depth as Cuppa)
+### Methods to teach early (same depth as Cuppa-registered helpers)
 
 | Priority | API | Observed role | Lives with |
 |----------|-----|---------------|------------|
@@ -189,7 +199,7 @@ Leave on **`methods.adoc`** (target end state):
 - Prerequisites
 - Progress tracking and variant scoping (mermaid diagram)
 - Topic map + **comprehensive method index**
-- Optional short “how Cuppa relates to the build engine” without making engine provenance the nav axis
+- Optional short “how Cuppa relates to SCons” without making provenance the nav axis
 
 Custom commands may stay on the hub briefly, then move to `methods/custom-commands.adoc`.
 
@@ -203,7 +213,7 @@ Custom commands may stay on the hub briefly, then move to `methods/custom-comman
 | **E′** | Flags / depends / install depth | **Done** — full tutorials; unversioned production upstream links |
 | **C** | Coverage + C++ groups | **Done** — baseline topic pages |
 | **D** | Remaining groups | **Done** — files, packages, docs assets, custom commands, deps |
-| **F** | Redirect grep + method index | **Partial** — hub method index landed; keep fixing moved anchors as needed |
+| **F** | Redirect grep + method index | **Done** — dedicated xref:methods/method-index.adoc; hub keeps group shortcut |
 
 ## Progress snapshot
 
@@ -213,9 +223,12 @@ Custom commands may stay on the hub briefly, then move to `methods/custom-comman
 | A | **Done** — hub topic map + job-named stubs (no `scons-*`); flags page owns AppendUnique/MergeFlags |
 | E′ | **Done** — flags / depends / install tutorials |
 | B–D | **Done** — build/test + remaining topic baselines migrated off the hub |
-| F | **Partial** — hub <<method-index>> present; continue anchor cleanup as links bite |
+| F | **Done** — `methods/method-index.adoc` (Cuppa + SCons grouped tables; not-recommended notes); hub shortcut retained |
 | Consumer survey | **Done** (2026-08-30) |
-| Naming / grouping settled | **Done** — job pages, flags coalesce, full engine depth; prose method names `` `Name()` `` |
+| Naming / grouping settled | **Done** — job pages; prose `` `Name()` ``; **vanilla SCons** only for footguns |
+| Comprehensive method index | **Done** — `methods/method-index.adoc` |
+| Prose vocabulary (B-tightened) | **Done** — bare `` `Name()` ``; **vanilla SCons** only for footguns; no “engine methods” in reader docs |
+| `MethodWithProgress` wrap list sync | **Done** — SCons 4.10 public builders + Docbook/gettext aliases; unit guard |
 | Prose `Name()` pass | **Done** (2026-08-30) — Methods hub + all `methods/*.adoc` |
 | Vanilla SCons warnings | **Done** — `Build()` / `Compile()` / `Build*Lib()` vs Program/Object/Library; progress wrap documented |
 | Staging files page | **Done** — `staging-files.adoc` |
@@ -244,7 +257,7 @@ When #234 is merge-ready (Antora preview sanity, CI green, test-plan ticked):
 | One mega-page only | Refuse; hub exists for overview |
 | Generated docs without examples | Refuse |
 | Rename methods in docs only | Refuse; match code |
-| Terse “see SCons docs” for engine methods we teach | Refuse; teach with realistic Cuppa-project examples |
+| Terse “see SCons docs” for methods we teach | Refuse; teach with realistic Cuppa-project examples |
 | Versioned upstream SCons doc URLs | Refuse; unversioned links only |
 
 ## 1.9.0 / docs candidacy

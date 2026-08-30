@@ -5,14 +5,14 @@ Cuppa projects stage files into destinations as build actions — test artefacts
 `env['abs_artefacts_root']` (default `_artifacts/`), package trees for `PublishPackage()`, or a
 renamed file in `final/`. Four calls do that work:
 
-* `CopyFiles()` / `CopyFilesAs()` — Cuppa helpers with variant-aware destinations and optional filtering
-* `Install()` / `InstallAs()` — engine builders (progress-wrapped on sconscript envs)
+* `CopyFiles()` / `CopyFilesAs()` — helpers with variant-aware destinations and optional filtering
+* `Install()` / `InstallAs()` — progress-wrapped on sconscript envs
 
 There is no singular `CopyFile()`. `CopyFiles()` and `CopyFilesAs()` are thin wrappers around
-`Install()` and `InstallAs()`; they exist because vanilla `Install()` does not default into
+`Install()` and `InstallAs()`; they exist because `Install()` alone does not default into
 Cuppa's per-variant `final/` layout and has no built-in `match` / `exclude` filtering.
 
-Upstream reference (optional, unversioned):
+Optional reference (unversioned):
 https://scons.org/doc/production/HTML/scons-man.html[SCons man page] (`Install` / `InstallAs`).
 
 == Behaviour summary
@@ -47,7 +47,7 @@ https://scons.org/doc/production/HTML/scons-man.html[SCons man page] (`Install` 
   `CopyFiles()`.
 
 | `InstallAs()`
-| Explicit destination file path with engine InstallAs semantics. Prefer `CopyFilesAs()` when
+| Explicit destination file path with `InstallAs()` semantics. Prefer `CopyFilesAs()` when
   staying inside Cuppa artefact / `final/` workflows.
 |===
 

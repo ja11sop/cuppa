@@ -18,7 +18,7 @@ action nodes (see xref:methods.adoc#progress-tracking-and-variant-scoping[Progre
 == Building a program with `Build()`
 
 `Build(target, source, …)` produces a variant-aware executable.
-Cuppa compiles sources (via `Compile()`), links with the wrapped SCons `Program()`, and
+Cuppa compiles sources (via `Compile()`), links with the wrapped `Program()`, and
 installs the result under the variant's `final/` directory.
 
 [source,python]
@@ -34,7 +34,7 @@ Additional keyword arguments are forwarded to the underlying link step (for exam
 
 [WARNING]
 ====
-Using vanilla https://scons.org/doc/production/HTML/scons-man.html[`Program()`] from SCons
+Using vanilla SCons https://scons.org/doc/production/HTML/scons-man.html#b-Program[`Program()`]
 will break your Cuppa builds (or leave binaries outside the layout you expect).
 
 `Program()` is **not** Cuppa variant-aware: it does not follow Cuppa's
@@ -52,7 +52,7 @@ env.Build('hello', ['hello.cpp'])
 ----
 
 The same idea appears in xref:quickstart.adoc[Quickstart] and xref:concepts.adoc[Concepts].
-(Progress reporting is not the issue — Cuppa wraps common SCons builders for that; see
+(Progress reporting is not the issue — Cuppa wraps common builders for that; see
 xref:methods.adoc#progress-tracking-and-variant-scoping[Progress tracking].)
 ====
 
@@ -101,7 +101,7 @@ trees do not collide.
 
 [WARNING]
 ====
-Using vanilla https://scons.org/doc/production/HTML/scons-man.html[`Object()`] from SCons
+Using vanilla SCons https://scons.org/doc/production/HTML/scons-man.html#b-Object[`Object()`]
 will break your Cuppa builds (or leave objects outside the layout you expect).
 
 `Object()` is **not** Cuppa variant-aware: outputs will not reliably land under the variant
@@ -118,7 +118,7 @@ toolchain / modules behaviour as `Compile()`. Prefer `Compile()` (or `CompileSta
 objs = env.Compile(['a.cpp', 'b.cpp'])
 ----
 
-(Progress reporting is not the issue — Cuppa wraps common SCons builders for that; see
+(Progress reporting is not the issue — Cuppa wraps common builders for that; see
 xref:methods.adoc#progress-tracking-and-variant-scoping[Progress tracking].)
 ====
 
@@ -127,7 +127,7 @@ When `env['modules']` is true (see xref:cxx-modules.adoc[{cpp} Modules]), `Compi
 == Building libraries with `BuildLib()`
 
 `BuildLib()` and `BuildStaticLib()` produce a static archive under `final/`
-(via `CompileStatic()` then the engine's `StaticLibrary()`).
+(via `CompileStatic()` then `StaticLibrary()`).
 `BuildSharedLib()` produces a shared library there (via `CompileShared()` then
 `SharedLibrary()`), so object PIC and link mode stay matched.
 
@@ -145,9 +145,9 @@ rest of the flag story on xref:methods/flags-and-toolchain.adoc[Flags and toolch
 
 [WARNING]
 ====
-Using vanilla https://scons.org/doc/production/HTML/scons-man.html[`Library()`],
-https://scons.org/doc/production/HTML/scons-man.html[`StaticLibrary()`], or
-https://scons.org/doc/production/HTML/scons-man.html[`SharedLibrary()`] from SCons
+Using vanilla SCons https://scons.org/doc/production/HTML/scons-man.html#b-Library[`Library()`],
+https://scons.org/doc/production/HTML/scons-man.html#b-StaticLibrary[`StaticLibrary()`], or
+https://scons.org/doc/production/HTML/scons-man.html#b-SharedLibrary[`SharedLibrary()`]
 will break your Cuppa builds (or leave libraries outside the layout you expect).
 
 Those builders are **not** Cuppa variant-aware: outputs will not land under the variant
@@ -184,7 +184,7 @@ env.AppendUnique(DYNAMICLIBS=['pthread'])
 env.Build('app', ['main.cpp'])
 ----
 
-(Progress reporting is not the issue — Cuppa wraps common SCons builders for that; see
+(Progress reporting is not the issue — Cuppa wraps common builders for that; see
 xref:methods.adoc#progress-tracking-and-variant-scoping[Progress tracking].)
 ====
 

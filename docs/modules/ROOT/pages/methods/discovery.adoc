@@ -23,9 +23,9 @@ This page covers how you find source files and narrow node lists in a Cuppa `sco
 | Recursive configure-time tree walk (Cuppa's stand-in for a recursive Glob); disk + `Dir.entries` + Repositories; `exclude_dirs` / `discard_pattern`
 
 | `GlobFiles()`
-| Single-directory discovery via SCons `Glob()` after resolving Cuppa `start=` / `#/` (includes declared `File()` nodes)
+| Single-directory discovery via `Glob()` after resolving Cuppa `start=` / `#/` (includes declared `File()` nodes)
 
-| `Glob()` (engine)
+| `Glob()`
 | Single-directory (or one path segment per `*` / `**`) discovery; matches do **not** recurse through `/`
 
 | `Filter()`
@@ -42,7 +42,7 @@ Name the two axes separately:
 * **Recursion** — does discovery walk nested directories?
 * **Evaluation** — *disk walk + local `Dir.entries` + Repositories* (`RecursiveGlob()`) vs *directory Glob* (`Glob()` / `GlobFiles()`)
 
-Cuppa's recursive walk **is** the practical answer to “recursive Glob” today: engine `Glob()` still does not span `/`, and `**` is only one path segment. Prefer `RecursiveGlob()` for nested trees. Use `GlobFiles()` (Cuppa `start=` / `#/` vocabulary over directory Glob) or `Glob()` for a single directory; use `Filter()` to narrow either source.
+Cuppa's recursive walk **is** the practical answer to “recursive Glob” today: `Glob()` still does not span `/`, and `**` is only one path segment. Prefer `RecursiveGlob()` for nested trees. Use `GlobFiles()` (Cuppa `start=` / `#/` vocabulary over directory Glob) or `Glob()` for a single directory; use `Filter()` to narrow either source.
 
 Both Cuppa snapshot helpers and `Glob()` re-run whenever Cuppa re-reads the sconscript (every normal build). New files appear on the next invocation either way — the day-to-day impact of snapshot-vs-directory-Glob is low. Recursion, `exclude_dirs` / `discard_pattern`, and `start=` / `#/` vocabulary are the differences that matter.
 

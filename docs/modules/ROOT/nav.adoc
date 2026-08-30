@@ -13,6 +13,7 @@
 ** xref:cli/toolchains-and-features.adoc[Toolchains and features]
 ** xref:cli/reports.adoc[Reports]
 * xref:methods.adoc[Methods]
+** xref:methods/method-index.adoc[Method index]
 ** xref:methods/build.adoc[Build]
 ** xref:methods/test-run.adoc[Test and run]
 ** xref:methods/coverage.adoc[Coverage]

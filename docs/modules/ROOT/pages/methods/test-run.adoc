@@ -109,7 +109,7 @@ Preferred parameters:
 | Narrow coverage instrumentation when combined with `--cov`
 |===
 
-IMPORTANT: `test_depends_on` adds nodes to the test builder's source list so the build engine re-runs the test when those files change.
+IMPORTANT: `test_depends_on` adds nodes to the test builder's source list so the build re-runs the test when those files change.
 It is *not* passed as command-line arguments to the test program.
 Use `command` (or a wrapper) when the program must receive paths on argv.
 For broader Depends / Requires patterns, see xref:methods/depends.adoc[Depends].
@@ -229,7 +229,7 @@ Deprecated alias: `data`.
 | `Command()`
 | You need a **general build-graph action** — generate a file, wrap an external tool (CMake,
   code generators), write a marker, or any custom step that should rebuild when inputs change.
-  `Command()` is the engine's swiss-army builder; it is not gated on `--run`.
+  `Command()` is the swiss-army builder; it is not gated on `--run`.
 |===
 
 For `cwd`, spawn colouring, and `--use-shell` with `Command()`, see

@@ -1,16 +1,18 @@
 = Methods
 :description: Cuppa environment methods for building, testing, libraries, and reporting
 
-Methods are registered on each cuppa environment and called from `sconscript` files after `Import('env')`.
-Cuppa methods such as `Build()`, `Compile()`, and `BuildLib()` differ from vanilla SCons
-builders (`Program()`, `Object()`, `Library()`, …) by understanding variants, toolchains,
-cuppa's `_build/` layout, and (when enabled) {cpp}20 modules.
-Progress reporting is separate: Cuppa also wraps the common SCons builders so they report
+Methods are called from `sconscript` files after `Import('env')`.
+Cuppa enhances SCons with helpers such as `Build()`, `Compile()`, and `BuildLib()` that
+understand variants, toolchains, cuppa's `_build/` layout, and (when enabled) {cpp}20 modules.
+Prefer those over vanilla SCons `Program()`, `Object()`, and `Library()`, which skip that layout.
+Progress reporting is separate: Cuppa also wraps common builders so they report
 progress on a sconscript env (see <<progress-tracking-and-variant-scoping>>).
 
 This hub is the entry point for that surface.
 Child pages under xref:methods/build.adoc[methods/] hold the detailed tutorials for each topic;
-the hub keeps progress overview, a topic map, and a method index.
+the hub keeps progress overview, a topic map, and a short group index.
+For per-method descriptions and *Not recommended* notes, see the
+xref:methods/method-index.adoc[Method index].
 
 For the vocabulary behind methods, see xref:concepts.adoc[Concepts].
 For compiler defaults applied underneath these calls, see xref:toolchains.adoc[Toolchains]
@@ -19,7 +21,7 @@ xref:toolchains/msvc.adoc[MSVC]).
 
 == Topic map
 
-[cols="1,2"]
+[cols="2,1"]
 |===
 | Topic | Page
 
@@ -78,12 +80,15 @@ Cuppa attaches progress in two complementary ways:
 
 * **Cuppa methods** that emit build action nodes call `NotifyProgress.add` themselves
   (`Build()`, `Compile()`, `Test()`, coverage collation, doc builders, and so on).
-* **Wrapped SCons builders** — when each sconscript env is created, Cuppa top-and-tails
-  the common engine builders (`Program()`, `Object()`, `Library()`, `StaticLibrary()`,
-  `SharedLibrary()`, `Install()`, `Command()`, …) with `MethodWithProgress` in
-  `cuppa.core.environment`. The wrap accepts both plain `list` and SCons `NodeList`
-  returns. Those calls report progress when they return SCons nodes; that does **not**
-  make them variant-aware substitutes for Cuppa methods such as `Build()` or `Compile()`.
+* **Wrapped builders** — when each sconscript env is created, Cuppa top-and-tails
+  common builders (`Program()`, `Object()`, `Library()`, `StaticLibrary()`,
+  `SharedLibrary()`, `Install()`, `Command()`, Docbook/gettext aliases, …) with
+  `MethodWithProgress` in `cuppa.core.environment` (list kept in sync with SCons tools via
+  unit tests). The wrap accepts both plain `list` and SCons `NodeList`
+  returns. Those calls report progress when they return nodes; that does **not**
+  make vanilla SCons `Program()` / `Object()` / `Library()` substitutes for `Build()` or
+  `Compile()`.
+  See also xref:methods/method-index.adoc[Method index].
 * **Progress sentinels** — `NotifyProgress` creates Begin/Starting/Finished/End nodes via
   the *unwrapped* `_Command` builder so sentinel creation cannot re-enter
   `MethodWithProgress` (which would recurse forever).
@@ -110,8 +115,8 @@ In cuppa's normal layout that path already includes the sconscript segment, so d
 
 Practical rules when adding or changing methods:
 
-* If a Cuppa method creates SCons action nodes, wire `NotifyProgress.add(env, targets)`
-  (or delegate to a method that already does). Engine builders already on the wrap list
+* If a Cuppa method creates action nodes, wire `NotifyProgress.add(env, targets)`
+  (or delegate to a method that already does). Builders already on the wrap list
   inherit progress via `MethodWithProgress` — do not double-wrap them.
 * If a method only configures env or returns filtered/existing nodes, do not add progress wiring.
 * Keep progress wiring on the same variant env that creates the nodes.
@@ -213,7 +218,10 @@ These activate in concert with `--test`. Full detail remains on this hub until a
 [#method-index]
 == Method index
 
-Grouped names → topic page. Prefer these links over upstream docs when both exist.
+Per-method descriptions, links, and *Not recommended* notes for vanilla SCons builders
+live on the xref:methods/method-index.adoc[Method index] page.
+
+Grouped names → topic page (shortcut):
 
 [cols="1,2"]
 |===

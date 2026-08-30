@@ -46,9 +46,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Methods documentation uses a hub plus job-named child pages under ``methods/`` (Build, Test,
   Coverage, dialect/modules, dependencies, flags, files, staging files, depends, docs assets,
-  packages, custom commands). The hub keeps progress overview, topic summaries, and a method index.
-  Prose refers to methods as ``Name()``; warnings steer projects away from vanilla SCons
-  ``Program()`` / ``Object()`` / ``Library()`` for variant layout (progress wrapping is separate).
+  packages, custom commands). The hub keeps progress overview, topic summaries, and a short group
+  index; per-method descriptions live on ``methods/method-index.adoc`` (Cuppa pages when
+  documented, otherwise unversioned SCons man links; *Not recommended* notes for vanilla
+  ``Program()`` / ``Object()`` / ``Library()`` and kin).
+  Prose refers to methods as ``Name()`` without a Cuppa/SCons/engine qualifier unless contrasting.
+  Warnings use **vanilla SCons** for ``Program()`` / ``Object()`` / ``Library()`` and kin (variant
+  layout — progress wrapping is separate). Taught APIs such as ``Depends()`` / ``Install()`` stay
+  unqualified.
   ``CopyFiles()`` / ``CopyFilesAs()`` / ``Install()`` / ``InstallAs()`` share one
   "Staging files in the build" Methods page. Source discovery and ``CreateVersion()`` each have
   their own Methods page; templates sit with Docs and assets (including how Cuppa builders work).
@@ -61,6 +66,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   use the unwrapped ``_Command`` builder to avoid re-entering the wrap.
   ``CopyFiles()`` / ``CopyFilesAs()`` no longer call ``NotifyProgress.add`` themselves; they rely on
   the wrapped ``Install*`` path (parity with calling ``Install*`` directly).
+  The progress wrap list covers public SCons ``BUILDERS`` plus ``Command`` / ``Install*`` /
+  ``Jar`` / ``Java`` and Docbook / gettext method aliases (guarded by unit tests against SCons
+  tool drift).
 - Profiles inventory no longer requires ``--cxx-disable-error-limit``; report mode implies
   unlimited per-TU diagnostics (Clang ``-ferror-limit=0``, GCC ``-fmax-errors=0``) unless
   ``--cxx-default-error-limit`` or ``--cxx-error-limit=`` is set. Cuppa strips any existing
@@ -84,7 +92,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``head-styles.hbs`` (cup-of-tea cold-start default, harbour, forest,
   aubergine); a toolbar control cycles them at runtime with ``localStorage``
   persistence. Each file defines the same token names for both light and
-  ``prefers-color-scheme: dark``. The navbar GitHub and
+  ``prefers-color-scheme: dark``. The cup-of-tea palette uses deeper ``--cuppa-link`` /
+  ``--cuppa-link-hover`` greens than the soft matcha accent so prose hyperlinks read clearly.
+  The navbar GitHub and
   PyPI links now carry inline SVG marks. The navbar clips its background to the padding box
   so Chromium does not paint a band of navbar colour below the accent border.
 - Documentation subtree parents now have distinct landing and overview targets for Dependencies,

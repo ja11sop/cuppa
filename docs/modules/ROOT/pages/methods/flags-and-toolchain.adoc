@@ -5,9 +5,9 @@ This page covers how you change compiler and linker flags on a Cuppa environment
 look up a registered toolchain. Cuppa's `ReplaceFlags()` / `RemoveFlags()` sit alongside everyday
 helpers such as `AppendUnique()` and `MergeFlags()` — one “how do I set flags?” story.
 
-Upstream reference (optional, unversioned):
+Optional reference (unversioned):
 https://scons.org/doc/production/HTML/scons-user/apd.html[SCons user guide — Functions and Environment Methods].
-Prefer the examples here for Cuppa projects; upstream examples are often too abstract to copy
+Prefer the examples here for Cuppa projects; the SCons man page examples are often too abstract to copy
 into a real `sconscript`.
 
 == Behaviour summary
@@ -27,7 +27,7 @@ into a real `sconscript`.
 | Call | When to use it
 
 | `MergeFlags()`
-| Add GCC-style flag strings (or a flag dict) and let the engine sort them into `CCFLAGS` /
+| Add GCC-style flag strings (or a flag dict) and let SCons sort them into `CCFLAGS` /
   `CXXFLAGS` / `CPPPATH` / … Cuppa projects often pass a single define string after `BuildWith()`.
 
 | `AppendUnique()`
