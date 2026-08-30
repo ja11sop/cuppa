@@ -5,17 +5,17 @@ Cuppa colours compiler and tool output by replacing the engine `SPAWN` with a pr
 runs each command as an *argv list* (not through a shell). That is the right default for
 parallel builds, quoting, and safety — but it means **multi-part shell strings do not work**.
 
-`Command` for publisher CMake wrappers is also covered lightly here; pair with
+`Command()` for publisher CMake wrappers is also covered lightly here; pair with
 xref:methods/packages.adoc[Packages] and xref:methods/install.adoc[Install].
 
 == Behaviour summary
 
 [cols="1,3"]
 |===
-| Returns | N/A for spawn notes; `Command` returns action nodes
+| Returns | N/A for spawn notes; `Command()` returns action nodes
 | Evaluation | Build-time spawn / custom actions
 | Output paths | Caller / `cwd` / `working_dir` controlled
-| Progress | When action nodes are wired through NotifyProgress
+| Progress | When action nodes are wired through `NotifyProgress`
 |===
 
 === What fails
@@ -37,7 +37,7 @@ SCons documents that limitation for `-j`.
 
 Pass a working directory into the *subprocess*, not by changing the SCons process directory.
 
-For tests and runs, use the existing `working_dir` parameter on `BuildTest`, `Test`, `BuildBenchmark`, `Benchmark`, and `Run`:
+For tests and runs, use the existing `working_dir` parameter on `BuildTest()`, `Test()`, `BuildBenchmark()`, `Benchmark()`, and `Run()`:
 
 [source,python]
 ----
@@ -120,7 +120,7 @@ Integration coverage for these examples: xref:integration/test-custom-commands.a
 
 == Related methods
 
-* xref:methods/test-run.adoc[Test and run] — `working_dir` on `BuildTest` / `Run`
-* xref:methods/packages.adoc[Packages] — `Command` before `PublishPackage`
+* xref:methods/test-run.adoc[Test and run] — `working_dir` on `BuildTest()` / `Run()`
+* xref:methods/packages.adoc[Packages] — `Command()` before `PublishPackage()`
 * xref:cli/output-and-environment.adoc#environment-propagation[Output and environment]
 * xref:integration/test-custom-commands.adoc[Integration: Custom commands]

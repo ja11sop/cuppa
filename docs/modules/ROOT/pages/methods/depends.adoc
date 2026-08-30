@@ -1,8 +1,8 @@
 = Depends, Requires, and Alias
 :description: Ordering build and test actions with Depends, Requires, and Alias
 
-Cuppa `Build`, `BuildTest`, and `CopyFiles` already wire many edges for you.
-`Depends`, `Requires`, and `Alias` are the explicit graph tools you reach for when the default
+Cuppa `Build()`, `BuildTest()`, and `CopyFiles()` already wire many edges for you.
+`Depends()`, `Requires()`, and `Alias()` are the explicit graph tools you reach for when the default
 edges are not enough — packaging order, database fixtures, “always regenerate this node”, or a
 named group of targets.
 
@@ -13,13 +13,13 @@ https://scons.org/doc/production/HTML/scons-user/apd.html[SCons user guide — F
 
 [cols="1,3"]
 |===
-| Returns | Side effects on the DAG; `Alias` returns alias nodes
+| Returns | Side effects on the DAG; `Alias()` returns alias nodes
 | Evaluation | Configure-time graph wiring
 | Output paths | N/A
 | Progress | No — by themselves they do not emit Cuppa progress nodes
 |===
 
-== `Depends` versus `Requires`
+== `Depends()` versus `Requires()`
 
 Both express “A needs B”, but Cuppa projects use them in different situations:
 
@@ -35,13 +35,13 @@ Both express “A needs B”, but Cuppa projects use them in different situation
 
 | `Requires(target, prerequisite)`
 | Ensure a *packaging or install step* cannot finish before another product exists — for example
-  copying a binary into a docker tree only after `Build` / `CreateVersion` has produced it under
+  copying a binary into a docker tree only after `Build()` / `CreateVersion()` has produced it under
   `final/`.
 |===
 
 Prefer the Cuppa kwargs (`test_depends_on`, `build_depends_on`) when you are attaching fixtures to
-`BuildTest` / `Test`. Use `env.Depends` / `env.Requires` when you are ordering nodes that are not
-covered by those kwargs (install copies, custom `Command` chains, wait/update helpers).
+`BuildTest()` / `Test()`. Use `env.Depends` / `env.Requires` when you are ordering nodes that are not
+covered by those kwargs (install copies, custom `Command()` chains, wait/update helpers).
 
 == Ordering packaging after a binary
 
@@ -66,9 +66,9 @@ env.Requires(
 )
 ----
 
-Without `Requires`, the copy of `service` can race the link step under parallel builds.
+Without `Requires()`, the copy of `service` can race the link step under parallel builds.
 
-== Test fixtures with `Depends`
+== Test fixtures with `Depends()`
 
 When a test needs database scripts or a generated properties file:
 
@@ -82,18 +82,18 @@ env.Depends(test, [dbscripts, update_properties])
 ----
 
 If the files should participate in Cuppa's test-run Depends vocabulary instead, pass them as
-`test_depends_on=` on `BuildTest` so the runner re-executes when they change — see
+`test_depends_on=` on `BuildTest()` so the runner re-executes when they change — see
 xref:methods/test-run.adoc[Test and run].
 
-== `AlwaysBuild` (related)
+== `AlwaysBuild()` (related)
 
-Some projects mark a regenerate step with `AlwaysBuild` so properties or intermediate HTML rebuild
-every run, then `Depends` tests on that node. Prefer that only when the node is cheap and must not
+Some projects mark a regenerate step with `AlwaysBuild()` so properties or intermediate HTML rebuild
+every run, then `Depends()` tests on that node. Prefer that only when the node is cheap and must not
 be considered up-to-date from timestamps alone.
 
-== `Alias`
+== `Alias()`
 
-`Alias` names a group of targets for the command line (`cuppa -D alias_name`). Cuppa's own
+`Alias()` names a group of targets for the command line (`cuppa -D alias_name`). Cuppa's own
 progress and variant selection usually make aliases optional; use them when you want a stable
 human-facing name for a bundle of install or doc nodes. Unused in many Cuppa fleets — keep it in
 your toolbox for large trees.
@@ -103,4 +103,4 @@ your toolbox for large trees.
 * xref:methods/test-run.adoc[Test and run] — `test_depends_on` / `build_depends_on`
 * xref:methods/build.adoc[Build] · xref:methods/files-and-templates.adoc[CopyFiles]
 * xref:methods/install.adoc[Install] · xref:methods/packages.adoc[Packages]
-* xref:methods/custom-commands.adoc[Custom commands] — `Command` chains often need `Depends`
+* xref:methods/custom-commands.adoc[Custom commands] — `Command()` chains often need `Depends()`

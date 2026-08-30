@@ -2,7 +2,7 @@
 :description: AsciiDoc, Markdown, SCSS, version headers, and redirect capture
 
 Builders that turn documentation and assets into variant outputs under `final/` (or related
-trees). `CreateVersion` for C++ version sources is also summarised on
+trees). `CreateVersion()` for C++ version sources is also summarised on
 xref:methods/files-and-templates.adoc[Files and templates].
 
 == Behaviour summary
@@ -11,7 +11,7 @@ xref:methods/files-and-templates.adoc[Files and templates].
 |===
 | Returns | Build nodes for generated artefacts
 | Evaluation | Build action
-| Output paths | Several emitters still use flat `\{final}/\{basename}` — nested same-basename sources can collide (https://github.com/ja11sop/cuppa/issues/233[#233]). `CreateVersion` uses offset paths under `working/`. `RenderJinjaTemplate` often mirrors path offsets under `final/`.
+| Output paths | Several emitters still use flat `\{final}/\{basename}` — nested same-basename sources can collide (https://github.com/ja11sop/cuppa/issues/233[#233]). `CreateVersion()` uses offset paths under `working/`. `RenderJinjaTemplate()` often mirrors path offsets under `final/`.
 | Progress | Yes where emitters create action nodes
 |===
 
@@ -34,17 +34,17 @@ xref:methods/files-and-templates.adoc[Files and templates].
 | Capture subprocess stdout to a file
 
 | `env.CreateVersion(…)`
-| SCM-aware generated version sources (often beside `Build`)
+| SCM-aware generated version sources (often beside `Build()`)
 |===
 
 Until https://github.com/ja11sop/cuppa/issues/233[#233] lands, avoid feeding two
-`readme.md` files from different directories into `MarkdownToHtml` without explicit distinct
+`readme.md` files from different directories into `MarkdownToHtml()` without explicit distinct
 targets — they can collide on `\{final}/readme.html`.
 
 == Related methods
 
-* xref:methods/files-and-templates.adoc[Files and templates] — `CopyFiles`, templates
-* xref:methods/flags-and-toolchain.adoc[Flags and toolchain] — `Toolchain` lookup
+* xref:methods/files-and-templates.adoc[Files and templates] — `CopyFiles()`, templates
+* xref:methods/flags-and-toolchain.adoc[Flags and toolchain] — `Toolchain()` lookup
 * xref:methods/install.adoc[Install] — staging CSS/assets under `final/`
 * xref:integration/test-docs-assets.adoc[Integration: Docs and assets] ·
   xref:integration/test-redirect.adoc[RunAndRedirectToFile] ·

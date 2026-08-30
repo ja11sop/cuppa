@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-methods-split`); hub [`methods.adoc`](../../docs/modules/ROOT/pages/methods.adoc); [`dependencies.adoc`](../../docs/modules/ROOT/pages/dependencies.adoc) hub pattern; Phase 3 doc split [`removal-options.md`](removal-options.md) §7.1; behaviour track [`method-behaviour-audit.md`](method-behaviour-audit.md)
-- **Updated:** 2026-08-30
+- **Updated:** 2026-08-30 (prose `Name()` normalisation; next-after-merge clarified)
 - **Impact:** none — documentation and navigation only
 
 ## Prerequisite — behaviour before pages
@@ -209,11 +209,24 @@ Custom commands may stay on the hub briefly, then move to `methods/custom-comman
 | 0 | Largely done — artifact-path emitters deferred with issue |
 | A | **Done** — hub topic map + job-named stubs (no `scons-*`); flags page owns AppendUnique/MergeFlags |
 | E′ | **Done** — flags / depends / install tutorials |
-| C–D | **Done** — remaining topic baselines migrated off the hub |
-| F | **Partial** — hub <<method-index>> present; continue anchor cleanup |
+| B–D | **Done** — build/test + remaining topic baselines migrated off the hub |
+| F | **Partial** — hub <<method-index>> present; continue anchor cleanup as links bite |
 | Consumer survey | **Done** (2026-08-30) |
-| Naming / grouping settled | **Done** — job pages, flags coalesce, full engine depth |
-| B–D, E′, F | Not started |
+| Naming / grouping settled | **Done** — job pages, flags coalesce, full engine depth; prose method names `` `Name()` `` |
+| Prose `Name()` pass | **Done** (2026-08-30) — Methods hub + all `methods/*.adoc` |
+| Vanilla SCons warnings | **Done** — `Build()` / `Compile()` / `Build*Lib()` vs Program/Object/Library; progress wrap documented |
+
+## Next after Methods baseline (this PR)
+
+When #234 is merge-ready (Antora preview sanity, CI green, test-plan ticked):
+
+1. **Merge Methods baseline** — live site must not show empty stubs (refusal rule already met).
+2. **Optional polish in follow-ups (not blockers):** deeper examples on cold methods, any remaining moved-anchor greps (`slice F`).
+3. **Then preferred pairing (separate PRs / workstreams):**
+   - [`docs-site-release-default.md`](docs-site-release-default.md) — public docs default to **released** Cuppa, not master tip
+   - [`docs-llms-txt.md`](docs-llms-txt.md) — `llms.txt` / per-page Markdown for agents
+   - [`antora-ui-bundle.md`](antora-ui-bundle.md) if the docs cycle wants a visible UI refresh
+4. **Defer** toolchain identity coarsening ([`ignore-toolchain-point-release.md`](ignore-toolchain-point-release.md)) — product behaviour, not docs; own PR.
 
 ## Refusal rules
 

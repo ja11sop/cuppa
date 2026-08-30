@@ -2,7 +2,7 @@
 :description: Coverage collation helpers
 
 Cuppa's coverage methods collect per-test and union reports under `_artifacts/coverage/`.
-They are usually called from the same test sconscript that runs `BuildTest` — see
+They are usually called from the same test sconscript that runs `BuildTest()` — see
 xref:methods/test-run.adoc[Test and run] for the everyday pattern.
 
 == Behaviour summary
@@ -12,7 +12,7 @@ xref:methods/test-run.adoc[Test and run] for the everyday pattern.
 | Returns | Report / collation nodes
 | Evaluation | Build / post-build (active with `--cov` and related actions)
 | Output paths | Under `_artifacts/coverage/` (toolchain-scoped HTML and JSON)
-| Progress | Collation participates where wired through NotifyProgress
+| Progress | Collation participates where wired through `NotifyProgress`
 |===
 
 == Methods
@@ -40,7 +40,7 @@ cuppa -D --cov --test --toolchains=gcc
 
 Coverage instrumentation is supported for GCC and Clang; MSVC does not participate.
 
-After `BuildTest`, projects commonly append:
+After `BuildTest()`, projects commonly append:
 
 [source,python]
 ----
@@ -50,12 +50,12 @@ env.CollateCoverageIndex(coverage_files, destination=coverage_dir)
 ----
 
 See xref:testing-coverage.adoc[Testing and coverage] for report layout and analysis tips.
-HTML test reports (`GenerateHtmlTestReport` / `CollateTestReportIndex`) are separate plugins that
+HTML test reports (`GenerateHtmlTestReport()` / `CollateTestReportIndex()`) are separate plugins that
 often run in the same sconscript — see the hub xref:methods.adoc#test-reporting-plugins[Test reporting plugins]
 until a dedicated page exists.
 
 == Related methods
 
-* xref:methods/test-run.adoc[Test and run] — `BuildTest` before collation
-* xref:methods/files-and-templates.adoc[Files and templates] — `CopyFiles` / `Filter` for artefacts
+* xref:methods/test-run.adoc[Test and run] — `BuildTest()` before collation
+* xref:methods/files-and-templates.adoc[Files and templates] — `CopyFiles()` / `Filter()` for artefacts
 * xref:integration/test-coverage.adoc[Integration: Coverage]

@@ -12,7 +12,7 @@ action nodes (see xref:methods.adoc#progress-tracking-and-variant-scoping[Progre
 | Returns | SCons nodes (objects, programs, libraries)
 | Evaluation | Build action (configure wires the graph; the build executes it)
 | Output paths | Object outputs mirror the source tree under `working/` (https://github.com/ja11sop/cuppa/issues/213[#213]); linked binaries and libraries land under `final/`
-| Progress | Yes — via `NotifyProgress` on emitted targets
+| Progress | Yes — via `NotifyProgress.add` on emitted targets
 |===
 
 == Building a program with `Build()`
@@ -29,7 +29,7 @@ env.Build('hello', ['hello.cpp'])
 ----
 
 `target` is the logical program name (cuppa may append a variant suffix depending on options).
-`source` is a file, list of files, or nodes from `Compile` / `Module`.
+`source` is a file, list of files, or nodes from `Compile()` / `Module()`.
 Additional keyword arguments are forwarded to the underlying link step (for example `LIBS`, `LIBPATH`).
 
 [WARNING]
@@ -81,7 +81,7 @@ env.Build(
 ----
 
 For packaging order after the binary exists (copy into a docker or artefacts tree), see
-xref:methods/depends.adoc[`Requires`] with xref:methods/files-and-templates.adoc[`CopyFiles`].
+xref:methods/depends.adoc[`Requires()`] with xref:methods/files-and-templates.adoc[`CopyFiles()`].
 
 == Compiling objects with `Compile()`
 
@@ -122,7 +122,7 @@ objs = env.Compile(['a.cpp', 'b.cpp'])
 xref:methods.adoc#progress-tracking-and-variant-scoping[Progress tracking].)
 ====
 
-When `env['modules']` is true (see xref:cxx-modules.adoc[{cpp} Modules]), `Compile` delegates to the modules compile path so interface units produce BMIs and consumers receive the right consume flags.
+When `env['modules']` is true (see xref:cxx-modules.adoc[{cpp} Modules]), `Compile()` delegates to the modules compile path so interface units produce BMIs and consumers receive the right consume flags.
 
 == Building libraries with `BuildLib()`
 
@@ -140,7 +140,7 @@ env.AppendUnique(LIBPATH=[env['abs_final_dir']])
 env.Build('app', ['main.cpp'], LIBS=['mathlib'])
 ----
 
-`AppendUnique` for `LIBPATH` / `LIBS` / `STATICLIBS` / `DYNAMICLIBS` belongs with the
+`AppendUnique()` for `LIBPATH` / `LIBS` / `STATICLIBS` / `DYNAMICLIBS` belongs with the
 rest of the flag story on xref:methods/flags-and-toolchain.adoc[Flags and toolchain].
 
 [WARNING]
@@ -195,9 +195,9 @@ A shared library may need `__declspec(dllexport)` (or a module-definition file) 
 
 == Related methods
 
-* xref:methods/test-run.adoc[Test and run] — `BuildTest` / `Test` / `Run`
-* xref:methods/dependencies-and-profiles.adoc[Dependencies and profiles] — `BuildWith`
-* xref:methods/flags-and-toolchain.adoc[Flags and toolchain] — `AppendUnique`, `MergeFlags`, `ReplaceFlags`
+* xref:methods/test-run.adoc[Test and run] — `BuildTest()` / `Test()` / `Run()`
+* xref:methods/dependencies-and-profiles.adoc[Dependencies and profiles] — `BuildWith()`
+* xref:methods/flags-and-toolchain.adoc[Flags and toolchain] — `AppendUnique()`, `MergeFlags()`, `ReplaceFlags()`
 * xref:methods/depends.adoc[Depends] — ordering packaging and extra graph edges
-* xref:methods/files-and-templates.adoc[Files and templates] — `CopyFiles`, `CreateVersion` (often paired with service binaries)
+* xref:methods/files-and-templates.adoc[Files and templates] — `CopyFiles()`, `CreateVersion()` (often paired with service binaries)
 * xref:integration/test-build.adoc[Integration: Build] · xref:integration/test-build-library.adoc[Libraries] · xref:integration/test-compile.adoc[Compile]

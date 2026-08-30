@@ -11,7 +11,7 @@ with the rest of the Methods surface.
 |===
 | Returns | Nodes for built test/benchmark binaries; run helpers are side-effect oriented
 | Evaluation | Build action / post-build runners
-| Output paths | Binaries under `final/`; object paths follow `Compile` mirroring under `working/`
+| Output paths | Binaries under `final/`; object paths follow `Compile()` mirroring under `working/`
 | Progress | Yes for build emitters; runners participate through attached actions
 |===
 
@@ -46,8 +46,8 @@ env.CollateCoverageIndex(coverage_files, destination=coverage_dir)
 
 Notes:
 
-* `Filter` here selects **outputs of the test node** (logs/JSON), not a `Glob` of sources.
-* `MergeFlags` / `BuildWith` are documented with
+* `Filter()` here selects **outputs of the test node** (logs/JSON), not a `Glob()` of sources.
+* `MergeFlags()` / `BuildWith()` are documented with
   xref:methods/flags-and-toolchain.adoc[Flags and toolchain] and
   xref:methods/dependencies-and-profiles.adoc[Dependencies and profiles].
 * Coverage and HTML report methods: xref:methods/coverage.adoc[Coverage] (and the hub until that
@@ -55,7 +55,7 @@ Notes:
 
 For `cwd`, shell spawn, and `--use-shell`, see xref:methods/custom-commands.adoc[Custom commands].
 
-== Testing with `BuildTest`
+== Testing with `BuildTest()`
 
 `env.BuildTest(target, source, …)` builds a program and, when `--test` or `--force-test` is active, runs it through the configured runner.
 
@@ -128,9 +128,9 @@ When both a preferred name and its alias are supplied, the lists are merged.
 
 Toolchain-specific aliases such as `BuildBoostTest` appear when the toolchain advertises those runners.
 
-== Testing with `Test`
+== Testing with `Test()`
 
-`env.Test(program, …)` attaches a test action to an *existing* binary (for example one produced by `Build`).
+`env.Test(program, …)` attaches a test action to an *existing* binary (for example one produced by `Build()`).
 
 [source,python]
 ----
@@ -150,7 +150,7 @@ Preferred parameters:
 | Extra files/nodes associated with the test run (rebuild/re-run when they change)
 
 | `runner` / `expected` / `expected_exit_code` / `command` / `working_dir`
-| Same meaning as on `BuildTest`
+| Same meaning as on `BuildTest()`
 |===
 
 Deprecated aliases:
@@ -168,11 +168,11 @@ When both `depends_on` and `data` are supplied, the lists are merged.
 
 Toolchain-specific aliases such as `BoostTest` appear when the toolchain advertises those runners.
 
-== Benchmarks with `BuildBenchmark`
+== Benchmarks with `BuildBenchmark()`
 
 `env.BuildBenchmark(target, source, …)` builds a program and, when `--benchmark` or `--force-benchmark` is active, runs it through the configured runner.
 
-Preferred parameters mirror `BuildTest`, with explicit Depends names:
+Preferred parameters mirror `BuildTest()`, with explicit Depends names:
 
 [cols="2,3"]
 |===
@@ -187,14 +187,14 @@ Preferred parameters mirror `BuildTest`, with explicit Depends names:
 
 Deprecated aliases: `depends_on` → `build_depends_on`; `data` → `benchmark_depends_on`.
 
-== Benchmarks with `Benchmark`
+== Benchmarks with `Benchmark()`
 
 `env.Benchmark(program, …)` attaches a benchmark action to an existing binary.
 
 Preferred: `depends_on` for run-side Depends.
 Deprecated alias: `data`.
 
-== Generic runs with `Run`
+== Generic runs with `Run()`
 
 `env.Run` is a generic process runner activated by `--run` / `--force-run` (and also available alongside test/benchmark actions).
 
@@ -212,8 +212,8 @@ Deprecated alias: `data`.
 == Related methods
 
 * xref:methods/build.adoc[Build] — compile/link without a test runner
-* xref:methods/files-and-templates.adoc[Files and templates] — `CopyFiles`, `Filter`
-* xref:methods/coverage.adoc[Coverage] — collate helpers used after `BuildTest`
+* xref:methods/files-and-templates.adoc[Files and templates] — `CopyFiles()`, `Filter()`
+* xref:methods/coverage.adoc[Coverage] — collate helpers used after `BuildTest()`
 * xref:methods/depends.adoc[Depends] — `test_depends_on` / graph edges for fixtures
 * xref:methods/custom-commands.adoc[Custom commands] — `working_dir`, spawn, `--use-shell`
 * xref:integration/test-build-test.adoc[Integration: BuildTest and Test] ·

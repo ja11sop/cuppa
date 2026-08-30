@@ -2,15 +2,15 @@
 :description: CopyFiles, Glob helpers, Filter, CreateVersion, and templates
 
 This page covers source discovery, copying artefacts, path helpers, and template expansion.
-`Install` / `InstallAs` for package staging live on xref:methods/install.adoc[Install].
+`Install()` / `InstallAs()` for package staging live on xref:methods/install.adoc[Install].
 
 == Behaviour summary
 
 [cols="1,3"]
 |===
-| Returns | Node lists (discovery / copy); strings (`TargetFrom`); template / version nodes
-| Evaluation | Configure-time snapshot (`RecursiveGlob` / `GlobFiles`); directory Glob (`Glob`); immediate (`Filter`); build action (copy / templates / version)
-| Output paths | `CopyFiles` via install semantics; Jinja often mirrors under `final/`; discovery returns existing nodes
+| Returns | Node lists (discovery / copy); strings (`TargetFrom()`); template / version nodes
+| Evaluation | Configure-time snapshot (`RecursiveGlob()` / `GlobFiles()`); directory Glob (`Glob()`); immediate (`Filter()`); build action (copy / templates / version)
+| Output paths | `CopyFiles()` via install semantics; Jinja often mirrors under `final/`; discovery returns existing nodes
 | Progress | Copy / template / version emitters yes; discovery / Filter no
 |===
 
@@ -27,7 +27,7 @@ This page covers source discovery, copying artefacts, path helpers, and template
 | Recursive configure-time tree walk (Cuppa's stand-in for a recursive Glob); disk + `Dir.entries` + Repositories; `exclude_dirs` / `discard_pattern`
 
 | `env.GlobFiles(…)`
-| Single-directory discovery via SCons `Glob` after resolving Cuppa `start=` / `#/` (includes declared `File` nodes)
+| Single-directory discovery via SCons `Glob()` after resolving Cuppa `start=` / `#/` (includes declared `File()` nodes)
 
 | `env.Glob(…)` (engine)
 | Single-directory (or one path segment per `*` / `**`) discovery; matches do **not** recurse through `/`
@@ -51,7 +51,7 @@ The dominant consumer pattern copies selected test outputs into artefacts:
 env.CopyFiles(artifacts_dir, env.Filter(test, ['*.log', '*.json']))
 ----
 
-`Filter` here selects **outputs of the test node**, not a `Glob` of sources — see
+`Filter()` here selects **outputs of the test node**, not a `Glob()` of sources — see
 xref:methods/test-run.adoc[Test and run].
 
 == Choosing RecursiveGlob, GlobFiles, Glob, and Filter
@@ -59,27 +59,27 @@ xref:methods/test-run.adoc[Test and run].
 Name the two axes separately:
 
 * **Recursion** — does discovery walk nested directories?
-* **Evaluation** — *disk walk + local `Dir.entries` + Repositories* (`RecursiveGlob`) vs *directory Glob* (`env.Glob` / `env.GlobFiles`)
+* **Evaluation** — *disk walk + local `Dir.entries` + Repositories* (`RecursiveGlob()`) vs *directory Glob* (`env.Glob` / `env.GlobFiles`)
 
-Cuppa's recursive walk **is** the practical answer to “recursive Glob” today: engine `Glob` still does not span `/`, and `**` is only one path segment. Prefer ``env.RecursiveGlob`` for nested trees. Use ``env.GlobFiles`` (Cuppa `start=` / `#/` vocabulary over directory Glob) or ``env.Glob`` for a single directory; use ``env.Filter`` to narrow either source.
+Cuppa's recursive walk **is** the practical answer to “recursive Glob” today: engine `Glob()` still does not span `/`, and `**` is only one path segment. Prefer ``env.RecursiveGlob`` for nested trees. Use ``env.GlobFiles`` (Cuppa `start=` / `#/` vocabulary over directory Glob) or ``env.Glob`` for a single directory; use ``env.Filter`` to narrow either source.
 
-Both Cuppa snapshot helpers and ``Glob`` re-run whenever Cuppa re-reads the sconscript (every normal build). New files appear on the next invocation either way — the day-to-day impact of snapshot-vs-directory-Glob is low. Recursion, ``exclude_dirs`` / ``discard_pattern``, and ``start=`` / ``#/`` vocabulary are the differences that matter.
+Both Cuppa snapshot helpers and ``Glob()`` re-run whenever Cuppa re-reads the sconscript (every normal build). New files appear on the next invocation either way — the day-to-day impact of snapshot-vs-directory-Glob is low. Recursion, ``exclude_dirs`` / ``discard_pattern``, and ``start=`` / ``#/`` vocabulary are the differences that matter.
 
 [cols="2,3,3"]
 |===
 | API | What it finds | Typical use
 
 | `env.RecursiveGlob('*.cpp', start='src')`
-| All matching files under `src/` (disk + declared `File`s + Repository trees)
+| All matching files under `src/` (disk + declared `File()`s + Repository trees)
 | Nested libraries/apps; skip `_build` / dependencies via `exclude_dirs`
 
 | `env.GlobFiles('*_test.cpp', start='tests')`
-| Only files directly in `tests/` (disk + declared `File` nodes)
-| Flat test or app folders; same FS rules as `Glob`
+| Only files directly in `tests/` (disk + declared `File()` nodes)
+| Flat test or app folders; same FS rules as `Glob()`
 
 | `env.Glob('#/tests/*.cpp')`
 | Only files directly in `tests/`
-| Flat dirs when you want native `File` nodes
+| Flat dirs when you want native `File()` nodes
 
 | `env.Glob('#/src/*/*.cpp')`
 | Exactly one directory level under `src/`
@@ -90,7 +90,7 @@ Both Cuppa snapshot helpers and ``Glob`` re-run whenever Cuppa re-reads the scon
 | Narrow RecursiveGlob or Glob results; or filter test outputs
 |===
 
-`Filter` matches against both the node's project-relative path and its absolute
+`Filter()` matches against both the node's project-relative path and its absolute
 string form:
 
 [source,python]
@@ -102,13 +102,13 @@ candidates = env.Glob('#/tests/*.cpp')
 tests = env.Filter(candidates, match='*_test.cpp')
 ----
 
-Do **not** write `env.Glob('#/src/**/*.cpp')` expecting every nested `.cpp` under `src/`. Use `RecursiveGlob` for the full tree.
+Do **not** write `env.Glob('#/src/**/*.cpp')` expecting every nested `.cpp` under `src/`. Use `RecursiveGlob()` for the full tree.
 
-For ordinary on-disk trees the file sets from `GlobFiles` and `Glob` on the same
-directory match. `GlobFiles` is implemented with `Glob` after resolving
-Cuppa `start=` / `#/`, so it also sees declared `File` nodes and Repository
-entries. `RecursiveGlob` walks the disk, merges matching nodes from each
-visited directory's `Dir.entries` (declared `File`s not on disk yet,
+For ordinary on-disk trees the file sets from `GlobFiles()` and `Glob()` on the same
+directory match. `GlobFiles()` is implemented with `Glob()` after resolving
+Cuppa `start=` / `#/`, so it also sees declared `File()` nodes and Repository
+entries. `RecursiveGlob()` walks the disk, merges matching nodes from each
+visited directory's `Dir.entries` (declared `File()`s not on disk yet,
 including nested declared paths), and walks the union of local and Repository
 subdirectory names:
 
@@ -144,9 +144,9 @@ env.Build(env.TargetFrom('src/apps/server.cpp'), sources)
 == Related methods
 
 * xref:methods/test-run.adoc[Test and run] — Filter on test outputs
-* xref:methods/install.adoc[Install] — package staging vs `CopyFiles`
-* xref:methods/docs-assets.adoc[Docs and assets] — `ExpandTemplateFile` / HTML emitters
-* xref:methods/build.adoc[Build] — `CreateVersion` beside service binaries
+* xref:methods/install.adoc[Install] — package staging vs `CopyFiles()`
+* xref:methods/docs-assets.adoc[Docs and assets] — `ExpandTemplateFile()` / HTML emitters
+* xref:methods/build.adoc[Build] — `CreateVersion()` beside service binaries
 * xref:integration/test-glob.adoc[Integration: Glob] ·
   xref:integration/test-copy-and-target.adoc[CopyFiles] ·
   xref:integration/test-templates.adoc[Templates]

@@ -25,10 +25,10 @@ xref:toolchains/msvc.adoc[MSVC]).
 |===
 | Topic | Page
 
-| Build (`Build`, `Compile`, `BuildLib`, …)
+| Build (`Build()`, `Compile()`, `BuildLib()`, …)
 | xref:methods/build.adoc[Build methods]
 
-| Test and run (`BuildTest`, `Test`, `Benchmark`, `Run`)
+| Test and run (`BuildTest()`, `Test()`, `Benchmark()`, `Run()`)
 | xref:methods/test-run.adoc[Test and run]
 
 | Coverage
@@ -37,19 +37,19 @@ xref:toolchains/msvc.adoc[MSVC]).
 | {cpp} dialect, modules, Profiles
 | xref:methods/cxx-dialect-and-modules.adoc[{cpp} dialect and modules]
 
-| Dependencies and profiles (`BuildWith`, `Using`, …)
+| Dependencies and profiles (`BuildWith()`, `Using()`, …)
 | xref:methods/dependencies-and-profiles.adoc[Dependencies and profiles]
 
-| Flags and toolchain (`ReplaceFlags`, `AppendUnique`, `MergeFlags`, …)
+| Flags and toolchain (`ReplaceFlags()`, `AppendUnique()`, `MergeFlags()`, …)
 | xref:methods/flags-and-toolchain.adoc[Flags and toolchain]
 
 | Files, discovery, templates
 | xref:methods/files-and-templates.adoc[Files and templates]
 
-| Install (`Install`, `InstallAs`)
+| Install (`Install()`, `InstallAs()`)
 | xref:methods/install.adoc[Install]
 
-| Depends (`Depends`, `Requires`, `Alias`)
+| Depends (`Depends()`, `Requires()`, `Alias()`)
 | xref:methods/depends.adoc[Depends]
 
 | Docs and assets
@@ -85,7 +85,7 @@ Cuppa attaches progress in two complementary ways:
   `Build()` or `Compile()`.
 
 Methods that only mutate env state or select nodes (`StdCpp()`, `BuildWith()`, `Filter()`,
-`RecursiveGlob()`, `ImportModules()`, etc.) do **not** call `NotifyProgress` directly.
+`RecursiveGlob()`, `ImportModules()`, etc.) do **not** call `NotifyProgress.add` directly.
 
 Progress nodes form a dependency chain that constrains when targets may run:
 
@@ -116,13 +116,13 @@ Practical rules when adding or changing methods:
 
 Detailed tutorials: xref:methods/build.adoc[Build methods].
 
-`env.Build` → `final/`; `Compile*` mirrors objects under `working/`; `Build*Lib` installs libraries into `final/`.
+`Build()` → `final/`; `Compile*` mirrors objects under `working/`; `Build*Lib` installs libraries into `final/`.
 
 == Test and run methods
 
 Detailed tutorials: xref:methods/test-run.adoc[Test and run].
 
-Typical spine: `BuildWith` → `BuildTest` → `CopyFiles` + `Filter` → coverage / HTML report collate.
+Typical spine: `BuildWith()` → `BuildTest()` → `CopyFiles()` + `Filter()` → coverage / HTML report collate.
 
 == Custom commands and working directories
 
@@ -134,24 +134,24 @@ Prefer `working_dir` / `cwd=` over `cd && …`; treat `--use-shell` as an escape
 
 Detailed tutorials: xref:methods/dependencies-and-profiles.adoc[Dependencies and profiles].
 
-`BuildWith` / `Using` / `BuildProfile` — see also xref:dependencies.adoc[Dependencies].
+`BuildWith()` / `Using()` / `BuildProfile()` — see also xref:dependencies.adoc[Dependencies].
 
 == Files, discovery, and templates
 
 Detailed tutorials: xref:methods/files-and-templates.adoc[Files and templates].
 
-`RecursiveGlob` / `GlobFiles` / `Glob` / `Filter` / `CopyFiles` / `CreateVersion` / templates.
+`RecursiveGlob()` / `GlobFiles()` / `Glob()` / `Filter()` / `CopyFiles()` / `CreateVersion()` / templates.
 
 == Flags and toolchain
 
 Detailed tutorials: xref:methods/flags-and-toolchain.adoc[Flags and toolchain].
 
-`AppendUnique`, `MergeFlags`, `ReplaceFlags`, `RemoveFlags`, `Toolchain`.
+`AppendUnique()`, `MergeFlags()`, `ReplaceFlags()`, `RemoveFlags()`, `Toolchain()`.
 
 == Install and Depends
 
-* xref:methods/install.adoc[Install] — `Install` / `InstallAs` vs `CopyFiles`
-* xref:methods/depends.adoc[Depends] — `Depends` / `Requires` / `Alias`
+* xref:methods/install.adoc[Install] — `Install()` / `InstallAs()` vs `CopyFiles()`
+* xref:methods/depends.adoc[Depends] — `Depends()` / `Requires()` / `Alias()`
 
 == Dialect, modules, and Profiles
 
@@ -184,7 +184,7 @@ When the corresponding plugins are loaded (shipped with cuppa via `cuppa.method.
 
 * `env.GenerateHtmlTestReport(…)`
 * `env.CollateTestReportIndex(…)`
-* Bitten XML report generation (`GenerateBittenReport`)
+* Bitten XML report generation (`GenerateBittenReport()`)
 
 These activate in concert with `--test`. Full detail remains on this hub until a dedicated child page exists; they appear in the everyday test spine on xref:methods/test-run.adoc[Test and run].
 
@@ -198,43 +198,43 @@ Grouped names → topic page. Prefer these links over upstream docs when both ex
 | Group | Methods → page
 
 | Build
-| `Build`, `Compile`, `CompileStatic`, `CompileShared`, `BuildLib`, `BuildStaticLib`, `BuildSharedLib` → xref:methods/build.adoc[Build]
+| `Build()`, `Compile()`, `CompileStatic()`, `CompileShared()`, `BuildLib()`, `BuildStaticLib()`, `BuildSharedLib()` → xref:methods/build.adoc[Build]
 
 | Test and run
-| `BuildTest`, `Test`, `BuildBenchmark`, `Benchmark`, `Run` → xref:methods/test-run.adoc[Test and run]
+| `BuildTest()`, `Test()`, `BuildBenchmark()`, `Benchmark()`, `Run()` → xref:methods/test-run.adoc[Test and run]
 
 | Coverage
-| `Coverage`, `CollateCoverageFiles`, `CollateCoverageIndex` → xref:methods/coverage.adoc[Coverage]
+| `Coverage()`, `CollateCoverageFiles()`, `CollateCoverageIndex()` → xref:methods/coverage.adoc[Coverage]
 
 | Dialect / modules / Profiles
-| `StdCpp`, `CxxModules`, `Module`, `HeaderUnit`, `ImportModules`, Profiles helpers → xref:methods/cxx-dialect-and-modules.adoc[Dialect and modules]
+| `StdCpp()`, `CxxModules()`, `Module()`, `HeaderUnit()`, `ImportModules()`, Profiles helpers → xref:methods/cxx-dialect-and-modules.adoc[Dialect and modules]
 
 | Dependencies / profiles
-| `BuildWith`, `Using`, `BuildProfile` → xref:methods/dependencies-and-profiles.adoc[Dependencies]
+| `BuildWith()`, `Using()`, `BuildProfile()` → xref:methods/dependencies-and-profiles.adoc[Dependencies]
 
 | Flags / toolchain
-| `Toolchain`, `ReplaceFlags`, `RemoveFlags`, `AppendUnique`, `MergeFlags`, `Append` → xref:methods/flags-and-toolchain.adoc[Flags]
+| `Toolchain()`, `ReplaceFlags()`, `RemoveFlags()`, `AppendUnique()`, `MergeFlags()`, `Append()` → xref:methods/flags-and-toolchain.adoc[Flags]
 
 | Files / discovery / templates
-| `RecursiveGlob`, `GlobFiles`, `Glob`, `Filter`, `CopyFiles`, `CopyFilesAs`, `TargetFrom`, `CreateVersion`, `ExpandTemplateFile`, `RenderJinjaTemplate` → xref:methods/files-and-templates.adoc[Files]
+| `RecursiveGlob()`, `GlobFiles()`, `Glob()`, `Filter()`, `CopyFiles()`, `CopyFilesAs()`, `TargetFrom()`, `CreateVersion()`, `ExpandTemplateFile()`, `RenderJinjaTemplate()` → xref:methods/files-and-templates.adoc[Files]
 
 | Install
-| `Install`, `InstallAs` → xref:methods/install.adoc[Install]
+| `Install()`, `InstallAs()` → xref:methods/install.adoc[Install]
 
 | Depends
-| `Depends`, `Requires`, `Alias` → xref:methods/depends.adoc[Depends]
+| `Depends()`, `Requires()`, `Alias()` → xref:methods/depends.adoc[Depends]
 
 | Docs / assets
-| `MarkdownToHtml`, `AsciidocToHtml`, `CompileScss`, `RunAndRedirectToFile` (+ templates / `CreateVersion`) → xref:methods/docs-assets.adoc[Docs and assets]
+| `MarkdownToHtml()`, `AsciidocToHtml()`, `CompileScss()`, `RunAndRedirectToFile()` (+ templates / `CreateVersion()`) → xref:methods/docs-assets.adoc[Docs and assets]
 
 | Packages
-| `PublishPackage`, `InstallPackage`, `Command` (publishers) → xref:methods/packages.adoc[Packages] · xref:methods/custom-commands.adoc[Custom commands]
+| `PublishPackage()`, `InstallPackage()`, `Command()` (publishers) → xref:methods/packages.adoc[Packages] · xref:methods/custom-commands.adoc[Custom commands]
 
 | Custom commands
-| `working_dir` / `cwd` / `--use-shell` / `Command` → xref:methods/custom-commands.adoc[Custom commands]
+| `working_dir` / `cwd` / `--use-shell` / `Command()` → xref:methods/custom-commands.adoc[Custom commands]
 
 | Test report plugins
-| `GenerateHtmlTestReport`, `CollateTestReportIndex`, `GenerateBittenReport` → <<test-reporting-plugins>>
+| `GenerateHtmlTestReport()`, `CollateTestReportIndex()`, `GenerateBittenReport()` → <<test-reporting-plugins>>
 |===
 
 == What you have available
