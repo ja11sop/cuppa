@@ -2,8 +2,8 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-methods-split`); hub [`methods.adoc`](../../docs/modules/ROOT/pages/methods.adoc); [`dependencies.adoc`](../../docs/modules/ROOT/pages/dependencies.adoc) hub pattern; Phase 3 doc split [`removal-options.md`](removal-options.md) §7.1; behaviour track [`method-behaviour-audit.md`](method-behaviour-audit.md)
-- **Updated:** 2026-08-30 (prose `Name()` normalisation; next-after-merge clarified)
-- **Impact:** none — documentation and navigation only
+- **Updated:** 2026-08-30
+- **Impact:** patch — progress wrap correctness + staging parity tests; documentation
 
 ## Prerequisite — behaviour before pages
 
@@ -62,7 +62,7 @@ Methods are the core **`sconscript` vocabulary**. Each group deserves:
 | Page filenames | Job names only: `install.adoc`, `depends.adoc`, `flags-and-toolchain.adoc` — **no** `scons-` prefix |
 | Grouping axis | What the reader is trying to do, not Cuppa vs SCons provenance |
 | Flags set | `ReplaceFlags`, `RemoveFlags`, `AppendUnique`, `MergeFlags`, `Append`, … on **one** flags page with `Toolchain` |
-| Install / copy | `Install` / `InstallAs` with `CopyFiles` / `CopyFilesAs` (files + install story; `install.adoc` may be the install-focused chapter or a section — prefer one coherent narrative) |
+| Install / copy | Unified as **Staging files** — `CopyFiles()` / `CopyFilesAs()` / `Install()` / `InstallAs()` on `staging-files.adoc` (thin wrappers + destination defaults; one decision table) |
 | Graph edges | `Depends`, `Requires`, `Alias` on `depends.adoc` |
 | Upstream links | Optional deep links to SCons docs for completeness; **never** versioned doc URLs (they rot and confuse). Prefer Cuppa xrefs whenever we cover the method |
 | Depth | Engine methods get full tutorials and realistic examples — SCons upstream is notoriously thin/contrived; we do not outsource teaching to it |
@@ -215,6 +215,9 @@ Custom commands may stay on the hub briefly, then move to `methods/custom-comman
 | Naming / grouping settled | **Done** — job pages, flags coalesce, full engine depth; prose method names `` `Name()` `` |
 | Prose `Name()` pass | **Done** (2026-08-30) — Methods hub + all `methods/*.adoc` |
 | Vanilla SCons warnings | **Done** — `Build()` / `Compile()` / `Build*Lib()` vs Program/Object/Library; progress wrap documented |
+| Staging files page | **Done** — `staging-files.adoc`; `install.adoc` stub |
+| `MethodWithProgress` NodeList + `_Command` sentinels | **Done** — wrap accepts NodeList; progress sentinels use unwrapped `_Command`; `Copy*` no longer double-`NotifyProgress.add` |
+| Staging parity tests | **Done** — unit + multi-variant (`--dbg`/`--rel`) integration for Copy*/Install* |
 
 ## Next after Methods baseline (this PR)
 

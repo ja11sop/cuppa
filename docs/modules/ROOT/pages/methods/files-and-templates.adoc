@@ -1,17 +1,18 @@
 = Files, discovery, and templates
-:description: CopyFiles, Glob helpers, Filter, CreateVersion, and templates
+:description: Glob helpers, Filter, CreateVersion, and templates
 
-This page covers source discovery, copying artefacts, path helpers, and template expansion.
-`Install()` / `InstallAs()` for package staging live on xref:methods/install.adoc[Install].
+This page covers source discovery, path helpers, and template expansion.
+Staging copies (`CopyFiles()`, `Install()`, …) live on
+xref:methods/staging-files.adoc[Staging files in the build].
 
 == Behaviour summary
 
 [cols="1,3"]
 |===
-| Returns | Node lists (discovery / copy); strings (`TargetFrom()`); template / version nodes
-| Evaluation | Configure-time snapshot (`RecursiveGlob()` / `GlobFiles()`); directory Glob (`Glob()`); immediate (`Filter()`); build action (copy / templates / version)
-| Output paths | `CopyFiles()` via install semantics; Jinja often mirrors under `final/`; discovery returns existing nodes
-| Progress | Copy / template / version emitters yes; discovery / Filter no
+| Returns | Node lists (discovery); strings (`TargetFrom()`); template / version nodes
+| Evaluation | Configure-time snapshot (`RecursiveGlob()` / `GlobFiles()`); directory Glob (`Glob()`); immediate (`Filter()`); build action (templates / version)
+| Output paths | Jinja often mirrors under `final/`; discovery returns existing nodes
+| Progress | Template / version emitters yes; discovery / Filter no
 |===
 
 == Methods at a glance
@@ -35,24 +36,12 @@ This page covers source discovery, copying artefacts, path helpers, and template
 | `env.TargetFrom(path)`
 | Derive a target basename from a path
 
-| `env.CopyFiles` / `env.CopyFilesAs`
-| Filtered install/copy helpers
-
 | `env.ExpandTemplateFile` / `env.RenderJinjaTemplate`
 | Template expansion
 |===
 
-== Everyday artefact copy after tests
-
-The dominant consumer pattern copies selected test outputs into artefacts:
-
-[source,python]
-----
-env.CopyFiles(artifacts_dir, env.Filter(test, ['*.log', '*.json']))
-----
-
-`Filter()` here selects **outputs of the test node**, not a `Glob()` of sources — see
-xref:methods/test-run.adoc[Test and run].
+Staging copies after tests (`CopyFiles()` + `Filter()`) are documented on
+xref:methods/staging-files.adoc[Staging files in the build].
 
 == Choosing RecursiveGlob, GlobFiles, Glob, and Filter
 
@@ -144,9 +133,8 @@ env.Build(env.TargetFrom('src/apps/server.cpp'), sources)
 == Related methods
 
 * xref:methods/test-run.adoc[Test and run] — Filter on test outputs
-* xref:methods/install.adoc[Install] — package staging vs `CopyFiles()`
+* xref:methods/staging-files.adoc[Staging files] — `CopyFiles()` / `Install()` family
 * xref:methods/docs-assets.adoc[Docs and assets] — `ExpandTemplateFile()` / HTML emitters
 * xref:methods/build.adoc[Build] — `CreateVersion()` beside service binaries
 * xref:integration/test-glob.adoc[Integration: Glob] ·
-  xref:integration/test-copy-and-target.adoc[CopyFiles] ·
   xref:integration/test-templates.adoc[Templates]

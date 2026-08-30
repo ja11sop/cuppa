@@ -184,7 +184,11 @@ class VariantCompletionTracker(object):
 
 
 def progress( label, event, sconscript, variant, env ):
-    return env.Command( label, [], progress_action( label, event, sconscript, variant, env ) )
+    # Use the unwrapped builder when Cuppa has wrapped Command with
+    # MethodWithProgress — otherwise NotifyProgress.add → Command →
+    # NotifyProgress.add recurses forever (Command returns a NodeList).
+    command = getattr( env, '_Command', None ) or env.Command
+    return command( label, [], progress_action( label, event, sconscript, variant, env ) )
 
 
 class Progress(object):

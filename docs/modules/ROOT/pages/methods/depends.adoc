@@ -101,6 +101,6 @@ your toolbox for large trees.
 == Related methods
 
 * xref:methods/test-run.adoc[Test and run] — `test_depends_on` / `build_depends_on`
-* xref:methods/build.adoc[Build] · xref:methods/files-and-templates.adoc[CopyFiles]
-* xref:methods/install.adoc[Install] · xref:methods/packages.adoc[Packages]
+* xref:methods/build.adoc[Build] · xref:methods/staging-files.adoc[CopyFiles]
+* xref:methods/staging-files.adoc[Staging files] · xref:methods/packages.adoc[Packages]
 * xref:methods/custom-commands.adoc[Custom commands] — `Command()` chains often need `Depends()`

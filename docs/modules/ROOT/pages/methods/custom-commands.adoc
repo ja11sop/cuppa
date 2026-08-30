@@ -6,7 +6,7 @@ runs each command as an *argv list* (not through a shell). That is the right def
 parallel builds, quoting, and safety — but it means **multi-part shell strings do not work**.
 
 `Command()` for publisher CMake wrappers is also covered lightly here; pair with
-xref:methods/packages.adoc[Packages] and xref:methods/install.adoc[Install].
+xref:methods/packages.adoc[Packages] and xref:methods/staging-files.adoc[Staging files].
 
 == Behaviour summary
 

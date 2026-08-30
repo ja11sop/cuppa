@@ -45,13 +45,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Methods documentation uses a hub plus job-named child pages under ``methods/`` (Build, Test,
-  Coverage, dialect/modules, dependencies, flags, files, install, depends, docs assets, packages,
-  custom commands). The hub keeps progress overview, topic summaries, and a method index.
+  Coverage, dialect/modules, dependencies, flags, files, staging files, depends, docs assets,
+  packages, custom commands). The hub keeps progress overview, topic summaries, and a method index.
   Prose refers to methods as ``Name()``; warnings steer projects away from vanilla SCons
   ``Program()`` / ``Object()`` / ``Library()`` for variant layout (progress wrapping is separate).
-  ``AppendUnique`` / ``MergeFlags`` sit with Cuppa flag helpers; engine ``Install`` / ``Depends``
-  get full tutorials. Flat doc/asset basename collisions remain tracked as
-  ([#233](https://github.com/ja11sop/cuppa/issues/233)).
+  ``CopyFiles()`` / ``CopyFilesAs()`` / ``Install()`` / ``InstallAs()`` share one
+  "Staging files in the build" Methods page.
+  ``AppendUnique`` / ``MergeFlags`` sit with Cuppa flag helpers. Flat doc/asset basename collisions
+  remain tracked as ([#233](https://github.com/ja11sop/cuppa/issues/233)).
+- ``MethodWithProgress`` recognises SCons ``NodeList`` returns (not only plain ``list``), so wrapped
+  builders such as ``Program()`` / ``Object()`` / ``Command()`` attach progress. Progress sentinels
+  use the unwrapped ``_Command`` builder to avoid re-entering the wrap.
+  ``CopyFiles()`` / ``CopyFilesAs()`` no longer call ``NotifyProgress.add`` themselves; they rely on
+  the wrapped ``Install*`` path (parity with calling ``Install*`` directly).
 - Profiles inventory no longer requires ``--cxx-disable-error-limit``; report mode implies
   unlimited per-TU diagnostics (Clang ``-ferror-limit=0``, GCC ``-fmax-errors=0``) unless
   ``--cxx-default-error-limit`` or ``--cxx-error-limit=`` is set. Cuppa strips any existing

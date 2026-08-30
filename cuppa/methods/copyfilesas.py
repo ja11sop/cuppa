@@ -15,9 +15,6 @@ from SCons.Script import Flatten
 
 from cuppa.utility.filter import filter_nodes
 
-import cuppa.progress
-
-
 class CopyFilesAsMethod:
 
     def __call__( self, env, target, source, match=None, exclude=None ):
@@ -31,9 +28,9 @@ class CopyFilesAsMethod:
 
         filtered_nodes = filter_nodes( source, match, exclude )
 
-        installed_files = env.InstallAs( destinations, filtered_nodes )
-        cuppa.progress.NotifyProgress.add( env, installed_files )
-        return installed_files
+        # Progress comes from MethodWithProgress wrapping InstallAs on the
+        # sconscript env — do not NotifyProgress.add again here.
+        return env.InstallAs( destinations, filtered_nodes )
 
     @classmethod
     def add_to_env( cls, cuppa_env ):

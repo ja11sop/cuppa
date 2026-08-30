@@ -212,7 +212,8 @@ Deprecated alias: `data`.
 == Related methods
 
 * xref:methods/build.adoc[Build] — compile/link without a test runner
-* xref:methods/files-and-templates.adoc[Files and templates] — `CopyFiles()`, `Filter()`
+* xref:methods/files-and-templates.adoc[Files and templates] — `Filter()`
+* xref:methods/staging-files.adoc[Staging files] — `CopyFiles()` after tests
 * xref:methods/coverage.adoc[Coverage] — collate helpers used after `BuildTest()`
 * xref:methods/depends.adoc[Depends] — `test_depends_on` / graph edges for fixtures
 * xref:methods/custom-commands.adoc[Custom commands] — `working_dir`, spawn, `--use-shell`

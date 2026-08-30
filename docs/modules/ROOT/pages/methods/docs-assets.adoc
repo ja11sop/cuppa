@@ -43,9 +43,9 @@ targets — they can collide on `\{final}/readme.html`.
 
 == Related methods
 
-* xref:methods/files-and-templates.adoc[Files and templates] — `CopyFiles()`, templates
+* xref:methods/files-and-templates.adoc[Files and templates] — templates
 * xref:methods/flags-and-toolchain.adoc[Flags and toolchain] — `Toolchain()` lookup
-* xref:methods/install.adoc[Install] — staging CSS/assets under `final/`
+* xref:methods/staging-files.adoc[Staging files] — staging CSS/assets under `final/`
 * xref:integration/test-docs-assets.adoc[Integration: Docs and assets] ·
   xref:integration/test-redirect.adoc[RunAndRedirectToFile] ·
   xref:integration/test-version.adoc[CreateVersion]

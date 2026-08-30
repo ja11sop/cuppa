@@ -3,7 +3,7 @@
 
 Cuppa package methods stage and publish libraries for registry or Conan consumers.
 Publisher trees often combine `Command()`, `Install()`, and `Depends()` / `Requires()` — see
-xref:methods/install.adoc[Install] and xref:methods/depends.adoc[Depends].
+xref:methods/staging-files.adoc[Staging files] and xref:methods/depends.adoc[Depends].
 
 == Behaviour summary
 
@@ -35,7 +35,7 @@ publisher sconscripts — see xref:methods/custom-commands.adoc[Custom commands]
 
 == Related methods
 
-* xref:methods/install.adoc[Install] · xref:methods/depends.adoc[Depends]
+* xref:methods/staging-files.adoc[Staging files] · xref:methods/depends.adoc[Depends]
 * xref:methods/dependencies-and-profiles.adoc[Dependencies and profiles] — consuming packages via `BuildWith()`
 * xref:packages.adoc[Publishing packages] · xref:dependencies/packages.adoc[Package dependencies]
 * xref:integration/test-packages.adoc[Integration: Packages] ·

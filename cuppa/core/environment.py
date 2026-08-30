@@ -28,11 +28,35 @@ class MethodWithProgress(object):
         self._name = name
         self._method = method
 
+    @staticmethod
+    def _nodes_for_progress( nodes ):
+        """Return a sequence of SCons nodes suitable for NotifyProgress, or None.
+
+        Engine builders return a plain ``list`` (for example ``Install``) or a
+        ``NodeList`` (for example ``Program`` / ``Object``). ``NodeList`` is not a
+        ``list`` subclass, so a strict ``type(nodes) is list`` check misses most
+        builders. A single ``Node`` is also accepted.
+        """
+        if nodes is None:
+            return None
+        if isinstance( nodes, SCons.Node.Node ):
+            return [ nodes ]
+        try:
+            if len( nodes ) < 1:
+                return None
+            first = nodes[0]
+        except ( TypeError, IndexError, KeyError ):
+            return None
+        if isinstance( first, SCons.Node.Node ):
+            return nodes
+        return None
+
     def __call__( self, *args, **kwargs ):
         logger.trace( "calling [{}] with args [{}] and kwargs [{}]".format( as_info(self._name), as_notice(str(args)), as_notice(str(kwargs)) ) )
         nodes = self._method( *args, **kwargs )
-        if nodes and type(nodes) is list and isinstance( nodes[0], SCons.Node.Node ):
-            cuppa.progress.NotifyProgress.add( self._env, nodes )
+        progress_nodes = self._nodes_for_progress( nodes )
+        if progress_nodes is not None:
+            cuppa.progress.NotifyProgress.add( self._env, progress_nodes )
         return nodes
 
 

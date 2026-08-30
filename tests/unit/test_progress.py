@@ -11,6 +11,10 @@ from cuppa.progress import NotifyProgress, VariantCompletionTracker
 
 pytestmark = pytest.mark.unit
 
+# Captured at import time so individual tests can restore it when the autouse
+# fixture stubs ``progress`` for NotifyProgress.add isolation.
+_REAL_PROGRESS = progress_module.progress
+
 
 class _FakeEnv(dict):
     def __init__(self, *args, **kwargs):
@@ -188,6 +192,32 @@ def test_notify_sconscript_env_ready_invokes_registered_hooks():
     NotifyProgress.notify_sconscript_env_ready(env)
 
     assert calls == [env]
+
+
+def test_progress_uses_unwrapped_command_when_present(monkeypatch):
+    """Progress sentinels must not go through MethodWithProgress-wrapped Command."""
+    monkeypatch.setattr(progress_module, "progress", _REAL_PROGRESS)
+
+    env = _FakeEnv()
+    wrapped_calls = []
+    unwrapped_calls = []
+
+    def _wrapped_command( target, source, action ):
+        wrapped_calls.append( target )
+        return target
+
+    def _unwrapped_command( target, source, action ):
+        unwrapped_calls.append( target )
+        return target
+
+    env.Command = _wrapped_command
+    env._Command = _unwrapped_command
+
+    node = progress_module.progress( "Starting", "started", "a/sconscript", "_build/a/dbg", env )
+
+    assert node == "Starting"
+    assert unwrapped_calls == [ "Starting" ]
+    assert wrapped_calls == []
 
 
 def test_variant_completion_tracker_notes_started_and_finished():

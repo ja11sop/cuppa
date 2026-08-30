@@ -46,8 +46,8 @@ xref:toolchains/msvc.adoc[MSVC]).
 | Files, discovery, templates
 | xref:methods/files-and-templates.adoc[Files and templates]
 
-| Install (`Install()`, `InstallAs()`)
-| xref:methods/install.adoc[Install]
+| Staging files (`CopyFiles()`, `Install()`, …)
+| xref:methods/staging-files.adoc[Staging files]
 
 | Depends (`Depends()`, `Requires()`, `Alias()`)
 | xref:methods/depends.adoc[Depends]
@@ -80,9 +80,12 @@ Cuppa attaches progress in two complementary ways:
 * **Wrapped SCons builders** — when each sconscript env is created, Cuppa top-and-tails
   the common engine builders (`Program()`, `Object()`, `Library()`, `StaticLibrary()`,
   `SharedLibrary()`, `Install()`, `Command()`, …) with `MethodWithProgress` in
-  `cuppa.core.environment`. Those calls still report progress when they return SCons
-  nodes; that does **not** make them variant-aware substitutes for Cuppa methods such as
-  `Build()` or `Compile()`.
+  `cuppa.core.environment`. The wrap accepts both plain `list` and SCons `NodeList`
+  returns. Those calls report progress when they return SCons nodes; that does **not**
+  make them variant-aware substitutes for Cuppa methods such as `Build()` or `Compile()`.
+* **Progress sentinels** — `NotifyProgress` creates Begin/Starting/Finished/End nodes via
+  the *unwrapped* `_Command` builder so sentinel creation cannot re-enter
+  `MethodWithProgress` (which would recurse forever).
 
 Methods that only mutate env state or select nodes (`StdCpp()`, `BuildWith()`, `Filter()`,
 `RecursiveGlob()`, `ImportModules()`, etc.) do **not** call `NotifyProgress.add` directly.
@@ -140,7 +143,13 @@ Detailed tutorials: xref:methods/dependencies-and-profiles.adoc[Dependencies and
 
 Detailed tutorials: xref:methods/files-and-templates.adoc[Files and templates].
 
-`RecursiveGlob()` / `GlobFiles()` / `Glob()` / `Filter()` / `CopyFiles()` / `CreateVersion()` / templates.
+`RecursiveGlob()` / `GlobFiles()` / `Glob()` / `Filter()` / `CreateVersion()` / templates.
+
+== Staging files
+
+Detailed tutorials: xref:methods/staging-files.adoc[Staging files in the build].
+
+`CopyFiles()` / `CopyFilesAs()` / `Install()` / `InstallAs()`.
 
 == Flags and toolchain
 
@@ -148,9 +157,8 @@ Detailed tutorials: xref:methods/flags-and-toolchain.adoc[Flags and toolchain].
 
 `AppendUnique()`, `MergeFlags()`, `ReplaceFlags()`, `RemoveFlags()`, `Toolchain()`.
 
-== Install and Depends
+== Depends
 
-* xref:methods/install.adoc[Install] — `Install()` / `InstallAs()` vs `CopyFiles()`
 * xref:methods/depends.adoc[Depends] — `Depends()` / `Requires()` / `Alias()`
 
 == Dialect, modules, and Profiles
@@ -216,10 +224,10 @@ Grouped names → topic page. Prefer these links over upstream docs when both ex
 | `Toolchain()`, `ReplaceFlags()`, `RemoveFlags()`, `AppendUnique()`, `MergeFlags()`, `Append()` → xref:methods/flags-and-toolchain.adoc[Flags]
 
 | Files / discovery / templates
-| `RecursiveGlob()`, `GlobFiles()`, `Glob()`, `Filter()`, `CopyFiles()`, `CopyFilesAs()`, `TargetFrom()`, `CreateVersion()`, `ExpandTemplateFile()`, `RenderJinjaTemplate()` → xref:methods/files-and-templates.adoc[Files]
+| `RecursiveGlob()`, `GlobFiles()`, `Glob()`, `Filter()`, `TargetFrom()`, `CreateVersion()`, `ExpandTemplateFile()`, `RenderJinjaTemplate()` → xref:methods/files-and-templates.adoc[Files]
 
-| Install
-| `Install()`, `InstallAs()` → xref:methods/install.adoc[Install]
+| Staging files
+| `CopyFiles()`, `CopyFilesAs()`, `Install()`, `InstallAs()` → xref:methods/staging-files.adoc[Staging files]
 
 | Depends
 | `Depends()`, `Requires()`, `Alias()` → xref:methods/depends.adoc[Depends]
