@@ -47,6 +47,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Methods documentation uses a hub plus job-named child pages under ``methods/`` (Build, Test,
   Coverage, dialect/modules, dependencies, flags, files, install, depends, docs assets, packages,
   custom commands). The hub keeps progress overview, topic summaries, and a method index.
+  Prose refers to methods as ``Name()``; warnings steer projects away from vanilla SCons
+  ``Program()`` / ``Object()`` / ``Library()`` for variant layout (progress wrapping is separate).
   ``AppendUnique`` / ``MergeFlags`` sit with Cuppa flag helpers; engine ``Install`` / ``Depends``
   get full tutorials. Flat doc/asset basename collisions remain tracked as
   ([#233](https://github.com/ja11sop/cuppa/issues/233)).
