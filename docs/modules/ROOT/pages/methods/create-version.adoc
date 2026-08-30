@@ -1,0 +1,80 @@
+= CreateVersion
+:description: Toolchain-backed SCM version sources and the generate-then-compile cycle
+
+`CreateVersion()` asks the **active toolchain** for a version-file builder and emitter, then
+registers them and emits a generated source (typically `version.cpp` plus a sibling header)
+that you can compile into a program. GCC, Clang, and MSVC (`cl`) all supply the C++
+implementation (`CreateVersionFileCpp` / `CreateVersionHeaderCpp`).
+
+Like xref:methods/coverage.adoc[Coverage], this is toolchain-provided behaviour exposed through
+a Cuppa method — not a generic file copy.
+
+== Behaviour summary
+
+[cols="1,3"]
+|===
+| Returns | Generated version source nodes (for example `version.cpp`)
+| Evaluation | Build action (configure registers `CreateVersionFile`; the build writes files)
+| Output paths | Offset paths under the variant `working/` tree (via the toolchain emitter)
+| Progress | No direct `NotifyProgress.add` — callers usually pass the node into `Build()` / `Compile()`, whose targets already participate in the variant progress chain
+|===
+
+== The chicken-and-egg problem
+
+You often need a source file that embeds **build identity** — version string, SCM revision,
+branch, and similar — and that same source must be **compiled into** the binary that reports it.
+
+Doing that by hand is awkward:
+
+* If you generate `version.cpp` outside the build, it goes stale when the tree moves or the
+  revision changes, and it is easy to commit generated noise or forget to regenerate.
+* If you try to generate it *while* compiling, the compiler needs the file to exist as an input
+  before the compile action runs — a circular “I need the output of step A as an input to step A”
+  problem unless the build graph models generation as its own node.
+* Variant and toolchain identity belong in the generated content; a one-shot script outside Cuppa
+  does not see `env['variant']` / toolchain the same way.
+
+`CreateVersion()` exists so generation is a **first-class build node**: the toolchain writes the
+`.cpp` / `.hpp` (and companion metadata) under the variant layout, then `Build()` / `Compile()`
+depend on that node like any other source. Rebuilds pick up SCM and version changes through
+normal SCons dependency tracking on the generated files.
+
+== How toolchains provide it
+
+`CreateVersion()` does not hard-code C++ text. It calls:
+
+* `env['toolchain'].version_file_builder(...)`
+* `env['toolchain'].version_file_emitter(...)`
+
+then registers a `CreateVersionFile` builder and invokes it. The C++ toolchains return the shared
+`CreateVersionFileCpp` / `CreateVersionHeaderCpp` pair, which embed namespaces, version, location,
+and optional `build_id` into generated sources under `working/`.
+
+== Everyday use
+
+[source,python]
+----
+Import('env')
+import os
+
+version_cpp = os.path.join(env['abs_final_dir'], 'version.cpp')
+env.CreateVersion(
+    version_cpp,
+    [],
+    namespaces=['app', 'version'],
+    version='1.2.3',
+)
+env.Build('service', ['main.cpp', version_cpp])
+----
+
+Pair with xref:methods/depends.adoc[`Requires()`] when a later staging step must wait until the
+versioned binary exists (for example copying into a docker tree under
+`env['abs_artefacts_root']`).
+
+== Related methods
+
+* xref:methods/build.adoc[Build] — compile the generated source into a program
+* xref:methods/templates.adoc[Template expansion] — same register-then-build pattern for text templates
+* xref:methods/coverage.adoc[Coverage] — another toolchain-backed Methods family
+* xref:methods/depends.adoc[Depends] — order packaging after versioned builds
+* xref:integration/test-version.adoc[Integration: CreateVersion]

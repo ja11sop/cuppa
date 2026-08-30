@@ -2,8 +2,8 @@
 :description: CopyFiles, CopyFilesAs, Install, and InstallAs for placing files during a build
 
 Cuppa projects stage files into destinations as build actions — test artefacts under
-`final/` or `#_artifacts/…`, package trees for `PublishPackage()`, or a renamed file in
-`final/`. Four calls do that work:
+`env['abs_artefacts_root']` (default `_artifacts/`), package trees for `PublishPackage()`, or a
+renamed file in `final/`. Four calls do that work:
 
 * `CopyFiles()` / `CopyFilesAs()` — Cuppa helpers with variant-aware destinations and optional filtering
 * `Install()` / `InstallAs()` — engine builders (progress-wrapped on sconscript envs)
@@ -33,8 +33,9 @@ https://scons.org/doc/production/HTML/scons-man.html[SCons man page] (`Install` 
 
 | `CopyFiles()`
 | Copying build outputs, logs, configs, or docker payloads inside a Cuppa variant layout
-  (`final/`, `#_artifacts/…`). Relative destinations land under `abs_final_dir`. Optional
-  `match` / `exclude` (same helper as `Filter()`). Works naturally with `Filter()` on test outputs.
+  (`final/`, or under `env['abs_artefacts_root']`). Relative destinations land under
+  `abs_final_dir`. Optional `match` / `exclude` (same helper as `Filter()`). Works naturally
+  with `Filter()` on test outputs.
 
 | `CopyFilesAs()`
 | Same as `CopyFiles()`, but the destination is an explicit *file* path (rename on place).
@@ -79,9 +80,11 @@ The dominant consumer pattern copies selected test outputs into artefacts:
 [source,python]
 ----
 Import('env')
+import os
 
+artefacts_dir = os.path.join(env['abs_artefacts_root'], env['flat_build_base'])
 test = env.BuildTest('unit', ['tests.cpp'])
-env.CopyFiles(artifacts_dir, env.Filter(test, ['*.log', '*.json']))
+env.CopyFiles(artefacts_dir, env.Filter(test, ['*.log', '*.json']))
 ----
 
 `Filter()` here selects **outputs of the test node**, not a `Glob()` of sources — see
@@ -154,8 +157,8 @@ paths stay consistent with test output copying. Choose one style per project and
 
 == Related methods
 
-* xref:methods/files-and-templates.adoc[Files and templates] — `Filter()`, discovery, templates
-* xref:methods/packages.adoc[Packages] — `PublishPackage()`
+* xref:methods/discovery.adoc[Source discovery] — `Filter()`, Glob helpers
+* xref:methods/packages.adoc[Packages]
 * xref:methods/depends.adoc[Depends] — ordering install / copy nodes
 * xref:methods/custom-commands.adoc[Custom commands] — `Command()` often precedes `Install()` in publishers
 * xref:methods/test-run.adoc[Test and run] — Filter + CopyFiles after tests

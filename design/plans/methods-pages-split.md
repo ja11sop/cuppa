@@ -91,7 +91,10 @@ they form one job:
 | C++ dialect & modules | `StdCpp`, `CxxModules`, `Modules` (deprecated), `Module`, `HeaderUnit`, `ImportModules`, `CxxProfiles`, … | `methods/cxx-dialect-and-modules.adoc` |
 | Dependencies & profiles | `BuildWith`, `Using`, `BuildProfile` | `methods/dependencies-and-profiles.adoc` |
 | Flags & toolchain | `Toolchain`, `ReplaceFlags`, `RemoveFlags`, **`AppendUnique`**, **`MergeFlags`**, `Append`, … | `methods/flags-and-toolchain.adoc` |
-| Files, templates, install | `CopyFiles`, `CopyFilesAs`, `TargetFrom`, templates, `RecursiveGlob`, `GlobFiles`, `Filter`, **`Install`**, **`InstallAs`**, **`Glob`**, **`File`** | `methods/files-and-templates.adoc` and/or `methods/install.adoc` (split only if the page grows too large) |
+| Files / discovery | `RecursiveGlob`, `GlobFiles`, `Filter`, **`Glob`**, **`File`**, `TargetFrom` | `methods/discovery.adoc` |
+| Templates | `ExpandTemplateFile`, `RenderJinjaTemplate` | `methods/templates.adoc` |
+| CreateVersion | `CreateVersion` (toolchain-backed) | `methods/create-version.adoc` |
+| Staging files | `CopyFiles`, `CopyFilesAs`, **`Install`**, **`InstallAs`** | `methods/staging-files.adoc` (`install.adoc` stub) |
 | Depends | **`Depends`**, **`Requires`**, **`Alias`** | `methods/depends.adoc` |
 | Docs assets | `AsciidocToHtml`, `MarkdownToHtml`, `CompileScss`, `CreateVersion`, `RunAndRedirectToFile` | `methods/docs-assets.adoc` |
 | Packages | `PublishPackage`, `InstallPackage`, plus **`Command`** where publishers wrap external builds | `methods/packages.adoc` (cross-link `Command` from custom-commands if needed) |
@@ -216,6 +219,9 @@ Custom commands may stay on the hub briefly, then move to `methods/custom-comman
 | Prose `Name()` pass | **Done** (2026-08-30) — Methods hub + all `methods/*.adoc` |
 | Vanilla SCons warnings | **Done** — `Build()` / `Compile()` / `Build*Lib()` vs Program/Object/Library; progress wrap documented |
 | Staging files page | **Done** — `staging-files.adoc`; `install.adoc` stub |
+| Discovery / templates / CreateVersion split | **Done** — `discovery.adoc`, `templates.adoc`, `create-version.adoc`; `files-and-templates.adoc` stub |
+| `Command()` swiss-army + `Run()` contrast | **Done** — custom-commands + test-run |
+| Artefact examples use `abs_artefacts_root` | **Done** — test-run, staging-files, depends |
 | `MethodWithProgress` NodeList + `_Command` sentinels | **Done** — wrap accepts NodeList; progress sentinels use unwrapped `_Command`; `Copy*` no longer double-`NotifyProgress.add` |
 | Staging parity tests | **Done** — unit + multi-variant (`--dbg`/`--rel`) integration for Copy*/Install* |
 

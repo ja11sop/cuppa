@@ -1,12 +1,53 @@
 = Custom commands and working directories
-:description: cwd, spawn, Command, and --use-shell notes for Run / Test
+:description: Command, cwd, spawn, and --use-shell notes for Run / Test
 
 Cuppa colours compiler and tool output by replacing the engine `SPAWN` with a processor that
 runs each command as an *argv list* (not through a shell). That is the right default for
 parallel builds, quoting, and safety — but it means **multi-part shell strings do not work**.
 
-`Command()` for publisher CMake wrappers is also covered lightly here; pair with
-xref:methods/packages.adoc[Packages] and xref:methods/staging-files.adoc[Staging files].
+[#when-to-use-command]
+== When to use `Command()`
+
+`Command()` is the build engine's **swiss-army** builder: given targets, sources, and an action,
+it adds an arbitrary step to the graph. Cuppa wraps it with `MethodWithProgress` on sconscript
+envs, so user `Command()` calls participate in variant progress.
+
+Typical jobs:
+
+* Wrap an external generate/build tool (CMake configure/build in a publisher tree)
+* Emit a marker file after a binary exists (`tool.done`)
+* Run a one-off code generator whose outputs feed `Build()` / `Install()`
+* Any custom action that should rebuild when inputs change
+
+Prefer Cuppa's specialised methods when they fit:
+
+[cols="1,3"]
+|===
+| Need | Prefer
+
+| Compile / link a program or library
+| `Build()` / `Build*Lib()` — xref:methods/build.adoc[Build]
+
+| Run a binary under `--run` / `--test` / `--benchmark`
+| `Run()` / `BuildTest()` / … — xref:methods/test-run.adoc[Test and run]
+
+| Copy or install files
+| `CopyFiles()` / `Install()` — xref:methods/staging-files.adoc[Staging files]
+
+| Expand a text template
+| `ExpandTemplateFile()` / `RenderJinjaTemplate()` — xref:methods/templates.adoc[Templates]
+
+| Embed SCM / version identity in C++
+| `CreateVersion()` — xref:methods/create-version.adoc[CreateVersion]
+
+| Arbitrary action in the graph
+| `Command()` (this page)
+|===
+
+`Run()` versus `Command()` is also summarised on xref:methods/test-run.adoc#generic-runs-with-run[Test and run].
+
+Pair publisher `Command()` + `Install()` with xref:methods/packages.adoc[Packages] and
+xref:methods/staging-files.adoc[Staging files].
 
 == Behaviour summary
 
@@ -15,7 +56,7 @@ xref:methods/packages.adoc[Packages] and xref:methods/staging-files.adoc[Staging
 | Returns | N/A for spawn notes; `Command()` returns action nodes
 | Evaluation | Build-time spawn / custom actions
 | Output paths | Caller / `cwd` / `working_dir` controlled
-| Progress | When action nodes are wired through `NotifyProgress`
+| Progress | Yes for wrapped `Command()` on sconscript envs (`MethodWithProgress`)
 |===
 
 === What fails
@@ -120,7 +161,8 @@ Integration coverage for these examples: xref:integration/test-custom-commands.a
 
 == Related methods
 
-* xref:methods/test-run.adoc[Test and run] — `working_dir` on `BuildTest()` / `Run()`
+* xref:methods/test-run.adoc[Test and run] — `Run()` vs `Command()`; `working_dir` on `BuildTest()` / `Run()`
 * xref:methods/packages.adoc[Packages] — `Command()` before `PublishPackage()`
+* xref:methods/create-version.adoc[CreateVersion] · xref:methods/templates.adoc[Templates]
 * xref:cli/output-and-environment.adoc#environment-propagation[Output and environment]
 * xref:integration/test-custom-commands.adoc[Integration: Custom commands]

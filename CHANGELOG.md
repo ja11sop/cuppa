@@ -50,7 +50,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Prose refers to methods as ``Name()``; warnings steer projects away from vanilla SCons
   ``Program()`` / ``Object()`` / ``Library()`` for variant layout (progress wrapping is separate).
   ``CopyFiles()`` / ``CopyFilesAs()`` / ``Install()`` / ``InstallAs()`` share one
-  "Staging files in the build" Methods page.
+  "Staging files in the build" Methods page. Source discovery, template expansion, and
+  ``CreateVersion()`` each have their own Methods page. Artefact examples prefer
+  ``env['abs_artefacts_root']``. Custom commands document when to use ``Command()`` versus
+  ``Run()``.
   ``AppendUnique`` / ``MergeFlags`` sit with Cuppa flag helpers. Flat doc/asset basename collisions
   remain tracked as ([#233](https://github.com/ja11sop/cuppa/issues/233)).
 - ``MethodWithProgress`` recognises SCons ``NodeList`` returns (not only plain ``list``), so wrapped

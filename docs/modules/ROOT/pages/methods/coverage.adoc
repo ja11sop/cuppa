@@ -57,6 +57,6 @@ until a dedicated page exists.
 == Related methods
 
 * xref:methods/test-run.adoc[Test and run] — `BuildTest()` before collation
-* xref:methods/files-and-templates.adoc[Files and templates] — `Filter()`
+* xref:methods/discovery.adoc[Source discovery] — `Filter()`
 * xref:methods/staging-files.adoc[Staging files] — `CopyFiles()` for artefacts
 * xref:integration/test-coverage.adoc[Integration: Coverage]

@@ -54,12 +54,17 @@ Import('env')
 import os
 
 objects = env.Compile('main.cpp')
-version = env.CreateVersion('version.cpp', namespace='app')
+version = env.CreateVersion(
+    'version.cpp',
+    [],
+    namespaces=['app', 'version'],
+    version='1.0.0',
+)
 program = env.Build('service', objects + version)
 
 env.CopyFiles(env['final_dir'], ['config.json', 'logging.properties'])
 
-docker_variant = '#_artifacts/' + env['flat_build_base'] + '/docker'
+docker_variant = os.path.join(env['abs_artefacts_root'], env['flat_build_base'], 'docker')
 env.Requires(
     env.CopyFiles(docker_variant, [os.path.join(env['final_dir'], 'service')]),
     program,
@@ -100,6 +105,7 @@ your toolbox for large trees.
 
 == Related methods
 
+* xref:methods/create-version.adoc[CreateVersion] — version sources before packaging copies
 * xref:methods/test-run.adoc[Test and run] — `test_depends_on` / `build_depends_on`
 * xref:methods/build.adoc[Build] · xref:methods/staging-files.adoc[CopyFiles]
 * xref:methods/staging-files.adoc[Staging files] · xref:methods/packages.adoc[Packages]

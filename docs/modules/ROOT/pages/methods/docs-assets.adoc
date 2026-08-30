@@ -1,9 +1,9 @@
 = Documentation and asset methods
-:description: AsciiDoc, Markdown, SCSS, version headers, and redirect capture
+:description: AsciiDoc, Markdown, SCSS, and redirect capture
 
 Builders that turn documentation and assets into variant outputs under `final/` (or related
-trees). `CreateVersion()` for C++ version sources is also summarised on
-xref:methods/files-and-templates.adoc[Files and templates].
+trees). Text templates live on xref:methods/templates.adoc[Template expansion]; C++ version
+sources on xref:methods/create-version.adoc[CreateVersion].
 
 == Behaviour summary
 
@@ -11,7 +11,7 @@ xref:methods/files-and-templates.adoc[Files and templates].
 |===
 | Returns | Build nodes for generated artefacts
 | Evaluation | Build action
-| Output paths | Several emitters still use flat `\{final}/\{basename}` — nested same-basename sources can collide (https://github.com/ja11sop/cuppa/issues/233[#233]). `CreateVersion()` uses offset paths under `working/`. `RenderJinjaTemplate()` often mirrors path offsets under `final/`.
+| Output paths | Several emitters still use flat `\{final}/\{basename}` — nested same-basename sources can collide (https://github.com/ja11sop/cuppa/issues/233[#233])
 | Progress | Yes where emitters create action nodes
 |===
 
@@ -21,20 +21,14 @@ xref:methods/files-and-templates.adoc[Files and templates].
 |===
 | Method | Role
 
-| `env.ExpandTemplateFile` / `env.RenderJinjaTemplate`
-| Template expansion
-
-| `env.MarkdownToHtml` / `env.AsciidocToHtml`
+| `MarkdownToHtml()` / `AsciidocToHtml()`
 | Doc conversion builders
 
-| `env.CompileScss`
+| `CompileScss()`
 | SCSS → CSS
 
-| `env.RunAndRedirectToFile`
+| `RunAndRedirectToFile()`
 | Capture subprocess stdout to a file
-
-| `env.CreateVersion(…)`
-| SCM-aware generated version sources (often beside `Build()`)
 |===
 
 Until https://github.com/ja11sop/cuppa/issues/233[#233] lands, avoid feeding two
@@ -43,9 +37,9 @@ targets — they can collide on `\{final}/readme.html`.
 
 == Related methods
 
-* xref:methods/files-and-templates.adoc[Files and templates] — templates
+* xref:methods/templates.adoc[Template expansion] — `ExpandTemplateFile()` / `RenderJinjaTemplate()`
+* xref:methods/create-version.adoc[CreateVersion] — toolchain-backed version sources
 * xref:methods/flags-and-toolchain.adoc[Flags and toolchain] — `Toolchain()` lookup
 * xref:methods/staging-files.adoc[Staging files] — staging CSS/assets under `final/`
 * xref:integration/test-docs-assets.adoc[Integration: Docs and assets] ·
-  xref:integration/test-redirect.adoc[RunAndRedirectToFile] ·
-  xref:integration/test-version.adoc[CreateVersion]
+  xref:integration/test-redirect.adoc[RunAndRedirectToFile]

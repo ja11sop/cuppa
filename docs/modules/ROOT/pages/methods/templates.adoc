@@ -1,0 +1,80 @@
+= Template expansion
+:description: ExpandTemplateFile, RenderJinjaTemplate, and how Cuppa template builders work
+
+`ExpandTemplateFile()` and `RenderJinjaTemplate()` turn template sources into generated files
+as build actions — typically under `final/` or another destination you pass explicitly.
+
+Doc converters (`MarkdownToHtml()`, `AsciidocToHtml()`, `CompileScss()`) live on
+xref:methods/docs-assets.adoc[Docs and assets]. Generated C++ version sources use
+xref:methods/create-version.adoc[CreateVersion].
+
+== Behaviour summary
+
+[cols="1,3"]
+|===
+| Returns | Generated file nodes
+| Evaluation | Build action (configure registers a builder; the build runs it)
+| Output paths | Caller target; Jinja often mirrors source path offsets under `final/`
+| Progress | Yes — via `NotifyProgress.add` on emitted targets
+|===
+
+== How these builders work
+
+Several Cuppa methods follow the same shape (templates, `CreateVersion()`, and some doc emitters):
+
+. At **configure** time (while the `sconscript` runs), the method registers a named SCons
+  `Builder` on the environment — action (and sometimes emitter) objects that know how to
+  read inputs and write outputs.
+. It then **invokes** that builder with `target` / `source`, which adds nodes to the build graph.
+. At **build** time, SCons runs the action when the target is out of date.
+
+That is why you pass destinations and sources up front (as with `Build()`), rather than expanding
+templates eagerly in Python during configure. The expansion participates in Depends, progress,
+and rebuild-when-inputs-change like any other emitter.
+
+`ExpandTemplateFile()` registers an `ExpandTemplateFile` builder whose action reads the source
+and writes `str.format(**kwargs)` into the target.
+`RenderJinjaTemplate()` registers a Jinja builder (with an emitter that strips `.j2` / `.jinja`
+suffixes and can mirror directory offsets under `final/`).
+
+== `ExpandTemplateFile()`
+
+Python `str.format` expansion — useful for small `.in` files:
+
+[source,python]
+----
+Import('env')
+import os
+
+out_txt = os.path.join(env['abs_final_dir'], 'expanded.txt')
+env.ExpandTemplateFile(out_txt, 'data/template.txt.in', name='cuppa')
+----
+
+Extra keyword arguments become format fields (`\{name}` in the template).
+
+== `RenderJinjaTemplate()`
+
+Jinja2 rendering with optional `variables=` / `variables_file=`:
+
+[source,python]
+----
+Import('env')
+import os
+
+env.RenderJinjaTemplate(
+    [os.path.join(env['abs_final_dir'], 'rendered.txt')],
+    ['data/template.j2'],
+    variables={'name': 'cuppa'},
+)
+----
+
+When you omit an explicit target list, the emitter derives destinations from the template names
+(dropping Jinja extensions) under `final/`, preserving a path offset from the project base when
+possible.
+
+== Related methods
+
+* xref:methods/docs-assets.adoc[Docs and assets] — Markdown / AsciiDoc / SCSS emitters
+* xref:methods/create-version.adoc[CreateVersion] — toolchain-backed generated sources (same builder pattern)
+* xref:methods/staging-files.adoc[Staging files] — copy generated files elsewhere
+* xref:integration/test-templates.adoc[Integration: Templates]
