@@ -2,9 +2,6 @@
 :description: RecursiveGlob, GlobFiles, Glob, Filter, and TargetFrom
 
 This page covers how you find source files and narrow node lists in a Cuppa `sconscript`.
-Staging copies live on xref:methods/staging-files.adoc[Staging files in the build];
-templates and doc converters on xref:methods/docs-assets.adoc[Docs and assets];
-generated version sources on xref:methods/create-version.adoc[CreateVersion].
 
 == Behaviour summary
 
@@ -126,7 +123,8 @@ env.Build(env.TargetFrom('src/apps/server.cpp'), sources)
 ----
 
 After tests, `Filter()` often selects **outputs of the test node** (logs/JSON) before
-xref:methods/staging-files.adoc[`CopyFiles()`] — see xref:methods/test-run.adoc[Test and run].
+`CopyFiles()` — see xref:methods/test-run.adoc[Test and run] and
+xref:methods/staging-files.adoc[Staging files].
 
 == Related methods
 

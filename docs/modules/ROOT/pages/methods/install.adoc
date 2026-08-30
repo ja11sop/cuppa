@@ -1,6 +1,0 @@
-= Install methods (moved)
-:description: Redirect — staging files documentation
-
-This page has been renamed to xref:methods/staging-files.adoc[Staging files in the build].
-
-It covers `CopyFiles()`, `CopyFilesAs()`, `Install()`, and `InstallAs()` together.

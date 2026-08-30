@@ -2,8 +2,7 @@
 :description: Templates, AsciiDoc, Markdown, SCSS, and redirect capture
 
 Builders that turn documentation, templates, and assets into variant outputs under `final/`
-(or related trees). Generated C++ version sources live on
-xref:methods/create-version.adoc[CreateVersion] (same register-then-build idea, toolchain-backed).
+(or related trees).
 
 == Behaviour summary
 

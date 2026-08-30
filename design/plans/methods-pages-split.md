@@ -59,7 +59,7 @@ Methods are the core **`sconscript` vocabulary**. Each group deserves:
 
 | Decision | Choice |
 |----------|--------|
-| Page filenames | Job names only: `install.adoc`, `depends.adoc`, `flags-and-toolchain.adoc` — **no** `scons-` prefix |
+| Page filenames | Job names only: `staging-files.adoc`, `depends.adoc`, `flags-and-toolchain.adoc` — **no** `scons-` prefix; **no** redirect stubs for renamed pages |
 | Grouping axis | What the reader is trying to do, not Cuppa vs SCons provenance |
 | Flags set | `ReplaceFlags`, `RemoveFlags`, `AppendUnique`, `MergeFlags`, `Append`, … on **one** flags page with `Toolchain` |
 | Install / copy | Unified as **Staging files** — `CopyFiles()` / `CopyFilesAs()` / `Install()` / `InstallAs()` on `staging-files.adoc` (thin wrappers + destination defaults; one decision table) |
@@ -94,7 +94,7 @@ they form one job:
 | Files / discovery | `RecursiveGlob`, `GlobFiles`, `Filter`, **`Glob`**, **`File`**, `TargetFrom` | `methods/discovery.adoc` |
 | Docs / assets / templates | `ExpandTemplateFile`, `RenderJinjaTemplate`, Markdown/AsciiDoc/SCSS, `RunAndRedirectToFile` | `methods/docs-assets.adoc` (includes how builders work) |
 | CreateVersion | `CreateVersion` (toolchain-backed) | `methods/create-version.adoc` |
-| Staging files | `CopyFiles`, `CopyFilesAs`, **`Install`**, **`InstallAs`** | `methods/staging-files.adoc` (`install.adoc` stub) |
+| Staging files | `CopyFiles`, `CopyFilesAs`, **`Install`**, **`InstallAs`** | `methods/staging-files.adoc` |
 | Depends | **`Depends`**, **`Requires`**, **`Alias`** | `methods/depends.adoc` |
 | Docs assets | `AsciidocToHtml`, `MarkdownToHtml`, `CompileScss`, `CreateVersion`, `RunAndRedirectToFile` | `methods/docs-assets.adoc` |
 | Packages | `PublishPackage`, `InstallPackage`, plus **`Command`** where publishers wrap external builds | `methods/packages.adoc` (cross-link `Command` from custom-commands if needed) |
@@ -218,8 +218,8 @@ Custom commands may stay on the hub briefly, then move to `methods/custom-comman
 | Naming / grouping settled | **Done** — job pages, flags coalesce, full engine depth; prose method names `` `Name()` `` |
 | Prose `Name()` pass | **Done** (2026-08-30) — Methods hub + all `methods/*.adoc` |
 | Vanilla SCons warnings | **Done** — `Build()` / `Compile()` / `Build*Lib()` vs Program/Object/Library; progress wrap documented |
-| Staging files page | **Done** — `staging-files.adoc`; `install.adoc` stub |
-| Discovery / templates / CreateVersion split | **Done** — `discovery.adoc`, templates folded into `docs-assets.adoc`, `create-version.adoc`; stubs for old paths |
+| Staging files page | **Done** — `staging-files.adoc` |
+| Discovery / docs-assets / CreateVersion | **Done** — `discovery.adoc`, `docs-assets.adoc` (templates included), `create-version.adoc`; old redirect stubs removed |
 | `Command()` swiss-army + `Run()` contrast | **Done** — custom-commands + test-run |
 | Artefact examples use `abs_artefacts_root` | **Done** — test-run, staging-files, depends |
 | `MethodWithProgress` NodeList + `_Command` sentinels | **Done** — wrap accepts NodeList; progress sentinels use unwrapped `_Command`; `Copy*` no longer double-`NotifyProgress.add` |
@@ -267,8 +267,11 @@ docs) and [`docs-llms-txt.md`](docs-llms-txt.md) (agent Markdown / `llms.txt`), 
 ```text
 docs/modules/ROOT/pages/methods/build.adoc
 docs/modules/ROOT/pages/methods/test-run.adoc
+docs/modules/ROOT/pages/methods/discovery.adoc
+docs/modules/ROOT/pages/methods/staging-files.adoc
+docs/modules/ROOT/pages/methods/docs-assets.adoc
+docs/modules/ROOT/pages/methods/create-version.adoc
 docs/modules/ROOT/pages/methods/flags-and-toolchain.adoc
-docs/modules/ROOT/pages/methods/install.adoc
 docs/modules/ROOT/pages/methods/depends.adoc
 …
 ```

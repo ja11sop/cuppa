@@ -10,9 +10,7 @@ progress on a sconscript env (see <<progress-tracking-and-variant-scoping>>).
 
 This hub is the entry point for that surface.
 Child pages under xref:methods/build.adoc[methods/] hold the detailed tutorials for each topic;
-the hub keeps progress overview, a topic map, and summaries that point onward.
-A comprehensive method index (every name → Cuppa page or careful upstream link) lands as the
-split progresses.
+the hub keeps progress overview, a topic map, and a method index.
 
 For the vocabulary behind methods, see xref:concepts.adoc[Concepts].
 For compiler defaults applied underneath these calls, see xref:toolchains.adoc[Toolchains]
@@ -26,13 +24,13 @@ xref:toolchains/msvc.adoc[MSVC]).
 | Topic | Page
 
 | Build (`Build()`, `Compile()`, `BuildLib()`, …)
-| xref:methods/build.adoc[Build methods]
+| xref:methods/build.adoc[Build]
 
 | Test and run (`BuildTest()`, `Test()`, `Benchmark()`, `Run()`)
 | xref:methods/test-run.adoc[Test and run]
 
 | Coverage
-| xref:methods/coverage.adoc[Coverage methods]
+| xref:methods/coverage.adoc[Coverage]
 
 | {cpp} dialect, modules, Profiles
 | xref:methods/cxx-dialect-and-modules.adoc[{cpp} dialect and modules]
@@ -43,8 +41,8 @@ xref:toolchains/msvc.adoc[MSVC]).
 | Flags and toolchain (`ReplaceFlags()`, `AppendUnique()`, `MergeFlags()`, …)
 | xref:methods/flags-and-toolchain.adoc[Flags and toolchain]
 
-| Files, discovery, templates
-| _(split)_ xref:methods/discovery.adoc[Discovery] · xref:methods/docs-assets.adoc[Docs and assets] · xref:methods/create-version.adoc[CreateVersion]
+| Source discovery (`RecursiveGlob()`, `Filter()`, …)
+| xref:methods/discovery.adoc[Source discovery]
 
 | Staging files (`CopyFiles()`, `Install()`, …)
 | xref:methods/staging-files.adoc[Staging files]
@@ -52,13 +50,16 @@ xref:toolchains/msvc.adoc[MSVC]).
 | Depends (`Depends()`, `Requires()`, `Alias()`)
 | xref:methods/depends.adoc[Depends]
 
-| Docs and assets
+| Docs and assets (templates, Markdown, SCSS, …)
 | xref:methods/docs-assets.adoc[Docs and assets]
+
+| CreateVersion
+| xref:methods/create-version.adoc[CreateVersion]
 
 | Packages
 | xref:methods/packages.adoc[Packages]
 
-| Custom commands / `cwd` / `--use-shell`
+| Custom commands / `Command()` / `cwd` / `--use-shell`
 | xref:methods/custom-commands.adoc[Custom commands]
 |===
 
@@ -149,11 +150,12 @@ Detailed tutorials: xref:methods/discovery.adoc[Source discovery and filtering].
 
 == Docs, assets, and templates
 
-Detailed tutorials: xref:methods/docs-assets.adoc[Docs and assets]
-(including xref:methods/docs-assets.adoc#how-these-builders-work[how these builders work]).
+Detailed tutorials: xref:methods/docs-assets.adoc[Docs and assets].
 
 `ExpandTemplateFile()` / `RenderJinjaTemplate()` / `MarkdownToHtml()` / `AsciidocToHtml()` /
 `CompileScss()` / `RunAndRedirectToFile()`.
+
+NOTE: Flat `\{final}/\{basename}` collisions for some emitters — https://github.com/ja11sop/cuppa/issues/233[#233].
 
 == CreateVersion
 
@@ -175,7 +177,9 @@ Detailed tutorials: xref:methods/flags-and-toolchain.adoc[Flags and toolchain].
 
 == Depends
 
-* xref:methods/depends.adoc[Depends] — `Depends()` / `Requires()` / `Alias()`
+Detailed tutorials: xref:methods/depends.adoc[Depends].
+
+`Depends()` / `Requires()` / `Alias()`.
 
 == Dialect, modules, and Profiles
 
@@ -194,12 +198,6 @@ IMPORTANT: `--cov` does not imply `--test` — use `cuppa -D --cov --test …`.
 Detailed tutorials: xref:methods/packages.adoc[Packages].
 
 See xref:packages.adoc[Publishing packages].
-
-== Documentation and assets
-
-Detailed tutorials: xref:methods/docs-assets.adoc[Docs and assets].
-
-NOTE: Flat `\{final}/\{basename}` collisions for some emitters — https://github.com/ja11sop/cuppa/issues/233[#233].
 
 [#test-reporting-plugins]
 == Test reporting plugins

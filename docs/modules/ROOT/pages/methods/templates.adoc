@@ -1,5 +1,0 @@
-= Template expansion (moved)
-:description: Redirect — templates live under Docs and assets
-
-`ExpandTemplateFile()`, `RenderJinjaTemplate()`, and the explanation of how these builders work
-now live on xref:methods/docs-assets.adoc[Documentation and asset methods].
