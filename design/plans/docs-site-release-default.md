@@ -1,7 +1,7 @@
 # Plan: default published docs to the latest release (not master)
 
 - **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-site-release-default`); [`docs/playbook.yml`](../../docs/playbook.yml); [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml); [`docs/antora.yml`](../../docs/antora.yml); Methods baseline [`methods-pages-split.md`](methods-pages-split.md); UI companion [`antora-ui-bundle.md`](antora-ui-bundle.md)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-site-release-default`); [`docs/playbook.yml`](../../docs/playbook.yml); [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml); [`docs/antora.yml`](../../docs/antora.yml); Methods baseline [`methods-pages-split.md`](methods-pages-split.md); agent Markdown [`docs-llms-txt.md`](docs-llms-txt.md); UI companion [`antora-ui-bundle.md`](antora-ui-bundle.md)
 - **Updated:** 2026-08-30
 - **Impact:** none — site publish / Antora versioning only (no Cuppa CLI behaviour)
 

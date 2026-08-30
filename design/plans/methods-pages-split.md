@@ -232,9 +232,9 @@ Custom commands may stay on the hub briefly, then move to `methods/custom-comman
 
 Land as **incremental docs commits** on one PR until Methods topic pages have a **baseline**
 (merge only when the live site would not show empty stubs). Good pairing afterward with
-[`docs-site-release-default.md`](docs-site-release-default.md) so visitors default to **released**
-docs, not `master`, and with [`antora-ui-bundle.md`](antora-ui-bundle.md) if the docs cycle gets a
-visible refresh.
+[`docs-site-release-default.md`](docs-site-release-default.md) (visitors default to **released**
+docs) and [`docs-llms-txt.md`](docs-llms-txt.md) (agent Markdown / `llms.txt`), and with
+[`antora-ui-bundle.md`](antora-ui-bundle.md) if the docs cycle gets a visible refresh.
 
 ## Folder layout
 
