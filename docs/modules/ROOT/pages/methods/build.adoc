@@ -15,10 +15,11 @@ action nodes (see xref:methods.adoc#progress-tracking-and-variant-scoping[Progre
 | Progress | Yes — via `NotifyProgress` on emitted targets
 |===
 
-== Building a program with `Build`
+== Building a program with `Build()`
 
-`env.Build(target, source, …)` produces a variant-aware executable.
-Cuppa compiles sources (via `Compile`), links a `Program`, and installs it under the variant's `final/` directory.
+`Build(target, source, …)` produces a variant-aware executable.
+Cuppa compiles sources (via `Compile()`), links with the wrapped SCons `Program()`, and
+installs the result under the variant's `final/` directory.
 
 [source,python]
 ----
@@ -33,13 +34,13 @@ Additional keyword arguments are forwarded to the underlying link step (for exam
 
 [WARNING]
 ====
-Prefer `env.Build` over calling the engine's
-https://scons.org/doc/production/HTML/scons-man.html[Program] builder directly.
+Using vanilla https://scons.org/doc/production/HTML/scons-man.html[`Program()`] from SCons
+will break your Cuppa builds (or leave binaries outside the layout you expect).
 
-A bare `env.Program(...)` is **not** Cuppa variant-aware: it does not follow Cuppa's
-`_build/…/<toolchain>/<variant>/…/final/` layout, does not participate in Cuppa progress
-reporting the same way, and does not pick up the multi-variant / multi-toolchain grid
-(`--dbg` / `--rel` / `--cov`, `--toolchains=…`) the way `Build` does.
+`Program()` is **not** Cuppa variant-aware: it does not follow Cuppa's
+`_build/…/<toolchain>/<variant>/…/final/` layout and does not pick up the multi-variant /
+multi-toolchain grid (`--dbg` / `--rel` / `--cov`, `--toolchains=…`) the way `Build()` does.
+Prefer `Build()`.
 
 [source,python]
 ----
@@ -51,6 +52,8 @@ env.Build('hello', ['hello.cpp'])
 ----
 
 The same idea appears in xref:quickstart.adoc[Quickstart] and xref:concepts.adoc[Concepts].
+(Progress reporting is not the issue — Cuppa wraps common SCons builders for that; see
+xref:methods.adoc#progress-tracking-and-variant-scoping[Progress tracking].)
 ====
 
 Build it:
@@ -80,9 +83,9 @@ env.Build(
 For packaging order after the binary exists (copy into a docker or artefacts tree), see
 xref:methods/depends.adoc[`Requires`] with xref:methods/files-and-templates.adoc[`CopyFiles`].
 
-== Compiling objects with `Compile`
+== Compiling objects with `Compile()`
 
-`env.Compile(source, …)` (and `CompileStatic` / `CompileShared`) turns sources into object files without linking.
+`Compile(source, …)` (and `CompileStatic()` / `CompileShared()`) turns sources into object files without linking.
 Use this when you need objects for custom link steps, or when you want to share objects across targets.
 
 [source,python]
@@ -98,12 +101,13 @@ trees do not collide.
 
 [WARNING]
 ====
-Prefer `env.Compile` (or `CompileStatic` / `CompileShared`) over calling the engine's
-https://scons.org/doc/production/HTML/scons-man.html[Object] builder directly.
+Using vanilla https://scons.org/doc/production/HTML/scons-man.html[`Object()`] from SCons
+will break your Cuppa builds (or leave objects outside the layout you expect).
 
-A bare `env.Object(...)` is **not** Cuppa variant-aware: object outputs will not reliably land
-under the variant `working/` tree with Cuppa's mirrored nested paths, and they will not share
-the same toolchain / modules / progress behaviour as `Compile`.
+`Object()` is **not** Cuppa variant-aware: outputs will not reliably land under the variant
+`working/` tree with Cuppa's mirrored nested paths, and they will not share the same
+toolchain / modules behaviour as `Compile()`. Prefer `Compile()` (or `CompileStatic()` /
+`CompileShared()`).
 
 [source,python]
 ----
@@ -113,16 +117,19 @@ the same toolchain / modules / progress behaviour as `Compile`.
 # Prefer:
 objs = env.Compile(['a.cpp', 'b.cpp'])
 ----
+
+(Progress reporting is not the issue — Cuppa wraps common SCons builders for that; see
+xref:methods.adoc#progress-tracking-and-variant-scoping[Progress tracking].)
 ====
 
 When `env['modules']` is true (see xref:cxx-modules.adoc[{cpp} Modules]), `Compile` delegates to the modules compile path so interface units produce BMIs and consumers receive the right consume flags.
 
-== Building libraries with `BuildLib`
+== Building libraries with `BuildLib()`
 
-`env.BuildLib` and `env.BuildStaticLib` produce a static archive under `final/`
-(via `CompileStatic` then the engine's `StaticLibrary`).
-`env.BuildSharedLib` produces a shared library there (via `CompileShared` then
-`SharedLibrary`), so object PIC and link mode stay matched.
+`BuildLib()` and `BuildStaticLib()` produce a static archive under `final/`
+(via `CompileStatic()` then the engine's `StaticLibrary()`).
+`BuildSharedLib()` produces a shared library there (via `CompileShared()` then
+`SharedLibrary()`), so object PIC and link mode stay matched.
 
 [source,python]
 ----
@@ -138,32 +145,33 @@ rest of the flag story on xref:methods/flags-and-toolchain.adoc[Flags and toolch
 
 [WARNING]
 ====
-Prefer `env.BuildLib` / `BuildStaticLib` / `BuildSharedLib` over calling the engine's
-https://scons.org/doc/production/HTML/scons-man.html[Library],
-https://scons.org/doc/production/HTML/scons-man.html[StaticLibrary], or
-https://scons.org/doc/production/HTML/scons-man.html[SharedLibrary] builders directly.
+Using vanilla https://scons.org/doc/production/HTML/scons-man.html[`Library()`],
+https://scons.org/doc/production/HTML/scons-man.html[`StaticLibrary()`], or
+https://scons.org/doc/production/HTML/scons-man.html[`SharedLibrary()`] from SCons
+will break your Cuppa builds (or leave libraries outside the layout you expect).
 
 Those builders are **not** Cuppa variant-aware: outputs will not land under the variant
-`final/` layout the way Cuppa's methods do, and they will not share the same progress /
-modules packaging behaviour.
+`final/` layout the way Cuppa's methods do, and they will not pick up Cuppa modules
+packaging under `final/modules/`. Prefer `BuildLib()` / `BuildStaticLib()` /
+`BuildSharedLib()`.
 
-In SCons, `Library` is only a synonym for `StaticLibrary` — it does **not** choose
-between static and shared. Shared libraries need `SharedLibrary` (and objects built for
-shared use). Cuppa makes that choice explicit with `BuildStaticLib` vs `BuildSharedLib`.
+In SCons, `Library()` is only a synonym for `StaticLibrary()` — it does **not** choose
+between static and shared. Shared libraries need `SharedLibrary()` (and objects built for
+shared use). Cuppa makes that choice explicit with `BuildStaticLib()` vs `BuildSharedLib()`.
 
 The split also matters when you *consume* libraries. On Linux, GCC and Clang toolchains
 rewrite the link line into a `-Xlinker -Bstatic` / `-Xlinker -Bdynamic` sandwich around
 Cuppa's `STATICLIBS` and `DYNAMICLIBS` slots (see
 xref:toolchains/gcc.adoc[GCC] and xref:toolchains/clang.adoc[Clang]).
-`env.Build(...)` routes `STATICLIBS` / `DYNAMICLIBS` (and `SHAREDLIBS` as an alias into
-the dynamic half) into that sandwich so you can force some archives static while leaving
+`Build()` routes `STATICLIBS` / `DYNAMICLIBS` (and `SHAREDLIBS` as an alias into the
+dynamic half) into that sandwich so you can force some archives static while leaving
 others dynamic — something that is awkward to control with a flat `LIBS` list and a bare
-`Library` / `Program` graph.
+`Library()` / `Program()` graph.
 
 [source,python]
 ----
 # Avoid in Cuppa projects:
-# env.Library('mathlib', ['math.cpp'])          # == StaticLibrary; not variant-aware
+# env.Library('mathlib', ['math.cpp'])          # == StaticLibrary(); not variant-aware
 # env.SharedLibrary('mathlib', ['math.cpp'])
 
 # Prefer — produce the right kind under final/:
@@ -175,6 +183,9 @@ env.AppendUnique(STATICLIBS=['mathlib'])
 env.AppendUnique(DYNAMICLIBS=['pthread'])
 env.Build('app', ['main.cpp'])
 ----
+
+(Progress reporting is not the issue — Cuppa wraps common SCons builders for that; see
+xref:methods.adoc#progress-tracking-and-variant-scoping[Progress tracking].)
 ====
 
 With `--cxx-modules` enabled, library builds that contain named module interfaces also install BMIs under `final/modules/` and write `module-map.json` for consumers (see xref:cxx-modules.adoc#packaged-modules[Packaged modules]).

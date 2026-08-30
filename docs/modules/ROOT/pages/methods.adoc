@@ -2,7 +2,11 @@
 :description: Cuppa environment methods for building, testing, libraries, and reporting
 
 Methods are registered on each cuppa environment and called from `sconscript` files after `Import('env')`.
-They differ from raw SCons builders (`Program`, `Object`, `StaticLibrary`) by understanding variants, toolchains, progress reporting, cuppa's `_build/` layout, and (when enabled) {cpp}20 modules.
+Cuppa methods such as `Build()`, `Compile()`, and `BuildLib()` differ from vanilla SCons
+builders (`Program()`, `Object()`, `Library()`, …) by understanding variants, toolchains,
+cuppa's `_build/` layout, and (when enabled) {cpp}20 modules.
+Progress reporting is separate: Cuppa also wraps the common SCons builders so they report
+progress on a sconscript env (see <<progress-tracking-and-variant-scoping>>).
 
 This hub is the entry point for that surface.
 Child pages under xref:methods/build.adoc[methods/] hold the detailed tutorials for each topic;
@@ -64,12 +68,24 @@ xref:toolchains/msvc.adoc[MSVC]).
 * Familiarity with `Import('env')` in a `sconscript`
 * A {cpp} toolchain available to cuppa (`gcc`, `clang`, or `vc` on Windows)
 
+[#progress-tracking-and-variant-scoping]
 == Progress tracking and variant scoping
 
 Cuppa wires build progress through `cuppa.progress.NotifyProgress` so each build variant reports begin/start/finish/end in a predictable order.
 
-`NotifyProgress` is attached to methods that emit build action nodes (`Build`, `Compile`, `Test`, coverage collation, doc builders, and so on).
-Methods that only mutate env state or select nodes (`StdCpp`, `BuildWith`, `Filter`, `RecursiveGlob`, `ImportModules`, etc.) do **not** call it directly.
+Cuppa attaches progress in two complementary ways:
+
+* **Cuppa methods** that emit build action nodes call `NotifyProgress.add` themselves
+  (`Build()`, `Compile()`, `Test()`, coverage collation, doc builders, and so on).
+* **Wrapped SCons builders** — when each sconscript env is created, Cuppa top-and-tails
+  the common engine builders (`Program()`, `Object()`, `Library()`, `StaticLibrary()`,
+  `SharedLibrary()`, `Install()`, `Command()`, …) with `MethodWithProgress` in
+  `cuppa.core.environment`. Those calls still report progress when they return SCons
+  nodes; that does **not** make them variant-aware substitutes for Cuppa methods such as
+  `Build()` or `Compile()`.
+
+Methods that only mutate env state or select nodes (`StdCpp()`, `BuildWith()`, `Filter()`,
+`RecursiveGlob()`, `ImportModules()`, etc.) do **not** call `NotifyProgress` directly.
 
 Progress nodes form a dependency chain that constrains when targets may run:
 
@@ -90,7 +106,9 @@ In cuppa's normal layout that path already includes the sconscript segment, so d
 
 Practical rules when adding or changing methods:
 
-* If a method creates SCons action nodes, wire `NotifyProgress.add(env, targets)` (or delegate to a method that already does).
+* If a Cuppa method creates SCons action nodes, wire `NotifyProgress.add(env, targets)`
+  (or delegate to a method that already does). Engine builders already on the wrap list
+  inherit progress via `MethodWithProgress` — do not double-wrap them.
 * If a method only configures env or returns filtered/existing nodes, do not add progress wiring.
 * Keep progress wiring on the same variant env that creates the nodes.
 

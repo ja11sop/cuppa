@@ -66,6 +66,8 @@ Methods are the core **`sconscript` vocabulary**. Each group deserves:
 | Graph edges | `Depends`, `Requires`, `Alias` on `depends.adoc` |
 | Upstream links | Optional deep links to SCons docs for completeness; **never** versioned doc URLs (they rot and confuse). Prefer Cuppa xrefs whenever we cover the method |
 | Depth | Engine methods get full tutorials and realistic examples — SCons upstream is notoriously thin/contrived; we do not outsource teaching to it |
+| Method names in prose | Monospace with empty parens: `` `Build()` `` — signals a method without stealing bold. Full calls (`env.Build('hello', …)`) stay in code blocks. Contrast engine builders as “vanilla SCons `Program()`” |
+| Progress vs variant | Do **not** claim vanilla SCons builders lack progress on a Cuppa env — `EnvironmentMethods.add_progress_tracking` wraps them. Prefer Cuppa methods for **variant / layout / toolchain / modules**; say “vanilla `X()` will break your Cuppa builds” for that footgun |
 
 Readers who have never heard of SCons should still find “how do I set flags?” and “how do I install files?” without a provenance taxonomy.
 
