@@ -1,18 +1,126 @@
 = Custom commands and working directories
-:description: cwd, spawn, and --use-shell notes for Run / Test
+:description: cwd, spawn, Command, and --use-shell notes for Run / Test
 
-This page will hold the full tutorial for Working-directory and shell spawn behaviour for `Run` / `Test` / related actions.
+Cuppa colours compiler and tool output by replacing the engine `SPAWN` with a processor that
+runs each command as an *argv list* (not through a shell). That is the right default for
+parallel builds, quoting, and safety — but it means **multi-part shell strings do not work**.
 
-Until the Methods split finishes migrating prose, use xref:methods.adoc#custom-commands-and-working-directories[Methods — Custom commands and working directories].
+`Command` for publisher CMake wrappers is also covered lightly here; pair with
+xref:methods/packages.adoc[Packages] and xref:methods/install.adoc[Install].
 
-== Behaviour (draft)
+== Behaviour summary
 
 [cols="1,3"]
 |===
-| Returns | N/A (behaviour notes)
-| Evaluation | Build-time spawn
-| Output paths | Caller / `cwd` controlled
-| Progress | N/A
+| Returns | N/A for spawn notes; `Command` returns action nodes
+| Evaluation | Build-time spawn / custom actions
+| Output paths | Caller / `cwd` / `working_dir` controlled
+| Progress | When action nodes are wired through NotifyProgress
 |===
 
-See also the hub xref:methods.adoc[Methods] and the behaviour track in the repository design plans (`method-behaviour-audit`).
+=== What fails
+
+Do *not* write actions like:
+
+[source,python]
+----
+# Avoid: "cd … && …" needs a shell; argv splitting breaks it
+env.Command(target, source, Action("cd $DIR && $COMMAND"))
+----
+
+The same problem appears with shell metacharacters that only a shell would expand (for example quoting tricks around linker `-Wl,-rpath='$ORIGIN'` when the quotes are meant for the shell rather than for the linker argv).
+
+SCons Builder `chdir=` is also a poor fit under parallel builds: Python has one process-wide current directory, so worker threads interfere with each other.
+SCons documents that limitation for `-j`.
+
+=== Prefer `cwd` (parallel-safe)
+
+Pass a working directory into the *subprocess*, not by changing the SCons process directory.
+
+For tests and runs, use the existing `working_dir` parameter on `BuildTest`, `Test`, `BuildBenchmark`, `Benchmark`, and `Run`:
+
+[source,python]
+----
+Import('env')
+
+env.BuildTest(
+    'cwd_probe',
+    ['cwd_probe.cpp'],
+    working_dir=env['abs_final_dir'],  # process cwd; no "cd && …"
+)
+----
+
+For a custom `env.Command`, use a Python action (or cuppa's helper) that calls the tool with `cwd=`:
+
+[source,python]
+----
+Import('env')
+import os
+from cuppa.utility.command import run
+
+tool = env.Build('tool', ['tool.cpp'])
+marker = env.File(os.path.join(env['abs_final_dir'], 'tool.done'))
+# Basename only: working_dir supplies the directory. Avoid './' or '.\\' prefixes —
+# shlex.split (posix) would treat '\\t' in '.\\tool.exe' as an escape on Windows.
+tool_cmd = 'tool{} --self-check'.format(env['PROGSUFFIX'])
+
+env.Command(
+    marker,
+    tool,
+    run(tool_cmd, working_dir=env['abs_final_dir'], completion_file=marker),
+)
+----
+
+`cuppa.utility.command.run` splits the command with `shlex`, resolves a relative executable against `working_dir` when that file exists, and runs it via cuppa's incremental subprocess helper with `cwd=working_dir`.
+Pass a basename such as `tool` / `tool.exe` (via `env['PROGSUFFIX']`) rather than `./tool` or `.\\tool.exe` — the latter is mangled by posix `shlex` on Windows (`\\t` becomes a tab escape).
+That stays correct under `--parallel` / SCons `-j` because each process gets its own working directory without `os.chdir` in the build process.
+
+You can also use a small Python `Action` that builds an argv list and passes `cwd=` to `subprocess` (or to `IncrementalSubProcess.Popen2`) yourself.
+Python actions do not go through the coloured `SPAWN` path as shell strings.
+
+=== When `--use-shell` is appropriate
+
+`--use-shell` makes cuppa join the argv list and run with `subprocess` `shell=True` on the **IncrementalSubProcess** path used by colourised POSIX `SPAWN` (and by helpers such as `cuppa.utility.command.run`).
+
+That can unstick a legacy multi-part shell action or shell-only quoting on that path, but:
+
+* It is *not* the default (enabling it by default has broken Linux builds in the past)
+* Prefer rewriting the action with `working_dir` / `cwd=` / a Python callable instead
+* Treat it as an escape hatch for tools you do not control, not as the recommended pattern
+
+[NOTE]
+====
+*Why Linux and Windows colourise differently*
+
+SCons exposes both `SPAWN` (normal process launch) and `PSPAWN` (piped launch that can write stdout/stderr to caller-supplied streams).
+Cuppa replaces `SPAWN` on both platforms so toolchain output can be filtered and colourised.
+
+On **Windows**, colourised `SPAWN` wraps the native `PSPAWN` implementation: SCons still launches the process (including shell-capable `cmd` behaviour), and cuppa reads the piped streams on the side.
+That was a practical way to colour output without reimplementing Windows process launching.
+
+On **POSIX**, the colourised path instead launches via `IncrementalSubProcess` (`subprocess.Popen` on an argv list) and consumes stdout/stderr *line by line* as the child runs.
+The motivation was interactive feedback: wrapping or buffering through the default piped spawn tended to hold output until a long compile or link finished, so the user saw nothing useful for a long time.
+Reading incrementally from pipes lets cuppa print and colour warnings/errors as they appear.
+
+The trade-off is that this POSIX path does not go through a shell.
+Multi-part strings such as `Action("cd … && …")` therefore fail under default colourised output on Linux (`cd` is treated as the executable).
+
+Windows colourised `SPAWN` may still accept those strings because it reuses `PSPAWN`; that is a platform difference in the spawn wrapper, not a reason to use `cd &&` in portable sconscripts.
+
+* **POSIX + colourised output (default):** argv `IncrementalSubProcess` — multi-part shell strings fail.
+* **POSIX + `--raw-output`:** colourised `SPAWN` is not installed; SCons' default shell spawn can run `cd … && …` (still not recommended for parallel-safe builds).
+* **Windows + colourised output (default):** `windows_spawn` wraps native `PSPAWN` — shell-style strings may succeed; prefer `working_dir` / `cwd=` anyway.
+====
+
+See xref:cli/output-and-environment.adoc#environment-propagation[Output and environment] for the
+`--use-shell` flag and subprocess environment controls.
+
+Integration coverage for these examples: xref:integration/test-custom-commands.adoc[].
+
+
+== Related methods
+
+* xref:methods/test-run.adoc[Test and run] — `working_dir` on `BuildTest` / `Run`
+* xref:methods/packages.adoc[Packages] — `Command` before `PublishPackage`
+* xref:cli/output-and-environment.adoc#environment-propagation[Output and environment]
+* xref:integration/test-custom-commands.adoc[Integration: Custom commands]

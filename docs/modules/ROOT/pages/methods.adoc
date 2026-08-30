@@ -96,390 +96,70 @@ Practical rules when adding or changing methods:
 
 == Core build methods
 
-Detailed tutorials for `Build`, `Compile`, and `BuildLib` live on
-xref:methods/build.adoc[Build methods].
+Detailed tutorials: xref:methods/build.adoc[Build methods].
 
-`env.Build` produces a variant-aware executable under `final/`.
-`env.Compile` (and `CompileStatic` / `CompileShared`) emit objects that mirror the source tree
-under `working/`.
-`env.BuildStaticLib` / `BuildSharedLib` / `BuildLib` install libraries into `final/`.
-
-[source,python]
-----
-Import('env')
-
-env.Build('hello', ['hello.cpp'])
-----
-
-[source,sh]
-----
-cuppa -D --dbg
-----
+`env.Build` → `final/`; `Compile*` mirrors objects under `working/`; `Build*Lib` installs libraries into `final/`.
 
 == Test and run methods
 
-Detailed tutorials for `BuildTest`, `Test`, `BuildBenchmark`, `Benchmark`, and `Run` live on
-xref:methods/test-run.adoc[Test and run].
+Detailed tutorials: xref:methods/test-run.adoc[Test and run].
 
-A typical test sconscript builds each case with `BuildTest`, copies filtered outputs with
-`CopyFiles` + `Filter`, then collates coverage and HTML reports (see the Test and run page for
-the full pattern).
-
-[source,python]
-----
-Import('env')
-
-env.BuildTest('unit_tests', ['tests.cpp'])
-----
-
-[source,sh]
-----
-cuppa -D --dbg --test --show-test-output
-----
+Typical spine: `BuildWith` → `BuildTest` → `CopyFiles` + `Filter` → coverage / HTML report collate.
 
 == Custom commands and working directories
 
-Cuppa colours compiler and tool output by replacing SCons `SPAWN` with a processor that runs each command as an *argv list* (not through a shell).
-That is the right default for parallel builds, quoting, and safety — but it means **multi-part shell strings do not work**.
+Detailed tutorials: xref:methods/custom-commands.adoc[Custom commands].
 
-=== What fails
-
-Do *not* write actions like:
-
-[source,python]
-----
-# Avoid: "cd … && …" needs a shell; argv splitting breaks it
-env.Command(target, source, Action("cd $DIR && $COMMAND"))
-----
-
-The same problem appears with shell metacharacters that only a shell would expand (for example quoting tricks around linker `-Wl,-rpath='$ORIGIN'` when the quotes are meant for the shell rather than for the linker argv).
-
-SCons Builder `chdir=` is also a poor fit under parallel builds: Python has one process-wide current directory, so worker threads interfere with each other.
-SCons documents that limitation for `-j`.
-
-=== Prefer `cwd` (parallel-safe)
-
-Pass a working directory into the *subprocess*, not by changing the SCons process directory.
-
-For tests and runs, use the existing `working_dir` parameter on `BuildTest`, `Test`, `BuildBenchmark`, `Benchmark`, and `Run`:
-
-[source,python]
-----
-Import('env')
-
-env.BuildTest(
-    'cwd_probe',
-    ['cwd_probe.cpp'],
-    working_dir=env['abs_final_dir'],  # process cwd; no "cd && …"
-)
-----
-
-For a custom `env.Command`, use a Python action (or cuppa's helper) that calls the tool with `cwd=`:
-
-[source,python]
-----
-Import('env')
-import os
-from cuppa.utility.command import run
-
-tool = env.Build('tool', ['tool.cpp'])
-marker = env.File(os.path.join(env['abs_final_dir'], 'tool.done'))
-# Basename only: working_dir supplies the directory. Avoid './' or '.\\' prefixes —
-# shlex.split (posix) would treat '\\t' in '.\\tool.exe' as an escape on Windows.
-tool_cmd = 'tool{} --self-check'.format(env['PROGSUFFIX'])
-
-env.Command(
-    marker,
-    tool,
-    run(tool_cmd, working_dir=env['abs_final_dir'], completion_file=marker),
-)
-----
-
-`cuppa.utility.command.run` splits the command with `shlex`, resolves a relative executable against `working_dir` when that file exists, and runs it via cuppa's incremental subprocess helper with `cwd=working_dir`.
-Pass a basename such as `tool` / `tool.exe` (via `env['PROGSUFFIX']`) rather than `./tool` or `.\\tool.exe` — the latter is mangled by posix `shlex` on Windows (`\\t` becomes a tab escape).
-That stays correct under `--parallel` / SCons `-j` because each process gets its own working directory without `os.chdir` in the build process.
-
-You can also use a small Python `Action` that builds an argv list and passes `cwd=` to `subprocess` (or to `IncrementalSubProcess.Popen2`) yourself.
-Python actions do not go through the coloured `SPAWN` path as shell strings.
-
-=== When `--use-shell` is appropriate
-
-`--use-shell` makes cuppa join the argv list and run with `subprocess` `shell=True` on the **IncrementalSubProcess** path used by colourised POSIX `SPAWN` (and by helpers such as `cuppa.utility.command.run`).
-
-That can unstick a legacy multi-part shell action or shell-only quoting on that path, but:
-
-* It is *not* the default (enabling it by default has broken Linux builds in the past)
-* Prefer rewriting the action with `working_dir` / `cwd=` / a Python callable instead
-* Treat it as an escape hatch for tools you do not control, not as the recommended pattern
-
-[NOTE]
-====
-*Why Linux and Windows colourise differently*
-
-SCons exposes both `SPAWN` (normal process launch) and `PSPAWN` (piped launch that can write stdout/stderr to caller-supplied streams).
-Cuppa replaces `SPAWN` on both platforms so toolchain output can be filtered and colourised.
-
-On **Windows**, colourised `SPAWN` wraps the native `PSPAWN` implementation: SCons still launches the process (including shell-capable `cmd` behaviour), and cuppa reads the piped streams on the side.
-That was a practical way to colour output without reimplementing Windows process launching.
-
-On **POSIX**, the colourised path instead launches via `IncrementalSubProcess` (`subprocess.Popen` on an argv list) and consumes stdout/stderr *line by line* as the child runs.
-The motivation was interactive feedback: wrapping or buffering through the default piped spawn tended to hold output until a long compile or link finished, so the user saw nothing useful for a long time.
-Reading incrementally from pipes lets cuppa print and colour warnings/errors as they appear.
-
-The trade-off is that this POSIX path does not go through a shell.
-Multi-part strings such as `Action("cd … && …")` therefore fail under default colourised output on Linux (`cd` is treated as the executable).
-
-Windows colourised `SPAWN` may still accept those strings because it reuses `PSPAWN`; that is a platform difference in the spawn wrapper, not a reason to use `cd &&` in portable sconscripts.
-
-* **POSIX + colourised output (default):** argv `IncrementalSubProcess` — multi-part shell strings fail.
-* **POSIX + `--raw-output`:** colourised `SPAWN` is not installed; SCons' default shell spawn can run `cd … && …` (still not recommended for parallel-safe builds).
-* **Windows + colourised output (default):** `windows_spawn` wraps native `PSPAWN` — shell-style strings may succeed; prefer `working_dir` / `cwd=` anyway.
-====
-
-See xref:cli/output-and-environment.adoc#environment-propagation[Output and environment] for the
-`--use-shell` flag and subprocess environment controls.
-
-Integration coverage for these examples: xref:integration/test-custom-commands.adoc[].
+Prefer `working_dir` / `cwd=` over `cd && …`; treat `--use-shell` as an escape hatch.
 
 == Dependencies and profiles
 
-[source,python]
-----
-Import('env')
+Detailed tutorials: xref:methods/dependencies-and-profiles.adoc[Dependencies and profiles].
 
-env.BuildWith('boost')
-env.BuildProfile('quad_float')   # example built-in profile
-env.Build('app', ['main.cpp'])
-----
+`BuildWith` / `Using` / `BuildProfile` — see also xref:dependencies.adoc[Dependencies].
 
-* `BuildWith` applies named dependency factories (Boost, location packages, GitLab packages, …)
-  and returns the dependency instance (or a list). Where the dependency provides libraries,
-  chain `.use_libs([...])` — for example `env.BuildWith('boost').use_libs(['filesystem'])` or
-  the same call on a `boost_package` / other `package_dependency`
-* `Using` looks up a dependency factory by name
-* `BuildProfile` applies named profiles (lightweight env tweaks)
+== Files, discovery, and templates
 
-See xref:dependencies.adoc[Dependencies] and xref:packages.adoc[Publishing packages].
+Detailed tutorials: xref:methods/files-and-templates.adoc[Files and templates].
 
-== Versioning and sources
+`RecursiveGlob` / `GlobFiles` / `Glob` / `Filter` / `CopyFiles` / `CreateVersion` / templates.
 
-[cols="2,3"]
-|===
-| Method | Role
+== Flags and toolchain
 
-| `env.CreateVersion(…)`
-| SCM-aware generated version sources
+Detailed tutorials: xref:methods/flags-and-toolchain.adoc[Flags and toolchain].
 
-| `env.RecursiveGlob(…)`
-| Recursive configure-time tree walk (Cuppa's stand-in for a recursive Glob); disk + `Dir.entries` + Repositories; `exclude_dirs` / `discard_pattern`
+`AppendUnique`, `MergeFlags`, `ReplaceFlags`, `RemoveFlags`, `Toolchain`.
 
-| `env.GlobFiles(…)`
-| Single-directory discovery via SCons `Glob` after resolving Cuppa `start=` / `#/` (includes declared `File` nodes)
+== Install and Depends
 
-| `env.Glob(…)` (SCons)
-| Single-directory (or one path segment per `*` / `**`) discovery; matches do **not** recurse through `/`
+* xref:methods/install.adoc[Install] — `Install` / `InstallAs` vs `CopyFiles`
+* xref:methods/depends.adoc[Depends] — `Depends` / `Requires` / `Alias`
 
-| `env.TargetFrom(path)`
-| Derive a target basename from a path
+== Dialect, modules, and Profiles
 
-| `env.CopyFiles` / `env.CopyFilesAs`
-| Filtered install/copy helpers
-|===
+Detailed tutorials: xref:methods/cxx-dialect-and-modules.adoc[{cpp} dialect and modules].
 
-=== Choosing RecursiveGlob, GlobFiles, Glob, and Filter
-
-Name the two axes separately:
-
-* **Recursion** — does discovery walk nested directories?
-* **Evaluation** — *disk walk + local `Dir.entries` + Repositories* (`RecursiveGlob`) vs *SCons directory Glob* (`env.Glob` / `env.GlobFiles`)
-
-Cuppa's recursive walk **is** the practical answer to “recursive Glob” in SCons today: upstream `Glob` still does not span `/`, and `**` is only one path segment. Prefer ``env.RecursiveGlob`` for nested trees. Use ``env.GlobFiles`` (Cuppa `start=` / `#/` vocabulary over SCons directory Glob) or SCons ``env.Glob`` for a single directory; use ``env.Filter`` to narrow either source.
-
-Both Cuppa snapshot helpers and SCons ``Glob`` re-run whenever Cuppa re-reads the sconscript (every normal build). New files appear on the next invocation either way — the day-to-day impact of snapshot-vs-directory-Glob is low. Recursion, ``exclude_dirs`` / ``discard_pattern``, and ``start=`` / ``#/`` vocabulary are the differences that matter.
-
-[cols="2,3,3"]
-|===
-| API | What it finds | Typical use
-
-| `env.RecursiveGlob('*.cpp', start='src')`
-| All matching files under `src/` (disk + declared `File`s + Repository trees)
-| Nested libraries/apps; skip `_build` / dependencies via `exclude_dirs`
-
-| `env.GlobFiles('*_test.cpp', start='tests')`
-| Only files directly in `tests/` (disk + declared `File` nodes)
-| Flat test or app folders; same SCons FS rules as `Glob`
-
-| SCons `env.Glob('#/tests/*.cpp')`
-| Only files directly in `tests/`
-| Flat dirs when you want SCons-native `File` nodes
-
-| SCons `env.Glob('#/src/*/*.cpp')`
-| Exactly one directory level under `src/`
-| Shallow layouts; **not** a full tree walk
-
-| `env.Filter(nodes, match=…, exclude=…)`
-| Subset of an existing node list
-| Narrow RecursiveGlob or Glob results
-|===
-
-`Filter` matches against both the node's project-relative path and its absolute
-string form:
-
-[source,python]
-----
-candidates = env.RecursiveGlob('*.cpp', start='#/src')
-tests = env.Filter(candidates, match='*_test.cpp', exclude='*/detail/*')
-
-candidates = env.Glob('#/tests/*.cpp')
-tests = env.Filter(candidates, match='*_test.cpp')
-----
-
-Do **not** write `env.Glob('#/src/**/*.cpp')` expecting every nested `.cpp` under `src/`. Use `RecursiveGlob` for the full tree.
-
-For ordinary on-disk trees the file sets from `GlobFiles` and `Glob` on the same
-directory match. `GlobFiles` is implemented with SCons `Glob` after resolving
-Cuppa `start=` / `#/`, so it also sees declared `File` nodes and Repository
-entries. `RecursiveGlob` walks the disk, merges matching nodes from each
-visited directory's SCons `Dir.entries` (declared `File`s not on disk yet,
-including nested declared paths), and walks the union of local and Repository
-subdirectory names — calling SCons `Dir.glob` at each logical directory so
-Repository files are visible even under repo-only subdirectory trees:
-
-[source,python]
-----
-Repository('#/../repo')               # repo/src/from_repo.cpp; project/src/local.cpp
-env.Glob('src/*.cpp')                 # local.cpp + from_repo.cpp
-env.GlobFiles('*.cpp', start='src')   # local.cpp + from_repo.cpp
-env.RecursiveGlob('*.cpp', start='src')  # local.cpp + from_repo.cpp
-
-# repo/src/nested/deep.cpp with no project/src/nested/ on disk:
-env.Glob('src/nested/*.cpp')             # deep.cpp
-env.RecursiveGlob('*.cpp', start='src')  # includes nested/deep.cpp
-
-env.File('src/ghost.cpp')             # declared, not on disk
-env.Glob('src/*.cpp')                 # includes ghost.cpp
-env.GlobFiles('*.cpp', start='src')   # includes ghost.cpp
-env.RecursiveGlob('*.cpp', start='src')  # includes ghost.cpp
-----
-
-Path vocabulary for Cuppa snapshot discovery (`start=`):
-
-* `#/…` or `#…` — from the project / sconstruct root
-* `start='src'` — directory relative to the calling sconscript
-* Absolute paths — last resort (packages / generated trees)
-
-Example -- collect sources and name the binary from a path:
-
-[source,python]
-----
-Import('env')
-
-sources = env.RecursiveGlob('*.cpp', start='src')
-env.Build(env.TargetFrom('src/apps/server.cpp'), sources)
-----
-
-== Dialect, modules, and flags
-
-[cols="2,3"]
-|===
-| Method | Role
-
-| `env.StdCpp(standard)`
-| Set the {cpp} dialect for this env (for example `'c{plus}{plus}20'`, `'c{plus}{plus}23'`)
-
-| `env.CxxModules()` / `--cxx-modules`
-| Enable {cpp}20 modules for this env / all variants
-
-| `env.HeaderUnit(path)`
-| Register a header for BMI compilation (`'include/h.hpp'` or `'<span>'`)
-
-| `env.Module(name, interface=…, implementation=…)`
-| Compile/register a named module; objects link into a later `Build` in the same env
-
-| `env.ImportModules(dir)`
-| Load `modules/module-map.json` + BMIs from a packaged library
-
-| `env.Filter` / `ReplaceFlags` / `RemoveFlags`
-| Flag list manipulation
-|===
-
-Dialect and modules interact with toolchain defaults documented under
-xref:toolchains.adoc#c-language-level[{cpp} language level] and the family pages.
-A full modules walkthrough is in xref:cxx-modules.adoc[{cpp} Modules].
-
-[source,python]
-----
-Import('env')
-
-env.StdCpp('c++20')
-env.CxxModules()
-env.Module('math', interface='math.cppm', implementation=['math.cpp'])
-env.Build('app', ['main.cpp'])
-----
+See also xref:cxx-modules.adoc[{cpp} Modules] and xref:cxx-profiles.adoc[{cpp} Profiles].
 
 == Coverage
 
-[cols="2,3"]
-|===
-| Method | Role
+Detailed tutorials: xref:methods/coverage.adoc[Coverage methods].
 
-| `env.Coverage(program, sources, …)`
-| Run coverage tooling for a binary (active with `--cov` / related actions)
-
-| `env.CollateCoverageFiles(sources, destination=…)`
-| Collate coverage HTML/JSON
-
-| `env.CollateCoverageIndex(…)`
-| Master coverage index across tests/toolchains
-|===
-
-IMPORTANT: `--cov` does *not* imply `--test`. For a typical coverage workflow:
-
-[source,sh]
-----
-cuppa -D --cov --test --toolchains=gcc
-----
-
-See xref:testing-coverage.adoc[Testing and coverage].
-Coverage instrumentation is supported for GCC and Clang; MSVC does not participate.
+IMPORTANT: `--cov` does not imply `--test` — use `cuppa -D --cov --test …`.
 
 == Packages
 
-[cols="2,3"]
-|===
-| Method | Role
+Detailed tutorials: xref:methods/packages.adoc[Packages].
 
-| `env.PublishPackage(…)`
-| Build (and optionally publish) a package; GitLab generic tarball or Conan `export-pkg` via a publisher object; upload requires `--publish-package`
+See xref:packages.adoc[Publishing packages].
 
-| `env.InstallPackage(…)`
-| Install a package locally and extend `SYSINCPATH`
-|===
+== Documentation and assets
 
-See xref:packages.adoc[Publishing packages] for `GitlabPackagePublisher` and `ConanPackagePublisher` usage.
+Detailed tutorials: xref:methods/docs-assets.adoc[Docs and assets].
 
-== Templates and documentation helpers
+NOTE: Flat `{final}/{basename}` collisions for some emitters — https://github.com/ja11sop/cuppa/issues/233[#233].
 
-[cols="2,3"]
-|===
-| Method | Role
-
-| `env.ExpandTemplateFile` / `env.RenderJinjaTemplate`
-| Template expansion
-
-| `env.MarkdownToHtml` / `env.AsciidocToHtml`
-| Doc conversion builders
-
-| `env.CompileScss`
-| SCSS → CSS
-
-| `env.RunAndRedirectToFile`
-| Capture subprocess stdout to a file
-
-| `env.Toolchain(name)`
-| Look up a registered toolchain by registry key (`clang`, `gcc15`, …) or by `toolchain.name()` (build/ABI identity, e.g. `clang-libc{plus}{plus}`)
-|===
-
+[#test-reporting-plugins]
 == Test reporting plugins
 
 When the corresponding plugins are loaded (shipped with cuppa via `cuppa.method.plugins`):
@@ -488,11 +168,60 @@ When the corresponding plugins are loaded (shipped with cuppa via `cuppa.method.
 * `env.CollateTestReportIndex(…)`
 * Bitten XML report generation (`GenerateBittenReport`)
 
-These activate in concert with `--test`.
+These activate in concert with `--test`. Full detail remains on this hub until a dedicated child page exists; they appear in the everyday test spine on xref:methods/test-run.adoc[Test and run].
+
+[#method-index]
+== Method index
+
+Grouped names → topic page. Prefer these links over upstream docs when both exist.
+
+[cols="1,2"]
+|===
+| Group | Methods → page
+
+| Build
+| `Build`, `Compile`, `CompileStatic`, `CompileShared`, `BuildLib`, `BuildStaticLib`, `BuildSharedLib` → xref:methods/build.adoc[Build]
+
+| Test and run
+| `BuildTest`, `Test`, `BuildBenchmark`, `Benchmark`, `Run` → xref:methods/test-run.adoc[Test and run]
+
+| Coverage
+| `Coverage`, `CollateCoverageFiles`, `CollateCoverageIndex` → xref:methods/coverage.adoc[Coverage]
+
+| Dialect / modules / Profiles
+| `StdCpp`, `CxxModules`, `Module`, `HeaderUnit`, `ImportModules`, Profiles helpers → xref:methods/cxx-dialect-and-modules.adoc[Dialect and modules]
+
+| Dependencies / profiles
+| `BuildWith`, `Using`, `BuildProfile` → xref:methods/dependencies-and-profiles.adoc[Dependencies]
+
+| Flags / toolchain
+| `Toolchain`, `ReplaceFlags`, `RemoveFlags`, `AppendUnique`, `MergeFlags`, `Append` → xref:methods/flags-and-toolchain.adoc[Flags]
+
+| Files / discovery / templates
+| `RecursiveGlob`, `GlobFiles`, `Glob`, `Filter`, `CopyFiles`, `CopyFilesAs`, `TargetFrom`, `CreateVersion`, `ExpandTemplateFile`, `RenderJinjaTemplate` → xref:methods/files-and-templates.adoc[Files]
+
+| Install
+| `Install`, `InstallAs` → xref:methods/install.adoc[Install]
+
+| Depends
+| `Depends`, `Requires`, `Alias` → xref:methods/depends.adoc[Depends]
+
+| Docs / assets
+| `MarkdownToHtml`, `AsciidocToHtml`, `CompileScss`, `RunAndRedirectToFile` (+ templates / `CreateVersion`) → xref:methods/docs-assets.adoc[Docs and assets]
+
+| Packages
+| `PublishPackage`, `InstallPackage`, `Command` (publishers) → xref:methods/packages.adoc[Packages] · xref:methods/custom-commands.adoc[Custom commands]
+
+| Custom commands
+| `working_dir` / `cwd` / `--use-shell` / `Command` → xref:methods/custom-commands.adoc[Custom commands]
+
+| Test report plugins
+| `GenerateHtmlTestReport`, `CollateTestReportIndex`, `GenerateBittenReport` → <<test-reporting-plugins>>
+|===
 
 == What you have available
 
-You can now express programs, libraries, tests, and module-aware builds using cuppa methods instead of assembling SCons builders by hand.
+You can express programs, libraries, tests, and module-aware builds using cuppa methods instead of assembling builders by hand.
 Next, inspect xref:toolchains.adoc[Toolchains] and the family pages so you know which flags
 each compiler receives by default, and xref:cxx-modules.adoc[{cpp} Modules] if you are adopting
 `import` / `export module`.

@@ -1,18 +1,45 @@
 = Dependencies and build-profile methods
 :description: BuildWith, Using, and BuildProfile
 
-This page will hold the full tutorial for `BuildWith`, `Using`, `BuildProfile`.
+Cuppa dependencies and build-time profiles are applied on the environment before you call
+`Build` / `BuildTest`. Deep tutorials for location, GitLab, and Conan packages live under
+xref:dependencies.adoc[Dependencies].
 
-Until the Methods split finishes migrating prose, use xref:methods.adoc#dependencies-and-profiles[Methods — Dependencies and profiles].
-
-== Behaviour (draft)
+== Behaviour summary
 
 [cols="1,3"]
 |===
-| Returns | Side effects on env / build graph
+| Returns | `BuildWith` returns the dependency instance (or a list); chain `.use_libs([...])` when present
 | Evaluation | Configure-time
 | Output paths | N/A (dependency trees under `--dependencies-root`)
 | Progress | No (env / selection only)
 |===
 
-See also the hub xref:methods.adoc[Methods] and the behaviour track in the repository design plans (`method-behaviour-audit`).
+== Everyday pattern
+
+[source,python]
+----
+Import('env')
+
+env.BuildWith('boost')
+env.BuildProfile('quad_float')   # example built-in profile
+env.Build('app', ['main.cpp'])
+----
+
+* `BuildWith` applies named dependency factories (Boost, location packages, GitLab packages, …)
+  and returns the dependency instance (or a list). Where the dependency provides libraries,
+  chain `.use_libs([...])` — for example `env.BuildWith('boost').use_libs(['filesystem'])` or
+  the same call on a `boost_package` / other `package_dependency`
+* `Using` looks up a dependency factory by name
+* `BuildProfile` applies named profiles (lightweight env tweaks — not the same as {cpp} Profiles)
+
+After `BuildWith`, projects often add defines with `MergeFlags` — see
+xref:methods/flags-and-toolchain.adoc[Flags and toolchain].
+
+== Related methods
+
+* xref:dependencies.adoc[Dependencies] · xref:packages.adoc[Publishing packages]
+* xref:methods/flags-and-toolchain.adoc[Flags and toolchain]
+* xref:methods/build.adoc[Build] · xref:methods/test-run.adoc[Test and run]
+* xref:integration/test-build-with.adoc[Integration: BuildWith] ·
+  xref:integration/test-build-profile.adoc[Integration: BuildProfile]

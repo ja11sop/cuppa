@@ -1,18 +1,42 @@
 = Package methods
 :description: PublishPackage and InstallPackage
 
-This page will hold the full tutorial for `PublishPackage`, `InstallPackage`.
+Cuppa package methods stage and publish libraries for registry or Conan consumers.
+Publisher trees often combine `Command`, `Install`, and `Depends` / `Requires` — see
+xref:methods/install.adoc[Install] and xref:methods/depends.adoc[Depends].
 
-Until the Methods split finishes migrating prose, use xref:methods.adoc#packages[Methods — Packages].
-
-== Behaviour (draft)
+== Behaviour summary
 
 [cols="1,3"]
 |===
 | Returns | Package-related nodes
-| Evaluation | Configure / build
-| Output paths | Package layout under cuppa package roots
+| Evaluation | Configure / build; upload typically requires `--publish-package`
+| Output paths | Package layout under cuppa package roots / registry archives
 | Progress | As wired by package publishers
 |===
 
-See also the hub xref:methods.adoc[Methods] and the behaviour track in the repository design plans (`method-behaviour-audit`).
+== Methods
+
+[cols="2,3"]
+|===
+| Method | Role
+
+| `env.PublishPackage(…)`
+| Build (and optionally publish) a package; GitLab generic tarball or Conan `export-pkg` via a publisher object; upload requires `--publish-package`
+
+| `env.InstallPackage(…)`
+| Install a package locally and extend `SYSINCPATH`
+|===
+
+See xref:packages.adoc[Publishing packages] for `GitlabPackagePublisher` and `ConanPackagePublisher` usage.
+
+Custom `Command` steps that wrap external CMake generate/build before `Install` are common in
+publisher sconscripts — see xref:methods/custom-commands.adoc[Custom commands].
+
+== Related methods
+
+* xref:methods/install.adoc[Install] · xref:methods/depends.adoc[Depends]
+* xref:methods/dependencies-and-profiles.adoc[Dependencies and profiles] — consuming packages via `BuildWith`
+* xref:packages.adoc[Publishing packages] · xref:dependencies/packages.adoc[Package dependencies]
+* xref:integration/test-packages.adoc[Integration: Packages] ·
+  xref:integration/test-conan.adoc[Conan]

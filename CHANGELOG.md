@@ -44,11 +44,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Methods documentation starts a hub + child-page layout under ``methods/`` (nav stubs and
-  topic map). Topic pages are named by job (``install``, ``depends``, ``flags-and-toolchain``,
-  …), not by build-engine provenance; flag helpers such as ``AppendUnique`` / ``MergeFlags``
-  sit with Cuppa ``ReplaceFlags`` / ``RemoveFlags``. ``Build`` / ``Compile`` / ``BuildLib`` and
-  the test/run family now live on child pages with hub summaries.
+- Methods documentation uses a hub plus job-named child pages under ``methods/`` (Build, Test,
+  Coverage, dialect/modules, dependencies, flags, files, install, depends, docs assets, packages,
+  custom commands). The hub keeps progress overview, topic summaries, and a method index.
+  ``AppendUnique`` / ``MergeFlags`` sit with Cuppa flag helpers; engine ``Install`` / ``Depends``
+  get full tutorials. Flat doc/asset basename collisions remain tracked as
+  ([#233](https://github.com/ja11sop/cuppa/issues/233)).
 - Profiles inventory no longer requires ``--cxx-disable-error-limit``; report mode implies
   unlimited per-TU diagnostics (Clang ``-ferror-limit=0``, GCC ``-fmax-errors=0``) unless
   ``--cxx-default-error-limit`` or ``--cxx-error-limit=`` is set. Cuppa strips any existing

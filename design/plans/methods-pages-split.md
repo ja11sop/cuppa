@@ -195,10 +195,10 @@ Custom commands may stay on the hub briefly, then move to `methods/custom-comman
 | **0** | Behaviour audit fixed or deferred | [#213](https://github.com/ja11sop/cuppa/issues/213) + glob parity **done**; `mba-artifact-paths` **deferred** ([#233](https://github.com/ja11sop/cuppa/issues/233)) |
 | **A** | Hub map + nav skeleton + stubs | Job-named pages; no `scons-*` filenames |
 | **B** | Build + test groups | **Done** — #213 semantics; everyday Filter/CopyFiles pattern on test page |
-| **E′** | Flags / depends / install depth | **In progress** — full tutorials; unversioned `scons.org/doc/production/…` links only |
-| **C** | Coverage + C++ groups | Link cxx-modules / cxx-profiles |
-| **D** | Remaining groups | Files, packages, docs assets (call out flat-basename until #233 fixed) |
-| **F** | Redirect grep + method index | Fix moved anchors; land comprehensive index |
+| **E′** | Flags / depends / install depth | **Done** — full tutorials; unversioned production upstream links |
+| **C** | Coverage + C++ groups | **Done** — baseline topic pages |
+| **D** | Remaining groups | **Done** — files, packages, docs assets, custom commands, deps |
+| **F** | Redirect grep + method index | **Partial** — hub method index landed; keep fixing moved anchors as needed |
 
 ## Progress snapshot
 
@@ -206,7 +206,9 @@ Custom commands may stay on the hub briefly, then move to `methods/custom-comman
 |-------|--------|
 | 0 | Largely done — artifact-path emitters deferred with issue |
 | A | **Done** — hub topic map + job-named stubs (no `scons-*`); flags page owns AppendUnique/MergeFlags |
-| E′ | **In progress** — flags / depends / install tutorials drafted (full depth, production upstream links) |
+| E′ | **Done** — flags / depends / install tutorials |
+| C–D | **Done** — remaining topic baselines migrated off the hub |
+| F | **Partial** — hub <<method-index>> present; continue anchor cleanup |
 | Consumer survey | **Done** (2026-08-30) |
 | Naming / grouping settled | **Done** — job pages, flags coalesce, full engine depth |
 | B–D, E′, F | Not started |

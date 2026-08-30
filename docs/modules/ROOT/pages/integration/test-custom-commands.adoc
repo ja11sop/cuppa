@@ -1,7 +1,7 @@
 = `test_custom_commands` — working directories and `cuppa.utility.command.run`
 :description: Cuppa integration tests for methods.adoc custom-command examples (#14)
 
-These scenarios mirror the examples under xref:methods.adoc#custom-commands-and-working-directories[Custom commands and working directories].
+These scenarios mirror the examples under xref:methods/custom-commands.adoc[Custom commands and working directories].
 
 == What is tested
 

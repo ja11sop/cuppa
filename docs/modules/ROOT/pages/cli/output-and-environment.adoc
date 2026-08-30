@@ -146,7 +146,7 @@ search paths; they do not require `--propagate-env`.
 
 `--use-shell` is also an escape hatch. Prefer `working_dir`, `cwd=`, or Python actions over shell
 strings such as `cd ... && ...`; see
-xref:methods.adoc#custom-commands-and-working-directories[Custom commands and working directories].
+xref:methods/custom-commands.adoc[Custom commands and working directories].
 
 == Dependency deciders
 

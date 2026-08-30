@@ -45,7 +45,7 @@ Pass custom classes into `cuppa.run(dependencies=[…], profiles=[…])`.
 
 When writing custom `env.Command` / `Action` helpers, avoid multi-part shell strings such as `cd … && …`.
 Use a Python action with subprocess `cwd=` (or `cuppa.utility.command.run`) so parallel builds stay correct.
-See xref:methods.adoc#custom-commands-and-working-directories[Custom commands and working directories].
+See xref:methods/custom-commands.adoc[Custom commands and working directories].
 
 == Pip dependency plugins
 
