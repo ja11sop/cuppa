@@ -28,7 +28,7 @@ maintainer workflow evolved.
 | [`plans/list-toolchains-verbose.md`](plans/list-toolchains-verbose.md) | in progress | Verbose `describe()` shipped ([#172](https://github.com/ja11sop/cuppa/issues/172) / [#170](https://github.com/ja11sop/cuppa/pull/170)); deferred table-driven init |
 | [`plans/antora-ui-bundle.md`](plans/antora-ui-bundle.md) | in progress | Supplemental CSS + Boost/Material look catalogue; default bundle kept — ROADMAP `doc-antora-ui`; [#229](https://github.com/ja11sop/cuppa/issues/229) / [#228](https://github.com/ja11sop/cuppa/pull/228) |
 | [`plans/methods-pages-split.md`](plans/methods-pages-split.md) | in progress | Hub + job-named `methods/*` (discovery, templates, CreateVersion, staging-files, …) — ROADMAP `doc-methods-split` |
-| [`plans/method-behaviour-audit.md`](plans/method-behaviour-audit.md) | in progress | Method returns, evaluation, paths; #213 + glob parity + `mba-artifact-paths` (#233) done; `mba-scss` deferred |
+| [`plans/method-behaviour-audit.md`](plans/method-behaviour-audit.md) | in progress | Method returns, evaluation, paths; #213 + glob + #233 (incl. SCSS) done |
 | [`plans/native-toolchain-output.md`](plans/native-toolchain-output.md) | proposal | `--native-output`: passthrough native compiler colour — ROADMAP `console-native-output` |
 | [`plans/terse-build-output.md`](plans/terse-build-output.md) | proposal | `--terse-output`: coloured one-line progress — ROADMAP `console-terse-output` / **1.8.0 target** |
 | [`plans/build-log-hygiene.md`](plans/build-log-hygiene.md) | proposal | Configure-time log demotion + variant default message fix — ROADMAP `console-log-hygiene` |

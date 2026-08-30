@@ -12,6 +12,7 @@ import sys
 import cuppa.progress
 from cuppa.log import logger
 from cuppa.colourise import as_notice, as_error
+from cuppa.utility.object_target import artifact_target_for
 
 
 class CompileScssAction(object):
@@ -54,23 +55,28 @@ class CompileScssAction(object):
 
 class CompileScssEmitter(object):
 
+    def __init__( self, output_dir ):
+        self._output_dir = output_dir
+
     def __call__( self, target, source, env ):
-        import os.path
         if not target:
             for s in source:
-                target.append( env.File( os.path.splitext(s.abspath)[0]+".css" ) )
-
+                target.append(
+                    artifact_target_for( env, s, '.css', output_dir=self._output_dir )
+                )
         return target, source
 
 
 class CompileScssMethod(object):
 
-    def __call__( self, env, target, source, load_path=None ):
+    def __call__( self, env, target, source, final_dir=None, load_path=None ):
+        if final_dir is None:
+            final_dir = env['abs_final_dir']
 
         env.AppendUnique( BUILDERS = {
             'CompileScssBuilder' : env.Builder(
                 action = CompileScssAction( load_path ),
-                emitter = CompileScssEmitter()
+                emitter = CompileScssEmitter( final_dir )
         ) } )
 
         from SCons.Script import Flatten

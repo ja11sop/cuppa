@@ -531,7 +531,7 @@ Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object path
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `method-behaviour-audit` | Fix output-path naming + document evaluation/returns taxonomy | High | [#213](https://github.com/ja11sop/cuppa/issues/213) + glob parity + [#233](https://github.com/ja11sop/cuppa/issues/233) (`mba-artifact-paths`) shipped; remaining: `mba-scss` — [`method-behaviour-audit.md`](design/plans/method-behaviour-audit.md) |
+| `method-behaviour-audit` | Fix output-path naming + document evaluation/returns taxonomy | High | [#213](https://github.com/ja11sop/cuppa/issues/213) + glob parity + [#233](https://github.com/ja11sop/cuppa/issues/233) (`mba-artifact-paths` / `mba-scss`) shipped — [`method-behaviour-audit.md`](design/plans/method-behaviour-audit.md) |
 | `doc-methods-split` | Hub + job-named method pages; engine APIs taught with Cuppa (not `scons-*` nav) | Medium | [`methods-pages-split.md`](design/plans/methods-pages-split.md); hub/nav groundwork in progress (docs-only) |
 | `doc-site-release-default` | Public docs default to latest **release**, not `master` tip | High | After Methods baseline — [`docs-site-release-default.md`](design/plans/docs-site-release-default.md) |
 | `doc-llms-txt` | Agent Markdown: `llms.txt` + per-page MD + `llms-full.txt` from Antora HTML (Pandoc) | High | After Methods baseline; align with release-default — [`docs-llms-txt.md`](design/plans/docs-llms-txt.md) |

@@ -347,7 +347,7 @@ For tutorials and Related-method chains, start from the xref:methods.adoc[Method
 |
 
 | xref:methods/docs-assets.adoc[`CompileScss()`]
-| Compile SCSS to CSS (default: beside source)
+| Compile SCSS to CSS under `final/` (mirrors when no explicit target)
 |
 
 | xref:methods/docs-assets.adoc[`RunAndRedirectToFile()`]
