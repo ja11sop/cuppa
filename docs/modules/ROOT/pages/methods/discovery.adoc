@@ -3,7 +3,7 @@
 
 This page covers how you find source files and narrow node lists in a Cuppa `sconscript`.
 Staging copies live on xref:methods/staging-files.adoc[Staging files in the build];
-template expansion on xref:methods/templates.adoc[Template expansion];
+templates and doc converters on xref:methods/docs-assets.adoc[Docs and assets];
 generated version sources on xref:methods/create-version.adoc[CreateVersion].
 
 == Behaviour summary

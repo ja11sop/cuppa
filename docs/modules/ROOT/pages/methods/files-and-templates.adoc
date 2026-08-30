@@ -1,10 +1,10 @@
 = Files and templates (moved)
-:description: Redirect — discovery, templates, and CreateVersion
+:description: Redirect — discovery, docs/assets, and CreateVersion
 
 This page has been split:
 
 * xref:methods/discovery.adoc[Source discovery and filtering] — `RecursiveGlob()`, `GlobFiles()`, `Glob()`, `Filter()`, `TargetFrom()`
-* xref:methods/templates.adoc[Template expansion] — `ExpandTemplateFile()`, `RenderJinjaTemplate()`
+* xref:methods/docs-assets.adoc[Docs and assets] — templates, Markdown/AsciiDoc/SCSS, and how these builders work
 * xref:methods/create-version.adoc[CreateVersion] — toolchain-backed version sources
 
 Staging copies remain on xref:methods/staging-files.adoc[Staging files in the build].

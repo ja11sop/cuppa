@@ -35,7 +35,7 @@ Prefer Cuppa's specialised methods when they fit:
 | `CopyFiles()` / `Install()` — xref:methods/staging-files.adoc[Staging files]
 
 | Expand a text template
-| `ExpandTemplateFile()` / `RenderJinjaTemplate()` — xref:methods/templates.adoc[Templates]
+| `ExpandTemplateFile()` / `RenderJinjaTemplate()` — xref:methods/docs-assets.adoc[Docs and assets]
 
 | Embed SCM / version identity in C++
 | `CreateVersion()` — xref:methods/create-version.adoc[CreateVersion]
@@ -163,6 +163,6 @@ Integration coverage for these examples: xref:integration/test-custom-commands.a
 
 * xref:methods/test-run.adoc[Test and run] — `Run()` vs `Command()`; `working_dir` on `BuildTest()` / `Run()`
 * xref:methods/packages.adoc[Packages] — `Command()` before `PublishPackage()`
-* xref:methods/create-version.adoc[CreateVersion] · xref:methods/templates.adoc[Templates]
+* xref:methods/create-version.adoc[CreateVersion] · xref:methods/docs-assets.adoc[Docs and assets]
 * xref:cli/output-and-environment.adoc#environment-propagation[Output and environment]
 * xref:integration/test-custom-commands.adoc[Integration: Custom commands]

@@ -92,7 +92,7 @@ they form one job:
 | Dependencies & profiles | `BuildWith`, `Using`, `BuildProfile` | `methods/dependencies-and-profiles.adoc` |
 | Flags & toolchain | `Toolchain`, `ReplaceFlags`, `RemoveFlags`, **`AppendUnique`**, **`MergeFlags`**, `Append`, … | `methods/flags-and-toolchain.adoc` |
 | Files / discovery | `RecursiveGlob`, `GlobFiles`, `Filter`, **`Glob`**, **`File`**, `TargetFrom` | `methods/discovery.adoc` |
-| Templates | `ExpandTemplateFile`, `RenderJinjaTemplate` | `methods/templates.adoc` |
+| Docs / assets / templates | `ExpandTemplateFile`, `RenderJinjaTemplate`, Markdown/AsciiDoc/SCSS, `RunAndRedirectToFile` | `methods/docs-assets.adoc` (includes how builders work) |
 | CreateVersion | `CreateVersion` (toolchain-backed) | `methods/create-version.adoc` |
 | Staging files | `CopyFiles`, `CopyFilesAs`, **`Install`**, **`InstallAs`** | `methods/staging-files.adoc` (`install.adoc` stub) |
 | Depends | **`Depends`**, **`Requires`**, **`Alias`** | `methods/depends.adoc` |
@@ -219,7 +219,7 @@ Custom commands may stay on the hub briefly, then move to `methods/custom-comman
 | Prose `Name()` pass | **Done** (2026-08-30) — Methods hub + all `methods/*.adoc` |
 | Vanilla SCons warnings | **Done** — `Build()` / `Compile()` / `Build*Lib()` vs Program/Object/Library; progress wrap documented |
 | Staging files page | **Done** — `staging-files.adoc`; `install.adoc` stub |
-| Discovery / templates / CreateVersion split | **Done** — `discovery.adoc`, `templates.adoc`, `create-version.adoc`; `files-and-templates.adoc` stub |
+| Discovery / templates / CreateVersion split | **Done** — `discovery.adoc`, templates folded into `docs-assets.adoc`, `create-version.adoc`; stubs for old paths |
 | `Command()` swiss-army + `Run()` contrast | **Done** — custom-commands + test-run |
 | Artefact examples use `abs_artefacts_root` | **Done** — test-run, staging-files, depends |
 | `MethodWithProgress` NodeList + `_Command` sentinels | **Done** — wrap accepts NodeList; progress sentinels use unwrapped `_Command`; `Copy*` no longer double-`NotifyProgress.add` |

@@ -74,7 +74,7 @@ versioned binary exists (for example copying into a docker tree under
 == Related methods
 
 * xref:methods/build.adoc[Build] — compile the generated source into a program
-* xref:methods/templates.adoc[Template expansion] — same register-then-build pattern for text templates
+* xref:methods/docs-assets.adoc[Docs and assets] — same register-then-build pattern for text templates
 * xref:methods/coverage.adoc[Coverage] — another toolchain-backed Methods family
 * xref:methods/depends.adoc[Depends] — order packaging after versioned builds
 * xref:integration/test-version.adoc[Integration: CreateVersion]

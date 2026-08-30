@@ -1,25 +1,46 @@
 = Documentation and asset methods
-:description: AsciiDoc, Markdown, SCSS, and redirect capture
+:description: Templates, AsciiDoc, Markdown, SCSS, and redirect capture
 
-Builders that turn documentation and assets into variant outputs under `final/` (or related
-trees). Text templates live on xref:methods/templates.adoc[Template expansion]; C++ version
-sources on xref:methods/create-version.adoc[CreateVersion].
+Builders that turn documentation, templates, and assets into variant outputs under `final/`
+(or related trees). Generated C++ version sources live on
+xref:methods/create-version.adoc[CreateVersion] (same register-then-build idea, toolchain-backed).
 
 == Behaviour summary
 
 [cols="1,3"]
 |===
 | Returns | Build nodes for generated artefacts
-| Evaluation | Build action
-| Output paths | Several emitters still use flat `\{final}/\{basename}` — nested same-basename sources can collide (https://github.com/ja11sop/cuppa/issues/233[#233])
-| Progress | Yes where emitters create action nodes
+| Evaluation | Build action (configure registers a builder; the build runs it)
+| Output paths | Caller target or emitter-derived under `final/`. Several HTML emitters still use flat `\{final}/\{basename}` — nested same-basename sources can collide (https://github.com/ja11sop/cuppa/issues/233[#233]). Jinja often mirrors path offsets under `final/`.
+| Progress | Yes where emitters create action nodes (`NotifyProgress.add`)
 |===
 
-== Methods
+[#how-these-builders-work]
+== How these builders work
+
+Several Cuppa methods on this page (and `CreateVersion()`) follow the same shape:
+
+. At **configure** time (while the `sconscript` runs), the method registers a named SCons
+  `Builder` on the environment — action (and sometimes emitter) objects that know how to
+  read inputs and write outputs.
+. It then **invokes** that builder with `target` / `source`, which adds nodes to the build graph.
+. At **build** time, SCons runs the action when the target is out of date.
+
+That is why you pass destinations and sources up front (as with `Build()`), rather than expanding
+or converting eagerly in Python during configure. The work participates in Depends, progress,
+and rebuild-when-inputs-change like any other emitter.
+
+== Methods at a glance
 
 [cols="2,3"]
 |===
 | Method | Role
+
+| `ExpandTemplateFile()`
+| Python `str.format` expansion for small `.in` files
+
+| `RenderJinjaTemplate()`
+| Jinja2 rendering (`variables=` / `variables_file=`)
 
 | `MarkdownToHtml()` / `AsciidocToHtml()`
 | Doc conversion builders
@@ -31,15 +52,54 @@ sources on xref:methods/create-version.adoc[CreateVersion].
 | Capture subprocess stdout to a file
 |===
 
+== `ExpandTemplateFile()`
+
+[source,python]
+----
+Import('env')
+import os
+
+out_txt = os.path.join(env['abs_final_dir'], 'expanded.txt')
+env.ExpandTemplateFile(out_txt, 'data/template.txt.in', name='cuppa')
+----
+
+Extra keyword arguments become format fields (`\{name}` in the template).
+The method registers an `ExpandTemplateFile` builder whose action reads the source and writes
+`str.format(**kwargs)` into the target.
+
+== `RenderJinjaTemplate()`
+
+[source,python]
+----
+Import('env')
+import os
+
+env.RenderJinjaTemplate(
+    [os.path.join(env['abs_final_dir'], 'rendered.txt')],
+    ['data/template.j2'],
+    variables={'name': 'cuppa'},
+)
+----
+
+When you omit an explicit target list, the emitter derives destinations from the template names
+(dropping `.j2` / `.jinja` suffixes) under `final/`, preserving a path offset from the project
+base when possible.
+
+== Doc and stylesheet converters
+
 Until https://github.com/ja11sop/cuppa/issues/233[#233] lands, avoid feeding two
 `readme.md` files from different directories into `MarkdownToHtml()` without explicit distinct
 targets — they can collide on `\{final}/readme.html`.
 
+`AsciidocToHtml()`, `CompileScss()`, and `RunAndRedirectToFile()` follow the same builder pattern;
+see the integration pages below for worked examples.
+
 == Related methods
 
-* xref:methods/templates.adoc[Template expansion] — `ExpandTemplateFile()` / `RenderJinjaTemplate()`
-* xref:methods/create-version.adoc[CreateVersion] — toolchain-backed version sources
+* xref:methods/create-version.adoc[CreateVersion] — toolchain-backed version sources (same builder pattern)
+* xref:methods/discovery.adoc[Source discovery] — find inputs before converting
 * xref:methods/flags-and-toolchain.adoc[Flags and toolchain] — `Toolchain()` lookup
 * xref:methods/staging-files.adoc[Staging files] — staging CSS/assets under `final/`
-* xref:integration/test-docs-assets.adoc[Integration: Docs and assets] ·
+* xref:integration/test-templates.adoc[Integration: Templates] ·
+  xref:integration/test-docs-assets.adoc[Docs and assets] ·
   xref:integration/test-redirect.adoc[RunAndRedirectToFile]

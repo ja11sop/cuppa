@@ -44,7 +44,7 @@ xref:toolchains/msvc.adoc[MSVC]).
 | xref:methods/flags-and-toolchain.adoc[Flags and toolchain]
 
 | Files, discovery, templates
-| _(split)_ xref:methods/discovery.adoc[Discovery] · xref:methods/templates.adoc[Templates] · xref:methods/create-version.adoc[CreateVersion]
+| _(split)_ xref:methods/discovery.adoc[Discovery] · xref:methods/docs-assets.adoc[Docs and assets] · xref:methods/create-version.adoc[CreateVersion]
 
 | Staging files (`CopyFiles()`, `Install()`, …)
 | xref:methods/staging-files.adoc[Staging files]
@@ -147,11 +147,13 @@ Detailed tutorials: xref:methods/discovery.adoc[Source discovery and filtering].
 
 `RecursiveGlob()` / `GlobFiles()` / `Glob()` / `Filter()` / `TargetFrom()`.
 
-== Template expansion
+== Docs, assets, and templates
 
-Detailed tutorials: xref:methods/templates.adoc[Template expansion].
+Detailed tutorials: xref:methods/docs-assets.adoc[Docs and assets]
+(including xref:methods/docs-assets.adoc#how-these-builders-work[how these builders work]).
 
-`ExpandTemplateFile()` / `RenderJinjaTemplate()`.
+`ExpandTemplateFile()` / `RenderJinjaTemplate()` / `MarkdownToHtml()` / `AsciidocToHtml()` /
+`CompileScss()` / `RunAndRedirectToFile()`.
 
 == CreateVersion
 
@@ -240,8 +242,8 @@ Grouped names → topic page. Prefer these links over upstream docs when both ex
 | Discovery / Filter
 | `RecursiveGlob()`, `GlobFiles()`, `Glob()`, `Filter()`, `TargetFrom()` → xref:methods/discovery.adoc[Discovery]
 
-| Templates
-| `ExpandTemplateFile()`, `RenderJinjaTemplate()` → xref:methods/templates.adoc[Templates]
+| Docs / assets / templates
+| `ExpandTemplateFile()`, `RenderJinjaTemplate()`, `MarkdownToHtml()`, `AsciidocToHtml()`, `CompileScss()`, `RunAndRedirectToFile()` → xref:methods/docs-assets.adoc[Docs and assets]
 
 | CreateVersion
 | `CreateVersion()` → xref:methods/create-version.adoc[CreateVersion]
@@ -251,9 +253,6 @@ Grouped names → topic page. Prefer these links over upstream docs when both ex
 
 | Depends
 | `Depends()`, `Requires()`, `Alias()` → xref:methods/depends.adoc[Depends]
-
-| Docs / assets
-| `MarkdownToHtml()`, `AsciidocToHtml()`, `CompileScss()`, `RunAndRedirectToFile()` → xref:methods/docs-assets.adoc[Docs and assets]
 
 | Packages
 | `PublishPackage()`, `InstallPackage()`, `Command()` (publishers) → xref:methods/packages.adoc[Packages] · xref:methods/custom-commands.adoc[Custom commands]
