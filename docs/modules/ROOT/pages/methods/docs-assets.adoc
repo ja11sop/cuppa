@@ -11,8 +11,8 @@ Builders that turn documentation, templates, and assets into variant outputs und
 | Returns | Build nodes for generated artefacts
 | Evaluation | Build action (configure registers a builder; the build runs it)
 | Output paths | Caller target, or emitter-derived under `final/` mirroring the source tree
-  (same-basename nested sources stay distinct — https://github.com/ja11sop/cuppa/issues/233[#233]).
-  Jinja uses the same mirror idea. `CompileScss()` defaults match that layout too.
+  (nested same-basename sources stay distinct). Jinja and `CompileScss()` use the same
+  default layout.
 | Progress | Yes where emitters create action nodes (`NotifyProgress.add`)
 |===
 

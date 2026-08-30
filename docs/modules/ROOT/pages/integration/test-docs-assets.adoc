@@ -9,7 +9,7 @@
 3. *`AsciidocToHtml`* — AsciiDoc → HTML (skipped if `asciidoc` / `asciidoctor` not on PATH).
 
 Duplicate-basename mirroring for Markdown / AsciiDoc / SCSS / `RunAndRedirectToFile` is covered by
-`test_artifact_paths` ([#233](https://github.com/ja11sop/cuppa/issues/233)).
+`tests/integration/methods/test_artifact_paths.py`.
 
 == Generated files
 

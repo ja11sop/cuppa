@@ -3,7 +3,7 @@
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
-"""Doc/asset emitters mirror nested sources under final/ (#233)."""
+"""Doc/asset emitters mirror nested sources under final/."""
 
 import logging
 import shutil
