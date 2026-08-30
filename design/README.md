@@ -53,6 +53,7 @@ maintainer workflow evolved.
 | [`archive/recursive-glob-parity.md`](archive/recursive-glob-parity.md) | shipped | RecursiveGlob / GlobFiles / Filter parity — ROADMAP `static-glob`; [#232](https://github.com/ja11sop/cuppa/issues/232) / [#231](https://github.com/ja11sop/cuppa/pull/231) |
 | [`plans/path-vocabulary-and-scons-nodes.md`](plans/path-vocabulary-and-scons-nodes.md) | proposal | Reuse `#/` path roots + VariantDir node helpers outside discovery — follow-on to `static-glob` |
 | [`plans/ignore-toolchain-point-release.md`](plans/ignore-toolchain-point-release.md) | proposal | Opt-in coarse toolchain identity for `_build` / package stems (drop point-release digits) — ROADMAP `tc-identity-coarsen` |
+| [`plans/docs-site-release-default.md`](plans/docs-site-release-default.md) | proposal | Public Antora site defaults to latest release, not master — ROADMAP `doc-site-release-default` |
 
 ## Conventions
 

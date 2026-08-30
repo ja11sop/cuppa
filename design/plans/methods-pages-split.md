@@ -230,8 +230,11 @@ Custom commands may stay on the hub briefly, then move to `methods/custom-comman
 | Size | Large editorial effort; land incrementally |
 | Release impact | `none` |
 
-Land as **incremental docs PRs** (`impact:none`). Good pairing with
-[`antora-ui-bundle.md`](antora-ui-bundle.md) if the docs cycle gets a visible refresh.
+Land as **incremental docs commits** on one PR until Methods topic pages have a **baseline**
+(merge only when the live site would not show empty stubs). Good pairing afterward with
+[`docs-site-release-default.md`](docs-site-release-default.md) so visitors default to **released**
+docs, not `master`, and with [`antora-ui-bundle.md`](antora-ui-bundle.md) if the docs cycle gets a
+visible refresh.
 
 ## Folder layout
 
