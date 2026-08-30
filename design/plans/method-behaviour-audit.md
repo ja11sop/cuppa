@@ -118,8 +118,8 @@ No flat intermediate target bug; document evaluation only:
 |----|-------------|------------|--------|--------|
 | `mba-213` | Land compile object path mirror ([#213](https://github.com/ja11sop/cuppa/issues/213)) | — | patch | **Done** |
 | `mba-cov-check` | Coverage integration pass after mirrored `.o` paths | `mba-213` | patch | Open (sanity) |
-| `mba-artifact-paths` | Shared helper + fix Markdown/AsciiDoc/RunAndRedirect emitters | `mba-213` | patch | **Deferred** — [#233](https://github.com/ja11sop/cuppa/issues/233) |
-| `mba-scss` | Decide SCSS output root (`working/` mirror vs beside source) | optional | patch | Open |
+| `mba-artifact-paths` | Shared helper + fix Markdown/AsciiDoc/RunAndRedirect emitters | `mba-213` | patch | **Done** — [#233](https://github.com/ja11sop/cuppa/issues/233) |
+| `mba-scss` | Decide SCSS output root (`working/` mirror vs beside source) | optional | patch | Deferred (evaluate after #233) |
 | `mba-static-glob` | RecursiveGlob path vocabulary + Glob semantics | archive plan | minor | **Done** [#232](https://github.com/ja11sop/cuppa/issues/232) |
 | `mba-filter` | Filter matching parity for Glob + RecursiveGlob nodes | `mba-static-glob` | patch | **Done** |
 | `mba-doc` | Export classification tables into Methods hub + child pages | [`methods-pages-split.md`](methods-pages-split.md) | none | In progress (hub groundwork) |
@@ -140,7 +140,7 @@ No flat intermediate target bug; document evaluation only:
 | Audit document | this plan |
 | #213 compile fix | **Shipped** ([#214](https://github.com/ja11sop/cuppa/pull/214)) |
 | RecursiveGlob / GlobFiles / Filter | **Shipped** ([#231](https://github.com/ja11sop/cuppa/pull/231) / [#232](https://github.com/ja11sop/cuppa/issues/232)) |
-| Doc/asset flat naming | **Deferred** — [#233](https://github.com/ja11sop/cuppa/issues/233) |
+| Doc/asset flat naming | **Done** for Markdown/AsciiDoc/RunAndRedirect — [#233](https://github.com/ja11sop/cuppa/issues/233); SCSS still deferred |
 | Coverage sanity | not started |
 | Methods doc split | **Unblocked** for hub/nav groundwork; detailed Docs assets prose waits on issue or honest collision callouts |
 

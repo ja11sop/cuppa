@@ -17,6 +17,7 @@ import subprocess
 import cuppa.progress
 from cuppa.log import logger
 from cuppa.colourise import as_notice, as_error
+from cuppa.utility.object_target import artifact_target_for
 
 
 class RunAndRedirectToFileAction(object):
@@ -62,9 +63,11 @@ class RunAndRedirectToFileEmitter(object):
         last_source = len(source)
         s_idx = len(target)
         while s_idx < last_source:
-            path = os.path.join( self._output_dir, os.path.split( str(source[s_idx]) )[1] )
-            t = os.path.splitext(path)[0] + self._extension
-            target.append(t)
+            target.append(
+                artifact_target_for(
+                    env, source[s_idx], self._extension, output_dir=self._output_dir
+                )
+            )
             s_idx = s_idx+1
         return target, source
 

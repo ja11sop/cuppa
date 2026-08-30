@@ -18,7 +18,7 @@ blocking audit slices are fixed or deferred.
 |------|--------|
 | [#213](https://github.com/ja11sop/cuppa/issues/213) compile object paths | **Shipped** |
 | `mba-static-glob` / `mba-filter` | **Shipped** — [`recursive-glob-parity.md`](../archive/recursive-glob-parity.md) / [#232](https://github.com/ja11sop/cuppa/issues/232) |
-| `mba-artifact-paths` (flat `{final}/{basename}` for Markdown/AsciiDoc/RunAndRedirect) | **Deferred** — [#233](https://github.com/ja11sop/cuppa/issues/233); Docs assets pages call out collisions until fixed |
+| `mba-artifact-paths` (flat `{final}/{basename}` for Markdown/AsciiDoc/RunAndRedirect) | **Done** — [#233](https://github.com/ja11sop/cuppa/issues/233); `CompileScss` (`mba-scss`) still deferred |
 | `path-vocabulary-and-scons-nodes` | Optional parallel; not a Methods-split blocker |
 
 **Order:**
@@ -207,7 +207,7 @@ Custom commands may stay on the hub briefly, then move to `methods/custom-comman
 
 | Slice | Deliverable | Notes |
 |-------|-------------|-------|
-| **0** | Behaviour audit fixed or deferred | [#213](https://github.com/ja11sop/cuppa/issues/213) + glob parity **done**; `mba-artifact-paths` **deferred** ([#233](https://github.com/ja11sop/cuppa/issues/233)) |
+| **0** | Behaviour audit fixed or deferred | [#213](https://github.com/ja11sop/cuppa/issues/213) + glob parity **done**; `mba-artifact-paths` **done** ([#233](https://github.com/ja11sop/cuppa/issues/233)); `mba-scss` still deferred |
 | **A** | Hub map + nav skeleton + stubs | Job-named pages; no `scons-*` filenames |
 | **B** | Build + test groups | **Done** — #213 semantics; everyday Filter/CopyFiles pattern on test page |
 | **E′** | Flags / depends / install depth | **Done** — full tutorials; unversioned production upstream links |

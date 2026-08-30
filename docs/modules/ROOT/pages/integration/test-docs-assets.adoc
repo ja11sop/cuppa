@@ -4,9 +4,12 @@
 
 == What is tested
 
-1. *`CompileScss`* — SCSS → CSS in `final/`.
-2. *`MarkdownToHtml`* — Markdown → HTML via grip.
+1. *`CompileScss`* — SCSS → CSS in `final/` (explicit target).
+2. *`MarkdownToHtml`* — Markdown → HTML via grip (default target mirrors under `final/`).
 3. *`AsciidocToHtml`* — AsciiDoc → HTML (skipped if `asciidoc` / `asciidoctor` not on PATH).
+
+Duplicate-basename mirroring for Markdown / AsciiDoc / `RunAndRedirectToFile` is covered by
+`test_artifact_paths` ([#233](https://github.com/ja11sop/cuppa/issues/233)).
 
 == Generated files
 
@@ -57,7 +60,7 @@ cuppa -D --offline --toolchains=gcc --dbg
 == Expectations
 
 - SCSS: `sample.css` under `_build`.
-- Markdown: at least one `.html` under `_build`.
+- Markdown: `data/sample.html` under `final/` (mirrored from `data/sample.md`).
 - AsciiDoc: `sample_adoc.html` under `_build`, or test skipped with a log line.
 
 '''

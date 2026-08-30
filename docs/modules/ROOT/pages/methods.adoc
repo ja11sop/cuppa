@@ -160,7 +160,8 @@ Detailed tutorials: xref:methods/docs-assets.adoc[Docs and assets].
 `ExpandTemplateFile()` / `RenderJinjaTemplate()` / `MarkdownToHtml()` / `AsciidocToHtml()` /
 `CompileScss()` / `RunAndRedirectToFile()`.
 
-NOTE: Flat `\{final}/\{basename}` collisions for some emitters — https://github.com/ja11sop/cuppa/issues/233[#233].
+HTML and redirect emitters mirror nested sources under `final/`
+(https://github.com/ja11sop/cuppa/issues/233[#233]); `CompileScss()` beside-source layout is still deferred.
 
 == CreateVersion
 

@@ -24,6 +24,7 @@ from cuppa.log import logger
 from cuppa.colourise import as_notice, as_error, as_info, colour_items
 from cuppa.utility.file_types import is_json, is_html, is_asciidoc, is_j2_template
 from cuppa.utility.jinja2_renderer import render_template, target_from_template
+from cuppa.utility.object_target import artifact_target_for
 
 
 def process_stdout( line ):
@@ -239,6 +240,7 @@ class AsciidocToHtmlEmitter(object):
 
         asciidoc_to_search_for_images = []
         new_targets = []
+        html_dir_by_source = {}
 
         for source_node in sources:
 
@@ -255,16 +257,26 @@ class AsciidocToHtmlEmitter(object):
                         new_targets.extend( render_template( env, source_node, 0, variables, template_file=self._template_file, write=False ) )
 
                 if len(targets):
-                    new_targets.append( targets[0] )
+                    html_target = targets[0]
+                    new_targets.append( html_target )
                     targets = targets[1:]
+                    html_dir_by_source[source_path] = os.path.split( str( html_target ) )[0]
                 else:
                     logger.debug( "Generating HTML target from source [{}]".format( as_notice(str(source_node)) ) )
-                    path = os.path.join( self._final_dir, os.path.split( str(source_node) )[1] )
-                    html_target = os.path.splitext( target_from_template( path ) )[0]
+                    # Mirror under final/ with the source basename, then strip template
+                    # suffixes and force .html (same stem rules as before).
+                    mirrored = artifact_target_for(
+                        env,
+                        source_node,
+                        os.path.splitext( source_node.path )[1] or '.adoc',
+                        output_dir=self._final_dir,
+                    )
+                    html_target = os.path.splitext( target_from_template( mirrored ) )[0]
                     if html_target.endswith("_"):
                         html_target = html_target[:-1]
                     html_target += ".html"
                     new_targets.append( html_target )
+                    html_dir_by_source[source_path] = os.path.split( html_target )[0]
 
         logger.debug( "new_targets = [{}]".format( str(new_targets) ) )
 
@@ -273,17 +285,14 @@ class AsciidocToHtmlEmitter(object):
 
         logger.debug( "asciidoc_to_search_for_images = [{}]".format( str(asciidoc_to_search_for_images) ) )
 
-        image_targets = []
         for asciidoc_source in asciidoc_to_search_for_images:
             source.append( asciidoc_source )
             images = self.get_image_targets( asciidoc_source, env['abs_build_dir'] )
-            for t in images:
-                image_targets.append(t)
-
-        if image_targets:
-            logger.debug( "image_targets = [{}]".format(  colour_items( image_targets ) ) )
-            for image_target in image_targets:
-                t = os.path.join( self._final_dir, image_target )
+            image_dir = html_dir_by_source.get( asciidoc_source, self._final_dir )
+            if images:
+                logger.debug( "image_targets = [{}]".format(  colour_items( images ) ) )
+            for image_target in images:
+                t = os.path.join( image_dir, image_target )
                 target.append( t )
                 logger.debug( "appending_target [{}]".format( as_info(str(t)) ) )
 

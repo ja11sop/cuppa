@@ -339,19 +339,19 @@ For tutorials and Related-method chains, start from the xref:methods.adoc[Method
 |
 
 | xref:methods/docs-assets.adoc[`MarkdownToHtml()`]
-| Convert Markdown to HTML
+| Convert Markdown to HTML under `final/` (mirrors source dirs)
 |
 
 | xref:methods/docs-assets.adoc[`AsciidocToHtml()`]
-| Convert AsciiDoc to HTML
+| Convert AsciiDoc to HTML under `final/` (mirrors when no explicit target)
 |
 
 | xref:methods/docs-assets.adoc[`CompileScss()`]
-| Compile SCSS to CSS
+| Compile SCSS to CSS (default: beside source)
 |
 
 | xref:methods/docs-assets.adoc[`RunAndRedirectToFile()`]
-| Run a command and capture stdout to a file node
+| Run a program and capture stdout under `final/` (mirrors source dirs)
 |
 
 | link:{scons-man}#b-Substfile[`Substfile()`]

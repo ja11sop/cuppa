@@ -10,7 +10,10 @@ Builders that turn documentation, templates, and assets into variant outputs und
 |===
 | Returns | Build nodes for generated artefacts
 | Evaluation | Build action (configure registers a builder; the build runs it)
-| Output paths | Caller target or emitter-derived under `final/`. Several HTML emitters still use flat `\{final}/\{basename}` — nested same-basename sources can collide (https://github.com/ja11sop/cuppa/issues/233[#233]). Jinja often mirrors path offsets under `final/`.
+| Output paths | Caller target, or emitter-derived under `final/` mirroring the source tree
+  (same-basename nested sources stay distinct — https://github.com/ja11sop/cuppa/issues/233[#233]).
+  Jinja uses the same mirror idea. `CompileScss()` still emits beside the source by default
+  (`mba-scss`, deferred).
 | Progress | Yes where emitters create action nodes (`NotifyProgress.add`)
 |===
 
@@ -86,12 +89,26 @@ base when possible.
 
 == Doc and stylesheet converters
 
-Until https://github.com/ja11sop/cuppa/issues/233[#233] lands, avoid feeding two
-`readme.md` files from different directories into `MarkdownToHtml()` without explicit distinct
-targets — they can collide on `\{final}/readme.html`.
+`MarkdownToHtml()` and `AsciidocToHtml()` (when you omit an explicit HTML target) place
+outputs under `final/` while **mirroring** the source directory tree:
 
-`AsciidocToHtml()`, `CompileScss()`, and `RunAndRedirectToFile()` follow the same builder pattern;
-see the integration pages below for worked examples.
+[source,python]
+----
+Import('env')
+
+# doc/a/readme.md → …/final/doc/a/readme.html
+# doc/b/readme.md → …/final/doc/b/readme.html
+env.MarkdownToHtml(['doc/a/readme.md', 'doc/b/readme.md'])
+----
+
+`RunAndRedirectToFile()` uses the same mirror rule for captured stdout files (default
+extension `.out`). Pass an explicit target list when you need a different layout.
+
+`CompileScss()` still writes CSS beside the SCSS source by default unless you pass a target;
+aligning it with `final/` / `working/` mirroring is deferred (`mba-scss`).
+
+`AsciidocToHtml()`, `CompileScss()`, and `RunAndRedirectToFile()` follow the same builder
+pattern described above; see the integration pages below for worked examples.
 
 == Related methods
 
