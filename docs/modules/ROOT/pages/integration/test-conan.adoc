@@ -8,7 +8,7 @@ Optional Conan 2 consumer support via `cuppa.conan_deps` / `cuppa.conan_dependen
 * **generators_folder reuse** — pre-run `conan install`, Cuppa loads `SConscript_conandeps` only
 * **Full install** — Cuppa runs `conan install`, builds and runs a `fmt` hello; second `--offline` pass reuses the fingerprint cache
 * **Shared library runtime** — `fmt` built shared; `BuildTest` succeeds with injected library search paths
-* **Pip plugin** — `examples/conan_fmt_plugin` installed via `pip install --target`; Cuppa discovers `fmt` through `cuppa.dependency.plugins` with only `default_dependencies=['fmt']`
+* **Pip plugin** — `examples/conan_fmt_plugin` installed via `pip install --no-user --target`; Cuppa discovers `fmt` through `cuppa.dependency.plugins` with only `default_dependencies=['fmt']`
 * **Offline miss** — empty Conan home + Cuppa `--offline` fails clearly when the package is not cached
 * **Publish round-trip** — `BuildStaticLib` + `ConanPackagePublisher` / `PublishPackage` (`export-pkg` only) into an isolated `CONAN_HOME`, then a second project consumes via `conan_deps` under `--offline`
 * **Publish `conanfile=` + requires** — leaf package, then wrapper with hand-written recipe requiring the leaf; consumer builds against the wrapper under `--offline`

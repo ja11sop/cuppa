@@ -32,6 +32,7 @@ def _install_plugin_target(target_dir):
             "-m",
             "pip",
             "install",
+            "--no-user",
             "--target",
             str(target_dir),
             "--no-deps",
