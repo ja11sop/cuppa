@@ -3,11 +3,14 @@ site:
   url: https://ja11sop.github.io/cuppa
   start_page: cuppa::index.adoc
 urls:
-  # Same key as playbook-site.yml so local single-version builds stay consistent when
-  # more versions are added; with only `next` present, Antora treats it as latest.
   latest_version_segment: latest
 content:
   sources:
+  # Latest release (prepared by scripts.docs_prepare_site into _docs_build/sources/stable).
+  - url: ./../_docs_build/sources/stable
+    branches: HEAD
+    worktrees: true
+  # Current checkout as prerelease "next" (antora.yml: version next, prerelease true).
   - url: ./..
     start_path: docs
     branches: HEAD

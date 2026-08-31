@@ -86,10 +86,10 @@ latest routing moves `latest` to that line.
 | ID | Deliverable | Notes | Status |
 |----|-------------|-------|--------|
 | `doc-site-model` | Version naming + `latest` segment (table above) | Settled 2026-08-31 | **Done** |
-| `doc-site-playbook` | Multi-version playbook; drop silent `version: ~` as public default | Tags + `next`; `latest_version_segment` | Open |
-| `doc-site-ci` | Adjust `docs.yml` and/or `release.yml` so stable site updates on publish | | Open |
-| `doc-site-local` | Contributor notes: preview current branch vs build release set | Contributing / AGENTS | Open |
-| `doc-site-verify` | After first release with the model: homepage / `/latest/` shows released text | Manual check | Open |
+| `doc-site-playbook` | Multi-version playbook; drop silent `version: ~` as public default | Tags + `next`; `latest_version_segment`; prepare script | **Done** |
+| `doc-site-ci` | Adjust `docs.yml` and/or `release.yml` so stable site updates on publish | `release: published` + fetch tags + `build:site:all` | **Done** |
+| `doc-site-local` | Contributor notes: preview current branch vs build release set | Contributing / AGENTS | **Done** |
+| `doc-site-verify` | After first release with the model: homepage / `/latest/` shows released text | Manual check after merge/deploy | Open |
 
 ## Acceptance criteria
 

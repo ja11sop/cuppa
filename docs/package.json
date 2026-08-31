@@ -4,7 +4,11 @@
   "description": "Build tooling for the Cuppa Antora documentation site",
   "scripts": {
     "build": "antora generate playbook.yml",
-    "clean": "rm -rf ../_docs_build/site ../_docs_build/antora-cache"
+    "prepare-site": "cd .. && python3 -m scripts.docs_prepare_site",
+    "build:site": "npm run prepare-site && rm -rf ../_docs_build/site && antora generate playbook-site.yml",
+    "build:llms": "cd .. && python3 -m scripts.docs_generate_llms",
+    "build:site:all": "npm run build:site && npm run build:llms",
+    "clean": "rm -rf ../_docs_build/site ../_docs_build/antora-cache ../_docs_build/sources"
   },
   "devDependencies": {
     "@antora/cli": "3.1.15",

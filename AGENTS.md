@@ -618,7 +618,9 @@ Release checklist: see `release.txt` (Actions **prepare** → merge → **publis
 - Canonical reference: Antora under `docs/` → https://ja11sop.github.io/cuppa/
 - Further reading (talks / Clearpool posts): `docs/modules/ROOT/pages/index.adoc` (Further reading) and https://clearpool.io/tag/cuppa
 - Lint settings / ignore rationale: `docs/modules/ROOT/pages/linting.adoc`
-- Preview docs: `cd docs && npm ci && npm run build` → `_docs_build/site/` (Lunr search via `@antora/lunr-extension`; Mermaid via `@sntke/antora-mermaid-extension`)
+- Preview docs (current checkout as `next`): `cd docs && npm ci && npm run build` → `_docs_build/site/` (Lunr search via `@antora/lunr-extension`; Mermaid via `@sntke/antora-mermaid-extension`)
+- Public multi-version site (stable from latest `v*` tag + `next`): `cd docs && npm run build:site` (needs git tags; `npm run build:site:all` also emits `llms.txt` / agent Markdown — requires `pandoc` and `lxml`)
+- Product agent index on Pages: `https://ja11sop.github.io/cuppa/llms.txt` (product docs for agents). Repo `AGENTS.md` is for contributors working *on* cuppa — different audience; do not treat one as a substitute for the other.
 - **Docs visual review:** capturing a PNG (for example Chromium `--screenshot`) is cheap; **reading the image into the agent context is expensive.** Build Antora, tell the human what to check in the local preview, and iterate from CSS/HTML plus their notes. Capture or scan screenshots only when they ask, or when they cannot check locally. Prefer one targeted crop over a full-page dump.
 - Integration test scenarios: Antora **Integration tests** section (`docs/modules/ROOT/pages/integration/`)
 

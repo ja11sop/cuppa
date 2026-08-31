@@ -113,13 +113,13 @@ cite the human HTML page too.
 
 | ID | Deliverable | Depends on | Notes | Status |
 |----|-------------|------------|-------|--------|
-| `llms-spike` | Local script: one Methods page HTML → GFM; judge tables/admonitions | Antora build | Choose cheerio vs htmlq; lock selector | Open |
-| `llms-pipeline` | npm script or Python helper wired after `antora generate` | spike | Pandoc in CI | Open |
-| `llms-index` | Generate `llms.txt` from nav / allowlist | pipeline | Spec-shaped H1 / quote / H2 lists; `/latest/` links | Open |
-| `llms-full` | Generate `llms-full.txt` with size check / omit list | index | Fail or warn over budget | Open |
-| `llms-ci` | Docs workflow publishes MD + txt beside HTML | pipeline | | Open |
-| `llms-release` | Align default corpus with release-default `/latest/` | release-default naming | Settled in principle | **Done** (naming) |
-| `llms-docs` | Short Contributing note: where agents should read; contrast `AGENTS.md` | ci | | Open |
+| `llms-spike` | Local script: one Methods page HTML → GFM; judge tables/admonitions | Antora build | `article.doc` + Pandoc GFM | **Done** |
+| `llms-pipeline` | npm script or Python helper wired after `antora generate` | spike | `docs_generate_llms` + `build:llms` | **Done** |
+| `llms-index` | Generate `llms.txt` from nav / allowlist | pipeline | Spec-shaped H1 / quote / H2 lists; `/latest/` links | **Done** |
+| `llms-full` | Generate `llms-full.txt` with size check / omit list | index | Curated allowlist; omit integration leaves | **Done** |
+| `llms-ci` | Docs workflow publishes MD + txt beside HTML | pipeline | Pandoc + lxml in `docs.yml` | **Done** |
+| `llms-release` | Align default corpus with release-default `/latest/` | release-default naming | Settled in principle | **Done** |
+| `llms-docs` | Short Contributing note: where agents should read; contrast `AGENTS.md` | ci | Contributing + AGENTS | **Done** |
 
 ## Acceptance criteria
 
