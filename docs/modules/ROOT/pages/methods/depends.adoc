@@ -7,12 +7,15 @@ edges are not enough — packaging order, database fixtures, “always regenerat
 named group of targets.
 
 Optional reference (unversioned):
-https://scons.org/doc/production/HTML/scons-user/apd.html[SCons user guide — Functions and Environment Methods].
+https://scons.org/doc/production/HTML/scons-man.html#f-Depends[SCons man — Depends] ·
+https://scons.org/doc/production/HTML/scons-man.html#f-Requires[Requires].
 
 == Behaviour summary
 
-[cols="1,3"]
+[cols="1,3",options="header"]
 |===
+| Axis | Detail
+
 | Returns | Side effects on the DAG; `Alias()` returns alias nodes
 | Evaluation | Configure-time graph wiring
 | Output paths | N/A
@@ -21,27 +24,34 @@ https://scons.org/doc/production/HTML/scons-user/apd.html[SCons user guide — F
 
 == `Depends()` versus `Requires()`
 
-Both express “A needs B”, but Cuppa projects use them in different situations:
+SCons draws a sharp line between these two. Both can make *B* build before *A*, but they differ
+in whether a change to *B* forces *A* to rebuild:
 
-[cols="1,3"]
+[cols="1,2,3"]
 |===
-| Call | Typical Cuppa use
+| Call | SCons meaning | Cuppa consequence
 
 | `Depends(target, dependency)`
-| Ensure a *test or tool* rebuilds or re-runs when an input changes — SQL scripts, generated
-  properties, scenario files, or another node's outputs. Closely related to
+| Explicit dependency: the *target* is **rebuilt whenever the dependency changes** (in addition
+  to the usual source / scanner edges).
+| Use when an input must invalidate the consumer — SQL scripts, generated properties, scenario
+  files, or another node's outputs that feed a test or tool. Closely related to
   `BuildTest(..., test_depends_on=…)` / `build_depends_on=…` on
   xref:methods/test-run.adoc[Test and run].
 
 | `Requires(target, prerequisite)`
-| Ensure a *packaging or install step* cannot finish before another product exists — for example
-  copying a binary into a docker tree only after `Build()` / `CreateVersion()` has produced it under
-  `final/`.
+| **Order-only** relationship: the prerequisite is (re)built first if needed, but the *target
+  does not depend on it for up-to-date checks* — changing the prerequisite alone does **not**
+  rebuild the target.
+| Use when you only need presence / ordering — for example copying a binary into a docker tree
+  after `Build()` has produced it under `final/`, without re-copying every time an unrelated
+  prerequisite rebuilds for another reason. Without `Requires()`, the copy can race the link
+  under parallel builds.
 |===
 
 Prefer the Cuppa kwargs (`test_depends_on`, `build_depends_on`) when you are attaching fixtures to
-`BuildTest()` / `Test()`. Use `env.Depends` / `env.Requires` when you are ordering nodes that are not
-covered by those kwargs (install copies, custom `Command()` chains, wait/update helpers).
+`BuildTest()` / `Test()`. Use `env.Depends()` / `env.Requires()` when you are ordering nodes that are
+not covered by those kwargs (install copies, custom `Command()` chains, wait/update helpers).
 
 == Ordering packaging after a binary
 
@@ -71,11 +81,13 @@ env.Requires(
 )
 ----
 
-Without `Requires()`, the copy of `service` can race the link step under parallel builds.
+`Requires()` here means “finish linking `service` before this copy runs”. It does **not** mean
+“rebuild the copy whenever `program` changes for content reasons” in the same way `Depends()` would
+— it is order-only, matching the SCons man page.
 
 == Test fixtures with `Depends()`
 
-When a test needs database scripts or a generated properties file:
+When a test must re-run because database scripts or a generated properties file changed:
 
 [source,python]
 ----

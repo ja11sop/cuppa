@@ -1,6 +1,7 @@
 = Method index
 :description: Master index of Cuppa environment methods with descriptions and recommendations
 :scons-man: https://scons.org/doc/production/HTML/scons-man.html
+:hash: #
 
 Grouped tables of methods you may call from a Cuppa `sconscript` after `Import('env')`.
 Names this documentation covers link to the topic page that teaches them.
@@ -191,15 +192,15 @@ For tutorials and Related-method chains, start from the xref:methods.adoc[Method
 | Method | Description | Notes
 
 | xref:methods/dependencies-and-profiles.adoc[`BuildWith()`]
-| Pull a named dependency into the env (often chain `.use_libs(…)`)
+| Apply a named dependency; returns the instance (chain `.use_libs(…)`, `local_sub_path(…)`, …)
 |
 
 | xref:methods/dependencies-and-profiles.adoc[`Using()`]
-| Scoped dependency usage helper
+| Look up a dependency factory by name without applying it (`None` if unregistered)
 |
 
 | xref:methods/dependencies-and-profiles.adoc[`BuildProfile()`]
-| Apply a named Cuppa profile to the env
+| Apply a named build profile to the env (not {cpp} Profiles); mutates in place
 |
 |===
 
@@ -259,7 +260,7 @@ For tutorials and Related-method chains, start from the xref:methods.adoc[Method
 | Method | Description | Notes
 
 | xref:methods/discovery.adoc[`RecursiveGlob()`]
-| Recursive configure-time discovery with Cuppa `#/` roots and Repository parity
+| Recursive configure-time discovery with Cuppa `{hash}/` roots and Repository parity
 |
 
 | xref:methods/discovery.adoc[`GlobFiles()`]
@@ -383,11 +384,11 @@ For tutorials and Related-method chains, start from the xref:methods.adoc[Method
 | Method | Description | Notes
 
 | xref:methods/depends.adoc[`Depends()`]
-| Add an explicit dependency edge between nodes
+| Explicit dependency: rebuild the target when the dependency changes
 |
 
 | xref:methods/depends.adoc[`Requires()`]
-| Order targets so prerequisites finish first (packaging spine)
+| Order-only: build the prerequisite first; do not rebuild the target solely because it changed
 |
 
 | xref:methods/depends.adoc[`Alias()`]
@@ -446,21 +447,22 @@ For tutorials and Related-method chains, start from the xref:methods.adoc[Method
 [#test-reporting-plugins]
 == Test reporting plugins
 
-Loaded via `cuppa.method.plugins` when present. Overview on the xref:methods.adoc#test-reporting-plugins[Methods hub]; everyday spine on xref:methods/test-run.adoc[Test and run].
+Loaded via `cuppa.method.plugins` when present. Tutorial: xref:methods/test-reporting.adoc[Test reporting];
+everyday spine on xref:methods/test-run.adoc[Test and run].
 
 [cols="2,4,3"]
 |===
 | Method | Description | Notes
 
-| xref:methods.adoc#test-reporting-plugins[`GenerateHtmlTestReport()`]
+| xref:methods/test-reporting.adoc[`GenerateHtmlTestReport()`]
 | HTML report from Boost.Test (or similar) outputs
 |
 
-| xref:methods.adoc#test-reporting-plugins[`CollateTestReportIndex()`]
+| xref:methods/test-reporting.adoc[`CollateTestReportIndex()`]
 | Index over HTML test reports
 |
 
-| xref:methods.adoc#test-reporting-plugins[`GenerateBittenReport()`]
+| xref:methods/test-reporting.adoc[`GenerateBittenReport()`]
 | Bitten XML report generation
 |
 |===

@@ -59,9 +59,25 @@ flowchart TD
 
 [IMPORTANT]
 ====
-`--cov` alone does not run tests. Always combine `--cov` with `--test` (or `--force-test`) when you want executed coverage data from `BuildTest` targets.
+`--cov` and `--test` are separate on purpose.
 
-The reason for this is to allow you to run a build using `--parallel` to create the instrumented binaries, and then allow you to separately run the tests and collect the coverage data without using `--parallel`. Typically the build time for large projects is much longer than the test run time.
+* `--cov` selects the coverage *variant* (instrumented compile/link). It does **not** run tests.
+* `--test` (or `--force-test`) runs test actions so executed coverage data exists for
+  `BuildTest` targets.
+
+That split lets you build a large instrumented tree with `--parallel`, then collect coverage
+serially:
+
+[source,sh]
+----
+cuppa -D --cov --parallel --offline
+cuppa -D --cov --test --offline
+----
+
+Typically the instrumented build dominates wall time; the serial test/coverage step is shorter.
+Avoid `--parallel` on the `--cov --test` step — interleaved runner and gcov/gcovr output is hard
+to follow, and parallel collection has historically been unreliable. See
+https://github.com/ja11sop/cuppa/issues/236[#236] and xref:methods/coverage.adoc[Coverage methods].
 ====
 
 Cuppa uses toolchain gcov support plus https://gcovr.com/[gcovr] to emit HTML/JSON beside the variant output (and optionally collated destinations).

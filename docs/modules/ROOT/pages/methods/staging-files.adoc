@@ -1,27 +1,35 @@
 = Staging files in the build
 :description: CopyFiles, CopyFilesAs, Install, and InstallAs for placing files during a build
+:hash: #
 
 Cuppa projects stage files into destinations as build actions — test artefacts under
-`env['abs_artefacts_root']` (default `_artifacts/`), package trees for `PublishPackage()`, or a
-renamed file in `final/`. Four calls do that work:
+`env['abs_artefacts_root']` (default `_artefacts/`; legacy `_artifacts/` when present), package
+trees for `PublishPackage()`, or a renamed file in `final/`. Four calls do that work:
 
 * `CopyFiles()` / `CopyFilesAs()` — helpers with variant-aware destinations and optional filtering
 * `Install()` / `InstallAs()` — progress-wrapped on sconscript envs
 
-There is no singular `CopyFile()`. `CopyFiles()` and `CopyFilesAs()` are thin wrappers around
-`Install()` and `InstallAs()`; they exist because `Install()` alone does not default into
-Cuppa's per-variant `final/` layout and has no built-in `match` / `exclude` filtering.
+[NOTE]
+====
+There is no singular `CopyFile()` method. Pass a single path (or a one-element list) to
+`CopyFiles()` / `CopyFilesAs()` — for example `env.CopyFiles('staged', 'data/copy_me.txt')`.
+Those helpers are thin wrappers around `Install()` / `InstallAs()`; they exist because
+`Install()` alone does not default into Cuppa's per-variant `final/` layout and has no
+built-in `match` / `exclude` filtering.
+====
 
 Optional reference (unversioned):
 https://scons.org/doc/production/HTML/scons-man.html[SCons man page] (`Install` / `InstallAs`).
 
 == Behaviour summary
 
-[cols="1,3"]
+[cols="1,3",options="header"]
 |===
+| Axis | Detail
+
 | Returns | Install / copy nodes
 | Evaluation | Build action
-| Output paths | Caller destination; `Copy*` joins relative paths onto `env['abs_final_dir']` unless `#…` or absolute
+| Output paths | Caller destination; `Copy*` joins relative paths onto `env['abs_final_dir']` unless `{hash}…` or absolute
 | Progress | Yes — `MethodWithProgress` wraps `Install()` / `InstallAs()` on sconscript envs (see xref:methods.adoc#progress-tracking-and-variant-scoping[Progress tracking]). `Copy*` deliberately do **not** call `NotifyProgress.add` a second time.
 |===
 

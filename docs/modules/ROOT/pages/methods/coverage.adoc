@@ -1,17 +1,20 @@
 = Coverage methods
 :description: Coverage collation helpers
 
-Cuppa's coverage methods collect per-test and union reports under `_artifacts/coverage/`.
+Cuppa's coverage methods collect per-test and union reports under `_artefacts/coverage/`
+(legacy `_artifacts/` is still honoured when present).
 They are usually called from the same test sconscript that runs `BuildTest()` — see
 xref:methods/test-run.adoc[Test and run] for the everyday pattern.
 
 == Behaviour summary
 
-[cols="1,3"]
+[cols="1,3",options="header"]
 |===
+| Axis | Detail
+
 | Returns | Report / collation nodes
 | Evaluation | Build / post-build (active with `--cov` and related actions)
-| Output paths | Under `_artifacts/coverage/` (toolchain-scoped HTML and JSON)
+| Output paths | Under `_artefacts/coverage/` (toolchain-scoped HTML and JSON)
 | Progress | Collation participates where wired through `NotifyProgress`
 |===
 
@@ -31,14 +34,42 @@ xref:methods/test-run.adoc[Test and run] for the everyday pattern.
 | Master coverage index across tests (and, in the site layout, toolchains)
 |===
 
-IMPORTANT: `--cov` does *not* imply `--test`. For a typical coverage workflow:
+[IMPORTANT]
+====
+`--cov` and `--test` are separate on purpose.
+
+* `--cov` selects the coverage *variant* (instrumented compile/link). It does **not** run tests.
+* `--test` runs test actions and lets coverage collection / collation run after those binaries execute.
+
+That split lets you build a large instrumented tree in parallel, then collect coverage serially:
+
+[source,sh]
+----
+# 1) Long instrumented compile (parallel OK)
+cuppa -D --cov --parallel --offline
+
+# 2) Run tests and collate coverage (no --parallel)
+cuppa -D --cov --test --offline --toolchains=gcc
+----
+
+Running `--cov --test` together with `--parallel` is unreliable: interleaved test and gcov/gcovr
+output is hard to read, and parallel coverage collection has historically been flaky. Prefer the
+two-step recipe above for large projects. See also
+https://github.com/ja11sop/cuppa/issues/236[#236].
+
+For a small tree where you do not need `--parallel`, a single serial command is fine:
 
 [source,sh]
 ----
 cuppa -D --cov --test --toolchains=gcc
 ----
+====
 
 Coverage instrumentation is supported for GCC and Clang; MSVC does not participate.
+
+Object files for instrumented sources live under the mirrored `working/` tree (same layout as
+`Compile()`). Coverage runners locate `.gcda` / `.gcno` beside those objects, so nested
+same-basename sources stay distinct under `--cov` as well.
 
 After `BuildTest()`, projects commonly append:
 
@@ -51,12 +82,12 @@ env.CollateCoverageIndex(coverage_files, destination=coverage_dir)
 
 See xref:testing-coverage.adoc[Testing and coverage] for report layout and analysis tips.
 HTML test reports (`GenerateHtmlTestReport()` / `CollateTestReportIndex()`) are separate plugins that
-often run in the same sconscript — see the hub xref:methods.adoc#test-reporting-plugins[Test reporting plugins]
-until a dedicated page exists.
+often run in the same sconscript — see xref:methods/test-reporting.adoc[Test reporting].
 
 == Related methods
 
 * xref:methods/test-run.adoc[Test and run] — `BuildTest()` before collation
+* xref:methods/test-reporting.adoc[Test reporting] — HTML / Bitten plugins
 * xref:methods/discovery.adoc[Source discovery] — `Filter()`
 * xref:methods/staging-files.adoc[Staging files] — `CopyFiles()` for artefacts
 * xref:integration/test-coverage.adoc[Integration: Coverage]

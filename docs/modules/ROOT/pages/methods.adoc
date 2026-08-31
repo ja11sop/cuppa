@@ -19,6 +19,39 @@ For compiler defaults applied underneath these calls, see xref:toolchains.adoc[T
 and the family pages (xref:toolchains/gcc.adoc[GCC], xref:toolchains/clang.adoc[Clang],
 xref:toolchains/msvc.adoc[MSVC]).
 
+[#method-behaviour]
+== How methods behave
+
+Before picking a topic page, it helps to know four axes that apply across the Methods surface.
+Each child page opens with a **Behaviour summary** table using the same columns.
+
+[cols="1,2,2",options="header"]
+|===
+| Axis | Typical values | Reader question
+
+| **Returns**
+| Nodes / env / string / list / side effects
+| What can I pass to `Build()`, `Filter()`, `Depends()`?
+
+| **Evaluation**
+| Immediate / configure snapshot / directory Glob / build action / post-build
+| Will a new file on disk appear without re-running configure?
+
+| **Output naming**
+| Mirror source tree under `working/` or `final/` / flat basename / caller target / N/A
+| Can two same-basename sources collide?
+
+| **Progress**
+| `NotifyProgress` / wrap list / none
+| Does the call show in variant Finished output?
+|===
+
+Cuppa's preferred emitters **mirror** nested sources (objects under `working/`; HTML, SCSS, and
+redirect logs under `final/`) so same-basename inputs in different directories stay distinct.
+Configure-time discovery (`RecursiveGlob()`, `GlobFiles()`) is a **static snapshot**; directory
+`Glob()` can pick up new files without editing the sconscript.
+See <<progress-tracking-and-variant-scoping>> for when progress attaches.
+
 == Topic map
 
 [cols="2,1"]
@@ -33,6 +66,9 @@ xref:toolchains/msvc.adoc[MSVC]).
 
 | Coverage
 | xref:methods/coverage.adoc[Coverage]
+
+| Test reporting (`GenerateHtmlTestReport()`, …)
+| xref:methods/test-reporting.adoc[Test reporting]
 
 | {cpp} dialect, modules, Profiles
 | xref:methods/cxx-dialect-and-modules.adoc[{cpp} dialect and modules]
@@ -197,7 +233,8 @@ See also xref:cxx-modules.adoc[{cpp} Modules] and xref:cxx-profiles.adoc[{cpp} P
 
 Detailed tutorials: xref:methods/coverage.adoc[Coverage methods].
 
-IMPORTANT: `--cov` does not imply `--test` — use `cuppa -D --cov --test …`.
+IMPORTANT: `--cov` does not imply `--test`. Prefer a parallel instrumented build, then a serial
+`--cov --test` collect step — see the Coverage page (and https://github.com/ja11sop/cuppa/issues/236[#236]).
 
 == Packages
 
@@ -208,13 +245,11 @@ See xref:packages.adoc[Publishing packages].
 [#test-reporting-plugins]
 == Test reporting plugins
 
-When the corresponding plugins are loaded (shipped with cuppa via `cuppa.method.plugins`):
+Detailed tutorials: xref:methods/test-reporting.adoc[Test reporting].
 
-* `env.GenerateHtmlTestReport(…)`
-* `env.CollateTestReportIndex(…)`
-* Bitten XML report generation (`GenerateBittenReport()`)
-
-These activate in concert with `--test`. Full detail remains on this hub until a dedicated child page exists; they appear in the everyday test spine on xref:methods/test-run.adoc[Test and run].
+`GenerateHtmlTestReport()` / `CollateTestReportIndex()` / `GenerateBittenReport()` — loaded via
+`cuppa.method.plugins`; active with `--test`. They appear in the everyday spine on
+xref:methods/test-run.adoc[Test and run].
 
 [#method-index]
 == Method index
@@ -268,7 +303,7 @@ Grouped names → topic page (shortcut):
 | `working_dir` / `cwd` / `--use-shell` / `Command()` → xref:methods/custom-commands.adoc[Custom commands]
 
 | Test report plugins
-| `GenerateHtmlTestReport()`, `CollateTestReportIndex()`, `GenerateBittenReport()` → <<test-reporting-plugins>>
+| `GenerateHtmlTestReport()`, `CollateTestReportIndex()`, `GenerateBittenReport()` → xref:methods/test-reporting.adoc[Test reporting]
 |===
 
 == What you have available

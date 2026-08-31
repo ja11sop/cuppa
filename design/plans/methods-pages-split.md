@@ -1,14 +1,14 @@
 # Plan: split Methods into per-method Antora pages
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-methods-split`); hub [`methods.adoc`](../../docs/modules/ROOT/pages/methods.adoc); [`dependencies.adoc`](../../docs/modules/ROOT/pages/dependencies.adoc) hub pattern; Phase 3 doc split [`removal-options.md`](removal-options.md) §7.1; behaviour track [`method-behaviour-audit.md`](method-behaviour-audit.md)
-- **Updated:** 2026-08-30
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-methods-split`); hub [`methods.adoc`](../../docs/modules/ROOT/pages/methods.adoc); [`dependencies.adoc`](../../docs/modules/ROOT/pages/dependencies.adoc) hub pattern; Phase 3 doc split [`removal-options.md`](removal-options.md) §7.1; behaviour track [`method-behaviour-audit.md`](../archive/method-behaviour-audit.md)
+- **Updated:** 2026-08-31
 - **Impact:** patch — progress wrap correctness + staging parity tests; documentation
 
 ## Prerequisite — behaviour before pages
 
 Do **not** move detailed behaviour prose onto child pages until
-[`method-behaviour-audit.md`](method-behaviour-audit.md) fixes and classifications are settled
+[`method-behaviour-audit.md`](../archive/method-behaviour-audit.md) fixes and classifications are settled
 **or** explicitly deferred with issue links. Hub + nav skeleton (slice **A**) may land once
 blocking audit slices are fixed or deferred.
 
@@ -106,7 +106,7 @@ they form one job:
 
 ## Behaviour fields (every child page)
 
-Import the classification from [`method-behaviour-audit.md`](method-behaviour-audit.md). Each method
+Import the classification from [`method-behaviour-audit.md`](../archive/method-behaviour-audit.md). Each method
 page (or group page subsection) should state:
 
 | Field | What to document |
@@ -219,7 +219,7 @@ Custom commands may stay on the hub briefly, then move to `methods/custom-comman
 
 | Slice | Status |
 |-------|--------|
-| 0 | Largely done — artifact-path emitters deferred with issue |
+| 0 | **Done** — #213 + glob parity + #233 artifact emitters; coverage nested-path sanity |
 | A | **Done** — hub topic map + job-named stubs (no `scons-*`); flags page owns AppendUnique/MergeFlags |
 | E′ | **Done** — flags / depends / install tutorials |
 | B–D | **Done** — build/test + remaining topic baselines migrated off the hub |
@@ -237,13 +237,17 @@ Custom commands may stay on the hub briefly, then move to `methods/custom-comman
 | Artefact examples use `abs_artefacts_root` | **Done** — test-run, staging-files, depends |
 | `MethodWithProgress` NodeList + `_Command` sentinels | **Done** — wrap accepts NodeList; progress sentinels use unwrapped `_Command`; `Copy*` no longer double-`NotifyProgress.add` |
 | Staging parity tests | **Done** — unit + multi-variant (`--dbg`/`--rel`) integration for Copy*/Install* |
+| Behaviour classification on hub | **Done** — `#method-behaviour` axes; child Behaviour summaries |
+| Test reporting child page | **Done** — `methods/test-reporting.adoc` |
+| Coverage nested-path sanity | **Done** — `test_coverage_with_mirrored_nested_source` |
+| Methods prose polish (Depends/Requires, docs-assets, cov/--parallel, …) | **Done** (2026-08-31) |
 
 ## Next after Methods baseline (this PR)
 
 When #234 is merge-ready (Antora preview sanity, CI green, test-plan ticked):
 
 1. **Merge Methods baseline** — live site must not show empty stubs (refusal rule already met).
-2. **Optional polish in follow-ups (not blockers):** deeper examples on cold methods, any remaining moved-anchor greps (`slice F`).
+2. **Close [#233](https://github.com/ja11sop/cuppa/issues/233)** with the merge of #234 (artifact-path emitters landed on this branch).
 3. **Then preferred pairing (separate PRs / workstreams):**
    - [`docs-site-release-default.md`](docs-site-release-default.md) — public docs default to **released** Cuppa, not master tip
    - [`docs-llms-txt.md`](docs-llms-txt.md) — `llms.txt` / per-page Markdown for agents

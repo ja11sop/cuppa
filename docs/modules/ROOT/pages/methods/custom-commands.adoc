@@ -51,8 +51,10 @@ xref:methods/staging-files.adoc[Staging files].
 
 == Behaviour summary
 
-[cols="1,3"]
+[cols="1,3",options="header"]
 |===
+| Axis | Detail
+
 | Returns | N/A for spawn notes; `Command()` returns action nodes
 | Evaluation | Build-time spawn / custom actions
 | Output paths | Caller / `cwd` / `working_dir` controlled

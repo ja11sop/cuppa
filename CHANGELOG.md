@@ -63,6 +63,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``MarkdownToHtml()`` / ``AsciidocToHtml()`` / ``CompileScss()`` / ``RunAndRedirectToFile()``
   mirror nested sources under ``final/`` via ``artifact_target_for``
   ([#233](https://github.com/ja11sop/cuppa/issues/233)).
+  The Methods hub documents Returns / Evaluation / Output naming / Progress axes; child pages
+  open with a Behaviour summary. Test-report plugins have ``methods/test-reporting.adoc``.
+  Coverage docs note mirrored ``working/`` objects under ``--cov`` and the two-step
+  ``--cov --parallel`` then ``--cov --test`` workflow ([#236](https://github.com/ja11sop/cuppa/issues/236)).
+  Methods pages expand Depends vs Requires (SCons rebuild vs order-only), ``BuildWith()`` /
+  ``BuildProfile()`` returns, docs-assets converters (SCSS target vs source), and staging
+  ``CopyFiles()`` single-file usage.
 - ``MethodWithProgress`` recognises SCons ``NodeList`` returns (not only plain ``list``), so wrapped
   builders such as ``Program()`` / ``Object()`` / ``Command()`` attach progress. Progress sentinels
   use the unwrapped ``_Command`` builder to avoid re-entering the wrap.
@@ -161,6 +168,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hostnames only (no scheme).
 - Test HTML source links skip test cases with no ``file`` path instead of raising when building
   ``local`` links.
+- Coverage runners remain compatible with mirrored object trees under ``working/`` after
+  [#213](https://github.com/ja11sop/cuppa/issues/213) (integration:
+  ``test_coverage_with_mirrored_nested_source``).
 
 ### Deprecated
 

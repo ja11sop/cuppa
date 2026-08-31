@@ -1,12 +1,15 @@
 = Source discovery and filtering
 :description: RecursiveGlob, GlobFiles, Glob, Filter, and TargetFrom
+:hash: #
 
 This page covers how you find source files and narrow node lists in a Cuppa `sconscript`.
 
 == Behaviour summary
 
-[cols="1,3"]
+[cols="1,3",options="header"]
 |===
+| Axis | Detail
+
 | Returns | Node lists (discovery / `Filter()`); strings (`TargetFrom()`)
 | Evaluation | Configure-time snapshot (`RecursiveGlob()` / `GlobFiles()`); directory Glob (`Glob()`); immediate (`Filter()`, `TargetFrom()`)
 | Output paths | N/A — these calls select or name existing / declared nodes
@@ -23,7 +26,7 @@ This page covers how you find source files and narrow node lists in a Cuppa `sco
 | Recursive configure-time tree walk (Cuppa's stand-in for a recursive Glob); disk + `Dir.entries` + Repositories; `exclude_dirs` / `discard_pattern`
 
 | `GlobFiles()`
-| Single-directory discovery via `Glob()` after resolving Cuppa `start=` / `#/` (includes declared `File()` nodes)
+| Single-directory discovery via `Glob()` after resolving Cuppa `start=` / `{hash}/` (includes declared `File()` nodes)
 
 | `Glob()`
 | Single-directory (or one path segment per `*` / `**`) discovery; matches do **not** recurse through `/`
@@ -42,9 +45,9 @@ Name the two axes separately:
 * **Recursion** — does discovery walk nested directories?
 * **Evaluation** — *disk walk + local `Dir.entries` + Repositories* (`RecursiveGlob()`) vs *directory Glob* (`Glob()` / `GlobFiles()`)
 
-Cuppa's recursive walk **is** the practical answer to “recursive Glob” today: `Glob()` still does not span `/`, and `**` is only one path segment. Prefer `RecursiveGlob()` for nested trees. Use `GlobFiles()` (Cuppa `start=` / `#/` vocabulary over directory Glob) or `Glob()` for a single directory; use `Filter()` to narrow either source.
+Cuppa's recursive walk **is** the practical answer to “recursive Glob” today: `Glob()` still does not span `/`, and `**` is only one path segment. Prefer `RecursiveGlob()` for nested trees. Use `GlobFiles()` (Cuppa `start=` / `{hash}/` vocabulary over directory Glob) or `Glob()` for a single directory; use `Filter()` to narrow either source.
 
-Both Cuppa snapshot helpers and `Glob()` re-run whenever Cuppa re-reads the sconscript (every normal build). New files appear on the next invocation either way — the day-to-day impact of snapshot-vs-directory-Glob is low. Recursion, `exclude_dirs` / `discard_pattern`, and `start=` / `#/` vocabulary are the differences that matter.
+Both Cuppa snapshot helpers and `Glob()` re-run whenever Cuppa re-reads the sconscript (every normal build). New files appear on the next invocation either way — the day-to-day impact of snapshot-vs-directory-Glob is low. Recursion, `exclude_dirs` / `discard_pattern`, and `start=` / `{hash}/` vocabulary are the differences that matter.
 
 [cols="2,3,3"]
 |===
@@ -83,11 +86,12 @@ candidates = env.Glob('#/tests/*.cpp')
 tests = env.Filter(candidates, match='*_test.cpp')
 ----
 
-Do **not** write `env.Glob('#/src/**/*.cpp')` expecting every nested `.cpp` under `src/`. Use `RecursiveGlob()` for the full tree.
+Do not write `env.Glob('#/src/**/*.cpp')` expecting every nested `.cpp` under `src/`.
+Use `RecursiveGlob()` for the full tree.
 
 For ordinary on-disk trees the file sets from `GlobFiles()` and `Glob()` on the same
 directory match. `GlobFiles()` is implemented with `Glob()` after resolving
-Cuppa `start=` / `#/`, so it also sees declared `File()` nodes and Repository
+Cuppa `start=` / `{hash}/`, so it also sees declared `File()` nodes and Repository
 entries. `RecursiveGlob()` walks the disk, merges matching nodes from each
 visited directory's `Dir.entries` (declared `File()`s not on disk yet,
 including nested declared paths), and walks the union of local and Repository
@@ -108,7 +112,7 @@ env.RecursiveGlob('*.cpp', start='src')  # includes ghost.cpp
 
 Path vocabulary for Cuppa snapshot discovery (`start=`):
 
-* `#/…` or `#…` — from the project / sconstruct root
+* `{hash}/…` or `{hash}…` — from the project / sconstruct root
 * `start='src'` — directory relative to the calling sconscript
 * Absolute paths — last resort (packages / generated trees)
 
@@ -125,6 +129,7 @@ env.Build(env.TargetFrom('src/apps/server.cpp'), sources)
 After tests, `Filter()` often selects **outputs of the test node** (logs/JSON) before
 `CopyFiles()` — see xref:methods/test-run.adoc[Test and run] and
 xref:methods/staging-files.adoc[Staging files].
+`CopyFiles()` accepts a single file as well as a list (there is no separate `CopyFile()`).
 
 == Related methods
 

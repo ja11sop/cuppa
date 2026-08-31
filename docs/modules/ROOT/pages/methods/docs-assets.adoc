@@ -6,8 +6,10 @@ Builders that turn documentation, templates, and assets into variant outputs und
 
 == Behaviour summary
 
-[cols="1,3"]
+[cols="1,3",options="header"]
 |===
+| Axis | Detail
+
 | Returns | Build nodes for generated artefacts
 | Evaluation | Build action (configure registers a builder; the build runs it)
 | Output paths | Caller target, or emitter-derived under `final/` mirroring the source tree
@@ -43,14 +45,17 @@ and rebuild-when-inputs-change like any other emitter.
 | `RenderJinjaTemplate()`
 | Jinja2 rendering (`variables=` / `variables_file=`)
 
-| `MarkdownToHtml()` / `AsciidocToHtml()`
-| Doc conversion builders
+| `MarkdownToHtml()`
+| Markdown → HTML (default targets mirror under `final/`)
+
+| `AsciidocToHtml()`
+| AsciiDoc → HTML (default targets mirror under `final/`)
 
 | `CompileScss()`
-| SCSS → CSS
+| SCSS → CSS (default targets mirror under `final/`)
 
 | `RunAndRedirectToFile()`
-| Capture subprocess stdout to a file
+| Capture subprocess stdout to a file (default targets mirror under `final/`)
 |===
 
 == `ExpandTemplateFile()`
@@ -86,30 +91,105 @@ When you omit an explicit target list, the emitter derives destinations from the
 (dropping `.j2` / `.jinja` suffixes) under `final/`, preserving a path offset from the project
 base when possible.
 
-== Doc and stylesheet converters
+== `MarkdownToHtml()`
 
-`MarkdownToHtml()`, `AsciidocToHtml()` (when you omit an explicit HTML target), and
-`CompileScss()` (when you omit an explicit CSS target) place outputs under `final/` while
-**mirroring** the source directory tree:
+`MarkdownToHtml(source, final_dir=None)` takes **sources only**. When you omit an explicit HTML
+target list (the usual call), the emitter writes `.html` beside the mirrored source path under
+`final/` so same-basename files in different directories stay distinct:
 
 [source,python]
 ----
 Import('env')
 
-# doc/a/readme.md → …/final/doc/a/readme.html
-# doc/b/readme.md → …/final/doc/b/readme.html
+# Sources:
+#   doc/a/readme.md
+#   doc/b/readme.md
+# Default HTML targets under final/:
+#   …/final/doc/a/readme.html
+#   …/final/doc/b/readme.html
 env.MarkdownToHtml(['doc/a/readme.md', 'doc/b/readme.md'])
+----
 
-# styles/a/app.scss → …/final/styles/a/app.css
+Pass `final_dir=` to choose a different root for that mirror. There is no separate target
+argument on this method — the emitter always owns the HTML path.
+
+== `AsciidocToHtml()`
+
+`AsciidocToHtml(target, source, …)` takes an optional **target** list. Empty or omitted targets
+mirror under `final/` like Markdown; an explicit target list places HTML where you ask:
+
+[source,python]
+----
+Import('env')
+import os
+
+# Default mirror: doc/guide.adoc → …/final/doc/guide.html
+env.AsciidocToHtml([], ['doc/guide.adoc'])
+
+# Explicit HTML target (no mirror):
+html = os.path.join(env['abs_final_dir'], 'guide.html')
+env.AsciidocToHtml(html, 'doc/guide.adoc')
+----
+
+Optional kwargs include `plantuml_config_file`, `template_file`, `css_file`, and `base_dir`
+(tooling depends on `asciidoc` / `asciidoctor` on `PATH`).
+
+== `CompileScss()`
+
+`CompileScss(target, source, final_dir=None, load_path=None)` always takes **target then source**.
+SCSS is the *source*; CSS is the *target*.
+
+*Empty target list* — mirror each `.scss` to `.css` under `final/`:
+
+[source,python]
+----
+Import('env')
+
+# Sources (SCSS):
+#   styles/a/app.scss
+#   styles/b/app.scss
+# Default CSS targets under final/:
+#   …/final/styles/a/app.css
+#   …/final/styles/b/app.css
 env.CompileScss([], ['styles/a/app.scss', 'styles/b/app.scss'])
 ----
 
-`RunAndRedirectToFile()` uses the same mirror rule for captured stdout files (default
-extension `.out`). Pass an explicit target list when you need a different layout
-(for example CSS next to the SCSS source, or a flat name under `final/`).
+*Explicit CSS targets* — name the `.css` outputs yourself (layout is whatever you pass):
 
-`AsciidocToHtml()`, `CompileScss()`, and `RunAndRedirectToFile()` follow the same builder
-pattern described above; see the integration pages below for worked examples.
+[source,python]
+----
+Import('env')
+import os
+
+css_a = os.path.join(env['abs_final_dir'], 'app-a.css')
+css_b = os.path.join(env['abs_final_dir'], 'app-b.css')
+env.CompileScss(
+    [css_a, css_b],
+    ['styles/a/app.scss', 'styles/b/app.scss'],
+)
+----
+
+`load_path=` (or `--include-path` via `pysassc` on newer Python) adds SCSS import roots.
+Default emit does **not** write CSS beside the `.scss` source unless you choose that as an
+explicit target.
+
+== `RunAndRedirectToFile()`
+
+`RunAndRedirectToFile(target, source, …)` captures a program's stdout into a file. Empty targets
+mirror under `final/` with extension `.out` (override with `extension=`):
+
+[source,python]
+----
+Import('env')
+import os
+
+# Default: tool → …/final/<mirrored>/tool.out
+env.RunAndRedirectToFile([], ['tool'])
+
+# Explicit capture file:
+out = os.path.join(env['abs_final_dir'], 'tool-capture.txt')
+env.RunAndRedirectToFile(out, 'tool')
+----
 
 == Related methods
 

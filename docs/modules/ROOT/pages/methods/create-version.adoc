@@ -11,8 +11,10 @@ a Cuppa method — not a generic file copy.
 
 == Behaviour summary
 
-[cols="1,3"]
+[cols="1,3",options="header"]
 |===
+| Axis | Detail
+
 | Returns | Generated version source nodes (for example `version.cpp`)
 | Evaluation | Build action (configure registers `CreateVersionFile`; the build writes files)
 | Output paths | Offset paths under the variant `working/` tree (via the toolchain emitter)

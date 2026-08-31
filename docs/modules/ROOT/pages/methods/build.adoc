@@ -7,8 +7,10 @@ action nodes (see xref:methods.adoc#progress-tracking-and-variant-scoping[Progre
 
 == Behaviour summary
 
-[cols="1,3"]
+[cols="1,3",options="header"]
 |===
+| Axis | Detail
+
 | Returns | SCons nodes (objects, programs, libraries)
 | Evaluation | Build action (configure wires the graph; the build executes it)
 | Output paths | Object outputs mirror the source tree under `working/` (https://github.com/ja11sop/cuppa/issues/213[#213]); linked binaries and libraries land under `final/`

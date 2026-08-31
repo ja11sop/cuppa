@@ -12,8 +12,10 @@ into a real `sconscript`.
 
 == Behaviour summary
 
-[cols="1,3"]
+[cols="1,3",options="header"]
 |===
+| Axis | Detail
+
 | Returns | `Toolchain()` returns a toolchain object; flag helpers mutate `env` (typically return `None` or the env, depending on the call)
 | Evaluation | Immediate (configure-time)
 | Output paths | N/A

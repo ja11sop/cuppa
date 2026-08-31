@@ -7,8 +7,10 @@ xref:methods/staging-files.adoc[Staging files] and xref:methods/depends.adoc[Dep
 
 == Behaviour summary
 
-[cols="1,3"]
+[cols="1,3",options="header"]
 |===
+| Axis | Detail
+
 | Returns | Package-related nodes
 | Evaluation | Configure / build; upload typically requires `--publish-package`
 | Output paths | Package layout under cuppa package roots / registry archives
@@ -27,6 +29,32 @@ xref:methods/staging-files.adoc[Staging files] and xref:methods/depends.adoc[Dep
 | `env.InstallPackage(…)`
 | Install a package locally and extend `SYSINCPATH`
 |===
+
+Minimal GitLab-oriented sketch (full publishers and Conan on the packages hub):
+
+[source,python]
+----
+Import('env')
+from cuppa.package_managers.gitlab import GitlabPackagePublisher
+
+lib = env.BuildStaticLib('widget', ['widget.cpp'])
+publisher = GitlabPackagePublisher(
+    env,
+    source_include_dir='include',
+    source_lib_dir=env['abs_final_dir'],
+    registry='https://gitlab.example.com/api/v4/projects/org%2Fregistry',
+    package='widget',
+    version='1.0.0',
+)
+env.PublishPackage(lib, publisher=publisher)
+----
+
+Run a release build with upload when you intend to push:
+
+[source,sh]
+----
+cuppa -D --rel --publish-package
+----
 
 See xref:packages.adoc[Publishing packages] for `GitlabPackagePublisher` and `ConanPackagePublisher` usage.
 
