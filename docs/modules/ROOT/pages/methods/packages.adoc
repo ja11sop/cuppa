@@ -1,0 +1,70 @@
+= Package methods
+:description: PublishPackage and InstallPackage
+
+Cuppa package methods stage and publish libraries for registry or Conan consumers.
+Publisher trees often combine `Command()`, `Install()`, and `Depends()` / `Requires()` — see
+xref:methods/staging-files.adoc[Staging files] and xref:methods/depends.adoc[Depends].
+
+== Behaviour summary
+
+[cols="1,3",options="header"]
+|===
+| Axis | Detail
+
+| Returns | Package-related nodes
+| Evaluation | Configure / build; upload typically requires `--publish-package`
+| Output paths | Package layout under cuppa package roots / registry archives
+| Progress | As wired by package publishers
+|===
+
+== Methods
+
+[cols="2,3"]
+|===
+| Method | Role
+
+| `env.PublishPackage(…)`
+| Build (and optionally publish) a package; GitLab generic tarball or Conan `export-pkg` via a publisher object; upload requires `--publish-package`
+
+| `env.InstallPackage(…)`
+| Install a package locally and extend `SYSINCPATH`
+|===
+
+Minimal GitLab-oriented sketch (full publishers and Conan on the packages hub):
+
+[source,python]
+----
+Import('env')
+from cuppa.package_managers.gitlab import GitlabPackagePublisher
+
+lib = env.BuildStaticLib('widget', ['widget.cpp'])
+publisher = GitlabPackagePublisher(
+    env,
+    source_include_dir='include',
+    source_lib_dir=env['abs_final_dir'],
+    registry='https://gitlab.example.com/api/v4/projects/org%2Fregistry',
+    package='widget',
+    version='1.0.0',
+)
+env.PublishPackage(lib, publisher=publisher)
+----
+
+Run a release build with upload when you intend to push:
+
+[source,sh]
+----
+cuppa -D --rel --publish-package
+----
+
+See xref:packages.adoc[Publishing packages] for `GitlabPackagePublisher` and `ConanPackagePublisher` usage.
+
+Custom `Command()` steps that wrap external CMake generate/build before `Install()` are common in
+publisher sconscripts — see xref:methods/custom-commands.adoc[Custom commands].
+
+== Related methods
+
+* xref:methods/staging-files.adoc[Staging files] · xref:methods/depends.adoc[Depends]
+* xref:methods/dependencies-and-profiles.adoc[Dependencies and profiles] — consuming packages via `BuildWith()`
+* xref:packages.adoc[Publishing packages] · xref:dependencies/packages.adoc[Package dependencies]
+* xref:integration/test-packages.adoc[Integration: Packages] ·
+  xref:integration/test-conan.adoc[Conan]

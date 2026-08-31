@@ -5,7 +5,7 @@
 
 import pytest
 
-from cuppa.utility.object_target import object_target_for
+from cuppa.utility.object_target import artifact_target_for, object_target_for
 
 
 pytestmark = pytest.mark.unit
@@ -26,9 +26,11 @@ class _Env( dict ):
 
 def _env( tmp_path ):
     working = tmp_path / '_build' / 'gcc' / 'dbg' / 'working'
+    final = tmp_path / '_build' / 'gcc' / 'dbg' / 'final'
     return _Env({
         'build_root': str( tmp_path / '_build' ),
         'build_dir': str( working ),
+        'abs_final_dir': str( final ),
     })
 
 
@@ -53,3 +55,34 @@ def test_build_root_source_keeps_offset_from_working( tmp_path ):
     source_path = build_dir + '/src/nested/deep.cpp'
     target = object_target_for( env, _Source( source_path ), '', '.o' )
     assert target.endswith( 'src/nested/deep.o' )
+
+
+def test_nested_same_basename_artifacts_under_final_are_distinct( tmp_path ):
+    env = _env( tmp_path )
+    first = artifact_target_for( env, _Source( 'doc/a/readme.md' ), '.html' )
+    second = artifact_target_for( env, _Source( 'doc/b/readme.md' ), '.html' )
+    assert first != second
+    assert first.replace( '\\', '/' ).endswith( 'final/doc/a/readme.html' )
+    assert second.replace( '\\', '/' ).endswith( 'final/doc/b/readme.html' )
+
+
+def test_flat_markdown_stays_directly_under_final( tmp_path ):
+    env = _env( tmp_path )
+    target = artifact_target_for( env, _Source( 'readme.md' ), '.html' )
+    assert target.replace( '\\', '/' ).endswith( 'final/readme.html' )
+    assert '/doc/' not in target.replace( '\\', '/' )
+
+
+def test_artifact_respects_custom_output_dir( tmp_path ):
+    env = _env( tmp_path )
+    custom = str( tmp_path / 'staged' )
+    target = artifact_target_for(
+        env, _Source( 'doc/a/readme.md' ), '.html', output_dir=custom
+    )
+    assert target.replace( '\\', '/' ).endswith( 'staged/doc/a/readme.html' )
+
+
+def test_run_redirect_extension( tmp_path ):
+    env = _env( tmp_path )
+    target = artifact_target_for( env, _Source( 'tools/gen' ), '.out' )
+    assert target.replace( '\\', '/' ).endswith( 'final/tools/gen.out' )

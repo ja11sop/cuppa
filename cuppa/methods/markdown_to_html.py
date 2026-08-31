@@ -1,4 +1,3 @@
-
 #          Copyright Jamie Allsop 2015-2015
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
@@ -8,9 +7,9 @@
 #   MarkdownToHtmlMethod
 #-------------------------------------------------------------------------------
 
-import os.path
 import grip
 import cuppa.progress
+from cuppa.utility.object_target import artifact_target_for
 
 
 class GripRunner(object):
@@ -35,9 +34,9 @@ class GripEmitter(object):
     def __call__( self, target, source, env ):
         target = []
         for s in source:
-            path = os.path.join( self._output_dir, os.path.split( str(s) )[1] )
-            t = os.path.splitext(path)[0] + ".html"
-            target.append(t)
+            target.append(
+                artifact_target_for( env, s, '.html', output_dir=self._output_dir )
+            )
         return target, source
 
 
@@ -61,4 +60,3 @@ class MarkdownToHtmlMethod(object):
     @classmethod
     def add_to_env( cls, cuppa_env ):
         cuppa_env.add_method( "MarkdownToHtml", cls() )
-

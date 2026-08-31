@@ -14,7 +14,6 @@ from SCons.Node import Node
 
 from cuppa.utility.filter import filter_nodes
 
-import cuppa.progress
 from cuppa.colourise import colour_items
 from cuppa.log import logger
 
@@ -33,9 +32,9 @@ class CopyFilesMethod:
 
             logger.trace( "filtered_nodes = [{}]".format( colour_items( [str(n) for n in filtered_nodes ] ) ) )
 
-            installed_files = env.Install( destination, filtered_nodes )
-            cuppa.progress.NotifyProgress.add( env, installed_files )
-            return installed_files
+            # Progress comes from MethodWithProgress wrapping Install on the
+            # sconscript env — do not NotifyProgress.add again here.
+            return env.Install( destination, filtered_nodes )
         return []
 
     @classmethod

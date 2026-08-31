@@ -1,0 +1,202 @@
+= Documentation and asset methods
+:description: Templates, AsciiDoc, Markdown, SCSS, and redirect capture
+
+Builders that turn documentation, templates, and assets into variant outputs under `final/`
+(or related trees).
+
+== Behaviour summary
+
+[cols="1,3",options="header"]
+|===
+| Axis | Detail
+
+| Returns | Build nodes for generated artefacts
+| Evaluation | Build action (configure registers a builder; the build runs it)
+| Output paths | Caller target, or emitter-derived under `final/` mirroring the source tree
+  (nested same-basename sources stay distinct). Jinja and `CompileScss()` use the same
+  default layout.
+| Progress | Yes where emitters create action nodes (`NotifyProgress.add`)
+|===
+
+[#how-these-builders-work]
+== How these builders work
+
+Several Cuppa methods on this page (and `CreateVersion()`) follow the same shape:
+
+. At **configure** time (while the `sconscript` runs), the method registers a named SCons
+  `Builder` on the environment — action (and sometimes emitter) objects that know how to
+  read inputs and write outputs.
+. It then **invokes** that builder with `target` / `source`, which adds nodes to the build graph.
+. At **build** time, SCons runs the action when the target is out of date.
+
+That is why you pass destinations and sources up front (as with `Build()`), rather than expanding
+or converting eagerly in Python during configure. The work participates in Depends, progress,
+and rebuild-when-inputs-change like any other emitter.
+
+== Methods at a glance
+
+[cols="2,3"]
+|===
+| Method | Role
+
+| `ExpandTemplateFile()`
+| Python `str.format` expansion for small `.in` files
+
+| `RenderJinjaTemplate()`
+| Jinja2 rendering (`variables=` / `variables_file=`)
+
+| `MarkdownToHtml()`
+| Markdown → HTML (default targets mirror under `final/`)
+
+| `AsciidocToHtml()`
+| AsciiDoc → HTML (default targets mirror under `final/`)
+
+| `CompileScss()`
+| SCSS → CSS (default targets mirror under `final/`)
+
+| `RunAndRedirectToFile()`
+| Capture subprocess stdout to a file (default targets mirror under `final/`)
+|===
+
+== `ExpandTemplateFile()`
+
+[source,python]
+----
+Import('env')
+import os
+
+out_txt = os.path.join(env['abs_final_dir'], 'expanded.txt')
+env.ExpandTemplateFile(out_txt, 'data/template.txt.in', name='cuppa')
+----
+
+Extra keyword arguments become format fields (`\{name}` in the template).
+The method registers an `ExpandTemplateFile` builder whose action reads the source and writes
+`str.format(**kwargs)` into the target.
+
+== `RenderJinjaTemplate()`
+
+[source,python]
+----
+Import('env')
+import os
+
+env.RenderJinjaTemplate(
+    [os.path.join(env['abs_final_dir'], 'rendered.txt')],
+    ['data/template.j2'],
+    variables={'name': 'cuppa'},
+)
+----
+
+When you omit an explicit target list, the emitter derives destinations from the template names
+(dropping `.j2` / `.jinja` suffixes) under `final/`, preserving a path offset from the project
+base when possible.
+
+== `MarkdownToHtml()`
+
+`MarkdownToHtml(source, final_dir=None)` takes **sources only**. When you omit an explicit HTML
+target list (the usual call), the emitter writes `.html` beside the mirrored source path under
+`final/` so same-basename files in different directories stay distinct:
+
+[source,python]
+----
+Import('env')
+
+# Sources:
+#   doc/a/readme.md
+#   doc/b/readme.md
+# Default HTML targets under final/:
+#   …/final/doc/a/readme.html
+#   …/final/doc/b/readme.html
+env.MarkdownToHtml(['doc/a/readme.md', 'doc/b/readme.md'])
+----
+
+Pass `final_dir=` to choose a different root for that mirror. There is no separate target
+argument on this method — the emitter always owns the HTML path.
+
+== `AsciidocToHtml()`
+
+`AsciidocToHtml(target, source, …)` takes an optional **target** list. Empty or omitted targets
+mirror under `final/` like Markdown; an explicit target list places HTML where you ask:
+
+[source,python]
+----
+Import('env')
+import os
+
+# Default mirror: doc/guide.adoc → …/final/doc/guide.html
+env.AsciidocToHtml([], ['doc/guide.adoc'])
+
+# Explicit HTML target (no mirror):
+html = os.path.join(env['abs_final_dir'], 'guide.html')
+env.AsciidocToHtml(html, 'doc/guide.adoc')
+----
+
+Optional kwargs include `plantuml_config_file`, `template_file`, `css_file`, and `base_dir`
+(tooling depends on `asciidoc` / `asciidoctor` on `PATH`).
+
+== `CompileScss()`
+
+`CompileScss(target, source, final_dir=None, load_path=None)` always takes **target then source**.
+SCSS is the *source*; CSS is the *target*.
+
+*Empty target list* — mirror each `.scss` to `.css` under `final/`:
+
+[source,python]
+----
+Import('env')
+
+# Sources (SCSS):
+#   styles/a/app.scss
+#   styles/b/app.scss
+# Default CSS targets under final/:
+#   …/final/styles/a/app.css
+#   …/final/styles/b/app.css
+env.CompileScss([], ['styles/a/app.scss', 'styles/b/app.scss'])
+----
+
+*Explicit CSS targets* — name the `.css` outputs yourself (layout is whatever you pass):
+
+[source,python]
+----
+Import('env')
+import os
+
+css_a = os.path.join(env['abs_final_dir'], 'app-a.css')
+css_b = os.path.join(env['abs_final_dir'], 'app-b.css')
+env.CompileScss(
+    [css_a, css_b],
+    ['styles/a/app.scss', 'styles/b/app.scss'],
+)
+----
+
+`load_path=` (or `--include-path` via `pysassc` on newer Python) adds SCSS import roots.
+Default emit does **not** write CSS beside the `.scss` source unless you choose that as an
+explicit target.
+
+== `RunAndRedirectToFile()`
+
+`RunAndRedirectToFile(target, source, …)` captures a program's stdout into a file. Empty targets
+mirror under `final/` with extension `.out` (override with `extension=`):
+
+[source,python]
+----
+Import('env')
+import os
+
+# Default: tool → …/final/<mirrored>/tool.out
+env.RunAndRedirectToFile([], ['tool'])
+
+# Explicit capture file:
+out = os.path.join(env['abs_final_dir'], 'tool-capture.txt')
+env.RunAndRedirectToFile(out, 'tool')
+----
+
+== Related methods
+
+* xref:methods/create-version.adoc[CreateVersion] — toolchain-backed version sources (same builder pattern)
+* xref:methods/discovery.adoc[Source discovery] — find inputs before converting
+* xref:methods/flags-and-toolchain.adoc[Flags and toolchain] — `Toolchain()` lookup
+* xref:methods/staging-files.adoc[Staging files] — staging CSS/assets under `final/`
+* xref:integration/test-templates.adoc[Integration: Templates] ·
+  xref:integration/test-docs-assets.adoc[Docs and assets] ·
+  xref:integration/test-redirect.adoc[RunAndRedirectToFile]

@@ -24,7 +24,7 @@ for source in env.GlobFiles('*.cpp'):
     env.Build(str(source)[:-4], source)
 ----
 
-`env.Build()` is toolchain- and variant-aware (unlike a bare `env.Program()`).
+`env.Build()` is toolchain- and variant-aware (unlike vanilla SCons `Program()`).
 `GlobFiles` lists one directory when the sconscript runs. For nested
 trees use `env.RecursiveGlob`. SCons `env.Glob` is also single-directory
 only — it does not recurse with `**`.

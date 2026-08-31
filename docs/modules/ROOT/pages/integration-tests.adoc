@@ -96,6 +96,9 @@ cuppa.run(default_variants=['dbg'])
 | `CopyFilesAs`
 | xref:integration/test-copy-files-as.adoc[]
 
+| `CopyFiles` / `Install` / `InstallAs` multi-variant parity
+| xref:integration/test-staging-files.adoc[]
+
 | `ExpandTemplateFile`, `RenderJinjaTemplate`
 | xref:integration/test-templates.adoc[]
 

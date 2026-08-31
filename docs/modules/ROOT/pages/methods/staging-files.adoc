@@ -1,0 +1,176 @@
+= Staging files in the build
+:description: CopyFiles, CopyFilesAs, Install, and InstallAs for placing files during a build
+:hash: #
+
+Cuppa projects stage files into destinations as build actions — test artefacts under
+`env['abs_artefacts_root']` (default `_artefacts/`; legacy `_artifacts/` when present), package
+trees for `PublishPackage()`, or a renamed file in `final/`. Four calls do that work:
+
+* `CopyFiles()` / `CopyFilesAs()` — helpers with variant-aware destinations and optional filtering
+* `Install()` / `InstallAs()` — progress-wrapped on sconscript envs
+
+[NOTE]
+====
+There is no singular `CopyFile()` method. Pass a single path (or a one-element list) to
+`CopyFiles()` / `CopyFilesAs()` — for example `env.CopyFiles('staged', 'data/copy_me.txt')`.
+Those helpers are thin wrappers around `Install()` / `InstallAs()`; they exist because
+`Install()` alone does not default into Cuppa's per-variant `final/` layout and has no
+built-in `match` / `exclude` filtering.
+====
+
+Optional reference (unversioned):
+https://scons.org/doc/production/HTML/scons-man.html[SCons man page] (`Install` / `InstallAs`).
+
+== Behaviour summary
+
+[cols="1,3",options="header"]
+|===
+| Axis | Detail
+
+| Returns | Install / copy nodes
+| Evaluation | Build action
+| Output paths | Caller destination; `Copy*` joins relative paths onto `env['abs_final_dir']` unless `{hash}…` or absolute
+| Progress | Yes — `MethodWithProgress` wraps `Install()` / `InstallAs()` on sconscript envs (see xref:methods.adoc#progress-tracking-and-variant-scoping[Progress tracking]). `Copy*` deliberately do **not** call `NotifyProgress.add` a second time.
+|===
+
+== Choosing a helper
+
+[cols="1,3"]
+|===
+| Call | Prefer when
+
+| `CopyFiles()`
+| Copying build outputs, logs, configs, or docker payloads inside a Cuppa variant layout
+  (`final/`, or under `env['abs_artefacts_root']`). Relative destinations land under
+  `abs_final_dir`. Optional `match` / `exclude` (same helper as `Filter()`). Works naturally
+  with `Filter()` on test outputs.
+
+| `CopyFilesAs()`
+| Same as `CopyFiles()`, but the destination is an explicit *file* path (rename on place).
+
+| `Install()`
+| Staging into a *package* directory for `PublishPackage()`, or when you want classic Install
+  semantics with an explicit destination (including repository-aware installs). Pass
+  `os.path.join(env['abs_final_dir'], …)` yourself when you need Cuppa `final/` parity with
+  `CopyFiles()`.
+
+| `InstallAs()`
+| Explicit destination file path with `InstallAs()` semantics. Prefer `CopyFilesAs()` when
+  staying inside Cuppa artefact / `final/` workflows.
+|===
+
+Both families create real build edges. For “copy the binary into docker only after it links”,
+wrap the copy with xref:methods/depends.adoc[`Requires()`] regardless of which helper you chose.
+
+== How `Copy*` relates to `Install*`
+
+[source,python]
+----
+# CopyFiles roughly does:
+destination = …  # relative → abs_final_dir / relative; '#' / absolute unchanged
+env.Install(destination, filter_nodes(source, match, exclude))
+
+# CopyFilesAs roughly does:
+env.InstallAs(destinations, filter_nodes(source, match, exclude))
+----
+
+So:
+
+* **Same** underlying install builders and graph role.
+* **Different** destination defaults (`abs_final_dir`) and optional filtering on `Copy*`.
+* **Progress** is attached once, via the wrapped `Install*` — not a second `NotifyProgress.add`
+  inside `Copy*`.
+
+== Everyday artefact copy after tests
+
+The dominant consumer pattern copies selected test outputs into artefacts:
+
+[source,python]
+----
+Import('env')
+import os
+
+artefacts_dir = os.path.join(env['abs_artefacts_root'], env['flat_build_base'])
+test = env.BuildTest('unit', ['tests.cpp'])
+env.CopyFiles(artefacts_dir, env.Filter(test, ['*.log', '*.json']))
+----
+
+`Filter()` here selects **outputs of the test node**, not a `Glob()` of sources — see
+xref:methods/test-run.adoc[Test and run].
+
+Relative destination under each active variant (`--dbg`, `--rel`, …):
+
+[source,python]
+----
+Import('env')
+
+env.CopyFiles('staged', 'data/copy_me.txt')
+# → <variant>/final/staged/copy_me.txt for each selected variant
+----
+
+== Rename on place
+
+[source,python]
+----
+Import('env')
+
+env.CopyFilesAs('renamed.txt', 'data/copy_me.txt')
+# → <variant>/final/renamed.txt
+----
+
+Or with an explicit absolute destination (same idea as `InstallAs()`):
+
+[source,python]
+----
+Import('env')
+import os
+
+env.InstallAs(
+    os.path.join(env['abs_final_dir'], 'renamed.txt'),
+    'data/copy_me.txt',
+)
+----
+
+== Package staging with `Install()`
+
+Publisher sconscripts typically install headers and libraries into a package directory, then hand
+the nodes to `PublishPackage()`:
+
+[source,python]
+----
+Import('env')
+import os
+
+package_dir = env['package_dir']  # as configured for the publisher
+include_src = os.path.join(library_source_tree, 'include', 'widget')
+lib_node = built_library_node      # from an earlier Command / Build step
+
+installed_include = env.Install(os.path.join(package_dir, 'include'), include_src)
+installed_lib = env.Install(os.path.join(package_dir, 'lib'), lib_node)
+
+env.Depends(installed_include, installed_lib)
+env.Requires(installed_include, installed_lib)
+
+published = env.PublishPackage(installed_include, publisher)
+----
+
+`Depends()` / `Requires()` keep include and library staging ordered with the built library — see
+xref:methods/depends.adoc[Depends] and xref:methods/packages.adoc[Packages].
+
+== Assets under `final/`
+
+Small doc or CSS trees sometimes call `Install(env['abs_final_dir'], 'clearpool.css')` (or a short
+list of files). That is valid; many Cuppa projects use `CopyFiles()` for the same job so artefact
+paths stay consistent with test output copying. Choose one style per project and stick to it.
+
+== Related methods
+
+* xref:methods/discovery.adoc[Source discovery] — `Filter()`, Glob helpers
+* xref:methods/packages.adoc[Packages]
+* xref:methods/depends.adoc[Depends] — ordering install / copy nodes
+* xref:methods/custom-commands.adoc[Custom commands] — `Command()` often precedes `Install()` in publishers
+* xref:methods/test-run.adoc[Test and run] — Filter + CopyFiles after tests
+* xref:integration/test-copy-and-target.adoc[Integration: CopyFiles] ·
+  xref:integration/test-copy-files-as.adoc[CopyFilesAs] ·
+  xref:integration/test-staging-files.adoc[Staging parity] ·
+  xref:integration/test-packages.adoc[Packages]

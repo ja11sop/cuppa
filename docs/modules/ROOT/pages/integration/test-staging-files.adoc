@@ -1,0 +1,27 @@
+= `test_staging_files` — CopyFiles / Install parity
+:description: Cuppa integration tests for staging files across dbg and rel
+
+== What is tested
+
+Multi-variant (`--dbg` and `--rel`) staging for:
+
+* `CopyFiles()` under each variant `final/`
+* `Install(abs_final_dir/…)` layout parity with `CopyFiles()`
+* `CopyFilesAs()` / `InstallAs()` rename parity
+* `NotifyProgress` started/finished events for both variants when staging
+
+== Command
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg --rel
+----
+
+== Expectations
+
+Exit 0; staged files appear under both dbg and rel `final/` trees; progress callbacks see
+both variants.
+
+'''
+
+Related test module: `tests/integration/methods/test_staging_files.py`.

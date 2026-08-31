@@ -78,7 +78,7 @@ TIP: When docs and code disagree, *code is authoritative* -- especially storage 
 * xref:install.adoc[Install cuppa]
 * xref:quickstart.adoc[Quickstart] -- minimal `sconstruct` / `sconscript`
 * xref:concepts.adoc[Concepts] -- methods, dependencies, profiles, variants, toolchains
-* xref:methods.adoc[Methods] -- build, test, library, and helper APIs with examples
+* xref:methods.adoc[Methods] -- hub for build, test, library, and helper APIs (child pages under `methods/`)
 * xref:toolchains.adoc[Toolchains] -- selection and inventory; family defaults on
   xref:toolchains/gcc.adoc[GCC], xref:toolchains/clang.adoc[Clang], and
   xref:toolchains/msvc.adoc[MSVC]

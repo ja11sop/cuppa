@@ -1,78 +1,112 @@
 # Plan: split Methods into per-method Antora pages
 
-- **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-methods-split`); hub [`methods.adoc`](../../docs/modules/ROOT/pages/methods.adoc); [`dependencies.adoc`](../../docs/modules/ROOT/pages/dependencies.adoc) hub pattern; Phase 3 doc split [`removal-options.md`](removal-options.md) §7.1
-- **Updated:** 2026-08-17
-- **Impact:** none — documentation and navigation only
+- **Status:** in progress
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-methods-split`); hub [`methods.adoc`](../../docs/modules/ROOT/pages/methods.adoc); [`dependencies.adoc`](../../docs/modules/ROOT/pages/dependencies.adoc) hub pattern; Phase 3 doc split [`removal-options.md`](removal-options.md) §7.1; behaviour track [`method-behaviour-audit.md`](../archive/method-behaviour-audit.md)
+- **Updated:** 2026-08-31
+- **Impact:** patch — progress wrap correctness + staging parity tests; documentation
 
 ## Prerequisite — behaviour before pages
 
-Do **not** split Methods into child pages until [`method-behaviour-audit.md`](method-behaviour-audit.md)
-fixes and classifications are settled (or explicitly deferred with issue links). Otherwise each
-new page documents behaviour that is still wrong or inconsistent — especially **output path naming**
-and **static vs dynamic** source discovery.
+Do **not** move detailed behaviour prose onto child pages until
+[`method-behaviour-audit.md`](../archive/method-behaviour-audit.md) fixes and classifications are settled
+**or** explicitly deferred with issue links. Hub + nav skeleton (slice **A**) may land once
+blocking audit slices are fixed or deferred.
+
+**Settled / deferred (2026-08-29):**
+
+| Item | State |
+|------|--------|
+| [#213](https://github.com/ja11sop/cuppa/issues/213) compile object paths | **Shipped** |
+| `mba-static-glob` / `mba-filter` | **Shipped** — [`recursive-glob-parity.md`](../archive/recursive-glob-parity.md) / [#232](https://github.com/ja11sop/cuppa/issues/232) |
+| `mba-artifact-paths` (flat `{final}/{basename}` for Markdown/AsciiDoc/RunAndRedirect/SCSS) | **Done** — [#233](https://github.com/ja11sop/cuppa/issues/233) |
+| `path-vocabulary-and-scons-nodes` | Optional parallel; not a Methods-split blocker |
 
 **Order:**
 
 ```text
-method-behaviour-audit  →  recursive-glob-parity (optional)  →  methods-pages-split (this plan)
+method-behaviour-audit (fixed or deferred)  →  methods-pages-split (this plan)
 ```
 
-[#213](https://github.com/ja11sop/cuppa/issues/213) (compile object paths) is the first audit slice;
-doc/asset emitters with flat basenames are the next.
+`recursive-glob-parity` is shipped; cite the archive plan from the Files group.
 
 ## Why
 
-[`methods.adoc`](../../docs/modules/ROOT/pages/methods.adoc) is a single long page (~540 lines)
-covering progress, build, test, coverage, custom commands, modules, and packages. Dependencies
-and toolchains already use a **hub + child pages** model (`dependencies.adoc` →
-`dependencies-*.adoc`, `toolchains.adoc` → `toolchain-*.adoc`).
+[`methods.adoc`](../../docs/modules/ROOT/pages/methods.adoc) is a single long page covering
+progress, build, test, coverage, custom commands, modules, and packages. Dependencies and
+toolchains already use a **hub + child pages** model.
 
-Methods are the core **`sconscript` vocabulary**. Each deserves:
+Methods are the core **`sconscript` vocabulary**. Each group deserves:
 
 - Its own URL for linking from integration tests and error messages.
 - Room for parameters, examples, progress behaviour, and toolchain notes without scrolling.
-- A path to document **canonical SCons helpers** used with cuppa (`env.Install`, etc.) without
-  sending readers to fragmented upstream SCons docs.
+- Realistic teaching for everyday `env.*` calls — whether Cuppa registered them or SCons
+  provided them — without making provenance the navigation model.
 
 ## Goals
 
-1. Turn **`methods.adoc` into a hub** — prerequisites, progress overview, method index table.
-2. **Phase 1:** one Antora page per **cuppa-registered method family** (see inventory below).
-3. **Phase 2:** short pages for **selected SCons methods** cuppa projects use daily, grouped under
-   `methods-scons.adoc` or nested nav.
+1. Turn **`methods.adoc` into a hub** — prerequisites, progress overview, topic map, and a
+   **comprehensive method index** (grouped sensibly; every name links to the Cuppa page that
+   covers it when we have one, else a careful SCons man / guide link).
+2. **Topic pages** by *reader job* (build, test, flags, files/install, depends, …) — not by
+   whether a call is implemented in Cuppa or in SCons.
+3. Document everyday methods Cuppa projects actually use (`Install`, `Depends`,
+   `AppendUnique`, …) with the **same depth** whether Cuppa registered them or SCons
+   provided them: realistic examples, Related methods, behaviour fields — not terse
+   “see SCons” stubs.
 4. Update **`nav.adoc`** to mirror the dependency/toolchain nesting pattern.
-5. Optional: **`docs/modules/ROOT/pages/methods/`** folder aligned with nav (same idea as
-   `integration/` pages — see [`doc-folder-layout.md`](../archive/doc-folder-layout.md)).
+5. Child pages live under **`docs/modules/ROOT/pages/methods/`** (same idea as `integration/`).
+
+## Settled — navigation and naming (2026-08-30)
+
+| Decision | Choice |
+|----------|--------|
+| Page filenames | Job names only: `staging-files.adoc`, `depends.adoc`, `flags-and-toolchain.adoc` — **no** `scons-` prefix; **no** redirect stubs for renamed pages |
+| Grouping axis | What the reader is trying to do, not Cuppa vs SCons provenance |
+| Flags set | `ReplaceFlags`, `RemoveFlags`, `AppendUnique`, `MergeFlags`, `Append`, … on **one** flags page with `Toolchain` |
+| Install / copy | Unified as **Staging files** — `CopyFiles()` / `CopyFilesAs()` / `Install()` / `InstallAs()` on `staging-files.adoc` (thin wrappers + destination defaults; one decision table) |
+| Graph edges | `Depends`, `Requires`, `Alias` on `depends.adoc` |
+| Man / guide links | Optional deep links to unversioned SCons docs for completeness; **never** versioned doc URLs. Prefer Cuppa xrefs whenever we cover the method |
+| Depth | Everyday methods Cuppa projects use (`Install`, `Depends`, `AppendUnique`, …) get full tutorials — do not outsource teaching to thin SCons examples |
+| Method names in prose | Monospace with empty parens: `` `Build()` `` / `` `Depends()` `` — **no** “Cuppa” / “SCons” / “engine” qualifier unless contrasting. Full calls (`env.Build('hello', …)`) stay in code blocks |
+| Footguns | **vanilla SCons** `` `Program()` `` / `` `Object()` `` / `` `Library()` `` (and kin) — *Not recommended*; prefer `` `Build()` `` / `` `Compile()` `` / `` `Build*Lib()` ``. Do **not** call taught APIs such as `` `Install()` `` “vanilla” |
+| Cuppa ↔ SCons stance | Cuppa enhances SCons (one environment, one surface). Docs should not read like a mash-up of two toolkits |
+| Progress vs variant | Do **not** claim vanilla SCons builders lack progress on a Cuppa env — `EnvironmentMethods.add_progress_tracking` wraps them. Prefer Cuppa helpers for **variant / layout / toolchain / modules**; say “vanilla SCons `X()` will break your Cuppa builds” for that footgun |
+| Avoid in reader prose | “engine methods”, “engine builders”, “raw SCons”, “upstream” (for SCons docs — use “SCons man page” / “optional reference”) |
+
+Readers who have never heard of SCons should still find “how do I set flags?” and “how do I install files?” without a provenance taxonomy.
 
 ## Non-goals
 
-- Duplicating full SCons reference documentation.
+- Duplicating the entire SCons reference.
 - Auto-generating pages from `add_method` registration (manual prose stays authoritative).
 - Moving integration test pages (already under `integration/`).
+- Nav labels or filenames that say “SCons companions”.
 
-## Method inventory (Phase 1 grouping)
+## Method inventory (topic grouping)
 
-Group related registrations to avoid forty tiny pages:
+Group related calls to avoid forty tiny pages. Related methods share a row when
+they form one job:
 
-| Nav group | Cuppa methods | Source module(s) |
-|-----------|---------------|------------------|
-| Build | `Build`, `Compile`, `CompileStatic`, `CompileShared`, `BuildLib`, `BuildStaticLib`, `BuildSharedLib` | `build.py`, `compile.py`, `build_library.py` |
-| Test & run | `BuildTest`, `*Test`, `Test`, `BuildBenchmark`, `*Benchmark`, `Benchmark`, `Run` | `build_test.py`, `test.py`, `build_benchmark.py`, `benchmark.py`, `run.py` |
-| Coverage | `Coverage`, `CollateCoverageFiles`, `CollateCoverageIndex` | `coverage.py` |
-| C++ dialect & modules | `StdCpp`, `CxxModules`, `Modules` (deprecated), `Module`, `HeaderUnit`, `ImportModules`, `CxxProfiles`, `CxxProfilesEnforce`, `CxxErrorLimit`, `CxxDefaultErrorLimit`, `CxxDisableErrorLimit` | `stdcpp.py`, `modules.py`, `module.py`, `header_unit.py`, `import_modules.py`, `cxx_profiles.py`, `cxx_error_limit.py` |
-| Dependencies & profiles | `BuildWith`, `Using`, `BuildProfile` | `build_with.py`, `using.py`, `build_profile.py` |
-| Flags & toolchain | `Toolchain`, `ReplaceFlags`, `RemoveFlags` | `toolchain.py`, `replace_flags.py`, `remove_flags.py` |
-| Files & templates | `CopyFiles`, `CopyFilesAs`, `TargetFrom`, `ExpandTemplateFile`, `RenderJinjaTemplate`, `RecursiveGlob`, `GlobFiles`, `Filter` | respective modules |
-| Docs assets | `AsciidocToHtml`, `MarkdownToHtml`, `CompileScss`, `CreateVersion`, `RunAndRedirectToFile` | respective modules |
-| Packages | `PublishPackage`, `InstallPackage` | `manage_packages.py` |
-
-Each group page: signature, when to use, minimal example, progress/NotifyProgress note, xrefs to
-toolchains/modules/coverage as needed.
+| Nav group | Methods | Page |
+|-----------|---------|------|
+| Build | `Build`, `Compile`, `CompileStatic`, `CompileShared`, `BuildLib`, `BuildStaticLib`, `BuildSharedLib` | `methods/build.adoc` |
+| Test & run | `BuildTest`, `*Test`, `Test`, `BuildBenchmark`, `*Benchmark`, `Benchmark`, `Run` | `methods/test-run.adoc` |
+| Coverage | `Coverage`, `CollateCoverageFiles`, `CollateCoverageIndex` | `methods/coverage.adoc` |
+| C++ dialect & modules | `StdCpp`, `CxxModules`, `Modules` (deprecated), `Module`, `HeaderUnit`, `ImportModules`, `CxxProfiles`, … | `methods/cxx-dialect-and-modules.adoc` |
+| Dependencies & profiles | `BuildWith`, `Using`, `BuildProfile` | `methods/dependencies-and-profiles.adoc` |
+| Flags & toolchain | `Toolchain`, `ReplaceFlags`, `RemoveFlags`, **`AppendUnique`**, **`MergeFlags`**, `Append`, … | `methods/flags-and-toolchain.adoc` |
+| Files / discovery | `RecursiveGlob`, `GlobFiles`, `Filter`, **`Glob`**, **`File`**, `TargetFrom` | `methods/discovery.adoc` |
+| Docs / assets / templates | `ExpandTemplateFile`, `RenderJinjaTemplate`, Markdown/AsciiDoc/SCSS, `RunAndRedirectToFile` | `methods/docs-assets.adoc` (includes how builders work) |
+| CreateVersion | `CreateVersion` (toolchain-backed) | `methods/create-version.adoc` |
+| Staging files | `CopyFiles`, `CopyFilesAs`, **`Install`**, **`InstallAs`** | `methods/staging-files.adoc` |
+| Depends | **`Depends`**, **`Requires`**, **`Alias`** | `methods/depends.adoc` |
+| Docs assets | `AsciidocToHtml`, `MarkdownToHtml`, `CompileScss`, `CreateVersion`, `RunAndRedirectToFile` | `methods/docs-assets.adoc` |
+| Packages | `PublishPackage`, `InstallPackage`, plus **`Command`** where publishers wrap external builds | `methods/packages.adoc` (cross-link `Command` from custom-commands if needed) |
+| Custom commands | `cwd` / `--use-shell`; **`Command`** for custom actions | `methods/custom-commands.adoc` |
 
 ## Behaviour fields (every child page)
 
-Import the classification from [`method-behaviour-audit.md`](method-behaviour-audit.md). Each method
+Import the classification from [`method-behaviour-audit.md`](../archive/method-behaviour-audit.md). Each method
 page (or group page subsection) should state:
 
 | Field | What to document |
@@ -82,48 +116,143 @@ page (or group page subsection) should state:
 | **Output paths** | Mirror under `working/` or `final/`, flat basename, or caller explicit — collision notes |
 | **Progress** | Participates in NotifyProgress or not |
 
-**Examples by group:**
+Link to [`recursive-glob-parity.md`](../archive/recursive-glob-parity.md) from the Files group
+instead of duplicating the full static/dynamic essay.
 
-| Nav group | Evaluation highlight | Path highlight |
-|-----------|---------------------|----------------|
-| Build | Build action via SCons | Objects mirror source tree under `working/` ([#213](https://github.com/ja11sop/cuppa/issues/213)) |
-| Files & templates | Mix: static glob, Filter immediate, Glob dynamic | RecursiveGlob vs SCons Glob; Filter after Glob |
-| Docs assets | Build action | Today: flat `{final}/{basename}` — **document fix when audit lands** |
-| C++ modules | Build action | Interface suffix in object stem (`.cppm.o` vs `.o`) + mirrored paths |
+## Comprehensive method index
 
-Link to [`recursive-glob-parity.md`](recursive-glob-parity.md) from the Files group instead of duplicating
-the full static/dynamic essay.
+Somewhere on the hub (or a dedicated `methods/method-index.adoc` linked from the hub) maintain a
+**complete** grouped list of methods readers might call — Cuppa registrations plus the SCons
+methods we teach. Each entry:
 
-## Phase 2 — SCons companions (proposal)
+- Links to the Cuppa topic page when we cover it.
+- Otherwise links to **unversioned** upstream documentation (no `/doc/4.x/`-style paths).
+- Notes Related methods so hot paths (test → Filter → CopyFiles → coverage) stay discoverable.
+- Marks **vanilla SCons** builders that are **not recommended** for Cuppa {cpp} builds (prefer `Build()` /
+  `Compile()` / `Build*Lib()`). Do not label taught APIs such as `Install()` as vanilla.
 
-| Page | Cover |
-|------|--------|
-| `methods-scons-install.adoc` | `env.Install`, `env.InstallAs`, cuppa layout under `_build/` / `final/` |
-| `methods-scons-depends.adoc` | `Depends`, `Requires`, `Alias` in cuppa projects |
-| `methods-scons-env.adoc` | `CPPPATH`, `LIBPATH`, when to prefer cuppa methods |
+**Landed:** `docs/modules/ROOT/pages/methods/method-index.adoc` (hub keeps a short group → page
+shortcut). Progress-wrap inventory lives in `cuppa.core.environment.EnvironmentMethods` and is
+guarded by `tests/unit/test_scons_progress_wrap_list.py`.
 
-Keep each page short; link to SCons upstream for exhaustive API.
+## Consumer usage survey (2026-08-30)
+
+Scanned Cuppa `sconstruct` / `sconscript` / nested `*.sconscript` files across four private
+consumer trees (shape only — see local `INTERNAL_PROJECTS.local.md` for the map): a **large
+multi-service Cuppa tree** (~279 scripts; includes **project A** and **project C**), a **smaller
+sibling product tree** (~43; includes **project B**), a **packages / publisher tree** (~10), and
+one **tree with no Cuppa sconscripts**. Counts below are call sites across that corpus (not unique
+products). Use this for **Related methods**, example priority, and which SCons-provided methods to teach
+first — not as a public claim about any named organisation.
+
+### Dominant test idiom
+
+Nearly every test sconscript repeats the same spine:
+
+1. `BuildWith(…)` (+ often `AppendUnique` / `MergeFlags` for defines / libs)
+2. `BuildTest(…)` (explicit source list; rarely recursive discovery)
+3. `CopyFiles(artifacts_dir, Filter(test, ["*.log", "*.json"]))`
+4. `CollateCoverageFiles` → `GenerateHtmlTestReport` → `CollateTestReportIndex` /
+   `CollateCoverageIndex`
+
+So **Related methods** on Test / Files / Coverage pages should cross-link that chain first.
+`Filter` is overwhelmingly used on **test output nodes**, not on `Glob` results.
+
+### Cuppa methods — high / medium / rare in this corpus
+
+| Band | Methods (approx. call volume) | Doc implication |
+|------|-------------------------------|-----------------|
+| Hot | `CopyFiles`, `BuildWith`, `Filter`, `BuildTest`, coverage collate pair, HTML test report + index | Lead examples; hub “everyday” path |
+| Common | `Build`, `Compile`, `CreateVersion`, `ExpandTemplateFile`, `Run`, `BuildBenchmark` | Binary / service scripts; keep real |
+| Present | `PublishPackage` (publisher tree), `AsciidocToHtml`, `CompileScss`, `RenderJinjaTemplate`, `RemoveFlags` | Docs/assets + packages pages |
+| Rare | `RecursiveGlob` (nested scenario data under one product include-tree only) | Still document; do not imply fleet-wide use |
+| Absent here | `GlobFiles`, `Using`, `BuildLib` / `BuildStaticLib` / `BuildSharedLib`, standalone `Test` / `Benchmark`, `CopyFilesAs`, `TargetFrom`, `InstallPackage`, modules / Profiles method surface, `MarkdownToHtml`, `InstallAs`, `Alias` | Still document from product design + cuppa tests; invent fewer “fleet-style” examples |
+
+`env.Glob` appears mostly in **`sconstruct`** customisation (pinning single third-party sources via
+`local_sub_path`) and in a few doc/asset scripts — not as the primary test source discovery tool.
+
+### Methods to teach early (same depth as Cuppa-registered helpers)
+
+| Priority | API | Observed role | Lives with |
+|----------|-----|---------------|------------|
+| 1 | `AppendUnique`, `MergeFlags` | Everywhere beside `BuildWith` | Flags page |
+| 2 | `Requires` | Order packaging copies after `Build` / `CreateVersion` | Depends page |
+| 3 | `Depends` | Test graph edges (DB scripts, wait/update nodes) | Depends page |
+| 4 | `Install` | Package staging; occasional `final/` assets | Install / files narrative |
+| 5 | `Command` | Publisher tree: wrap external CMake steps | Packages / custom commands |
+| 6 | `Glob`, `File` | Dep sources; `#/` assets; templates | Files page |
+| 7 | `AlwaysBuild`, `Clean` | Force regenerate / clean staged dirs | Brief sections on depends or packages |
+| Low | `InstallAs`, `Alias`, … | Unused in corpus | Short “when you need it” on the job page |
+
+### Example / Related-methods checklist (when migrating pages)
+
+- Test page: Related → `Filter`, `CopyFiles`, coverage collate, HTML reports, `BuildWith`
+- Files page: Related → `Filter` on test outputs; `RecursiveGlob`; `Glob` / `File`; `Install`
+- Build page: Related → `Compile`, `CreateVersion`, `Requires` + `CopyFiles` for packaging
+- Flags page: Related → `BuildWith`, `ReplaceFlags` / `RemoveFlags` / `AppendUnique` / `MergeFlags`
+- Packages page: Related → `Install`, `Command`, `Depends` / `Requires`, `PublishPackage`
 
 ## Hub page retention
 
-Leave on **`methods.adoc`**:
+Leave on **`methods.adoc`** (target end state):
 
 - Prerequisites
 - Progress tracking and variant scoping (mermaid diagram)
-- Custom commands / `--use-shell` / POSIX vs Windows spawn (or move to `methods-custom-commands.adoc` if hub stays short)
-- Index table linking every child page
+- Topic map + **comprehensive method index**
+- Optional short “how Cuppa relates to SCons” without making provenance the nav axis
+
+Custom commands may stay on the hub briefly, then move to `methods/custom-commands.adoc`.
 
 ## Work slices
 
 | Slice | Deliverable | Notes |
 |-------|-------------|-------|
-| **0** | Behaviour audit fixes | [`method-behaviour-audit.md`](method-behaviour-audit.md) — **before A** |
-| A | Hub trim + nav skeleton | Empty child stubs with `xref` + behaviour field template |
-| B | Build + test groups | Highest traffic; #213 semantics |
-| C | Coverage + C++ groups | Link cxx-modules / cxx-profiles |
-| D | Remaining groups | Files (RecursiveGlob), packages, flags |
-| E | Phase 2 SCons pages | Optional same cycle |
-| F | Redirect grep in repo | Fix internal links to `#anchors` that moved |
+| **0** | Behaviour audit fixed or deferred | [#213](https://github.com/ja11sop/cuppa/issues/213) + glob parity + `mba-artifact-paths` / `mba-scss` **done** ([#233](https://github.com/ja11sop/cuppa/issues/233)) |
+| **A** | Hub map + nav skeleton + stubs | Job-named pages; no `scons-*` filenames |
+| **B** | Build + test groups | **Done** — #213 semantics; everyday Filter/CopyFiles pattern on test page |
+| **E′** | Flags / depends / install depth | **Done** — full tutorials; unversioned production upstream links |
+| **C** | Coverage + C++ groups | **Done** — baseline topic pages |
+| **D** | Remaining groups | **Done** — files, packages, docs assets, custom commands, deps |
+| **F** | Redirect grep + method index | **Done** — dedicated xref:methods/method-index.adoc; hub keeps group shortcut |
+
+## Progress snapshot
+
+| Slice | Status |
+|-------|--------|
+| 0 | **Done** — #213 + glob parity + #233 artifact emitters; coverage nested-path sanity |
+| A | **Done** — hub topic map + job-named stubs (no `scons-*`); flags page owns AppendUnique/MergeFlags |
+| E′ | **Done** — flags / depends / install tutorials |
+| B–D | **Done** — build/test + remaining topic baselines migrated off the hub |
+| F | **Done** — `methods/method-index.adoc` (Cuppa + SCons grouped tables; not-recommended notes); hub shortcut retained |
+| Consumer survey | **Done** (2026-08-30) |
+| Naming / grouping settled | **Done** — job pages; prose `` `Name()` ``; **vanilla SCons** only for footguns |
+| Comprehensive method index | **Done** — `methods/method-index.adoc` |
+| Prose vocabulary (B-tightened) | **Done** — bare `` `Name()` ``; **vanilla SCons** only for footguns; no “engine methods” in reader docs |
+| `MethodWithProgress` wrap list sync | **Done** — SCons 4.10 public builders + Docbook/gettext aliases; unit guard |
+| Prose `Name()` pass | **Done** (2026-08-30) — Methods hub + all `methods/*.adoc` |
+| Vanilla SCons warnings | **Done** — `Build()` / `Compile()` / `Build*Lib()` vs Program/Object/Library; progress wrap documented |
+| Staging files page | **Done** — `staging-files.adoc` |
+| Discovery / docs-assets / CreateVersion | **Done** — `discovery.adoc`, `docs-assets.adoc` (templates included), `create-version.adoc`; old redirect stubs removed |
+| `Command()` swiss-army + `Run()` contrast | **Done** — custom-commands + test-run |
+| Artefact examples use `abs_artefacts_root` | **Done** — test-run, staging-files, depends |
+| `MethodWithProgress` NodeList + `_Command` sentinels | **Done** — wrap accepts NodeList; progress sentinels use unwrapped `_Command`; `Copy*` no longer double-`NotifyProgress.add` |
+| Staging parity tests | **Done** — unit + multi-variant (`--dbg`/`--rel`) integration for Copy*/Install* |
+| Behaviour classification on hub | **Done** — `#method-behaviour` axes; child Behaviour summaries |
+| Test reporting child page | **Done** — `methods/test-reporting.adoc` |
+| Coverage nested-path sanity | **Done** — `test_coverage_with_mirrored_nested_source` |
+| Methods prose polish (Depends/Requires, docs-assets, cov/--parallel, …) | **Done** (2026-08-31) |
+
+## Next after Methods baseline (this PR)
+
+When #234 is merge-ready (Antora preview sanity, CI green, test-plan ticked):
+
+1. **Merge Methods baseline** — live site must not show empty stubs (refusal rule already met).
+2. **Close [#233](https://github.com/ja11sop/cuppa/issues/233)** with the merge of #234 (artifact-path emitters landed on this branch).
+3. **Then preferred pairing (separate PRs / workstreams):**
+   - [`docs-site-release-default.md`](docs-site-release-default.md) — public docs default to **released** Cuppa, not master tip
+   - [`docs-llms-txt.md`](docs-llms-txt.md) — `llms.txt` / per-page Markdown for agents
+   - [`antora-ui-bundle.md`](antora-ui-bundle.md) if the docs cycle wants a visible UI refresh
+4. **Defer** toolchain identity coarsening ([`ignore-toolchain-point-release.md`](ignore-toolchain-point-release.md)) — product behaviour, not docs; own PR.
 
 ## Refusal rules
 
@@ -132,28 +261,36 @@ Leave on **`methods.adoc`**:
 | One mega-page only | Refuse; hub exists for overview |
 | Generated docs without examples | Refuse |
 | Rename methods in docs only | Refuse; match code |
+| Terse “see SCons docs” for methods we teach | Refuse; teach with realistic Cuppa-project examples |
+| Versioned upstream SCons doc URLs | Refuse; unversioned links only |
 
-## 1.8.0 candidacy
+## 1.9.0 / docs candidacy
 
 | Factor | Assessment |
 |--------|------------|
 | User value | Medium — discoverability and deep links |
 | Risk | Low |
-| Size | Large editorial effort; can land incrementally (slice B–C enough for 1.8.0) |
+| Size | Large editorial effort; land incrementally |
 | Release impact | `none` |
 
-**Suggested:** defer slices **A–F** until **slice 0** (behaviour audit) is largely complete. Then
-land docs as **incremental docs PRs** (`impact:none`). Good pairing with
+Land as **incremental docs commits** on one PR until Methods topic pages have a **baseline**
+(merge only when the live site would not show empty stubs). Good pairing afterward with
+[`docs-site-release-default.md`](docs-site-release-default.md) (visitors default to **released**
+docs) and [`docs-llms-txt.md`](docs-llms-txt.md) (agent Markdown / `llms.txt`), and with
 [`antora-ui-bundle.md`](antora-ui-bundle.md) if the docs cycle gets a visible refresh.
 
-## Folder layout (optional polish)
-
-Mirror integration tests:
+## Folder layout
 
 ```text
 docs/modules/ROOT/pages/methods/build.adoc
 docs/modules/ROOT/pages/methods/test-run.adoc
+docs/modules/ROOT/pages/methods/discovery.adoc
+docs/modules/ROOT/pages/methods/staging-files.adoc
+docs/modules/ROOT/pages/methods/docs-assets.adoc
+docs/modules/ROOT/pages/methods/create-version.adoc
+docs/modules/ROOT/pages/methods/flags-and-toolchain.adoc
+docs/modules/ROOT/pages/methods/depends.adoc
 …
 ```
 
-Update hub xrefs to `xref:methods/build.adoc[Build methods]` when files move.
+Update hub xrefs to `xref:methods/build.adoc[Build methods]` when files exist.

@@ -1,0 +1,574 @@
+= Method index
+:description: Master index of Cuppa environment methods with descriptions and recommendations
+:scons-man: https://scons.org/doc/production/HTML/scons-man.html
+:hash: #
+
+Grouped tables of methods you may call from a Cuppa `sconscript` after `Import('env')`.
+Names this documentation covers link to the topic page that teaches them.
+Others link to the unversioned https://scons.org/doc/production/HTML/scons-man.html[SCons man page]
+(`#b-…` for builders, `#f-…` for functions).
+
+Cuppa enhances SCons: write `Build()` and `Depends()` without a provenance prefix unless you are
+contrasting a footgun. *Not recommended* marks vanilla SCons builders that skip Cuppa's variant /
+`_build/` layout.
+
+[cols="1,3"]
+|===
+| Column | Meaning
+
+| Method
+| Callable name as used in prose (`Name()`)
+
+| Description
+| What it does in a Cuppa project
+
+| Notes
+| Empty when the method is fine to call as documented.
+*Not recommended* marks vanilla SCons builders that skip Cuppa's variant / `_build/` layout —
+prefer the alternative named in the same cell.
+Progress wrapping alone does *not* make a vanilla builder a substitute for `Build()` / `Compile()` /
+`Build*Lib()` (see xref:methods.adoc#progress-tracking-and-variant-scoping[Progress tracking]).
+|===
+
+For tutorials and Related-method chains, start from the xref:methods.adoc[Methods] hub topic map.
+
+[#build]
+== Build
+
+[cols="2,4,3"]
+|===
+| Method | Description | Notes
+
+| xref:methods/build.adoc[`Build()`]
+| Variant-aware executable under `final/`
+|
+
+| xref:methods/build.adoc[`Compile()`]
+| Variant-aware object compilation under `working/`
+|
+
+| xref:methods/build.adoc[`CompileStatic()`]
+| Compile for static library consumption
+|
+
+| xref:methods/build.adoc[`CompileShared()`]
+| Compile for shared library consumption
+|
+
+| xref:methods/build.adoc[`BuildLib()`]
+| Variant-aware library (static or shared per options)
+|
+
+| xref:methods/build.adoc[`BuildStaticLib()`]
+| Variant-aware static library
+|
+
+| xref:methods/build.adoc[`BuildSharedLib()`]
+| Variant-aware shared library
+|
+
+| link:{scons-man}#b-Program[`Program()`]
+| Link an executable
+| *Not recommended* for Cuppa {cpp} builds — prefer xref:methods/build.adoc[`Build()`]
+
+| link:{scons-man}#b-Object[`Object()`]
+| Compile object files (synonym of `StaticObject()`)
+| *Not recommended* — prefer xref:methods/build.adoc[`Compile()`]
+
+| link:{scons-man}#b-StaticObject[`StaticObject()`]
+| Compile static objects
+| *Not recommended* — prefer xref:methods/build.adoc[`Compile()`] / `CompileStatic()`
+
+| link:{scons-man}#b-SharedObject[`SharedObject()`]
+| Compile shared objects
+| *Not recommended* — prefer xref:methods/build.adoc[`CompileShared()`]
+
+| link:{scons-man}#b-Library[`Library()`]
+| Static library (synonym of `StaticLibrary()`)
+| *Not recommended* — prefer xref:methods/build.adoc[`BuildLib()`] / `BuildStaticLib()`
+
+| link:{scons-man}#b-StaticLibrary[`StaticLibrary()`]
+| Archive a static library
+| *Not recommended* — prefer xref:methods/build.adoc[`BuildStaticLib()`]
+
+| link:{scons-man}#b-SharedLibrary[`SharedLibrary()`]
+| Link a shared library
+| *Not recommended* — prefer xref:methods/build.adoc[`BuildSharedLib()`]
+
+| link:{scons-man}#b-LoadableModule[`LoadableModule()`]
+| Loadable module / bundle (platform-specific)
+| Prefer Cuppa library methods for ordinary {cpp} shared libs
+
+| link:{scons-man}#b-ProgramAllAtOnce[`ProgramAllAtOnce()`]
+| Compile and link in one step
+| *Not recommended* for Cuppa {cpp} builds — prefer xref:methods/build.adoc[`Build()`]
+|===
+
+[#test-and-run]
+== Test and run
+
+[cols="2,4,3"]
+|===
+| Method | Description | Notes
+
+| xref:methods/test-run.adoc[`BuildTest()`]
+| Build (and run under `--test`) a test binary
+|
+
+| xref:methods/test-run.adoc[`Test()`]
+| Attach or run tests for an existing program node
+|
+
+| xref:methods/test-run.adoc[`BuildBenchmark()`]
+| Build (and run under `--benchmark`) a benchmark binary
+|
+
+| xref:methods/test-run.adoc[`Benchmark()`]
+| Attach or run benchmarks for an existing program node
+|
+
+| xref:methods/test-run.adoc[`Run()`]
+| Run a built program under `--run` with Cuppa working-dir rules
+|
+|===
+
+[#coverage]
+== Coverage
+
+[cols="2,4,3"]
+|===
+| Method | Description | Notes
+
+| xref:methods/coverage.adoc[`Coverage()`]
+| Attach coverage processing to a program and its sources
+|
+
+| xref:methods/coverage.adoc[`CollateCoverageFiles()`]
+| Gather per-test coverage artefacts into a destination tree
+|
+
+| xref:methods/coverage.adoc[`CollateCoverageIndex()`]
+| Build the coverage index over collated files
+|
+|===
+
+[#dialect-and-modules]
+== Dialect, modules, and Profiles
+
+[cols="2,4,3"]
+|===
+| Method | Description | Notes
+
+| xref:methods/cxx-dialect-and-modules.adoc[`StdCpp()`]
+| Select the {cpp} language dialect for the env
+|
+
+| xref:methods/cxx-dialect-and-modules.adoc[`CxxModules()`]
+| Enable {cpp}20 modules tooling for the env
+|
+
+| xref:methods/cxx-dialect-and-modules.adoc[`Module()`]
+| Declare a named module (interface / implementation)
+|
+
+| xref:methods/cxx-dialect-and-modules.adoc[`HeaderUnit()`]
+| Declare a header unit
+|
+
+| xref:methods/cxx-dialect-and-modules.adoc[`ImportModules()`]
+| Import modules from a directory of BMIs / interfaces
+|
+
+| xref:methods/cxx-dialect-and-modules.adoc[Profiles helpers]
+| Profiles inventory and enforce helpers (`CxxProfiles`, `CxxProfilesEnforce`, error-limit mirrors)
+| See also CLI `--cxx-profiles*`
+|===
+
+[#dependencies-and-profiles]
+== Dependencies and build profiles
+
+[cols="2,4,3"]
+|===
+| Method | Description | Notes
+
+| xref:methods/dependencies-and-profiles.adoc[`BuildWith()`]
+| Apply a named dependency; returns the instance (chain `.use_libs(…)`, `local_sub_path(…)`, …)
+|
+
+| xref:methods/dependencies-and-profiles.adoc[`Using()`]
+| Look up a dependency factory by name without applying it (`None` if unregistered)
+|
+
+| xref:methods/dependencies-and-profiles.adoc[`BuildProfile()`]
+| Apply a named build profile to the env (not {cpp} Profiles); mutates in place
+|
+|===
+
+[#flags-and-toolchain]
+== Flags and toolchain
+
+[cols="2,4,3"]
+|===
+| Method | Description | Notes
+
+| xref:methods/flags-and-toolchain.adoc[`Toolchain()`]
+| Look up a registered toolchain object by name
+|
+
+| xref:methods/flags-and-toolchain.adoc[`ReplaceFlags()`]
+| Replace matching flag tokens on the env
+|
+
+| xref:methods/flags-and-toolchain.adoc[`RemoveFlags()`]
+| Remove matching flag tokens
+|
+
+| xref:methods/flags-and-toolchain.adoc[`AppendUnique()`]
+| Append unique values to construction variables
+|
+
+| xref:methods/flags-and-toolchain.adoc[`MergeFlags()`]
+| Parse and merge a flags string into the env
+|
+
+| xref:methods/flags-and-toolchain.adoc[`Append()`]
+| Append values (may duplicate) to construction variables
+|
+
+| link:{scons-man}#f-Prepend[`Prepend()`]
+| Prepend values to construction variables
+|
+
+| link:{scons-man}#f-PrependUnique[`PrependUnique()`]
+| Prepend unique values
+|
+
+| link:{scons-man}#f-Replace[`Replace()`]
+| Replace construction variable values wholesale
+|
+
+| link:{scons-man}#f-ParseFlags[`ParseFlags()`]
+| Parse a flags string into a dict (without merging)
+|
+|===
+
+[#discovery]
+== Source discovery and filtering
+
+[cols="2,4,3"]
+|===
+| Method | Description | Notes
+
+| xref:methods/discovery.adoc[`RecursiveGlob()`]
+| Recursive configure-time discovery with Cuppa `{hash}/` roots and Repository parity
+|
+
+| xref:methods/discovery.adoc[`GlobFiles()`]
+| Cuppa-rooted non-recursive glob via `Glob()`
+|
+
+| xref:methods/discovery.adoc[`Glob()`]
+| Non-recursive glob (`**` is one path segment)
+|
+
+| xref:methods/discovery.adoc[`Filter()`]
+| Keep / exclude nodes by path patterns (test outputs, globs, …)
+|
+
+| xref:methods/discovery.adoc[`TargetFrom()`]
+| Derive a target path/name from a source node
+|
+
+| link:{scons-man}#f-File[`File()`]
+| Declare or look up a file node
+|
+
+| link:{scons-man}#f-Dir[`Dir()`]
+| Declare or look up a directory node
+|
+|===
+
+[#staging-files]
+== Staging files in the build
+
+[cols="2,4,3"]
+|===
+| Method | Description | Notes
+
+| xref:methods/staging-files.adoc[`CopyFiles()`]
+| Copy sources into a destination directory (filter-friendly)
+|
+
+| xref:methods/staging-files.adoc[`CopyFilesAs()`]
+| Copy with rename (destination path list)
+|
+
+| xref:methods/staging-files.adoc[`Install()`]
+| Install sources into a destination directory
+|
+
+| xref:methods/staging-files.adoc[`InstallAs()`]
+| Install with explicit destination names
+|
+
+| link:{scons-man}#b-InstallVersionedLib[`InstallVersionedLib()`]
+| Install a versioned shared library name set
+|
+
+| link:{scons-man}[`CopyAs()`]
+| Copy with rename
+| Prefer xref:methods/staging-files.adoc[`CopyFilesAs()`] in Cuppa projects
+
+| link:{scons-man}[`CopyTo()`]
+| Copy into a directory
+| Prefer xref:methods/staging-files.adoc[`CopyFiles()`] in Cuppa projects
+|===
+
+[#docs-and-assets]
+== Docs and assets
+
+[cols="2,4,3"]
+|===
+| Method | Description | Notes
+
+| xref:methods/docs-assets.adoc[`ExpandTemplateFile()`]
+| Expand a cuppa / string template to a file node
+|
+
+| xref:methods/docs-assets.adoc[`RenderJinjaTemplate()`]
+| Render a Jinja template to a file node
+|
+
+| xref:methods/docs-assets.adoc[`MarkdownToHtml()`]
+| Convert Markdown to HTML under `final/` (mirrors source dirs)
+|
+
+| xref:methods/docs-assets.adoc[`AsciidocToHtml()`]
+| Convert AsciiDoc to HTML under `final/` (mirrors when no explicit target)
+|
+
+| xref:methods/docs-assets.adoc[`CompileScss()`]
+| Compile SCSS to CSS under `final/` (mirrors when no explicit target)
+|
+
+| xref:methods/docs-assets.adoc[`RunAndRedirectToFile()`]
+| Run a program and capture stdout under `final/` (mirrors source dirs)
+|
+
+| link:{scons-man}#b-Substfile[`Substfile()`]
+| Substitute `@key@` (or custom) placeholders in a file
+|
+
+| link:{scons-man}#b-Textfile[`Textfile()`]
+| Emit a text file from a line list
+|
+|===
+
+[#create-version]
+== CreateVersion
+
+[cols="2,4,3"]
+|===
+| Method | Description | Notes
+
+| xref:methods/create-version.adoc[`CreateVersion()`]
+| Emit a toolchain-aware version / identity source (and related artefacts)
+|
+|===
+
+[#depends]
+== Ordering and aliases
+
+[cols="2,4,3"]
+|===
+| Method | Description | Notes
+
+| xref:methods/depends.adoc[`Depends()`]
+| Explicit dependency: rebuild the target when the dependency changes
+|
+
+| xref:methods/depends.adoc[`Requires()`]
+| Order-only: build the prerequisite first; do not rebuild the target solely because it changed
+|
+
+| xref:methods/depends.adoc[`Alias()`]
+| Name a group of targets for the command line
+|
+
+| xref:methods/depends.adoc[`AlwaysBuild()`]
+| Force a target to rebuild every run
+|
+
+| link:{scons-man}#f-Clean[`Clean()`]
+| Extra files to remove when cleaning a target
+|
+
+| link:{scons-man}#f-Ignore[`Ignore()`]
+| Ignore a dependency edge
+|
+
+| link:{scons-man}#f-SideEffect[`SideEffect()`]
+| Declare a side-effect file for a target
+|
+|===
+
+[#packages]
+== Packages
+
+[cols="2,4,3"]
+|===
+| Method | Description | Notes
+
+| xref:methods/packages.adoc[`PublishPackage()`]
+| Publish staged nodes through a publisher object
+|
+
+| xref:methods/packages.adoc[`InstallPackage()`]
+| Install / consume a package through an installer object
+|
+
+| link:{scons-man}#b-Package[`Package()`]
+| Packaging builder (tool-dependent)
+| Cuppa projects usually use `PublishPackage()` / registry publishers instead
+|===
+
+[#custom-commands]
+== Custom commands
+
+[cols="2,4,3"]
+|===
+| Method | Description | Notes
+
+| xref:methods/custom-commands.adoc[`Command()`]
+| One-off graph step with an arbitrary action (`working_dir` / `cwd` / `--use-shell`)
+| Prefer xref:methods/test-run.adoc[`Run()`] when you only need to execute a Cuppa-built binary under `--run`
+|===
+
+[#test-reporting-plugins]
+== Test reporting plugins
+
+Loaded via `cuppa.method.plugins` when present. Tutorial: xref:methods/test-reporting.adoc[Test reporting];
+everyday spine on xref:methods/test-run.adoc[Test and run].
+
+[cols="2,4,3"]
+|===
+| Method | Description | Notes
+
+| xref:methods/test-reporting.adoc[`GenerateHtmlTestReport()`]
+| HTML report from Boost.Test (or similar) outputs
+|
+
+| xref:methods/test-reporting.adoc[`CollateTestReportIndex()`]
+| Index over HTML test reports
+|
+
+| xref:methods/test-reporting.adoc[`GenerateBittenReport()`]
+| Bitten XML report generation
+|
+|===
+
+[#other-builders]
+== Other builders (progress-wrapped)
+
+Cuppa wraps these with `MethodWithProgress` on sconscript environments when the matching tool
+is present (`cuppa.core.environment`). They are uncommon in Cuppa {cpp} projects; links go to
+the SCons man page. Presence depends on tools / platform.
+
+[cols="2,4,3"]
+|===
+| Method | Description | Notes
+
+| link:{scons-man}#b-CFile[`CFile()`]
+| Generate a `.c` file from a lex/yacc-style input
+|
+
+| link:{scons-man}#b-CXXFile[`CXXFile()`]
+| Generate a `.cpp` file from a lex/yacc-style input
+|
+
+| link:{scons-man}#b-CompilationDatabase[`CompilationDatabase()`]
+| Emit a `compile_commands.json`-style database
+|
+
+| link:{scons-man}#b-DVI[`DVI()`]
+| Build DVI from TeX sources
+|
+
+| link:{scons-man}#b-Gs[`Gs()`]
+| Ghostscript conversion
+|
+
+| link:{scons-man}#b-Jar[`Jar()`] / link:{scons-man}#b-Java[`Java()`]
+| Java archive / compile entry points
+|
+
+| link:{scons-man}#b-JavaH[`JavaH()`]
+| Java native header generation
+|
+
+| link:{scons-man}#b-M4[`M4()`]
+| M4 macro expansion
+|
+
+| link:{scons-man}#b-MOFiles[`MOFiles()`]
+| Gettext `.mo` files
+|
+
+| link:{scons-man}#b-MSVSProject[`MSVSProject()`] / link:{scons-man}#b-MSVSSolution[`MSVSSolution()`]
+| Visual Studio project / solution emitters
+|
+
+| link:{scons-man}#b-Ninja[`Ninja()`]
+| Ninja file emission (when the ninja tool is available)
+|
+
+| link:{scons-man}#b-PCH[`PCH()`]
+| Precompiled header
+|
+
+| link:{scons-man}#b-PDF[`PDF()`]
+| PDF from DVI / other inputs
+|
+
+| link:{scons-man}#b-PostScript[`PostScript()`]
+| PostScript output
+|
+
+| link:{scons-man}#b-RES[`RES()`]
+| Windows resource compile
+|
+
+| link:{scons-man}#b-RMIC[`RMIC()`]
+| Java RMI stubs
+|
+
+| link:{scons-man}#b-RPCGenClient[`RPCGen*()`]
+| RPC generator family (`RPCGenClient`, `Header`, `Service`, `XDR`)
+|
+
+| link:{scons-man}#b-Tar[`Tar()`] / link:{scons-man}#b-Zip[`Zip()`]
+| Archive builders
+|
+
+| link:{scons-man}#b-TypeLibrary[`TypeLibrary()`]
+| Windows type library
+|
+
+| link:{scons-man}#b-DocbookHtml[`Docbook*()`]
+| DocBook toolchain builders (when the docbook tool is loaded)
+|
+
+| link:{scons-man}#b-POInit[`POInit()`] / link:{scons-man}#b-Translate[`Translate()`]
+| Gettext PO workflow helpers
+|
+
+| link:{scons-man}#b-Package[`Package()`] / link:{scons-man}#f-Tag[`Tag()`] / `Rpm()` / `Ipkg()`
+| Packaging builders (tool-dependent)
+|
+|===
+
+== Related reading
+
+* xref:methods.adoc[Methods hub] — progress model and topic map
+* https://scons.org/doc/production/HTML/scons-man.html[SCons man page] (production, unversioned)
+* https://scons.org/doc/production/HTML/scons-user/index.html[SCons user guide]

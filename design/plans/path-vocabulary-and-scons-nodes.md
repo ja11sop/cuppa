@@ -1,7 +1,7 @@
 # Plan: Shared path vocabulary and SCons node helpers
 
 - **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — follow-on to `static-glob`; [`recursive-glob-parity.md`](recursive-glob-parity.md); [#232](https://github.com/ja11sop/cuppa/issues/232); [#231](https://github.com/ja11sop/cuppa/pull/231)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — follow-on to `static-glob`; [`recursive-glob-parity.md`](../archive/recursive-glob-parity.md); [#232](https://github.com/ja11sop/cuppa/issues/232); [#231](https://github.com/ja11sop/cuppa/pull/231)
 - **Updated:** 2026-08-29
 - **Impact:** patch — internal reuse / small call-site cleanups; no new discovery API
 
@@ -61,4 +61,4 @@ RecursiveGlob / GlobFiles work in [#231](https://github.com/ja11sop/cuppa/pull/2
 - [`cuppa/utility/glob_roots.py`](../../cuppa/utility/glob_roots.py)
 - [`cuppa/methods/relative_recursive_glob.py`](../../cuppa/methods/relative_recursive_glob.py)
 - [`cuppa/utility/filter.py`](../../cuppa/utility/filter.py)
-- Parent discovery plan: [`recursive-glob-parity.md`](recursive-glob-parity.md)
+- Parent discovery plan: [`recursive-glob-parity.md`](../archive/recursive-glob-parity.md)

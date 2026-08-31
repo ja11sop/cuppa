@@ -1,0 +1,69 @@
+= Test reporting plugins
+:description: GenerateHtmlTestReport, CollateTestReportIndex, and GenerateBittenReport
+
+Cuppa ships HTML and Bitten test-report methods as `cuppa.method.plugins` (loaded with cuppa).
+They activate with `--test` / `--force-test` and usually sit in the same sconscript as
+`BuildTest()` — see xref:methods/test-run.adoc[Test and run] for the everyday spine.
+
+== Behaviour summary
+
+[cols="1,3",options="header"]
+|===
+| Axis | Detail
+
+| Returns | Report / index nodes (empty list when the test action is inactive)
+| Evaluation | Build / post-build (gated on the `test` variant action)
+| Output paths | HTML/JSON under `final/` or a chosen destination; Bitten XML beside the run
+| Progress | Yes — `NotifyProgress.add` on emitted report nodes
+|===
+
+== Methods
+
+[cols="2,3"]
+|===
+| Method | Role
+
+| `env.GenerateHtmlTestReport(tests, …)`
+| Per-test HTML (and JSON) reports from test nodes; optional `link_style` (for example `'gitlab'`)
+
+| `env.CollateTestReportIndex(reports, destination=…)`
+| Master test-report index across tests for a destination tree
+
+| `env.GenerateBittenReport(tests, …)`
+| Bitten XML report generation (same `--test` gate as the HTML helpers)
+|===
+
+== Everyday pattern
+
+Pair with `BuildTest()` and artefact paths from `env['abs_artefacts_root']`:
+
+[source,python]
+----
+Import('env')
+import os
+
+artefacts_dir = os.path.join(env['abs_artefacts_root'], env['flat_build_base'])
+test_dir = os.path.join(artefacts_dir, 'tests')
+
+tests = []
+for name in ['message', 'pipeline']:
+    tests.append(env.BuildTest(name, [name + '.cpp']))
+
+reports = env.GenerateHtmlTestReport(tests, link_style='gitlab')
+env.CollateTestReportIndex(reports, destination=test_dir)
+----
+
+Notes:
+
+* These methods return `[]` when `--test` is not active, so configure stays quiet on compile-only
+  builds.
+* Prefer `abs_artefacts_root` over hard-coded `#_artifacts/…` so custom roots are honoured.
+* Coverage collation is separate — xref:methods/coverage.adoc[Coverage].
+
+== Related methods
+
+* xref:methods/test-run.adoc[Test and run] — `BuildTest()` before reports
+* xref:methods/coverage.adoc[Coverage] — gcov / gcovr collation in the same sconscript
+* xref:methods/staging-files.adoc[Staging files] — `CopyFiles()` / `Filter()` for logs beside reports
+* xref:integration/test-test-reports.adoc[Integration: test reports] ·
+  xref:integration/test-available-reports.adoc[Integration: available reports]

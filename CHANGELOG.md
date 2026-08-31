@@ -44,6 +44,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Methods documentation uses a hub plus job-named child pages under ``methods/`` (Build, Test,
+  Coverage, dialect/modules, dependencies, flags, files, staging files, depends, docs assets,
+  packages, custom commands). The hub keeps progress overview, topic summaries, and a short group
+  index; per-method descriptions live on ``methods/method-index.adoc`` (Cuppa pages when
+  documented, otherwise unversioned SCons man links; *Not recommended* notes for vanilla
+  ``Program()`` / ``Object()`` / ``Library()`` and kin).
+  Prose refers to methods as ``Name()`` without a Cuppa/SCons/engine qualifier unless contrasting.
+  Warnings use **vanilla SCons** for ``Program()`` / ``Object()`` / ``Library()`` and kin (variant
+  layout — progress wrapping is separate). Taught APIs such as ``Depends()`` / ``Install()`` stay
+  unqualified.
+  ``CopyFiles()`` / ``CopyFilesAs()`` / ``Install()`` / ``InstallAs()`` share one
+  "Staging files in the build" Methods page. Source discovery and ``CreateVersion()`` each have
+  their own Methods page; templates sit with Docs and assets (including how Cuppa builders work).
+  Artefact examples prefer ``env['abs_artefacts_root']``. Custom commands document when to use
+  ``Command()`` versus ``Run()``.
+  ``AppendUnique`` / ``MergeFlags`` sit with Cuppa flag helpers.
+  ``MarkdownToHtml()`` / ``AsciidocToHtml()`` / ``CompileScss()`` / ``RunAndRedirectToFile()``
+  mirror nested sources under ``final/`` via ``artifact_target_for``
+  ([#233](https://github.com/ja11sop/cuppa/issues/233)).
+  The Methods hub documents Returns / Evaluation / Output naming / Progress axes; child pages
+  open with a Behaviour summary. Test-report plugins have ``methods/test-reporting.adoc``.
+  Coverage docs note mirrored ``working/`` objects under ``--cov`` and the two-step
+  ``--cov --parallel`` then ``--cov --test`` workflow ([#236](https://github.com/ja11sop/cuppa/issues/236)).
+  Methods pages expand Depends vs Requires (SCons rebuild vs order-only), ``BuildWith()`` /
+  ``BuildProfile()`` returns, docs-assets converters (SCSS target vs source), and staging
+  ``CopyFiles()`` single-file usage.
+- ``MethodWithProgress`` recognises SCons ``NodeList`` returns (not only plain ``list``), so wrapped
+  builders such as ``Program()`` / ``Object()`` / ``Command()`` attach progress. Progress sentinels
+  use the unwrapped ``_Command`` builder to avoid re-entering the wrap.
+  ``CopyFiles()`` / ``CopyFilesAs()`` no longer call ``NotifyProgress.add`` themselves; they rely on
+  the wrapped ``Install*`` path (parity with calling ``Install*`` directly).
+  The progress wrap list covers public SCons ``BUILDERS`` plus ``Command`` / ``Install*`` /
+  ``Jar`` / ``Java`` and Docbook / gettext method aliases (guarded by unit tests against SCons
+  tool drift).
 - Profiles inventory no longer requires ``--cxx-disable-error-limit``; report mode implies
   unlimited per-TU diagnostics (Clang ``-ferror-limit=0``, GCC ``-fmax-errors=0``) unless
   ``--cxx-default-error-limit`` or ``--cxx-error-limit=`` is set. Cuppa strips any existing
@@ -67,7 +101,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``head-styles.hbs`` (cup-of-tea cold-start default, harbour, forest,
   aubergine); a toolbar control cycles them at runtime with ``localStorage``
   persistence. Each file defines the same token names for both light and
-  ``prefers-color-scheme: dark``. The navbar GitHub and
+  ``prefers-color-scheme: dark``. The cup-of-tea palette uses deeper ``--cuppa-link`` /
+  ``--cuppa-link-hover`` greens than the soft matcha accent so prose hyperlinks read clearly.
+  The navbar GitHub and
   PyPI links now carry inline SVG marks. The navbar clips its background to the padding box
   so Chromium does not paint a band of navbar colour below the accent border.
 - Documentation subtree parents now have distinct landing and overview targets for Dependencies,
@@ -106,6 +142,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- ``MarkdownToHtml()``, ``AsciidocToHtml()`` (default targets), ``CompileScss()`` (default
+  targets), and ``RunAndRedirectToFile()`` mirror nested source paths under ``final/`` so
+  same-basename inputs no longer collide ([#233](https://github.com/ja11sop/cuppa/issues/233)).
+  Shared helper: ``cuppa.utility.object_target.artifact_target_for``.
 - The CLI reference table for HTML report source links renders again: the ``|`` separating the
   accepted values of ``--reports-link-style`` and ``--cxx-profiles-report-link-style`` was read
   by AsciiDoc as a cell separator and split those rows across the table.
@@ -128,6 +168,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   hostnames only (no scheme).
 - Test HTML source links skip test cases with no ``file`` path instead of raising when building
   ``local`` links.
+- Coverage runners remain compatible with mirrored object trees under ``working/`` after
+  [#213](https://github.com/ja11sop/cuppa/issues/213) (integration:
+  ``test_coverage_with_mirrored_nested_source``).
 
 ### Deprecated
 

@@ -93,3 +93,52 @@ def test_collate_coverage_index_shared_destination(tmp_path):
         "by-source pages should be namespaced under by-source/<index-stem>/ "
         "so sibling sconscripts can share a coverage destination"
     )
+
+
+def test_coverage_with_mirrored_nested_source(tmp_path):
+    """--cov still works when CompileObject mirrors source trees under working/ (#213)."""
+    _skip_if_no_gcov_coverage()
+
+    project = tmp_path / "cov_nested"
+    project.mkdir()
+    (project / "src" / "detail").mkdir(parents=True)
+    (project / "src" / "detail" / "nested_test.cpp").write_text(
+        "#include <cstdlib>\n"
+        "int main()\n"
+        "{\n"
+        "    return EXIT_SUCCESS;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    write_sconstruct(project, default_variants=["dbg"])
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "prog = env.BuildTest('nested_cov', 'src/detail/nested_test.cpp')\n"
+        "env.Coverage(prog, 'src/detail/nested_test.cpp')\n",
+    )
+
+    result = run_cuppa(project, "--cov", "--test", timeout=300)
+    assert_success(result)
+
+    working_dirs = list((Path(project) / "_build").rglob("working"))
+    assert working_dirs, "expected a working/ directory under _build"
+    mirrored_object = [
+        path
+        for root in working_dirs
+        for path in root.rglob("nested_test.o")
+        if path.parent.name == "detail" and path.parent.parent.name == "src"
+    ]
+    assert mirrored_object, (
+        "expected CompileObject to mirror src/detail/nested_test.o under working/"
+    )
+    mirrored_gcda = [
+        path
+        for root in working_dirs
+        for path in root.rglob("nested_test.gcda")
+        if path.parent.name == "detail" and path.parent.parent.name == "src"
+    ]
+    assert mirrored_gcda, (
+        "expected .gcda beside the mirrored object under working/src/detail/"
+    )
+    assert find_under_build(project, "*coverage*") or "COVERAGE" in result.stdout

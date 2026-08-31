@@ -1,0 +1,230 @@
+= CreateVersion
+:description: Toolchain-backed SCM version sources and the generate-then-compile cycle
+
+`CreateVersion()` asks the **active toolchain** for a version-file builder and emitter, then
+registers them and emits a generated source (typically `version.cpp` plus a sibling header)
+that you can compile into a program. GCC, Clang, and MSVC (`cl`) all supply the C++
+implementation (`CreateVersionFileCpp` / `CreateVersionHeaderCpp`).
+
+Like xref:methods/coverage.adoc[Coverage], this is toolchain-provided behaviour exposed through
+a Cuppa method — not a generic file copy.
+
+== Behaviour summary
+
+[cols="1,3",options="header"]
+|===
+| Axis | Detail
+
+| Returns | Generated version source nodes (for example `version.cpp`)
+| Evaluation | Build action (configure registers `CreateVersionFile`; the build writes files)
+| Output paths | Offset paths under the variant `working/` tree (via the toolchain emitter)
+| Progress | No direct `NotifyProgress.add` — callers usually pass the node into `Build()` / `Compile()`, whose targets already participate in the variant progress chain
+|===
+
+== The chicken-and-egg problem
+
+You often need a source file that embeds **build identity** — version string, SCM revision,
+branch, and similar — and that same source must be **compiled into** the binary that reports it.
+
+Doing that by hand is awkward:
+
+* If you generate `version.cpp` outside the build, it goes stale when the tree moves or the
+  revision changes, and it is easy to commit generated noise or forget to regenerate.
+* If you try to generate it *while* compiling, the compiler needs the file to exist as an input
+  before the compile action runs — a circular “I need the output of step A as an input to step A”
+  problem unless the build graph models generation as its own node.
+* Variant and toolchain identity belong in the generated content; a one-shot script outside Cuppa
+  does not see `env['variant']` / toolchain the same way.
+
+`CreateVersion()` exists so generation is a **first-class build node**: the toolchain writes the
+`.cpp` / `.hpp` (and companion metadata) under the variant layout, then `Build()` / `Compile()`
+depend on that node like any other source. Rebuilds pick up SCM and version changes through
+normal SCons dependency tracking on the generated files.
+
+== How toolchains provide it
+
+`CreateVersion()` does not hard-code C++ text. It calls:
+
+* `env['toolchain'].version_file_builder(...)`
+* `env['toolchain'].version_file_emitter(...)`
+
+then registers a `CreateVersionFile` builder and invokes it. The C++ toolchains return the shared
+`CreateVersionFileCpp` / `CreateVersionHeaderCpp` pair, which embed namespaces, version, location,
+and optional `build_id` into generated sources under `working/`.
+
+== Everyday use
+
+[source,python]
+----
+Import('env')
+import os
+
+version_cpp = os.path.join(env['abs_final_dir'], 'version.cpp')
+env.CreateVersion(
+    version_cpp,
+    [],
+    namespaces=['app', 'version'],
+    version='1.2.3',
+)
+env.Build('service', ['main.cpp', version_cpp])
+----
+
+Pair with xref:methods/depends.adoc[`Requires()`] when a later staging step must wait until the
+versioned binary exists (for example copying into a docker tree under
+`env['abs_artefacts_root']`).
+
+== Using the generated C++ API
+
+For each `CreateVersion()` target the C++ toolchain writes a sibling **header** and **source**
+(plus a small `.txt` sidecar used as a build input). With
+`namespaces=['app', 'version']` and target `…/version.cpp`, you get approximately:
+
+* `version.hpp` — declares `app::version::build::identity`
+* `version.cpp` — defines the static accessors (compiled into your program)
+
+Include the header from application code (add the directory that contains it to `CPPPATH`, or
+include via a path relative to how the emitter places files under `working/`). Call the static
+methods on `identity`:
+
+[source,cpp]
+----
+#include "version.hpp"   // path depends on your CPPPATH / layout
+
+#include <iostream>
+
+int main()
+{
+    using app::version::build::identity;
+
+    std::cout
+        << "version " << identity::product_version() << '\n'
+        << "revision " << identity::product_revision() << '\n'
+        << "variant " << identity::build_variant() << '\n';
+
+    // Multi-line summary (product, build, and BuildWith dependencies when present):
+    std::cout << identity::report();
+}
+----
+
+=== Header surface (illustrative)
+
+The generated header looks like the following (include guards and banner comments abbreviated).
+Nested `namespaces=` become nested C++ namespaces; Cuppa always adds an inner `build` namespace
+and the `identity` class:
+
+[source,cpp]
+----
+#ifndef INCLUDED_APP_VERSION_BUILD_GENERATED_VERSION_HPP
+#define INCLUDED_APP_VERSION_BUILD_GENERATED_VERSION_HPP
+
+#include <string>
+#include <vector>
+#include <map>
+
+namespace app {
+namespace version {
+namespace build {
+
+class identity
+{
+public:
+    typedef std::string              string_t;
+    typedef std::vector<string_t>    revisions_t;
+
+    // … nested dependency type and dependencies_t map …
+
+    static const char* product_version();
+    static const char* product_repository();
+    static const char* product_branch();
+    static const char* product_revision();
+    static const char* build_variant();
+    static const char* build_time();
+    static const char* build_user();
+    static const char* build_host();
+    static const char* build_id();
+    static const dependencies_t& dependencies();
+    static const char* report();
+
+private:
+    static const dependencies_t Dependencies_;
+    static const string_t       Report_;
+};
+
+} // namespace build
+} // namespace version
+} // namespace app
+
+#endif
+----
+
+[cols="1,3"]
+|===
+| Accessor | Typical content
+
+| `product_version()`
+| The `version=` string you passed to `CreateVersion()` (for example `"1.2.3"`)
+
+| `product_repository()` / `product_branch()` / `product_revision()`
+| From the project `location=` (default `env['base_path']`) via Cuppa's location / SCM helpers
+
+| `build_variant()`
+| Active Cuppa variant name (`dbg`, `rel`, `cov`, …)
+
+| `build_time()` / `build_user()` / `build_host()`
+| UTC time, user, and hostname recorded when the version file was generated
+
+| `build_id()`
+| Optional `build_id=` argument, or empty when omitted
+
+| `dependencies()`
+| Map of dependencies present in `env['BUILD_WITH']` at generate time (name, version, repository, branch, revisions)
+
+| `report()`
+| Pre-formatted multi-line summary suitable for logging or `--version`-style output
+|===
+
+=== Source file (illustrative excerpt)
+
+The `.cpp` includes the sibling header and defines each accessor as a string literal, for example:
+
+[source,cpp]
+----
+#include "version.hpp"
+#include <sstream>
+
+namespace app {
+namespace version {
+namespace build {
+
+const char* identity::product_version()
+{
+    return "1.2.3";
+}
+
+const char* identity::product_revision()
+{
+    return "a1b2c3d";   // from SCM at generate time
+}
+
+const char* identity::build_variant()
+{
+    return "dbg";
+}
+
+// … remaining accessors, Dependencies_ initialiser, Report_ …
+
+} // namespace build
+} // namespace version
+} // namespace app
+----
+
+Values are fixed when the version file is **generated**; rebuild the version target (normal
+dependency tracking) when revision or `version=` should change.
+
+== Related methods
+
+* xref:methods/build.adoc[Build] — compile the generated source into a program
+* xref:methods/docs-assets.adoc[Docs and assets] — same register-then-build pattern for text templates
+* xref:methods/coverage.adoc[Coverage] — another toolchain-backed Methods family
+* xref:methods/depends.adoc[Depends] — order packaging after versioned builds
+* xref:integration/test-version.adoc[Integration: CreateVersion]

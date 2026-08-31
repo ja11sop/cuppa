@@ -16,8 +16,8 @@
   --cuppa-brand-light: #f1f3f5;         /* Very clean, neutral light grey */
   --cuppa-accent: #769f7e;              /* Crisp Matcha - used strictly as an accent hint */
   --cuppa-accent-glow: rgba(118, 159, 126, 0.15);
-  --cuppa-link: #769f7e;                /* Matcha: brand is near body ink, so links use accent */
-  --cuppa-link-hover: #5a7f62;          /* Darker matcha on hover */
+  --cuppa-link: #3f7350;                /* Deeper matcha — accent alone reads washed in prose */
+  --cuppa-link-hover: #2d5640;          /* Darker still on hover */
   --cuppa-on-brand: #ffffff;
   --cuppa-on-brand-muted: rgba(255, 255, 255, 0.55);
   /*
@@ -74,8 +74,8 @@
     --cuppa-brand-light: #1e252b;        /* Dark slate block background */
     --cuppa-accent: #8cb895;            /* Boosted Matcha green for high dark-mode readability */
     --cuppa-accent-glow: rgba(140, 184, 149, 0.20);
-    --cuppa-link: #8cb895;
-    --cuppa-link-hover: #a8ccb0;        /* Lighter matcha on hover against the dark page */
+    --cuppa-link: #7ec992;              /* Punchier matcha — less grey than accent */
+    --cuppa-link-hover: #a3dbad;        /* Lighter matcha on hover against the dark page */
     --cuppa-on-brand: #12161a;
     --cuppa-on-brand-muted: rgba(18, 22, 26, 0.55);
     /* Navbar is light pearl in dark mode; field is a soft grey recess on that bar. */
