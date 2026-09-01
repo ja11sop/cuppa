@@ -64,12 +64,14 @@ CMake remains a capable meta-build system, especially where IDE generators and a
 Cuppa is a better fit when you want:
 
 * a *make-like* workflow from any subdirectory (`cuppa -D`)
-* the same Python stack for build logic, tests, and packaging
+* the same Python stack for build logic, tests, packaging, and automation -- one language humans and tooling already know well
+* a small intent vocabulary (one concept maps to one method) instead of choosing among several coexisting CMake idioms
 * explicit, inspectable toolchain defaults instead of opaque property graphs
 * revision-pinned library composition without reinventing dependency scripts per repository
 
 The cost of CMake's flexibility is cognitive load: generator expressions, property scopes, and toolchain-file interactions that differ by generator.
-Cuppa pushes that complexity into toolchain and dependency *implementations* so `sconscript` authors stay in a small, stable API.
+Several eras of “correct” style also coexist (legacy variables, modern `target_*` APIs, Find-module folklore), and many calls are order-sensitive, so generated or rewritten `CMakeLists.txt` files often fail in ways that are hard to spot.
+Cuppa pushes that complexity into toolchain and dependency *implementations* so `sconscript` authors stay in a small, stable API -- useful for people reading the build and for tools that edit it.
 
 TIP: When docs and code disagree, *code is authoritative* -- especially storage defaults, toolchain version lists, and whether `--cov` implies `--test` (it does not; use both).
 
