@@ -1149,6 +1149,8 @@ class CoverageIndexBuilder(object):
 
                 source_groups = build_source_groups( source_entries_by_toolchain )
 
+                os.makedirs( destination_dir, exist_ok=True )
+
                 with open( master_index_path, 'w', encoding='utf-8' ) as master_index_file:
 
                     master_index_file.write(
