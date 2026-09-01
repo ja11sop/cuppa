@@ -2,7 +2,7 @@
 
 - **Status:** proposal
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `cmake-to-cuppa-migration`; [`sconscript-exports.md`](sconscript-exports.md); [#213](https://github.com/ja11sop/cuppa/issues/213)
-- **Updated:** 2026-08-17
+- **Updated:** 2026-09-01
 
 ## Purpose
 
@@ -100,5 +100,6 @@ Short rules for agents (expand in Antora later):
 | Item | Status |
 |------|--------|
 | Boost.Capy experiment | done — surfaced compile + export gaps |
-| Published Antora page | not started — blocked on [#213](https://github.com/ja11sop/cuppa/issues/213) for honest RecursiveGlob story |
+| Index § Cuppa and CMake (light contrast for humans/tools) | done on docs `/latest/` + llms PR — deeper tutorial still later |
+| Published Antora migration page | not started — blocked on [#213](https://github.com/ja11sop/cuppa/issues/213) for honest RecursiveGlob story |
 | This plan | proposal |

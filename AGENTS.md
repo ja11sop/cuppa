@@ -276,6 +276,9 @@ python -m scripts.github_helpers update-pr \
 The **version** job on every pull request reads that label before the rest of the matrix runs.
 Open the PR with `--label impact:…` in the same command as `create-pr` immediately after the
 first `git push`. Adding the label only after a red version check wastes a full CI cycle.
+`create-pr` applies labels in a second API call after `POST /pulls`, so the first `opened`
+event can still see an empty label list; the standalone `version` workflow also runs on
+`labeled` so the gate recovers without a no-op push.
 
 ```python
 from scripts.github_helpers import create_pull_request, update_pull_request
@@ -328,6 +331,10 @@ pytest -m integration
 If you cannot activate the venv in the current shell, call the venv binaries by path
 (`venv/bin/flake8 cuppa`, `venv/bin/pylint -E cuppa`, `venv/bin/pytest -m unit`). Do **not**
 treat a broken host `flake8` / `pylint` as “lint skipped” — fix the environment first.
+
+On hosts with `/etc/pip.conf` `user = true` (workstation soft policy), `pip install --target`
+fails unless you pass `--no-user` (Cuppa’s plugin integration helpers already do). Prefer that
+flag in any new `--target` test helper rather than unsetting env vars.
 
 Do not skip `pytest -m unit` or `pytest -m integration` because only a helper script or docs
 changed — those suites are fast relative to CI and catch import / CLI regressions. Use
@@ -618,7 +625,9 @@ Release checklist: see `release.txt` (Actions **prepare** → merge → **publis
 - Canonical reference: Antora under `docs/` → https://ja11sop.github.io/cuppa/
 - Further reading (talks / Clearpool posts): `docs/modules/ROOT/pages/index.adoc` (Further reading) and https://clearpool.io/tag/cuppa
 - Lint settings / ignore rationale: `docs/modules/ROOT/pages/linting.adoc`
-- Preview docs: `cd docs && npm ci && npm run build` → `_docs_build/site/` (Lunr search via `@antora/lunr-extension`; Mermaid via `@sntke/antora-mermaid-extension`)
+- Preview docs (current checkout as `next`): `cd docs && npm ci && npm run build` → `_docs_build/site/` (Lunr search via `@antora/lunr-extension`; Mermaid via `@sntke/antora-mermaid-extension`)
+- Public multi-version site (stable from latest `v*` tag + `next`): `cd docs && npm run build:site` (needs git tags; `npm run build:site:all` also emits `llms.txt` / agent Markdown — requires `pandoc` and `lxml`)
+- Product agent index on Pages: `https://ja11sop.github.io/cuppa/llms.txt` (product docs for agents). Repo `AGENTS.md` is for contributors working *on* cuppa — different audience; do not treat one as a substitute for the other.
 - **Docs visual review:** capturing a PNG (for example Chromium `--screenshot`) is cheap; **reading the image into the agent context is expensive.** Build Antora, tell the human what to check in the local preview, and iterate from CSS/HTML plus their notes. Capture or scan screenshots only when they ask, or when they cannot check locally. Prefer one targeted crop over a full-page dump.
 - Integration test scenarios: Antora **Integration tests** section (`docs/modules/ROOT/pages/integration/`)
 

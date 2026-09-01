@@ -39,3 +39,37 @@ Settled console-report choices are summarised in
 xref:contributing/report-patterns.adoc[Report patterns]; the design plan at
 `design/archive/console-report-patterns.md` holds deeper rationale.
 Agent-oriented checklists and GitHub helper scripts live in `AGENTS.md`.
+
+== Previewing the documentation site
+
+For day-to-day edits on the current branch, from `docs/`:
+
+[source,shell]
+----
+npm ci
+npm run build
+----
+
+That builds a single Antora version from the checkout (`next`) into `_docs_build/site/`.
+
+The public GitHub Pages site is multi-version: the latest release tag as stable
+(under `/cuppa/latest/…`) plus this checkout as prerelease `next`. To build that
+locally (requires release tags in the clone):
+
+[source,shell]
+----
+npm run build:site
+----
+
+To also generate agent-oriented Markdown (`llms.txt`, `llms-full.txt`, and per-page
+`.md` under the `latest` tree), install `pandoc` and Python `lxml`, then:
+
+[source,shell]
+----
+npm run build:site:all
+----
+
+The published product index for agents is
+https://ja11sop.github.io/cuppa/llms.txt[llms.txt] on the docs site.
+Repository `AGENTS.md` targets contributors changing cuppa itself (CI, commits,
+private-name rules) and is not a substitute for that index.

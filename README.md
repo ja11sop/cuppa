@@ -177,14 +177,26 @@ GitLab package auth typically uses `GITLAB_REGISTRY_TOKEN` or `CI_JOB_TOKEN`.
 
 ## Documentation site
 
-Canonical deep reference is the Antora site under [`docs/`](docs/), including the full **[Integration tests](https://ja11sop.github.io/cuppa/cuppa/integration-tests.html)** section (generated `sconstruct` / `sconscript` for each pytest scenario).
+Canonical deep reference is the Antora site under [`docs/`](docs/), including the full
+**[Integration tests](https://ja11sop.github.io/cuppa/cuppa/latest/integration-tests.html)**
+section (generated `sconstruct` / `sconscript` for each pytest scenario). The public default
+is the **latest release** (`/cuppa/latest/…`); unreleased tip docs are under `next`.
+Agent-oriented Markdown index: [llms.txt](https://ja11sop.github.io/cuppa/llms.txt).
 
-Build locally (includes Lunr full-text search):
+Preview the current checkout locally (includes Lunr full-text search):
 
 ```sh
 cd docs
 npm ci
 npm run build
+```
+
+Build the multi-version public site (needs git tags; adds `llms.txt` with `build:site:all`,
+which also requires `pandoc` and Python `lxml`):
+
+```sh
+cd docs
+npm run build:site:all
 ```
 
 Output is written to `_docs_build/site/`. Open `_docs_build/site/index.html`.

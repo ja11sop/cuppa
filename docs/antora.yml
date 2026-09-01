@@ -1,6 +1,7 @@
 name: cuppa
 title: Cuppa
-version: ~
+version: next
+prerelease: true
 start_page: ROOT:index.adoc
 nav:
 - modules/ROOT/nav.adoc

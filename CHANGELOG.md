@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Public docs site serves the latest release under ``/cuppa/latest/…`` (Antora
+  ``latest_version_segment``) with master tip as prerelease ``next``; agent-oriented
+  ``llms.txt`` / per-page Markdown / ``llms-full.txt`` are generated from the stable
+  HTML (Pandoc) and published beside the site
+  ([`docs-site-release-default.md`](design/plans/docs-site-release-default.md),
+  [`docs-llms-txt.md`](design/plans/docs-llms-txt.md)).
+- Docs index § Cuppa and CMake spells out the small intent API and why CMake's
+  multi-era, order-sensitive surface is harder to edit safely (for people and tools).
 - ``--cxx-error-limit=N`` and ``--cxx-default-error-limit`` control the C++ compiler diagnostic
   cap; Profiles inventory (``--cxx-profiles-report`` or ``CollateCxxProfilesIndex()``) implies
   unlimited per-TU diagnostics unless overridden ([#224](https://github.com/ja11sop/cuppa/issues/224)).
