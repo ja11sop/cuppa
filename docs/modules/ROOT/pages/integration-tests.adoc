@@ -42,6 +42,7 @@ cuppa.run(default_variants=['dbg'])
 
 * xref:integration/test-minimal-example.adoc[`examples/minimal` build + test]
 * xref:integration/test-configure-conf.adoc[`configure.conf` save / show]
+* xref:integration/test-toolchain-identity.adoc[`--toolchain-identity` layout and global conf]
 * xref:integration/test-scripts-scoping.adoc[`--scripts=` scoping]
 * xref:integration/test-storage-roots.adoc[Storage root resolution]
 * xref:integration/test-list-builds.adoc[List and remove builds]

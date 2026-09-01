@@ -38,7 +38,26 @@ def test_load_settings_from_file_skips_blank_and_comments(tmp_path):
     assert settings["projects"] == "foo"
 
 
-def test_load_conf_project_overrides_global(tmp_path):
+def test_load_migrates_missing_global_file_to_major( tmp_path, monkeypatch ):
+    monkeypatch.setenv( 'CUPPA_TEST_IDENTITY_MIGRATE', '1' )
+    conf, env = _configure( tmp_path )
+    conf.load()
+    global_conf = tmp_path / '.cuppaconfig'
+    assert global_conf.exists()
+    assert 'toolchain_identity = major' in global_conf.read_text( encoding='utf-8' )
+    assert env['default_options']['toolchain_identity'] == 'major'
+
+
+def test_load_grandfathers_existing_global_without_key( tmp_path, monkeypatch ):
+    monkeypatch.setenv( 'CUPPA_TEST_IDENTITY_MIGRATE', '1' )
+    ( tmp_path / '.cuppaconfig' ).write_text( 'dbg = True\n', encoding='utf-8' )
+    conf, env = _configure( tmp_path )
+    conf.load()
+    text = ( tmp_path / '.cuppaconfig' ).read_text( encoding='utf-8' )
+    assert 'toolchain_identity = full' in text
+    assert env['default_options']['dbg'] is True
+    assert env['default_options']['toolchain_identity'] == 'full'
+
     global_conf = tmp_path / ".cuppaconfig"
     project_conf = tmp_path / "configure.conf"
     global_conf.write_text("dbg = True\ntoolchains = ['gcc']\n", encoding="utf-8")

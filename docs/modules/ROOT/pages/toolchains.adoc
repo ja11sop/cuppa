@@ -44,6 +44,10 @@ If you omit `--toolchains`, cuppa uses the platform default toolchain.
 
 Prefer a family alias (`gcc`, `clang`, `vc`) for everyday builds; pin versioned aliases in CI for reproducibility.
 
+Layout and package stems use `toolchain.name()` / `package_name()`, which follow
+`--toolchain-identity=` (`full` keeps `gcc153`; `major` uses `gcc15`). Selection aliases are
+unchanged. See xref:toolchains/overview.adoc#toolchain-identity[Build and package identity].
+
 When debugging detection, use `--verbosity=debug` and `--dump`.
 
 [#list-toolchains]

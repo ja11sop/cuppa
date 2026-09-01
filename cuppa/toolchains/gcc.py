@@ -283,7 +283,15 @@ class Gcc(object):
 
 
     def name( self ):
-        return self._name
+        from cuppa.toolchains.identity import current_identity, gnu_layout_name
+        reported = self._reported_version
+        return gnu_layout_name(
+            'gcc',
+            reported['major'],
+            reported['minor'],
+            policy=current_identity(),
+            encoded_name=self._name,
+        )
 
 
     def package_name( self ):

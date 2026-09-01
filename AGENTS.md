@@ -155,6 +155,12 @@ That means `git commit` is never invoked with `--trailer`, and a `Co-authored-by
 never written into the message body either. An agent committing here passes the message with
 `-m` or `-F` and nothing else.
 
+GitHub's squash-merge box **pre-fills** `Co-authored-by:` for each branch-commit author whose
+email differs from the GitHub account's commit identity (for example a local
+`user@example.com` versus `user@users.noreply.github.com`). That line is not from
+`scripts.github_helpers`. Delete it before merging. Aligning local `user.email` with the
+account's GitHub noreply address stops the suggestion on later PRs.
+
 Otherwise, follow the shape already in the log:
 
 - A subject line that names the change, in the imperative, without a full stop.
@@ -696,6 +702,7 @@ In a project that *uses* cuppa (not this repo):
 
 ```sh
 cuppa -D --dbg --develop --offline --test
+cuppa -D --toolchain-identity=major
 cuppa -D --list-develop
 cuppa -D --update-develop
 cuppa -D --cov --test --toolchains=gcc

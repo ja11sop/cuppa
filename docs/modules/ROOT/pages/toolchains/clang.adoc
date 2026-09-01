@@ -210,7 +210,7 @@ adds more when using `libc{plus}{plus}`. Verbose listing shows them as normal `-
 * On **Linux**, the default is `libstdc{plus}{plus}` so Boost b2 and the rest of the stack see an explicit `-stdlib=` when needed
 * On other platforms the default may be unset (system default)
 * When `libc{plus}{plus}` is selected on Linux, see the library table above for the extra `DYNAMICLIBS`
-* **Build identity:** `toolchain.name()` (and therefore `_build/.../<toolchain>/...`) includes a non-default stdlib tag, for example `clang21-libc{plus}{plus}`. The Linux default (`libstdc{plus}{plus}`) keeps the plain name (`clang21`). `package_name()` matches `name()`. Compile commands still use `toolchain.binary()` / `CXX` (`clang{plus}{plus}…`), not the tagged folder name.
+* **Build identity:** `toolchain.name()` (and therefore `_build/.../<toolchain>/...`) includes a non-default stdlib tag, for example `clang21-libc{plus}{plus}`. The Linux default (`libstdc{plus}{plus}`) keeps the plain name. `--toolchain-identity=major` also drops the Clang point-release digit (`clang211` → `clang21`) before applying that tag. `package_name()` matches `name()`. Compile commands still use `toolchain.binary()` / `CXX` (`clang{plus}{plus}…`), not the tagged folder name.
 * `--toolchains=clang` / versioned aliases remain the registry keys used on the CLI; they do not embed the stdlib tag
 
 == Modules (opt-in)

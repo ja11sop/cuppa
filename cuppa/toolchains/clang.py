@@ -380,9 +380,23 @@ class Clang(object):
         # Build/ABI identity: platform default stdlib (libstdc++ on Linux) keeps the
         # bare reported name so existing paths stay stable; only a non-default
         # choice is tagged (e.g. clang21-libc++). Compiler commands use binary()/CXX.
+        from cuppa.toolchains.identity import current_identity, gnu_layout_name
+        tag = None
         if self._stdlib and self._stdlib != self.default_stdlib():
-            return "{}-{}".format( self._name, self._stdlib )
-        return self._name
+            tag = self._stdlib
+        reported = getattr( self, '_reported_version', None )
+        if not reported:
+            if tag:
+                return "{}-{}".format( self._name, tag )
+            return self._name
+        return gnu_layout_name(
+            'clang',
+            reported['major'],
+            reported['minor'],
+            policy=current_identity(),
+            encoded_name=self._name,
+            tag=tag,
+        )
 
 
     def package_name( self ):

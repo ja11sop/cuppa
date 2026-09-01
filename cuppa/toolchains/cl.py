@@ -397,7 +397,8 @@ class Cl(object):
 
 
     def name( self ):
-        return self._name
+        from cuppa.toolchains.identity import current_identity, msvc_layout_name
+        return msvc_layout_name( self._toolset, policy=current_identity() )
 
 
     def package_name( self ):

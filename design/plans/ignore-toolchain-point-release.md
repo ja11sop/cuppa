@@ -1,9 +1,9 @@
 # Plan: optional toolchain point-release coarsening (variants and packages)
 
-- **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `tc-identity-coarsen`; package stems in [`cuppa/package_managers/gitlab.py`](../../cuppa/package_managers/gitlab.py); layout in [`cuppa/core/build_layout.py`](../../cuppa/core/build_layout.py) / [`cuppa/construct.py`](../../cuppa/construct.py) (`tool_variant_dir` vs `package_tool_variant_dir`); list-toolchains identity [`list-toolchains.md`](../archive/list-toolchains.md)
-- **Updated:** 2026-08-30
-- **Impact:** minor — new opt-in CLI / `cuppa.run` / configure keys; default keeps today's full toolchain identity
+- **Status:** in progress
+- **Related:** product shape and 1.9 slices [`build-and-package-identity.md`](build-and-package-identity.md); [`ROADMAP.md`](../../ROADMAP.md) — `tc-identity-coarsen`; package stems in [`cuppa/package_managers/gitlab.py`](../../cuppa/package_managers/gitlab.py); layout in [`cuppa/core/build_layout.py`](../../cuppa/core/build_layout.py) / [`cuppa/construct.py`](../../cuppa/construct.py) (`tool_variant_dir` vs `package_tool_variant_dir`); list-toolchains identity [`list-toolchains.md`](../archive/list-toolchains.md)
+- **Updated:** 2026-09-01
+- **Impact:** minor — see [`build-and-package-identity.md`](build-and-package-identity.md) (new-install `major`; grandfather `full` in `~/.cuppaconfig`)
 
 ## Problem
 
@@ -42,13 +42,14 @@ a correctness bug — the full identity is the safer default for reproducibility
 
 ## Goals
 
-1. Let a project **opt in** to ignore point-release digits when forming **variant** paths,
-   **package** identities, or **both**.
-2. Keep **full identity as the default** (no behaviour change until enabled).
-3. Keep **selection** and **reporting** honest: `--list-toolchains`, logs, and describe output still
+1. Let a project choose to ignore point-release digits when forming **variant** paths and
+   **package** identities (one switch — see umbrella plan).
+2. Keep **selection** and **reporting** honest: `--list-toolchains`, logs, and describe output still
    show what compiler was actually found (15.3), even when layout keys as `gcc15`.
-4. Document the **compatibility risk**: coarsening asserts that point releases are interchangeable
+3. Document the **compatibility risk**: coarsening asserts that point releases are interchangeable
    for that project's binaries and packages.
+4. Default / grandfather rules live in [`build-and-package-identity.md`](build-and-package-identity.md)
+   (not “full forever for everyone”).
 
 ## Non-goals
 
@@ -68,27 +69,14 @@ Worth preserving in any design:
   path vocabulary — by teaching `name()` and/or `package_name()` (or a shared identity helper)
   about a project policy.
 
-## Proposed product shape (open options)
+## Proposed product shape
 
-Prefer one clear policy object, applied in two places:
+**Settled in [`build-and-package-identity.md`](build-and-package-identity.md)** (do not re-open
+here): `--toolchain-identity=full|major` coarsens both `name()` and `package_name()`; new installs
+(no `~/.cuppaconfig`) default to `major`; existing globals without the key grandfather `full`.
+That document also covers OS omit at publish and consume-time “similar package” overrides.
 
-```text
-toolchain identity policy:
-  full          — today's behaviour (default)
-  major         — drop point release in encoded names (gcc153 → gcc15)
-```
-
-### Controls (sketch — settle before implementation)
-
-| Mechanism | Sketch |
-|-----------|--------|
-| CLI | `--toolchain-identity=full\|major` (name TBD) |
-| `cuppa.run` / `configure.conf` | Same key; project-default for all developers |
-| Scope flags (if both axes needed) | Either one switch affecting **both** variants and packages, or `--toolchain-identity-variants=` / `--toolchain-identity-packages=` (or a single enum: `full`, `major`, `major-packages-only`, …) |
-
-**Recommendation to validate in implementation spike:** start with **one switch that coarsens both
-`name()` and `package_name()` together** (simplest mental model). Add split axes only if fleets
-need “coarse packages, fine-grained local `_build`” (or the reverse).
+This file remains the **point-release encoding** problem, vocabulary, and code-hook notes.
 
 ### What must stay precise
 
@@ -108,37 +96,28 @@ need “coarse packages, fine-grained local `_build`” (or the reverse).
 
 | Request | Response |
 |---------|----------|
-| Default to coarse identity | Refuse for 1.x — opt-in only |
+| Silent `major` for existing `~/.cuppaconfig` without backfill | Refuse in 1.x — see umbrella plan |
 | Coarsen without documenting ABI risk | Refuse |
-| Versioned SCons-style churn of option names mid-cycle | Settle CLI vocabulary in this plan before the first PR |
+| Versioned SCons-style churn of option names mid-cycle | Refuse — names settled in [`build-and-package-identity.md`](build-and-package-identity.md) |
 
-## Work slices (later)
+## Work slices
 
-| ID | Deliverable | Notes |
-|----|-------------|-------|
-| `tc-id-vocab` | Settle CLI / config names and whether variants+packages share one switch | Short settled-decisions table |
-| `tc-id-helper` | Shared helper: reported version → full vs coarse token (GCC/Clang/MSVC) | Unit-tested encoding |
-| `tc-id-apply` | Wire into `name()` / `package_name()` or construct path composition | Honour existing `package_tool_variant_dir` split |
-| `tc-id-tests` | Unit + integration: same project, full vs major, package stem + `_build` path | Multi-toolchain cell |
-| `tc-id-docs` | Toolchains + Packages pages; CHANGELOG; warn about republish | Antora |
-| `tc-id-migrate` | Optional notes / helpers for renaming stems (doc-only first) | Not automatic rewrite |
+Slice IDs and PR split live in [`build-and-package-identity.md`](build-and-package-identity.md)
+(`tc-id-*`, consume overrides, OS omit). This document does not keep a second slice table.
 
 ## Acceptance criteria
 
-1. Default builds and package names **unchanged** without the new option.
-2. With coarsening enabled, `_build` and/or package stems use major-line tokens; selecting `gcc15`
-   on 15.2 and 15.3 machines can share those keys.
-3. `--list-toolchains` / describe still expose the **real** compiler version.
-4. Docs state the trade-off and that this is **not** Boost patched/clean or product SemVer.
-5. Integration coverage for at least GCC or Clang on Linux.
+See [`build-and-package-identity.md`](build-and-package-identity.md) (PR A). Encoding-specific:
+`--list-toolchains` / describe still expose the **real** compiler version; coarsening only
+touches version digits in the toolchain token, not variant/arch/abi/stdlib tags.
 
 ## Candidacy
 
 | Factor | Assessment |
 |--------|------------|
 | User value | **High** for package fleets and shared CI caches |
-| Risk | Medium — identity bugs are costly; keep opt-in |
+| Risk | Medium — identity bugs are costly; grandfather existing globals |
 | Size | Medium (encoding + construct/package wiring + docs) |
 | Release impact | `minor` |
 
-Good follow-on after current docs/Methods work; not blocked by Methods split.
+Product shape and PR split: [`build-and-package-identity.md`](build-and-package-identity.md).

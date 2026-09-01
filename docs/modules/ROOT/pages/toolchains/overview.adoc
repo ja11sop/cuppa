@@ -38,6 +38,29 @@ Each selected toolchain combines with the requested variants (`--dbg`, `--rel`, 
 produce separate build environments and artefact paths. Toolchain family pages document the
 warning, optimisation, standard-library, runtime, and module flags applied to those variants.
 
+[#toolchain-identity]
+== Build and package identity
+
+`--toolchains=` *selects* a compiler. `toolchain.name()` / `package_name()` *key* `_build`
+directories and GitLab package stems. Those keys historically include the compiler's reported
+point release (`gcc153` for GCC 15.3). `--toolchain-identity=major` drops that point digit
+(`gcc15`, `clang21`, `vc14`) so 15.2 and 15.3 machines can share trees and archives. Stdlib tags
+such as `-libc{plus}{plus}` remain. Registered archive names (`gcc17_gcc_snapshot_…`) already use
+the major line plus a qualifier and are not rewritten.
+
+`full` keeps the point-release token. `--list-toolchains` and describe output still show the
+compiler version that was found.
+
+New installs (no `~/.cuppaconfig`) persist `toolchain_identity=major` in that file. An existing
+global file without the key is grandfathered to `full`. Pin a project with
+`--toolchain-identity=` or `cuppa.run(default_options={'toolchain_identity': 'major'})`.
+Coarsening asserts that those point releases are interchangeable for *your* binaries; it is not
+Boost patched/clean identity or product SemVer. Cuppa 2.0 may make `major` the silent built-in
+default; 1.x does not change existing global files that already store `full`.
+
+See xref:configuration.adoc#toolchain-identity[Configuration] and
+xref:cli/toolchains-and-features.adoc[Toolchains and features].
+
 == Language levels and features
 
 Cuppa chooses the newest supported {cpp} dialect it knows for GCC and Clang; MSVC defaults to

@@ -336,6 +336,7 @@ These are recommendations for the next project, not self-flagellation.
 | `create-pr` rejects missing `impact:` label | Version job runs before the matrix; label-at-open avoids a wasted CI cycle |
 | Local docs preview; scan screenshots only on request | UI CSS review stays in the browser; PNG-in-context is a token tax, not a default loop |
 | Propose commit message; wait for go-ahead before commit/push | Maintainer skims the diff and steers before history moves (`AGENTS.md` Commit messages) |
+| Delete GitHub's pre-filled squash `Co-authored-by` | Helpers do not write trailers; GitHub adds one when branch-commit email ≠ account identity |
 
 ---
 

@@ -126,6 +126,7 @@ class Configure(object):
             logger.info( "{}".format( as_notice( "Update configuration requested..." ) ) )
 
         if not self._save and not self._save_global:
+            self._migrate_toolchain_identity()
             self._loaded_options = self._load_conf()
         else:
             self._loaded_options = {}
@@ -216,6 +217,16 @@ class Configure(object):
                 pass
             self._print_setting( 'loading', name, value )
             settings[name] = value
+
+
+    def _migrate_toolchain_identity( self ):
+        from cuppa.toolchains.identity import (
+            migrate_global_toolchain_identity,
+            should_migrate_global_identity,
+        )
+        if not should_migrate_global_identity():
+            return
+        migrate_global_toolchain_identity( self._global_conf_path )
 
 
     def _load_conf( self ):

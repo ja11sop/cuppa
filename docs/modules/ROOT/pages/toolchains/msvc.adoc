@@ -39,6 +39,8 @@ from the SCons MSVC **toolset** id:
 
 The alias drops the dot so CLI names stay short and match the familiar `v145`-style label
 (same digit style as `gcc15` / `clang21`).
+`--toolchain-identity=major` keys `_build` / package stems as `vc14` (toolset major only;
+experimental toolsets keep the `e` suffix). `full` keeps `vc145`.
 Capability floors use this toolset `(major, minor)` -- not compiler marketing strings such
 as `14.29` / `19.51`.
 

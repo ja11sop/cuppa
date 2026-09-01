@@ -64,10 +64,30 @@ cuppa.run(
 ----
 
 Keys in `configure.conf` and in `default_options` use each flag's internal SCons destination name.
-Those names are mixed: some use underscores (`reports_link_style`), while others retain hyphens
+Those names are mixed: some use underscores (`reports_link_style`, `toolchain_identity`), while others retain hyphens
 (`show-test-output`). Capture unfamiliar keys with `--save-conf` rather than converting the CLI
 spelling mechanically. Command-line flags still override saved or coded defaults when passed
 explicitly.
+
+[#toolchain-identity]
+=== Toolchain identity (`toolchain_identity`)
+
+`--toolchain-identity=full|major` controls whether build directories and GitLab package stems
+include the compiler point release. The configuration key is `toolchain_identity`.
+
+Cuppa writes this key into `~/.cuppaconfig` on configure load:
+
+* If the global file is missing, it is created with `toolchain_identity=major`.
+* If the file exists but the key is absent, Cuppa writes `full` (grandfather existing machines).
+* `--clear-global-conf` deletes the file; the next load is treated as a new install (`major`).
+
+Project `configure.conf` and the command line override the global value. Do not use the project
+file as the grandfather mechanism. `--list-toolchains` still prints the real compiler version.
+
+This is not Boost `-patched` / `-clean` package flavour and not the SemVer of software Cuppa
+publishes. Coarsening means you treat 15.2 and 15.3 objects as interchangeable for that project.
+
+xref:toolchains/overview.adoc#toolchain-identity[Toolchains overview] has the layout examples.
 
 === HTML report source links without CI flags
 

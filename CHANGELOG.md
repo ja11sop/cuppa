@@ -52,6 +52,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ``scripts.github_helpers create-issue`` (and ``show-issue`` / ``fetch-issue``)
   file and read GitHub issues the same way ``create-pr`` / ``show-pr`` do for
   pull requests: sealed token for writes, public API for reads.
+- ``--toolchain-identity=full|major`` (``toolchain_identity`` in ``cuppa.run`` /
+  ``configure.conf`` / ``~/.cuppaconfig``) selects whether ``toolchain.name()``
+  and ``package_name()`` keep the point-release token (``gcc153``) or the major
+  line (``gcc15``). Stdlib tags and registered archive qualifiers are unchanged.
+  Missing ``~/.cuppaconfig`` creates the file with ``major``; an existing global
+  file without the key is grandfathered to ``full``. ``--list-toolchains`` still
+  reports the real compiler version. Cuppa 2.0 may make ``major`` the silent
+  built-in default; 1.x does not flip existing globals.
 
 ### Changed
 

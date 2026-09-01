@@ -12,6 +12,7 @@ with a clear reason when an explicitly requested feature cannot be honoured.
 | Option | Effect
 
 | `--toolchains=LIST` | Select comma-separated registered names or fnmatch patterns such as `gcc*`
+| `--toolchain-identity=full\|major` | Encode `_build` and package tokens as `gcc153` (`full`) or `gcc15` (`major`). Selection aliases and `--list-toolchains` reported versions are unchanged. See xref:toolchains/overview.adoc#toolchain-identity[Build and package identity]
 | `--list-toolchains` | Report discovered PATH drivers and managed registrations, then exit
 | `--toolchain-archive=URL_OR_PATH` | Fetch/register a Clang or GCC archive (`tar`, zip, or `.deb`)
 | `--clang-root=PATH` | Register an existing prefix containing `bin/clang{plus}{plus}`
