@@ -23,6 +23,9 @@ The `cuppa` launcher redacts env values whose names contain `TOKEN` in logged ou
 
 To **publish** a Cuppa-built library to the same registry, see
 xref:packages.adoc[Publishing packages].
+Archive stems include `toolchain.package_name()`, so `--toolchain-identity=major` looks for
+`gcc15_…` rather than `gcc153_…` unless you keep `full`. Consume-side dual lookup is a later
+slice; until then, publish and consume with the same identity.
 
 [#boost-package]
 == Boost package

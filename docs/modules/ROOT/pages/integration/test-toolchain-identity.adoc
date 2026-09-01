@@ -1,0 +1,51 @@
+= `test_toolchain_identity` — layout tokens and global conf
+:description: Cuppa integration test documentation for toolchain identity
+
+== What is tested
+
+`--toolchain-identity=full` and `major` write different `_build` toolchain segments for the
+same compiler. A missing `~/.cuppaconfig` is created with `toolchain_identity=major`. An
+existing global file without the key is grandfathered to `full`. `--list-toolchains` JSON still
+includes a `major.minor` compiler version under `major` identity.
+
+Tests isolate `HOME` so they do not rewrite the developer's global configuration.
+
+== Generated files
+
+Copied from the dummy project, then:
+
+=== `sconstruct`
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(default_variants=['dbg'])
+----
+
+=== `sconscript`
+
+[source,python]
+----
+Import('env')
+env.AppendUnique(CPPPATH=['#/include'])
+env.CompileStatic('src/hello.cpp')
+----
+
+== Commands
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --dbg --toolchain-identity=full
+cuppa -D --offline --toolchains=gcc --dbg --toolchain-identity=major
+cuppa -D --offline --toolchains=gcc --list-toolchains --list-format=json --toolchain-identity=major
+----
+
+== Expectations
+
+The `major` layout token is the coarsened form of the `full` token (`gcc153` → `gcc15`).
+`--list-toolchains` JSON `versions[].version` still looks like `15.3`.
+
+'''
+
+Related test module: `tests/integration/test_toolchain_identity.py`.

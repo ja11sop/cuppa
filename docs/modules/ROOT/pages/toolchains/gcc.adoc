@@ -22,6 +22,10 @@ cuppa -D --dbg --toolchains=gcc
 cuppa -D --dbg --toolchains=gcc15
 ----
 
+`--toolchains=` selects the compiler. `_build` folders and package stems use
+`toolchain.name()`, which follows `--toolchain-identity=` (`gcc153` vs `gcc15` for a 15.3
+driver). See xref:toolchains/overview.adoc#toolchain-identity[Build and package identity].
+
 For selection, listing, and archive workflows shared with Clang, see
 xref:toolchains.adoc[Toolchains]. Inspect the live default invocation strings with
 `--list-toolchains --list-format=verbose`.

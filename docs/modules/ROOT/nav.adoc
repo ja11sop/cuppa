@@ -75,6 +75,7 @@
 * xref:integration-tests.adoc[Integration tests]
 ** xref:integration/test-minimal-example.adoc[Minimal example]
 ** xref:integration/test-configure-conf.adoc[configure.conf]
+** xref:integration/test-toolchain-identity.adoc[Toolchain identity]
 ** xref:integration/test-scripts-scoping.adoc[Scripts scoping]
 ** xref:integration/test-storage-roots.adoc[Storage roots]
 ** xref:integration/test-list-builds.adoc[List builds]
