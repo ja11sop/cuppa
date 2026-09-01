@@ -21,6 +21,8 @@ class FakeGitHub( object ):
             return self.responses.pop( 0 )
         if path.endswith( '/pulls' ) and method == 'POST':
             return 201, { 'number': 42, 'html_url': 'https://example.com/pr/42' }
+        if path.endswith( '/issues' ) and method == 'POST':
+            return 201, { 'number': 240, 'html_url': 'https://example.com/issues/240' }
         if path.endswith( '/labels' ):
             return 200, [ { 'name': label } for label in payload['labels'] ]
         return 404, {}
@@ -204,6 +206,124 @@ def test_create_pr_command_requires_impact_label():
     )
     with pytest.raises( github_helpers.GitHubHelperError, match='impact: label' ):
         github_helpers.create_pr_command( arguments )
+
+
+def test_create_issue_posts_title_body_and_labels():
+    client = FakeGitHub()
+
+    issue = github_helpers.create_issue(
+        title = 'Index write races mkdir',
+        body = 'ENOENT at SconstructEnd',
+        labels = [ 'bug' ],
+        github = client,
+    )
+
+    assert issue['html_url'] == 'https://example.com/issues/240'
+    assert client.calls[0][0] == 'POST'
+    assert client.calls[0][1].endswith( '/issues' )
+    assert client.calls[0][2] == {
+        'title': 'Index write races mkdir',
+        'body': 'ENOENT at SconstructEnd',
+        'labels': [ 'bug' ],
+    }
+
+
+def test_create_issue_omits_labels_when_none():
+    client = FakeGitHub()
+    github_helpers.create_issue(
+        title = 'Untitled',
+        body = 'Body',
+        github = client,
+    )
+    assert 'labels' not in client.calls[0][2]
+
+
+def test_create_issue_reports_api_failure():
+    class Failing( object ):
+        def request( self, method, path, payload=None ):
+            return 422, { 'message': 'Validation Failed' }
+
+    with pytest.raises( github_helpers.GitHubHelperError, match='422' ):
+        github_helpers.create_issue(
+            title = 'Untitled',
+            body = 'Body',
+            github = Failing(),
+        )
+
+
+def test_show_issue_uses_public_api_and_summarises( monkeypatch ):
+    created = []
+
+    class CapturingPublic( object ):
+        @classmethod
+        def public( cls ):
+            client = FakeGitHub( responses=[
+                ( 200, {
+                    'number': 240,
+                    'html_url': 'https://example.com/issues/240',
+                    'title': 'Collate index mkdir',
+                    'body': 'Missing _artifacts/test\n',
+                    'state': 'open',
+                    'labels': [ { 'name': 'bug' } ],
+                } ),
+            ] )
+            created.append( client )
+            return client
+
+    monkeypatch.setattr( github_helpers, 'GitHub', CapturingPublic )
+    monkeypatch.setattr(
+        github_helpers, 'repository',
+        lambda owner=None, repo=None: ( 'ja11sop', 'cuppa' ),
+    )
+
+    summary = github_helpers.show_issue( number=240 )
+    assert created, "show-issue must use GitHub.public(), not the sealed client"
+    assert summary['number'] == 240
+    assert summary['labels'] == [ 'bug' ]
+    assert 'Missing _artifacts/test' in summary['body']
+
+    rendered = github_helpers.format_issue( summary )
+    assert 'Issue #240' in rendered
+    assert 'title: Collate index mkdir' in rendered
+    assert 'labels: bug' in rendered
+    assert 'Missing _artifacts/test' in rendered
+
+
+def test_show_issue_rejects_pull_requests( monkeypatch ):
+    monkeypatch.setattr(
+        github_helpers, 'repository',
+        lambda owner=None, repo=None: ( 'ja11sop', 'cuppa' ),
+    )
+    client = FakeGitHub( responses=[
+        ( 200, {
+            'number': 239,
+            'html_url': 'https://example.com/issues/239',
+            'title': 'A PR',
+            'body': '',
+            'state': 'open',
+            'labels': [],
+            'pull_request': { 'url': 'https://example.com/pulls/239' },
+        } ),
+    ] )
+    with pytest.raises( github_helpers.GitHubHelperError, match='show-pr' ):
+        github_helpers.show_issue( number=239, github=client )
+
+
+def test_fetch_issue_alias_dispatches( monkeypatch, capsys ):
+    monkeypatch.setattr(
+        github_helpers, 'show_issue',
+        lambda **kwargs: {
+            'number': 1,
+            'url': 'https://example.com/issues/1',
+            'title': 'T',
+            'state': 'open',
+            'labels': [],
+            'body': '',
+        },
+    )
+    code = github_helpers.main( [ 'fetch-issue', '--issue', '1' ] )
+    assert code == 0
+    assert 'Issue #1' in capsys.readouterr().out
 
 
 def test_create_pull_request_reports_api_failure():
