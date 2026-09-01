@@ -570,6 +570,11 @@ class CollateReportIndexAction(object):
 
             logger.trace( "report_summary = {}".format( str( self._read( str(json_report) ) ) ) )
 
+            for node in ( html_target, json_target ):
+                parent = os.path.dirname( str( node ) )
+                if parent:
+                    os.makedirs( parent, exist_ok=True )
+
             env.Execute( Copy( html_target, html_report ) )
             env.Execute( Copy( json_target, json_report ) )
 
@@ -728,6 +733,8 @@ class ReportIndexBuilder(object):
                 )
 
                 logger.trace( "summaries = \n{}".format( summaries_json_report ) )
+
+                os.makedirs( destination_dir, exist_ok=True )
 
                 with open( master_report_path, 'w', encoding='utf-8' ) as master_report_file:
                     master_report_file.write( summaries_json_report )

@@ -13,7 +13,10 @@ They activate with `--test` / `--force-test` and usually sit in the same sconscr
 
 | Returns | Report / index nodes (empty list when the test action is inactive)
 | Evaluation | Build / post-build (gated on the `test` variant action)
-| Output paths | HTML/JSON under `final/` or a chosen destination; Bitten XML beside the run
+| Output paths | HTML/JSON under `final/` or a chosen destination; Bitten XML beside the run.
+  The collate destination directory is created if missing (the master index is written at
+  `#SconstructEnd`, so SCons `Copy` may not have created the tree yet — especially with
+  `--parallel`).
 | Progress | Yes — `NotifyProgress.add` on emitted report nodes
 |===
 

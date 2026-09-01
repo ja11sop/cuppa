@@ -91,6 +91,25 @@ def test_collate_test_report_index(tmp_path):
     assert "hello_test" in index_html.read_text(encoding="utf-8")
 
 
+def test_collate_test_report_index_creates_destination_with_parallel(tmp_path):
+    """Master index is written at #SconstructEnd; create destination even if SCons Copy has not."""
+    project = copy_dummy_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "prog = env.BuildTest('hello_test', 'tests/hello_test.cpp')\n"
+        "reports = env.GenerateHtmlTestReport(prog)\n"
+        "env.CollateTestReportIndex(reports, destination='#_artefacts/test/')\n",
+    )
+    artefacts = Path(project) / "_artefacts"
+    assert not artefacts.exists()
+    result = run_cuppa(project, "--dbg", "--test", "--parallel")
+    assert_success(result)
+    index_json = artefacts / "test" / "test-report-index.json"
+    assert index_json.is_file(), "expected master test-report-index.json without pre-created _artefacts/test"
+
+
 def test_collate_test_report_index_shared_destination(tmp_path):
     """Sibling sconscripts can collate into the same artifacts test-report destination."""
     project = copy_dummy_project(tmp_path)

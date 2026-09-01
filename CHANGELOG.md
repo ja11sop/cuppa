@@ -150,6 +150,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- ``CollateTestReportIndex()`` creates the destination directory before writing
+  ``test-report-index.json`` / ``.html`` at ``#SconstructEnd`` (and before
+  ``Copy`` of per-test reports). A missing ``_artefacts/test`` (or
+  ``_artifacts/test``) no longer fails the build under ``--parallel``.
+  ``CollateCoverageIndex()`` creates its destination the same way for
+  ``coverage-index.html``.
 - ``MarkdownToHtml()``, ``AsciidocToHtml()`` (default targets), ``CompileScss()`` (default
   targets), and ``RunAndRedirectToFile()`` mirror nested source paths under ``final/`` so
   same-basename inputs no longer collide ([#233](https://github.com/ja11sop/cuppa/issues/233)).

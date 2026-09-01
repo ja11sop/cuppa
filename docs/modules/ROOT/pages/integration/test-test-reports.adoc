@@ -8,7 +8,8 @@
 2. *`GenerateHtmlTestReport` with `--cov`* — build succeeds with both `*.report.html` and `coverage--*.json` present (regression: coverage JSON must not break HTML report generation).
 3. *`CollateTestReportIndex`* — copies reports into `#_artefacts/test/` and writes `test-report-index.html` / `.json` at sconstruct end (including outside a VCS checkout).
 4. *Shared-destination collate* — two sibling sconscripts collating into the same artifacts folder.
-5. *`GenerateBittenReport`* — Bitten XML from the same test run.
+5. *Collate destination mkdir* — ``CollateTestReportIndex`` with ``--parallel`` succeeds when ``_artefacts/test`` does not already exist (master index is written at ``#SconstructEnd``, not by a SCons ``Copy``).
+6. *`GenerateBittenReport`* — Bitten XML from the same test run.
 
 == Generated files
 
@@ -68,6 +69,7 @@ cuppa -D --offline --toolchains=gcc --cov --test
 * With `--cov`: exit 0; `*.report.html` and `coverage--*.json` both exist.
 * Collate (single): reports under `_artefacts/test/`, plus master `test-report-index.html` / `test-report-index.json` (index mentions `hello_test`).
 * Collate (shared destination): both `alpha_test` and `beta_test` report HTML under `_artefacts/test/` (Windows may use `*.exe.report.html`), plus master index mentioning both names.
+* Collate (parallel, missing destination): exit 0; `_artefacts/test/test-report-index.json` exists without a prior `mkdir`.
 * Bitten: `*bitten*.xml` under `_build`.
 
 '''
