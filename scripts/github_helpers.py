@@ -10,8 +10,9 @@ Owner and repository always come from the local ``origin`` remote (or explicit `
 wrong repository.
 
 Reads on a public repository use the anonymous API. ``show-pr`` (alias ``fetch-pr``),
-``pr-status``, and ``watch-pr`` do not unseal the token. Writes (``create-pr``, ``update-pr``,
-labelling) and CI log downloads (``fetch-ci-logs``) still go through the sealed credential.
+``show-issue`` (alias ``fetch-issue``), ``pr-status``, and ``watch-pr`` do not unseal the token.
+Writes (``create-pr``, ``update-pr``, ``create-issue``, labelling) and CI log downloads
+(``fetch-ci-logs``) still go through the sealed credential.
 
 Pushing a branch is still ``git push -u origin HEAD``.
 
@@ -24,6 +25,13 @@ Create a pull request from the current branch:
 
     python -m scripts.github_helpers create-pr \\
         --title "…" --body-file /tmp/pr.md --label impact:minor
+
+File an issue (sealed token):
+
+    python -m scripts.github_helpers create-issue \\
+        --title "…" --body-file /tmp/issue.md --label bug
+
+    python -m scripts.github_helpers show-issue --issue 240
 
 Update an open pull request's title and/or body (current branch's PR, or ``--pr``):
 
@@ -49,10 +57,13 @@ public even on a public repository):
     Or from Python:
 
     from scripts.github_helpers import (
-        create_pull_request, show_pull_request, update_pull_request, watch_pull_request,
+        create_issue, create_pull_request, show_issue, show_pull_request,
+        update_pull_request, watch_pull_request,
     )
     create_pull_request( title='…', body='…', labels=['impact:minor'] )
+    create_issue( title='…', body='…', labels=['bug'] )
     show_pull_request( number=165 )
+    show_issue( number=240 )
     update_pull_request( number=154, title='…', body='…' )
     watch_pull_request( number=139 )
 """
@@ -231,6 +242,78 @@ def create_pull_request(
             )
 
     return pull
+
+
+def create_issue(
+        title,
+        body,
+        labels=None,
+        owner=None,
+        repo=None,
+        github=None,
+):
+    """Open an issue and optionally label it. Returns the issue dict from GitHub."""
+    owner, repo = repository( owner, repo )
+    client = github or GitHub()
+    payload = { 'title': title, 'body': body }
+    if labels:
+        payload['labels'] = list( labels )
+
+    status, issue = client.request(
+        'POST',
+        '/repos/{}/{}/issues'.format( owner, repo ),
+        payload,
+    )
+    if status >= 400:
+        raise GitHubHelperError( "creating the issue failed ({}): {}".format(
+            status, json.dumps( issue ) ) )
+    return issue
+
+
+def show_issue( number, owner=None, repo=None, github=None ):
+    """Public issue metadata (title, labels, body, state)."""
+    owner, repo = repository( owner, repo )
+    client = public_github( github )
+    status, issue = client.request(
+        'GET',
+        '/repos/{}/{}/issues/{}'.format( owner, repo, number ),
+    )
+    if is_rate_limit_response( status, issue ):
+        raise RateLimited( "reading issue {} rate-limited ({}): {}".format(
+            number, status, json.dumps( issue ) ) )
+    if status >= 400:
+        raise GitHubHelperError( "reading issue {} failed ({}): {}".format(
+            number, status, json.dumps( issue ) ) )
+    if issue.get( 'pull_request' ):
+        raise GitHubHelperError(
+            "issue {} is a pull request; use show-pr --pr {}".format( number, number )
+        )
+    return {
+        'number': issue['number'],
+        'url': issue.get( 'html_url' ),
+        'title': issue.get( 'title' ) or '',
+        'state': issue.get( 'state' ),
+        'labels': [
+            label.get( 'name' )
+            for label in ( issue.get( 'labels' ) or [] )
+            if label.get( 'name' )
+        ],
+        'body': issue.get( 'body' ) or '',
+    }
+
+
+def format_issue( summary ):
+    labels = summary.get( 'labels' ) or []
+    label_text = ', '.join( labels ) if labels else '-'
+    return "\n".join( [
+        "Issue #{} {}".format( summary['number'], summary.get( 'url' ) or '' ),
+        "title: {}".format( summary.get( 'title' ) or '' ),
+        "state={}".format( summary.get( 'state' ) ),
+        "labels: {}".format( label_text ),
+        "---",
+        ( summary.get( 'body' ) or '' ).rstrip(),
+        "",
+    ] )
 
 
 def update_pull_request(
@@ -828,6 +911,44 @@ def create_pr_command( arguments ):
     return 0
 
 
+def create_issue_command( arguments ):
+    issue = create_issue(
+        title = arguments.title,
+        body = _read_body( arguments ),
+        labels = arguments.label or None,
+        owner = arguments.owner,
+        repo = arguments.repo,
+    )
+    print( issue['html_url'] )
+    return 0
+
+
+def show_issue_command( arguments ):
+    github = GitHub() if arguments.auth else None
+    try:
+        summary = show_issue(
+            number = arguments.issue,
+            owner = arguments.owner,
+            repo = arguments.repo,
+            github = github,
+        )
+    except RateLimited:
+        if github is None:
+            summary = show_issue(
+                number = arguments.issue,
+                owner = arguments.owner,
+                repo = arguments.repo,
+                github = GitHub(),
+            )
+        else:
+            raise
+    if arguments.json:
+        print( json.dumps( summary, indent=2, sort_keys=True ) )
+    else:
+        print( format_issue( summary ) )
+    return 0
+
+
 def update_pr_command( arguments ):
     pull = update_pull_request(
         number = arguments.pr,
@@ -928,6 +1049,34 @@ def main( argv=None ):
     create.add_argument( '--owner' )
     create.add_argument( '--repo' )
 
+    issue = commands.add_parser( 'create-issue', help="open a GitHub issue (sealed token)" )
+    issue.add_argument( '--title', required=True )
+    issue.add_argument( '--body', default=None, help="issue body text" )
+    issue.add_argument( '--body-file', help="read the body from this file instead" )
+    issue.add_argument(
+        '--label', action='append', default=[],
+        help="label to apply; repeat for more than one",
+    )
+    issue.add_argument( '--owner' )
+    issue.add_argument( '--repo' )
+
+    show_issue_p = commands.add_parser(
+        'show-issue',
+        aliases=[ 'fetch-issue' ],
+        help="show issue title, labels, and body (public API)",
+    )
+    show_issue_p.add_argument( '--issue', type=int, required=True, help="issue number" )
+    show_issue_p.add_argument( '--owner' )
+    show_issue_p.add_argument( '--repo' )
+    show_issue_p.add_argument(
+        '--auth', action='store_true',
+        help="use the sealed credential instead of the public API",
+    )
+    show_issue_p.add_argument(
+        '--json', action='store_true',
+        help="print a JSON summary instead of the human-readable form",
+    )
+
     update = commands.add_parser(
         'update-pr',
         help="update title and/or body on an open pull request (sealed token)",
@@ -999,6 +1148,10 @@ def main( argv=None ):
     try:
         if arguments.command == 'create-pr':
             return create_pr_command( arguments )
+        if arguments.command == 'create-issue':
+            return create_issue_command( arguments )
+        if arguments.command in ( 'show-issue', 'fetch-issue' ):
+            return show_issue_command( arguments )
         if arguments.command == 'update-pr':
             return update_pr_command( arguments )
         if arguments.command == 'pr-status':

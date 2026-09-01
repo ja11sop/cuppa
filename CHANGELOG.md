@@ -49,6 +49,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ``env.Filter`` matches and excludes against both project-relative ``node.path``
   and absolute ``str`` / ``abspath`` forms, so the same patterns work for nodes
   from Cuppa snapshot discovery and from SCons ``Glob``.
+- ``scripts.github_helpers create-issue`` (and ``show-issue`` / ``fetch-issue``)
+  file and read GitHub issues the same way ``create-pr`` / ``show-pr`` do for
+  pull requests: sealed token for writes, public API for reads.
 
 ### Changed
 
@@ -155,7 +158,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``Copy`` of per-test reports). A missing ``_artefacts/test`` (or
   ``_artifacts/test``) no longer fails the build under ``--parallel``.
   ``CollateCoverageIndex()`` creates its destination the same way for
-  ``coverage-index.html``.
+  ``coverage-index.html``
+  ([#240](https://github.com/ja11sop/cuppa/issues/240)).
 - ``MarkdownToHtml()``, ``AsciidocToHtml()`` (default targets), ``CompileScss()`` (default
   targets), and ``RunAndRedirectToFile()`` mirror nested source paths under ``final/`` so
   same-basename inputs no longer collide ([#233](https://github.com/ja11sop/cuppa/issues/233)).

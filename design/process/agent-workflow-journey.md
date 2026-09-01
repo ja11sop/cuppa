@@ -2,7 +2,7 @@
 
 - **Status:** living
 - **Related:** [`AGENTS.md`](../../AGENTS.md) (agent ops); Antora Contributing (human versioning/release)
-- **Updated:** 2026-08-28
+- **Updated:** 2026-09-01
 - **Maintainer:** primary author of this journey; others append only (see `AGENTS.md`)
 - **Privacy:** obey the private-projects rule; never copy names from `INTERNAL_PROJECTS.local.md`
 - **Source:** Cursor sessions spanning roughly mid-July → 2026-08-07 on cuppa
@@ -75,7 +75,7 @@ Grew from build tips into an operating manual:
 - Where design docs live vs Antora docs (including **Contributing** for humans).
 - Private projects: never name them in tracked files; use labels + `INTERNAL_PROJECTS.local.md`.
 - GitHub: no `gh`; public reads vs sealed writes; `watch-pr` / `fetch-ci-logs` / `create-pr` /
-  `update-pr`.
+  `update-pr` / `create-issue` / `show-issue`.
 - Protected `master`: every tree change — including release prep — is a PR branch.
 - Before push: full local unit + integration gate.
 - Before merge: documentation + ROADMAP + CHANGELOG + plan housekeeping + PR test-plan ticks +
@@ -93,6 +93,7 @@ we added a helper:
 - `pr-status` / `watch-pr` (sparse poll schedule to spare the API)
 - `fetch-ci-logs` (Actions logs need auth even on public repos; pass `--pr` or `--run-id`)
 - `create-pr` / `update-pr` (title/body/labels without hand-rolled PATCH)
+- `create-issue` / `show-issue` (alias `fetch-issue`; same public-read / sealed-write split)
 
 **Teaching point:** the second time you debug the same API footgun, stop and write the script.
 
@@ -322,6 +323,7 @@ These are recommendations for the next project, not self-flagellation.
 | Housekeeping ritual before merge | Prevents “green CI, stale ROADMAP” |
 | Sealed token + public reads by default | Safer defaults for agents |
 | `show-pr` / `fetch-pr` for PR metadata | Prefer helpers over ad-hoc `GET /pulls/{n}` (and never `gh`) |
+| `create-issue` / `show-issue` | Same helper pattern for issues; do not reach for `gh` to file a bug |
 | `*.local.md` for secrets of context | Public repo stays clean |
 | `check_release` before build/publish | Catches `.dev` / unreleased before PyPI |
 | prepare / publish `workflow_dispatch` | Removes hand-tag ordering mistakes |
@@ -421,7 +423,7 @@ This is a process rule, not a product plan. Day-to-day wording lives in `AGENTS.
 | [`docs/.../contributing.adoc`](../../docs/modules/ROOT/pages/contributing.adoc) | Human Contributing hub (diagrams on children) |
 | [`design/README.md`](../README.md) | Index of plans / process / archive |
 | [`design/plans/removal-options.md`](../plans/removal-options.md) | Example of a living multi-PR plan |
-| [`scripts/github_helpers.py`](../../scripts/github_helpers.py) | PR/CI agent helpers |
+| [`scripts/github_helpers.py`](../../scripts/github_helpers.py) | PR/CI/issue agent helpers |
 | [`scripts/github_api.py`](../../scripts/github_api.py) | Sealed credential transport |
 | Antora `docs/` | Published truth for users |
 | Integration pages under `docs/.../integration/` | Executable scenarios as docs |

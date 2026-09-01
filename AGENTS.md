@@ -226,12 +226,13 @@ work on a machine with no TPM.
 ### Using it
 
 **Reads** go through the public API — no sealed token. Prefer `scripts.github_helpers`
-(`show-pr` / `pr-status` / `watch-pr`) for pull-request metadata and CI, or an anonymous client
-for other ad-hoc GETs:
+(`show-pr` / `show-issue` / `pr-status` / `watch-pr`) for pull-request and issue metadata
+and CI, or an anonymous client for other ad-hoc GETs:
 
 ```sh
 python -m scripts.github_helpers show-pr --pr 165          # title, labels, body (alias: fetch-pr)
 python -m scripts.github_helpers show-pr --pr 165 --json
+python -m scripts.github_helpers show-issue --issue 240    # alias: fetch-issue
 python -m scripts.github_helpers pr-status --pr 140
 python -m scripts.github_api GET /repos/ja11sop/cuppa/issues/132
 ```
@@ -269,6 +270,9 @@ for a one-off. Opening a pull request for the current branch **must** include ex
 python -m scripts.github_helpers create-pr \
   --title "…" --body-file /tmp/pr.md --label impact:minor
 
+python -m scripts.github_helpers create-issue \
+  --title "…" --body-file /tmp/issue.md
+
 python -m scripts.github_helpers update-pr \
   --pr 154 --title "…" --body-file /tmp/pr.md
 ```
@@ -281,8 +285,9 @@ event can still see an empty label list; the standalone `version` workflow also 
 `labeled` so the gate recovers without a no-op push.
 
 ```python
-from scripts.github_helpers import create_pull_request, update_pull_request
+from scripts.github_helpers import create_issue, create_pull_request, update_pull_request
 create_pull_request( title='…', body='…', labels=['impact:minor'] )
+create_issue( title='…', body='…' )
 update_pull_request( number=154, title='…', body='…' )
 ```
 
