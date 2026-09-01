@@ -331,3 +331,9 @@ def test_extract_zip_archive_with_progress( tmp_path ):
     assert ( target / 'dir' / 'a.txt' ).read_text( encoding='utf-8' ) == 'aaa' * 1000
     assert ( target / 'dir' / 'b.txt' ).read_text( encoding='utf-8' ) == 'bbb' * 1000
     assert 'Extracting pkg.zip' in stream.getvalue()
+
+
+def test_is_http_not_found():
+    assert dl.is_http_not_found( dl.DownloadError( 'missing', http_status=404 ) )
+    assert not dl.is_http_not_found( dl.DownloadError( 'denied', http_status=403 ) )
+    assert not dl.is_http_not_found( dl.DownloadError( 'no status' ) )

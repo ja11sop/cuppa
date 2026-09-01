@@ -3,6 +3,8 @@
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
+from types import SimpleNamespace
+
 import pytest
 
 from cuppa.toolchains import identity
@@ -105,6 +107,68 @@ def test_migrate_grandfathers_full_when_key_missing( tmp_path ):
     text = conf.read_text( encoding='utf-8' )
     assert 'toolchain_identity = full' in text
     assert 'offline = True' in text
+
+
+def test_paired_package_tokens_full_and_major( monkeypatch ):
+    monkeypatch.setattr( identity, 'current_identity', lambda: 'full' )
+    gcc = _gcc( 15, 3 )
+    assert identity.paired_package_tokens( gcc.package_name(), gcc ) == [ 'gcc153', 'gcc15' ]
+    monkeypatch.setattr( identity, 'current_identity', lambda: 'major' )
+    gcc_major = _gcc( 15, 3 )
+    assert identity.paired_package_tokens( gcc_major.package_name(), gcc_major ) == [
+        'gcc15', 'gcc153',
+    ]
+
+
+def test_paired_package_tokens_explicit_point_coarsens():
+    gcc = _gcc( 15, 3 )
+    assert identity.paired_package_tokens( 'gcc152', gcc ) == [ 'gcc152', 'gcc15' ]
+
+
+def test_paired_package_tokens_archive_qualifier_unchanged():
+    gcc = _gcc( 17, 0, encoded='gcc17_gcc_snapshot_abc' )
+    assert identity.paired_package_tokens( gcc.package_name(), gcc ) == [
+        'gcc17_gcc_snapshot_abc',
+    ]
+
+
+def test_paired_package_tokens_clang_tag( monkeypatch ):
+    monkeypatch.setattr( identity, 'current_identity', lambda: 'full' )
+    tagged = _clang( 21, 1, stdlib='libc++' )
+    tagged.default_stdlib = lambda: 'libstdc++'
+    tokens = identity.paired_package_tokens( tagged.package_name(), tagged )
+    assert tokens == [ 'clang211-libc++', 'clang21-libc++' ]
+
+
+def test_coarsen_msvc_token():
+    assert identity.coarsen_package_token( 'vc145' ) == 'vc14'
+    assert identity.coarsen_package_token( 'vc14' ) is None
+
+
+def test_package_identity_fallback_default_on():
+    assert identity.package_identity_fallback_enabled( {} ) is True
+    env = SimpleNamespace(
+        get_option=lambda key, default=None:
+            ['off'] if key == 'package_gitlab_identity_fallback' else None
+    )
+    assert identity.package_identity_fallback_enabled( env ) is False
+
+
+def test_package_consume_identity_registers_gitlab_namespace():
+    registered = []
+
+    def add_option(flag, **attributes):
+        registered.append((flag, attributes["dest"]))
+
+    identity.PackageConsumeIdentity.add_options(add_option)
+
+    assert registered == [
+        ("--package-gitlab-os-override", "package_gitlab_os_override"),
+        (
+            "--package-gitlab-identity-fallback",
+            "package_gitlab_identity_fallback",
+        ),
+    ]
 
 
 def test_migrate_leaves_existing_key( tmp_path ):

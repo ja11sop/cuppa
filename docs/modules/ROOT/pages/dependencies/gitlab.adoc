@@ -24,8 +24,35 @@ The `cuppa` launcher redacts env values whose names contain `TOKEN` in logged ou
 To **publish** a Cuppa-built library to the same registry, see
 xref:packages.adoc[Publishing packages].
 Archive stems include `toolchain.package_name()`, so `--toolchain-identity=major` looks for
-`gcc15_…` rather than `gcc153_…` unless you keep `full`. Consume-side dual lookup is a later
-slice; until then, publish and consume with the same identity.
+`gcc15_…` rather than `gcc153_…` unless you keep `full`. If the preferred stem is missing
+(`404`), Cuppa tries the other identity (full vs major) with the same OS before failing, and
+logs every stem it attempted. Disable that with
+`--package-gitlab-identity-fallback=off`. Publish still emits one stem.
+
+[#consume-overrides]
+== Lookup overrides
+
+Host identity does not have to match the archive you fetch. These options change **lookup** only;
+they do not rename what `env.PublishPackage` writes.
+
+[cols="3,7"]
+|===
+| Option | Role
+
+| `--package-gitlab-os-override=<id>` | Force the OS segment for every GitLab package
+| `--package-gitlab-os-override-<name>=<id>` | Force the OS segment for one named dependency (`debian` while the host is `ubuntu`)
+| `--package-gitlab-toolchain-override-<name>=<token>` | Force the toolchain token for one named dependency (`gcc152` or `gcc15`)
+| `--package-gitlab-identity-fallback=on\|off` | Try the other toolchain identity after a `404` (default `on`)
+|===
+
+Resolution order is: explicit per-package OS and toolchain overrides (then the project-wide OS
+override), then the current toolchain identity plus host OS, then the alternate full vs major
+token. Success is an ABI bet the project owns — Cuppa does not treat Debian archives as
+equivalent to Ubuntu ones unless you ask for that stem.
+
+xref:cli/dependencies-and-develop.adoc[Dependencies and develop] lists the flags.
+xref:toolchains/overview.adoc#toolchain-identity[Build and package identity] covers layout
+identity. OS omit at **publish** time is a later slice.
 
 [#boost-package]
 == Boost package

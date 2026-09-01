@@ -7,17 +7,19 @@
 #   Toolchain identity — full vs major layout / package tokens
 #-------------------------------------------------------------------------------
 
-"""Policy for ``toolchain.name()`` / ``package_name()``.
+"""Policy for ``toolchain.name()`` / ``package_name()`` and consume-side pairing.
 
 ``full`` keeps today's encoded major.minor token (``gcc153``, ``clang211``, ``vc145``).
 ``major`` drops the point-release digits (``gcc15``, ``clang21``, ``vc14``) while leaving
 stdlib tags and registered archive qualifiers (``gcc17_gcc_snapshot_…``) intact.
 
 Selection aliases (``--toolchains=gcc153``) and ``--list-toolchains`` version fields are
-unchanged. This module only names *layout and package* identity.
+unchanged. Layout identity lives here; GitLab lookup overrides live on
+``PackageConsumeIdentity`` and in ``cuppa.package_managers.gitlab``.
 """
 
 import os
+import re
 
 from cuppa.log import logger
 from cuppa.colourise import as_info, as_notice
@@ -28,6 +30,12 @@ IDENTITY_MAJOR = 'major'
 IDENTITY_CHOICES = ( IDENTITY_FULL, IDENTITY_MAJOR )
 
 TOOLCHAIN_IDENTITY_KEY = 'toolchain_identity'
+PACKAGE_OS_OVERRIDE_KEY = 'package_gitlab_os_override'
+PACKAGE_IDENTITY_FALLBACK_KEY = 'package_gitlab_identity_fallback'
+PACKAGE_IDENTITY_FALLBACK_CHOICES = ( 'on', 'off' )
+
+_GNU_PACKAGE_TOKEN = re.compile( r'^(gcc|clang)(\d+)(?:-(.+))?$' )
+_MSVC_PACKAGE_TOKEN = re.compile( r'^vc(\d+)(e)?$', re.I )
 
 
 class ToolchainIdentity( object ):
@@ -50,6 +58,38 @@ class ToolchainIdentity( object ):
     @classmethod
     def add_to_env( cls, env, add_toolchain, add_to_supported ):
         # Option-only helper; do not register a compiler.
+        pass
+
+
+class PackageConsumeIdentity( object ):
+    """Registers consume-side GitLab lookup overrides; not a compiler toolchain."""
+
+    @classmethod
+    def add_options( cls, add_option ):
+        add_option(
+            '--package-gitlab-os-override',
+            dest=PACKAGE_OS_OVERRIDE_KEY,
+            type='string',
+            nargs=1,
+            action='store',
+            help="Force the OS segment used when looking up GitLab package archives "
+                 "(for example debian while the host is ubuntu). Does not change "
+                 "published stems. Per-dependency "
+                 "--package-gitlab-os-override-<name>= takes precedence.",
+        )
+        add_option(
+            '--package-gitlab-identity-fallback',
+            dest=PACKAGE_IDENTITY_FALLBACK_KEY,
+            choices=list( PACKAGE_IDENTITY_FALLBACK_CHOICES ),
+            nargs=1,
+            action='store',
+            help="When a GitLab archive 404s, try the other toolchain identity "
+                 "(full vs major) with the same OS. Default on. Dual-try is consume-only; "
+                 "a successful fallback is an ABI bet the project owns.",
+        )
+
+    @classmethod
+    def add_to_env( cls, env, add_toolchain, add_to_supported ):
         pass
 
 
@@ -164,3 +204,164 @@ def migrate_global_toolchain_identity( conf_path ):
             as_notice( conf_path ),
     ) )
     return value
+
+
+def option_text( value ):
+    """Flatten SCons ``nargs=1`` lists to a stripped string, or ``None``."""
+    if value is None or value == '':
+        return None
+    if isinstance( value, ( list, tuple ) ):
+        if not value:
+            return None
+        return option_text( value[0] )
+    text = str( value ).strip()
+    return text or None
+
+
+def _option_from_env( env, key ):
+    if env is not None:
+        getter = getattr( env, 'get_option', None )
+        if callable( getter ):
+            try:
+                return option_text( getter( key ) )
+            except Exception:
+                pass
+        if isinstance( env, dict ) and key in env:
+            return option_text( env.get( key ) )
+    try:
+        from cuppa.core.environment import CuppaEnvironment
+        return option_text( CuppaEnvironment.get_option( key ) )
+    except Exception:
+        return None
+
+
+def package_os_override( env=None ):
+    """Project-level OS segment for GitLab lookup, or ``None``."""
+    return _option_from_env( env, PACKAGE_OS_OVERRIDE_KEY )
+
+
+def package_identity_fallback_enabled( env=None ):
+    """True unless ``--package-gitlab-identity-fallback=off`` (default on)."""
+    raw = _option_from_env( env, PACKAGE_IDENTITY_FALLBACK_KEY )
+    if raw is None:
+        return True
+    text = raw.lower()
+    if text in ( 'off', 'false', '0', 'no' ):
+        return False
+    if text in ( 'on', 'true', '1', 'yes' ):
+        return True
+    return True
+
+
+def host_package_identity_tokens( toolchain ):
+    """``(full, major)`` layout tokens for ``toolchain``, or ``(name, None)``."""
+    if toolchain is None:
+        return None, None
+    family = None
+    try:
+        family = toolchain.family()
+    except Exception:
+        family = None
+    reported = getattr( toolchain, '_reported_version', None )
+    if family in ( 'gcc', 'clang' ) and reported:
+        tag = None
+        if family == 'clang':
+            stdlib = getattr( toolchain, '_stdlib', None )
+            default = None
+            default_fn = getattr( toolchain, 'default_stdlib', None )
+            if callable( default_fn ):
+                try:
+                    default = default_fn()
+                except Exception:
+                    default = None
+            if stdlib and stdlib != default:
+                tag = stdlib
+        encoded = getattr( toolchain, '_name', None )
+        full = gnu_layout_name(
+                family,
+                reported['major'],
+                reported['minor'],
+                policy=IDENTITY_FULL,
+                encoded_name=encoded,
+                tag=tag,
+        )
+        major = gnu_layout_name(
+                family,
+                reported['major'],
+                reported['minor'],
+                policy=IDENTITY_MAJOR,
+                encoded_name=encoded,
+                tag=tag,
+        )
+        return full, major
+    if family == 'cl':
+        toolset = getattr( toolchain, '_toolset', None )
+        if toolset is not None:
+            return (
+                msvc_layout_name( toolset, policy=IDENTITY_FULL ),
+                msvc_layout_name( toolset, policy=IDENTITY_MAJOR ),
+            )
+    try:
+        name = toolchain.package_name()
+    except Exception:
+        name = None
+    return name, None
+
+
+def coarsen_package_token( token ):
+    """Syntactic full → major for plain gcc/clang/vc tokens; else ``None``.
+
+    Three-or-more GNU version digits drop the last (``gcc153`` → ``gcc15``).
+    Two-digit GNU tokens are left alone so ``gcc15`` is not treated as ``gcc1``.
+    MSVC ``vc145`` → ``vc14``. Archive qualifiers are not rewritten.
+    """
+    text = option_text( token )
+    if not text:
+        return None
+    match = _GNU_PACKAGE_TOKEN.match( text )
+    if match:
+        prefix, digits, tag = match.group( 1 ), match.group( 2 ), match.group( 3 )
+        if len( digits ) < 3:
+            return None
+        out = '{}{}'.format( prefix, digits[:-1] )
+        if tag:
+            out = '{}-{}'.format( out, tag )
+        return out if out != text else None
+    match = _MSVC_PACKAGE_TOKEN.match( text )
+    if match:
+        digits = match.group( 1 )
+        experimental = match.group( 2 ) or ''
+        if len( digits ) < 3:
+            return None
+        out = 'vc{}{}'.format( digits[:2], experimental )
+        return out if out != text else None
+    return None
+
+
+def alternate_package_token( token, toolchain=None ):
+    """The other of full ↔ major for ``token``, or ``None``."""
+    text = option_text( token )
+    if not text:
+        return None
+    full, major = host_package_identity_tokens( toolchain )
+    if full and major and full != major:
+        if text == full:
+            return major
+        if text == major:
+            return full
+    coarsened = coarsen_package_token( text )
+    if coarsened and coarsened != text:
+        return coarsened
+    return None
+
+
+def paired_package_tokens( token, toolchain=None ):
+    """Preferred token then the full↔major alternate when one exists."""
+    preferred = option_text( token )
+    if not preferred:
+        return []
+    tokens = [ preferred ]
+    alternate = alternate_package_token( preferred, toolchain )
+    if alternate and alternate not in tokens:
+        tokens.append( alternate )
+    return tokens
