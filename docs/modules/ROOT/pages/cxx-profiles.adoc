@@ -143,6 +143,8 @@ session. Cuppa prepends SCons keep-going (``-i``) when you have not passed it al
 Profiles violations on one translation unit do not stop the rest of the tree from compiling.
 Progress ordering still reaches ``#SconstructEnd``, and the session index is written at the end
 of the build (with a fallback flush when capture is non-empty but the normal hook did not run).
+When collation is method-only, the written index is limited to declaring sconscripts; pass
+``--cxx-profiles-report`` to list every captured scope.
 
 On the console, profile-shaped diagnostics keep an **Error** label but use warning colours so you
 can tell them apart from ordinary compile failures (which stay red). Inventory mode tallies

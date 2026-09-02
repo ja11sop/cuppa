@@ -174,6 +174,25 @@ def test_inventory_keeps_same_file_in_two_scopes_separate():
     assert inventory.unique_violation_count() == 1
 
 
+def test_filter_inventory_for_index_keeps_declaring_sconscript_only():
+    from cuppa.cpp.cxx_profiles_report import filter_inventory_for_index
+
+    inventory = ProfilesInventory()
+    diagnostic = parse_profiles_diagnostic( _STATIC_INIT_LINE )
+    other = _SAMPLE_SCOPE._replace( sconscript='./trades/sconscript' )
+    inventory.record( _SAMPLE_SCOPE, diagnostic )
+    inventory.record( other, diagnostic )
+
+    filtered, omitted = filter_inventory_for_index(
+        inventory,
+        [ 'widget/sconscript' ],
+    )
+    assert omitted == 1
+    assert filtered.unique_locations() == 1
+    assert filtered.locations()[ 0 ].scope.sconscript == './widget/sconscript'
+    assert inventory.unique_locations() == 2
+
+
 def test_unique_violation_count_counts_distinct_columns_on_same_line():
     inventory = ProfilesInventory()
     line_a = (

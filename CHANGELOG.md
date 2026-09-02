@@ -67,6 +67,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   same OS unless ``--package-gitlab-identity-fallback=off``. Dual-try is consume-only;
   publish still emits one stem. A successful fallback is an ABI bet the project
   owns ([#243](https://github.com/ja11sop/cuppa/issues/243)).
+- ``env.CollateCxxProfilesIndex()`` without ``--cxx-profiles-report`` writes a session
+  index limited to scopes whose sconscript declared the method (union of declarers).
+  Capture stays session-wide; omitted scopes are warned. The CLI flag still lists the
+  full tree ([#205](https://github.com/ja11sop/cuppa/issues/205)).
 - ``--package-gitlab-os-identity=include|omit`` (default ``include``) selects
   whether GitLab generic archive stems include the OS id. ``omit`` publishes
   ``{package}_{tool_variant}``. Consume prefers that shape when the flag is set,

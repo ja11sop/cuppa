@@ -30,6 +30,14 @@ clear failure with a normal gcc/clang that lacks Profiles.
 | Same report flags plus `--clean` on a second invocation
 | Removes `.cuppa-reports` entries and listed HTML/JSON; skips without Profiles Clang
 
+| `test_profiles_report_method_index_filters_undeclared_sconscript`
+| Method-only index omits sibling sconscript scopes
+| Two nested sconscripts; skips without Profiles Clang
+
+| `test_profiles_report_cli_index_lists_all_sconscripts`
+| `--cxx-profiles-report` bypasses the method-only filter
+| Same fixture; skips without Profiles Clang
+
 | `test_profiles_unsupported_toolchain_fails`
 | `--cxx-profiles` on a non-Profiles toolchain
 | Expects StopError / clear message

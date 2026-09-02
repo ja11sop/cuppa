@@ -95,6 +95,91 @@ def test_cli_get_options_still_activates_collector():
     CollateCxxProfilesIndexMethod.get_options( env )
     assert env[ 'cxx_profiles_report' ] is True
     assert ProfilesDiagnosticCollector._session is not None
+    assert ProfilesDiagnosticCollector._session.activation_via_cli is True
+
+
+def test_collate_registers_declaring_sconscript():
+    env = {
+        'cxx_profiles': True,
+        'cxx_profiles_enforce': [ 'std::init' ],
+        'sconscript_file': 'orders/sconscript',
+    }
+    callable_method = CollateCxxProfilesIndexCallable()
+    callable_method( env )
+    session = ProfilesDiagnosticCollector._session
+    assert 'orders/sconscript' in session.declaring_sconscripts()
+    assert session.activation_via_cli is False
+
+
+def test_cli_activation_disables_scope_filter_even_with_declaring_sconscript():
+    env = FakeEnv( {
+        'cxx_profiles_report': True,
+        'cxx_profiles_report_link_style': None,
+        'cxx_profiles_report_context': 'full',
+        'cxx_profiles_report_root': None,
+    } )
+    env[ 'cxx_profiles' ] = True
+    CollateCxxProfilesIndexMethod.get_options( env )
+    env[ 'sconscript_file' ] = 'orders/sconscript'
+    CollateCxxProfilesIndexCallable()( env )
+    session = ProfilesDiagnosticCollector._session
+    assert session.activation_via_cli is True
+    assert 'orders/sconscript' in session.declaring_sconscripts()
+    filtered, metadata = session.index_inventory()
+    assert metadata is None
+    assert filtered is session.inventory
+
+
+def test_method_only_index_inventory_filters_undeclared_sconscript():
+    from cuppa.cpp.cxx_profiles_report import (
+        ProfilesScope,
+        parse_profiles_diagnostic,
+    )
+
+    env = {
+        'cxx_profiles': True,
+        'sconscript_file': 'orders/sconscript',
+    }
+    CollateCxxProfilesIndexCallable()( env )
+    session = ProfilesDiagnosticCollector._session
+    line = (
+        "/tmp/a.cpp:1:1: error: variable 'Value' must be initialized or marked "
+        "'[[uninit]]' under profile 'std::init'"
+    )
+    diagnostic = parse_profiles_diagnostic( line )
+    declared = ProfilesScope(
+        sconscript='orders/sconscript',
+        variant_dir='_build/orders/clang/dbg/x86_64/cxx2c',
+        toolchain='clang',
+        variant_label='dbg',
+    )
+    other = declared._replace( sconscript='trades/sconscript' )
+    session.record( declared, diagnostic )
+    session.record( other, diagnostic )
+    filtered, metadata = session.index_inventory()
+    assert metadata[ 'omitted_scope_count' ] == 1
+    assert metadata[ 'declaring_sconscripts' ] == [ 'orders/sconscript' ]
+    assert filtered.unique_locations() == 1
+
+
+def test_later_collate_destination_conflict_warns( caplog ):
+    import logging
+
+    caplog.set_level( logging.WARNING )
+    first = {
+        'cxx_profiles': True,
+        'sconscript_file': 'orders/sconscript',
+    }
+    CollateCxxProfilesIndexCallable()( first )
+    second = {
+        'cxx_profiles': True,
+        'sconscript_file': 'trades/sconscript',
+    }
+    CollateCxxProfilesIndexCallable()(
+        second,
+        destination='#_artefacts/cxx-profiles/other/',
+    )
+    assert any( 'ignoring later' in rec.message for rec in caplog.records )
 
 
 def test_activate_cxx_profiles_report_enables_inventory_report_mode( monkeypatch ):

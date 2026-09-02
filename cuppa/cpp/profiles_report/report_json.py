@@ -143,7 +143,7 @@ def build_report_metadata( env, header_context=None, model=None, incomplete_scop
     )
     incomplete = sorted( incomplete_scopes or [] )
     from cuppa.reports.link_style import resolve_report_link_style
-    return {
+    metadata = {
         'sconstruct_dir': os.path.abspath( sconstruct_dir ),
         'report_project': header_context.get( 'report_project', '' ),
         'link_style': resolve_report_link_style(
@@ -159,6 +159,10 @@ def build_report_metadata( env, header_context=None, model=None, incomplete_scop
         'incomplete_scopes': incomplete,
         'partial': bool( incomplete ),
     }
+    scope_filter = env.get( '_cxx_profiles_scope_filter' )
+    if scope_filter:
+        metadata[ 'scope_filter' ] = dict( scope_filter )
+    return metadata
 
 
 def wrap_report_payload( model, env, inventory=None, incomplete_scopes=None, context=None ):

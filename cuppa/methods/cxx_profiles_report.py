@@ -66,7 +66,13 @@ def _enable_inventory_keep_going():
     )
 
 
-def activate_cxx_profiles_report( env, destination=None, link_style=None ):
+def activate_cxx_profiles_report(
+        env,
+        destination=None,
+        link_style=None,
+        via_cli=False,
+        declaring=False,
+):
     """Enable Profiles capture for this env (CLI flag or ``env.CollateCxxProfilesIndex()``)."""
     if destination is not None:
         env[ 'cxx_profiles_report' ] = destination
@@ -81,7 +87,13 @@ def activate_cxx_profiles_report( env, destination=None, link_style=None ):
         return
     _enable_inventory_report_mode()
     _enable_inventory_keep_going()
-    ProfilesDiagnosticCollector.activate( report_env=env )
+    session = ProfilesDiagnosticCollector.activate( report_env=env, via_cli=via_cli )
+    if declaring:
+        session.register_declaring_sconscript( env.get( 'sconscript_file' ) )
+    session.note_index_options(
+        destination=env.get( 'cxx_profiles_report' ),
+        link_style=link_style or env.get( 'cxx_profiles_report_link_style' ),
+    )
     logger.debug( "C++ Profiles violation capture enabled" )
 
 
@@ -101,6 +113,7 @@ class CollateCxxProfilesIndexCallable(object):
             env,
             destination=destination if destination is not None else True,
             link_style=link_style,
+            declaring=True,
         )
         return env.get( 'cxx_profiles_report' )
 
@@ -159,7 +172,7 @@ class CollateCxxProfilesIndexMethod:
             env[ 'cxx_profiles_report_context' ] = context_mode
         if not enabled:
             return
-        activate_cxx_profiles_report( env )
+        activate_cxx_profiles_report( env, via_cli=True )
 
     @classmethod
     def add_to_env( cls, cuppa_env ):

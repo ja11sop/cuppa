@@ -26,7 +26,7 @@ Cycle opened with docs/site and Profiles follow-ons; identity slices A–C close
 | RecursiveGlob / GlobFiles parity | Shipped [#231](https://github.com/ja11sop/cuppa/pull/231) |
 | Profiles `remote` links + inventory error-limit | Shipped [#219](https://github.com/ja11sop/cuppa/pull/219), [#225](https://github.com/ja11sop/cuppa/pull/225) |
 | `--toolchain-identity` + GitLab consume/publish OS identity | Shipped [#242](https://github.com/ja11sop/cuppa/pull/242), [#244](https://github.com/ja11sop/cuppa/pull/244), [#245](https://github.com/ja11sop/cuppa/pull/245) |
-| Profiles collate scope filter | Next product — [#205](https://github.com/ja11sop/cuppa/issues/205) |
+| Profiles collate scope filter | This PR — [#205](https://github.com/ja11sop/cuppa/issues/205) |
 | Colourised Antora report samples | Candidate — [`colourised-doc-samples.md`](design/plans/colourised-doc-samples.md) (`doc-output-samples`) |
 
 **Still open this cycle (not started here):** GitLab CMake staging ([#209](https://github.com/ja11sop/cuppa/issues/209)); Boost package patched/clean identity ([`boost-updates.md`](design/plans/boost-updates.md)); artefact removal design ([#135](https://github.com/ja11sop/cuppa/issues/135)); console bundle (`--terse-output`, log hygiene, `cuppa --info`).
@@ -185,7 +185,7 @@ Umbrella: [#127](https://github.com/ja11sop/cuppa/issues/127) ([#177](https://gi
 | `profiles-violation-report` | `prof-report-method-semantics` — implied `-i`, Progress decoupling, selective exit | High | **Shipped** [#203](https://github.com/ja11sop/cuppa/pull/203) / [#199](https://github.com/ja11sop/cuppa/issues/199) |
 | `profiles-violation-report` | `prof-report-error-limit` — inventory implies unlimited per-TU diagnostic cap | High | **Shipped** [#225](https://github.com/ja11sop/cuppa/pull/225) / [#224](https://github.com/ja11sop/cuppa/issues/224); **1.9.0** |
 | `profiles-violation-report` | `prof-report-remote-links` — per-repo `remote` HTML source links | High | **Shipped** [#219](https://github.com/ja11sop/cuppa/pull/219) / [#216](https://github.com/ja11sop/cuppa/issues/216); **1.9.0** |
-| `profiles-violation-report` | `prof-report-scope-filter` — method-only index filter (union of declaring sconscripts) | High | [#205](https://github.com/ja11sop/cuppa/issues/205); [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) §Collate index scope filter |
+| `profiles-violation-report` | `prof-report-scope-filter` — method-only index filter (union of declaring sconscripts) | High | This PR — [#205](https://github.com/ja11sop/cuppa/issues/205); [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) §Collate index scope filter |
 | `profiles-violation-report` | `prof-report-artefacts` — full `--remove-artefacts` / declared artefact trees | Medium | Blocked on [#135](https://github.com/ja11sop/cuppa/issues/135); F-min discovery shipped in [#198](https://github.com/ja11sop/cuppa/pull/198) |
 | `profiles-designators` | Additional profile names as Alliance Clang / WG21 stabilise | Medium | Cuppa passes opaque strings through |
 | `profiles-native-enforce` | Wire `profiles_enforce_flags` when a compiler adds native enforce flags | Low | Hook exists; `-include` fallback remains |

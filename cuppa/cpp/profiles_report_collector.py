@@ -12,7 +12,9 @@ import threading
 from cuppa.colourise import as_notice
 from cuppa.cpp.cxx_profiles_report import (
     ProfilesInventory,
+    filter_inventory_for_index,
     format_capture_summary,
+    normalize_sconscript_path,
     parse_profiles_diagnostic,
     profiles_scope_from_construction_env,
 )
@@ -22,6 +24,9 @@ from cuppa.cpp.profiles_report.context_summary import (
 )
 from cuppa.log import logger
 from cuppa.progress import NotifyProgress, VariantCompletionTracker
+
+
+_UNSET = object()
 
 
 class ProfilesReportSession(object):
@@ -36,10 +41,76 @@ class ProfilesReportSession(object):
         self._written = False
         self._non_profile_errors = 0
         self._profile_display_error_count = 0
+        self.activation_via_cli = False
+        self._declaring_sconscripts = set()
+        self._locked_destination = _UNSET
+        self._locked_link_style = _UNSET
 
     @property
     def inventory( self ):
         return self._inventory
+
+    def declaring_sconscripts( self ):
+        with self._lock:
+            return frozenset( self._declaring_sconscripts )
+
+    def register_declaring_sconscript( self, path ):
+        normalized = normalize_sconscript_path( path )
+        if not normalized:
+            return
+        with self._lock:
+            self._declaring_sconscripts.add( normalized )
+
+    def note_index_options( self, destination=None, link_style=None ):
+        """First explicit ``destination`` / ``link_style`` wins; later mismatches warn."""
+        if destination is not None:
+            if destination is True:
+                if self._locked_destination is _UNSET:
+                    self._locked_destination = True
+            elif self._locked_destination is _UNSET:
+                self._locked_destination = destination
+            elif self._locked_destination is True:
+                logger.warn(
+                    "C++ Profiles report: ignoring later CollateCxxProfilesIndex "
+                    "destination [{}]; first declaration wins".format(
+                        as_notice( str( destination ) ),
+                    )
+                )
+            elif destination != self._locked_destination:
+                logger.warn(
+                    "C++ Profiles report: ignoring later CollateCxxProfilesIndex "
+                    "destination [{}]; first declaration [{}] wins".format(
+                        as_notice( str( destination ) ),
+                        as_notice( str( self._locked_destination ) ),
+                    )
+                )
+        if link_style:
+            if self._locked_link_style is _UNSET:
+                self._locked_link_style = link_style
+            elif link_style != self._locked_link_style:
+                logger.warn(
+                    "C++ Profiles report: ignoring later CollateCxxProfilesIndex "
+                    "link_style [{}]; first declaration [{}] wins".format(
+                        as_notice( str( link_style ) ),
+                        as_notice( str( self._locked_link_style ) ),
+                    )
+                )
+
+    def index_inventory( self ):
+        """Inventory used for the session index (filtered when method-only)."""
+        with self._lock:
+            declaring = frozenset( self._declaring_sconscripts )
+            via_cli = self.activation_via_cli
+            inventory = self._inventory
+        if via_cli or not declaring:
+            return inventory, None
+        filtered, omitted = filter_inventory_for_index( inventory, declaring )
+        metadata = {
+            'active': True,
+            'declaring_sconscripts': sorted( declaring ),
+            'omitted_scope_count': omitted,
+        }
+        return filtered, metadata
 
     def record( self, scope, diagnostic ):
         with self._lock:
@@ -130,15 +201,34 @@ class ProfilesReportSession(object):
                 logger.warn(
                     "C++ Profiles report: flushing session index after early build abort"
                 )
-            logger.info(
-                "C++ Profiles report capture summary:\n{}".format(
-                    format_capture_summary( self._inventory )
+        index_inventory, scope_filter = self.index_inventory()
+        if scope_filter and scope_filter.get( 'omitted_scope_count' ):
+            omitted = scope_filter[ 'omitted_scope_count' ]
+            logger.warn(
+                "C++ Profiles report: omitted {} captured scope(s) from the session "
+                "index (only sconscripts that called CollateCxxProfilesIndex() are "
+                "listed). Pass {} for the full session inventory.".format(
+                    as_notice( str( omitted ) ),
+                    as_notice( '--cxx-profiles-report' ),
                 )
             )
+        if index_inventory.total_references() == 0:
+            logger.info(
+                "C++ Profiles report: no violations captured"
+            )
+            return
+        logger.info(
+            "C++ Profiles report capture summary:\n{}".format(
+                format_capture_summary( index_inventory )
+            )
+        )
+        with self._lock:
             parsed_files = frozenset( self._parsed_files )
             translation_units = frozenset( self._translation_units )
+        if scope_filter:
+            write_env[ '_cxx_profiles_scope_filter' ] = scope_filter
         result = write_profiles_reports(
-            self._inventory,
+            index_inventory,
             write_env,
             incomplete_scopes=incomplete,
             parsed_files=parsed_files,
@@ -164,16 +254,21 @@ class ProfilesDiagnosticCollector(object):
     _report_env = None
     _register_lock = threading.Lock()
     _spawn_hook_registered = False
+    _activation_via_cli = False
 
     @classmethod
-    def activate( cls, report_env=None ):
+    def activate( cls, report_env=None, via_cli=False ):
         with cls._register_lock:
-            if report_env is not None:
+            if via_cli:
+                cls._activation_via_cli = True
+            if report_env is not None and cls._report_env is None:
                 cls._report_env = report_env
             if cls._session is None:
                 cls._session = ProfilesReportSession()
                 NotifyProgress.register_callback( None, cls._session.on_progress )
                 cls._register_spawn_processor_hook()
+            if cls._activation_via_cli:
+                cls._session.activation_via_cli = True
             return cls._session
 
     @classmethod
@@ -299,3 +394,4 @@ class ProfilesDiagnosticCollector(object):
         cls._report_env = None
         cls._spawn_hook_registered = False
         cls._flush_registered = False
+        cls._activation_via_cli = False

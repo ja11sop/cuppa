@@ -286,3 +286,95 @@ def test_profiles_unsupported_toolchain_fails( tmp_path ):
     assert_failure( result )
     combined = ( result.stdout or '' ) + ( result.stderr or '' )
     assert 'does not support C++ Profiles' in combined or 'StopError' in combined
+
+
+_VIOLATION_CPP = (
+    'int probe()\n'
+    '{\n'
+    '    int Value [[uninit]];\n'
+    '    return Value;\n'
+    '}\n'
+)
+
+
+def _two_sconscript_profiles_project( tmp_path ):
+    write_sconstruct( tmp_path )
+    orders = tmp_path / 'orders'
+    trades = tmp_path / 'trades'
+    orders.mkdir()
+    trades.mkdir()
+    ( orders / 'sconscript' ).write_text(
+        "Import('env')\n"
+        "env.CollateCxxProfilesIndex()\n"
+        "env.Build( 'orders_probe', 'probe.cpp' )\n",
+        encoding='utf-8',
+    )
+    ( trades / 'sconscript' ).write_text(
+        "Import('env')\n"
+        "env.Build( 'trades_probe', 'probe.cpp' )\n",
+        encoding='utf-8',
+    )
+    ( orders / 'probe.cpp' ).write_text( _VIOLATION_CPP, encoding='utf-8' )
+    ( trades / 'probe.cpp' ).write_text( _VIOLATION_CPP, encoding='utf-8' )
+
+
+def _index_sconscripts( payload ):
+    return {
+        scope.get( 'sconscript' )
+        for scope in ( payload.get( 'report' ) or {} ).get( 'scopes' ) or []
+    }
+
+
+def test_profiles_report_method_index_filters_undeclared_sconscript( tmp_path ):
+    """Method-only index lists declaring sconscript scopes, not sibling projects."""
+    import json
+
+    _, toolchain_flag = require_profiles_capable_toolchain()
+    _two_sconscript_profiles_project( tmp_path )
+    result = run_cuppa(
+        tmp_path,
+        '--dbg',
+        '--cxx-profiles',
+        '--cxx-profiles-enforce=std::init',
+        '--cxx-disable-error-limit',
+        toolchain_flag,
+    )
+    report_dir = tmp_path / '_artefacts' / 'cxx-profiles'
+    assert ( report_dir / 'cxx-profiles-index.json' ).is_file()
+    payload = json.loads(
+        ( report_dir / 'cxx-profiles-index.json' ).read_text( encoding='utf-8' )
+    )
+    scripts = _index_sconscripts( payload )
+    assert any( 'orders' in ( script or '' ) for script in scripts )
+    assert not any( 'trades' in ( script or '' ) for script in scripts )
+    scope_filter = ( payload.get( 'metadata' ) or {} ).get( 'scope_filter' ) or {}
+    assert scope_filter.get( 'active' ) is True
+    assert scope_filter.get( 'omitted_scope_count', 0 ) >= 1
+    combined = ( result.stdout or '' ) + ( result.stderr or '' )
+    assert 'omitted' in combined
+    assert '--cxx-profiles-report' in combined
+
+
+def test_profiles_report_cli_index_lists_all_sconscripts( tmp_path ):
+    """--cxx-profiles-report bypasses the method-only scope filter."""
+    import json
+
+    _, toolchain_flag = require_profiles_capable_toolchain()
+    _two_sconscript_profiles_project( tmp_path )
+    run_cuppa(
+        tmp_path,
+        '--dbg',
+        '--cxx-profiles',
+        '--cxx-profiles-enforce=std::init',
+        '--cxx-profiles-report',
+        '--cxx-disable-error-limit',
+        toolchain_flag,
+    )
+    payload = json.loads(
+        ( tmp_path / '_artefacts' / 'cxx-profiles' / 'cxx-profiles-index.json' )
+        .read_text( encoding='utf-8' )
+    )
+    scripts = _index_sconscripts( payload )
+    assert any( 'orders' in ( script or '' ) for script in scripts )
+    assert any( 'trades' in ( script or '' ) for script in scripts )
+    assert 'scope_filter' not in ( payload.get( 'metadata' ) or {} )
