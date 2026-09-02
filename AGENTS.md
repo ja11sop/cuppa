@@ -650,6 +650,9 @@ Release checklist: see `release.txt` (Actions **prepare** → merge → **publis
   hand-edit committed fragments; regenerate. Keep the `.txt` sibling even when
   the page includes the `.html` (layout tests / `--raw-output`). Colour and
   console-surface follow-ons: [`design/plans/colourised-doc-samples.md`](design/plans/colourised-doc-samples.md).
+  Shell command listings (`sh`, `shell`, `bash`, `console`) share the console
+  surface/chrome but keep normal listing line height; only report trees use
+  `line-height: 1`.
 - Integration test scenarios: Antora **Integration tests** section (`docs/modules/ROOT/pages/integration/`)
 
 **Diagrams:** Antora 3 uses Asciidoctor.js, so the Ruby gem `asciidoctor-diagram` cannot be registered as an Antora AsciiDoc extension. Use `@sntke/antora-mermaid-extension` (`docs/playbook.yml`) so `[mermaid]` listing blocks render client-side with Mermaid.js (no Kroki network fetch at build time).

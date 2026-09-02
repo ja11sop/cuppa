@@ -247,7 +247,7 @@ considered doc fixes in an open release cycle.
 | A | `HtmlColouriser` + unit tests + preview CSS | **Landed on #252** |
 | B | `scripts.generate_doc_samples` semantic recipes | **Landed on #252:** `list-builds`, both dry-run removals, and removal failure |
 | C | Wire samples into `build-layout.adoc`; supplemental-ui CSS in the site | **Landed on #252:** all four human-readable build-layout fragments |
-| D | Add `list-develop` and other high-value recipes; optional `ansi-html` format | **On #252:** semantic HTML now covers every human-readable sample in the affected pages, including dependency remove / product-clean / purge; only optional `ansi-html` remains |
+| D | Add `list-develop` and other high-value recipes; optional `ansi-html` format | **Complete on #252:** semantic HTML covers every human-readable report sample in the affected pages, including dependency remove / product-clean / purge. ANSI preview is deferred to `doc-shiki`, not a blocker |
 
 ### Which recipes can be colourised
 
@@ -267,6 +267,10 @@ That keeps collection deterministic without copying the production announcement,
 tree, leftover, freed-space, or verify narration. The formatter wins where this differs from
 the old hand-assembled sample: for example, actual purge bytes include both the extract and
 download, and a dry run says `Would remove` / `would rm`.
+
+There are no checked-in wipe-report samples or wipe sample includes. This work does not add one:
+the close-out rule is to colourise the existing human-readable sample set, not expand it with
+new report scenarios.
 
 **Superseded text partials.** When a page moves to the HTML fragment, its `.txt` sibling stops
 being included but is still generated (`list-develop.txt`, `list-toolchains.txt`,
@@ -321,6 +325,12 @@ A small `inset` shadow (`--cuppa-console-inset`) gives the recess. It is applied
 **viewport**, not the frame: the frame's `box-shadow` is the edge-overflow hint, whose state rules
 would otherwise drop the recess exactly when a sample became scrollable.
 
+Shell command listings (`[source,sh]`, `[source,shell]`, `[source,bash]`, and future
+`[source,console]`) use the same console surface, border, and recess. They remain ordinary
+Highlight.js / AsciiDoc listings rather than semantic report HTML, and retain the bundle's
+normal line height: command lists benefit from readable leading, while only report trees need
+`line-height: 1` to join box-drawing glyphs.
+
 ### Follow-on (wide-panel UX, not sample-specific)
 
 Wide listings already wrap in `cuppa-scroll-panels.js` (fade + chevron while more content exists
@@ -350,10 +360,9 @@ colourised reports. Track it on [`antora-ui-bundle.md`](antora-ui-bundle.md) (`u
    Antora does not need Python. The generator and tests detect drift/privacy failures.
 2. **Emphasise + colour nesting** — **Settled: nested spans.** The semantic operation renderer
    preserves both meanings; CSS composes them.
-3. **Dark-mode docs** — **Settled for v1:** consume active Antora palette variables, including
-   their existing `prefers-color-scheme: dark` values. A later console-token pass still needs
-   light and dark values, but they should track Colorama hues, not admonition hues.
-4. **Console vs chrome palette** — **Direction landed:** dual tokens. HTML class names stay
+3. **Dark-mode docs** — **Settled and landed:** each palette has light and dark console tokens;
+   cup-of-tea dark follows KDE Plasma Breeze Konsole and companion palettes retain a tinted field.
+4. **Console vs chrome palette** — **Settled and landed:** dual tokens. HTML class names stay
    meaning-based (`cuppa-warning`); `.cuppa-output` uses `--cuppa-console-*` (including
    surface and ink). Admonition `--cuppa-warning` / `--cuppa-note` unchanged. Hues remain
    tunable against Colorama.

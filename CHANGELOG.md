@@ -17,7 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Report samples use ``--cuppa-console-*``
   hues and surface (Colorama meanings), not admonition chrome, with dark
   schemes taking the KDE Plasma Breeze Konsole palette and a slight inset
-  recess so a sample reads as a view into a terminal
+  recess so a sample reads as a view into a terminal. Shell command listings
+  share that console chrome while retaining normal command-list line spacing
   ([#252](https://github.com/ja11sop/cuppa/issues/252)).
 - Public docs site serves the latest release under ``/cuppa/latest/…`` (Antora
   ``latest_version_segment``) with master tip as prerelease ``next``; agent-oriented
