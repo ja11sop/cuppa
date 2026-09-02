@@ -1,11 +1,11 @@
 # Plan: build and package identity (toolchain major, OS omit, consume matching)
 
-- **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `tc-identity-coarsen`; original point-release problem [`ignore-toolchain-point-release.md`](ignore-toolchain-point-release.md); package stems [`cuppa/package_managers/gitlab.py`](../../cuppa/package_managers/gitlab.py); layout [`cuppa/core/build_layout.py`](../../cuppa/core/build_layout.py) / [`cuppa/construct.py`](../../cuppa/construct.py); global conf [`cuppa/configure.py`](../../cuppa/configure.py)
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `tc-identity-coarsen`; original point-release problem [`ignore-toolchain-point-release.md`](ignore-toolchain-point-release.md); package stems [`cuppa/package_managers/gitlab.py`](../../cuppa/package_managers/gitlab.py); layout [`cuppa/core/build_layout.py`](../../cuppa/core/build_layout.py) / [`cuppa/construct.py`](../../cuppa/construct.py); global conf [`cuppa/configure.py`](../../cuppa/configure.py); umbrella [#243](https://github.com/ja11sop/cuppa/issues/243)
 - **Updated:** 2026-09-02
 - **Impact:** minor — new identity policy and GitLab lookup overrides; existing globals grandfather `full`
 
-This document is the **settled product shape** for 1.9. Point-release encoding, vocabulary, and code hooks stay in [`ignore-toolchain-point-release.md`](ignore-toolchain-point-release.md); do not duplicate that problem statement here.
+This document is the **settled product shape** shipped in 1.9. Point-release encoding, vocabulary, and code hooks stay in [`ignore-toolchain-point-release.md`](ignore-toolchain-point-release.md); do not duplicate that problem statement here.
 
 **Priority:** toolchain **major** identity is the key win (layout churn + package fleets). OS omit and consume overrides are secondary slices.
 
@@ -119,8 +119,8 @@ Publish emits **one** stem (`include` or `omit`). Dual-try is **consume-only**. 
 | `tc-id-tests` | Unit + integration: full vs major; conf cases | Shipped in PR A |
 | `tc-id-docs` | Toolchains + Packages; CHANGELOG; 2.0 outlook one sentence | Shipped in PR A |
 | `pkg-consume-override` | Per-dep OS/toolchain lookup; dual-stem 404 fallback | Shipped in PR B |
-| `pkg-os-apply` | Publish-time include \| omit; parsers accept both shapes | Landing in [#245](https://github.com/ja11sop/cuppa/pull/245) |
-| `pkg-os-docs` | Builder confidence; when omit/cross-OS is sane | Landing in [#245](https://github.com/ja11sop/cuppa/pull/245) |
+| `pkg-os-apply` | Publish-time include \| omit; parsers accept both shapes | Shipped in [#245](https://github.com/ja11sop/cuppa/pull/245) |
+| `pkg-os-docs` | Builder confidence; when omit/cross-OS is sane | Shipped in [#245](https://github.com/ja11sop/cuppa/pull/245) |
 
 ## Implementation PRs
 
@@ -128,7 +128,7 @@ Publish emits **one** stem (`include` or `omit`). Dual-try is **consume-only**. 
 
 **PR B** (`minor`) — consume overrides + dual-stem lookup. **Shipped.**
 
-**PR C** (`minor`) — package OS omit at publish; consume accepts both stem shapes. **[#245](https://github.com/ja11sop/cuppa/pull/245).**
+**PR C** (`minor`) — package OS omit at publish; consume accepts both stem shapes. **Shipped** [#245](https://github.com/ja11sop/cuppa/pull/245). Umbrella [#243](https://github.com/ja11sop/cuppa/issues/243) closed.
 
 ## Refusal rules
 

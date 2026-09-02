@@ -1,8 +1,8 @@
 # Plan: optional toolchain point-release coarsening (variants and packages)
 
-- **Status:** in progress
-- **Related:** product shape and 1.9 slices [`build-and-package-identity.md`](build-and-package-identity.md); [`ROADMAP.md`](../../ROADMAP.md) — `tc-identity-coarsen`; package stems in [`cuppa/package_managers/gitlab.py`](../../cuppa/package_managers/gitlab.py); layout in [`cuppa/core/build_layout.py`](../../cuppa/core/build_layout.py) / [`cuppa/construct.py`](../../cuppa/construct.py) (`tool_variant_dir` vs `package_tool_variant_dir`); list-toolchains identity [`list-toolchains.md`](../archive/list-toolchains.md)
-- **Updated:** 2026-09-01
+- **Status:** shipped
+- **Related:** product shape [`build-and-package-identity.md`](build-and-package-identity.md); [`ROADMAP.md`](../../ROADMAP.md) — `tc-identity-coarsen`; package stems in [`cuppa/package_managers/gitlab.py`](../../cuppa/package_managers/gitlab.py); layout in [`cuppa/core/build_layout.py`](../../cuppa/core/build_layout.py) / [`cuppa/construct.py`](../../cuppa/construct.py) (`tool_variant_dir` vs `package_tool_variant_dir`); list-toolchains identity [`list-toolchains.md`](list-toolchains.md)
+- **Updated:** 2026-09-02
 - **Impact:** minor — see [`build-and-package-identity.md`](build-and-package-identity.md) (new-install `major`; grandfather `full` in `~/.cuppaconfig`)
 
 ## Problem
@@ -54,7 +54,7 @@ a correctness bug — the full identity is the safer default for reproducibility
 ## Non-goals
 
 - Changing SemVer of *software* packages Cuppa publishes (`1.2.3` product versions).
-- Boost `-patched` / `-clean` package flavour identity ([`boost-updates.md`](boost-updates.md)).
+- Boost `-patched` / `-clean` package flavour identity ([`boost-updates.md`](../plans/boost-updates.md)).
 - Auto-migrating existing `_build` or registry archives (project-local cleanup / republish).
 - Hiding point releases from toolchain discovery or `--toolchains=gcc153` pins.
 
