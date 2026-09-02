@@ -72,8 +72,9 @@ source.
 === Consuming in a project
 
 Declare the package in the ``sconstruct`` and list it in ``default_dependencies`` so every
-sconscript can ``BuildWith`` it. Set ``GITLAB_REGISTRY_TOKEN`` (or rely on ``CI_JOB_TOKEN`` in
-GitLab CI) for registry access.
+sconscript can ``BuildWith`` it. Boost.Test runners then take version and patched-test flags
+from this package and do not extract source Boost. Set ``GITLAB_REGISTRY_TOKEN`` (or rely on
+``CI_JOB_TOKEN`` in GitLab CI) for registry access.
 
 [source,python]
 ----

@@ -220,6 +220,7 @@ Design: [`design/plans/boost-updates.md`](design/plans/boost-updates.md).
 | Package archive / extract / version distinguish patched vs clean | No — same `boost` + `1.91` + tool variant |
 | Package `use_libs` passes `patched_test=` into library deps | No |
 | `boost_package.use_libs` does not invoke built-in source `boost` for ≥ 1.89 `system` drop | Yes ([#206](https://github.com/ja11sop/cuppa/issues/206) / [#207](https://github.com/ja11sop/cuppa/pull/207)) |
+| Boost.Test runners prefer `boost_package` and do not extract source Boost | This PR — [#248](https://github.com/ja11sop/cuppa/issues/248) |
 | Persist Boost latest for offline reuse (`boost_latest_version`, downloads-root–scoped) | Yes — [#171](https://github.com/ja11sop/cuppa/issues/171) / [#170](https://github.com/ja11sop/cuppa/pull/170); unpinned online scrape fix [#201](https://github.com/ja11sop/cuppa/issues/201); design [`boost-latest-persistence.md`](design/archive/boost-latest-persistence.md) |
 
 ### Planned / potential
@@ -230,6 +231,7 @@ Design: [`design/plans/boost-updates.md`](design/plans/boost-updates.md).
 | `boost-pkg-version` | Canonical version `{base}-patched` / `{base}-clean`; publisher + resolve + `package_id` | High | Visible qualifier; avoids extract collision |
 | `boost-pkg-compat` | Patched resolve falls back to unadorned `{base}`; clean does not | High | Existing registry tarballs are patched and unnamed |
 | `boost-pkg-use-libs` | Package `use_libs` passes `patched_test=` | High | Parity with source Boost |
+| `boost-test-runner-no-source` | Test runners prefer `boost_package`; no source extract on first test | High | This PR — [#248](https://github.com/ja11sop/cuppa/issues/248) |
 | `boost-pkg-docs` | Document opposite defaults (source clean / package patched) and identity | Medium | `packages.adoc` / `dependencies.adoc` |
 | `boost-pkg-flag` | Optional: `--boost-patched` selects among declared package flavours | Later | Not required if a project only consumes patched packages |
 

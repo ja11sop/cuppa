@@ -1,8 +1,8 @@
 # Plan: Boost source and package updates
 
 - **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Boost source and packages; [#206](https://github.com/ja11sop/cuppa/issues/206) (package-only builds must not pull source Boost); storage listing/removal stays in [`removal-options.md`](removal-options.md); offline “latest” persistence is [`boost-latest-persistence.md`](../archive/boost-latest-persistence.md) (separate)
-- **Updated:** 2026-08-17
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Boost source and packages; [#206](https://github.com/ja11sop/cuppa/issues/206) (package-only builds must not pull source Boost); [#248](https://github.com/ja11sop/cuppa/issues/248) (test runners must not pull source Boost); storage listing/removal stays in [`removal-options.md`](removal-options.md); offline “latest” persistence is [`boost-latest-persistence.md`](../archive/boost-latest-persistence.md) (separate)
+- **Updated:** 2026-09-02
 
 Source `boost` (b2 / extract homes) and GitLab `boost_package` share Boost.Test patch semantics
 but not storage identity. This plan is the home for those Boost-specific follow-ups. List /
@@ -69,12 +69,16 @@ but also `BuildWith('quince')` (or quince in `default_dependencies`):
 This matches [#206](https://github.com/ja11sop/cuppa/issues/206) comment: Quince should be able to
 use the session’s Boost package instead of always building source libs.
 
-**Not fixed by `use_libs` patch alone.** Follow-on slice (issue TBD after #206 lands):
+**Not fixed by `use_libs` patch alone.** Follow-on slices:
 
-- Resolve “session Boost” once: prefer declared `boost_package` when present and compatible, else
-  fall back to built-in `boost`.
-- Quince `update_env` / `BoostStaticLibs` paths call that resolver instead of unconditional
-  `BuildWith('boost')`.
+- **Test runners ([#248](https://github.com/ja11sop/cuppa/issues/248)):** `RunBoostTest` /
+  `RunPatchedBoostTest` used to call the source `boost` factory whenever it was in the
+  registry (always), then overwrite flags from `boost_package`. Under `--parallel` that
+  started a source extract while another test read `version.hpp`. Runners now use
+  `session_boost()` (package first).
+- **Quince (issue TBD):** Resolve “session Boost” once: prefer declared `boost_package`
+  when present and compatible, else fall back to built-in `boost`. Quince `update_env` /
+  `BoostStaticLibs` paths call that resolver instead of unconditional `BuildWith('boost')`.
 - Optional: Quince links via `boost_package.use_libs()` for the small static set it needs, or a
   shared helper both Quince and sconscripts use.
 
@@ -225,6 +229,7 @@ Still in this plan if we touch source Boost again:
 | ID | Slice | Notes |
 |----|--------|-------|
 | `boost-use-libs-no-source` | `boost_package.use_libs` must not invoke source `boost` factory | **Shipped** — [#206](https://github.com/ja11sop/cuppa/issues/206) / [#207](https://github.com/ja11sop/cuppa/pull/207): pass package version to `remove_system_static_lib` |
+| `boost-test-runner-no-source` | Test runners must not instantiate source `boost` when `boost_package` is declared | **This PR** — [#248](https://github.com/ja11sop/cuppa/issues/248): `session_boost()`; serialise source location cache |
 | `boost-quince-package` | Quince uses session `boost_package` when declared | **Proposal** — see [§Quince and the selector gap](#boost-quince-selector-gap); file follow-on issue after #206 |
 | `boost-pkg-version` | Canonical `{base}-patched` / `{base}-clean`; strip suffix for numeric version; publisher + resolve + `package_id` | Core identity |
 | `boost-pkg-compat` | Patched resolve falls back to bare `{base}`; record actual version; no clean→bare fallback | Needed before flipping publishers |
