@@ -132,6 +132,20 @@ def _assert_public_html( text ):
         )
 
 
+def _capture_html( invoke ):
+    """Run ``invoke( out )`` under the HTML colouriser.
+
+    Returns the assembled text and the colouriser holding the semantic
+    operations, so a recipe can still rewrite machine paths in both before
+    rendering.
+    """
+    colouriser = HtmlColouriser()
+    out = io.StringIO()
+    with cuppa.colourise.using_colouriser( colouriser ):
+        invoke( out )
+    return out.getvalue(), colouriser
+
+
 def _write_html_sample( name, text, colouriser ):
     SAMPLES.mkdir( parents=True, exist_ok=True )
     rendered = colouriser.render( text )
@@ -642,6 +656,26 @@ def sample_list_develop():
     return _write_sample( 'list-develop.txt', '\n'.join( lines ) + '\n' )
 
 
+def sample_list_develop_html():
+    """Semantic HTML form of the `--list-develop` table and judgement tree."""
+    def invoke( stream ):
+        develop_report(
+                _develop_copies_for_samples(),
+                without_develop=[ 'boost' ],
+                current_branch='feature_orders',
+                default_branch='master',
+                develop_active=False,
+                out=lambda text='': stream.write( text + '\n' ),
+                suggest_update=True,
+        )
+
+    text, colouriser = _capture_html( invoke )
+    home = str( Path.home() )
+    colouriser.replace( home, '~' )
+    text = text.replace( home, '~' )
+    return _write_html_sample( 'list-develop.html', text, colouriser )
+
+
 class _FakePlatform( object ):
     def default_toolchain( self ):
         return 'gcc'
@@ -712,9 +746,9 @@ def _gcc_describe():
     }
 
 
-def sample_list_toolchains():
-    """`--list-toolchains` discovered + registered tree."""
-    root = _work_root( 'list-toolchains' )
+def _list_toolchains_fixture( work_name ):
+    """Plant registered toolchain trees and return the env plus path rewrite."""
+    root = _work_root( work_name )
     clang_reg = root / 'toolchains' / 'clang' / 'profiles_2026_08_07_27'
     gcc_reg = root / 'toolchains' / 'gcc' / 'gcc_snapshot_20260725_1_amd64'
     clang_bin = clang_reg / 'bin'
@@ -776,17 +810,34 @@ def sample_list_toolchains():
             ),
         },
     }
+    return env, _doc_toolchain_download_prefix( root )
+
+
+def sample_list_toolchains():
+    """`--list-toolchains` discovered + registered tree."""
+    env, ( temp_prefix, doc_prefix ) = _list_toolchains_fixture( 'list-toolchains' )
     out = io.StringIO()
     toolchain_actions.list_toolchains( env, out=out )
-    text = out.getvalue()
-    temp_prefix, doc_prefix = _doc_toolchain_download_prefix( root )
-    text = text.replace( temp_prefix, doc_prefix )
+    text = out.getvalue().replace( temp_prefix, doc_prefix )
     return _write_sample( 'list-toolchains.txt', text )
 
 
-def sample_list_toolchains_verbose():
-    """`--list-toolchains --list-format=verbose` with one discovered GCC."""
-    env = {
+def sample_list_toolchains_html():
+    """Semantic HTML form of the `--list-toolchains` report."""
+    env, ( temp_prefix, doc_prefix ) = _list_toolchains_fixture( 'list-toolchains-html' )
+
+    def invoke( out ):
+        toolchain_actions.list_toolchains( env, out=out )
+
+    text, colouriser = _capture_html( invoke )
+    colouriser.replace( temp_prefix, doc_prefix )
+    text = text.replace( temp_prefix, doc_prefix )
+    return _write_html_sample( 'list-toolchains.html', text, colouriser )
+
+
+def _list_toolchains_verbose_env():
+    """One discovered GCC with a full `describe` payload."""
+    return {
         'list_format': 'verbose',
         'platform': _FakePlatform(),
         'toolchains': {
@@ -804,9 +855,24 @@ def sample_list_toolchains_verbose():
             ),
         },
     }
+
+
+def sample_list_toolchains_verbose():
+    """`--list-toolchains --list-format=verbose` with one discovered GCC."""
     out = io.StringIO()
-    toolchain_actions.list_toolchains( env, out=out )
+    toolchain_actions.list_toolchains( _list_toolchains_verbose_env(), out=out )
     return _write_sample( 'list-toolchains-verbose.txt', out.getvalue() )
+
+
+def sample_list_toolchains_verbose_html():
+    """Semantic HTML form of the verbose `--list-toolchains` report."""
+    env = _list_toolchains_verbose_env()
+
+    def invoke( out ):
+        toolchain_actions.list_toolchains( env, out=out )
+
+    text, colouriser = _capture_html( invoke )
+    return _write_html_sample( 'list-toolchains-verbose.html', text, colouriser )
 
 
 class _FakeBuildToolchain( object ):
@@ -906,12 +972,13 @@ def sample_list_builds_html():
     env, build = _build_env( project, list_builds=True )
     _plant_list_builds_fixture( build )
     construct = _FakeConstruct( [ ( 'gcc15', 'dbg', 'x86_64', 'cxx2c' ) ] )
-    out = io.StringIO()
-    colouriser = HtmlColouriser()
-    with cuppa.colourise.using_colouriser( colouriser ):
+
+    def invoke( out ):
         storage_actions.list_builds( construct, env, out=out )
+
+    text, colouriser = _capture_html( invoke )
     colouriser.replace( str( build ), '_build' )
-    text = _rewrite_abs_build_root( out.getvalue(), str( build ) )
+    text = _rewrite_abs_build_root( text, str( build ) )
     return _write_html_sample( 'list-builds.html', text, colouriser )
 
 
@@ -940,17 +1007,17 @@ def sample_remove_builds_dry_run_html():
     env, build = _build_env( project, remove_builds=True, no_exec=True )
     _plant_list_builds_fixture( build )
     construct = _FakeConstruct( [ ( 'gcc15', 'dbg', 'x86_64', 'cxx2c' ) ] )
-    real_dry = storage_actions.dry_run
-    storage_actions.dry_run = lambda cuppa_env: True
-    colouriser = HtmlColouriser()
-    try:
-        out = io.StringIO()
-        with cuppa.colourise.using_colouriser( colouriser ):
+    def invoke( out ):
+        real_dry = storage_actions.dry_run
+        storage_actions.dry_run = lambda cuppa_env: True
+        try:
             storage_actions.remove_builds( construct, env, out=out )
-    finally:
-        storage_actions.dry_run = real_dry
+        finally:
+            storage_actions.dry_run = real_dry
+
+    text, colouriser = _capture_html( invoke )
     colouriser.replace( str( build ), '_build' )
-    text = _rewrite_abs_build_root( out.getvalue(), str( build ) )
+    text = _rewrite_abs_build_root( text, str( build ) )
     return _write_html_sample(
             'remove-builds-dry-run.html',
             text,
@@ -1001,17 +1068,17 @@ def sample_remove_builds_error_html():
     def boom( target, dry_run=False ):
         raise OSError( 13, 'Permission denied', os.path.join( target, 'working' ) )
 
-    real_remove = storage.remove_path
-    storage.remove_path = boom
-    colouriser = HtmlColouriser()
-    try:
-        out = io.StringIO()
-        with cuppa.colourise.using_colouriser( colouriser ):
+    def invoke( out ):
+        real_remove = storage.remove_path
+        storage.remove_path = boom
+        try:
             storage_actions.remove_builds( construct, env, out=out )
-    finally:
-        storage.remove_path = real_remove
+        finally:
+            storage.remove_path = real_remove
+
+    text, colouriser = _capture_html( invoke )
     colouriser.replace( str( build ), '_build' )
-    text = _rewrite_abs_build_root( out.getvalue(), str( build ) )
+    text = _rewrite_abs_build_root( text, str( build ) )
     return _write_html_sample( 'remove-builds-error.html', text, colouriser )
 
 
@@ -1038,17 +1105,18 @@ def sample_remove_all_builds_dry_run_html():
     project = _work_root( 'remove-all-builds-dry-html' )
     env, build = _build_env( project, remove_all_builds=True, no_exec=True )
     _plant_list_builds_fixture( build )
-    real_dry = storage_actions.dry_run
-    storage_actions.dry_run = lambda cuppa_env: True
-    colouriser = HtmlColouriser()
-    try:
-        out = io.StringIO()
-        with cuppa.colourise.using_colouriser( colouriser ):
+
+    def invoke( out ):
+        real_dry = storage_actions.dry_run
+        storage_actions.dry_run = lambda cuppa_env: True
+        try:
             storage_actions.remove_all_builds( env, out=out )
-    finally:
-        storage_actions.dry_run = real_dry
+        finally:
+            storage_actions.dry_run = real_dry
+
+    text, colouriser = _capture_html( invoke )
     colouriser.replace( str( build ), '_build' )
-    text = _rewrite_abs_build_root( out.getvalue(), str( build ) )
+    text = _rewrite_abs_build_root( text, str( build ) )
     return _write_html_sample(
             'remove-all-builds-dry-run.html',
             text,
@@ -1254,9 +1322,12 @@ GENERATORS = tuple(
                 sample_list_dependencies_verbose,
                 sample_list_dependencies_json,
                 sample_list_develop,
+                sample_list_develop_html,
                 sample_list_develop_json,
                 sample_list_toolchains,
+                sample_list_toolchains_html,
                 sample_list_toolchains_verbose,
+                sample_list_toolchains_verbose_html,
                 sample_list_toolchains_json,
                 sample_list_builds,
                 sample_list_builds_html,
@@ -1281,9 +1352,12 @@ GENERATORS = tuple(
         sample_list_dependencies_verbose,
         sample_list_dependencies_json,
         sample_list_develop,
+        sample_list_develop_html,
         sample_list_develop_json,
         sample_list_toolchains,
+        sample_list_toolchains_html,
         sample_list_toolchains_verbose,
+        sample_list_toolchains_verbose_html,
         sample_list_toolchains_json,
         sample_list_builds,
         sample_list_builds_html,
@@ -1307,6 +1381,9 @@ def main( argv=None ):
             nargs='*',
             choices=(
                     'list-builds',
+                    'list-develop',
+                    'list-toolchains',
+                    'list-toolchains-verbose',
                     'remove-builds-dry-run',
                     'remove-builds-error',
                     'remove-all-builds-dry-run',
@@ -1322,6 +1399,9 @@ def main( argv=None ):
     if arguments.sample:
         recipes = {
             'list-builds': sample_list_builds_html,
+            'list-develop': sample_list_develop_html,
+            'list-toolchains': sample_list_toolchains_html,
+            'list-toolchains-verbose': sample_list_toolchains_verbose_html,
             'remove-builds-dry-run': sample_remove_builds_dry_run_html,
             'remove-builds-error': sample_remove_builds_error_html,
             'remove-all-builds-dry-run': sample_remove_all_builds_dry_run_html,

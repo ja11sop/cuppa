@@ -1,9 +1,14 @@
 /*
  * Semantic Cuppa report samples.
  *
- * The HTML generator emits meaning classes rather than terminal ANSI. Colours
- * consume the active documentation palette and therefore remain legible in
- * both its light and dark schemes.
+ * The HTML generator emits meaning classes rather than terminal ANSI. v1 maps
+ * those classes onto Antora chrome tokens (--cuppa-warning orange, --cuppa-note
+ * sky, --cuppa-accent matcha). That is a mismatch for several console meanings:
+ * Colouriser._start_colour uses Colorama Fore.MAGENTA for warning / remove_notice
+ * (SGR 35), Fore.YELLOW for notice, Fore.BLUE for info/time, Fore.RED for error.
+ * A later pass should add --cuppa-console-* tokens for .cuppa-output only
+ * (meanings plus a console surface / ink, not listing --cuppa-code-surface),
+ * and leave admonition hues alone. See design/plans/colourised-doc-samples.md.
  */
 
 .cuppa-output {
@@ -13,10 +18,32 @@
   color: var(--cuppa-text, #212529);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: var(--cuppa-code-size, 0.8rem);
-  line-height: 1.5;
+  /*
+   * Report trees are terminal grids: extra leading leaves visible gaps between
+   * consecutive │ glyphs. One em per row keeps vertical stems joined.
+   */
+  line-height: 1;
   overflow-x: auto;
   padding: 0.85rem 1rem;
   white-space: pre;
+}
+
+.cuppa-output code {
+  line-height: inherit;
+}
+
+/*
+ * The bundle ships `.doc pre { line-height: 1.5 }`, which outranks a bare
+ * `.cuppa-output`, so the rule above only reaches the standalone preview.
+ * Match that specificity on the site. Scope nothing else here: for a wrapped
+ * sample the scroll-panel rules in cuppa.css own the frame chrome.
+ */
+.doc pre.cuppa-output {
+  line-height: 1;
+}
+
+.doc pre.cuppa-output > code {
+  line-height: inherit;
 }
 
 .cuppa-output .cuppa-info,

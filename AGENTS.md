@@ -640,6 +640,14 @@ Release checklist: see `release.txt` (Actions **prepare** → merge → **publis
 - Public multi-version site (stable from latest `v*` tag + `next`): `cd docs && npm run build:site` (needs git tags; `npm run build:site:all` also emits `llms.txt` / agent Markdown — requires `pandoc` and `lxml`)
 - Product agent index on Pages: `https://ja11sop.github.io/cuppa/llms.txt` (product docs for agents). Repo `AGENTS.md` is for contributors working *on* cuppa — different audience; do not treat one as a substitute for the other.
 - **Docs visual review:** capturing a PNG (for example Chromium `--screenshot`) is cheap; **reading the image into the agent context is expensive.** Build Antora, tell the human what to check in the local preview, and iterate from CSS/HTML plus their notes. Capture or scan screenshots only when they ask, or when they cannot check locally. Prefer one targeted crop over a full-page dump.
+- Report listing samples: `python -m scripts.generate_doc_samples` writes
+  `docs/modules/ROOT/partials/samples/` (text, JSON, and semantic HTML). Named
+  HTML recipes: `list-builds`, `list-develop`, `list-toolchains`,
+  `list-toolchains-verbose`, and the `--remove-builds` / `--remove-all-builds`
+  variants. Add `--preview` for `_docs_build/samples/*.preview.html`. Do not
+  hand-edit committed fragments; regenerate. Keep the `.txt` sibling even when
+  the page includes the `.html` (layout tests / `--raw-output`). Colour and
+  console-surface follow-ons: [`design/plans/colourised-doc-samples.md`](design/plans/colourised-doc-samples.md).
 - Integration test scenarios: Antora **Integration tests** section (`docs/modules/ROOT/pages/integration/`)
 
 **Diagrams:** Antora 3 uses Asciidoctor.js, so the Ruby gem `asciidoctor-diagram` cannot be registered as an Antora AsciiDoc extension. Use `@sntke/antora-mermaid-extension` (`docs/playbook.yml`) so `[mermaid]` listing blocks render client-side with Mermaid.js (no Kroki network fetch at build time).

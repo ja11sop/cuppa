@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Semantic HTML colouriser for documentation report samples
   (``HtmlColouriser`` behind ``using_colouriser()``) and colourised
-  ``--list-builds`` / ``--remove-builds`` fragments on the build-layout page
+  ``--list-builds`` / ``--remove-builds`` / ``--list-develop`` /
+  ``--list-toolchains`` fragments
   ([#252](https://github.com/ja11sop/cuppa/issues/252)).
 - Public docs site serves the latest release under ``/cuppa/latest/…`` (Antora
   ``latest_version_segment``) with master tip as prerelease ``next``; agent-oriented

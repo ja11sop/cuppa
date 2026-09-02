@@ -62,6 +62,23 @@ def test_list_develop_sample_has_status_table_and_judgement_tree():
     assert '--update-develop would fast-forward' in text
 
 
+def test_list_develop_html_sample_uses_semantic_classes_and_public_paths():
+    path = samples.sample_list_develop_html()
+    text = path.read_text( encoding='utf-8' )
+
+    assert text.startswith( '<pre class="cuppa-output"><code>' )
+    assert 'STATUS  DEPENDENCY' in text
+    assert '1 error' in text
+    assert '~/coding/gizmo' in text
+    assert 'cuppa-error' in text
+    assert 'cuppa-warning' in text
+    assert 'cuppa-emphasised' in text
+    assert '/tmp/' not in text
+    assert '/home/' not in text
+    assert '/Users/' not in text
+    assert '\x1b[' not in text
+
+
 def test_list_toolchains_sample_has_discovered_and_registered():
     path = samples.sample_list_toolchains()
     text = path.read_text( encoding='utf-8' )
@@ -69,6 +86,31 @@ def test_list_toolchains_sample_has_discovered_and_registered():
     assert 'registered' in text
     assert '~/_cuppa/_download/toolchains/' in text
     assert 'Force-wipe removal of toolchains' in text
+
+
+def test_list_toolchains_html_sample_is_semantic_and_path_safe():
+    text = samples.sample_list_toolchains_html().read_text( encoding='utf-8' )
+
+    assert text.startswith( '<pre class="cuppa-output"><code>' )
+    assert 'discovered' in text
+    assert 'registered' in text
+    assert '~/_cuppa/_download/toolchains/' in text
+    assert 'cuppa-info' in text
+    assert 'cuppa-emphasised' in text
+    assert '/tmp/' not in text
+    assert '/home/' not in text
+    assert '\x1b[' not in text
+
+
+def test_list_toolchains_verbose_html_sample_keeps_label_meanings():
+    text = samples.sample_list_toolchains_verbose_html().read_text( encoding='utf-8' )
+
+    assert 'available dialects:' in text
+    assert 'default invocations:' in text
+    assert 'cuppa-notice' in text
+    assert 'cuppa-subdued' in text
+    assert '/tmp/' not in text
+    assert '\x1b[' not in text
 
 
 def test_list_toolchains_verbose_sample_has_dialects_and_invocations():
