@@ -21,6 +21,7 @@ import cuppa.build_platform
 import cuppa.utility.preprocess
 from cuppa.output_processor import IncrementalSubProcess
 from cuppa.colourise import as_emphasised, as_highlighted, as_colour, start_colour, colour_reset, as_error, as_notice
+from cuppa.dependencies.boost.session import session_boost
 from cuppa.log import logger
 
 
@@ -709,15 +710,11 @@ class RunBoostTest:
         preprocess = self.default_preprocess
         argument_prefix = ""
 
-        if 'boost' in env['dependencies']:
-            boost_version = env['dependencies']['boost']( env ).numeric_version()
-            if env['dependencies']['boost']( env ).patched_test():
-                argument_prefix="boost.test."
-
-        if 'boost_package' in env['dependencies']:
-            boost_version = env['dependencies']['boost_package']( env ).numeric_version()
-            if env['dependencies']['boost_package']( env ).patched_test():
-                argument_prefix="boost.test."
+        boost = session_boost( env )
+        if boost is not None:
+            boost_version = boost.numeric_version()
+            if boost.patched_test():
+                argument_prefix = "boost.test."
 
         test_command = executable + " --{0}log_format=hrf --{0}log_level=all --{0}report_level=no".format( argument_prefix )
 

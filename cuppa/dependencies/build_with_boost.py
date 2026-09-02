@@ -8,6 +8,7 @@
 #   Boost
 #-------------------------------------------------------------------------------
 import os
+import threading
 
 # Cuppa Imports
 from cuppa.colourise import as_notice
@@ -25,6 +26,7 @@ class Boost(object):
 
     _name = 'boost'
     _cached_boost_locations = {}
+    _location_lock = threading.Lock()
 
     @classmethod
     def add_options( cls, add_option ):
@@ -74,11 +76,11 @@ class Boost(object):
 
         boost_id = boost_location_id( env )
 
-        if not boost_id in cls._cached_boost_locations:
-            logger.debug( "Adding boost [{}] to env".format( as_notice( str(boost_id) ) ) )
-            cls._cached_boost_locations[ boost_id ] = get_boost_location( env, boost_id[0], boost_id[1], boost_id[2], boost_id[3] )
-
-        location = cls._cached_boost_locations[ boost_id ]
+        with cls._location_lock:
+            if boost_id not in cls._cached_boost_locations:
+                logger.debug( "Adding boost [{}] to env".format( as_notice( str(boost_id) ) ) )
+                cls._cached_boost_locations[ boost_id ] = get_boost_location( env, boost_id[0], boost_id[1], boost_id[2], boost_id[3] )
+            location = cls._cached_boost_locations[ boost_id ]
 
         boost = None
         try:

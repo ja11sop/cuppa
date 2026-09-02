@@ -4,7 +4,8 @@
 The built-in `boost` dependency builds or uses a Boost tree via Boost.Build (`b2`).
 It is registered as the name `boost`. For prebuilt Boost from a GitLab registry, use
 xref:dependencies/gitlab.adoc#boost-package[`boost_package`] instead — same `use_libs([...])`
-call shape, different supply chain.
+call shape, different supply chain. Boost.Test runners (`RunBoostTest`) also prefer
+`boost_package` when it is declared, so they do not extract source Boost on first test.
 
 == Options
 

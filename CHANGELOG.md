@@ -178,6 +178,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Boost.Test runners prefer declared ``boost_package`` for version and patched-test
+  flags and no longer instantiate built-in source Boost first. That extract raced
+  under ``--parallel`` on a clean tree (``version.hpp`` missing mid-extract)
+  ([#248](https://github.com/ja11sop/cuppa/issues/248)). Source Boost location
+  lookup is serialised when the source factory *is* used.
 - Method-only ``CollateCxxProfilesIndex()`` rebinds the sconscript ``SPAWN``
   processor (and registers the env-ready hook even without
   ``--cxx-profiles-report``) so captured diagnostics keep the declaring
