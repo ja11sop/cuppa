@@ -327,18 +327,16 @@ cuppa -Q -D -n --force-wipe-dependencies='[source]boost/1.8*'
 Example shape after a source Boost product clean (extract stays; sizes and toolset ids vary).
 The version nests under the identity; `[E]` is partial because source assets stay:
 
-[source,text]
-----
-include::partial$samples/remove-boost-product-clean.txt[]
-----
+++++
+include::partial$samples/remove-boost-product-clean.html[]
+++++
 
 Example shape after removing the selected GitLab toolchain tree while other toolchains remain
 (sizes and toolchain ids vary; leftover rows are muted in the tree):
 
-[source,text]
-----
-include::partial$samples/remove-gitlab-dry-run.txt[]
-----
+++++
+include::partial$samples/remove-gitlab-dry-run.html[]
+++++
 
 The identity row rolls up size (muted) and emphasises the dependency name and package version.
 Selected leaves use a check (or ballot on failure) with the removal-notice colour; leftover
@@ -388,10 +386,9 @@ Example shape after purging the selected GitLab toolchain tree and tarball while
 toolchain remains (sizes and ids vary). The report uses the same summary → type → identity →
 version tree as remove; archive files and extract leaves hang under the version:
 
-[source,text]
-----
-include::partial$samples/purge-gitlab.txt[]
-----
+++++
+include::partial$samples/purge-gitlab.html[]
+++++
 
 See xref:integration/test-purge-dependencies.adoc[`test_purge_dependencies`].
 

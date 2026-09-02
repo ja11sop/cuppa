@@ -13,7 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (``HtmlColouriser`` behind ``using_colouriser()``) and colourised
   ``--list-builds`` / ``--remove-builds`` / ``--list-develop`` /
   ``--list-toolchains`` / ``--list-downloads`` / ``--list-dependencies``
-  fragments. Report samples use ``--cuppa-console-*``
+  fragments, including dependency remove / product-clean / purge examples.
+  Report samples use ``--cuppa-console-*``
   hues and surface (Colorama meanings), not admonition chrome, with dark
   schemes taking the KDE Plasma Breeze Konsole palette and a slight inset
   recess so a sample reads as a view into a terminal

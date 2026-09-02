@@ -1,0 +1,29 @@
+<pre class="cuppa-output"><code>Would remove <span class="cuppa-emphasised">1</span> dependency tree (<span class="cuppa-emphasised">166M</span>) under <span class="cuppa-info">~/.cuppa/dependencies</span>
+<span class="cuppa-subdued">(dry run; pass without -n to remove)</span>
+
+<span class="cuppa-subdued">  ------------------------------------------------------------------------------------------</span>
+      SIZE  LAST USED      REMARK     DEPENDENCY
+<span class="cuppa-subdued">  ------------------------------------------------------------------------------------------</span>
+  <span class="cuppa-emphasised">  757.8M</span>  yesterday                 <span class="cuppa-emphasised">related dependencies for boost_package</span>
+                                      <span class="cuppa-subdued">│   </span>
+  <span class="cuppa-emphasised"><span class="cuppa-remove-notice">    166M</span></span>  yesterday                 <span class="cuppa-subdued">├── </span><span class="cuppa-emphasised"><span class="cuppa-remove-notice">removing</span></span>
+  <span class="cuppa-subdued">  591.8M</span>  <span class="cuppa-subdued">11 days ago  </span>             <span class="cuppa-subdued">├── </span><span class="cuppa-subdued">remaining</span>
+                                      <span class="cuppa-subdued">│   </span>
+    757.8M  yesterday                 <span class="cuppa-subdued">└── </span>gitlab packages
+                                      <span class="cuppa-subdued">    │</span>
+  <span class="cuppa-subdued">  757.8M</span>  <span class="cuppa-subdued">yesterday    </span>             <span class="cuppa-subdued">    └── </span><span class="cuppa-remove-notice">-✔-</span> <span class="cuppa-emphasised"><span class="cuppa-remove-notice">boost_package</span></span>
+                                      <span class="cuppa-subdued">        │</span>
+  <span class="cuppa-subdued">  757.8M</span>  <span class="cuppa-subdued">yesterday    </span>             <span class="cuppa-subdued">        └── </span><span class="cuppa-remove-notice">-✔-</span> <span class="cuppa-emphasised"><span class="cuppa-remove-notice">1.91</span></span>
+  <span class="cuppa-subdued">    294M</span>  <span class="cuppa-subdued">11 days ago  </span>             <span class="cuppa-subdued">            ├── </span><span class="cuppa-subdued">-</span> <span class="cuppa-subdued">clang211_rel_x86_64_cxx2c/boost/1.91</span>
+  <span class="cuppa-subdued">  297.8M</span>  <span class="cuppa-subdued">2 months ago </span>             <span class="cuppa-subdued">            ├── </span><span class="cuppa-subdued">-</span> <span class="cuppa-subdued">gcc152_rel_x86_64_cxx2c/boost/1.91</span>
+      166M  yesterday      <span class="cuppa-remove-notice">would rm </span>  <span class="cuppa-subdued">            └── </span><span class="cuppa-remove-notice">✔</span> <span class="cuppa-remove-notice">gcc153_rel_x86_64_cxx2c/boost/1.91</span>
+<span class="cuppa-subdued">  ------------------------------------------------------------------------------------------</span>
+
+Leaving 2 trees (591.8M) for other selections as shown.
+
+Would remove <span class="cuppa-emphasised">1</span> tree freeing up <span class="cuppa-emphasised"><span class="cuppa-info">166M</span></span> of disk space.
+
+Verify with:
+
+<span class="cuppa-emphasised">cuppa -Q -D --list-dependencies</span>
+</code></pre>

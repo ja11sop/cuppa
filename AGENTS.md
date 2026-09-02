@@ -645,7 +645,8 @@ Release checklist: see `release.txt` (Actions **prepare** → merge → **publis
   HTML recipes: `list-builds`, `list-develop`, `list-downloads`,
   `list-dependencies`, `list-dependencies-verbose`, `list-toolchains`,
   `list-toolchains-verbose`, and the `--remove-builds` / `--remove-all-builds`
-  variants. Add `--preview` for `_docs_build/samples/*.preview.html`. Do not
+  variants, `remove-gitlab-dry-run`, `remove-boost-product-clean`, and
+  `purge-gitlab`. Add `--preview` for `_docs_build/samples/*.preview.html`. Do not
   hand-edit committed fragments; regenerate. Keep the `.txt` sibling even when
   the page includes the `.html` (layout tests / `--raw-output`). Colour and
   console-surface follow-ons: [`design/plans/colourised-doc-samples.md`](design/plans/colourised-doc-samples.md).

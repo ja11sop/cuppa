@@ -274,6 +274,38 @@ def _rewrite_sample_home( text, colouriser=None ):
     return text.replace( planted, '~' )
 
 
+def _run_dependency_removal( out, env, plan, purge_plan=None ):
+    """Run the real removal report against a deterministic collected plan."""
+    real_collect = dependency_removal.collect_removal_plan
+    real_collect_purge = dependency_removal.collect_purge_downloads
+    real_dry_run = dependency_removal.dry_run
+    dependency_removal.collect_removal_plan = (
+        lambda construct, cuppa_env, names, wipe=False: plan
+    )
+    dependency_removal.dry_run = (
+        lambda cuppa_env: bool( cuppa_env.get_option( 'no_exec' ) )
+    )
+    if purge_plan is not None:
+        dependency_removal.collect_purge_downloads = (
+            lambda construct, cuppa_env, names, owned=None: purge_plan
+        )
+    try:
+        return dependency_removal.remove_dependencies( object(), env, out=out )
+    finally:
+        dependency_removal.collect_removal_plan = real_collect
+        dependency_removal.collect_purge_downloads = real_collect_purge
+        dependency_removal.dry_run = real_dry_run
+
+
+def _rewrite_removal_roots( text, colouriser, roots ):
+    """Replace planted storage roots in text and semantic operation values."""
+    for root, public in roots:
+        if colouriser is not None:
+            colouriser.replace( str( root ), public )
+        text = text.replace( str( root ), public )
+    return text
+
+
 def sample_list_downloads():
     """`--list-downloads` hierarchical text (gitlab before source archives)."""
     out = io.StringIO()
@@ -297,9 +329,8 @@ def sample_list_downloads_html():
     return _write_html_sample( 'list-downloads.html', text, colouriser )
 
 
-def sample_remove_gitlab_dry_run():
-    """`--remove-dependencies` dry-run for a selected GitLab toolchain leaf."""
-    root = _work_root( 'remove-gitlab' )
+def _remove_gitlab_fixture( name ):
+    root = _work_root( name )
     deps = root / 'dependencies'
     p_gcc153 = _touch_dir( deps / 'boost' / '1.91' / 'gcc153_rel_x86_64_cxx2c', NOW - DAY )
     p_clang = _touch_dir(
@@ -308,12 +339,15 @@ def sample_remove_gitlab_dry_run():
     p_gcc152 = _touch_dir(
             deps / 'boost' / '1.91' / 'gcc152_rel_x86_64_cxx2c', NOW - 60 * DAY
     )
-    out = io.StringIO()
-    out.write( 'Would remove 1 dependency tree (166M) under ~/.cuppa/dependencies\n' )
-    out.write( '(dry run; pass without -n to remove)\n\n' )
-    dependency_removal._write_removal_tree(
-            out,
-            [
+    env = _FakeEnv(
+            remove_dependencies='boost_package',
+            default_dependencies=[ 'boost_package' ],
+            dependencies_root=str( deps ),
+            sconstruct_dir=str( root ),
+            no_exec=True,
+    )
+    plan = {
+        'targets': [
                 dependency_removal.RemovalTarget(
                         dependency='boost_package',
                         path=p_gcc153,
@@ -324,8 +358,8 @@ def sample_remove_gitlab_dry_run():
                         label='gcc153_rel_x86_64_cxx2c/boost/1.91',
                         extra_paths=(),
                 ),
-            ],
-            [
+        ],
+        'leftovers': [
                 dependency_removal.Leftover(
                         dependency='boost_package',
                         path=p_clang,
@@ -344,23 +378,42 @@ def sample_remove_gitlab_dry_run():
                         label='gcc152_rel_x86_64_cxx2c/boost/1.91',
                         storage_type='gitlab',
                 ),
-            ],
-            {},
-            planning=True,
-            root=str( deps ),
-            summary_label='related dependencies for boost_package',
-            action_label='removing',
+        ],
+        'archives': [],
+        'develop_skips': [],
+        'owned': [],
+    }
+    return env, plan, deps
+
+
+def _render_remove_gitlab( name, colouriser=None ):
+    env, plan, deps = _remove_gitlab_fixture( name )
+    out = io.StringIO()
+    _run_dependency_removal( out, env, plan )
+    return _rewrite_removal_roots(
+            out.getvalue(), colouriser,
+            [ ( deps, '~/.cuppa/dependencies' ) ],
     )
-    out.write( '\nLeaving 2 trees (591.8M) for other selections as shown.\n\n' )
-    out.write( 'Would remove 1 tree freeing up 166M of disk space.\n\n' )
-    out.write( 'Verify with:\n\n' )
-    out.write( 'cuppa -Q -D --list-dependencies\n' )
-    return _write_sample( 'remove-gitlab-dry-run.txt', out.getvalue() )
 
 
-def sample_remove_boost_product_clean():
-    """`--remove-dependencies=boost` product-clean report (extract stays)."""
-    root = _work_root( 'remove-boost' )
+def sample_remove_gitlab_dry_run():
+    """`--remove-dependencies` dry-run for a selected GitLab toolchain leaf."""
+    return _write_sample(
+            'remove-gitlab-dry-run.txt',
+            _render_remove_gitlab( 'remove-gitlab-text' ),
+    )
+
+
+def sample_remove_gitlab_dry_run_html():
+    """Semantic HTML form of the selected GitLab removal dry run."""
+    colouriser = HtmlColouriser()
+    with cuppa.colourise.using_colouriser( colouriser ):
+        text = _render_remove_gitlab( 'remove-gitlab-html', colouriser )
+    return _write_html_sample( 'remove-gitlab-dry-run.html', text, colouriser )
+
+
+def _remove_boost_fixture( name ):
+    root = _work_root( name )
     deps = root / 'dependencies'
     extract = deps / 'boost_1_91_0'
     stage = extract / 'clean' / 'build.c++2c' / 'gcc153' / 'debug' / 'x86_64'
@@ -401,34 +454,51 @@ def sample_remove_boost_product_clean():
                 extra_paths=(),
         ),
     ]
-    outcomes = {
-        storage.real_path( str( stage ) ): { 'result': 'removed' },
-        storage.real_path( str( bindir ) ): { 'result': 'removed' },
+    env = _FakeEnv(
+            remove_dependencies='boost',
+            default_dependencies=[ 'boost' ],
+            dependencies_root=str( deps ),
+            sconstruct_dir=str( root ),
+            no_exec=False,
+    )
+    plan = {
+        'targets': targets,
+        'leftovers': [],
+        'archives': archives,
+        'develop_skips': [],
+        'owned': [],
     }
-    removed_bytes = sum( target.size_bytes for target in targets )
+    return env, plan, deps
+
+
+def _render_remove_boost( name, colouriser=None ):
+    env, plan, deps = _remove_boost_fixture( name )
     out = io.StringIO()
-    out.write( 'Removed 2 dependency trees (412.3M) under ~/.cuppa/dependencies\n\n' )
-    dependency_removal._write_removal_tree(
-            out, targets, [], outcomes, planning=False, root=str( deps ),
-            archives=archives,
-            summary_label='related dependencies for boost',
-            action_label='removed',
+    _run_dependency_removal( out, env, plan )
+    return _rewrite_removal_roots(
+            out.getvalue(), colouriser,
+            [ ( deps, '~/.cuppa/dependencies' ) ],
     )
-    remaining = dependency_removal._remaining_archive_bytes(
-            archives, targets, outcomes, planning=False,
-    )
-    out.write( '\n' )
-    dependency_removal._write_freed_summary(
-            out, False, 2, removed_bytes, remaining_archive_bytes=remaining,
-    )
-    out.write( '\n' )
-    dependency_removal._write_verify( out, archives=archives )
-    return _write_sample( 'remove-boost-product-clean.txt', out.getvalue() )
 
 
-def sample_purge_gitlab():
-    """`--purge-dependencies` selected GitLab archive + extract."""
-    root = _work_root( 'purge-gitlab' )
+def sample_remove_boost_product_clean():
+    """`--remove-dependencies=boost` product-clean report (extract stays)."""
+    return _write_sample(
+            'remove-boost-product-clean.txt',
+            _render_remove_boost( 'remove-boost-text' ),
+    )
+
+
+def sample_remove_boost_product_clean_html():
+    """Semantic HTML form of the source Boost product-clean report."""
+    colouriser = HtmlColouriser()
+    with cuppa.colourise.using_colouriser( colouriser ):
+        text = _render_remove_boost( 'remove-boost-html', colouriser )
+    return _write_html_sample( 'remove-boost-product-clean.html', text, colouriser )
+
+
+def _purge_gitlab_fixture( name ):
+    root = _work_root( name )
     deps = root / 'dependencies'
     downloads = root / 'downloads'
     downloads.mkdir( parents=True )
@@ -490,28 +560,52 @@ def sample_purge_gitlab():
                 missing=False,
         ),
     ]
-    outcomes = {
-        storage.real_path( p_gcc ): { 'result': 'removed' },
-        storage.real_path( str( a_gcc ) ): { 'result': 'removed' },
-    }
-    out = io.StringIO()
-    out.write(
-            'Removed 1 dependency tree and 1 download (166M) under '
-            '~/.cuppa/dependencies / ~/.cuppa/downloads\n\n'
-    )
-    dependency_removal._write_removal_tree(
-            out, targets, leftovers, outcomes, planning=False, root=str( deps ),
-            downloads=download_targets,
-            download_leftovers=download_leftovers,
+    env = _FakeEnv(
+            purge_dependencies='boost_package',
+            default_dependencies=[ 'boost_package' ],
+            dependencies_root=str( deps ),
             downloads_root=str( downloads ),
-            summary_label='related dependencies for boost_package',
-            action_label='removed',
+            sconstruct_dir=str( root ),
+            no_exec=False,
     )
-    out.write( '\nLeaving 1 tree and 1 download (295.1M) for other selections as shown.\n\n' )
-    out.write( 'Removed 1 tree and 1 download freeing up 167.2M of disk space.\n\n' )
-    out.write( 'Verify with:\n\n' )
-    out.write( 'cuppa -Q -D --list-downloads\n' )
-    return _write_sample( 'purge-gitlab.txt', out.getvalue() )
+    plan = {
+        'targets': targets,
+        'leftovers': leftovers,
+        'archives': [],
+        'develop_skips': [],
+        'owned': [],
+    }
+    purge_plan = ( download_targets, download_leftovers, str( downloads ) )
+    return env, plan, purge_plan, deps, downloads
+
+
+def _render_purge_gitlab( name, colouriser=None ):
+    env, plan, purge_plan, deps, downloads = _purge_gitlab_fixture( name )
+    out = io.StringIO()
+    _run_dependency_removal( out, env, plan, purge_plan=purge_plan )
+    return _rewrite_removal_roots(
+            out.getvalue(), colouriser,
+            [
+                ( deps, '~/.cuppa/dependencies' ),
+                ( downloads, '~/.cuppa/downloads' ),
+            ],
+    )
+
+
+def sample_purge_gitlab():
+    """`--purge-dependencies` selected GitLab archive + extract."""
+    return _write_sample(
+            'purge-gitlab.txt',
+            _render_purge_gitlab( 'purge-gitlab-text' ),
+    )
+
+
+def sample_purge_gitlab_html():
+    """Semantic HTML form of the selected GitLab purge report."""
+    colouriser = HtmlColouriser()
+    with cuppa.colourise.using_colouriser( colouriser ):
+        text = _render_purge_gitlab( 'purge-gitlab-html', colouriser )
+    return _write_html_sample( 'purge-gitlab.html', text, colouriser )
 
 
 def _dependency_rows_for_list_samples():
@@ -1422,8 +1516,11 @@ GENERATORS = tuple(
                 sample_remove_all_builds_dry_run,
                 sample_remove_all_builds_dry_run_html,
                 sample_remove_gitlab_dry_run,
+                sample_remove_gitlab_dry_run_html,
                 sample_remove_boost_product_clean,
+                sample_remove_boost_product_clean_html,
                 sample_purge_gitlab,
+                sample_purge_gitlab_html,
         )
 )
 
@@ -1455,8 +1552,11 @@ GENERATORS = tuple(
         sample_remove_all_builds_dry_run,
         sample_remove_all_builds_dry_run_html,
         sample_remove_gitlab_dry_run,
+        sample_remove_gitlab_dry_run_html,
         sample_remove_boost_product_clean,
+        sample_remove_boost_product_clean_html,
         sample_purge_gitlab,
+        sample_purge_gitlab_html,
 ) = GENERATORS
 
 
@@ -1476,6 +1576,9 @@ def main( argv=None ):
                     'remove-builds-dry-run',
                     'remove-builds-error',
                     'remove-all-builds-dry-run',
+                    'remove-gitlab-dry-run',
+                    'remove-boost-product-clean',
+                    'purge-gitlab',
             ),
             help='generate one semantic HTML recipe (default: all checked-in samples)',
     )
@@ -1497,6 +1600,9 @@ def main( argv=None ):
             'remove-builds-dry-run': sample_remove_builds_dry_run_html,
             'remove-builds-error': sample_remove_builds_error_html,
             'remove-all-builds-dry-run': sample_remove_all_builds_dry_run_html,
+            'remove-gitlab-dry-run': sample_remove_gitlab_dry_run_html,
+            'remove-boost-product-clean': sample_remove_boost_product_clean_html,
+            'purge-gitlab': sample_purge_gitlab_html,
         }
         generators = [ recipes[name] for name in arguments.sample ]
     else:

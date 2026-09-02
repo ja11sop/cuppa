@@ -247,39 +247,33 @@ considered doc fixes in an open release cycle.
 | A | `HtmlColouriser` + unit tests + preview CSS | **Landed on #252** |
 | B | `scripts.generate_doc_samples` semantic recipes | **Landed on #252:** `list-builds`, both dry-run removals, and removal failure |
 | C | Wire samples into `build-layout.adoc`; supplemental-ui CSS in the site | **Landed on #252:** all four human-readable build-layout fragments |
-| D | Add `list-develop` and other high-value recipes; optional `ansi-html` format | **In progress on #252:** `list-develop`, `list-toolchains`, `list-toolchains-verbose`, `list-downloads`, and `list-dependencies` (+verbose) HTML; remaining narrated removal recipes and `ansi-html` remain |
+| D | Add `list-develop` and other high-value recipes; optional `ansi-html` format | **On #252:** semantic HTML now covers every human-readable sample in the affected pages, including dependency remove / product-clean / purge; only optional `ansi-html` remains |
 
 ### Which recipes can be colourised
 
 A recipe only yields an honest HTML sample when **every** line comes from a real formatter running
-under the colouriser. Several existing recipes assemble their intro and summary lines literally
-(`out.write( 'Would remove 1 dependency tree (166M) …' )`) and call a tree renderer for the middle:
-`remove-gitlab-dry-run`, `remove-boost-product-clean`, `purge-gitlab`.
+under the colouriser. The first versions of several recipes assembled their intro and summary
+lines literally and called a tree renderer for the middle. Those versions stayed text-only until
+the generator could use the production report path.
 
 **On #252:** `list-downloads` and `list-dependencies` (+verbose) now call
 `write_list_downloads_report` / `write_list_dependencies_report` — the same
 functions the CLI uses after collation — so intro, footer, extract/`[D]` marks,
 and wipe hints take the HTML colouriser. Text siblings stay generated.
 
-An HTML fragment for the remaining narrated recipes would colour the tree but leave
-the narration flat, while the real console emphasises the counts and colours
-bracketed values there. That is a **worse** teaching artefact than the current
-plain listing, because the sample would imply the report has no colour
-on those lines. Keep them as `[source,text]` for now.
-
-**Later slice (after the basics):** do not colourise the hand-written narration in place. Rebuild
-each recipe as planted inputs that run through the real report entry point
-(the removal / purge actions) under the
-HTML colouriser, aiming for the same public shape the current text sample teaches. That keeps
-rendering consistent with `--list-builds` / `--list-develop` / `--list-toolchains` /
-`--list-downloads` / `--list-dependencies`. Accept small
-wording drift if the live formatter disagrees with a historically assembled line; the formatter
-wins.
+The removal recipes now plant deterministic targets and inject them at
+`collect_removal_plan` / `collect_purge_downloads`, then run `remove_dependencies()` itself.
+That keeps collection deterministic without copying the production announcement, dry-run,
+tree, leftover, freed-space, or verify narration. The formatter wins where this differs from
+the old hand-assembled sample: for example, actual purge bytes include both the extract and
+download, and a dry run says `Would remove` / `would rm`.
 
 **Superseded text partials.** When a page moves to the HTML fragment, its `.txt` sibling stops
 being included but is still generated (`list-develop.txt`, `list-toolchains.txt`,
 `list-toolchains-verbose.txt`, `list-downloads.txt`, `list-dependencies.txt`,
-`list-dependencies-verbose.txt`). They are kept deliberately: the unit tests assert report **shape**
+`list-dependencies-verbose.txt`, `remove-gitlab-dry-run.txt`,
+`remove-boost-product-clean.txt`, `purge-gitlab.txt`). They are kept deliberately:
+the unit tests assert report **shape**
 against the text form (columns, rules, tree glyphs), which is far more legible than asserting the
 same layout through spans, and they remain the reference for `--raw-output`. Do not wire them back
 into a page beside the HTML, and do not delete them expecting the HTML assertions to cover layout.

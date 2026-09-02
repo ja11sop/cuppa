@@ -31,6 +31,48 @@ def test_remove_gitlab_sample_nests_version_under_identity():
     assert version.index( '└──' ) < leaf.index( '└──' )
 
 
+def test_remove_gitlab_html_sample_uses_real_dry_run_semantics():
+    text = samples.sample_remove_gitlab_dry_run_html().read_text( encoding='utf-8' )
+
+    assert text.startswith( '<pre class="cuppa-output"><code>Would remove' )
+    assert 'cuppa-remove-notice' in text
+    assert 'would rm' in text
+    assert 'cuppa-emphasised' in text
+    assert '~/.cuppa/dependencies' in text
+    assert '/tmp/' not in text
+    assert '/home/' not in text
+    assert '\x1b[' not in text
+
+
+def test_remove_boost_html_sample_colours_product_clean_summary():
+    text = samples.sample_remove_boost_product_clean_html().read_text(
+            encoding='utf-8'
+    )
+
+    assert text.startswith( '<pre class="cuppa-output"><code>Removing' )
+    assert 'source assets' in text
+    assert 'final archive size' in text
+    assert 'cuppa-remove-notice' in text
+    assert '~/.cuppa/dependencies' in text
+    assert '/tmp/' not in text
+    assert '/home/' not in text
+    assert '\x1b[' not in text
+
+
+def test_purge_gitlab_html_sample_colours_download_and_extract():
+    text = samples.sample_purge_gitlab_html().read_text( encoding='utf-8' )
+
+    assert text.startswith( '<pre class="cuppa-output"><code>Removing' )
+    assert '1</span> download' in text
+    assert 'cuppa-remove-notice' in text
+    assert '[E]' in text
+    assert '~/.cuppa/dependencies' in text
+    assert '~/.cuppa/downloads' in text
+    assert '/tmp/' not in text
+    assert '/home/' not in text
+    assert '\x1b[' not in text
+
+
 def test_list_downloads_sample_has_type_spacer_and_gitlab_first():
     path = samples.sample_list_downloads()
     text = path.read_text( encoding='utf-8' )
