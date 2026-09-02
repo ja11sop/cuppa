@@ -424,7 +424,7 @@ C++ Profiles are a separate roadmap section — see [C++ Profiles](#c-profiles).
 | `tc-dep-url-sugar` | Optional URL token in `--toolchains=` | Low | Keep `--toolchain-archive=` as explicit supply |
 | `tc-dep-actions` | Authenticated Actions artifact URLs | Low | After public HTTPS / file path is solid |
 | `tc-dep-msvc` | MSVC archive / layout as toolchain dep | Low | Separate driver; not gcc-snapshot |
-| `tc-identity-coarsen` | Major toolchain identity for `_build` / package stems (`gcc153`→`gcc15`); optional OS omit and consume overrides | High | Identity + consume shipped; OS omit this slice — [`build-and-package-identity.md`](design/plans/build-and-package-identity.md), encoding [`ignore-toolchain-point-release.md`](design/plans/ignore-toolchain-point-release.md) |
+| `tc-identity-coarsen` | Major toolchain identity for `_build` / package stems (`gcc153`→`gcc15`); optional OS omit and consume overrides | High | Identity [#242](https://github.com/ja11sop/cuppa/pull/242), consume [#244](https://github.com/ja11sop/cuppa/pull/244), OS omit [#245](https://github.com/ja11sop/cuppa/pull/245) — [`build-and-package-identity.md`](design/plans/build-and-package-identity.md), encoding [`ignore-toolchain-point-release.md`](design/plans/ignore-toolchain-point-release.md) |
 
 ### Out of scope (toolchains-as-deps)
 

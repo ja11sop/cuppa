@@ -119,8 +119,8 @@ Publish emits **one** stem (`include` or `omit`). Dual-try is **consume-only**. 
 | `tc-id-tests` | Unit + integration: full vs major; conf cases | Shipped in PR A |
 | `tc-id-docs` | Toolchains + Packages; CHANGELOG; 2.0 outlook one sentence | Shipped in PR A |
 | `pkg-consume-override` | Per-dep OS/toolchain lookup; dual-stem 404 fallback | Shipped in PR B |
-| `pkg-os-apply` | Publish-time include \| omit; parsers accept both shapes | This PR (PR C) |
-| `pkg-os-docs` | Builder confidence; when omit/cross-OS is sane | This PR (PR C) |
+| `pkg-os-apply` | Publish-time include \| omit; parsers accept both shapes | Landing in [#245](https://github.com/ja11sop/cuppa/pull/245) |
+| `pkg-os-docs` | Builder confidence; when omit/cross-OS is sane | Landing in [#245](https://github.com/ja11sop/cuppa/pull/245) |
 
 ## Implementation PRs
 
@@ -128,7 +128,7 @@ Publish emits **one** stem (`include` or `omit`). Dual-try is **consume-only**. 
 
 **PR B** (`minor`) — consume overrides + dual-stem lookup. **Shipped.**
 
-**PR C** (`minor`) — package OS omit at publish; consume accepts both stem shapes. **This PR.**
+**PR C** (`minor`) — package OS omit at publish; consume accepts both stem shapes. **[#245](https://github.com/ja11sop/cuppa/pull/245).**
 
 ## Refusal rules
 
