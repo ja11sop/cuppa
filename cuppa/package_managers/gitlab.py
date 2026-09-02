@@ -23,6 +23,30 @@ from cuppa.log import logger, register_secret
 from cuppa.colourise import as_error, as_info, as_notice, as_info_label
 
 
+def _resolve_node_path( node ):
+    path = str( node )
+    if hasattr( node, 'srcnode' ):
+        path = str( node.srcnode() )
+    return path
+
+
+def lib_copy_ignore_names( names, package_dir_name, package_file_name ):
+    """Names to skip when copying ``source_lib_dir`` (often ``abs_final_dir``).
+
+    Staging lives under ``final/<package>/<version>/``, so copying ``final/``
+    into that tree without this filter nests forever.
+    """
+    ignored = set()
+    for name in names:
+        if name in ( 'modules', package_dir_name ):
+            ignored.add( name )
+        elif name == package_file_name:
+            ignored.add( name )
+        elif name.endswith( ( '.packaged', '.published', '.tar.gz', '.zip' ) ):
+            ignored.add( name )
+    return ignored
+
+
 def remove_prefix( text, prefix ):
     if text.startswith( prefix ):
         return text[len(prefix):]
@@ -548,26 +572,32 @@ class GitlabPackagePublisher:
         from SCons.Script import Touch
 
         if not os.path.exists( str(self._target_include_dir) ):
+            source_include = _resolve_node_path( self._source_include_dir )
             logger.info( "For package [{}], include dir [{}] does not exist so copying include files from [{}]...".format(
                     as_info( self._package_file_name ),
                     as_info( str(self._target_include_dir) ),
-                    as_notice( str(self._source_include_dir) )
+                    as_notice( source_include )
             ) )
-            shutil.copytree( str( self._source_include_dir ), str(self._target_include_dir) )
+            shutil.copytree( source_include, str(self._target_include_dir) )
 
+        source_lib = _resolve_node_path( self._source_lib_dir )
         if not os.path.exists( str(self._target_lib_dir) ):
             logger.info( "For package [{}], lib dir [{}] does not exist so copying lib files from [{}]...".format(
                     as_info( self._package_file_name ),
                     as_info( str(self._target_lib_dir) ),
-                    as_notice( str(self._source_lib_dir) )
+                    as_notice( source_lib )
             ) )
+            package_dir_name = os.path.normpath( str( self._package_source_dir ) )
+            package_file_name = os.path.basename( str( self._package_file_name ) )
             shutil.copytree(
-                str( self._source_lib_dir ),
+                source_lib,
                 str( self._target_lib_dir ),
-                ignore=shutil.ignore_patterns( 'modules' ),
+                ignore=lambda _directory, names: lib_copy_ignore_names(
+                        names, package_dir_name, package_file_name
+                ),
             )
 
-        source_modules = os.path.join( str( self._source_lib_dir ), 'modules' )
+        source_modules = os.path.join( source_lib, 'modules' )
         target_modules = os.path.join( str( self._package_base_dir ), 'modules' )
         if os.path.isdir( source_modules ) and not os.path.exists( target_modules ):
             logger.info( "For package [{}], copying modules from [{}]...".format(

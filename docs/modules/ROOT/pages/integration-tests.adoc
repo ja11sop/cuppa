@@ -133,7 +133,7 @@ cuppa.run(default_variants=['dbg'])
 | `--list-available-reports`, canonical `_artefacts/` collate wiring
 | xref:integration/test-available-reports.adoc[]
 
-| `PublishPackage`, `InstallPackage` (registration only)
+| `PublishPackage`, `InstallPackage` (registration); GitLab archive OS include vs omit (no registry upload)
 | xref:integration/test-packages.adoc[]
 
 | `GenerateHtmlTestReport`, `CollateTestReportIndex`, `GenerateBittenReport`
@@ -142,4 +142,4 @@ cuppa.run(default_variants=['dbg'])
 
 === Deferred
 
-Full offline publish/install E2E against a live GitLab registry remains deferred (see xref:integration/test-packages.adoc[]).
+Full consume/upload E2E against a live GitLab registry remains deferred (see xref:integration/test-packages.adoc[]). Local archive naming for `--package-gitlab-os-identity` is covered there.

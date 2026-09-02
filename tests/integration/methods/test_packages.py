@@ -1,13 +1,41 @@
-import logging
-
 import pytest
 
+from cuppa.package_managers.gitlab import os_release_id
 from tests.helpers.cuppa_runner import assert_success, run_cuppa
 from tests.helpers.project import copy_dummy_project, write_sconstruct, write_sconscript
 
 
 pytestmark = pytest.mark.integration
-logger = logging.getLogger(__name__)
+
+
+_PUBLISH_SCONSCRIPT = """\
+Import('env')
+from cuppa.package_managers.gitlab import GitlabPackagePublisher
+env.AppendUnique(CPPPATH=['#/include'])
+lib = env.BuildStaticLib('widget', 'src/hello.cpp')
+publisher = GitlabPackagePublisher(
+    env,
+    source_include_dir='#/include',
+    source_lib_dir=env['abs_final_dir'],
+    registry='https://gitlab.example/api/v4/projects/1',
+    package='widget',
+    version='1.0.0',
+)
+env.PublishPackage(lib, publisher)
+"""
+
+
+def _widget_archives(project):
+    names = []
+    for path in project.rglob("*"):
+        if not path.is_file():
+            continue
+        name = path.name
+        if name.startswith("widget_") and (
+            name.endswith(".tar.gz") or name.endswith(".zip")
+        ):
+            names.append(name)
+    return sorted(names)
 
 
 def test_package_methods_are_registered(tmp_path):
@@ -28,4 +56,28 @@ def test_package_methods_are_registered(tmp_path):
     )
     result = run_cuppa(project, "--dbg", "--test")
     assert_success(result)
-    logger.info("PublishPackage/InstallPackage registered on env (offline registry E2E deferred)")
+
+
+def test_gitlab_publish_archive_includes_os_by_default(tmp_path):
+    project = copy_dummy_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(project, _PUBLISH_SCONSCRIPT)
+    result = run_cuppa(project, "--dbg")
+    assert_success(result)
+    names = _widget_archives(project)
+    assert len(names) == 1, names
+    os_id = os_release_id()
+    assert names[0].startswith("widget_{}_".format(os_id)), names[0]
+
+
+def test_gitlab_publish_archive_omits_os_when_requested(tmp_path):
+    project = copy_dummy_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(project, _PUBLISH_SCONSCRIPT)
+    result = run_cuppa(project, "--dbg", "--package-gitlab-os-identity=omit")
+    assert_success(result)
+    names = _widget_archives(project)
+    assert len(names) == 1, names
+    os_id = os_release_id()
+    assert not names[0].startswith("widget_{}_".format(os_id)), names[0]
+    assert names[0].startswith("widget_"), names[0]

@@ -174,6 +174,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- ``GitlabPackagePublisher`` skips the package staging directory (and stamps /
+  archives) when copying ``source_lib_dir`` from ``abs_final_dir``, so staging
+  cannot nest into itself.
 - ``CollateTestReportIndex()`` creates the destination directory before writing
   ``test-report-index.json`` / ``.html`` at ``#SconstructEnd`` (and before
   ``Copy`` of per-test reports). A missing ``_artefacts/test`` (or
