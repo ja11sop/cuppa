@@ -61,8 +61,9 @@ default; 1.x does not change existing global files that already store `full`.
 If a published archive uses a different OS or identity than this machine, consume overrides
 select the stem to download (`--package-gitlab-os-override[-<name>]=`,
 `--package-gitlab-toolchain-override-<name>=`) and, on `404`, the other full vs major token
-(`--package-gitlab-identity-fallback`, default on). That is lookup, not a claim that two
-distros are the same ABI. See
+and the other OS encoding (`--package-gitlab-identity-fallback`, default on).
+`--package-gitlab-os-identity=omit` publishes and prefers `{package}_{tool}` stems. That is
+lookup or an explicit publish bet, not a claim that two distros are the same ABI. See
 xref:dependencies/gitlab.adoc#consume-overrides[GitLab lookup overrides].
 
 See xref:configuration.adoc#toolchain-identity[Configuration] and

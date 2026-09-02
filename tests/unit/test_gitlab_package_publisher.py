@@ -24,6 +24,31 @@ def _publisher_env( tmp_path, touched=None ):
     return Env()
 
 
+def test_lib_copy_ignore_names_skips_staging_and_archives():
+    ignored = gitlab.lib_copy_ignore_names(
+            [
+                    'libwidget.a',
+                    'modules',
+                    'widget',
+                    'widget_debian_gcc15_rel.tar.gz',
+                    'stamp.packaged',
+                    'stamp.published',
+                    'other.zip',
+            ],
+            'widget',
+            'widget_debian_gcc15_rel.tar.gz',
+    )
+    assert ignored == {
+            'modules',
+            'widget',
+            'widget_debian_gcc15_rel.tar.gz',
+            'stamp.packaged',
+            'stamp.published',
+            'other.zip',
+    }
+    assert 'libwidget.a' not in ignored
+
+
 def test_package_sidecar_id():
     path = "widget/2.0.0/widget_debian_gcc15_rel_x86_64_cxx2c.tar.gz"
     assert gitlab.package_sidecar_id( path, '.packaged' ) == (

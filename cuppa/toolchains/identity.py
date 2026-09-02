@@ -33,6 +33,10 @@ TOOLCHAIN_IDENTITY_KEY = 'toolchain_identity'
 PACKAGE_OS_OVERRIDE_KEY = 'package_gitlab_os_override'
 PACKAGE_IDENTITY_FALLBACK_KEY = 'package_gitlab_identity_fallback'
 PACKAGE_IDENTITY_FALLBACK_CHOICES = ( 'on', 'off' )
+PACKAGE_OS_IDENTITY_KEY = 'package_gitlab_os_identity'
+OS_IDENTITY_INCLUDE = 'include'
+OS_IDENTITY_OMIT = 'omit'
+PACKAGE_OS_IDENTITY_CHOICES = ( OS_IDENTITY_INCLUDE, OS_IDENTITY_OMIT )
 
 _GNU_PACKAGE_TOKEN = re.compile( r'^(gcc|clang)(\d+)(?:-(.+))?$' )
 _MSVC_PACKAGE_TOKEN = re.compile( r'^vc(\d+)(e)?$', re.I )
@@ -62,7 +66,7 @@ class ToolchainIdentity( object ):
 
 
 class PackageConsumeIdentity( object ):
-    """Registers consume-side GitLab lookup overrides; not a compiler toolchain."""
+    """Registers GitLab package OS/toolchain lookup and OS-identity options."""
 
     @classmethod
     def add_options( cls, add_option ):
@@ -84,8 +88,20 @@ class PackageConsumeIdentity( object ):
             nargs=1,
             action='store',
             help="When a GitLab archive 404s, try the other toolchain identity "
-                 "(full vs major) with the same OS. Default on. Dual-try is consume-only; "
+                 "(full vs major) with the same OS shape, then the other OS encoding "
+                 "(include vs omit). Default on. Dual-try is consume-only; "
                  "a successful fallback is an ABI bet the project owns.",
+        )
+        add_option(
+            '--package-gitlab-os-identity',
+            dest=PACKAGE_OS_IDENTITY_KEY,
+            choices=list( PACKAGE_OS_IDENTITY_CHOICES ),
+            nargs=1,
+            action='store',
+            help="Whether GitLab package archive stems include the OS id "
+                 "({package}_{os}_{tool}) or omit it ({package}_{tool}). "
+                 "Default include. Omit is a publish-time ABI bet; consume "
+                 "uses the same flag for the preferred lookup stem.",
         )
 
     @classmethod
@@ -251,6 +267,17 @@ def package_identity_fallback_enabled( env=None ):
     if text in ( 'on', 'true', '1', 'yes' ):
         return True
     return True
+
+
+def package_os_identity( env=None ):
+    """``include`` (default) or ``omit`` for GitLab archive OS segments."""
+    raw = _option_from_env( env, PACKAGE_OS_IDENTITY_KEY )
+    if raw is None:
+        return OS_IDENTITY_INCLUDE
+    text = raw.lower()
+    if text in PACKAGE_OS_IDENTITY_CHOICES:
+        return text
+    return OS_IDENTITY_INCLUDE
 
 
 def host_package_identity_tokens( toolchain ):

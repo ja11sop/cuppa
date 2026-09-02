@@ -58,6 +58,8 @@ def test_tool_variant_and_package_names(monkeypatch):
     )
     name = package_file_name(env, package="widget")
     assert name == "widget_debian_gcc15_rel_x86_64_cxx2c.tar.gz"
+    omit = package_file_name(env, package="widget", omit_os=True)
+    assert omit == "widget_gcc15_rel_x86_64_cxx2c.tar.gz"
     url = package_url(
         env,
         registry="https://gitlab.example/api/v4/projects/1",
@@ -149,7 +151,7 @@ def test_parse_pkg_config_runs_when_not_cleaning(tmp_path):
     assert "widget_kms" in dependency._env.parsed[0]
 
 
-def _lookup_env( package_name="gcc153", os_override=None, fallback=None ):
+def _lookup_env( package_name="gcc153", os_override=None, fallback=None, os_identity=None ):
     class Env( dict ):
         def get_option( self, key, default=None ):
             return self.get( key, default )
@@ -170,6 +172,8 @@ def _lookup_env( package_name="gcc153", os_override=None, fallback=None ):
         env["package_gitlab_os_override"] = os_override
     if fallback is not None:
         env["package_gitlab_identity_fallback"] = fallback
+    if os_identity is not None:
+        env["package_gitlab_os_identity"] = os_identity
     return env
 
 
@@ -187,6 +191,8 @@ def test_consume_stems_host_os_and_identity_pair( monkeypatch ):
     assert stems == [
         "widget_ubuntu_gcc153_rel_x86_64_cxx2c",
         "widget_ubuntu_gcc15_rel_x86_64_cxx2c",
+        "widget_gcc153_rel_x86_64_cxx2c",
+        "widget_gcc15_rel_x86_64_cxx2c",
     ]
 
 
@@ -223,6 +229,32 @@ def test_consume_stems_fallback_off( monkeypatch ):
     env = _lookup_env( fallback="off" )
     stems = consume_package_file_stems( env, package="widget", variant="rel" )
     assert stems == [ "widget_debian_gcc153_rel_x86_64_cxx2c" ]
+
+
+def test_consume_stems_omit_os_identity( monkeypatch ):
+    monkeypatch.setattr(
+        "cuppa.package_managers.gitlab.platform.freedesktop_os_release",
+        lambda: { "ID": "ubuntu" },
+    )
+    monkeypatch.setattr(
+        "cuppa.package_managers.gitlab.platform.system",
+        lambda: "Linux",
+    )
+    env = _lookup_env( os_identity="omit", fallback="off" )
+    stems = consume_package_file_stems( env, package="widget", variant="rel" )
+    assert stems == [ "widget_gcc153_rel_x86_64_cxx2c" ]
+    env = _lookup_env( os_identity="omit" )
+    stems = consume_package_file_stems( env, package="widget", variant="rel" )
+    assert stems == [
+        "widget_gcc153_rel_x86_64_cxx2c",
+        "widget_gcc15_rel_x86_64_cxx2c",
+        "widget_ubuntu_gcc153_rel_x86_64_cxx2c",
+        "widget_ubuntu_gcc15_rel_x86_64_cxx2c",
+    ]
+    env = _lookup_env( os_override="debian", os_identity="omit" )
+    stems = consume_package_file_stems( env, package="widget", variant="rel" )
+    assert stems[0] == "widget_debian_gcc153_rel_x86_64_cxx2c"
+    assert all( "_debian_" in stem for stem in stems )
 
 
 def test_download_first_skips_404_then_succeeds( tmp_path ):

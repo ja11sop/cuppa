@@ -67,6 +67,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   same OS unless ``--package-gitlab-identity-fallback=off``. Dual-try is consume-only;
   publish still emits one stem. A successful fallback is an ABI bet the project
   owns ([#243](https://github.com/ja11sop/cuppa/issues/243)).
+- ``--package-gitlab-os-identity=include|omit`` (default ``include``) selects
+  whether GitLab generic archive stems include the OS id. ``omit`` publishes
+  ``{package}_{tool_variant}``. Consume prefers that shape when the flag is set,
+  and with identity fallback also tries the other encoding after a ``404``.
+  Explicit OS overrides still look up the include shape. Omit is not the 1.x
+  product default ([#243](https://github.com/ja11sop/cuppa/issues/243)).
 
 ### Changed
 
@@ -168,6 +174,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- ``GitlabPackagePublisher`` skips the package staging directory (and stamps /
+  archives) when copying ``source_lib_dir`` from ``abs_final_dir``, so staging
+  cannot nest into itself.
 - ``CollateTestReportIndex()`` creates the destination directory before writing
   ``test-report-index.json`` / ``.html`` at ``#SconstructEnd`` (and before
   ``Copy`` of per-test reports). A missing ``_artefacts/test`` (or

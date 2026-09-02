@@ -23,6 +23,30 @@ from cuppa.log import logger, register_secret
 from cuppa.colourise import as_error, as_info, as_notice, as_info_label
 
 
+def _resolve_node_path( node ):
+    path = str( node )
+    if hasattr( node, 'srcnode' ):
+        path = str( node.srcnode() )
+    return path
+
+
+def lib_copy_ignore_names( names, package_dir_name, package_file_name ):
+    """Names to skip when copying ``source_lib_dir`` (often ``abs_final_dir``).
+
+    Staging lives under ``final/<package>/<version>/``, so copying ``final/``
+    into that tree without this filter nests forever.
+    """
+    ignored = set()
+    for name in names:
+        if name in ( 'modules', package_dir_name ):
+            ignored.add( name )
+        elif name == package_file_name:
+            ignored.add( name )
+        elif name.endswith( ( '.packaged', '.published', '.tar.gz', '.zip' ) ):
+            ignored.add( name )
+    return ignored
+
+
 def remove_prefix( text, prefix ):
     if text.startswith( prefix ):
         return text[len(prefix):]
@@ -78,14 +102,30 @@ def package_archive_extensions():
     return preferred, alternate
 
 
-def package_file_stem( env, package=None, variant=None, system=None, toolchain_token=None ):
-    """Basename without archive extension: ``{package}_{os}_{tool_variant}``."""
+def package_file_stem(
+        env,
+        package=None,
+        variant=None,
+        system=None,
+        toolchain_token=None,
+        omit_os=False
+):
+    """Basename without archive extension.
+
+    Default ``{package}_{os}_{tool_variant}``. With ``omit_os``, ``{package}_{tool_variant}``.
+    """
+    build_name = tool_variant( env, variant, toolchain_token=toolchain_token )
+    if omit_os:
+        return "{package}_{build_name}".format(
+                package    = str(package),
+                build_name = build_name,
+        )
     if system is None:
         system = os_release_id()
     return "{package}_{system}_{build_name}".format(
             package    = str(package),
             system     = system,
-            build_name = tool_variant( env, variant, toolchain_token=toolchain_token )
+            build_name = build_name,
     )
 
 
@@ -95,7 +135,8 @@ def package_file_name(
         variant=None,
         target_dir=None,
         system=None,
-        toolchain_token=None
+        toolchain_token=None,
+        omit_os=False
 ):
     name = package_file_stem(
             env,
@@ -103,6 +144,7 @@ def package_file_name(
             variant=variant,
             system=system,
             toolchain_token=toolchain_token,
+            omit_os=omit_os,
     ) + package_archive_extension()
     if target_dir:
         return os.path.join( target_dir, name )
@@ -218,7 +260,8 @@ def package_url(
         version=None,
         variant=None,
         system=None,
-        toolchain_token=None
+        toolchain_token=None,
+        omit_os=False
 ):
     return "{registry}/packages/generic/{package}/{version}/{package_file}".format(
             registry = str(registry),
@@ -230,6 +273,7 @@ def package_url(
                     variant=variant,
                     system=system,
                     toolchain_token=toolchain_token,
+                    omit_os=omit_os,
             )
     )
 
@@ -244,6 +288,38 @@ def consume_os_id( env, package_os=None ):
     if project:
         return project
     return os_release_id()
+
+
+def consume_os_shapes( env, package_os=None, fallback=None ):
+    """Ordered ``(omit_os, system)`` pairs for lookup.
+
+    An explicit OS override locks the include shape. Otherwise the preferred
+    shape follows ``--package-gitlab-os-identity`` (default include); fallback
+    also tries the other encoding.
+    """
+    from cuppa.toolchains.identity import (
+        OS_IDENTITY_OMIT,
+        option_text,
+        package_identity_fallback_enabled,
+        package_os_identity,
+        package_os_override,
+    )
+    if fallback is None:
+        fallback = package_identity_fallback_enabled( env )
+    explicit = option_text( package_os ) or package_os_override( env )
+    if explicit:
+        return [ ( False, explicit ) ]
+    omit_preferred = package_os_identity( env ) == OS_IDENTITY_OMIT
+    host = consume_os_id( env )
+    if omit_preferred:
+        shapes = [ ( True, None ) ]
+        if fallback:
+            shapes.append( ( False, host ) )
+        return shapes
+    shapes = [ ( False, host ) ]
+    if fallback:
+        shapes.append( ( True, None ) )
+    return shapes
 
 
 def consume_toolchain_tokens( env, package_toolchain=None, fallback=None ):
@@ -271,22 +347,23 @@ def consume_package_file_stems(
         fallback=None
 ):
     """Lookup stems in resolution order (OS override applied; dual identity when enabled)."""
-    system = consume_os_id( env, package_os )
     tokens = consume_toolchain_tokens(
             env,
             package_toolchain=package_toolchain,
             fallback=fallback,
     )
-    return [
-        package_file_stem(
-                env,
-                package=package,
-                variant=variant,
-                system=system,
-                toolchain_token=token,
-        )
-        for token in tokens
-    ]
+    stems = []
+    for omit_os, system in consume_os_shapes( env, package_os, fallback=fallback ):
+        for token in tokens:
+            stems.append( package_file_stem(
+                    env,
+                    package=package,
+                    variant=variant,
+                    system=system,
+                    toolchain_token=token,
+                    omit_os=omit_os,
+            ) )
+    return stems
 
 
 def consume_archive_candidates(
@@ -300,32 +377,34 @@ def consume_archive_candidates(
         fallback=None
 ):
     """``(stem, filename, url, toolchain_token)`` tuples for consume lookup."""
-    system = consume_os_id( env, package_os )
     tokens = consume_toolchain_tokens(
             env,
             package_toolchain=package_toolchain,
             fallback=fallback,
     )
     candidates = []
-    for token in tokens:
-        stem = package_file_stem(
-                env,
-                package=package,
-                variant=variant,
-                system=system,
-                toolchain_token=token,
-        )
-        filename = stem + package_archive_extension()
-        url = package_url(
-                env,
-                registry=registry,
-                package=package,
-                version=version,
-                variant=variant,
-                system=system,
-                toolchain_token=token,
-        )
-        candidates.append( ( stem, filename, url, token ) )
+    for omit_os, system in consume_os_shapes( env, package_os, fallback=fallback ):
+        for token in tokens:
+            stem = package_file_stem(
+                    env,
+                    package=package,
+                    variant=variant,
+                    system=system,
+                    toolchain_token=token,
+                    omit_os=omit_os,
+            )
+            filename = stem + package_archive_extension()
+            url = package_url(
+                    env,
+                    registry=registry,
+                    package=package,
+                    version=version,
+                    variant=variant,
+                    system=system,
+                    toolchain_token=token,
+                    omit_os=omit_os,
+            )
+            candidates.append( ( stem, filename, url, token ) )
     return candidates
 
 
@@ -454,7 +533,11 @@ class GitlabPackagePublisher:
 
         self._target_lib_dir    = env.Dir( os.path.join( env['final_dir'], self._package_folder, "lib" ) )
         self._package_variant   = tool_variant( env, variant=variant )
-        self._package_file_name = package_file_name( env, package=package, variant=variant )
+        from cuppa.toolchains.identity import OS_IDENTITY_OMIT, package_os_identity
+        omit_os = package_os_identity( env ) == OS_IDENTITY_OMIT
+        self._package_file_name = package_file_name(
+                env, package=package, variant=variant, omit_os=omit_os
+        )
         self._package_archive = env.File(
                 os.path.join( env['abs_final_dir'], self._package_file_name )
         )
@@ -468,7 +551,13 @@ class GitlabPackagePublisher:
         self._curl_command = 'curl --fail-with-body --header "{token}" --upload-file {package_file} "{package_location}"'.format(
                 token = get_header_token( custom_token ),
                 package_file = str( self._package_archive ),
-                package_location = package_url( env, registry=registry, package=package, version=version )
+                package_location = package_url(
+                        env,
+                        registry=registry,
+                        package=package,
+                        version=version,
+                        omit_os=omit_os,
+                )
         )
 
         self._package_file_path = os.path.join( self._package_folder, self._package_file_name )
@@ -483,26 +572,32 @@ class GitlabPackagePublisher:
         from SCons.Script import Touch
 
         if not os.path.exists( str(self._target_include_dir) ):
+            source_include = _resolve_node_path( self._source_include_dir )
             logger.info( "For package [{}], include dir [{}] does not exist so copying include files from [{}]...".format(
                     as_info( self._package_file_name ),
                     as_info( str(self._target_include_dir) ),
-                    as_notice( str(self._source_include_dir) )
+                    as_notice( source_include )
             ) )
-            shutil.copytree( str( self._source_include_dir ), str(self._target_include_dir) )
+            shutil.copytree( source_include, str(self._target_include_dir) )
 
+        source_lib = _resolve_node_path( self._source_lib_dir )
         if not os.path.exists( str(self._target_lib_dir) ):
             logger.info( "For package [{}], lib dir [{}] does not exist so copying lib files from [{}]...".format(
                     as_info( self._package_file_name ),
                     as_info( str(self._target_lib_dir) ),
-                    as_notice( str(self._source_lib_dir) )
+                    as_notice( source_lib )
             ) )
+            package_dir_name = os.path.normpath( str( self._package_source_dir ) )
+            package_file_name = os.path.basename( str( self._package_file_name ) )
             shutil.copytree(
-                str( self._source_lib_dir ),
+                source_lib,
                 str( self._target_lib_dir ),
-                ignore=shutil.ignore_patterns( 'modules' ),
+                ignore=lambda _directory, names: lib_copy_ignore_names(
+                        names, package_dir_name, package_file_name
+                ),
             )
 
-        source_modules = os.path.join( str( self._source_lib_dir ), 'modules' )
+        source_modules = os.path.join( source_lib, 'modules' )
         target_modules = os.path.join( str( self._package_base_dir ), 'modules' )
         if os.path.isdir( source_modules ) and not os.path.exists( target_modules ):
             logger.info( "For package [{}], copying modules from [{}]...".format(
@@ -872,6 +967,7 @@ class GitlabPackageDependency:
         from cuppa.toolchains.identity import (
             option_text,
             package_identity_fallback_enabled,
+            package_os_identity,
             package_os_override,
         )
 
@@ -886,6 +982,7 @@ class GitlabPackageDependency:
             option_text( getattr( package, '_toolchain_override', None ) ),
             package_os_override( env ),
             package_identity_fallback_enabled( env ),
+            package_os_identity( env ),
         )
 
         short_id = cls._id( package._package, package._version, package._variant )

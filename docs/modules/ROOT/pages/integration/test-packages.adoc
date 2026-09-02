@@ -1,10 +1,14 @@
-= `test_packages` — `PublishPackage` / `InstallPackage` registration
+= `test_packages` — `PublishPackage` / `InstallPackage` and GitLab archive names
 :description: Cuppa integration test documentation for test_packages
 
 
 == What is tested
 
-Package methods are registered on the environment. Full offline publish/install E2E against a live GitLab registry is deferred.
+* Package methods are registered on the environment.
+* `GitlabPackagePublisher` stages a local archive (no `--publish-package`, so no registry
+  upload). Default stems include the host OS id; `--package-gitlab-os-identity=omit` drops it.
+
+Full consume/upload E2E against a live GitLab registry is still deferred.
 
 == Generated files
 
@@ -17,7 +21,7 @@ import cuppa
 cuppa.run(default_variants=['dbg'])
 ----
 
-=== `sconscript`
+=== Registration `sconscript`
 
 [source,python]
 ----
@@ -29,16 +33,39 @@ assert callable(env.InstallPackage)
 env.BuildTest('hello_test', 'tests/hello_test.cpp')
 ----
 
-== Command
+=== Publish `sconscript`
+
+[source,python]
+----
+Import('env')
+from cuppa.package_managers.gitlab import GitlabPackagePublisher
+env.AppendUnique(CPPPATH=['#/include'])
+lib = env.BuildStaticLib('widget', 'src/hello.cpp')
+publisher = GitlabPackagePublisher(
+    env,
+    source_include_dir='#/include',
+    source_lib_dir=env['abs_final_dir'],
+    registry='https://gitlab.example/api/v4/projects/1',
+    package='widget',
+    version='1.0.0',
+)
+env.PublishPackage(lib, publisher)
+----
+
+== Commands
 
 [source,sh]
 ----
 cuppa -D --offline --toolchains=gcc --dbg --test
+cuppa -D --offline --toolchains=gcc --dbg
+cuppa -D --offline --toolchains=gcc --dbg --package-gitlab-os-identity=omit
 ----
 
 == Expectations
 
-Sconscript asserts pass; exit 0.
+* Registration sconscript asserts pass; exit 0.
+* Default publish writes one `widget_<os>_…` archive under `_build/` (`.tar.gz` or `.zip`).
+* With `omit`, that archive does not use the `widget_<os>_` prefix.
 
 '''
 

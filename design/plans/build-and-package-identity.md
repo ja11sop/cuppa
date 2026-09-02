@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `tc-identity-coarsen`; original point-release problem [`ignore-toolchain-point-release.md`](ignore-toolchain-point-release.md); package stems [`cuppa/package_managers/gitlab.py`](../../cuppa/package_managers/gitlab.py); layout [`cuppa/core/build_layout.py`](../../cuppa/core/build_layout.py) / [`cuppa/construct.py`](../../cuppa/construct.py); global conf [`cuppa/configure.py`](../../cuppa/configure.py)
-- **Updated:** 2026-09-01
+- **Updated:** 2026-09-02
 - **Impact:** minor — new identity policy and GitLab lookup overrides; existing globals grandfather `full`
 
 This document is the **settled product shape** for 1.9. Point-release encoding, vocabulary, and code hooks stay in [`ignore-toolchain-point-release.md`](ignore-toolchain-point-release.md); do not duplicate that problem statement here.
@@ -75,7 +75,7 @@ Notes:
 |----------|--------|
 | Values | `include` (default) \| `omit` |
 | When chosen | **At package build/publish time** when the builder is confident the artefact is not OS-scoped (or consumers will override OS on lookup) |
-| CLI / config | `--package-gitlab-os-identity=` / `package_gitlab_os_identity=` (and/or `PublishPackage` argument — settle in PR C) |
+| CLI / config | `--package-gitlab-os-identity=` / `package_gitlab_os_identity=` in `cuppa.run` / `configure.conf` (no `PublishPackage` constructor argument in v1) |
 | Omit stem | `{package}_{tool_variant}` (no empty OS segment) |
 
 **Often workable:** ABI-stable static lib / headers; controlled fleets; ubuntu↔debian via **explicit** consume override; Windows/macOS already coarse.
@@ -94,18 +94,19 @@ names and future top-level option families:
 | `--package-gitlab-os-override-<name>=<id>` | Force OS segment for one dependency (e.g. `debian` while host is `ubuntu`) |
 | `--package-gitlab-toolchain-override-<name>=<token>` | Force toolchain token for one dependency (e.g. `gcc152` or `gcc15`) |
 
-Dual-lookup during toolchain transition: if the preferred stem 404s, try the other toolchain
-identity (full vs major) before failing — on by default
-(`--package-gitlab-identity-fallback=on|off`, default `on`).
+Dual-lookup during toolchain and OS-shape transition: if the preferred stem 404s, try the other
+toolchain identity (full vs major) with the same OS encoding, then the other OS encoding
+(include vs omit) — on by default (`--package-gitlab-identity-fallback=on|off`, default `on`).
 
 **Resolution order:**
 
-1. Explicit per-dependency toolchain / OS override (then project-wide OS override if set)
-2. Stem from current effective toolchain identity + host OS (or omitted OS if that is the published shape)
-3. Fallback: alternate toolchain token (full ↔ major) with same OS choice
-4. Fail listing stems tried
+1. Explicit per-dependency toolchain / OS override (then project-wide OS override if set). An OS override always uses the **include** shape.
+2. Stem from current effective toolchain identity + preferred OS encoding (`--package-gitlab-os-identity`, default include / host OS)
+3. Fallback: alternate toolchain token (full ↔ major) with the same OS encoding
+4. Fallback: the other OS encoding (include ↔ omit) with the same toolchain tokens
+5. Fail listing stems tried
 
-Publish emits **one** stem. Dual-try is **consume-only**. Success is an ABI bet the project owns.
+Publish emits **one** stem (`include` or `omit`). Dual-try is **consume-only**. Success is an ABI bet the project owns. No `PublishPackage` constructor argument in v1.
 
 ## Work slices
 
@@ -117,17 +118,17 @@ Publish emits **one** stem. Dual-try is **consume-only**. Success is an ABI bet 
 | `tc-id-config-migrate` | Absent `~/.cuppaconfig` → create `major`; existing missing key → backfill `full` | Shipped in PR A |
 | `tc-id-tests` | Unit + integration: full vs major; conf cases | Shipped in PR A |
 | `tc-id-docs` | Toolchains + Packages; CHANGELOG; 2.0 outlook one sentence | Shipped in PR A |
-| `pkg-consume-override` | Per-dep OS/toolchain lookup; dual-stem 404 fallback | This PR (PR B) |
-| `pkg-os-apply` | Publish-time include \| omit; parsers accept both shapes | After consume overrides |
-| `pkg-os-docs` | Builder confidence; when omit/cross-OS is sane | Antora |
+| `pkg-consume-override` | Per-dep OS/toolchain lookup; dual-stem 404 fallback | Shipped in PR B |
+| `pkg-os-apply` | Publish-time include \| omit; parsers accept both shapes | Landing in [#245](https://github.com/ja11sop/cuppa/pull/245) |
+| `pkg-os-docs` | Builder confidence; when omit/cross-OS is sane | Landing in [#245](https://github.com/ja11sop/cuppa/pull/245) |
 
 ## Implementation PRs
 
 **PR A** (`minor`) — toolchain identity + global config migration (primary win). **Shipped.**
 
-**PR B** (`minor`) — consume overrides + dual-stem lookup. **This PR.**
+**PR B** (`minor`) — consume overrides + dual-stem lookup. **Shipped.**
 
-**PR C** (`minor`) — package OS omit at publish; align with OS override from B.
+**PR C** (`minor`) — package OS omit at publish; consume accepts both stem shapes. **[#245](https://github.com/ja11sop/cuppa/pull/245).**
 
 ## Refusal rules
 
@@ -160,3 +161,11 @@ Publish emits **one** stem. Dual-try is **consume-only**. Success is an ABI bet 
 4. Failure messages list every stem attempted.
 5. `--package-gitlab-identity-fallback=off` disables dual-try.
 6. Publish still emits a single stem.
+
+## Acceptance (PR C)
+
+1. `--package-gitlab-os-identity=include` (default) publishes `{package}_{os}_{tool}`.
+2. `--package-gitlab-os-identity=omit` publishes `{package}_{tool}` with no empty OS segment.
+3. Consume prefers that encoding; with fallback on, a `404` also tries the other encoding.
+4. An explicit OS override never looks up an omit stem.
+5. Docs: omit is a builder ABI bet, not the 1.x default.

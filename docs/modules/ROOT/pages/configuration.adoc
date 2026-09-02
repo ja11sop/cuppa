@@ -90,15 +90,18 @@ publishes. Coarsening means you treat 15.2 and 15.3 objects as interchangeable f
 xref:toolchains/overview.adoc#toolchain-identity[Toolchains overview] has the layout examples.
 
 [#package-consume-identity]
-=== GitLab package lookup (`package_gitlab_os_override`, `package_gitlab_identity_fallback`)
+=== GitLab package lookup (`package_gitlab_os_override`, `package_gitlab_identity_fallback`, `package_gitlab_os_identity`)
 
 `--package-gitlab-os-override=` forces the OS segment used when **fetching** GitLab generic
-archives. `--package-gitlab-identity-fallback=on|off` controls whether a missing preferred stem
-(`404`) retries the other toolchain identity (full vs major). Default is `on`. Neither flag
-changes published stems. Per-package `--package-gitlab-os-override-<name>=` and
-`--package-gitlab-toolchain-override-<name>=` win over the project OS override. Keys in
-`configure.conf` / `cuppa.run` `default_options` are `package_gitlab_os_override` and
-`package_gitlab_identity_fallback`.
+archives. `--package-gitlab-os-identity=include|omit` selects whether stems include that OS id
+(default `include`). The same flag is used at **publish** and as the preferred consume shape.
+`--package-gitlab-identity-fallback=on|off` controls whether a missing preferred stem (`404`)
+retries the other toolchain identity (full vs major) and the other OS encoding. Default is `on`.
+Lookup overrides do not rename published stems; `os-identity` does. Per-package
+`--package-gitlab-os-override-<name>=` and `--package-gitlab-toolchain-override-<name>=` win over
+the project OS override. Keys in `configure.conf` / `cuppa.run` `default_options` are
+`package_gitlab_os_override`, `package_gitlab_identity_fallback`, and
+`package_gitlab_os_identity`.
 
 See xref:dependencies/gitlab.adoc#consume-overrides[GitLab lookup overrides].
 
