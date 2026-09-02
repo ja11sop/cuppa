@@ -378,3 +378,64 @@ def test_profiles_report_cli_index_lists_all_sconscripts( tmp_path ):
     assert any( 'orders' in ( script or '' ) for script in scripts )
     assert any( 'trades' in ( script or '' ) for script in scripts )
     assert 'scope_filter' not in ( payload.get( 'metadata' ) or {} )
+
+
+def test_profiles_report_method_index_filters_under_parallel( tmp_path ):
+    """Write-time filter still omits undeclared scopes when compiles run in parallel."""
+    import json
+
+    _, toolchain_flag = require_profiles_capable_toolchain()
+    _two_sconscript_profiles_project( tmp_path )
+    result = run_cuppa(
+        tmp_path,
+        '--dbg',
+        '--parallel',
+        '--cxx-profiles',
+        '--cxx-profiles-enforce=std::init',
+        '--cxx-disable-error-limit',
+        toolchain_flag,
+    )
+    payload = json.loads(
+        ( tmp_path / '_artefacts' / 'cxx-profiles' / 'cxx-profiles-index.json' )
+        .read_text( encoding='utf-8' )
+    )
+    scripts = _index_sconscripts( payload )
+    assert any( 'orders' in ( script or '' ) for script in scripts )
+    assert not any( 'trades' in ( script or '' ) for script in scripts )
+    combined = ( result.stdout or '' ) + ( result.stderr or '' )
+    assert 'omitted' in combined
+
+
+def test_profiles_report_method_index_unions_declaring_sconscripts( tmp_path ):
+    """Two CollateCxxProfilesIndex() calls union their scopes in the index."""
+    import json
+
+    _, toolchain_flag = require_profiles_capable_toolchain()
+    _two_sconscript_profiles_project( tmp_path )
+    trades_script = tmp_path / 'trades' / 'sconscript'
+    trades_script.write_text(
+        "Import('env')\n"
+        "env.CollateCxxProfilesIndex()\n"
+        "env.Build( 'trades_probe', 'probe.cpp' )\n",
+        encoding='utf-8',
+    )
+    run_cuppa(
+        tmp_path,
+        '--dbg',
+        '--parallel',
+        '--cxx-profiles',
+        '--cxx-profiles-enforce=std::init',
+        '--cxx-disable-error-limit',
+        toolchain_flag,
+    )
+    payload = json.loads(
+        ( tmp_path / '_artefacts' / 'cxx-profiles' / 'cxx-profiles-index.json' )
+        .read_text( encoding='utf-8' )
+    )
+    scripts = _index_sconscripts( payload )
+    assert any( 'orders' in ( script or '' ) for script in scripts )
+    assert any( 'trades' in ( script or '' ) for script in scripts )
+    omitted = ( ( payload.get( 'metadata' ) or {} ).get( 'scope_filter' ) or {} ).get(
+        'omitted_scope_count'
+    )
+    assert omitted == 0

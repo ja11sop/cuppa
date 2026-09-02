@@ -127,7 +127,7 @@ def test_cli_activation_disables_scope_filter_even_with_declaring_sconscript():
     assert 'orders/sconscript' in session.declaring_sconscripts()
     filtered, metadata = session.index_inventory()
     assert metadata is None
-    assert filtered is session.inventory
+    assert filtered.unique_locations() == session.inventory.unique_locations()
 
 
 def test_method_only_index_inventory_filters_undeclared_sconscript():
@@ -160,6 +160,102 @@ def test_method_only_index_inventory_filters_undeclared_sconscript():
     assert metadata[ 'omitted_scope_count' ] == 1
     assert metadata[ 'declaring_sconscripts' ] == [ 'orders/sconscript' ]
     assert filtered.unique_locations() == 1
+
+
+def test_filter_keeps_union_of_declaring_sconscripts():
+    from cuppa.cpp.cxx_profiles_report import (
+        ProfilesScope,
+        parse_profiles_diagnostic,
+    )
+
+    CollateCxxProfilesIndexCallable()( {
+        'cxx_profiles': True,
+        'sconscript_file': 'orders/sconscript',
+    } )
+    CollateCxxProfilesIndexCallable()( {
+        'cxx_profiles': True,
+        'sconscript_file': 'trades/sconscript',
+    } )
+    session = ProfilesDiagnosticCollector._session
+    line = (
+        "/tmp/a.cpp:1:1: error: variable 'Value' must be initialized or marked "
+        "'[[uninit]]' under profile 'std::init'"
+    )
+    diagnostic = parse_profiles_diagnostic( line )
+    base = ProfilesScope(
+        sconscript='orders/sconscript',
+        variant_dir='_build/orders/clang/dbg/x86_64/cxx2c',
+        toolchain='clang',
+        variant_label='dbg',
+    )
+    session.record( base, diagnostic )
+    session.record( base._replace( sconscript='trades/sconscript' ), diagnostic )
+    session.record( base._replace( sconscript='other/sconscript' ), diagnostic )
+    filtered, metadata = session.index_inventory()
+    assert metadata[ 'omitted_scope_count' ] == 1
+    scripts = { loc.scope.sconscript for loc in filtered.locations() }
+    assert scripts == { 'orders/sconscript', 'trades/sconscript' }
+
+
+def test_filter_does_not_include_child_sconscript_from_parent_declaration():
+    from cuppa.cpp.cxx_profiles_report import (
+        ProfilesScope,
+        parse_profiles_diagnostic,
+    )
+
+    CollateCxxProfilesIndexCallable()( {
+        'cxx_profiles': True,
+        'sconscript_file': 'lib/sconscript',
+    } )
+    session = ProfilesDiagnosticCollector._session
+    diagnostic = parse_profiles_diagnostic(
+        "/tmp/a.cpp:1:1: error: variable 'Value' must be initialized or marked "
+        "'[[uninit]]' under profile 'std::init'"
+    )
+    parent = ProfilesScope(
+        sconscript='lib/sconscript',
+        variant_dir='_build/lib/clang/dbg/x86_64/cxx2c',
+        toolchain='clang',
+        variant_label='dbg',
+    )
+    child = parent._replace( sconscript='lib/nested/sconscript' )
+    session.record( parent, diagnostic )
+    session.record( child, diagnostic )
+    filtered, metadata = session.index_inventory()
+    assert metadata[ 'omitted_scope_count' ] == 1
+    assert filtered.locations()[ 0 ].scope.sconscript == 'lib/sconscript'
+
+
+def test_filter_keeps_every_variant_of_a_declaring_sconscript():
+    from cuppa.cpp.cxx_profiles_report import (
+        ProfilesScope,
+        parse_profiles_diagnostic,
+    )
+
+    CollateCxxProfilesIndexCallable()( {
+        'cxx_profiles': True,
+        'sconscript_file': 'orders/sconscript',
+    } )
+    session = ProfilesDiagnosticCollector._session
+    diagnostic = parse_profiles_diagnostic(
+        "/tmp/a.cpp:1:1: error: variable 'Value' must be initialized or marked "
+        "'[[uninit]]' under profile 'std::init'"
+    )
+    dbg = ProfilesScope(
+        sconscript='orders/sconscript',
+        variant_dir='_build/orders/clang/dbg/x86_64/cxx2c',
+        toolchain='clang',
+        variant_label='dbg',
+    )
+    rel = dbg._replace(
+        variant_dir='_build/orders/clang/rel/x86_64/cxx2c',
+        variant_label='rel',
+    )
+    session.record( dbg, diagnostic )
+    session.record( rel, diagnostic )
+    filtered, metadata = session.index_inventory()
+    assert metadata[ 'omitted_scope_count' ] == 0
+    assert filtered.unique_locations() == 2
 
 
 def test_later_collate_destination_conflict_warns( caplog ):

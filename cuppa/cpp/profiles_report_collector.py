@@ -97,14 +97,18 @@ class ProfilesReportSession(object):
                 )
 
     def index_inventory( self ):
-        """Inventory used for the session index (filtered when method-only)."""
+        """Inventory used for the session index (filtered when method-only).
+
+        Snapshots locations under the session lock so ``--parallel`` compiles
+        can still ``record()`` while the index is built.
+        """
         with self._lock:
+            snapshot = self._inventory.snapshot()
             declaring = frozenset( self._declaring_sconscripts )
             via_cli = self.activation_via_cli
-            inventory = self._inventory
         if via_cli or not declaring:
-            return inventory, None
-        filtered, omitted = filter_inventory_for_index( inventory, declaring )
+            return snapshot, None
+        filtered, omitted = filter_inventory_for_index( snapshot, declaring )
         metadata = {
             'active': True,
             'declaring_sconscripts': sorted( declaring ),

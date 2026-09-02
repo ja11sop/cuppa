@@ -910,6 +910,12 @@ class ProfilesInventory:
         """Count distinct rule violations unioned across variants and toolchains."""
         return _union_violation_count( self._locations.values() )
 
+    def snapshot( self ):
+        """Return a shallow copy of recorded locations (safe to filter or emit)."""
+        copied = ProfilesInventory()
+        copied._locations = dict( self._locations )
+        return copied
+
     def as_report_model( self ):
         """Return a minimal JSON-serialisable view model for tests and later HTML."""
         scopes = {}
