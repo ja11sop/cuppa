@@ -19,7 +19,12 @@ xref:toolchains/overview.adoc#toolchain-identity[Build and package identity]). S
 does not rename archives already in a registry; republish or use consume-side lookup
 (`--package-gitlab-toolchain-override-<name>=`,
 `--package-gitlab-identity-fallback`) described in
-xref:dependencies/gitlab.adoc#consume-overrides[GitLab lookup overrides]. When staged headers and libs are not newer than the
+xref:dependencies/gitlab.adoc#consume-overrides[GitLab lookup overrides].
+`--package-gitlab-os-identity=include|omit` (default `include`) controls whether the
+published basename includes the OS id (`widget_debian_gcc15_…`) or omits it
+(`widget_gcc15_…`). Omit is an ABI bet that the artefact is not OS-scoped; it is not
+the product default. Consume prefers the same encoding when the flag is set, and with
+fallback on also tries the other shape after a `404`. When staged headers and libs are not newer than the
 existing archive, cuppa skips recreating the tarball — so a follow-up ``cuppa --rel --publish-package`` can
 upload without re-tarring multi-gigabyte trees.
 Add `--publish-package` to upload it to the GitLab generic registry.

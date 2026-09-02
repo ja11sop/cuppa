@@ -461,7 +461,7 @@ def gitlab_remote_for_package_version( registry_base, package, version ):
     )
 
 
-def gitlab_archive_name( package, tool_variant, system=None, extension=None ):
+def gitlab_archive_name( package, tool_variant, system=None, extension=None, omit_os=False ):
     """Archive basename as published/downloaded for a GitLab generic package."""
     if not package or not tool_variant or tool_variant in ( '-', '' ):
         return None
@@ -469,10 +469,16 @@ def gitlab_archive_name( package, tool_variant, system=None, extension=None ):
         os_release_id,
         package_archive_extension,
     )
-    if system is None:
-        system = os_release_id()
     if extension is None:
         extension = package_archive_extension()
+    if omit_os:
+        return '{package}_{build}{ext}'.format(
+                package=package,
+                build=tool_variant,
+                ext=extension,
+        )
+    if system is None:
+        system = os_release_id()
     return '{package}_{system}_{build}{ext}'.format(
             package=package,
             system=system,

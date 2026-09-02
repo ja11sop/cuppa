@@ -741,6 +741,9 @@ def test_with_vcs_qualifier_appends_branch():
 def test_gitlab_archive_name():
     assert gitlab_archive_name( 'boost', 'gcc153_rel_x86_64_cxx2c', system='debian' ) == \
         'boost_debian_gcc153_rel_x86_64_cxx2c.tar.gz'
+    assert gitlab_archive_name(
+            'boost', 'gcc153_rel_x86_64_cxx2c', omit_os=True
+    ) == 'boost_gcc153_rel_x86_64_cxx2c.tar.gz'
 
 
 def test_gitlab_remote_for_version_substitutes_segment():

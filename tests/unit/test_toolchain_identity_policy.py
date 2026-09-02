@@ -145,6 +145,15 @@ def test_coarsen_msvc_token():
     assert identity.coarsen_package_token( 'vc14' ) is None
 
 
+def test_package_os_identity_defaults_to_include():
+    assert identity.package_os_identity( {} ) == 'include'
+    env = SimpleNamespace(
+        get_option=lambda key, default=None:
+            ['omit'] if key == 'package_gitlab_os_identity' else None
+    )
+    assert identity.package_os_identity( env ) == 'omit'
+
+
 def test_package_identity_fallback_default_on():
     assert identity.package_identity_fallback_enabled( {} ) is True
     env = SimpleNamespace(
@@ -167,6 +176,10 @@ def test_package_consume_identity_registers_gitlab_namespace():
         (
             "--package-gitlab-identity-fallback",
             "package_gitlab_identity_fallback",
+        ),
+        (
+            "--package-gitlab-os-identity",
+            "package_gitlab_os_identity",
         ),
     ]
 

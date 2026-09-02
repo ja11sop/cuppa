@@ -67,6 +67,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   same OS unless ``--package-gitlab-identity-fallback=off``. Dual-try is consume-only;
   publish still emits one stem. A successful fallback is an ABI bet the project
   owns ([#243](https://github.com/ja11sop/cuppa/issues/243)).
+- ``--package-gitlab-os-identity=include|omit`` (default ``include``) selects
+  whether GitLab generic archive stems include the OS id. ``omit`` publishes
+  ``{package}_{tool_variant}``. Consume prefers that shape when the flag is set,
+  and with identity fallback also tries the other encoding after a ``404``.
+  Explicit OS overrides still look up the include shape. Omit is not the 1.x
+  product default ([#243](https://github.com/ja11sop/cuppa/issues/243)).
 
 ### Changed
 
