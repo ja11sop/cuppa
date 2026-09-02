@@ -232,6 +232,7 @@ Design: [`design/plans/boost-updates.md`](design/plans/boost-updates.md).
 | `boost-pkg-compat` | Patched resolve falls back to unadorned `{base}`; clean does not | High | Existing registry tarballs are patched and unnamed |
 | `boost-pkg-use-libs` | Package `use_libs` passes `patched_test=` | High | Parity with source Boost |
 | `boost-test-runner-no-source` | Test runners prefer `boost_package`; no source extract on first test | High | This PR — [#248](https://github.com/ja11sop/cuppa/issues/248) |
+| `boost-quince-package` | Quince uses session `boost_package` when declared | High | [#250](https://github.com/ja11sop/cuppa/issues/250); [`boost-updates.md`](design/plans/boost-updates.md) §Quince |
 | `boost-pkg-docs` | Document opposite defaults (source clean / package patched) and identity | Medium | `packages.adoc` / `dependencies.adoc` |
 | `boost-pkg-flag` | Optional: `--boost-patched` selects among declared package flavours | Later | Not required if a project only consumes patched packages |
 
