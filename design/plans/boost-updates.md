@@ -71,7 +71,7 @@ use the session’s Boost package instead of always building source libs.
 
 **Not fixed by `use_libs` patch alone.** Follow-on slices:
 
-- **Test runners ([#248](https://github.com/ja11sop/cuppa/issues/248)):** `RunBoostTest` /
+- **Test runners ([#249](https://github.com/ja11sop/cuppa/pull/249) / [#248](https://github.com/ja11sop/cuppa/issues/248)):** `RunBoostTest` /
   `RunPatchedBoostTest` used to call the source `boost` factory whenever it was in the
   registry (always), then overwrite flags from `boost_package`. Under `--parallel` that
   started a source extract while another test read `version.hpp`. Runners now use
@@ -229,7 +229,7 @@ Still in this plan if we touch source Boost again:
 | ID | Slice | Notes |
 |----|--------|-------|
 | `boost-use-libs-no-source` | `boost_package.use_libs` must not invoke source `boost` factory | **Shipped** — [#206](https://github.com/ja11sop/cuppa/issues/206) / [#207](https://github.com/ja11sop/cuppa/pull/207): pass package version to `remove_system_static_lib` |
-| `boost-test-runner-no-source` | Test runners must not instantiate source `boost` when `boost_package` is declared | **This PR** — [#248](https://github.com/ja11sop/cuppa/issues/248): `session_boost()`; serialise source location cache |
+| `boost-test-runner-no-source` | Test runners must not instantiate source `boost` when `boost_package` is declared | **Shipped** — [#249](https://github.com/ja11sop/cuppa/pull/249) / [#248](https://github.com/ja11sop/cuppa/issues/248): `session_boost()`; serialise source location cache |
 | `boost-quince-package` | Quince uses session `boost_package` when declared | **Proposal** — [#250](https://github.com/ja11sop/cuppa/issues/250); [§Quince and the selector gap](#boost-quince-selector-gap) |
 | `boost-pkg-version` | Canonical `{base}-patched` / `{base}-clean`; strip suffix for numeric version; publisher + resolve + `package_id` | Core identity |
 | `boost-pkg-compat` | Patched resolve falls back to bare `{base}`; record actual version; no clean→bare fallback | Needed before flipping publishers |
