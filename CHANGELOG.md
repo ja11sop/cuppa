@@ -67,6 +67,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   same OS unless ``--package-gitlab-identity-fallback=off``. Dual-try is consume-only;
   publish still emits one stem. A successful fallback is an ABI bet the project
   owns ([#243](https://github.com/ja11sop/cuppa/issues/243)).
+- ``env.CollateCxxProfilesIndex()`` without ``--cxx-profiles-report`` writes a session
+  index limited to scopes whose sconscript declared the method (union of declarers).
+  Capture stays session-wide; omitted scopes are warned. The CLI flag still lists the
+  full tree ([#205](https://github.com/ja11sop/cuppa/issues/205)).
 - ``--package-gitlab-os-identity=include|omit`` (default ``include``) selects
   whether GitLab generic archive stems include the OS id. ``omit`` publishes
   ``{package}_{tool_variant}``. Consume prefers that shape when the flag is set,
@@ -174,6 +178,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Method-only ``CollateCxxProfilesIndex()`` rebinds the sconscript ``SPAWN``
+  processor (and registers the env-ready hook even without
+  ``--cxx-profiles-report``) so captured diagnostics keep the declaring
+  sconscript path. Unscoped captures were dropped by the #205 index filter and
+  the session HTML was not written.
+- Profiles inventory keep-going (``-i``) is implied when
+  ``CollateCxxProfilesIndex()`` appears in a nested sconscript, not only a
+  top-level ``sconscript`` or ``--scripts=`` path ([#205](https://github.com/ja11sop/cuppa/issues/205)).
+- Inventory mode forces a non-zero exit for ordinary compile errors at
+  ``sconstruct_end`` (after the session index is written), using ``os._exit``
+  because SCons ``-i`` swallows ``Script.Exit`` / ``SystemExit``. Linker
+  ``no such file`` lines from keep-going after a failed compile are not
+  counted as ordinary errors. Exit from ``cuppa.run()`` ran during SConstruct
+  parse, before any compile.
 - ``GitlabPackagePublisher`` skips the package staging directory (and stamps /
   archives) when copying ``source_lib_dir`` from ``abs_final_dir``, so staging
   cannot nest into itself.

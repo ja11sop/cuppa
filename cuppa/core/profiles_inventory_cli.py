@@ -12,6 +12,19 @@ import re
 
 _PROFILES_REPORT_FLAG = '--cxx-profiles-report'
 _COLLATE_INDEX_RE = re.compile( r'\bCollateCxxProfilesIndex\s*\(' )
+_SCONSCRIPT_NAME_RE = re.compile( r'([^.]+[.])?sconscript$', re.IGNORECASE )
+_WALK_SKIP_DIR_NAMES = frozenset( (
+    '_build',
+    '_artefacts',
+    '_artifacts',
+    '__pycache__',
+    'node_modules',
+    '.git',
+    '.svn',
+    '.hg',
+    'venv',
+    '.venv',
+) )
 
 
 def user_passed_ignore_errors( args_list ):
@@ -52,11 +65,31 @@ def _collect_sconscript_paths( args_list, launch_dir=None ):
         if os.path.isfile( Path ) and Name.lower() not in { p.lower() for p in paths }:
             paths.append( Name )
 
+    seen = set()
     Normalised = []
     for Path in paths:
         if not os.path.isabs( Path ):
             Path = os.path.join( launch_dir, Path )
-        Normalised.append( os.path.normpath( Path ) )
+        Path = os.path.normpath( Path )
+        if Path not in seen:
+            seen.add( Path )
+            Normalised.append( Path )
+
+    # Nested project sconscripts (same discovery shape as cuppa.run, minus
+    # _build / artefacts copies) so CollateCxxProfilesIndex() below the
+    # launch directory still implies inventory keep-going.
+    for Root, Dirs, Files in os.walk( launch_dir ):
+        Dirs[:] = [
+            Name for Name in Dirs
+            if Name not in _WALK_SKIP_DIR_NAMES and not Name.startswith( '.' )
+        ]
+        for Name in Files:
+            if not _SCONSCRIPT_NAME_RE.match( Name ):
+                continue
+            Path = os.path.normpath( os.path.join( Root, Name ) )
+            if Path not in seen:
+                seen.add( Path )
+                Normalised.append( Path )
     return Normalised
 
 

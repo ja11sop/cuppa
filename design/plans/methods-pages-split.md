@@ -252,7 +252,6 @@ When #234 is merge-ready (Antora preview sanity, CI green, test-plan ticked):
    - [`docs-site-release-default.md`](docs-site-release-default.md) — public docs default to **released** Cuppa, not master tip
    - [`docs-llms-txt.md`](docs-llms-txt.md) — `llms.txt` / per-page Markdown for agents
    - [`antora-ui-bundle.md`](antora-ui-bundle.md) if the docs cycle wants a visible UI refresh
-4. **Defer** toolchain identity coarsening ([`ignore-toolchain-point-release.md`](ignore-toolchain-point-release.md)) — product behaviour, not docs; own PR.
 
 ## Refusal rules
 

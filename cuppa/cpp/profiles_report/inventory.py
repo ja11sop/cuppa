@@ -7,6 +7,7 @@
 #   Profiles violation inventory — scope, dedupe, replay, report model
 #-------------------------------------------------------------------------------
 
+import os
 import re
 
 from cuppa.cpp.profiles_report.build_catalog import build_key_from_scope
@@ -241,6 +242,38 @@ def location_dedupe_key( scope, diagnostic ):
         diagnostic.profile,
         diagnostic.normalised_message,
     )
+
+
+def normalize_sconscript_path( path ):
+    """Stable sconscript identity for declaring-set membership."""
+    if not path:
+        return ''
+    return os.path.normpath( str( path ) ).replace( '\\', '/' )
+
+
+def filter_inventory_for_index( inventory, declaring_sconscripts ):
+    """Return a copy of ``inventory`` limited to declaring sconscripts.
+
+    Inclusion is exact path match after :func:`normalize_sconscript_path`.
+    Returns ``(filtered, omitted_scope_count)``.
+    """
+    allowed = {
+        normalize_sconscript_path( path )
+        for path in ( declaring_sconscripts or [] )
+    }
+    filtered = ProfilesInventory()
+    omitted_scopes = set()
+    for key, location in inventory._locations.items():
+        scope_id = (
+            location.scope.sconscript,
+            location.scope.variant_dir,
+            location.scope.toolchain,
+        )
+        if normalize_sconscript_path( location.scope.sconscript ) in allowed:
+            filtered._locations[ key ] = location
+        else:
+            omitted_scopes.add( scope_id )
+    return filtered, len( omitted_scopes )
 
 
 def session_union_violation_key( location ):
@@ -876,6 +909,12 @@ class ProfilesInventory:
     def unique_violation_count( self ):
         """Count distinct rule violations unioned across variants and toolchains."""
         return _union_violation_count( self._locations.values() )
+
+    def snapshot( self ):
+        """Return a shallow copy of recorded locations (safe to filter or emit)."""
+        copied = ProfilesInventory()
+        copied._locations = dict( self._locations )
+        return copied
 
     def as_report_model( self ):
         """Return a minimal JSON-serialisable view model for tests and later HTML."""

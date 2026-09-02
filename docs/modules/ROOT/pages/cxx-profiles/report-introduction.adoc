@@ -46,9 +46,16 @@ env.CollateCxxProfilesIndex()
 # optional: env.CollateCxxProfilesIndex( link_style='gitlab' )
 ----
 
+When you call ``CollateCxxProfilesIndex()`` **without** ``--cxx-profiles-report``, the session
+index lists only scopes whose owning sconscript declared the method (the union of every
+declarer). Capture is still session-wide; omitted scopes are logged with a hint to pass
+``--cxx-profiles-report`` for the full tree. A parent declaration does not include child
+sconscripts. The CLI flag always writes the unfiltered session index.
+
 Both the CLI flag and ``CollateCxxProfilesIndex()`` enable *inventory mode*: cuppa prepends SCons
-keep-going (``-i``) when needed, writes the session index at ``sconstruct_end``, and exits
-**non-zero** only when ordinary (non-profile) compile errors occurred — see
+keep-going (``-i``) when needed (the CLI scans nested ``*sconscript`` files under the launch
+directory, not only a top-level ``sconscript``), writes the session index at ``sconstruct_end``,
+and then exits **non-zero** only when ordinary (non-profile) compile errors occurred — see
 xref:cxx-profiles.adoc#violation-inventory-report-cxx-profiles-report[Violation inventory report]
 for console behaviour and exit policy.
 
@@ -183,8 +190,9 @@ Top-level fields (non-exhaustive):
 * `report` — serialised scopes, roll-up rules/files, `build_catalog`
 * `locations[]` — flat diagnostic inventory when captured (enables full source regen)
 * `context` — Overview metrics when context mode is not `off`
-* `metadata` — `sconstruct_dir`, link style, enforce list, incomplete scopes; `anonymised` when
-  produced by the anonymiser (see <<sharing-anonymised>>)
+* `metadata` — `sconstruct_dir`, link style, enforce list, incomplete scopes; `scope_filter`
+  when a method-only index omitted sibling sconscripts; `anonymised` when produced by the
+  anonymiser (see <<sharing-anonymised>>)
 
 [#sharing-anonymised]
 == Sharing an inventory (anonymised JSON)

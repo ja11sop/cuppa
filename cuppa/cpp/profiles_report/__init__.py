@@ -17,6 +17,8 @@ from cuppa.cpp.profiles_report.inventory import (
     parse_progress_line,
     parse_variant_scope_fields,
     profiles_scope_from_construction_env,
+    filter_inventory_for_index,
+    normalize_sconscript_path,
     replay_profiles_capture,
 )
 from cuppa.cpp.profiles_report.types import (
@@ -41,9 +43,11 @@ __all__ = [
     'ProfilesScopeStack',
     'UNCLASSIFIED_RULE_ID',
     'classify_rule',
+    'filter_inventory_for_index',
     'format_capture_summary',
     'location_dedupe_key',
     'normalise_message',
+    'normalize_sconscript_path',
     'parse_clang_profiles_line',
     'parse_clang_profiles_line_from_capture',
     'parse_profiles_diagnostic',

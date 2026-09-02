@@ -103,6 +103,55 @@ def test_collector_merge_is_thread_safe():
     assert session.inventory.unique_locations() == 1
 
 
+def test_index_inventory_is_stable_under_parallel_record():
+    """Snapshot the index while other threads keep recording (``--parallel`` compiles)."""
+    from cuppa.methods.cxx_profiles_report import CollateCxxProfilesIndexCallable
+
+    env = {
+        'cxx_profiles': True,
+        'sconscript_file': './widget/sconscript',
+    }
+    CollateCxxProfilesIndexCallable()( env )
+    session = ProfilesDiagnosticCollector._session
+    other = _SAMPLE_SCOPE._replace( sconscript='./other/sconscript' )
+    start = threading.Barrier( 5 )
+    errors = []
+
+    def recorder( scope ):
+        try:
+            start.wait()
+            for _ in range( 40 ):
+                ProfilesDiagnosticCollector.record_line( scope, _PROFILE_LINE )
+        except Exception as exc:  # pylint: disable=broad-except
+            errors.append( exc )
+
+    def indexer():
+        try:
+            start.wait()
+            for _ in range( 40 ):
+                filtered, metadata = session.index_inventory()
+                assert metadata[ 'omitted_scope_count' ] in ( 0, 1 )
+                assert filtered.unique_locations() <= 1
+        except Exception as exc:  # pylint: disable=broad-except
+            errors.append( exc )
+
+    threads = [
+        threading.Thread( target=recorder, args=( _SAMPLE_SCOPE, ) ),
+        threading.Thread( target=recorder, args=( _SAMPLE_SCOPE, ) ),
+        threading.Thread( target=recorder, args=( other, ) ),
+        threading.Thread( target=recorder, args=( other, ) ),
+        threading.Thread( target=indexer ),
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert errors == []
+    filtered, metadata = session.index_inventory()
+    assert metadata[ 'omitted_scope_count' ] == 1
+    assert filtered.locations()[ 0 ].scope.sconscript == './widget/sconscript'
+
+
 def test_collector_progress_tracks_variant_completion():
     session = ProfilesDiagnosticCollector.activate()
     variant = _SAMPLE_SCOPE.variant_dir
@@ -227,16 +276,24 @@ def test_finalize_inventory_session_exits_after_non_profile_tally( monkeypatch )
     ProfilesDiagnosticCollector.activate()
     ProfilesDiagnosticCollector.record_non_profile_error()
     exits = []
-    monkeypatch.setattr(
-        'SCons.Script.Exit',
-        lambda status: exits.append( status ),
-    )
+    monkeypatch.setattr( 'os._exit', lambda status: exits.append( status ) )
     monkeypatch.setattr(
         ProfilesDiagnosticCollector,
         'flush_pending',
         classmethod( lambda cls: False ),
     )
     ProfilesDiagnosticCollector.finalize_inventory_session()
+    assert exits == [ 1 ]
+
+
+def test_sconstruct_end_exits_after_non_profile_tally( monkeypatch ):
+    NotifyProgress.set_inventory_report_mode( True )
+    session = ProfilesDiagnosticCollector.activate()
+    ProfilesDiagnosticCollector.record_non_profile_error()
+    exits = []
+    monkeypatch.setattr( 'os._exit', lambda status: exits.append( status ) )
+    monkeypatch.setattr( session, '_emit_session_summary', lambda env: None )
+    session.on_progress( 'sconstruct_end', None, None, {}, None, None )
     assert exits == [ 1 ]
 
 
@@ -323,8 +380,12 @@ def test_spawn_processor_hook_skips_raw_output(monkeypatch):
         def get_option(self, name):
             return False
 
-    env = NormalEnv()
+    env = NormalEnv( { 'SPAWN': object(), 'cxx_profiles': True } )
     ProfilesDiagnosticCollector._rebind_spawn_processor(env)
+    assert calls == [env]
+
+    bare = NormalEnv( { 'cxx_profiles': True } )
+    ProfilesDiagnosticCollector._rebind_spawn_processor(bare)
     assert calls == [env]
 
 

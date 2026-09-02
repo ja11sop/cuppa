@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — C++ Profiles (`profiles-violation-report`); umbrella [#184](https://github.com/ja11sop/cuppa/issues/184) (closed); semantics [#199](https://github.com/ja11sop/cuppa/issues/199) shipped [#203](https://github.com/ja11sop/cuppa/pull/203); **1.9.0:** per-repo **`remote`** link style [#216](https://github.com/ja11sop/cuppa/issues/216) shipped [#219](https://github.com/ja11sop/cuppa/pull/219); implied per-TU error limit [#224](https://github.com/ja11sop/cuppa/issues/224) shipped [#225](https://github.com/ja11sop/cuppa/pull/225); scope filter follow-on [§Collate index scope filter](#prof-report-scope-filter-slice); shipped enablement [`archive/cxx-profiles.md`](../archive/cxx-profiles.md); [`removal-options.md`](removal-options.md) §4.6 Phase 6 artefacts [#135](https://github.com/ja11sop/cuppa/issues/135); test/coverage report patterns (`cuppa/test_report/`, `cuppa/cpp/run_gcov_coverage.py`)
-- **Updated:** 2026-08-19
+- **Updated:** 2026-09-02
 - **Impact:** minor — new opt-in CLI flag and HTML artefacts; no change to default builds
 
 ## Why
@@ -916,7 +916,7 @@ and explicit `configure.conf` defaults.
 
 ## Collate index scope filter (`prof-report-scope-filter`)
 
-**Id:** `prof-report-scope-filter` · **Status:** **proposal** (settled decisions 2026-08-16) · **Impact:** minor · **Target:** 1.8.0 follow-on — [#205](https://github.com/ja11sop/cuppa/issues/205) after [#203](https://github.com/ja11sop/cuppa/pull/203) / [#199](https://github.com/ja11sop/cuppa/issues/199)
+**Id:** `prof-report-scope-filter` · **Status:** **in progress** · **Impact:** minor · **Target:** 1.9.0 — [#205](https://github.com/ja11sop/cuppa/issues/205)
 
 ### Why
 
@@ -996,6 +996,9 @@ That is a larger architectural change than a write-time filter and is deferred w
 | Session state | `cuppa/cpp/profiles_report_collector.py` | ``ProfilesReportSession.declaring_sconscripts``; ``activation_via_cli`` flag |
 | Filter + metrics | `cuppa/cpp/profiles_report/inventory.py`, `report_html.py`, `context_summary.py` | ``filter_inventory_for_index( inventory, declaring_set )``; rebuild model on filtered copy |
 | Notice | `cuppa/cpp/profiles_report_collector.py` | Warn after filter with omitted count + ``--cxx-profiles-report`` hint |
+| Nested ``-i`` | `cuppa/core/profiles_inventory_cli.py` | Scan nested ``*sconscript`` under the launch dir (skip ``_build`` / artefacts) so method-only Collate implies keep-going |
+| Inventory exit | `profiles_report_collector.py` | Force non-zero at ``sconstruct_end`` after the index write (not during SConstruct parse) |
+| Scoped SPAWN | `profiles_report_collector.py`, `cxx_profiles_report.py` | Register the env-ready spawn hook even without the CLI flag; rebind ``SPAWN`` on the Collate env so method-only captures keep ``sconscript_file`` (not ``_unscoped``) |
 | Tests | `tests/unit/`, `tests/integration/methods/test_cxx_profiles.py` | Two-sconscript project: one declarer → other scope captured but omitted from index + warning |
 | Docs | `cxx-profiles.adoc`, `report-introduction.adoc` | Method vs CLI scope; union of declarers; full-tree CLI escape hatch |
 
@@ -1003,7 +1006,7 @@ That is a larger architectural change than a write-time filter and is deferred w
 
 | Id | Status |
 |----|--------|
-| `prof-report-scope-filter` | **Proposal** — [#205](https://github.com/ja11sop/cuppa/issues/205); implementation after [#203](https://github.com/ja11sop/cuppa/pull/203) |
+| `prof-report-scope-filter` | **This PR** — [#205](https://github.com/ja11sop/cuppa/issues/205) |
 
 <a id="prof-report-anonymize"></a>
 
@@ -1674,7 +1677,7 @@ issues, PR titles, and ROADMAP cross-links (same pattern as `list-tc-*` in
 | **G** | `prof-report-anonymize` | Anonymize saved report JSON; shareable artefact + HTML regen without sources | After C; see [§Anonymized report sharing](#prof-report-anonymize) |
 | **H** | `prof-report-context-summary` | Overview tab + `context` JSON — violations vs codebase size, full rule matrix; variant roll-up; By-Build tab; unified scope detail | After C; see [§Context summary](#prof-report-context-summary); landed on [#196](https://github.com/ja11sop/cuppa/pull/196) |
 | **—** | `prof-report-method-semantics` | Implied `-i`, Progress decoupling, selective exit | **Shipped [#203](https://github.com/ja11sop/cuppa/pull/203)** — [#199](https://github.com/ja11sop/cuppa/issues/199); see [§Collate index semantics](#prof-report-method-semantics-slice) |
-| **—** | `prof-report-scope-filter` | Method-only index filter (union of declaring sconscripts) | **Proposal** — see [§Collate index scope filter](#prof-report-scope-filter-slice) |
+| **—** | `prof-report-scope-filter` | Method-only index filter (union of declaring sconscripts) | **This PR** — [#205](https://github.com/ja11sop/cuppa/issues/205); [§Collate index scope filter](#prof-report-scope-filter-slice) |
 
 Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** (slice A–D; **`prof-report-collector` must** include parallel spawn scope); **E** + **F-min** merged [#198](https://github.com/ja11sop/cuppa/pull/198); full **F** blocked on #135; **G–H** shipped; **`prof-report-method-semantics`** shipped [#203](https://github.com/ja11sop/cuppa/pull/203); **`prof-report-scope-filter`** next follow-on.
 
@@ -1735,9 +1738,9 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 | `prof-report-method-semantics` | **Shipped** — [#203](https://github.com/ja11sop/cuppa/pull/203) / [#199](https://github.com/ja11sop/cuppa/issues/199) |
 | `prof-report-remote-links` | **Shipped** — [#219](https://github.com/ja11sop/cuppa/pull/219) / [#216](https://github.com/ja11sop/cuppa/issues/216) — `remote` link style, multi-provider host lists |
 | `prof-report-error-limit` | **Shipped** — [#225](https://github.com/ja11sop/cuppa/pull/225) / [#224](https://github.com/ja11sop/cuppa/issues/224) — inventory implies unlimited per-TU cap |
-| `prof-report-scope-filter` | **Proposal** — see [§Collate index scope filter](#prof-report-scope-filter-slice) |
+| `prof-report-scope-filter` | **This PR** — [#205](https://github.com/ja11sop/cuppa/issues/205) |
 
-**Next focus:** **`prof-report-scope-filter`** (method-only write-time filter); full **F** when [#135](https://github.com/ja11sop/cuppa/issues/135) Phase 6 starts.
+**Next focus:** full **F** when [#135](https://github.com/ja11sop/cuppa/issues/135) Phase 6 starts (after this scope-filter slice).
 
 ## Open questions (resolve in first PR)
 

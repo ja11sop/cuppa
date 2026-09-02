@@ -11,11 +11,29 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-08-17
+**As of:** 2026-09-02
 
 ---
 
-## 1.8.1 cycle focus (release prep)
+## 1.9.0 cycle focus (open)
+
+Cycle opened with docs/site and Profiles follow-ons; identity slices A–C closed the `tc-identity-coarsen` umbrella ([#243](https://github.com/ja11sop/cuppa/issues/243)).
+
+| Area | Status in 1.9.0 |
+|------|-----------------|
+| Public docs `/latest/` + agent `llms.txt` corpus | Shipped [#238](https://github.com/ja11sop/cuppa/pull/238) |
+| Methods hub/children + path/progress behaviour | Shipped [#234](https://github.com/ja11sop/cuppa/pull/234) |
+| RecursiveGlob / GlobFiles parity | Shipped [#231](https://github.com/ja11sop/cuppa/pull/231) |
+| Profiles `remote` links + inventory error-limit | Shipped [#219](https://github.com/ja11sop/cuppa/pull/219), [#225](https://github.com/ja11sop/cuppa/pull/225) |
+| `--toolchain-identity` + GitLab consume/publish OS identity | Shipped [#242](https://github.com/ja11sop/cuppa/pull/242), [#244](https://github.com/ja11sop/cuppa/pull/244), [#245](https://github.com/ja11sop/cuppa/pull/245) |
+| Profiles collate scope filter | This PR — [#205](https://github.com/ja11sop/cuppa/issues/205) |
+| Colourised Antora report samples | Candidate — [`colourised-doc-samples.md`](design/plans/colourised-doc-samples.md) (`doc-output-samples`) |
+
+**Still open this cycle (not started here):** GitLab CMake staging ([#209](https://github.com/ja11sop/cuppa/issues/209)); Boost package patched/clean identity ([`boost-updates.md`](design/plans/boost-updates.md)); artefact removal design ([#135](https://github.com/ja11sop/cuppa/issues/135)); console bundle (`--terse-output`, log hygiene, `cuppa --info`).
+
+---
+
+## 1.8.1 cycle focus (shipped)
 
 Cycle opened with [#212](https://github.com/ja11sop/cuppa/pull/212) / [#214](https://github.com/ja11sop/cuppa/pull/214); **`1.8.1`** closes after the prepare PR merges and Actions **publish** runs.
 
@@ -25,7 +43,7 @@ Cycle opened with [#212](https://github.com/ja11sop/cuppa/pull/212) / [#214](htt
 | Compile object paths under `working/` (nested basenames) | [#213](https://github.com/ja11sop/cuppa/issues/213) / [#214](https://github.com/ja11sop/cuppa/pull/214) |
 | Profiles report fixes (inventory Progress ordering, link style, source links) | [#214](https://github.com/ja11sop/cuppa/pull/214); [#215](https://github.com/ja11sop/cuppa/issues/215) |
 
-**Deferred to 1.8.2+:** console bundle (`--terse-output`, log hygiene, `cuppa --info` — see plans under Build console output); `prof-report-scope-filter` ([#205](https://github.com/ja11sop/cuppa/issues/205)); Boost package identity slices ([`boost-updates.md`](design/plans/boost-updates.md)); GitLab CMake staging ([#209](https://github.com/ja11sop/cuppa/issues/209)); optional `--native-output`; docs-only Antora UI / methods split; **sconscript export/sharing** ([`sconscript-exports.md`](design/plans/sconscript-exports.md)); CMake migration guide ([`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md)).
+**Deferred to 1.8.2+:** console bundle (`--terse-output`, log hygiene, `cuppa --info` — see plans under Build console output); Boost package identity slices ([`boost-updates.md`](design/plans/boost-updates.md)); GitLab CMake staging ([#209](https://github.com/ja11sop/cuppa/issues/209)); optional `--native-output`; docs-only Antora UI / methods split; **sconscript export/sharing** ([`sconscript-exports.md`](design/plans/sconscript-exports.md)); CMake migration guide ([`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md)).
 
 ---
 
@@ -167,7 +185,7 @@ Umbrella: [#127](https://github.com/ja11sop/cuppa/issues/127) ([#177](https://gi
 | `profiles-violation-report` | `prof-report-method-semantics` — implied `-i`, Progress decoupling, selective exit | High | **Shipped** [#203](https://github.com/ja11sop/cuppa/pull/203) / [#199](https://github.com/ja11sop/cuppa/issues/199) |
 | `profiles-violation-report` | `prof-report-error-limit` — inventory implies unlimited per-TU diagnostic cap | High | **Shipped** [#225](https://github.com/ja11sop/cuppa/pull/225) / [#224](https://github.com/ja11sop/cuppa/issues/224); **1.9.0** |
 | `profiles-violation-report` | `prof-report-remote-links` — per-repo `remote` HTML source links | High | **Shipped** [#219](https://github.com/ja11sop/cuppa/pull/219) / [#216](https://github.com/ja11sop/cuppa/issues/216); **1.9.0** |
-| `profiles-violation-report` | `prof-report-scope-filter` — method-only index filter (union of declaring sconscripts) | High | [#205](https://github.com/ja11sop/cuppa/issues/205); [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) §Collate index scope filter |
+| `profiles-violation-report` | `prof-report-scope-filter` — method-only index filter (union of declaring sconscripts) | High | This PR — [#205](https://github.com/ja11sop/cuppa/issues/205); [`cxx-profiles-report.md`](design/plans/cxx-profiles-report.md) §Collate index scope filter |
 | `profiles-violation-report` | `prof-report-artefacts` — full `--remove-artefacts` / declared artefact trees | Medium | Blocked on [#135](https://github.com/ja11sop/cuppa/issues/135); F-min discovery shipped in [#198](https://github.com/ja11sop/cuppa/pull/198) |
 | `profiles-designators` | Additional profile names as Alliance Clang / WG21 stabilise | Medium | Cuppa passes opaque strings through |
 | `profiles-native-enforce` | Wire `profiles_enforce_flags` when a compiler adds native enforce flags | Low | Hook exists; `-include` fallback remains |
@@ -414,6 +432,9 @@ C++ Profiles are a separate roadmap section — see [C++ Profiles](#c-profiles).
 | `--list-toolchains` (Discovered vs Registered, driver paths, JSON) | Yes — [#172](https://github.com/ja11sop/cuppa/issues/172) / [#170](https://github.com/ja11sop/cuppa/pull/170); design [`list-toolchains.md`](design/archive/list-toolchains.md) |
 | `--list-toolchains --list-format=verbose` + `describe()` | Yes — [#172](https://github.com/ja11sop/cuppa/issues/172) / [#170](https://github.com/ja11sop/cuppa/pull/170); design [`list-toolchains-verbose.md`](design/plans/list-toolchains-verbose.md) |
 | Toolchains hub + GCC / Clang / MSVC family pages | Yes — [#172](https://github.com/ja11sop/cuppa/issues/172) / [#170](https://github.com/ja11sop/cuppa/pull/170) |
+| `--toolchain-identity=full\|major` for `_build` / package stems | Yes — [#242](https://github.com/ja11sop/cuppa/pull/242); new-install `major`, grandfather `full` |
+| GitLab package OS/toolchain lookup overrides + 404 dual-try | Yes — [#244](https://github.com/ja11sop/cuppa/pull/244) |
+| GitLab publish `--package-gitlab-os-identity=include\|omit` | Yes — [#245](https://github.com/ja11sop/cuppa/pull/245) |
 
 ### Planned / potential
 
@@ -424,7 +445,7 @@ C++ Profiles are a separate roadmap section — see [C++ Profiles](#c-profiles).
 | `tc-dep-url-sugar` | Optional URL token in `--toolchains=` | Low | Keep `--toolchain-archive=` as explicit supply |
 | `tc-dep-actions` | Authenticated Actions artifact URLs | Low | After public HTTPS / file path is solid |
 | `tc-dep-msvc` | MSVC archive / layout as toolchain dep | Low | Separate driver; not gcc-snapshot |
-| `tc-identity-coarsen` | Major toolchain identity for `_build` / package stems (`gcc153`→`gcc15`); optional OS omit and consume overrides | High | Identity [#242](https://github.com/ja11sop/cuppa/pull/242), consume [#244](https://github.com/ja11sop/cuppa/pull/244), OS omit [#245](https://github.com/ja11sop/cuppa/pull/245) — [`build-and-package-identity.md`](design/plans/build-and-package-identity.md), encoding [`ignore-toolchain-point-release.md`](design/plans/ignore-toolchain-point-release.md) |
+| `tc-identity-coarsen` | Major toolchain identity for `_build` / package stems (`gcc153`→`gcc15`); optional OS omit and consume overrides | High | **Done** — identity [#242](https://github.com/ja11sop/cuppa/pull/242), consume [#244](https://github.com/ja11sop/cuppa/pull/244), OS omit [#245](https://github.com/ja11sop/cuppa/pull/245); [`build-and-package-identity.md`](design/archive/build-and-package-identity.md), encoding [`ignore-toolchain-point-release.md`](design/archive/ignore-toolchain-point-release.md) |
 
 ### Out of scope (toolchains-as-deps)
 
@@ -536,7 +557,7 @@ Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object path
 | `doc-site-release-default` | Public docs default to **`/latest/`** (released Cuppa), not `master` tip | High | Implementing on `feature/docs-latest-and-llms` with `doc-llms-txt` — [`docs-site-release-default.md`](design/plans/docs-site-release-default.md) |
 | `doc-llms-txt` | Agent Markdown: `llms.txt` + per-page MD + `llms-full.txt` from Antora HTML (Pandoc) | High | Same branch; corpus on `/latest/` — [`docs-llms-txt.md`](design/plans/docs-llms-txt.md) |
 | `doc-antora-ui` | Supplemental CSS polish (keep default Antora bundle) | Low | [`antora-ui-bundle.md`](design/plans/antora-ui-bundle.md); [#229](https://github.com/ja11sop/cuppa/issues/229); CSS pass in [#228](https://github.com/ja11sop/cuppa/pull/228); `ui-pin` still open; **1.9.0** docs-only |
-| `doc-output-samples` | Capture report output as semantic HTML for Antora and local preview | Low | [`colourised-doc-samples.md`](design/plans/colourised-doc-samples.md); not Shiki `ansi` |
+| `doc-output-samples` | Capture report output as semantic HTML for Antora and local preview | Low | [`colourised-doc-samples.md`](design/plans/colourised-doc-samples.md); not Shiki `ansi`; **1.9.0 candidate** beside remaining Methods/docs polish |
 | `doc-shiki` | Build-time Shiki for `[source,…]` listings; optional ANSI preview | Low | [`shiki-syntax-highlighting.md`](design/plans/shiki-syntax-highlighting.md); **deferred past 1.9.0** — Phase A spike after UI chrome stable |
 | `doc-folder-layout` | Page folders mirroring nav (dependencies/, cxx-profiles/, toolchains/) | Low | **Shipped** — [`doc-folder-layout.md`](design/archive/doc-folder-layout.md) |
 | `doc-mermaid-theme` | Custom Mermaid theme matching site CSS | Low | After or with UI bundle |
