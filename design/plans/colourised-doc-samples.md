@@ -154,11 +154,8 @@ inherit it on the nested `<code>`: added leading creates visible gaps between co
 glyphs and makes a judgement tree look broken. Padding around the whole report frame is fine;
 padding or margins between report lines are not.
 
-v1 maps those classes onto the **Antora chrome** tokens (`--cuppa-warning` orange, `--cuppa-note`
-sky, `--cuppa-accent` matcha, …). That is the wrong hue family for several report meanings: the
-console colouriser in `cuppa/colourise.py` (`_start_colour` / `_start_highlight`) uses Colorama
-`Fore` / `Back` codes, and **warning / remove_notice are magenta** (`Fore.MAGENTA`, SGR 35), not
-the admonition orange. **notice is yellow** (`Fore.YELLOW`), not accent green. See
+v1 used Antora chrome tokens for sample colours; samples now consume `--cuppa-console-*`
+(Colorama hues plus a console surface). Admonition `--cuppa-warning` stays orange. See
 [Follow-on: console vs docs-chrome palette](#follow-on-console-vs-docs-chrome-palette).
 
 **Pages:** replace or supplement plain listings with an include, for example:
@@ -250,32 +247,39 @@ considered doc fixes in an open release cycle.
 | A | `HtmlColouriser` + unit tests + preview CSS | **Landed on #252** |
 | B | `scripts.generate_doc_samples` semantic recipes | **Landed on #252:** `list-builds`, both dry-run removals, and removal failure |
 | C | Wire samples into `build-layout.adoc`; supplemental-ui CSS in the site | **Landed on #252:** all four human-readable build-layout fragments |
-| D | Add `list-develop` and other high-value recipes; optional `ansi-html` format | **In progress on #252:** `list-develop`, `list-toolchains`, and `list-toolchains-verbose` HTML; narrated recipes and `ansi-html` remain |
+| D | Add `list-develop` and other high-value recipes; optional `ansi-html` format | **In progress on #252:** `list-develop`, `list-toolchains`, `list-toolchains-verbose`, `list-downloads`, and `list-dependencies` (+verbose) HTML; remaining narrated removal recipes and `ansi-html` remain |
 
 ### Which recipes can be colourised
 
 A recipe only yields an honest HTML sample when **every** line comes from a real formatter running
 under the colouriser. Several existing recipes assemble their intro and summary lines literally
 (`out.write( 'Would remove 1 dependency tree (166M) …' )`) and call a tree renderer for the middle:
-`list-downloads`, `list-dependencies` (+verbose), `remove-gitlab-dry-run`,
-`remove-boost-product-clean`, `purge-gitlab`.
+`remove-gitlab-dry-run`, `remove-boost-product-clean`, `purge-gitlab`.
 
-An HTML fragment for those would colour the tree but leave the narration flat, while the real
-console emphasises the counts and colours bracketed values there. That is a **worse** teaching
-artefact than the current plain listing, because the sample would imply the report has no colour
+**On #252:** `list-downloads` and `list-dependencies` (+verbose) now call
+`write_list_downloads_report` / `write_list_dependencies_report` — the same
+functions the CLI uses after collation — so intro, footer, extract/`[D]` marks,
+and wipe hints take the HTML colouriser. Text siblings stay generated.
+
+An HTML fragment for the remaining narrated recipes would colour the tree but leave
+the narration flat, while the real console emphasises the counts and colours
+bracketed values there. That is a **worse** teaching artefact than the current
+plain listing, because the sample would imply the report has no colour
 on those lines. Keep them as `[source,text]` for now.
 
 **Later slice (after the basics):** do not colourise the hand-written narration in place. Rebuild
 each recipe as planted inputs that run through the real report entry point
-(`dependency_actions.list_dependencies` / `list_downloads`, the removal / purge actions) under the
+(the removal / purge actions) under the
 HTML colouriser, aiming for the same public shape the current text sample teaches. That keeps
-rendering consistent with `--list-builds` / `--list-develop` / `--list-toolchains`. Accept small
+rendering consistent with `--list-builds` / `--list-develop` / `--list-toolchains` /
+`--list-downloads` / `--list-dependencies`. Accept small
 wording drift if the live formatter disagrees with a historically assembled line; the formatter
 wins.
 
 **Superseded text partials.** When a page moves to the HTML fragment, its `.txt` sibling stops
 being included but is still generated (`list-develop.txt`, `list-toolchains.txt`,
-`list-toolchains-verbose.txt`). They are kept deliberately: the unit tests assert report **shape**
+`list-toolchains-verbose.txt`, `list-downloads.txt`, `list-dependencies.txt`,
+`list-dependencies-verbose.txt`). They are kept deliberately: the unit tests assert report **shape**
 against the text form (columns, rules, tree glyphs), which is far more legible than asserting the
 same layout through spans, and they remain the reference for `--raw-output`. Do not wire them back
 into a page beside the HTML, and do not delete them expecting the HTML assertions to cover layout.
@@ -292,25 +296,36 @@ meanings the terminal paints**. Those two jobs should not share one hue table.
 Confirm hues from `Colouriser._start_colour` (and highlight counterparts), not from the Antora
 palette names:
 
-| Meaning | Console (Colorama) | Typical SGR | v1 sample CSS uses |
-|---------|--------------------|-------------|--------------------|
-| `warning`, `remove_notice` | `Fore.MAGENTA` | 35 | `--cuppa-warning` (orange) |
-| `notice`, `expected_failure` | `Fore.YELLOW` | 33 | `--cuppa-accent` (green) |
-| `info`, `time` | `Fore.BLUE` | 34 | `--cuppa-note` (sky) — closer |
-| `error`, `remove_error`, `failure`, … | `Fore.RED` | 31 | `--cuppa-important` (red) — closer |
-| `success`, `passed`, … | `Fore.GREEN` | 32 | `--cuppa-tip` (green) — closer |
+| Meaning | Console (Colorama) | Typical SGR | Sample token |
+|---------|--------------------|-------------|--------------|
+| `warning`, `remove_notice` | `Fore.MAGENTA` | 35 | `--cuppa-console-warning` |
+| `notice`, `expected_failure` | `Fore.YELLOW` | 33 | `--cuppa-console-notice` |
+| `info`, `time` | `Fore.BLUE` | 34 | `--cuppa-console-info` |
+| `error`, `remove_error`, `failure`, … | `Fore.RED` | 31 | `--cuppa-console-error` |
+| `success`, `passed`, … | `Fore.GREEN` | 32 | `--cuppa-console-success` |
 
-Likely split: keep `--cuppa-warning` for admonitions; add console-faithful tokens (for example
-`--cuppa-console-warning`) consumed only by `.cuppa-output`, still tuned for the light/dark doc
-page rather than copying a 16-colour VGA chart. Do not retint admonitions to magenta just because
-reports use magenta.
+Keep `--cuppa-warning` (orange) for admonitions. Sample CSS uses `--cuppa-console-*` only, tuned
+for the light/dark page rather than copying a 16-colour VGA chart.
 
-The **surface** belongs on the same list. v1 paints samples with `--cuppa-code-surface` (listing
-chrome: near-white / code-block grey). A real console is a dark or light terminal field, not a
-source listing. Add `--cuppa-console-surface` (and default ink `--cuppa-console-text`) for the
-report frame — including the scroll-panel wrapper that currently owns the wrapped sample
-background — keyed off `CUPPA_CONSOLE_BACKGROUND` conventions (`dark` vs `light`), still readable
-on the page. Do not reuse `--cuppa-page` or `--cuppa-code-surface` for that.
+**On #252:** `--cuppa-console-*` tokens (surface, ink, recess, and
+warning/notice/info/error/success/muted) live in each palette. `.cuppa-output` and
+`.doc .cuppa-scroll-panel:has(pre.cuppa-output) .cuppa-scroll-panel__*` consume them.
+JSON / listing scroll panels keep `--cuppa-code-surface`.
+
+Dark schemes take their hues from the **KDE Plasma Breeze** Konsole scheme
+(`data/color-schemes/Breeze.colorscheme`), so a sample matches a real terminal: background
+`#232627`, foreground `#fcfcfc`, `Color1`–`Color5` for red / green / yellow / blue / magenta, and
+`Color0Intense` `#7f8c8d` for subdued. cup-of-tea uses that background verbatim; the other
+palettes keep a slightly hue-tinted field with the same hues. Light schemes cannot reuse Breeze —
+those hues are chosen against a dark field and `#11d116` green is unreadable on near-white — so a
+light console is a near-white paper field with darkened equivalents: cup-of-tea
+`#fefdfc`, harbour `#fcfdfe`, forest `#fcfefc`, aubergine `#fefcfd`. Light and dark
+schemes both take a stronger `--cuppa-console-border` than page chrome (darker on
+light, lighter on dark) so the sample does not dissolve into the canvas.
+
+A small `inset` shadow (`--cuppa-console-inset`) gives the recess. It is applied to the
+**viewport**, not the frame: the frame's `box-shadow` is the edge-overflow hint, whose state rules
+would otherwise drop the recess exactly when a sample became scrollable.
 
 ### Follow-on (wide-panel UX, not sample-specific)
 
@@ -344,11 +359,10 @@ colourised reports. Track it on [`antora-ui-bundle.md`](antora-ui-bundle.md) (`u
 3. **Dark-mode docs** — **Settled for v1:** consume active Antora palette variables, including
    their existing `prefers-color-scheme: dark` values. A later console-token pass still needs
    light and dark values, but they should track Colorama hues, not admonition hues.
-4. **Console vs chrome palette** — **Direction:** dual tokens. HTML class names stay
-   meaning-based (`cuppa-warning`); CSS for `.cuppa-output` should follow
-   `cuppa/colourise.py` rather than `--cuppa-warning` / `--cuppa-note` used by callouts.
-   Include a console **surface** (and default ink), not only meaning hues: v1 uses listing
-   `--cuppa-code-surface`.
+4. **Console vs chrome palette** — **Direction landed:** dual tokens. HTML class names stay
+   meaning-based (`cuppa-warning`); `.cuppa-output` uses `--cuppa-console-*` (including
+   surface and ink). Admonition `--cuppa-warning` / `--cuppa-note` unchanged. Hues remain
+   tunable against Colorama.
 5. **Tracking** — [#252](https://github.com/ja11sop/cuppa/issues/252).
 
 ---

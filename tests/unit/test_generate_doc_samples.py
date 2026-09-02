@@ -42,6 +42,18 @@ def test_list_downloads_sample_has_type_spacer_and_gitlab_first():
     assert ' days ago' not in text
 
 
+def test_list_downloads_html_sample_colours_intro_and_extract_mark():
+    text = samples.sample_list_downloads_html().read_text( encoding='utf-8' )
+
+    assert text.startswith( '<pre class="cuppa-output"><code>' )
+    assert 'cuppa-info' in text
+    assert '[E]' in text
+    assert 'unreferenced' in text
+    assert '/tmp/' not in text
+    assert '/home/' not in text
+    assert '\x1b[' not in text
+
+
 def test_list_dependencies_verbose_sample_has_location_and_download_mark():
     path = samples.sample_list_dependencies_verbose()
     text = path.read_text( encoding='utf-8' )
@@ -50,6 +62,31 @@ def test_list_dependencies_verbose_sample_has_location_and_download_mark():
     assert 'archive present under downloads' in text
     assert 'today' in text
     assert ' days ago' not in text
+
+
+def test_list_dependencies_html_sample_colours_paths_and_wipe_hint():
+    text = samples.sample_list_dependencies_html().read_text( encoding='utf-8' )
+
+    assert text.startswith( '<pre class="cuppa-output"><code>' )
+    assert 'cuppa-info' in text
+    assert 'cuppa-emphasised' in text
+    assert 'force-wipe-unreferenced-dependencies' in text
+    assert '/tmp/' not in text
+    assert '/home/' not in text
+    assert '\x1b[' not in text
+
+
+def test_list_dependencies_verbose_html_sample_colours_download_mark():
+    text = samples.sample_list_dependencies_verbose_html().read_text(
+            encoding='utf-8'
+    )
+
+    assert 'LOCATION' in text
+    assert '[D]' in text
+    assert 'cuppa-info' in text
+    assert 'archive present under downloads' in text
+    assert '/home/' not in text
+    assert '\x1b[' not in text
 
 
 def test_list_develop_sample_has_status_table_and_judgement_tree():

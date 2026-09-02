@@ -157,10 +157,9 @@ archives). Under each type row a hanging `│` connects to the first identity.
 Listing samples below are rendered by `python -m scripts.generate_doc_samples` through the
 same formatters the CLI uses:
 
-[source,text]
-----
-include::partial$samples/list-downloads.txt[]
-----
+++++
+include::partial$samples/list-downloads.html[]
+++++
 
 [cols="1,4"]
 |===
@@ -191,10 +190,9 @@ Example shape (sizes and names vary; glyphs may be ASCII on some consoles). Ever
 rule — including the one between `referenced` and `unreferenced` — spans the full table width
 (the same run of hyphen characters as the header and footer rules), not a short separator:
 
-[source,text]
-----
-include::partial$samples/list-dependencies.txt[]
-----
+++++
+include::partial$samples/list-dependencies.html[]
+++++
 
 `SIZE` is right-aligned in a fixed eight-character field. Blank rows that carry only a tree
 stem (`│`) keep the hanging lines continuous between siblings. Referenced trees open with a
@@ -217,10 +215,9 @@ not the GitLab registry URL on the version row). A footer explains the mark in v
 whenever such archives are present. If re-extracting a dependency fails, remove the corrupt
 archive under downloads; deleting only the dependency tree is not enough.
 
-[source,text]
-----
-include::partial$samples/list-dependencies-verbose.txt[]
-----
+++++
+include::partial$samples/list-dependencies-verbose.html[]
+++++
 
 The inventory under `<dependencies_root>/.cuppa-inventory/` records sizes (exact after listing
 upgrades missing or sampled entries; resolve/build may still write samples until listing

@@ -1,0 +1,35 @@
+<pre class="cuppa-output"><code>
+Dependencies in <span class="cuppa-info">~/.cuppa/dependencies</span>
+Default dependencies: <span class="cuppa-info">boost_package</span>
+<span class="cuppa-subdued">  ---------------------------------------------------------------------</span>
+      SIZE  LAST USED  REMARK   DEPENDENCY
+<span class="cuppa-subdued">  ---------------------------------------------------------------------</span>
+    299.3M  today      1 total  referenced
+                                <span class="cuppa-subdued">│</span>
+  <span class="cuppa-info">  299.3M</span>  today      <span class="cuppa-info">1 used</span>   <span class="cuppa-subdued">├── </span><span class="cuppa-info">dependencies in use</span>
+                                <span class="cuppa-subdued">│</span>
+    299.3M  today      1 used   <span class="cuppa-subdued">└── </span>gitlab packages
+                                <span class="cuppa-subdued">    │</span>
+  <span class="cuppa-subdued">  299.3M</span>  <span class="cuppa-subdued">today</span>               <span class="cuppa-subdued">    └── </span><span class="cuppa-emphasised"><span class="cuppa-info">boost_package</span></span>
+  <span class="cuppa-subdued">  299.3M</span>  <span class="cuppa-subdued">today</span>               <span class="cuppa-subdued">        └── </span>1.91
+    299.3M  today      <span class="cuppa-info">in use</span>   <span class="cuppa-subdued">            └── </span><span class="cuppa-info">gcc153_rel_x86_64_cxx2c</span>
+  <span class="cuppa-subdued">---------------------------------------------------------------------</span>
+      5.8M  today               unreferenced
+                                <span class="cuppa-subdued">│</span>
+      5.8M  today               <span class="cuppa-subdued">└── </span>source archives
+                                <span class="cuppa-subdued">    │</span>
+      2.9M  today               <span class="cuppa-subdued">    ├── </span><span class="cuppa-emphasised">boost</span>
+  <span class="cuppa-subdued">    2.9M</span>  <span class="cuppa-subdued">today</span>               <span class="cuppa-subdued">    │   └── </span><span class="cuppa-subdued">1.91.0</span>
+                                <span class="cuppa-subdued">    │</span>
+      2.9M  today               <span class="cuppa-subdued">    └── </span><span class="cuppa-emphasised">github.com/fmtlib/fmt</span>
+  <span class="cuppa-subdued">    1.4M</span>  <span class="cuppa-subdued">today</span>               <span class="cuppa-subdued">        ├── </span><span class="cuppa-subdued">11.1.4</span>
+  <span class="cuppa-subdued">    1.5M</span>  <span class="cuppa-subdued">today</span>               <span class="cuppa-subdued">        └── </span><span class="cuppa-subdued">12.2.0</span>
+<span class="cuppa-subdued">  ---------------------------------------------------------------------</span>
+  4 entries, 305.1M total, 5.8M unreferenced
+
+Review unreferenced trees, then clear them with:
+
+<span class="cuppa-emphasised">cuppa -Q -D -n --force-wipe-unreferenced-dependencies</span>
+
+Drop -n and re-run after confirming.
+</code></pre>

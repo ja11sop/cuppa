@@ -25,6 +25,8 @@ Default dependencies: boost, boost_package
        36M  today                       └── 11.1.4
        36M  today                           └── fmt_…_clang211_rel_….tar.gz
   -----------------------------------------------------------------------------
-3 archives, 216M download total, 36M unreferenced
+  3 archives, 216M download total, 36M unreferenced
 
 [E] = dependency extracted from the download above
+
+Review unreferenced downloads. Deleting only a dependency tree leaves the download in place.

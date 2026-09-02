@@ -31,6 +31,16 @@
   --cuppa-code-surface: #f4f7fa;
   --cuppa-code-tint: rgba(24, 63, 112, 0.07);
   --cuppa-shadow-tint: rgba(24, 63, 112, 0.08);
+  --cuppa-console-surface: #fcfdfe;
+  --cuppa-console-text: #1b1b1b;
+  --cuppa-console-border: #c3cad6;
+  --cuppa-console-inset: rgba(24, 63, 112, 0.14);
+  --cuppa-console-warning: #a21caf;
+  --cuppa-console-notice: #a16207;
+  --cuppa-console-info: #1d4ed8;
+  --cuppa-console-error: #b91c1c;
+  --cuppa-console-success: #15803d;
+  --cuppa-console-muted: #6b7280;
 
   --cuppa-note: #2b84cc;
   --cuppa-note-surface: #eaf2fb;
@@ -72,6 +82,17 @@
     --cuppa-code-surface: #161d28;
     --cuppa-code-tint: rgba(0, 0, 0, 0.30);
     --cuppa-shadow-tint: rgba(0, 0, 0, 0.50);
+    /* Breeze Konsole hues on a harbour-tinted field. */
+    --cuppa-console-surface: #1d2229;
+    --cuppa-console-text: #fcfcfc;
+    --cuppa-console-border: #4a5c74;
+    --cuppa-console-inset: rgba(0, 0, 0, 0.55);
+    --cuppa-console-warning: #9b59b6;
+    --cuppa-console-notice: #f67400;
+    --cuppa-console-info: #1d99f3;
+    --cuppa-console-error: #ed1515;
+    --cuppa-console-success: #11d116;
+    --cuppa-console-muted: #7f8c8d;
 
     --cuppa-note: #5ba3e0;
     --cuppa-note-surface: #0d2438;

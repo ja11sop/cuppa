@@ -642,7 +642,8 @@ Release checklist: see `release.txt` (Actions **prepare** → merge → **publis
 - **Docs visual review:** capturing a PNG (for example Chromium `--screenshot`) is cheap; **reading the image into the agent context is expensive.** Build Antora, tell the human what to check in the local preview, and iterate from CSS/HTML plus their notes. Capture or scan screenshots only when they ask, or when they cannot check locally. Prefer one targeted crop over a full-page dump.
 - Report listing samples: `python -m scripts.generate_doc_samples` writes
   `docs/modules/ROOT/partials/samples/` (text, JSON, and semantic HTML). Named
-  HTML recipes: `list-builds`, `list-develop`, `list-toolchains`,
+  HTML recipes: `list-builds`, `list-develop`, `list-downloads`,
+  `list-dependencies`, `list-dependencies-verbose`, `list-toolchains`,
   `list-toolchains-verbose`, and the `--remove-builds` / `--remove-all-builds`
   variants. Add `--preview` for `_docs_build/samples/*.preview.html`. Do not
   hand-edit committed fragments; regenerate. Keep the `.txt` sibling even when

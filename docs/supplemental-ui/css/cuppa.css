@@ -1045,6 +1045,32 @@ html.cuppa-doc-full .cuppa-doc-width-toggle__icon {
   position: relative;
 }
 
+/*
+ * A console fragment is a bare <pre> with no .listingblock wrapper, so the
+ * panel replacing it inherits no block spacing (and the pre inside is
+ * margin: 0). Match the bundle's listing leading. Scoped to console panels:
+ * a JSON / listing panel already sits inside a block that has margin.
+ */
+.doc .cuppa-scroll-panel:has(pre.cuppa-output) {
+  margin: 1rem 0 0;
+}
+
+.doc .cuppa-scroll-panel:has(pre.cuppa-output) .cuppa-scroll-panel__frame {
+  background: var(--cuppa-console-surface);
+  border-color: var(--cuppa-console-border, var(--cuppa-border));
+}
+
+/*
+ * Console recess for report samples. This sits on the viewport, not the frame:
+ * the frame's box-shadow is already the edge-overflow hint below, and those
+ * state rules would drop the recess as soon as a sample became scrollable.
+ * An inset shadow on a scroll container stays with the visible box while the
+ * content scrolls under it, which is the effect we want.
+ */
+.doc .cuppa-scroll-panel:has(pre.cuppa-output) .cuppa-scroll-panel__viewport {
+  box-shadow: inset 0 1px 4px var(--cuppa-console-inset);
+}
+
 .doc .cuppa-scroll-panel__viewport {
   background: transparent;
   border: 0;
@@ -1246,6 +1272,19 @@ html:has(.cuppa-scroll-panel__viewport.is-panning) {
 .doc .cuppa-scroll-panel__viewport > pre > code {
   display: block;
   min-width: max-content;
+}
+
+/*
+ * Console samples need this reset spelled out. `.doc pre.cuppa-output` in
+ * cuppa-output.css carries the block leading and the console recess for an
+ * unwrapped sample, and it has the same specificity as the `> pre` reset
+ * above — cuppa-output.css loads later, so it would win and leave a 1rem gap
+ * plus a second inset line below the frame border. Once wrapped, the panel
+ * owns spacing and the viewport owns the recess.
+ */
+.doc .cuppa-scroll-panel__viewport > pre.cuppa-output {
+  box-shadow: none;
+  margin: 0;
 }
 
 /*

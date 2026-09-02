@@ -27,6 +27,17 @@ def colour():
     colouriser.use_colour = was
 
 
+def test_visible_len_ignores_html_colouriser_tokens():
+    from cuppa.colourise import using_colouriser
+    from cuppa.colourise_html import HtmlColouriser
+
+    backend = HtmlColouriser()
+    with using_colouriser( backend ):
+        coloured = as_info( 'boost' )
+    assert len( coloured ) > len( 'boost' )
+    assert storage.visible_len( coloured ) == len( 'boost' )
+
+
 def test_visible_len_ignores_ansi( colour ):
     plain = 'boost'
     coloured = as_info( plain )

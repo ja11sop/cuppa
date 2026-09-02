@@ -36,13 +36,17 @@ import cuppa.colourise
 from cuppa.colourise_html import HtmlColouriser
 from cuppa.core import (
         dependency_downloads,
-        dependency_identity,
         dependency_removal,
         dependency_tree,
         storage_actions,
         toolchain_actions,
 )
-from cuppa.core.dependency_actions import _format_age_epoch, _write_ruled_tree
+from cuppa.core.dependency_actions import (
+        _format_age_epoch,
+        apply_list_scope,
+        write_list_dependencies_report,
+        write_list_downloads_report,
+)
 from cuppa.develop import Copy, list_payload as develop_list_payload
 from cuppa.develop import report as develop_report
 from cuppa.utility import storage
@@ -243,19 +247,54 @@ def _download_rows_for_list_samples():
     ]
 
 
+def _list_downloads_env():
+    env = _FakeEnv()
+    env['default_dependencies'] = [ 'boost', 'boost_package' ]
+    return env
+
+
+def _list_downloads_data():
+    rows = _download_rows_for_list_samples()
+    data = {
+        'rows': rows,
+        'downloads_root': str( Path.home() / '.cuppa' / 'downloads' ),
+        'skips': [],
+        'estimated': False,
+    }
+    return apply_list_scope(
+            data, 'all', tree_builder=dependency_downloads.build_downloads_tree,
+    )
+
+
+def _rewrite_sample_home( text, colouriser=None ):
+    """Map planted ``/home/user`` paths to ``~`` for public samples."""
+    planted = '/home/user'
+    if colouriser is not None:
+        colouriser.replace( planted, '~' )
+    return text.replace( planted, '~' )
+
+
 def sample_list_downloads():
     """`--list-downloads` hierarchical text (gitlab before source archives)."""
-    rows = _download_rows_for_list_samples()
-    tree = dependency_downloads.build_downloads_tree( rows )
     out = io.StringIO()
-    out.write( 'Downloads in ~/.cuppa/downloads\n' )
-    out.write( 'Default dependencies: boost, boost_package\n' )
-    _write_ruled_tree( out, tree, tree_header='DEPENDENCY / DOWNLOAD' )
-    out.write( '3 archives, 216M download total, 36M unreferenced\n\n' )
-    out.write( '[E] = dependency extracted from the download above\n' )
-    # Stabilise relative ages from the frozen NOW.
-    text = out.getvalue().replace( '56 years ago', 'today' )
-    return _write_sample( 'list-downloads.txt', text )
+    write_list_downloads_report(
+            out, _list_downloads_data(), _list_downloads_env(),
+    )
+    return _write_sample(
+            'list-downloads.txt', _rewrite_sample_home( out.getvalue() ),
+    )
+
+
+def sample_list_downloads_html():
+    """Semantic HTML form of the `--list-downloads` report."""
+    def invoke( out ):
+        write_list_downloads_report(
+                out, _list_downloads_data(), _list_downloads_env(),
+        )
+
+    text, colouriser = _capture_html( invoke )
+    text = _rewrite_sample_home( text, colouriser )
+    return _write_html_sample( 'list-downloads.html', text, colouriser )
 
 
 def sample_remove_gitlab_dry_run():
@@ -539,35 +578,76 @@ def _dependency_rows_for_list_samples():
     ]
 
 
+def _list_dependencies_env():
+    env = _FakeEnv()
+    env['default_dependencies'] = [ 'boost_package' ]
+    env['downloads_root'] = str( Path.home() / '.cuppa' / 'downloads' )
+    return env
+
+
+def _list_dependencies_data():
+    data = {
+        'rows': _dependency_rows_for_list_samples(),
+        'dependencies_root': str( Path.home() / '.cuppa' / 'dependencies' ),
+        'downloads_root': str( Path.home() / '.cuppa' / 'downloads' ),
+        'skips': [],
+        'estimated': False,
+        'unqualified_duplicate_tokens': [],
+    }
+    return apply_list_scope(
+            data, 'all', tree_builder=dependency_tree.build_tree,
+    )
+
+
 def sample_list_dependencies():
     """`--list-dependencies` hierarchical text (non-verbose)."""
-    tree = dependency_tree.build_tree( _dependency_rows_for_list_samples() )
     out = io.StringIO()
-    out.write( 'Dependencies in ~/.cuppa/dependencies\n' )
-    out.write( 'Default dependencies: boost_package\n' )
-    _write_ruled_tree( out, tree, verbose=False, tree_header='DEPENDENCY' )
-    out.write( '3 entries, 305.1M total, 5.8M unreferenced\n' )
-    return _write_sample( 'list-dependencies.txt', out.getvalue() )
+    write_list_dependencies_report(
+            out, _list_dependencies_data(), _list_dependencies_env(),
+    )
+    return _write_sample(
+            'list-dependencies.txt', _rewrite_sample_home( out.getvalue() ),
+    )
+
+
+def sample_list_dependencies_html():
+    """Semantic HTML form of the `--list-dependencies` report."""
+    def invoke( out ):
+        write_list_dependencies_report(
+                out, _list_dependencies_data(), _list_dependencies_env(),
+        )
+
+    text, colouriser = _capture_html( invoke )
+    text = _rewrite_sample_home( text, colouriser )
+    return _write_html_sample( 'list-dependencies.html', text, colouriser )
 
 
 def sample_list_dependencies_verbose():
     """`--list-dependencies --list-format=verbose` with LOCATION / `[D]`."""
-    tree = dependency_tree.build_tree( _dependency_rows_for_list_samples() )
     out = io.StringIO()
-    out.write( 'Dependencies in ~/.cuppa/dependencies\n' )
-    out.write( 'Default dependencies: boost_package\n' )
-    _write_ruled_tree( out, tree, verbose=True, tree_header='DEPENDENCY' )
-    out.write( '3 entries, 305.1M total, 5.8M unreferenced\n' )
-    out.write( '\n' )
-    out.write( '{} = archive present under downloads ({})\n'.format(
-            dependency_identity.DOWNLOAD_MARK,
-            '~/.cuppa/downloads',
-    ) )
-    out.write(
-            'If re-extracting a dependency fails, remove the corrupt archive there - '
-            'deleting only the dependency tree is not enough.\n'
+    write_list_dependencies_report(
+            out, _list_dependencies_data(), _list_dependencies_env(),
+            verbose=True,
     )
-    return _write_sample( 'list-dependencies-verbose.txt', out.getvalue() )
+    return _write_sample(
+            'list-dependencies-verbose.txt',
+            _rewrite_sample_home( out.getvalue() ),
+    )
+
+
+def sample_list_dependencies_verbose_html():
+    """Semantic HTML form of verbose `--list-dependencies`."""
+    def invoke( out ):
+        write_list_dependencies_report(
+                out, _list_dependencies_data(), _list_dependencies_env(),
+                verbose=True,
+        )
+
+    text, colouriser = _capture_html( invoke )
+    text = _rewrite_sample_home( text, colouriser )
+    return _write_html_sample(
+            'list-dependencies-verbose.html', text, colouriser,
+    )
 
 
 def _develop_copies_for_samples():
@@ -1317,9 +1397,12 @@ GENERATORS = tuple(
         _frozen_now( generator )
         for generator in (
                 sample_list_downloads,
+                sample_list_downloads_html,
                 sample_list_downloads_json,
                 sample_list_dependencies,
+                sample_list_dependencies_html,
                 sample_list_dependencies_verbose,
+                sample_list_dependencies_verbose_html,
                 sample_list_dependencies_json,
                 sample_list_develop,
                 sample_list_develop_html,
@@ -1347,9 +1430,12 @@ GENERATORS = tuple(
 # Re-bind names so unit tests and ad-hoc calls cannot write wall-clock ages into partials.
 (
         sample_list_downloads,
+        sample_list_downloads_html,
         sample_list_downloads_json,
         sample_list_dependencies,
+        sample_list_dependencies_html,
         sample_list_dependencies_verbose,
+        sample_list_dependencies_verbose_html,
         sample_list_dependencies_json,
         sample_list_develop,
         sample_list_develop_html,
@@ -1382,6 +1468,9 @@ def main( argv=None ):
             choices=(
                     'list-builds',
                     'list-develop',
+                    'list-downloads',
+                    'list-dependencies',
+                    'list-dependencies-verbose',
                     'list-toolchains',
                     'list-toolchains-verbose',
                     'remove-builds-dry-run',
@@ -1400,6 +1489,9 @@ def main( argv=None ):
         recipes = {
             'list-builds': sample_list_builds_html,
             'list-develop': sample_list_develop_html,
+            'list-downloads': sample_list_downloads_html,
+            'list-dependencies': sample_list_dependencies_html,
+            'list-dependencies-verbose': sample_list_dependencies_verbose_html,
             'list-toolchains': sample_list_toolchains_html,
             'list-toolchains-verbose': sample_list_toolchains_verbose_html,
             'remove-builds-dry-run': sample_remove_builds_dry_run_html,

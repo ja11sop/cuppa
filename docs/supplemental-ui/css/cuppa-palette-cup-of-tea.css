@@ -38,6 +38,21 @@
   --cuppa-code-surface: #fafafa;        /* Clean, ultra-light grey for code blocks */
   --cuppa-code-tint: rgba(27, 34, 38, 0.07);  /* Ink wash: darkens whatever it sits on */
   --cuppa-shadow-tint: rgba(27, 34, 38, 0.04);
+  /*
+   * Report samples (Colorama meanings; not admonition chrome). Light console
+   * field. Breeze's own hues are tuned for its dark background and fail
+   * contrast on near-white, so a light console darkens them instead.
+   */
+  --cuppa-console-surface: #fefdfc;
+  --cuppa-console-text: #1b1b1b;
+  --cuppa-console-border: #d5d9dd;
+  --cuppa-console-inset: rgba(27, 34, 38, 0.13);
+  --cuppa-console-warning: #a21caf;     /* Fore.MAGENTA */
+  --cuppa-console-notice: #a16207;      /* Fore.YELLOW */
+  --cuppa-console-info: #1d4ed8;        /* Fore.BLUE */
+  --cuppa-console-error: #b91c1c;       /* Fore.RED */
+  --cuppa-console-success: #15803d;     /* Fore.GREEN */
+  --cuppa-console-muted: #6b7280;
 
   /* --- Admonitions (Brighter & More Vivid Pops) --- */
   --cuppa-note: #0284c7;                 /* Vivid sky blue */
@@ -92,6 +107,17 @@
     --cuppa-code-surface: #161b20;      /* Darker recess for clean code containment */
     --cuppa-code-tint: rgba(0, 0, 0, 0.30);  /* Recess against dark surfaces */
     --cuppa-shadow-tint: rgba(0, 0, 0, 0.50);
+    /* KDE Plasma Breeze Konsole scheme (data/color-schemes/Breeze.colorscheme). */
+    --cuppa-console-surface: #232627;   /* Background 35,38,39 */
+    --cuppa-console-text: #fcfcfc;      /* Foreground 252,252,252 */
+    --cuppa-console-border: #4a545e;
+    --cuppa-console-inset: rgba(0, 0, 0, 0.55);
+    --cuppa-console-warning: #9b59b6;   /* Color5 magenta */
+    --cuppa-console-notice: #f67400;    /* Color3 yellow */
+    --cuppa-console-info: #1d99f3;      /* Color4 blue */
+    --cuppa-console-error: #ed1515;     /* Color1 red */
+    --cuppa-console-success: #11d116;   /* Color2 green */
+    --cuppa-console-muted: #7f8c8d;     /* Color0Intense */
 
     /* --- Admonitions (Vibrant Glows against Dark Canvas) --- */
     --cuppa-note: #38bdf8;               /* Electric sky blue */

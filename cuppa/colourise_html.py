@@ -38,21 +38,36 @@ class HtmlColouriser(object):
 
     def colour( self, meaning, text ):
         if meaning == 'message':
-            return self._token( 'wrap', (), text )
-        return self._token( 'wrap', ( self._meaning_class( meaning ), ), text )
+            return text
+        return (
+            self._token( 'start', ( self._meaning_class( meaning ), ) )
+            + text
+            + self._token( 'reset' )
+        )
 
     def highlight( self, meaning, text ):
-        return self._token(
-                'wrap',
-                ( self._meaning_class( meaning ), 'cuppa-label' ),
-                text,
+        return (
+            self._token(
+                    'start',
+                    ( self._meaning_class( meaning ), 'cuppa-label' ),
+            )
+            + text
+            + self._token( 'reset' )
         )
 
     def emphasise( self, text ):
-        return self._token( 'wrap', ( 'cuppa-emphasised', ), text )
+        return (
+            self._token( 'start', ( 'cuppa-emphasised', ) )
+            + text
+            + self._token( 'reset' )
+        )
 
     def subdue( self, text ):
-        return self._token( 'wrap', ( 'cuppa-subdued', ), text )
+        return (
+            self._token( 'start', ( 'cuppa-subdued', ) )
+            + text
+            + self._token( 'reset' )
+        )
 
     def start_subdued( self ):
         return self._token( 'start', ( 'cuppa-subdued', ) )
@@ -82,7 +97,11 @@ class HtmlColouriser(object):
             classes = [ 'cuppa-time' ]
             if found:
                 classes.append( 'cuppa-label' )
-            parts.append( self._token( 'wrap', tuple( classes ), element ) )
+            parts.append(
+                    self._token( 'start', tuple( classes ) )
+                    + element
+                    + self._token( 'reset' )
+            )
         return ''.join( parts )
 
     def emphasise_time_by_digit(

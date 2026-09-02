@@ -1,21 +1,18 @@
 /*
  * Semantic Cuppa report samples.
  *
- * The HTML generator emits meaning classes rather than terminal ANSI. v1 maps
- * those classes onto Antora chrome tokens (--cuppa-warning orange, --cuppa-note
- * sky, --cuppa-accent matcha). That is a mismatch for several console meanings:
- * Colouriser._start_colour uses Colorama Fore.MAGENTA for warning / remove_notice
- * (SGR 35), Fore.YELLOW for notice, Fore.BLUE for info/time, Fore.RED for error.
- * A later pass should add --cuppa-console-* tokens for .cuppa-output only
- * (meanings plus a console surface / ink, not listing --cuppa-code-surface),
- * and leave admonition hues alone. See design/plans/colourised-doc-samples.md.
+ * Meaning classes follow Colouriser._start_colour (Colorama), via
+ * --cuppa-console-* tokens. Admonition chrome (--cuppa-warning orange, …)
+ * is not used here. See design/plans/colourised-doc-samples.md.
  */
 
 .cuppa-output {
-  background: var(--cuppa-code-surface, #fafafa);
-  border: 1px solid var(--cuppa-border, #e9ecef);
+  background: var(--cuppa-console-surface, #fefefe);
+  border: 1px solid var(--cuppa-console-border, var(--cuppa-border, #e9ecef));
   border-radius: var(--cuppa-radius, 0.3rem);
-  color: var(--cuppa-text, #212529);
+  /* Slight recess, so the report reads as a view into a console. */
+  box-shadow: inset 0 1px 4px var(--cuppa-console-inset, rgba(27, 34, 38, 0.13));
+  color: var(--cuppa-console-text, #1b1b1b);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: var(--cuppa-code-size, 0.8rem);
   /*
@@ -34,12 +31,25 @@
 
 /*
  * The bundle ships `.doc pre { line-height: 1.5 }`, which outranks a bare
- * `.cuppa-output`, so the rule above only reaches the standalone preview.
- * Match that specificity on the site. Scope nothing else here: for a wrapped
- * sample the scroll-panel rules in cuppa.css own the frame chrome.
+ * `.cuppa-output`. Match that specificity for grid, surface, and ink.
+ *
+ * The recess and block leading here are for a sample the panel script has not
+ * wrapped (no JS). Once wrapped, the panel owns spacing and the viewport owns
+ * the recess, so cuppa.css withdraws both from the inner pre — via an explicit
+ * `> pre.cuppa-output` rule, because its generic `> pre` reset ties on
+ * specificity with this selector and this file loads later.
  */
 .doc pre.cuppa-output {
+  background: var(--cuppa-console-surface, #fefefe);
+  box-shadow: inset 0 1px 4px var(--cuppa-console-inset, rgba(27, 34, 38, 0.13));
+  color: var(--cuppa-console-text, #1b1b1b);
   line-height: 1;
+  /*
+   * A fragment is included as a bare <pre>, with no .listingblock wrapper to
+   * carry the bundle's block spacing, and `.doc pre` zeroes margins. Restore
+   * the same leading a listing gets so a report is not flush against prose.
+   */
+  margin: 1rem 0 0;
 }
 
 .doc pre.cuppa-output > code {
@@ -48,19 +58,19 @@
 
 .cuppa-output .cuppa-info,
 .cuppa-output .cuppa-time {
-  --cuppa-output-meaning: var(--cuppa-note, #0284c7);
+  --cuppa-output-meaning: var(--cuppa-console-info, #1d4ed8);
   color: var(--cuppa-output-meaning);
 }
 
 .cuppa-output .cuppa-notice,
 .cuppa-output .cuppa-expected-failure {
-  --cuppa-output-meaning: var(--cuppa-accent, #769f7e);
+  --cuppa-output-meaning: var(--cuppa-console-notice, #a16207);
   color: var(--cuppa-output-meaning);
 }
 
 .cuppa-output .cuppa-warning,
 .cuppa-output .cuppa-remove-notice {
-  --cuppa-output-meaning: var(--cuppa-warning, #f97316);
+  --cuppa-output-meaning: var(--cuppa-console-warning, #a21caf);
   color: var(--cuppa-output-meaning);
 }
 
@@ -69,20 +79,20 @@
 .cuppa-output .cuppa-failure,
 .cuppa-output .cuppa-failed,
 .cuppa-output .cuppa-aborted {
-  --cuppa-output-meaning: var(--cuppa-important, #dc2626);
+  --cuppa-output-meaning: var(--cuppa-console-error, #b91c1c);
   color: var(--cuppa-output-meaning);
 }
 
 .cuppa-output .cuppa-success,
 .cuppa-output .cuppa-passed,
 .cuppa-output .cuppa-unexpected-success {
-  --cuppa-output-meaning: var(--cuppa-tip, #16a34a);
+  --cuppa-output-meaning: var(--cuppa-console-success, #15803d);
   color: var(--cuppa-output-meaning);
 }
 
 .cuppa-output .cuppa-skipped,
 .cuppa-output .cuppa-subdued {
-  --cuppa-output-meaning: var(--cuppa-text-muted, #6c757d);
+  --cuppa-output-meaning: var(--cuppa-console-muted, #6b7280);
   color: var(--cuppa-output-meaning);
 }
 
@@ -91,10 +101,10 @@
 }
 
 .cuppa-output .cuppa-label {
-  background: var(--cuppa-output-meaning, var(--cuppa-text, #212529));
+  background: var(--cuppa-output-meaning, var(--cuppa-console-text, #1b1b1b));
   border-radius: 0.2em;
   box-decoration-break: clone;
-  color: var(--cuppa-page, #fff);
+  color: var(--cuppa-console-surface, var(--cuppa-page, #fff));
   font-weight: 700;
   padding: 0.05em 0.25em;
   -webkit-box-decoration-break: clone;
