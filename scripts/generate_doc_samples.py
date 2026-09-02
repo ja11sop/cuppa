@@ -9,8 +9,13 @@ Run from the repository root:
 
     python -m scripts.generate_doc_samples
 
-Writes plain-text samples under ``docs/modules/ROOT/partials/samples/`` so AsciiDoc
-pages can ``include::partial$samples/….txt[]`` inside ``[source,text]`` blocks.
+Writes plain-text and semantic HTML samples under
+``docs/modules/ROOT/partials/samples/``. AsciiDoc pages include text files inside
+``[source,text]`` blocks and HTML fragments inside passthrough blocks.
+
+Generate and preview the first semantic recipe with:
+
+    python -m scripts.generate_doc_samples list-builds --preview
 
 Relative ages use a fixed reference instant (:data:`NOW`, 2026-08-09) via
 :class:`frozen_now`, including when unit tests call individual ``sample_*``
@@ -27,6 +32,8 @@ import shutil
 import time
 from pathlib import Path
 
+import cuppa.colourise
+from cuppa.colourise_html import HtmlColouriser
 from cuppa.core import (
         dependency_downloads,
         dependency_identity,
@@ -48,6 +55,7 @@ class _FakeEnv( dict ):
 
 ROOT = Path( __file__ ).resolve().parents[1]
 SAMPLES = ROOT / 'docs' / 'modules' / 'ROOT' / 'partials' / 'samples'
+PREVIEWS = ROOT / '_docs_build' / 'samples'
 
 # Freeze "today" / "yesterday" / "11 days ago" / "2 months ago" relative ages.
 NOW = time.mktime( time.strptime( '2026-08-09 12:00:00', '%Y-%m-%d %H:%M:%S' ) )
@@ -109,6 +117,54 @@ def _write_sample( name, text ):
     SAMPLES.mkdir( parents=True, exist_ok=True )
     path = SAMPLES / name
     path.write_text( _clean( text ), encoding='utf-8' )
+    return path
+
+
+def _assert_public_html( text ):
+    """Refuse HTML fragments containing machine-specific absolute paths."""
+    forbidden = ( '/home/', '/Users/', '/tmp/' )
+    found = next( ( prefix for prefix in forbidden if prefix in text ), None )
+    if found:
+        raise ValueError(
+                "refusing documentation sample containing absolute path [{}]".format(
+                    found
+                )
+        )
+
+
+def _write_html_sample( name, text, colouriser ):
+    SAMPLES.mkdir( parents=True, exist_ok=True )
+    rendered = colouriser.render( text )
+    _assert_public_html( rendered )
+    path = SAMPLES / name
+    path.write_text( rendered, encoding='utf-8' )
+    return path
+
+
+def _write_preview( fragment ):
+    """Write a standalone preview using the same palette and sample CSS as Antora."""
+    palette = (
+        ROOT / 'docs' / 'supplemental-ui' / 'css'
+        / 'cuppa-palette-cup-of-tea.css'
+    ).read_text( encoding='utf-8' )
+    output_css = (
+        ROOT / 'docs' / 'supplemental-ui' / 'css' / 'cuppa-output.css'
+    ).read_text( encoding='utf-8' )
+    body = fragment.read_text( encoding='utf-8' )
+    preview = (
+        '<!doctype html>\n'
+        '<html lang="en"><head><meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        '<title>Cuppa {} sample</title>\n'
+        '<style>{}</style><style>{}</style>\n'
+        '</head><body style="background:var(--cuppa-page);'
+        'color:var(--cuppa-text);margin:2rem">{}\n'
+        '</body></html>\n'
+    ).format( fragment.stem, palette, output_css, body )
+    _assert_public_html( preview )
+    PREVIEWS.mkdir( parents=True, exist_ok=True )
+    path = PREVIEWS / '{}.preview.html'.format( fragment.stem )
+    path.write_text( preview, encoding='utf-8' )
     return path
 
 
@@ -844,6 +900,21 @@ def sample_list_builds():
     )
 
 
+def sample_list_builds_html():
+    """Semantic HTML form of the `--list-builds` report."""
+    project = _work_root( 'list-builds-html' )
+    env, build = _build_env( project, list_builds=True )
+    _plant_list_builds_fixture( build )
+    construct = _FakeConstruct( [ ( 'gcc15', 'dbg', 'x86_64', 'cxx2c' ) ] )
+    out = io.StringIO()
+    colouriser = HtmlColouriser()
+    with cuppa.colourise.using_colouriser( colouriser ):
+        storage_actions.list_builds( construct, env, out=out )
+    colouriser.replace( str( build ), '_build' )
+    text = _rewrite_abs_build_root( out.getvalue(), str( build ) )
+    return _write_html_sample( 'list-builds.html', text, colouriser )
+
+
 def sample_remove_builds_dry_run():
     """`--remove-builds -n` dry-run tables."""
     project = _work_root( 'remove-builds-dry' )
@@ -860,6 +931,30 @@ def sample_remove_builds_dry_run():
     return _write_sample(
             'remove-builds-dry-run.txt',
             _rewrite_abs_build_root( out.getvalue(), str( build ) ),
+    )
+
+
+def sample_remove_builds_dry_run_html():
+    """Semantic HTML form of the `--remove-builds -n` report."""
+    project = _work_root( 'remove-builds-dry-html' )
+    env, build = _build_env( project, remove_builds=True, no_exec=True )
+    _plant_list_builds_fixture( build )
+    construct = _FakeConstruct( [ ( 'gcc15', 'dbg', 'x86_64', 'cxx2c' ) ] )
+    real_dry = storage_actions.dry_run
+    storage_actions.dry_run = lambda cuppa_env: True
+    colouriser = HtmlColouriser()
+    try:
+        out = io.StringIO()
+        with cuppa.colourise.using_colouriser( colouriser ):
+            storage_actions.remove_builds( construct, env, out=out )
+    finally:
+        storage_actions.dry_run = real_dry
+    colouriser.replace( str( build ), '_build' )
+    text = _rewrite_abs_build_root( out.getvalue(), str( build ) )
+    return _write_html_sample(
+            'remove-builds-dry-run.html',
+            text,
+            colouriser,
     )
 
 
@@ -891,6 +986,35 @@ def sample_remove_builds_error():
     )
 
 
+def sample_remove_builds_error_html():
+    """Semantic HTML form of a failed `--remove-builds` report."""
+    project = _work_root( 'remove-builds-error-html' )
+    env, build = _build_env( project, remove_builds=True )
+    age = NOW - 3 * DAY
+    _plant_variant(
+            build, 'lib', 'gcc15', 'dbg', 'x86_64', 'cxx2c',
+            content=b'x' * 20000, mtime=age,
+    )
+    _stamp_build_tree( build, age )
+    construct = _FakeConstruct( [ ( 'gcc15', 'dbg', 'x86_64', 'cxx2c' ) ] )
+
+    def boom( target, dry_run=False ):
+        raise OSError( 13, 'Permission denied', os.path.join( target, 'working' ) )
+
+    real_remove = storage.remove_path
+    storage.remove_path = boom
+    colouriser = HtmlColouriser()
+    try:
+        out = io.StringIO()
+        with cuppa.colourise.using_colouriser( colouriser ):
+            storage_actions.remove_builds( construct, env, out=out )
+    finally:
+        storage.remove_path = real_remove
+    colouriser.replace( str( build ), '_build' )
+    text = _rewrite_abs_build_root( out.getvalue(), str( build ) )
+    return _write_html_sample( 'remove-builds-error.html', text, colouriser )
+
+
 def sample_remove_all_builds_dry_run():
     """`--remove-all-builds -n` dry-run."""
     project = _work_root( 'remove-all-builds-dry' )
@@ -906,6 +1030,29 @@ def sample_remove_all_builds_dry_run():
     return _write_sample(
             'remove-all-builds-dry-run.txt',
             _rewrite_abs_build_root( out.getvalue(), str( build ) ),
+    )
+
+
+def sample_remove_all_builds_dry_run_html():
+    """Semantic HTML form of the `--remove-all-builds -n` report."""
+    project = _work_root( 'remove-all-builds-dry-html' )
+    env, build = _build_env( project, remove_all_builds=True, no_exec=True )
+    _plant_list_builds_fixture( build )
+    real_dry = storage_actions.dry_run
+    storage_actions.dry_run = lambda cuppa_env: True
+    colouriser = HtmlColouriser()
+    try:
+        out = io.StringIO()
+        with cuppa.colourise.using_colouriser( colouriser ):
+            storage_actions.remove_all_builds( env, out=out )
+    finally:
+        storage_actions.dry_run = real_dry
+    colouriser.replace( str( build ), '_build' )
+    text = _rewrite_abs_build_root( out.getvalue(), str( build ) )
+    return _write_html_sample(
+            'remove-all-builds-dry-run.html',
+            text,
+            colouriser,
     )
 
 
@@ -1112,10 +1259,14 @@ GENERATORS = tuple(
                 sample_list_toolchains_verbose,
                 sample_list_toolchains_json,
                 sample_list_builds,
+                sample_list_builds_html,
                 sample_list_builds_json,
                 sample_remove_builds_dry_run,
+                sample_remove_builds_dry_run_html,
                 sample_remove_builds_error,
+                sample_remove_builds_error_html,
                 sample_remove_all_builds_dry_run,
+                sample_remove_all_builds_dry_run_html,
                 sample_remove_gitlab_dry_run,
                 sample_remove_boost_product_clean,
                 sample_purge_gitlab,
@@ -1135,10 +1286,14 @@ GENERATORS = tuple(
         sample_list_toolchains_verbose,
         sample_list_toolchains_json,
         sample_list_builds,
+        sample_list_builds_html,
         sample_list_builds_json,
         sample_remove_builds_dry_run,
+        sample_remove_builds_dry_run_html,
         sample_remove_builds_error,
+        sample_remove_builds_error_html,
         sample_remove_all_builds_dry_run,
+        sample_remove_all_builds_dry_run_html,
         sample_remove_gitlab_dry_run,
         sample_remove_boost_product_clean,
         sample_purge_gitlab,
@@ -1147,8 +1302,40 @@ GENERATORS = tuple(
 
 def main( argv=None ):
     parser = argparse.ArgumentParser( description=__doc__ )
-    parser.parse_args( argv )
-    written = [ generator() for generator in GENERATORS ]
+    parser.add_argument(
+            'sample',
+            nargs='*',
+            choices=(
+                    'list-builds',
+                    'remove-builds-dry-run',
+                    'remove-builds-error',
+                    'remove-all-builds-dry-run',
+            ),
+            help='generate one semantic HTML recipe (default: all checked-in samples)',
+    )
+    parser.add_argument(
+            '--preview',
+            action='store_true',
+            help='also write a standalone HTML preview under _docs_build/samples',
+    )
+    arguments = parser.parse_args( argv )
+    if arguments.sample:
+        recipes = {
+            'list-builds': sample_list_builds_html,
+            'remove-builds-dry-run': sample_remove_builds_dry_run_html,
+            'remove-builds-error': sample_remove_builds_error_html,
+            'remove-all-builds-dry-run': sample_remove_all_builds_dry_run_html,
+        }
+        generators = [ recipes[name] for name in arguments.sample ]
+    else:
+        generators = GENERATORS
+    written = [ generator() for generator in generators ]
+    if arguments.preview:
+        written.extend(
+                _write_preview( path )
+                for path in list( written )
+                if path.suffix == '.html'
+        )
     for path in written:
         print( path.relative_to( ROOT ) )
     return 0

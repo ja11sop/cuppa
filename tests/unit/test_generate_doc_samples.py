@@ -90,6 +90,59 @@ def test_list_builds_sample_uses_relative_build_root():
     assert 'Append --remove-builds' in text
 
 
+def test_list_builds_html_sample_uses_semantic_classes_and_public_paths():
+    path = samples.sample_list_builds_html()
+    text = path.read_text( encoding='utf-8' )
+
+    assert text.startswith( '<pre class="cuppa-output"><code>' )
+    assert '<span class="cuppa-info">' in text
+    assert '<span class="cuppa-emphasised">' in text
+    assert '_build' in text
+    assert '/tmp/' not in text
+    assert '/home/' not in text
+    assert '\x1b[' not in text
+
+
+def test_html_sample_guard_rejects_personal_absolute_paths():
+    with pytest.raises( ValueError, match='absolute path' ):
+        samples._assert_public_html( '<pre>/home/alice/project</pre>' )
+
+
+def test_list_builds_preview_uses_the_antora_sample_css():
+    assert samples.main( [ 'list-builds', '--preview' ] ) == 0
+    preview = (
+        samples.PREVIEWS / 'list-builds.preview.html'
+    ).read_text( encoding='utf-8' )
+
+    assert '<!doctype html>' in preview
+    assert '.cuppa-output .cuppa-info' in preview
+    assert '<pre class="cuppa-output"><code>' in preview
+
+
+@pytest.mark.parametrize( "generator,phrase", [
+    ( samples.sample_remove_builds_dry_run_html, 'Would remove' ),
+    ( samples.sample_remove_all_builds_dry_run_html, 'Would remove build root' ),
+] )
+def test_removal_html_samples_are_semantic_and_path_safe( generator, phrase ):
+    text = generator().read_text( encoding='utf-8' )
+
+    assert phrase in text
+    assert 'cuppa-remove-notice' in text
+    assert 'cuppa-emphasised' in text
+    assert '/tmp/' not in text
+    assert '/home/' not in text
+
+
+def test_removal_error_html_sample_preserves_error_meanings():
+    text = samples.sample_remove_builds_error_html().read_text( encoding='utf-8' )
+
+    assert 'Permission denied' in text
+    assert 'cuppa-remove-error' in text
+    assert 'cuppa-emphasised' in text
+    assert '/tmp/' not in text
+    assert '/home/' not in text
+
+
 def test_remove_builds_dry_run_sample_announces_dry_run():
     path = samples.sample_remove_builds_dry_run()
     text = path.read_text( encoding='utf-8' )

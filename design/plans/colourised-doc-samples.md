@@ -1,8 +1,8 @@
 # Plan: colourised sample output for documentation and preview
 
-- **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-output-samples`); follows build-report work in [`removal-options.md`](removal-options.md) Phase 2; syntax highlighting [`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md)
-- **Updated:** 2026-08-25
+- **Status:** in progress
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-output-samples`); [#252](https://github.com/ja11sop/cuppa/issues/252); follows build-report work in [`removal-options.md`](removal-options.md) Phase 2; syntax highlighting [`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md)
+- **Updated:** 2026-09-02 (`ui-scroll-snap` note)
 
 Cuppa already produces rich, colour-coded reports (`--list-builds`, `--list-develop`,
 `--remove-builds`, coverage summaries, and more). The Antora docs currently show those reports as
@@ -100,21 +100,25 @@ code already calls through `cuppa.colourise` helpers:
 | `as_emphasised` | `cuppa-emphasised` (bold / stronger weight) |
 | `as_subdued` | `cuppa-subdued` (grey, not DIM-on-white) |
 
-Implementation options (pick one in the first PR):
+Implementation options considered:
 
 1. **Injectable colouriser** — `colourise` gains `set_colouriser(...)` / context manager used only
    by the capture runner; production builds keep today's ANSI colouriser.
 2. **Dual emit** — helpers append to a side channel (fragile; avoid).
 3. **Post-process a tagged stream** — reports emit `\0meaning\0text\0` (invasive; avoid).
 
-Option 1 matches how tests already stub behaviour and keeps report code unchanged aside from
-going through the shared helpers (which they already do).
+**Selected for [#252](https://github.com/ja11sop/cuppa/issues/252): option 1.** A context manager
+temporarily replaces the process colouriser for single-threaded sample generation. The HTML
+backend records opaque operations while formatters assemble strings, then escapes literal text
+and resolves operations into spans. This preserves nested meanings without trusting report data
+as HTML. Production builds retain the ANSI backend.
 
 Escape HTML in text nodes; preserve spaces/newlines inside a `<pre class="cuppa-output">`.
 
 ### 3.2 Capture runner
 
-A module under `scripts/` (illustrative: `python -m scripts.sample_output`) that:
+Extend the existing `scripts/generate_doc_samples.py` module rather than adding a parallel sample
+runner. It:
 
 1. Builds a **fixture project** under a temp dir (reuse integration helpers / dummy project), or
    accepts `--project=` for local preview against a real tree (never commit that capture).
@@ -165,7 +169,7 @@ is required for colour. Prefer checked-in or pre-build fragments over a Ruby/Asc
 ### 3.4 Preview facility
 
 ```sh
-python -m scripts.sample_output list-builds --preview
+python -m scripts.generate_doc_samples list-builds --preview
 # → opens or prints path to _docs_build/samples/list-builds.preview.html
 ```
 
@@ -231,13 +235,22 @@ considered doc fixes in an open release cycle.
 
 | Phase | Delivers | Notes |
 |-------|----------|-------|
-| A | `HtmlColouriser` + unit tests + preview CSS | No Antora page changes required yet |
-| B | `scripts.sample_output` with `list-builds` / `remove-builds-dry` recipes | Unblocks authoring |
-| C | Wire samples into `build-layout.adoc`; supplemental-ui CSS in the site | Reader-visible |
+| A | `HtmlColouriser` + unit tests + preview CSS | **In progress on #252** |
+| B | `scripts.generate_doc_samples` semantic recipes | **In progress on #252:** `list-builds`, both dry-run removals, and removal failure |
+| C | Wire samples into `build-layout.adoc`; supplemental-ui CSS in the site | **In progress on #252:** all four human-readable build-layout fragments |
 | D | Add `list-develop` and other high-value recipes; optional `ansi-html` format | Expand coverage |
 
 Phase A+B can land without waiting on removal Phase 2 merge; Phase C should use the final report
 shapes from `#134` so samples do not churn.
+
+### Follow-on (wide-panel UX, not sample-specific)
+
+Wide listings already wrap in `cuppa-scroll-panels.js` (fade + chevron while more content exists
+past an edge; resist pulse only after overshooting into the bounce). A later slice could **snap
+to the side** when the viewport is already close to the left or right edge, so the scroll
+position lands flush and the fade/chevron can clear without requiring that bounce. This is a
+general affordance for every wrapped listing, JSON sample, and `pre.cuppa-output` — not only
+colourised reports. Track it on [`antora-ui-bundle.md`](antora-ui-bundle.md) (`ui-scroll-snap`).
 
 ---
 
@@ -255,12 +268,13 @@ shapes from `#134` so samples do not churn.
 
 ## 9. Open questions
 
-1. **Checked-in vs generate-at-doc-build** — Checked-in fragments are reviewable in PRs; generate
-   during `npm run build` always matches code but needs Python on the docs CI path.
-2. **Emphasise + colour nesting** — Emit outer `<span class="cuppa-emphasised"><span class="cuppa-info">` or a single combined class? Combined classes are simpler for CSS.
-3. **Dark-mode docs** — Antora UI default is light; if the site later gains a dark theme, samples
-   need paired CSS variables.
-4. **GitHub issue** — File when Phase A starts; no issue number yet.
+1. **Checked-in vs generate-at-doc-build** — **Settled: checked in.** Fragments are reviewable and
+   Antora does not need Python. The generator and tests detect drift/privacy failures.
+2. **Emphasise + colour nesting** — **Settled: nested spans.** The semantic operation renderer
+   preserves both meanings; CSS composes them.
+3. **Dark-mode docs** — **Settled for v1:** consume active Antora palette variables, including
+   their existing `prefers-color-scheme: dark` values.
+4. **Tracking** — [#252](https://github.com/ja11sop/cuppa/issues/252).
 
 ---
 

@@ -11,6 +11,7 @@
 
 import os
 import re
+from contextlib import contextmanager
 
 
 # Reduced intensity moves text towards the background, which only works when the background is
@@ -252,6 +253,23 @@ class Colouriser(object):
 
 
 colouriser = Colouriser.create()
+
+
+@contextmanager
+def using_colouriser( replacement ):
+    """Temporarily route the public colour helpers through ``replacement``.
+
+    This is intended for single-threaded renderers such as documentation sample
+    generation. Production builds continue to use the process-wide ANSI
+    colouriser created above.
+    """
+    global colouriser
+    previous = colouriser
+    colouriser = replacement
+    try:
+        yield replacement
+    finally:
+        colouriser = previous
 
 
 def as_colour( meaning, text ):

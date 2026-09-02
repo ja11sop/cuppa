@@ -5,12 +5,17 @@
  * -----
  * Wide console / JSON samples often overflow the content column. Without help,
  * readers only discover a horizontal scrollbar after scrolling the page to the
- * bottom of a tall block. This script wraps listing/literal <pre> elements so:
+ * bottom of a tall block. This script wraps listing/literal <pre> elements and
+ * semantic report samples (`pre.cuppa-output`) so:
  *
  *   - Horizontal overflow shows an inset fade + chevron (CSS).
  *   - Grab-drag pans left/right in the sample and up/down on the page.
  *   - Shift+wheel still pans horizontally via the native overflow-x scroller.
  *   - Hitting an edge gives a one-shot nudge + accent pulse (not a bounce loop).
+ *
+ * Later (see design/plans/antora-ui-bundle.md ui-scroll-snap): when already
+ * close to an edge, snap flush so readers need not overshoot into the bounce to
+ * know they have reached the left or right. Do not snap from mid-scroll.
  *
  * Non-goals / trade-offs
  * ----------------------
@@ -83,7 +88,8 @@
     if( !pre.closest( '.doc' ) ){
       return false;
     }
-    return Boolean( pre.closest( '.listingblock, .literalblock' ) );
+    return pre.classList.contains( 'cuppa-output' )
+        || Boolean( pre.closest( '.listingblock, .literalblock' ) );
   }
 
   /*
@@ -352,7 +358,9 @@
   }
 
   function init() {
-    document.querySelectorAll( '.doc .listingblock pre, .doc .literalblock pre' ).forEach( initPre );
+    document.querySelectorAll(
+            '.doc .listingblock pre, .doc .literalblock pre, .doc pre.cuppa-output'
+    ).forEach( initPre );
   }
 
   // Collapsed examples measure as zero width until opened — re-wrap / re-measure.
@@ -361,7 +369,9 @@
       if( !details.open ){
         return;
       }
-      details.querySelectorAll( '.listingblock pre, .literalblock pre' ).forEach( initPre );
+      details.querySelectorAll(
+              '.listingblock pre, .literalblock pre, pre.cuppa-output'
+      ).forEach( initPre );
       details.querySelectorAll( '.' + VIEWPORT ).forEach( function ( viewport ) {
         scheduleMeasure( viewport.closest( '.' + PANEL ), viewport );
       } );

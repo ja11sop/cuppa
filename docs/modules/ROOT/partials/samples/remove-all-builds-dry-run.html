@@ -1,0 +1,36 @@
+<pre class="cuppa-output"><code>Would remove build root <span class="cuppa-info">_build</span> (<span class="cuppa-emphasised">146.5K</span>)
+
+<span class="cuppa-subdued">  --------------------------------------------------------------------------------</span>
+      SIZE  LAST BUILD    BUILD FOLDER
+<span class="cuppa-subdued">  --------------------------------------------------------------------------------</span>
+<span class="cuppa-remove-notice">    146.5K  3 days ago    _build</span>
+  <span class="cuppa-emphasised">  146.5K</span>  3 days ago    <span class="cuppa-subdued">└── </span><span class="cuppa-emphasised">removed all 3 entries</span>
+<span class="cuppa-subdued">  --------------------------------------------------------------------------------</span>
+
+<span class="cuppa-subdued">  --------------------------------------------------------------------------------</span>
+      SIZE  LAST BUILD    BY TOOLCHAIN VARIANT
+<span class="cuppa-subdued">  --------------------------------------------------------------------------------</span>
+  <span class="cuppa-emphasised">  146.5K</span>  3 days ago    <span class="cuppa-subdued">└── </span><span class="cuppa-emphasised"><span class="cuppa-remove-notice">✔✔✔</span></span> <span class="cuppa-emphasised"><span class="cuppa-remove-notice">gcc15</span></span>
+     68.4K  3 days ago    <span class="cuppa-subdued">        ├── </span><span class="cuppa-remove-notice">✓✓✓</span> dbg/x86_64/cxx2c
+     78.1K  3 days ago    <span class="cuppa-subdued">        └── </span><span class="cuppa-remove-notice">✓✓✓</span> rel/x86_64/cxx2c
+<span class="cuppa-subdued">  --------------------------------------------------------------------------------</span>
+
+<span class="cuppa-subdued">  --------------------------------------------------------------------------------</span>
+      SIZE  REMOVED       BY SCONSCRIPT
+<span class="cuppa-subdued">  --------------------------------------------------------------------------------</span>
+  <span class="cuppa-emphasised">   19.5K</span>  <span class="cuppa-emphasised"><span class="cuppa-remove-notice">   ✔✔✔      </span></span>  <span class="cuppa-subdued">├── </span><span class="cuppa-emphasised"><span class="cuppa-remove-notice">lib</span></span>
+     19.5K  <span class="cuppa-remove-notice">   ✓✓✓      </span>  <span class="cuppa-subdued">│   └── </span>gcc15
+     19.5K  <span class="cuppa-remove-notice">    ✓       </span>  <span class="cuppa-subdued">│       └── </span>dbg/x86_64/cxx2c
+  <span class="cuppa-emphasised">    127K</span>  <span class="cuppa-emphasised"><span class="cuppa-remove-notice">   ✔✔✔      </span></span>  <span class="cuppa-subdued">└── </span><span class="cuppa-emphasised"><span class="cuppa-remove-notice">test</span></span>
+      127K  <span class="cuppa-remove-notice">   ✓✓✓      </span>  <span class="cuppa-subdued">    └── </span>gcc15
+     48.8K  <span class="cuppa-remove-notice">    ✓       </span>  <span class="cuppa-subdued">        ├── </span>dbg/x86_64/cxx2c
+     78.1K  <span class="cuppa-remove-notice">    ✓       </span>  <span class="cuppa-subdued">        └── </span>rel/x86_64/cxx2c
+<span class="cuppa-subdued">  --------------------------------------------------------------------------------</span>
+
+Would remove build root <span class="cuppa-info">_build</span> freeing up <span class="cuppa-emphasised">146.5K</span> of disk space.
+dry run (-n); nothing removed
+
+Verify with --list-builds:
+
+<span class="cuppa-emphasised">cuppa -D --list-builds</span>
+</code></pre>

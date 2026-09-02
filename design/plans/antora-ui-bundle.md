@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-antora-ui`); [#229](https://github.com/ja11sop/cuppa/issues/229); PR [#228](https://github.com/ja11sop/cuppa/pull/228); [`docs/playbook.yml`](../../docs/playbook.yml); supplemental UI [`docs/supplemental-ui/`](../../docs/supplemental-ui/); companions [`colourised-doc-samples.md`](colourised-doc-samples.md), [`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md)
-- **Updated:** 2026-08-26
+- **Updated:** 2026-09-02
 - **Impact:** none — site presentation only (unless a UI change breaks the docs CI build)
 
 ## Why
@@ -172,6 +172,7 @@ worktree build before it considers `page.editUrl`.
 | `ui-ci` | `docs` `npm run build` green | GitHub Pages deploy unchanged |
 | `ui-fork-spike` | Optional | Only if `ui-css` cannot reach nav/tables |
 | `ui-samples-tokens` | `--cuppa-*` used by colourised samples | Coordinate with `colourised-doc-samples.md` |
+| `ui-scroll-snap` | Near-edge snap to left/right on wide panels | Follow-on for `cuppa-scroll-panels.js`: when pan/wheel is close to an edge, snap flush so the fade/chevron can clear without requiring the resist bounce. Applies to every wrapped listing, JSON sample, and `pre.cuppa-output`, not only colourised reports. Do not snap from mid-scroll. |
 | `ui-mermaid` | Optional CSS vars | `doc-mermaid-theme` — not this PR |
 
 **First implementation PR:** `ui-css` (+ `ui-pin` in the same PR if small). `ui-audit` is this
@@ -186,6 +187,7 @@ plan update.
 | `ui-pin` | **Next** — keep separate until a stable default-bundle artifact or vendoring route is selected |
 | `ui-ci` | Local Antora build passes; verify Pages CI on [#228](https://github.com/ja11sop/cuppa/pull/228) |
 | `ui-fork-spike` | Deferred — supplemental pass reaches nav/tables without a fork |
+| `ui-scroll-snap` | **Deferred** — near-edge snap so fade/chevron can clear without the resist bounce; all wrapped wide views |
 
 ## Files
 

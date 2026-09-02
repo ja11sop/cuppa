@@ -29,7 +29,7 @@ Archive stems include `toolchain.package_name()`, so `--toolchain-identity=major
 (include vs omit) before failing, and logs every stem it attempted. Disable that with
 `--package-gitlab-identity-fallback=off`. Publish still emits one stem.
 
-Publish with `--package-gitlab-os-identity=omit` writes `{package}_{tool_variant}` (no OS
+Publish with `--package-gitlab-os-identity=omit` writes `\{package\}_\{tool_variant\}` (no OS
 segment). Consume prefers that shape when the same flag is set, and with fallback on also
 tries the include form after a `404`. An explicit `--package-gitlab-os-override` always
 looks up the include shape for that OS id.

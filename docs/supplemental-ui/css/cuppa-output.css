@@ -1,0 +1,74 @@
+/*
+ * Semantic Cuppa report samples.
+ *
+ * The HTML generator emits meaning classes rather than terminal ANSI. Colours
+ * consume the active documentation palette and therefore remain legible in
+ * both its light and dark schemes.
+ */
+
+.cuppa-output {
+  background: var(--cuppa-code-surface, #fafafa);
+  border: 1px solid var(--cuppa-border, #e9ecef);
+  border-radius: var(--cuppa-radius, 0.3rem);
+  color: var(--cuppa-text, #212529);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: var(--cuppa-code-size, 0.8rem);
+  line-height: 1.5;
+  overflow-x: auto;
+  padding: 0.85rem 1rem;
+  white-space: pre;
+}
+
+.cuppa-output .cuppa-info,
+.cuppa-output .cuppa-time {
+  --cuppa-output-meaning: var(--cuppa-note, #0284c7);
+  color: var(--cuppa-output-meaning);
+}
+
+.cuppa-output .cuppa-notice,
+.cuppa-output .cuppa-expected-failure {
+  --cuppa-output-meaning: var(--cuppa-accent, #769f7e);
+  color: var(--cuppa-output-meaning);
+}
+
+.cuppa-output .cuppa-warning,
+.cuppa-output .cuppa-remove-notice {
+  --cuppa-output-meaning: var(--cuppa-warning, #f97316);
+  color: var(--cuppa-output-meaning);
+}
+
+.cuppa-output .cuppa-error,
+.cuppa-output .cuppa-remove-error,
+.cuppa-output .cuppa-failure,
+.cuppa-output .cuppa-failed,
+.cuppa-output .cuppa-aborted {
+  --cuppa-output-meaning: var(--cuppa-important, #dc2626);
+  color: var(--cuppa-output-meaning);
+}
+
+.cuppa-output .cuppa-success,
+.cuppa-output .cuppa-passed,
+.cuppa-output .cuppa-unexpected-success {
+  --cuppa-output-meaning: var(--cuppa-tip, #16a34a);
+  color: var(--cuppa-output-meaning);
+}
+
+.cuppa-output .cuppa-skipped,
+.cuppa-output .cuppa-subdued {
+  --cuppa-output-meaning: var(--cuppa-text-muted, #6c757d);
+  color: var(--cuppa-output-meaning);
+}
+
+.cuppa-output .cuppa-emphasised {
+  font-weight: 700;
+}
+
+.cuppa-output .cuppa-label {
+  background: var(--cuppa-output-meaning, var(--cuppa-text, #212529));
+  border-radius: 0.2em;
+  box-decoration-break: clone;
+  color: var(--cuppa-page, #fff);
+  font-weight: 700;
+  padding: 0.05em 0.25em;
+  -webkit-box-decoration-break: clone;
+}
