@@ -84,6 +84,19 @@ def test_cxx_profiles_report_requires_profiles_active():
         activate_cxx_profiles_report( env )
 
 
+def test_get_options_without_cli_flag_registers_spawn_hook():
+    env = FakeEnv( {
+        'cxx_profiles_report': False,
+        'cxx_profiles_report_link_style': None,
+        'cxx_profiles_report_context': 'full',
+        'cxx_profiles_report_root': None,
+    } )
+    CollateCxxProfilesIndexMethod.get_options( env )
+    assert env[ 'cxx_profiles_report' ] is False
+    assert ProfilesDiagnosticCollector._session is None
+    assert ProfilesDiagnosticCollector._spawn_hook_registered is True
+
+
 def test_cli_get_options_still_activates_collector():
     env = FakeEnv( {
         'cxx_profiles_report': True,

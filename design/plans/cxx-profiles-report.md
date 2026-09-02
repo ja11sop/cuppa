@@ -996,6 +996,9 @@ That is a larger architectural change than a write-time filter and is deferred w
 | Session state | `cuppa/cpp/profiles_report_collector.py` | ``ProfilesReportSession.declaring_sconscripts``; ``activation_via_cli`` flag |
 | Filter + metrics | `cuppa/cpp/profiles_report/inventory.py`, `report_html.py`, `context_summary.py` | ``filter_inventory_for_index( inventory, declaring_set )``; rebuild model on filtered copy |
 | Notice | `cuppa/cpp/profiles_report_collector.py` | Warn after filter with omitted count + ``--cxx-profiles-report`` hint |
+| Nested ``-i`` | `cuppa/core/profiles_inventory_cli.py` | Scan nested ``*sconscript`` under the launch dir (skip ``_build`` / artefacts) so method-only Collate implies keep-going |
+| Inventory exit | `profiles_report_collector.py` | Force non-zero at ``sconstruct_end`` after the index write (not during SConstruct parse) |
+| Scoped SPAWN | `profiles_report_collector.py`, `cxx_profiles_report.py` | Register the env-ready spawn hook even without the CLI flag; rebind ``SPAWN`` on the Collate env so method-only captures keep ``sconscript_file`` (not ``_unscoped``) |
 | Tests | `tests/unit/`, `tests/integration/methods/test_cxx_profiles.py` | Two-sconscript project: one declarer → other scope captured but omitted from index + warning |
 | Docs | `cxx-profiles.adoc`, `report-introduction.adoc` | Method vs CLI scope; union of declarers; full-tree CLI escape hatch |
 

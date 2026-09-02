@@ -276,16 +276,24 @@ def test_finalize_inventory_session_exits_after_non_profile_tally( monkeypatch )
     ProfilesDiagnosticCollector.activate()
     ProfilesDiagnosticCollector.record_non_profile_error()
     exits = []
-    monkeypatch.setattr(
-        'SCons.Script.Exit',
-        lambda status: exits.append( status ),
-    )
+    monkeypatch.setattr( 'os._exit', lambda status: exits.append( status ) )
     monkeypatch.setattr(
         ProfilesDiagnosticCollector,
         'flush_pending',
         classmethod( lambda cls: False ),
     )
     ProfilesDiagnosticCollector.finalize_inventory_session()
+    assert exits == [ 1 ]
+
+
+def test_sconstruct_end_exits_after_non_profile_tally( monkeypatch ):
+    NotifyProgress.set_inventory_report_mode( True )
+    session = ProfilesDiagnosticCollector.activate()
+    ProfilesDiagnosticCollector.record_non_profile_error()
+    exits = []
+    monkeypatch.setattr( 'os._exit', lambda status: exits.append( status ) )
+    monkeypatch.setattr( session, '_emit_session_summary', lambda env: None )
+    session.on_progress( 'sconstruct_end', None, None, {}, None, None )
     assert exits == [ 1 ]
 
 
@@ -372,8 +380,12 @@ def test_spawn_processor_hook_skips_raw_output(monkeypatch):
         def get_option(self, name):
             return False
 
-    env = NormalEnv()
+    env = NormalEnv( { 'SPAWN': object(), 'cxx_profiles': True } )
     ProfilesDiagnosticCollector._rebind_spawn_processor(env)
+    assert calls == [env]
+
+    bare = NormalEnv( { 'cxx_profiles': True } )
+    ProfilesDiagnosticCollector._rebind_spawn_processor(bare)
     assert calls == [env]
 
 

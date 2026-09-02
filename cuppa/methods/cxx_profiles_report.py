@@ -171,6 +171,9 @@ class CollateCxxProfilesIndexMethod:
         if context_mode:
             env[ 'cxx_profiles_report_context' ] = context_mode
         if not enabled:
+            # Register before sconscript env_ready so method-only
+            # CollateCxxProfilesIndex() still gets a scoped SpawnedProcessor.
+            ProfilesDiagnosticCollector._register_spawn_processor_hook()
             return
         activate_cxx_profiles_report( env, via_cli=True )
 

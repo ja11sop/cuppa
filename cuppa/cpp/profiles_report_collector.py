@@ -165,6 +165,8 @@ class ProfilesReportSession(object):
         self._variant_completion.note_progress( progress, variant )
         if progress == 'sconstruct_end':
             self._emit_session_summary( env )
+            # Exit after the DAG, not from cuppa.run() during SConstruct parse.
+            ProfilesDiagnosticCollector.maybe_exit_for_non_profile_errors()
 
     def flush_pending( self, env, fallback_flush=False ):
         """Write the session index when capture is non-empty and not yet emitted."""
@@ -217,9 +219,15 @@ class ProfilesReportSession(object):
                 )
             )
         if index_inventory.total_references() == 0:
-            logger.info(
-                "C++ Profiles report: no violations captured"
-            )
+            if scope_filter:
+                logger.info(
+                    "C++ Profiles report: no violations remain after applying "
+                    "the sconscript scope filter"
+                )
+            else:
+                logger.info(
+                    "C++ Profiles report: no violations captured"
+                )
             return
         logger.info(
             "C++ Profiles report capture summary:\n{}".format(
@@ -273,18 +281,37 @@ class ProfilesDiagnosticCollector(object):
                 cls._register_spawn_processor_hook()
             if cls._activation_via_cli:
                 cls._session.activation_via_cli = True
-            return cls._session
+        # Method-only Collate runs during SConscript, after env_ready. Rebind
+        # this env so SpawnedProcessor sees sconscript_file (not _unscoped).
+        if report_env is not None:
+            cls._rebind_spawn_processor( report_env )
+        return cls._session
+
+    @classmethod
+    def maybe_exit_for_non_profile_errors( cls ):
+        """Terminate the SCons process when inventory captured ordinary errors.
+
+        Inventory keep-going (``-i``) makes SCons treat ``Script.Exit`` and
+        ``SystemExit`` from ``sconstruct_end`` as a failed action and continue.
+        ``os._exit`` ends the process after the session index is written.
+        """
+        exit_status = cls.inventory_process_exit_status()
+        if exit_status:
+            import logging
+            import os
+            import sys
+            logging.shutdown()
+            sys.stdout.flush()
+            sys.stderr.flush()
+            os._exit( exit_status )
 
     @classmethod
     def finalize_inventory_session( cls ):
-        """Fallback flush and selective exit after the build DAG completes."""
+        """Fallback flush after SConstruct parse; exit is deferred to sconstruct_end."""
         if not NotifyProgress.inventory_report_mode():
             return
         cls.flush_pending()
-        exit_status = cls.inventory_process_exit_status()
-        if exit_status:
-            import SCons.Script
-            SCons.Script.Exit( exit_status )
+        cls.maybe_exit_for_non_profile_errors()
 
     @classmethod
     def inventory_process_exit_status( cls ):
@@ -362,7 +389,20 @@ class ProfilesDiagnosticCollector(object):
 
     @classmethod
     def _rebind_spawn_processor( cls, env ):
+        if not hasattr( env, 'get' ):
+            return
         if hasattr( env, 'get_option' ) and env.get_option( 'raw_output' ):
+            return
+        # Construction envs always have SPAWN/PSPAWN; unit-test dicts do not.
+        if env.get( 'SPAWN' ) is None and env.get( 'PSPAWN' ) is None:
+            return
+        # Scoped SPAWN is needed whenever Profiles may capture, including
+        # method-only Collate (report flag is not set yet at env_ready).
+        if not (
+                env.get( 'cxx_profiles' )
+                or env.get( 'cxx_profiles_enforce' )
+                or env.get( 'cxx_profiles_report' )
+        ):
             return
         import cuppa.output_processor
         cuppa.output_processor.Processor.install( env )

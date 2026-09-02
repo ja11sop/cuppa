@@ -43,7 +43,7 @@ Cycle opened with [#212](https://github.com/ja11sop/cuppa/pull/212) / [#214](htt
 | Compile object paths under `working/` (nested basenames) | [#213](https://github.com/ja11sop/cuppa/issues/213) / [#214](https://github.com/ja11sop/cuppa/pull/214) |
 | Profiles report fixes (inventory Progress ordering, link style, source links) | [#214](https://github.com/ja11sop/cuppa/pull/214); [#215](https://github.com/ja11sop/cuppa/issues/215) |
 
-**Deferred to 1.8.2+:** console bundle (`--terse-output`, log hygiene, `cuppa --info` — see plans under Build console output); `prof-report-scope-filter` ([#205](https://github.com/ja11sop/cuppa/issues/205)); Boost package identity slices ([`boost-updates.md`](design/plans/boost-updates.md)); GitLab CMake staging ([#209](https://github.com/ja11sop/cuppa/issues/209)); optional `--native-output`; docs-only Antora UI / methods split; **sconscript export/sharing** ([`sconscript-exports.md`](design/plans/sconscript-exports.md)); CMake migration guide ([`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md)).
+**Deferred to 1.8.2+:** console bundle (`--terse-output`, log hygiene, `cuppa --info` — see plans under Build console output); Boost package identity slices ([`boost-updates.md`](design/plans/boost-updates.md)); GitLab CMake staging ([#209](https://github.com/ja11sop/cuppa/issues/209)); optional `--native-output`; docs-only Antora UI / methods split; **sconscript export/sharing** ([`sconscript-exports.md`](design/plans/sconscript-exports.md)); CMake migration guide ([`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md)).
 
 ---
 

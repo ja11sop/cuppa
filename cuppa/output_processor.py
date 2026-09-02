@@ -328,6 +328,19 @@ class Processor:
 
 
 
+_KEEP_GOING_CASCADE_RE = re.compile(
+    r'no such file or directory',
+    re.IGNORECASE,
+)
+
+
+def _is_keep_going_cascade_error( line ):
+    """True for link errors that only exist because ``-i`` kept going after a failed compile."""
+    if not line:
+        return False
+    return bool( _KEEP_GOING_CASCADE_RE.search( line ) )
+
+
 class SpawnedProcessor(object):
 
     def __init__( self, scons_env ):
@@ -363,6 +376,7 @@ class ToolchainProcessor:
         self.ignore_current_message = False
         self._profile_violation_lines_seen = False
         self._non_profile_errors_tallied = 0
+        self._cascade_link_error = False
 
 
     def filtered_duplicate( self, line, existing_messages ):
@@ -401,6 +415,8 @@ class ToolchainProcessor:
 
         inventory_mode = self._inventory_report_mode()
         profile_diagnostic = None
+        if inventory_mode and _is_keep_going_cascade_error( line ):
+            self._cascade_link_error = True
 
         if self._profiles_scope is not None:
             if ProfilesDiagnosticCollector.record_line( self._profiles_scope, line ):
@@ -428,8 +444,11 @@ class ToolchainProcessor:
                 profile_error_id = ProfilesDiagnosticCollector.next_profile_display_error_id()
                 self.errors -= 1
             elif inventory_mode and meaning == 'error':
-                ProfilesDiagnosticCollector.record_non_profile_error()
-                self._non_profile_errors_tallied += 1
+                if _is_keep_going_cascade_error( line ):
+                    self._cascade_link_error = True
+                else:
+                    ProfilesDiagnosticCollector.record_non_profile_error()
+                    self._non_profile_errors_tallied += 1
 
             if profile_inventory_error:
                 colour_meaning = 'warning'
@@ -524,6 +543,7 @@ class ToolchainProcessor:
             and not self._profile_violation_lines_seen
             and self._non_profile_errors_tallied == 0
             and self.errors == 0
+            and not self._cascade_link_error
         ):
             ProfilesDiagnosticCollector.record_non_profile_error()
 

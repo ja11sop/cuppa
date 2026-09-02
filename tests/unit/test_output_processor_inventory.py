@@ -107,7 +107,20 @@ def test_inventory_mode_tallies_non_profile_errors():
     assert ProfilesDiagnosticCollector.active().non_profile_error_count() == 1
 
 
-def test_inventory_mode_exit_status_is_none_for_profile_only():
+def test_inventory_mode_ignores_keep_going_missing_object_link():
+    NotifyProgress.set_inventory_report_mode( True )
+    ProfilesDiagnosticCollector.activate()
+
+    processor = _processor()
+    output = processor(
+        "clang++: error: no such file or directory: "
+        "'_build/clang/dbg/working/main.o'"
+    )
+
+    assert output is not None
+    processor.summary( 1 )
+    assert ProfilesDiagnosticCollector.active().non_profile_error_count() == 0
+    assert ProfilesDiagnosticCollector.inventory_process_exit_status() is None
     NotifyProgress.set_inventory_report_mode( True )
     ProfilesDiagnosticCollector.activate()
 

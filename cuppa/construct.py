@@ -653,6 +653,7 @@ class Construct(object):
         if not help and not self._configure.handle_conf_only():
             self.build( cuppa_env )
             from cuppa.cpp.profiles_report_collector import ProfilesDiagnosticCollector
+            # Parse-time fallback flush only; non-profile Exit runs at sconstruct_end.
             ProfilesDiagnosticCollector.finalize_inventory_session()
 
         if self._configure.handle_conf_only():

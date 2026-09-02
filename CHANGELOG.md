@@ -178,6 +178,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Method-only ``CollateCxxProfilesIndex()`` rebinds the sconscript ``SPAWN``
+  processor (and registers the env-ready hook even without
+  ``--cxx-profiles-report``) so captured diagnostics keep the declaring
+  sconscript path. Unscoped captures were dropped by the #205 index filter and
+  the session HTML was not written.
+- Profiles inventory keep-going (``-i``) is implied when
+  ``CollateCxxProfilesIndex()`` appears in a nested sconscript, not only a
+  top-level ``sconscript`` or ``--scripts=`` path ([#205](https://github.com/ja11sop/cuppa/issues/205)).
+- Inventory mode forces a non-zero exit for ordinary compile errors at
+  ``sconstruct_end`` (after the session index is written), using ``os._exit``
+  because SCons ``-i`` swallows ``Script.Exit`` / ``SystemExit``. Linker
+  ``no such file`` lines from keep-going after a failed compile are not
+  counted as ordinary errors. Exit from ``cuppa.run()`` ran during SConstruct
+  parse, before any compile.
 - ``GitlabPackagePublisher`` skips the package staging directory (and stamps /
   archives) when copying ``source_lib_dir`` from ``abs_final_dir``, so staging
   cannot nest into itself.
