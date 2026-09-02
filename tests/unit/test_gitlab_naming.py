@@ -1,9 +1,12 @@
+import os
 from types import SimpleNamespace
 
 import pytest
 
 from cuppa.package_managers.gitlab import (
     GitlabPackageDependency,
+    consume_package_file_stems,
+    download_first_available_package,
     os_release_id,
     package_archive_extension,
     package_archive_extensions,
@@ -144,3 +147,146 @@ def test_parse_pkg_config_runs_when_not_cleaning(tmp_path):
     dependency.parse_pkg_config(["widget_kms"])
     assert len(dependency._env.parsed) == 1
     assert "widget_kms" in dependency._env.parsed[0]
+
+
+def _lookup_env( package_name="gcc153", os_override=None, fallback=None ):
+    class Env( dict ):
+        def get_option( self, key, default=None ):
+            return self.get( key, default )
+
+    toolchain = SimpleNamespace(
+        package_name=lambda: package_name,
+        family=lambda: "gcc",
+        _reported_version={ "major": 15, "minor": 3 },
+        _name=package_name,
+    )
+    env = Env(
+        toolchain=toolchain,
+        variant=SimpleNamespace( name=lambda: "rel" ),
+        target_arch="x86_64",
+        abi="cxx2c",
+    )
+    if os_override is not None:
+        env["package_gitlab_os_override"] = os_override
+    if fallback is not None:
+        env["package_gitlab_identity_fallback"] = fallback
+    return env
+
+
+def test_consume_stems_host_os_and_identity_pair( monkeypatch ):
+    monkeypatch.setattr(
+        "cuppa.package_managers.gitlab.platform.freedesktop_os_release",
+        lambda: { "ID": "ubuntu" },
+    )
+    monkeypatch.setattr(
+        "cuppa.package_managers.gitlab.platform.system",
+        lambda: "Linux",
+    )
+    env = _lookup_env()
+    stems = consume_package_file_stems( env, package="widget", variant="rel" )
+    assert stems == [
+        "widget_ubuntu_gcc153_rel_x86_64_cxx2c",
+        "widget_ubuntu_gcc15_rel_x86_64_cxx2c",
+    ]
+
+
+def test_consume_stems_os_override_and_explicit_toolchain( monkeypatch ):
+    monkeypatch.setattr(
+        "cuppa.package_managers.gitlab.platform.freedesktop_os_release",
+        lambda: { "ID": "ubuntu" },
+    )
+    monkeypatch.setattr(
+        "cuppa.package_managers.gitlab.platform.system",
+        lambda: "Linux",
+    )
+    env = _lookup_env( os_override="debian" )
+    stems = consume_package_file_stems( env, package="widget", variant="rel" )
+    assert stems[0].startswith( "widget_debian_" )
+    stems = consume_package_file_stems(
+            env, package="widget", variant="rel", package_os="fedora"
+    )
+    assert stems[0] == "widget_fedora_gcc153_rel_x86_64_cxx2c"
+    stems = consume_package_file_stems(
+            env, package="widget", variant="rel", package_toolchain="gcc152"
+    )
+    assert stems == [
+        "widget_debian_gcc152_rel_x86_64_cxx2c",
+        "widget_debian_gcc15_rel_x86_64_cxx2c",
+    ]
+
+
+def test_consume_stems_fallback_off( monkeypatch ):
+    monkeypatch.setattr(
+        "cuppa.package_managers.gitlab.platform.freedesktop_os_release",
+        lambda: { "ID": "debian" },
+    )
+    env = _lookup_env( fallback="off" )
+    stems = consume_package_file_stems( env, package="widget", variant="rel" )
+    assert stems == [ "widget_debian_gcc153_rel_x86_64_cxx2c" ]
+
+
+def test_download_first_skips_404_then_succeeds( tmp_path ):
+    from cuppa.utility.download import DownloadError
+
+    calls = []
+
+    def fake_download( url, dest, custom_token=None, label=None ):
+        calls.append( url )
+        if "gcc153" in url:
+            raise DownloadError( "missing", http_status=404 )
+        with open( dest, "wb" ) as handle:
+            handle.write( b"ok" )
+        return dest
+
+    candidates = [
+        ( "s153", "widget_gcc153.tar.gz", "https://example/widget_gcc153.tar.gz", "gcc153" ),
+        ( "s15", "widget_gcc15.tar.gz", "https://example/widget_gcc15.tar.gz", "gcc15" ),
+    ]
+    dest, filename, stem = download_first_available_package(
+            candidates, str( tmp_path ), download=fake_download
+    )
+    assert filename == "widget_gcc15.tar.gz"
+    assert stem == "s15"
+    assert os.path.isfile( dest )
+    assert len( calls ) == 2
+
+
+def test_download_first_does_not_fallback_on_forbidden( tmp_path ):
+    from cuppa.utility.download import DownloadError
+
+    calls = []
+
+    def fake_download( url, dest, custom_token=None, label=None ):
+        calls.append( url )
+        raise DownloadError( "denied", http_status=403 )
+
+    candidates = [
+        ( "s153", "widget_gcc153.tar.gz", "https://example/widget_gcc153.tar.gz", "gcc153" ),
+        ( "s15", "widget_gcc15.tar.gz", "https://example/widget_gcc15.tar.gz", "gcc15" ),
+    ]
+    with pytest.raises( DownloadError ) as caught:
+        download_first_available_package(
+                candidates, str( tmp_path ), download=fake_download
+        )
+    assert "widget_gcc153.tar.gz" in str( caught.value.parameter )
+    assert "widget_gcc15.tar.gz" not in str( caught.value.parameter )
+    assert calls == [ "https://example/widget_gcc153.tar.gz" ]
+
+
+def test_download_first_lists_stems_when_all_404( tmp_path ):
+    from cuppa.utility.download import DownloadError
+
+    def fake_download( url, dest, custom_token=None, label=None ):
+        raise DownloadError( "missing", http_status=404 )
+
+    candidates = [
+        ( "s153", "widget_gcc153.tar.gz", "https://example/widget_gcc153.tar.gz", "gcc153" ),
+        ( "s15", "widget_gcc15.tar.gz", "https://example/widget_gcc15.tar.gz", "gcc15" ),
+    ]
+    with pytest.raises( DownloadError ) as caught:
+        download_first_available_package(
+                candidates, str( tmp_path ), download=fake_download
+        )
+    message = str( caught.value.parameter )
+    assert "widget_gcc153.tar.gz" in message
+    assert "widget_gcc15.tar.gz" in message

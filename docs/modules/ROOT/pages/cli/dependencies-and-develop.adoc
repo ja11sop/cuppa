@@ -112,6 +112,22 @@ also registers this family:
 | `--<name>-gitlab-custom-token=TOKEN` | Package-specific registry credential
 |===
 
+== Package lookup (all GitLab packages)
+
+These flags apply to consume, not publish. A `404` on the preferred stem retries the other
+toolchain identity (full vs major) unless fallback is off. See
+xref:dependencies/gitlab.adoc#consume-overrides[GitLab lookup overrides].
+
+[cols="3,4"]
+|===
+| Option | Meaning
+
+| `--package-gitlab-os-override=ID` | OS segment for every GitLab package
+| `--package-gitlab-os-override-<name>=ID` | OS segment for one named dependency; takes precedence over the project-wide override
+| `--package-gitlab-toolchain-override-<name>=TOKEN` | Toolchain token for one named dependency (`gcc152` or `gcc15`)
+| `--package-gitlab-identity-fallback=on\|off` | Dual-stem `404` retry (default `on`)
+|===
+
 Prefer `GITLAB_REGISTRY_TOKEN` or `CI_JOB_TOKEN` when one credential serves the registry. The
 wrapper masks environment values whose names contain `TOKEN`, but credentials should never be
 written to tracked configuration.

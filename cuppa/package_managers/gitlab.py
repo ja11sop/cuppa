@@ -35,9 +35,12 @@ def remove_suffix( text, suffix ):
     return text
 
 
-def tool_variant( env, variant=None ):
+def tool_variant( env, variant=None, toolchain_token=None ):
+    token = toolchain_token
+    if token is None:
+        token = env['toolchain'].package_name()
     return "{toolchain}_{variant}_{arch}_{abi}".format(
-            toolchain = env['toolchain'].package_name(),
+            toolchain = token,
             variant = variant and variant or env['variant'].name(),
             arch = env['target_arch'],
             abi = env['abi']
@@ -75,17 +78,32 @@ def package_archive_extensions():
     return preferred, alternate
 
 
-def package_file_stem( env, package=None, variant=None ):
+def package_file_stem( env, package=None, variant=None, system=None, toolchain_token=None ):
     """Basename without archive extension: ``{package}_{os}_{tool_variant}``."""
+    if system is None:
+        system = os_release_id()
     return "{package}_{system}_{build_name}".format(
             package    = str(package),
-            system     = os_release_id(),
-            build_name = tool_variant( env, variant )
+            system     = system,
+            build_name = tool_variant( env, variant, toolchain_token=toolchain_token )
     )
 
 
-def package_file_name( env, package=None, variant=None, target_dir=None ):
-    name = package_file_stem( env, package=package, variant=variant ) + package_archive_extension()
+def package_file_name(
+        env,
+        package=None,
+        variant=None,
+        target_dir=None,
+        system=None,
+        toolchain_token=None
+):
+    name = package_file_stem(
+            env,
+            package=package,
+            variant=variant,
+            system=system,
+            toolchain_token=toolchain_token,
+    ) + package_archive_extension()
     if target_dir:
         return os.path.join( target_dir, name )
     return name
@@ -193,12 +211,182 @@ def extract_package_archive( archive_path, extraction_dir ):
         return 1
 
 
-def package_url( env, registry=None, package=None, version=None, variant=None ):
+def package_url(
+        env,
+        registry=None,
+        package=None,
+        version=None,
+        variant=None,
+        system=None,
+        toolchain_token=None
+):
     return "{registry}/packages/generic/{package}/{version}/{package_file}".format(
             registry = str(registry),
             package = str(package),
             version = str(version),
-            package_file = package_file_name( env, package=package, variant=variant )
+            package_file = package_file_name(
+                    env,
+                    package=package,
+                    variant=variant,
+                    system=system,
+                    toolchain_token=toolchain_token,
+            )
+    )
+
+
+def consume_os_id( env, package_os=None ):
+    """OS segment: per-dep, then ``--package-gitlab-os-override``, then host."""
+    from cuppa.toolchains.identity import option_text, package_os_override
+    explicit = option_text( package_os )
+    if explicit:
+        return explicit
+    project = package_os_override( env )
+    if project:
+        return project
+    return os_release_id()
+
+
+def consume_toolchain_tokens( env, package_toolchain=None, fallback=None ):
+    """Ordered toolchain tokens for GitLab lookup (preferred, then full↔major)."""
+    from cuppa.toolchains.identity import (
+        option_text,
+        package_identity_fallback_enabled,
+        paired_package_tokens,
+    )
+    if fallback is None:
+        fallback = package_identity_fallback_enabled( env )
+    explicit = option_text( package_toolchain )
+    preferred = explicit or env['toolchain'].package_name()
+    if not fallback:
+        return [ preferred ]
+    return paired_package_tokens( preferred, env.get( 'toolchain' ) )
+
+
+def consume_package_file_stems(
+        env,
+        package=None,
+        variant=None,
+        package_os=None,
+        package_toolchain=None,
+        fallback=None
+):
+    """Lookup stems in resolution order (OS override applied; dual identity when enabled)."""
+    system = consume_os_id( env, package_os )
+    tokens = consume_toolchain_tokens(
+            env,
+            package_toolchain=package_toolchain,
+            fallback=fallback,
+    )
+    return [
+        package_file_stem(
+                env,
+                package=package,
+                variant=variant,
+                system=system,
+                toolchain_token=token,
+        )
+        for token in tokens
+    ]
+
+
+def consume_archive_candidates(
+        env,
+        registry=None,
+        package=None,
+        version=None,
+        variant=None,
+        package_os=None,
+        package_toolchain=None,
+        fallback=None
+):
+    """``(stem, filename, url, toolchain_token)`` tuples for consume lookup."""
+    system = consume_os_id( env, package_os )
+    tokens = consume_toolchain_tokens(
+            env,
+            package_toolchain=package_toolchain,
+            fallback=fallback,
+    )
+    candidates = []
+    for token in tokens:
+        stem = package_file_stem(
+                env,
+                package=package,
+                variant=variant,
+                system=system,
+                toolchain_token=token,
+        )
+        filename = stem + package_archive_extension()
+        url = package_url(
+                env,
+                registry=registry,
+                package=package,
+                version=version,
+                variant=variant,
+                system=system,
+                toolchain_token=token,
+        )
+        candidates.append( ( stem, filename, url, token ) )
+    return candidates
+
+
+def resolve_cached_consume_archive( directory, stems ):
+    """First existing archive among consume stems, preferring each stem's platform extension."""
+    for stem in stems:
+        existing = resolve_existing_package_archive( directory, stem )
+        if existing:
+            return existing, stem
+    return None, None
+
+
+def download_first_available_package(
+        candidates,
+        dest_dir,
+        custom_token=None,
+        download=None,
+        log_id=None,
+):
+    """Download the first candidate that exists; skip 404s until the list is exhausted.
+
+    ``candidates`` is a sequence of ``(stem, filename, url, token)``.
+    Returns ``(dest_path, filename, stem)``. Raises ``DownloadError`` when none succeed.
+    """
+    from cuppa.utility.download import DownloadError, is_http_not_found
+    if download is None:
+        download = download_registry_package
+    tried = []
+    last_error = None
+    last_index = len( candidates ) - 1
+    for index, item in enumerate( candidates ):
+        stem, filename, url, _token = item
+        dest_path = os.path.join( dest_dir, filename )
+        tried.append( filename )
+        logger.info( "Downloading package archive [{}]{}...".format(
+                as_info( filename ),
+                " for [{}]".format( as_info( log_id ) ) if log_id else "",
+        ) )
+        try:
+            download(
+                    url,
+                    dest_path,
+                    custom_token=custom_token,
+                    label=filename,
+            )
+            return dest_path, filename, stem
+        except DownloadError as error:
+            last_error = error
+            if is_http_not_found( error ) and index < last_index:
+                logger.info(
+                    "Archive [{}] was not in the registry (404); trying the next identity stem.".format(
+                            as_info( filename )
+                    )
+                )
+                continue
+            break
+    names = ", ".join( tried )
+    detail = last_error.parameter if last_error is not None else "no candidates"
+    raise DownloadError(
+        "Failed to download any of [{}]: {}".format( names, detail ),
+        http_status=getattr( last_error, 'http_status', None ),
     )
 
 
@@ -429,11 +617,19 @@ class GitlabPackageInstaller:
         else:
             self._target_dir = str(target_dir)
 
-        package_file = package_file_name( env, package=package, variant=variant )
-        stem = package_file_stem( env, package=package, variant=variant )
-        # package_variant_dir = remove_prefix( package_file, package + "_" ).split(".")[0]
-        preferred_target = os.path.join( self._target_dir, package_file )
-        existing = resolve_existing_package_archive( self._target_dir, stem )
+        self._candidates = consume_archive_candidates(
+                env,
+                registry=registry,
+                package=package,
+                version=version,
+                variant=variant,
+        )
+        stems = [ item[0] for item in self._candidates ]
+        preferred_file = self._candidates[0][1] if self._candidates else package_file_name(
+                env, package=package, variant=variant
+        )
+        preferred_target = os.path.join( self._target_dir, preferred_file )
+        existing, _stem = resolve_cached_consume_archive( self._target_dir, stems )
         self._download_target = existing or preferred_target
         download_dir = os.path.split( self._download_target )[0]
         self._extraction_dir = os.path.join( download_dir, tool_variant( env, variant=variant ) )
@@ -453,27 +649,22 @@ class GitlabPackageInstaller:
         if not os.path.exists( self._extraction_dir ):
             os.makedirs( self._extraction_dir )
 
-        self._package_url = package_url(
-                env, registry=registry, package=package, version=version, variant=variant
-        )
         self._custom_token = custom_token
-        self._package_file = package_file
+        self._package_file = os.path.basename( self._download_target )
 
 
     def __call__( self, target, source, env ):
 
         if not os.path.exists( self._download_target ):
             from cuppa.utility.download import DownloadError
-            logger.info( "Downloading package archive [{}] from registry...".format(
-                    as_info( self._package_file )
-            ) )
             try:
-                download_registry_package(
-                        self._package_url,
-                        self._download_target,
+                dest, filename, _stem = download_first_available_package(
+                        self._candidates,
+                        self._target_dir,
                         custom_token=self._custom_token,
-                        label=self._package_file,
                 )
+                self._download_target = dest
+                self._package_file = filename
             except DownloadError as error:
                 logger.error( "Failed to download [{}]: {}".format(
                         as_error( self._package_file ),
@@ -578,27 +769,51 @@ class GitlabPackageDependency:
         "library-prefix" : { "help": "package library prefix that can be used (or omitted) when referencing libs from the package", },
         "pkg-config-dir" : { "help": "package pkg-config folder to use to find pc files", },
         "develop"        : { "help": "local package to build against when in develop mode", },
-        "custom-token"   : { "help": "custom token that should be used to authenticate with the registry", }
+        "custom-token"   : { "help": "custom token that should be used to authenticate with the registry", },
+        "os-override"    : {
+            "help": "OS segment override for registry lookup (does not change published stems)",
+            "scope": "package-manager-override",
+        },
+        "toolchain-override": {
+            "help": "toolchain token override for registry lookup (for example gcc152 or gcc15)",
+            "scope": "package-manager-override",
+        },
     }
+
+    @classmethod
+    def option_id( cls, manager, name, option, attributes=None ):
+        """Return the registered option id.
+
+        Existing package settings retain ``<name>-<manager>-<setting>``. Loud
+        consume overrides reserve ``package-<manager>-<override>-<name>`` so a
+        project-supplied dependency name cannot occupy the leading namespace.
+        """
+        attributes = attributes or {}
+        if attributes.get( 'scope' ) == 'package-manager-override':
+            return "-".join( [ "package", manager, option, name ] )
+        return "-".join( [ name, manager, option ] )
 
 
     class add_option_factory:
 
         def __init__( self, manager, name, add_option ):
-            self._id = "-".join( [ name, manager ] )
+            self._manager = manager
+            self._name = name
             self._add_option = add_option
 
-        def option_id( self, option ):
-            return "-".join( [ self._id, option ] )
-
-        def __call__( self, option, help_string ):
+        def __call__( self, option, attributes ):
+            option_id = GitlabPackageDependency.option_id(
+                    self._manager, self._name, option, attributes
+            )
             self._add_option(
-                    '--' + self.option_id( option ),
-                    dest   = self.option_id( option ),
+                    '--' + option_id,
+                    dest   = option_id,
                     type   = 'string',
                     nargs  = 1,
                     action = 'store',
-                    help   = " ".join( [ self._id, help_string ] )
+                    help   = " ".join( [
+                        "package", self._manager, self._name, attributes['help']
+                    ] )
             )
 
 
@@ -606,8 +821,7 @@ class GitlabPackageDependency:
     def add_options( cls, manager, name, add_option ):
         AddOption = cls.add_option_factory( manager, name, add_option )
         for option, attributes in cls._options.items():
-            AddOption( option, attributes['help'] )
-            attributes['id'] = AddOption.option_id( option )
+            AddOption( option, attributes )
 
 
     @classmethod
@@ -628,16 +842,18 @@ class GitlabPackageDependency:
     @classmethod
     def package_id( cls, package, env ):
 
+        manager = getattr( package, '_package_manager', 'gitlab' )
+        name = getattr( package, '_name', None ) or getattr( package, '_package', None )
         for option, attributes in cls._options.items():
-            if 'id' in attributes:
-                logger.trace( "Getting option for [{}]".format( as_notice(attributes['id']) ) )
-                env_option = env.get_option( attributes['id'] )
-                if env_option:
-                    logger.trace( "Setting option for [{}] to [{}]".format(
-                            as_notice(attributes['id']),
-                            as_info(str(env_option))
-                    ) )
-                    setattr( package, cls._member(option), env_option )
+            option_id = cls.option_id( manager, name, option, attributes )
+            logger.trace( "Getting option for [{}]".format( as_notice(option_id) ) )
+            env_option = env.get_option( option_id )
+            if env_option:
+                logger.trace( "Setting option for [{}] to [{}]".format(
+                        as_notice(option_id),
+                        as_info(str(env_option))
+                ) )
+                setattr( package, cls._member(option), env_option )
 
         if not package._variant:
             package._variant = "rel"
@@ -653,6 +869,12 @@ class GitlabPackageDependency:
         except ( KeyError, AttributeError, TypeError ):
             build_id = None
 
+        from cuppa.toolchains.identity import (
+            option_text,
+            package_identity_fallback_enabled,
+            package_os_override,
+        )
+
         identity = (
             package._registry,
             package._package,
@@ -660,6 +882,10 @@ class GitlabPackageDependency:
             package._variant,
             use_develop,
             build_id,
+            option_text( getattr( package, '_os_override', None ) ),
+            option_text( getattr( package, '_toolchain_override', None ) ),
+            package_os_override( env ),
+            package_identity_fallback_enabled( env ),
         )
 
         short_id = cls._id( package._package, package._version, package._variant )
@@ -688,8 +914,14 @@ class GitlabPackageDependency:
             library_prefix=None,
             pkg_config_dir=None,
             custom_token=None,
-            develop=None
+            develop=None,
+            os_override=None,
+            toolchain_override=None
         ):
+
+        from cuppa.toolchains.identity import option_text
+        self._os_override = option_text( os_override )
+        self._toolchain_override = option_text( toolchain_override )
 
         self._cuppa_env = cuppa_env
         self._env = None
@@ -719,11 +951,23 @@ class GitlabPackageDependency:
         cuppa.core.storage_options.report_roots( cuppa_env )
 
         cache_dir = os.path.join( cuppa_env['downloads_root'], 'packages', package, version )
-        package_file = package_file_name( cuppa_env, package=package, variant=variant )
-        stem = package_file_stem( cuppa_env, package=package, variant=variant )
-        preferred_target = os.path.join( cache_dir, package_file )
-        existing = resolve_existing_package_archive( cache_dir, stem )
+        candidates = consume_archive_candidates(
+                cuppa_env,
+                registry=registry,
+                package=package,
+                version=self.version(),
+                variant=self._variant,
+                package_os=self._os_override,
+                package_toolchain=self._toolchain_override,
+        )
+        stems = [ item[0] for item in candidates ]
+        preferred_file = candidates[0][1] if candidates else package_file_name(
+                cuppa_env, package=package, variant=self._variant
+        )
+        preferred_target = os.path.join( cache_dir, preferred_file )
+        existing, _existing_stem = resolve_cached_consume_archive( cache_dir, stems )
         self._download_target = existing or preferred_target
+        package_file = os.path.basename( self._download_target )
 
         extraction_root = cuppa_env['dependencies_root']
         if not os.path.isabs( extraction_root ):
@@ -765,48 +1009,41 @@ class GitlabPackageDependency:
         if not os.path.exists( self._extraction_dir ):
             os.makedirs( self._extraction_dir )
 
-        # Prefer an already-cached alternate extension (e.g. legacy Windows .tar.gz).
-        existing = resolve_existing_package_archive( cache_dir, stem )
+        # Prefer an already-cached alternate extension or identity stem.
+        existing, _existing_stem = resolve_cached_consume_archive( cache_dir, stems )
         if existing:
             self._download_target = existing
             package_file = os.path.basename( existing )
 
-        package_location = package_url(
-                cuppa_env,
-                registry=registry,
-                package=package,
-                version=self.version(),
-                variant=variant,
-        )
-
         # The package file doesn't exist so lets attempt to download it
         if not self._offline:
             if not os.path.exists( self._download_target ):
-                # Download the preferred platform name into cache_dir.
-                self._download_target = preferred_target
-                package_file = os.path.basename( preferred_target )
                 if not os.path.isdir( cache_dir ):
                     os.makedirs( cache_dir )
                 from cuppa.utility.download import DownloadError
-                logger.info( "Downloading package [{}] from [{}] as archive [{}]...".format(
+                logger.info( "Downloading package [{}] from [{}] (stems [{}])...".format(
                         as_info( self._package_id ),
                         as_notice( registry ),
-                        as_info( package_file )
+                        as_info( ", ".join( stems ) )
                 ) )
                 try:
-                    download_registry_package(
-                            package_location,
-                            self._download_target,
+                    dest, package_file, _stem = download_first_available_package(
+                            candidates,
+                            cache_dir,
                             custom_token=custom_token,
-                            label=package_file,
+                            log_id=self._package_id,
                     )
+                    self._download_target = dest
                 except DownloadError as error:
-                    logger.error( "Downloading package archive [{}] failed: {}".format(
-                            as_error( package_file ),
+                    logger.error( "Downloading package archives [{}] failed: {}".format(
+                            as_error( ", ".join( stems ) ),
                             as_error( str( error.parameter ) ),
                     ) )
                     raise GitlabPackageDependencyException(
-                        "Failed to download [{}]: {}".format( package_file, error.parameter )
+                        "Failed to download [{}]: {}".format(
+                                ", ".join( stems ),
+                                error.parameter,
+                        )
                     )
                 logger.info( "Package archive [{}] downloaded successfully for package [{}] from [{}]".format(
                         as_info( package_file ),

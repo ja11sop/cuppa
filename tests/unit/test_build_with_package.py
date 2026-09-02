@@ -95,3 +95,55 @@ def test_package_id_includes_tool_variant_per_toolchain():
     assert gcc_id[5] == "gcc153_rel_x86_64_cxx2c"
     assert clang_id[5] == "clang211_rel_x86_64_cxx2c"
     assert gcc_id != clang_id
+
+
+def test_gitlab_override_options_use_reserved_package_namespace():
+    registered = []
+
+    def add_option(flag, **attributes):
+        registered.append((flag, attributes["dest"]))
+
+    GitlabPackageDependency.add_options("gitlab", "widget", add_option)
+
+    assert ("--widget-gitlab-version", "widget-gitlab-version") in registered
+    assert (
+        "--package-gitlab-os-override-widget",
+        "package-gitlab-os-override-widget",
+    ) in registered
+    assert (
+        "--package-gitlab-toolchain-override-widget",
+        "package-gitlab-toolchain-override-widget",
+    ) in registered
+    assert not any(flag == "--widget-gitlab-os" for flag, _dest in registered)
+
+
+def test_gitlab_override_option_ids_stay_scoped_to_each_dependency():
+    Widget = package_dependency(
+        "widget",
+        package_manager="gitlab",
+        registry="https://gitlab.example/api/v4",
+        package="widget",
+        version="1.2.3",
+    )
+    Gadget = package_dependency(
+        "gadget",
+        package_manager="gitlab",
+        registry="https://gitlab.example/api/v4",
+        package="gadget",
+        version="2.0.0",
+    )
+    env = FakeEnv(
+        develop=False,
+        **{
+            "package-gitlab-os-override-widget": "debian",
+            "package-gitlab-os-override-gadget": "ubuntu",
+        }
+    )
+
+    widget = Widget.package_info(env)["package"]
+    gadget = Gadget.package_info(env)["package"]
+
+    assert widget["args"]["os_override"] == "debian"
+    assert gadget["args"]["os_override"] == "ubuntu"
+    assert widget["id"][6] == "debian"
+    assert gadget["id"][6] == "ubuntu"

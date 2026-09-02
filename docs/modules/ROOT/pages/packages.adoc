@@ -16,8 +16,10 @@ From a sconscript, `env.PublishPackage(...)` with a `GitlabPackagePublisher` bui
 and writes a ``.packaged`` stamp beside it in ``final/``. The toolchain token in the archive stem is
 `toolchain.package_name()`, which follows `--toolchain-identity=` (see
 xref:toolchains/overview.adoc#toolchain-identity[Build and package identity]). Switching identity
-does not rename archives already in a registry; republish or wait for consume-side lookup in a
-later Cuppa release. When staged headers and libs are not newer than the
+does not rename archives already in a registry; republish or use consume-side lookup
+(`--package-gitlab-toolchain-override-<name>=`,
+`--package-gitlab-identity-fallback`) described in
+xref:dependencies/gitlab.adoc#consume-overrides[GitLab lookup overrides]. When staged headers and libs are not newer than the
 existing archive, cuppa skips recreating the tarball — so a follow-up ``cuppa --rel --publish-package`` can
 upload without re-tarring multi-gigabyte trees.
 Add `--publish-package` to upload it to the GitLab generic registry.

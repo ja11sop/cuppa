@@ -714,6 +714,7 @@ cuppa -D --dbg --cxx-profiles --cxx-profiles-enforce=std::init \
 
 Package registry dependencies need matching toolchain archives in the registry (or cache); `--develop` does not invent them.
 GitLab auth: `GITLAB_REGISTRY_TOKEN` or `CI_JOB_TOKEN`.
+To fetch an archive published under another OS or identity: `--package-gitlab-os-override[-<name>]=`, `--package-gitlab-toolchain-override-<name>=`. Dual-stem `404` retry is on unless `--package-gitlab-identity-fallback=off`.
 
 ---
 description: Documentation style guide for Cuppa docs

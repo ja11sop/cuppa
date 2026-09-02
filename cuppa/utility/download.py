@@ -26,8 +26,9 @@ import zipfile
 
 try:
     from urllib.request import urlopen, Request
+    from urllib.error import HTTPError
 except ImportError:
-    from urllib2 import urlopen, Request
+    from urllib2 import urlopen, Request, HTTPError
 
 from cuppa.colourise import as_emphasised, as_info, as_subdued
 from cuppa.log import logger
@@ -36,11 +37,25 @@ from cuppa.utility.storage import human_size, pad_visible, visible_len
 
 
 class DownloadError( CuppaException ):
-    def __init__( self, value ):
+    def __init__( self, value, http_status=None ):
         self.parameter = value
+        self.http_status = http_status
 
     def __str__( self ):
         return repr( self.parameter )
+
+
+def is_http_not_found( error ):
+    """True when ``error`` is a missing HTTP resource (404)."""
+    status = getattr( error, 'http_status', None )
+    if status == 404:
+        return True
+    cause = getattr( error, '__cause__', None )
+    if getattr( cause, 'code', None ) == 404:
+        return True
+    if isinstance( error, HTTPError ) and getattr( error, 'code', None ) == 404:
+        return True
+    return False
 
 
 _CHUNK_SIZE = 256 * 1024
@@ -587,6 +602,10 @@ def download_file(
                 pass
         if isinstance( error, DownloadError ):
             raise
-        raise DownloadError(
-            "failed to download [{}]: {}".format( url, error )
+        status = getattr( error, 'code', None )
+        wrapped = DownloadError(
+            "failed to download [{}]: {}".format( url, error ),
+            http_status=status,
         )
+        wrapped.__cause__ = error
+        raise wrapped

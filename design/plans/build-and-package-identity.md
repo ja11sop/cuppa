@@ -9,7 +9,7 @@ This document is the **settled product shape** for 1.9. Point-release encoding, 
 
 **Priority:** toolchain **major** identity is the key win (layout churn + package fleets). OS omit and consume overrides are secondary slices.
 
-**Sequencing:** toolchain identity + global-config migration → consume overrides / dual lookup → OS omit at publish + OS consume override.
+**Sequencing:** toolchain identity + global-config migration → consume overrides / dual lookup → OS omit at publish.
 
 ## Two concerns (keep distinct)
 
@@ -75,7 +75,7 @@ Notes:
 |----------|--------|
 | Values | `include` (default) \| `omit` |
 | When chosen | **At package build/publish time** when the builder is confident the artefact is not OS-scoped (or consumers will override OS on lookup) |
-| CLI / config | `--package-os-identity=` / `package_os_identity=` (and/or `PublishPackage` argument — settle in PR C) |
+| CLI / config | `--package-gitlab-os-identity=` / `package_gitlab_os_identity=` (and/or `PublishPackage` argument — settle in PR C) |
 | Omit stem | `{package}_{tool_variant}` (no empty OS segment) |
 
 **Often workable:** ABI-stable static lib / headers; controlled fleets; ubuntu↔debian via **explicit** consume override; Windows/macOS already coarse.
@@ -84,18 +84,23 @@ Notes:
 
 ### Consume overrides and “try similar”
 
-Per-dependency GitLab options (same style as `--<name>-gitlab-variant`):
+Lookup overrides use a reserved package/backend namespace. The semantic prefix is fixed and the
+dependency name is an opaque suffix, avoiding collisions between project-selected dependency
+names and future top-level option families:
 
-| Option (sketch) | Role |
+| Option | Role |
 |-----------------|------|
-| `--<name>-gitlab-os=<id>` | Force OS segment for **lookup** (e.g. `debian` while host is `ubuntu`) |
-| `--<name>-gitlab-toolchain=<token>` | Force toolchain token for **lookup** (e.g. `gcc152` or `gcc15`) |
+| `--package-gitlab-os-override=<id>` | Project-wide OS segment for **lookup** |
+| `--package-gitlab-os-override-<name>=<id>` | Force OS segment for one dependency (e.g. `debian` while host is `ubuntu`) |
+| `--package-gitlab-toolchain-override-<name>=<token>` | Force toolchain token for one dependency (e.g. `gcc152` or `gcc15`) |
 
-Optional project-level `--package-os-override=<id>`. Dual-lookup during toolchain transition: if preferred stem 404s, try the other toolchain identity (full ↔ major) before failing — on by default during transition, with a switch to disable.
+Dual-lookup during toolchain transition: if the preferred stem 404s, try the other toolchain
+identity (full vs major) before failing — on by default
+(`--package-gitlab-identity-fallback=on|off`, default `on`).
 
 **Resolution order:**
 
-1. Explicit `--<name>-gitlab-toolchain=` / `--<name>-gitlab-os=` (and project OS override if set)
+1. Explicit per-dependency toolchain / OS override (then project-wide OS override if set)
 2. Stem from current effective toolchain identity + host OS (or omitted OS if that is the published shape)
 3. Fallback: alternate toolchain token (full ↔ major) with same OS choice
 4. Fail listing stems tried
@@ -112,15 +117,15 @@ Publish emits **one** stem. Dual-try is **consume-only**. Success is an ABI bet 
 | `tc-id-config-migrate` | Absent `~/.cuppaconfig` → create `major`; existing missing key → backfill `full` | Shipped in PR A |
 | `tc-id-tests` | Unit + integration: full vs major; conf cases | Shipped in PR A |
 | `tc-id-docs` | Toolchains + Packages; CHANGELOG; 2.0 outlook one sentence | Shipped in PR A |
-| `pkg-consume-override` | Per-dep OS/toolchain lookup; dual-stem 404 fallback | Next (PR B) |
+| `pkg-consume-override` | Per-dep OS/toolchain lookup; dual-stem 404 fallback | This PR (PR B) |
 | `pkg-os-apply` | Publish-time include \| omit; parsers accept both shapes | After consume overrides |
 | `pkg-os-docs` | Builder confidence; when omit/cross-OS is sane | Antora |
 
 ## Implementation PRs
 
-**PR A** (`minor`) — toolchain identity + global config migration (primary win). **This PR.**
+**PR A** (`minor`) — toolchain identity + global config migration (primary win). **Shipped.**
 
-**PR B** (`minor`) — consume overrides + dual-stem lookup.
+**PR B** (`minor`) — consume overrides + dual-stem lookup. **This PR.**
 
 **PR C** (`minor`) — package OS omit at publish; align with OS override from B.
 
@@ -146,3 +151,12 @@ Publish emits **one** stem. Dual-try is **consume-only**. Success is an ABI bet 
 2. Existing global file without the key → `full` and the key is written.
 3. `--list-toolchains` / describe still expose the real compiler version.
 4. Docs: new-install major, grandfather full, not Boost patched/clean or product SemVer.
+
+## Acceptance (PR B)
+
+1. `--package-gitlab-os-override[-<name>]=` changes the OS segment used for lookup only.
+2. `--package-gitlab-toolchain-override-<name>=` selects the preferred toolchain token; dual-try coarsens or pairs full vs major.
+3. Preferred stem `404` retries the alternate token; other HTTP errors do not.
+4. Failure messages list every stem attempted.
+5. `--package-gitlab-identity-fallback=off` disables dual-try.
+6. Publish still emits a single stem.

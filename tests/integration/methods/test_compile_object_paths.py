@@ -103,12 +103,14 @@ def test_compile_object_paths_stable_from_nested_launch(tmp_path):
     import shutil
     shutil.rmtree(project / "_build")
 
+    # Nested -D + two MSVC variants can exceed the default 180s on Windows CI.
     nested_result = run_cuppa(
         nested,
         "--dbg",
         "--rel",
         "--offline",
         "--scripts=../../sconscript",
+        timeout=360,
     )
     assert_success(nested_result)
     nested_layout = _objects_under_working(project)

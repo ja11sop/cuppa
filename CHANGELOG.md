@@ -60,6 +60,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   file without the key is grandfathered to ``full``. ``--list-toolchains`` still
   reports the real compiler version. Cuppa 2.0 may make ``major`` the silent
   built-in default; 1.x does not flip existing globals.
+- GitLab package **lookup** can force the OS segment
+  (``--package-gitlab-os-override[-<name>]=``) and the toolchain token
+  (``--package-gitlab-toolchain-override-<name>=``). If the preferred archive is missing
+  (``404``), Cuppa tries the other toolchain identity (full vs major) with the
+  same OS unless ``--package-gitlab-identity-fallback=off``. Dual-try is consume-only;
+  publish still emits one stem. A successful fallback is an ABI bet the project
+  owns ([#243](https://github.com/ja11sop/cuppa/issues/243)).
 
 ### Changed
 
