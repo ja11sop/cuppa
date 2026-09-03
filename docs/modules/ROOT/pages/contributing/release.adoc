@@ -20,6 +20,7 @@ Two Actions runs and one merge — no local `git tag` push.
 . Merge the pull request CI opens (`finish_release`, usually labelled `impact:none`).
 . Actions → **release** → Run workflow → action **publish** (leave **tag** blank).
 . Approve the `pypi` environment when the workflow asks.
+  Pages deploy is part of **publish** (it does not wait for PyPI approval).
 
 [mermaid]
 ....
@@ -80,6 +81,7 @@ sequenceDiagram
     participant PR as finish_release PR
     participant Master as master
     participant GH as GitHub Release
+    participant Pages as GitHub Pages
     participant Env as pypi environment
     participant PyPI
 
@@ -90,6 +92,7 @@ sequenceDiagram
     You->>Actions: publish (tag blank)
     Actions->>Master: checkout tip, gate, build
     Actions->>GH: create release + tag vX.Y.Z
+    Actions->>Pages: call documentation workflow
     Actions->>Env: wait for approval
     You->>Env: approve
     Env->>PyPI: OIDC upload
@@ -110,6 +113,11 @@ flowchart TD
 
 **publish** from master also refuses if `vX.Y.Z` already exists but points at a different commit.
 Delete the bad tag (`git push origin :refs/tags/vX.Y.Z`) and run publish again.
+
+A GitHub Release created with `GITHUB_TOKEN` does **not** start other workflows
+(`release: published` on the documentation workflow never fires). **publish** therefore
+calls the documentation workflow directly after it creates the tag. To refresh Pages
+without another publish, Actions → **documentation** → Run workflow.
 
 == Escape hatches
 

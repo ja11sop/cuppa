@@ -238,6 +238,15 @@ jobs:
           # New tags via the API do not re-trigger this workflow's push:tags path.
           make_latest: true
 
+  # GITHUB_TOKEN-created releases do not fire docs.yml's `release: published`.
+  documentation:
+    needs: github-release
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/docs.yml
+
   pypi:
     needs: [ resolve, build, github-release ]
     runs-on: ubuntu-latest
