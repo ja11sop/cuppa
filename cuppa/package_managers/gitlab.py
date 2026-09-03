@@ -21,13 +21,7 @@ import cuppa.core.storage_options
 
 from cuppa.log import logger, register_secret
 from cuppa.colourise import as_error, as_info, as_notice, as_info_label
-
-
-def _resolve_node_path( node ):
-    path = str( node )
-    if hasattr( node, 'srcnode' ):
-        path = str( node.srcnode() )
-    return path
+from cuppa.utility.scons_nodes import resolve_existing_node_path as _resolve_node_path
 
 
 def lib_copy_ignore_names( names, package_dir_name, package_file_name ):

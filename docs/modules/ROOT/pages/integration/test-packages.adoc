@@ -7,6 +7,9 @@
 * Package methods are registered on the environment.
 * `GitlabPackagePublisher` stages a local archive (no `--publish-package`, so no registry
   upload). Default stems include the host OS id; `--package-gitlab-os-identity=omit` drops it.
+* Relative generated library dirs (`BuildStaticLib(..., final_dir='package_lib')` with
+  `source_lib_dir='package_lib'`) stage from the variant tree under `--rel --parallel`.
+  The archive contains the static library (not only a `.packaged` stamp).
 
 Full consume/upload E2E against a live GitLab registry is still deferred.
 
@@ -52,6 +55,31 @@ publisher = GitlabPackagePublisher(
 env.PublishPackage(lib, publisher)
 ----
 
+=== Relative generated lib dir `sconscript`
+
+SCons mirrors `package_lib` under the variant `working/` tree. The publisher must copy from that generated path, not `srcnode()` (which would be a missing project-root `package_lib/`).
+
+[source,python]
+----
+Import('env')
+from cuppa.package_managers.gitlab import GitlabPackagePublisher
+env.AppendUnique(CPPPATH=['#/include'])
+lib = env.BuildStaticLib(
+    'widget',
+    'src/hello.cpp',
+    final_dir='package_lib',
+)
+publisher = GitlabPackagePublisher(
+    env,
+    source_include_dir='#/include',
+    source_lib_dir='package_lib',
+    registry='https://gitlab.example/api/v4/projects/1',
+    package='widget',
+    version='1.0.0',
+)
+env.PublishPackage(lib, publisher)
+----
+
 == Commands
 
 [source,sh]
@@ -59,6 +87,7 @@ env.PublishPackage(lib, publisher)
 cuppa -D --offline --toolchains=gcc --dbg --test
 cuppa -D --offline --toolchains=gcc --dbg
 cuppa -D --offline --toolchains=gcc --dbg --package-gitlab-os-identity=omit
+cuppa -D --offline --toolchains=gcc --rel --parallel
 ----
 
 == Expectations
@@ -66,6 +95,7 @@ cuppa -D --offline --toolchains=gcc --dbg --package-gitlab-os-identity=omit
 * Registration sconscript asserts pass; exit 0.
 * Default publish writes one `widget_<os>_…` archive under `_build/` (`.tar.gz` or `.zip`).
 * With `omit`, that archive does not use the `widget_<os>_` prefix.
+* Relative `package_lib` publish under `--rel --parallel` writes the same archive shape and the tarball/zip contains `libwidget.a` (or `widget.lib` on Windows).
 
 '''
 

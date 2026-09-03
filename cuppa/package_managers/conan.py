@@ -30,6 +30,7 @@ from cuppa.build_with_conan import (
 )
 from cuppa.colourise import as_error, as_info, as_notice
 from cuppa.log import logger
+from cuppa.utility.scons_nodes import resolve_existing_node_path as _resolve_node_path
 
 
 _CONANFILE_TEMPLATE = '''\
@@ -172,13 +173,6 @@ def write_conan_profile( path, settings ):
     lines.append( '' )
     with open( path, 'w', encoding='utf-8' ) as handle:
         handle.write( '\n'.join( lines ) )
-    return path
-
-
-def _resolve_node_path( node ):
-    path = str( node )
-    if hasattr( node, 'srcnode' ):
-        path = str( node.srcnode() )
     return path
 
 
