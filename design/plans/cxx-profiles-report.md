@@ -1657,7 +1657,7 @@ Silently register report producers when cuppa loads (no sconscript edit):
 | C++ Profiles | — | `--cxx-profiles-report` |
 
 Registry records: `kind`, default subdir, CLI flag, manifest kind string. Enables future
-`--list-available-reports` / doc samples in [`colourised-doc-samples.md`](colourised-doc-samples.md).
+`--list-available-reports` / doc samples in [`colourised-doc-samples.md`](../archive/colourised-doc-samples.md).
 
 ## Work slices
 
@@ -1714,7 +1714,7 @@ Target cycle: **1.8.0** for **`prof-report-parser` … `prof-report-manifest`** 
 - Antora: **done** on [#196](https://github.com/ja11sop/cuppa/pull/196) — `report-introduction.adoc` (feature entry), tab guides (`report-overview`, `report-by-rule`, `report-by-file`, `report-by-build`, `report-by-sconscript`, `report.adoc` index), hub updates in `cxx-profiles.adoc`; **Union Refs** / **Peak Refs** / **Build Refs** vocabulary aligned with UI.
 - Antora: **done** on [#197](https://github.com/ja11sop/cuppa/pull/197) — `report-introduction.adoc#sharing-anonymized` (*Sharing an inventory (anonymized JSON)*); hub regen table documents `--anonymized`.
 - Antora: **done** on [#203](https://github.com/ja11sop/cuppa/pull/203) — inventory mode on `cxx-profiles.adoc` and `report-introduction.adoc`; `integration/test-available-reports.adoc` drops manual `-i`.
-- Optional: sample HTML screenshot via [`colourised-doc-samples.md`](colourised-doc-samples.md) pipeline.
+- Optional: sample HTML screenshot via [`colourised-doc-samples.md`](../archive/colourised-doc-samples.md) pipeline.
 - [`archive/cxx-profiles.md`](../archive/cxx-profiles.md): link this plan in follow-ons (already
   cites dedupe/report in §2.3).
 - AGENTS.md consumer tip: `--cxx-profiles-report` one-liner next to coverage commands.

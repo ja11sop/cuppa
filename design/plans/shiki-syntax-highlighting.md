@@ -1,7 +1,7 @@
 # Plan: Shiki syntax highlighting for Antora
 
 - **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-shiki`); companion [`colourised-doc-samples.md`](colourised-doc-samples.md); site chrome [`antora-ui-bundle.md`](antora-ui-bundle.md)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-shiki`); companion [`colourised-doc-samples.md`](../archive/colourised-doc-samples.md); site chrome [`antora-ui-bundle.md`](antora-ui-bundle.md)
 - **Updated:** 2026-08-25
 - **Impact:** none — docs build tooling only (unless a highlighter swap breaks the docs CI build)
 
@@ -10,7 +10,7 @@
 Source listings on the Antora site are still highlighted **in the browser** by the default UI's
 highlight.js. Shiki can highlight at **site build time**, so pages ship already-coloured HTML,
 line numbers become a first-class option, and a special `ansi` language can colour real terminal
-captures. That last point overlaps [`colourised-doc-samples.md`](colourised-doc-samples.md); this
+captures. That last point overlaps [`colourised-doc-samples.md`](../archive/colourised-doc-samples.md); this
 plan keeps the two jobs distinct.
 
 ---
@@ -59,7 +59,7 @@ Risks to plan around:
 
 **Non-goals**
 
-- Replacing [`colourised-doc-samples.md`](colourised-doc-samples.md) `HtmlColouriser` for Cuppa
+- Replacing [`colourised-doc-samples.md`](../archive/colourised-doc-samples.md) `HtmlColouriser` for Cuppa
   *owned* report samples.
 - Colourising arbitrary tool output Cuppa does not emit (except when an author pastes ANSI into
   an `ansi` listing).
@@ -185,7 +185,7 @@ later, deliberate docs-quality slice (`doc-shiki`).
 ### What Shiki does not solve
 
 Cuppa **report semantics** (`as_error`, `as_info`, judgement trees). That remains
-[`colourised-doc-samples.md`](colourised-doc-samples.md) (`HtmlColouriser` + `cuppa-*` classes).
+[`colourised-doc-samples.md`](../archive/colourised-doc-samples.md) (`HtmlColouriser` + `cuppa-*` classes).
 Shiki's `ansi` language is not a substitute for committed `--list-builds` samples (ROADMAP
 `doc-ansi-only`).
 
@@ -202,7 +202,7 @@ Shiki's `ansi` language is not a substitute for committed `--list-builds` sample
 
 | When | Action |
 |------|--------|
-| **1.9.0 (now)** | Ship Antora UI (`doc-antora-ui`); keep highlight.js; optional colourised **report** samples (`doc-output-samples`) if that slice is prioritised |
+| **1.9.0 (now)** | Ship Antora UI (`doc-antora-ui`); keep highlight.js; colourised **report** samples shipped (`doc-output-samples`, [#253](https://github.com/ja11sop/cuppa/pull/253)) |
 | **After 1.9.0** | Phase A spike only: local Shiki on 2–3 real pages (e.g. quickstart, a CLI page, one C++ snippet); compare readability and CSS effort |
 | **If spike wins clearly** | Phase B–D: migrate listings, disable highlight.js, align tokens with palettes |
 | **If spike is marginal** | Stay on highlight.js until line numbers or palette-aligned code blocks become a reader-facing goal |

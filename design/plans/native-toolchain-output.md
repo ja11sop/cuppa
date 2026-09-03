@@ -35,7 +35,7 @@ not `--raw-output`, which also disables cuppa's progress wiring and other proces
 
 - Removing `ToolchainProcessor` or regex interpretors (default path stays cuppa-coloured).
 - Native colour for **cuppa-owned reports** (`--list-builds`, wipe trees, coverage summaries).
-- ANSI→HTML doc samples ([`colourised-doc-samples.md`](colourised-doc-samples.md) stays separate).
+- ANSI→HTML doc samples ([`colourised-doc-samples.md`](../archive/colourised-doc-samples.md) stays separate).
 - Guaranteeing native colour on every platform (TTY detection remains the toolchain's job).
 
 ## Settled vocabulary (decide before first PR)
