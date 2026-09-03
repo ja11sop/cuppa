@@ -15,9 +15,22 @@ When code and this roadmap disagree on *current* behaviour, **code and the Antor
 
 ---
 
+## 1.9.1 cycle focus (open)
+
+Patch follow-ons after **1.9.0**. Keep this cycle small so **1.10.0** can take the larger deferred items.
+
+| Area | Intent in 1.9.1 |
+|------|-----------------|
+| Pages deploy from Actions **publish** | Open [#258](https://github.com/ja11sop/cuppa/pull/258) — `GITHUB_TOKEN` GitHub Releases do not start `docs.yml` |
+| Small product/docs fixes that land before 1.10.0 | As they come |
+
+**1.10.0 candidates:** GitLab CMake staging ([#209](https://github.com/ja11sop/cuppa/issues/209)); Boost package patched/clean identity ([`boost-updates.md`](design/plans/boost-updates.md)) and Quince ([#250](https://github.com/ja11sop/cuppa/issues/250)); artefact removal design ([#135](https://github.com/ja11sop/cuppa/issues/135)); console bundle (`--terse-output`, log hygiene, `cuppa --info`).
+
+---
+
 ## 1.9.0 cycle focus (shipped 2026-09-03)
 
-Cycle opened with docs/site and Profiles follow-ons; identity slices A–C closed the `tc-identity-coarsen` umbrella ([#243](https://github.com/ja11sop/cuppa/issues/243)). **`1.9.0`** closes after this prepare PR merges and Actions **publish** runs.
+Cycle opened with docs/site and Profiles follow-ons; identity slices A–C closed the `tc-identity-coarsen` umbrella ([#243](https://github.com/ja11sop/cuppa/issues/243)). **`1.9.0`** is on PyPI / GitHub Releases (`v1.9.0`).
 
 | Area | Status in 1.9.0 |
 |------|-----------------|
@@ -31,7 +44,7 @@ Cycle opened with docs/site and Profiles follow-ons; identity slices A–C close
 | Boost.Test runners skip source Boost extract | Shipped [#249](https://github.com/ja11sop/cuppa/pull/249) / [#248](https://github.com/ja11sop/cuppa/issues/248) |
 | Package staging for generated VariantDir lib dirs | Shipped [#256](https://github.com/ja11sop/cuppa/pull/256) / [#255](https://github.com/ja11sop/cuppa/issues/255) |
 
-**Deferred to 1.9.1+:** GitLab CMake staging ([#209](https://github.com/ja11sop/cuppa/issues/209)); Boost package patched/clean identity ([`boost-updates.md`](design/plans/boost-updates.md)) and Quince ([#250](https://github.com/ja11sop/cuppa/issues/250)); artefact removal design ([#135](https://github.com/ja11sop/cuppa/issues/135)); console bundle (`--terse-output`, log hygiene, `cuppa --info`).
+**Larger follow-ons are listed under the 1.9.1 cycle (patch) and 1.10.0 candidates.**
 
 ---
 
@@ -497,10 +510,10 @@ Design: [`native-toolchain-output.md`](design/plans/native-toolchain-output.md),
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `console-terse-output` | `--terse-output`: coloured one-line success; commands on failure/warning | High | [`terse-build-output.md`](design/plans/terse-build-output.md); **1.9.1+** |
-| `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md); **1.9.1+** |
-| `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | [`cuppa-info.md`](design/plans/cuppa-info.md); **1.9.1+** |
-| `console-native-output` | `--native-output`: enable toolchain native colour; passthrough spawn | Medium | [`native-toolchain-output.md`](design/plans/native-toolchain-output.md); optional 1.9.1+ |
+| `console-terse-output` | `--terse-output`: coloured one-line success; commands on failure/warning | High | [`terse-build-output.md`](design/plans/terse-build-output.md); **1.10.0** |
+| `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md); **1.10.0** |
+| `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | [`cuppa-info.md`](design/plans/cuppa-info.md); **1.10.0** |
+| `console-native-output` | `--native-output`: enable toolchain native colour; passthrough spawn | Medium | [`native-toolchain-output.md`](design/plans/native-toolchain-output.md); optional 1.10.0 |
 | `console-stream-split` | Logging → stderr vs tool primary → stdout | Low | Validate current behaviour first (scratchpad note) |
 
 ### Out of scope (console output)
