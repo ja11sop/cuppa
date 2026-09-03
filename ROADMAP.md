@@ -15,9 +15,9 @@ When code and this roadmap disagree on *current* behaviour, **code and the Antor
 
 ---
 
-## 1.9.0 cycle focus (open)
+## 1.9.0 cycle focus (shipped 2026-09-03)
 
-Cycle opened with docs/site and Profiles follow-ons; identity slices A–C closed the `tc-identity-coarsen` umbrella ([#243](https://github.com/ja11sop/cuppa/issues/243)).
+Cycle opened with docs/site and Profiles follow-ons; identity slices A–C closed the `tc-identity-coarsen` umbrella ([#243](https://github.com/ja11sop/cuppa/issues/243)). **`1.9.0`** closes after this prepare PR merges and Actions **publish** runs.
 
 | Area | Status in 1.9.0 |
 |------|-----------------|
@@ -28,8 +28,10 @@ Cycle opened with docs/site and Profiles follow-ons; identity slices A–C close
 | `--toolchain-identity` + GitLab consume/publish OS identity | Shipped [#242](https://github.com/ja11sop/cuppa/pull/242), [#244](https://github.com/ja11sop/cuppa/pull/244), [#245](https://github.com/ja11sop/cuppa/pull/245) |
 | Profiles collate scope filter | Shipped [#246](https://github.com/ja11sop/cuppa/pull/246) / [#205](https://github.com/ja11sop/cuppa/issues/205) |
 | Colourised Antora report samples | Shipped [#253](https://github.com/ja11sop/cuppa/pull/253) / [#252](https://github.com/ja11sop/cuppa/issues/252); [`colourised-doc-samples.md`](design/archive/colourised-doc-samples.md) |
+| Boost.Test runners skip source Boost extract | Shipped [#249](https://github.com/ja11sop/cuppa/pull/249) / [#248](https://github.com/ja11sop/cuppa/issues/248) |
+| Package staging for generated VariantDir lib dirs | Shipped [#256](https://github.com/ja11sop/cuppa/pull/256) / [#255](https://github.com/ja11sop/cuppa/issues/255) |
 
-**Still open this cycle (not started here):** GitLab CMake staging ([#209](https://github.com/ja11sop/cuppa/issues/209)); Boost package patched/clean identity ([`boost-updates.md`](design/plans/boost-updates.md)); artefact removal design ([#135](https://github.com/ja11sop/cuppa/issues/135)); console bundle (`--terse-output`, log hygiene, `cuppa --info`).
+**Deferred to 1.9.1+:** GitLab CMake staging ([#209](https://github.com/ja11sop/cuppa/issues/209)); Boost package patched/clean identity ([`boost-updates.md`](design/plans/boost-updates.md)) and Quince ([#250](https://github.com/ja11sop/cuppa/issues/250)); artefact removal design ([#135](https://github.com/ja11sop/cuppa/issues/135)); console bundle (`--terse-output`, log hygiene, `cuppa --info`).
 
 ---
 
@@ -294,6 +296,7 @@ Detailed exploration, trade-offs, and API sketches: [`design/archive/conan-consu
 | GitLab `package_dependency` | Yes |
 | Conan install → Cuppa env flags | Yes (optional; `conan_deps` / SConsDeps) |
 | Conan export-pkg / upload of Cuppa-built libs | Yes (optional; `ConanPackagePublisher`) |
+| Generated VariantDir `source_lib_dir` staging (GitLab + Conan) | Yes ([#256](https://github.com/ja11sop/cuppa/pull/256) / [#255](https://github.com/ja11sop/cuppa/issues/255)) |
 | Conan modules/BMI (`modules/` + `module-map.json`) | Yes (optional; parity with GitLab generic) |
 
 ### Planned / potential
@@ -438,6 +441,7 @@ C++ Profiles are a separate roadmap section — see [C++ Profiles](#c-profiles).
 | `--toolchain-identity=full\|major` for `_build` / package stems | Yes — [#242](https://github.com/ja11sop/cuppa/pull/242); new-install `major`, grandfather `full` |
 | GitLab package OS/toolchain lookup overrides + 404 dual-try | Yes — [#244](https://github.com/ja11sop/cuppa/pull/244) |
 | GitLab publish `--package-gitlab-os-identity=include\|omit` | Yes — [#245](https://github.com/ja11sop/cuppa/pull/245) |
+| Package copy from generated VariantDir lib dirs (`srcnode` fallback only when the source path exists) | Yes — [#256](https://github.com/ja11sop/cuppa/pull/256) / [#255](https://github.com/ja11sop/cuppa/issues/255) |
 
 ### Planned / potential
 
@@ -493,10 +497,10 @@ Design: [`native-toolchain-output.md`](design/plans/native-toolchain-output.md),
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `console-terse-output` | `--terse-output`: coloured one-line success; commands on failure/warning | High | [`terse-build-output.md`](design/plans/terse-build-output.md); **1.8.0 target** |
-| `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md); **1.8.0 target** |
-| `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | [`cuppa-info.md`](design/plans/cuppa-info.md); **1.8.0 target** |
-| `console-native-output` | `--native-output`: enable toolchain native colour; passthrough spawn | Medium | [`native-toolchain-output.md`](design/plans/native-toolchain-output.md); optional 1.8.0 |
+| `console-terse-output` | `--terse-output`: coloured one-line success; commands on failure/warning | High | [`terse-build-output.md`](design/plans/terse-build-output.md); **1.9.1+** |
+| `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md); **1.9.1+** |
+| `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | [`cuppa-info.md`](design/plans/cuppa-info.md); **1.9.1+** |
+| `console-native-output` | `--native-output`: enable toolchain native colour; passthrough spawn | Medium | [`native-toolchain-output.md`](design/plans/native-toolchain-output.md); optional 1.9.1+ |
 | `console-stream-split` | Logging → stderr vs tool primary → stdout | Low | Validate current behaviour first (scratchpad note) |
 
 ### Out of scope (console output)
