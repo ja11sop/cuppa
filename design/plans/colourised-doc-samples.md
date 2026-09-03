@@ -331,14 +331,23 @@ Highlight.js / AsciiDoc listings rather than semantic report HTML, and retain th
 normal line height: command lists benefit from readable leading, while only report trees need
 `line-height: 1` to join box-drawing glyphs.
 
-### Follow-on (wide-panel UX, not sample-specific)
+### Wide-panel near-edge snap (not sample-specific)
 
 Wide listings already wrap in `cuppa-scroll-panels.js` (fade + chevron while more content exists
-past an edge; resist pulse only after overshooting into the bounce). A later slice could **snap
-to the side** when the viewport is already close to the left or right edge, so the scroll
-position lands flush and the fade/chevron can clear without requiring that bounce. This is a
-general affordance for every wrapped listing, JSON sample, and `pre.cuppa-output` — not only
-colourised reports. Track it on [`antora-ui-bundle.md`](antora-ui-bundle.md) (`ui-scroll-snap`).
+past an edge; resist pulse only after overshooting into the bounce).
+
+**Landed on #252:** after wheel / trackpad / keyboard scrolling settles, or when a grab ends,
+the viewport snaps flush only when already within 24px of the left or right edge. It never snaps
+during a gesture or from mid-scroll; reduced-motion users get an immediate snap and other users
+get native smooth motion. This is a general affordance for every wrapped listing, JSON sample,
+and `pre.cuppa-output` — not only colourised reports. It completes
+[`antora-ui-bundle.md`](antora-ui-bundle.md) `ui-scroll-snap`.
+
+A sample only a little wider than its viewport puts both snap zones over the same ground, so the
+naive test made each edge qualify from the other and the panel oscillated left-right-left. Two
+rules settle it: a viewport already flush with an edge stays there, and a position inside both
+zones commits to the nearer edge. That choice is stable because arriving can only increase the
+distance to the edge it rejected, so any starting position reaches its edge in a single move.
 
 ---
 
