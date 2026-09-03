@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-site-release-default`); [`docs/playbook.yml`](../../docs/playbook.yml); [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml); [`docs/antora.yml`](../../docs/antora.yml); Methods baseline [`methods-pages-split.md`](methods-pages-split.md) / [#234](https://github.com/ja11sop/cuppa/pull/234); agent Markdown [`docs-llms-txt.md`](docs-llms-txt.md) (**same PR**); UI companion [`antora-ui-bundle.md`](antora-ui-bundle.md)
-- **Updated:** 2026-08-31
+- **Updated:** 2026-09-03
 - **Impact:** none — site publish / Antora versioning only (no Cuppa CLI behaviour)
 
 ## Problem
@@ -87,7 +87,7 @@ latest routing moves `latest` to that line.
 |----|-------------|-------|--------|
 | `doc-site-model` | Version naming + `latest` segment (table above) | Settled 2026-08-31 | **Done** |
 | `doc-site-playbook` | Multi-version playbook; drop silent `version: ~` as public default | Tags + `next`; `latest_version_segment`; prepare script | **Done** |
-| `doc-site-ci` | Adjust `docs.yml` and/or `release.yml` so stable site updates on publish | `release: published` + fetch tags + `build:site:all` | **Done** |
+| `doc-site-ci` | Adjust `docs.yml` and/or `release.yml` so stable site updates on publish | `workflow_call` from **publish** after the tag exists (`GITHUB_TOKEN` `release: published` does not start other workflows); also `workflow_dispatch` | **Done** |
 | `doc-site-local` | Contributor notes: preview current branch vs build release set | Contributing / AGENTS | **Done** |
 | `doc-site-verify` | After first release with the model: homepage / `/latest/` shows released text | Manual check after merge/deploy | Open |
 

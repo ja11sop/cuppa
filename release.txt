@@ -18,8 +18,8 @@
 #      Opens a PR that runs finish_release (VERSION + dated CHANGELOG, impact:none).
 # 2. Merge that PR when CI is green.
 # 3. Actions → release → Run workflow → action: **publish** (leave tag blank)
-#      Builds from master tip, creates the GitHub Release + tag via API, then waits for
-#      approval on the `pypi` environment before uploading.
+#      Builds from master tip, creates the GitHub Release + tag via API, deploys GitHub
+#      Pages (documentation workflow), then waits for approval on the `pypi` environment.
 # 4. Approve the `pypi` deployment.
 #
 # Do not push a v* tag by hand unless you mean to; publish from master is the supported path.

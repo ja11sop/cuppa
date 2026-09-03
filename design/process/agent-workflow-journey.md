@@ -2,7 +2,7 @@
 
 - **Status:** living
 - **Related:** [`AGENTS.md`](../../AGENTS.md) (agent ops); Antora Contributing (human versioning/release)
-- **Updated:** 2026-09-01
+- **Updated:** 2026-09-03
 - **Maintainer:** primary author of this journey; others append only (see `AGENTS.md`)
 - **Privacy:** obey the private-projects rule; never copy names from `INTERNAL_PROJECTS.local.md`
 - **Source:** Cursor sessions spanning roughly mid-July → 2026-08-07 on cuppa
@@ -198,6 +198,8 @@ Use this as an ordered checklist. Cuppa did not follow it perfectly (see §5); t
 - [ ] Wire Trusted Publishing *after* the workflow file is on the default branch; name a GitHub
       Environment with required reviewers before the first real upload.
 - [ ] Document order clearly: merge finish PR → publish from **master tip** → approve PyPI.
+- [ ] Do not rely on `on: release` after a `GITHUB_TOKEN` GitHub Release — GitHub will not
+      start other workflows. Call the documentation workflow from **publish** (`workflow_call`).
 - [ ] Gate must fail if VERSION is still `.dev` or CHANGELOG is still `unreleased`.
 - [ ] Publish must refuse a tag that already points at the wrong commit.
 - [ ] Put the happy path on the docs site with Mermaid (`gitGraph` + sequence + flowchart);
@@ -328,6 +330,7 @@ These are recommendations for the next project, not self-flagellation.
 | `check_release` before build/publish | Catches `.dev` / unreleased before PyPI |
 | prepare / publish `workflow_dispatch` | Removes hand-tag ordering mistakes |
 | Tag via GitHub API from publish job | Avoids double-firing `push: tags` when softprops creates the tag |
+| Call docs from publish (`workflow_call`) | `GITHUB_TOKEN` `release: published` never starts `docs.yml` |
 | Environment approval on `pypi` | Human gate without long-lived Twine tokens |
 | Contributing Antora + `release.txt` + `AGENTS.md` | Humans get diagrams; agents get ops; checklist stays short |
 | Local gate via checkout `venv/` + `requirements.txt` | Avoids broken host flake8/pylint shims and missing test extras |
