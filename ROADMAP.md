@@ -21,7 +21,8 @@ Patch follow-ons after **1.9.0**. Keep this cycle small so **1.10.0** can take t
 
 | Area | Intent in 1.9.1 |
 |------|-----------------|
-| Pages deploy from Actions **publish** | Open [#258](https://github.com/ja11sop/cuppa/pull/258) — `GITHUB_TOKEN` GitHub Releases do not start `docs.yml` |
+| Pages deploy from Actions **publish** | Shipped [#258](https://github.com/ja11sop/cuppa/pull/258) — `GITHUB_TOKEN` GitHub Releases do not start `docs.yml` |
+| Profiles report links to published rule docs | `/cuppa/latest/cxx-profiles/…` (unversioned URLs 404) |
 | Small product/docs fixes that land before 1.10.0 | As they come |
 
 **1.10.0 candidates:** GitLab CMake staging ([#209](https://github.com/ja11sop/cuppa/issues/209)); Boost package patched/clean identity ([`boost-updates.md`](design/plans/boost-updates.md)) and Quince ([#250](https://github.com/ja11sop/cuppa/issues/250)); artefact removal design ([#135](https://github.com/ja11sop/cuppa/issues/135)); console bundle (`--terse-output`, log hygiene, `cuppa --info`).

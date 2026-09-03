@@ -62,7 +62,7 @@ def test_rule_link_tooltip_includes_rule_name_and_message():
 
 def test_rule_doc_href_for_std_init():
     assert rule_doc_href( 'std::init', 'uninit_decl' ).endswith(
-        '/cxx-profiles/std-init/uninit-decl.html',
+        '/latest/cxx-profiles/std-init/uninit-decl.html',
     )
     assert rule_doc_href( 'std::future', 'uninit_decl' ) is None
 
@@ -70,7 +70,7 @@ def test_rule_doc_href_for_std_init():
 def test_overview_doc_hrefs():
     from cuppa.cpp.profiles_report.report_html import overview_doc_href, overview_doc_hrefs
 
-    assert overview_doc_href().endswith( '/cxx-profiles/report-overview.html' )
+    assert overview_doc_href().endswith( '/latest/cxx-profiles/report-overview.html' )
     assert overview_doc_href( 'violation-totals' ).endswith( '#violation-totals' )
     hrefs = overview_doc_hrefs()
     assert hrefs[ 'codebase_reach' ].endswith( '#codebase-reach-tier-1' )

@@ -10,6 +10,7 @@
 import re
 
 from cuppa.cpp.profiles_report.constants import UNCLASSIFIED_RULE_ID
+from cuppa.cpp.profiles_report.published_docs import CUPPA_DOCS_STABLE_BASE
 
 PROFILE_NAME = 'std::init'
 
@@ -315,9 +316,7 @@ RULE_DOC_REFERENCES = {
     },
 }
 
-CUPPA_STD_INIT_DOCS_BASE = (
-    'https://ja11sop.github.io/cuppa/cuppa/cxx-profiles/std-init'
-)
+CUPPA_STD_INIT_DOCS_BASE = CUPPA_DOCS_STABLE_BASE + '/cxx-profiles/std-init'
 
 # Antora page slug per rule id (see docs/.../cxx-profiles/std-init.adoc).
 RULE_DOC_PAGES = {
