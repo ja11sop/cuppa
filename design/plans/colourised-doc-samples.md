@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-output-samples`); [#252](https://github.com/ja11sop/cuppa/issues/252); follows build-report work in [`removal-options.md`](removal-options.md) Phase 2; syntax highlighting [`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md)
-- **Updated:** 2026-09-02
+- **Updated:** 2026-09-03
 
 Cuppa already produces rich, colour-coded reports (`--list-builds`, `--list-develop`,
 `--remove-builds`, coverage summaries, and more). The Antora docs currently show those reports as
@@ -248,6 +248,21 @@ considered doc fixes in an open release cycle.
 | B | `scripts.generate_doc_samples` semantic recipes | **Landed on #252:** `list-builds`, both dry-run removals, and removal failure |
 | C | Wire samples into `build-layout.adoc`; supplemental-ui CSS in the site | **Landed on #252:** all four human-readable build-layout fragments |
 | D | Add `list-develop` and other high-value recipes; optional `ansi-html` format | **Complete on #252:** semantic HTML covers every human-readable report sample in the affected pages, including dependency remove / product-clean / purge. ANSI preview is deferred to `doc-shiki`, not a blocker |
+
+### Progress snapshot (2026-09-03)
+
+This workstream is ready to land for [#252](https://github.com/ja11sop/cuppa/issues/252).
+Keep the plan here until the PR merges, then move it to `design/archive/` (the colouriser,
+console-token, and sample-recipe reasoning stays useful). Do not close #252 from the opening
+PR text unless that merge is meant to close the issue.
+
+| Slice | Status |
+|-------|--------|
+| Phases A–D | **Landed** — `HtmlColouriser`, recipes, Antora wiring, every existing human-readable report sample |
+| Console vs chrome palette | **Landed** — `--cuppa-console-*` in each palette; shell listings share the surface |
+| Near-edge snap | **Landed** — `ui-scroll-snap`; overlapping zones commit to the nearer edge |
+| ANSI / Shiki preview | **Deferred** — `doc-shiki`, not a blocker |
+| Wipe-report samples | **Out of scope** — no existing wipe fragments to colourise; do not add scenarios |
 
 ### Which recipes can be colourised
 

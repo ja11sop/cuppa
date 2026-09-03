@@ -21,7 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   share that console chrome while retaining normal command-list line spacing;
   all wide listing panels snap flush when scrolling settles near an edge, and
   a panel only slightly wider than its viewport commits to the nearer edge
-  rather than oscillating between the two
+  rather than oscillating between the two. Code and console type prefer a
+  locally installed Hack, then the usual system mono stack — no webfont CDN
   ([#252](https://github.com/ja11sop/cuppa/issues/252)).
 - Public docs site serves the latest release under ``/cuppa/latest/…`` (Antora
   ``latest_version_segment``) with master tip as prerelease ``next``; agent-oriented

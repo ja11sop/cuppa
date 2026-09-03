@@ -13,7 +13,7 @@
   /* Slight recess, so the report reads as a view into a console. */
   box-shadow: inset 0 1px 4px var(--cuppa-console-inset, rgba(27, 34, 38, 0.13));
   color: var(--cuppa-console-text, #1b1b1b);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--cuppa-code-font, Hack, ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace);
   font-size: var(--cuppa-code-size, 0.8rem);
   /*
    * Report trees are terminal grids: extra leading leaves visible gaps between

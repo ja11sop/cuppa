@@ -15,6 +15,12 @@
   --cuppa-shadow: 0 0.15rem 0.5rem var(--cuppa-shadow-tint);
   --cuppa-code-size: 0.8rem;
   --cuppa-code-size-inline: 0.875em;
+  /*
+   * Local fonts only — the UI plan refuses CDN / self-hosted webfonts.
+   * Hack is first when the machine has it; otherwise the usual system mono
+   * stack. The generic `monospace` at the end is the last resort.
+   */
+  --cuppa-code-font: Hack, ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 
   /*
    * Shared callout chrome. Admonitions and expandable examples both consume
@@ -987,6 +993,13 @@ html.cuppa-doc-full .cuppa-doc-width-toggle__icon {
 }
 
 /* Code: quieter frames and a smaller monospace scale than the bundle default */
+
+.doc pre,
+.doc .listingblock pre.highlight > code,
+.doc :not(pre) > code,
+.doc kbd {
+  font-family: var(--cuppa-code-font);
+}
 
 .doc pre {
   font-size: var(--cuppa-code-size);
