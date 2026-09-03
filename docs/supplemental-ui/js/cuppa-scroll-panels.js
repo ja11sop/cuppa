@@ -5,11 +5,13 @@
  * -----
  * Wide console / JSON samples often overflow the content column. Without help,
  * readers only discover a horizontal scrollbar after scrolling the page to the
- * bottom of a tall block. This script wraps listing/literal <pre> elements so:
+ * bottom of a tall block. This script wraps listing/literal <pre> elements and
+ * semantic report samples (`pre.cuppa-output`) so:
  *
  *   - Horizontal overflow shows an inset fade + chevron (CSS).
  *   - Grab-drag pans left/right in the sample and up/down on the page.
  *   - Shift+wheel still pans horizontally via the native overflow-x scroller.
+ *   - Settling close to an edge snaps flush so the fade can clear.
  *   - Hitting an edge gives a one-shot nudge + accent pulse (not a bounce loop).
  *
  * Non-goals / trade-offs
@@ -32,6 +34,15 @@
  * the latch only after returning inside EDGE_RELEASE_PX (hysteresis). A later
  * intentional push into the same edge can nudge again.
  *
+ * Near-edge snap
+ * --------------
+ * After wheel / trackpad / keyboard scrolling settles, or when a grab ends,
+ * snap only if the viewport is already within EDGE_SNAP_PX of an edge. Never
+ * snap during a gesture or from the middle. This clears the fade/chevron
+ * without making readers overshoot into the resist pulse to prove the edge.
+ * A narrow overflow puts both edges in range at once — see edgeSnapTarget for
+ * why that resolves to one edge instead of oscillating between them.
+ *
  * Smooth scroll
  * -------------
  * Antora's html { scroll-behavior: smooth } makes scrollTop / scrollTo animate.
@@ -48,6 +59,12 @@
   var EDGE_OVERSCROLL_PX = 36;
   // Clear the edge latch only after returning well inside the scroll range.
   var EDGE_RELEASE_PX = 8;
+  // Close enough to commit to an edge after scrolling settles.
+  var EDGE_SNAP_PX = 24;
+  // Already flush with an edge; a snap here would be a no-op or a ping-pong.
+  var EDGE_SETTLED_PX = 1;
+  // Let wheel / trackpad / keyboard input settle before considering a snap.
+  var SNAP_SETTLE_MS = 120;
 
   function scrollRoot() {
     return document.scrollingElement || document.documentElement;
@@ -83,7 +100,8 @@
     if( !pre.closest( '.doc' ) ){
       return false;
     }
-    return Boolean( pre.closest( '.listingblock, .literalblock' ) );
+    return pre.classList.contains( 'cuppa-output' )
+        || Boolean( pre.closest( '.listingblock, .literalblock' ) );
   }
 
   /*
@@ -132,11 +150,43 @@
     viewport.classList.toggle( 'is-pan-ready', scrollableX );
   }
 
+  /*
+   * Return the edge to commit to, or null to stay put.
+   *
+   * Overlapping snap zones: when the overflow is smaller than two zones
+   * (maxLeft <= 2 * EDGE_SNAP_PX) every position is near both edges. Two rules
+   * stop that ping-ponging left-right-left forever. Resting against an edge is
+   * final, and an overlap resolves to the nearer edge — stable, because moving
+   * there only increases the distance to the edge it rejected.
+   */
+  function edgeSnapTarget( scrollLeft, maxLeft ) {
+    if( maxLeft <= 0 ){
+      return null;
+    }
+    var toStart = scrollLeft;
+    var toEnd = maxLeft - scrollLeft;
+    // Settled against an edge already (sub-pixel scroll positions included).
+    if( toStart <= EDGE_SETTLED_PX || toEnd <= EDGE_SETTLED_PX ){
+      return null;
+    }
+    if( toStart <= EDGE_SNAP_PX && toEnd <= EDGE_SNAP_PX ){
+      return toStart <= toEnd ? 0 : maxLeft;
+    }
+    if( toStart <= EDGE_SNAP_PX ){
+      return 0;
+    }
+    if( toEnd <= EDGE_SNAP_PX ){
+      return maxLeft;
+    }
+    return null;
+  }
+
   function bindPanel( panel, viewport ) {
     viewport.addEventListener(
             'scroll',
             function () {
               updateAffordances( panel, viewport );
+              scheduleSnap();
             },
             { passive: true }
     );
@@ -152,6 +202,52 @@
     var pendingClientY = 0;
     // Rising-edge latch — see file header "Edge nudge".
     var edgeLatched = null;
+    var snapTimer = 0;
+
+    function clearScheduledSnap() {
+      if( !snapTimer ){
+        return;
+      }
+      window.clearTimeout( snapTimer );
+      snapTimer = 0;
+    }
+
+    function snapNearEdge() {
+      clearScheduledSnap();
+      if( panning || !panel.classList.contains( 'is-scrollable-x' ) ){
+        return;
+      }
+      var target = edgeSnapTarget(
+              viewport.scrollLeft,
+              maxScrollLeft( viewport )
+      );
+      if( target === null ){
+        return;
+      }
+      var reduceMotion = (
+        window.matchMedia
+        && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches
+      );
+      if( viewport.scrollTo ){
+        viewport.scrollTo( {
+          left: target,
+          behavior: reduceMotion ? 'auto' : 'smooth',
+        } );
+      }else{
+        viewport.scrollLeft = target;
+      }
+    }
+
+    function scheduleSnap() {
+      clearScheduledSnap();
+      if( panning ){
+        return;
+      }
+      snapTimer = window.setTimeout( function () {
+        snapTimer = 0;
+        snapNearEdge();
+      }, SNAP_SETTLE_MS );
+    }
 
     function applyPan( clientX, clientY ) {
       var maxLeft = maxScrollLeft( viewport );
@@ -214,6 +310,7 @@
       viewport.classList.remove( 'is-panning' );
       panel.classList.remove( 'is-resisting-left', 'is-resisting-right' );
       endInstantPageScroll();
+      snapNearEdge();
       if( viewport.blur ){
         viewport.blur();
       }
@@ -241,6 +338,7 @@
       startScrollLeft = viewport.scrollLeft;
       startPageY = pageScrollY();
       edgeLatched = null;
+      clearScheduledSnap();
       beginInstantPageScroll();
       viewport.classList.add( 'is-panning' );
       if( viewport.setPointerCapture ){
@@ -352,7 +450,9 @@
   }
 
   function init() {
-    document.querySelectorAll( '.doc .listingblock pre, .doc .literalblock pre' ).forEach( initPre );
+    document.querySelectorAll(
+            '.doc .listingblock pre, .doc .literalblock pre, .doc pre.cuppa-output'
+    ).forEach( initPre );
   }
 
   // Collapsed examples measure as zero width until opened — re-wrap / re-measure.
@@ -361,7 +461,9 @@
       if( !details.open ){
         return;
       }
-      details.querySelectorAll( '.listingblock pre, .literalblock pre' ).forEach( initPre );
+      details.querySelectorAll(
+              '.listingblock pre, .literalblock pre, pre.cuppa-output'
+      ).forEach( initPre );
       details.querySelectorAll( '.' + VIEWPORT ).forEach( function ( viewport ) {
         scheduleMeasure( viewport.closest( '.' + PANEL ), viewport );
       } );

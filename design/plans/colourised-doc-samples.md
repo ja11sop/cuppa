@@ -1,8 +1,8 @@
 # Plan: colourised sample output for documentation and preview
 
-- **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-output-samples`); follows build-report work in [`removal-options.md`](removal-options.md) Phase 2; syntax highlighting [`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md)
-- **Updated:** 2026-08-25
+- **Status:** in progress
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-output-samples`); [#252](https://github.com/ja11sop/cuppa/issues/252); follows build-report work in [`removal-options.md`](removal-options.md) Phase 2; syntax highlighting [`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md)
+- **Updated:** 2026-09-03
 
 Cuppa already produces rich, colour-coded reports (`--list-builds`, `--list-develop`,
 `--remove-builds`, coverage summaries, and more). The Antora docs currently show those reports as
@@ -100,21 +100,25 @@ code already calls through `cuppa.colourise` helpers:
 | `as_emphasised` | `cuppa-emphasised` (bold / stronger weight) |
 | `as_subdued` | `cuppa-subdued` (grey, not DIM-on-white) |
 
-Implementation options (pick one in the first PR):
+Implementation options considered:
 
 1. **Injectable colouriser** — `colourise` gains `set_colouriser(...)` / context manager used only
    by the capture runner; production builds keep today's ANSI colouriser.
 2. **Dual emit** — helpers append to a side channel (fragile; avoid).
 3. **Post-process a tagged stream** — reports emit `\0meaning\0text\0` (invasive; avoid).
 
-Option 1 matches how tests already stub behaviour and keeps report code unchanged aside from
-going through the shared helpers (which they already do).
+**Selected for [#252](https://github.com/ja11sop/cuppa/issues/252): option 1.** A context manager
+temporarily replaces the process colouriser for single-threaded sample generation. The HTML
+backend records opaque operations while formatters assemble strings, then escapes literal text
+and resolves operations into spans. This preserves nested meanings without trusting report data
+as HTML. Production builds retain the ANSI backend.
 
 Escape HTML in text nodes; preserve spaces/newlines inside a `<pre class="cuppa-output">`.
 
 ### 3.2 Capture runner
 
-A module under `scripts/` (illustrative: `python -m scripts.sample_output`) that:
+Extend the existing `scripts/generate_doc_samples.py` module rather than adding a parallel sample
+runner. It:
 
 1. Builds a **fixture project** under a temp dir (reuse integration helpers / dummy project), or
    accepts `--project=` for local preview against a real tree (never commit that capture).
@@ -145,6 +149,15 @@ Suggested first recipes (names illustrative):
 `cuppa-*` classes against the default Antora light background. Keep contrast accessible; do not
 rely on terminal bright-on-black.
 
+Report output is a terminal character grid, not prose. Use `line-height: 1` on the `<pre>` and
+inherit it on the nested `<code>`: added leading creates visible gaps between consecutive `│`
+glyphs and makes a judgement tree look broken. Padding around the whole report frame is fine;
+padding or margins between report lines are not.
+
+v1 used Antora chrome tokens for sample colours; samples now consume `--cuppa-console-*`
+(Colorama hues plus a console surface). Admonition `--cuppa-warning` stays orange. See
+[Follow-on: console vs docs-chrome palette](#follow-on-console-vs-docs-chrome-palette).
+
 **Pages:** replace or supplement plain listings with an include, for example:
 
 ```asciidoc
@@ -165,7 +178,7 @@ is required for colour. Prefer checked-in or pre-build fragments over a Ruby/Asc
 ### 3.4 Preview facility
 
 ```sh
-python -m scripts.sample_output list-builds --preview
+python -m scripts.generate_doc_samples list-builds --preview
 # → opens or prints path to _docs_build/samples/list-builds.preview.html
 ```
 
@@ -231,13 +244,125 @@ considered doc fixes in an open release cycle.
 
 | Phase | Delivers | Notes |
 |-------|----------|-------|
-| A | `HtmlColouriser` + unit tests + preview CSS | No Antora page changes required yet |
-| B | `scripts.sample_output` with `list-builds` / `remove-builds-dry` recipes | Unblocks authoring |
-| C | Wire samples into `build-layout.adoc`; supplemental-ui CSS in the site | Reader-visible |
-| D | Add `list-develop` and other high-value recipes; optional `ansi-html` format | Expand coverage |
+| A | `HtmlColouriser` + unit tests + preview CSS | **Landed on #252** |
+| B | `scripts.generate_doc_samples` semantic recipes | **Landed on #252:** `list-builds`, both dry-run removals, and removal failure |
+| C | Wire samples into `build-layout.adoc`; supplemental-ui CSS in the site | **Landed on #252:** all four human-readable build-layout fragments |
+| D | Add `list-develop` and other high-value recipes; optional `ansi-html` format | **Complete on #252:** semantic HTML covers every human-readable report sample in the affected pages, including dependency remove / product-clean / purge. ANSI preview is deferred to `doc-shiki`, not a blocker |
+
+### Progress snapshot (2026-09-03)
+
+This workstream is ready to land for [#252](https://github.com/ja11sop/cuppa/issues/252).
+Keep the plan here until the PR merges, then move it to `design/archive/` (the colouriser,
+console-token, and sample-recipe reasoning stays useful). Do not close #252 from the opening
+PR text unless that merge is meant to close the issue.
+
+| Slice | Status |
+|-------|--------|
+| Phases A–D | **Landed** — `HtmlColouriser`, recipes, Antora wiring, every existing human-readable report sample |
+| Console vs chrome palette | **Landed** — `--cuppa-console-*` in each palette; shell listings share the surface |
+| Near-edge snap | **Landed** — `ui-scroll-snap`; overlapping zones commit to the nearer edge |
+| ANSI / Shiki preview | **Deferred** — `doc-shiki`, not a blocker |
+| Wipe-report samples | **Out of scope** — no existing wipe fragments to colourise; do not add scenarios |
+
+### Which recipes can be colourised
+
+A recipe only yields an honest HTML sample when **every** line comes from a real formatter running
+under the colouriser. The first versions of several recipes assembled their intro and summary
+lines literally and called a tree renderer for the middle. Those versions stayed text-only until
+the generator could use the production report path.
+
+**On #252:** `list-downloads` and `list-dependencies` (+verbose) now call
+`write_list_downloads_report` / `write_list_dependencies_report` — the same
+functions the CLI uses after collation — so intro, footer, extract/`[D]` marks,
+and wipe hints take the HTML colouriser. Text siblings stay generated.
+
+The removal recipes now plant deterministic targets and inject them at
+`collect_removal_plan` / `collect_purge_downloads`, then run `remove_dependencies()` itself.
+That keeps collection deterministic without copying the production announcement, dry-run,
+tree, leftover, freed-space, or verify narration. The formatter wins where this differs from
+the old hand-assembled sample: for example, actual purge bytes include both the extract and
+download, and a dry run says `Would remove` / `would rm`.
+
+There are no checked-in wipe-report samples or wipe sample includes. This work does not add one:
+the close-out rule is to colourise the existing human-readable sample set, not expand it with
+new report scenarios.
+
+**Superseded text partials.** When a page moves to the HTML fragment, its `.txt` sibling stops
+being included but is still generated (`list-develop.txt`, `list-toolchains.txt`,
+`list-toolchains-verbose.txt`, `list-downloads.txt`, `list-dependencies.txt`,
+`list-dependencies-verbose.txt`, `remove-gitlab-dry-run.txt`,
+`remove-boost-product-clean.txt`, `purge-gitlab.txt`). They are kept deliberately:
+the unit tests assert report **shape**
+against the text form (columns, rules, tree glyphs), which is far more legible than asserting the
+same layout through spans, and they remain the reference for `--raw-output`. Do not wire them back
+into a page beside the HTML, and do not delete them expecting the HTML assertions to cover layout.
 
 Phase A+B can land without waiting on removal Phase 2 merge; Phase C should use the final report
 shapes from `#134` so samples do not churn.
+
+### Follow-on (console vs docs-chrome palette)
+
+Admonition / UI tokens (`--cuppa-warning`, `--cuppa-note`, `--cuppa-important`, `--cuppa-tip`)
+describe **page chrome**: WARNING callouts, notes, tips. Report samples describe **the same
+meanings the terminal paints**. Those two jobs should not share one hue table.
+
+Confirm hues from `Colouriser._start_colour` (and highlight counterparts), not from the Antora
+palette names:
+
+| Meaning | Console (Colorama) | Typical SGR | Sample token |
+|---------|--------------------|-------------|--------------|
+| `warning`, `remove_notice` | `Fore.MAGENTA` | 35 | `--cuppa-console-warning` |
+| `notice`, `expected_failure` | `Fore.YELLOW` | 33 | `--cuppa-console-notice` |
+| `info`, `time` | `Fore.BLUE` | 34 | `--cuppa-console-info` |
+| `error`, `remove_error`, `failure`, … | `Fore.RED` | 31 | `--cuppa-console-error` |
+| `success`, `passed`, … | `Fore.GREEN` | 32 | `--cuppa-console-success` |
+
+Keep `--cuppa-warning` (orange) for admonitions. Sample CSS uses `--cuppa-console-*` only, tuned
+for the light/dark page rather than copying a 16-colour VGA chart.
+
+**On #252:** `--cuppa-console-*` tokens (surface, ink, recess, and
+warning/notice/info/error/success/muted) live in each palette. `.cuppa-output` and
+`.doc .cuppa-scroll-panel:has(pre.cuppa-output) .cuppa-scroll-panel__*` consume them.
+JSON / listing scroll panels keep `--cuppa-code-surface`.
+
+Dark schemes take their hues from the **KDE Plasma Breeze** Konsole scheme
+(`data/color-schemes/Breeze.colorscheme`), so a sample matches a real terminal: background
+`#232627`, foreground `#fcfcfc`, `Color1`–`Color5` for red / green / yellow / blue / magenta, and
+`Color0Intense` `#7f8c8d` for subdued. cup-of-tea uses that background verbatim; the other
+palettes keep a slightly hue-tinted field with the same hues. Light schemes cannot reuse Breeze —
+those hues are chosen against a dark field and `#11d116` green is unreadable on near-white — so a
+light console is a near-white paper field with darkened equivalents: cup-of-tea
+`#fefdfc`, harbour `#fcfdfe`, forest `#fcfefc`, aubergine `#fefcfd`. Light and dark
+schemes both take a stronger `--cuppa-console-border` than page chrome (darker on
+light, lighter on dark) so the sample does not dissolve into the canvas.
+
+A small `inset` shadow (`--cuppa-console-inset`) gives the recess. It is applied to the
+**viewport**, not the frame: the frame's `box-shadow` is the edge-overflow hint, whose state rules
+would otherwise drop the recess exactly when a sample became scrollable.
+
+Shell command listings (`[source,sh]`, `[source,shell]`, `[source,bash]`, and future
+`[source,console]`) use the same console surface, border, and recess. They remain ordinary
+Highlight.js / AsciiDoc listings rather than semantic report HTML, and retain the bundle's
+normal line height: command lists benefit from readable leading, while only report trees need
+`line-height: 1` to join box-drawing glyphs.
+
+### Wide-panel near-edge snap (not sample-specific)
+
+Wide listings already wrap in `cuppa-scroll-panels.js` (fade + chevron while more content exists
+past an edge; resist pulse only after overshooting into the bounce).
+
+**Landed on #252:** after wheel / trackpad / keyboard scrolling settles, or when a grab ends,
+the viewport snaps flush only when already within 24px of the left or right edge. It never snaps
+during a gesture or from mid-scroll; reduced-motion users get an immediate snap and other users
+get native smooth motion. This is a general affordance for every wrapped listing, JSON sample,
+and `pre.cuppa-output` — not only colourised reports. It completes
+[`antora-ui-bundle.md`](antora-ui-bundle.md) `ui-scroll-snap`.
+
+A sample only a little wider than its viewport puts both snap zones over the same ground, so the
+naive test made each edge qualify from the other and the panel oscillated left-right-left. Two
+rules settle it: a viewport already flush with an edge stays there, and a position inside both
+zones commits to the nearer edge. That choice is stable because arriving can only increase the
+distance to the edge it rejected, so any starting position reaches its edge in a single move.
 
 ---
 
@@ -255,12 +380,17 @@ shapes from `#134` so samples do not churn.
 
 ## 9. Open questions
 
-1. **Checked-in vs generate-at-doc-build** — Checked-in fragments are reviewable in PRs; generate
-   during `npm run build` always matches code but needs Python on the docs CI path.
-2. **Emphasise + colour nesting** — Emit outer `<span class="cuppa-emphasised"><span class="cuppa-info">` or a single combined class? Combined classes are simpler for CSS.
-3. **Dark-mode docs** — Antora UI default is light; if the site later gains a dark theme, samples
-   need paired CSS variables.
-4. **GitHub issue** — File when Phase A starts; no issue number yet.
+1. **Checked-in vs generate-at-doc-build** — **Settled: checked in.** Fragments are reviewable and
+   Antora does not need Python. The generator and tests detect drift/privacy failures.
+2. **Emphasise + colour nesting** — **Settled: nested spans.** The semantic operation renderer
+   preserves both meanings; CSS composes them.
+3. **Dark-mode docs** — **Settled and landed:** each palette has light and dark console tokens;
+   cup-of-tea dark follows KDE Plasma Breeze Konsole and companion palettes retain a tinted field.
+4. **Console vs chrome palette** — **Settled and landed:** dual tokens. HTML class names stay
+   meaning-based (`cuppa-warning`); `.cuppa-output` uses `--cuppa-console-*` (including
+   surface and ink). Admonition `--cuppa-warning` / `--cuppa-note` unchanged. Hues remain
+   tunable against Colorama.
+5. **Tracking** — [#252](https://github.com/ja11sop/cuppa/issues/252).
 
 ---
 

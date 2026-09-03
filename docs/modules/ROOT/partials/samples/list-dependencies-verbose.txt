@@ -24,7 +24,13 @@ Default dependencies: boost_package
       1.4M  today                       ├── 11.1.4                       [D] https://github.com/fmtlib/fmt/archive/refs/tags/11.1.4.zip
       1.5M  today                       └── 12.2.0                       https://github.com/fmtlib/fmt/archive/refs/tags/12.2.0.zip
   ----------------------------------------------------------------------------------------------------------------------------------------------
-3 entries, 305.1M total, 5.8M unreferenced
+  4 entries, 305.1M total, 5.8M unreferenced
 
-[D] = archive present under downloads (~/.cuppa/downloads)
+[D] = archive present under downloads (~/.cuppa/downloads).
 If re-extracting a dependency fails, remove the corrupt archive there - deleting only the dependency tree is not enough.
+
+Review unreferenced trees, then clear them with:
+
+cuppa -Q -D -n --force-wipe-unreferenced-dependencies
+
+Drop -n and re-run after confirming.

@@ -1,0 +1,35 @@
+<pre class="cuppa-output"><code><span class="cuppa-subdued">  ----------------------------------------------------------------------</span>
+      SIZE  LAST BUILD    BUILD FOLDER
+<span class="cuppa-subdued">  ----------------------------------------------------------------------</span>
+<span class="cuppa-info">    146.5K  3 days ago    _build</span>
+     68.4K  3 days ago    <span class="cuppa-subdued">└── </span>selected (2 of 3 entries)
+<span class="cuppa-subdued">  ----------------------------------------------------------------------</span>
+
+<span class="cuppa-subdued">  ----------------------------------------------------------------------</span>
+      SIZE  LAST BUILD    BY TOOLCHAIN VARIANT
+<span class="cuppa-subdued">  ----------------------------------------------------------------------</span>
+  <span class="cuppa-subdued">  146.5K</span>  <span class="cuppa-subdued">3 days ago  </span>  <span class="cuppa-subdued">└── </span><span class="cuppa-subdued"><span class="cuppa-info">-✓-</span></span> <span class="cuppa-subdued"><span class="cuppa-info">gcc15</span></span>
+     68.4K  3 days ago    <span class="cuppa-subdued">        ├── </span>✓✓✓ dbg/x86_64/cxx2c
+  <span class="cuppa-subdued">   78.1K</span>  <span class="cuppa-subdued">3 days ago  </span>  <span class="cuppa-subdued">        └── </span><span class="cuppa-subdued">---</span> <span class="cuppa-subdued">rel/x86_64/cxx2c</span>
+<span class="cuppa-subdued">  ----------------------------------------------------------------------</span>
+
+<span class="cuppa-subdued">  ----------------------------------------------------------------------</span>
+      SIZE  SELECTED      BY SCONSCRIPT
+<span class="cuppa-subdued">  ----------------------------------------------------------------------</span>
+  <span class="cuppa-emphasised">   19.5K</span>  <span class="cuppa-emphasised"><span class="cuppa-info">   ✔✔✔      </span></span>  <span class="cuppa-subdued">├── </span><span class="cuppa-emphasised"><span class="cuppa-info">lib</span></span>
+     19.5K     ✓✓✓        <span class="cuppa-subdued">│   └── </span>gcc15
+     19.5K      ✓         <span class="cuppa-subdued">│       └── </span>dbg/x86_64/cxx2c
+  <span class="cuppa-subdued">    127K</span>  <span class="cuppa-subdued"><span class="cuppa-info">   -✓-      </span></span>  <span class="cuppa-subdued">└── </span><span class="cuppa-subdued"><span class="cuppa-info">test</span></span>
+  <span class="cuppa-subdued">    127K</span>  <span class="cuppa-subdued">   -✓-      </span>  <span class="cuppa-subdued">    └── </span><span class="cuppa-subdued">gcc15</span>
+     48.8K      ✓         <span class="cuppa-subdued">        ├── </span>dbg/x86_64/cxx2c
+  <span class="cuppa-subdued">   78.1K</span>  <span class="cuppa-subdued">            </span>  <span class="cuppa-subdued">        └── </span><span class="cuppa-subdued">rel/x86_64/cxx2c</span>
+<span class="cuppa-subdued">  ----------------------------------------------------------------------</span>
+
+Selected <span class="cuppa-emphasised"><span class="cuppa-info">68.4K</span></span> of <span class="cuppa-emphasised">146.5K</span> (2 of 3 entries)
+
+Explicit command for the selected builds:
+
+cuppa -D <span class="cuppa-emphasised">--dbg</span> <span class="cuppa-emphasised">--toolchains</span>=<span class="cuppa-info">gcc15</span>
+
+Append --remove-builds to clear those folders.
+</code></pre>

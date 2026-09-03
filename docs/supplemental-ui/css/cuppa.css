@@ -15,6 +15,12 @@
   --cuppa-shadow: 0 0.15rem 0.5rem var(--cuppa-shadow-tint);
   --cuppa-code-size: 0.8rem;
   --cuppa-code-size-inline: 0.875em;
+  /*
+   * Local fonts only — the UI plan refuses CDN / self-hosted webfonts.
+   * Hack is first when the machine has it; otherwise the usual system mono
+   * stack. The generic `monospace` at the end is the last resort.
+   */
+  --cuppa-code-font: Hack, ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 
   /*
    * Shared callout chrome. Admonitions and expandable examples both consume
@@ -988,6 +994,13 @@ html.cuppa-doc-full .cuppa-doc-width-toggle__icon {
 
 /* Code: quieter frames and a smaller monospace scale than the bundle default */
 
+.doc pre,
+.doc .listingblock pre.highlight > code,
+.doc :not(pre) > code,
+.doc kbd {
+  font-family: var(--cuppa-code-font);
+}
+
 .doc pre {
   font-size: var(--cuppa-code-size);
 }
@@ -1003,6 +1016,27 @@ html.cuppa-doc-full .cuppa-doc-width-toggle__icon {
   border: 1px solid var(--cuppa-border);
   border-radius: var(--cuppa-radius);
   box-shadow: none;
+}
+
+/*
+ * Shell command listings are console input, so give them the same physical
+ * surface as semantic console output. Keep normal listing leading: commands
+ * are readable lines, not a report tree whose vertical glyphs must join.
+ *
+ * This first rule is the no-JS fallback. cuppa-scroll-panels.js wraps every
+ * listing at runtime; the panel rules below then move the chrome to the frame
+ * and viewport, as they do for pre.cuppa-output.
+ */
+.doc .listingblock pre.highlight > code:is(
+  [data-lang="sh"],
+  [data-lang="shell"],
+  [data-lang="bash"],
+  [data-lang="console"]
+) {
+  background: var(--cuppa-console-surface);
+  border-color: var(--cuppa-console-border, var(--cuppa-border));
+  box-shadow: inset 0 1px 4px var(--cuppa-console-inset);
+  color: var(--cuppa-console-text);
 }
 
 /*
@@ -1043,6 +1077,67 @@ html.cuppa-doc-full .cuppa-doc-width-toggle__icon {
   border-radius: var(--cuppa-radius);
   overflow: hidden;
   position: relative;
+}
+
+/*
+ * A console fragment is a bare <pre> with no .listingblock wrapper, so the
+ * panel replacing it inherits no block spacing (and the pre inside is
+ * margin: 0). Match the bundle's listing leading. Scoped to console panels:
+ * a JSON / listing panel already sits inside a block that has margin.
+ */
+.doc .cuppa-scroll-panel:has(pre.cuppa-output) {
+  margin: 1rem 0 0;
+}
+
+.doc .cuppa-scroll-panel:has(pre.cuppa-output),
+.doc .cuppa-scroll-panel:has(
+  code:is(
+    [data-lang="sh"],
+    [data-lang="shell"],
+    [data-lang="bash"],
+    [data-lang="console"]
+  )
+) {
+  --cuppa-scroll-surface: var(--cuppa-console-surface);
+}
+
+.doc .cuppa-scroll-panel:has(pre.cuppa-output) .cuppa-scroll-panel__frame {
+  background: var(--cuppa-console-surface);
+  border-color: var(--cuppa-console-border, var(--cuppa-border));
+}
+
+.doc .cuppa-scroll-panel:has(
+  code:is(
+    [data-lang="sh"],
+    [data-lang="shell"],
+    [data-lang="bash"],
+    [data-lang="console"]
+  )
+) .cuppa-scroll-panel__frame {
+  background: var(--cuppa-console-surface);
+  border-color: var(--cuppa-console-border, var(--cuppa-border));
+}
+
+/*
+ * Console recess for report samples. This sits on the viewport, not the frame:
+ * the frame's box-shadow is already the edge-overflow hint below, and those
+ * state rules would drop the recess as soon as a sample became scrollable.
+ * An inset shadow on a scroll container stays with the visible box while the
+ * content scrolls under it, which is the effect we want.
+ */
+.doc .cuppa-scroll-panel:has(pre.cuppa-output) .cuppa-scroll-panel__viewport {
+  box-shadow: inset 0 1px 4px var(--cuppa-console-inset);
+}
+
+.doc .cuppa-scroll-panel:has(
+  code:is(
+    [data-lang="sh"],
+    [data-lang="shell"],
+    [data-lang="bash"],
+    [data-lang="console"]
+  )
+) .cuppa-scroll-panel__viewport {
+  box-shadow: inset 0 1px 4px var(--cuppa-console-inset);
 }
 
 .doc .cuppa-scroll-panel__viewport {
@@ -1112,8 +1207,8 @@ html:has(.cuppa-scroll-panel__viewport.is-panning) {
   background: linear-gradient(
     to left,
     transparent,
-    color-mix(in srgb, var(--cuppa-code-surface) 35%, transparent),
-    var(--cuppa-code-surface)
+    color-mix(in srgb, var(--cuppa-scroll-surface, var(--cuppa-code-surface)) 35%, transparent),
+    var(--cuppa-scroll-surface, var(--cuppa-code-surface))
   );
   left: 1px;
 }
@@ -1122,8 +1217,8 @@ html:has(.cuppa-scroll-panel__viewport.is-panning) {
   background: linear-gradient(
     to right,
     transparent,
-    color-mix(in srgb, var(--cuppa-code-surface) 35%, transparent),
-    var(--cuppa-code-surface)
+    color-mix(in srgb, var(--cuppa-scroll-surface, var(--cuppa-code-surface)) 35%, transparent),
+    var(--cuppa-scroll-surface, var(--cuppa-code-surface))
   );
   right: 1px;
 }
@@ -1246,6 +1341,38 @@ html:has(.cuppa-scroll-panel__viewport.is-panning) {
 .doc .cuppa-scroll-panel__viewport > pre > code {
   display: block;
   min-width: max-content;
+}
+
+/*
+ * Console samples need this reset spelled out. `.doc pre.cuppa-output` in
+ * cuppa-output.css carries the block leading and the console recess for an
+ * unwrapped sample, and it has the same specificity as the `> pre` reset
+ * above — cuppa-output.css loads later, so it would win and leave a 1rem gap
+ * plus a second inset line below the frame border. Once wrapped, the panel
+ * owns spacing and the viewport owns the recess.
+ */
+.doc .cuppa-scroll-panel__viewport > pre.cuppa-output {
+  box-shadow: none;
+  margin: 0;
+}
+
+/*
+ * Once a shell listing is wrapped, withdraw the no-JS chrome from its inner
+ * code element. The frame owns the border/background and the viewport owns
+ * the recess. Do not set line-height here: shell commands retain the bundle's
+ * normal listing leading.
+ */
+.doc .cuppa-scroll-panel__viewport > pre.highlight > code:is(
+  [data-lang="sh"],
+  [data-lang="shell"],
+  [data-lang="bash"],
+  [data-lang="console"]
+) {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--cuppa-console-text);
 }
 
 /*

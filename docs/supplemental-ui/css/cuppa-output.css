@@ -1,0 +1,111 @@
+/*
+ * Semantic Cuppa report samples.
+ *
+ * Meaning classes follow Colouriser._start_colour (Colorama), via
+ * --cuppa-console-* tokens. Admonition chrome (--cuppa-warning orange, …)
+ * is not used here. See design/plans/colourised-doc-samples.md.
+ */
+
+.cuppa-output {
+  background: var(--cuppa-console-surface, #fefefe);
+  border: 1px solid var(--cuppa-console-border, var(--cuppa-border, #e9ecef));
+  border-radius: var(--cuppa-radius, 0.3rem);
+  /* Slight recess, so the report reads as a view into a console. */
+  box-shadow: inset 0 1px 4px var(--cuppa-console-inset, rgba(27, 34, 38, 0.13));
+  color: var(--cuppa-console-text, #1b1b1b);
+  font-family: var(--cuppa-code-font, Hack, ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace);
+  font-size: var(--cuppa-code-size, 0.8rem);
+  /*
+   * Report trees are terminal grids: extra leading leaves visible gaps between
+   * consecutive │ glyphs. One em per row keeps vertical stems joined.
+   */
+  line-height: 1;
+  overflow-x: auto;
+  padding: 0.85rem 1rem;
+  white-space: pre;
+}
+
+.cuppa-output code {
+  line-height: inherit;
+}
+
+/*
+ * The bundle ships `.doc pre { line-height: 1.5 }`, which outranks a bare
+ * `.cuppa-output`. Match that specificity for grid, surface, and ink.
+ *
+ * The recess and block leading here are for a sample the panel script has not
+ * wrapped (no JS). Once wrapped, the panel owns spacing and the viewport owns
+ * the recess, so cuppa.css withdraws both from the inner pre — via an explicit
+ * `> pre.cuppa-output` rule, because its generic `> pre` reset ties on
+ * specificity with this selector and this file loads later.
+ */
+.doc pre.cuppa-output {
+  background: var(--cuppa-console-surface, #fefefe);
+  box-shadow: inset 0 1px 4px var(--cuppa-console-inset, rgba(27, 34, 38, 0.13));
+  color: var(--cuppa-console-text, #1b1b1b);
+  line-height: 1;
+  /*
+   * A fragment is included as a bare <pre>, with no .listingblock wrapper to
+   * carry the bundle's block spacing, and `.doc pre` zeroes margins. Restore
+   * the same leading a listing gets so a report is not flush against prose.
+   */
+  margin: 1rem 0 0;
+}
+
+.doc pre.cuppa-output > code {
+  line-height: inherit;
+}
+
+.cuppa-output .cuppa-info,
+.cuppa-output .cuppa-time {
+  --cuppa-output-meaning: var(--cuppa-console-info, #1d4ed8);
+  color: var(--cuppa-output-meaning);
+}
+
+.cuppa-output .cuppa-notice,
+.cuppa-output .cuppa-expected-failure {
+  --cuppa-output-meaning: var(--cuppa-console-notice, #a16207);
+  color: var(--cuppa-output-meaning);
+}
+
+.cuppa-output .cuppa-warning,
+.cuppa-output .cuppa-remove-notice {
+  --cuppa-output-meaning: var(--cuppa-console-warning, #a21caf);
+  color: var(--cuppa-output-meaning);
+}
+
+.cuppa-output .cuppa-error,
+.cuppa-output .cuppa-remove-error,
+.cuppa-output .cuppa-failure,
+.cuppa-output .cuppa-failed,
+.cuppa-output .cuppa-aborted {
+  --cuppa-output-meaning: var(--cuppa-console-error, #b91c1c);
+  color: var(--cuppa-output-meaning);
+}
+
+.cuppa-output .cuppa-success,
+.cuppa-output .cuppa-passed,
+.cuppa-output .cuppa-unexpected-success {
+  --cuppa-output-meaning: var(--cuppa-console-success, #15803d);
+  color: var(--cuppa-output-meaning);
+}
+
+.cuppa-output .cuppa-skipped,
+.cuppa-output .cuppa-subdued {
+  --cuppa-output-meaning: var(--cuppa-console-muted, #6b7280);
+  color: var(--cuppa-output-meaning);
+}
+
+.cuppa-output .cuppa-emphasised {
+  font-weight: 700;
+}
+
+.cuppa-output .cuppa-label {
+  background: var(--cuppa-output-meaning, var(--cuppa-console-text, #1b1b1b));
+  border-radius: 0.2em;
+  box-decoration-break: clone;
+  color: var(--cuppa-console-surface, var(--cuppa-page, #fff));
+  font-weight: 700;
+  padding: 0.05em 0.25em;
+  -webkit-box-decoration-break: clone;
+}

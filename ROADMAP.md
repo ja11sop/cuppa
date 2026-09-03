@@ -11,7 +11,7 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-09-02
+**As of:** 2026-09-03
 
 ---
 
@@ -27,7 +27,7 @@ Cycle opened with docs/site and Profiles follow-ons; identity slices A–C close
 | Profiles `remote` links + inventory error-limit | Shipped [#219](https://github.com/ja11sop/cuppa/pull/219), [#225](https://github.com/ja11sop/cuppa/pull/225) |
 | `--toolchain-identity` + GitLab consume/publish OS identity | Shipped [#242](https://github.com/ja11sop/cuppa/pull/242), [#244](https://github.com/ja11sop/cuppa/pull/244), [#245](https://github.com/ja11sop/cuppa/pull/245) |
 | Profiles collate scope filter | Shipped [#246](https://github.com/ja11sop/cuppa/pull/246) / [#205](https://github.com/ja11sop/cuppa/issues/205) |
-| Colourised Antora report samples | Candidate — [`colourised-doc-samples.md`](design/plans/colourised-doc-samples.md) (`doc-output-samples`) |
+| Colourised Antora report samples | Ready to land — [#252](https://github.com/ja11sop/cuppa/issues/252); [`colourised-doc-samples.md`](design/plans/colourised-doc-samples.md) |
 
 **Still open this cycle (not started here):** GitLab CMake staging ([#209](https://github.com/ja11sop/cuppa/issues/209)); Boost package patched/clean identity ([`boost-updates.md`](design/plans/boost-updates.md)); artefact removal design ([#135](https://github.com/ja11sop/cuppa/issues/135)); console bundle (`--terse-output`, log hygiene, `cuppa --info`).
 
@@ -560,7 +560,7 @@ Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object path
 | `doc-site-release-default` | Public docs default to **`/latest/`** (released Cuppa), not `master` tip | High | Implementing on `feature/docs-latest-and-llms` with `doc-llms-txt` — [`docs-site-release-default.md`](design/plans/docs-site-release-default.md) |
 | `doc-llms-txt` | Agent Markdown: `llms.txt` + per-page MD + `llms-full.txt` from Antora HTML (Pandoc) | High | Same branch; corpus on `/latest/` — [`docs-llms-txt.md`](design/plans/docs-llms-txt.md) |
 | `doc-antora-ui` | Supplemental CSS polish (keep default Antora bundle) | Low | [`antora-ui-bundle.md`](design/plans/antora-ui-bundle.md); [#229](https://github.com/ja11sop/cuppa/issues/229); CSS pass in [#228](https://github.com/ja11sop/cuppa/pull/228); `ui-pin` still open; **1.9.0** docs-only |
-| `doc-output-samples` | Capture report output as semantic HTML for Antora and local preview | Low | [`colourised-doc-samples.md`](design/plans/colourised-doc-samples.md); not Shiki `ansi`; **1.9.0 candidate** beside remaining Methods/docs polish |
+| `doc-output-samples` | Capture report output as semantic HTML for Antora and local preview | Low | **Ready to land** [#252](https://github.com/ja11sop/cuppa/issues/252); [`colourised-doc-samples.md`](design/plans/colourised-doc-samples.md); not Shiki `ansi` |
 | `doc-shiki` | Build-time Shiki for `[source,…]` listings; optional ANSI preview | Low | [`shiki-syntax-highlighting.md`](design/plans/shiki-syntax-highlighting.md); **deferred past 1.9.0** — Phase A spike after UI chrome stable |
 | `doc-folder-layout` | Page folders mirroring nav (dependencies/, cxx-profiles/, toolchains/) | Low | **Shipped** — [`doc-folder-layout.md`](design/archive/doc-folder-layout.md) |
 | `doc-mermaid-theme` | Custom Mermaid theme matching site CSS | Low | After or with UI bundle |

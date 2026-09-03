@@ -1,0 +1,41 @@
+<pre class="cuppa-output"><code>  <span class="cuppa-subdued">------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------</span>
+      SIZE  LAST USED     TOOLCHAIN <span class="cuppa-subdued">family-version-driver-name(s)</span>
+  <span class="cuppa-subdued">------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------</span>
+        --  --            discovered
+                          <span class="cuppa-subdued">│</span>
+        --  --            <span class="cuppa-subdued">└── </span><span class="cuppa-emphasised"><span class="cuppa-info">gcc (default)</span></span>
+                          <span class="cuppa-subdued">    </span><span class="cuppa-subdued">│</span>
+  <span class="cuppa-subdued">      --</span>  <span class="cuppa-subdued">--          </span>  <span class="cuppa-subdued">    </span><span class="cuppa-subdued">└── </span><span class="cuppa-emphasised"><span class="cuppa-info">15.3</span></span>
+        --  --            <span class="cuppa-subdued">    </span><span class="cuppa-subdued">    </span><span class="cuppa-subdued">└── </span>/usr/bin/g++-15
+  <span class="cuppa-subdued">      --</span>  <span class="cuppa-subdued">--          </span>  <span class="cuppa-subdued">    </span><span class="cuppa-subdued">    </span><span class="cuppa-subdued">    </span><span class="cuppa-subdued">├── </span><span class="cuppa-info">gcc15</span>
+  <span class="cuppa-subdued">      --</span>  <span class="cuppa-subdued">--          </span>  <span class="cuppa-subdued">    </span><span class="cuppa-subdued">    </span><span class="cuppa-subdued">    </span><span class="cuppa-subdued">├── </span><span class="cuppa-info">gcc153</span>
+  <span class="cuppa-subdued">      --</span>  <span class="cuppa-subdued">--          </span>  <span class="cuppa-subdued">    </span><span class="cuppa-subdued">    </span><span class="cuppa-subdued">    </span><span class="cuppa-subdued">├── </span><span class="cuppa-emphasised"><span class="cuppa-info">gcc (default)</span></span>
+                          <span class="cuppa-subdued">            </span><span class="cuppa-subdued">├── </span><span class="cuppa-notice">available dialects: </span>c++2c<span class="cuppa-subdued"> (default)</span><span class="cuppa-subdued">, </span>c++26<span class="cuppa-subdued">, </span>c++2b<span class="cuppa-subdued">, </span>c++23<span class="cuppa-subdued">, </span>c++2a<span class="cuppa-subdued">, </span>c++20<span class="cuppa-subdued">, </span>c++1z<span class="cuppa-subdued">, </span>c++17<span class="cuppa-subdued">, </span>c++1y<span class="cuppa-subdued">, </span>c++14<span class="cuppa-subdued">, </span>c++11<span class="cuppa-subdued">, </span>c++0x<span class="cuppa-subdued">, </span>c++03<span class="cuppa-subdued">, </span>c++98
+                          <span class="cuppa-subdued">            </span><span class="cuppa-subdued">├── </span><span class="cuppa-notice">usable features: </span>all c++2c<span class="cuppa-subdued">, </span>modules<span class="cuppa-subdued"> (experimental)</span>
+                          <span class="cuppa-subdued">            </span><span class="cuppa-subdued">└── </span><span class="cuppa-notice">default invocations:</span>
+                          <span class="cuppa-subdued">                </span><span class="cuppa-subdued">├── </span>dbg
+                          <span class="cuppa-subdued">                │   </span><span class="cuppa-subdued">├── </span><span class="cuppa-notice">c++: </span><span class="cuppa-subdued">&quot;</span>-Wall -fexceptions -g -std=c++2c <span class="cuppa-subdued">&lt;sources&gt;</span><span class="cuppa-subdued">&quot;</span>
+                          <span class="cuppa-subdued">                │   </span><span class="cuppa-subdued">├── </span><span class="cuppa-notice">c: </span><span class="cuppa-subdued">&quot;</span>-Wall -g <span class="cuppa-subdued">&lt;sources&gt;</span><span class="cuppa-subdued">&quot;</span>
+                          <span class="cuppa-subdued">                │   </span><span class="cuppa-subdued">└── </span><span class="cuppa-notice">link: </span><span class="cuppa-subdued">&quot;</span><span class="cuppa-subdued">&lt;objects&gt;</span> -rdynamic -Wl,-rpath=. -Xlinker -Bstatic <span class="cuppa-subdued">&lt;static_libs&gt;</span> -Xlinker -Bdynamic -lpthread -lrt <span class="cuppa-subdued">&lt;dynamic_libs&gt;</span><span class="cuppa-subdued">&quot;</span>
+                          <span class="cuppa-subdued">                </span><span class="cuppa-subdued">├── </span>cov
+                          <span class="cuppa-subdued">                │   </span><span class="cuppa-subdued">├── </span><span class="cuppa-notice">c++: </span><span class="cuppa-subdued">&quot;</span>-Wall -fexceptions -g -std=c++2c --coverage <span class="cuppa-subdued">&lt;sources&gt;</span><span class="cuppa-subdued">&quot;</span>
+                          <span class="cuppa-subdued">                │   </span><span class="cuppa-subdued">├── </span><span class="cuppa-notice">c: </span><span class="cuppa-subdued">&quot;</span>-Wall -g --coverage <span class="cuppa-subdued">&lt;sources&gt;</span><span class="cuppa-subdued">&quot;</span>
+                          <span class="cuppa-subdued">                │   </span><span class="cuppa-subdued">└── </span><span class="cuppa-notice">link: </span><span class="cuppa-subdued">&quot;</span><span class="cuppa-subdued">&lt;objects&gt;</span> -rdynamic -Wl,-rpath=. --coverage -Xlinker -Bstatic <span class="cuppa-subdued">&lt;static_libs&gt;</span> -Xlinker -Bdynamic -lpthread -lrt <span class="cuppa-subdued">&lt;dynamic_libs&gt;</span><span class="cuppa-subdued">&quot;</span>
+                          <span class="cuppa-subdued">                </span><span class="cuppa-subdued">└── </span>rel
+                          <span class="cuppa-subdued">                    </span><span class="cuppa-subdued">├── </span><span class="cuppa-notice">c++: </span><span class="cuppa-subdued">&quot;</span>-Wall -fexceptions -g -std=c++2c -O3 -DNDEBUG -flto=auto <span class="cuppa-subdued">&lt;sources&gt;</span><span class="cuppa-subdued">&quot;</span>
+                          <span class="cuppa-subdued">                    </span><span class="cuppa-subdued">├── </span><span class="cuppa-notice">c: </span><span class="cuppa-subdued">&quot;</span>-Wall -g -O3 -DNDEBUG <span class="cuppa-subdued">&lt;sources&gt;</span><span class="cuppa-subdued">&quot;</span>
+                          <span class="cuppa-subdued">                    </span><span class="cuppa-subdued">└── </span><span class="cuppa-notice">link: </span><span class="cuppa-subdued">&quot;</span><span class="cuppa-subdued">&lt;objects&gt;</span> -rdynamic -Wl,-rpath=. -flto=auto -Xlinker -Bstatic <span class="cuppa-subdued">&lt;static_libs&gt;</span> -Xlinker -Bdynamic -lpthread -lrt <span class="cuppa-subdued">&lt;dynamic_libs&gt;</span><span class="cuppa-subdued">&quot;</span>
+  <span class="cuppa-subdued">------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------</span>
+        --  --            registered
+                          (none)
+  <span class="cuppa-subdued">------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------</span>
+  3 toolchains, none total (none discovered, none registered)
+
+To remove registered toolchains review with:
+
+<span class="cuppa-emphasised">cuppa -Q -D -n --force-wipe-dependencies=[toolchain]*</span>
+
+Drop -n and re-run after confirming.
+
+Force-wipe removal of toolchains applies only to registered toolchains. Discovered toolchains are not Cuppa-owned.
+</code></pre>

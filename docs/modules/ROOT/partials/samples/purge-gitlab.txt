@@ -1,23 +1,25 @@
-Removed 1 dependency tree and 1 download (166M) under ~/.cuppa/dependencies / ~/.cuppa/downloads
+Removing 1 dependency tree and 1 download (167.2M) under ~/.cuppa/dependencies / ~/.cuppa/downloads
 
   ---------------------------------------------------------------------------------------------------
       SIZE  LAST USED      REMARK     DEPENDENCY
   ---------------------------------------------------------------------------------------------------
-    462.3M  yesterday                 related dependencies for boost_package
+    462.3M  11 days ago               related dependencies for boost_package
                                       │
-    167.2M  yesterday                 ├── removed
+    167.2M                            ├── removed
     295.1M  11 days ago               ├── remaining
                                       │
-    462.3M  yesterday                 └── gitlab packages
+    462.3M  11 days ago               └── gitlab packages
                                           │
-    462.3M  yesterday                     └── -✔- boost_package
+    462.3M  11 days ago                   └── -✔- boost_package
                                               │
-    462.3M  yesterday                         └── -✔- 1.91
+    462.3M  11 days ago                       └── -✔- 1.91
       1.1M  11 days ago                           ├── - boost_debian_clang211_rel_x86_64_cxx2c.tar.gz
-      1.2M  yesterday      removed                ├── ✔ boost_debian_gcc153_rel_x86_64_cxx2c.tar.gz
-      294M  11 days ago                           ├── - clang211_rel_x86_64_cxx2c/boost/1.91
-      166M  yesterday      removed                └── ✔ gcc153_rel_x86_64_cxx2c/boost/1.91
+      1.2M  -              removed                ├── ✔ boost_debian_gcc153_rel_x86_64_cxx2c.tar.gz
+      166M  -              removed                │   └── ✔ [E] gcc153_rel_x86_64_cxx2c/boost/1.91
+      294M  11 days ago                           └── - clang211_rel_x86_64_cxx2c/boost/1.91
   ---------------------------------------------------------------------------------------------------
+
+[E] = dependency extracted from the download above
 
 Leaving 1 tree and 1 download (295.1M) for other selections as shown.
 

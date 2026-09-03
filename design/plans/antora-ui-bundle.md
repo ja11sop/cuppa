@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-antora-ui`); [#229](https://github.com/ja11sop/cuppa/issues/229); PR [#228](https://github.com/ja11sop/cuppa/pull/228); [`docs/playbook.yml`](../../docs/playbook.yml); supplemental UI [`docs/supplemental-ui/`](../../docs/supplemental-ui/); companions [`colourised-doc-samples.md`](colourised-doc-samples.md), [`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md)
-- **Updated:** 2026-08-26
+- **Updated:** 2026-09-03
 - **Impact:** none — site presentation only (unless a UI change breaks the docs CI build)
 
 ## Why
@@ -111,7 +111,7 @@ Sources are **look references**, not dependencies. Map each idea onto Antora cla
 | Navbar | Compact brand colour | **Adapt** | Tint/border only; keep overlay markup |
 | Navbar brand marks | Project / registry icons | **Adapt** | GitHub and PyPI links carry inline SVG marks (Simple Icons paths, CC0) that inherit `currentColor`; text labels stay for the mobile menu |
 | Code blocks | Title bar, quieter chrome | **Adapt** | Quieter frame and a smaller monospace scale (`--cuppa-code-size*`); highlight.js tokens untouched in this UI pass; token theming and line numbers are [`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md) (`doc-shiki`). Wide listing/console samples: horizontal scroll only, inset edge fades + shadows inside the frame border, click-drag pan with clamp + edge pulse at limits |
-| Fonts / icon packs | Material icons, extra webfonts | **Skip** | Weight and self-hosting. Cherry-picked Material paths (Apache 2.0) are embedded as `--cuppa-icon-*` data-URI masks in `cuppa.css`, so semantic and disclosure marks inherit palette colour without a pack or extra request; the two navbar marks stay inline in the header partial |
+| Fonts / icon packs | Material icons, extra webfonts | **Skip** | Weight and self-hosting. Cherry-picked Material paths (Apache 2.0) are embedded as `--cuppa-icon-*` data-URI masks in `cuppa.css`, so semantic and disclosure marks inherit palette colour without a pack or extra request; the two navbar marks stay inline in the header partial. Code/console type uses `--cuppa-code-font`: locally installed **Hack** first, then the usual system mono stack — no CDN and no `@font-face` |
 | Dark mode | Material default | **Adapt** | Palette files follow `prefers-color-scheme`; a navbar toggle remains deferred |
 | Card / grid landing | Material cards | **Skip** | Needs content rewrite |
 | Search modal | Material overlay search | **Skip** | Lunr field stays in the navbar |
@@ -171,7 +171,8 @@ worktree build before it considers `page.editUrl`.
 | `ui-css` | `cuppa.css` + `head-styles.hbs` | Only **Keep** / **Adapt** rows; six audit pages |
 | `ui-ci` | `docs` `npm run build` green | GitHub Pages deploy unchanged |
 | `ui-fork-spike` | Optional | Only if `ui-css` cannot reach nav/tables |
-| `ui-samples-tokens` | `--cuppa-*` used by colourised samples | Coordinate with `colourised-doc-samples.md` |
+| `ui-samples-tokens` | `--cuppa-*` used by colourised samples | **Landed on #252:** `--cuppa-console-*` (surface, ink, recess, border, Colorama hues) in each palette; `.cuppa-output` and shell listings consume them. Admonition `--cuppa-warning` / `--cuppa-note` stay page chrome |
+| `ui-scroll-snap` | Near-edge snap to left/right on wide panels | **Landed on #252:** after pan ends or wheel/trackpad/keyboard input settles, snap flush within 24px so the fade/chevron clears without requiring the resist bounce. Applies to every wrapped listing, JSON sample, and `pre.cuppa-output`; never snaps during a gesture or from mid-scroll |
 | `ui-mermaid` | Optional CSS vars | `doc-mermaid-theme` — not this PR |
 
 **First implementation PR:** `ui-css` (+ `ui-pin` in the same PR if small). `ui-audit` is this
@@ -186,6 +187,8 @@ plan update.
 | `ui-pin` | **Next** — keep separate until a stable default-bundle artifact or vendoring route is selected |
 | `ui-ci` | Local Antora build passes; verify Pages CI on [#228](https://github.com/ja11sop/cuppa/pull/228) |
 | `ui-fork-spike` | Deferred — supplemental pass reaches nav/tables without a fork |
+| `ui-samples-tokens` | **Landed on #252** — console tokens and sample/shell surface; see `colourised-doc-samples.md` |
+| `ui-scroll-snap` | **Landed on #252** — 24px near-edge snap after pan/scroll settles; all wrapped wide views; immediate under reduced motion, otherwise native smooth scroll. A narrow overflow overlaps both snap zones, so an edge already reached is final and an overlap commits to the nearer edge, instead of oscillating between the two |
 
 ## Files
 

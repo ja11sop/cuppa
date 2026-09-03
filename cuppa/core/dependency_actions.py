@@ -1289,66 +1289,19 @@ def write_unknown_remove_names_error( construct, cuppa_env, error, out=None ):
     emit_location_unqualified_duplicate_hints( out=out )
 
 
-def list_dependencies( construct, cuppa_env, out=None ):
-    """``--list-dependencies``. Always exits 0 unless a storage error is raised."""
-    out = out or sys.stdout
-    list_format = cuppa_env.get( 'list_format' ) or 'text'
-    if list_format != 'json':
-        _write_collating( out )
-    # Progress lines go to the same stream as the table; omit for JSON payloads.
-    progress_out = None if list_format == 'json' else out
-    data = apply_list_scope(
-            _collect_rows( construct, cuppa_env, out=progress_out ),
-            cuppa_env.get( 'list_scope' ) or 'all',
-            tree_builder=dependency_tree.build_tree,
-    )
-    root = data['dependencies_root']
-    rows = data['rows']
+def write_list_dependencies_report( out, data, cuppa_env, verbose=False ):
+    """Write the human-readable ``--list-dependencies`` report body.
+
+    Callers collect and scope ``data`` first. Progress lines such as
+    ``Collating dependency tree...`` stay with the CLI entry point so a docs
+    sample can reuse this writer without them.
+    """
+    rows = data.get( 'rows' ) or []
     tree = data.get( 'tree' ) or dependency_tree.build_tree( rows )
-    verbose = list_format == 'verbose'
-
-    if list_format == 'json':
-        payload = {
-            'dependencies_root': root,
-            'scope': data.get( 'scope' ) or 'all',
-            'tree': dependency_tree.tree_to_json( tree ),
-            'entries': [
-                {
-                    'size': row['size'],
-                    'size_bytes': row['size_bytes'],
-                    'dependency': row['dependency'],
-                    'qualifier': row['qualifier'],
-                    'tool_variant': row['tool_variant'],
-                    'last_used': row['last_used'],
-                    'state': row['state'],
-                    'path': row['path'],
-                    'type': row['type'],
-                    'kind': row['kind'],
-                    'short_name': row.get( 'short_name' ),
-                    'stem': row.get( 'stem' ),
-                    'source_url': row.get( 'source_url' ),
-                    'remote_location': row.get( 'remote_location' ),
-                    'location': row.get( 'location' ),
-                    'has_download': bool( row.get( 'has_download' ) ),
-                    'download_path': row.get( 'download_path' ),
-                    'toolchain_session_name': row.get( 'toolchain_session_name' ),
-                }
-                for row in rows
-            ],
-            'total_bytes': data['total_bytes'],
-            'unreferenced_bytes': data['unreferenced_bytes'],
-            'missing_count': data.get( 'missing_count' ) or 0,
-            'unqualified_duplicate_tokens': data.get( 'unqualified_duplicate_tokens' ) or [],
-            'skips': [
-                { 'dependency': s.dependency, 'reason': s.reason } for s in data['skips']
-            ],
-        }
-        out.write( storage.render_json_payload( payload ) + "\n" )
-        return 0
-
+    root = data.get( 'dependencies_root' )
     out.write( "\n" )
     out.write( "Dependencies in {}\n".format(
-            as_info( storage.display_path( root ) )
+            as_info( storage.display_path( root ) ) if root else '-'
     ) )
     names = dependency_storage.default_dependency_names( cuppa_env )
     if names:
@@ -1358,10 +1311,10 @@ def list_dependencies( construct, cuppa_env, out=None ):
 
     _write_ruled_tree( out, tree, verbose=verbose )
 
-    total = storage.human_size( data['total_bytes'] )
-    unref = storage.human_size( data['unreferenced_bytes'] )
+    total = storage.human_size( data.get( 'total_bytes' ) or 0 )
+    unref = storage.human_size( data.get( 'unreferenced_bytes' ) or 0 )
     estimate_note = ''
-    if data['estimated']:
+    if data.get( 'estimated' ):
         estimate_note = '   (~ estimated; --exact-sizes measures)'
     missing = int( data.get( 'missing_count' ) or 0 )
     missing_note = ''
@@ -1369,7 +1322,6 @@ def list_dependencies( construct, cuppa_env, out=None ):
         missing_note = ', {} missing'.format( missing )
     scope = data.get( 'scope' ) or 'all'
     if scope in ( 'referenced', 'compact' ):
-        # Scoped view: total is this section; omit a useless 0B unreferenced.
         label = 'compact' if scope == 'compact' else 'referenced'
         out.write( "{}{} entries, {} total, {} {}{}{}\n".format(
                 INDENT,
@@ -1390,7 +1342,7 @@ def list_dependencies( construct, cuppa_env, out=None ):
                 estimate_note,
         ) )
 
-    for line in _render_skip_tree( data['skips'] ):
+    for line in _render_skip_tree( data.get( 'skips' ) or [] ):
         out.write( line + "\n" )
 
     if verbose and data.get( 'has_download_marks' ):
@@ -1438,60 +1390,16 @@ def list_dependencies( construct, cuppa_env, out=None ):
         out.write( 'You can view the state of dependencies marked as "develop" with:\n\n' )
         out.write( as_emphasised( "cuppa -D --list-develop" ) + "\n" )
 
-    return 0
 
+def write_list_downloads_report( out, data, cuppa_env, verbose=False ):
+    """Write the human-readable ``--list-downloads`` report body.
 
-def list_downloads( construct, cuppa_env, out=None ):
-    """``--list-downloads``. Always exits 0 unless a storage error is raised."""
-    out = out or sys.stdout
-    list_format = cuppa_env.get( 'list_format' ) or 'text'
-    if list_format != 'json':
-        out.write( as_subdued( "Collating downloads tree..." ) + "\n" )
-    data = apply_list_scope(
-            dependency_downloads.collect_download_rows( construct, cuppa_env ),
-            cuppa_env.get( 'list_scope' ) or 'all',
-            tree_builder=dependency_downloads.build_downloads_tree,
-    )
-    root = data.get( 'downloads_root' )
+    Callers collect and scope ``data`` first. The collating progress line stays
+    with the CLI entry point so a docs sample can reuse this writer without it.
+    """
     rows = data.get( 'rows' ) or []
     tree = data.get( 'tree' ) or dependency_downloads.build_downloads_tree( rows )
-    verbose = list_format == 'verbose'
-
-    if list_format == 'json':
-        payload = {
-            'downloads_root': root,
-            'dependencies_root': data.get( 'dependencies_root' ),
-            'scope': data.get( 'scope' ) or 'all',
-            'tree': dependency_tree.tree_to_json( tree ),
-            'entries': [
-                {
-                    'kind': row.get( 'role' ),
-                    'size': storage.human_size( int( row.get( 'size_bytes' ) or 0 ) ),
-                    'size_bytes': int( row.get( 'size_bytes' ) or 0 ),
-                    'dependency': row.get( 'dependency' ),
-                    'short_name': row.get( 'short_name' ),
-                    'qualifier': row.get( 'qualifier' ),
-                    'tool_variant': row.get( 'tool_variant' ),
-                    'state': row.get( 'state' ),
-                    'type': row.get( 'type' ),
-                    'path': row.get( 'path' ),
-                    'label': row.get( 'label' ),
-                    'location': row.get( 'location' ),
-                    'source_url': row.get( 'source_url' ),
-                    'remote_location': row.get( 'remote_location' ),
-                }
-                for row in rows
-            ],
-            'archive_count': data.get( 'archive_count' ) or 0,
-            'total_bytes': data.get( 'total_bytes' ) or 0,
-            'unreferenced_bytes': data.get( 'unreferenced_bytes' ) or 0,
-            'skips': [
-                { 'dependency': s.dependency, 'reason': s.reason } for s in data.get( 'skips' ) or []
-            ],
-        }
-        out.write( storage.render_json_payload( payload ) + "\n" )
-        return 0
-
+    root = data.get( 'downloads_root' )
     out.write( "\n" )
     out.write( "Downloads in {}\n".format(
             as_info( storage.display_path( root ) ) if root else '-'
@@ -1552,6 +1460,121 @@ def list_downloads( construct, cuppa_env, out=None ):
         )
 
     emit_location_unqualified_duplicate_hints( out=out )
+
+
+def list_dependencies( construct, cuppa_env, out=None ):
+    """``--list-dependencies``. Always exits 0 unless a storage error is raised."""
+    out = out or sys.stdout
+    list_format = cuppa_env.get( 'list_format' ) or 'text'
+    if list_format != 'json':
+        _write_collating( out )
+    # Progress lines go to the same stream as the table; omit for JSON payloads.
+    progress_out = None if list_format == 'json' else out
+    data = apply_list_scope(
+            _collect_rows( construct, cuppa_env, out=progress_out ),
+            cuppa_env.get( 'list_scope' ) or 'all',
+            tree_builder=dependency_tree.build_tree,
+    )
+    root = data['dependencies_root']
+    rows = data['rows']
+    tree = data.get( 'tree' ) or dependency_tree.build_tree( rows )
+    verbose = list_format == 'verbose'
+
+    if list_format == 'json':
+        payload = {
+            'dependencies_root': root,
+            'scope': data.get( 'scope' ) or 'all',
+            'tree': dependency_tree.tree_to_json( tree ),
+            'entries': [
+                {
+                    'size': row['size'],
+                    'size_bytes': row['size_bytes'],
+                    'dependency': row['dependency'],
+                    'qualifier': row['qualifier'],
+                    'tool_variant': row['tool_variant'],
+                    'last_used': row['last_used'],
+                    'state': row['state'],
+                    'path': row['path'],
+                    'type': row['type'],
+                    'kind': row['kind'],
+                    'short_name': row.get( 'short_name' ),
+                    'stem': row.get( 'stem' ),
+                    'source_url': row.get( 'source_url' ),
+                    'remote_location': row.get( 'remote_location' ),
+                    'location': row.get( 'location' ),
+                    'has_download': bool( row.get( 'has_download' ) ),
+                    'download_path': row.get( 'download_path' ),
+                    'toolchain_session_name': row.get( 'toolchain_session_name' ),
+                }
+                for row in rows
+            ],
+            'total_bytes': data['total_bytes'],
+            'unreferenced_bytes': data['unreferenced_bytes'],
+            'missing_count': data.get( 'missing_count' ) or 0,
+            'unqualified_duplicate_tokens': data.get( 'unqualified_duplicate_tokens' ) or [],
+            'skips': [
+                { 'dependency': s.dependency, 'reason': s.reason } for s in data['skips']
+            ],
+        }
+        out.write( storage.render_json_payload( payload ) + "\n" )
+        return 0
+
+    write_list_dependencies_report( out, data, cuppa_env, verbose=verbose )
+    return 0
+
+
+def list_downloads( construct, cuppa_env, out=None ):
+    """``--list-downloads``. Always exits 0 unless a storage error is raised."""
+    out = out or sys.stdout
+    list_format = cuppa_env.get( 'list_format' ) or 'text'
+    if list_format != 'json':
+        out.write( as_subdued( "Collating downloads tree..." ) + "\n" )
+    data = apply_list_scope(
+            dependency_downloads.collect_download_rows( construct, cuppa_env ),
+            cuppa_env.get( 'list_scope' ) or 'all',
+            tree_builder=dependency_downloads.build_downloads_tree,
+    )
+    root = data.get( 'downloads_root' )
+    rows = data.get( 'rows' ) or []
+    tree = data.get( 'tree' ) or dependency_downloads.build_downloads_tree( rows )
+    verbose = list_format == 'verbose'
+
+    if list_format == 'json':
+        payload = {
+            'downloads_root': root,
+            'dependencies_root': data.get( 'dependencies_root' ),
+            'scope': data.get( 'scope' ) or 'all',
+            'tree': dependency_tree.tree_to_json( tree ),
+            'entries': [
+                {
+                    'kind': row.get( 'role' ),
+                    'size': storage.human_size( int( row.get( 'size_bytes' ) or 0 ) ),
+                    'size_bytes': int( row.get( 'size_bytes' ) or 0 ),
+                    'dependency': row.get( 'dependency' ),
+                    'short_name': row.get( 'short_name' ),
+                    'qualifier': row.get( 'qualifier' ),
+                    'tool_variant': row.get( 'tool_variant' ),
+                    'state': row.get( 'state' ),
+                    'type': row.get( 'type' ),
+                    'path': row.get( 'path' ),
+                    'label': row.get( 'label' ),
+                    'location': row.get( 'location' ),
+                    'source_url': row.get( 'source_url' ),
+                    'remote_location': row.get( 'remote_location' ),
+                }
+                for row in rows
+            ],
+            'archive_count': data.get( 'archive_count' ) or 0,
+            'total_bytes': data.get( 'total_bytes' ) or 0,
+            'unreferenced_bytes': data.get( 'unreferenced_bytes' ) or 0,
+            'skips': [
+                { 'dependency': s.dependency, 'reason': s.reason } for s in data.get( 'skips' ) or []
+            ],
+        }
+        out.write( storage.render_json_payload( payload ) + "\n" )
+        return 0
+
+    write_list_downloads_report( out, data, cuppa_env, verbose=verbose )
     return 0
 
 

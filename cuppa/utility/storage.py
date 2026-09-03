@@ -33,11 +33,14 @@ class StorageError( Exception ):
 
 # CSI / OSC sequences inflate len(); table padding and rule widths must ignore them.
 _ANSI_ESCAPE_RE = AnsiEscape.ansi_escape_re
+# HtmlColouriser placeholders (cuppa/colourise_html.py); keep in sync with that token.
+_HTML_COLOUR_TOKEN_RE = re.compile( r'\x00cuppa-html-\d+\x00' )
 
 
 def visible_len( text ):
-    """Display width of ``text`` with ANSI escape sequences removed."""
-    return len( _ANSI_ESCAPE_RE.sub( '', str( text ) ) )
+    """Display width of ``text`` with ANSI and HTML colouriser tokens removed."""
+    text = _ANSI_ESCAPE_RE.sub( '', str( text ) )
+    return len( _HTML_COLOUR_TOKEN_RE.sub( '', text ) )
 
 
 def pad_visible( text, width ):

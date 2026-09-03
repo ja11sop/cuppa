@@ -1,0 +1,37 @@
+<pre class="cuppa-output"><code>
+Building on branch [<span class="cuppa-info">feature_orders</span>] with default branch [<span class="cuppa-info">master</span>]; --develop is <span class="cuppa-notice">not active</span>
+
+<span class="cuppa-subdued">  ----------------------------------------------------------------------------------------------</span>
+  STATUS  DEPENDENCY  BRANCH          UPSTREAM            STATE                  PATH
+<span class="cuppa-subdued">  ----------------------------------------------------------------------------------------------</span>
+<span class="cuppa-warning">  warn    flange      spike_cache     origin/spike_cache  clean, 2 behind        ~/coding/flange</span>
+<span class="cuppa-subdued">  ok      gadget      master          origin/master       clean                  ~/coding/gadget</span>
+<span class="cuppa-error">  error   gizmo       -               -                   path does not exist    ~/coding/gizmo</span>
+<span class="cuppa-subdued"><span class="cuppa-info">  note    widget      feature_orders  -                   modified, no upstream  ~/coding/widget</span></span>
+<span class="cuppa-subdued">  ----------------------------------------------------------------------------------------------</span>
+
+<span class="cuppa-emphasised">4</span> develop locations: <span class="cuppa-error">[1 error]</span><span class="cuppa-warning">[1 warning]</span><span class="cuppa-info">[1 note]</span>; 1 ok; 1 dependency not using develop
+<span class="cuppa-subdued">│</span>
+<span class="cuppa-subdued">├── </span><span class="cuppa-error">1 error</span>
+<span class="cuppa-subdued">│   │</span>
+<span class="cuppa-subdued">│   └── </span><span class="cuppa-error">gizmo</span>
+<span class="cuppa-subdued">│       └── </span>has a develop path [<span class="cuppa-error">~/coding/gizmo</span>] that does not exist, so this build cannot
+<span class="cuppa-subdued">│           </span>succeed
+<span class="cuppa-subdued">│</span>
+<span class="cuppa-subdued">├── </span><span class="cuppa-warning">1 warning</span>
+<span class="cuppa-subdued">│   │</span>
+<span class="cuppa-subdued">│   └── </span><span class="cuppa-warning">flange</span>
+<span class="cuppa-subdued">│       ├── </span>is on [<span class="cuppa-warning">spike_cache</span>], which is neither [<span class="cuppa-warning">feature_orders</span>] nor the default branch
+<span class="cuppa-subdued">│       │   </span>[<span class="cuppa-warning">master</span>]
+<span class="cuppa-subdued">│       └── </span>is 2 commits behind [<span class="cuppa-warning">origin/spike_cache</span>] as of your last fetch
+<span class="cuppa-subdued">│</span>
+<span class="cuppa-subdued">└── </span><span class="cuppa-info">1 note</span>
+<span class="cuppa-subdued">    │</span>
+<span class="cuppa-subdued">    └── </span><span class="cuppa-info">widget</span>
+<span class="cuppa-subdued">        ├── </span>has no upstream branch, so ahead and behind cannot be answered
+<span class="cuppa-subdued">        └── </span>has uncommitted changes on [<span class="cuppa-info">feature_orders</span>]
+
+Ahead and behind are relative to your last fetch; no remote was contacted
+Of these, --update-develop would fast-forward 1 ([<span class="cuppa-info">flange</span>]) as of your last fetch; it fetches
+first, so it may find more
+</code></pre>

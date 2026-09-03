@@ -24,4 +24,10 @@ Default dependencies: boost_package
       1.4M  today                       ├── 11.1.4
       1.5M  today                       └── 12.2.0
   ---------------------------------------------------------------------
-3 entries, 305.1M total, 5.8M unreferenced
+  4 entries, 305.1M total, 5.8M unreferenced
+
+Review unreferenced trees, then clear them with:
+
+cuppa -Q -D -n --force-wipe-unreferenced-dependencies
+
+Drop -n and re-run after confirming.

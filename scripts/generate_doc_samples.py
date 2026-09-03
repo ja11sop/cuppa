@@ -9,8 +9,13 @@ Run from the repository root:
 
     python -m scripts.generate_doc_samples
 
-Writes plain-text samples under ``docs/modules/ROOT/partials/samples/`` so AsciiDoc
-pages can ``include::partial$samples/….txt[]`` inside ``[source,text]`` blocks.
+Writes plain-text and semantic HTML samples under
+``docs/modules/ROOT/partials/samples/``. AsciiDoc pages include text files inside
+``[source,text]`` blocks and HTML fragments inside passthrough blocks.
+
+Generate and preview the first semantic recipe with:
+
+    python -m scripts.generate_doc_samples list-builds --preview
 
 Relative ages use a fixed reference instant (:data:`NOW`, 2026-08-09) via
 :class:`frozen_now`, including when unit tests call individual ``sample_*``
@@ -27,15 +32,21 @@ import shutil
 import time
 from pathlib import Path
 
+import cuppa.colourise
+from cuppa.colourise_html import HtmlColouriser
 from cuppa.core import (
         dependency_downloads,
-        dependency_identity,
         dependency_removal,
         dependency_tree,
         storage_actions,
         toolchain_actions,
 )
-from cuppa.core.dependency_actions import _format_age_epoch, _write_ruled_tree
+from cuppa.core.dependency_actions import (
+        _format_age_epoch,
+        apply_list_scope,
+        write_list_dependencies_report,
+        write_list_downloads_report,
+)
 from cuppa.develop import Copy, list_payload as develop_list_payload
 from cuppa.develop import report as develop_report
 from cuppa.utility import storage
@@ -48,6 +59,7 @@ class _FakeEnv( dict ):
 
 ROOT = Path( __file__ ).resolve().parents[1]
 SAMPLES = ROOT / 'docs' / 'modules' / 'ROOT' / 'partials' / 'samples'
+PREVIEWS = ROOT / '_docs_build' / 'samples'
 
 # Freeze "today" / "yesterday" / "11 days ago" / "2 months ago" relative ages.
 NOW = time.mktime( time.strptime( '2026-08-09 12:00:00', '%Y-%m-%d %H:%M:%S' ) )
@@ -112,6 +124,68 @@ def _write_sample( name, text ):
     return path
 
 
+def _assert_public_html( text ):
+    """Refuse HTML fragments containing machine-specific absolute paths."""
+    forbidden = ( '/home/', '/Users/', '/tmp/' )
+    found = next( ( prefix for prefix in forbidden if prefix in text ), None )
+    if found:
+        raise ValueError(
+                "refusing documentation sample containing absolute path [{}]".format(
+                    found
+                )
+        )
+
+
+def _capture_html( invoke ):
+    """Run ``invoke( out )`` under the HTML colouriser.
+
+    Returns the assembled text and the colouriser holding the semantic
+    operations, so a recipe can still rewrite machine paths in both before
+    rendering.
+    """
+    colouriser = HtmlColouriser()
+    out = io.StringIO()
+    with cuppa.colourise.using_colouriser( colouriser ):
+        invoke( out )
+    return out.getvalue(), colouriser
+
+
+def _write_html_sample( name, text, colouriser ):
+    SAMPLES.mkdir( parents=True, exist_ok=True )
+    rendered = colouriser.render( text )
+    _assert_public_html( rendered )
+    path = SAMPLES / name
+    path.write_text( rendered, encoding='utf-8' )
+    return path
+
+
+def _write_preview( fragment ):
+    """Write a standalone preview using the same palette and sample CSS as Antora."""
+    palette = (
+        ROOT / 'docs' / 'supplemental-ui' / 'css'
+        / 'cuppa-palette-cup-of-tea.css'
+    ).read_text( encoding='utf-8' )
+    output_css = (
+        ROOT / 'docs' / 'supplemental-ui' / 'css' / 'cuppa-output.css'
+    ).read_text( encoding='utf-8' )
+    body = fragment.read_text( encoding='utf-8' )
+    preview = (
+        '<!doctype html>\n'
+        '<html lang="en"><head><meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        '<title>Cuppa {} sample</title>\n'
+        '<style>{}</style><style>{}</style>\n'
+        '</head><body style="background:var(--cuppa-page);'
+        'color:var(--cuppa-text);margin:2rem">{}\n'
+        '</body></html>\n'
+    ).format( fragment.stem, palette, output_css, body )
+    _assert_public_html( preview )
+    PREVIEWS.mkdir( parents=True, exist_ok=True )
+    path = PREVIEWS / '{}.preview.html'.format( fragment.stem )
+    path.write_text( preview, encoding='utf-8' )
+    return path
+
+
 def _touch_dir( path, mtime ):
     path = Path( path )
     path.mkdir( parents=True, exist_ok=True )
@@ -173,24 +247,90 @@ def _download_rows_for_list_samples():
     ]
 
 
+def _list_downloads_env():
+    env = _FakeEnv()
+    env['default_dependencies'] = [ 'boost', 'boost_package' ]
+    return env
+
+
+def _list_downloads_data():
+    rows = _download_rows_for_list_samples()
+    data = {
+        'rows': rows,
+        'downloads_root': str( Path.home() / '.cuppa' / 'downloads' ),
+        'skips': [],
+        'estimated': False,
+    }
+    return apply_list_scope(
+            data, 'all', tree_builder=dependency_downloads.build_downloads_tree,
+    )
+
+
+def _rewrite_sample_home( text, colouriser=None ):
+    """Map planted ``/home/user`` paths to ``~`` for public samples."""
+    planted = '/home/user'
+    if colouriser is not None:
+        colouriser.replace( planted, '~' )
+    return text.replace( planted, '~' )
+
+
+def _run_dependency_removal( out, env, plan, purge_plan=None ):
+    """Run the real removal report against a deterministic collected plan."""
+    real_collect = dependency_removal.collect_removal_plan
+    real_collect_purge = dependency_removal.collect_purge_downloads
+    real_dry_run = dependency_removal.dry_run
+    dependency_removal.collect_removal_plan = (
+        lambda construct, cuppa_env, names, wipe=False: plan
+    )
+    dependency_removal.dry_run = (
+        lambda cuppa_env: bool( cuppa_env.get_option( 'no_exec' ) )
+    )
+    if purge_plan is not None:
+        dependency_removal.collect_purge_downloads = (
+            lambda construct, cuppa_env, names, owned=None: purge_plan
+        )
+    try:
+        return dependency_removal.remove_dependencies( object(), env, out=out )
+    finally:
+        dependency_removal.collect_removal_plan = real_collect
+        dependency_removal.collect_purge_downloads = real_collect_purge
+        dependency_removal.dry_run = real_dry_run
+
+
+def _rewrite_removal_roots( text, colouriser, roots ):
+    """Replace planted storage roots in text and semantic operation values."""
+    for root, public in roots:
+        if colouriser is not None:
+            colouriser.replace( str( root ), public )
+        text = text.replace( str( root ), public )
+    return text
+
+
 def sample_list_downloads():
     """`--list-downloads` hierarchical text (gitlab before source archives)."""
-    rows = _download_rows_for_list_samples()
-    tree = dependency_downloads.build_downloads_tree( rows )
     out = io.StringIO()
-    out.write( 'Downloads in ~/.cuppa/downloads\n' )
-    out.write( 'Default dependencies: boost, boost_package\n' )
-    _write_ruled_tree( out, tree, tree_header='DEPENDENCY / DOWNLOAD' )
-    out.write( '3 archives, 216M download total, 36M unreferenced\n\n' )
-    out.write( '[E] = dependency extracted from the download above\n' )
-    # Stabilise relative ages from the frozen NOW.
-    text = out.getvalue().replace( '56 years ago', 'today' )
-    return _write_sample( 'list-downloads.txt', text )
+    write_list_downloads_report(
+            out, _list_downloads_data(), _list_downloads_env(),
+    )
+    return _write_sample(
+            'list-downloads.txt', _rewrite_sample_home( out.getvalue() ),
+    )
 
 
-def sample_remove_gitlab_dry_run():
-    """`--remove-dependencies` dry-run for a selected GitLab toolchain leaf."""
-    root = _work_root( 'remove-gitlab' )
+def sample_list_downloads_html():
+    """Semantic HTML form of the `--list-downloads` report."""
+    def invoke( out ):
+        write_list_downloads_report(
+                out, _list_downloads_data(), _list_downloads_env(),
+        )
+
+    text, colouriser = _capture_html( invoke )
+    text = _rewrite_sample_home( text, colouriser )
+    return _write_html_sample( 'list-downloads.html', text, colouriser )
+
+
+def _remove_gitlab_fixture( name ):
+    root = _work_root( name )
     deps = root / 'dependencies'
     p_gcc153 = _touch_dir( deps / 'boost' / '1.91' / 'gcc153_rel_x86_64_cxx2c', NOW - DAY )
     p_clang = _touch_dir(
@@ -199,12 +339,15 @@ def sample_remove_gitlab_dry_run():
     p_gcc152 = _touch_dir(
             deps / 'boost' / '1.91' / 'gcc152_rel_x86_64_cxx2c', NOW - 60 * DAY
     )
-    out = io.StringIO()
-    out.write( 'Would remove 1 dependency tree (166M) under ~/.cuppa/dependencies\n' )
-    out.write( '(dry run; pass without -n to remove)\n\n' )
-    dependency_removal._write_removal_tree(
-            out,
-            [
+    env = _FakeEnv(
+            remove_dependencies='boost_package',
+            default_dependencies=[ 'boost_package' ],
+            dependencies_root=str( deps ),
+            sconstruct_dir=str( root ),
+            no_exec=True,
+    )
+    plan = {
+        'targets': [
                 dependency_removal.RemovalTarget(
                         dependency='boost_package',
                         path=p_gcc153,
@@ -215,8 +358,8 @@ def sample_remove_gitlab_dry_run():
                         label='gcc153_rel_x86_64_cxx2c/boost/1.91',
                         extra_paths=(),
                 ),
-            ],
-            [
+        ],
+        'leftovers': [
                 dependency_removal.Leftover(
                         dependency='boost_package',
                         path=p_clang,
@@ -235,23 +378,42 @@ def sample_remove_gitlab_dry_run():
                         label='gcc152_rel_x86_64_cxx2c/boost/1.91',
                         storage_type='gitlab',
                 ),
-            ],
-            {},
-            planning=True,
-            root=str( deps ),
-            summary_label='related dependencies for boost_package',
-            action_label='removing',
+        ],
+        'archives': [],
+        'develop_skips': [],
+        'owned': [],
+    }
+    return env, plan, deps
+
+
+def _render_remove_gitlab( name, colouriser=None ):
+    env, plan, deps = _remove_gitlab_fixture( name )
+    out = io.StringIO()
+    _run_dependency_removal( out, env, plan )
+    return _rewrite_removal_roots(
+            out.getvalue(), colouriser,
+            [ ( deps, '~/.cuppa/dependencies' ) ],
     )
-    out.write( '\nLeaving 2 trees (591.8M) for other selections as shown.\n\n' )
-    out.write( 'Would remove 1 tree freeing up 166M of disk space.\n\n' )
-    out.write( 'Verify with:\n\n' )
-    out.write( 'cuppa -Q -D --list-dependencies\n' )
-    return _write_sample( 'remove-gitlab-dry-run.txt', out.getvalue() )
 
 
-def sample_remove_boost_product_clean():
-    """`--remove-dependencies=boost` product-clean report (extract stays)."""
-    root = _work_root( 'remove-boost' )
+def sample_remove_gitlab_dry_run():
+    """`--remove-dependencies` dry-run for a selected GitLab toolchain leaf."""
+    return _write_sample(
+            'remove-gitlab-dry-run.txt',
+            _render_remove_gitlab( 'remove-gitlab-text' ),
+    )
+
+
+def sample_remove_gitlab_dry_run_html():
+    """Semantic HTML form of the selected GitLab removal dry run."""
+    colouriser = HtmlColouriser()
+    with cuppa.colourise.using_colouriser( colouriser ):
+        text = _render_remove_gitlab( 'remove-gitlab-html', colouriser )
+    return _write_html_sample( 'remove-gitlab-dry-run.html', text, colouriser )
+
+
+def _remove_boost_fixture( name ):
+    root = _work_root( name )
     deps = root / 'dependencies'
     extract = deps / 'boost_1_91_0'
     stage = extract / 'clean' / 'build.c++2c' / 'gcc153' / 'debug' / 'x86_64'
@@ -292,34 +454,51 @@ def sample_remove_boost_product_clean():
                 extra_paths=(),
         ),
     ]
-    outcomes = {
-        storage.real_path( str( stage ) ): { 'result': 'removed' },
-        storage.real_path( str( bindir ) ): { 'result': 'removed' },
+    env = _FakeEnv(
+            remove_dependencies='boost',
+            default_dependencies=[ 'boost' ],
+            dependencies_root=str( deps ),
+            sconstruct_dir=str( root ),
+            no_exec=False,
+    )
+    plan = {
+        'targets': targets,
+        'leftovers': [],
+        'archives': archives,
+        'develop_skips': [],
+        'owned': [],
     }
-    removed_bytes = sum( target.size_bytes for target in targets )
+    return env, plan, deps
+
+
+def _render_remove_boost( name, colouriser=None ):
+    env, plan, deps = _remove_boost_fixture( name )
     out = io.StringIO()
-    out.write( 'Removed 2 dependency trees (412.3M) under ~/.cuppa/dependencies\n\n' )
-    dependency_removal._write_removal_tree(
-            out, targets, [], outcomes, planning=False, root=str( deps ),
-            archives=archives,
-            summary_label='related dependencies for boost',
-            action_label='removed',
+    _run_dependency_removal( out, env, plan )
+    return _rewrite_removal_roots(
+            out.getvalue(), colouriser,
+            [ ( deps, '~/.cuppa/dependencies' ) ],
     )
-    remaining = dependency_removal._remaining_archive_bytes(
-            archives, targets, outcomes, planning=False,
-    )
-    out.write( '\n' )
-    dependency_removal._write_freed_summary(
-            out, False, 2, removed_bytes, remaining_archive_bytes=remaining,
-    )
-    out.write( '\n' )
-    dependency_removal._write_verify( out, archives=archives )
-    return _write_sample( 'remove-boost-product-clean.txt', out.getvalue() )
 
 
-def sample_purge_gitlab():
-    """`--purge-dependencies` selected GitLab archive + extract."""
-    root = _work_root( 'purge-gitlab' )
+def sample_remove_boost_product_clean():
+    """`--remove-dependencies=boost` product-clean report (extract stays)."""
+    return _write_sample(
+            'remove-boost-product-clean.txt',
+            _render_remove_boost( 'remove-boost-text' ),
+    )
+
+
+def sample_remove_boost_product_clean_html():
+    """Semantic HTML form of the source Boost product-clean report."""
+    colouriser = HtmlColouriser()
+    with cuppa.colourise.using_colouriser( colouriser ):
+        text = _render_remove_boost( 'remove-boost-html', colouriser )
+    return _write_html_sample( 'remove-boost-product-clean.html', text, colouriser )
+
+
+def _purge_gitlab_fixture( name ):
+    root = _work_root( name )
     deps = root / 'dependencies'
     downloads = root / 'downloads'
     downloads.mkdir( parents=True )
@@ -381,28 +560,52 @@ def sample_purge_gitlab():
                 missing=False,
         ),
     ]
-    outcomes = {
-        storage.real_path( p_gcc ): { 'result': 'removed' },
-        storage.real_path( str( a_gcc ) ): { 'result': 'removed' },
-    }
-    out = io.StringIO()
-    out.write(
-            'Removed 1 dependency tree and 1 download (166M) under '
-            '~/.cuppa/dependencies / ~/.cuppa/downloads\n\n'
-    )
-    dependency_removal._write_removal_tree(
-            out, targets, leftovers, outcomes, planning=False, root=str( deps ),
-            downloads=download_targets,
-            download_leftovers=download_leftovers,
+    env = _FakeEnv(
+            purge_dependencies='boost_package',
+            default_dependencies=[ 'boost_package' ],
+            dependencies_root=str( deps ),
             downloads_root=str( downloads ),
-            summary_label='related dependencies for boost_package',
-            action_label='removed',
+            sconstruct_dir=str( root ),
+            no_exec=False,
     )
-    out.write( '\nLeaving 1 tree and 1 download (295.1M) for other selections as shown.\n\n' )
-    out.write( 'Removed 1 tree and 1 download freeing up 167.2M of disk space.\n\n' )
-    out.write( 'Verify with:\n\n' )
-    out.write( 'cuppa -Q -D --list-downloads\n' )
-    return _write_sample( 'purge-gitlab.txt', out.getvalue() )
+    plan = {
+        'targets': targets,
+        'leftovers': leftovers,
+        'archives': [],
+        'develop_skips': [],
+        'owned': [],
+    }
+    purge_plan = ( download_targets, download_leftovers, str( downloads ) )
+    return env, plan, purge_plan, deps, downloads
+
+
+def _render_purge_gitlab( name, colouriser=None ):
+    env, plan, purge_plan, deps, downloads = _purge_gitlab_fixture( name )
+    out = io.StringIO()
+    _run_dependency_removal( out, env, plan, purge_plan=purge_plan )
+    return _rewrite_removal_roots(
+            out.getvalue(), colouriser,
+            [
+                ( deps, '~/.cuppa/dependencies' ),
+                ( downloads, '~/.cuppa/downloads' ),
+            ],
+    )
+
+
+def sample_purge_gitlab():
+    """`--purge-dependencies` selected GitLab archive + extract."""
+    return _write_sample(
+            'purge-gitlab.txt',
+            _render_purge_gitlab( 'purge-gitlab-text' ),
+    )
+
+
+def sample_purge_gitlab_html():
+    """Semantic HTML form of the selected GitLab purge report."""
+    colouriser = HtmlColouriser()
+    with cuppa.colourise.using_colouriser( colouriser ):
+        text = _render_purge_gitlab( 'purge-gitlab-html', colouriser )
+    return _write_html_sample( 'purge-gitlab.html', text, colouriser )
 
 
 def _dependency_rows_for_list_samples():
@@ -469,35 +672,76 @@ def _dependency_rows_for_list_samples():
     ]
 
 
+def _list_dependencies_env():
+    env = _FakeEnv()
+    env['default_dependencies'] = [ 'boost_package' ]
+    env['downloads_root'] = str( Path.home() / '.cuppa' / 'downloads' )
+    return env
+
+
+def _list_dependencies_data():
+    data = {
+        'rows': _dependency_rows_for_list_samples(),
+        'dependencies_root': str( Path.home() / '.cuppa' / 'dependencies' ),
+        'downloads_root': str( Path.home() / '.cuppa' / 'downloads' ),
+        'skips': [],
+        'estimated': False,
+        'unqualified_duplicate_tokens': [],
+    }
+    return apply_list_scope(
+            data, 'all', tree_builder=dependency_tree.build_tree,
+    )
+
+
 def sample_list_dependencies():
     """`--list-dependencies` hierarchical text (non-verbose)."""
-    tree = dependency_tree.build_tree( _dependency_rows_for_list_samples() )
     out = io.StringIO()
-    out.write( 'Dependencies in ~/.cuppa/dependencies\n' )
-    out.write( 'Default dependencies: boost_package\n' )
-    _write_ruled_tree( out, tree, verbose=False, tree_header='DEPENDENCY' )
-    out.write( '3 entries, 305.1M total, 5.8M unreferenced\n' )
-    return _write_sample( 'list-dependencies.txt', out.getvalue() )
+    write_list_dependencies_report(
+            out, _list_dependencies_data(), _list_dependencies_env(),
+    )
+    return _write_sample(
+            'list-dependencies.txt', _rewrite_sample_home( out.getvalue() ),
+    )
+
+
+def sample_list_dependencies_html():
+    """Semantic HTML form of the `--list-dependencies` report."""
+    def invoke( out ):
+        write_list_dependencies_report(
+                out, _list_dependencies_data(), _list_dependencies_env(),
+        )
+
+    text, colouriser = _capture_html( invoke )
+    text = _rewrite_sample_home( text, colouriser )
+    return _write_html_sample( 'list-dependencies.html', text, colouriser )
 
 
 def sample_list_dependencies_verbose():
     """`--list-dependencies --list-format=verbose` with LOCATION / `[D]`."""
-    tree = dependency_tree.build_tree( _dependency_rows_for_list_samples() )
     out = io.StringIO()
-    out.write( 'Dependencies in ~/.cuppa/dependencies\n' )
-    out.write( 'Default dependencies: boost_package\n' )
-    _write_ruled_tree( out, tree, verbose=True, tree_header='DEPENDENCY' )
-    out.write( '3 entries, 305.1M total, 5.8M unreferenced\n' )
-    out.write( '\n' )
-    out.write( '{} = archive present under downloads ({})\n'.format(
-            dependency_identity.DOWNLOAD_MARK,
-            '~/.cuppa/downloads',
-    ) )
-    out.write(
-            'If re-extracting a dependency fails, remove the corrupt archive there - '
-            'deleting only the dependency tree is not enough.\n'
+    write_list_dependencies_report(
+            out, _list_dependencies_data(), _list_dependencies_env(),
+            verbose=True,
     )
-    return _write_sample( 'list-dependencies-verbose.txt', out.getvalue() )
+    return _write_sample(
+            'list-dependencies-verbose.txt',
+            _rewrite_sample_home( out.getvalue() ),
+    )
+
+
+def sample_list_dependencies_verbose_html():
+    """Semantic HTML form of verbose `--list-dependencies`."""
+    def invoke( out ):
+        write_list_dependencies_report(
+                out, _list_dependencies_data(), _list_dependencies_env(),
+                verbose=True,
+        )
+
+    text, colouriser = _capture_html( invoke )
+    text = _rewrite_sample_home( text, colouriser )
+    return _write_html_sample(
+            'list-dependencies-verbose.html', text, colouriser,
+    )
 
 
 def _develop_copies_for_samples():
@@ -586,6 +830,26 @@ def sample_list_develop():
     return _write_sample( 'list-develop.txt', '\n'.join( lines ) + '\n' )
 
 
+def sample_list_develop_html():
+    """Semantic HTML form of the `--list-develop` table and judgement tree."""
+    def invoke( stream ):
+        develop_report(
+                _develop_copies_for_samples(),
+                without_develop=[ 'boost' ],
+                current_branch='feature_orders',
+                default_branch='master',
+                develop_active=False,
+                out=lambda text='': stream.write( text + '\n' ),
+                suggest_update=True,
+        )
+
+    text, colouriser = _capture_html( invoke )
+    home = str( Path.home() )
+    colouriser.replace( home, '~' )
+    text = text.replace( home, '~' )
+    return _write_html_sample( 'list-develop.html', text, colouriser )
+
+
 class _FakePlatform( object ):
     def default_toolchain( self ):
         return 'gcc'
@@ -656,9 +920,9 @@ def _gcc_describe():
     }
 
 
-def sample_list_toolchains():
-    """`--list-toolchains` discovered + registered tree."""
-    root = _work_root( 'list-toolchains' )
+def _list_toolchains_fixture( work_name ):
+    """Plant registered toolchain trees and return the env plus path rewrite."""
+    root = _work_root( work_name )
     clang_reg = root / 'toolchains' / 'clang' / 'profiles_2026_08_07_27'
     gcc_reg = root / 'toolchains' / 'gcc' / 'gcc_snapshot_20260725_1_amd64'
     clang_bin = clang_reg / 'bin'
@@ -720,17 +984,34 @@ def sample_list_toolchains():
             ),
         },
     }
+    return env, _doc_toolchain_download_prefix( root )
+
+
+def sample_list_toolchains():
+    """`--list-toolchains` discovered + registered tree."""
+    env, ( temp_prefix, doc_prefix ) = _list_toolchains_fixture( 'list-toolchains' )
     out = io.StringIO()
     toolchain_actions.list_toolchains( env, out=out )
-    text = out.getvalue()
-    temp_prefix, doc_prefix = _doc_toolchain_download_prefix( root )
-    text = text.replace( temp_prefix, doc_prefix )
+    text = out.getvalue().replace( temp_prefix, doc_prefix )
     return _write_sample( 'list-toolchains.txt', text )
 
 
-def sample_list_toolchains_verbose():
-    """`--list-toolchains --list-format=verbose` with one discovered GCC."""
-    env = {
+def sample_list_toolchains_html():
+    """Semantic HTML form of the `--list-toolchains` report."""
+    env, ( temp_prefix, doc_prefix ) = _list_toolchains_fixture( 'list-toolchains-html' )
+
+    def invoke( out ):
+        toolchain_actions.list_toolchains( env, out=out )
+
+    text, colouriser = _capture_html( invoke )
+    colouriser.replace( temp_prefix, doc_prefix )
+    text = text.replace( temp_prefix, doc_prefix )
+    return _write_html_sample( 'list-toolchains.html', text, colouriser )
+
+
+def _list_toolchains_verbose_env():
+    """One discovered GCC with a full `describe` payload."""
+    return {
         'list_format': 'verbose',
         'platform': _FakePlatform(),
         'toolchains': {
@@ -748,9 +1029,24 @@ def sample_list_toolchains_verbose():
             ),
         },
     }
+
+
+def sample_list_toolchains_verbose():
+    """`--list-toolchains --list-format=verbose` with one discovered GCC."""
     out = io.StringIO()
-    toolchain_actions.list_toolchains( env, out=out )
+    toolchain_actions.list_toolchains( _list_toolchains_verbose_env(), out=out )
     return _write_sample( 'list-toolchains-verbose.txt', out.getvalue() )
+
+
+def sample_list_toolchains_verbose_html():
+    """Semantic HTML form of the verbose `--list-toolchains` report."""
+    env = _list_toolchains_verbose_env()
+
+    def invoke( out ):
+        toolchain_actions.list_toolchains( env, out=out )
+
+    text, colouriser = _capture_html( invoke )
+    return _write_html_sample( 'list-toolchains-verbose.html', text, colouriser )
 
 
 class _FakeBuildToolchain( object ):
@@ -844,6 +1140,22 @@ def sample_list_builds():
     )
 
 
+def sample_list_builds_html():
+    """Semantic HTML form of the `--list-builds` report."""
+    project = _work_root( 'list-builds-html' )
+    env, build = _build_env( project, list_builds=True )
+    _plant_list_builds_fixture( build )
+    construct = _FakeConstruct( [ ( 'gcc15', 'dbg', 'x86_64', 'cxx2c' ) ] )
+
+    def invoke( out ):
+        storage_actions.list_builds( construct, env, out=out )
+
+    text, colouriser = _capture_html( invoke )
+    colouriser.replace( str( build ), '_build' )
+    text = _rewrite_abs_build_root( text, str( build ) )
+    return _write_html_sample( 'list-builds.html', text, colouriser )
+
+
 def sample_remove_builds_dry_run():
     """`--remove-builds -n` dry-run tables."""
     project = _work_root( 'remove-builds-dry' )
@@ -860,6 +1172,30 @@ def sample_remove_builds_dry_run():
     return _write_sample(
             'remove-builds-dry-run.txt',
             _rewrite_abs_build_root( out.getvalue(), str( build ) ),
+    )
+
+
+def sample_remove_builds_dry_run_html():
+    """Semantic HTML form of the `--remove-builds -n` report."""
+    project = _work_root( 'remove-builds-dry-html' )
+    env, build = _build_env( project, remove_builds=True, no_exec=True )
+    _plant_list_builds_fixture( build )
+    construct = _FakeConstruct( [ ( 'gcc15', 'dbg', 'x86_64', 'cxx2c' ) ] )
+    def invoke( out ):
+        real_dry = storage_actions.dry_run
+        storage_actions.dry_run = lambda cuppa_env: True
+        try:
+            storage_actions.remove_builds( construct, env, out=out )
+        finally:
+            storage_actions.dry_run = real_dry
+
+    text, colouriser = _capture_html( invoke )
+    colouriser.replace( str( build ), '_build' )
+    text = _rewrite_abs_build_root( text, str( build ) )
+    return _write_html_sample(
+            'remove-builds-dry-run.html',
+            text,
+            colouriser,
     )
 
 
@@ -891,6 +1227,35 @@ def sample_remove_builds_error():
     )
 
 
+def sample_remove_builds_error_html():
+    """Semantic HTML form of a failed `--remove-builds` report."""
+    project = _work_root( 'remove-builds-error-html' )
+    env, build = _build_env( project, remove_builds=True )
+    age = NOW - 3 * DAY
+    _plant_variant(
+            build, 'lib', 'gcc15', 'dbg', 'x86_64', 'cxx2c',
+            content=b'x' * 20000, mtime=age,
+    )
+    _stamp_build_tree( build, age )
+    construct = _FakeConstruct( [ ( 'gcc15', 'dbg', 'x86_64', 'cxx2c' ) ] )
+
+    def boom( target, dry_run=False ):
+        raise OSError( 13, 'Permission denied', os.path.join( target, 'working' ) )
+
+    def invoke( out ):
+        real_remove = storage.remove_path
+        storage.remove_path = boom
+        try:
+            storage_actions.remove_builds( construct, env, out=out )
+        finally:
+            storage.remove_path = real_remove
+
+    text, colouriser = _capture_html( invoke )
+    colouriser.replace( str( build ), '_build' )
+    text = _rewrite_abs_build_root( text, str( build ) )
+    return _write_html_sample( 'remove-builds-error.html', text, colouriser )
+
+
 def sample_remove_all_builds_dry_run():
     """`--remove-all-builds -n` dry-run."""
     project = _work_root( 'remove-all-builds-dry' )
@@ -906,6 +1271,30 @@ def sample_remove_all_builds_dry_run():
     return _write_sample(
             'remove-all-builds-dry-run.txt',
             _rewrite_abs_build_root( out.getvalue(), str( build ) ),
+    )
+
+
+def sample_remove_all_builds_dry_run_html():
+    """Semantic HTML form of the `--remove-all-builds -n` report."""
+    project = _work_root( 'remove-all-builds-dry-html' )
+    env, build = _build_env( project, remove_all_builds=True, no_exec=True )
+    _plant_list_builds_fixture( build )
+
+    def invoke( out ):
+        real_dry = storage_actions.dry_run
+        storage_actions.dry_run = lambda cuppa_env: True
+        try:
+            storage_actions.remove_all_builds( env, out=out )
+        finally:
+            storage_actions.dry_run = real_dry
+
+    text, colouriser = _capture_html( invoke )
+    colouriser.replace( str( build ), '_build' )
+    text = _rewrite_abs_build_root( text, str( build ) )
+    return _write_html_sample(
+            'remove-all-builds-dry-run.html',
+            text,
+            colouriser,
     )
 
 
@@ -1102,53 +1491,129 @@ GENERATORS = tuple(
         _frozen_now( generator )
         for generator in (
                 sample_list_downloads,
+                sample_list_downloads_html,
                 sample_list_downloads_json,
                 sample_list_dependencies,
+                sample_list_dependencies_html,
                 sample_list_dependencies_verbose,
+                sample_list_dependencies_verbose_html,
                 sample_list_dependencies_json,
                 sample_list_develop,
+                sample_list_develop_html,
                 sample_list_develop_json,
                 sample_list_toolchains,
+                sample_list_toolchains_html,
                 sample_list_toolchains_verbose,
+                sample_list_toolchains_verbose_html,
                 sample_list_toolchains_json,
                 sample_list_builds,
+                sample_list_builds_html,
                 sample_list_builds_json,
                 sample_remove_builds_dry_run,
+                sample_remove_builds_dry_run_html,
                 sample_remove_builds_error,
+                sample_remove_builds_error_html,
                 sample_remove_all_builds_dry_run,
+                sample_remove_all_builds_dry_run_html,
                 sample_remove_gitlab_dry_run,
+                sample_remove_gitlab_dry_run_html,
                 sample_remove_boost_product_clean,
+                sample_remove_boost_product_clean_html,
                 sample_purge_gitlab,
+                sample_purge_gitlab_html,
         )
 )
 
 # Re-bind names so unit tests and ad-hoc calls cannot write wall-clock ages into partials.
 (
         sample_list_downloads,
+        sample_list_downloads_html,
         sample_list_downloads_json,
         sample_list_dependencies,
+        sample_list_dependencies_html,
         sample_list_dependencies_verbose,
+        sample_list_dependencies_verbose_html,
         sample_list_dependencies_json,
         sample_list_develop,
+        sample_list_develop_html,
         sample_list_develop_json,
         sample_list_toolchains,
+        sample_list_toolchains_html,
         sample_list_toolchains_verbose,
+        sample_list_toolchains_verbose_html,
         sample_list_toolchains_json,
         sample_list_builds,
+        sample_list_builds_html,
         sample_list_builds_json,
         sample_remove_builds_dry_run,
+        sample_remove_builds_dry_run_html,
         sample_remove_builds_error,
+        sample_remove_builds_error_html,
         sample_remove_all_builds_dry_run,
+        sample_remove_all_builds_dry_run_html,
         sample_remove_gitlab_dry_run,
+        sample_remove_gitlab_dry_run_html,
         sample_remove_boost_product_clean,
+        sample_remove_boost_product_clean_html,
         sample_purge_gitlab,
+        sample_purge_gitlab_html,
 ) = GENERATORS
 
 
 def main( argv=None ):
     parser = argparse.ArgumentParser( description=__doc__ )
-    parser.parse_args( argv )
-    written = [ generator() for generator in GENERATORS ]
+    parser.add_argument(
+            'sample',
+            nargs='*',
+            choices=(
+                    'list-builds',
+                    'list-develop',
+                    'list-downloads',
+                    'list-dependencies',
+                    'list-dependencies-verbose',
+                    'list-toolchains',
+                    'list-toolchains-verbose',
+                    'remove-builds-dry-run',
+                    'remove-builds-error',
+                    'remove-all-builds-dry-run',
+                    'remove-gitlab-dry-run',
+                    'remove-boost-product-clean',
+                    'purge-gitlab',
+            ),
+            help='generate one semantic HTML recipe (default: all checked-in samples)',
+    )
+    parser.add_argument(
+            '--preview',
+            action='store_true',
+            help='also write a standalone HTML preview under _docs_build/samples',
+    )
+    arguments = parser.parse_args( argv )
+    if arguments.sample:
+        recipes = {
+            'list-builds': sample_list_builds_html,
+            'list-develop': sample_list_develop_html,
+            'list-downloads': sample_list_downloads_html,
+            'list-dependencies': sample_list_dependencies_html,
+            'list-dependencies-verbose': sample_list_dependencies_verbose_html,
+            'list-toolchains': sample_list_toolchains_html,
+            'list-toolchains-verbose': sample_list_toolchains_verbose_html,
+            'remove-builds-dry-run': sample_remove_builds_dry_run_html,
+            'remove-builds-error': sample_remove_builds_error_html,
+            'remove-all-builds-dry-run': sample_remove_all_builds_dry_run_html,
+            'remove-gitlab-dry-run': sample_remove_gitlab_dry_run_html,
+            'remove-boost-product-clean': sample_remove_boost_product_clean_html,
+            'purge-gitlab': sample_purge_gitlab_html,
+        }
+        generators = [ recipes[name] for name in arguments.sample ]
+    else:
+        generators = GENERATORS
+    written = [ generator() for generator in generators ]
+    if arguments.preview:
+        written.extend(
+                _write_preview( path )
+                for path in list( written )
+                if path.suffix == '.html'
+        )
     for path in written:
         print( path.relative_to( ROOT ) )
     return 0

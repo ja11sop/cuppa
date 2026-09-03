@@ -1,0 +1,37 @@
+<pre class="cuppa-output"><code>Removing <span class="cuppa-emphasised">1</span> entry (<span class="cuppa-emphasised">19.5K</span>) under <span class="cuppa-info">_build</span>
+
+<span class="cuppa-subdued">  ------------------------------------------------------------------------------</span>
+      SIZE  LAST BUILD    BUILD FOLDER
+<span class="cuppa-subdued">  ------------------------------------------------------------------------------</span>
+<span class="cuppa-remove-error">     19.5K  3 days ago    _build</span>
+        0B  3 days ago    <span class="cuppa-subdued">└── </span>removed (0 of 1 entry)
+<span class="cuppa-subdued">  ------------------------------------------------------------------------------</span>
+
+<span class="cuppa-subdued">  ------------------------------------------------------------------------------</span>
+      SIZE  LAST BUILD    BY TOOLCHAIN VARIANT
+<span class="cuppa-subdued">  ------------------------------------------------------------------------------</span>
+  <span class="cuppa-emphasised">   19.5K</span>  3 days ago    <span class="cuppa-subdued">└── </span><span class="cuppa-emphasised"><span class="cuppa-remove-error">✘✘✘</span></span> <span class="cuppa-emphasised"><span class="cuppa-remove-error">gcc15</span></span>
+     19.5K  3 days ago    <span class="cuppa-subdued">        └── </span><span class="cuppa-remove-error">✗✗✗</span> dbg/x86_64/cxx2c
+<span class="cuppa-subdued">  ------------------------------------------------------------------------------</span>
+
+<span class="cuppa-subdued">  ------------------------------------------------------------------------------</span>
+      SIZE  REMOVED       BY SCONSCRIPT
+<span class="cuppa-subdued">  ------------------------------------------------------------------------------</span>
+  <span class="cuppa-emphasised">   19.5K</span>  <span class="cuppa-emphasised"><span class="cuppa-remove-error">   ✘✘✘      </span></span>  <span class="cuppa-subdued">└── </span><span class="cuppa-emphasised"><span class="cuppa-remove-error">lib</span></span>
+     19.5K  <span class="cuppa-remove-error">   ✗✗✗      </span>  <span class="cuppa-subdued">    └── </span>gcc15
+     19.5K  <span class="cuppa-remove-error">    ✗       </span>  <span class="cuppa-subdued">        └── </span>dbg/x86_64/cxx2c
+<span class="cuppa-subdued">  ------------------------------------------------------------------------------</span>
+
+Not all requested build entries could be removed: <span class="cuppa-error">[1 error]</span><span class="cuppa-subdued">[0 warnings]</span><span class="cuppa-subdued">[0 notes]</span>
+<span class="cuppa-subdued">│</span>
+<span class="cuppa-subdued">└── </span><span class="cuppa-error">1 error</span>
+<span class="cuppa-subdued">    │</span>
+<span class="cuppa-subdued">    └── </span><span class="cuppa-error">lib/gcc15/dbg/x86_64/cxx2c</span>
+<span class="cuppa-subdued">        └── </span>[<span class="cuppa-error">Errno 13</span>] Permission denied: [<span class="cuppa-error">_build/lib/gcc15/dbg/x86_64/cxx2c/working</span>]
+
+Removed <span class="cuppa-emphasised">0</span> entries freeing up <span class="cuppa-emphasised">0B</span> of disk space.
+
+Verify the removal with the same selection by adding --list-builds:
+
+cuppa -D <span class="cuppa-emphasised">--dbg</span> <span class="cuppa-emphasised">--toolchains</span>=<span class="cuppa-info">gcc15</span> <span class="cuppa-emphasised">--list-builds</span>
+</code></pre>
