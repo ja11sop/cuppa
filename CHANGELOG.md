@@ -194,6 +194,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- GitLab and Conan package publishing stage a generated relative library
+  directory from its variant build path instead of unconditionally resolving
+  it through the nonexistent source-tree counterpart (``srcnode()``). This
+  restores clean parallel package builds whose libraries are assembled under
+  ``working/<package>/<version>/lib`` or a custom ``final_dir``. Both
+  publishers share ``cuppa.utility.scons_nodes.resolve_existing_node_path``
+  ([#255](https://github.com/ja11sop/cuppa/issues/255)).
 - Boost.Test runners prefer declared ``boost_package`` for version and patched-test
   flags and no longer instantiate built-in source Boost first. That extract raced
   under ``--parallel`` on a clean tree (``version.hpp`` missing mid-extract)

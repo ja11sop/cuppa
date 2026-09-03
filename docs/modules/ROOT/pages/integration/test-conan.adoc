@@ -11,6 +11,7 @@ Optional Conan 2 consumer support via `cuppa.conan_deps` / `cuppa.conan_dependen
 * **Pip plugin** — `examples/conan_fmt_plugin` installed via `pip install --no-user --target`; Cuppa discovers `fmt` through `cuppa.dependency.plugins` with only `default_dependencies=['fmt']`
 * **Offline miss** — empty Conan home + Cuppa `--offline` fails clearly when the package is not cached
 * **Publish round-trip** — `BuildStaticLib` + `ConanPackagePublisher` / `PublishPackage` (`export-pkg` only) into an isolated `CONAN_HOME`, then a second project consumes via `conan_deps` under `--offline`
+* **Publish relative generated lib dir** — `BuildStaticLib(..., final_dir='package_lib')` with `source_lib_dir='package_lib'` under `--rel --parallel`; consumer links the exported static lib under `--offline`
 * **Publish `conanfile=` + requires** — leaf package, then wrapper with hand-written recipe requiring the leaf; consumer builds against the wrapper under `--offline`
 * **Publish generated `requires=`** — same leaf/wrapper shape as above, but the wrapper uses the generated recipe's `requires=` (no `conanfile=`)
 * **Publish `shared=True`** — `BuildSharedLib` + `shared=True` export-pkg; consumer `BuildTest` exercises runtime library search paths
@@ -121,6 +122,7 @@ cuppa -D --dbg --test --show-test-output
 * Second offline pass after a successful install does not re-run `conan install`
 * Offline miss exits non-zero with a Conan-related error
 * Publish round-trip consumer binary prints `answer=42`
+* Relative generated lib-dir publish consumer binary also prints `answer=42`
 * Override+requires and generated-`requires=` consumers print `wrap=43`
 * Shared publish consumer test output contains `answer=42`
 * Modules/BMI publish (default and `source_modules_dir=`) consumer `math_app` exits 0

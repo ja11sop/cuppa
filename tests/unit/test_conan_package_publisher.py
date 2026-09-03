@@ -29,6 +29,18 @@ class _FakeNode(object):
         return self.path
 
 
+class _VariantDirNode(object):
+    def __init__( self, path, source_path ):
+        self.path = str( path )
+        self._source_path = source_path
+
+    def __str__( self ):
+        return self.path
+
+    def srcnode( self ):
+        return self._source_path
+
+
 class PublisherEnv( FakeEnv ):
     def Dir( self, path ):
         return _FakeNode( path )
@@ -229,6 +241,61 @@ def test_build_package_export_pkg_success( tmp_path, monkeypatch ):
     stage = tmp_path / 'final' / 'conan_pkg_mylib_0.1.0'
     assert ( stage / 'conanfile.py' ).is_file()
     assert ( stage / 'lib' / 'libmylib.a' ).is_file()
+
+
+def test_build_package_stages_generated_variant_dir_lib( tmp_path, monkeypatch ):
+    generated = tmp_path / '_build' / 'working' / 'package_lib'
+    generated.mkdir( parents=True )
+    ( generated / 'libmylib.a' ).write_bytes( b'!' )
+    source = tmp_path / 'package_lib'
+
+    class _Env( PublisherEnv ):
+        def Dir( self, path ):
+            path = str( path )
+            if path == str( generated ):
+                return _VariantDirNode( generated, source )
+            return _FakeNode( path )
+
+    env = _Env(
+            final_dir=str( tmp_path / 'final' ),
+            abs_final_dir=str( tmp_path / 'final' ),
+            target_arch='x86_64',
+            stdcpp='c++20',
+            toolchain=_FakeToolchain(),
+            variant=_FakeVariant(),
+    )
+    include = tmp_path / 'include'
+    include.mkdir()
+    ( include / 'h.hpp' ).write_text( '//\n', encoding='utf-8' )
+
+    pub = ConanPackagePublisher(
+            env,
+            name='mylib',
+            version='0.1.0',
+            source_include_dir=str( include ),
+            source_lib_dir=str( generated ),
+            libs=[ 'mylib' ],
+    )
+
+    class _Completed(object):
+        returncode = 0
+        stdout = ''
+        stderr = ''
+
+    monkeypatch.setattr(
+            'cuppa.package_managers.conan._find_conan_executable',
+            lambda: 'conan',
+    )
+    monkeypatch.setattr(
+            'cuppa.package_managers.conan.subprocess.run',
+            lambda *args, **kwargs: _Completed(),
+    )
+
+    stamp = tmp_path / 'final' / 'mylib-0.1.0.conan.pkg'
+    stamp.parent.mkdir( parents=True, exist_ok=True )
+    rc = pub.build_package( [ str( stamp ) ], [], env )
+    assert rc is None
+    assert ( tmp_path / 'final' / 'conan_pkg_mylib_0.1.0' / 'lib' / 'libmylib.a' ).is_file()
 
 
 def test_package_type_for_shared_flag():

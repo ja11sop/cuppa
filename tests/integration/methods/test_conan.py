@@ -596,6 +596,124 @@ def test_conan_publish_export_pkg_round_trip(tmp_path):
     assert "answer=42" in ran.stdout
 
 
+def test_conan_publish_generated_relative_lib_dir_round_trip(tmp_path):
+    """Relative final_dir / source_lib_dir must stage from the variant tree, not srcnode()."""
+    import os
+
+    conan = _require_conan()
+    conan_home = tmp_path / "conan_home"
+    conan_home.mkdir()
+    extra = {"CONAN_HOME": str(conan_home)}
+    detect = subprocess.run(
+        [conan, "profile", "detect", "--force"],
+        env={**os.environ, **extra},
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+    )
+    if detect.returncode != 0:
+        pytest.fail("conan profile detect failed:\n{}".format(detect.stdout))
+
+    producer = tmp_path / "publisher"
+    producer.mkdir()
+    include = producer / "include" / "cuppa_var_mylib"
+    include.mkdir(parents=True)
+    (include / "answer.hpp").write_text(
+        "#pragma once\n"
+        "int cuppa_var_answer();\n",
+        encoding="utf-8",
+    )
+    (producer / "answer.cpp").write_text(
+        "#include <cuppa_var_mylib/answer.hpp>\n"
+        "int cuppa_var_answer() { return 42; }\n",
+        encoding="utf-8",
+    )
+    write_sconstruct(
+        producer,
+        body=(
+            "import cuppa\n"
+            "cuppa.run(default_variants=['rel'])\n"
+        ),
+    )
+    write_sconscript(
+        producer,
+        "Import('env')\n"
+        "from cuppa.package_managers.conan import ConanPackagePublisher\n"
+        "env.AppendUnique(INCPATH=['include'])\n"
+        "lib = env.BuildStaticLib(\n"
+        "    'cuppa_var_mylib', 'answer.cpp', final_dir='package_lib',\n"
+        ")\n"
+        "publisher = ConanPackagePublisher(\n"
+        "    env,\n"
+        "    name='cuppa_var_mylib',\n"
+        "    version='0.1.0',\n"
+        "    source_include_dir='include',\n"
+        "    source_lib_dir='package_lib',\n"
+        "    libs=['cuppa_var_mylib'],\n"
+        ")\n"
+        "env.PublishPackage(lib, publisher)\n",
+    )
+
+    produced = run_cuppa(
+        producer, "--rel", "--parallel", offline=True, timeout=300, extra_env=extra
+    )
+    assert_success(produced)
+    assert "exported to local cache" in produced.stdout or "export-pkg" in produced.stdout.lower()
+
+    consumer = tmp_path / "consumer"
+    consumer.mkdir()
+    (consumer / "conanfile.txt").write_text(
+        "[requires]\n"
+        "cuppa_var_mylib/0.1.0\n"
+        "\n"
+        "[generators]\n"
+        "SConsDeps\n"
+        "VirtualRunEnv\n",
+        encoding="utf-8",
+    )
+    (consumer / "hello.cpp").write_text(
+        "#include <cuppa_var_mylib/answer.hpp>\n"
+        "#include <cstdio>\n"
+        "int main() {\n"
+        "    std::printf(\"answer=%d\\n\", cuppa_var_answer());\n"
+        "    return cuppa_var_answer() == 42 ? 0 : 1;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    write_sconstruct(
+        consumer,
+        body=(
+            "import cuppa\n"
+            "Conan = cuppa.conan_deps(conanfile='conanfile.txt')\n"
+            "cuppa.run(\n"
+            "    default_variants=['rel'],\n"
+            "    dependencies=[Conan],\n"
+            "    default_dependencies=['conan'],\n"
+            ")\n"
+        ),
+    )
+    write_sconscript(
+        consumer,
+        "Import('env')\n"
+        "env.Build('hello', 'hello.cpp')\n",
+    )
+
+    consumed = run_cuppa(consumer, "--rel", offline=True, timeout=300, extra_env=extra)
+    assert_success(consumed)
+    binaries = find_final_binaries(consumer, "hello")
+    assert binaries
+    ran = subprocess.run(
+        [str(binaries[0])],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+    )
+    assert ran.returncode == 0, ran.stdout
+    assert "answer=42" in ran.stdout
+
+
 def test_conan_publish_conanfile_override_with_requires(tmp_path):
     """Leaf export-pkg, then wrapper with conanfile= requires leaf; consumer uses wrapper."""
     import os

@@ -30,6 +30,8 @@ upload without re-tarring multi-gigabyte trees.
 Add `--publish-package` to upload it to the GitLab generic registry.
 `env.InstallPackage(...)` installs a package into the local cuppa dependencies layout.
 
+Relative `source_include_dir` / `source_lib_dir` values are SCons nodes under the active variant directory. Cuppa copies from the generated path when it exists, and only falls back to `srcnode()` for a source-tree directory that is present. Always using `srcnode()` would look for a missing project-root copy such as `boost/1.92/lib` and fail the package step, especially under `--parallel`. Use `env['abs_final_dir']` when libraries already land in `final/`. The same resolution is used for Conan publishing (<<conan-package-publishing>>).
+
 Authentication for registry upload uses the same tokens as consume
 (`GITLAB_REGISTRY_TOKEN`, `CI_JOB_TOKEN`, `--<name>-gitlab-custom-token`).
 See xref:dependencies/gitlab.adoc[GitLab packages].
@@ -66,6 +68,8 @@ publisher = ConanPackagePublisher(
 
 env.PublishPackage(lib, publisher)
 ----
+
+`source_include_dir` / `source_lib_dir` (and `source_modules_dir` / `conanfile=`) use the same VariantDir path resolution as GitLab publishing above.
 
 Without `--publish-package`, Cuppa stages headers/libs, writes a minimal `conanfile.py` (unless `conanfile=` is set), and runs `conan export-pkg` into the local Conan cache (settings match the active toolchain and variant via the same mapping as `conan_deps`).
 
