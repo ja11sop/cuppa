@@ -92,7 +92,7 @@ def test_destroy_rules_documented_before_live_capture():
 def test_std_init_rule_doc_hrefs( rule_id, page_slug ):
     href = std_init.rule_doc_href( rule_id )
     assert href == (
-        'https://ja11sop.github.io/cuppa/cuppa/cxx-profiles/std-init/{}.html'.format(
+        'https://ja11sop.github.io/cuppa/cuppa/latest/cxx-profiles/std-init/{}.html'.format(
             page_slug,
         )
     )
@@ -101,3 +101,12 @@ def test_std_init_rule_doc_hrefs( rule_id, page_slug ):
 
 def test_std_init_rule_doc_href_unknown():
     assert std_init.rule_doc_href( '_unclassified' ) is None
+
+
+def test_std_init_doc_pages_exist_in_antora_tree():
+    pages = (
+        Path( __file__ ).resolve().parents[2]
+        / 'docs' / 'modules' / 'ROOT' / 'pages' / 'cxx-profiles' / 'std-init'
+    )
+    for slug in set( std_init.RULE_DOC_PAGES.values() ):
+        assert ( pages / '{}.adoc'.format( slug ) ).is_file(), slug

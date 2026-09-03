@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Profiles report documentation links use the versioned Pages tree
+  (``/cuppa/latest/…``) instead of unversioned ``/cuppa/cuppa/cxx-profiles/…``
+  paths that 404 after the multi-version docs site.
+
 ### Security
 
 ## [1.9.0] - 2026-09-03

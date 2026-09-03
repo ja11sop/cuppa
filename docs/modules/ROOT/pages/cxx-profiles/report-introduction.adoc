@@ -325,7 +325,7 @@ suppresses file hrefs. You can also pass `--anonymised` explicitly (implies
 NOTE: US spellings (`--anonymized`, `metadata.anonymized`, `python -m scripts.anonymize_profiles_report`) remain accepted for compatibility; they are not listed in CLI help.
 
 Rule documentation links (`doc_href` to published cuppa Profiles pages) are kept — they point at
-public rule reference, not your project.
+public rule reference under ``/cuppa/latest/…``, not your project.
 
 === Limits (honest)
 

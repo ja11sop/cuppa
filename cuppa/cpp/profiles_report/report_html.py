@@ -19,6 +19,7 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 
 from cuppa.colourise import as_notice
 from cuppa.core.dependency_identity import short_name_from_git_url
+from cuppa.cpp.profiles_report.published_docs import CUPPA_DOCS_STABLE_BASE
 from cuppa.cpp.profiles_report.profiles import std_init
 from cuppa.log import logger
 from cuppa.cpp.profiles_report.breadcrumbs import scope_breadcrumbs
@@ -33,7 +34,7 @@ INDEX_BASENAME = 'cxx-profiles-index.html'
 JSON_BASENAME = 'cxx-profiles-index.json'
 
 CUPPA_PROFILES_REPORT_DOCS_BASE = (
-    'https://ja11sop.github.io/cuppa/cuppa/cxx-profiles/report-overview.html'
+    CUPPA_DOCS_STABLE_BASE + '/cxx-profiles/report-overview.html'
 )
 
 _GIT_DESCRIBE = re.compile(
