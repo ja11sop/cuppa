@@ -649,7 +649,7 @@ Release checklist: see `release.txt` (Actions **prepare** → merge → **publis
   `purge-gitlab`. Add `--preview` for `_docs_build/samples/*.preview.html`. Do not
   hand-edit committed fragments; regenerate. Keep the `.txt` sibling even when
   the page includes the `.html` (layout tests / `--raw-output`). Colour and
-  console-surface follow-ons: [`design/plans/colourised-doc-samples.md`](design/plans/colourised-doc-samples.md).
+  console-surface follow-ons: [`design/archive/colourised-doc-samples.md`](design/archive/colourised-doc-samples.md).
   Shell command listings (`sh`, `shell`, `bash`, `console`) share the console
   surface/chrome but keep normal listing line height; only report trees use
   `line-height: 1`.

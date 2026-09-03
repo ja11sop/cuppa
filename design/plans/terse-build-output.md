@@ -210,5 +210,5 @@ hook effort. Prefer terse Phase 1 over native output if scope is tight.
 
 ## Related
 
-- [`colourised-doc-samples.md`](colourised-doc-samples.md) — semantic HTML for reports, not live build log.
+- [`colourised-doc-samples.md`](../archive/colourised-doc-samples.md) — semantic HTML for reports, not live build log.
 - Scratchpad **stderr vs stdout** — validate before any global stream split.

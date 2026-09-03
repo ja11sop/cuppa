@@ -1,7 +1,7 @@
 # Plan: custom Antora UI bundle
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-antora-ui`); [#229](https://github.com/ja11sop/cuppa/issues/229); PR [#228](https://github.com/ja11sop/cuppa/pull/228); [`docs/playbook.yml`](../../docs/playbook.yml); supplemental UI [`docs/supplemental-ui/`](../../docs/supplemental-ui/); companions [`colourised-doc-samples.md`](colourised-doc-samples.md), [`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-antora-ui`); [#229](https://github.com/ja11sop/cuppa/issues/229); PR [#228](https://github.com/ja11sop/cuppa/pull/228); [`docs/playbook.yml`](../../docs/playbook.yml); supplemental UI [`docs/supplemental-ui/`](../../docs/supplemental-ui/); companions [`colourised-doc-samples.md`](../archive/colourised-doc-samples.md), [`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md)
 - **Updated:** 2026-09-03
 - **Impact:** none — site presentation only (unless a UI change breaks the docs CI build)
 
@@ -14,7 +14,7 @@ admonitions read as stock Antora.
 A custom look (inspired by Boost docs or MkDocs Material **appearance**, not their stack) would:
 
 - Improve first impression for new users.
-- Give semantic report samples ([`colourised-doc-samples.md`](colourised-doc-samples.md)) a
+- Give semantic report samples ([`colourised-doc-samples.md`](../archive/colourised-doc-samples.md)) a
   coherent light-theme palette.
 - Host cuppa branding in header/footer (started in `supplemental-ui/` partials).
 
@@ -187,7 +187,7 @@ plan update.
 | `ui-pin` | **Next** — keep separate until a stable default-bundle artifact or vendoring route is selected |
 | `ui-ci` | Local Antora build passes; verify Pages CI on [#228](https://github.com/ja11sop/cuppa/pull/228) |
 | `ui-fork-spike` | Deferred — supplemental pass reaches nav/tables without a fork |
-| `ui-samples-tokens` | **Landed on #252** — console tokens and sample/shell surface; see `colourised-doc-samples.md` |
+| `ui-samples-tokens` | **Landed on #252** — console tokens and sample/shell surface; see [`colourised-doc-samples.md`](../archive/colourised-doc-samples.md) |
 | `ui-scroll-snap` | **Landed on #252** — 24px near-edge snap after pan/scroll settles; all wrapped wide views; immediate under reduced motion, otherwise native smooth scroll. A narrow overflow overlaps both snap zones, so an edge already reached is final and an overlap commits to the nearer edge, instead of oscillating between the two |
 
 ## Files
@@ -205,7 +205,7 @@ plan update.
 | `docs/supplemental-ui/js/cuppa-doc-palette.js` | Palette cycle across the four sheets + localStorage |
 | `docs/supplemental-ui/js/cuppa-scroll-panels.js` | Wide listing scroll affordances and click-drag pan |
 | `docs/modules/ROOT/pages/contributing.adoc` | Pin + preview notes when `ui-pin` lands |
-| `design/plans/colourised-doc-samples.md` | Sample classes follow `--cuppa-*` tokens |
+| `design/archive/colourised-doc-samples.md` | Sample classes follow `--cuppa-*` tokens |
 
 ## Refusal rules
 

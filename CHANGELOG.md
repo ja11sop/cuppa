@@ -23,7 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a panel only slightly wider than its viewport commits to the nearer edge
   rather than oscillating between the two. Code and console type prefer a
   locally installed Hack, then the usual system mono stack — no webfont CDN
-  ([#252](https://github.com/ja11sop/cuppa/issues/252)).
+  ([#252](https://github.com/ja11sop/cuppa/issues/252),
+  [#253](https://github.com/ja11sop/cuppa/pull/253)).
 - Public docs site serves the latest release under ``/cuppa/latest/…`` (Antora
   ``latest_version_segment``) with master tip as prerelease ``next``; agent-oriented
   ``llms.txt`` / per-page Markdown / ``llms-full.txt`` are generated from the stable

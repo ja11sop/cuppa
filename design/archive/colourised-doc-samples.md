@@ -1,7 +1,7 @@
 # Plan: colourised sample output for documentation and preview
 
-- **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-output-samples`); [#252](https://github.com/ja11sop/cuppa/issues/252); follows build-report work in [`removal-options.md`](removal-options.md) Phase 2; syntax highlighting [`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md)
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-output-samples`); [#252](https://github.com/ja11sop/cuppa/issues/252) closed by [#253](https://github.com/ja11sop/cuppa/pull/253); follows build-report work in [`removal-options.md`](../plans/removal-options.md) Phase 2; syntax highlighting [`shiki-syntax-highlighting.md`](../plans/shiki-syntax-highlighting.md)
 - **Updated:** 2026-09-03
 
 Cuppa already produces rich, colour-coded reports (`--list-builds`, `--list-develop`,
@@ -59,7 +59,7 @@ ANSI conversion remains useful as an **optional preview mode** (“show me exact
 **canonical docs path** should be semantic HTML from the same `as_*` meanings the terminal uses.
 
 Do not fold that canonical path into Shiki's `ansi` language (see
-[`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md)). Shiki is the right highlighter for
+[`shiki-syntax-highlighting.md`](../plans/shiki-syntax-highlighting.md)). Shiki is the right highlighter for
 `[source,cpp]` / `[source,python]` and a convenient **renderer** for pinned ANSI previews; it does
 not know Cuppa's `as_error` / `as_info` vocabulary, and unpinned SGR still drifts with
 `CUPPA_CONSOLE_BACKGROUND` (ROADMAP `doc-ansi-only`).
@@ -193,7 +193,7 @@ python -m scripts.sample_output list-builds --format=ansi-html
 
 Force `TERM=xterm-256color`, `CUPPA_CONSOLE_BACKGROUND=dark` (or `light`), enable colour, capture
 stdout, convert with a pinned dependency, a minimal SGR→span mapper, or — once
-[`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md) Phase E exists — Shiki's `ansi`
+[`shiki-syntax-highlighting.md`](../plans/shiki-syntax-highlighting.md) Phase E exists — Shiki's `ansi`
 language. Document that this mode is for preview parity checks, not for committed docs samples,
 unless the env is fully pinned in the recipe.
 
@@ -251,10 +251,10 @@ considered doc fixes in an open release cycle.
 
 ### Progress snapshot (2026-09-03)
 
-This workstream is ready to land for [#252](https://github.com/ja11sop/cuppa/issues/252).
-Keep the plan here until the PR merges, then move it to `design/archive/` (the colouriser,
-console-token, and sample-recipe reasoning stays useful). Do not close #252 from the opening
-PR text unless that merge is meant to close the issue.
+This workstream shipped in [#253](https://github.com/ja11sop/cuppa/pull/253), which closed
+[#252](https://github.com/ja11sop/cuppa/issues/252). ANSI / Shiki preview remains on
+[`shiki-syntax-highlighting.md`](../plans/shiki-syntax-highlighting.md) (`doc-shiki`), not this
+plan.
 
 | Slice | Status |
 |-------|--------|
@@ -356,7 +356,7 @@ the viewport snaps flush only when already within 24px of the left or right edge
 during a gesture or from mid-scroll; reduced-motion users get an immediate snap and other users
 get native smooth motion. This is a general affordance for every wrapped listing, JSON sample,
 and `pre.cuppa-output` — not only colourised reports. It completes
-[`antora-ui-bundle.md`](antora-ui-bundle.md) `ui-scroll-snap`.
+[`antora-ui-bundle.md`](../plans/antora-ui-bundle.md) `ui-scroll-snap`.
 
 A sample only a little wider than its viewport puts both snap zones over the same ground, so the
 naive test made each edge qualify from the other and the panel oscillated left-right-left. Two
@@ -390,7 +390,7 @@ distance to the edge it rejected, so any starting position reaches its edge in a
    meaning-based (`cuppa-warning`); `.cuppa-output` uses `--cuppa-console-*` (including
    surface and ink). Admonition `--cuppa-warning` / `--cuppa-note` unchanged. Hues remain
    tunable against Colorama.
-5. **Tracking** — [#252](https://github.com/ja11sop/cuppa/issues/252).
+5. **Tracking** — [#252](https://github.com/ja11sop/cuppa/issues/252) closed by [#253](https://github.com/ja11sop/cuppa/pull/253).
 
 ---
 

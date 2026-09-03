@@ -22,7 +22,6 @@ maintainer workflow evolved.
 | Document | Status | Subject |
 |----------|--------|---------|
 | [`plans/boost-updates.md`](plans/boost-updates.md) | proposal | Boost source vs GitLab `boost_package` identity; #206 `use_libs`; #248/#249 test-runner `session_boost` shipped; #250 Quince session Boost |
-| [`plans/colourised-doc-samples.md`](plans/colourised-doc-samples.md) | in progress | Ready to land — semantic HTML report samples + local preview — [#252](https://github.com/ja11sop/cuppa/issues/252) |
 | [`plans/shiki-syntax-highlighting.md`](plans/shiki-syntax-highlighting.md) | proposal | Build-time Shiki for Antora listings; ANSI preview only — ROADMAP `doc-shiki` |
 | [`plans/coverage-performance.md`](plans/coverage-performance.md) | proposal | Where `--cov --test` time actually goes, what the A/B measurement ruled out, and the remaining suspects |
 | [`plans/list-toolchains-verbose.md`](plans/list-toolchains-verbose.md) | in progress | Verbose `describe()` shipped ([#172](https://github.com/ja11sop/cuppa/issues/172) / [#170](https://github.com/ja11sop/cuppa/pull/170)); deferred table-driven init |
@@ -34,6 +33,7 @@ maintainer workflow evolved.
 | [`plans/cuppa-info.md`](plans/cuppa-info.md) | proposal | `cuppa --info`: version without sconstruct — ROADMAP `cli-info` |
 | [`plans/cxx-profiles-report.md`](plans/cxx-profiles-report.md) | in progress | `--cxx-profiles-report`: classify/dedupe Profiles diagnostics — ROADMAP `profiles-violation-report` — **`prof-report-method-semantics`** [#203](https://github.com/ja11sop/cuppa/pull/203); **`prof-report-remote-links`** [#219](https://github.com/ja11sop/cuppa/pull/219); **`prof-report-error-limit`** [#225](https://github.com/ja11sop/cuppa/pull/225); **`prof-report-scope-filter`** [#246](https://github.com/ja11sop/cuppa/pull/246) — **1.9.0**; full **F** blocked on [#135](https://github.com/ja11sop/cuppa/issues/135) |
 | [`archive/doc-folder-layout.md`](archive/doc-folder-layout.md) | shipped | Antora child pages under `dependencies/`, `cxx-profiles/`, `toolchains/` — ROADMAP `doc-folder-layout` |
+| [`archive/colourised-doc-samples.md`](archive/colourised-doc-samples.md) | shipped | Semantic HTML report samples + local preview — [#252](https://github.com/ja11sop/cuppa/issues/252) / [#253](https://github.com/ja11sop/cuppa/pull/253) |
 | [`archive/boost-latest-persistence.md`](archive/boost-latest-persistence.md) | shipped | Persist Boost latest (downloads-root–scoped conf); unpinned online scrape ([#201](https://github.com/ja11sop/cuppa/issues/201)); offline reuse — [#171](https://github.com/ja11sop/cuppa/issues/171) / [#170](https://github.com/ja11sop/cuppa/pull/170) |
 | [`archive/list-toolchains.md`](archive/list-toolchains.md) | shipped | `--list-toolchains` ruled tree (family→version→driver→names); list-deps leaf = Cuppa session name — [#172](https://github.com/ja11sop/cuppa/issues/172) / [#170](https://github.com/ja11sop/cuppa/pull/170) |
 | [`archive/download-progress.md`](archive/download-progress.md) | shipped | Shared HTTP/transfer progress (download, extract, Conan, git) — [#165](https://github.com/ja11sop/cuppa/pull/165) |
