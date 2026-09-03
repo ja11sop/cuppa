@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.9.0] - unreleased
+## [1.9.0] - 2026-09-03
 
 ### Added
 
@@ -259,12 +259,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Coverage runners remain compatible with mirrored object trees under ``working/`` after
   [#213](https://github.com/ja11sop/cuppa/issues/213) (integration:
   ``test_coverage_with_mirrored_nested_source``).
-
-### Deprecated
-
-### Removed
-
-### Security
 
 ## [1.8.2] - 2026-08-18
 
@@ -1099,7 +1093,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Baseline release on `master` before the modules work landed.
 Detailed notes for 1.1.x and earlier were not maintained in this file; start recording notable changes here from 1.2.0 onward.
 
-[1.9.0]: https://github.com/ja11sop/cuppa/compare/v1.8.2...HEAD
+[1.9.0]: https://github.com/ja11sop/cuppa/compare/v1.8.2...v1.9.0
 [1.8.2]: https://github.com/ja11sop/cuppa/compare/v1.8.1...v1.8.2
 [1.8.1]: https://github.com/ja11sop/cuppa/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/ja11sop/cuppa/compare/v1.7.0...v1.8.0
