@@ -11,21 +11,35 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-09-03
+**As of:** 2026-09-04
 
 ---
 
-## 1.9.1 cycle focus (open)
+## 1.10.0 cycle focus (open)
 
-Patch follow-ons after **1.9.0**. Keep this cycle small so **1.10.0** can take the larger deferred items.
+Minor cycle after **1.9.1**. Prefer work that changes opt-in toolchain or package behaviour (`impact:minor`) over parking it in another patch.
 
-| Area | Intent in 1.9.1 |
+| Area | Intent in 1.10.0 |
+|------|------------------|
+| GCC `--rel` LTO archiver / fat objects + spurious re-link investigation | [#262](https://github.com/ja11sop/cuppa/issues/262); analysis still needed (`--debug=explain`) |
+| GitLab CMake staging | [#209](https://github.com/ja11sop/cuppa/issues/209) |
+| Boost package patched/clean identity + Quince session Boost | [`boost-updates.md`](design/plans/boost-updates.md); [#250](https://github.com/ja11sop/cuppa/issues/250) |
+| Artefact removal design | [#135](https://github.com/ja11sop/cuppa/issues/135) |
+| Console bundle | `--terse-output`, log hygiene, `cuppa --info` |
+
+Parallel coverage collection (`GCOV_PREFIX`) remains a later coverage follow-on ([`coverage-parallel.md`](design/plans/coverage-parallel.md)); it is not a 1.10.0 gate.
+
+---
+
+## 1.9.1 cycle focus (shipped 2026-09-04)
+
+Patch follow-ons after **1.9.0**. **`1.9.1`** is on PyPI / GitHub Releases (`v1.9.1`).
+
+| Area | Status in 1.9.1 |
 |------|-----------------|
 | Pages deploy from Actions **publish** | Shipped [#258](https://github.com/ja11sop/cuppa/pull/258) — `GITHUB_TOKEN` GitHub Releases do not start `docs.yml` |
-| Profiles report links to published rule docs | Shipped — `/cuppa/latest/cxx-profiles/…` ([#261](https://github.com/ja11sop/cuppa/issues/261)) |
-| Coverage vs `--parallel` | Warn on collect + `-j`; `BuildTest` Coverage waits for Test; analysis [`coverage-parallel.md`](design/plans/coverage-parallel.md) ([#236](https://github.com/ja11sop/cuppa/issues/236)) |
-
-**1.10.0 candidates:** GitLab CMake staging ([#209](https://github.com/ja11sop/cuppa/issues/209)); Boost package patched/clean identity ([`boost-updates.md`](design/plans/boost-updates.md)) and Quince ([#250](https://github.com/ja11sop/cuppa/issues/250)); artefact removal design ([#135](https://github.com/ja11sop/cuppa/issues/135)); console bundle (`--terse-output`, log hygiene, `cuppa --info`).
+| Profiles report links to published rule docs | Shipped — `/cuppa/latest/cxx-profiles/…` ([#261](https://github.com/ja11sop/cuppa/issues/261) / [#260](https://github.com/ja11sop/cuppa/pull/260)) |
+| Coverage vs `--parallel` | Shipped [#263](https://github.com/ja11sop/cuppa/pull/263) / [#236](https://github.com/ja11sop/cuppa/issues/236); analysis [`coverage-parallel.md`](design/plans/coverage-parallel.md) |
 
 ---
 
@@ -45,7 +59,7 @@ Cycle opened with docs/site and Profiles follow-ons; identity slices A–C close
 | Boost.Test runners skip source Boost extract | Shipped [#249](https://github.com/ja11sop/cuppa/pull/249) / [#248](https://github.com/ja11sop/cuppa/issues/248) |
 | Package staging for generated VariantDir lib dirs | Shipped [#256](https://github.com/ja11sop/cuppa/pull/256) / [#255](https://github.com/ja11sop/cuppa/issues/255) |
 
-**Larger follow-ons are listed under the 1.9.1 cycle (patch) and 1.10.0 candidates.**
+**Larger follow-ons are listed under the 1.10.0 cycle.**
 
 ---
 
