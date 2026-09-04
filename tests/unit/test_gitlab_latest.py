@@ -3,8 +3,10 @@
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
-import pytest
+import os
 import re
+
+import pytest
 import SCons.Errors
 
 from cuppa.build_with_package import package_dependency
@@ -104,6 +106,38 @@ def test_resolve_latest_online_remembers( tmp_path, monkeypatch ):
     assert gl.read_setting( conf, key ) == '1.10'
 
 
+def test_registry_latest_conf_path_project_when_downloads_under_sconstruct( tmp_path ):
+    project = tmp_path / 'proj'
+    downloads = project / 'downloads'
+    downloads.mkdir( parents=True )
+    env = FakeEnv(
+            downloads_root=str( downloads ),
+            sconstruct_dir=str( project ),
+            abs_sconstruct_dir=str( project ),
+    )
+    assert gl.registry_latest_conf_path( env ) == os.path.join(
+            str( project ), 'configure.conf'
+    )
+
+
+def test_registry_latest_conf_path_global_when_downloads_outside_project( tmp_path, monkeypatch ):
+    project = tmp_path / 'proj'
+    project.mkdir()
+    downloads = tmp_path / 'shared_downloads'
+    downloads.mkdir()
+    fake_home = tmp_path / 'home'
+    fake_home.mkdir()
+    monkeypatch.setenv( 'HOME', str( fake_home ) )
+    env = FakeEnv(
+            downloads_root=str( downloads ),
+            sconstruct_dir=str( project ),
+            abs_sconstruct_dir=str( project ),
+    )
+    assert gl.registry_latest_conf_path( env ) == os.path.join(
+            str( fake_home ), '.cuppaconfig'
+    )
+
+
 def test_resolve_latest_offline_uses_remembered( tmp_path, monkeypatch ):
     conf = str( tmp_path / 'configure.conf' )
     monkeypatch.setattr( gl, 'registry_latest_conf_path', lambda env: conf )
@@ -125,6 +159,87 @@ def test_resolve_latest_offline_without_memory_fails():
                 registry='https://gitlab.example/api/v4/projects/1',
                 package='missing',
         )
+
+
+def test_offline_resolve_keeps_remembered_pin_despite_older_on_disk(
+        tmp_path, monkeypatch
+):
+    """Offline latest replays the remembered pin; it does not scan downloads for older."""
+    conf = str( tmp_path / 'configure.conf' )
+    monkeypatch.setattr( gl, 'registry_latest_conf_path', lambda env: conf )
+    registry = 'https://gitlab.example/api/v4/projects/1'
+    key = gl.registry_latest_conf_key( registry, 'widget' )
+    gl.upsert_setting( conf, key, repr( '1.10' ) )
+
+    older = tmp_path / 'downloads' / 'packages' / 'widget' / '1.9'
+    older.mkdir( parents=True )
+    ( older / 'widget_dummy.tar.gz' ).write_bytes( b'old' )
+
+    env = FakeEnv( offline=True, downloads_root=str( tmp_path / 'downloads' ) )
+    assert gl.resolve_latest_package_version(
+            env, registry=registry, package='widget'
+    ) == '1.10'
+
+
+def test_offline_package_fails_when_pin_archive_missing_even_if_older_cached(
+        tmp_path, monkeypatch
+):
+    """Remembered latest pin + missing archive fails; older cached version is unused."""
+    from types import SimpleNamespace
+
+    from cuppa.package_managers.gitlab import (
+            GitlabPackageDependency,
+            GitlabPackageDependencyException,
+            package_file_name,
+    )
+
+    monkeypatch.setattr(
+            'cuppa.package_managers.gitlab.platform.freedesktop_os_release',
+            lambda: { 'ID': 'debian' },
+    )
+    monkeypatch.setattr(
+            'cuppa.package_managers.gitlab.platform.system',
+            lambda: 'Linux',
+    )
+
+    downloads = tmp_path / 'downloads'
+    dependencies = tmp_path / 'dependencies'
+    dependencies.mkdir()
+
+    toolchain = SimpleNamespace( package_name=lambda: 'gcc15' )
+    variant = SimpleNamespace( name=lambda: 'rel' )
+    env = FakeEnv(
+            offline=True,
+            develop=False,
+            clean=False,
+            dump=False,
+            storage_resolve_only=False,
+            downloads_root=str( downloads ),
+            dependencies_root=str( dependencies ),
+            sconstruct_dir=str( tmp_path ),
+            toolchain=toolchain,
+            variant=variant,
+            target_arch='x86_64',
+            abi='cxx2c',
+    )
+
+    older_name = package_file_name( env, package='widget', variant='rel' )
+    older_dir = downloads / 'packages' / 'widget' / '1.9'
+    older_dir.mkdir( parents=True )
+    ( older_dir / older_name ).write_bytes( b'old-archive' )
+
+    with pytest.raises( GitlabPackageDependencyException ) as caught:
+        GitlabPackageDependency(
+                env,
+                registry='https://gitlab.example/api/v4/projects/1',
+                package='widget',
+                version='1.10',
+                variant='rel',
+        )
+    message = str( caught.value )
+    assert 'OFFLINE' in message
+    assert 'does not exist' in message
+    assert '1.10' in message
 
 
 def test_package_dependency_default_version_latest( monkeypatch ):
