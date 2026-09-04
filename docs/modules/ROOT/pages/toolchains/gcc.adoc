@@ -112,6 +112,10 @@ Variant-specific additions:
 | `-flto` / `-flto=auto`
 | Link-time optimisation on `--rel` only (see LTO table)
 | https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html#index-flto[Optimize Options]
+
+| `-ffat-lto-objects`
+| Emit fat LTO objects so archives stay usable with binutils `ar`
+| https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html#index-ffat-lto-objects[Optimize Options]
 |===
 
 On Linux, link lines also receive:
@@ -212,14 +216,18 @@ It is not enabled for `--dbg` or `--cov`: LTO raises peak link memory and slows 
 | GCC version | `--rel` LTO flags
 
 | 12+
-| `-flto=auto`
+| `-flto=auto`, `-ffat-lto-objects`
 
 | 8–11
-| `-flto`
+| `-flto`, `-ffat-lto-objects`
 
 | before 8
 | _(none)_
 |===
+
+When LTO is enabled, cuppa also prefers a version-matched `gcc-ar` / `gcc-ranlib` (for example `gcc-ar-16`) so static archives keep GCC LTO objects correctly.
+
+`-ffat-lto-objects` keeps archives usable even if the system archiver falls back to binutils `ar`.
 
 == Stdlib
 

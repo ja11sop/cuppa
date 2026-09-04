@@ -1,0 +1,29 @@
+= `test_rel_lto_incremental` — second `--rel` stays incremental
+:description: Cuppa integration test documentation for test_rel_lto_incremental
+
+
+== What is tested
+
+A small static library linked by two `BuildTest` binaries under **`--rel`** (LTO).
+After `cuppa -D --rel --parallel`, a second process `cuppa -D --rel --test` must not
+recompile, re-archive, or re-link: archive and test binary mtimes stay unchanged, and
+stdout shows no `g++` / `ar` / `ranlib` rebuild lines.
+
+This is a regression guard for GCC/Clang release LTO tooling
+(xref:toolchains/gcc.adoc[GCC] / xref:toolchains/clang.adoc[Clang]).
+It does **not** prove that a large consumer tree will never re-link; that needs
+`--debug=explain` on the affected project ([#262](https://github.com/ja11sop/cuppa/issues/262)).
+
+Skipped when `CUPPA_TEST_TOOLCHAIN` selects MSVC.
+
+== Command shape
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --rel --parallel
+cuppa -D --offline --toolchains=gcc --rel --test
+----
+
+== Expectations
+
+Exit 0 on both runs; second run is fully incremental for `final/` archive and test binaries.
