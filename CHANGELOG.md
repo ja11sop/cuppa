@@ -33,6 +33,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- ``add_dependent_libraries`` emits a stable subset of an expanded
+  ``boost_dependency_order()`` master list (including ``unit_test_framework``
+  at the old ``test`` slot, plus leaf libs such as ``program_options``).
+  Unknown names still append sorted. Previously, names outside the short
+  ordered list were appended by iterating a ``set``, so ``PYTHONHASHSEED``
+  flipped ``STATICLIBS`` / Program dependency order across Cuppa processes and
+  forced every test program to re-link on a later ``--rel --test`` even when
+  objects and archives were unchanged
+  ([#267](https://github.com/ja11sop/cuppa/issues/267)).
+
 ### Security
 
 ## [1.9.1] - 2026-09-04

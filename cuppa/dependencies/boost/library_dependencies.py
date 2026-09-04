@@ -14,6 +14,11 @@ from cuppa.log       import logger
 
 
 def boost_dependency_order():
+    # Master static-link order: dependents before dependencies for GNU ld.
+    # add_dependent_libraries emits only the subset present in the required
+    # set, preserving relative order from this list. Keep every Boost library
+    # name Cuppa knows about here; unknown names are appended sorted for
+    # signature stability only (#267) and may not link correctly.
     return [
         'graph',
         'regex',
@@ -24,11 +29,27 @@ def boost_dependency_order():
         'date_time',
         'locale',
         'filesystem',
-        'test',
+        # 'test' is remapped to unit_test_framework before ordering
+        'unit_test_framework',
+        'prg_exec_monitor',
+        'test_exec_monitor',
         'timer',
         'chrono',
         'system',
-        'thread'
+        'thread',
+        # Leaf libraries (no inter-boost deps in Cuppa's model). Fixed order
+        # after the dependency-sensitive chain so subsets stay stable.
+        'exception',
+        'graph_parallel',
+        'iostreams',
+        'math',
+        'mpi',
+        'program_options',
+        'python',
+        'random',
+        'serialization',
+        'signals',
+        'wave',
     ]
 
 
@@ -107,13 +128,17 @@ def add_dependent_libraries( version, linktype, libraries, patched_test=False ):
                 required_libraries.update( ['system'] )
 
     libraries = []
+    ordered_names = boost_dependency_set()
 
     for library in boost_dependency_order():
         if library in required_libraries:
             libraries.append( library )
 
-    for library in required_libraries:
-        if library not in boost_dependency_set():
+    # Unknown names only: sorted so STATICLIBS / Program dependency order is
+    # stable across processes (set iteration follows PYTHONHASHSEED). Prefer
+    # extending boost_dependency_order() over relying on this tail (#267).
+    for library in sorted( required_libraries ):
+        if library not in ordered_names:
             libraries.append( library )
 
     return libraries
