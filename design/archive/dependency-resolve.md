@@ -1,8 +1,8 @@
 # Plan: BuildWith dependency resolve and type selectors
 
-- **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Dependencies; [`boost-updates.md`](boost-updates.md) (Boost identity / Quince motivation); [`removal-options.md`](removal-options.md) §4.15 (storage token grammar already shipped); [#250](https://github.com/ja11sop/cuppa/issues/250) (Quince first consumer); [#206](https://github.com/ja11sop/cuppa/issues/206) / [#248](https://github.com/ja11sop/cuppa/issues/248) (package-only must not pull source Boost); scratchpad note graduated from [`ideas/scratchpad.md`](../ideas/scratchpad.md)
-- **Updated:** 2026-09-04
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Dependencies; [`../plans/boost-updates.md`](../plans/boost-updates.md) (Boost identity / Quince motivation); [`../plans/removal-options.md`](../plans/removal-options.md) §4.15 (storage token grammar already shipped); [#250](https://github.com/ja11sop/cuppa/issues/250) / [#270](https://github.com/ja11sop/cuppa/pull/270) (Quince first consumer); [#206](https://github.com/ja11sop/cuppa/issues/206) / [#248](https://github.com/ja11sop/cuppa/issues/248) (package-only must not pull source Boost); scratchpad note graduated from [`../ideas/scratchpad.md`](../ideas/scratchpad.md)
+- **Updated:** 2026-09-05
 - **Impact:** minor — new opt-in resolve behaviour for untyped `BuildWith` names when multiple supply chains exist; Quince and runners become consumers
 
 ## Why
@@ -14,7 +14,7 @@ Cuppa already has two overlapping stories:
    Boost and `boost_package`; some built-ins (Quince) still call `BoostStaticLibs` / manual
    `STATICLIBS`.
 2. **Type selectors** — `[source]` / `[archive]`, `[gitlab]`, `[repository]`, `[conan]` on the
-   **storage** list/remove/purge surface ([`removal-options.md`](removal-options.md)). The same
+   **storage** list/remove/purge surface ([`removal-options.md`](../plans/removal-options.md)). The same
    vocabulary is **not** yet used when resolving `BuildWith('boost')`.
 
 Boost makes the gap concrete: the built-in archive factory is always registered as `boost`, while
@@ -24,7 +24,7 @@ A Quince-local `session_boost` / `uses_boost_package` fork would fix one symptom
 wrong abstraction (superseded spike on branch work for [#250](https://github.com/ja11sop/cuppa/issues/250)).
 
 This plan is the home for **BuildWith-time** resolve rules and selectors. Boost package
-`-patched` / `-clean` identity stays in [`boost-updates.md`](boost-updates.md).
+`-patched` / `-clean` identity stays in [`boost-updates.md`](../plans/boost-updates.md).
 
 ## Goals
 
@@ -41,7 +41,7 @@ This plan is the home for **BuildWith-time** resolve rules and selectors. Boost 
 
 - Requiring type selectors on every `BuildWith` (untyped names stay valid).
 - Selecting `[conan]…` for untyped short names until Conan deps expose the same APIs (`use_libs`,
-  version helpers) — see [`archive/conan-consumer-plan.md`](../archive/conan-consumer-plan.md).
+  version helpers) — see [`conan-consumer-plan.md`](conan-consumer-plan.md).
 - Renaming the Python API `location_dependency` or changing storage bucket labels.
 - Auto-registering GitLab packages under the short name `boost` without selectors (name clash with
   the built-in remains until typed registration exists).
@@ -60,7 +60,7 @@ This plan is the home for **BuildWith-time** resolve rules and selectors. Boost 
 | Conan | Never chosen for untyped short names until Conan deps share the link/version API. Explicit `[conan]…` errors for now. |
 | Project-available | Declared (`dependencies=` / `default_dependencies`) **or** already `BuildWith`’d earlier in this sconscript session (`BUILD_WITH`). |
 | Always-registered built-ins | e.g. built-in `boost`: registry presence alone is not project-available and does not beat a project-available GitLab candidate. |
-| Selector spelling | Align with storage grammar ([`removal-options.md`](removal-options.md) §4.15). |
+| Selector spelling | Align with storage grammar ([`removal-options.md`](../plans/removal-options.md) §4.15). |
 | Test runners | Same resolve helper as `BuildWith`. |
 | First consumer | Quince on [#250](https://github.com/ja11sop/cuppa/issues/250); unit tests cover a generic `widget_lib` / `widget_lib_package` pair as well as Boost. |
 | Docs | Antora precedence table is name-general; Quince is the worked example. |

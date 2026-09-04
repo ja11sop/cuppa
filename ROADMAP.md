@@ -11,25 +11,40 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-09-04
+**As of:** 2026-09-05
 
 ---
 
-## 1.10.0 cycle focus (open)
+## 1.11.0 cycle focus (open)
 
-Minor cycle after **1.9.1**. Prefer work that changes opt-in toolchain or package behaviour (`impact:minor`) over parking it in another patch.
+Minor cycle after **1.10.0**. Prefer work that changes opt-in toolchain or package behaviour
+(`impact:minor`) over parking it in another patch.
 
-| Area | Intent in 1.10.0 |
+| Area | Intent in 1.11.0 |
 |------|------------------|
-| GCC `--rel` LTO archiver / fat objects + spurious re-links | [#262](https://github.com/ja11sop/cuppa/issues/262) parity shipped in [#266](https://github.com/ja11sop/cuppa/pull/266); re-links fixed in [#269](https://github.com/ja11sop/cuppa/pull/269) / [#267](https://github.com/ja11sop/cuppa/issues/267) (Boost `STATICLIBS` order) |
-| GitLab CMake staging | [#209](https://github.com/ja11sop/cuppa/issues/209) |
-| GitLab package `latest` + consume docs | [`gitlab-package-latest.md`](design/plans/gitlab-package-latest.md) — registry latest; Boost package default retarget; Antora general-then-extension |
 | `cuppa.run` default_dependencies objects | [`run-default-dependency-objects.md`](design/plans/run-default-dependency-objects.md) — pass factories into both lists without `.name()` |
-| BuildWith dependency resolve + Quince | [`dependency-resolve.md`](design/plans/dependency-resolve.md); [#250](https://github.com/ja11sop/cuppa/issues/250) shipped; Boost identity remains [`boost-updates.md`](design/plans/boost-updates.md) |
+| GitLab CMake staging | [#209](https://github.com/ja11sop/cuppa/issues/209) |
 | Artefact removal design | [#135](https://github.com/ja11sop/cuppa/issues/135) |
 | Console bundle | `--terse-output`, log hygiene, `cuppa --info` |
+| Boost package identity | [`boost-updates.md`](design/plans/boost-updates.md) (`-patched` / `-clean`) |
 
-Parallel coverage collection (`GCOV_PREFIX`) remains a later coverage follow-on ([`coverage-parallel.md`](design/plans/coverage-parallel.md)); it is not a 1.10.0 gate.
+Parallel coverage collection (`GCOV_PREFIX`) remains a later coverage follow-on ([`coverage-parallel.md`](design/plans/coverage-parallel.md)); it is not a 1.11.0 gate.
+
+---
+
+## 1.10.0 cycle focus (ready to cut)
+
+Minor cycle after **1.9.1**. Open section is still `## [1.10.0] - unreleased` until Actions
+**prepare** / `finish_release`. Shipped on master:
+
+| Area | Status in 1.10.0 |
+|------|------------------|
+| GCC `--rel` LTO archiver / fat objects | [#262](https://github.com/ja11sop/cuppa/issues/262) / [#266](https://github.com/ja11sop/cuppa/pull/266) |
+| `--cxx-disable-lto` + Boost `STATICLIBS` order (spurious re-links) | [#268](https://github.com/ja11sop/cuppa/pull/268); [#267](https://github.com/ja11sop/cuppa/issues/267) / [#269](https://github.com/ja11sop/cuppa/pull/269) |
+| BuildWith dependency resolve + Quince | [`dependency-resolve.md`](design/archive/dependency-resolve.md); [#250](https://github.com/ja11sop/cuppa/issues/250) / [#270](https://github.com/ja11sop/cuppa/pull/270) |
+| GitLab package `latest` + consume docs | [`gitlab-package-latest.md`](design/archive/gitlab-package-latest.md); [#271](https://github.com/ja11sop/cuppa/issues/271) / [#272](https://github.com/ja11sop/cuppa/pull/272) |
+
+**Deferred to 1.11.0:** `default_dependencies` objects; [#209](https://github.com/ja11sop/cuppa/issues/209); [#135](https://github.com/ja11sop/cuppa/issues/135); console bundle; Boost package identity.
 
 ---
 
@@ -61,7 +76,7 @@ Cycle opened with docs/site and Profiles follow-ons; identity slices A–C close
 | Boost.Test runners skip source Boost extract | Shipped [#249](https://github.com/ja11sop/cuppa/pull/249) / [#248](https://github.com/ja11sop/cuppa/issues/248) |
 | Package staging for generated VariantDir lib dirs | Shipped [#256](https://github.com/ja11sop/cuppa/pull/256) / [#255](https://github.com/ja11sop/cuppa/issues/255) |
 
-**Larger follow-ons are listed under the 1.10.0 cycle.**
+**Larger follow-ons are listed under the 1.11.0 cycle.**
 
 ---
 
@@ -531,10 +546,10 @@ Design: [`native-toolchain-output.md`](design/plans/native-toolchain-output.md),
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `console-terse-output` | `--terse-output`: coloured one-line success; commands on failure/warning | High | [`terse-build-output.md`](design/plans/terse-build-output.md); **1.10.0** |
-| `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md); **1.10.0** |
-| `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | [`cuppa-info.md`](design/plans/cuppa-info.md); **1.10.0** |
-| `console-native-output` | `--native-output`: enable toolchain native colour; passthrough spawn | Medium | [`native-toolchain-output.md`](design/plans/native-toolchain-output.md); optional 1.10.0 |
+| `console-terse-output` | `--terse-output`: coloured one-line success; commands on failure/warning | High | [`terse-build-output.md`](design/plans/terse-build-output.md); **1.11.0** |
+| `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md); **1.11.0** |
+| `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | [`cuppa-info.md`](design/plans/cuppa-info.md); **1.11.0** |
+| `console-native-output` | `--native-output`: enable toolchain native colour; passthrough spawn | Medium | [`native-toolchain-output.md`](design/plans/native-toolchain-output.md); optional 1.11.0 |
 | `console-stream-split` | Logging → stderr vs tool primary → stdout | Low | Validate current behaviour first (scratchpad note) |
 
 ### Out of scope (console output)

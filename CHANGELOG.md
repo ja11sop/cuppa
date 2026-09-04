@@ -30,12 +30,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ``boost_package`` unpinned ``version`` uses registry latest (same as generic GitLab
   packages), no longer ``determine_latest_boost_version`` / boost.org
   ([#271](https://github.com/ja11sop/cuppa/issues/271)).
-- Document GitLab registry-``latest`` offline contract: remembered version string scoped
-  like ``boost_latest_version`` (shared downloads → ``~/.cuppaconfig``, project downloads
-  → ``configure.conf``); offline replays the pin or fails — no older-archive fallback
-  ([#271](https://github.com/ja11sop/cuppa/issues/271)).
-- Unit coverage for registry-latest conf-path scoping and offline pin + missing archive
-  (no older on-disk fallback) ([#271](https://github.com/ja11sop/cuppa/issues/271)).
 - GCC ``--rel`` LTO matches Clang's archive story: emit ``-ffat-lto-objects`` and
   prefer version-matched ``gcc-ar`` / ``gcc-ranlib`` when available
   ([#262](https://github.com/ja11sop/cuppa/issues/262)).

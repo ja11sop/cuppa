@@ -1,8 +1,8 @@
 # Plan: GitLab package `latest` and consume docs
 
-- **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.10.0 packages; [#271](https://github.com/ja11sop/cuppa/issues/271); [`boost-updates.md`](boost-updates.md) (Boost package identity / patched-clean; source Boost latest is separate); [`archive/boost-latest-persistence.md`](../archive/boost-latest-persistence.md) (source Boost scrape persistence — not registry latest); [`archive/build-and-package-identity.md`](../archive/build-and-package-identity.md) (lookup overrides); [`run-default-dependency-objects.md`](run-default-dependency-objects.md) (`default_dependencies` accepts objects); [#209](https://github.com/ja11sop/cuppa/issues/209) (CMake publish staging — parallel)
-- **Updated:** 2026-09-04
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.10.0; [#271](https://github.com/ja11sop/cuppa/issues/271) / [#272](https://github.com/ja11sop/cuppa/pull/272); [`../plans/boost-updates.md`](../plans/boost-updates.md) (Boost package identity / patched-clean; source Boost latest is separate); [`boost-latest-persistence.md`](boost-latest-persistence.md) (source Boost scrape persistence — not registry latest); [`build-and-package-identity.md`](build-and-package-identity.md) (lookup overrides); [`../plans/run-default-dependency-objects.md`](../plans/run-default-dependency-objects.md) (`default_dependencies` accepts objects — deferred); [#209](https://github.com/ja11sop/cuppa/issues/209) (CMake publish staging — deferred)
+- **Updated:** 2026-09-05
 - **Impact:** minor — new `version="latest"` consume behaviour; Boost package default changes; Antora consume docs
 
 ## Why
@@ -37,14 +37,14 @@ Antora is skewed: `gitlab.adoc` leads with Boost; the ordinary
 5. **Docs:** general GitLab depend-on first; then overrides; then `latest`; then extension
    interface with `boost_package` as the worked example; thin note on pip-installable custom
    packages. Prefer examples that pass the dependency **object** into both `dependencies` and
-   `default_dependencies` once [`run-default-dependency-objects.md`](run-default-dependency-objects.md)
+   `default_dependencies` once [`run-default-dependency-objects.md`](../plans/run-default-dependency-objects.md)
    lands; until then show `.name()` as the safe form.
 
 ## Non-goals
 
 - Changing source Boost (`BuildWith('boost')`) unpinned / `--boost-latest` scrape behaviour —
-  that stays under builtins Boost docs and [`boost-latest-persistence.md`](../archive/boost-latest-persistence.md).
-- Implementing full `-patched` / `-clean` package identity ([`boost-updates.md`](boost-updates.md))
+  that stays under builtins Boost docs and [`boost-latest-persistence.md`](boost-latest-persistence.md).
+- Implementing full `-patched` / `-clean` package identity ([`boost-updates.md`](../plans/boost-updates.md))
   in the same PR — but define how `latest` interacts (see settled decisions).
 - Magic string `"latest_release"` as a generic GitLab feature (packages that need upstream
   latest expose a callable; optional later string that dispatches to that hook with uniform
@@ -68,7 +68,7 @@ Antora is skewed: `gitlab.adoc` leads with Boost; the ordinary
 | Interaction with lookup overrides | Resolve latest **among versions that have (or could have) an archive for the preferred stem**; if listing is version-only, attempt download with current stem rules and fail uniformly on 404 after fallback — document honesty if the API cannot filter by stem. |
 | Interaction with `-patched` / `-clean` | Until identity lands: latest among version strings as published today. After identity: latest among versions matching the session’s package flavour (patched default for Boost). Do not block registry `latest` on identity shipping. |
 | Failure shape | Configure-time StopError / clear logger error: not available, not supported, offline with no remembered version — same family of messages as missing pinned package. |
-| Docs order | (1) Ordinary `package_dependency` + BuildWith; (2) lookup overrides; (3) `version="latest"`; (4) extension interface (`define`, `default_version`, `use_libs`, …) with Boost as example; (5) optional pip plugin stub. Ideal `cuppa.run` examples use the dependency object in `default_dependencies` — see [`run-default-dependency-objects.md`](run-default-dependency-objects.md). |
+| Docs order | (1) Ordinary `package_dependency` + BuildWith; (2) lookup overrides; (3) `version="latest"`; (4) extension interface (`define`, `default_version`, `use_libs`, …) with Boost as example; (5) optional pip plugin stub. Ideal `cuppa.run` examples use the dependency object in `default_dependencies` — see [`run-default-dependency-objects.md`](../plans/run-default-dependency-objects.md). |
 
 ## Example shapes
 
@@ -94,7 +94,7 @@ cuppa.run(
 
 Meaning: newest **registry** version of `google-cloud-cpp` for the current lookup stem.
 
-Until [`run-default-dependency-objects.md`](run-default-dependency-objects.md) ships, sconstructs
+Until [`run-default-dependency-objects.md`](../plans/run-default-dependency-objects.md) ships, sconstructs
 must keep using `.name()` or a string name in `default_dependencies`. Docs for registry `latest`
 should call that out and prefer `.name()` over duplicating the magic string.
 
@@ -128,7 +128,7 @@ boost_package = cuppa.packages.boost_package.define(
 | `pkg-latest-docs` | Restructure `packages.adoc` / `gitlab.adoc`; extension section; Boost as example | Same release; can be same PR as wire if small. Note object vs `.name()` for `default_dependencies` until run-default-dependency-objects lands |
 | `pkg-latest-issue` | File GitHub issue with `impact:minor` from this plan | When starting implementation |
 
-Related (separate plan): [`run-default-dependency-objects.md`](run-default-dependency-objects.md) —
+Related (separate plan): [`run-default-dependency-objects.md`](../plans/run-default-dependency-objects.md) —
 `default_dependencies = [ google_cloud_cpp ]` without `.name()`.
 
 ## Refusal rules

@@ -26,7 +26,7 @@ Do not put private project names here; use anonymised labels and
 - Split methods into own pages → [`plans/methods-pages-split.md`](../plans/methods-pages-split.md)
 - Better Antora UI bundle → [`plans/antora-ui-bundle.md`](../plans/antora-ui-bundle.md)
 - Shiki syntax highlighting → [`plans/shiki-syntax-highlighting.md`](../plans/shiki-syntax-highlighting.md)
-- Boost name clashes / BuildWith type resolve → [`plans/dependency-resolve.md`](../plans/dependency-resolve.md) (Quince #250; boost-updates cross-link)
+- Boost name clashes / BuildWith type resolve → [`plans/dependency-resolve.md`](../archive/dependency-resolve.md) (Quince #250; boost-updates cross-link)
 
 ## Output processing (follow-on)
 
