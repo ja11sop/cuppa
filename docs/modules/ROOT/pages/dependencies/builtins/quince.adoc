@@ -1,9 +1,24 @@
 = Quince
-:description: Built-in quince ORM dependencies — honest stub
+:description: Built-in quince ORM dependencies — session Boost via BuildWith resolve
 
 The `quince` dependency (and related Quince backends such as PostgreSQL/SQLite helpers) pulls
 Quince as location dependencies for ORM-style {cpp} projects.
 
-This page is a stub. The modules live under `cuppa/dependencies/`. Expand it when real usage
-is documented. See xref:dependencies/builtins.adoc[Built-in dependencies] and
+Quince needs Boost libraries (`filesystem`, `thread`, `system` when applicable, plus `date_time`
+on the backends). It asks only for the short name `boost` and links with `use_libs`:
+
+```python
+env.BuildWith('boost').use_libs(['filesystem', 'thread', 'system'])
+```
+
+Cuppa resolves untyped `boost` by **general** short-name precedence among project-available
+candidates: GitLab (`[gitlab]boost` or legacy `boost_package`) before the built-in archive
+`boost`, including when the package was already `BuildWith`'d earlier in the sconscript.
+Explicit pins such as `[archive]boost` or `[gitlab]boost` bypass precedence. The same rules apply
+to any short name (for example `widget_lib` / `widget_lib_package`). See
+xref:methods/dependencies-and-profiles.adoc[Dependencies and profiles] and
+`design/plans/dependency-resolve.md`.
+
+This page is otherwise a stub. The modules live under `cuppa/dependencies/`. See
+xref:dependencies/builtins.adoc[Built-in dependencies] and
 xref:dependencies/location.adoc[Location dependencies].

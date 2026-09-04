@@ -21,9 +21,9 @@ Minor cycle after **1.9.1**. Prefer work that changes opt-in toolchain or packag
 
 | Area | Intent in 1.10.0 |
 |------|------------------|
-| GCC `--rel` LTO archiver / fat objects + spurious re-link investigation | [#262](https://github.com/ja11sop/cuppa/issues/262) parity shipped in [#266](https://github.com/ja11sop/cuppa/pull/266); re-links tracked in [#267](https://github.com/ja11sop/cuppa/issues/267) (`--cxx-disable-lto` diagnostic) |
+| GCC `--rel` LTO archiver / fat objects + spurious re-links | [#262](https://github.com/ja11sop/cuppa/issues/262) parity shipped in [#266](https://github.com/ja11sop/cuppa/pull/266); re-links fixed in [#269](https://github.com/ja11sop/cuppa/pull/269) / [#267](https://github.com/ja11sop/cuppa/issues/267) (Boost `STATICLIBS` order) |
 | GitLab CMake staging | [#209](https://github.com/ja11sop/cuppa/issues/209) |
-| Boost package patched/clean identity + Quince session Boost | [`boost-updates.md`](design/plans/boost-updates.md); [#250](https://github.com/ja11sop/cuppa/issues/250) |
+| BuildWith dependency resolve + Quince | [`dependency-resolve.md`](design/plans/dependency-resolve.md); [#250](https://github.com/ja11sop/cuppa/issues/250); Boost identity remains [`boost-updates.md`](design/plans/boost-updates.md) |
 | Artefact removal design | [#135](https://github.com/ja11sop/cuppa/issues/135) |
 | Console bundle | `--terse-output`, log hygiene, `cuppa --info` |
 

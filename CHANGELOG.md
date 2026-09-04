@@ -33,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- ``BuildWith`` resolves untyped short names by general precedence (project-available
+  GitLab ``[gitlab]N`` / legacy ``{N}_package`` before archive/short ``N``), accepts
+  type selectors, and refuses ``[conan]…`` for now. Quince links only via
+  ``BuildWith('boost').use_libs(...)``. Boost.Test runners use the same resolver
+  through ``session_boost``
+  ([#250](https://github.com/ja11sop/cuppa/issues/250)).
 - ``add_dependent_libraries`` emits a stable subset of an expanded
   ``boost_dependency_order()`` master list (including ``unit_test_framework``
   at the old ``test`` slot, plus leaf libs such as ``program_options``).

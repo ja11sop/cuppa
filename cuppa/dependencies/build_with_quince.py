@@ -48,19 +48,13 @@ class build_with_quince( location_dependency( 'quince', sys_include="include", s
     def __call__( self, env, toolchain, variant ):
         super(build_with_quince,self).__call__( env, toolchain, variant )
 
-        static_libs = [
-            'filesystem',
-            'thread'
-        ]
-
-        boost_version = env['dependencies']['boost']( env ).numeric_version()
-
-        if boost_version < 1.89:
-            static_libs.append( 'system' )
-
         env.AppendUnique( STATICLIBS = [
                 env.QuinceLibrary(),
-                env.BoostStaticLibs( static_libs ),
+        ] )
+        env.BuildWith( 'boost' ).use_libs( [
+                'filesystem',
+                'thread',
+                'system',
         ] )
 
 
@@ -100,8 +94,8 @@ class quince_postgresql( location_dependency( 'quince-postgresql', sys_include="
         env.Append( STATICLIBS = [
                 quince_postgresql_lib,
                 quince_lib,
-                env.BoostStaticLibs( [ 'date_time' ] ),
         ] )
+        env.BuildWith( 'boost' ).use_libs( [ 'date_time' ] )
 
         env['dependencies']['quince_date_lib']( env )( env, toolchain, variant )
 
@@ -171,10 +165,10 @@ class quince_sqlite( location_dependency( 'quince-sqlite', sys_include="include"
         env.Append( STATICLIBS  = [
                 quince_sqlite_lib,
                 quince_lib,
-                env.BoostStaticLibs( [
-                    'date_time',
-                    'filesystem',
-                ] ),
+        ] )
+        env.BuildWith( 'boost' ).use_libs( [
+                'date_time',
+                'filesystem',
         ] )
 
 

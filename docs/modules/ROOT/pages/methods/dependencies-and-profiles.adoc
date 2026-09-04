@@ -59,6 +59,31 @@ Where the dependency provides libraries, chain `.use_libs([...])` on the returne
 source builds, `boost_package`, and other `package_dependency` flavours). See
 xref:dependencies/builtins/boost.adoc[Boost] and xref:dependencies.adoc[Dependencies].
 
+=== Untyped names and type selectors
+
+When more than one supply chain can mean the same short name (for example a GitLab package
+registered as `widget_lib_package` alongside an archive or built-in `widget_lib`), an
+**untyped** `BuildWith('widget_lib')` resolves by precedence among **project-available**
+candidates:
+
+1. GitLab — registry key `[gitlab]widget_lib` when used, else the legacy `{name}_package`
+   form (`widget_lib_package`, and Boost’s familiar `boost_package`)
+2. Short name / archive — `widget_lib`, or `[archive]widget_lib` / `[source]widget_lib` when
+   registered that way
+
+A candidate is project-available when it appears in `default_dependencies` / `dependencies=`, or
+was already applied earlier in this sconscript via `BuildWith`. Always-on built-ins such as
+archive `boost` stay in the factory registry for opt-in use; registry presence alone does not
+beat a project-available GitLab package.
+
+Explicit tokens bypass precedence: `[archive]widget_lib` / `[source]widget_lib`,
+`[gitlab]widget_lib`, or the literal legacy key `widget_lib_package`. `[conan]…` is not selected
+for untyped names yet.
+
+`use_libs([...])` is the uniform way to link libraries from whichever flavour was resolved.
+Built-ins such as xref:dependencies/builtins/quince.adoc[Quince] only ask for `boost` and call
+`use_libs` — they do not branch on package vs archive.
+
 Passing several names returns a list (order matches the call):
 
 [source,python]
