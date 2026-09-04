@@ -155,4 +155,4 @@ Related (separate plan): [`run-default-dependency-objects.md`](run-default-depen
 
 - Exact GitLab API path and sorting (semver vs string sort) for “newest.”
 - Whether `None` and `"latest"` both stay supported long-term or docs push `"latest"` only.
-- Cache key shape for remembered registry latest (per registry URL + package name + flavour).
+- Whether to tighten remember-after-download (source Boost style) without changing the offline contract above.
