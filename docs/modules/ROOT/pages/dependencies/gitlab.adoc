@@ -1,5 +1,5 @@
 = GitLab packages
-:description: Consume GitLab generic registry packages, including boost_package
+:description: Consume GitLab generic registry packages, including version latest and boost_package
 
 Cuppa consumes GitLab **generic** package archives through `cuppa.package_dependency()` with
 `package_manager = 'gitlab'`. See xref:dependencies/packages.adoc[Package dependencies] for the
@@ -7,6 +7,11 @@ factory overview.
 
 Package archive downloads use the shared transfer-progress reporter (percent, bar, rate, ETA)
 over HTTPS with registry auth headers — `wget` is not required on `PATH` for the fetch.
+
+The `registry` argument is the GitLab project Packages API root
+(`https://gitlab.example.com/api/v4/projects/<id-or-path>`). Cuppa appends
+`/packages/generic/...` for archive URLs. You may also pass a URL that already ends with
+`/packages/generic`; listing for `version="latest"` normalises either form.
 
 == Authentication
 
@@ -61,13 +66,75 @@ xref:cli/dependencies-and-develop.adoc[Dependencies and develop] lists the flags
 xref:toolchains/overview.adoc#toolchain-identity[Build and package identity] covers layout
 identity. Publishing with omit is documented in xref:packages.adoc[Publishing packages].
 
+[#version-latest]
+== Registry `latest`
+
+`version = 'latest'` (or `None` / omitted where the factory allows) means the newest version
+**available in that GitLab registry** for the package name — not the newest upstream software
+release.
+
+Cuppa lists versions with the GitLab Packages API
+(`GET …/packages?package_type=generic&package_name=…`), picks the highest version string, then
+downloads with the usual stem / override / identity-fallback rules. Auth uses the same
+`GITLAB_REGISTRY_TOKEN` / `CI_JOB_TOKEN` (or custom token) as archive download. Listing needs a
+token that can call the Packages API (a deploy-token that only fetches generic files may be
+insufficient).
+
+[source,python]
+----
+Widget = cuppa.package_dependency(
+    'widget',
+    registry = 'https://gitlab.example.com/api/v4/projects/123',
+    package  = 'widget',
+    version  = 'latest',
+)
+----
+
+=== Remembered version and `--offline`
+
+Online, `"latest"` means “newest in the registry **now**.” Offline, Cuppa cannot re-query the
+registry, so it needs a remembered concrete version to honour the same dependency declaration.
+
+After a successful registry list/select, Cuppa stores that **version string** (for example
+`1.10`) under a `gitlab_package_latest_*` key. The suffix is a short hash of
+`registry|package` so keys stay unique; it is **not** a content hash of the archive.
+
+Where the key is written follows the same downloads-root scoping as source Boost’s
+`boost_latest_version`:
+
+* If `--downloads-root` is under the project tree → project `configure.conf`
+* Otherwise (the default shared `~/.cuppa/downloads`) → `~/.cuppaconfig`
+
+Shared download cache ⇒ shared “what latest meant” memory; project-local downloads ⇒
+project-local memory. That is intentional: offline replay of `"latest"` should match how
+archives are shared on the machine.
+
+With `--offline`:
+
+* If a remembered version exists for that registry+package → pin to it and continue into the
+  normal package fetch (archive under **this** run’s `--downloads-root`, extract under
+  `--dependencies-root`).
+* If none is remembered → configure fails clearly (cannot honour `"latest"` offline).
+* If a version is remembered but the archive is missing from this downloads root → configure
+  fails later with the usual offline missing-archive error. Cuppa does **not** silently fall
+  back to an older on-disk version; that would change the pin.
+
+So the remembered value is “what registry latest resolved to,” not “proof the archive is on
+disk.” Empty registry or API failure also fails at configure time when online.
+
 [#boost-package]
 == Boost package
 
 `cuppa.packages.boost_package.define(...)` builds a `boost_package` dependency backed by the
-registry. Consuming and publishing workflows are documented below; see also
+registry. It is the worked example of a package **extension** (`use_libs`, Boost.Test runner
+hooks). Consuming and publishing workflows are documented below; see also
 xref:dependencies/builtins/boost.adoc[Boost (source)] for version resolution when building from
 source.
+
+Unpinned `version` (`None` or `'latest'`) uses **registry** latest, same as a generic
+`package_dependency`. To pin the upstream Boost release from boost.org and then fetch that
+version from the registry, pass `version = cuppa.packages.boost_package.latest_release()`
+explicitly (accept a configure `404` if the registry has not published that release).
 
 === Consuming in a project
 
@@ -84,6 +151,8 @@ import cuppa
 
 BoostPackage = cuppa.packages.boost_package.define(
     registry = 'https://gitlab.example.com/api/v4/projects/dependencies%2Fregistry',
+    # version omitted → registry latest; or version = '1.91'
+    # or version = cuppa.packages.boost_package.latest_release()  # upstream then registry
 )
 
 cuppa.run(
@@ -203,7 +272,7 @@ use ``boost_package.define`` as in <<Consuming in a project>>.
 import cuppa
 
 BoostPkg = cuppa.packages.boost_package.define(
-    registry = 'https://gitlab.example.com/api/v4/projects/123/packages/generic',
+    registry = 'https://gitlab.example.com/api/v4/projects/123',
     version = '1.85',
 )
 

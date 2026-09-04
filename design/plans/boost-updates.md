@@ -1,7 +1,7 @@
 # Plan: Boost source and package updates
 
 - **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Boost source and packages; [#206](https://github.com/ja11sop/cuppa/issues/206) (package-only builds must not pull source Boost); [#248](https://github.com/ja11sop/cuppa/issues/248) (test runners must not pull source Boost); [#250](https://github.com/ja11sop/cuppa/issues/250) / [`dependency-resolve.md`](dependency-resolve.md) (Quince + BuildWith resolve); storage listing/removal stays in [`removal-options.md`](removal-options.md); offline “latest” persistence is [`boost-latest-persistence.md`](../archive/boost-latest-persistence.md) (separate)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Boost source and packages; [#206](https://github.com/ja11sop/cuppa/issues/206) (package-only builds must not pull source Boost); [#248](https://github.com/ja11sop/cuppa/issues/248) (test runners must not pull source Boost); [#250](https://github.com/ja11sop/cuppa/issues/250) / [`dependency-resolve.md`](dependency-resolve.md) (Quince + BuildWith resolve); registry package `latest` is [`gitlab-package-latest.md`](gitlab-package-latest.md) (not boost.org scrape); storage listing/removal stays in [`removal-options.md`](removal-options.md); offline source-Boost “latest” persistence is [`boost-latest-persistence.md`](../archive/boost-latest-persistence.md) (separate)
 - **Updated:** 2026-09-04
 
 Source `boost` (b2 / extract homes) and GitLab `boost_package` share Boost.Test patch semantics

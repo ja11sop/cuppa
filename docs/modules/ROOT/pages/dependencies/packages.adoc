@@ -4,6 +4,11 @@
 `cuppa.package_dependency()` downloads a prebuilt archive from a package registry and lays it
 out under `--dependencies-root` per toolchain / variant / architecture.
 
+Today the supported `package_manager` is GitLab generic packages — see
+xref:dependencies/gitlab.adoc[GitLab packages] for authentication, lookup overrides,
+`version="latest"`, and the Boost package extension. Publishing Cuppa-built libraries is a
+different workflow: xref:packages.adoc[Publishing packages].
+
 [source,python]
 ----
 import cuppa
@@ -11,22 +16,23 @@ import cuppa
 MyPkg = cuppa.package_dependency(
     'mypkg',
     package_manager = 'gitlab',
-    registry = 'https://gitlab.example.com/api/v4/projects/123/packages/generic',
+    registry = 'https://gitlab.example.com/api/v4/projects/123',
     package = 'mypkg',
     version = '1.2.3',
 )
 
 cuppa.run(
-    dependencies = [MyPkg],
-    default_dependencies = ['mypkg'],
+    dependencies = [ MyPkg ],
+    # Until run() accepts objects here, pass the registered name:
+    default_dependencies = [ MyPkg.name() ],
 )
 ----
 
-A missing package surfaces as a registry HTTP error (often `404`) during configure, before compile.
-
-Today the supported `package_manager` is GitLab generic packages — see
-xref:dependencies/gitlab.adoc[GitLab packages]. Publishing Cuppa-built libraries is a different
-workflow: xref:packages.adoc[Publishing packages].
+Pin `version` to a concrete string, or use `version = 'latest'` (or omit / `None`) to resolve
+the newest version **published in that registry** for the package name at configure time.
+Offline reuse of that pin is documented under
+xref:dependencies/gitlab.adoc#version-latest[Registry latest].
+A missing package or an unresolved `latest` fails during configure, before compile.
 
 == Develop vs package downloads
 

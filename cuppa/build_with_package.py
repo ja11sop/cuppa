@@ -46,7 +46,33 @@ class base(object):
 
     @classmethod
     def default_version( cls, version, env ):
-        pass
+        """Resolve ``None`` / ``\"latest\"`` to the newest version in the GitLab registry."""
+        if getattr( cls, '_package_manager', None ) != 'gitlab':
+            return
+        if version is not None and version != 'latest':
+            return
+
+        import SCons.Errors
+        from cuppa.package_managers.gitlab_latest import (
+                GitlabLatestError,
+                resolve_latest_package_version,
+        )
+
+        try:
+            cls._version = resolve_latest_package_version(
+                    env,
+                    registry=cls._registry,
+                    package=cls._package,
+                    custom_token=getattr( cls, '_custom_token', None ),
+            )
+        except GitlabLatestError as error:
+            logger.error( "[{}] {}".format( as_error( cls._name ), as_error( str( error ) ) ) )
+            raise SCons.Errors.StopError(
+                    "Cannot resolve registry latest for package [{}]: {}".format(
+                            cls._name,
+                            error,
+                    )
+            )
 
 
     @classmethod
