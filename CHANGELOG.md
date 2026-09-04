@@ -9,7 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Integration guard ``test_rel_lto_incremental``: a second ``--rel --test`` after
+  ``--rel --parallel`` must not re-archive or re-link a minimal static-lib +
+  ``BuildTest`` tree under GCC/Clang LTO
+  ([#262](https://github.com/ja11sop/cuppa/issues/262)).
+
 ### Changed
+
+- GCC ``--rel`` LTO matches Clang's archive story: emit ``-ffat-lto-objects`` and
+  prefer version-matched ``gcc-ar`` / ``gcc-ranlib`` when available
+  ([#262](https://github.com/ja11sop/cuppa/issues/262)).
+  This does **not** claim a fix for consumer-tree spurious re-links; that still
+  needs ``--debug=explain`` on the affected project.
 
 ### Deprecated
 

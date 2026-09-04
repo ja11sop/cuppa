@@ -70,6 +70,9 @@ cuppa.run(default_variants=['dbg'])
 | `BuildStaticLib`, `BuildSharedLib`
 | xref:integration/test-build-library.adoc[]
 
+| Second `--rel --test` after `--rel --parallel` stays incremental (LTO guard)
+| xref:integration/test-rel-lto-incremental.adoc[]
+
 | `CompileStatic`, `CompileShared`
 | xref:integration/test-compile.adoc[]
 

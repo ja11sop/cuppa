@@ -346,6 +346,29 @@ class Gcc(object):
         return name
 
 
+    def _resolve_versioned_tool( self, base_name ):
+        """Prefer a major-versioned sibling of this GCC (e.g. gcc-ar-16), else base_name.
+
+        ``cuppa.build_platform.where_is`` returns the *directory* containing the
+        program (SCons WhereIs + dirname). Join the tool name back on before use.
+        """
+        major = self._reported_version['major']
+        names = [
+            "{}-{}".format( base_name, major ),
+            base_name,
+        ]
+        for name in names:
+            resolved = self._resolve_driver( name )
+            if os.path.isabs( resolved ) and os.path.isfile( resolved ):
+                return resolved
+            found_dir = cuppa.build_platform.where_is( name )
+            if found_dir:
+                candidate = os.path.join( found_dir, name )
+                if os.path.isfile( candidate ):
+                    return candidate
+        return None
+
+
     def make_env( self, cuppa_env, variant, target_arch ):
 
         env = None
@@ -377,6 +400,16 @@ class Gcc(object):
         env['LIBS']         = []
         env['STATICLIBS']   = []
         env['DYNAMICLIBS']  = self.values['dynamic_libraries']
+
+        # GCC LTO slim objects in static archives need gcc-ar / gcc-ranlib so the
+        # plugin matches this compiler. Binutils ar alone is a common mismatch.
+        if self.__lto_flags():
+            gcc_ar = self._resolve_versioned_tool( 'gcc-ar' )
+            if gcc_ar:
+                env['AR'] = gcc_ar
+            gcc_ranlib = self._resolve_versioned_tool( 'gcc-ranlib' )
+            if gcc_ranlib:
+                env['RANLIB'] = gcc_ranlib
 
         self.update_variant( env, variant.name() )
 
@@ -583,12 +616,16 @@ class Gcc(object):
 
 
     def __lto_flags( self ):
-        """Release-only LTO flags (compile and link). Empty before GCC 8."""
+        """Release-only LTO flags (compile and link). Empty before GCC 8.
+
+        Include ``-ffat-lto-objects`` so static archives remain usable when the
+        archiver falls back to binutils ``ar`` (parity with Clang release LTO).
+        """
         major_ver = self._reported_version['major']
         if major_ver >= 12:
-            return ['-flto=auto']
+            return ['-flto=auto', '-ffat-lto-objects']
         if major_ver >= 8:
-            return ['-flto']
+            return ['-flto', '-ffat-lto-objects']
         return []
 
 

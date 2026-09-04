@@ -14,7 +14,7 @@ from cuppa.toolchains.gcc import Gcc
 pytestmark = pytest.mark.unit
 
 
-def _gcc(major, minor=0):
+def _gcc(major, minor=0, cxx_path=None):
     toolchain = Gcc.__new__(Gcc)
     toolchain._reported_version = {
         "major": major,
@@ -23,6 +23,7 @@ def _gcc(major, minor=0):
         "version": "{}.{}".format(major, minor),
         "short_version": str(major),
     }
+    toolchain._cxx_path = cxx_path
     toolchain.values = {}
     return toolchain
 
@@ -48,10 +49,10 @@ def _clang(major, minor=0, name=None, cxx_path=None):
     "major,expected",
     [
         (7, []),
-        (8, ["-flto"]),
-        (11, ["-flto"]),
-        (12, ["-flto=auto"]),
-        (15, ["-flto=auto"]),
+        (8, ["-flto", "-ffat-lto-objects"]),
+        (11, ["-flto", "-ffat-lto-objects"]),
+        (12, ["-flto=auto", "-ffat-lto-objects"]),
+        (15, ["-flto=auto", "-ffat-lto-objects"]),
     ],
 )
 def test_gcc_lto_flags_by_version(major, expected):
@@ -80,13 +81,36 @@ def test_gcc_lto_is_release_only():
     assert "-flto=auto" not in toolchain.values["debug_cxx_flags"]
     assert "-flto=auto" not in toolchain.values["coverage_cxx_flags"]
     assert "-flto=auto" in toolchain.values["release_cxx_flags"]
+    assert "-ffat-lto-objects" in toolchain.values["release_cxx_flags"]
     assert "-flto=auto" not in toolchain.values["debug_link_cxx_flags"]
     assert "-flto=auto" not in toolchain.values["coverage_link_cxx_flags"]
     assert "-flto=auto" in toolchain.values["release_link_cxx_flags"]
+    assert "-ffat-lto-objects" in toolchain.values["release_link_cxx_flags"]
     assert "-std=c++2c" in toolchain.values["debug_cxx_flags"]
     # GCC 11+: concepts/coroutines are in the dialect — no redundant -f* gates.
     assert "-fconcepts" not in toolchain.values["debug_cxx_flags"]
     assert "-fcoroutines" not in toolchain.values["debug_cxx_flags"]
+
+
+def test_gcc_resolve_versioned_tool_prefers_major_suffix(tmp_path):
+    gcc_ar = tmp_path / "gcc-ar-16"
+    gcc_ar.write_text("", encoding="utf-8")
+    gcc_ar.chmod(0o755)
+    toolchain = _gcc(16, cxx_path=str(tmp_path))
+    assert toolchain._resolve_versioned_tool("gcc-ar") == str(gcc_ar)
+
+
+def test_gcc_resolve_versioned_tool_joins_where_is_directory(tmp_path):
+    """where_is() returns a directory; AR must be the tool path, not the dir."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    gcc_ar = bindir / "gcc-ar"
+    gcc_ar.write_text("", encoding="utf-8")
+    gcc_ar.chmod(0o755)
+    toolchain = _gcc(15, cxx_path=str(tmp_path / "empty"))
+    (tmp_path / "empty").mkdir()
+    with patch("cuppa.build_platform.where_is", return_value=str(bindir)):
+        assert toolchain._resolve_versioned_tool("gcc-ar") == str(gcc_ar)
 
 
 def test_gcc_feature_flags_only_when_dialect_lacks_them():

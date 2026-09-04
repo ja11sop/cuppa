@@ -90,6 +90,7 @@
 ** xref:integration/test-build.adoc[Build]
 ** xref:integration/test-build-test.adoc[BuildTest and Test]
 ** xref:integration/test-build-library.adoc[Libraries]
+** xref:integration/test-rel-lto-incremental.adoc[Release LTO incremental]
 ** xref:integration/test-compile.adoc[Compile]
 ** xref:integration/test-glob.adoc[Glob]
 ** xref:integration/test-run-actions.adoc[Run and Benchmark]
