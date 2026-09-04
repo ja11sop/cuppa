@@ -21,7 +21,7 @@ maintainer workflow evolved.
 
 | Document | Status | Subject |
 |----------|--------|---------|
-| [`plans/gitlab-package-latest.md`](plans/gitlab-package-latest.md) | proposal | GitLab `version="latest"` = registry latest; Boost package retarget; consume docs split |
+| [`plans/gitlab-package-latest.md`](plans/gitlab-package-latest.md) | in progress | GitLab `version="latest"` = registry latest; Boost package retarget; consume docs split |
 | [`plans/run-default-dependency-objects.md`](plans/run-default-dependency-objects.md) | proposal | `cuppa.run` `default_dependencies` accepts dependency objects (back-compat with strings) |
 | [`plans/dependency-resolve.md`](plans/dependency-resolve.md) | in progress | BuildWith untyped resolve + type selectors; `use_libs`; Quince (#250) shipped |
 | [`plans/boost-updates.md`](plans/boost-updates.md) | proposal | Boost source vs GitLab `boost_package` identity; #206 `use_libs`; #248/#249 runners; Quince gap → dependency-resolve |

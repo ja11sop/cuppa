@@ -14,8 +14,6 @@ from cuppa.dependencies.boost.boost_library_methods import remove_system_static_
 from cuppa.dependencies.boost.library_naming import static_library_name
 from cuppa.dependencies.boost.library_dependencies import add_dependent_libraries
 from cuppa.dependencies.boost.version_and_location import determine_latest_boost_version
-from cuppa.log import logger
-from cuppa.colourise import as_info
 from cuppa.build_with_package import package_dependency
 
 
@@ -36,12 +34,16 @@ def use_libs( package, libraries ):
     env.AppendUnique( STATICLIBS = static_libs )
 
 
-def default_version( package, version, env ):
-    if version == "latest" or version == None:
-        version_str = determine_latest_boost_version( env['offline'] )
-        versions = version_str.split(".")
-        package._version = ".".join( [versions[0], versions[1]] )
-        logger.info( "No Boost package version specified, using [{}]".format( as_info( package._version ) ) )
+def latest_release( offline=False ):
+    """Concrete Boost version from boost.org / compiled-in fallback (opt-in).
+
+    Pass the return value as ``version=`` to :func:`define` when you want the registry
+    to supply that **upstream** release. Registry ``\"latest\"`` / ``None`` instead mean
+    newest version published in the registry — see ``cuppa.package_managers.gitlab_latest``.
+    """
+    version_str = determine_latest_boost_version( offline )
+    versions = version_str.split( "." )
+    return ".".join( [ versions[0], versions[1] ] )
 
 
 def define( registry=None, version=None, variant=None, patched=True ):
@@ -68,12 +70,6 @@ def define( registry=None, version=None, variant=None, patched=True ):
         def use_libs( self, libs ):
             import cuppa
             cuppa.packages.boost_package.use_libs( self._package, libs )
-
-
-        @classmethod
-        def default_version( cls, version, env ):
-            import cuppa
-            cuppa.packages.boost_package.default_version( cls, version, env )
 
 
         # API needed to support boost test runners
