@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.10.0 packages; [#271](https://github.com/ja11sop/cuppa/issues/271); [`boost-updates.md`](boost-updates.md) (Boost package identity / patched-clean; source Boost latest is separate); [`archive/boost-latest-persistence.md`](../archive/boost-latest-persistence.md) (source Boost scrape persistence — not registry latest); [`archive/build-and-package-identity.md`](../archive/build-and-package-identity.md) (lookup overrides); [`run-default-dependency-objects.md`](run-default-dependency-objects.md) (`default_dependencies` accepts objects); [#209](https://github.com/ja11sop/cuppa/issues/209) (CMake publish staging — parallel)
-- **Updated:** 2026-09-04 (offline / conf scoping contract documented)
+- **Updated:** 2026-09-04
 - **Impact:** minor — new `version="latest"` consume behaviour; Boost package default changes; Antora consume docs
 
 ## Why
