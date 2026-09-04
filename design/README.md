@@ -21,7 +21,8 @@ maintainer workflow evolved.
 
 | Document | Status | Subject |
 |----------|--------|---------|
-| [`plans/boost-updates.md`](plans/boost-updates.md) | proposal | Boost source vs GitLab `boost_package` identity; #206 `use_libs`; #248/#249 test-runner `session_boost` shipped; #250 Quince session Boost |
+| [`plans/dependency-resolve.md`](plans/dependency-resolve.md) | in progress | BuildWith untyped resolve + type selectors; `use_libs`; Quince first consumer (#250) |
+| [`plans/boost-updates.md`](plans/boost-updates.md) | proposal | Boost source vs GitLab `boost_package` identity; #206 `use_libs`; #248/#249 runners; Quince gap → dependency-resolve |
 | [`plans/shiki-syntax-highlighting.md`](plans/shiki-syntax-highlighting.md) | proposal | Build-time Shiki for Antora listings; ANSI preview only — ROADMAP `doc-shiki` |
 | [`plans/coverage-performance.md`](plans/coverage-performance.md) | proposal | Where `--cov --test` time actually goes, what the A/B measurement ruled out, and the remaining suspects |
 | [`plans/coverage-parallel.md`](plans/coverage-parallel.md) | in progress | What `--cov --test --parallel` can and cannot do; 1.9.1 warn + Depends; `GCOV_PREFIX` deferred — [#236](https://github.com/ja11sop/cuppa/issues/236) |

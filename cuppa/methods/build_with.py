@@ -10,6 +10,10 @@
 
 from SCons.Script import Flatten
 from cuppa.utility.types import is_string
+from cuppa.core.dependency_resolve import (
+        DependencyResolveException,
+        resolve_registry_name,
+)
 
 class BuildWithException(Exception):
 
@@ -37,7 +41,10 @@ class BuildWithMethod:
 
             name = None
             if is_string( named_dependency ):
-                name = named_dependency
+                try:
+                    name = resolve_registry_name( env, named_dependency )
+                except DependencyResolveException as error:
+                    raise BuildWithException( error.parameter )
             else:
                 name = named_dependency.name()
 
@@ -75,4 +82,3 @@ class BuildWithMethod:
             env['_pre_sconscript_phase_'] = True
             env.BuildWith( env['default_dependencies'] )
             env['_pre_sconscript_phase_'] = False
-

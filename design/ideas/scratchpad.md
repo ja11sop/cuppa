@@ -2,7 +2,7 @@
 
 - **Status:** living
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md); [`design/README.md`](../README.md) (graduate notes into `plans/` then ROADMAP)
-- **Updated:** 2026-08-25
+- **Updated:** 2026-09-04
 
 Scratchpad for suggestions that may become new plans or updates to existing ones.
 The goal is to turn these notes into actionable, well-understood plan elements.
@@ -26,39 +26,7 @@ Do not put private project names here; use anonymised labels and
 - Split methods into own pages → [`plans/methods-pages-split.md`](../plans/methods-pages-split.md)
 - Better Antora UI bundle → [`plans/antora-ui-bundle.md`](../plans/antora-ui-bundle.md)
 - Shiki syntax highlighting → [`plans/shiki-syntax-highlighting.md`](../plans/shiki-syntax-highlighting.md)
-
-## Update: plans/boost-updates.md (related — dependency selection)
-
-### Boost name clashes and built-in dependencies (possibly a separate plan)
-
-Built-in dependencies such as `boost` are registered automatically. Consumers then opt in with
-`env.BuildWith()` or `default_dependencies`.
-
-A name taken by a built-in cannot be reused for another dependency. Consumer projects often
-register a GitLab Boost package under a different name (for example `boost_package`) to avoid
-clashing with the built-in `boost`.
-
-Type selectors may help: `[archive]boost`, `[gitlab]boost`, `[conan]boost`.
-
-Open questions:
-
-- Should type selectors be required always, or only when a name is ambiguous?
-- Should selection distinguish more than “available” vs “default”, for example:
-  - known / accessible
-  - imported / made available to this project
-  - used by default
-
-Today every built-in is automatically available (by design, for convenience). The longer-term
-direction is to move built-ins into their own repositories so `pip install` auto-registration
-acts as the “import” step. That is environment-scoped, not `sconstruct`-scoped.
-
-A backwards-compatible approach might keep today’s auto-register behaviour unless an
-`sconstruct` opts into an explicit list (`cuppa.import_dependencies([...])` /
-`cuppa.use_dependencies([...])`, perhaps with `cuppa.explicit_dependencies()` so nothing is
-available until imported). Naming (`env.UseDependency`, `env.Import`, …) is unsettled; “import”
-may be too general.
-
-This may need a broader dependency-selection plan; it surfaces here because of Boost.
+- Boost name clashes / BuildWith type resolve → [`plans/dependency-resolve.md`](../plans/dependency-resolve.md) (Quince #250; boost-updates cross-link)
 
 ## Output processing (follow-on)
 
