@@ -12,9 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitLab ``package_dependency`` ``version="latest"`` / ``None`` resolves to the newest
   version published in that registry (Packages API), with remembered offline reuse under
   ``gitlab_package_latest_*`` keys — not boost.org scrape
-  (design: ``design/plans/gitlab-package-latest.md``).
+  ([#271](https://github.com/ja11sop/cuppa/issues/271)).
 - ``cuppa.packages.boost_package.latest_release()`` opt-in helper for upstream Boost release
-  then registry fetch.
+  then registry fetch ([#271](https://github.com/ja11sop/cuppa/issues/271)).
 - ``--cxx-disable-lto``: omit release LTO flags (``-flto`` / ``-flto=auto`` /
   ``-ffat-lto-objects``) from compile and link and skip LTO-specific archivers
   (``gcc-ar`` / ``llvm-ar``). ``--rel`` still applies ``-O3`` / ``-DNDEBUG``.
@@ -28,7 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - ``boost_package`` unpinned ``version`` uses registry latest (same as generic GitLab
-  packages), no longer ``determine_latest_boost_version`` / boost.org.
+  packages), no longer ``determine_latest_boost_version`` / boost.org
+  ([#271](https://github.com/ja11sop/cuppa/issues/271)).
 - GCC ``--rel`` LTO matches Clang's archive story: emit ``-ffat-lto-objects`` and
   prefer version-matched ``gcc-ar`` / ``gcc-ranlib`` when available
   ([#262](https://github.com/ja11sop/cuppa/issues/262)).
