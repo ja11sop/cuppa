@@ -173,6 +173,8 @@ When LTO is enabled, cuppa also:
 
 `-ffat-lto-objects` keeps archives usable even if the system archiver falls back to binutils `ar`.
 
+Pass `--cxx-disable-lto` to build `--rel` without LTO (still `-O3` / `-DNDEBUG`) when comparing incremental behaviour; see xref:cli/toolchains-and-features.adoc[Toolchains and features].
+
 [#clang-default-linux-libraries]
 == Default Linux libraries
 
