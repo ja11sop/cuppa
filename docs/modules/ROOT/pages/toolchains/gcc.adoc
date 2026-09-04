@@ -229,6 +229,8 @@ When LTO is enabled, cuppa also prefers a version-matched `gcc-ar` / `gcc-ranlib
 
 `-ffat-lto-objects` keeps archives usable even if the system archiver falls back to binutils `ar`.
 
+Pass `--cxx-disable-lto` to build `--rel` without LTO (still `-O3` / `-DNDEBUG`) when comparing incremental behaviour; see xref:cli/toolchains-and-features.adoc[Toolchains and features].
+
 == Stdlib
 
 GCC uses the system **libstdc{plus}{plus}**.

@@ -178,3 +178,9 @@ def test_clang_resolve_versioned_tool_joins_where_is_directory(tmp_path):
 def test_gcc_dialect_flags_no_longer_embed_lto():
     assert "-flto" not in _gcc(10)._Gcc__default_dialect_flags()
     assert "-flto=auto" not in _gcc(14)._Gcc__default_dialect_flags()
+
+
+def test_cxx_disable_lto_clears_gcc_and_clang_flags():
+    with patch("cuppa.methods.cxx_lto.is_lto_disabled", return_value=True):
+        assert _gcc(15)._Gcc__lto_flags() == []
+        assert _clang(21)._Clang__lto_flags() == []

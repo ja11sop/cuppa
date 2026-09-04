@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--cxx-disable-lto``: omit release LTO flags (``-flto`` / ``-flto=auto`` /
+  ``-ffat-lto-objects``) from compile and link and skip LTO-specific archivers
+  (``gcc-ar`` / ``llvm-ar``). ``--rel`` still applies ``-O3`` / ``-DNDEBUG``.
+  Intended for diagnosing spurious ``--rel`` re-links
+  ([#267](https://github.com/ja11sop/cuppa/issues/267)).
 - Integration guard ``test_rel_lto_incremental``: a second ``--rel --test`` after
   ``--rel --parallel`` must not re-archive or re-link a minimal static-lib +
   ``BuildTest`` tree under GCC/Clang LTO

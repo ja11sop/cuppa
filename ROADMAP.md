@@ -21,7 +21,7 @@ Minor cycle after **1.9.1**. Prefer work that changes opt-in toolchain or packag
 
 | Area | Intent in 1.10.0 |
 |------|------------------|
-| GCC `--rel` LTO archiver / fat objects + spurious re-link investigation | [#262](https://github.com/ja11sop/cuppa/issues/262): **parity** (`gcc-ar` / `gcc-ranlib` + `-ffat-lto-objects`) lands in this cycle; consumer re-link cause still open (`--debug=explain`) |
+| GCC `--rel` LTO archiver / fat objects + spurious re-link investigation | [#262](https://github.com/ja11sop/cuppa/issues/262) parity shipped in [#266](https://github.com/ja11sop/cuppa/pull/266); re-links tracked in [#267](https://github.com/ja11sop/cuppa/issues/267) (`--cxx-disable-lto` diagnostic) |
 | GitLab CMake staging | [#209](https://github.com/ja11sop/cuppa/issues/209) |
 | Boost package patched/clean identity + Quince session Boost | [`boost-updates.md`](design/plans/boost-updates.md); [#250](https://github.com/ja11sop/cuppa/issues/250) |
 | Artefact removal design | [#135](https://github.com/ja11sop/cuppa/issues/135) |

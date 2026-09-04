@@ -620,7 +620,12 @@ class Gcc(object):
 
         Include ``-ffat-lto-objects`` so static archives remain usable when the
         archiver falls back to binutils ``ar`` (parity with Clang release LTO).
+        Honours ``--cxx-disable-lto`` (empty list; no LTO archiver switch either).
         """
+        from cuppa.methods.cxx_lto import is_lto_disabled, note_lto_disabled_once
+        if is_lto_disabled():
+            note_lto_disabled_once()
+            return []
         major_ver = self._reported_version['major']
         if major_ver >= 12:
             return ['-flto=auto', '-ffat-lto-objects']

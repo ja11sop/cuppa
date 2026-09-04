@@ -96,6 +96,22 @@ xref:toolchains/msvc.adoc[MSVC] family pages for exact emitted flags.
 
 For library/link details and platform defaults, see xref:toolchains/clang.adoc[Clang].
 
+== Release LTO
+
+On `--rel`, GCC and Clang enable link-time optimisation (see the family toolchain pages).
+Use this switch when you need `--rel` optimisations **without** LTO — for example to compare
+incremental rebuild behaviour against a full LTO `--rel` build.
+
+[cols="3,7"]
+|===
+| Option | Effect
+
+| `--cxx-disable-lto`
+| Omit `-flto` / `-flto=auto` / `-ffat-lto-objects` from `--rel` compile and link, and do not
+  switch to `gcc-ar` / `llvm-ar` (or Clang `-fuse-ld=lld` for LTO). `--rel` still uses
+  `-O3` and `-DNDEBUG`.
+|===
+
 == {cpp} modules
 
 [cols="3,7"]

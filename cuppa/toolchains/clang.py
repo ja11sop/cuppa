@@ -745,7 +745,12 @@ class Clang(object):
         Include `-ffat-lto-objects` so static archives remain usable when the
         archiver is binutils `ar` (system LLVMgold is often an older LLVM than
         the active clang++, which otherwise drops bitcode members).
+        Honours ``--cxx-disable-lto`` (empty list; no llvm-ar / -fuse-ld=lld either).
         """
+        from cuppa.methods.cxx_lto import is_lto_disabled, note_lto_disabled_once
+        if is_lto_disabled():
+            note_lto_disabled_once()
+            return []
         major_ver = self._reported_version['major']
         if major_ver >= 17:
             return ['-flto=auto', '-ffat-lto-objects']
