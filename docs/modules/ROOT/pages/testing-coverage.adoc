@@ -66,7 +66,7 @@ flowchart TD
   `BuildTest` targets.
 
 That split lets you build a large instrumented tree with `--parallel`, then collect coverage
-serially:
+**serially**:
 
 [source,sh]
 ----
@@ -74,10 +74,15 @@ cuppa -D --cov --parallel --offline
 cuppa -D --cov --test --offline
 ----
 
-Typically the instrumented build dominates wall time; the serial test/coverage step is shorter.
-Avoid `--parallel` on the `--cov --test` step — interleaved runner and gcov/gcovr output is hard
-to follow, and parallel collection has historically been unreliable. See
-https://github.com/ja11sop/cuppa/issues/236[#236] and xref:methods/coverage.adoc[Coverage methods].
+Do **not** pass `--parallel` (or SCons `-j` greater than 1) on the `--cov --test` step.
+
+Cuppa warns when those are combined. Coverage notes (`.gcda`) live beside object files and are
+shared whenever tests link the same library; `gcov` / `gcovr` are not isolated per test.
+`BuildTest` waits for that test to finish before collecting, but that does not make concurrent
+tests safe. Parallel *compile* of `--cov` without `--test` is fine.
+
+See xref:methods/coverage.adoc[Coverage methods] and
+https://github.com/ja11sop/cuppa/issues/236[#236].
 ====
 
 Cuppa uses toolchain gcov support plus https://gcovr.com/[gcovr] to emit HTML/JSON beside the variant output (and optionally collated destinations).

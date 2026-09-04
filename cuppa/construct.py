@@ -37,6 +37,7 @@ import cuppa.configure
 import cuppa.version
 import cuppa.scms
 import cuppa.develop
+from cuppa.cpp.coverage_workflow import maybe_warn_parallel_coverage_collection
 #import cuppa.progress
 #import cuppa.tree
 #import cuppa.cpp.stdcpp
@@ -646,6 +647,14 @@ class Construct(object):
                         as_emphasised(parallel_mode),
                         as_info( str( SCons.Script.GetOption( 'num_jobs') ) )
                 ) )
+            maybe_warn_parallel_coverage_collection(
+                job_count=job_count,
+                cov=bool( cuppa_env.get_option( 'cov' ) ),
+                test=bool( cuppa_env.get_option( 'test' ) ),
+                force_test=bool( cuppa_env.get_option( 'force_test' ) ),
+                benchmark=bool( cuppa_env.get_option( 'benchmark' ) ),
+                force_benchmark=bool( cuppa_env.get_option( 'force_benchmark' ) ),
+            )
 
         if not help and self._configure.handle_conf_only():
             self._configure.save()

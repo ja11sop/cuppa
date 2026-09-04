@@ -8,6 +8,7 @@ With `--cov --test`:
 
 * `Coverage` runs gcov-based coverage for a `BuildTest` binary.
 * `CollateCoverageFiles` / `CollateCoverageIndex` collate per-test coverage into a shared `#_artefacts/coverage/` tree from two sibling sconscripts (regression for mid-action `Install` clashes on `by-source` pages).
+* Two independent `BuildTest` binaries under `--cov --test --parallel` still succeed, and Cuppa warns when that invocation actually uses `-j` > 1; `--cov --parallel` without `--test` does not warn.
 
 Skipped (with log) if `gcov` / `gcovr` are not on PATH, or when `CUPPA_TEST_TOOLCHAIN` is MSVC (`vc` / `cl` / `msvc`).
 
@@ -52,10 +53,27 @@ env.CollateCoverageIndex(cov, destination='#_artefacts/coverage/')
 cuppa -D --offline --toolchains=gcc --cov --test
 ----
 
+Parallel collection (two independent single-file tests, no shared library):
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --cov --test --parallel
+----
+
+Instrumented compile only (must not warn about coverage collection):
+
+[source,sh]
+----
+cuppa -D --offline --toolchains=gcc --cov --parallel
+----
+
 == Expectations
 
 * Exit 0; coverage artifacts under `_build` and/or `COVERAGE` in stdout for the `Coverage` scenario.
 * For the collate scenario: `coverage-index--*.html` under `_artefacts/coverage/`, with by-source pages namespaced as `by-source/<index-stem>/...html` so sibling sconscripts can share the destination safely.
+* Two independent tests under `--cov --test --parallel` still exit 0 (this does not prove shared-library `.gcda` safety).
+* If that run enters Cuppa parallel mode (`-j` > 1), stdout contains `Collecting coverage with SCons -j is not reliable`.
+* `--cov --parallel` without `--test` does not emit that warning.
 
 '''
 

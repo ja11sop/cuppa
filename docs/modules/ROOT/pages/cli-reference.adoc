@@ -130,7 +130,7 @@ In the examples that follow we use this convention.
 | `--toolchains=LIST` | Select discovered toolchains by comma-separated name or wildcard
 | `--test` / `--run` / `--benchmark` | Execute the corresponding targets after building
 | `--scripts=LIST` | Limit which sconscripts contribute targets
-| `--parallel` | Choose a hardware-sized SCons job count
+| `--parallel` | Choose a hardware-sized SCons job count (do not combine with `--cov --test`)
 | `--develop` | Prefer configured local dependency copies
 | `--offline` | Avoid PyPI checks and remote location updates
 | `-n` / `--no-exec` | Preview build or maintenance actions

@@ -52,10 +52,11 @@ cuppa -D --cov --parallel --offline
 cuppa -D --cov --test --offline --toolchains=gcc
 ----
 
-Running `--cov --test` together with `--parallel` is unreliable: interleaved test and gcov/gcovr
-output is hard to read, and parallel coverage collection has historically been flaky. Prefer the
-two-step recipe above for large projects. See also
-https://github.com/ja11sop/cuppa/issues/236[#236].
+`--cov --test` together with `--parallel` (or SCons `-j` > 1) is **not a supported way to
+collect coverage**. Cuppa warns at configure. Notes sit beside objects and are shared across
+binaries that link the same library; concurrent tests corrupt `.gcda`, and gcov/gcovr can race
+the processes that write them. `BuildTest` orders Coverage after that test's run; it does not
+isolate notes between tests. See https://github.com/ja11sop/cuppa/issues/236[#236].
 
 For a small tree where you do not need `--parallel`, a single serial command is fine:
 

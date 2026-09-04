@@ -19,7 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Profiles report documentation links use the versioned Pages tree
   (``/cuppa/latest/…``) instead of unversioned ``/cuppa/cuppa/cxx-profiles/…``
-  paths that 404 after the multi-version docs site.
+  paths that 404 after the multi-version docs site
+  ([#261](https://github.com/ja11sop/cuppa/issues/261)).
+- ``BuildTest`` / ``BuildBenchmark`` order Coverage after the Test or Benchmark
+  node so gcov waits for that run instead of racing an independent default
+  target ([#236](https://github.com/ja11sop/cuppa/issues/236)).
+- Combining ``--cov`` with ``--test`` / ``--force-test`` / ``--benchmark`` /
+  ``--force-benchmark`` and SCons ``-j`` greater than 1 (including
+  ``--parallel``) warns that coverage collection is not reliable; the
+  supported recipe remains a parallel instrumented compile then a serial
+  collect ([#236](https://github.com/ja11sop/cuppa/issues/236)).
 
 ### Security
 
