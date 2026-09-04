@@ -5,15 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.9.1] - unreleased
-
-### Added
-
-### Changed
-
-### Deprecated
-
-### Removed
+## [1.9.1] - 2026-09-04
 
 ### Fixed
 
@@ -29,8 +21,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``--parallel``) warns that coverage collection is not reliable; the
   supported recipe remains a parallel instrumented compile then a serial
   collect ([#236](https://github.com/ja11sop/cuppa/issues/236)).
-
-### Security
 
 ## [1.9.0] - 2026-09-03
 
@@ -1120,7 +1110,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Baseline release on `master` before the modules work landed.
 Detailed notes for 1.1.x and earlier were not maintained in this file; start recording notable changes here from 1.2.0 onward.
 
-[1.9.1]: https://github.com/ja11sop/cuppa/compare/v1.9.0...HEAD
+[1.9.1]: https://github.com/ja11sop/cuppa/compare/v1.9.0...v1.9.1
 [1.9.0]: https://github.com/ja11sop/cuppa/compare/v1.8.2...v1.9.0
 [1.8.2]: https://github.com/ja11sop/cuppa/compare/v1.8.1...v1.8.2
 [1.8.1]: https://github.com/ja11sop/cuppa/compare/v1.8.0...v1.8.1
