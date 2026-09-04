@@ -76,6 +76,8 @@ class BuildBenchmarkMethod:
             nodes.append( benchmark )
             if 'cov' in actions:
                 coverage = env.Coverage( program, source, final_dir=final_dir, exclude_dependencies=cov_exclude_dependencies, exclude_patterns=cov_exclude_patterns )
+                if coverage:
+                    env.Depends( coverage, benchmark )
                 nodes.append( coverage )
 
         return Flatten( nodes )

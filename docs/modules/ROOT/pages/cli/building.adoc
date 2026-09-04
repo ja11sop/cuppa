@@ -23,7 +23,7 @@ you can see which layer owns each decision.
 | `--toolchains=LIST` | Select comma-separated toolchain names or fnmatch patterns such as `gcc*`
 | `--scripts=LIST` | Limit graph construction to the named, comma-separated sconscripts
 | `--projects=LIST` | Alias for `--scripts`
-| `--parallel` | Set SCons' job count from available hardware; the wrapper may also restrict CPU affinity
+| `--parallel` | Set SCons' job count from available hardware; the wrapper may also restrict CPU affinity. Do not combine with `--cov --test` (Cuppa warns; collect serially)
 | `--offline` | Skip the PyPI version check and remote location updates
 | `--develop` | Prefer configured local develop paths for dependencies
 |===

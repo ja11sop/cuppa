@@ -24,6 +24,7 @@ maintainer workflow evolved.
 | [`plans/boost-updates.md`](plans/boost-updates.md) | proposal | Boost source vs GitLab `boost_package` identity; #206 `use_libs`; #248/#249 test-runner `session_boost` shipped; #250 Quince session Boost |
 | [`plans/shiki-syntax-highlighting.md`](plans/shiki-syntax-highlighting.md) | proposal | Build-time Shiki for Antora listings; ANSI preview only — ROADMAP `doc-shiki` |
 | [`plans/coverage-performance.md`](plans/coverage-performance.md) | proposal | Where `--cov --test` time actually goes, what the A/B measurement ruled out, and the remaining suspects |
+| [`plans/coverage-parallel.md`](plans/coverage-parallel.md) | in progress | What `--cov --test --parallel` can and cannot do; 1.9.1 warn + Depends; `GCOV_PREFIX` deferred — [#236](https://github.com/ja11sop/cuppa/issues/236) |
 | [`plans/list-toolchains-verbose.md`](plans/list-toolchains-verbose.md) | in progress | Verbose `describe()` shipped ([#172](https://github.com/ja11sop/cuppa/issues/172) / [#170](https://github.com/ja11sop/cuppa/pull/170)); deferred table-driven init |
 | [`plans/antora-ui-bundle.md`](plans/antora-ui-bundle.md) | in progress | Supplemental CSS + Boost/Material look catalogue; default bundle kept — ROADMAP `doc-antora-ui`; [#229](https://github.com/ja11sop/cuppa/issues/229) / [#228](https://github.com/ja11sop/cuppa/pull/228) |
 | [`plans/methods-pages-split.md`](plans/methods-pages-split.md) | in progress | Hub + job-named `methods/*` (discovery, templates, CreateVersion, staging-files, test-reporting, …) — ROADMAP `doc-methods-split`; #234 |

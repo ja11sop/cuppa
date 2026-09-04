@@ -7,6 +7,7 @@ import pytest
 
 from tests.helpers.cuppa_runner import assert_success, find_under_build, run_cuppa
 from tests.helpers.project import copy_dummy_project, write_sconstruct, write_sconscript
+from cuppa.cpp.coverage_workflow import PARALLEL_COVERAGE_COLLECTION_WARNING
 
 
 pytestmark = pytest.mark.integration
@@ -142,3 +143,64 @@ def test_coverage_with_mirrored_nested_source(tmp_path):
         "expected .gcda beside the mirrored object under working/src/detail/"
     )
     assert find_under_build(project, "*coverage*") or "COVERAGE" in result.stdout
+
+
+def _two_independent_coverage_tests(project):
+    write_sconstruct(project)
+    hello = (
+        "#include <cstdlib>\n"
+        "int main()\n"
+        "{\n"
+        "    return EXIT_SUCCESS;\n"
+        "}\n"
+    )
+    tests_dir = Path(project) / "tests"
+    tests_dir.mkdir(exist_ok=True)
+    (tests_dir / "alpha_cov.cpp").write_text(hello, encoding="utf-8")
+    (tests_dir / "beta_cov.cpp").write_text(hello, encoding="utf-8")
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.BuildTest('alpha_cov', 'tests/alpha_cov.cpp')\n"
+        "env.BuildTest('beta_cov', 'tests/beta_cov.cpp')\n",
+    )
+
+
+def test_coverage_parallel_independent_tests(tmp_path):
+    """Two single-file tests (no shared lib) still succeed under --cov --test --parallel."""
+    _skip_if_no_gcov_coverage()
+
+    project = copy_dummy_project(tmp_path)
+    _two_independent_coverage_tests(project)
+    result = run_cuppa(project, "--cov", "--test", "--parallel", timeout=300)
+    assert_success(result)
+    assert find_under_build(project, "*coverage*") or "COVERAGE" in result.stdout
+
+
+def test_coverage_parallel_collection_warns(tmp_path):
+    """--cov --test --parallel warns when SCons actually runs with -j > 1."""
+    _skip_if_no_gcov_coverage()
+
+    project = copy_dummy_project(tmp_path)
+    _two_independent_coverage_tests(project)
+    result = run_cuppa(project, "--cov", "--test", "--parallel", timeout=300)
+    assert_success(result)
+    entered_parallel = "parallel mode" in result.stdout
+    if entered_parallel:
+        assert PARALLEL_COVERAGE_COLLECTION_WARNING in result.stdout
+    else:
+        assert PARALLEL_COVERAGE_COLLECTION_WARNING not in result.stdout
+
+
+def test_coverage_parallel_compile_only_does_not_warn(tmp_path):
+    """Instrumented compile with --parallel (no --test) is the supported first step."""
+    project = copy_dummy_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.BuildTest('hello_test', 'tests/hello_test.cpp')\n",
+    )
+    result = run_cuppa(project, "--cov", "--parallel", timeout=300)
+    assert_success(result)
+    assert PARALLEL_COVERAGE_COLLECTION_WARNING not in result.stdout

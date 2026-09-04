@@ -22,8 +22,8 @@ Patch follow-ons after **1.9.0**. Keep this cycle small so **1.10.0** can take t
 | Area | Intent in 1.9.1 |
 |------|-----------------|
 | Pages deploy from Actions **publish** | Shipped [#258](https://github.com/ja11sop/cuppa/pull/258) — `GITHUB_TOKEN` GitHub Releases do not start `docs.yml` |
-| Profiles report links to published rule docs | `/cuppa/latest/cxx-profiles/…` (unversioned URLs 404) |
-| Small product/docs fixes that land before 1.10.0 | As they come |
+| Profiles report links to published rule docs | Shipped — `/cuppa/latest/cxx-profiles/…` ([#261](https://github.com/ja11sop/cuppa/issues/261)) |
+| Coverage vs `--parallel` | Warn on collect + `-j`; `BuildTest` Coverage waits for Test; analysis [`coverage-parallel.md`](design/plans/coverage-parallel.md) ([#236](https://github.com/ja11sop/cuppa/issues/236)) |
 
 **1.10.0 candidates:** GitLab CMake staging ([#209](https://github.com/ja11sop/cuppa/issues/209)); Boost package patched/clean identity ([`boost-updates.md`](design/plans/boost-updates.md)) and Quince ([#250](https://github.com/ja11sop/cuppa/issues/250)); artefact removal design ([#135](https://github.com/ja11sop/cuppa/issues/135)); console bundle (`--terse-output`, log hygiene, `cuppa --info`).
 
@@ -353,6 +353,8 @@ making `--cov --test` cheap enough to run routinely on large codebases.
 
 Measurements, analysis of the current implementation, and the ordered list of candidate changes:
 [`design/plans/coverage-performance.md`](design/plans/coverage-performance.md).
+Parallel `--cov --test` (what is feasible, `.gcda` sharing, 1.9.1 warning):
+[`design/plans/coverage-parallel.md`](design/plans/coverage-parallel.md) / [#236](https://github.com/ja11sop/cuppa/issues/236).
 
 ### Today
 
@@ -381,6 +383,7 @@ another project is unconfirmed.
 | `cov-union-incremental` | Cache the union on JSON mtime / size and skip unchanged work | Medium | Biggest win on repeat runs |
 | `cov-branch-index` | Group branches by line once rather than scanning per line | Low | Removes an O(lines × branches) scan |
 | `cov-second-project-ab` | Repeat the A/B measurement on the project the regression was reported from (**project B**) | High | Fewer, larger test binaries and much longer coverage runs than project A |
+| `cov-gcov-prefix` | Per-test `GCOV_PREFIX` so parallel tests do not share `.gcda` | Later | Required before `--cov --test --parallel` can be correct; see [`coverage-parallel.md`](design/plans/coverage-parallel.md) |
 
 ### Out of scope (coverage)
 
@@ -388,6 +391,7 @@ another project is unconfirmed.
 |----|------|--------|
 | `cov-by-source-flag` | A permanent flag to disable by-source reporting | Measurement does not support it; make the report cheap instead. The temporary `--cov-by-source` used for the experiment has been reverted |
 | `cov-msvc` | Coverage on MSVC | gcov-based; GCC and Clang only |
+| `cov-parallel-collect` | Treat `--cov --test --parallel` as a supported correct mode | Shared `.gcda` / gcov races; 1.9.1 warns instead ([#236](https://github.com/ja11sop/cuppa/issues/236)) |
 
 ---
 
