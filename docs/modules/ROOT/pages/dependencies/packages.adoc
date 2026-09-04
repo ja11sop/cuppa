@@ -30,6 +30,8 @@ cuppa.run(
 
 Pin `version` to a concrete string, or use `version = 'latest'` (or omit / `None`) to resolve
 the newest version **published in that registry** for the package name at configure time.
+Offline reuse of that pin is documented under
+xref:dependencies/gitlab.adoc#version-latest[Registry latest].
 A missing package or an unresolved `latest` fails during configure, before compile.
 
 == Develop vs package downloads

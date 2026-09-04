@@ -80,11 +80,6 @@ downloads with the usual stem / override / identity-fallback rules. Auth uses th
 token that can call the Packages API (a deploy-token that only fetches generic files may be
 insufficient).
 
-On success Cuppa remembers the concrete version under a `gitlab_package_latest_*` key in
-project `configure.conf` or `~/.cuppaconfig` (same downloads-root scoping as other remembered
-settings). With `--offline`, that remembered value is reused; if none exists, configure fails
-clearly. Empty registry or API failure also fails at configure time.
-
 [source,python]
 ----
 Widget = cuppa.package_dependency(
@@ -94,6 +89,38 @@ Widget = cuppa.package_dependency(
     version  = 'latest',
 )
 ----
+
+=== Remembered version and `--offline`
+
+Online, `"latest"` means “newest in the registry **now**.” Offline, Cuppa cannot re-query the
+registry, so it needs a remembered concrete version to honour the same dependency declaration.
+
+After a successful registry list/select, Cuppa stores that **version string** (for example
+`1.10`) under a `gitlab_package_latest_*` key. The suffix is a short hash of
+`registry|package` so keys stay unique; it is **not** a content hash of the archive.
+
+Where the key is written follows the same downloads-root scoping as source Boost’s
+`boost_latest_version`:
+
+* If `--downloads-root` is under the project tree → project `configure.conf`
+* Otherwise (the default shared `~/.cuppa/downloads`) → `~/.cuppaconfig`
+
+Shared download cache ⇒ shared “what latest meant” memory; project-local downloads ⇒
+project-local memory. That is intentional: offline replay of `"latest"` should match how
+archives are shared on the machine.
+
+With `--offline`:
+
+* If a remembered version exists for that registry+package → pin to it and continue into the
+  normal package fetch (archive under **this** run’s `--downloads-root`, extract under
+  `--dependencies-root`).
+* If none is remembered → configure fails clearly (cannot honour `"latest"` offline).
+* If a version is remembered but the archive is missing from this downloads root → configure
+  fails later with the usual offline missing-archive error. Cuppa does **not** silently fall
+  back to an older on-disk version; that would change the pin.
+
+So the remembered value is “what registry latest resolved to,” not “proof the archive is on
+disk.” Empty registry or API failure also fails at configure time when online.
 
 [#boost-package]
 == Boost package

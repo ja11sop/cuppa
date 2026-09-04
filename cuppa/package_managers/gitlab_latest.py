@@ -11,6 +11,12 @@
 
 ``"latest"`` means newest version **published in that registry** for the package name,
 not the newest upstream software release.
+
+Remembered offline pin: after a successful list/select, store the concrete version string
+under ``gitlab_package_latest_*`` (key suffix hashes ``registry|package``). Conf path
+follows downloads-root scoping — project ``configure.conf`` when downloads live under the
+project, else ``~/.cuppaconfig`` — same model as source Boost ``boost_latest_version``.
+Offline replays that pin; missing archive fails (no silent older fallback).
 """
 
 from __future__ import print_function
