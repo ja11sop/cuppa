@@ -10,6 +10,9 @@
 
 """Resolve ``BuildWith`` dependency tokens to a factory-registry name.
 
+Rules are **name-general**, not Boost-specific. Untyped ``BuildWith('widget_lib')``
+prefers a project-available GitLab candidate over an archive/built-in short name.
+
 See ``design/plans/dependency-resolve.md``. Storage list/remove tokens share
 selector spelling via ``cuppa.core.dependency_tokens``.
 """
@@ -35,15 +38,6 @@ _ALWAYS_ON_BUILTINS = frozenset( {
     'boost',
 } )
 
-# Untyped short name → ordered (registry_name, role) candidates.
-# role: 'gitlab' | 'archive' — used for availability and Conan refusal.
-_UNTYPED_PRECEDENCE = {
-    'boost': (
-        ( 'boost_package', 'gitlab' ),  # legacy GitLab package registry name
-        ( 'boost', 'archive' ),
-    ),
-}
-
 
 def _as_name_set( value ):
     if not value:
@@ -51,13 +45,35 @@ def _as_name_set( value ):
     return set( Flatten( [ value ] ) )
 
 
+def _legacy_package_name( name ):
+    """Historical GitLab registry key when the short name was already taken."""
+    return '{}_package'.format( name )
+
+
+def _gitlab_registry_candidates( name ):
+    """Ordered registry keys that may identify a GitLab package for ``name``."""
+    return (
+        '[gitlab]{}'.format( name ),  # future typed registration
+        _legacy_package_name( name ),  # legacy: boost_package, widget_lib_package, …
+    )
+
+
+def _archive_registry_candidates( name ):
+    """Ordered registry keys that may identify an archive / built-in for ``name``."""
+    return (
+        '[archive]{}'.format( name ),
+        '[source]{}'.format( name ),
+        name,
+    )
+
+
 def is_project_available( env, registry_name ):
     """True when ``registry_name`` may be chosen for untyped / typed resolve.
 
     Declared (``default_dependencies``) or already ``BuildWith``'d this session
     counts. Always-on built-ins also require one of those — registry presence
-    alone is not enough. Other factories (e.g. ``boost_package``) are treated as
-    declared when present in ``env['dependencies']``.
+    alone is not enough. Other factories (e.g. ``widget_lib_package``) are
+    treated as declared when present in ``env['dependencies']``.
     """
     factories = env.get( 'dependencies' ) or {}
     if registry_name not in factories:
@@ -74,9 +90,10 @@ def is_project_available( env, registry_name ):
 def resolve_registry_name( env, token, required=True ):
     """Map a ``BuildWith`` token to an ``env['dependencies']`` factory key.
 
-    Untyped ``boost`` prefers project-available ``boost_package``, then falls
-    back to built-in ``boost``. Explicit ``[gitlab]boost``, ``[archive]boost``,
-    and ``boost_package`` bypass precedence. ``[conan]…`` is refused for now.
+    Untyped ``name`` prefers project-available GitLab candidates
+    (``[gitlab]name``, then legacy ``name_package``), then the short name /
+    archive keys. Explicit ``[gitlab]…`` / ``[archive]…`` pin the supply chain.
+    ``[conan]…`` is refused for now.
 
     Returns the registry name, or ``None`` when ``required`` is false and nothing
     matches. Raises ``DependencyResolveException`` when ``required`` and resolve
@@ -107,41 +124,54 @@ def resolve_registry_name( env, token, required=True ):
 
     factories = env.get( 'dependencies' ) or {}
 
-    if storage_type in ( 'archive', ):
-        return _require_factory( factories, name, token, required )
+    if storage_type == 'archive':
+        return _resolve_archive( factories, name, token, required )
 
     if storage_type == 'gitlab':
-        if name == 'boost':
-            # Canonical GitLab short name maps to legacy registry key today.
-            if 'boost_package' in factories:
-                return 'boost_package'
-            return _missing( token, required )
+        return _resolve_gitlab( factories, name, token, required )
+
+    if storage_type is not None:
+        # Other typed tokens: exact registry name for now.
         return _require_factory( factories, name, token, required )
 
-    # Untyped (or repository/other selectors unused for BuildWith boost yet).
-    if storage_type is not None and storage_type not in ( 'archive', 'gitlab' ):
-        # Allow exact registry lookup for other typed tokens later; for now
-        # require the bare name in the registry.
-        return _require_factory( factories, name, token, required )
+    return _resolve_untyped( env, factories, name, token, required )
 
-    precedence = _UNTYPED_PRECEDENCE.get( name )
-    if precedence:
-        archive_fallback = None
-        for registry_name, role in precedence:
-            if registry_name not in factories:
-                continue
-            if role == 'archive':
-                archive_fallback = registry_name
-                continue
-            if is_project_available( env, registry_name ):
-                return registry_name
-        if archive_fallback is not None:
-            # Built-in archive: final fallback even when not yet project-available
-            # so BuildWith('boost') keeps working as an opt-in to the built-in.
-            return archive_fallback
-        return _missing( token, required )
 
-    return _require_factory( factories, name, token, required )
+def _resolve_gitlab( factories, name, token, required ):
+    for registry_name in _gitlab_registry_candidates( name ):
+        if registry_name in factories:
+            return registry_name
+    # Short name only if it is not an always-on archive built-in.
+    if name in factories and name not in _ALWAYS_ON_BUILTINS:
+        return name
+    return _missing( token, required )
+
+
+def _resolve_archive( factories, name, token, required ):
+    for registry_name in _archive_registry_candidates( name ):
+        if registry_name in factories:
+            return registry_name
+    return _missing( token, required )
+
+
+def _resolve_untyped( env, factories, name, token, required ):
+    for registry_name in _gitlab_registry_candidates( name ):
+        if registry_name in factories and is_project_available( env, registry_name ):
+            return registry_name
+
+    if name in factories and is_project_available( env, name ):
+        return name
+
+    for registry_name in ( '[archive]{}'.format( name ), '[source]{}'.format( name ) ):
+        if registry_name in factories and is_project_available( env, registry_name ):
+            return registry_name
+
+    # Final fallback: short name in the registry (always-on built-in opt-in, or
+    # the only registered identity for this name).
+    if name in factories:
+        return name
+
+    return _missing( token, required )
 
 
 def _require_factory( factories, registry_name, token, required ):

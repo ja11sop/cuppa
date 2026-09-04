@@ -33,9 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- ``BuildWith`` resolves untyped ``boost`` by precedence (project-available
-  ``boost_package`` before built-in archive ``boost``), accepts ``[gitlab]boost`` /
-  ``[archive]boost`` pins, and refuses ``[conan]…`` for now. Quince links only via
+- ``BuildWith`` resolves untyped short names by general precedence (project-available
+  GitLab ``[gitlab]N`` / legacy ``{N}_package`` before archive/short ``N``), accepts
+  type selectors, and refuses ``[conan]…`` for now. Quince links only via
   ``BuildWith('boost').use_libs(...)``. Boost.Test runners use the same resolver
   through ``session_boost``
   ([#250](https://github.com/ja11sop/cuppa/issues/250)).

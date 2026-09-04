@@ -54,15 +54,16 @@ This plan is the home for **BuildWith-time** resolve rules and selectors. Boost 
 |-------|----------|
 | Link API | Dependents that need libraries call `BuildWith(<name>).use_libs([...])` (or `use_libs` on the instance `BuildWith` returned). No `BoostStaticLibs` / manual Boost `STATICLIBS` in Quince. |
 | What Quince knows | Only that it needs “boost” and which logical libs it wants. It does not branch on archive vs GitLab vs legacy package name. |
-| Untyped `BuildWith('boost')` precedence | Among **project-available** candidates, try in order: `[gitlab]boost` → legacy registry name `boost_package` → `[archive]boost` / built-in factory `boost`. |
-| Explicit tokens | `[gitlab]boost`, `[archive]boost` / `[source]boost`, or literal `boost_package` bypass precedence and select that candidate only. |
-| Conan | Never chosen for untyped `boost` (or other short names) until Conan deps share the link/version API. Explicit `[conan]boost` may error or no-op with a clear message until supported. |
-| Project-available | A candidate counts if it is **declared** for the project (`dependencies=` / `default_dependencies` / equivalent registration the project opted into) **or** already applied earlier in this env via `BuildWith` in the same sconscript session (`BUILD_WITH` / resolve record). Intent: an earlier `BuildWith('boost_package')` makes that package available for a later untyped `BuildWith('boost')`. |
-| Always-registered built-ins | Built-in `boost` stays in the factory registry for opt-in use. Presence in the registry alone does **not** beat a project-available GitLab package. Untyped resolve prefers package when package is project-available; otherwise falls through to archive `boost`. |
-| Selector spelling | Align with storage grammar ([`removal-options.md`](removal-options.md) §4.15): `[gitlab]`, `[archive]` / `[source]`, … Primary form `[selector]name`. |
-| Test runners | Use the same resolve helper as `BuildWith` (package-before-archive). Do not keep a Boost-only parallel policy long term. |
-| First consumer | Quince (`quince`, `quince-postgresql`, `quince-sqlite`) on [#250](https://github.com/ja11sop/cuppa/issues/250). |
-| Docs | Antora: precedence table + Quince example; methods/`BuildWith` note; quince stub points here. |
+| Untyped precedence (general) | For any short name `N`, among **project-available** candidates try in order: `[gitlab]N` (typed registry key, when used) → legacy `{N}_package` → short name / `[archive]N` / `[source]N`. Final fallback: short name `N` if present in the factory registry (covers always-on built-ins such as `boost`). |
+| Legacy `{N}_package` | **General** GitLab naming convention when the short name is already taken (Boost’s `boost_package` is the motivating case, not a Boost-only rule). Prefer retiring it once packages register under `[gitlab]N`. |
+| Explicit tokens | `[gitlab]N`, `[archive]N` / `[source]N`, or literal `{N}_package` bypass untyped precedence. `[gitlab]N` maps to `[gitlab]N` or `{N}_package`, not to an always-on built-in short name. |
+| Conan | Never chosen for untyped short names until Conan deps share the link/version API. Explicit `[conan]…` errors for now. |
+| Project-available | Declared (`dependencies=` / `default_dependencies`) **or** already `BuildWith`’d earlier in this sconscript session (`BUILD_WITH`). |
+| Always-registered built-ins | e.g. built-in `boost`: registry presence alone is not project-available and does not beat a project-available GitLab candidate. |
+| Selector spelling | Align with storage grammar ([`removal-options.md`](removal-options.md) §4.15). |
+| Test runners | Same resolve helper as `BuildWith`. |
+| First consumer | Quince on [#250](https://github.com/ja11sop/cuppa/issues/250); unit tests cover a generic `widget_lib` / `widget_lib_package` pair as well as Boost. |
+| Docs | Antora precedence table is name-general; Quince is the worked example. |
 
 ## Vocabulary
 
@@ -70,9 +71,9 @@ This plan is the home for **BuildWith-time** resolve rules and selectors. Boost 
 |------|---------|
 | **Factory registry** | `env['dependencies']` — factories Cuppa knows about (includes always-on built-ins). |
 | **Project-available** | Declared by the project and/or already `BuildWith`’d on this env in the session (see table). |
-| **Untyped name** | `boost` — no `[selector]` prefix. |
-| **Typed token** | `[gitlab]boost`, `[archive]boost`, … |
-| **Legacy alias** | Registry key `boost_package` treated as GitLab Boost for precedence and explicit `BuildWith('boost_package')`. |
+| **Untyped name** | `boost`, `widget_lib` — no `[selector]` prefix. |
+| **Typed token** | `[gitlab]boost`, `[archive]widget_lib`, … |
+| **Legacy alias** | Registry key `{name}_package` treated as GitLab for that short name (e.g. `boost_package`). |
 
 Storage list/remove tokens and BuildWith tokens should **mean the same selectors**; implementation
 may share the parser already used for wipe/remove.
@@ -120,7 +121,7 @@ legacy key; explicit-import-only built-ins (scratchpad).
 | Slice | Status |
 |-------|--------|
 | `dep-resolve-rules` | Done (this plan) |
-| `dep-resolve-helper` | Done — `cuppa/core/dependency_resolve.py` |
+| `dep-resolve-helper` | Done — general name precedence in `cuppa/core/dependency_resolve.py` (not Boost-only) |
 | `dep-resolve-buildwith` | Done — `BuildWith` uses resolve |
 | `dep-resolve-runners` | Done — `session_boost` uses resolve |
 | `dep-resolve-quince` | Done — `use_libs` only ([#250](https://github.com/ja11sop/cuppa/issues/250)) |
@@ -130,11 +131,9 @@ legacy key; explicit-import-only built-ins (scratchpad).
 `append_session_boost_static_libs` approach drafted against [#250](https://github.com/ja11sop/cuppa/issues/250)
 before this plan — do not merge that shape.
 
-## Open questions (non-blocking for first PR)
+## Open questions (non-blocking)
 
-- Exact error text when untyped `boost` has **no** project-available candidate (should not happen
-  if built-in archive remains the final fallback whenever the factory exists — confirm product
-  intent: is “no Boost at all” possible?).
-- Whether `[source]` and `[archive]` are strict aliases for BuildWith (storage already aliases them).
-- When to allow registering a GitLab package under the short display name `boost` keyed only as
-  typed `[gitlab]boost` in the registry.
+- Exact error text when untyped `N` has **no** factory candidate.
+- When packages routinely register under `[gitlab]N`, deprecate accepting new `{N}_package`
+  registrations (keep resolve for compatibility).
+- Whether more built-ins than `boost` need the always-on availability exception list.

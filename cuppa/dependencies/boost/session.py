@@ -10,9 +10,8 @@
 
 """Resolve which Boost instance a session should use.
 
-Prefers project-available GitLab ``boost_package`` over built-in archive
-``boost`` via ``cuppa.core.dependency_resolve`` (see
-``design/plans/dependency-resolve.md``).
+Uses general ``cuppa.core.dependency_resolve`` rules (GitLab / ``{name}_package``
+before archive short name). See ``design/plans/dependency-resolve.md``.
 """
 
 from cuppa.core.dependency_resolve import resolve_registry_name

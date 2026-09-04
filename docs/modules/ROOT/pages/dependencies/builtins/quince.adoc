@@ -11,11 +11,13 @@ on the backends). It asks only for the short name `boost` and links with `use_li
 env.BuildWith('boost').use_libs(['filesystem', 'thread', 'system'])
 ```
 
-Cuppa resolves untyped `boost` by precedence among project-available candidates: GitLab
-`boost_package` (including when already `BuildWith`'d earlier in the sconscript) before the
-built-in archive `boost`. Explicit pins such as `[archive]boost` or `[gitlab]boost` bypass
-precedence. See xref:methods/dependencies-and-profiles.adoc[Dependencies and profiles] and the
-repository plan `design/plans/dependency-resolve.md`.
+Cuppa resolves untyped `boost` by **general** short-name precedence among project-available
+candidates: GitLab (`[gitlab]boost` or legacy `boost_package`) before the built-in archive
+`boost`, including when the package was already `BuildWith`'d earlier in the sconscript.
+Explicit pins such as `[archive]boost` or `[gitlab]boost` bypass precedence. The same rules apply
+to any short name (for example `widget_lib` / `widget_lib_package`). See
+xref:methods/dependencies-and-profiles.adoc[Dependencies and profiles] and
+`design/plans/dependency-resolve.md`.
 
 This page is otherwise a stub. The modules live under `cuppa/dependencies/`. See
 xref:dependencies/builtins.adoc[Built-in dependencies] and
