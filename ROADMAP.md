@@ -23,7 +23,9 @@ Minor cycle after **1.9.1**. Prefer work that changes opt-in toolchain or packag
 |------|------------------|
 | GCC `--rel` LTO archiver / fat objects + spurious re-links | [#262](https://github.com/ja11sop/cuppa/issues/262) parity shipped in [#266](https://github.com/ja11sop/cuppa/pull/266); re-links fixed in [#269](https://github.com/ja11sop/cuppa/pull/269) / [#267](https://github.com/ja11sop/cuppa/issues/267) (Boost `STATICLIBS` order) |
 | GitLab CMake staging | [#209](https://github.com/ja11sop/cuppa/issues/209) |
-| BuildWith dependency resolve + Quince | [`dependency-resolve.md`](design/plans/dependency-resolve.md); [#250](https://github.com/ja11sop/cuppa/issues/250); Boost identity remains [`boost-updates.md`](design/plans/boost-updates.md) |
+| GitLab package `latest` + consume docs | [`gitlab-package-latest.md`](design/plans/gitlab-package-latest.md) — registry latest; Boost package default retarget; Antora general-then-extension |
+| `cuppa.run` default_dependencies objects | [`run-default-dependency-objects.md`](design/plans/run-default-dependency-objects.md) — pass factories into both lists without `.name()` |
+| BuildWith dependency resolve + Quince | [`dependency-resolve.md`](design/plans/dependency-resolve.md); [#250](https://github.com/ja11sop/cuppa/issues/250) shipped; Boost identity remains [`boost-updates.md`](design/plans/boost-updates.md) |
 | Artefact removal design | [#135](https://github.com/ja11sop/cuppa/issues/135) |
 | Console bundle | `--terse-output`, log hygiene, `cuppa --info` |
 
