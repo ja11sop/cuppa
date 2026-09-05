@@ -130,7 +130,8 @@ cuppa.run(
 - Do not break existing string `default_dependencies`.
 - Do not invent a second registration API; only widen what `cuppa.run` accepts.
 - Do not silently ignore objects that lack a resolvable name.
-- Do not rename run() keys in the first cut without a deprecation / alias story.
+- Do not remove legacy `dependencies` / `default_dependencies` aliases without a
+  deprecation story (keep indefinitely for now).
 
 ## Progress snapshot
 
