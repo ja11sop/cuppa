@@ -44,7 +44,6 @@ from cuppa.cpp.coverage_workflow import maybe_warn_parallel_coverage_collection
 
 from cuppa.colourise import as_emphasised, as_info, as_error, as_notice, colour_items, as_info_label
 from cuppa.log import set_logging_level, reset_logging_format, logger, enable_thirdparty_logging
-from cuppa.utility.types import is_string
 from cuppa.utility.entry_points import iter_entry_points
 
 from cuppa.toolchains             import *
@@ -301,33 +300,8 @@ class Construct(object):
 
     @classmethod
     def _normalise_with_defaults( cls, values, default_values, name ):
-
-        warning = None
-        if isinstance( values, dict ):
-            warning = "Dictionary passed for {}, this approach has been deprecated, please use a list instead".format( name )
-            values = [ v for v in six.itervalues(values) ]
-
-        default_value_objects = []
-        default_value_names = []
-
-        for value in default_values:
-            if not is_string( value ):
-                default_value_objects.append( value )
-                try:
-                    name = getattr( value, 'name' )
-                    if callable( name ):
-                        default_value_names.append( name() )
-                    else:
-                        default_value_names.append( value.__name__ )
-                except:
-                    default_value_names.append( value.__name__ )
-            else:
-                default_value_names.append( value )
-
-        default_values = default_value_names
-        values = values + default_value_objects
-
-        return values, default_values, warning
+        from cuppa.core.run_list_names import normalise_with_defaults
+        return normalise_with_defaults( values, default_values, name )
 
 
     def __init__( self,

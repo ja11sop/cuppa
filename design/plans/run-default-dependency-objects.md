@@ -1,7 +1,7 @@
 # Plan: `cuppa.run` accepts dependency objects in `default_dependencies`
 
-- **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.11.0; [`gitlab-package-latest.md`](../archive/gitlab-package-latest.md) (motivating consume ergonomics); [`dependency-resolve.md`](../archive/dependency-resolve.md) (BuildWith tokens remain strings); `cuppa/construct.py` `_normalise_with_defaults`
+- **Status:** in progress
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.11.0; [#276](https://github.com/ja11sop/cuppa/issues/276); [`gitlab-package-latest.md`](../archive/gitlab-package-latest.md) (motivating consume ergonomics); [`dependency-resolve.md`](../archive/dependency-resolve.md) (BuildWith tokens remain strings); `cuppa/core/run_list_names.py`
 - **Updated:** 2026-09-05
 - **Impact:** minor — accept dependency factories/classes where names are required today; strings stay valid
 
@@ -137,13 +137,15 @@ cuppa.run(
 
 | Slice | Status |
 |-------|--------|
-| `run-dep-obj-rules` | Done (this document; semantics note added) |
-| Remaining | Not started |
+| `run-dep-obj-rules` | Done |
+| `run-dep-obj-normalise` | Done — `cuppa/core/run_list_names.py`; dedupe registration; strict `name()` |
+| `run-dep-obj-docs` | Done — concepts / packages / gitlab register vs auto-apply |
+| `run-dep-obj-naming` | Deferred — keep current keys; explore aliases later |
+| `run-dep-obj-issue` | Done — [#276](https://github.com/ja11sop/cuppa/issues/276) |
 
 ## Open questions
 
-- Exact type check: `callable` + `.name`, class with `name()`, or duck-typing only?
 - Whether `default_dependencies = dependencies` (aliasing the same list) should be documented as
-  supported once objects work.
+  supported (works when the list holds factories).
 - Whether clearer `cuppa.run` parameter names (or aliases) are worth a compatibility cycle, and
   which pair best matches register vs auto-apply without colliding with BuildWith vocabulary.

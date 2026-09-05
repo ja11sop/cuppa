@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``cuppa.run`` ``default_dependencies`` / ``default_profiles`` accept dependency or
+  profile factories (same objects as ``dependencies`` / ``profiles``), coercing via
+  ``name()``; strings remain valid. Clear ``StopError`` when a non-string entry has no
+  usable name. Docs teach register vs auto-apply
+  ([#276](https://github.com/ja11sop/cuppa/issues/276)).
+
 ### Changed
 
 ### Deprecated

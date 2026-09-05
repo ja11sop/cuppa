@@ -160,7 +160,7 @@ cuppa.run(
         BoostPackage,
     ],
     default_dependencies = [
-        BoostPackage.name(),
+        BoostPackage,
     ],
     default_runner = 'boost',
 )

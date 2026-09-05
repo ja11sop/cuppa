@@ -112,11 +112,26 @@ Common keyword arguments to `cuppa.run()`:
 | `default_options` | Dict of option keys *without* `--` (for example `{'offline': True}`)
 | `default_projects` | Default list of `sconscript` paths
 | `default_variants` | Restrict default variants (for example `['rel']`)
-| `default_dependencies` | Dependency names or classes applied to every env
-| `default_profiles` | Profile names or classes
-| `dependencies` / `profiles` | Extra classes to register
+| `dependencies` | **Register / import** dependency factories so the sconstruct and its sconscripts can look them up and call `BuildWith` when they choose
+| `default_dependencies` | **Auto-apply** subset: names or the same factories, treated as `BuildWith()` in every sconscript
+| `profiles` | Register profile factories
+| `default_profiles` | Auto-apply profile names or factories (same object-or-string shape as dependencies)
 | `default_runner` | Test runner name (default `process`)
 | `configure_callback` | Optional SCons `Configure()` hook
 | `tools` | Extra SCons tools for all environments
 | `base_path` / `branch_root` | Project root / SCM branch root offsets
 |===
+
+`default_dependencies` is not a second import list. Put a factory in `dependencies` to
+register it; put the same factory (or its `.name()` string) in `default_dependencies` to
+auto-apply it. A factory only in `default_dependencies` both registers and auto-applies.
+
+[source,python]
+----
+MyPkg = cuppa.package_dependency( 'mypkg', ... )
+
+cuppa.run(
+    dependencies = [ MyPkg ],
+    default_dependencies = [ MyPkg ],
+)
+----
