@@ -66,12 +66,13 @@ registered as `widget_lib_package` alongside an archive or built-in `widget_lib`
 **untyped** `BuildWith('widget_lib')` resolves by precedence among **project-available**
 candidates:
 
-1. GitLab — registry key `[gitlab]widget_lib` when used, else the legacy `{name}_package`
+1. GitLab — registry key `[gitlab]widget_lib` when used, else the legacy `\{name}_package`
    form (`widget_lib_package`, and Boost’s familiar `boost_package`)
 2. Short name / archive — `widget_lib`, or `[archive]widget_lib` / `[source]widget_lib` when
    registered that way
 
-A candidate is project-available when it appears in `default_dependencies` / `dependencies=`, or
+A candidate is project-available when it appears in `auto_enable_dependencies` /
+`import_dependencies` (legacy: `default_dependencies` / `dependencies`), or
 was already applied earlier in this sconscript via `BuildWith`. Always-on built-ins such as
 archive `boost` stay in the factory registry for opt-in use; registry presence alone does not
 beat a project-available GitLab package.
@@ -130,8 +131,9 @@ env.BuildProfile('quad_float')
 env.BuildProfile(['profile_a', 'profile_b'])
 ----
 
-Default profiles from `cuppa.run(default_profiles=…)` are applied automatically before each
-sconscript runs; call `BuildProfile()` in the sconscript for extras.
+Default profiles from `cuppa.run(auto_enable_profiles=…)` (legacy: `default_profiles`) are
+applied automatically before each sconscript runs; call `BuildProfile()` in the sconscript for
+extras.
 
 == Related methods
 
