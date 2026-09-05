@@ -2,7 +2,8 @@
 :description: Built-in qt4 / qt5 dependencies — honest stub
 
 Dependencies `qt4` and `qt5` integrate SCons Qt tools for MOC/UIC/RCC-style workflows.
-Enable via `default_dependencies = ['qt5']` (or `qt4`) when Qt is installed on the builder.
+Enable via `auto_enable_dependencies = ['qt5']` (or `qt4`) when Qt is installed on the builder.
+Built-in Qt factories are already imported; you do not list them in `import_dependencies`.
 
 This page is a stub. The modules live under `cuppa/dependencies/` (`qt4`, `qt5`). Expand it
 when real usage — required packages, typical flags, and failure modes — is documented.

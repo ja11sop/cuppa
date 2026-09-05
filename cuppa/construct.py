@@ -44,7 +44,6 @@ from cuppa.cpp.coverage_workflow import maybe_warn_parallel_coverage_collection
 
 from cuppa.colourise import as_emphasised, as_info, as_error, as_notice, colour_items, as_info_label
 from cuppa.log import set_logging_level, reset_logging_format, logger, enable_thirdparty_logging
-from cuppa.utility.types import is_string
 from cuppa.utility.entry_points import iter_entry_points
 
 from cuppa.toolchains             import *
@@ -301,57 +300,68 @@ class Construct(object):
 
     @classmethod
     def _normalise_with_defaults( cls, values, default_values, name ):
-
-        warning = None
-        if isinstance( values, dict ):
-            warning = "Dictionary passed for {}, this approach has been deprecated, please use a list instead".format( name )
-            values = [ v for v in six.itervalues(values) ]
-
-        default_value_objects = []
-        default_value_names = []
-
-        for value in default_values:
-            if not is_string( value ):
-                default_value_objects.append( value )
-                try:
-                    name = getattr( value, 'name' )
-                    if callable( name ):
-                        default_value_names.append( name() )
-                    else:
-                        default_value_names.append( value.__name__ )
-                except:
-                    default_value_names.append( value.__name__ )
-            else:
-                default_value_names.append( value )
-
-        default_values = default_value_names
-        values = values + default_value_objects
-
-        return values, default_values, warning
+        from cuppa.core.run_list_names import normalise_with_defaults
+        return normalise_with_defaults( values, default_values, name )
 
 
     def __init__( self,
                   sconstruct_path,
-                  base_path            = os.path.abspath( '.' ),
-                  branch_root          = None,
-                  default_options      = {},
-                  default_projects     = [],
-                  default_variants     = [],
-                  default_dependencies = [],
-                  default_profiles     = [],
-                  dependencies         = [],
-                  profiles             = [],
-                  default_runner       = None,
-                  configure_callback   = None,
-                  tools                = [] ):
+                  base_path                 = os.path.abspath( '.' ),
+                  branch_root               = None,
+                  default_options           = {},
+                  default_projects          = [],
+                  default_variants          = [],
+                  import_dependencies       = None,
+                  auto_enable_dependencies  = None,
+                  import_profiles           = None,
+                  auto_enable_profiles      = None,
+                  # Legacy aliases (same lists as import_* / auto_enable_*):
+                  dependencies              = None,
+                  default_dependencies      = None,
+                  profiles                  = None,
+                  default_profiles          = None,
+                  default_runner            = None,
+                  configure_callback        = None,
+                  tools                     = [] ):
+
+        from cuppa.core.run_list_names import coalesce_aliased_run_list
 
         cuppa.core.base_options.set_base_options()
 
         cuppa_env = cuppa.core.environment.CuppaEnvironment()
         cuppa_env.add_tools( tools )
 
-        dependencies, default_dependencies, dependencies_warning = self._normalise_with_defaults( dependencies, default_dependencies, "dependencies" )
-        profiles, default_profiles, profiles_warning = self._normalise_with_defaults( profiles, default_profiles, "profiles" )
+        dependencies = coalesce_aliased_run_list(
+                import_dependencies,
+                dependencies,
+                'import_dependencies',
+                'dependencies',
+        )
+        default_dependencies = coalesce_aliased_run_list(
+                auto_enable_dependencies,
+                default_dependencies,
+                'auto_enable_dependencies',
+                'default_dependencies',
+        )
+        profiles = coalesce_aliased_run_list(
+                import_profiles,
+                profiles,
+                'import_profiles',
+                'profiles',
+        )
+        default_profiles = coalesce_aliased_run_list(
+                auto_enable_profiles,
+                default_profiles,
+                'auto_enable_profiles',
+                'default_profiles',
+        )
+
+        dependencies, default_dependencies, dependencies_warning = self._normalise_with_defaults(
+                dependencies, default_dependencies, "import_dependencies"
+        )
+        profiles, default_profiles, profiles_warning = self._normalise_with_defaults(
+                profiles, default_profiles, "import_profiles"
+        )
 
         cuppa_env['default_options'] = default_options or {}
         cuppa_env['configured_options'] = {}

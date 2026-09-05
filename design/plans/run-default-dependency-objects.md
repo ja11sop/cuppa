@@ -1,7 +1,7 @@
 # Plan: `cuppa.run` accepts dependency objects in `default_dependencies`
 
-- **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.11.0; [`gitlab-package-latest.md`](../archive/gitlab-package-latest.md) (motivating consume ergonomics); [`dependency-resolve.md`](../archive/dependency-resolve.md) (BuildWith tokens remain strings); `cuppa/construct.py` `_normalise_with_defaults`
+- **Status:** in progress
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.11.0; [#276](https://github.com/ja11sop/cuppa/issues/276); [`gitlab-package-latest.md`](../archive/gitlab-package-latest.md) (motivating consume ergonomics); [`dependency-resolve.md`](../archive/dependency-resolve.md) (BuildWith tokens remain strings); `cuppa/core/run_list_names.py`
 - **Updated:** 2026-09-05
 - **Impact:** minor — accept dependency factories/classes where names are required today; strings stay valid
 
@@ -16,8 +16,8 @@ google_cloud_cpp = cuppa.package_dependency(
 )
 
 cuppa.run(
-    dependencies = [ google_cloud_cpp ],
-    default_dependencies = [ google_cloud_cpp ],
+    import_dependencies = [ google_cloud_cpp ],
+    auto_enable_dependencies = [ google_cloud_cpp ],
 )
 ```
 
@@ -82,8 +82,7 @@ and keep rename options in open questions — do not block object normalisation 
 - Changing BuildWith resolve / type selectors ([`dependency-resolve.md`](../archive/dependency-resolve.md)).
 - Requiring objects everywhere (strings remain first-class).
 - Auto-adding every `dependencies=` entry to `default_dependencies` (explicit default list stays).
-- Renaming `dependencies` / `default_dependencies` in the first implementation cut (see open
-  questions).
+- Removing legacy `dependencies` / `default_dependencies` aliases (keep indefinitely for now).
 
 ## Settled decisions (proposed)
 
@@ -94,7 +93,7 @@ and keep rename options in open questions — do not block object normalisation 
 | Mix of objects and strings | Allowed in one list. |
 | `dependencies=` | Continue to accept factories/classes as today; ensure normalisation is shared so object→name is one code path. |
 | Semantics in docs | Teach register (`dependencies`) vs auto-`BuildWith` (`default_dependencies`) explicitly; examples show one object in both lists when both apply. |
-| Rename of run() keys | **Not** in the first cut. Explore aliases / clearer names as a follow-on once semantics are documented; preserve string and object forms under current names. |
+| Rename of run() keys | Preferred: ``import_dependencies`` / ``auto_enable_dependencies`` (and profile twins). Legacy ``dependencies`` / ``default_dependencies`` remain aliases. Docs lead with the new names. |
 | `default_profiles` | Same object-or-string normalisation if profiles already expose `.name()` — confirm in implementation. |
 | Docs | Update package consume examples to pass the object into both lists; keep `.name()` as an explicit alternative. |
 
@@ -109,10 +108,10 @@ google_cloud_cpp = cuppa.package_dependency(
 )
 
 cuppa.run(
-    # Register: sconstruct / sconscripts may BuildWith this package.
-    dependencies = [ google_cloud_cpp ],
-    # Auto-apply: every sconscript gets BuildWith('google_cloud_cpp') by default.
-    default_dependencies = [ google_cloud_cpp ],
+    # Import into this sconstruct session.
+    import_dependencies = [ google_cloud_cpp ],
+    # Auto-enable: every sconscript gets BuildWith('google_cloud_cpp') by default.
+    auto_enable_dependencies = [ google_cloud_cpp ],
 )
 ```
 
@@ -131,19 +130,21 @@ cuppa.run(
 - Do not break existing string `default_dependencies`.
 - Do not invent a second registration API; only widen what `cuppa.run` accepts.
 - Do not silently ignore objects that lack a resolvable name.
-- Do not rename run() keys in the first cut without a deprecation / alias story.
+- Do not remove legacy `dependencies` / `default_dependencies` aliases without a
+  deprecation story (keep indefinitely for now).
 
 ## Progress snapshot
 
 | Slice | Status |
 |-------|--------|
-| `run-dep-obj-rules` | Done (this document; semantics note added) |
-| Remaining | Not started |
+| `run-dep-obj-rules` | Done |
+| `run-dep-obj-normalise` | Done — `cuppa/core/run_list_names.py`; dedupe registration; strict `name()` |
+| `run-dep-obj-docs` | Done — teach path prefers preferred names; built-ins → `auto_enable` only; `use_libs` over `BoostStaticLibs`; integration fixtures mix preferred + legacy kwargs |
+| `run-dep-obj-naming` | Done — preferred import_/auto_enable_ names; legacy aliases |
+| `run-dep-obj-issue` | Done — [#276](https://github.com/ja11sop/cuppa/issues/276) |
 
 ## Open questions
 
-- Exact type check: `callable` + `.name`, class with `name()`, or duck-typing only?
-- Whether `default_dependencies = dependencies` (aliasing the same list) should be documented as
-  supported once objects work.
-- Whether clearer `cuppa.run` parameter names (or aliases) are worth a compatibility cycle, and
-  which pair best matches register vs auto-apply without colliding with BuildWith vocabulary.
+- Whether `auto_enable_dependencies = import_dependencies` (aliasing the same list) should be
+  documented as supported (works when the list holds factories).
+- Whether to emit a soft warn when only legacy ``dependencies`` / ``default_dependencies`` are used.

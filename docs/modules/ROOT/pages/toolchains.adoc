@@ -215,7 +215,7 @@ Which management flags apply:
   `--force-wipe-dependencies=[toolchain]gcc/gcc_snapshot_*`, or the session name
   (`[toolchain]clang24_profiles_…` / `[toolchain]gcc16_…`) — yes.
 * `--force-wipe-unreferenced-dependencies` — yes for installs that are not the active selection.
-* `--remove-dependencies` / `--purge-dependencies` / `--wipe-dependencies` (and the `*-all-*` forms) — no; those only target **project-used** dependency names from the current selection (`default_dependencies` / `BuildWith`), not compiler installs.
+* `--remove-dependencies` / `--purge-dependencies` / `--wipe-dependencies` (and the `*-all-*` forms) — no; those only target **project-used** dependency names from the current selection (`auto_enable_dependencies` / `BuildWith`), not compiler installs.
 
 Design notes: `design/archive/toolchains-as-dependencies.md`.
 

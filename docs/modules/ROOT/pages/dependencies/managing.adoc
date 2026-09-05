@@ -238,10 +238,12 @@ cuppa writes. They exit without building. Downloads, develop working copies, and
 trees that are not named stay put; siblings for other toolchains or branches are reported as
 left behind. SCons `-n` is a dry run.
 
-Names are the keys this project uses: `default_dependencies` plus names registered from the
-sconstruct’s `dependencies=[…]` list. Built-in factories that module scan always registers
-(`boost`, `qt4`, …) are **not** removable unless the project names them that way. On-disk folder
-names and listing short names are rejected. An unknown or unused name prints an error (rejected name error-coloured and emphasised) and a
+Names are the keys this project uses: `auto_enable_dependencies` (legacy:
+`default_dependencies`) plus names imported via `import_dependencies` (legacy:
+`dependencies=[…]`). Built-in factories that module scan always registers
+(`boost`, `qt4`, …) are **not** removable unless the project names them that way (for example
+in `auto_enable_dependencies`). On-disk folder names and listing short names are rejected. An
+unknown or unused name prints an error (rejected name error-coloured and emphasised) and a
 ruled tree of dependencies that *can* be removed for the current selection (the in-use /
 referenced picture from `--list-dependencies`, without unreferenced leftovers), after
 `Collating dependency tree...`. See

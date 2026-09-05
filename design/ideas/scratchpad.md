@@ -52,13 +52,6 @@ you need to explicitly add A and B to your sconstruct. It would be nice if we co
 packages themselves to depend on other packages so in the example case the user just needs
 to know about A and it already carries the information needed to also get package B.
 
-### Clarify `dependencies` vs `default_dependencies` naming
-
-`dependencies` means register/import factories for the session; `default_dependencies` means
-auto-`BuildWith` that subset in every sconscript. Semantics and possible clearer names are
-captured under [`plans/run-default-dependency-objects.md`](../plans/run-default-dependency-objects.md)
-(§ Semantics). Remove this note when that plan’s docs/naming slices land.
-
 ### Built-in dependencies in their own repositories
 
 Shipping every built-in inside Cuppa does not scale and is a weak blueprint for third-party

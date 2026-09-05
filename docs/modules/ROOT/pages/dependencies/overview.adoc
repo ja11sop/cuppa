@@ -9,36 +9,46 @@ source code, or consume a package from a registry.
 The xref:dependencies.adoc[Dependencies] landing page maps each dependency kind and workflow
 to its detailed guide. This overview explains the vocabulary shared by those guides.
 
-== Declaring default dependencies
+== Import vs auto-enable
 
-Pass `default_dependencies` to `cuppa.run()` when most targets in the project use the same
-dependency set:
+`cuppa.run()` has two related lists (legacy names `dependencies` / `default_dependencies`
+still work):
+
+* `import_dependencies` — bring **custom** factories (`package_dependency`,
+  `location_dependency`, …) into this sconstruct session. Built-ins such as source `boost` are
+  already registered by Cuppa; you do not list them here.
+* `auto_enable_dependencies` — automatically `BuildWith()` that subset in every sconscript.
+
+== Auto-enable built-ins
+
+Pass `auto_enable_dependencies` when most targets use the same built-in set:
 
 [source,python]
 ----
 import cuppa
 
 cuppa.run(
-    default_dependencies = ['boost'],
-    default_options = {
-        'boost-location': '/opt/boost',
-    },
+    auto_enable_dependencies = ['boost'],  # unpinned → latest on the download path
 )
 ----
 
-Cuppa resolves these dependencies while it configures each build environment. Their usage
-requirements are then available to methods such as `env.Build`, `env.BuildLib`, and
+Optional pins such as a local Boost tree belong in `default_options` (`boost-location` /
+`boost-home`), not in `import_dependencies`.
+
+Cuppa resolves auto-enabled dependencies while it configures each build environment. Their
+usage requirements are then available to methods such as `env.Build`, `env.BuildLib`, and
 `env.BuildTest`.
 
 == Adding a dependency in a sconscript
 
-Use `env.BuildWith()` when a dependency belongs to one sconscript or target group:
+Use `env.BuildWith()` when a dependency belongs to one sconscript or target group, or when you
+need instance APIs such as `use_libs`:
 
 [source,python]
 ----
 Import('env')
 
-env.BuildWith('boost')
+env.BuildWith('boost').use_libs(['system', 'filesystem'])
 ----
 
 `BuildWith` applies the registered dependency to that environment. See

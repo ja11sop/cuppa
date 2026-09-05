@@ -138,10 +138,11 @@ explicitly (accept a configure `404` if the registry has not published that rele
 
 === Consuming in a project
 
-Declare the package in the ``sconstruct`` and list it in ``default_dependencies`` so every
-sconscript can ``BuildWith`` it. Boost.Test runners then take version and patched-test flags
-from this package and do not extract source Boost. Set ``GITLAB_REGISTRY_TOKEN`` (or rely on
-``CI_JOB_TOKEN`` in GitLab CI) for registry access.
+Declare the package in the ``sconstruct`` with ``import_dependencies`` and
+``auto_enable_dependencies`` so every sconscript gets ``BuildWith`` automatically.
+Boost.Test runners then take version and patched-test flags from this package and do not
+extract source Boost. Set ``GITLAB_REGISTRY_TOKEN`` (or rely on ``CI_JOB_TOKEN`` in GitLab CI)
+for registry access.
 
 [source,python]
 ----
@@ -156,11 +157,11 @@ BoostPackage = cuppa.packages.boost_package.define(
 )
 
 cuppa.run(
-    dependencies = [
+    import_dependencies = [
         BoostPackage,
     ],
-    default_dependencies = [
-        BoostPackage.name(),
+    auto_enable_dependencies = [
+        BoostPackage,
     ],
     default_runner = 'boost',
 )
@@ -197,12 +198,11 @@ required):
 import cuppa
 
 cuppa.run(
-    dependencies = [],
     default_options = {
         'boost-patch-boost-test': True,
     },
-    default_dependencies = [
-        'boost',
+    auto_enable_dependencies = [
+        'boost',  # built-in; already imported — unpinned → latest on the download path
     ],
     default_runner = 'boost',
 )
@@ -216,7 +216,7 @@ Import('env')
 
 Boost = env.BuildWith('boost')
 
-BoostLibraries = env.BoostStaticLibs([
+BoostLibraries = Boost.use_libs([
     'chrono',
     'context',
     'filesystem',
@@ -277,8 +277,8 @@ BoostPkg = cuppa.packages.boost_package.define(
 )
 
 cuppa.run(
-    dependencies = [BoostPkg],
-    default_dependencies = ['boost_package'],
+    import_dependencies = [BoostPkg],
+    auto_enable_dependencies = [BoostPkg],
 )
 ----
 

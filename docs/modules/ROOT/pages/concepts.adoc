@@ -49,7 +49,8 @@ For how progress events and variant scoping work, see xref:methods.adoc#progress
 == Dependencies
 
 Named packages of compile/link settings and optional fetch/build logic -- Boost, Qt4/Qt5, Quince, location-based header libraries, GitLab registry packages, or optional xref:dependencies/conan.adoc#conan-2-consumer-optional[Conan 2] graphs (`conan_deps` / `conan_dependency`).
-Apply them with `default_dependencies` in `cuppa.run()` or `env.BuildWith('boost')` in a `sconscript`.
+Apply them with `auto_enable_dependencies` in `cuppa.run()` or `env.BuildWith('boost')` in a
+`sconscript`. Built-ins are already imported; custom factories need `import_dependencies` too.
 Publish Cuppa-built libraries with `env.PublishPackage` to GitLab generic packages or a Conan remote.
 See xref:dependencies.adoc[Dependencies] and xref:packages.adoc[Publishing packages].
 
@@ -58,7 +59,7 @@ See xref:dependencies.adoc[Dependencies] and xref:packages.adoc[Publishing packa
 
 Lightweight collections of environment tweaks (sometimes wrapping dependencies).
 Example built-in: `quad_float` (links `quadmath`).
-Apply with `default_profiles` or `env.BuildProfile(...)`.
+Apply with `auto_enable_profiles` or `env.BuildProfile(...)`.
 
 [#variants-and-actions]
 == Variants and actions
@@ -112,11 +113,29 @@ Common keyword arguments to `cuppa.run()`:
 | `default_options` | Dict of option keys *without* `--` (for example `{'offline': True}`)
 | `default_projects` | Default list of `sconscript` paths
 | `default_variants` | Restrict default variants (for example `['rel']`)
-| `default_dependencies` | Dependency names or classes applied to every env
-| `default_profiles` | Profile names or classes
-| `dependencies` / `profiles` | Extra classes to register
+| `import_dependencies` | **Import** dependency factories into this sconstruct session so sconscripts can look them up and call `BuildWith` when they choose. Legacy alias: `dependencies`
+| `auto_enable_dependencies` | **Auto-enable** subset: names or the same factories, treated as `BuildWith()` in every sconscript. Legacy alias: `default_dependencies`
+| `import_profiles` | Import profile factories (legacy: `profiles`)
+| `auto_enable_profiles` | Auto-enable profile names or factories (legacy: `default_profiles`)
 | `default_runner` | Test runner name (default `process`)
 | `configure_callback` | Optional SCons `Configure()` hook
 | `tools` | Extra SCons tools for all environments
 | `base_path` / `branch_root` | Project root / SCM branch root offsets
 |===
+
+`auto_enable_dependencies` is not a second import list. Put a **custom** factory in
+`import_dependencies` to bring it into the session; put the same factory (or its
+`.name()` string) in `auto_enable_dependencies` to auto-enable it. A custom factory only in
+`auto_enable_dependencies` both imports and auto-enables. Built-ins (`boost`, `qt5`, …) and
+pip entry-point plugins are already imported — list them only under `auto_enable_dependencies`
+when you want every sconscript to `BuildWith` them.
+
+[source,python]
+----
+MyPkg = cuppa.package_dependency( 'mypkg', ... )
+
+cuppa.run(
+    import_dependencies = [ MyPkg ],
+    auto_enable_dependencies = [ MyPkg ],
+)
+----

@@ -6,11 +6,11 @@
 #   import cuppa
 #   cuppa.run(
 #       default_variants=['dbg'],
-#       default_dependencies=['fmt'],  # discovered via cuppa.dependency.plugins
+#       auto_enable_dependencies=['fmt'],  # discovered via cuppa.dependency.plugins
 #   )
 #
 # In the project sconscript:
 #
 #   Import('env')
-#   env.BuildWith('fmt')   # optional if already in default_dependencies
+#   env.BuildWith('fmt')   # optional if already in auto_enable_dependencies
 #   env.Build('hello', 'hello.cpp')

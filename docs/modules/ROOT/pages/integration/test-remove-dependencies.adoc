@@ -28,6 +28,46 @@ planted folders under `<storage>/dependencies/` (and a develop tree outside stor
 develop-skip case). The Boost case plants a `--boost-home` extract with `clean/` stage and
 `bin.<abi>` products.
 
+=== `sconstruct` (unknown-name error — preferred kwargs)
+
+[source,python]
+----
+Widget = cuppa.location_dependency(
+    'widget',
+    location='git+https://example.com/org/widget.git@master',
+)
+cuppa.run(
+    default_variants=['dbg'],
+    import_dependencies=[Widget],
+    auto_enable_dependencies=['widget'],
+)
+----
+
+=== `sconstruct` (package / develop / most removals)
+
+NOTE: These fixtures intentionally use the legacy ``dependencies`` /
+``default_dependencies`` aliases so the suite still exercises them. Prefer
+``import_dependencies`` / ``auto_enable_dependencies`` in new projects.
+
+[source,python]
+----
+Boost = cuppa.package_dependency(
+    'boost_package',
+    package_manager='gitlab',
+    registry='https://gitlab.example/api/v4/projects/1',
+    package='boost',
+    version='1.91',
+)
+cuppa.run(
+    default_variants=['dbg'],
+    dependencies=[Boost],
+    default_dependencies=['boost_package'],
+)
+----
+
+Source Boost removal uses ``default_dependencies=['boost']`` (legacy alias) with
+``--boost-home`` under the storage root.
+
 == Commands
 
 [source,sh]

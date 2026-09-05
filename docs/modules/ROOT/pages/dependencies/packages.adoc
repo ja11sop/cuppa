@@ -22,9 +22,9 @@ MyPkg = cuppa.package_dependency(
 )
 
 cuppa.run(
-    dependencies = [ MyPkg ],
-    # Until run() accepts objects here, pass the registered name:
-    default_dependencies = [ MyPkg.name() ],
+    import_dependencies = [ MyPkg ],
+    # Import above; auto-BuildWith in every sconscript (same factory or MyPkg.name()):
+    auto_enable_dependencies = [ MyPkg ],
 )
 ----
 

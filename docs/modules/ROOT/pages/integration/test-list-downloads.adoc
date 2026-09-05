@@ -23,6 +23,28 @@ The dummy project with a `sconstruct` declaring GitLab `boost_package`, plus pla
 `<storage>/downloads/` (top-level archives, `packages/<package>/<version>/*`, and an orphan) and
 matching trees under `<storage>/dependencies/`.
 
+NOTE: This fixture intentionally uses the legacy ``dependencies`` /
+``default_dependencies`` aliases so the suite still exercises them. Prefer
+``import_dependencies`` / ``auto_enable_dependencies`` in new projects.
+
+=== `sconstruct` (excerpt)
+
+[source,python]
+----
+Boost = cuppa.package_dependency(
+    'boost_package',
+    package_manager='gitlab',
+    registry='https://gitlab.example/api/v4/projects/1',
+    package='boost',
+    version='1.91',
+)
+cuppa.run(
+    default_variants=['dbg'],
+    dependencies=[Boost],
+    default_dependencies=['boost_package'],
+)
+----
+
 == Commands
 
 [source,sh]

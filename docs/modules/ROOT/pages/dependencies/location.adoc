@@ -14,8 +14,8 @@ MyHeaders = cuppa.location_dependency(
 )
 
 cuppa.run(
-    dependencies = [MyHeaders],
-    default_dependencies = ['my_headers'],
+    import_dependencies = [ MyHeaders ],
+    auto_enable_dependencies = [ MyHeaders ],
 )
 ----
 

@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``cuppa.run`` preferred kwargs ``import_dependencies`` /
+  ``auto_enable_dependencies`` (and ``import_profiles`` /
+  ``auto_enable_profiles``), with legacy ``dependencies`` /
+  ``default_dependencies`` (and profile twins) as aliases. Lists accept factories or
+  strings via ``name()``; clear ``StopError`` when a non-string entry has no usable
+  name. Docs teach import vs auto-enable; built-ins and pip plugins need only
+  ``auto_enable_dependencies``. Examples prefer ``BuildWith(...).use_libs(...)``
+  ([#276](https://github.com/ja11sop/cuppa/issues/276)).
+  Integration fixtures exercise both preferred and legacy ``cuppa.run`` kwargs.
+
 ### Changed
 
 ### Deprecated

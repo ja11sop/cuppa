@@ -20,7 +20,7 @@ Headers = cuppa.location_dependency(
 )
 cuppa.run(
     default_variants=['dbg'],
-    dependencies=[Headers],
+    import_dependencies=[Headers],
 )
 ----
 

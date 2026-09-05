@@ -4,7 +4,10 @@
 
 == What is tested
 
-A custom profile class registered through `cuppa.run(profiles=[…])` is applied with `BuildProfile` and affects the compile (define appended).
+A custom profile class registered through `cuppa.run(import_profiles=[…])` is applied with `BuildProfile` and affects the compile (define appended).
+
+NOTE: The fixture still uses the legacy ``profiles=[…]`` alias so that call style stays covered.
+Prefer ``import_profiles`` / ``auto_enable_profiles`` in new projects.
 
 == Generated files
 

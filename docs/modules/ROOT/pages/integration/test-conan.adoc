@@ -8,7 +8,7 @@ Optional Conan 2 consumer support via `cuppa.conan_deps` / `cuppa.conan_dependen
 * **generators_folder reuse** — pre-run `conan install`, Cuppa loads `SConscript_conandeps` only
 * **Full install** — Cuppa runs `conan install`, builds and runs a `fmt` hello; second `--offline` pass reuses the fingerprint cache
 * **Shared library runtime** — `fmt` built shared; `BuildTest` succeeds with injected library search paths
-* **Pip plugin** — `examples/conan_fmt_plugin` installed via `pip install --no-user --target`; Cuppa discovers `fmt` through `cuppa.dependency.plugins` with only `default_dependencies=['fmt']`
+* **Pip plugin** — `examples/conan_fmt_plugin` installed via `pip install --no-user --target`; Cuppa discovers `fmt` through `cuppa.dependency.plugins` with only `auto_enable_dependencies=['fmt']`
 * **Offline miss** — empty Conan home + Cuppa `--offline` fails clearly when the package is not cached
 * **Publish round-trip** — `BuildStaticLib` + `ConanPackagePublisher` / `PublishPackage` (`export-pkg` only) into an isolated `CONAN_HOME`, then a second project consumes via `conan_deps` under `--offline`
 * **Publish relative generated lib dir** — `BuildStaticLib(..., final_dir='package_lib')` with `source_lib_dir='package_lib'` under `--rel --parallel`; consumer links the exported static lib under `--offline`
@@ -21,6 +21,10 @@ Optional Conan 2 consumer support via `cuppa.conan_deps` / `cuppa.conan_dependen
 Tests skip when `conan` is missing or is not a working Conan 2 CLI.
 Linux CI installs Conan 2 (`pip install 'conan>=2,<3'`) on each integration matrix cell so these scenarios run rather than skip.
 Windows CI does not install Conan yet (see Out of scope).
+
+Early consumer scenarios (generators_folder, install, pip plugin) use preferred
+`import_dependencies` / `auto_enable_dependencies`. Shared-library and publish consumers keep
+the legacy `dependencies` / `default_dependencies` aliases so both styles stay covered.
 
 == Prerequisites
 
@@ -61,8 +65,8 @@ import cuppa
 Conan = cuppa.conan_deps(conanfile='conanfile.txt')
 cuppa.run(
     default_variants=['dbg'],
-    dependencies=[Conan],
-    default_dependencies=['conan'],
+    import_dependencies=[Conan],
+    auto_enable_dependencies=[Conan],
 )
 ----
 
@@ -74,21 +78,38 @@ import cuppa
 Conan = cuppa.conan_deps(generators_folder='_conan')
 cuppa.run(
     default_variants=['dbg'],
-    dependencies=[Conan],
-    default_dependencies=['conan'],
+    import_dependencies=[Conan],
+    auto_enable_dependencies=[Conan],
 )
 ----
 
 === `sconstruct` (pip plugin)
 
-No `dependencies=[…]` — the plugin registers `fmt`:
+No `import_dependencies=[…]` — the plugin registers `fmt`:
 
 [source,python]
 ----
 import cuppa
 cuppa.run(
     default_variants=['dbg'],
-    default_dependencies=['fmt'],
+    auto_enable_dependencies=['fmt'],
+)
+----
+
+=== `sconstruct` (shared library / publish consumers)
+
+NOTE: These fixtures intentionally use the legacy ``dependencies`` /
+``default_dependencies`` aliases so the suite still exercises them. Prefer
+``import_dependencies`` / ``auto_enable_dependencies`` in new projects.
+
+[source,python]
+----
+import cuppa
+Conan = cuppa.conan_deps(conanfile='conanfile.txt')
+cuppa.run(
+    default_variants=['dbg'],
+    dependencies=[Conan],
+    default_dependencies=['conan'],
 )
 ----
 

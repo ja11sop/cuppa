@@ -41,7 +41,8 @@ Third-party packages can register plugins without forking cuppa:
 | `cuppa.profile(name)` | Named profile class factory
 |===
 
-Pass custom classes into `cuppa.run(dependencies=[…], profiles=[…])`.
+Pass custom classes into `cuppa.run(import_dependencies=[…], import_profiles=[…])`
+(legacy: `dependencies` / `profiles`).
 
 When writing custom `env.Command` / `Action` helpers, avoid multi-part shell strings such as `cd … && …`.
 Use a Python action with subprocess `cwd=` (or `cuppa.utility.command.run`) so parallel builds stay correct.
@@ -50,7 +51,8 @@ See xref:methods/custom-commands.adoc[Custom commands and working directories].
 == Pip dependency plugins
 
 Third-party packages can ship a named dependency that Cuppa discovers automatically via `cuppa.dependency.plugins`.
-After `pip install`, consumers list the dependency **by name** in `default_dependencies` — no `cuppa.run(dependencies=[…])` entry is required.
+After `pip install`, consumers list the dependency **by name** in `auto_enable_dependencies` — no
+`cuppa.run(import_dependencies=[…])` entry is required (the plugin already registered the factory).
 
 Two complete examples live under `examples/`. Both register the dependency name `fmt`; install **one** of them in a given environment (they are alternative supply chains for the same name).
 
@@ -112,7 +114,7 @@ import cuppa
 
 cuppa.run(
     default_variants=['dbg'],
-    default_dependencies=['fmt'],
+    auto_enable_dependencies=['fmt'],
 )
 ----
 

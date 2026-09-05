@@ -19,6 +19,9 @@ Override the default family with `CUPPA_TEST_TOOLCHAIN=gcc|clang|vc` (used by CI
 For Clang, pin the standard library with `CUPPA_TEST_ARGS=--clang-stdlib=libstdc{plus}{plus}` or
 `CUPPA_TEST_ARGS=--clang-stdlib=libc{plus}{plus}` (explicit flags in a test override the env extras).
 
+Generated `cuppa.run` fixtures use both the preferred kwargs (`import_dependencies` /
+`auto_enable_dependencies`) and the legacy aliases (`dependencies` / `default_dependencies`)
+so both call styles stay covered. Teach-path Antora examples prefer the new names.
 Linux CI matrices three cells: `gcc`, `clang` + `libstdc{plus}{plus}`, and
 `clang` + `libc{plus}{plus}`.
 Each Linux integration job also installs Conan 2 so xref:integration/test-conan.adoc[`test_conan`] runs (not skipped).

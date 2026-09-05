@@ -6,8 +6,10 @@
 from types import SimpleNamespace
 
 import pytest
+import SCons.Errors
 
 from cuppa.construct import Construct
+from cuppa.core.run_list_names import coalesce_aliased_run_list
 from tests.helpers.fakes import FakeEnv
 
 
@@ -21,6 +23,117 @@ def test_normalise_with_defaults_list_merge():
     assert warning is None
     assert defaults == ["dbg", "rel"]
     assert values == ["custom"]
+
+
+def test_coalesce_aliased_run_list_prefers_new_name():
+    assert coalesce_aliased_run_list(
+            ["a"], None, "import_dependencies", "dependencies"
+    ) == ["a"]
+
+
+def test_coalesce_aliased_run_list_legacy_when_preferred_omitted():
+    assert coalesce_aliased_run_list(
+            None, ["b"], "import_dependencies", "dependencies"
+    ) == ["b"]
+
+
+def test_coalesce_aliased_run_list_both_equal_ok():
+    assert coalesce_aliased_run_list(
+            ["x"], ["x"], "import_dependencies", "dependencies"
+    ) == ["x"]
+
+
+def test_coalesce_aliased_run_list_both_unequal_fails():
+    with pytest.raises(SCons.Errors.StopError) as caught:
+        coalesce_aliased_run_list(
+                ["a"], ["b"], "import_dependencies", "dependencies"
+        )
+    assert "import_dependencies" in str( caught.value )
+    assert "dependencies" in str( caught.value )
+
+
+def test_coalesce_aliased_run_list_neither_is_empty():
+    assert coalesce_aliased_run_list(
+            None, None, "import_dependencies", "dependencies"
+    ) == []
+
+
+def test_normalise_with_defaults_object_in_defaults_only():
+    class Named:
+        @classmethod
+        def name( cls ):
+            return "widget"
+
+    values, defaults, warning = Construct._normalise_with_defaults(
+        [], [Named], "dependencies"
+    )
+    assert warning is None
+    assert defaults == ["widget"]
+    assert values == [Named]
+
+
+def test_normalise_with_defaults_object_in_both_lists_dedupes_registration():
+    class Named:
+        @classmethod
+        def name( cls ):
+            return "widget"
+
+    values, defaults, warning = Construct._normalise_with_defaults(
+        [Named], [Named], "dependencies"
+    )
+    assert warning is None
+    assert defaults == ["widget"]
+    assert values == [Named]
+
+
+def test_normalise_with_defaults_mix_string_and_object():
+    class Named:
+        @classmethod
+        def name( cls ):
+            return "widget"
+
+    values, defaults, warning = Construct._normalise_with_defaults(
+        [Named], [Named, "boost"], "dependencies"
+    )
+    assert defaults == ["widget", "boost"]
+    assert values == [Named]
+
+
+def test_normalise_with_defaults_rejects_nameless_object():
+    class Nameless:
+        pass
+
+    with pytest.raises(SCons.Errors.StopError) as caught:
+        Construct._normalise_with_defaults( [], [Nameless], "dependencies" )
+    assert "no name()" in str( caught.value )
+
+
+def test_normalise_with_defaults_rejects_empty_name():
+    class Bad:
+        @classmethod
+        def name( cls ):
+            return ""
+
+    with pytest.raises(SCons.Errors.StopError):
+        Construct._normalise_with_defaults( [], [Bad], "dependencies" )
+
+
+def test_normalise_with_defaults_package_dependency_factory():
+    from cuppa.build_with_package import package_dependency
+
+    Widget = package_dependency(
+            "widget",
+            package_manager="gitlab",
+            registry="https://gitlab.example/api/v4/projects/1",
+            package="widget",
+            version="1.0",
+    )
+    values, defaults, warning = Construct._normalise_with_defaults(
+        [Widget], [Widget], "dependencies"
+    )
+    assert warning is None
+    assert defaults == ["widget"]
+    assert values == [Widget]
 
 
 def test_normalise_with_defaults_deprecated_dict():

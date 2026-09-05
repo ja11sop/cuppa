@@ -44,6 +44,45 @@ HTTP archive folders). The verbose scenario also plants `<storage>/downloads/` (
 files and `packages/<package>/<version>/*.{tar.gz,zip}`) and a `sconstruct` that declares a GitLab
 `boost_package` so resolve can supply a registry URL.
 
+=== `sconstruct` (missing location — preferred kwargs)
+
+Used by the first listing scenario (absent tree → `missing`):
+
+[source,python]
+----
+Widget = cuppa.location_dependency(
+    'widget',
+    location='git+https://example.com/org/widget.git@master',
+)
+cuppa.run(
+    default_variants=['dbg'],
+    import_dependencies=[Widget],
+    auto_enable_dependencies=['widget'],
+)
+----
+
+=== `sconstruct` (GitLab package / other scenarios)
+
+NOTE: These fixtures intentionally use the legacy ``dependencies`` /
+``default_dependencies`` aliases so the suite still exercises them. Prefer
+``import_dependencies`` / ``auto_enable_dependencies`` in new projects.
+
+[source,python]
+----
+Boost = cuppa.package_dependency(
+    'boost_package',
+    package_manager='gitlab',
+    registry='https://gitlab.example/api/v4/projects/1',
+    package='boost',
+    version='1.91',
+)
+cuppa.run(
+    default_variants=['dbg'],
+    dependencies=[Boost],
+    default_dependencies=['boost_package'],
+)
+----
+
 == Commands
 
 [source,sh]

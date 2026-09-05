@@ -75,17 +75,19 @@ cuppa -D --dbg --test --show-test-output
 
 A self-contained smoke project lives in [`examples/minimal/`](examples/minimal/).
 
-### Default dependencies
+### Auto-enable a built-in dependency
+
+Built-ins such as source Boost are already registered. Pass them to
+`auto_enable_dependencies` (not `import_dependencies`). Unpinned Boost resolves to the
+latest release on the download path; optionally pin a local tree with `boost-location` /
+`boost-home` in `default_options`.
 
 ```python
 import cuppa
 
 cuppa.run(
-    default_options = {
-        'boost-location': '/path/to/boost',
-    },
-    default_dependencies = [
-        'boost',
+    auto_enable_dependencies = [
+        'boost',  # unpinned → latest on the download path
     ],
 )
 ```
@@ -93,7 +95,10 @@ cuppa.run(
 ```python
 Import('env')
 
-env.AppendUnique(STATICLIBS=env.BoostStaticLibs(['system', 'filesystem']))
+env.BuildWith('boost').use_libs([
+    'system',
+    'filesystem',
+])
 env.BuildTest('my_test', 'my_test.cpp')
 ```
 
