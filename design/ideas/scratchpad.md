@@ -2,7 +2,7 @@
 
 - **Status:** living
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md); [`design/README.md`](../README.md) (graduate notes into `plans/` then ROADMAP)
-- **Updated:** 2026-09-04
+- **Updated:** 2026-09-05
 
 Scratchpad for suggestions that may become new plans or updates to existing ones.
 The goal is to turn these notes into actionable, well-understood plan elements.
@@ -26,7 +26,7 @@ Do not put private project names here; use anonymised labels and
 - Split methods into own pages → [`plans/methods-pages-split.md`](../plans/methods-pages-split.md)
 - Better Antora UI bundle → [`plans/antora-ui-bundle.md`](../plans/antora-ui-bundle.md)
 - Shiki syntax highlighting → [`plans/shiki-syntax-highlighting.md`](../plans/shiki-syntax-highlighting.md)
-- Boost name clashes / BuildWith type resolve → [`plans/dependency-resolve.md`](../archive/dependency-resolve.md) (Quince #250; boost-updates cross-link)
+- Boost name clashes / BuildWith type resolve → [`archive/dependency-resolve.md`](../archive/dependency-resolve.md) (Quince #250; boost-updates cross-link)
 
 ## Output processing (follow-on)
 
@@ -44,6 +44,20 @@ Assess what is involved and write a plan. Should integrate with the existing GCC
 reporting path. Deferred while Boost latest persistence and `--list-toolchains` are in flight.
 
 ## New plan(s): Dependencies
+
+### Support dependent gitlab packages for gitlab packages
+
+Currently gitlab packages are largely standalone so if package A depends on package B then
+you need to explicitly add A and B to your sconstruct. It would be nice if we could allow
+packages themselves to depend on other packages so in the example case the user just needs
+to know about A and it already carries the information needed to also get package B.
+
+### Clarify `dependencies` vs `default_dependencies` naming
+
+`dependencies` means register/import factories for the session; `default_dependencies` means
+auto-`BuildWith` that subset in every sconscript. Semantics and possible clearer names are
+captured under [`plans/run-default-dependency-objects.md`](../plans/run-default-dependency-objects.md)
+(§ Semantics). Remove this note when that plan’s docs/naming slices land.
 
 ### Built-in dependencies in their own repositories
 

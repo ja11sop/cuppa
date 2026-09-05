@@ -22,7 +22,7 @@ Minor cycle after **1.10.0**. Prefer work that changes opt-in toolchain or packa
 
 | Area | Intent in 1.11.0 |
 |------|------------------|
-| `cuppa.run` default_dependencies objects | [`run-default-dependency-objects.md`](design/plans/run-default-dependency-objects.md) — pass factories into both lists without `.name()` |
+| `cuppa.run` default_dependencies objects | [`run-default-dependency-objects.md`](design/plans/run-default-dependency-objects.md) — objects in both lists; teach register vs auto-apply; optional clearer names later |
 | GitLab CMake staging | [#209](https://github.com/ja11sop/cuppa/issues/209) |
 | Artefact removal design | [#135](https://github.com/ja11sop/cuppa/issues/135) |
 | Console bundle | `--terse-output`, log hygiene, `cuppa --info` |
@@ -32,10 +32,9 @@ Parallel coverage collection (`GCOV_PREFIX`) remains a later coverage follow-on 
 
 ---
 
-## 1.10.0 cycle focus (ready to cut)
+## 1.10.0 cycle focus (shipped 2026-09-05)
 
-Minor cycle after **1.9.1**. Open section is still `## [1.10.0] - unreleased` until Actions
-**prepare** / `finish_release`. Shipped on master:
+Minor cycle after **1.9.1**. **`1.10.0`** is on PyPI / GitHub Releases (`v1.10.0`).
 
 | Area | Status in 1.10.0 |
 |------|------------------|

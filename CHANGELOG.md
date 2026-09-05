@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0] - unreleased
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
 ## [1.10.0] - 2026-09-05
 
 ### Added
@@ -1159,6 +1173,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Baseline release on `master` before the modules work landed.
 Detailed notes for 1.1.x and earlier were not maintained in this file; start recording notable changes here from 1.2.0 onward.
 
+[1.11.0]: https://github.com/ja11sop/cuppa/compare/v1.10.0...HEAD
 [1.10.0]: https://github.com/ja11sop/cuppa/compare/v1.9.1...v1.10.0
 [1.9.1]: https://github.com/ja11sop/cuppa/compare/v1.9.0...v1.9.1
 [1.9.0]: https://github.com/ja11sop/cuppa/compare/v1.8.2...v1.9.0
