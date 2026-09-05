@@ -32,10 +32,9 @@ Parallel coverage collection (`GCOV_PREFIX`) remains a later coverage follow-on 
 
 ---
 
-## 1.10.0 cycle focus (ready to cut)
+## 1.10.0 cycle focus (shipped 2026-09-05)
 
-Minor cycle after **1.9.1**. Open section is still `## [1.10.0] - unreleased` until Actions
-**prepare** / `finish_release`. Shipped on master:
+Minor cycle after **1.9.1**. **`1.10.0`** is on PyPI / GitHub Releases (`v1.10.0`).
 
 | Area | Status in 1.10.0 |
 |------|------------------|
