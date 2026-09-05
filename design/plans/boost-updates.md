@@ -1,7 +1,7 @@
 # Plan: Boost source and package updates
 
 - **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Boost source and packages; [#206](https://github.com/ja11sop/cuppa/issues/206) (package-only builds must not pull source Boost); [#248](https://github.com/ja11sop/cuppa/issues/248) (test runners must not pull source Boost); [#250](https://github.com/ja11sop/cuppa/issues/250) / [`dependency-resolve.md`](dependency-resolve.md) (Quince + BuildWith resolve); registry package `latest` is [`gitlab-package-latest.md`](gitlab-package-latest.md) (not boost.org scrape); storage listing/removal stays in [`removal-options.md`](removal-options.md); offline source-Boost “latest” persistence is [`boost-latest-persistence.md`](../archive/boost-latest-persistence.md) (separate)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Boost source and packages; [#206](https://github.com/ja11sop/cuppa/issues/206) (package-only builds must not pull source Boost); [#248](https://github.com/ja11sop/cuppa/issues/248) (test runners must not pull source Boost); [#250](https://github.com/ja11sop/cuppa/issues/250) / [`dependency-resolve.md`](../archive/dependency-resolve.md) (Quince + BuildWith resolve); registry package `latest` is [`gitlab-package-latest.md`](../archive/gitlab-package-latest.md) (not boost.org scrape); storage listing/removal stays in [`removal-options.md`](removal-options.md); offline source-Boost “latest” persistence is [`boost-latest-persistence.md`](../archive/boost-latest-persistence.md) (separate)
 - **Updated:** 2026-09-04
 
 Source `boost` (b2 / extract homes) and GitLab `boost_package` share Boost.Test patch semantics
@@ -37,7 +37,7 @@ re-extracted the full `archives.boost.io` source tree (~224 MB) even though link
 and `env.BoostStaticLibs(…)` (see [§Quince and the selector gap](#boost-quince-selector-gap)).
 Any project using `boost_package` for its own tests **and** Quince for DB access pays **both**
 supply chains until untyped `BuildWith('boost')` resolves by precedence — see
-[`dependency-resolve.md`](dependency-resolve.md).
+[`dependency-resolve.md`](../archive/dependency-resolve.md).
 
 That is why “name clash” is not only a **list/remove** UX issue — it is a **resolve** bug when
 two registered names (`boost` built-in vs `boost_package`) both mean “Boost” but only one was
@@ -48,7 +48,7 @@ intended.
 ## Quince and the selector gap
 
 **Concrete example** for cross-type BuildWith resolve
-([`dependency-resolve.md`](dependency-resolve.md) — canonical plan).
+([`dependency-resolve.md`](../archive/dependency-resolve.md) — canonical plan).
 
 Quince is a built-in location dependency (`cuppa/dependencies/build_with_quince.py`). Today it has
 **no** awareness of which Boost supply chain the project chose:
@@ -72,7 +72,7 @@ but also `BuildWith('quince')` (or quince in `default_dependencies`):
 
 - Untyped `BuildWith('boost')` resolves by precedence among project-available candidates
   (GitLab / legacy `boost_package` before archive). See
-  [`dependency-resolve.md`](dependency-resolve.md) settled decisions.
+  [`dependency-resolve.md`](../archive/dependency-resolve.md) settled decisions.
 - Quince links only via `BuildWith('boost').use_libs([...])` — same API as sconscripts.
 - Test runners already prefer package via `session_boost()` ([#249](https://github.com/ja11sop/cuppa/pull/249));
   that helper should share the same resolver.
@@ -225,7 +225,7 @@ Still in this plan if we touch source Boost again:
 |----|--------|-------|
 | `boost-use-libs-no-source` | `boost_package.use_libs` must not invoke source `boost` factory | **Shipped** — [#206](https://github.com/ja11sop/cuppa/issues/206) / [#207](https://github.com/ja11sop/cuppa/pull/207): pass package version to `remove_system_static_lib` |
 | `boost-test-runner-no-source` | Test runners must not instantiate source `boost` when `boost_package` is declared | **Shipped** — [#249](https://github.com/ja11sop/cuppa/pull/249) / [#248](https://github.com/ja11sop/cuppa/issues/248): `session_boost()`; serialise source location cache |
-| `boost-quince-package` | Quince uses session Boost via shared BuildWith resolve + `use_libs` | **Done** in [`dependency-resolve.md`](dependency-resolve.md) / [#250](https://github.com/ja11sop/cuppa/issues/250) |
+| `boost-quince-package` | Quince uses session Boost via shared BuildWith resolve + `use_libs` | **Done** in [`dependency-resolve.md`](../archive/dependency-resolve.md) / [#250](https://github.com/ja11sop/cuppa/issues/250) |
 | `boost-pkg-version` | Canonical `{base}-patched` / `{base}-clean`; strip suffix for numeric version; publisher + resolve + `package_id` | Core identity |
 | `boost-pkg-compat` | Patched resolve falls back to bare `{base}`; record actual version; no clean→bare fallback | Needed before flipping publishers |
 | `boost-pkg-use-libs` | Pass `patched_test=` from package `use_libs` | Small, can ship with identity or just before |
@@ -237,7 +237,7 @@ Still in this plan if we touch source Boost again:
 ## Related observation: type selectors for name clashes
 
 BuildWith-time type selectors and untyped precedence are specified in
-[`dependency-resolve.md`](dependency-resolve.md). Storage list/remove/purge already uses the same
+[`dependency-resolve.md`](../archive/dependency-resolve.md). Storage list/remove/purge already uses the same
 selector spelling ([`removal-options.md`](removal-options.md) §4.15).
 
 Boost remains the sharpest case (`boost` archive vs GitLab `boost_package`). Quince is the

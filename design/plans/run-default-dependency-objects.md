@@ -1,7 +1,7 @@
 # Plan: `cuppa.run` accepts dependency objects in `default_dependencies`
 
 - **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md); [`gitlab-package-latest.md`](gitlab-package-latest.md) (motivating consume ergonomics); [`dependency-resolve.md`](dependency-resolve.md) (BuildWith tokens remain strings); `cuppa/construct.py` `_normalise_with_defaults`
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md); [`gitlab-package-latest.md`](../archive/gitlab-package-latest.md) (motivating consume ergonomics); [`dependency-resolve.md`](../archive/dependency-resolve.md) (BuildWith tokens remain strings); `cuppa/construct.py` `_normalise_with_defaults`
 - **Updated:** 2026-09-04
 - **Impact:** minor — accept dependency factories/classes where names are required today; strings stay valid
 
@@ -42,7 +42,7 @@ strings into `default_profiles`.
 
 ## Non-goals
 
-- Changing BuildWith resolve / type selectors ([`dependency-resolve.md`](dependency-resolve.md)).
+- Changing BuildWith resolve / type selectors ([`dependency-resolve.md`](../archive/dependency-resolve.md)).
 - Requiring objects everywhere (strings remain first-class).
 - Auto-adding every `dependencies=` entry to `default_dependencies` (explicit default list stays).
 

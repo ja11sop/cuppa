@@ -21,9 +21,9 @@ maintainer workflow evolved.
 
 | Document | Status | Subject |
 |----------|--------|---------|
-| [`plans/gitlab-package-latest.md`](plans/gitlab-package-latest.md) | in progress | GitLab `version="latest"` = registry latest; Boost package retarget; consume docs split |
 | [`plans/run-default-dependency-objects.md`](plans/run-default-dependency-objects.md) | proposal | `cuppa.run` `default_dependencies` accepts dependency objects (back-compat with strings) |
-| [`plans/dependency-resolve.md`](plans/dependency-resolve.md) | in progress | BuildWith untyped resolve + type selectors; `use_libs`; Quince (#250) shipped |
+| [`archive/gitlab-package-latest.md`](archive/gitlab-package-latest.md) | shipped | GitLab `version="latest"` = registry latest; Boost package retarget; consume docs — [#271](https://github.com/ja11sop/cuppa/issues/271) / [#272](https://github.com/ja11sop/cuppa/pull/272) |
+| [`archive/dependency-resolve.md`](archive/dependency-resolve.md) | shipped | BuildWith untyped resolve + type selectors; Quince `use_libs` — [#250](https://github.com/ja11sop/cuppa/issues/250) / [#270](https://github.com/ja11sop/cuppa/pull/270) |
 | [`plans/boost-updates.md`](plans/boost-updates.md) | proposal | Boost source vs GitLab `boost_package` identity; #206 `use_libs`; #248/#249 runners; Quince gap → dependency-resolve |
 | [`plans/shiki-syntax-highlighting.md`](plans/shiki-syntax-highlighting.md) | proposal | Build-time Shiki for Antora listings; ANSI preview only — ROADMAP `doc-shiki` |
 | [`plans/coverage-performance.md`](plans/coverage-performance.md) | proposal | Where `--cov --test` time actually goes, what the A/B measurement ruled out, and the remaining suspects |
