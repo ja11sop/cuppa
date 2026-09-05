@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.10.0] - unreleased
+## [1.10.0] - 2026-09-05
 
 ### Added
 
@@ -36,10 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   This does **not** claim a fix for consumer-tree spurious re-links; that still
   needs ``--debug=explain`` on the affected project.
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 
 - ``BuildWith`` resolves untyped short names by general precedence (project-available
@@ -57,8 +53,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   forced every test program to re-link on a later ``--rel --test`` even when
   objects and archives were unchanged
   ([#267](https://github.com/ja11sop/cuppa/issues/267)).
-
-### Security
 
 ## [1.9.1] - 2026-09-04
 
@@ -1165,7 +1159,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Baseline release on `master` before the modules work landed.
 Detailed notes for 1.1.x and earlier were not maintained in this file; start recording notable changes here from 1.2.0 onward.
 
-[1.10.0]: https://github.com/ja11sop/cuppa/compare/v1.9.1...HEAD
+[1.10.0]: https://github.com/ja11sop/cuppa/compare/v1.9.1...v1.10.0
 [1.9.1]: https://github.com/ja11sop/cuppa/compare/v1.9.0...v1.9.1
 [1.9.0]: https://github.com/ja11sop/cuppa/compare/v1.8.2...v1.9.0
 [1.8.2]: https://github.com/ja11sop/cuppa/compare/v1.8.1...v1.8.2
