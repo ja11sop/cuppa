@@ -8,6 +8,7 @@ on:
     paths:
       - 'docs/**'
       - 'scripts/docs_*.py'
+      - 'scripts/check_docs_urls.py'
       - 'requirements.txt'
       - '.github/workflows/docs.yml'
   release:
@@ -64,11 +65,17 @@ jobs:
         working-directory: docs
         run: npm ci
 
+      - name: Check docs URL integrity (sources)
+        run: python -m scripts.check_docs_urls
+
       - name: Generate Antora site and agent Markdown
         working-directory: docs
         run: npm run build:site:all
         env:
           SITE_SEARCH_PROVIDER: lunr
+
+      - name: Check docs URL integrity (built site)
+        run: python -m scripts.check_docs_urls --built-site _docs_build/site
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

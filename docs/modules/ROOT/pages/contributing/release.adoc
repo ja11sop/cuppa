@@ -103,6 +103,17 @@ sequenceDiagram
 Tagging (or publishing against a tag that points at) a commit that is still `.dev` fails the
 release gate — the same mistake as tagging the wrong merge before `finish_release` landed.
 
+Before **prepare** / **publish**, and in CI, also run:
+
+[source,sh]
+----
+python -m scripts.check_docs_urls
+----
+
+After a local multi-version docs build, add `--built-site _docs_build/site` so generated navbar
+hrefs cannot regress to versionless `/cuppa/….html` (404 once `latest_version_segment` is on).
+`scripts.check_release` includes the source-side check automatically.
+
 [mermaid]
 ....
 flowchart TD

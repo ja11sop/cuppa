@@ -90,6 +90,8 @@ latest routing moves `latest` to that line.
 | `doc-site-ci` | Adjust `docs.yml` and/or `release.yml` so stable site updates on publish | `workflow_call` from **publish** after the tag exists (`GITHUB_TOKEN` `release: published` does not start other workflows); also `workflow_dispatch` | **Done** |
 | `doc-site-local` | Contributor notes: preview current branch vs build release set | Contributing / AGENTS | **Done** |
 | `doc-site-verify` | After first release with the model: homepage / `/latest/` shows released text | Manual check after merge/deploy | Open |
+| `doc-site-navbar-latest` | Top navbar + README absolute links use `/cuppa/latest/…` (not versionless `/cuppa/…`) | Broken Contributing/menu after `latest_version_segment` | **Done** (2026-09-05) |
+| `doc-site-url-gate` | `scripts.check_docs_urls` in unit tests, `check_release`, and `docs.yml` (sources + built site) | Catch versionless `/cuppa/…` before publish | **Done** (2026-09-05) |
 
 ## Acceptance criteria
 

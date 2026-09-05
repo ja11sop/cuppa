@@ -16,6 +16,7 @@ Do not put private project names here; use anonymised labels and
 
 ### Graduated (removed from this file)
 
+- Dependent GitLab packages → [`plans/gitlab-package-transitive.md`](../plans/gitlab-package-transitive.md)
 - Boost `latest` persistence → [`archive/boost-latest-persistence.md`](../archive/boost-latest-persistence.md)
 - `--list-toolchains` → [`archive/list-toolchains.md`](../archive/list-toolchains.md)
 - Native coloured toolchain output → [`plans/native-toolchain-output.md`](../plans/native-toolchain-output.md)
@@ -44,13 +45,6 @@ Assess what is involved and write a plan. Should integrate with the existing GCC
 reporting path. Deferred while Boost latest persistence and `--list-toolchains` are in flight.
 
 ## New plan(s): Dependencies
-
-### Support dependent gitlab packages for gitlab packages
-
-Currently gitlab packages are largely standalone so if package A depends on package B then
-you need to explicitly add A and B to your sconstruct. It would be nice if we could allow
-packages themselves to depend on other packages so in the example case the user just needs
-to know about A and it already carries the information needed to also get package B.
 
 ### Built-in dependencies in their own repositories
 
