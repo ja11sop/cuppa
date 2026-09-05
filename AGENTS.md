@@ -337,6 +337,7 @@ flake8 cuppa
 pylint -E cuppa
 pytest -m unit
 pytest -m integration
+python -m scripts.check_docs_urls   # versionless /cuppa/… links (also in check_release)
 ```
 
 If you cannot activate the venv in the current shell, call the venv binaries by path
@@ -509,7 +510,7 @@ help only — that includes running outside a project tree, or from a nested dir
 `-D`. Inspect a project's options with `cuppa -D -h` (from anywhere under the tree). `scons -D -h`
 lists the same registered flags once the project has loaded; `scons -H` is SCons' own option list
 for the installed version. Task pages live under `docs/modules/ROOT/pages/cli/` /
-[CLI reference](https://ja11sop.github.io/cuppa/cuppa/cli-reference.html).
+[CLI reference](https://ja11sop.github.io/cuppa/cuppa/latest/cli-reference.html).
 
 ## Defaults (do not invent older paths)
 

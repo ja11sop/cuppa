@@ -422,7 +422,8 @@ This is a process rule, not a product plan. Day-to-day wording lives in `AGENTS.
 | [`CHANGELOG.md`](../../CHANGELOG.md) | Release-facing history |
 | [`release.txt`](../../release.txt) | One-page release checklist |
 | [`.github/workflows/release.yml`](../../.github/workflows/release.yml) | prepare / publish / tag-push |
-| [`scripts/check_release.py`](../../scripts/check_release.py) | Gate: no `.dev`, dated notes, tag match |
+| [`scripts/check_release.py`](../../scripts/check_release.py) | Gate: no `.dev`, dated notes, tag match; also docs URL integrity |
+| [`scripts/check_docs_urls.py`](../../scripts/check_docs_urls.py) | Refuse versionless `/cuppa/….html` in navbar / README / built site |
 | [`scripts/finish_release.py`](../../scripts/finish_release.py) / [`start_release.py`](../../scripts/start_release.py) | Close / open cycles |
 | [`docs/.../contributing.adoc`](../../docs/modules/ROOT/pages/contributing.adoc) | Human Contributing hub (diagrams on children) |
 | [`design/README.md`](../README.md) | Index of plans / process / archive |

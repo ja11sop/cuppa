@@ -10,7 +10,7 @@ cuppa -D
 
 and cuppa builds the relevant `sconscript` files (the `-D` SCons flag finds the `sconstruct` and runs scripts relative to your starting directory).
 
-Full reference documentation: **[https://ja11sop.github.io/cuppa/](https://ja11sop.github.io/cuppa/)** (Antora site in [`docs/`](docs/)). Contributing to cuppa itself (versioning, releases): [Contributing](https://ja11sop.github.io/cuppa/cuppa/contributing.html). Agent-oriented guidance: [`AGENTS.md`](AGENTS.md). Feature roadmap: [`ROADMAP.md`](ROADMAP.md). Release notes: [`CHANGELOG.md`](CHANGELOG.md). Design notes and plans: [`design/`](design/).
+Full reference documentation: **[https://ja11sop.github.io/cuppa/](https://ja11sop.github.io/cuppa/)** (Antora site in [`docs/`](docs/)). Contributing to cuppa itself (versioning, releases): [Contributing](https://ja11sop.github.io/cuppa/cuppa/latest/contributing.html). Agent-oriented guidance: [`AGENTS.md`](AGENTS.md). Feature roadmap: [`ROADMAP.md`](ROADMAP.md). Release notes: [`CHANGELOG.md`](CHANGELOG.md). Design notes and plans: [`design/`](design/).
 
 ## Features
 
@@ -31,7 +31,7 @@ pip install cuppa
 
 The `cuppa` console script wraps `scons`: it appends `--cuppa-mode`, intercepts stdout/stderr to mask environment values whose names contain `TOKEN`, and may adjust CPU affinity when `--parallel` is used. Prefer `cuppa` over bare `scons` in CI.
 
-Other install options (local `pip install cuppa -t .`, `site_scons`, bootstrap from `sconstruct`) are covered in the [install guide](https://ja11sop.github.io/cuppa/cuppa/install.html).
+Other install options (local `pip install cuppa -t .`, `site_scons`, bootstrap from `sconstruct`) are covered in the [install guide](https://ja11sop.github.io/cuppa/cuppa/latest/install.html).
 
 ## Quickstart
 
@@ -126,7 +126,7 @@ cuppa -D --cov --test
 
 Benchmarks and generic runners: `--benchmark`, `--run` (and `--force-*` variants).
 
-See the [CLI reference](https://ja11sop.github.io/cuppa/cuppa/cli-reference.html) for the full option list (storage, location matching, Boost, GitLab packages, Code::Blocks export, and more).
+See the [CLI reference](https://ja11sop.github.io/cuppa/cuppa/latest/cli-reference.html) for the full option list (storage, location matching, Boost, GitLab packages, Code::Blocks export, and more).
 
 ## Build layout
 
@@ -158,7 +158,7 @@ If the script file is named `sconscript`, that filename segment is omitted.
 | **Variants / actions** | How to compile (`dbg`/`rel`/`cov`) vs extra work (`test`/`benchmark`/`run`) |
 | **Toolchains** | Concrete compilers discovered at configure time (`gcc`, `gcc15`, `clang`, `clang21`, …) |
 
-Toolchains are discovered from the machine; supported aliases currently extend through **gcc16** (including `gcc162`) and **clang22**, plus MSVC `vc` / `vc*` on Windows (coverage is GCC/Clang only). Details: [toolchains](https://ja11sop.github.io/cuppa/cuppa/toolchains.html).
+Toolchains are discovered from the machine; supported aliases currently extend through **gcc16** (including `gcc162`) and **clang22**, plus MSVC `vc` / `vc*` on Windows (coverage is GCC/Clang only). Details: [toolchains](https://ja11sop.github.io/cuppa/cuppa/latest/toolchains.html).
 
 ## Configuration
 

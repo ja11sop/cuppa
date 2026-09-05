@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``auto_enable_dependencies``. Examples prefer ``BuildWith(...).use_libs(...)``
   ([#276](https://github.com/ja11sop/cuppa/issues/276)).
   Integration fixtures exercise both preferred and legacy ``cuppa.run`` kwargs.
+- ``scripts.check_docs_urls`` — refuse versionless ``/cuppa/….html`` links in the top navbar
+  partial, README/AGENTS absolute URLs, and (with ``--built-site``) generated Antora HTML.
+  Included from ``scripts.check_release`` and the documentation workflow.
 
 ### Changed
 
@@ -26,6 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+
+- Top navbar and README absolute docs links used versionless ``/cuppa/….html`` paths after
+  ``latest_version_segment``; they now target ``/cuppa/latest/…``. ``scripts.check_docs_urls``
+  guards sources and the built site (also wired into ``check_release`` and the documentation
+  workflow).
 
 ### Security
 

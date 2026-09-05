@@ -9,10 +9,12 @@ import argparse
 import sys
 
 from scripts import changelog
+from scripts.check_docs_urls import check as check_docs_urls
 
 
 def check( tag, version, text ):
     found = list( changelog.problems( version, text ) )
+    found.extend( check_docs_urls() )
 
     if changelog.is_development( version ):
         found.append( "cuppa/VERSION [{}] is a development version. Run: python -m "
