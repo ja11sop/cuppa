@@ -7,10 +7,13 @@
 #   Coerce cuppa.run() list entries to registry names
 #-------------------------------------------------------------------------------
 
-"""Turn ``dependencies`` / ``default_dependencies`` (and profile) entries into names.
+"""Turn ``cuppa.run`` dependency/profile list entries into registry names.
 
-Strings pass through. Dependency / profile factories must expose a callable ``name()``
-(classmethod or instance method) that returns a non-empty string registry key.
+Preferred kwargs: ``import_dependencies`` / ``auto_enable_dependencies`` (and the
+profile twins). Legacy ``dependencies`` / ``default_dependencies`` remain aliases.
+
+Strings pass through. Factories must expose callable ``name()`` returning a
+non-empty string registry key.
 """
 
 import SCons.Errors
@@ -18,7 +21,28 @@ import SCons.Errors
 from cuppa.utility.types import is_string
 
 
-def registry_name_from_run_entry( value, list_label='dependencies' ):
+def coalesce_aliased_run_list( preferred, legacy, preferred_name, legacy_name ):
+    """Pick one list from preferred and legacy kwargs (``None`` means omitted).
+
+    Passing both with unequal values is a StopError. Empty lists are valid.
+    """
+    preferred_set = preferred is not None
+    legacy_set = legacy is not None
+    if preferred_set and legacy_set:
+        if preferred != legacy:
+            raise SCons.Errors.StopError(
+                    "cuppa.run: pass only one of {}= or {}= (legacy alias); "
+                    "got unequal lists".format( preferred_name, legacy_name )
+            )
+        return preferred
+    if preferred_set:
+        return preferred
+    if legacy_set:
+        return legacy
+    return []
+
+
+def registry_name_from_run_entry( value, list_label='import_dependencies' ):
     """Return the registry name for one ``cuppa.run`` list entry.
 
     Raises ``SCons.Errors.StopError`` when a non-string value has no usable ``name()``.
@@ -56,11 +80,11 @@ def registry_name_from_run_entry( value, list_label='dependencies' ):
 
 
 def normalise_with_defaults( values, default_values, list_label ):
-    """Normalise registration + default-name lists for ``cuppa.run``.
+    """Normalise import/registration + auto-enable name lists for ``cuppa.run``.
 
     * ``default_values`` may mix strings and factories; factories become names for
-      auto-apply and are also merged into the registration list when not already present.
-    * ``values`` (registration list) may be a deprecated dict of name→factory.
+      auto-enable and are also merged into the registration list when not already present.
+    * ``values`` (import list) may be a deprecated dict of name→factory.
 
     Returns ``(registration_values, default_names, warning_or_None)``.
     """

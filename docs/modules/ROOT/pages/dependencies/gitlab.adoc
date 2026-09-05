@@ -156,10 +156,10 @@ BoostPackage = cuppa.packages.boost_package.define(
 )
 
 cuppa.run(
-    dependencies = [
+    import_dependencies = [
         BoostPackage,
     ],
-    default_dependencies = [
+    auto_enable_dependencies = [
         BoostPackage,
     ],
     default_runner = 'boost',

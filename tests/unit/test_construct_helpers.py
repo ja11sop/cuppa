@@ -9,6 +9,7 @@ import pytest
 import SCons.Errors
 
 from cuppa.construct import Construct
+from cuppa.core.run_list_names import coalesce_aliased_run_list
 from tests.helpers.fakes import FakeEnv
 
 
@@ -22,6 +23,39 @@ def test_normalise_with_defaults_list_merge():
     assert warning is None
     assert defaults == ["dbg", "rel"]
     assert values == ["custom"]
+
+
+def test_coalesce_aliased_run_list_prefers_new_name():
+    assert coalesce_aliased_run_list(
+            ["a"], None, "import_dependencies", "dependencies"
+    ) == ["a"]
+
+
+def test_coalesce_aliased_run_list_legacy_when_preferred_omitted():
+    assert coalesce_aliased_run_list(
+            None, ["b"], "import_dependencies", "dependencies"
+    ) == ["b"]
+
+
+def test_coalesce_aliased_run_list_both_equal_ok():
+    assert coalesce_aliased_run_list(
+            ["x"], ["x"], "import_dependencies", "dependencies"
+    ) == ["x"]
+
+
+def test_coalesce_aliased_run_list_both_unequal_fails():
+    with pytest.raises(SCons.Errors.StopError) as caught:
+        coalesce_aliased_run_list(
+                ["a"], ["b"], "import_dependencies", "dependencies"
+        )
+    assert "import_dependencies" in str( caught.value )
+    assert "dependencies" in str( caught.value )
+
+
+def test_coalesce_aliased_run_list_neither_is_empty():
+    assert coalesce_aliased_run_list(
+            None, None, "import_dependencies", "dependencies"
+    ) == []
 
 
 def test_normalise_with_defaults_object_in_defaults_only():

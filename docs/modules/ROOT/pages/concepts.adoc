@@ -112,26 +112,27 @@ Common keyword arguments to `cuppa.run()`:
 | `default_options` | Dict of option keys *without* `--` (for example `{'offline': True}`)
 | `default_projects` | Default list of `sconscript` paths
 | `default_variants` | Restrict default variants (for example `['rel']`)
-| `dependencies` | **Register / import** dependency factories so the sconstruct and its sconscripts can look them up and call `BuildWith` when they choose
-| `default_dependencies` | **Auto-apply** subset: names or the same factories, treated as `BuildWith()` in every sconscript
-| `profiles` | Register profile factories
-| `default_profiles` | Auto-apply profile names or factories (same object-or-string shape as dependencies)
+| `import_dependencies` | **Import** dependency factories into this sconstruct session so sconscripts can look them up and call `BuildWith` when they choose. Legacy alias: `dependencies`
+| `auto_enable_dependencies` | **Auto-enable** subset: names or the same factories, treated as `BuildWith()` in every sconscript. Legacy alias: `default_dependencies`
+| `import_profiles` | Import profile factories (legacy: `profiles`)
+| `auto_enable_profiles` | Auto-enable profile names or factories (legacy: `default_profiles`)
 | `default_runner` | Test runner name (default `process`)
 | `configure_callback` | Optional SCons `Configure()` hook
 | `tools` | Extra SCons tools for all environments
 | `base_path` / `branch_root` | Project root / SCM branch root offsets
 |===
 
-`default_dependencies` is not a second import list. Put a factory in `dependencies` to
-register it; put the same factory (or its `.name()` string) in `default_dependencies` to
-auto-apply it. A factory only in `default_dependencies` both registers and auto-applies.
+`auto_enable_dependencies` is not a second import list. Put a factory in
+`import_dependencies` to bring it into the session; put the same factory (or its
+`.name()` string) in `auto_enable_dependencies` to auto-enable it. A factory only in
+`auto_enable_dependencies` both imports and auto-enables.
 
 [source,python]
 ----
 MyPkg = cuppa.package_dependency( 'mypkg', ... )
 
 cuppa.run(
-    dependencies = [ MyPkg ],
-    default_dependencies = [ MyPkg ],
+    import_dependencies = [ MyPkg ],
+    auto_enable_dependencies = [ MyPkg ],
 )
 ----
