@@ -71,8 +71,8 @@ candidates:
 2. Short name / archive — `widget_lib`, or `[archive]widget_lib` / `[source]widget_lib` when
    registered that way
 
-A candidate is project-available when it appears in `auto_enable_dependencies` /
-`import_dependencies` (legacy: `default_dependencies` / `dependencies`), or
+A candidate is project-available when it appears in `import_dependencies` /
+`auto_enable_dependencies` (legacy: `dependencies` / `default_dependencies`), or
 was already applied earlier in this sconscript via `BuildWith`. Always-on built-ins such as
 archive `boost` stay in the factory registry for opt-in use; registry presence alone does not
 beat a project-available GitLab package.

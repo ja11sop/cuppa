@@ -1,4 +1,9 @@
-"""Integration tests for --wipe-dependencies and --force-wipe-*."""
+"""Integration tests for --wipe-dependencies and --force-wipe-*.
+
+Source-Boost fixtures use preferred ``auto_enable_dependencies``; package
+helpers imported from purge/remove keep legacy ``dependencies`` /
+``default_dependencies`` aliases.
+"""
 
 from pathlib import Path
 
@@ -83,7 +88,7 @@ import cuppa
 
 cuppa.run(
     default_variants=['dbg'],
-    default_dependencies=['boost'],
+    auto_enable_dependencies=['boost'],
 )
 """,
     )
@@ -227,7 +232,7 @@ import cuppa
 
 cuppa.run(
     default_variants=['dbg'],
-    default_dependencies=['boost'],
+    auto_enable_dependencies=['boost'],
 )
 """,
     )
@@ -288,7 +293,7 @@ import cuppa
 
 cuppa.run(
     default_variants=['dbg'],
-    default_dependencies=['boost'],
+    auto_enable_dependencies=['boost'],
 )
 """,
     )
@@ -359,7 +364,7 @@ import cuppa
 
 cuppa.run(
     default_variants=['dbg'],
-    default_dependencies=['boost'],
+    auto_enable_dependencies=['boost'],
 )
 """,
     )

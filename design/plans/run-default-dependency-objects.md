@@ -139,12 +139,12 @@ cuppa.run(
 |-------|--------|
 | `run-dep-obj-rules` | Done |
 | `run-dep-obj-normalise` | Done — `cuppa/core/run_list_names.py`; dedupe registration; strict `name()` |
-| `run-dep-obj-docs` | Done — concepts / packages / gitlab register vs auto-apply |
+| `run-dep-obj-docs` | Done — teach path prefers preferred names; built-ins → `auto_enable` only; `use_libs` over `BoostStaticLibs`; integration fixtures mix preferred + legacy kwargs |
 | `run-dep-obj-naming` | Done — preferred import_/auto_enable_ names; legacy aliases |
 | `run-dep-obj-issue` | Done — [#276](https://github.com/ja11sop/cuppa/issues/276) |
 
 ## Open questions
 
-- Whether `default_dependencies = dependencies` (aliasing the same list) should be documented as
-  supported (works when the list holds factories).
+- Whether `auto_enable_dependencies = import_dependencies` (aliasing the same list) should be
+  documented as supported (works when the list holds factories).
 - Whether to emit a soft warn when only legacy ``dependencies`` / ``default_dependencies`` are used.

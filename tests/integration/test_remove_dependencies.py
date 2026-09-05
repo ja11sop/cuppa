@@ -167,8 +167,8 @@ Widget = cuppa.location_dependency(
 
 cuppa.run(
     default_variants=['dbg'],
-    dependencies=[Widget],
-    default_dependencies=['widget'],
+    import_dependencies=[Widget],
+    auto_enable_dependencies=['widget'],
 )
 """,
     )

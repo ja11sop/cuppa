@@ -17,6 +17,21 @@ so bare reset lands on that line, and `--reset-develop-branch=default` still ret
 
 Non-empty develop destinations are refused without cloning.
 
+=== `sconstruct` (excerpt)
+
+[source,python]
+----
+Widget = cuppa.location_dependency(
+    'widget',
+    location='git+file:///…@master',
+    develop='/path/to/develop/widget',
+)
+cuppa.run(
+    import_dependencies=[Widget],
+    auto_enable_dependencies=['widget'],
+)
+----
+
 == See also
 
 xref:dependencies/managing.adoc#checking-your-develop-copies[Checking your develop copies]

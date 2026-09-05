@@ -64,8 +64,8 @@ Widget = cuppa.location_dependency(
         develop={develop!r},
 )
 cuppa.run(
-        default_dependencies=['widget'],
-        dependencies=[Widget],
+        import_dependencies=[Widget],
+        auto_enable_dependencies=['widget'],
 )
 """.format(
                     location="git+{}@master".format( origin_uri ),

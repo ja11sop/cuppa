@@ -9,8 +9,8 @@ Implement a class with:
 * `name()` identifying the dependency
 
 You can also subclass or wrap `location_dependency` / `package_dependency` / `conan_dependency`
-factories. Register extras via `cuppa.run(dependencies=[MyDep])` or the setuptools entry point
-group `cuppa.dependency.plugins`.
+factories. Register extras via `cuppa.run(import_dependencies=[MyDep])` (legacy:
+`dependencies=`) or the setuptools entry point group `cuppa.dependency.plugins`.
 
 == Storage contract
 

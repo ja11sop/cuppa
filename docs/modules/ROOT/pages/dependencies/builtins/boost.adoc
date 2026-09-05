@@ -23,8 +23,9 @@ When Boost is fetched from the network (no ``--boost-home=`` or
 
 === Unpinned Boost (latest implied)
 
-Typical packaging or CI layouts register source Boost without a version pin — for example
-``default_dependencies = ['boost']`` in the ``sconstruct``. You do **not** need
+Typical packaging or CI layouts auto-enable source Boost without a version pin — for example
+``auto_enable_dependencies = ['boost']`` in the ``sconstruct``. Built-in ``boost`` is already
+imported by Cuppa; you do not list it in ``import_dependencies``. You do **not** need
 ``--boost-latest`` in that case; latest is implied.
 
 On each **online** build, resolution on the download path is:
@@ -52,7 +53,7 @@ to **force** a fresh boost.org check when online (skipping any stored
 ``boost_latest_version``). A side effect is updating the remembered key after download when
 the resolved version is higher.
 
-You do not need this flag for the usual unpinned ``default_dependencies = ['boost']`` workflow.
+You do not need this flag for the usual unpinned ``auto_enable_dependencies = ['boost']`` workflow.
 
 The flag does not apply when ``--boost-home=`` or ``--boost-location=`` pins the source tree.
 
@@ -91,18 +92,25 @@ stored key stay aligned (project-local downloads with project conf, or a shared 
 
 == Using libraries
 
+Prefer `use_libs` on the value returned by `BuildWith` (same shape as registry `boost_package`):
+
 [source,python]
 ----
 env.BuildWith('boost').use_libs(['system', 'filesystem'])
-# or the older env-method form:
+----
+
+Older env methods still work when you need the library nodes explicitly (for example
+`Install` during package publish):
+
+[source,python]
+----
 env.AppendUnique(STATICLIBS=env.BoostStaticLibs(['system', 'filesystem']))
 # or
 env.AppendUnique(DYNAMICLIBS=env.BoostSharedLibs(['system']))
 ----
 
-`use_libs([...])` matches registry packages such as `boost_package`, so you can switch supply
-chains by changing only the `BuildWith` name. It builds (or reuses) static libraries via
-`BoostStaticLibs` and appends them to `STATICLIBS`. Aliases such as `BoostStaticLib` /
+`use_libs([...])` builds (or reuses) static libraries via `BoostStaticLibs`, appends them to
+`STATICLIBS`, and returns the library nodes. Aliases such as `BoostStaticLib` /
 `BoostStaticLibrary` also exist for compatibility.
 
 When a dependency offers linkable libraries, prefer exposing `use_libs(libs, depends_on=[])`

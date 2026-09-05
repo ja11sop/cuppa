@@ -3,7 +3,13 @@
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
-"""Integration tests for optional Conan 2 consumer support (SConsDeps)."""
+"""Integration tests for optional Conan 2 consumer support (SConsDeps).
+
+Early consumer scenarios use preferred ``import_dependencies`` /
+``auto_enable_dependencies``; later publish / shared-lib fixtures keep the
+legacy ``dependencies`` / ``default_dependencies`` aliases so both styles stay
+covered.
+"""
 
 import logging
 import re
@@ -234,8 +240,8 @@ def test_conan_deps_generators_folder_reuse(tmp_path):
             "Conan = cuppa.conan_deps(generators_folder='_conan')\n"
             "cuppa.run(\n"
             "    default_variants=['dbg'],\n"
-            "    dependencies=[Conan],\n"
-            "    default_dependencies=['conan'],\n"
+            "    import_dependencies=[Conan],\n"
+            "    auto_enable_dependencies=[Conan],\n"
             ")\n"
         ),
     )
@@ -274,8 +280,8 @@ def test_conan_deps_install_build_and_run(tmp_path):
             "Conan = cuppa.conan_deps(conanfile='conanfile.txt')\n"
             "cuppa.run(\n"
             "    default_variants=['dbg'],\n"
-            "    dependencies=[Conan],\n"
-            "    default_dependencies=['conan'],\n"
+            "    import_dependencies=[Conan],\n"
+            "    auto_enable_dependencies=[Conan],\n"
             ")\n"
         ),
     )
@@ -393,7 +399,7 @@ def test_conan_fmt_pip_plugin_entry_point(tmp_path):
             "import cuppa\n"
             "cuppa.run(\n"
             "    default_variants=['dbg'],\n"
-            "    default_dependencies=['fmt'],\n"
+            "    auto_enable_dependencies=['fmt'],\n"
             ")\n"
         ),
     )

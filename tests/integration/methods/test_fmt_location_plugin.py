@@ -68,7 +68,7 @@ def test_fmt_location_pip_plugin_builds_static_lib(tmp_path):
             "import cuppa\n"
             "cuppa.run(\n"
             "    default_variants=['dbg'],\n"
-            "    default_dependencies=['fmt'],\n"
+            "    auto_enable_dependencies=['fmt'],\n"
             ")\n"
         ),
     )

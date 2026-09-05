@@ -171,8 +171,8 @@ Boostish = cuppa.location_dependency(
 
 cuppa.run(
     default_variants=['dbg'],
-    dependencies=[Widget, Gadget, Flange, Gizmo, Boostish],
-    default_dependencies=['widget', 'gadget', 'flange', 'gizmo', 'boostish'],
+    import_dependencies=[Widget, Gadget, Flange, Gizmo, Boostish],
+    auto_enable_dependencies=['widget', 'gadget', 'flange', 'gizmo', 'boostish'],
 )
 """.format(
                     widget=str( widget ),

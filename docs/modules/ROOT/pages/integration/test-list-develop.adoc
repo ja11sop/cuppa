@@ -24,6 +24,17 @@ The dummy project, initialised as a git repository on branch `feature_orders`, p
 * `deps/gizmo` — path configured but not created
 * `boostish` — registered without a develop path (counted as "not using develop")
 
+=== `sconstruct` (excerpt)
+
+[source,python]
+----
+cuppa.run(
+    default_variants=['dbg'],
+    import_dependencies=[Widget, Gadget, Flange, Gizmo, Boostish],
+    auto_enable_dependencies=['widget', 'gadget', 'flange', 'gizmo', 'boostish'],
+)
+----
+
 == Commands
 
 [source,sh]

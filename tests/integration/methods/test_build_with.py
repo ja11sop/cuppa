@@ -20,7 +20,7 @@ def test_build_with_location_dependency(tmp_path):
             ")\n"
             "cuppa.run(\n"
             "    default_variants=['dbg'],\n"
-            "    dependencies=[Headers],\n"
+            "    import_dependencies=[Headers],\n"
             ")\n"
         ),
     )

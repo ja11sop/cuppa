@@ -38,8 +38,8 @@ import cuppa
 Conan = cuppa.conan_deps( conanfile = 'conanfile.txt' )
 
 cuppa.run(
-    dependencies = [Conan],
-    default_dependencies = ['conan'],
+    import_dependencies = [Conan],
+    auto_enable_dependencies = [Conan],
 )
 ----
 
@@ -90,7 +90,7 @@ ConanCenter.
 
 === Pip plugin packaging
 
-You can ship a Conan-backed dependency as a pip package so consumers only `pip install` it and list the name in `default_dependencies`.
+You can ship a Conan-backed dependency as a pip package so consumers only `pip install` it and list the name in `auto_enable_dependencies` (plugins are already discovered; no `import_dependencies` entry is required).
 Cuppa discovers plugins through the `cuppa.dependency.plugins` entry point.
 
 A Conan example lives at `examples/conan_fmt_plugin/` (registers `fmt` via `cuppa.conan_dependency`).

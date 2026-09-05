@@ -9,9 +9,9 @@ Install this package (``pip install -e examples/cuppa_fmt_plugin``) so Cuppa
 discovers ``fmt`` through ``cuppa.dependency.plugins``. Consumer projects can
 then use::
 
-    cuppa.run(default_dependencies=['fmt'])
+    cuppa.run(auto_enable_dependencies=['fmt'])
 
-without listing the dependency class in ``cuppa.run(dependencies=[…])``.
+without listing the dependency class in ``cuppa.run(import_dependencies=[…])``.
 
 This builds {fmt} from a pinned GitHub archive (not Conan). Prefer
 ``examples/conan_fmt_plugin`` when you want ConanCenter binaries instead.

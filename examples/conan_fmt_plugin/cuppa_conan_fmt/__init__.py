@@ -9,9 +9,9 @@ Install this package (``pip install -e examples/conan_fmt_plugin``) so Cuppa
 discovers the ``fmt`` dependency through the ``cuppa.dependency.plugins``
 entry point. Consumer projects can then use::
 
-    cuppa.run(default_dependencies=['fmt'])
+    cuppa.run(auto_enable_dependencies=['fmt'])
 
-without listing the dependency class in ``cuppa.run(dependencies=[…])``.
+without listing the dependency class in ``cuppa.run(import_dependencies=[…])``.
 """
 
 import cuppa

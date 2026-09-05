@@ -69,34 +69,40 @@ cuppa -D --dbg --test
 
 Use `--show-test-output` to print stdout/stderr from test processes.
 
-== Default dependencies
+== Auto-enable a built-in dependency
 
-Wire a dependency (for example Boost) for every `sconscript`:
+Built-ins such as source Boost are **already registered** with Cuppa. You do not list them in
+`import_dependencies`. Pass them to `auto_enable_dependencies` so every `sconscript` gets
+`BuildWith('boost')` automatically. Unpinned Boost resolves to the latest release on the download
+path (see xref:dependencies/builtins/boost.adoc[Boost]); optionally pin a local tree with
+`boost-location` / `boost-home` in `default_options`.
 
 [source,python]
 ----
 import cuppa
 
 cuppa.run(
-    default_options = {
-        'boost-location': '/path/to/boost',
-    },
-    default_dependencies = [
-        'boost',
+    auto_enable_dependencies = [
+        'boost',  # unpinned → latest on the download path
     ],
 )
 ----
 
-In a `sconscript`, link Boost libraries:
+Custom factories from `package_dependency` / `location_dependency` still need
+`import_dependencies` (and usually the same object in `auto_enable_dependencies`). See
+xref:concepts.adoc#sconstruct-api[cuppa.run() parameters].
+
+In a `sconscript`, select libraries with `use_libs` on the `BuildWith` return value (preferred
+over `BoostStaticLibs`):
 
 [source,python]
 ----
 Import('env')
 
-env.AppendUnique(STATICLIBS=env.BoostStaticLibs([
+env.BuildWith('boost').use_libs([
     'system',
     'filesystem',
-]))
+])
 
 env.BuildTest('my_test', 'my_test.cpp')
 ----
