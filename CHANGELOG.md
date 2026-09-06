@@ -35,8 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sconscript ``ExportShared`` / ``ImportShared`` and ordered discovery: scan string-literal
   ``Export`` / ``Import`` (and Cuppa shared methods), widen for missing exporters (including
   under ``--scripts=``; multi-hop), run exporters before importers; duplicate product exports
-  are an error. ``--strict-sconscript-exports`` refuses widen. Concepts and Building CLI docs
-  cover discovery vs sharing ([`sconscript-exports`](design/plans/sconscript-exports.md)).
+  are an error. ``--strict-sconscript-exports`` refuses widen. Widened paths stay
+  project-relative so ``--clean`` matches the same ``_build`` layout as a full discovery
+  build. Concepts and Building CLI docs cover discovery vs sharing
+  ([`sconscript-exports`](design/plans/sconscript-exports.md)).
 
 ### Changed
 

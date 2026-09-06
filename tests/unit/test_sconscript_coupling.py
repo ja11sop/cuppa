@@ -116,62 +116,80 @@ def test_unsatisfied_import_is_error( tmp_path ):
 
 def test_scripts_subset_widens_to_exporter( tmp_path ):
     """Simulate ``--scripts=test/sconscript``: only importer named; pull exporter."""
-    root = tmp_path / 'sconscript'
+    ( tmp_path / 'sconscript' ).write_text( "Export('capy_libs')\n", encoding='utf-8' )
     child = tmp_path / 'test' / 'sconscript'
     child.parent.mkdir()
-    root.write_text( "Export('capy_libs')\n", encoding='utf-8' )
     child.write_text( "Import('capy_libs')\n", encoding='utf-8' )
-    ordered = order_sconscripts(
-            [ str( child ) ],
-            search_root=str( tmp_path ),
-            widen=True,
-    )
+    cwd = os.getcwd()
+    try:
+        os.chdir( str( tmp_path ) )
+        ordered = order_sconscripts(
+                [ 'test/sconscript' ],
+                search_root=str( tmp_path ),
+                widen=True,
+        )
+    finally:
+        os.chdir( cwd )
+    # Widened exporter must be project-relative (./sconscript), not absolute —
+    # absolute paths break --clean layout matching.
+    assert not any( os.path.isabs( p ) for p in ordered )
     norms = _norm_list( ordered )
-    assert os.path.normpath( str( root ) ) in norms
-    assert norms.index( os.path.normpath( str( root ) ) ) < norms.index(
-            os.path.normpath( str( child ) )
-    )
+    assert norms.index( 'sconscript' ) < norms.index( 'test/sconscript' )
+
+
+def test_as_project_relative_prefixes_dot_slash( tmp_path ):
+    from cuppa.core.sconscript_coupling import _as_project_relative
+    root = tmp_path / 'sconscript'
+    root.write_text( 'Export("x")\n', encoding='utf-8' )
+    rel = _as_project_relative( str( root.resolve() ), base_dir=str( tmp_path ) )
+    assert not os.path.isabs( rel )
+    assert os.path.normpath( rel ) == 'sconscript'
+    assert rel.startswith( '.' + os.sep )
 
 
 def test_scripts_subset_multi_hop_widen( tmp_path ):
     """Importer-only --scripts set; mid-tier exporter also Imports another name."""
-    leaf = tmp_path / 'leaf' / 'sconscript'
-    mid = tmp_path / 'mid' / 'sconscript'
-    root = tmp_path / 'sconscript'
-    leaf.parent.mkdir()
-    mid.parent.mkdir()
-    root.write_text( "Export('name_root')\n", encoding='utf-8' )
-    mid.write_text( "Import('name_root')\nExport('name_mid')\n", encoding='utf-8' )
-    leaf.write_text( "Import('name_mid')\n", encoding='utf-8' )
-    ordered = order_sconscripts(
-            [ str( leaf ) ],
-            search_root=str( tmp_path ),
-            widen=True,
+    ( tmp_path / 'leaf' ).mkdir()
+    ( tmp_path / 'mid' ).mkdir()
+    ( tmp_path / 'sconscript' ).write_text( "Export('name_root')\n", encoding='utf-8' )
+    ( tmp_path / 'mid' / 'sconscript' ).write_text(
+            "Import('name_root')\nExport('name_mid')\n", encoding='utf-8'
     )
-    norms = _norm_list( ordered )
-    assert norms == _norm_list( [ str( root ), str( mid ), str( leaf ) ] )
+    ( tmp_path / 'leaf' / 'sconscript' ).write_text( "Import('name_mid')\n", encoding='utf-8' )
+    cwd = os.getcwd()
+    try:
+        os.chdir( str( tmp_path ) )
+        ordered = order_sconscripts(
+                [ 'leaf/sconscript' ],
+                search_root=str( tmp_path ),
+                widen=True,
+        )
+    finally:
+        os.chdir( cwd )
+    assert not any( os.path.isabs( p ) for p in ordered )
+    assert _norm_list( ordered ) == [ 'sconscript', 'mid/sconscript', 'leaf/sconscript' ]
 
 
 def test_scripts_multiple_named_importers_widen_once( tmp_path ):
     """``--scripts=x,y`` both Import the same root export."""
-    root = tmp_path / 'sconscript'
-    x = tmp_path / 'apps' / 'x.sconscript'
-    y = tmp_path / 'apps' / 'y.sconscript'
-    x.parent.mkdir()
-    root.write_text( "Export('shared')\n", encoding='utf-8' )
-    x.write_text( "Import('shared')\n", encoding='utf-8' )
-    y.write_text( "Import('shared')\n", encoding='utf-8' )
-    ordered = order_sconscripts(
-            [ str( y ), str( x ) ],
-            search_root=str( tmp_path ),
-            widen=True,
-    )
+    ( tmp_path / 'apps' ).mkdir()
+    ( tmp_path / 'sconscript' ).write_text( "Export('shared')\n", encoding='utf-8' )
+    ( tmp_path / 'apps' / 'x.sconscript' ).write_text( "Import('shared')\n", encoding='utf-8' )
+    ( tmp_path / 'apps' / 'y.sconscript' ).write_text( "Import('shared')\n", encoding='utf-8' )
+    cwd = os.getcwd()
+    try:
+        os.chdir( str( tmp_path ) )
+        ordered = order_sconscripts(
+                [ 'apps/y.sconscript', 'apps/x.sconscript' ],
+                search_root=str( tmp_path ),
+                widen=True,
+        )
+    finally:
+        os.chdir( cwd )
     norms = _norm_list( ordered )
-    assert norms[0] == os.path.normpath( str( root ) )
-    assert set( norms[1:] ) == {
-            os.path.normpath( str( x ) ),
-            os.path.normpath( str( y ) ),
-    }
+    assert norms[0] == 'sconscript'
+    assert set( norms[1:] ) == { 'apps/x.sconscript', 'apps/y.sconscript' }
+    assert not any( os.path.isabs( p ) for p in ordered )
 
 
 def test_strict_widen_false_does_not_pull_exporter( tmp_path ):

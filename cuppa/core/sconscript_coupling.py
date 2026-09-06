@@ -138,8 +138,32 @@ def _norm_path( path ):
     return os.path.normpath( path )
 
 
+def _as_project_relative( path, base_dir=None ):
+    """Return a path Cuppa can use as a discovered sconscript (``./…`` form).
+
+    Widen search often yields absolute paths from ``recursive_glob`` when
+    ``search_root`` is absolute. Absolute sconscript paths produce a different
+    ``sconstruct_offset_path`` / ``_build`` layout than ``./sconscript``, so a
+    later ``--clean`` with ``--scripts=`` would not remove artefacts built under
+    the relative path. Rebase to *base_dir* (default: cwd) and prefer a ``./``
+    prefix to match Construct's discovery shape.
+    """
+    base_dir = base_dir if base_dir is not None else os.getcwd()
+    abs_path = os.path.abspath( path )
+    abs_base = os.path.abspath( base_dir )
+    try:
+        rel = os.path.relpath( abs_path, abs_base )
+    except ValueError:
+        return path
+    if rel.startswith( '..' ):
+        return abs_path
+    if not rel.startswith( '.' + os.sep ) and rel != '.':
+        rel = os.path.join( '.', rel )
+    return rel
+
+
 def _discover_sconscripts_under( root ):
-    """Return normalised sconscript paths under *root* (non-recursive of nest constructs)."""
+    """Return project-relative sconscript paths under *root*."""
     # Local import avoids a circular import with construct during module load.
     import re
     from cuppa import recursive_glob
@@ -152,7 +176,7 @@ def _discover_sconscripts_under( root ):
             exclude_dirs_pattern=None,
             discard_pattern=discard_if_subdir_contains_regex,
     )
-    return [ _norm_path( p ) for p in found ]
+    return [ _as_project_relative( p ) for p in found ]
 
 
 def _coupling_edges( couplings_by_path ):
@@ -279,6 +303,7 @@ def order_sconscripts( paths, search_root=None, widen=True ):
             needed_names = { name for _path, name in unsatisfied }
             added = False
             for candidate in candidates:
+                candidate = _as_project_relative( candidate )
                 candidate_norm = _norm_path( candidate )
                 if candidate_norm in couplings:
                     continue

@@ -127,3 +127,42 @@ def test_strict_sconscript_exports_refuses_widen( tmp_path ):
     assert_failure( result )
     assert 'not satisfied' in result.stdout
     assert 'strict-sconscript-exports' in result.stdout
+
+
+def test_clean_with_scripts_widen_removes_exporter_artefacts( tmp_path ):
+    """``--scripts=test/sconscript --clean`` must clean root outputs after widen.
+
+    Widened exporter paths must match discovery (``./sconscript``), otherwise
+    clean registers a different ``_build`` layout and leaves artefacts behind.
+    """
+    project = copy_dummy_project( tmp_path )
+    write_sconstruct( project, default_variants=['dbg'] )
+
+    ( project / 'sconscript' ).write_text(
+            "Import('env')\n"
+            "env.AppendUnique(CPPPATH=['#/include'])\n"
+            "env.Build( 'widget', ['#/apps/main.cpp'] )\n"
+            "env.ExportShared( 'shared_marker', 'from-root' )\n",
+            encoding='utf-8',
+    )
+    test_dir = project / 'test'
+    test_dir.mkdir()
+    ( test_dir / 'sconscript' ).write_text(
+            "Import('env')\n"
+            "env.ImportShared( 'shared_marker' )\n"
+            "env.AppendUnique(CPPPATH=['#/include'])\n"
+            "env.Build( 'app', ['#/apps/main.cpp'] )\n",
+            encoding='utf-8',
+    )
+
+    assert_success( run_cuppa( project, '--dbg' ) )
+    build = project / '_build'
+    assert any( p.is_file() for p in build.rglob( '*' ) )
+
+    assert_success( run_cuppa( project, '--dbg', '--clean' ) )
+    assert not any( p.is_file() for p in build.rglob( '*' ) )
+
+    assert_success( run_cuppa( project, '--dbg' ) )
+    assert_success( run_cuppa( project, '--dbg', '--scripts=test/sconscript', '--clean' ) )
+    left = [ p for p in build.rglob( '*' ) if p.is_file() ]
+    assert not left, left
