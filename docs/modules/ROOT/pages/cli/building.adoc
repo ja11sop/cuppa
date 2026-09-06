@@ -29,6 +29,12 @@ you can see which layer owns each decision.
 | `--develop` | Prefer configured local develop paths for dependencies
 |===
 
+Sharing between sconscripts uses `env.ExportShared` / `env.ImportShared` (see
+xref:concepts.adoc#sconscript-discovery[Concepts — Sconscript discovery and sharing]).
+Those bindings are **variant-aware** (per toolchain/variant/arch/abi), so the same export
+name under `--dbg` and `--rel` resolves to the matching nodes. Prefer that Cuppa API over
+native SCons `Export` / `Import` when you share build products across scripts.
+
 Variant and action options compose. For example, `--dbg --rel --test` builds and tests both
 variants. Coverage is deliberately explicit: use `--cov --test` when you want measurements rather
 than an instrumented binary that has not run.

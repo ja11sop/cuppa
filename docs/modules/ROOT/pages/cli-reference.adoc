@@ -138,6 +138,11 @@ In the examples that follow we use this convention.
 | `-Q` | Suppress SCons progress messages without hiding build commands
 |===
 
+Share products between sconscripts with `ExportShared` / `ImportShared` (variant-aware; see
+xref:concepts.adoc#sconscript-discovery[Concepts]). Use `--scripts=` / `--strict-sconscript-exports`
+when limiting which scripts run. Detail:
+xref:cli/building.adoc[Building].
+
 == Command output
 
 Output comes from three layers: SCons reports graph progress and build actions, Cuppa reports
