@@ -84,3 +84,77 @@ def test_read_rejects_bad_format( tmp_path: Path ):
     )
     with pytest.raises( ValueError, match="unsupported" ):
         read_manifest( str( tmp_path ) )
+
+
+def test_normalise_rejects_missing_name():
+    with pytest.raises( ValueError, match="missing 'name'" ):
+        normalise_dependency_entry( { "package": "fmt", "version": "1" } )
+
+
+def test_normalise_object_entry():
+    class Dep:
+        def name( self ):
+            return "boost_package"
+
+        _package = "boost"
+        _version = "1.91.0"
+        use_libs = ["system"]
+
+    entry = normalise_dependency_entry( Dep() )
+    assert entry["name"] == "boost_package"
+    assert entry["package"] == "boost"
+    assert entry["version"] == "1.91.0"
+    assert entry["registry"] == "same"
+    assert entry["use_libs"] == ["system"]
+
+
+def test_normalise_object_callable_version():
+    class Dep:
+        def name( self ):
+            return "fmt"
+
+        def version( self ):
+            return "12.1.0"
+
+    entry = normalise_dependency_entry( Dep() )
+    assert entry["version"] == "12.1.0"
+    assert entry["package"] == "fmt"
+
+
+def test_normalise_object_requires_version():
+    class Dep:
+        def name( self ):
+            return "fmt"
+
+    with pytest.raises( ValueError, match="version" ):
+        normalise_dependency_entry( Dep() )
+
+
+def test_normalise_object_without_name_raises():
+    with pytest.raises( ValueError, match="no usable name" ):
+        normalise_dependency_entry( object() )
+
+
+def test_read_empty_dependencies_returns_none( tmp_path: Path ):
+    ( tmp_path / MANIFEST_FILENAME ).write_text(
+            json.dumps( { "cuppa_dependency_format": 1, "dependencies": [] } ),
+            encoding="utf-8",
+    )
+    assert read_manifest( str( tmp_path ) ) is None
+
+
+def test_read_rejects_non_object( tmp_path: Path ):
+    ( tmp_path / MANIFEST_FILENAME ).write_text( "[]", encoding="utf-8" )
+    with pytest.raises( ValueError, match="JSON object" ):
+        read_manifest( str( tmp_path ) )
+
+
+def test_build_manifest_from_objects():
+    class Dep:
+        def name( self ):
+            return "fmt"
+
+        version = "1.0.0"
+
+    document = build_manifest( [ Dep() ] )
+    assert document["dependencies"][0]["name"] == "fmt"

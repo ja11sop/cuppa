@@ -267,6 +267,8 @@ they ride along with `A.use_libs(...)`, not with bare `BuildWith(A)`.
    union of lib names if same package identity; error on version conflict only). MVP applies
    edge `use_libs` once per parent link; explicit consumer `B.use_libs` still runs separately.
 
+## Refusal rules
+
 - Do not require every existing package to sprout a manifest (absent file = today's behaviour).
 - Do not auto-add transitive names to `auto_enable_dependencies`.
 - Do not invent a solver in MVP — concrete versions only.
@@ -281,7 +283,7 @@ they ride along with `A.use_libs(...)`, not with bare `BuildWith(A)`.
 | `gl-dep-rules` | Done — proposal + settled decisions 2026-09-06 |
 | `gl-dep-publish` | Done — `dependencies=` → `cuppa-dependency.json` |
 | `gl-dep-consume` | Done — `BuildWith` + transitive `use_libs`; cycles / version conflict |
-| `gl-dep-tests` | In progress — unit + publish integration; full A→B consume E2E deferred |
+| `gl-dep-tests` | Done for MVP unit/publish — A→B→C apply chains; live consume E2E still deferred |
 | `gl-dep-docs` | Done — `gitlab.adoc` / `packages.adoc` / integration page |
 | `gl-dep-list` | Not started |
 | `gl-dep-lib-api` | Partial — `use_all_libs()` shipped; named groups / `show_*` deferred |
