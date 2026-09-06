@@ -397,6 +397,10 @@ def _gitlab_children( leaves_in ):
                             archive or '', leaf.get( 'has_download' )
                     ),
             ) )
+        # Declared transitive edges from cuppa-dependency.json (on-disk extract).
+        requires_node = _requires_group_for_variants( variants )
+        if requires_node is not None:
+            tool_children.append( requires_node )
         missing_only = bool( missing ) and used == 0 and missing == len( variants )
         remark = _remark_for_used( used ) if used else ''
         children.append( {
@@ -411,6 +415,71 @@ def _gitlab_children( leaves_in ):
             'children': tool_children,
         } )
     return children
+
+
+def _requires_group_for_variants( variants ):
+    """Return a ``requires`` group node from the first readable package manifest."""
+    for leaf in variants:
+        path = leaf.get( 'path' )
+        if not path or not os.path.isdir( path ):
+            continue
+        group = requires_group_from_package_dir( path )
+        if group is not None:
+            return group
+    # Prefer requires already attached on the leaf (unit / pre-enriched rows).
+    for leaf in variants:
+        edges = leaf.get( 'requires' )
+        if edges:
+            return _requires_group_from_entries( edges )
+    return None
+
+
+def requires_group_from_package_dir( package_dir ):
+    """Build a ``requires`` tree node from ``cuppa-dependency.json``, or ``None``."""
+    from cuppa.package_managers.cuppa_dependency_manifest import read_manifest
+
+    document = read_manifest( package_dir )
+    if not document:
+        return None
+    return _requires_group_from_entries( document.get( 'dependencies' ) or [] )
+
+
+def _requires_group_from_entries( entries ):
+    if not entries:
+        return None
+    children = []
+    for entry in entries:
+        name = entry.get( 'name' ) or entry.get( 'package' ) or '-'
+        version = entry.get( 'version' ) or '-'
+        package = entry.get( 'package' ) or name
+        use_libs = entry.get( 'use_libs' ) or []
+        remark = ''
+        if use_libs:
+            remark = 'libs: {}'.format( ', '.join( str( item ) for item in use_libs ) )
+        children.append( {
+            'kind': 'requires_edge',
+            'label': '{} {}'.format( name, version ),
+            'label_name': str( name ),
+            'label_detail': str( version ),
+            'size_bytes': None,
+            'last_used_epoch': None,
+            'remark': remark,
+            'location': '',
+            'requires_name': str( name ),
+            'requires_package': str( package ),
+            'requires_version': str( version ),
+            'requires_use_libs': [ str( item ) for item in use_libs ],
+            'children': [],
+        } )
+    return {
+        'kind': 'requires',
+        'label': 'requires',
+        'size_bytes': None,
+        'last_used_epoch': None,
+        'remark': '',
+        'location': '',
+        'children': children,
+    }
 
 
 def re_split_version( text ):
@@ -697,6 +766,12 @@ def tree_to_json( tree ):
             payload['role'] = node['role']
         if node.get( 'display_label' ):
             payload['display_label'] = node['display_label']
+        if node.get( 'kind' ) == 'requires_edge':
+            payload['requires_name'] = node.get( 'requires_name' )
+            payload['requires_package'] = node.get( 'requires_package' )
+            payload['requires_version'] = node.get( 'requires_version' )
+            if node.get( 'requires_use_libs' ):
+                payload['requires_use_libs'] = node['requires_use_libs']
         children = []
         for child in node.get( 'children' ) or []:
             converted = convert( child )
@@ -988,6 +1063,10 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                     size = as_subdued( size )
                 if last_used:
                     last_used = as_subdued( last_used )
+            elif kind in ( 'requires', 'requires_edge' ):
+                label, size, last_used, remark, location = _mute_row_fields(
+                        label, size, last_used, remark, location
+                )
             elif kind == 'summary' or remark == 'in use':
                 if kind == 'summary' and 'stale' in ( label or '' ):
                     label, size, last_used, remark, location = _mute_row_fields(

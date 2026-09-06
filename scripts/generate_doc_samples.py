@@ -1354,6 +1354,7 @@ def _dependencies_json_payload( rows ):
                 'has_download': bool( row.get( 'has_download' ) ),
                 'download_path': row.get( 'download_path' ),
                 'toolchain_session_name': row.get( 'toolchain_session_name' ),
+                'requires': row.get( 'requires' ) or [],
             }
             for row in rows
         ],
@@ -1383,6 +1384,136 @@ def sample_list_dependencies_json():
     rows = _enrich_dependency_rows_for_json( [ source_rows[0], source_rows[1] ] )
     return _write_json_sample(
             'list-dependencies.json',
+            _dependencies_json_payload( rows ),
+    )
+
+
+def _dependency_rows_for_requires_sample():
+    """Offline-style alpha → beta → gamma GitLab leaves with declared ``requires``."""
+    tool = 'gcc153_rel_x86_64_cxx2c'
+    root = '/home/user/.cuppa/dependencies'
+    return [
+        {
+            'type': 'gitlab',
+            'dependency': 'alpha',
+            'short_name': 'alpha',
+            'stem': 'alpha',
+            'qualifier': '1.0.0',
+            'tool_variant': tool,
+            'state': 'referenced',
+            'size_bytes': int( 12 * 1024 ),
+            'last_used_epoch': NOW,
+            'path': '{}/{}/alpha/1.0.0'.format( root, tool ),
+            'remote_location': 'https://gitlab.example/api/v4/projects/1/alpha/1.0.0',
+            'package_archive': 'alpha_debian_{}.tar.gz'.format( tool ),
+            'has_download': False,
+            'requires': [
+                {
+                    'name': 'beta',
+                    'package': 'beta',
+                    'version': '2.0.0',
+                    'registry': 'same',
+                    'use_libs': [ 'beta' ],
+                },
+            ],
+        },
+        {
+            'type': 'gitlab',
+            'dependency': 'beta',
+            'short_name': 'beta',
+            'stem': 'beta',
+            'qualifier': '2.0.0',
+            'tool_variant': tool,
+            'state': 'unreferenced',
+            'size_bytes': int( 8 * 1024 ),
+            'last_used_epoch': NOW,
+            'path': '{}/{}/beta/2.0.0'.format( root, tool ),
+            'remote_location': 'https://gitlab.example/api/v4/projects/1/beta/2.0.0',
+            'package_archive': 'beta_debian_{}.tar.gz'.format( tool ),
+            'has_download': False,
+            'requires': [
+                {
+                    'name': 'gamma',
+                    'package': 'gamma',
+                    'version': '3.0.0',
+                    'registry': 'same',
+                    'use_libs': [ 'gamma' ],
+                },
+            ],
+        },
+        {
+            'type': 'gitlab',
+            'dependency': 'gamma',
+            'short_name': 'gamma',
+            'stem': 'gamma',
+            'qualifier': '3.0.0',
+            'tool_variant': tool,
+            'state': 'unreferenced',
+            'size_bytes': int( 4 * 1024 ),
+            'last_used_epoch': NOW,
+            'path': '{}/{}/gamma/3.0.0'.format( root, tool ),
+            'remote_location': 'https://gitlab.example/api/v4/projects/1/gamma/3.0.0',
+            'package_archive': 'gamma_debian_{}.tar.gz'.format( tool ),
+            'has_download': False,
+            'requires': [],
+        },
+    ]
+
+
+def _list_dependencies_requires_env():
+    env = _FakeEnv()
+    env['default_dependencies'] = [ 'alpha' ]
+    env['downloads_root'] = str( Path.home() / '.cuppa' / 'downloads' )
+    return env
+
+
+def _list_dependencies_requires_data():
+    data = {
+        'rows': _dependency_rows_for_requires_sample(),
+        'dependencies_root': str( Path.home() / '.cuppa' / 'dependencies' ),
+        'downloads_root': str( Path.home() / '.cuppa' / 'downloads' ),
+        'skips': [],
+        'estimated': False,
+        'unqualified_duplicate_tokens': [],
+    }
+    return apply_list_scope(
+            data, 'all', tree_builder=dependency_tree.build_tree,
+    )
+
+
+def sample_list_dependencies_requires():
+    """`--list-dependencies` with GitLab ``requires`` edges (alpha → beta → gamma)."""
+    out = io.StringIO()
+    write_list_dependencies_report(
+            out, _list_dependencies_requires_data(),
+            _list_dependencies_requires_env(),
+    )
+    return _write_sample(
+            'list-dependencies-requires.txt',
+            _rewrite_sample_home( out.getvalue() ),
+    )
+
+
+def sample_list_dependencies_requires_html():
+    """Semantic HTML form of the ``requires`` listing sample."""
+    def invoke( out ):
+        write_list_dependencies_report(
+                out, _list_dependencies_requires_data(),
+                _list_dependencies_requires_env(),
+        )
+
+    text, colouriser = _capture_html( invoke )
+    text = _rewrite_sample_home( text, colouriser )
+    return _write_html_sample(
+            'list-dependencies-requires.html', text, colouriser,
+    )
+
+
+def sample_list_dependencies_requires_json():
+    """JSON tree/entries for the alpha → beta → gamma ``requires`` sample."""
+    rows = _enrich_dependency_rows_for_json( _dependency_rows_for_requires_sample() )
+    return _write_json_sample(
+            'list-dependencies-requires.json',
             _dependencies_json_payload( rows ),
     )
 
@@ -1498,6 +1629,9 @@ GENERATORS = tuple(
                 sample_list_dependencies_verbose,
                 sample_list_dependencies_verbose_html,
                 sample_list_dependencies_json,
+                sample_list_dependencies_requires,
+                sample_list_dependencies_requires_html,
+                sample_list_dependencies_requires_json,
                 sample_list_develop,
                 sample_list_develop_html,
                 sample_list_develop_json,
@@ -1534,6 +1668,9 @@ GENERATORS = tuple(
         sample_list_dependencies_verbose,
         sample_list_dependencies_verbose_html,
         sample_list_dependencies_json,
+        sample_list_dependencies_requires,
+        sample_list_dependencies_requires_html,
+        sample_list_dependencies_requires_json,
         sample_list_develop,
         sample_list_develop_html,
         sample_list_develop_json,
@@ -1571,6 +1708,7 @@ def main( argv=None ):
                     'list-downloads',
                     'list-dependencies',
                     'list-dependencies-verbose',
+                    'list-dependencies-requires',
                     'list-toolchains',
                     'list-toolchains-verbose',
                     'remove-builds-dry-run',
@@ -1595,6 +1733,7 @@ def main( argv=None ):
             'list-downloads': sample_list_downloads_html,
             'list-dependencies': sample_list_dependencies_html,
             'list-dependencies-verbose': sample_list_dependencies_verbose_html,
+            'list-dependencies-requires': sample_list_dependencies_requires_html,
             'list-toolchains': sample_list_toolchains_html,
             'list-toolchains-verbose': sample_list_toolchains_verbose_html,
             'remove-builds-dry-run': sample_remove_builds_dry_run_html,

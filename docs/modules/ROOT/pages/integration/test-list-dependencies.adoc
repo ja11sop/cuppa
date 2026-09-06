@@ -36,6 +36,10 @@ and matching files under `downloads/`. Verbose listing then checks:
 * the `[D]` footer text
 * JSON `has_download`, `download_path`, and `remote_location` on those entries
 
+An offline **alpha → beta → gamma** GitLab extract chain (with ``cuppa-dependency.json``, no
+registry) checks that ``--list-dependencies`` shows a ``requires`` group under each parent
+version (text and JSON tree / ``entries[].requires``).
+
 == Generated files
 
 The dummy project with the default `sconstruct`, plus planted trees under

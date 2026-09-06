@@ -377,6 +377,18 @@ def _format_age_epoch( epoch ):
     return storage.relative_age( epoch )
 
 
+def _requires_entries_for_path( path, storage_type ):
+    """Return normalised requires dicts from ``cuppa-dependency.json``, if any."""
+    if storage_type != 'gitlab' or not path or not os.path.isdir( path ):
+        return []
+    from cuppa.package_managers.cuppa_dependency_manifest import read_manifest
+
+    document = read_manifest( path )
+    if not document:
+        return []
+    return list( document.get( 'dependencies' ) or [] )
+
+
 def _enrich_path( path, described ):
     return dependency_identity.enrich_described( path, dict( described ) )
 
@@ -1061,6 +1073,7 @@ def _collect_rows( construct, cuppa_env, names=None, out=None ):
             'location': location,
             'has_download': bool( download_path ),
             'download_path': download_path,
+            'requires': _requires_entries_for_path( path, storage_type ),
         } )
         row_paths.add( real )
 
@@ -1505,6 +1518,7 @@ def list_dependencies( construct, cuppa_env, out=None ):
                     'has_download': bool( row.get( 'has_download' ) ),
                     'download_path': row.get( 'download_path' ),
                     'toolchain_session_name': row.get( 'toolchain_session_name' ),
+                    'requires': row.get( 'requires' ) or [],
                 }
                 for row in rows
             ],

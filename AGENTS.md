@@ -646,7 +646,8 @@ Release checklist: see `release.txt` (Actions **prepare** → merge → **publis
 - Report listing samples: `python -m scripts.generate_doc_samples` writes
   `docs/modules/ROOT/partials/samples/` (text, JSON, and semantic HTML). Named
   HTML recipes: `list-builds`, `list-develop`, `list-downloads`,
-  `list-dependencies`, `list-dependencies-verbose`, `list-toolchains`,
+  `list-dependencies`, `list-dependencies-verbose`, `list-dependencies-requires`,
+  `list-toolchains`,
   `list-toolchains-verbose`, and the `--remove-builds` / `--remove-all-builds`
   variants, `remove-gitlab-dry-run`, `remove-boost-product-clean`, and
   `purge-gitlab`. Add `--preview` for `_docs_build/samples/*.preview.html`. Do not

@@ -58,9 +58,13 @@ estimates, it prints a short notice and upgrades those trees to exact sizes (the
 large root can take a while; later runs reuse the cache). Pass `--exact-sizes` to force a full
 remeasure of every tree. Rows are grouped referenced first then unreferenced,
 then by type (repository dependencies, gitlab packages, source archives, …), then by short name or
-registry name, with branch or version children underneath. On-disk paths are omitted by
+registry name, with branch or version children underneath. For GitLab package extracts that contain
+``cuppa-dependency.json``, a ``requires`` group lists each declared transitive edge (name, version,
+and optional ``libs: …`` remark) under the version’s toolchain leaves — see
+xref:dependencies/gitlab.adoc#transitive-package-dependencies[Transitive package dependencies].
+On-disk paths are omitted by
 default; pass `--list-format=verbose` to add a LOCATION column, or `--list-format=json` for a
-machine-readable tree (plus flat `entries`). Default dependencies that are expected but absent
+machine-readable tree (plus flat `entries`, including a ``requires`` array on GitLab leaves). Default dependencies that are expected but absent
 appear as `missing`. Referenced section roll-ups separate `dependencies in use`,
 `missing dependencies` (when any expected trees are absent), and only then
 `potentially stale dependencies` for other non-selected referenced leaves. It exits without
@@ -89,6 +93,28 @@ CLI:
 [source,json]
 ----
 include::partial$samples/list-dependencies.json[]
+----
+====
+
+GitLab packages that ship ``cuppa-dependency.json`` also show a ``requires`` group under each
+version (declared transitive edges). The sample below is the offline alpha → beta → gamma
+fixture shape (no live registry):
+
+.Example `--list-dependencies` with GitLab ``requires`` (click to expand)
+[%collapsible]
+====
+[source]
+----
+include::partial$samples/list-dependencies-requires.txt[]
+----
+====
+
+.Example `--list-dependencies --list-format=json` with ``requires`` (click to expand)
+[%collapsible]
+====
+[source,json]
+----
+include::partial$samples/list-dependencies-requires.json[]
 ----
 ====
 

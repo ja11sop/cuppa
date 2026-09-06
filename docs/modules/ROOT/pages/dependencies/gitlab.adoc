@@ -341,6 +341,13 @@ Consumers still only need to import / auto-enable **A**. Transitive names are no
 ``auto_enable_dependencies``. Conflicting concrete versions of the same name raise ``StopError``.
 Cycles in the dependency graph also fail clearly.
 
+``--list-dependencies`` shows declared edges from on-disk ``cuppa-dependency.json`` as a
+``requires`` group under each GitLab package version (no live registry required — plant extracts
+under the dependencies root to preview the tree). JSON includes the same edges on the tree and on
+each leaf's ``requires`` array. Doc samples:
+xref:dependencies/managing.adoc#list-dependencies[Managing dependencies — listing]
+(``list-dependencies-requires`` partials).
+
 See also xref:packages.adoc[Publishing packages] and the design plan for ``cuppa-dependency.json``.
 
 Integration coverage: xref:integration/test-packages.adoc[].
