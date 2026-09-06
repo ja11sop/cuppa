@@ -372,32 +372,61 @@ def order_sconscripts( paths, search_root=None, widen=True ):
     return ordered
 
 
-# Session registry for Cuppa ``ExportShared`` / ``ImportShared`` (survives env.Clone).
+# Session registry for Cuppa ``ExportShared`` / ``ImportShared``.
+# Keyed by toolchain/variant/arch/abi scope so dbg and rel (and multi-toolchain)
+# exports of the same name do not overwrite each other. This is a primary reason
+# the Cuppa API exists above native SCons Export/Import (global last-wins pool).
 _session_shared = {}
 
 
+def shared_export_scope( env ):
+    """Return the scope key for shared exports on *env* (tool_variant_dir when set)."""
+    key = env.get( 'tool_variant_dir' )
+    if key:
+        return key
+    variant = env.get( 'variant' )
+    if hasattr( variant, 'name' ):
+        variant_name = variant.name()
+    else:
+        variant_name = str( variant or '' )
+    toolchain = env.get( 'active_toolchain' )
+    if toolchain is not None and hasattr( toolchain, 'name' ):
+        toolchain_name = toolchain.name()
+    else:
+        toolchain_name = ''
+    return os.path.join(
+            str( toolchain_name ),
+            str( variant_name ),
+            str( env.get( 'target_arch' ) or '' ),
+            str( env.get( 'abi' ) or '' ),
+    )
+
+
 def clear_session_shared():
-    """Reset Cuppa shared exports (call once per ``Construct.build``)."""
+    """Reset all Cuppa shared exports (call once per ``Construct.build``)."""
     _session_shared.clear()
 
 
 def export_shared( env, name, value ):
-    """Cuppa preferred export: publish *name* for later ``ImportShared`` / native ``Import``.
+    """Cuppa preferred export: publish *name* for this toolchain/variant scope.
 
-    Writes the Cuppa session registry and SCons ``Export`` so either import style works
-    when exporters run first.
+    Values are stored per ``tool_variant_dir`` so ``--dbg`` and ``--rel`` (and
+    multiple toolchains) keep distinct bindings for the same name. Also updates
+    SCons ``Export`` for best-effort native ``Import`` — that global pool is
+    **not** variant-safe; prefer ``ImportShared``.
     """
     if not isinstance( name, str ) or not name or name in BUILTIN_EXPORT_NAMES:
         raise SCons.Errors.StopError(
                 "cuppa: ExportShared name must be a non-built-in string, got {!r}".format( name )
         )
-    _session_shared[name] = value
+    scope = shared_export_scope( env )
+    _session_shared.setdefault( scope, {} )[name] = value
     SCons.Script.Export( { name: value } )
     return value
 
 
 def import_shared( env, *names ):
-    """Cuppa preferred import: read names from the session registry (and SCons Export).
+    """Cuppa preferred import: read names for this toolchain/variant scope.
 
     Returns one value, or a tuple when multiple names are requested.
     """
@@ -412,18 +441,22 @@ def import_shared( env, *names ):
     if not flat:
         raise SCons.Errors.StopError( "cuppa: ImportShared requires at least one name" )
 
+    scope = shared_export_scope( env )
+    bucket = _session_shared.get( scope ) or {}
     values = []
     for name in flat:
         if name in BUILTIN_EXPORT_NAMES:
             raise SCons.Errors.StopError(
                     "cuppa: ImportShared cannot request Cuppa built-in name '{}'".format( name )
             )
-        if name not in _session_shared:
+        if name not in bucket:
             raise SCons.Errors.StopError(
-                    "cuppa: ImportShared('{}') failed — no matching ExportShared "
-                    "(exporter must run first)".format( name )
+                    "cuppa: ImportShared('{}') failed for scope [{}] — no matching "
+                    "ExportShared (exporter must run first for this toolchain/variant)".format(
+                            name, scope
+                    )
             )
-        values.append( _session_shared[name] )
+        values.append( bucket[name] )
     if len( values ) == 1:
         return values[0]
     return tuple( values )

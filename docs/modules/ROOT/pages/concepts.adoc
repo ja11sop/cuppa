@@ -70,6 +70,12 @@ Two scripts that export the same product name are an error (stricter than SCons,
 which last-wins on a global pool). Native SCons `Export` / `Import` are also
 recognised by the scan when names are string literals.
 
+`ExportShared` / `ImportShared` are **variant-aware**: values are stored per
+toolchain/variant/arch/abi (`tool_variant_dir`), so the same name exported under
+`--dbg` and `--rel` resolves to the matching nodes for each variant. That is a
+concrete reason to prefer the Cuppa API over native SCons `Export` / `Import`,
+whose global pool is last-wins across the whole configure pass.
+
 Without product imports, execution order stays the discovery walk (a flat graph). Nested
 `SConscript(..., exports=...)` from one script while Cuppa also auto-discovers the same path
 can still double-run that path — prefer `ExportShared` / discovery, or avoid listing a path

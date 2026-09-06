@@ -37,8 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   under ``--scripts=``; multi-hop), run exporters before importers; duplicate product exports
   are an error. ``--strict-sconscript-exports`` refuses widen. Widened paths stay
   project-relative so ``--clean`` matches the same ``_build`` layout as a full discovery
-  build. Concepts and Building CLI docs cover discovery vs sharing
-  ([`sconscript-exports`](design/plans/sconscript-exports.md)).
+  build. Shared exports are **variant-aware** (keyed by ``tool_variant_dir``) so the same
+  name under ``--dbg`` / ``--rel`` resolves correctly — a concrete reason to prefer the
+  Cuppa API over native SCons ``Export`` / ``Import``. Concepts and Building CLI docs
+  cover discovery vs sharing ([`sconscript-exports`](design/plans/sconscript-exports.md)).
 
 ### Changed
 

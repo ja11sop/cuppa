@@ -252,6 +252,7 @@ def test_export_import_shared_session_registry():
         pass
 
     env = FakeEnv()
+    env['tool_variant_dir'] = 'gcc/dbg/x86_64/cxx2c'
     export_shared( env, 'capy_libs', [ 'lib_a' ] )
     assert import_shared( env, 'capy_libs' ) == [ 'lib_a' ]
     assert import_shared( env, 'capy_libs', 'capy_libs' ) == ( [ 'lib_a' ], [ 'lib_a' ] )
@@ -262,6 +263,45 @@ def test_export_import_shared_session_registry():
         import_shared( env, 'capy_libs' )
     assert 'env' in BUILTIN_EXPORT_NAMES
 
+
+def test_export_shared_is_variant_scoped():
+    """Same export name under dbg and rel must not overwrite each other."""
+    clear_session_shared()
+
+    class FakeEnv( dict ):
+        pass
+
+    dbg = FakeEnv()
+    dbg['tool_variant_dir'] = 'gcc/dbg/x86_64/cxx2c'
+    rel = FakeEnv()
+    rel['tool_variant_dir'] = 'gcc/rel/x86_64/cxx2c'
+
+    export_shared( dbg, 'mylib', 'dbg-nodes' )
+    export_shared( rel, 'mylib', 'rel-nodes' )
+    assert import_shared( dbg, 'mylib' ) == 'dbg-nodes'
+    assert import_shared( rel, 'mylib' ) == 'rel-nodes'
+
+    # Rel re-export must not disturb dbg
+    export_shared( rel, 'mylib', 'rel-nodes-2' )
+    assert import_shared( dbg, 'mylib' ) == 'dbg-nodes'
+    assert import_shared( rel, 'mylib' ) == 'rel-nodes-2'
+
+
+def test_import_shared_missing_in_this_variant_only():
+    clear_session_shared()
+
+    class FakeEnv( dict ):
+        pass
+
+    dbg = FakeEnv()
+    dbg['tool_variant_dir'] = 'gcc/dbg/x86_64/cxx2c'
+    rel = FakeEnv()
+    rel['tool_variant_dir'] = 'gcc/rel/x86_64/cxx2c'
+    export_shared( dbg, 'mylib', 'dbg-only' )
+    with pytest.raises( SCons.Errors.StopError ) as caught:
+        import_shared( rel, 'mylib' )
+    assert 'scope' in str( caught.value )
+    assert import_shared( dbg, 'mylib' ) == 'dbg-only'
 
 def test_parse_error_in_sconscript_is_stop_error():
     with pytest.raises( SCons.Errors.StopError ) as caught:

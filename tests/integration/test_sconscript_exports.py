@@ -166,3 +166,35 @@ def test_clean_with_scripts_widen_removes_exporter_artefacts( tmp_path ):
     assert_success( run_cuppa( project, '--dbg', '--scripts=test/sconscript', '--clean' ) )
     left = [ p for p in build.rglob( '*' ) if p.is_file() ]
     assert not left, left
+
+
+def test_export_shared_dbg_and_rel_are_distinct( tmp_path ):
+    """Same ExportShared name must resolve to the active variant under --dbg --rel."""
+    project = copy_dummy_project( tmp_path )
+    write_sconstruct( project, default_variants=['dbg', 'rel'] )
+
+    ( project / 'sconscript' ).write_text(
+            "Import('env')\n"
+            "env.ExportShared( 'shared_variant', env['variant'].name() )\n",
+            encoding='utf-8',
+    )
+    test_dir = project / 'test'
+    test_dir.mkdir()
+    marker_dbg = project / 'marker_dbg.txt'
+    marker_rel = project / 'marker_rel.txt'
+    ( test_dir / 'sconscript' ).write_text(
+            "Import('env')\n"
+            "value = env.ImportShared( 'shared_variant' )\n"
+            "assert value == env['variant'].name(), (value, env['variant'].name())\n"
+            "path = r'{dbg}' if env['variant'].name() == 'dbg' else r'{rel}'\n"
+            "open( path, 'w', encoding='utf-8' ).write( value )\n".format(
+                    dbg=str( marker_dbg ).replace( '\\', '\\\\' ),
+                    rel=str( marker_rel ).replace( '\\', '\\\\' ),
+            ),
+            encoding='utf-8',
+    )
+
+    result = run_cuppa( project, '--dbg', '--rel' )
+    assert_success( result )
+    assert marker_dbg.read_text( encoding='utf-8' ) == 'dbg'
+    assert marker_rel.read_text( encoding='utf-8' ) == 'rel'

@@ -123,7 +123,6 @@ Static scan will not catch every dynamic `Import(name)` constructed at runtime; 
 ## Open questions
 
 - Exact Cuppa method names beyond shipped `ExportShared` / `ImportShared`.
-- Variant scope: exports are per-variant nodes — graph nodes are (script path × variant) or script path with per-variant values?
 - How much of a static scan is enough (AST vs regex vs execute-with-stubs)? Dynamic `Import(name)` remains unsupported.
 - Agent / CMake migration docs: teach Cuppa API first.
 
@@ -134,6 +133,8 @@ Static scan will not catch every dynamic `Import(name)` constructed at runtime; 
 | `--scripts=` + missing exporter | **Widen by default** under the sconstruct (multi-hop fixed point). |
 | Refuse widen | **`--strict-sconscript-exports`** — Import must be satisfied by the already-selected set. |
 | Widened scripts | Join the run set (exporters execute, not resolve-only). |
+| Variant / toolchain scope | **`ExportShared` / `ImportShared` are keyed by `tool_variant_dir`** (toolchain + variant + arch + abi). Same export name under `--dbg` and `--rel` (or two toolchains) keeps distinct values. **This is a concrete reason the Cuppa API exists above native SCons `Export` / `Import`**, whose global pool is last-wins across the configure pass and cannot honour variants safely. Native `Export` is still updated best-effort for migration; product code should use `ImportShared`. |
+| Graph nodes for scan/order | Script paths only (order is the same for every variant); **values** are per-variant via the Cuppa registry. |
 
 ## Progress snapshot
 
@@ -141,8 +142,9 @@ Static scan will not catch every dynamic `Import(name)` constructed at runtime; 
 |-------|--------|
 | Problem validated on Boost.Capy | done (2026-08-17) |
 | Lean: discovery + import/export graph (B) | settled in plan 2026-09-06 |
-| `scons-export-doc` | Concepts + Building / CLI reference for widen and `--strict-sconscript-exports` |
-| `scons-export-spike` | `sconscript_coupling` scan / multi-hop widen / topo + `ExportShared` / `ImportShared`; `Construct.build` wired |
-| `--scripts=` + strict | Covered by unit + integration tests |
+| `scons-export-doc` | Concepts + Building / CLI reference for widen, strict, and variant-aware Cuppa API |
+| `scons-export-spike` | `sconscript_coupling` scan / multi-hop widen / topo + variant-scoped `ExportShared` / `ImportShared`; `Construct.build` wired |
+| `--scripts=` + strict + clean path form | Covered by unit + integration tests |
+| Variant-aware shared exports | Covered (`tool_variant_dir` scope; `--dbg --rel` integration) |
 | `scons-export-dedupe` | Not started (explicit `SConscript` + discovery double-run) |
 | `scons-export-capy` | Not started |
