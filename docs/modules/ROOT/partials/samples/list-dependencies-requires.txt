@@ -1,0 +1,38 @@
+Dependencies in ~/.cuppa/dependencies
+Default dependencies: alpha
+  -------------------------------------------------------------------------
+      SIZE  LAST USED  REMARK       DEPENDENCY
+  -------------------------------------------------------------------------
+       12K  today      1 total      referenced
+                                    │
+       12K  today      1 used       ├── dependencies in use
+                                    │
+       12K  today      1 used       └── gitlab packages
+                                        │
+       12K  today                       └── alpha
+       12K  today                           └── 1.0.0
+       12K  today      in use                   ├── gcc153_rel_x86_64_cxx2c
+         -  -                                   └── requires
+         -  -          libs: beta                   └── beta 2.0.0
+  -------------------------------------------------------------------------
+       12K  today                   unreferenced
+                                    │
+       12K  today                   └── gitlab packages
+                                        │
+        8K  today                       ├── beta
+        8K  today                       │   └── 2.0.0
+        8K  today                       │       ├── gcc153_rel_x86_64_cxx2c
+         -  -                           │       └── requires
+         -  -          libs: gamma      │           └── gamma 3.0.0
+                                        │
+        4K  today                       └── gamma
+        4K  today                           └── 3.0.0
+        4K  today                               └── gcc153_rel_x86_64_cxx2c
+  -------------------------------------------------------------------------
+  3 entries, 24K total, 12K unreferenced
+
+Review unreferenced trees, then clear them with:
+
+cuppa -Q -D -n --force-wipe-unreferenced-dependencies
+
+Drop -n and re-run after confirming.

@@ -2,7 +2,7 @@
 
 - **Status:** living
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md); [`design/README.md`](../README.md) (graduate notes into `plans/` then ROADMAP)
-- **Updated:** 2026-09-05
+- **Updated:** 2026-09-06
 
 Scratchpad for suggestions that may become new plans or updates to existing ones.
 The goal is to turn these notes into actionable, well-understood plan elements.
@@ -46,6 +46,35 @@ reporting path. Deferred while Boost latest persistence and `--list-toolchains` 
 
 ## New plan(s): Dependencies
 
+### GitHub packages (registry consume / publish, like GitLab)
+
+Explore a first-class **GitHub Packages** dependency kind parallel to today’s GitLab package
+path (`package_dependency` / `GitlabPackagePublisher`, storage type `gitlab`, list/remove
+buckets, optional `cuppa-dependency.json` transitive edges).
+
+**Already reserved / noted (not a plan yet):**
+
+- Token selector `[gh]` is reserved for a future GitHub package kind — see
+  [`removal-options.md`](../plans/removal-options.md) §4.15 alias map (`gh` next to `gl`) and
+  “Out of scope for §4.15: … implementing a GitHub package kind”; consumer docs echo
+  ``[gh] is reserved`` on the removing page.
+- No ROADMAP row and no `design/plans/*` document yet. Do **not** treat GitHub *release*
+  archive downloads (existing location / HTTP source-archive grouping) as this feature.
+
+**When graduating to a plan, settle at least:**
+
+- GitHub Packages API vs GitLab Generic Packages: auth (`GITHUB_TOKEN` / fine-grained),
+  org/user registry URLs, version listing, OS/toolchain stem identity reuse
+- Publish surface (GitHub twin of `GitlabPackagePublisher`) and consume
+  (`github_package` / `[gh]` storage type)
+- Whether transitive `cuppa-dependency.json` (and `--list-dependencies` `requires`) should
+  share one manifest format across registries or stay GitLab-first
+- Develop / offline / wipe / list parity with GitLab; docs under Dependencies (consume) vs
+  Packages (publish)
+
+Trigger: after the GitLab transitive + list work has soaked; write
+`design/plans/github-packages.md` (name TBD) and a ROADMAP row before implementation.
+
 ### Built-in dependencies in their own repositories
 
 Shipping every built-in inside Cuppa does not scale and is a weak blueprint for third-party
@@ -66,6 +95,24 @@ tool may be expedient); a native Cuppa dependency is fine. Prefer the own-repo l
 related plan once that exists.
 
 ## New or updated plan(s): Documentation
+
+### Shell / console listing colours (Cursor-like)
+
+Prefer reading shell samples the way Cursor colours them in the editor — especially in **light**
+mode: command / executable tokens orange (or amber), flags blue, variables / expansions
+purple–magenta, strings and paths clearly distinct from bare text. Today Antora `[source,shell]`
+/ `bash` / `console` blocks use the default UI highlighter (or plain), so CLI teaching samples are
+harder to scan than coloured report trees (`cuppa-output`).
+
+Relate to [`shiki-syntax-highlighting.md`](../plans/shiki-syntax-highlighting.md) (build-time Shiki
+for `bash`/`shell`/`console`, theme mapped to cup-of-tea palettes — not stock nord/github-light).
+Also touch [`antora-ui-bundle.md`](../plans/antora-ui-bundle.md) if token colours live in
+supplemental CSS. Mermaid theme tweaks do **not** highlight AsciiDoc source listings; only a
+highlighter (Shiki or highlight.js grammar + CSS) or hand-authored spans would. Do not confuse
+with semantic report HTML (`++++` samples) — those stay on the colourised-samples path.
+
+Graduate to a short plan or a Shiki plan subsection when that work is next; until then keep this
+as the reminder of the desired light-mode token map.
 
 ### Structure pages folder under docs to match nav structure
 

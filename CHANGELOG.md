@@ -27,8 +27,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``A.use_all_libs()``). Cycles and conflicting concrete versions raise ``StopError``.
   ``use_all_libs()`` links every static library under the package ``lib/`` directory
   ([#279](https://github.com/ja11sop/cuppa/issues/279)).
+- ``--list-dependencies`` shows declared GitLab package ``requires`` edges from on-disk
+  ``cuppa-dependency.json`` (text tree + JSON); offline A→B→C fixtures cover list and develop
+  consume without a live registry. Doc samples
+  ``list-dependencies-requires.{txt,html,json}`` show the expected tree shape
+  ([#279](https://github.com/ja11sop/cuppa/issues/279)).
 
 ### Changed
+
+- Managing dependencies docs: short hub plus
+  ``list-dependencies`` / ``list-downloads`` / ``removing`` / ``develop`` children; coloured
+  ``requires`` sample uses HTML passthrough (not a collapsible text listing); removing page
+  adds a list→token→remove worked path.
 
 ### Deprecated
 

@@ -68,7 +68,7 @@ feature branches, or overwrites dirty/unpushed work. SCons `-n` previews actions
 | The literal named branch
 |===
 
-See xref:dependencies/managing.adoc#checking-your-develop-copies[Checking your develop copies] for
+See xref:dependencies/managing/develop.adoc#checking-your-develop-copies[Checking your develop copies] for
 the state model and examples.
 
 == Per-location dependency options

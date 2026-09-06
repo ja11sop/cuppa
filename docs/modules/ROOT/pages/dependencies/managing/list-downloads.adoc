@@ -1,0 +1,77 @@
+= Listing downloads
+:description: --list-downloads hierarchical report of caches and extracts
+
+[#list-downloads]
+== Listing downloads
+
+`--list-downloads` walks the downloads root and prints a hierarchical table of cached archives
+together with the dependency trees they regenerate. Before the walk it prints
+`Collating downloads tree...` (text and verbose only). Rows are grouped referenced first then
+unreferenced, then by type, then by identity. Under each identity the archive leaf is the file
+under `--downloads-root`; an `[E]` child shows the matching tree under
+`--dependencies-root` (GitLab toolchain folder, or `name/version` for HTTP source archives).
+Parent `SIZE` values roll up **archive** bytes only so the footer answers how much download
+cache would be reclaimed. Extract sizes stay on the `[E]` leaf for impact.
+
+`--list-scope` filters the same nested way as
+xref:dependencies/managing/list-dependencies.adoc[`--list-dependencies`]
+(`all` / `referenced` / `compact` / `unreferenced`). `--list-format=verbose` adds LOCATION
+(archive path and extract path). `--list-format=json` includes `tree`, flat `entries` with
+`kind` `archive` or `product`, `archive_count`, `scope`, and archive-only `total_bytes` /
+`unreferenced_bytes`. See
+xref:integration/test-list-downloads.adoc[`test_list_downloads`].
+
+[source,shell]
+----
+cuppa -Q -D --list-downloads
+cuppa -Q -D --list-downloads --list-scope=referenced
+cuppa -Q -D --list-downloads --list-scope=compact
+cuppa -Q -D --list-downloads --list-format=verbose
+cuppa -Q -D --list-downloads --list-format=json
+----
+
+Example `--list-format=json` output (shortened: one archive and its extract; footer totals
+count **archive** bytes only):
+
+.Example `--list-downloads --list-format=json` (click to expand)
+[%collapsible]
+====
+[source,json]
+----
+include::partial$samples/list-downloads.json[]
+----
+====
+
+Type groups follow the same order as `--list-dependencies` (gitlab packages before source
+archives). Under each type row a hanging `│` connects to the first identity.
+Listing samples below are rendered by `python -m scripts.generate_doc_samples` through the
+same formatters the CLI uses:
+
+++++
+include::partial$samples/list-downloads.html[]
+++++
+
+[cols="1,4"]
+|===
+| Scope | Effect
+
+| `all` (default)
+| Referenced section, then unreferenced
+
+| `referenced`
+| Resolved identities only, **including unused sibling leaves** under those identities
+  (other Boost versions, other branches next to `in use`). Footer:
+  `N entries, X total, X referenced`
+
+| `compact`
+| Refinement of `referenced`: resolve-selected leaves only (`in use` / `missing` /
+  develop-shadowed) — no unused siblings and no unreferenced section. Footer:
+  `N entries, X total, X compact`
+
+| `unreferenced`
+| Only leftover identities this project does not resolve
+|===
+
+`compact` always implies the referenced side of the partition; choose `referenced` when you
+want to see stale siblings you might force-wipe by name, and `compact` for a short “what this
+selection uses” view.

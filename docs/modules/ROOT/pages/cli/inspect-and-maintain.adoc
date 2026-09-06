@@ -170,7 +170,7 @@ patterns where the detailed workflow permits them.
 | Useful when the list tree displays an empty qualifier
 |===
 
-See xref:dependencies/managing.adoc#dependency-tokens[Dependency tokens] before using force-wipe;
+See xref:dependencies/managing/removing.adoc#dependency-tokens[Dependency tokens] before using force-wipe;
 that page defines every selector and shows how tokens map to the inventory tree.
 
 == Previewing maintenance

@@ -34,4 +34,4 @@ cuppa.run(
 
 == See also
 
-xref:dependencies/managing.adoc#checking-your-develop-copies[Checking your develop copies]
+xref:dependencies/managing/develop.adoc#checking-your-develop-copies[Checking your develop copies]

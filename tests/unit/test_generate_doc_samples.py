@@ -308,6 +308,20 @@ def test_json_list_samples_use_render_json_payload_shape():
     assert len( deps['entries'] ) == 2
     assert 'tree' in deps
 
+    requires = json.loads(
+            samples.sample_list_dependencies_requires_json().read_text(
+                    encoding='utf-8'
+            )
+    )
+    assert len( requires['entries'] ) == 3
+    alpha = next( entry for entry in requires['entries'] if entry['dependency'] == 'alpha' )
+    assert alpha['requires'][0]['name'] == 'beta'
+    text = samples.sample_list_dependencies_requires().read_text( encoding='utf-8' )
+    assert 'requires' in text
+    assert 'beta 2.0.0' in text
+    assert 'gamma 3.0.0' in text
+    assert 'libs: beta' in text
+
     develop = json.loads(
             samples.sample_list_develop_json().read_text( encoding='utf-8' )
     )

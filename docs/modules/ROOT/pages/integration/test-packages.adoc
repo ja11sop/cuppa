@@ -12,6 +12,8 @@
   The archive contains the static library (not only a `.packaged` stamp).
 * ``GitlabPackagePublisher(..., dependencies=[...])`` writes ``cuppa-dependency.json`` into the
   archive (transitive package metadata).
+* Offline **alpha → beta → gamma** develop extracts: auto-enable only ``alpha``; transitive
+  ``BuildWith`` supplies includes so a test that ``#include <alpha.hpp>`` compiles and runs.
 
 Full consume/upload E2E against a live GitLab registry is still deferred.
 

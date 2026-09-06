@@ -32,7 +32,10 @@ model, then choose the detailed page for the dependency kind or workflow you nee
   xref:dependencies/builtins/boost.adoc[Boost]
 
 | List, remove, purge, develop copies
-| xref:dependencies/managing.adoc[Managing dependencies]
+| xref:dependencies/managing.adoc[Managing dependencies] ·
+  xref:dependencies/managing/list-dependencies.adoc[list] ·
+  xref:dependencies/managing/removing.adoc[remove] ·
+  xref:dependencies/managing/develop.adoc[develop]
 
 | Author a new dependency
 | xref:dependencies/extending.adoc[Writing your own]

@@ -1,8 +1,8 @@
 # Plan: Sconscript exports and shared build products
 
 - **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `sconscript-exports`; blocks multi-file Cuppa layouts like CMake `add_subdirectory`; pairs with [#213](https://github.com/ja11sop/cuppa/issues/213)
-- **Updated:** 2026-08-17
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `sconscript-exports`; blocks multi-file Cuppa layouts like CMake `add_subdirectory`; pairs with [#213](https://github.com/ja11sop/cuppa/issues/213); graph/cycle vocabulary may later share helpers with [`gitlab-package-transitive.md`](gitlab-package-transitive.md) (different graph; do not force one NetworkX model)
+- **Updated:** 2026-09-06
 
 ## Problem
 

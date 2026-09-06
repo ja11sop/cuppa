@@ -7,6 +7,7 @@ import pytest
 from cuppa.core.dependency_storage import split_location_folder_name
 from cuppa.location import Location
 from tests.helpers.cuppa_runner import assert_success, run_cuppa
+from tests.helpers.gitlab_package_fixtures import plant_transitive_gitlab_chain
 from tests.helpers.project import copy_dummy_project, write_sconstruct
 
 
@@ -751,3 +752,62 @@ cuppa.run(
     assert "@master (unqualified)" not in compact_plain
     compact_err = compact.stderr or ""
     assert "removal candidate" not in compact_err
+
+
+def test_list_dependencies_shows_declared_requires_chain( tmp_path ):
+    """Offline A→B→C extracts: --list-dependencies shows requires under each parent."""
+    project = copy_dummy_project( tmp_path )
+    storage = tmp_path / "storage"
+    planted = plant_transitive_gitlab_chain( storage )
+    write_sconstruct( project )
+
+    listed = run_cuppa(
+            project,
+            "--list-dependencies",
+            "--storage-root={}".format( storage ),
+            extra_env=own_home( tmp_path ),
+    )
+    assert_success( listed )
+    plain = strip_ansi( listed.stdout )
+    assert "requires" in plain
+    assert re.search( r"\bbeta 2\.0\.0\b", plain )
+    assert re.search( r"\bgamma 3\.0\.0\b", plain )
+    assert "libs: beta" in plain
+    assert "libs: gamma" in plain
+    assert planted["tool_variant"] in plain or "alpha" in plain
+
+    as_json = run_cuppa(
+            project,
+            "--list-dependencies",
+            "--list-format=json",
+            "--storage-root={}".format( storage ),
+            extra_env=own_home( tmp_path ),
+    )
+    assert_success( as_json )
+    match = re.search( r"\{.*\}", as_json.stdout, re.DOTALL )
+    assert match, as_json.stdout
+    payload = json.loads( match.group( 0 ) )
+
+    def find_requires( node, edges=None ):
+        edges = edges if edges is not None else []
+        if node.get( "kind" ) == "requires_edge":
+            edges.append( node )
+        for child in node.get( "children" ) or []:
+            find_requires( child, edges )
+        return edges
+
+    edges = []
+    for section in ( payload.get( "tree" ) or {} ).get( "sections" ) or []:
+        find_requires( section, edges )
+    labels = { edge.get( "label" ) for edge in edges }
+    assert "beta 2.0.0" in labels
+    assert "gamma 3.0.0" in labels
+
+    alpha_entries = [
+            entry for entry in payload["entries"]
+            if ( entry.get( "path" ) or "" ).replace( "\\", "/" ).endswith( "/alpha/1.0.0" )
+            or entry.get( "dependency" ) == "alpha"
+    ]
+    assert alpha_entries
+    requires = alpha_entries[0].get( "requires" ) or []
+    assert any( item.get( "name" ) == "beta" for item in requires )

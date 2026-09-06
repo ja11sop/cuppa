@@ -202,3 +202,88 @@ env.PublishPackage(lib, publisher)
     archives = _package_archive_paths(project)
     assert len(archives) == 1, archives
     assert _archive_contains_static_lib(archives[0])
+
+
+def own_home(tmp_path):
+    home = tmp_path / "home"
+    home.mkdir(exist_ok=True)
+    return {"HOME": str(home), "USERPROFILE": str(home)}
+
+
+def test_offline_transitive_consume_a_requires_b_requires_c(tmp_path):
+    """Offline A→B→C via develop extracts; only alpha is auto-enabled."""
+    from tests.helpers.gitlab_package_fixtures import plant_transitive_gitlab_chain
+
+    project = copy_dummy_project(tmp_path)
+    storage = tmp_path / "storage"
+    planted = plant_transitive_gitlab_chain(storage)
+
+    write_sconstruct(
+        project,
+        body="""\
+import cuppa
+
+Alpha = cuppa.package_dependency(
+    'alpha',
+    registry='https://gitlab.example/api/v4/projects/1',
+    package='alpha',
+    version='1.0.0',
+    develop={alpha!r},
+)
+Beta = cuppa.package_dependency(
+    'beta',
+    registry='https://gitlab.example/api/v4/projects/1',
+    package='beta',
+    version='2.0.0',
+    develop={beta!r},
+)
+Gamma = cuppa.package_dependency(
+    'gamma',
+    registry='https://gitlab.example/api/v4/projects/1',
+    package='gamma',
+    version='3.0.0',
+    develop={gamma!r},
+)
+
+cuppa.run(
+    default_variants=['dbg'],
+    import_dependencies=[Alpha, Beta, Gamma],
+    auto_enable_dependencies=[Alpha],
+)
+""".format(
+            alpha=str(planted["alpha"]),
+            beta=str(planted["beta"]),
+            gamma=str(planted["gamma"]),
+        ),
+    )
+    write_sconscript(
+        project,
+        """\
+Import('env')
+env.BuildTest('chain_test', 'tests/chain_test.cpp')
+""",
+    )
+    (project / "tests" / "chain_test.cpp").write_text(
+        """\
+#include <alpha.hpp>
+#include <cstdlib>
+
+int main()
+{
+    return alpha_value() == 5 ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = run_cuppa(
+        project,
+        "--offline",
+        "--develop",
+        "--dbg",
+        "--test",
+        "--show-test-output",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(result)

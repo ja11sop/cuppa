@@ -1,10 +1,11 @@
 # Plan: Transitive GitLab package dependencies
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Dependencies / packages; [`archive/gitlab-package-latest.md`](../archive/gitlab-package-latest.md); [`archive/dependency-resolve.md`](../archive/dependency-resolve.md); [`archive/conan-consumer-plan.md`](../archive/conan-consumer-plan.md) (transitive `requires` as contrast); [`run-default-dependency-objects.md`](run-default-dependency-objects.md) (import vs auto-enable); scratchpad graduate
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Dependencies / packages; [`archive/gitlab-package-latest.md`](../archive/gitlab-package-latest.md); [`archive/dependency-resolve.md`](../archive/dependency-resolve.md); [`archive/conan-consumer-plan.md`](../archive/conan-consumer-plan.md) (transitive `requires` as contrast); [`run-default-dependency-objects.md`](run-default-dependency-objects.md) (import vs auto-enable); [`sconscript-exports.md`](sconscript-exports.md) (separate graph; shared cycle/conflict vocabulary later); scratchpad graduate
 - **Updated:** 2026-09-06
 - **Impact:** minor — new publish/consume behaviour for GitLab packages; existing flat declarations stay valid
 - **Issue:** [#279](https://github.com/ja11sop/cuppa/issues/279)
+
 ## Problem
 
 GitLab `package_dependency` archives are **standalone**. If package **A** needs package **B**
@@ -283,9 +284,17 @@ they ride along with `A.use_libs(...)`, not with bare `BuildWith(A)`.
 | `gl-dep-rules` | Done — proposal + settled decisions 2026-09-06 |
 | `gl-dep-publish` | Done — `dependencies=` → `cuppa-dependency.json` |
 | `gl-dep-consume` | Done — `BuildWith` + transitive `use_libs`; cycles / version conflict |
-| `gl-dep-tests` | Done for MVP unit/publish — A→B→C apply chains; live consume E2E still deferred |
-| `gl-dep-docs` | Done — `gitlab.adoc` / `packages.adoc` / integration page |
-| `gl-dep-list` | Not started |
+| `gl-dep-tests` | Done for MVP — unit/publish + offline A→B→C list/develop consume |
+| `gl-dep-docs` | Done — `gitlab.adoc` / `packages.adoc` / managing list notes |
+| `gl-dep-list` | Done — declared `requires` under GitLab version leaves (text + JSON) |
 | `gl-dep-lib-api` | Partial — `use_all_libs()` shipped; named groups / `show_*` deferred |
 | `gl-dep-ranges` | Deferred |
 | `gl-dep-issue` | Done — [#279](https://github.com/ja11sop/cuppa/issues/279) |
+
+### Graph tooling note (with `sconscript-exports`)
+
+Package requires and sconscript export/load order are **different graphs**. `gl-dep-list` reads
+manifests into the existing inventory tree (no NetworkX). When
+[`sconscript-exports.md`](sconscript-exports.md) needs cycle/collision checks, prefer a small
+shared helper (hand-rolled DFS first); introduce NetworkX only if a second real consumer makes
+adjacency code painful — not for listing alone.

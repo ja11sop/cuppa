@@ -69,3 +69,93 @@ def test_referenced_summary_keeps_stale_for_non_missing_unused():
     assert 'missing dependencies' not in summaries
     assert 'potentially stale dependencies' in summaries
     assert summaries['potentially stale dependencies']['remark'] == '1 unused'
+
+
+def _gitlab_leaf( name, version, tool_variant, path, state='unreferenced', requires=None ):
+    leaf = {
+        'type': 'gitlab',
+        'short_name': name,
+        'stem': name,
+        'dependency': name,
+        'qualifier': version,
+        'tool_variant': tool_variant,
+        'state': state,
+        'size_bytes': 10,
+        'last_used_epoch': 1.0,
+        'path': path,
+        'source_url': None,
+        'remote_location': 'https://gitlab.example/api/v4/projects/1/{}/{}'.format(
+                name, version
+        ),
+        'location': '',
+        'package_archive': '{}_{}.tar.gz'.format( name, tool_variant ),
+        'has_download': False,
+    }
+    if requires is not None:
+        leaf['requires'] = requires
+    return leaf
+
+
+def _find_kind( node, kind ):
+    if node.get( 'kind' ) == kind:
+        return node
+    for child in node.get( 'children' ) or []:
+        found = _find_kind( child, kind )
+        if found is not None:
+            return found
+    return None
+
+
+def test_gitlab_tree_shows_requires_from_manifest( tmp_path ):
+    package_dir = tmp_path / "gcc15_rel_x86_64_cxx2c" / "alpha" / "1.0.0"
+    package_dir.mkdir( parents=True )
+    ( package_dir / "include" ).mkdir()
+    from cuppa.package_managers.cuppa_dependency_manifest import write_manifest
+    write_manifest( str( package_dir ), [
+            {
+                    "name": "beta",
+                    "package": "beta",
+                    "version": "2.0.0",
+                    "use_libs": ["beta_core"],
+            },
+    ] )
+
+    tree = dependency_tree.build_tree( [
+            _gitlab_leaf(
+                    'alpha', '1.0.0', 'gcc15_rel_x86_64_cxx2c',
+                    str( package_dir ), state='referenced',
+            ),
+    ] )
+    referenced = next( s for s in tree['sections'] if s['label'] == 'referenced' )
+    requires = _find_kind( referenced, 'requires' )
+    assert requires is not None
+    assert requires['label'] == 'requires'
+    edge = requires['children'][0]
+    assert edge['kind'] == 'requires_edge'
+    assert edge['requires_name'] == 'beta'
+    assert edge['requires_version'] == '2.0.0'
+    assert edge['remark'] == 'libs: beta_core'
+
+
+def test_gitlab_tree_shows_requires_from_preloaded_entries():
+    tree = dependency_tree.build_tree( [
+            _gitlab_leaf(
+                    'alpha', '1.0.0', 'gcc15_rel', '/missing/path',
+                    state='referenced',
+                    requires=[
+                            {
+                                    'name': 'beta',
+                                    'package': 'beta',
+                                    'version': '2.0.0',
+                            },
+                    ],
+            ),
+    ] )
+    referenced = next( s for s in tree['sections'] if s['label'] == 'referenced' )
+    requires = _find_kind( referenced, 'requires' )
+    assert requires is not None
+    assert requires['children'][0]['label'] == 'beta 2.0.0'
+
+
+def test_requires_group_from_package_dir_none_when_absent( tmp_path ):
+    assert dependency_tree.requires_group_from_package_dir( str( tmp_path ) ) is None
