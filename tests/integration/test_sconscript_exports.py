@@ -5,6 +5,8 @@
 
 """Integration: ExportShared ordering, --scripts widen, and strict exports."""
 
+import sys
+
 import pytest
 
 from tests.helpers.cuppa_runner import (
@@ -211,6 +213,10 @@ def test_export_shared_static_lib_builds_under_parallel( tmp_path ):
 
     Configure still runs sconscripts serially; this checks the build DAG when the
     consumer links nodes published via ExportShared.
+
+    On Windows/MSVC, omit ``--parallel``: dbg uses ``/Zi`` without a per-object
+    ``/Fd``, so concurrent compiles across variant dirs race on project-root
+    ``vc140.pdb`` (C1090). The ExportShared link path is still exercised.
     """
     project = copy_dummy_project( tmp_path )
     write_sconstruct( project, default_variants=['dbg'] )
@@ -249,7 +255,10 @@ def test_export_shared_static_lib_builds_under_parallel( tmp_path ):
             encoding='utf-8',
     )
 
-    result = run_cuppa( project, '--dbg', '--parallel' )
+    args = [ '--dbg' ]
+    if sys.platform != 'win32':
+        args.append( '--parallel' )
+    result = run_cuppa( project, *args )
     assert_success( result )
     assert find_final_binaries( project, 'use_answer' )
     archives = [

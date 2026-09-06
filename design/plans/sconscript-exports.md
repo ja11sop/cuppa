@@ -146,6 +146,6 @@ Static scan will not catch every dynamic `Import(name)` constructed at runtime; 
 | `scons-export-spike` | `sconscript_coupling` scan / multi-hop widen / topo + variant-scoped `ExportShared` / `ImportShared`; `Construct.build` wired |
 | `--scripts=` + strict + clean path form | Covered by unit + integration tests |
 | Variant-aware shared exports | Covered (`tool_variant_dir` scope; `--dbg --rel` integration) |
-| `--parallel` build with imported lib | Covered (`BuildStaticLib` + `ExportShared` → consumer `Build` under `-j`) |
+| `--parallel` build with imported lib | Covered (`BuildStaticLib` + `ExportShared` → consumer `Build` under `-j` on non-Windows; Windows omits `-j` due to MSVC `/Zi`/`vc140.pdb` C1090 across variant dirs) |
 | `scons-export-dedupe` | Not started (explicit `SConscript` + discovery double-run) |
 | `scons-export-capy` | Not started |
