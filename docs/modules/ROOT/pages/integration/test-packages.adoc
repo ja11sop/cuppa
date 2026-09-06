@@ -10,6 +10,8 @@
 * Relative generated library dirs (`BuildStaticLib(..., final_dir='package_lib')` with
   `source_lib_dir='package_lib'`) stage from the variant tree under `--rel --parallel`.
   The archive contains the static library (not only a `.packaged` stamp).
+* ``GitlabPackagePublisher(..., dependencies=[...])`` writes ``cuppa-dependency.json`` into the
+  archive (transitive package metadata).
 
 Full consume/upload E2E against a live GitLab registry is still deferred.
 

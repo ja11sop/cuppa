@@ -111,6 +111,7 @@ def test_build_package_skips_create_when_archive_current( tmp_path, monkeypatch 
     publisher._package_source_dir = "widget"
     publisher._package_file_name = archive.name
     publisher._source_lib_dir = str( lib_dir )
+    publisher._dependencies = []
 
     touched = []
     env = _publisher_env( tmp_path, touched )
@@ -153,6 +154,7 @@ def test_build_package_creates_archive_when_staging_newer( tmp_path, monkeypatch
     publisher._package_source_dir = "widget"
     publisher._package_file_name = archive.name
     publisher._source_lib_dir = str( lib_dir )
+    publisher._dependencies = []
 
     env = _publisher_env( tmp_path )
 

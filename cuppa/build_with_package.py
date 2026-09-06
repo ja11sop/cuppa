@@ -160,7 +160,9 @@ class base(object):
 
 
     def __call__( self, env, toolchain, variant ):
-        self._package.initialise_build_variant( env, toolchain, variant )
+        self._package.initialise_build_variant(
+                env, toolchain, variant, dependency_name=self._name
+        )
 
 
     def storage_paths( self ):
@@ -200,7 +202,19 @@ class base(object):
 
 
     def use_libs( self, libs, depends_on=[] ):
-        self._package.use_libs( libs, depends_on=depends_on )
+        self._package.use_libs(
+                libs, depends_on=depends_on, dependency_name=self._name
+        )
+
+
+    def use_all_libs( self, depends_on=[] ):
+        use_all = getattr( self._package, 'use_all_libs', None )
+        if not callable( use_all ):
+            import SCons.Errors
+            raise SCons.Errors.StopError(
+                    "Package [{}] does not support use_all_libs().".format( self._name )
+            )
+        use_all( depends_on=depends_on, dependency_name=self._name )
 
 
     def package( self ):

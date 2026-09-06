@@ -30,6 +30,38 @@ upload without re-tarring multi-gigabyte trees.
 Add `--publish-package` to upload it to the GitLab generic registry.
 `env.InstallPackage(...)` installs a package into the local cuppa dependencies layout.
 
+=== Declaring transitive dependencies
+
+Pass ``dependencies=[...]`` to ``GitlabPackagePublisher`` when package **A** needs other GitLab
+packages at include or link time. Cuppa writes ``cuppa-dependency.json`` into the staged package
+directory (next to ``include/`` / ``lib/``) before creating the archive. Omit the argument when
+there are no edges — no manifest file is written, matching today's standalone packages.
+
+[source,python]
+----
+publisher = GitlabPackagePublisher(
+    env,
+    source_include_dir = '#/include',
+    source_lib_dir     = env['abs_final_dir'],
+    registry           = 'https://gitlab.example/api/v4/projects/1',
+    package            = 'widget',
+    version            = '1.0.0',
+    dependencies = [
+        {
+            'name': 'fmt',
+            'package': 'fmt',
+            'version': '12.1.0',
+            'registry': 'same',
+            'use_libs': ['fmt'],
+        },
+    ],
+)
+env.PublishPackage(lib, publisher)
+----
+
+Consumers that ``BuildWith`` / link **A** pick up **B** from the manifest — see
+xref:dependencies/gitlab.adoc#transitive-package-dependencies[Transitive package dependencies].
+
 Relative `source_include_dir` / `source_lib_dir` values are SCons nodes under the active variant directory. Cuppa copies from the generated path when it exists, and only falls back to `srcnode()` for a source-tree directory that is present. Always using `srcnode()` would look for a missing project-root copy such as `boost/1.92/lib` and fail the package step, especially under `--parallel`. Use `env['abs_final_dir']` when libraries already land in `final/`. The same resolution is used for Conan publishing (<<conan-package-publishing>>).
 
 Authentication for registry upload uses the same tokens as consume
