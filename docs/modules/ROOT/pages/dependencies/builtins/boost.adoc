@@ -127,4 +127,4 @@ flag (or omit it) to clean that home too.
 
 `--remove-dependencies=boost` uses `storage_clean` to delete only the selected b2 **stage** and
 matching Boost.Build toolset directories — not the whole extract. Details and sample output:
-xref:dependencies/managing.adoc#remove-dependencies[Removing dependency trees].
+xref:dependencies/managing/removing.adoc#remove-dependencies[Removing dependency trees].

@@ -35,6 +35,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Managing dependencies docs: short hub plus
+  ``list-dependencies`` / ``list-downloads`` / ``removing`` / ``develop`` children; coloured
+  ``requires`` sample uses HTML passthrough (not a collapsible text listing); removing page
+  adds a list→token→remove worked path.
+
 ### Deprecated
 
 ### Removed

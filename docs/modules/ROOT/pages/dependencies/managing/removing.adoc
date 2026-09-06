@@ -1,0 +1,353 @@
+= Removing, purging, and wiping
+:description: Dependency tokens, remove, purge, wipe, force-wipe, and matching names from the list
+
+[#remove-dependencies]
+== Removing dependency trees
+
+`--remove-dependencies=name1,name2` and `--remove-all-dependencies` delete trees under the
+dependencies root for the named registry dependencies (or every default dependency), scoped to
+the current toolchain / variant / location-match selection — the same options that decide where
+cuppa writes. They exit without building. Downloads, develop working copies, and unreferenced
+trees that are not named stay put; siblings for other toolchains or branches are reported as
+left behind. SCons `-n` is a dry run.
+
+Names are the keys this project uses: `auto_enable_dependencies` (legacy:
+`default_dependencies`) plus names imported via `import_dependencies` (legacy:
+`dependencies=[…]`). Built-in factories that module scan always registers
+(`boost`, `qt4`, …) are **not** removable unless the project names them that way (for example
+in `auto_enable_dependencies`). On-disk folder names and listing short names are rejected. An
+unknown or unused name prints an error (rejected name error-coloured and emphasised) and a
+ruled tree of dependencies that *can* be removed for the current selection (the in-use /
+referenced picture from `--list-dependencies`, without unreferenced leftovers), after
+`Collating dependency tree...`. See
+xref:integration/test-remove-dependencies.adoc[`test_remove_dependencies`].
+
+Tokens may also use the shared `[selector]name[/qualifier]` form described in
+xref:#dependency-tokens[Dependency tokens] — for example `[source]boost` or
+`[gl]boost_package/1.91` — to restrict by storage bucket and optional leaf qualifier.
+
+Source Boost (the `boost` dependency that builds with b2) stores headers and all toolchain
+variant products inside one extract folder. When that dependency implements selection-scoped
+`storage_clean` (Boost does), `--remove-dependencies=boost` deletes only the b2 **stage** and
+matching Boost.Build toolset directories under `--build-dir` (`bin.<abi>`) for the current
+toolchain / variant / arch selection — not the whole `bin.<abi>` tree. The extract root,
+headers, and the `b2` binary stay in place so a later build does not need to re-download the
+tarball. Other stage trees and other toolsets' intermediates under the same extract are reported
+as left behind. Removal leaves use honest scopes: cuppa-precise for stage
+(`clean/build.c{plus}{plus}2c [clang211/debug/x86_64]`) and Boost.Build toolset **family** for bin
+(`clean/bin.c{plus}{plus}2c [clang-linux-21*/debug]` — major family ± patch dirs such as `clang-linux-21.1`,
+not a cuppa minor like `clang211`). The identity SIZE is the full extract (same basis as
+`--list-dependencies`). Products and a muted `source assets` leaf hang under an `[E]` extract
+row (`---` nothing going, `-✔-` partial, `✔✔✔` everything under it going). Empty `bin.<abi>`
+husks with no toolset children stay on disk but are omitted from the table. The freed-space
+summary reports the remaining archive size after product removal.
+`--boost-patched` selects the `patched/` home; without it, `clean/` is active and `patched/`
+products show as leftovers.
+After a live product clean, cuppa refreshes that extract's inventory with an exact size, and the
+verify hint is `cuppa -Q -D --list-dependencies` (listing upgrades any remaining missing or
+estimated inventory sizes to exact on encounter).
+Dependencies without `storage_clean` still remove their
+whole owned tree under the dependencies root (for example GitLab `boost_package` removes the
+selected package variant folder). Dependency authors declare those trees with `storage_paths()`
+and optional `storage_clean()` — see xref:dependencies/extending.adoc[Writing your own dependencies].
+
+[source,shell]
+----
+cuppa -Q -D --remove-dependencies=boost_package
+cuppa -Q -D --dbg --toolchains=gcc --remove-dependencies=boost_package
+cuppa -Q -D --dbg --remove-dependencies=boost
+cuppa -Q -D --dbg --remove-dependencies='[source]boost'
+cuppa -Q -D -n --remove-dependencies=widget
+cuppa -Q -D --remove-all-dependencies
+----
+
+
+[#from-list-to-remove]
+== From list to remove
+
+Most reclaim work starts from the listing, not from memory of folder names. Treat
+xref:dependencies/managing/list-dependencies.adoc[`--list-dependencies`] as the source of truth
+for identity labels, versions, and which leaves are `in use`.
+
+. List the trees this project cares about:
+
+[source,shell]
+----
+cuppa -Q -D --list-dependencies
+cuppa -Q -D --list-dependencies --list-scope=unreferenced
+----
+
+. Read the hierarchy: type group → identity (registry name or short name) → version / branch →
+  toolchain or extract leaves. For GitLab packages the **identity** is the registry name
+  (for example `boost_package`); the on-disk package folder may differ (for example `boost/<version>`).
+  Listing short names are **not** remove tokens unless they are also project-used names.
+
+. Map labels to tokens (see <<dependency-tokens>>):
+
+* Untyped project-used name: `boost_package` or `boost` — remove / purge / wipe for the current selection.
+* Typed bucket: `[gl]boost_package` or `[source]boost`.
+* Version / leaf qualifier: `[gl]boost_package/1.91` or `boost/1.8*` (quote wildcards).
+* Unqualified VCS duplicate shown as `@master (unqualified)`: force-wipe with `name/@`.
+
+. Dry-run first (`-n`), then drop `-n`:
+
+[source,shell]
+----
+cuppa -Q -D -n --remove-dependencies='[gl]boost_package'
+cuppa -Q -D -n --wipe-dependencies='[gl]boost_package/1.91'
+cuppa -Q -D -n --force-wipe-dependencies='[source]boost/1.8*'
+----
+
+Expected report shapes match the HTML samples later on this page
+(`remove-gitlab-dry-run`, `remove-boost-product-clean`, and the wipe / purge samples).
+
+. Common mistakes
+
+* Using a **listing short name** or on-disk folder when the project key is different (remove prints
+  an error and a ruled tree of names that *can* be removed).
+* Choosing **force-wipe** when **remove** or **wipe** would suffice — force-wipe ignores
+  referenced / `in use` and is for named leaves you intend to clear deliberately.
+* Reclaiming leftovers without `--list-scope=unreferenced` (and
+  xref:dependencies/managing/list-downloads.adoc[`--list-downloads`]) first — know what you are
+  about to delete.
+
+[#dependency-tokens]
+== Dependency tokens
+
+`--remove-dependencies`, `--purge-dependencies`, `--wipe-dependencies`, and
+`--force-wipe-dependencies` share one token grammar:
+
+[source,text]
+----
+[selector]name
+[selector]name/qualifier
+name
+name/qualifier
+----
+
+* **Selector** (optional) restricts the match to one storage bucket, using the same axis as
+  `--list-dependencies` type groups. Aliases: `[source]` / `[sa]` / `[archive]` for source
+  archives; `[gl]` / `[gitlab]` for GitLab packages; `[repo]` / `[vcs]` / `[repository]` for
+  repository (VCS) trees; `[conan]` / `[cn]` for Conan. `[gh]` is reserved. Quiet alias
+  `[location]` still maps to repository.
+* **Untyped** tokens match across **all** buckets on purpose (for example source Boost and a
+  GitLab package that share a name).
+* **Qualifier** is the leaf shown in the list tree (`1.91.0`, `@11.1.1`). Shell / `fnmatch`
+  wildcards (`*`, `?`, `[…]`) are accepted on the name and/or qualifier; quote them so the shell
+  does not expand them.
+* Remove / purge / wipe still require **project-used** names; force-wipe does not.
+* Reports nest **summary → type → identity → version → leaves**, matching `--list-dependencies`
+  on the identity/version axis. A summary root shows **removing** / **wiped** vs **remaining**
+  bytes. Version marks follow extract rollups (`✔✔✔` full, `-✔-` partial, `---` untouched).
+  Match versions with `name/qualifier` tokens (for example `boost/1.8*`), not a glued name like
+  `boost*1.8*`.
+
+[source,shell]
+----
+cuppa -Q -D -n --remove-dependencies='[source]boost'
+cuppa -Q -D -n --wipe-dependencies='[gl]boost_package/1.91'
+cuppa -Q -D -n --force-wipe-dependencies='[source]boost/1.8*'
+----
+
+Example shape after a source Boost product clean (extract stays; sizes and toolset ids vary).
+The version nests under the identity; `[E]` is partial because source assets stay:
+
+++++
+include::partial$samples/remove-boost-product-clean.html[]
+++++
+
+Example shape after removing the selected GitLab toolchain tree while other toolchains remain
+(sizes and toolchain ids vary; leftover rows are muted in the tree):
+
+++++
+include::partial$samples/remove-gitlab-dry-run.html[]
+++++
+
+The identity row rolls up size (muted) and emphasises the dependency name and package version.
+Selected leaves use a check (or ballot on failure) with the removal-notice colour; leftover
+leaves stay muted with a `-` mark. Tree stems are subdued. `LAST USED` comes from inventory
+resolve stamps when present, otherwise the tree's modification time. Passing multiple
+toolchains (for example `--toolchains=gcc,clang`) removes each matching package variant.
+
+With `--develop`, a develop working copy is never deleted; the report lists it under skipped
+develop paths. Cached stems under the dependencies root may still be removed when selected.
+
+[#purge-dependencies]
+== Purging dependencies and downloads
+
+`--purge-dependencies=name1,name2` and `--purge-all-dependencies` do everything
+`--remove-dependencies` / `--remove-all-dependencies` do, then delete the matching archives
+under the downloads root for the **same names and selection** (`--toolchains`, variants,
+location-match). `--purge-all-dependencies` means every **project-used** name — not every leftover
+toolchain tarball on disk. Unreferenced clang archives stay, just as `--list-downloads` shows them.
+
+Do not combine any `--purge-*` flag with any `--remove-*` flag in one invocation (name lists are
+not merged). Unknown names use the same hint tree as remove. A missing download is not a failure:
+remove still runs and the report notes there was no archive to delete. Develop working copies are
+never deleted; downloads for that name may still be purged. SCons `-n` is a dry run.
+
+Source Boost with `storage_clean` still leaves the extract (headers / `b2` / the other patch home);
+the **download file** is deleted. That reclaims download space; the next build keeps using the
+extract. For a full clear-down of the extract (and matching downloads) so the next build
+re-downloads and re-extracts, use xref:#wipe-dependencies[`--wipe-dependencies`].
+
+The report nests download → `[E]` → source assets and products (the same pairing as
+`--list-downloads`). `[E]` uses a partial mark when the extract stays. Remove-without-purge uses
+the same `[E]` subtree directly under the identity. Leftover other-selection extracts **and**
+leftover downloads are called out like today’s leftover trees. Freed space includes download
+bytes. Verify with `cuppa -Q -D --list-downloads` (a subdued note remains when archive-clean left
+source assets — `--list-dependencies` is still useful there).
+
+[source,shell]
+----
+cuppa -Q -D --purge-dependencies=boost_package
+cuppa -Q -D --dbg --toolchains=gcc --purge-dependencies=boost_package
+cuppa -Q -D --dbg --purge-dependencies=boost
+cuppa -Q -D -n --purge-dependencies=widget
+cuppa -Q -D --purge-all-dependencies
+----
+
+Example shape after purging the selected GitLab toolchain tree and tarball while another
+toolchain remains (sizes and ids vary). The report uses the same summary → type → identity →
+version tree as remove; archive files and extract leaves hang under the version:
+
+++++
+include::partial$samples/purge-gitlab.html[]
+++++
+
+See xref:integration/test-purge-dependencies.adoc[`test_purge_dependencies`].
+
+[#wipe-dependencies]
+== Wiping dependencies (clear-down)
+
+`--wipe-dependencies=name1,name2` clears the **whole extract** for the named **project-used**
+dependencies under the **current selection**, plus matching downloads. Unlike purge, source Boost
+with `storage_clean` does **not** stop at product clean — the extract goes too. The next build
+without `--offline` re-downloads and re-extracts as usual.
+
+For wiping **every** project-used name in the current selection, use
+`--force-wipe-all-dependencies` (the `force-` prefix marks how wide that is). For specific old
+versions or branches visible in the list tree (including unused siblings under a referenced
+identity), use xref:#force-wipe-dependencies[`--force-wipe-dependencies`].
+
+Do not combine any wipe / force-wipe flag with `--remove-*` or `--purge-*`, or with another wipe
+mode, in one invocation. Develop working copies are never deleted. SCons `-n` is a dry run.
+Missing trees / downloads are not a failure.
+When inventory `used_by` names another project, `--wipe-dependencies` emits the same judgement-tree
+notices as force-wipe (warning on dry-run, past-tense note after a real wipe). See
+xref:contributing/report-patterns.adoc[Report patterns].
+
+[source,shell]
+----
+cuppa -Q -D --wipe-dependencies=boost
+cuppa -Q -D --dbg --wipe-dependencies=boost_package
+cuppa -Q -D -n --wipe-dependencies=widget
+cuppa -Q -D --force-wipe-all-dependencies
+----
+
+Verify with `--list-dependencies` and `--list-downloads`.
+
+See xref:integration/test-wipe-dependencies.adoc[`test_wipe_dependencies`].
+
+[#force-wipe-dependencies]
+== Force-wiping named leaves
+
+Old Boost versions and unused location branches often sit under the **referenced** section as
+siblings of the leaf marked `in use` — they are **not** in `unreferenced`. Naming them from the
+list tree is the reclaim path:
+
+[source,shell]
+----
+cuppa -Q -D --list-dependencies
+cuppa -Q -D -n --force-wipe-dependencies=boost/1.86.0,boost/1.87.0
+cuppa -Q -D --force-wipe-dependencies=boost/1.86.0,boost/1.87.0
+----
+
+Tokens are `[selector]name` or `[selector]name/qualifier` (selector optional) as shown in the
+tree — see xref:#dependency-tokens[Dependency tokens]. Examples: `boost/1.86.0`,
+`[source]boost/1.8*`, `fmt/@11.1.1`, `widget/@` (unqualified stem — listed as
+`@master (unqualified)`). Bare project-used identity names belong on
+`--wipe-dependencies`. Matching downloads are wiped too. Referenced /
+unreferenced / `in use` do **not** block the wipe — the long flag name is the acknowledgement.
+Inventory `used_by` naming another project prints a warning and still proceeds.
+A token with no matching leaf (or a matched path that is already gone) does **not** abort the
+rest of the list: other tokens still wipe, and each miss appears in the judgement tree (warning
+on dry-run, past-tense note after a real wipe). Ambiguous non-wildcard tokens still fail hard.
+
+When both an unqualified stem and `stem@<default>` exist, dependency-management commands
+(list / remove / purge / wipe) note the pair at debug log level. Those commands also print a
+dry-run `--force-wipe-dependencies=` hint with `name/@` tokens after the report footer
+(except `--list-dependencies`, which colours the unused `@<default> (unqualified)` leaf with
+the remove accent and ends with that hint in its footer). Under `--list-scope=compact` the
+sibling is hidden, so Location notices and wipe candidates for it are omitted — use
+`referenced` or `all` to inspect them. Under `--offline`, candidates with inventory `used_by`
+from another project are omitted from that hint. Confirm with `-n`, then drop `-n` to wipe. If
+inventory still records another project's use of the unqualified path, force-wipe reports it
+after the report table (judgement tree, like other removal notices). On a dry-run (`-n`) that
+notice is a warning in the present tense so you can still abort; after a real wipe it becomes a
+past-tense note (`wiped…`, `removing the copy was safe`) and explains that proceeding was safe
+when the canonical folder is present.
+
+Exact tokens must resolve to exactly one leaf (zero or multiple → error with candidates).
+Shell / `fnmatch` wildcards (`*`, `?`, `[…]`) on either side wipe **all** matching leaves —
+useful for a version series:
+
+[source,shell]
+----
+cuppa -Q -D -n --force-wipe-dependencies='boost/1.8*'
+cuppa -Q -D --force-wipe-dependencies='boost/1.8*'
+----
+
+Quote the token in the shell so `*` is not expanded by the shell before cuppa sees it.
+Dry-run (`-n`) lists every matched path and size before you drop `-n`. Same-identity
+siblings that are **not** matched (for example `boost/1.90.0` when wiping `boost/1.8*`)
+stay in the report without a remove remark, so the identity parent is not marked as fully
+removed and the final size includes what remains. A wildcard that matches nothing exits
+non-zero. Full regular expressions are not accepted (dots in versions stay literal under
+`fnmatch`).
+
+Location example (unused `@11.1.1`, keep `@master` in use):
+
+[source,shell]
+----
+cuppa -Q -D --force-wipe-dependencies=fmt/@11.1.1
+----
+
+Unqualified stem duplicate (listed as `@master (unqualified)`; `@` is the wipe shorthand):
+
+[source,shell]
+----
+cuppa -Q -D -n --force-wipe-dependencies=widget/@
+cuppa -Q -D --force-wipe-dependencies=widget/@
+----
+
+Mixed archive + location tokens:
+
+[source,shell]
+----
+cuppa -Q -D --force-wipe-dependencies=boost/1.86.0,boost/1.87.0,fmt/@11.1.1
+----
+
+[#force-wipe-unreferenced-dependencies]
+== Force-wiping unreferenced dependencies
+
+`--force-wipe-unreferenced-dependencies` clears every dependency **tree** and matching
+**download** this resolve marks as `unreferenced` — a rare blunt orphan sweep. Prefer
+xref:#force-wipe-dependencies[`--force-wipe-dependencies`] when reclaiming specific old Boost
+versions under a referenced identity.
+
+[source,shell]
+----
+cuppa -Q -D --list-dependencies --list-scope=unreferenced
+cuppa -Q -D -n --force-wipe-unreferenced-dependencies
+cuppa -Q -D --force-wipe-unreferenced-dependencies
+----
+
+Verify with:
+
+[source,shell]
+----
+cuppa -Q -D --list-dependencies --list-scope=unreferenced
+cuppa -Q -D --list-downloads --list-scope=unreferenced
+----
+

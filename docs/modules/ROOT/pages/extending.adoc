@@ -168,7 +168,7 @@ class my_dependency(object):
         return 'my_dependency'
 ----
 
-Optional storage hooks (see xref:dependencies/managing.adoc#remove-dependencies[Removing dependency trees] and xref:dependencies/extending.adoc[Writing your own dependencies]):
+Optional storage hooks (see xref:dependencies/managing/removing.adoc#remove-dependencies[Removing dependency trees] and xref:dependencies/extending.adoc[Writing your own dependencies]):
 
 * `storage_paths(env, selection)` — declare owned trees under the dependencies root so
   `--list-dependencies` / `--remove-dependencies` can find them without retrieving.
