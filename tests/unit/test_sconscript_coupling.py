@@ -114,6 +114,21 @@ def test_cycle_is_error( tmp_path ):
     assert 'cycle' in str( caught.value ).lower()
 
 
+def test_order_preserves_dot_slash_prefix( tmp_path ):
+    # Construct discovers ``./sconscript``; stripping ``./`` breaks final_dir layout.
+    root = tmp_path / 'sconscript'
+    root.write_text( "Import('env')\n", encoding='utf-8' )
+    # Simulate discovery from project cwd.
+    import os as _os
+    cwd = _os.getcwd()
+    try:
+        _os.chdir( str( tmp_path ) )
+        ordered = order_sconscripts( [ './sconscript' ] )
+        assert ordered == [ './sconscript' ]
+    finally:
+        _os.chdir( cwd )
+
+
 def test_export_import_shared_session_registry():
     clear_session_shared()
     class FakeEnv( dict ):

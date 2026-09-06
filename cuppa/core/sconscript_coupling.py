@@ -245,21 +245,25 @@ def order_sconscripts( paths, search_root=None ):
     if not paths:
         return []
 
-    ordered_input = [ _norm_path( p ) for p in paths ]
-    # Preserve first-seen order; drop duplicates.
-    seen = set()
+    # Keep caller path strings (e.g. ``./sconscript``). Normpaths are only keys —
+    # stripping ``./`` breaks Cuppa's sconstruct_offset_path / final_dir layout.
     unique = []
-    for path in ordered_input:
-        if path not in seen:
-            seen.add( path )
+    norm_to_original = {}
+    for path in paths:
+        norm = _norm_path( path )
+        if norm not in norm_to_original:
+            norm_to_original[norm] = path
             unique.append( path )
 
     couplings = {}
     for path in unique:
         if os.path.isfile( path ):
-            couplings[path] = scan_sconscript_file( path )
+            couplings[_norm_path( path )] = scan_sconscript_file( path )
         else:
-            couplings[path] = ScriptCoupling( path )
+            couplings[_norm_path( path )] = ScriptCoupling( path )
+
+    def _original( norm ):
+        return norm_to_original.get( norm, norm )
 
     edges, _single, unsatisfied, collisions = _coupling_edges( couplings )
 
@@ -268,14 +272,16 @@ def order_sconscripts( paths, search_root=None ):
         candidates = _discover_sconscripts_under( search_root )
         added = False
         for candidate in candidates:
-            if candidate in couplings:
+            candidate_norm = _norm_path( candidate )
+            if candidate_norm in couplings:
                 continue
             if not os.path.isfile( candidate ):
                 continue
             coupling = scan_sconscript_file( candidate )
             needed_names = { name for _path, name in unsatisfied }
             if coupling.exports & needed_names:
-                couplings[candidate] = coupling
+                couplings[candidate_norm] = coupling
+                norm_to_original[candidate_norm] = candidate
                 unique.append( candidate )
                 added = True
                 logger.info(
@@ -291,7 +297,8 @@ def order_sconscripts( paths, search_root=None ):
         for name, exporters in sorted( collisions.items() ):
             parts.append(
                     "'{}' from [{}]".format(
-                            name, ", ".join( sorted( exporters ) )
+                            name,
+                            ", ".join( sorted( _original( p ) for p in exporters ) ),
                     )
             )
         raise SCons.Errors.StopError(
@@ -301,7 +308,7 @@ def order_sconscripts( paths, search_root=None ):
 
     if unsatisfied:
         parts = [
-                "{} imports '{}'".format( path, name )
+                "{} imports '{}'".format( _original( path ), name )
                 for path, name in sorted( unsatisfied )
         ]
         raise SCons.Errors.StopError(
@@ -309,10 +316,12 @@ def order_sconscripts( paths, search_root=None ):
                 "project tree: {}".format( "; ".join( parts ) )
         )
 
+    norm_paths = [ _norm_path( p ) for p in unique ]
     if not edges:
         return unique
 
-    ordered = _topo_order( unique, edges )
+    ordered_norms = _topo_order( norm_paths, edges )
+    ordered = [ _original( n ) for n in ordered_norms ]
     if ordered != unique:
         logger.debug(
                 "Sconscript Export/Import order [{}]".format(
