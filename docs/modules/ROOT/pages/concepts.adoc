@@ -36,6 +36,41 @@ That split is intentional:
 See xref:cli-reference.adoc[CLI reference] for the full option map, and
 xref:methods.adoc[Methods] for the intent APIs used in sconscripts.
 
+[#sconscript-discovery]
+== Sconscript discovery and sharing
+
+Cuppa **discovers** `sconscript` files under the launch directory (folder-and-below) and
+invokes each once per active toolchain/variant. That discovery is the right default for most
+projects and does not require SCons `Export` / `Import`.
+
+Sharing build products between discovered scripts is a **separate** concern. When one script
+needs a value another published, use Cuppa's preferred API:
+
+[source,python]
+----
+# sconscript (libraries)
+Import('env')
+libs = env.Build( 'mylib', ['mylib.cpp'] )
+env.ExportShared( 'mylibs', libs )
+
+# test/sconscript
+Import('env')
+libs = env.ImportShared( 'mylibs' )
+env.BuildTest( 'unit', ['test.cpp'], LIBS=libs )
+----
+
+Cuppa scans discovered scripts for `Export` / `Import` and `ExportShared` /
+`ImportShared`, builds a small dependency graph, and runs exporters before importers.
+When an import is not satisfied in the current set, discovery **widens** toward the
+`sconstruct` root to find a matching export. Two scripts that export the same product name
+are an error (stricter than SCons, which last-wins on a global pool). Native SCons
+`Export` / `Import` are also recognised by the scan when names are string literals.
+
+Without product imports, execution order stays the discovery walk (a flat graph). Nested
+`SConscript(..., exports=...)` from one script while Cuppa also auto-discovers the same path
+can still double-run that path — prefer `ExportShared` / discovery, or avoid listing a path
+Cuppa will discover again.
+
 [#methods]
 == Methods
 

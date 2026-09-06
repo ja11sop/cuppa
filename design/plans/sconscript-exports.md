@@ -1,8 +1,9 @@
 # Plan: Sconscript exports and shared build products
 
-- **Status:** proposal (lean settled 2026-09-06 — Direction B / import-aware discovery)
+- **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `sconscript-exports`; blocks multi-file Cuppa layouts like CMake `add_subdirectory`; pairs with [#213](https://github.com/ja11sop/cuppa/issues/213); graph/cycle vocabulary may later share helpers with [`gitlab-package-transitive.md`](gitlab-package-transitive.md) (different graph; do not force one NetworkX model)
 - **Updated:** 2026-09-06
+- **Impact:** minor — opt-in Export/Import ordering and `ExportShared` / `ImportShared`; flat discovery unchanged when unused
 
 ## Problem
 
@@ -134,4 +135,8 @@ Static scan will not catch every dynamic `Import(name)` constructed at runtime; 
 |-------|--------|
 | Problem validated on Boost.Capy | done (2026-08-17) |
 | Lean: discovery + import/export graph (B) | settled in plan 2026-09-06 |
-| `scons-export-doc` / spike / implementation | not started |
+| `scons-export-doc` | Started — Concepts § Sconscript discovery and sharing |
+| `scons-export-spike` | Started — `cuppa.core.sconscript_coupling` scan / widen / topo + `ExportShared` / `ImportShared`; wired into `Construct.build` |
+| `scons-export-dedupe` | Not started (explicit `SConscript` + discovery double-run) |
+| `scons-export-graph` / `scons-export-api` | Partial — graph + preferred API landed; polish / native-only soak remains |
+| `scons-export-capy` | Not started |
