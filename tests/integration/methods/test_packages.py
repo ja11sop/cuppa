@@ -1,3 +1,4 @@
+import json
 import tarfile
 import zipfile
 
@@ -111,6 +112,63 @@ def test_gitlab_publish_archive_omits_os_when_requested(tmp_path):
     os_id = os_release_id()
     assert not names[0].startswith("widget_{}_".format(os_id)), names[0]
     assert names[0].startswith("widget_"), names[0]
+
+
+def test_gitlab_publisher_writes_cuppa_dependency_json(tmp_path):
+    project = copy_dummy_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        """\
+Import('env')
+from cuppa.package_managers.gitlab import GitlabPackagePublisher
+env.AppendUnique(CPPPATH=['#/include'])
+lib = env.BuildStaticLib('widget', 'src/hello.cpp')
+publisher = GitlabPackagePublisher(
+    env,
+    source_include_dir='#/include',
+    source_lib_dir=env['abs_final_dir'],
+    registry='https://gitlab.example/api/v4/projects/1',
+    package='widget',
+    version='1.0.0',
+    dependencies=[
+        {
+            'name': 'fmt',
+            'package': 'fmt',
+            'version': '12.1.0',
+            'registry': 'same',
+            'use_libs': ['fmt'],
+        },
+    ],
+)
+env.PublishPackage(lib, publisher)
+""",
+    )
+    result = run_cuppa(project, "--dbg")
+    assert_success(result)
+    archives = _package_archive_paths(project)
+    assert len(archives) == 1, archives
+    members = _archive_member_names(archives[0])
+    normalised = [name.replace("\\", "/") for name in members]
+    assert any(path.endswith("cuppa-dependency.json") for path in normalised), normalised
+    archive = archives[0]
+    if archive.name.endswith(".zip"):
+        with zipfile.ZipFile(archive) as zf:
+            names = [
+                n for n in zf.namelist()
+                if n.replace("\\", "/").endswith("cuppa-dependency.json")
+            ]
+            payload = json.loads(zf.read(names[0]))
+    else:
+        with tarfile.open(archive, "r:*") as tf:
+            names = [
+                n for n in tf.getnames()
+                if n.replace("\\", "/").endswith("cuppa-dependency.json")
+            ]
+            payload = json.loads(tf.extractfile(names[0]).read())
+    assert payload["cuppa_dependency_format"] == 1
+    assert payload["dependencies"][0]["name"] == "fmt"
+    assert payload["dependencies"][0]["use_libs"] == ["fmt"]
 
 
 def test_gitlab_publisher_stages_generated_relative_lib_dir(tmp_path):

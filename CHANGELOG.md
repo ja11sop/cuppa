@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ``scripts.check_docs_urls`` — refuse versionless ``/cuppa/….html`` links in the top navbar
   partial, README/AGENTS absolute URLs, and (with ``--built-site``) generated Antora HTML.
   Included from ``scripts.check_release`` and the documentation workflow.
+- Transitive GitLab package dependencies via ``cuppa-dependency.json``: publishers pass
+  ``GitlabPackagePublisher(..., dependencies=[...])``; consumers that ``BuildWith`` / link
+  package A also apply B (includes on ``BuildWith``, edge ``use_libs`` on ``A.use_libs`` /
+  ``A.use_all_libs()``). Cycles and conflicting concrete versions raise ``StopError``.
+  ``use_all_libs()`` links every static library under the package ``lib/`` directory
+  ([#279](https://github.com/ja11sop/cuppa/issues/279)).
 
 ### Changed
 

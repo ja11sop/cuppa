@@ -512,7 +512,8 @@ class GitlabPackagePublisher:
         package=None,
         version=None,
         variant=None,
-        custom_token=None
+        custom_token=None,
+        dependencies=None,
     ):
         from SCons.Script import Flatten
 
@@ -521,6 +522,7 @@ class GitlabPackagePublisher:
         self._package_folder     = os.path.join( package, str(version) )
         self._package_base_dir   = env.Dir( os.path.join( env['final_dir'], self._package_folder ) )
         self._target_include_dir = env.Dir( os.path.join( str(self._package_base_dir), "include" ) )
+        self._dependencies = list( dependencies ) if dependencies else []
 
         if not offset_include_dir is None:
             self._target_include_dir = env.Dir( os.path.join( str(self._target_include_dir), offset_include_dir ) )
@@ -600,6 +602,17 @@ class GitlabPackagePublisher:
             ) )
             shutil.copytree( source_modules, target_modules )
 
+        from cuppa.package_managers.cuppa_dependency_manifest import write_manifest
+        manifest_path_written = write_manifest(
+                str( self._package_base_dir ),
+                getattr( self, '_dependencies', None ),
+        )
+        if manifest_path_written:
+            logger.info( "Wrote [{}] for package [{}]".format(
+                    as_info( manifest_path_written ),
+                    as_info( self._package_file_name ),
+            ) )
+
         logger.info( "Creating package [{}]...".format( as_info( str(target[0]) ) ) )
         archive_path = str( self._package_archive )
         staging_roots = [
@@ -609,6 +622,8 @@ class GitlabPackagePublisher:
         modules_dir = os.path.join( str( self._package_base_dir ), 'modules' )
         if os.path.isdir( modules_dir ):
             staging_roots.append( modules_dir )
+        if manifest_path_written:
+            staging_roots.append( manifest_path_written )
 
         if package_archive_is_up_to_date( archive_path, staging_roots ):
             logger.info(
@@ -1259,7 +1274,7 @@ class GitlabPackageDependency:
 
     # Package Interface
 
-    def initialise_build_variant( self, env, toolchain, variant ):
+    def initialise_build_variant( self, env, toolchain, variant, dependency_name=None ):
         logger.debug( "Initialise build variant for [{}:{}] for package [{}] by adding SYSINCPATH of [{}]".format(
                 as_notice( str(toolchain.name()) ),
                 as_notice( str(variant) ),
@@ -1272,6 +1287,15 @@ class GitlabPackageDependency:
         if os.path.isdir( modules_dir ):
             from cuppa.cpp.cxx_modules import load_packaged_modules
             load_packaged_modules( env, modules_dir )
+
+        apply_name = dependency_name or self._package
+        from cuppa.package_managers.cuppa_dependency_apply import apply_transitive_build_with
+        apply_transitive_build_with(
+                env,
+                self._package_dir,
+                apply_name,
+                self._registry,
+        )
 
 
     def parse_pkg_config( self, libs ):
@@ -1307,7 +1331,7 @@ class GitlabPackageDependency:
         env.ParseConfig( command )
 
 
-    def use_libs( self, libs, depends_on=[] ):
+    def use_libs( self, libs, depends_on=[], dependency_name=None ):
 
         from SCons.Script import Flatten
 
@@ -1322,6 +1346,33 @@ class GitlabPackageDependency:
             self.parse_pkg_config( libs )
         else:
             self.use_static_libs( libs )
+
+        apply_name = dependency_name or self._package
+        from cuppa.package_managers.cuppa_dependency_apply import apply_transitive_use_libs
+        apply_transitive_use_libs(
+                env,
+                self._package_dir,
+                apply_name,
+                self._registry,
+        )
+
+
+    def use_all_libs( self, depends_on=[], dependency_name=None ):
+        """Link every static library found under this package's ``lib/`` directory."""
+        from cuppa.package_managers.cuppa_dependency_apply import list_static_lib_stems
+
+        env = self._env
+        names = list_static_lib_stems(
+                self._lib_dir,
+                env['LIBPREFIX'],
+                env['LIBSUFFIX'],
+                library_prefix=self._library_prefix,
+        )
+        logger.info( "use_all_libs for package [{}] selected [{}]".format(
+                as_info( self._package_id ),
+                as_notice( ", ".join( names ) if names else "(none)" ),
+        ) )
+        self.use_libs( names, depends_on=depends_on, dependency_name=dependency_name )
 
 
     def use_static_libs( self, libs ):

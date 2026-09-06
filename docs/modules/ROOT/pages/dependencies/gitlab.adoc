@@ -290,4 +290,57 @@ for the active toolchain/variant. The built-in source ``boost`` dependency accep
 shape — ``env.BuildWith('boost').use_libs([...])`` — so switching supply chains does not require
 rewriting sconscripts beyond the dependency name.
 
+To link every static library present under a GitLab package's ``lib/`` directory, call
+``use_all_libs()`` (do not pass an empty ``use_libs([])`` — that still means link nothing):
+
+[source,python]
+----
+env.BuildWith('widget').use_all_libs()
+----
+
+[#transitive-package-dependencies]
+=== Transitive package dependencies
+
+A published GitLab archive may include ``cuppa-dependency.json`` next to ``include/`` and
+``lib/``. When you ``BuildWith`` package **A**, Cuppa reads that file (if present) and
+``BuildWith``s each listed dependency **B** so B's headers (and packaged modules) are on the
+include path. When you later link A with ``A.use_libs(...)`` or ``A.use_all_libs()``, Cuppa also
+applies each edge's ``use_libs`` against B.
+
+Publish the edges with ``GitlabPackagePublisher(..., dependencies=[...])``. Omit the list (or
+pass nothing) when the package is standalone — then no manifest file is written.
+
+[source,python]
+----
+publisher = GitlabPackagePublisher(
+    env,
+    source_include_dir = '#/include',
+    source_lib_dir     = env['abs_final_dir'],
+    registry           = 'https://gitlab.example/api/v4/projects/1',
+    package            = 'widget',
+    version            = '1.0.0',
+    dependencies = [
+        {
+            'name': 'fmt',
+            'package': 'fmt',
+            'version': '12.1.0',
+            'registry': 'same',
+            'use_libs': ['fmt'],
+        },
+    ],
+)
+----
+
+* ``name`` — Cuppa ``BuildWith`` / registry name.
+* ``package`` — GitLab Packages slug when it differs from ``name``.
+* ``version`` — concrete pin (MVP; no ranges).
+* ``registry`` — ``"same"`` means A's registry URL.
+* ``use_libs`` — optional; applied against B when A is linked.
+
+Consumers still only need to import / auto-enable **A**. Transitive names are not added to
+``auto_enable_dependencies``. Conflicting concrete versions of the same name raise ``StopError``.
+Cycles in the dependency graph also fail clearly.
+
+See also xref:packages.adoc[Publishing packages] and the design plan for ``cuppa-dependency.json``.
+
 Integration coverage: xref:integration/test-packages.adoc[].
