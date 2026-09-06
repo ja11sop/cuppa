@@ -122,12 +122,18 @@ Static scan will not catch every dynamic `Import(name)` constructed at runtime; 
 
 ## Open questions
 
-- Exact Cuppa method names (`env.export` / `env.import_shared` / …).
-- Widen search: must newly found exporters always join the normal discovered set, or only run because an importer needs them?
+- Exact Cuppa method names beyond shipped `ExportShared` / `ImportShared`.
 - Variant scope: exports are per-variant nodes — graph nodes are (script path × variant) or script path with per-variant values?
-- `--scripts=` filtering: if an importer is selected but its exporter is not, do we still pull the exporter in (lean: **yes**, otherwise Import cannot work)?
-- How much of a static scan is enough (AST vs regex vs execute-with-stubs)?
+- How much of a static scan is enough (AST vs regex vs execute-with-stubs)? Dynamic `Import(name)` remains unsupported.
 - Agent / CMake migration docs: teach Cuppa API first.
+
+## Settled (this slice)
+
+| Topic | Decision |
+|-------|----------|
+| `--scripts=` + missing exporter | **Widen by default** under the sconstruct (multi-hop fixed point). |
+| Refuse widen | **`--strict-sconscript-exports`** — Import must be satisfied by the already-selected set. |
+| Widened scripts | Join the run set (exporters execute, not resolve-only). |
 
 ## Progress snapshot
 
@@ -135,8 +141,8 @@ Static scan will not catch every dynamic `Import(name)` constructed at runtime; 
 |-------|--------|
 | Problem validated on Boost.Capy | done (2026-08-17) |
 | Lean: discovery + import/export graph (B) | settled in plan 2026-09-06 |
-| `scons-export-doc` | Started — Concepts § Sconscript discovery and sharing |
-| `scons-export-spike` | Started — `cuppa.core.sconscript_coupling` scan / widen / topo + `ExportShared` / `ImportShared`; wired into `Construct.build` |
+| `scons-export-doc` | Concepts + Building / CLI reference for widen and `--strict-sconscript-exports` |
+| `scons-export-spike` | `sconscript_coupling` scan / multi-hop widen / topo + `ExportShared` / `ImportShared`; `Construct.build` wired |
+| `--scripts=` + strict | Covered by unit + integration tests |
 | `scons-export-dedupe` | Not started (explicit `SConscript` + discovery double-run) |
-| `scons-export-graph` / `scons-export-api` | Partial — graph + preferred API landed; polish / native-only soak remains |
 | `scons-export-capy` | Not started |

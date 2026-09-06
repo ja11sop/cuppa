@@ -33,9 +33,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``list-dependencies-requires.{txt,html,json}`` show the expected tree shape
   ([#279](https://github.com/ja11sop/cuppa/issues/279)).
 - Sconscript ``ExportShared`` / ``ImportShared`` and ordered discovery: scan string-literal
-  ``Export`` / ``Import`` (and Cuppa shared methods), widen for missing exporters, run
-  exporters before importers; duplicate product exports are an error. Concepts doc covers
-  discovery vs sharing ([`sconscript-exports`](design/plans/sconscript-exports.md)).
+  ``Export`` / ``Import`` (and Cuppa shared methods), widen for missing exporters (including
+  under ``--scripts=``; multi-hop), run exporters before importers; duplicate product exports
+  are an error. ``--strict-sconscript-exports`` refuses widen. Concepts and Building CLI docs
+  cover discovery vs sharing ([`sconscript-exports`](design/plans/sconscript-exports.md)).
 
 ### Changed
 

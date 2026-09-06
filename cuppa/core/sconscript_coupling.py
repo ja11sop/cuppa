@@ -233,14 +233,18 @@ def _topo_order( paths, edges ):
     return ordered
 
 
-def order_sconscripts( paths, search_root=None ):
+def order_sconscripts( paths, search_root=None, widen=True ):
     """Return *paths* reordered so exporters run before importers.
 
-    When an import is not satisfied by the current set and *search_root* is set,
-    discover additional sconscripts under that root and include any that export
-    the missing name (widen search). Multiple exporters for one name raise
-    ``StopError`` (stricter than SCons last-wins). Unsatisfied imports after
-    widen also raise ``StopError``.
+    When an import is not satisfied by the current set and *widen* is true with a
+    *search_root*, discover additional sconscripts under that root and include any
+    that export a missing name (repeat until fixed point — so A→B→C chains work
+    under ``--scripts=`` that named only the importer). With *widen* false (or no
+    *search_root*), missing exporters raise ``StopError`` without leaving the
+    current set.
+
+    Multiple exporters for one name raise ``StopError`` (stricter than SCons
+    last-wins).
     """
     if not paths:
         return []
@@ -267,29 +271,34 @@ def order_sconscripts( paths, search_root=None ):
 
     edges, _single, unsatisfied, collisions = _coupling_edges( couplings )
 
-    if search_root and unsatisfied:
+    if widen and search_root and unsatisfied:
         search_root = _norm_path( search_root )
         candidates = _discover_sconscripts_under( search_root )
-        added = False
-        for candidate in candidates:
-            candidate_norm = _norm_path( candidate )
-            if candidate_norm in couplings:
-                continue
-            if not os.path.isfile( candidate ):
-                continue
-            coupling = scan_sconscript_file( candidate )
+        # Fixed-point widen: newly pulled exporters may Import further names.
+        while unsatisfied:
             needed_names = { name for _path, name in unsatisfied }
-            if coupling.exports & needed_names:
+            added = False
+            for candidate in candidates:
+                candidate_norm = _norm_path( candidate )
+                if candidate_norm in couplings:
+                    continue
+                if not os.path.isfile( candidate ):
+                    continue
+                coupling = scan_sconscript_file( candidate )
+                if not ( coupling.exports & needed_names ):
+                    continue
                 couplings[candidate_norm] = coupling
                 norm_to_original[candidate_norm] = candidate
                 unique.append( candidate )
                 added = True
                 logger.info(
-                        "Widened sconscript discovery to exporter [{}]".format(
-                                as_notice( candidate )
+                        "Widened sconscript set to exporter [{}] for Import of [{}]".format(
+                                as_notice( candidate ),
+                                as_notice( ", ".join( sorted( coupling.exports & needed_names ) ) ),
                         )
                 )
-        if added:
+            if not added:
+                break
             edges, _single, unsatisfied, collisions = _coupling_edges( couplings )
 
     if collisions:
@@ -311,9 +320,16 @@ def order_sconscripts( paths, search_root=None ):
                 "{} imports '{}'".format( _original( path ), name )
                 for path, name in sorted( unsatisfied )
         ]
+        if widen:
+            hint = "project tree under the sconstruct"
+        else:
+            hint = (
+                    "current sconscript set "
+                    "(omit --strict-sconscript-exports to widen and pull exporters)"
+            )
         raise SCons.Errors.StopError(
                 "cuppa: sconscript Import not satisfied by any Export in the "
-                "project tree: {}".format( "; ".join( parts ) )
+                "{}: {}".format( hint, "; ".join( parts ) )
         )
 
     norm_paths = [ _norm_path( p ) for p in unique ]

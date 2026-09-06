@@ -985,10 +985,12 @@ class Construct(object):
 
             cuppa.core.sconscript_coupling.clear_session_shared()
             search_root = cuppa_env.get( 'sconstruct_dir' ) or cuppa_env.get( 'launch_dir' )
+            widen = not bool( cuppa_env.get_option( 'strict_sconscript_exports' ) )
             try:
                 sconscripts = cuppa.core.sconscript_coupling.order_sconscripts(
                         sconscripts,
                         search_root=search_root,
+                        widen=widen,
                 )
             except SCons.Errors.StopError:
                 raise
