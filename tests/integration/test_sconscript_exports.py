@@ -7,7 +7,13 @@
 
 import pytest
 
-from tests.helpers.cuppa_runner import assert_failure, assert_success, run_cuppa
+from tests.helpers.cuppa_runner import (
+        assert_failure,
+        assert_success,
+        find_final_binaries,
+        find_under_build,
+        run_cuppa,
+)
 from tests.helpers.project import copy_dummy_project, write_sconstruct
 
 
@@ -198,3 +204,56 @@ def test_export_shared_dbg_and_rel_are_distinct( tmp_path ):
     assert_success( result )
     assert marker_dbg.read_text( encoding='utf-8' ) == 'dbg'
     assert marker_rel.read_text( encoding='utf-8' ) == 'rel'
+
+
+def test_export_shared_static_lib_builds_under_parallel( tmp_path ):
+    """Imported BuildStaticLib nodes must link correctly under ``--parallel`` (-j).
+
+    Configure still runs sconscripts serially; this checks the build DAG when the
+    consumer links nodes published via ExportShared.
+    """
+    project = copy_dummy_project( tmp_path )
+    write_sconstruct( project, default_variants=['dbg'] )
+
+    ( project / 'lib' ).mkdir()
+    ( project / 'lib' / 'answer.cpp' ).write_text(
+            "int answer()\n"
+            "{\n"
+            "    return 42;\n"
+            "}\n",
+            encoding='utf-8',
+    )
+    ( project / 'apps' / 'use_answer.cpp' ).write_text(
+            "int answer();\n"
+            "int main()\n"
+            "{\n"
+            "    return answer() == 42 ? 0 : 1;\n"
+            "}\n",
+            encoding='utf-8',
+    )
+
+    ( project / 'sconscript' ).write_text(
+            "Import('env')\n"
+            "lib = env.BuildStaticLib( 'answer', 'lib/answer.cpp' )\n"
+            "env.ExportShared( 'answer_lib', lib )\n",
+            encoding='utf-8',
+    )
+    test_dir = project / 'test'
+    test_dir.mkdir()
+    ( test_dir / 'sconscript' ).write_text(
+            "Import('env')\n"
+            "lib = env.ImportShared( 'answer_lib' )\n"
+            "env.AppendUnique( LIBPATH=[ env['abs_final_dir'] ] )\n"
+            "app = env.Build( 'use_answer', ['#/apps/use_answer.cpp'], LIBS=[ lib ] )\n"
+            "env.Depends( app, lib )\n",
+            encoding='utf-8',
+    )
+
+    result = run_cuppa( project, '--dbg', '--parallel' )
+    assert_success( result )
+    assert find_final_binaries( project, 'use_answer' )
+    archives = [
+            path for path in find_under_build( project )
+            if path.is_file() and path.suffix in ( '.a', '.lib' ) and 'answer' in path.name
+    ]
+    assert archives, 'expected BuildStaticLib archive under _build'
