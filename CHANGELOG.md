@@ -32,6 +32,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   consume without a live registry. Doc samples
   ``list-dependencies-requires.{txt,html,json}`` show the expected tree shape
   ([#279](https://github.com/ja11sop/cuppa/issues/279)).
+- Sconscript ``ExportShared`` / ``ImportShared`` and ordered discovery: scan string-literal
+  ``Export`` / ``Import`` (and Cuppa shared methods), widen for missing exporters (including
+  under ``--scripts=``; multi-hop), run exporters before importers; duplicate product exports
+  are an error. ``--strict-sconscript-exports`` refuses widen. Widened paths stay
+  project-relative so ``--clean`` matches the same ``_build`` layout as a full discovery
+  build. Shared exports are **variant-aware** (keyed by ``tool_variant_dir``) so the same
+  name under ``--dbg`` / ``--rel`` resolves correctly — a concrete reason to prefer the
+  Cuppa API over native SCons ``Export`` / ``Import``. Concepts and Building CLI docs
+  cover discovery vs sharing ([`sconscript-exports`](design/plans/sconscript-exports.md)).
 
 ### Changed
 

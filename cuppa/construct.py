@@ -28,6 +28,7 @@ import cuppa.core.storage_actions
 import cuppa.core.location_options
 import cuppa.core.options
 import cuppa.core.build_layout
+import cuppa.core.sconscript_coupling
 import cuppa.modules.registration
 import cuppa.build_platform
 import cuppa.output_processor
@@ -982,6 +983,22 @@ class Construct(object):
                 else:
                     sconscripts.append( project )
 
+            cuppa.core.sconscript_coupling.clear_session_shared()
+            search_root = cuppa_env.get( 'sconstruct_dir' ) or cuppa_env.get( 'launch_dir' )
+            widen = not bool( cuppa_env.get_option( 'strict_sconscript_exports' ) )
+            try:
+                sconscripts = cuppa.core.sconscript_coupling.order_sconscripts(
+                        sconscripts,
+                        search_root=search_root,
+                        widen=widen,
+                )
+            except SCons.Errors.StopError:
+                raise
+            except Exception as exc:
+                raise SCons.Errors.StopError(
+                        "cuppa: failed while ordering sconscripts for Export/Import: {}".format( exc )
+                )
+
             for toolchain in toolchains:
                 build_envs = self.create_build_envs( toolchain, cuppa_env )
                 for build_env in build_envs:
@@ -1074,6 +1091,7 @@ class Construct(object):
             ] )
 
             cuppa.core.environment.EnvironmentMethods.add_progress_tracking( sconscript_env )
+            cuppa.core.sconscript_coupling.install_methods( sconscript_env )
 
             cuppa.progress.NotifyProgress.notify_sconscript_env_ready( sconscript_env )
 

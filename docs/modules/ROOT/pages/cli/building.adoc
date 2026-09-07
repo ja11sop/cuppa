@@ -21,12 +21,19 @@ you can see which layer owns each decision.
 | `--benchmark` | Execute outputs created by `BuildBenchmark()`
 | `--force-benchmark` | Execute `Benchmark()` and `BuildBenchmark()` outputs even when current
 | `--toolchains=LIST` | Select comma-separated toolchain names or fnmatch patterns such as `gcc*`
-| `--scripts=LIST` | Limit graph construction to the named, comma-separated sconscripts
+| `--scripts=LIST` | Limit graph construction to the named, comma-separated sconscripts. Product `Import` / `ImportShared` may still **widen** the set to pull required exporters from under the sconstruct (unless `--strict-sconscript-exports`)
 | `--projects=LIST` | Alias for `--scripts`
+| `--strict-sconscript-exports` | Do not widen for Export/Import; every imported name must be satisfied by the scripts already selected
 | `--parallel` | Set SCons' job count from available hardware; the wrapper may also restrict CPU affinity. Do not combine with `--cov --test` (Cuppa warns; collect serially)
 | `--offline` | Skip the PyPI version check and remote location updates
 | `--develop` | Prefer configured local develop paths for dependencies
 |===
+
+Sharing between sconscripts uses `env.ExportShared` / `env.ImportShared` (see
+xref:concepts.adoc#sconscript-discovery[Concepts — Sconscript discovery and sharing]).
+Those bindings are **variant-aware** (per toolchain/variant/arch/abi), so the same export
+name under `--dbg` and `--rel` resolves to the matching nodes. Prefer that Cuppa API over
+native SCons `Export` / `Import` when you share build products across scripts.
 
 Variant and action options compose. For example, `--dbg --rel --test` builds and tests both
 variants. Coverage is deliberately explicit: use `--cov --test` when you want measurements rather

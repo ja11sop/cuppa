@@ -62,6 +62,12 @@ def add_base_options():
                             action='callback', callback=cuppa.core.options.list_parser( 'projects' ),
                             help="Sconscripts to run" )
 
+    add_option( '--strict-sconscript-exports', dest='strict_sconscript_exports',
+                            action='store_true',
+                            help="Do not widen the sconscript set to satisfy Export/Import "
+                                 "(or ExportShared/ImportShared). Imports must be satisfied by "
+                                 "the scripts already selected via discovery or --scripts" )
+
     add_option( '--thirdparty', type='string', nargs=1, action='store',
                             dest='thirdparty',
                             metavar='DIR',
