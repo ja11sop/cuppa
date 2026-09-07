@@ -376,6 +376,38 @@ For tutorials and Related-method chains, start from the xref:methods.adoc[Method
 |
 |===
 
+[#sconscript-sharing]
+== Sconscript sharing and nesting
+
+Publish values between discovered `sconscript` files, or nest a child with SCons
+`SConscript(..., exports=...)`. Behaviour (ordering, widen, dedupe, variant scope):
+xref:concepts.adoc#sconscript-discovery[Concepts: sconscript discovery and sharing].
+
+[cols="2,4,3"]
+|===
+| Method | Description | Notes
+
+| xref:concepts.adoc#sconscript-discovery[`ExportShared()`]
+| Cuppa preferred export: publish a name for this toolchain/variant (`tool_variant_dir`)
+| Prefer over native `Export()` for product sharing under discovery
+
+| xref:concepts.adoc#sconscript-discovery[`ImportShared()`]
+| Cuppa preferred import: read a name published by `ExportShared()` for this variant
+| Prefer over native `Import()` of product names
+
+| link:{scons-man}#f-Export[`Export()`]
+| SCons global export pool (string-literal names are scanned for ordering)
+| Global last-wins across the configure pass — not variant-safe; prefer `ExportShared()`
+
+| link:{scons-man}#f-Import[`Import()`]
+| Import names into the sconscript (Cuppa always exports `env` and related keys)
+| Product names: prefer `ImportShared()`, or nest with `SConscript(..., exports=...)`
+
+| link:{scons-man}#f-SConscript[`SConscript()`]
+| Evaluate another sconscript (optional `exports=`)
+| Under Cuppa discovery, nested string-literal targets are not double-run; see Concepts
+|===
+
 [#depends]
 == Ordering and aliases
 
