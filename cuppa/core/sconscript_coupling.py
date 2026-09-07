@@ -47,14 +47,16 @@ _CUPPA_IMPORT_METHODS = frozenset( { 'ImportShared', 'import_shared' } )
 
 
 class ScriptCoupling( object ):
-    """Exports and imports found in one sconscript file."""
+    """Exports, imports, and nested ``SConscript`` targets found in one file."""
 
-    __slots__ = ( 'path', 'exports', 'imports' )
+    __slots__ = ( 'path', 'exports', 'imports', 'nested' )
 
-    def __init__( self, path, exports=None, imports=None ):
+    def __init__( self, path, exports=None, imports=None, nested=None ):
         self.path = path
         self.exports = set( exports or () )
         self.imports = set( imports or () )
+        # Relative path strings passed to ``SConscript(...)`` (first arg), as written.
+        self.nested = set( nested or () )
 
 
 def _string_names_from_ast_value( node ):
@@ -88,11 +90,44 @@ def _method_name( node ):
     return None
 
 
+def _is_sconscript_call( func ):
+    """True for ``SConscript(...)`` or ``….SConscript(...)``."""
+    if _is_name( func, 'SConscript' ):
+        return True
+    return _method_name( func ) == 'SConscript'
+
+
+def _string_from_ast( node ):
+    if isinstance( node, ast.Constant ) and isinstance( node.value, str ):
+        return node.value
+    if hasattr( ast, 'Str' ) and isinstance( node, ast.Str ):  # pragma: no cover
+        return node.s
+    return None
+
+
+def _sconscript_target_strings( call_node ):
+    """Yield string-literal script paths from the first positional ``SConscript`` arg."""
+    if not call_node.args:
+        return
+    first = call_node.args[0]
+    text = _string_from_ast( first )
+    if text is not None:
+        yield text
+        return
+    if isinstance( first, ( ast.List, ast.Tuple ) ):
+        for elt in first.elts:
+            text = _string_from_ast( elt )
+            if text is not None:
+                yield text
+
+
 def scan_sconscript_source( source, path='<sconscript>' ):
     """Parse *source* and return :class:`ScriptCoupling` for string-literal names.
 
     Dynamic ``Import(variable)`` forms are ignored (spike bound). ``Import('*')``
     is recorded as the literal name ``*`` so callers can treat it specially.
+    Literal ``SConscript('…')`` / ``SConscript(['…'])`` targets are recorded in
+    ``nested`` so discovery can avoid double-running those paths.
     """
     try:
         tree = ast.parse( source, filename=path )
@@ -105,11 +140,15 @@ def scan_sconscript_source( source, path='<sconscript>' ):
 
     exports = set()
     imports = set()
+    nested = set()
 
     for node in ast.walk( tree ):
         if not isinstance( node, ast.Call ):
             continue
         func = node.func
+        if _is_sconscript_call( func ):
+            nested.update( _sconscript_target_strings( node ) )
+            continue
         names = _names_from_call_args( node.args )
         if not names:
             continue
@@ -124,7 +163,7 @@ def scan_sconscript_source( source, path='<sconscript>' ):
             elif method in _CUPPA_IMPORT_METHODS:
                 imports.update( names )
 
-    return ScriptCoupling( path, exports=exports, imports=imports )
+    return ScriptCoupling( path, exports=exports, imports=imports, nested=nested )
 
 
 def scan_sconscript_file( path ):
@@ -160,6 +199,65 @@ def _as_project_relative( path, base_dir=None ):
     if not rel.startswith( '.' + os.sep ) and rel != '.':
         rel = os.path.join( '.', rel )
     return rel
+
+
+def resolve_nested_sconscript_target( caller_path, target, base_dir=None ):
+    """Resolve a ``SConscript('target')`` string relative to the calling script.
+
+    Returns a project-relative path (``./…``) when possible so it can match
+    discovered sconscript entries.
+    """
+    if os.path.isabs( target ):
+        return _as_project_relative( target, base_dir=base_dir )
+    caller_dir = os.path.dirname( caller_path )
+    if not caller_dir:
+        caller_dir = '.'
+    joined = os.path.normpath( os.path.join( caller_dir, target ) )
+    return _as_project_relative( joined, base_dir=base_dir )
+
+
+def nested_targets_in_set( paths, couplings_by_norm, base_dir=None ):
+    """Return normpaths of *paths* that another script in the set will ``SConscript``.
+
+    Used to drop those paths from Cuppa's outer discovery invoke list so the
+    nested call (with the parent's ``exports=``) is the only evaluation.
+    """
+    path_norms = { _norm_path( p ) for p in paths }
+    nested = set()
+    for path in paths:
+        coupling = couplings_by_norm.get( _norm_path( path ) )
+        if coupling is None:
+            continue
+        for target in coupling.nested:
+            resolved = resolve_nested_sconscript_target( path, target, base_dir=base_dir )
+            resolved_norm = _norm_path( resolved )
+            if resolved_norm in path_norms:
+                nested.add( resolved_norm )
+            # SCons accepts a directory meaning ``…/SConscript`` / ``…/sconscript``.
+            for suffix in ( 'sconscript', 'SConscript' ):
+                as_file = _norm_path( os.path.join( resolved, suffix ) )
+                if as_file in path_norms:
+                    nested.add( as_file )
+    return nested
+
+
+def exclude_nested_sconscripts( paths, couplings_by_norm, base_dir=None ):
+    """Filter *paths* so scripts nested by another entry are not invoked twice."""
+    if not paths:
+        return paths
+    nested_norms = nested_targets_in_set( paths, couplings_by_norm, base_dir=base_dir )
+    if not nested_norms:
+        return paths
+    kept = []
+    for path in paths:
+        if _norm_path( path ) in nested_norms:
+            logger.info(
+                    "Skipping discovery invoke for [{}] — nested via SConscript "
+                    "from another sconscript in this set".format( as_notice( path ) )
+            )
+            continue
+        kept.append( path )
+    return kept
 
 
 def _discover_sconscripts_under( root ):
@@ -359,17 +457,20 @@ def order_sconscripts( paths, search_root=None, widen=True ):
 
     norm_paths = [ _norm_path( p ) for p in unique ]
     if not edges:
-        return unique
+        ordered = unique
+    else:
+        ordered_norms = _topo_order( norm_paths, edges )
+        ordered = [ _original( n ) for n in ordered_norms ]
+        if ordered != unique:
+            logger.debug(
+                    "Sconscript Export/Import order [{}]".format(
+                            as_notice( ", ".join( ordered ) )
+                    )
+            )
 
-    ordered_norms = _topo_order( norm_paths, edges )
-    ordered = [ _original( n ) for n in ordered_norms ]
-    if ordered != unique:
-        logger.debug(
-                "Sconscript Export/Import order [{}]".format(
-                        as_notice( ", ".join( ordered ) )
-                )
-        )
-    return ordered
+    # Drop paths another script in this set will nest via SConscript(...), so
+    # discovery does not evaluate them a second time without the parent's exports.
+    return exclude_nested_sconscripts( ordered, couplings )
 
 
 # Session registry for Cuppa ``ExportShared`` / ``ImportShared``.
@@ -377,6 +478,14 @@ def order_sconscripts( paths, search_root=None, widen=True ):
 # exports of the same name do not overwrite each other. This is a primary reason
 # the Cuppa API exists above native SCons Export/Import (global last-wins pool).
 _session_shared = {}
+
+# Paths already evaluated for a given invoke scope (tool_variant_dir). Used so a
+# dynamic ``SConscript(...)`` that the static scan missed still suppresses a
+# second Cuppa discovery invoke for the same path.
+_invoked_sconscripts = set()
+_invoke_scope_stack = []
+_original_sconscript = None
+_dedupe_project_root = None
 
 
 def shared_export_scope( env ):
@@ -405,6 +514,117 @@ def shared_export_scope( env ):
 def clear_session_shared():
     """Reset all Cuppa shared exports (call once per ``Construct.build``)."""
     _session_shared.clear()
+
+
+def clear_invoked_sconscripts():
+    """Reset the per-build invoked-path registry (call once per ``Construct.build``)."""
+    global _dedupe_project_root
+    _invoked_sconscripts.clear()
+    _invoke_scope_stack[:] = []
+    _dedupe_project_root = None
+
+
+def set_dedupe_project_root( root ):
+    """Project root used to resolve nested ``SConscript`` targets for dedupe."""
+    global _dedupe_project_root
+    _dedupe_project_root = root
+
+
+def push_invoke_scope( scope ):
+    _invoke_scope_stack.append( scope )
+
+
+def pop_invoke_scope():
+    if _invoke_scope_stack:
+        _invoke_scope_stack.pop()
+
+
+def current_invoke_scope():
+    if _invoke_scope_stack:
+        return _invoke_scope_stack[-1]
+    return ''
+
+
+def mark_sconscript_invoked( path, scope=None ):
+    """Record that *path* has been evaluated for *scope* (default: current)."""
+    if scope is None:
+        scope = current_invoke_scope()
+    _invoked_sconscripts.add( ( scope, _norm_path( path ) ) )
+
+
+def was_sconscript_invoked( path, scope=None ):
+    """True if *path* was already evaluated for *scope* this build."""
+    if scope is None:
+        scope = current_invoke_scope()
+    return ( scope, _norm_path( path ) ) in _invoked_sconscripts
+
+
+def _paths_from_sconscript_call_args( args, kwargs ):
+    """Best-effort extract of script path strings from a live ``SConscript`` call."""
+    targets = []
+    if args:
+        first = args[0]
+        if isinstance( first, str ):
+            targets.append( first )
+        elif isinstance( first, ( list, tuple ) ):
+            targets.extend( part for part in first if isinstance( part, str ) )
+    for key in ( 'dirs', 'name' ):
+        value = kwargs.get( key )
+        if isinstance( value, str ):
+            targets.append( value )
+        elif isinstance( value, ( list, tuple ) ):
+            targets.extend( part for part in value if isinstance( part, str ) )
+    return targets
+
+
+def _mark_live_sconscript_target( target, scope ):
+    """Mark a live ``SConscript`` target using the project root, not VariantDir cwd."""
+    root = _dedupe_project_root or os.getcwd()
+    candidates = []
+    if os.path.isabs( target ):
+        candidates.append( target )
+    else:
+        candidates.append( os.path.join( root, target ) )
+        candidates.append( os.path.abspath( target ) )
+    marked_any = False
+    for cand in candidates:
+        if os.path.isfile( cand ):
+            mark_sconscript_invoked( _as_project_relative( cand, base_dir=root ), scope=scope )
+            marked_any = True
+            break
+        if os.path.isdir( cand ):
+            for suffix in ( 'sconscript', 'SConscript' ):
+                as_file = os.path.join( cand, suffix )
+                if os.path.isfile( as_file ):
+                    mark_sconscript_invoked(
+                            _as_project_relative( as_file, base_dir=root ),
+                            scope=scope,
+                    )
+                    marked_any = True
+            if marked_any:
+                break
+    if not marked_any:
+        mark_sconscript_invoked(
+                _as_project_relative( os.path.join( root, target ), base_dir=root ),
+                scope=scope,
+        )
+
+
+def _wrapped_sconscript( *args, **kwargs ):
+    """SCons ``SConscript`` wrapper that records nested targets for dedupe."""
+    scope = current_invoke_scope()
+    for target in _paths_from_sconscript_call_args( args, kwargs ):
+        _mark_live_sconscript_target( target, scope )
+    return _original_sconscript( *args, **kwargs )
+
+
+def install_sconscript_dedupe_wrapper():
+    """Install the ``SCons.Script.SConscript`` wrapper once for this process."""
+    global _original_sconscript
+    if _original_sconscript is not None:
+        return
+    _original_sconscript = SCons.Script.SConscript
+    SCons.Script.SConscript = _wrapped_sconscript
 
 
 def export_shared( env, name, value ):

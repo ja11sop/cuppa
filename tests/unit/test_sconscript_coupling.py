@@ -307,3 +307,60 @@ def test_parse_error_in_sconscript_is_stop_error():
     with pytest.raises( SCons.Errors.StopError ) as caught:
         scan_sconscript_source( "Export('oops'\n", path='bad.sconscript' )
     assert 'cannot parse' in str( caught.value )
+
+
+def test_scan_nested_sconscript_string_and_list():
+    source = """
+Import('env')
+SConscript('test/sconscript', exports=['marker'])
+SConscript(['mid/sconscript', 'leaf/sconscript'])
+SCons.Script.SConscript('other/sconscript')
+"""
+    coupling = scan_sconscript_source( source, path='sconscript' )
+    assert coupling.nested == {
+            'test/sconscript',
+            'mid/sconscript',
+            'leaf/sconscript',
+            'other/sconscript',
+    }
+
+
+def test_order_excludes_nested_sconscript_from_discovery_list( tmp_path ):
+    """Parent nests child — child must not remain on the outer invoke list."""
+    root = tmp_path / 'sconscript'
+    child = tmp_path / 'test' / 'sconscript'
+    child.parent.mkdir()
+    root.write_text(
+            "Import('env')\n"
+            "Export('marker')\n"
+            "SConscript('test/sconscript', exports=['marker'])\n",
+            encoding='utf-8',
+    )
+    child.write_text( "Import('env', 'marker')\n", encoding='utf-8' )
+    # Importer first in the input list (would double-run without exclusion).
+    ordered = order_sconscripts( [ str( child ), str( root ) ] )
+    assert _norm_list( ordered ) == _norm_list( [ str( root ) ] )
+
+
+def test_resolve_nested_sconscript_target_relative_to_caller( tmp_path, monkeypatch ):
+    from cuppa.core.sconscript_coupling import resolve_nested_sconscript_target
+
+    monkeypatch.chdir( tmp_path )
+    caller = './mid/sconscript'
+    resolved = resolve_nested_sconscript_target( caller, 'leaf/sconscript', base_dir=str( tmp_path ) )
+    assert os.path.normpath( resolved ) == os.path.normpath( './mid/leaf/sconscript' )
+
+
+def test_invoked_registry_is_scope_aware():
+    from cuppa.core.sconscript_coupling import (
+            clear_invoked_sconscripts,
+            mark_sconscript_invoked,
+            was_sconscript_invoked,
+    )
+
+    clear_invoked_sconscripts()
+    mark_sconscript_invoked( './test/sconscript', scope='gcc/dbg/x86_64/cxx2c' )
+    assert was_sconscript_invoked( 'test/sconscript', scope='gcc/dbg/x86_64/cxx2c' )
+    assert not was_sconscript_invoked( './test/sconscript', scope='gcc/rel/x86_64/cxx2c' )
+    clear_invoked_sconscripts()
+    assert not was_sconscript_invoked( './test/sconscript', scope='gcc/dbg/x86_64/cxx2c' )

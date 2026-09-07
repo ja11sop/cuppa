@@ -984,7 +984,10 @@ class Construct(object):
                     sconscripts.append( project )
 
             cuppa.core.sconscript_coupling.clear_session_shared()
+            cuppa.core.sconscript_coupling.clear_invoked_sconscripts()
+            cuppa.core.sconscript_coupling.install_sconscript_dedupe_wrapper()
             search_root = cuppa_env.get( 'sconstruct_dir' ) or cuppa_env.get( 'launch_dir' )
+            cuppa.core.sconscript_coupling.set_dedupe_project_root( search_root )
             widen = not bool( cuppa_env.get_option( 'strict_sconscript_exports' ) )
             try:
                 sconscripts = cuppa.core.sconscript_coupling.order_sconscripts(
@@ -1059,6 +1062,18 @@ class Construct(object):
             sconscript_env['tool_variant_dir'] = cuppa.core.build_layout.tool_variant_dir(
                     toolchain.name(), variant, target_arch, abi
             )
+            invoke_scope = cuppa.core.sconscript_coupling.shared_export_scope( sconscript_env )
+            if cuppa.core.sconscript_coupling.was_sconscript_invoked(
+                    sconscript_file, scope=invoke_scope
+            ):
+                logger.info(
+                        "Skipping sconscript [{}] — already invoked "
+                        "(nested SConscript or prior discovery) for [{}]".format(
+                                as_notice( sconscript_file ),
+                                as_notice( invoke_scope ),
+                        )
+                )
+                return
             sconscript_env['package_tool_variant_dir'] = os.path.join( toolchain.package_name(), variant, target_arch, abi )
             sconscript_env['tool_variant_working_dir'] = os.path.join( sconscript_env['tool_variant_dir'], working_folder )
 
@@ -1124,12 +1139,19 @@ class Construct(object):
                 dump = sconscript_env.Dump()
                 logger.info( "\n" + dump + "\n" )
             else:
-                SCons.Script.SConscript(
-                    [ sconscript_file ],
-                    variant_dir = sconscript_exports['build_dir'],
-                    duplicate   = 0,
-                    exports     = sconscript_exports
-                )
+                cuppa.core.sconscript_coupling.push_invoke_scope( invoke_scope )
+                try:
+                    SCons.Script.SConscript(
+                        [ sconscript_file ],
+                        variant_dir = sconscript_exports['build_dir'],
+                        duplicate   = 0,
+                        exports     = sconscript_exports
+                    )
+                    cuppa.core.sconscript_coupling.mark_sconscript_invoked(
+                            sconscript_file, scope=invoke_scope
+                    )
+                finally:
+                    cuppa.core.sconscript_coupling.pop_invoke_scope()
 
         else:
             logger.error( "Skipping non-existent project [{}] using [{},{},{}]".format(
