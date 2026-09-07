@@ -76,10 +76,12 @@ toolchain/variant/arch/abi (`tool_variant_dir`), so the same name exported under
 concrete reason to prefer the Cuppa API over native SCons `Export` / `Import`,
 whose global pool is last-wins across the whole configure pass.
 
-Without product imports, execution order stays the discovery walk (a flat graph). Nested
-`SConscript(..., exports=...)` from one script while Cuppa also auto-discovers the same path
-can still double-run that path — prefer `ExportShared` / discovery, or avoid listing a path
-Cuppa will discover again.
+Without product imports, execution order stays the discovery walk (a flat graph).
+When one discovered script nests another with ``SConscript(..., exports=...)``,
+Cuppa **drops the nested path from the outer discovery invoke list** (string-literal
+targets) and also skips a path if a live nested call already evaluated it for that
+toolchain/variant. Prefer ``ExportShared`` / ``ImportShared`` for new layouts; nested
+``SConscript`` remains supported for SCons-style ``exports=`` without double-running.
 
 [#methods]
 == Methods

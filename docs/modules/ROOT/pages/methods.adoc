@@ -94,6 +94,9 @@ See <<progress-tracking-and-variant-scoping>> for when progress attaches.
 | CreateVersion
 | xref:methods/create-version.adoc[CreateVersion]
 
+| Sconscript sharing (`ExportShared()`, nested `SConscript`, …)
+| xref:concepts.adoc#sconscript-discovery[Concepts: sconscript discovery and sharing]
+
 | Packages
 | xref:methods/packages.adoc[Packages]
 

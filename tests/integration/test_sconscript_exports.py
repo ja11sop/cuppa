@@ -266,3 +266,82 @@ def test_export_shared_static_lib_builds_under_parallel( tmp_path ):
             if path.is_file() and path.suffix in ( '.a', '.lib' ) and 'answer' in path.name
     ]
     assert archives, 'expected BuildStaticLib archive under _build'
+
+
+def test_nested_sconscript_not_double_run_by_discovery( tmp_path ):
+    """Explicit ``SConscript`` + discovery must evaluate the child once.
+
+    Capylike layout: root nests ``test/sconscript`` with ``exports=`` while Cuppa
+    still discovers both files. Without dedupe the second discovery invoke fails
+    ``Import`` of the parent-only name.
+    """
+    project = copy_dummy_project( tmp_path )
+    write_sconstruct( project, default_variants=['dbg'] )
+
+    counter = project / 'nested_run_count.txt'
+    marker = project / 'nested_marker.txt'
+    ( project / 'sconscript' ).write_text(
+            "Import('env')\n"
+            "nested_marker = 'from-nested-export'\n"
+            "Export('nested_marker')\n"
+            "SConscript('test/sconscript', exports=['nested_marker'])\n",
+            encoding='utf-8',
+    )
+    test_dir = project / 'test'
+    test_dir.mkdir()
+    ( test_dir / 'sconscript' ).write_text(
+            "Import('nested_marker')\n"
+            "path = r'{counter}'\n"
+            "count = 0\n"
+            "try:\n"
+            "    with open( path, 'r', encoding='utf-8' ) as handle:\n"
+            "        count = int( handle.read().strip() or '0' )\n"
+            "except OSError:\n"
+            "    pass\n"
+            "with open( path, 'w', encoding='utf-8' ) as handle:\n"
+            "    handle.write( str( count + 1 ) )\n"
+            "with open( r'{marker}', 'w', encoding='utf-8' ) as handle:\n"
+            "    handle.write( nested_marker )\n".format(
+                    counter=str( counter ).replace( '\\', '\\\\' ),
+                    marker=str( marker ).replace( '\\', '\\\\' ),
+            ),
+            encoding='utf-8',
+    )
+
+    result = run_cuppa( project, '--dbg' )
+    assert_success( result )
+    assert counter.read_text( encoding='utf-8' ).strip() == '1', result.stdout
+    assert marker.read_text( encoding='utf-8' ) == 'from-nested-export'
+
+
+def test_nested_sconscript_once_per_variant( tmp_path ):
+    """``--dbg --rel`` nests the child once per variant, not twice per variant."""
+    project = copy_dummy_project( tmp_path )
+    write_sconstruct( project, default_variants=['dbg', 'rel'] )
+
+    counter = project / 'nested_variant_count.txt'
+    ( project / 'sconscript' ).write_text(
+            "Import('env')\n"
+            "SConscript('test/sconscript')\n",
+            encoding='utf-8',
+    )
+    test_dir = project / 'test'
+    test_dir.mkdir()
+    ( test_dir / 'sconscript' ).write_text(
+            "path = r'{counter}'\n"
+            "count = 0\n"
+            "try:\n"
+            "    with open( path, 'r', encoding='utf-8' ) as handle:\n"
+            "        count = int( handle.read().strip() or '0' )\n"
+            "except OSError:\n"
+            "    pass\n"
+            "with open( path, 'w', encoding='utf-8' ) as handle:\n"
+            "    handle.write( str( count + 1 ) )\n".format(
+                    counter=str( counter ).replace( '\\', '\\\\' ),
+            ),
+            encoding='utf-8',
+    )
+
+    result = run_cuppa( project, '--dbg', '--rel' )
+    assert_success( result )
+    assert counter.read_text( encoding='utf-8' ).strip() == '2', result.stdout

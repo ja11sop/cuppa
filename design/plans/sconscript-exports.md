@@ -2,8 +2,8 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `sconscript-exports`; blocks multi-file Cuppa layouts like CMake `add_subdirectory`; pairs with [#213](https://github.com/ja11sop/cuppa/issues/213); graph/cycle vocabulary may later share helpers with [`gitlab-package-transitive.md`](gitlab-package-transitive.md) (different graph; do not force one NetworkX model)
-- **Updated:** 2026-09-06
-- **Impact:** minor — opt-in Export/Import ordering and `ExportShared` / `ImportShared`; flat discovery unchanged when unused
+- **Updated:** 2026-09-07
+- **Impact:** minor — opt-in Export/Import ordering and `ExportShared` / `ImportShared`; flat discovery unchanged when unused; nested `SConscript` no longer double-runs under discovery
 
 ## Problem
 
@@ -135,6 +135,7 @@ Static scan will not catch every dynamic `Import(name)` constructed at runtime; 
 | Widened scripts | Join the run set (exporters execute, not resolve-only). |
 | Variant / toolchain scope | **`ExportShared` / `ImportShared` are keyed by `tool_variant_dir`** (toolchain + variant + arch + abi). Same export name under `--dbg` and `--rel` (or two toolchains) keeps distinct values. **This is a concrete reason the Cuppa API exists above native SCons `Export` / `Import`**, whose global pool is last-wins across the configure pass and cannot honour variants safely. Native `Export` is still updated best-effort for migration; product code should use `ImportShared`. |
 | Graph nodes for scan/order | Script paths only (order is the same for every variant); **values** are per-variant via the Cuppa registry. |
+| Nested `SConscript` + discovery | **Dedupe:** drop string-literal nested targets from the outer invoke list when the parent is also in the set; runtime mark/skip for live nested calls per `tool_variant_dir`. Nested call keeps parent `exports=`. |
 
 ## Progress snapshot
 
@@ -147,5 +148,5 @@ Static scan will not catch every dynamic `Import(name)` constructed at runtime; 
 | `--scripts=` + strict + clean path form | Covered by unit + integration tests |
 | Variant-aware shared exports | Covered (`tool_variant_dir` scope; `--dbg --rel` integration) |
 | `--parallel` build with imported lib | Covered (`BuildStaticLib` + `ExportShared` → consumer `Build` under `-j` on non-Windows; Windows omits `-j` due to MSVC `/Zi`/`vc140.pdb` C1090 across variant dirs) |
-| `scons-export-dedupe` | Not started (explicit `SConscript` + discovery double-run) |
+| `scons-export-dedupe` | Covered — string-literal nested `SConscript` targets dropped from outer invoke; live nested call marks path per `tool_variant_dir`; Concepts updated |
 | `scons-export-capy` | Not started |
