@@ -62,6 +62,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Integration ``run_cuppa`` default subprocess timeout is 360s on Windows (180s elsewhere) so
+  MSVC modules, coverage, and nested ``-D`` builds on ``windows-latest`` are less likely to flake
+  at the former 180s ceiling.
 - Top navbar and README absolute docs links used versionless ``/cuppa/….html`` paths after
   ``latest_version_segment``; they now target ``/cuppa/latest/…``. ``scripts.check_docs_urls``
   guards sources and the built site (also wired into ``check_release`` and the documentation
