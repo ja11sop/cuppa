@@ -35,6 +35,20 @@ def _assert_master_subset( result ):
     assert positions == sorted( positions ), result
 
 
+def _append_staticlibs( existing, names ):
+    """Model boost use_libs: Append the expansion, allowing intentional repeats."""
+    existing.extend( names )
+    return existing
+
+
+def _append_unique_staticlibs( existing, names ):
+    """Former mistaken use_libs behaviour that dropped needed repeats."""
+    for name in names:
+        if name not in existing:
+            existing.append( name )
+    return existing
+
+
 def test_add_dependent_libraries_emits_master_order_subset():
     """Required libs keep relative order from boost_dependency_order()."""
     result = add_dependent_libraries( 1.92, 'static', list( _CONSUMER_STYLE_LIBS ) )
@@ -107,3 +121,37 @@ def test_add_dependent_libraries_order_stable_across_hash_seeds():
         orders.add( out )
 
     assert len( orders ) == 1, orders
+
+
+def test_log_dependents_reappear_after_earlier_filesystem_thread_use_libs():
+    """Quince-style early use_libs then consumer log must repeat thread after log.
+
+    GNU ld needs filesystem/thread after libboost_log.a even when those archives
+    already appear earlier on the line. use_libs must Append expansions; Unique
+    would drop the repeats and leave undefined TSS symbols from Boost.Log.
+    """
+    quince_libs = add_dependent_libraries(
+        1.92, 'static', [ 'filesystem', 'thread', 'system' ]
+    )
+    postgresql_libs = add_dependent_libraries( 1.92, 'static', [ 'date_time' ] )
+    consumer_libs = add_dependent_libraries( 1.92, 'static', list( _CONSUMER_STYLE_LIBS ) )
+
+    with_append = []
+    _append_staticlibs( with_append, quince_libs )
+    _append_staticlibs( with_append, postgresql_libs )
+    _append_staticlibs( with_append, consumer_libs )
+
+    assert with_append.count( 'filesystem' ) >= 2
+    assert with_append.count( 'thread' ) >= 2
+    assert with_append.count( 'date_time' ) >= 2
+    log_index = with_append.index( 'log' )
+    assert 'filesystem' in with_append[ log_index + 1 : ]
+    assert 'thread' in with_append[ log_index + 1 : ]
+    assert 'date_time' in with_append[ log_index + 1 : ]
+
+    with_unique = []
+    _append_unique_staticlibs( with_unique, quince_libs )
+    _append_unique_staticlibs( with_unique, postgresql_libs )
+    _append_unique_staticlibs( with_unique, consumer_libs )
+    unique_log_index = with_unique.index( 'log' )
+    assert 'thread' not in with_unique[ unique_log_index + 1 : ]

@@ -16,9 +16,12 @@ from cuppa.log       import logger
 def boost_dependency_order():
     # Master static-link order: dependents before dependencies for GNU ld.
     # add_dependent_libraries emits only the subset present in the required
-    # set, preserving relative order from this list. Keep every Boost library
-    # name Cuppa knows about here; unknown names are appended sorted for
-    # signature stability only (#267) and may not link correctly.
+    # set, preserving relative order from this list (stable across processes —
+    # #267). Callers (boost_package / Boost.use_libs) must Append the result to
+    # STATICLIBS, not AppendUnique, so a later expansion can repeat dependents
+    # (e.g. thread after log) when an earlier use_libs already listed them.
+    # Keep every Boost library name Cuppa knows about here; unknown names are
+    # appended sorted for signature stability only and may not link correctly.
     return [
         'graph',
         'regex',

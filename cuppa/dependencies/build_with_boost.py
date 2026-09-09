@@ -351,15 +351,19 @@ class Boost(object):
         Intended for ``env.BuildWith('boost').use_libs([...])`` so a project can switch
         between source Boost and a registry ``boost_package`` without changing call shape.
         Builds (or reuses) libraries via ``env.BoostStaticLibs`` and appends them to
-        ``STATICLIBS``. Optional ``depends_on`` is passed to ``env.Depends`` on those
-        library nodes. Returns the library nodes.
+        ``STATICLIBS`` (allowing repeats so dependents can follow libraries that need
+        them). Optional ``depends_on`` is passed to ``env.Depends`` on those library
+        nodes. Returns the library nodes.
         """
         from SCons.Script import Flatten
 
         env = self._env
         libs = Flatten( [ libs ] )
         libraries = env.BoostStaticLibs( libs )
-        env.AppendUnique( STATICLIBS = libraries )
+        # Append, not AppendUnique: same as boost_package.use_libs — dependents
+        # expanded by BoostStaticLibs must be allowed to repeat after libraries
+        # that need them when an earlier use_libs already linked those archives.
+        env.Append( STATICLIBS = libraries )
         if depends_on:
             env.Depends( libraries, Flatten( [ depends_on ] ) )
         return libraries

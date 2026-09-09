@@ -31,7 +31,10 @@ def use_libs( package, libraries ):
         lib_path = os.path.join( package.lib_dir(), lib_name )
         static_libs.append( env.File( lib_path ) )
 
-    env.AppendUnique( STATICLIBS = static_libs )
+    # Append, not AppendUnique: dependents of later use_libs (e.g. log → thread)
+    # must appear again after that library even if quince or an earlier call already
+    # put them on STATICLIBS. Unique would drop those repeats and break GNU ld.
+    env.Append( STATICLIBS = static_libs )
 
 
 def latest_release( offline=False ):
