@@ -1,5 +1,4 @@
-
-#          Copyright Jamie Allsop 2014-2017
+#          Copyright Jamie Allsop 2014-2026
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -10,6 +9,8 @@
 
 import cuppa.progress
 import os.path
+
+from cuppa.utility.static_archive_members import stage_objects_for_static_archive
 
 
 class BuildLibMethod:
@@ -24,7 +25,10 @@ class BuildLibMethod:
         if self._shared:
             lib = env.SharedLibrary( os.path.join( final_dir, target ), env.CompileShared( source ), **kwargs )
         else:
-            lib = env.StaticLibrary( os.path.join( final_dir, target ), env.CompileStatic( source ), **kwargs )
+            objects = stage_objects_for_static_archive(
+                    env, target, env.CompileStatic( source )
+            )
+            lib = env.StaticLibrary( os.path.join( final_dir, target ), objects, **kwargs )
 
         if env.get( 'modules' ):
             from cuppa.cpp.cxx_modules import install_packaged_modules
@@ -42,4 +46,3 @@ class BuildLibMethod:
         cuppa_env.add_method( "BuildLib", cls( False ) )
         cuppa_env.add_method( "BuildStaticLib", cls( False ) )
         cuppa_env.add_method( "BuildSharedLib", cls( True ) )
-

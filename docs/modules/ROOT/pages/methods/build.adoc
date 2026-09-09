@@ -133,6 +133,12 @@ When `env['modules']` is true (see xref:cxx-modules.adoc[{cpp} Modules]), `Compi
 `BuildSharedLib()` produces a shared library there (via `CompileShared()` then
 `SharedLibrary()`), so object PIC and link mode stay matched.
 
+When two object files share a basename (for example nested `except.cpp` trees mirrored
+under `working/` — https://github.com/ja11sop/cuppa/issues/213[#213]), traditional
+`ar` / the MSVC librarian would keep only one archive member. `BuildStaticLib()` /
+static `BuildLib()` detect that collision and stage uniquely named copies under
+`working/.archive_members/<lib>/` before archiving, so every object remains linkable.
+
 [source,python]
 ----
 Import('env')

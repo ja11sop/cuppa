@@ -53,6 +53,7 @@ maintainer workflow evolved.
 | [`archive/conan-consumer-plan.md`](archive/conan-consumer-plan.md) | shipped | Design of `conan_deps` / `conan_dependency` consumer support |
 | [`archive/conan-publish-plan.md`](archive/conan-publish-plan.md) | shipped | Design of `ConanPackagePublisher` and `--publish-package` |
 | [`plans/sconscript-exports.md`](plans/sconscript-exports.md) | in progress | Shared exports between discovered sconscripts; nested lib/test layout |
+| [`plans/static-lib-archive-members.md`](plans/static-lib-archive-members.md) | in progress | Unique `ar` / `.lib` members when nested same-basename `.o` share one `BuildStaticLib` — [#287](https://github.com/ja11sop/cuppa/issues/287) |
 | [`plans/cmake-to-cuppa-migration.md`](plans/cmake-to-cuppa-migration.md) | proposal | CMake ↔ Cuppa matrix and migration phases for humans and agents |
 | [`archive/recursive-glob-parity.md`](archive/recursive-glob-parity.md) | shipped | RecursiveGlob / GlobFiles / Filter parity — ROADMAP `static-glob`; [#232](https://github.com/ja11sop/cuppa/issues/232) / [#231](https://github.com/ja11sop/cuppa/pull/231) |
 | [`archive/method-behaviour-audit.md`](archive/method-behaviour-audit.md) | shipped | Method returns, evaluation, paths; #213 + glob + #233 + cov nested-path; hub classification — ROADMAP `method-behaviour-audit` |

@@ -149,4 +149,15 @@ Static scan will not catch every dynamic `Import(name)` constructed at runtime; 
 | Variant-aware shared exports | Covered (`tool_variant_dir` scope; `--dbg --rel` integration) |
 | `--parallel` build with imported lib | Covered (`BuildStaticLib` + `ExportShared` → consumer `Build` under `-j` on non-Windows; Windows omits `-j` due to MSVC `/Zi`/`vc140.pdb` C1090 across variant dirs) |
 | `scons-export-dedupe` | Covered — string-literal nested `SConscript` targets dropped from outer invoke; live nested call marks path per `tool_variant_dir`; Concepts updated |
-| `scons-export-capy` | Not started |
+| `scons-export-capy` | Validated 2026-09-07 on Boost.Capy develop: root `ExportShared('capy_libs')` → `test/sconscript` `ImportShared` + `BuildTest`; **50 suites / 0 failures** with cuppa master (#282/#283). Consumer sketch uses git-tracked sources only while local buffer WIP does not compile. Surfaced follow-on: [`static-lib-archive-members.md`](static-lib-archive-members.md) (`ar` basename collision). |
+| Method index | `ExportShared` / `ImportShared` / native `Export` / `Import` / `SConscript` listed (#283) |
+
+## Follow-ons outside this plan
+
+| Item | Notes |
+|------|-------|
+| Static archive member uniquify | [`static-lib-archive-members.md`](static-lib-archive-members.md) — not an Export/Import bug |
+| Doc: `#/` sources from nested discovered sconscripts | Capylike needed `#/extra/...` from `test/sconscript`; teach on Concepts or Build |
+| Doc / ROADMAP Today rows | Nested discovery + sharing now shipped; update migration tutorial when written |
+| Dynamic `Import(name)` | Still unsupported (string-literal scan bound) |
+| MSVC `/Fd` under `--parallel` | Pre-existing dbg PDB race across variant dirs; separate from exports |

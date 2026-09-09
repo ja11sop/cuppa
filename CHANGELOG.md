@@ -76,6 +76,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([#285](https://github.com/ja11sop/cuppa/issues/285)). Stable ``add_dependent_libraries``
   order from [#267](https://github.com/ja11sop/cuppa/issues/267) /
   [#269](https://github.com/ja11sop/cuppa/pull/269) is unchanged.
+- ``BuildStaticLib`` / static ``BuildLib`` stage uniquely named object copies under
+  ``working/.archive_members/<lib>/`` when compile outputs share a basename, so ``ar`` /
+  the MSVC librarian no longer silently drop nested same-basename objects after the #213
+  ``working/`` mirror ([#287](https://github.com/ja11sop/cuppa/issues/287)).
 
 ### Security
 
