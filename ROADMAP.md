@@ -584,7 +584,7 @@ Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object path
 |----|------|----------|-------|
 | `compile-object-paths` | Mirror source tree under `working/` for `Compile` | — | **Shipped 1.8.1** — [#213](https://github.com/ja11sop/cuppa/issues/213) / [#214](https://github.com/ja11sop/cuppa/pull/214) |
 | `sconscript-exports` | Discovery + Import/Export execution graph; `ExportShared` / `ImportShared`; nested `SConscript` dedupe | Medium | [`sconscript-exports.md`](design/plans/sconscript-exports.md) — #282 / #283; Capylike validated |
-| `static-lib-archive-members` | Unique static-archive members for nested same-basename `.o` | High | [`static-lib-archive-members.md`](design/plans/static-lib-archive-members.md) — silent `ar` drop after #213 |
+| `static-lib-archive-members` | Unique static-archive members for nested same-basename `.o` | High | [`static-lib-archive-members.md`](design/plans/static-lib-archive-members.md) — collide-only staging in 1.x (#287); always-flatten deferred to 2.0 |
 | `cmake-to-cuppa-migration` | Antora matrix + phased tutorial + agent checklist | Medium | Compile-path fix shipped; exports validated — [`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md) |
 | `static-glob` | RecursiveGlob (disk + `Dir.entries` + full Repository); GlobFiles; Filter path parity | — | **Shipped** — [#232](https://github.com/ja11sop/cuppa/issues/232) / [#231](https://github.com/ja11sop/cuppa/pull/231), [`recursive-glob-parity.md`](design/archive/recursive-glob-parity.md); follow-on [`path-vocabulary-and-scons-nodes.md`](design/plans/path-vocabulary-and-scons-nodes.md) |
 

@@ -55,6 +55,7 @@ step still flattens identity.
 | Collision policy if uniquify impossible | `StopError` listing the colliding flattened names and relative paths — never silent drop |
 | Scope | Static archives only; same staging helps MSVC `.lib` when basenames collide |
 | Relation to #213 | Treat as the archive half of “nested same-basename sources in one library” |
+| Always stage / always flatten | **Deferred to 2.0** — one code path and uniform `ar t` names, but changes member names for *every* static lib (wider SCons signature churn and copy cost). Keep collide-only for the 1.x patch; revisit as a major when simplifying the staging branch is worth the rebuild blast radius |
 
 ## Design directions
 
@@ -62,7 +63,8 @@ step still flattens identity.
 
 Map each object node to a member name that encodes enough of the relative path under
 `working/` to be unique, then stage a file whose **basename** is that name before
-`StaticLibrary` / `$ARCOM`.
+`StaticLibrary` / `$ARCOM`. **1.x:** only when basenames collide. **2.0 candidate:**
+always flatten/stage (drop the detection branch).
 
 ### B — Detect-only (interim)
 
@@ -80,6 +82,7 @@ Deferred — portability across GCC/Clang/MSVC unclear.
 | `archive-member-detect` | Basename collision → stage (not bare StopError) |
 | `archive-member-uniquify` | Product fix in `build_library.py` + `static_archive_members.py` |
 | `archive-member-doc` | Build methods note + changelog + plan/ROADMAP |
+| `archive-member-always` | **2.0** — always stage/flatten; remove collide-only branch |
 
 ## Open questions
 
@@ -93,6 +96,7 @@ Deferred — portability across GCC/Clang/MSVC unclear.
 |-------|--------|
 | Problem seen on Boost.Capy Cuppa sketch | done (2026-09-07) |
 | Plan + ROADMAP row | done |
-| Repro integration test | in progress |
-| Uniquify / detect fix | in progress |
-| Docs | in progress |
+| Repro integration test | done (PR) |
+| Uniquify / detect fix | done (PR) |
+| Docs | done (PR) |
+| Always stage / flatten (2.0) | deferred |
