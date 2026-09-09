@@ -48,7 +48,19 @@ def cuppa_test_env_args():
     return _split_extra_args(os.environ.get("CUPPA_TEST_ARGS", "").strip())
 
 
-def run_cuppa(project_dir, *flags, extra_env=None, timeout=180, offline=True):
+_DEFAULT_RUN_CUPPA_TIMEOUT = 180
+# MSVC modules/cov and nested -D builds often exceed 180s on windows-latest.
+_DEFAULT_RUN_CUPPA_TIMEOUT_WINDOWS = 360
+
+
+def default_run_cuppa_timeout():
+    """Subprocess timeout when integration tests omit an explicit ``timeout=``."""
+    if os.name == 'nt':
+        return _DEFAULT_RUN_CUPPA_TIMEOUT_WINDOWS
+    return _DEFAULT_RUN_CUPPA_TIMEOUT
+
+
+def run_cuppa(project_dir, *flags, extra_env=None, timeout=None, offline=True):
     require_cxx()
     env = os.environ.copy()
     root = str(REPO_ROOT)
@@ -83,6 +95,9 @@ def run_cuppa(project_dir, *flags, extra_env=None, timeout=180, offline=True):
 
     # Env extras first; explicit *flags override (e.g. import std forcing libc++).
     args.extend(merge_cuppa_args(default_tc, cuppa_test_env_args(), list(flags)))
+
+    if timeout is None:
+        timeout = default_run_cuppa_timeout()
 
     logger.info("Running in %s: %s", project_dir, " ".join(args))
     result = subprocess.run(
