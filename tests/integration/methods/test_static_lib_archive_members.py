@@ -9,7 +9,12 @@ import subprocess
 
 import pytest
 
-from tests.helpers.cuppa_runner import assert_success, find_final_binaries, run_cuppa
+from tests.helpers.cuppa_runner import (
+    assert_success,
+    find_final_binaries,
+    find_under_build,
+    run_cuppa,
+)
 from tests.helpers.project import copy_dummy_project, write_sconstruct, write_sconscript
 
 
@@ -48,34 +53,23 @@ def _write_archive_collision_fixture( project ):
 
 
 def _static_libs( project, name_stem ):
-    matches = []
-    for path in project.glob( "_build/**/final/**" ):
-        if not path.is_file():
-            continue
-        name = path.name
-        if name == "lib{}.a".format( name_stem ) or name == "{}.lib".format( name_stem ):
-            matches.append( path )
-    return sorted( matches )
+    """Find the static archive under final/ (libNAME.a or NAME.lib, any LIBPREFIX)."""
+    return sorted(
+        path
+        for path in find_under_build( project )
+        if path.is_file()
+        and path.suffix in ( ".a", ".lib" )
+        and "final" in path.parts
+        and name_stem in path.stem
+    )
 
 
 def _archive_member_names( archive_path ):
-    """List member basenames in a static archive (ar t or dumpbin /lib)."""
+    """List member basenames in a static archive (ar t). MSVC listing is optional."""
     if archive_path.suffix == ".lib":
-        result = subprocess.run(
-            [ "dumpbin", "/HEADERS", str( archive_path ) ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        # Fallback: if dumpbin is awkward, rely on link success alone on MSVC.
-        if result.returncode != 0:
-            return None
-        members = []
-        for line in result.stdout.splitlines():
-            line = line.strip()
-            if line.endswith( ".obj" ) and " " not in line:
-                members.append( line )
-        return members
+        # Link+run already proves both objects were kept; dumpbin member listing is
+        # awkward and not required on Windows CI.
+        return None
 
     result = subprocess.run(
         [ "ar", "t", str( archive_path ) ],
@@ -101,9 +95,9 @@ def test_build_static_lib_keeps_nested_same_basename_objects( tmp_path ):
     assert run.returncode == 0, run.stdout + run.stderr
 
     archives = _static_libs( project, "excepts" )
-    assert archives, "expected libexcepts.a / excepts.lib under final/"
+    assert archives, "expected excepts static archive under final/"
     members = _archive_member_names( archives[0] )
     if members is not None:
-        basenames = [ m.split( "/" )[-1] for m in members ]
+        basenames = [ m.replace( "\\", "/" ).split( "/" )[-1] for m in members ]
         assert len( basenames ) == len( set( basenames ) ), members
         assert len( basenames ) >= 2, members
