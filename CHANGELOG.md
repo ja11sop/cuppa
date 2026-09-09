@@ -69,9 +69,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ``boost_package.use_libs`` and source ``Boost.use_libs`` ``Append`` expanded static archives
   to ``STATICLIBS`` instead of ``AppendUnique``. Unique dropped intentional repeats of
   dependents (e.g. ``filesystem`` / ``thread`` after ``log``) when an earlier call such as
-  Quince had already linked those archives, leaving undefined TSS symbols from Boost.Log.
-  Stable ``add_dependent_libraries`` order from [#267](https://github.com/ja11sop/cuppa/issues/267)
-  / [#269](https://github.com/ja11sop/cuppa/pull/269) is unchanged.
+  Quince had already linked those archives, leaving undefined TSS symbols from Boost.Log
+  ([#285](https://github.com/ja11sop/cuppa/issues/285)). Stable ``add_dependent_libraries``
+  order from [#267](https://github.com/ja11sop/cuppa/issues/267) /
+  [#269](https://github.com/ja11sop/cuppa/pull/269) is unchanged.
 
 ### Security
 
