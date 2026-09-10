@@ -64,6 +64,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docs plans for ``/latest/`` site default and agent ``llms.txt`` corpus marked shipped
   after live verify (homepage / ``/latest/`` shows **1.10.0**; ``next`` separate) —
   [#238](https://github.com/ja11sop/cuppa/pull/238).
+- Publishing packages docs: Cuppa→CMake flag mapping and two publisher patterns (small
+  library vs install prefix), with an honest note on GitLab staging copy behaviour
+  ([#209](https://github.com/ja11sop/cuppa/issues/209);
+  [`cmake-drive-and-package-staging`](design/plans/cmake-drive-and-package-staging.md)).
 
 ### Deprecated
 

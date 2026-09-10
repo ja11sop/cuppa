@@ -14,7 +14,9 @@ envs, so user `Command()` calls participate in variant progress.
 
 Typical jobs:
 
-* Wrap an external generate/build tool (CMake configure/build in a publisher tree)
+* Wrap an external generate/build tool (CMake configure/build in a publisher tree —
+  map Cuppa toolchain/variant into CMake flags; see
+  xref:packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build])
 * Emit a marker file after a binary exists (`tool.done`)
 * Run a one-off code generator whose outputs feed `Build()` / `Install()`
 * Any custom action that should rebuild when inputs change
