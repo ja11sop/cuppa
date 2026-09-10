@@ -389,11 +389,11 @@ xref:concepts.adoc#sconscript-discovery[Concepts: sconscript discovery and shari
 
 | xref:concepts.adoc#sconscript-discovery[`ExportShared()`]
 | Cuppa preferred export: publish a name for this toolchain/variant (`tool_variant_dir`)
-| Prefer over native `Export()` for product sharing under discovery
+| Configure-time only (no `NotifyProgress`); prefer over native `Export()` under discovery
 
 | xref:concepts.adoc#sconscript-discovery[`ImportShared()`]
 | Cuppa preferred import: read a name published by `ExportShared()` for this variant
-| Prefer over native `Import()` of product names
+| Configure-time only (no `NotifyProgress`); prefer over native `Import()` of product names
 
 | link:{scons-man}#f-Export[`Export()`]
 | SCons global export pool (string-literal names are scanned for ordering)

@@ -1,5 +1,6 @@
 = Concepts
 :description: Methods, dependencies, profiles, variants, actions, and toolchains
+:hash: #
 
 Cuppa uses a small vocabulary so `sconstruct` / `sconscript` files stay declarative.
 
@@ -76,12 +77,46 @@ toolchain/variant/arch/abi (`tool_variant_dir`), so the same name exported under
 concrete reason to prefer the Cuppa API over native SCons `Export` / `Import`,
 whose global pool is last-wins across the whole configure pass.
 
+They are also **configure-time only**: they publish or read values while Cuppa
+evaluates sconscripts. They do **not** create build-action nodes and do **not**
+call `NotifyProgress.add` (same class as `BuildWith()` / `Filter()` — see
+xref:methods.adoc#progress-tracking-and-variant-scoping[Progress tracking]).
+Progress still comes from the `Build()` / `BuildTest()` / `Build*Lib()` targets
+you pass around.
+
 Without product imports, execution order stays the discovery walk (a flat graph).
 When one discovered script nests another with ``SConscript(..., exports=...)``,
 Cuppa **drops the nested path from the outer discovery invoke list** (string-literal
 targets) and also skips a path if a live nested call already evaluated it for that
 toolchain/variant. Prefer ``ExportShared`` / ``ImportShared`` for new layouts; nested
 ``SConscript`` remains supported for SCons-style ``exports=`` without double-running.
+
+=== Project-rooted paths from a nested sconscript
+
+Discovered scripts under a subdirectory (for example `test/sconscript`) still run with
+that folder as the SCons working context for relative paths. A bare `extra/foo.cpp` or
+`src/foo.cpp` is resolved relative to `test/`, not the project root next to `sconstruct`.
+
+Use the SCons `{hash}/` prefix (project / `sconstruct` directory) when a nested script
+must name sources, include roots, or globs that live at the project root:
+
+[source,python]
+----
+# test/sconscript — sources live at the project root, not under test/
+Import( 'env' )
+libs = env.ImportShared( 'mylibs' )
+env.BuildTest(
+    'unit',
+    [ '{hash}/test/unit.cpp', '{hash}/extra/helpers.cpp' ],
+    LIBS = libs,
+)
+----
+
+The same rule applies to `RecursiveGlob( ..., start='{hash}/src' )`,
+`AppendUnique( CPPPATH=[ '{hash}/include' ] )`, and similar. Relative paths without
+`{hash}/` remain correct for files that really sit beside the nested sconscript.
+See also xref:methods/discovery.adoc[Source discovery] for `{hash}/` with
+`Glob` / `RecursiveGlob`.
 
 [#methods]
 == Methods

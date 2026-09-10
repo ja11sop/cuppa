@@ -1,7 +1,7 @@
 # Plan: Transitive GitLab package dependencies
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Dependencies / packages; [`archive/gitlab-package-latest.md`](../archive/gitlab-package-latest.md); [`archive/dependency-resolve.md`](../archive/dependency-resolve.md); [`archive/conan-consumer-plan.md`](../archive/conan-consumer-plan.md) (transitive `requires` as contrast); [`run-default-dependency-objects.md`](run-default-dependency-objects.md) (import vs auto-enable); [`sconscript-exports.md`](sconscript-exports.md) (separate graph; shared cycle/conflict vocabulary later); scratchpad graduate
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Dependencies / packages; [`archive/gitlab-package-latest.md`](../archive/gitlab-package-latest.md); [`archive/dependency-resolve.md`](../archive/dependency-resolve.md); [`archive/conan-consumer-plan.md`](../archive/conan-consumer-plan.md) (transitive `requires` as contrast); [`run-default-dependency-objects.md`](run-default-dependency-objects.md) (import vs auto-enable); [`archive/sconscript-exports.md`](../archive/sconscript-exports.md) (separate graph; shared cycle/conflict vocabulary later); scratchpad graduate
 - **Updated:** 2026-09-06
 - **Impact:** minor — new publish/consume behaviour for GitLab packages; existing flat declarations stay valid
 - **Issue:** [#279](https://github.com/ja11sop/cuppa/issues/279)
@@ -295,6 +295,6 @@ they ride along with `A.use_libs(...)`, not with bare `BuildWith(A)`.
 
 Package requires and sconscript export/load order are **different graphs**. `gl-dep-list` reads
 manifests into the existing inventory tree (no NetworkX). When
-[`sconscript-exports.md`](sconscript-exports.md) needs cycle/collision checks, prefer a small
+[`sconscript-exports.md`](../archive/sconscript-exports.md) needs cycle/collision checks, prefer a small
 shared helper (hand-rolled DFS first); introduce NetworkX only if a second real consumer makes
 adjacency code painful — not for listing alone.

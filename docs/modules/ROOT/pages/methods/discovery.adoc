@@ -49,6 +49,11 @@ Cuppa's recursive walk **is** the practical answer to “recursive Glob” today
 
 Both Cuppa snapshot helpers and `Glob()` re-run whenever Cuppa re-reads the sconscript (every normal build). New files appear on the next invocation either way — the day-to-day impact of snapshot-vs-directory-Glob is low. Recursion, `exclude_dirs` / `discard_pattern`, and `start=` / `{hash}/` vocabulary are the differences that matter.
 
+From a **nested** discovered sconscript (for example `test/sconscript`), relative paths are
+resolved relative to that script's directory. Prefer `{hash}/…` (project / `sconstruct`
+root) when naming sources or `start=` trees that live at the project root — see
+xref:concepts.adoc#sconscript-discovery[Sconscript discovery and sharing].
+
 [cols="2,3,3"]
 |===
 | API | What it finds | Typical use
