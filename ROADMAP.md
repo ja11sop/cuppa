@@ -24,7 +24,7 @@ Minor cycle after **1.10.0**. Prefer work that changes opt-in toolchain or packa
 |------|------------------|
 | `cuppa.run` default_dependencies objects | [`run-default-dependency-objects.md`](design/plans/run-default-dependency-objects.md) — objects in both lists; teach register vs auto-apply; optional clearer names later |
 | Transitive GitLab packages | [`gitlab-package-transitive.md`](design/plans/gitlab-package-transitive.md) — `cuppa-dependency.json` + `--list-dependencies` `requires` (shipped #280 / #281; #279 follow-ons deferred) |
-| Sconscript exports / sharing | [`sconscript-exports.md`](design/archive/sconscript-exports.md) — #282 / #283 shipped; Capylike smoke done; remaining: dynamic `Import(name)`, MSVC `/Fd` under `--parallel` |
+| Sconscript exports / sharing | [`sconscript-exports.md`](design/archive/sconscript-exports.md) — #282 / #283 shipped; remaining: dynamic `Import(name)`, MSVC `/Fd` under `--parallel` |
 | Static lib archive members | [`static-lib-archive-members.md`](design/archive/static-lib-archive-members.md) — #287 / #288 shipped (collide-only); always-flatten deferred to 2.0 |
 | GitLab CMake staging | [#209](https://github.com/ja11sop/cuppa/issues/209) |
 | Artefact removal design | [#135](https://github.com/ja11sop/cuppa/issues/135) |
@@ -565,7 +565,9 @@ Design: [`native-toolchain-output.md`](design/plans/native-toolchain-output.md),
 
 ## SCons project layout and CMake migration
 
-Experimental Cuppa build of a public C++20 library (Boost.Capy, 2026-08-17) surfaced two platform gaps before a published migration tutorial is honest.
+Migrating multi-directory C++ libraries (root products plus nested test or app scripts,
+nested same-basename sources into one static archive) surfaced platform gaps that a
+published CMake→Cuppa tutorial should cite honestly.
 
 Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object paths), [`sconscript-exports.md`](design/archive/sconscript-exports.md), [`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md), [`recursive-glob-parity.md`](design/archive/recursive-glob-parity.md).
 
@@ -583,7 +585,7 @@ Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object path
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
 | `compile-object-paths` | Mirror source tree under `working/` for `Compile` | — | **Shipped 1.8.1** — [#213](https://github.com/ja11sop/cuppa/issues/213) / [#214](https://github.com/ja11sop/cuppa/pull/214) |
-| `sconscript-exports` | Discovery + Import/Export execution graph; `ExportShared` / `ImportShared`; nested `SConscript` dedupe | — | **Shipped** — [#282](https://github.com/ja11sop/cuppa/pull/282) / [#283](https://github.com/ja11sop/cuppa/pull/283); Capylike validated; [`sconscript-exports.md`](design/archive/sconscript-exports.md) |
+| `sconscript-exports` | Discovery + Import/Export execution graph; `ExportShared` / `ImportShared`; nested `SConscript` dedupe | — | **Shipped** — [#282](https://github.com/ja11sop/cuppa/pull/282) / [#283](https://github.com/ja11sop/cuppa/pull/283); [`sconscript-exports.md`](design/archive/sconscript-exports.md) |
 | `static-lib-archive-members` | Unique static-archive members for nested same-basename `.o` | — | **Shipped** [#287](https://github.com/ja11sop/cuppa/issues/287) / [#288](https://github.com/ja11sop/cuppa/pull/288) — collide-only; always-flatten deferred to 2.0 — [`static-lib-archive-members.md`](design/archive/static-lib-archive-members.md) |
 | `cmake-to-cuppa-migration` | Antora matrix + phased tutorial + agent checklist | Medium | Compile-path + exports shipped — cite #282/#283 when writing tutorial — [`cmake-to-cuppa-migration.md`](design/plans/cmake-to-cuppa-migration.md) |
 | `static-glob` | RecursiveGlob (disk + `Dir.entries` + full Repository); GlobFiles; Filter path parity | — | **Shipped** — [#232](https://github.com/ja11sop/cuppa/issues/232) / [#231](https://github.com/ja11sop/cuppa/pull/231), [`recursive-glob-parity.md`](design/archive/recursive-glob-parity.md); follow-on [`path-vocabulary-and-scons-nodes.md`](design/plans/path-vocabulary-and-scons-nodes.md) |
