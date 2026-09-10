@@ -245,11 +245,16 @@ publisher = GitlabPackagePublisher(
 
 [NOTE]
 ====
-Today `GitlabPackagePublisher.build_package` copies include/lib into
-`final/<package>/<version>/` when those staging directories are **missing**. A later CMake
-reinstall into the same prefix does **not** refresh an existing stage tree, and the first
-package of a large install prefix **duplicates** disk use. See
-https://github.com/ja11sop/cuppa/issues/209[#209] for tracking.
+`GitlabPackagePublisher.build_package` stages include/lib (and modules, when
+present) under `final/<package>/<version>/`. Staging is created when missing
+and **refreshed when the source tree is newer** than the staged copy (same-path
+source and stage are left alone). `publisher.sources()` lists include and lib
+when those paths sit **outside** `abs_final_dir`; trees under the final
+directory are omitted to avoid SCons dependency cycles — wire the install or
+library node through `env.PublishPackage(source, publisher)` instead. Packaging
+a large install prefix still **duplicates** disk use on the first package; see
+https://github.com/ja11sop/cuppa/issues/209[#209] for in-place packaging
+follow-on.
 ====
 
 [#conan-package-publishing]
