@@ -1,8 +1,8 @@
 # Plan: default published docs to the latest release (not master)
 
-- **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-site-release-default`); [`docs/playbook.yml`](../../docs/playbook.yml); [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml); [`docs/antora.yml`](../../docs/antora.yml); Methods baseline [`methods-pages-split.md`](methods-pages-split.md) / [#234](https://github.com/ja11sop/cuppa/pull/234); agent Markdown [`docs-llms-txt.md`](docs-llms-txt.md) (**same PR**); UI companion [`antora-ui-bundle.md`](antora-ui-bundle.md)
-- **Updated:** 2026-09-03
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-site-release-default`); [`docs/playbook.yml`](../../docs/playbook.yml); [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml); [`docs/antora.yml`](../../docs/antora.yml); Methods baseline [`methods-pages-split.md`](../plans/methods-pages-split.md) / [#234](https://github.com/ja11sop/cuppa/pull/234); agent Markdown [`docs-llms-txt.md`](docs-llms-txt.md) (**same PR** [#238](https://github.com/ja11sop/cuppa/pull/238)); UI companion [`antora-ui-bundle.md`](../plans/antora-ui-bundle.md)
+- **Updated:** 2026-09-10
 - **Impact:** none — site publish / Antora versioning only (no Cuppa CLI behaviour)
 
 ## Problem
@@ -89,7 +89,7 @@ latest routing moves `latest` to that line.
 | `doc-site-playbook` | Multi-version playbook; drop silent `version: ~` as public default | Tags + `next`; `latest_version_segment`; prepare script | **Done** |
 | `doc-site-ci` | Adjust `docs.yml` and/or `release.yml` so stable site updates on publish | `workflow_call` from **publish** after the tag exists (`GITHUB_TOKEN` `release: published` does not start other workflows); also `workflow_dispatch` | **Done** |
 | `doc-site-local` | Contributor notes: preview current branch vs build release set | Contributing / AGENTS | **Done** |
-| `doc-site-verify` | After first release with the model: homepage / `/latest/` shows released text | Manual check after merge/deploy | Open |
+| `doc-site-verify` | After first release with the model: homepage / `/latest/` shows released text | Manual check 2026-09-10: site root → `/cuppa/latest/`; banner **1.10.0** matches PyPI/`v1.10.0`; `next` separate | **Done** |
 | `doc-site-navbar-latest` | Top navbar + README absolute links use `/cuppa/latest/…` (not versionless `/cuppa/…`) | Broken Contributing/menu after `latest_version_segment` | **Done** (2026-09-05) |
 | `doc-site-url-gate` | `scripts.check_docs_urls` in unit tests, `check_release`, and `docs.yml` (sources + built site) | Catch versionless `/cuppa/…` before publish | **Done** (2026-09-05) |
 

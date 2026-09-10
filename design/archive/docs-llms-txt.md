@@ -1,8 +1,8 @@
 # Plan: agent-readable Markdown docs (`llms.txt` + page MD + `llms-full.txt`)
 
-- **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-llms-txt`); [`docs-site-release-default.md`](docs-site-release-default.md) (**same PR**); Antora build [`docs/playbook.yml`](../../docs/playbook.yml) / [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml); product docs under [`docs/`](../../docs/); coding-agent notes [`AGENTS.md`](../../AGENTS.md) (different audience)
-- **Updated:** 2026-08-31
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-llms-txt`); [`docs-site-release-default.md`](docs-site-release-default.md) (**same PR** [#238](https://github.com/ja11sop/cuppa/pull/238)); Antora build [`docs/playbook.yml`](../../docs/playbook.yml) / [`.github/workflows/docs.yml`](../../.github/workflows/docs.yml); product docs under [`docs/`](../../docs/); coding-agent notes [`AGENTS.md`](../../AGENTS.md) (different audience)
+- **Updated:** 2026-09-10
 - **Impact:** none — publish artefacts beside the Antora site (no Cuppa CLI behaviour)
 
 ## Take (recommendation)
