@@ -59,7 +59,8 @@ cuppa -D --rel --publish-package
 See xref:packages.adoc[Publishing packages] for `GitlabPackagePublisher` and `ConanPackagePublisher` usage.
 
 Custom `Command()` steps that wrap external CMake generate/build before `Install()` are common in
-publisher sconscripts — see xref:methods/custom-commands.adoc[Custom commands].
+publisher sconscripts — see xref:methods/custom-commands.adoc[Custom commands] and
+xref:packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build].
 
 == Related methods
 

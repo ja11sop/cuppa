@@ -68,6 +68,190 @@ Authentication for registry upload uses the same tokens as consume
 (`GITLAB_REGISTRY_TOKEN`, `CI_JOB_TOKEN`, `--<name>-gitlab-custom-token`).
 See xref:dependencies/gitlab.adoc[GitLab packages].
 
+[#publishing-from-external-cmake]
+=== Publishing from an external CMake build
+
+Some packages are built by **CMake** (or another external tool) and only *packaged* by Cuppa.
+Cuppa still owns the sconscript graph: `Command()` configure/build steps, optional `Install()`,
+then `PublishPackage()`. Map Cuppa's active toolchain and variant into CMake flags so
+`--dbg` / `--rel` / `--cov` and `--toolchains=` produce matching external builds instead of
+always forcing `Release` and a hard-coded compiler path.
+
+Use xref:methods/custom-commands.adoc[Custom commands] (`cuppa.utility.command.run` +
+`env.Command`) for the CMake invocations. Pair with xref:methods/staging-files.adoc[Staging files]
+when you need `Install()` into a package layout under `final/`.
+
+==== Cuppa surface → CMake flag
+
+The active toolchain and variant are bound on each sconscript `env` for the current
+toolchain×variant invoke. Today read them as construction variables; prefer
+`env['toolchain']` / `env['variant']` (not a keyed registry lookup).
+
+[cols="2,2,3",options="header"]
+|===
+| Cuppa surface | Typical CMake flag / use | Notes
+
+| `env['toolchain'].binary()` or `env['CXX']`
+| `-D CMAKE_CXX_COMPILER=…`
+| Cuppa-resolved absolute driver (including fetched toolchains)
+
+| `env['CC']`
+| `-D CMAKE_C_COMPILER=…`
+| When the project also builds C
+
+| `env['variant'].name() == 'dbg'`
+| `-D CMAKE_BUILD_TYPE=Debug`
+| Mirror `--dbg`
+
+| `'rel'`
+| `-D CMAKE_BUILD_TYPE=Release`
+| Mirror `--rel` — do **not** hard-code Release for every Cuppa variant
+
+| `'cov'`
+| `-D CMAKE_BUILD_TYPE=RelWithDebInfo`
+| Cuppa `--cov` instruments *Cuppa* compiles (gcov/llvm-cov). A pure CMake tree does
+  **not** get that instrumentation unless the project adds its own coverage flags
+
+| `env.StdCpp(...)` / `--stdcpp` / toolchain default
+| `-D CMAKE_CXX_STANDARD=…`
+| Map a dialect to an integer when CMake accepts it; experimental dialects (`c++2c`) may
+  need a newer CMake or project-specific options
+
+| `publisher.package_variant()` (or the same token Cuppa uses in package stems)
+| Subdirectory for `-B` (for example `_build/<variant_token>`)
+| Keeps dbg/rel/cov (and toolchain) configure trees from clobbering each other
+
+| `env['abs_build_dir']`
+| Destination for copied libs / completion markers under the sconscript variant
+| Good `Command` targets beside Cuppa's `working/` layout
+
+| `env['abs_final_dir']` and paths under `final/`
+| `CMAKE_INSTALL_PREFIX` and/or `Install()` destinations
+| Large third-party trees often install once under `final/`, then publish from that prefix
+
+| `--parallel` / SCons `-j`
+| `cmake --build … --parallel` / `-j N`
+| Separate from Cuppa's job server; choose `N` deliberately (for example from process affinity)
+
+| Generator (`-G Ninja`, …)
+| Author choice
+| Common on Linux; not required by Cuppa
+|===
+
+==== Pattern A — small library: configure, build, install, publish
+
+Sketch: CMake produces a static archive; Cuppa copies or installs headers/libs into a package
+tree under `final/`, then `PublishPackage`.
+
+[source,python]
+----
+Import( 'env' )
+import os
+from cuppa.utility.command import run
+from cuppa.package_managers.gitlab import GitlabPackagePublisher
+
+# Source tree already available (location dependency, extract step, …)
+widget_src = env.BuildWith( 'widget_src' ).local_sub_path()
+
+package_dir = os.path.join( env['abs_final_dir'], 'package' )
+publisher = GitlabPackagePublisher(
+    env,
+    source_include_dir = os.path.join( package_dir, 'include' ),
+    source_lib_dir     = os.path.join( package_dir, 'lib' ),
+    registry           = 'https://gitlab.example/api/v4/projects/1',
+    package            = 'widget',
+    version            = '1.0.0',
+)
+
+build_type = {
+    'dbg': 'Debug',
+    'rel': 'Release',
+    'cov': 'RelWithDebInfo',
+}.get( env['variant'].name(), 'Release' )
+
+cmake_build_dir = os.path.join( '_build', publisher.package_variant() )
+cxx = env['toolchain'].binary()
+
+configure_cmd = (
+    f'cmake -B {cmake_build_dir}'
+    f' -D CMAKE_CXX_COMPILER={cxx}'
+    f' -D CMAKE_BUILD_TYPE={build_type}'
+    f' -G Ninja'
+    f' -D WIDGET_BUILD_TESTS=OFF'
+)
+build_cmd = f'cmake --build {cmake_build_dir}'
+
+configure = env.Command(
+    'cmake.configure.complete',
+    widget_src,
+    run( configure_cmd, working_dir=widget_src ),
+)
+built = env.Command(
+    'cmake.build.complete',
+    configure,
+    run( build_cmd, working_dir=widget_src ),
+)
+
+# Install or copy headers/libs into package_dir, then:
+# env.PublishPackage( installed_nodes, publisher )
+----
+
+==== Pattern B — install prefix: CMake install, then publish
+
+Sketch: CMake installs into a prefix under `final/`; `GitlabPackagePublisher` points
+`source_include_dir` / `source_lib_dir` at that prefix.
+
+[source,python]
+----
+Import( 'env' )
+import os
+from cuppa.utility.command import run
+from cuppa.package_managers.gitlab import GitlabPackagePublisher
+
+# extraction_folder = … Dir under env['build_dir'] after download/extract …
+install_prefix = env.Dir( os.path.join( env['final_dir'], 'installed' ) )
+
+build_type = {
+    'dbg': 'Debug',
+    'rel': 'Release',
+    'cov': 'RelWithDebInfo',
+}.get( env['variant'].name(), 'Release' )
+
+cxx = env['toolchain'].binary()
+cmake_out = 'cmake-out'
+
+configure_cmd = (
+    f'cmake -S . -B {cmake_out}'
+    f' -D CMAKE_BUILD_TYPE={build_type}'
+    f' -D CMAKE_INSTALL_PREFIX={install_prefix}'
+    f' -D CMAKE_CXX_COMPILER={cxx}'
+    f' -D BUILD_TESTING=OFF'
+)
+build_cmd = f'cmake --build {cmake_out}'
+install_cmd = f'cmake --build {cmake_out} --target install'
+
+# Wire Command() nodes: configure → build → install into install_prefix …
+
+publisher = GitlabPackagePublisher(
+    env,
+    source_include_dir = os.path.join( str( install_prefix ), 'include' ),
+    source_lib_dir     = os.path.join( str( install_prefix ), 'lib' ),
+    registry           = 'https://gitlab.example/api/v4/projects/1',
+    package            = 'widget',
+    version            = '2.28.0',
+)
+# env.PublishPackage( install_node, publisher )
+----
+
+[NOTE]
+====
+Today `GitlabPackagePublisher.build_package` copies include/lib into
+`final/<package>/<version>/` when those staging directories are **missing**. A later CMake
+reinstall into the same prefix does **not** refresh an existing stage tree, and the first
+package of a large install prefix **duplicates** disk use. See
+https://github.com/ja11sop/cuppa/issues/209[#209] for tracking.
+====
+
 [#conan-package-publishing]
 == Conan 2 publishing (optional)
 
