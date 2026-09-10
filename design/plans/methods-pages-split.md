@@ -249,8 +249,8 @@ When #234 is merge-ready (Antora preview sanity, CI green, test-plan ticked):
 1. **Merge Methods baseline** — live site must not show empty stubs (refusal rule already met).
 2. **Close [#233](https://github.com/ja11sop/cuppa/issues/233)** with the merge of #234 (artifact-path emitters landed on this branch).
 3. **Then preferred pairing (separate PRs / workstreams):**
-   - [`docs-site-release-default.md`](docs-site-release-default.md) — public docs default to **released** Cuppa, not master tip
-   - [`docs-llms-txt.md`](docs-llms-txt.md) — `llms.txt` / per-page Markdown for agents
+   - [`docs-site-release-default.md`](../archive/docs-site-release-default.md) — public docs default to **released** Cuppa, not master tip
+   - [`docs-llms-txt.md`](../archive/docs-llms-txt.md) — `llms.txt` / per-page Markdown for agents
    - [`antora-ui-bundle.md`](antora-ui-bundle.md) if the docs cycle wants a visible UI refresh
 
 ## Refusal rules
@@ -274,8 +274,8 @@ When #234 is merge-ready (Antora preview sanity, CI green, test-plan ticked):
 
 Land as **incremental docs commits** on one PR until Methods topic pages have a **baseline**
 (merge only when the live site would not show empty stubs). Good pairing afterward with
-[`docs-site-release-default.md`](docs-site-release-default.md) (visitors default to **released**
-docs) and [`docs-llms-txt.md`](docs-llms-txt.md) (agent Markdown / `llms.txt`), and with
+[`docs-site-release-default.md`](../archive/docs-site-release-default.md) (visitors default to **released**
+docs) and [`docs-llms-txt.md`](../archive/docs-llms-txt.md) (agent Markdown / `llms.txt`), and with
 [`antora-ui-bundle.md`](antora-ui-bundle.md) if the docs cycle gets a visible refresh.
 
 ## Folder layout

@@ -60,8 +60,8 @@ maintainer workflow evolved.
 | [`plans/path-vocabulary-and-scons-nodes.md`](plans/path-vocabulary-and-scons-nodes.md) | proposal | Reuse `#/` path roots + VariantDir node helpers outside discovery — follow-on to `static-glob` |
 | [`archive/ignore-toolchain-point-release.md`](archive/ignore-toolchain-point-release.md) | shipped | Point-release encoding problem (`gcc153`→`gcc15`); product shape in [`build-and-package-identity.md`](archive/build-and-package-identity.md) — ROADMAP `tc-identity-coarsen` |
 | [`archive/build-and-package-identity.md`](archive/build-and-package-identity.md) | shipped | Toolchain major identity, consume matching, OS omit at publish — [#243](https://github.com/ja11sop/cuppa/issues/243) / [#242](https://github.com/ja11sop/cuppa/pull/242) / [#244](https://github.com/ja11sop/cuppa/pull/244) / [#245](https://github.com/ja11sop/cuppa/pull/245) |
-| [`plans/docs-site-release-default.md`](plans/docs-site-release-default.md) | in progress | Public Antora site defaults to `/latest/` (release), `next` prerelease — ROADMAP `doc-site-release-default`; same PR as llms |
-| [`plans/docs-llms-txt.md`](plans/docs-llms-txt.md) | in progress | Agent Markdown from Antora HTML (`llms.txt` / pages / `llms-full.txt`, Pandoc); default corpus `/latest/` — ROADMAP `doc-llms-txt` |
+| [`archive/docs-site-release-default.md`](archive/docs-site-release-default.md) | shipped | Public Antora site defaults to `/latest/` (release), `next` prerelease — [#238](https://github.com/ja11sop/cuppa/pull/238); ROADMAP `doc-site-release-default` |
+| [`archive/docs-llms-txt.md`](archive/docs-llms-txt.md) | shipped | Agent Markdown from Antora HTML (`llms.txt` / pages / `llms-full.txt`, Pandoc); corpus on `/latest/` — [#238](https://github.com/ja11sop/cuppa/pull/238); ROADMAP `doc-llms-txt` |
 
 ## Conventions
 

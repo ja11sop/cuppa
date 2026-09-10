@@ -61,6 +61,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   shipped after [#282](https://github.com/ja11sop/cuppa/pull/282) /
   [#283](https://github.com/ja11sop/cuppa/pull/283) /
   [#288](https://github.com/ja11sop/cuppa/pull/288).
+- Docs plans for ``/latest/`` site default and agent ``llms.txt`` corpus marked shipped
+  after live verify (homepage / ``/latest/`` shows **1.10.0**; ``next`` separate) —
+  [#238](https://github.com/ja11sop/cuppa/pull/238).
 
 ### Deprecated
 
@@ -179,8 +182,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``latest_version_segment``) with master tip as prerelease ``next``; agent-oriented
   ``llms.txt`` / per-page Markdown / ``llms-full.txt`` are generated from the stable
   HTML (Pandoc) and published beside the site
-  ([`docs-site-release-default.md`](design/plans/docs-site-release-default.md),
-  [`docs-llms-txt.md`](design/plans/docs-llms-txt.md)).
+  ([`docs-site-release-default.md`](design/archive/docs-site-release-default.md),
+  [`docs-llms-txt.md`](design/archive/docs-llms-txt.md)).
 - Docs index § Cuppa and CMake spells out the small intent API and why CMake's
   multi-era, order-sensitive surface is harder to edit safely (for people and tools).
 - ``--cxx-error-limit=N`` and ``--cxx-default-error-limit`` control the C++ compiler diagnostic
