@@ -133,7 +133,12 @@ Cuppa attaches progress in two complementary ways:
   `MethodWithProgress` (which would recurse forever).
 
 Methods that only mutate env state or select nodes (`StdCpp()`, `BuildWith()`, `Filter()`,
-`RecursiveGlob()`, `ImportModules()`, etc.) do **not** call `NotifyProgress.add` directly.
+`RecursiveGlob()`, `ImportModules()`, `ExportShared()`, `ImportShared()`, and so on) do
+**not** call `NotifyProgress.add`. `ExportShared` / `ImportShared` are configure-time
+registry reads and writes — they publish or fetch values while sconscripts are evaluated;
+they do not create build-action nodes. Progress for shared libraries and tests still comes
+from the `Build*Lib()` / `Build()` / `BuildTest()` targets you export or import.
+See xref:concepts.adoc#sconscript-discovery[Sconscript discovery and sharing].
 
 Progress nodes form a dependency chain that constrains when targets may run:
 

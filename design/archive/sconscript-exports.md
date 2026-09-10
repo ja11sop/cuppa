@@ -1,8 +1,8 @@
 # Plan: Sconscript exports and shared build products
 
-- **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `sconscript-exports`; blocks multi-file Cuppa layouts like CMake `add_subdirectory`; pairs with [#213](https://github.com/ja11sop/cuppa/issues/213); graph/cycle vocabulary may later share helpers with [`gitlab-package-transitive.md`](gitlab-package-transitive.md) (different graph; do not force one NetworkX model)
-- **Updated:** 2026-09-07
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `sconscript-exports`; blocks multi-file Cuppa layouts like CMake `add_subdirectory`; pairs with [#213](https://github.com/ja11sop/cuppa/issues/213); graph/cycle vocabulary may later share helpers with [`gitlab-package-transitive.md`](../plans/gitlab-package-transitive.md) (different graph; do not force one NetworkX model)
+- **Updated:** 2026-09-10
 - **Impact:** minor — opt-in Export/Import ordering and `ExportShared` / `ImportShared`; flat discovery unchanged when unused; nested `SConscript` no longer double-runs under discovery
 
 ## Problem
@@ -50,7 +50,7 @@ Do **not** conflate “stop discovering and use an explicit `SConscript` tree”
 - Turning off discovery by default, or requiring every project to list children (Direction A as the primary model).
 - Full SCons `Return()` parity with arbitrary values across arbitrary depth (may revisit later).
 - Replacing `location_dependency` / `package_dependency` — those already solve sharing via `env.BuildWith`.
-- Auto-wiring CMake `add_subdirectory` — see [`cmake-to-cuppa-migration.md`](cmake-to-cuppa-migration.md).
+- Auto-wiring CMake `add_subdirectory` — see [`cmake-to-cuppa-migration.md`](../plans/cmake-to-cuppa-migration.md).
 - NetworkX for the sconscript graph until a second consumer proves hand-rolled DFS insufficient (same note as GitLab transitive listing).
 
 ## Settled lean (2026-09-06)
@@ -156,8 +156,9 @@ Static scan will not catch every dynamic `Import(name)` constructed at runtime; 
 
 | Item | Notes |
 |------|-------|
-| Static archive member uniquify | [`static-lib-archive-members.md`](static-lib-archive-members.md) — not an Export/Import bug |
-| Doc: `#/` sources from nested discovered sconscripts | Capylike needed `#/extra/...` from `test/sconscript`; teach on Concepts or Build |
-| Doc / ROADMAP Today rows | Nested discovery + sharing now shipped; update migration tutorial when written |
+| Static archive member uniquify | **Shipped** [#287](https://github.com/ja11sop/cuppa/issues/287) / [#288](https://github.com/ja11sop/cuppa/pull/288) — collide-only; always-flatten deferred to 2.0 |
+| Doc: `#/` sources from nested discovered sconscripts | **Done** — Concepts + discovery methods |
+| Doc: ExportShared/ImportShared configure-only (no NotifyProgress) | **Done** — Methods hub Progress + method index |
+| Doc / ROADMAP Today rows | Nested discovery + sharing shipped on ROADMAP; cite #282/#283 when writing `cmake-to-cuppa` tutorial |
 | Dynamic `Import(name)` | Still unsupported (string-literal scan bound) |
 | MSVC `/Fd` under `--parallel` | Pre-existing dbg PDB race across variant dirs; separate from exports |

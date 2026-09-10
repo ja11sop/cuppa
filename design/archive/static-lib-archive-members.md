@@ -1,8 +1,8 @@
 # Plan: Unique static-library archive members
 
-- **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — follow-on to `compile-object-paths` (#213); [#287](https://github.com/ja11sop/cuppa/issues/287); [`sconscript-exports.md`](sconscript-exports.md) (Boost.Capy validation 2026-09-07); [`path-vocabulary-and-scons-nodes.md`](path-vocabulary-and-scons-nodes.md); methods Build / `BuildStaticLib`
-- **Updated:** 2026-09-09
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — follow-on to `compile-object-paths` (#213); [#287](https://github.com/ja11sop/cuppa/issues/287) / [#288](https://github.com/ja11sop/cuppa/pull/288); [`sconscript-exports.md`](sconscript-exports.md) (Boost.Capy validation 2026-09-07); [`path-vocabulary-and-scons-nodes.md`](../plans/path-vocabulary-and-scons-nodes.md); methods Build / `BuildStaticLib`
+- **Updated:** 2026-09-10
 - **Impact:** patch — fix incorrect link / missing symbols when a static archive silently drops objects; may change `.a` member names (ABI of the archive file layout, not the C++ ABI)
 
 ## Problem
@@ -96,7 +96,7 @@ Deferred — portability across GCC/Clang/MSVC unclear.
 |-------|--------|
 | Problem seen on Boost.Capy Cuppa sketch | done (2026-09-07) |
 | Plan + ROADMAP row | done |
-| Repro integration test | done (PR) |
-| Uniquify / detect fix | done (PR) |
-| Docs | done (PR) |
+| Repro integration test | **Shipped** [#288](https://github.com/ja11sop/cuppa/pull/288) |
+| Uniquify / detect fix | **Shipped** [#288](https://github.com/ja11sop/cuppa/pull/288) |
+| Docs | **Shipped** (Build methods + changelog in #288; Concepts `{hash}/` note in follow-up) |
 | Always stage / flatten (2.0) | deferred |

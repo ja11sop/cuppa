@@ -40,12 +40,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   build. Shared exports are **variant-aware** (keyed by ``tool_variant_dir``) so the same
   name under ``--dbg`` / ``--rel`` resolves correctly — a concrete reason to prefer the
   Cuppa API over native SCons ``Export`` / ``Import``. Concepts and Building CLI docs
-  cover discovery vs sharing ([`sconscript-exports`](design/plans/sconscript-exports.md)).
+  cover discovery vs sharing ([`sconscript-exports`](design/archive/sconscript-exports.md)).
 - Sconscript discovery **dedupe**: when a discovered script nests another via string-literal
   ``SConscript(...)``, Cuppa omits that child from the outer discovery invoke list (and skips
   a path already evaluated by a live nested call for the same toolchain/variant). Stops the
   classic double-run that broke parent ``exports=`` under folder-and-below discovery
-  ([`sconscript-exports`](design/plans/sconscript-exports.md) ``scons-export-dedupe``).
+  ([`sconscript-exports`](design/archive/sconscript-exports.md) ``scons-export-dedupe``).
   Method index and Methods hub list ``ExportShared()`` / ``ImportShared()`` and native
   ``Export()`` / ``Import()`` / ``SConscript()`` with Concepts cross-links.
 
@@ -55,6 +55,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``list-dependencies`` / ``list-downloads`` / ``removing`` / ``develop`` children; coloured
   ``requires`` sample uses HTML passthrough (not a collapsible text listing); removing page
   adds a list→token→remove worked path.
+- Concepts and Methods docs: from a nested discovered sconscript, use ``#/…`` for
+  project-rooted sources; ``ExportShared`` / ``ImportShared`` are configure-time only (no
+  ``NotifyProgress``). Plans for sconscript exports and static-lib archive members marked
+  shipped after [#282](https://github.com/ja11sop/cuppa/pull/282) /
+  [#283](https://github.com/ja11sop/cuppa/pull/283) /
+  [#288](https://github.com/ja11sop/cuppa/pull/288).
 
 ### Deprecated
 
