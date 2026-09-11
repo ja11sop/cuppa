@@ -75,6 +75,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- ``GitlabPackagePublisher.build_package`` refreshes staged include/lib/modules when
+  the source tree is newer than the package stage (not only when the stage is missing),
+  and ``sources()`` lists include and lib outside ``abs_final_dir`` so package stamps
+  invalidate correctly for external install prefixes
+  ([#209](https://github.com/ja11sop/cuppa/issues/209)).
 - Integration ``run_cuppa`` default subprocess timeout is 360s on Windows (180s elsewhere) so
   MSVC modules, coverage, and nested ``-D`` builds on ``windows-latest`` are less likely to flake
   at the former 180s ceiling.

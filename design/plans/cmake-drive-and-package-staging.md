@@ -2,17 +2,15 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.11.0 / [#209](https://github.com/ja11sop/cuppa/issues/209); [`cmake-to-cuppa-migration.md`](cmake-to-cuppa-migration.md) (migrate *onto* Cuppa — orthogonal); packages / custom-commands Antora; [`gitlab.py`](../../cuppa/package_managers/gitlab.py) `GitlabPackagePublisher`; preferred `Toolchain()`/`Variant()`, `Has*` inspection, deprecate `Using` / keyed `Toolchain`
-- **Updated:** 2026-09-10
-- **Impact:** `none` for docs+plan; staging refresh likely `patch`; accessors/`Has*`/deprecations and Option B helper `minor`
+- **Updated:** 2026-09-11
+- **Impact:** staging refresh `patch` (`cmake-pkg-stage-min` done); accessors/`Has*`/deprecations and Option B helper `minor`; in-place packaging later
 
 ## Intent
 
 Two related pains show up in real publisher sconscripts:
 
 1. **Cuppa→CMake mismatch** — authors hardcode `CMAKE_BUILD_TYPE=Release`, absolute `g++-N`, and ad-hoc `-B` trees instead of mirroring `--dbg`/`--rel`, the active toolchain, and Cuppa layout (`abs_build_dir` / `abs_final_dir` / `publisher.package_variant()`).
-2. **#209 staging** — `GitlabPackagePublisher.build_package` copytrees include/lib into `final/<pkg>/<ver>/` only when the staging dir is **missing**, so CMake reinstalls leave stale package trees; large install prefixes also **double** disk use on first package.
-
-This workstream starts with **docs + this design plan**. Helper / accessor / staging code lands after vocabulary settles; staging may fold into the docs PR if kept minimal.
+2. **#209 staging** — historically `build_package` copytreed only when staging was **missing** (stale after CMake reinstall); large install prefixes also **double** disk use on first package. **Min refresh + broader `sources()` shipped**; in-place packaging remains.
 
 **Public docs:** generic names (`widget`, “external CMake library”). Do not name private consumer trees. Citing [#209](https://github.com/ja11sop/cuppa/issues/209) is fine.
 
@@ -39,9 +37,9 @@ flowchart TD
 | Pattern | Typical Cuppa wiring today | Gaps |
 |---------|---------------------------|------|
 | Small lib | `-B _build/<package_variant()>`, active toolchain `.binary()`, copy `.a` into `abs_build_dir`, `Install` into `final/.../package`, then publish | Often hardcodes `Release`; `-B` under the **dependency** checkout |
-| Large install | `CMAKE_INSTALL_PREFIX` → `final/.../installed`, publish with `source_*` = that prefix | Hardcoded compiler + standard + Release; **#209** double-copy and stale staging |
+| Large install | `CMAKE_INSTALL_PREFIX` → `final/.../installed`, publish with `source_*` = that prefix | Hardcoded compiler + standard + Release; **#209** double-copy remains (stale staging fixed by min refresh) |
 
-Current staging: [`GitlabPackagePublisher.build_package`](../../cuppa/package_managers/gitlab.py) — copy only if target include/lib dirs do not exist; then tar (or skip via `.packaged` / mtime). `publisher.sources()` is **include only**.
+Current staging: [`GitlabPackagePublisher.build_package`](../../cuppa/package_managers/gitlab.py) — refresh include/lib/modules when source is newer than stage (identity path skipped); then tar (or skip via `.packaged` / mtime). `publisher.sources()` lists include **and** lib when outside `abs_final_dir`.
 
 ## Method return patterns (align accessors with existing Cuppa)
 
@@ -228,7 +226,7 @@ If minimal refresh grows, **split**: docs+plan first; staging as #209-only PR.
 |----|-------------|--------|
 | `cmake-pkg-plan` | This design plan + design README / ROADMAP pointers | **Done** (docs PR) |
 | `cmake-pkg-docs` | Antora mapping + two generic patterns | **Done** (docs PR) |
-| `cmake-pkg-stage-min` | Optional refresh-when-stale + broader `sources()` | Fold if small |
+| `cmake-pkg-stage-min` | Optional refresh-when-stale + broader `sources()` | **Done** (this PR) |
 | `toolchain-variant-accessors` | Zero-arg `Toolchain()` / `Variant()`; `HasToolchain` / `HasDependency`; deprecate `Using` + keyed `Toolchain`; strip docs; warn at runtime | Later `minor` |
 | `cmake-pkg-args-helper` | Option B + unit tests | Later `minor` |
 | `cmake-pkg-stage-inplace` | No-double-copy packaging | Later (#209 remainder) |
@@ -238,4 +236,4 @@ If minimal refresh grows, **split**: docs+plan first; staging as #209-only PR.
 1. Design index lists this plan; links resolve.
 2. Antora table is usable for CMake-novice authors; `--cov` honesty present.
 3. Accessor redesign and helper options are settled in prose before code PRs.
-4. If staging folded: unit tests for refresh-when-newer and broader `sources()`.
+4. Staging min: unit tests for refresh-when-newer and broader `sources()`; Antora NOTE matches behaviour.

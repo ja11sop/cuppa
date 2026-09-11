@@ -218,6 +218,50 @@ def package_archive_is_up_to_date( archive_path, staging_roots ):
     return True
 
 
+def staging_tree_needs_refresh( source_root, staging_root ):
+    """Return True when ``staging_root`` is missing or older than ``source_root``.
+
+    Same-path source and staging (identity) never refreshes — that would
+    ``rmtree`` the only copy. Absent source does not refresh either.
+    """
+    if not source_root or not os.path.exists( source_root ):
+        return False
+    if not staging_root or not os.path.exists( staging_root ):
+        return True
+    source_real = os.path.realpath( source_root )
+    staging_real = os.path.realpath( staging_root )
+    if source_real == staging_real:
+        return False
+    return newest_mtime_under( source_root ) > newest_mtime_under( staging_root )
+
+
+def refresh_staging_tree( source_root, staging_root, ignore=None ):
+    """Replace ``staging_root`` from ``source_root`` when a refresh is needed.
+
+    Returns True when a copy was performed.
+    """
+    if not staging_tree_needs_refresh( source_root, staging_root ):
+        return False
+    if os.path.exists( staging_root ):
+        shutil.rmtree( staging_root )
+    parent = os.path.dirname( staging_root )
+    if parent:
+        os.makedirs( parent, exist_ok=True )
+    shutil.copytree( source_root, staging_root, ignore=ignore )
+    return True
+
+
+def path_outside_package_final( path, abs_final_dir ):
+    """True when ``path`` is not ``abs_final_dir`` and not nested under it."""
+    if not path or not abs_final_dir:
+        return True
+    real = os.path.realpath( path )
+    final = os.path.realpath( abs_final_dir )
+    if real == final:
+        return False
+    return not real.startswith( final + os.sep )
+
+
 def package_sidecar_id( package_file_path, suffix ):
     """Sidecar stamp basename (``.packaged`` / ``.published``) for a package archive path."""
     return (
@@ -534,8 +578,9 @@ class GitlabPackagePublisher:
         self._package_file_name = package_file_name(
                 env, package=package, variant=variant, omit_os=omit_os
         )
+        self._abs_final_dir = env['abs_final_dir']
         self._package_archive = env.File(
-                os.path.join( env['abs_final_dir'], self._package_file_name )
+                os.path.join( self._abs_final_dir, self._package_file_name )
         )
         self._package_source_dir = package
 
@@ -567,40 +612,39 @@ class GitlabPackagePublisher:
 
         from SCons.Script import Touch
 
-        if not os.path.exists( str(self._target_include_dir) ):
-            source_include = _resolve_node_path( self._source_include_dir )
-            logger.info( "For package [{}], include dir [{}] does not exist so copying include files from [{}]...".format(
+        source_include = _resolve_node_path( self._source_include_dir )
+        target_include = str( self._target_include_dir )
+        if refresh_staging_tree( source_include, target_include ):
+            logger.info( "For package [{}], refreshed include staging [{}] from [{}]".format(
                     as_info( self._package_file_name ),
-                    as_info( str(self._target_include_dir) ),
-                    as_notice( source_include )
+                    as_info( target_include ),
+                    as_notice( source_include ),
             ) )
-            shutil.copytree( source_include, str(self._target_include_dir) )
 
         source_lib = _resolve_node_path( self._source_lib_dir )
-        if not os.path.exists( str(self._target_lib_dir) ):
-            logger.info( "For package [{}], lib dir [{}] does not exist so copying lib files from [{}]...".format(
+        target_lib = str( self._target_lib_dir )
+        package_dir_name = os.path.normpath( str( self._package_source_dir ) )
+        package_file_name = os.path.basename( str( self._package_file_name ) )
+        lib_ignore = lambda _directory, names: lib_copy_ignore_names(
+                names, package_dir_name, package_file_name
+        )
+        if refresh_staging_tree( source_lib, target_lib, ignore=lib_ignore ):
+            logger.info( "For package [{}], refreshed lib staging [{}] from [{}]".format(
                     as_info( self._package_file_name ),
-                    as_info( str(self._target_lib_dir) ),
-                    as_notice( source_lib )
+                    as_info( target_lib ),
+                    as_notice( source_lib ),
             ) )
-            package_dir_name = os.path.normpath( str( self._package_source_dir ) )
-            package_file_name = os.path.basename( str( self._package_file_name ) )
-            shutil.copytree(
-                source_lib,
-                str( self._target_lib_dir ),
-                ignore=lambda _directory, names: lib_copy_ignore_names(
-                        names, package_dir_name, package_file_name
-                ),
-            )
 
         source_modules = os.path.join( source_lib, 'modules' )
         target_modules = os.path.join( str( self._package_base_dir ), 'modules' )
-        if os.path.isdir( source_modules ) and not os.path.exists( target_modules ):
-            logger.info( "For package [{}], copying modules from [{}]...".format(
+        if os.path.isdir( source_modules ) and refresh_staging_tree(
+                source_modules, target_modules
+        ):
+            logger.info( "For package [{}], refreshed modules staging [{}] from [{}]".format(
                     as_info( self._package_file_name ),
+                    as_info( target_modules ),
                     as_notice( source_modules ),
             ) )
-            shutil.copytree( source_modules, target_modules )
 
         from cuppa.package_managers.cuppa_dependency_manifest import write_manifest
         manifest_path_written = write_manifest(
@@ -678,7 +722,22 @@ class GitlabPackagePublisher:
 
 
     def sources( self ):
-        return [ self._source_include_dir ]
+        # List include/lib as SCons sources when they live outside ``abs_final_dir``.
+        # Do not add dirs under (or equal to) ``abs_final_dir``: the archive and
+        # stamps live there, and listing that tree as a Command source creates a
+        # dependency cycle. Library rebuilds in the usual Cuppa-built case are
+        # already covered by the ``source`` argument to ``env.PublishPackage``.
+        abs_final = getattr( self, '_abs_final_dir', None )
+        if abs_final is None and self._package_archive is not None:
+            abs_final = os.path.dirname( str( self._package_archive ) )
+        result = []
+        for node in ( self._source_include_dir, self._source_lib_dir ):
+            if node is None:
+                continue
+            if path_outside_package_final( str( node ), abs_final ):
+                result.append( node )
+        return result
+
 
 
     def package_published( self ):
