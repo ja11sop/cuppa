@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Zero-arg ``env.Toolchain()`` / ``env.Variant()`` return the active handles for the current
+  toolchain×variant invoke; ``env.HasToolchain(name)`` and ``env.HasDependency(name)`` provide
+  registry membership checks (``HasToolchain`` accepts registry key or ``toolchain.name()``).
+  Antora and the CMake publisher examples teach the accessors
+  ([`cmake-drive-and-package-staging`](design/plans/cmake-drive-and-package-staging.md)).
 - ``cuppa.run`` preferred kwargs ``import_dependencies`` /
   ``auto_enable_dependencies`` (and ``import_profiles`` /
   ``auto_enable_profiles``), with legacy ``dependencies`` /
@@ -70,6 +75,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [`cmake-drive-and-package-staging`](design/plans/cmake-drive-and-package-staging.md)).
 
 ### Deprecated
+
+- ``env.Using(name)`` — prefer ``env.HasDependency(name)`` for registry existence checks
+  (removed in cuppa 2.0).
+- Keyed ``env.Toolchain(name)`` — prefer ``env.Toolchain()`` for the active toolchain or
+  ``env.HasToolchain(name)`` for registry checks (removed in cuppa 2.0).
 
 ### Removed
 

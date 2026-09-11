@@ -1,5 +1,5 @@
 = Dependencies and build-profile methods
-:description: BuildWith, Using, and BuildProfile
+:description: BuildWith, HasDependency, and BuildProfile
 
 Cuppa dependencies and build-time profiles are applied on the environment before you call
 `Build()` / `BuildTest()`. Deep tutorials for location, GitLab, and Conan packages live under
@@ -11,8 +11,8 @@ xref:dependencies.adoc[Dependencies].
 |===
 | Axis | Detail
 
-| Returns | `BuildWith()` returns the dependency instance (or a list); `Using()` returns a factory or
-  `None`; `BuildProfile()` returns nothing useful (mutates `env` only)
+| Returns | `BuildWith()` returns the dependency instance (or a list); `HasDependency(name)` returns
+  a bool; `BuildProfile()` returns nothing useful (mutates `env` only)
 | Evaluation | Configure-time
 | Output paths | N/A (dependency trees under `--dependencies-root`)
 | Progress | No (env / selection only)
@@ -94,25 +94,28 @@ Import('env')
 deps = env.BuildWith(['boost', 'widget'])
 ----
 
-== `Using()`
+== `HasDependency()`
 
-`Using(name)` looks up a dependency **factory** by name without applying it. Returns the factory,
-or `None` if that name is not registered in `cuppa.run()`.
+`HasDependency(name)` returns `True` when a dependency **factory** is registered under that exact
+registry key in `cuppa.run()`. It does **not** mean `BuildWith(name)` would succeed for every
+typed token or supply-chain case — it is a dumb registry membership check.
 
-Useful for existence checks or custom wiring before `BuildWith()`:
+Use it for existence checks before `BuildWith()`:
 
 [source,python]
 ----
 Import('env')
 
-boost_factory = env.Using('boost')
-if boost_factory is None:
+if not env.HasDependency('boost'):
     raise Exception('boost dependency is not registered in cuppa.run()')
 env.BuildWith('boost').use_libs(['filesystem'])
 ----
 
-`Using()` does not mutate include paths or link libraries — call `BuildWith()` to apply the
+`HasDependency()` does not mutate include paths or link libraries — call `BuildWith()` to apply the
 dependency to `env`.
+
+`env.Using(name)` still returns the factory (or `None`) for compatibility but is **deprecated**
+(removed in cuppa 2.0) — prefer `HasDependency(name)` for existence checks.
 
 == `BuildProfile()`
 

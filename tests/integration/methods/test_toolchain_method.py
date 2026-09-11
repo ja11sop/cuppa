@@ -13,10 +13,12 @@ def test_toolchain_method(tmp_path):
     write_sconscript(
         project,
         "Import('env')\n"
-        "active = env['toolchain'].name()\n"
-        "looked_up = env.Toolchain(active)\n"
-        "assert looked_up is not None\n"
-        "assert looked_up.name() == active\n"
+        "active = env.Toolchain()\n"
+        "assert active is env['toolchain']\n"
+        "assert env.HasToolchain(active.name())\n"
+        "assert not env.HasToolchain('definitely_missing_toolchain_xyz')\n"
+        "assert env.Variant() is env['variant']\n"
+        "assert env.Variant().name() == 'dbg'\n"
         "env.BuildTest('hello_test', 'tests/hello_test.cpp')\n",
     )
     result = run_cuppa(project, "--dbg", "--test")

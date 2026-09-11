@@ -28,7 +28,8 @@ def test_build_with_location_dependency(tmp_path):
         project,
         "Import('env')\n"
         "env.BuildWith('dummy_headers')\n"
-        "assert env.Using('dummy_headers') is not None\n"
+        "assert env.HasDependency('dummy_headers')\n"
+        "assert not env.HasDependency('missing_dependency_xyz')\n"
         "env.Build('main', 'apps/main.cpp')\n",
     )
     result = run_cuppa(project, "--dbg")
