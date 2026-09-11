@@ -84,14 +84,22 @@ when you need `Install()` into a package layout under `final/`.
 ==== Cuppa surface → CMake flag
 
 The active toolchain and variant are bound on each sconscript `env` for the current
-toolchain×variant invoke. Today read them as construction variables; prefer
-`env['toolchain']` / `env['variant']` (not a keyed registry lookup).
+toolchain×variant invoke. Prefer the zero-arg accessors:
+
+[source,python]
+----
+cxx = env.Toolchain().binary()
+name = env.Variant().name()   # dbg, rel, cov, …
+----
+
+`env['toolchain']` / `env['variant']` remain valid. Do not use keyed `env.Toolchain(name)` for
+the active handle (that form is deprecated; use `HasToolchain(name)` for registry checks).
 
 [cols="2,2,3",options="header"]
 |===
 | Cuppa surface | Typical CMake flag / use | Notes
 
-| `env['toolchain'].binary()` or `env['CXX']`
+| `env.Toolchain().binary()` or `env['CXX']`
 | `-D CMAKE_CXX_COMPILER=…`
 | Cuppa-resolved absolute driver (including fetched toolchains)
 
@@ -99,7 +107,7 @@ toolchain×variant invoke. Today read them as construction variables; prefer
 | `-D CMAKE_C_COMPILER=…`
 | When the project also builds C
 
-| `env['variant'].name() == 'dbg'`
+| `env.Variant().name() == 'dbg'`
 | `-D CMAKE_BUILD_TYPE=Debug`
 | Mirror `--dbg`
 
@@ -167,10 +175,10 @@ build_type = {
     'dbg': 'Debug',
     'rel': 'Release',
     'cov': 'RelWithDebInfo',
-}.get( env['variant'].name(), 'Release' )
+}.get( env.Variant().name(), 'Release' )
 
 cmake_build_dir = os.path.join( '_build', publisher.package_variant() )
-cxx = env['toolchain'].binary()
+cxx = env.Toolchain().binary()
 
 configure_cmd = (
     f'cmake -B {cmake_build_dir}'
@@ -215,9 +223,9 @@ build_type = {
     'dbg': 'Debug',
     'rel': 'Release',
     'cov': 'RelWithDebInfo',
-}.get( env['variant'].name(), 'Release' )
+}.get( env.Variant().name(), 'Release' )
 
-cxx = env['toolchain'].binary()
+cxx = env.Toolchain().binary()
 cmake_out = 'cmake-out'
 
 configure_cmd = (

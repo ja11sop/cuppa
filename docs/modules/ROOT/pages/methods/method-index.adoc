@@ -195,8 +195,8 @@ For tutorials and Related-method chains, start from the xref:methods.adoc[Method
 | Apply a named dependency; returns the instance (chain `.use_libs(…)`, `local_sub_path(…)`, …)
 |
 
-| xref:methods/dependencies-and-profiles.adoc[`Using()`]
-| Look up a dependency factory by name without applying it (`None` if unregistered)
+| xref:methods/dependencies-and-profiles.adoc[`HasDependency()`]
+| `True` if a dependency factory is registered under that exact registry key
 |
 
 | xref:methods/dependencies-and-profiles.adoc[`BuildProfile()`]
@@ -212,7 +212,15 @@ For tutorials and Related-method chains, start from the xref:methods.adoc[Method
 | Method | Description | Notes
 
 | xref:methods/flags-and-toolchain.adoc[`Toolchain()`]
-| Look up a registered toolchain object by name
+| Preferred: active toolchain handle for this invoke
+|
+
+| xref:methods/flags-and-toolchain.adoc[`Variant()`]
+| Preferred: active variant handle for this invoke
+|
+
+| xref:methods/flags-and-toolchain.adoc[`HasToolchain()`]
+| `True` if registered (registry key or `toolchain.name()`)
 |
 
 | xref:methods/flags-and-toolchain.adoc[`ReplaceFlags()`]

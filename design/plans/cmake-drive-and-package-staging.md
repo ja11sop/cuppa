@@ -3,14 +3,20 @@
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.11.0 / [#209](https://github.com/ja11sop/cuppa/issues/209); [`cmake-to-cuppa-migration.md`](cmake-to-cuppa-migration.md) (migrate *onto* Cuppa — orthogonal); packages / custom-commands Antora; [`gitlab.py`](../../cuppa/package_managers/gitlab.py) `GitlabPackagePublisher`; preferred `Toolchain()`/`Variant()`, `Has*` inspection, deprecate `Using` / keyed `Toolchain`
 - **Updated:** 2026-09-11
-- **Impact:** staging refresh `patch` (`cmake-pkg-stage-min` done); accessors/`Has*`/deprecations and Option B helper `minor`; in-place packaging later
+- **Impact:** staging refresh `patch` (`cmake-pkg-stage-min` done); accessors/`Has*`/deprecations and Option B helper `minor`; in-place packaging later (power-user / E)
 
 ## Intent
 
 Two related pains show up in real publisher sconscripts:
 
 1. **Cuppa→CMake mismatch** — authors hardcode `CMAKE_BUILD_TYPE=Release`, absolute `g++-N`, and ad-hoc `-B` trees instead of mirroring `--dbg`/`--rel`, the active toolchain, and Cuppa layout (`abs_build_dir` / `abs_final_dir` / `publisher.package_variant()`).
-2. **#209 staging** — historically `build_package` copytreed only when staging was **missing** (stale after CMake reinstall); large install prefixes also **double** disk use on first package. **Min refresh + broader `sources()` shipped**; in-place packaging remains.
+2. **#209 staging** — historically `build_package` copytreed only when staging was **missing** (stale after CMake reinstall); large install prefixes also **double** disk use on first package. **Min refresh + broader `sources()` shipped**; in-place packaging remains (opt-in E).
+
+### Suggested product sequence
+
+1. **`toolchain-variant-accessors`** — preferred vocabulary for B/C.
+2. **Option B** — `cmake_configure_args` (teach with accessors).
+3. **Then** choose from real friction: missing Command ergonomics → lean **C**; multi-GB stage copy → lean **E** (power-user staging knob; not on the CMake teaching ladder). Do not treat E as step 3 by default.
 
 **Public docs:** generic names (`widget`, “external CMake library”). Do not name private consumer trees. Citing [#209](https://github.com/ja11sop/cuppa/issues/209) is fine.
 
@@ -149,7 +155,7 @@ Antora section under [`packages.adoc`](../../docs/modules/ROOT/pages/packages.ad
 
 | Cuppa surface | Typical CMake flag / use | Notes |
 |---------------|--------------------------|-------|
-| `env.Toolchain().binary()` (or `env['toolchain'].binary()` / `env['CXX']` until accessors ship) | `-D CMAKE_CXX_COMPILER=…` | Prefer method once zero-arg ships |
+| `env.Toolchain().binary()` (or `env['toolchain'].binary()` / `env['CXX']`) | `-D CMAKE_CXX_COMPILER=…` | Prefer method |
 | `env['CC']` | `-D CMAKE_C_COMPILER=…` | When the project builds C |
 | `env.Variant().name() == 'dbg'` (or `env['variant']`) | `-D CMAKE_BUILD_TYPE=Debug` | |
 | `'rel'` | `-D CMAKE_BUILD_TYPE=Release` | |
@@ -201,9 +207,11 @@ Full methods with progress wiring.
 
 | Topic | Decision |
 |-------|----------|
-| Near-term | Docs mapping + this plan |
+| Sequence | Accessors → Option B → then C *or* E from friction (not both as “next”) |
 | Accessors | Preferred: zero-arg `Toolchain()` / `Variant()`; inspection: `HasToolchain` / `HasDependency`; **deprecate** `Using` and keyed `Toolchain(name)` (warn + strip from docs) |
-| Helper | Option **B** preferred after accessors; not C/D |
+| Helper | Option **B** preferred after accessors; not C/D yet |
+| **C** | End-state ergonomics after B has callers |
+| **E** | Opt-in power-user staging (`stage='inplace'`); side quest, not default step 3 |
 | `--cov` | Default map to `RelWithDebInfo`; say Cuppa coverage does not auto-instrument CMake |
 
 Refuse: pretend `--cov` covers pure CMake builds; silent `Release` under `--dbg`; private project names in Antora; accessors returning `env`; soft names for inspection (`GetToolchain`, bare `Dependency`) that compete with preferred APIs.
@@ -226,14 +234,15 @@ If minimal refresh grows, **split**: docs+plan first; staging as #209-only PR.
 |----|-------------|--------|
 | `cmake-pkg-plan` | This design plan + design README / ROADMAP pointers | **Done** (docs PR) |
 | `cmake-pkg-docs` | Antora mapping + two generic patterns | **Done** (docs PR) |
-| `cmake-pkg-stage-min` | Optional refresh-when-stale + broader `sources()` | **Done** (this PR) |
-| `toolchain-variant-accessors` | Zero-arg `Toolchain()` / `Variant()`; `HasToolchain` / `HasDependency`; deprecate `Using` + keyed `Toolchain`; strip docs; warn at runtime | Later `minor` |
-| `cmake-pkg-args-helper` | Option B + unit tests | Later `minor` |
-| `cmake-pkg-stage-inplace` | No-double-copy packaging | Later (#209 remainder) |
+| `cmake-pkg-stage-min` | Optional refresh-when-stale + broader `sources()` | **Done** (#292) |
+| `toolchain-variant-accessors` | Zero-arg `Toolchain()` / `Variant()`; `HasToolchain` / `HasDependency`; deprecate `Using` + keyed `Toolchain`; strip docs; warn at runtime | **In progress** (`minor`) |
+| `cmake-pkg-args-helper` | Option B + unit tests | After accessors (`minor`) |
+| `cmake-pkg-stage-inplace` | Opt-in no-double-copy packaging (E) | Side quest when disk friction appears |
+| (later) Option C | `env.CMake*` methods | After B has callers |
 
-## Acceptance (docs + plan)
+## Acceptance
 
 1. Design index lists this plan; links resolve.
 2. Antora table is usable for CMake-novice authors; `--cov` honesty present.
-3. Accessor redesign and helper options are settled in prose before code PRs.
-4. Staging min: unit tests for refresh-when-newer and broader `sources()`; Antora NOTE matches behaviour.
+3. Accessors: zero-arg `Toolchain()` / `Variant()`, `Has*`, deprecations, Antora strip of `Using` / keyed `Toolchain` as primary; unit + integration coverage.
+4. Staging min: unit tests for refresh-when-newer and broader `sources()`; Antora NOTE matches behaviour (#292).

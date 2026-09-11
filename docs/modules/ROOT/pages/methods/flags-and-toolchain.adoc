@@ -1,9 +1,10 @@
 = Flags and toolchain methods
-:description: Toolchain lookup and mutating compile/link flags
+:description: Active toolchain/variant accessors, registry checks, and mutating compile/link flags
 
 This page covers how you change compiler and linker flags on a Cuppa environment, and how you
-look up a registered toolchain. Cuppa's `ReplaceFlags()` / `RemoveFlags()` sit alongside everyday
-helpers such as `AppendUnique()` and `MergeFlags()` — one “how do I set flags?” story.
+read the active toolchain or check that a toolchain is registered. Cuppa's `ReplaceFlags()` /
+`RemoveFlags()` sit alongside everyday helpers such as `AppendUnique()` and `MergeFlags()` — one
+“how do I set flags?” story.
 
 Optional reference (unversioned):
 https://scons.org/doc/production/HTML/scons-user/apd.html[SCons user guide — Functions and Environment Methods].
@@ -16,7 +17,8 @@ into a real `sconscript`.
 |===
 | Axis | Detail
 
-| Returns | `Toolchain()` returns a toolchain object; flag helpers mutate `env` (typically return `None` or the env, depending on the call)
+| Returns | `Toolchain()` / `Variant()` return the active handles; `HasToolchain(name)` returns a
+  bool; flag helpers mutate `env` (typically return `None` or the env, depending on the call)
 | Evaluation | Immediate (configure-time)
 | Output paths | N/A
 | Progress | No — these calls do not create build-action nodes
@@ -49,8 +51,14 @@ into a real `sconscript`.
   modules helpers).
 
 | `Toolchain()`
-| Look up a registered toolchain by registry key (`clang`, `gcc15`, …) or by
-  `toolchain.name()` (build/ABI identity).
+| Preferred: return the **active** toolchain for this sconscript invoke (`env['toolchain']`).
+
+| `Variant()`
+| Preferred: return the **active** variant for this invoke (`env['variant']`).
+
+| `HasToolchain(name)`
+| `True` if a toolchain is registered under that registry key or `toolchain.name()` (build/ABI
+  identity). Use this for existence checks — not keyed `Toolchain(name)`.
 |===
 
 == Everyday pattern with dependencies
@@ -87,22 +95,38 @@ env.ReplaceFlags(['-std=c++23'])
 For the high-level dialect API, prefer xref:methods/cxx-dialect-and-modules.adoc[`StdCpp()`] when
 that page's tutorial is what you want; it uses `ReplaceFlags()` underneath.
 
-== Looking up a toolchain
+== Active toolchain and variant
+
+Prefer zero-arg accessors for the toolchain and variant bound on this sconscript `env`:
 
 [source,python]
 ----
 Import('env')
 
-clang = env.Toolchain('clang')
+cxx = env.Toolchain().binary()
+build_type = env.Variant().name()   # dbg, rel, cov, …
+----
+
+To check that a toolchain was registered (registry key or `name()`), use `HasToolchain`:
+
+[source,python]
+----
+Import('env')
+
+if not env.HasToolchain('clang'):
+    raise Exception('clang toolchain was not selected for this build')
 # or a build/ABI identity such as clang-libc++
 ----
+
+Keyed `env.Toolchain(name)` still resolves for compatibility but is **deprecated** (removed in
+cuppa 2.0) — prefer `Toolchain()` or `HasToolchain(name)`.
 
 Toolchain *defaults* (warnings, optimisation, modules flags) are documented under
 xref:toolchains.adoc[Toolchains] and the family pages — not duplicated here.
 
 == Related methods
 
-* xref:methods/dependencies-and-profiles.adoc[Dependencies and profiles] — `BuildWith()` / `Using()`
+* xref:methods/dependencies-and-profiles.adoc[Dependencies and profiles] — `BuildWith()` / `HasDependency()`
 * xref:methods/cxx-dialect-and-modules.adoc[{cpp} dialect and modules] — `StdCpp()`, Profiles, modules
 * xref:methods/build.adoc[Build] · xref:methods/test-run.adoc[Test and run]
 * xref:toolchains.adoc[Toolchains]
