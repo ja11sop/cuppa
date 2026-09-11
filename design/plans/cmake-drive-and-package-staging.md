@@ -3,7 +3,7 @@
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.11.0 / [#209](https://github.com/ja11sop/cuppa/issues/209); [`cmake-to-cuppa-migration.md`](cmake-to-cuppa-migration.md) (migrate *onto* Cuppa — orthogonal); packages / custom-commands Antora; [`gitlab.py`](../../cuppa/package_managers/gitlab.py) `GitlabPackagePublisher`; preferred `Toolchain()`/`Variant()`, `Has*` inspection, deprecate `Using` / keyed `Toolchain`
 - **Updated:** 2026-09-11
-- **Impact:** staging refresh `patch` (`cmake-pkg-stage-min` done); accessors/`Has*`/deprecations and Option B helper `minor`; in-place packaging later (power-user / E)
+- **Impact:** staging refresh `patch` (`cmake-pkg-stage-min` done); accessors done (#293); Option B helper `minor`; in-place packaging later (power-user / E)
 
 ## Intent
 
@@ -185,6 +185,16 @@ Pure function / small module; argv fragments or structured object; no SCons node
 
 - **Pros:** Unit-testable; composes with `run()`; `extra_defines={}`. **Cons:** Callers still own `Command` graph; no staging fix.
 
+**Settled API (this slice):** module [`cuppa/utility/cmake.py`](../../cuppa/utility/cmake.py)
+
+| Symbol | Role |
+|--------|------|
+| `cmake_configure_args(env, …)` | List of configure tokens (`-B`, `-DCMAKE_…=…`, …) without leading `cmake` |
+| `cmake_configure_command(env, …)` | Shell string for `cuppa.utility.command.run` (`shlex.quote`) |
+| `cmake_build_type_for_variant(name)` | `dbg`→`Debug`, `rel`→`Release`, `cov`→`RelWithDebInfo` |
+| `cmake_cxx_standard_for_stdcpp(token)` | int or `None` (omit `c++latest`) |
+
+Keyword opts: `build_dir`, `source_dir`, `generator`, `install_prefix`, `c_compiler`, `cxx_standard`, `extra_defines`, `include_build_type`, `include_cxx_compiler`. Reads `env['toolchain']` / `env['variant']` / `env['stdcpp']` / `env['CC']` (not `env.Toolchain()`), so tests stay SCons-free.
 ### Option C — `env.CMakeConfigure` / `CMakeBuild` / `CMakeInstall`
 
 Full methods with progress wiring.
@@ -235,8 +245,8 @@ If minimal refresh grows, **split**: docs+plan first; staging as #209-only PR.
 | `cmake-pkg-plan` | This design plan + design README / ROADMAP pointers | **Done** (docs PR) |
 | `cmake-pkg-docs` | Antora mapping + two generic patterns | **Done** (docs PR) |
 | `cmake-pkg-stage-min` | Optional refresh-when-stale + broader `sources()` | **Done** (#292) |
-| `toolchain-variant-accessors` | Zero-arg `Toolchain()` / `Variant()`; `HasToolchain` / `HasDependency`; deprecate `Using` + keyed `Toolchain`; strip docs; warn at runtime | **In progress** (`minor`) |
-| `cmake-pkg-args-helper` | Option B + unit tests | After accessors (`minor`) |
+| `toolchain-variant-accessors` | Zero-arg `Toolchain()` / `Variant()`; `HasToolchain` / `HasDependency`; deprecate `Using` + keyed `Toolchain`; strip docs; warn at runtime | **Done** (#293) |
+| `cmake-pkg-args-helper` | Option B + unit tests | **In progress** (`minor`) |
 | `cmake-pkg-stage-inplace` | Opt-in no-double-copy packaging (E) | Side quest when disk friction appears |
 | (later) Option C | `env.CMake*` methods | After B has callers |
 
@@ -244,5 +254,6 @@ If minimal refresh grows, **split**: docs+plan first; staging as #209-only PR.
 
 1. Design index lists this plan; links resolve.
 2. Antora table is usable for CMake-novice authors; `--cov` honesty present.
-3. Accessors: zero-arg `Toolchain()` / `Variant()`, `Has*`, deprecations, Antora strip of `Using` / keyed `Toolchain` as primary; unit + integration coverage.
-4. Staging min: unit tests for refresh-when-newer and broader `sources()`; Antora NOTE matches behaviour (#292).
+3. Accessors: zero-arg `Toolchain()` / `Variant()`, `Has*`, deprecations, Antora strip of `Using` / keyed `Toolchain` as primary; unit + integration coverage (#293).
+4. Option B: unit tests for configure argv mapping; Antora patterns use `cmake_configure_command`.
+5. Staging min: unit tests for refresh-when-newer and broader `sources()`; Antora NOTE matches behaviour (#292).

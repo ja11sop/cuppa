@@ -78,7 +78,10 @@ then `PublishPackage()`. Map Cuppa's active toolchain and variant into CMake fla
 always forcing `Release` and a hard-coded compiler path.
 
 Use xref:methods/custom-commands.adoc[Custom commands] (`cuppa.utility.command.run` +
-`env.Command`) for the CMake invocations. Pair with xref:methods/staging-files.adoc[Staging files]
+`env.Command`) for the CMake invocations. Prefer
+`cuppa.utility.cmake.cmake_configure_command` (or `cmake_configure_args`) so
+`CMAKE_BUILD_TYPE` and `CMAKE_CXX_COMPILER` track the active variant and toolchain
+instead of hand-rolled dictionaries. Pair with xref:methods/staging-files.adoc[Staging files]
 when you need `Install()` into a package layout under `final/`.
 
 ==== Cuppa surface → CMake flag
@@ -122,8 +125,9 @@ the active handle (that form is deprecated; use `HasToolchain(name)` for registr
 
 | `env.StdCpp(...)` / `--stdcpp` / toolchain default
 | `-D CMAKE_CXX_STANDARD=…`
-| Map a dialect to an integer when CMake accepts it; experimental dialects (`c++2c`) may
-  need a newer CMake or project-specific options
+| Mapped by `cmake_configure_args` when `env['stdcpp']` is a known dialect
+  (`c++20` → `20`, …). Tokens such as `c++latest` are omitted; `c++2c` / `c++26`
+  map to `26` when your CMake is new enough
 
 | `publisher.package_variant()` (or the same token Cuppa uses in package stems)
 | Subdirectory for `-B` (for example `_build/<variant_token>`)
@@ -156,6 +160,7 @@ tree under `final/`, then `PublishPackage`.
 Import( 'env' )
 import os
 from cuppa.utility.command import run
+from cuppa.utility.cmake import cmake_configure_command
 from cuppa.package_managers.gitlab import GitlabPackagePublisher
 
 # Source tree already available (location dependency, extract step, …)
@@ -171,21 +176,12 @@ publisher = GitlabPackagePublisher(
     version            = '1.0.0',
 )
 
-build_type = {
-    'dbg': 'Debug',
-    'rel': 'Release',
-    'cov': 'RelWithDebInfo',
-}.get( env.Variant().name(), 'Release' )
-
 cmake_build_dir = os.path.join( '_build', publisher.package_variant() )
-cxx = env.Toolchain().binary()
-
-configure_cmd = (
-    f'cmake -B {cmake_build_dir}'
-    f' -D CMAKE_CXX_COMPILER={cxx}'
-    f' -D CMAKE_BUILD_TYPE={build_type}'
-    f' -G Ninja'
-    f' -D WIDGET_BUILD_TESTS=OFF'
+configure_cmd = cmake_configure_command(
+    env,
+    build_dir = cmake_build_dir,
+    generator = 'Ninja',
+    extra_defines = { 'WIDGET_BUILD_TESTS': 'OFF' },
 )
 build_cmd = f'cmake --build {cmake_build_dir}'
 
@@ -214,26 +210,19 @@ Sketch: CMake installs into a prefix under `final/`; `GitlabPackagePublisher` po
 Import( 'env' )
 import os
 from cuppa.utility.command import run
+from cuppa.utility.cmake import cmake_configure_command
 from cuppa.package_managers.gitlab import GitlabPackagePublisher
 
 # extraction_folder = … Dir under env['build_dir'] after download/extract …
 install_prefix = env.Dir( os.path.join( env['final_dir'], 'installed' ) )
 
-build_type = {
-    'dbg': 'Debug',
-    'rel': 'Release',
-    'cov': 'RelWithDebInfo',
-}.get( env.Variant().name(), 'Release' )
-
-cxx = env.Toolchain().binary()
 cmake_out = 'cmake-out'
-
-configure_cmd = (
-    f'cmake -S . -B {cmake_out}'
-    f' -D CMAKE_BUILD_TYPE={build_type}'
-    f' -D CMAKE_INSTALL_PREFIX={install_prefix}'
-    f' -D CMAKE_CXX_COMPILER={cxx}'
-    f' -D BUILD_TESTING=OFF'
+configure_cmd = cmake_configure_command(
+    env,
+    source_dir = '.',
+    build_dir = cmake_out,
+    install_prefix = install_prefix,
+    extra_defines = { 'BUILD_TESTING': False },
 )
 build_cmd = f'cmake --build {cmake_out}'
 install_cmd = f'cmake --build {cmake_out} --target install'

@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``cuppa.utility.cmake`` — ``cmake_configure_args`` / ``cmake_configure_command`` map the
+  active Cuppa toolchain, variant, and optional ``stdcpp`` into CMake configure flags
+  (``CMAKE_BUILD_TYPE``, ``CMAKE_CXX_COMPILER``, …) for publisher ``Command()`` graphs.
+  Antora CMake publisher patterns use the helper
+  ([`cmake-drive-and-package-staging`](design/plans/cmake-drive-and-package-staging.md)).
 - Zero-arg ``env.Toolchain()`` / ``env.Variant()`` return the active handles for the current
   toolchain×variant invoke; ``env.HasToolchain(name)`` and ``env.HasDependency(name)`` provide
   registry membership checks (``HasToolchain`` accepts registry key or ``toolchain.name()``).
