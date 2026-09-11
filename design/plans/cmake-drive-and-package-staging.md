@@ -3,7 +3,7 @@
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.11.0 / [#209](https://github.com/ja11sop/cuppa/issues/209); [`cmake-to-cuppa-migration.md`](cmake-to-cuppa-migration.md) (migrate *onto* Cuppa — orthogonal); packages / custom-commands Antora; [`gitlab.py`](../../cuppa/package_managers/gitlab.py) `GitlabPackagePublisher`; preferred `Toolchain()`/`Variant()`, `Has*` inspection, deprecate `Using` / keyed `Toolchain`
 - **Updated:** 2026-09-11
-- **Impact:** staging refresh `patch` (`cmake-pkg-stage-min` done); accessors done (#293); Option B helper `minor`; in-place packaging later (power-user / E)
+- **Impact:** staging refresh `patch` (`cmake-pkg-stage-min` done); accessors done (#293); Option B helper `minor` (#294 open); in-place packaging later (power-user / E)
 
 ## Intent
 
@@ -195,6 +195,76 @@ Pure function / small module; argv fragments or structured object; no SCons node
 | `cmake_cxx_standard_for_stdcpp(token)` | int or `None` (omit `c++latest`) |
 
 Keyword opts: `build_dir`, `source_dir`, `generator`, `install_prefix`, `c_compiler`, `cxx_standard`, `extra_defines`, `include_build_type`, `include_cxx_compiler`. Reads `env['toolchain']` / `env['variant']` / `env['stdcpp']` / `env['CC']` (not `env.Toolchain()`), so tests stay SCons-free.
+
+### Worked migration — small CMake lib publisher (project B shape)
+
+A real publisher (Boost.Capy-shaped: location dep → CMake `-B` under the dep tree → copy `.a` into `abs_build_dir` → `Install` → `PublishPackage`) hard-codes the main footgun Option B targets.
+
+**Before (problematic bits only):**
+
+```python
+Import( 'env' )
+import os
+from cuppa.utility.command import run
+from cuppa.package_managers.gitlab import GitlabPackagePublisher
+
+src = env.BuildWith( 'widget_src' ).local_sub_path()
+version = env.BuildWith( 'widget_src' ).branch()
+package_dir = os.path.join( env['abs_final_dir'], 'package' )
+
+publisher = GitlabPackagePublisher(
+    env,
+    source_include_dir = os.path.join( package_dir, 'include' ),
+    source_lib_dir     = os.path.join( package_dir, 'lib' ),
+    registry           = 'https://gitlab.example/api/v4/projects/1',
+    package            = 'widget',
+    version            = version,
+)
+
+build_output = os.path.join( '_build', publisher.package_variant() )
+compiler = env['toolchain'].binary()
+# … paths for libwidget.a under build_output …
+
+cmake_generator_command = (
+    f'cmake -B {build_output}'
+    f' -D CMAKE_CXX_COMPILER={compiler}'
+    f' -G Ninja'
+    f' -D CMAKE_BUILD_TYPE=Release'          # ← ignores --dbg / --cov
+    f' -D WIDGET_BUILD_TESTS=OFF'
+    f' -D WIDGET_BUILD_EXAMPLES=OFF'
+)
+cmake_build_command = f'cmake --build {build_output}'
+# Command → copy .a → Install include/lib → PublishPackage (unchanged)
+```
+
+**After (configure line only — graph unchanged):**
+
+```python
+from cuppa.utility.cmake import cmake_configure_command
+
+cmake_generator_command = cmake_configure_command(
+    env,
+    build_dir = build_output,
+    generator = 'Ninja',
+    extra_defines = {
+        'WIDGET_BUILD_TESTS': False,
+        'WIDGET_BUILD_EXAMPLES': False,
+    },
+)
+cmake_build_command = f'cmake --build {build_output}'
+```
+
+| Change | Why |
+|--------|-----|
+| Drop hand-built `CMAKE_BUILD_TYPE=Release` | `--dbg` → `Debug`, `--rel` → `Release`, `--cov` → `RelWithDebInfo` |
+| Drop `compiler = env['toolchain'].binary()` | Helper emits `CMAKE_CXX_COMPILER` from the active toolchain |
+| `extra_defines` with bools | Same `-D…=OFF` tokens; clearer than string concat |
+| Keep `-B` under `publisher.package_variant()` | Still avoids dbg/rel clobber |
+| Keep copy / `Install` / `PublishPackage` | Option B does not own the graph |
+
+Optional polish (not required for the helper): prefer `env.Toolchain()` in surrounding comments/docs; drop unused imports; do **not** pass `--publish-package` while smoke-testing.
+
+**Smoke test (consumer tree, no registry upload):** done on the Boost.Capy-shaped publisher — `--dbg` configure showed `CMAKE_BUILD_TYPE=Debug`, `--rel` showed `Release`; local `.tar.gz` / `.packaged` created without `--publish-package`. Also: single `BuildWith`, drop unused `psutil`, optional Ninja via `shutil.which`, preferred `cuppa.run` kwargs on the matching `sconstruct`.
 ### Option C — `env.CMakeConfigure` / `CMakeBuild` / `CMakeInstall`
 
 Full methods with progress wiring.
