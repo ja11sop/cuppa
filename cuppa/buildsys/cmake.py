@@ -4,15 +4,19 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   Cuppa → CMake configure helpers (Option B)
+#   CMake configure / build argv helpers (cuppa.buildsys)
 #-------------------------------------------------------------------------------
 
-"""Build ``cmake`` configure argv from a Cuppa sconscript ``env``.
+"""Build ``cmake`` configure and ``cmake --build`` argv from a Cuppa ``env``.
 
-Pure helpers — no SCons nodes. Compose with ``cuppa.utility.command.run`` and
-``env.Command``. Prefer reading ``env['toolchain']`` / ``env['variant']`` so
-unit tests can pass plain mappings; sconscript authors still use
-``env.Toolchain()`` / ``env.Variant()`` elsewhere.
+Public API for publisher sconscripts. Option B covers configure flags;
+``env.CMakeConfigure`` / ``CMakeBuild`` / ``CMakeInstall`` compose these with
+``cuppa.utility.command.run``. Prefer reading ``env['toolchain']`` /
+``env['variant']`` / ``env['parallel']`` / ``env['job_count']`` so unit tests
+can pass plain mappings; sconscript authors still use ``env.Toolchain()`` /
+``env.Variant()`` elsewhere.
+
+Future siblings (for example ``cuppa.buildsys.b2``) belong in this package.
 """
 
 import shlex
@@ -169,4 +173,46 @@ def cmake_configure_command(
 ):
     """Return a shell command string suitable for ``cuppa.utility.command.run``."""
     tokens = [ cmake ] + list( cmake_configure_args( env, **kwargs ) )
+    return ' '.join( shlex.quote( str( token ) ) for token in tokens )
+
+
+def cmake_build_jobs( env, jobs=None ):
+    """Resolve a ``cmake --build --parallel`` job count, or ``None`` to omit.
+
+    ``jobs``:
+
+    - ``None`` (default): use ``env['job_count']`` when ``env['parallel']`` is
+      true and the count is at least 2 (Cuppa ``--parallel``)
+    - ``False`` or ``0``: omit ``--parallel`` / ``-j``
+    - positive ``int``: that many jobs (manual override)
+    """
+    if jobs is False or jobs == 0:
+        return None
+    if jobs is not None:
+        count = int( jobs )
+        if count < 1:
+            return None
+        return count
+    if env.get( 'parallel' ) and int( env.get( 'job_count' ) or 1 ) >= 2:
+        return int( env['job_count'] )
+    return None
+
+
+def cmake_build_args( build_dir, jobs=None, target=None ):
+    """Return ``cmake --build`` argv tokens (without a leading ``cmake``).
+
+    ``jobs`` must already be resolved (positive ``int`` or ``None`` to omit).
+    Uses CMake's generator-agnostic ``--parallel N`` rather than ``-- -j N``.
+    """
+    args = [ '--build', str( build_dir ) ]
+    if target is not None:
+        args.extend( [ '--target', str( target ) ] )
+    if jobs is not None:
+        args.extend( [ '--parallel', str( int( jobs ) ) ] )
+    return args
+
+
+def cmake_build_command( build_dir, jobs=None, target=None, cmake='cmake' ):
+    """Return a ``cmake --build`` shell string for ``cuppa.utility.command.run``."""
+    tokens = [ cmake ] + list( cmake_build_args( build_dir, jobs=jobs, target=target ) )
     return ' '.join( shlex.quote( str( token ) ) for token in tokens )

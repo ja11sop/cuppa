@@ -7,7 +7,7 @@ import shlex
 
 import pytest
 
-from cuppa.utility import cmake
+from cuppa.buildsys import cmake
 
 
 pytestmark = pytest.mark.unit

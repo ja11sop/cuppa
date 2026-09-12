@@ -15,8 +15,8 @@ envs, so user `Command()` calls participate in variant progress.
 Typical jobs:
 
 * Wrap an external generate/build tool (CMake configure/build in a publisher tree —
-  prefer `cuppa.utility.cmake.cmake_configure_command` so flags track Cuppa's
-  toolchain/variant; see
+  prefer `env.CMakeConfigure` / `CMakeBuild` / `CMakeInstall`, or the lower-level
+  `cuppa.buildsys.cmake` helpers; see
   xref:packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build])
 * Emit a marker file after a binary exists (`tool.done`)
 * Run a one-off code generator whose outputs feed `Build()` / `Install()`
@@ -45,6 +45,10 @@ Prefer Cuppa's specialised methods when they fit:
 
 | Arbitrary action in the graph
 | `Command()` (this page)
+
+| External CMake configure / build / install
+| `CMakeConfigure()` / `CMakeBuild()` / `CMakeInstall()` —
+  xref:packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build]
 |===
 
 `Run()` versus `Command()` is also summarised on xref:methods/test-run.adoc#generic-runs-with-run[Test and run].

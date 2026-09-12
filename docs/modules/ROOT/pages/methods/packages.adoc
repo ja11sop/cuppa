@@ -2,8 +2,10 @@
 :description: PublishPackage and InstallPackage
 
 Cuppa package methods stage and publish libraries for registry or Conan consumers.
-Publisher trees often combine `Command()`, `Install()`, and `Depends()` / `Requires()` — see
-xref:methods/staging-files.adoc[Staging files] and xref:methods/depends.adoc[Depends].
+Publisher trees often combine `CMakeConfigure` / `CMakeBuild` / `CMakeInstall` (or
+raw `Command()`), `Install()`, and `Depends()` / `Requires()` — see
+xref:packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build],
+xref:methods/staging-files.adoc[Staging files], and xref:methods/depends.adoc[Depends].
 
 == Behaviour summary
 
@@ -14,7 +16,7 @@ xref:methods/staging-files.adoc[Staging files] and xref:methods/depends.adoc[Dep
 | Returns | Package-related nodes
 | Evaluation | Configure / build; upload typically requires `--publish-package`
 | Output paths | Package layout under cuppa package roots / registry archives
-| Progress | As wired by package publishers
+| Progress | As wired by package publishers / CMake methods
 |===
 
 == Methods
@@ -22,6 +24,15 @@ xref:methods/staging-files.adoc[Staging files] and xref:methods/depends.adoc[Dep
 [cols="2,3"]
 |===
 | Method | Role
+
+| `env.CMakeConfigure(…)`
+| Configure an external CMake project (toolchain/variant flags via `cuppa.buildsys.cmake`)
+
+| `env.CMakeBuild(…)`
+| `cmake --build`; honours Cuppa `--parallel` as `--parallel N` unless `jobs=` overrides
+
+| `env.CMakeInstall(…)`
+| `cmake --build … --target install` (default omits `--parallel`)
 
 | `env.PublishPackage(…)`
 | Build (and optionally publish) a package; GitLab generic tarball or Conan `export-pkg` via a publisher object; upload requires `--publish-package`

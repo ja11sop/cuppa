@@ -459,6 +459,18 @@ xref:concepts.adoc#sconscript-discovery[Concepts: sconscript discovery and shari
 |===
 | Method | Description | Notes
 
+| xref:methods/packages.adoc[`CMakeConfigure()`]
+| Configure an external CMake tree (Cuppa toolchain/variant → CMake flags)
+| See xref:packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build]
+
+| xref:methods/packages.adoc[`CMakeBuild()`]
+| `cmake --build`; ``--parallel`` when Cuppa ``--parallel`` is set
+|
+
+| xref:methods/packages.adoc[`CMakeInstall()`]
+| `cmake --build … --target install`
+|
+
 | xref:methods/packages.adoc[`PublishPackage()`]
 | Publish staged nodes through a publisher object
 |
