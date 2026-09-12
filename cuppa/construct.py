@@ -12,7 +12,6 @@ import os.path
 import os
 import re
 import fnmatch
-import multiprocessing
 import six
 from urllib.parse import urlparse
 
@@ -645,7 +644,10 @@ class Construct(object):
             parallel_mode = "manually"
 
             if job_count==1 and parallel:
-                job_count = multiprocessing.cpu_count()
+                from cuppa.utility.parallelism import effective_cpu_count
+                # Honour cuppa-wrapper CPU affinity (leave cores free for the OS),
+                # not raw multiprocessing.cpu_count().
+                job_count = effective_cpu_count()
                 if job_count > 1:
                     SCons.Script.SetOption( 'num_jobs', job_count )
                     parallel_mode = "automatically"

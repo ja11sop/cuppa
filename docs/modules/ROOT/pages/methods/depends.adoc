@@ -46,12 +46,24 @@ in whether a change to *B* forces *A* to rebuild:
 | Use when you only need presence / ordering — for example copying a binary into a docker tree
   after `Build()` has produced it under `final/`, without re-copying every time an unrelated
   prerequisite rebuilds for another reason. Without `Requires()`, the copy can race the link
-  under parallel builds.
+  under parallel builds. Same pattern for publisher staging: `Requires(installed_include,
+  installed_lib)` so `PublishPackage(installed_include, …)` waits for the library Install
+  without re-copying headers when only the `.a` changes (see
+  xref:methods/staging-files.adoc#package-staging-with-install[Staging files]).
 |===
 
 Prefer the Cuppa kwargs (`test_depends_on`, `build_depends_on`) when you are attaching fixtures to
 `BuildTest()` / `Test()`. Use `env.Depends()` / `env.Requires()` when you are ordering nodes that are
 not covered by those kwargs (install copies, custom `Command()` chains, wait/update helpers).
+
+[NOTE]
+====
+**Package include + lib:** headers do not take the library as an *input*. If
+`PublishPackage` is sourced from the include Install only, use
+`Requires(installed_include, installed_lib)` for order under `--parallel`. Prefer that over
+`Depends(installed_include, installed_lib)`, which would rebuild the header Install whenever
+the library node changed.
+====
 
 == Ordering packaging after a binary
 

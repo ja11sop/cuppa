@@ -53,6 +53,7 @@ setup(
         'cuppa.test_report',
         'cuppa.toolchains',
         'cuppa.variants',
+        'cuppa.buildsys',
         'cuppa.utility',
     ],
     package_data = {

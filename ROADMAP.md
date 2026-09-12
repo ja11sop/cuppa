@@ -26,7 +26,7 @@ Minor cycle after **1.10.0**. Prefer work that changes opt-in toolchain or packa
 | Transitive GitLab packages | [`gitlab-package-transitive.md`](design/plans/gitlab-package-transitive.md) — `cuppa-dependency.json` + `--list-dependencies` `requires` (shipped #280 / #281; #279 follow-ons deferred) |
 | Sconscript exports / sharing | [`sconscript-exports.md`](design/archive/sconscript-exports.md) — #282 / #283 shipped; remaining: dynamic `Import(name)`, MSVC `/Fd` under `--parallel` |
 | Static lib archive members | [`static-lib-archive-members.md`](design/archive/static-lib-archive-members.md) — #287 / #288 shipped (collide-only); always-flatten deferred to 2.0 |
-| GitLab CMake staging | [#209](https://github.com/ja11sop/cuppa/issues/209) — docs + min refresh shipped; **accessors in progress** → Option B next; C/E later from friction: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
+| GitLab CMake staging | [#209](https://github.com/ja11sop/cuppa/issues/209) — docs + min refresh + accessors shipped; **Option B** (`cmake_configure_args`) on [#294](https://github.com/ja11sop/cuppa/pull/294); **Option C** (`CMakeConfigure` / `CMakeBuild` / `CMakeInstall`) in progress; E / archive-progress later: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
 | Artefact removal design | [#135](https://github.com/ja11sop/cuppa/issues/135) |
 | Console bundle | `--terse-output`, log hygiene, `cuppa --info` |
 | Boost package identity | [`boost-updates.md`](design/plans/boost-updates.md) (`-patched` / `-clean`) |

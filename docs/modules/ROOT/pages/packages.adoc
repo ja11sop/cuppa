@@ -77,9 +77,17 @@ then `PublishPackage()`. Map Cuppa's active toolchain and variant into CMake fla
 `--dbg` / `--rel` / `--cov` and `--toolchains=` produce matching external builds instead of
 always forcing `Release` and a hard-coded compiler path.
 
-Use xref:methods/custom-commands.adoc[Custom commands] (`cuppa.utility.command.run` +
-`env.Command`) for the CMake invocations. Pair with xref:methods/staging-files.adoc[Staging files]
+Use xref:methods/custom-commands.adoc[Custom commands] when you need a raw
+`Command()`, but prefer **`env.CMakeConfigure` / `CMakeBuild` / `CMakeInstall`**
+for the usual configure → build → install graph. Those methods wrap
+`cuppa.buildsys.cmake` (Option B argv helpers) and `cuppa.utility.command.run` so
+`CMAKE_BUILD_TYPE` / `CMAKE_CXX_COMPILER` track the active variant and toolchain,
+and `CMakeBuild` passes ``cmake --build --parallel N`` when you pass Cuppa
+``--parallel``. Pair with xref:methods/staging-files.adoc[Staging files]
 when you need `Install()` into a package layout under `final/`.
+
+Lower-level: `cmake_configure_command` / `cmake_build_command` remain available if
+you must hand-wire `env.Command` yourself.
 
 ==== Cuppa surface → CMake flag
 
@@ -122,8 +130,9 @@ the active handle (that form is deprecated; use `HasToolchain(name)` for registr
 
 | `env.StdCpp(...)` / `--stdcpp` / toolchain default
 | `-D CMAKE_CXX_STANDARD=…`
-| Map a dialect to an integer when CMake accepts it; experimental dialects (`c++2c`) may
-  need a newer CMake or project-specific options
+| Mapped by `cmake_configure_args` when `env['stdcpp']` is a known dialect
+  (`c++20` → `20`, …). Tokens such as `c++latest` are omitted; `c++2c` / `c++26`
+  map to `26` when your CMake is new enough
 
 | `publisher.package_variant()` (or the same token Cuppa uses in package stems)
 | Subdirectory for `-B` (for example `_build/<variant_token>`)
@@ -137,13 +146,24 @@ the active handle (that form is deprecated; use `HasToolchain(name)` for registr
 | `CMAKE_INSTALL_PREFIX` and/or `Install()` destinations
 | Large third-party trees often install once under `final/`, then publish from that prefix
 
-| `--parallel` / SCons `-j`
-| `cmake --build … --parallel` / `-j N`
-| Separate from Cuppa's job server; choose `N` deliberately (for example from process affinity)
+| `--parallel` / `env['job_count']`
+| `cmake --build … --parallel N` via `env.CMakeBuild`
+| When Cuppa `--parallel` is set, `CMakeBuild` passes `--parallel` with
+  `env['job_count']` (affinity-aware — same count as SCons `-j`, after the
+  wrapper leaves cores free for the OS). Override with `jobs=N` or omit with
+  `jobs=False`. Nested oversubscribe is possible if several CMake builds run
+  under SCons `-j` at once; use `jobs=` then.
 
 | Generator (`-G Ninja`, …)
-| Author choice
+| Author choice (`generator=` on `CMakeConfigure`)
 | Common on Linux; not required by Cuppa
+
+| `cuppa -c` / SCons clean
+| Removes configure/build/install stamps **and** the CMake `-B` tree
+| `CMakeConfigure` / `CMakeBuild` / `CMakeInstall` register `env.Clean` on the
+  absolute `-B` path (including trees under location-dependency checkouts).
+  Without that, clean only removes Cuppa copies/stamps and the next build
+  looks like a no-op ninja rebuild.
 |===
 
 ==== Pattern A — small library: configure, build, install, publish
@@ -155,7 +175,6 @@ tree under `final/`, then `PublishPackage`.
 ----
 Import( 'env' )
 import os
-from cuppa.utility.command import run
 from cuppa.package_managers.gitlab import GitlabPackagePublisher
 
 # Source tree already available (location dependency, extract step, …)
@@ -171,38 +190,28 @@ publisher = GitlabPackagePublisher(
     version            = '1.0.0',
 )
 
-build_type = {
-    'dbg': 'Debug',
-    'rel': 'Release',
-    'cov': 'RelWithDebInfo',
-}.get( env.Variant().name(), 'Release' )
-
 cmake_build_dir = os.path.join( '_build', publisher.package_variant() )
-cxx = env.Toolchain().binary()
-
-configure_cmd = (
-    f'cmake -B {cmake_build_dir}'
-    f' -D CMAKE_CXX_COMPILER={cxx}'
-    f' -D CMAKE_BUILD_TYPE={build_type}'
-    f' -G Ninja'
-    f' -D WIDGET_BUILD_TESTS=OFF'
-)
-build_cmd = f'cmake --build {cmake_build_dir}'
-
-configure = env.Command(
-    'cmake.configure.complete',
+configure = env.CMakeConfigure(
     widget_src,
-    run( configure_cmd, working_dir=widget_src ),
+    working_dir = widget_src,
+    build_dir = cmake_build_dir,
+    generator = 'Ninja',
+    extra_defines = { 'WIDGET_BUILD_TESTS': False },
 )
-built = env.Command(
-    'cmake.build.complete',
+built = env.CMakeBuild(
     configure,
-    run( build_cmd, working_dir=widget_src ),
+    build_dir = cmake_build_dir,
+    working_dir = widget_src,
 )
 
 # Install or copy headers/libs into package_dir, then:
 # env.PublishPackage( installed_nodes, publisher )
 ----
+
+When `PublishPackage` is sourced from the include `Install` only, order the library
+Install with `Requires(installed_include, installed_lib)` under `--parallel` — do not
+use `Depends` for that edge (headers should not re-copy when only the `.a` changes).
+See xref:methods/staging-files.adoc#package-staging-with-install[Staging files].
 
 ==== Pattern B — install prefix: CMake install, then publish
 
@@ -213,33 +222,10 @@ Sketch: CMake installs into a prefix under `final/`; `GitlabPackagePublisher` po
 ----
 Import( 'env' )
 import os
-from cuppa.utility.command import run
 from cuppa.package_managers.gitlab import GitlabPackagePublisher
 
 # extraction_folder = … Dir under env['build_dir'] after download/extract …
 install_prefix = env.Dir( os.path.join( env['final_dir'], 'installed' ) )
-
-build_type = {
-    'dbg': 'Debug',
-    'rel': 'Release',
-    'cov': 'RelWithDebInfo',
-}.get( env.Variant().name(), 'Release' )
-
-cxx = env.Toolchain().binary()
-cmake_out = 'cmake-out'
-
-configure_cmd = (
-    f'cmake -S . -B {cmake_out}'
-    f' -D CMAKE_BUILD_TYPE={build_type}'
-    f' -D CMAKE_INSTALL_PREFIX={install_prefix}'
-    f' -D CMAKE_CXX_COMPILER={cxx}'
-    f' -D BUILD_TESTING=OFF'
-)
-build_cmd = f'cmake --build {cmake_out}'
-install_cmd = f'cmake --build {cmake_out} --target install'
-
-# Wire Command() nodes: configure → build → install into install_prefix …
-
 publisher = GitlabPackagePublisher(
     env,
     source_include_dir = os.path.join( str( install_prefix ), 'include' ),
@@ -248,7 +234,28 @@ publisher = GitlabPackagePublisher(
     package            = 'widget',
     version            = '2.28.0',
 )
-# env.PublishPackage( install_node, publisher )
+
+cmake_out = os.path.join( '_build', publisher.package_variant() )
+configure = env.CMakeConfigure(
+    extraction_folder,
+    working_dir = extraction_folder,
+    source_dir = '.',
+    build_dir = cmake_out,
+    install_prefix = install_prefix,
+    extra_defines = { 'BUILD_TESTING': False },
+)
+built = env.CMakeBuild(
+    configure,
+    build_dir = cmake_out,
+    working_dir = extraction_folder,
+)
+installed = env.CMakeInstall(
+    built,
+    build_dir = cmake_out,
+    working_dir = extraction_folder,
+    target = install_prefix,
+)
+# env.PublishPackage( installed, publisher )
 ----
 
 [NOTE]

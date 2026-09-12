@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``cuppa.buildsys.cmake`` — public CMake argv helpers
+  (``cmake_configure_args`` / ``cmake_configure_command`` /
+  ``cmake_build_command`` / …) for publisher sconscripts; room for later
+  siblings such as ``cuppa.buildsys.b2``. Antora CMake publisher patterns use
+  this module
+  ([`cmake-drive-and-package-staging`](design/plans/cmake-drive-and-package-staging.md)).
+- ``env.CMakeConfigure`` / ``CMakeBuild`` / ``CMakeInstall`` — graph nodes for
+  external CMake publisher trees (configure stamps, ``cmake --build``, install
+  target). ``CMakeBuild`` passes ``--parallel N`` when Cuppa ``--parallel`` is set
+  (override with ``jobs=``). Methods register ``env.Clean`` on the CMake ``-B``
+  tree so ``cuppa -c`` removes out-of-tree builds under location dependencies.
+  Antora publisher patterns prefer the methods
+  ([`cmake-drive-and-package-staging`](design/plans/cmake-drive-and-package-staging.md)).
 - Zero-arg ``env.Toolchain()`` / ``env.Variant()`` return the active handles for the current
   toolchain×variant invoke; ``env.HasToolchain(name)`` and ``env.HasDependency(name)`` provide
   registry membership checks (``HasToolchain`` accepts registry key or ``toolchain.name()``).
@@ -56,6 +69,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Staging / Depends docs: package ``Install`` examples use
+  ``Requires(installed_include, installed_lib)`` only (order-only under
+  ``--parallel``); explain why ``Depends`` would needlessly re-copy headers when
+  only the library changes.
 - Managing dependencies docs: short hub plus
   ``list-dependencies`` / ``list-downloads`` / ``removing`` / ``develop`` children; coloured
   ``requires`` sample uses HTML passthrough (not a collapsible text listing); removing page
@@ -85,6 +102,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Automatic ``--parallel`` job count uses the process CPU affinity set
+  (``os.sched_getaffinity`` / ``effective_cpu_count``) instead of raw
+  ``multiprocessing.cpu_count()``, so SCons ``-j`` and ``CMakeBuild``
+  ``--parallel N`` match the wrapper's "leave cores free for the OS" policy
+  (e.g. 14 on a 16-core host) rather than advertising all logical CPUs.
 - ``GitlabPackagePublisher.build_package`` refreshes staged include/lib/modules when
   the source tree is newer than the package stage (not only when the stage is missing),
   and ``sources()`` lists include and lib outside ``abs_final_dir`` so package stamps
