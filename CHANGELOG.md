@@ -19,14 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   omitted ``version`` from BuildWith. ``CMakeConfigure`` /
   ``cmake_configure_args`` default ``generator=None`` to ``Ninja`` when
   ``ninja`` is on ``PATH`` (pass ``generator=False`` to omit ``-G``)
-  ([`cmake-package-prefix`](design/plans/cmake-package-prefix.md)).
+  ([`cmake-package-prefix`](design/archive/cmake-package-prefix.md)).
 - ``cuppa.package_managers.package_paths`` — ``package_dir`` / ``package_bin`` /
   ``package_lib`` / ``package_version`` resolve layout from ``env.BuildWith``
   (safe to call again after auto-enable). ``cmake_prefix_path_for(env, *names)``
   builds ``CMAKE_PREFIX_PATH`` from those roots. ``GitlabPackagePublisher`` /
   ``write_manifest(..., env=)`` fill omitted dependency ``version`` pins from
   the active BuildWith package
-  ([`cmake-package-prefix`](design/plans/cmake-package-prefix.md)).
+  ([`cmake-package-prefix`](design/archive/cmake-package-prefix.md)).
 - ``env.DownloadExtract`` — download a URL archive with Cuppa progress, extract
   into a working directory (default ``strip_components=1`` for GitHub release
   tarballs), and stamp a marker file. Lives with ``env.RemoveEmptyDirs`` under
