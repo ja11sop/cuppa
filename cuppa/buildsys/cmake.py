@@ -17,7 +17,9 @@ can pass plain mappings; sconscript authors still use ``env.Toolchain()`` /
 ``env.Variant()`` elsewhere.
 
 Also: ``remove_empty_dirs`` (and ``env.RemoveEmptyDirs``) for GitHub archive
-submodule placeholders that defeat ``NOT EXISTS`` download gates.
+submodule placeholders that defeat ``NOT EXISTS`` download gates;
+``cmake_prefix_path`` / ``cmake_install_rpath_defines`` for shared-package
+``CMAKE_PREFIX_PATH`` and install vs build-tree RPATH.
 
 Future siblings (for example ``cuppa.buildsys.b2``) belong in this package.
 """
@@ -340,3 +342,52 @@ def cmake_build_command( build_dir, jobs=None, target=None, cmake='cmake' ):
     """Return a ``cmake --build`` shell string for ``cuppa.utility.command.run``."""
     tokens = [ cmake ] + list( cmake_build_args( build_dir, jobs=jobs, target=target ) )
     return ' '.join( shlex.quote( str( token ) ) for token in tokens )
+
+
+def cmake_prefix_path( *dirs ):
+    """Return a ``CMAKE_PREFIX_PATH`` value (CMake ``;``-joined).
+
+    Empty or ``None`` entries are skipped. Suitable for
+    ``extra_defines={'CMAKE_PREFIX_PATH': cmake_prefix_path(a, b)}``.
+    """
+    parts = [ str( path ) for path in dirs if path ]
+    return ';'.join( parts )
+
+
+def cmake_install_rpath_defines(
+        install_rpath='$ORIGIN/../lib',
+        build_rpath='$ORIGIN',
+        extra_install=(),
+        extra_build=(),
+        build_with_install_rpath=False,
+):
+    """Return ``extra_defines`` for install vs build-tree RPATH.
+
+    Default story for shared-library publishers:
+
+    - **Install:** ``CMAKE_INSTALL_RPATH=$ORIGIN/../lib`` (packaged ``bin/`` →
+      ``lib/``)
+    - **Build:** ``CMAKE_BUILD_RPATH=$ORIGIN`` so in-tree tools beside their
+      ``.so`` (for example ``grpc_cpp_plugin``) resolve without relying on
+      install layout
+    - ``CMAKE_BUILD_WITH_INSTALL_RPATH`` defaults to **False** so the build
+      RPATH is used during ``CMakeBuild``
+
+    Pass absolute dependency ``lib/`` dirs via ``extra_install`` /
+    ``extra_build`` when a plugin links packaged Protobuf (or similar). Prefer
+    that over embedding relocatable-cache absolute RPATHs into consumer link
+    lines.
+    """
+    install_parts = [ install_rpath ] if install_rpath else []
+    install_parts.extend( str( path ) for path in extra_install if path )
+    build_parts = [ build_rpath ] if build_rpath else []
+    build_parts.extend( str( path ) for path in extra_build if path )
+    defines = {
+            'CMAKE_BUILD_WITH_INSTALL_RPATH': bool( build_with_install_rpath ),
+    }
+    if install_parts:
+        defines['CMAKE_INSTALL_RPATH'] = ';'.join( install_parts )
+    if build_parts:
+        defines['CMAKE_BUILD_RPATH'] = ';'.join( build_parts )
+    return defines
+

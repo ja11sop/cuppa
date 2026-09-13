@@ -182,6 +182,10 @@ env.BuildWith('boost_package').use_libs([
 ])
 ----
 
+`BuildWith` also prepends the package ``lib/`` directory (and ``bin/`` when it
+exists) to the construction environment so shared libraries resolve for host
+tools and ``--test`` / ``--run`` without hand-rolled ``LD_LIBRARY_PATH``.
+
 === Publishing Boost from source
 
 To populate the registry, build static libraries from the built-in **source** ``boost``

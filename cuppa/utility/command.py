@@ -14,6 +14,7 @@ import sys
 from cuppa.output_processor import IncrementalSubProcess
 from cuppa.log import logger
 from cuppa.colourise import as_info, as_notice, as_error
+from cuppa.utility.command_failure import select_failure_detail_lines
 
 
 def _resolve_executable( args_list, working_dir ):
@@ -54,11 +55,26 @@ class run:
 
         from SCons.Script import Touch
 
+        captured_lines = []
+
         def process_stdout( line ):
+            captured_lines.append( line )
             sys.stdout.write( line + '\n' )
 
         def process_stderr( line ):
+            captured_lines.append( line )
             sys.stderr.write( line + '\n' )
+
+        def log_failure_detail():
+            detail = select_failure_detail_lines( captured_lines )
+            if not detail:
+                return
+            logger.error(
+                    "Failure detail ({} line(s); real errors often scroll away "
+                    "under parallel warning floods):".format( len( detail ) )
+            )
+            for line in detail:
+                logger.error( "  {}".format( as_error( line ) ) )
 
         try:
             logger.info( "Executing [{}] in directory [{}]...".format(
@@ -78,9 +94,11 @@ class run:
             )
             if return_code < 0:
                 logger.error( "Execution of [{}] terminated by signal: {}".format( as_notice( self._command ), as_error( str(-return_code) ) ) )
+                log_failure_detail()
                 return return_code
             elif return_code > 0:
                 logger.error( "Execution of [{}] returned with error code: {}".format( as_notice( self._command ), as_error( str(return_code) ) ) )
+                log_failure_detail()
                 return return_code
             if self._completion_file:
                 env.Execute( Touch( self._completion_file ) )

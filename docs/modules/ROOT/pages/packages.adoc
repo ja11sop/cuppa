@@ -295,6 +295,31 @@ installed = env.CMakeInstall(
 # env.PublishPackage( installed, publisher )
 ----
 
+Shared libraries that ship host tools (for example a protobuf plugin) should embed
+install RPATH for the packaged `bin/` → `lib/` layout, and a **build-tree** RPATH
+when codegen runs during `CMakeBuild` (tools and `.so` files are often siblings
+under `-B`, not `bin/` / `lib/`):
+
+[source,python]
+----
+from cuppa.buildsys.cmake import cmake_install_rpath_defines, cmake_prefix_path
+
+extra_defines = {
+    'CMAKE_PREFIX_PATH': cmake_prefix_path( protobuf_package_dir ),
+    'BUILD_SHARED_LIBS': True,
+}
+extra_defines.update( cmake_install_rpath_defines(
+    extra_install=[ os.path.join( protobuf_package_dir, 'lib' ) ],
+    extra_build=[ os.path.join( protobuf_package_dir, 'lib' ) ],
+) )
+----
+
+Consumers that `BuildWith` a GitLab package get `lib/` (and `bin/` when present)
+prepended to the construction environment automatically (`LD_LIBRARY_PATH` /
+`DYLD_LIBRARY_PATH` / `PATH`), matching Conan. That covers `--test` / `--run`
+and tools invoked from a package prefix; it does **not** replace build-tree
+RPATH inside the publisher's own unfinished CMake tree.
+
 [NOTE]
 ====
 `GitlabPackagePublisher.build_package` stages include/lib (and modules, when

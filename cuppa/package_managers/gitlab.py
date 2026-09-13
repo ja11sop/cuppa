@@ -1347,6 +1347,14 @@ class GitlabPackageDependency:
             from cuppa.cpp.cxx_modules import load_packaged_modules
             load_packaged_modules( env, modules_dir )
 
+        from cuppa.package_managers.runtime_paths import apply_package_runtime_paths
+        bin_dir = os.path.join( self._package_dir, 'bin' )
+        apply_package_runtime_paths(
+                env,
+                lib_dirs=[ self._lib_dir ],
+                bin_dirs=[ bin_dir ] if os.path.isdir( bin_dir ) else (),
+        )
+
         apply_name = dependency_name or self._package
         from cuppa.package_managers.cuppa_dependency_apply import apply_transitive_build_with
         apply_transitive_build_with(

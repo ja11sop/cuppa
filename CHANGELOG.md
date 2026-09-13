@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- GitLab ``BuildWith`` prepends package ``lib/`` (and ``bin/`` when present) to
+  the construction ``ENV`` via ``apply_package_runtime_paths`` (Conan parity:
+  ``LD_LIBRARY_PATH`` / ``DYLD_LIBRARY_PATH`` / ``PATH``). Shared helper lives in
+  ``cuppa.package_managers.runtime_paths``; Conan ``merge_conan_flags`` uses it
+  too
+  ([`package-runtime-paths`](design/plans/package-runtime-paths.md)).
+- ``cuppa.buildsys.cmake.cmake_prefix_path`` and ``cmake_install_rpath_defines``
+  — publisher helpers for ``CMAKE_PREFIX_PATH`` and install vs build-tree
+  ``$ORIGIN`` RPATH (default ``CMAKE_BUILD_WITH_INSTALL_RPATH=False`` so in-tree
+  plugins beside their ``.so`` resolve during ``CMakeBuild``). Documented on
+  Packages / GitLab consume pages
+  ([`package-runtime-paths`](design/plans/package-runtime-paths.md)).
+- ``cuppa.utility.command.run`` reprints a short **failure detail** block after a
+  non-zero exit (``FAILED:``, ``CMake Error``, shared-library loader errors,
+  ``ninja: build stopped``, compiler ``error:`` lines). Parallel CMake/Ninja
+  builds often bury the real fault under continuing warning floods; the summary
+  keeps those lines visible next to the exit-code message.
 - ``cuppa.buildsys.cmake`` — public CMake argv helpers
   (``cmake_configure_args`` / ``cmake_configure_command`` /
   ``cmake_build_command`` / …) for publisher sconscripts; room for later

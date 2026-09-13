@@ -244,3 +244,30 @@ def test_remove_empty_dirs_names_overrides_gitmodules( tmp_path ):
     )
     assert removed == [ 'grpc-proto' ]
     assert ( third_party / 'abseil-cpp' ).exists()
+
+
+def test_cmake_prefix_path_joins_with_semicolon():
+    assert cmake.cmake_prefix_path( '/a', None, '/b', '' ) == '/a;/b'
+    assert cmake.cmake_prefix_path() == ''
+
+
+def test_cmake_install_rpath_defines_default_build_tree_safe():
+    defines = cmake.cmake_install_rpath_defines(
+            extra_install=[ '/protobuf/lib' ],
+            extra_build=[ '/protobuf/lib' ],
+    )
+    assert defines == {
+            'CMAKE_BUILD_WITH_INSTALL_RPATH': False,
+            'CMAKE_INSTALL_RPATH': '$ORIGIN/../lib;/protobuf/lib',
+            'CMAKE_BUILD_RPATH': '$ORIGIN;/protobuf/lib',
+    }
+
+
+def test_cmake_install_rpath_defines_can_opt_into_install_rpath_during_build():
+    defines = cmake.cmake_install_rpath_defines(
+            build_with_install_rpath=True,
+            build_rpath=None,
+    )
+    assert defines['CMAKE_BUILD_WITH_INSTALL_RPATH'] is True
+    assert defines['CMAKE_INSTALL_RPATH'] == '$ORIGIN/../lib'
+    assert 'CMAKE_BUILD_RPATH' not in defines
