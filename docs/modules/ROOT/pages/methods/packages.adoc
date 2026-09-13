@@ -35,7 +35,7 @@ xref:methods/staging-files.adoc[Staging files], and xref:methods/depends.adoc[De
 | `cmake --build … --target install` (default omits `--parallel`)
 
 | `env.RemoveEmptyDirs(…)`
-| Remove empty submodule placeholder dirs after archive extract (stamped); feed into `CMakeConfigure` when upstream uses a `NOT EXISTS` download gate
+| Remove empty submodule placeholder dirs after archive extract (stamped); `gitmodules=True` or all empty children; `names=` overrides; feed into `CMakeConfigure`
 
 | `env.PublishPackage(…)`
 | Build (and optionally publish) a package; GitLab generic tarball or Conan `export-pkg` via a publisher object; upload requires `--publish-package`

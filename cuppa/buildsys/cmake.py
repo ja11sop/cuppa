@@ -56,30 +56,123 @@ _STDCPP_CXX_STANDARD = {
 }
 
 
-def remove_empty_dirs( parent, names ):
-    """Remove empty immediate subdirectories of ``parent`` named in ``names``.
+def gitmodules_paths( gitmodules_path ):
+    """Return submodule ``path =`` values from a ``.gitmodules`` file.
 
-    Returns the names that were removed, in input order. Non-existent paths and
-    non-empty directories are left untouched.
+    Only reads ``path =`` lines (tolerates tabs/spaces). Missing file → empty
+    list. Does not validate that the paths exist on disk.
+    """
+    path = str( gitmodules_path )
+    if not os.path.isfile( path ):
+        return []
+    paths = []
+    with open( path ) as handle:
+        for line in handle:
+            stripped = line.strip()
+            if not stripped.lower().startswith( 'path' ):
+                continue
+            # path = third_party/foo  OR  path=third_party/foo
+            if '=' not in stripped:
+                continue
+            key, value = stripped.split( '=', 1 )
+            if key.strip().lower() != 'path':
+                continue
+            value = value.strip()
+            if value:
+                paths.append( value )
+    return paths
+
+
+def resolve_gitmodules_path( parent, gitmodules ):
+    """Resolve a ``.gitmodules`` path for ``remove_empty_dirs``.
+
+    ``gitmodules``:
+
+    - ``True``: ``<dirname(parent)>/.gitmodules`` (extract root when
+      ``parent`` is ``…/third_party``)
+    - ``str`` / path: that file
+    - ``False`` / ``None``: no file (caller skips gitmodules filtering)
+    """
+    if not gitmodules:
+        return None
+    if gitmodules is True:
+        return os.path.join(
+                os.path.dirname( os.path.abspath( str( parent ) ) ),
+                '.gitmodules',
+        )
+    return str( gitmodules )
+
+
+def gitmodules_child_names( parent, gitmodules_path ):
+    """Immediate child names of ``parent`` that appear as submodule paths.
+
+    For each ``path =`` in ``.gitmodules`` (repo-relative to the file's
+    directory), if that path resolves to an immediate child of ``parent``,
+    include its basename. Nested submodule paths (for example
+    ``third_party/cares/cares`` when ``parent`` is ``third_party``) are
+    skipped — only direct children are candidates for ``remove_empty_dirs``.
+    """
+    gitmodules_path = str( gitmodules_path )
+    repo_root = os.path.dirname( os.path.abspath( gitmodules_path ) )
+    parent = os.path.abspath( str( parent ) )
+    names = []
+    seen = set()
+    for rel in gitmodules_paths( gitmodules_path ):
+        full = os.path.abspath( os.path.join( repo_root, rel ) )
+        if os.path.dirname( full ) != parent:
+            continue
+        name = os.path.basename( full )
+        if name not in seen:
+            seen.add( name )
+            names.append( name )
+    return names
+
+
+def remove_empty_dirs( parent, names=None, gitmodules=None ):
+    """Remove empty immediate subdirectories of ``parent``.
+
+    Returns the names that were removed, in candidate order. Non-existent
+    paths and non-empty directories are left untouched.
+
+    Candidate selection:
+
+    - ``names`` given (non-``None``): **definitive** — only those names
+      (``gitmodules`` is ignored)
+    - ``names is None`` and ``gitmodules`` set (``True`` or path): only
+      immediate children of ``parent`` listed in that ``.gitmodules``
+    - ``names is None`` and no ``gitmodules``: every empty immediate
+      child of ``parent``
 
     Reach for this after extracting a GitHub (or similar) source archive that
     leaves **empty** submodule placeholders. Some CMake projects only fetch
     those trees when ``NOT EXISTS`` the path (for example gRPC's
-    ``gRPC_DOWNLOAD_ARCHIVES``). An empty directory still exists, so configure
-    fails later with missing files under ``third_party/…``. Remove the empty
-    placeholders for that project's download targets, then let CMake populate
-    them. Prefer ``env.RemoveEmptyDirs`` in a publisher sconscript so the step
-    is a stamped graph node.
+    ``gRPC_DOWNLOAD_ARCHIVES``). Prefer ``env.RemoveEmptyDirs`` so the step
+    is a stamped graph node. Prefer ``gitmodules=True`` when the extract has
+    a root ``.gitmodules``; use an explicit ``names=`` list when you must
+    restrict further.
     """
     removed = []
     parent = str( parent )
-    if not names:
+    if not os.path.isdir( parent ):
         return removed
-    for name in names:
-        path = os.path.join( parent, str( name ) )
+
+    if names is not None:
+        candidates = [ str( name ) for name in names ]
+    else:
+        gitmodules_path = resolve_gitmodules_path( parent, gitmodules )
+        if gitmodules_path is not None:
+            candidates = gitmodules_child_names( parent, gitmodules_path )
+        else:
+            candidates = sorted(
+                    name for name in os.listdir( parent )
+                    if os.path.isdir( os.path.join( parent, name ) )
+            )
+
+    for name in candidates:
+        path = os.path.join( parent, name )
         if os.path.isdir( path ) and not os.listdir( path ):
             os.rmdir( path )
-            removed.append( str( name ) )
+            removed.append( name )
     return removed
 
 

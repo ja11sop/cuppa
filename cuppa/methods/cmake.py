@@ -61,10 +61,16 @@ def _command_nodes( env, target, source, command, working_dir, clean_paths=None 
 
 
 class RemoveEmptyDirsMethod(object):
-    """``env.RemoveEmptyDirs(source, parent=…, names=…, target=…)``.
+    """``env.RemoveEmptyDirs(source, parent=…, names=None, gitmodules=None, …)``.
 
     Stamped graph node that removes empty immediate subdirectories of
-    ``parent`` named in ``names`` (see ``cuppa.buildsys.cmake.remove_empty_dirs``).
+    ``parent`` (see ``cuppa.buildsys.cmake.remove_empty_dirs``).
+
+    - ``names=`` — definitive list (overrides ``gitmodules``)
+    - ``gitmodules=True`` — restrict to submodule paths from
+      ``<dirname(parent)>/.gitmodules`` when ``names`` is omitted
+    - both omitted — every empty immediate child of ``parent``
+
     Use after extracting a source archive whose empty submodule placeholders
     defeat an upstream ``NOT EXISTS`` download gate, then feed the stamp into
     ``CMakeConfigure``'s sources.
@@ -75,16 +81,22 @@ class RemoveEmptyDirsMethod(object):
             env,
             source,
             parent,
-            names,
+            names=None,
+            gitmodules=None,
             target=None,
     ):
         if target is None:
             target = 'remove_empty_dirs.complete'
         parent = str( parent )
-        names = tuple( str( name ) for name in names )
+        if names is not None:
+            names = tuple( str( name ) for name in names )
 
         def _action( target, source, env ):
-            removed = remove_empty_dirs( parent, names )
+            removed = remove_empty_dirs(
+                    parent,
+                    names=names,
+                    gitmodules=gitmodules,
+            )
             with open( str( target[0] ), 'w' ) as stamp:
                 if removed:
                     stamp.write(

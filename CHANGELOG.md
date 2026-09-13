@@ -25,8 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ``cuppa.buildsys.cmake.remove_empty_dirs`` and ``env.RemoveEmptyDirs`` — remove
   empty submodule placeholder directories after a GitHub-style source archive
   extract so upstream ``NOT EXISTS`` download gates (for example gRPC
-  ``gRPC_DOWNLOAD_ARCHIVES``) can populate them. Stamp the step and feed it into
-  ``CMakeConfigure`` sources
+  ``gRPC_DOWNLOAD_ARCHIVES``) can populate them. Prefer ``gitmodules=True`` to
+  limit candidates to paths from the extract's ``.gitmodules``; omit filters to
+  clear every empty child of ``parent``; pass ``names=`` as a definitive list.
+  Stamp the step and feed it into ``CMakeConfigure`` sources
   ([`cmake-drive-and-package-staging`](design/plans/cmake-drive-and-package-staging.md)).
 - Zero-arg ``env.Toolchain()`` / ``env.Variant()`` return the active handles for the current
   toolchain×variant invoke; ``env.HasToolchain(name)`` and ``env.HasDependency(name)`` provide

@@ -514,7 +514,7 @@ a higher-level Option C (`env.CMake*`) — and what that method would need to ab
 | `toolchain-variant-accessors` | Zero-arg `Toolchain()` / `Variant()`; `HasToolchain` / `HasDependency`; deprecate `Using` + keyed `Toolchain`; strip docs; warn at runtime | **Done** (#293) |
 | `cmake-pkg-args-helper` | Option B + unit tests | **Done** on branch / #294 (`minor`) |
 | `cmake-pkg-methods` | Lean Option C: `CMakeConfigure` / `CMakeBuild` / `CMakeInstall` | **In progress** (`minor`) |
-| `cmake-pkg-empty-subdirs` | `remove_empty_dirs` + `env.RemoveEmptyDirs` for archive submodule placeholders | **Done** (`minor` — same Option C surface) |
+| `cmake-pkg-empty-subdirs` | `remove_empty_dirs` + `env.RemoveEmptyDirs`; `gitmodules=True` / all-empty / `names=` override | **Done** (`minor` — same Option C surface) |
 | `package-archive-progress` | Progress / heartbeat while creating large `.tar.gz` / `.zip` | Later (`patch`/`minor`) — project C pain |
 | `package-variant-match` | Document dbg→rel default; opt-in strict/exact | Later (`minor`) |
 | `package-publish-cli` | Namespace-scoped **publish** CLI (e.g. version pin) — see below | Later (`minor`) — not Option C |

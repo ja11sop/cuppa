@@ -183,7 +183,7 @@ def test_remove_empty_dirs_method_registers_command( silence_progress, tmp_path 
             env,
             'extracted',
             parent=str( parent ),
-            names=[ 'grpc-proto', 'googleapis' ],
+            gitmodules=True,
             target='clear.stamp',
     )
     assert nodes == [ 'node:clear.stamp' ]

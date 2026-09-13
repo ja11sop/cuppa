@@ -98,22 +98,21 @@ directory still exists, so configure fails later looking for files under it.
 `cuppa -c` / deleting `_build` does not help: every fresh extract recreates the
 empties.
 
-After extract, call **`env.RemoveEmptyDirs`** with the project's download-target
-directory names, then list the stamp among `CMakeConfigure`'s sources:
+After extract, call **`env.RemoveEmptyDirs`**, then list the stamp among
+`CMakeConfigure`'s sources. Candidate selection:
+
+* `gitmodules=True` — only empty immediate children of `parent` that appear as
+  submodule paths in `<dirname(parent)>/.gitmodules` (good default when the
+  extract has a root `.gitmodules`)
+* omit `names` and `gitmodules` — every empty immediate child of `parent`
+* `names=(…)` — definitive list (overrides `gitmodules`)
 
 [source,python]
 ----
 archives = env.RemoveEmptyDirs(
     extracted,
     parent = os.path.join( working_src, 'third_party' ),
-    names = (
-        'cel-spec',
-        'envoy-api',
-        'googleapis',
-        'grpc-proto',
-        'protoc-gen-validate',
-        'xds',
-    ),
+    gitmodules = True,
     target = 'src/.cuppa_download_archives.stamp',
 )
 configure = env.CMakeConfigure(
@@ -123,10 +122,9 @@ configure = env.CMakeConfigure(
 )
 ----
 
-Or call `cuppa.buildsys.cmake.remove_empty_dirs(parent, names)` from your own
-`Action` if you need a custom stamp. Only remove dirs that match that project's
-download list; leave populated trees (and library submodules you satisfy via
-`*_PROVIDER=package` / system packages) alone.
+Or call `cuppa.buildsys.cmake.remove_empty_dirs(…)` from your own `Action`.
+Populated trees stay; library submodules you satisfy via `*_PROVIDER=package`
+/ system packages do not need to remain as empty placeholders.
 
 ==== Cuppa surface → CMake flag
 

@@ -130,7 +130,7 @@ def test_cmake_configure_command_quotes():
     assert 'Ninja' in tokens
 
 
-def test_remove_empty_dirs( tmp_path ):
+def test_remove_empty_dirs_explicit_names( tmp_path ):
     parent = tmp_path / 'third_party'
     parent.mkdir()
     empty = parent / 'grpc-proto'
@@ -138,20 +138,109 @@ def test_remove_empty_dirs( tmp_path ):
     populated = parent / 'upb'
     populated.mkdir()
     ( populated / 'file.c' ).write_text( 'x\n' )
-    missing_name = 'never-created'
+    other_empty = parent / 'abseil-cpp'
+    other_empty.mkdir()
 
     removed = cmake.remove_empty_dirs(
             parent,
-            [ 'grpc-proto', 'upb', missing_name, 'googleapis' ],
+            names=[ 'grpc-proto', 'upb', 'never-created', 'googleapis' ],
     )
     assert removed == [ 'grpc-proto' ]
     assert not empty.exists()
+    assert other_empty.exists()
     assert populated.exists()
-    assert ( populated / 'file.c' ).exists()
 
 
-def test_remove_empty_dirs_empty_names( tmp_path ):
+def test_remove_empty_dirs_all_empty_children( tmp_path ):
     parent = tmp_path / 'third_party'
     parent.mkdir()
-    assert cmake.remove_empty_dirs( parent, [] ) == []
-    assert cmake.remove_empty_dirs( parent, None ) == []
+    ( parent / 'grpc-proto' ).mkdir()
+    ( parent / 'abseil-cpp' ).mkdir()
+    populated = parent / 'upb'
+    populated.mkdir()
+    ( populated / 'file.c' ).write_text( 'x\n' )
+
+    removed = cmake.remove_empty_dirs( parent )
+    assert removed == [ 'abseil-cpp', 'grpc-proto' ]
+    assert populated.exists()
+    assert not ( parent / 'grpc-proto' ).exists()
+
+
+def test_remove_empty_dirs_empty_names_list( tmp_path ):
+    parent = tmp_path / 'third_party'
+    parent.mkdir()
+    ( parent / 'grpc-proto' ).mkdir()
+    assert cmake.remove_empty_dirs( parent, names=[] ) == []
+    assert ( parent / 'grpc-proto' ).exists()
+
+
+def test_gitmodules_paths_and_child_names( tmp_path ):
+    repo = tmp_path / 'src'
+    third_party = repo / 'third_party'
+    third_party.mkdir( parents=True )
+    gitmodules = repo / '.gitmodules'
+    gitmodules.write_text(
+            '[submodule "third_party/grpc-proto"]\n'
+            '\tpath = third_party/grpc-proto\n'
+            '\turl = https://example.com/grpc-proto.git\n'
+            '[submodule "third_party/cares/cares"]\n'
+            '\tpath = third_party/cares/cares\n'
+            '\turl = https://example.com/cares.git\n'
+            '[submodule "third_party/abseil-cpp"]\n'
+            'path=third_party/abseil-cpp\n'
+    )
+    assert cmake.gitmodules_paths( gitmodules ) == [
+            'third_party/grpc-proto',
+            'third_party/cares/cares',
+            'third_party/abseil-cpp',
+    ]
+    assert cmake.gitmodules_child_names( third_party, gitmodules ) == [
+            'grpc-proto',
+            'abseil-cpp',
+    ]
+
+
+def test_remove_empty_dirs_gitmodules_true( tmp_path ):
+    repo = tmp_path / 'src'
+    third_party = repo / 'third_party'
+    third_party.mkdir( parents=True )
+    ( repo / '.gitmodules' ).write_text(
+            '[submodule "third_party/grpc-proto"]\n'
+            '\tpath = third_party/grpc-proto\n'
+            '[submodule "third_party/abseil-cpp"]\n'
+            '\tpath = third_party/abseil-cpp\n'
+    )
+    ( third_party / 'grpc-proto' ).mkdir()
+    ( third_party / 'abseil-cpp' ).mkdir()
+    stray = third_party / 'not-a-submodule'
+    stray.mkdir()
+    populated = third_party / 'upb'
+    populated.mkdir()
+    ( populated / 'file.c' ).write_text( 'x\n' )
+
+    removed = cmake.remove_empty_dirs( third_party, gitmodules=True )
+    assert removed == [ 'grpc-proto', 'abseil-cpp' ]
+    assert stray.exists()
+    assert populated.exists()
+
+
+def test_remove_empty_dirs_names_overrides_gitmodules( tmp_path ):
+    repo = tmp_path / 'src'
+    third_party = repo / 'third_party'
+    third_party.mkdir( parents=True )
+    ( repo / '.gitmodules' ).write_text(
+            '[submodule "third_party/grpc-proto"]\n'
+            '\tpath = third_party/grpc-proto\n'
+            '[submodule "third_party/abseil-cpp"]\n'
+            '\tpath = third_party/abseil-cpp\n'
+    )
+    ( third_party / 'grpc-proto' ).mkdir()
+    ( third_party / 'abseil-cpp' ).mkdir()
+
+    removed = cmake.remove_empty_dirs(
+            third_party,
+            names=[ 'grpc-proto' ],
+            gitmodules=True,
+    )
+    assert removed == [ 'grpc-proto' ]
+    assert ( third_party / 'abseil-cpp' ).exists()
