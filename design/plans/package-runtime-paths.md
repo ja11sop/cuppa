@@ -1,6 +1,6 @@
 # Package runtime paths (GitLab + CMake publishers)
 
-- **Status:** in progress
+- **Status:** shipped
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.11.0; [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md) (`package-runtime-paths`); [`runtime_paths.py`](../../cuppa/package_managers/runtime_paths.py)
 - **Updated:** 2026-09-13
 - **Impact:** `minor` (new automatic consume-time ENV behaviour + publisher CMake helpers)
@@ -157,8 +157,9 @@ In [`cuppa/buildsys/cmake.py`](../../cuppa/buildsys/cmake.py):
 | Item | State |
 |------|--------|
 | OTel STL package + cloud-cpp soak | Done (private) |
-| Interim LD_LIBRARY_PATH in cloud-cpp / grpc publishers | In place until private cleanup (D) |
+| Interim LD_LIBRARY_PATH in cloud-cpp / grpc publishers | **Removed** (Cuppa BuildWith + `cmake_install_rpath_defines`) |
 | `apply_package_runtime_paths` + GitLab apply | **Done** (Conan refactored onto helper) |
 | `cmake_*` RPATH / prefix helpers | **Done** |
 | Docs / CHANGELOG / tests | **Done** |
-| Private publisher ENV cleanup (D) | Next (after Cuppa lands on develop hosts) |
+| Private publisher ENV cleanup (D) | **Done** |
+| gRPC `<algorithm>` glob.cc patch for old pins | **Removed** (history keeps it; pin stays on current release) |
