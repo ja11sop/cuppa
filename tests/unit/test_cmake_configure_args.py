@@ -128,3 +128,30 @@ def test_cmake_configure_command_quotes():
     assert '/tmp/build dir' in tokens
     assert '-G' in tokens
     assert 'Ninja' in tokens
+
+
+def test_remove_empty_dirs( tmp_path ):
+    parent = tmp_path / 'third_party'
+    parent.mkdir()
+    empty = parent / 'grpc-proto'
+    empty.mkdir()
+    populated = parent / 'upb'
+    populated.mkdir()
+    ( populated / 'file.c' ).write_text( 'x\n' )
+    missing_name = 'never-created'
+
+    removed = cmake.remove_empty_dirs(
+            parent,
+            [ 'grpc-proto', 'upb', missing_name, 'googleapis' ],
+    )
+    assert removed == [ 'grpc-proto' ]
+    assert not empty.exists()
+    assert populated.exists()
+    assert ( populated / 'file.c' ).exists()
+
+
+def test_remove_empty_dirs_empty_names( tmp_path ):
+    parent = tmp_path / 'third_party'
+    parent.mkdir()
+    assert cmake.remove_empty_dirs( parent, [] ) == []
+    assert cmake.remove_empty_dirs( parent, None ) == []

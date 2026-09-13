@@ -22,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tree so ``cuppa -c`` removes out-of-tree builds under location dependencies.
   Antora publisher patterns prefer the methods
   ([`cmake-drive-and-package-staging`](design/plans/cmake-drive-and-package-staging.md)).
+- ``cuppa.buildsys.cmake.remove_empty_dirs`` and ``env.RemoveEmptyDirs`` — remove
+  empty submodule placeholder directories after a GitHub-style source archive
+  extract so upstream ``NOT EXISTS`` download gates (for example gRPC
+  ``gRPC_DOWNLOAD_ARCHIVES``) can populate them. Stamp the step and feed it into
+  ``CMakeConfigure`` sources
+  ([`cmake-drive-and-package-staging`](design/plans/cmake-drive-and-package-staging.md)).
 - Zero-arg ``env.Toolchain()`` / ``env.Variant()`` return the active handles for the current
   toolchain×variant invoke; ``env.HasToolchain(name)`` and ``env.HasDependency(name)`` provide
   registry membership checks (``HasToolchain`` accepts registry key or ``toolchain.name()``).

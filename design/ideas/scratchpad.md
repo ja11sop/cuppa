@@ -2,7 +2,7 @@
 
 - **Status:** living
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md); [`design/README.md`](../README.md) (graduate notes into `plans/` then ROADMAP)
-- **Updated:** 2026-09-06
+- **Updated:** 2026-09-13
 
 Scratchpad for suggestions that may become new plans or updates to existing ones.
 The goal is to turn these notes into actionable, well-understood plan elements.
@@ -44,7 +44,17 @@ behaviour before changing anything. Tracked on ROADMAP as `console-stream-split`
 Assess what is involved and write a plan. Should integrate with the existing GCC/Clang coverage
 reporting path. Deferred while Boost latest persistence and `--list-toolchains` are in flight.
 
-## New plan(s): Dependencies
+## New plan(s): Dependencies / Packages
+
+### Publish-side CLI pins (version, …) — parked on cmake-drive plan
+
+Publisher sconscripts need a temporary **publish** version override for soak
+(older upstream / version-gated patches) without editing the pin. Consume
+already has `--<name>-gitlab-version=`; publish does not. Parked as work slice
+`package-publish-cli` on
+[`plans/cmake-drive-and-package-staging.md`](../plans/cmake-drive-and-package-staging.md)
+(deferred section). Do **not** overload the consume flag. Graduate to its own
+plan only if the slice outgrows that document.
 
 ### GitHub packages (registry consume / publish, like GitLab)
 

@@ -471,6 +471,10 @@ xref:concepts.adoc#sconscript-discovery[Concepts: sconscript discovery and shari
 | `cmake --build … --target install`
 |
 
+| xref:methods/packages.adoc[`RemoveEmptyDirs()`]
+| Remove empty submodule placeholders after archive extract (stamped)
+| See xref:packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build]
+
 | xref:methods/packages.adoc[`PublishPackage()`]
 | Publish staged nodes through a publisher object
 |

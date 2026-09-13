@@ -89,6 +89,45 @@ when you need `Install()` into a package layout under `final/`.
 Lower-level: `cmake_configure_command` / `cmake_build_command` remain available if
 you must hand-wire `env.Command` yourself.
 
+==== Empty submodule placeholders (download archives)
+
+GitHub source archives often leave **empty** directories for git submodules under
+`third_party/`. Some upstream CMake trees only fetch those trees when the path
+does **not** exist (for example gRPC's `gRPC_DOWNLOAD_ARCHIVES`). An empty
+directory still exists, so configure fails later looking for files under it.
+`cuppa -c` / deleting `_build` does not help: every fresh extract recreates the
+empties.
+
+After extract, call **`env.RemoveEmptyDirs`** with the project's download-target
+directory names, then list the stamp among `CMakeConfigure`'s sources:
+
+[source,python]
+----
+archives = env.RemoveEmptyDirs(
+    extracted,
+    parent = os.path.join( working_src, 'third_party' ),
+    names = (
+        'cel-spec',
+        'envoy-api',
+        'googleapis',
+        'grpc-proto',
+        'protoc-gen-validate',
+        'xds',
+    ),
+    target = 'src/.cuppa_download_archives.stamp',
+)
+configure = env.CMakeConfigure(
+    [ extracted, archives ],
+    working_dir = extraction_folder,
+    # …
+)
+----
+
+Or call `cuppa.buildsys.cmake.remove_empty_dirs(parent, names)` from your own
+`Action` if you need a custom stamp. Only remove dirs that match that project's
+download list; leave populated trees (and library submodules you satisfy via
+`*_PROVIDER=package` / system packages) alone.
+
 ==== Cuppa surface → CMake flag
 
 The active toolchain and variant are bound on each sconscript `env` for the current

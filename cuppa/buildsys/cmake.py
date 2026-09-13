@@ -16,9 +16,13 @@ Public API for publisher sconscripts. Option B covers configure flags;
 can pass plain mappings; sconscript authors still use ``env.Toolchain()`` /
 ``env.Variant()`` elsewhere.
 
+Also: ``remove_empty_dirs`` (and ``env.RemoveEmptyDirs``) for GitHub archive
+submodule placeholders that defeat ``NOT EXISTS`` download gates.
+
 Future siblings (for example ``cuppa.buildsys.b2``) belong in this package.
 """
 
+import os
 import shlex
 
 
@@ -50,6 +54,33 @@ _STDCPP_CXX_STANDARD = {
         'c++26': 26,
         # c++latest: omit — not a portable CMAKE_CXX_STANDARD value
 }
+
+
+def remove_empty_dirs( parent, names ):
+    """Remove empty immediate subdirectories of ``parent`` named in ``names``.
+
+    Returns the names that were removed, in input order. Non-existent paths and
+    non-empty directories are left untouched.
+
+    Reach for this after extracting a GitHub (or similar) source archive that
+    leaves **empty** submodule placeholders. Some CMake projects only fetch
+    those trees when ``NOT EXISTS`` the path (for example gRPC's
+    ``gRPC_DOWNLOAD_ARCHIVES``). An empty directory still exists, so configure
+    fails later with missing files under ``third_party/…``. Remove the empty
+    placeholders for that project's download targets, then let CMake populate
+    them. Prefer ``env.RemoveEmptyDirs`` in a publisher sconscript so the step
+    is a stamped graph node.
+    """
+    removed = []
+    parent = str( parent )
+    if not names:
+        return removed
+    for name in names:
+        path = os.path.join( parent, str( name ) )
+        if os.path.isdir( path ) and not os.listdir( path ):
+            os.rmdir( path )
+            removed.append( str( name ) )
+    return removed
 
 
 def cmake_build_type_for_variant( variant_name ):

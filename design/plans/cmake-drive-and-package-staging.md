@@ -2,8 +2,8 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.11.0 / [#209](https://github.com/ja11sop/cuppa/issues/209); [`cmake-to-cuppa-migration.md`](cmake-to-cuppa-migration.md) (migrate *onto* Cuppa — orthogonal); packages / custom-commands Antora; [`gitlab.py`](../../cuppa/package_managers/gitlab.py) `GitlabPackagePublisher`; preferred `Toolchain()`/`Variant()`, `Has*` inspection, deprecate `Using` / keyed `Toolchain`
-- **Updated:** 2026-09-11
-- **Impact:** staging refresh `patch` (`cmake-pkg-stage-min` done); accessors done (#293); Option B helper `minor` (#294); Option C methods `minor` (in progress); package archive progress + variant match later; in-place packaging later (power-user / E)
+- **Updated:** 2026-09-13
+- **Impact:** staging refresh `patch` (`cmake-pkg-stage-min` done); accessors done (#293); Option B helper `minor` (#294); Option C methods `minor` (in progress); `RemoveEmptyDirs` / `remove_empty_dirs` done (`cmake-pkg-empty-subdirs`); package archive progress + variant match later; in-place packaging later (power-user / E); publish-side CLI pins later (`package-publish-cli`)
 
 ## Intent
 
@@ -514,11 +514,38 @@ a higher-level Option C (`env.CMake*`) — and what that method would need to ab
 | `toolchain-variant-accessors` | Zero-arg `Toolchain()` / `Variant()`; `HasToolchain` / `HasDependency`; deprecate `Using` + keyed `Toolchain`; strip docs; warn at runtime | **Done** (#293) |
 | `cmake-pkg-args-helper` | Option B + unit tests | **Done** on branch / #294 (`minor`) |
 | `cmake-pkg-methods` | Lean Option C: `CMakeConfigure` / `CMakeBuild` / `CMakeInstall` | **In progress** (`minor`) |
+| `cmake-pkg-empty-subdirs` | `remove_empty_dirs` + `env.RemoveEmptyDirs` for archive submodule placeholders | **Done** (`minor` — same Option C surface) |
 | `package-archive-progress` | Progress / heartbeat while creating large `.tar.gz` / `.zip` | Later (`patch`/`minor`) — project C pain |
 | `package-variant-match` | Document dbg→rel default; opt-in strict/exact | Later (`minor`) |
+| `package-publish-cli` | Namespace-scoped **publish** CLI (e.g. version pin) — see below | Later (`minor`) — not Option C |
 | `cmake-pkg-dep-wire` | Antora: package dep + project-include / `extra_defines` pattern (Corosio-shaped) | Later (docs from smoke) |
 | `cmake-pkg-stage-inplace` | Opt-in no-double-copy packaging (E) — large install-prefix | Side quest when disk/time friction appears |
 | (later) Option C polish | MSVC multi-config escape hatch | After lean C |
+
+### Deferred — publish-side CLI pins (`package-publish-cli`)
+
+**Pain (2026-09):** third-party publishers hardcode `version = '…'` in the sconscript.
+Soak workflows want a temporary pin (test an older upstream, verify a version-gated
+patch) without editing the file. Today that is a sconscript edit or ad-hoc
+`ARGUMENTS`.
+
+**Already exists (consume only):** `GitlabPackageDependency` registers
+`--<name>-gitlab-version=` (and registry / package / variant / develop / OS /
+toolchain overrides). Those override what a project **downloads**, not what a
+publisher **builds and uploads**. `GitlabPackagePublisher` has no matching
+`AddOption` family.
+
+**Refuse:** overloading `--<name>-gitlab-version` for publish when the same tree
+`BuildWith`s that name — “consume pin” and “publish pin” must stay distinct.
+
+**Sketch (TBD when sliced):** namespace-scoped publish options next to
+`PublishPackage` / publisher construction, e.g. `--publish-version=` and/or
+`--<package>-publish-version=` (exact spelling later), resolved as
+`version = env.get_option(…) or '<default in sconscript>'`. Document under
+Packages (publish), not the consume CLI table. Conan publisher parity if the
+same soak pattern appears there.
+
+Until then: temporary sconscript edit is the supported escape hatch.
 
 ## Acceptance
 

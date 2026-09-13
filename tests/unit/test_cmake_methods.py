@@ -13,6 +13,7 @@ from cuppa.methods.cmake import (
         CMakeBuildMethod,
         CMakeConfigureMethod,
         CMakeInstallMethod,
+        RemoveEmptyDirsMethod,
 )
 
 
@@ -172,3 +173,23 @@ def test_cmake_install_method_default_omits_parallel( silence_progress ):
     assert shlex.split( env.commands[0]['action']._command ) == [
             'cmake', '--build', '_build/x', '--target', 'install',
     ]
+
+
+def test_remove_empty_dirs_method_registers_command( silence_progress, tmp_path ):
+    env = _RecordingEnv( _env() )
+    parent = tmp_path / 'third_party'
+    parent.mkdir()
+    nodes = RemoveEmptyDirsMethod()(
+            env,
+            'extracted',
+            parent=str( parent ),
+            names=[ 'grpc-proto', 'googleapis' ],
+            target='clear.stamp',
+    )
+    assert nodes == [ 'node:clear.stamp' ]
+    assert len( env.commands ) == 1
+    assert env.commands[0]['target'] == 'clear.stamp'
+    assert env.commands[0]['source'] == 'extracted'
+    assert callable( env.commands[0]['action'] ) or hasattr(
+            env.commands[0]['action'], '__call__'
+    )

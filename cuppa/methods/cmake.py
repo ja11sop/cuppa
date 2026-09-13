@@ -12,9 +12,13 @@
 Compose Option B helpers (``cmake_configure_command`` / ``cmake_build_command``)
 with ``cuppa.utility.command.run`` and ``env.Command``. Callers still own
 acquire, copy/Install into a package layout, and ``PublishPackage``.
+``env.RemoveEmptyDirs`` clears empty submodule placeholders before configure
+when an upstream ``NOT EXISTS`` download gate would otherwise skip them.
 """
 
 import os
+
+from SCons.Script import Action
 
 import cuppa.progress
 
@@ -23,6 +27,7 @@ from cuppa.buildsys.cmake import (
         cmake_build_command,
         cmake_build_jobs,
         cmake_configure_command,
+        remove_empty_dirs,
 )
 
 
@@ -53,6 +58,57 @@ def _command_nodes( env, target, source, command, working_dir, clean_paths=None 
                 env.Clean( nodes, path )
     cuppa.progress.NotifyProgress.add( env, nodes )
     return nodes
+
+
+class RemoveEmptyDirsMethod(object):
+    """``env.RemoveEmptyDirs(source, parent=…, names=…, target=…)``.
+
+    Stamped graph node that removes empty immediate subdirectories of
+    ``parent`` named in ``names`` (see ``cuppa.buildsys.cmake.remove_empty_dirs``).
+    Use after extracting a source archive whose empty submodule placeholders
+    defeat an upstream ``NOT EXISTS`` download gate, then feed the stamp into
+    ``CMakeConfigure``'s sources.
+    """
+
+    def __call__(
+            self,
+            env,
+            source,
+            parent,
+            names,
+            target=None,
+    ):
+        if target is None:
+            target = 'remove_empty_dirs.complete'
+        parent = str( parent )
+        names = tuple( str( name ) for name in names )
+
+        def _action( target, source, env ):
+            removed = remove_empty_dirs( parent, names )
+            with open( str( target[0] ), 'w' ) as stamp:
+                if removed:
+                    stamp.write(
+                            'removed empty dirs: {names}\n'
+                            .format( names=', '.join( removed ) )
+                    )
+                else:
+                    stamp.write( 'no empty dirs to remove\n' )
+            return 0
+
+        nodes = env.Command(
+                target,
+                source,
+                Action(
+                        _action,
+                        'Removing empty directories under [{}]'.format( parent ),
+                ),
+        )
+        cuppa.progress.NotifyProgress.add( env, nodes )
+        return nodes
+
+    @classmethod
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( 'RemoveEmptyDirs', cls() )
 
 
 class CMakeConfigureMethod(object):
