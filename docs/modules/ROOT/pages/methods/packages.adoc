@@ -25,6 +25,12 @@ xref:methods/staging-files.adoc[Staging files], and xref:methods/depends.adoc[De
 |===
 | Method | Role
 
+| `env.DownloadExtract(…)`
+| Download a URL archive into the variant tree, extract, stamp a marker (default `CMakeLists.txt`)
+
+| `env.RemoveEmptyDirs(…)`
+| Remove empty submodule placeholder dirs after archive extract (stamped); `gitmodules=True` or all empty children; `names=` overrides
+
 | `env.CMakeConfigure(…)`
 | Configure an external CMake project (toolchain/variant flags via `cuppa.buildsys.cmake`)
 
@@ -33,9 +39,6 @@ xref:methods/staging-files.adoc[Staging files], and xref:methods/depends.adoc[De
 
 | `env.CMakeInstall(…)`
 | `cmake --build … --target install` (default omits `--parallel`)
-
-| `env.RemoveEmptyDirs(…)`
-| Remove empty submodule placeholder dirs after archive extract (stamped); `gitmodules=True` or all empty children; `names=` overrides; feed into `CMakeConfigure`
 
 | `env.PublishPackage(…)`
 | Build (and optionally publish) a package; GitLab generic tarball or Conan `export-pkg` via a publisher object; upload requires `--publish-package`

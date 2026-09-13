@@ -9,18 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``env.DownloadExtract`` — download a URL archive with Cuppa progress, extract
+  into a working directory (default ``strip_components=1`` for GitHub release
+  tarballs), and stamp a marker file. Lives with ``env.RemoveEmptyDirs`` under
+  ``cuppa.methods.acquire`` / ``cuppa.buildsys.acquire`` (build-system agnostic
+  acquire/staging; not CMake-specific). ``remove_empty_dirs`` moves to
+  ``buildsys.acquire`` and is re-exported from ``buildsys.cmake`` for one cycle
+  ([`download-extract`](design/archive/download-extract.md)).
 - GitLab ``BuildWith`` prepends package ``lib/`` (and ``bin/`` when present) to
   the construction ``ENV`` via ``apply_package_runtime_paths`` (Conan parity:
   ``LD_LIBRARY_PATH`` / ``DYLD_LIBRARY_PATH`` / ``PATH``). Shared helper lives in
   ``cuppa.package_managers.runtime_paths``; Conan ``merge_conan_flags`` uses it
   too
-  ([`package-runtime-paths`](design/plans/package-runtime-paths.md)).
+  ([`package-runtime-paths`](design/archive/package-runtime-paths.md)).
 - ``cuppa.buildsys.cmake.cmake_prefix_path`` and ``cmake_install_rpath_defines``
   — publisher helpers for ``CMAKE_PREFIX_PATH`` and install vs build-tree
   ``$ORIGIN`` RPATH (default ``CMAKE_BUILD_WITH_INSTALL_RPATH=False`` so in-tree
   plugins beside their ``.so`` resolve during ``CMakeBuild``). Documented on
   Packages / GitLab consume pages
-  ([`package-runtime-paths`](design/plans/package-runtime-paths.md)).
+  ([`package-runtime-paths`](design/archive/package-runtime-paths.md)).
 - ``cuppa.utility.command.run`` reprints a short **failure detail** block after a
   non-zero exit (``FAILED:``, ``CMake Error``, shared-library loader errors,
   ``ninja: build stopped``, compiler ``error:`` lines). Parallel CMake/Ninja

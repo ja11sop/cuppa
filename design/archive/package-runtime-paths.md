@@ -1,7 +1,7 @@
 # Package runtime paths (GitLab + CMake publishers)
 
 - **Status:** shipped
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.11.0; [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md) (`package-runtime-paths`); [`runtime_paths.py`](../../cuppa/package_managers/runtime_paths.py)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.11.0; [`cmake-drive-and-package-staging.md`](../plans/cmake-drive-and-package-staging.md) (`package-runtime-paths`); [`runtime_paths.py`](../../cuppa/package_managers/runtime_paths.py)
 - **Updated:** 2026-09-13
 - **Impact:** `minor` (new automatic consume-time ENV behaviour + publisher CMake helpers)
 
@@ -137,7 +137,7 @@ In [`cuppa/buildsys/cmake.py`](../../cuppa/buildsys/cmake.py):
 
 ### E. Plan / changelog / tests
 
-- Slice on [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md):
+- Slice on [`cmake-drive-and-package-staging.md`](../plans/cmake-drive-and-package-staging.md):
   `package-runtime-paths` (`minor`).
 - Unit tests: helper prepends Linux/Darwin/Windows keys; GitLab
   `initialise_build_variant` mock sets `ENV`.

@@ -10,7 +10,8 @@
 """Public helpers for driving external build systems from Cuppa sconscripts.
 
 Prefer ``cuppa.buildsys.cmake`` for CMake argv helpers and
-``remove_empty_dirs``. Graph methods live in ``cuppa.methods.cmake``
-(``env.CMakeConfigure`` / ``CMakeBuild`` / ``CMakeInstall`` /
+``cuppa.buildsys.acquire`` for download/extract and empty-dir staging.
+Graph methods: ``cuppa.methods.cmake`` (``CMakeConfigure`` / ``CMakeBuild`` /
+``CMakeInstall``) and ``cuppa.methods.acquire`` (``DownloadExtract`` /
 ``RemoveEmptyDirs``).
 """

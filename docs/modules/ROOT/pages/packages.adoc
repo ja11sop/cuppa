@@ -89,12 +89,32 @@ when you need `Install()` into a package layout under `final/`.
 Lower-level: `cmake_configure_command` / `cmake_build_command` remain available if
 you must hand-wire `env.Command` yourself.
 
-==== Empty submodule placeholders (download archives)
+==== Acquiring upstream source (`DownloadExtract`)
+
+Publisher sconscripts often start from a GitHub release tarball. Prefer
+**`env.DownloadExtract`** over hand-rolled `wget` / `tar` `Command` strings — Cuppa
+uses the shared download progress reporter and stamps a marker file under the
+extract directory:
+
+[source,python]
+----
+extracted = env.DownloadExtract(
+    'https://github.com/example/widget/archive/v1.0.0.tar.gz',
+    extract_dir = 'widget',
+    marker = 'CMakeLists.txt',   # default
+    strip_components = 1,        # default (GitHub nests sources one level deep)
+)
+----
+
+Feed `extracted` into `RemoveEmptyDirs` and/or `CMakeConfigure`. The method
+registers `Clean` on `extract_dir`.
+
+==== Empty submodule placeholders (`RemoveEmptyDirs`)
 
 GitHub source archives often leave **empty** directories for git submodules under
-`third_party/`. Some upstream CMake trees only fetch those trees when the path
-does **not** exist (for example gRPC's `gRPC_DOWNLOAD_ARCHIVES`). An empty
-directory still exists, so configure fails later looking for files under it.
+`third_party/`. Some upstream trees only fetch those paths when they do **not**
+exist (for example gRPC's `gRPC_DOWNLOAD_ARCHIVES`). An empty directory still
+exists, so configure fails later looking for files under it.
 `cuppa -c` / deleting `_build` does not help: every fresh extract recreates the
 empties.
 
@@ -122,7 +142,8 @@ configure = env.CMakeConfigure(
 )
 ----
 
-Or call `cuppa.buildsys.cmake.remove_empty_dirs(…)` from your own `Action`.
+Or call `cuppa.buildsys.acquire.remove_empty_dirs(…)` from your own `Action`
+(`cuppa.buildsys.cmake.remove_empty_dirs` still re-exports the same helper).
 Populated trees stay; library submodules you satisfy via `*_PROVIDER=package`
 / system packages do not need to remain as empty placeholders.
 

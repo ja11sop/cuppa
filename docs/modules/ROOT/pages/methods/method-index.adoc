@@ -459,6 +459,14 @@ xref:concepts.adoc#sconscript-discovery[Concepts: sconscript discovery and shari
 |===
 | Method | Description | Notes
 
+| xref:methods/packages.adoc[`DownloadExtract()`]
+| Download URL archive, extract, stamp marker (default `CMakeLists.txt`)
+| Acquire helper; see xref:packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build]
+
+| xref:methods/packages.adoc[`RemoveEmptyDirs()`]
+| Remove empty submodule placeholders after archive extract (stamped)
+| Acquire helper; often before `CMakeConfigure`
+
 | xref:methods/packages.adoc[`CMakeConfigure()`]
 | Configure an external CMake tree (Cuppa toolchain/variant → CMake flags)
 | See xref:packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build]
@@ -470,10 +478,6 @@ xref:concepts.adoc#sconscript-discovery[Concepts: sconscript discovery and shari
 | xref:methods/packages.adoc[`CMakeInstall()`]
 | `cmake --build … --target install`
 |
-
-| xref:methods/packages.adoc[`RemoveEmptyDirs()`]
-| Remove empty submodule placeholders after archive extract (stamped)
-| See xref:packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build]
 
 | xref:methods/packages.adoc[`PublishPackage()`]
 | Publish staged nodes through a publisher object

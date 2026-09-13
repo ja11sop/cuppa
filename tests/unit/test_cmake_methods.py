@@ -13,8 +13,8 @@ from cuppa.methods.cmake import (
         CMakeBuildMethod,
         CMakeConfigureMethod,
         CMakeInstallMethod,
-        RemoveEmptyDirsMethod,
 )
+from cuppa.methods.acquire import RemoveEmptyDirsMethod
 
 
 pytestmark = pytest.mark.unit

@@ -49,7 +49,7 @@ Prefer Cuppa's specialised methods when they fit:
 
 | External CMake configure / build / install
 | `CMakeConfigure()` / `CMakeBuild()` / `CMakeInstall()` /
-  `RemoveEmptyDirs()` —
+  `DownloadExtract()` / `RemoveEmptyDirs()` —
   xref:packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build]
 |===
 
