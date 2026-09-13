@@ -10,9 +10,12 @@ from pathlib import Path
 
 import pytest
 
+from types import SimpleNamespace
+
 from cuppa.package_managers.cuppa_dependency_manifest import (
     MANIFEST_FILENAME,
     build_manifest,
+    fill_dependency_versions,
     normalise_dependency_entry,
     read_manifest,
     write_manifest,
@@ -86,9 +89,37 @@ def test_read_rejects_bad_format( tmp_path: Path ):
         read_manifest( str( tmp_path ) )
 
 
-def test_normalise_rejects_missing_name():
-    with pytest.raises( ValueError, match="missing 'name'" ):
-        normalise_dependency_entry( { "package": "fmt", "version": "1" } )
+def test_normalise_rejects_missing_name_and_package():
+    with pytest.raises( ValueError, match="name' and/or 'package'" ):
+        normalise_dependency_entry( { "version": "1" } )
+
+
+def test_normalise_name_only_derives_hyphen_slug():
+    entry = normalise_dependency_entry( {
+        "name": "opentelemetry_cpp",
+        "version": "1.28.0",
+    } )
+    assert entry["name"] == "opentelemetry_cpp"
+    assert entry["package"] == "opentelemetry-cpp"
+    assert entry["registry"] == "same"
+
+
+def test_normalise_package_only_derives_snake_name():
+    entry = normalise_dependency_entry( {
+        "package": "opentelemetry-cpp",
+        "version": "1.28.0",
+    } )
+    assert entry["name"] == "opentelemetry_cpp"
+    assert entry["package"] == "opentelemetry-cpp"
+
+
+def test_normalise_empty_registry_becomes_same():
+    entry = normalise_dependency_entry( {
+        "name": "fmt",
+        "version": "1",
+        "registry": "",
+    } )
+    assert entry["registry"] == "same"
 
 
 def test_normalise_object_entry():
@@ -158,3 +189,94 @@ def test_build_manifest_from_objects():
 
     document = build_manifest( [ Dep() ] )
     assert document["dependencies"][0]["name"] == "fmt"
+
+
+def test_fill_dependency_versions_from_build_with( tmp_path: Path ):
+    class Package:
+        def package_dir( self ):
+            return str( tmp_path )
+
+        def version( self ):
+            return "36.1"
+
+    class Wrapper:
+        def package( self ):
+            return Package()
+
+    env = SimpleNamespace( BuildWith=lambda name: Wrapper() )
+    deps = [
+        { "name": "protobuf", "package": "protobuf", "registry": "same" },
+        {
+            "name": "grpc",
+            "package": "grpc",
+            "version": "1.84.0",
+            "registry": "same",
+        },
+    ]
+    filled = fill_dependency_versions( env, deps )
+    assert filled[0]["version"] == "36.1"
+    assert filled[1]["version"] == "1.84.0"
+    assert deps[0].get( "version" ) is None
+
+
+def test_write_manifest_fills_version_when_env_given( tmp_path: Path ):
+    class Package:
+        def package_dir( self ):
+            return str( tmp_path )
+
+        def version( self ):
+            return "12.1.0"
+
+    class Wrapper:
+        def package( self ):
+            return Package()
+
+    env = SimpleNamespace( BuildWith=lambda name: Wrapper() )
+    path = write_manifest(
+            str( tmp_path ),
+            [ { "name": "fmt", "package": "fmt", "registry": "same" } ],
+            env=env,
+    )
+    assert path is not None
+    loaded = read_manifest( str( tmp_path ) )
+    assert loaded["dependencies"][0]["version"] == "12.1.0"
+
+
+def test_write_manifest_bare_strings_and_hyphen_slug( tmp_path: Path ):
+    versions = {
+        "protobuf": "36.1",
+        "opentelemetry_cpp": "1.28.0",
+    }
+
+    class Package:
+        def __init__( self, version ):
+            self._version = version
+
+        def package_dir( self ):
+            return str( tmp_path )
+
+        def version( self ):
+            return self._version
+
+    class Wrapper:
+        def __init__( self, version ):
+            self._package = Package( version )
+
+        def package( self ):
+            return self._package
+
+    env = SimpleNamespace(
+            BuildWith=lambda name: Wrapper( versions[name] ),
+    )
+    path = write_manifest(
+            str( tmp_path ),
+            [ "protobuf", "opentelemetry_cpp" ],
+            env=env,
+    )
+    assert path is not None
+    loaded = read_manifest( str( tmp_path ) )
+    deps = { item["name"]: item for item in loaded["dependencies"] }
+    assert deps["protobuf"]["package"] == "protobuf"
+    assert deps["protobuf"]["version"] == "36.1"
+    assert deps["opentelemetry_cpp"]["package"] == "opentelemetry-cpp"
+    assert deps["opentelemetry_cpp"]["version"] == "1.28.0"

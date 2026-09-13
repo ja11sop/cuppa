@@ -34,8 +34,15 @@ Add `--publish-package` to upload it to the GitLab generic registry.
 
 Pass ``dependencies=[...]`` to ``GitlabPackagePublisher`` when package **A** needs other GitLab
 packages at include or link time. Cuppa writes ``cuppa-dependency.json`` into the staged package
-directory (next to ``include/`` / ``lib/``) before creating the archive. Omit the argument when
-there are no edges — no manifest file is written, matching today's standalone packages.
+directory (next to ``include/`` / ``lib/``) before creating the archive. Entries may be bare
+BuildWith **names** (``'protobuf'``), partial dicts, or mixed. When only ``name`` is given,
+``package`` defaults to the hyphenated form (``opentelemetry_cpp`` → ``opentelemetry-cpp``);
+when only ``package`` is given, ``name`` defaults the other way. Pass both when the slug is not
+that transform (for example Boost). You may omit ``version`` when those packages are already on
+the env via ``BuildWith`` / ``auto_enable_dependencies`` — the publisher fills the pin from the
+active package object at package time. An explicit ``version`` still wins. Empty or omitted
+``registry`` means ``same``. Omit the argument when there are no edges — no manifest file is
+written, matching today's standalone packages.
 
 [source,python]
 ----
@@ -47,13 +54,8 @@ publisher = GitlabPackagePublisher(
     package            = 'widget',
     version            = '1.0.0',
     dependencies = [
-        {
-            'name': 'fmt',
-            'package': 'fmt',
-            'version': '12.1.0',
-            'registry': 'same',
-            'use_libs': ['fmt'],
-        },
+        'fmt',
+        { 'name': 'boost_package', 'package': 'boost', 'use_libs': ['system'] },
     ],
 )
 env.PublishPackage(lib, publisher)
@@ -213,8 +215,9 @@ the active handle (that form is deprecated; use `HasToolchain(name)` for registr
   under SCons `-j` at once; use `jobs=` then.
 
 | Generator (`-G Ninja`, …)
-| Author choice (`generator=` on `CMakeConfigure`)
-| Common on Linux; not required by Cuppa
+| Default: `Ninja` when `ninja` is on `PATH`; else omit `-G`. Pass
+  `generator='…'` to force a generator, or `generator=False` to omit `-G`
+| Shared by `cmake_configure_args` and `env.CMakeConfigure`
 
 | `cuppa -c` / SCons clean
 | Removes configure/build/install stamps **and** the CMake `-B` tree
@@ -253,7 +256,6 @@ configure = env.CMakeConfigure(
     widget_src,
     working_dir = widget_src,
     build_dir = cmake_build_dir,
-    generator = 'Ninja',
     extra_defines = { 'WIDGET_BUILD_TESTS': False },
 )
 built = env.CMakeBuild(
@@ -323,17 +325,25 @@ under `-B`, not `bin/` / `lib/`):
 
 [source,python]
 ----
-from cuppa.buildsys.cmake import cmake_install_rpath_defines, cmake_prefix_path
+from cuppa.buildsys.cmake import cmake_install_rpath_defines
 
+# Prefer env.CMakePrefixPathFor / env.PackageBin / env.PackageLib when prefixes
+# come from BuildWith packages (order matters for find_package — more specific first).
+# CMakeConfigure picks Ninja when ninja is on PATH (generator=False to omit -G).
+protobuf_lib = env.PackageLib( 'protobuf' )
 extra_defines = {
-    'CMAKE_PREFIX_PATH': cmake_prefix_path( protobuf_package_dir ),
+    'CMAKE_PREFIX_PATH': env.CMakePrefixPathFor( 'protobuf' ),
+    'Protobuf_PROTOC_EXECUTABLE': env.PackageBin( 'protobuf', 'protoc' ),
     'BUILD_SHARED_LIBS': True,
 }
 extra_defines.update( cmake_install_rpath_defines(
-    extra_install=[ os.path.join( protobuf_package_dir, 'lib' ) ],
-    extra_build=[ os.path.join( protobuf_package_dir, 'lib' ) ],
+    extra_install=[ protobuf_lib ],
+    extra_build=[ protobuf_lib ],
 ) )
 ----
+
+Raw absolute dirs still work with `cmake_prefix_path(dir_a, dir_b)` when you are
+not resolving through `BuildWith`.
 
 Consumers that `BuildWith` a GitLab package get `lib/` (and `bin/` when present)
 prepended to the construction environment automatically (`LD_LIBRARY_PATH` /

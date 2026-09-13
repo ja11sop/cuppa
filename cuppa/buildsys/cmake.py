@@ -16,8 +16,12 @@ Public API for publisher sconscripts. Option B covers configure flags;
 can pass plain mappings; sconscript authors still use ``env.Toolchain()`` /
 ``env.Variant()`` elsewhere.
 
-Also: ``cmake_prefix_path`` / ``cmake_install_rpath_defines`` for shared-package
-``CMAKE_PREFIX_PATH`` and install vs build-tree RPATH.
+Also: ``cmake_prefix_path`` / ``cmake_prefix_path_for`` /
+``cmake_install_rpath_defines`` / ``resolve_cmake_generator`` for shared-package
+``CMAKE_PREFIX_PATH``, install vs build-tree RPATH, and default ``-G Ninja``
+when ``ninja`` is on ``PATH``. Package path lookup lives in
+``cuppa.package_managers.package_paths``; prefer ``env.CMakePrefixPathFor`` /
+``env.PackageBin`` from sconscripts.
 
 Acquire / staging helpers (``remove_empty_dirs``, ``env.DownloadExtract``,
 ``env.RemoveEmptyDirs``) live in ``cuppa.buildsys.acquire`` /
@@ -50,7 +54,9 @@ __all__ = [
         'cmake_build_args',
         'cmake_build_command',
         'cmake_prefix_path',
+        'cmake_prefix_path_for',
         'cmake_install_rpath_defines',
+        'resolve_cmake_generator',
 ]
 
 
@@ -150,7 +156,8 @@ def cmake_configure_args(
     Parameters mirror the Antora Cuppa→CMake mapping:
 
     - ``build_dir`` / ``source_dir`` → ``-B`` / ``-S``
-    - ``generator`` → ``-G``
+    - ``generator`` → ``-G`` via :func:`resolve_cmake_generator` (``None`` =
+      Ninja when ``ninja`` is on ``PATH``; ``False`` = omit ``-G``)
     - active variant → ``-DCMAKE_BUILD_TYPE=…`` (``dbg``/``rel``/``cov``; omit if
       unknown unless you set ``include_build_type=False``)
     - active toolchain ``.binary()`` (else ``env['CXX']``) → ``CMAKE_CXX_COMPILER``
@@ -167,8 +174,9 @@ def cmake_configure_args(
         args.extend( [ '-S', str( source_dir ) ] )
     if build_dir is not None:
         args.extend( [ '-B', str( build_dir ) ] )
-    if generator is not None:
-        args.extend( [ '-G', str( generator ) ] )
+    resolved_generator = resolve_cmake_generator( generator )
+    if resolved_generator is not None:
+        args.extend( [ '-G', str( resolved_generator ) ] )
 
     if include_build_type:
         build_type = cmake_build_type_for_variant( _variant_name( env ) )
@@ -250,14 +258,49 @@ def cmake_build_command( build_dir, jobs=None, target=None, cmake='cmake' ):
     return ' '.join( shlex.quote( str( token ) ) for token in tokens )
 
 
+def resolve_cmake_generator( generator=None ):
+    """Resolve a CMake ``-G`` value, or ``None`` to omit ``-G``.
+
+    - ``None`` (default): ``Ninja`` when ``ninja`` is on ``PATH``, else omit
+    - ``False``: always omit ``-G`` (CMake's own default generator)
+    - other values: ``str(generator)`` as the exact ``-G`` argument
+    """
+    if generator is False:
+        return None
+    if generator is None:
+        import shutil
+        if shutil.which( 'ninja' ):
+            return 'Ninja'
+        return None
+    return str( generator )
+
+
 def cmake_prefix_path( *dirs ):
     """Return a ``CMAKE_PREFIX_PATH`` value (CMake ``;``-joined).
 
     Empty or ``None`` entries are skipped. Suitable for
     ``extra_defines={'CMAKE_PREFIX_PATH': cmake_prefix_path(a, b)}``.
+    Prefer ``env.CMakePrefixPathFor(*names)`` /
+    ``cmake_prefix_path_for(env, *names)`` when the dirs come from
+    ``BuildWith`` packages.
     """
     parts = [ str( path ) for path in dirs if path ]
     return ';'.join( parts )
+
+
+def cmake_prefix_path_for( env, *package_names ):
+    """``CMAKE_PREFIX_PATH`` from ``BuildWith`` package roots (order preserved).
+
+    Each argument may be a BuildWith name string or a dependency object.
+    First match wins for CMake ``find_package`` when prefixes overlap — put
+    more specific packages first (for example OpenTelemetry before gRPC
+    before Protobuf). Prefer ``env.CMakePrefixPathFor`` from sconscripts.
+    """
+    from cuppa.package_managers.package_paths import package_dir
+
+    return cmake_prefix_path(
+            *( package_dir( env, name ) for name in package_names )
+    )
 
 
 def cmake_install_rpath_defines(

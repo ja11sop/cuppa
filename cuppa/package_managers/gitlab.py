@@ -650,6 +650,7 @@ class GitlabPackagePublisher:
         manifest_path_written = write_manifest(
                 str( self._package_base_dir ),
                 getattr( self, '_dependencies', None ),
+                env=env,
         )
         if manifest_path_written:
             logger.info( "Wrote [{}] for package [{}]".format(

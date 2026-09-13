@@ -324,21 +324,25 @@ publisher = GitlabPackagePublisher(
     package            = 'widget',
     version            = '1.0.0',
     dependencies = [
+        'fmt',
         {
-            'name': 'fmt',
-            'package': 'fmt',
-            'version': '12.1.0',
-            'registry': 'same',
-            'use_libs': ['fmt'],
+            'name': 'boost_package',
+            'package': 'boost',
+            'use_libs': ['system'],
         },
     ],
 )
 ----
 
-* ``name`` — Cuppa ``BuildWith`` / registry name.
-* ``package`` — GitLab Packages slug when it differs from ``name``.
-* ``version`` — concrete pin (MVP; no ranges).
-* ``registry`` — ``"same"`` means A's registry URL.
+* ``name`` — Cuppa ``BuildWith`` / registry name. A bare string entry is treated as ``name``.
+* ``package`` — GitLab Packages slug when it differs from the hyphenated form of ``name``.
+  If only ``name`` is given, Cuppa sets ``package`` to ``name`` with ``_`` replaced by ``-``
+  (``opentelemetry_cpp`` → ``opentelemetry-cpp``). If only ``package`` is given, ``name``
+  is derived the other way. Pass both when the slug is not that transform.
+* ``version`` — concrete pin (no ranges). Optional when the edge ``name`` is already applied
+  via ``BuildWith`` / auto-enable; Cuppa fills it from that package at publish time.
+  Explicit pins always win.
+* ``registry`` — omit or ``""`` means ``"same"`` (A's registry URL).
 * ``use_libs`` — optional; applied against B when A is linked.
 
 Consumers still only need to import / auto-enable **A**. Transitive names are not added to

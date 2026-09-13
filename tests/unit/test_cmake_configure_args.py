@@ -76,6 +76,7 @@ def test_cmake_configure_args_install_prefix_and_source():
             build_dir='cmake-out',
             install_prefix='/tmp/final/installed',
             c_compiler=True,
+            generator=False,
     )
     assert args[:4] == [ '-S', '.', '-B', 'cmake-out' ]
     assert '-DCMAKE_BUILD_TYPE=Release' in args
@@ -89,6 +90,7 @@ def test_cmake_configure_args_cov_and_bool_defines():
     args = cmake.cmake_configure_args(
             _env( 'cov' ),
             build_dir='out',
+            generator=False,
             extra_defines={ 'BUILD_TESTING': False, 'ENABLE_FOO': True },
     )
     assert '-DCMAKE_BUILD_TYPE=RelWithDebInfo' in args
@@ -100,6 +102,7 @@ def test_cmake_configure_args_omits_unmapped_stdcpp():
     args = cmake.cmake_configure_args(
             _env( 'dbg', stdcpp='c++latest' ),
             build_dir='out',
+            generator=False,
     )
     assert not any( a.startswith( '-DCMAKE_CXX_STANDARD=' ) for a in args )
 
@@ -108,11 +111,43 @@ def test_cmake_configure_args_can_disable_pieces():
     args = cmake.cmake_configure_args(
             _env( 'dbg' ),
             build_dir='out',
+            generator=False,
             include_build_type=False,
             include_cxx_compiler=False,
             cxx_standard=False,
     )
     assert args == [ '-B', 'out' ]
+
+
+def test_resolve_cmake_generator_auto_ninja( monkeypatch ):
+    monkeypatch.setattr( 'shutil.which', lambda name: '/usr/bin/ninja' if name == 'ninja' else None )
+    assert cmake.resolve_cmake_generator( None ) == 'Ninja'
+    args = cmake.cmake_configure_args(
+            _env( 'dbg' ),
+            build_dir='out',
+            include_build_type=False,
+            include_cxx_compiler=False,
+            cxx_standard=False,
+    )
+    assert args == [ '-B', 'out', '-G', 'Ninja' ]
+
+
+def test_resolve_cmake_generator_auto_without_ninja( monkeypatch ):
+    monkeypatch.setattr( 'shutil.which', lambda name: None )
+    assert cmake.resolve_cmake_generator( None ) is None
+    args = cmake.cmake_configure_args(
+            _env( 'dbg' ),
+            build_dir='out',
+            include_build_type=False,
+            include_cxx_compiler=False,
+            cxx_standard=False,
+    )
+    assert args == [ '-B', 'out' ]
+
+
+def test_resolve_cmake_generator_false_omits():
+    assert cmake.resolve_cmake_generator( False ) is None
+    assert cmake.resolve_cmake_generator( 'Unix Makefiles' ) == 'Unix Makefiles'
 
 
 def test_cmake_configure_command_quotes():
@@ -249,6 +284,35 @@ def test_remove_empty_dirs_names_overrides_gitmodules( tmp_path ):
 def test_cmake_prefix_path_joins_with_semicolon():
     assert cmake.cmake_prefix_path( '/a', None, '/b', '' ) == '/a;/b'
     assert cmake.cmake_prefix_path() == ''
+
+
+def test_cmake_prefix_path_for_uses_package_dirs( tmp_path ):
+    from types import SimpleNamespace
+
+    class Package:
+        def __init__( self, root ):
+            self._root = root
+
+        def package_dir( self ):
+            return str( self._root )
+
+    class Wrapper:
+        def __init__( self, package ):
+            self._package = package
+
+        def package( self ):
+            return self._package
+
+    a = tmp_path / 'a'
+    b = tmp_path / 'b'
+    a.mkdir()
+    b.mkdir()
+    packages = {
+            'a': Wrapper( Package( a ) ),
+            'b': Wrapper( Package( b ) ),
+    }
+    env = SimpleNamespace( BuildWith=lambda name: packages[name] )
+    assert cmake.cmake_prefix_path_for( env, 'a', 'b' ) == '{};{}'.format( a, b )
 
 
 def test_cmake_install_rpath_defines_default_build_tree_safe():

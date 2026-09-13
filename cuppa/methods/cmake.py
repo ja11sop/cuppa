@@ -81,6 +81,8 @@ class CMakeConfigureMethod(object):
             include_cxx_compiler=True,
             cmake='cmake',
     ):
+        # generator=None → Ninja when available; False → omit -G (see
+        # cuppa.buildsys.cmake.resolve_cmake_generator).
         if target is None:
             target = 'cmake.configure.complete'
         command = cmake_configure_command(
