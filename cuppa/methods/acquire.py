@@ -26,6 +26,10 @@ from cuppa.buildsys.acquire import (
 )
 from cuppa.colourise import as_error
 from cuppa.log import logger
+from cuppa.package_managers.package_amend import (
+        amend_package_manifest_enabled,
+        skip_builder_for_amend,
+)
 from cuppa.utility.download import DownloadError
 
 
@@ -63,6 +67,8 @@ class RemoveEmptyDirsMethod(object):
     ):
         if target is None:
             target = 'remove_empty_dirs.complete'
+        if amend_package_manifest_enabled( env ):
+            return skip_builder_for_amend( env, target, 'RemoveEmptyDirs' )
         parent = str( parent )
         if names is not None:
             names = tuple( str( name ) for name in names )
@@ -124,6 +130,9 @@ class DownloadExtractMethod(object):
         marker = str( marker )
         if target is None:
             target = os.path.join( extract_dir, marker )
+
+        if amend_package_manifest_enabled( env ):
+            return skip_builder_for_amend( env, target, 'DownloadExtract' )
 
         archive_name = archive_basename_from_url( url, archive=archive )
         build_dir = env.get( 'build_dir' )

@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2024-2024
+#          Copyright Jamie Allsop 2024-2026
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -10,6 +10,11 @@
 
 # cuppa imports
 import cuppa.progress
+
+from cuppa.package_managers.package_amend import (
+        OPTION_NAME as AMEND_PACKAGE_MANIFEST_OPTION,
+        amend_package_manifest_enabled,
+)
 
 
 def publish_package_sources( publisher, built_package, env=None ):
@@ -43,7 +48,24 @@ class PublishPackageMethod(object):
     def __call__( self, env, source, publisher=None ):
 
         package = env.File( publisher.package() )
-        built_package = env.Command( package, [ source, publisher.sources() ], publisher.build_package )
+        if amend_package_manifest_enabled( env ):
+            amend_fn = getattr( publisher, 'amend_package', None )
+            if not callable( amend_fn ):
+                import SCons.Errors
+                raise SCons.Errors.StopError(
+                        "--{} requires a publisher that implements "
+                        "amend_package (GitLab). Conan publishers do not "
+                        "support metadata-only amend."
+                        .format( AMEND_PACKAGE_MANIFEST_OPTION )
+                )
+            # Do not depend on library / CMake install sources — metadata only.
+            built_package = env.Command( package, [], amend_fn )
+        else:
+            built_package = env.Command(
+                    package,
+                    [ source, publisher.sources() ],
+                    publisher.build_package,
+            )
         target = built_package
 
         if env['clean']:
@@ -73,7 +95,17 @@ class PublishPackageMethod(object):
     def add_options( cls, add_option ):
         add_option( '--publish-package', dest='publish-package', action='store_true',
                     help='Specify that you want to publish a package.' )
-
+        add_option(
+                '--amend-package-manifest',
+                dest=AMEND_PACKAGE_MANIFEST_OPTION,
+                action='store_true',
+                help=(
+                        'Rewrite cuppa-dependency.json from the publisher kwargs, '
+                        'retar the existing package archive (stage or registry), '
+                        'and skip DownloadExtract / CMake rebuild. Pair with '
+                        '--publish-package to upload.'
+                ),
+        )
 
 
 class InstallPackageMethod(object):

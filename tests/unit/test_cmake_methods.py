@@ -60,6 +60,10 @@ class _RecordingEnv(dict):
         dict.__init__( self, *args, **kwargs )
         self.commands = []
         self.cleans = []
+        self._options = {}
+
+    def get_option( self, name, default=None ):
+        return self._options.get( name, default )
 
     def Command( self, target, source, action ):
         self.commands.append( {
@@ -193,3 +197,35 @@ def test_remove_empty_dirs_method_registers_command( silence_progress, tmp_path 
     assert callable( env.commands[0]['action'] ) or hasattr(
             env.commands[0]['action'], '__call__'
     )
+
+
+def test_cmake_methods_skip_when_amend_package_manifest( silence_progress ):
+    env = _RecordingEnv( _env( 'rel' ) )
+    env._options['amend-package-manifest'] = True
+    nodes = CMakeConfigureMethod()(
+            env,
+            'src',
+            working_dir='/tmp/src',
+            build_dir='_build/gcc_rel',
+    )
+    assert nodes == [ 'node:cmake.configure.complete' ]
+    assert env.commands[0]['source'] == []
+    assert env.cleans == []
+
+    env.commands.clear()
+    CMakeBuildMethod()(
+            env,
+            'configure',
+            build_dir='_build/x',
+            working_dir='/tmp/src',
+    )
+    assert env.commands[0]['source'] == []
+
+    env.commands.clear()
+    CMakeInstallMethod()(
+            env,
+            'built',
+            build_dir='_build/x',
+            working_dir='/tmp/src',
+    )
+    assert env.commands[0]['source'] == []

@@ -26,6 +26,10 @@ from cuppa.buildsys.cmake import (
         cmake_build_jobs,
         cmake_configure_command,
 )
+from cuppa.package_managers.package_amend import (
+        amend_package_manifest_enabled,
+        skip_builder_for_amend,
+)
 
 
 def _node_abspath( path ):
@@ -85,6 +89,8 @@ class CMakeConfigureMethod(object):
         # cuppa.buildsys.cmake.resolve_cmake_generator).
         if target is None:
             target = 'cmake.configure.complete'
+        if amend_package_manifest_enabled( env ):
+            return skip_builder_for_amend( env, target, 'CMakeConfigure' )
         command = cmake_configure_command(
                 env,
                 cmake=cmake,
@@ -133,6 +139,8 @@ class CMakeBuildMethod(object):
     ):
         if target is None:
             target = 'cmake.build.complete'
+        if amend_package_manifest_enabled( env ):
+            return skip_builder_for_amend( env, target, 'CMakeBuild' )
         resolved_jobs = cmake_build_jobs( env, jobs=jobs )
         command = cmake_build_command(
                 build_dir,
@@ -175,6 +183,8 @@ class CMakeInstallMethod(object):
     ):
         if target is None:
             target = 'cmake.install.complete'
+        if amend_package_manifest_enabled( env ):
+            return skip_builder_for_amend( env, target, 'CMakeInstall' )
         resolved_jobs = cmake_build_jobs( env, jobs=jobs )
         command = cmake_build_command(
                 build_dir,
