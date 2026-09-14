@@ -147,3 +147,45 @@ def test_gitlab_override_option_ids_stay_scoped_to_each_dependency():
     assert gadget["args"]["os_override"] == "ubuntu"
     assert widget["id"][6] == "debian"
     assert gadget["id"][6] == "ubuntu"
+
+
+def test_package_dependency_add_options_idempotent_for_same_name():
+    """Second factory with the same BuildWith name must not re-AddOption.
+
+    Multi-toolchain variant envs re-synthesize transitive packages and would
+    otherwise raise OptionConflictError on ``--<name>-package-manager``.
+    """
+    from optparse import OptionConflictError
+
+    from cuppa.build_with_package import _reset_registered_package_options_for_tests
+
+    _reset_registered_package_options_for_tests()
+    seen = []
+
+    def add_option( *args, **_kwargs ):
+        flag = args[0]
+        if flag in seen:
+            raise OptionConflictError(
+                    "conflicting option string(s): {}".format( flag ),
+                    None,
+            )
+        seen.append( flag )
+
+    first = package_dependency(
+            "c_ares",
+            package_manager="gitlab",
+            registry="https://gitlab.example/api/v4",
+            package="c-ares",
+            version="1.34.5",
+    )
+    second = package_dependency(
+            "c_ares",
+            package_manager="gitlab",
+            registry="https://gitlab.example/api/v4",
+            package="c-ares",
+            version="1.34.5",
+    )
+    first.add_options( add_option )
+    second.add_options( add_option )
+    assert "--c_ares-package-manager" in seen
+    assert seen.count( "--c_ares-package-manager" ) == 1

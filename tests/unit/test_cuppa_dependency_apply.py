@@ -563,3 +563,44 @@ def test_use_libs_empty_clears_defaults( tmp_path: Path ):
     package.use_libs( [], dependency_name="fmt" )
     assert env.get( "SHAREDLIBS", [] ) == []
     assert env.get( "LIBPATH", [] ) == []
+
+
+def test_ensure_registered_second_variant_env_does_not_conflict_options( monkeypatch ):
+    """Cloned ``dependencies`` dicts (multi-toolchain) re-synthesize safely."""
+    from optparse import OptionConflictError
+
+    import SCons.Script
+
+    from cuppa.build_with_package import _reset_registered_package_options_for_tests
+    from cuppa.package_managers.cuppa_dependency_apply import _ensure_registered
+
+    _reset_registered_package_options_for_tests()
+    entry = {
+            "name": "c_ares",
+            "package": "c-ares",
+            "version": "1.34.5",
+            "registry": "same",
+    }
+    seen = []
+
+    def tracking_add_option( *args, **_kwargs ):
+        flag = args[0]
+        if flag in seen:
+            raise OptionConflictError(
+                    "conflicting option string(s): {}".format( flag ),
+                    None,
+            )
+        seen.append( flag )
+
+    monkeypatch.setattr( SCons.Script, "AddOption", tracking_add_option )
+
+    env_gcc15 = { "dependencies": {} }
+    assert _ensure_registered( env_gcc15, entry, _REGISTRY ) == "c_ares"
+    assert "c_ares" in env_gcc15["dependencies"]
+    assert "--c_ares-package-manager" in seen
+
+    # Second toolchain/variant: fresh dependencies map (SCons Clone behaviour).
+    env_gcc = { "dependencies": {} }
+    assert _ensure_registered( env_gcc, entry, _REGISTRY ) == "c_ares"
+    assert "c_ares" in env_gcc["dependencies"]
+    assert seen.count( "--c_ares-package-manager" ) == 1

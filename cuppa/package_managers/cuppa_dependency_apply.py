@@ -93,6 +93,8 @@ def _ensure_registered( env, entry, parent_registry ):
     # GetOption('<name>-package-manager') AttributeErrors unless we AddOption
     # here. Late registration is fine: unset options read as None and class
     # defaults (gitlab, version from the factory) still apply.
+    # add_options is idempotent for the same dependency name (multi-toolchain
+    # variant envs clone ``dependencies`` and re-enter synthesis).
     Factory.add_options( SCons.Script.AddOption )
     env.setdefault( "dependencies", {} )[name] = Factory.create
     pins[name] = str( version )

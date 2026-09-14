@@ -175,6 +175,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Transitive GitLab package ``add_options`` is idempotent per dependency name.
+  Multi-toolchain builds (for example ``--toolchains=gcc15,gcc``) clone
+  ``env['dependencies']`` per variant; the second variant re-synthesized the
+  same transitive (e.g. ``c_ares`` via gRPC) and hit
+  ``OptionConflictError: --c_ares-package-manager``. Option registration is
+  skipped when that name was already registered in the process.
 - ``--publish-package`` now depends on the GitLab ``package_archive()`` (the
   ``.tar.gz`` / ``.zip``) as well as the empty ``.packaged`` stamp. With SCons
   ``MD5-timestamp``, retouching the stamp alone did not invalidate upload after
