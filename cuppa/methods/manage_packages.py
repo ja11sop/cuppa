@@ -106,6 +106,28 @@ class PublishPackageMethod(object):
                         '--publish-package to upload.'
                 ),
         )
+        add_option(
+                '--build-and-publish-dependencies',
+                dest='build-and-publish-dependencies',
+                action='store_true',
+                help=(
+                        'Before publishing this package, build and '
+                        '--publish-package each GitLab package dependency in '
+                        'order (requires package_source and/or --publisher-root). '
+                        'Requires --publish-package.'
+                ),
+        )
+        add_option(
+                '--publisher-root',
+                dest='publisher-root',
+                type='string',
+                nargs=1,
+                help=(
+                        'Root directory of a publisher forest used to resolve '
+                        'package dependencies when package_source is omitted or '
+                        'is a git URL (Phase 1 resolves local trees only).'
+                ),
+        )
 
 
 class InstallPackageMethod(object):

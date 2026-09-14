@@ -627,6 +627,9 @@ class GitlabPackagePublisher:
         self._package_built_id = env.File( sidecar + '.packaged' )
         self._package_published_id = env.File( sidecar + '.published' )
 
+        from cuppa.package_managers.package_cascade import maybe_run_cascade
+        maybe_run_cascade( env, self )
+
 
     def build_package( self, target, source, env ):
 
@@ -667,8 +670,10 @@ class GitlabPackagePublisher:
             ) )
 
         from cuppa.package_managers.cuppa_dependency_manifest import write_manifest
+        from cuppa.package_managers.cuppa_publish_manifest import write_publish_manifest
+        package_base = str( self._package_base_dir )
         manifest_path_written = write_manifest(
-                str( self._package_base_dir ),
+                package_base,
                 getattr( self, '_dependencies', None ),
                 env=env,
                 default_use_libs=getattr( self, '_default_use_libs', None ),
@@ -679,6 +684,39 @@ class GitlabPackagePublisher:
                     as_info( manifest_path_written ),
                     as_info( self._package_file_name ),
             ) )
+        publish_path_written = write_publish_manifest(
+                package_base,
+                getattr( self, '_package', None ),
+                getattr( self, '_version', None ),
+                dependencies=getattr( self, '_dependencies', None ),
+                env=env,
+                default_use_libs=getattr( self, '_default_use_libs', None ),
+                link=getattr( self, '_link', None ),
+        )
+        logger.info( "Wrote [{}] for package [{}]".format(
+                as_info( publish_path_written ),
+                as_info( self._package_file_name ),
+        ) )
+        sconstruct_dir = None
+        try:
+            sconstruct_dir = env[ 'sconstruct_dir' ]
+        except Exception:
+            getter = getattr( env, 'get', None )
+            if callable( getter ):
+                sconstruct_dir = getter( 'sconstruct_dir' )
+        if sconstruct_dir:
+            seed_path = write_publish_manifest(
+                    str( sconstruct_dir ),
+                    getattr( self, '_package', None ),
+                    getattr( self, '_version', None ),
+                    dependencies=getattr( self, '_dependencies', None ),
+                    env=env,
+                    default_use_libs=getattr( self, '_default_use_libs', None ),
+                    link=getattr( self, '_link', None ),
+            )
+            logger.info( "Seeded publisher-tree [{}] for cascade discovery".format(
+                    as_info( seed_path ),
+            ) )
 
         logger.info( "Creating package [{}]...".format( as_info( str(target[0]) ) ) )
         archive_path = str( self._package_archive )
@@ -686,11 +724,12 @@ class GitlabPackagePublisher:
                 str( self._target_include_dir ),
                 str( self._target_lib_dir ),
         ]
-        modules_dir = os.path.join( str( self._package_base_dir ), 'modules' )
+        modules_dir = os.path.join( package_base, 'modules' )
         if os.path.isdir( modules_dir ):
             staging_roots.append( modules_dir )
         if manifest_path_written:
             staging_roots.append( manifest_path_written )
+        staging_roots.append( publish_path_written )
 
         if package_archive_is_up_to_date( archive_path, staging_roots ):
             logger.info(
@@ -790,6 +829,7 @@ class GitlabPackagePublisher:
             return 1
 
         from cuppa.package_managers.cuppa_dependency_manifest import write_manifest
+        from cuppa.package_managers.cuppa_publish_manifest import write_publish_manifest
         manifest_path_written = write_manifest(
                 package_base,
                 getattr( self, '_dependencies', None ),
@@ -813,6 +853,20 @@ class GitlabPackagePublisher:
             existing = manifest_path( package_base )
             if os.path.isfile( existing ):
                 os.remove( existing )
+
+        publish_path_written = write_publish_manifest(
+                package_base,
+                getattr( self, '_package', None ),
+                getattr( self, '_version', None ),
+                dependencies=getattr( self, '_dependencies', None ),
+                env=env,
+                default_use_libs=getattr( self, '_default_use_libs', None ),
+                link=getattr( self, '_link', None ),
+        )
+        logger.info( "Amended [{}] for package [{}]".format(
+                as_info( publish_path_written ),
+                as_info( self._package_file_name ),
+        ) )
 
         logger.info( "Recreating package [{}] after metadata amend...".format(
                 as_info( archive_path )

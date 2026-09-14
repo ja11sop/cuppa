@@ -80,6 +80,11 @@ def coerce_dependency_entry( entry: Any ) -> dict:
             out["registry"] = "same"
         else:
             out["registry"] = registry
+        package_source = out.get( "package_source" )
+        if package_source is not None and package_source != "":
+            out["package_source"] = str( package_source )
+        else:
+            out.pop( "package_source", None )
         return out
 
     name_fn = getattr( entry, "name", None )
@@ -136,11 +141,14 @@ def fill_dependency_versions( env, dependencies: list | None ) -> list | None:
     return filled
 
 
-def normalise_dependency_entry( entry: Any ) -> dict:
+def normalise_dependency_entry( entry: Any, include_package_source: bool = False ) -> dict:
     """Accept a string, dict, or object; return a concrete manifest dict.
 
     Dict / string entries may omit ``version`` only when a caller has already
     run :func:`fill_dependency_versions` (``write_manifest(..., env=…)`` does).
+
+    ``package_source`` is omitted unless ``include_package_source`` is true
+    (publish manifest / cascade discovery). Consume manifests never carry it.
     """
     coerced = coerce_dependency_entry( entry )
     out = {
@@ -154,6 +162,9 @@ def normalise_dependency_entry( entry: Any ) -> dict:
     use_libs = coerced.get( "use_libs" )
     if use_libs:
         out["use_libs"] = [ str( item ) for item in use_libs ]
+    package_source = coerced.get( "package_source" )
+    if include_package_source and package_source:
+        out["package_source"] = str( package_source )
     if out["version"] is None:
         raise ValueError(
             "dependency [{}] requires a concrete 'version' "

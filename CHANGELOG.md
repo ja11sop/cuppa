@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--build-and-publish-dependencies`` / ``--publisher-root`` — cascade
+  publish of GitLab package dependencies before the tip (Phase 1): traveling
+  ``cuppa-publish.json`` carries ``package_source``; consume still uses
+  ``cuppa-dependency.json`` from the same ``dependencies=`` authoring.
+  Nested publishes run without re-entering cascade; consume caches for each
+  published node are invalidated so the tip sees fresh extracts
+  ([#297](https://github.com/ja11sop/cuppa/issues/297);
+  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)).
 - ``--amend-package-manifest`` — rewrite ``cuppa-dependency.json`` from
   ``GitlabPackagePublisher`` kwargs and retar/publish without rebuilding package
   binaries. Skips ``DownloadExtract`` / ``RemoveEmptyDirs`` / CMake graph actions;

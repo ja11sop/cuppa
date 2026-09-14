@@ -1,10 +1,9 @@
 # Plan: Cascade build-and-publish of package dependencies
 
-- **Status:** proposal
+- **Status:** in progress
 - **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-build-publish-deps`; [`package-download-refresh.md`](package-download-refresh.md); [`gitlab-package-transitive.md`](gitlab-package-transitive.md); [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md) (`package-publish-cli`); project **D** soak (google-cloud-cpp stack)
 - **Updated:** 2026-09-14
 - **Impact:** `minor` (new opt-in CLI / orchestration; default single-package publish unchanged)
-- **Defer:** after [#294](https://github.com/ja11sop/cuppa/pull/294) (Option B `cmake_configure_args`) lands — design only until then
 
 ## Problem
 
@@ -251,24 +250,34 @@ design.
 
 | Phase | Deliverable |
 |-------|-------------|
-| **0 — Design** | This plan; settle manifest schema + skip policy + flag name (**parked until after #294**) |
+| **0 — Design** | This plan; settle manifest schema + skip policy + flag name — **done** (#294 / #300 landed) |
 | **1 — MVP** | Author `package_source` on publisher deps → stage **`cuppa-publish.json`** (bridge `cuppa-dependency.json`) + cascade flag + optional `--publisher-root` + refresh + fail-stop |
 | **2 — Ergonomics** | Dry-run plan; skip-if-registry-current; clone from `package_source` when the working tree is missing; converge to one traveling file if still bridged |
 | **3 — Consume-site parity** | `package_dependency(…, package_source=…)` mirrors publisher-edge metadata |
 | **Later** | Parallel independent leaves; Conan parity if needed |
 
-## Open questions
+## Phase 1 settled decisions
 
-1. **Skip policy:** always rebuild+publish every node, or skip when registry
-   already has this package/version/stem and `--force` is off?
-2. **Field name:** `package_source` vs `publisher` vs `publisher_location`?
-3. **File convergence:** extend `cuppa-dependency.json` in place vs new
-   `cuppa-publish.json` with a derived consume file during bridge? (Direction:
-   one SoT; exact filename/format bump TBD with transitive plan.)
-4. **Develop during cascade:** local `final/` edges vs registry→refresh only?
-5. **Flag without `--publish-package`:** build-all-deps-only for local smoke?
-6. **Root layout rule:** Cuppa name / package id → subdir under
-   `--publisher-root`?
+| Question | Decision |
+|----------|----------|
+| Skip policy | **Always** rebuild+publish every resolved node (no skip-if-registry-current) |
+| Field name | **`package_source`** |
+| File layout | **Bridge:** keep `cuppa-dependency.json` for consume (no `package_source`); write **`cuppa-publish.json`** with the same edges **plus** `package_source` / package identity. One authoring input (`dependencies=`). |
+| Develop during cascade | After each nested publish, **invalidate** that package’s download + extract under the tip’s storage roots (cascade-internal refresh; full `--refresh-downloads` is [#296](https://github.com/ja11sop/cuppa/issues/296)) |
+| Flag without `--publish-package` | **Refuse** — require `--publish-package` |
+| Flag name | **`--build-and-publish-dependencies`** (aliases later) |
+| `--publisher-root` | Optional; resolve missing/`package_source` URL by trying `{root}/{name}`, `{root}/{package}`, then one-level `{root}/*/{name\|package}` |
+| Nested recurse | Children run **without** the cascade flag (`CUPPA_CASCADE_NESTED=1`); fail-stop |
+| When cascade runs | During tip `GitlabPackagePublisher` construction (SConscript time), **before** CMake Actions, so refreshed extracts are visible to the tip build |
+| Missing local tree | StopError — Phase 2 clones from URL |
+
+## Open questions (Phase 2+)
+
+1. Skip-if-registry-current + `--force`
+2. Clone from `package_source` URL when the working tree is missing
+3. File convergence to a single traveling manifest
+4. Flag without `--publish-package` (build-deps-only)
+5. Richer `--publisher-root` layout rules
 
 ## Acceptance (when implemented)
 
@@ -290,8 +299,9 @@ design.
 | Problem / gap (publisher location ≠ package develop) | Captured |
 | Authoring: `package_source` on edges + optional root | Captured |
 | SoT: traveling **`cuppa-publish.json`** (auto-discovery; one graph) | Settled (2026-09-14) |
-| Bridge / converge with `cuppa-dependency.json` | Provisional — one authoring input; exact file layout TBD |
-| Defer implementation until after #294 | Settled |
+| Bridge / converge with `cuppa-dependency.json` | Settled for Phase 1 — dual file, one authoring input |
+| Defer until after #294 | Done — unblocked |
+| Phase 1 settled decisions (skip / flag / when) | Settled (2026-09-14) |
 | Project D tip (google-cloud-cpp **3.9.0**) build + publish | Done (manual bottom-up; motivates this feature) |
-| Implementation | Not started |
+| Implementation | In progress — Phase 1 code on branch (publish manifest + cascade + docs) |
 | Issue filed | [#297](https://github.com/ja11sop/cuppa/issues/297) |

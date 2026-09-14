@@ -144,6 +144,11 @@ retars from an existing stage or registry archive, and skips DownloadExtract / C
 rebuild. Pair with `--publish-package` to upload. See
 xref:packages.adoc#amend-package-manifest[Amending metadata without rebuilding].
 
+`--build-and-publish-dependencies` builds and publishes GitLab package dependencies
+(leaf-first) before the tip; requires `--publish-package`. Optional
+`--publisher-root=` resolves trees when `package_source` is omitted. See
+xref:packages.adoc#build-and-publish-dependencies[Cascading dependency publishes].
+
 == Built-in Boost options
 
 Source Boost has a stable option family rather than a project-generated `<name>` prefix.
