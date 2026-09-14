@@ -1,7 +1,7 @@
 # Plan: Cascade build-and-publish of package dependencies
 
 - **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `package-build-publish-deps`; [`package-download-refresh.md`](package-download-refresh.md); [`gitlab-package-transitive.md`](gitlab-package-transitive.md); [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md) (`package-publish-cli`); project **D** soak (google-cloud-cpp stack)
+- **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-build-publish-deps`; [`package-download-refresh.md`](package-download-refresh.md); [`gitlab-package-transitive.md`](gitlab-package-transitive.md); [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md) (`package-publish-cli`); project **D** soak (google-cloud-cpp stack)
 - **Updated:** 2026-09-14
 - **Impact:** `minor` (new opt-in CLI / orchestration; default single-package publish unchanged)
 - **Defer:** after [#294](https://github.com/ja11sop/cuppa/pull/294) (Option B `cmake_configure_args`) lands — design only until then
@@ -294,4 +294,4 @@ design.
 | Defer implementation until after #294 | Settled |
 | Project D tip (google-cloud-cpp **3.9.0**) build + publish | Done (manual bottom-up; motivates this feature) |
 | Implementation | Not started |
-| Issue filed | No |
+| Issue filed | [#297](https://github.com/ja11sop/cuppa/issues/297) |

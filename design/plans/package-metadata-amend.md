@@ -1,7 +1,7 @@
 # Plan: Metadata-only GitLab package amend / republish
 
 - **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `package-metadata-amend`; [`package-use-libs-defaults.md`](package-use-libs-defaults.md); [`package-download-refresh.md`](package-download-refresh.md); project **D** google-cloud-cpp soak
+- **Related:** [#299](https://github.com/ja11sop/cuppa/issues/299); [`ROADMAP.md`](../../ROADMAP.md) — `package-metadata-amend`; [`package-use-libs-defaults.md`](package-use-libs-defaults.md); [`package-download-refresh.md`](package-download-refresh.md); project **D** google-cloud-cpp soak
 - **Updated:** 2026-09-14
 - **Impact:** `minor` (new opt-in amend / republish path; full rebuild unchanged)
 
@@ -90,4 +90,4 @@ Until the feature lands, operators can:
 | Problem from google-cloud-cpp / use_libs defaults | Captured |
 | Provisional A/B amend modes | Captured |
 | Implementation | Not started |
-| Issue filed | Pending |
+| Issue filed | [#299](https://github.com/ja11sop/cuppa/issues/299) |

@@ -1,7 +1,7 @@
 # Plan: Default and shared-aware `use_libs` for GitLab packages
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `package-use-libs-defaults`; [`gitlab-package-transitive.md`](gitlab-package-transitive.md) (edge `use_libs`); [`package-build-publish-deps.md`](package-build-publish-deps.md) (`cuppa-publish.json`); [`package-metadata-amend.md`](package-metadata-amend.md) (metadata-only republish); [`package-runtime-paths.md`](../archive/package-runtime-paths.md); project **D** / `business_rules` fmt+date soak
+- **Related:** [#294](https://github.com/ja11sop/cuppa/pull/294); [`ROADMAP.md`](../../ROADMAP.md) — `package-use-libs-defaults`; [`gitlab-package-transitive.md`](gitlab-package-transitive.md) (edge `use_libs`); [`package-build-publish-deps.md`](package-build-publish-deps.md) (`cuppa-publish.json`); [`package-metadata-amend.md`](package-metadata-amend.md) (metadata-only republish); [`package-runtime-paths.md`](../archive/package-runtime-paths.md); project **D** / `business_rules` fmt+date soak
 - **Updated:** 2026-09-14
 - **Impact:** `minor` (link behaviour for auto-enable / `use_libs`; opt-in metadata)
 
@@ -249,4 +249,4 @@ auto path.
 | Phase 2 — `default_use_libs` / `link` on publisher + initialise replace | Done |
 | Phase 3 — heuristic when metadata omitted; Antora; `business_rules` glue removed | Done |
 | Explicit refusals: no Cuppa `.pc` rewrite; transitive BuildWith skips defaults | Settled |
-| Issue filed | No |
+| Issue filed | Landed on [#294](https://github.com/ja11sop/cuppa/pull/294) |

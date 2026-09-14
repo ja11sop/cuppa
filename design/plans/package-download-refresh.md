@@ -1,7 +1,7 @@
 # Plan: Refresh package downloads after same-version republish
 
 - **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — storage Planned (`package-download-refresh`); [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade publish must refresh after each upload); [`removal-options.md`](removal-options.md) (purge/wipe vocabulary); [`cmake-package-prefix.md`](../archive/cmake-package-prefix.md) § Prove-out soak; [`gitlab.py`](../../cuppa/package_managers/gitlab.py) `GitlabPackageDependency`
+- **Related:** [#296](https://github.com/ja11sop/cuppa/issues/296); [`ROADMAP.md`](../../ROADMAP.md) — storage Planned (`package-download-refresh`); [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade publish must refresh after each upload); [`removal-options.md`](removal-options.md) (purge/wipe vocabulary); [`cmake-package-prefix.md`](../archive/cmake-package-prefix.md) § Prove-out soak; [`gitlab.py`](../../cuppa/package_managers/gitlab.py) `GitlabPackageDependency`
 - **Updated:** 2026-09-14
 - **Impact:** `minor` (new opt-in CLI behaviour)
 
