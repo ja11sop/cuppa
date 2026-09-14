@@ -24,7 +24,7 @@ you can see which layer owns each decision.
 | `--scripts=LIST` | Limit graph construction to the named, comma-separated sconscripts. Product `Import` / `ImportShared` may still **widen** the set to pull required exporters from under the sconstruct (unless `--strict-sconscript-exports`)
 | `--projects=LIST` | Alias for `--scripts`
 | `--strict-sconscript-exports` | Do not widen for Export/Import; every imported name must be satisfied by the scripts already selected
-| `--parallel` | Set SCons' job count from available hardware; the wrapper may also restrict CPU affinity. Do not combine with `--cov --test` (Cuppa warns; collect serially)
+| `--parallel` | Set SCons' job count from CPUs available to the process (honours the wrapper's CPU affinity, which leaves cores free for the OS on larger machines). `CMakeBuild` uses the same count for `cmake --build --parallel`. Do not combine with `--cov --test` (Cuppa warns; collect serially)
 | `--offline` | Skip the PyPI version check and remote location updates
 | `--develop` | Prefer configured local develop paths for dependencies
 |===

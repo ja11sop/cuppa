@@ -81,6 +81,35 @@ def test_package_archive_is_up_to_date(tmp_path):
     )
 
 
+def test_package_archive_rebuilds_when_manifest_file_is_newer( tmp_path ):
+    """Manifest is a file path in staging_roots; newest_mtime_under must see it."""
+    staging = tmp_path / "widget" / "1.0.0"
+    include_dir = staging / "include"
+    lib_dir = staging / "lib"
+    include_dir.mkdir( parents=True )
+    lib_dir.mkdir( parents=True )
+    ( include_dir / "widget.hpp" ).write_text( "header\n", encoding="utf-8" )
+    ( lib_dir / "libwidget.a" ).write_text( "lib\n", encoding="utf-8" )
+    time.sleep( 0.02 )
+
+    archive = tmp_path / "widget_debian_gcc15_rel.tar.gz"
+    archive.write_bytes( b"archive" )
+    time.sleep( 0.02 )
+
+    manifest = staging / "cuppa-dependency.json"
+    manifest.write_text(
+            '{"cuppa_dependency_format":1,"default_use_libs":["widget"],'
+            '"dependencies":[]}\n',
+            encoding="utf-8",
+    )
+
+    assert not gitlab.package_archive_is_up_to_date(
+            str( archive ),
+            [ str( include_dir ), str( lib_dir ), str( manifest ) ],
+    )
+    assert gitlab.newest_mtime_under( str( manifest ) ) > archive.stat().st_mtime
+
+
 def test_staging_tree_needs_refresh( tmp_path ):
     source = tmp_path / "install" / "include"
     staging = tmp_path / "widget" / "1.0.0" / "include"

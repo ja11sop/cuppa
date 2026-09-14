@@ -182,6 +182,10 @@ env.BuildWith('boost_package').use_libs([
 ])
 ----
 
+`BuildWith` also prepends the package ``lib/`` directory (and ``bin/`` when it
+exists) to the construction environment so shared libraries resolve for host
+tools and ``--test`` / ``--run`` without hand-rolled ``LD_LIBRARY_PATH``.
+
 === Publishing Boost from source
 
 To populate the registry, build static libraries from the built-in **source** ``boost``
@@ -285,13 +289,34 @@ cuppa.run(
 When ``version`` is omitted, the package helper selects a registry version according to its own
 rules; pinning ``version=`` in ``define`` is separate from source Boost's ``--boost-version=``.
 
-Use ``package.use_libs([...])`` helpers where provided to append the correct static library files
-for the active toolchain/variant. The built-in source ``boost`` dependency accepts the same call
-shape — ``env.BuildWith('boost').use_libs([...])`` — so switching supply chains does not require
+Use ``package.use_libs([...])`` helpers where provided to link the correct libraries for
+the active toolchain/variant. ``use_libs`` resolves **static or shared** artefacts under
+the package ``lib/`` directory (prefer static when both exist, unless the package manifest
+sets ``link``). Prefer this over hand-rolled ``LIBPATH`` / ``SHAREDLIBS``. The built-in
+source ``boost`` dependency accepts the same call shape —
+``env.BuildWith('boost').use_libs([...])`` — so switching supply chains does not require
 rewriting sconscripts beyond the dependency name.
 
-To link every static library present under a GitLab package's ``lib/`` directory, call
-``use_all_libs()`` (do not pass an empty ``use_libs([])`` — that still means link nothing):
+Small packages may also declare ``default_use_libs`` in ``cuppa-dependency.json`` (via
+``GitlabPackagePublisher(..., default_use_libs=[...])``). Auto-enable /
+``auto_enable_dependencies`` (legacy: ``default_dependencies``) then link that set
+without an explicit ``use_libs`` call. An explicit ``use_libs([...])`` **replaces**
+the default contribution for that package; ``use_libs([])`` clears it (headers and
+runtime ENV only). Fat packages such as ``google_cloud_cpp`` should publish an empty
+default (or omit a heuristic match) so auto-enable never links every library under
+``lib/``.
+
+When ``default_use_libs`` is omitted, Cuppa may apply a narrow heuristic: a single
+linkable stem, or one stem matching the package slug / BuildWith name; otherwise it links
+nothing. Prefer publishing explicit metadata.
+
+Installed ``.pc`` files that embed an absolute install prefix are an upstream packaging
+issue; Cuppa does not rewrite them. Prefer ``use_libs`` / ``default_use_libs`` over
+relying on non-relocatable pkg-config data after extract.
+
+To link every static or shared library present under a GitLab package's ``lib/`` directory,
+call ``use_all_libs()`` (do not pass an empty ``use_libs([])`` when you mean “all” — empty
+clears the package's link contribution):
 
 [source,python]
 ----
@@ -304,11 +329,20 @@ env.BuildWith('widget').use_all_libs()
 A published GitLab archive may include ``cuppa-dependency.json`` next to ``include/`` and
 ``lib/``. When you ``BuildWith`` package **A**, Cuppa reads that file (if present) and
 ``BuildWith``s each listed dependency **B** so B's headers (and packaged modules) are on the
-include path. When you later link A with ``A.use_libs(...)`` or ``A.use_all_libs()``, Cuppa also
-applies each edge's ``use_libs`` against B.
+include path. **B**'s ``default_use_libs`` are **not** applied for a transitive include-only
+``BuildWith`` — only for a primary / auto-enabled dependency. When you later link A with
+``A.use_libs(...)`` or ``A.use_all_libs()``, Cuppa also applies each edge's ``use_libs``
+against B.
 
-Publish the edges with ``GitlabPackagePublisher(..., dependencies=[...])``. Omit the list (or
-pass nothing) when the package is standalone — then no manifest file is written.
+Publish the edges with ``GitlabPackagePublisher(..., dependencies=[...])``. Optional
+package-level fields on the same publisher / manifest:
+
+* ``default_use_libs`` — stems linked on primary BuildWith / auto-enable
+* ``link`` — ``prefer_static`` (default), ``prefer_shared``, ``static``, or ``shared``
+
+Omit both ``dependencies`` and those fields when the package is standalone with no
+defaults — then no manifest file is written. Publishing only ``default_use_libs`` (no
+edges) still writes the manifest.
 
 [source,python]
 ----
@@ -319,22 +353,27 @@ publisher = GitlabPackagePublisher(
     registry           = 'https://gitlab.example/api/v4/projects/1',
     package            = 'widget',
     version            = '1.0.0',
+    default_use_libs   = [ 'widget' ],
     dependencies = [
+        'fmt',
         {
-            'name': 'fmt',
-            'package': 'fmt',
-            'version': '12.1.0',
-            'registry': 'same',
-            'use_libs': ['fmt'],
+            'name': 'boost_package',
+            'package': 'boost',
+            'use_libs': ['system'],
         },
     ],
 )
 ----
 
-* ``name`` — Cuppa ``BuildWith`` / registry name.
-* ``package`` — GitLab Packages slug when it differs from ``name``.
-* ``version`` — concrete pin (MVP; no ranges).
-* ``registry`` — ``"same"`` means A's registry URL.
+* ``name`` — Cuppa ``BuildWith`` / registry name. A bare string entry is treated as ``name``.
+* ``package`` — GitLab Packages slug when it differs from the hyphenated form of ``name``.
+  If only ``name`` is given, Cuppa sets ``package`` to ``name`` with ``_`` replaced by ``-``
+  (``opentelemetry_cpp`` → ``opentelemetry-cpp``). If only ``package`` is given, ``name``
+  is derived the other way. Pass both when the slug is not that transform.
+* ``version`` — concrete pin (no ranges). Optional when the edge ``name`` is already applied
+  via ``BuildWith`` / auto-enable; Cuppa fills it from that package at publish time.
+  Explicit pins always win.
+* ``registry`` — omit or ``""`` means ``"same"`` (A's registry URL).
 * ``use_libs`` — optional; applied against B when A is linked.
 
 Consumers still only need to import / auto-enable **A**. Transitive names are not added to

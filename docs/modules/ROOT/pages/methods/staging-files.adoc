@@ -131,10 +131,12 @@ env.InstallAs(
 )
 ----
 
+[#package-staging-with-install]
 == Package staging with `Install()`
 
 Publisher sconscripts typically install headers and libraries into a package directory, then hand
-the nodes to `PublishPackage()`:
+the nodes to `PublishPackage()`. `PublishPackage` is usually wired from the **include** Install
+node only, so under `--parallel` you must still ensure the library Install finishes first:
 
 [source,python]
 ----
@@ -148,14 +150,21 @@ lib_node = built_library_node      # from an earlier Command / Build step
 installed_include = env.Install(os.path.join(package_dir, 'include'), include_src)
 installed_lib = env.Install(os.path.join(package_dir, 'lib'), lib_node)
 
-env.Depends(installed_include, installed_lib)
+# Order-only: stage the library before packaging, but do *not* re-copy headers
+# when only the .a changes. Header Install already rebuilds when include_src changes.
 env.Requires(installed_include, installed_lib)
 
 published = env.PublishPackage(installed_include, publisher)
 ----
 
-`Depends()` / `Requires()` keep include and library staging ordered with the built library — see
-xref:methods/depends.adoc[Depends] and xref:methods/packages.adoc[Packages].
+Prefer ``Requires(installed_include, installed_lib)`` here — not ``Depends``. Headers do not
+*depend on* the library as an input; they only need the library Install to have run so
+``PublishPackage`` (which follows the include node) sees a complete ``package_dir``.
+``Depends(include, lib)`` would also work for ordering, but would re-run the header Install
+whenever the library node changed, which is unnecessary.
+
+See xref:methods/depends.adoc[Depends] (``Depends`` vs ``Requires``) and
+xref:methods/packages.adoc[Packages].
 
 == Assets under `final/`
 

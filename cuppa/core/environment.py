@@ -158,7 +158,12 @@ class CuppaEnvironment(MutableMapping):
         if option in cls._cached_options:
             return cls._cached_options[ option ]
 
-        value = SCons.Script.GetOption( option )
+        try:
+            value = SCons.Script.GetOption( option )
+        except AttributeError:
+            # Option never AddOption'd (e.g. transitive package synthesized after
+            # construct option registration). Treat as unset.
+            value = None
         source = None
         default_options = cls._options.get( 'default_options' ) or {}
         if value == None or value == '':

@@ -491,7 +491,8 @@ def merge_conan_flags( env, flags ):
 
     binpaths = list( flags.get( 'BINPATH' ) or [] )
     libpaths = list( flags.get( 'LIBPATH' ) or [] )
-    _apply_runtime_paths( env, binpaths, libpaths )
+    from cuppa.package_managers.runtime_paths import apply_package_runtime_paths
+    apply_package_runtime_paths( env, lib_dirs=libpaths, bin_dirs=binpaths )
 
 
 def modules_dirs_from_sconsdeps( info ):
@@ -537,26 +538,6 @@ def load_conan_packaged_modules( env, info ):
         logger.debug( "Loaded Conan packaged modules from [{}]".format(
                 as_notice( modules_dir )
         ) )
-
-
-def _apply_runtime_paths( env, binpaths, libpaths ):
-    import cuppa.build_platform
-    platform_name = cuppa.build_platform.name()
-    for path in binpaths:
-        if path:
-            env.PrependENVPath( 'PATH', path )
-    if platform_name == 'Windows':
-        for path in libpaths:
-            if path:
-                env.PrependENVPath( 'PATH', path )
-    elif platform_name == 'Darwin':
-        for path in libpaths:
-            if path:
-                env.PrependENVPath( 'DYLD_LIBRARY_PATH', path )
-    else:
-        for path in libpaths:
-            if path:
-                env.PrependENVPath( 'LD_LIBRARY_PATH', path )
 
 
 def version_summary_from_info( info ):

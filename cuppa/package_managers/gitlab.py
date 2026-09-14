@@ -190,9 +190,18 @@ def create_package_archive( archive_path, working_dir, source_dir ):
 
 
 def newest_mtime_under( root ):
-    """Return the newest file mtime under ``root``, or ``0.0`` when absent or empty."""
+    """Return the newest file mtime under ``root``, or ``0.0`` when absent or empty.
+
+    ``root`` may be a file (for example ``cuppa-dependency.json``) or a directory.
+    ``os.walk`` only yields directory trees, so a bare file must be handled first.
+    """
     if not root or not os.path.exists( root ):
         return 0.0
+    if os.path.isfile( root ):
+        try:
+            return os.path.getmtime( root )
+        except OSError:
+            return 0.0
     newest = 0.0
     for dirpath, _dirnames, filenames in os.walk( root ):
         for filename in filenames:
@@ -558,6 +567,8 @@ class GitlabPackagePublisher:
         variant=None,
         custom_token=None,
         dependencies=None,
+        default_use_libs=None,
+        link=None,
     ):
         from SCons.Script import Flatten
 
@@ -567,6 +578,8 @@ class GitlabPackagePublisher:
         self._package_base_dir   = env.Dir( os.path.join( env['final_dir'], self._package_folder ) )
         self._target_include_dir = env.Dir( os.path.join( str(self._package_base_dir), "include" ) )
         self._dependencies = list( dependencies ) if dependencies else []
+        self._default_use_libs = default_use_libs
+        self._link = link
 
         if not offset_include_dir is None:
             self._target_include_dir = env.Dir( os.path.join( str(self._target_include_dir), offset_include_dir ) )
@@ -650,6 +663,9 @@ class GitlabPackagePublisher:
         manifest_path_written = write_manifest(
                 str( self._package_base_dir ),
                 getattr( self, '_dependencies', None ),
+                env=env,
+                default_use_libs=getattr( self, '_default_use_libs', None ),
+                link=getattr( self, '_link', None ),
         )
         if manifest_path_written:
             logger.info( "Wrote [{}] for package [{}]".format(
@@ -1347,14 +1363,100 @@ class GitlabPackageDependency:
             from cuppa.cpp.cxx_modules import load_packaged_modules
             load_packaged_modules( env, modules_dir )
 
+        from cuppa.package_managers.runtime_paths import apply_package_runtime_paths
+        bin_dir = os.path.join( self._package_dir, 'bin' )
+        apply_package_runtime_paths(
+                env,
+                lib_dirs=[ self._lib_dir ],
+                bin_dirs=[ bin_dir ] if os.path.isdir( bin_dir ) else (),
+        )
+
         apply_name = dependency_name or self._package
-        from cuppa.package_managers.cuppa_dependency_apply import apply_transitive_build_with
+        from cuppa.package_managers.cuppa_dependency_apply import (
+                apply_stack,
+                apply_transitive_build_with,
+        )
         apply_transitive_build_with(
                 env,
                 self._package_dir,
                 apply_name,
                 self._registry,
         )
+
+        # Primary BuildWith / auto-enable only — not transitive includes.
+        if not apply_stack( env ):
+            self._apply_default_use_libs( env, dependency_name=apply_name )
+
+
+    def _link_contrib_key( self, dependency_name=None ):
+        return dependency_name or self._package_id
+
+
+    def _package_link_mode( self ):
+        from cuppa.package_managers.cuppa_dependency_manifest import package_link_mode
+        from cuppa.package_managers.package_link_libs import normalise_link_mode
+
+        return normalise_link_mode( package_link_mode( self._package_dir ) )
+
+
+    def _resolve_default_use_libs( self, dependency_name=None ):
+        """Return the default link stems for this package (possibly empty).
+
+        Explicit ``default_use_libs`` in the manifest wins (including ``[]``).
+        When the key is omitted, a narrow heuristic may supply a single stem.
+        """
+        from cuppa.package_managers.cuppa_dependency_manifest import package_default_use_libs
+        from cuppa.package_managers.package_link_libs import (
+                env_lib_naming,
+                heuristic_default_use_libs,
+                list_linkable_lib_stems,
+        )
+
+        explicit = package_default_use_libs( self._package_dir )
+        if explicit is not None:
+            return explicit
+
+        env = self._env
+        lib_prefix, lib_suffix, shlib_prefix, shlib_suffix = env_lib_naming( env )
+        stems = list_linkable_lib_stems(
+                self._lib_dir,
+                lib_prefix,
+                lib_suffix,
+                shlib_prefix,
+                shlib_suffix,
+                library_prefix=getattr( self, '_library_prefix', None ) or "",
+        )
+        return heuristic_default_use_libs(
+                stems,
+                package_slug=self._package,
+                dependency_name=dependency_name,
+        )
+
+
+    def _apply_default_use_libs( self, env, dependency_name=None ):
+        applied = getattr( self, '_default_use_libs_applied', None )
+        if applied is None:
+            applied = set()
+            self._default_use_libs_applied = applied
+        env_key = id( env )
+        if env_key in applied:
+            return
+        applied.add( env_key )
+
+        defaults = self._resolve_default_use_libs( dependency_name=dependency_name )
+        if not defaults:
+            logger.debug(
+                    "No default_use_libs for package [{}]; headers / runtime ENV only".format(
+                            as_info( self._package_id )
+                    )
+            )
+            return
+
+        logger.info( "Applying default_use_libs {} for package [{}]".format(
+                as_info( str( defaults ) ),
+                as_notice( self._package_id ),
+        ) )
+        self.use_libs( defaults, dependency_name=dependency_name )
 
 
     def parse_pkg_config( self, libs ):
@@ -1393,6 +1495,11 @@ class GitlabPackageDependency:
     def use_libs( self, libs, depends_on=[], dependency_name=None ):
 
         from SCons.Script import Flatten
+        from cuppa.package_managers.package_link_libs import (
+                apply_resolved_libs,
+                clear_package_link_contribution,
+                record_package_link_contribution,
+        )
 
         env = self._env
         libs = Flatten( [ libs ] )
@@ -1401,10 +1508,31 @@ class GitlabPackageDependency:
         if depends_on:
             env.Depends( includes, depends_on )
 
+        contrib_key = self._link_contrib_key( dependency_name )
+        # Replace this package's prior contribution (defaults or earlier use_libs).
+        # pkg-config ParseConfig is not reversible; keep that path append-only.
+        if not self._pkg_config_dir:
+            clear_package_link_contribution( env, contrib_key )
+
         if self._pkg_config_dir:
-            self.parse_pkg_config( libs )
+            if libs:
+                self.parse_pkg_config( libs )
         else:
-            self.use_static_libs( libs )
+            contrib = apply_resolved_libs(
+                    env,
+                    self._lib_dir,
+                    libs,
+                    library_prefix=self._library_prefix,
+                    link=self._package_link_mode(),
+                    package_id=self._package_id,
+            )
+            record_package_link_contribution(
+                    env,
+                    contrib_key,
+                    static=contrib["static"],
+                    shared=contrib["shared"],
+                    libpath=contrib["libpath"],
+            )
 
         apply_name = dependency_name or self._package
         from cuppa.package_managers.cuppa_dependency_apply import apply_transitive_use_libs
@@ -1417,14 +1545,20 @@ class GitlabPackageDependency:
 
 
     def use_all_libs( self, depends_on=[], dependency_name=None ):
-        """Link every static library found under this package's ``lib/`` directory."""
-        from cuppa.package_managers.cuppa_dependency_apply import list_static_lib_stems
+        """Link every static or shared library found under this package's ``lib/``."""
+        from cuppa.package_managers.package_link_libs import (
+                env_lib_naming,
+                list_linkable_lib_stems,
+        )
 
         env = self._env
-        names = list_static_lib_stems(
+        lib_prefix, lib_suffix, shlib_prefix, shlib_suffix = env_lib_naming( env )
+        names = list_linkable_lib_stems(
                 self._lib_dir,
-                env['LIBPREFIX'],
-                env['LIBSUFFIX'],
+                lib_prefix,
+                lib_suffix,
+                shlib_prefix,
+                shlib_suffix,
                 library_prefix=self._library_prefix,
         )
         logger.info( "use_all_libs for package [{}] selected [{}]".format(
@@ -1435,16 +1569,14 @@ class GitlabPackageDependency:
 
 
     def use_static_libs( self, libs ):
+        """Deprecated path: prefer :meth:`use_libs` (shared-aware). Kept for callers."""
+        from cuppa.package_managers.package_link_libs import apply_resolved_libs
 
-        from SCons.Script import Flatten
-
-        libs = Flatten( [ libs ] )
-        env = self._env
-        staticlibs = []
-        library_prefix = self._library_prefix and self._library_prefix or ""
-        for lib in libs:
-            prefix = lib.startswith( library_prefix ) and "" or library_prefix
-            library_path = os.path.join( self._lib_dir, env['LIBPREFIX'] + prefix + lib + env['LIBSUFFIX'] )
-            staticlibs.append( env.File( library_path ) )
-
-        env.AppendUnique( STATICLIBS = staticlibs )
+        apply_resolved_libs(
+                self._env,
+                self._lib_dir,
+                libs,
+                library_prefix=self._library_prefix,
+                link='static',
+                package_id=self._package_id,
+        )

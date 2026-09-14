@@ -9,6 +9,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- GitLab packages: shared-aware ``use_libs`` / ``use_all_libs`` (static ``.a`` or shared
+  ``.so`` / versioned sonames → ``STATICLIBS`` or ``LIBPATH``+``SHAREDLIBS``), manifest
+  ``default_use_libs`` / ``link`` via ``GitlabPackagePublisher``, applied on primary
+  BuildWith / auto-enable with explicit ``use_libs`` replacing the contribution
+  (``use_libs([])`` clears). Narrow heuristic when metadata is omitted (single stem or
+  name match; otherwise link nothing). Non-relocatable upstream ``.pc`` prefixes are
+  not rewritten — prefer ``use_libs`` /
+  [`package-use-libs-defaults`](design/plans/package-use-libs-defaults.md).
+- ``env.PackageDir`` / ``PackageBin`` / ``PackageLib`` / ``PackageVersion`` and
+  ``env.CMakePrefixPathFor`` — BuildWith package layout helpers (name string or
+  dependency object). Free functions remain under
+  ``cuppa.package_managers.package_paths`` /
+  ``cmake_prefix_path_for``. Publisher ``dependencies=`` accepts bare BuildWith
+  names, derives GitLab slugs via ``_``→``-`` (and the reverse when only
+  ``package`` is given), coerces empty ``registry`` to ``same``, and still fills
+  omitted ``version`` from BuildWith. ``CMakeConfigure`` /
+  ``cmake_configure_args`` default ``generator=None`` to ``Ninja`` when
+  ``ninja`` is on ``PATH`` (pass ``generator=False`` to omit ``-G``)
+  ([`cmake-package-prefix`](design/archive/cmake-package-prefix.md)).
+- ``cuppa.package_managers.package_paths`` — ``package_dir`` / ``package_bin`` /
+  ``package_lib`` / ``package_version`` resolve layout from ``env.BuildWith``
+  (safe to call again after auto-enable). ``cmake_prefix_path_for(env, *names)``
+  builds ``CMAKE_PREFIX_PATH`` from those roots. ``GitlabPackagePublisher`` /
+  ``write_manifest(..., env=)`` fill omitted dependency ``version`` pins from
+  the active BuildWith package
+  ([`cmake-package-prefix`](design/archive/cmake-package-prefix.md)).
+- ``env.DownloadExtract`` — download a URL archive with Cuppa progress, extract
+  into a working directory (default ``strip_components=1`` for GitHub release
+  tarballs), and stamp a marker file. Lives with ``env.RemoveEmptyDirs`` under
+  ``cuppa.methods.acquire`` / ``cuppa.buildsys.acquire`` (build-system agnostic
+  acquire/staging; not CMake-specific). ``remove_empty_dirs`` moves to
+  ``buildsys.acquire`` and is re-exported from ``buildsys.cmake`` for one cycle
+  ([`download-extract`](design/archive/download-extract.md)).
+- GitLab ``BuildWith`` prepends package ``lib/`` (and ``bin/`` when present) to
+  the construction ``ENV`` via ``apply_package_runtime_paths`` (Conan parity:
+  ``LD_LIBRARY_PATH`` / ``DYLD_LIBRARY_PATH`` / ``PATH``). Shared helper lives in
+  ``cuppa.package_managers.runtime_paths``; Conan ``merge_conan_flags`` uses it
+  too
+  ([`package-runtime-paths`](design/archive/package-runtime-paths.md)).
+- ``cuppa.buildsys.cmake.cmake_prefix_path`` and ``cmake_install_rpath_defines``
+  — publisher helpers for ``CMAKE_PREFIX_PATH`` and install vs build-tree
+  ``$ORIGIN`` RPATH (default ``CMAKE_BUILD_WITH_INSTALL_RPATH=False`` so in-tree
+  plugins beside their ``.so`` resolve during ``CMakeBuild``). Documented on
+  Packages / GitLab consume pages
+  ([`package-runtime-paths`](design/archive/package-runtime-paths.md)).
+- ``cuppa.utility.command.run`` reprints a short **failure detail** block after a
+  non-zero exit (``FAILED:``, ``CMake Error``, shared-library loader errors,
+  ``ninja: build stopped``, compiler ``error:`` lines). Parallel CMake/Ninja
+  builds often bury the real fault under continuing warning floods; the summary
+  keeps those lines visible next to the exit-code message.
+- ``cuppa.buildsys.cmake`` — public CMake argv helpers
+  (``cmake_configure_args`` / ``cmake_configure_command`` /
+  ``cmake_build_command`` / …) for publisher sconscripts; room for later
+  siblings such as ``cuppa.buildsys.b2``. Antora CMake publisher patterns use
+  this module
+  ([`cmake-drive-and-package-staging`](design/plans/cmake-drive-and-package-staging.md)).
+- ``env.CMakeConfigure`` / ``CMakeBuild`` / ``CMakeInstall`` — graph nodes for
+  external CMake publisher trees (configure stamps, ``cmake --build``, install
+  target). ``CMakeBuild`` passes ``--parallel N`` when Cuppa ``--parallel`` is set
+  (override with ``jobs=``). Methods register ``env.Clean`` on the CMake ``-B``
+  tree so ``cuppa -c`` removes out-of-tree builds under location dependencies.
+  Antora publisher patterns prefer the methods
+  ([`cmake-drive-and-package-staging`](design/plans/cmake-drive-and-package-staging.md)).
+- ``cuppa.buildsys.cmake.remove_empty_dirs`` and ``env.RemoveEmptyDirs`` — remove
+  empty submodule placeholder directories after a GitHub-style source archive
+  extract so upstream ``NOT EXISTS`` download gates (for example gRPC
+  ``gRPC_DOWNLOAD_ARCHIVES``) can populate them. Prefer ``gitmodules=True`` to
+  limit candidates to paths from the extract's ``.gitmodules``; omit filters to
+  clear every empty child of ``parent``; pass ``names=`` as a definitive list.
+  Stamp the step and feed it into ``CMakeConfigure`` sources
+  ([`cmake-drive-and-package-staging`](design/plans/cmake-drive-and-package-staging.md)).
 - Zero-arg ``env.Toolchain()`` / ``env.Variant()`` return the active handles for the current
   toolchain×variant invoke; ``env.HasToolchain(name)`` and ``env.HasDependency(name)`` provide
   registry membership checks (``HasToolchain`` accepts registry key or ``toolchain.name()``).
@@ -56,6 +127,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Staging / Depends docs: package ``Install`` examples use
+  ``Requires(installed_include, installed_lib)`` only (order-only under
+  ``--parallel``); explain why ``Depends`` would needlessly re-copy headers when
+  only the library changes.
 - Managing dependencies docs: short hub plus
   ``list-dependencies`` / ``list-downloads`` / ``removing`` / ``develop`` children; coloured
   ``requires`` sample uses HTML passthrough (not a collapsible text listing); removing page
@@ -85,6 +160,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- ``--publish-package`` now depends on the GitLab ``package_archive()`` (the
+  ``.tar.gz`` / ``.zip``) as well as the empty ``.packaged`` stamp. With SCons
+  ``MD5-timestamp``, retouching the stamp alone did not invalidate upload after
+  a retar (manifest-only package rebuilds looked “done” without publishing).
+- ``GitlabPackagePublisher`` archive freshness treated a newly written
+  ``cuppa-dependency.json`` as invisible: ``newest_mtime_under`` used ``os.walk``,
+  which skips bare files, so adding ``default_use_libs`` (or other manifest-only
+  changes) left the ``.tar.gz`` as “up to date” and omitted the manifest from the
+  published archive. File roots are now timed correctly.
+- Synthesized transitive GitLab packages (from ``cuppa-dependency.json``) now
+  call ``add_options`` when registered, and ``get_option`` treats a missing
+  SCons option dest as unset. Without that, ``BuildWith`` on a package that
+  pulls an undeclared transitive (for example ``c_ares`` via gRPC) crashed with
+  ``AttributeError: 'Values' object has no attribute '<name>-package-manager'``.
+- Automatic ``--parallel`` job count uses the process CPU affinity set
+  (``os.sched_getaffinity`` / ``effective_cpu_count``) instead of raw
+  ``multiprocessing.cpu_count()``, so SCons ``-j`` and ``CMakeBuild``
+  ``--parallel N`` match the wrapper's "leave cores free for the OS" policy
+  (e.g. 14 on a 16-core host) rather than advertising all logical CPUs.
 - ``GitlabPackagePublisher.build_package`` refreshes staged include/lib/modules when
   the source tree is newer than the package stage (not only when the stage is missing),
   and ``sources()`` lists include and lib outside ``abs_final_dir`` so package stamps

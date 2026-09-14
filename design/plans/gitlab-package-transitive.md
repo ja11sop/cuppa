@@ -283,7 +283,7 @@ they ride along with `A.use_libs(...)`, not with bare `BuildWith(A)`.
 |-------|--------|
 | `gl-dep-rules` | Done — proposal + settled decisions 2026-09-06 |
 | `gl-dep-publish` | Done — `dependencies=` → `cuppa-dependency.json` |
-| `gl-dep-consume` | Done — `BuildWith` + transitive `use_libs`; cycles / version conflict |
+| `gl-dep-consume` | Done — `BuildWith` + transitive `use_libs`; cycles / version conflict; **2026-09-14:** synthesized factories also `add_options` (fixes missing `<name>-package-manager` GetOption) |
 | `gl-dep-tests` | Done for MVP — unit/publish + offline A→B→C list/develop consume |
 | `gl-dep-docs` | Done — `gitlab.adoc` / `packages.adoc` / managing list notes |
 | `gl-dep-list` | Done — declared `requires` under GitLab version leaves (text + JSON) |
