@@ -14,7 +14,7 @@ xref:methods/staging-files.adoc[Staging files], and xref:methods/depends.adoc[De
 | Axis | Detail
 
 | Returns | Package-related nodes
-| Evaluation | Configure / build; upload typically requires `--publish-package`
+| Evaluation | Configure / build; upload typically requires `--publish-package`; metadata-only retar uses `--amend-package-manifest` (skips acquire/CMake)
 | Output paths | Package layout under cuppa package roots / registry archives
 | Progress | As wired by package publishers / CMake methods
 |===
@@ -41,7 +41,7 @@ xref:methods/staging-files.adoc[Staging files], and xref:methods/depends.adoc[De
 | `cmake --build … --target install` (default omits `--parallel`)
 
 | `env.PublishPackage(…)`
-| Build (and optionally publish) a package; GitLab generic tarball or Conan `export-pkg` via a publisher object; upload requires `--publish-package`
+| Build (and optionally publish) a package; GitLab generic tarball or Conan `export-pkg` via a publisher object; upload requires `--publish-package`; GitLab metadata-only retar with `--amend-package-manifest` (see xref:packages.adoc#amend-package-manifest[Amending metadata without rebuilding])
 
 | `env.InstallPackage(…)`
 | Install a package locally and extend `SYSINCPATH`

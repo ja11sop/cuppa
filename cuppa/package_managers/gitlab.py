@@ -580,6 +580,11 @@ class GitlabPackagePublisher:
         self._dependencies = list( dependencies ) if dependencies else []
         self._default_use_libs = default_use_libs
         self._link = link
+        self._registry = registry
+        self._package = package
+        self._version = version
+        self._custom_token = custom_token
+        self._variant = variant
 
         if not offset_include_dir is None:
             self._target_include_dir = env.Dir( os.path.join( str(self._target_include_dir), offset_include_dir ) )
@@ -588,6 +593,7 @@ class GitlabPackagePublisher:
         self._package_variant   = tool_variant( env, variant=variant )
         from cuppa.toolchains.identity import OS_IDENTITY_OMIT, package_os_identity
         omit_os = package_os_identity( env ) == OS_IDENTITY_OMIT
+        self._omit_os = omit_os
         self._package_file_name = package_file_name(
                 env, package=package, variant=variant, omit_os=omit_os
         )
@@ -602,16 +608,17 @@ class GitlabPackagePublisher:
                 self._package_base_dir
         ] )
 
+        self._package_location = package_url(
+                env,
+                registry=registry,
+                package=package,
+                version=version,
+                omit_os=omit_os,
+        )
         self._curl_command = 'curl --fail-with-body --header "{token}" --upload-file {package_file} "{package_location}"'.format(
                 token = get_header_token( custom_token ),
                 package_file = str( self._package_archive ),
-                package_location = package_url(
-                        env,
-                        registry=registry,
-                        package=package,
-                        version=version,
-                        omit_os=omit_os,
-                )
+                package_location = self._package_location,
         )
 
         self._package_file_path = os.path.join( self._package_folder, self._package_file_name )
@@ -709,6 +716,121 @@ class GitlabPackagePublisher:
         env.Execute( Touch( target[0] ) )
         logger.info( "Package [{}] created".format( as_info( archive_path ) ) )
 
+        return None
+
+
+    def amend_package( self, target, source, env ):
+        """Rewrite ``cuppa-dependency.json`` and retar without restaging binaries.
+
+        Prefer an existing ``final/<package>/<version>/`` stage (mode A). Otherwise
+        extract a local archive into ``abs_final_dir`` (mode B), or download that
+        archive from the registry first. Does not copy from ``source_include_dir`` /
+        ``source_lib_dir``.
+        """
+        from SCons.Script import Touch
+
+        from cuppa.package_managers.package_amend import package_stage_has_payload
+        from cuppa.utility.download import DownloadError
+
+        package_base = str( self._package_base_dir )
+        archive_path = str( self._package_archive )
+        abs_final = self._abs_final_dir
+
+        stage_ok = package_stage_has_payload( package_base )
+        archive_ok = os.path.isfile( archive_path )
+
+        if not stage_ok and not archive_ok:
+            url = getattr( self, '_package_location', None )
+            if not url:
+                logger.error(
+                        "Cannot amend package [{}]: no staged tree at [{}], "
+                        "no local archive at [{}], and no registry URL"
+                        .format(
+                                as_error( self._package_file_name ),
+                                as_error( package_base ),
+                                as_error( archive_path ),
+                        )
+                )
+                return 1
+            logger.info(
+                    "Downloading package archive [{}] for metadata amend..."
+                    .format( as_info( archive_path ) )
+            )
+            try:
+                download_registry_package(
+                        url,
+                        archive_path,
+                        custom_token=getattr( self, '_custom_token', None ),
+                        label=os.path.basename( archive_path ),
+                )
+            except DownloadError as error:
+                logger.error(
+                        "Failed to download package archive for amend [{}]: {}"
+                        .format( as_error( archive_path ), error )
+                )
+                return 1
+            archive_ok = os.path.isfile( archive_path )
+
+        if not stage_ok and archive_ok:
+            logger.info(
+                    "Extracting [{}] into [{}] for metadata amend..."
+                    .format( as_info( archive_path ), as_info( abs_final ) )
+            )
+            returncode = extract_package_archive( archive_path, abs_final )
+            if returncode != 0:
+                return returncode
+            stage_ok = package_stage_has_payload( package_base )
+
+        if not stage_ok:
+            logger.error(
+                    "Cannot amend package [{}]: no usable stage under [{}] "
+                    "(need include/ or lib/ after extract)"
+                    .format( as_error( self._package_file_name ), as_error( package_base ) )
+            )
+            return 1
+
+        from cuppa.package_managers.cuppa_dependency_manifest import write_manifest
+        manifest_path_written = write_manifest(
+                package_base,
+                getattr( self, '_dependencies', None ),
+                env=env,
+                default_use_libs=getattr( self, '_default_use_libs', None ),
+                link=getattr( self, '_link', None ),
+        )
+        if manifest_path_written:
+            logger.info( "Amended [{}] for package [{}]".format(
+                    as_info( manifest_path_written ),
+                    as_info( self._package_file_name ),
+            ) )
+        else:
+            logger.info(
+                    "No cuppa-dependency.json content for package [{}] "
+                    "(omitted dependencies / default_use_libs / link); "
+                    "removing any existing manifest before retar"
+                    .format( as_info( self._package_file_name ) )
+            )
+            from cuppa.package_managers.cuppa_dependency_manifest import manifest_path
+            existing = manifest_path( package_base )
+            if os.path.isfile( existing ):
+                os.remove( existing )
+
+        logger.info( "Recreating package [{}] after metadata amend...".format(
+                as_info( archive_path )
+        ) )
+        returncode = create_package_archive(
+                archive_path,
+                abs_final,
+                self._package_source_dir,
+        )
+        if returncode != 0:
+            logger.error( "Creating package archive [{}] failed with return code [{}]".format(
+                    as_error( archive_path ),
+                    as_error( str( returncode ) ) )
+            )
+            return returncode
+
+        env.Execute( Touch( target[0] ) )
+        logger.info( "Package [{}] amended".format( as_info( archive_path ) ) )
         return None
 
 

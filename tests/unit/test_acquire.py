@@ -31,6 +31,10 @@ class _RecordingEnv(dict):
         dict.__init__( self, *args, **kwargs )
         self.commands = []
         self.cleans = []
+        self._options = {}
+
+    def get_option( self, name, default=None ):
+        return self._options.get( name, default )
 
     def Command( self, target, source, action ):
         self.commands.append( {
@@ -125,3 +129,31 @@ def test_remove_empty_dirs_method_from_acquire( silence_progress, tmp_path ):
             target='stamp.complete',
     )
     assert nodes == [ 'node:stamp.complete' ]
+
+
+def test_download_extract_skips_when_amend_package_manifest( silence_progress ):
+    env = _RecordingEnv( build_dir='_build/gcc/rel/working' )
+    env._options['amend-package-manifest'] = True
+    nodes = DownloadExtractMethod()(
+            env,
+            'https://github.com/org/proj/archive/v1.0.0.tar.gz',
+            extract_dir='proj',
+            marker='CMakeLists.txt',
+    )
+    assert nodes
+    assert env.commands[0]['source'] == []
+    assert env.cleans == []
+
+
+def test_remove_empty_dirs_skips_when_amend_package_manifest( silence_progress, tmp_path ):
+    env = _RecordingEnv()
+    env._options['amend-package-manifest'] = True
+    nodes = RemoveEmptyDirsMethod()(
+            env,
+            [ 'src' ],
+            parent=str( tmp_path / 'third_party' ),
+            target='stamp.complete',
+    )
+    assert nodes == [ 'node:stamp.complete' ]
+    assert env.commands[0]['source'] == []
+

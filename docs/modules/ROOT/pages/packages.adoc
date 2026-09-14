@@ -33,6 +33,39 @@ The publish step depends on the archive file as well as the empty ``.packaged`` 
 a retar (for example after updating ``cuppa-dependency.json``) invalidates upload under
 SCons ``MD5-timestamp``.
 
+[#amend-package-manifest]
+=== Amending metadata without rebuilding
+
+When only traveling metadata changes (for example adding
+``default_use_libs: []`` on a fat package, or correcting dependency pins), a full
+DownloadExtract → CMake → install cycle is disproportionate. Pass
+``--amend-package-manifest`` together with the usual variant and toolchain flags:
+
+[source,shell]
+----
+cuppa -D --rel --toolchains=gcc15 --amend-package-manifest --publish-package
+----
+
+Cuppa then:
+
+* skips ``DownloadExtract``, ``RemoveEmptyDirs``, and ``CMakeConfigure`` /
+  ``CMakeBuild`` / ``CMakeInstall`` (they register no-op stamps so the graph still
+  links)
+* rewrites ``cuppa-dependency.json`` from the current ``GitlabPackagePublisher``
+  kwargs (``dependencies``, ``default_use_libs``, ``link``)
+* retars from an existing ``final/<package>/<version>/`` stage when present;
+  otherwise extracts a local ``.tar.gz`` / ``.zip`` under ``final/``, or downloads
+  that archive from the registry first
+* uploads when ``--publish-package`` is also set (same publish dependency on the
+  archive as a normal retar)
+
+This path does **not** refresh include/lib payloads from ``source_include_dir`` /
+``source_lib_dir``. Use a normal publish (without ``--amend-package-manifest``)
+when binaries or headers change. Consumers that already cached the same version
+need a download refresh after a same-version overwrite — see
+xref:dependencies/gitlab.adoc[GitLab packages] and the planned
+``--refresh-downloads`` work.
+
 === Declaring transitive dependencies
 
 Pass ``dependencies=[...]`` to ``GitlabPackagePublisher`` when package **A** needs other GitLab

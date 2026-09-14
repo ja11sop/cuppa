@@ -139,6 +139,11 @@ written to tracked configuration.
 xref:packages.adoc[Publishing packages] for GitLab and Conan publishing; consuming packages is
 covered by xref:dependencies/packages.adoc[Package dependencies].
 
+`--amend-package-manifest` rewrites `cuppa-dependency.json` from the publisher kwargs,
+retars from an existing stage or registry archive, and skips DownloadExtract / CMake
+rebuild. Pair with `--publish-package` to upload. See
+xref:packages.adoc#amend-package-manifest[Amending metadata without rebuilding].
+
 == Built-in Boost options
 
 Source Boost has a stable option family rather than a project-generated `<name>` prefix.

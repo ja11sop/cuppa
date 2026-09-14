@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--amend-package-manifest`` — rewrite ``cuppa-dependency.json`` from
+  ``GitlabPackagePublisher`` kwargs and retar/publish without rebuilding package
+  binaries. Skips ``DownloadExtract`` / ``RemoveEmptyDirs`` / CMake graph actions;
+  uses an existing ``final/<pkg>/<ver>/`` stage, a local archive, or a registry
+  download. Pair with ``--publish-package`` to upload
+  ([#299](https://github.com/ja11sop/cuppa/issues/299);
+  [`package-metadata-amend`](design/plans/package-metadata-amend.md)).
 - GitLab packages: shared-aware ``use_libs`` / ``use_all_libs`` (static ``.a`` or shared
   ``.so`` / versioned sonames → ``STATICLIBS`` or ``LIBPATH``+``SHAREDLIBS``), manifest
   ``default_use_libs`` / ``link`` via ``GitlabPackagePublisher``, applied on primary

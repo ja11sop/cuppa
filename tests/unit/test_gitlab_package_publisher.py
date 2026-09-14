@@ -152,6 +152,13 @@ def _bare_publisher( tmp_path, staging, include_dir, lib_dir, archive, source_in
     publisher._source_include_dir = str( source_include if source_include is not None else include_dir )
     publisher._source_lib_dir = str( source_lib if source_lib is not None else lib_dir )
     publisher._dependencies = []
+    publisher._default_use_libs = None
+    publisher._link = None
+    publisher._registry = None
+    publisher._package = "widget"
+    publisher._version = "1.0.0"
+    publisher._custom_token = None
+    publisher._package_location = None
     return publisher
 
 
@@ -302,3 +309,132 @@ def test_publisher_sources_omits_dirs_under_final( tmp_path ):
             source_lib=under_lib,
     )
     assert publisher.sources() == []
+
+
+def test_amend_package_writes_manifest_on_existing_stage( tmp_path, monkeypatch ):
+    create_calls = []
+    monkeypatch.setattr(
+            gitlab,
+            'create_package_archive',
+            lambda archive_path, working_dir, source_dir: create_calls.append(
+                    ( archive_path, working_dir, source_dir )
+            ) or 0,
+    )
+
+    staging = tmp_path / "widget" / "1.0.0"
+    include_dir = staging / "include"
+    lib_dir = staging / "lib"
+    include_dir.mkdir( parents=True )
+    lib_dir.mkdir( parents=True )
+    ( include_dir / "widget.hpp" ).write_text( "header\n", encoding="utf-8" )
+    ( lib_dir / "libwidget.a" ).write_text( "lib\n", encoding="utf-8" )
+
+    install_include = tmp_path / "elsewhere" / "include"
+    install_include.mkdir( parents=True )
+    ( install_include / "widget.hpp" ).write_text( "should-not-copy\n", encoding="utf-8" )
+
+    archive = tmp_path / "widget_debian_gcc15_rel.tar.gz"
+    archive.write_bytes( b"old" )
+    stamp = tmp_path / "widget.packaged"
+    publisher = _bare_publisher(
+            tmp_path,
+            staging,
+            include_dir,
+            lib_dir,
+            archive,
+            source_include=install_include,
+    )
+    publisher._default_use_libs = []
+    publisher._dependencies = [
+            { "name": "fmt", "package": "fmt", "version": "12.2.0", "registry": "same" },
+    ]
+
+    touched = []
+    env = _publisher_env( tmp_path, touched )
+    assert publisher.amend_package( [ str( stamp ) ], [], env ) is None
+    assert create_calls == [ ( str( archive ), str( tmp_path ), "widget" ) ]
+    assert touched
+
+    from cuppa.package_managers.cuppa_dependency_manifest import read_manifest
+    document = read_manifest( str( staging ) )
+    assert document["default_use_libs"] == []
+    assert document["dependencies"][0]["name"] == "fmt"
+    assert ( include_dir / "widget.hpp" ).read_text( encoding="utf-8" ) == "header\n"
+
+
+def test_amend_package_extracts_local_archive_when_stage_missing( tmp_path, monkeypatch ):
+    create_calls = []
+    monkeypatch.setattr(
+            gitlab,
+            'create_package_archive',
+            lambda archive_path, working_dir, source_dir: create_calls.append(
+                    ( archive_path, working_dir, source_dir )
+            ) or 0,
+    )
+
+    staging = tmp_path / "widget" / "1.0.0"
+    include_dir = staging / "include"
+    lib_dir = staging / "lib"
+    include_dir.mkdir( parents=True )
+    lib_dir.mkdir( parents=True )
+    ( include_dir / "widget.hpp" ).write_text( "from-archive\n", encoding="utf-8" )
+    ( lib_dir / "libwidget.a" ).write_text( "lib\n", encoding="utf-8" )
+
+    archive = tmp_path / "widget_debian_gcc15_rel.tar.gz"
+    import tarfile
+    with tarfile.open( archive, "w:gz" ) as handle:
+        handle.add( staging, arcname="widget/1.0.0" )
+
+    import shutil
+    shutil.rmtree( staging )
+    assert not staging.exists()
+
+    stamp = tmp_path / "widget.packaged"
+    publisher = _bare_publisher( tmp_path, staging, include_dir, lib_dir, archive )
+    publisher._default_use_libs = [ "widget" ]
+
+    env = _publisher_env( tmp_path )
+    assert publisher.amend_package( [ str( stamp ) ], [], env ) is None
+    assert ( include_dir / "widget.hpp" ).read_text( encoding="utf-8" ) == "from-archive\n"
+    assert create_calls
+
+    from cuppa.package_managers.cuppa_dependency_manifest import read_manifest
+    assert read_manifest( str( staging ) )["default_use_libs"] == [ "widget" ]
+
+
+def test_amend_package_downloads_when_stage_and_archive_missing( tmp_path, monkeypatch ):
+    downloads = []
+
+    def _fake_download( url, dest_path, custom_token=None, label=None ):
+        downloads.append( ( url, dest_path ) )
+        staging = tmp_path / "widget" / "1.0.0"
+        include_dir = staging / "include"
+        include_dir.mkdir( parents=True )
+        ( include_dir / "widget.hpp" ).write_text( "from-registry\n", encoding="utf-8" )
+        import tarfile
+        with tarfile.open( dest_path, "w:gz" ) as handle:
+            handle.add( staging, arcname="widget/1.0.0" )
+        import shutil
+        shutil.rmtree( staging )
+        return dest_path
+
+    monkeypatch.setattr( gitlab, 'download_registry_package', _fake_download )
+    monkeypatch.setattr( gitlab, 'create_package_archive', lambda *a, **k: 0 )
+
+    staging = tmp_path / "widget" / "1.0.0"
+    archive = tmp_path / "widget_debian_gcc15_rel.tar.gz"
+    stamp = tmp_path / "widget.packaged"
+    publisher = _bare_publisher(
+            tmp_path,
+            staging,
+            staging / "include",
+            staging / "lib",
+            archive,
+    )
+    publisher._package_location = "https://gitlab.example/packages/generic/widget/1.0.0/x.tar.gz"
+    publisher._default_use_libs = []
+
+    env = _publisher_env( tmp_path )
+    assert publisher.amend_package( [ str( stamp ) ], [], env ) is None
+    assert downloads
+    assert ( staging / "include" / "widget.hpp" ).read_text( encoding="utf-8" ) == "from-registry\n"
