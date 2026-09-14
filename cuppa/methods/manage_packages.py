@@ -12,6 +12,32 @@
 import cuppa.progress
 
 
+def publish_package_sources( publisher, built_package, env=None ):
+    """Sources that must invalidate ``--publish-package`` after a retar / restage.
+
+    The ``.packaged`` stamp is often an empty ``Touch`` file. With SCons
+    ``MD5-timestamp``, retouching it does not change content, so publish would
+    skip even when ``package_archive()`` was rewritten. Depend on the archive
+    (or other payload) as well when the publisher exposes one.
+    """
+    from SCons.Script import Flatten
+
+    sources = list( Flatten( [ built_package ] ) )
+    archive_fn = getattr( publisher, "package_archive", None )
+    if not callable( archive_fn ):
+        return sources
+    archive = archive_fn()
+    if archive is None:
+        return sources
+    if env is not None:
+        file_fn = getattr( env, "File", None )
+        if callable( file_fn ):
+            sources.append( file_fn( archive ) )
+            return sources
+    sources.append( archive )
+    return sources
+
+
 class PublishPackageMethod(object):
 
     def __call__( self, env, source, publisher=None ):
@@ -27,7 +53,11 @@ class PublishPackageMethod(object):
 
         if publish:
             package_published = env.File( publisher.package_published() )
-            published_package = env.Command( package_published, built_package, publisher.publish_package )
+            published_package = env.Command(
+                    package_published,
+                    publish_package_sources( publisher, built_package, env=env ),
+                    publisher.publish_package,
+            )
             target = published_package
 
         cuppa.progress.NotifyProgress.add( env, target )

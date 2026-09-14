@@ -30,6 +30,15 @@ def test_build_manifest_none_when_empty():
     assert build_manifest( [] ) is None
 
 
+def test_build_manifest_default_use_libs_without_deps():
+    document = build_manifest( None, default_use_libs=["fmt"] )
+    assert document["dependencies"] == []
+    assert document["default_use_libs"] == ["fmt"]
+    document = build_manifest( [], default_use_libs=[], link="prefer_shared" )
+    assert document["default_use_libs"] == []
+    assert document["link"] == "prefer_shared"
+
+
 def test_normalise_dict_entry():
     entry = normalise_dependency_entry( {
         "name": "boost_package",
@@ -70,6 +79,20 @@ def test_write_and_read_round_trip( tmp_path: Path ):
 def test_write_omits_file_when_no_deps( tmp_path: Path ):
     assert write_manifest( str( tmp_path ), [] ) is None
     assert not ( tmp_path / MANIFEST_FILENAME ).exists()
+
+
+def test_write_and_read_default_use_libs_only( tmp_path: Path ):
+    path = write_manifest(
+            str( tmp_path ),
+            [],
+            default_use_libs=["date-tz"],
+            link="prefer_shared",
+    )
+    assert path is not None
+    loaded = read_manifest( str( tmp_path ) )
+    assert loaded["dependencies"] == []
+    assert loaded["default_use_libs"] == ["date-tz"]
+    assert loaded["link"] == "prefer_shared"
 
 
 def test_read_absent_returns_none( tmp_path: Path ):

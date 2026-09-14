@@ -108,10 +108,16 @@ def _install_fake_package_dependency( monkeypatch, created=None, package_dirs=No
             _version = kwargs.get( "version" )
             _package = kwargs.get( "package" )
             _registry = kwargs.get( "registry" )
+            add_options_calls = []
+
+            @classmethod
+            def add_options( cls, add_option ):
+                cls.add_options_calls.append( add_option )
 
             @classmethod
             def create( cls, env ):
                 created[name] = kwargs
+                created.setdefault( "_factories", {} )[name] = cls
                 return _FakeDependency(
                         name,
                         package_dir=package_dirs.get( name ),
@@ -168,6 +174,7 @@ def test_apply_transitive_build_with_registers_and_builds( tmp_path: Path, monke
     assert created["b"]["version"] == "2.0.0"
     assert created["b"]["registry"] == _REGISTRY
     assert env.build_with_calls == ["b"]
+    assert len( created["_factories"]["b"].add_options_calls ) == 1
 
 
 def test_apply_chain_a_requires_b_requires_c( tmp_path: Path, monkeypatch ):
@@ -437,7 +444,7 @@ def test_use_all_libs_selects_stems_and_delegates( tmp_path: Path ):
     lib_dir = tmp_path / "lib"
     lib_dir.mkdir()
     ( lib_dir / "libwidget.a" ).write_text( "x", encoding="utf-8" )
-    ( lib_dir / "libextra.a" ).write_text( "x", encoding="utf-8" )
+    ( lib_dir / "libextra.so" ).write_text( "x", encoding="utf-8" )
 
     package = GitlabPackageDependency.__new__( GitlabPackageDependency )
     package._lib_dir = str( lib_dir )
@@ -455,7 +462,104 @@ def test_use_all_libs_selects_stems_and_delegates( tmp_path: Path ):
         selected.extend( list( libs ) )
 
     package.use_libs = _capture_use_libs
-    package._env = { "LIBPREFIX": "lib", "LIBSUFFIX": ".a" }
+    package._env = {
+            "LIBPREFIX": "lib",
+            "LIBSUFFIX": ".a",
+            "SHLIBPREFIX": "lib",
+            "SHLIBSUFFIX": ".so",
+    }
 
     package.use_all_libs()
     assert selected == ["extra", "widget"]
+
+
+def test_use_libs_shared_sets_libpath( tmp_path: Path ):
+    lib_dir = tmp_path / "lib"
+    lib_dir.mkdir()
+    ( lib_dir / "libfmt.so" ).write_text( "s", encoding="utf-8" )
+    include_dir = tmp_path / "include"
+    include_dir.mkdir()
+
+    class _Env( dict ):
+        def AppendUnique( self, **kwargs ):
+            for key, value in kwargs.items():
+                current = list( self.get( key ) or [] )
+                items = value if isinstance( value, ( list, tuple ) ) else [ value ]
+                for item in items:
+                    if str( item ) not in { str( x ) for x in current }:
+                        current.append( item )
+                self[key] = current
+
+        def Depends( self, *_args, **_kwargs ):
+            return None
+
+        def File( self, path ):
+            return path
+
+    env = _Env(
+            LIBPREFIX="lib",
+            LIBSUFFIX=".a",
+            SHLIBPREFIX="lib",
+            SHLIBSUFFIX=".so",
+    )
+    package = GitlabPackageDependency.__new__( GitlabPackageDependency )
+    package._env = env
+    package._lib_dir = str( lib_dir )
+    package._include_dir = str( include_dir )
+    package._library_prefix = ""
+    package._package_id = "fmt/12.2.0/rel"
+    package._package = "fmt"
+    package._package_dir = str( tmp_path )
+    package._registry = _REGISTRY
+    package._pkg_config_dir = None
+
+    package.use_libs( "fmt", dependency_name="fmt" )
+    assert env["SHAREDLIBS"] == ["fmt"]
+    assert env["LIBPATH"] == [str( lib_dir )]
+    assert str( include_dir ) in [ str( x ) for x in env["SYSINCPATH"] ]
+
+
+def test_use_libs_empty_clears_defaults( tmp_path: Path ):
+    lib_dir = tmp_path / "lib"
+    lib_dir.mkdir()
+    ( lib_dir / "libfmt.so" ).write_text( "s", encoding="utf-8" )
+    include_dir = tmp_path / "include"
+    include_dir.mkdir()
+
+    class _Env( dict ):
+        def AppendUnique( self, **kwargs ):
+            for key, value in kwargs.items():
+                current = list( self.get( key ) or [] )
+                items = value if isinstance( value, ( list, tuple ) ) else [ value ]
+                for item in items:
+                    if str( item ) not in { str( x ) for x in current }:
+                        current.append( item )
+                self[key] = current
+
+        def Depends( self, *_args, **_kwargs ):
+            return None
+
+        def File( self, path ):
+            return path
+
+    env = _Env(
+            LIBPREFIX="lib",
+            LIBSUFFIX=".a",
+            SHLIBPREFIX="lib",
+            SHLIBSUFFIX=".so",
+    )
+    package = GitlabPackageDependency.__new__( GitlabPackageDependency )
+    package._env = env
+    package._lib_dir = str( lib_dir )
+    package._include_dir = str( include_dir )
+    package._library_prefix = ""
+    package._package_id = "fmt/12.2.0/rel"
+    package._package = "fmt"
+    package._package_dir = str( tmp_path )
+    package._registry = _REGISTRY
+    package._pkg_config_dir = None
+
+    package.use_libs( ["fmt"], dependency_name="fmt" )
+    package.use_libs( [], dependency_name="fmt" )
+    assert env.get( "SHAREDLIBS", [] ) == []
+    assert env.get( "LIBPATH", [] ) == []

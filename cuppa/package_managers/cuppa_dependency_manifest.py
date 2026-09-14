@@ -164,25 +164,59 @@ def normalise_dependency_entry( entry: Any ) -> dict:
     return out
 
 
-def build_manifest( dependencies: list | None ) -> dict | None:
-    """Return a manifest document, or ``None`` when there are no dependencies."""
-    if not dependencies:
+def _normalise_default_use_libs( value: Any ) -> list[str] | None:
+    """Return a list of stems, or ``None`` when the field was omitted."""
+    if value is None:
         return None
-    entries = [ normalise_dependency_entry( item ) for item in dependencies ]
-    if not entries:
+    if is_string( value ):
+        return [ str( value ) ]
+    return [ str( item ) for item in value ]
+
+
+def _normalise_link( value: Any ) -> str | None:
+    if value is None or value == "":
         return None
-    return {
+    return str( value )
+
+
+def build_manifest(
+        dependencies: list | None = None,
+        default_use_libs: Any = None,
+        link: Any = None,
+) -> dict | None:
+    """Return a manifest document, or ``None`` when there is nothing to publish.
+
+    A document is produced when there are dependency edges and/or package-level
+    link metadata (``default_use_libs`` / ``link``).
+    """
+    entries = []
+    if dependencies:
+        entries = [ normalise_dependency_entry( item ) for item in dependencies ]
+
+    defaults = _normalise_default_use_libs( default_use_libs )
+    link_mode = _normalise_link( link )
+    if not entries and defaults is None and link_mode is None:
+        return None
+
+    document: dict = {
         "cuppa_dependency_format": MANIFEST_FORMAT,
         "dependencies": entries,
     }
+    if defaults is not None:
+        document["default_use_libs"] = defaults
+    if link_mode is not None:
+        document["link"] = link_mode
+    return document
 
 
 def write_manifest(
         package_dir: str,
-        dependencies: list | None,
+        dependencies: list | None = None,
         env=None,
+        default_use_libs: Any = None,
+        link: Any = None,
 ) -> str | None:
-    """Write ``cuppa-dependency.json`` under ``package_dir`` when deps are non-empty.
+    """Write ``cuppa-dependency.json`` under ``package_dir`` when there is content.
 
     When ``env`` is set, bare strings / partial dicts are coerced and missing
     ``version`` fields are filled from the active ``BuildWith`` package pin
@@ -192,7 +226,11 @@ def write_manifest(
     """
     if env is not None:
         dependencies = fill_dependency_versions( env, dependencies )
-    document = build_manifest( dependencies )
+    document = build_manifest(
+            dependencies,
+            default_use_libs=default_use_libs,
+            link=link,
+    )
     if document is None:
         return None
     path = manifest_path( package_dir )
@@ -218,9 +256,33 @@ def read_manifest( package_dir: str ) -> dict | None:
             "{}: unsupported cuppa_dependency_format [{}]".format( path, format_version )
         )
     deps = document.get( "dependencies" ) or []
-    if not deps:
+    defaults = _normalise_default_use_libs( document.get( "default_use_libs" ) )
+    link_mode = _normalise_link( document.get( "link" ) )
+    if not deps and defaults is None and link_mode is None:
         return None
     # Re-normalise for validation
     document["dependencies"] = [ normalise_dependency_entry( item ) for item in deps ]
     document["cuppa_dependency_format"] = format_version or MANIFEST_FORMAT
+    if defaults is not None:
+        document["default_use_libs"] = defaults
+    if link_mode is not None:
+        document["link"] = link_mode
     return document
+
+
+def package_default_use_libs( package_dir: str ) -> list[str] | None:
+    """Return ``default_use_libs`` from the manifest, or ``None`` if omitted / absent."""
+    document = read_manifest( package_dir )
+    if not document:
+        return None
+    if "default_use_libs" not in document:
+        return None
+    return list( document.get( "default_use_libs" ) or [] )
+
+
+def package_link_mode( package_dir: str ) -> str | None:
+    """Return the package ``link`` preference from the manifest, if any."""
+    document = read_manifest( package_dir )
+    if not document:
+        return None
+    return document.get( "link" )

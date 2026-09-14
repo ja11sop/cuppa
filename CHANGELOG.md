@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- GitLab packages: shared-aware ``use_libs`` / ``use_all_libs`` (static ``.a`` or shared
+  ``.so`` / versioned sonames → ``STATICLIBS`` or ``LIBPATH``+``SHAREDLIBS``), manifest
+  ``default_use_libs`` / ``link`` via ``GitlabPackagePublisher``, applied on primary
+  BuildWith / auto-enable with explicit ``use_libs`` replacing the contribution
+  (``use_libs([])`` clears). Narrow heuristic when metadata is omitted (single stem or
+  name match; otherwise link nothing). Non-relocatable upstream ``.pc`` prefixes are
+  not rewritten — prefer ``use_libs`` /
+  [`package-use-libs-defaults`](design/plans/package-use-libs-defaults.md).
 - ``env.PackageDir`` / ``PackageBin`` / ``PackageLib`` / ``PackageVersion`` and
   ``env.CMakePrefixPathFor`` — BuildWith package layout helpers (name string or
   dependency object). Free functions remain under
@@ -152,6 +160,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- ``--publish-package`` now depends on the GitLab ``package_archive()`` (the
+  ``.tar.gz`` / ``.zip``) as well as the empty ``.packaged`` stamp. With SCons
+  ``MD5-timestamp``, retouching the stamp alone did not invalidate upload after
+  a retar (manifest-only package rebuilds looked “done” without publishing).
+- ``GitlabPackagePublisher`` archive freshness treated a newly written
+  ``cuppa-dependency.json`` as invisible: ``newest_mtime_under`` used ``os.walk``,
+  which skips bare files, so adding ``default_use_libs`` (or other manifest-only
+  changes) left the ``.tar.gz`` as “up to date” and omitted the manifest from the
+  published archive. File roots are now timed correctly.
+- Synthesized transitive GitLab packages (from ``cuppa-dependency.json``) now
+  call ``add_options`` when registered, and ``get_option`` treats a missing
+  SCons option dest as unset. Without that, ``BuildWith`` on a package that
+  pulls an undeclared transitive (for example ``c_ares`` via gRPC) crashed with
+  ``AttributeError: 'Values' object has no attribute '<name>-package-manager'``.
 - Automatic ``--parallel`` job count uses the process CPU affinity set
   (``os.sched_getaffinity`` / ``effective_cpu_count``) instead of raw
   ``multiprocessing.cpu_count()``, so SCons ``-j`` and ``CMakeBuild``

@@ -8,13 +8,25 @@
 from __future__ import annotations
 
 import SCons.Errors
+import SCons.Script
 
 from cuppa.colourise import as_info, as_notice
 from cuppa.log import logger
 from cuppa.package_managers.cuppa_dependency_manifest import read_manifest
+from cuppa.package_managers.package_link_libs import (
+        list_linkable_lib_stems,
+        list_static_lib_stems,
+)
 
 
 _APPLY_STACK_KEY = "_cuppa_transitive_apply_stack"
+# Re-export for callers / tests that imported stems helpers from this module.
+__all__ = [
+        "apply_transitive_build_with",
+        "apply_transitive_use_libs",
+        "list_linkable_lib_stems",
+        "list_static_lib_stems",
+]
 _VERSION_PINS_KEY = "_cuppa_package_version_pins"
 _TRANSITIVE_LIBS_APPLIED_KEY = "_cuppa_transitive_use_libs_applied"
 
@@ -76,6 +88,12 @@ def _ensure_registered( env, entry, parent_registry ):
             package=entry.get( "package" ) or name,
             version=version,
     )
+    # Declared package_dependency types register CLI options at cuppa.run()
+    # time. Synthesized transitive factories skip that path, so package_info's
+    # GetOption('<name>-package-manager') AttributeErrors unless we AddOption
+    # here. Late registration is fine: unset options read as None and class
+    # defaults (gitlab, version from the factory) still apply.
+    Factory.add_options( SCons.Script.AddOption )
     env.setdefault( "dependencies", {} )[name] = Factory.create
     pins[name] = str( version )
     logger.info(
@@ -89,10 +107,18 @@ def _ensure_registered( env, entry, parent_registry ):
     return name
 
 
+def apply_stack( env ):
+    """Return the current transitive BuildWith apply stack (may be empty)."""
+    return env.get( _APPLY_STACK_KEY ) or []
+
+
 def apply_transitive_build_with( env, package_dir, parent_name, parent_registry ):
     """``BuildWith`` each manifest dependency (includes / modules); detect cycles."""
     document = read_manifest( package_dir )
     if not document:
+        return
+    dependencies = document.get( "dependencies" ) or []
+    if not dependencies:
         return
 
     stack = env.setdefault( _APPLY_STACK_KEY, [] )
@@ -104,7 +130,7 @@ def apply_transitive_build_with( env, package_dir, parent_name, parent_registry 
 
     stack.append( parent_name )
     try:
-        for entry in document["dependencies"]:
+        for entry in dependencies:
             name = _ensure_registered( env, entry, parent_registry )
             if name in stack:
                 cycle = " -> ".join( stack + [ name ] )
@@ -133,7 +159,7 @@ def apply_transitive_use_libs( env, package_dir, parent_name, parent_registry ):
         return
     applied.add( parent_name )
 
-    for entry in document["dependencies"]:
+    for entry in document.get( "dependencies" ) or []:
         use_libs = entry.get( "use_libs" ) or []
         if not use_libs:
             continue
@@ -162,26 +188,3 @@ def apply_transitive_use_libs( env, package_dir, parent_name, parent_registry ):
                 )
         )
         use( use_libs )
-
-
-def list_static_lib_stems( lib_dir, lib_prefix, lib_suffix, library_prefix="" ):
-    """Return sorted leaf library names found under ``lib_dir``."""
-    import os
-
-    if not lib_dir or not os.path.isdir( lib_dir ):
-        return []
-    names = []
-    library_prefix = library_prefix or ""
-    for fname in sorted( os.listdir( lib_dir ) ):
-        if not fname.startswith( lib_prefix ):
-            continue
-        if lib_suffix and not fname.endswith( lib_suffix ):
-            continue
-        stem = fname[len( lib_prefix ):]
-        if lib_suffix:
-            stem = stem[: -len( lib_suffix )]
-        if library_prefix and stem.startswith( library_prefix ):
-            stem = stem[len( library_prefix ):]
-        if stem:
-            names.append( stem )
-    return names

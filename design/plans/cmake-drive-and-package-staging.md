@@ -2,8 +2,8 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.11.0 / [#209](https://github.com/ja11sop/cuppa/issues/209); [`cmake-to-cuppa-migration.md`](cmake-to-cuppa-migration.md) (migrate *onto* Cuppa — orthogonal); packages / custom-commands Antora; [`gitlab.py`](../../cuppa/package_managers/gitlab.py) `GitlabPackagePublisher`; preferred `Toolchain()`/`Variant()`, `Has*` inspection, deprecate `Using` / keyed `Toolchain`
-- **Updated:** 2026-09-13
-- **Impact:** staging refresh `patch` (`cmake-pkg-stage-min` done); accessors done (#293); Option B helper `minor` (#294); Option C methods `minor` (in progress); `RemoveEmptyDirs` / `remove_empty_dirs` done (`cmake-pkg-empty-subdirs`); package archive progress + variant match later; in-place packaging later (power-user / E); publish-side CLI pins later (`package-publish-cli`)
+- **Updated:** 2026-09-14
+- **Impact:** staging refresh `patch` (`cmake-pkg-stage-min` done); accessors done (#293); Option B helper `minor` (#294); Option C methods `minor` (in progress); `RemoveEmptyDirs` / `remove_empty_dirs` done (`cmake-pkg-empty-subdirs`); prove-out soak `cmake-pkg-cloud-soak` **done** (tip 3.9.0); package archive progress + variant match later; in-place packaging later (power-user / E); publish-side CLI pins later (`package-publish-cli`); cascade publish later (`package-build-publish-deps`, after #294)
 
 ## Intent
 
@@ -520,7 +520,9 @@ a higher-level Option C (`env.CMake*`) — and what that method would need to ab
 | `package-archive-progress` | Progress / heartbeat while creating large `.tar.gz` / `.zip` | Later (`patch`/`minor`) — project C pain |
 | `package-variant-match` | Document dbg→rel default; opt-in strict/exact | Later (`minor`) |
 | `package-publish-cli` | Namespace-scoped **publish** CLI (e.g. version pin) — see below | Later (`minor`) — not Option C |
+| `package-build-publish-deps` | Cascade build+publish of package deps from a tip — [`package-build-publish-deps.md`](package-build-publish-deps.md) | Later (`minor`) — not Option C; needs publisher-home map |
 | `cmake-pkg-dep-wire` | Antora: package dep + project-include / `extra_defines` pattern (Corosio-shaped) | Later (docs from smoke) |
+| `cmake-pkg-cloud-soak` | Prove Option B/C + prefixes + RPATH on the **google-cloud-cpp** stack (bottom-up Cuppa packages) — detail in [`cmake-package-prefix.md`](../archive/cmake-package-prefix.md) § Prove-out soak; private work in **project D** | **Done** for tip **3.9.0** (manual bottom-up publish); cascade publish deferred — [`package-build-publish-deps.md`](package-build-publish-deps.md) |
 | `cmake-pkg-stage-inplace` | Opt-in no-double-copy packaging (E) — large install-prefix | Side quest when disk/time friction appears |
 | (later) Option C polish | MSVC multi-config escape hatch | After lean C |
 
