@@ -403,7 +403,7 @@ class Location(object):
             return self.url_replacement_char.join( [ url.scheme, url.netloc, unquote( url.path ) ] )
 
         def short_name_from_url( url ):
-            return self.sanitize_for_folder_name( unquote( url.path ) )
+            return Location.sanitize_for_folder_name( unquote( url.path ) )
 
         def name_from_file( path ):
             folder_name = os.path.splitext( path_leaf( path ) )[0]
@@ -421,7 +421,7 @@ class Location(object):
             return tail2 and tail2 or ""
 
         local_folder = is_url( path ) and name_from_url( path ) or os.path.isfile( path ) and name_from_file( path ) or name_from_dir( path )
-        local_folder = self.sanitize_for_folder_name( local_folder )
+        local_folder = Location.sanitize_for_folder_name( local_folder )
 
         if platform.system() == "Windows":
             # Windows suffers from MAX_PATH limitations so we'll use a hash to shorten the name
