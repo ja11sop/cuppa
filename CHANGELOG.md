@@ -175,6 +175,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Location dependency folders flatten ``/`` (and the other
+  ``folder_name_from_path`` characters) in branch suffixes when
+  ``_select_repository_directory`` appends ``@branch``. Relative versioning /
+  ``--location-match-current-branch`` with names like
+  ``feature/cascade-package-source`` no longer nests under
+  ``…@feature/…`` on disk; explicit ``url@branch`` pins already went through
+  ``folder_name_from_path`` and stay aligned.
 - Transitive GitLab package ``add_options`` is idempotent per dependency name.
   Multi-toolchain builds (for example ``--toolchains=gcc15,gcc``) clone
   ``env['dependencies']`` per variant; the second variant re-synthesized the

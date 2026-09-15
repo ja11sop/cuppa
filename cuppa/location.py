@@ -158,6 +158,18 @@ class Location(object):
         return getattr( self, '_default_branch', None )
 
 
+    @classmethod
+    def sanitize_for_folder_name( cls, text ):
+        """Flatten characters that would nest or break a single directory segment.
+
+        Matches ``folder_name_from_path``: Git allows ``/`` in branch names
+        (``feature/foo``), but ``dependencies_root`` folders must stay flat.
+        """
+        if text is None:
+            return None
+        return re.sub( r'[$\\/+:() ]', cls.url_replacement_char, str( text ) )
+
+
     def _should_notice_unqualified_duplicate( self ):
         """True when unused stem pairs should be logged / queued for wipe hints.
 
@@ -255,6 +267,9 @@ class Location(object):
         """Choose ``stem`` vs ``stem@branch``.
 
         Canonical going forward is ``stem@<branch>`` when the branch is known.
+        Path separators in the branch name are flattened (``feature/foo`` →
+        ``feature_foo``) so the result stays a single directory segment — the
+        same rule ``folder_name_from_path`` applies to URL ``@branch`` pins.
         An existing unqualified stem is kept (no silent move). When both exist,
         prefer canonical and warn. When neither exists, return the canonical
         path so a retrieve or a missing listing uses that spelling.
@@ -274,7 +289,8 @@ class Location(object):
             return local_directory
 
         suffix = self._canonical_branch_suffix()
-        canonical = ( local_directory + "@" + str( suffix ) ) if suffix else None
+        safe_suffix = self.sanitize_for_folder_name( suffix ) if suffix else None
+        canonical = ( local_directory + "@" + safe_suffix ) if safe_suffix else None
         unqualified_exists = os.path.exists( local_directory )
         canonical_exists = bool( canonical and os.path.exists( canonical ) )
         if canonical_exists:
@@ -380,8 +396,6 @@ class Location(object):
 
     def folder_name_from_path( self, path ):
 
-        replacement_regex = r'[$\\/+:() ]'
-
         def is_url( path ):
             return isinstance( path, ParseResult )
 
@@ -389,7 +403,7 @@ class Location(object):
             return self.url_replacement_char.join( [ url.scheme, url.netloc, unquote( url.path ) ] )
 
         def short_name_from_url( url ):
-            return re.sub( replacement_regex, self.url_replacement_char, unquote( url.path ) )
+            return self.sanitize_for_folder_name( unquote( url.path ) )
 
         def name_from_file( path ):
             folder_name = os.path.splitext( path_leaf( path ) )[0]
@@ -407,7 +421,7 @@ class Location(object):
             return tail2 and tail2 or ""
 
         local_folder = is_url( path ) and name_from_url( path ) or os.path.isfile( path ) and name_from_file( path ) or name_from_dir( path )
-        local_folder = re.sub( replacement_regex, self.url_replacement_char, local_folder )
+        local_folder = self.sanitize_for_folder_name( local_folder )
 
         if platform.system() == "Windows":
             # Windows suffers from MAX_PATH limitations so we'll use a hash to shorten the name
