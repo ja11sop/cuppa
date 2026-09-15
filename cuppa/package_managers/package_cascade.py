@@ -53,7 +53,11 @@ def publisher_root_option( env ) -> str | None:
     value = getter( PUBLISHER_ROOT_OPTION )
     if not value:
         return None
-    return os.path.expanduser( str( value ) )
+    root = os.path.expanduser( str( value ) )
+    if not os.path.isabs( root ):
+        base = env.get( "sconstruct_dir" ) or env.get( "working_dir" ) or os.getcwd()
+        root = os.path.abspath( os.path.join( str( base ), root ) )
+    return root
 
 
 def _is_nested() -> bool:
@@ -80,14 +84,22 @@ def resolve_publisher_dir( env, entry: dict ) -> str:
         if _looks_like_url( source ):
             # Phase 2: clone. For MVP try publisher-root first, else StopError.
             root = publisher_root_option( env )
-            resolved = _resolve_under_publisher_root( root, name, package ) if root else None
+            if not root:
+                raise SCons.Errors.StopError(
+                        "package_source for [{}] is a URL [{}]; Phase 1 cascade "
+                        "requires --{} or a filesystem package_source. "
+                        "Clone support is Phase 2."
+                        .format( name, source, PUBLISHER_ROOT_OPTION )
+                )
+            resolved = _resolve_under_publisher_root( root, name, package )
             if resolved:
                 return resolved
             raise SCons.Errors.StopError(
-                    "package_source for [{}] is a URL [{}]; Phase 1 cascade "
-                    "requires a local working tree (set --{} or a filesystem "
-                    "package_source). Clone support is Phase 2."
-                    .format( name, source, PUBLISHER_ROOT_OPTION )
+                    "package_source for [{}] is a URL [{}]; could not resolve a "
+                    "local working tree under --{}=[{}] "
+                    "(tried {{root}}/{{name}}, {{root}}/{{package}}, and one-level "
+                    "nesting). Clone support is Phase 2."
+                    .format( name, source, PUBLISHER_ROOT_OPTION, root )
             )
         if not os.path.isabs( source ):
             base = env.get( "sconstruct_dir" ) or os.getcwd()
@@ -236,36 +248,70 @@ def topological_publish_order( nodes: dict, edges: dict ) -> list[tuple]:
     return ordered
 
 
-def _settings_for_nested( env ) -> dict:
-    settings = dict( env.get( "configured_options" ) or {} )
-    settings.pop( CASCADE_OPTION, None )
-    settings.pop( PUBLISHER_ROOT_OPTION, None )
-    settings.pop( "amend-package-manifest", None )
-    settings["publish-package"] = True
-    return settings
+# Flags that must not re-enter on nested publishes (exact match).
+_NESTED_DROP_EXACT = frozenset( {
+        "--" + CASCADE_OPTION,
+        "--" + PUBLISHER_ROOT_OPTION,
+        "--amend-package-manifest",
+        "--cuppa-mode",
+} )
+
+# Same flags when written as ``--flag=value``.
+_NESTED_DROP_PREFIXES = tuple(
+        flag + "=" for flag in (
+                "--" + CASCADE_OPTION,
+                "--" + PUBLISHER_ROOT_OPTION,
+                "--amend-package-manifest",
+        )
+)
+
+# Separate-arg forms whose following token is the value.
+_NESTED_DROP_TAKES_VALUE = frozenset( {
+        "--" + PUBLISHER_ROOT_OPTION,
+} )
 
 
-def _argv_from_settings( settings: dict ) -> list[str]:
-    args = [ sys.executable, "-m", "cuppa", "-D" ]
-    for key in sorted( settings ):
-        value = settings[key]
-        if value is False or value is None:
+def tip_forward_args( argv=None ) -> list[str]:
+    """Tip SCons/cuppa option args suitable for a nested ``--publish-package``.
+
+    Uses the live tip ``sys.argv`` (variant, toolchains, offline, …), not
+    ``configured_options`` from ``~/.cuppaconfig`` — those conf keys are not
+    all valid CLI flags and omit the tip's explicit ``--rel`` / ``--toolchains``.
+    """
+    if argv is None:
+        argv = sys.argv
+    forwarded: list[str] = []
+    skip_next = False
+    for arg in list( argv[1:] ):
+        if skip_next:
+            skip_next = False
             continue
-        flag = "--" + key
-        if value is True:
-            args.append( flag )
-        elif isinstance( value, list ):
-            args.append( "{}={}".format( flag, ",".join( str( item ) for item in value ) ) )
-        else:
-            args.append( "{}={}".format( flag, value ) )
-    return args
+        if arg in _NESTED_DROP_EXACT:
+            if arg in _NESTED_DROP_TAKES_VALUE:
+                skip_next = True
+            continue
+        if any( arg.startswith( prefix ) for prefix in _NESTED_DROP_PREFIXES ):
+            continue
+        forwarded.append( arg )
+
+    if "-D" not in forwarded:
+        forwarded.insert( 0, "-D" )
+    if "--publish-package" not in forwarded:
+        forwarded.append( "--publish-package" )
+    return forwarded
+
+
+def argv_for_nested_publish( argv=None ) -> list[str]:
+    """Full subprocess argv: ``python -m cuppa`` + :func:`tip_forward_args`."""
+    return [ sys.executable, "-m", "cuppa" ] + tip_forward_args( argv )
 
 
 def invalidate_package_consume_cache( env, package: str, version: str ) -> list[str]:
     """Remove download archives and extracts for ``package``/``version``.
 
-    Cascade-internal refresh so the tip (and later siblings) do not keep stale
-    same-version bits. Returns paths removed.
+    Cascade-internal step so the tip does not keep stale same-version bits.
+    Pair with :func:`refresh_package_consume_cache` so the tip's already-resolved
+    ``package_dir`` is populated again. Returns paths removed.
     """
     removed: list[str] = []
     downloads_root = env.get( "downloads_root" ) or env.get( "cache_root" )
@@ -302,9 +348,142 @@ def invalidate_package_consume_cache( env, package: str, version: str ) -> list[
     return removed
 
 
+def _tip_dependency_factory( env, entry: dict ):
+    """Return the tip ``env['dependencies']`` entry for ``entry``, if any.
+
+    Cuppa stores ``cls.create`` (callable), not the class itself — see
+    ``build_with_package.base.add_to_env``.
+    """
+    deps = env.get( "dependencies" ) or {}
+    name = entry.get( "name" )
+    if name and name in deps:
+        return deps[name]
+    package = entry.get( "package" )
+    if not package:
+        return None
+    for factory in deps.values():
+        owner = _factory_owner( factory )
+        if getattr( owner, "_package", None ) == package:
+            return factory
+        if getattr( owner, "_name", None ) == package:
+            return factory
+    return None
+
+
+def _factory_owner( factory ):
+    """Class that owns ``cls.create`` when ``factory`` is that classmethod."""
+    owner = getattr( factory, "__self__", None )
+    if owner is not None:
+        return owner
+    return factory
+
+
+def _evict_cached_package( factory, package: str, version: str ) -> int:
+    """Drop tip-cached ``GitlabPackageDependency`` instances for this pin."""
+    owner = _factory_owner( factory )
+    cached = getattr( owner, "_cached_packages", None )
+    if not cached:
+        return 0
+    version = str( version )
+    removed = 0
+    for key in list( cached.keys() ):
+        inst = cached[key]
+        if (
+                getattr( inst, "_package", None ) == package
+                and str( getattr( inst, "_version", "" ) ) == version
+        ):
+            del cached[key]
+            removed += 1
+    return removed
+
+
+def _call_tip_dependency_factory( factory, env ):
+    """Invoke a tip dependency factory the same way ``BuildWith`` does."""
+    create = getattr( factory, "create", None )
+    if callable( create ) and create is not factory:
+        return create( env )
+    if callable( factory ):
+        return factory( env )
+    return None
+
+
+def refresh_package_consume_cache( env, entry: dict, tip_publisher=None ) -> list[str]:
+    """Invalidate then re-fetch/extract so the tip's ``package_dir`` is usable again.
+
+    Cascade runs after the tip's ``BuildWith`` has already resolved paths; wiping
+    alone leaves CMake pointing at an empty tree. Re-create the tip package
+    dependency so download+extract repopulate the same paths.
+    """
+    package = entry["package"]
+    version = entry["version"]
+    label = "{} {} ({})".format( entry.get( "name", package ), version, package )
+    removed = invalidate_package_consume_cache( env, package, version )
+    if removed:
+        logger.info(
+                "Cascade: invalidated consume cache for [{}]: {}"
+                .format( as_info( label ), as_notice( ", ".join( removed ) ) )
+        )
+
+    factory = _tip_dependency_factory( env, entry )
+    package_dir = None
+    if factory is not None:
+        _evict_cached_package( factory, package, version )
+        try:
+            built = _call_tip_dependency_factory( factory, env )
+        except Exception as error:
+            raise SCons.Errors.StopError(
+                    "cascade re-fetch of [{}] failed: {}"
+                    .format( label, error )
+            ) from error
+        if built is None:
+            raise SCons.Errors.StopError(
+                    "cascade re-fetch of [{}] returned no package"
+                    .format( label )
+            )
+        package_obj = built.package() if hasattr( built, "package" ) else built
+        package_dir = (
+                package_obj.package_dir()
+                if hasattr( package_obj, "package_dir" )
+                else getattr( package_obj, "_package_dir", None )
+        )
+    else:
+        registry = entry.get( "registry" )
+        if not registry or registry == "same":
+            registry = getattr( tip_publisher, "_registry", None ) if tip_publisher else None
+        if not registry or registry == "same":
+            raise SCons.Errors.StopError(
+                    "cascade cannot re-fetch [{}]: tip has no BuildWith factory "
+                    "and registry is unresolved"
+                    .format( label )
+            )
+        variant = entry.get( "variant" )
+        if not variant and tip_publisher is not None:
+            variant = getattr( tip_publisher, "_variant", None )
+        from cuppa.package_managers.gitlab import GitlabPackageDependency
+        try:
+            package_obj = GitlabPackageDependency(
+                    env,
+                    registry=registry,
+                    package=package,
+                    version=version,
+                    variant=variant or "rel",
+            )
+        except Exception as error:
+            raise SCons.Errors.StopError(
+                    "cascade re-fetch of [{}] failed: {}"
+                    .format( label, error )
+            ) from error
+        package_dir = package_obj.package_dir()
+
+    logger.info(
+            "Cascade: re-fetched [{}] to [{}]"
+            .format( as_info( label ), as_notice( str( package_dir ) ) )
+    )
+    return removed
+
+
 def run_nested_publish( env, publisher_dir: str, label: str ) -> None:
-    settings = _settings_for_nested( env )
-    argv = _argv_from_settings( settings )
+    argv = argv_for_nested_publish()
     nested_env = os.environ.copy()
     nested_env[NESTED_ENV] = "1"
     root = str( env.get( "sconstruct_dir" ) or "" )
@@ -376,11 +555,4 @@ def maybe_run_cascade( env, publisher ) -> None:
         entry = nodes[key]
         label = "{} {} ({})".format( entry["name"], entry["version"], entry["package"] )
         run_nested_publish( env, entry["_publisher_dir"], label )
-        removed = invalidate_package_consume_cache(
-                env, entry["package"], entry["version"]
-        )
-        if removed:
-            logger.info(
-                    "Cascade: refreshed consume cache for [{}]: {}"
-                    .format( as_info( label ), as_notice( ", ".join( removed ) ) )
-            )
+        refresh_package_consume_cache( env, entry, tip_publisher=publisher )

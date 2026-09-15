@@ -175,6 +175,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Cascade nested ``--publish-package`` now forwards the tip's live argv
+  (variant, ``--toolchains``, ``--offline``, …) instead of dumping
+  ``configured_options`` from ``~/.cuppaconfig``. Conf keys such as
+  ``boost_latest_version`` are not CLI flags and produced
+  ``SCons Error: no such option``; the tip's ``--rel`` / toolchains were also
+  omitted. Cascade-only flags (``--build-and-publish-dependencies``,
+  ``--publisher-root``) are still stripped so children do not re-enter.
+- Cascade re-fetch after nested publish calls the tip
+  ``env['dependencies'][name]`` factory the same way ``BuildWith`` does
+  (``factory(env)``). Those entries are ``cls.create``, not the class, so
+  ``factory.create`` raised ``tip dependency has no create()``.
+- Cascade after nested publish invalidates **and re-fetches** the tip's
+  consume archive/extract for that package. Invalidate-only left the tip's
+  already-resolved ``package_dir`` empty (CMake saw missing
+  ``libboost_capy.a`` after a successful capy publish).
+- ``--publisher-root`` relative paths (for example ``../../``) are resolved
+  against the tip ``sconstruct_dir``, not the process cwd, so cascade still
+  finds ``{root}/*/name`` after SCons has changed directory.
 - Location dependency folders flatten ``/`` (and the other
   ``folder_name_from_path`` characters) in branch suffixes when
   ``_select_repository_directory`` appends ``@branch``. Relative versioning /

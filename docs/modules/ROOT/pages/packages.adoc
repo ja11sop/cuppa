@@ -57,7 +57,8 @@ Cuppa then:
 * Runs a nested ``cuppa -D … --publish-package`` for each dependency in
   leaf-first order (**without** re-entering cascade)
 * Invalidates that package’s download/extract caches under the tip’s storage
-  roots so the tip build sees the new artefacts
+  roots and re-fetches from the registry so the tip build sees the new
+  artefacts (the tip’s ``BuildWith`` paths were already resolved before cascade)
 * Continues with this project’s normal build and publish
 
 Publisher builds also stage ``cuppa-publish.json`` next to

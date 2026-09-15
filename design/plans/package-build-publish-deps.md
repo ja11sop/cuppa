@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-build-publish-deps`; [`package-download-refresh.md`](package-download-refresh.md); [`gitlab-package-transitive.md`](gitlab-package-transitive.md); [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md) (`package-publish-cli`); project **D** soak (google-cloud-cpp stack)
-- **Updated:** 2026-09-14
+- **Updated:** 2026-09-16
 - **Impact:** `minor` (new opt-in CLI / orchestration; default single-package publish unchanged)
 
 ## Problem
@@ -263,7 +263,7 @@ design.
 | Skip policy | **Always** rebuild+publish every resolved node (no skip-if-registry-current) |
 | Field name | **`package_source`** |
 | File layout | **Bridge:** keep `cuppa-dependency.json` for consume (no `package_source`); write **`cuppa-publish.json`** with the same edges **plus** `package_source` / package identity. One authoring input (`dependencies=`). |
-| Develop during cascade | After each nested publish, **invalidate** that package’s download + extract under the tip’s storage roots (cascade-internal refresh; full `--refresh-downloads` is [#296](https://github.com/ja11sop/cuppa/issues/296)) |
+| Develop during cascade | After each nested publish, **invalidate and re-fetch** that package’s download + extract under the tip’s storage roots (cascade-internal refresh; full `--refresh-downloads` is [#296](https://github.com/ja11sop/cuppa/issues/296)) |
 | Flag without `--publish-package` | **Refuse** — require `--publish-package` |
 | Flag name | **`--build-and-publish-dependencies`** (aliases later) |
 | `--publisher-root` | Optional; resolve missing/`package_source` URL by trying `{root}/{name}`, `{root}/{package}`, then one-level `{root}/*/{name\|package}` |
@@ -278,6 +278,12 @@ design.
 3. File convergence to a single traveling manifest
 4. Flag without `--publish-package` (build-deps-only)
 5. Richer `--publisher-root` layout rules
+6. **Console visualisation of nested sessions** — cascade is multiple
+   `cuppa`/`scons` processes (leaf-first, then tip). Today logs interleave as
+   one stream with only `Cascade:` lines as boundaries. Prefer clearer
+   session banners / indent / progress (plan → nested begin/end → tip
+   resume) so operators see that more than one build ran, including when a
+   nested publish is a no-op (already up-to-date).
 
 ## Acceptance (when implemented)
 
@@ -303,5 +309,6 @@ design.
 | Defer until after #294 | Done — unblocked |
 | Phase 1 settled decisions (skip / flag / when) | Settled (2026-09-14) |
 | Project D tip (google-cloud-cpp **3.9.0**) build + publish | Done (manual bottom-up; motivates this feature) |
-| Implementation | In progress — Phase 1 code on branch (publish manifest + cascade + docs) |
+| Implementation | In progress — Phase 1 on PR #302; nested argv, publisher-root anchor, invalidate+re-fetch |
+| Corosio→capy local soak | Worked end-to-end (nested capy was up-to-date no-op; tip published) |
 | Issue filed | [#297](https://github.com/ja11sop/cuppa/issues/297) |
