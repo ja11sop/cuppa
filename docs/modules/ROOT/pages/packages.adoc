@@ -67,8 +67,58 @@ beside the tip ``sconstruct`` for local cascade discovery. Consume still uses
 ``cuppa-dependency.json`` only.
 
 Requires ``--publish-package``. Missing ``package_source`` / unresolved trees
-fail before nested uploads. Git URL clone is Phase 2 — use a local path or
-``--publisher-root`` for now.
+fail before nested uploads. Cascade does not clone a publisher tree from a git
+URL yet, so a ``package_source`` URL needs that tree to exist already: point
+``--publisher-root`` at the forest holding it, or give the edge a filesystem
+``package_source``.
+
+[#cascade-plan]
+==== Checking the plan before anything uploads
+
+A cascade run publishes to a registry, so it is worth seeing the resolved order
+first. ``--cascade-plan`` reports that order and stops. It needs the cascade flag
+it describes, but not ``--publish-package``, because nothing is built, published,
+or uploaded:
+
+[source,shell]
+----
+cuppa -D --rel --toolchains=gcc15 \
+  --build-and-publish-dependencies --cascade-plan \
+  --publisher-root=~/coding/packages
+----
+
+The report lists each dependency in publish order with the publisher working tree
+cuppa resolved for it, and the tip last:
+
+[source,text]
+----
+Cascade plan: 2 package dependencies then tip [widget]==[0.2.0]: [0 errors][0 warnings][0 notes]
+│
+├── 1 of 2  capy develop (capy)
+│           publisher [/home/user/coding/packages/capy]
+├── 2 of 2  corosio 0.3.1 (corosio)
+│           publisher [/home/user/coding/packages/corosio]
+└── then tip [widget]==[0.2.0] from this tree
+
+--cascade-plan: 1 tip planned; nothing was built, published, or uploaded.
+----
+
+Unlike a real run, which stops at the first dependency it cannot place, the plan
+reports **every** unresolved tree as an error row and exits non-zero. One command
+therefore tells you all the trees left to plant, or which edges still need a
+``package_source``.
+
+A real cascade prints the same plan before its first nested publish, then brackets
+each nested session with a banner naming the session number, the publisher tree,
+the command it ran, and how long it took. Cascade deliberately does not capture or
+re-indent nested output: that would cost colour, progress rewriting, and
+interleaved stderr from the build you are watching. The banners mark the
+boundaries instead, and a closing banner says the tip is resuming.
+
+A session banner reports that a nested publish finished, not whether it uploaded
+anything. A nested publish of an already-current package is a no-op inside SCons,
+and telling that apart from a real upload needs the registry query that the
+skip-if-current work will add.
 
 [#amend-package-manifest]
 === Amending metadata without rebuilding
