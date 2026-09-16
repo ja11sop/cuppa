@@ -22,6 +22,7 @@ import cuppa.core.storage_options
 from cuppa.log import logger, register_secret
 from cuppa.colourise import as_error, as_info, as_notice, as_info_label
 from cuppa.utility.scons_nodes import resolve_existing_node_path as _resolve_node_path
+from cuppa.utility.storage import display_path
 
 
 def lib_copy_ignore_names( names, package_dir_name, package_file_name ):
@@ -1335,14 +1336,29 @@ class GitlabPackageDependency:
 
         self._package_dir = os.path.join( self._extraction_dir, package, self.version() )
         self._using_develop = bool( self._develop and use_develop )
+        self._develop_is_publisher_source = False
 
         if self._using_develop:
             # Anchored to the sconstruct directory, not the working directory, so
             # develop="../../widget" means the same thing wherever cuppa is invoked
             # from and matches the path --list-develop reports.
             from cuppa.location import develop_location
+            from cuppa.package_managers.package_cascade import develop_is_publisher_source
             self._develop = develop_location( cuppa_env['sconstruct_dir'], self._develop )
-            self._package_dir = self._develop
+            if develop_is_publisher_source( cuppa_env, self._develop ):
+                # Cascade publishes this package from that tree, so it is the source of the
+                # package and not the package. Consume takes what the nested publish produces.
+                self._using_develop = False
+                self._develop_is_publisher_source = True
+                logger.info(
+                        "Cascade publishes [{}] from develop tree [{}], so this build "
+                        "consumes the package it produces".format(
+                                as_info( self._package_id ),
+                                as_notice( display_path( self._develop ) )
+                        )
+                )
+            else:
+                self._package_dir = self._develop
 
         self._include_dir = os.path.join( self._package_dir, 'include' )
         self._lib_dir = os.path.join( self._package_dir, 'lib' )
@@ -1360,10 +1376,12 @@ class GitlabPackageDependency:
         if self._dump or self._clean or self._cuppa_env.get( 'storage_resolve_only' ):
             return
 
-        if self._develop and use_develop:
+        if self._using_develop:
             logger.info( "--develop specified so using package [{}] from [{}]".format(
                     as_info( self._package_id ),
-                    as_notice( self._package_dir )
+                    # Anchoring leaves the `..` segments that got here; they are noise
+                    # in a message, and the develop reports already drop them.
+                    as_notice( display_path( self._package_dir ) )
             ) )
             return
 

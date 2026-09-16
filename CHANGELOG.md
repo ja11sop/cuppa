@@ -16,9 +16,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the path the build actually substitutes — both the declared path and a
   ``--<name>-<manager>-develop=`` override
   ([`package-develop-local`](design/plans/package-develop-local.md)).
+- The log line announcing a develop package now reports the path the way the
+  develop reports do, without the ``..`` segments anchoring left behind.
 
 ### Added
 
+- Cascade publishes a dependency from its ``develop`` tree when you pass
+  ``--develop``, ranked above ``package_source`` and ``--publisher-root``,
+  because a develop path is you naming the copy you mean for this run where a
+  root convention is a guess. The tree has to be the publisher project — a
+  develop path naming a built package prefix is refused with both meanings
+  named, and cascade never clones into a develop path, which is
+  ``--clone-develop``'s job. Since that tree is the *source* of the package
+  rather than the package, ``--develop`` no longer swaps it in as the prefix the
+  build links against during a cascade: the dependency is consumed from the
+  registry the nested publish has just written to. A configured develop tree
+  that ``--develop`` leaves unused is reported in ``--cascade-plan`` rather than
+  passed over in silence
+  ([#297](https://github.com/ja11sop/cuppa/issues/297);
+  [`package-develop-local`](design/plans/package-develop-local.md)).
+- ``--publish-modified-develop`` — publish from a develop tree holding work only
+  this machine has. Cascade refuses such a tree by default, because a registry
+  version built from uncommitted changes, unpushed commits, or a branch with no
+  upstream cannot be rebuilt from history. The refusal names every offending
+  tree at once and happens before the first upload; ``--cascade-plan`` reports
+  the same judgement as an error row, or as a note when this flag allows it. A
+  detached head is not refused — publishing version X from tag ``vX`` is the
+  normal case — and a tree cuppa cannot read as a working copy warns rather than
+  stops
+  ([`package-develop-local`](design/plans/package-develop-local.md)).
 - ``--clone-publishers`` — let cascade clone a publisher working tree it cannot
   find locally from that dependency's ``package_source`` URL, which may be pinned
   as ``url@branch``, ``url@tag``, or ``url@revision`` (slashy branch names

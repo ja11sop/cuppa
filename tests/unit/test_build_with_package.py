@@ -287,3 +287,59 @@ def test_a_develop_path_is_reported_as_a_develop_tree_not_a_dependency_tree(
     assert os.path.samefile(paths["develop"][0], prefix)
     assert paths["dependencies"] == []
     assert paths["downloads"] == []
+
+
+def test_a_publisher_source_tree_is_not_swapped_in_during_a_cascade(
+    tmp_path, monkeypatch
+):
+    """Cascade publishes that tree, so the build consumes what the publish produces."""
+    source = tmp_path / "widget"
+    source.mkdir()
+    (source / "sconstruct").write_text("import cuppa\n", encoding="utf-8")
+    (source / "include").mkdir()
+
+    package = GitlabPackageDependency(
+        _develop_env(
+            tmp_path,
+            monkeypatch,
+            # Resolve paths only: the fetch this implies is the tip's normal one,
+            # not something this test needs to perform.
+            storage_resolve_only=True,
+            **{"build-and-publish-dependencies": True},
+        ),
+        registry="https://gitlab.example/api/v4/projects/1",
+        package="widget",
+        version="1.2",
+        variant="rel",
+        develop="../widget",
+    )
+
+    assert not package._using_develop
+    assert package._develop_is_publisher_source
+    # The prefix is the extraction tree the nested publish will refill, not the source.
+    assert package.package_dir().startswith(str(tmp_path / "dependencies"))
+
+
+def test_a_built_prefix_is_still_swapped_in_during_a_cascade(tmp_path, monkeypatch):
+    """A publisher build stages cuppa-publish.json beside include/ and lib/.
+
+    Reading that as a publisher tree would take a package for the project that built it.
+    """
+    prefix = tmp_path / "widget"
+    (prefix / "include").mkdir(parents=True)
+    (prefix / "lib").mkdir()
+    (prefix / "cuppa-publish.json").write_text("{}", encoding="utf-8")
+
+    package = GitlabPackageDependency(
+        _develop_env(
+            tmp_path, monkeypatch, **{"build-and-publish-dependencies": True}
+        ),
+        registry="https://gitlab.example/api/v4/projects/1",
+        package="widget",
+        version="1.2",
+        variant="rel",
+        develop="../widget",
+    )
+
+    assert package._using_develop
+    assert os.path.samefile(package.package_dir(), prefix)

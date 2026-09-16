@@ -1,6 +1,6 @@
 # Plan: Develop a package dependency from its own source tree
 
-- **Status:** proposal
+- **Status:** in progress
 - **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`; [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade resolution, `package_source`, `--clone-publishers`); [`package-download-refresh.md`](package-download-refresh.md) (same-version currency); [`develop.py`](../../cuppa/develop.py) (`configured_develop`, `survey`, `clone_develop`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`GitlabPackageDependency`, `_using_develop`); [`build_with_location.py`](../../cuppa/build_with_location.py) (`develop_location`)
 - **Updated:** 2026-09-16
 - **Impact:** `minor` for the resolution and clone slices; the consume change is `major` if it repurposes today's `develop=`, which §6 exists to avoid
@@ -80,12 +80,30 @@ carry a `develop=`, and deep stacks are made of exactly those.
 | Slice | Content | Impact |
 |-------|---------|--------|
 | A | Anchor package develop paths to the sconstruct directory; cover `--list-develop` reporting a package develop copy | `patch` — **shipped** |
-| B | Cascade honours a develop tree as a publisher tree, ranked first; refusals and plan-report visibility from the table above | `minor` |
+| B | Cascade honours a develop tree as a publisher tree, ranked first; refusals and plan-report visibility from the table above | `minor` — **shipped** |
 | C | `--clone-develop` clones package dependencies from `package_source` | `minor` |
 | D | Consume from a locally built package: locate the stage a publisher build produces (`final/<package>/<version>/`), a build-without-publish mode, and the refusals that stop a stale or absent stage being linked silently | `minor` |
 | E | Migration for today's prefix-shaped `develop=`, once D defines the replacement | decide with D |
 
-Slice A has shipped. Slice B is next: cascade honouring a develop tree as a publisher tree.
+Slices A and B have shipped. Slice C is next: `--clone-develop` for package dependencies.
+
+### What slice B settled that this plan had not
+
+Ranking a develop tree first is only half an answer, because the consume side reads the same
+kwarg. A tip that publishes `capy` also links against it, and consume was still swapping the
+develop path in as the prefix — a source tree, whose `include/` may exist and whose `lib/`
+does not. The combination the slice exists to enable was therefore broken by consume.
+
+| Question | Decision |
+|----------|----------|
+| Consume during a cascade | `--develop` **stands down** when the develop path is the publisher project: the dependency is consumed from the registry the nested publish has just written to. The build then behaves like a cascade without `--develop`, with the operator's tree supplying the sources. Slice D removes that registry round trip. |
+| Outside a cascade | Unchanged. `develop=` is still a built prefix, so nothing that works today stops working, and slice E remains the migration. |
+| What makes a develop path a publisher tree | An **sconstruct**, not `cuppa-publish.json`. A publisher build stages that manifest beside `include/` and `lib/`, so accepting it would read a built package as the project that built it. Rooted and cloned trees keep the broader test, which they cannot fail that way. |
+| Scope of the local-work refusal | Develop trees only. A `--publisher-root` or cloned tree runs the same hazard, but refusing there would break the workflow Phase 1 shipped — see open question 5. |
+
+Publishing a dependency version that is not yet in the registry remains awkward, and is not
+made worse by this slice: the tip resolves its packages while sconscripts are read, before
+cascade runs, so the first publish of a new version still fails on the tip's own fetch.
 
 Slice D is the one that makes `--develop` coherent end to end, and the one with real unknowns:
 which stage a publisher build leaves behind for each publisher shape, what happens when the stage
@@ -102,3 +120,8 @@ the operator. Those are open questions, not settled decisions.
    directory's contents — and whether any consumer relies on the current behaviour.
 4. Whether `--list-develop` should report a package develop tree differently from a location one,
    given that publishing from a dirty one is refused rather than merely noted.
+5. Whether the local-work refusal should extend to `--publisher-root` and cloned trees, which
+   can hold unpushed work just as easily. Doing so would refuse the edit-locally-then-cascade
+   workflow Phase 1 shipped, so it needs its own decision rather than being folded in here.
+6. How a tip should publish a dependency version the registry does not have yet, given that the
+   tip resolves its own packages before cascade runs.

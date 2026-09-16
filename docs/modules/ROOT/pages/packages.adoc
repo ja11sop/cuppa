@@ -51,10 +51,11 @@ Cuppa then:
 
 * Reads this publisher’s ``dependencies=`` (optional ``package_source`` on each
   edge) and expands the DAG from each resolved tree’s ``cuppa-publish.json``
-* Resolves each node to a publisher working tree via ``package_source``
-  (filesystem path) or ``--publisher-root`` (``{root}/{name}``,
-  ``{root}/{package}``, or one nesting level), cloning from a ``package_source``
-  URL when you pass ``--clone-publishers``
+* Resolves each node to a publisher working tree: the dependency's
+  xref:#cascade-develop[``develop`` tree] when you pass ``--develop``, else
+  ``package_source`` (filesystem path) or ``--publisher-root``
+  (``{root}/{name}``, ``{root}/{package}``, or one nesting level), cloning from
+  a ``package_source`` URL when you pass ``--clone-publishers``
 * Runs a nested ``cuppa -D … --publish-package`` for each dependency in
   leaf-first order (**without** re-entering cascade)
 * Invalidates that package’s download/extract caches under the tip’s storage
@@ -71,6 +72,79 @@ Requires ``--publish-package``. Missing ``package_source`` / unresolved trees
 fail before nested uploads. A ``package_source`` URL needs either a tree that
 already exists — point ``--publisher-root`` at the forest holding it, or give the
 edge a filesystem ``package_source`` — or ``--clone-publishers``, described next.
+
+[#cascade-develop]
+==== Publishing from a tree you are working in
+
+When you run with ``--develop``, a dependency's develop path is the tree cascade
+publishes from. It outranks both ``package_source`` and ``--publisher-root``,
+because a develop path is you naming the copy you mean for this run, where a root
+convention is cuppa guessing one:
+
+[source,python]
+----
+capy = cuppa.package_dependency(
+        'capy',
+        registry = REGISTRY,
+        package  = 'capy',
+        version  = 'develop',
+        develop  = '../../packages/capy'
+)
+----
+
+That path is anchored to the ``sconstruct`` directory, so it means the same tree
+wherever you invoke cuppa from, and
+xref:cli/dependencies-and-develop.adoc[``--list-develop``] reports it. A
+``--<name>-<manager>-develop=`` override on the command line takes precedence, as
+it does everywhere else.
+
+Cascade needs the project that *publishes* the package here, which is a tree with
+an ``sconstruct``. A develop path pointing at a built package — a prefix with
+``include/`` and ``lib/``, which is what ``develop`` selects for a consume-only
+build — is refused with both meanings named, as is a develop path with no tree at
+that location: cascade never clones into a develop path, since that is
+``--clone-develop``'s job. A staged ``cuppa-publish.json`` does not make a prefix
+a publisher tree, because publisher builds stage that manifest beside ``include/``
+and ``lib/``.
+
+Because such a tree is the *source* of the package rather than the package,
+``--develop`` does not swap it in as the prefix this build links against, as it
+does outside a cascade. The dependency is consumed from the registry, where the
+nested publish has just put it. The build therefore works the way a cascade
+without ``--develop`` does, with the tree you are working in supplying the
+sources. Consuming a locally built package without the registry round trip is
+planned separately.
+
+Without ``--develop``, a configured develop tree is left alone and the plan says
+so, rather than leaving you to wonder why the tree you have been editing was
+ignored.
+
+===== Local work is not publishable
+
+Cascade refuses to publish from a develop tree holding work that exists only on
+your machine — uncommitted changes, unpushed commits, or a branch with no
+upstream — because the resulting registry version could not be rebuilt from
+history. Every offending tree is named at once, before the first upload, rather
+than one per failed session:
+
+[source,text]
+----
+cascade will not publish from a develop tree holding work only this machine has,
+because the registry version could not be rebuilt from history: [capy develop
+(capy)] at [~/coding/packages/capy] has uncommitted changes, 2 commits not
+pushed. Commit and push, drop --develop for the publish run, or pass
+--publish-modified-develop to publish anyway.
+----
+
+A detached head is fine: publishing version X from tag ``vX`` is the normal case,
+and a commit you can name is a commit others can fetch. A tree cuppa cannot read
+as a working copy raises a warning rather than a refusal, since being unable to
+inspect a tree is not evidence of local work.
+
+``--publish-modified-develop`` lifts the refusal for a run and says so on every
+tree it allows. ``--cascade-plan`` reports the same judgement without publishing:
+an error row per tree that would be refused, or a note row per tree the override
+allows.
 
 [#clone-publishers]
 ==== Fetching publisher trees on demand
