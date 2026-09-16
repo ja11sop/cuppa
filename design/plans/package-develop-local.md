@@ -1,7 +1,7 @@
 # Plan: Develop a package dependency from its own source tree
 
 - **Status:** in progress
-- **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`; [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade resolution, `package_source`, `--clone-publishers`); [`package-download-refresh.md`](package-download-refresh.md) (same-version currency); [`develop.py`](../../cuppa/develop.py) (`configured_develop`, `survey`, `clone_develop`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`GitlabPackageDependency`, `_using_develop`); [`build_with_location.py`](../../cuppa/build_with_location.py) (`develop_location`)
+- **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`; [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade resolution, `package_source`, `--clone-publishers`); [`issues/package-build-provenance.md`](../issues/package-build-provenance.md) (what a published package records about its own origin); [`package-download-refresh.md`](package-download-refresh.md) (same-version currency); [`develop.py`](../../cuppa/develop.py) (`configured_develop`, `survey`, `clone_develop`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`GitlabPackageDependency`, `_using_develop`); [`build_with_location.py`](../../cuppa/build_with_location.py) (`develop_location`)
 - **Updated:** 2026-09-16
 - **Impact:** `minor` for the resolution and clone slices; the consume change is `major` if it repurposes today's `develop=`, which §6 exists to avoid
 
@@ -118,7 +118,7 @@ manifest", which turned out to name two things that did not exist in the shape a
 | Question | Decision |
 |----------|----------|
 | Where a consumer declares it | `package_source` is now a **declarable setting** on `package_dependency(...)`, with the usual `--<name>-<manager>-package-source=` override. Before this it lived only on a publisher's `dependencies=` edges, so a consumer that does not publish had nowhere to say it. |
-| Which manifest travels | The `cuppa-publish.json` staged **beside the consumer's own sconstruct**, whose edges carry `package_source`. A *downloaded* package's manifest cannot answer this: it records that package's own dependencies' sources, never its own, so the only tree that knows where `capy` comes from is a tree that depends on `capy`. |
+| Which manifest travels | The `cuppa-publish.json` staged **beside the consumer's own sconstruct**, whose edges carry `package_source`. A *downloaded* package's manifest cannot answer this: it records that package's own dependencies' sources, never its own, so the only tree that knows where a package comes from is a tree that depends on it. Whether a published package should record its own origin is a separate question — [`issues/package-build-provenance.md`](../issues/package-build-provenance.md) — and this slice does not need it. |
 | Precedence | Declaration first, staged manifest second. The declaration is what an operator can see and change. |
 | Pins | A branch is honoured, a tag or revision refused, matching location dependencies — where cascade deliberately allows tags, because publishing version X from tag `vX` is the normal case and a develop copy is a branch you work on. |
 | Filesystem `package_source` | Left alone. It names a tree the operator already has, so there is nothing to fetch. |
