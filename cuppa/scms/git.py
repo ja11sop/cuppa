@@ -491,6 +491,29 @@ class Git:
 
 
     @classmethod
+    def remote_url( cls, path, remote='origin' ):
+        """The configured URL of ``remote``, or None when there is no such remote."""
+        try:
+            return cls.execute_command(
+                    "{git} config --get remote.{remote}.url".format(
+                            git=cls.binary(), remote=remote
+                    ),
+                    path,
+            )
+        except cls.Error:
+            return None
+
+
+    @classmethod
+    def update_submodules( cls, path ):
+        """Bring submodules in line with the checked-out revision."""
+        return cls.execute_command(
+                "{git} submodule update --init --recursive".format( git=cls.binary() ),
+                path,
+        )
+
+
+    @classmethod
     def local_branch_exists( cls, path, branch ):
         try:
             cls.execute_command(

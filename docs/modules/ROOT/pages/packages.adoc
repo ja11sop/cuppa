@@ -51,9 +51,10 @@ Cuppa then:
 
 * Reads this publisher’s ``dependencies=`` (optional ``package_source`` on each
   edge) and expands the DAG from each resolved tree’s ``cuppa-publish.json``
-* Resolves each node to a local publisher working tree via ``package_source``
+* Resolves each node to a publisher working tree via ``package_source``
   (filesystem path) or ``--publisher-root`` (``{root}/{name}``,
-  ``{root}/{package}``, or one nesting level)
+  ``{root}/{package}``, or one nesting level), cloning from a ``package_source``
+  URL when you pass ``--clone-publishers``
 * Runs a nested ``cuppa -D … --publish-package`` for each dependency in
   leaf-first order (**without** re-entering cascade)
 * Invalidates that package’s download/extract caches under the tip’s storage
@@ -67,10 +68,65 @@ beside the tip ``sconstruct`` for local cascade discovery. Consume still uses
 ``cuppa-dependency.json`` only.
 
 Requires ``--publish-package``. Missing ``package_source`` / unresolved trees
-fail before nested uploads. Cascade does not clone a publisher tree from a git
-URL yet, so a ``package_source`` URL needs that tree to exist already: point
-``--publisher-root`` at the forest holding it, or give the edge a filesystem
-``package_source``.
+fail before nested uploads. A ``package_source`` URL needs either a tree that
+already exists — point ``--publisher-root`` at the forest holding it, or give the
+edge a filesystem ``package_source`` — or ``--clone-publishers``, described next.
+
+[#clone-publishers]
+==== Fetching publisher trees on demand
+
+``--clone-publishers`` lets cascade clone a publisher tree it cannot find locally
+from that dependency's ``package_source`` URL, which may be pinned:
+
+[source,python]
+----
+'package_source': 'git@gitlab.example:packages/capy@develop'
+----
+
+A pin may name a branch, a tag, or a revision. Branch names containing ``/``
+(``@feature/cascade``) are fine. Tags are welcome here even though
+``--clone-develop`` refuses them, because publishing version X from tag vX is the
+normal case; a tag or revision lands on a detached head. A filesystem
+``package_source`` is never pinned — that tree is whatever you have checked out,
+and honouring a pin would mean switching your branch.
+
+Cloning is opt-in rather than automatic, because cascade does not merely fetch a
+tree: it runs a build in it, which executes that tree's ``sconstruct``. Edges
+deeper in the stack come from ``cuppa-publish.json`` inside **downloaded
+archives**, so without the flag a registry manifest could decide which
+repositories your machine clones and builds. Run xref:#cascade-plan[
+``--cascade-plan``] first to see every URL and destination before anything is
+fetched.
+
+Where a clone lands follows what you asked for:
+
+[cols="1,2"]
+|===
+| Flags | Destination
+
+| No publisher root
+| ``<storage-root>/publishers/<name>`` — cuppa owns that tree, so a bare cascade
+  never writes into your working area
+
+| ``--publisher-root=PATH``
+| ``PATH/<name>`` — the first place the resolver already looks, so the clone is
+  found again by the same rules. Use this when you want those trees somewhere you
+  can explore and work in
+|===
+
+Cascade clones once and then leaves the tree alone. An existing tree is always
+preferred over cloning, and is used exactly as it stands: cascade never switches
+branches, stashes, resets, or fetches, and reports when a reused clone is not on
+the revision a ``package_source`` pinned. A destination that already holds a
+different repository is refused rather than overwritten, as is a clone whose tree
+turns out to have no ``sconstruct`` or ``cuppa-publish.json``. Cloning needs the
+network, so it is not available with ``--offline``.
+
+Clones are keyed by dependency name, matching the rest of cuppa's storage layout.
+Two dependencies whose URLs differ but whose names collide are refused with both
+URLs named, rather than one quietly publishing from the other's tree. Trees under
+the storage root are not yet listed by the ``--list-*`` reports, so remove them by
+path when you are done with them.
 
 [#cascade-plan]
 ==== Checking the plan before anything uploads
@@ -100,13 +156,32 @@ Cascade plan: 2 package dependencies then tip [widget]==[0.2.0]: [0 errors][0 wa
 │           publisher [/home/user/coding/packages/corosio]
 └── then tip [widget]==[0.2.0] from this tree
 
---cascade-plan: 1 tip planned; nothing was built, published, or uploaded.
+--cascade-plan: 1 tip planned; nothing was built, published, uploaded, or cloned.
 ----
 
 Unlike a real run, which stops at the first dependency it cannot place, the plan
 reports **every** unresolved tree as an error row and exits non-zero. One command
 therefore tells you all the trees left to plant, or which edges still need a
 ``package_source``.
+
+With ``--clone-publishers``, a tree cascade would fetch is a note rather than an
+error, naming the URL, the pin, and where it would land. The plan stops at such a
+node, because a dependency's own edges live in the ``cuppa-publish.json`` inside a
+tree that does not exist yet:
+
+[source,text]
+----
+Cascade plan: 1 package dependency then tip [widget]==[0.2.0]: [0 errors][0 warnings][1 note]
+│
+├── 1 of 1  capy develop (capy)
+│           note: would clone [git@gitlab.example:packages/capy] at [develop]
+│           into [/home/user/.cuppa/publishers/capy]
+│           note: its own package dependencies are not known until that tree
+│           exists, so nothing is planned beneath it
+└── then tip [widget]==[0.2.0] from this tree
+
+--cascade-plan: 1 tip planned, 1 publisher tree to clone first; nothing was built, published, uploaded, or cloned.
+----
 
 A real cascade prints the same plan before its first nested publish, then brackets
 each nested session with a banner naming the session number, the publisher tree,

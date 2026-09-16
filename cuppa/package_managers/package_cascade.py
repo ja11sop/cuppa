@@ -23,7 +23,8 @@ from collections import defaultdict, deque
 import SCons.Errors
 
 from cuppa import timer
-from cuppa.colourise import as_error, as_info, as_notice, as_subdued
+from cuppa.colourise import as_error, as_info, as_notice, as_subdued, as_warning
+from cuppa.core.storage_options import default as storage_defaults
 from cuppa.log import logger
 from cuppa.package_managers.cuppa_dependency_manifest import (
         coerce_dependency_entry,
@@ -33,13 +34,18 @@ from cuppa.package_managers.cuppa_publish_manifest import (
         PUBLISH_FILENAME,
         read_publish_manifest,
 )
+from cuppa.scms.git import Git
 from cuppa.utility import storage
 
 
 CASCADE_OPTION = "build-and-publish-dependencies"
 CASCADE_PLAN_OPTION = "cascade-plan"
 PUBLISHER_ROOT_OPTION = "publisher-root"
+CLONE_OPTION = "clone-publishers"
 NESTED_ENV = "CUPPA_CASCADE_NESTED"
+
+# Where clones land under the storage root when no publisher root was given.
+PUBLISHERS_DIRNAME = "publishers"
 
 # Same rule glyph as the dependency listing tree.
 RULE = '-'
@@ -57,6 +63,13 @@ def cascade_plan_enabled( env ) -> bool:
     if not callable( getter ):
         return False
     return bool( getter( CASCADE_PLAN_OPTION ) )
+
+
+def clone_enabled( env ) -> bool:
+    getter = getattr( env, "get_option", None )
+    if not callable( getter ):
+        return False
+    return bool( getter( CLONE_OPTION ) )
 
 
 def publisher_root_option( env ) -> str | None:
@@ -83,11 +96,196 @@ def _node_key( name: str, package: str, version: str ) -> tuple:
 
 def _looks_like_url( value: str ) -> bool:
     lower = value.lower()
-    return lower.startswith( ( "http://", "https://", "git@", "ssh://" ) ) or lower.endswith( ".git" )
+    return (
+            lower.startswith( ( "http://", "https://", "git@", "ssh://", "file://" ) )
+            or lower.endswith( ".git" )
+    )
 
 
-def resolve_publisher_dir( env, entry: dict ) -> str:
-    """Return an existing publisher working tree for ``entry``."""
+def split_source_pin( value: str ) -> tuple[str, str | None]:
+    """Split a ``package_source`` URL into the URL and the revision it pins.
+
+    ``Location.get_scm_system_and_info`` cannot do this: it only splits a pin off
+    a ``vc+scheme`` URL (``git+ssh://…``) and returns nothing at all for the
+    scp-like ``git@host:group/name`` form ``package_source`` is normally written
+    in. The ambiguity to settle is the user separator in ``git@host:name``, which
+    is not a pin, against ``git@host:name@develop``, which is. An ``@`` opens a
+    pin only once a host or path separator has been seen, which also leaves
+    ``https://user@host/group/name`` unpinned and keeps slashy revisions
+    (``@feature/x``) whole.
+
+    Only URLs are split. A filesystem ``package_source`` is taken literally,
+    because a retrieved tree can legitimately be named ``capy@develop`` and
+    because honouring a pin would mean switching the operator's branch.
+    """
+    text = str( value )
+    _scheme, separator, remainder = text.partition( "://" )
+    tail = remainder if separator else text
+    at = tail.rfind( "@" )
+    if at < 0:
+        return text, None
+    head = tail[:at]
+    if not any( character in head for character in ":/" ):
+        return text, None
+    revision = tail[at + 1:]
+    if not revision:
+        return text, None
+    return text[: len( text ) - len( revision ) - 1], revision
+
+
+def publisher_clone_root( env ) -> str:
+    """Where a cloned publisher tree lands.
+
+    A bare cascade clones into a cuppa-owned tree under the storage root, so it
+    never writes into the operator's working area unasked. ``--publisher-root``
+    redirects it there: a flag asking cascade to search a forest is taken as
+    permission to populate it, and is where someone who wants to explore or work
+    on those trees would want them.
+    """
+    root = publisher_root_option( env )
+    if root:
+        return root
+    storage_root = env.get( "storage_root" ) or storage_defaults.storage_root
+    return os.path.join( os.path.expanduser( str( storage_root ) ), PUBLISHERS_DIRNAME )
+
+
+def publisher_clone_destination( env, entry: dict ) -> str:
+    """``{root}/{name}`` — the first shape :func:`_resolve_under_publisher_root`
+    looks in, so a clone is found again by the same rules that failed to find it.
+
+    Keyed by dependency name like the rest of the product: the consume cache is
+    already ``downloads_root/packages/{package}/{version}`` with no registry in
+    the key. Two dependencies claiming one destination from different URLs is
+    refused rather than resolved by inventing a registry-qualified path here.
+    """
+    return os.path.join( publisher_clone_root( env ), str( entry["name"] ) )
+
+
+def _offline( env ) -> bool:
+    getter = getattr( env, "get_option", None )
+    if callable( getter ) and getter( "offline" ):
+        return True
+    return bool( env.get( "offline" ) )
+
+
+def _same_repository( left: str, right: str ) -> bool:
+    """Whether two URLs name the same repository, allowing for ``.git`` and case.
+
+    Deliberately shallow: two spellings of one repository that this does not
+    equate produce a refusal naming both URLs, which is the safe direction. The
+    dangerous mistake would be treating different repositories as the same and
+    publishing from the wrong tree.
+    """
+    def normalised( value ):
+        text = str( value ).strip().rstrip( "/" )
+        if text.lower().endswith( ".git" ):
+            text = text[:-4]
+        return text.lower()
+    return normalised( left ) == normalised( right )
+
+
+def clone_publisher( env, entry: dict, url: str, revision, destination: str ) -> str:
+    """Clone ``url`` into ``destination`` and land on ``revision``.
+
+    Refuses rather than guesses: no network under ``--offline``, never clobbers
+    a tree it did not clone, and never switches, stashes, or resets one it
+    finds. Unlike ``--clone-develop`` a pin is welcome, because publishing
+    version X from tag vX is the normal case; a tag or revision lands detached.
+    """
+    label = node_label( entry )
+    if _offline( env ):
+        raise SCons.Errors.StopError(
+                "cascade cannot clone the publisher for [{}] from [{}] while "
+                "--offline is set. Drop --offline, or plant the tree at [{}]."
+                .format( label, url, destination )
+        )
+
+    if os.path.isdir( destination ) and os.listdir( destination ):
+        origin = Git.remote_url( destination )
+        if origin and _same_repository( origin, url ):
+            _report_existing_clone( label, destination, revision )
+            return destination
+        raise SCons.Errors.StopError(
+                "cascade cannot clone the publisher for [{}]: [{}] already "
+                "exists and is not a clone of [{}] (its remote is [{}]). Move "
+                "it aside, or point --{} at a forest holding the right tree."
+                .format( label, destination, url, origin or "none", PUBLISHER_ROOT_OPTION )
+        )
+
+    logger.info( "Cascade: cloning publisher for [{}] from [{}] into [{}]".format(
+            as_info( label ), as_notice( url ), as_notice( destination )
+    ) )
+    try:
+        Git.clone( url, destination, recurse_submodules=True )
+        if revision:
+            if Git.remote_tracking_branch_exists( destination, revision ):
+                Git.checkout_tracking_branch( destination, revision )
+            else:
+                Git.checkout_branch( destination, revision )
+            Git.update_submodules( destination )
+    except Git.Error as error:
+        # A half-clone left behind would be mistaken for a usable tree on the
+        # next run, so the failed attempt takes its directory with it.
+        shutil.rmtree( destination, ignore_errors=True )
+        raise SCons.Errors.StopError(
+                "cascade could not clone the publisher for [{}] from [{}]{} "
+                "into [{}]: {}"
+                .format(
+                        label,
+                        url,
+                        " at [{}]".format( revision ) if revision else "",
+                        destination,
+                        str( error ),
+                )
+        )
+
+    if not _looks_like_publisher_tree( destination ):
+        raise SCons.Errors.StopError(
+                "cascade cloned [{}] into [{}] for [{}], but that tree has no "
+                "sconstruct or {}, so it cannot publish anything"
+                .format( url, destination, label, PUBLISH_FILENAME )
+        )
+    return destination
+
+
+def _report_existing_clone( label, destination, revision ) -> None:
+    """Reuse a clone as it stands; say so when it is not where the pin asked.
+
+    Moving it is the operator's call — cascade does not switch, stash, or reset
+    a working copy, the same rule the develop commands follow.
+    """
+    if revision:
+        try:
+            branch = Git.get_branch( destination )[0]
+        except Exception:
+            branch = None
+        if branch and branch != revision:
+            logger.warn(
+                    "Cascade: publisher [{}] at [{}] is on [{}], not the pinned "
+                    "[{}]; using it as it stands"
+                    .format(
+                            as_info( label ), as_notice( destination ),
+                            as_warning( str( branch ) ), as_info( str( revision ) )
+                    )
+            )
+            return
+    logger.info( "Cascade: using existing clone for [{}] at [{}]".format(
+            as_info( label ), as_notice( destination )
+    ) )
+
+
+def resolve_publisher_dir( env, entry: dict, allow_clone=True, claims=None ) -> str | None:
+    """Return a publisher working tree for ``entry``, cloning it when asked to.
+
+    ``allow_clone=False`` plans instead of acting: where a clone would happen it
+    records ``_clone_url`` / ``_clone_revision`` / ``_clone_dir`` on ``entry``
+    and returns ``None``, so ``--cascade-plan`` can report the fetch it would do
+    without fetching anything.
+
+    ``claims`` maps an already-claimed clone destination to the label and URL
+    that claimed it, so two dependencies wanting one directory from different
+    repositories is refused rather than silently resolved.
+    """
     package_source = entry.get( "package_source" )
     name = entry["name"]
     package = entry["package"]
@@ -95,26 +293,36 @@ def resolve_publisher_dir( env, entry: dict ) -> str:
     if package_source:
         source = os.path.expanduser( str( package_source ) )
         if _looks_like_url( source ):
-            # Phase 2: clone. For MVP try publisher-root first, else StopError.
+            # An existing local tree always wins: it is what the operator planted,
+            # and reusing it keeps a cascade run off the network.
             root = publisher_root_option( env )
-            if not root:
-                raise SCons.Errors.StopError(
-                        "package_source for [{}] is a URL [{}], and cascade does "
-                        "not clone yet. Set --{} to a forest that already holds "
-                        "that publisher tree, or give the dependency a "
-                        "filesystem package_source."
-                        .format( name, source, PUBLISHER_ROOT_OPTION )
-                )
-            resolved = _resolve_under_publisher_root( root, name, package )
+            resolved = _resolve_under_publisher_root( root, name, package ) if root else None
             if resolved:
                 return resolved
-            raise SCons.Errors.StopError(
-                    "package_source for [{}] is a URL [{}], and cascade does not "
-                    "clone yet; no local working tree was found under --{}=[{}] "
-                    "(tried {{root}}/{{name}}, {{root}}/{{package}}, and one-level "
-                    "nesting)"
-                    .format( name, source, PUBLISHER_ROOT_OPTION, root )
-            )
+            url, revision = split_source_pin( source )
+            if not clone_enabled( env ):
+                raise SCons.Errors.StopError(
+                        "package_source for [{}] is a URL [{}] and no local "
+                        "working tree was found{}. Pass --{} to clone it, set "
+                        "--{} to a forest that already holds it, or give the "
+                        "dependency a filesystem package_source."
+                        .format(
+                                name,
+                                source,
+                                " under --{}=[{}]".format( PUBLISHER_ROOT_OPTION, root )
+                                        if root else "",
+                                CLONE_OPTION,
+                                PUBLISHER_ROOT_OPTION,
+                        )
+                )
+            destination = publisher_clone_destination( env, entry )
+            _claim_clone_destination( claims, destination, entry, url )
+            if not allow_clone:
+                entry["_clone_url"] = url
+                entry["_clone_revision"] = revision
+                entry["_clone_dir"] = destination
+                return None
+            return clone_publisher( env, entry, url, revision, destination )
         if not os.path.isabs( source ):
             base = env.get( "sconstruct_dir" ) or os.getcwd()
             source = os.path.abspath( os.path.join( str( base ), source ) )
@@ -140,6 +348,23 @@ def resolve_publisher_dir( env, entry: dict ) -> str:
             "(tried {{root}}/{{name}}, {{root}}/{{package}}, and one-level nesting)"
             .format( name, PUBLISHER_ROOT_OPTION, root )
     )
+
+
+def _claim_clone_destination( claims, destination: str, entry: dict, url: str ) -> None:
+    if claims is None:
+        return
+    claimed = claims.get( destination )
+    if claimed and not _same_repository( claimed[1], url ):
+        raise SCons.Errors.StopError(
+                "cascade cannot clone both [{}] from [{}] and [{}] from [{}] "
+                "into [{}]: two repositories claim one directory. Give one of "
+                "them a filesystem package_source, or plant its tree under --{}."
+                .format(
+                        claimed[0], claimed[1], node_label( entry ), url,
+                        destination, PUBLISHER_ROOT_OPTION,
+                )
+        )
+    claims[destination] = ( node_label( entry ), url )
 
 
 def _resolve_under_publisher_root( root: str, name: str, package: str ) -> str | None:
@@ -196,7 +421,7 @@ def node_label( entry ) -> str:
     )
 
 
-def build_cascade_graph( env, publisher, tolerant=False ):
+def build_cascade_graph( env, publisher, tolerant=False, allow_clone=True ):
     """Return ``(nodes, edges)`` for the tip's package dependency DAG.
 
     ``nodes`` maps node_key → entry dict (includes ``_publisher_dir``).
@@ -205,10 +430,16 @@ def build_cascade_graph( env, publisher, tolerant=False ):
     ``tolerant`` records an unresolvable publisher tree on the node as
     ``_resolve_error`` instead of raising, so ``--cascade-plan`` can report every
     tree an operator still has to plant. A real run keeps failing on the first.
+
+    ``allow_clone=False`` plans a clone rather than performing one. A node that
+    would be cloned has no tree yet, so the walk cannot read its
+    ``cuppa-publish.json`` and stops there — the plan report says so rather than
+    implying the dependency is a leaf.
     """
     nodes: dict[tuple, dict] = {}
     edges: dict[tuple, set[tuple]] = defaultdict( set )
     queue: deque[dict] = deque()
+    claims: dict[str, tuple] = {}
 
     for entry in _edges_from_publisher( env, publisher ):
         if entry.get( "version" ) is None:
@@ -228,7 +459,9 @@ def build_cascade_graph( env, publisher, tolerant=False ):
             continue
         nodes[key] = dict( entry )
         try:
-            publisher_dir = resolve_publisher_dir( env, nodes[key] )
+            publisher_dir = resolve_publisher_dir(
+                    env, nodes[key], allow_clone=allow_clone, claims=claims
+            )
         except SCons.Errors.StopError as error:
             if not tolerant:
                 raise
@@ -236,6 +469,10 @@ def build_cascade_graph( env, publisher, tolerant=False ):
             nodes[key]["_resolve_error"] = str( error )
             continue
         nodes[key]["_publisher_dir"] = publisher_dir
+        if publisher_dir is None:
+            # Planned clone: its own dependencies live in a tree that does not
+            # exist yet, so there is nothing to walk into.
+            continue
         for child in _edges_from_publish_file( publisher_dir ):
             child_key = _node_key( child["name"], child["package"], child["version"] )
             edges[key].add( child_key )
@@ -289,6 +526,7 @@ def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) 
     """
     tee, elbow, pipe, gap = storage.glyphs( encoding )
     errors = [ key for key in order if nodes[key].get( "_resolve_error" ) ]
+    clones = [ key for key in order if nodes[key].get( "_clone_dir" ) ]
     lines = [
             "",
             "Cascade plan: {} then tip [{}]==[{}]: {}".format(
@@ -297,7 +535,9 @@ def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) 
                     ),
                     as_info( str( tip_package ) ),
                     as_info( str( tip_version ) ),
-                    storage.format_severity_count_brackets( errors=len( errors ) ),
+                    storage.format_severity_count_brackets(
+                            errors=len( errors ), notes=len( clones )
+                    ),
             ),
             pipe.rstrip(),
     ]
@@ -317,6 +557,21 @@ def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) 
             wrapped = storage.wrapped( "error: " + error, prose_width )
             lines.append( continuation + as_error( wrapped[0] ) )
             lines.extend( continuation + as_error( line ) for line in wrapped[1:] )
+        elif entry.get( "_clone_dir" ):
+            pin = entry.get( "_clone_revision" )
+            note = "note: would clone [{}]{} into [{}]".format(
+                    entry.get( "_clone_url" ),
+                    " at [{}]".format( pin ) if pin else "",
+                    entry["_clone_dir"],
+            )
+            for wrapped_line in storage.wrapped( note, prose_width ):
+                lines.append( continuation + as_notice( wrapped_line ) )
+            for wrapped_line in storage.wrapped(
+                    "note: its own package dependencies are not known until that "
+                    "tree exists, so nothing is planned beneath it",
+                    prose_width,
+            ):
+                lines.append( continuation + as_notice( wrapped_line ) )
         else:
             lines.append( "{}publisher [{}]".format(
                     continuation, as_notice( str( entry.get( "_publisher_dir" ) ) )
@@ -390,11 +645,12 @@ def plan_reports() -> list[dict]:
     return list( _plan_reports )
 
 
-def record_plan_report( tip_package, tip_version, error_count ) -> None:
+def record_plan_report( tip_package, tip_version, error_count, clone_count=0 ) -> None:
     _plan_reports.append( {
             "package": str( tip_package ),
             "version": str( tip_version ),
             "errors": int( error_count ),
+            "clones": int( clone_count ),
     } )
 
 
@@ -427,26 +683,35 @@ def finish_plan_only( env=None, out=None ) -> int:
         return 1
 
     errors = sum( report["errors"] for report in _plan_reports )
+    clones = sum( report.get( "clones", 0 ) for report in _plan_reports )
     planned = storage.emphasised_count_phrase( len( _plan_reports ), "tip" )
     if errors:
         write_lines( [
                 "",
                 "--{}: {} planned, {} without a publisher tree. Plant the "
-                "missing trees, set --{}, or give those dependencies a "
+                "missing trees, pass --{} to fetch the ones with a URL "
+                "package_source, set --{}, or give those dependencies a "
                 "filesystem package_source.".format(
                         CASCADE_PLAN_OPTION,
                         planned,
                         storage.emphasised_count_phrase( errors, "dependency", "dependencies" ),
+                        CLONE_OPTION,
                         PUBLISHER_ROOT_OPTION,
                 ),
         ], out=stream )
         return 1
 
+    would_clone = ""
+    if clones:
+        would_clone = ", {} to clone first".format(
+                storage.emphasised_count_phrase(
+                        clones, "publisher tree", "publisher trees"
+                )
+        )
     write_lines( [
             "",
-            "--{}: {} planned; nothing was built, published, or uploaded.".format(
-                    CASCADE_PLAN_OPTION, planned
-            ),
+            "--{}: {} planned{}; nothing was built, published, uploaded, or "
+            "cloned.".format( CASCADE_PLAN_OPTION, planned, would_clone ),
     ], out=stream )
     return 0
 
@@ -456,6 +721,7 @@ _NESTED_DROP_EXACT = frozenset( {
         "--" + CASCADE_OPTION,
         "--" + CASCADE_PLAN_OPTION,
         "--" + PUBLISHER_ROOT_OPTION,
+        "--" + CLONE_OPTION,
         "--amend-package-manifest",
         "--cuppa-mode",
 } )
@@ -755,7 +1021,9 @@ def maybe_run_cascade( env, publisher ) -> None:
     tip_package = str( getattr( publisher, "_package", "" ) )
     tip_version = str( getattr( publisher, "_version", "" ) )
 
-    nodes, edges = build_cascade_graph( env, publisher, tolerant=plan_only )
+    nodes, edges = build_cascade_graph(
+            env, publisher, tolerant=plan_only, allow_clone=not plan_only
+    )
     if not nodes:
         logger.info(
                 "Cascade: tip [{}] declares no package dependencies — nothing to publish"
@@ -773,6 +1041,7 @@ def maybe_run_cascade( env, publisher ) -> None:
                 tip_package,
                 tip_version,
                 sum( 1 for key in order if nodes[key].get( "_resolve_error" ) ),
+                clone_count=sum( 1 for key in order if nodes[key].get( "_clone_dir" ) ),
         )
         return
 

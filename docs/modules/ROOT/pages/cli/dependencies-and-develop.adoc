@@ -155,6 +155,21 @@ tree, then stops without building or uploading. It requires
 publisher tree is reported rather than only the first, and the run exits non-zero
 when any remain. See xref:packages.adoc#cascade-plan[Checking the plan before anything uploads].
 
+`--clone-publishers` lets cascade clone a publisher tree it cannot find locally from
+that dependency's `package_source` URL, optionally pinned as `url@branch`, `url@tag`,
+or `url@revision`. Clones land in `PATH/<name>` under `--publisher-root` when it is
+set, otherwise in `<storage-root>/publishers/<name>`. Existing trees are always
+preferred and are used as they stand — never switched, reset, or overwritten — and
+cloning is unavailable with `--offline`. It is opt-in because cascade runs a build in
+the tree it fetches. See xref:packages.adoc#clone-publishers[Fetching publisher trees
+on demand].
+
+This is not what `--develop` does, despite the overlap in intent. `--develop` switches
+between locations each dependency already declares, and a package dependency's
+`develop=` names a built package prefix (the directory `include/` and `lib/` hang off),
+not a publisher source tree. `package_source` names the project that *produces* a
+package; `develop=` names a local copy of the *produced* package.
+
 == Built-in Boost options
 
 Source Boost has a stable option family rather than a project-generated `<name>` prefix.

@@ -137,7 +137,25 @@ class PublishPackageMethod(object):
                 help=(
                         'Root directory of a publisher forest used to resolve '
                         'package dependencies when package_source is omitted or '
-                        'is a git URL (Phase 1 resolves local trees only).'
+                        'is a git URL. With --clone-publishers this is also '
+                        'where a missing tree is cloned to.'
+                ),
+        )
+        add_option(
+                '--clone-publishers',
+                dest='clone-publishers',
+                action='store_true',
+                help=(
+                        'Let cascade clone a publisher tree it cannot find '
+                        'locally from its package_source URL, which may be '
+                        'pinned as url@branch, url@tag, or url@revision. '
+                        'Cascade then runs a build in that tree, so this is '
+                        'opt-in; --cascade-plan reports every URL and '
+                        'destination first. Clones land under '
+                        '--publisher-root when set, otherwise in '
+                        '<storage-root>/publishers. Existing trees are reused '
+                        'as they stand and never switched or overwritten. Not '
+                        'available with --offline.'
                 ),
         )
 

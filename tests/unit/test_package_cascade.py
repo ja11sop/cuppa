@@ -5,6 +5,8 @@
 
 import io
 import os
+import shutil
+import subprocess
 
 import pytest
 import SCons.Errors
@@ -137,7 +139,10 @@ def test_resolve_url_without_publisher_root_mentions_flag():
         def get( self, name, default=None ):
             return default
 
-    with pytest.raises( SCons.Errors.StopError, match="Set --publisher-root" ):
+    with pytest.raises(
+            SCons.Errors.StopError,
+            match="Pass --clone-publishers to clone it, set --publisher-root",
+    ):
         cascade.resolve_publisher_dir(
                 _Env(),
                 {
@@ -267,7 +272,7 @@ def test_cascade_plan_does_not_require_publish_package( tmp_path, monkeypatch ):
     cascade.maybe_run_cascade( env, _Publisher() )
 
     assert cascade.plan_reports() == [
-            { "package": "corosio", "version": "0.2.0", "errors": 0 }
+            { "package": "corosio", "version": "0.2.0", "errors": 0, "clones": 0 }
     ]
 
 
@@ -349,7 +354,7 @@ def test_finish_plan_only_exit_status_follows_resolution():
     cascade.record_plan_report( "corosio", "0.2.0", 0 )
     out = io.StringIO()
     assert cascade.finish_plan_only( out=out ) == 0
-    assert "nothing was built, published, or uploaded" in out.getvalue()
+    assert "nothing was built, published, uploaded, or cloned" in out.getvalue()
 
     cascade.record_plan_report( "widget", "1.2", 2 )
     out = io.StringIO()
@@ -527,3 +532,402 @@ def test_evict_cached_package_matches_pin():
     assert cascade._evict_cached_package( _Factory.create, "capy", "develop" ) == 1
     assert "drop2" not in _Factory._cached_packages
 
+# Clone on demand (slice 2b)
+
+
+@pytest.mark.parametrize( "source, url, revision", [
+        # The user separator in the scp-like form is not a pin.
+        ( "git@git.example:packages/capy", "git@git.example:packages/capy", None ),
+        (
+                "git@git.example:packages/capy@develop",
+                "git@git.example:packages/capy",
+                "develop",
+        ),
+        # A slashy revision stays whole; #302 made it safe on disk.
+        (
+                "git@git.example:packages/capy@feature/cascade",
+                "git@git.example:packages/capy",
+                "feature/cascade",
+        ),
+        ( "https://git.example/packages/capy.git@v1.2.0",
+                "https://git.example/packages/capy.git", "v1.2.0" ),
+        # Credentials in the URL are not a pin either.
+        ( "https://user@git.example/packages/capy",
+                "https://user@git.example/packages/capy", None ),
+        ( "ssh://git@git.example/packages/capy@develop",
+                "ssh://git@git.example/packages/capy", "develop" ),
+        # A trailing @ pins nothing, so it is left where it is.
+        ( "git@git.example:packages/capy@", "git@git.example:packages/capy@", None ),
+] )
+def test_split_source_pin( source, url, revision ):
+    assert cascade.split_source_pin( source ) == ( url, revision )
+
+
+def test_clone_destination_defaults_to_a_cuppa_owned_tree( tmp_path ):
+    """A bare cascade must not populate the operator's working area."""
+    env = _PlanEnv( {}, { "storage_root": str( tmp_path / "store" ) } )
+    destination = cascade.publisher_clone_destination(
+            env, { "name": "capy", "package": "capy" }
+    )
+    assert destination == str( tmp_path / "store" / "publishers" / "capy" )
+
+
+def test_clone_destination_follows_an_explicit_publisher_root( tmp_path ):
+    """Asking cascade to search a forest is permission to populate it."""
+    root = tmp_path / "packages"
+    env = _PlanEnv(
+            { "publisher-root": str( root ) },
+            { "storage_root": str( tmp_path / "store" ) },
+    )
+    destination = cascade.publisher_clone_destination(
+            env, { "name": "capy", "package": "capy" }
+    )
+    assert destination == str( root / "capy" )
+
+
+def test_plan_mode_records_the_clone_instead_of_doing_it( tmp_path ):
+    env = _PlanEnv( { "clone-publishers": True }, { "storage_root": str( tmp_path ) } )
+    entry = {
+            "name": "capy",
+            "package": "capy",
+            "version": "develop",
+            "package_source": "git@git.example:packages/capy@develop",
+    }
+    assert cascade.resolve_publisher_dir( env, entry, allow_clone=False ) is None
+    assert entry["_clone_url"] == "git@git.example:packages/capy"
+    assert entry["_clone_revision"] == "develop"
+    assert entry["_clone_dir"] == str( tmp_path / "publishers" / "capy" )
+
+
+def test_an_existing_tree_wins_over_cloning( tmp_path, monkeypatch ):
+    """What the operator planted is used as it stands, and keeps cascade offline."""
+    root = tmp_path / "packages"
+    planted = root / "capy"
+    planted.mkdir( parents=True )
+    ( planted / "sconstruct" ).write_text( "import cuppa\n", encoding="utf-8" )
+
+    def _must_not_clone( *args, **kwargs ):
+        raise AssertionError( "an existing tree must not be re-cloned" )
+
+    monkeypatch.setattr( cascade, "clone_publisher", _must_not_clone )
+    env = _PlanEnv(
+            { "clone-publishers": True, "publisher-root": str( root ) },
+            { "sconstruct_dir": str( tmp_path ) },
+    )
+    path = cascade.resolve_publisher_dir(
+            env,
+            {
+                    "name": "capy",
+                    "package": "capy",
+                    "version": "develop",
+                    "package_source": "git@git.example:packages/capy",
+            },
+    )
+    assert path == str( planted )
+
+
+def test_cloning_refuses_while_offline( tmp_path ):
+    env = _PlanEnv(
+            { "clone-publishers": True, "offline": True },
+            { "storage_root": str( tmp_path ) },
+    )
+    with pytest.raises( SCons.Errors.StopError, match="--offline" ):
+        cascade.resolve_publisher_dir(
+                env,
+                {
+                        "name": "capy",
+                        "package": "capy",
+                        "version": "develop",
+                        "package_source": "git@git.example:packages/capy",
+                },
+        )
+
+
+class _FakeGit:
+    """Records what cascade asked git to do, without a repository."""
+
+    class Error( Exception ):
+        pass
+
+    def __init__( self, origin=None, tracking=(), clone_fails=False ):
+        self.origin = origin
+        self.tracking = set( tracking )
+        self.clone_fails = clone_fails
+        self.calls = []
+        self.branch = "master"
+
+    def remote_url( self, path, remote='origin' ):
+        return self.origin
+
+    def get_branch( self, path ):
+        return ( self.branch, None )
+
+    def clone( self, repository, path, branch=None, recurse_submodules=True ):
+        self.calls.append( ( "clone", repository, path, branch, recurse_submodules ) )
+        os.makedirs( path, exist_ok=True )
+        if self.clone_fails:
+            raise self.Error( "remote hung up" )
+        with open( os.path.join( path, "sconstruct" ), "w", encoding="utf-8" ) as handle:
+            handle.write( "import cuppa\n" )
+
+    def remote_tracking_branch_exists( self, path, branch, remote='origin' ):
+        return branch in self.tracking
+
+    def checkout_tracking_branch( self, path, branch, remote='origin' ):
+        self.calls.append( ( "checkout_tracking_branch", branch ) )
+
+    def checkout_branch( self, path, branch ):
+        self.calls.append( ( "checkout_branch", branch ) )
+
+    def update_submodules( self, path ):
+        self.calls.append( ( "update_submodules", ) )
+
+
+def test_cloning_a_branch_pin_lands_on_a_tracking_branch( tmp_path, monkeypatch ):
+    git = _FakeGit( tracking=[ "develop" ] )
+    monkeypatch.setattr( cascade, "Git", git )
+    env = _PlanEnv( { "clone-publishers": True }, { "storage_root": str( tmp_path ) } )
+    destination = cascade.clone_publisher(
+            env,
+            { "name": "capy", "package": "capy", "version": "develop" },
+            "git@git.example:packages/capy",
+            "develop",
+            str( tmp_path / "publishers" / "capy" ),
+    )
+    assert destination == str( tmp_path / "publishers" / "capy" )
+    assert ( "checkout_tracking_branch", "develop" ) in git.calls
+    assert ( "update_submodules", ) in git.calls
+    assert git.calls[0][4] is True    # submodules recursed on clone
+
+
+def test_cloning_a_tag_pin_is_allowed_and_lands_detached( tmp_path, monkeypatch ):
+    """Unlike --clone-develop: publishing version X from tag vX is the normal case."""
+    git = _FakeGit( tracking=[] )
+    monkeypatch.setattr( cascade, "Git", git )
+    env = _PlanEnv( { "clone-publishers": True }, { "storage_root": str( tmp_path ) } )
+    cascade.clone_publisher(
+            env,
+            { "name": "capy", "package": "capy", "version": "1.2.0" },
+            "git@git.example:packages/capy",
+            "v1.2.0",
+            str( tmp_path / "publishers" / "capy" ),
+    )
+    assert ( "checkout_branch", "v1.2.0" ) in git.calls
+
+
+def test_a_failed_clone_takes_its_directory_with_it( tmp_path, monkeypatch ):
+    """A half-clone would be mistaken for a usable tree on the next run."""
+    git = _FakeGit( clone_fails=True )
+    monkeypatch.setattr( cascade, "Git", git )
+    destination = tmp_path / "publishers" / "capy"
+    env = _PlanEnv( { "clone-publishers": True }, { "storage_root": str( tmp_path ) } )
+    with pytest.raises( SCons.Errors.StopError, match="could not clone" ):
+        cascade.clone_publisher(
+                env,
+                { "name": "capy", "package": "capy", "version": "develop" },
+                "git@git.example:packages/capy",
+                None,
+                str( destination ),
+        )
+    assert not destination.exists()
+
+
+def test_a_foreign_tree_in_the_destination_is_refused( tmp_path, monkeypatch ):
+    destination = tmp_path / "publishers" / "capy"
+    destination.mkdir( parents=True )
+    ( destination / "sconstruct" ).write_text( "import cuppa\n", encoding="utf-8" )
+    monkeypatch.setattr(
+            cascade, "Git", _FakeGit( origin="git@git.example:someone/else" )
+    )
+    env = _PlanEnv( { "clone-publishers": True }, { "storage_root": str( tmp_path ) } )
+    with pytest.raises(
+            SCons.Errors.StopError, match="is not a clone of"
+    ) as failure:
+        cascade.clone_publisher(
+                env,
+                { "name": "capy", "package": "capy", "version": "develop" },
+                "git@git.example:packages/capy",
+                None,
+                str( destination ),
+        )
+    assert "someone/else" in str( failure.value )
+    assert ( destination / "sconstruct" ).exists()    # never clobbered
+
+
+def test_a_matching_clone_is_reused_as_it_stands( tmp_path, monkeypatch ):
+    destination = tmp_path / "publishers" / "capy"
+    destination.mkdir( parents=True )
+    ( destination / "sconstruct" ).write_text( "import cuppa\n", encoding="utf-8" )
+    git = _FakeGit( origin="git@git.example:packages/capy.git" )
+    git.branch = "master"
+    monkeypatch.setattr( cascade, "Git", git )
+    env = _PlanEnv( { "clone-publishers": True }, { "storage_root": str( tmp_path ) } )
+    # Pinned to develop but sitting on master: reported, not switched.
+    path = cascade.clone_publisher(
+            env,
+            { "name": "capy", "package": "capy", "version": "develop" },
+            "git@git.example:packages/capy",
+            "develop",
+            str( destination ),
+    )
+    assert path == str( destination )
+    assert not git.calls
+
+
+def test_a_clone_without_a_publisher_tree_is_refused( tmp_path, monkeypatch ):
+    class _EmptyClone( _FakeGit ):
+        def clone( self, repository, path, branch=None, recurse_submodules=True ):
+            os.makedirs( path, exist_ok=True )
+
+    monkeypatch.setattr( cascade, "Git", _EmptyClone() )
+    env = _PlanEnv( { "clone-publishers": True }, { "storage_root": str( tmp_path ) } )
+    with pytest.raises( SCons.Errors.StopError, match="cannot publish anything" ):
+        cascade.clone_publisher(
+                env,
+                { "name": "capy", "package": "capy", "version": "develop" },
+                "git@git.example:packages/capy",
+                None,
+                str( tmp_path / "publishers" / "capy" ),
+        )
+
+
+def test_two_repositories_cannot_claim_one_clone_destination( tmp_path ):
+    class _Publisher:
+        _dependencies = [
+                {
+                        "name": "capy",
+                        "package": "capy",
+                        "version": "1",
+                        "package_source": "git@git.example:one/capy",
+                },
+                {
+                        "name": "capy",
+                        "package": "capy-extras",
+                        "version": "1",
+                        "package_source": "git@git.example:two/capy",
+                },
+        ]
+
+    env = _PlanEnv( { "clone-publishers": True }, { "storage_root": str( tmp_path ) } )
+    with pytest.raises(
+            SCons.Errors.StopError, match="two repositories claim one directory"
+    ):
+        cascade.build_cascade_graph( env, _Publisher(), allow_clone=False )
+
+
+def test_plan_mode_does_not_walk_beneath_a_tree_it_would_clone( tmp_path ):
+    """Edges live in the tree's cuppa-publish.json, which does not exist yet."""
+    class _Publisher:
+        _dependencies = [
+                {
+                        "name": "capy",
+                        "package": "capy",
+                        "version": "develop",
+                        "package_source": "git@git.example:packages/capy@develop",
+                },
+        ]
+
+    env = _PlanEnv( { "clone-publishers": True }, { "storage_root": str( tmp_path ) } )
+    nodes, edges = cascade.build_cascade_graph(
+            env, _Publisher(), tolerant=True, allow_clone=False
+    )
+    node = nodes[ ( "capy", "capy", "develop" ) ]
+    assert node["_publisher_dir"] is None
+    assert "_resolve_error" not in node
+    assert node["_clone_dir"] == str( tmp_path / "publishers" / "capy" )
+    assert not edges
+
+
+def test_cascade_plan_lines_report_a_planned_clone_as_a_note():
+    nodes = {
+            ( "capy", "capy", "develop" ): {
+                    "name": "capy", "package": "capy", "version": "develop",
+                    "_publisher_dir": None,
+                    "_clone_url": "git@host:capy",
+                    "_clone_revision": "develop",
+                    "_clone_dir": "/store/publishers/capy",
+            },
+    }
+    lines = cascade.cascade_plan_lines(
+            nodes, [ ( "capy", "capy", "develop" ) ], "corosio", "0.2.0"
+    )
+    body = "\n".join( lines )
+
+    # A tree cascade can fetch is not a failure, unlike one it cannot find.
+    assert "[0 errors][0 warnings][1 note]" in body
+    assert "note: would clone [git@host:capy] at [develop] into" in body
+    assert "/store/publishers/capy" in body
+    assert "not known until that tree exists" in body
+
+
+def test_finish_plan_only_counts_the_trees_it_would_clone():
+    cascade.reset_plan_reports()
+    cascade.record_plan_report( "corosio", "0.2.0", 0, clone_count=2 )
+    out = io.StringIO()
+    status = cascade.finish_plan_only( out=out )
+    report = out.getvalue()
+
+    assert status == 0
+    assert "2 publisher trees to clone first" in report
+    assert "nothing was built, published, uploaded, or cloned" in report
+
+
+def test_finish_plan_only_names_the_clone_flag_when_a_tree_is_missing():
+    cascade.reset_plan_reports()
+    cascade.record_plan_report( "corosio", "0.2.0", 1 )
+    out = io.StringIO()
+    status = cascade.finish_plan_only( out=out )
+
+    assert status == 1
+    assert "--clone-publishers" in out.getvalue()
+
+
+def test_tip_forward_args_drops_clone_publishers():
+    """Only the tip cascades, so a nested session has nothing to clone."""
+    argv = cascade.tip_forward_args( [
+            "scons", "--dbg", "--clone-publishers",
+            "--publisher-root=/forest", "--publish-package",
+    ] )
+    assert "--clone-publishers" not in argv
+    assert "--dbg" in argv
+
+
+@pytest.mark.skipif( shutil.which( "git" ) is None, reason="needs a git binary" )
+def test_cloning_a_real_repository_honours_the_pin( tmp_path ):
+    """End to end against a local repository: clone, then land on the pinned tag."""
+    origin = tmp_path / "origin"
+    origin.mkdir()
+
+    def git( *args ):
+        subprocess.check_call(
+                [ "git" ] + list( args ),
+                cwd=str( origin ),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+        )
+
+    ( origin / "sconstruct" ).write_text( "import cuppa\n", encoding="utf-8" )
+    git( "init", "--quiet" )
+    git( "-c", "user.email=t@example", "-c", "user.name=t", "add", "sconstruct" )
+    git( "-c", "user.email=t@example", "-c", "user.name=t", "commit", "-qm", "first" )
+    git( "tag", "v1" )
+    ( origin / "later.txt" ).write_text( "after the tag\n", encoding="utf-8" )
+    git( "-c", "user.email=t@example", "-c", "user.name=t", "add", "later.txt" )
+    git( "-c", "user.email=t@example", "-c", "user.name=t", "commit", "-qm", "second" )
+
+    env = _PlanEnv(
+            { "clone-publishers": True },
+            { "storage_root": str( tmp_path / "store" ) },
+    )
+    path = cascade.resolve_publisher_dir(
+            env,
+            {
+                    "name": "capy",
+                    "package": "capy",
+                    "version": "1",
+                    "package_source": "file://{}@v1".format( origin ),
+            },
+    )
+    assert path == str( tmp_path / "store" / "publishers" / "capy" )
+    assert os.path.isfile( os.path.join( path, "sconstruct" ) )
+    assert not os.path.exists( os.path.join( path, "later.txt" ) )
