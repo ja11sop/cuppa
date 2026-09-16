@@ -286,9 +286,12 @@ python -m scripts.github_helpers update-pr \
 The **version** job on every pull request reads that label before the rest of the matrix runs.
 Open the PR with `--label impact:…` in the same command as `create-pr` immediately after the
 first `git push`. Adding the label only after a red version check wastes a full CI cycle.
-`create-pr` applies labels in a second API call after `POST /pulls`, so the first `opened`
-event can still see an empty label list; the standalone `version` workflow also runs on
-`labeled` so the gate recovers without a no-op push.
+`create-pr` applies labels in a second API call after `POST /pulls`, because no GitHub API
+creates a pull request with labels — neither REST nor the GraphQL `createPullRequest` mutation
+accepts them. The `opened` event payload is therefore sealed before the label exists, so the
+`version` job reads labels **live** from the API (`check_version_bump --pull-request`) instead
+of `github.event.pull_request.labels`, which cannot catch up. Do not "simplify" that back to the
+payload. The workflow still runs on `labeled` as the recovery path when a human labels later.
 
 ```python
 from scripts.github_helpers import create_issue, create_pull_request, update_pull_request
