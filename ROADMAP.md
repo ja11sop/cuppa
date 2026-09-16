@@ -556,6 +556,7 @@ Design: [`native-toolchain-output.md`](design/plans/native-toolchain-output.md),
 | `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md); **1.11.0** |
 | `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | [`cuppa-info.md`](design/plans/cuppa-info.md); **1.11.0** |
 | `parallel-job-count` | Optional `--parallel=N` (affinity + explicit job count); today’s workaround `--parallel --jobs=N` | Medium | Soak publishers want affinity without auto 14; [`parallel-job-count.md`](design/plans/parallel-job-count.md) [#298](https://github.com/ja11sop/cuppa/issues/298). |
+| `integration-parallel-local` | Modest pytest-xdist for local integration gate (~2–3 min vs 8–10); isolate `HOME` first | Medium | Contributor tooling only; [`integration-parallel-local.md`](design/plans/integration-parallel-local.md). |
 | `console-native-output` | `--native-output`: enable toolchain native colour; passthrough spawn | Medium | [`native-toolchain-output.md`](design/plans/native-toolchain-output.md); optional 1.11.0 |
 | `console-stream-split` | Logging → stderr vs tool primary → stdout | Low | Validate current behaviour first (scratchpad note) |
 
