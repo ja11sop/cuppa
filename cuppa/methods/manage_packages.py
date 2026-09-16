@@ -118,6 +118,18 @@ class PublishPackageMethod(object):
                 ),
         )
         add_option(
+                '--cascade-plan',
+                dest='cascade-plan',
+                action='store_true',
+                help=(
+                        'Report the resolved cascade publish order and each '
+                        'dependency\'s publisher tree, then stop without '
+                        'building, publishing, or uploading anything. Requires '
+                        '--build-and-publish-dependencies; --publish-package is '
+                        'not needed because nothing is published.'
+                ),
+        )
+        add_option(
                 '--publisher-root',
                 dest='publisher-root',
                 type='string',

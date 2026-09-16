@@ -22,7 +22,8 @@ from collections import defaultdict, deque
 
 import SCons.Errors
 
-from cuppa.colourise import as_info, as_notice
+from cuppa import timer
+from cuppa.colourise import as_error, as_info, as_notice, as_subdued
 from cuppa.log import logger
 from cuppa.package_managers.cuppa_dependency_manifest import (
         coerce_dependency_entry,
@@ -32,11 +33,16 @@ from cuppa.package_managers.cuppa_publish_manifest import (
         PUBLISH_FILENAME,
         read_publish_manifest,
 )
+from cuppa.utility import storage
 
 
 CASCADE_OPTION = "build-and-publish-dependencies"
+CASCADE_PLAN_OPTION = "cascade-plan"
 PUBLISHER_ROOT_OPTION = "publisher-root"
 NESTED_ENV = "CUPPA_CASCADE_NESTED"
+
+# Same rule glyph as the dependency listing tree.
+RULE = '-'
 
 
 def cascade_enabled( env ) -> bool:
@@ -44,6 +50,13 @@ def cascade_enabled( env ) -> bool:
     if not callable( getter ):
         return False
     return bool( getter( CASCADE_OPTION ) )
+
+
+def cascade_plan_enabled( env ) -> bool:
+    getter = getattr( env, "get_option", None )
+    if not callable( getter ):
+        return False
+    return bool( getter( CASCADE_PLAN_OPTION ) )
 
 
 def publisher_root_option( env ) -> str | None:
@@ -86,19 +99,20 @@ def resolve_publisher_dir( env, entry: dict ) -> str:
             root = publisher_root_option( env )
             if not root:
                 raise SCons.Errors.StopError(
-                        "package_source for [{}] is a URL [{}]; Phase 1 cascade "
-                        "requires --{} or a filesystem package_source. "
-                        "Clone support is Phase 2."
+                        "package_source for [{}] is a URL [{}], and cascade does "
+                        "not clone yet. Set --{} to a forest that already holds "
+                        "that publisher tree, or give the dependency a "
+                        "filesystem package_source."
                         .format( name, source, PUBLISHER_ROOT_OPTION )
                 )
             resolved = _resolve_under_publisher_root( root, name, package )
             if resolved:
                 return resolved
             raise SCons.Errors.StopError(
-                    "package_source for [{}] is a URL [{}]; could not resolve a "
-                    "local working tree under --{}=[{}] "
+                    "package_source for [{}] is a URL [{}], and cascade does not "
+                    "clone yet; no local working tree was found under --{}=[{}] "
                     "(tried {{root}}/{{name}}, {{root}}/{{package}}, and one-level "
-                    "nesting). Clone support is Phase 2."
+                    "nesting)"
                     .format( name, source, PUBLISHER_ROOT_OPTION, root )
             )
         if not os.path.isabs( source ):
@@ -175,11 +189,22 @@ def _edges_from_publish_file( directory: str ) -> list[dict]:
     return list( document.get( "dependencies" ) or [] )
 
 
-def build_cascade_graph( env, publisher ):
+def node_label( entry ) -> str:
+    """``name version (package)`` — the label cascade reports a node by."""
+    return "{} {} ({})".format(
+            entry.get( "name" ), entry.get( "version" ), entry.get( "package" )
+    )
+
+
+def build_cascade_graph( env, publisher, tolerant=False ):
     """Return ``(nodes, edges)`` for the tip's package dependency DAG.
 
     ``nodes`` maps node_key → entry dict (includes ``_publisher_dir``).
     ``edges`` maps parent key → set of child (dependency) keys.
+
+    ``tolerant`` records an unresolvable publisher tree on the node as
+    ``_resolve_error`` instead of raising, so ``--cascade-plan`` can report every
+    tree an operator still has to plant. A real run keeps failing on the first.
     """
     nodes: dict[tuple, dict] = {}
     edges: dict[tuple, set[tuple]] = defaultdict( set )
@@ -202,7 +227,14 @@ def build_cascade_graph( env, publisher ):
                 nodes[key]["package_source"] = entry["package_source"]
             continue
         nodes[key] = dict( entry )
-        publisher_dir = resolve_publisher_dir( env, nodes[key] )
+        try:
+            publisher_dir = resolve_publisher_dir( env, nodes[key] )
+        except SCons.Errors.StopError as error:
+            if not tolerant:
+                raise
+            nodes[key]["_publisher_dir"] = None
+            nodes[key]["_resolve_error"] = str( error )
+            continue
         nodes[key]["_publisher_dir"] = publisher_dir
         for child in _edges_from_publish_file( publisher_dir ):
             child_key = _node_key( child["name"], child["package"], child["version"] )
@@ -248,9 +280,181 @@ def topological_publish_order( nodes: dict, edges: dict ) -> list[tuple]:
     return ordered
 
 
+def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) -> list[str]:
+    """Publish order, leaf-first, with each node's resolved publisher tree.
+
+    Order is the point of this report, so nodes stay in publish order rather
+    than being grouped by severity the way a judgement tree groups a work list.
+    The intro still carries the shared severity brackets.
+    """
+    tee, elbow, pipe, gap = storage.glyphs( encoding )
+    errors = [ key for key in order if nodes[key].get( "_resolve_error" ) ]
+    lines = [
+            "",
+            "Cascade plan: {} then tip [{}]==[{}]: {}".format(
+                    storage.emphasised_count_phrase(
+                            len( order ), "package dependency", "package dependencies"
+                    ),
+                    as_info( str( tip_package ) ),
+                    as_info( str( tip_version ) ),
+                    storage.format_severity_count_brackets( errors=len( errors ) ),
+            ),
+            pipe.rstrip(),
+    ]
+    total = len( order )
+    # Hang detail lines under the label, whatever width the ordinals need.
+    marker_width = len( "{} of {}".format( total, total ) )
+    continuation = pipe + " " * ( marker_width + 2 )
+    prose_width = max(
+            storage.WIDEST_PROSE - len( continuation ), storage.NARROWEST_PROSE
+    )
+    for ordinal, key in enumerate( order, start=1 ):
+        entry = nodes[key]
+        marker = "{} of {}".format( ordinal, total ).rjust( marker_width )
+        lines.append( "{}{}  {}".format( tee, marker, as_info( node_label( entry ) ) ) )
+        error = entry.get( "_resolve_error" )
+        if error:
+            wrapped = storage.wrapped( "error: " + error, prose_width )
+            lines.append( continuation + as_error( wrapped[0] ) )
+            lines.extend( continuation + as_error( line ) for line in wrapped[1:] )
+        else:
+            lines.append( "{}publisher [{}]".format(
+                    continuation, as_notice( str( entry.get( "_publisher_dir" ) ) )
+            ) )
+    lines.append( "{}then tip [{}]==[{}] from this tree".format(
+            elbow, as_info( str( tip_package ) ), as_info( str( tip_version ) )
+    ) )
+    return lines
+
+
+def session_begin_lines( ordinal, total, label, publisher_dir, command, width=None ) -> list[str]:
+    """Banner opening one nested session, so the extra ``scons`` run is visible."""
+    return [
+            "",
+            as_subdued( RULE * ( width or storage.WIDEST_PROSE ) ),
+            "cascade session {} of {}: {}".format( ordinal, total, as_info( str( label ) ) ),
+            "  publisher [{}]".format( as_notice( str( publisher_dir ) ) ),
+            "  command [{}]".format( as_notice( str( command ) ) ),
+    ]
+
+
+def session_end_lines( ordinal, total, label, elapsed_nanosecs=None ) -> list[str]:
+    """Banner closing one nested session. Claims nothing about what was uploaded.
+
+    Telling an up-to-date no-op from a real upload needs the registry query that
+    Phase 2c builds; see ``design/plans/package-build-publish-deps.md``.
+    """
+    taken = ""
+    if elapsed_nanosecs is not None:
+        taken = " in {}".format(
+                as_notice( timer.as_duration_string( elapsed_nanosecs ) )
+        )
+    return [
+            "cascade session {} of {} finished: {}{}".format(
+                    ordinal, total, as_info( str( label ) ), taken
+            ),
+    ]
+
+
+def sessions_complete_lines( total, tip_package, tip_version, width=None ) -> list[str]:
+    """Banner handing the console back to the tip build."""
+    return [
+            "",
+            as_subdued( RULE * ( width or storage.WIDEST_PROSE ) ),
+            "cascade sessions complete: {}; resuming tip [{}]==[{}]".format(
+                    storage.emphasised_count_phrase(
+                            total, "nested publish", "nested publishes"
+                    ),
+                    as_info( str( tip_package ) ),
+                    as_info( str( tip_version ) ),
+            ),
+    ]
+
+
+def write_lines( lines, out=None ) -> None:
+    """Emit report lines unprefixed — tree glyphs do not survive log labels."""
+    stream = out if out is not None else sys.stdout
+    for line in lines:
+        stream.write( line + "\n" )
+
+
+# Plan reports recorded during the sconscript read; see finish_plan_only().
+_plan_reports: list[dict] = []
+
+
+def reset_plan_reports() -> None:
+    del _plan_reports[:]
+
+
+def plan_reports() -> list[dict]:
+    return list( _plan_reports )
+
+
+def record_plan_report( tip_package, tip_version, error_count ) -> None:
+    _plan_reports.append( {
+            "package": str( tip_package ),
+            "version": str( tip_version ),
+            "errors": int( error_count ),
+    } )
+
+
+def finish_plan_only( env=None, out=None ) -> int:
+    """Closing line and exit status for ``--cascade-plan``.
+
+    Called once the sconscript read is done (the ``--dump`` pattern in
+    ``construct.py``) rather than from the publisher, so a run with several tips,
+    toolchains, or sconscripts reports all of them instead of only the first.
+
+    ``env`` lets the missing-cascade-flag refusal be reported here too: a project
+    that constructs no publisher never reaches the refusal in
+    :func:`maybe_run_cascade`.
+    """
+    stream = out if out is not None else sys.stdout
+    if not _plan_reports:
+        if env is not None and not cascade_enabled( env ):
+            write_lines( [
+                    "",
+                    "--{}: requires --{}, which is the flag it plans."
+                    .format( CASCADE_PLAN_OPTION, CASCADE_OPTION ),
+            ], out=stream )
+            return 1
+        write_lines( [
+                "",
+                "--{}: no GitLab package publisher was constructed, so there is "
+                "no cascade plan. Run from a project that publishes a GitLab "
+                "package with env.PublishPackage.".format( CASCADE_PLAN_OPTION ),
+        ], out=stream )
+        return 1
+
+    errors = sum( report["errors"] for report in _plan_reports )
+    planned = storage.emphasised_count_phrase( len( _plan_reports ), "tip" )
+    if errors:
+        write_lines( [
+                "",
+                "--{}: {} planned, {} without a publisher tree. Plant the "
+                "missing trees, set --{}, or give those dependencies a "
+                "filesystem package_source.".format(
+                        CASCADE_PLAN_OPTION,
+                        planned,
+                        storage.emphasised_count_phrase( errors, "dependency", "dependencies" ),
+                        PUBLISHER_ROOT_OPTION,
+                ),
+        ], out=stream )
+        return 1
+
+    write_lines( [
+            "",
+            "--{}: {} planned; nothing was built, published, or uploaded.".format(
+                    CASCADE_PLAN_OPTION, planned
+            ),
+    ], out=stream )
+    return 0
+
+
 # Flags that must not re-enter on nested publishes (exact match).
 _NESTED_DROP_EXACT = frozenset( {
         "--" + CASCADE_OPTION,
+        "--" + CASCADE_PLAN_OPTION,
         "--" + PUBLISHER_ROOT_OPTION,
         "--amend-package-manifest",
         "--cuppa-mode",
@@ -416,7 +620,7 @@ def refresh_package_consume_cache( env, entry: dict, tip_publisher=None ) -> lis
     """
     package = entry["package"]
     version = entry["version"]
-    label = "{} {} ({})".format( entry.get( "name", package ), version, package )
+    label = node_label( entry )
     removed = invalidate_package_consume_cache( env, package, version )
     if removed:
         logger.info(
@@ -482,7 +686,7 @@ def refresh_package_consume_cache( env, entry: dict, tip_publisher=None ) -> lis
     return removed
 
 
-def run_nested_publish( env, publisher_dir: str, label: str ) -> None:
+def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 ) -> None:
     argv = argv_for_nested_publish()
     nested_env = os.environ.copy()
     nested_env[NESTED_ENV] = "1"
@@ -500,26 +704,39 @@ def run_nested_publish( env, publisher_dir: str, label: str ) -> None:
         pythonpath_parts.insert( 0, cuppa_root )
     nested_env["PYTHONPATH"] = os.pathsep.join( pythonpath_parts )
 
-    logger.info(
-            "Cascade: publishing dependency [{}] from [{}]..."
-            .format( as_info( label ), as_notice( publisher_dir ) )
-    )
-    logger.info( "Cascade command: {}".format( as_notice( " ".join( argv ) ) ) )
+    write_lines( session_begin_lines(
+            ordinal, total, label, publisher_dir, " ".join( argv )
+    ) )
+    session_timer = timer.Timer()
     completion = subprocess.run(
             argv,
             cwd=publisher_dir,
             env=nested_env,
     )
+    session_timer.stop()
     if completion.returncode != 0:
         raise SCons.Errors.StopError(
-                "cascade publish of [{}] failed with return code [{}] "
-                "(cwd={})"
-                .format( label, completion.returncode, publisher_dir )
+                "cascade session {} of {} — publish of [{}] failed with return "
+                "code [{}] (cwd={})"
+                .format( ordinal, total, label, completion.returncode, publisher_dir )
         )
+    write_lines( session_end_lines(
+            ordinal, total, label, session_timer.elapsed().wall
+    ) )
 
 
 def maybe_run_cascade( env, publisher ) -> None:
-    """Run cascade when the flag is set; no-op for nested invokes or when unset."""
+    """Run cascade when the flag is set; no-op for nested invokes or when unset.
+
+    Under ``--cascade-plan`` this reports the resolved order and returns without
+    running a nested publish; ``construct.py`` exits after the sconscript read.
+    """
+    plan_only = cascade_plan_enabled( env )
+    if plan_only and not cascade_enabled( env ):
+        raise SCons.Errors.StopError(
+                "--{} requires --{}"
+                .format( CASCADE_PLAN_OPTION, CASCADE_OPTION )
+        )
     if not cascade_enabled( env ):
         return
     if _is_nested():
@@ -528,7 +745,8 @@ def maybe_run_cascade( env, publisher ) -> None:
                 "--{}".format( CASCADE_OPTION )
         )
         return
-    if not env.get_option( "publish-package" ):
+    # Plan mode publishes nothing, so it does not need the publish flag.
+    if not plan_only and not env.get_option( "publish-package" ):
         raise SCons.Errors.StopError(
                 "--{} requires --publish-package"
                 .format( CASCADE_OPTION )
@@ -537,22 +755,37 @@ def maybe_run_cascade( env, publisher ) -> None:
     tip_package = str( getattr( publisher, "_package", "" ) )
     tip_version = str( getattr( publisher, "_version", "" ) )
 
-    nodes, edges = build_cascade_graph( env, publisher )
+    nodes, edges = build_cascade_graph( env, publisher, tolerant=plan_only )
     if not nodes:
         logger.info(
                 "Cascade: tip [{}] declares no package dependencies — nothing to publish"
                 .format( as_info( tip_package ) )
         )
+        if plan_only:
+            record_plan_report( tip_package, tip_version, 0 )
         return
 
     order = topological_publish_order( nodes, edges )
-    logger.info(
-            "Cascade: publishing {} package dependenc(ies) before tip [{}]=={}"
-            .format( len( order ), as_info( tip_package ), as_info( tip_version ) )
-    )
+    write_lines( cascade_plan_lines( nodes, order, tip_package, tip_version ) )
 
-    for key in order:
+    if plan_only:
+        record_plan_report(
+                tip_package,
+                tip_version,
+                sum( 1 for key in order if nodes[key].get( "_resolve_error" ) ),
+        )
+        return
+
+    total = len( order )
+    for ordinal, key in enumerate( order, start=1 ):
         entry = nodes[key]
-        label = "{} {} ({})".format( entry["name"], entry["version"], entry["package"] )
-        run_nested_publish( env, entry["_publisher_dir"], label )
+        run_nested_publish(
+                env,
+                entry["_publisher_dir"],
+                node_label( entry ),
+                ordinal=ordinal,
+                total=total,
+        )
         refresh_package_consume_cache( env, entry, tip_publisher=publisher )
+
+    write_lines( sessions_complete_lines( total, tip_package, tip_version ) )

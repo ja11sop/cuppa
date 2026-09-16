@@ -1018,6 +1018,12 @@ class Construct(object):
                 print( "cuppa: Nothing to be done. Exiting." )
                 SCons.Script.Exit()
 
+            # Cascade plans are resolved as each tip publisher is constructed, so the
+            # exit waits for the read to finish and report every tip, not just the first.
+            from cuppa.package_managers import package_cascade
+            if package_cascade.cascade_plan_enabled( cuppa_env ):
+                SCons.Script.Exit( package_cascade.finish_plan_only( cuppa_env ) )
+
         else:
             logger.warn( "No projects to build. Nothing to be done" )
 

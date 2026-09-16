@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--cascade-plan`` — report the resolved cascade publish order and each
+  dependency's publisher working tree, then stop without building, publishing, or
+  uploading. Requires ``--build-and-publish-dependencies``; does not require
+  ``--publish-package``, since nothing is published. Unlike a real run, which
+  stops at the first tree it cannot place, the plan reports every unresolved tree
+  and exits non-zero while any remain
+  ([#297](https://github.com/ja11sop/cuppa/issues/297);
+  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)).
 - ``--build-and-publish-dependencies`` / ``--publisher-root`` — cascade
   publish of GitLab package dependencies before the tip (Phase 1): traveling
   ``cuppa-publish.json`` carries ``package_source``; consume still uses
@@ -142,6 +150,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Cascade console output: a real ``--build-and-publish-dependencies`` run prints
+  the resolved plan before its first nested publish, and brackets each nested
+  session with a banner naming the session number, publisher tree, command, and
+  elapsed time, so it is obvious that more than one ``scons`` ran. Nested output
+  is still streamed as-is rather than captured and re-indented, which would cost
+  colour and progress rewriting. A banner reports that a session finished and
+  claims nothing about whether it uploaded.
 - Staging / Depends docs: package ``Install`` examples use
   ``Requires(installed_include, installed_lib)`` only (order-only under
   ``--parallel``); explain why ``Depends`` would needlessly re-copy headers when

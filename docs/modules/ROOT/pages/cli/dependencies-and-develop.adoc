@@ -149,6 +149,12 @@ xref:packages.adoc#amend-package-manifest[Amending metadata without rebuilding].
 `--publisher-root=` resolves trees when `package_source` is omitted. See
 xref:packages.adoc#build-and-publish-dependencies[Cascading dependency publishes].
 
+`--cascade-plan` reports the resolved cascade order and each dependency's publisher
+tree, then stops without building or uploading. It requires
+`--build-and-publish-dependencies`, but not `--publish-package`. Every unresolved
+publisher tree is reported rather than only the first, and the run exits non-zero
+when any remain. See xref:packages.adoc#cascade-plan[Checking the plan before anything uploads].
+
 == Built-in Boost options
 
 Source Boost has a stable option family rather than a project-generated `<name>` prefix.

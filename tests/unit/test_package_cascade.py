@@ -3,6 +3,7 @@
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
+import io
 import os
 
 import pytest
@@ -136,7 +137,7 @@ def test_resolve_url_without_publisher_root_mentions_flag():
         def get( self, name, default=None ):
             return default
 
-    with pytest.raises( SCons.Errors.StopError, match="requires --publisher-root" ):
+    with pytest.raises( SCons.Errors.StopError, match="Set --publisher-root" ):
         cascade.resolve_publisher_dir(
                 _Env(),
                 {
@@ -206,6 +207,183 @@ def test_maybe_run_cascade_requires_publish_package():
 
     with pytest.raises( SCons.Errors.StopError, match="publish-package" ):
         cascade.maybe_run_cascade( _Env(), _Publisher() )
+
+
+class _PlanEnv( dict ):
+    """Tip env with the cascade flags an operator passes, and nothing else set."""
+
+    def __init__( self, options=None, data=None ):
+        dict.__init__( self, data or {} )
+        self._options = options or {}
+
+    def get_option( self, name, default=None ):
+        return self._options.get( name, default )
+
+
+def test_cascade_plan_requires_the_cascade_flag():
+    class _Publisher:
+        _dependencies = []
+        _package = "widget"
+        _version = "1"
+
+    env = _PlanEnv( { "cascade-plan": True } )
+    with pytest.raises(
+            SCons.Errors.StopError,
+            match="--cascade-plan requires --build-and-publish-dependencies",
+    ):
+        cascade.maybe_run_cascade( env, _Publisher() )
+
+
+def test_cascade_plan_does_not_require_publish_package( tmp_path, monkeypatch ):
+    """Plan mode publishes nothing, so demanding --publish-package is ceremony."""
+    leaf = tmp_path / "capy"
+    leaf.mkdir()
+    ( leaf / "sconstruct" ).write_text( "import cuppa\n", encoding="utf-8" )
+    write_publish_manifest( str( leaf ), "capy", "develop", dependencies=[] )
+
+    class _Publisher:
+        _dependencies = [
+                {
+                        "name": "capy",
+                        "package": "capy",
+                        "version": "develop",
+                        "package_source": str( leaf ),
+                }
+        ]
+        _package = "corosio"
+        _version = "0.2.0"
+
+    def _must_not_run( *args, **kwargs ):
+        raise AssertionError( "plan mode must not run a nested publish" )
+
+    monkeypatch.setattr( cascade, "run_nested_publish", _must_not_run )
+    monkeypatch.setattr( cascade, "refresh_package_consume_cache", _must_not_run )
+    cascade.reset_plan_reports()
+
+    env = _PlanEnv( {
+            "cascade-plan": True,
+            "build-and-publish-dependencies": True,
+    } )
+    cascade.maybe_run_cascade( env, _Publisher() )
+
+    assert cascade.plan_reports() == [
+            { "package": "corosio", "version": "0.2.0", "errors": 0 }
+    ]
+
+
+def test_build_cascade_graph_tolerant_records_unresolved_tree():
+    class _Publisher:
+        _dependencies = [
+                { "name": "widget", "package": "widget", "version": "1.2" }
+        ]
+
+    env = _PlanEnv()
+    with pytest.raises( SCons.Errors.StopError, match="publisher-root" ):
+        cascade.build_cascade_graph( env, _Publisher() )
+
+    nodes, edges = cascade.build_cascade_graph( env, _Publisher(), tolerant=True )
+    node = nodes[ ( "widget", "widget", "1.2" ) ]
+    assert node["_publisher_dir"] is None
+    assert "publisher-root" in node["_resolve_error"]
+    assert not edges
+
+
+def test_cascade_plan_lines_number_the_order_and_name_publisher_trees():
+    nodes = {
+            ( "capy", "capy", "develop" ): {
+                    "name": "capy", "package": "capy", "version": "develop",
+                    "_publisher_dir": "/home/user/coding/packages/capy",
+            },
+            ( "widget", "widget", "1.2" ): {
+                    "name": "widget", "package": "widget", "version": "1.2",
+                    "_publisher_dir": "/home/user/coding/packages/widget",
+            },
+    }
+    order = [ ( "capy", "capy", "develop" ), ( "widget", "widget", "1.2" ) ]
+    lines = cascade.cascade_plan_lines( nodes, order, "corosio", "0.2.0" )
+    body = "\n".join( lines )
+
+    assert "Cascade plan: 2 package dependencies then tip [corosio]==[0.2.0]" in body
+    assert "[0 errors][0 warnings][0 notes]" in body
+    assert "1 of 2  capy develop (capy)" in body
+    assert "publisher [/home/user/coding/packages/capy]" in body
+    assert "2 of 2  widget 1.2 (widget)" in body
+    assert body.rstrip().endswith( "then tip [corosio]==[0.2.0] from this tree" )
+
+
+def test_cascade_plan_lines_count_unresolved_trees_as_errors():
+    nodes = {
+            ( "widget", "widget", "1.2" ): {
+                    "name": "widget", "package": "widget", "version": "1.2",
+                    "_publisher_dir": None,
+                    "_resolve_error": "no package_source and --publisher-root is not set",
+            },
+    }
+    lines = cascade.cascade_plan_lines(
+            nodes, [ ( "widget", "widget", "1.2" ) ], "corosio", "0.2.0"
+    )
+    body = "\n".join( lines )
+
+    assert "[1 error][0 warnings][0 notes]" in body
+    assert "error: no package_source and --publisher-root is not set" in body
+
+
+def test_finish_plan_only_reports_no_publisher_as_a_failure():
+    cascade.reset_plan_reports()
+    out = io.StringIO()
+    assert cascade.finish_plan_only( out=out ) == 1
+    assert "no GitLab package publisher was constructed" in out.getvalue()
+
+
+def test_finish_plan_only_names_the_missing_cascade_flag():
+    """A project with no publisher never reaches the refusal in maybe_run_cascade."""
+    cascade.reset_plan_reports()
+    out = io.StringIO()
+    env = _PlanEnv( { "cascade-plan": True } )
+    assert cascade.finish_plan_only( env, out=out ) == 1
+    assert "requires --build-and-publish-dependencies" in out.getvalue()
+
+
+def test_finish_plan_only_exit_status_follows_resolution():
+    cascade.reset_plan_reports()
+    cascade.record_plan_report( "corosio", "0.2.0", 0 )
+    out = io.StringIO()
+    assert cascade.finish_plan_only( out=out ) == 0
+    assert "nothing was built, published, or uploaded" in out.getvalue()
+
+    cascade.record_plan_report( "widget", "1.2", 2 )
+    out = io.StringIO()
+    assert cascade.finish_plan_only( out=out ) == 1
+    assert "2 dependencies without a publisher tree" in out.getvalue()
+
+
+def test_session_banners_carry_ordinal_and_total():
+    begin = "\n".join( cascade.session_begin_lines(
+            1, 2, "capy develop (capy)", "/home/user/coding/packages/capy",
+            "python -m cuppa -D --rel --publish-package",
+    ) )
+    assert "cascade session 1 of 2: capy develop (capy)" in begin
+    assert "publisher [/home/user/coding/packages/capy]" in begin
+    assert "command [python -m cuppa -D --rel --publish-package]" in begin
+
+    end = "\n".join( cascade.session_end_lines( 1, 2, "capy develop (capy)", 1500000000 ) )
+    assert "cascade session 1 of 2 finished: capy develop (capy) in 00:00:01" in end
+
+    complete = "\n".join( cascade.sessions_complete_lines( 2, "corosio", "0.2.0" ) )
+    assert "2 nested publishes; resuming tip [corosio]==[0.2.0]" in complete
+
+
+def test_tip_forward_args_drops_cascade_plan():
+    tip = [
+            "scons", "-D", "--rel",
+            "--build-and-publish-dependencies",
+            "--cascade-plan",
+    ]
+    assert cascade.tip_forward_args( tip ) == [
+            "-D",
+            "--rel",
+            "--publish-package",
+    ]
 
 
 def test_tip_forward_args_keeps_variant_and_toolchains_drops_cascade():
