@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--clone-publishers`` — let cascade clone a publisher working tree it cannot
+  find locally from that dependency's ``package_source`` URL, which may be pinned
+  as ``url@branch``, ``url@tag``, or ``url@revision`` (slashy branch names
+  included). Clones land in ``PATH/<name>`` under ``--publisher-root`` when it is
+  set, otherwise in ``<storage-root>/publishers/<name>``, so a bare cascade never
+  writes into the project tree. Opt-in because cascade runs a build in the tree it
+  fetches, and edges deeper in a stack come from manifests inside downloaded
+  archives; ``--cascade-plan`` reports every URL and destination first, as a note
+  rather than an error. An existing tree is always preferred and used as it stands
+  — never switched, reset, or overwritten — a foreign or unpublishable tree in the
+  destination is refused, a failed clone removes its own directory, and cloning is
+  unavailable with ``--offline``
+  ([#297](https://github.com/ja11sop/cuppa/issues/297);
+  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)).
 - ``--cascade-plan`` — report the resolved cascade publish order and each
   dependency's publisher working tree, then stop without building, publishing, or
   uploading. Requires ``--build-and-publish-dependencies``; does not require
