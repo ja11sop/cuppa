@@ -292,12 +292,30 @@ nothing to a registry; **2b** (clone) and **2c** (skip-if-current) do.
 | Nested session banners | Each nested publish gets a begin and end banner carrying **ordinal / total**, label, publisher tree, and (on end) elapsed time and exit status; a closing banner says the tip is resuming. This answers “more than one `scons` ran” without the operator counting `Cascade:` lines. |
 | Re-prefixing nested output | **No.** Cascade will not capture nested stdout to indent or tag each line: it would break colour, progress rewriting, and interleaved stderr, and it buffers a long build behind the parent. Strong banners at the boundaries instead. |
 | “Already up to date” vs “uploaded” | **Deferred to slice 2c.** The parent cannot honestly tell a no-op nested publish from an upload without either parsing nested output (refused above) or asking the registry — which is exactly what skip-if-registry-current builds. Until then banners report exit status and elapsed, and claim nothing about upload. |
-| `package_source` pinning (slice 2b) | Accept `url@rev` and reuse `Location`’s existing parsing, so `package_source` pins read like a location dependency. Slashy branches (`feature/x`) are safe on disk since [#302](https://github.com/ja11sop/cuppa/pull/302) flattened the folder suffix. No parallel `package_source_rev` field. |
+| `package_source` pinning (slice 2b) | Accept `url@rev`, reading like a location dependency pin. Slashy branches (`feature/x`) are safe on disk since [#302](https://github.com/ja11sop/cuppa/pull/302) flattened the folder suffix. No parallel `package_source_rev` field. **Not** reusable from `Location.get_scm_system_and_info`, which only splits a pin off a `vc+scheme` URL (`git+ssh://…`) and returns nothing for the scp-like `git@host:group/name` form `package_source` uses — so cascade splits the pin itself and unit-tests the ambiguous cases (`git@host:name` has no pin, `https://user@host/name` has no pin, `…@feature/x` does). |
+
+## Phase 2b settled decisions (clone on demand)
+
+| Question | Decision |
+|----------|----------|
+| Clone gate | **Opt-in `--clone-publishers`.** Without it cascade keeps the Phase 1 refusal. Cascade does not merely fetch a tree, it runs `cuppa` inside it, which executes that tree’s sconstruct — and deeper edges come from `cuppa-publish.json` inside **downloaded archives**, so a registry manifest would otherwise choose what a machine clones (with the operator’s SSH agent) and then builds. The operator opts in once, and `--cascade-plan` lists every URL and destination first so the run is reviewable rather than magic. |
+| Destination, by default | `{storage_root}/publishers/{name}` — cuppa already owns that tree, so a bare cascade never writes into the operator’s working area unasked. |
+| Destination with `--publisher-root` | `{root}/{name}`, the first shape the resolver already searches, so clone and lookup stay symmetric. A flag asking cascade to *read* a forest is taken as permission to *populate* it, which is also where an operator who wants to explore those trees would want them. |
+| `--develop` | **No role in cascade.** It is a switch over per-dependency authored paths, not a location policy, and a package’s `develop=` is a *built prefix* — it replaces `_package_dir`, the directory `include/` and `lib/` hang off — not a publisher source tree, so cloning a repository there would break consume. Document the overlap with the develop family and cross-link it; revisit with `--publisher-clone-root=` only if ergonomics demand it. |
+| Pins on a filesystem `package_source` | Not supported. A local tree is whatever the operator has checked out, and honouring a pin would mean switching their branch, which cascade refuses to do. Pins apply to URLs only. |
+| Collision keying | Key by dependency name, matching the rest of the product — the consume cache is already `downloads_root/packages/{package}/{version}` with no registry in the key. Refuse when two edges want one destination from different URLs. Registry-qualified storage keys is a separate product-wide question, not something this slice solves in one corner. |
+| Existing destination | Never clobber. A non-empty destination that is not already that repository is a refusal. An existing clone that is dirty or on another branch is **reported**, not switched, stashed, or reset — the develop family’s philosophy. |
+| Updating an existing clone | Out of scope for 2b: no fetch, pull, or reset. Cascade clones once; keeping trees current belongs to the operator, the develop commands, or a later slice. |
+| `--offline` | Refuse to clone, as `--clone-develop` already does. |
+| Submodules | Recurse, through the existing `Git.clone( …, recurse_submodules=True )`. |
+| Inventory and listing | **Not in 2b.** A cloned tree is reported by path but not added to the dependency inventory or the `--list-*` reports, since a new inventory type reaches into listing-tree presentation. Tracked as an open item below, because storage-root trees are otherwise invisible disk usage. |
+| Plan mode and unexpanded edges | `--cascade-plan` reports a node that would be cloned as a **note**, not an error, and says plainly that the node’s own dependencies are unknown until the tree exists: cascade reads `cuppa-publish.json` *from the tree*, so a plan cannot expand beneath a node it has not cloned. |
 
 ## Open questions (Phase 2+)
 
 1. Skip-if-registry-current + `--force` (slice 2c; also settles no-op reporting)
-2. Where clone-on-demand puts trees — under `--publisher-root` or a storage root (slice 2b)
+2. Making cloned publisher trees visible — inventory entry, a `--list-*` view, and removal,
+   so `{storage_root}/publishers/…` is not invisible disk usage (follow-on to 2b)
 3. File convergence to a single traveling manifest
 4. Flag without `--publish-package` (build-deps-only) — distinct from the
    `--cascade-plan` relaxation above, which builds nothing
@@ -332,6 +350,8 @@ nothing to a registry; **2b** (clone) and **2c** (skip-if-current) do.
 | Implementation | Phase 1 shipped ([#302](https://github.com/ja11sop/cuppa/pull/302)): cascade flag, `--publisher-root`, nested argv from tip `sys.argv`, invalidate+re-fetch |
 | Corosio→capy local soak | Worked end-to-end (nested capy was up-to-date no-op; tip published) |
 | Phase 2 settled decisions (`--cascade-plan`, banners, `url@rev`) | Settled (2026-09-16) |
-| Phase 2a — plan report + nested session banners | In progress |
-| Phase 2b / 2c / 2d | Not started |
+| Phase 2a — plan report + nested session banners | Shipped ([#303](https://github.com/ja11sop/cuppa/pull/303)) |
+| Phase 2b settled decisions (`--clone-publishers`, storage root, no `--develop` role) | Settled (2026-09-16) |
+| Phase 2b — clone on demand | In progress |
+| Phase 2c / 2d | Not started |
 | Issue filed | [#297](https://github.com/ja11sop/cuppa/issues/297) |
