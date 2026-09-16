@@ -251,8 +251,11 @@ design.
 | Phase | Deliverable |
 |-------|-------------|
 | **0 — Design** | This plan; settle manifest schema + skip policy + flag name — **done** (#294 / #300 landed) |
-| **1 — MVP** | Author `package_source` on publisher deps → stage **`cuppa-publish.json`** (bridge `cuppa-dependency.json`) + cascade flag + optional `--publisher-root` + refresh + fail-stop |
-| **2 — Ergonomics** | Dry-run plan; skip-if-registry-current; clone from `package_source` when the working tree is missing; converge to one traveling file if still bridged |
+| **1 — MVP** | Author `package_source` on publisher deps → stage **`cuppa-publish.json`** (bridge `cuppa-dependency.json`) + cascade flag + optional `--publisher-root` + refresh + fail-stop — **shipped** ([#302](https://github.com/ja11sop/cuppa/pull/302)) |
+| **2a — Plan and session visibility** | `--cascade-plan` dry run (judgement-tree report, collected resolution errors) + nested session banners; no registry writes |
+| **2b — Clone on demand** | Clone from `package_source` URL (`url@rev`) when the working tree is missing, so a fresh host needs no hand-planted forest |
+| **2c — Skip and force** | Skip-if-registry-current + `--force`; settles “already up to date” vs “uploaded” in session banners |
+| **2d — Converge** | One traveling manifest if `cuppa-publish.json` / `cuppa-dependency.json` are still bridged |
 | **3 — Consume-site parity** | `package_dependency(…, package_source=…)` mirrors publisher-edge metadata |
 | **Later** | Parallel independent leaves; Conan parity if needed |
 
@@ -271,19 +274,36 @@ design.
 | When cascade runs | During tip `GitlabPackagePublisher` construction (SConscript time), **before** CMake Actions, so refreshed extracts are visible to the tip build |
 | Missing local tree | StopError — Phase 2 clones from URL |
 
+## Phase 2 settled decisions
+
+Phase 2 is **ergonomics**, split into slices so a registry-writing change never
+rides with a reporting change. Slice **2a** (plan + session visibility) writes
+nothing to a registry; **2b** (clone) and **2c** (skip-if-current) do.
+
+| Question | Decision |
+|----------|----------|
+| Dry-run spelling | **`--cascade-plan`** — a dedicated flag. SCons already owns `-n` / `--dry-run` for “do not build”, and cascade’s dry run is “show the resolved order, then stop”; one flag meaning both is a trap. Not a value on the cascade flag either (`--build-and-publish-dependencies=plan`) — `action='store_true'` today, and a value form invites `=false`. |
+| `--cascade-plan` without the cascade flag | **Refuse**, same shape as the Phase 1 refusal: the plan describes what the cascade flag would do, so it needs that flag. |
+| `--cascade-plan` without `--publish-package` | **Allowed** — this is the one relaxation. Nothing is built and nothing is uploaded, so demanding the publish flag to *inspect* a plan is ceremony. The Phase 1 refusal (cascade requires `--publish-package`) still holds for every real run. |
+| Where plan mode stops | Resolve during tip publisher construction, report, then stop after the sconscript read — the `--dump` pattern (`construct.py`), because the DAG is only known once the publisher is constructed. Plan mode must not `Exit()` mid-read, or a multi-toolchain / multi-sconscript run reports only its first tip. |
+| Unresolved publisher trees in plan mode | **Collect, do not fail fast.** A real run keeps the Phase 1 StopError on the first unresolvable node; plan mode gathers every unresolved node as a judgement **error** row so one command lists all the trees to plant. Exit non-zero when any error row is present. |
+| Plan report shape | The shared **judgement tree** ([`console-report-patterns.md`](../archive/console-report-patterns.md)): `Cascade plan for {N} package dependencies before tip [pkg]==[version]: [N errors][N warnings][N notes]`, then the publish order (leaf-first, numbered) with each node’s resolved publisher tree. Reuse `format_severity_count_brackets` / `emphasised_count_phrase` / `_judgement_tree_lines`; do not invent a second flat list. |
+| Real runs print the plan too | **Yes** — the same report precedes the first nested session, so the operator sees the whole sequence before anything uploads. |
+| Nested session banners | Each nested publish gets a begin and end banner carrying **ordinal / total**, label, publisher tree, and (on end) elapsed time and exit status; a closing banner says the tip is resuming. This answers “more than one `scons` ran” without the operator counting `Cascade:` lines. |
+| Re-prefixing nested output | **No.** Cascade will not capture nested stdout to indent or tag each line: it would break colour, progress rewriting, and interleaved stderr, and it buffers a long build behind the parent. Strong banners at the boundaries instead. |
+| “Already up to date” vs “uploaded” | **Deferred to slice 2c.** The parent cannot honestly tell a no-op nested publish from an upload without either parsing nested output (refused above) or asking the registry — which is exactly what skip-if-registry-current builds. Until then banners report exit status and elapsed, and claim nothing about upload. |
+| `package_source` pinning (slice 2b) | Accept `url@rev` and reuse `Location`’s existing parsing, so `package_source` pins read like a location dependency. Slashy branches (`feature/x`) are safe on disk since [#302](https://github.com/ja11sop/cuppa/pull/302) flattened the folder suffix. No parallel `package_source_rev` field. |
+
 ## Open questions (Phase 2+)
 
-1. Skip-if-registry-current + `--force`
-2. Clone from `package_source` URL when the working tree is missing
+1. Skip-if-registry-current + `--force` (slice 2c; also settles no-op reporting)
+2. Where clone-on-demand puts trees — under `--publisher-root` or a storage root (slice 2b)
 3. File convergence to a single traveling manifest
-4. Flag without `--publish-package` (build-deps-only)
+4. Flag without `--publish-package` (build-deps-only) — distinct from the
+   `--cascade-plan` relaxation above, which builds nothing
 5. Richer `--publisher-root` layout rules
-6. **Console visualisation of nested sessions** — cascade is multiple
-   `cuppa`/`scons` processes (leaf-first, then tip). Today logs interleave as
-   one stream with only `Cascade:` lines as boundaries. Prefer clearer
-   session banners / indent / progress (plan → nested begin/end → tip
-   resume) so operators see that more than one build ran, including when a
-   nested publish is a no-op (already up-to-date).
+6. Cascade under multiple active toolchains — one nested publish per toolchain
+   today; whether to batch identities per publisher tree is unexamined
 
 ## Acceptance (when implemented)
 
@@ -309,6 +329,9 @@ design.
 | Defer until after #294 | Done — unblocked |
 | Phase 1 settled decisions (skip / flag / when) | Settled (2026-09-14) |
 | Project D tip (google-cloud-cpp **3.9.0**) build + publish | Done (manual bottom-up; motivates this feature) |
-| Implementation | In progress — Phase 1 on PR #302; nested argv, publisher-root anchor, invalidate+re-fetch |
+| Implementation | Phase 1 shipped ([#302](https://github.com/ja11sop/cuppa/pull/302)): cascade flag, `--publisher-root`, nested argv from tip `sys.argv`, invalidate+re-fetch |
 | Corosio→capy local soak | Worked end-to-end (nested capy was up-to-date no-op; tip published) |
+| Phase 2 settled decisions (`--cascade-plan`, banners, `url@rev`) | Settled (2026-09-16) |
+| Phase 2a — plan report + nested session banners | In progress |
+| Phase 2b / 2c / 2d | Not started |
 | Issue filed | [#297](https://github.com/ja11sop/cuppa/issues/297) |
