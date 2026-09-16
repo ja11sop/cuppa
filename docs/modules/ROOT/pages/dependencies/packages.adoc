@@ -39,3 +39,22 @@ A missing package or an unresolved `latest` fails during configure, before compi
 `--develop` affects *location* develop paths and package develop flags where defined.
 It does *not* invent a local substitute for a missing registry archive: the matching package
 must exist in the registry or already be cached under the dependencies and downloads roots.
+
+A package's `develop` path names the package tree to build against — the directory `include/`
+and `lib/` hang off — and replaces the download and extract steps entirely when `--develop` is
+active. Set it on the dependency, or per run with `--<name>-<manager>-develop=PATH`:
+
+[source,python]
+----
+widget = cuppa.package_dependency(
+        'widget',
+        registry = REGISTRY,
+        version  = '1.2',
+        develop  = '../../widget',
+)
+----
+
+A relative path is anchored to the directory holding your `sconstruct`, not to the directory you
+ran cuppa from, so it means the same thing from anywhere in the project and matches the path
+xref:dependencies/managing.adoc[`--list-develop`] reports. `~` is expanded, and an absolute path
+is used as given.

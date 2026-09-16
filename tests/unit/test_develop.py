@@ -22,6 +22,7 @@ from cuppa.develop import (
     WARNING,
     Copy,
     classify,
+    configured_develop,
     entries,
     highlight_values,
     inspect,
@@ -461,6 +462,49 @@ def test_a_home_relative_develop_path_is_expanded_not_anchored():
 
 def test_no_develop_location_resolves_to_nothing():
     assert develop_location( "/project", None ) is None
+
+
+def package_dependency_with_develop( name, develop, manager='gitlab' ):
+    return type( name, (object,), {
+            '_name': name,
+            '_package_manager': manager,
+            '_develop': develop,
+    } )
+
+
+def test_a_package_develop_path_is_anchored_like_a_location_one():
+    """``develop="../../widget"`` must not depend on where cuppa was invoked from."""
+    env = FakeEnv( { 'sconstruct_dir': "/project" } )
+    dependency = package_dependency_with_develop( 'widget', "../../widget" )
+
+    assert configured_develop( dependency, env ) == os.path.join(
+            "/project", "../../widget" )
+
+
+def test_a_package_develop_override_is_anchored_too():
+    env = FakeEnv( {
+            'sconstruct_dir': "/project",
+            'widget-gitlab-develop': "../sibling/widget",
+    } )
+    dependency = package_dependency_with_develop( 'widget', "../../widget" )
+
+    assert configured_develop( dependency, env ) == os.path.join(
+            "/project", "../sibling/widget" )
+
+
+def test_an_absolute_package_develop_path_is_left_alone():
+    env = FakeEnv( { 'sconstruct_dir': "/project" } )
+    dependency = package_dependency_with_develop( 'widget', "/elsewhere/widget" )
+
+    assert configured_develop( dependency, env ) == "/elsewhere/widget"
+
+
+def test_a_home_relative_package_develop_path_is_expanded_not_anchored():
+    env = FakeEnv( { 'sconstruct_dir': "/project" } )
+    dependency = package_dependency_with_develop( 'widget', "~/coding/widget" )
+
+    assert configured_develop( dependency, env ) == os.path.join(
+            os.path.expanduser( "~" ), "coding/widget" )
 
 
 def test_the_swap_resolves_paths_through_the_same_helper():

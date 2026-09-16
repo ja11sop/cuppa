@@ -24,10 +24,14 @@ consumer's own declaration, or from the traveling `cuppa-publish.json`.
 
 Two smaller defects found while confirming the above:
 
-- A package develop path is only `~`-expanded (`configured_develop`, and `gitlab.py` when it
-  swaps). It is never anchored to the sconstruct directory the way a location develop path is
+- A package develop path was only `~`-expanded (`configured_develop`, and `gitlab.py` when it
+  swaps). It was never anchored to the sconstruct directory the way a location develop path is
   (`develop_location( sconstruct_dir, develop )`), so the natural relative form
-  `develop = "../../google/protobuf"` resolves against the process working directory.
+  `develop = "../../google/protobuf"` resolved against the process working directory. **Fixed in
+  slice A**: both sites now resolve through `develop_location`, whose docstring already required
+  it of anything reporting on develop copies. The join stays lexical, as it is for location
+  develop paths — `normpath` is lexical too and would resolve a symlinked parent to the wrong
+  directory.
 - `storage_paths()` already files a develop-mode package under `'develop'` rather than as a
   dependency tree, so listing and removal already expect a hand-managed location.
 
@@ -75,11 +79,13 @@ carry a `develop=`, and deep stacks are made of exactly those.
 
 | Slice | Content | Impact |
 |-------|---------|--------|
-| A | Anchor package develop paths to the sconstruct directory; cover `--list-develop` reporting a package develop copy | `patch` |
+| A | Anchor package develop paths to the sconstruct directory; cover `--list-develop` reporting a package develop copy | `patch` — **shipped** |
 | B | Cascade honours a develop tree as a publisher tree, ranked first; refusals and plan-report visibility from the table above | `minor` |
 | C | `--clone-develop` clones package dependencies from `package_source` | `minor` |
 | D | Consume from a locally built package: locate the stage a publisher build produces (`final/<package>/<version>/`), a build-without-publish mode, and the refusals that stop a stale or absent stage being linked silently | `minor` |
 | E | Migration for today's prefix-shaped `develop=`, once D defines the replacement | decide with D |
+
+Slice A has shipped. Slice B is next: cascade honouring a develop tree as a publisher tree.
 
 Slice D is the one that makes `--develop` coherent end to end, and the one with real unknowns:
 which stage a publisher build leaves behind for each publisher shape, what happens when the stage

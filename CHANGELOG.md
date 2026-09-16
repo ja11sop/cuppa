@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.11.0] - unreleased
 
+### Fixed
+
+- A package dependency's ``develop`` path is now anchored to the sconstruct
+  directory, like a location dependency's, instead of being left relative to
+  whatever directory cuppa was invoked from. ``develop='../../widget'`` therefore
+  names the same tree from anywhere in the project, and ``--list-develop`` reports
+  the path the build actually substitutes — both the declared path and a
+  ``--<name>-<manager>-develop=`` override
+  ([`package-develop-local`](design/plans/package-develop-local.md)).
+
 ### Added
 
 - ``--clone-publishers`` — let cascade clone a publisher working tree it cannot

@@ -3,6 +3,8 @@
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
+import os
+
 import pytest
 import SCons.Errors
 
@@ -189,3 +191,99 @@ def test_package_dependency_add_options_idempotent_for_same_name():
     second.add_options( add_option )
     assert "--c_ares-package-manager" in seen
     assert seen.count( "--c_ares-package-manager" ) == 1
+
+
+def _develop_env(tmp_path, monkeypatch, **overrides):
+    """Enough env for GitlabPackageDependency to resolve paths without a network."""
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        "cuppa.package_managers.gitlab.platform.freedesktop_os_release",
+        lambda: {"ID": "debian"},
+    )
+    monkeypatch.setattr(
+        "cuppa.package_managers.gitlab.platform.system", lambda: "Linux"
+    )
+    (tmp_path / "project").mkdir(exist_ok=True)
+    env = FakeEnv(
+        offline=False,
+        develop=True,
+        clean=False,
+        dump=False,
+        storage_resolve_only=False,
+        downloads_root=str(tmp_path / "downloads"),
+        dependencies_root=str(tmp_path / "dependencies"),
+        sconstruct_dir=str(tmp_path / "project"),
+        toolchain=SimpleNamespace(package_name=lambda: "gcc15"),
+        variant=SimpleNamespace(name=lambda: "rel"),
+        target_arch="x86_64",
+        abi="cxx2c",
+    )
+    env.update(overrides)
+    return env
+
+
+def test_a_relative_package_develop_path_is_anchored_to_the_sconstruct_directory(
+    tmp_path, monkeypatch
+):
+    """The swap must resolve where --list-develop says, not against the working directory."""
+    prefix = tmp_path / "widget"
+    (prefix / "include").mkdir(parents=True)
+    (prefix / "lib").mkdir()
+
+    package = GitlabPackageDependency(
+        _develop_env(tmp_path, monkeypatch),
+        registry="https://gitlab.example/api/v4/projects/1",
+        package="widget",
+        version="1.2",
+        variant="rel",
+        develop="../widget",
+    )
+
+    # Anchored to the sconstruct directory, so it names the intended tree wherever
+    # cuppa ran from. Left lexical, as location develop paths are: normalising would
+    # resolve a symlinked parent to the wrong place.
+    assert package.package_dir().startswith(str(tmp_path / "project"))
+    assert os.path.samefile(package.package_dir(), prefix)
+    assert os.path.samefile(package.include_dir(), prefix / "include")
+    # Nothing was downloaded or extracted: develop replaces the fetch entirely.
+    assert not (tmp_path / "dependencies").exists()
+
+
+def test_an_absolute_package_develop_path_is_used_as_given(tmp_path, monkeypatch):
+    prefix = tmp_path / "elsewhere" / "widget"
+    prefix.mkdir(parents=True)
+
+    package = GitlabPackageDependency(
+        _develop_env(tmp_path, monkeypatch),
+        registry="https://gitlab.example/api/v4/projects/1",
+        package="widget",
+        version="1.2",
+        variant="rel",
+        develop=str(prefix),
+    )
+
+    assert package.package_dir() == str(prefix)
+
+
+def test_a_develop_path_is_reported_as_a_develop_tree_not_a_dependency_tree(
+    tmp_path, monkeypatch
+):
+    """Storage listing and removal must not treat a hand-managed copy as cuppa's."""
+    prefix = tmp_path / "widget"
+    prefix.mkdir()
+
+    package = GitlabPackageDependency(
+        _develop_env(tmp_path, monkeypatch),
+        registry="https://gitlab.example/api/v4/projects/1",
+        package="widget",
+        version="1.2",
+        variant="rel",
+        develop="../widget",
+    )
+    paths = package.storage_paths()
+
+    assert len(paths["develop"]) == 1
+    assert os.path.samefile(paths["develop"][0], prefix)
+    assert paths["dependencies"] == []
+    assert paths["downloads"] == []

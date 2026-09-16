@@ -1337,7 +1337,11 @@ class GitlabPackageDependency:
         self._using_develop = bool( self._develop and use_develop )
 
         if self._using_develop:
-            self._develop = os.path.expanduser( self._develop )
+            # Anchored to the sconstruct directory, not the working directory, so
+            # develop="../../widget" means the same thing wherever cuppa is invoked
+            # from and matches the path --list-develop reports.
+            from cuppa.location import develop_location
+            self._develop = develop_location( cuppa_env['sconstruct_dir'], self._develop )
             self._package_dir = self._develop
 
         self._include_dir = os.path.join( self._package_dir, 'include' )

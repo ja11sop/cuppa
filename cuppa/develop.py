@@ -397,9 +397,11 @@ def configured_develop( dependency, cuppa_env ):
     """The develop location a dependency is configured with, and how it is resolved to a path.
 
     Location dependencies carry theirs in `location_id()`, which also applies the command line
-    overrides, and resolve through `develop_location` — the same helper the develop swap uses.
-    Package dependencies keep their own and only expand `~`, matching what
-    `GitlabPackageDependency` does when it swaps.
+    overrides. Package dependencies keep their own, with the command line override taking
+    precedence over the declared one.
+
+    Both resolve through `develop_location`, so a relative path means the same thing wherever
+    cuppa is invoked from and this reports the path the build actually substitutes.
     """
     location_id = getattr( dependency, 'location_id', None )
     if location_id:
@@ -417,11 +419,11 @@ def configured_develop( dependency, cuppa_env ):
     if manager and name:
         override = cuppa_env.get_option( "-".join( [ name, manager, "develop" ] ) )
         if override:
-            return os.path.expanduser( override )
+            return develop_location( cuppa_env['sconstruct_dir'], override )
 
     develop = getattr( dependency, '_develop', None )
     if develop:
-        return os.path.expanduser( develop )
+        return develop_location( cuppa_env['sconstruct_dir'], develop )
     return None
 
 
