@@ -50,7 +50,8 @@ cuppa -D --rel --toolchains=gcc15 \
 Cuppa then:
 
 * Reads this publisher’s ``dependencies=`` (optional ``package_source`` on each
-  edge) and expands the DAG from each resolved tree’s ``cuppa-publish.json``
+  edge, else one declared on the dependency itself) and expands the DAG from each
+  resolved tree’s ``cuppa-publish.json``
 * Resolves each node to a publisher working tree: the dependency's
   xref:#cascade-develop[``develop`` tree] when you pass ``--develop``, else
   ``package_source`` (filesystem path) or ``--publisher-root``

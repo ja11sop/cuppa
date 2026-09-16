@@ -32,7 +32,7 @@ build; the commands below maintain local working copies.
 | Option | Action
 
 | `--list-develop` | Report branch, upstream, dirty, ahead/behind, diverged, and detached state without contacting remotes
-| `--clone-develop` | Clone configured missing/empty develop paths, including submodules; refuse non-empty destinations and tag/revision pins
+| `--clone-develop` | Clone configured missing/empty develop paths, including submodules; refuse non-empty destinations and tag/revision pins. Package dependencies clone from `package_source` (declared, staged manifest, or `--<name>-<manager>-package-source=`)
 | `--checkout-develop-branch=NAME` | Switch clean copies to `NAME`, creating it through the develop base when needed
 | `--reset-develop-branch[=NAME]` | Return clean copies to a resolved branch, then fetch and fast-forward where safe
 | `--update-develop` | Fetch and fast-forward clean copies that are behind; leave modified, ahead, diverged, or detached copies unchanged

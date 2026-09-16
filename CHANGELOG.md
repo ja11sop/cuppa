@@ -21,6 +21,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--clone-develop`` now creates the develop working copy of a **package**
+  dependency, which it previously had to leave alone for want of a URL. The URL
+  comes from ``package_source``: declared on the dependency itself, else read
+  from the ``cuppa-publish.json`` a publisher build stages beside the sconstruct,
+  and overridable for one run with ``--<name>-<manager>-package-source=``. An
+  optional ``@branch`` pin is honoured, a tag or revision pin is refused as it is
+  for a location dependency — a develop copy is a branch you work on, not a
+  detached head — and a filesystem ``package_source`` is left alone because it
+  names a tree you already have. Cascade reads the same declaration when a
+  publisher edge does not carry one, so a consumer need not say it twice
+  ([`package-develop-local`](design/plans/package-develop-local.md)).
+- ``package_source`` is now a declarable setting on
+  ``cuppa.package_dependency(...)``, naming the repository a package is published
+  from. It is metadata — nothing about consuming the package reads it — used by
+  ``--clone-develop`` and by cascade to find the project that publishes a
+  package.
 - Cascade publishes a dependency from its ``develop`` tree when you pass
   ``--develop``, ranked above ``package_source`` and ``--publisher-root``,
   because a develop path is you naming the copy you mean for this run where a

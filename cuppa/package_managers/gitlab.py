@@ -1125,6 +1125,10 @@ class GitlabPackageDependency:
         "library-prefix" : { "help": "package library prefix that can be used (or omitted) when referencing libs from the package", },
         "pkg-config-dir" : { "help": "package pkg-config folder to use to find pc files", },
         "develop"        : { "help": "local package to build against when in develop mode", },
+        "package-source" : {
+            "help": "repository this package is published from, optionally pinned as url@branch; "
+                    "used to clone a develop working copy and to find a publisher tree for cascade",
+        },
         "custom-token"   : { "help": "custom token that should be used to authenticate with the registry", },
         "os-override"    : {
             "help": "OS segment override for registry lookup (does not change published stems)",
@@ -1273,6 +1277,7 @@ class GitlabPackageDependency:
             pkg_config_dir=None,
             custom_token=None,
             develop=None,
+            package_source=None,
             os_override=None,
             toolchain_override=None
         ):
@@ -1289,6 +1294,9 @@ class GitlabPackageDependency:
 
         use_develop = self.is_option_set( "develop" )
         self._develop = develop
+        # Metadata only: where this package is published from, for --clone-develop and for
+        # cascade to find a publisher tree. Nothing about consuming the package uses it.
+        self._package_source = package_source
 
         self._registry = registry
         self._package = package

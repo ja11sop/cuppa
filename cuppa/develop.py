@@ -284,7 +284,7 @@ def clone_action( copy, url=None, vc_type=None, versioning=None, pinned=False ):
     if pinned or looks_like_revision_pin( versioning ):
         return Action(
                 False,
-                "location pins a tag or revision; refuse a detached develop copy",
+                "source pins a tag or revision; refuse a detached develop copy",
         )
     return Action( True, "clone from [{}]".format( url ) )
 
@@ -853,6 +853,66 @@ def _versioning_is_pin( versioning, url ):
     return False
 
 
+def package_source_for_dependency( name, dependency, cuppa_env ):
+    """Where a package dependency says it is published from, or ``None``.
+
+    The consumer's own declaration comes first, because it is the one an operator can see and
+    change. Failing that, the ``cuppa-publish.json`` staged beside the sconstruct by a publisher
+    build carries the same edges, which is how a project that publishes gets this for free.
+    """
+    declared = getattr( dependency, '_package_source', None )
+    if declared:
+        return str( declared )
+
+    from cuppa.package_managers.cuppa_publish_manifest import read_publish_manifest
+
+    sconstruct_dir = cuppa_env.get( 'sconstruct_dir' )
+    if not sconstruct_dir:
+        return None
+    try:
+        document = read_publish_manifest( sconstruct_dir )
+    except ( OSError, ValueError ) as error:
+        logger.trace( "Could not read a publish manifest in [{}]: {}".format(
+                as_notice( str( sconstruct_dir ) ), str( error ) ) )
+        return None
+    if not document:
+        return None
+
+    package = getattr( dependency, '_package', None )
+    for entry in document.get( 'dependencies' ) or []:
+        if not isinstance( entry, dict ):
+            continue
+        if entry.get( 'name' ) == name or ( package and entry.get( 'package' ) == package ):
+            source = entry.get( 'package_source' )
+            if source:
+                return str( source )
+    return None
+
+
+def _package_clone_source( name, dependency, cuppa_env, copy ):
+    """A :class:`CloneSource` built from a package dependency's ``package_source``.
+
+    Only a URL is clonable. A filesystem ``package_source`` names a tree the operator already
+    has, so there is nothing to fetch and the develop path is left alone.
+    """
+    from cuppa.package_managers.package_cascade import split_source_pin, looks_like_url
+
+    source = package_source_for_dependency( name, dependency, cuppa_env )
+    if not source:
+        return CloneSource( copy, None, None, None, False, False )
+    url, revision = split_source_pin( source )
+    if not looks_like_url( url ):
+        return CloneSource( copy, None, None, None, False, False )
+    return CloneSource(
+            copy,
+            url,
+            'git',
+            revision or None,
+            _versioning_is_pin( revision, url ),
+            False,
+    )
+
+
 def clone_source_for_dependency( name, dependency, cuppa_env ):
     """Build a :class:`CloneSource` for one dependency, or ``None`` if no develop path."""
     from cuppa.location import Location
@@ -864,7 +924,7 @@ def clone_source_for_dependency( name, dependency, cuppa_env ):
 
     location_id = getattr( dependency, 'location_id', None )
     if not location_id:
-        return CloneSource( copy, None, None, None, False, False )
+        return _package_clone_source( name, dependency, cuppa_env, copy )
 
     try:
         identity = location_id( cuppa_env )
@@ -914,7 +974,7 @@ def survey_clone_sources( cuppa_env ):
 def choose_clone_branch( source, cuppa_env ):
     """Branch name for a fresh clone, or ``None`` with a refusal reason string."""
     if source.pinned:
-        return None, "location pins a tag or revision; refuse a detached develop copy"
+        return None, "source pins a tag or revision; refuse a detached develop copy"
     current = cuppa_env.get( 'current_branch' )
     match_current = cuppa_env.get( 'location_match_current_branch' )
     versioning = source.versioning
@@ -943,7 +1003,7 @@ def choose_clone_branch( source, cuppa_env ):
                 )
                 if result and versioning in result:
                     return versioning, None
-                return None, "location pins a tag or revision; refuse a detached develop copy"
+                return None, "source pins a tag or revision; refuse a detached develop copy"
         except Git.Error as error:
             return None, str( error )
 

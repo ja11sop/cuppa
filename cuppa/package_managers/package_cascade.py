@@ -109,7 +109,7 @@ def _node_key( name: str, package: str, version: str ) -> tuple:
     return ( str( name ), str( package ), str( version ) )
 
 
-def _looks_like_url( value: str ) -> bool:
+def looks_like_url( value: str ) -> bool:
     lower = value.lower()
     return (
             lower.startswith( ( "http://", "https://", "git@", "ssh://", "file://" ) )
@@ -174,6 +174,20 @@ def publisher_clone_destination( env, entry: dict ) -> str:
     refused rather than resolved by inventing a registry-qualified path here.
     """
     return os.path.join( publisher_clone_root( env ), str( entry["name"] ) )
+
+
+def declared_package_source( env, entry: dict ) -> str | None:
+    """A ``package_source`` the consumer declared on the dependency itself, if any.
+
+    A publisher's ``dependencies=`` list is the usual home for this, but a consumer that
+    declares ``package_dependency( …, package_source=… )`` — so ``--clone-develop`` can fill
+    its develop tree — should not have to say it twice for cascade.
+    """
+    factory = _tip_dependency_factory( env, entry )
+    if factory is None:
+        return None
+    source = getattr( _factory_owner( factory ), "_package_source", None )
+    return str( source ) if source else None
 
 
 def develop_publisher_dir( env, entry: dict ) -> str | None:
@@ -382,7 +396,7 @@ def resolve_publisher_dir( env, entry: dict, allow_clone=True, claims=None ) -> 
     that claimed it, so two dependencies wanting one directory from different
     repositories is refused rather than silently resolved.
     """
-    package_source = entry.get( "package_source" )
+    package_source = entry.get( "package_source" ) or declared_package_source( env, entry )
     name = entry["name"]
     package = entry["package"]
 
@@ -409,7 +423,7 @@ def resolve_publisher_dir( env, entry: dict, allow_clone=True, claims=None ) -> 
 
     if package_source:
         source = os.path.expanduser( str( package_source ) )
-        if _looks_like_url( source ):
+        if looks_like_url( source ):
             # An existing local tree always wins: it is what the operator planted,
             # and reusing it keeps a cascade run off the network.
             root = publisher_root_option( env )

@@ -1259,3 +1259,25 @@ def test_an_unreadable_rooted_tree_says_nothing( tmp_path, monkeypatch, caplog )
         cascade.judge_publisher_trees( _PlanEnv( {} ), nodes, order )
 
     assert caplog.text == ""
+
+
+def test_a_package_source_declared_on_the_dependency_resolves_a_publisher_tree( tmp_path ):
+    """Declared for --clone-develop; cascade should not need it said twice."""
+    ( tmp_path / "project" ).mkdir()
+    tree = _publisher_tree( tmp_path / "packages" / "capy" )
+    dependency = _package_dependency( "capy", None )
+    dependency._package_source = "git@gitlab.example:packages/capy"
+
+    env = _PlanEnv(
+            { "publisher-root": str( tmp_path / "packages" ) },
+            {
+                    "sconstruct_dir": str( tmp_path / "project" ),
+                    "dependencies": { "capy": dependency },
+            },
+    )
+    entry = { "name": "capy", "package": "capy", "version": "develop" }
+
+    assert cascade.declared_package_source( env, entry ) == (
+            "git@gitlab.example:packages/capy"
+    )
+    assert cascade.resolve_publisher_dir( env, entry ) == str( tree )
