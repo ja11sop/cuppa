@@ -178,6 +178,8 @@ def test_build_package_skips_create_when_archive_current( tmp_path, monkeypatch 
     lib_dir.mkdir( parents=True )
     ( include_dir / "widget.hpp" ).write_text( "header\n", encoding="utf-8" )
     ( lib_dir / "libwidget.a" ).write_text( "lib\n", encoding="utf-8" )
+    from cuppa.package_managers.cuppa_publish_manifest import write_publish_manifest
+    write_publish_manifest( str( staging ), "widget", "1.0.0", dependencies=[] )
     time.sleep( 0.02 )
 
     archive = tmp_path / "widget_debian_gcc15_rel.tar.gz"

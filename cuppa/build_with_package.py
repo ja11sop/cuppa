@@ -15,6 +15,17 @@ from cuppa.colourise import as_notice, as_error, as_info, colour_items
 from cuppa.package_managers.gitlab import GitlabPackageDependency
 
 
+# SCons AddOption is process-global. Transitive synthesis may call add_options
+# again on a later toolchain/variant env whose cloned ``dependencies`` dict
+# does not yet contain the name — skip duplicate option strings.
+_registered_package_option_names = set()
+
+
+def _reset_registered_package_options_for_tests():
+    """Clear idempotency state between unit tests."""
+    _registered_package_option_names.clear()
+
+
 class base(object):
 
     _name = None
@@ -31,12 +42,17 @@ class base(object):
 
     @classmethod
     def add_options( cls, add_option ):
+        option_name = cls.package_manager_option()
+        if option_name in _registered_package_option_names:
+            return
 
-        add_option( '--' + cls.package_manager_option(), dest=cls.package_manager_option(), type='string', nargs=1, action='store',
+        add_option( '--' + option_name, dest=option_name, type='string', nargs=1, action='store',
                     help = cls._name + ' package manager to use' )
 
         if cls._package_manager == "gitlab":
             GitlabPackageDependency.add_options( cls._package_manager, cls._name, add_option )
+
+        _registered_package_option_names.add( option_name )
 
 
     @classmethod

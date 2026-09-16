@@ -33,6 +33,43 @@ The publish step depends on the archive file as well as the empty ``.packaged`` 
 a retar (for example after updating ``cuppa-dependency.json``) invalidates upload under
 SCons ``MD5-timestamp``.
 
+[#build-and-publish-dependencies]
+=== Cascading dependency publishes
+
+Deep GitLab package stacks are painful to publish by hand (leaves first, then
+parents, then the tip). Pass ``--build-and-publish-dependencies`` together with
+``--publish-package``:
+
+[source,shell]
+----
+cuppa -D --rel --toolchains=gcc15 \
+  --publish-package --build-and-publish-dependencies \
+  --publisher-root=~/coding/packages
+----
+
+Cuppa then:
+
+* Reads this publisher’s ``dependencies=`` (optional ``package_source`` on each
+  edge) and expands the DAG from each resolved tree’s ``cuppa-publish.json``
+* Resolves each node to a local publisher working tree via ``package_source``
+  (filesystem path) or ``--publisher-root`` (``{root}/{name}``,
+  ``{root}/{package}``, or one nesting level)
+* Runs a nested ``cuppa -D … --publish-package`` for each dependency in
+  leaf-first order (**without** re-entering cascade)
+* Invalidates that package’s download/extract caches under the tip’s storage
+  roots and re-fetches from the registry so the tip build sees the new
+  artefacts (the tip’s ``BuildWith`` paths were already resolved before cascade)
+* Continues with this project’s normal build and publish
+
+Publisher builds also stage ``cuppa-publish.json`` next to
+``cuppa-dependency.json`` (same edges, plus ``package_source``) and seed a copy
+beside the tip ``sconstruct`` for local cascade discovery. Consume still uses
+``cuppa-dependency.json`` only.
+
+Requires ``--publish-package``. Missing ``package_source`` / unresolved trees
+fail before nested uploads. Git URL clone is Phase 2 — use a local path or
+``--publisher-root`` for now.
+
 [#amend-package-manifest]
 === Amending metadata without rebuilding
 

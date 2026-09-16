@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--build-and-publish-dependencies`` / ``--publisher-root`` — cascade
+  publish of GitLab package dependencies before the tip (Phase 1): traveling
+  ``cuppa-publish.json`` carries ``package_source``; consume still uses
+  ``cuppa-dependency.json`` from the same ``dependencies=`` authoring.
+  Nested publishes run without re-entering cascade; consume caches for each
+  published node are invalidated so the tip sees fresh extracts
+  ([#297](https://github.com/ja11sop/cuppa/issues/297);
+  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)).
 - ``--amend-package-manifest`` — rewrite ``cuppa-dependency.json`` from
   ``GitlabPackagePublisher`` kwargs and retar/publish without rebuilding package
   binaries. Skips ``DownloadExtract`` / ``RemoveEmptyDirs`` / CMake graph actions;
@@ -167,6 +175,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Cascade nested ``--publish-package`` now forwards the tip's live argv
+  (variant, ``--toolchains``, ``--offline``, …) instead of dumping
+  ``configured_options`` from ``~/.cuppaconfig``. Conf keys such as
+  ``boost_latest_version`` are not CLI flags and produced
+  ``SCons Error: no such option``; the tip's ``--rel`` / toolchains were also
+  omitted. Cascade-only flags (``--build-and-publish-dependencies``,
+  ``--publisher-root``) are still stripped so children do not re-enter.
+- Cascade re-fetch after nested publish calls the tip
+  ``env['dependencies'][name]`` factory the same way ``BuildWith`` does
+  (``factory(env)``). Those entries are ``cls.create``, not the class, so
+  ``factory.create`` raised ``tip dependency has no create()``.
+- Cascade after nested publish invalidates **and re-fetches** the tip's
+  consume archive/extract for that package. Invalidate-only left the tip's
+  already-resolved ``package_dir`` empty (CMake saw missing
+  ``libboost_capy.a`` after a successful capy publish).
+- ``--publisher-root`` relative paths (for example ``../../``) are resolved
+  against the tip ``sconstruct_dir``, not the process cwd, so cascade still
+  finds ``{root}/*/name`` after SCons has changed directory.
+- Location dependency folders flatten ``/`` (and the other
+  ``folder_name_from_path`` characters) in branch suffixes when
+  ``_select_repository_directory`` appends ``@branch``. Relative versioning /
+  ``--location-match-current-branch`` with names like
+  ``feature/cascade-package-source`` no longer nests under
+  ``…@feature/…`` on disk; explicit ``url@branch`` pins already went through
+  ``folder_name_from_path`` and stay aligned.
+- Transitive GitLab package ``add_options`` is idempotent per dependency name.
+  Multi-toolchain builds (for example ``--toolchains=gcc15,gcc``) clone
+  ``env['dependencies']`` per variant; the second variant re-synthesized the
+  same transitive (e.g. ``c_ares`` via gRPC) and hit
+  ``OptionConflictError: --c_ares-package-manager``. Option registration is
+  skipped when that name was already registered in the process.
 - ``--publish-package`` now depends on the GitLab ``package_archive()`` (the
   ``.tar.gz`` / ``.zip``) as well as the empty ``.packaged`` stamp. With SCons
   ``MD5-timestamp``, retouching the stamp alone did not invalidate upload after

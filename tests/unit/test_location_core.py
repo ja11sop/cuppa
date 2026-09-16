@@ -38,6 +38,17 @@ def test_get_scm_system_and_info_git_with_branch():
     assert versioning == "feature"
 
 
+def test_get_scm_system_and_info_git_preserves_slash_in_branch():
+    """Git branch names may contain ``/``; the VCS rev must keep it."""
+    scm, vc_type, repo, versioning = Location.get_scm_system_and_info(
+        "git+https://example.com/org/repo.git@feature/cascade-package-source"
+    )
+    assert scm is git_scm.Git
+    assert vc_type == "git"
+    assert repo == "https://example.com/org/repo.git"
+    assert versioning == "feature/cascade-package-source"
+
+
 def test_get_scm_system_and_info_windows_file_url_backslash_netloc():
     # urlparse puts drive-letter paths in netloc when written as file://C:\…
     scm, vc_type, repo, versioning = Location.get_scm_system_and_info(
@@ -118,6 +129,33 @@ def test_folder_name_from_path_file_and_dir(tmp_path):
     )
     assert "https" in url_name
     assert "example.com" in url_name
+
+
+def test_folder_name_from_path_flattens_slash_in_url_branch(tmp_path):
+    """URL ``@feature/foo`` must land in one directory segment, not nest."""
+    location = Location.__new__(Location)
+    location._cuppa_env = {
+        "sconstruct_dir": str(tmp_path),
+        "abs_sconscript_dir": str(tmp_path),
+    }
+    location._name_hint = None
+
+    folder = location.folder_name_from_path(
+        urlparse(
+            "git+https://example.com/org/repo.git@feature/cascade-package-source"
+        )
+    )
+    assert "/" not in folder
+    assert "\\" not in folder
+    assert folder.endswith("@feature_cascade-package-source")
+    assert os.path.basename(folder) == folder
+
+
+def test_sanitize_for_folder_name_flattens_path_separators():
+    assert Location.sanitize_for_folder_name("feature/cascade") == "feature_cascade"
+    assert Location.sanitize_for_folder_name(r"feature\cascade") == "feature_cascade"
+    assert Location.sanitize_for_folder_name("plain") == "plain"
+    assert Location.sanitize_for_folder_name(None) is None
 
 
 def test_expand_secret_registers_mask(monkeypatch):
@@ -444,6 +482,42 @@ def test_select_repository_directory_no_default_branch_stays_unqualified(tmp_pat
 def test_select_repository_directory_match_branch_relative(tmp_path):
     location, stem = _select_location(tmp_path, match_branch="feature_x")
     assert location._select_repository_directory(stem) == stem + "@feature_x"
+
+
+def test_select_repository_directory_flattens_slash_in_match_branch(tmp_path):
+    location, stem = _select_location(
+        tmp_path, match_branch="feature/cascade-package-source"
+    )
+    chosen = location._select_repository_directory(stem)
+    assert chosen == stem + "@feature_cascade-package-source"
+    assert os.path.dirname(chosen) == os.path.dirname(stem)
+    assert "/" not in os.path.basename(chosen)
+
+
+def test_select_repository_directory_flattens_slash_in_current_branch(tmp_path):
+    location, stem = _select_location(tmp_path, default_branch=None, relative=True)
+    location._cuppa_env["location_match_current_branch"] = True
+    location._current_branch = "feature/cascade-package-source"
+    chosen = location._select_repository_directory(stem)
+    assert chosen == stem + "@feature_cascade-package-source"
+    assert os.path.dirname(chosen) == os.path.dirname(stem)
+
+
+def test_select_repository_directory_flattens_slash_in_default_branch(tmp_path):
+    """Non-relative suffix path (``_default_branch``) must also stay flat."""
+    location, stem = _select_location(
+        tmp_path, default_branch="release/1.2", relative=False
+    )
+    assert location._select_repository_directory(stem) == stem + "@release_1.2"
+
+
+def test_select_repository_directory_prefers_existing_flattened_slash_branch(tmp_path):
+    location, stem = _select_location(
+        tmp_path, match_branch="feature/cascade-package-source"
+    )
+    flat = stem + "@feature_cascade-package-source"
+    os.mkdir(flat)
+    assert location._select_repository_directory(stem) == flat
 
 
 def test_extract_tar(tmp_path):

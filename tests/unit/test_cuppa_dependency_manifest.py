@@ -53,6 +53,26 @@ def test_normalise_dict_entry():
     assert entry["use_libs"] == ["system", "filesystem"]
 
 
+def test_normalise_strips_package_source_for_consume():
+    entry = normalise_dependency_entry( {
+        "name": "fmt",
+        "package": "fmt",
+        "version": "12.2.0",
+        "package_source": "/pubs/fmt",
+    } )
+    assert "package_source" not in entry
+    entry = normalise_dependency_entry(
+            {
+                    "name": "fmt",
+                    "package": "fmt",
+                    "version": "12.2.0",
+                    "package_source": "/pubs/fmt",
+            },
+            include_package_source=True,
+    )
+    assert entry["package_source"] == "/pubs/fmt"
+
+
 def test_normalise_requires_version():
     with pytest.raises( ValueError, match="version" ):
         normalise_dependency_entry( { "name": "fmt", "package": "fmt" } )
