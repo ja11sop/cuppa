@@ -99,7 +99,7 @@ does not. The combination the slice exists to enable was therefore broken by con
 | Consume during a cascade | `--develop` **stands down** when the develop path is the publisher project: the dependency is consumed from the registry the nested publish has just written to. The build then behaves like a cascade without `--develop`, with the operator's tree supplying the sources. Slice D removes that registry round trip. |
 | Outside a cascade | Unchanged. `develop=` is still a built prefix, so nothing that works today stops working, and slice E remains the migration. |
 | What makes a develop path a publisher tree | An **sconstruct**, not `cuppa-publish.json`. A publisher build stages that manifest beside `include/` and `lib/`, so accepting it would read a built package as the project that built it. Rooted and cloned trees keep the broader test, which they cannot fail that way. |
-| Scope of the local-work refusal | Develop trees only. A `--publisher-root` or cloned tree runs the same hazard, but refusing there would break the workflow Phase 1 shipped — see open question 5. |
+| Scope of the local-work refusal | **Refused** for develop trees, **warned** for `--publisher-root` and cloned trees. The hazard is identical, but refusing there would stop the workflow Phase 1 shipped, so the plan report grades those as warning rows and the publish proceeds. Promoting the warning is a deliberate `major`, not a side effect of this slice. |
 
 Publishing a dependency version that is not yet in the registry remains awkward, and is not
 made worse by this slice: the tip resolves its packages while sconscripts are read, before
@@ -108,20 +108,71 @@ cascade runs, so the first publish of a new version still fails on the tip's own
 Slice D is the one that makes `--develop` coherent end to end, and the one with real unknowns:
 which stage a publisher build leaves behind for each publisher shape, what happens when the stage
 is older than the source, and whether the nested build should run automatically or be demanded of
-the operator. Those are open questions, not settled decisions.
+the operator. Those are open questions below, not settled decisions.
 
 ## Open questions
 
-1. Where the consumable stage lives for each publisher shape, and how a stale stage is detected
-   rather than linked.
-2. Whether slice D builds the develop tree automatically under `--develop`, or refuses until the
-   operator has built it, and how that interacts with `--parallel`.
-3. What replaces today's prefix-shaped `develop=` — a distinct kwarg, or inference from the
-   directory's contents — and whether any consumer relies on the current behaviour.
-4. Whether `--list-develop` should report a package develop tree differently from a location one,
-   given that publishing from a dirty one is refused rather than merely noted.
-5. Whether the local-work refusal should extend to `--publisher-root` and cloned trees, which
-   can hold unpushed work just as easily. Doing so would refuse the edit-locally-then-cascade
-   workflow Phase 1 shipped, so it needs its own decision rather than being folded in here.
-6. How a tip should publish a dependency version the registry does not have yet, given that the
-   tip resolves its own packages before cascade runs.
+Each carries the options considered so far and a leaning. A leaning is not a decision: it is
+where the argument stood when the question was last looked at, recorded so the next session
+argues with something rather than starting again.
+
+### 1 and 2. Where the consumable stage lives, and whether slice D builds it
+
+These read as two questions and behave as one. If slice D **runs the nested build** — the
+machinery cascade already has, minus the upload — the stage is current by construction and the
+staleness problem does not arise. If it consumes a stage the operator built earlier, cuppa needs
+a freshness rule, and every cheap version of that rule (stage mtime against newest source mtime)
+is wrong in the cases that matter, because it cannot see what the build would actually redo.
+
+**Leaning:** D builds the tree. Question 1 then shrinks to locating the directory that build just
+wrote, per publisher shape, rather than designing stage-freshness heuristics.
+
+`--parallel` is not a complication under that answer. Nested runs stay sequential, as cascade
+already orders them, and each one parallelises internally the way any cuppa build does.
+
+### 3. What replaces today's prefix-shaped `develop=`
+
+Two candidates: a distinct kwarg for the prefix meaning, or inference from the directory's
+contents. Slice B has now exercised inference in anger — an `sconstruct` for a source tree
+against `include/` and `lib/` for a prefix — including the trap that a publisher build stages
+`cuppa-publish.json` beside the built artefacts.
+
+**Leaning:** inference, with a note when a prefix-shaped path is detected so the older intent
+stays visible. That keeps one kwarg, needs no flag day, and would drop slice E from `major` to
+`minor`. A distinct kwarg remains the fallback if a consumer turns out to need the prefix meaning
+explicitly.
+
+### 4. Whether `--list-develop` should report a package develop tree differently
+
+The argument for is that publishing from a dirty package develop tree is refused, where a dirty
+location develop tree is merely noted, so the same row means something stronger.
+
+**Leaning:** no. The refusal is a cascade-time judgement about a publish, and `--cascade-plan`
+already carries it in context. Teaching the develop report a second vocabulary for one dependency
+kind costs more than it explains.
+
+### 5. Whether the warning on rooted and cloned trees should become a refusal
+
+Settled for now as a warning (see the slice B table). Promoting it would need an override that
+covers every tier rather than develop alone, and a `major` release, because it stops the
+edit-locally-then-cascade workflow Phase 1 shipped.
+
+**Leaning:** leave it. Revisit only if a rooted tree actually puts unreproducible bits in a
+registry in practice, rather than in theory.
+
+### 6. Publishing a version the registry does not have yet
+
+The tip resolves its own packages while sconscripts are read, inside
+`GitlabPackageDependency.__init__`, whereas cascade runs later from `env.PublishPackage(...)`.
+Publishing version 0.4 of a dependency for the first time therefore fails on the tip's own fetch
+before cascade gets a turn. Three ways out:
+
+| Approach | What it costs |
+|----------|---------------|
+| Run cascade before sconscripts are read, bootstrapping from the `cuppa-publish.json` seeded beside the tip sconstruct | Needs that manifest to exist, so a first cascade in a fresh tree has nothing to read |
+| Defer the package fetch to the build phase, so resolution names paths without fetching | The largest change to `gitlab.py`, and the shape that behaves best under `--parallel` |
+| Let cascade mark the packages it is about to publish, so an initial `404` on exactly those is deferred rather than fatal | Contained; the failure moves to after cascade, where it is a real error if the publish did not produce the archive |
+
+**Leaning:** the third now, the second eventually. Note that this is not a regression introduced
+by slice B — it is how cascade has behaved since Phase 1 — but `--develop` makes it more visible,
+because an operator with the source tree in hand reasonably expects not to need the registry.

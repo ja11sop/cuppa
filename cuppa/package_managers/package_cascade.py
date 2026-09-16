@@ -634,20 +634,36 @@ def topological_publish_order( nodes: dict, edges: dict ) -> list[tuple]:
     return ordered
 
 
-def _develop_plan_notes( entry, prose_width ) -> list[str]:
-    """What the plan says about a node's develop tree: unused, or unpublishable as it stands."""
-    lines = []
-    objections = entry.get( "_develop_objections" )
-    if objections:
-        allowed = entry.get( "_develop_objections_allowed" )
-        text = "{}: {} ({})".format(
-                "note" if allowed else "error",
-                "publishing from this develop tree has " + ", ".join( objections ),
-                "allowed by --{}".format( MODIFIED_DEVELOP_OPTION ) if allowed
-                        else "refused; commit and push, or pass --{}".format(
-                                MODIFIED_DEVELOP_OPTION ),
+def _work_verdict( entry ):
+    """``(severity, colour, what happens)`` for a tree holding work only this machine has.
+
+    One place, so the row an operator reads and the counts in the header cannot disagree.
+    """
+    if not entry.get( "_from_develop" ):
+        return (
+                "warning", as_warning,
+                "published anyway; cascade only refuses a develop tree",
         )
-        colour = as_notice if allowed else as_error
+    if entry.get( "_work_objections_allowed" ):
+        return (
+                "note", as_notice,
+                "allowed by --{}".format( MODIFIED_DEVELOP_OPTION ),
+        )
+    return (
+            "error", as_error,
+            "refused; commit and push, or pass --{}".format( MODIFIED_DEVELOP_OPTION ),
+    )
+
+
+def _publisher_plan_notes( entry, prose_width ) -> list[str]:
+    """What the plan says about a node's tree: unused develop, or unpublishable as it stands."""
+    lines = []
+    objections = entry.get( "_work_objections" )
+    if objections:
+        severity, colour, verdict = _work_verdict( entry )
+        text = "{}: publishing from this tree has {} ({})".format(
+                severity, ", ".join( objections ), verdict
+        )
         lines.extend( colour( line ) for line in storage.wrapped( text, prose_width ) )
     if entry.get( "_develop_unused" ):
         note = (
@@ -666,22 +682,19 @@ def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) 
     The intro still carries the shared severity brackets.
     """
     tee, elbow, pipe, gap = storage.glyphs( encoding )
+    graded = {
+            key: _work_verdict( nodes[key] )[0]
+            for key in order if nodes[key].get( "_work_objections" )
+    }
     errors = [
             key for key in order
-            if nodes[key].get( "_resolve_error" )
-            or (
-                    nodes[key].get( "_develop_objections" )
-                    and not nodes[key].get( "_develop_objections_allowed" )
-            )
+            if nodes[key].get( "_resolve_error" ) or graded.get( key ) == "error"
     ]
+    warnings = [ key for key in order if graded.get( key ) == "warning" ]
     clones = [ key for key in order if nodes[key].get( "_clone_dir" ) ]
     develop_notes = [
             key for key in order
-            if nodes[key].get( "_develop_unused" )
-            or (
-                    nodes[key].get( "_develop_objections" )
-                    and nodes[key].get( "_develop_objections_allowed" )
-            )
+            if nodes[key].get( "_develop_unused" ) or graded.get( key ) == "note"
     ]
     lines = [
             "",
@@ -693,6 +706,7 @@ def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) 
                     as_info( str( tip_version ) ),
                     storage.format_severity_count_brackets(
                             errors=len( errors ),
+                            warnings=len( warnings ),
                             notes=len( clones ) + len( develop_notes ),
                     ),
             ),
@@ -735,7 +749,7 @@ def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) 
                     as_notice( str( entry.get( "_publisher_dir" ) ) ),
                     " (develop)" if entry.get( "_from_develop" ) else "",
             ) )
-            for wrapped_line in _develop_plan_notes( entry, prose_width ):
+            for wrapped_line in _publisher_plan_notes( entry, prose_width ):
                 lines.append( continuation + wrapped_line )
     lines.append( "{}then tip [{}]==[{}] from this tree".format(
             elbow, as_info( str( tip_package ) ), as_info( str( tip_version ) )
@@ -1114,23 +1128,25 @@ def refresh_package_consume_cache( env, entry: dict, tip_publisher=None ) -> lis
     return removed
 
 
-def develop_publish_report( env, nodes: dict, order ) -> list[tuple]:
-    """``(key, path, objections, warning)`` for every node resolved from a develop tree.
+def publisher_work_report( env, nodes: dict, order ) -> list[tuple]:
+    """``(key, path, objections, warning)`` for every publisher tree cascade will publish from.
 
-    Observed once, here, so the plan and the refusal describe the same state and a real run
-    reads each working copy once rather than per session.
+    Observed once, here, so the plan and the real run describe the same state and each working
+    copy is read once rather than per session.
     """
     from cuppa.develop import inspect
 
     observed = []
     for key in order:
         entry = nodes[key]
-        if not entry.get( "_from_develop" ):
+        path = entry.get( "_publisher_dir" )
+        if not path:
             continue
-        path = entry["_develop_dir"]
         copy = inspect( entry["name"], path )
         warning = None
-        if not copy.is_working_copy:
+        if entry.get( "_from_develop" ) and not copy.is_working_copy:
+            # Only said of a develop tree, which the operator named as a working copy. A
+            # rooted or cloned tree that is not one is ordinary, not worth a line.
             warning = (
                     "not a working copy cuppa can read, so whether its contents are "
                     "reproducible cannot be checked"
@@ -1139,49 +1155,53 @@ def develop_publish_report( env, nodes: dict, order ) -> list[tuple]:
     return observed
 
 
-def _record_develop_objections( env, nodes: dict, order ) -> None:
-    """Put what a real run would refuse onto the nodes, so the plan reports it."""
+def _record_publisher_objections( env, nodes: dict, order ) -> None:
+    """Put what a real run would say about each tree onto the nodes, so the plan reports it."""
     allowed = modified_develop_publish_allowed( env )
-    for key, _path, objections, _warning in develop_publish_report( env, nodes, order ):
+    for key, _path, objections, _warning in publisher_work_report( env, nodes, order ):
         if not objections:
             continue
-        nodes[key]["_develop_objections"] = objections
-        nodes[key]["_develop_objections_allowed"] = allowed
+        nodes[key]["_work_objections"] = objections
+        nodes[key]["_work_objections_allowed"] = allowed
 
 
-def refuse_unpublishable_develop_trees( env, nodes: dict, order ) -> None:
+def judge_publisher_trees( env, nodes: dict, order ) -> None:
     """Stop before the first upload when a develop tree holds work only this machine has.
 
     Publishing from such a tree puts a version in the registry that nobody can rebuild from
     its history. Every offending tree is named at once, because learning about the second one
     after the first has already uploaded is no use.
 
-    Scoped to develop trees, which cuppa knows are working copies the operator named for this
-    run. Whether the same question should be asked of a ``--publisher-root`` or cloned tree is
-    an open question in ``design/plans/package-develop-local.md``.
+    A ``--publisher-root`` or cloned tree runs the same hazard and is reported the same way,
+    but only warns: those trees are how cascade shipped, and refusing them would stop a
+    workflow that predates this question. Promoting that warning is a decision of its own —
+    see ``design/plans/package-develop-local.md``.
     """
-    observed = develop_publish_report( env, nodes, order )
-    for key, path, _objections, warning in observed:
+    observed = publisher_work_report( env, nodes, order )
+    override = modified_develop_publish_allowed( env )
+    refused = []
+    for key, path, objections, warning in observed:
+        label = node_label( nodes[key] )
+        shown = storage.display_path( path )
         if warning:
             logger.warn( "Cascade: publisher [{}] at [{}] is {}".format(
-                    as_info( node_label( nodes[key] ) ),
-                    as_notice( storage.display_path( path ) ),
-                    warning,
+                    as_info( label ), as_notice( shown ), warning
             ) )
-    offending = [ item for item in observed if item[2] ]
-    if not offending:
-        return
-    if modified_develop_publish_allowed( env ):
-        for key, path, objections, _warning in offending:
-            logger.warn(
-                    "Cascade: publishing [{}] from [{}] with {} — allowed by --{}"
-                    .format(
-                            as_info( node_label( nodes[key] ) ),
-                            as_notice( storage.display_path( path ) ),
-                            as_warning( ", ".join( objections ) ),
-                            MODIFIED_DEVELOP_OPTION,
-                    )
-            )
+        if not objections:
+            continue
+        if nodes[key].get( "_from_develop" ) and not override:
+            refused.append( ( label, shown, objections ) )
+            continue
+        logger.warn(
+                "Cascade: publishing [{}] from [{}] with {}{}".format(
+                        as_info( label ),
+                        as_notice( shown ),
+                        as_warning( ", ".join( objections ) ),
+                        " — allowed by --{}".format( MODIFIED_DEVELOP_OPTION )
+                                if nodes[key].get( "_from_develop" ) else "",
+                )
+        )
+    if not refused:
         return
     raise SCons.Errors.StopError(
             "cascade will not publish from a develop tree holding work only this machine "
@@ -1190,12 +1210,8 @@ def refuse_unpublishable_develop_trees( env, nodes: dict, order ) -> None:
             "anyway."
             .format(
                     "; ".join(
-                            "[{}] at [{}] has {}".format(
-                                    node_label( nodes[key] ),
-                                    storage.display_path( path ),
-                                    ", ".join( objections ),
-                            )
-                            for key, path, objections, _warning in offending
+                            "[{}] at [{}] has {}".format( label, shown, ", ".join( objections ) )
+                            for label, shown, objections in refused
                     ),
                     MODIFIED_DEVELOP_OPTION,
             )
@@ -1285,7 +1301,7 @@ def maybe_run_cascade( env, publisher ) -> None:
 
     order = topological_publish_order( nodes, edges )
     if plan_only:
-        _record_develop_objections( env, nodes, order )
+        _record_publisher_objections( env, nodes, order )
     write_lines( cascade_plan_lines( nodes, order, tip_package, tip_version ) )
 
     if plan_only:
@@ -1296,15 +1312,15 @@ def maybe_run_cascade( env, publisher ) -> None:
                         1 for key in order
                         if nodes[key].get( "_resolve_error" )
                         or (
-                                nodes[key].get( "_develop_objections" )
-                                and not nodes[key].get( "_develop_objections_allowed" )
+                                nodes[key].get( "_work_objections" )
+                                and _work_verdict( nodes[key] )[0] == "error"
                         )
                 ),
                 clone_count=sum( 1 for key in order if nodes[key].get( "_clone_dir" ) ),
         )
         return
 
-    refuse_unpublishable_develop_trees( env, nodes, order )
+    judge_publisher_trees( env, nodes, order )
 
     total = len( order )
     for ordinal, key in enumerate( order, start=1 ):

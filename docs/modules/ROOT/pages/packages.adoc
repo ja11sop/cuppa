@@ -141,6 +141,13 @@ and a commit you can name is a commit others can fetch. A tree cuppa cannot read
 as a working copy raises a warning rather than a refusal, since being unable to
 inspect a tree is not evidence of local work.
 
+A tree found under ``--publisher-root``, or cloned by ``--clone-publishers``,
+runs the same hazard and is reported the same way — but as a **warning**, and the
+publish goes ahead. Those trees are how cascade has always worked, and refusing
+them would stop a workflow that predates the question. The plan report grades them
+as warning rows, so you can see what a run is about to put in the registry without
+being stopped by it.
+
 ``--publish-modified-develop`` lifts the refusal for a run and says so on every
 tree it allows. ``--cascade-plan`` reports the same judgement without publishing:
 an error row per tree that would be refused, or a note row per tree the override

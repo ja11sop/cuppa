@@ -43,7 +43,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the same judgement as an error row, or as a note when this flag allows it. A
   detached head is not refused — publishing version X from tag ``vX`` is the
   normal case — and a tree cuppa cannot read as a working copy warns rather than
-  stops
+  stops. A tree found under ``--publisher-root`` or cloned by
+  ``--clone-publishers`` carries the same hazard and is reported the same way,
+  as a warning rather than a refusal, since refusing would stop the workflow
+  cascade already shipped
   ([`package-develop-local`](design/plans/package-develop-local.md)).
 - ``--clone-publishers`` — let cascade clone a publisher working tree it cannot
   find locally from that dependency's ``package_source`` URL, which may be pinned

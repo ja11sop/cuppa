@@ -1107,7 +1107,7 @@ def test_publishing_from_a_modified_develop_tree_is_refused( tmp_path, monkeypat
     env = _PlanEnv( { "develop": True } )
 
     with pytest.raises( SCons.Errors.StopError ) as failure:
-        cascade.refuse_unpublishable_develop_trees( env, nodes, order )
+        cascade.judge_publisher_trees( env, nodes, order )
     message = str( failure.value )
 
     assert "uncommitted changes" in message
@@ -1121,7 +1121,7 @@ def test_the_override_allows_the_publish_and_says_so( tmp_path, monkeypatch, cap
     env = _PlanEnv( { "develop": True, "publish-modified-develop": True } )
 
     with caplog.at_level( logging.WARNING ):
-        cascade.refuse_unpublishable_develop_trees( env, nodes, order )
+        cascade.judge_publisher_trees( env, nodes, order )
 
     assert "allowed by --publish-modified-develop" in caplog.text
 
@@ -1131,7 +1131,7 @@ def test_a_clean_develop_tree_publishes_without_comment( tmp_path, monkeypatch )
             monkeypatch, branch="develop", upstream="origin/develop", ahead=0, behind=0
     )
     nodes, order, _ = _develop_nodes( tmp_path, None )
-    cascade.refuse_unpublishable_develop_trees( _PlanEnv( { "develop": True } ), nodes, order )
+    cascade.judge_publisher_trees( _PlanEnv( { "develop": True } ), nodes, order )
 
 
 def test_the_plan_reports_what_a_real_run_would_refuse( tmp_path, monkeypatch ):
@@ -1139,12 +1139,12 @@ def test_the_plan_reports_what_a_real_run_would_refuse( tmp_path, monkeypatch ):
     nodes, order, _ = _develop_nodes( tmp_path, None )
     env = _PlanEnv( { "develop": True } )
 
-    cascade._record_develop_objections( env, nodes, order )
+    cascade._record_publisher_objections( env, nodes, order )
     body = "\n".join( cascade.cascade_plan_lines( nodes, order, "corosio", "0.2.0" ) )
 
     assert "(develop)" in body
     assert "[1 error]" in body
-    assert "error: publishing from this develop tree has uncommitted changes" in body
+    assert "error: publishing from this tree has uncommitted changes" in body
     assert "refused; commit and push" in body
 
 
@@ -1153,7 +1153,7 @@ def test_the_plan_reports_an_allowed_modified_tree_as_a_note( tmp_path, monkeypa
     nodes, order, _ = _develop_nodes( tmp_path, None )
     env = _PlanEnv( { "develop": True, "publish-modified-develop": True } )
 
-    cascade._record_develop_objections( env, nodes, order )
+    cascade._record_publisher_objections( env, nodes, order )
     body = "\n".join( cascade.cascade_plan_lines( nodes, order, "corosio", "0.2.0" ) )
 
     assert "[0 errors][0 warnings][1 note]" in body
@@ -1205,3 +1205,57 @@ def test_a_develop_path_is_only_a_publisher_source_under_cascade( tmp_path ):
     assert cascade.develop_is_publisher_source(
             _PlanEnv( { "cascade-plan": True } ), str( tree )
     )
+
+
+def _rooted_nodes( path ):
+    """A publisher tree cascade found by root lookup rather than a develop path."""
+    key = ( "capy", "capy", "develop" )
+    nodes = {
+            key: {
+                    "name": "capy", "package": "capy", "version": "develop",
+                    "_publisher_dir": str( path ),
+            },
+    }
+    return nodes, [ key ]
+
+
+def test_local_work_in_a_rooted_tree_warns_rather_than_stopping(
+        tmp_path, monkeypatch, caplog
+):
+    """Refusing here would stop the workflow cascade shipped with; the hazard still shows."""
+    _stub_inspect( monkeypatch, modified=True, branch="develop", upstream="origin/develop" )
+    nodes, order = _rooted_nodes( tmp_path )
+
+    with caplog.at_level( logging.WARNING ):
+        cascade.judge_publisher_trees( _PlanEnv( {} ), nodes, order )
+
+    assert "uncommitted changes" in caplog.text
+    assert "--publish-modified-develop" not in caplog.text
+
+
+def test_the_plan_grades_a_rooted_tree_as_a_warning( tmp_path, monkeypatch ):
+    _stub_inspect( monkeypatch, ahead=2, branch="develop", upstream="origin/develop" )
+    nodes, order = _rooted_nodes( tmp_path )
+
+    cascade._record_publisher_objections( _PlanEnv( {} ), nodes, order )
+    body = "\n".join( cascade.cascade_plan_lines( nodes, order, "corosio", "0.2.0" ) )
+
+    assert "[0 errors][1 warning][0 notes]" in body
+    assert "warning: publishing from this tree has 2 commits not pushed" in body
+    assert "published anyway; cascade only" in body
+
+
+def test_an_unreadable_rooted_tree_says_nothing( tmp_path, monkeypatch, caplog ):
+    """A rooted tree that is not a working copy is ordinary, not worth a line."""
+    from cuppa.develop import Copy
+
+    monkeypatch.setattr(
+            "cuppa.develop.inspect",
+            lambda name, path: Copy( name=name, path=path, exists=True ),
+    )
+    nodes, order = _rooted_nodes( tmp_path )
+
+    with caplog.at_level( logging.WARNING ):
+        cascade.judge_publisher_trees( _PlanEnv( {} ), nodes, order )
+
+    assert caplog.text == ""
