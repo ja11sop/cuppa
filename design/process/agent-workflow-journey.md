@@ -2,7 +2,7 @@
 
 - **Status:** living
 - **Related:** [`AGENTS.md`](../../AGENTS.md) (agent ops); Antora Contributing (human versioning/release)
-- **Updated:** 2026-09-03
+- **Updated:** 2026-09-16
 - **Maintainer:** primary author of this journey; others append only (see `AGENTS.md`)
 - **Privacy:** obey the private-projects rule; never copy names from `INTERNAL_PROJECTS.local.md`
 - **Source:** Cursor sessions spanning roughly mid-July → 2026-08-07 on cuppa
@@ -340,6 +340,7 @@ These are recommendations for the next project, not self-flagellation.
 | Local docs preview; scan screenshots only on request | UI CSS review stays in the browser; PNG-in-context is a token tax, not a default loop |
 | Propose commit message; wait for go-ahead before commit/push | Maintainer skims the diff and steers before history moves (`AGENTS.md` Commit messages) |
 | Delete GitHub's pre-filled squash `Co-authored-by` | Helpers do not write trailers; GitHub adds one when branch-commit email ≠ account identity |
+| Gates read state live, not from a webhook payload | An `opened` payload is frozen before `create-pr` can label; a check that trusts it fails on a pull request that is correctly labelled (2026-09-16) |
 
 ---
 

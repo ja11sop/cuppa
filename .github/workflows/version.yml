@@ -1,8 +1,10 @@
 name: version
 
 # Separate from the test matrix so labelling an open PR re-runs only this gate.
-# create-pr adds impact:* after POST /pulls, so the initial opened event often has
-# no labels yet; types: labeled covers that race without replaying integration.
+# create-pr adds impact:* after POST /pulls, because no API creates a pull request with
+# labels. The opened event payload is therefore sealed without the label, so the job reads
+# labels live (--pull-request) rather than from github.event; types: labeled remains the
+# recovery path when a human labels later, without replaying integration.
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled]
@@ -24,7 +26,12 @@ jobs:
       - name: Fetch base branch
         run: git fetch --no-tags origin ${{ github.base_ref }}
       - name: Check version and changelog (needs impact label on PR)
+        # GITHUB_TOKEN here is the ephemeral job token, unrelated to the sealed workstation
+        # credential; it only lifts the anonymous rate limit on shared runner addresses.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           python -m scripts.check_version_bump \
             --base-ref "origin/${{ github.base_ref }}" \
+            --pull-request "${{ github.event.pull_request.number }}" \
             --labels "${{ join(github.event.pull_request.labels.*.name, ',') }}"

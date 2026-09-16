@@ -4,9 +4,11 @@ import pytest
 from packaging.version import Version
 
 from scripts import changelog
+from scripts import check_version_bump
+from scripts import github_api
 from scripts.check_release import check as check_release
 from scripts.check_version_bump import check as check_bump
-from scripts.check_version_bump import impact_from_labels
+from scripts.check_version_bump import impact_from_labels, labels_from_api
 
 
 pytestmark = pytest.mark.unit
@@ -115,6 +117,70 @@ def test_impact_comes_from_exactly_one_label():
         impact_from_labels( [ 'impact:minor', 'impact:patch' ] )
     with pytest.raises( ValueError, match='unknown impact' ):
         impact_from_labels( [ 'impact:huge' ] )
+
+
+def _stub_github( response ):
+    """Stand in for ``GitHub``, whether the caller authenticates or reads anonymously."""
+    class _Client:
+        seen = []
+
+        def __init__( self, credential=None, anonymous=False ):
+            self.credential = credential
+
+        @classmethod
+        def public( cls ):
+            return cls( anonymous=True )
+
+        def request( self, method, path, payload=None ):
+            _Client.seen.append( ( method, path ) )
+            return response
+
+    return _Client
+
+
+def test_labels_are_read_live_so_a_frozen_payload_cannot_decide( monkeypatch ):
+    """The opened event is sealed before create-pr labels the pull request."""
+    client = _stub_github(
+        ( 200, { 'labels': [ { 'name': 'impact:minor' }, { 'name': 'docs' } ] } )
+    )
+    monkeypatch.setattr( github_api, 'GitHub', client )
+    monkeypatch.setenv( 'GITHUB_REPOSITORY', 'ja11sop/cuppa' )
+    monkeypatch.setenv( 'GITHUB_TOKEN', 'job-token' )
+
+    assert labels_from_api( 303 ) == [ 'impact:minor', 'docs' ]
+    assert client.seen == [ ( 'GET', '/repos/ja11sop/cuppa/pulls/303' ) ]
+
+
+def test_a_failed_label_read_is_reported_rather_than_guessed( monkeypatch ):
+    monkeypatch.setattr(
+        github_api, 'GitHub', _stub_github( ( 404, { 'message': 'Not Found' } ) )
+    )
+    monkeypatch.setenv( 'GITHUB_REPOSITORY', 'ja11sop/cuppa' )
+
+    with pytest.raises( ValueError, match='HTTP 404' ):
+        labels_from_api( 303 )
+
+    monkeypatch.delenv( 'GITHUB_REPOSITORY' )
+    with pytest.raises( ValueError, match='which repository' ):
+        labels_from_api( 303 )
+
+
+def test_the_gate_falls_back_to_payload_labels_when_the_api_is_unreachable( monkeypatch, capsys ):
+    """A flaky API must not turn the gate into a coin toss."""
+    def _unreachable( number, repository=None ):
+        raise OSError( 'connection refused' )
+
+    monkeypatch.setattr( check_version_bump, 'labels_from_api', _unreachable )
+    monkeypatch.setattr( check_version_bump, 'version_at', lambda ref: '1.11.0.dev' )
+
+    exit_status = check_version_bump.main( [
+        '--base-ref', 'origin/master',
+        '--pull-request', '303',
+        '--labels', 'impact:minor',
+    ] )
+    output = capsys.readouterr().out
+    assert 'using the event payload' in output
+    assert exit_status == 0
 
 
 def test_a_minor_change_is_accepted_at_the_next_minor():
