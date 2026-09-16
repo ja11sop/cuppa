@@ -42,6 +42,7 @@ CASCADE_OPTION = "build-and-publish-dependencies"
 CASCADE_PLAN_OPTION = "cascade-plan"
 PUBLISHER_ROOT_OPTION = "publisher-root"
 CLONE_OPTION = "clone-publishers"
+MODIFIED_DEVELOP_OPTION = "publish-modified-develop"
 NESTED_ENV = "CUPPA_CASCADE_NESTED"
 
 # Where clones land under the storage root when no publisher root was given.
@@ -70,6 +71,20 @@ def clone_enabled( env ) -> bool:
     if not callable( getter ):
         return False
     return bool( getter( CLONE_OPTION ) )
+
+
+def develop_enabled( env ) -> bool:
+    getter = getattr( env, "get_option", None )
+    if not callable( getter ):
+        return False
+    return bool( getter( "develop" ) )
+
+
+def modified_develop_publish_allowed( env ) -> bool:
+    getter = getattr( env, "get_option", None )
+    if not callable( getter ):
+        return False
+    return bool( getter( MODIFIED_DEVELOP_OPTION ) )
 
 
 def publisher_root_option( env ) -> str | None:
@@ -159,6 +174,87 @@ def publisher_clone_destination( env, entry: dict ) -> str:
     refused rather than resolved by inventing a registry-qualified path here.
     """
     return os.path.join( publisher_clone_root( env ), str( entry["name"] ) )
+
+
+def develop_publisher_dir( env, entry: dict ) -> str | None:
+    """The develop working copy configured for this dependency, whatever ``--develop`` says.
+
+    Resolved through the same helper the develop reports and the consume swap use, so cascade
+    cannot name a path they would not.
+    """
+    factory = _tip_dependency_factory( env, entry )
+    if factory is None:
+        return None
+    from cuppa.develop import configured_develop
+    return configured_develop( _factory_owner( factory ), env )
+
+
+def develop_names_a_publisher_tree( path: str ) -> bool:
+    """Whether a develop path names a project that publishes a package.
+
+    An sconstruct is the whole test here, where a rooted or cloned tree may also be
+    recognised by its ``cuppa-publish.json``. A publisher build **stages** that manifest
+    beside ``include/`` and ``lib/``, so accepting it would read a built package — which is
+    what a package's ``develop=`` has meant until now — as the project that built it.
+    """
+    return any(
+            os.path.isfile( os.path.join( path, name ) )
+            for name in ( "sconstruct", "SConstruct" )
+    )
+
+
+def develop_tree_refusal( path: str ) -> str | None:
+    """Why this develop path cannot act as a publisher tree, or None when it can.
+
+    A package's ``develop=`` has meant a **built prefix** — the directory ``include/`` and
+    ``lib/`` hang off — so an operator pointing cascade at one deserves to be told which of the
+    two trees is wanted rather than a bare missing-sconstruct complaint.
+    """
+    if not os.path.isdir( path ):
+        return "that path is not a directory"
+    if develop_names_a_publisher_tree( path ):
+        return None
+    if any(
+            os.path.exists( os.path.join( path, leaf ) )
+            for leaf in ( "include", "lib", PUBLISH_FILENAME )
+    ):
+        return (
+                "that path holds a built package, not the project that publishes it. Cascade "
+                "needs the publisher project — the tree with its sconstruct"
+        )
+    return "that tree has no sconstruct, so nothing there can publish a package"
+
+
+def develop_is_publisher_source( env, path: str ) -> bool:
+    """Whether a develop path is a tree cascade publishes from rather than a package to consume.
+
+    Consume swaps a develop path in as the prefix it links against. When cascade is running and
+    that path is the publisher project, the tree is the *source* of the package, so the swap has
+    to stand down and let the build take the artefact the nested publish produces.
+    """
+    if not cascade_enabled( env ) and not cascade_plan_enabled( env ):
+        return False
+    return develop_names_a_publisher_tree( path )
+
+
+def develop_publish_objections( copy ) -> list[str]:
+    """Why publishing from this working copy would put unreproducible bits in a registry.
+
+    Being unable to inspect a copy is not evidence of local work, so an unknown or
+    unversioned tree yields no objection here and is reported as a warning instead.
+    """
+    if not getattr( copy, "is_working_copy", False ):
+        return []
+    objections = []
+    if copy.modified:
+        objections.append( "uncommitted changes" )
+    if copy.ahead:
+        objections.append( "{} not pushed".format(
+                "1 commit" if copy.ahead == 1 else "{} commits".format( copy.ahead )
+        ) )
+    if not copy.detached and not copy.upstream:
+        objections.append( "no upstream, so its commits are only on this machine" )
+    return objections
 
 
 def _offline( env ) -> bool:
@@ -289,6 +385,27 @@ def resolve_publisher_dir( env, entry: dict, allow_clone=True, claims=None ) -> 
     package_source = entry.get( "package_source" )
     name = entry["name"]
     package = entry["package"]
+
+    # A develop tree outranks everything else: it is the operator saying, for this
+    # run, which copy of this dependency they mean. A root convention is a guess by
+    # comparison, and cloning is for when there is nothing local at all.
+    develop_dir = develop_publisher_dir( env, entry )
+    if develop_dir:
+        entry["_develop_dir"] = develop_dir
+        if develop_enabled( env ):
+            refusal = develop_tree_refusal( develop_dir )
+            if refusal:
+                raise SCons.Errors.StopError(
+                        "--develop points [{}] at [{}], but {}. Point its develop path at "
+                        "the publisher project, or drop --develop so cascade resolves it "
+                        "from package_source."
+                        .format( name, develop_dir, refusal )
+                )
+            entry["_from_develop"] = True
+            return develop_dir
+        # Cascade will resolve it some other way; the plan says so rather than
+        # leaving an operator to wonder why their tree was ignored.
+        entry["_develop_unused"] = True
 
     if package_source:
         source = os.path.expanduser( str( package_source ) )
@@ -517,6 +634,46 @@ def topological_publish_order( nodes: dict, edges: dict ) -> list[tuple]:
     return ordered
 
 
+def _work_verdict( entry ):
+    """``(severity, colour, what happens)`` for a tree holding work only this machine has.
+
+    One place, so the row an operator reads and the counts in the header cannot disagree.
+    """
+    if not entry.get( "_from_develop" ):
+        return (
+                "warning", as_warning,
+                "published anyway; cascade only refuses a develop tree",
+        )
+    if entry.get( "_work_objections_allowed" ):
+        return (
+                "note", as_notice,
+                "allowed by --{}".format( MODIFIED_DEVELOP_OPTION ),
+        )
+    return (
+            "error", as_error,
+            "refused; commit and push, or pass --{}".format( MODIFIED_DEVELOP_OPTION ),
+    )
+
+
+def _publisher_plan_notes( entry, prose_width ) -> list[str]:
+    """What the plan says about a node's tree: unused develop, or unpublishable as it stands."""
+    lines = []
+    objections = entry.get( "_work_objections" )
+    if objections:
+        severity, colour, verdict = _work_verdict( entry )
+        text = "{}: publishing from this tree has {} ({})".format(
+                severity, ", ".join( objections ), verdict
+        )
+        lines.extend( colour( line ) for line in storage.wrapped( text, prose_width ) )
+    if entry.get( "_develop_unused" ):
+        note = (
+                "note: a develop tree is configured at [{}] but --develop was not passed, "
+                "so it was not used".format( entry["_develop_dir"] )
+        )
+        lines.extend( as_notice( line ) for line in storage.wrapped( note, prose_width ) )
+    return lines
+
+
 def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) -> list[str]:
     """Publish order, leaf-first, with each node's resolved publisher tree.
 
@@ -525,8 +682,20 @@ def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) 
     The intro still carries the shared severity brackets.
     """
     tee, elbow, pipe, gap = storage.glyphs( encoding )
-    errors = [ key for key in order if nodes[key].get( "_resolve_error" ) ]
+    graded = {
+            key: _work_verdict( nodes[key] )[0]
+            for key in order if nodes[key].get( "_work_objections" )
+    }
+    errors = [
+            key for key in order
+            if nodes[key].get( "_resolve_error" ) or graded.get( key ) == "error"
+    ]
+    warnings = [ key for key in order if graded.get( key ) == "warning" ]
     clones = [ key for key in order if nodes[key].get( "_clone_dir" ) ]
+    develop_notes = [
+            key for key in order
+            if nodes[key].get( "_develop_unused" ) or graded.get( key ) == "note"
+    ]
     lines = [
             "",
             "Cascade plan: {} then tip [{}]==[{}]: {}".format(
@@ -536,7 +705,9 @@ def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) 
                     as_info( str( tip_package ) ),
                     as_info( str( tip_version ) ),
                     storage.format_severity_count_brackets(
-                            errors=len( errors ), notes=len( clones )
+                            errors=len( errors ),
+                            warnings=len( warnings ),
+                            notes=len( clones ) + len( develop_notes ),
                     ),
             ),
             pipe.rstrip(),
@@ -573,9 +744,13 @@ def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) 
             ):
                 lines.append( continuation + as_notice( wrapped_line ) )
         else:
-            lines.append( "{}publisher [{}]".format(
-                    continuation, as_notice( str( entry.get( "_publisher_dir" ) ) )
+            lines.append( "{}publisher [{}]{}".format(
+                    continuation,
+                    as_notice( str( entry.get( "_publisher_dir" ) ) ),
+                    " (develop)" if entry.get( "_from_develop" ) else "",
             ) )
+            for wrapped_line in _publisher_plan_notes( entry, prose_width ):
+                lines.append( continuation + wrapped_line )
     lines.append( "{}then tip [{}]==[{}] from this tree".format(
             elbow, as_info( str( tip_package ) ), as_info( str( tip_version ) )
     ) )
@@ -722,6 +897,7 @@ _NESTED_DROP_EXACT = frozenset( {
         "--" + CASCADE_PLAN_OPTION,
         "--" + PUBLISHER_ROOT_OPTION,
         "--" + CLONE_OPTION,
+        "--" + MODIFIED_DEVELOP_OPTION,
         "--amend-package-manifest",
         "--cuppa-mode",
 } )
@@ -952,6 +1128,96 @@ def refresh_package_consume_cache( env, entry: dict, tip_publisher=None ) -> lis
     return removed
 
 
+def publisher_work_report( env, nodes: dict, order ) -> list[tuple]:
+    """``(key, path, objections, warning)`` for every publisher tree cascade will publish from.
+
+    Observed once, here, so the plan and the real run describe the same state and each working
+    copy is read once rather than per session.
+    """
+    from cuppa.develop import inspect
+
+    observed = []
+    for key in order:
+        entry = nodes[key]
+        path = entry.get( "_publisher_dir" )
+        if not path:
+            continue
+        copy = inspect( entry["name"], path )
+        warning = None
+        if entry.get( "_from_develop" ) and not copy.is_working_copy:
+            # Only said of a develop tree, which the operator named as a working copy. A
+            # rooted or cloned tree that is not one is ordinary, not worth a line.
+            warning = (
+                    "not a working copy cuppa can read, so whether its contents are "
+                    "reproducible cannot be checked"
+            )
+        observed.append( ( key, path, develop_publish_objections( copy ), warning ) )
+    return observed
+
+
+def _record_publisher_objections( env, nodes: dict, order ) -> None:
+    """Put what a real run would say about each tree onto the nodes, so the plan reports it."""
+    allowed = modified_develop_publish_allowed( env )
+    for key, _path, objections, _warning in publisher_work_report( env, nodes, order ):
+        if not objections:
+            continue
+        nodes[key]["_work_objections"] = objections
+        nodes[key]["_work_objections_allowed"] = allowed
+
+
+def judge_publisher_trees( env, nodes: dict, order ) -> None:
+    """Stop before the first upload when a develop tree holds work only this machine has.
+
+    Publishing from such a tree puts a version in the registry that nobody can rebuild from
+    its history. Every offending tree is named at once, because learning about the second one
+    after the first has already uploaded is no use.
+
+    A ``--publisher-root`` or cloned tree runs the same hazard and is reported the same way,
+    but only warns: those trees are how cascade shipped, and refusing them would stop a
+    workflow that predates this question. Promoting that warning is a decision of its own —
+    see ``design/plans/package-develop-local.md``.
+    """
+    observed = publisher_work_report( env, nodes, order )
+    override = modified_develop_publish_allowed( env )
+    refused = []
+    for key, path, objections, warning in observed:
+        label = node_label( nodes[key] )
+        shown = storage.display_path( path )
+        if warning:
+            logger.warn( "Cascade: publisher [{}] at [{}] is {}".format(
+                    as_info( label ), as_notice( shown ), warning
+            ) )
+        if not objections:
+            continue
+        if nodes[key].get( "_from_develop" ) and not override:
+            refused.append( ( label, shown, objections ) )
+            continue
+        logger.warn(
+                "Cascade: publishing [{}] from [{}] with {}{}".format(
+                        as_info( label ),
+                        as_notice( shown ),
+                        as_warning( ", ".join( objections ) ),
+                        " — allowed by --{}".format( MODIFIED_DEVELOP_OPTION )
+                                if nodes[key].get( "_from_develop" ) else "",
+                )
+        )
+    if not refused:
+        return
+    raise SCons.Errors.StopError(
+            "cascade will not publish from a develop tree holding work only this machine "
+            "has, because the registry version could not be rebuilt from history: {}. "
+            "Commit and push, drop --develop for the publish run, or pass --{} to publish "
+            "anyway."
+            .format(
+                    "; ".join(
+                            "[{}] at [{}] has {}".format( label, shown, ", ".join( objections ) )
+                            for label, shown, objections in refused
+                    ),
+                    MODIFIED_DEVELOP_OPTION,
+            )
+    )
+
+
 def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 ) -> None:
     argv = argv_for_nested_publish()
     nested_env = os.environ.copy()
@@ -1034,16 +1300,27 @@ def maybe_run_cascade( env, publisher ) -> None:
         return
 
     order = topological_publish_order( nodes, edges )
+    if plan_only:
+        _record_publisher_objections( env, nodes, order )
     write_lines( cascade_plan_lines( nodes, order, tip_package, tip_version ) )
 
     if plan_only:
         record_plan_report(
                 tip_package,
                 tip_version,
-                sum( 1 for key in order if nodes[key].get( "_resolve_error" ) ),
+                sum(
+                        1 for key in order
+                        if nodes[key].get( "_resolve_error" )
+                        or (
+                                nodes[key].get( "_work_objections" )
+                                and _work_verdict( nodes[key] )[0] == "error"
+                        )
+                ),
                 clone_count=sum( 1 for key in order if nodes[key].get( "_clone_dir" ) ),
         )
         return
+
+    judge_publisher_trees( env, nodes, order )
 
     total = len( order )
     for ordinal, key in enumerate( order, start=1 ):

@@ -142,6 +142,18 @@ class PublishPackageMethod(object):
                 ),
         )
         add_option(
+                '--publish-modified-develop',
+                dest='publish-modified-develop',
+                action='store_true',
+                help=(
+                        'Allow a cascade publish from a --develop working copy '
+                        'that holds work only this machine has (uncommitted '
+                        'changes, unpushed commits, or a branch with no '
+                        'upstream). Cascade refuses by default, because the '
+                        'registry version could not be rebuilt from history.'
+                ),
+        )
+        add_option(
                 '--clone-publishers',
                 dest='clone-publishers',
                 action='store_true',

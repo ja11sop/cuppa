@@ -4,6 +4,7 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 import io
+import logging
 import os
 import shutil
 import subprocess
@@ -931,3 +932,330 @@ def test_cloning_a_real_repository_honours_the_pin( tmp_path ):
     assert path == str( tmp_path / "store" / "publishers" / "capy" )
     assert os.path.isfile( os.path.join( path, "sconstruct" ) )
     assert not os.path.exists( os.path.join( path, "later.txt" ) )
+# Develop trees as publisher trees (slice B)
+
+
+def _package_dependency( name, develop, package=None ):
+    """A dependency shaped the way cuppa registers a package one."""
+    return type( name, (object,), {
+            "_name": name,
+            "_package_manager": "gitlab",
+            "_package": package or name,
+            "_develop": develop,
+    } )
+
+
+def _develop_env( tmp_path, name, develop_path, **options ):
+    return _PlanEnv(
+            options,
+            {
+                    "sconstruct_dir": str( tmp_path / "project" ),
+                    "dependencies": { name: _package_dependency( name, develop_path ) },
+            },
+    )
+
+
+def _publisher_tree( path ):
+    path.mkdir( parents=True, exist_ok=True )
+    ( path / "sconstruct" ).write_text( "import cuppa\n", encoding="utf-8" )
+    return path
+
+
+def test_a_develop_tree_outranks_package_source_and_the_publisher_root( tmp_path ):
+    """The develop path is the operator naming the copy they mean for this run."""
+    ( tmp_path / "project" ).mkdir()
+    mine = _publisher_tree( tmp_path / "capy" )
+    elsewhere = _publisher_tree( tmp_path / "packages" / "capy" )
+
+    env = _develop_env(
+            tmp_path, "capy", "../capy",
+            develop=True,
+            **{ "publisher-root": str( tmp_path / "packages" ) },
+    )
+    entry = {
+            "name": "capy",
+            "package": "capy",
+            "version": "develop",
+            "package_source": str( elsewhere ),
+    }
+    path = cascade.resolve_publisher_dir( env, entry )
+
+    assert os.path.samefile( path, mine )
+    assert entry["_from_develop"] is True
+
+
+def test_a_develop_tree_is_not_used_without_the_develop_flag( tmp_path ):
+    ( tmp_path / "project" ).mkdir()
+    _publisher_tree( tmp_path / "capy" )
+    authored = _publisher_tree( tmp_path / "authored" / "capy" )
+
+    env = _develop_env( tmp_path, "capy", "../capy" )
+    entry = {
+            "name": "capy",
+            "package": "capy",
+            "version": "develop",
+            "package_source": str( authored ),
+    }
+    path = cascade.resolve_publisher_dir( env, entry )
+
+    assert path == str( authored )
+    assert entry["_develop_unused"] is True
+    assert "_from_develop" not in entry
+
+
+def test_a_develop_path_holding_a_built_package_names_both_meanings( tmp_path ):
+    """A package develop path has meant a built prefix; say which tree is wanted."""
+    ( tmp_path / "project" ).mkdir()
+    prefix = tmp_path / "capy"
+    ( prefix / "include" ).mkdir( parents=True )
+    ( prefix / "lib" ).mkdir()
+
+    env = _develop_env( tmp_path, "capy", "../capy", develop=True )
+    with pytest.raises( SCons.Errors.StopError ) as failure:
+        cascade.resolve_publisher_dir(
+                env, { "name": "capy", "package": "capy", "version": "develop" }
+        )
+    message = str( failure.value )
+
+    assert "holds a built package" in message
+    assert "publisher project" in message
+    assert "drop --develop" in message
+
+
+def test_a_missing_develop_tree_is_refused_rather_than_cloned( tmp_path ):
+    """--clone-develop fills develop paths; cascade does not clone into them."""
+    ( tmp_path / "project" ).mkdir()
+    env = _develop_env(
+            tmp_path, "capy", "../capy",
+            develop=True,
+            **{ "clone-publishers": True },
+    )
+    entry = {
+            "name": "capy",
+            "package": "capy",
+            "version": "develop",
+            "package_source": "git@git.example:packages/capy",
+    }
+    with pytest.raises( SCons.Errors.StopError, match="is not a directory" ):
+        cascade.resolve_publisher_dir( env, entry )
+
+    assert not ( tmp_path / "publishers" ).exists()
+
+
+@pytest.mark.parametrize( "copy_fields, expected", [
+        (
+                { "modified": True, "branch": "develop", "upstream": "origin/develop" },
+                [ "uncommitted changes" ],
+        ),
+        ( { "ahead": 1, "upstream": "origin/develop" }, [ "1 commit not pushed" ] ),
+        ( { "ahead": 3, "upstream": "origin/develop" }, [ "3 commits not pushed" ] ),
+        (
+                { "branch": "develop" },
+                [ "no upstream, so its commits are only on this machine" ],
+        ),
+        # A detached head is a named commit, which is what a tag pin produces.
+        ( { "detached": True }, [] ),
+        ( { "upstream": "origin/develop", "ahead": 0, "behind": 4 }, [] ),
+] )
+def test_develop_publish_objections( copy_fields, expected ):
+    from cuppa.develop import Copy
+
+    copy = Copy(
+            name="capy", path="/tree", exists=True, is_working_copy=True, scm="git",
+            **copy_fields
+    )
+    assert cascade.develop_publish_objections( copy ) == expected
+
+
+def test_an_unreadable_working_copy_raises_no_objection():
+    """Being unable to inspect a tree is not evidence of local work."""
+    from cuppa.develop import Copy
+
+    copy = Copy( name="capy", path="/tree", exists=True )
+    assert cascade.develop_publish_objections( copy ) == []
+
+
+def _develop_nodes( path, objections_from ):
+    key = ( "capy", "capy", "develop" )
+    nodes = {
+            key: {
+                    "name": "capy", "package": "capy", "version": "develop",
+                    "_publisher_dir": str( path ),
+                    "_develop_dir": str( path ),
+                    "_from_develop": True,
+            },
+    }
+    return nodes, [ key ], objections_from
+
+
+def _stub_inspect( monkeypatch, **copy_fields ):
+    from cuppa.develop import Copy
+
+    def _inspect( name, path ):
+        return Copy(
+                name=name, path=path, exists=True, is_working_copy=True, scm="git",
+                **copy_fields
+        )
+
+    monkeypatch.setattr( "cuppa.develop.inspect", _inspect )
+
+
+def test_publishing_from_a_modified_develop_tree_is_refused( tmp_path, monkeypatch ):
+    """The registry version could not be rebuilt from history, so stop before any upload."""
+    _stub_inspect( monkeypatch, modified=True, branch="develop", upstream="origin/develop" )
+    nodes, order, _ = _develop_nodes( tmp_path, None )
+    env = _PlanEnv( { "develop": True } )
+
+    with pytest.raises( SCons.Errors.StopError ) as failure:
+        cascade.judge_publisher_trees( env, nodes, order )
+    message = str( failure.value )
+
+    assert "uncommitted changes" in message
+    assert "--publish-modified-develop" in message
+    assert "Commit and push" in message
+
+
+def test_the_override_allows_the_publish_and_says_so( tmp_path, monkeypatch, caplog ):
+    _stub_inspect( monkeypatch, modified=True, branch="develop", upstream="origin/develop" )
+    nodes, order, _ = _develop_nodes( tmp_path, None )
+    env = _PlanEnv( { "develop": True, "publish-modified-develop": True } )
+
+    with caplog.at_level( logging.WARNING ):
+        cascade.judge_publisher_trees( env, nodes, order )
+
+    assert "allowed by --publish-modified-develop" in caplog.text
+
+
+def test_a_clean_develop_tree_publishes_without_comment( tmp_path, monkeypatch ):
+    _stub_inspect(
+            monkeypatch, branch="develop", upstream="origin/develop", ahead=0, behind=0
+    )
+    nodes, order, _ = _develop_nodes( tmp_path, None )
+    cascade.judge_publisher_trees( _PlanEnv( { "develop": True } ), nodes, order )
+
+
+def test_the_plan_reports_what_a_real_run_would_refuse( tmp_path, monkeypatch ):
+    _stub_inspect( monkeypatch, modified=True, branch="develop", upstream="origin/develop" )
+    nodes, order, _ = _develop_nodes( tmp_path, None )
+    env = _PlanEnv( { "develop": True } )
+
+    cascade._record_publisher_objections( env, nodes, order )
+    body = "\n".join( cascade.cascade_plan_lines( nodes, order, "corosio", "0.2.0" ) )
+
+    assert "(develop)" in body
+    assert "[1 error]" in body
+    assert "error: publishing from this tree has uncommitted changes" in body
+    assert "refused; commit and push" in body
+
+
+def test_the_plan_reports_an_allowed_modified_tree_as_a_note( tmp_path, monkeypatch ):
+    _stub_inspect( monkeypatch, modified=True, branch="develop", upstream="origin/develop" )
+    nodes, order, _ = _develop_nodes( tmp_path, None )
+    env = _PlanEnv( { "develop": True, "publish-modified-develop": True } )
+
+    cascade._record_publisher_objections( env, nodes, order )
+    body = "\n".join( cascade.cascade_plan_lines( nodes, order, "corosio", "0.2.0" ) )
+
+    assert "[0 errors][0 warnings][1 note]" in body
+    assert "(allowed by" in body
+    assert "--publish-modified-develop" in body
+
+
+def test_the_plan_says_when_a_develop_tree_was_configured_but_not_used():
+    key = ( "capy", "capy", "develop" )
+    nodes = {
+            key: {
+                    "name": "capy", "package": "capy", "version": "develop",
+                    "_publisher_dir": "/authored/capy",
+                    "_develop_dir": "/home/user/coding/capy",
+                    "_develop_unused": True,
+            },
+    }
+    body = "\n".join( cascade.cascade_plan_lines( nodes, [ key ], "corosio", "0.2.0" ) )
+
+    assert "[0 errors][0 warnings][1 note]" in body
+    assert "--develop was not passed" in body
+
+
+def test_tip_forward_args_drops_publish_modified_develop():
+    argv = cascade.tip_forward_args( [
+            "scons", "--dbg", "--publish-modified-develop", "--publish-package",
+    ] )
+    assert "--publish-modified-develop" not in argv
+    assert "--dbg" in argv
+
+
+def test_a_staged_publish_manifest_does_not_make_a_prefix_a_publisher_tree( tmp_path ):
+    """A publisher build stages cuppa-publish.json beside include/ and lib/."""
+    prefix = tmp_path / "capy"
+    ( prefix / "include" ).mkdir( parents=True )
+    ( prefix / "cuppa-publish.json" ).write_text( "{}", encoding="utf-8" )
+
+    assert not cascade.develop_names_a_publisher_tree( str( prefix ) )
+    assert "holds a built package" in cascade.develop_tree_refusal( str( prefix ) )
+
+
+def test_a_develop_path_is_only_a_publisher_source_under_cascade( tmp_path ):
+    tree = _publisher_tree( tmp_path / "capy" )
+
+    assert not cascade.develop_is_publisher_source( _PlanEnv( {} ), str( tree ) )
+    assert cascade.develop_is_publisher_source(
+            _PlanEnv( { "build-and-publish-dependencies": True } ), str( tree )
+    )
+    assert cascade.develop_is_publisher_source(
+            _PlanEnv( { "cascade-plan": True } ), str( tree )
+    )
+
+
+def _rooted_nodes( path ):
+    """A publisher tree cascade found by root lookup rather than a develop path."""
+    key = ( "capy", "capy", "develop" )
+    nodes = {
+            key: {
+                    "name": "capy", "package": "capy", "version": "develop",
+                    "_publisher_dir": str( path ),
+            },
+    }
+    return nodes, [ key ]
+
+
+def test_local_work_in_a_rooted_tree_warns_rather_than_stopping(
+        tmp_path, monkeypatch, caplog
+):
+    """Refusing here would stop the workflow cascade shipped with; the hazard still shows."""
+    _stub_inspect( monkeypatch, modified=True, branch="develop", upstream="origin/develop" )
+    nodes, order = _rooted_nodes( tmp_path )
+
+    with caplog.at_level( logging.WARNING ):
+        cascade.judge_publisher_trees( _PlanEnv( {} ), nodes, order )
+
+    assert "uncommitted changes" in caplog.text
+    assert "--publish-modified-develop" not in caplog.text
+
+
+def test_the_plan_grades_a_rooted_tree_as_a_warning( tmp_path, monkeypatch ):
+    _stub_inspect( monkeypatch, ahead=2, branch="develop", upstream="origin/develop" )
+    nodes, order = _rooted_nodes( tmp_path )
+
+    cascade._record_publisher_objections( _PlanEnv( {} ), nodes, order )
+    body = "\n".join( cascade.cascade_plan_lines( nodes, order, "corosio", "0.2.0" ) )
+
+    assert "[0 errors][1 warning][0 notes]" in body
+    assert "warning: publishing from this tree has 2 commits not pushed" in body
+    assert "published anyway; cascade only" in body
+
+
+def test_an_unreadable_rooted_tree_says_nothing( tmp_path, monkeypatch, caplog ):
+    """A rooted tree that is not a working copy is ordinary, not worth a line."""
+    from cuppa.develop import Copy
+
+    monkeypatch.setattr(
+            "cuppa.develop.inspect",
+            lambda name, path: Copy( name=name, path=path, exists=True ),
+    )
+    nodes, order = _rooted_nodes( tmp_path )
+
+    with caplog.at_level( logging.WARNING ):
+        cascade.judge_publisher_trees( _PlanEnv( {} ), nodes, order )
+
+    assert caplog.text == ""

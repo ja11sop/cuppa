@@ -164,11 +164,19 @@ cloning is unavailable with `--offline`. It is opt-in because cascade runs a bui
 the tree it fetches. See xref:packages.adoc#clone-publishers[Fetching publisher trees
 on demand].
 
-This is not what `--develop` does, despite the overlap in intent. `--develop` switches
-between locations each dependency already declares, and a package dependency's
+`--develop` is related but not the same. Outside a cascade, a package dependency's
 `develop=` names a built package prefix (the directory `include/` and `lib/` hang off),
-not a publisher source tree. `package_source` names the project that *produces* a
-package; `develop=` names a local copy of the *produced* package.
+and the build links against it directly. During a cascade, a `develop=` naming a
+publisher source tree (a tree with an `sconstruct`) is the tree cascade publishes from,
+ranked above `package_source` and `--publisher-root`; the build then consumes the
+package that publish produced rather than swapping the source tree in as a prefix. See
+xref:packages.adoc#cascade-develop[Publishing from a tree you are working in].
+
+`--publish-modified-develop` lifts cascade's refusal to publish from a develop tree
+holding work only this machine has: uncommitted changes, unpushed commits, or a branch
+with no upstream. Without it, such a run stops before the first upload and names every
+offending tree. A tree found under `--publisher-root` or cloned by `--clone-publishers`
+is reported the same way but only warns, and the publish goes ahead.
 
 == Built-in Boost options
 
