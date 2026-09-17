@@ -44,7 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   earlier run is therefore found again without re-passing ``--clone-publishers``.
 - ``--cascade-plan`` announces ``PACKAGE BUILD: CASCADE PLAN`` mode (no building
   attempted). A command-line develop override without ``--develop`` warns with
-  the path and ``--develop`` emphasised in warning colour.
+  the path and ``--develop`` emphasised in warning colour. The plan report hangs
+  errors, warnings, and notes under each package node (judgement-tree shape),
+  colouring severity headings and ``[bracketed]`` values only.
 - ``--clone-develop`` reports a missing but cloneable develop path as
   **pending** (a note) rather than an error that claims the build cannot
   succeed — the mode exists to create that path. An error remains when the

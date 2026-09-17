@@ -750,117 +750,174 @@ def _work_verdict( entry ):
     )
 
 
-def _publisher_plan_notes( entry, prose_width ) -> list[str]:
-    """What the plan says about a node's tree: unused develop, or unpublishable as it stands."""
-    lines = []
+def _package_identity( name, version ) -> str:
+    """Emphasised info name, info-only version — shared by plan intro and tip line."""
+    from cuppa.colourise import as_emphasised
+    return "{} [{}]".format(
+            as_emphasised( as_info( str( name ) ) ),
+            as_info( str( version ) ),
+    )
+
+
+def _plan_dependency_label( entry ) -> str:
+    """``name [version]`` with optional ``(package_source)`` when the edge carries one."""
+    label = _package_identity( entry.get( "name" ), entry.get( "version" ) )
+    source = entry.get( "package_source" )
+    if source:
+        label = "{} ({})".format( label, as_notice( str( source ) ) )
+    return label
+
+
+def _node_judgements( entry ) -> list[tuple[str, str]]:
+    """``(severity, prose)`` under one package node, error then warning then note.
+
+    Prose uses ``[brackets]`` for the values ``highlight_values`` should colour; the
+    severity heading carries the severity colour, not the whole sentence.
+    """
+    items: list[tuple[str, str]] = []
+    if entry.get( "_resolve_error" ):
+        items.append( ( "error", entry["_resolve_error"] ) )
     objections = entry.get( "_work_objections" )
     if objections:
-        severity, colour, verdict = _work_verdict( entry )
-        text = "{}: publishing from this tree has {} ({})".format(
-                severity, ", ".join( objections ), verdict
-        )
-        lines.extend( colour( line ) for line in storage.wrapped( text, prose_width ) )
+        severity, _colour, verdict = _work_verdict( entry )
+        items.append( (
+                severity,
+                "publishing from this tree has {} ({})".format(
+                        ", ".join( objections ), verdict
+                ),
+        ) )
     if entry.get( "_develop_unused" ):
-        warn = (
-                "warning: a develop tree is configured at [{}] but --develop was not "
-                "passed; was that intentional?"
-                .format( storage.display_path( entry["_develop_dir"] ) )
-        )
-        lines.extend( as_warning( line ) for line in storage.wrapped( warn, prose_width ) )
+        items.append( (
+                "warning",
+                "a develop tree is configured at [{}] but [--develop] was not passed; "
+                "was that intentional?".format(
+                        storage.display_path( entry["_develop_dir"] )
+                ),
+        ) )
+    if entry.get( "_clone_dir" ):
+        pin = entry.get( "_clone_revision" )
+        items.append( (
+                "note",
+                "would clone [{}]{} into [{}]".format(
+                        entry.get( "_clone_url" ),
+                        " at [{}]".format( pin ) if pin else "",
+                        storage.display_path( entry["_clone_dir"] ),
+                ),
+        ) )
+        items.append( (
+                "note",
+                "its own package dependencies are not known until that tree exists, "
+                "so nothing is planned beneath it",
+        ) )
     if entry.get( "_would_happen" ):
-        note = "note: " + entry["_would_happen"]
-        lines.extend( as_notice( line ) for line in storage.wrapped( note, prose_width ) )
-    return lines
+        items.append( ( "note", entry["_would_happen"] ) )
+    return items
+
+
+def _append_highlighted_prose( lines, text, colour, first_branch, carried_branch, prose_width ):
+    """Wrap prose under a tree branch; colour only ``[bracketed]`` values."""
+    wrap_width = max( prose_width - len( first_branch ), storage.NARROWEST_PROSE )
+    branch = first_branch
+    for piece in storage.wrapped( text, wrap_width ):
+        lines.append( as_subdued( branch ) + storage.highlight_values( piece, colour ) )
+        branch = carried_branch
+
+
+def _append_severity_groups( lines, judgements, under, prose_width, encoding=None ):
+    """Hang error / warning / note groups under a package node (judgement-tree shape)."""
+    colour_for = { "error": as_error, "warning": as_warning, "note": as_info }
+    heading_for = { "error": "error", "warning": "warning", "note": "note" }
+    groups = []
+    for severity in ( "error", "warning", "note" ):
+        group = [ text for sev, text in judgements if sev == severity ]
+        if group:
+            groups.append( ( severity, group ) )
+    tee, elbow, pipe, gap = storage.glyphs( encoding )
+    nested_stub = pipe.rstrip()
+    for group_index, ( severity, group ) in enumerate( groups ):
+        last_group = group_index == len( groups ) - 1
+        colour = colour_for[severity]
+        lines.append( as_subdued( under + nested_stub ) )
+        heading = "{} {}".format(
+                len( group ),
+                heading_for[severity] if len( group ) == 1 else heading_for[severity] + "s",
+        )
+        lines.append(
+                as_subdued( under + ( elbow if last_group else tee ) ) + colour( heading )
+        )
+        under_severity = under + ( gap if last_group else pipe )
+        for index, text in enumerate( group ):
+            last = index == len( group ) - 1
+            first = under_severity + ( elbow if last else tee )
+            carried = under_severity + ( gap if last else pipe )
+            _append_highlighted_prose( lines, text, colour, first, carried, prose_width )
 
 
 def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) -> list[str]:
-    """Publish order, leaf-first, with each node's resolved publisher tree.
+    """Publish order, leaf-first: package nodes first, judgements nested beneath.
 
-    Order is the point of this report, so nodes stay in publish order rather
-    than being grouped by severity the way a judgement tree groups a work list.
-    The intro still carries the shared severity brackets.
+    Packages stay in publish order (the point of this report). Errors, warnings, and
+    notes hang under each package the way a judgement tree hangs under a severity
+    heading — severity coloured on the heading and on ``[bracketed]`` values only.
     """
     tee, elbow, pipe, gap = storage.glyphs( encoding )
-    graded = {
-            key: _work_verdict( nodes[key] )[0]
-            for key in order if nodes[key].get( "_work_objections" )
-    }
-    errors = [
-            key for key in order
-            if nodes[key].get( "_resolve_error" ) or graded.get( key ) == "error"
-    ]
-    warnings = [
-            key for key in order
-            if graded.get( key ) == "warning" or nodes[key].get( "_develop_unused" )
-    ]
-    clones = [ key for key in order if nodes[key].get( "_clone_dir" ) ]
-    outcome_notes = [
-            key for key in order
-            if nodes[key].get( "_would_happen" ) or graded.get( key ) == "note"
-    ]
-    # A node can be both an unused-develop warning and a would-happen note; the
-    # brackets count nodes in each bucket, not lines.
+    judgements_by_key = { key: _node_judgements( nodes[key] ) for key in order }
+
+    error_count = sum(
+            1 for key in order
+            for severity, _ in judgements_by_key[key] if severity == "error"
+    )
+    warning_count = sum(
+            1 for key in order
+            for severity, _ in judgements_by_key[key] if severity == "warning"
+    )
+    note_count = sum(
+            1 for key in order
+            for severity, _ in judgements_by_key[key] if severity == "note"
+    )
+
+    tip = _package_identity( tip_package, tip_version )
     lines = [
             "",
-            "Cascade plan: {} then this package [{}]==[{}]: {}".format(
+            "Printing Cascade plan for building and publishing package {}".format( tip ),
+            "",
+            "Cascade plan: {} (this package) with {}: {}".format(
+                    tip,
                     storage.emphasised_count_phrase(
                             len( order ), "package dependency", "package dependencies"
                     ),
-                    as_info( str( tip_package ) ),
-                    as_info( str( tip_version ) ),
                     storage.format_severity_count_brackets(
-                            errors=len( errors ),
-                            warnings=len( set( warnings ) ),
-                            notes=len( set( clones ) | set( outcome_notes ) ),
+                            errors=error_count,
+                            warnings=warning_count,
+                            notes=note_count,
                     ),
             ),
             pipe.rstrip(),
     ]
     total = len( order )
-    # Hang detail lines under the label, whatever width the ordinals need.
-    marker_width = len( "{} of {}".format( total, total ) )
-    continuation = pipe + " " * ( marker_width + 2 )
-    prose_width = max(
-            storage.WIDEST_PROSE - len( continuation ), storage.NARROWEST_PROSE
-    )
+    marker_width = len( "{} of {}".format( total, total ) ) if total else len( "0 of 0" )
+    # Outer pipe + pad past the ordinal so nested glyphs hang under the label.
+    under = pipe + " " * ( marker_width + 2 )
+    prose_width = max( storage.WIDEST_PROSE - len( under ), storage.NARROWEST_PROSE )
+
     for ordinal, key in enumerate( order, start=1 ):
         entry = nodes[key]
         marker = "{} of {}".format( ordinal, total ).rjust( marker_width )
-        lines.append( "{}{}  {}".format( tee, marker, as_info( node_label( entry ) ) ) )
-        error = entry.get( "_resolve_error" )
-        if error:
-            wrapped = storage.wrapped( "error: " + error, prose_width )
-            lines.append( continuation + as_error( wrapped[0] ) )
-            lines.extend( continuation + as_error( line ) for line in wrapped[1:] )
-        elif entry.get( "_clone_dir" ):
-            pin = entry.get( "_clone_revision" )
-            note = "note: would clone [{}]{} into [{}]".format(
-                    entry.get( "_clone_url" ),
-                    " at [{}]".format( pin ) if pin else "",
-                    storage.display_path( entry["_clone_dir"] ),
-            )
-            for wrapped_line in storage.wrapped( note, prose_width ):
-                lines.append( continuation + as_notice( wrapped_line ) )
-            for wrapped_line in storage.wrapped(
-                    "note: its own package dependencies are not known until that "
-                    "tree exists, so nothing is planned beneath it",
-                    prose_width,
-            ):
-                lines.append( continuation + as_notice( wrapped_line ) )
-        elif entry.get( "_publisher_dir" ):
-            publisher = entry.get( "_publisher_dir" )
+        lines.append( "{}{}  {}".format(
+                tee, marker, _plan_dependency_label( entry )
+        ) )
+        if entry.get( "_publisher_dir" ):
+            publisher = entry["_publisher_dir"]
             lines.append( "{}publisher [{}]{}".format(
-                    continuation,
-                    as_notice( storage.display_path( str( publisher ) ) if publisher else "" ),
+                    under,
+                    as_notice( storage.display_path( str( publisher ) ) ),
                     " (develop)" if entry.get( "_from_develop" ) else "",
             ) )
-        # Unused-develop warnings and would-happen notes still belong beside an
-        # error or a resolved publisher.
-        for wrapped_line in _publisher_plan_notes( entry, prose_width ):
-            lines.append( continuation + wrapped_line )
-    lines.append( "{}then this package [{}]==[{}] from this tree".format(
-            elbow, as_info( str( tip_package ) ), as_info( str( tip_version ) )
-    ) )
+        judgements = judgements_by_key[key]
+        if judgements:
+            _append_severity_groups( lines, judgements, under, prose_width, encoding )
+
+    lines.append( "{}then {} from this tree".format( elbow, tip ) )
     return lines
 
 

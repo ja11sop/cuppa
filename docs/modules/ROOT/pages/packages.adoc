@@ -230,45 +230,52 @@ cuppa -D --rel --toolchains=gcc15 \
   --publisher-root=~/coding/packages
 ----
 
-The report lists each dependency in publish order with the publisher working tree
-cuppa resolved for it, and this package last:
+The report lists each dependency in publish order — package nodes first, with
+errors, warnings, and notes nested beneath them the way a judgement tree nests
+reasons under a severity heading — and this package last:
 
 [source,text]
 ----
-Cascade plan: 2 package dependencies then this package [widget]==[0.2.0]: [0 errors][0 warnings][0 notes]
+Printing Cascade plan for building and publishing package widget [0.2.0]
+
+Cascade plan: widget [0.2.0] (this package) with 2 package dependencies: [0 errors][0 warnings][0 notes]
 │
-├── 1 of 2  capy develop (capy)
+├── 1 of 2  capy [develop]
 │           publisher [/home/user/coding/packages/capy]
-├── 2 of 2  corosio 0.3.1 (corosio)
+├── 2 of 2  corosio [0.3.1]
 │           publisher [/home/user/coding/packages/corosio]
-└── then this package [widget]==[0.2.0] from this tree
+└── then widget [0.2.0] from this tree
 
 --cascade-plan: 1 package planned; nothing was built, published, uploaded, or cloned.
 ----
 
 Unlike a real run, which stops at the first dependency it cannot place, the plan
-reports **every** unresolved tree as an error row and exits non-zero. One command
+reports **every** unresolved tree as an error group and exits non-zero. One command
 therefore tells you all the trees left to plant, or which edges still need a
 ``package_source``. A develop path configured without ``--develop`` is a
 **warning** (was that intentional?) plus a **note** naming what a real run would
 do — not an error claiming no local tree when one was named. Construct announces
 ``PACKAGE BUILD: CASCADE PLAN`` mode the same way clone-develop announces itself.
 
-With ``--clone-publishers``, a tree cascade would fetch is a note rather than an
-error, naming the URL, the pin, and where it would land. The plan stops at such a
+With ``--clone-publishers``, a tree cascade would fetch is a note group rather than
+an error, naming the URL, the pin, and where it would land. The plan stops at such a
 node, because a dependency's own edges live in the ``cuppa-publish.json`` inside a
 tree that does not exist yet:
 
 [source,text]
 ----
-Cascade plan: 1 package dependency then this package [widget]==[0.2.0]: [0 errors][0 warnings][1 note]
+Printing Cascade plan for building and publishing package widget [0.2.0]
+
+Cascade plan: widget [0.2.0] (this package) with 1 package dependency: [0 errors][0 warnings][2 notes]
 │
-├── 1 of 1  capy develop (capy)
-│           note: would clone [git@gitlab.example:packages/capy] at [develop]
-│           into [~/.cuppa/publishers/capy]
-│           note: its own package dependencies are not known until that tree
-│           exists, so nothing is planned beneath it
-└── then this package [widget]==[0.2.0] from this tree
+├── 1 of 1  capy [develop] (git@gitlab.example:packages/capy)
+│           │
+│           └── 2 notes
+│               ├── would clone [git@gitlab.example:packages/capy] at [develop] into
+│               │   [~/.cuppa/publishers/capy]
+│               └── its own package dependencies are not known until that tree exists,
+│                   so nothing is planned beneath it
+└── then widget [0.2.0] from this tree
 
 --cascade-plan: 1 package planned, 1 publisher tree to clone first; nothing was built, published, uploaded, or cloned.
 ----

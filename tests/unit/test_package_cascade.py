@@ -334,12 +334,14 @@ def test_cascade_plan_lines_number_the_order_and_name_publisher_trees():
     lines = cascade.cascade_plan_lines( nodes, order, "corosio", "0.2.0" )
     body = "\n".join( lines )
 
-    assert "Cascade plan: 2 package dependencies then this package [corosio]==[0.2.0]" in body
+    assert "Printing Cascade plan for building and publishing package corosio [0.2.0]" in body
+    assert "Cascade plan: corosio [0.2.0] (this package) with" in body
+    assert "2 package dependencies" in body
     assert "[0 errors][0 warnings][0 notes]" in body
-    assert "1 of 2  capy develop (capy)" in body
+    assert "1 of 2  capy [develop]" in body
     assert "publisher [/home/user/coding/packages/capy]" in body
-    assert "2 of 2  widget 1.2 (widget)" in body
-    assert body.rstrip().endswith( "then this package [corosio]==[0.2.0] from this tree" )
+    assert "2 of 2  widget [1.2]" in body
+    assert body.rstrip().endswith( "then corosio [0.2.0] from this tree" )
 
 
 def test_cascade_plan_lines_count_unresolved_trees_as_errors():
@@ -356,7 +358,9 @@ def test_cascade_plan_lines_count_unresolved_trees_as_errors():
     body = "\n".join( lines )
 
     assert "[1 error][0 warnings][0 notes]" in body
-    assert "error: no package_source and --publisher-root is not set" in body
+    assert "1 error" in body
+    assert "no package_source and --publisher-root is not set" in body
+    assert "error:" not in body or "1 error" in body
 
 
 def test_finish_plan_only_reports_no_publisher_as_a_failure():
@@ -880,8 +884,10 @@ def test_cascade_plan_lines_report_a_planned_clone_as_a_note():
     body = "\n".join( lines )
 
     # A tree cascade can fetch is not a failure, unlike one it cannot find.
-    assert "[0 errors][0 warnings][1 note]" in body
-    assert "note: would clone [git@host:capy] at [develop] into" in body
+    # Two note lines hang under one "2 notes" group (clone + "not known until").
+    assert "[0 errors][0 warnings][2 notes]" in body
+    assert "2 notes" in body
+    assert "would clone [git@host:capy] at [develop] into" in body
     assert "/store/publishers/capy" in body
     assert "not known until that tree exists" in body
 
@@ -1169,7 +1175,8 @@ def test_the_plan_reports_what_a_real_run_would_refuse( tmp_path, monkeypatch ):
 
     assert "(develop)" in body
     assert "[1 error]" in body
-    assert "error: publishing from this tree has uncommitted changes" in body
+    assert "1 error" in body
+    assert "publishing from this tree has uncommitted changes" in body
     assert "refused; commit and push" in body
 
 
@@ -1199,9 +1206,10 @@ def test_the_plan_says_when_a_develop_tree_was_configured_but_not_used():
     body = "\n".join( cascade.cascade_plan_lines( nodes, [ key ], "corosio", "0.2.0" ) )
 
     assert "[0 errors][1 warning][0 notes]" in body
-    assert "warning: a develop tree is configured" in body
+    assert "1 warning" in body
+    assert "a develop tree is configured" in body
     assert "was that intentional" in body
-    assert "publisher [/home/user/coding/capy]" not in body or "publisher [/authored/capy]" in body
+    assert "publisher [/authored/capy]" in body
 
 
 def test_unused_develop_with_no_other_tree_is_a_warning_and_note_not_a_false_error():
@@ -1224,8 +1232,10 @@ def test_unused_develop_with_no_other_tree_is_a_warning_and_note_not_a_false_err
     body = "\n".join( cascade.cascade_plan_lines( nodes, [ key ], "corosio", "0.2.0" ) )
 
     assert "[0 errors][1 warning][1 note]" in body
-    assert "warning: a develop tree is configured" in body
-    assert "note: without --develop" in body
+    assert "1 warning" in body
+    assert "1 note" in body
+    assert "a develop tree is configured" in body
+    assert "without --develop" in body
     assert "error:" not in body
     assert "no local working tree" not in body
 
@@ -1348,8 +1358,10 @@ def test_the_plan_grades_a_rooted_tree_as_a_warning( tmp_path, monkeypatch ):
     body = "\n".join( cascade.cascade_plan_lines( nodes, order, "corosio", "0.2.0" ) )
 
     assert "[0 errors][1 warning][0 notes]" in body
-    assert "warning: publishing from this tree has 2 commits not pushed" in body
-    assert "published anyway; cascade only" in body
+    assert "1 warning" in body
+    assert "publishing from this tree has 2 commits not pushed" in body
+    assert "published anyway" in body
+    assert "only refuses a develop tree" in body
 
 
 def test_an_unreadable_rooted_tree_says_nothing( tmp_path, monkeypatch, caplog ):
