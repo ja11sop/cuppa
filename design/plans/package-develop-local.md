@@ -1,7 +1,7 @@
 # Plan: Develop a package dependency from its own source tree
 
 - **Status:** in progress
-- **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`; [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade resolution, `package_source`, `--clone-publishers`); [`package-download-refresh.md`](package-download-refresh.md) (same-version currency); [`develop.py`](../../cuppa/develop.py) (`configured_develop`, `survey`, `clone_develop`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`GitlabPackageDependency`, `_using_develop`); [`build_with_location.py`](../../cuppa/build_with_location.py) (`develop_location`)
+- **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`; [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade resolution, `package_source`, `--clone-publishers`); [`issues/package-build-provenance.md`](../issues/package-build-provenance.md) (what a published package records about its own origin); [`package-download-refresh.md`](package-download-refresh.md) (same-version currency); [`develop.py`](../../cuppa/develop.py) (`configured_develop`, `survey`, `clone_develop`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`GitlabPackageDependency`, `_using_develop`); [`build_with_location.py`](../../cuppa/build_with_location.py) (`develop_location`)
 - **Updated:** 2026-09-16
 - **Impact:** `minor` for the resolution and clone slices; the consume change is `major` if it repurposes today's `develop=`, which §6 exists to avoid
 
@@ -81,11 +81,11 @@ carry a `develop=`, and deep stacks are made of exactly those.
 |-------|---------|--------|
 | A | Anchor package develop paths to the sconstruct directory; cover `--list-develop` reporting a package develop copy | `patch` — **shipped** |
 | B | Cascade honours a develop tree as a publisher tree, ranked first; refusals and plan-report visibility from the table above | `minor` — **shipped** |
-| C | `--clone-develop` clones package dependencies from `package_source` | `minor` |
+| C | `--clone-develop` clones package dependencies from `package_source` | `minor` — **shipped** |
 | D | Consume from a locally built package: locate the stage a publisher build produces (`final/<package>/<version>/`), a build-without-publish mode, and the refusals that stop a stale or absent stage being linked silently | `minor` |
 | E | Migration for today's prefix-shaped `develop=`, once D defines the replacement | decide with D |
 
-Slices A and B have shipped. Slice C is next: `--clone-develop` for package dependencies.
+Slices A, B and C have shipped. Slice D is next: consuming a locally built package.
 
 ### What slice B settled that this plan had not
 
@@ -109,6 +109,24 @@ Slice D is the one that makes `--develop` coherent end to end, and the one with 
 which stage a publisher build leaves behind for each publisher shape, what happens when the stage
 is older than the source, and whether the nested build should run automatically or be demanded of
 the operator. Those are open questions below, not settled decisions.
+
+### What slice C settled
+
+The plan said the URL comes from `package_source`, "consumer-declared, else the traveling
+manifest", which turned out to name two things that did not exist in the shape assumed.
+
+| Question | Decision |
+|----------|----------|
+| Where a consumer declares it | `package_source` is now a **declarable setting** on `package_dependency(...)`, with the usual `--<name>-<manager>-package-source=` override. Before this it lived only on a publisher's `dependencies=` edges, so a consumer that does not publish had nowhere to say it. |
+| Which manifest travels | The `cuppa-publish.json` staged **beside the consumer's own sconstruct**, whose edges carry `package_source`. A *downloaded* package's manifest cannot answer this: it records that package's own dependencies' sources, never its own, so the only tree that knows where a package comes from is a tree that depends on it. Whether a published package should record its own origin is a separate question — [`issues/package-build-provenance.md`](../issues/package-build-provenance.md) — and this slice does not need it. |
+| Precedence | Declaration first, staged manifest second. The declaration is what an operator can see and change. |
+| Pins | A branch is honoured, a tag or revision refused, matching location dependencies — where cascade deliberately allows tags, because publishing version X from tag `vX` is the normal case and a develop copy is a branch you work on. |
+| Filesystem `package_source` | Left alone. It names a tree the operator already has, so there is nothing to fetch. |
+| Cascade reading the declaration | Free and worth taking: `resolve_publisher_dir` falls back to a `package_source` declared on the dependency when the publisher edge does not carry one, so a consumer does not declare the same URL twice. |
+
+What a clone lands is the publisher's **source tree**, which consume still reads as a built
+prefix outside a cascade. That is the B-to-D gap, not a slice C defect, and the develop
+documentation says so rather than implying the cloned tree can be linked against.
 
 ## Open questions
 

@@ -58,3 +58,30 @@ A relative path is anchored to the directory holding your `sconstruct`, not to t
 ran cuppa from, so it means the same thing from anywhere in the project and matches the path
 xref:dependencies/managing.adoc[`--list-develop`] reports. `~` is expanded, and an absolute path
 is used as given.
+
+== Saying where a package comes from
+
+`package_source` names the repository a package is published from. A package dependency names a
+registry rather than a repository, so without it cuppa knows where to fetch the built artefact
+but not where the sources live:
+
+[source,python]
+----
+widget = cuppa.package_dependency(
+        'widget',
+        registry       = REGISTRY,
+        version        = '1.2',
+        develop        = '../../widget',
+        package_source = 'git@gitlab.example:packages/widget@develop',
+)
+----
+
+It is metadata: nothing about consuming the package reads it. Two workflows do.
+xref:dependencies/managing/develop.adoc#package-dependencies[`--clone-develop`] uses it to create
+the develop working copy above, and xref:packages.adoc#build-and-publish-dependencies[cascade]
+uses it to find the project that publishes the package. An optional `@branch` pin may be given,
+and `--<name>-<manager>-package-source=` overrides the declaration for one run.
+
+A project that publishes already declares the same field on its `PublishPackage` dependency
+edges, and a publisher build stages those in `cuppa-publish.json`, so declaring it here is for
+consumers that do not publish.

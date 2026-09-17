@@ -5,6 +5,7 @@
 
 """The rules behind --list-develop and --update-develop, which are pure functions of state."""
 
+import json
 import logging
 import os
 import shutil
@@ -927,3 +928,174 @@ def test_classify_accepts_develop_base_branch():
     on_base = copy( branch='integration', upstream='origin/integration' )
     assert classify( on_base, BUILT, DEFAULT, base_branch='integration' ).severity == OK
     assert classify( on_base, BUILT, DEFAULT ).severity == WARNING
+
+
+# Cloning a package dependency from its package_source
+
+
+def package_dependency_with_develop( name, develop, package_source=None, package=None ):
+    """A dependency shaped the way cuppa registers a package one: no ``location_id``."""
+    return type( name, (object,), {
+            '_name': name,
+            '_package_manager': 'gitlab',
+            '_package': package or name,
+            '_develop': develop,
+            '_package_source': package_source,
+    } )
+
+
+def _clone_source( tmp_path, package_source=None, manifest=None, **overrides ):
+    from cuppa.develop import clone_source_for_dependency
+
+    project = tmp_path / "project"
+    project.mkdir( exist_ok=True )
+    if manifest is not None:
+        ( project / "cuppa-publish.json" ).write_text(
+                json.dumps( manifest ), encoding="utf-8"
+        )
+    dependency = package_dependency_with_develop(
+            'capy', str( tmp_path / "capy" ), package_source=package_source
+    )
+    env = fake_env( { 'capy': dependency }, sconstruct_dir=str( project ), **overrides )
+    return clone_source_for_dependency( 'capy', dependency, env )
+
+
+def test_a_package_dependency_is_clonable_from_its_declared_source( tmp_path ):
+    """The missing URL that left every package dependency alone now has a source."""
+    source = _clone_source( tmp_path, package_source="git@gitlab.example:packages/capy" )
+
+    assert source.url == "git@gitlab.example:packages/capy"
+    assert source.vc_type == 'git'
+    assert source.versioning is None
+    assert clone_action(
+            source.copy, url=source.url, vc_type=source.vc_type,
+            versioning=source.versioning, pinned=source.pinned,
+    ).act
+
+
+def test_a_branch_pin_on_a_package_source_is_the_branch_to_clone( tmp_path ):
+    source = _clone_source(
+            tmp_path, package_source="git@gitlab.example:packages/capy@feature/orders"
+    )
+
+    assert source.url == "git@gitlab.example:packages/capy"
+    assert source.versioning == "feature/orders"
+    assert not source.pinned
+
+
+def test_a_revision_pin_on_a_package_source_refuses_a_detached_copy( tmp_path ):
+    """A develop copy is a branch you work on, which is why cascade allows what this refuses."""
+    source = _clone_source(
+            tmp_path,
+            package_source="git@gitlab.example:packages/capy@0123456789abcdef0123456789abcdef01234567",
+    )
+    action = clone_action(
+            source.copy, url=source.url, vc_type=source.vc_type,
+            versioning=source.versioning, pinned=source.pinned,
+    )
+
+    assert not action.act
+    assert "pins a tag or revision" in action.reason
+
+
+def test_a_filesystem_package_source_leaves_the_develop_path_alone( tmp_path ):
+    """That source names a tree the operator already has; there is nothing to fetch."""
+    source = _clone_source( tmp_path, package_source=str( tmp_path / "packages" / "capy" ) )
+
+    assert source.url is None
+    assert clone_action( source.copy, url=source.url ).reason == "no cloneable location"
+
+
+def test_a_staged_publish_manifest_supplies_the_source_when_nothing_is_declared( tmp_path ):
+    """A project that publishes gets this for free: the same edges, already staged."""
+    source = _clone_source( tmp_path, manifest={
+            "cuppa_publish_format": 1,
+            "package": "corosio",
+            "version": "0.2.0",
+            "dependencies": [
+                    {
+                            "name": "capy", "package": "capy", "version": "develop",
+                            "package_source": "git@gitlab.example:packages/capy@develop",
+                    },
+            ],
+    } )
+
+    assert source.url == "git@gitlab.example:packages/capy"
+    assert source.versioning == "develop"
+
+
+def test_a_declared_source_wins_over_the_staged_manifest( tmp_path ):
+    source = _clone_source(
+            tmp_path,
+            package_source="git@gitlab.example:forks/capy",
+            manifest={
+                    "cuppa_publish_format": 1,
+                    "package": "corosio",
+                    "version": "0.2.0",
+                    "dependencies": [
+                            {
+                                    "name": "capy", "package": "capy",
+                                    "package_source": "git@gitlab.example:packages/capy",
+                            },
+                    ],
+            },
+    )
+
+    assert source.url == "git@gitlab.example:forks/capy"
+
+
+def test_a_package_dependency_with_no_source_anywhere_is_left_alone( tmp_path ):
+    source = _clone_source( tmp_path )
+
+    assert source.url is None
+    assert clone_action( source.copy, url=source.url ).reason == "no cloneable location"
+
+
+def test_a_manifest_for_another_package_is_not_borrowed( tmp_path ):
+    source = _clone_source( tmp_path, manifest={
+            "cuppa_publish_format": 1,
+            "package": "corosio",
+            "version": "0.2.0",
+            "dependencies": [
+                    {
+                            "name": "re2", "package": "re2",
+                            "package_source": "git@gitlab.example:packages/re2",
+                    },
+            ],
+    } )
+
+    assert source.url is None
+
+
+@git_available
+def test_clone_develop_creates_a_package_develop_copy_from_its_source( tmp_path ):
+    """End to end against a real repository: the tree cascade would publish from."""
+    from cuppa.develop import clone_develop
+
+    origin = tmp_path / "origin"
+    origin.mkdir()
+    git( origin, "init", "--initial-branch=develop", "." )
+    commit( origin, "sconstruct" )
+
+    project = tmp_path / "project"
+    project.mkdir()
+    destination = tmp_path / "packages" / "capy"
+    dependency = package_dependency_with_develop(
+            'capy',
+            str( destination ),
+            package_source="file://{}@develop".format( origin ),
+    )
+    env = fake_env(
+            { 'capy': dependency },
+            sconstruct_dir=str( project ),
+            current_branch='develop',
+            location_default_branch='develop',
+    )
+
+    lines = []
+    assert clone_develop( env, out=lambda line="": lines.append( line ) ) == 0
+    body = "\n".join( lines )
+
+    assert ( destination / "sconstruct" ).is_file()
+    assert inspect( 'capy', str( destination ) ).branch == 'develop'
+    assert "Cloned [capy]" in body
