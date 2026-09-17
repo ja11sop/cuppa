@@ -164,6 +164,18 @@ def publisher_clone_root( env ) -> str:
     return os.path.join( os.path.expanduser( str( storage_root ) ), PUBLISHERS_DIRNAME )
 
 
+def publisher_lookup_root( env ) -> str:
+    """Forest searched for an existing publisher tree.
+
+    Same path as :func:`publisher_clone_root`: an explicit ``--publisher-root`` when
+    set, otherwise ``<storage-root>/publishers``. Looking where clones land means a
+    tree created by ``--clone-publishers`` is found again without re-passing that
+    flag, matching how ``downloads_root`` / ``dependencies_root`` fall back to
+    ``storage_root``.
+    """
+    return publisher_clone_root( env )
+
+
 def publisher_clone_destination( env, entry: dict ) -> str:
     """``{root}/{name}`` — the first shape :func:`_resolve_under_publisher_root`
     looks in, so a clone is found again by the same rules that failed to find it.
@@ -173,7 +185,7 @@ def publisher_clone_destination( env, entry: dict ) -> str:
     the key. Two dependencies claiming one destination from different URLs is
     refused rather than resolved by inventing a registry-qualified path here.
     """
-    return os.path.join( publisher_clone_root( env ), str( entry["name"] ) )
+    return os.path.join( publisher_lookup_root( env ), str( entry["name"] ) )
 
 
 def declared_package_source( env, entry: dict ) -> str | None:
@@ -417,31 +429,69 @@ def resolve_publisher_dir( env, entry: dict, allow_clone=True, claims=None ) -> 
                 )
             entry["_from_develop"] = True
             return develop_dir
+        # A configured path that is not a publisher tree is still an error without
+        # --develop: the operator named a place that cannot publish.
+        refusal = develop_tree_refusal( develop_dir )
+        if refusal:
+            raise SCons.Errors.StopError(
+                    "a develop path for [{}] is configured at [{}], but {}. "
+                    "Point it at the publisher project, or drop the develop path."
+                    .format( name, develop_dir, refusal )
+            )
         # Cascade will resolve it some other way; the plan says so rather than
         # leaving an operator to wonder why their tree was ignored.
         entry["_develop_unused"] = True
+
+    lookup_root = publisher_lookup_root( env )
 
     if package_source:
         source = os.path.expanduser( str( package_source ) )
         if looks_like_url( source ):
             # An existing local tree always wins: it is what the operator planted,
-            # and reusing it keeps a cascade run off the network.
-            root = publisher_root_option( env )
-            resolved = _resolve_under_publisher_root( root, name, package ) if root else None
+            # and reusing it keeps a cascade run off the network. Search the default
+            # storage publishers forest (or --publisher-root) the way downloads fall
+            # back to storage_root.
+            resolved = _resolve_under_publisher_root( lookup_root, name, package )
             if resolved:
                 return resolved
             url, revision = split_source_pin( source )
             if not clone_enabled( env ):
+                if entry.get( "_develop_unused" ):
+                    # The operator has a usable develop tree; forgetting --develop is
+                    # a warning, not "no local working tree". Real runs still stop —
+                    # develop is not implied — with a message that names the tree.
+                    entry["_would_happen"] = (
+                            "without --develop, cascade would look under [{}] (nothing "
+                            "found) and then need --{} or a filesystem package_source; "
+                            "pass --develop to publish from [{}]"
+                            .format(
+                                    storage.display_path( lookup_root ),
+                                    CLONE_OPTION,
+                                    storage.display_path( entry["_develop_dir"] ),
+                            )
+                    )
+                    raise SCons.Errors.StopError(
+                            "cascade will not use the develop tree for [{}] at [{}] "
+                            "because --develop was not passed, and no publisher tree "
+                            "was found under [{}]. Pass --develop, pass --{}, set "
+                            "--{}, or give the dependency a filesystem package_source."
+                            .format(
+                                    name,
+                                    storage.display_path( entry["_develop_dir"] ),
+                                    storage.display_path( lookup_root ),
+                                    CLONE_OPTION,
+                                    PUBLISHER_ROOT_OPTION,
+                            )
+                    )
                 raise SCons.Errors.StopError(
                         "package_source for [{}] is a URL [{}] and no local "
-                        "working tree was found{}. Pass --{} to clone it, set "
-                        "--{} to a forest that already holds it, or give the "
+                        "working tree was found under [{}]. Pass --{} to clone it, "
+                        "set --{} to a forest that already holds it, or give the "
                         "dependency a filesystem package_source."
                         .format(
                                 name,
                                 source,
-                                " under --{}=[{}]".format( PUBLISHER_ROOT_OPTION, root )
-                                        if root else "",
+                                storage.display_path( lookup_root ),
                                 CLONE_OPTION,
                                 PUBLISHER_ROOT_OPTION,
                         )
@@ -464,20 +514,43 @@ def resolve_publisher_dir( env, entry: dict, allow_clone=True, claims=None ) -> 
                 .format( name, source )
         )
 
-    root = publisher_root_option( env )
-    if not root:
-        raise SCons.Errors.StopError(
-                "dependency [{}] has no package_source and --{} is not set; "
-                "cannot resolve a publisher working tree"
-                .format( name, PUBLISHER_ROOT_OPTION )
-        )
-    resolved = _resolve_under_publisher_root( root, name, package )
+    resolved = _resolve_under_publisher_root( lookup_root, name, package )
     if resolved:
         return resolved
+    if entry.get( "_develop_unused" ):
+        entry["_would_happen"] = (
+                "without --develop, cascade would look under [{}] (nothing found); "
+                "pass --develop to publish from [{}], or set --{} / a filesystem "
+                "package_source"
+                .format(
+                        storage.display_path( lookup_root ),
+                        storage.display_path( entry["_develop_dir"] ),
+                        PUBLISHER_ROOT_OPTION,
+                )
+        )
+        raise SCons.Errors.StopError(
+                "cascade will not use the develop tree for [{}] at [{}] because "
+                "--develop was not passed, and no publisher tree was found under "
+                "[{}]. Pass --develop, set --{}, or give the dependency a "
+                "filesystem package_source."
+                .format(
+                        name,
+                        storage.display_path( entry["_develop_dir"] ),
+                        storage.display_path( lookup_root ),
+                        PUBLISHER_ROOT_OPTION,
+                )
+        )
+    if not publisher_root_option( env ):
+        raise SCons.Errors.StopError(
+                "dependency [{}] has no package_source and no publisher tree was "
+                "found under [{}]; set --{} or give the dependency a "
+                "package_source"
+                .format( name, storage.display_path( lookup_root ), PUBLISHER_ROOT_OPTION )
+        )
     raise SCons.Errors.StopError(
             "could not resolve publisher for [{}] under --{}=[{}] "
             "(tried {{root}}/{{name}}, {{root}}/{{package}}, and one-level nesting)"
-            .format( name, PUBLISHER_ROOT_OPTION, root )
+            .format( name, PUBLISHER_ROOT_OPTION, lookup_root )
     )
 
 
@@ -597,6 +670,14 @@ def build_cascade_graph( env, publisher, tolerant=False, allow_clone=True ):
             if not tolerant:
                 raise
             nodes[key]["_publisher_dir"] = None
+            # A usable develop tree was configured but --develop was not passed:
+            # that is a warning plus a note about what a real run would do, not
+            # "no local working tree".
+            if (
+                    nodes[key].get( "_develop_unused" )
+                    and nodes[key].get( "_would_happen" )
+            ):
+                continue
             nodes[key]["_resolve_error"] = str( error )
             continue
         nodes[key]["_publisher_dir"] = publisher_dir
@@ -680,12 +761,14 @@ def _publisher_plan_notes( entry, prose_width ) -> list[str]:
         )
         lines.extend( colour( line ) for line in storage.wrapped( text, prose_width ) )
     if entry.get( "_develop_unused" ):
-        note = (
-                "note: a develop tree is configured at [{}] but --develop was not passed, "
-                "so it was not used".format(
-                        storage.display_path( entry["_develop_dir"] )
-                )
+        warn = (
+                "warning: a develop tree is configured at [{}] but --develop was not "
+                "passed; was that intentional?"
+                .format( storage.display_path( entry["_develop_dir"] ) )
         )
+        lines.extend( as_warning( line ) for line in storage.wrapped( warn, prose_width ) )
+    if entry.get( "_would_happen" ):
+        note = "note: " + entry["_would_happen"]
         lines.extend( as_notice( line ) for line in storage.wrapped( note, prose_width ) )
     return lines
 
@@ -706,12 +789,17 @@ def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) 
             key for key in order
             if nodes[key].get( "_resolve_error" ) or graded.get( key ) == "error"
     ]
-    warnings = [ key for key in order if graded.get( key ) == "warning" ]
-    clones = [ key for key in order if nodes[key].get( "_clone_dir" ) ]
-    develop_notes = [
+    warnings = [
             key for key in order
-            if nodes[key].get( "_develop_unused" ) or graded.get( key ) == "note"
+            if graded.get( key ) == "warning" or nodes[key].get( "_develop_unused" )
     ]
+    clones = [ key for key in order if nodes[key].get( "_clone_dir" ) ]
+    outcome_notes = [
+            key for key in order
+            if nodes[key].get( "_would_happen" ) or graded.get( key ) == "note"
+    ]
+    # A node can be both an unused-develop warning and a would-happen note; the
+    # brackets count nodes in each bucket, not lines.
     lines = [
             "",
             "Cascade plan: {} then this package [{}]==[{}]: {}".format(
@@ -722,8 +810,8 @@ def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) 
                     as_info( str( tip_version ) ),
                     storage.format_severity_count_brackets(
                             errors=len( errors ),
-                            warnings=len( warnings ),
-                            notes=len( clones ) + len( develop_notes ),
+                            warnings=len( set( warnings ) ),
+                            notes=len( set( clones ) | set( outcome_notes ) ),
                     ),
             ),
             pipe.rstrip(),
@@ -759,15 +847,15 @@ def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) 
                     prose_width,
             ):
                 lines.append( continuation + as_notice( wrapped_line ) )
-        else:
+        elif entry.get( "_publisher_dir" ):
             publisher = entry.get( "_publisher_dir" )
             lines.append( "{}publisher [{}]{}".format(
                     continuation,
                     as_notice( storage.display_path( str( publisher ) ) if publisher else "" ),
                     " (develop)" if entry.get( "_from_develop" ) else "",
             ) )
-        # Unused-develop and local-work notes still belong beside a resolve error:
-        # the header may already have counted them, and silence was the soak surprise.
+        # Unused-develop warnings and would-happen notes still belong beside an
+        # error or a resolved publisher.
         for wrapped_line in _publisher_plan_notes( entry, prose_width ):
             lines.append( continuation + wrapped_line )
     lines.append( "{}then this package [{}]==[{}] from this tree".format(

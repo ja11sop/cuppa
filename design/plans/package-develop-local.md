@@ -77,6 +77,8 @@ carry a `develop=`, and deep stacks are made of exactly those.
 | Missing path under `--clone-develop` | **pending** / note when a cloneable source is known — the mode exists to create that path. **error** only when the clone cannot succeed (no source, wrong repo already there, blocked destination). |
 | Nested cascade argv | Forward the tip's global build flags; **drop** tip dependency-scoped options (`--<name>-…-develop`, `--<name>-…-package-source`, location overrides). Those are registered by the tip's sconstruct and are wrong for the child (unknown flag, and relative paths anchored to the wrong tree). Settings meant for every project travel through `~/.cuppaconfig`, which the child loads itself. |
 | Console noun for the invoking package | **this package** (not "tip") in plan lines, session resume, and finish copy. Keep `tip` only as an internal/code noun where a short label helps. |
+| Default publisher lookup | `<storage-root>/publishers` is searched for existing trees (same path clones write to); `--publisher-root` overrides. Matches downloads/dependencies falling back to `storage_root`. |
+| Unused develop on the plan | **Warning** (intentionality) + **note** (what a real run would do), not an error that claims no local tree when one was configured. |
 
 ## Slices
 
@@ -97,10 +99,11 @@ soak UX patch before slice D. Slice D is next: consuming a locally built package
 | Finding | Decision |
 |---------|----------|
 | Nested publish inherited `--capy-gitlab-develop=../capy` and died (`no such option`) | Drop tip dependency options from nested argv; keep `--develop` and toolchain/variant flags. |
-| Plan said `[1 note]` for unused develop but printed only the resolve error | Always render `_publisher_plan_notes` (including unused develop) even when the node also has a resolve error. |
+| Plan said `[1 note]` for unused develop but printed only the resolve error; then graded a present develop tree as "no local working tree" | Unused develop is a **warning** ("was that intentional?") plus a **note** of what a real run would do; not a false missing-tree error. |
 | `--…-package-source=…@develop` cloned `master` | Read the CLI override in `package_source_for_dependency` the way `configured_develop` reads develop overrides — declaration/manifest alone missed the pin. |
 | `--clone-develop -n` graded a missing path as *error … cannot succeed* | pending/note when clonable; error only when the clone itself cannot succeed. |
 | Plan paths showed `…/corosio/../capy` | Display through `display_path` (normpath + `~`) at report time; keep lexical paths for resolution. |
+| No default publisher lookup under `storage_root` | **Forgiving pattern:** `<storage-root>/publishers` is the default lookup forest (same place clones land); `--publisher-root` overrides. |
 
 ### What slice B settled that this plan had not
 

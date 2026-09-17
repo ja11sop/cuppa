@@ -54,7 +54,8 @@ Cuppa then:
   resolved tree’s ``cuppa-publish.json``
 * Resolves each node to a publisher working tree: the dependency's
   xref:#cascade-develop[``develop`` tree] when you pass ``--develop``, else
-  ``package_source`` (filesystem path) or ``--publisher-root``
+  ``package_source`` (filesystem path), else an existing tree under
+  ``--publisher-root`` or the default ``<storage-root>/publishers`` forest
   (``{root}/{name}``, ``{root}/{package}``, or one nesting level), cloning from
   a ``package_source`` URL when you pass ``--clone-publishers``
 * Runs a nested ``cuppa -D … --publish-package`` for each dependency in
@@ -71,8 +72,8 @@ beside the tip ``sconstruct`` for local cascade discovery. Consume still uses
 
 Requires ``--publish-package``. Missing ``package_source`` / unresolved trees
 fail before nested uploads. A ``package_source`` URL needs either a tree that
-already exists — point ``--publisher-root`` at the forest holding it, or give the
-edge a filesystem ``package_source`` — or ``--clone-publishers``, described next.
+already exists under ``<storage-root>/publishers`` (or ``--publisher-root``), a
+filesystem ``package_source``, or ``--clone-publishers``, described next.
 
 [#cascade-develop]
 ==== Publishing from a tree you are working in
@@ -180,15 +181,19 @@ repositories your machine clones and builds. Run xref:#cascade-plan[
 ``--cascade-plan``] first to see every URL and destination before anything is
 fetched.
 
-Where a clone lands follows what you asked for:
+Where a clone lands follows what you asked for. The same path is searched for an
+**existing** tree even without ``--clone-publishers``, so a forest populated on
+an earlier run is found again the way ``downloads_root`` falls back to
+``storage_root``:
 
 [cols="1,2"]
 |===
-| Flags | Destination
+| Flags | Destination / lookup forest
 
 | No publisher root
 | ``<storage-root>/publishers/<name>`` — cuppa owns that tree, so a bare cascade
-  never writes into your working area
+  never writes into your working area; a later run finds it without re-passing
+  ``--clone-publishers``
 
 | ``--publisher-root=PATH``
 | ``PATH/<name>`` — the first place the resolver already looks, so the clone is
@@ -244,7 +249,10 @@ Cascade plan: 2 package dependencies then this package [widget]==[0.2.0]: [0 err
 Unlike a real run, which stops at the first dependency it cannot place, the plan
 reports **every** unresolved tree as an error row and exits non-zero. One command
 therefore tells you all the trees left to plant, or which edges still need a
-``package_source``.
+``package_source``. A develop path configured without ``--develop`` is a
+**warning** (was that intentional?) plus a **note** naming what a real run would
+do — not an error claiming no local tree when one was named. Construct announces
+``PACKAGE BUILD: CASCADE PLAN`` mode the same way clone-develop announces itself.
 
 With ``--clone-publishers``, a tree cascade would fetch is a note rather than an
 error, naming the URL, the pin, and where it would land. The plan stops at such a

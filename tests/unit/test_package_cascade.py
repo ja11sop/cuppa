@@ -277,21 +277,46 @@ def test_cascade_plan_does_not_require_publish_package( tmp_path, monkeypatch ):
     ]
 
 
-def test_build_cascade_graph_tolerant_records_unresolved_tree():
+def test_build_cascade_graph_tolerant_records_unresolved_tree( tmp_path ):
     class _Publisher:
         _dependencies = [
                 { "name": "widget", "package": "widget", "version": "1.2" }
         ]
 
-    env = _PlanEnv()
-    with pytest.raises( SCons.Errors.StopError, match="publisher-root" ):
+    env = _PlanEnv( {}, { "storage_root": str( tmp_path / "store" ) } )
+    with pytest.raises( SCons.Errors.StopError, match="no publisher tree was found" ):
         cascade.build_cascade_graph( env, _Publisher() )
 
     nodes, edges = cascade.build_cascade_graph( env, _Publisher(), tolerant=True )
     node = nodes[ ( "widget", "widget", "1.2" ) ]
     assert node["_publisher_dir"] is None
-    assert "publisher-root" in node["_resolve_error"]
+    assert "no publisher tree was found" in node["_resolve_error"]
     assert not edges
+
+
+def test_an_existing_tree_under_storage_publishers_is_found_without_publisher_root(
+        tmp_path, monkeypatch
+):
+    """``<storage-root>/publishers`` is the default lookup forest, like downloads."""
+    planted = tmp_path / "store" / "publishers" / "capy"
+    planted.mkdir( parents=True )
+    ( planted / "sconstruct" ).write_text( "import cuppa\n", encoding="utf-8" )
+
+    def _must_not_clone( *args, **kwargs ):
+        raise AssertionError( "an existing storage publisher must not be re-cloned" )
+
+    monkeypatch.setattr( cascade, "clone_publisher", _must_not_clone )
+    env = _PlanEnv( {}, { "storage_root": str( tmp_path / "store" ) } )
+    path = cascade.resolve_publisher_dir(
+            env,
+            {
+                    "name": "capy",
+                    "package": "capy",
+                    "version": "develop",
+                    "package_source": "git@git.example:packages/capy",
+            },
+    )
+    assert path == str( planted )
 
 
 def test_cascade_plan_lines_number_the_order_and_name_publisher_trees():
@@ -1173,12 +1198,14 @@ def test_the_plan_says_when_a_develop_tree_was_configured_but_not_used():
     }
     body = "\n".join( cascade.cascade_plan_lines( nodes, [ key ], "corosio", "0.2.0" ) )
 
-    assert "[0 errors][0 warnings][1 note]" in body
-    assert "--develop was not passed" in body
+    assert "[0 errors][1 warning][0 notes]" in body
+    assert "warning: a develop tree is configured" in body
+    assert "was that intentional" in body
+    assert "publisher [/home/user/coding/capy]" not in body or "publisher [/authored/capy]" in body
 
 
-def test_the_plan_still_shows_an_unused_develop_note_beside_a_resolve_error():
-    """The soak printed [1 note] and swallowed the line; both must appear."""
+def test_unused_develop_with_no_other_tree_is_a_warning_and_note_not_a_false_error():
+    """Soak: develop path exists; forgetting --develop is not 'no local working tree'."""
     key = ( "capy", "capy", "develop" )
     nodes = {
             key: {
@@ -1186,19 +1213,51 @@ def test_the_plan_still_shows_an_unused_develop_note_beside_a_resolve_error():
                     "_publisher_dir": None,
                     "_develop_dir": "/home/user/coding/capy",
                     "_develop_unused": True,
-                    "_resolve_error": (
-                            "package_source for [capy] is a URL "
-                            "[git@gitlab.example:packages/capy] and no local working tree "
-                            "was found"
+                    "_would_happen": (
+                            "without --develop, cascade would look under "
+                            "[~/.cuppa/publishers] (nothing found) and then need "
+                            "--clone-publishers; pass --develop to publish from "
+                            "[~/coding/capy]"
                     ),
             },
     }
     body = "\n".join( cascade.cascade_plan_lines( nodes, [ key ], "corosio", "0.2.0" ) )
 
-    assert "[1 error][0 warnings][1 note]" in body
-    assert "error: package_source for [capy] is a URL" in body
-    assert "--develop was not passed" in body
-    assert "then this package [corosio]==[0.2.0] from this tree" in body
+    assert "[0 errors][1 warning][1 note]" in body
+    assert "warning: a develop tree is configured" in body
+    assert "note: without --develop" in body
+    assert "error:" not in body
+    assert "no local working tree" not in body
+
+
+def test_a_usable_unused_develop_tree_is_not_a_plan_resolve_error( tmp_path ):
+    ( tmp_path / "project" ).mkdir()
+    _publisher_tree( tmp_path / "capy" )
+    env = _develop_env( tmp_path, "capy", "../capy" )
+    env["storage_root"] = str( tmp_path / "store" )
+    entry = {
+            "name": "capy",
+            "package": "capy",
+            "version": "develop",
+            "package_source": "git@git.example:packages/capy",
+    }
+
+    nodes, _ = cascade.build_cascade_graph(
+            env,
+            type( "P", (), {
+                    "_dependencies": [ entry ],
+                    "_package": "corosio",
+                    "_version": "0.2.0",
+            } )(),
+            tolerant=True,
+            allow_clone=False,
+    )
+    node = nodes[ ( "capy", "capy", "develop" ) ]
+
+    assert node.get( "_develop_unused" ) is True
+    assert node.get( "_would_happen" )
+    assert "_resolve_error" not in node
+    assert node.get( "_publisher_dir" ) is None
 
 
 def test_tip_forward_args_drops_tip_dependency_options():

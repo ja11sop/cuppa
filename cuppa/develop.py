@@ -960,6 +960,8 @@ def warn_unused_develop_overrides( cuppa_env ):
     Naming a path on the command line without flipping the mode is the stronger signal that the
     operator expected it to be used.
     """
+    from cuppa.colourise import as_emphasised, as_warning
+
     if cuppa_env.get( 'develop' ):
         return
     dependencies = cuppa_env.get( 'dependencies' ) or {}
@@ -971,9 +973,13 @@ def warn_unused_develop_overrides( cuppa_env ):
             continue
         path = configured_develop( dependency, cuppa_env )
         logger.warn(
-                "[{}] has a develop path [{}] from a command-line override, but --develop is "
+                "[{}] has a develop path [{}] from a command-line override, but {} is "
                 "not active, so it will not be used"
-                .format( as_info( name ), as_notice( display_path( path or override ) ) )
+                .format(
+                        as_info( name ),
+                        as_warning( display_path( path or override ) ),
+                        as_emphasised( as_warning( "--develop" ) ),
+                )
         )
 
 

@@ -634,6 +634,13 @@ class Construct(object):
                         exit_status = result
                 SCons.Script.Exit( exit_status )
 
+            from cuppa.package_managers import package_cascade
+            if package_cascade.cascade_plan_enabled( cuppa_env ):
+                logger.info( as_info_label(
+                        "Running in PACKAGE BUILD: CASCADE PLAN mode, "
+                        "no building will be attempted"
+                ) )
+
             cuppa.develop.warn_unused_develop_overrides( cuppa_env )
 
             if cuppa.core.storage_actions.wants_storage_action( cuppa_env ):
