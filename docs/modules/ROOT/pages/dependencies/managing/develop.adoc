@@ -106,6 +106,11 @@ Git clone progress is streamed at INFO or finer (`--progress`, on the controllin
 It refuses non-empty destinations and sources that pin a tag or revision (develop copies must not be detached).
 `--offline` is an error; `-n` prints the plan.
 
+A missing path that a clone can fill is reported as **pending** (a note), not as an error:
+the mode exists to create that path.
+An error remains when the clone itself cannot succeed — no cloneable source, a destination that already holds the wrong tree, or a blocked path.
+`--list-develop` still treats a missing path as an error, because that build cannot succeed.
+
 [source,shell]
 ----
 cuppa -D --clone-develop

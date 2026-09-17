@@ -226,19 +226,19 @@ cuppa -D --rel --toolchains=gcc15 \
 ----
 
 The report lists each dependency in publish order with the publisher working tree
-cuppa resolved for it, and the tip last:
+cuppa resolved for it, and this package last:
 
 [source,text]
 ----
-Cascade plan: 2 package dependencies then tip [widget]==[0.2.0]: [0 errors][0 warnings][0 notes]
+Cascade plan: 2 package dependencies then this package [widget]==[0.2.0]: [0 errors][0 warnings][0 notes]
 │
 ├── 1 of 2  capy develop (capy)
 │           publisher [/home/user/coding/packages/capy]
 ├── 2 of 2  corosio 0.3.1 (corosio)
 │           publisher [/home/user/coding/packages/corosio]
-└── then tip [widget]==[0.2.0] from this tree
+└── then this package [widget]==[0.2.0] from this tree
 
---cascade-plan: 1 tip planned; nothing was built, published, uploaded, or cloned.
+--cascade-plan: 1 package planned; nothing was built, published, uploaded, or cloned.
 ----
 
 Unlike a real run, which stops at the first dependency it cannot place, the plan
@@ -253,16 +253,16 @@ tree that does not exist yet:
 
 [source,text]
 ----
-Cascade plan: 1 package dependency then tip [widget]==[0.2.0]: [0 errors][0 warnings][1 note]
+Cascade plan: 1 package dependency then this package [widget]==[0.2.0]: [0 errors][0 warnings][1 note]
 │
 ├── 1 of 1  capy develop (capy)
 │           note: would clone [git@gitlab.example:packages/capy] at [develop]
-│           into [/home/user/.cuppa/publishers/capy]
+│           into [~/.cuppa/publishers/capy]
 │           note: its own package dependencies are not known until that tree
 │           exists, so nothing is planned beneath it
-└── then tip [widget]==[0.2.0] from this tree
+└── then this package [widget]==[0.2.0] from this tree
 
---cascade-plan: 1 tip planned, 1 publisher tree to clone first; nothing was built, published, uploaded, or cloned.
+--cascade-plan: 1 package planned, 1 publisher tree to clone first; nothing was built, published, uploaded, or cloned.
 ----
 
 A real cascade prints the same plan before its first nested publish, then brackets
@@ -270,7 +270,7 @@ each nested session with a banner naming the session number, the publisher tree,
 the command it ran, and how long it took. Cascade deliberately does not capture or
 re-indent nested output: that would cost colour, progress rewriting, and
 interleaved stderr from the build you are watching. The banners mark the
-boundaries instead, and a closing banner says the tip is resuming.
+boundaries instead, and a closing banner says this package is resuming.
 
 A session banner reports that a nested publish finished, not whether it uploaded
 anything. A nested publish of an already-current package is a no-op inside SCons,

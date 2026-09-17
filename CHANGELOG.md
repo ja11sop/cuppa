@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Nested cascade publishes no longer forward tip dependency-scoped options
+  (``--<name>-gitlab-develop``, ``--<name>-gitlab-package-source``, location
+  overrides, and so on). Those flags are registered by the tip's sconstruct and
+  are unknown — and path-wrong — in the nested tree. Global flags such as
+  ``--develop``, ``--rel``, and ``--toolchains`` still forward; settings meant
+  for every project continue to travel through ``~/.cuppaconfig``.
+- ``--cascade-plan`` still shows the unused-develop note when the same node also
+  has a resolve error, instead of counting the note and swallowing the line.
+- ``--<name>-<manager>-package-source=`` is honoured when resolving a package
+  develop clone (including an ``@branch`` pin), matching how develop path
+  overrides already work.
+- Cascade plan and session banners display publisher paths through
+  ``display_path``, so ``…/corosio/../capy`` reads as the real tree.
+- Console copy for the invoking package says **this package** rather than
+  ``tip`` in plan lines, session resume, and ``--cascade-plan`` finish text.
 - A package dependency's ``develop`` path is now anchored to the sconstruct
   directory, like a location dependency's, instead of being left relative to
   whatever directory cuppa was invoked from. ``develop='../../widget'`` therefore
@@ -18,6 +33,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ([`package-develop-local`](design/plans/package-develop-local.md)).
 - The log line announcing a develop package now reports the path the way the
   develop reports do, without the ``..`` segments anchoring left behind.
+
+### Changed
+
+- ``--clone-develop`` reports a missing but cloneable develop path as
+  **pending** (a note) rather than an error that claims the build cannot
+  succeed — the mode exists to create that path. An error remains when the
+  clone itself cannot succeed. ``--list-develop`` is unchanged: a missing path
+  there is still an error.
+- A command-line develop path override without ``--develop`` warns early that
+  the path will not be used. Declared ``develop=`` alone still does not imply
+  the mode; that remains standing configuration.
 
 ### Added
 

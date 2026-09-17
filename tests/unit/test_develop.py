@@ -1044,6 +1044,76 @@ def test_a_declared_source_wins_over_the_staged_manifest( tmp_path ):
     assert source.url == "git@gitlab.example:forks/capy"
 
 
+def test_a_cli_package_source_override_wins_over_the_declaration( tmp_path ):
+    """The soak pin on --…-package-source=@develop must reach choose_clone_branch."""
+    source = _clone_source(
+            tmp_path,
+            package_source="git@gitlab.example:packages/capy",
+            **{ "capy-gitlab-package-source":
+                "git@gitlab.example:packages/capy@develop" },
+    )
+
+    assert source.url == "git@gitlab.example:packages/capy"
+    assert source.versioning == "develop"
+
+
+def test_a_missing_path_that_clone_develop_can_fill_is_pending_not_an_error():
+    missing = copy( name="capy", exists=False, path="/home/user/coding/capy-fresh" )
+    found = entries( [ missing ], BUILT, DEFAULT, pending_clones=[ "capy" ], dry_run=True )
+
+    assert found[0].severity == NOTE
+    assert found[0].status == "pending"
+    assert "does not yet exist" in found[0].notes[0]
+    assert "re-run without -n" in found[0].notes[0]
+    row = row_for( found[0] )
+    assert row[0] == "pending"
+    assert row[4] == "path is available"
+
+
+def test_a_missing_path_without_a_cloneable_source_stays_an_error():
+    missing = copy( name="capy", exists=False, path="/home/user/coding/capy-fresh" )
+    found = entries( [ missing ], BUILT, DEFAULT )
+
+    assert found[0].severity == ERROR
+    assert found[0].status == "error"
+    assert "cannot succeed" in found[0].notes[0]
+
+
+def test_warn_unused_develop_overrides_names_a_cli_path( caplog ):
+    from cuppa.develop import warn_unused_develop_overrides
+    import logging
+
+    dependency = package_dependency_with_develop( "capy", None )
+    env = fake_env(
+            { "capy": dependency },
+            develop=False,
+            **{ "capy-gitlab-develop": "../capy" },
+    )
+    with caplog.at_level( logging.WARNING ):
+        warn_unused_develop_overrides( env )
+
+    assert any(
+            "capy" in record.message and "--develop is not active" in record.message
+            for record in caplog.records
+    )
+
+
+def test_warn_unused_develop_overrides_stays_quiet_when_develop_is_active( caplog ):
+    from cuppa.develop import warn_unused_develop_overrides
+    import logging
+
+    dependency = package_dependency_with_develop( "capy", None )
+    env = fake_env(
+            { "capy": dependency },
+            develop=True,
+            **{ "capy-gitlab-develop": "../capy" },
+    )
+    with caplog.at_level( logging.WARNING ):
+        warn_unused_develop_overrides( env )
+
+    assert not any( "--develop is not active" in record.message for record in caplog.records )
+
+
 def test_a_package_dependency_with_no_source_anywhere_is_left_alone( tmp_path ):
     source = _clone_source( tmp_path )
 

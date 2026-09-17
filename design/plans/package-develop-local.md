@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`; [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade resolution, `package_source`, `--clone-publishers`); [`issues/package-build-provenance.md`](../issues/package-build-provenance.md) (what a published package records about its own origin); [`package-download-refresh.md`](package-download-refresh.md) (same-version currency); [`develop.py`](../../cuppa/develop.py) (`configured_develop`, `survey`, `clone_develop`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`GitlabPackageDependency`, `_using_develop`); [`build_with_location.py`](../../cuppa/build_with_location.py) (`develop_location`)
-- **Updated:** 2026-09-16
+- **Updated:** 2026-09-17
 - **Impact:** `minor` for the resolution and clone slices; the consume change is `major` if it repurposes today's `develop=`, which §6 exists to avoid
 
 ## Problem
@@ -70,10 +70,13 @@ carry a `develop=`, and deep stacks are made of exactly those.
 | Relationship to cascade | Complementary, not a replacement. Cascade ranks a develop tree **above** `--publisher-root` lookup and above cloning, and never clones a dependency that has a develop path — `--clone-develop` owns filling those. |
 | Publishing from a develop tree | **Refused** when the copy is dirty, ahead, or diverged, because the result is a registry version nobody can reproduce. `develop.py`'s `inspect()` already computes that state. An explicit override flag, not a warning in a log. |
 | A develop path that is a prefix, not a publisher tree | An error naming both meanings, so an operator who set the old-style path learns what changed instead of reading "no sconstruct". |
-| `develop=` set but `--develop` absent | Reported in the cascade plan, not silently skipped in favour of `--publisher-root` or a clone. |
+| `develop=` set but `--develop` absent | Configuration, not a mode switch — do **not** imply `--develop`. Reported in the cascade plan, not silently skipped in favour of `--publisher-root` or a clone. A **CLI develop override** without `--develop` is an earlier **warn** (path named on the command line that will never be used); a declared path alone stays quiet outside the plan. |
 | Pins against a develop tree | Advisory: reported when the tree is elsewhere, never switched, stashed, or reset. Same rule as a reused clone. |
 | Relative develop paths | Anchored to the sconstruct directory, as location develop paths already are. |
 | `--clone-develop` for packages | Supported, taking the URL from `package_source` (consumer-declared, else the traveling manifest). This belongs to the develop family, not to cascade. |
+| Missing path under `--clone-develop` | **pending** / note when a cloneable source is known — the mode exists to create that path. **error** only when the clone cannot succeed (no source, wrong repo already there, blocked destination). |
+| Nested cascade argv | Forward the tip's global build flags; **drop** tip dependency-scoped options (`--<name>-…-develop`, `--<name>-…-package-source`, location overrides). Those are registered by the tip's sconstruct and are wrong for the child (unknown flag, and relative paths anchored to the wrong tree). Settings meant for every project travel through `~/.cuppaconfig`, which the child loads itself. |
+| Console noun for the invoking package | **this package** (not "tip") in plan lines, session resume, and finish copy. Keep `tip` only as an internal/code noun where a short label helps. |
 
 ## Slices
 
@@ -85,7 +88,19 @@ carry a `develop=`, and deep stacks are made of exactly those.
 | D | Consume from a locally built package: locate the stage a publisher build produces (`final/<package>/<version>/`), a build-without-publish mode, and the refusals that stop a stale or absent stage being linked silently | `minor` |
 | E | Migration for today's prefix-shaped `develop=`, once D defines the replacement | decide with D |
 
-Slices A, B and C have shipped. Slice D is next: consuming a locally built package.
+Slices A, B and C have shipped. A live corosio→capy soak after C found nested-argv,
+clone-develop survey, unused-develop note, and package-source override defects — fixed as a
+soak UX patch before slice D. Slice D is next: consuming a locally built package.
+
+### Soak findings (post slice C)
+
+| Finding | Decision |
+|---------|----------|
+| Nested publish inherited `--capy-gitlab-develop=../capy` and died (`no such option`) | Drop tip dependency options from nested argv; keep `--develop` and toolchain/variant flags. |
+| Plan said `[1 note]` for unused develop but printed only the resolve error | Always render `_publisher_plan_notes` (including unused develop) even when the node also has a resolve error. |
+| `--…-package-source=…@develop` cloned `master` | Read the CLI override in `package_source_for_dependency` the way `configured_develop` reads develop overrides — declaration/manifest alone missed the pin. |
+| `--clone-develop -n` graded a missing path as *error … cannot succeed* | pending/note when clonable; error only when the clone itself cannot succeed. |
+| Plan paths showed `…/corosio/../capy` | Display through `display_path` (normpath + `~`) at report time; keep lexical paths for resolution. |
 
 ### What slice B settled that this plan had not
 

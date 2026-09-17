@@ -309,12 +309,12 @@ def test_cascade_plan_lines_number_the_order_and_name_publisher_trees():
     lines = cascade.cascade_plan_lines( nodes, order, "corosio", "0.2.0" )
     body = "\n".join( lines )
 
-    assert "Cascade plan: 2 package dependencies then tip [corosio]==[0.2.0]" in body
+    assert "Cascade plan: 2 package dependencies then this package [corosio]==[0.2.0]" in body
     assert "[0 errors][0 warnings][0 notes]" in body
     assert "1 of 2  capy develop (capy)" in body
     assert "publisher [/home/user/coding/packages/capy]" in body
     assert "2 of 2  widget 1.2 (widget)" in body
-    assert body.rstrip().endswith( "then tip [corosio]==[0.2.0] from this tree" )
+    assert body.rstrip().endswith( "then this package [corosio]==[0.2.0] from this tree" )
 
 
 def test_cascade_plan_lines_count_unresolved_trees_as_errors():
@@ -376,7 +376,7 @@ def test_session_banners_carry_ordinal_and_total():
     assert "cascade session 1 of 2 finished: capy develop (capy) in 00:00:01" in end
 
     complete = "\n".join( cascade.sessions_complete_lines( 2, "corosio", "0.2.0" ) )
-    assert "2 nested publishes; resuming tip [corosio]==[0.2.0]" in complete
+    assert "2 nested publishes; resuming this package [corosio]==[0.2.0]" in complete
 
 
 def test_tip_forward_args_drops_cascade_plan():
@@ -1175,6 +1175,54 @@ def test_the_plan_says_when_a_develop_tree_was_configured_but_not_used():
 
     assert "[0 errors][0 warnings][1 note]" in body
     assert "--develop was not passed" in body
+
+
+def test_the_plan_still_shows_an_unused_develop_note_beside_a_resolve_error():
+    """The soak printed [1 note] and swallowed the line; both must appear."""
+    key = ( "capy", "capy", "develop" )
+    nodes = {
+            key: {
+                    "name": "capy", "package": "capy", "version": "develop",
+                    "_publisher_dir": None,
+                    "_develop_dir": "/home/user/coding/capy",
+                    "_develop_unused": True,
+                    "_resolve_error": (
+                            "package_source for [capy] is a URL "
+                            "[git@gitlab.example:packages/capy] and no local working tree "
+                            "was found"
+                    ),
+            },
+    }
+    body = "\n".join( cascade.cascade_plan_lines( nodes, [ key ], "corosio", "0.2.0" ) )
+
+    assert "[1 error][0 warnings][1 note]" in body
+    assert "error: package_source for [capy] is a URL" in body
+    assert "--develop was not passed" in body
+    assert "then this package [corosio]==[0.2.0] from this tree" in body
+
+
+def test_tip_forward_args_drops_tip_dependency_options():
+    """Nested publishers never registered the tip's --<dep>-… flags."""
+    class _Capy:
+        _name = "capy"
+        _package_manager = "gitlab"
+
+    env = _PlanEnv( data={
+            "dependencies": { "capy": type( "F", (), { "__self__": _Capy } )() },
+    } )
+    argv = cascade.tip_forward_args( [
+            "scons", "-D", "--rel", "--develop",
+            "--capy-gitlab-develop=../capy",
+            "--capy-gitlab-package-source=git@gitlab.example:packages/capy@develop",
+            "--publish-package",
+            "--build-and-publish-dependencies",
+    ], env=env )
+
+    assert "--develop" in argv
+    assert "--rel" in argv
+    assert "--capy-gitlab-develop=../capy" not in argv
+    assert "--capy-gitlab-package-source=git@gitlab.example:packages/capy@develop" not in argv
+    assert all( not a.startswith( "--capy-gitlab-" ) for a in argv )
 
 
 def test_tip_forward_args_drops_publish_modified_develop():

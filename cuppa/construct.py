@@ -634,6 +634,8 @@ class Construct(object):
                         exit_status = result
                 SCons.Script.Exit( exit_status )
 
+            cuppa.develop.warn_unused_develop_overrides( cuppa_env )
+
             if cuppa.core.storage_actions.wants_storage_action( cuppa_env ):
                 SCons.Script.Exit(
                         cuppa.core.storage_actions.run( self, cuppa_env )

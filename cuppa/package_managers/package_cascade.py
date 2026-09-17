@@ -682,7 +682,9 @@ def _publisher_plan_notes( entry, prose_width ) -> list[str]:
     if entry.get( "_develop_unused" ):
         note = (
                 "note: a develop tree is configured at [{}] but --develop was not passed, "
-                "so it was not used".format( entry["_develop_dir"] )
+                "so it was not used".format(
+                        storage.display_path( entry["_develop_dir"] )
+                )
         )
         lines.extend( as_notice( line ) for line in storage.wrapped( note, prose_width ) )
     return lines
@@ -712,7 +714,7 @@ def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) 
     ]
     lines = [
             "",
-            "Cascade plan: {} then tip [{}]==[{}]: {}".format(
+            "Cascade plan: {} then this package [{}]==[{}]: {}".format(
                     storage.emphasised_count_phrase(
                             len( order ), "package dependency", "package dependencies"
                     ),
@@ -747,7 +749,7 @@ def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) 
             note = "note: would clone [{}]{} into [{}]".format(
                     entry.get( "_clone_url" ),
                     " at [{}]".format( pin ) if pin else "",
-                    entry["_clone_dir"],
+                    storage.display_path( entry["_clone_dir"] ),
             )
             for wrapped_line in storage.wrapped( note, prose_width ):
                 lines.append( continuation + as_notice( wrapped_line ) )
@@ -758,14 +760,17 @@ def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) 
             ):
                 lines.append( continuation + as_notice( wrapped_line ) )
         else:
+            publisher = entry.get( "_publisher_dir" )
             lines.append( "{}publisher [{}]{}".format(
                     continuation,
-                    as_notice( str( entry.get( "_publisher_dir" ) ) ),
+                    as_notice( storage.display_path( str( publisher ) ) if publisher else "" ),
                     " (develop)" if entry.get( "_from_develop" ) else "",
             ) )
-            for wrapped_line in _publisher_plan_notes( entry, prose_width ):
-                lines.append( continuation + wrapped_line )
-    lines.append( "{}then tip [{}]==[{}] from this tree".format(
+        # Unused-develop and local-work notes still belong beside a resolve error:
+        # the header may already have counted them, and silence was the soak surprise.
+        for wrapped_line in _publisher_plan_notes( entry, prose_width ):
+            lines.append( continuation + wrapped_line )
+    lines.append( "{}then this package [{}]==[{}] from this tree".format(
             elbow, as_info( str( tip_package ) ), as_info( str( tip_version ) )
     ) )
     return lines
@@ -777,7 +782,7 @@ def session_begin_lines( ordinal, total, label, publisher_dir, command, width=No
             "",
             as_subdued( RULE * ( width or storage.WIDEST_PROSE ) ),
             "cascade session {} of {}: {}".format( ordinal, total, as_info( str( label ) ) ),
-            "  publisher [{}]".format( as_notice( str( publisher_dir ) ) ),
+            "  publisher [{}]".format( as_notice( storage.display_path( str( publisher_dir ) ) ) ),
             "  command [{}]".format( as_notice( str( command ) ) ),
     ]
 
@@ -801,11 +806,11 @@ def session_end_lines( ordinal, total, label, elapsed_nanosecs=None ) -> list[st
 
 
 def sessions_complete_lines( total, tip_package, tip_version, width=None ) -> list[str]:
-    """Banner handing the console back to the tip build."""
+    """Banner handing the console back to this package's build."""
     return [
             "",
             as_subdued( RULE * ( width or storage.WIDEST_PROSE ) ),
-            "cascade sessions complete: {}; resuming tip [{}]==[{}]".format(
+            "cascade sessions complete: {}; resuming this package [{}]==[{}]".format(
                     storage.emphasised_count_phrase(
                             total, "nested publish", "nested publishes"
                     ),
@@ -873,7 +878,7 @@ def finish_plan_only( env=None, out=None ) -> int:
 
     errors = sum( report["errors"] for report in _plan_reports )
     clones = sum( report.get( "clones", 0 ) for report in _plan_reports )
-    planned = storage.emphasised_count_phrase( len( _plan_reports ), "tip" )
+    planned = storage.emphasised_count_phrase( len( _plan_reports ), "package" )
     if errors:
         write_lines( [
                 "",
@@ -930,27 +935,87 @@ _NESTED_DROP_TAKES_VALUE = frozenset( {
         "--" + PUBLISHER_ROOT_OPTION,
 } )
 
+# Location dependency option getters that register tip-scoped CLI flags.
+_LOCATION_OPTION_GETTERS = (
+        "location_option",
+        "develop_option",
+        "branch_path_option",
+        "include_option",
+        "sys_include_option",
+        "extra_sub_path_option",
+        "source_path_option",
+        "linktype_option",
+)
 
-def tip_forward_args( argv=None ) -> list[str]:
+
+def tip_dependency_option_flags( env ) -> frozenset[str]:
+    """CLI flags the tip registered for its dependencies — invalid on a nested publisher.
+
+    Nested sessions load a different sconstruct, so tip-scoped overrides such as
+    ``--capy-gitlab-develop=../capy`` are both unknown there and path-wrong (relative paths
+    are anchored to the tip's sconstruct directory). Global settings travel through
+    ``~/.cuppaconfig``, which the child loads itself.
+    """
+    flags: set[str] = set()
+    dependencies = env.get( "dependencies" ) or {}
+    for name, factory in dependencies.items():
+        owner = getattr( factory, "__self__", factory )
+        for attr in _LOCATION_OPTION_GETTERS:
+            getter = getattr( owner, attr, None )
+            if not callable( getter ):
+                continue
+            try:
+                option_id = getter()
+            except TypeError:
+                continue
+            if option_id:
+                flags.add( "--" + str( option_id ) )
+
+        manager = getattr( owner, "_package_manager", None )
+        dep_name = getattr( owner, "_name", None ) or name
+        if not manager or not dep_name:
+            continue
+        from cuppa.package_managers.gitlab import GitlabPackageDependency
+        for option, attributes in GitlabPackageDependency._options.items():
+            option_id = GitlabPackageDependency.option_id(
+                    manager, dep_name, option, attributes
+            )
+            flags.add( "--" + option_id )
+    return frozenset( flags )
+
+
+def tip_forward_args( argv=None, env=None ) -> list[str]:
     """Tip SCons/cuppa option args suitable for a nested ``--publish-package``.
 
     Uses the live tip ``sys.argv`` (variant, toolchains, offline, …), not
     ``configured_options`` from ``~/.cuppaconfig`` — those conf keys are not
     all valid CLI flags and omit the tip's explicit ``--rel`` / ``--toolchains``.
+
+    Tip dependency-scoped options are dropped when ``env`` is supplied: the child
+    has never registered them.
     """
     if argv is None:
         argv = sys.argv
+    drop_exact = set( _NESTED_DROP_EXACT )
+    drop_prefixes = list( _NESTED_DROP_PREFIXES )
+    drop_takes_value = set( _NESTED_DROP_TAKES_VALUE )
+    if env is not None:
+        for flag in tip_dependency_option_flags( env ):
+            drop_exact.add( flag )
+            drop_prefixes.append( flag + "=" )
+            drop_takes_value.add( flag )
+
     forwarded: list[str] = []
     skip_next = False
     for arg in list( argv[1:] ):
         if skip_next:
             skip_next = False
             continue
-        if arg in _NESTED_DROP_EXACT:
-            if arg in _NESTED_DROP_TAKES_VALUE:
+        if arg in drop_exact:
+            if arg in drop_takes_value:
                 skip_next = True
             continue
-        if any( arg.startswith( prefix ) for prefix in _NESTED_DROP_PREFIXES ):
+        if any( arg.startswith( prefix ) for prefix in drop_prefixes ):
             continue
         forwarded.append( arg )
 
@@ -961,9 +1026,9 @@ def tip_forward_args( argv=None ) -> list[str]:
     return forwarded
 
 
-def argv_for_nested_publish( argv=None ) -> list[str]:
+def argv_for_nested_publish( argv=None, env=None ) -> list[str]:
     """Full subprocess argv: ``python -m cuppa`` + :func:`tip_forward_args`."""
-    return [ sys.executable, "-m", "cuppa" ] + tip_forward_args( argv )
+    return [ sys.executable, "-m", "cuppa" ] + tip_forward_args( argv, env=env )
 
 
 def invalidate_package_consume_cache( env, package: str, version: str ) -> list[str]:
@@ -1233,7 +1298,7 @@ def judge_publisher_trees( env, nodes: dict, order ) -> None:
 
 
 def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 ) -> None:
-    argv = argv_for_nested_publish()
+    argv = argv_for_nested_publish( env=env )
     nested_env = os.environ.copy()
     nested_env[NESTED_ENV] = "1"
     root = str( env.get( "sconstruct_dir" ) or "" )

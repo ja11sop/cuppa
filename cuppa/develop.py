@@ -121,7 +121,8 @@ def normalize_base_branch( default_branch, base_branch=None ):
 #   The rules
 #-------------------------------------------------------------------------------
 
-def classify( copy, current_branch, default_branch, base_branch=None ):
+def classify( copy, current_branch, default_branch, base_branch=None, pending_clone=False,
+              dry_run=False ):
     """How much of a problem this copy is, and why. A pure function of observed state.
 
     Each note continues the sentence its dependency's name begins, because the report groups
@@ -131,10 +132,28 @@ def classify( copy, current_branch, default_branch, base_branch=None ):
     it is the intended workflow, because pushing that branch makes every other build see the same
     code. The same work on the published default branch is a trap: your build reads the working
     copy, while every build without `--develop` resolves the dependency to the published default.
+
+    ``pending_clone`` is for ``--clone-develop``: a missing path that a clone can fill is a note,
+    not an error — the mode exists to create that path. An error remains when the clone itself
+    cannot succeed.
     """
     base_branch = normalize_base_branch( default_branch, base_branch )
 
     if not copy.exists:
+        if pending_clone:
+            if dry_run:
+                note = (
+                        "will have a develop path [{}] but it does not yet exist; "
+                        "re-run without -n to clone into that path"
+                        .format( display_path( copy.path ) )
+                )
+            else:
+                note = (
+                        "will have a develop path [{}] but it does not yet exist; "
+                        "clone-develop will create it"
+                        .format( display_path( copy.path ) )
+                )
+            return Classification( NOTE, [ note ] )
         return Classification( ERROR, [
             "has a develop path [{}] that does not exist, so this build cannot succeed".format(
                     display_path( copy.path ) )
@@ -339,10 +358,10 @@ def reset_branch_action( copy, target ):
     return Action( True, "checkout [{}]".format( target ) )
 
 
-def state_summary( copy ):
+def state_summary( copy, pending_clone=False ):
     """The STATE column: what was observed, in the order that reads naturally."""
     if not copy.exists:
-        return "path does not exist"
+        return "path is available" if pending_clone else "path does not exist"
     if not copy.is_working_copy:
         return "not a working copy"
 
@@ -471,7 +490,8 @@ INDENT = "  "
 RULE = "-"
 
 
-Entry = namedtuple( 'Entry', [ 'copy', 'severity', 'notes' ] )
+Entry = namedtuple( 'Entry', [ 'copy', 'severity', 'notes', 'status' ] )
+Entry.__new__.__defaults__ = ( None, )
 
 
 def write( text="" ):
@@ -483,23 +503,32 @@ def action_line( text, colour=as_info ):
     return INDENT + highlight_values( text, colour )
 
 
-def entries( copies, current_branch, default_branch, base_branch=None ):
+def entries( copies, current_branch, default_branch, base_branch=None,
+             pending_clones=None, dry_run=False ):
     """The report as data, so a renderer decides only how to present it."""
     base_branch = normalize_base_branch( default_branch, base_branch )
-    return [
-        Entry( copy, *classify( copy, current_branch, default_branch, base_branch ) )
-        for copy in copies
-    ]
+    pending = set( pending_clones or [] )
+    found = []
+    for copy in copies:
+        pending_clone = copy.name in pending and not copy.exists
+        severity, notes = classify(
+                copy, current_branch, default_branch, base_branch,
+                pending_clone=pending_clone, dry_run=dry_run,
+        )
+        status = "pending" if pending_clone else STATUS_FOR[severity]
+        found.append( Entry( copy, severity, notes, status ) )
+    return found
 
 
 def row_for( entry ):
     copy = entry.copy
+    pending = entry.status == "pending"
     return (
-        STATUS_FOR[entry.severity],
+        entry.status or STATUS_FOR[entry.severity],
         copy.name,
         copy.detached and "(detached)" or ( copy.branch or "-" ),
         copy.upstream or "-",
-        state_summary( copy ),
+        state_summary( copy, pending_clone=pending ),
         display_path( copy.path )
     )
 
@@ -640,8 +669,10 @@ def list_payload( copies, without_develop, current_branch, default_branch, devel
                 'behind': entry.copy.behind,
                 'modified': entry.copy.modified,
                 'severity': entry.severity,
-                'status': STATUS_FOR[entry.severity],
-                'state': state_summary( entry.copy ),
+                'status': entry.status or STATUS_FOR[entry.severity],
+                'state': state_summary(
+                        entry.copy, pending_clone=( entry.status == "pending" )
+                ),
                 'notes': list( entry.notes ),
             }
             for entry in found
@@ -650,7 +681,7 @@ def list_payload( copies, without_develop, current_branch, default_branch, devel
 
 
 def report( copies, without_develop, current_branch, default_branch, develop_active, out=write,
-            suggest_update=False, base_branch=None ):
+            suggest_update=False, base_branch=None, pending_clones=None, dry_run=False ):
     """Write the table, then the judgements in full, so a reason needs no column decoding."""
     if not copies:
         out()
@@ -659,7 +690,10 @@ def report( copies, without_develop, current_branch, default_branch, develop_act
         return OK
 
     base_branch = normalize_base_branch( default_branch, base_branch )
-    found = entries( copies, current_branch, default_branch, base_branch )
+    found = entries(
+            copies, current_branch, default_branch, base_branch,
+            pending_clones=pending_clones, dry_run=dry_run,
+    )
     width = min( table_width( found ), WIDEST_PROSE )
 
     out()
@@ -856,10 +890,19 @@ def _versioning_is_pin( versioning, url ):
 def package_source_for_dependency( name, dependency, cuppa_env ):
     """Where a package dependency says it is published from, or ``None``.
 
-    The consumer's own declaration comes first, because it is the one an operator can see and
-    change. Failing that, the ``cuppa-publish.json`` staged beside the sconstruct by a publisher
-    build carries the same edges, which is how a project that publishes gets this for free.
+    Precedence matches develop: a command-line override first, then the consumer's own
+    declaration, then the ``cuppa-publish.json`` staged beside the sconstruct by a publisher
+    build. The override is what an operator pins for one run (including ``url@branch``); the
+    declaration is what they can see and change in the sconstruct; the staged manifest is how a
+    project that publishes gets this for free.
     """
+    manager = getattr( dependency, '_package_manager', None )
+    dep_name = getattr( dependency, '_name', None ) or name
+    if manager and dep_name:
+        override = cuppa_env.get_option( "-".join( [ dep_name, manager, "package-source" ] ) )
+        if override:
+            return str( override )
+
     declared = getattr( dependency, '_package_source', None )
     if declared:
         return str( declared )
@@ -887,6 +930,51 @@ def package_source_for_dependency( name, dependency, cuppa_env ):
             if source:
                 return str( source )
     return None
+
+
+def develop_override_for_dependency( name, dependency, cuppa_env ):
+    """The command-line develop path for one dependency, if any, else ``None``."""
+    manager = getattr( dependency, '_package_manager', None )
+    dep_name = getattr( dependency, '_name', None ) or name
+    if manager and dep_name:
+        override = cuppa_env.get_option( "-".join( [ dep_name, manager, "develop" ] ) )
+        if override:
+            return str( override )
+    develop_option = getattr( dependency, 'develop_option', None )
+    if callable( develop_option ):
+        try:
+            option_id = develop_option()
+        except TypeError:
+            option_id = None
+        if option_id:
+            override = cuppa_env.get_option( option_id )
+            if override:
+                return str( override )
+    return None
+
+
+def warn_unused_develop_overrides( cuppa_env ):
+    """Warn when a CLI develop path is set but ``--develop`` is not active.
+
+    Declared ``develop=`` paths without the mode flag stay quiet: that is standing configuration.
+    Naming a path on the command line without flipping the mode is the stronger signal that the
+    operator expected it to be used.
+    """
+    if cuppa_env.get( 'develop' ):
+        return
+    dependencies = cuppa_env.get( 'dependencies' ) or {}
+    for name in sorted( dependencies ):
+        factory = dependencies[name]
+        dependency = getattr( factory, '__self__', factory )
+        override = develop_override_for_dependency( name, dependency, cuppa_env )
+        if not override:
+            continue
+        path = configured_develop( dependency, cuppa_env )
+        logger.warn(
+                "[{}] has a develop path [{}] from a command-line override, but --develop is "
+                "not active, so it will not be used"
+                .format( as_info( name ), as_notice( display_path( path or override ) ) )
+        )
 
 
 def _package_clone_source( name, dependency, cuppa_env, copy ):
@@ -1030,9 +1118,21 @@ def clone_develop( cuppa_env, out=write ):
 
     sources, without_develop = survey_clone_sources( cuppa_env )
     copies = [ source.copy for source in sources ]
+    pending = [
+            source.copy.name for source in sources
+            if clone_action(
+                    source.copy,
+                    url=source.url,
+                    vc_type=source.vc_type,
+                    versioning=source.versioning,
+                    pinned=source.pinned,
+            ).act
+    ]
     report(
             copies, without_develop, current_branch, default_branch, develop_active, out,
             base_branch=base_branch,
+            pending_clones=pending,
+            dry_run=dry_run,
     )
 
     out()
